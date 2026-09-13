@@ -57,7 +57,9 @@ export type ExceljsImport = {
 /** Every source file under a root, in a stable order, build output and packages left unread. */
 function sourceFilesUnder(root: string): string[] {
   const found: string[] = [];
-  for (const entry of readdirSync(root, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+  // Ordered by the bytes of the name, never by a collation: a scan's order is a machine's, and
+  // `src/core/format.ts` is the tree's sole caller of `Intl` (L-FMT-01).
+  for (const entry of readdirSync(root, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
     const here = join(root, entry.name);
     if (entry.isDirectory()) {
       if (!UNREAD.has(entry.name)) found.push(...sourceFilesUnder(here));
