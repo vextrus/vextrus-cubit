@@ -27,12 +27,16 @@ export type Algebra = (typeof ALGEBRAS)[number];
  */
 export const KIND_DISCIPLINE: Readonly<Record<Kind, Discipline>> = Object.freeze({
   "rcc.concrete": "STRUCTURAL",
+  "rcc.formwork": "STRUCTURAL",
 });
 
 /**
  * The algebra each kind's quantity is computed by. Concrete in a column is a member quantity —
- * section × run, with the bar rule — never a face and never a network (L-MEA-08).
+ * section × run, with the bar rule — never a face and never a network (L-MEA-08). Formwork to that
+ * concrete is measured the same way: a member's own contact faces along its own run, never the face
+ * of a space the member happens to stand in.
  */
 export const KIND_ALGEBRA: Readonly<Record<Kind, Algebra>> = Object.freeze({
   "rcc.concrete": "member",
+  "rcc.formwork": "member",
 });

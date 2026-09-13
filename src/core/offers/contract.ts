@@ -145,6 +145,44 @@ export type StoreyHeightSetup = {
   readonly sourceKey: string | null;
 };
 
+/**
+ * One reading of the read-only setup: what a partition read off a drawing, in the unit it was read
+ * in, how it was known, and the entity it was read from. The same shape a rail offers a `Measure`
+ * in, less the calibration — a setup states what was read, and the calibration a reading stands on
+ * is the view's, which the rail attaches where it binds one (L-QTY-03).
+ */
+export type ReadingSetup = {
+  readonly value: string;
+  readonly unit: string;
+  readonly basis: QuantityBasis;
+  readonly source: string;
+};
+
+/**
+ * One placement's run: the clear axis L-MEA-09 measures a beam over — "clear between support faces
+ * and below the slab soffit" — and the slab each of its two sides adjoins.
+ *
+ * A side is `null` where the drawing's plate adjoins but states no thickness: an unread thickness is
+ * kept with no quantity and declared, never taken to be the other side's or a zero (L-QTY-01/02).
+ */
+export type RunSetup = {
+  readonly clear: ReadingSetup | null;
+  readonly sides: readonly [ReadingSetup | null, ReadingSetup | null];
+};
+
+/**
+ * One placement's lintel, as an opening schedule states one: the five readings a lintel is measured
+ * from, each transcribed from its own schedule cell. "A lintel is never inferred from the wall it
+ * spans" — so a placement with no entry here is reported rather than measured (R-TO-032).
+ */
+export type LintelSetup = {
+  readonly count: ReadingSetup;
+  readonly b: ReadingSetup;
+  readonly D: ReadingSetup;
+  readonly w: ReadingSetup;
+  readonly bearing: ReadingSetup;
+};
+
 /** One level of the stack a vertical class expands over (L-FRM-02). */
 export type LevelSetup = {
   readonly levelId: string;
@@ -172,6 +210,10 @@ export type RailSetup = {
   readonly calibrations: Readonly<Record<string, Readonly<Record<string, string>>>>;
   /** The concrete grade a drawing's general notes stated, where a reader stated one. */
   readonly grades: Readonly<Record<string, Measure>>;
+  /** Each placement's run and the slabs adjoining it, by placement key — absent where none was read. */
+  readonly runs: Readonly<Record<string, RunSetup>>;
+  /** Each placement's scheduled lintel, by placement key — absent where no schedule states one. */
+  readonly lintels: Readonly<Record<string, LintelSetup>>;
 };
 
 /** What a rail is asked: which campaign, over which pinned revision, for which kind, and of what. */

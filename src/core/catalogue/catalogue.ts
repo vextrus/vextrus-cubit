@@ -17,9 +17,10 @@ export type WorkItem = {
 };
 
 /**
- * The catalogue, one entry per kind. At M2 the roster is the one kind the increment lands: concrete
- * cast in place, measured as a volume and written to three places, the precision a Bangladeshi bill
- * of quantities states a cubic-metre item to.
+ * The catalogue, one entry per kind: concrete cast in place, measured as a volume and written to
+ * three places, the precision a Bangladeshi bill of quantities states a cubic-metre item to; and the
+ * formwork that shapes it, which is a contact AREA of the member that owns the face and never a
+ * volume (L-FRM-03), written to the two places a square-metre item is billed at.
  */
 export const WORK_ITEM_CATALOGUE: Readonly<Record<Kind, WorkItem>> = Object.freeze({
   "rcc.concrete": Object.freeze({
@@ -27,5 +28,11 @@ export const WORK_ITEM_CATALOGUE: Readonly<Record<Kind, WorkItem>> = Object.free
     dimension: "VOLUME",
     canonicalUnit: CANONICAL_UNIT["VOLUME"],
     documentPrecision: 3,
+  }),
+  "rcc.formwork": Object.freeze({
+    description: "Formwork to reinforced cement concrete, measured as the contact area of the owned shape",
+    dimension: "AREA",
+    canonicalUnit: CANONICAL_UNIT["AREA"],
+    documentPrecision: 2,
   }),
 });

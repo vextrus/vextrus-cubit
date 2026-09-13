@@ -10,7 +10,10 @@ export type FrameRefusalCode =
   | "VIEW_SCALE_UNAFFIRMED"
   | "MEMBER_TYPE_UNKNOWN"
   | "SECTION_BAND_UNCOVERED"
-  | "SECTION_UNIT_UNSTATED";
+  | "SECTION_UNIT_UNSTATED"
+  | "RUN_UNREAD"
+  | "SLAB_THICKNESS_UNSTATED"
+  | "LINTEL_SOURCE_ABSENT";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const FRAME_REFUSALS: RefusalGroup<FrameRefusalCode> = Object.freeze({
@@ -42,6 +45,30 @@ export const FRAME_REFUSALS: RefusalGroup<FrameRefusalCode> = Object.freeze({
     code: "SECTION_UNIT_UNSTATED",
     message: "This member's section was read without the unit it was written in, so its size cannot be carried.",
     remedy: "Re-read the schedule's section cell so it states its unit, then measure again.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // L-MEA-09 measures a beam "clear between support faces and below the slab soffit": a beam with no
+  // read run and a side with no stated thickness are each a reading the drawing did not give, and a
+  // figure is never guessed from a grid span or from the other side's slab.
+  RUN_UNREAD: Object.freeze({
+    code: "RUN_UNREAD",
+    message: "The span of this beam between its supports was not read from the drawing, so it cannot be measured.",
+    remedy: "Check that the beam's edge lines and the members carrying its ends are drawn, then rebuild the drawing's partition.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  SLAB_THICKNESS_UNSTATED: Object.freeze({
+    code: "SLAB_THICKNESS_UNSTATED",
+    message: "The slab adjoining this beam has no stated thickness on one side, so the beam's owned depth cannot be measured there.",
+    remedy: "State the slab's thickness on the plan that draws it — a caption or a slab note — then measure the campaign again.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  LINTEL_SOURCE_ABSENT: Object.freeze({
+    code: "LINTEL_SOURCE_ABSENT",
+    message: "No opening schedule states this lintel, and a lintel is never inferred from the wall it spans.",
+    remedy: "Read the drawing's opening schedule so the lintel's section, span and bearing are stated, then measure again.",
     severity: "warning",
     surface: "inline",
   }),

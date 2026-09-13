@@ -12,7 +12,7 @@ import type { EditionContent, EditionIdentity } from "../editions/content";
 import { enumerateMethods } from "../methods/registry";
 
 /** The identity of the platform edition: the head of every lineage in the product (L-REG-07). */
-export const SEED_EDITION_IDENTITY: EditionIdentity = { scope: "platform", name: "IS1200_IN", version: "2026.09" };
+export const SEED_EDITION_IDENTITY: EditionIdentity = { scope: "platform", name: "IS1200_IN", version: "2026.10" };
 
 /**
  * The seed's content: L-MEA-01's seventeen parameter values, and the (rule id, version) pairs of the
