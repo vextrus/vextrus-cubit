@@ -11,12 +11,15 @@
     "comment": "C-06 pins Node, pnpm, uv and typst. Node is pinned by .nvmrc and pnpm by packageManager; uv and typst are system tools, so their pins live here and `pnpm checkup` refuses a machine whose version differs. The Bible pins typst by version AND sha256 (AM-08), so BOTH halves live here and `pnpm checkup` refuses drift in either: it compares the version the binary reports and the sha256 of the bytes `which typst` resolves to. The release asset the binary came from, and the recipe that installs it, are recorded beside this digest in docs/toolchain/typst.md. The CI workflow installs the pinned uv version and nothing else.",
     "tools": {
       "uv": "0.12.5",
-      "typst": { "version": "0.15.1", "sha256": "29273eaa04f6d00edd0c2bec578f565fc9c65be856bfbffc894567c68ed0b237" }
+      "typst": {
+        "version": "0.15.1",
+        "sha256": "29273eaa04f6d00edd0c2bec578f565fc9c65be856bfbffc894567c68ed0b237"
+      }
     }
   },
   "scripts": {
     "verify": "node scripts/verify.mjs",
-  "test:golden": "node node_modules/vitest/vitest.mjs run --config tests/golden/vitest.config.ts && uv run --project cad pytest -q cad/tests/sanity/test_rcc6_golden.py cad/tests/sanity/test_golden_corpora.py cad/tests/rcc6_bnbc",
+    "test:golden": "node node_modules/vitest/vitest.mjs run --config tests/golden/vitest.config.ts && uv run --project cad pytest -q cad/tests/sanity/test_rcc6_golden.py cad/tests/sanity/test_golden_corpora.py cad/tests/rcc6_bnbc",
     "checkup": "node scripts/checkup.mjs",
     "test:db": "sh -c 'case \" $* \" in *--config*|*\" -c \"*) exec node scripts/db-test.mjs \"$@\";; *) exec node scripts/db-test.mjs --config db/__tests__/vitest.config.ts \"$@\";; esac' sh",
     "e2e": "node scripts/e2e.mjs",
@@ -64,7 +67,8 @@
     "@trpc/server": "11.18.0",
     "decimal.js": "^10.6.0",
     "drizzle-orm": "0.45.2",
-    "exceljs": "^4.4.0",
+    "exceljs": "4.4.0",
+    "jszip": "3.10.2",
     "next": "16.3.1",
     "pg-boss": "10.4.2",
     "postgres": "3.4.9",
