@@ -172,6 +172,45 @@ export type RailSetup = {
   readonly calibrations: Readonly<Record<string, Readonly<Record<string, string>>>>;
   /** The concrete grade a drawing's general notes stated, where a reader stated one. */
   readonly grades: Readonly<Record<string, Measure>>;
+  /** The run the partition read for each beam and tie-beam placement, by its placement key. */
+  readonly runs: Readonly<Record<string, RunSetup>>;
+  /** The opening an opening schedule states behind each lintel placement, by its placement key. */
+  readonly lintels: Readonly<Record<string, LintelSetup>>;
+};
+
+/**
+ * One reading of the setup that the partition READ rather than transcribed: the value in the unit it
+ * was read in, how it was known, and the entity it was read from. Narrower than `Measure` because
+ * the calibration a run stands on is the view's, which the rail already holds (L-QTY-03).
+ */
+export type ReadingSetup = {
+  readonly value: string;
+  readonly unit: string;
+  readonly basis: QuantityBasis;
+  readonly source: string;
+};
+
+/**
+ * One placement's run (L-MEA-09): the drawn axis clear between the faces of the members supporting
+ * its ends, and the slab thickness adjoining each of its two sides. Each is null where the drawing
+ * stated none — an unread reading is never a zero, and the rail declares the omission (L-QTY-02).
+ */
+export type RunSetup = {
+  readonly clear: ReadingSetup | null;
+  readonly sides: readonly [ReadingSetup | null, ReadingSetup | null];
+};
+
+/**
+ * One placement's lintel, as an opening schedule states one: the five readings a lintel is measured
+ * from, all of them the schedule's. A lintel with no entry here is a lintel nothing scheduled, and
+ * the rail reports `LINTEL_SOURCE_ABSENT` rather than reading the wall around it (R-TO-032).
+ */
+export type LintelSetup = {
+  readonly count: ReadingSetup;
+  readonly b: ReadingSetup;
+  readonly D: ReadingSetup;
+  readonly w: ReadingSetup;
+  readonly bearing: ReadingSetup;
 };
 
 /** What a rail is asked: which campaign, over which pinned revision, for which kind, and of what. */
