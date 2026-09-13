@@ -69,9 +69,19 @@ function isRegeneratedBaseline(path: string): boolean {
 
 /**
  * The frozen expectations this branch's plan names as re-baselined — no wider a licence than the
- * criteria spell, so anything under `src/` and every undeclared file is still a stray.
+ * criteria spell, so every undeclared file is still a stray.
+ *
+ * `src/core/errors/aggregate.test.ts` is the third: inc-301's AC-2 (iii) declares it re-baselined for
+ * the three EXPORT_* entries and asks for it "in its own `baseline:` commit naming the three
+ * entries", which is B-20's own discipline. The frozen expectation happens to live beside the
+ * register it freezes rather than under `tests/`, and where a declared re-baseline lives is not what
+ * makes it one.
  */
-const DECLARED_REBASELINED: readonly string[] = ["tests/rulesets/support/editions.ts", "db/__tests__/ruleset-editions.migration.test.ts"];
+const DECLARED_REBASELINED: readonly string[] = [
+  "tests/rulesets/support/editions.ts",
+  "db/__tests__/ruleset-editions.migration.test.ts",
+  "src/core/errors/aggregate.test.ts",
+];
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {
   for (const path of OWNED_JOURNEYS) {

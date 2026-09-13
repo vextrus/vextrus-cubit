@@ -123,10 +123,16 @@ function insideTheSeam(address: string): boolean {
   return address === EXPORT_SEAM_ROOT || address.startsWith(`${EXPORT_SEAM_ROOT}/`);
 }
 
-/** Every TypeScript file under a directory, in a stable order so a report reads the same twice. */
+/**
+ * Every TypeScript file under a directory, in a stable order so a report reads the same twice.
+ *
+ * The order is over code points, not a collation: a path is a machine's identifier and the report is
+ * read by a diff, so what is wanted is the same order on every machine. Collation is a person's
+ * reading order and has one home in this tree (L-FMT-01), which is not here.
+ */
 function sourceFilesUnder(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true })
-    .sort((left, right) => left.name.localeCompare(right.name, "en"))
+    .sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0))
     .flatMap((entry) => {
       const here = join(directory, entry.name);
       if (entry.isDirectory()) return NOT_SOURCE.includes(entry.name) ? [] : sourceFilesUnder(here);
