@@ -26,6 +26,12 @@ export const PRISM_RECT = "PRISM_RECT";
 /** The section a variant states, as the two readings a prism's plan is bound by. */
 export type Section = { readonly width: Measure; readonly depth: Measure };
 
+/** Where one row was sighted, and under which affirmed calibration it was read (L-MEA-05). */
+export type Sighting = { readonly placement: PlacementSetup; readonly calibration: string };
+
+/** What sighting one row answered: the sighting, or the code it could not be sighted under. */
+export type SightingReading = { readonly ok: true; readonly sighting: Sighting } | { readonly ok: false; readonly code: FrameRailCode; readonly sourceEntity: string };
+
 /** One row this rail could read, with everything it needed to read it. */
 export type MemberRead = {
   readonly row: RegisterObjectRow;
@@ -79,12 +85,12 @@ function sectionOf(variant: MemberVariantSetup): { readonly ok: true; readonly s
 }
 
 /**
- * Everything one register row must state before a figure can be offered for it — or the first thing
- * it did not. Each code is the one the column rail reports the same silence under, because it is the
- * same silence: a view nobody affirmed, a mark the schedules hold no type for, a level no band
- * covers, a section read without its unit (L-MEA-08, riskNotes (3)).
+ * Where one row was sighted and the calibration it stands on — what every frame rail needs before it
+ * can offer anything, whatever it measures. A placement the setup does not hold and a view nobody
+ * affirmed are reported under the codes the column rail reports the same silences under, because
+ * they are the same silences (L-MEA-08, riskNotes (3)).
  */
-export function readMember(row: RegisterObjectRow, setup: RailSetup): MemberReading {
+export function readSighting(row: RegisterObjectRow, setup: RailSetup): SightingReading {
   const placement = setup.placements[row.placementKey];
   // A row whose placement the setup does not hold names a sighting nothing can be traced to: there is
   // no drawing, no view and no engine to offer it under.
@@ -95,6 +101,21 @@ export function readMember(row: RegisterObjectRow, setup: RailSetup): MemberRead
   // for is reported against THE VIEW — what a reader has to go and affirm.
   const calibration = setup.calibrations[placement.ingestId]?.[placement.viewKey];
   if (calibration === undefined || calibration.length === 0) return { ok: false, code: "VIEW_SCALE_UNAFFIRMED", sourceEntity: placement.viewKey };
+
+  return { ok: true, sighting: { placement, calibration } };
+}
+
+/**
+ * Everything one register row must state before a figure can be offered for it — or the first thing
+ * it did not, for the classes whose section a member-type schedule states (beam and tie beam): a
+ * mark the schedules hold no type for, a level no band covers, a section read without its unit. A
+ * lintel's section is its opening schedule's own statement, so that rail reads the sighting and asks
+ * the schedule rather than the member types (R-TO-032).
+ */
+export function readMember(row: RegisterObjectRow, setup: RailSetup): MemberReading {
+  const sighted = readSighting(row, setup);
+  if (!sighted.ok) return sighted;
+  const { placement, calibration } = sighted.sighting;
 
   const family = placement.memberFamily;
   const variants = family === null ? undefined : setup.memberTypes[placement.ingestId]?.[family];
