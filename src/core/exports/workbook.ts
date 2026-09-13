@@ -26,6 +26,14 @@ const EPOCH = new Date(EXPORT_EPOCH);
 const HEADER_ROW = 1;
 
 /**
+ * Who `docProps/core.xml` says built the artefact. The product itself, always: an export is the
+ * workspace's evidence and not a person's document, and naming the operator who happened to press
+ * the button would put an identity inside bytes that are addressed by their content (R-SPINE-021) —
+ * two people building one bill would get two addresses. Left unset, exceljs writes "Unknown".
+ */
+const AUTHOR = "Vextrus Cubit";
+
+/**
  * The Excel number format a column's cells carry, or none. A text column carries none — a number
  * format over text is a rule Excel applies to nothing. Money reads its precision from the document
  * convention and a quantity states its own, which is L-FMT-02's distinction and not this seam's.
@@ -97,9 +105,11 @@ async function datedArchive(written: ArrayBuffer): Promise<Uint8Array> {
  */
 export async function buildWorkbook(spec: WorkbookSpec): Promise<Uint8Array> {
   const workbook = new ExcelJS.Workbook();
-  // The model's own dates are what `docProps/core.xml` is written from.
+  // The model's own dates and author are what `docProps/core.xml` is written from.
   workbook.created = EPOCH;
   workbook.modified = EPOCH;
+  workbook.creator = AUTHOR;
+  workbook.lastModifiedBy = AUTHOR;
   for (const sheet of spec.sheets) writeSheet(workbook, sheet);
   return datedArchive(await workbook.xlsx.writeBuffer());
 }

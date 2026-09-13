@@ -76,4 +76,15 @@ describe("two builds of one spec are one artefact", () => {
     expect(core, "an .xlsx carries its document dates in docProps/core.xml").toBeDefined();
     expect(core ?? "", "the created date is the epoch, not the hour of the build").toContain("2000-01-01T00:00:00Z");
   });
+
+  it("names the product as the author, and nobody who happened to build it", async () => {
+    const bytes = await buildWorkbook(SPEC);
+    const { default: JSZip } = await import("jszip");
+    const core = (await (await JSZip.loadAsync(Buffer.from(bytes))).file("docProps/core.xml")?.async("string")) ?? "";
+
+    // An operator's identity inside the bytes would give one bill an address per person who built
+    // it, which is the same leak the clock was (R-SPINE-021). Left unset, exceljs writes "Unknown".
+    expect(core, "docProps names the product that built the artefact").toContain("<dc:creator>Vextrus Cubit</dc:creator>");
+    expect(core, "and says the same of the last hand to touch it").toContain("<cp:lastModifiedBy>Vextrus Cubit</cp:lastModifiedBy>");
+  });
 });
