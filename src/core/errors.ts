@@ -23,6 +23,7 @@ import { BOQ_REFUSALS, type BoqRefusalCode } from "./errors/boq";
 import { DOCS_REFUSALS, type DocsRefusalCode } from "./errors/docs";
 import { DRAWINGS_REFUSALS, type DrawingsRefusalCode } from "./errors/drawings";
 import { DRAWING_SETS_REFUSALS, type DrawingSetsRefusalCode } from "./errors/drawing-sets";
+import { EXPORTS_REFUSALS, type ExportsRefusalCode } from "./errors/exports";
 import { FORMAT_REFUSALS, type FormatRefusalCode } from "./errors/format";
 import { FOUNDATIONS_REFUSALS, type FoundationsRefusalCode } from "./errors/foundations";
 import { FRAME_REFUSALS, type FrameRefusalCode } from "./errors/frame";
@@ -86,7 +87,8 @@ export type RefusalCode =
   | FoundationsRefusalCode
   | MasonryRefusalCode
   | RebarRefusalCode
-  | SlabsRefusalCode;
+  | SlabsRefusalCode
+  | ExportsRefusalCode;
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -134,6 +136,7 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
   ...MASONRY_REFUSALS,
   ...REBAR_REFUSALS,
   ...SLABS_REFUSALS,
+  ...EXPORTS_REFUSALS,
 });
 
 /**
