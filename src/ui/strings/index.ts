@@ -15,6 +15,7 @@ import { measure } from "./measure";
 import { offeredGroup } from "./offered-group";
 import { participants } from "./participants";
 import { partition } from "./partition";
+import { schedules } from "./schedules";
 import { primitives } from "./primitives";
 import { screenStates } from "./screen-states";
 import { shell } from "./shell";
@@ -42,6 +43,7 @@ export const strings = {
   ...offeredGroup,
   ...participants,
   ...partition,
+  ...schedules,
   ...primitives,
   ...screenStates,
   ...shell,
