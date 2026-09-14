@@ -41,8 +41,8 @@ describe("a note's standing, and the codes its absences are refused under", () =
 
   test("a sheet whose words state no figure proposes none, and NOTES_NONE_PROPOSED is what says so", () => {
     expect(proposeNotes(BNBC_SILENT_NOTES), "the grammar reads a figure only where a note states one").toEqual([]);
-    const entry = REFUSALS["NOTES_NONE_PROPOSED"];
-    expect(entry?.severity, "the silence is stated, and stated as information rather than as a fault").toBe("info");
-    expect(entry?.surface, "in place, on the panel where the figure would have stood").toBe("inline");
+    expect(REFUSALS["NOTES_NONE_PROPOSED"]?.severity, "the silence is stated, and stated as information rather than as a fault").toBe("info");
+    expect(REFUSALS["NOTES_NONE_PROPOSED"]?.surface, "in place, on the panel where the figure would have stood").toBe("inline");
+    expect(REFUSALS["NOTES_NONE_PROPOSED"]?.remedy ?? "", "and says what a reader does about it").not.toBe("");
   });
 });

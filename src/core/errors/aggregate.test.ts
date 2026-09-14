@@ -93,6 +93,9 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "METHOD_IMPLEMENTATION_MISSING",
   "METHOD_NOT_IN_EDITION",
   "NOTATION_UNREAD",
+  "NOTES_NONE_PROPOSED",
+  "NOTE_READING_CONTESTED",
+  "NOTE_SOURCE_NOT_ON_SHEET",
   "NOT_ESTABLISHED",
   "NOT_IN_PROJECT_SCOPE",
   "NOT_IN_THIS_BILL",
@@ -142,7 +145,16 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
  *
- * Re-baselined for THREE ADDED entries and nothing else: `EXPORT_NOT_FOUND`, `EXPORT_URL_EXPIRED`
+ * Re-baselined for THREE ADDED entries and nothing else, all of them `./takeoff-schedules.ts`'s and
+ * all of them about a general note a person reads off a sheet (R-TO-034): `NOTE_READING_CONTESTED`,
+ * which two readings of one note that disagree leave the kind standing under; `NOTE_SOURCE_NOT_ON_SHEET`,
+ * which a reading citing text the sheet does not carry is refused by; and `NOTES_NONE_PROPOSED`,
+ * which a sheet whose words state no figure says its silence under. The roster grew by those three
+ * keys — 80 codes to 83 — and not one existing entry's code, message, remedy, severity or surface
+ * moved with them; the previous digest was
+ * 542ac68e04c93e60a7c2020d05c39a30d67b437be99d88f5d700bbc511221599.
+ *
+ * Re-baselined before that for THREE ADDED entries and nothing else: `EXPORT_NOT_FOUND`, `EXPORT_URL_EXPIRED`
  * and `EXPORT_URL_INVALID` (./exports.ts), the three answers `GET /api/exports/[id]` gives a signed
  * download link it will not serve — an address nothing is stored at, a link whose hour has passed,
  * and a link this workspace never issued (R-SPINE-041, R-SPINE-021, Q-12). The roster grew by those
