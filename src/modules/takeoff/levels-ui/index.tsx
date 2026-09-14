@@ -14,7 +14,7 @@
 //
 // Nothing here re-derives a figure (I-241, B-17): a standing, a coverage and a roll-up's total are
 // all `levelsViewOf`'s answers, rendered as they stand.
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode, type RefObject } from "react";
 import type { AuthorStoreyHeightInput, AuthorTypicalRangeInput, Consequence, InsertLevelInput, RepudiateLevelInput } from "@/core/acts";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
@@ -331,6 +331,35 @@ function standingSaid(standing: string): string | undefined {
   return standing === NONE ? LEVELS_COPY.levels_standing_none : undefined;
 }
 
+/**
+ * How many rows the grid DREW, read from the one place that knows it (B-17). The shipped table
+ * windows its rows once the stack is long enough and publishes the number it in fact put in the
+ * document; the screen's region carries the id a retrying read waits on (§7 C10), so it repeats the
+ * table's own number rather than restating the length of the data it handed over — a region that
+ * said "200 rows" over a table that drew forty would have a read wait on rows that are not there.
+ *
+ * The first render says the length of the stack, which is what a table that has windowed nothing
+ * draws and what the server's own paint carries; the table corrects it as soon as it stands, and the
+ * observer keeps it corrected as the window moves under a scroll.
+ */
+function useRowsDrawn(region: RefObject<HTMLElement | null>, rows: number): number {
+  const [drawn, setDrawn] = useState(rows);
+  useEffect(() => {
+    const host = region.current;
+    if (host === null) return;
+    const read = (): void => {
+      const said = host.querySelector("[data-rows-rendered]")?.getAttribute("data-rows-rendered");
+      const count = said === null || said === undefined ? Number.NaN : Number(said);
+      setDrawn(Number.isFinite(count) ? count : rows);
+    };
+    read();
+    const watch = new MutationObserver(read);
+    watch.observe(host, { attributes: true, attributeFilter: ["data-rows-rendered"], subtree: true, childList: true });
+    return () => watch.disconnect();
+  }, [region, rows]);
+  return drawn;
+}
+
 /** What every row of the stack publishes of its own (§7's closed contract, I-242). */
 function rowDataOf(level: LevelsViewLevel, selected: string | null): Readonly<Record<string, string>> {
   const published: Record<string, string> = {
@@ -393,6 +422,10 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
   const kinds = useMemo(() => kindsOf(reading.stack), [reading.stack]);
   /** The live stack as a roster to choose a level from: in ordinal order, valued by surrogate. */
   const levelOptions = useMemo(() => stack.map((held) => ({ value: held.levelId, label: held.label })), [stack]);
+
+  /** The primary region, and the number of rows the table inside it drew (§7 C10). */
+  const gridRegion = useRef<HTMLDivElement>(null);
+  const rowsDrawn = useRowsDrawn(gridRegion, stack.length);
 
   const holdsStack = permitted[AUTHOR_LEVEL_STACK] === true;
   const holdsFact = permitted[AUTHOR_PROJECT_FACT] === true;
@@ -853,9 +886,10 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
             the grid's own; this handler adds the pointer to it, reading the row a click landed on off
             the `data-level` the screen itself published (§5 rule 10, the register's I-236). */}
         <div
+          ref={gridRegion}
           className="cx-levels-mount cx-levels-grid"
           data-testid={testIds.grid}
-          data-rows-rendered={stack.length}
+          data-rows-rendered={rowsDrawn}
           onClick={(event) => {
             const row = event.target instanceof Element ? event.target.closest("[data-level]") : null;
             const levelId = row?.getAttribute("data-level") ?? null;
