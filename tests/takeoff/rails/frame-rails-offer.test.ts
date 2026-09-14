@@ -115,6 +115,19 @@ describe("AC-4: the beam rails bind what the drawing said, and report what it di
     expect([...offer.omitted], "and nothing of its description was left unmeasured").toEqual([]);
     expect(offer.coverage, "so the row is COMPLETE (L-QTY-02)").toBe(COMPLETE);
     expect(versionKeysIn(offer), "an offer states the rule it was derived by and never a version — the edition decides which version is in force (L-MEA-01)").toEqual([]);
+
+    // The law selects the THICKER reading, not a side of the axis: the same two readings drawn in
+    // the other order are the same beam, so `t` is the same thickness and carries the source of the
+    // side it was selected from — which is now the first one. A rail that took the second side and
+    // called it the thicker would answer this drawing and misprice every beam drawn the other way
+    // round, and no F-RCC6 row could tell the two apart (L-MEA-09, B-19).
+    const mirrored = onlyOffer(
+      door.beamConcreteRail(beamInput(RCC_CONCRETE, { runs: { [BEAM_PLACEMENT]: run({ clear: CLEAR, sides: [THICK_SIDE, THIN_SIDE] }) } })),
+      "the same beam with its two sides read in the other order",
+    );
+    expect(mirrored.bindings["t"]?.value, "the thicker adjoining slab still governs t when it is the side read first (L-MEA-09)").toBe(THICK_SIDE);
+    expect(mirrored.bindings["t"]?.source, "and t carries that side's own source — the first one's here, the second one's above").toBe(SIDE_A_SOURCE);
+    expect(mirrored.coverage, "with both sides stated, the mirrored row is COMPLETE too (L-QTY-02)").toBe(COMPLETE);
   });
 
   test("AC-4: the formwork rail offers the same beam under its own rule, binding each side separately", async () => {
@@ -151,18 +164,32 @@ describe("AC-4: the beam rails bind what the drawing said, and report what it di
 
   test("AC-4: an unstated slab thickness is kept with no quantity and enumerated, never guessed", async () => {
     const door = await frameRailDoor();
-    const unstated = { [BEAM_PLACEMENT]: run({ clear: CLEAR, sides: [THIN_SIDE, null] }) };
 
-    const concrete = onlyOffer(door.beamConcreteRail(beamInput(RCC_CONCRETE, { runs: unstated })), "the beam with one side unread, measured for concrete");
-    expect(concrete.coverage, "a row whose description has a component nobody could measure is PARTIAL_DECLARED, never COMPLETE (L-QTY-02)").toBe(PARTIAL_DECLARED);
-    expect([...concrete.omitted], "and enumerates the omission on the row, by name").toEqual([{ variable: "t", code: SLAB_THICKNESS_UNSTATED }]);
-    expect(Object.keys(concrete.bindings), "the variable nobody read is not bound at all — an unread thickness is never a zero (L-QTY-01)").not.toContain("t");
+    // Either side of the axis may be the one the drawing left unstated, and the side nobody read
+    // may be the THICKER of the two — so the concrete row's `t` is omitted whichever side is
+    // missing. A rail that selected `t` by position would bind the stated side here and publish a
+    // figure the drawing never supported (L-MEA-09, L-QTY-01).
+    for (const [sides, unread, stated, statedValue] of [
+      [[THIN_SIDE, null], "t_right", "t_left", THIN_SIDE],
+      [[null, THICK_SIDE], "t_left", "t_right", THICK_SIDE],
+    ] as readonly [readonly [string | null, string | null], string, string, string][]) {
+      const unstated = { [BEAM_PLACEMENT]: run({ clear: CLEAR, sides }) };
+      const which = `sides ${JSON.stringify(sides)}`;
 
-    const formwork = onlyOffer(door.beamFormworkRail(beamInput(RCC_FORMWORK, { runs: unstated })), "the same beam, measured for formwork");
-    expect(formwork.coverage, "the same statement on the formwork row").toBe(PARTIAL_DECLARED);
-    expect([...formwork.omitted], "naming the side that was not stated, not the side that was").toEqual([{ variable: "t_right", code: SLAB_THICKNESS_UNSTATED }]);
-    expect(Object.keys(formwork.bindings), "which is therefore unbound").not.toContain("t_right");
-    expect(formwork.bindings["t_left"]?.value, "while the side the drawing did state is bound as stated").toBe(THIN_SIDE);
+      const concrete = onlyOffer(door.beamConcreteRail(beamInput(RCC_CONCRETE, { runs: unstated })), `the beam with one side unread (${which}), measured for concrete`);
+      expect(concrete.coverage, `a row whose description has a component nobody could measure is PARTIAL_DECLARED, never COMPLETE (L-QTY-02, ${which})`).toBe(PARTIAL_DECLARED);
+      expect([...concrete.omitted], `and enumerates the omission on the row, by name (${which})`).toEqual([{ variable: "t", code: SLAB_THICKNESS_UNSTATED }]);
+      expect(
+        Object.keys(concrete.bindings),
+        `the variable nobody read is not bound at all — an unread side may be the thicker one, and an unread thickness is never a zero nor the other side's reading (L-QTY-01, ${which})`,
+      ).not.toContain("t");
+
+      const formwork = onlyOffer(door.beamFormworkRail(beamInput(RCC_FORMWORK, { runs: unstated })), `the same beam (${which}), measured for formwork`);
+      expect(formwork.coverage, `the same statement on the formwork row (${which})`).toBe(PARTIAL_DECLARED);
+      expect([...formwork.omitted], `naming the side that was not stated, not the side that was (${which})`).toEqual([{ variable: unread, code: SLAB_THICKNESS_UNSTATED }]);
+      expect(Object.keys(formwork.bindings), `which is therefore unbound (${which})`).not.toContain(unread);
+      expect(formwork.bindings[stated]?.value, `while the side the drawing did state is bound as stated, as the side it is (${which})`).toBe(statedValue);
+    }
   });
 
   test("AC-4: a beam with no run is not offered at all, and is reported by name", async () => {

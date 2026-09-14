@@ -108,8 +108,15 @@ async function owedFor(ruleId: string): Promise<Decimal> {
   }
 }
 
-/** The shard, as the registry records a method in one. */
-type ShardRow = { ruleId?: string; rule_id?: string; version?: string; law?: string; module?: string };
+/**
+ * The shard, as the registry records a method in one: `methods` is an OBJECT keyed
+ * `<ruleId>@<version>` — the key a method is resolved by (L-MEA-01) — whose rows restate the pair
+ * beside the clause it measures by and the module that computes it. Every shard in this tree is
+ * spelled that way, and both readers of one (the registry's areas, `scripts/method-hashes.mjs`)
+ * read that shape; a list is a second spelling of the same manifest, which is a defect (AM-11).
+ */
+type ShardRow = { ruleId?: string; version?: string; law?: string; module?: string };
+type Shard = { methods?: unknown; digest?: unknown };
 
 describe("AC-2: the six frame methods are in force", () => {
   test("AC-2: the shards enumerate the six pairs this leaf lands", async () => {
@@ -145,19 +152,34 @@ describe("AC-2: the six frame methods are in force", () => {
     }
   });
 
-  test("AC-2: each evaluates to L-MEA-09's own arithmetic over canonical readings", async () => {
+  test("AC-2: each evaluates to L-MEA-09's own arithmetic over canonical readings, and every one of them counts its instances", async () => {
     const { exact } = await canon();
+    const two = exact("2");
 
     for (const declared of DECLARED) {
       const held = FRAME_PAIRS.find((pair) => pair.pair.ruleId === declared.ruleId) as (typeof FRAME_PAIRS)[number];
       const method = await frameMethod(held.pair);
-      const bindings = carried(declared.ruleId.includes(".lintel.") ? LINTEL_BINDINGS : BEAM_BINDINGS, declared.variables);
+      const readings: Readonly<Record<string, string>> = declared.ruleId.includes(".lintel.") ? LINTEL_BINDINGS : BEAM_BINDINGS;
+      const bindings = carried(readings, declared.variables);
       const owed = await owedFor(declared.ruleId);
       const answered = method.evaluate(bindings);
 
       expect(
         exact(answered).eq(owed),
         `${declared.ruleId} over ${JSON.stringify(bindings)} is ${owed.toString()} — the law's own arithmetic, computed in the canon: it answered ${answered}`,
+      ).toBe(true);
+
+      // `count` multiplies the whole of every one of the six (L-FRM-02/03), so the same readings at
+      // twice the instances measure twice the work. Graded on each method rather than inferred from
+      // the one whose canonical reading counts more than one: a method that declares `count` and
+      // never multiplies by it answers the owed figure for a batch of one and understates every
+      // other batch — and F-RCC6, which stands one instance to a placement, can never catch it.
+      const twiceCount = exact(readings["count"] as string).mul(two).toString();
+      const twice = method.evaluate(carried({ ...readings, count: twiceCount }, declared.variables));
+
+      expect(
+        exact(twice).eq(exact(answered).mul(two)),
+        `${declared.ruleId} at count ${twiceCount} over otherwise identical readings is twice its figure at count ${String(readings["count"])} — it answered ${twice} beside ${answered}`,
       ).toBe(true);
     }
   });
@@ -170,15 +192,29 @@ describe("AC-2: the six frame methods are in force", () => {
     // through the registry.
     const at = join(REPO_ROOT, FRAME_SHARD);
     expect(existsSync(at), `${FRAME_SHARD} is the manifest this area's methods are recorded in — the product does not provide it yet`).toBe(true);
-    const shard = JSON.parse(readFileSync(at, "utf8")) as { methods?: ShardRow[] } | ShardRow[];
-    const rows: ShardRow[] = Array.isArray(shard) ? shard : (shard.methods ?? []);
-    expect(rows.length, `${FRAME_SHARD} records the methods of this area — a manifest with no rows arms nothing`).toBeGreaterThan(0);
+    const shard = JSON.parse(readFileSync(at, "utf8")) as Shard;
+    expect(
+      Array.isArray(shard.methods),
+      `${FRAME_SHARD} records its methods as an object keyed \`<ruleId>@<version>\`, as every shard in this tree is spelled and as both readers of one read it — a list is a second spelling of the same manifest (AM-11)`,
+    ).toBe(false);
+    expect(shard.methods !== null && typeof shard.methods === "object", `${FRAME_SHARD} records the methods of this area under \`methods\` — a manifest with no roster arms nothing`).toBe(true);
+    const recorded = Object.entries(shard.methods as Record<string, ShardRow>);
+    expect(recorded.length, `${FRAME_SHARD} records the methods of this area — a manifest with no rows arms nothing`).toBeGreaterThan(0);
 
+    for (const [key, row] of recorded) {
+      expect(
+        key,
+        `every row of ${FRAME_SHARD} is keyed by the pair it records, and restates that pair in the row — the key a method is resolved by (L-MEA-01)`,
+      ).toBe(`${String(row?.ruleId)}@${String(row?.version)}`);
+    }
+
+    const byKey = Object.fromEntries(recorded) as Record<string, ShardRow | undefined>;
     for (const held of FRAME_PAIRS) {
-      const row = rows.find((one) => (one.ruleId ?? one.rule_id) === held.pair.ruleId && String(one.version) === held.pair.version);
-      expect(row, `${FRAME_SHARD} records ${held.pair.ruleId}@${held.pair.version}`).toBeTruthy();
-      expect(row?.law, `and records it under the clause it measures by (${held.pair.ruleId})`).toBe(FRAME_LAW);
-      expect(String(row?.module), `and names a module under ${FRAME_METHOD_DIR} (${held.pair.ruleId})`).toContain(FRAME_METHOD_DIR);
+      const key = `${held.pair.ruleId}@${held.pair.version}`;
+      const row = byKey[key];
+      expect(row, `${FRAME_SHARD} records ${key} under exactly that key — the shard the registry's frame area puts in force (AM-11)`).toBeTruthy();
+      expect(row?.law, `and records it under the clause it measures by (${key})`).toBe(FRAME_LAW);
+      expect(String(row?.module), `and names a module under ${FRAME_METHOD_DIR} (${key})`).toContain(FRAME_METHOD_DIR);
     }
 
     const answered = execFileSync("node", [METHOD_HASHES_SCRIPT], { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
