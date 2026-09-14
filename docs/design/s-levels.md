@@ -11,7 +11,7 @@ re-decides nothing it settled: the tabs row is the frame's tool track (I-230), t
 frame's ONE right column and is absent until a row is selected (I-231), the campaign's index stands
 BESIDE the grid as a 240 px rail (I-233), the grid is DataTable v2 with its own furniture (I-235),
 and a pointer takes a row through the table's own `rowDataOf` seam (I-236). Files:
-`takeoff/layout.tsx` (one nav entry added), `takeoff/levels/{page.tsx,loading.tsx,
+`takeoff/layout.tsx` (one nav entry added), `takeoff/levels/{page.tsx,
 levels-screen.tsx,route-address.ts,states.ts,levels.css}`; the reading and the presentational
 `LevelsWorkspace` in `src/modules/takeoff/levels-ui/**` with its mirrored `copy.ts`; copy at
 `src/ui/strings/levels.ts`. Chrome comes only from shipped primitives and patterns — core Button,
@@ -102,7 +102,7 @@ never the page (§7 C10).
 |---|---|---|---|---|
 | tabs row (frame's track) | `takeoff-nav-register` · `takeoff-nav-coverage` · `takeoff-nav-levels` (`aria-current="page"` here), and in `useTakeoffTabsAside` the ONE primary `levels-insert` | 100 % × `--toolbar-h` 32 | `--ink-secondary`, `--ink`, `--line-accent`, `--surface-panel` | the aside is empty while the stack is empty (I-246) |
 | answer slot | one RefusalState from a refused door; the offline banner above it | 100 % × auto, `display:none` while empty | `--state-info(-surface)`, `--radius-4`, `--hairline` | absent (no box) |
-| index rail (`levels-ranges`) | the views whose typical range is unstated: caption, drawing `IdChip`, `levels-range-from` / `-to` NumberInputs and the `levels-author-range` door, one `levels-range-row[data-view]` each | `flex: 0 0 240px` (min 160, max 320), scrolls alone; rows auto | `--surface-panel`, `--hairline`, `--ink-muted`, `--text-caption` | the section stands and states `levels_ranges_none` |
+| index rail (`levels-ranges`) | the views whose typical range is unstated: caption, drawing `IdChip`, `levels-range-from` / `-to` Selects over the live stack, valued by level and read in ordinal order, and the `levels-author-range` door, one `levels-range-row[data-view]` each | `flex: 0 0 240px` (min 160, max 320), scrolls alone; rows auto | `--surface-panel`, `--hairline`, `--ink-muted`, `--text-caption` | the section stands and states `levels_ranges_none` |
 | grid (primary) | the shipped DataTable: `levels-row` per LIVE level in ordinal order; columns Level (frozen) · Ordinal · Storey height · one roll-up per kind | flex, ≥ 55 % of main; rows `--row-h` 28, header 28 sticky | `--surface-app`, `--surface-selected`, `--ink-code`, `--font-mono`, `--cell-px/py` | `levels-empty` in the grid's own place, rail untouched |
 | inspector (frame's one slot) | `levels-inspector[data-level]`: the label, ordinal, standing; `levels-reading` per reading; the height form; `levels-repudiate` | `--inspector-w` 320 (280–480) | `--surface-panel`, `--hairline`, basis palette through BasisChip | **absent — width 0**, never a sentence |
 
@@ -122,10 +122,14 @@ Declared in `takeoff/levels/states.ts` (`LEVELS_STATES`) and appended to
 `missingStates()` is empty. `levels-screen[data-state]` derives in this order, first holding wins:
 `loading` · `denied` · `offline` · `error` · `refused` · `empty` · `partial` · `ready`.
 
-- **Loading** — `loading.tsx`, frame and tabs row intact, core Skeletons keeping the layout the
-  screen in fact has: a 240-wide rail bone beside a grid whose header is real and whose body is six
-  28 px row bones. Never a spinner on a table (R-UI-004). No bone stands for the inspector — it is
-  absent at rest (R-UI-080).
+- **Loading** — the workspace's own root wearing `data-state="loading"`, frame and tabs row intact,
+  core Skeletons keeping the layout the screen in fact has: a 240-wide rail bone beside a grid whose
+  header is real and whose body is six 28 px row bones. Never a spinner on a table (R-UI-004). No
+  bone stands for the inspector — it is absent at rest (R-UI-080). The leg is the SCREEN's and not a
+  route `loading.tsx`: a segment file of that name makes the route its own streaming boundary, and a
+  hard load of a stack heavy enough to suspend then holds the screen TWICE — the server's copy parked
+  in React's hidden reveal container while the client renders its own into the fallback's place — so
+  a read of `levels-screen` resolves to two elements and the one-root contract of §7 breaks.
 - **Empty** — no LIVE level: the shipped `EmptyState` `data-testid="levels-empty"` in the grid's
   own place, rail untouched, carrying `levels_empty_heading`, `levels_empty_body` and, as its one
   action, the `levels-insert` door itself (I-246).
@@ -205,7 +209,7 @@ is read is theatre. The only transitions are inherited from single homes: the in
 240 ms panel slide (`--motion-panel` `--ease`, the frame's own), the insert Popover's entrance and
 the ConsequenceDialog's (the primitives' own, `--motion-state` `--ease`), Button and Select hover
 colours and the nav link's colour at `--motion-state`, the reticle draw at `--motion-reticle` from
-`reticle.css`, and the Skeleton pulse while `loading.tsx` holds the route. Every duration is a token
+`reticle.css`, and the Skeleton pulse while the screen stands in its `loading` state. Every duration is a token
 zeroed at source under `prefers-reduced-motion`, so `levels.css` carries no reduced-motion branch.
 
 ## 5. Tokens
@@ -220,9 +224,12 @@ through BasisChip and CoverageChip · `--hairline` · `--space-1/2/3/4` · `--ga
 `--weight-body-medium` / `--weight-heading` · `--row-h`, `--control-h`, `--cell-px`, `--cell-py`,
 `--toolbar-h`, `--inspector-w` through the primitives that read them · `--motion-state` /
 `--motion-panel` / `--ease`. Px literals, closed set: the index rail's 240 and its 160/320 bounds,
-the tabs-row current underline's 2, the column widths (Level 180 · Ordinal 80 · Storey height 200 ·
+the tabs-row current underline's 2, the column widths (Level 180 · Ordinal 80 · Storey height 288 ·
 each roll-up 160), the lg media-query value, and the loading bones' 28/240. Any other literal is a
-defect. No copper appears anywhere except the ConsequenceDialog's confirm, which is the primitive's
+defect. The standing column is 288 and not the 200 this table first fixed: a standing says two
+things — the word the height stands at and, where it stands at none, the code a line reports the
+absence under — and 200 cut the second one mid-glyph. 288 holds both, and stops short of the width
+at which the last column's resize grip would stand under the table's own tools (R-UI-012). No copper appears anywhere except the ConsequenceDialog's confirm, which is the primitive's
 own — this screen commits nothing itself.
 
 ## 6. Themes
