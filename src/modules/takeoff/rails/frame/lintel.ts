@@ -10,7 +10,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { LintelSetup, Measure, Offer, Rail, RailInput, RailObservation, ReadingSetup } from "@/core/offers/contract";
-import { COUNT, DEPTH, PRISM_RECT, WIDTH, observe, sightingOf } from "./read";
+import { COUNT, DEPTH, LINTEL_SOURCE_ABSENT, PRISM_RECT, WIDTH, observe, sightingOf } from "./read";
 
 /** The class these rails measure (L-MEA-04's roster). */
 const LINTEL: ElementType = "lintel";
@@ -57,7 +57,7 @@ export function lintelRail(declared: { readonly ruleId: string; readonly kind: K
 
       const stated = setup.lintels[row.placementKey];
       if (stated === undefined) {
-        observations.push(observe(LINTEL, declared.kind, "LINTEL_SOURCE_ABSENT", row, placement.sourceEntity));
+        observations.push(observe(LINTEL, declared.kind, LINTEL_SOURCE_ABSENT, row, placement.sourceEntity));
         continue;
       }
 

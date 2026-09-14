@@ -7,9 +7,14 @@
 // the gate's, through the one canon (L-MEA-08, L-FRM-06).
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
+import type { RefusalCode } from "@/core/errors";
 import type { LevelSetup, Measure, MemberVariantSetup, PlacementSetup, RailObservation, RailSetup, RegisterObjectRow, RunSetup } from "@/core/offers/contract";
 
-/** Every code a frame rail reports a row it did not offer under (L-MEA-08's rail-local roster). */
+/**
+ * The rail-local closed code roster for the FRAME area: every reason one of its rails reports a row
+ * it did not offer. Each is a registered refusal too — the same taxonomy serves a machine's refusals
+ * and a reader's evidence (R-SPINE-062, L-MEA-08), which is what `satisfies` holds this to.
+ */
 export const FRAME_RAIL_CODES = [
   "VIEW_SCALE_UNAFFIRMED",
   "MEMBER_TYPE_UNKNOWN",
@@ -18,10 +23,17 @@ export const FRAME_RAIL_CODES = [
   "RUN_UNREAD",
   "SLAB_THICKNESS_UNSTATED",
   "LINTEL_SOURCE_ABSENT",
-] as const;
+] as const satisfies readonly RefusalCode[];
 
 /** One code of the roster above. */
 export type FrameRailCode = (typeof FRAME_RAIL_CODES)[number];
+
+/**
+ * The roster's members by name, read off the roster itself rather than spelled a second time: one
+ * code has one spelling in this area, and a rail that reports one names it from here (Q-07).
+ */
+export const [VIEW_SCALE_UNAFFIRMED, MEMBER_TYPE_UNKNOWN, SECTION_BAND_UNCOVERED, SECTION_UNIT_UNSTATED, RUN_UNREAD, SLAB_THICKNESS_UNSTATED, LINTEL_SOURCE_ABSENT] =
+  FRAME_RAIL_CODES;
 
 /** The geometry a beam, tie beam or lintel instance is read off as (L-FRM-02). */
 export const PRISM_RECT = "PRISM_RECT";
@@ -59,9 +71,9 @@ export type Sighting =
  */
 export function sightingOf(row: RegisterObjectRow, setup: RailSetup): Sighting {
   const placement = setup.placements[row.placementKey];
-  if (placement === undefined) return { ok: false, code: "MEMBER_TYPE_UNKNOWN", sourceEntity: row.placementKey };
+  if (placement === undefined) return { ok: false, code: MEMBER_TYPE_UNKNOWN, sourceEntity: row.placementKey };
   const calibration = setup.calibrations[placement.ingestId]?.[placement.viewKey];
-  if (calibration === undefined || calibration.length === 0) return { ok: false, code: "VIEW_SCALE_UNAFFIRMED", sourceEntity: placement.viewKey };
+  if (calibration === undefined || calibration.length === 0) return { ok: false, code: VIEW_SCALE_UNAFFIRMED, sourceEntity: placement.viewKey };
   return { ok: true, placement, calibration };
 }
 
@@ -107,13 +119,13 @@ function variantCovering(variants: readonly MemberVariantSetup[], level: LevelSe
 export function sectionOf(row: RegisterObjectRow, placement: PlacementSetup, setup: RailSetup): Section {
   const family = placement.memberFamily;
   const variants = family === null ? undefined : setup.memberTypes[placement.ingestId]?.[family];
-  if (variants === undefined || variants.length === 0) return { ok: false, code: "MEMBER_TYPE_UNKNOWN", sourceEntity: placement.sourceEntity };
+  if (variants === undefined || variants.length === 0) return { ok: false, code: MEMBER_TYPE_UNKNOWN, sourceEntity: placement.sourceEntity };
   const level = setup.levels.find((one) => one.levelId === row.levelId);
   const variant = variantCovering(variants, level, setup.levels);
-  if (variant === undefined) return { ok: false, code: "SECTION_BAND_UNCOVERED", sourceEntity: placement.sourceEntity };
+  if (variant === undefined) return { ok: false, code: SECTION_BAND_UNCOVERED, sourceEntity: placement.sourceEntity };
   const source = variant.sourceKeys[0];
   if (variant.sectionUnit === null || variant.sectionWidth === null || variant.sectionDepth === null || source === undefined) {
-    return { ok: false, code: "SECTION_UNIT_UNSTATED", sourceEntity: source ?? placement.sourceEntity };
+    return { ok: false, code: SECTION_UNIT_UNSTATED, sourceEntity: source ?? placement.sourceEntity };
   }
   const unit = variant.sectionUnit;
   const read = (value: number): Measure => ({ value: String(value), unit, basis: "TRANSCRIBED", source });

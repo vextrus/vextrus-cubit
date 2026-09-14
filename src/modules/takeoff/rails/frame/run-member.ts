@@ -14,7 +14,7 @@ import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { Measure, Offer, OmittedComponent, Rail, RailInput, RailObservation, ReadingSetup, RegisterObjectRow } from "@/core/offers/contract";
 import { CANONICAL_UNIT } from "@/core/units/canon";
-import { CLEAR, COUNT, DEPTH, LEFT, ONE, PRISM_RECT, RIGHT, THICKNESS, WIDTH, observe, runOf, sectionOf, sightingOf } from "./read";
+import { CLEAR, COUNT, DEPTH, LEFT, ONE, PRISM_RECT, RIGHT, RUN_UNREAD, SLAB_THICKNESS_UNSTATED, THICKNESS, WIDTH, observe, runOf, sectionOf, sightingOf } from "./read";
 
 /** The item-selecting attribute a concrete line is priced by, where a reader stated one (L-QTY-03). */
 const GRADE = "grade";
@@ -85,7 +85,7 @@ export function runMemberRail(declared: RunMemberRail): Rail {
       // clear run, and a figure is never guessed from a grid (L-MEA-09).
       const run = runOf(row.placementKey, setup);
       if (run === undefined) {
-        report("RUN_UNREAD", row, placement.sourceEntity);
+        report(RUN_UNREAD, row, placement.sourceEntity);
         continue;
       }
 
@@ -105,13 +105,13 @@ export function runMemberRail(declared: RunMemberRail): Rail {
         const thicker = thickerOf(run.sides);
         // "A row kept with no quantity is PARTIAL_DECLARED, never COMPLETE" (L-QTY-02): an unread
         // thickness is never a zero, so the variable is not bound and the omission is enumerated.
-        if (thicker === null) omitted.push({ variable: THICKNESS, code: "SLAB_THICKNESS_UNSTATED" });
+        if (thicker === null) omitted.push({ variable: THICKNESS, code: SLAB_THICKNESS_UNSTATED });
         else bindings[THICKNESS] = carried(thicker, calibration);
       }
       if (declared.sides === "each") {
         for (const [at, variable] of [[0, LEFT] as const, [1, RIGHT] as const]) {
           const side = run.sides[at];
-          if (side === null) omitted.push({ variable, code: "SLAB_THICKNESS_UNSTATED" });
+          if (side === null) omitted.push({ variable, code: SLAB_THICKNESS_UNSTATED });
           else bindings[variable] = carried(side, calibration);
         }
       }
