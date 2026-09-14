@@ -28,4 +28,12 @@ export const WORK_ITEM_CATALOGUE: Readonly<Record<Kind, WorkItem>> = Object.free
     canonicalUnit: CANONICAL_UNIT["VOLUME"],
     documentPrecision: 3,
   }),
+  // Formwork is the contact AREA a member's concrete is cast against — the shuttering a bill pays
+  // for by the square metre, never the volume it contains (L-FRM-03, R-TO-032).
+  "rcc.formwork": Object.freeze({
+    description: "Formwork to reinforced cement concrete, measured as the contact area of the cast face",
+    dimension: "AREA",
+    canonicalUnit: CANONICAL_UNIT["AREA"],
+    documentPrecision: 2,
+  }),
 });

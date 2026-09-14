@@ -12,10 +12,20 @@ import { type Kind } from "./kinds";
 export type BearsRow = { readonly class: ElementType; readonly kind: Kind };
 
 /**
- * What each class bears. At M2 the takeoff measures concrete in columns (F-RCC6): every other class
- * of the roster bears nothing yet, and says so below rather than by being absent.
+ * What each class bears. The column's concrete stands first, as the column leaf landed it; the frame
+ * leaf adds the three horizontal members it measures, each bearing both of the kinds the frame area
+ * measures — concrete and the formwork it is cast against (R-TO-032, L-FRM-03). Every other class of
+ * the roster bears nothing yet, and says so below rather than by being absent.
  */
-export const BEARS: readonly BearsRow[] = Object.freeze([Object.freeze({ class: "column", kind: "rcc.concrete" })] as const);
+export const BEARS: readonly BearsRow[] = Object.freeze([
+  Object.freeze({ class: "column", kind: "rcc.concrete" }),
+  Object.freeze({ class: "beam", kind: "rcc.concrete" }),
+  Object.freeze({ class: "beam", kind: "rcc.formwork" }),
+  Object.freeze({ class: "tie_beam", kind: "rcc.concrete" }),
+  Object.freeze({ class: "tie_beam", kind: "rcc.formwork" }),
+  Object.freeze({ class: "lintel", kind: "rcc.concrete" }),
+  Object.freeze({ class: "lintel", kind: "rcc.formwork" }),
+] as const);
 
 /** The classes that bear at least one kind, as a set — read off the relation itself. */
 const BORNE: ReadonlySet<ElementType> = new Set(BEARS.map((row) => row.class));

@@ -61,6 +61,7 @@ export {
   rebarZones,
   scheduleDeferrals,
   placements,
+  placementRuns,
   expansionDeferrals,
   proposedLevels,
   typicalRanges,

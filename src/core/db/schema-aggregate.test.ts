@@ -23,6 +23,14 @@
  *
  * Modules are loaded by absolute path — the contract this tree's other split proofs use: a module the
  * product does not provide yet fails as an assertion naming the file, never as a resolution error.
+ *
+ * Re-baselined for ONE ADDED table and nothing else: `placementRuns` (`placement_runs`), the runs the
+ * partition reads for a beam or tie beam — one row per placement, holding the clear it measures and
+ * the slab adjoining each of its two sides (L-MEA-09). Both rosters gain the one key, in code-point
+ * order, and the columns digest moves with them because the surface it hashes gained a table. Nothing
+ * already on either roster moved: no table left, none was renamed, and no column of an existing table
+ * changed — which is the claim the digest is here to hold, and the reason it is re-stated rather than
+ * derived (B-19, B-20).
  */
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, statSync } from "node:fs";
@@ -71,6 +79,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "participantRoles",
   "participants",
   "partitionViews",
+  "placementRuns",
   "placements",
   "projects",
   "proposedLevels",
@@ -148,6 +157,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
   "participantRoles",
   "participants",
   "partitionViews",
+  "placementRuns",
   "placements",
   "projects",
   "proposedLevels",
@@ -187,7 +197,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over each key, its SQL table name and its column names in code-point order — the shape
  * half of the same baseline. Re-baselined with TABLES_BEFORE, and never on its own.
  */
-const COLUMNS_DIGEST_BEFORE = "036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233";
+const COLUMNS_DIGEST_BEFORE = "57491bd6d03f4467727d3fbd1b72f1d18ef0cc2709d776266d1290ae8010b95b";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {
