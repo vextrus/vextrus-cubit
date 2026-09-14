@@ -16,10 +16,10 @@
 import { expect, test } from "@playwright/test";
 import { SSchedulesPage } from "./pages/s-schedules.page";
 import { STakeoffPage } from "./pages/s-takeoff.page";
-import { stageBareProject, stageSchedules } from "./takeoff/schedules-stage";
+import { copySentences, stageBareProject, stageSchedules } from "./takeoff/schedules-stage";
 import { checkpoint } from "./support/checkpoint";
 import { emulateTheme, restoreLaneTheme } from "./support/lane-theme";
-import { heldAttribute, steadyCount } from "./support/retrying-read";
+import { everyAttribute, everyRow, heldAttribute, steadyCount, steadyText } from "./support/retrying-read";
 import { signInAsSeededTenant } from "./support/seeded-session";
 import { settled } from "./support/settled";
 import { TESTIDS } from "../../src/ui/testids";
@@ -69,6 +69,19 @@ function howMany<T>(rows: readonly T[], alike: (one: T) => boolean): number {
   return rows.filter(alike).length;
 }
 
+/**
+ * The words a piece of text says: its runs of letters and digits, with the punctuation, the rules and
+ * the basis glyphs between them dropped. Both sides of a vocabulary reading are cut this way, so
+ * `12"x15"` and `10Ø @ 4" c/c` compare as the schedule wrote them and a `3` the screen reckoned for
+ * itself compares as the word it is.
+ */
+function words(said: string): string[] {
+  return said
+    .toLowerCase()
+    .split(/[^a-z0-9À-˿Ͱ-῿Ⰰ-퟿]+/)
+    .filter((word) => word.length > 0);
+}
+
 test.describe("J-032 — schedules, the member-type registry and sheet notes", () => {
   test("J-032: the reconstructed schedule stands beside its sheet, every cell a trace, the registry verbatim", async ({ page }, testInfo) => {
     await signInAsSeededTenant(page, testInfo.parallelIndex);
@@ -91,6 +104,15 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
     const notesSheet = schedules.sheetRow(staged.drawingId, staged.notesLayout);
     await expect(scheduleSheet, "the sheet the schedules were reconstructed from stands in the rail").toHaveCount(1);
     await expect(notesSheet, "and the sheet whose notes can be read").toHaveCount(1);
+    await expect(
+      schedules.sheetRow(staged.drawingId, staged.barrenLayout),
+      `the drawing's third sheet holds no schedule, no deferral and no text, so it is not a row at all (I-248): ${staged.barrenLayout}`,
+    ).toHaveCount(0);
+    await expect(schedules.sheetRows, "the rail is the sheets that hold something — never the revision's list of layouts").toHaveCount(staged.sheetsHolding.length);
+    expect(
+      await everyAttribute(schedules.sheetRows, "data-layout", "the sheets the rail lists"),
+      `every row the rail drew is a sheet the store gives this screen something to show: ${JSON.stringify(staged.sheetsHolding)}`,
+    ).toEqual(expect.arrayContaining(staged.sheetsHolding));
 
     /* --- the table, exactly as it was stored, with every cell an EvidenceLink (AC-7) --- */
     await scheduleSheet.click();
@@ -107,13 +129,15 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
     // Every stored cell, where it was stored, saying what it says and citing what IT cites. The
     // header band is the grid's own header, so it is allowed to render as one rather than as a cell.
     const headerRow = Math.min(...staged.cells.map((one) => one.rowIndex));
-    for (const stored of staged.cells.filter((one) => one.rowIndex > headerRow)) {
+    for (const stored of staged.cells.filter((one) => one.rowIndex > headerRow && one.text.length > 0)) {
       const where = `row ${stored.rowIndex}, column ${stored.columnIndex}`;
       const at = schedules.cell(table, stored.rowIndex, stored.columnIndex);
       await expect(at, `the cell stored at ${where} stands where it was stored`).toHaveCount(1);
       const link = schedules.evidence(at);
       await expect(link, "every cell that came from a drawing carries exactly one trace (R-UI-022, I-252)").toHaveCount(1);
-      await expect(link, `labelled with what the drawing says at ${where}, verbatim (Decision §1, Cells)`).toContainText(stored.text);
+      // Verbatim is the whole assertion: the accessible name of the trace is the cell's stored text
+      // and nothing else — no count, no arrow, no word of the screen's own beside it (I-252).
+      await expect(link, `labelled with what the drawing says at ${where}, verbatim and only that (Decision §1, Cells)`).toHaveAccessibleName(stored.text);
       await expect(link, "and says it was read off the drawing's own text (L-QTY-01)").toHaveAttribute("data-basis", TRANSCRIBED);
       await expect(link, `which opens the sheet at the entities THIS cell cites, never the ones beside it: ${JSON.stringify(stored.sourceKeys)}`).toHaveAttribute(
         "href",
@@ -132,25 +156,55 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
     /* --- the member-type registry: what the schedule said a member IS, and never how many (AC-7) --- */
     await expect(schedules.registry, "the registry stands beneath the table it was read from").toBeVisible();
     for (const family of staged.families) {
-      await expect(schedules.family(family), `the mark family ${family} the schedule named`).toHaveCount(1);
+      const row = schedules.family(family);
+      await expect(row, `the mark family ${family} the schedule named`).toHaveCount(1);
+      const link = schedules.evidence(row).first();
+      await expect(link, `whose mark is the trace back to the entities that named it: ${family}`).toHaveAccessibleName(family);
     }
     await expect(schedules.families, "one row per stored family, and no family nobody named").toHaveCount(staged.families.length);
 
     for (const variant of staged.variants) {
+      const row = schedules.variantSaying(variant.variantKey, [variant.bandText, variant.sectionText]);
       await expect(
-        schedules.variantSaying(variant.variantKey, [variant.bandText, variant.sectionText]),
+        row,
         `the ${variant.family} band ${variant.variantKey} says its storeys and its section verbatim (I-251)`,
       ).toHaveCount(howMany(staged.variants, (one) => one.variantKey === variant.variantKey && one.bandText === variant.bandText && one.sectionText === variant.sectionText));
+      for (const said of [variant.bandText, variant.sectionText]) {
+        await expect(
+          row.first().getByText(said, { exact: true }).first(),
+          `and says it as the schedule wrote it, whole — never as the stem of a sentence the screen composed: ${said}`,
+        ).toBeVisible();
+      }
     }
     await expect(schedules.variants, "one row per stored variant, and no band nobody drew").toHaveCount(staged.variants.length);
 
     for (const zone of staged.zones) {
+      const row = schedules.zoneSaying(zone.zone, zone.text);
       await expect(
-        schedules.zoneSaying(zone.zone, zone.text),
+        row,
         `the ${zone.zone} rebar of ${zone.family} ${zone.variantKey} says what the schedule said: ${zone.text}`,
       ).toHaveCount(howMany(staged.zones, (one) => one.zone === zone.zone && one.text === zone.text));
+      await expect(row.first().getByText(zone.text, { exact: true }).first(), `verbatim, and never a reading of it: ${zone.text}`).toBeVisible();
     }
     await expect(schedules.zones, "one row per stored rebar zone, and never a count of bars (I-251)").toHaveCount(staged.zones.length);
+
+    // And the pane says NOTHING ELSE: every word standing in it is a word the store holds or a word
+    // the screen's own copy table states. `C1 · 3 members` fails here, and so does any figure the
+    // screen reckoned for itself — L-CAD-08 lets a schedule state how many members exist only where
+    // a column of that schedule states it, and then it is that cell's text (I-251).
+    const registrySaid = await steadyText(schedules.registry, "the member-type registry");
+    const held = [
+      ...staged.families,
+      ...staged.variants.flatMap((one) => [one.family, one.variantKey, one.bandText, one.sectionText]),
+      ...staged.zones.flatMap((one) => [one.family, one.variantKey, one.zone, one.text]),
+      ...staged.cells.map((one) => one.text),
+      ...(await copySentences()),
+    ];
+    const vocabulary = new Set(held.flatMap((one) => words(one)));
+    expect(
+      words(registrySaid).filter((word) => !vocabulary.has(word)),
+      `the registry says only what the schedule said and what this screen's copy states: ${registrySaid}`,
+    ).toEqual([]);
 
     /* --- the notes panel of a sheet whose texts state no figure: never silent (AC-7, Decision §1) --- */
     await expect(schedules.notes, "the notes panel stands on this sheet too — silence is not a state").toHaveCount(1);
@@ -200,9 +254,20 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
     for (const kind of KINDS) {
       const proposal = schedules.proposal(kind);
       await expect(proposal, `the sheet proposes its ${kind}`).toHaveCount(1);
+      const written = staged.noteValues[kind] as string;
+      await expect(proposal, `saying what the drawing WROTE for the ${kind}, verbatim: ${written} (AC-6, Decision §1)`).toContainText(written);
+      await expect(
+        schedules.proposalValue(kind),
+        `and offering the figure the grammar read out of those words — never the words, and never a figure of the screen's own (I-254)`,
+      ).toHaveValue(staged.noteCanonicals[kind] as string);
+
       const link = schedules.evidence(proposal);
       await expect(link, "a proposal cites the sentence it was read from, and only it (R-UI-022)").toHaveCount(1);
       await expect(link, "transcribed off the drawing's text").toHaveAttribute("data-basis", TRANSCRIBED);
+      await expect(link, `which opens the notes sheet at THAT sentence: ${String(staged.noteKeys[kind])}`).toHaveAttribute(
+        "href",
+        selectionAddress(staged.tenantId, staged.projectId, staged.drawingId, staged.notesLayout, [staged.noteKeys[kind] as string]),
+      );
     }
 
     /* --- the act: the minimum hook read at another figure, everything else as proposed (AC-6) --- */
@@ -213,21 +278,33 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
     await settled(page);
 
     /* --- the answer: what was kept, the verdict each was given, and where each was read from --- */
-    await expect(schedules.readings, "one reading row per figure the person committed").toHaveCount(KINDS.length);
-    for (const kind of KINDS) {
-      const reading = schedules.reading(kind);
-      await expect(reading, `the ${kind} reading stands`).toHaveCount(1);
-      await expect(reading, "read off the drawing's own text (L-QTY-01)").toHaveAttribute("data-basis", TRANSCRIBED);
-      await expect(reading, `and judged by the seam: ${kind}`).toHaveAttribute("data-acceptance", kind === HOOK_MIN ? EDITED : ACCEPTED);
-      const source = await heldAttribute(reading, "data-source");
-      expect(source, `the ${kind} reading names the text it was read from`).toBeTruthy();
+    // The readings this sheet holds are the walk's own five and whatever already stood on it — the
+    // stage says what that is, so the roster is the ground's, never a number written here (B-19).
+    const stoodAlready = [staged.otherActorReading];
+    await expect(schedules.readings, "one row per reading committed on this sheet — the walk's own beside the one that stood").toHaveCount(
+      KINDS.length + stoodAlready.length,
+    );
 
-      const link = schedules.evidence(reading);
-      await expect(link, "and carries one trace back to that text").toHaveCount(1);
-      const href = await heldAttribute(link, "href");
-      expect(href, `which opens the notes sheet at that entity: ${String(href)}`).toBe(
-        `/t/${staged.tenantId}/p/${staged.projectId}/viewer/${staged.drawingId}/${encodeURIComponent(staged.notesLayout)}?s=${encodeURIComponent(String(source))}`,
-      );
+    for (const kind of KINDS) {
+      const rows = schedules.reading(kind);
+      const alike = stoodAlready.filter((one) => one.kind === kind).length;
+      await expect(rows, `the ${kind} the walk read, beside every other reading of it`).toHaveCount(1 + alike);
+
+      const cited = staged.noteKeys[kind] as string;
+      const address = selectionAddress(staged.tenantId, staged.projectId, staged.drawingId, staged.notesLayout, [cited]);
+      for (const row of await everyRow(rows, `the ${kind} reading rows`)) {
+        await expect(row, "read off the drawing's own text (L-QTY-01)").toHaveAttribute("data-basis", TRANSCRIBED);
+        await expect(row, `and naming the sentence it was read from — the one the grammar read the ${kind} out of`).toHaveAttribute("data-source", cited);
+        const link = schedules.evidence(row);
+        await expect(link, "with one trace back to that sentence").toHaveCount(1);
+        await expect(link, `which opens the notes sheet at that entity and nothing else: ${address}`).toHaveAttribute("href", address);
+      }
+
+      // The verdict is the seam's, on the figure THIS walk committed: as proposed, or edited.
+      await expect(
+        schedules.readingJudged(kind, kind === HOOK_MIN ? EDITED : ACCEPTED),
+        `and the ${kind} the walk read carries the verdict the seam gave it (AC-2)`,
+      ).toHaveCount(1);
     }
 
     /* --- the standing: a figure two people read differently stands at no figure at all (AC-6) --- */
