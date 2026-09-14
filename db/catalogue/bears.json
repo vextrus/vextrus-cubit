@@ -1,6 +1,30 @@
 [
   {
+    "class": "beam",
+    "kind": "rcc.concrete"
+  },
+  {
+    "class": "beam",
+    "kind": "rcc.formwork"
+  },
+  {
     "class": "column",
     "kind": "rcc.concrete"
+  },
+  {
+    "class": "lintel",
+    "kind": "rcc.concrete"
+  },
+  {
+    "class": "lintel",
+    "kind": "rcc.formwork"
+  },
+  {
+    "class": "tie_beam",
+    "kind": "rcc.concrete"
+  },
+  {
+    "class": "tie_beam",
+    "kind": "rcc.formwork"
   }
 ]
