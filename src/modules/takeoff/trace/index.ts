@@ -17,8 +17,8 @@ import { and, asc, eq, forTenant, isUuid, quantityLines, sheetDisciplines } from
 import { citedKeysOf, type LineBinding, type LineEvidence } from "./address";
 import { repudiatedObjectsOf } from "@/modules/takeoff/register";
 
-export { LINE_PARAM, citedKeysOf, originAddress, traceAddress } from "./address";
-export type { AddressableLine, LineBinding, LineEvidence } from "./address";
+export { LINE_PARAM, citedKeysOf, originAddress, selectionAddress, traceAddress } from "./address";
+export type { AddressableLine, AddressableSelection, LineBinding, LineEvidence } from "./address";
 
 /**
  * The layout a sheet is addressed at where the ingest recorded no single one for it. No store ties a

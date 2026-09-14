@@ -6,13 +6,18 @@
 // with the app's object store and a transaction around it — the screen and the act see one sheet.
 import { forTenant } from "@/core/db";
 import type { SheetText } from "@/core/notes/grammar";
-import { sheetTextsOn, type SheetTextScope } from "@/core/notes/texts";
+import { sheetLayoutsOn, sheetTextsOn, type SheetLayout, type SheetTextScope } from "@/core/notes/texts";
 import { appStorage } from "@/core/storage/app";
 
 export type { SheetText } from "@/core/notes/grammar";
-export type { SheetTextScope } from "@/core/notes/texts";
+export type { SheetLayout, SheetTextScope } from "@/core/notes/texts";
 
 /** Every text entity of one sheet, in the artifact's own order (test contract: `sheetTextsOf`). */
 export async function sheetTextsOf(scope: SheetTextScope, layoutName: string): Promise<SheetText[]> {
   return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => sheetTextsOn(tx, scope, layoutName, { storage: appStorage() }));
+}
+
+/** Every sheet of one drawing, with the words standing on each — one read for a whole drawing. */
+export async function sheetLayoutsOf(scope: SheetTextScope): Promise<SheetLayout[]> {
+  return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => sheetLayoutsOn(tx, scope, { storage: appStorage() }));
 }

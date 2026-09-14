@@ -16,6 +16,7 @@ import { offeredGroup } from "./offered-group";
 import { participants } from "./participants";
 import { partition } from "./partition";
 import { primitives } from "./primitives";
+import { schedules } from "./schedules";
 import { screenStates } from "./screen-states";
 import { shell } from "./shell";
 import { shortcuts } from "./shortcuts";
@@ -43,6 +44,7 @@ export const strings = {
   ...participants,
   ...partition,
   ...primitives,
+  ...schedules,
   ...screenStates,
   ...shell,
   ...shortcuts,
