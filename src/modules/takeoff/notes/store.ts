@@ -121,3 +121,12 @@ export async function appliedDetailingValuesOf(scope: AppliedDetailingScope): Pr
 export async function readingsOnSheet(scope: NotesScope, sheet: SheetRef): Promise<NoteReadingRow[]> {
   return forTenant({ tenantId: scope.tenantId }).transaction((tx) => readingsOfSheet(tx, scope, sheet));
 }
+
+/**
+ * Every reading made on any sheet of the drawings named, oldest first. A screen showing a revision's
+ * sheets side by side asks for all of them at once rather than once per sheet: the readings of one
+ * project are one table, and a read per sheet prices the page in the drawing's layouts.
+ */
+export async function readingsOnDrawings(scope: NotesScope, drawingIds: readonly string[]): Promise<NoteReadingRow[]> {
+  return forTenant({ tenantId: scope.tenantId }).transaction((tx) => readingsOfDrawings(tx, scope, drawingIds));
+}
