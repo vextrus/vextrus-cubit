@@ -17,7 +17,7 @@ import { and, asc, eq, forTenant, isUuid, quantityLines, sheetDisciplines } from
 import { citedKeysOf, type LineBinding, type LineEvidence } from "./address";
 import { repudiatedObjectsOf } from "@/modules/takeoff/register";
 
-export { LINE_PARAM, citedKeysOf, originAddress, traceAddress } from "./address";
+export { LINE_PARAM, citedKeysOf, originAddress, selectionAddress, traceAddress, type AddressableSelection } from "./address";
 export type { AddressableLine, LineBinding, LineEvidence } from "./address";
 
 /**

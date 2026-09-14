@@ -87,9 +87,29 @@ export function citedKeysOf(line: AddressableLine): string[] {
 export function traceAddress(tenantId: string, projectId: string, line: AddressableLine): string {
   const stated = line.sourceKeys;
   const keys = Array.isArray(stated) ? (stated as readonly unknown[]).map(String) : citedKeysOf(line);
-  const selection = keys.map((key) => encodeURIComponent(key)).join(",");
-  const sheet = `${String(line.drawingId)}/${encodeURIComponent(String(line.layoutName))}`;
-  return `/t/${tenantId}/p/${projectId}/viewer/${sheet}?${SELECTION_PARAM}=${selection}&${LINE_PARAM}=${encodeURIComponent(String(line.lineId))}`;
+  const sheet = { drawingId: String(line.drawingId), layoutName: String(line.layoutName), sourceKeys: keys };
+  return `${selectionAddress(tenantId, projectId, sheet)}&${LINE_PARAM}=${encodeURIComponent(String(line.lineId))}`;
+}
+
+/** The sheet a selection stands on, and the entities the address flies to. */
+export type AddressableSelection = {
+  readonly drawingId: string;
+  readonly layoutName: string;
+  readonly sourceKeys: readonly string[];
+};
+
+/**
+ * The viewer, at the entities something cites — and no row it was followed from (R-UI-022, R-UI-031).
+ *
+ * A cell of a reconstructed schedule and a reading of a sheet's note are both read off entities, and
+ * neither is a published line: an address carrying a `line` param would send the viewer looking for a
+ * row that does not exist. `traceAddress` is this address with the row named, so the two cannot spell
+ * the viewer's route differently (B-17).
+ */
+export function selectionAddress(tenantId: string, projectId: string, selection: AddressableSelection): string {
+  const keys = selection.sourceKeys.map((key) => encodeURIComponent(key)).join(",");
+  const sheet = `${selection.drawingId}/${encodeURIComponent(selection.layoutName)}`;
+  return `/t/${tenantId}/p/${projectId}/viewer/${sheet}?${SELECTION_PARAM}=${keys}`;
 }
 
 /**
