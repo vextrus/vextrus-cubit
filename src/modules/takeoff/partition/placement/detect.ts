@@ -29,12 +29,13 @@
 // places the same members forever, which is what makes the stored partition rebuildable (L-REG-04).
 import type { ElementType } from "@/core/catalogue/classes";
 import type { EntityGraph } from "@/core/entitygraph/schema";
-import { placementKey, viewKey as viewKeyOf } from "@/core/identity";
-import type { GridAxisRow } from "../grid/detect";
+import { placementKey, viewKey as viewKeyOf, type ViewRef } from "@/core/identity";
+import type { DetectedGrid, GridAxisRow } from "../grid/detect";
 import { normaliseMark } from "../notation";
+import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
 import { classOfMark } from "./law";
-import type { DetectedPlacements, FamilyNamed, PlacementEvidence, PlacementRow } from "./rows";
+import type { DetectedPlacements, FamilyNamed, PlacementEvidence, PlacementRow, UngriddedView } from "./rows";
 import { detectRuns } from "./runs";
 import { shareValue } from "./shares";
 
