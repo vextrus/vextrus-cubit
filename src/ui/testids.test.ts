@@ -138,6 +138,7 @@ const GOLDEN: readonly string[] = [
   "gallery-entry",
   "gallery-shell",
   "gallery-state",
+  "id-chip",
   "invitations-email",
   "invitations-none",
   "invitations-refusal",

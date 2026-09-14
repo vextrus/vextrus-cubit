@@ -155,6 +155,12 @@ export const TESTIDS = {
     shell: "gallery-shell",
     state: "gallery-state",
   },
+  // The shipped IdChip's own handle, which it wears whenever a caller names none: a screen that
+  // renders a surrogate through the primitive publishes THIS id, so it is declared here rather than
+  // left as the one literal a reader cannot look up (AM-09 §1, R-UI-082).
+  idChip: {
+    root: "id-chip",
+  },
   invitations: {
     email: "invitations-email",
     none: "invitations-none",
