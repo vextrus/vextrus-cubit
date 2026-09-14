@@ -1,5 +1,5 @@
 /**
- * HOTFIX inc-hotfix-20260914-0052: db/__tests__/harness.ts:180-200 — the stale-template sweep put
+ * HOTFIX inc-hotfix-20260914-0052: db/__tests__/harness.ts:188-209 — the stale-template sweep put
  * `datistemplate` back on every database whose unforced drop it could not complete, including one
  * that never carried the flag, so a half-built template of the wanted digest read as READY and the
  * files that provisioned next — tests/jobs/jobs-seam.test.ts among them — cloned a database whose
