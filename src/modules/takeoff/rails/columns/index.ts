@@ -23,7 +23,9 @@ import type { RefusalCode } from "@/core/errors";
 import { STOREY_HEIGHT_ABSENCE } from "@/core/levels/law";
 import { variantCovering } from "@/core/offers/contract";
 import type {
+  LevelSetup,
   Measure,
+  MemberVariantSetup,
   Offer,
   OmittedComponent,
   PlacementSetup,
