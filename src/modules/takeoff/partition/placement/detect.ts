@@ -34,7 +34,7 @@ import type { DetectedGrid, GridAxisRow } from "../grid/detect";
 import { normaliseMark } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
-import { classOfMark } from "./law";
+import { classOfMark, isFramedClass } from "./law";
 import type { DetectedPlacements, FamilyNamed, PlacementEvidence, PlacementRow, UngriddedView } from "./rows";
 import { detectRuns } from "./runs";
 import { shareValue } from "./shares";
@@ -204,13 +204,21 @@ function axesOf(grid: DetectedGrid | null): Map<string, GridAxisRow[]> {
   return byView;
 }
 
-/** This entity read as a member mark, or nothing where its text names no member (L-CAD-07). */
+/**
+ * This entity read as a member mark this stage places by, or nothing where it names none (L-CAD-07).
+ *
+ * A mark of a FRAMED class names no outline: its member is drawn as a pair of edge lines and `./runs`
+ * places it off that pair. Read here, it would anchor whatever closed ring happened to stand nearest —
+ * a stair well, a hatch boundary — and place a beam nobody drew, with no run to measure it by
+ * (L-MEA-09, L-QTY-04). The two readers divide the plan by how the plan draws a member, and neither
+ * reads the other's.
+ */
 function markOf(entity: Drawn): [Mark] | null {
   const text = entity.text ?? "";
   const at = (entity.points ?? [])[0];
   if (text === "" || at === undefined) return null;
   const type = classOfMark(text);
-  if (type === null) return null;
+  if (type === null || isFramedClass(type)) return null;
   return [{ key: entity.key, text, mark: normaliseMark(text), type, at: [at[0] ?? 0, at[1] ?? 0] }];
 }
 

@@ -62,6 +62,18 @@ export const FOUNDATION_CLASSES: readonly ElementType[] = Object.freeze([FOOTING
 export const LEVEL_CLASSES: readonly ElementType[] = Object.freeze([...VERTICAL_CLASSES, BEAM]);
 
 /**
+ * The classes a layout plan draws as a PAIR OF EDGE LINES rather than as a closed outline: the members
+ * that span between supports (L-MEA-09).
+ *
+ * A column is drawn as its own footprint, so the outline reader places it. A beam is not: a structural
+ * plan draws it as two lines half a width either side of the axis it runs along, and the pair is what
+ * anchors it (`./runs`). The two readers are exclusive, because a closed ring standing near a `B` mark
+ * is whatever else the plan drew there — a stair well, a hatch boundary — and placing it would be a
+ * member nobody drew, carrying no run to measure (L-QTY-04).
+ */
+export const FRAMED_CLASSES: readonly ElementType[] = Object.freeze([BEAM, TIE_BEAM]);
+
+/**
  * The class this mark names, or null where it names none. Total over any text a drawing carries: a
  * caption, a dimension and a note all name no member and answer null rather than throwing, because a
  * plan's every text is put to this to find out which of them are marks at all.
@@ -94,6 +106,11 @@ export function isFoundationClass(type: ElementType): boolean {
 /** Does a member of this class expand over the levels its view stands over (L-CAD-07, L-MEA-09)? */
 export function isLevelClass(type: ElementType): boolean {
   return LEVEL_CLASSES.includes(type);
+}
+
+/** Is a member of this class drawn as a run between its supports rather than as an outline (L-MEA-09)? */
+export function isFramedClass(type: ElementType | null): type is ElementType {
+  return type !== null && FRAMED_CLASSES.includes(type);
 }
 
 /** What separates the words of a caption or a schedule cell: everything that is not a letter or a digit. */

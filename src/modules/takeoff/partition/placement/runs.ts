@@ -36,7 +36,7 @@ import type { GridAxisRow } from "../grid/detect";
 import { normaliseMark } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
-import { classOfMark, isFoundationClass, isVerticalClass, levelWordsOf } from "./law";
+import { classOfMark, isFoundationClass, isFramedClass, isVerticalClass, levelWordsOf } from "./law";
 import type { DetectedRuns, FamilyNamed, PlacementEvidence, PlacementRow, RunReading, RunRow } from "./rows";
 import { shareValue } from "./shares";
 
@@ -73,18 +73,6 @@ const OPENING_WORDS: ReadonlySet<string> = new Set(["OPENING", "OPENINGS", "VOID
  * silently converted into one the canon does carry (L-REG-01, L-QTY-04).
  */
 const CANON_OF_HEADER: Readonly<Record<string, Unit>> = Object.freeze({ mm: "mm", m: "m", foot: "ft" });
-
-/**
- * The classes a plan draws as a pair of edge lines rather than as a closed outline: the members that
- * span between supports. A column is drawn as its own footprint and placed by `./detect`; a beam and a
- * tie beam are drawn as the two edges of a run, and placed here (L-MEA-09).
- */
-const FRAMED_CLASSES: readonly ElementType[] = Object.freeze(["beam", "tie_beam"]);
-
-/** Is this the class of a member drawn as a run between its supports? Total over an unread mark. */
-function isFramedClass(type: ElementType | null): type is ElementType {
-  return type !== null && FRAMED_CLASSES.includes(type);
-}
 
 /** A point in the drawing's own plane. */
 type Point = readonly [number, number];
@@ -354,7 +342,21 @@ function axisBetween(left: Edge, right: Edge, gap: number): Axis {
   return { keys: [left.key, right.key], from, to, along, at, start: Math.min(start, end), end: Math.max(start, end), width: gap };
 }
 
-/** The member mark standing nearest each pair, where one stands within the near-anchor reach of it. */
+/**
+ * The mark that names each pair: the nearest one standing BESIDE it, within the near-anchor reach.
+ *
+ * Beside is two statements about where a label is drawn, and both are about the member's own geometry
+ * rather than about the plan:
+ *   · CLEAR of the member's two edge lines. A label drawn between them is standing on the member, and
+ *     what it names is whatever else the plan drew there. This is what keeps the `B5` lettering the
+ *     lift-well trimmer carries — drawn 450 below its own axis, and so straight down the middle of the
+ *     beam that crosses the well — from being read onto that beam, whose own label stands 400 to the
+ *     side and 400 further off (L-CAD-03: a reading names the atom it was read from).
+ *   · ALONGSIDE the stretch the member runs over, within a margin of its own width at each end. A
+ *     label past the end of a member is beside the next one.
+ * Of the marks that answer both, the nearest to the member's centre names it — a plan letters its
+ * members one apiece, and the nearest is the one the draughtsman put there.
+ */
 function markedIn(members: readonly Axis[], said: readonly Said[], reach: number): Map<Axis, Said> {
   const marks = said.filter((one) => isFramedClass(classOfMark(one.text)));
   const named = new Map<Axis, Said>();
@@ -362,6 +364,10 @@ function markedIn(members: readonly Axis[], said: readonly Said[], reach: number
     const centre: Point = [(member.from[0] + member.to[0]) / 2, (member.from[1] + member.to[1]) / 2];
     let held: { mark: Said; distance: number } | null = null;
     for (const mark of marks) {
+      const along = member.along === "x" ? mark.at[0] : mark.at[1];
+      const off = Math.abs((member.along === "x" ? mark.at[1] : mark.at[0]) - member.at);
+      if (off <= member.width / 2) continue;
+      if (along < member.start - member.width || along > member.end + member.width) continue;
       const distance = Math.hypot(mark.at[0] - centre[0], mark.at[1] - centre[1]);
       if (distance > reach) continue;
       // Ties go to the lower source key, so one drawing anchors one way every time (L-REG-04).
