@@ -88,12 +88,15 @@ describe("AC-1: the stack renders as the grid-workspace template", () => {
 
     expect(attr(mounted.root, "data-state"), "a reading that answered stands ready (§2's order, first holding wins)").toBe("ready");
 
-    const levels = hook(mounted.root, TESTID.navLevels);
+    // The tabs row is the LANE's, drawn as chrome above whichever surface a reader stands on and
+    // never inside the screen (`takeoff/nav.tsx`: "the lane draws ONE row and no screen draws a
+    // second one above the grid"), so it is read from the page the screen stands in.
+    const levels = hook(mounted.container, TESTID.navLevels);
     expect(attr(levels, "aria-current"), "the lane's third tab is the current page at this address").toBe("page");
     expect(textOf(levels), "and is named by the lane's own registry key, never a second spelling").toBe(copy["takeoff_nav_levels"]);
 
     for (const beside of [TESTID.navRegister, TESTID.navCoverage]) {
-      const tab = hook(mounted.root, beside);
+      const tab = hook(mounted.container, beside);
       expect(attr(tab, "aria-current"), `${beside} stands beside it and is not the current page`).not.toBe("page");
     }
   });

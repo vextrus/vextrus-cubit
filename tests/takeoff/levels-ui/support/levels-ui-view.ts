@@ -4,8 +4,10 @@
  *
  * MECHANICS ONLY — nothing here judges the product. It holds the `LevelsView` fixture builder the
  * increment's interfaces spell, the doors a mounted workspace presses (recorded, never asserted
- * here), and the mount itself. Every judgement lives in the suites beside it, so this file cannot be
- * edited into agreement with a product that does not satisfy a criterion.
+ * here), the chrome the route hands the workspace down (ARCH-01: a module may not reach `src/ui`),
+ * the lane's own frame the screen stands in, and the mount itself. Every judgement lives in the
+ * suites beside it, so this file cannot be edited into agreement with a product that does not
+ * satisfy a criterion: what it cannot supply it THROWS over, and what it supplies it never grades.
  *
  * It opens no database: the levels-ui screen is a presentational workspace over one reading, and a
  * jsdom mount that reached a cluster would move this whole suite out of the unit lane.
@@ -23,9 +25,17 @@
  */
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { createElement, type FunctionComponent } from "react";
+import { createElement, type FunctionComponent, type ReactNode } from "react";
+// The address the router would be at, handed to the hook the lane's row reads it through
+// (`usePathname`). A jsdom mount has no router around it, so the one context that answers it is
+// supplied here — nothing else of Next is staged, and no assertion is made about the router itself.
+import { PathnameContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect } from "vitest";
+// jsdom performs no layout, so the shipped DataTable's virtualiser renders no row at all unless its
+// scroll container is given a measurable box. The stubs are the primitive's own (inc-005's support,
+// keyed on `datatable-viewport`), installed here and never written a second time beside them (B-17).
+import { installDomStubs } from "../../../ui/primitives-overlay-data/support/render";
 
 /** The browser mechanics both lanes reach through this file: the held-out mount stands outside the
  * checkout, so a bare `@testing-library/react` specifier resolves HERE and nowhere else. */
@@ -66,6 +76,18 @@ export const TESTIDS_MODULE = "src/ui/testids.ts";
 
 /** The seven-state matrix R-UI-050 makes checkable (B-19). */
 export const SCREEN_STATES_MODULE = "src/ui/screen-states/index.ts";
+
+/**
+ * THE LANE THE SCREEN STANDS IN. The takeoff tabs row is drawn by the lane's own layout, into the
+ * frame's tool track, above whichever surface a reader is standing on — no screen draws it and no
+ * screen may. A jsdom mount has no frame around it, so the mount here stands the workspace where the
+ * route stands it: inside the lane's layout, with the track the row mounts into and the address the
+ * router would be at. What a suite then reads of the row — its entries, their labels, their
+ * addresses, which of them is current — is the product's own and nothing of this file's.
+ */
+export const TAKEOFF_LAYOUT_MODULE = "src/app/(app)/t/[tenant]/p/[project]/takeoff/layout.tsx";
+export const TAKEOFF_NAV_MODULE = "src/app/(app)/t/[tenant]/p/[project]/takeoff/nav.tsx";
+export const SHELL_SLOTS_MODULE = "src/ui/shell/slots.tsx";
 
 /** The closed refusal taxonomy — a code's words have one home. */
 export const ERRORS_MODULE = "src/core/errors.ts";
@@ -231,6 +253,16 @@ export function surrogate(seed: number): string {
   return `00000000-0000-4000-8000-${hex}`;
 }
 
+/** The one workspace every mount stands in, so an address is BUILT from identities, never transcribed. */
+export const TENANT = surrogate(400);
+
+/**
+ * This screen's address, spelled exactly as the test contract's route spells it — independently of
+ * the product's own route builder, so a row linking somewhere else cannot agree with itself into a
+ * current tab (B-12: the literal the reading needs is the contract's, not the tree's).
+ */
+export const levelsAddress = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/levels`;
+
 /**
  * One level of a view, with its standing DERIVED by the product's own core over the readings it was
  * written with — the acceptance never types a standing, a code or a figure in metres beside the rule
@@ -370,6 +402,155 @@ export function doorBank(o: { actType: string; digest?: string; consequence?: Re
   return { calls, answer, doors, callsTo: (name: string) => calls.filter((call) => call.name === name) };
 }
 
+/* ------------------------------------------------------------------------- the shipped chrome */
+
+/**
+ * THE CHROME A ROUTE HANDS DOWN (ARCH-01, B-17, I-170). `src/modules` may not import `src/ui`, and a
+ * screen may not re-implement a shipped primitive, so the workspace is handed its renderers, its two
+ * mounts and the ids it publishes by the one file that may reach both trees. A mount here stands
+ * where that file stands: it loads the SAME barrels — never a copy of a primitive, never a second
+ * spelling of an id — so what the suites read is the shipped DataTable and the shipped Select.
+ *
+ * These are the barrels `tests/ui/takeoff-register/support/fixtures.ts` names for the register's own
+ * hand-down, and the overlay barrel beside them, which is where the Popover ships from.
+ */
+export const CHROME_BARRELS: readonly string[] = Object.freeze([
+  "src/ui/primitives/data/index.ts",
+  "src/ui/primitives/core/index.ts",
+  "src/ui/primitives/overlay/index.ts",
+  "src/ui/patterns/refusal-state/index.ts",
+  "src/ui/patterns/consequence-dialog/index.ts",
+  // One RULE travels with the renderers, because a rule is not a component and the barrel publishes
+  // components: the humanising EnumLabel says a SCREAMING value by. The table's own file stands
+  // beside it for the same reason the register's stage names it.
+  "src/ui/primitives/core/enum-label.tsx",
+  "src/ui/primitives/data/data-table.tsx",
+]);
+
+/** Every renderer and rule the workspace is handed, each loaded from the barrel that ships it. */
+export const CHROME_NAMES: readonly string[] = Object.freeze([
+  "DataTable",
+  "RefusalState",
+  "ConsequenceDialog",
+  "EmptyState",
+  "Button",
+  "Input",
+  "NumberInput",
+  "Select",
+  "Skeleton",
+  "IdChip",
+  "EnumLabel",
+  "BasisChip",
+  "CoverageChip",
+  "QuantityText",
+  "UnitBadge",
+  "Tooltip",
+  "Popover",
+  "PopoverTrigger",
+  "PopoverContent",
+  "humaniseEnum",
+]);
+
+/**
+ * THE TWO MOUNTS (Design Direction 00 §3.2): the lane's tabs row and the frame's ONE inspector are
+ * filled through hooks the app layer calls, so the workspace is handed a component for each.
+ *
+ * `TabsAside` is the route's own — `useTakeoffTabsAside`, the lane's slot — because the mount here
+ * stands inside the lane's real row (see `inLane`), so the aside lands where a reader sees it.
+ * `InspectorMount` renders in place, as the register's stage renders it: the frame's right column is
+ * the shell's, not the lane's, and what a suite reads in place is exactly the node the route hands
+ * the frame.
+ */
+export const MOUNT_NAMES: readonly string[] = Object.freeze(["TabsAside", "InspectorMount"]);
+
+/**
+ * The ids this screen publishes, read from the ONE registry (AM-09 §1). A module may not import it,
+ * so they arrive as chrome exactly as the renderers do — and a suite that asserts on a spelling reads
+ * the contract's own table beside this one, so a registry that disagreed with the contract is caught
+ * there rather than agreed with here.
+ */
+export async function levelsTestIds(): Promise<Record<string, string>> {
+  const module_ = await productModule<{ TESTIDS?: Record<string, Record<string, string> | undefined> }>(TESTIDS_MODULE);
+  const group = module_.TESTIDS?.["levels"];
+  return { ...staged(group, `${TESTIDS_MODULE} publishes \`TESTIDS.levels\` — this screen's group in the one registry (AM-09 §1)`) };
+}
+
+/**
+ * A MECHANICAL precondition of the stage — what a mount needs in order to stand at all. It throws
+ * rather than asserting, because nothing here grades the product: an assertion in this file would be
+ * a judgement hidden behind the suites, and a stage that cannot stand is a broken stage.
+ */
+function staged<T>(value: T | undefined | null, said: string): T {
+  if (value === undefined || value === null) throw new Error(`the stage cannot mount the workspace: ${said}`);
+  return value;
+}
+
+/** The same, for a callable the stage hands over or calls. */
+function stagedFunction<T>(value: unknown, said: string): T {
+  if (typeof value !== "function") throw new Error(`the stage cannot mount the workspace: ${said}`);
+  return value as T;
+}
+
+/** The shipped renderers, the two mounts and the registry's ids, as one `chrome` the workspace takes. */
+export async function levelsChrome(): Promise<Record<string, unknown>> {
+  const held: Record<string, unknown> = {};
+  for (const barrel of CHROME_BARRELS) {
+    const module_ = await productModule<Record<string, unknown>>(barrel);
+    for (const [name, value] of Object.entries(module_)) held[name] ??= value;
+  }
+  const bound: Record<string, unknown> = {};
+  for (const name of CHROME_NAMES) {
+    bound[name] = stagedFunction(
+      held[name],
+      `the shipped \`${name}\` is published by one of ${CHROME_BARRELS.join(", ")} — the workspace is handed it, never a copy (B-17, I-170)`,
+    );
+  }
+  // The lane's slot is the lane's own hook, so the one primary stands in the row a reader presses it
+  // in; the inspector renders where it stands, the frame's column being no part of the lane.
+  const nav = await productModule<{ useTakeoffTabsAside?: (node: ReactNode) => void }>(TAKEOFF_NAV_MODULE);
+  const fill = stagedFunction<(node: ReactNode) => void>(nav.useTakeoffTabsAside, `${TAKEOFF_NAV_MODULE} publishes \`useTakeoffTabsAside\` — the lane's tabs-row slot (I-246)`);
+  bound["TabsAside"] = ({ children }: { children?: ReactNode }) => {
+    fill(children ?? null);
+    return null;
+  };
+  bound["InspectorMount"] = ({ children }: { children?: ReactNode }) => children ?? null;
+  bound["testIds"] = await levelsTestIds();
+  return bound;
+}
+
+/**
+ * The workspace, standing where the route stands it: inside the takeoff lane's own layout, at this
+ * screen's address, with the shell tool track the lane's row mounts itself into.
+ *
+ * The layout is the product's — it is called with this mount's identities and its element rendered —
+ * so the row's entries, their labels, their addresses and which of them is current are all read off
+ * the lane and never written here. The two things a browser would have supplied are supplied: the
+ * track a row drawn as chrome is drawn in, and the address the router is at.
+ */
+async function inLane(workspace: ReactNode, projectId: string): Promise<ReactNode> {
+  type LaneLayout = (o: { children: ReactNode; params: Promise<{ tenant: string; project: string }> }) => Promise<ReactNode>;
+  const layout = await productModule<{ default?: LaneLayout }>(TAKEOFF_LAYOUT_MODULE);
+  const drawLane = stagedFunction<LaneLayout>(layout.default, `${TAKEOFF_LAYOUT_MODULE} is the lane's layout — the one home of the tabs row (Direction §3.2)`);
+  const slots = await productModule<{
+    ShellSlotsProvider?: FunctionComponent<{ children?: ReactNode }>;
+    useShellSlots?: () => { toolbar: ReactNode | null };
+  }>(SHELL_SLOTS_MODULE);
+  const Provider = stagedFunction<FunctionComponent<{ children?: ReactNode }>>(
+    slots.ShellSlotsProvider,
+    `${SHELL_SLOTS_MODULE} publishes the frame's tool-track slot the lane's row mounts into`,
+  );
+  const read = stagedFunction<() => { toolbar: ReactNode | null }>(slots.useShellSlots, `${SHELL_SLOTS_MODULE} publishes the tool track's own reader`);
+
+  const ToolTrack: FunctionComponent = () => createElement("div", { className: "stage-tool-track" }, read().toolbar);
+  const lane = await drawLane({ children: workspace, params: Promise.resolve({ tenant: TENANT, project: projectId }) });
+  return createElement(
+    Provider,
+    null,
+    createElement(ToolTrack),
+    createElement(PathnameContext.Provider, { value: levelsAddress(TENANT, projectId) }, lane),
+  );
+}
+
 /* --------------------------------------------------------------------------------- the mount */
 
 /** What the route hands the presentational workspace (Design Decision §1, I-243, I-247). */
@@ -390,7 +571,7 @@ export type LevelsProps = {
  * `RegisterWorkspace` does — edits THIS function: the suites beside it judge what the mount
  * RENDERS and which door it PRESSES, never how the route hands the props over.
  */
-export function propsFor(o: LevelsProps): Record<string, unknown> {
+export async function propsFor(o: LevelsProps): Promise<Record<string, unknown>> {
   const permitted = { [AUTHOR_LEVEL_STACK]: true, [AUTHOR_PROJECT_FACT]: true, [MEASURE]: true, ...(o.permitted ?? {}) };
   return {
     view: o.view,
@@ -398,18 +579,31 @@ export function propsFor(o: LevelsProps): Record<string, unknown> {
     offline: o.offline ?? false,
     state: o.state ?? null,
     level: o.level ?? null,
+    chrome: await levelsChrome(),
     doors: (o.doors ?? doorBank({ actType: INSERT_LEVEL })).doors,
   };
 }
 
+/**
+ * What one mount answers: the PAGE the screen stands in, and the screen's own root inside it.
+ *
+ * `container` is the whole document body rather than the render's own div, because two of the things
+ * a suite reads stand outside that div: the lane's tabs row, which is chrome drawn above the surface,
+ * and the shipped overlays — the ConsequenceDialog among them — which portal to the body the way
+ * every overlay in this product does. Reading them inside the screen's subtree would be reading the
+ * wrong scope, not reading a screen that failed to draw them.
+ */
 export type Mounted = { container: HTMLElement; root: HTMLElement; unmount: () => void };
 
 /** Mount the shipped workspace over one reading, and answer the screen root it rendered. */
 export async function mountLevels(o: LevelsProps): Promise<Mounted> {
+  installDomStubs();
   const module_ = await productModule<Record<string, unknown>>(LEVELS_UI_MODULE);
   const Workspace = module_["LevelsWorkspace"];
   expect(typeof Workspace, `${LEVELS_UI_MODULE} publishes LevelsWorkspace, the presentational workspace the route mounts`).toBe("function");
-  const { container, unmount } = render(createElement(Workspace as FunctionComponent<Record<string, unknown>>, propsFor(o)));
+  const workspace = createElement(Workspace as FunctionComponent<Record<string, unknown>>, await propsFor(o));
+  const { unmount } = render(await inLane(workspace, o.view.projectId));
+  const container = (globalThis as unknown as { document: Document }).document.body;
   const root = container.querySelector(`[data-testid="${TESTID.screen}"]`);
   expect(root, `the mounted workspace renders ${TESTID.screen}`).not.toBeNull();
   return { container, root: root as HTMLElement, unmount };
@@ -451,19 +645,69 @@ export function spokenText(element: Element): string {
   return textOf(copy);
 }
 
+/** The roster a control publishes on its own attribute, where it publishes one at all. */
+function publishedRoster(control: HTMLElement): { value: string; label: string }[] | null {
+  const written = control.getAttribute("data-options");
+  if (written === null || written.trim() === "") return null;
+  const values = written.trim().startsWith("[") ? (JSON.parse(written) as unknown[]) : written.split(",");
+  return values.map((held) => {
+    const value = typeof held === "string" ? held.trim() : String((held as { value?: unknown }).value ?? "");
+    const label = typeof held === "string" ? value : String((held as { label?: unknown }).label ?? value);
+    return { value, label };
+  });
+}
+
+/** Every option node a control offers, wherever the primitive renders them, in rendered order. */
+function optionNodes(control: HTMLElement, root: ParentNode): HTMLElement[] {
+  const document_ = control.ownerDocument ?? (root as Element).ownerDocument ?? document;
+  const own = [...control.querySelectorAll<HTMLElement>('[role="option"], option')];
+  if (own.length > 0) return own;
+  // The shipped Select's list is a SIBLING of its trigger, named on the trigger while it is open —
+  // the exact list, before any wider search, so two open controls can never be read as one roster.
+  const owned = control.getAttribute("aria-controls");
+  const listbox = owned === null ? null : document_.getElementById(owned);
+  if (listbox !== null) return [...listbox.querySelectorAll<HTMLElement>('[role="option"], option')];
+  // A primitive that portals its list keeps it out of both, so the whole document is the last look.
+  return [...document_.querySelectorAll<HTMLElement>('[role="option"], option')];
+}
+
+/** The control this helper last opened — a reader has one list open at a time, and so does this. */
+let openedControl: HTMLElement | null = null;
+
 /**
- * The options a Select offers, whatever the primitive renders them as: the shipped Select is not a
- * native `select` (R-UI-083), so an option is read as a `listbox` option wherever it stands — in the
- * control's own subtree or in the portal the overlay primitive mounts it in.
+ * The options a control OFFERS, whatever the shipped primitive renders them as (R-UI-083).
+ *
+ * The shipped Select is an OPEN-then-read control: the product's own page object opens it before it
+ * reaches for an option (`chooseIn`, tests/e2e/pages/s-levels.page.ts), and a closed one keeps no
+ * list in the DOM at all. So a roster is read the way a reader reads one — the roster the control
+ * publishes of its own, where it publishes one; otherwise the control is opened and the options are
+ * collected wherever they then stand. A control that offered NOTHING throws, naming itself, so no
+ * roster assertion can pass on an empty reading.
+ *
+ * The open is synchronous on purpose: `fireEvent` flushes the render before the next statement, and
+ * the suites beside this file read the returned sequence in place. This is the instrument only —
+ * which values are admitted, and in what order, is judged there and never here.
  */
 export function optionsOf(control: HTMLElement, root: ParentNode): { value: string; label: string }[] {
-  const owned = control.getAttribute("aria-controls");
-  const listbox =
-    (owned === null ? null : (root.ownerDocument ?? document).getElementById(owned)) ??
-    control.querySelector<HTMLElement>('[role="listbox"]') ??
-    ((root as ParentNode & { querySelector: typeof document.querySelector }).querySelector(`[role="listbox"][data-testid="${attr(control, "data-testid")}"]`) as HTMLElement | null) ??
-    control;
-  const found = [...listbox.querySelectorAll<HTMLElement>('[role="option"], option')];
+  const published = publishedRoster(control);
+  if (published !== null) return published;
+
+  let found = optionNodes(control, root);
+  if (found.length === 0) {
+    if (openedControl !== null && openedControl !== control && openedControl.isConnected) fireEvent.click(openedControl);
+    fireEvent.click(control);
+    openedControl = control;
+    found = optionNodes(control, root);
+  }
+  if (found.length === 0) {
+    fireEvent.pointerDown(control);
+    found = optionNodes(control, root);
+  }
+  if (found.length === 0) {
+    throw new Error(
+      `the control offered no options: \`${attr(control, "data-testid")}\` (a <${control.tagName.toLowerCase()}>) offered nothing to choose from, opened or closed, and a roster is what this reading asks it for`,
+    );
+  }
   return found.map((option) => ({
     value: option.getAttribute("value") ?? option.getAttribute("data-value") ?? textOf(option),
     label: textOf(option),
