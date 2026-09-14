@@ -182,7 +182,7 @@ reading stays on record, and the lines measured through it re-derive at the next
 `levels_ranges_heading` **Views with no typical range** · `levels_ranges_hint` **A view that stands
 for a range of floors states it once. Until it does, nothing it holds expands.** ·
 `levels_ranges_none` **Every view states the floors it stands for.** · `levels_range_from_label`
-**From ordinal** · `levels_range_to_label` **To ordinal** · `levels_author_range` **Preview this
+**From level** · `levels_range_to_label` **To level** · `levels_author_range` **Preview this
 range** · `levels_error_heading` **The level stack could not be read** · `levels_error_body`
 **Nothing was changed. Try again, and quote the report id if it keeps happening.** ·
 `levels_report_label` **Report id** · `levels_retry` **Try again** · `levels_offline` **You are

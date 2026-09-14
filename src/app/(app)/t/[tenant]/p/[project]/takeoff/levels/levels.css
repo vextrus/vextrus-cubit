@@ -149,14 +149,38 @@
 /* --- the cells (§1's grid-cell table) --- */
 
 .cx-levels-cell-level,
-.cx-levels-cell-standing,
-.cx-levels-rollup {
+.cx-levels-cell-standing {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
+}
+
+/* The roll-up says more on a level whose height is contested than 160 px can hold, and §1 rules that
+   such a cell ends in an ellipsis and earns the table's own Tooltip. Both are the shipped table's,
+   and it measures them on `.cx-table-cell-text` — "only a cell that is ACTUALLY clipped earns a
+   Tooltip" (data-table.tsx §5 rule 2, `scrollWidth > clientWidth` "on this element and on nothing
+   else"). So this cell does not hide its own overflow: a cell that clipped itself would leave the
+   table nothing to measure, which is the cut mid-glyph with neither ellipsis nor tooltip. It is
+   inline-level for the same reason — the table's text box ellipsizes the inline content of its line,
+   and a block-level flex box would be clipped without the mark (B-17: one home for the rule). */
+.cx-levels-rollup {
+  display: inline;
+  white-space: nowrap;
+}
+
+/* Inline, so the words and the chips are the line the table's text box truncates — a flex box would
+   be one atomic thing to that box, clipped whole and never marked. The step between them is the
+   same one the other cells take, as a margin because there is no flex line to gap. */
+.cx-levels-rollup > * {
+  margin-inline-end: var(--space-1);
+  vertical-align: middle;
+}
+
+.cx-levels-rollup > *:last-child {
+  margin-inline-end: 0;
 }
 
 .cx-levels-label {
