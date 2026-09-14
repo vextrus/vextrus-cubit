@@ -87,7 +87,17 @@ export const NOTES_NONE_PROPOSED = "NOTES_NONE_PROPOSED";
 
 /** The table this increment lands, and the table its deferral rows are read from. */
 export const NOTES_READINGS_TABLE = "notes_readings";
+
+/**
+ * The two edition stores AM-03(h) speaks of, which a note may move NEITHER of (AC-4).
+ *
+ * `ruleset_editions` is the platform's own: it carries no `tenant_id` at all — "a platform edition
+ * belongs to no workspace, and a row in a tenant-scoped table that no tenant owns is a row no policy
+ * can answer for" (src/core/db/schema-rulesets.ts) — so it is counted whole. `tenant_ruleset_editions`
+ * is where a campaign's own editions live, and that one IS scoped by workspace.
+ */
 export const RULESET_EDITIONS_TABLE = "ruleset_editions";
+export const TENANT_RULESET_EDITIONS_TABLE = "tenant_ruleset_editions";
 
 /* ------------------------------------------------------------------ the fixture, declared once */
 
