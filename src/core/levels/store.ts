@@ -7,7 +7,7 @@
 // `@/modules/takeoff/register` because the act seam is core and core imports nothing above it
 // (ARCH-01) — what a carry IS stays the identity grammar's (`carryLevel`), and this only moves the
 // three columns that grammar names.
-import { and, asc, eq, isNotNull, isNull, levels, registerObjects, storeyHeightReadings, type TenantTx } from "../db";
+import { and, asc, eq, isNull, levels, registerObjects, storeyHeightReadings, type TenantTx } from "../db";
 import { carryLevel, dotlessUpper } from "../identity";
 import { declaredOrdinal, type StoreyHeightBasis } from "./law";
 
@@ -162,12 +162,12 @@ export async function readingsOfLevel(tx: TenantTx, scope: LevelScope, levelId: 
  * placeholder standing while the next rebuild registered the same members onto the surrogate as
  * well, so nine drawn columns stood in the register eighteen times (L-REG-03).
  *
- * What the column is narrowed BY is "stands under a placeholder at all", and the label itself is
- * then compared in TypeScript: the register keeps a placeholder as it was written (L-REG-01), so a
- * sheet that states the mezzanine `M.E.Z.Z` stores that spelling, and asking the column for the
- * spellings the caller happens to hold would exclude exactly the rows this rule exists to catch. The
- * comparison form has one home (`dotlessUpper`) and is not respelled as SQL beside it (B-17); the
- * rows in scope are only those still standing under a placeholder, which an insert is about to empty.
+ * What the column is narrowed BY is "stands on no level yet" — `level_id is null`, which is what a
+ * placeholder row IS — and the label itself is then compared in TypeScript. The register keeps a
+ * placeholder as it was written (L-REG-01), so a sheet stating the mezzanine `M.E.Z.Z` stores that
+ * spelling, and asking the column for the spellings the caller happens to hold would exclude exactly
+ * the rows this rule exists to catch. The comparison form keeps its one home (`dotlessUpper`) rather
+ * than being respelled as SQL beside it (B-17).
  */
 export async function objectsUnderPlaceholders(tx: TenantTx, scope: LevelScope, labels: readonly string[]): Promise<PlaceholderObject[]> {
   if (labels.length === 0) return [];
@@ -180,7 +180,7 @@ export async function objectsUnderPlaceholders(tx: TenantTx, scope: LevelScope, 
       elementType: registerObjects.elementType,
     })
     .from(registerObjects)
-    .where(and(eq(registerObjects.tenantId, scope.tenantId), eq(registerObjects.projectId, scope.projectId), isNotNull(registerObjects.levelLabel)))
+    .where(and(eq(registerObjects.tenantId, scope.tenantId), eq(registerObjects.projectId, scope.projectId), isNull(registerObjects.levelId)))
     .orderBy(asc(registerObjects.objectKey));
   return held.flatMap((row) => (row.levelLabel !== null && wanted.has(dotlessUpper(row.levelLabel)) ? [{ ...row, levelLabel: row.levelLabel }] : []));
 }
