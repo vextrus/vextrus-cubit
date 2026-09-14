@@ -29,7 +29,7 @@
 // Pure over the artifact and the stages before it: no store, no clock, no model (L-REG-04).
 import type { ElementType } from "@/core/catalogue/classes";
 import type { EntityGraph } from "@/core/entitygraph/schema";
-import { placementKey, viewKey as viewKeyOf, type ViewRef } from "@/core/identity";
+import { placementKey, quantise, viewKey as viewKeyOf, type ViewRef } from "@/core/identity";
 import type { QuantityBasis } from "@/core/offers/law";
 import type { Unit } from "@/core/units/canon";
 import type { GridAxisRow } from "../grid/detect";
@@ -95,6 +95,18 @@ const OPENING_WORDS: ReadonlySet<string> = new Set(["OPENING", "OPENINGS", "VOID
  */
 const CANON_OF_HEADER: Readonly<Record<string, Unit>> = Object.freeze({ mm: "mm", m: "m", foot: "ft" });
 
+/**
+ * The classes a plan draws as a pair of edge lines rather than as a closed outline: the members that
+ * span between supports. A column is drawn as its own footprint and placed by `./detect`; a beam and a
+ * tie beam are drawn as the two edges of a run, and placed here (L-MEA-09).
+ */
+const FRAMED_CLASSES: readonly ElementType[] = Object.freeze(["beam", "tie_beam"]);
+
+/** Is this the class of a member drawn as a run between its supports? Total over an unread mark. */
+function isFramedClass(type: ElementType | null): type is ElementType {
+  return type !== null && FRAMED_CLASSES.includes(type);
+}
+
 /** A point in the drawing's own plane. */
 type Point = readonly [number, number];
 
@@ -145,6 +157,11 @@ type Address = { readonly letter: string | null; readonly numeral: string | null
 type Plan = {
   readonly view: PartitionedView;
   readonly ref: ViewRef;
+  /**
+   * L-REG-04's derived address of this view — the name a PLACEMENT calls it by. The stored view's own
+   * `viewKey` names it in the other key space, and the two are never compared (B-17).
+   */
+  readonly key: string;
   readonly axes: readonly GridAxisRow[];
   readonly spacing: number;
   readonly rings: readonly Ring[];
@@ -186,15 +203,18 @@ export function detectRuns(evidence: PlacementEvidence, placed: readonly Placeme
       shares.containmentMerge * spacing,
     );
     const said = standing.flatMap((entity) => saidOf(entity) ?? []);
+    const ref: ViewRef = { viewClass: view.type, captionAnchorSourceKey: view.anchorKey };
+    const key = viewKeyOf(ref);
     const plan: Plan = {
       view,
-      ref: { viewClass: view.type, captionAnchorSourceKey: view.anchorKey },
+      ref,
+      key,
       axes,
       spacing,
       rings,
       said,
       members,
-      placed: new Set(placed.filter((row) => row.viewKey === view.viewKey).map((row) => row.outlineKey)),
+      placed: new Set(placed.filter((row) => row.viewKey === key).map((row) => row.outlineKey)),
       marked: markedIn(members, said, shares.nearAnchor * spacing),
     };
     plans.push(plan);
@@ -210,13 +230,13 @@ export function detectRuns(evidence: PlacementEvidence, placed: readonly Placeme
     const named = namedIn(plan, plans, evidence.families);
     for (const [member, mark] of named) {
       const type = classOfMark(mark.text);
-      if (type === null) continue;
+      if (!isFramedClass(type)) continue;
       const centre: Point = [(member.from[0] + member.to[0]) / 2, (member.from[1] + member.to[1]) / 2];
       const key = placementKey({ view: plan.ref, mark: normaliseMark(mark.text), x: centre[0], y: centre[1] });
       // Two members of one mark quantising onto one lattice point are one member (L-REG-04).
       if (rows.some((row) => row.placementKey === key)) continue;
       rows.push({
-        viewKey: viewKeyOf(plan.ref),
+        viewKey: plan.key,
         view: plan.ref,
         placementKey: key,
         mark: normaliseMark(mark.text),
@@ -357,10 +377,7 @@ function axisBetween(left: Edge, right: Edge, gap: number): Axis {
 
 /** The member mark standing nearest each pair, where one stands within the near-anchor reach of it. */
 function markedIn(members: readonly Axis[], said: readonly Said[], reach: number): Map<Axis, Said> {
-  const marks = said.filter((one) => {
-    const type = classOfMark(one.text);
-    return type !== null && !isVerticalClass(type) && !isFoundationClass(type);
-  });
+  const marks = said.filter((one) => isFramedClass(classOfMark(one.text)));
   const named = new Map<Axis, Said>();
   for (const member of members) {
     const centre: Point = [(member.from[0] + member.to[0]) / 2, (member.from[1] + member.to[1]) / 2];
@@ -437,7 +454,7 @@ function bandNames(mark: string, families: readonly FamilyNamed[], stated: Reado
 function supportsOf(plan: Plan, placed: readonly PlacementRow[], rings: ReadonlyMap<string, Ring>): Support[] {
   const carried: Support[] = [];
   for (const row of placed) {
-    if (row.viewKey !== plan.view.viewKey) continue;
+    if (row.viewKey !== plan.key) continue;
     const vertical = isVerticalClass(row.elementType);
     if (!vertical && !isFoundationClass(row.elementType)) continue;
     const ring = rings.get(row.outlineKey);
@@ -445,7 +462,7 @@ function supportsOf(plan: Plan, placed: readonly PlacementRow[], rings: Readonly
     const centre: Point = [(ring.min[0] + ring.max[0]) / 2, (ring.min[1] + ring.max[1]) / 2];
     const address = addressOf(plan.axes, centre);
     carried.push({
-      viewKey: plan.view.viewKey,
+      viewKey: plan.key,
       letter: address.letter,
       numeral: address.numeral,
       offX: address.offX,
@@ -518,7 +535,11 @@ function runOf(key: string, member: Axis, plan: Plan, supports: readonly Support
   const clear = segments.reduce((sum, [from, to]) => sum + (to - from), 0);
   if (!(clear > 0)) return { placementKey: key, clear: null, sides: [null, null] };
 
-  const reading: RunReading = { value: String(clear), unit, basis: MEASURED, sourceKeys: [...member.keys, ...cut.sourceKeys] };
+  // Written onto the same 0.1-drawing-unit lattice a placement is keyed on (L-REG-04). The clear is a
+  // difference of coordinates read off doubles, so a run drawn 4200 long can arrive as
+  // 4199.999999999985: the lattice is the precision the artifact states a coordinate to, and a figure
+  // carried past it would be a reading more exact than the drawing it came from (L-QTY-01).
+  const reading: RunReading = { value: quantise(clear), unit, basis: MEASURED, sourceKeys: [...member.keys, ...cut.sourceKeys] };
   if (type !== "beam") return { placementKey: key, clear: reading, sides: [null, null] };
   return { placementKey: key, clear: reading, sides: sidesOf(member, segments, plan, unit) };
 }
@@ -552,7 +573,7 @@ function faceAt(point: Point, member: Axis, plan: Plan, supports: readonly Suppo
   const reaching = supports
     .filter(
       (support) =>
-        (!support.ownViewOnly || support.viewKey === plan.view.viewKey) &&
+        (!support.ownViewOnly || support.viewKey === plan.key) &&
         support.letter === address.letter &&
         support.numeral === address.numeral &&
         Math.abs(address.offX - support.offX) <= support.halfX &&
@@ -560,7 +581,7 @@ function faceAt(point: Point, member: Axis, plan: Plan, supports: readonly Suppo
     )
     // The plan that drew this member speaks first about what carries it; another plan of the same
     // building answers only where this one drew nothing there.
-    .sort((left, right) => Number(right.viewKey === plan.view.viewKey) - Number(left.viewKey === plan.view.viewKey));
+    .sort((left, right) => Number(right.viewKey === plan.key) - Number(left.viewKey === plan.key));
 
   const held = reaching[0];
   if (held !== undefined) {

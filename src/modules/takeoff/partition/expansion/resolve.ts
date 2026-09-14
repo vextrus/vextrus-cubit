@@ -218,11 +218,17 @@ function standsUnresolved(reason: ExpansionDeferralReason): boolean {
  * band, or whose every band names an endpoint the stack does not carry, is not cut here at all: the
  * band is then a statement nothing can judge, and the rail says so per level under
  * `SECTION_BAND_UNCOVERED` rather than the member vanishing from the register with no word said.
+ *
+ * A band's two ends are read against the WHOLE live stack and never against the span being cut. `1F TO
+ * ROOF` names two storeys of the building, not two storeys of the plan: read against a typical plan's
+ * own span the roof end would be unfindable, the band would count as unjudgeable, and the cut it exists
+ * to make — keeping a first-floor beam out of the ground storey — would be abandoned on exactly the
+ * plans that need it (L-REG-02: a level is named by the stack that carries it).
  */
-function bandedLevels(placement: PlacementRow, levels: readonly StackedLevel[], families: readonly FamilyBands[]): readonly StackedLevel[] {
+function bandedLevels(placement: PlacementRow, levels: readonly StackedLevel[], stack: readonly StackedLevel[], families: readonly FamilyBands[]): readonly StackedLevel[] {
   const stated = families.find((one) => one.family === placement.memberFamily)?.bands ?? [];
   if (stated.length === 0 || stated.some((band) => band.from === null && band.to === null)) return levels;
-  const ordinalOf = (label: string | null): number | undefined => (label === null ? undefined : levelLabelled(levels, label)?.ordinal);
+  const ordinalOf = (label: string | null): number | undefined => (label === null ? undefined : levelLabelled(stack, label)?.ordinal);
   const readable = stated.filter((band) => (band.from === null || ordinalOf(band.from) !== undefined) && (band.to === null || ordinalOf(band.to) !== undefined));
   if (readable.length === 0) return levels;
   return levels.filter((level) =>
@@ -238,7 +244,7 @@ function bandedLevels(placement: PlacementRow, levels: readonly StackedLevel[], 
 function levelRows(placement: PlacementRow, span: Span, evidence: ExpansionEvidence): ExpansionRow[] {
   if (span.kind === "deferred") return standsUnresolved(span.reason) ? [rowOn(placement, UNRESOLVED, MEASURED)] : [];
   if (span.kind === "unregistered") return [rowOn(placement, { unregistered: span.label }, MEASURED)];
-  return bandedLevels(placement, span.levels, evidence.families ?? []).map((level) =>
+  return bandedLevels(placement, span.levels, evidence.levels, evidence.families ?? []).map((level) =>
     rowOn(placement, { levelId: level.levelId }, level.levelId === span.drawn.levelId ? MEASURED : DERIVED),
   );
 }
