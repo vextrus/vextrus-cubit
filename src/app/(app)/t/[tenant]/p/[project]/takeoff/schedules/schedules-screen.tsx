@@ -12,7 +12,9 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import type { Consequence, TranscribeSheetNotesInput } from "@/core/acts";
 import { SchedulesWorkspace, type SchedulesChrome, type SchedulesDoors, type PreviewAnswer } from "@/modules/takeoff/schedules-ui";
 import type { SchedulesView } from "@/modules/takeoff/schedules-ui/view";
-import { selectionAddress } from "@/modules/takeoff/trace";
+// The address module by name, never the lane's barrel: the barrel also carries the trace's store, and
+// a client component that reaches it pulls the database driver into the browser bundle (ARCH-01).
+import { selectionAddress } from "@/modules/takeoff/trace/address";
 import { EvidenceLink } from "@/ui/patterns/evidence-link";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
