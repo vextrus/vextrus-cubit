@@ -757,7 +757,13 @@ function CertificatePreviewSection({
   const measurementNone = pinned ? COVERAGE_COPY.takeoff_coverage_statement_measurement_none : COVERAGE_COPY.takeoff_coverage_statement_measurement_none_unpinned;
   const billNone = pinned ? COVERAGE_COPY.takeoff_coverage_statement_bill_none : COVERAGE_COPY.takeoff_coverage_statement_bill_none_unpinned;
   return (
-    <section className="cx-coverage-certificate" data-testid="coverage-certificate-preview" data-open={open ? "true" : "false"}>
+    // The section scrolls when the statements are longer than the document box (`overflow: auto`),
+    // and a region that scrolls has to be reachable by the keyboard — otherwise the part below the
+    // fold can be read with a mouse and by no other means (R-UI-012: keyboard reachable, axe
+    // serious/critical = 0 on every screen; the rule is `scrollable-region-focusable`).
+    // It is focusable always rather than only when it overflows: whether it overflows depends on how
+    // many boundaries the campaign has, which is not something the markup can know.
+    <section className="cx-coverage-certificate" data-testid="coverage-certificate-preview" data-open={open ? "true" : "false"} tabIndex={0}>
       <h2 className="cx-coverage-certificate-heading">{COVERAGE_COPY.takeoff_coverage_certificate_heading}</h2>
       <Statement axis={MEASUREMENT} title={COVERAGE_COPY.takeoff_coverage_statement_measurement_title} none={measurementNone} rows={measurement} />
       <Statement axis={BILL} title={COVERAGE_COPY.takeoff_coverage_statement_bill_title} none={billNone} rows={bill} />
