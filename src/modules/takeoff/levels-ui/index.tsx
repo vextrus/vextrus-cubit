@@ -229,6 +229,8 @@ const PERMISSION_NOT_HELD = "PERMISSION_NOT_HELD";
 /** The standing a level's height stands at when its readings agree — the only one that shows metres. */
 const AGREED = "AGREED";
 const SUSPENDED = "SUSPENDED";
+/** The standing of a height nobody has read. §1 says it in the screen's own words, not the wire's. */
+const NONE = "NONE";
 
 /** L-QTY-02's weaker coverage, which a cell states with no figure at all (I-241). */
 const PARTIAL_DECLARED = "PARTIAL_DECLARED";
@@ -239,7 +241,7 @@ const LEVELS_TABLE_ID = "takeoff-level-stack";
 /** The column widths §5 fixes, in the closed set the Decision's own token rule admits. */
 const WIDTH_LEVEL = 180;
 const WIDTH_ORDINAL = 80;
-const WIDTH_STANDING = 200;
+const WIDTH_STANDING = 320;
 const WIDTH_ROLLUP = 160;
 
 /** How finely a height and an ordinal are stepped where a reader uses the control's own arrows. */
@@ -314,6 +316,16 @@ function kindsOf(stack: readonly LevelsViewLevel[]): string[] {
   return held.sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
 }
 
+/**
+ * The words a standing is read by (§1's grid cells). AGREED and SUSPENDED are said by the one
+ * mechanical rule every enum on the product is said by; a height nobody has read is *Not stated*,
+ * which is this screen's own sentence for it — "None" is the wire value, and it reads as an absent
+ * field rather than an unstated height (R-SPINE-060, EnumLabel's own `label`).
+ */
+function standingSaid(standing: string): string | undefined {
+  return standing === NONE ? LEVELS_COPY.levels_standing_none : undefined;
+}
+
 /** What every row of the stack publishes of its own (§7's closed contract, I-242). */
 function rowDataOf(level: LevelsViewLevel, selected: string | null): Readonly<Record<string, string>> {
   const published: Record<string, string> = {
@@ -374,6 +386,8 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
 
   const stack = useMemo(() => inOrdinalOrder(reading.stack), [reading.stack]);
   const kinds = useMemo(() => kindsOf(reading.stack), [reading.stack]);
+  /** The live stack as a roster to choose a level from: in ordinal order, valued by surrogate. */
+  const levelOptions = useMemo(() => stack.map((held) => ({ value: held.levelId, label: held.label })), [stack]);
 
   const holdsStack = permitted[AUTHOR_LEVEL_STACK] === true;
   const holdsFact = permitted[AUTHOR_PROJECT_FACT] === true;
@@ -468,16 +482,15 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
   const openRange = useCallback(
     (range: LevelsViewRange): void => {
       const draft = rangeDrafts[range.viewKey] ?? { from: "", to: "" };
-      // The reader states the two ORDINALS a typical plan stands for (§1's rail); the act names the
-      // levels themselves. An ordinal no live level stands at is carried as written, so the seam is
-      // the one judge of what a range may be and this screen invents no refusal of its own (B-17).
-      const at = (ordinal: string): string => stack.find((held) => String(held.ordinal) === ordinal.trim())?.levelId ?? ordinal.trim();
+      // The reader chooses the two LEVELS a typical plan stands for, off the live stack in the order
+      // it physically stands (§1's rail); a level is named by its surrogate and never by the ordinal
+      // it happens to stand at today, which an insert moves (L-REG-02).
       const input: AuthorTypicalRangeInput = {
         type: AUTHOR_TYPICAL_RANGE,
         projectId: view.projectId,
         viewKey: range.viewKey,
-        fromLevelId: at(draft.from),
-        toLevelId: at(draft.to),
+        fromLevelId: draft.from,
+        toLevelId: draft.to,
       };
       void open({ actType: AUTHOR_TYPICAL_RANGE, input }, () => doors.previewAuthorTypicalRange({ input }));
     },
@@ -491,19 +504,22 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
    * live level exists and INSIDE the empty state while none does — one element, one id, exactly one
    * instance in the DOM at any time.
    */
-  const insertDoor = (
-    <InsertDoor
-      copy={LEVELS_COPY}
-      testIds={testIds}
-      held={holdsStack}
-      offline={offline}
-      open={insertOpen}
-      onOpenChange={setInsertOpen}
-      draft={insertDraft}
-      onDraft={setInsertDraft}
-      onConfirm={openInsert}
-      chrome={chrome}
-    />
+  const insertDoor = useMemo(
+    () => (
+      <InsertDoor
+        copy={LEVELS_COPY}
+        testIds={testIds}
+        held={holdsStack}
+        offline={offline}
+        open={insertOpen}
+        onOpenChange={setInsertOpen}
+        draft={insertDraft}
+        onDraft={setInsertDraft}
+        onConfirm={openInsert}
+        chrome={chrome}
+      />
+    ),
+    [chrome, holdsStack, insertDraft, insertOpen, offline, openInsert, testIds],
   );
 
   /* ----------------------------------------------------------- the shell's ONE inspector (§3.2) */
@@ -528,7 +544,7 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
           <dd className="cx-levels-mono">{formatUserFigure(String(chosen.ordinal))}</dd>
           <dt>{LEVELS_COPY.levels_col_standing}</dt>
           <dd>
-            <EnumLabel value={chosen.standing} className="cx-levels-enum" />
+            <EnumLabel value={chosen.standing} label={standingSaid(chosen.standing)} className="cx-levels-enum" />
             {chosen.standing === AGREED && chosen.canonicalMetres !== null ? (
               <QuantityText value={chosen.canonicalMetres} unit={CANONICAL_UNIT.LENGTH} format={FIGURES} />
             ) : null}
@@ -554,7 +570,10 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
               onChange={(value) => setHeightDraft((draft) => ({ ...draft, value }))}
             />
           </label>
-          <label className="cx-levels-field">
+          {/* A Select's field is a div, not a label: the browser forwards a click inside a <label>
+              to the control that label names, so choosing an option would immediately re-open the
+              listbox it was chosen from — and the open list then covers the field below it. */}
+          <div className="cx-levels-field">
             <span>{LEVELS_COPY.levels_height_unit_label}</span>
             <Select
               options={HEIGHT_UNITS.map((unit) => ({ value: unit, label: unit }))}
@@ -563,8 +582,8 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
               aria-label={LEVELS_COPY.levels_height_unit_label}
               onChange={(unit) => setHeightDraft((draft) => ({ ...draft, unit }))}
             />
-          </label>
-          <label className="cx-levels-field">
+          </div>
+          <div className="cx-levels-field">
             <span>{LEVELS_COPY.levels_height_basis_label}</span>
             {/* I-244: exactly the three bases a height may be READ on, off the law's own roster —
                 never DEFAULTED, which L-MEA-07 bars and the act would refuse. */}
@@ -575,7 +594,7 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
               aria-label={LEVELS_COPY.levels_height_basis_label}
               onChange={(basis) => setHeightDraft((draft) => ({ ...draft, basis }))}
             />
-          </label>
+          </div>
           <label className="cx-levels-field">
             <span>{LEVELS_COPY.levels_height_source_label}</span>
             <Input
@@ -669,12 +688,12 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
       // I-242: the standing in words, and a figure ONLY where the readings agreed on one.
       cell: ({ row }) => (
         <span className="cx-levels-cell-standing">
-          <EnumLabel value={row.original.standing} className="cx-levels-enum" />
+          <EnumLabel value={row.original.standing} label={standingSaid(row.original.standing)} className="cx-levels-enum" />
           {row.original.standing === AGREED && row.original.canonicalMetres !== null ? (
             <QuantityText value={row.original.canonicalMetres} format={FIGURES} className="cx-levels-figure" />
           ) : null}
           {row.original.standing === AGREED && row.original.canonicalMetres !== null ? <UnitBadge unit={CANONICAL_UNIT.LENGTH} /> : null}
-          {row.original.code === null ? null : <EnumLabel value={row.original.code} className="cx-levels-enum" />}
+          {row.original.code === null ? null : <EnumLabel value={row.original.code} className="cx-levels-enum cx-levels-code" />}
         </span>
       ),
     },
@@ -785,26 +804,29 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
                 <span>{range.caption}</span>
                 <IdChip value={range.drawingId} />
               </p>
-              <label className="cx-levels-field">
+              {/* A field is a div rather than a label: a click inside a <label> is forwarded by the
+                  browser to the control that label names, which re-opens a listbox the moment an
+                  option in it is chosen. Every control below states its own name (`aria-label`). */}
+              <div className="cx-levels-field">
                 <span>{LEVELS_COPY.levels_range_from_label}</span>
-                <NumberInput
+                <Select
+                  options={levelOptions}
                   value={rangeDrafts[range.viewKey]?.from ?? ""}
-                  step={ORDINAL_STEP}
                   data-testid={testIds.rangeFrom}
                   aria-label={LEVELS_COPY.levels_range_from_label}
                   onChange={(from) => setRangeDrafts((held) => ({ ...held, [range.viewKey]: { from, to: held[range.viewKey]?.to ?? "" } }))}
                 />
-              </label>
-              <label className="cx-levels-field">
+              </div>
+              <div className="cx-levels-field">
                 <span>{LEVELS_COPY.levels_range_to_label}</span>
-                <NumberInput
+                <Select
+                  options={levelOptions}
                   value={rangeDrafts[range.viewKey]?.to ?? ""}
-                  step={ORDINAL_STEP}
                   data-testid={testIds.rangeTo}
                   aria-label={LEVELS_COPY.levels_range_to_label}
                   onChange={(to) => setRangeDrafts((held) => ({ ...held, [range.viewKey]: { from: held[range.viewKey]?.from ?? "", to } }))}
                 />
-              </label>
+              </div>
               <Door
                 testId={testIds.authorRange}
                 permission={MEASURE}
@@ -965,9 +987,44 @@ function Door({
       </Button>
     );
   }
+  // Offline is not a denial. A reader who HOLDS the permission is told what is true — the connection
+  // is gone and nothing can be committed (§2's offline cell) — and the door publishes no
+  // `data-permission`, because claiming a permission this reader in fact holds would be a false
+  // statement about their standing (R-UI-020, I-247).
+  return <Shut testId={testId} permission={held ? null : permission} label={label} said={held ? LEVELS_COPY.levels_offline : denial} variant={variant} Tooltip={Tooltip} />;
+}
+
+/**
+ * A door that will not open, wearing the frame's own unavailable affordance: the shipped Button
+ * reports `aria-disabled` for busy and for nothing else, so a door shut for a reason of the screen's
+ * own says so here (I-247). It names a permission only where a permission is what is missing.
+ */
+function Shut({
+  testId,
+  permission,
+  label,
+  said,
+  variant,
+  Tooltip,
+}: {
+  testId: string;
+  permission: string | null;
+  label: string;
+  said: string;
+  variant: "primary" | "secondary" | "ghost";
+  Tooltip: LevelsChrome["Tooltip"];
+}) {
   return (
-    <Tooltip content={denial}>
-      <span className="cx-btn cx-reticle cx-levels-door-shut" data-variant={variant} role="button" tabIndex={0} aria-disabled="true" data-testid={testId} data-permission={permission}>
+    <Tooltip content={said}>
+      <span
+        className="cx-btn cx-reticle cx-levels-door-shut"
+        data-variant={variant}
+        role="button"
+        tabIndex={0}
+        aria-disabled="true"
+        data-testid={testId}
+        {...(permission === null ? {} : { "data-permission": permission })}
+      >
         <span className="cx-btn-label">{label}</span>
       </span>
     </Tooltip>
@@ -1005,19 +1062,14 @@ function InsertDoor({
   const { Button, Input, NumberInput, Popover, PopoverTrigger, PopoverContent, Tooltip } = chrome;
   if (!held || offline) {
     return (
-      <Tooltip content={copy.levels_denied_stack}>
-        <span
-          className="cx-btn cx-reticle cx-levels-door-shut"
-          data-variant="primary"
-          role="button"
-          tabIndex={0}
-          aria-disabled="true"
-          data-testid={testIds.insert}
-          data-permission={AUTHOR_LEVEL_STACK}
-        >
-          <span className="cx-btn-label">{copy.levels_insert}</span>
-        </span>
-      </Tooltip>
+      <Shut
+        testId={testIds.insert}
+        permission={held ? null : AUTHOR_LEVEL_STACK}
+        label={copy.levels_insert}
+        said={held ? copy.levels_offline : copy.levels_denied_stack}
+        variant="primary"
+        Tooltip={Tooltip}
+      />
     );
   }
   return (
@@ -1075,15 +1127,28 @@ function Reading({
       data-metres={reading.canonicalMetres}
       data-superseded={String(reading.superseded)}
     >
-      {/* I-25: what was written is kept as it was written, beside what it is worth in metres. */}
-      <span className="cx-levels-mono">
-        {reading.valueAsWritten} {reading.unitAsWritten}
+      {/* I-25: what was written is kept as it was written, beside what it is worth in metres — and
+          each of the four says WHICH it is, because a row of bare figures is not a reading (§3). */}
+      <span className="cx-levels-reading-field">
+        <span className="cx-levels-reading-label">{LEVELS_COPY.levels_reading_written_label}</span>
+        <span className="cx-levels-mono">
+          {reading.valueAsWritten} {reading.unitAsWritten}
+        </span>
       </span>
-      <BasisChip basis={reading.basis as QuantityBasis} />
-      <QuantityText value={reading.canonicalMetres} unit={CANONICAL_UNIT.LENGTH} format={FIGURES} />
+      <span className="cx-levels-reading-field">
+        <span className="cx-levels-reading-label">{LEVELS_COPY.levels_reading_basis_label}</span>
+        <BasisChip basis={reading.basis as QuantityBasis} />
+      </span>
+      <span className="cx-levels-reading-field">
+        <span className="cx-levels-reading-label">{LEVELS_COPY.levels_reading_metres_label}</span>
+        <QuantityText value={reading.canonicalMetres} unit={CANONICAL_UNIT.LENGTH} format={FIGURES} />
+      </span>
       {reading.sourceKey === null ? null : (
-        <span className="cx-levels-source" data-technical="">
-          {reading.sourceKey}
+        <span className="cx-levels-reading-field">
+          <span className="cx-levels-reading-label">{LEVELS_COPY.levels_reading_source_label}</span>
+          <span className="cx-levels-source" data-technical="">
+            {reading.sourceKey}
+          </span>
         </span>
       )}
       {reading.superseded ? <span className="cx-levels-superseded">{LEVELS_COPY.levels_reading_superseded}</span> : null}

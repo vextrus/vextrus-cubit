@@ -73,6 +73,11 @@
   gap: var(--space-2);
   min-width: 160px;
   max-width: 320px;
+  /* The rail is as tall as what it holds and no taller: an index of the views with no typical range
+     is a short list or one sentence, and a bordered box running the height of the frame under it
+     reads as a region still loading. It scrolls on its own only once it is taller than the field. */
+  align-self: flex-start;
+  max-height: 100%;
   overflow-y: auto;
   padding: var(--space-3);
   border: var(--hairline);
@@ -90,6 +95,13 @@
 .cx-levels-none-said {
   font-size: var(--text-caption);
   color: var(--ink-muted);
+}
+
+/* The rail's own rhythm: heading, hint and the sentence under them sit one step apart, so the one
+   line the rail states when every view has said its range is not adrift from the hint above it. */
+.cx-levels-ranges > .cx-levels-hint,
+.cx-levels-ranges > .cx-levels-none-said {
+  margin: 0;
 }
 
 .cx-levels-range-row {
@@ -152,6 +164,22 @@
   text-overflow: ellipsis;
   font-weight: var(--weight-body-medium);
   color: var(--ink);
+}
+
+/* §1: no cell wraps, and a cell with more to say than its column holds ends in an ellipsis rather
+   than mid-glyph. Each word of the standing cell is its own box, so each takes the rule. */
+.cx-levels-cell-standing > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The code a level's height is absent under is a second statement, not the same phrase continued —
+   it is separated from the standing it qualifies. */
+.cx-levels-code::before {
+  content: "·";
+  margin-inline-end: var(--space-1);
+  color: var(--ink-muted);
 }
 
 .cx-levels-mono {
@@ -219,6 +247,19 @@
 }
 
 .cx-levels-reading[data-superseded="true"] {
+  color: var(--ink-muted);
+}
+
+/* Each figure of a reading says which figure it is (§3's four labels): as written, on what basis,
+   what it is worth in metres, and what it was read from. */
+.cx-levels-reading-field {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.cx-levels-reading-label {
   color: var(--ink-muted);
 }
 

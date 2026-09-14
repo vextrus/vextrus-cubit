@@ -11,6 +11,10 @@ export const levels = {
   levels_col_level: "Level",
   levels_col_ordinal: "Ordinal",
   levels_col_standing: "Storey height",
+  // §1 rules the standing in words — *Agreed* / *Suspended* / *Not stated*. The first two are what
+  // the one mechanical enum rule already says; the third is this screen's own word for a height
+  // nobody has read, because "None" reads as a missing field rather than an unstated height.
+  levels_standing_none: "Not stated",
   levels_rollup_lines: "{count} lines",
   levels_insert: "Insert a level",
   levels_insert_label_field: "Label",
