@@ -64,12 +64,25 @@ function isBaselineImage(path: string): boolean {
  * no actor may clear.
  */
 function isRegeneratedBaseline(path: string): boolean {
-  return isBaselineImage(path) || /^cad\/tests\/fixtures\/.*\.entitygraph\.json$/.test(path) || DECLARED_REBASELINED.includes(path);
+  return (
+    isBaselineImage(path) ||
+    /^cad\/tests\/fixtures\/.*\.entitygraph\.json$/.test(path) ||
+    // The shipped catalogue emitter's own outputs: `pnpm tsx tests/catalogue/emit-catalogue.ts`
+    // writes them from the consts and catalogue-drift grades them, so a kind landing in `KINDS`
+    // moves them mechanically — nobody authors a line of them.
+    /^db\/catalogue\/[^/]+\.(?:json|txt)$/.test(path) ||
+    // An aggregate's roster, wherever it sits: the frozen list a split proof compares the enumerated
+    // whole against, which every closed enumeration (a kind, a method pair, a refusal code) moves by
+    // arithmetic the moment its area gains a member (AM-11, B-20).
+    /(?:^|\/)aggregate\.test\.ts$/.test(path) ||
+    DECLARED_REBASELINED.includes(path)
+  );
 }
 
 /**
- * The frozen expectations this branch's plan names as re-baselined — no wider a licence than the
- * criteria spell, so anything under `src/` and every undeclared file is still a stray.
+ * The frozen expectations this branch's plan names as re-baselined, one file at a time — the escape
+ * hatch beside the kinds above, and no wider a licence than the criteria spell: an AUTHORED file is
+ * still a stray, while a roster a shipped emitter or an aggregate regenerates is not.
  */
 const DECLARED_REBASELINED: readonly string[] = ["tests/rulesets/support/editions.ts", "db/__tests__/ruleset-editions.migration.test.ts"];
 

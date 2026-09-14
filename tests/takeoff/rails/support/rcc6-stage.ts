@@ -5,9 +5,16 @@
  * stages beside it already drive: the corpus is ingested by the real `cad/` CLI and the shipped
  * ingest job (`../../partition/support/placement-stage`), the level stack and its storey heights are
  * authored by acts (`../../levels/support/levels-stage`), the set is pinned by the pin act, the
- * partition job runs placements, member types and expansion, the scale of every layout-plan view
- * carrying columns is affirmed by `AFFIRM_SCALE`, and the campaign is measured by `runMeasureJob`
- * with the shipped `RAILS` roster and the gate.
+ * partition job runs placements, member types and expansion, the scale of every layout-plan view the
+ * partition stored a placement in is affirmed by `AFFIRM_SCALE`, and the campaign is measured by
+ * `runMeasureJob` with the shipped `RAILS` roster and the gate.
+ *
+ * A CALIBRATION IS A PROPERTY OF THE VIEW, NEVER OF THE CLASS DRAWN IN IT. Ranging is a statement
+ * about levels, so `AUTHOR_TYPICAL_RANGE` is offered only for the views carrying members that STAND
+ * on a level (`LEVEL_CLASSES`). Affirming a scale is not: a tie beam stands in the FOUNDATION slot
+ * and on no level (AC-3), and its `clear` is a MEASURED reading off the FOUNDATION PLAN like any
+ * other — so the affirmation pass runs over every view the partition placed anything in, and no
+ * class is left measuring against a view whose scale nobody affirmed (AC-5, AC-7; L-MEA-05).
  *
  * Two facts about the corpus decide what this stage has to author. The TYPICAL FLOOR PLAN's caption
  * states its own range ("1F TO 5F"), and the ROOF PLAN's caption states none for its columns — so
@@ -226,6 +233,14 @@ export async function stageRcc6(label: string): Promise<Rcc6Stage> {
     .map((view) => view.viewKey)
     .filter((viewKey) => rangedAddresses.some((address) => namesSameView(address, viewKey)))
     .sort();
+  // Every view the partition placed anything in, whatever class it placed: the set whose scale has
+  // to stand before a rail may read a length off it. Derived from the placements the run stored, so
+  // a class this stage never heard of arrives inside it (L-MEA-05, B-19).
+  const placedAddresses = [...new Set(placements.map((row) => row.viewKey))].sort();
+  const placedViews = viewRecords
+    .map((view) => view.viewKey)
+    .filter((viewKey) => placedAddresses.some((address) => namesSameView(address, viewKey)))
+    .sort();
   // Nothing is asserted about what the corpus gave: what the partition read is the product's answer,
   // and the criteria beside this stage are where it is judged (ARCH-03). What it gave is carried out
   // on `partition`, so a case that finds nothing can say what the run reported.
@@ -255,13 +270,14 @@ export async function stageRcc6(label: string): Promise<Rcc6Stage> {
     }
   }
 
-  // Every one of those views, scale-affirmed at the rank the machine proposes for it: a rail cannot
-  // mint a calibration reference it does not hold (L-MEA-05, riskNotes (3)).
+  // Every view anything was placed in, scale-affirmed at the rank the MACHINE proposes for it — the
+  // stage never composes a proposal of its own, it affirms one the scale door itself ranked and
+  // offered: a rail cannot mint a calibration reference it does not hold (L-MEA-05, riskNotes (3)).
   const scale = await productModule<{ scaleProposalsOf: (s: { tenantId: string; projectId: string; drawingId: string }, deps: { storage: unknown }) => Promise<ViewScale[]> }>(SCALE_MODULE);
   const storage = await storageOf();
   const scales = await scale.scaleProposalsOf({ ...scope, drawingId: corpus.drawingId }, { storage });
   const byRank = new Map<string, string[]>();
-  for (const view of scales.filter((one) => rangedViews.includes(one.viewKey) && one.affirmed === null)) {
+  for (const view of scales.filter((one) => placedViews.includes(one.viewKey) && one.affirmed === null)) {
     const rank = view.proposals[0]?.rank;
     expect(rank, `the machine proposes a scale for the layout-plan view ${view.viewKey} — a view with no proposal has nothing to affirm (L-MEA-05)`).toBeTruthy();
     const held = byRank.get(String(rank)) ?? [];
