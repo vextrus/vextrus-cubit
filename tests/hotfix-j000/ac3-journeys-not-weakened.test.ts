@@ -90,11 +90,24 @@ function isRegeneratedBaseline(path: string): boolean {
  * perf specs and the design decisions, and nothing increment-shaped), so a read of it today would
  * admit nothing and turn a lawful `baseline:` commit into a red no actor may clear. Until a spec
  * lands in the tree, the ruling's second limb governs and the list stands.
+ *
+ * `tests/jobs/support/hotfix-baseline/jobs-seam.main.txt` is the fourth: main's jobs-seam suite
+ * frozen at FORK_POINT da94c0d3 for inc-hotfix-20260914-0052's AC-3, re-taken past the SEAM-JOBS
+ * AC-2 arbitration (437041d8). The pre-ruling copy demanded of `tests/jobs/jobs-seam.test.ts` a
+ * measured gap compared against another measured gap — a wall-clock budget AM-10 §3 forbids a gate
+ * lane to assert — so keeping the frozen copy would oblige the lane to keep an assertion the
+ * arbitration struck out, which is exactly the frozen expectation B-20 lets an increment re-take.
+ * It rode its own commit, `baseline: the frozen jobs-seam copy is re-taken past the arbitration
+ * (B-20, SEAM-JOBS AC-2)`, which names its proof; the stray reading below is what would otherwise
+ * make that lawful commit a red no actor may clear. This entry, like the third, is the
+ * ARBITRATION's and not a Builder's, so no reviewer reads it as scope drift. The licence widens by
+ * exactly one declared path and not in kind: every undeclared file is still a stray.
  */
 const DECLARED_REBASELINED: readonly string[] = [
   "tests/rulesets/support/editions.ts",
   "db/__tests__/ruleset-editions.migration.test.ts",
   "src/core/errors/aggregate.test.ts",
+  "tests/jobs/support/hotfix-baseline/jobs-seam.main.txt",
 ];
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {
