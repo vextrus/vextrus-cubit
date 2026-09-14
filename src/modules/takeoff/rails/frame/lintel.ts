@@ -19,19 +19,28 @@ const LINTEL: ElementType = "lintel";
 const OPENING = "w";
 const BEARING = "bearing";
 
-/** One cell of the schedule as an offer carries it: transcribed, on the view's own calibration. */
-function carried(reading: ReadingSetup, calibration: string): Measure {
-  return { value: reading.value, unit: reading.unit, basis: reading.basis, source: reading.source, calibration };
+/**
+ * One cell of the schedule as an offer carries it: what it said, in the unit it said it in, from the
+ * cell it was read at.
+ *
+ * It stands on no calibration, and that is the point: a calibration is what a length MEASURED off a
+ * drawing stands on (L-MEA-05), and every one of a lintel's five readings is a schedule cell
+ * transcribed rather than measured — exactly as the section a member-type schedule states is carried
+ * by the rail beside this one. The line still carries an affirmed reference, on its geometry, which
+ * is what L-QTY-03 asks of it.
+ */
+function carried(reading: ReadingSetup): Measure {
+  return { value: reading.value, unit: reading.unit, basis: reading.basis, source: reading.source };
 }
 
 /** Every reading a lintel is measured from, bound by the name its method declares it under. */
-function bindingsOf(stated: LintelSetup, calibration: string): Record<string, Measure> {
+function bindingsOf(stated: LintelSetup): Record<string, Measure> {
   return {
-    [COUNT]: carried(stated.count, calibration),
-    [WIDTH]: carried(stated.b, calibration),
-    [DEPTH]: carried(stated.D, calibration),
-    [OPENING]: carried(stated.w, calibration),
-    [BEARING]: carried(stated.bearing, calibration),
+    [COUNT]: carried(stated.count),
+    [WIDTH]: carried(stated.b),
+    [DEPTH]: carried(stated.D),
+    [OPENING]: carried(stated.w),
+    [BEARING]: carried(stated.bearing),
   };
 }
 
@@ -69,7 +78,7 @@ export function lintelRail(declared: { readonly ruleId: string; readonly kind: K
         drawing: { drawingId: placement.drawingId, viewKey: placement.viewKey },
         engine: placement.engine,
         geometry: { type: PRISM_RECT, basis: row.standing, calibration },
-        bindings: bindingsOf(stated, calibration),
+        bindings: bindingsOf(stated),
         selectors: {},
         deductions: [],
         // Every reading a lintel is measured from comes from the one schedule that states it, so an

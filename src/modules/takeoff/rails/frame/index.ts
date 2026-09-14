@@ -52,10 +52,15 @@ export const lintelFormworkRail: Rail = lintelRail({ ruleId: FRAME_RULE_IDS.lint
  * own class, so the composition offers each row exactly once (L-MEA-08).
  */
 function composed(members: readonly Rail[]): Rail {
-  return (input: RailInput) => ({
-    offers: members.flatMap((rail) => rail(input).offers),
-    observations: members.flatMap((rail) => rail(input).observations),
-  });
+  return (input: RailInput) => {
+    // Each member is asked ONCE and its whole batch kept: a rail is pure, so asking twice would
+    // answer the same thing at twice the cost, over every row of every campaign (L-MEA-08).
+    const batches = members.map((rail) => rail(input));
+    return {
+      offers: batches.flatMap((batch) => batch.offers),
+      observations: batches.flatMap((batch) => batch.observations),
+    };
+  };
 }
 
 /** Every class that bears `rcc.concrete` in this area, the column's first (AC-1's `BEARS` order). */
