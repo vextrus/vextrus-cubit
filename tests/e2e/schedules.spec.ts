@@ -52,6 +52,23 @@ const SCHEDULES = "Schedules";
 /** The state a screen is in when something on it is refused and everything else reads on (R-UI-050). */
 const PARTIAL = "partial";
 
+/** What a sheet whose texts state no figure says in the notes panel's place (Decision §1, AC-7). */
+const NOTES_NONE_PROPOSED = "NOTES_NONE_PROPOSED";
+
+/**
+ * The address a trace opens, spelled as the test contract spells it: the viewer at that sheet, the
+ * cited entities in `s`, and no `line` param. The acceptance spells it so the screen cannot be
+ * graded against its own composition of it.
+ */
+function selectionAddress(tenantId: string, projectId: string, drawingId: string, layoutName: string, sourceKeys: readonly string[]): string {
+  return `/t/${tenantId}/p/${projectId}/viewer/${drawingId}/${encodeURIComponent(layoutName)}?s=${sourceKeys.map((key) => encodeURIComponent(key)).join(",")}`;
+}
+
+/** How many of the stored rows say exactly this — the multiplicity the screen owes, never a guess. */
+function howMany<T>(rows: readonly T[], alike: (one: T) => boolean): number {
+  return rows.filter(alike).length;
+}
+
 test.describe("J-032 — schedules, the member-type registry and sheet notes", () => {
   test("J-032: the reconstructed schedule stands beside its sheet, every cell a trace, the registry verbatim", async ({ page }, testInfo) => {
     await signInAsSeededTenant(page, testInfo.parallelIndex);
@@ -86,15 +103,30 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
     const cells = schedules.cells(table);
     const drawn = await steadyCount(cells, "the cells of the reconstructed table");
     expect(drawn, "a reconstructed table renders the cells it stored").toBeGreaterThan(0);
-    for (let at = 0; at < drawn; at += 1) {
-      const links = schedules.evidence(cells.nth(at));
-      await expect(links, "every cell that came from a drawing carries exactly one trace (R-UI-022, I-252)").toHaveCount(1);
-      await expect(links, "and says it was read off the drawing's own text (L-QTY-01)").toHaveAttribute("data-basis", TRANSCRIBED);
-      const href = await heldAttribute(links, "href");
-      expect(href, `a cell's trace opens the sheet it was read on, at the entities it cites: ${String(href)}`).toContain(
-        `/t/${staged.tenantId}/p/${staged.projectId}/viewer/${staged.drawingId}/${staged.scheduleLayout}?s=`,
+
+    // Every stored cell, where it was stored, saying what it says and citing what IT cites. The
+    // header band is the grid's own header, so it is allowed to render as one rather than as a cell.
+    const headerRow = Math.min(...staged.cells.map((one) => one.rowIndex));
+    for (const stored of staged.cells.filter((one) => one.rowIndex > headerRow)) {
+      const where = `row ${stored.rowIndex}, column ${stored.columnIndex}`;
+      const at = schedules.cell(table, stored.rowIndex, stored.columnIndex);
+      await expect(at, `the cell stored at ${where} stands where it was stored`).toHaveCount(1);
+      const link = schedules.evidence(at);
+      await expect(link, "every cell that came from a drawing carries exactly one trace (R-UI-022, I-252)").toHaveCount(1);
+      await expect(link, `labelled with what the drawing says at ${where}, verbatim (Decision §1, Cells)`).toContainText(stored.text);
+      await expect(link, "and says it was read off the drawing's own text (L-QTY-01)").toHaveAttribute("data-basis", TRANSCRIBED);
+      await expect(link, `which opens the sheet at the entities THIS cell cites, never the ones beside it: ${JSON.stringify(stored.sourceKeys)}`).toHaveAttribute(
+        "href",
+        selectionAddress(staged.tenantId, staged.projectId, staged.drawingId, staged.scheduleLayout, stored.sourceKeys),
       );
-      expect(href, "and carries no row of another screen with it (test contract: no `line` param)").not.toContain("line=");
+    }
+
+    // And nothing is drawn that the store does not hold: every rendered cell answers to a stored one.
+    const holds = staged.cells.map((one) => `${one.rowIndex}:${one.columnIndex}`);
+    for (let at = 0; at < drawn; at += 1) {
+      const one = cells.nth(at);
+      const stands = `${String(await heldAttribute(one, "data-row"))}:${String(await heldAttribute(one, "data-column"))}`;
+      expect(holds, `the cell the screen drew at ${stands} is one the store holds`).toContain(stands);
     }
 
     /* --- the member-type registry: what the schedule said a member IS, and never how many (AC-7) --- */
@@ -103,6 +135,29 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
       await expect(schedules.family(family), `the mark family ${family} the schedule named`).toHaveCount(1);
     }
     await expect(schedules.families, "one row per stored family, and no family nobody named").toHaveCount(staged.families.length);
+
+    for (const variant of staged.variants) {
+      await expect(
+        schedules.variantSaying(variant.variantKey, [variant.bandText, variant.sectionText]),
+        `the ${variant.family} band ${variant.variantKey} says its storeys and its section verbatim (I-251)`,
+      ).toHaveCount(howMany(staged.variants, (one) => one.variantKey === variant.variantKey && one.bandText === variant.bandText && one.sectionText === variant.sectionText));
+    }
+    await expect(schedules.variants, "one row per stored variant, and no band nobody drew").toHaveCount(staged.variants.length);
+
+    for (const zone of staged.zones) {
+      await expect(
+        schedules.zoneSaying(zone.zone, zone.text),
+        `the ${zone.zone} rebar of ${zone.family} ${zone.variantKey} says what the schedule said: ${zone.text}`,
+      ).toHaveCount(howMany(staged.zones, (one) => one.zone === zone.zone && one.text === zone.text));
+    }
+    await expect(schedules.zones, "one row per stored rebar zone, and never a count of bars (I-251)").toHaveCount(staged.zones.length);
+
+    /* --- the notes panel of a sheet whose texts state no figure: never silent (AC-7, Decision §1) --- */
+    await expect(schedules.notes, "the notes panel stands on this sheet too — silence is not a state").toHaveCount(1);
+    const silent = schedules.refusals(schedules.notes);
+    await expect(silent, "a sheet whose texts propose nothing says so through exactly one RefusalState (R-UI-020)").toHaveCount(1);
+    await expect(silent, "under the registered code for it").toHaveAttribute("data-code", NOTES_NONE_PROPOSED);
+    await expect(schedules.transcribe, "and offers no act door at all: there is nothing to transcribe (Decision §1)").toHaveCount(0);
 
     /* --- the view that could not be reconstructed: stated where it belongs, never silently (AC-7) --- */
     const deferral = schedules.deferrals.first();

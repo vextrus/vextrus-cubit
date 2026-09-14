@@ -14,7 +14,9 @@ import {
   BNBC_PILE_NOTE,
   BNBC_SILENT_NOTES,
   EXPECTED_PROPOSALS,
+  EXPECTED_VARIANT_PROPOSALS,
   FC,
+  GRAMMAR_VARIANTS,
   NOTES_GRAMMAR_MODULE,
   NOTES_LAW_MODULE,
   NOTE_KINDS_VOCABULARY,
@@ -22,6 +24,7 @@ import {
   VOCABULARY_MODULE,
   corpusRawStrings,
   expectedFacts,
+  variantsOf,
   type SheetText,
 } from "./support/bnbc-notes";
 import { grammarSeam, notesLaw, productModule, proposalFacts } from "./support/notes-doors";
@@ -37,6 +40,9 @@ describe("AC-1: the notes grammar reads F-RCC6-BNBC's general notes, and nothing
     const raws = corpusRawStrings();
     for (const note of [...BNBC_GENERAL_NOTES, BNBC_PILE_NOTE, ...BNBC_SILENT_NOTES]) {
       expect(raws, `${BNBC_CORPUS} carries ${JSON.stringify(note.text)} as a string of the drawing`).toContain(note.text);
+    }
+    for (const probe of GRAMMAR_VARIANTS) {
+      expect(raws, `and carries no sentence of ${JSON.stringify(probe.text)} — the probes below are the acceptance's own, never the fixture's`).not.toContain(probe.text);
     }
   });
 
@@ -60,6 +66,29 @@ describe("AC-1: the notes grammar reads F-RCC6-BNBC's general notes, and nothing
     expect(proposed, `${NOTES_GRAMMAR_MODULE} reads the grade, the strength, the lap and the two hook figures — and nothing else`).toEqual(
       expectedFacts(law.NOTE_KINDS),
     );
+  });
+
+  test("AC-1: a sentence of the same form stating another figure reads as THAT figure — a grammar, never a table of sentences", async () => {
+    const law = await notesLaw();
+    const grammar = await grammarSeam();
+
+    const proposed = grammar.proposeNotes(GRAMMAR_VARIANTS).map(proposalFacts);
+    expect(
+      proposed,
+      "the grade in its parenthesis, the strength in psi, the tension lap, the 135° hook and its minimum — read off sentences no drawing in this tree carries",
+    ).toEqual(expectedFacts(law.NOTE_KINDS, EXPECTED_VARIANT_PROPOSALS));
+  });
+
+  test("AC-1: each such sentence, handed over by itself, states exactly what it states", async () => {
+    const law = await notesLaw();
+    const grammar = await grammarSeam();
+
+    for (const probe of GRAMMAR_VARIANTS) {
+      const alone = grammar.proposeNotes([probe]).map(proposalFacts);
+      expect(alone, `${JSON.stringify(probe.text)} is read for itself, whatever stands beside it on the sheet`).toEqual(
+        expectedFacts(law.NOTE_KINDS, variantsOf(probe)),
+      );
+    }
   });
 
   test("AC-1: the same texts in reverse answer the same list — the order is the reading's, never the input's", async () => {

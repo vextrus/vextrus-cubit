@@ -31,6 +31,8 @@ import {
   reading,
   rowCount,
   stageNotes,
+  stageRevisionHolding,
+  stageSheetOutsideRevision,
   transcription,
   type StagedNotes,
 } from "./support/notes-stage";
@@ -77,11 +79,11 @@ function theCommit(): Promise<void> {
   })());
 }
 
-/** The stored readings of one kind, in the shape `noteStanding` is handed them. */
-function readingsOfKind(tenantId: string, kind: string): Record<string, unknown>[] {
+/** The stored readings of one kind made on one sheet, in the shape `noteStanding` is handed them. */
+function readingsOfKind(tenantId: string, drawingId: string, kind: string): Record<string, unknown>[] {
   return readingRows(tenantId)
     .map(readingFacts)
-    .filter((row) => row.kind === kind) as unknown as Record<string, unknown>[];
+    .filter((row) => row.kind === kind && row.drawingId === drawingId) as unknown as Record<string, unknown>[];
 }
 
 afterAll(async () => {
@@ -157,22 +159,57 @@ describe("AC-4: the door answers what the campaign applies, and a note mints no 
   );
 
   test(
+    "AC-4: a reading made on a sheet the revision does not hold is not applied — and the revision that holds it applies it",
+    async () => {
+      const { staged: stage } = await staged();
+      await theCommit();
+      const door = await notesDoor();
+
+      /* --- a second sheet of the SAME project, on a drawing no pinned set of it holds --- */
+      const outside = await stageSheetOutsideRevision(stage, "fc");
+      const texts = await door.sheetTextsOf({ tenantId: stage.tenantId, projectId: stage.projectId, drawingId: outside.drawingId }, outside.layoutName);
+      const offered = Object.fromEntries(door.proposeNotes(texts).map((proposal) => [String(proposal["kind"]), proposal]));
+      expect(offered[FC], `the second sheet states a concrete strength to read: ${JSON.stringify(Object.keys(offered))}`).toBeTruthy();
+      await performAct(stage.measurer.actor, transcription({ projectId: stage.projectId, sheet: outside }, [asProposed(offered[FC] as Record<string, unknown>)]));
+
+      const madeThere = readingRows(stage.tenantId)
+        .map(readingFacts)
+        .filter((row) => row.drawingId === outside.drawingId);
+      expect(madeThere.length, "the reading was really made, and stands in the store where it was made").toBe(1);
+      const strengthKey = (madeThere[0] as Record<string, string>)["sourceKey"] as string;
+
+      /* --- the pinned revision does not hold that sheet, so it applies nothing that was read on it --- */
+      const applied = await door.appliedDetailingValuesOf({ tenantId: stage.tenantId, projectId: stage.projectId, setRevisionId: stage.setRevisionId });
+      expect(Object.keys(applied), "a strength read on a sheet this revision's manifest does not name is not this revision's value (L-REG-07)").not.toContain("fc");
+      expect(applied["sourceKeys"], "and the revision cites nothing it did not apply").not.toContain(strengthKey);
+
+      /* --- and a revision whose manifest DOES name it applies it, in the same project, same store --- */
+      const holding = await stageRevisionHolding(stage, "fc-revision", [outside.drawingId]);
+      const there = await door.appliedDetailingValuesOf({ tenantId: stage.tenantId, projectId: stage.projectId, setRevisionId: holding });
+      expect(there["fc"], "the revision that holds the sheet applies the strength it was read at, as it was written").toEqual({ value: 3500, unit: "psi" });
+      expect(there["sourceKeys"], "citing that reading's own text, and nothing from a sheet it does not hold").toEqual([strengthKey]);
+      expect(Object.keys(there), "the grade was read on another sheet, which this revision does not hold either").not.toContain("fy");
+    },
+    BUDGET_MS,
+  );
+
+  test(
     "AC-4: the standing beneath the door is the pure one — agreed where the readings agree, none where nobody read",
     async () => {
       const { staged: stage } = await staged();
       await theCommit();
       const door = await notesDoor();
 
-      const fy = door.noteStanding(readingsOfKind(stage.tenantId, FY));
+      const fy = door.noteStanding(readingsOfKind(stage.tenantId, stage.sheet.drawingId, FY));
       expect(fy.standing, "one reading of the grade, uncontested").toBe(AGREED);
       expect(String(fy.canonical), "standing at the figure it was read at").toBe("500");
       expect(fy.code ?? null, "and nothing is refused about a figure everybody agrees on").toBeNull();
 
-      const lap = door.noteStanding(readingsOfKind(stage.tenantId, LAP));
+      const lap = door.noteStanding(readingsOfKind(stage.tenantId, stage.sheet.drawingId, LAP));
       expect(lap.standing, "and the lap the same").toBe(AGREED);
       expect(String(lap.canonical), "at the multiplier the note states").toBe("50");
 
-      const fc = door.noteStanding(readingsOfKind(stage.tenantId, FC));
+      const fc = door.noteStanding(readingsOfKind(stage.tenantId, stage.sheet.drawingId, FC));
       expect(fc.standing, "the concrete strength nobody read stands at nothing").toBe(NONE);
       expect(fc.canonical ?? null, "so it carries no figure at all (L-MEA-01)").toBeNull();
     },

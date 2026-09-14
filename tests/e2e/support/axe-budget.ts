@@ -101,6 +101,12 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "s-auth-signed-in-sessions": 0,
   "s-project-drawings-via-tab": 0,
   "s-project-home": 0,
+  // S-Schedules' two checkpoints (J-032), named here by the acceptance that added them: a checkpoint
+  // this file does not name FAILS, so the screen could not be walked at all without these two lines.
+  // Zero is the strictest reading and the only honest one before a run — the screen does not exist
+  // yet, so no moderate count has been measured. It is raised only by the commit that reads one.
+  "s-schedules/tables": 0,
+  "s-schedules/transcribed": 0,
   "s-takeoff/measure-queued": 0,
   "s-takeoff/register": 0,
   "stack": 0,

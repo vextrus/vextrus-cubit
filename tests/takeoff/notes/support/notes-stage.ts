@@ -467,6 +467,38 @@ export async function stageNotes(label: string, texts: readonly SheetText[] = BN
   };
 }
 
+/**
+ * A SECOND sheet of the same project, on a drawing no set of this stage holds: the ground for the
+ * rule that a reading is applied by the revision that holds the sheet it was made on, and by no
+ * other (AC-4). It is staged exactly as the first one is — the same artifact, the same pipeline.
+ */
+export async function stageSheetOutsideRevision(staged: StagedNotes, label: string, texts: readonly SheetText[] = BNBC_SHEET_TEXTS): Promise<StagedSheet> {
+  return stageNotesSheet(staged.person, staged.projectId, `outside-${label}`, texts);
+}
+
+/**
+ * A further revision of the same project, pinning a set that holds exactly the drawings named — the
+ * second half of that rule: the same store, the same tenant, another manifest, another answer.
+ */
+export async function stageRevisionHolding(staged: StagedNotes, label: string, drawingIds: readonly string[]): Promise<string> {
+  const sets = await setsSeam();
+  const created = await sets.createSet(staged.scope, { userId: staged.person.userId }, unique(`${label} set`));
+  expect(created.created, `the set for ${label} was created: ${JSON.stringify(created)}`).toBe(true);
+  const setId = (created as { created: true; setId: string }).setId;
+  for (const drawingId of drawingIds) {
+    const toggled = await sets.toggleMember(staged.scope, setId, drawingId);
+    expect(toggled.toggled, `${drawingId} was toggled into the ${label} set: ${JSON.stringify(toggled)}`).toBe(true);
+  }
+
+  const acts = await setActsSeam();
+  const pin = pinning(staged.projectId, setId);
+  const consequence = await acts.preview(actorOf(staged.person), pin);
+  await acts.commit(actorOf(staged.person), pin, acts.consequenceDigest(consequence));
+  const revisions = setRevisionRows(staged.tenantId, setId);
+  expect(revisions.length, `pinning the ${label} set added one revision to the ledger: ${JSON.stringify(revisions)}`).toBe(1);
+  return (revisions[0] as { setRevisionId: string }).setRevisionId;
+}
+
 /* ------------------------------------------------------------------ the act, as the seam is given it */
 
 /** One TRANSCRIBE_SHEET_NOTES over N readings of one sheet (AC-2). */
