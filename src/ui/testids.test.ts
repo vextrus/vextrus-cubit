@@ -38,7 +38,7 @@ const SRC = join(REPO_ROOT, "src");
  * THE GOLDEN LIST. Every test id the tree published on 2026-09-12, sorted, byte for byte. Nothing
  * derives it; it is written out so that a diff of this file is a diff of the product's test surface.
  */
-const GOLDEN: readonly string[] = [
+const GOLDEN: readonly string[
   "accept-invitation-form",
   "accept-invitation-refusal",
   "accept-invitation-submit",
@@ -311,6 +311,24 @@ const GOLDEN: readonly string[] = [
   "s-home-stat-campaigns",
   "s-home-stat-estimates",
   "s-home-stat-sheets",
+  "schedules-cell",
+  "schedules-deferral",
+  "schedules-empty",
+  "schedules-family",
+  "schedules-inspector",
+  "schedules-notes",
+  "schedules-proposal",
+  "schedules-proposal-value",
+  "schedules-reading",
+  "schedules-registry",
+  "schedules-screen",
+  "schedules-sheet-row",
+  "schedules-sheets",
+  "schedules-standing",
+  "schedules-table",
+  "schedules-transcribe",
+  "schedules-variant",
+  "schedules-zone",
   "scrollarea-viewport",
   "set-browser",
   "set-create",
@@ -400,6 +418,7 @@ const GOLDEN: readonly string[] = [
   "takeoff-nav-coverage",
   "takeoff-nav-levels",
   "takeoff-nav-register",
+  "takeoff-nav-schedules",
   "theme-option-dark",
   "theme-option-light",
   "theme-option-system",

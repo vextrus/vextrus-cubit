@@ -115,7 +115,7 @@ export interface SchedulesChrome {
   readonly EnumLabel: ComponentType<{ value: string; label?: string; className?: string; "data-testid"?: string }>;
   readonly UnitBadge: ComponentType<{ unit: string }>;
   /** R-UI-022's one affordance: a place, never a door — the address is composed by the caller (I-178). */
-  readonly EvidenceLink: ComponentType<{ href: string; basis: string; label: string; className?: string }>;
+  readonly EvidenceLink: ComponentType<{ href: string; basis: typeof TRANSCRIBED; label: string; className?: string }>;
   readonly Tooltip: ComponentType<{ content: ReactNode; children: ReactNode }>;
   /** THE TWO MOUNTS (Direction §1, §3.2): the lane's tabs row, and the frame's ONE inspector. */
   readonly TabsAside: ComponentType<{ children?: ReactNode }>;
@@ -442,7 +442,7 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
         <EnumLabel value={held.kind} label={KIND_SAID[held.kind]} className="cx-schedules-enum" />
         <EnumLabel value={held.basis} className="cx-schedules-enum" />
         <EnumLabel value={held.acceptance} label={held.acceptance === ACCEPTED ? SCHEDULES_COPY.schedules_reading_accepted : SCHEDULES_COPY.schedules_reading_edited} className="cx-schedules-enum" />
-        <EvidenceLink href={traceTo([held.sourceKey])} basis={held.basis} label={held.sourceKey} />
+        <EvidenceLink href={traceTo([held.sourceKey])} basis={TRANSCRIBED} label={held.sourceKey} />
       </div>
     );
   }, [EnumLabel, EvidenceLink, IdChip, selected, sheet, testIds, traceTo]);
@@ -983,7 +983,7 @@ function Reading({
         label={reading.acceptance === ACCEPTED ? SCHEDULES_COPY.schedules_reading_accepted : SCHEDULES_COPY.schedules_reading_edited}
         className="cx-schedules-enum"
       />
-      <EvidenceLink href={href} basis={reading.basis} label={reading.sourceKey} />
+      <EvidenceLink href={href} basis={TRANSCRIBED} label={reading.sourceKey} />
     </div>
   );
   return reading.superseded ? <Tooltip content={SCHEDULES_COPY.schedules_reading_superseded}>{said}</Tooltip> : said;
