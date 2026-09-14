@@ -9,6 +9,7 @@
 // names the product does own).
 
 import { ACT_TYPES } from "../acts/law";
+import { NOTE_KINDS } from "../notes/law";
 import { COVERAGES, GEOMETRY_TYPES } from "../offers/law";
 import { AXIS_IDLE_READINGS } from "../residue/law";
 
@@ -123,6 +124,16 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // copied, so an act type the law gains tomorrow is declared with no edit (B-19, B-17).
     vocabulary: "act types (L-ACT-02)",
     codes: ACT_TYPES,
+  }),
+  Object.freeze({
+    // R-TO-034's note kinds: the five detailing figures a sheet's general notes state. A kind names
+    // WHICH figure a reading is of — it is written to `notes_readings`, read by the grammar and the
+    // standing, and rendered to a person as a word through `EnumLabel`, never as this name. Two of
+    // them bear an underscore, so Q-07's register would read them as refusal codes nobody
+    // registered. The roster's home is `../notes/law.ts` and it is READ from there rather than
+    // copied, so a kind the law gains tomorrow is declared with no edit (B-19, ARCH-02).
+    vocabulary: "note kinds (R-TO-034)",
+    codes: NOTE_KINDS,
   }),
   Object.freeze({
     // L-MEA-05's scale ranks, spelled as the law spells its precedence: "QS two-point › grid-spacing
