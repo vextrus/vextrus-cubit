@@ -11,6 +11,6 @@ export { EXPORT_EPOCH, EXPORT_KINDS, MIME_OF_KIND } from "./contract";
 export type { ExportCell, ExportColumn, ExportKind, SheetSpec, WorkbookSpec } from "./contract";
 export { writeCsv } from "./csv";
 export { lakhCroreNumberFormat } from "./number-format";
-export { exportAddress, exportDownloadUrl, isExportKind, readSignedExport, storeExport } from "./store";
+export { exportAddress, exportDownloadUrl, isExportKind, readSignedExport, storeExport, storedKindOf } from "./store";
 export type { ExportAddress, ExportLink, ExportRefusal, PresentedLink, SignedExport } from "./store";
 export { buildWorkbook } from "./workbook";

@@ -19,8 +19,9 @@
 // has HTTP names for exactly what happened to it — 410 for one that has aged out, 404 for an address
 // nothing stands at — and a reader that is not our screen should hear them.
 import { z } from "zod";
-import { MIME_OF_KIND, EXPORT_KINDS, readSignedExport, type ExportKind } from "@/core/exports";
+import { MIME_OF_KIND, EXPORT_KINDS, readSignedExport, storedKindOf, type ExportKind } from "@/core/exports";
 import { REFUSALS } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { appStorage } from "@/core/storage/app";
 import { authorize } from "@/server/authorize";
 import { json, routeHandler } from "@/server/call";
@@ -69,6 +70,20 @@ function refusalAnswer(code: keyof typeof STATUS): Response {
 }
 
 /**
+ * Is this failure one of the refusals this door has a status for?
+ *
+ * The table above is this door's own, and a door may have only ONE answer per code. `routeHandler`
+ * answers a refusal that arrives as a THROW through the tier-wide table, which holds no EXPORT_*
+ * entry and would give the 400 floor — so the same code would be 410 when it was returned and 400
+ * when it was raised, and which one a caller heard would depend on how a function inside chose to
+ * speak. Nothing under this door throws them today; this is what keeps that true tomorrow.
+ */
+function statedHere(failure: unknown): keyof typeof STATUS | null {
+  const code = refusalCodeOf(failure);
+  return code !== null && Object.hasOwn(STATUS, code) ? (code as keyof typeof STATUS) : null;
+}
+
+/**
  * The artefact itself. It is named by its own address and marked private: an export is one
  * workspace's evidence, and nothing between this door and the person who asked may keep a copy.
  */
@@ -87,14 +102,27 @@ function artefactAnswer(bytes: Uint8Array, sha256: string, kind: ExportKind): Re
 
 export const GET = routeHandler({ route: ROUTE, actor: ACTOR, schema: ASKED, sentence: NOT_A_LINK }, async ({ input, context }) => {
   const { id, tenant, kind, expires, signature } = input.address;
-  if (context.session === null) return refusalAnswer("SIGNED_OUT");
+  try {
+    if (context.session === null) return refusalAnswer("SIGNED_OUT");
 
-  // Membership of the workspace the link names, before the link is judged. A person who is not in
-  // this workspace is told only that, whatever the link turns out to be worth (Q-12).
-  const admitted = await authorize({ userId: context.session.userId, tenantId: tenant });
-  if (!admitted.authorized) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
+    // Membership of the workspace the link names, before the link is judged. A person who is not in
+    // this workspace is told only that, whatever the link turns out to be worth (Q-12).
+    const admitted = await authorize({ userId: context.session.userId, tenantId: tenant });
+    if (!admitted.authorized) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
 
-  const read = await readSignedExport(appStorage(), { tenantId: tenant, sha256: id, expires, signature });
-  if (!read.ok) return refusalAnswer(read.refusal);
-  return artefactAnswer(read.bytes, id, kind);
+    const read = await readSignedExport(appStorage(), { tenantId: tenant, sha256: id, expires, signature });
+    if (!read.ok) return refusalAnswer(read.refusal);
+
+    // `kind` rides the query OUTSIDE the signature — the storage seam signs the workspace, the
+    // address and the expiry, and nothing else — so it is a claim the URL makes and not a fact it
+    // carries. It is checked against the artefact actually stored at the address rather than
+    // believed: otherwise a holder of a good csv link serves a stored workbook as `text/csv` named
+    // `<sha>.csv`, and the door states a thing about the bytes that nobody signed for (Q-12).
+    if (storedKindOf(read.bytes) !== kind) return refusalAnswer("EXPORT_URL_INVALID");
+    return artefactAnswer(read.bytes, id, kind);
+  } catch (failure) {
+    const stated = statedHere(failure);
+    if (stated !== null) return refusalAnswer(stated);
+    throw failure;
+  }
 });

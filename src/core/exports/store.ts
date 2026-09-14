@@ -111,6 +111,19 @@ export async function readSignedExport(storage: Storage, presented: PresentedLin
   return { ok: true, bytes };
 }
 
+/**
+ * The kind the bytes at an address ARE, read off the artefact rather than off the link (Q-12).
+ *
+ * A download URL carries `kind` outside the signature — SEAM-STORAGE signs a workspace, an address
+ * and an expiry, and this seam mints no second signature — so the kind is a claim a caller may
+ * rewrite. This is what the claim is checked against: an .xlsx is an OOXML package and a package is
+ * a zip, which opens with the two bytes every zip has opened with since PKZIP; a CSV is text and
+ * cannot. So the two kinds this seam writes are told apart by what they are.
+ */
+export function storedKindOf(bytes: Uint8Array): ExportKind {
+  return bytes[0] === 0x50 && bytes[1] === 0x4b ? "xlsx" : "csv";
+}
+
 /** Is this text a kind this seam writes? The query says one, and a caller wrote the query. */
 export function isExportKind(value: unknown): value is ExportKind {
   return typeof value === "string" && (EXPORT_KINDS as readonly string[]).includes(value);

@@ -44,6 +44,13 @@ function numberFormatOf(column: ExportColumn): string | null {
 }
 
 /**
+ * What a figure looks like when a caller states one: a decimal, written in ASCII digits as the
+ * format seam writes them (L-FMT-01, B-07). Anything else — a blank, a hex literal, an exponent —
+ * is text somebody typed, not a figure this seam may total.
+ */
+const DECIMAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/u;
+
+/**
  * One cell's value, as exceljs holds it: a live formula, a real number, the text as given, or
  * nothing. A number column's cell is the decimal string the caller's format seam settled on, and it
  * becomes a number here — the STRING is what precision was decided as, the NUMBER is what Excel
@@ -53,11 +60,14 @@ function valueOf(cell: ExportCell | undefined, column: ExportColumn): ExcelJS.Ce
   if (cell === undefined || cell === null) return null;
   if (typeof cell === "object") return { formula: cell.formula, result: undefined };
   if (column.kind === "text") return cell;
-  const figure = Number(cell);
   // A figure this seam cannot read as a number is written as the text it is, rather than as the NaN
-  // a coercion would leave in the bill. The caller's format seam decides precision (L-FMT-02); what
-  // this seam owes is never to invent a figure nobody stated (B-21).
-  return Number.isFinite(figure) ? figure : cell;
+  // a coercion would leave in the bill. What counts as readable is a DECIMAL a caller stated, judged
+  // as text and never by coercion: `Number("")`, `Number(" ")` and `Number("\n")` are all 0, and a
+  // blank cell that arrived as the empty string would total into the bill as a hard zero nobody
+  // wrote; `Number("0x10")` is 16, a figure in a base the format seam never speaks. The caller's
+  // format seam decides precision (L-FMT-02); what this seam owes is never to invent a figure nobody
+  // stated (B-21), and an absent figure is an absence.
+  return DECIMAL.test(cell) ? Number(cell) : cell;
 }
 
 /** One sheet of the spec, laid into the workbook: the headers, the rows, and the frozen header. */
