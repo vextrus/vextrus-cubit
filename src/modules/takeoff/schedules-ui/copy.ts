@@ -52,3 +52,12 @@ export const SCHEDULES_COPY = Object.freeze({
   schedules_denied_transcribe: "Recording a note reading needs the MEASURE permission on this project.",
   schedules_denied_holder: "A project principal can grant it on the participants screen.",
 } as const);
+
+/**
+ * A mirrored string with its named slots filled, the registry's own substitution rule: a slot the
+ * caller has no value for is left standing as itself rather than becoming the word "undefined" on a
+ * screen (R-SPINE-060, mirrored here for the same reason the table above is).
+ */
+export function fillCopy(key: SchedulesCopyKey, values: Readonly<Record<string, string>>): string {
+  return SCHEDULES_COPY[key].replace(/\{(\w+)\}/gu, (slot, name: string) => values[name] ?? slot);
+}

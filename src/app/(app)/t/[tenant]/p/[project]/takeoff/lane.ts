@@ -14,6 +14,7 @@
 // re-raises it as the refusal it is and renders the registry's own words (ARCH-03, B-21).
 import { actionContext, refused } from "@/server/call";
 import { takeoffRouter } from "@/server/routers/takeoff";
+import { takeoffSchedulesRouter } from "@/server/routers/takeoff-schedules";
 
 /** What a door answered: what the lane answered, or the registered code that stopped it. */
 export type DoorAnswer<T> = { readonly ok: true; readonly answer: T } | { readonly ok: false; readonly refusal: string };
@@ -28,6 +29,15 @@ export type Previewed = { consequence: unknown; consequenceDigest: string };
  */
 export async function lane(client: string) {
   return takeoffRouter.createCaller(await actionContext(client));
+}
+
+/**
+ * The schedules lane (`takeoffSchedules`), called the same way and for the same reason: the lane
+ * table in `src/server/root.ts` grows by enumeration, so the tier below it does too — the session,
+ * the guard and the seam a schedules door answers through are the ONE set the wire answers through.
+ */
+export async function schedulesLane(client: string) {
+  return takeoffSchedulesRouter.createCaller(await actionContext(client));
 }
 
 /** Call one door and carry back what it answered, refusal included (ARCH-03). */

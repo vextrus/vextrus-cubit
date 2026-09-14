@@ -85,6 +85,18 @@ function ShellTracks({ toolbar, status, children }: { toolbar: ReactNode | undef
 }
 
 /** The body, whose four rows are the grid's; the toolbar track collapses when nothing mounted one. */
+/**
+ * The top bar, read from inside the providers so that a screen's declared page crumb reaches it
+ * (`slots.tsx`). The prop stays what it was: a frame mounted without a screen still names whatever
+ * page it was handed, and a screen that declares one overrides it for as long as that screen is on.
+ */
+function ShellBar(props: Omit<Parameters<typeof ShellTopBar>[0], "page"> & { page: string | undefined }) {
+  const mounted = useShellSlots();
+  const { page, ...rest } = props;
+  const named = mounted.page ?? page;
+  return <ShellTopBar {...rest} {...(named === undefined ? {} : { page: named })} />;
+}
+
 function ShellBody({ toolbar, children }: { toolbar: ReactNode | undefined; children: ReactNode }) {
   const mounted = useShellSlots();
   const hasTools = (mounted.toolbar ?? toolbar ?? null) !== null;
@@ -121,7 +133,7 @@ export function AppShell({
         <div className="cx-shell" data-testid={TESTIDS.shell.root} data-density={density}>
           <ShellRail workspace={workspace} workspaces={workspaces} area={area} atAreaHome={atAreaHome} />
           <ShellBody toolbar={toolbar}>
-            <ShellTopBar
+            <ShellBar
               workspace={workspace}
               project={project}
               projects={projects}
