@@ -11,7 +11,7 @@ import { storedExpansionDeferralsOf, storedTypicalRangesOf, type StoredExpansion
 import { storedGridOf, type StoredGrid } from "./grid/store";
 import { statedHeight } from "./levels-proposal/propose";
 import { storedProposedLevelsOf, type StoredProposedLevel } from "./levels-proposal/store";
-import { storedPlacementsOf, type StoredPlacement } from "./placement/store";
+import { storedPlacementsOf, storedRunsOf, type StoredPlacement, type StoredRun } from "./placement/store";
 import { storedMemberTypesOf, storedSchedulesOf, type StoredMemberTypes, type StoredSchedules } from "./schedules/store";
 import { drawingProjectOf, partitionStandsFor, storedConventionsOf, storedViewsOf, type StoredConventions } from "./store";
 import type { GroupKind, ProposedLevel, ProposedReading } from "@/core/acts";
@@ -24,7 +24,7 @@ export type { PartitionScope, StoredConventions } from "./store";
 export type { StoredGrid } from "./grid/store";
 export type { GridAxisRow, GridDeferralRow } from "./grid/detect";
 export type { StoredMemberTypes, StoredSchedule, StoredSchedules } from "./schedules/store";
-export type { StoredPlacement } from "./placement/store";
+export type { SideReading, StoredPlacement, StoredRun } from "./placement/store";
 export type { StoredExpansionDeferral, StoredTypicalRange } from "./expansion/store";
 export type { PlacementShares } from "./placement/shares";
 // The closed list an expansion defers under, published where its readers already look — the store's
@@ -129,6 +129,19 @@ export async function memberTypesOf(scope: ViewsScope): Promise<StoredMemberType
 export async function placementsOf(scope: ViewsScope): Promise<StoredPlacement[] | null> {
   const ingestId = await partitionedIngestOf(scope);
   return ingestId === null ? null : storedPlacementsOf(scope.tenantId, ingestId);
+}
+
+/**
+ * The RUN each of a drawing's beams and tie beams measures along its own axis, with the slab adjoining
+ * each of its sides (L-MEA-09) — one row per placement read off a pair of edge lines, in the placement
+ * key's own order. This is the door the measure setup fills `RailSetup.runs` from, so a frame rail
+ * binds a clear span the partition read rather than a span it derived for itself.
+ *
+ * Absent for the same three reasons `schedulesOf` is, and in the same way (R-UI-050).
+ */
+export async function runsOf(scope: ViewsScope): Promise<readonly StoredRun[] | null> {
+  const ingestId = await partitionedIngestOf(scope);
+  return ingestId === null ? null : storedRunsOf(scope.tenantId, ingestId);
 }
 
 /**

@@ -35,6 +35,7 @@ import { normaliseMark } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
 import { classOfMark } from "./law";
+import { detectRuns, type RunRow } from "./runs";
 import { shareValue, type PlacementShares } from "./shares";
 
 /** One placed member, as the store holds one and as the expansion reads one (L-REG-04). */
@@ -68,6 +69,12 @@ export type DetectedPlacements = {
   readonly views: number;
   readonly placements: readonly PlacementRow[];
   readonly ungridded: readonly UngriddedView[];
+  /**
+   * The run each member drawn as an edge-line PAIR measures along its own axis (`./runs`, L-MEA-09).
+   * Empty where the plans drew none; a placement read off a closed outline carries no run at all —
+   * a column has no clear span between its supports, it IS the support.
+   */
+  readonly runs?: readonly RunRow[];
 };
 
 /**
@@ -77,7 +84,7 @@ export type DetectedPlacements = {
  */
 export type FamilyNamed = {
   readonly family: string;
-  readonly variants?: readonly { readonly sectionWidth: number | null; readonly sectionDepth: number | null }[];
+  readonly variants?: readonly { readonly sectionWidth: number | null; readonly sectionDepth: number | null; readonly bandText?: string }[];
 };
 
 /** What the stage is handed: the artifact, what the stages before it derived, and the pinned shares. */
@@ -160,7 +167,12 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
   );
   for (const plan of plans) for (const row of rowsFrom(plan.pass, plan.anchored, stated, scale)) placements.push(row);
 
-  return { views: examined, placements, ungridded };
+  // The members no closed outline stands for: a beam is drawn as the pair of lines either side of its
+  // axis, and it is placed off that pair with the run it measures beside it (`./runs`, L-MEA-09). It
+  // runs here, after the outline pass, because the outlines that pass placed are the members that
+  // CARRY a beam's ends and the rings a slab must not be read from.
+  const framed = detectRuns(evidence, placements);
+  return { views: examined, placements: [...placements, ...framed.placements], ungridded, runs: framed.runs };
 }
 
 /** What one plan places, keyed and grid-referenced. */

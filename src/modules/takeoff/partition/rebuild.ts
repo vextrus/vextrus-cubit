@@ -193,6 +193,13 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
       views: held.views.flatMap((view) => (view.anchorKey === null ? [] : [{ caption: view.caption, view: { viewClass: view.type, captionAnchorSourceKey: view.anchorKey } }])),
       levels: await liveStackOf(scope.tenantId, scope.projectId),
       ranges: await authoredRangesOf(scope.tenantId, scope.projectId),
+      // The bands the schedules state per family: a member stands on the levels its view is typical
+      // of AND its own schedule row names, so a `1F TO ROOF` beam is not registered in the ground
+      // storey of a plan typical of the whole stack (L-FRM-02, L-MEA-09).
+      families: (held.schedules?.registry ?? []).map((family) => ({
+        family: family.family,
+        bands: family.variants.map((variant) => ({ from: variant.bandFrom, to: variant.bandTo })),
+      })),
     });
 
     // A sighting is scoped to a pinned set revision (L-REG-03). A drawing no pinned revision names is
