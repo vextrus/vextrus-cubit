@@ -5,7 +5,7 @@
 // Nothing here is a count of members. L-CAD-08 forbids a schedule's rows being read as a quantity, so
 // no field of this value is a number of anything a bill could carry (I-251).
 import type { NoteProposal } from "@/core/notes/grammar";
-import type { NoteKind, NoteStandingName } from "@/core/notes/law";
+import type { NoteContestedCode, NoteKind, NoteStandingName } from "@/core/notes/law";
 import type { NoteReadingRow } from "@/core/notes/store";
 import type { ScheduleDeferralReason, RebarZone } from "@/modules/takeoff/partition";
 
@@ -74,7 +74,7 @@ export type StandingView = {
   readonly standing: NoteStandingName;
   readonly canonical: string | null;
   readonly unitAsWritten: string | null;
-  readonly code: "NOTE_READING_CONTESTED" | null;
+  readonly code: NoteContestedCode | null;
 };
 
 /** What one sheet's general notes hold: the answer, the record, and the offer (I-253). */

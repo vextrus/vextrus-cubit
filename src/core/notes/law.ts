@@ -49,6 +49,13 @@ export const NOTE_STANDING_ABSENCE: Readonly<Record<NoteStandingName, RefusalCod
 });
 
 /** Is this string one of the five kinds the law closes? */
+/**
+ * The code a kind's absence is refused under where two readings of it disagree — named as a TYPE so
+ * the standing and the surfaces above it can declare what they answer without spelling a registered
+ * code a second time (Q-07: a file that spells one imports the register, and this file does).
+ */
+export type NoteContestedCode = Extract<RefusalCode, "NOTE_READING_CONTESTED">;
+
 export function isNoteKind(value: string): value is NoteKind {
   return (NOTE_KINDS as readonly string[]).includes(value);
 }

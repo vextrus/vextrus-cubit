@@ -10,7 +10,7 @@
 // under the same key is superseded by the re-reading, which is the only thing that clears a contest.
 // Every key's current reading then competes: they agree and the kind is AGREED at what they agree
 // on, or they do not and it is SUSPENDED with no figure at all.
-import { NOTE_STANDING_ABSENCE, type NoteKind, type NoteStandingName } from "./law";
+import { NOTE_STANDING_ABSENCE, type NoteContestedCode, type NoteKind, type NoteStandingName } from "./law";
 
 /** The separator between the fields of a reading key. One character, spelled once (B-17). */
 const FIELD = "|";
@@ -40,7 +40,7 @@ export type NoteStanding<R extends ReadingOfNote = ReadingOfNote> = {
   readonly standing: NoteStandingName;
   readonly canonical: string | null;
   readonly unitAsWritten: string | null;
-  readonly code: "NOTE_READING_CONTESTED" | null;
+  readonly code: NoteContestedCode | null;
   /** One reading per key: what each key says today. */
   readonly current: readonly R[];
   /** Every reading a later re-reading under the same key superseded. Superseded, never erased. */
@@ -48,7 +48,7 @@ export type NoteStanding<R extends ReadingOfNote = ReadingOfNote> = {
 };
 
 /** The code a kind whose current readings disagree is refused under, off the register (Q-07). */
-const CONTESTED = NOTE_STANDING_ABSENCE.SUSPENDED as "NOTE_READING_CONTESTED";
+const CONTESTED = NOTE_STANDING_ABSENCE.SUSPENDED as NoteContestedCode;
 
 /**
  * A field of a key, as it is written into one. An empty field would make two different readings
