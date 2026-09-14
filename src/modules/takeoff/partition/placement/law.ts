@@ -57,7 +57,7 @@ export const FOUNDATION_CLASSES: readonly ElementType[] = Object.freeze([FOOTING
  * The classes that stand ON a level, and therefore expand over the levels their view states: L-CAD-07's
  * two verticals, and the beam. A beam is not a vertical — it does not run floor-to-floor through the
  * joint — but it is drawn once on a typical plan and stands on every storey that plan is typical of,
- * which is the same expansion (L-MEA-09, increment interfaces).
+ * which is the same expansion (L-MEA-09, L-FRM-02).
  */
 export const LEVEL_CLASSES: readonly ElementType[] = Object.freeze([...VERTICAL_CLASSES, BEAM]);
 

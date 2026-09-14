@@ -63,7 +63,7 @@ function composed(members: readonly Rail[]): Rail {
   };
 }
 
-/** Every class that bears `rcc.concrete` in this area, the column's first (AC-1's `BEARS` order). */
+/** Every class that bears `rcc.concrete` in this area, in the order `BEARS` names them (L-MEA-04). */
 export const frameConcreteRail: Rail = composed([columnConcreteRail, beamConcreteRail, tieBeamConcreteRail, lintelConcreteRail]);
 
 /** Every class that bears `rcc.formwork` in this area. */

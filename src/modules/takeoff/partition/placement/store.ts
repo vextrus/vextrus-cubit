@@ -17,7 +17,7 @@ export type StoredPlacement = typeof placements.$inferSelect;
 export type SideReading = RunReading;
 
 /**
- * One placement's run as the door answers one (L-MEA-09, increment interfaces): the clear axis, and
+ * One placement's run as the door answers one (L-MEA-09): the clear axis, and
  * what adjoins each of its two sides. Each is null where the drawing said nothing to read — a run
  * nobody could read is stored as unread, never as a zero (L-QTY-02).
  */
