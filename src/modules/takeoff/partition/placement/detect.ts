@@ -29,76 +29,14 @@
 // places the same members forever, which is what makes the stored partition rebuildable (L-REG-04).
 import type { ElementType } from "@/core/catalogue/classes";
 import type { EntityGraph } from "@/core/entitygraph/schema";
-import { placementKey, viewKey as viewKeyOf, type ViewRef } from "@/core/identity";
-import type { DetectedGrid, GridAxisRow } from "../grid/detect";
+import { placementKey, viewKey as viewKeyOf } from "@/core/identity";
+import type { GridAxisRow } from "../grid/detect";
 import { normaliseMark } from "../notation";
-import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
 import { classOfMark } from "./law";
-import { detectRuns, type RunRow } from "./runs";
-import { shareValue, type PlacementShares } from "./shares";
-
-/** One placed member, as the store holds one and as the expansion reads one (L-REG-04). */
-export type PlacementRow = {
-  /** L-REG-04's view key — the class and the caption anchor the view was read at. */
-  readonly viewKey: string;
-  /** The view itself, as a key is derived from one: the expansion keys instance rows off it (L-REG-04). */
-  readonly view: ViewRef;
-  /** L-REG-04's placement key: the view, the mark and the point quantised onto the lattice. */
-  readonly placementKey: string;
-  readonly mark: string;
-  /** What the drawing spelled, kept beside what the rule compares (L-CAD-03). */
-  readonly markText: string;
-  readonly elementType: ElementType;
-  readonly x: number;
-  readonly y: number;
-  /** The nearest axis of each family of this view's backbone, or null where it carries none. */
-  readonly gridLetter: string | null;
-  readonly gridNumeral: string | null;
-  readonly outlineKey: string;
-  readonly markKey: string;
-  /** The member family of the record's own schedules this mark names, or null where none does. */
-  readonly memberFamily: string | null;
-};
-
-/** A layout plan that placed nothing because it georeferenced as deferred (L-CAD-07). */
-export type UngriddedView = { readonly viewKey: string };
-
-/** What one artifact's placement stage read: the plans it examined, and what it found in them. */
-export type DetectedPlacements = {
-  readonly views: number;
-  readonly placements: readonly PlacementRow[];
-  readonly ungridded: readonly UngriddedView[];
-  /**
-   * The run each member drawn as an edge-line PAIR measures along its own axis (`./runs`, L-MEA-09).
-   * Empty where the plans drew none; a placement read off a closed outline carries no run at all —
-   * a column has no clear span between its supports, it IS the support.
-   */
-  readonly runs?: readonly RunRow[];
-};
-
-/**
- * One member family the record's schedules named — what a placement's `member_family` joins to, and
- * what the schedules said that family IS. The variants are optional because a record whose schedules
- * stated no section still names its families, and a family with no section is judged by nothing.
- */
-export type FamilyNamed = {
-  readonly family: string;
-  readonly variants?: readonly { readonly sectionWidth: number | null; readonly sectionDepth: number | null; readonly bandText?: string }[];
-};
-
-/** What the stage is handed: the artifact, what the stages before it derived, and the pinned shares. */
-export type PlacementEvidence = {
-  readonly graph: EntityGraph;
-  readonly views: readonly PartitionedView[];
-  /** Entity source key → view key, as the views stage assigned them (L-CAD-06). */
-  readonly assignments: ReadonlyMap<string, string>;
-  /** What the grid stage detected, or null where no such stage ran (L-CAD-07). */
-  readonly grid: DetectedGrid | null;
-  readonly shares: PlacementShares;
-  /** The families the schedules stage registered for this record (R-TO-031). */
-  readonly families: readonly FamilyNamed[];
-};
+import type { DetectedPlacements, FamilyNamed, PlacementEvidence, PlacementRow } from "./rows";
+import { detectRuns } from "./runs";
+import { shareValue } from "./shares";
 
 /** A point in the drawing's own plane. */
 type Point = readonly [number, number];

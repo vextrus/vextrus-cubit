@@ -36,30 +36,9 @@ import type { GridAxisRow } from "../grid/detect";
 import { normaliseMark } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
-import type { FamilyNamed, PlacementEvidence, PlacementRow } from "./detect";
 import { classOfMark, isFoundationClass, isVerticalClass, levelWordsOf } from "./law";
+import type { DetectedRuns, FamilyNamed, PlacementEvidence, PlacementRow, RunReading, RunRow } from "./rows";
 import { shareValue } from "./shares";
-
-/** One reading a run carries: what was read, in the unit it was read in, and off which entities. */
-export type RunReading = {
-  readonly value: string;
-  readonly unit: Unit;
-  readonly basis: QuantityBasis;
-  readonly sourceKeys: readonly string[];
-};
-
-/** One placement's run: its clear axis, and the slab adjoining each of its two sides (L-MEA-09). */
-export type RunRow = {
-  readonly placementKey: string;
-  readonly clear: RunReading | null;
-  readonly sides: readonly [RunReading | null, RunReading | null];
-};
-
-/** What one artifact's run stage read: the members it placed off edge-line pairs, and their runs. */
-export type DetectedRuns = {
-  readonly placements: readonly PlacementRow[];
-  readonly runs: readonly RunRow[];
-};
 
 /** The bases a reading of this stage stands on, read off the offer law's closed roster (L-QTY-01). */
 const MEASURED: QuantityBasis = "MEASURED";

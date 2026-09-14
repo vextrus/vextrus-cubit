@@ -15,7 +15,7 @@ import { EXPANSION_DEFERRAL_REASONS, type ExpansionDeferralReason } from "@/core
 import { instanceKey, levelSegment, SIGHTING_STANDINGS, viewKey as viewKeyOf, type LevelRef, type SightingStanding, type ViewRef } from "@/core/identity";
 import { normaliseMark } from "../notation";
 import { isFoundationClass, isLevelClass, levelWordsOf } from "../placement/law";
-import type { PlacementRow } from "../placement/detect";
+import type { PlacementRow } from "../placement/rows";
 
 /**
  * The two standings a resolved row stands at, read off the register's own roster (B-17). Risk note

@@ -7,8 +7,8 @@
 // that stood before it rather than half of a new one (L-REG-04, R-TO-030).
 import { and, asc, eq, forTenant, placementRuns, placements, type TenantTx } from "@/core/db";
 import type { QuantityBasis } from "@/core/offers/law";
-import type { DetectedPlacements } from "./detect";
-import type { RunReading } from "./runs";
+import type { DetectedPlacements, RunReading } from "./rows";
+
 
 /** One stored placement, whole — every column the store holds, as it holds it. */
 export type StoredPlacement = typeof placements.$inferSelect;
