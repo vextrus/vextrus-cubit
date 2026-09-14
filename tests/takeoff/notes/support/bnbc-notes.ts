@@ -10,6 +10,7 @@
  * This file opens no database and imports no product module at load time, so the suites that stand
  * on it stay in the unit lane (the lane split is derived from the import graph).
  */
+import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -182,12 +183,51 @@ export function expectedFacts(
 
 /* ------------------------------------------------------------------ the fixture's own corpus */
 
-/** Every `raw` string of the fixture's committed notation corpus (declared fixtures, AC-1). */
+/**
+ * Every `raw` string of the fixture's committed notation corpus (declared fixtures, AC-1).
+ *
+ * The guards are `node:assert` rather than a runner's `expect`: this file is read by the Playwright
+ * process too, where a unit lane's `expect` has no runner to bind to.
+ */
 export function corpusRawStrings(): string[] {
   const path = join(REPO_ROOT, BNBC_CORPUS);
-  if (!existsSync(path)) throw new Error(`${BNBC_CORPUS} is ${BNBC_FIXTURE}'s committed notation corpus, and the checkout does not carry it`);
+  assert.ok(existsSync(path), `${BNBC_CORPUS} is ${BNBC_FIXTURE}'s committed notation corpus, and the checkout does not carry it`);
   const parsed = JSON.parse(readFileSync(path, "utf8")) as { fixture?: unknown; strings?: unknown };
-  if (String(parsed.fixture) !== BNBC_FIXTURE) throw new Error(`${BNBC_CORPUS} is the corpus of ${String(parsed.fixture)}, not of ${BNBC_FIXTURE}`);
-  if (!Array.isArray(parsed.strings)) throw new Error(`${BNBC_CORPUS} carries no strings`);
+  assert.equal(String(parsed.fixture), BNBC_FIXTURE, `${BNBC_CORPUS} is the corpus of ${String(parsed.fixture)}, not of ${BNBC_FIXTURE}`);
+  assert.ok(Array.isArray(parsed.strings), `${BNBC_CORPUS} carries no strings`);
   return (parsed.strings as { raw?: unknown }[]).map((entry) => String(entry.raw));
+}
+
+/* ------------------------------------------------------------------ the same forms, other figures */
+
+/**
+ * Sentences of the SAME grammar as the fixture's, stating other figures — and carried by no drawing
+ * in the tree. They are the acceptance's own probes, never a claim about F-RCC6-BNBC, and the suite
+ * beside this file proves the corpus carries none of them.
+ *
+ * Their purpose is the one thing a fixture roster cannot prove: that `proposeNotes` reads the FORM of
+ * a sentence rather than recognising the five sentences it was written against. A lookup table keyed
+ * on the fixture's strings answers nothing here.
+ */
+export const GRAMMAR_VARIANTS: readonly SheetText[] = Object.freeze([
+  Object.freeze({ sourceKey: "DXF_HANDLE:2A01", text: "fy = 60,000 psi (420 MPa) BDS ISO 6935-2 B420DWR" }),
+  Object.freeze({ sourceKey: "DXF_HANDLE:2A03", text: "f'c = 4000 psi (28 MPa) cylinder" }),
+  Object.freeze({ sourceKey: "DXF_HANDLE:2A05", text: "LAP 45d TENSION / 36d COMPRESSION U.N.O." }),
+  Object.freeze({ sourceKey: "DXF_HANDLE:2A07", text: "HOOKS: 90° = 12d; stirrup/tie 135° = 8d, min 100 mm (S-05)" }),
+  Object.freeze({ sourceKey: "DXF_HANDLE:2A09", text: "fy = 420 MPa" }),
+]);
+
+/** What each probe states, read the way the interfaces rule each kind is read (AC-1). */
+export const EXPECTED_VARIANT_PROPOSALS: readonly ExpectedProposal[] = Object.freeze([
+  Object.freeze({ kind: FY, canonical: "420", unitAsWritten: "MPa", valueAsWritten: "420 MPa", from: GRAMMAR_VARIANTS[0] as SheetText }),
+  Object.freeze({ kind: FC, canonical: "4000", unitAsWritten: "psi", valueAsWritten: "4000 psi", from: GRAMMAR_VARIANTS[1] as SheetText }),
+  Object.freeze({ kind: LAP, canonical: "45", unitAsWritten: "d", valueAsWritten: "45d", from: GRAMMAR_VARIANTS[2] as SheetText }),
+  Object.freeze({ kind: HOOK, canonical: "8", unitAsWritten: "d", valueAsWritten: "8d", from: GRAMMAR_VARIANTS[3] as SheetText }),
+  Object.freeze({ kind: HOOK_MIN, canonical: "100", unitAsWritten: "mm", valueAsWritten: "100 mm", from: GRAMMAR_VARIANTS[3] as SheetText }),
+  Object.freeze({ kind: FY, canonical: "420", unitAsWritten: "MPa", valueAsWritten: "420 MPa", from: GRAMMAR_VARIANTS[4] as SheetText }),
+]);
+
+/** The probes that state one kind alone, so a sentence can be handed to the grammar by itself. */
+export function variantsOf(text: SheetText): ExpectedProposal[] {
+  return EXPECTED_VARIANT_PROPOSALS.filter((one) => one.from.sourceKey === text.sourceKey);
 }
