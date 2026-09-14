@@ -16,7 +16,6 @@ import {
   HOOK_MIN,
   LAP,
   NONE,
-  RULESET_EDITIONS_TABLE,
   TRANSCRIBE_SHEET_NOTES,
 } from "./support/bnbc-notes";
 import { notesLaw } from "./support/notes-doors";
@@ -24,16 +23,17 @@ import {
   actsOfType,
   asProposed,
   closeStage,
+  editionCounts,
   notesDoor,
   performAct,
   readingFacts,
   readingRows,
   reading,
-  rowCount,
   stageNotes,
   stageRevisionHolding,
   stageSheetOutsideRevision,
   transcription,
+  type EditionCounts,
   type StagedNotes,
 } from "./support/notes-stage";
 
@@ -46,19 +46,22 @@ const MM = "mm";
 type Ground = {
   staged: StagedNotes;
   proposals: Record<string, Record<string, unknown>>;
-  /** The rule-set editions the workspace held before a single note was read. */
-  editionsBefore: number;
+  /** The rule-set editions — the platform's and this workspace's — held before a note was read. */
+  editionsBefore: EditionCounts;
 };
 
 let ground: Promise<Ground> | undefined;
 
 function staged(): Promise<Ground> {
   return (ground ??= (async () => {
-    const door = await notesDoor();
     const stage = await stageNotes("applied");
+    // Taken off the store before a single note is read, so what the transcriptions do to it is the
+    // whole difference between this reading and the one the criterion takes after them.
+    const editionsBefore = editionCounts(stage.tenantId);
+    const door = await notesDoor();
     const texts = await door.sheetTextsOf({ tenantId: stage.tenantId, projectId: stage.projectId, drawingId: stage.sheet.drawingId }, stage.sheet.layoutName);
     const proposals = Object.fromEntries(door.proposeNotes(texts).map((proposal) => [String(proposal["kind"]), proposal]));
-    return { staged: stage, proposals, editionsBefore: rowCount(RULESET_EDITIONS_TABLE, stage.tenantId) };
+    return { staged: stage, proposals, editionsBefore };
   })());
 }
 
@@ -153,7 +156,10 @@ describe("AC-4: the door answers what the campaign applies, and a note mints no 
       const actsBefore = actsOfType(stage.tenantId, stage.projectId, TRANSCRIBE_SHEET_NOTES).length;
       await door.appliedDetailingValuesOf({ tenantId: stage.tenantId, projectId: stage.projectId, setRevisionId: stage.setRevisionId });
       expect(actsOfType(stage.tenantId, stage.projectId, TRANSCRIBE_SHEET_NOTES).length, "a read writes no act (L-ACT-01)").toBe(actsBefore);
-      expect(rowCount(RULESET_EDITIONS_TABLE, stage.tenantId), "a note re-versions the campaign's applied values, never an edition (AM-03(h))").toBe(editionsBefore);
+      expect(
+        editionCounts(stage.tenantId),
+        "a note re-versions the campaign's APPLIED VALUES and nothing else: neither the platform's editions nor this workspace's gained a row (AM-03(h))",
+      ).toEqual(editionsBefore);
     },
     BUDGET_MS,
   );

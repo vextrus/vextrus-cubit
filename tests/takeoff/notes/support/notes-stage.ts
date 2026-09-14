@@ -17,7 +17,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { expect } from "vitest";
-import { lit } from "../../../../db/__tests__/support/live-sql";
+import { ident, lit } from "../../../../db/__tests__/support/live-sql";
 import { actsSeam as setActsSeam, codeOf, pinning, setRevisionRows, setsSeam } from "../../sets/support/sets-stage";
 import { stageDrawing, stubCli, withCadCommand } from "../../support/ingest-stage";
 import { enrol, joinWorkspace, rejection, storageOf, tempDir } from "../../support/sheets-stage";
@@ -46,7 +46,9 @@ import {
   NOTES_MODULE,
   NOTES_READINGS_TABLE,
   NOTES_STANDING_MODULE,
+  RULESET_EDITIONS_TABLE,
   SCHEDULES_ERRORS_MODULE,
+  TENANT_RULESET_EDITIONS_TABLE,
   TRANSCRIBE_ACT_MODULE,
   TRANSCRIBE_SHEET_NOTES,
   type SheetText,
@@ -611,9 +613,30 @@ export function readingFacts(row: StoreRow): Record<string, string> {
   };
 }
 
-/** How many rows one table holds in one workspace, whatever the table is (AC-4's edition count). */
+/** How many rows one table holds in one workspace, whatever the table is. */
 export function rowCount(table: string, tenantId: string): number {
   return tableStands(table) ? rowsOf(table, tenantId).length : 0;
+}
+
+/**
+ * How many rows one table holds ALTOGETHER — the count for a store that belongs to no workspace, and
+ * so carries no `tenant_id` to scope a read by.
+ */
+export function rowCountEverywhere(table: string): number {
+  return tableStands(table) ? Number(sql(`select count(*)::text from ${ident(table)};`)[0]?.[0] ?? "0") : 0;
+}
+
+/** The two edition stores a reading may move neither of (AC-4, AM-03(h)). */
+export type EditionCounts = { platform: number; campaign: number };
+
+/**
+ * What the edition stores hold right now: the platform's own editions (counted whole — the table is
+ * not tenant-scoped, by its schema's own stated law) beside the workspace's campaign editions
+ * (scoped, as that table is). AM-03(h) says a transcribed note "never mints a rule-set edition", so
+ * a criterion that reads this before and after a transcription owes BOTH numbers, not one.
+ */
+export function editionCounts(tenantId: string): EditionCounts {
+  return { platform: rowCountEverywhere(RULESET_EDITIONS_TABLE), campaign: rowCount(TENANT_RULESET_EDITIONS_TABLE, tenantId) };
 }
 
 /** How many act rows of one type one project holds — the "one act, never two" reading (L-ACT-01). */
