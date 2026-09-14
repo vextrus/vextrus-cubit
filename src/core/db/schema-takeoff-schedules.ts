@@ -9,6 +9,7 @@
 // dependency runs one way and no cycle is representable (ARCH-01, ARCH-02).
 
 import { SCHEDULE_DEFERRAL_REASONS, type ScheduleDeferralReason } from "../errors";
+import { NOTE_ACCEPTANCES, NOTE_BASIS, NOTE_KINDS, type NoteAcceptance, type NoteKind } from "../notes/law";
 import { closedList } from "./sql";
 import { sql as statement } from "drizzle-orm";
 import { check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
@@ -228,6 +229,53 @@ export const scheduleDeferrals = pgTable(
 );
 
 /**
+ * R-TO-034's transcribed half: one row per detailing figure a person read off a sheet's general
+ * notes — which sheet, which figure, who read it, off which text, what they wrote, and the act that
+ * carried it.
+ *
+ * APPEND-ONLY, like every reading (R-TO-051): a re-reading is another row under the same key and the
+ * earlier one is superseded rather than rewritten, so the app role holds no UPDATE and no DELETE
+ * here. Nothing stores a "current figure": how a kind stands is derived from the rows at read time
+ * (`@/core/notes/standing`), because a stored current value is exactly the overwrite the law forbids.
+ *
+ * Keyed on (tenant, act, reading key): one act may carry several readings of one sheet, and one key
+ * may be read again under a later act — what neither may do is write the same reading twice under
+ * one act (L-ACT-01).
+ */
+export const notesReadings = pgTable(
+  "notes_readings",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    layoutName: text("layout_name").notNull(),
+    readingKey: text("reading_key").notNull(),
+    kind: text("kind").$type<NoteKind>().notNull(),
+    actorId: uuid("actor_id").notNull(),
+    sourceKey: text("source_key").notNull(),
+    valueAsWritten: text("value_as_written").notNull(),
+    unitAsWritten: text("unit_as_written").notNull(),
+    canonical: text("canonical").notNull(),
+    basis: text("basis").notNull(),
+    acceptance: text("acceptance").$type<NoteAcceptance>().notNull(),
+    actId: uuid("act_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "notes_readings_key", columns: [table.tenantId, table.actId, table.readingKey] }),
+    // The three rosters are closed, so the store closes them: a kind, a basis or a verdict outside
+    // the law cannot be written at all, however it reached the insert (Q-07, B-19).
+    check("notes_readings_kind_closed", statement`${table.kind} in (${statement.raw(closedList(NOTE_KINDS))})`),
+    // L-QTY-01: a note reading is read off the drawing's own text, so it is transcribed and nothing
+    // else — a basis is not a field this act has a choice about.
+    check("notes_readings_basis_transcribed", statement`${table.basis} = ${statement.raw(closedList([NOTE_BASIS]))}`),
+    check("notes_readings_acceptance_closed", statement`${table.acceptance} in (${statement.raw(closedList(NOTE_ACCEPTANCES))})`),
+    // The read every surface makes: what has been read on THIS sheet.
+    index("notes_readings_by_sheet").on(table.tenantId, table.drawingId, table.layoutName),
+  ],
+);
+
+/**
  * Every table this area publishes. `schema.ts` spreads it into `SEAM_SCHEMA`, so a table added to
  * this file joins the typed surface without a second roster being edited (B-19, AM-11).
  */
@@ -238,4 +286,5 @@ export const TAKEOFF_SCHEDULES_TABLES = {
   memberTypeVariants,
   rebarZones,
   scheduleDeferrals,
+  notesReadings,
 };
