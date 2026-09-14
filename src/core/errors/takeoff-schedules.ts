@@ -8,7 +8,10 @@ import type { RefusalGroup } from "./law";
 export type TakeoffSchedulesRefusalCode =
   | "NOTATION_UNREAD"
   | "SCHEDULE_NONE_RECONSTRUCTED"
-  | "SCHEDULE_VIEW_CONTRIBUTED_NOTHING";
+  | "SCHEDULE_VIEW_CONTRIBUTED_NOTHING"
+  | "NOTE_READING_CONTESTED"
+  | "NOTE_SOURCE_NOT_ON_SHEET"
+  | "NOTES_NONE_PROPOSED";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const TAKEOFF_SCHEDULES_REFUSALS: RefusalGroup<TakeoffSchedulesRefusalCode> = Object.freeze({
@@ -39,6 +42,35 @@ export const TAKEOFF_SCHEDULES_REFUSALS: RefusalGroup<TakeoffSchedulesRefusalCod
     code: "SCHEDULE_VIEW_CONTRIBUTED_NOTHING",
     message: "This schedule's rows name no member, so it added no member types.",
     remedy: "Check that the mark column holds member names such as C1, then ingest the drawing again.",
+    severity: "info",
+    surface: "inline",
+  }),
+  // R-TO-034's answer where two people read one general note differently. L-REG-03: "disagreement is
+  // declared, never resolved silently" — the kind stands at NO figure, and the row says so where it
+  // stands rather than printing the later reading as though it had won.
+  NOTE_READING_CONTESTED: Object.freeze({
+    code: "NOTE_READING_CONTESTED",
+    message: "Two readings of this note disagree, so no figure stands.",
+    remedy:
+      "Read the figure again from the sheet to settle it — a later reading under the same source supersedes the earlier one, and precedence never clears a disagreement.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // L-CAD-03: a reading is kept only where its evidence is. A reading citing a text this sheet does
+  // not carry could never be re-read, so the act refuses it before anything is written.
+  NOTE_SOURCE_NOT_ON_SHEET: Object.freeze({
+    code: "NOTE_SOURCE_NOT_ON_SHEET",
+    message: "That reading cites text that is not on this sheet.",
+    remedy: "Read the figure again from a note on this sheet — a reading is kept only where its evidence is.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-MEA-01: nothing is assumed where a note is silent. A sheet whose texts state no reinforcement
+  // figure offers none, and the panel says that rather than standing empty (R-UI-050).
+  NOTES_NONE_PROPOSED: Object.freeze({
+    code: "NOTES_NONE_PROPOSED",
+    message: "No reinforcement figure was read from this sheet's notes.",
+    remedy: "Open the sheet and read the figure from a note that states one — nothing is assumed where a note is silent.",
     severity: "info",
     surface: "inline",
   }),

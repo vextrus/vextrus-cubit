@@ -71,6 +71,21 @@ function figureOf(written: string): string {
   return written.replace(/,/g, "");
 }
 
+/** The figure standing inside a written value, in one spelling for the grammar and the act (B-17). */
+const WRITTEN_FIGURE = new RegExp(FIGURE);
+
+/**
+ * The canonical figure of a value as somebody wrote it: `500 MPa` and `50d` and `100` all stand at
+ * the number inside them, which is what two readings of one note are compared on (R-TO-034).
+ *
+ * A value stating no figure at all canonicalises to its own words trimmed — the comparison then says
+ * what it always says, that two readings agree when they say the same thing.
+ */
+export function canonicalFigure(valueAsWritten: string): string {
+  const match = WRITTEN_FIGURE.exec(normaliseNotation(valueAsWritten));
+  return match === null ? valueAsWritten.trim() : figureOf(match[0]);
+}
+
 /** The first figure this text states in one of the units named, at or after `from`. */
 function strengthIn(said: string, units: string, from = 0): Found | null {
   const pattern = new RegExp(String.raw`(${FIGURE})\s*(${units})`, "i");
