@@ -171,7 +171,9 @@ async function migrateInto(database: string): Promise<void> {
  *
  * Still never forced: a template another suite is cloning from right now holds it (55006), and being
  * left behind for the next run to collect is the correct outcome — a forced drop would kill that
- * suite's own provision.
+ * suite's own provision. The flag only goes back where it came from: a database of another digest
+ * that a run is still migrating carries no flag and refuses the drop for the same 55006, and a sweep
+ * that handed it one would publish an unfinished schema as this cluster's ready template.
  *
  * `prefix` is the namespace swept, and it is the template prefix in every production call; a suite
  * that judges the sweep names its own namespace instead, so proving this never puts the template the
@@ -184,6 +186,12 @@ export function dropStaleTemplates(keep: string, prefix: string = TEMPLATE_DB_PR
   const stale = run(BOOTSTRAP_URL, `select datname from pg_database where datname like ${pattern} escape '\\' and datname <> ${lit(keep)};`).map((row) => row[0] ?? "");
   const dropped: string[] = [];
   for (const name of stale) {
+    // What the flag said before this sweep touched it. `datistemplate` is the ONE signal a clone
+    // reads readiness off (`templateIsReady`), so it is given back only where it was taken from: a
+    // database another run is still MIGRATING carries none, its unforced drop is refused like a
+    // ready template's, and a sweep that handed it the flag anyway would leave it saying a
+    // half-built schema is finished — which every later provision then copies (B-19).
+    const wasReady = templateIsReady(name);
     psql(BOOTSTRAP_URL, `alter database ${ident(name)} is_template false;`);
     const gone = psql(BOOTSTRAP_URL, `drop database if exists ${ident(name)};`);
     if (gone.ok) {
@@ -191,10 +199,13 @@ export function dropStaleTemplates(keep: string, prefix: string = TEMPLATE_DB_PR
       process.stdout.write(`db-template dropped ${name}\n`);
       continue;
     }
-    // It is still somebody's source. Put the flag back, so a run cloning from it still reads it as
-    // ready, and leave it for the next sweep.
-    psql(BOOTSTRAP_URL, `alter database ${ident(name)} is_template true;`);
-    process.stdout.write(`db-template kept ${name} — ${gone.sqlstate ?? "refused"} (a run is cloning from it)\n`);
+    // It is still somebody's, and which somebody it is decides the flag: a run cloning from a ready
+    // template must still read it as ready, and a run building one must be left the only actor that
+    // can say it is. Either way the database stays for the next sweep.
+    if (wasReady) psql(BOOTSTRAP_URL, `alter database ${ident(name)} is_template true;`);
+    process.stdout.write(
+      `db-template kept ${name} — ${gone.sqlstate ?? "refused"} (${wasReady ? "a run is cloning from it" : "a run is still building it"})\n`,
+    );
   }
   return dropped;
 }
