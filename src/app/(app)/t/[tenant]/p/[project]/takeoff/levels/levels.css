@@ -148,54 +148,39 @@
 
 /* --- the cells (§1's grid-cell table) --- */
 
+/* §1: no cell wraps, and a cell with more to say than its column holds ends in an ellipsis AND earns
+   the table's own Tooltip. Both are the shipped table's, and it measures them on `.cx-table-cell-text`
+   — "only a cell that is ACTUALLY clipped earns a Tooltip" (data-table.tsx §5 rule 2,
+   `scrollWidth > clientWidth` "on this element and on nothing else"). So no cell here hides its own
+   overflow: a cell that clipped itself would leave the table nothing to measure, and its reader an
+   ellipsis they can never open. They are inline rather than flex for the same reason — the table's
+   text box truncates the inline content of its line, and a flex box is one atomic thing to it,
+   clipped whole and never marked (B-17: one home for the rule, and it is the table's). */
 .cx-levels-cell-level,
-.cx-levels-cell-standing {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-/* The roll-up says more on a level whose height is contested than 160 px can hold, and §1 rules that
-   such a cell ends in an ellipsis and earns the table's own Tooltip. Both are the shipped table's,
-   and it measures them on `.cx-table-cell-text` — "only a cell that is ACTUALLY clipped earns a
-   Tooltip" (data-table.tsx §5 rule 2, `scrollWidth > clientWidth` "on this element and on nothing
-   else"). So this cell does not hide its own overflow: a cell that clipped itself would leave the
-   table nothing to measure, which is the cut mid-glyph with neither ellipsis nor tooltip. It is
-   inline-level for the same reason — the table's text box ellipsizes the inline content of its line,
-   and a block-level flex box would be clipped without the mark (B-17: one home for the rule). */
+.cx-levels-cell-standing,
 .cx-levels-rollup {
   display: inline;
   white-space: nowrap;
 }
 
-/* Inline, so the words and the chips are the line the table's text box truncates — a flex box would
-   be one atomic thing to that box, clipped whole and never marked. The step between them is the
-   same one the other cells take, as a margin because there is no flex line to gap. */
+/* The step between the words and the chips, as a margin because an inline cell has no flex line to
+   gap, and the baseline the chips sit on beside the words they qualify. */
+.cx-levels-cell-level > *,
+.cx-levels-cell-standing > *,
 .cx-levels-rollup > * {
   margin-inline-end: var(--space-1);
   vertical-align: middle;
 }
 
+.cx-levels-cell-level > *:last-child,
+.cx-levels-cell-standing > *:last-child,
 .cx-levels-rollup > *:last-child {
   margin-inline-end: 0;
 }
 
 .cx-levels-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
   font-weight: var(--weight-body-medium);
   color: var(--ink);
-}
-
-/* §1: no cell wraps, and a cell with more to say than its column holds ends in an ellipsis rather
-   than mid-glyph. Each word of the standing cell is its own box, so each takes the rule. */
-.cx-levels-cell-standing > * {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* The code a level's height is absent under is a second statement, not the same phrase continued —
