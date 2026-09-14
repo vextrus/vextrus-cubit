@@ -238,10 +238,15 @@ const PARTIAL_DECLARED = "PARTIAL_DECLARED";
 /** The identity the stack table's column furniture is remembered under (§5 rule 3). */
 const LEVELS_TABLE_ID = "takeoff-level-stack";
 
-/** The column widths §5 fixes, in the closed set the Decision's own token rule admits. */
+/**
+ * The column widths §5 fixes, in the closed set the Decision's own token rule admits. Their sum is
+ * what the grid is wide, and the table's own tools stand over its right edge: a standing column wide
+ * enough to say "Suspended · Storey height contested" without an ellipsis, but not so wide that the
+ * last column's resize grip ends under them, where a 24 px target is no longer reachable (R-UI-012).
+ */
 const WIDTH_LEVEL = 180;
 const WIDTH_ORDINAL = 80;
-const WIDTH_STANDING = 320;
+const WIDTH_STANDING = 288;
 const WIDTH_ROLLUP = 160;
 
 /** How finely a height and an ordinal are stepped where a reader uses the control's own arrows. */
