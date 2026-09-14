@@ -18,6 +18,7 @@ import { insertLevel, type InsertLevelInput } from "./insert-level";
 import { pinDrawingSet, type PinDrawingSetInput } from "./pin-drawing-set";
 import { repudiate, type RepudiateInput } from "./repudiate";
 import { repudiateLevel, type RepudiateLevelInput } from "./repudiate-level";
+import { transcribeSheetNotes, type TranscribeSheetNotesInput } from "./transcribe-sheet-notes";
 import { consequenceDigest, movesNothing, type Consequence } from "./consequence";
 import { ACT_TYPES, type ActType } from "./law";
 import { requirePermission } from "./participation";
@@ -54,6 +55,7 @@ export { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-store
 export { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typical-range";
 export { holdOutOfBill, type HoldOutOfBillInput } from "./hold-out-of-bill";
 export { declareNotInProjectScope, type DeclareNotInProjectScopeInput } from "./declare-not-in-project-scope";
+export { transcribeSheetNotes, type OfferedNoteReading, type TranscribeSheetNotesInput } from "./transcribe-sheet-notes";
 
 /** Everything a caller may ask the seam to do: one member per act type the enum declares. */
 export type ActInput =
@@ -69,7 +71,8 @@ export type ActInput =
   | CorroborateInput
   | RepudiateInput
   | HoldOutOfBillInput
-  | DeclareNotInProjectScopeInput;
+  | DeclareNotInProjectScopeInput
+  | TranscribeSheetNotesInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -90,6 +93,7 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
   REPUDIATE: repudiate,
   HOLD_OUT_OF_BILL: holdOutOfBill,
   DECLARE_NOT_IN_PROJECT_SCOPE: declareNotInProjectScope,
+  TRANSCRIBE_SHEET_NOTES: transcribeSheetNotes,
 });
 
 /**
@@ -138,6 +142,8 @@ function renderingFor(input: ActInput): BoundRendering {
     case "HOLD_OUT_OF_BILL":
       return bind(ACT_MAP[input.type], input);
     case "DECLARE_NOT_IN_PROJECT_SCOPE":
+      return bind(ACT_MAP[input.type], input);
+    case "TRANSCRIBE_SHEET_NOTES":
       return bind(ACT_MAP[input.type], input);
     default:
       return unrendered(input);

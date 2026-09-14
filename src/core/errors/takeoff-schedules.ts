@@ -7,6 +7,9 @@ import type { RefusalGroup } from "./law";
 /** Every code this area registers. The barrel folds this union into `RefusalCode` (B-19). */
 export type TakeoffSchedulesRefusalCode =
   | "NOTATION_UNREAD"
+  | "NOTES_NONE_PROPOSED"
+  | "NOTE_READING_CONTESTED"
+  | "NOTE_SOURCE_NOT_ON_SHEET"
   | "SCHEDULE_NONE_RECONSTRUCTED"
   | "SCHEDULE_VIEW_CONTRIBUTED_NOTHING";
 
@@ -24,6 +27,35 @@ export const TAKEOFF_SCHEDULES_REFUSALS: RefusalGroup<TakeoffSchedulesRefusalCod
     message: "This cell is written in a notation the drawing's grammar does not read, so nothing was taken from it.",
     remedy: "Read the cell on the sheet and state what it says, or add its form to the notation grammar.",
     severity: "info",
+    surface: "inline",
+  }),
+  // R-TO-034's answer where a sheet's texts state no reinforcement figure at all: the notes panel
+  // says so rather than standing empty, because silence is not a state a reader can act on
+  // (R-UI-050, L-MEA-01 — nothing is assumed where a note is silent).
+  NOTES_NONE_PROPOSED: Object.freeze({
+    code: "NOTES_NONE_PROPOSED",
+    message: "No reinforcement figure was read from this sheet's notes.",
+    remedy: "Open the sheet and read the figure from a note that states one — nothing is assumed where a note is silent.",
+    severity: "info",
+    surface: "inline",
+  }),
+  // Two people read one note differently, so the figure stands at nothing at all: a suspension
+  // prints no number, and only a later reading under the same source settles it (R-TO-051).
+  NOTE_READING_CONTESTED: Object.freeze({
+    code: "NOTE_READING_CONTESTED",
+    message: "Two readings of this note disagree, so no figure stands.",
+    remedy:
+      "Read the figure again from the sheet to settle it — a later reading under the same source supersedes the earlier one, and precedence never clears a disagreement.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // L-CAD-03: a reading is kept only where its evidence is. A reading citing an entity that is not a
+  // text of the sheet it was made on cites nothing anybody can re-read, and is refused at the preview.
+  NOTE_SOURCE_NOT_ON_SHEET: Object.freeze({
+    code: "NOTE_SOURCE_NOT_ON_SHEET",
+    message: "That reading cites text that is not on this sheet.",
+    remedy: "Read the figure again from a note on this sheet — a reading is kept only where its evidence is.",
+    severity: "error",
     surface: "inline",
   }),
   SCHEDULE_NONE_RECONSTRUCTED: Object.freeze({

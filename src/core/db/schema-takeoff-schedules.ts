@@ -9,9 +9,10 @@
 // dependency runs one way and no cycle is representable (ARCH-01, ARCH-02).
 
 import { SCHEDULE_DEFERRAL_REASONS, type ScheduleDeferralReason } from "../errors";
+import { NOTE_ACCEPTANCES, NOTE_BASIS, NOTE_KINDS, type NoteAcceptance, type NoteKind } from "../notes/law";
 import { closedList } from "./sql";
 import { sql as statement } from "drizzle-orm";
-import { check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigserial, check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /**
  * The units a schedule's own notation is written in (R-TO-031). Not the bill's canon (L-FRM-06): a
@@ -228,6 +229,54 @@ export const scheduleDeferrals = pgTable(
 );
 
 /**
+ * R-TO-034's transcribed note readings: one row per figure a person read off one sheet's general
+ * notes, under the act that carried it (L-ACT-01, L-QTY-01).
+ *
+ * Append-only, like every other reading of a drawing (R-TO-051): a person who reads the figure again
+ * writes another row under the same `reading_key`, and the earlier one stands superseded rather than
+ * rewritten. The order the readings were made in is the column's own `append_seq` — a standing may
+ * not turn on which row a heap scan met first (the register observations' own precedent).
+ *
+ * The three closed rosters are the notes law's, so the CHECKs cannot drift from the vocabulary the
+ * grammar and the act read: a kind outside the five, a basis other than transcribed and a verdict
+ * outside the two cannot be written at all, however they reached the insert.
+ */
+export const notesReadings = pgTable(
+  "notes_readings",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    readingId: uuid("reading_id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    // The sheet is (drawing, layout) — what the register's lines and the viewer's address key on.
+    layoutName: text("layout_name").notNull(),
+    // What makes two readings the same reading — derived by `noteReadingKey` (L-REG-04), never minted.
+    readingKey: text("reading_key").notNull(),
+    kind: text("kind").$type<NoteKind>().notNull(),
+    actorId: uuid("actor_id").notNull(),
+    // The text entity the figure was read from — never null: a transcription cites its evidence.
+    sourceKey: text("source_key").notNull(),
+    valueAsWritten: text("value_as_written").notNull(),
+    unitAsWritten: text("unit_as_written").notNull(),
+    canonical: text("canonical").notNull(),
+    basis: text("basis").$type<typeof NOTE_BASIS>().notNull(),
+    acceptance: text("acceptance").$type<NoteAcceptance>().notNull(),
+    actId: uuid("act_id").notNull(),
+    appendSeq: bigserial("append_seq", { mode: "number" }).notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("notes_readings_kind_closed", statement`${table.kind} in (${statement.raw(closedList(NOTE_KINDS))})`),
+    // L-QTY-01: a figure read off a drawing's own text is TRANSCRIBED, by construction.
+    check("notes_readings_basis_transcribed", statement`${table.basis} in (${statement.raw(closedList([NOTE_BASIS]))})`),
+    // The verdict is the seam's, and it is one of two: as the grammar proposed it, or edited.
+    check("notes_readings_acceptance_closed", statement`${table.acceptance} in (${statement.raw(closedList(NOTE_ACCEPTANCES))})`),
+    // The read a standing is derived from: one sheet's readings, in the order they were made.
+    index("notes_readings_by_sheet").on(table.tenantId, table.drawingId, table.layoutName, table.appendSeq),
+  ],
+);
+
+/**
  * Every table this area publishes. `schema.ts` spreads it into `SEAM_SCHEMA`, so a table added to
  * this file joins the typed surface without a second roster being edited (B-19, AM-11).
  */
@@ -238,4 +287,5 @@ export const TAKEOFF_SCHEDULES_TABLES = {
   memberTypeVariants,
   rebarZones,
   scheduleDeferrals,
+  notesReadings,
 };

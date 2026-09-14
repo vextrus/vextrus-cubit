@@ -22,6 +22,7 @@ export const ACT_TYPES = [
   "REPUDIATE",
   "HOLD_OUT_OF_BILL",
   "DECLARE_NOT_IN_PROJECT_SCOPE",
+  "TRANSCRIBE_SHEET_NOTES",
 ] as const;
 
 /** One act type, drawn from the enum above. */
@@ -96,6 +97,10 @@ export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.free
   // project's certificate speaks about — so it moves the permission the hold moves rather than a
   // fourteenth the law does not cut.
   DECLARE_NOT_IN_PROJECT_SCOPE: "SET_BILL_BOUNDARY",
+  // R-TO-034: reading what a sheet's general notes state about reinforcement is a reading of the
+  // drawing — the figures a bill's laps and hooks are detailed with come off it — so it moves the
+  // permission the measuring itself moves, exactly as CORROBORATE and AUTHOR_TYPICAL_RANGE do.
+  TRANSCRIBE_SHEET_NOTES: "MEASURE",
 });
 
 /**
