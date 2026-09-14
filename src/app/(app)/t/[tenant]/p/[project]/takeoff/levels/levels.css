@@ -1,0 +1,352 @@
+/*
+ * S-Levels — the level stack editor, cut from the grid workspace template (docs/design/s-levels.md
+ * §§1, 4, 5, 6; Design Direction 00 §3.2, §5). Every colour, size, weight and duration is a read into
+ * the committed Datum token source (R-UI-001, R-UI-003, R-UI-004): the rules are identical in light
+ * and dark, and the themes differ only in what the tokens are worth. No `[data-theme]` selector
+ * appears here.
+ *
+ * THE GEOMETRY, IN ONE PLACE. The workspace is a column that fills `shell-main`: the answer slot,
+ * then the body, which is the 240 px index rail beside the grid and takes every remaining pixel.
+ * Nothing stands above the grid (I-240) — the tabs row is the frame's tool track (takeoff.css) and
+ * the inspector is the frame's one right column — so the grid's first row is 52 px below the top of
+ * main at both viewports (§1, §7 C2).
+ *
+ * The px literals are the closed set §5 fixes: the rail's 240 and its 160/320 bounds, and the lg
+ * media-query value. The column widths are the table's own (its `size`), not this sheet's.
+ *
+ * Nothing here eases in (§4): selecting a row, the inspector's arrival and a roll-up's change after
+ * a commit are instant, and every transition on this screen is inherited from a single home. Focus is
+ * not styled here either — every button, chip and control wears the reticle from its one home (B-17,
+ * R-UI-012). The table, the refusal, the dialog, the popover and the empty state are painted by their
+ * own stylesheets.
+ */
+
+.cx-levels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-section);
+  /* The workspace is the whole field: `shell-main` is a grid track of definite height, so the body
+     takes what the slot above it leaves rather than growing the page. */
+  height: 100%;
+  min-height: 0;
+  max-width: none;
+  font-family: var(--font-ui);
+  line-height: var(--leading-ui);
+}
+
+/* --- the answer slot, the offline banner and the denial (R-UI-020, R-UI-050) --- */
+
+.cx-levels-answer:empty {
+  display: none;
+}
+
+.cx-levels-offline {
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline);
+  border-color: var(--state-info);
+  border-radius: var(--radius-4);
+  background: var(--state-info-surface);
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.cx-levels-denied {
+  font-size: var(--text-body);
+  color: var(--ink-secondary);
+}
+
+/* --- the body: the index rail beside the grid (I-240, I-233) --- */
+
+.cx-levels-body {
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--space-3);
+  min-height: 0;
+  min-width: 0;
+}
+
+/* The campaign's index: a fact ABOUT the stack, standing beside it rather than under it. */
+.cx-levels-ranges {
+  display: flex;
+  flex: 0 0 240px;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 160px;
+  max-width: 320px;
+  /* The rail is as tall as what it holds and no taller: an index of the views with no typical range
+     is a short list or one sentence, and a bordered box running the height of the frame under it
+     reads as a region still loading. It scrolls on its own only once it is taller than the field. */
+  align-self: flex-start;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: var(--space-3);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  background: var(--surface-panel);
+}
+
+.cx-levels-panel-heading {
+  font-size: var(--text-caption);
+  font-weight: var(--weight-heading);
+  color: var(--ink-secondary);
+}
+
+.cx-levels-hint,
+.cx-levels-none-said {
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+/* The rail's own rhythm: heading, hint and the sentence under them sit one step apart, so the one
+   line the rail states when every view has said its range is not adrift from the hint above it. */
+.cx-levels-ranges > .cx-levels-hint,
+.cx-levels-ranges > .cx-levels-none-said {
+  margin: 0;
+}
+
+.cx-levels-range-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-top: var(--hairline);
+}
+
+.cx-levels-range-caption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-caption);
+  color: var(--ink);
+}
+
+/* --- the grid: the primary region, scrolling inside its own container (§7 C10) --- */
+
+.cx-levels-grid {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-app);
+}
+
+/* A mount adds no box and no line of layout: the table inside it is the region (the register's
+   I-171 — a shipped primitive fixes its own id, so the screen's rides a wrapper that draws nothing). */
+.cx-levels-mount > * {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.cx-levels-empty {
+  margin: auto;
+}
+
+/* --- the cells (§1's grid-cell table) --- */
+
+/* §1: no cell wraps, and a cell with more to say than its column holds ends in an ellipsis AND earns
+   the table's own Tooltip. Both are the shipped table's, and it measures them on `.cx-table-cell-text`
+   — "only a cell that is ACTUALLY clipped earns a Tooltip" (data-table.tsx §5 rule 2,
+   `scrollWidth > clientWidth` "on this element and on nothing else"). So no cell here hides its own
+   overflow: a cell that clipped itself would leave the table nothing to measure, and its reader an
+   ellipsis they can never open. They are inline rather than flex for the same reason — the table's
+   text box truncates the inline content of its line, and a flex box is one atomic thing to it,
+   clipped whole and never marked (B-17: one home for the rule, and it is the table's). */
+.cx-levels-cell-level,
+.cx-levels-cell-standing,
+.cx-levels-rollup {
+  display: inline;
+  white-space: nowrap;
+}
+
+/* The step between the words and the chips, as a margin because an inline cell has no flex line to
+   gap, and the baseline the chips sit on beside the words they qualify. */
+.cx-levels-cell-level > *,
+.cx-levels-cell-standing > *,
+.cx-levels-rollup > * {
+  margin-inline-end: var(--space-1);
+  vertical-align: middle;
+}
+
+.cx-levels-cell-level > *:last-child,
+.cx-levels-cell-standing > *:last-child,
+.cx-levels-rollup > *:last-child {
+  margin-inline-end: 0;
+}
+
+.cx-levels-label {
+  font-weight: var(--weight-body-medium);
+  color: var(--ink);
+}
+
+/* The code a level's height is absent under is a second statement, not the same phrase continued —
+   it is separated from the standing it qualifies. */
+.cx-levels-code::before {
+  content: "·";
+  margin-inline-end: var(--space-1);
+  color: var(--ink-muted);
+}
+
+.cx-levels-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-code);
+}
+
+.cx-levels-none {
+  color: var(--ink-muted);
+}
+
+/* --- the inspector (the frame's one right column) --- */
+
+.cx-levels-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.cx-levels-inspector-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-body);
+  font-weight: var(--weight-heading);
+  color: var(--ink);
+}
+
+.cx-levels-section-heading {
+  font-size: var(--text-caption);
+  font-weight: var(--weight-heading);
+  color: var(--ink-secondary);
+}
+
+.cx-levels-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-2);
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.cx-levels-facts dt {
+  color: var(--ink-muted);
+}
+
+.cx-levels-facts dd {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* A reading, and what it was read from: superseded, never erased (R-TO-051). */
+.cx-levels-reading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  border-top: var(--hairline);
+  font-size: var(--text-caption);
+  color: var(--ink);
+}
+
+.cx-levels-reading[data-superseded="true"] {
+  color: var(--ink-muted);
+}
+
+/* Each figure of a reading says which figure it is (§3's four labels): as written, on what basis,
+   what it is worth in metres, and what it was read from. */
+.cx-levels-reading-field {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.cx-levels-reading-label {
+  color: var(--ink-muted);
+}
+
+.cx-levels-source {
+  font-family: var(--font-mono);
+  color: var(--ink-muted);
+}
+
+.cx-levels-superseded,
+.cx-levels-suspended,
+.cx-levels-no-readings {
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+/* --- the two forms, in place (I-243) --- */
+
+.cx-levels-height-form,
+.cx-levels-insert-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: var(--hairline);
+}
+
+.cx-levels-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-caption);
+  color: var(--ink-secondary);
+}
+
+/* A door the reader's permission does not carry: shown, refusing the press, and saying which
+   permission would have carried it (I-247). The chrome is the shipped button's; only the hand and
+   the ink say that it is shut. */
+.cx-levels-door-shut {
+  cursor: not-allowed;
+  color: var(--ink-muted);
+}
+
+/* --- the error cell (R-UI-050) --- */
+
+.cx-levels-fault {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin: auto;
+  padding: var(--space-4);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  background: var(--surface-panel);
+}
+
+.cx-levels-fault-heading {
+  font-size: var(--text-body);
+  font-weight: var(--weight-heading);
+  color: var(--ink);
+}
+
+.cx-levels-fault-body,
+.cx-levels-report {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-body);
+  color: var(--ink-secondary);
+}
+
+.cx-levels-report-label {
+  color: var(--ink-muted);
+}
+
+/* At the narrower viewport the rail takes its minimum and the grid keeps the rest (§1). */
+@media (max-width: 1280px) {
+  .cx-levels-ranges {
+    flex-basis: 160px;
+  }
+}

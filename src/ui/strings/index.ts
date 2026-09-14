@@ -10,6 +10,7 @@ import { dropzone } from "./dropzone";
 import { evidenceLink } from "./evidence-link";
 import { home } from "./home";
 import { jobTimeline } from "./job-timeline";
+import { levels } from "./levels";
 import { measure } from "./measure";
 import { offeredGroup } from "./offered-group";
 import { participants } from "./participants";
@@ -36,6 +37,7 @@ export const strings = {
   ...evidenceLink,
   ...home,
   ...jobTimeline,
+  ...levels,
   ...measure,
   ...offeredGroup,
   ...participants,

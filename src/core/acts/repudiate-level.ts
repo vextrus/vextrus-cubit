@@ -12,6 +12,7 @@
 import type { TenantTx } from "../db";
 import { levelsOf, type LevelRow, type LevelScope } from "../levels/store";
 import type { Consequence, ConsequenceSubject } from "./consequence";
+import { linesRederivingOn } from "./level-effects";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 import { markRepudiated } from "../levels/store";
 
@@ -47,12 +48,17 @@ function subjectsOf(level: LevelRow | undefined): ConsequenceSubject[] {
 
 export const repudiateLevel: ActRendering<RepudiateLevelInput> = {
   async preview(ctx: ActorCtx, input: RepudiateLevelInput, tx: TenantTx): Promise<Consequence> {
+    const level = await levelNamed(ctx, input, tx);
+    const scope: LevelScope = { tenantId: ctx.tenantId, projectId: input.projectId };
     return {
       actType: REPUDIATE_LEVEL,
       tenantId: ctx.tenantId,
       projectId: input.projectId,
       rendering: "SUBJECTS",
-      subjects: subjectsOf(await levelNamed(ctx, input, tx)),
+      subjects: subjectsOf(level),
+      // The lines measured through the level a person judged to be nothing (R-TO-020). A level the
+      // project does not hold moves none.
+      effects: { linesRederiving: await linesRederivingOn(tx, scope, level === undefined ? [] : [level.levelId]), signaturesVoiding: [] },
     };
   },
 

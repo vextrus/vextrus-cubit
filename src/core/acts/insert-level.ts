@@ -15,6 +15,7 @@ import { dotlessUpper } from "../identity";
 import { STOREY_HEIGHT_BASES, carryToMetres, declaredOrdinal, readingKey, type CarriedReading, type StoreyHeightBasis } from "../levels";
 import { carryObjectOntoLevel, insertLevels, liveLevelsOf, moveOrdinal, objectsUnderPlaceholders, writeReadings, type LevelScope, type PlaceholderObject, type ReadingWrite } from "../levels/store";
 import type { Consequence, ConsequenceSubject } from "./consequence";
+import { linesRederivingOn } from "./level-effects";
 import { actChangesNothing } from "./refusals";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
@@ -193,6 +194,12 @@ export const insertLevel: ActRendering<InsertLevelInput> = {
       projectId: input.projectId,
       rendering: "SUBJECTS",
       subjects: subjectsOf(derived),
+      // Every line standing on a live level the insert pushes up (R-TO-020). A carried placeholder
+      // object stands on no level yet, so it contributes none.
+      effects: {
+        linesRederiving: await linesRederivingOn(tx, { tenantId: ctx.tenantId, projectId: input.projectId }, derived.moved.map((level) => level.levelId)),
+        signaturesVoiding: [],
+      },
     };
   },
 

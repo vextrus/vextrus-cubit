@@ -155,6 +155,12 @@ export const TESTIDS = {
     shell: "gallery-shell",
     state: "gallery-state",
   },
+  // The shipped IdChip's own handle, which it wears whenever a caller names none: a screen that
+  // renders a surrogate through the primitive publishes THIS id, so it is declared here rather than
+  // left as the one literal a reader cannot look up (AM-09 §1, R-UI-082).
+  idChip: {
+    root: "id-chip",
+  },
   invitations: {
     email: "invitations-email",
     none: "invitations-none",
@@ -172,6 +178,30 @@ export const TESTIDS = {
     timelineStepStatus: "job-timeline-step-status",
     timelineStepTiming: "job-timeline-step-timing",
     timelineTransportLost: "job-timeline-transport-lost",
+  },
+  levels: {
+    authorHeight: "levels-author-height",
+    authorRange: "levels-author-range",
+    empty: "levels-empty",
+    grid: "levels-grid",
+    heightBasis: "levels-height-basis",
+    heightSource: "levels-height-source",
+    heightUnit: "levels-height-unit",
+    heightValue: "levels-height-value",
+    insert: "levels-insert",
+    insertConfirm: "levels-insert-confirm",
+    insertLabel: "levels-insert-label",
+    insertOrdinal: "levels-insert-ordinal",
+    inspector: "levels-inspector",
+    rangeFrom: "levels-range-from",
+    rangeRow: "levels-range-row",
+    rangeTo: "levels-range-to",
+    ranges: "levels-ranges",
+    reading: "levels-reading",
+    repudiate: "levels-repudiate",
+    rollup: "levels-rollup",
+    row: "levels-row",
+    screen: "levels-screen",
   },
   members: {
     historyEntry: "members-history-entry",
@@ -439,6 +469,7 @@ export const TESTIDS = {
   takeoff: {
     nav: "takeoff-nav",
     navCoverage: "takeoff-nav-coverage",
+    navLevels: "takeoff-nav-levels",
     navRegister: "takeoff-nav-register",
   },
   theme: {

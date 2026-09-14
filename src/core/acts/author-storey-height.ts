@@ -13,6 +13,7 @@ import type { TenantTx } from "../db";
 import { carryToMetres, isStoreyHeightBasis, readingKey, storeyHeightStanding, storeyHeightUnstated, STOREY_HEIGHT_BASES, type CarriedReading, type StoreyHeightBasis } from "../levels";
 import { liveLevelsOf, readingsOfLevel, writeReadings, type LevelRow, type LevelScope } from "../levels/store";
 import type { Consequence } from "./consequence";
+import { linesRederivingOn } from "./level-effects";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
 /** The act this file renders, spelled once. */
@@ -91,6 +92,12 @@ export const authorStoreyHeight: ActRendering<AuthorStoreyHeightInput> = {
                 after: [derived.carried.canonicalMetres],
               },
             ],
+      // The lines standing on the level whose height was read: a contested or re-affirmed height
+      // reaches them only through the gate, so they RE-derive rather than change here (R-TO-020).
+      effects: {
+        linesRederiving: await linesRederivingOn(tx, { tenantId: ctx.tenantId, projectId: input.projectId }, derived === undefined ? [] : [derived.level.levelId]),
+        signaturesVoiding: [],
+      },
     };
   },
 

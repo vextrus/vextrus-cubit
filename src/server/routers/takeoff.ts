@@ -8,10 +8,14 @@
 // that has one (B-17).
 import { z } from "zod";
 import {
+  actChangesNothing,
   commit,
   consequenceDigest,
+  movesNothing,
   preview,
   type AffirmScaleInput,
+  type AuthorStoreyHeightInput,
+  type AuthorTypicalRangeInput,
   type ConfirmDisciplineInput,
   type ConfirmViewTypeInput,
   type Consequence,
@@ -21,6 +25,7 @@ import {
   type InsertLevelInput,
   type OfferedGroupKey,
   type RepudiateInput,
+  type RepudiateLevelInput,
   type ViewGroupKey,
 } from "../../core/acts";
 import { isElementType, type ElementType } from "../../core/catalogue/classes";
@@ -32,6 +37,8 @@ import { certificatePreviewOf, coverageCellOf, coverageViewOf } from "../../modu
 import type { CertificatePreview, CoverageCellView, CoverageView } from "../../modules/takeoff/coverage/view";
 import { requestMeasure, type MeasureRefused, type MeasureRequested } from "../../modules/takeoff/measure";
 import { viewsOf, type ViewRecord } from "../../modules/takeoff/partition";
+import { levelsViewOf } from "../../modules/takeoff/levels-ui/server";
+import type { LevelsView } from "../../modules/takeoff/levels-ui/view";
 import { registerViewOf } from "../../modules/takeoff/register-ui/server";
 import type { RegisterView } from "../../modules/takeoff/register-ui/view";
 import { scaleProposalsOf, scaleTolerancesOf, type ViewScale } from "../../modules/takeoff/scale";
@@ -41,7 +48,7 @@ import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { signedOut } from "../auth/refusals";
 import { parsed } from "../call";
 import { publicProcedure, router } from "../trpc";
-import { projectActorFor } from "./spine";
+import { projectActorFor, projectReaderFor } from "./spine";
 
 /** The act this lane renders, and the permission L-ACT-03 makes it move. */
 const CONFIRM_DISCIPLINE = "CONFIRM_DISCIPLINE" as const;
@@ -50,12 +57,18 @@ const AFFIRM_SCALE = "AFFIRM_SCALE" as const;
 const CORROBORATE = "CORROBORATE" as const;
 const REPUDIATE = "REPUDIATE" as const;
 const INSERT_LEVEL = "INSERT_LEVEL" as const;
+const REPUDIATE_LEVEL = "REPUDIATE_LEVEL" as const;
+const AUTHOR_STOREY_HEIGHT = "AUTHOR_STOREY_HEIGHT" as const;
+const AUTHOR_TYPICAL_RANGE = "AUTHOR_TYPICAL_RANGE" as const;
 const HOLD_OUT_OF_BILL = "HOLD_OUT_OF_BILL" as const;
 const DECLARE_NOT_IN_PROJECT_SCOPE = "DECLARE_NOT_IN_PROJECT_SCOPE" as const;
 const PROPOSED_VIEW_TYPE = "PROPOSED_VIEW_TYPE" as const;
 const MEASURE = "MEASURE" as const;
 /** The permission both boundary acts move — the same LEAD-held decision on either axis (L-ACT-03). */
 const SET_BILL_BOUNDARY = "SET_BILL_BOUNDARY" as const;
+/** L-ACT-03's two other permissions this lane's level doors move: the stack's, and a project fact's. */
+const AUTHOR_LEVEL_STACK = "AUTHOR_LEVEL_STACK" as const;
+const AUTHOR_PROJECT_FACT = "AUTHOR_PROJECT_FACT" as const;
 
 /** A door that needs a session states so once (the spine lane's shape, ARCH-03). */
 const signedInProcedure = publicProcedure.use(({ ctx, next }) => {
@@ -175,6 +188,32 @@ const insertLevelInput: z.ZodType<InsertLevelInput> = z
     levels: z.custom<InsertLevelInput["levels"]>(Array.isArray, { error: 'takeoff: "levels" is required and must be an array' }),
   })
   .transform((stated) => ({ type: INSERT_LEVEL, ...stated }));
+
+/** One judgement that a level is nothing, read into the shape the seam declares (L-MEA-07). */
+const repudiateLevelInput: z.ZodType<RepudiateLevelInput> = z
+  .object({ projectId: text("projectId"), levelId: text("levelId") })
+  .transform((stated) => ({ type: REPUDIATE_LEVEL, ...stated }));
+
+/**
+ * One storey-height reading as a person wrote it. The basis is carried across as it was stated:
+ * which bases a height may be READ on is L-MEA-07's law and the act's own guard, and a second reading
+ * of it here would be a second answer to a question that has one (B-17).
+ */
+const authorStoreyHeightInput: z.ZodType<AuthorStoreyHeightInput> = z
+  .object({
+    projectId: text("projectId"),
+    levelId: text("levelId"),
+    basis: text("basis"),
+    sourceKey: text("sourceKey").nullable(),
+    valueAsWritten: text("valueAsWritten"),
+    unitAsWritten: text("unitAsWritten"),
+  })
+  .transform((stated) => ({ type: AUTHOR_STOREY_HEIGHT, ...stated }));
+
+/** Which floors a typical plan is typical of, read into the shape the seam declares (L-CAD-07). */
+const authorTypicalRangeInput: z.ZodType<AuthorTypicalRangeInput> = z
+  .object({ projectId: text("projectId"), viewKey: text("viewKey"), fromLevelId: text("fromLevelId"), toLevelId: text("toLevelId") })
+  .transform((stated) => ({ type: AUTHOR_TYPICAL_RANGE, ...stated }));
 
 /**
  * The cell a boundary act stands over, as it arrives on the wire. Both acts name a cell the same way
@@ -346,7 +385,7 @@ export const takeoffRouter = router({
     .input(parsed(previewing(insertLevelInput)))
     .mutation(async ({ ctx, input }): Promise<{ consequence: Consequence; consequenceDigest: string }> => {
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, INSERT_LEVEL, MEASURE);
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, INSERT_LEVEL, AUTHOR_LEVEL_STACK);
       const consequence = await preview(actor, input.input);
       return { consequence, consequenceDigest: consequenceDigest(consequence) };
     }),
@@ -355,7 +394,80 @@ export const takeoffRouter = router({
     .input(parsed(committing(insertLevelInput)))
     .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, INSERT_LEVEL, MEASURE);
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, INSERT_LEVEL, AUTHOR_LEVEL_STACK);
+      const written = await commit(actor, input.input, input.consequenceDigest);
+      return { actId: written.actId };
+    }),
+
+  /**
+   * S-Levels' whole reading (R-TO-033): the live stack with its per-level roll-ups, and the views of
+   * the partition whose typical range nobody has stated. Reading the stack needs what reading the
+   * register needs — participation, which the resolver settles — because it states what the project
+   * already holds; what a reader may DO to it is each act door's own question (L-ACT-03).
+   */
+  levels: signedInProcedure
+    .input(parsed(project))
+    .query(async ({ ctx, input }): Promise<LevelsView> => {
+      const actor = await projectReaderFor(ctx.session.userId, input.projectId);
+      return levelsViewOf({ tenantId: actor.tenantId, projectId: input.projectId });
+    }),
+
+  /**
+   * REPUDIATE_LEVEL's pair. A level already marked stands where it stood, so its Consequence moves
+   * nothing: the seam's own reading of that (`movesNothing`) is applied here, at the door the person
+   * pressed, rather than letting them confirm a dialog whose commit would refuse (L-ACT-01).
+   */
+  previewRepudiateLevel: signedInProcedure
+    .input(parsed(previewing(repudiateLevelInput)))
+    .mutation(async ({ ctx, input }): Promise<{ consequence: Consequence; consequenceDigest: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, REPUDIATE_LEVEL, AUTHOR_LEVEL_STACK);
+      const consequence = await preview(actor, input.input);
+      if (movesNothing(consequence)) throw actChangesNothing(REPUDIATE_LEVEL, consequence.subjects.map((subject) => subject.subjectId));
+      return { consequence, consequenceDigest: consequenceDigest(consequence) };
+    }),
+
+  commitRepudiateLevel: signedInProcedure
+    .input(parsed(committing(repudiateLevelInput)))
+    .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, REPUDIATE_LEVEL, AUTHOR_LEVEL_STACK);
+      const written = await commit(actor, input.input, input.consequenceDigest);
+      return { actId: written.actId };
+    }),
+
+  previewAuthorStoreyHeight: signedInProcedure
+    .input(parsed(previewing(authorStoreyHeightInput)))
+    .mutation(async ({ ctx, input }): Promise<{ consequence: Consequence; consequenceDigest: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, AUTHOR_STOREY_HEIGHT, AUTHOR_PROJECT_FACT);
+      const consequence = await preview(actor, input.input);
+      return { consequence, consequenceDigest: consequenceDigest(consequence) };
+    }),
+
+  commitAuthorStoreyHeight: signedInProcedure
+    .input(parsed(committing(authorStoreyHeightInput)))
+    .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, AUTHOR_STOREY_HEIGHT, AUTHOR_PROJECT_FACT);
+      const written = await commit(actor, input.input, input.consequenceDigest);
+      return { actId: written.actId };
+    }),
+
+  previewAuthorTypicalRange: signedInProcedure
+    .input(parsed(previewing(authorTypicalRangeInput)))
+    .mutation(async ({ ctx, input }): Promise<{ consequence: Consequence; consequenceDigest: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, AUTHOR_TYPICAL_RANGE, MEASURE);
+      const consequence = await preview(actor, input.input);
+      return { consequence, consequenceDigest: consequenceDigest(consequence) };
+    }),
+
+  commitAuthorTypicalRange: signedInProcedure
+    .input(parsed(committing(authorTypicalRangeInput)))
+    .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, AUTHOR_TYPICAL_RANGE, MEASURE);
       const written = await commit(actor, input.input, input.consequenceDigest);
       return { actId: written.actId };
     }),
