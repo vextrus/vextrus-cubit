@@ -154,6 +154,48 @@ export type LevelSetup = {
 };
 
 /**
+ * The variant of a family that covers one level — the one reading of a schedule's band, for every
+ * rail that asks (B-17: one fact, one home; every area asked it and the answer may not part).
+ *
+ * A variant whose schedule stated no band at all covers every level — that is what an unbanded
+ * schedule row says. A banded one covers the levels its endpoints name, matched by the label the
+ * stack carries and bounded by ordinal, so a band written "GF TO 5F" covers what physically stands
+ * between them (L-MEA-07: the ordinal is physical). A level no band covers defers (L-FRM-02), which
+ * the caller reports under its own area's code.
+ *
+ * A row that stands on NO level of the stack — a member in the foundation slot, which is a place a
+ * member stands rather than a storey (L-REG-02) — is not banded by the stack at all: a band is a
+ * range over it, and a range cannot select for a member outside it. Its schedule row is then its
+ * section where the family states exactly one, and the band on that row names where the member
+ * stands rather than which row to take. A family stating several is genuinely ambiguous off the
+ * stack, and defers rather than having one picked for it (L-QTY-01: never a guess).
+ *
+ * Nothing is computed here and nothing converted: a section is SELECTED, and what it reads is
+ * carried on untouched.
+ */
+export function variantCovering(
+  variants: readonly MemberVariantSetup[],
+  level: LevelSetup | undefined,
+  levels: readonly LevelSetup[],
+): MemberVariantSetup | undefined {
+  const unbanded = variants.find((variant) => variant.bandFrom === null && variant.bandTo === null);
+  if (level === undefined) return unbanded ?? (variants.length === 1 ? variants[0] : undefined);
+  const ordinalOf = (label: string | null): number | undefined => (label === null ? undefined : levels.find((one) => one.label === label)?.ordinal);
+  return (
+    variants.find((variant) => {
+      if (variant.bandFrom === null && variant.bandTo === null) return true;
+      const from = ordinalOf(variant.bandFrom);
+      const to = ordinalOf(variant.bandTo);
+      // An endpoint the stack cannot place is an endpoint this band cannot be judged by: the band
+      // covers nothing rather than everything (L-CAD-07's `LEVEL_RANGE_ENDPOINT_UNMAPPED` is the
+      // expansion's answer to the same fact; a rail states no coverage it cannot show).
+      if ((variant.bandFrom !== null && from === undefined) || (variant.bandTo !== null && to === undefined)) return false;
+      return level.ordinal >= (from ?? level.ordinal) && level.ordinal <= (to ?? level.ordinal);
+    }) ?? unbanded
+  );
+}
+
+/**
  * The read-only setup every rail is handed beside the register's rows — "rails share only setup, the
  * register and the document stage" (L-MEA-08).
  *

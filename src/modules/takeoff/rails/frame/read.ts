@@ -8,7 +8,8 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { RefusalCode } from "@/core/errors";
-import type { LevelSetup, Measure, MemberVariantSetup, PlacementSetup, RailObservation, RailSetup, RegisterObjectRow, RunSetup } from "@/core/offers/contract";
+import { variantCovering } from "@/core/offers/contract";
+import type { Measure, PlacementSetup, RailObservation, RailSetup, RegisterObjectRow, RunSetup } from "@/core/offers/contract";
 
 /**
  * The rail-local closed code roster for the FRAME area: every reason one of its rails reports a row
@@ -81,32 +82,6 @@ export function sightingOf(row: RegisterObjectRow, setup: RailSetup): Sighting {
 export type Section =
   | { readonly ok: true; readonly width: Measure; readonly depth: Measure }
   | { readonly ok: false; readonly code: FrameRailCode; readonly sourceEntity: string | undefined };
-
-/**
- * The variant of a family that covers one level.
- *
- * A variant whose schedule stated no band at all covers every level — that is what an unbanded
- * schedule row says. A banded one covers the levels its endpoints name, matched by the label the
- * stack carries and bounded by ordinal, so a band written "1F TO 5F" covers what physically stands
- * between them (L-MEA-07: the ordinal is physical). A level no band covers defers (L-FRM-02).
- */
-function variantCovering(variants: readonly MemberVariantSetup[], level: LevelSetup | undefined, levels: readonly LevelSetup[]): MemberVariantSetup | undefined {
-  const unbanded = variants.find((variant) => variant.bandFrom === null && variant.bandTo === null);
-  if (level === undefined) return unbanded;
-  const ordinalOf = (label: string | null): number | undefined => (label === null ? undefined : levels.find((one) => one.label === label)?.ordinal);
-  return (
-    variants.find((variant) => {
-      if (variant.bandFrom === null && variant.bandTo === null) return true;
-      const from = ordinalOf(variant.bandFrom);
-      const to = ordinalOf(variant.bandTo);
-      // An endpoint the stack cannot place is an endpoint this band cannot be judged by: the band
-      // covers nothing rather than everything (L-CAD-07's `LEVEL_RANGE_ENDPOINT_UNMAPPED` is the
-      // expansion's answer to the same fact; a rail states no coverage it cannot show).
-      if ((variant.bandFrom !== null && from === undefined) || (variant.bandTo !== null && to === undefined)) return false;
-      return level.ordinal >= (from ?? level.ordinal) && level.ordinal <= (to ?? level.ordinal);
-    }) ?? unbanded
-  );
-}
 
 /**
  * The section the schedules state for one row's mark, as the two readings a prism's plan is bound by.
