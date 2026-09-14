@@ -52,9 +52,14 @@ function decisionCopy(): Record<string, string> {
 describe("AC-7: the screen's copy is the Decision's, and the module's mirror is the registry's", () => {
   test("AC-7: every sentence the Decision rules stands in the registry, verbatim", async () => {
     const registry = copyTableOf(await productModule<Record<string, unknown>>(STRINGS_MODULE), STRINGS_MODULE);
-    for (const [key, sentence] of Object.entries(decisionCopy())) {
+    const ruled = decisionCopy();
+    for (const [key, sentence] of Object.entries(ruled)) {
       expect(oneLine(registry[key] ?? ""), `${STRINGS_MODULE} says \`${key}\` as ${DECISION} §3 rules it`).toBe(sentence);
     }
+    expect(
+      Object.keys(registry).sort(),
+      `and says nothing ${DECISION} §3 does not rule: copy verbatim is a two-way table, so a sentence on the screen that no Decision states is a deviation`,
+    ).toEqual(Object.keys(ruled).sort());
   });
 
   test("AC-7: the module's mirror and the registry carry the same keys and the same words", async () => {

@@ -92,6 +92,15 @@ const MEASURER = "MEASURER";
 /** One drawn record of the built artifact, in the shape the seam's mirror validates (L-CAD-05). */
 type Drawn = { key: string; type: string; space: string; layer: string; colour: typeof CHANNELS; text?: string; height?: number; points?: number[][] };
 
+/** One reconstructed cell, as `schedule_cells` holds it (AC-7: the screen renders the store). */
+export type StoredCell = { rowIndex: number; columnIndex: number; text: string; sourceKeys: string[] };
+
+/** One member-type variant, as `member_type_variants` holds it (AC-7: verbatim, and no count). */
+export type StoredVariant = { family: string; variantKey: string; bandText: string; sectionText: string };
+
+/** One rebar zone beneath a variant, as `rebar_zones` holds it. */
+export type StoredZone = { family: string; variantKey: string; zone: string; text: string };
+
 /** What the walk is driven against (test contract). */
 export type StagedSchedules = {
   tenantId: string;
@@ -107,6 +116,11 @@ export type StagedSchedules = {
   rowCount: number;
   /** The mark families the registry pane must list, as the store holds them. */
   families: string[];
+  /** Every stored cell of that schedule: where it stands, what it says, and the entities it cites. */
+  cells: StoredCell[];
+  /** Every stored variant of the registry, and every rebar zone beneath them. */
+  variants: StoredVariant[];
+  zones: StoredZone[];
   /** The source key of each note sentence, by the kind the grammar reads off it. */
   noteKeys: Record<string, string>;
   /** The second MEASURER's standing reading, which the walk's own LAP reading disagrees with. */
@@ -278,6 +292,35 @@ function storedFamilies(tenantId: string, ingestId: string): string[] {
   return laneRows(`select family from member_types where tenant_id = '${tenantId}' and ingest_id = '${ingestId}' order by family;`).map((row) => row[0] ?? "");
 }
 
+/** Every cell of one stored schedule, with the entities each cites (`source_keys`, space-joined). */
+function storedCells(tenantId: string, ingestId: string, scheduleKey: string): StoredCell[] {
+  return laneRows(
+    `select row_index, column_index, text, array_to_string(source_keys, ' ') from schedule_cells
+       where tenant_id = '${tenantId}' and ingest_id = '${ingestId}' and schedule_key = '${scheduleKey}' order by row_index, column_index;`,
+  ).map((row) => ({
+    rowIndex: Number(row[0] ?? "0"),
+    columnIndex: Number(row[1] ?? "0"),
+    text: row[2] ?? "",
+    sourceKeys: (row[3] ?? "").split(" ").filter((key) => key.length > 0),
+  }));
+}
+
+/** Every variant the stored registry holds for one ingest, in the store's own order. */
+function storedVariants(tenantId: string, ingestId: string): StoredVariant[] {
+  return laneRows(
+    `select family, variant_key, band_text, section_text from member_type_variants
+       where tenant_id = '${tenantId}' and ingest_id = '${ingestId}' order by family, variant_key;`,
+  ).map((row) => ({ family: row[0] ?? "", variantKey: row[1] ?? "", bandText: row[2] ?? "", sectionText: row[3] ?? "" }));
+}
+
+/** Every rebar zone the stored registry holds for one ingest. */
+function storedZones(tenantId: string, ingestId: string): StoredZone[] {
+  return laneRows(
+    `select family, variant_key, zone, text from rebar_zones
+       where tenant_id = '${tenantId}' and ingest_id = '${ingestId}' order by family, variant_key, zone;`,
+  ).map((row) => ({ family: row[0] ?? "", variantKey: row[1] ?? "", zone: row[2] ?? "", text: row[3] ?? "" }));
+}
+
 /**
  * A project of the signed-in workspace holding one partitioned drawing — a reconstructed schedule
  * with its member types, a schedule view that defers, and a notes sheet — pinned as a drawing-set
@@ -357,6 +400,12 @@ export async function stageSchedules(page: Page, options: { label?: string } = {
   const table = schedules.find((one) => one.rowCount > 1) ?? (schedules[0] as { scheduleKey: string; rowCount: number });
   const families = storedFamilies(tenantId, ingestId);
   expect(families.length, `and the member types its marks name: ${JSON.stringify(families)}`).toBeGreaterThan(0);
+  const cells = storedCells(tenantId, ingestId, table.scheduleKey);
+  expect(cells.length, "the reconstructed table stored the cells it read").toBeGreaterThan(0);
+  const variants = storedVariants(tenantId, ingestId);
+  expect(variants.length, `and the bands each mark stands in: ${JSON.stringify(variants)}`).toBeGreaterThan(0);
+  const zones = storedZones(tenantId, ingestId);
+  expect(zones.length, `and the rebar each band carries: ${JSON.stringify(zones)}`).toBeGreaterThan(0);
 
   /* --- the pinned revision, which is what opens the campaign (L-REG-07) --- */
   const scope = { tenantId, projectId };
@@ -415,6 +464,9 @@ export async function stageSchedules(page: Page, options: { label?: string } = {
     scheduleKey: table.scheduleKey,
     rowCount: table.rowCount,
     families,
+    cells,
+    variants,
+    zones,
     noteKeys,
     otherActorReading: { ...OTHER_ACTOR_READING, userId: secondUserId },
   };

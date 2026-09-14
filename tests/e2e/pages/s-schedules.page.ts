@@ -130,11 +130,25 @@ export class SSchedulesPage {
   family(family: string): Locator {
     return this.registry.locator(`${testIdSelector(idOf("family"))}[data-family="${family}"]`);
   }
+  get variants(): Locator {
+    return this.registry.getByTestId(idOf("variant"));
+  }
   variant(variantKey: string): Locator {
     return this.registry.locator(`${testIdSelector(idOf("variant"))}[data-variant="${variantKey}"]`);
   }
+  /** One variant row that says, verbatim, the band and the section the store holds for it (I-251). */
+  variantSaying(variantKey: string, said: readonly string[]): Locator {
+    return said.reduce((locator, words) => locator.filter({ hasText: words }), this.variant(variantKey));
+  }
+  get zones(): Locator {
+    return this.registry.getByTestId(idOf("zone"));
+  }
   zone(zone: string): Locator {
     return this.registry.locator(`${testIdSelector(idOf("zone"))}[data-zone="${zone}"]`);
+  }
+  /** One rebar zone row that says, verbatim, what the store holds for it. */
+  zoneSaying(zone: string, said: string): Locator {
+    return this.zone(zone).filter({ hasText: said });
   }
 
   /* --- the notes panel: what was read, what stands, and what is offered --- */
