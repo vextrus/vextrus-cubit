@@ -30,7 +30,7 @@ const AREA_DIR = "src/modules/takeoff/rails";
 const byCodePoint = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 
 /** Every kind the product measured before AM-11 moved a line, in code-point order. */
-const KINDS_BEFORE: readonly string[] = Object.freeze(["rcc.concrete"]);
+const KINDS_BEFORE: readonly string[] = Object.freeze(["rcc.concrete", "rcc.formwork"]);
 
 async function moduleAt(relative: string): Promise<Record<string, unknown>> {
   const abs = join(REPO_ROOT, relative);

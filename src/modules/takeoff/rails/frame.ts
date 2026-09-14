@@ -7,10 +7,11 @@
 // added to the roster below is a kind the measure job runs — with no shared roster to edit and no
 // other area's file to touch (AM-11).
 
+import { frameConcreteRail, frameFormworkRail } from "./frame/index";
 import type { RailRoster } from "./law";
-import { columnConcreteRail } from "./columns";
 
 /** Every kind this area measures, and the pure function that measures it (L-MEA-08). */
 export const FRAME_RAILS: RailRoster = Object.freeze({
-  "rcc.concrete": columnConcreteRail,
+  "rcc.concrete": frameConcreteRail,
+  "rcc.formwork": frameFormworkRail,
 });
