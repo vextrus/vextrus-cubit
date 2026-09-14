@@ -5,6 +5,7 @@
 // the act map's totality a compile-time property, so TRANSCRIBE_SHEET_NOTES' rendering has to read
 // this roster itself — and a rendering that reached into `src/modules` could not (ARCH-01). The
 // takeoff module's door re-publishes exactly these values, so a note kind has one home (B-17).
+import type { RefusalCode } from "../errors";
 
 /**
  * The five figures a general note states that detailing then applies (R-TO-034, AM-03). Each is one
@@ -34,6 +35,18 @@ export const NOTE_STANDINGS = ["AGREED", "SUSPENDED", "NONE"] as const;
 
 /** One of the three. */
 export type NoteStandingName = (typeof NOTE_STANDINGS)[number];
+
+/**
+ * The registered code a kind carrying no figure is reported under. One home for the pairing: the
+ * standing derived in `./standing.ts` and the code a screen renders the absence through are the same
+ * fact said twice (B-17, Q-07). AGREED carries a figure, and a kind nobody read is not a refusal —
+ * it is silence, and R-UI-050 renders silence as nothing at all.
+ */
+export const NOTE_STANDING_ABSENCE: Readonly<Record<NoteStandingName, RefusalCode | null>> = Object.freeze({
+  AGREED: null,
+  SUSPENDED: "NOTE_READING_CONTESTED",
+  NONE: null,
+});
 
 /** Is this string one of the five kinds the law closes? */
 export function isNoteKind(value: string): value is NoteKind {
