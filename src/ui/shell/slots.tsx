@@ -33,6 +33,9 @@ interface Slots {
   readonly setToolbar: (node: ReactNode | null) => void;
   readonly status: ReactNode | null;
   readonly setStatus: (node: ReactNode | null) => void;
+  /** The name of the screen inside the area — the breadcrumb's last crumb (R-UI-084). */
+  readonly page: string | null;
+  readonly setPage: (name: string | null) => void;
 }
 
 const SlotsContext = createContext<Slots | null>(null);
@@ -40,7 +43,8 @@ const SlotsContext = createContext<Slots | null>(null);
 export function ShellSlotsProvider({ children }: { children: ReactNode }) {
   const [toolbar, setToolbar] = useState<ReactNode | null>(null);
   const [status, setStatus] = useState<ReactNode | null>(null);
-  const slots = useMemo<Slots>(() => ({ toolbar, setToolbar, status, setStatus }), [toolbar, status]);
+  const [page, setPage] = useState<string | null>(null);
+  const slots = useMemo<Slots>(() => ({ toolbar, setToolbar, status, setStatus, page, setPage }), [toolbar, status, page]);
   return <SlotsContext.Provider value={slots}>{children}</SlotsContext.Provider>;
 }
 
@@ -74,9 +78,25 @@ export function useShellStatus(status: ReactNode | null): boolean {
   return set !== undefined;
 }
 
-/** The slots as the frame reads them. Absent provider = both empty, which is the frame's default. */
-export function useShellSlots(): { toolbar: ReactNode | null; status: ReactNode | null } {
+/**
+ * The same again, for the crumb R-UI-084 makes every screen declare: "the breadcrumb always names
+ * workspace, project, area and page". The frame draws the trail above every area and a screen is its
+ * `children`, so the page a reader is on reaches the top bar the way its tool row and its readout
+ * already do — through the slot, rather than by the frame guessing at the address (B-17).
+ */
+export function useShellPage(page: string | null): boolean {
+  const set = useContext(SlotsContext)?.setPage;
+  useEffect(() => {
+    if (set === undefined) return;
+    set(page);
+    return () => set(null);
+  }, [set, page]);
+  return set !== undefined;
+}
+
+/** The slots as the frame reads them. Absent provider = all empty, which is the frame's default. */
+export function useShellSlots(): { toolbar: ReactNode | null; status: ReactNode | null; page: string | null } {
   const slots = useContext(SlotsContext);
-  if (slots === null) return { toolbar: null, status: null };
-  return { toolbar: slots.toolbar, status: slots.status };
+  if (slots === null) return { toolbar: null, status: null, page: null };
+  return { toolbar: slots.toolbar, status: slots.status, page: slots.page };
 }
