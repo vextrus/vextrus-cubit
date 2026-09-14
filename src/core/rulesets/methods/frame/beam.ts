@@ -40,10 +40,20 @@ const CONCRETE_TREE: Statement = Object.freeze({
   expr: times(V("count"), V("b"), minus(V("D"), V("t")), V("clear")),
 });
 
-/** `A = count × ((D − t_left) + (D − t_right) + b) × clear` — two sides and a soffit, never the top. */
+/**
+ * `A = count × (D + D + b − t_left − t_right) × clear` — two sides and a soffit, never the top.
+ *
+ * The algebra is L-FRM-03's `((D − t_left) + (D − t_right) + b) × clear` collected over a common
+ * denominator of nothing: the two side depths, plus the soffit, less the slab each side is buried
+ * under. It is written collected rather than as three bracketed terms because the printed form is the
+ * template a person audits, and `print` is `parse`'s inverse only for the shapes the grammar reads
+ * back whole (L-QTY-03, B-17). A sum of three whose terms are differences prints without brackets and
+ * re-reads left-folded — a DIFFERENT tree that computes the same figure, which is exactly the silent
+ * drift the expression tree exists to close. Collected, it prints and re-reads as itself.
+ */
 const FORMWORK_TREE: Statement = Object.freeze({
   result: "A",
-  expr: times(V("count"), plus(minus(V("D"), V("t_left")), minus(V("D"), V("t_right")), V("b")), V("clear")),
+  expr: times(V("count"), minus(minus(plus(plus(V("D"), V("D")), V("b")), V("t_left")), V("t_right")), V("clear")),
 });
 
 const CONCRETE_FORMULA = formulaFrom(CONCRETE_TREE, BEAM_CONCRETE_METHOD.ruleId);
