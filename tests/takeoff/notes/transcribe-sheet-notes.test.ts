@@ -13,21 +13,27 @@ import {
   ACCEPTED,
   ACTS_MODULE,
   ACT_CHANGES_NOTHING,
+  BNBC_GENERAL_NOTES,
+  BNBC_PILE_NOTE,
   CONSEQUENCES_NOT_CARRIED,
   EDITED,
+  FC,
   FY,
   HOOK_MIN,
   LAP,
   MEASURE,
   NOTES_READINGS_TABLE,
+  NOTE_READING_CONTESTED,
   NOTE_SOURCE_NOT_ON_SHEET,
   REQUEST_MALFORMED,
+  SUSPENDED,
   TRANSCRIBED,
   TRANSCRIBE_ACT_MODULE,
   TRANSCRIBE_SHEET_NOTES,
 } from "./support/bnbc-notes";
 import { productModule } from "./support/notes-doors";
 import {
+  NOTES_LINE_KEY,
   actsLaw,
   actsOfType,
   actsSeam,
@@ -93,6 +99,27 @@ async function theThreeReadings(): Promise<ProposedReading[]> {
     // The claim a client makes about its own verdict rides along and is ignored: the seam judges it.
     reading(HOOK_MIN, String(hookMin["sourceKey"]), EDITED_HOOK_MIN, MM, { acceptance: ACCEPTED }),
   ];
+}
+
+type TwoTexts = { staged: StagedNotes; strengths: Record<string, unknown>[] };
+
+let bothStrengths: Promise<TwoTexts> | undefined;
+
+/**
+ * A second sheet of the same fixture, whose notes state the concrete strength TWICE — the general
+ * figure and the bored piles' own, each in its own sentence. One person reading both makes two
+ * readings of one kind, which is the ground for what a reading is keyed BY (AC-2).
+ */
+function twoStrengths(): Promise<TwoTexts> {
+  return (bothStrengths ??= (async () => {
+    const door = await notesDoor();
+    const stage = await stageNotes("two-texts", [...BNBC_GENERAL_NOTES, BNBC_PILE_NOTE]);
+    const texts = await door.sheetTextsOf({ tenantId: stage.tenantId, projectId: stage.projectId, drawingId: stage.sheet.drawingId }, stage.sheet.layoutName);
+    const strengths = door.proposeNotes(texts).filter((proposal) => String(proposal["kind"]) === FC);
+    expect(strengths.length, `the sheet states the concrete strength in two sentences, so the grammar offers two readings of it: ${JSON.stringify(strengths)}`).toBe(2);
+    expect(new Set(strengths.map((one) => String(one["sourceKey"]))).size, "each read off its own text").toBe(2);
+    return { staged: stage, strengths };
+  })());
 }
 
 let committed: Promise<{ actId: string }> | undefined;
@@ -200,23 +227,28 @@ describe("AC-2: TRANSCRIBE_SHEET_NOTES previews what it would write, and the sea
   );
 
   test(
-    "AC-2: a commit carrying a digest the current state does not produce refuses by name and writes nothing",
+    "AC-2: a digest taken before the readings under that very key moved is refused by name, and writes nothing",
     async () => {
       const { staged: stage } = await staged();
       await theCommit();
       const acts = await actsSeam();
+      const hookMinKey = (await theThreeReadings())[2]?.sourceKey as string;
       const before = readingRows(stage.tenantId).length;
 
-      const input = transcription(stage, [reading(HOOK_MIN, (await theThreeReadings())[2]?.sourceKey as string, "125", MM)]);
+      // The digest is taken over what the minimum hook stands at now: 100 mm, under this actor's key.
+      const input = transcription(stage, [reading(HOOK_MIN, hookMinKey, "125", MM)]);
       const consequence = await acts.preview(stage.measurer.actor, input);
       const stale = acts.consequenceDigest(consequence);
-      // A second reading under the same key moves the state the first digest was taken of.
-      await performAct(stage.second.actor, transcription(stage, [reading(HOOK_MIN, (await theThreeReadings())[2]?.sourceKey as string, "150", MM)]));
+
+      // The SAME person then reads it again at another figure, through a preview of its own: what the
+      // stale digest was taken over — the readings standing under that key — has moved beneath it.
+      await performAct(stage.measurer.actor, transcription(stage, [reading(HOOK_MIN, hookMinKey, "150", MM)]));
+      expect(readingRows(stage.tenantId).length, "the second reading was written").toBe(before + 1);
 
       const failure = await rejection(acts.commit(stage.measurer.actor, input, stale));
       expect(failure, "a commit whose digest is not the one current state produces is refused (L-ACT-02)").not.toBeNull();
       expect(await codeOf(failure), "by name").toBe(CONSEQUENCES_NOT_CARRIED);
-      expect(readingRows(stage.tenantId).length, "and the refusal wrote nothing").toBe(before + 1);
+      expect(readingRows(stage.tenantId).length, "and the refusal wrote nothing on top of it").toBe(before + 1);
     },
     BUDGET_MS,
   );
@@ -232,6 +264,26 @@ describe("AC-2: TRANSCRIBE_SHEET_NOTES previews what it would write, and the sea
       expect(refused, "a reading is kept only where its evidence is (L-CAD-03)").toBe(NOTE_SOURCE_NOT_ON_SHEET);
       expect(Object.keys(await schedulesRefusals()), "and the code is registered in the area's own taxonomy (Q-07)").toContain(NOTE_SOURCE_NOT_ON_SHEET);
       expect(readingRows(stage.tenantId).length, "nothing was written").toBe(before);
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "AC-2: a reading citing an entity of this very sheet that states no words is refused the same way",
+    async () => {
+      const { staged: stage } = await staged();
+      const door = await notesDoor();
+      await theCommit();
+      const before = readingRows(stage.tenantId).length;
+
+      // The rule the notes block is underscored with: on this sheet, at a key of this sheet's own
+      // scheme, and not a text entity — so there is nothing there for anybody to have read (L-QTY-01).
+      const texts = await door.sheetTextsOf({ tenantId: stage.tenantId, projectId: stage.projectId, drawingId: stage.sheet.drawingId }, stage.sheet.layoutName);
+      expect(texts.map((one) => one.sourceKey), `the sheet's texts are its TEXT entities, and the rule is not one of them: ${NOTES_LINE_KEY}`).not.toContain(NOTES_LINE_KEY);
+
+      const refused = await refusalOfPreviewing(stage.measurer.actor, transcription(stage, [reading(FY, NOTES_LINE_KEY, "500", "MPa")]));
+      expect(refused, "a transcription is a reading of TEXT: an entity that writes nothing cannot be what a figure was read from").toBe(NOTE_SOURCE_NOT_ON_SHEET);
+      expect(readingRows(stage.tenantId).length, "and nothing was written").toBe(before);
     },
     BUDGET_MS,
   );
@@ -275,6 +327,48 @@ describe("AC-2: TRANSCRIBE_SHEET_NOTES previews what it would write, and the sea
       expect((standing.current as unknown[]).length, "the later reading under that key is the current one").toBe(1);
       expect((standing.superseded as unknown[]).length, "and the earlier one is reported superseded").toBe(1);
       expect(String((standing.current as Record<string, unknown>[])[0]?.["canonical"]), "the figure that stands is the one read last").toBe("45");
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "AC-2: one person reading one kind off two different sentences makes two readings, and both stand",
+    async () => {
+      const { staged: stage, strengths } = await twoStrengths();
+      const door = await notesDoor();
+      const readings = strengths.map((proposal) => asProposed(proposal));
+
+      const consequence = await previewOf(stage.measurer.actor, transcription(stage, readings));
+      const subjects = subjectsOf(consequence);
+      expect(subjects.length, `a reading is made OF a text, so two sentences are two subjects: ${JSON.stringify(subjects)}`).toBe(readings.length);
+      const subjectIds = subjects.map((subject) => String(subject["subjectId"]));
+      expect(new Set(subjectIds).size, "and the two are keyed apart — what a reading is keyed by includes the text it cites").toBe(readings.length);
+      for (const [at, offered] of readings.entries()) {
+        expect(subjectIds[at], `the ${offered.kind} read from ${offered.sourceKey} is keyed by that sentence`).toBe(
+          door.noteReadingKey({
+            drawingId: stage.sheet.drawingId,
+            layoutName: stage.sheet.layoutName,
+            kind: offered.kind,
+            actorId: stage.measurer.person.userId,
+            sourceKey: offered.sourceKey,
+          }),
+        );
+      }
+
+      const { actId } = await performAct(stage.measurer.actor, transcription(stage, readings));
+      const rows = readingRows(stage.tenantId)
+        .map(readingFacts)
+        .filter((row) => row.actId === actId);
+      expect(rows.length, `one row per sentence read: ${JSON.stringify(rows)}`).toBe(readings.length);
+      expect(new Set(rows.map((row) => row.readingKey)).size, "stored under two keys — neither reading is the other one made again").toBe(readings.length);
+      expect(new Set(rows.map((row) => row.sourceKey)).size, "each citing the sentence it was read from").toBe(readings.length);
+
+      const standing = door.noteStanding(rows as unknown as Record<string, unknown>[]);
+      expect((standing.superseded as unknown[]).length, "a reading of another sentence supersedes nothing: they are not the same reading twice").toBe(0);
+      expect((standing.current as unknown[]).length, "so both stand as current readings of this sheet's concrete strength").toBe(readings.length);
+      expect(standing.standing, "and two current readings that disagree leave the figure suspended (AC-4)").toBe(SUSPENDED);
+      expect(standing.code, "under the code a contested reading is refused by").toBe(NOTE_READING_CONTESTED);
+      expect(standing.canonical ?? null, "standing at no figure at all — a suspension prints no number (I-253)").toBeNull();
     },
     BUDGET_MS,
   );

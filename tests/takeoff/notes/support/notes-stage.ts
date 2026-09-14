@@ -243,6 +243,12 @@ const CAPTION_HEIGHT = 8;
 const NOTE_HEIGHT = 2.5;
 
 /**
+ * The rule the notes block is underscored with: an entity of this sheet, at a key of this sheet's
+ * own scheme, which is not a TEXT or MTEXT and so states nothing anybody can read (AC-2).
+ */
+export const NOTES_LINE_KEY = "DXF_HANDLE:1F3D";
+
+/**
  * An EntityGraph v2 whose model space carries a general-notes block: one caption, and beneath it one
  * TEXT entity per sentence, each standing at the source key the acceptance names it by. The keys are
  * the artifact's own, which is what makes a reading's `sourceKey` a key of this sheet.
@@ -264,7 +270,7 @@ export function buildNotesArtifact(texts: readonly SheetText[] = BNBC_SHEET_TEXT
       points: [[0, -5 - index * 5]],
     });
   });
-  entities.push({ key: "DXF_HANDLE:1F3D", type: "LINE", space: MODEL_SPACE, layer: "NOTES", colour: CHANNELS, points: [[-2, -2], [60, -2]] });
+  entities.push({ key: NOTES_LINE_KEY, type: "LINE", space: MODEL_SPACE, layer: "NOTES", colour: CHANNELS, points: [[-2, -2], [60, -2]] });
   entities.push({ key: "DXF_HANDLE:1F3B", type: "TEXT", space: PAPER_SPACE, layer: "TITLEBLOCK", colour: CHANNELS, text: "S-01 GENERAL NOTES", height: 3, points: [[5, 5]] });
 
   const graph = {

@@ -173,6 +173,10 @@ export class SSchedulesPage {
   reading(kind: string): Locator {
     return this.notes.locator(`${testIdSelector(idOf("reading"))}[data-kind="${kind}"]`);
   }
+  /** One reading of a kind, by the verdict the seam gave it (test contract: `data-acceptance`). */
+  readingJudged(kind: string, acceptance: string): Locator {
+    return this.notes.locator(`${testIdSelector(idOf("reading"))}[data-kind="${kind}"][data-acceptance="${acceptance}"]`);
+  }
   get standings(): Locator {
     return this.notes.getByTestId(idOf("standing"));
   }
