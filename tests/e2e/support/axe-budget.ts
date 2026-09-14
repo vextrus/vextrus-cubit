@@ -33,6 +33,7 @@
 export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.freeze({
   "accept": 0,
   "certificate": 0,
+  "contested": 0,
   "grid": 0,
   "held-out": 0,
   "invite-pending": 0,
@@ -92,6 +93,7 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "j004-shell-tenant-switcher-open": 0,
   "j004-shell-user-menu-open": 0,
   "panel": 0,
+  "reaffirmed": 0,
   "remove-refused": 0,
   "s-audit-explorer": 0,
   "s-auth-reset-done": 0,
@@ -101,6 +103,7 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "s-project-home": 0,
   "s-takeoff/measure-queued": 0,
   "s-takeoff/register": 0,
+  "stack": 0,
   "switched": 0,
 });
 
