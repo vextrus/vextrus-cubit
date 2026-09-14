@@ -29,6 +29,18 @@ export type TransportVocabulary = {
  * because core may not import a module (ARCH-01) and the classification question a model is asked
  * has to name the classes it may answer with. One spelling, one place — never two lists to drift.
  */
+/**
+ * R-TO-034's note kinds — the five reinforcement figures a sheet's general notes can state.
+ * `HOOK_MIN` bears an underscore, so Q-07's register would read it as a refusal code nobody
+ * registered; it is declared here for the same reason the view types are.
+ *
+ * The spellings are declared rather than owned: the LAW is `src/modules/takeoff/notes/law.ts`,
+ * which brands these strings and publishes the closed roster the store's CHECK is written from.
+ * They are written down HERE because core may not import a module (ARCH-01) and a name Q-07 must
+ * tell from a refusal has to be declared where the register scan reads. One spelling, one place.
+ */
+export const NOTE_KIND_SPELLINGS = Object.freeze(["FY", "FC", "LAP", "HOOK", "HOOK_MIN"] as const);
+
 export const VIEW_TYPE_SPELLINGS = Object.freeze([
   "LAYOUT_PLAN",
   "SCHEDULE",
@@ -123,6 +135,15 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // copied, so an act type the law gains tomorrow is declared with no edit (B-19, B-17).
     vocabulary: "act types (L-ACT-02)",
     codes: ACT_TYPES,
+  }),
+  Object.freeze({
+    // R-TO-034's note kinds, spelled as the notes law spells them. A kind names which reinforcement
+    // figure a general note states; it is written to `notes_readings` and read by the grammar and
+    // the applied-detailing door, and a person is answered with the kind's own WORD through
+    // EnumLabel — never with this name. Its home is `src/modules/takeoff/notes/law.ts`, which reads
+    // the roster from the array above rather than copying it (B-19, B-17, ARCH-01).
+    vocabulary: "note kinds (R-TO-034)",
+    codes: NOTE_KIND_SPELLINGS,
   }),
   Object.freeze({
     // L-MEA-05's scale ranks, spelled as the law spells its precedence: "QS two-point › grid-spacing
