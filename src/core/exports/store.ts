@@ -117,11 +117,42 @@ export async function readSignedExport(storage: Storage, presented: PresentedLin
  * A download URL carries `kind` outside the signature — SEAM-STORAGE signs a workspace, an address
  * and an expiry, and this seam mints no second signature — so the kind is a claim a caller may
  * rewrite. This is what the claim is checked against: an .xlsx is an OOXML package and a package is
- * a zip, which opens with the two bytes every zip has opened with since PKZIP; a CSV is text and
- * cannot. So the two kinds this seam writes are told apart by what they are.
+ * a zip, and a zip is a STRUCTURE — a local file header at the front and a central directory record
+ * at the back. A CSV is text and has neither.
+ *
+ * The two letters alone would not do. "PK" is ASCII, and `writeCsv` puts the first column header at
+ * the front of the artefact, so a bill whose first column is `PKG` or `PKR` would open with the very
+ * same bytes; calling that a package would answer a link the workspace really did mint with "not one
+ * this workspace issued", and leave a lawful CSV undownloadable at its own address. What text cannot
+ * counterfeit is the pair: the entry header's own `\x03\x04`, and the end-of-central-directory
+ * record that closes every zip, both of which are control bytes no column header carries.
  */
 export function storedKindOf(bytes: Uint8Array): ExportKind {
-  return bytes[0] === 0x50 && bytes[1] === 0x4b ? "xlsx" : "csv";
+  return opensAt(bytes, ZIP_ENTRY, 0) && closesAsArchive(bytes) ? "xlsx" : "csv";
+}
+
+/** The local file header every zip entry opens with, and the record every zip closes with. */
+const ZIP_ENTRY = Object.freeze([0x50, 0x4b, 0x03, 0x04]);
+const ZIP_END = Object.freeze([0x50, 0x4b, 0x05, 0x06]);
+
+/**
+ * How far back the closing record is looked for. It stands 22 bytes from the end of an archive with
+ * no comment — which is what this seam writes — and a comment may carry it further; a kilobyte is
+ * further than any archive of ours puts it and short enough to read at once.
+ */
+const ZIP_END_WINDOW = 1024;
+
+/** Do these bytes stand at this offset? */
+function opensAt(bytes: Uint8Array, signature: readonly number[], at: number): boolean {
+  return signature.every((byte, index) => bytes[at + index] === byte);
+}
+
+/** Does an end-of-central-directory record stand in the archive's tail, where a zip closes? */
+function closesAsArchive(bytes: Uint8Array): boolean {
+  for (let at = bytes.length - ZIP_END.length; at >= Math.max(0, bytes.length - ZIP_END_WINDOW); at -= 1) {
+    if (opensAt(bytes, ZIP_END, at)) return true;
+  }
+  return false;
 }
 
 /** Is this text a kind this seam writes? The query says one, and a caller wrote the query. */

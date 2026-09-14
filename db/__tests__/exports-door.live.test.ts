@@ -35,6 +35,20 @@ const SAMPLE = {
   rows: [["Concrete M25", "8500.00"]],
 } as const;
 
+/**
+ * A perfectly ordinary bill whose first column is a packing item, so its CSV opens with the letters
+ * "PK" — the two an archive opens with too. Ordinary content may not be mistaken for a package.
+ */
+const PACKING = {
+  name: "Packing",
+  freezeHeader: true,
+  columns: [
+    { key: "pkg", header: "PKG", kind: "text" },
+    { key: "rate", header: "PKR Rate", kind: "money" },
+  ],
+  rows: [["Crate, 40 ft", "8500.00"]],
+} as const;
+
 /** An address of the right shape that nothing was ever stored at — 64 hex characters of nobody. */
 const NOWHERE = "b".repeat(64);
 
@@ -53,7 +67,7 @@ let route: Route;
 let storage: unknown;
 let sessionCookie: string;
 
-const scene = { tenantId: "", token: "", csv: "", xlsx: "" };
+const scene = { tenantId: "", token: "", csv: "", xlsx: "", packing: "", packingBytes: new Uint8Array() as Uint8Array<ArrayBufferLike> };
 
 /** A staging read, spoken under the system reason the seam's own writes record (SEAM-TENANT). */
 const sysScalar = (sql: string): string => scalar(scratch?.urlMigrate ?? "", `set ${GUC_SYSTEM_REASON} = ${lit(SEED_REASON)};\n${sql}`);
@@ -105,6 +119,8 @@ async function stage(): Promise<void> {
 
   ({ sha256: scene.csv } = await seam.storeExport(storage, scene.tenantId, seam.writeCsv(SAMPLE)));
   ({ sha256: scene.xlsx } = await seam.storeExport(storage, scene.tenantId, await seam.buildWorkbook({ sheets: [SAMPLE] })));
+  scene.packingBytes = seam.writeCsv(PACKING);
+  ({ sha256: scene.packing } = await seam.storeExport(storage, scene.tenantId, scene.packingBytes));
 
   route = (await import("../../src/app/api/exports/[id]/route")) as unknown as Route;
 }
@@ -180,6 +196,20 @@ describe("AC-3: the door's closed status table, spoken over HTTP", () => {
       expect(answer.status, `a ${claimed} claim over the other artefact is not a link this seam minted`).toBe(403);
       expect(await refusalCodeOf(answer)).toBe("EXPORT_URL_INVALID");
     }
+  });
+
+  it("serves a CSV whose own text opens with the letters an archive opens with", async () => {
+    await staged();
+    // A packing bill: the first column header is `PKG`, so the artefact's first bytes are "PK". It
+    // is a CSV all the same, and the workspace really did mint this link — telling its holder the
+    // link is not one this workspace issued would be a false statement, and would leave a lawful
+    // artefact undownloadable at its own address.
+    expect(Buffer.from(scene.packingBytes.subarray(0, 2)).toString("utf8"), "the artefact really does open with those two letters").toBe("PK");
+
+    const answer = await ask(linkTo(scene.packing, "csv"));
+    expect(answer.status).toBe(200);
+    expect(answer.headers.get("content-disposition")).toBe(`attachment; filename="${scene.packing}.csv"`);
+    expect(new Uint8Array(await answer.arrayBuffer()), "the bytes stored at the address, whole").toEqual(scene.packingBytes);
   });
 
   it("serves the artefact when the link and the stored bytes agree", async () => {
