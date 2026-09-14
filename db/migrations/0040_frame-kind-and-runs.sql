@@ -46,6 +46,29 @@ ALTER TABLE "scope_declarations" ADD CONSTRAINT "scope_declarations_kind_closed"
 -- measures — the contact area L-MEA-09 gives the owner of a face — so a line, a queued item, an
 -- observation and a scope declaration of that kind can now be written at all (AM-14, B-19).
 --
+-- L-MEA-04: the catalogue is CODE-OWNED — "a kind, a work item or a borne class changes by an edit
+-- to the consts, a re-emission and a migration, and by no other path" (0028). This is that
+-- migration's third step: the rows below are `db/catalogue/work-items.json` and
+-- `db/catalogue/bears.json` as the emitter wrote them from the consts this increment moved, and the
+-- catalogue-drift stage is what keeps the three copies from parting company. 0028 wrote its rows
+-- before enabling row-level security, because a migration names no scope and satisfies no policy;
+-- the tables now stand FORCED, so the force is lifted for exactly these statements and restored
+-- immediately — the guarantee the runtime is held to is unchanged, and `cubit_app` still holds no
+-- privilege that writes either table.
+ALTER TABLE "work_items" NO FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "bears" NO FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+INSERT INTO "work_items" ("kind", "description", "canonical_unit", "dimension", "document_precision")
+	VALUES ('rcc.formwork', 'Formwork to reinforced cement concrete, measured as the contact area of the cast face', 'm2', 'AREA', 2);--> statement-breakpoint
+INSERT INTO "bears" ("class", "kind")
+	VALUES ('beam', 'rcc.concrete'),
+		('beam', 'rcc.formwork'),
+		('tie_beam', 'rcc.concrete'),
+		('tie_beam', 'rcc.formwork'),
+		('lintel', 'rcc.concrete'),
+		('lintel', 'rcc.formwork');--> statement-breakpoint
+ALTER TABLE "work_items" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "bears" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+--
 -- The run table is a stage of the partition, REBUILT per ingest: its rows are deleted and written
 -- again in one transaction with the placements they were read for, so the app role really holds a
 -- DELETE on it. What makes it trustworthy is the tenant scope below and the key it stands under,
