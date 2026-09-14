@@ -124,15 +124,12 @@ your prompt. The engine rewrites the lessons block after merges; nothing here is
   (the Verifier's), the toolchain scripts and CI unless owned. A debt sweep's worklist is
   `mcp__builder__debt_rows`; fix each row where it lives, test beside it.
 
+## Compact instructions
+When this session's context is compacted, the summary must carry, verbatim where it can: the
+increment id and every acceptance criterion id with its current verdict (green, red, untouched);
+every file changed so far and why, one line each; the lanes asked through `mcp__builder__check` and
+their last verdicts; the open questions and objections; the exact next step. Never a narrative of
+the work. The session continues after the summary — the Handoff is for the end of the work only.
+
 <!-- builder:lessons:start -->
-## Standing lessons (engine-maintained)
-### Locked ground & lawful paths
-- Diagnosis that reaches for source introspection instead of read-only probes — A session tried to inspect runtime state by running arbitrary code (e.g. a code-evaluation flag) rather than a read-only probe, and was denied — diagnosis is read-only.
-- Held-out criteria must quote only what the Builder reads — An increment's first attempt went HELDOUT_RED because its spec's held-out criteria quoted literal strings that appear nowhere in the goal, the public criteria, or the test contract — the only three places the Builder can check a quote against.
-- UI-scoped work that reaches into a shared string table breaks the unrelated golden path — An increment scoped to one UI feature edited another module's shared string table and a locked path, drew SCOPE_CREEP findings, and the unrelated golden-path journey test went red on repeated attempts, not just its own feature's journey.
-- UI string keys belong in the touching module's own file — An increment that needs new UI copy sometimes reaches for another module's existing string table and gets denied — twice in this increment alone.
-- The session that re-runs the gate chain by hand — An increment repeatedly (4x) tried to run the whole gate chain tool-by-tool instead of calling the fast lane.
-### Tests & acceptance
-- Scan-corpus exemptions need the corpus committed and armed, not just referenced — An increment writing a lint/scan-law test that excuses a NEVER via a named corpus can pass its own unit test while failing the AC that the corpus sits in an armed lane.
-- Prove 'this module imports only from X' behaviourally with a module.register resolve hook that refuses everything else — never by scanning the file's text — An acceptance criterion of the form *"`<module>` imports only from `@/core/**`"* is a **source-text** assertion if you scan it with `tests/support/source-lex` — and the engine's mechanical check flags it (v15 §7).
 <!-- builder:lessons:end -->
