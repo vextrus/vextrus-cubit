@@ -48,6 +48,13 @@ const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toStrin
 export const SCHEDULE_LAYOUT = "Model";
 export const NOTES_LAYOUT = "S-01";
 
+/**
+ * A THIRD sheet of the same drawing, carrying nothing but a titleblock's lines: no schedule, no
+ * deferral, no text at all. It is what makes the rail's rule a rule — a rail that lists the pinned
+ * revision's layouts rather than the sheets that hold something lists this one too (AC-7).
+ */
+export const BARREN_LAYOUT = "S-09";
+
 /** The captions the shipped grammar reads deterministically — no recorded model answer is needed. */
 const CAPTION_SCHEDULE = "COLUMN SCHEDULE";
 
@@ -121,8 +128,16 @@ export type StagedSchedules = {
   /** Every stored variant of the registry, and every rebar zone beneath them. */
   variants: StoredVariant[];
   zones: StoredZone[];
+  /** The sheet the pinned revision holds that carries no schedule, no deferral and no text. */
+  barrenLayout: string;
+  /** Every layout of the pinned revision that holds something to show — the rail's own roster. */
+  sheetsHolding: string[];
   /** The source key of each note sentence, by the kind the grammar reads off it. */
   noteKeys: Record<string, string>;
+  /** What the drawing WROTE for each kind, as the product's own grammar read it off the sheet. */
+  noteValues: Record<string, string>;
+  /** The figure the grammar canonicalised each written value to — what a proposal's field offers. */
+  noteCanonicals: Record<string, string>;
   /** The second MEASURER's standing reading, which the walk's own LAP reading disagrees with. */
   otherActorReading: { kind: string; valueAsWritten: string; unitAsWritten: string; userId: string };
 };
@@ -215,6 +230,11 @@ function buildSchedulesArtifact(): { json: string } {
   });
   entities.push({ key: next(), type: "LINE", space: NOTES_LAYOUT, layer: "TITLEBLOCK", colour: CHANNELS, points: [[0, 0], [297, 210]] });
 
+  /* --- the barren sheet: geometry and nothing else, so it holds nothing to show --- */
+  entities.push({ key: next(), type: "LINE", space: BARREN_LAYOUT, layer: "TITLEBLOCK", colour: CHANNELS, points: [[0, 0], [297, 0]] });
+  entities.push({ key: next(), type: "LINE", space: BARREN_LAYOUT, layer: "TITLEBLOCK", colour: CHANNELS, points: [[297, 0], [297, 210]] });
+  entities.push({ key: next(), type: "LINE", space: BARREN_LAYOUT, layer: "TITLEBLOCK", colour: CHANNELS, points: [[0, 0], [0, 210]] });
+
   const graph = {
     entitygraph_version: 2,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-journey", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
@@ -222,6 +242,7 @@ function buildSchedulesArtifact(): { json: string } {
     layouts: [
       { name: SCHEDULE_LAYOUT, kind: "model", bbox: { min: [560, -140], max: [1600, 20] }, strays_rejected: 0 },
       { name: NOTES_LAYOUT, kind: "paper", bbox: { min: [0, 0], max: [297, 210] }, strays_rejected: 0 },
+      { name: BARREN_LAYOUT, kind: "paper", bbox: { min: [0, 0], max: [297, 210] }, strays_rejected: 0 },
     ],
     dropped_layouts: [],
     entities,
@@ -440,8 +461,19 @@ export async function stageSchedules(page: Page, options: { label?: string } = {
   );
   const proposals = grammar.proposeNotes(texts);
   const noteKeys = Object.fromEntries(proposals.map((proposal) => [String(proposal["kind"]), String(proposal["sourceKey"])]));
+  const noteValues = Object.fromEntries(proposals.map((proposal) => [String(proposal["kind"]), String(proposal["valueAsWritten"])]));
+  const noteCanonicals = Object.fromEntries(proposals.map((proposal) => [String(proposal["kind"]), String(proposal["canonical"])]));
   const lapKey = noteKeys[OTHER_ACTOR_READING.kind];
   expect(lapKey, `the notes sheet proposes a ${OTHER_ACTOR_READING.kind} reading: ${JSON.stringify(noteKeys)}`).toBeTruthy();
+
+  /* --- which of the drawing's three sheets hold something the screen can show (AC-7) --- */
+  const sheetsHolding: string[] = [];
+  for (const layoutName of [SCHEDULE_LAYOUT, NOTES_LAYOUT, BARREN_LAYOUT]) {
+    const said = await notes.sheetTextsOf({ tenantId, projectId, drawingId }, layoutName);
+    if (said.length > 0) sheetsHolding.push(layoutName);
+  }
+  expect(sheetsHolding, `the barren sheet carries no text, no schedule and no deferral: ${JSON.stringify(sheetsHolding)}`).not.toContain(BARREN_LAYOUT);
+  expect(sheetsHolding.length, "while the sheet with the schedule and the sheet with the notes both hold something").toBe(2);
 
   await perform(
     { tenantId, userId: secondUserId, actorKind: "human" },
@@ -461,6 +493,8 @@ export async function stageSchedules(page: Page, options: { label?: string } = {
     ingestId,
     scheduleLayout: SCHEDULE_LAYOUT,
     notesLayout: NOTES_LAYOUT,
+    barrenLayout: BARREN_LAYOUT,
+    sheetsHolding,
     scheduleKey: table.scheduleKey,
     rowCount: table.rowCount,
     families,
@@ -468,6 +502,23 @@ export async function stageSchedules(page: Page, options: { label?: string } = {
     variants,
     zones,
     noteKeys,
+    noteValues,
+    noteCanonicals,
     otherActorReading: { ...OTHER_ACTOR_READING, userId: secondUserId },
   };
+}
+
+/**
+ * Every word the screen is allowed to say of its own accord: the sentences its copy registry holds
+ * (`src/ui/strings/schedules.ts`, which the Decision §3 rules verbatim), tokenised the way the walk
+ * tokenises what it reads. Mechanics — the walk decides what to do with them.
+ */
+export async function copySentences(): Promise<string[]> {
+  const module = await productModule<Record<string, unknown>>("src/ui/strings/schedules.ts");
+  const tables = Object.values(module).filter(
+    (value): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value),
+  );
+  const said = tables.flatMap((table) => Object.values(table).filter((entry): entry is string => typeof entry === "string"));
+  expect(said.length, "the screen's copy registry publishes the sentences it says").toBeGreaterThan(0);
+  return said;
 }
