@@ -38,7 +38,7 @@ const SRC = join(REPO_ROOT, "src");
  * THE GOLDEN LIST. Every test id the tree published on 2026-09-12, sorted, byte for byte. Nothing
  * derives it; it is written out so that a diff of this file is a diff of the product's test surface.
  */
-const GOLDEN: readonly string[
+const GOLDEN: readonly string[] = [
   "accept-invitation-form",
   "accept-invitation-refusal",
   "accept-invitation-submit",
