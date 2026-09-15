@@ -118,9 +118,16 @@ export type StagedSchedules = {
   scheduleLayout: string;
   /** The sheet the general notes stand on. */
   notesLayout: string;
-  /** The stored schedule the walk reads, and how many rows the store holds for it. */
+  /** The stored schedule the walk reads. */
   scheduleKey: string;
-  rowCount: number;
+  /**
+   * The band its COLUMNS were taken from — the least row index the store holds for it — and what that
+   * band says, column by column (src/core/db/schema-takeoff-schedules.ts: row 0 is the header band).
+   */
+  headerRow: number;
+  headerTexts: string[];
+  /** Every stored row index BELOW that band: the rows a grid draws as rows of data, and no others. */
+  dataRows: number[];
   /** The mark families the registry pane must list, as the store holds them. */
   families: string[];
   /** Every stored cell of that schedule: where it stands, what it says, and the entities it cites. */
@@ -299,13 +306,22 @@ function seedSecondMeasurer(tenantId: string, projectId: string, mark: string): 
   return userId;
 }
 
-/** Every stored schedule of one ingest, with how many rows its cells stand in. */
-function storedSchedules(tenantId: string, ingestId: string): { scheduleKey: string; rowCount: number }[] {
+/** Every stored schedule of one ingest, in the store's own order. */
+function storedSchedules(tenantId: string, ingestId: string): string[] {
+  return laneRows(`select schedule_key from schedules where tenant_id = '${tenantId}' and ingest_id = '${ingestId}' order by schedule_key;`).map((row) => row[0] ?? "");
+}
+
+/**
+ * The table rows one schedule's MARK FAMILIES were read from (`member_types.row_index`).
+ *
+ * This is how the store itself says which bands are data: a family is read off a row that names a
+ * member, and the band the COLUMNS were taken from names none (src/core/db/schema-takeoff-schedules.ts).
+ */
+function markedRows(tenantId: string, ingestId: string, scheduleKey: string): number[] {
   return laneRows(
-    `select s.schedule_key, (select count(distinct c.row_index) from schedule_cells c
-        where c.tenant_id = s.tenant_id and c.ingest_id = s.ingest_id and c.schedule_key = s.schedule_key)
-       from schedules s where s.tenant_id = '${tenantId}' and s.ingest_id = '${ingestId}' order by s.schedule_key;`,
-  ).map((row) => ({ scheduleKey: row[0] ?? "", rowCount: Number(row[1] ?? "0") }));
+    `select distinct row_index from member_types
+       where tenant_id = '${tenantId}' and ingest_id = '${ingestId}' and schedule_key = '${scheduleKey}' order by row_index;`,
+  ).map((row) => Number(row[0] ?? "0"));
 }
 
 /** Every mark family the stored registry holds for one ingest. */
@@ -418,11 +434,36 @@ export async function stageSchedules(page: Page, options: { label?: string } = {
 
   const schedules = storedSchedules(tenantId, ingestId);
   expect(schedules.length, `the partition reconstructed the drawing's schedule: ${JSON.stringify(schedules)}`).toBeGreaterThan(0);
-  const table = schedules.find((one) => one.rowCount > 1) ?? (schedules[0] as { scheduleKey: string; rowCount: number });
+  const stored = schedules.map((scheduleKey) => ({ scheduleKey, cells: storedCells(tenantId, ingestId, scheduleKey) }));
+  const bands = (of: readonly StoredCell[]): number[] =>
+    of
+      .map((one) => one.rowIndex)
+      .filter((rowIndex, at, all) => all.indexOf(rowIndex) === at)
+      .sort((left, right) => left - right);
+  const table = stored.find((one) => bands(one.cells).length > 1) ?? (stored[0] as { scheduleKey: string; cells: StoredCell[] });
   const families = storedFamilies(tenantId, ingestId);
   expect(families.length, `and the member types its marks name: ${JSON.stringify(families)}`).toBeGreaterThan(0);
-  const cells = storedCells(tenantId, ingestId, table.scheduleKey);
+  const cells = table.cells;
   expect(cells.length, "the reconstructed table stored the cells it read").toBeGreaterThan(0);
+
+  /* --- which of the stored bands is the header, and which are rows of data (AC-7) --- */
+  // Asked of the store, never assumed: the header band is the least row index the schedule holds, and
+  // the store's own proof that it IS the header is that no mark family was read off it — a family is
+  // read from a row that names a member, and the band the columns came from names none.
+  const rowIndexes = bands(cells);
+  const headerRow = rowIndexes[0] as number;
+  const dataRows = rowIndexes.filter((one) => one > headerRow);
+  const marked = markedRows(tenantId, ingestId, table.scheduleKey);
+  expect(marked, `the band the columns were taken from names no member type, so it is the header and not a row of data: ${JSON.stringify(rowIndexes)}`).not.toContain(
+    headerRow,
+  );
+  expect(dataRows, `and every row a mark was read from is one of the bands below it: ${JSON.stringify(marked)}`).toEqual(expect.arrayContaining(marked));
+  expect(dataRows.length, "the staged schedule holds rows of data beneath its header band").toBeGreaterThan(0);
+  const headerTexts = cells
+    .filter((one) => one.rowIndex === headerRow && one.text.length > 0)
+    .sort((left, right) => left.columnIndex - right.columnIndex)
+    .map((one) => one.text);
+  expect(headerTexts.length, `and the header band says what its columns are called: ${JSON.stringify(headerTexts)}`).toBeGreaterThan(0);
   const variants = storedVariants(tenantId, ingestId);
   expect(variants.length, `and the bands each mark stands in: ${JSON.stringify(variants)}`).toBeGreaterThan(0);
   const zones = storedZones(tenantId, ingestId);
@@ -496,7 +537,9 @@ export async function stageSchedules(page: Page, options: { label?: string } = {
     barrenLayout: BARREN_LAYOUT,
     sheetsHolding,
     scheduleKey: table.scheduleKey,
-    rowCount: table.rowCount,
+    headerRow,
+    headerTexts,
+    dataRows,
     families,
     cells,
     variants,

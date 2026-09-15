@@ -22,7 +22,6 @@ import { emulateTheme, restoreLaneTheme } from "./support/lane-theme";
 import { everyAttribute, everyRow, heldAttribute, steadyCount, steadyText } from "./support/retrying-read";
 import { signInAsSeededTenant } from "./support/seeded-session";
 import { settled } from "./support/settled";
-import { TESTIDS } from "../../src/ui/testids";
 
 /** The width the frame paints the rail, the work column and the inspector side by side at (R-UI-030). */
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -119,17 +118,33 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
     await settled(page);
     const table = schedules.table(staged.scheduleKey);
     await expect(table, "the stored schedule renders under the key it was stored as").toHaveCount(1);
-    expect(await schedules.rowsRendered(table), "and states the rows it drew — the stored table's own count, never a re-reckoning (I-250)").toBe(String(staged.rowCount));
-    await expect(table.getByTestId(TESTIDS.datatable.row), "a stored row is a row of the grid").toHaveCount(staged.rowCount);
+
+    // A row of the grid is a row of DATA. The band the schedule's columns were taken from is the grid's
+    // own header — sticky, named, above everything — so the rows the table says it drew are the stored
+    // bands BENEATH it, and never the stored band count (Decision §1, I-250). A screen that fed the
+    // header band through as a body row would read one too many here.
+    expect(await schedules.rowsRendered(table), `and states the rows it drew — the stored bands below the header, never a re-reckoning: ${JSON.stringify(staged.dataRows)}`).toBe(
+      String(staged.dataRows.length),
+    );
+    await expect(schedules.bodyRows(table), "one row of the grid per stored band of data").toHaveCount(staged.dataRows.length);
+
+    const header = schedules.tableHeader(table);
+    await expect(header, "and the grid names its columns in a header region of its own (DataTable v2, Decision §1)").toHaveCount(1);
+    await expect(schedules.bodyRows(header), "which is no row of the body: a header is not data (R-UI-082)").toHaveCount(0);
+    for (const said of staged.headerTexts) {
+      await expect(
+        header.getByText(said, { exact: true }).first(),
+        `the column the schedule headed ${said} is named where a reader looks for a column's name, verbatim`,
+      ).toBeVisible();
+    }
 
     const cells = schedules.cells(table);
     const drawn = await steadyCount(cells, "the cells of the reconstructed table");
     expect(drawn, "a reconstructed table renders the cells it stored").toBeGreaterThan(0);
 
-    // Every stored cell, where it was stored, saying what it says and citing what IT cites. The
-    // header band is the grid's own header, so it is allowed to render as one rather than as a cell.
-    const headerRow = Math.min(...staged.cells.map((one) => one.rowIndex));
-    for (const stored of staged.cells.filter((one) => one.rowIndex > headerRow && one.text.length > 0)) {
+    // Every stored cell, where it was stored, saying what it says and citing what IT cites. The header
+    // band is the grid's own header — asserted as one above — so it is no cell of the body.
+    for (const stored of staged.cells.filter((one) => one.rowIndex > staged.headerRow && one.text.length > 0)) {
       const where = `row ${stored.rowIndex}, column ${stored.columnIndex}`;
       const at = schedules.cell(table, stored.rowIndex, stored.columnIndex);
       await expect(at, `the cell stored at ${where} stands where it was stored`).toHaveCount(1);
@@ -145,12 +160,25 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
       );
     }
 
-    // And nothing is drawn that the store does not hold: every rendered cell answers to a stored one.
-    const holds = staged.cells.map((one) => `${one.rowIndex}:${one.columnIndex}`);
+    // And nothing is drawn that the store does not hold: every rendered cell answers to a stored one,
+    // and carries that stored cell's own trace — the header band's cells too, wherever they stand.
+    const holds = staged.cells.map((one) => ({ at: `${one.rowIndex}:${one.columnIndex}`, cell: one }));
     for (let at = 0; at < drawn; at += 1) {
       const one = cells.nth(at);
       const stands = `${String(await heldAttribute(one, "data-row"))}:${String(await heldAttribute(one, "data-column"))}`;
-      expect(holds, `the cell the screen drew at ${stands} is one the store holds`).toContain(stands);
+      expect(
+        holds.map((held) => held.at),
+        `the cell the screen drew at ${stands} is one the store holds`,
+      ).toContain(stands);
+      const stored = (holds.find((held) => held.at === stands) as (typeof holds)[number]).cell;
+      if (stored.text.length === 0) continue;
+      const link = schedules.evidence(one);
+      await expect(link, `the cell drawn at ${stands} carries exactly one trace, wherever on the grid it stands (I-252)`).toHaveCount(1);
+      await expect(link, `labelled with what the drawing says at ${stands}, verbatim: ${stored.text}`).toHaveAccessibleName(stored.text);
+      await expect(link, `and opening the sheet at the entities that cell cites: ${JSON.stringify(stored.sourceKeys)}`).toHaveAttribute(
+        "href",
+        selectionAddress(staged.tenantId, staged.projectId, staged.drawingId, staged.scheduleLayout, stored.sourceKeys),
+      );
     }
 
     /* --- the member-type registry: what the schedule said a member IS, and never how many (AC-7) --- */

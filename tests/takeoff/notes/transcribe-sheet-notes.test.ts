@@ -54,11 +54,13 @@ import {
   schedulesCaller,
   schedulesRefusals,
   stageNotes,
+  stageSheetOutsideRevision,
   subjectsOf,
   transcribeRendering,
   transcription,
   type ProposedReading,
   type StagedNotes,
+  type StagedSheet,
 } from "./support/notes-stage";
 
 const BUDGET_MS = 300_000;
@@ -99,6 +101,77 @@ async function theThreeReadings(): Promise<ProposedReading[]> {
     // The claim a client makes about its own verdict rides along and is ignored: the seam judges it.
     reading(HOOK_MIN, String(hookMin["sourceKey"]), EDITED_HOOK_MIN, MM, { acceptance: ACCEPTED }),
   ];
+}
+
+/* ------------------------------------------------------------ the spelling, and the figure under it */
+
+/** A unit no general note of this fixture states the lap in — a multiple of the bar is not a length. */
+const OTHER_UNIT = "mm";
+
+/** The two kinds whose sentence is written one way and canonicalises to another (AC-1: `500 MPa`, `50d`). */
+const RESPELT_KINDS: readonly string[] = [FY, LAP];
+
+/** The reading a proposal is, offered in the grammar's OWN canonical spelling of it, under its unit. */
+function asCanonical(proposal: Record<string, unknown>): ProposedReading {
+  return reading(String(proposal["kind"]), String(proposal["sourceKey"]), String(proposal["canonical"]), String(proposal["unitAsWritten"]));
+}
+
+let respelt: Promise<Ground> | undefined;
+
+/**
+ * A sheet of its own, on which nothing has been read yet — the ground for what the seam judges BY.
+ *
+ * The screen's proposal field holds the canonical (AC-6), so what a person hands back for a row they
+ * never touched is the bare figure, not the sentence's own words. A seam that compared the words
+ * would call every untouched row EDITED, and would write a row for a re-reading that moved nothing.
+ */
+function respeltGround(): Promise<Ground> {
+  return (respelt ??= (async () => {
+    const door = await notesDoor();
+    const stage = await stageNotes("spelling");
+    const texts = await door.sheetTextsOf({ tenantId: stage.tenantId, projectId: stage.projectId, drawingId: stage.sheet.drawingId }, stage.sheet.layoutName);
+    const proposals = Object.fromEntries(door.proposeNotes(texts).map((proposal) => [String(proposal["kind"]), proposal]));
+    for (const kind of RESPELT_KINDS) {
+      const proposal = proposals[kind] as Record<string, unknown> | undefined;
+      expect(proposal, `the staged sheet proposes a ${kind} reading: ${JSON.stringify(Object.keys(proposals))}`).toBeTruthy();
+      expect(
+        String((proposal as Record<string, unknown>)["canonical"]),
+        `and the drawing's words for the ${kind} are not already the figure the grammar reads out of them, so offering the figure really is another spelling: ${JSON.stringify(proposal)}`,
+      ).not.toBe(String((proposal as Record<string, unknown>)["valueAsWritten"]));
+    }
+    return { staged: stage, proposals };
+  })());
+}
+
+let respeltCommit: Promise<{ actId: string }> | undefined;
+
+/** The grade and the lap, handed back at the very figure the grammar canonicalised them to. */
+function theRespeltCommit(): Promise<{ actId: string }> {
+  return (respeltCommit ??= (async () => {
+    const { staged: stage, proposals } = await respeltGround();
+    const readings = RESPELT_KINDS.map((kind) => asCanonical(proposals[kind] as Record<string, unknown>));
+    const performed = await performAct(stage.measurer.actor, transcription(stage, readings));
+    return { actId: performed.actId };
+  })());
+}
+
+let otherUnit: Promise<{ staged: StagedNotes; sheet: StagedSheet; lap: Record<string, unknown> }> | undefined;
+
+/**
+ * A SECOND sheet of the same project, carrying the same notes: a reading made here stands under a key
+ * of its own (a reading is keyed by its sheet), so what it is judged as owes nothing to the readings
+ * standing on the first one.
+ */
+function otherUnitGround(): Promise<{ staged: StagedNotes; sheet: StagedSheet; lap: Record<string, unknown> }> {
+  return (otherUnit ??= (async () => {
+    const door = await notesDoor();
+    const { staged: stage } = await respeltGround();
+    const sheet = await stageSheetOutsideRevision(stage, "unit");
+    const texts = await door.sheetTextsOf({ tenantId: stage.tenantId, projectId: stage.projectId, drawingId: sheet.drawingId }, sheet.layoutName);
+    const lap = door.proposeNotes(texts).find((proposal) => String(proposal["kind"]) === LAP);
+    expect(lap, "the second sheet states the lap too — it is the same notes block").toBeTruthy();
+    return { staged: stage, sheet, lap: lap as Record<string, unknown> };
+  })());
 }
 
 type TwoTexts = { staged: StagedNotes; strengths: Record<string, unknown>[] };
@@ -297,6 +370,74 @@ describe("AC-2: TRANSCRIBE_SHEET_NOTES previews what it would write, and the sea
 
       const refused = await refusalOfPerforming(stage.measurer.actor, transcription(stage, [asProposed(proposals[FY] as Record<string, unknown>)]));
       expect(refused, "an act that changes nothing is refused by the seam, never written as a no-op (L-ACT-01)").toBe(ACT_CHANGES_NOTHING);
+      expect(readingRows(stage.tenantId).length, "and the store is untouched").toBe(before);
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "AC-2: a reading handed back at the grammar's own canonical figure is ACCEPTED, though the drawing spelled it otherwise",
+    async () => {
+      const { staged: stage, proposals } = await respeltGround();
+      const { actId } = await theRespeltCommit();
+
+      const rows = readingRows(stage.tenantId)
+        .map(readingFacts)
+        .filter((row) => row.actId === actId);
+      expect(rows.length, `two readings committed, two rows written: ${JSON.stringify(rows)}`).toBe(RESPELT_KINDS.length);
+
+      const byKind = Object.fromEntries(rows.map((row) => [row.kind, row]));
+      for (const kind of RESPELT_KINDS) {
+        const proposal = proposals[kind] as Record<string, unknown>;
+        const row = byKind[kind] as Record<string, string> | undefined;
+        expect(row, `the store holds the ${kind} reading: ${JSON.stringify(rows.map((one) => one.kind))}`).toBeTruthy();
+        const kept = row as Record<string, string>;
+        expect(kept["valueAsWritten"], `written as the person handed it over: ${String(proposal["canonical"])}`).toBe(String(proposal["canonical"]));
+        expect(kept["unitAsWritten"], "under the unit the grammar read beside it").toBe(String(proposal["unitAsWritten"]));
+        expect(kept["canonical"], "and canonicalising to the very figure the grammar proposed").toBe(String(proposal["canonical"]));
+        expect(
+          kept["acceptance"],
+          `nothing about the ${kind} moved off what was proposed — only the words it was offered in did — so the seam takes it AS PROPOSED (AC-2)`,
+        ).toBe(ACCEPTED);
+      }
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "AC-2: a reading at the proposed figure under another unit is EDITED — a unit is half of what was read",
+    async () => {
+      const { staged: stage, sheet, lap } = await otherUnitGround();
+      expect(String(lap["unitAsWritten"]), `the sheet states the lap as a multiple of the bar, never in ${OTHER_UNIT}`).not.toBe(OTHER_UNIT);
+
+      const offered = reading(LAP, String(lap["sourceKey"]), String(lap["canonical"]), OTHER_UNIT);
+      const { actId } = await performAct(stage.measurer.actor, transcription({ projectId: stage.projectId, sheet }, [offered]));
+      const rows = readingRows(stage.tenantId)
+        .map(readingFacts)
+        .filter((row) => row.actId === actId);
+      expect(rows.length, `one reading committed, one row written: ${JSON.stringify(rows)}`).toBe(1);
+
+      const row = rows[0] as Record<string, string>;
+      expect(row["canonical"], "at the figure the grammar itself read out of the sentence").toBe(String(lap["canonical"]));
+      expect(row["unitAsWritten"], `but in the unit the person kept: ${OTHER_UNIT}`).toBe(OTHER_UNIT);
+      expect(row["acceptance"], "a figure the grammar proposed, in a unit it did not, is a reading somebody EDITED (AC-2)").toBe(EDITED);
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "AC-2: the drawing's own words over a canonical that already stands move nothing, and are refused",
+    async () => {
+      const { staged: stage, proposals } = await respeltGround();
+      await theRespeltCommit();
+      const lap = proposals[LAP] as Record<string, unknown>;
+      const before = readingRows(stage.tenantId).length;
+
+      // What stands under this key is the bare figure (`50`); what is offered now is the drawing's own
+      // spelling of that very figure (`50d`), in the same unit. Different words, the same reading — and
+      // it is the READING that stands, so there is nothing here for an act to carry (L-ACT-01).
+      const refused = await refusalOfPerforming(stage.measurer.actor, transcription(stage, [asProposed(lap)]));
+      expect(refused, "a reading that leaves the standing figure and its unit exactly where they were changes nothing").toBe(ACT_CHANGES_NOTHING);
       expect(readingRows(stage.tenantId).length, "and the store is untouched").toBe(before);
     },
     BUDGET_MS,
