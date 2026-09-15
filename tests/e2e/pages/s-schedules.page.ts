@@ -10,7 +10,7 @@
  * The Builder may edit this file (test contract).
  */
 import { expect, type Locator, type Page } from "@playwright/test";
-import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { TESTIDS, isTestId, testIdSelector, type TestId } from "../../../src/ui/testids";
 import { heldAttribute } from "../support/retrying-read";
 
 /** The address this screen answers at (Decision §7, test contract). */
@@ -22,19 +22,25 @@ export const S_SCHEDULES = Object.freeze({
 const group = (TESTIDS as unknown as { schedules?: Record<string, string> }).schedules ?? {};
 const takeoffGroup = TESTIDS.takeoff as unknown as Record<string, string>;
 
-/** One id of this screen, by the key the registry files it under — never a literal in a test. */
-function idOf(key: string): string {
+/**
+ * One id of this screen, by the key the registry files it under — never a literal in a test.
+ *
+ * The answer is the registry's own `TestId`, narrowed by the registry's own guard: an id this
+ * checkout does not publish is not a test id at all, and saying so by name here is the red this
+ * increment is owed (AM-09 §1).
+ */
+function idOf(key: string): TestId {
   const id = group[key];
-  if (typeof id !== "string" || id.length === 0) {
+  if (typeof id !== "string" || !isTestId(id)) {
     throw new Error(`src/ui/testids.ts publishes no TESTIDS.schedules.${key} — S-Schedules has not landed its ids yet`);
   }
   return id;
 }
 
 /** The lane's own nav entry for this screen, from the same registry. */
-function navId(): string {
+function navId(): TestId {
   const id = takeoffGroup["navSchedules"];
-  if (typeof id !== "string" || id.length === 0) {
+  if (typeof id !== "string" || !isTestId(id)) {
     throw new Error("src/ui/testids.ts publishes no TESTIDS.takeoff.navSchedules — the lane's fourth tab has not landed yet");
   }
   return id;
@@ -157,6 +163,16 @@ export class SSchedulesPage {
   /** One rebar zone row that says, verbatim, what the store holds for it. */
   zoneSaying(zone: string, said: string): Locator {
     return this.zone(zone).filter({ hasText: said });
+  }
+  /**
+   * The selector every row of the registry answers to — a family, a variant or a zone.
+   *
+   * Mechanics for the walk's per-row reading: a family's own words are the ones left when the
+   * variants nested in it are taken away, and a variant's when its zones are (I-251). The ids come
+   * from the registry as every other lookup here does, so this file still spells none.
+   */
+  get registryRowSelector(): string {
+    return [idOf("family"), idOf("variant"), idOf("zone")].map((id) => testIdSelector(id)).join(",");
   }
 
   /* --- the notes panel: what was read, what stands, and what is offered --- */

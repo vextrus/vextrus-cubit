@@ -13,13 +13,13 @@
  * The two design checkpoints are taken here and nowhere else; the picture itself is the gate's to
  * re-take (v16.2 §1).
  */
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { SSchedulesPage } from "./pages/s-schedules.page";
 import { STakeoffPage } from "./pages/s-takeoff.page";
 import { copySentences, stageBareProject, stageSchedules } from "./takeoff/schedules-stage";
 import { checkpoint } from "./support/checkpoint";
 import { emulateTheme, restoreLaneTheme } from "./support/lane-theme";
-import { everyAttribute, everyRow, heldAttribute, steadyCount, steadyText } from "./support/retrying-read";
+import { everyAttribute, everyRow, heldAttribute, readWhen, steadyCount } from "./support/retrying-read";
 import { signInAsSeededTenant } from "./support/seeded-session";
 import { settled } from "./support/settled";
 
@@ -79,6 +79,63 @@ function words(said: string): string[] {
     .toLowerCase()
     .split(/[^a-z0-9À-˿Ͱ-῿Ⰰ-퟿]+/)
     .filter((word) => word.length > 0);
+}
+
+/** Every run of digits a piece of text holds: `1'-0"x1'-3"` holds 1, 0, 1 and 3, and `×2` holds 2. */
+function figures(said: string): string[] {
+  return said.match(/[0-9]+/g) ?? [];
+}
+
+/** Whitespace as a browser lays it out is not a difference in what was said. */
+function oneLine(said: string): string {
+  return said.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * What is left of a piece of text once every string the store holds for it has been taken out of it,
+ * longest first. A figure surviving this is a figure that stands OUTSIDE everything the drawing
+ * wrote there — which is to say, one the screen reckoned for itself.
+ */
+function residue(said: string, held: readonly string[]): string {
+  return [...held]
+    .map((one) => oneLine(one))
+    .filter((one) => one.length > 0)
+    .sort((left, right) => right.length - left.length)
+    .reduce((rest, one) => rest.split(one).join(" "), oneLine(said));
+}
+
+/** Two spellings of one mark: the same letters and digits, however the schedule punctuated them (I-251). */
+function sameMark(said: string, mark: string): boolean {
+  return words(said).join("") === words(mark).join("");
+}
+
+/**
+ * What a region of the registry says IN ITS OWN RIGHT — its rendered text, less the text of every
+ * registry row nested inside it (the page object's own selector).
+ *
+ * The per-row reading is the whole point: a vocabulary taken over the WHOLE pane admits `C-1 ×1`,
+ * because the `1` of the mark beside it is already a word of the pane. Read row by row, the badge
+ * has only its own row's stored strings to answer to.
+ *
+ * Two agreeing readings inside one poll, as every other answering read here is taken (AM-09 §4).
+ */
+async function ownSaid(region: Locator, nested: string, what: string): Promise<string> {
+  const seen: string[] = [];
+  const agreed = await readWhen(
+    async () => {
+      seen.push(
+        await region.evaluate((node: Element, selector: string) => {
+          const clone = node.cloneNode(true) as Element;
+          for (const inside of Array.from(clone.querySelectorAll(selector))) inside.remove();
+          return (clone.textContent ?? "").replace(/\s+/g, " ").trim();
+        }, nested),
+      );
+      return seen.slice(-2);
+    },
+    (last) => last.length === 2 && last[0] === last[1],
+    `${what}: two readings of what it says in its own right agreed`,
+  );
+  return agreed[1] as string;
 }
 
 test.describe("J-032 — schedules, the member-type registry and sheet notes", () => {
@@ -216,22 +273,63 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
     }
     await expect(schedules.zones, "one row per stored rebar zone, and never a count of bars (I-251)").toHaveCount(staged.zones.length);
 
-    // And the pane says NOTHING ELSE: every word standing in it is a word the store holds or a word
-    // the screen's own copy table states. `C1 · 3 members` fails here, and so does any figure the
-    // screen reckoned for itself — L-CAD-08 lets a schedule state how many members exist only where
-    // a column of that schedule states it, and then it is that cell's text (I-251).
-    const registrySaid = await steadyText(schedules.registry, "the member-type registry");
+    // And no row of it says a figure the schedule did not write THERE. This is read row by row and
+    // never over the pane: a count beside a mark — `C-1 ×1` — is admitted by any vocabulary taken
+    // over the whole registry, because the marks and the sections already put small integers in it.
+    // Each row answers for ITSELF: the words it says in its own right are the words of the strings
+    // the store holds for that row, or the screen's own copy; and every figure standing in it stands
+    // INSIDE one of those stored strings. L-CAD-08 lets a schedule state how many members exist only
+    // where a column of that schedule states it, and then it is that cell's own text (I-251).
+    const rowSelector = schedules.registryRowSelector;
+    const copy = new Set((await copySentences()).flatMap((sentence) => words(sentence)));
+    const saysOnly = async (row: Locator, what: string, stored: readonly string[]): Promise<void> => {
+      const said = await ownSaid(row, rowSelector, what);
+      const spoken = new Set(stored.flatMap((one) => words(one)));
+      expect(
+        words(said).filter((word) => !spoken.has(word) && !copy.has(word)),
+        `${what} says what the schedule wrote for IT, or what this screen's copy states, and nothing else: "${said}" against ${JSON.stringify(stored)}`,
+      ).toEqual([]);
+      expect(
+        figures(residue(said, stored)),
+        `and every figure standing in ${what} is one the drawing wrote there — a member count is the screen's own reckoning, which this registry never renders (R-TO-034): "${said}"`,
+      ).toEqual([]);
+    };
+
+    for (const family of staged.families) {
+      // A family may be shown under the mark it is filed by AND under the cell's own spelling of it
+      // where the two differ (I-251) — the same letters and digits, punctuated as the drawing did.
+      const spellings = [family, ...staged.cells.map((one) => one.text).filter((text) => sameMark(text, family))];
+      await saysOnly(schedules.family(family), `the ${family} family row`, spellings);
+    }
+    for (const variant of staged.variants) {
+      for (const row of await everyRow(schedules.variantSaying(variant.variantKey, [variant.bandText, variant.sectionText]), `the ${variant.variantKey} variant rows`)) {
+        await saysOnly(row, `the ${variant.family} ${variant.variantKey} variant row`, [variant.bandText, variant.sectionText]);
+      }
+    }
+    for (const zone of staged.zones) {
+      for (const row of await everyRow(schedules.zoneSaying(zone.zone, zone.text), `the ${zone.zone} rows saying ${zone.text}`)) {
+        await saysOnly(row, `the ${zone.family} ${zone.variantKey} ${zone.zone} zone row`, [zone.text, zone.zone]);
+      }
+    }
+
+    // And the pane around those rows says only its own copy and what the schedule said — with no
+    // figure of its own at all, so a heading that counts the families it holds is caught where it
+    // would stand rather than inside the rows it stands above.
+    const paneSaid = await ownSaid(schedules.registry, rowSelector, "the member-type registry");
     const held = [
       ...staged.families,
       ...staged.variants.flatMap((one) => [one.family, one.variantKey, one.bandText, one.sectionText]),
       ...staged.zones.flatMap((one) => [one.family, one.variantKey, one.zone, one.text]),
       ...staged.cells.map((one) => one.text),
-      ...(await copySentences()),
     ];
     const vocabulary = new Set(held.flatMap((one) => words(one)));
     expect(
-      words(registrySaid).filter((word) => !vocabulary.has(word)),
-      `the registry says only what the schedule said and what this screen's copy states: ${registrySaid}`,
+      words(paneSaid).filter((word) => !vocabulary.has(word) && !copy.has(word)),
+      `the registry says only what the schedule said and what this screen's copy states: "${paneSaid}"`,
+    ).toEqual([]);
+    expect(
+      figures(residue(paneSaid, held)),
+      `and reckons no figure of its own beside the rows it holds: "${paneSaid}"`,
     ).toEqual([]);
 
     /* --- the notes panel of a sheet whose texts state no figure: never silent (AC-7, Decision §1) --- */
