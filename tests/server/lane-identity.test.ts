@@ -9,15 +9,20 @@
  */
 import { describe, expect, test } from "vitest";
 import { join } from "node:path";
-import { REPO_ROOT, ROOT_MODULE, ROUTERS_DIR, assertOnlyOneTestRebaselined, isRouterLike, loadRoot, productSource, stripComments, type RouterLike } from "./support/wire";
+import { REPO_ROOT, ROOT_MODULE, assertOnlyOneTestRebaselined, isRouterLike, laneFile, loadRoot, productSource, stripComments, type RouterLike } from "./support/wire";
 
 const SPINE_ROUTER_SUITE = "tests/server/spine-router.test.ts";
 
 /** The pre-fix assertion B-20 re-baselines: lane identity read through tRPC's private record. */
 const REBASELINED_TEST = "AC-2: each lane is defined in its own file under src/server/routers/ and mounted from there";
 
-/** The module lanes of the layered tree (ARCH-01), sorted — the closed set the root composes. */
-const LANES = ["ai", "assure", "bid", "spine", "takeoff"] as const;
+/**
+ * The module lanes of the layered tree (ARCH-01), sorted — the closed set the root composes.
+ *
+ * `takeoffSchedules` is a lane of its own beside `takeoff` rather than a branch inside it: a lane
+ * file is one increment's ground, and S-Schedules' doors are not the register's (R-TO-034).
+ */
+const LANES = ["ai", "assure", "bid", "spine", "takeoff", "takeoffSchedules"] as const;
 
 const proceduresOf = (router: RouterLike): Record<string, unknown> => router._def?.procedures ?? {};
 
@@ -41,7 +46,7 @@ describe("AC-4: the lanes' public home", () => {
     const mounted = proceduresOf(appRouter);
 
     for (const lane of LANES) {
-      const relative = `${ROUTERS_DIR}/${lane}.ts`;
+      const relative = laneFile(lane);
       const specifier: string = join(REPO_ROOT, relative);
       const laneModule = (await import(specifier)) as Record<string, unknown>;
       const exported = Object.values(laneModule).filter((value) => isRouterLike(value));
