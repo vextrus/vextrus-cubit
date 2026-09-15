@@ -28,10 +28,18 @@ const ADDRESS_SHAPE = /^[0-9a-f]{64}$/u;
 /** The origin a relative minted path is parsed against. It travels nowhere and is never answered. */
 const PLACEHOLDER_ORIGIN = "https://documents.invalid";
 
+/**
+ * The three answers a presented link can earn. The DOCS area registers more codes than these — a
+ * kind nobody registered, a payload that will not parse, a renderer that fell over — and none of them
+ * is a thing a LINK can be. Narrowing here is what lets the door's status table be total over exactly
+ * what this seam answers, so a code can never arrive at a door that has no status for it.
+ */
+export type DocumentLinkRefusal = Extract<DocsRefusalCode, "DOCUMENT_URL_INVALID" | "DOCUMENT_URL_EXPIRED" | "DOCUMENT_NOT_FOUND">;
+
 /** The codes as the closed register holds them, read from it rather than spelled beside it (Q-07). */
-const URL_INVALID: DocsRefusalCode = REFUSALS.DOCUMENT_URL_INVALID.code;
-const URL_EXPIRED: DocsRefusalCode = REFUSALS.DOCUMENT_URL_EXPIRED.code;
-const NOT_FOUND: DocsRefusalCode = REFUSALS.DOCUMENT_NOT_FOUND.code;
+const URL_INVALID: DocumentLinkRefusal = REFUSALS.DOCUMENT_URL_INVALID.code;
+const URL_EXPIRED: DocumentLinkRefusal = REFUSALS.DOCUMENT_URL_EXPIRED.code;
+const NOT_FOUND: DocumentLinkRefusal = REFUSALS.DOCUMENT_NOT_FOUND.code;
 
 /** What a document is issued under, beside the payload it was rendered from (R-SPINE-040). */
 export interface DocumentIssue {
@@ -71,7 +79,7 @@ export interface PresentedDocumentLink {
 }
 
 /** What a presented link is answered with: the bytes at its address, or the refusal it earned. */
-export type SignedDocument = { readonly ok: true; readonly bytes: Uint8Array } | { readonly ok: false; readonly refusal: DocsRefusalCode };
+export type SignedDocument = { readonly ok: true; readonly bytes: Uint8Array } | { readonly ok: false; readonly refusal: DocumentLinkRefusal };
 
 /** What this store needs of the world: the caller's transaction, and the artefact store (SEAM-STORAGE). */
 export interface DocumentStoreDeps {
