@@ -67,6 +67,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "memberships",
   "modelCalls",
   "modelFixtures",
+  "notesReadings",
   "participantRoleWithdrawals",
   "participantRoles",
   "participants",
@@ -186,8 +187,15 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
 /**
  * The sha-256 over each key, its SQL table name and its column names in code-point order — the shape
  * half of the same baseline. Re-baselined with TABLES_BEFORE, and never on its own.
+ *
+ * Re-baselined for ONE ADDED table and nothing else: `notesReadings` (./schema-takeoff-schedules.ts),
+ * where `TRANSCRIBE_SHEET_NOTES` writes the figures a person read off a sheet's general notes —
+ * one row per (sheet, kind, actor, source key), basis TRANSCRIBED, accepted-as-proposed or edited
+ * (R-TO-034, L-QTY-01). The roster grew by that one key — 58 tables to 59 — and not one existing
+ * table's SQL name or column moved with it; the previous digest was
+ * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233";
+const COLUMNS_DIGEST_BEFORE = "c2ad361648f0d3eee7ac6137fa7cf4e1f2adf5153060e6f26ed98c8f2fda679d";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {

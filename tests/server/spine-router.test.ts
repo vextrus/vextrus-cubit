@@ -11,10 +11,10 @@ import { describe, expect, test } from "vitest";
 import {
   REPO_ROOT,
   ROOT_MODULE,
-  ROUTERS_DIR,
   UUID_PATTERN,
   callWire,
   isRouterLike,
+  laneFile,
   loadContext,
   loadRoot,
   resultData,
@@ -23,8 +23,11 @@ import {
   type AppContext,
 } from "./support/wire";
 
-/** The module lanes of the layered tree (ARCH-01), in the increment's own order. */
-const LANES = ["spine", "takeoff", "bid", "assure", "ai"] as const;
+/**
+ * The module lanes of the layered tree (ARCH-01), in the increment's own order. `takeoffSchedules`
+ * is the sixth: S-Schedules' doors are their own lane file beside the register's (R-TO-034).
+ */
+const LANES = ["spine", "takeoff", "takeoffSchedules", "bid", "assure", "ai"] as const;
 
 const request = (headers: Record<string, string> = {}) => new Request("http://cubit.test/api/trpc/spine.health", { headers: new Headers(headers) });
 
@@ -45,7 +48,7 @@ describe("AC-2: the tRPC root, its lanes and its context", () => {
     const table = (lanes ?? {}) as Record<string, unknown>;
 
     for (const lane of LANES) {
-      const relative = `${ROUTERS_DIR}/${lane}.ts`;
+      const relative = laneFile(lane);
       expect(existsSync(join(REPO_ROOT, relative)), `${relative} is missing — every lane owns its own router file`).toBe(true);
 
       const specifier: string = join(REPO_ROOT, relative);
