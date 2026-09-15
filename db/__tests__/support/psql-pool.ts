@@ -104,7 +104,7 @@ export const SESSION_LEAVINGS_MADE = `create temp table ${LEAVINGS_TABLE} (n int
 export const SESSION_LEAVINGS = [
   `select to_regclass('pg_temp.${LEAVINGS_TABLE}') is null;`,
   "select count(*) = 0 from pg_prepared_statements;",
-  "select count(*) = 0 from pg_locks where locktype = 'advisory' and pid = pg_backend_pid();",
+  "select count(*) = 0 from pg_locks where locktype = 'advisory';",
 ].join("\n");
 
 /** How many connection strings this process keeps a live psql for. A file speaks to two or three. */
