@@ -28,7 +28,7 @@
 // who asked for a document.
 import { createHash } from "node:crypto";
 import { canonical } from "../acts/consequence";
-import type { RefusalCode } from "../errors";
+import { REFUSALS, type RefusalCode } from "../errors";
 import { refusal, refusalCodeOf } from "../faults/refusal-marker";
 import { reportFault } from "../faults/report";
 import type { RenderCtx, RenderedDocument } from "./contract";
@@ -48,10 +48,14 @@ export { compileTypst, stageRender, rendererPin, TYPST_ARGS, type StagedRender }
 // lets the render path be imported — by the V-DOCS lane, by a worker, by anything — without pulling
 // the connection pool in behind it. Its callers name it: `@/core/documents/store`.
 
-/** The codes this seam answers with, read from the closed register rather than spelled beside it (Q-07). */
-const KIND_UNKNOWN: RefusalCode = "DOCUMENT_KIND_UNKNOWN";
-const PAYLOAD_MALFORMED: RefusalCode = "DOCUMENT_PAYLOAD_MALFORMED";
-const NOT_RENDERED: RefusalCode = "DOCUMENT_NOT_RENDERED";
+/**
+ * The codes this seam answers with, READ from the closed register rather than spelled beside it: a
+ * literal here would agree with the taxonomy by coincidence, and the day an entry moved this seam
+ * would answer with a code nothing renders (R-SPINE-062, Q-07).
+ */
+const KIND_UNKNOWN: RefusalCode = REFUSALS.DOCUMENT_KIND_UNKNOWN.code;
+const PAYLOAD_MALFORMED: RefusalCode = REFUSALS.DOCUMENT_PAYLOAD_MALFORMED.code;
+const NOT_RENDERED: RefusalCode = REFUSALS.DOCUMENT_NOT_RENDERED.code;
 
 /**
  * What a caller may put in place of the subprocess and the faces. Tests inject; production passes
