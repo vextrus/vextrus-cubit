@@ -29,13 +29,13 @@ the volume. The directory is removed in a `finally`, whether the render answered
 
 ## Two things that are load-bearing and easy to undo
 
-**The watermark is placed in the body, not set as the page's `background`.** A page background is
-emitted as a marked-content artifact carrying the page box as an array, and that array stands in the
-content stream ahead of the first text-showing operator. The text extraction V-DOCS reads a document
-back with (`tests/docs/support/pdf-text.ts`) scans for the first `[ … ] TJ`, and a bracketed array
-before the first one swallows the `Tf` that set the first run's face — so the first text on the page
-comes back as raw glyph codes. Moving the watermark into the body keeps the whole document legible to
-the lane. If a future kind needs a per-page watermark, it needs this fixed first.
+**The watermark is the page's `background`, so it marks every leaf.** A bill of quantities runs to
+many pages, and a watermark drawn into the body would stop after the first. A background is emitted
+as a marked-content artifact carrying the page box as an array, ahead of everything the page says —
+which is legible to the reader V-DOCS reads a document back with (`tests/docs/support/pdf-text.ts`)
+because that reader walks text objects and tokenises operands in order, so the face in hand is always
+the one the `Tf` before the operator selected. A reader that instead scanned the whole stream for the
+first `[ … ] TJ` would swallow that `Tf` and hand back the title as raw glyph codes.
 
 **Both font flags are given.** `--ignore-system-fonts` excludes what the box has installed;
 `--ignore-embedded-fonts` excludes what the renderer ships inside itself. Without the second, a glyph

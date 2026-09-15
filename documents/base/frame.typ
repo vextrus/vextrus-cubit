@@ -36,19 +36,13 @@
 /// is drawn at size and then covered by the page's own colour at a high alpha, which composites to
 /// the same quiet grey wherever it is rendered — and, being a fill, is as deterministic as the mark.
 ///
-/// It is placed in the BODY rather than set as the page's `background`. A page background is emitted
-/// as a marked-content artifact carrying the page box as an array, and that array stands in the
-/// content stream ahead of the first text-showing operator — where it defeats the text extraction
-/// V-DOCS reads a document back with (tests/docs/support/pdf-text.ts), costing the first run on the
-/// page its font map. A watermark is not worth an unreadable title.
-#let watermark() = place(
-  center + horizon,
-  float: false,
-  box(width: 110mm, height: 110mm)[
-    #mark(height: 110mm)
-    #place(top + left, rect(width: 100%, height: 100%, fill: page-fill.transparentize(12%)))
-  ],
-)
+/// It is the PAGE's background, so it marks every leaf of a document rather than the first. A bill
+/// of quantities runs to many pages and a watermark that stopped after page one would say this paper
+/// is the product's only about the page nobody files.
+#let watermark() = box(width: 110mm, height: 110mm)[
+  #mark(height: 110mm)
+  #place(top + left, rect(width: 100%, height: 100%, fill: page-fill.transparentize(12%)))
+]
 
 /// The lockup: the mark beside the product's name, in the light form a white page asks for.
 #let lockup() = box(baseline: 30%)[
@@ -84,6 +78,7 @@
     paper: "a4",
     fill: page-fill,
     margin: (top: 22mm, bottom: 20mm, x: 18mm),
+    background: watermark(),
     footer: context [
       #set text(size: 8pt, fill: quiet, font: body-face)
       #grid(
@@ -97,7 +92,6 @@
   set text(font: body-face, size: 10pt, fill: ink, lang: "en")
   set par(justify: false, leading: 0.62em)
 
-  watermark()
   grid(
     columns: (1fr, auto),
     align: (left + horizon, right + horizon),
