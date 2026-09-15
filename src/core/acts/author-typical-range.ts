@@ -20,11 +20,12 @@
 // `../levels/store` reaches them: the act seam is core and core imports nothing above it (ARCH-01).
 // Nothing is re-derived on the way — what a key IS stays the identity grammar's (`levelSegment`), and
 // every other column of a minted row is the placeholder's own, copied across (B-17).
-import { and, asc, eq, registerObjects, typicalRanges, type TenantTx } from "../db";
+import { and, asc, eq, inArray, memberTypeVariants, placements, registerObjects, typicalRanges, type TenantTx } from "../db";
 import type { RefusalCode } from "../errors";
 import { refusal } from "../faults/refusal-marker";
 import { levelSegment, SIGHTING_STANDINGS, type SightingStanding } from "../identity";
 import { liveLevelsOf, type LevelRow, type LevelScope } from "../levels/store";
+import { bandCovers, bandJudgeable, bandOpen, placedBy } from "../offers/contract";
 import type { Discipline } from "../sheets/law";
 import type { Consequence, ConsequenceSubject } from "./consequence";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
@@ -77,11 +78,23 @@ type Instance = {
   readonly standing: SightingStanding;
 };
 
+/** One level band a schedule states, by the labels its two ends name — either end open (L-FRM-02). */
+type Band = { readonly from: string | null; readonly to: string | null };
+
+/** The bands the placements behind these placeholders state, by the placement each stands for. */
+type Sighted = { readonly bands: ReadonlyMap<string, readonly Band[]> };
+
 /** What the act would do, derived from the state this transaction read (L-ACT-02). */
 type Derived = {
   readonly drawn: LevelRow;
   readonly span: readonly LevelRow[];
   readonly placeholders: readonly Placeholder[];
+  /** The project's live level stack, which a band's two ends are read against (L-REG-02). */
+  readonly live: readonly LevelRow[];
+  /** What the placements behind the placeholders say: their bands (L-FRM-02) and their grid addresses. */
+  readonly sighted: Sighted;
+  /** The physical scopes another view of this project already stands MEASURED at (L-REG-03). */
+  readonly drawnElsewhere: ReadonlySet<string>;
 };
 
 /**
@@ -151,16 +164,144 @@ async function derive(ctx: ActorCtx, input: AuthorTypicalRangeInput, tx: TenantT
   const high = Math.max(from.ordinal, to.ordinal);
   const span = live.filter((level) => level.ordinal >= low && level.ordinal <= high);
 
-  return { drawn: from, span, placeholders: await placeholdersUnder(tx, ctx, input) };
+  const placeholders = await placeholdersUnder(tx, ctx, input);
+  return { drawn: from, span, placeholders, live, sighted: await bandsUnder(tx, ctx, placeholders), drawnElsewhere: await drawnElsewhereOf(tx, ctx, input) };
 }
 
-/** The rows one placeholder becomes: one per level of the range, drawn at the end it runs from. */
+/**
+ * The physical scopes another view of this project has already been MEASURED at (L-REG-03).
+ *
+ * A building is drawn more than once: a roof plan draws the storey a typical plan is also typical of,
+ * and both readings are of one member. The plan that drew that storey read its geometry there, so it
+ * owns the scope; a row this range would derive for the same member on the same storey is the weaker
+ * of the two, and registering it as well would bill one beam twice — the over-measurement L-REG-03
+ * exists to make unrepresentable ("a measured sighting landing where a level expansion already stands
+ * is a promotion … not a refusal": the promotion is what stands, and the derivation yields to it).
+ *
+ * The scope is the MARK on the STOREY under one pinned REVISION, and deliberately not the mark at a
+ * grid reference. A grid
+ * reference is the nearest axis of each family of the view's OWN backbone, and two plans of one
+ * building need not read the same backbone — a roof plan that draws four core columns georeferences
+ * off fewer axes than the typical plan below it, and the same beam is lettered differently in the two.
+ * Joining on a reference the two views disagree about would leave both rows standing, which is the
+ * over-measurement this guard exists to prevent. What the two plans do agree about is the mark and the
+ * storey: a plan OF a storey is what that storey is measured from, and a typical plan is typical of
+ * the storeys no plan of their own draws (L-MEA-09, L-CAD-07).
+ */
+async function drawnElsewhereOf(tx: TenantTx, ctx: ActorCtx, input: AuthorTypicalRangeInput): Promise<Set<string>> {
+  const standing = await tx
+    .select({ setRevisionId: registerObjects.setRevisionId, mark: registerObjects.mark, levelId: registerObjects.levelId, viewKey: registerObjects.viewKey })
+    .from(registerObjects)
+    .where(and(eq(registerObjects.tenantId, ctx.tenantId), eq(registerObjects.projectId, input.projectId), eq(registerObjects.standing, MEASURED)));
+
+  const owned = new Set<string>();
+  for (const row of standing) {
+    // Only ACROSS views: within one view a placement's rows stand on distinct levels already, and the
+    // view this range is stated about is the one whose placeholders are being moved.
+    if (row.viewKey === input.viewKey || row.levelId === null) continue;
+    owned.add(scopeOf(row.setRevisionId, row.mark, row.levelId));
+  }
+  return owned;
+}
+
+/**
+ * One physical scope, spelled once: the mark, on one storey, under one pinned revision of the set
+ * (L-REG-03, L-REG-04).
+ *
+ * The revision is part of the scope because a revision is its own reading of the building: the
+ * placeholders this act moves span every pinned revision that holds one, and each becomes rows under
+ * its own. A sighting made under revision A says nothing about what revision B drew, so keying the
+ * guard on the mark and the storey alone would let a row that landed under A delete the rows this act
+ * derives under B — a register that loses members with no refusal and no observation, which is the
+ * undeclared under-measurement L-QTY-02 makes unrepresentable. Every other register read in the tree
+ * scopes by `setRevisionId` for the same reason.
+ */
+function scopeOf(setRevisionId: string, mark: string, levelId: string): string {
+  return `${setRevisionId}|${mark}|${levelId}`;
+}
+
+/**
+ * The bands each placeholder's own mark family is stated to stand over (L-FRM-02), keyed by the
+ * placement the placeholder is a sighting of.
+ *
+ * A schedule's `LEVELS` cell is the drawing's statement of which storeys carry a mark, and it is a
+ * statement about the MEMBER rather than about the plan: a `BEAM SCHEDULE` row reading `1F TO ROOF`
+ * says the beam starts at the first floor whatever range the plan that draws it is typical of. So a
+ * member is expanded over the range a person stated AND the band its own schedule names, which is the
+ * only reading under which a plan typical of `GF … ROOF` does not register a first-floor beam in the
+ * ground storey (L-QTY-04: a member is never registered on a level the drawing never said it stands
+ * at). A placement whose mark the schedules name no family for states no band and is not cut.
+ */
+async function bandsUnder(tx: TenantTx, ctx: ActorCtx, placeholders: readonly Placeholder[]): Promise<Sighted> {
+  const keys = [...new Set(placeholders.map((placeholder) => placeholder.placementKey))];
+  const held = new Map<string, Band[]>();
+  if (keys.length === 0) return { bands: held };
+
+  const sighted = await tx
+    .select({
+      placementKey: placements.placementKey,
+      ingestId: placements.ingestId,
+      family: placements.memberFamily,
+    })
+    .from(placements)
+    .where(and(eq(placements.tenantId, ctx.tenantId), inArray(placements.placementKey, keys)));
+
+  const stated = await tx
+    .select({ ingestId: memberTypeVariants.ingestId, family: memberTypeVariants.family, from: memberTypeVariants.bandFrom, to: memberTypeVariants.bandTo })
+    .from(memberTypeVariants)
+    .where(eq(memberTypeVariants.tenantId, ctx.tenantId));
+
+  const byFamily = new Map<string, Band[]>();
+  for (const variant of stated) {
+    const at = `${variant.ingestId}@${variant.family}`;
+    byFamily.set(at, [...(byFamily.get(at) ?? []), { from: variant.from, to: variant.to }]);
+  }
+  for (const one of sighted) {
+    if (one.family === null) continue;
+    const bands = byFamily.get(`${one.ingestId}@${one.family}`);
+    if (bands !== undefined) held.set(one.placementKey, bands);
+  }
+  return { bands: held };
+}
+
+/**
+ * The levels of the stated range one placeholder's own band covers (L-FRM-02).
+ *
+ * The cut is made only where the stack can be read against the band: a family whose schedule stated
+ * no band, or whose every band names an endpoint no live level carries, is a statement nothing can
+ * judge and cuts nothing — the member stands over the whole range the person stated, and the rail
+ * says what it could not read per level rather than the member vanishing with no word said. The ends
+ * are matched by the label the stack carries and bounded by ORDINAL, because the range is physical
+ * (L-MEA-07, L-REG-02).
+ */
+function bandedSpan(derived: Derived, placeholder: Placeholder): readonly LevelRow[] {
+  const stated = derived.sighted.bands.get(placeholder.placementKey) ?? [];
+  if (stated.length === 0 || stated.some((band) => bandOpen(band))) return derived.span;
+  const place = placedBy(derived.live);
+  const readable = stated.filter((band) => bandJudgeable(band, place));
+  if (readable.length === 0) return derived.span;
+  return derived.span.filter((level) => readable.some((band) => bandCovers(band, level.ordinal, place)));
+}
+
+/**
+ * The rows one placeholder becomes: one per level of the range its own band covers, drawn at the end
+ * the range runs from.
+ *
+ * Only the level the plan was DRAWN at carries the geometry that was read; the rest are derived from
+ * it. A member whose band starts above that level was still read off the one plan, and every row it
+ * gains is DERIVED — there is no level of its own the geometry was read at, and naming one would
+ * claim a sighting nobody made (L-REG-01, risk note 2).
+ */
 function instancesOf(derived: Derived, placeholder: Placeholder): Instance[] {
-  return derived.span.map((level) => ({
-    objectKey: `${placeholder.placementKey}${levelSegment({ levelId: level.levelId })}`,
-    levelId: level.levelId,
-    standing: level.levelId === derived.drawn.levelId ? MEASURED : DERIVED,
-  }));
+  return bandedSpan(derived, placeholder)
+    // A storey another plan of this building DREW this member on is that plan's to register: the
+    // derivation yields to the sighting (L-REG-03).
+    .filter((level) => !derived.drawnElsewhere.has(scopeOf(placeholder.setRevisionId, placeholder.mark, level.levelId)))
+    .map((level) => ({
+      objectKey: `${placeholder.placementKey}${levelSegment({ levelId: level.levelId })}`,
+      levelId: level.levelId,
+      standing: level.levelId === derived.drawn.levelId ? MEASURED : DERIVED,
+    }));
 }
 
 /**
@@ -194,10 +335,15 @@ export const authorTypicalRange: ActRendering<AuthorTypicalRangeInput> = {
 
     for (const placeholder of derived.placeholders) {
       const instances = instancesOf(derived, placeholder);
-      const drawn = instances.find((instance) => instance.levelId === derived.drawn.levelId);
-      // The span is the levels between the two ends inclusive and the drawn end is one of them, so a
-      // span with no drawn row is a stack that moved under this transaction rather than a case.
-      if (drawn === undefined) throw new Error(`the range ${input.viewKey} spans no level to have been drawn at, which its endpoints deny (L-CAD-07)`);
+      // A member whose own band covers no level of the stated range is a member this range does not
+      // settle: it keeps its placeholder rather than being moved onto a storey its schedule says it
+      // does not stand on, and a person who reads the band differently states it again (L-FRM-02).
+      const carries = instances[0];
+      if (carries === undefined) continue;
+      // The row the placeholder becomes: the level the plan was DRAWN at where the band covers it,
+      // and otherwise the lowest level the band does cover. The geometry was read at the drawn level
+      // either way, so a row above it is DERIVED and `instancesOf` has already said which.
+      const drawn = instances.find((instance) => instance.levelId === derived.drawn.levelId) ?? carries;
 
       // The one hop: the placeholder becomes the drawn row. Its key moves once, `level_id` takes the
       // surrogate and the lawful-null slot is cleared — the row is the same sighting all along

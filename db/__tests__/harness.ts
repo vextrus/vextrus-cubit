@@ -266,12 +266,64 @@ let template: Promise<string> | undefined;
  * that says plainly it is not ready instead of a schema that lies about being complete.
  */
 async function ensureTemplate(): Promise<string> {
-  template ??= buildTemplate();
-  return template;
+  const building = (template ??= buildTemplate());
+  try {
+    return await building;
+  } catch (error) {
+    // The memo is here to build the template ONCE, not to remember a failure forever. A rejected
+    // promise left in it answers every later provision in this process with the same stale error,
+    // which is how one lost race on the cluster fails every test in a file instead of the single
+    // provision it actually touched.
+    if (template === building) template = undefined;
+    throw error;
+  }
 }
 
 async function buildTemplate(): Promise<string> {
   return ensureTemplateNamed(templateDatabaseName(), { sweepStale: true });
+}
+
+/** How long the loser of an invisible create race waits for the winner's transaction to land. */
+const CREATE_RACE_ATTEMPTS = 40;
+
+/**
+ * SQLSTATEs that are not verdicts about the template but weather on a shared cluster, named once so
+ * the two places that read them agree on what each one means.
+ *
+ * `23505` — our `create database` lost a race whose winner had not COMMITTED yet (see
+ * `createTemplateDatabase`). `3D000` — the template we were handed is gone; the sweep reads the whole
+ * cluster, so a lane in another worktree collects ours whenever nobody is cloning from it at that
+ * instant. `55006` — somebody is holding it right now, which passes.
+ */
+const CREATE_RACE_LOST = "23505";
+const TEMPLATE_VANISHED = "3D000";
+
+/**
+ * Issue the create, and answer with the race's SETTLED verdict.
+ *
+ * `createdb` looks the name up and only then inserts the `pg_database` row, so one and the same
+ * situation is reported to the loser in two different ways: a loser whose look-up ran after the
+ * winner's commit is told 42P04 ("database already exists"); a loser whose look-up ran BEFORE it gets
+ * as far as the insert, where the catalogue's unique index answers 23505. Both mean the same thing —
+ * somebody else is building this name.
+ *
+ * They cannot be answered the same way, though, and that is the whole point of this function. 23505
+ * arrives while the winner's row is still invisible, and a waiter sent to look at a database no
+ * snapshot can see reads it as GONE, then force-drops what it takes for a corpse — out from under a
+ * winner that is at that moment migrating into it. So the loser of the invisible race waits for the
+ * winner's transaction to land and asks again; what comes back is 42P04, the answer the caller
+ * already knows how to wait on, or a create of its own if the winner rolled back.
+ *
+ * Exported for the case that judges it: no client can hold an uncommitted `CREATE DATABASE` open, so
+ * 23505 cannot be staged from a test, but that the OTHER answers still come straight back — that the
+ * waiting is scoped to the one race and does not swallow a real error for ten seconds — can be.
+ */
+export async function createTemplateDatabase(name: string): Promise<SqlResult> {
+  for (let attempt = 0; ; attempt += 1) {
+    const created = psql(BOOTSTRAP_URL, `create database ${ident(name)} owner ${ident(ROLE_MIGRATE)};`);
+    if (created.sqlstate !== CREATE_RACE_LOST || attempt >= CREATE_RACE_ATTEMPTS) return created;
+    await new Promise((resume) => setTimeout(resume, 250));
+  }
 }
 
 /**
@@ -309,7 +361,7 @@ export async function ensureTemplateNamed(name: string, options: { sweepStale?: 
   for (let round = 0; round < 3; round += 1) {
     if (templateIsReady(name)) return name;
 
-    const created = psql(BOOTSTRAP_URL, `create database ${ident(name)} owner ${ident(ROLE_MIGRATE)};`);
+    const created = await createTemplateDatabase(name);
     if (created.ok) {
       heartbeat(name);
       const beating = setInterval(() => heartbeat(name), HEARTBEAT_EVERY_MS);
@@ -380,14 +432,24 @@ export async function provisionScratchDb(): Promise<ScratchDb> {
   const roles = [ROLE_MIGRATE, ROLE_APP];
   const borrowed = roles.filter((role) => !alreadyMember(role));
   run(BOOTSTRAP_URL, roles.map(createRoleIfAbsent).join("\n"));
-  const source = await ensureTemplate();
+  let source = await ensureTemplate();
 
   run(BOOTSTRAP_URL, `drop database if exists ${ident(database)} with (force);`);
   // 55006: the template is momentarily held by another process's own clone. Copying is short, so
   // this yields and asks again rather than failing a file for a collision it can wait out.
-  for (let attempt = 0; ; attempt += 1) {
+  for (let attempt = 0, refills = 0; ; attempt += 1) {
     const cloned = psql(BOOTSTRAP_URL, `create database ${ident(database)} template ${ident(source)} owner ${ident(ROLE_MIGRATE)};`);
     if (cloned.ok) break;
+    // 3D000: the template went between the ensure and the copy — swept, while nobody held it, by a
+    // lane running in another worktree off another digest. It is a CACHE of the migrations and
+    // nothing more, so a miss is refilled and the copy asked for again. Bounded: a name that cannot
+    // be kept alive at all is a fault to report, not one to keep grinding at.
+    if (cloned.sqlstate === TEMPLATE_VANISHED && refills < 2) {
+      refills += 1;
+      template = undefined;
+      source = await ensureTemplate();
+      continue;
+    }
     if (cloned.sqlstate !== "55006" || attempt >= 40) throw new Error(`${database} could not be copied from the template ${source}:\n${cloned.stderr.slice(-1200)}`);
     await new Promise((resume) => setTimeout(resume, 250));
   }

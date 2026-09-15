@@ -534,8 +534,19 @@ const EDITION_METHODS_MIGRATION = "ruleset-edition-methods";
 /** The edition 0004 seeded, which no migration may edit — history is append-only (B-20). */
 const SEEDED_MIGRATION = "0004";
 
+/**
+ * Every version of the platform seed a landed migration has minted, oldest first: 0004's, the one
+ * 0036 minted when the edition first cited its methods, and the one in force today.
+ *
+ * Re-baselined under B-20 by the frame leaf, which mints a THIRD row. The reading is the one this
+ * case always made — a re-mint is "inserted BESIDE the immutable row, never over it" — and it is the
+ * roster that grows, not the discipline: the store holds one row per mint, and an edition that had
+ * been edited in place would leave a version missing here.
+ */
+const MINTED_SEED_VERSIONS: readonly string[] = [SUPERSEDED_SEED_VERSION, "2026.09", SEED_VERSION];
+
 describe("AC-6: the platform edition is re-minted beside the row 0004 seeded", () => {
-  it("AC-6: a new migration mints the edition, and the freshly migrated store holds exactly two rows named IS1200_IN", async () => {
+  it("AC-6: a new migration mints the edition, and the freshly migrated store holds one row per edition ever minted", async () => {
     const minting = migrationFiles().filter((name) => name.includes(EDITION_METHODS_MIGRATION));
     expect(
       minting.length,
@@ -545,8 +556,8 @@ describe("AC-6: the platform edition is re-minted beside the row 0004 seeded", (
     const rows = await seedRows();
     expect(
       rows.map((row) => String(row["version"])).sort(),
-      `the migrated store holds ${SEED_NAME} at both versions — the one 0004 seeded and the one this increment mints (L-MEA-01, B-20)`,
-    ).toStrictEqual([SUPERSEDED_SEED_VERSION, SEED_VERSION].sort());
+      `the migrated store holds ${SEED_NAME} at every version a migration minted — the one 0004 seeded, each re-mint after it, and the one in force (L-MEA-01, B-20)`,
+    ).toStrictEqual([...MINTED_SEED_VERSIONS].sort());
     for (const row of rows) {
       expect(row["scope"], "both are platform editions — the head of every lineage (L-REG-07)").toBe("platform");
     }

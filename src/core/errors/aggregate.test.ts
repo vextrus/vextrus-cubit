@@ -86,6 +86,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "LEVEL_ORDINAL_UNMAPPED",
   "LEVEL_RANGE_ENDPOINT_UNMAPPED",
   "LINK_NOT_SENDABLE",
+  "LINTEL_SOURCE_ABSENT",
   "MALFORMED",
   "MANIFEST_NOT_RENDERABLE",
   "MEMBER_HAS_ACTS",
@@ -112,6 +113,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "RATE_LIMITED",
   "READING_NOT_NUMERIC",
   "REQUEST_MALFORMED",
+  "RUN_UNREAD",
   "SCALE_NO_EVIDENCE",
   "SCALE_OBSERVATION_OBLIQUE",
   "SCALE_OBSERVATION_UNCITED",
@@ -128,6 +130,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "SET_NOT_PINNABLE",
   "SHEET_NOT_INGESTABLE",
   "SIGNED_OUT",
+  "SLAB_THICKNESS_UNSTATED",
   "SOURCE_UNRESOLVED",
   "STOREY_HEIGHT_CONTESTED",
   "STOREY_HEIGHT_UNSTATED",
@@ -145,7 +148,14 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
  *
- * Re-baselined for THREE ADDED entries and nothing else, all of them `./takeoff-schedules.ts`'s and
+ * Re-baselined for THREE ADDED entries and nothing else: `RUN_UNREAD`, `SLAB_THICKNESS_UNSTATED` and
+ * `LINTEL_SOURCE_ABSENT` (./frame.ts), the three readings the frame rails report rather than guess
+ * when the drawing did not state them (L-MEA-09, L-QTY-02). The roster grew by those three keys — 83
+ * codes to 86 — and not one existing entry's code, message, remedy, severity or surface moved with
+ * them; the previous digest was
+ * 2643de99a05bdaa3fe31d11862def6bcabbebd4fcb4dad079f2d510b20eebc8a.
+ *
+ * Re-baselined before that for THREE ADDED entries and nothing else, all of them `./takeoff-schedules.ts`'s and
  * all of them about a general note a person reads off a sheet (R-TO-034): `NOTE_READING_CONTESTED`,
  * which two readings of one note that disagree leave the kind standing under; `NOTE_SOURCE_NOT_ON_SHEET`,
  * which a reading citing text the sheet does not carry is refused by; and `NOTES_NONE_PROPOSED`,
@@ -190,7 +200,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "2643de99a05bdaa3fe31d11862def6bcabbebd4fcb4dad079f2d510b20eebc8a";
+const ENTRIES_DIGEST_BEFORE = "9b3547b60626ffa04e8cb3060c1bb88787578bda65dd9288db20cb4f0942e567";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

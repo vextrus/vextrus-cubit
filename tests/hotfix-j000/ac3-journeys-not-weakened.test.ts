@@ -100,14 +100,32 @@ function isRegeneratedBaseline(path: string): boolean {
  * It rode its own commit, `baseline: the frozen jobs-seam copy is re-taken past the arbitration
  * (B-20, SEAM-JOBS AC-2)`, which names its proof; the stray reading below is what would otherwise
  * make that lawful commit a red no actor may clear. This entry, like the third, is the
- * ARBITRATION's and not a Builder's, so no reviewer reads it as scope drift. The licence widens by
- * exactly one declared path and not in kind: every undeclared file is still a stray.
+ * ARBITRATION's and not a Builder's, so no reviewer reads it as scope drift.
+ *
+ * The fifth, sixth, seventh and eighth are inc-306-rails-frame's, and they too are the ARBITRATION's
+ * and not a Builder's — ordered in the manner of the third and fourth, so no reviewer reads them as
+ * scope drift. AC-1 of that increment declares its re-emissions by path: "`db/catalogue/work-items.json`,
+ * `bears.json` and `digest.txt` are re-emitted from the consts (catalogue-drift green, a `baseline:`
+ * commit)" — the shipped emitter writes all three from the consts and catalogue-drift grades them, so
+ * a kind landing in `KINDS` moves them mechanically. The same criterion declares "`KINDS_BEFORE` in
+ * src/modules/takeoff/rails/aggregate.test.ts re-baselined to that pair" (`["rcc.concrete",
+ * "rcc.formwork"]`), which is the frozen roster that increment's split proof compares the enumerated
+ * whole against. `src/core/errors/aggregate.test.ts` stays its own named entry above — inc-301's three
+ * EXPORT_* codes, and AC-4's three frame codes — and is not folded into any pattern; a roster that
+ * moves mechanically takes a NAMED entry backed by a quoted criterion, never a class-wide rule, since
+ * a pattern over every file called `aggregate.test.ts` would admit an arbitrary edit to any roster for
+ * all time and defeat the checkpoint below. The licence widens by exactly these declared paths and not
+ * in kind: every undeclared file is still a stray.
  */
 const DECLARED_REBASELINED: readonly string[] = [
   "tests/rulesets/support/editions.ts",
   "db/__tests__/ruleset-editions.migration.test.ts",
   "src/core/errors/aggregate.test.ts",
   "tests/jobs/support/hotfix-baseline/jobs-seam.main.txt",
+  "db/catalogue/work-items.json",
+  "db/catalogue/bears.json",
+  "db/catalogue/digest.txt",
+  "src/modules/takeoff/rails/aggregate.test.ts",
 ];
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {

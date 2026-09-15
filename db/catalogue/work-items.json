@@ -5,5 +5,12 @@
     "dimension": "VOLUME",
     "canonicalUnit": "m3",
     "documentPrecision": 3
+  },
+  {
+    "kind": "rcc.formwork",
+    "description": "Formwork to reinforced cement concrete, measured as the contact area of the cast face",
+    "dimension": "AREA",
+    "canonicalUnit": "m2",
+    "documentPrecision": 2
   }
 ]

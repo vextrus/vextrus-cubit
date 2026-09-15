@@ -23,6 +23,14 @@
  *
  * Modules are loaded by absolute path — the contract this tree's other split proofs use: a module the
  * product does not provide yet fails as an assertion naming the file, never as a resolution error.
+ *
+ * Re-baselined for ONE ADDED table and nothing else: `placementRuns` (`placement_runs`), the runs the
+ * partition reads for a beam or tie beam — one row per placement, holding the clear it measures and
+ * the slab adjoining each of its two sides (L-MEA-09). Both rosters gain the one key, in code-point
+ * order, and the columns digest moves with them because the surface it hashes gained a table. Nothing
+ * already on either roster moved: no table left, none was renamed, and no column of an existing table
+ * changed — which is the claim the digest is here to hold, and the reason it is re-stated rather than
+ * derived (B-19, B-20).
  */
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, statSync } from "node:fs";
@@ -72,6 +80,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "participantRoles",
   "participants",
   "partitionViews",
+  "placementRuns",
   "placements",
   "projects",
   "proposedLevels",
@@ -149,6 +158,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
   "participantRoles",
   "participants",
   "partitionViews",
+  "placementRuns",
   "placements",
   "projects",
   "proposedLevels",
@@ -188,14 +198,19 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over each key, its SQL table name and its column names in code-point order — the shape
  * half of the same baseline. Re-baselined with TABLES_BEFORE, and never on its own.
  *
- * Re-baselined for ONE ADDED table and nothing else: `notesReadings` (./schema-takeoff-schedules.ts),
+ * Re-baselined for ONE ADDED table and nothing else: `placementRuns` (./schema-frame.ts), the runs
+ * the frame rails read off a placement and report as their own rows (L-MEA-09). The roster grew by
+ * that one key — 59 tables to 60 — and not one existing table's SQL name or column moved with it;
+ * the previous digest was c2ad361648f0d3eee7ac6137fa7cf4e1f2adf5153060e6f26ed98c8f2fda679d.
+ *
+ * Re-baselined before that for ONE ADDED table and nothing else: `notesReadings` (./schema-takeoff-schedules.ts),
  * where `TRANSCRIBE_SHEET_NOTES` writes the figures a person read off a sheet's general notes —
  * one row per (sheet, kind, actor, source key), basis TRANSCRIBED, accepted-as-proposed or edited
  * (R-TO-034, L-QTY-01). The roster grew by that one key — 58 tables to 59 — and not one existing
  * table's SQL name or column moved with it; the previous digest was
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "c2ad361648f0d3eee7ac6137fa7cf4e1f2adf5153060e6f26ed98c8f2fda679d";
+const COLUMNS_DIGEST_BEFORE = "1ac7cb4dc110be065d1e878aaf436aea5bcfeea5b669446704e199f55033393e";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {
