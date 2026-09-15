@@ -5,6 +5,7 @@
 // Every name is spelled rather than starred — this barrel is the area's public roster, and a roster
 // that says nothing cannot tell a moved name from a dropped one (ARCH-02). A transport door (a
 // query, a download) calls `registerJsonOf` and `serializeRegisterJson` and adds nothing of its own.
+//
 // Each schema name carries both meanings it is declared under: the Zod schema a caller parses with,
 // and the type `z.infer` gives it.
 export {
