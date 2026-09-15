@@ -80,7 +80,7 @@ function held<T>(map: Readonly<Record<string, T>> | undefined): Readonly<Record<
 }
 
 /** The run the partition read for each placement, as the setup carries them (L-MEA-09). */
-export function runsIn(setup: RailSetup): Readonly<Record<string, RunSetup>> {
+function runsIn(setup: RailSetup): Readonly<Record<string, RunSetup>> {
   return held(setup.runs);
 }
 
