@@ -1,0 +1,416 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "tenantId": {
+      "type": "string"
+    },
+    "projectId": {
+      "type": "string"
+    },
+    "campaign": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "campaignId": {
+              "type": "string"
+            },
+            "setRevisionId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "campaignId",
+            "setRevisionId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "objects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "objectKey": {
+            "type": "string"
+          },
+          "discipline": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "mark": {
+            "type": "string"
+          },
+          "basis": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "corroboration": {
+            "type": "string"
+          },
+          "sourceKey": {
+            "type": "string"
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "attribute": {
+                  "type": "string"
+                },
+                "standing": {
+                  "type": "string"
+                },
+                "canonicalValue": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "canonicalUnit": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "competing": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "observationId": {
+                        "type": "string"
+                      },
+                      "valueAsWritten": {
+                        "type": "string"
+                      },
+                      "unitAsWritten": {
+                        "type": "string"
+                      },
+                      "basis": {
+                        "type": "string"
+                      },
+                      "precedence": {
+                        "type": "number"
+                      },
+                      "sourceKey": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "observationId",
+                      "valueAsWritten",
+                      "unitAsWritten",
+                      "basis",
+                      "precedence",
+                      "sourceKey"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "overruled": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "observationId": {
+                        "type": "string"
+                      },
+                      "valueAsWritten": {
+                        "type": "string"
+                      },
+                      "unitAsWritten": {
+                        "type": "string"
+                      },
+                      "basis": {
+                        "type": "string"
+                      },
+                      "precedence": {
+                        "type": "number"
+                      },
+                      "sourceKey": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "observationId",
+                      "valueAsWritten",
+                      "unitAsWritten",
+                      "basis",
+                      "precedence",
+                      "sourceKey"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "attribute",
+                "standing",
+                "canonicalValue",
+                "canonicalUnit",
+                "competing",
+                "overruled"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "objectKey",
+          "discipline",
+          "level",
+          "class",
+          "mark",
+          "basis",
+          "role",
+          "corroboration",
+          "sourceKey",
+          "attributes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "lines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "lineId": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "formula": {
+            "type": "string"
+          },
+          "variables": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "basis": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "canonical": {
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": "string"
+                    },
+                    "unit": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "value",
+                    "unit"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "value",
+                "unit",
+                "basis",
+                "source",
+                "canonical"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "quantityBasis": {
+            "type": "string",
+            "enum": [
+              "MEASURED",
+              "TRANSCRIBED",
+              "DERIVED",
+              "IMPORTED",
+              "ENTERED",
+              "INTERPRETED",
+              "DEFAULTED"
+            ]
+          },
+          "selectionBasis": {
+            "type": "string",
+            "enum": [
+              "MEASURED",
+              "TRANSCRIBED",
+              "DERIVED",
+              "IMPORTED",
+              "ENTERED",
+              "INTERPRETED",
+              "DEFAULTED"
+            ]
+          },
+          "coverage": {
+            "type": "string"
+          },
+          "calibrationKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "engine": {
+            "type": "string"
+          },
+          "sourceKey": {
+            "type": "string"
+          },
+          "repudiated": {
+            "type": "boolean"
+          },
+          "drawingId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "layoutName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sourceKeys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "lineId",
+          "objectKey",
+          "kind",
+          "class",
+          "level",
+          "value",
+          "unit",
+          "formula",
+          "variables",
+          "quantityBasis",
+          "selectionBasis",
+          "coverage",
+          "calibrationKeys",
+          "engine",
+          "sourceKey",
+          "repudiated",
+          "drawingId",
+          "layoutName",
+          "sourceKeys"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "refusals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "objectKey",
+          "kind"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "tenantId",
+    "projectId",
+    "campaign",
+    "objects",
+    "lines",
+    "refusals"
+  ],
+  "additionalProperties": false
+}

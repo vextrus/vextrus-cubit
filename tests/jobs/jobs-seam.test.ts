@@ -59,12 +59,13 @@ import {
 const PROBE = "probe";
 
 /**
- * Slack on the clock. The scheduler's floor is a real floor, so a gap may sit only a tick under it;
- * ordering between two scheduled delays is coarser, because the queue is polled. Both are named
- * here rather than sprinkled through the assertions, and neither is a sub-millisecond margin.
+ * Slack on the clock. The scheduler's floor is a real floor, so a gap may sit only a tick under it.
+ * It is named here rather than sprinkled through the assertions, and it is not a sub-millisecond
+ * margin. Nothing else on the clock is judged: a measured gap compared to another measured gap is a
+ * statement about poll latency under the lane's load, not about the policy (AM-10 §3, and the
+ * arbitration on AC-2 that struck that comparison out).
  */
 const FLOOR_SLACK_MS = 100;
-const ORDER_SLACK_MS = 500;
 
 /** Long enough that a second enqueue lands while the first job is still queued-or-active. */
 const SLOW_STEP_MS = 1200;
@@ -191,9 +192,14 @@ describe("SEAM-JOBS: the typed, idempotent queue and its event log", () => {
       for (const gap of gaps) {
         expect(gap, `every retry waits at least retryDelaySeconds (${policy.retryDelaySeconds}s); gaps were ${gaps.join(", ")}ms`).toBeGreaterThanOrEqual(floorMs - FLOOR_SLACK_MS);
       }
-      for (let i = 1; i < gaps.length; i += 1) {
-        expect(gaps[i]!, `backoff means the gaps do not shrink; gaps were ${gaps.join(", ")}ms`).toBeGreaterThanOrEqual(gaps[i - 1]! - ORDER_SLACK_MS);
-      }
+      // The policy behind this kind is ONE delay, read above out of JOB_KINDS, so the floor is the
+      // whole of what the clock owes: every retry waits it out, and there is one such wait between
+      // every pair of attempts. What the gaps are relative to EACH OTHER is the queue's polling
+      // noise under the lane's load, never the policy's promise (AM-10 §3).
+      expect(
+        gaps.length,
+        `a job attempted ${owedAttempts} times waits retryDelaySeconds (${policy.retryDelaySeconds}s) between every pair of attempts, so it records ${owedAttempts - 1} gaps; gaps were ${gaps.join(", ")}ms`,
+      ).toBe(owedAttempts - 1);
 
       const last = events.at(-1)!;
       expect(last.status, "a job that ran out of retries ends failed").toBe("failed");

@@ -37,6 +37,11 @@ const OWNED_JOURNEY_IDS = ["J-001", "J-002"] as const;
 /** The working-tree text of a repo-relative path, or null where the tree has not got it. */
 function currentText(path: string): string | null {
   const absolute = join(REPO_ROOT, path);
+  // white-box: AC-3 — the criterion is a property of the two journey SPECS' own text: that each
+  // still makes at least as many assertions, declares at least as many cases and names every
+  // screenshot and checkpoint it named at the pre-fix merge. What the journeys DO is the journey
+  // lane's reading, made against the built product; "they have not been weakened to get there" can
+  // only be read off the text, compared with the same text at `PRE_FIX`.
   return existsSync(absolute) ? readFileSync(absolute, "utf8") : null;
 }
 
@@ -80,11 +85,42 @@ function isRegeneratedBaseline(path: string): boolean {
 }
 
 /**
- * The frozen expectations this branch's plan names as re-baselined, one file at a time — the escape
- * hatch beside the kinds above, and no wider a licence than the criteria spell: an AUTHORED file is
- * still a stray, while a roster a shipped emitter or an aggregate regenerates is not.
+ * The frozen expectations this branch's plan names as re-baselined — no wider a licence than the
+ * criteria spell, so every undeclared file is still a stray.
+ *
+ * `src/core/errors/aggregate.test.ts` is the third: inc-301's AC-2 (iii) declares it re-baselined for
+ * the three EXPORT_* entries and asks for it "in its own `baseline:` commit naming the three
+ * entries", which is B-20's own discipline. The frozen expectation happens to live beside the
+ * register it freezes rather than under `tests/`, and where a declared re-baseline lives is not what
+ * makes it one.
+ *
+ * That third entry and this note are the ARBITRATION's, not a Builder's: the ruling on inc-301
+ * (DECLARED_REBASELINED) ratifies them as an arbiter-ordered amendment, so no reviewer reads them as
+ * scope drift. The same ruling's wider cure — scoping the stray reading to STATE, by reading the
+ * declaration out of the increment specs on the branch and deleting this list — waits on a source a
+ * test can read: no increment spec is committed to this tree (`docs/specs/` holds the Bible, the
+ * perf specs and the design decisions, and nothing increment-shaped), so a read of it today would
+ * admit nothing and turn a lawful `baseline:` commit into a red no actor may clear. Until a spec
+ * lands in the tree, the ruling's second limb governs and the list stands.
+ *
+ * `tests/jobs/support/hotfix-baseline/jobs-seam.main.txt` is the fourth: main's jobs-seam suite
+ * frozen at FORK_POINT da94c0d3 for inc-hotfix-20260914-0052's AC-3, re-taken past the SEAM-JOBS
+ * AC-2 arbitration (437041d8). The pre-ruling copy demanded of `tests/jobs/jobs-seam.test.ts` a
+ * measured gap compared against another measured gap — a wall-clock budget AM-10 §3 forbids a gate
+ * lane to assert — so keeping the frozen copy would oblige the lane to keep an assertion the
+ * arbitration struck out, which is exactly the frozen expectation B-20 lets an increment re-take.
+ * It rode its own commit, `baseline: the frozen jobs-seam copy is re-taken past the arbitration
+ * (B-20, SEAM-JOBS AC-2)`, which names its proof; the stray reading below is what would otherwise
+ * make that lawful commit a red no actor may clear. This entry, like the third, is the
+ * ARBITRATION's and not a Builder's, so no reviewer reads it as scope drift. The licence widens by
+ * exactly one declared path and not in kind: every undeclared file is still a stray.
  */
-const DECLARED_REBASELINED: readonly string[] = ["tests/rulesets/support/editions.ts", "db/__tests__/ruleset-editions.migration.test.ts"];
+const DECLARED_REBASELINED: readonly string[] = [
+  "tests/rulesets/support/editions.ts",
+  "db/__tests__/ruleset-editions.migration.test.ts",
+  "src/core/errors/aggregate.test.ts",
+  "tests/jobs/support/hotfix-baseline/jobs-seam.main.txt",
+];
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {
   for (const path of OWNED_JOURNEYS) {
