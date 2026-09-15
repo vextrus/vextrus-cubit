@@ -113,6 +113,28 @@
   background: var(--surface-selected);
 }
 
+/* The control that chooses the sheet takes the whole row but for the drawing's chip, so a pointer
+   aiming anywhere at the sheet's name or at what it holds lands on it (§1, R-UI-060). */
+.cx-schedules-sheet-choose {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cx-schedules-sheet-id {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
 .cx-schedules-sheet-name {
   font-weight: var(--weight-body-medium);
 }

@@ -31,10 +31,14 @@ type BandCell = { readonly row: { readonly original: BandRow } };
 /** One band of a schedule table, as the table is handed one. */
 type BandRow = { readonly rowIndex: number; readonly cells: readonly { readonly columnIndex: number; readonly text: string; readonly sourceKeys: readonly string[] }[] };
 
-/** One column of a schedule table, as the shipped DataTable takes one. */
+/**
+ * One column of a schedule table, as the shipped DataTable takes one. The header is a renderer
+ * rather than a string because the stored header band's cells are `schedules-cell`s like any other
+ * and carry their own trace (I-250) — the grid renders whatever the column names through `flexRender`.
+ */
 type BandColumn = {
   id: string;
-  header: string;
+  header: () => ReactNode;
   accessorFn?: (row: BandRow) => string;
   enableSorting?: boolean;
   size?: number;
@@ -255,27 +259,30 @@ function sameSheet(left: SheetKey | null, right: SheetKey): boolean {
 }
 
 /**
- * The readings that STAND on a sheet: one per (kind, source), the latest of them.
+ * The record of what a sheet has been READ at: every reading committed on it, gathered by kind.
  *
- * A second person's disagreeing reading supersedes nothing — it suspends the kind, and the standing
- * beside these rows is where that disagreement is stated (L-REG-03, I-253). What this list is for is
- * the record of what the sheet now reads at, which is the last reading made under each note.
+ * Every one of them, and never the latest per note. A reading is an act a named person performed, so
+ * a second person's reading of the same note replaces nothing — it disagrees, and the standing above
+ * these rows is where that disagreement is stated (L-REG-03, I-253). A reading that a LATER one by
+ * the SAME person stands over keeps its row too, marked superseded, because what a sheet has been
+ * read at is the whole record and not its last line (L-ACT-01).
+ *
+ * Within a kind the store's own order stands, oldest first, so a superseded reading sits above the
+ * reading that took its place.
  */
 function readingsOfRecord(readings: readonly ReadingView[]): ReadingView[] {
-  const byNote = new Map<string, ReadingView>();
-  for (const reading of readings) byNote.set(`${reading.kind} ${reading.sourceKey}`, reading);
-  return [...byNote.values()].sort((left, right) => NOTE_KINDS.indexOf(left.kind) - NOTE_KINDS.indexOf(right.kind));
+  return [...readings].sort((left, right) => NOTE_KINDS.indexOf(left.kind) - NOTE_KINDS.indexOf(right.kind));
 }
 
-/** The header band of a stored table: the first row it holds, whose texts name its columns (I-250). */
-function headerOf(table: ScheduleTableView): BandRow | undefined {
-  return table.rows[0];
+/** Every band of a stored table, the header among them — what the grid draws, header row included. */
+function bandsOf(table: ScheduleTableView): readonly BandRow[] {
+  return table.header === undefined ? table.rows : [table.header, ...table.rows];
 }
 
 /** How many columns a stored table stands in — the widest band it holds, and never a re-reckoning. */
 function columnsOf(table: ScheduleTableView): number[] {
   const held = new Set<number>();
-  for (const row of table.rows) {
+  for (const row of bandsOf(table)) {
     for (const cell of row.cells) held.add(cell.columnIndex);
   }
   return [...held].sort((left, right) => left - right);
@@ -418,7 +425,9 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
     if (sheet === null || selected === null) return null;
     if (selected.kind === "cell") {
       const table = sheet.schedules.find((held) => held.scheduleKey === selected.scheduleKey);
-      const cell = table?.rows.find((row) => row.rowIndex === selected.rowIndex)?.cells.find((one) => one.columnIndex === selected.columnIndex);
+      // Every band the grid drew, the header among them: a column's NAME came off the drawing as
+      // surely as the figures beneath it, and a reader who chose it is owed the same evidence (I-250).
+      const cell = table === undefined ? undefined : bandsOf(table).find((row) => row.rowIndex === selected.rowIndex)?.cells.find((one) => one.columnIndex === selected.columnIndex);
       if (table === undefined || cell === undefined) return null;
       return (
         <div className="cx-schedules-inspector" data-testid={testIds.inspector} data-schedule={table.scheduleKey}>
@@ -545,10 +554,15 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
           <nav className="cx-schedules-panel cx-schedules-sheets" data-testid={testIds.sheets} aria-label={SCHEDULES_COPY.schedules_sheets_heading}>
             <h2 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_sheets_heading}</h2>
             {sheets.map((held) => (
-              <button
-                type="button"
+              // The row is the region; the sheet's NAME is the control that chooses it. The drawing's
+              // surrogate stands BESIDE that control rather than inside it, because an `IdChip` owns a
+              // copy button, and a control inside a control is one neither a pointer nor a screen
+              // reader can address (R-UI-060, R-UI-082) — the s-levels range row composes the same
+              // way. The row hears the click, so choosing a sheet is the whole row's business and the
+              // button's own activation, by pointer or by Enter, reaches it by bubbling.
+              <div
                 key={`${held.drawingId} ${held.layoutName}`}
-                className="cx-schedules-sheet-row cx-reticle"
+                className="cx-schedules-sheet-row"
                 data-testid={testIds.sheetRow}
                 data-drawing={held.drawingId}
                 data-layout={held.layoutName}
@@ -559,10 +573,17 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
                   setDrafts({});
                 }}
               >
-                <span className="cx-schedules-sheet-name">{held.layoutName}</span>
-                <IdChip value={held.drawingId} />
-                <span className="cx-schedules-sheet-holds">{holdsSaid(held)}</span>
-              </button>
+                <button type="button" className="cx-schedules-sheet-choose cx-reticle">
+                  <span className="cx-schedules-sheet-name">{held.layoutName}</span>
+                  <span className="cx-schedules-sheet-holds">{holdsSaid(held)}</span>
+                </button>
+                {/* The chip does not hold its click back: a pointer anywhere in this row chose this
+                    row, and copying the drawing's id while choosing the sheet it belongs to is what
+                    a reader meant by aiming there (R-UI-031). */}
+                <span className="cx-schedules-sheet-id">
+                  <IdChip value={held.drawingId} />
+                </span>
+              </div>
             ))}
           </nav>
 
@@ -601,7 +622,11 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
                   <h3 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_readings_heading}</h3>
                   {readingsOfRecord(sheet.notes.readings).map((held) => (
                     <Reading
-                      key={held.readingKey}
+                      // The act is what tells two rows apart: a superseded reading and the reading
+                      // that took its place stand under the SAME note key, and only the act each was
+                      // written by separates them — while one act writes one reading per note key
+                      // (L-ACT-01).
+                      key={`${held.actId} ${held.readingKey}`}
                       reading={held}
                       testId={testIds.reading}
                       href={traceTo([held.sourceKey])}
@@ -645,10 +670,10 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
 
             {/* I-249: the registry yields its height to the inspector, and stays a disclosure. */}
             <section className="cx-schedules-panel cx-schedules-registry" data-testid={testIds.registry} data-collapsed={selected === null ? "false" : "true"}>
-              <h2 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_registry_heading}</h2>
+              <h2 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_registry_heading}</h2>{" "}
               {sheet.families.length === 0 ? <p className="cx-schedules-none-said">{SCHEDULES_COPY.schedules_registry_none}</p> : null}
               {sheet.families.map((family) => (
-                <Family key={family.family} family={family} testIds={testIds} href={(sourceKeys) => traceTo(sourceKeys)} EnumLabel={EnumLabel} EvidenceLink={EvidenceLink} IdChip={IdChip} />
+                <Family key={family.family} family={family} testIds={testIds} href={(sourceKeys) => traceTo(sourceKeys)} EvidenceLink={EvidenceLink} IdChip={IdChip} />
               ))}
             </section>
           </div>
@@ -791,26 +816,32 @@ function ScheduleGrid({
 }) {
   const region = useRef<HTMLDivElement>(null);
   const rowsDrawn = useRowsDrawn(region, table.rows.length);
-  const header = headerOf(table);
   const columns = columnsOf(table);
+
+  /**
+   * One band's cell at one column, wherever that band stands. The stored header band renders through
+   * this too: its cells are `schedules-cell`s citing their own entities, because the words naming a
+   * column came off the drawing exactly as the figures beneath them did (I-250, I-252, R-UI-022).
+   */
+  const cellAt = (band: BandRow, columnIndex: number): ReactNode => {
+    const cell = band.cells.find((one) => one.columnIndex === columnIndex);
+    if (cell === undefined) return <span className="cx-schedules-none">{DASH}</span>;
+    const chosen = selected !== null && selected.kind === "cell" && selected.scheduleKey === table.scheduleKey && selected.rowIndex === band.rowIndex && selected.columnIndex === columnIndex;
+    return (
+      <span className="cx-schedules-cell" data-testid={testIds.cell} data-row={band.rowIndex} data-column={columnIndex} data-selected={chosen ? "true" : undefined}>
+        {/* I-252: a cell whose stored text is empty renders no anchor — a link without a place is
+            not withheld chrome, it is an honest absence. */}
+        {cell.text === "" ? <span className="cx-schedules-none">{DASH}</span> : <EvidenceLink href={href(cell.sourceKeys)} basis={TRANSCRIBED} label={cell.text} />}
+      </span>
+    );
+  };
 
   const drawn: BandColumn[] = columns.map((columnIndex, at) => ({
     id: `column:${columnIndex}`,
-    header: header?.cells.find((cell) => cell.columnIndex === columnIndex)?.text ?? "",
+    header: () => (table.header === undefined ? null : cellAt(table.header, columnIndex)),
     enableSorting: false,
     ...(at === 0 ? { size: widthOfMarkColumn(table) } : {}),
-    cell: ({ row }: BandCell) => {
-      const cell = row.original.cells.find((one) => one.columnIndex === columnIndex);
-      const chosen = selected !== null && selected.kind === "cell" && selected.scheduleKey === table.scheduleKey && selected.rowIndex === row.original.rowIndex && selected.columnIndex === columnIndex;
-      if (cell === undefined) return <span className="cx-schedules-none">{DASH}</span>;
-      return (
-        <span className="cx-schedules-cell" data-testid={testIds.cell} data-row={row.original.rowIndex} data-column={columnIndex} data-selected={chosen ? "true" : undefined}>
-          {/* I-252: a cell whose stored text is empty renders no anchor — a link without a place is
-              not withheld chrome, it is an honest absence. */}
-          {cell.text === "" ? <span className="cx-schedules-none">{DASH}</span> : <EvidenceLink href={href(cell.sourceKeys)} basis={TRANSCRIBED} label={cell.text} />}
-        </span>
-      );
-    },
+    cell: ({ row }: BandCell) => cellAt(row.original, columnIndex),
   }));
 
   return (
@@ -859,7 +890,7 @@ function ScheduleGrid({
 function widthOfMarkColumn(table: ScheduleTableView): number {
   const first = columnsOf(table)[0];
   if (first === undefined) return WIDTH_MARK_MIN;
-  const widest = Math.max(0, ...table.rows.map((row) => row.cells.find((cell) => cell.columnIndex === first)?.text.length ?? 0));
+  const widest = Math.max(0, ...bandsOf(table).map((row) => row.cells.find((cell) => cell.columnIndex === first)?.text.length ?? 0));
   return Math.min(WIDTH_MARK_MAX, Math.max(WIDTH_MARK_MIN, widest * MONO_CHAR_PX));
 }
 
@@ -868,37 +899,51 @@ function Family({
   family,
   testIds,
   href,
-  EnumLabel,
   EvidenceLink,
   IdChip,
 }: {
   family: FamilyView;
   testIds: SchedulesTestIds;
   href: (sourceKeys: readonly string[]) => string;
-  EnumLabel: SchedulesChrome["EnumLabel"];
   EvidenceLink: SchedulesChrome["EvidenceLink"];
   IdChip: SchedulesChrome["IdChip"];
 }) {
   return (
     <div className="cx-schedules-family" data-testid={testIds.family} data-family={family.family}>
+      {/* The trace is labelled with the MARK the registry filed this family under — the same word
+          `data-family` carries, and the word every variant and zone beneath it is spoken of by. The
+          mark cell's own spelling stands beside it, verbatim, because the registry states what the
+          schedule wrote and never only what it normalises to (I-251, L-CAD-08). */}
+      {/* The `{" "}` between two inline pieces is a WORD BREAK and not layout: two spans set side by
+          side read as one run of text to anything that takes the text rather than the picture — a
+          screen reader, a copy, a translation — and `Mark C1` must not become `MarkC1` (R-UI-060).
+          The gaps a reader SEES are §5's tokens, and these are beneath them. */}
       <p className="cx-schedules-family-mark">
-        <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_mark}</span>
-        <EvidenceLink href={href(family.sourceKeys)} basis={TRANSCRIBED} label={family.markText} />
+        <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_mark}</span>{" "}
+        <EvidenceLink href={href(family.sourceKeys)} basis={TRANSCRIBED} label={family.family} />{" "}
+        <span className="cx-schedules-mono">{family.markText}</span>{" "}
       </p>
       {family.variants.map((variant) => (
         <div className="cx-schedules-variant" key={variant.variantKey} data-testid={testIds.variant} data-variant={variant.variantKey}>
           <p className="cx-schedules-variant-band">
-            <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_band}</span>
-            <span className="cx-schedules-mono">{variant.bandText === "" ? DASH : variant.bandText}</span>
-            <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_section}</span>
-            <span className="cx-schedules-mono">{variant.sectionText === "" ? DASH : variant.sectionText}</span>
-            <IdChip value={variant.variantKey} />
+            <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_band}</span>{" "}
+            <span className="cx-schedules-mono">{variant.bandText === "" ? DASH : variant.bandText}</span>{" "}
+            <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_section}</span>{" "}
+            <span className="cx-schedules-mono">{variant.sectionText === "" ? DASH : variant.sectionText}</span>{" "}
+            {/* The variant's key is said WHOLE: it is the band the schedule named (`GF TO 3RD`), not
+                an opaque surrogate, and seven leading characters of it would be a word the drawing
+                never wrote (R-UI-082, I-251). */}
+            <IdChip value={variant.variantKey} short={variant.variantKey} />{" "}
           </p>
           {variant.zones.map((zone) => (
+            // The zone is said in the store's own word rather than through `EnumLabel`: this pane
+            // states what the schedule WROTE and nothing it was read as, and the zone is the one enum
+            // on it the partition itself spelled (I-251, L-CAD-08). The value is on `data-zone`
+            // either way, which is where a suite matches it.
             <p className="cx-schedules-zone" key={zone.zone} data-testid={testIds.zone} data-zone={zone.zone}>
-              <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_zone}</span>
-              <EnumLabel value={zone.zone} className="cx-schedules-enum" />
-              <span className="cx-schedules-mono">{zone.text}</span>
+              <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_zone}</span>{" "}
+              <span className="cx-schedules-enum">{zone.zone}</span>{" "}
+              <span className="cx-schedules-mono">{zone.text}</span>{" "}
             </p>
           ))}
         </div>
@@ -966,7 +1011,9 @@ function Reading({
       data-acceptance={reading.acceptance}
       data-basis={reading.basis}
       data-source={reading.sourceKey}
-      data-superseded={String(reading.superseded)}
+      // §7: the mark stands only on a reading a later one replaced — a row saying `false` would make
+      // every standing reading carry the word for the thing it is not.
+      data-superseded={reading.superseded ? "true" : undefined}
       onClick={(event: MouseEvent<HTMLDivElement>) => {
         // The same reading the grid takes: a pointer click chooses the row, and the trace stays a
         // place a keyboard or a modified click still opens (R-UI-022, I-178).

@@ -103,6 +103,10 @@ async function sheetsOfDrawing(scope: SchedulesViewScope, drawingId: string, rea
  * One stored schedule as a table of bands (I-250). The rows are the store's own row indices in
  * ascending order and the cells the store's own column indices — the screen re-reconstructs nothing,
  * and a band the store holds no cell for is a band that was never read.
+ *
+ * The FIRST band the store holds is the schedule's header — L-CAD-08 anchors a reconstruction on the
+ * title and reads the column names off the band beneath it — so it is handed over as the header and
+ * the rest as the data. Which band that is, is still the store's answer and not a reading taken here.
  */
 function tableOf(stored: StoredSchedule): ScheduleTableView {
   const bands = new Map<number, ScheduleCell[]>();
@@ -111,16 +115,18 @@ function tableOf(stored: StoredSchedule): ScheduleTableView {
     if (held === undefined) bands.set(cell.rowIndex, [cell]);
     else held.push(cell);
   }
+  const ordered = [...bands.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([rowIndex, cells]) => ({
+      rowIndex,
+      cells: [...cells].sort((left, right) => left.columnIndex - right.columnIndex).map((cell) => ({ columnIndex: cell.columnIndex, text: cell.text, sourceKeys: cell.sourceKeys })),
+    }));
   return {
     scheduleKey: stored.scheduleKey,
     viewKey: stored.viewKey,
     title: stored.title,
-    rows: [...bands.entries()]
-      .sort(([left], [right]) => left - right)
-      .map(([rowIndex, cells]) => ({
-        rowIndex,
-        cells: [...cells].sort((left, right) => left.columnIndex - right.columnIndex).map((cell) => ({ columnIndex: cell.columnIndex, text: cell.text, sourceKeys: cell.sourceKeys })),
-      })),
+    header: ordered[0],
+    rows: ordered.slice(1),
   };
 }
 
