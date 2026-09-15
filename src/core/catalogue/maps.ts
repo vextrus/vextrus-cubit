@@ -27,6 +27,7 @@ export type Algebra = (typeof ALGEBRAS)[number];
  */
 export const KIND_DISCIPLINE: Readonly<Record<Kind, Discipline>> = Object.freeze({
   "rcc.concrete": "STRUCTURAL",
+  "rcc.formwork": "STRUCTURAL",
 });
 
 /**
@@ -35,4 +36,7 @@ export const KIND_DISCIPLINE: Readonly<Record<Kind, Discipline>> = Object.freeze
  */
 export const KIND_ALGEBRA: Readonly<Record<Kind, Algebra>> = Object.freeze({
   "rcc.concrete": "member",
+  // Formwork is the contact face of a MEMBER, measured along the member's own run — a face of a
+  // member, never a face of a space, so it takes the member algebra and not the face one (L-MEA-08).
+  "rcc.formwork": "member",
 });
