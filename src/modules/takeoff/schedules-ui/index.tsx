@@ -159,6 +159,12 @@ export interface SchedulesWorkspaceProps {
    * screen derives its own (§2's order, first holding wins).
    */
   readonly state?: string | null;
+  /**
+   * A registry code the ROUTE holds this screen refused at, answered in the answer slot as a door's
+   * own rejection is — the refused cell as §2 rules it, without a door having to be pressed for it.
+   * Left null, only a door's own rejection fills that slot (R-UI-020, I-255).
+   */
+  readonly refusal?: string | null;
   /** The fault the read left behind, quoted verbatim in the error cell (R-UI-050, B-21). */
   readonly reportId?: string | null;
   /** The read's own retry, where the caller holds the read: the error cell's one door (R-UI-050). */
@@ -314,7 +320,7 @@ function useRowsDrawn(region: RefObject<HTMLElement | null>, rows: number): numb
 
 /* --------------------------------------------------------------------------- the workspace */
 
-export function SchedulesWorkspace({ view, projectId, permitted, offline, state, reportId, onRetry, chrome, doors, addresses }: SchedulesWorkspaceProps) {
+export function SchedulesWorkspace({ view, projectId, permitted, offline, state, refusal, reportId, onRetry, chrome, doors, addresses }: SchedulesWorkspaceProps) {
   const { testIds, RefusalState, ConsequenceDialog, EmptyState, Button, NumberInput, IdChip, EnumLabel, UnitBadge, EvidenceLink, Tooltip, TabsAside, InspectorMount } = chrome;
 
   /** The reading as it stands: the route's, until a committed act makes this screen read it again. */
@@ -327,7 +333,12 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
   const [selected, setSelected] = useState<Selection | null>(null);
   /** What stands in each proposal's box, under `draftKey` — one box per (kind, sourceKey), never per kind. */
   const [drafts, setDrafts] = useState<Readonly<Record<string, string>>>({});
-  const [answer, setAnswer] = useState<Answer>(null);
+  // A code the route holds the screen refused at stands in the slot from the first paint; every other
+  // rejection reaches it through `refuse`, which is the only other thing that writes here.
+  const [answer, setAnswer] = useState<Answer>(() => {
+    const entry = refusal === undefined || refusal === null ? undefined : entryOf(refusal);
+    return entry === undefined ? null : { refusal: entry, evidence: { href: addresses.participants, label: OPEN_PARTICIPANTS } };
+  });
   const [pending, setPending] = useState<TranscribeSheetNotesInput | null>(null);
   /** What a door left that no registry entry stands for: held here, raised in render (ARCH-03, B-21). */
   const [fault, setFault] = useState<unknown>(null);

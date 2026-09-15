@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import type { Consequence, TranscribeSheetNotesInput } from "@/core/acts";
 import { SchedulesWorkspace, type SchedulesChrome, type SchedulesDoors, type PreviewAnswer } from "@/modules/takeoff/schedules-ui";
 import type { SchedulesView } from "@/modules/takeoff/schedules-ui/view";
+import type { Demonstration } from "./demonstration";
 // The address module by name, never the lane's barrel: the barrel also carries the trace's store, and
 // a client component that reaches it pulls the database driver into the browser bundle (ARCH-01).
 import { selectionAddress } from "@/modules/takeoff/trace/address";
@@ -101,9 +102,16 @@ export interface SchedulesScreenProps {
   readonly permitted: Readonly<Record<string, boolean>>;
   /** The fault the read left behind, quoted verbatim where the sheets could not be read (B-21). */
   readonly reportId: string | null;
+  /**
+   * The evidence instrument's demonstration, where the address asked for one state by name and this
+   * installation armed the door (`?__state=`, `./demonstration`). It replaces the reading and the
+   * flags the state is derived from, and nothing else: the same workspace, the same renderers, the
+   * same derivation, so what a reviewer looks at is the screen and not a picture of it.
+   */
+  readonly demonstration?: Demonstration | null;
 }
 
-export function SchedulesScreen({ view, tenantId, projectId, permitted, reportId }: SchedulesScreenProps) {
+export function SchedulesScreen({ view, tenantId, projectId, permitted, reportId, demonstration }: SchedulesScreenProps) {
   const [held, setHeld] = useState<SchedulesView | null>(view);
   const [offline, setOffline] = useState(false);
   const [fault, setFault] = useState<unknown>(null);
@@ -164,13 +172,14 @@ export function SchedulesScreen({ view, tenantId, projectId, permitted, reportId
 
   return (
     <SchedulesWorkspace
-      view={held}
+      view={demonstration === undefined || demonstration === null ? held : demonstration.view}
       tenantId={tenantId}
       projectId={projectId}
-      permitted={permitted}
-      offline={offline}
-      state={held === null ? "error" : null}
-      reportId={reportId}
+      permitted={demonstration?.permitted ?? permitted}
+      offline={demonstration?.offline ?? offline}
+      state={demonstration === undefined || demonstration === null ? (held === null ? "error" : null) : demonstration.state}
+      refusal={demonstration?.refusal ?? null}
+      reportId={demonstration?.reportId ?? reportId}
       onRetry={retry}
       chrome={CHROME}
       doors={doors}

@@ -11,10 +11,9 @@ import { reportFault } from "@/core/faults/report";
 import { schedulesViewOf } from "@/modules/takeoff/schedules-ui/server";
 import type { SchedulesView } from "@/modules/takeoff/schedules-ui/view";
 import { authorizePage } from "@/server/authorize-page";
-import { STATE_NAMES, screenStates } from "@/ui/screen-states";
-import type { ScreenStateName } from "@/ui/screen-states";
 import { strings } from "@/ui/strings";
 import { uiInstrumentArmed } from "@/app/theme-resolver";
+import { demonstrationOf, type Demonstration } from "./demonstration";
 import { SchedulesScreen } from "./schedules-screen";
 
 export const metadata = { title: strings.takeoff_nav_schedules };
@@ -35,19 +34,19 @@ async function permissionsFor(tenantId: string, projectId: string, userId: strin
 }
 
 /**
- * The evidence instrument's state door (`?__state=`, `theme-resolver.ts`): which of R-UI-050's seven
- * cells this address was asked to mount, or null for the ordinary read. Every cell this screen's
- * Decision rules is then a thing a person can OPEN — a designer, a reviewer, a surveyor — and not
- * only a thing the journey lane can reach through a staged upload; a state nobody can look at is a
- * state nobody can review (R-UI-050, AM-09 §4).
+ * The evidence instrument's state door (`?__state=`, `theme-resolver.ts`): what the address asked
+ * this screen to stand in, or null for the ordinary read. The names it answers to are the SCREEN'S
+ * own eight — `SCHEDULES_STATES`, the vocabulary `schedules-screen[data-state]` wears and the
+ * Decision §2 rules cell by cell — so every cell a reviewer is told about is a cell they can open,
+ * and a name the screen never declared is answered rather than ignored (R-UI-050, AM-09 §4).
  *
- * The door is armed by name and shut everywhere else, so an installation that never opted in cannot
- * be talked into it by a URL. What mounts is the screen's own DECLARED cell from the matrix — never a
- * fabricated reading, and never a rail of invented sheets.
+ * What stands up is the SCREEN, driven by `./demonstration`'s reading and flags — never a stand-in
+ * beside it, because a stand-in is a picture of the design and not the design. The door is armed by
+ * name and shut everywhere else, so an installation that never opted in cannot be talked into it.
  */
-function demandedState(asked: string | readonly string[] | undefined): ScreenStateName | null {
-  if (!uiInstrumentArmed() || typeof asked !== "string") return null;
-  return STATE_NAMES.find((name) => name === asked) ?? null;
+function demanded(asked: string | readonly string[] | undefined, projectId: string): Demonstration | null {
+  if (!uiInstrumentArmed() || typeof asked !== "string" || asked === "") return null;
+  return demonstrationOf(asked, projectId);
 }
 
 export default async function ProjectSchedules({
@@ -64,11 +63,14 @@ export default async function ProjectSchedules({
   // the true thing).
   const { tenantId, userId } = await authorizePage({ tenant, project });
 
-  // Asked for a state by name, on an installation that armed the instrument: mount that cell instead
-  // of the read. The door stands INSIDE authorization — an address nobody may open opens nothing here
-  // either, whatever it asks for.
-  const demanded = demandedState((await searchParams)["__state"]);
-  if (demanded !== null) return screenStates[ROUTE]?.[demanded].render() ?? null;
+  // Asked for a state by name, on an installation that armed the instrument: the screen stands in
+  // that state instead of in the one the read would put it in. The door is INSIDE authorization — an
+  // address nobody may open opens nothing here either, whatever it asks for — and it neither reads
+  // the store nor asks the seam for a permission, because nothing it shows came from either.
+  const demonstration = demanded((await searchParams)["__state"], project);
+  if (demonstration !== null) {
+    return <SchedulesScreen view={null} tenantId={tenantId} projectId={project} permitted={{}} reportId={null} demonstration={demonstration} />;
+  }
 
   const permitted = await permissionsFor(tenantId, project, userId);
 
