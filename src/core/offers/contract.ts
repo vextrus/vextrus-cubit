@@ -154,8 +154,64 @@ export type LevelSetup = {
 };
 
 /**
- * The variant of a family that covers one level — the one reading of a schedule's band, for every
- * rail that asks (B-17: one fact, one home; every area asked it and the answer may not part).
+ * A band as a schedule states it: the labels its two ends name, either or both left open (L-FRM-02).
+ */
+export type BandStatement = {
+  readonly from: string | null;
+  readonly to: string | null;
+};
+
+/**
+ * How a stack places one end of a band: the ordinal of the level that label names, or `undefined`
+ * where the stack carries none.
+ *
+ * The placement is the CALLER's because the stacks differ in how a label reaches them — the partition
+ * reads labels off a drawing and matches them normalised, a rail reads the stack's own labels — while
+ * the rule below, which is what a band MEANS, is one (B-17).
+ */
+export type BandPlacement = (label: string) => number | undefined;
+
+/** The placement a stack of labelled levels makes by its own labels, lowest ordinal first. */
+export function placedBy(levels: readonly { readonly label: string; readonly ordinal: number }[]): BandPlacement {
+  return (label) => levels.find((one) => one.label === label)?.ordinal;
+}
+
+/** A band with neither end stated: the schedule named no range, so it selects nothing (L-FRM-02). */
+export function bandOpen(band: BandStatement): boolean {
+  return band.from === null && band.to === null;
+}
+
+/**
+ * Whether the stack can place every end this band states.
+ *
+ * A band naming an endpoint no live level carries is a statement nothing can judge — the same fact
+ * L-CAD-07 answers with `LEVEL_RANGE_ENDPOINT_UNMAPPED` where a person states the range. A caller
+ * that would otherwise CUT by such a band declines to cut at all rather than dropping the member
+ * with no word said (L-QTY-02).
+ */
+export function bandJudgeable(band: BandStatement, place: BandPlacement): boolean {
+  return (band.from === null || place(band.from) !== undefined) && (band.to === null || place(band.to) !== undefined);
+}
+
+/**
+ * Whether one stated band covers one ordinal — the one reading of a schedule's band, for every caller
+ * that asks (B-17: one fact, one home; every area asked it and the answer may not part).
+ *
+ * An open end is no bound: a band stating only its start runs to the top of whatever it is read
+ * against, and an entirely open band covers everything, because that is what an unbanded schedule row
+ * says. The comparison is by ORDINAL and never by label, because a range over a building is physical
+ * (L-MEA-07, L-REG-02). An end the stack cannot place makes the band unjudgeable, and an unjudgeable
+ * band covers nothing rather than everything.
+ */
+export function bandCovers(band: BandStatement, ordinal: number, place: BandPlacement): boolean {
+  if (!bandJudgeable(band, place)) return false;
+  const from = band.from === null ? undefined : place(band.from);
+  const to = band.to === null ? undefined : place(band.to);
+  return ordinal >= (from ?? ordinal) && ordinal <= (to ?? ordinal);
+}
+
+/**
+ * The variant of a family that covers one level — `bandCovers` asked of a member type's own band.
  *
  * A variant whose schedule stated no band at all covers every level — that is what an unbanded
  * schedule row says. A banded one covers the levels its endpoints name, matched by the label the
@@ -178,21 +234,15 @@ export function variantCovering(
   level: LevelSetup | undefined,
   levels: readonly LevelSetup[],
 ): MemberVariantSetup | undefined {
-  const unbanded = variants.find((variant) => variant.bandFrom === null && variant.bandTo === null);
+  const unbanded = variants.find((variant) => bandOpen(bandOf(variant)));
   if (level === undefined) return unbanded ?? (variants.length === 1 ? variants[0] : undefined);
-  const ordinalOf = (label: string | null): number | undefined => (label === null ? undefined : levels.find((one) => one.label === label)?.ordinal);
-  return (
-    variants.find((variant) => {
-      if (variant.bandFrom === null && variant.bandTo === null) return true;
-      const from = ordinalOf(variant.bandFrom);
-      const to = ordinalOf(variant.bandTo);
-      // An endpoint the stack cannot place is an endpoint this band cannot be judged by: the band
-      // covers nothing rather than everything (L-CAD-07's `LEVEL_RANGE_ENDPOINT_UNMAPPED` is the
-      // expansion's answer to the same fact; a rail states no coverage it cannot show).
-      if ((variant.bandFrom !== null && from === undefined) || (variant.bandTo !== null && to === undefined)) return false;
-      return level.ordinal >= (from ?? level.ordinal) && level.ordinal <= (to ?? level.ordinal);
-    }) ?? unbanded
-  );
+  const place = placedBy(levels);
+  return variants.find((variant) => bandCovers(bandOf(variant), level.ordinal, place)) ?? unbanded;
+}
+
+/** The band a member-type variant states, in the spelling the one reading of a band is asked in. */
+function bandOf(variant: MemberVariantSetup): BandStatement {
+  return { from: variant.bandFrom, to: variant.bandTo };
 }
 
 /**

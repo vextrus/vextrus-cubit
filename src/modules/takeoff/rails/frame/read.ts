@@ -67,32 +67,20 @@ export function observeDrawing(className: ElementType, kind: Kind, code: FrameRa
   return { class: className, kind, code, sourceEntity: drawingId };
 }
 
-/**
- * A map of the setup as the rail reads it: an absent one is an EMPTY one.
- *
- * A rail is a pure function of what it was handed (L-MEA-08), and what it was handed is whatever the
- * caller assembled — the setup grew the `runs` and `lintels` seams with this area, and a caller that
- * assembles neither is saying the same thing an empty map says: nothing was read there. Reading it as
- * nothing keeps that answer; dying on it would turn a silence into a crash.
- */
-function held<T>(map: Readonly<Record<string, T>> | undefined): Readonly<Record<string, T>> {
-  return map ?? {};
-}
-
 /** The run the partition read for each placement, as the setup carries them (L-MEA-09). */
 function runsIn(setup: RailSetup): Readonly<Record<string, RunSetup>> {
-  return held(setup.runs);
+  return setup.runs;
 }
 
 /** The opening an opening schedule states behind each placement, as the setup carries them. */
 export function lintelsIn(setup: RailSetup): Readonly<Record<string, LintelSetup>> {
-  return held(setup.lintels);
+  return setup.lintels;
 }
 
 /** Every drawing the campaign's placements were read from, in the order the setup holds them. */
 export function drawingsOf(setup: RailSetup): readonly string[] {
   const seen: string[] = [];
-  for (const placement of Object.values(held(setup.placements))) if (!seen.includes(placement.drawingId)) seen.push(placement.drawingId);
+  for (const placement of Object.values(setup.placements)) if (!seen.includes(placement.drawingId)) seen.push(placement.drawingId);
   return seen;
 }
 

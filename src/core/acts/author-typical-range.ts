@@ -25,6 +25,7 @@ import type { RefusalCode } from "../errors";
 import { refusal } from "../faults/refusal-marker";
 import { levelSegment, SIGHTING_STANDINGS, type SightingStanding } from "../identity";
 import { liveLevelsOf, type LevelRow, type LevelScope } from "../levels/store";
+import { bandCovers, bandJudgeable, bandOpen, placedBy } from "../offers/contract";
 import type { Discipline } from "../sheets/law";
 import type { Consequence, ConsequenceSubject } from "./consequence";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
@@ -177,7 +178,8 @@ async function derive(ctx: ActorCtx, input: AuthorTypicalRangeInput, tx: TenantT
  * exists to make unrepresentable ("a measured sighting landing where a level expansion already stands
  * is a promotion … not a refusal": the promotion is what stands, and the derivation yields to it).
  *
- * The scope is the MARK on the STOREY, and deliberately not the mark at a grid reference. A grid
+ * The scope is the MARK on the STOREY under one pinned REVISION, and deliberately not the mark at a
+ * grid reference. A grid
  * reference is the nearest axis of each family of the view's OWN backbone, and two plans of one
  * building need not read the same backbone — a roof plan that draws four core columns georeferences
  * off fewer axes than the typical plan below it, and the same beam is lettered differently in the two.
@@ -188,7 +190,7 @@ async function derive(ctx: ActorCtx, input: AuthorTypicalRangeInput, tx: TenantT
  */
 async function drawnElsewhereOf(tx: TenantTx, ctx: ActorCtx, input: AuthorTypicalRangeInput): Promise<Set<string>> {
   const standing = await tx
-    .select({ mark: registerObjects.mark, levelId: registerObjects.levelId, viewKey: registerObjects.viewKey })
+    .select({ setRevisionId: registerObjects.setRevisionId, mark: registerObjects.mark, levelId: registerObjects.levelId, viewKey: registerObjects.viewKey })
     .from(registerObjects)
     .where(and(eq(registerObjects.tenantId, ctx.tenantId), eq(registerObjects.projectId, input.projectId), eq(registerObjects.standing, MEASURED)));
 
@@ -197,14 +199,25 @@ async function drawnElsewhereOf(tx: TenantTx, ctx: ActorCtx, input: AuthorTypica
     // Only ACROSS views: within one view a placement's rows stand on distinct levels already, and the
     // view this range is stated about is the one whose placeholders are being moved.
     if (row.viewKey === input.viewKey || row.levelId === null) continue;
-    owned.add(scopeOf(row.mark, row.levelId));
+    owned.add(scopeOf(row.setRevisionId, row.mark, row.levelId));
   }
   return owned;
 }
 
-/** One physical scope, spelled once: the mark, on one storey (L-REG-03, L-REG-04). */
-function scopeOf(mark: string, levelId: string): string {
-  return `${mark}|${levelId}`;
+/**
+ * One physical scope, spelled once: the mark, on one storey, under one pinned revision of the set
+ * (L-REG-03, L-REG-04).
+ *
+ * The revision is part of the scope because a revision is its own reading of the building: the
+ * placeholders this act moves span every pinned revision that holds one, and each becomes rows under
+ * its own. A sighting made under revision A says nothing about what revision B drew, so keying the
+ * guard on the mark and the storey alone would let a row that landed under A delete the rows this act
+ * derives under B — a register that loses members with no refusal and no observation, which is the
+ * undeclared under-measurement L-QTY-02 makes unrepresentable. Every other register read in the tree
+ * scopes by `setRevisionId` for the same reason.
+ */
+function scopeOf(setRevisionId: string, mark: string, levelId: string): string {
+  return `${setRevisionId}|${mark}|${levelId}`;
 }
 
 /**
@@ -263,17 +276,11 @@ async function bandsUnder(tx: TenantTx, ctx: ActorCtx, placeholders: readonly Pl
  */
 function bandedSpan(derived: Derived, placeholder: Placeholder): readonly LevelRow[] {
   const stated = derived.sighted.bands.get(placeholder.placementKey) ?? [];
-  if (stated.length === 0 || stated.some((band) => band.from === null && band.to === null)) return derived.span;
-  const ordinalOf = (label: string | null): number | undefined => (label === null ? undefined : derived.live.find((level) => level.label === label)?.ordinal);
-  const readable = stated.filter((band) => (band.from === null || ordinalOf(band.from) !== undefined) && (band.to === null || ordinalOf(band.to) !== undefined));
+  if (stated.length === 0 || stated.some((band) => bandOpen(band))) return derived.span;
+  const place = placedBy(derived.live);
+  const readable = stated.filter((band) => bandJudgeable(band, place));
   if (readable.length === 0) return derived.span;
-  return derived.span.filter((level) =>
-    readable.some((band) => {
-      const from = ordinalOf(band.from);
-      const to = ordinalOf(band.to);
-      return level.ordinal >= (from ?? level.ordinal) && level.ordinal <= (to ?? level.ordinal);
-    }),
-  );
+  return derived.span.filter((level) => readable.some((band) => bandCovers(band, level.ordinal, place)));
 }
 
 /**
@@ -289,7 +296,7 @@ function instancesOf(derived: Derived, placeholder: Placeholder): Instance[] {
   return bandedSpan(derived, placeholder)
     // A storey another plan of this building DREW this member on is that plan's to register: the
     // derivation yields to the sighting (L-REG-03).
-    .filter((level) => !derived.drawnElsewhere.has(scopeOf(placeholder.mark, level.levelId)))
+    .filter((level) => !derived.drawnElsewhere.has(scopeOf(placeholder.setRevisionId, placeholder.mark, level.levelId)))
     .map((level) => ({
       objectKey: `${placeholder.placementKey}${levelSegment({ levelId: level.levelId })}`,
       levelId: level.levelId,

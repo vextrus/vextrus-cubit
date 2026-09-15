@@ -13,6 +13,7 @@
 // same instance keys however they were handed in (L-REG-04, AC-8).
 import { EXPANSION_DEFERRAL_REASONS, type ExpansionDeferralReason } from "@/core/errors";
 import { instanceKey, levelSegment, SIGHTING_STANDINGS, viewKey as viewKeyOf, type LevelRef, type SightingStanding, type ViewRef } from "@/core/identity";
+import { bandCovers, bandJudgeable, bandOpen } from "@/core/offers/contract";
 import { normaliseMark } from "../notation";
 import { isFoundationClass, isLevelClass, levelWordsOf } from "../placement/law";
 import type { PlacementRow } from "../placement/rows";
@@ -227,17 +228,13 @@ function standsUnresolved(reason: ExpansionDeferralReason): boolean {
  */
 function bandedLevels(placement: PlacementRow, levels: readonly StackedLevel[], stack: readonly StackedLevel[], families: readonly FamilyBands[]): readonly StackedLevel[] {
   const stated = families.find((one) => one.family === placement.memberFamily)?.bands ?? [];
-  if (stated.length === 0 || stated.some((band) => band.from === null && band.to === null)) return levels;
-  const ordinalOf = (label: string | null): number | undefined => (label === null ? undefined : levelLabelled(stack, label)?.ordinal);
-  const readable = stated.filter((band) => (band.from === null || ordinalOf(band.from) !== undefined) && (band.to === null || ordinalOf(band.to) !== undefined));
+  if (stated.length === 0 || stated.some((band) => bandOpen(band))) return levels;
+  // This stage places a band's ends the way it places every label it reads off a drawing — normalised,
+  // ties to the lower ordinal. What a placed band MEANS is `bandCovers`, asked here and nowhere else.
+  const place = (label: string): number | undefined => levelLabelled(stack, label)?.ordinal;
+  const readable = stated.filter((band) => bandJudgeable(band, place));
   if (readable.length === 0) return levels;
-  return levels.filter((level) =>
-    readable.some((band) => {
-      const from = ordinalOf(band.from);
-      const to = ordinalOf(band.to);
-      return level.ordinal >= (from ?? level.ordinal) && level.ordinal <= (to ?? level.ordinal);
-    }),
-  );
+  return levels.filter((level) => readable.some((band) => bandCovers(band, level.ordinal, place)));
 }
 
 /** The rows one level-class member stands on, over the span its view resolved to, cut to its own band. */
