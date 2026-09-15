@@ -250,6 +250,18 @@ describe("each script gets a session that looks freshly connected", () => {
   });
 
   it("does not leave a temp table, a prepared statement or an advisory lock behind", () => {
+    // Both halves of this case are published by the module it judges, so the case says what they
+    // must still be: three leavings made, and three questions asked of them. A statement dropped
+    // from either constant would otherwise shorten the answer and take an assertion with it, and
+    // the row count is all that ties the two together.
+    const made = SESSION_LEAVINGS_MADE;
+    expect([made.includes("create temp table"), made.includes("prepare "), made.includes("pg_advisory_lock(")], "the leavings script makes all three leavings").toEqual([true, true, true]);
+    const asked = SESSION_LEAVINGS.split("\n").filter((statement) => statement.trim() !== "");
+    expect(asked.length, "the leavings reading asks one question per leaving").toBe(3);
+    expect(asked[0], "…the temp table, by name").toContain("pg_temp.");
+    expect(asked[1], "…the prepared statement").toContain("pg_prepared_statements");
+    expect(asked[2], "…the advisory lock, of THIS session: pg_locks is a view over the whole cluster").toContain("pg_backend_pid()");
+
     pooledPsql(url(), SESSION_LEAVINGS_MADE);
     // Asked the way the pool publishes the question (support/psql-pool.ts): of THIS session, not of
     // the cluster — `pg_locks` lists every database's advisory locks, so the lane's other files,
