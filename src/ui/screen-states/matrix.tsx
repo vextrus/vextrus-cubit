@@ -458,9 +458,10 @@ export const screenStates: ScreenStatesMatrix = {
 
   // The schedules and notes workspace (s-schedules § 2): the pinned revision's sheets, what each
   // sheet's schedules reconstructed into and how its general notes stand. Its partial cell is the
-  // reading's own deferred half — a view that yielded no table, a kind two people read differently,
-  // a sheet whose words state no figure — shown where it belongs and never hidden; its denial names
-  // MEASURE, the one permission the transcription moves.
+  // CHOSEN sheet's own deferred half (I-257) — a view that yielded no table, or a kind two people
+  // read differently — shown where it belongs and never hidden; a sheet whose words state no figure
+  // says so in the notes panel and is not partial for it. Its denial names MEASURE, the one
+  // permission the transcription moves.
   "/t/[tenant]/p/[project]/takeoff/schedules": declare({
     loading: bones(3),
     empty: (): ReactNode => <EmptyTeaching heading={strings.schedules_empty_heading} body={strings.schedules_empty_body} action={strings.schedules_empty_action} />,
