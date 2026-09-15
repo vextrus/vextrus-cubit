@@ -170,11 +170,26 @@ describe("AC-1: one column instance, one PRISM_RECT offer", () => {
     expect(without.selectors, "and where the drawing's general notes stated no grade, nothing is selected by (scope: `setup.grades` is a seam)").toEqual({});
   });
 
-  test("AC-1: the roster answers this kind with this rail", async () => {
+  test("AC-1: the roster answers this kind with a rail that answers the column exactly as this one does", async () => {
     const rail = await columnRailDoor();
     const rails = await railsRoster();
+    const roster = rails[RCC_CONCRETE];
 
-    expect(rails[RCC_CONCRETE], `\`RAILS\` gains the entry ${RCC_CONCRETE} — a rail is selected per quantity kind (L-MEA-08, interfaces)`).toBe(rail.columnConcreteRail);
+    expect(roster, `\`RAILS\` carries the entry ${RCC_CONCRETE} — a rail is selected per quantity kind, never per drawing (L-MEA-08, interfaces)`).toBeTypeOf("function");
+
+    // The kind's entry is no longer this rail itself: the FRAME area composes the per-class rails of
+    // `rcc.concrete` into one, and this rail is its first member. What the roster answers ABOUT THE
+    // COLUMN is therefore graded by what it answers — the offers whole, and the silence beside them —
+    // rather than by which function object it is. A composition that dropped, reordered or altered
+    // the column's answer is caught here. What the composition says about a class of its OWN is that
+    // class's leaf to state, and is not a change to this one (L-MEA-08, L-QTY-02).
+    const answered = roster?.(input());
+    const alone = rail.columnConcreteRail(input());
+    expect(answered?.offers, `and for a column row it answers the column rail's own offers, unchanged by the composition (L-MEA-08)`).toEqual(alone.offers);
+    expect(
+      answered?.observations.filter((one) => one.class === COLUMN_CLASS),
+      `and says about the column exactly what the column rail said about it, and nothing beside it`,
+    ).toEqual(alone.observations);
   });
 });
 

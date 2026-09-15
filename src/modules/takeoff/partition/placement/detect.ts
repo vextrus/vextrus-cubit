@@ -34,64 +34,10 @@ import type { DetectedGrid, GridAxisRow } from "../grid/detect";
 import { normaliseMark } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
-import { classOfMark } from "./law";
-import { shareValue, type PlacementShares } from "./shares";
-
-/** One placed member, as the store holds one and as the expansion reads one (L-REG-04). */
-export type PlacementRow = {
-  /** L-REG-04's view key — the class and the caption anchor the view was read at. */
-  readonly viewKey: string;
-  /** The view itself, as a key is derived from one: the expansion keys instance rows off it (L-REG-04). */
-  readonly view: ViewRef;
-  /** L-REG-04's placement key: the view, the mark and the point quantised onto the lattice. */
-  readonly placementKey: string;
-  readonly mark: string;
-  /** What the drawing spelled, kept beside what the rule compares (L-CAD-03). */
-  readonly markText: string;
-  readonly elementType: ElementType;
-  readonly x: number;
-  readonly y: number;
-  /** The nearest axis of each family of this view's backbone, or null where it carries none. */
-  readonly gridLetter: string | null;
-  readonly gridNumeral: string | null;
-  readonly outlineKey: string;
-  readonly markKey: string;
-  /** The member family of the record's own schedules this mark names, or null where none does. */
-  readonly memberFamily: string | null;
-};
-
-/** A layout plan that placed nothing because it georeferenced as deferred (L-CAD-07). */
-export type UngriddedView = { readonly viewKey: string };
-
-/** What one artifact's placement stage read: the plans it examined, and what it found in them. */
-export type DetectedPlacements = {
-  readonly views: number;
-  readonly placements: readonly PlacementRow[];
-  readonly ungridded: readonly UngriddedView[];
-};
-
-/**
- * One member family the record's schedules named — what a placement's `member_family` joins to, and
- * what the schedules said that family IS. The variants are optional because a record whose schedules
- * stated no section still names its families, and a family with no section is judged by nothing.
- */
-export type FamilyNamed = {
-  readonly family: string;
-  readonly variants?: readonly { readonly sectionWidth: number | null; readonly sectionDepth: number | null }[];
-};
-
-/** What the stage is handed: the artifact, what the stages before it derived, and the pinned shares. */
-export type PlacementEvidence = {
-  readonly graph: EntityGraph;
-  readonly views: readonly PartitionedView[];
-  /** Entity source key → view key, as the views stage assigned them (L-CAD-06). */
-  readonly assignments: ReadonlyMap<string, string>;
-  /** What the grid stage detected, or null where no such stage ran (L-CAD-07). */
-  readonly grid: DetectedGrid | null;
-  readonly shares: PlacementShares;
-  /** The families the schedules stage registered for this record (R-TO-031). */
-  readonly families: readonly FamilyNamed[];
-};
+import { classOfMark, isFramedClass } from "./law";
+import type { DetectedPlacements, FamilyNamed, PlacementEvidence, PlacementRow, UngriddedView } from "./rows";
+import { detectRuns } from "./runs";
+import { shareValue } from "./shares";
 
 /** A point in the drawing's own plane. */
 type Point = readonly [number, number];
@@ -160,7 +106,12 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
   );
   for (const plan of plans) for (const row of rowsFrom(plan.pass, plan.anchored, stated, scale)) placements.push(row);
 
-  return { views: examined, placements, ungridded };
+  // The members no closed outline stands for: a beam is drawn as the pair of lines either side of its
+  // axis, and it is placed off that pair with the run it measures beside it (`./runs`, L-MEA-09). It
+  // runs here, after the outline pass, because the outlines that pass placed are the members that
+  // CARRY a beam's ends and the rings a slab must not be read from.
+  const framed = detectRuns(evidence, placements);
+  return { views: examined, placements: [...placements, ...framed.placements], ungridded, runs: framed.runs };
 }
 
 /** What one plan places, keyed and grid-referenced. */
@@ -253,13 +204,21 @@ function axesOf(grid: DetectedGrid | null): Map<string, GridAxisRow[]> {
   return byView;
 }
 
-/** This entity read as a member mark, or nothing where its text names no member (L-CAD-07). */
+/**
+ * This entity read as a member mark this stage places by, or nothing where it names none (L-CAD-07).
+ *
+ * A mark of a FRAMED class names no outline: its member is drawn as a pair of edge lines and `./runs`
+ * places it off that pair. Read here, it would anchor whatever closed ring happened to stand nearest —
+ * a stair well, a hatch boundary — and place a beam nobody drew, with no run to measure it by
+ * (L-MEA-09, L-QTY-04). The two readers divide the plan by how the plan draws a member, and neither
+ * reads the other's.
+ */
 function markOf(entity: Drawn): [Mark] | null {
   const text = entity.text ?? "";
   const at = (entity.points ?? [])[0];
   if (text === "" || at === undefined) return null;
   const type = classOfMark(text);
-  if (type === null) return null;
+  if (type === null || isFramedClass(type)) return null;
   return [{ key: entity.key, text, mark: normaliseMark(text), type, at: [at[0] ?? 0, at[1] ?? 0] }];
 }
 

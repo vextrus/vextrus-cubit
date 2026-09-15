@@ -5,7 +5,7 @@
 // What "and for nothing else" means is decided in one place beside this one: `kind-law.ts` reads a
 // name against the dimension set, the units, the element classes, the pricing roles and the book
 // codes, and a member added here must answer that law with no objection (B-17).
-export const KINDS = ["rcc.concrete"] as const;
+export const KINDS = ["rcc.concrete", "rcc.formwork"] as const;
 
 /** One quantity kind, drawn from the closed roster above. */
 export type Kind = (typeof KINDS)[number];

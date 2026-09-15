@@ -17,7 +17,7 @@ import { rewriteExpansionRows } from "./expansion/store";
 import type { ResolvedExpansion } from "./expansion/resolve";
 import { rewriteProposedLevelRows } from "./levels-proposal/store";
 import type { ProposedLevelStack } from "./levels-proposal/propose";
-import type { DetectedPlacements } from "./placement/detect";
+import type { DetectedPlacements } from "./placement/rows";
 import { rewritePlacementRows } from "./placement/store";
 import { rewriteScheduleRows, type DetectedSchedules } from "./schedules/store";
 import type { PartitionedView } from "./views/assign";

@@ -13,7 +13,7 @@
 // breaking the template the rest of the lane is cloning from right now.
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, test } from "vitest";
-import { dropStaleTemplates, ensureTemplateNamed, templateDatabaseName } from "./harness";
+import { createTemplateDatabase, dropStaleTemplates, ensureTemplateNamed, templateDatabaseName } from "./harness";
 import { BOOTSTRAP_URL, ROLE_MIGRATE } from "./support/fixtures";
 import { ident, isTrue, lit, psql, run, scalar } from "./support/live-sql";
 
@@ -35,11 +35,14 @@ const STALE_TEMPLATE = `${SWEPT_PREFIX}${unique()}`;
  */
 const ABANDONED = `cubit_reclaim_check_${unique()}`;
 
+/** The name the create-race case asks for, in the same private namespace and for the same reason. */
+const RACE_CHECK = `cubit_racecheck_${unique()}`;
+
 const exists = (name: string): boolean => psql(BOOTSTRAP_URL, `select 1 from pg_database where datname = ${lit(name)};`).rows.length > 0;
 const oidOf = (name: string): string => scalar(BOOTSTRAP_URL, `select coalesce((select oid::text from pg_database where datname = ${lit(name)}), 'absent');`);
 
 afterAll(() => {
-  for (const name of [STALE_TEMPLATE, ABANDONED]) {
+  for (const name of [STALE_TEMPLATE, ABANDONED, RACE_CHECK]) {
     psql(BOOTSTRAP_URL, `alter database ${ident(name)} is_template false;`);
     psql(BOOTSTRAP_URL, `drop database if exists ${ident(name)} with (force);`);
   }
@@ -76,5 +79,32 @@ describe("the template cache collects its own leavings", () => {
     expect(oidOf(ABANDONED), "the abandoned database was adopted rather than dropped and rebuilt").not.toBe(before);
     expect(isTrue(scalar(BOOTSTRAP_URL, `select datistemplate from pg_database where datname = ${lit(ABANDONED)};`)), "the rebuilt template never became ready").toBe(true);
     expect(waited, "the waiter polled the full build timeout instead of reclaiming a dead builder's database").toBeLessThan(90_000);
+  });
+});
+
+/**
+ * `createdb` reports one and the same lost race two ways — 42P04 once the winner's row is visible,
+ * 23505 from the catalogue's unique index while it still is not — and the second is answered by
+ * waiting for the winner to commit and asking again.
+ *
+ * 23505 itself cannot be staged: no client can hold an uncommitted `CREATE DATABASE` open, so the
+ * window belongs to the server alone. What is provable, and what a careless "just retry the create"
+ * would break, is that the waiting is scoped to that one race: every other answer still comes back at
+ * once, rather than a real fault being sat on for ten seconds before it is reported.
+ */
+describe("the create race is waited out, and no other answer is", () => {
+  test("a free name is created outright, and a name already taken is reported 42P04 without being waited on", async () => {
+    const won = await createTemplateDatabase(RACE_CHECK);
+
+    expect(won.ok, `the create of a free name failed: ${won.stderr.slice(-400)}`).toBe(true);
+    expect(exists(RACE_CHECK), "the database the create reported making is not there").toBe(true);
+
+    const startedAt = Date.now();
+    const lost = await createTemplateDatabase(RACE_CHECK);
+    const waited = Date.now() - startedAt;
+
+    expect(lost.ok).toBe(false);
+    expect(lost.sqlstate, "a name already committed is the settled verdict the caller waits on, not a race to re-ask").toBe("42P04");
+    expect(waited, "an answer that is not 23505 was retried anyway — a real fault would be reported ten seconds late").toBeLessThan(5_000);
   });
 });

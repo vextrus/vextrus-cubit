@@ -154,6 +154,98 @@ export type LevelSetup = {
 };
 
 /**
+ * A band as a schedule states it: the labels its two ends name, either or both left open (L-FRM-02).
+ */
+export type BandStatement = {
+  readonly from: string | null;
+  readonly to: string | null;
+};
+
+/**
+ * How a stack places one end of a band: the ordinal of the level that label names, or `undefined`
+ * where the stack carries none.
+ *
+ * The placement is the CALLER's because the stacks differ in how a label reaches them — the partition
+ * reads labels off a drawing and matches them normalised, a rail reads the stack's own labels — while
+ * the rule below, which is what a band MEANS, is one (B-17).
+ */
+export type BandPlacement = (label: string) => number | undefined;
+
+/** The placement a stack of labelled levels makes by its own labels, lowest ordinal first. */
+export function placedBy(levels: readonly { readonly label: string; readonly ordinal: number }[]): BandPlacement {
+  return (label) => levels.find((one) => one.label === label)?.ordinal;
+}
+
+/** A band with neither end stated: the schedule named no range, so it selects nothing (L-FRM-02). */
+export function bandOpen(band: BandStatement): boolean {
+  return band.from === null && band.to === null;
+}
+
+/**
+ * Whether the stack can place every end this band states.
+ *
+ * A band naming an endpoint no live level carries is a statement nothing can judge — the same fact
+ * L-CAD-07 answers with `LEVEL_RANGE_ENDPOINT_UNMAPPED` where a person states the range. A caller
+ * that would otherwise CUT by such a band declines to cut at all rather than dropping the member
+ * with no word said (L-QTY-02).
+ */
+export function bandJudgeable(band: BandStatement, place: BandPlacement): boolean {
+  return (band.from === null || place(band.from) !== undefined) && (band.to === null || place(band.to) !== undefined);
+}
+
+/**
+ * Whether one stated band covers one ordinal — the one reading of a schedule's band, for every caller
+ * that asks (B-17: one fact, one home; every area asked it and the answer may not part).
+ *
+ * An open end is no bound: a band stating only its start runs to the top of whatever it is read
+ * against, and an entirely open band covers everything, because that is what an unbanded schedule row
+ * says. The comparison is by ORDINAL and never by label, because a range over a building is physical
+ * (L-MEA-07, L-REG-02). An end the stack cannot place makes the band unjudgeable, and an unjudgeable
+ * band covers nothing rather than everything.
+ */
+export function bandCovers(band: BandStatement, ordinal: number, place: BandPlacement): boolean {
+  if (!bandJudgeable(band, place)) return false;
+  const from = band.from === null ? undefined : place(band.from);
+  const to = band.to === null ? undefined : place(band.to);
+  return ordinal >= (from ?? ordinal) && ordinal <= (to ?? ordinal);
+}
+
+/**
+ * The variant of a family that covers one level — `bandCovers` asked of a member type's own band.
+ *
+ * A variant whose schedule stated no band at all covers every level — that is what an unbanded
+ * schedule row says. A banded one covers the levels its endpoints name, matched by the label the
+ * stack carries and bounded by ordinal, so a band written "GF TO 5F" covers what physically stands
+ * between them (L-MEA-07: the ordinal is physical). A level no band covers defers (L-FRM-02), which
+ * the caller reports under its own area's code.
+ *
+ * A row that stands on NO level of the stack — a member in the foundation slot, which is a place a
+ * member stands rather than a storey (L-REG-02) — is not banded by the stack at all: a band is a
+ * range over it, and a range cannot select for a member outside it. Its schedule row is then its
+ * section where the family states exactly one, and the band on that row names where the member
+ * stands rather than which row to take. A family stating several is genuinely ambiguous off the
+ * stack, and defers rather than having one picked for it (L-QTY-01: never a guess).
+ *
+ * Nothing is computed here and nothing converted: a section is SELECTED, and what it reads is
+ * carried on untouched.
+ */
+export function variantCovering(
+  variants: readonly MemberVariantSetup[],
+  level: LevelSetup | undefined,
+  levels: readonly LevelSetup[],
+): MemberVariantSetup | undefined {
+  const unbanded = variants.find((variant) => bandOpen(bandOf(variant)));
+  if (level === undefined) return unbanded ?? (variants.length === 1 ? variants[0] : undefined);
+  const place = placedBy(levels);
+  return variants.find((variant) => bandCovers(bandOf(variant), level.ordinal, place)) ?? unbanded;
+}
+
+/** The band a member-type variant states, in the spelling the one reading of a band is asked in. */
+function bandOf(variant: MemberVariantSetup): BandStatement {
+  return { from: variant.bandFrom, to: variant.bandTo };
+}
+
+/**
  * The read-only setup every rail is handed beside the register's rows — "rails share only setup, the
  * register and the document stage" (L-MEA-08).
  *
@@ -172,6 +264,45 @@ export type RailSetup = {
   readonly calibrations: Readonly<Record<string, Readonly<Record<string, string>>>>;
   /** The concrete grade a drawing's general notes stated, where a reader stated one. */
   readonly grades: Readonly<Record<string, Measure>>;
+  /** The run the partition read for each beam and tie-beam placement, by its placement key. */
+  readonly runs: Readonly<Record<string, RunSetup>>;
+  /** The opening an opening schedule states behind each lintel placement, by its placement key. */
+  readonly lintels: Readonly<Record<string, LintelSetup>>;
+};
+
+/**
+ * One reading of the setup that the partition READ rather than transcribed: the value in the unit it
+ * was read in, how it was known, and the entity it was read from. Narrower than `Measure` because
+ * the calibration a run stands on is the view's, which the rail already holds (L-QTY-03).
+ */
+export type ReadingSetup = {
+  readonly value: string;
+  readonly unit: string;
+  readonly basis: QuantityBasis;
+  readonly source: string;
+};
+
+/**
+ * One placement's run (L-MEA-09): the drawn axis clear between the faces of the members supporting
+ * its ends, and the slab thickness adjoining each of its two sides. Each is null where the drawing
+ * stated none — an unread reading is never a zero, and the rail declares the omission (L-QTY-02).
+ */
+export type RunSetup = {
+  readonly clear: ReadingSetup | null;
+  readonly sides: readonly [ReadingSetup | null, ReadingSetup | null];
+};
+
+/**
+ * One placement's lintel, as an opening schedule states one: the five readings a lintel is measured
+ * from, all of them the schedule's. A lintel with no entry here is a lintel nothing scheduled, and
+ * the rail reports `LINTEL_SOURCE_ABSENT` rather than reading the wall around it (R-TO-032).
+ */
+export type LintelSetup = {
+  readonly count: ReadingSetup;
+  readonly b: ReadingSetup;
+  readonly D: ReadingSetup;
+  readonly w: ReadingSetup;
+  readonly bearing: ReadingSetup;
 };
 
 /** What a rail is asked: which campaign, over which pinned revision, for which kind, and of what. */

@@ -1,4 +1,5 @@
-// The FRAME rail's own refusals — L-MEA-08's rail-local codes, keyed (column × rcc.concrete).
+// The FRAME rail's own refusals — L-MEA-08's rail-local codes, keyed (column × rcc.concrete) and,
+// from the M3 leaf, (beam | tie_beam | lintel × rcc.concrete | rcc.formwork).
 //
 // M3 writes its frame rail here: a rail's refusals belong to the rail, so the file a rail is written
 // in is the file its codes are registered in, and no two rails ever edit one list (AM-11).
@@ -10,7 +11,10 @@ export type FrameRefusalCode =
   | "VIEW_SCALE_UNAFFIRMED"
   | "MEMBER_TYPE_UNKNOWN"
   | "SECTION_BAND_UNCOVERED"
-  | "SECTION_UNIT_UNSTATED";
+  | "SECTION_UNIT_UNSTATED"
+  | "RUN_UNREAD"
+  | "SLAB_THICKNESS_UNSTATED"
+  | "LINTEL_SOURCE_ABSENT";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const FRAME_REFUSALS: RefusalGroup<FrameRefusalCode> = Object.freeze({
@@ -42,6 +46,35 @@ export const FRAME_REFUSALS: RefusalGroup<FrameRefusalCode> = Object.freeze({
     code: "SECTION_UNIT_UNSTATED",
     message: "This member's section was read without the unit it was written in, so its size cannot be carried.",
     remedy: "Re-read the schedule's section cell so it states its unit, then measure again.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // A beam is measured clear between the faces that support it (L-MEA-09), and a run nobody read is
+  // a run this rail will not replace with the grid-to-grid span: the member is reported, never
+  // offered on a figure the drawing did not state.
+  RUN_UNREAD: Object.freeze({
+    code: "RUN_UNREAD",
+    message: "The drawing states no clear run for this member, so there is no length to measure it along.",
+    remedy: "Check that the member's edge lines and its supports are drawn on the plan, then rebuild the drawing's partition.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // The thicker adjoining slab governs a beam's `t` (L-MEA-09). Where the view states none for a
+  // side, the row is KEPT with that component declared omitted — an unread thickness is never a zero
+  // and never a guess (L-QTY-02).
+  SLAB_THICKNESS_UNSTATED: Object.freeze({
+    code: "SLAB_THICKNESS_UNSTATED",
+    message: "The view states no slab thickness adjoining this side of the member, so its depth below the soffit is not measured.",
+    remedy: "State the slab thickness on the plan that draws it — its caption or its slab note — then measure the campaign again.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // A lintel is measured from the opening schedule that states it and from nowhere else: a lintel
+  // inferred from the wall it spans would be a member nobody scheduled (R-TO-032).
+  LINTEL_SOURCE_ABSENT: Object.freeze({
+    code: "LINTEL_SOURCE_ABSENT",
+    message: "No scheduled opening stands behind this lintel, so there is nothing stating the span and section to measure it by.",
+    remedy: "Read the drawing's opening schedule so the lintel's opening is registered, then measure the campaign again.",
     severity: "warning",
     surface: "inline",
   }),

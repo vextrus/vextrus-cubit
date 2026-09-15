@@ -32,8 +32,25 @@ const AREA_DIR = "src/core/rulesets/methods/registry";
 /** Code-point order — the only order this tree sorts a roster by (L-REG-05). */
 const byCodePoint = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 
-/** Every pair the shards recorded before AM-11 moved a line, keyed `<ruleId>@<version>` (L-MEA-01). */
-const PAIRS_BEFORE: readonly string[] = Object.freeze(["conventions.resolve@1", "member.volume@1", "rcc.column.concrete@1"]);
+/**
+ * Every pair the shards recorded before AM-11 moved a line, keyed `<ruleId>@<version>` (L-MEA-01).
+ *
+ * Re-baselined by the FRAME leaf for SIX ADDED pairs and nothing else — the beam, tie-beam and lintel
+ * methods L-MEA-09 measures a frame by, recorded in `../frame/frame.methods.json` and cited by the
+ * platform edition `IS1200_IN @ 2026.10`. The roster grew by those six keys — three pairs to nine —
+ * and no pair standing before them moved (B-19, B-20).
+ */
+const PAIRS_BEFORE: readonly string[] = Object.freeze([
+  "conventions.resolve@1",
+  "member.volume@1",
+  "rcc.beam.concrete@1",
+  "rcc.beam.formwork@1",
+  "rcc.column.concrete@1",
+  "rcc.lintel.concrete@1",
+  "rcc.lintel.formwork@1",
+  "rcc.tie_beam.concrete@1",
+  "rcc.tie_beam.formwork@1",
+]);
 
 /** One area's contribution, as this file reads one. */
 interface Area {
