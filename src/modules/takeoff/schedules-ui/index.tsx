@@ -699,7 +699,7 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
               <h2 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_registry_heading}</h2>{" "}
               {sheet.families.length === 0 ? <p className="cx-schedules-none-said">{SCHEDULES_COPY.schedules_registry_none}</p> : null}
               {sheet.families.map((family) => (
-                <Family key={family.family} family={family} testIds={testIds} href={(sourceKeys) => traceTo(sourceKeys)} EvidenceLink={EvidenceLink} IdChip={IdChip} />
+                <Family key={family.family} family={family} testIds={testIds} href={(sourceKeys) => traceTo(sourceKeys)} EvidenceLink={EvidenceLink} />
               ))}
             </section>
           </div>
@@ -926,13 +926,11 @@ function Family({
   testIds,
   href,
   EvidenceLink,
-  IdChip,
 }: {
   family: FamilyView;
   testIds: SchedulesTestIds;
   href: (sourceKeys: readonly string[]) => string;
   EvidenceLink: SchedulesChrome["EvidenceLink"];
-  IdChip: SchedulesChrome["IdChip"];
 }) {
   return (
     <div className="cx-schedules-family" data-testid={testIds.family} data-family={family.family}>
@@ -958,10 +956,11 @@ function Family({
             <span className="cx-schedules-mono">{variant.bandText === "" ? DASH : variant.bandText}</span>{" "}
             <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_section}</span>{" "}
             <span className="cx-schedules-mono">{variant.sectionText === "" ? DASH : variant.sectionText}</span>{" "}
-            {/* The variant's key is said WHOLE: it is the band the schedule named (`GF TO 3RD`), not
-                an opaque surrogate, and seven leading characters of it would be a word the drawing
-                never wrote (R-UI-082, I-251). */}
-            <IdChip value={variant.variantKey} short={variant.variantKey} />{" "}
+            {/* The variant's KEY is not said at all. It is the store's own surrogate for the band —
+                `4TH-ROOF` where the drawing wrote `4TH TO ROOF` — so printing it puts a word beside
+                the band that the schedule never wrote there, and its digits stand as figures nobody
+                measured (I-251, L-CAD-08). The key rides `data-variant`, which is where a suite
+                addresses it and where no reader mistakes it for the drawing's own text. */}
           </p>
           {variant.zones.map((zone) => (
             // The zone is said in the store's own word rather than through `EnumLabel`: this pane
