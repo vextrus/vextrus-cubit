@@ -24,7 +24,7 @@ import { requirePermission } from "./participation";
 import { actChangesNothing, actorNotHuman, consequencesNotCarried } from "./refusals";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
-export { consequenceDigest, type Consequence, type ConsequenceEffects, type ConsequenceRendering, type ConsequenceSubject } from "./consequence";
+export { consequenceDigest, movesNothing, type Consequence, type ConsequenceEffects, type ConsequenceRendering, type ConsequenceSubject } from "./consequence";
 export {
   ACT_PERMISSION,
   ACT_TYPES,
@@ -39,7 +39,7 @@ export {
 } from "./law";
 export { actsHeldBy } from "./held";
 export { effectiveGrants, holdersOf, participatesIn, permissionsHeld, rolesGranted, type RoleGrant } from "./participation";
-export { permissionNotHeld, projectWouldHaveNoPrincipal, type ActorKind } from "./refusals";
+export { actChangesNothing, permissionNotHeld, projectWouldHaveNoPrincipal, type ActorKind } from "./refusals";
 export { type ActRendering, type ActorCtx, type WrittenAct } from "./rendering";
 export { directionOf, type AssignDirection, type AssignParticipantRoleInput } from "./assign-participant-role";
 export { GROUP_KINDS, groupNotOffered, type ConfirmDisciplineInput, type GroupKind, type OfferedGroupKey } from "./confirm-discipline";

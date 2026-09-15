@@ -8,6 +8,7 @@ import "./takeoff.css";
 
 import { coverageRoute } from "./coverage/route-address";
 import { COVERAGE_COPY } from "@/modules/takeoff/coverage/copy";
+import { levelsRoute } from "./levels/route-address";
 import { registerRoute } from "./register/route-address";
 import { strings } from "@/ui/strings";
 import { TakeoffTabs } from "./nav";
@@ -23,12 +24,14 @@ export default async function TakeoffLayout({
   return (
     <>
       {/* The coverage entry's label is the coverage module's own (I-197); the register's is the
-          lane's shared table, where it already stood. Each address is asked of the builder that owns
-          it (B-17). */}
+          lane's shared table, where it already stood; the levels entry's is S-Levels' own table,
+          which is where that screen's copy lives (s-levels.md §3). Each address is asked of the
+          builder that owns it (B-17). */}
       <TakeoffTabs
         entries={[
           { testId: "takeoff-nav-register", label: strings.takeoff_nav_register, href: registerRoute(tenant, project) },
           { testId: "takeoff-nav-coverage", label: COVERAGE_COPY.takeoff_nav_coverage, href: coverageRoute(tenant, project) },
+          { testId: "takeoff-nav-levels", label: strings.takeoff_nav_levels, href: levelsRoute(tenant, project) },
         ]}
       >
         {children}
