@@ -588,6 +588,11 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
           </nav>
 
           <div className="cx-schedules-work">
+            {/* What the sheet HOLDS scrolls as one, so a long schedule and a long record of readings
+                follow each other down a single column; the registry pane below is pinned to the foot
+                of the work column and scrolls alone (§1, I-249). Two scroll regions rather than one
+                is what keeps either of them from pushing the other off the screen. */}
+            <div className="cx-schedules-scroll">
             <section className="cx-schedules-tables" aria-label={SCHEDULES_COPY.schedules_tables_heading}>
               {sheet.schedules.length === 0 ? null : <h2 className="cx-schedules-section-heading">{SCHEDULES_COPY.schedules_tables_heading}</h2>}
               {sheet.schedules.map((table) => (
@@ -667,9 +672,18 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
                 </>
               )}
             </section>
+            </div>
 
             {/* I-249: the registry yields its height to the inspector, and stays a disclosure. */}
-            <section className="cx-schedules-panel cx-schedules-registry" data-testid={testIds.registry} data-collapsed={selected === null ? "false" : "true"}>
+            <section
+              className="cx-schedules-panel cx-schedules-registry"
+              data-testid={testIds.registry}
+              data-collapsed={selected === null ? "false" : "true"}
+              // A pane with no family to show still STANDS and states its sentence (§1's empty cell),
+              // but it takes only the room that sentence needs: 240 px of empty panel would push the
+              // sheet's own notes off the fold to hold nothing.
+              data-empty={sheet.families.length === 0 ? "true" : undefined}
+            >
               <h2 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_registry_heading}</h2>{" "}
               {sheet.families.length === 0 ? <p className="cx-schedules-none-said">{SCHEDULES_COPY.schedules_registry_none}</p> : null}
               {sheet.families.map((family) => (
@@ -921,7 +935,9 @@ function Family({
       <p className="cx-schedules-family-mark">
         <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_mark}</span>{" "}
         <EvidenceLink href={href(family.sourceKeys)} basis={TRANSCRIBED} label={family.family} />{" "}
-        <span className="cx-schedules-mono">{family.markText}</span>{" "}
+        {/* Only where the mark CELL spelled it differently: where the two agree there is one word to
+            say, and a row that said it twice would be saying the schedule wrote it twice. */}
+        {family.markText === family.family ? null : <span className="cx-schedules-mono">{family.markText}</span>}{" "}
       </p>
       {family.variants.map((variant) => (
         <div className="cx-schedules-variant" key={variant.variantKey} data-testid={testIds.variant} data-variant={variant.variantKey}>
@@ -942,7 +958,7 @@ function Family({
             // either way, which is where a suite matches it.
             <p className="cx-schedules-zone" key={zone.zone} data-testid={testIds.zone} data-zone={zone.zone}>
               <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_zone}</span>{" "}
-              <span className="cx-schedules-enum">{zone.zone}</span>{" "}
+              <span className="cx-schedules-mono">{zone.zone}</span>{" "}
               <span className="cx-schedules-mono">{zone.text}</span>{" "}
             </p>
           ))}
