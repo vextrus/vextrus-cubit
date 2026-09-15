@@ -21,7 +21,7 @@
 -- Minting a platform edition is system work, and 0004's `ruleset_editions_system_scope` policy arms
 -- on a named reason and on nothing else — the migrator names no tenant, so it names the reason here
 -- and disarms it again below rather than leaving a session that can write editions at will.
-SELECT set_config('cubit.system_reason', 'migration 0041 mints the platform rule-set edition IS1200_IN @ 2026.10', false);--> statement-breakpoint
+SELECT set_config('cubit.system_reason', 'migration 0042 mints the platform rule-set edition IS1200_IN @ 2026.10', false);--> statement-breakpoint
 INSERT INTO "ruleset_editions" ("scope", "name", "version", "content_digest", "parameters", "methods")
 	VALUES (
 		'platform',
