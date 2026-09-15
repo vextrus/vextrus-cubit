@@ -161,8 +161,10 @@ published beside the lines rather than dropped: what was not measured is part of
 
 `schemaVersion` states the shape a document was written under.
 
-- The version string changes only with a **breaking** change to the shape: a property removed, a
-  property retyped, or a meaning changed under an unchanged name.
+- The version string moves with every change to the shape, and which half of it moves says what the
+  change was. A **breaking** change — a property removed, a property retyped, or a meaning changed
+  under an unchanged name — moves the major version (`1.0` → `2.0`), and only a breaking change ever
+  does.
 - An **additive** field bumps the minor version (`1.0` → `1.1`). A reader that ignores properties it
   does not know keeps working across a minor bump; a reader that refuses unknown properties does not.
 - The committed JSON Schema fixture is regenerated from the live schema on every unit run, so the
