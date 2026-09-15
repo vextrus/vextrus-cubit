@@ -140,8 +140,10 @@ const FOUNDATION_LABEL = "FDN";
 /**
  * The classes that stand ON a level, and are therefore expanded over the range of the view they were
  * drawn in: columns and shear walls as they always were, and beams from this leaf (interfaces:
- * `LEVEL_CLASSES`). Named here as the classes this STAGE ranges and affirms a scale for — what the
- * product's own roster holds is the product's answer, and the criteria beside this stage judge it.
+ * `LEVEL_CLASSES`). Named here as the classes this STAGE ranges — a calibration is a property of the
+ * VIEW and never of the class drawn in it, so the affirmation pass below is not filtered by this
+ * roster. What the product's own roster holds is the product's answer, and the criteria beside this
+ * stage judge it.
  */
 const LEVEL_CLASSES: readonly string[] = Object.freeze([COLUMN_CLASS, "shear_wall", "beam"]);
 
