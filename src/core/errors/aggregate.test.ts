@@ -154,7 +154,17 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
  *
- * Re-baselined for THREE ADDED entries and nothing else: `RUN_UNREAD`, `SLAB_THICKNESS_UNSTATED` and
+ * Re-baselined for SIX ADDED entries and nothing else, all of them `./docs.ts`'s and all of them
+ * about one document (R-SPINE-040): `DOCUMENT_KIND_UNKNOWN` and `DOCUMENT_PAYLOAD_MALFORMED`, which a
+ * render refuses a kind nobody registered and a payload its schema will not read by;
+ * `DOCUMENT_NOT_RENDERED`, which a renderer that fell over is answered with, carrying the id of the
+ * fault it was recorded as (ARCH-03); and `DOCUMENT_NOT_FOUND`, `DOCUMENT_URL_INVALID` and
+ * `DOCUMENT_URL_EXPIRED`, the three answers `GET /api/documents/[id]` gives a signed download link it
+ * will not serve (R-SPINE-021, Q-12). The roster grew by those six keys — 86 codes to 92 — and not
+ * one existing entry's code, message, remedy, severity or surface moved with them; the previous
+ * digest was 9b3547b60626ffa04e8cb3060c1bb88787578bda65dd9288db20cb4f0942e567.
+ *
+ * Re-baselined before that for THREE ADDED entries and nothing else: `RUN_UNREAD`, `SLAB_THICKNESS_UNSTATED` and
  * `LINTEL_SOURCE_ABSENT` (./frame.ts), the three readings the frame rails report rather than guess
  * when the drawing did not state them (L-MEA-09, L-QTY-02). The roster grew by those three keys — 83
  * codes to 86 — and not one existing entry's code, message, remedy, severity or surface moved with
@@ -206,7 +216,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "9b3547b60626ffa04e8cb3060c1bb88787578bda65dd9288db20cb4f0942e567";
+const ENTRIES_DIGEST_BEFORE = "e6e381b3f66896be051f9fafe92959d98f0945e0a4d49e670d777c1c48b4129c";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

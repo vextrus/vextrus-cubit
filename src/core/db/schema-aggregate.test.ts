@@ -200,7 +200,13 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over each key, its SQL table name and its column names in code-point order — the shape
  * half of the same baseline. Re-baselined with TABLES_BEFORE, and never on its own.
  *
- * Re-baselined for ONE ADDED table and nothing else: `placementRuns` (./schema-frame.ts), the runs
+ * Re-baselined for ONE ADDED table and nothing else: `documents` (./schema-docs.ts), the issued
+ * documents SEAM-DOC renders and stores — one row per issue, chained by `superseded_by`
+ * (R-SPINE-040). The roster grew by that one key — 61 tables to 62 — and not one existing table's
+ * SQL name or column moved with it; the previous digest was
+ * 1ac7cb4dc110be065d1e878aaf436aea5bcfeea5b669446704e199f55033393e.
+ *
+ * Re-baselined before that for ONE ADDED table and nothing else: `placementRuns` (./schema-frame.ts), the runs
  * the frame rails read off a placement and report as their own rows (L-MEA-09). The roster grew by
  * that one key — 59 tables to 60 — and not one existing table's SQL name or column moved with it;
  * the previous digest was c2ad361648f0d3eee7ac6137fa7cf4e1f2adf5153060e6f26ed98c8f2fda679d.
@@ -212,7 +218,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * table's SQL name or column moved with it; the previous digest was
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "1ac7cb4dc110be065d1e878aaf436aea5bcfeea5b669446704e199f55033393e";
+const COLUMNS_DIGEST_BEFORE = "03ef983af919efc14e8ac3b85204fbeb2ed38bff2416e791161273ae1f79a9d3";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {
