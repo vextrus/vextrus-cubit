@@ -80,10 +80,18 @@ const LAYOUT_CONTROLS: ReadonlySet<number> = new Set([0x09, 0x0a, 0x0d]);
  * The three faces, read from the tree and hashed. Memoised per process: the bytes are immutable
  * (a face moves by a toolchain increment that also re-baselines every golden), and a render that
  * re-read and re-hashed three files each time would pay for a fact that cannot change under it.
+ *
+ * An ANSWER is what is kept; a failure is not. The argument for memoising is that the bytes cannot
+ * change under us, and that argument says nothing about a read that did not get to them — so a
+ * rejection is dropped and the next render asks again. Holding one would let a single unlucky read
+ * at start-up refuse every document for the life of the process (ARCH-03).
  */
 let loaded: Promise<readonly EmbeddedFont[]> | undefined;
 export function documentFonts(): Promise<readonly EmbeddedFont[]> {
-  return (loaded ??= Promise.all(DOCUMENT_FONT_FILES.map(readFace)));
+  return (loaded ??= Promise.all(DOCUMENT_FONT_FILES.map(readFace)).catch((failure: unknown) => {
+    loaded = undefined;
+    throw failure;
+  }));
 }
 
 /** One face: its bytes hashed, and its `cmap` read so the face can answer for its own repertoire. */
