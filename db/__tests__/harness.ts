@@ -9,8 +9,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { BOOTSTRAP_URL, ROLE_APP, ROLE_MIGRATE, SCRATCH_DB_PREFIX, TEMPLATE_DB_PREFIX, TENANT_COLUMN } from "./support/fixtures";
-import type { SqlResult } from "./support/live-sql";
-import { closePsqlPool, ident, isTrue, lit, psql, run } from "./support/live-sql";
+import { closePsqlPool, ident, isTrue, lit, psql, run, type SqlResult } from "./support/live-sql";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..");
 const MIGRATIONS_DIR = join(REPO_ROOT, "db", "migrations");
@@ -328,11 +327,28 @@ export async function createTemplateDatabase(name: string): Promise<SqlResult> {
 }
 
 /**
+ * Did this `create database` lose the race to a run that was creating the same name, rather than fail?
+ *
+ * `CREATE DATABASE` reports that in TWO SQLSTATEs, and which one you get is a matter of microseconds.
+ * Postgres looks the name up first (42P04, "database already exists") and only then copies the
+ * template directory and inserts the `pg_database` tuple — so a process whose lookup ran before the
+ * winner's insert and whose own insert ran after it is refused by the catalogue's unique index
+ * instead, as 23505 on `pg_database_datname_index`. The window is the length of a directory copy, so
+ * it is never seen while a template stands and is seen by several processes at once the first time a
+ * digest is built — which is exactly the run after a migration lands. Both mean the same thing here:
+ * somebody else is building it, wait for them (B-19).
+ */
+function lostTheCreateRace(created: SqlResult): boolean {
+  if (created.sqlstate === "42P04") return true;
+  return created.sqlstate === "23505" && created.stderr.includes("pg_database_datname_index");
+}
+
+/**
  * Build the named template, or join whoever is already building it — and reclaim it when nobody is.
  *
- * `CREATE DATABASE` is the mutex: exactly one process can create a given name, and the loser gets
- * 42P04 and waits. Readiness is `datistemplate`, set only after the migrations applied. What was
- * missing is the third case: a builder SIGKILLed between the create and that flag leaves a database
+ * `CREATE DATABASE` is the mutex: exactly one process can create a given name, and the losers wait
+ * (`lostTheCreateRace` reads the two SQLSTATEs that says in). Readiness is `datistemplate`, set only
+ * after the migrations applied. What was missing is the third case: a builder SIGKILLed between the create and that flag leaves a database
  * of the wanted name that can never become ready, and every later run waited the full
  * TEMPLATE_BUILD_TIMEOUT_MS on it and then failed. So a builder stamps a heartbeat while it works,
  * and a waiter that finds no live builder behind the database takes it away and builds it itself.
@@ -368,7 +384,7 @@ export async function ensureTemplateNamed(name: string, options: { sweepStale?: 
       if (options.sweepStale === true) dropStaleTemplates(name);
       return name;
     }
-    if (created.sqlstate !== "42P04") throw new Error(`the template database ${name} could not be created:\n${created.stderr.slice(-1200)}`);
+    if (!lostTheCreateRace(created)) throw new Error(`the template database ${name} could not be created:\n${created.stderr.slice(-1200)}`);
 
     if (await waitForTemplate(name)) return name;
 

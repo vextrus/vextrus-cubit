@@ -456,6 +456,30 @@ export const screenStates: ScreenStatesMatrix = {
     ),
   }),
 
+  // The schedules and notes workspace (s-schedules § 2): the pinned revision's sheets, what each
+  // sheet's schedules reconstructed into and how its general notes stand. Its partial cell is the
+  // CHOSEN sheet's own deferred half (I-257) — a view that yielded no table, or a kind two people
+  // read differently — shown where it belongs and never hidden; a sheet whose words state no figure
+  // says so in the notes panel and is not partial for it. Its denial names MEASURE, the one
+  // permission the transcription moves.
+  "/t/[tenant]/p/[project]/takeoff/schedules": declare({
+    loading: bones(3),
+    empty: (): ReactNode => <EmptyTeaching heading={strings.schedules_empty_heading} body={strings.schedules_empty_body} action={strings.schedules_empty_action} />,
+    error: fault(strings.schedules_error_body),
+    refusal: refusal(REFUSAL_ENTRIES.PERMISSION_NOT_HELD, PARTICIPANTS_EVIDENCE),
+    partial: (): ReactNode => <InlineAnswer text={strings.schedules_registry_none} />,
+    offline: (): ReactNode => <InlineAnswer text={strings.schedules_offline} />,
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.schedules_denied_transcribe}
+        holder={strings.schedules_denied_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={PARTICIPANTS_EVIDENCE}
+      />
+    ),
+  }),
+
   // The takeoff address itself (s-takeoff § 1): a redirect that renders nothing, so every one of its
   // seven cells is the register's own, taken from the surface a reader is carried to and named as
   // handed over — a route that shows nothing has no state of its own to invent (Decision § 2).

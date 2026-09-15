@@ -60,6 +60,7 @@ export {
   memberTypeVariants,
   rebarZones,
   scheduleDeferrals,
+  notesReadings,
   placements,
   placementRuns,
   expansionDeferrals,

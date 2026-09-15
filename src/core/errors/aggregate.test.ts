@@ -94,6 +94,9 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "METHOD_IMPLEMENTATION_MISSING",
   "METHOD_NOT_IN_EDITION",
   "NOTATION_UNREAD",
+  "NOTES_NONE_PROPOSED",
+  "NOTE_READING_CONTESTED",
+  "NOTE_SOURCE_NOT_ON_SHEET",
   "NOT_ESTABLISHED",
   "NOT_IN_PROJECT_SCOPE",
   "NOT_IN_THIS_BILL",
@@ -145,15 +148,28 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
  *
- * Re-baselined for SIX ADDED entries and nothing else, where two increments that each added three
- * met in a merge: `EXPORT_NOT_FOUND`, `EXPORT_URL_EXPIRED` and `EXPORT_URL_INVALID` (./exports.ts),
- * the three answers `GET /api/exports/[id]` gives a signed download link it will not serve — an
- * address nothing is stored at, a link whose hour has passed, and a link this workspace never issued
- * (R-SPINE-041, R-SPINE-021, Q-12); and `RUN_UNREAD`, `SLAB_THICKNESS_UNSTATED` and
+ * Re-baselined for THREE ADDED entries and nothing else: `RUN_UNREAD`, `SLAB_THICKNESS_UNSTATED` and
  * `LINTEL_SOURCE_ABSENT` (./frame.ts), the three readings the frame rails report rather than guess
- * when the drawing did not state them (L-MEA-09, L-QTY-02). The roster grew by those six keys — 77
- * codes to 83 — and not one existing entry's code, message, remedy, severity or surface moved with
+ * when the drawing did not state them (L-MEA-09, L-QTY-02). The roster grew by those three keys — 83
+ * codes to 86 — and not one existing entry's code, message, remedy, severity or surface moved with
  * them; the previous digest was
+ * 2643de99a05bdaa3fe31d11862def6bcabbebd4fcb4dad079f2d510b20eebc8a.
+ *
+ * Re-baselined before that for THREE ADDED entries and nothing else, all of them `./takeoff-schedules.ts`'s and
+ * all of them about a general note a person reads off a sheet (R-TO-034): `NOTE_READING_CONTESTED`,
+ * which two readings of one note that disagree leave the kind standing under; `NOTE_SOURCE_NOT_ON_SHEET`,
+ * which a reading citing text the sheet does not carry is refused by; and `NOTES_NONE_PROPOSED`,
+ * which a sheet whose words state no figure says its silence under. The roster grew by those three
+ * keys — 80 codes to 83 — and not one existing entry's code, message, remedy, severity or surface
+ * moved with them; the previous digest was
+ * 542ac68e04c93e60a7c2020d05c39a30d67b437be99d88f5d700bbc511221599.
+ *
+ * Re-baselined before that for THREE ADDED entries and nothing else: `EXPORT_NOT_FOUND`, `EXPORT_URL_EXPIRED`
+ * and `EXPORT_URL_INVALID` (./exports.ts), the three answers `GET /api/exports/[id]` gives a signed
+ * download link it will not serve — an address nothing is stored at, a link whose hour has passed,
+ * and a link this workspace never issued (R-SPINE-041, R-SPINE-021, Q-12). The roster grew by those
+ * three keys — 77 codes to 80 — and not one existing entry's code, message, remedy, severity or
+ * surface moved with it; the previous digest was
  * 5dd4c6123c2799b2ce03adf26b6c7620e8976b0c69ce77be5ad3dc7be42eb46f.
  *
  * Re-baselined before that for ONE ADDED entry and nothing else: `FORMULA_DIVISOR_ZERO` (./gate.ts), the code
@@ -184,7 +200,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "d5b7210d89b5b287b5c00a8df0eaaf6bd18269689954ddcf10069cac4841ef26";
+const ENTRIES_DIGEST_BEFORE = "9b3547b60626ffa04e8cb3060c1bb88787578bda65dd9288db20cb4f0942e567";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

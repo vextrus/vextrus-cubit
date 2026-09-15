@@ -78,18 +78,39 @@ export function citedKeysOf(line: AddressableLine): string[] {
   return cited;
 }
 
+/** One sheet, and the entities standing on it an address selects (R-UI-022, R-UI-031). */
+export type AddressableSelection = {
+  readonly drawingId: string;
+  readonly layoutName: string;
+  readonly sourceKeys: readonly string[];
+};
+
+/**
+ * The viewer, at the entities something cites — and nothing else (test contract: `selectionAddress`).
+ *
+ * There is no `line`: a schedule cell and a note reading were not followed from a quantity row, and
+ * an address carrying an origin nobody came from would send the reader back to a row that never
+ * opened it. There is no `v` either — the absence of a stated camera is what makes the viewer fly to
+ * what the address named rather than sit where the link's author was standing (s-viewer-inspector
+ * I-85).
+ */
+export function selectionAddress(tenantId: string, projectId: string, sheet: AddressableSelection): string {
+  const selection = sheet.sourceKeys.map((key) => encodeURIComponent(key)).join(",");
+  const at = `${sheet.drawingId}/${encodeURIComponent(sheet.layoutName)}`;
+  return `/t/${tenantId}/p/${projectId}/viewer/${at}?${SELECTION_PARAM}=${selection}`;
+}
+
 /**
  * The viewer, at the entities one line cites, with the row it was followed from (test contract).
  *
- * There is no `v`: the absence of a stated camera is what makes the viewer fly to what the address
- * named rather than sit where the link's author was standing (s-viewer-inspector I-85).
+ * Composed over `selectionAddress`, so the sheet and the selection have one spelling and this
+ * function adds exactly what it is for: the row the reader came from (B-17).
  */
 export function traceAddress(tenantId: string, projectId: string, line: AddressableLine): string {
   const stated = line.sourceKeys;
   const keys = Array.isArray(stated) ? (stated as readonly unknown[]).map(String) : citedKeysOf(line);
-  const selection = keys.map((key) => encodeURIComponent(key)).join(",");
-  const sheet = `${String(line.drawingId)}/${encodeURIComponent(String(line.layoutName))}`;
-  return `/t/${tenantId}/p/${projectId}/viewer/${sheet}?${SELECTION_PARAM}=${selection}&${LINE_PARAM}=${encodeURIComponent(String(line.lineId))}`;
+  const sheet = selectionAddress(tenantId, projectId, { drawingId: String(line.drawingId), layoutName: String(line.layoutName), sourceKeys: keys });
+  return `${sheet}&${LINE_PARAM}=${encodeURIComponent(String(line.lineId))}`;
 }
 
 /**

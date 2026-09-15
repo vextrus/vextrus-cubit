@@ -18,6 +18,7 @@ import { insertLevel, type InsertLevelInput } from "./insert-level";
 import { pinDrawingSet, type PinDrawingSetInput } from "./pin-drawing-set";
 import { repudiate, type RepudiateInput } from "./repudiate";
 import { repudiateLevel, type RepudiateLevelInput } from "./repudiate-level";
+import { transcribeSheetNotes, type TranscribeSheetNotesInput } from "./transcribe-sheet-notes";
 import { consequenceDigest, movesNothing, type Consequence } from "./consequence";
 import { ACT_TYPES, type ActType } from "./law";
 import { requirePermission } from "./participation";
@@ -52,6 +53,7 @@ export { corroborate, type CorroborateInput } from "./corroborate";
 export { repudiate, type RepudiateInput } from "./repudiate";
 export { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-storey-height";
 export { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typical-range";
+export { transcribeSheetNotes, type ProposedNoteReading, type TranscribeSheetNotesInput } from "./transcribe-sheet-notes";
 export { holdOutOfBill, type HoldOutOfBillInput } from "./hold-out-of-bill";
 export { declareNotInProjectScope, type DeclareNotInProjectScopeInput } from "./declare-not-in-project-scope";
 
@@ -66,6 +68,7 @@ export type ActInput =
   | RepudiateLevelInput
   | AuthorStoreyHeightInput
   | AuthorTypicalRangeInput
+  | TranscribeSheetNotesInput
   | CorroborateInput
   | RepudiateInput
   | HoldOutOfBillInput
@@ -86,6 +89,7 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
   REPUDIATE_LEVEL: repudiateLevel,
   AUTHOR_STOREY_HEIGHT: authorStoreyHeight,
   AUTHOR_TYPICAL_RANGE: authorTypicalRange,
+  TRANSCRIBE_SHEET_NOTES: transcribeSheetNotes,
   CORROBORATE: corroborate,
   REPUDIATE: repudiate,
   HOLD_OUT_OF_BILL: holdOutOfBill,
@@ -130,6 +134,8 @@ function renderingFor(input: ActInput): BoundRendering {
     case "AUTHOR_STOREY_HEIGHT":
       return bind(ACT_MAP[input.type], input);
     case "AUTHOR_TYPICAL_RANGE":
+      return bind(ACT_MAP[input.type], input);
+    case "TRANSCRIBE_SHEET_NOTES":
       return bind(ACT_MAP[input.type], input);
     case "CORROBORATE":
       return bind(ACT_MAP[input.type], input);
