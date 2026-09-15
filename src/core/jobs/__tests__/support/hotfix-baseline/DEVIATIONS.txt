@@ -1,0 +1,31 @@
+WHAT THIS DIRECTORY HOLDS
+
+jobs-edges.main.txt is main's text of src/core/jobs/__tests__/jobs-edges.acceptance.test.ts at the
+commit FORK_POINT.txt names. It is a fixture, not a suite: nothing imports it, collects it or runs
+it. AC-3 reads it as the denominator for removals — every assertion line, test title, named
+constant, trailing timeout and three-or-more-digit literal main held must still be there on the
+branch.
+
+HOW IT DEPARTS FROM MAIN'S BYTES, AND WHY
+
+Four lines — 24, 182, 192 and 197 — carry this suffix, appended. Nothing else in the file was
+touched, and no line was added, removed or reordered:
+
+    // white-box: AC-3 - frozen text, never run: RECORDED REASON SOURCE_INTROSPECTION
+
+Those four lines are main's own source reads. The structural scanner reads every file a branch adds
+under src/, cannot tell a frozen text from a suite, and refuses a source read that carries no
+marker; a spec-declared fixture may carry a flagged construct on purpose when it carries the
+recorded reason. Byte identity and a green scanner cannot both be had at this path, so the marker
+is the smaller loss: nothing AC-3 reads the file for moved with it — the assertion lines, the seven
+titles, the five constants, the one trailing timeout and every digit literal are identical to
+main's, which is what makes the comparison it is kept for still honest.
+
+RECOVERING MAIN'S BYTES
+
+    git show <the commit FORK_POINT.txt names>:src/core/jobs/__tests__/jobs-edges.acceptance.test.ts
+
+or take this file and drop the suffix above from those four lines. An increment that lawfully
+re-baselines this acceptance owns this fixture with it (B-20) and should re-take the copy from main
+rather than patch this one — and if the scanner still reads this path by then, it owes the same
+four markers and a line here saying so.
