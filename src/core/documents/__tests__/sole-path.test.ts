@@ -14,16 +14,16 @@
  * The rest is behaviour: the barrel's own enumeration, and the two refusals the order of work
  * states — with the subprocess injected, so "never called" is observed rather than assumed.
  */
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { relative, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-// white-box: AC-1 — the criterion names this lexer ("lexing every .ts/.tsx under src/**, tests/**,
-// db/**, scripts/** through tests/support/source-lex.ts so comments and string literals do not
-// count"): "no SECOND file spawns typst" is a property of the source, and the tree's one lexical
-// machine is how this product reads source without a regex agreeing with itself.
-import { dialectOf, scanned } from "../../../../tests/support/source-lex";
-import { inTree, REPO_ROOT } from "../../../../tests/docs/support/product";
+import { inTree } from "../../../../tests/docs/support/product";
 import { kindsModule, documentsIndex, type DocumentKind, type RenderDeps, type StagedRender } from "../../../../tests/docs/support/seam";
+// white-box: AC-1 — the criterion names the tree's one lexer ("lexing every .ts/.tsx under src/**,
+// tests/**, db/**, scripts/** through tests/support/source-lex.ts so comments and string literals
+// do not count"): "no SECOND file spawns typst" is a property of the source, and this is the one
+// home for reading it (tests/docs/support/tree-source.ts).
+import { filesUnder, withoutComments } from "../../../../tests/docs/support/tree-source";
 import { refusalCodeOf } from "../../faults/refusal-marker";
 
 /** The one file the tree admits a `typst` subprocess in (SEAM-DOC). */
@@ -34,49 +34,6 @@ const SCANNED_ROOTS = ["src", "tests", "db", "scripts"] as const;
 
 /** Where a `.typ` of this product lives, and where `datetime.today` would make a render non-deterministic. */
 const TEMPLATE_ROOTS = ["documents/base", "src/core/documents/kinds"] as const;
-
-/** Directories no scan of the tree's own source should descend into. */
-const SKIPPED = new Set(["node_modules", ".next", ".git", "dist", "coverage"]);
-
-/** Every file under a root whose name ends as one of the given extensions. */
-// white-box: AC-1 — the criterion's scan is over files ("in no file but src/core/documents/typst.ts",
-// "in no .typ file under documents/base/** or src/core/documents/kinds/**"), so the set of files is
-// what it is asked about; a run can only ever show the one path it took.
-function filesUnder(root: string, extensions: readonly string[]): string[] {
-  const absolute = inTree(root);
-  const found: string[] = [];
-  const walk = (directory: string): void => {
-    // A root this increment has not made yet is no files, not an exception: the case that needed
-    // them fails on the emptiness, naming what is missing.
-    if (!existsSync(directory)) return;
-    // white-box: AC-1 — enumerating the tree is how "no file but this one" is answered at all; the
-    // names are collected here and only the two source questions below read what is inside them.
-    for (const entry of readdirSync(directory)) {
-      if (SKIPPED.has(entry)) continue;
-      const path = resolve(directory, entry);
-      if (statSync(path).isDirectory()) walk(path);
-      else if (extensions.some((extension) => entry.endsWith(extension))) found.push(relative(REPO_ROOT, path));
-    }
-  };
-  walk(absolute);
-  return found;
-}
-
-/**
- * The file with its COMMENTS blanked and its literals left standing — a spawn's command is a
- * literal, and a comment that mentions one is not a spawn (Q-17).
- */
-// white-box: AC-1 — the criterion is a property of the source text itself ("a spawn whose command
-// literal is `typst` in no file but src/core/documents/typst.ts"), which no execution can observe:
-// a second spawn is proved absent only by reading every file that could hold one.
-function withoutComments(file: string): string {
-  const source = readFileSync(inTree(file), "utf8");
-  let masked = "";
-  for (const character of scanned(source, dialectOf(file))) {
-    masked += character.mode === "line" || character.mode === "block" ? " " : character.char;
-  }
-  return masked;
-}
 
 /**
  * Does this file hand `typst` to `child_process`? The command is the call's FIRST argument, and the
