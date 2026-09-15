@@ -35,6 +35,17 @@ export const STRINGS_MODULE = "src/ui/strings/index.ts";
 export const ERROR_BOUNDARY_MODULE = "src/app/error.tsx";
 export const ROUTERS_DIR = "src/server/routers";
 
+/**
+ * The file a lane is defined in, from the key the root mounts it under. The key is the wire's word —
+ * a procedure path is `<lane>.<procedure>` and tRPC's paths are camelCase — while the file is the
+ * tree's, which spells every module path in kebab-case. One lane whose name is two words
+ * (`takeoffSchedules` → `takeoff-schedules.ts`) makes the two spellings differ, so the mapping
+ * between them is stated once here rather than guessed at by each suite that walks the lanes (B-17).
+ */
+export function laneFile(lane: string): string {
+  return `${ROUTERS_DIR}/${lane.replace(/[A-Z]/g, (upper) => `-${upper.toLowerCase()}`)}.ts`;
+}
+
 /** The tRPC endpoint the route handler is mounted at (test contract: /api/trpc/[trpc]). */
 export const TRPC_ENDPOINT = "/api/trpc";
 
