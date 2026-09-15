@@ -55,3 +55,37 @@ files). The declarations, verbatim from the upstream css2 response with `src` re
 Italic faces are deliberately not vendored: the handoff (§3) names normal-style weights only,
 and the instrument voice does not use italics. If a Design Decision ever needs them, vendor
 them the same way — never a runtime fetch.
+
+## The document seam's faces — static TTF instances
+
+The woff2 files above are for the BROWSER. The document seam (SEAM-DOC, `src/core/documents`) needs
+the same families as static TTF instances, and cannot use the woff2 files at all, for two reasons the
+pinned renderer imposes:
+
+- Typst 0.15.1's font loader admits `ttf`/`otf`/`ttc`/`otc` and nothing else, so `--font-path` finds
+  no face in a directory of woff2.
+- Typst takes a variable font as its DEFAULT instance and offers no weight axis, so a semibold that
+  is not its own file renders as regular.
+
+So three static instances are vendored beside the woff2, under the names the seam reads them by
+(`DOCUMENT_FONT_FILES`, `src/core/documents/fonts.ts`):
+
+| file | upstream | family the templates set | licence beside it |
+| --- | --- | --- | --- |
+| `spline-sans-regular.ttf` | Google Fonts Spline Sans `static/SplineSans-Regular.ttf` | `Spline Sans` | `OFL-spline-sans.txt` |
+| `spline-sans-semibold.ttf` | Google Fonts Spline Sans `static/SplineSans-SemiBold.ttf` | `Spline Sans` | `OFL-spline-sans.txt` |
+| `spline-sans-mono-regular.ttf` | Google Fonts Spline Sans Mono `static/SplineSansMono-Regular.ttf` | `Spline Sans Mono` | `OFL-spline-sans-mono.txt` |
+
+Each is pinned by the sha256 of its own bytes, computed at render time and recorded on every
+`documents` row (`font_hashes`) — which is what makes "the same payload renders byte-identical"
+checkable rather than merely promised (L-FMT-03, AM-08). The licence texts already beside the woff2
+cover these instances too: same families, same OFL 1.1.
+
+The repertoire a DOCUMENT is judged against is each face's own `cmap`, read out of the file, and not
+`src/core/format.ts`'s static ranges — those say what this product's copy is written in, which is a
+wider set. A code point the ranges admit but no vendored face maps (`U+0995`, say) refuses
+`CHARACTER_NOT_COVERED` rather than printing a blank box (L-FMT-02).
+
+Vendored by the founder, as the woff2 were: sessions run loopback-only and can never fetch a font
+(C-07, B-24). Replacing or adding a face changes every rendered document's bytes, so it is a
+`toolchain`-tagged increment that re-baselines `tests/docs/**/golden.pdf` in the same commit.
