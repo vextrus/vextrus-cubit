@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * HOTFIX inc-hotfix-20260914-1914: db/__tests__/psql-pool.test.ts:252-263 — the pooled session's freshness check asked pg_locks cluster-wide, so an advisory lock any other file of the database lane held on its own scratch database answered for this session and reddened the lane.
+ * HOTFIX inc-hotfix-20260914-1914: db/__tests__/psql-pool.test.ts:252-260 — the pooled session's freshness check asked pg_locks cluster-wide, so an advisory lock any other file of the database lane held on its own scratch database answered for this session and reddened the lane.
  *
  * The red was the lane's, never the file's: every suite in the database lane provisions its own
  * scratch database and runs beside seven others, and `pg_locks` is one view over the whole cluster —
@@ -23,7 +23,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, test } from "vitest";
 import { provisionScratchDb, type ScratchDb } from "../../../../db/__tests__/harness";
 import { psql } from "../../../../db/__tests__/support/live-sql";
-import { SESSION_LEAVINGS } from "../../../../db/__tests__/support/psql-pool";
+import { SESSION_LEAVINGS, SESSION_LEAVINGS_MADE } from "../../../../db/__tests__/support/psql-pool";
 import { jobsStore } from "../../db";
 
 /** Provisioning two databases and taking a lock over a cold pool: the lane's own budget, not a slack. */
@@ -31,9 +31,6 @@ const STAGING_BUDGET_MS = 120_000;
 
 /** The kind the lock is taken under — the probe kind the jobs suites enqueue as. */
 const PROBE = "probe";
-
-/** What a script leaves on its session: a temp table, a prepared statement and a session advisory lock. */
-const LEAVINGS = "create temp table leftovers (n int); prepare left_over as select 1; select pg_advisory_lock(4242);";
 
 /** Every advisory lock the CLUSTER holds — the reading that cannot answer a question about one session. */
 const CLUSTER_WIDE_ADVISORY = "select count(*) from pg_locks where locktype = 'advisory';";
@@ -68,7 +65,7 @@ describe("inc-hotfix-20260914-1914: a pooled session's leavings are the session'
           "the seam's lock on the other database must be standing, or this case asserts nothing",
         ).toBeGreaterThanOrEqual(1);
 
-        const left = psql(judged.urlMigrate, LEAVINGS);
+        const left = psql(judged.urlMigrate, SESSION_LEAVINGS_MADE);
         expect(left.ok, `the leavings script failed: ${left.stderr}`).toBe(true);
 
         const after = psql(judged.urlMigrate, SESSION_LEAVINGS);

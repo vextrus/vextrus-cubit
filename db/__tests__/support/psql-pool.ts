@@ -81,6 +81,32 @@ function deadlineMs(): number {
  */
 export const PSQL_APP_NAME = "cubit-psql-pool";
 
+/** The temp table the leavings script makes and the leavings reading looks for. */
+const LEAVINGS_TABLE = "leftovers";
+
+/** A script that leaves all three of them behind on the session it ran in — the reading's other half. */
+export const SESSION_LEAVINGS_MADE = `create temp table ${LEAVINGS_TABLE} (n int); prepare left_over as select 1; select pg_advisory_lock(4242);`;
+
+/**
+ * The one spelling of "does this session still carry the last script's leavings" — three answers, in
+ * order: no temp table, no prepared statement, no advisory lock. It is the reading of the contract
+ * above ("ONE SCRIPT IS ONE SESSION"), published here so the question has one home and one scope.
+ *
+ * The scope is the point. `pg_temp` resolves per session and `pg_prepared_statements` shows the
+ * asking session's own, but `pg_locks` is a view over the WHOLE CLUSTER: an advisory lock is listed
+ * there with the database it belongs to, so a reader that does not name the session it means counts
+ * every other backend's locks as this session's leavings. The database lane runs eight files at a
+ * time, each on a scratch database of its own, and the seams take advisory locks as they work
+ * (src/core/db/jobs.ts's key lock, the tenant trigger's state lock, the drift lock) — so asking the
+ * cluster made the answer depend on what some unrelated file happened to be doing, which is a red
+ * that moves between files and cannot be reproduced alone (B-20).
+ */
+export const SESSION_LEAVINGS = [
+  `select to_regclass('pg_temp.${LEAVINGS_TABLE}') is null;`,
+  "select count(*) = 0 from pg_prepared_statements;",
+  "select count(*) = 0 from pg_locks where locktype = 'advisory' and pid = pg_backend_pid();",
+].join("\n");
+
 /** How many connection strings this process keeps a live psql for. A file speaks to two or three. */
 const MAX_SESSIONS = 4;
 

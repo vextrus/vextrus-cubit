@@ -11,7 +11,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BOOTSTRAP_URL } from "./support/fixtures";
-import { PSQL_APP_NAME, SEP, closePsqlPool, pooledPsql, psqlPoolStats, spawnPsql } from "./support/psql-pool";
+import { PSQL_APP_NAME, SEP, SESSION_LEAVINGS, SESSION_LEAVINGS_MADE, closePsqlPool, pooledPsql, psqlPoolStats, spawnPsql } from "./support/psql-pool";
 
 /** A database of this file's own, named by the process that made it. */
 const DATABASE = `cubit_psqlpool_${process.pid.toString(36)}_${Date.now().toString(36)}`;
@@ -250,15 +250,12 @@ describe("each script gets a session that looks freshly connected", () => {
   });
 
   it("does not leave a temp table, a prepared statement or an advisory lock behind", () => {
-    pooledPsql(url(), "create temp table leftovers (n int); prepare left_over as select 1; select pg_advisory_lock(4242);");
-    const after = pooledPsql(
-      url(),
-      [
-        "select to_regclass('pg_temp.leftovers') is null;",
-        "select count(*) = 0 from pg_prepared_statements;",
-        "select count(*) = 0 from pg_locks where locktype = 'advisory';",
-      ].join("\n"),
-    );
+    pooledPsql(url(), SESSION_LEAVINGS_MADE);
+    // Asked the way the pool publishes the question (support/psql-pool.ts): of THIS session, not of
+    // the cluster — `pg_locks` lists every database's advisory locks, so the lane's other files,
+    // each working on a scratch database of its own, answered here for a session that carried
+    // nothing. Staged as a state in src/core/jobs/__tests__/jobs-edges-hotfix.test.ts.
+    const after = pooledPsql(url(), SESSION_LEAVINGS);
     expect(after.rows, "the session the next script ran in still carried the last script's leavings").toEqual([["t"], ["t"], ["t"]]);
   });
 
