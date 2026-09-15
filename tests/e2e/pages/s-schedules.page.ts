@@ -112,6 +112,14 @@ export class SSchedulesPage {
   cell(table: Locator, rowIndex: number, columnIndex: number): Locator {
     return table.locator(`${testIdSelector(idOf("cell"))}[data-row="${rowIndex}"][data-column="${columnIndex}"]`);
   }
+  /** The grid's own header region — where a DataTable v2 names its columns, above every row it draws. */
+  tableHeader(table: Locator): Locator {
+    return table.getByTestId(TESTIDS.datatable.header);
+  }
+  /** Every row of the grid's body: DataTable v2 files its id on the rows it draws as data, and there only. */
+  bodyRows(table: Locator): Locator {
+    return table.getByTestId(TESTIDS.datatable.row);
+  }
   /** How many rows the table says it drew — the RENDERED contract a read waits on. */
   async rowsRendered(table: Locator): Promise<string | null> {
     return heldAttribute(table, "data-rows-rendered");
