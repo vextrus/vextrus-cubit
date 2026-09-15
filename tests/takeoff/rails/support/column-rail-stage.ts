@@ -239,6 +239,10 @@ export type RailSetupShape = {
   calibrations: Record<string, Record<string, string>>;
   /** The concrete grade stated for a drawing, where a reader stated one (scope: a seam, empty here). */
   grades: Record<string, MeasureShape>;
+  /** The run the partition read for each placement (interfaces: `RailSetup.runs`; a seam, empty here). */
+  runs: Record<string, unknown>;
+  /** The opening a schedule states behind each lintel placement (`RailSetup.lintels`; empty here). */
+  lintels: Record<string, unknown>;
 };
 
 /** What a rail is asked (`RailInput`, widened by this leaf with `setup`). */
@@ -538,5 +542,7 @@ export function setupForRows(rows: readonly Record<string, unknown>[], options: 
     ],
     calibrations: options.affirmed === false ? {} : { [INGEST_ID]: views },
     grades: {},
+    runs: {},
+    lintels: {},
   };
 }
