@@ -23,11 +23,20 @@ export type ScheduleRowView = {
   readonly cells: readonly ScheduleCellView[];
 };
 
-/** One table a SCHEDULE view yielded, exactly as it was stored (I-250). */
+/**
+ * One table a SCHEDULE view yielded, exactly as it was stored (I-250).
+ *
+ * The stored header band stands BESIDE the rows rather than first among them: it is the grid's own
+ * sticky header, and a header is not data. `rows` is therefore the bands of data the schedule holds,
+ * which is the number the grid draws and states — the screen re-counts nothing either way (B-17).
+ * A table whose stored shape carries no header band at all answers `header: undefined`, and its
+ * columns are then named by nothing, which is what the drawing said.
+ */
 export type ScheduleTableView = {
   readonly scheduleKey: string;
   readonly viewKey: string;
   readonly title: string;
+  readonly header: ScheduleRowView | undefined;
   readonly rows: readonly ScheduleRowView[];
 };
 
