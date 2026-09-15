@@ -30,7 +30,7 @@ import { expect, type Page } from "@playwright/test";
 import { laneRows } from "../viewer/viewer-partition-stage";
 import { BNBC_GENERAL_NOTES } from "../../takeoff/notes/support/bnbc-notes";
 import { SHomePage } from "../pages/s-home.page";
-import { ShellPage } from "../pages/shell.page";
+import { SHELL, ShellPage } from "../pages/shell.page";
 import { UploadPage } from "../pages/upload.page";
 import { heldAttribute } from "../support/retrying-read";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
@@ -269,6 +269,11 @@ export async function stageBareProject(page: Page, options: { label?: string } =
   const home = new SHomePage(page);
   const mark = `${RUN}${randomUUID().slice(0, 6)}`;
 
+  // `signInAsSeededTenant` hands the caller a SESSION, not a page: it memoises one promise per
+  // worker, and every caller after the first lands on a fresh context whose page is still blank.
+  // The door is clicked on the nameplate, so this walk asks for the nameplate itself — idempotent
+  // for the first caller, who is already there (the j-004 gallery composes its own goto the same way).
+  await new ShellPage(page).open(SHELL.home);
   await shell.workspaceDoor.click();
   await page.waitForURL(/\/t\/[0-9a-f-]{36}$/);
   const tenantId = new URL(page.url()).pathname.split("/")[2] ?? "";
@@ -370,6 +375,9 @@ export async function stageSchedules(page: Page, options: { label?: string } = {
   const mark = `${RUN}${randomUUID().slice(0, 6)}`;
   const label = options.label ?? "schedules";
 
+  // The session the sign-in hands over says nothing about where the page stands (see above): the
+  // walk asks for the nameplate before it reaches for the door that stands on it.
+  await new ShellPage(page).open(SHELL.home);
   await shell.workspaceDoor.click();
   await page.waitForURL(/\/t\/[0-9a-f-]{36}$/);
   const tenantId = new URL(page.url()).pathname.split("/")[2] ?? "";
