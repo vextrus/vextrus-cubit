@@ -256,8 +256,10 @@
 }
 
 /* A suspended standing states its refusal BENEATH its own line, at the full width of the row: the
-   card is what the kind stands under, not a thing beside its name (I-253, R-UI-020). */
-.cx-schedules-standing > .cx-refusal {
+   card is what the kind stands under, not a thing beside its name (I-253, R-UI-020). The rule sits
+   on the slot this screen owns, never on the card's own class — the card is dressed in one place
+   and no screen re-declares it (ARCH-02, B-17). */
+.cx-schedules-standing-refusal {
   flex: 0 0 100%;
   margin-bottom: var(--space-2);
 }

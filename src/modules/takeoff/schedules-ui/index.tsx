@@ -1007,7 +1007,11 @@ function Standing({
       <EnumLabel value={standing.standing} label={STANDING_SAID[standing.standing] ?? STANDING_SAID[NONE]} className="cx-schedules-enum" />
       {stands ? <span className="cx-schedules-figure cx-schedules-mono">{formatUserFigure(standing.canonical as string)}</span> : <span className="cx-schedules-none">{DASH}</span>}
       {stands && standing.unitAsWritten !== null && standing.unitAsWritten !== "" ? <UnitBadge unit={standing.unitAsWritten} /> : null}
-      {entry === undefined ? null : <RefusalState refusal={entry} evidence={{ href, label: OPEN_THE_SHEET }} />}
+      {entry === undefined ? null : (
+        <div className="cx-schedules-standing-refusal">
+          <RefusalState refusal={entry} evidence={{ href, label: OPEN_THE_SHEET }} />
+        </div>
+      )}
     </div>
   );
 }
