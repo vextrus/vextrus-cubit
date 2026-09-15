@@ -13,8 +13,8 @@
  * question answered `t` — which is why the red moved between files and looked like flakiness.
  *
  * Staged as a STATE, deterministically, never as a second run of a suite: two scratch databases from
- * the lane's own harness, the seam holding its advisory lock on the first while the pooled session on
- * the second is asked what it carries. The answer asserted here is the pool's own promise — "each
+ * the lane's own harness, the seam holding its advisory lock on one of them while the pooled session
+ * on the other — which has never heard of that lock — is asked what it carries. The answer asserted here is the pool's own promise — "each
  * script gets a session that looks freshly connected" — read through the one spelling of the question
  * the pool publishes (`SESSION_LEAVINGS`, db/__tests__/support/psql-pool.ts), so a reader that goes
  * back to asking the cluster reds this case rather than a bystander.
