@@ -14,8 +14,13 @@
  * of the lines the gate published, grouped by the level of the register object each line provenances
  * to (B-07, B-19).
  *
- * The last case is the regression the leaf owes M2: the column rows of this same campaign still
- * stand inside their own band. It is proved, not asserted — the figures are the golden's.
+ * The last case is the regression the leaf owes M2, and AC-5 puts it in identity words: the column
+ * rows of this campaign are "byte-identical to what tests/takeoff/rails/rcc6-column-concrete.test.ts
+ * asserted before this leaf (the M2 rows do not move, proved not asserted)". So they are compared
+ * string for string against the M2 campaign's own published map — staged under that test's stage key
+ * and read by its own helper, never typed here — and not merely re-run through L-QTY-06's band, which
+ * would let three per cent of movement in the rows this leaf's expansion and ranging touch pass
+ * unseen. The band is kept beside the identity, never instead of it.
  */
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -33,14 +38,26 @@ import {
   inputsBeamLevels,
 } from "./support/frame-rail-stage";
 import { goldenColumnConcreteByLevel } from "./support/column-rail-stage";
-import { closeStage, linesOfClassAndKind, publishedByLevelOf, said, stageRcc6, type Rcc6Stage } from "./support/rcc6-stage";
+import { closeStage, linesOfClassAndKind, publishedByLevel, publishedByLevelOf, said, stackLabels, stageRcc6, type Rcc6Stage } from "./support/rcc6-stage";
 
 let measured: Rcc6Stage;
 let summed: Map<string, string>;
+/**
+ * What the M2 campaign publishes for its columns, staged under rcc6-column-concrete's own key
+ * (`stageRcc6("rcc6")`) and summed by the helper that test sums with — the comparand the identity
+ * below is proved against, derived and never typed (AC-5).
+ */
+let m2Columns: Map<string, string>;
+
+/** One published map as a stable list of pairs — order is not what identity is read off. */
+function sortedEntries(published: Map<string, string>): [string, string][] {
+  return [...published].sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+}
 
 beforeAll(async () => {
   measured = await stageRcc6("rcc6-beam");
   summed = await publishedByLevelOf(measured, { class: BEAM_CLASS, kind: RCC_CONCRETE });
+  m2Columns = await publishedByLevel(await stageRcc6("rcc6"));
 }, 1_800_000);
 
 afterAll(async () => {
@@ -58,7 +75,7 @@ describe("AC-5: F-RCC6's beam concrete, measured end to end", () => {
     }
   });
 
-  test("AC-5: every framed level's published sum stands inside L-QTY-06's band, and the M2 column rows still stand in theirs", async () => {
+  test("AC-5: every framed level's published sum stands inside L-QTY-06's band, and the M2 column rows do not move", async () => {
     const { exact } = await canon();
     const golden = goldenFrameByLevel(GOLDEN_BEAM, GOLDEN_CONCRETE);
 
@@ -83,14 +100,33 @@ describe("AC-5: F-RCC6's beam concrete, measured end to end", () => {
       expect(sum.lte(stated), `${label}: ${String(measuredAt)} m3 is not over the golden ${owed} m3 — L-QTY-06 allows +0% over, and an over-measured figure is never a disclosure`).toBe(true);
     }
 
-    // And the M2 rows do not move: the same campaign still reconciles its columns, level by level.
+    // And the M2 rows do not move — identity, not a band: this leaf edits the expansion and the
+    // ranging act, which act on column rows as well as beam rows, and any movement of a column sum
+    // inside the three per cent L-QTY-06 allows would be invisible to a band. The comparand is the
+    // M2 campaign's own published map (`publishedByLevel(stageRcc6("rcc6"))`), so no figure of it is
+    // typed here.
     const columns = await publishedByLevelOf(measured, { class: COLUMN_CLASS, kind: RCC_CONCRETE });
-    for (const [label, owed] of goldenColumnConcreteByLevel()) {
-      const stated = exact(owed);
-      const at = columns.get(label);
-      expect(at, `the campaign still publishes column concrete on ${label} (it published ${JSON.stringify([...columns])})`).toBeTruthy();
-      const sum = exact(String(at));
-      expect(stated.mul(exact(UNDER_TOLERANCE)).lte(sum) && sum.lte(stated), `${label}: the column rows stand where M2 left them — ${String(at)} m3 against the golden ${owed} m3`).toBe(true);
+    const roster = [...stackLabels()].sort();
+    expect([...columns.keys()].sort(), `this campaign publishes column concrete on exactly the levels of the M2 stack (it published ${JSON.stringify([...columns])})`).toEqual(roster);
+    expect([...m2Columns.keys()].sort(), `so does the M2 campaign it is held against (it published ${JSON.stringify([...m2Columns])})`).toEqual(roster);
+    expect(
+      sortedEntries(columns),
+      "the M2 column rows stand where M2 left them, level for level and string for string — AC-5 asks for byte-identical, and a beam leaf that moved a column figure has moved it",
+    ).toEqual(sortedEntries(m2Columns));
+
+    // The band is kept beside that identity, never instead of it: the columns still reconcile with
+    // the golden takeoff, each arm of L-QTY-06 said on its own so a failure names which one broke.
+    const goldenColumns = goldenColumnConcreteByLevel();
+    for (const label of roster) {
+      const owed = goldenColumns.get(label);
+      expect(owed, `the golden takeoff records column concrete at ${label} — the M2 reconciliation covers every level of the stack`).toBeTruthy();
+      const stated = exact(String(owed));
+      const sum = exact(String(columns.get(label)));
+      expect(
+        stated.mul(exact(UNDER_TOLERANCE)).lte(sum),
+        `${label}: the column sum ${String(columns.get(label))} m3 is no more than three per cent under the golden ${String(owed)} m3 (L-QTY-06)`,
+      ).toBe(true);
+      expect(sum.lte(stated), `${label}: the column sum ${String(columns.get(label))} m3 is not over the golden ${String(owed)} m3 — L-QTY-06 allows +0% over`).toBe(true);
     }
   });
 });
