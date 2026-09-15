@@ -13,9 +13,18 @@
  *    an almost empty file;
  *  - each page's `/Resources /Font` map, so a show operator is decoded by the face it was set in —
  *    a subset font's codes are its own, and one global table would read the mono face's figures
- *    through the sans face's map;
+ *    through the sans face's map. The content is walked TEXT OBJECT by text object (`BT` … `ET`),
+ *    and inside each one operator by operator, so the face in hand is always the one the `Tf`
+ *    before the operator selected: a page that draws anything before its first word — a background,
+ *    a footer artifact — puts a bracketed operand in the stream ahead of the text, and a reader that
+ *    scanned for `[…] TJ` across the whole stream would swallow that `Tf` and decode the first run
+ *    under no map at all;
  *  - each font's `/ToUnicode` CMap (`beginbfchar` / `beginbfrange`), which is what makes the bytes of
  *    a subsetted, Identity-H encoded font legible at all.
+ *
+ * Operands are TOKENISED rather than matched: a literal string may carry a balanced `(`/`)` pair
+ * unescaped — which is exactly how a producer writes the code points of those characters — and a
+ * pattern that stopped at the first `)` truncated the word they fell in.
  *
  * Runs inside one text object are concatenated, because a producer splits a line at every kerning
  * pair and joining those with spaces would spell `Docu ment`. A TJ adjustment wide enough to be a
@@ -217,45 +226,173 @@ function fromLiteral(literal: string): Buffer {
   return Buffer.from(out);
 }
 
-/** The strings and gaps of one content stream, decoded through the faces the page set them in. */
+/**
+ * Every `BT` … `ET` block of a content stream, in the order they are set. Text is shown ONLY inside
+ * a text object (PDF 32000-1 §9.4), so a reader that scanned the whole stream at once would have to
+ * tell a show array from every other bracketed operand in it — a page's `/BBox[…]`, a dash pattern,
+ * a `/Artifact <</BBox[…]>> BDC` — and the first such bracket is the one a scan would start at.
+ */
+function textObjects(content: string): string[] {
+  return [...content.matchAll(/\bBT\b([\s\S]*?)\bET\b/gu)].map((block) => block[1] ?? "");
+}
+
+/** One thing a content stream says: an operand of a text operator, or the operator itself. */
+type Token =
+  | { kind: "name"; value: string }
+  | { kind: "string"; value: string }
+  | { kind: "hex"; value: string }
+  | { kind: "number"; value: number }
+  | { kind: "array-open" }
+  | { kind: "array-close" }
+  | { kind: "operator"; value: string };
+
+/** Is this whitespace, as the format counts it? */
+const isSpace = (char: string): boolean => char === " " || char === "\n" || char === "\r" || char === "\t" || char === "\f" || char === "\0";
+
+/**
+ * The tokens of one text object, in order.
+ *
+ * This is a scanner and not a pattern, because the two things a show operator carries cannot be
+ * matched by one: a literal string may hold a BALANCED pair of parentheses unescaped — Typst writes
+ * the code points of `(` and `)` exactly so, and a pattern that stopped at the first `)` truncated
+ * the word they fell in — and an array's operands run until its own `]`, which a lazy pattern
+ * anchored on the first `[` of the stream would look for far past the `Tf` that selects the face.
+ * Read in order, each operator is answered by the operands that actually preceded it.
+ */
+function* tokensOf(block: string): Generator<Token> {
+  let at = 0;
+  while (at < block.length) {
+    const char = block.charAt(at);
+    if (isSpace(char)) {
+      at += 1;
+      continue;
+    }
+    if (char === "%") {
+      const end = block.indexOf("\n", at);
+      at = end === -1 ? block.length : end + 1;
+      continue;
+    }
+    if (char === "/") {
+      let end = at + 1;
+      while (end < block.length && !isSpace(block.charAt(end)) && !"/[]<>(){}%".includes(block.charAt(end))) end += 1;
+      yield { kind: "name", value: block.slice(at + 1, end) };
+      at = end;
+      continue;
+    }
+    if (char === "(") {
+      // Balanced, with escapes: `\(` and `\)` do not count, and a nested pair does.
+      let depth = 1;
+      let end = at + 1;
+      while (end < block.length && depth > 0) {
+        const inner = block.charAt(end);
+        if (inner === "\\") end += 2;
+        else {
+          if (inner === "(") depth += 1;
+          else if (inner === ")") depth -= 1;
+          end += 1;
+        }
+      }
+      yield { kind: "string", value: block.slice(at + 1, end - 1) };
+      at = end;
+      continue;
+    }
+    if (char === "<") {
+      if (block.charAt(at + 1) === "<") {
+        yield { kind: "operator", value: "<<" };
+        at += 2;
+        continue;
+      }
+      const end = block.indexOf(">", at);
+      yield { kind: "hex", value: block.slice(at + 1, end === -1 ? block.length : end) };
+      at = end === -1 ? block.length : end + 1;
+      continue;
+    }
+    if (char === "[") {
+      yield { kind: "array-open" };
+      at += 1;
+      continue;
+    }
+    if (char === "]") {
+      yield { kind: "array-close" };
+      at += 1;
+      continue;
+    }
+    if (/[-+.\d]/u.test(char)) {
+      let end = at + 1;
+      while (end < block.length && /[-+.\d]/u.test(block.charAt(end))) end += 1;
+      yield { kind: "number", value: Number(block.slice(at, end)) };
+      at = end;
+      continue;
+    }
+    if (/[A-Za-z'"*]/u.test(char)) {
+      let end = at + 1;
+      while (end < block.length && /[A-Za-z0-9'"*]/u.test(block.charAt(end))) end += 1;
+      yield { kind: "operator", value: block.slice(at, end) };
+      at = end;
+      continue;
+    }
+    at += 1;
+  }
+}
+
+/**
+ * The strings and gaps of one content stream, decoded through the faces the page set them in —
+ * text object by text object, each walked in operator order so the face a show operator is decoded
+ * under is the one the `Tf` before it selected.
+ *
+ * `Tf` is text state and outlives the text object that set it (PDF 32000-1 §9.3), so the face is
+ * carried across blocks — a reader that forgot it at `ET` decoded every later run as raw bytes.
+ */
 function textOfContent(content: string, fonts: Map<string, FontMap>): string {
   let current: FontMap | undefined;
   const pieces: string[] = [];
-  let run = "";
 
-  // `Tf` is text state and outlives the text object that set it (PDF 32000-1 §9.3), so the face is
-  // never forgotten at `ET` — a reader that forgot it decoded every run after the first as raw bytes.
-  const token = /\/([^\s/<>[\]]+)\s+[\d.]+\s+Tf|\[([\s\S]*?)\]\s*TJ|<([0-9A-Fa-f\s]*)>\s*Tj|\(((?:\\.|[^\\)])*)\)\s*Tj|\bET\b|\bTd\b|\bTD\b|\bT\*\b/g;
-  let match: RegExpExecArray | null;
-  while ((match = token.exec(content)) !== null) {
-    const [, face, array, hex, literal] = match;
-    if (face !== undefined) {
-      current = fonts.get(face);
-      continue;
-    }
-    if (array !== undefined) {
-      for (const piece of array.matchAll(/<([0-9A-Fa-f\s]*)>|\(((?:\\.|[^\\)])*)\)|(-?[\d.]+)/g)) {
-        if (piece[1] !== undefined) run += decode(fromHex(piece[1].replace(/\s+/gu, "")), current);
-        else if (piece[2] !== undefined) run += decode(fromLiteral(piece[2]), current);
-        else if (Number(piece[3]) <= -WORD_GAP) run += " ";
-      }
-      continue;
-    }
-    if (hex !== undefined) {
-      run += decode(fromHex(hex.replace(/\s+/gu, "")), current);
-      continue;
-    }
-    if (literal !== undefined) {
-      run += decode(fromLiteral(literal), current);
-      continue;
-    }
-    // A text object that ends, or a line that moves, separates what was set from what follows.
-    if (run !== "") {
-      pieces.push(run);
+  for (const block of textObjects(content)) {
+    let run = "";
+    const close = (): void => {
+      if (run !== "") pieces.push(run);
       run = "";
+    };
+
+    /** The operands seen since the last operator, and the array being collected inside one. */
+    let operands: Token[] = [];
+    let array: Token[] | null = null;
+
+    /** One show operand, through the face in hand. A gap wide enough to be a word becomes a space. */
+    const show = (token: Token): void => {
+      if (token.kind === "hex") run += decode(fromHex(token.value.replace(/\s+/gu, "")), current);
+      else if (token.kind === "string") run += decode(fromLiteral(token.value), current);
+      else if (token.kind === "number" && token.value <= -WORD_GAP) run += " ";
+    };
+
+    for (const token of tokensOf(block)) {
+      if (token.kind === "array-open") {
+        array = [];
+        continue;
+      }
+      if (token.kind === "array-close") {
+        if (array !== null) operands.push(...array);
+        array = null;
+        continue;
+      }
+      if (token.kind !== "operator") {
+        (array ?? operands).push(token);
+        continue;
+      }
+      if (token.value === "Tf") {
+        // Every show operator after this one is written in THIS face, not only the first.
+        const name = [...operands].reverse().find((operand) => operand.kind === "name");
+        current = name?.kind === "name" ? fonts.get(name.value) : undefined;
+      } else if (token.value === "TJ" || token.value === "Tj" || token.value === "'" || token.value === '"') {
+        for (const operand of operands) show(operand);
+      } else if (token.value === "Td" || token.value === "TD" || token.value === "T*") {
+        // A line that moves separates what was set from what follows.
+        close();
+      }
+      operands = [];
     }
+    close();
   }
-  if (run !== "") pieces.push(run);
   return pieces.join(" ");
 }
 

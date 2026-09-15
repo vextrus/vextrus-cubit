@@ -15,7 +15,7 @@
  * registries is that the table is reachable where AM-11's split says it is.
  */
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -205,7 +205,26 @@ describe("AC-4: the documents table", () => {
     );
     expect(attempt.ok, "a project cannot hold two documents of one kind at the same version").toBe(false);
     expect(attempt.sqlstate, "and what refuses it is a unique index, on (project_id, kind, version) — 23505 is unique_violation").toBe("23505");
-    expect(existsSync(inTree("db/migrations/0040_documents.sql")), "the table arrives by its own migration, appended to a history that is never edited").toBe(true);
+    // The table arrives by ITS OWN migration, identified by what it is rather than by the slot it
+    // happens to take: a four-digit ordinal and the tag `documents`. The number is the toolchain's
+    // to assign (scripts/db-regenerate-migration.mjs takes max(disk, journal) + 1) and another
+    // increment may land in the slot this one was drafted against — what the clause requires is a
+    // migration that is this increment's, appended to a history that is never edited, and the
+    // journal that names it (tests/toolchain/migrations-numbering.test.ts holds the numbering law).
+    // white-box: AC-4 — "the migration db/migrations/<n>_documents.sql creates documents" is a
+    // property of the committed history, not of any query: the scratch database above proves the
+    // table and its unique index exist, and this proves they arrived the one lawful way.
+    const migrations = readdirSync(inTree("db/migrations")).filter((file) => /^\d{4}_.*\.sql$/u.test(file));
+    const mine = migrations.filter((file) => /^\d{4}_documents\.sql$/u.test(file));
+    expect(mine.length, `exactly one committed migration is the documents table's own — found ${mine.join(", ") || "none"} among ${migrations.length}`).toBe(1);
+    const journal = JSON.parse(readFileSync(inTree("db/migrations/meta/_journal.json"), "utf8")) as { entries?: { idx?: number; tag?: string }[] };
+    const tag = (mine[0] ?? "").replace(/\.sql$/u, "");
+    expect(
+      (journal.entries ?? []).map((entry) => entry.tag),
+      `the journal names ${tag}, at the ordinal the file wears — a migration the journal does not carry is a history that disagrees with itself`,
+    ).toContain(tag);
+    const entry = (journal.entries ?? []).find((held) => held.tag === tag);
+    expect(entry?.idx, `${tag}'s journal idx is the number its own file name carries`).toBe(Number(tag.slice(0, 4)));
 
     const schema = (await import("../../db/schema-docs")) as { DOCS_TABLES: Record<string, unknown> };
     expect(Object.keys(schema.DOCS_TABLES), "the docs area declares its table in its own schema file (AM-11)").toContain("documents");
