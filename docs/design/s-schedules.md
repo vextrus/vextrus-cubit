@@ -58,7 +58,9 @@ this file rules. No gallery entry is added (nothing new is invented here).
   muted), **Read from this sheet** (the grammar's proposals and the one act door). A SUSPENDED
   standing renders **no figure** — s-levels' I-242 applied to a note: a number printed beside the
   word *suspended* is the claim the suspension denies — and the row expands to hold exactly one
-  RefusalState with `NOTE_READING_CONTESTED`, the partial-row pattern of Direction §3.6.
+  RefusalState with `NOTE_READING_CONTESTED`, the partial-row pattern of Direction §3.6. The card
+  spans the row from a slot this screen owns (`cx-schedules-standing-refusal`): the pattern's own
+  class is dressed in the pattern's own stylesheet and nowhere else (ARCH-02, B-17).
 - **I-254 — typing changes nothing; only the door is a door.** Each proposal's
   `schedules-proposal-value` is a NumberInput pre-filled with the grammar's canonical, its
   `unitAsWritten` as the muted suffix; editing it moves no record. `schedules-transcribe` calls
