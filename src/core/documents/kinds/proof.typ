@@ -4,7 +4,7 @@
 // the payload arrives as DATA and is read with `json()`, every string is set as content rather than
 // spliced into markup, figures arrive already formatted at the kind's stated precision, units stand
 // in their own column, and nothing anywhere asks the renderer what day it is.
-#import "/base/frame.typ": document-frame, figure-cell, head-cell, id-cell, unit-cell
+#import "/base/frame.typ": document-frame, figure-cell, head-cell, id-cell, rule, unit-cell
 
 // The payload, read as DATA. This is the whole of what this document knows.
 //
@@ -27,7 +27,8 @@
       head-cell("Quantity"),
       head-cell("Unit"),
     ),
-    table.hline(stroke: 0.6pt + rgb("#d8d8de")),
+    // The rule is the frame's, like every other colour on the page: a kind spells none of its own.
+    table.hline(stroke: 0.6pt + rule),
     ..payload.lines.map(line => (
       id-cell(line.ref),
       [#line.description],
