@@ -415,6 +415,11 @@ export function railInput(draft: RailInputDraft): RailInputShape {
       levels: draft.levels,
       calibrations: draft.calibrations ?? {},
       grades: draft.grades ?? {},
+      // The setup is assembled WHOLE, every seam of it: a case that reads no run and no scheduled
+      // opening says so with an empty map, which is the reading "nothing was read there" (L-QTY-02).
+      // A seam left off would be a caller the type declares cannot exist.
+      runs: {},
+      lintels: {},
     },
   };
 }
