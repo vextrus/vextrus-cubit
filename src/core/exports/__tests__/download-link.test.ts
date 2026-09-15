@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { makeStorage, type Storage } from "@/core/storage";
-import { exportDownloadUrl, readSignedExport, storeExport, writeCsv } from "@/core/exports";
+import { buildWorkbook, exportDownloadUrl, readSignedExport, storeExport, storedKindOf, writeCsv } from "@/core/exports";
 
 /** The workspace these artefacts are stored under: a canonical id, as a prefix has to be. */
 const TENANT = randomUUID();
@@ -106,5 +106,35 @@ describe("a signed export link is answered with the bytes it names, or with the 
     const link = exportDownloadUrl(storage, { tenantId: TENANT, sha256: unstored.sha256, kind: "csv", expiresInSeconds: LIFETIME_SECONDS });
 
     expect(await readSignedExport(storage, presented(link))).toEqual({ ok: false, refusal: "EXPORT_NOT_FOUND" });
+  });
+});
+
+describe("the kind a link claims is checked against the kind the artefact IS", () => {
+  it("reads a workbook the seam built as xlsx, and everything the seam wrote as csv as csv", async () => {
+    // Both sides are written by the seam rather than invented here: the rule has to hold for the
+    // artefacts this product actually stores, not for a blob shaped like one (R-SPINE-041).
+    const workbook = await buildWorkbook({
+      sheets: [{ name: "Bill", freezeHeader: true, columns: [{ key: "item", header: "Item", kind: "text" }], rows: [["Concrete M25"]] }],
+    });
+    expect(storedKindOf(workbook), "an OOXML package is a zip, and a zip is what an .xlsx is").toBe("xlsx");
+    expect(storedKindOf(BYTES), "a CSV is text and carries neither end of a zip").toBe("csv");
+  });
+
+  it("still reads a bill whose first column header begins PK as csv", () => {
+    // "PK" is ASCII and a header sits at the front of a CSV, so the two letters alone would refuse a
+    // link this workspace really did mint and leave a lawful artefact undownloadable at its own
+    // address (Q-12). What text cannot counterfeit is the control bytes on either end of a zip.
+    for (const header of ["PKG", "PKR", "PK"]) {
+      const bill = writeCsv({ name: "Bill", freezeHeader: true, columns: [{ key: "item", header, kind: "text" }], rows: [["Concrete M25"]] });
+      expect(storedKindOf(bill), `a bill whose first column is ${header} is still a CSV`).toBe("csv");
+    }
+  });
+
+  it("calls neither half of a zip a package on its own", () => {
+    // An entry header with nothing closing behind it is a truncated or forged package, and a closing
+    // record with no entry in front of it is not one either: the door serves what it can name.
+    expect(storedKindOf(Uint8Array.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0x00]))).toBe("csv");
+    expect(storedKindOf(Uint8Array.from([0x69, 0x64, 0x50, 0x4b, 0x05, 0x06]))).toBe("csv");
+    expect(storedKindOf(new Uint8Array(0)), "an empty artefact is no package").toBe("csv");
   });
 });
