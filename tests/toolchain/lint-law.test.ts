@@ -67,6 +67,11 @@ const SCAN_CORPORA: Readonly<Record<string, string>> = {
   // seen), so a `NOT EXISTS` inside a channel is a second home for the law. Committed as a scan for
   // the same reason as the three above, with its prover beside the scanner it drives (inc-216).
   "residue-not-exists": "src/core/residue/__tests__/not-exists-scan.test.ts",
+  // `export-seam` is R-SPINE-041's ban on naming `exceljs` under `src/**` anywhere but the one
+  // export seam — a second caller of the spreadsheet library would be a second answer to how a
+  // workbook is escaped, formatted and made byte-deterministic. Committed as a scan for the same
+  // reason as the four above, with its prover beside the scanner it drives.
+  "export-seam": "src/core/exports/__tests__/exceljs-import-scan.test.ts",
 };
 
 /**
