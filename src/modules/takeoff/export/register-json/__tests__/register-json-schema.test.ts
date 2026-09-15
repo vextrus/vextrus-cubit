@@ -9,7 +9,7 @@
  */
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
-import { BASELINE_DUTY, readCommittedJson, registerJsonDoor, SCHEMA_FIXTURE } from "./support/register-json-stage";
+import { BASELINE_DUTY, readCommittedJson, registerJsonDoor, sampleView, schemaBranches, typesOf, SCHEMA_FIXTURE, type SchemaNode } from "./support/register-json-stage";
 
 /** What a missing fixture is owed, quoted where it is missing. */
 const OWED = `this increment commits \`z.toJSONSchema(RegisterJsonDocument)\` here so drift is visible (AC-2); ${BASELINE_DUTY}`;
@@ -40,6 +40,61 @@ function at(node: Node, path: readonly string[]): Node {
   const leaf = here[last];
   expect(leaf !== null && typeof leaf === "object", `${SCHEMA_FIXTURE} declares \`${path.join(".")}\` (AC-2)`).toBe(true);
   return leaf as Node;
+}
+
+/**
+ * The document the module exports for the committed reading, judged against the node the committed
+ * schema declares for each value it carries — the whole depth, down to a variable's canonical figure.
+ *
+ * This is the walk that makes the drift fixture a promise rather than a shape: a schema that declares
+ * a nested level as `z.unknown()` or as an open record answers "no shape here", and no comparison of
+ * the fixture with itself can then show a nested field added, removed or retyped. The rosters are the
+ * DOCUMENT's own keys, read at run time, so a reading that grows a field grows this walk with it.
+ */
+function judge(value: unknown, branches: readonly SchemaNode[], path: string, root: SchemaNode, problems: string[]): void {
+  if (Array.isArray(value)) {
+    const items = branches.flatMap((branch) => (branch["items"] === undefined ? [] : schemaBranches(branch["items"], root)));
+    if (items.length === 0) {
+      problems.push(`\`${path}\` is a list in the document and the schema declares no \`items\` for it`);
+      return;
+    }
+    value.forEach((entry, index) => judge(entry, items, `${path}[${index}]`, root, problems));
+    return;
+  }
+  if (value !== null && typeof value === "object") {
+    const declared = branches.find((branch) => branch["properties"] !== null && typeof branch["properties"] === "object");
+    if (declared !== undefined) {
+      if (declared["additionalProperties"] !== false) {
+        problems.push(`\`${path}\` is not a closed object in the schema (\`additionalProperties: false\`), so a field added there would never show up in the fixture`);
+      }
+      const properties = declared["properties"] as SchemaNode;
+      for (const [key, child] of Object.entries(value as SchemaNode)) {
+        const childNode = properties[key];
+        if (childNode === undefined) {
+          problems.push(`\`${path}.${key}\` is in the document and not in the schema`);
+          continue;
+        }
+        judge(child, schemaBranches(childNode, root), `${path}.${key}`, root, problems);
+      }
+      return;
+    }
+    // A record level: its KEYS are names the register chose, but the shape behind each is declared.
+    const record = branches.find((branch) => branch["additionalProperties"] !== null && typeof branch["additionalProperties"] === "object");
+    if (record !== undefined) {
+      const behind = schemaBranches(record["additionalProperties"], root);
+      for (const [key, child] of Object.entries(value as SchemaNode)) judge(child, behind, `${path}.${key}`, root, problems);
+      return;
+    }
+    problems.push(`\`${path}\` is an object in the document and the schema declares no shape for it — an unknown or an open value cannot show a field added, removed or retyped`);
+    return;
+  }
+  const kind = value === null ? "null" : typeof value;
+  const says = typesOf(branches);
+  if (says.length === 0 && !branches.some((branch) => branch["const"] !== undefined || branch["enum"] !== undefined)) {
+    problems.push(`\`${path}\` carries a ${kind} in the document and the schema declares no type for it`);
+    return;
+  }
+  if (says.length > 0 && !says.includes(kind)) problems.push(`\`${path}\` carries a ${kind} in the document and the schema declares ${[...new Set(says)].join(" | ")}`);
 }
 
 /** Every node of the schema that declares named properties — every object level, however deep. */
@@ -86,6 +141,18 @@ describe("AC-2: the published shape cannot drift without a deliberate re-baselin
     for (const level of objectLevels(fixture, "")) {
       expect(level.node["additionalProperties"], `the object level at \`${level.path}\` declares \`additionalProperties: false\` (AC-2)`).toBe(false);
     }
+  });
+
+  test("AC-2: every level the exported document instantiates is declared and closed in the schema", async () => {
+    const door = await registerJsonDoor();
+    const fixture = committed();
+    const document = door.registerJsonOf(sampleView());
+    const problems: string[] = [];
+    judge(document, schemaBranches(fixture, fixture), "(document)", fixture, problems);
+    expect(
+      problems,
+      `${SCHEMA_FIXTURE} declares the shape of everything the document in fact carries — every object level closed, every key named, down to an attribute's competing readings and a variable's canonical figure. Otherwise the fixture cannot show a nested field added, removed or retyped, which is what AC-2 promises. Unheld: ${problems.join(" · ")}`,
+    ).toEqual([]);
   });
 
   test("AC-2: the fixture discriminates — a field added, removed or retyped no longer matches", async () => {

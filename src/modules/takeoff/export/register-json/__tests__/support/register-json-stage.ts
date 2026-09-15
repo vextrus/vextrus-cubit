@@ -103,6 +103,21 @@ export function sampleView(): RegisterView {
   expect(parsed.lines.filter((line) => line.repudiated).length, `${SAMPLE_VIEW_FIXTURE} carries a repudiated line (AC-1)`).toBeGreaterThanOrEqual(1);
   expect(parsed.refusals.length, `${SAMPLE_VIEW_FIXTURE} carries at least one refusal (AC-1)`).toBeGreaterThanOrEqual(1);
   expect(parsed.levelStacks.length, `${SAMPLE_VIEW_FIXTURE} carries a level stack — the affordance the document must NOT export (AC-1)`).toBeGreaterThanOrEqual(1);
+  // The reading must reach BELOW a line and an object, or a schema that declares the nested shapes
+  // as unknown would never be asked about them: an attribute with competing readings, and a line
+  // with a variable binding, are what make the deep walks of AC-2 mean anything.
+  expect(
+    parsed.objects.some((object) => object.attributes.some((attribute) => attribute.competing.length > 0)),
+    `${SAMPLE_VIEW_FIXTURE} carries an attribute with competing readings — the depth the schema must declare (AC-2)`,
+  ).toBe(true);
+  expect(
+    parsed.objects.some((object) => object.attributes.some((attribute) => attribute.overruled.length > 0)),
+    `${SAMPLE_VIEW_FIXTURE} carries an overruled reading (AC-2)`,
+  ).toBe(true);
+  expect(
+    parsed.lines.some((line) => Object.keys(line.variables).length > 0),
+    `${SAMPLE_VIEW_FIXTURE} carries a line whose formula has named variables — the record level the schema must declare (AC-2)`,
+  ).toBe(true);
   return parsed;
 }
 
@@ -126,4 +141,46 @@ export function asBags(value: unknown, what: string): Bag[] {
 /** Keys in code-unit order — the order canonical text is written in, and a stable way to compare sets. */
 export function sortedKeys(value: object): string[] {
   return Object.keys(value).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+/* ------------------------------------------------------------------ reading the committed schema */
+
+/** A JSON-Schema node, as far as this suite reads one. */
+export type SchemaNode = Record<string, unknown>;
+
+/**
+ * What a node stands for, flattened: a union's alternatives, a `$ref` followed into the document it
+ * points at, and the node itself. A shape written inline and the same shape factored into `$defs`
+ * declare the same thing, and a nullable field is a union — so both are read here, not at the call
+ * sites that ask "does the schema declare this?".
+ */
+export function schemaBranches(node: unknown, root: unknown, seen: Set<unknown> = new Set()): SchemaNode[] {
+  if (node === null || typeof node !== "object" || Array.isArray(node)) return [];
+  const here = node as SchemaNode;
+  if (seen.has(here)) return [];
+  seen.add(here);
+  const branches: SchemaNode[] = [here];
+  const reference = here["$ref"];
+  if (typeof reference === "string" && reference.startsWith("#/")) {
+    let target: unknown = root;
+    for (const step of reference.slice(2).split("/")) {
+      target = target !== null && typeof target === "object" ? (target as SchemaNode)[step.replace(/~1/g, "/").replace(/~0/g, "~")] : undefined;
+    }
+    branches.push(...schemaBranches(target, root, seen));
+  }
+  for (const key of ["anyOf", "oneOf", "allOf"]) {
+    const list = here[key];
+    if (Array.isArray(list)) for (const one of list) branches.push(...schemaBranches(one, root, seen));
+  }
+  return branches;
+}
+
+/** The JSON types a node admits, as the schema writes them (`type`, or a list of types). */
+export function typesOf(branches: readonly SchemaNode[]): string[] {
+  return branches.flatMap((branch) => {
+    const type = branch["type"];
+    if (typeof type === "string") return [type];
+    if (Array.isArray(type)) return type.filter((one): one is string => typeof one === "string");
+    return [];
+  });
 }

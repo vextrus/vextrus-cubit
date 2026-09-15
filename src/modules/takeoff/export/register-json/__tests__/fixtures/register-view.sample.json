@@ -227,7 +227,7 @@
       "repudiated": true,
       "drawingId": "drw_0002",
       "layoutName": null,
-      "sourceKeys": ["RASTER_TRACE:9d41ab", "RASTER_TRACE:9d41ac"]
+      "sourceKeys": ["RASTER_TRACE:9d41ac", "RASTER_TRACE:9d41ab"]
     },
     {
       "lineId": "ln_0004",

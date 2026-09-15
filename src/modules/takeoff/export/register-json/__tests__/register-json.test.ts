@@ -10,7 +10,19 @@
  * the criterion itself closes ("and nothing else at the top level").
  */
 import { describe, expect, test } from "vitest";
-import { asBag, asBags, registerJsonDoor, sampleView, sortedKeys, REGISTER_JSON_MODULE } from "./support/register-json-stage";
+import {
+  asBag,
+  asBags,
+  readCommittedJson,
+  registerJsonDoor,
+  sampleView,
+  schemaBranches,
+  sortedKeys,
+  typesOf,
+  REGISTER_JSON_MODULE,
+  SCHEMA_FIXTURE,
+  type SchemaNode,
+} from "./support/register-json-stage";
 
 /** The top level the criterion closes, in code-unit order. */
 const DOCUMENT_KEYS = ["campaign", "lines", "objects", "projectId", "refusals", "schemaVersion", "tenantId"];
@@ -74,6 +86,31 @@ describe("AC-1: the register JSON export is a pure function of the register's re
       campaignId: view.campaign?.campaignId,
       setRevisionId: view.campaign?.setRevisionId,
     });
+  });
+
+  test("AC-1: a reading with no campaign standing exports `campaign: null`, and the schema accepts it", async () => {
+    const door = await registerJsonDoor();
+    // Derived from the committed reading, never a second fixture: the same register, read where no
+    // campaign stands (`ViewCampaign | null` — a project with none is a state, not a fault).
+    const uncampaigned = { ...sampleView(), campaign: null };
+    const document = asBag(door.registerJsonOf(uncampaigned), "what `registerJsonOf` answers for a reading with no campaign");
+    expect(document["campaign"], "the document publishes `campaign: null` where the reading has no campaign — the half of the shape the criterion names (AC-1)").toBeNull();
+    const verdict = door.RegisterJsonDocument.safeParse(document) as { success: boolean; error?: { issues: { path: unknown[]; message: string }[] } };
+    const said = (verdict.error?.issues ?? []).map((issue) => `${issue.path.join(".")}: ${issue.message}`).join(" | ");
+    expect(verdict.success, `\`RegisterJsonDocument\` accepts a document read under no campaign — \`campaign\` is a pair OR null (AC-1) — it refused: ${said}`).toBe(true);
+    expect(sortedKeys(document), "the top level is the same seven whether or not a campaign stands (AC-1)").toEqual(DOCUMENT_KEYS);
+  });
+
+  test("AC-1: the committed schema declares `campaign` as a pair or null", () => {
+    const fixture = readCommittedJson(SCHEMA_FIXTURE, "this increment commits the schema of the shape it publishes (AC-2)") as SchemaNode;
+    const campaign = (fixture["properties"] as SchemaNode | undefined)?.["campaign"];
+    const branches = schemaBranches(campaign, fixture);
+    expect(branches.length, `${SCHEMA_FIXTURE} declares \`campaign\` (AC-1)`).toBeGreaterThan(0);
+    expect(typesOf(branches), `${SCHEMA_FIXTURE} declares \`campaign\` as accepting null — a register read under no campaign is a document this schema admits (AC-1)`).toContain("null");
+    expect(
+      branches.some((branch) => branch["properties"] !== undefined && typeof branch["properties"] === "object"),
+      `${SCHEMA_FIXTURE} declares the campaign's own shape — \`{ campaignId, setRevisionId }\` (AC-1)`,
+    ).toBe(true);
   });
 
   test("AC-1: every published line is exported, mirroring the reading field-for-field", async () => {
