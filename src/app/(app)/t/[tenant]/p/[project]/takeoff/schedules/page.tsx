@@ -11,7 +11,10 @@ import { reportFault } from "@/core/faults/report";
 import { schedulesViewOf } from "@/modules/takeoff/schedules-ui/server";
 import type { SchedulesView } from "@/modules/takeoff/schedules-ui/view";
 import { authorizePage } from "@/server/authorize-page";
+import { STATE_NAMES, screenStates } from "@/ui/screen-states";
+import type { ScreenStateName } from "@/ui/screen-states";
 import { strings } from "@/ui/strings";
+import { uiInstrumentArmed } from "@/app/theme-resolver";
 import { SchedulesScreen } from "./schedules-screen";
 
 export const metadata = { title: strings.takeoff_nav_schedules };
@@ -31,13 +34,41 @@ async function permissionsFor(tenantId: string, projectId: string, userId: strin
   return Object.fromEntries(DOOR_PERMISSIONS.map((permission) => [permission, held.has(permission)]));
 }
 
-export default async function ProjectSchedules({ params }: { params: Promise<{ tenant: string; project: string }> }) {
+/**
+ * The evidence instrument's state door (`?__state=`, `theme-resolver.ts`): which of R-UI-050's seven
+ * cells this address was asked to mount, or null for the ordinary read. Every cell this screen's
+ * Decision rules is then a thing a person can OPEN — a designer, a reviewer, a surveyor — and not
+ * only a thing the journey lane can reach through a staged upload; a state nobody can look at is a
+ * state nobody can review (R-UI-050, AM-09 §4).
+ *
+ * The door is armed by name and shut everywhere else, so an installation that never opted in cannot
+ * be talked into it by a URL. What mounts is the screen's own DECLARED cell from the matrix — never a
+ * fabricated reading, and never a rail of invented sheets.
+ */
+function demandedState(asked: string | readonly string[] | undefined): ScreenStateName | null {
+  if (!uiInstrumentArmed() || typeof asked !== "string") return null;
+  return STATE_NAMES.find((name) => name === asked) ?? null;
+}
+
+export default async function ProjectSchedules({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ tenant: string; project: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { tenant, project } = await params;
   // The choke point, asked by this page for itself (B-17, ARCH-02): session, then the workspace the
   // PROJECT is really in, then the read. An address naming no project this session may have is an
   // absence, not an empty rail and not a permission short of one (R-UI-050 asks each state to say
   // the true thing).
   const { tenantId, userId } = await authorizePage({ tenant, project });
+
+  // Asked for a state by name, on an installation that armed the instrument: mount that cell instead
+  // of the read. The door stands INSIDE authorization — an address nobody may open opens nothing here
+  // either, whatever it asks for.
+  const demanded = demandedState((await searchParams)["__state"]);
+  if (demanded !== null) return screenStates[ROUTE]?.[demanded].render() ?? null;
 
   const permitted = await permissionsFor(tenantId, project, userId);
 

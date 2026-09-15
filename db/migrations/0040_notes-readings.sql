@@ -20,6 +20,7 @@ CREATE TABLE "notes_readings" (
 	CONSTRAINT "notes_readings_acceptance_closed" CHECK ("notes_readings"."acceptance" in ('ACCEPTED', 'EDITED'))
 );
 --> statement-breakpoint
+ALTER TABLE "notes_readings" ADD CONSTRAINT "notes_readings_act_id_acts_act_id_fk" FOREIGN KEY ("act_id") REFERENCES "public"."acts"("act_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "notes_readings_by_sheet" ON "notes_readings" USING btree ("tenant_id","drawing_id","layout_name");--> statement-breakpoint
 ALTER TABLE "notes_readings" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "notes_readings" FORCE ROW LEVEL SECURITY;--> statement-breakpoint

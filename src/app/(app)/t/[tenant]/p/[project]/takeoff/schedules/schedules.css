@@ -55,6 +55,17 @@
   color: var(--ink-secondary);
 }
 
+/* §2's empty cell FILLS the work column: the teaching takes the field the rail and the tables would
+   have had and stands in its optical centre, which is how the lane's sibling tab sets it, so a reader
+   crossing Levels → Schedules finds the same sentence at the same height. Its two sentences keep a
+   measure the eye can track back on rather than running the column's whole 1392 px (Direction 00 §3).
+   The rules sit on the class this screen owns; the primitive's own classes are dressed in the
+   primitive's stylesheet and nowhere else (ARCH-02, B-17). */
+.cx-schedules-empty {
+  margin: auto;
+  max-width: 56ch;
+}
+
 /* --- the body: the sheet rail beside the work column (I-248, I-233) --- */
 
 .cx-schedules-body {

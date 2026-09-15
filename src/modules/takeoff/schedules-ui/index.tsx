@@ -325,6 +325,7 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
 
   const [sheetKey, setSheetKey] = useState<SheetKey | null>(null);
   const [selected, setSelected] = useState<Selection | null>(null);
+  /** What stands in each proposal's box, under `draftKey` — one box per (kind, sourceKey), never per kind. */
   const [drafts, setDrafts] = useState<Readonly<Record<string, string>>>({});
   const [answer, setAnswer] = useState<Answer>(null);
   const [pending, setPending] = useState<TranscribeSheetNotesInput | null>(null);
@@ -383,7 +384,7 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
           sourceKey: proposal.sourceKey,
           // I-254: what the box holds is what is kept — the grammar's canonical until a reader edits
           // it. Whether that is ACCEPTED or EDITED is the seam's judgement and never this screen's.
-          valueAsWritten: drafts[proposal.kind] ?? proposal.canonical,
+          valueAsWritten: drafts[draftKey(proposal)] ?? proposal.canonical,
           unitAsWritten: proposal.unitAsWritten,
         })),
       };
@@ -663,9 +664,9 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
                           proposal={proposal}
                           testIds={testIds}
                           href={traceTo([proposal.sourceKey])}
-                          value={drafts[proposal.kind] ?? proposal.canonical}
-                          stands={standsAt(sheet, proposal, drafts[proposal.kind] ?? proposal.canonical)}
-                          onValue={(value) => setDrafts((held) => ({ ...held, [proposal.kind]: value }))}
+                          value={drafts[draftKey(proposal)] ?? proposal.canonical}
+                          stands={standsAt(sheet, proposal, drafts[draftKey(proposal)] ?? proposal.canonical)}
+                          onValue={(value) => setDrafts((held) => ({ ...held, [draftKey(proposal)]: value }))}
                           EnumLabel={EnumLabel}
                           EvidenceLink={EvidenceLink}
                           NumberInput={NumberInput}
@@ -736,6 +737,16 @@ function holdsSaid(sheet: SheetView): string {
   if (sheet.notes.proposals.length > 0 || sheet.notes.readings.length > 0) said.push(SCHEDULES_COPY.schedules_sheet_holds_notes);
   if (sheet.deferrals.length > 0) said.push(SCHEDULES_COPY.schedules_sheet_holds_deferral);
   return said.join(" · ");
+}
+
+/**
+ * Which box a proposal reads and writes: the (kind, sourceKey) pair the store keys a reading on, and
+ * never the kind alone. One sheet may state two figures of one kind off two different sentences — the
+ * bored-pile `f'c` beside the slab's — and boxes that shared a draft would send, under one of those
+ * source keys, a figure no reader ever typed there (R-TO-034, I-254).
+ */
+function draftKey(proposal: NoteProposal): string {
+  return `${proposal.kind}\0${proposal.sourceKey}`;
 }
 
 /**

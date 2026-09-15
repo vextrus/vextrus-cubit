@@ -10,6 +10,7 @@
 
 import { SCHEDULE_DEFERRAL_REASONS, type ScheduleDeferralReason } from "../errors";
 import { NOTE_ACCEPTANCES, NOTE_BASIS, NOTE_KINDS, type NoteAcceptance, type NoteKind } from "../notes/law";
+import { acts } from "./schema-acts";
 import { closedList } from "./sql";
 import { sql as statement } from "drizzle-orm";
 import { check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
@@ -258,7 +259,11 @@ export const notesReadings = pgTable(
     canonical: text("canonical").notNull(),
     basis: text("basis").notNull(),
     acceptance: text("acceptance").$type<NoteAcceptance>().notNull(),
-    actId: uuid("act_id").notNull(),
+    // Every reading is an act's, and the ledger says so in the schema rather than in the one code
+    // path that happens to write it — the storey-height reading's own constraint (L-ACT-01, R-TO-051).
+    actId: uuid("act_id")
+      .notNull()
+      .references(() => acts.actId),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
