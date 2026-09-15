@@ -1,0 +1,292 @@
+{
+  "tenantId": "tnt_rcc6",
+  "projectId": "prj_rcc6_tower_a",
+  "campaign": {
+    "setRevisionId": "rev_0007",
+    "campaignId": "cmp_0002"
+  },
+  "objects": [
+    {
+      "objectKey": "COL-A1",
+      "discipline": "STRUCTURAL",
+      "level": "L02",
+      "class": "rcc.column",
+      "mark": "C1",
+      "basis": "MEASURED",
+      "role": "SIGHTED",
+      "corroboration": "AGREED",
+      "sourceKey": "DXF_HANDLE:1A2F",
+      "attributes": [
+        {
+          "attribute": "width",
+          "standing": "AGREED",
+          "canonicalValue": "0.300",
+          "canonicalUnit": "m",
+          "competing": [
+            {
+              "observationId": "obs_0001",
+              "valueAsWritten": "300",
+              "unitAsWritten": "mm",
+              "basis": "MEASURED",
+              "precedence": 1,
+              "sourceKey": "DXF_HANDLE:1A2F"
+            }
+          ],
+          "overruled": []
+        },
+        {
+          "attribute": "depth",
+          "standing": "SUSPENDED",
+          "canonicalValue": null,
+          "canonicalUnit": null,
+          "competing": [
+            {
+              "observationId": "obs_0002",
+              "valueAsWritten": "450",
+              "unitAsWritten": "mm",
+              "basis": "MEASURED",
+              "precedence": 1,
+              "sourceKey": "DXF_HANDLE:1A30"
+            },
+            {
+              "observationId": "obs_0003",
+              "valueAsWritten": "460",
+              "unitAsWritten": "mm",
+              "basis": "TRANSCRIBED",
+              "precedence": 1,
+              "sourceKey": "PDF_OBJECT:8814"
+            }
+          ],
+          "overruled": [
+            {
+              "observationId": "obs_0004",
+              "valueAsWritten": "18",
+              "unitAsWritten": "in",
+              "basis": "INTERPRETED",
+              "precedence": 3,
+              "sourceKey": "RASTER_TRACE:c0ffee"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "objectKey": "COL-A2",
+      "discipline": "STRUCTURAL",
+      "level": "L02",
+      "class": "rcc.column",
+      "mark": "C2",
+      "basis": "INTERPRETED",
+      "role": "SIGHTED",
+      "corroboration": "REPUDIATED",
+      "sourceKey": "RASTER_TRACE:9d41ab",
+      "attributes": [
+        {
+          "attribute": "width",
+          "standing": "AGREED",
+          "canonicalValue": "0.250",
+          "canonicalUnit": "m",
+          "competing": [
+            {
+              "observationId": "obs_0005",
+              "valueAsWritten": "250",
+              "unitAsWritten": "mm",
+              "basis": "INTERPRETED",
+              "precedence": 2,
+              "sourceKey": "RASTER_TRACE:9d41ab"
+            }
+          ],
+          "overruled": []
+        }
+      ]
+    },
+    {
+      "objectKey": "SLB-L02",
+      "discipline": "STRUCTURAL",
+      "level": "L02",
+      "class": "rcc.slab",
+      "mark": "S1",
+      "basis": "DERIVED",
+      "role": "SIGHTED",
+      "corroboration": "NONE",
+      "sourceKey": "DXF_HANDLE:2B71",
+      "attributes": []
+    }
+  ],
+  "lines": [
+    {
+      "lineId": "ln_0001",
+      "objectKey": "COL-A1",
+      "kind": "rcc.concrete",
+      "class": "rcc.column",
+      "level": "L02",
+      "value": "0.4590000000",
+      "unit": "m3",
+      "formula": "b × d × L",
+      "variables": {
+        "b": {
+          "value": "300",
+          "unit": "mm",
+          "basis": "MEASURED",
+          "source": "DXF_HANDLE:1A2F",
+          "canonical": { "value": "0.300", "unit": "m" }
+        },
+        "d": {
+          "value": "450",
+          "unit": "mm",
+          "basis": "MEASURED",
+          "source": "DXF_HANDLE:1A30",
+          "canonical": { "value": "0.450", "unit": "m" }
+        },
+        "L": {
+          "value": "3400",
+          "unit": "mm",
+          "basis": "DERIVED",
+          "source": "DXF_HANDLE:1A31",
+          "canonical": { "value": "3.400", "unit": "m" }
+        }
+      },
+      "quantityBasis": "MEASURED",
+      "selectionBasis": "MEASURED",
+      "coverage": "COMPLETE",
+      "calibrationKeys": ["DXF_HANDLE:CAL-01", "DXF_HANDLE:CAL-02"],
+      "engine": "VECTOR",
+      "sourceKey": "DXF_HANDLE:1A2F",
+      "repudiated": false,
+      "drawingId": "drw_0001",
+      "layoutName": "GA-L02",
+      "sourceKeys": ["DXF_HANDLE:1A2F", "DXF_HANDLE:1A30", "DXF_HANDLE:1A31"]
+    },
+    {
+      "lineId": "ln_0002",
+      "objectKey": "COL-A1",
+      "kind": "rcc.concrete",
+      "class": "rcc.column",
+      "level": "L02",
+      "value": null,
+      "unit": "m3",
+      "formula": "b × d × L",
+      "variables": {
+        "b": {
+          "value": "300",
+          "unit": "mm",
+          "basis": "MEASURED",
+          "source": "DXF_HANDLE:1A2F",
+          "canonical": { "value": "0.300", "unit": "m" }
+        }
+      },
+      "quantityBasis": "MEASURED",
+      "selectionBasis": "TRANSCRIBED",
+      "coverage": "PARTIAL_DECLARED",
+      "calibrationKeys": ["DXF_HANDLE:CAL-01"],
+      "engine": "VECTOR",
+      "sourceKey": "DXF_HANDLE:1A2F",
+      "repudiated": false,
+      "drawingId": "drw_0001",
+      "layoutName": "GA-L02",
+      "sourceKeys": ["DXF_HANDLE:1A2F"]
+    },
+    {
+      "lineId": "ln_0003",
+      "objectKey": "COL-A2",
+      "kind": "rcc.concrete",
+      "class": "rcc.column",
+      "level": "L02",
+      "value": "0.2125000000",
+      "unit": "m3",
+      "formula": "b × d × L",
+      "variables": {
+        "b": {
+          "value": "250",
+          "unit": "mm",
+          "basis": "INTERPRETED",
+          "source": "RASTER_TRACE:9d41ab",
+          "canonical": { "value": "0.250", "unit": "m" }
+        },
+        "d": {
+          "value": "250",
+          "unit": "mm",
+          "basis": "INTERPRETED",
+          "source": "RASTER_TRACE:9d41ac",
+          "canonical": { "value": "0.250", "unit": "m" }
+        },
+        "L": {
+          "value": "3400",
+          "unit": "mm",
+          "basis": "DEFAULTED",
+          "source": "RASTER_TRACE:9d41ad",
+          "canonical": { "value": "3.400", "unit": "m" }
+        }
+      },
+      "quantityBasis": "INTERPRETED",
+      "selectionBasis": "INTERPRETED",
+      "coverage": "COMPLETE",
+      "calibrationKeys": ["RASTER_TRACE:CAL-07"],
+      "engine": "RASTER",
+      "sourceKey": "RASTER_TRACE:9d41ab",
+      "repudiated": true,
+      "drawingId": "drw_0002",
+      "layoutName": null,
+      "sourceKeys": ["RASTER_TRACE:9d41ab", "RASTER_TRACE:9d41ac"]
+    },
+    {
+      "lineId": "ln_0004",
+      "objectKey": "SLB-L02",
+      "kind": "rcc.concrete",
+      "class": "rcc.slab",
+      "level": "L02",
+      "value": "12.7500000000",
+      "unit": "m3",
+      "formula": "A × t",
+      "variables": {
+        "A": {
+          "value": "85.00",
+          "unit": "m2",
+          "basis": "DERIVED",
+          "source": "DXF_HANDLE:2B71",
+          "canonical": { "value": "85.000", "unit": "m2" }
+        },
+        "t": {
+          "value": "150",
+          "unit": "mm",
+          "basis": "TRANSCRIBED",
+          "source": "PDF_OBJECT:8815",
+          "canonical": { "value": "0.150", "unit": "m" }
+        }
+      },
+      "quantityBasis": "DERIVED",
+      "selectionBasis": "DERIVED",
+      "coverage": "COMPLETE",
+      "calibrationKeys": ["DXF_HANDLE:CAL-02"],
+      "engine": "VECTOR",
+      "sourceKey": "DXF_HANDLE:2B71",
+      "repudiated": false,
+      "drawingId": null,
+      "layoutName": null,
+      "sourceKeys": []
+    }
+  ],
+  "refusals": [
+    {
+      "code": "INTERPRETED_UNCORROBORATED",
+      "objectKey": "COL-A2",
+      "kind": "rcc.concrete"
+    },
+    {
+      "code": "DIMENSION_MISMATCH",
+      "objectKey": "SLB-L02",
+      "kind": null
+    }
+  ],
+  "levelStacks": [
+    {
+      "key": { "kind": "PROPOSED_LEVEL_STACK", "drawingId": "drw_0001", "ingestId": "ing_0001" },
+      "label": "GA — Tower A",
+      "count": 2,
+      "levels": [
+        { "label": "L01", "ordinal": 1 },
+        { "label": "L02", "ordinal": 2 }
+      ]
+    }
+  ]
+}
