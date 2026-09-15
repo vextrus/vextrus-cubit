@@ -11,7 +11,7 @@ tabs row is the frame's tool track (I-230), the inspector is the frame's ONE rig
 absent until something is selected (I-231), the campaign's index stands BESIDE the work surface as a
 left rail (I-233), the grid is DataTable v2 with its own furniture (I-235). Files: `takeoff/layout.tsx`
 (one nav entry), `takeoff/schedules/{page.tsx,schedules-screen.tsx,route-address.ts,states.ts,
-schedules.css}`; the presentational `SchedulesWorkspace` in `src/modules/takeoff/schedules-ui/**`
+demonstration.ts,schedules.css}`; the presentational `SchedulesWorkspace` in `src/modules/takeoff/schedules-ui/**`
 with its mirrored `copy.ts`; copy at `src/ui/strings/schedules.ts`. Chrome is shipped primitives
 only — Button, NumberInput, Skeleton, IdChip, EnumLabel, EmptyState, Tooltip, DataTable v2, the one
 RefusalState, the one ConsequenceDialog, the one EvidenceLink — plus the `cx-schedules-*` classes
@@ -171,6 +171,15 @@ the NumberInput.
 "refused","empty","partial","ready"]`, declared in `src/ui/screen-states/matrix.tsx` under
 `/t/[tenant]/p/[project]/takeoff/schedules`. `schedules-screen[data-state]` derives in that order,
 first holding wins.
+
+Every one of the eight is a cell a person can OPEN: where the installation arms the evidence
+instrument (`uiInstrumentArmed`), `…/takeoff/schedules?__state=<one of the eight>` stands THIS screen
+in that state — the same workspace and the same renderers, driven by `./demonstration`'s reading and
+flags, never a stand-in drawn beside it. Five are reached the way the product reaches them (the
+reading it is handed and the flags it is handed with it); only `loading` and `error` are stated
+outright, being facts about a read in flight rather than about any sheet. A `__state` naming nothing
+this screen declares is answered `REQUEST_MALFORMED` through the one RefusalState, so an instrument
+that did not understand the address says so instead of painting the ordinary read.
 
 - **Loading** — the workspace root at `data-state="loading"`, frame and tabs row intact, core
   Skeletons keeping the layout the screen in fact has: a 200-wide rail bone of six 28 px rows beside
