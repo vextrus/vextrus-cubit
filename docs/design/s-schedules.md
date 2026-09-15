@@ -75,6 +75,17 @@ this file rules. No gallery entry is added (nothing new is invented here).
   `schedules-transcribe` with `aria-disabled="true"`, `data-permission="MEASURE"` and a Tooltip
   carrying the denial pair; every table, registry and reading reads on in full (s-levels I-247). The
   screen's `data-state` is `denied` only when every door on it is shut.
+- **I-257 — the reading's own state is the CHOSEN sheet's state.** `empty`, `partial` and `ready`
+  are read off the sheet the rail has selected, never off the revision's whole list: the sheet is
+  the subject (I-248), so what a reader is looking at is what the screen is in the state of, and a
+  view that deferred on another sheet is that sheet's word to say when it is chosen. A sheet reads
+  `partial` where it carries a deferral or a SUSPENDED standing, `empty` where nothing it holds
+  stands at all, and `ready` otherwise. Silence is a statement, not a deferral: a sheet whose texts
+  propose no figure says `NOTES_NONE_PROPOSED` through the one RefusalState and offers no door, and
+  that alone never makes the screen partial — a sheet holding committed readings and no proposal
+  reads `ready`, and one holding neither a table nor a reading reads `empty`. Rejected: deriving the
+  state over every sheet at once, which paints a screen partial on a sheet where everything stands
+  and can never reach the empty cell while any sheet exists.
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -164,14 +175,18 @@ first holding wins.
   a table whose header is real and whose body is eight 28 px row bones, and a 240 bone for the
   registry pane. No bone stands for the inspector — it is absent at rest. Never a spinner on a table
   (R-UI-004). The leg is the screen's own; no route `loading.tsx` (s-levels' two-roots ruling).
-- **Empty** — no partitioned drawing in the pinned revision: the shipped `EmptyState`
-  `data-testid="schedules-empty"` fills the work column, rail absent, carrying
-  `schedules_empty_heading`, `schedules_empty_body` and, as its one action,
-  `schedules_empty_action` linking to `…/drawings`.
-- **Partial** — rendered, never hidden. `data-state="partial"` while any sheet carries a deferral,
-  any standing reads SUSPENDED, or any sheet proposes nothing: those rows and sections stand where
-  they belong with their RefusalState, and everything that stands reads as it stands. The J-032
-  `transcribed` checkpoint is this state.
+- **Empty** — nothing stands to be read. Either the pinned revision holds no partitioned drawing at
+  all — the shipped `EmptyState` `data-testid="schedules-empty"` fills the work column, rail absent,
+  carrying `schedules_empty_heading`, `schedules_empty_body` and, as its one action,
+  `schedules_empty_action` linking to `…/drawings` — or the CHOSEN sheet holds no table, no
+  deferral, no member type, no proposal and no reading, in which case the rail and the sheet's own
+  sections stand and say so in place (I-257), and only `data-state` reads `empty`.
+- **Partial** — rendered, never hidden. `data-state="partial"` while the CHOSEN sheet carries a
+  deferral or a standing that reads SUSPENDED: those rows and sections stand where they belong with
+  their RefusalState, and everything that stands reads as it stands. A sheet whose texts propose
+  nothing is not partial by that alone — the notes panel states it under `NOTES_NONE_PROPOSED` and
+  the sheet reads as what it otherwise holds (I-257). The J-032 `transcribed` checkpoint is this
+  state, and so is the `tables` checkpoint (that sheet carries a deferral beside its table).
 - **Error** — `schedules-screen.tsx`'s own cell: `schedules_error_heading` / `_body`, the report id
   through an `IdChip` under `schedules_report_label`, and a secondary Button `schedules_retry`
   (found by role and name) re-running `takeoffSchedules.schedules` in place.
@@ -325,7 +340,8 @@ selected (R-UI-080, §7 C3); no second right column; no native `select` or `inpu
 (R-UI-083); no member count anywhere on the screen (I-251); no `schedules-cell` holding more or
 fewer than one `evidence-link` unless its stored text is empty (I-252); no figure in a
 `schedules-standing` whose `data-standing` is not `AGREED` (I-253); no `schedules-transcribe` inside
-a `schedules-notes` whose only child is the `NOTES_NONE_PROPOSED` refusal; no `consequence-dialog`
+a `schedules-notes` that states `NOTES_NONE_PROPOSED` — whatever record stands beside it (I-257);
+no `consequence-dialog`
 after a preview refused `ACT_CHANGES_NOTHING` (I-255); no `line` param in any composed viewer
 address.
 

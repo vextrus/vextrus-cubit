@@ -464,20 +464,29 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
 
   /**
    * §2's order, first holding wins. `denied` is the whole screen's only when EVERY door on it is
-   * shut (I-256) — and this screen has one. `partial` is the reading's own deferred half: a view that
-   * yielded no table, a kind two people read differently, and a sheet whose words state no figure all
-   * stand where they belong and are never hidden (R-UI-050).
+   * shut (I-256) — and this screen has one.
+   *
+   * The three cells the reading itself decides — empty, partial, ready — are read off the SHEET the
+   * rail has chosen and never off the revision's whole list (I-248, I-257). The sheet is the subject:
+   * what a reader is looking at is what the screen is in the state of, and a view that deferred on
+   * some other sheet is that sheet's word to say when it is chosen. `partial` is therefore this
+   * sheet's own deferred half — a schedule view that yielded no table, or a kind two people read
+   * differently — standing beside the rows that do stand (R-UI-050).
+   *
+   * A sheet whose texts state no figure is NOT partial by that alone: the notes panel says so in
+   * place, and a sheet is empty only where nothing it holds stands at all — no table, no deferral,
+   * no member type, no proposal and no reading (AC-8's reading of R-UI-050).
    */
-  const partial = sheets.some(
-    (held) => held.deferrals.length > 0 || held.notes.standings.some((standing) => standing.standing === SUSPENDED) || (held.notes.proposals.length === 0 && held.notes.readings.length === 0),
-  );
+  const partial = sheet !== null && (sheet.deferrals.length > 0 || sheet.notes.standings.some((standing) => standing.standing === SUSPENDED));
+  const stands =
+    sheet !== null && (sheet.schedules.length > 0 || sheet.deferrals.length > 0 || sheet.families.length > 0 || sheet.notes.proposals.length > 0 || sheet.notes.readings.length > 0);
   const derived = !holdsMeasure
     ? "denied"
     : offline
       ? "offline"
       : answer !== null
         ? "refused"
-        : sheets.length === 0
+        : sheets.length === 0 || sheet === null || !stands
           ? "empty"
           : partial
             ? "partial"
@@ -615,9 +624,12 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
             {/* I-253: the answer, then the record, then the offer. */}
             <section className="cx-schedules-notes" data-testid={testIds.notes} aria-label={SCHEDULES_COPY.schedules_notes_heading}>
               <h2 className="cx-schedules-section-heading">{SCHEDULES_COPY.schedules_notes_heading}</h2>
-              {sheet.notes.proposals.length === 0 && sheet.notes.readings.length === 0 ? (
-                <Silent href={traceTo([])} RefusalState={RefusalState} />
-              ) : (
+              {/* Silence is never a state: a sheet whose words state no figure says SO, in place and
+                  under the registered code, whether or not somebody has already read something off
+                  it (R-UI-020, AC-7). The record beside it is not unsaid by a grammar that reads
+                  nothing today — what was committed stands, and only the OFFER goes away. */}
+              {sheet.notes.proposals.length === 0 ? <Silent href={traceTo([])} RefusalState={RefusalState} /> : null}
+              {sheet.notes.proposals.length === 0 && sheet.notes.readings.length === 0 ? null : (
                 <>
                   <h3 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_standing_heading}</h3>
                   {sheet.notes.standings.map((standing) => (
