@@ -1,0 +1,428 @@
+/*
+ * S-Schedules — the reconstructed schedules, the member-type registry and the sheet notes, cut from
+ * the grid workspace template (docs/design/s-schedules.md §§1, 4, 5, 6; Design Direction 00 §3.2,
+ * §5). Every colour, size, weight and duration is a read into the committed Datum token source
+ * (R-UI-001, R-UI-003, R-UI-004): the rules are identical in light and dark, and the themes differ
+ * only in what the tokens are worth. No `[data-theme]` selector appears here.
+ *
+ * THE GEOMETRY, IN ONE PLACE. The workspace is a column that fills `shell-main`: the answer slot,
+ * then the body, which is the 200 px sheet rail beside the work column and takes every remaining
+ * pixel. The work column stacks the reconstructed tables, the notes panel and — pinned to its foot —
+ * the 240 px registry pane, which collapses to its 28 px header while the inspector stands (I-249).
+ * Nothing stands above the tables: the tabs row is the frame's tool track (takeoff.css) and the
+ * inspector is the frame's one right column.
+ *
+ * The px literals are the closed set §5 fixes: the rail's 200 and its 160/320 bounds, the registry
+ * pane's 240 and its 200 below lg, the collapsed 28, the work column's 320 min, and the lg
+ * media-query value. The schedule columns' widths are the table's own (its `size`), not this sheet's.
+ *
+ * Nothing here eases in (§4): selecting a sheet, selecting a cell, the arrival of readings after a
+ * commit and every refusal are instant, and every transition on this screen is inherited from a
+ * single home. Focus is not styled here either — every button, chip and control wears the reticle
+ * from its one home (B-17, R-UI-012). The table, the refusal, the dialog, the evidence link and the
+ * empty state are painted by their own stylesheets.
+ */
+
+.cx-schedules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-section);
+  height: 100%;
+  min-height: 0;
+  max-width: none;
+  font-family: var(--font-ui);
+  line-height: var(--leading-ui);
+}
+
+/* --- the answer slot, the offline banner and the denial (R-UI-020, R-UI-050) --- */
+
+.cx-schedules-answer:empty {
+  display: none;
+}
+
+.cx-schedules-offline {
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline);
+  border-color: var(--state-info);
+  border-radius: var(--radius-4);
+  background: var(--state-info-surface);
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.cx-schedules-denied {
+  font-size: var(--text-body);
+  color: var(--ink-secondary);
+}
+
+/* §2's empty cell FILLS the work column: the teaching takes the field the rail and the tables would
+   have had and stands in its optical centre, which is how the lane's sibling tab sets it, so a reader
+   crossing Levels → Schedules finds the same sentence at the same height. Its two sentences keep a
+   measure the eye can track back on rather than running the column's whole 1392 px (Direction 00 §3).
+   The rules sit on the class this screen owns; the primitive's own classes are dressed in the
+   primitive's stylesheet and nowhere else (ARCH-02, B-17). */
+.cx-schedules-empty {
+  margin: auto;
+  max-width: 56ch;
+}
+
+/* --- the body: the sheet rail beside the work column (I-248, I-233) --- */
+
+.cx-schedules-body {
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--space-3);
+  min-height: 0;
+  min-width: 0;
+}
+
+.cx-schedules-panel {
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  background: var(--surface-panel);
+}
+
+.cx-schedules-sheets {
+  display: flex;
+  flex: 0 0 var(--drawer-w);
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 160px;
+  max-width: 320px;
+  padding: var(--space-2);
+  overflow-y: auto;
+}
+
+.cx-schedules-panel-heading {
+  margin: 0;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-heading);
+  color: var(--ink-secondary);
+}
+
+.cx-schedules-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-h);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-4);
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-caption);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cx-schedules-sheet-row:hover {
+  background: var(--surface-hover);
+}
+
+.cx-schedules-sheet-row[aria-current="true"] {
+  background: var(--surface-selected);
+}
+
+/* The control that chooses the sheet takes the whole row but for the drawing's chip, so a pointer
+   aiming anywhere at the sheet's name or at what it holds lands on it (§1, R-UI-060). */
+.cx-schedules-sheet-choose {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cx-schedules-sheet-id {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.cx-schedules-sheet-name {
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-schedules-sheet-holds {
+  margin-left: auto;
+  color: var(--ink-muted);
+}
+
+/* --- the work column: the tables, the notes panel, the registry pane at its foot --- */
+
+.cx-schedules-work {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--gap-section);
+  min-width: 320px;
+  min-height: 0;
+  /* The column itself never scrolls: it hands its height to the two regions below, which is what
+     keeps the registry pane AT the foot instead of after everything the sheet holds. */
+  overflow: hidden;
+}
+
+/* What the sheet holds — its tables, its deferrals and its notes — scrolls as one region. It may
+   shrink to nothing (`min-height: 0`) and takes every pixel the pinned pane below leaves. */
+.cx-schedules-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--gap-section);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.cx-schedules-section-heading {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: var(--weight-heading);
+  color: var(--ink);
+}
+
+/* Both sections are their own height inside the scrolling region: a section that shrank would spill
+   its rows over whatever stands beneath it rather than let the region scroll. */
+.cx-schedules-tables {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--gap-section);
+  min-height: 0;
+}
+
+.cx-schedules-table-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.cx-schedules-table-rows {
+  margin-left: auto;
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+/* I-252: the cell carries exactly one link and adds no second affordance beside it. */
+.cx-schedules-cell {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--row-h);
+  padding: var(--cell-py) var(--cell-px);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  white-space: nowrap;
+}
+
+.cx-schedules-cell[data-selected="true"] {
+  background: var(--surface-selected);
+}
+
+.cx-schedules-none {
+  color: var(--ink-muted);
+}
+
+.cx-schedules-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--ink-code);
+}
+
+.cx-schedules-label {
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+/* --- the notes panel: the answer, the record, the offer (I-253) --- */
+
+/* The rows below rule their own separation with a hairline, so the panel adds no gap between them —
+   a gap and a rule together say the same thing twice and cost a row's height doing it (§5). */
+.cx-schedules-notes {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 0;
+}
+
+.cx-schedules-standing,
+.cx-schedules-reading,
+.cx-schedules-proposal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-h);
+  padding: 0 var(--space-2);
+  border-bottom: var(--hairline);
+}
+
+/* A suspended standing states its refusal BENEATH its own line, at the full width of the row: the
+   card is what the kind stands under, not a thing beside its name (I-253, R-UI-020). The rule sits
+   on the slot this screen owns, never on the card's own class — the card is dressed in one place
+   and no screen re-declares it (ARCH-02, B-17). */
+.cx-schedules-standing-refusal {
+  flex: 0 0 100%;
+  margin-bottom: var(--space-2);
+}
+
+.cx-schedules-reading {
+  cursor: pointer;
+}
+
+.cx-schedules-reading[data-superseded="true"] {
+  color: var(--ink-muted);
+}
+
+.cx-schedules-figure {
+  margin-left: auto;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cx-schedules-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.cx-schedules-unit {
+  color: var(--ink-muted);
+}
+
+.cx-schedules-already {
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+.cx-schedules-door-shut {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --- the registry pane, which yields its height to the inspector (I-249) --- */
+
+.cx-schedules-registry {
+  display: flex;
+  flex: 0 0 240px;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  overflow-y: auto;
+  transition: flex-basis var(--motion-drawer) var(--ease);
+}
+
+.cx-schedules-registry[data-collapsed="true"] {
+  flex-basis: 28px;
+  overflow: hidden;
+}
+
+/* §1's empty cell: the pane stands and states its sentence — at the height that sentence needs. */
+.cx-schedules-registry[data-empty="true"] {
+  flex-basis: auto;
+}
+
+.cx-schedules-family {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  border-bottom: var(--hairline);
+}
+
+.cx-schedules-family-mark,
+.cx-schedules-variant-band,
+.cx-schedules-zone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  min-height: var(--row-h);
+}
+
+.cx-schedules-variant {
+  padding-left: var(--space-3);
+}
+
+.cx-schedules-zone {
+  padding-left: var(--space-3);
+}
+
+.cx-schedules-none-said {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+/* --- the inspector's own column, which the frame hosts (R-UI-080) --- */
+
+.cx-schedules-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.cx-schedules-inspector-title {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: var(--weight-heading);
+  color: var(--ink);
+}
+
+.cx-schedules-sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+/* --- the error cell (R-UI-050) --- */
+
+.cx-schedules-fault {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-4);
+}
+
+.cx-schedules-fault-heading {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: var(--weight-heading);
+  color: var(--ink);
+}
+
+.cx-schedules-fault-body,
+.cx-schedules-report {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink-secondary);
+}
+
+.cx-schedules-report-label {
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+/* Below `lg` the rail and the registry pane take their smaller minima (§1's region table). */
+@media (max-width: 1280px) {
+  .cx-schedules-registry {
+    flex-basis: 200px;
+  }
+}
