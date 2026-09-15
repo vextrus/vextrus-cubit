@@ -146,8 +146,12 @@ export async function storeDocument(deps: DocumentStoreDeps, rendered: RenderedD
  * Every document this project has issued, newest first (R-SPINE-040).
  *
  * Every issue, not just the live one: a superseded document is still evidence of what was published,
- * and `supersededBy` is how a reader tells the two apart. The order is by version rather than by
- * clock, because the version is what the chain is built on and two issues can share a timestamp.
+ * and `supersededBy` is how a reader tells the two apart.
+ *
+ * "Newest first" is by WHEN, then by version. A project holds several kinds at once, and version
+ * counts per kind — so ordering by version alone would file a bill's third issue above a schedule's
+ * first whatever order they were actually issued in. The version breaks a tie, because two documents
+ * issued in one transaction share a timestamp and the chain is still ordered by the number it counts.
  */
 export async function listDocuments(tx: TenantTx, projectId: string): Promise<readonly DocumentListing[]> {
   const rows = await tx
@@ -161,7 +165,7 @@ export async function listDocuments(tx: TenantTx, projectId: string): Promise<re
     })
     .from(documents)
     .where(eq(documents.projectId, projectId))
-    .orderBy(desc(documents.version), desc(documents.id));
+    .orderBy(desc(documents.issuedAt), desc(documents.version), desc(documents.id));
 
   return Object.freeze(rows.map((row) => Object.freeze({ ...row, supersededBy: row.supersededBy ?? null })));
 }
