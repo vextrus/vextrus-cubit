@@ -63,6 +63,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "CAPTION_UNCLASSIFIABLE",
   "CELL_NOT_IN_RESIDUE",
   "CHARACTER_NOT_COVERED",
+  "COMPLEX_STAIR_GEOMETRY",
   "CONSEQUENCES_NOT_CARRIED",
   "CONVENTION_ROLE_UNRESOLVED",
   "CREDENTIALS_NOT_VALID",
@@ -82,6 +83,8 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "INGESTION_TRUNCATED",
   "INTERPRETED_UNCORROBORATED",
   "INVITATION_NOT_CLAIMABLE",
+  "JUNCTION_DEFERRED",
+  "JUNCTION_UNBOUNDED",
   "KIND_NOT_YET_SEEDED",
   "LEVEL_ORDINAL_UNMAPPED",
   "LEVEL_RANGE_ENDPOINT_UNMAPPED",
@@ -99,9 +102,11 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "NO_BEARER_SIGHTED",
   "OFFER_NOT_TO_CONTRACT",
   "ORIGIN_NOT_VERIFIED",
+  "OUTLINE_NOT_CLOSED",
   "PARTITION_NOT_AVAILABLE",
   "PERMISSION_NOT_HELD",
   "PIN_STALE",
+  "PLAN_READING_ABSENT",
   "PRECISION_NOT_APPLIED",
   "PRODUCT_FACTOR_MISSING",
   "PROJECT_WOULD_HAVE_NO_PRINCIPAL",
@@ -142,7 +147,16 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
  *
- * Re-baselined for THREE ADDED entries and nothing else: `EXPORT_NOT_FOUND`, `EXPORT_URL_EXPIRED`
+ * Re-baselined for FIVE ADDED entries and nothing else: `JUNCTION_DEFERRED`, `JUNCTION_UNBOUNDED`,
+ * `COMPLEX_STAIR_GEOMETRY`, `PLAN_READING_ABSENT` and `OUTLINE_NOT_CLOSED` (./slabs.ts), the codes
+ * the slab, shear-wall and stair rails report a row they measured at a bound, a row they could not
+ * measure at all, a stair that is neither a straight flight nor a rectangular landing, a placement
+ * nobody read a plan of, and an outline that does not close (L-QTY-04, AM-06 §4, L-MEA-03). The
+ * roster grew by those five keys — 80 codes to 85 — and not one existing entry's code, message,
+ * remedy, severity or surface moved with it; the previous digest was
+ * 542ac68e04c93e60a7c2020d05c39a30d67b437be99d88f5d700bbc511221599.
+ *
+ * Re-baselined before that for THREE ADDED entries and nothing else: `EXPORT_NOT_FOUND`, `EXPORT_URL_EXPIRED`
  * and `EXPORT_URL_INVALID` (./exports.ts), the three answers `GET /api/exports/[id]` gives a signed
  * download link it will not serve — an address nothing is stored at, a link whose hour has passed,
  * and a link this workspace never issued (R-SPINE-041, R-SPINE-021, Q-12). The roster grew by those
@@ -178,7 +192,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "542ac68e04c93e60a7c2020d05c39a30d67b437be99d88f5d700bbc511221599";
+const ENTRIES_DIGEST_BEFORE = "a7c73b07f8b51c1b0950423eb5bc993b67fef4096ead6ce4607d26eb77291108";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

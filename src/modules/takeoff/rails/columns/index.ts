@@ -20,9 +20,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { RefusalCode } from "@/core/errors";
-import { STOREY_HEIGHT_ABSENCE } from "@/core/levels/law";
 import type {
-  LevelSetup,
   Measure,
   MemberVariantSetup,
   Offer,
@@ -34,6 +32,7 @@ import type {
   RailSetup,
   RegisterObjectRow,
 } from "@/core/offers/contract";
+import { heightOf, variantCovering, type StoreyHeightReading } from "@/core/offers/contract";
 import { CANONICAL_UNIT } from "@/core/units/canon";
 
 /** The rule this rail offers under. An offer names a rule and never a version (L-MEA-08). */
@@ -76,38 +75,9 @@ type Section =
   | { readonly ok: true; readonly width: Measure; readonly depth: Measure }
   | { readonly ok: false; readonly code: ColumnRailCode; readonly source: string | undefined };
 
-/** The reading of the height a level stands at — or the code the row's H is omitted under. */
-type Height = { readonly ok: true; readonly reading: Measure } | { readonly ok: false; readonly code: RefusalCode };
-
 /** Every row of the batch this rail measures: the instances of its own class (L-MEA-08). */
 function columnsOf(objects: readonly RegisterObjectRow[]): readonly RegisterObjectRow[] {
   return objects.filter((row) => row.elementType === COLUMN);
-}
-
-/**
- * The variant of a family that covers one level.
- *
- * A variant whose schedule stated no band at all covers every level — that is what an unbanded
- * schedule row says. A banded one covers the levels its endpoints name, matched by the label the
- * stack carries and bounded by ordinal, so a band written "GF TO 5F" covers what physically stands
- * between them (L-MEA-07: the ordinal is physical). A level no band covers defers (L-FRM-02).
- */
-function variantCovering(variants: readonly MemberVariantSetup[], level: LevelSetup | undefined, levels: readonly LevelSetup[]): MemberVariantSetup | undefined {
-  const unbanded = variants.find((variant) => variant.bandFrom === null && variant.bandTo === null);
-  if (level === undefined) return unbanded;
-  const ordinalOf = (label: string | null): number | undefined => (label === null ? undefined : levels.find((one) => one.label === label)?.ordinal);
-  return (
-    variants.find((variant) => {
-      if (variant.bandFrom === null && variant.bandTo === null) return true;
-      const from = ordinalOf(variant.bandFrom);
-      const to = ordinalOf(variant.bandTo);
-      // An endpoint the stack cannot place is an endpoint this band cannot be judged by: the band
-      // covers nothing rather than everything (L-CAD-07's `LEVEL_RANGE_ENDPOINT_UNMAPPED` is the
-      // expansion's answer to the same fact; a rail states no coverage it cannot show).
-      if ((variant.bandFrom !== null && from === undefined) || (variant.bandTo !== null && to === undefined)) return false;
-      return level.ordinal >= (from ?? level.ordinal) && level.ordinal <= (to ?? level.ordinal);
-    }) ?? unbanded
-  );
 }
 
 /**
@@ -125,37 +95,6 @@ function sectionOf(variant: MemberVariantSetup): Section {
   }
   const read = (value: number): Measure => ({ value: String(value), unit: variant.sectionUnit as string, basis: "TRANSCRIBED", source });
   return { ok: true, width: read(variant.sectionWidth), depth: read(variant.sectionDepth) };
-}
-
-/**
- * The storey height a level stands at, as a reading — or the code it stands under instead. A height
- * whose readings disagree, and one nobody read, are both a level with no height (L-MEA-07), and the
- * code each is reported under is the levels law's own pairing rather than a map spelled here (B-17).
- */
-function heightOf(level: LevelSetup | undefined): Height {
-  // A row standing on a level the live stack does not hold has no reading of a storey height either:
-  // it is the same absence, and L-QTY-02 keeps the row and declares it rather than dropping it.
-  const height = level?.height;
-  // A reading that cites no drawing entity is a reading with nowhere to go back to, and a line always
-  // carries the provenance of what it states (L-QTY-03) — so it is no height this rail can bind, and
-  // the row is KEPT with H declared omitted rather than offered under a source nothing answers to
-  // (L-QTY-02). A source the setup spells as nothing is no source either, the same way a calibration
-  // reference it spells as nothing is no affirmed reference (riskNotes (3)).
-  if (
-    height === undefined ||
-    height.standing !== "AGREED" ||
-    height.value === null ||
-    height.unit === null ||
-    height.basis === null ||
-    height.sourceKey === null ||
-    height.sourceKey.length === 0
-  ) {
-    const code = height === undefined ? STOREY_HEIGHT_ABSENCE.NONE : STOREY_HEIGHT_ABSENCE[height.standing];
-    return { ok: false, code: code ?? STOREY_HEIGHT_ABSENCE.NONE as RefusalCode };
-  }
-  // The source is the entity the height was read from, as the level states it: a rail names no
-  // provenance the setup did not give it, and the guard above means there is one to name (L-QTY-03).
-  return { ok: true, reading: { value: height.value, unit: height.unit, basis: height.basis, source: height.sourceKey } };
 }
 
 /**
@@ -178,7 +117,7 @@ type Read = {
   readonly placement: PlacementSetup;
   readonly calibration: string;
   readonly section: { readonly width: Measure; readonly depth: Measure };
-  readonly height: Height;
+  readonly height: StoreyHeightReading;
 };
 
 /** The offer one read row stands to be measured by (L-MEA-08's offer, whole). */

@@ -32,8 +32,32 @@ const AREA_DIR = "src/core/rulesets/methods/registry";
 /** Code-point order — the only order this tree sorts a roster by (L-REG-05). */
 const byCodePoint = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 
-/** Every pair the shards recorded before AM-11 moved a line, keyed `<ruleId>@<version>` (L-MEA-01). */
-const PAIRS_BEFORE: readonly string[] = Object.freeze(["conventions.resolve@1", "member.volume@1", "rcc.column.concrete@1"]);
+/**
+ * Every pair the shards recorded before AM-11 moved a line, keyed `<ruleId>@<version>` (L-MEA-01).
+ *
+ * Re-baselined for TWELVE ADDED pairs and nothing else — the slab, shear-wall and stair rules of
+ * `src/core/rulesets/methods/slab-wall-stair/` (R-TO-032, L-MEA-09/AM-02, AM-06 §3/§4). The roster
+ * grew by those twelve keys, in code-point order among the three that stood before them, and not
+ * one of those three moved: the three that were here are `conventions.resolve@1`, `member.volume@1`
+ * and `rcc.column.concrete@1`, and they are still here under the same spelling.
+ */
+const PAIRS_BEFORE: readonly string[] = Object.freeze([
+  "conventions.resolve@1",
+  "member.volume@1",
+  "rcc.column.concrete@1",
+  "rcc.slab.concrete@1",
+  "rcc.slab.drop.concrete@1",
+  "rcc.slab.drop.formwork@1",
+  "rcc.slab.edge-formwork@1",
+  "rcc.slab.formwork@1",
+  "rcc.slab.taper.concrete@1",
+  "rcc.stair.flight.concrete@1",
+  "rcc.stair.flight.formwork@1",
+  "rcc.stair.landing.concrete@1",
+  "rcc.stair.landing.formwork@1",
+  "rcc.wall.concrete@1",
+  "rcc.wall.formwork@1",
+]);
 
 /** One area's contribution, as this file reads one. */
 interface Area {

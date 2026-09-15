@@ -29,6 +29,19 @@ const CHANNEL_THRESHOLD: Readonly<Record<DeductionChannel, string>> = Object.fre
   opening: "openingDeductionMinM2",
 });
 
+/**
+ * Which declared variable each channel's DEDUCTED SUM is bound into (L-MEA-02, L-MEA-08).
+ *
+ * The sum is a figure only the gate knows — the threshold is the edition's and the partition is the
+ * gate's — so binding it is the gate's act alone: a rail hands candidates and leaves the variable
+ * alone, and an offer that binds or omits it is refused `OFFER_NOT_TO_CONTRACT`. One map, so a
+ * method that declares a channel and the gate that partitions it cannot disagree about where the
+ * sum lands, and a method declaring a channel must declare the variable named here.
+ */
+export const CHANNEL_VARIABLE: Readonly<Record<DeductionChannel, string>> = Object.freeze({
+  opening: "openings",
+});
+
 /** Is this spelling one of the channels the contract admits? */
 function isChannel(channel: string): channel is DeductionChannel {
   return (DEDUCTION_CHANNELS as readonly string[]).includes(channel);

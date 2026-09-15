@@ -60,3 +60,18 @@ export const COVERAGES = ["COMPLETE", "PARTIAL_DECLARED"] as const;
 
 /** One coverage, drawn from the closed roster above. */
 export type Coverage = (typeof COVERAGES)[number];
+
+/**
+ * The plan members a reader states a reading of, by name (R-TO-032, AM-06 §3/§4). A closed roster:
+ * a reading is one of these five or it is not a reading this product measures from.
+ *
+ * It stands here with the other closed vocabularies rather than beside the reading shapes in
+ * `contract.ts`, for the reason this file exists: Q-07's register scan declares refusal-shaped
+ * spellings by reading the roster itself, and a file of `src/core/errors/**` cannot reach a module
+ * that reaches the store (ARCH-01, B-19). `contract.ts` publishes it again, so a rail still reads
+ * the whole contract at one door.
+ */
+export const PLAN_MEMBERS = ["SLAB_PANEL", "SLAB_DROP", "STAIR_FLIGHT", "STAIR_LANDING", "WALL_RUN"] as const;
+
+/** One plan member, drawn from the closed roster above. */
+export type PlanMember = (typeof PLAN_MEMBERS)[number];

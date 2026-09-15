@@ -281,6 +281,20 @@
       "when": 1789049282017,
       "tag": "0039_scope-acts",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1789100000000,
+      "tag": "0040_formwork-kind",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1789100001000,
+      "tag": "0041_ruleset-edition-slabs",
+      "breakpoints": true
     }
   ]
 }

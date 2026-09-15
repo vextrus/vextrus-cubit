@@ -29,7 +29,7 @@ import { COVERAGES, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES, weakestBasis, type 
 import type { MethodPair } from "../rulesets/editions/content";
 import { implementationOf, type FormulaMethod, type NormalisedBindings } from "../rulesets/methods/registry";
 import { CANONICAL_UNIT, exact } from "../units/canon";
-import { partitionDeductions } from "./deductions";
+import { CHANNEL_VARIABLE, partitionDeductions } from "./deductions";
 import { renderFormula } from "./template";
 import { normaliseMeasure } from "./units";
 
@@ -241,6 +241,23 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
   }
   if (left.size !== offer.omitted.length) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
+  // A candidate in a channel this method does not declare is an offer to deduct through something
+  // the rule does not deduct through — a contract violation, not a threshold question.
+  if (offer.deductions.some((candidate) => !method.deductionChannels.includes(candidate.channel))) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+
+  // The deducted SUM of a channel is a figure only the gate knows: the threshold is the edition's
+  // and the partition is the gate's, so the variable it lands in is the gate's to bind and no rail's
+  // to speak about. An offer that binds it is stating a partition it never made; one that declares
+  // it omitted is claiming the gate's own binding was not available to it. Both are the rail and the
+  // gate disagreeing about what an offer IS (L-MEA-02, L-MEA-08).
+  const gateBound = new Map(method.deductionChannels.map((channel) => [CHANNEL_VARIABLE[channel], channel]));
+  for (const name of gateBound.keys()) {
+    if (Object.hasOwn(offer.bindings, name) || left.has(name)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+  }
+
+  const partition = partitionDeductions(offer.deductions, edition.parameters);
+  if (!partition.ok) return refuse(offer, partition.code);
+
   const normalised: Record<string, { value: string; unit: string }> = {};
   const recorded: Record<string, RecordedBinding> = {};
   for (const variable of method.variables) {
@@ -248,6 +265,28 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
     // kept and states the omission, rather than a quantity over a number the machine invented
     // (L-QTY-02, L-MEA-07's "never defaulted").
     if (left.has(variable.name)) continue;
+
+    const channel = gateBound.get(variable.name);
+    if (channel !== undefined) {
+      // The channel's deducted candidates, each carried into the canonical unit of the variable's
+      // own dimension and summed exactly — never in the unit one of them happened to be written in
+      // (B-07, B-17, L-FRM-06). The two sides the edition's threshold put the candidates on are
+      // both recorded on the line below; only the deducted side is taken off the figure (L-MEA-02).
+      let total = exact("0");
+      for (const candidate of partition.deducted) {
+        if (candidate.channel !== channel) continue;
+        const carried = normaliseMeasure(candidate.measure, variable.dimension);
+        if (!carried.ok) return refuse(offer, carried.code);
+        total = total.add(exact(carried.value));
+      }
+      const sum = { value: total.toString(), unit: CANONICAL_UNIT[variable.dimension] };
+      normalised[variable.name] = sum;
+      // Nobody read this off a drawing — the gate computed it — so it stands DERIVED, provenanced to
+      // the register object the offer was made for (L-QTY-01, L-QTY-03).
+      recorded[variable.name] = { ...sum, basis: "DERIVED", source: offer.register.objectKey, canonical: sum };
+      continue;
+    }
+
     const reading = offer.bindings[variable.name];
     if (reading === undefined) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
     const carried = normaliseMeasure(reading, variable.dimension);
@@ -262,12 +301,6 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
       canonical: { value: carried.value, unit: carried.unit },
     };
   }
-
-  // A candidate in a channel this method does not declare is an offer to deduct through something
-  // the rule does not deduct through — a contract violation, not a threshold question.
-  if (offer.deductions.some((candidate) => !method.deductionChannels.includes(candidate.channel))) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
-  const partition = partitionDeductions(offer.deductions, edition.parameters);
-  if (!partition.ok) return refuse(offer, partition.code);
 
   // L-QTY-03 has a line always carry "a non-empty set of affirmed calibration references", and
   // L-QTY-04 makes a missing mandatory publishable attribute a hard block: an offer standing on no

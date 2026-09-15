@@ -9,7 +9,7 @@
 // names the product does own).
 
 import { ACT_TYPES } from "../acts/law";
-import { COVERAGES, GEOMETRY_TYPES } from "../offers/law";
+import { COVERAGES, GEOMETRY_TYPES, PLAN_MEMBERS } from "../offers/law";
 import { AXIS_IDLE_READINGS } from "../residue/law";
 
 /** One foreign vocabulary: who owns the names, and which of them this tree spells. */
@@ -225,5 +225,14 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // and it is read from there rather than copied (B-19, ARCH-02).
     vocabulary: "coverage states (L-QTY-02)",
     codes: COVERAGES,
+  }),
+  Object.freeze({
+    // R-TO-032's plan members: what a plan reader read of a placement — a slab panel, a sunken drop,
+    // a stair flight, a landing, a wall run. All five bear an underscore, so Q-07's register would
+    // read them as refusal codes nobody registered; they are the DISCRIMINANT of a reading rather
+    // than an answer to anybody, and a rail branches on them to choose the rule it offers under. The
+    // roster's home is `../offers/law.ts` and it is read from there rather than copied (B-19).
+    vocabulary: "plan members (R-TO-032)",
+    codes: PLAN_MEMBERS,
   }),
 ]);

@@ -1037,14 +1037,23 @@ export function rcc6Stack(): StagedLevel[] {
 
 /* ------------------------------------------------------------------ the golden band */
 
-/** How a golden takeoff spells a product class or kind: upper case, with the dot as an underscore. */
+/** How a golden takeoff spells a product class: upper case, with the dot as an underscore. */
 export function fixtureSpelling(value: string): string {
   return value.toUpperCase().replace(/\./gu, "_");
 }
 
+/**
+ * How a golden takeoff spells one of the two kinds these rails answer.
+ *
+ * The goldens name a concrete row RCC_CONCRETE and a formed-face row FORMWORK — the second is NOT the
+ * product's `rcc.formwork` shouted, so the pairing is stated here rather than derived from the product
+ * spelling (AC-7: "kind RCC_CONCRETE ↔ rcc.concrete, FORMWORK ↔ rcc.formwork").
+ */
+export const GOLDEN_KIND: Readonly<Record<string, string>> = Object.freeze({ [RCC_CONCRETE]: "RCC_CONCRETE", [RCC_FORMWORK]: "FORMWORK" });
+
 /** Every golden row of one fixture at one (class, kind, level), over all of its components. */
 export function goldenRowsAt(fixtureId: string, klass: string, kind: string, level: string): { quantity: string; component?: string }[] {
-  const wanted = { class: fixtureSpelling(klass), kind: fixtureSpelling(kind) };
+  const wanted = { class: fixtureSpelling(klass), kind: GOLDEN_KIND[kind] ?? fixtureSpelling(kind) };
   return goldenRowsOf(fixtureId).filter((row) => row.class === wanted.class && row.kind === wanted.kind && row.level === level);
 }
 

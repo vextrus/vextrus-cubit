@@ -143,5 +143,9 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // A seam, empty until a general-notes reader lands: no grade is stated, so nothing is selected
     // by, and the selection basis rolls up to DEFAULTED at the gate (L-QTY-01, riskNotes (5)).
     grades: {},
+    // The same seam for the plan readings: until the plan reader writes them, no placement has a
+    // plate, a drop, a flight, a landing or a wall run read off it — and a rail handed none reports
+    // PLAN_READING_ABSENT rather than measuring something nobody read (L-MEA-08, L-QTY-04).
+    plans: {},
   };
 }
