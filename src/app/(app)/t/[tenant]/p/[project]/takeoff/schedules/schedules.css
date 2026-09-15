@@ -153,6 +153,19 @@
   gap: var(--gap-section);
   min-width: 320px;
   min-height: 0;
+  /* The column itself never scrolls: it hands its height to the two regions below, which is what
+     keeps the registry pane AT the foot instead of after everything the sheet holds. */
+  overflow: hidden;
+}
+
+/* What the sheet holds — its tables, its deferrals and its notes — scrolls as one region. It may
+   shrink to nothing (`min-height: 0`) and takes every pixel the pinned pane below leaves. */
+.cx-schedules-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--gap-section);
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -163,8 +176,11 @@
   color: var(--ink);
 }
 
+/* Both sections are their own height inside the scrolling region: a section that shrank would spill
+   its rows over whatever stands beneath it rather than let the region scroll. */
 .cx-schedules-tables {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: var(--gap-section);
   min-height: 0;
@@ -217,10 +233,13 @@
 
 /* --- the notes panel: the answer, the record, the offer (I-253) --- */
 
+/* The rows below rule their own separation with a hairline, so the panel adds no gap between them —
+   a gap and a rule together say the same thing twice and cost a row's height doing it (§5). */
 .cx-schedules-notes {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-height: 0;
 }
 
@@ -234,6 +253,13 @@
   min-height: var(--row-h);
   padding: 0 var(--space-2);
   border-bottom: var(--hairline);
+}
+
+/* A suspended standing states its refusal BENEATH its own line, at the full width of the row: the
+   card is what the kind stands under, not a thing beside its name (I-253, R-UI-020). */
+.cx-schedules-standing > .cx-refusal {
+  flex: 0 0 100%;
+  margin-bottom: var(--space-2);
 }
 
 .cx-schedules-reading {
@@ -285,6 +311,11 @@
 .cx-schedules-registry[data-collapsed="true"] {
   flex-basis: 28px;
   overflow: hidden;
+}
+
+/* §1's empty cell: the pane stands and states its sentence — at the height that sentence needs. */
+.cx-schedules-registry[data-empty="true"] {
+  flex-basis: auto;
 }
 
 .cx-schedules-family {
