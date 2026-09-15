@@ -9,7 +9,7 @@ import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { RefusalCode } from "@/core/errors";
 import { variantCovering } from "@/core/offers/contract";
-import type { Measure, PlacementSetup, RailObservation, RailSetup, RegisterObjectRow, RunSetup } from "@/core/offers/contract";
+import type { LintelSetup, Measure, PlacementSetup, RailObservation, RailSetup, RegisterObjectRow, RunSetup } from "@/core/offers/contract";
 
 /**
  * The rail-local closed code roster for the FRAME area: every reason one of its rails reports a row
@@ -54,6 +54,46 @@ export const RIGHT = "t_right";
 /** One observation about a row a frame rail did not offer, under the roster above (L-MEA-08). */
 export function observe(className: ElementType, kind: Kind, code: FrameRailCode, row: RegisterObjectRow, sourceEntity: string): RailObservation {
   return { class: className, kind, code, objectKey: row.objectKey, sourceEntity };
+}
+
+/**
+ * One observation about a DRAWING rather than about a row: what a rail could not read anywhere on it.
+ *
+ * A silence that is about no single object has no object key, and a key is left off rather than
+ * filled with something standing for one — the gate keys an observation on what it IS, and an empty
+ * key is part of that identity (L-MEA-08, L-QTY-02).
+ */
+export function observeDrawing(className: ElementType, kind: Kind, code: FrameRailCode, drawingId: string): RailObservation {
+  return { class: className, kind, code, sourceEntity: drawingId };
+}
+
+/**
+ * A map of the setup as the rail reads it: an absent one is an EMPTY one.
+ *
+ * A rail is a pure function of what it was handed (L-MEA-08), and what it was handed is whatever the
+ * caller assembled — the setup grew the `runs` and `lintels` seams with this area, and a caller that
+ * assembles neither is saying the same thing an empty map says: nothing was read there. Reading it as
+ * nothing keeps that answer; dying on it would turn a silence into a crash.
+ */
+function held<T>(map: Readonly<Record<string, T>> | undefined): Readonly<Record<string, T>> {
+  return map ?? {};
+}
+
+/** The run the partition read for each placement, as the setup carries them (L-MEA-09). */
+export function runsIn(setup: RailSetup): Readonly<Record<string, RunSetup>> {
+  return held(setup.runs);
+}
+
+/** The opening an opening schedule states behind each placement, as the setup carries them. */
+export function lintelsIn(setup: RailSetup): Readonly<Record<string, LintelSetup>> {
+  return held(setup.lintels);
+}
+
+/** Every drawing the campaign's placements were read from, in the order the setup holds them. */
+export function drawingsOf(setup: RailSetup): readonly string[] {
+  const seen: string[] = [];
+  for (const placement of Object.values(held(setup.placements))) if (!seen.includes(placement.drawingId)) seen.push(placement.drawingId);
+  return seen;
 }
 
 /** Where a row was sighted and what it stands on — or the code the rail reports instead. */
@@ -109,6 +149,6 @@ export function sectionOf(row: RegisterObjectRow, placement: PlacementSetup, set
 
 /** The run the partition read for a placement, or nothing where it read none (L-MEA-09). */
 export function runOf(placementKey: string, setup: RailSetup): RunSetup | undefined {
-  const held = setup.runs[placementKey];
-  return held === undefined || held.clear === null ? undefined : held;
+  const read = runsIn(setup)[placementKey];
+  return read === undefined || read.clear === null ? undefined : read;
 }

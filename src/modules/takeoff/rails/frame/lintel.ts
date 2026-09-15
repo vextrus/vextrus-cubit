@@ -10,7 +10,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { LintelSetup, Measure, Offer, Rail, RailInput, RailObservation, ReadingSetup } from "@/core/offers/contract";
-import { COUNT, DEPTH, LINTEL_SOURCE_ABSENT, PRISM_RECT, WIDTH, observe, sightingOf } from "./read";
+import { COUNT, DEPTH, LINTEL_SOURCE_ABSENT, PRISM_RECT, WIDTH, drawingsOf, lintelsIn, observe, observeDrawing, sightingOf } from "./read";
 
 /** The class these rails measure (L-MEA-04's roster). */
 const LINTEL: ElementType = "lintel";
@@ -56,7 +56,21 @@ export function lintelRail(declared: { readonly ruleId: string; readonly kind: K
     const offers: Offer[] = [];
     const observations: RailObservation[] = [];
 
-    for (const row of input.objects.filter((one) => one.elementType === LINTEL)) {
+    const rows = input.objects.filter((one) => one.elementType === LINTEL);
+    const scheduled = lintelsIn(setup);
+
+    // A CAMPAIGN NOBODY SCHEDULED A LINTEL ON STILL HAS TO SAY SO. Every other silence of this area is
+    // about a row, and is reported on the row; a campaign that holds no lintel row AND no scheduled
+    // opening holds nothing to hang one on, and would otherwise publish no lintel and no reason —
+    // which is exactly the undeclared partial L-QTY-02 makes unrepresentable. The report is about the
+    // drawing, because the drawing is what a reader goes and reads an opening schedule off (R-TO-032),
+    // and there is one per drawing the campaign was read from: a reader is told which sheet is silent,
+    // never one sheet standing for all of them.
+    if (rows.length === 0 && Object.keys(scheduled).length === 0) {
+      for (const drawingId of drawingsOf(setup)) observations.push(observeDrawing(LINTEL, declared.kind, LINTEL_SOURCE_ABSENT, drawingId));
+    }
+
+    for (const row of rows) {
       const sighting = sightingOf(row, setup);
       if (!sighting.ok) {
         observations.push(observe(LINTEL, declared.kind, sighting.code, row, sighting.sourceEntity));
@@ -64,7 +78,7 @@ export function lintelRail(declared: { readonly ruleId: string; readonly kind: K
       }
       const { placement, calibration } = sighting;
 
-      const stated = setup.lintels[row.placementKey];
+      const stated = scheduled[row.placementKey];
       if (stated === undefined) {
         observations.push(observe(LINTEL, declared.kind, LINTEL_SOURCE_ABSENT, row, placement.sourceEntity));
         continue;
