@@ -330,6 +330,13 @@
       "when": 1789566511562,
       "tag": "0046_ruleset-edition-masonry",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1789571816336,
+      "tag": "0047_src-core-debt-sweep",
+      "breakpoints": true
     }
   ]
 }

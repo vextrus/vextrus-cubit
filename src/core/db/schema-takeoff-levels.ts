@@ -13,7 +13,7 @@ import { acts } from "./schema-acts";
 import { projects } from "./schema-projects";
 import { closedList } from "./sql";
 import { sql as statement } from "drizzle-orm";
-import { check, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigserial, check, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /**
  * L-MEA-07's level: "a project-scoped object with a surrogate id; label, ordinal and height are
@@ -102,6 +102,11 @@ export const storeyHeightReadings = pgTable(
       .notNull()
       .references(() => acts.actId),
     readAt: timestamp("read_at", { withTimezone: true }).notNull().defaultNow(),
+    // The store's own write order. `read_at` is `now()`, which is fixed for a transaction, so a
+    // rebuild appending a drawing's readings writes them all under ONE instant and which reading a
+    // level is current at would be decided by a random surrogate. The sequence is handed out in the
+    // order the rows are written, and the readings are read back in it (L-MEA-07, L-REG-04).
+    appendSeq: bigserial("append_seq", { mode: "number" }).notNull(),
   },
   (table) => [
     // A defaulted storey height is barred at the store as well as at the act (L-MEA-07).

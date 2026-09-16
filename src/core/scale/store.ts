@@ -59,7 +59,11 @@ export async function affirmationsOfRecord(tx: TenantTx, scope: ScaleStoreScope)
     })
     .from(scaleAffirmations)
     .where(and(eq(scaleAffirmations.tenantId, scope.tenantId), eq(scaleAffirmations.ingestId, scope.ingestId)))
-    .orderBy(desc(scaleAffirmations.createdAt), desc(scaleAffirmations.affirmationId));
+    // Newest is the one WRITTEN last, not the one with the later clock and the higher surrogate:
+    // `created_at` is `now()` and is fixed for a transaction, so two affirmations of one act carry
+    // one instant and the surrogate — a random uuid — would decide which of them a view stands
+    // under (L-MEA-05, L-REG-04).
+    .orderBy(desc(scaleAffirmations.appendSeq));
   if (affirmed.length === 0) return new Map();
 
   // Calibrations are read by the keys the affirmations name rather than by the record: a key is a
@@ -95,9 +99,13 @@ export async function writeAffirmation(tx: TenantTx, write: AffirmationWrite): P
   const stamp = { tenantId: write.tenantId, projectId: write.projectId, drawingId: write.drawingId, ingestId: write.ingestId, actId: write.actId };
 
   if (write.moves.length > 0) {
+    // A calibration is its content address and nothing else: the record and the act that filed it
+    // first are not part of what it says, and stamping them on the row would name one record on a
+    // row a second record shares (L-MEA-05). Which record a view stands calibrated under is the
+    // affirmation's to say, and it is written below.
     await tx
       .insert(calibrations)
-      .values(write.moves.map((move) => ({ ...stamp, key: move.incomingKey, viewKey: move.viewKey, factorX: move.factorX, factorY: move.factorY })))
+      .values(write.moves.map((move) => ({ tenantId: write.tenantId, key: move.incomingKey, viewKey: move.viewKey, factorX: move.factorX, factorY: move.factorY })))
       .onConflictDoNothing({ target: [calibrations.tenantId, calibrations.key] });
   }
 

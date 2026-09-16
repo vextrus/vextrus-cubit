@@ -86,15 +86,21 @@ export const registerObjects = pgTable(
     check("register_objects_discipline_closed", statement`${table.discipline} in (${statement.raw(closedList(DISCIPLINES))})`),
     check("register_objects_standing_closed", statement`${table.standing} in (${statement.raw(closedList(SIGHTING_STANDINGS))})`),
     check("register_objects_level_slot_closed", statement`${table.levelSlot} is null or ${table.levelSlot} in (${statement.raw(closedList(LEVEL_SLOTS))})`),
-    // A level is stated once, one way — a surrogate, a lawful-null slot or a placeholder label — and
-    // it is stated as the row's own key states it. An instance key is a placement key followed by one
-    // level segment (L-REG-04), so the column that carries the level is the column the key names: a
-    // row whose key asserts a level its columns deny, or whose columns assert one its key does not,
-    // is a row that disagrees with its own identity. Derived from the segment grammar's own markers
-    // rather than re-spelled here (B-17).
+    // A level is stated EXACTLY once, one way — a surrogate, a lawful-null slot or a placeholder
+    // label — and it is stated as the row's own key states it. An instance key is a placement key
+    // followed by one level segment (L-REG-04), so the column that carries the level is the column
+    // the key names: a row whose key asserts a level its columns deny, or whose columns assert one
+    // its key does not, is a row that disagrees with its own identity. Derived from the segment
+    // grammar's own markers rather than re-spelled here (B-17).
+    //
+    // Exactly one, never "at most one": a sighting stands somewhere — on a surrogate, in a
+    // lawful-null slot or under a placeholder — and a row stating NONE of the three is the very
+    // thing this net exists to catch. An `else ''` arm let exactly that row through, matching a key
+    // that carries no level segment at all, and a net that catches everything catches nothing. With
+    // one form stated the case always has an arm, so the arm that admitted the empty key is gone.
     check(
       "register_objects_level_stated_once",
-      statement`num_nonnulls(${table.levelId}, ${table.levelSlot}, ${table.levelLabel}) <= 1 and ${table.objectKey} = ${table.placementKey} || case when ${table.levelId} is not null then ${statement.raw(closedList([LEVEL_MARKER]))} || ${table.levelId}::text when ${table.levelSlot} is not null then ${statement.raw(closedList([LEVEL_MARKER]))} || ${table.levelSlot} when ${table.levelLabel} is not null then ${statement.raw(closedList([UNREGISTERED_PREFIX]))} || ${table.levelLabel} else '' end`,
+      statement`num_nonnulls(${table.levelId}, ${table.levelSlot}, ${table.levelLabel}) = 1 and ${table.objectKey} = ${table.placementKey} || case when ${table.levelId} is not null then ${statement.raw(closedList([LEVEL_MARKER]))} || ${table.levelId}::text when ${table.levelSlot} is not null then ${statement.raw(closedList([LEVEL_MARKER]))} || ${table.levelSlot} when ${table.levelLabel} is not null then ${statement.raw(closedList([UNREGISTERED_PREFIX]))} || ${table.levelLabel} end`,
     ),
     // The reads the register makes: one revision's objects, and one mark family across it.
     index("register_objects_by_revision").on(table.tenantId, table.setRevisionId, table.registeredAt),

@@ -11,7 +11,7 @@
 import { FACTOR_MINIMUM, FACTOR_PATTERN, SCALE_RANKS, type ScaleRank } from "../scale/law";
 import { closedList } from "./sql";
 import { sql as statement } from "drizzle-orm";
-import { check, index, json, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigserial, check, index, json, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /**
  * L-MEA-05's affirmation act, stored: "Scale is established by affirmation acts, each naming the
@@ -46,6 +46,12 @@ export const scaleAffirmations = pgTable(
     supersedes: uuid("supersedes"),
     actId: uuid("act_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // The store's own write order. `created_at` is `now()`, which is fixed for a transaction, so two
+    // affirmations written in one act carry ONE instant and a random surrogate would then decide
+    // which of them a view stands under — an answer that moves between reads of the same rows. The
+    // sequence is handed out in the order the rows are written, and that is the order they are read
+    // back in (L-MEA-05, L-REG-04).
+    appendSeq: bigserial("append_seq", { mode: "number" }).notNull(),
   },
   (table) => [
     // The precedence is closed, so the store closes it: a rank outside the four L-MEA-05 names
@@ -66,19 +72,21 @@ export const scaleAffirmations = pgTable(
  * averaged by nothing; the CHECKs are written from the law's own pattern (B-17). Append-only: the
  * act that first filed a calibration is the one it names, and a later act naming the same reading
  * finds the row already there.
+ *
+ * The row carries WHAT IT SAYS and nothing else. A record-scoped column — the project, the drawing,
+ * the record or the act — is not covered by the content address, so the first act to file a reading
+ * would stamp its own record on a row every later act naming the same reading shares, and a second
+ * record would read somebody else's name off its own calibration. Which record a view stands
+ * calibrated under is `scale_affirmations`' to say, and it says it (L-MEA-05).
  */
 export const calibrations = pgTable(
   "calibrations",
   {
     tenantId: uuid("tenant_id").notNull(),
     key: text("key").notNull(),
-    projectId: uuid("project_id").notNull(),
-    drawingId: uuid("drawing_id").notNull(),
-    ingestId: uuid("ingest_id").notNull(),
     viewKey: text("view_key").notNull(),
     factorX: text("factor_x").notNull(),
     factorY: text("factor_y").notNull(),
-    actId: uuid("act_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -88,9 +96,8 @@ export const calibrations = pgTable(
     // number it says (the key needs no CHECK of its own — `calibrationKey` is its one minting home).
     check("calibrations_factor_x_shape", statement`${table.factorX} ~ ${statement.raw(`'${FACTOR_PATTERN}'`)} and ${table.factorX}::numeric >= ${statement.raw(`'${FACTOR_MINIMUM}'`)}::text::numeric`),
     check("calibrations_factor_y_shape", statement`${table.factorY} ~ ${statement.raw(`'${FACTOR_PATTERN}'`)} and ${table.factorY}::numeric >= ${statement.raw(`'${FACTOR_MINIMUM}'`)}::text::numeric`),
-    // The read the scale door makes: every calibration of one record.
-    index("calibrations_by_ingest").on(table.tenantId, table.ingestId),
-    index("calibrations_by_drawing").on(table.tenantId, table.drawingId),
+    // The reads that scoped calibrations by record go with the columns they were over: a calibration
+    // is reached by the keys the affirmations of a record name, which is the primary key itself.
   ],
 );
 
