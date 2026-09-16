@@ -25,6 +25,7 @@ import type {
   SurfaceSetup,
   WallSetup,
 } from "@/core/offers/contract";
+import { THRESHOLD_VARIABLE } from "@/core/offers/law";
 
 /**
  * The rail-local closed code roster of this area: every reason a masonry rail reports a row it did
@@ -82,7 +83,7 @@ export const AREA_THICK = "AREA_THICK";
 export const POLYGON = "POLYGON";
 
 /** The variable each method declares its DERIVED threshold under (L-MEA-02's "threshold in force"). */
-export const THRESHOLD = "threshold";
+export const THRESHOLD = THRESHOLD_VARIABLE;
 
 /** The facts that SELECT an item of this area, by the names a line carries them under (L-MEA-06). */
 export const THICKNESS = "thickness";

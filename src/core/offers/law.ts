@@ -39,6 +39,17 @@ export const DEDUCTION_CHANNELS = ["opening", "finish_opening"] as const;
 export type DeductionChannel = (typeof DEDUCTION_CHANNELS)[number];
 
 /**
+ * The variable a line carries the threshold in force in (L-MEA-02: the threshold "lands in the line's
+ * variables"), spelled once for every method that declares a channel and every rail that binds it
+ * DERIVED from the pinned edition.
+ *
+ * The figure never depends on it — a figure that moved when the threshold moved would be a figure the
+ * threshold had been subtracted from — so no tree names this variable: it is declared and bound so a
+ * reader of the line can see which allowance the partition was made against.
+ */
+export const THRESHOLD_VARIABLE = "threshold";
+
+/**
  * L-FRM-01's typed member geometry, by name: the five a machine reads off a drawing and the three a
  * manual tool draws. An offer carries the discriminant, its basis and its calibration; what each
  * shape IS — and the shoelace check over a polygon — is the geometry leaf's.

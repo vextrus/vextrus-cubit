@@ -12,6 +12,7 @@
  */
 import Decimal from "decimal.js";
 import { describe, expect, test } from "vitest";
+import { THRESHOLD_VARIABLE } from "@/core/offers/law";
 import { evaluate, parse, print, variablesOf } from "@/core/rulesets/methods/expr";
 import { enumerateMethods, implementationOf, methodKey, type FormulaMethod, type NormalisedBindings } from "@/core/rulesets/methods/registry";
 
@@ -70,8 +71,17 @@ describe("every formula prints what it computes", () => {
     // finish methods declare and bind a variable their trees rightly do not name. What this case
     // exists to catch — an unbound name in the algebra, which the gate would never carry — is caught
     // exactly as before (L-MEA-08, L-MEA-02).
-    const undeclared = [...variablesOf(method.tree.expr)].filter((name) => !declared.includes(name)).sort();
+    const named = variablesOf(method.tree.expr);
+    const undeclared = [...named].filter((name) => !declared.includes(name)).sort();
     expect(undeclared, `${key}: a variable in the algebra nobody declared is a binding the gate would never carry (L-MEA-08)`).toStrictEqual([]);
+
+    // And nothing is declared that the algebra does not name, with ONE exception the law itself
+    // writes: a method that declares a deduction channel also declares `threshold`, which no tree may
+    // name. Any OTHER declared-and-unnamed variable is a binding a reader is asked for and the figure
+    // then ignores (L-MEA-08).
+    const lawful = method.deductionChannels.length > 0 ? [THRESHOLD_VARIABLE] : [];
+    const unused = declared.filter((name) => !named.includes(name) && !lawful.includes(name)).sort();
+    expect(unused, `${key}: a declared variable the algebra never names is a binding asked for and then ignored (L-MEA-08)`).toStrictEqual([]);
   });
 
   test.each(FORMULAE.map(([key, method]) => [key, method] as const))("%s refuses to answer a binding it was not given", (key, method) => {

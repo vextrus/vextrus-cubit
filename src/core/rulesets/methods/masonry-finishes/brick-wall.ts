@@ -10,6 +10,7 @@
 // bound and is deliberately NOT in the tree: L-MEA-02 has "the threshold in force" land in the line's
 // variables so a reader can see the rule that retained what was retained, and a figure that moved
 // when the threshold moved would be a figure the threshold had been subtracted from.
+import { THRESHOLD_VARIABLE } from "@/core/offers/law";
 import type { MethodPair } from "../../editions/content";
 import { formulaFrom, minus, times, V, type Statement } from "../expr";
 import type { FormulaMethod, MethodVariable } from "../law";
@@ -22,7 +23,7 @@ const LENGTH: MethodVariable = Object.freeze({ name: "L", dimension: "LENGTH" as
 const HEIGHT: MethodVariable = Object.freeze({ name: "h", dimension: "LENGTH" as const });
 const THICKNESS: MethodVariable = Object.freeze({ name: "t", dimension: "LENGTH" as const });
 const OPENINGS: MethodVariable = Object.freeze({ name: "openings", dimension: "AREA" as const });
-const THRESHOLD: MethodVariable = Object.freeze({ name: "threshold", dimension: "AREA" as const });
+const THRESHOLD: MethodVariable = Object.freeze({ name: THRESHOLD_VARIABLE, dimension: "AREA" as const });
 
 /** `V = (L × h − openings) × t` — the wall's face net of its deductions, by its nominal thickness. */
 const BRICK_WALL_VOLUME_TREE: Statement = Object.freeze({

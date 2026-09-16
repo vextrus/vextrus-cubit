@@ -11,6 +11,7 @@
 // tree: L-MEA-03 has the rule that retained what was retained land on the line, and a figure that
 // moved when the threshold moved would be a figure the threshold had been subtracted from.
 import type { Kind } from "@/core/catalogue/kinds";
+import { THRESHOLD_VARIABLE } from "@/core/offers/law";
 import type { MethodPair } from "../../editions/content";
 import { formulaFrom, minus, V, type Statement } from "../expr";
 import type { FormulaMethod, MethodVariable } from "../law";
@@ -18,7 +19,7 @@ import type { FormulaMethod, MethodVariable } from "../law";
 /** The variables a finish formula names, each in the dimension its reading is taken in (L-MEA-03). */
 const GROSS: MethodVariable = Object.freeze({ name: "gross", dimension: "AREA" as const });
 const OPENINGS: MethodVariable = Object.freeze({ name: "openings", dimension: "AREA" as const });
-const THRESHOLD: MethodVariable = Object.freeze({ name: "threshold", dimension: "AREA" as const });
+const THRESHOLD: MethodVariable = Object.freeze({ name: THRESHOLD_VARIABLE, dimension: "AREA" as const });
 
 /** `A = gross − openings` — the face, net of what the schedule's openings deducted (L-MEA-03). */
 export const FACE_TREE: Statement = Object.freeze({ result: "A", expr: minus(V("gross"), V("openings")) });
