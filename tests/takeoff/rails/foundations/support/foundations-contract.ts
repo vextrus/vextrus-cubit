@@ -383,6 +383,7 @@ export type StandingSiteFactShape = {
 /** An exact decimal, as the canon answers one — arbitrary precision end to end (B-07). */
 export type DecimalLike = {
   add: (other: DecimalLike | string) => DecimalLike;
+  sub: (other: DecimalLike | string) => DecimalLike;
   mul: (other: DecimalLike | string) => DecimalLike;
   eq: (other: DecimalLike | string) => boolean;
   lte: (other: DecimalLike | string) => boolean;

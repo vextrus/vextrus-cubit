@@ -170,7 +170,6 @@ function bindingsFor(variables: readonly { name: string }[]): Record<string, { v
 function owed(ruleId: string, exact: (value: string) => DecimalLike): DecimalLike | null {
   const v = (name: string): DecimalLike => exact(BOUND[name] as string);
   const two = exact("2");
-  const negate = (value: DecimalLike): DecimalLike => exact(`-${value.toString()}`);
   switch (ruleId) {
     // count × L × B × D — the rectangular prism (L-FRM-02).
     case FOUNDATION_PRISM_RECT_RULE_ID:
@@ -189,7 +188,7 @@ function owed(ruleId: string, exact: (value: string) => DecimalLike): DecimalLik
       return v("count")
         .mul(v("L").add(two.mul(v("a"))))
         .mul(v("B").add(two.mul(v("a"))))
-        .mul(v("egl").add(negate(v("top"))).add(v("D")).add(v("t")).add(v("dx")));
+        .mul(v("egl").sub(v("top")).add(v("D")).add(v("t")).add(v("dx")));
     // count × (L + 2p) × (B + 2p) × t — the blinding under it (L-FRM-04).
     case BLINDING_RULE_ID:
       return v("count")

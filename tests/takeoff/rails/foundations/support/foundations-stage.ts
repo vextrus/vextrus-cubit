@@ -14,6 +14,7 @@
  * judges: keep it free of judgement so neither lane can hide one here.
  */
 import { expect } from "vitest";
+import { ident, lit } from "../../../../../db/__tests__/support/live-sql";
 import {
   COLUMN_C1,
   QUANTITY_LINES_TABLE,
@@ -27,6 +28,7 @@ import {
   pinnedView,
   registerSeam,
   rowsOfCampaign,
+  sql,
   stageCampaign,
   storeRows,
   type Person,
@@ -328,6 +330,22 @@ export function said(row: StoreRow, camel: string, snake: string): string {
 export type CellReading = { sum: DecimalLike; lines: number; partial: number; partialCodes: string[] };
 
 /**
+ * The figure each published line carries, keyed by line and read as TEXT.
+ *
+ * The audit read carries a whole row through `row_to_json`, which renders a `numeric` as a JSON
+ * NUMBER — a double, which cannot hold what the canon carried. A figure is what a bill is priced
+ * from (B-07), so the figures alone are read from the column's own digits; everything else about a
+ * line still comes through the one audit read. A row kept with no quantity answers `null`.
+ */
+function publishedFigures(tenantId: string, campaignId: string): Map<string, string | null> {
+  const rows = sql(
+    `select line_id::text, coalesce(value::text, '') from ${ident(QUANTITY_LINES_TABLE)}
+      where tenant_id = ${lit(tenantId)}::uuid and campaign_id = ${lit(campaignId)}::uuid;`,
+  );
+  return new Map(rows.map((row) => [String(row[0]), row[1] === undefined || row[1] === "" ? null : String(row[1])]));
+}
+
+/**
  * The lines one campaign published, by (class, kind) — the cell the golden keys its rows by.
  *
  * The sum is the canon's exact decimal over the rows' own figures (B-07), and a row kept with no
@@ -335,11 +353,12 @@ export type CellReading = { sum: DecimalLike; lines: number; partial: number; pa
  */
 export async function publishedByCell(tenantId: string, campaignId: string): Promise<Map<string, CellReading>> {
   const { exact } = await canon();
+  const figures = publishedFigures(tenantId, campaignId);
   const cells = new Map<string, CellReading>();
   for (const line of rowsOfCampaign(QUANTITY_LINES_TABLE, tenantId, campaignId)) {
     const key = `${said(line, "class", "class")}|${said(line, "kind", "kind")}`;
     const held = cells.get(key) ?? { sum: exact("0"), lines: 0, partial: 0, partialCodes: [] };
-    const value = (line as Record<string, unknown>)["value"];
+    const value = figures.get(said(line, "lineId", "line_id"));
     held.lines += 1;
     if (value === null || value === undefined) {
       held.partial += 1;

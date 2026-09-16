@@ -16,6 +16,7 @@
  */
 import { afterAll, describe, expect, test } from "vitest";
 import {
+  BLINDING_PLAN_DEFERRED,
   BLINDING_PROJECTION_PARAMETER,
   BLINDING_RULE_ID,
   BLINDING_THICKNESS_PARAMETER,
@@ -23,6 +24,7 @@ import {
   DEPTH_EXTRA_PARAMETER,
   DERIVED,
   EARTHWORK_EXCAVATION,
+  EARTHWORK_PLAN_DEFERRED,
   ENTERED,
   EXCAVATION_RULE_ID,
   FOOTING,
@@ -33,6 +35,7 @@ import {
   MILLIMETRE,
   MILLIMETRE_SQUARED,
   OFFER_KEYS,
+  PARTIAL_DECLARED,
   PCC_BLINDING,
   PILE,
   PILE_CAP,
@@ -88,6 +91,26 @@ const EGL_AS_WRITTEN = "-152.4";
 /** A word no field of an offer may be named: an offer carries readings, never a figure (L-MEA-08). */
 const BANNED = ["value", "quantity", "volume", "figure"];
 
+/**
+ * The two offers of this stage that CANNOT be complete, and the code each defers under (L-FRM-04).
+ *
+ * The pit and the blinding are rect formulas — `count × (L + 2a) × (B + 2a) × …` and
+ * `count × (L + 2p) × (B + 2p) × t` — and the cap staged here is drawn as a POLYGON, which yields a
+ * shoelace area and no L or B at all. L-FRM-04 says those defer; L-QTY-02 says a row kept with no
+ * quantity is PARTIAL_DECLARED and never COMPLETE, with every omitted component enumerated on it. So
+ * the cap's own concrete (a polygon prism) is complete, and these two are kept and named.
+ */
+const DEFERRED: readonly { class: string; ruleId: string; kind: string; code: string }[] = [
+  { class: PILE_CAP, ruleId: EXCAVATION_RULE_ID, kind: EARTHWORK_EXCAVATION, code: EARTHWORK_PLAN_DEFERRED },
+  { class: PILE_CAP, ruleId: BLINDING_RULE_ID, kind: PCC_BLINDING, code: BLINDING_PLAN_DEFERRED },
+];
+
+/** The two readings a rect plan states and a polygon plan does not, in the order the clause names them. */
+const RECT_PLAN_VARIABLES: readonly string[] = ["L", "B"];
+
+/** Whether an offer is one of the two the polygon plan defers. */
+const isDeferred = (offer: OfferShape): boolean => DEFERRED.some((one) => one.class === offer.class && one.ruleId === offer.ruleId);
+
 /** π/4 · d² · length for a 500 mm pile 21.336 m long, from π itself — never from the product. */
 const PILE_VOLUME = "4.189313803561989";
 const PILE_TOLERANCE = "0.000000000001";
@@ -126,12 +149,23 @@ function offerOf(elementClass: string, ruleId: string): OfferShape {
   return held[0] as OfferShape;
 }
 
-/** What one cell published, as an exact decimal. */
-function sumOf(elementClass: string, kind: string): DecimalLike {
+/** One published cell, asserted to have been published at all. */
+function cellOf(elementClass: string, kind: string): CellReading {
   const held = cells.get(`${elementClass}|${kind}`);
   expect(held, `the campaign published ${elementClass} × ${kind} (it published ${JSON.stringify([...cells].map(([key, one]) => [key, one.sum.toString()]))})`).toBeTruthy();
-  const reading = held as CellReading;
-  expect(reading.partial, `every ${elementClass} × ${kind} line is COMPLETE — nothing of this stage is unstated (L-QTY-02)`).toBe(0);
+  return held as CellReading;
+}
+
+/**
+ * What one COMPLETE cell published, as an exact decimal.
+ *
+ * Completeness is asserted here rather than of every cell alike: a cell is complete because every
+ * reading its rule needs was stated, and this stage deliberately stages one plan that states two of
+ * them nowhere (L-QTY-02, and `DEFERRED` above).
+ */
+function sumOf(elementClass: string, kind: string): DecimalLike {
+  const reading = cellOf(elementClass, kind);
+  expect(reading.partial, `every ${elementClass} × ${kind} line is COMPLETE — every reading this rule needs was stated (L-QTY-02)`).toBe(0);
   return reading.sum;
 }
 
@@ -147,9 +181,25 @@ describe("AC-2: the rails offer readings, and the gate publishes their algebra",
           `no key of an offer is named \`${name}\` — an offer states what was read, and there is no field where a computed value could land (L-MEA-08)`,
         ).toBe(false);
       }
+      expect(offer.geometry.calibration.length, `${offer.class} × ${offer.ruleId} stands on an affirmed calibration reference (L-QTY-03)`).toBeGreaterThan(0);
+      if (isDeferred(offer)) continue;
       expect(offer.coverage, `${offer.class} × ${offer.ruleId} measured every component of its description (L-QTY-02)`).toBe(COMPLETE);
       expect(offer.omitted, "so it omits nothing").toEqual([]);
-      expect(offer.geometry.calibration.length, "and stands on an affirmed calibration reference (L-QTY-03)").toBeGreaterThan(0);
+    }
+
+    // And the two the polygon plan defers are kept and NAMED, never quietly complete: a rect formula
+    // with no L and no B to read states which components it left out, and under which code (L-FRM-04,
+    // L-QTY-02: "every omitted component enumerated on the row").
+    for (const one of DEFERRED) {
+      const offer = offerOf(one.class, one.ruleId);
+      expect(
+        offer.coverage,
+        `${one.class} × ${one.ruleId}: a polygon plan yields a shoelace area and no L or B, so the rect formula cannot measure it and says so (L-FRM-04, L-QTY-02)`,
+      ).toBe(PARTIAL_DECLARED);
+      expect(
+        [...offer.omitted].map((omitted) => ({ variable: omitted.variable, code: omitted.code })).sort((left, right) => (left.variable < right.variable ? -1 : 1)),
+        `and it omits exactly the two readings a rect plan states — ${RECT_PLAN_VARIABLES.join(" and ")} — each under ${one.code}`,
+      ).toEqual(RECT_PLAN_VARIABLES.map((variable) => ({ variable, code: one.code })).sort((left, right) => (left.variable < right.variable ? -1 : 1)));
     }
   }, 900_000);
 
@@ -253,6 +303,16 @@ describe("AC-2: the rails offer readings, and the gate publishes their algebra",
       drift.lte(value(PILE_TOLERANCE)) && value(`-${PILE_TOLERANCE}`).lte(drift),
       `pile × rcc.concrete publishes π/4 · d² · length = ${PILE_VOLUME} m3 (it published ${pile.toString()})`,
     ).toBe(true);
+
+    // And the two cells the polygon plan defers publish their KEPT rows, with no quantity on them and
+    // the reason named — never a figure guessed from a plan the rect formula cannot read (L-QTY-04).
+    for (const one of DEFERRED) {
+      const cell = cellOf(one.class, one.kind);
+      expect(cell.lines, `${one.class} × ${one.kind} keeps its row — a row is kept with no quantity, never dropped (L-QTY-04)`).toBeGreaterThan(0);
+      expect(cell.partial, "and every one of those lines is kept with no quantity at all").toBe(cell.lines);
+      expect(cell.partialCodes, `each of them naming ${one.code} (L-QTY-02)`).toEqual([one.code]);
+      expect(cell.sum.eq("0"), "so the cell publishes no figure whatever — a deferral is not a zero, and nothing was measured").toBe(true);
+    }
   }, 900_000);
 
   test("AC-2: each published figure is the method's own evaluation over the gate's normalised bindings", async () => {
@@ -270,6 +330,9 @@ describe("AC-2: the rails offer readings, and the gate publishes their algebra",
     };
     for (const offer of batch.offers) {
       expect(ruleOf[offer.ruleId], `${offer.ruleId} is one of this shard's seven rules`).toBeTruthy();
+      // An offer that omits components has no figure to hold a method's evaluation against: its row is
+      // kept with no quantity, which the cell case above grades instead (L-QTY-02, L-QTY-04).
+      if (isDeferred(offer)) continue;
       const method = await foundationsMethod({ ruleId: offer.ruleId, version: FOUNDATIONS_VERSION });
       const normalised: Record<string, { value: string }> = {};
       for (const [name, held] of Object.entries(offer.bindings)) {
@@ -284,7 +347,7 @@ describe("AC-2: the rails offer readings, and the gate publishes their algebra",
       expect(line, `${offer.class} × ${offer.kind} was published`).toBeTruthy();
       expect(
         (line as CellReading).sum.eq(owed),
-        `${offer.class} × ${offer.kind}'s published figure is ${offer.ruleId}'s own evaluation over the normalised readings (${owed.toString()})`,
+        `${offer.class} × ${offer.kind}'s published figure is ${offer.ruleId}'s own evaluation over the normalised readings (${owed.toString()}); it published ${(line as CellReading).sum.toString()}`,
       ).toBe(true);
     }
   }, 900_000);
@@ -294,8 +357,9 @@ describe("AC-2: the rails offer readings, and the gate publishes their algebra",
     const lines = [...cells.values()].reduce((count, cell) => count + cell.lines, 0);
     expect(lines, "the campaign published one line per offer (L-QTY-04)").toBe(batch.offers.length);
     expect(verdict.published, "and the gate says so").toBe(batch.offers.length);
-    for (const [, cell] of cells) {
-      expect(cell.partial, "nothing of this stage is partial — every reading it needs was stated (L-QTY-02)").toBe(0);
-    }
+    expect(
+      [...cells].filter(([, cell]) => cell.partial > 0).map(([key]) => key).sort(),
+      "the only cells kept without a quantity are the two a polygon plan defers by name — every other reading this stage needs was stated (L-QTY-02, L-FRM-04)",
+    ).toEqual(DEFERRED.map((one) => `${one.class}|${one.kind}`).sort());
   }, 900_000);
 });

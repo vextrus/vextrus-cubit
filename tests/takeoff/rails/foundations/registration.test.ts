@@ -44,6 +44,7 @@ import {
   railInput,
   railsRoster,
   reading,
+  refusalRegister,
   registerRow,
   variant,
   type RailBatchShape,
@@ -85,6 +86,26 @@ const OWED_BEARS: readonly { class: string; kind: string }[] = [
  * whole here would un-land another leaf's kind (B-19, B-20).
  */
 const OWED_KINDS: readonly string[] = [PILING_BORED, PILING_BORING, EARTHWORK_EXCAVATION, PCC_BLINDING];
+
+/**
+ * `whole` with `part` struck out of it in order — `null` when `part` does not stand in `whole` as an
+ * ordered subsequence at all.
+ *
+ * A composed kind carries each reader's observations in that reader's own order, whatever other
+ * readers of the same kind stand around them; what is left over is the other readers' (L-MEA-08).
+ */
+function withoutSubsequence<T>(whole: readonly T[], part: readonly T[]): T[] | null {
+  const rest: T[] = [];
+  let at = 0;
+  for (const one of whole) {
+    if (at < part.length && JSON.stringify(one) === JSON.stringify(part[at])) {
+      at += 1;
+      continue;
+    }
+    rest.push(one);
+  }
+  return at === part.length ? rest : null;
+}
 
 /** A corpus a concrete rail has something to say about: one column, one footing, read off one plan. */
 function concreteCorpus(): RailInputShape {
@@ -153,9 +174,11 @@ describe("AC-1: the foundations shard is registered — kinds, rails, bears and 
     const foundationRail = door.foundationConcreteRail;
 
     const input = concreteCorpus();
+    const columnBatch = columnRail(input);
+    const foundationBatch = foundationRail(input);
     const apart: RailBatchShape = {
-      offers: [...columnRail(input).offers, ...foundationRail(input).offers],
-      observations: [...columnRail(input).observations, ...foundationRail(input).observations],
+      offers: [...columnBatch.offers, ...foundationBatch.offers],
+      observations: [...columnBatch.observations, ...foundationBatch.observations],
     };
     const composed = law.composeRails(columnRail, foundationRail)(input);
     expect(composed.offers, "`composeRails` concatenates the rails' offers in argument order and computes nothing of its own").toEqual(apart.offers);
@@ -165,8 +188,30 @@ describe("AC-1: the foundations shard is registered — kinds, rails, bears and 
     const kindRail = rails[RCC_CONCRETE];
     expect(typeof kindRail, "the barrel measures rcc.concrete").toBe("function");
     const whole = (kindRail as RailShape)(input);
-    expect(whole.offers, "the ONE rcc.concrete rail the roster holds is that composition — the frame's roster line carries it (AC-1)").toEqual(apart.offers);
-    expect(whole.observations, "observations included").toEqual(apart.observations);
+
+    // What the roster's own rail is graded on is WHERE this shard's reader stands in the kind's batch,
+    // never how many class readers the kind has today: `bears` names more of them every leaf the Bible
+    // schedules, and a kind's batch pinned to an extent would un-land the next one (B-19, B-20).
+    expect(
+      whole.offers.slice(0, columnBatch.offers.length),
+      "the column reader's offers stand FIRST in the kind's batch and unchanged — composing this shard's reader in adds no column line and takes none away (L-MEA-08)",
+    ).toEqual(columnBatch.offers);
+    expect(
+      whole.offers.slice(-foundationBatch.offers.length),
+      "and this shard's reader is composed LAST, its offers standing at the end in argument order (AC-1)",
+    ).toEqual(foundationBatch.offers);
+
+    const withoutColumn = withoutSubsequence(whole.observations, columnBatch.observations);
+    expect(withoutColumn, "the column reader's observations stand in the kind's batch, in its own order").not.toBeNull();
+    const others = withoutSubsequence(withoutColumn ?? [], foundationBatch.observations);
+    expect(others, "and this shard's stand in it too, in its own order — a composition reports what its readers reported").not.toBeNull();
+    const refusals = await refusalRegister();
+    for (const observation of others ?? []) {
+      expect(
+        refusals[observation.code],
+        `\`${observation.code}\` is a REGISTERED code of the closed taxonomy — every observation the kind's rail carries is a reader's own, and the composition mints none of its own (Q-07, L-MEA-08)`,
+      ).toBeTruthy();
+    }
     expect(
       whole.offers.filter((offer) => offer.class === FOOTING).length,
       `the composed rail reads the footing of the corpus — a composition that said nothing about a foundation would prove nothing (it answered ${JSON.stringify(whole.offers.map((one) => one.class))})`,
