@@ -9,6 +9,7 @@
 import type { Kind } from "@/core/catalogue/kinds";
 import type { Rail } from "@/core/offers/contract";
 import { columnConcreteRail } from "../columns";
+import { foundationConcreteRail } from "../foundations/index";
 import { composeRails } from "../law";
 import { lintelRail } from "./lintel";
 import { runMemberRail } from "./run-member";
@@ -52,8 +53,15 @@ export const lintelFormworkRail: Rail = lintelRail({ ruleId: FRAME_RULE_IDS.lint
 // whole batch kept, and each reads only the rows of its own class, so the composition offers each row
 // exactly once (L-MEA-08).
 
-/** Every class that bears `rcc.concrete` in this area, in the order `BEARS` names them (L-MEA-04). */
-export const frameConcreteRail: Rail = composeRails(columnConcreteRail, beamConcreteRail, tieBeamConcreteRail, lintelConcreteRail);
+/**
+ * Every class that bears `rcc.concrete`, in the order `BEARS` names them (L-MEA-04): this area's four
+ * first, and the FOUNDATIONS shard's footing, pile cap and pile after them.
+ *
+ * A kind is measured by ONE rail (L-MEA-08), and `rcc.concrete` is borne by classes in two areas — so
+ * the one function the roster answers that kind with joins both shards' readers here, where the kind's
+ * roster line lives. Each reader reads only the rows of its own classes, so each row is offered once.
+ */
+export const frameConcreteRail: Rail = composeRails(columnConcreteRail, beamConcreteRail, tieBeamConcreteRail, lintelConcreteRail, foundationConcreteRail);
 
 /** Every class that bears `rcc.formwork` in this area. */
 export const frameFormworkRail: Rail = composeRails(beamFormworkRail, tieBeamFormworkRail, lintelFormworkRail);
