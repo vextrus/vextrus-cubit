@@ -106,7 +106,7 @@ describe("AC-6: the column method is enumerated, implemented and cited", () => {
     ]);
   });
 
-  test("AC-6: the platform seed is IS1200_IN @ 2026.10 and cites every method the shards enumerate", async () => {
+  test("AC-6: the platform seed is IS1200_IN @ 2026.11 and cites every method the shards enumerate", async () => {
     const registry = await methodsRegistry();
     const seed = await productModule<SeedModule>(SEED_MODULE);
 
@@ -115,7 +115,7 @@ describe("AC-6: the column method is enumerated, implemented and cited", () => {
       name: SEED_NAME,
       version: SEED_VERSION,
     });
-    expect(SEED_VERSION, "and the version it is re-minted at is the one this increment lands").toBe("2026.10");
+    expect(SEED_VERSION, "and the version it is re-minted at is the one this increment lands").toBe("2026.11");
 
     expect(
       [...seed.SEED_EDITION_CONTENT.methods],
