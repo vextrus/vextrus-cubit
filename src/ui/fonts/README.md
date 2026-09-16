@@ -55,3 +55,18 @@ files). The declarations, verbatim from the upstream css2 response with `src` re
 Italic faces are deliberately not vendored: the handoff (§3) names normal-style weights only,
 and the instrument voice does not use italics. If a Design Decision ever needs them, vendor
 them the same way — never a runtime fetch.
+
+## Static TTF faces for the document seam (Typst)
+
+Typst's font loader admits ttf/otf only, so the document seam (inc-300a) cannot render from the variable woff2
+above. Three static instances are vendored beside them, fetched on 2026-09-16 from the upstream Sorkin Type
+repositories (`SorkinType/SplineSans` and `SorkinType/SplineSansMono`, `fonts/ttf/`, same OFL 1.1 licences):
+
+| file | upstream | sha256 |
+|---|---|---|
+| `spline-sans-regular.ttf` | `SplineSans-Regular.ttf` | `7313ca24903fbdee49a9a20c551f213dfaf86a2ced1948e71e919ef899960674` |
+| `spline-sans-semibold.ttf` | `SplineSans-SemiBold.ttf` | `10b3c62d5cc50fac8c76d9478d18b065f86af4490f9bea256d4be66dd8ab769a` |
+| `spline-sans-mono-regular.ttf` | `SplineSansMono-Regular.ttf` | `79384820b543bd4f52dff46c2da4ddca4bb5131ee3bcba4a6d17a5609351a098` |
+
+`typst fonts --font-path src/ui/fonts --ignore-system-fonts` lists `Spline Sans` and `Spline Sans Mono`. The web
+UI keeps using the woff2 faces; these are for document rendering only.
