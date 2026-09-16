@@ -302,6 +302,20 @@
       "when": 1789506135423,
       "tag": "0042_ruleset-edition-frame",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1789556849405,
+      "tag": "0043_foundations-kinds-and-site-facts",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1789556849406,
+      "tag": "0044_ruleset-edition-foundations",
+      "breakpoints": true
     }
   ]
 }

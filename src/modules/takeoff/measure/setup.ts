@@ -14,8 +14,8 @@
 import { editionOf } from "@/core/campaigns";
 import { drawingSetRevisions, eq, and, forTenant, type TenantTx } from "@/core/db";
 import { levelStackOf } from "@/modules/takeoff/levels";
-import { siteFactsOf } from "@/modules/takeoff/site-facts";
-import type { LevelSetup, MemberVariantSetup, PlacementSetup, RailSetup, ReadingSetup, RunSetup } from "@/core/offers/contract";
+import { siteFactsOf, type SiteFact } from "@/modules/takeoff/site-facts";
+import type { LevelSetup, MemberVariantSetup, PlacementSetup, RailSetup, ReadingSetup, RunSetup, SiteFactSetup } from "@/core/offers/contract";
 import { affirmationsOfRecord } from "@/core/scale/store";
 import { viewAddressOf, viewRecordsOf } from "@/core/views";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
@@ -97,7 +97,16 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
   // What the site states, read at the ONE door the ledger is read through (ARCH-02), and what the
   // campaign's own edition states. A project whose ledger holds nothing carries no facts at all, and
   // a rail reads that absence as the named deferral it is rather than a default (AM-06 §1).
-  const siteFacts = await siteFactsOf({ tenantId: scope.tenantId, projectId: scope.projectId });
+  const standing = await siteFactsOf({ tenantId: scope.tenantId, projectId: scope.projectId });
+  const siteFacts: Partial<Record<SiteFact, SiteFactSetup>> = {};
+  for (const [fact, held] of Object.entries(standing)) {
+    // The reading AS WRITTEN, the metres the canon made of it, and the act a reader takes recourse
+    // to — a rail binds the written value and cites the act, never the ledger's own columns
+    // (L-QTY-03, L-QTY-01).
+    if (held !== undefined) {
+      siteFacts[fact as SiteFact] = { value: held.valueAsWritten, unit: held.unitAsWritten, canonicalMetres: held.canonicalMetres, sourceNote: held.sourceNote, actId: held.actId };
+    }
+  }
   const edition = await forTenant({ tenantId: scope.tenantId }).transaction((tx) => editionOf(tx, scope.tenantId, scope.editionId));
   if (edition === null) {
     throw new Error(

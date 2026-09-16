@@ -64,7 +64,6 @@ const PILE_GEOMETRY: GeometryType = PRISM_POLY;
 /** One offer, assembled from what was read and from what was not (L-MEA-08's offer, whole). */
 function offerOf(
   read: Read,
-  setup: RailSetup,
   stated: { ruleId: string; geometry: GeometryType; bindings: Record<string, Measure>; omitted: OmittedComponent[]; selectors: Record<string, Measure> },
 ): Offer {
   const { row, placement, calibration } = read;
@@ -116,7 +115,7 @@ function spreadOffer(read: Read, setup: RailSetup): Offer {
   if (depth === undefined) omitted.push({ variable: D, code: "FOUNDATION_DEPTH_UNSTATED" });
   else bindings[D] = depth;
 
-  return offerOf(read, setup, {
+  return offerOf(read, {
     ruleId: poly ? FOUNDATION_PRISM_POLY_RULE_ID : FOUNDATION_PRISM_RECT_RULE_ID,
     geometry: poly ? PRISM_POLY : PRISM_RECT,
     bindings,
@@ -138,7 +137,7 @@ function pileOffer(read: Read, setup: RailSetup): Offer {
   if (length === undefined) omitted.push({ variable: PILE_LENGTH, code: "PILE_LENGTH_UNSTATED" });
   else bindings[PILE_LENGTH] = length;
 
-  return offerOf(read, setup, {
+  return offerOf(read, {
     ruleId: PILE_CONCRETE_RULE_ID,
     geometry: PILE_GEOMETRY,
     bindings,

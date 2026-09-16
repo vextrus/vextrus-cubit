@@ -105,7 +105,7 @@ function sidesOf(plan: Plan, deferral: RefusalCode, bindings: Record<string, Mea
  * unpriceable until one is entered — which is what `GROUND_LEVEL_UNSTATED` says in its second
  * sentence, and the recourse its remedy names (L-MEA-06, L-QTY-02).
  */
-function bind(setup: RailSetup, variable: string, reading: Measure | undefined, bindings: Record<string, Measure>, omitted: OmittedComponent[], code: RefusalCode): void {
+function bind(variable: string, reading: Measure | undefined, bindings: Record<string, Measure>, omitted: OmittedComponent[], code: RefusalCode): void {
   if (reading === undefined) omitted.push({ variable, code });
   else bindings[variable] = reading;
 }
@@ -141,12 +141,12 @@ export const excavationRail: Rail = (input: RailInput) =>
     const plan = planOf(read);
     sidesOf(plan, "EARTHWORK_PLAN_DEFERRED", bindings, omitted);
 
-    bind(setup, ALLOWANCE, enteredOrDerived(setup, "WORKING_ALLOWANCE", WORKING_ALLOWANCE_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
-    bind(setup, DEPTH_EXTRA, enteredOrDerived(setup, "DEPTH_EXTRA", DEPTH_EXTRA_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
-    bind(setup, THICKNESS, enteredOrDerived(setup, "BLINDING_THICKNESS", BLINDING_THICKNESS_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
-    bind(setup, GROUND_LEVEL, enteredOnly(setup, "GROUND_LEVEL"), bindings, omitted, "GROUND_LEVEL_UNSTATED");
-    bind(setup, FOUNDING_LEVEL, dimensionOf(read, TOP), bindings, omitted, "FOUNDING_LEVEL_UNSTATED");
-    bind(setup, D, dimensionOf(read, DEPTH), bindings, omitted, "FOUNDATION_DEPTH_UNSTATED");
+    bind(ALLOWANCE, enteredOrDerived(setup, "WORKING_ALLOWANCE", WORKING_ALLOWANCE_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
+    bind(DEPTH_EXTRA, enteredOrDerived(setup, "DEPTH_EXTRA", DEPTH_EXTRA_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
+    bind(THICKNESS, enteredOrDerived(setup, "BLINDING_THICKNESS", BLINDING_THICKNESS_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
+    bind(GROUND_LEVEL, enteredOnly(setup, "GROUND_LEVEL"), bindings, omitted, "GROUND_LEVEL_UNSTATED");
+    bind(FOUNDING_LEVEL, dimensionOf(read, TOP), bindings, omitted, "FOUNDING_LEVEL_UNSTATED");
+    bind(D, dimensionOf(read, DEPTH), bindings, omitted, "FOUNDATION_DEPTH_UNSTATED");
 
     return offerOf(read, EARTHWORK_EXCAVATION, EXCAVATION_RULE_ID, geometryOf(plan), bindings, omitted);
   });
@@ -165,8 +165,8 @@ export const blindingRail: Rail = (input: RailInput) =>
     const plan = planOf(read);
     sidesOf(plan, "BLINDING_PLAN_DEFERRED", bindings, omitted);
 
-    bind(setup, PROJECTION, enteredOrDerived(setup, "BLINDING_PROJECTION", BLINDING_PROJECTION_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
-    bind(setup, THICKNESS, enteredOrDerived(setup, "BLINDING_THICKNESS", BLINDING_THICKNESS_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
+    bind(PROJECTION, enteredOrDerived(setup, "BLINDING_PROJECTION", BLINDING_PROJECTION_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
+    bind(THICKNESS, enteredOrDerived(setup, "BLINDING_THICKNESS", BLINDING_THICKNESS_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
 
     return offerOf(read, PCC_BLINDING, BLINDING_RULE_ID, geometryOf(plan), bindings, omitted);
   });
