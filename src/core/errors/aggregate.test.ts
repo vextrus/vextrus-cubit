@@ -214,7 +214,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "9b3547b60626ffa04e8cb3060c1bb88787578bda65dd9288db20cb4f0942e567";
+const ENTRIES_DIGEST_BEFORE = "cb27242d45694d3fb7634ebec57ea2cf1290950732e02ed46abbac38b1437d6a";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

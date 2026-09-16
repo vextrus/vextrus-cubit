@@ -41,12 +41,21 @@ import {
   type Decimal,
   type MethodPairShape,
 } from "../takeoff/rails/support/frame-rail-stage";
+import { SEED_VERSION as SHARED_SEED_VERSION } from "./support/editions";
 
 /** The law every one of the six is recorded under (AC-2). */
 const FRAME_LAW = "L-MEA-09";
 
-/** The version the platform edition is re-minted at (AC-2). */
-const SEED_VERSION = "2026.10";
+/**
+ * The version the platform edition is re-minted at (AC-2) — read from the one home this cluster
+ * keeps it in, never re-spelled here.
+ *
+ * What AC-2 asks is that the seed IN FORCE cites the six, and the head of the lineage moves whenever
+ * any later leaf lands methods of its own: the slab, shear-wall and stair leaf mints 2026.11 citing
+ * all twenty-one pairs, the six among them. A literal frozen here would make that lawful re-mint
+ * read as this criterion breaking (B-17, B-19, L-REG-07).
+ */
+const SEED_VERSION = SHARED_SEED_VERSION;
 
 /** The role a method that prints a formula and computes a figure stands in (L-MEA-01). */
 const FORMULA_ROLE = "formula";
