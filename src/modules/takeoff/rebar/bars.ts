@@ -183,7 +183,7 @@ function rowOf(spec: BarSpec, sequence: number, read: Omit<MemberRead, "bars" | 
   const raw = cuttingLengthOf(probe, EDITION);
   // A bar longer than the stock bar is spliced, and each splice after the first costs one more lap:
   // the split's own laps are ADDED to the detail's, because both are steel in place (AM-03(a)).
-  const split = stockSplitOf({ lengthMm: raw, lapMm: spec.lapMm, stockMm: STOCK_BAR_MM });
+  const split = stockSplitOf({ lengthMm: raw, lapMm: spec.lapMm, stockMm: String(STOCK_BAR_MM) });
   const pieces = split.ok ? split.pieces : 1;
   const lapsPerBar = spec.lapsPerBar + (pieces - 1);
   const parentCount = "1";

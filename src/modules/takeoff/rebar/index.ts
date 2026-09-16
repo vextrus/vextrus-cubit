@@ -48,7 +48,7 @@ function offerOf(read: MemberRead): Offer {
   bind("lap", masses.lap, lapBasis);
   bind("ties", masses.ties, "DERIVED");
 
-  const fy = read.setup.detailing.fy;
+  const fy = read.fy;
   return {
     ruleId: REBAR_RULE_ID,
     kind: RCC_REBAR,

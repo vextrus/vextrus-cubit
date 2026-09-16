@@ -9,6 +9,7 @@
 // figure is rounded once, where it is printed (L-QTY-05, B-07).
 import { and, barRows, eq, forTenant } from "@/core/db";
 import { writeInBatches } from "@/core/db/batch";
+import { isShapeCode, type ShapeCode } from "@/core/rulesets/methods/rebar/bs8666";
 import { cuttingStockOf, type CuttingStockAnswer } from "@/core/rulesets/methods/rebar/stock";
 import { exact } from "@/core/units/canon";
 import type { BarRow } from "./bars";
@@ -47,6 +48,16 @@ export type BbsDocument = {
   readonly grandTotalKg: string;
 };
 
+/**
+ * The shape a row stands under, as the store's own closed roster spells it. A synthesised row always
+ * carries one of `SHAPE_CODES` — the guard is here so the column's closed type is reached by reading
+ * the roster rather than by asserting past it (B-19).
+ */
+function asShape(value: string): ShapeCode {
+  if (!isShapeCode(value)) throw new Error(`bar row shape ${value} stands in no BS 8666 shape this tree holds`);
+  return value;
+}
+
 /** The one rounded surface BS 8666 admits: up to the next 25 mm, and nowhere else (AM-01). */
 const ROUNDING_MM = 25;
 
@@ -72,7 +83,7 @@ export async function writeBarRows(scope: BarRowScope, rows: readonly BarRow[]):
     barMark: row.barMark,
     role: row.role,
     diameterMm: row.diameterMm,
-    shape: row.shape as BarRow["shape"] & string,
+    shape: asShape(row.shape),
     dimsMm: { ...row.dimsMm },
     cuttingRawMm: row.cuttingRawMm,
     cuttingRoundedMm: row.cuttingRoundedMm,
@@ -159,12 +170,12 @@ export async function bbsOf(scope: BbsScope): Promise<BbsDocument> {
   const pieces = rows.map((row) => ({ diameterMm: row.diameterMm, roundedMm: row.cuttingRoundedMm, count: Number(row.bars) * row.piecesPerBar }));
   return {
     campaignId: scope.campaignId,
-    stockMm: REBAR_EDITION.STOCK_BAR_MM,
+    stockMm: String(REBAR_EDITION.STOCK_BAR_MM),
     roundingMm: ROUNDING_MM,
     rows,
     perDiameterKg,
     perMarkKg,
-    cuttingStock: cuttingStockOf(pieces, REBAR_EDITION.STOCK_BAR_MM),
+    cuttingStock: cuttingStockOf(pieces, String(REBAR_EDITION.STOCK_BAR_MM)),
     grandTotalKg: grand.toString(),
   };
 }
