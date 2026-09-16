@@ -46,6 +46,37 @@ ALTER TABLE "calibrations" DROP COLUMN "drawing_id";--> statement-breakpoint
 ALTER TABLE "calibrations" DROP COLUMN "ingest_id";--> statement-breakpoint
 ALTER TABLE "calibrations" DROP COLUMN "act_id";--> statement-breakpoint
 ALTER TABLE "work_items" ADD CONSTRAINT "work_items_unit_closed" CHECK ("work_items"."canonical_unit" in ('kg', 'MT', 'lb', 'm3', 'cft', 'm', 'mm', 'ft', 'in', 'm2', 'mm2', 'cm2', 'sft', 'pcs'));--> statement-breakpoint
+-- L-REG-04: a sighting stands somewhere — on a surrogate, in a lawful-null slot or under a
+-- placeholder — and the `= 1` below is the net for a row standing nowhere. The old `<= 1` and its
+-- `else ''` arm admitted exactly that row, and ADD CONSTRAINT validates the whole table: a store
+-- already holding one would meet this tightening as an unreadable validation failure part-way
+-- through the deploy. Such a row is repaired first, and repaired rather than removed — a register
+-- object is never taken away (`register_objects_never_taken_away`), and a sighting deleted is a
+-- sighting nobody can weigh (L-REG-03). An unstated level is what the UNRESOLVED slot says, so the
+-- row is moved into that slot and its key gains the segment the grammar spells for that form.
+UPDATE "register_objects" AS o
+SET "level_slot" = 'UNRESOLVED', "object_key" = o."placement_key" || '@UNRESOLVED'
+WHERE num_nonnulls(o."level_id", o."level_slot", o."level_label") = 0
+	AND NOT EXISTS (
+		SELECT 1 FROM "register_objects" AS standing
+		WHERE standing."tenant_id" = o."tenant_id" AND standing."set_revision_id" = o."set_revision_id" AND standing."object_key" = o."placement_key" || '@UNRESOLVED')
+	AND NOT EXISTS (
+		SELECT 1 FROM "register_attributes" AS a
+		WHERE a."tenant_id" = o."tenant_id" AND a."set_revision_id" = o."set_revision_id" AND a."object_key" = o."object_key");--> statement-breakpoint
+-- What the repair cannot decide, the deploy says out loud rather than leaving it to a check
+-- violation nobody can read: a level-less row whose repaired key already stands is two rows
+-- claiming one identity inside one revision (L-REG-03), and one carrying attribute slots cannot
+-- take its key with it, because `register_attributes` is append-only. Which row is the sighting is
+-- a person's judgement, and this names the rows waiting on it.
+DO $repair$
+DECLARE "standing_nowhere" bigint;
+BEGIN
+	SELECT count(*) INTO "standing_nowhere" FROM "register_objects" WHERE num_nonnulls("level_id", "level_slot", "level_label") = 0;
+	IF "standing_nowhere" > 0 THEN
+		RAISE EXCEPTION 'register_objects still holds % row(s) stating no level after the repair: either a row already stands at <placement_key>@UNRESOLVED, so two rows claim one identity inside one revision (L-REG-03), or attribute slots stand on the key this one holds and an append-only ledger cannot carry them across. A person judges which row is the sighting before this migration can run (L-REG-04).', "standing_nowhere";
+	END IF;
+END
+$repair$;--> statement-breakpoint
 ALTER TABLE "register_objects" ADD CONSTRAINT "register_objects_level_stated_once" CHECK (num_nonnulls("register_objects"."level_id", "register_objects"."level_slot", "register_objects"."level_label") = 1 and "register_objects"."object_key" = "register_objects"."placement_key" || case when "register_objects"."level_id" is not null then '@' || "register_objects"."level_id"::text when "register_objects"."level_slot" is not null then '@' || "register_objects"."level_slot" when "register_objects"."level_label" is not null then '@unregistered:' || "register_objects"."level_label" end);--> statement-breakpoint
 ALTER TABLE "register_observations" ADD CONSTRAINT "register_observations_unit_closed" CHECK ("register_observations"."canonical_unit" in ('kg', 'MT', 'lb', 'm3', 'cft', 'm', 'mm', 'ft', 'in', 'm2', 'mm2', 'cm2', 'sft', 'pcs'));--> statement-breakpoint
 ALTER TABLE "quantity_lines" ADD CONSTRAINT "quantity_lines_unit_closed" CHECK ("quantity_lines"."unit" in ('kg', 'MT', 'lb', 'm3', 'cft', 'm', 'mm', 'ft', 'in', 'm2', 'mm2', 'cm2', 'sft', 'pcs'));--> statement-breakpoint
