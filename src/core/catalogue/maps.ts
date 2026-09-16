@@ -40,6 +40,9 @@ export const KIND_DISCIPLINE: Readonly<Record<Kind, Discipline>> = Object.freeze
   "masonry.brickwork": "ARCHITECTURAL",
   "finish.plaster": "ARCHITECTURAL",
   "finish.paint": "ARCHITECTURAL",
+  // Reinforcement is stated by the STRUCTURAL set and by nothing else: the bar schedules, the
+  // detailing notes and the typical details a bill of bars is taken off are all the engineer's.
+  "rcc.rebar": "STRUCTURAL",
 });
 
 /**
@@ -64,4 +67,8 @@ export const KIND_ALGEBRA: Readonly<Record<Kind, Algebra>> = Object.freeze({
   "masonry.brickwork": "member",
   "finish.plaster": "face",
   "finish.paint": "face",
+  // The bar rule is part of the MEMBER algebra's own words — "section × run plus the bar rule" — and
+  // a member's reinforcement is synthesised from that member's own schedule, never from a face of a
+  // space and never from a network of runs (L-MEA-08, L-FRM-05).
+  "rcc.rebar": "member",
 });

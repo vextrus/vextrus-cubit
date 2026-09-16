@@ -15,7 +15,8 @@ import { editionOf } from "@/core/campaigns";
 import { drawingSetRevisions, eq, and, forTenant, type TenantTx } from "@/core/db";
 import { levelStackOf } from "@/modules/takeoff/levels";
 import { siteFactsOf, type SiteFact } from "@/modules/takeoff/site-facts";
-import type { LevelSetup, MemberVariantSetup, PlacementSetup, RailSetup, ReadingSetup, RunSetup, SiteFactSetup } from "@/core/offers/contract";
+import { appliedDetailingValuesOf, type AppliedDetailingValues } from "@/modules/takeoff/notes";
+import type { DetailingSetup, LevelSetup, Measure, MemberVariantSetup, PlacementSetup, RailSetup, ReadingSetup, RunSetup, SiteFactSetup } from "@/core/offers/contract";
 import { affirmationsOfRecord } from "@/core/scale/store";
 import { viewAddressOf, viewRecordsOf } from "@/core/views";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
@@ -46,6 +47,29 @@ const VECTOR = "VECTOR";
  * FIRST entity the reading was read from: a binding cites one atom of the drawing, and a reader who
  * wants the rest follows it back to the run (L-QTY-03, L-CAD-03).
  */
+/**
+ * What the notes door answered, as the setup carries it: a figure it HAS becomes a reading whose
+ * value is the drawing's own and whose basis is TRANSCRIBED — a note is read off a drawing, which
+ * is what TRANSCRIBED means (L-QTY-01) — and a figure it has not becomes a null. Nothing is
+ * defaulted here: what the edition states is the RAIL's to fall back on and to cite, and a default
+ * folded in at this seam would be a number nobody could trace to a clause (L-MEA-06).
+ */
+function detailingSetupOf(applied: AppliedDetailingValues): DetailingSetup {
+  // The FIRST text the door cited, as every other reading of this setup does (`readingSetupOf`):
+  // one atom to follow back, with the whole citation carried beside it in `sourceKeys`.
+  const source = applied.sourceKeys[0] ?? "";
+  const figure = (held: { readonly value: number; readonly unit: string } | undefined): Measure | null =>
+    held === undefined ? null : { value: String(held.value), unit: held.unit, basis: "TRANSCRIBED", source };
+  return {
+    fy: figure(applied.fy),
+    fc: figure(applied.fc),
+    lapMultiplier: applied.lapMultiplier ?? null,
+    hookExtension: applied.hookExtension ?? null,
+    suspended: applied.suspended,
+    sourceKeys: applied.sourceKeys,
+  };
+}
+
 function readingSetupOf(reading: SideReading | null): ReadingSetup | null {
   return reading === null ? null : { value: reading.value, unit: reading.unit, basis: reading.basis, source: reading.sourceKeys[0] ?? "" };
 }
@@ -107,6 +131,11 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
       siteFacts[fact as SiteFact] = { value: held.valueAsWritten, unit: held.unitAsWritten, canonicalMetres: held.canonicalMetres, sourceNote: held.sourceNote, actId: held.actId };
     }
   }
+  // What the campaign's drawings say about DETAILING, asked ONCE at the notes law's one door
+  // (AM-03(h)): a general note re-versions what a campaign applies, and no other reader of those
+  // rows may stand beside this one. What it did not answer is carried as a null, never a default.
+  const applied = await appliedDetailingValuesOf({ tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: scope.setRevisionId });
+
   const edition = await forTenant({ tenantId: scope.tenantId }).transaction((tx) => editionOf(tx, scope.tenantId, scope.editionId));
   if (edition === null) {
     throw new Error(
@@ -165,6 +194,17 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
           // length and founding level are columns of its own schedule, and until one is read the
           // rails keep the row and name the reading they did not get (L-QTY-02, riskNotes).
           dimensions: {},
+          // The reinforcement zones the schedule stated, carried across as they were read: a zone
+          // that states a spacing and no length is handed on WITH that absence, because what a rail
+          // makes of it is the rail's (L-QTY-01, L-FRM-05).
+          rebar: variant.zones.map((zone) => ({
+            zone: zone.zone,
+            bars: zone.bars,
+            spacing: zone.spacing,
+            spacingUnit: zone.spacingUnit,
+            spacingBar: zone.spacingBar,
+            sourceKeys: zone.sourceKeys,
+          })),
         }));
       }
       memberTypes[registered.ingestId] = families;
@@ -215,5 +255,6 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // simply absent, and what a rail makes of that absence is the rail's.
     siteFacts,
     edition: { digest: edition.digest, parameters: edition.parameters },
+    detailing: detailingSetupOf(applied),
   };
 }
