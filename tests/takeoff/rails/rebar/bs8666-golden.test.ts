@@ -123,17 +123,40 @@ describe("AC-3: every bar of F-RCC6-BNBC cuts, rounds, records and bills as the 
     const codes = door["SHAPE_CODES"] as readonly string[];
     expect([...seen].filter((code) => !codes.includes(code)), `every shape the golden details stands in \`SHAPE_CODES\` (it holds ${codes.join(", ")})`).toEqual([]);
 
-    // Shape 51, read as AM-03(d) states it: 2(A + B) + 2C − 2.5r − 5d, on the golden's own links.
-    const link = golden.rows.find((row) => row.shape === "51");
-    expect(link, "the golden carries closed links (shape 51) — the mark AM-03(d) corrects").toBeTruthy();
-    const closed = link as BbsGoldenRow;
-    const d = closed.dia_mm;
-    const r = radiusOf(edition, d);
-    const [A, B, C] = [Number(closed.dims_mm["A"]), Number(closed.dims_mm["B"]), Number(closed.dims_mm["C"])];
-    const stated51 = 2 * ((A as number) + (B as number)) + 2 * (C as number) - 2.5 * r - 5 * d;
-    const answered51 = generic(legsOf(closed), (shapes["51"] as { bends: readonly { angle: number; count: number }[] }).bends, r, d);
-    expect(Number(answered51), `shape 51 is 2(A+B) + 2C − 2.5r − 5d on ${closed.bar_mark} — never 2(A+B+C), which double-counts the hooks`).toBeCloseTo(stated51, 3);
-    expect(Number(answered51), "and that is the golden's own raw length for it").toBeCloseTo(Number(closed.cutting_raw_mm), 3);
+    // Shape 51, read as AM-03(d) states it: 2(A + B) + 2C − 2.5r − 5d, where A and B are the two
+    // sides to the outer bend line and C is the hook extension — the letters by the ROLE the clause
+    // names them in, not by the slot a fixture happens to print them in. On a closed link that
+    // roster is two side pairs and two hooks, so the letters are read off the legs themselves.
+    //
+    // What the clause demands is that the per-code spelling and the generic form answer the SAME
+    // length, and that the length is the file's own: a code formula that disagrees with the generic
+    // form is void (AM-03(d)). Both are asserted here, on every closed link the golden details.
+    const links = golden.rows.filter((row) => row.shape === "51");
+    expect(links.length, "the golden carries closed links (shape 51) — the mark AM-03(d) corrects").toBeGreaterThan(0);
+    const bends51 = (shapes["51"] as { bends: readonly { angle: number; count: number }[] }).bends;
+    const offForm: string[] = [];
+    for (const closed of links) {
+      const d = closed.dia_mm;
+      const r = radiusOf(edition, d);
+      const legs = legsOf(closed).map(Number);
+      if (legs.length !== 6) {
+        offForm.push(`${closed.bar_mark} states ${legs.length} legs where a closed link runs on six`);
+        continue;
+      }
+      const sides = legs.slice(0, 4).sort((left, right) => left - right);
+      const hooks = legs.slice(4);
+      if (sides[0] !== sides[1] || sides[2] !== sides[3] || hooks[0] !== hooks[1]) {
+        offForm.push(`${closed.bar_mark} runs ${legs.join("/")} mm, which is no closed link of two sides and two hooks`);
+        continue;
+      }
+      const stated51 = 2 * ((sides[0] as number) + (sides[2] as number)) + 2 * (hooks[0] as number) - 2.5 * r - 5 * d;
+      const answered51 = generic(legsOf(closed), bends51, r, d);
+      if (Math.abs(Number(answered51) - stated51) >= 0.0005) {
+        offForm.push(`${closed.bar_mark}: the generic form answered ${String(answered51)} where 2(A+B) + 2C − 2.5r − 5d on its own legs is ${stated51}`);
+      }
+      if (!stands(answered51, closed.cutting_raw_mm)) offForm.push(`${closed.bar_mark}: ${String(answered51)} is not the golden's own raw length ${closed.cutting_raw_mm}`);
+    }
+    expect(offForm, say("the shape-51 spelling and the generic form cut every closed link to the same length (AM-03(d))", offForm, links.length)).toEqual([]);
   });
 
   test("AC-3: roundedCuttingLengthOf is the one rounded surface, at 25 mm and never under the raw", async () => {
