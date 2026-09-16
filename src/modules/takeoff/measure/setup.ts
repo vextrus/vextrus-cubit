@@ -13,11 +13,11 @@
 // the gate (B-17, L-FRM-06).
 import { drawingSetRevisions, eq, and, forTenant, type TenantTx } from "@/core/db";
 import { levelStackOf } from "@/modules/takeoff/levels";
-import type { LevelSetup, MemberVariantSetup, PlacementSetup, RailSetup } from "@/core/offers/contract";
+import type { LevelSetup, MemberVariantSetup, PlacementSetup, RailSetup, ReadingSetup, RunSetup } from "@/core/offers/contract";
 import { affirmationsOfRecord } from "@/core/scale/store";
 import { viewAddressOf, viewRecordsOf } from "@/core/views";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
-import { memberTypesOf, placementsOf } from "@/modules/takeoff/partition";
+import { memberTypesOf, placementsOf, runsOf, type SideReading } from "@/modules/takeoff/partition";
 
 /** Which campaign's revision a setup is read for, in which project of which workspace. */
 export type RailSetupScope = {
@@ -32,6 +32,15 @@ export type RailSetupScope = {
  * that produces one, and would carry its own engine and its own INTERPRETED basis (L-QTY-03).
  */
 const VECTOR = "VECTOR";
+
+/**
+ * One stored reading as a rail is handed one, or null where the partition read none. The source is the
+ * FIRST entity the reading was read from: a binding cites one atom of the drawing, and a reader who
+ * wants the rest follows it back to the run (L-QTY-03, L-CAD-03).
+ */
+function readingSetupOf(reading: SideReading | null): ReadingSetup | null {
+  return reading === null ? null : { value: reading.value, unit: reading.unit, basis: reading.basis, source: reading.sourceKeys[0] ?? "" };
+}
 
 /** The drawings the pinned revision names, in the order its manifest addresses them (L-REG-06). */
 async function drawingsOfRevision(tx: TenantTx, scope: RailSetupScope): Promise<string[]> {
@@ -80,6 +89,7 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
   const placements: Record<string, PlacementSetup> = {};
   const memberTypes: Record<string, Record<string, readonly MemberVariantSetup[]>> = {};
   const calibrations: Record<string, Record<string, string>> = {};
+  const runs: Record<string, RunSetup> = {};
 
   for (const drawingId of drawingIds) {
     const record = await ingestRecordOf({ tenantId: scope.tenantId, drawingId });
@@ -97,6 +107,13 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
         // (L-QTY-03: "the (drawing, view) read from", and the source entity beside it).
         sourceEntity: placement.placementKey,
       };
+    }
+
+    // The clear each beam and tie beam of this drawing measures, and the slab adjoining each of its
+    // sides (L-MEA-09). A reading is carried across whole — value, unit, basis — with the FIRST entity
+    // it was read from as its source, which is what a binding provenances to (L-QTY-03).
+    for (const run of (await runsOf(viewsScope)) ?? []) {
+      runs[run.placementKey] = { clear: readingSetupOf(run.clear), sides: [readingSetupOf(run.sides[0]), readingSetupOf(run.sides[1])] };
     }
 
     const registered = await memberTypesOf(viewsScope);
@@ -143,6 +160,14 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // A seam, empty until a general-notes reader lands: no grade is stated, so nothing is selected
     // by, and the selection basis rolls up to DEFAULTED at the gate (L-QTY-01, riskNotes (5)).
     grades: {},
+    // The runs the partition read for this campaign's beam and tie-beam placements (L-MEA-09). A
+    // placement with no entry here is one the partition read no run for, and the frame rail reports
+    // RUN_UNREAD rather than measuring a member on a figure nobody read (L-QTY-01).
+    runs,
+    // A seam, empty until the opening-schedule reader lands: no opening states a lintel, so the
+    // lintel rails offer none and report LINTEL_SOURCE_ABSENT — a lintel is never inferred from the
+    // wall it spans (L-QTY-04).
+    lintels: {},
     // The same seam for the plan readings: until the plan reader writes them, no placement has a
     // plate, a drop, a flight, a landing or a wall run read off it — and a rail handed none reports
     // PLAN_READING_ABSENT rather than measuring something nobody read (L-MEA-08, L-QTY-04).

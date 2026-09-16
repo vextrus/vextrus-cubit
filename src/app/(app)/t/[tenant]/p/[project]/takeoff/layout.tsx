@@ -10,8 +10,10 @@ import { coverageRoute } from "./coverage/route-address";
 import { COVERAGE_COPY } from "@/modules/takeoff/coverage/copy";
 import { levelsRoute } from "./levels/route-address";
 import { registerRoute } from "./register/route-address";
+import { schedulesRoute } from "./schedules/route-address";
 import { strings } from "@/ui/strings";
 import { TakeoffTabs } from "./nav";
+import { TESTIDS } from "@/ui/testids";
 
 export default async function TakeoffLayout({
   children,
@@ -32,6 +34,9 @@ export default async function TakeoffLayout({
           { testId: "takeoff-nav-register", label: strings.takeoff_nav_register, href: registerRoute(tenant, project) },
           { testId: "takeoff-nav-coverage", label: COVERAGE_COPY.takeoff_nav_coverage, href: coverageRoute(tenant, project) },
           { testId: "takeoff-nav-levels", label: strings.takeoff_nav_levels, href: levelsRoute(tenant, project) },
+          // The fourth entry's label is S-Schedules' own table, which is where that screen's copy
+          // lives (s-schedules.md §3), and its id is read from the one registry that spells ids.
+          { testId: TESTIDS.takeoff.navSchedules, label: strings.takeoff_nav_schedules, href: schedulesRoute(tenant, project) },
         ]}
       >
         {children}

@@ -15,7 +15,14 @@
 // member it holds that this file omits does not compile either: the roster keeps its one home in the
 // seam, and this module publishes it for the callers that read a zone off a header (ARCH-01).
 import type { RebarZone, SectionUnit } from "@/core/db";
+import { normaliseNotation } from "@/core/entitygraph/notation";
 import { dotlessUpper } from "@/core/identity";
+
+// L-CAD-02's control codes and the diameter's many glyphs are core's (`@/core/entitygraph/notation`):
+// the note grammar behind TRANSCRIBE_SHEET_NOTES reads a drawing's words too and is core, which may
+// not reach a module (ARCH-01). This module re-publishes the one reading rather than keeping a second
+// control-code table (B-17).
+export { normaliseNotation };
 
 /** The four zones a rebar column reads as, each named as the member of the seam's roster it is. */
 const ZONE: Readonly<Record<RebarZone, RebarZone>> = Object.freeze({
@@ -46,39 +53,9 @@ export type FloorBand = { readonly from: string; readonly to: string };
 /** A cell that says a count of something else: the count, and the rest of the cell verbatim. */
 export type CountOf = { readonly n: number; readonly rest: string };
 
-/**
- * The control codes a DXF text carries, and what each of them says (L-CAD-02). `%%%` stands first
- * because it is a longer code beginning with the same two characters as the rest.
- */
-const CONTROL_CODES: readonly (readonly [RegExp, string])[] = Object.freeze([
-  [/%%%/g, "%"],
-  [/%%[Cc]/g, "Ø"],
-  [/%%[Dd]/g, "°"],
-  [/%%[Pp]/g, "±"],
-  // The formatting toggles say how the text is drawn and nothing about what it means, so they go.
-  [/%%[UuOoKk]/g, ""],
-] as const);
-
-/** Every glyph a draughtsman writes the diameter sign with. One notation, however it was typed. */
-const DIAMETER_LOOKALIKES = /[φΦϕøØ⌀∅]/g;
-
-/** The diameter sign itself. */
-const DIAMETER = "Ø";
-
 /** The prime and double-prime a font substitutes for the foot and inch marks. */
 const FOOT_LOOKALIKES = /[′’´ʹ]/g;
 const INCH_LOOKALIKES = /[″”ʺ]/g;
-
-/**
- * One text as the notation reads it: the control codes resolved, and every lookalike of the diameter
- * sign written as the one sign. What a text SAYS is kept — the case, the spacing and the marks are
- * the drawing's own, and a cell is stored verbatim beside whatever was parsed out of it (L-CAD-03).
- */
-export function normaliseNotation(text: string): string {
-  let said = text;
-  for (const [code, meaning] of CONTROL_CODES) said = said.replace(code, meaning);
-  return said.replace(DIAMETER_LOOKALIKES, DIAMETER);
-}
 
 /** The same text with the foot and inch marks written plainly, for the length parsers to read. */
 function plainMarks(text: string): string {

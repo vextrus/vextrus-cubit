@@ -89,6 +89,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "LEVEL_ORDINAL_UNMAPPED",
   "LEVEL_RANGE_ENDPOINT_UNMAPPED",
   "LINK_NOT_SENDABLE",
+  "LINTEL_SOURCE_ABSENT",
   "MALFORMED",
   "MANIFEST_NOT_RENDERABLE",
   "MEMBER_HAS_ACTS",
@@ -96,6 +97,9 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "METHOD_IMPLEMENTATION_MISSING",
   "METHOD_NOT_IN_EDITION",
   "NOTATION_UNREAD",
+  "NOTES_NONE_PROPOSED",
+  "NOTE_READING_CONTESTED",
+  "NOTE_SOURCE_NOT_ON_SHEET",
   "NOT_ESTABLISHED",
   "NOT_IN_PROJECT_SCOPE",
   "NOT_IN_THIS_BILL",
@@ -114,6 +118,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "RATE_LIMITED",
   "READING_NOT_NUMERIC",
   "REQUEST_MALFORMED",
+  "RUN_UNREAD",
   "SCALE_NO_EVIDENCE",
   "SCALE_OBSERVATION_OBLIQUE",
   "SCALE_OBSERVATION_UNCITED",
@@ -130,6 +135,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "SET_NOT_PINNABLE",
   "SHEET_NOT_INGESTABLE",
   "SIGNED_OUT",
+  "SLAB_THICKNESS_UNSTATED",
   "SOURCE_UNRESOLVED",
   "STOREY_HEIGHT_CONTESTED",
   "STOREY_HEIGHT_UNSTATED",
@@ -152,8 +158,24 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * the slab, shear-wall and stair rails report a row they measured at a bound, a row they could not
  * measure at all, a stair that is neither a straight flight nor a rectangular landing, a placement
  * nobody read a plan of, and an outline that does not close (L-QTY-04, AM-06 §4, L-MEA-03). The
- * roster grew by those five keys — 80 codes to 85 — and not one existing entry's code, message,
+ * roster grew by those five keys — 86 codes to 91 — and not one existing entry's code, message,
  * remedy, severity or surface moved with it; the previous digest was
+ * 9b3547b60626ffa04e8cb3060c1bb88787578bda65dd9288db20cb4f0942e567.
+ *
+ * Re-baselined before that for THREE ADDED entries and nothing else: `RUN_UNREAD`, `SLAB_THICKNESS_UNSTATED` and
+ * `LINTEL_SOURCE_ABSENT` (./frame.ts), the three readings the frame rails report rather than guess
+ * when the drawing did not state them (L-MEA-09, L-QTY-02). The roster grew by those three keys — 83
+ * codes to 86 — and not one existing entry's code, message, remedy, severity or surface moved with
+ * them; the previous digest was
+ * 2643de99a05bdaa3fe31d11862def6bcabbebd4fcb4dad079f2d510b20eebc8a.
+ *
+ * Re-baselined before that for THREE ADDED entries and nothing else, all of them `./takeoff-schedules.ts`'s and
+ * all of them about a general note a person reads off a sheet (R-TO-034): `NOTE_READING_CONTESTED`,
+ * which two readings of one note that disagree leave the kind standing under; `NOTE_SOURCE_NOT_ON_SHEET`,
+ * which a reading citing text the sheet does not carry is refused by; and `NOTES_NONE_PROPOSED`,
+ * which a sheet whose words state no figure says its silence under. The roster grew by those three
+ * keys — 80 codes to 83 — and not one existing entry's code, message, remedy, severity or surface
+ * moved with them; the previous digest was
  * 542ac68e04c93e60a7c2020d05c39a30d67b437be99d88f5d700bbc511221599.
  *
  * Re-baselined before that for THREE ADDED entries and nothing else: `EXPORT_NOT_FOUND`, `EXPORT_URL_EXPIRED`
@@ -192,7 +214,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "a7c73b07f8b51c1b0950423eb5bc993b67fef4096ead6ce4607d26eb77291108";
+const ENTRIES_DIGEST_BEFORE = "9b3547b60626ffa04e8cb3060c1bb88787578bda65dd9288db20cb4f0942e567";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

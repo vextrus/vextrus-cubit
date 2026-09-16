@@ -12,10 +12,11 @@
 // returned in the key's own order — so the same placements, stack and authored ranges resolve to the
 // same instance keys however they were handed in (L-REG-04, AC-8).
 import { EXPANSION_DEFERRAL_REASONS, type ExpansionDeferralReason } from "@/core/errors";
-import { instanceKey, SIGHTING_STANDINGS, viewKey as viewKeyOf, type LevelRef, type SightingStanding, type ViewRef } from "@/core/identity";
-import { normaliseMark, parseFloorZone } from "../notation";
-import { isFoundationClass, isVerticalClass } from "../placement/law";
-import type { PlacementRow } from "../placement/detect";
+import { instanceKey, levelSegment, SIGHTING_STANDINGS, viewKey as viewKeyOf, type LevelRef, type SightingStanding, type ViewRef } from "@/core/identity";
+import { bandCovers, bandJudgeable, bandOpen } from "@/core/offers/contract";
+import { normaliseMark } from "../notation";
+import { isFoundationClass, isLevelClass, levelWordsOf } from "../placement/law";
+import type { PlacementRow } from "../placement/rows";
 
 /**
  * The two standings a resolved row stands at, read off the register's own roster (B-17). Risk note
@@ -57,6 +58,16 @@ export type ExpandedView = {
   readonly view: ViewRef;
 };
 
+/**
+ * One mark family's banding, as this stage reads one: the level bands its schedule states for it. A
+ * family whose schedule stated no band at all states one band with two null ends, which covers every
+ * level — that is what an unbanded row says (L-FRM-02).
+ */
+export type FamilyBands = {
+  readonly family: string;
+  readonly bands: readonly { readonly from: string | null; readonly to: string | null }[];
+};
+
 /** What the stage is handed: what was placed, what the stack holds, and what a person authored. */
 export type ExpansionEvidence = {
   readonly placements: readonly PlacementRow[];
@@ -64,6 +75,8 @@ export type ExpansionEvidence = {
   /** The project's LIVE level stack, in whatever order — the resolver orders it itself (AC-8). */
   readonly levels: readonly StackedLevel[];
   readonly ranges: readonly AuthoredRange[];
+  /** The bands the record's schedules state per mark family (R-TO-031); empty where none were read. */
+  readonly families?: readonly FamilyBands[];
 };
 
 /** One instance row the expansion resolves to: where the member stands, and on what evidence. */
@@ -98,27 +111,6 @@ export type CaptionRange =
   | { readonly kind: "range"; readonly from: string; readonly to: string }
   | { readonly kind: "single"; readonly label: string }
   | { readonly kind: "unstated" };
-
-/** What separates the words of a caption: everything that is not a letter or a digit. */
-const CAPTION_WORDS = /[^A-Za-z0-9]+/;
-
-/**
- * The level words a caption says, in the order it says them. Each word is put to the notation's own
- * floor-zone reading (B-17: one home) — `1ST`, `GF`, `ROOF` name levels; `TYPICAL`, `FLOOR`, `PLAN`
- * and `TO` name none — so a caption's range is read by the same grammar a schedule's column header is.
- */
-function levelWordsOf(caption: string): string[] {
-  const said: string[] = [];
-  for (const word of caption.split(CAPTION_WORDS)) {
-    if (word === "") continue;
-    const band = parseFloorZone(word);
-    // A single word reads as a band of one level, or as no level at all; a word that read as a band
-    // of two would be a separator this split already dropped.
-    if (band === null || band.from !== band.to) continue;
-    said.push(band.from);
-  }
-  return said;
-}
 
 /**
  * The range a view's caption states (L-CAD-07: "typical ranges from captions"). A caption naming the
@@ -213,11 +205,45 @@ function standsUnresolved(reason: ExpansionDeferralReason): boolean {
   return reason === TYPICAL_RANGE_UNSTATED;
 }
 
-/** The rows one vertical member stands on, over the span its view resolved to. */
-function verticalRows(placement: PlacementRow, span: Span): ExpansionRow[] {
+/**
+ * The levels of a span this placement's own mark family is stated to stand over (L-FRM-02, L-MEA-09).
+ *
+ * A schedule's `LEVELS` cell is the drawing's statement of which storeys carry a mark: a `BEAM
+ * SCHEDULE` row reading `1F TO ROOF` says the beam starts at the first floor, whatever range the plan
+ * that draws it is typical of. So the span a view states is CUT to that band, and two marks on one
+ * plan can stand on different levels — which is the only reading under which a plan typical of
+ * `GF … ROOF` does not register a first-floor beam in the ground storey (L-QTY-04: a member is never
+ * registered on a level the drawing never said it stands at).
+ *
+ * The cut is made only where the stack can be read against the band. A family whose schedule stated no
+ * band, or whose every band names an endpoint the stack does not carry, is not cut here at all: the
+ * band is then a statement nothing can judge, and the rail says so per level under
+ * `SECTION_BAND_UNCOVERED` rather than the member vanishing from the register with no word said.
+ *
+ * A band's two ends are read against the WHOLE live stack and never against the span being cut. `1F TO
+ * ROOF` names two storeys of the building, not two storeys of the plan: read against a typical plan's
+ * own span the roof end would be unfindable, the band would count as unjudgeable, and the cut it exists
+ * to make — keeping a first-floor beam out of the ground storey — would be abandoned on exactly the
+ * plans that need it (L-REG-02: a level is named by the stack that carries it).
+ */
+function bandedLevels(placement: PlacementRow, levels: readonly StackedLevel[], stack: readonly StackedLevel[], families: readonly FamilyBands[]): readonly StackedLevel[] {
+  const stated = families.find((one) => one.family === placement.memberFamily)?.bands ?? [];
+  if (stated.length === 0 || stated.some((band) => bandOpen(band))) return levels;
+  // This stage places a band's ends the way it places every label it reads off a drawing — normalised,
+  // ties to the lower ordinal. What a placed band MEANS is `bandCovers`, asked here and nowhere else.
+  const place = (label: string): number | undefined => levelLabelled(stack, label)?.ordinal;
+  const readable = stated.filter((band) => bandJudgeable(band, place));
+  if (readable.length === 0) return levels;
+  return levels.filter((level) => readable.some((band) => bandCovers(band, level.ordinal, place)));
+}
+
+/** The rows one level-class member stands on, over the span its view resolved to, cut to its own band. */
+function levelRows(placement: PlacementRow, span: Span, evidence: ExpansionEvidence): ExpansionRow[] {
   if (span.kind === "deferred") return standsUnresolved(span.reason) ? [rowOn(placement, UNRESOLVED, MEASURED)] : [];
   if (span.kind === "unregistered") return [rowOn(placement, { unregistered: span.label }, MEASURED)];
-  return span.levels.map((level) => rowOn(placement, { levelId: level.levelId }, level.levelId === span.drawn.levelId ? MEASURED : DERIVED));
+  return bandedLevels(placement, span.levels, evidence.levels, evidence.families ?? []).map((level) =>
+    rowOn(placement, { levelId: level.levelId }, level.levelId === span.drawn.levelId ? MEASURED : DERIVED),
+  );
 }
 
 /** One instance row, keyed by the grammar and by nothing this file spells itself (L-REG-04, B-17). */
@@ -255,18 +281,48 @@ export function resolveExpansion(evidence: ExpansionEvidence): ResolvedExpansion
     const foundations = placed.filter((placement) => isFoundationClass(placement.elementType));
     for (const placement of foundations) rows.push(rowOn(placement, FOUNDATION, MEASURED));
 
-    const verticals = placed.filter((placement) => isVerticalClass(placement.elementType));
-    if (verticals.length === 0) continue;
+    const standing = placed.filter((placement) => isLevelClass(placement.elementType));
+    if (standing.length === 0) continue;
 
     const span = spanOf(view, key, evidence);
-    for (const placement of verticals) rows.push(...verticalRows(placement, span));
+    for (const placement of standing) rows.push(...levelRows(placement, span, evidence));
     // A deferral is a statement about members that stand nowhere: it is recorded because this view
-    // HAS vertical members, and a view whose only members are foundations defers nothing.
+    // HAS members that stand on a level, and a view whose only members are foundations defers nothing.
     if (span.kind === "deferred") deferrals.push({ viewKey: key, reason: span.reason, fromLabel: span.fromLabel, toLabel: span.toLabel });
   }
 
   return {
-    rows: [...rows].sort((left, right) => byCodePoint(left.objectKey, right.objectKey)),
+    rows: [...owned(rows)].sort((left, right) => byCodePoint(left.objectKey, right.objectKey)),
     deferrals: [...deferrals].sort((left, right) => byCodePoint(left.viewKey, right.viewKey)),
   };
+}
+
+/**
+ * The physical scope a row stands for, across the plans of one building: the member's mark at its own
+ * grid reference, on one level. Two plans of one drawing draw the same backbone, so a mark at one grid
+ * reference names one member however many plans show it (L-CAD-07, L-REG-04).
+ */
+function scopeOf(row: ExpansionRow): string {
+  return [row.placement.mark, row.placement.gridLetter ?? "", row.placement.gridNumeral ?? "", levelSegment(row.level)].join("|");
+}
+
+/**
+ * One row per physical scope, the DRAWN sighting owning it (L-REG-03: "a measured sighting landing
+ * where a level expansion already stands is a promotion … not a refusal").
+ *
+ * A roof plan draws the beams a typical plan is also typical of. Both readings are lawful and they are
+ * of one member: the plan that drew that storey read its geometry there, and the typical plan's
+ * derived row for the same storey is the weaker of the two. Registering both would bill one beam twice
+ * — the over-measurement L-REG-03 exists to make unrepresentable — so the derived row yields.
+ *
+ * Only across views: within one view a placement's rows stand on distinct levels already, and two
+ * placements of one mark in one view stand at distinct grid references.
+ */
+function owned(rows: readonly ExpansionRow[]): ExpansionRow[] {
+  const drawnAt = new Map<string, string>();
+  for (const row of rows) if (row.standing === MEASURED) drawnAt.set(scopeOf(row), row.placement.viewKey);
+  return rows.filter((row) => {
+    const drawn = drawnAt.get(scopeOf(row));
+    return drawn === undefined || drawn === row.placement.viewKey;
+  });
 }

@@ -1,9 +1,169 @@
 {
-  "id": "b9df54f7-57e6-4cae-bdba-46e8161418d9",
-  "prevId": "da64c02f-c066-4bf6-acc9-e99df6fe7cc9",
+  "id": "de9ab9c3-2179-47a3-b6d1-bde484f3139f",
+  "prevId": "27ab964c-b298-4e2d-a17d-358bced5de67",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.tenants": {
+      "name": "tenants",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.projects": {
+      "name": "projects",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "client": {
+          "name": "client",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "site_address": {
+          "name": "site_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "district": {
+          "name": "district",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "building_type": {
+          "name": "building_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "storeys": {
+          "name": "storeys",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "target_gfa_m2": {
+          "name": "target_gfa_m2",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "projects_tenant_updated": {
+          "name": "projects_tenant_updated",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "projects_building_type_closed": {
+          "name": "projects_building_type_closed",
+          "value": "\"projects\".\"building_type\" in ('residential', 'commercial', 'mixed', 'industrial', 'infrastructure')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.acts": {
       "name": "acts",
       "schema": "",
@@ -355,869 +515,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.sheet_understanding_dispositions": {
-      "name": "sheet_understanding_dispositions",
-      "schema": "",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "disposition_id": {
-          "name": "disposition_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "call_id": {
-          "name": "call_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sheet_id": {
-          "name": "sheet_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "disposition": {
-          "name": "disposition",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "proposed": {
-          "name": "proposed",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "resolved": {
-          "name": "resolved",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "actor_user_id": {
-          "name": "actor_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "clock_timestamp()"
-        },
-        "recorded_seq": {
-          "name": "recorded_seq",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "identity": {
-            "type": "always",
-            "name": "sheet_understanding_dispositions_recorded_seq_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "9223372036854775807",
-            "cache": "1",
-            "cycle": false
-          }
-        }
-      },
-      "indexes": {
-        "sheet_understanding_dispositions_by_project": {
-          "name": "sheet_understanding_dispositions_by_project",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "recorded_seq",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "sheet_understanding_dispositions_by_call": {
-          "name": "sheet_understanding_dispositions_by_call",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "call_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "sheet_understanding_dispositions_tenant_id_tenants_tenant_id_fk": {
-          "name": "sheet_understanding_dispositions_tenant_id_tenants_tenant_id_fk",
-          "tableFrom": "sheet_understanding_dispositions",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "tenant_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "sheet_understanding_dispositions_call_fk": {
-          "name": "sheet_understanding_dispositions_call_fk",
-          "tableFrom": "sheet_understanding_dispositions",
-          "tableTo": "model_calls",
-          "columnsFrom": [
-            "tenant_id",
-            "call_id"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "call_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "sheet_understanding_dispositions_closed": {
-          "name": "sheet_understanding_dispositions_closed",
-          "value": "\"sheet_understanding_dispositions\".\"disposition\" in ('accepted', 'edited', 'rejected')"
-        },
-        "sheet_understanding_dispositions_resolved_iff_edited": {
-          "name": "sheet_understanding_dispositions_resolved_iff_edited",
-          "value": "(\"sheet_understanding_dispositions\".\"resolved\" is not null) = (\"sheet_understanding_dispositions\".\"disposition\" = 'edited')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.bears": {
-      "name": "bears",
-      "schema": "",
-      "columns": {
-        "class": {
-          "name": "class",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "bears_kind_work_items_kind_fk": {
-          "name": "bears_kind_work_items_kind_fk",
-          "tableFrom": "bears",
-          "tableTo": "work_items",
-          "columnsFrom": [
-            "kind"
-          ],
-          "columnsTo": [
-            "kind"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "bears_key": {
-          "name": "bears_key",
-          "columns": [
-            "class",
-            "kind"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "bears_class_closed": {
-          "name": "bears_class_closed",
-          "value": "\"bears\".\"class\" in ('column', 'beam', 'slab', 'footing', 'pile_cap', 'pile', 'tie_beam', 'shear_wall', 'stair', 'lintel')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.work_items": {
-      "name": "work_items",
-      "schema": "",
-      "columns": {
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "canonical_unit": {
-          "name": "canonical_unit",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "dimension": {
-          "name": "dimension",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "document_precision": {
-          "name": "document_precision",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "work_items_kind_closed": {
-          "name": "work_items_kind_closed",
-          "value": "\"work_items\".\"kind\" in ('rcc.concrete', 'rcc.formwork')"
-        },
-        "work_items_dimension_closed": {
-          "name": "work_items_dimension_closed",
-          "value": "\"work_items\".\"dimension\" in ('MASS', 'VOLUME', 'LENGTH', 'AREA', 'COUNT')"
-        },
-        "work_items_unit_closed": {
-          "name": "work_items_unit_closed",
-          "value": "\"work_items\".\"canonical_unit\" in ('kg', 'MT', 'lb', 'm3', 'cft', 'm', 'mm', 'ft', 'm2', 'sft', 'pcs')"
-        },
-        "work_items_precision_not_negative": {
-          "name": "work_items_precision_not_negative",
-          "value": "\"work_items\".\"document_precision\" >= 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.drawing_set_members": {
-      "name": "drawing_set_members",
-      "schema": "",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "set_id": {
-          "name": "set_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "drawing_id": {
-          "name": "drawing_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "added_by": {
-          "name": "added_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "added_at": {
-          "name": "added_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "drawing_set_members_set_id_drawing_sets_set_id_fk": {
-          "name": "drawing_set_members_set_id_drawing_sets_set_id_fk",
-          "tableFrom": "drawing_set_members",
-          "tableTo": "drawing_sets",
-          "columnsFrom": [
-            "set_id"
-          ],
-          "columnsTo": [
-            "set_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "drawing_set_members_drawing_id_drawings_drawing_id_fk": {
-          "name": "drawing_set_members_drawing_id_drawings_drawing_id_fk",
-          "tableFrom": "drawing_set_members",
-          "tableTo": "drawings",
-          "columnsFrom": [
-            "drawing_id"
-          ],
-          "columnsTo": [
-            "drawing_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "drawing_set_members_pk": {
-          "name": "drawing_set_members_pk",
-          "columns": [
-            "tenant_id",
-            "set_id",
-            "drawing_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.drawing_set_revisions": {
-      "name": "drawing_set_revisions",
-      "schema": "",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "set_revision_id": {
-          "name": "set_revision_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "set_id": {
-          "name": "set_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "digest": {
-          "name": "digest",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "manifest": {
-          "name": "manifest",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "act_id": {
-          "name": "act_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "drawing_set_revisions_by_set": {
-          "name": "drawing_set_revisions_by_set",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "set_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "drawing_set_revisions_set_id_drawing_sets_set_id_fk": {
-          "name": "drawing_set_revisions_set_id_drawing_sets_set_id_fk",
-          "tableFrom": "drawing_set_revisions",
-          "tableTo": "drawing_sets",
-          "columnsFrom": [
-            "set_id"
-          ],
-          "columnsTo": [
-            "set_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "drawing_set_revisions_act_id_acts_act_id_fk": {
-          "name": "drawing_set_revisions_act_id_acts_act_id_fk",
-          "tableFrom": "drawing_set_revisions",
-          "tableTo": "acts",
-          "columnsFrom": [
-            "act_id"
-          ],
-          "columnsTo": [
-            "act_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.drawing_sets": {
-      "name": "drawing_sets",
-      "schema": "",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "set_id": {
-          "name": "set_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "drawing_sets_by_project": {
-          "name": "drawing_sets_by_project",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "drawing_sets_named_once": {
-          "name": "drawing_sets_named_once",
-          "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "project_id",
-            "name"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.drawings": {
-      "name": "drawings",
-      "schema": "",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "drawing_id": {
-          "name": "drawing_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sha256": {
-          "name": "sha256",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "format": {
-          "name": "format",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "uploaded_by": {
-          "name": "uploaded_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "drawings_by_project": {
-          "name": "drawings_by_project",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "drawings_content": {
-          "name": "drawings_content",
-          "tableFrom": "drawings",
-          "tableTo": "files",
-          "columnsFrom": [
-            "tenant_id",
-            "sha256"
-          ],
-          "columnsTo": [
-            "tenant_id",
-            "sha256"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "drawings_format_closed": {
-          "name": "drawings_format_closed",
-          "value": "\"drawings\".\"format\" in ('dwg', 'dxf', 'pdf', 'png', 'jpg', 'tiff')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.files": {
-      "name": "files",
-      "schema": "",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sha256": {
-          "name": "sha256",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "byte_length": {
-          "name": "byte_length",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "format": {
-          "name": "format",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "scan_verdict": {
-          "name": "scan_verdict",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "files_tenant_id_sha256_pk": {
-          "name": "files_tenant_id_sha256_pk",
-          "columns": [
-            "tenant_id",
-            "sha256"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "files_format_closed": {
-          "name": "files_format_closed",
-          "value": "\"files\".\"format\" in ('dwg', 'dxf', 'pdf', 'png', 'jpg', 'tiff')"
-        },
-        "files_scan_verdict_closed": {
-          "name": "files_scan_verdict_closed",
-          "value": "\"files\".\"scan_verdict\" in ('clean', 'infected', 'skipped')"
-        },
-        "files_byte_length_counted": {
-          "name": "files_byte_length_counted",
-          "value": "\"files\".\"byte_length\" >= 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.uploads": {
-      "name": "uploads",
-      "schema": "",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "upload_id": {
-          "name": "upload_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "declared_size": {
-          "name": "declared_size",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "declared_sha256": {
-          "name": "declared_sha256",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "received_bytes": {
-          "name": "received_bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "state": {
-          "name": "state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'open'"
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "completed_at": {
-          "name": "completed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "uploads_state_closed": {
-          "name": "uploads_state_closed",
-          "value": "\"uploads\".\"state\" in ('open', 'stored', 'refused')"
-        },
-        "uploads_received_within_declared": {
-          "name": "uploads_received_within_declared",
-          "value": "\"uploads\".\"received_bytes\" >= 0 and \"uploads\".\"received_bytes\" <= \"uploads\".\"declared_size\""
-        },
-        "uploads_declared_size_counted": {
-          "name": "uploads_declared_size_counted",
-          "value": "\"uploads\".\"declared_size\" >= 0 and \"uploads\".\"declared_size\" <= 524288000"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.auth_attempts": {
@@ -1591,166 +888,6 @@
       },
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.tenants": {
-      "name": "tenants",
-      "schema": "",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.projects": {
-      "name": "projects",
-      "schema": "",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "code": {
-          "name": "code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "client": {
-          "name": "client",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "site_address": {
-          "name": "site_address",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "district": {
-          "name": "district",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "building_type": {
-          "name": "building_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "storeys": {
-          "name": "storeys",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "target_gfa_m2": {
-          "name": "target_gfa_m2",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "projects_tenant_updated": {
-          "name": "projects_tenant_updated",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "updated_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "projects_building_type_closed": {
-          "name": "projects_building_type_closed",
-          "value": "\"projects\".\"building_type\" in ('residential', 'commercial', 'mixed', 'industrial', 'infrastructure')"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.invitations": {
@@ -2138,6 +1275,285 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.drawings": {
+      "name": "drawings",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "drawing_id": {
+          "name": "drawing_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "format": {
+          "name": "format",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "uploaded_by": {
+          "name": "uploaded_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "drawings_by_project": {
+          "name": "drawings_by_project",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "drawings_content": {
+          "name": "drawings_content",
+          "tableFrom": "drawings",
+          "tableTo": "files",
+          "columnsFrom": [
+            "tenant_id",
+            "sha256"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "sha256"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "drawings_format_closed": {
+          "name": "drawings_format_closed",
+          "value": "\"drawings\".\"format\" in ('dwg', 'dxf', 'pdf', 'png', 'jpg', 'tiff')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.files": {
+      "name": "files",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "byte_length": {
+          "name": "byte_length",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "format": {
+          "name": "format",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scan_verdict": {
+          "name": "scan_verdict",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "files_tenant_id_sha256_pk": {
+          "name": "files_tenant_id_sha256_pk",
+          "columns": [
+            "tenant_id",
+            "sha256"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "files_format_closed": {
+          "name": "files_format_closed",
+          "value": "\"files\".\"format\" in ('dwg', 'dxf', 'pdf', 'png', 'jpg', 'tiff')"
+        },
+        "files_scan_verdict_closed": {
+          "name": "files_scan_verdict_closed",
+          "value": "\"files\".\"scan_verdict\" in ('clean', 'infected', 'skipped')"
+        },
+        "files_byte_length_counted": {
+          "name": "files_byte_length_counted",
+          "value": "\"files\".\"byte_length\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.uploads": {
+      "name": "uploads",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "upload_id": {
+          "name": "upload_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "declared_size": {
+          "name": "declared_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "declared_sha256": {
+          "name": "declared_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "received_bytes": {
+          "name": "received_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "uploads_state_closed": {
+          "name": "uploads_state_closed",
+          "value": "\"uploads\".\"state\" in ('open', 'stored', 'refused')"
+        },
+        "uploads_received_within_declared": {
+          "name": "uploads_received_within_declared",
+          "value": "\"uploads\".\"received_bytes\" >= 0 and \"uploads\".\"received_bytes\" <= \"uploads\".\"declared_size\""
+        },
+        "uploads_declared_size_counted": {
+          "name": "uploads_declared_size_counted",
+          "value": "\"uploads\".\"declared_size\" >= 0 and \"uploads\".\"declared_size\" <= 524288000"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.ingests": {
@@ -3589,6 +3005,174 @@
       },
       "isRLSEnabled": false
     },
+    "public.notes_readings": {
+      "name": "notes_readings",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "drawing_id": {
+          "name": "drawing_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "layout_name": {
+          "name": "layout_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reading_key": {
+          "name": "reading_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_key": {
+          "name": "source_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value_as_written": {
+          "name": "value_as_written",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit_as_written": {
+          "name": "unit_as_written",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "canonical": {
+          "name": "canonical",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "basis": {
+          "name": "basis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "acceptance": {
+          "name": "acceptance",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "act_id": {
+          "name": "act_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "notes_readings_by_sheet": {
+          "name": "notes_readings_by_sheet",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "drawing_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "layout_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "notes_readings_act_id_acts_act_id_fk": {
+          "name": "notes_readings_act_id_acts_act_id_fk",
+          "tableFrom": "notes_readings",
+          "tableTo": "acts",
+          "columnsFrom": [
+            "act_id"
+          ],
+          "columnsTo": [
+            "act_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "notes_readings_key": {
+          "name": "notes_readings_key",
+          "columns": [
+            "tenant_id",
+            "act_id",
+            "reading_key"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "notes_readings_kind_closed": {
+          "name": "notes_readings_kind_closed",
+          "value": "\"notes_readings\".\"kind\" in ('FY', 'FC', 'LAP', 'HOOK', 'HOOK_MIN')"
+        },
+        "notes_readings_basis_transcribed": {
+          "name": "notes_readings_basis_transcribed",
+          "value": "\"notes_readings\".\"basis\" = 'TRANSCRIBED'"
+        },
+        "notes_readings_acceptance_closed": {
+          "name": "notes_readings_acceptance_closed",
+          "value": "\"notes_readings\".\"acceptance\" in ('ACCEPTED', 'EDITED')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.rebar_zones": {
       "name": "rebar_zones",
       "schema": "",
@@ -4865,6 +4449,405 @@
           "value": "\"scale_affirmations\".\"rank\" in ('QS_TWO_POINT', 'GRID_SPACING', 'DIMENSION_RATIO', 'FILE_UNITS')"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.bears": {
+      "name": "bears",
+      "schema": "",
+      "columns": {
+        "class": {
+          "name": "class",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "bears_kind_work_items_kind_fk": {
+          "name": "bears_kind_work_items_kind_fk",
+          "tableFrom": "bears",
+          "tableTo": "work_items",
+          "columnsFrom": [
+            "kind"
+          ],
+          "columnsTo": [
+            "kind"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "bears_key": {
+          "name": "bears_key",
+          "columns": [
+            "class",
+            "kind"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "bears_class_closed": {
+          "name": "bears_class_closed",
+          "value": "\"bears\".\"class\" in ('column', 'beam', 'slab', 'footing', 'pile_cap', 'pile', 'tie_beam', 'shear_wall', 'stair', 'lintel')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.work_items": {
+      "name": "work_items",
+      "schema": "",
+      "columns": {
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "canonical_unit": {
+          "name": "canonical_unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dimension": {
+          "name": "dimension",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "document_precision": {
+          "name": "document_precision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "work_items_kind_closed": {
+          "name": "work_items_kind_closed",
+          "value": "\"work_items\".\"kind\" in ('rcc.concrete', 'rcc.formwork')"
+        },
+        "work_items_dimension_closed": {
+          "name": "work_items_dimension_closed",
+          "value": "\"work_items\".\"dimension\" in ('MASS', 'VOLUME', 'LENGTH', 'AREA', 'COUNT')"
+        },
+        "work_items_unit_closed": {
+          "name": "work_items_unit_closed",
+          "value": "\"work_items\".\"canonical_unit\" in ('kg', 'MT', 'lb', 'm3', 'cft', 'm', 'mm', 'ft', 'm2', 'sft', 'pcs')"
+        },
+        "work_items_precision_not_negative": {
+          "name": "work_items_precision_not_negative",
+          "value": "\"work_items\".\"document_precision\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.drawing_set_members": {
+      "name": "drawing_set_members",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "set_id": {
+          "name": "set_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "drawing_id": {
+          "name": "drawing_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "added_by": {
+          "name": "added_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "added_at": {
+          "name": "added_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "drawing_set_members_set_id_drawing_sets_set_id_fk": {
+          "name": "drawing_set_members_set_id_drawing_sets_set_id_fk",
+          "tableFrom": "drawing_set_members",
+          "tableTo": "drawing_sets",
+          "columnsFrom": [
+            "set_id"
+          ],
+          "columnsTo": [
+            "set_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "drawing_set_members_drawing_id_drawings_drawing_id_fk": {
+          "name": "drawing_set_members_drawing_id_drawings_drawing_id_fk",
+          "tableFrom": "drawing_set_members",
+          "tableTo": "drawings",
+          "columnsFrom": [
+            "drawing_id"
+          ],
+          "columnsTo": [
+            "drawing_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "drawing_set_members_pk": {
+          "name": "drawing_set_members_pk",
+          "columns": [
+            "tenant_id",
+            "set_id",
+            "drawing_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.drawing_set_revisions": {
+      "name": "drawing_set_revisions",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "set_revision_id": {
+          "name": "set_revision_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "set_id": {
+          "name": "set_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "digest": {
+          "name": "digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "manifest": {
+          "name": "manifest",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "act_id": {
+          "name": "act_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "drawing_set_revisions_by_set": {
+          "name": "drawing_set_revisions_by_set",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "set_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "drawing_set_revisions_set_id_drawing_sets_set_id_fk": {
+          "name": "drawing_set_revisions_set_id_drawing_sets_set_id_fk",
+          "tableFrom": "drawing_set_revisions",
+          "tableTo": "drawing_sets",
+          "columnsFrom": [
+            "set_id"
+          ],
+          "columnsTo": [
+            "set_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "drawing_set_revisions_act_id_acts_act_id_fk": {
+          "name": "drawing_set_revisions_act_id_acts_act_id_fk",
+          "tableFrom": "drawing_set_revisions",
+          "tableTo": "acts",
+          "columnsFrom": [
+            "act_id"
+          ],
+          "columnsTo": [
+            "act_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.drawing_sets": {
+      "name": "drawing_sets",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "set_id": {
+          "name": "set_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "drawing_sets_by_project": {
+          "name": "drawing_sets_by_project",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "drawing_sets_named_once": {
+          "name": "drawing_sets_named_once",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "project_id",
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.refused_sightings": {
@@ -6724,6 +6707,381 @@
         "scope_declarations_kind_closed": {
           "name": "scope_declarations_kind_closed",
           "value": "\"scope_declarations\".\"kind\" in ('rcc.concrete', 'rcc.formwork')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.sheet_understanding_dispositions": {
+      "name": "sheet_understanding_dispositions",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "disposition_id": {
+          "name": "disposition_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "call_id": {
+          "name": "call_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sheet_id": {
+          "name": "sheet_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "disposition": {
+          "name": "disposition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "proposed": {
+          "name": "proposed",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resolved": {
+          "name": "resolved",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "clock_timestamp()"
+        },
+        "recorded_seq": {
+          "name": "recorded_seq",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "sheet_understanding_dispositions_recorded_seq_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "9223372036854775807",
+            "cache": "1",
+            "cycle": false
+          }
+        }
+      },
+      "indexes": {
+        "sheet_understanding_dispositions_by_project": {
+          "name": "sheet_understanding_dispositions_by_project",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recorded_seq",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sheet_understanding_dispositions_by_call": {
+          "name": "sheet_understanding_dispositions_by_call",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "call_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "sheet_understanding_dispositions_tenant_id_tenants_tenant_id_fk": {
+          "name": "sheet_understanding_dispositions_tenant_id_tenants_tenant_id_fk",
+          "tableFrom": "sheet_understanding_dispositions",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "tenant_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "sheet_understanding_dispositions_call_fk": {
+          "name": "sheet_understanding_dispositions_call_fk",
+          "tableFrom": "sheet_understanding_dispositions",
+          "tableTo": "model_calls",
+          "columnsFrom": [
+            "tenant_id",
+            "call_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "call_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "sheet_understanding_dispositions_closed": {
+          "name": "sheet_understanding_dispositions_closed",
+          "value": "\"sheet_understanding_dispositions\".\"disposition\" in ('accepted', 'edited', 'rejected')"
+        },
+        "sheet_understanding_dispositions_resolved_iff_edited": {
+          "name": "sheet_understanding_dispositions_resolved_iff_edited",
+          "value": "(\"sheet_understanding_dispositions\".\"resolved\" is not null) = (\"sheet_understanding_dispositions\".\"disposition\" = 'edited')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.placement_runs": {
+      "name": "placement_runs",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "drawing_id": {
+          "name": "drawing_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ingest_id": {
+          "name": "ingest_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "placement_key": {
+          "name": "placement_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "clear_value": {
+          "name": "clear_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "clear_unit": {
+          "name": "clear_unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "clear_basis": {
+          "name": "clear_basis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "clear_source_keys": {
+          "name": "clear_source_keys",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "side_a_value": {
+          "name": "side_a_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "side_a_unit": {
+          "name": "side_a_unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "side_a_basis": {
+          "name": "side_a_basis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "side_a_source_keys": {
+          "name": "side_a_source_keys",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "side_b_value": {
+          "name": "side_b_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "side_b_unit": {
+          "name": "side_b_unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "side_b_basis": {
+          "name": "side_b_basis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "side_b_source_keys": {
+          "name": "side_b_source_keys",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "placement_runs_by_drawing": {
+          "name": "placement_runs_by_drawing",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "drawing_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "placement_runs_key": {
+          "name": "placement_runs_key",
+          "columns": [
+            "tenant_id",
+            "ingest_id",
+            "placement_key"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "placement_runs_clear_stated_whole": {
+          "name": "placement_runs_clear_stated_whole",
+          "value": "num_nonnulls(\"placement_runs\".\"clear_value\", \"placement_runs\".\"clear_unit\", \"placement_runs\".\"clear_basis\") in (0, 3)"
+        },
+        "placement_runs_side_a_stated_whole": {
+          "name": "placement_runs_side_a_stated_whole",
+          "value": "num_nonnulls(\"placement_runs\".\"side_a_value\", \"placement_runs\".\"side_a_unit\", \"placement_runs\".\"side_a_basis\") in (0, 3)"
+        },
+        "placement_runs_side_b_stated_whole": {
+          "name": "placement_runs_side_b_stated_whole",
+          "value": "num_nonnulls(\"placement_runs\".\"side_b_value\", \"placement_runs\".\"side_b_unit\", \"placement_runs\".\"side_b_basis\") in (0, 3)"
+        },
+        "placement_runs_clear_unit_closed": {
+          "name": "placement_runs_clear_unit_closed",
+          "value": "\"placement_runs\".\"clear_unit\" is null or \"placement_runs\".\"clear_unit\" in ('kg', 'MT', 'lb', 'm3', 'cft', 'm', 'mm', 'ft', 'm2', 'sft', 'pcs')"
+        },
+        "placement_runs_side_a_unit_closed": {
+          "name": "placement_runs_side_a_unit_closed",
+          "value": "\"placement_runs\".\"side_a_unit\" is null or \"placement_runs\".\"side_a_unit\" in ('kg', 'MT', 'lb', 'm3', 'cft', 'm', 'mm', 'ft', 'm2', 'sft', 'pcs')"
+        },
+        "placement_runs_side_b_unit_closed": {
+          "name": "placement_runs_side_b_unit_closed",
+          "value": "\"placement_runs\".\"side_b_unit\" is null or \"placement_runs\".\"side_b_unit\" in ('kg', 'MT', 'lb', 'm3', 'cft', 'm', 'mm', 'ft', 'm2', 'sft', 'pcs')"
+        },
+        "placement_runs_clear_basis_closed": {
+          "name": "placement_runs_clear_basis_closed",
+          "value": "\"placement_runs\".\"clear_basis\" is null or \"placement_runs\".\"clear_basis\" in ('MEASURED', 'TRANSCRIBED', 'DERIVED', 'IMPORTED', 'ENTERED', 'INTERPRETED', 'DEFAULTED')"
+        },
+        "placement_runs_side_a_basis_closed": {
+          "name": "placement_runs_side_a_basis_closed",
+          "value": "\"placement_runs\".\"side_a_basis\" is null or \"placement_runs\".\"side_a_basis\" in ('MEASURED', 'TRANSCRIBED', 'DERIVED', 'IMPORTED', 'ENTERED', 'INTERPRETED', 'DEFAULTED')"
+        },
+        "placement_runs_side_b_basis_closed": {
+          "name": "placement_runs_side_b_basis_closed",
+          "value": "\"placement_runs\".\"side_b_basis\" is null or \"placement_runs\".\"side_b_basis\" in ('MEASURED', 'TRANSCRIBED', 'DERIVED', 'IMPORTED', 'ENTERED', 'INTERPRETED', 'DEFAULTED')"
         }
       },
       "isRLSEnabled": false

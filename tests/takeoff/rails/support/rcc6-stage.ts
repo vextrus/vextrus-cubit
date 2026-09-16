@@ -5,9 +5,16 @@
  * stages beside it already drive: the corpus is ingested by the real `cad/` CLI and the shipped
  * ingest job (`../../partition/support/placement-stage`), the level stack and its storey heights are
  * authored by acts (`../../levels/support/levels-stage`), the set is pinned by the pin act, the
- * partition job runs placements, member types and expansion, the scale of every layout-plan view
- * carrying columns is affirmed by `AFFIRM_SCALE`, and the campaign is measured by `runMeasureJob`
- * with the shipped `RAILS` roster and the gate.
+ * partition job runs placements, member types and expansion, the scale of every layout-plan view the
+ * partition stored a placement in is affirmed by `AFFIRM_SCALE`, and the campaign is measured by
+ * `runMeasureJob` with the shipped `RAILS` roster and the gate.
+ *
+ * A CALIBRATION IS A PROPERTY OF THE VIEW, NEVER OF THE CLASS DRAWN IN IT. Ranging is a statement
+ * about levels, so `AUTHOR_TYPICAL_RANGE` is offered only for the views carrying members that STAND
+ * on a level (`LEVEL_CLASSES`). Affirming a scale is not: a tie beam stands in the FOUNDATION slot
+ * and on no level (AC-3), and its `clear` is a MEASURED reading off the FOUNDATION PLAN like any
+ * other — so the affirmation pass runs over every view the partition placed anything in, and no
+ * class is left measuring against a view whose scale nobody affirmed (AC-5, AC-7; L-MEA-05).
  *
  * Two facts about the corpus decide what this stage has to author. The TYPICAL FLOOR PLAN's caption
  * states its own range ("1F TO 5F"), and the ROOF PLAN's caption states none for its columns — so
@@ -39,7 +46,7 @@ import {
 } from "../../partition/support/placement-stage";
 import { storageOf } from "../../partition/support/partition-stage";
 import { heightReading } from "../../levels/support/levels-stage";
-import { COLUMN_CLASS, INPUTS_FIXTURE, REPO_ROOT, columnLinesOf, fixtureLevels, railsRoster, said } from "./column-rail-stage";
+import { COLUMN_CLASS, INPUTS_FIXTURE, QUANTITY_LINES_TABLE, RAIL_OBSERVATIONS_TABLE, REPO_ROOT, columnLinesOf, fixtureLevels, railsRoster, said } from "./column-rail-stage";
 
 export { closeStage, columnLinesOf, field, said, storeRows };
 export type { PlacementStage, StackedLevel, StoreRow };
@@ -74,7 +81,16 @@ function asAct(input: Record<string, unknown>): ActInput {
 }
 
 /** One stored placement, as the partition's door answers one. */
-type StoredPlacement = { viewKey: string; elementType: string; mark: string } & Record<string, unknown>;
+export type StoredPlacement = { viewKey: string; elementType: string; mark: string; placementKey: string; memberFamily: string | null } & Record<string, unknown>;
+
+/** One reading of a run, as `runsOf` answers one (interfaces: `SideReading`). */
+export type SideReading = { value: string; unit: string; basis: string; sourceKeys: readonly string[] };
+
+/** One placement's run, as `runsOf` answers one (interfaces: `StoredRun`). */
+export type StoredRun = { placementKey: string; clear: SideReading | null; sides: readonly [SideReading | null, SideReading | null] };
+
+/** One stored run joined to the placement it was read for (test contract: `runsOfStage`). */
+export type StagedRun = StoredRun & { placement: StoredPlacement | undefined };
 
 /** One partitioned view, as the partition's view door answers one. */
 type StoredView = { viewKey: string } & Record<string, unknown>;
@@ -106,7 +122,7 @@ export type Rcc6Stage = {
   levels: StackedLevel[];
   verdict: { published: number; refused: number; queued: number; refusals: readonly { objectKey: string; code: string }[] };
   /** What the partition run read off the corpus: its steps, and the column placements it stored. */
-  partition: { steps: { step: string; detail?: Record<string, unknown> }[]; columnViews: string[]; placements: number };
+  partition: { steps: { step: string; detail?: Record<string, unknown> }[]; columnViews: string[]; rangedViews: string[]; placements: number; placementRows: StoredPlacement[] };
   /** What every act this stage offered answered with — a refusal is recorded, never hidden. */
   authored: { viewKey: string; from: string; to: string; performed: boolean; answer: string }[];
 };
@@ -121,6 +137,16 @@ export function stackLabels(): string[] {
 /** The fixture's foundation level — no column stands on it, and AC-2's stack does not carry it. */
 const FOUNDATION_LABEL = "FDN";
 
+/**
+ * The classes that stand ON a level, and are therefore expanded over the range of the view they were
+ * drawn in: columns and shear walls as they always were, and beams from this leaf (interfaces:
+ * `LEVEL_CLASSES`). Named here as the classes this STAGE ranges — a calibration is a property of the
+ * VIEW and never of the class drawn in it, so the affirmation pass below is not filtered by this
+ * roster. What the product's own roster holds is the product's answer, and the criteria beside this
+ * stage judge it.
+ */
+const LEVEL_CLASSES: readonly string[] = Object.freeze([COLUMN_CLASS, "shear_wall", "beam"]);
+
 /** The storey height the fixture states for a level, in metres, as written. */
 export function fixtureHeight(label: string): string {
   const held = fixtureLevels().find((level) => level.label === label);
@@ -133,6 +159,20 @@ export function fixtureColumnLevels(): Map<string, string[]> {
   // The fixture's own inputs, read as data: the acceptance authors what a caption does not state.
   const parsed = JSON.parse(readFileSync(join(REPO_ROOT, INPUTS_FIXTURE), "utf8")) as { columns: { mark: string; levels: string[] }[] };
   return new Map(parsed.columns.map((column) => [column.mark, column.levels]));
+}
+
+/**
+ * The levels the fixture states each LEVEL-CLASS mark stands at — its columns and, from this leaf,
+ * its beams. One map, because a view's range is authored from whatever level-class members it
+ * carries, and a plan carrying both states one range (test contract: AUTHOR_TYPICAL_RANGE from
+ * inputs.json's beam levels where the caption states none).
+ */
+export function fixtureMarkLevels(): Map<string, string[]> {
+  const parsed = JSON.parse(readFileSync(join(REPO_ROOT, INPUTS_FIXTURE), "utf8")) as {
+    columns: { mark: string; levels: string[] }[];
+    beams: { mark: string; levels: string[] }[];
+  };
+  return new Map([...parsed.columns, ...parsed.beams].map((member) => [member.mark, member.levels]));
 }
 
 /**
@@ -178,6 +218,11 @@ export async function stageRcc6(label: string): Promise<Rcc6Stage> {
     viewsOf: (s: { tenantId: string; projectId: string; drawingId: string }) => Promise<StoredView[] | null>;
   }>(PARTITION_MODULE);
   const placements = (await partition.placementsOf({ ...scope, drawingId: corpus.drawingId })) ?? [];
+  // Every class that stands ON a level and is therefore expanded over a view's range: columns as
+  // they always were, and — from this leaf — beams, which expand per level exactly as verticals do
+  // (interfaces: `LEVEL_CLASSES`). A view carrying either is ranged and scale-affirmed the same way,
+  // so nothing here decides which of them the corpus draws where.
+  const rangedAddresses = [...new Set(placements.filter((row) => LEVEL_CLASSES.includes(row.elementType)).map((row) => row.viewKey))].sort();
   const columnAddresses = [...new Set(placements.filter((row) => row.elementType === COLUMN_CLASS).map((row) => row.viewKey))].sort();
   // The same views, named as the partition's own records name them — the key space the scale door
   // answers in and the act below affirms in.
@@ -186,20 +231,32 @@ export async function stageRcc6(label: string): Promise<Rcc6Stage> {
     .map((view) => view.viewKey)
     .filter((viewKey) => columnAddresses.some((address) => namesSameView(address, viewKey)))
     .sort();
+  const rangedViews = viewRecords
+    .map((view) => view.viewKey)
+    .filter((viewKey) => rangedAddresses.some((address) => namesSameView(address, viewKey)))
+    .sort();
+  // Every view the partition placed anything in, whatever class it placed: the set whose scale has
+  // to stand before a rail may read a length off it. Derived from the placements the run stored, so
+  // a class this stage never heard of arrives inside it (L-MEA-05, B-19).
+  const placedAddresses = [...new Set(placements.map((row) => row.viewKey))].sort();
+  const placedViews = viewRecords
+    .map((view) => view.viewKey)
+    .filter((viewKey) => placedAddresses.some((address) => namesSameView(address, viewKey)))
+    .sort();
   // Nothing is asserted about what the corpus gave: what the partition read is the product's answer,
   // and the criteria beside this stage are where it is judged (ARCH-03). What it gave is carried out
   // on `partition`, so a case that finds nothing can say what the run reported.
 
   // The range each of those views stands over, offered to the act R-TO-031 names for an unstated one.
   const marksByView = new Map<string, Set<string>>();
-  for (const row of placements.filter((one) => one.elementType === COLUMN_CLASS)) {
+  for (const row of placements.filter((one) => LEVEL_CLASSES.includes(one.elementType))) {
     const held = marksByView.get(row.viewKey) ?? new Set<string>();
     held.add(row.mark);
     marksByView.set(row.viewKey, held);
   }
   const authored: Rcc6Stage["authored"] = [];
-  for (const viewKey of columnAddresses) {
-    const stated = [...(marksByView.get(viewKey) ?? new Set<string>())].flatMap((mark) => fixtureColumnLevels().get(mark) ?? []);
+  for (const viewKey of rangedAddresses) {
+    const stated = [...(marksByView.get(viewKey) ?? new Set<string>())].flatMap((mark) => fixtureMarkLevels().get(mark) ?? []);
     const covered = labels.filter((one) => stated.includes(one));
     if (covered.length === 0) continue;
     const from = levels.find((level) => level.label === covered[0]) as StackedLevel;
@@ -215,13 +272,14 @@ export async function stageRcc6(label: string): Promise<Rcc6Stage> {
     }
   }
 
-  // Every one of those views, scale-affirmed at the rank the machine proposes for it: a rail cannot
-  // mint a calibration reference it does not hold (L-MEA-05, riskNotes (3)).
+  // Every view anything was placed in, scale-affirmed at the rank the MACHINE proposes for it — the
+  // stage never composes a proposal of its own, it affirms one the scale door itself ranked and
+  // offered: a rail cannot mint a calibration reference it does not hold (L-MEA-05, riskNotes (3)).
   const scale = await productModule<{ scaleProposalsOf: (s: { tenantId: string; projectId: string; drawingId: string }, deps: { storage: unknown }) => Promise<ViewScale[]> }>(SCALE_MODULE);
   const storage = await storageOf();
   const scales = await scale.scaleProposalsOf({ ...scope, drawingId: corpus.drawingId }, { storage });
   const byRank = new Map<string, string[]>();
-  for (const view of scales.filter((one) => columnViews.includes(one.viewKey) && one.affirmed === null)) {
+  for (const view of scales.filter((one) => placedViews.includes(one.viewKey) && one.affirmed === null)) {
     const rank = view.proposals[0]?.rank;
     expect(rank, `the machine proposes a scale for the layout-plan view ${view.viewKey} — a view with no proposal has nothing to affirm (L-MEA-05)`).toBeTruthy();
     const held = byRank.get(String(rank)) ?? [];
@@ -274,7 +332,7 @@ export async function stageRcc6(label: string): Promise<Rcc6Stage> {
     campaignId,
     levels,
     verdict: verdicts[0] as Rcc6Stage["verdict"],
-    partition: { steps: partitionSteps.map((one) => ({ step: one.step, detail: one.detail })), columnViews, placements: placements.length },
+    partition: { steps: partitionSteps.map((one) => ({ step: one.step, detail: one.detail })), columnViews, rangedViews, placements: placements.length, placementRows: placements },
     authored,
   };
 }
@@ -286,6 +344,78 @@ export function levelOfObjectKey(measured: Rcc6Stage): Map<string, string> {
   return new Map(
     rows.map((row) => [String(field(row, "objectKey", "object_key")), byLevelId.get(String(field(row, "levelId", "level_id"))) ?? String(field(row, "levelLabel", "level_label") ?? "")]),
   );
+}
+
+/**
+ * The partition's `runsOf` answer for the staged drawing, joined to the placement each run was read
+ * for by its placement key (test contract: `runsOfStage`). A null answer — no partition stored — is
+ * carried through as an empty list with the assertion naming it, so a criterion says what it found.
+ */
+export async function runsOfStage(measured: Rcc6Stage): Promise<StagedRun[]> {
+  const partition = await productModule<{ runsOf?: (s: { tenantId: string; projectId: string; drawingId: string }) => Promise<readonly StoredRun[] | null> }>(PARTITION_MODULE);
+  expect(
+    typeof partition.runsOf,
+    `${PARTITION_MODULE} publishes \`runsOf\` — the door the stored run of a beam or tie-beam placement is read back through (interfaces)`,
+  ).toBe("function");
+  const answered = await (partition.runsOf as (s: { tenantId: string; projectId: string; drawingId: string }) => Promise<readonly StoredRun[] | null>)({
+    tenantId: measured.tenantId,
+    projectId: measured.projectId,
+    drawingId: measured.drawingId,
+  });
+  expect(answered, `the partition stored runs for the drawing it partitioned — a null answer is no partition at all (interfaces)`).not.toBeNull();
+  const byKey = new Map(measured.partition.placementRows.map((row) => [row.placementKey, row]));
+  return (answered ?? []).map((row) => ({ ...row, placement: byKey.get(row.placementKey) }));
+}
+
+/** Every register object of the pinned revision, whole — the rows a rail reads (L-REG-01). */
+export function registerRowsOf(measured: Rcc6Stage): StoreRow[] {
+  return storeRows("register_objects", measured.tenantId).filter((row) => String(field(row, "setRevisionId", "set_revision_id")) === measured.setRevisionId);
+}
+
+/** The label a published line is grouped under: its register object's level, or FDN where it has none. */
+export function levelLabelsOf(measured: Rcc6Stage): Map<string, string> {
+  const byLevelId = new Map(measured.levels.map((level) => [level.levelId, level.label]));
+  return new Map(
+    registerRowsOf(measured).map((row) => {
+      const levelId = field(row, "levelId", "level_id");
+      const label = levelId === null || levelId === undefined ? FOUNDATION_LABEL : (byLevelId.get(String(levelId)) ?? String(field(row, "levelLabel", "level_label") ?? ""));
+      return [String(field(row, "objectKey", "object_key")), label];
+    }),
+  );
+}
+
+/**
+ * The exact-decimal sum of one (class, kind)'s published lines per level label (test contract:
+ * `publishedByLevelOf`). A line whose register object stands on no level groups as FDN — the
+ * foundation slot is a place a member stands, not a level of the stack (L-REG-02).
+ */
+export async function publishedByLevelOf(measured: Rcc6Stage, wanted: { class: string; kind: string }): Promise<Map<string, string>> {
+  const canon = await productModule<{ exact: (value: string | number) => { add: (other: unknown) => unknown; toString: () => string } }>(UNITS_MODULE);
+  const at = levelLabelsOf(measured);
+  const summed = new Map<string, { toString: () => string }>();
+  for (const line of linesOfClassAndKind(measured, wanted)) {
+    const label = at.get(said(line, "objectKey", "object_key")) ?? "";
+    const value = (line as Record<string, unknown>)["value"];
+    if (value === null || value === undefined) continue;
+    const standing = summed.get(label) ?? canon.exact("0");
+    summed.set(label, (standing as { add: (other: unknown) => { toString: () => string } }).add(canon.exact(String(value))));
+  }
+  return new Map([...summed].map(([label, total]) => [label, total.toString()]));
+}
+
+/** Every quantity line of the measured campaign standing in one (class, kind). */
+export function linesOfClassAndKind(measured: Rcc6Stage, wanted: { class: string; kind: string }): StoreRow[] {
+  return storeRows(QUANTITY_LINES_TABLE, measured.tenantId).filter(
+    (row) =>
+      String(field(row, "campaignId", "campaign_id")) === measured.campaignId &&
+      String(field(row, "class", "class")) === wanted.class &&
+      String(field(row, "kind", "kind")) === wanted.kind,
+  );
+}
+
+/** Every rail observation the measured campaign recorded, whole (L-MEA-08). */
+export function observationsOf(measured: Rcc6Stage): StoreRow[] {
+  return storeRows(RAIL_OBSERVATIONS_TABLE, measured.tenantId).filter((row) => String(field(row, "campaignId", "campaign_id")) === measured.campaignId);
 }
 
 /** The exact-decimal sum of the column-concrete lines this campaign published, per level label. */

@@ -20,6 +20,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { RefusalCode } from "@/core/errors";
+import { heightOf, variantCovering } from "@/core/offers/contract";
 import type {
   Measure,
   MemberVariantSetup,
@@ -30,9 +31,9 @@ import type {
   RailInput,
   RailObservation,
   RailSetup,
+  StoreyHeightReading,
   RegisterObjectRow,
 } from "@/core/offers/contract";
-import { heightOf, variantCovering, type StoreyHeightReading } from "@/core/offers/contract";
 import { CANONICAL_UNIT } from "@/core/units/canon";
 
 /** The rule this rail offers under. An offer names a rule and never a version (L-MEA-08). */

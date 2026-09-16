@@ -5,6 +5,7 @@ import { assureRouter } from "./routers/assure";
 import { bidRouter } from "./routers/bid";
 import { spineRouter } from "./routers/spine";
 import { takeoffRouter } from "./routers/takeoff";
+import { takeoffSchedulesRouter } from "./routers/takeoff-schedules";
 import { answerFor, router, type AnswerRequest } from "./trpc";
 import type { AppContext } from "./context";
 
@@ -21,6 +22,7 @@ import type { AppContext } from "./context";
 export const lanes = Object.freeze({
   spine: spineRouter,
   takeoff: takeoffRouter,
+  takeoffSchedules: takeoffSchedulesRouter,
   bid: bidRouter,
   assure: assureRouter,
   ai: aiRouter,

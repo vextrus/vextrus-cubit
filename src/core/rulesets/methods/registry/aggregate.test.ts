@@ -37,14 +37,22 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
  *
  * Re-baselined for TWELVE ADDED pairs and nothing else — the slab, shear-wall and stair rules of
  * `src/core/rulesets/methods/slab-wall-stair/` (R-TO-032, L-MEA-09/AM-02, AM-06 §3/§4). The roster
- * grew by those twelve keys, in code-point order among the three that stood before them, and not
- * one of those three moved: the three that were here are `conventions.resolve@1`, `member.volume@1`
- * and `rcc.column.concrete@1`, and they are still here under the same spelling.
+ * grew by those twelve keys — nine pairs to twenty-one — in code-point order among the nine that
+ * stood before them, and not one of those nine moved.
+ *
+ * Re-baselined before that by the FRAME leaf for SIX ADDED pairs and nothing else — the beam,
+ * tie-beam and lintel methods L-MEA-09 measures a frame by, recorded in `../frame/frame.methods.json`.
+ * The roster grew by those six keys — three pairs to nine — and no pair standing before them moved
+ * (B-19, B-20).
  */
 const PAIRS_BEFORE: readonly string[] = Object.freeze([
   "conventions.resolve@1",
   "member.volume@1",
+  "rcc.beam.concrete@1",
+  "rcc.beam.formwork@1",
   "rcc.column.concrete@1",
+  "rcc.lintel.concrete@1",
+  "rcc.lintel.formwork@1",
   "rcc.slab.concrete@1",
   "rcc.slab.drop.concrete@1",
   "rcc.slab.drop.formwork@1",
@@ -55,6 +63,8 @@ const PAIRS_BEFORE: readonly string[] = Object.freeze([
   "rcc.stair.flight.formwork@1",
   "rcc.stair.landing.concrete@1",
   "rcc.stair.landing.formwork@1",
+  "rcc.tie_beam.concrete@1",
+  "rcc.tie_beam.formwork@1",
   "rcc.wall.concrete@1",
   "rcc.wall.formwork@1",
 ]);

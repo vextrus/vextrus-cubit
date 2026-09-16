@@ -37,7 +37,6 @@ import {
   columnRailDoor,
   levelStanding,
   levelUnread,
-  productModule,
   railInput,
   railsRoster,
   reading,
@@ -48,9 +47,6 @@ import {
   type RailInputDraft,
   type RailInputShape,
 } from "./support/column-rail-stage";
-
-/** The AREA file that declares this rail under its kind — the one home the name is spelled in (AM-11). */
-const FRAME_RAILS_MODULE = "src/modules/takeoff/rails/frame.ts";
 
 /** The one register row the criterion describes: a column instance standing on level L1. */
 const ROW = registerRow({ setRevisionId: SET_REVISION, placementKey: PLACEMENT_KEY, levelId: LEVEL_ID, viewKey: VIEW_KEY, mark: MEMBER_FAMILY });
@@ -174,27 +170,26 @@ describe("AC-1: one column instance, one PRISM_RECT offer", () => {
     expect(without.selectors, "and where the drawing's general notes stated no grade, nothing is selected by (scope: `setup.grades` is a seam)").toEqual({});
   });
 
-  test("AC-1: the roster answers this kind with this rail", async () => {
+  test("AC-1: the roster answers this kind with a rail that answers the column exactly as this one does", async () => {
     const rail = await columnRailDoor();
-    const area = await productModule<Record<string, Record<string, unknown>>>(FRAME_RAILS_MODULE);
     const rails = await railsRoster();
+    const roster = rails[RCC_CONCRETE];
 
-    // The AREA declares the rail, and declares it by identity: "a kind is named once, beside the
-    // rail that measures it" (AM-11, B-19). That claim is where it always was.
-    expect(
-      area["FRAME_RAILS"]?.[RCC_CONCRETE],
-      `${FRAME_RAILS_MODULE} names ${RCC_CONCRETE} beside the rail that measures it — a rail is selected per quantity kind (L-MEA-08, AM-11)`,
-    ).toBe(rail.columnConcreteRail);
+    expect(roster, `\`RAILS\` carries the entry ${RCC_CONCRETE} — a rail is selected per quantity kind, never per drawing (L-MEA-08, interfaces)`).toBeTypeOf("function");
 
-    // The BARREL answers the kind for every area that claims it. More than one does now — plates and
-    // shear walls are concrete too — so the roster's entry is their composition rather than any one
-    // area's function, and what has to hold of it is that it LOSES none of them: over an input only
-    // this area measures, the composed rail answers exactly this rail's own batch (AM-11, L-MEA-08).
-    expect(typeof rails[RCC_CONCRETE], `\`RAILS\` answers ${RCC_CONCRETE} (L-MEA-08, interfaces)`).toBe("function");
+    // The kind's entry is no longer this rail itself: the FRAME area composes the per-class rails of
+    // `rcc.concrete` into one, and this rail is its first member. What the roster answers ABOUT THE
+    // COLUMN is therefore graded by what it answers — the offers whole, and the silence beside them —
+    // rather than by which function object it is. A composition that dropped, reordered or altered
+    // the column's answer is caught here. What the composition says about a class of its OWN is that
+    // class's leaf to state, and is not a change to this one (L-MEA-08, L-QTY-02).
+    const answered = roster?.(input());
+    const alone = rail.columnConcreteRail(input());
+    expect(answered?.offers, `and for a column row it answers the column rail's own offers, unchanged by the composition (L-MEA-08)`).toEqual(alone.offers);
     expect(
-      (rails[RCC_CONCRETE] as (given: RailInputShape) => unknown)(input()),
-      `and the composition carries this area's rail whole — a barrel that dropped it would claim ${RCC_CONCRETE} is measured while half of it never is (AM-11)`,
-    ).toEqual(rail.columnConcreteRail(input()));
+      answered?.observations.filter((one) => one.class === COLUMN_CLASS),
+      `and says about the column exactly what the column rail said about it, and nothing beside it`,
+    ).toEqual(alone.observations);
   });
 });
 

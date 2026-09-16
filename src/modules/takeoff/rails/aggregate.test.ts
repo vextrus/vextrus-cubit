@@ -40,6 +40,7 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
 /** Every kind the product measured before AM-11 moved a line, in code-point order. */
 const KINDS_BEFORE: readonly string[] = Object.freeze(["rcc.concrete", "rcc.formwork"]);
 
+
 /** A rail, as this file drives one: the pure function of L-MEA-08, read out of a roster. */
 type RailLike = (input: unknown) => { offers: readonly unknown[]; observations: readonly unknown[] };
 
@@ -56,7 +57,7 @@ const NO_ROWS = Object.freeze({
   campaignId: "00000000-0000-4000-8000-000000000001",
   setRevisionId: "00000000-0000-4000-8000-000000000002",
   objects: Object.freeze([]),
-  setup: Object.freeze({ placements: {}, memberTypes: {}, levels: Object.freeze([]), calibrations: {}, grades: {}, plans: {} }),
+  setup: Object.freeze({ placements: {}, memberTypes: {}, levels: Object.freeze([]), calibrations: {}, grades: {}, runs: {}, lintels: {}, plans: {} }),
 });
 
 async function moduleAt(relative: string): Promise<Record<string, unknown>> {
