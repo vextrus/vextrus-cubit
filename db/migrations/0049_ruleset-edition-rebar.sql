@@ -51,31 +51,6 @@ INSERT INTO "ruleset_editions" ("scope", "name", "version", "content_digest", "p
 			"placementFootprintMax": { "value": "2.5", "unit": "ratio" },
 			"placementHumanSnap": { "value": "0.5", "unit": "ratio" }
 		}'::json,
-		'[
-			{ "ruleId": "conventions.resolve", "version": "1" },
-			{ "ruleId": "detailing.BNBC2020_BD", "version": "2026.07" },
-			{ "ruleId": "earthwork.pit_rect", "version": "1" },
-			{ "ruleId": "finish.surface.paint", "version": "1" },
-			{ "ruleId": "finish.surface.plaster", "version": "1" },
-			{ "ruleId": "masonry.brick_wall.volume", "version": "1" },
-			{ "ruleId": "member.volume", "version": "1" },
-			{ "ruleId": "pcc.blinding_rect", "version": "1" },
-			{ "ruleId": "piling.bored.count", "version": "1" },
-			{ "ruleId": "piling.bored.length", "version": "1" },
-			{ "ruleId": "rcc.beam.concrete", "version": "1" },
-			{ "ruleId": "rcc.beam.formwork", "version": "1" },
-			{ "ruleId": "rcc.column.concrete", "version": "1" },
-			{ "ruleId": "rcc.foundation.prism_poly", "version": "1" },
-			{ "ruleId": "rcc.foundation.prism_rect", "version": "1" },
-			{ "ruleId": "rcc.lintel.concrete", "version": "1" },
-			{ "ruleId": "rcc.lintel.formwork", "version": "1" },
-			{ "ruleId": "rcc.pile.concrete", "version": "1" },
-			{ "ruleId": "rcc.rebar.cutting_length", "version": "1" },
-			{ "ruleId": "rcc.rebar.mass", "version": "1" },
-			{ "ruleId": "rcc.rebar.stock", "version": "1" },
-			{ "ruleId": "rcc.rebar.synthesis", "version": "1" },
-			{ "ruleId": "rcc.tie_beam.concrete", "version": "1" },
-			{ "ruleId": "rcc.tie_beam.formwork", "version": "1" }
-		]'::json
+		'[{ "ruleId": "conventions.resolve", "version": "1" }, { "ruleId": "detailing.BNBC2020_BD", "version": "2026.07" }, { "ruleId": "earthwork.pit_rect", "version": "1" }, { "ruleId": "finish.surface.paint", "version": "1" }, { "ruleId": "finish.surface.plaster", "version": "1" }, { "ruleId": "masonry.brick_wall.volume", "version": "1" }, { "ruleId": "member.volume", "version": "1" }, { "ruleId": "pcc.blinding_rect", "version": "1" }, { "ruleId": "piling.bored.count", "version": "1" }, { "ruleId": "piling.bored.length", "version": "1" }, { "ruleId": "rcc.beam.concrete", "version": "1" }, { "ruleId": "rcc.beam.formwork", "version": "1" }, { "ruleId": "rcc.column.concrete", "version": "1" }, { "ruleId": "rcc.foundation.prism_poly", "version": "1" }, { "ruleId": "rcc.foundation.prism_rect", "version": "1" }, { "ruleId": "rcc.lintel.concrete", "version": "1" }, { "ruleId": "rcc.lintel.formwork", "version": "1" }, { "ruleId": "rcc.pile.concrete", "version": "1" }, { "ruleId": "rcc.rebar.cutting_length", "version": "1" }, { "ruleId": "rcc.rebar.mass", "version": "1" }, { "ruleId": "rcc.rebar.stock", "version": "1" }, { "ruleId": "rcc.rebar.synthesis", "version": "1" }, { "ruleId": "rcc.tie_beam.concrete", "version": "1" }, { "ruleId": "rcc.tie_beam.formwork", "version": "1" }]'::json
 	);--> statement-breakpoint
 SELECT set_config('cubit.system_reason', '', false);

@@ -163,11 +163,12 @@ function observe(code: RebarRefusalCode, row: RegisterObjectRow, sourceEntity: s
  */
 function storeyRunOf(level: LevelSetup | undefined): { readonly ok: true; readonly mm: string; readonly source: string } | { readonly ok: false } {
   const height = level?.height;
-  if (height === undefined || height.standing !== "AGREED" || height.value === null || height.unit !== MM || height.sourceKey === null || height.sourceKey.length === 0) return { ok: false };
-  // The levels law pairs each standing with the code it is absent under; this leaf reports its own
-  // REBAR_STOREY_RUN_UNSTATED instead, because what is missing here is the LENGTH OF BAR, and naming
-  // the storey height alone would send a reader to a different question (L-MEA-08's roster).
-  if (STOREY_HEIGHT_ABSENCE[height.standing] !== undefined) return { ok: false };
+  if (height === undefined || height.value === null || height.unit !== MM || height.sourceKey === null || height.sourceKey.length === 0) return { ok: false };
+  // The levels law pairs each standing with the code it carries no height under, and AGREED alone is
+  // paired with none. This leaf reports its own REBAR_STOREY_RUN_UNSTATED instead of that code,
+  // because what is missing here is the LENGTH OF BAR, and naming the storey height alone would send
+  // a reader to a different question (L-MEA-07, L-MEA-08's roster).
+  if (STOREY_HEIGHT_ABSENCE[height.standing] !== null) return { ok: false };
   return { ok: true, mm: height.value, source: height.sourceKey };
 }
 
