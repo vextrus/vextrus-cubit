@@ -9,6 +9,7 @@
 // names the product does own).
 
 import { ACT_TYPES } from "../acts/law";
+import { BAR_ROLES } from "../rulesets/methods/rebar/synthesis";
 import { NOTE_KINDS } from "../notes/law";
 import { COVERAGES, GEOMETRY_TYPES } from "../offers/law";
 import { AXIS_IDLE_READINGS } from "../residue/law";
@@ -200,8 +201,11 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // L-MEA-01's rule-set names, spelled as the law spells them. `IS1200_IN` is the name half of an
     // edition's identity (scope, name, version) — data held in the store and shown on the settings
     // screen, never an answer given to anybody. Its home is `../rulesets/seed` (ARCH-02).
+    // `BNBC2020_BD` is the DETAILING edition's name beside it — the versioned data L-FRM-05 requires
+    // a bar schedule to be cut under, held as a method pair rather than a `ruleset_editions` row.
+    // Its home is `../rulesets/methods/rebar/detailing-bnbc2020-bd.ts` (ARCH-02).
     vocabulary: "rule-set edition names (L-MEA-01)",
-    codes: Object.freeze(["IS1200_IN"]),
+    codes: Object.freeze(["IS1200_IN", "BNBC2020_BD"]),
   }),
   Object.freeze({
     // The database driver's own connection-failure codes, read in `../db.ts` where the key lock
@@ -237,6 +241,25 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // and it is read from there rather than copied (B-19, ARCH-02).
     vocabulary: "coverage states (L-QTY-02)",
     codes: COVERAGES,
+  }),
+  Object.freeze({
+    // L-FRM-05's bar roles: what a synthesised bar is FOR, on the schedule's own words. Four of the
+    // nine bear an underscore, so Q-07's register would read them as refusal codes nobody registered
+    // — but a role is what a BAR is, written to `bar_rows` and printed on the bill of bars; a person
+    // is answered with the bar's own mark and shape, never with this name. The roster's home is
+    // `../rulesets/methods/rebar/synthesis.ts` and it is read from there rather than copied
+    // (B-19, ARCH-02).
+    vocabulary: "reinforcement bar roles (L-FRM-05)",
+    codes: BAR_ROLES,
+  }),
+  Object.freeze({
+    // The detailing edition's own field names, spelled as the edition states them. `STOCK_BAR_MM` is
+    // the length of bar a mill rolls and a cutting list is cut from — a CONSTANT of the edition's
+    // data, read by the stock split and printed on the bill of bars' header, never a code answered
+    // to anybody. It bears underscores, so Q-07's register would read it as a refusal nobody
+    // registered. Its home is `../rulesets/methods/rebar/detailing-bnbc2020-bd.ts` (ARCH-02).
+    vocabulary: "detailing edition field names (L-FRM-05)",
+    codes: Object.freeze(["STOCK_BAR_MM"]),
   }),
   Object.freeze({
     // L-MEA-06's SITE attributes, by the names the ledger files them under. Every one bears an

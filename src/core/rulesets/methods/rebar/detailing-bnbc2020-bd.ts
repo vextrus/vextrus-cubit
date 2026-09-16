@@ -10,6 +10,7 @@
 // DISCLOSURE (`DETAILING_ROW_NOT_IN_EDITION`), never a row scaled from a neighbouring one.
 
 import type { ElementType } from "@/core/catalogue/classes";
+import type { RebarRefusalCode } from "@/core/errors/rebar";
 import { exact } from "@/core/units/canon";
 import type { ResolverMethod } from "../law";
 
@@ -81,7 +82,7 @@ export type DetailingEdition = {
  * What a lookup answers when the edition holds no row for the grade it was asked about: the code, so
  * the rail omits the component by name (L-QTY-02) instead of scaling a row that says something else.
  */
-export type NoRow = { readonly ok: false; readonly code: "DETAILING_ROW_NOT_IN_EDITION" };
+export type NoRow = { readonly ok: false; readonly code: Extract<RebarRefusalCode, "DETAILING_ROW_NOT_IN_EDITION"> };
 
 /** A multiplier off the ℓd table, in multiples of d_b, or the disclosure that no row holds it. */
 export type LdMultiplierAnswer = { readonly ok: true; readonly multiplier: number } | NoRow;
