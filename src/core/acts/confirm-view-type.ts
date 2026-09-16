@@ -13,6 +13,7 @@
 // naming the act that carried it — a fact about what a person judged, never a rewrite of what the
 // drawing says.
 import { viewTypeConfirmations, type TenantTx } from "../db";
+import { violatesConstraint } from "../db/violations";
 import type { RefusalCode } from "../errors";
 import { refusal } from "../faults/refusal-marker";
 import { projectDrawingsOf } from "../sheets";
@@ -26,6 +27,9 @@ const CONFIRM_VIEW_TYPE = "CONFIRM_VIEW_TYPE" as const;
 
 /** L-ACT-02's answer for a key whose membership the current state does not carry (R-SPINE-062). */
 const GROUP_NOT_OFFERED: RefusalCode = "GROUP_NOT_OFFERED";
+
+/** The store's own statement that a view is confirmed once — the race this act can lose by name. */
+const CONFIRMED_ONCE = "view_type_confirmations_once";
 
 /**
  * The kind of fact this act's groups are keyed on, drawn OUT of the seam's closed roster rather than
@@ -115,16 +119,27 @@ export const confirmViewType: ActRendering<ConfirmViewTypeInput> = {
     const members = await membersOf(ctx, input, tx);
     if (members.length === 0) throw viewGroupNotOffered(input.group);
 
-    await tx.insert(viewTypeConfirmations).values(
-      members.map((member) => ({
-        tenantId: ctx.tenantId,
-        projectId: input.projectId,
-        drawingId: member.drawingId,
-        ingestId: member.ingestId,
-        viewKey: member.view.viewKey,
-        type: member.proposedType,
-        actId: act.actId,
-      })),
-    );
+    try {
+      await tx.insert(viewTypeConfirmations).values(
+        members.map((member) => ({
+          tenantId: ctx.tenantId,
+          projectId: input.projectId,
+          drawingId: member.drawingId,
+          ingestId: member.ingestId,
+          viewKey: member.view.viewKey,
+          type: member.proposedType,
+          actId: act.actId,
+        })),
+      );
+    } catch (failure) {
+      // Two people confirming one group at once both read a membership and both write it: the one
+      // that arrives second is refused by `view_type_confirmations_once`, and what happened to that
+      // person is that the group stopped being offered between their read and their write — which
+      // is this act's own refusal, not an outage they should be handed a fault id for (L-ACT-02,
+      // ARCH-03, B-21). Buckled to the constraint by NAME: another unique index in this transaction
+      // would be a different fact, and it stays a fault until somebody decides what it answers.
+      if (violatesConstraint(failure, CONFIRMED_ONCE)) throw viewGroupNotOffered(input.group);
+      throw failure;
+    }
   },
 };

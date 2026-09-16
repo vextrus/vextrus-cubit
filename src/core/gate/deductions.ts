@@ -56,8 +56,9 @@ function isChannel(channel: string): channel is DeductionChannel {
  *
  * A candidate in a channel the contract does not admit is a violation of the rail↔gate contract and
  * not a measurement question, so it answers `OFFER_NOT_TO_CONTRACT`; a candidate or a threshold the
- * canon cannot carry answers `UNIT_UNMAPPED`. An edition that states no threshold for a channel it
- * admits is an inconsistency of the store rather than an answer anyone is owed (ARCH-03).
+ * canon cannot carry answers `UNIT_UNMAPPED`; an edition that states no threshold for the channel
+ * answers `METHOD_NOT_IN_EDITION`. A threshold the edition states as something that is not a figure
+ * at all is the store contradicting itself rather than an answer anyone is owed (ARCH-03).
  */
 export function partitionDeductions(candidates: readonly DeductionCandidate[], parameters: Readonly<Record<string, EditionParameter>>): DeductionPartition {
   const deducted: DeductionCandidate[] = [];
@@ -70,9 +71,12 @@ export function partitionDeductions(candidates: readonly DeductionCandidate[], p
     if (!isDecimalFigure(candidate.measure.value)) return { ok: false, code: REFUSALS.OFFER_NOT_TO_CONTRACT.code };
     const named = CHANNEL_THRESHOLD[candidate.channel];
     const threshold = parameters[named];
-    if (threshold === undefined) {
-      throw new Error(`the rule-set edition states no ${named} — the ${candidate.channel} channel is partitioned against it, and a threshold nobody stated is not one to guess (L-MEA-01)`);
-    }
+    // An edition that states no threshold for this channel is an edition this measurement is not in:
+    // the offer names a channel the edition in force carries no figure for, and the answer is the
+    // registered code that says so — a person pins the edition that states it. This function's own
+    // contract is a refusal union, and an arm that threw instead reached the caller as a fault id
+    // where a refusal was promised (ARCH-03, L-MEA-01).
+    if (threshold === undefined) return { ok: false, code: REFUSALS.METHOD_NOT_IN_EDITION.code };
     // A threshold is authored, versioned content and not a rail's reading: one that is not a figure
     // at all is an inconsistency of the store rather than an answer this offer is owed (ARCH-03).
     if (!isDecimalFigure(threshold.value)) {

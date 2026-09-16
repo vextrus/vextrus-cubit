@@ -19,7 +19,12 @@ const ACTOR_NOT_HUMAN: RefusalCode = "ACTOR_NOT_HUMAN";
 
 /**
  * L-ACT-03: "`PERMISSION_NOT_HELD` carries the act type and missing permission". The act type is
- * null on a read path, which has none to name.
+ * null on a read path, which has none to name: the message then opens with "this read needs", and a
+ * person is told what the door wanted rather than being shown an act nobody was attempting.
+ *
+ * The read doors that answer that way are the participation roster's guard
+ * (`src/modules/spine/participants/guard.ts`) and the project-lifecycle read beside it — one
+ * refusal, one shape, whether what was refused was a write or a look (B-17, ARCH-03).
  */
 export function permissionNotHeld(actType: ActType | null, permission: Permission): Error {
   const moved = actType === null ? "this read" : actType;
