@@ -133,30 +133,29 @@ describe("AC-3: every bar of F-RCC6-BNBC cuts, rounds, records and bills as the 
     // form is void (AM-03(d)). Both are asserted here, on every closed link the golden details.
     const links = golden.rows.filter((row) => row.shape === "51");
     expect(links.length, "the golden carries closed links (shape 51) — the mark AM-03(d) corrects").toBeGreaterThan(0);
-    const bends51 = (shapes["51"] as { bends: readonly { angle: number; count: number }[] }).bends;
+    const cuttingLengthOf = door["cuttingLengthOf"] as (probe: { shape: string; diameterMm: number; legsMm: readonly string[] }) => string;
     const offForm: string[] = [];
     for (const closed of links) {
       const d = closed.dia_mm;
       const r = radiusOf(edition, d);
       const legs = legsOf(closed).map(Number);
-      if (legs.length !== 6) {
-        offForm.push(`${closed.bar_mark} states ${legs.length} legs where a closed link runs on six`);
+      // The roles, off the link's own six legs: the two sides to the outer bend line run
+      // (b − 2c, d − 2c) twice, and the hook extension stands in the last two letters (AC-6).
+      const [A, B, sideAgain, sideAgainToo, C, hookAgain] = legs as (number | undefined)[];
+      if (legs.length !== 6 || A !== sideAgain || B !== sideAgainToo || C !== hookAgain) {
+        offForm.push(`${closed.bar_mark} runs ${legs.join("/")} mm, which is no closed link of two repeated sides and two hooks`);
         continue;
       }
-      const sides = legs.slice(0, 4).sort((left, right) => left - right);
-      const hooks = legs.slice(4);
-      if (sides[0] !== sides[1] || sides[2] !== sides[3] || hooks[0] !== hooks[1]) {
-        offForm.push(`${closed.bar_mark} runs ${legs.join("/")} mm, which is no closed link of two sides and two hooks`);
-        continue;
+      const stated51 = 2 * ((A as number) + (B as number)) + 2 * (C as number) - 2.5 * r - 5 * d;
+      if (!stands(String(stated51), closed.cutting_raw_mm)) {
+        offForm.push(`${closed.bar_mark}: 2(A+B) + 2C − 2.5r − 5d on its own legs is ${stated51}, where the golden cuts it at ${closed.cutting_raw_mm}`);
       }
-      const stated51 = 2 * ((sides[0] as number) + (sides[2] as number)) + 2 * (hooks[0] as number) - 2.5 * r - 5 * d;
-      const answered51 = generic(legsOf(closed), bends51, r, d);
+      const answered51 = cuttingLengthOf({ shape: "51", diameterMm: d, legsMm: legsOf(closed) });
       if (Math.abs(Number(answered51) - stated51) >= 0.0005) {
-        offForm.push(`${closed.bar_mark}: the generic form answered ${String(answered51)} where 2(A+B) + 2C − 2.5r − 5d on its own legs is ${stated51}`);
+        offForm.push(`${closed.bar_mark}: ${BS8666_MODULE} answered ${String(answered51)} where the code formula answers ${stated51} — a code formula that disagrees with the generic form is void (AM-03(d))`);
       }
-      if (!stands(answered51, closed.cutting_raw_mm)) offForm.push(`${closed.bar_mark}: ${String(answered51)} is not the golden's own raw length ${closed.cutting_raw_mm}`);
     }
-    expect(offForm, say("the shape-51 spelling and the generic form cut every closed link to the same length (AM-03(d))", offForm, links.length)).toEqual([]);
+    expect(offForm, say("shape 51 is 2(A+B) + 2C − 2.5r − 5d on every closed link the golden details (AM-03(d))", offForm, links.length)).toEqual([]);
   });
 
   test("AC-3: roundedCuttingLengthOf is the one rounded surface, at 25 mm and never under the raw", async () => {
