@@ -535,6 +535,15 @@ const EDITION_METHODS_MIGRATION = "ruleset-edition-methods";
 const SEEDED_MIGRATION = "0004";
 
 /**
+ * The version 0004 itself seeded — the row the immutability case below reads.
+ *
+ * Named here rather than borrowed from `SUPERSEDED_SEED_VERSION`: that const means "the version the
+ * seed stood at before the leaf in hand", and it moves with every mint, while the row 0004 wrote
+ * stands at one version forever. The two were the same until a second re-mint landed (B-20).
+ */
+const SEEDED_SEED_VERSION = "2026.08";
+
+/**
  * Every version of the platform seed a landed migration has minted, oldest first: 0004's, the one
  * 0036 minted when the edition first cited its methods, and the one in force today.
  *
@@ -543,7 +552,7 @@ const SEEDED_MIGRATION = "0004";
  * roster that grows, not the discipline: the store holds one row per mint, and an edition that had
  * been edited in place would leave a version missing here.
  */
-const MINTED_SEED_VERSIONS: readonly string[] = [SUPERSEDED_SEED_VERSION, "2026.09", SEED_VERSION];
+const MINTED_SEED_VERSIONS: readonly string[] = [SEEDED_SEED_VERSION, "2026.09", SUPERSEDED_SEED_VERSION, SEED_VERSION];
 
 describe("AC-6: the platform edition is re-minted beside the row 0004 seeded", () => {
   it("AC-6: a new migration mints the edition, and the freshly migrated store holds one row per edition ever minted", async () => {
@@ -565,8 +574,8 @@ describe("AC-6: the platform edition is re-minted beside the row 0004 seeded", (
 
   it("AC-6: the superseded edition still stands exactly as 0004 seeded it", async () => {
     const rows = await seedRows();
-    const superseded = rows.find((row) => row["version"] === SUPERSEDED_SEED_VERSION);
-    expect(superseded, `the migrated store still holds ${SEED_NAME} @ ${SUPERSEDED_SEED_VERSION}`).toBeTruthy();
+    const superseded = rows.find((row) => row["version"] === SEEDED_SEED_VERSION);
+    expect(superseded, `the migrated store still holds ${SEED_NAME} @ ${SEEDED_SEED_VERSION}`).toBeTruthy();
     const held = superseded as Record<string, unknown>;
 
     // white-box: AC-6 — the criterion is about the IMMUTABILITY of a landed migration's own text, so
@@ -578,7 +587,7 @@ describe("AC-6: the platform edition is re-minted beside the row 0004 seeded", (
       text,
       `${String(seeding[0])} still states the digest the superseded row carries — a landed migration is superseded, never edited (B-20, history is append-only)`,
     ).toContain(digestField(held));
-    expect(held["methods"], `${SEED_NAME} @ ${SUPERSEDED_SEED_VERSION} cited no method, and citing one now would be an edition changed under the campaigns measured by it`).toStrictEqual([]);
+    expect(held["methods"], `${SEED_NAME} @ ${SEEDED_SEED_VERSION} cited no method, and citing one now would be an edition changed under the campaigns measured by it`).toStrictEqual([]);
   });
 
   it("AC-6: the edition in force carries the exported content's digest and its roster of methods", async () => {
