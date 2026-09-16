@@ -168,7 +168,7 @@ describe("breaker: a calibration filed by one drawing's act is not another drawi
     }
   }, BUDGET_MS);
 
-  test("a calibration row names one of the acts that affirmed it", async () => {
+  test("a calibration row is the one both acts affirmed, and names neither of them", async () => {
     const stage = await staged();
     const { firstActId, secondActId } = await affirmedBoth();
     const factor = metresPerString(MM);
@@ -184,10 +184,10 @@ describe("breaker: a calibration filed by one drawing's act is not another drawi
       "and that row takes the view to this very calibration — the reference an act carries with its own act id (L-MEA-05)",
     ).toContain(key);
 
-    // Which act the one row names is not pinned here, and cannot be: a content address is a function
-    // of the reading, so the filer is whichever act reached the row first. What is owed is that the
-    // act it names is one that really affirmed this reading, and that the affirmation carrying that
-    // act takes the same view to the same key — derived from the store, never transcribed (B-19).
+    // The one row names no act and no record at all: a content address is a function of the reading,
+    // so the filer would be whichever act reached the row first, and a column the key does not cover
+    // stamps that act's record on a row the other act shares. Attribution is each affirmation's own —
+    // derived from the store, never transcribed (L-MEA-05, B-19).
     const affirmedBy = rowsOf(SCALE_AFFIRMATIONS, stage.person.tenantId)
       .filter((candidate) => ((candidate["incoming_keys"] ?? []) as unknown[]).some((entry) => entry === key))
       .map((candidate) => String(candidate["act_id"]));
@@ -198,9 +198,9 @@ describe("breaker: a calibration filed by one drawing's act is not another drawi
 
     const row = held[0] as Record<string, unknown>;
     expect(
-      affirmedBy,
-      `the calibration ${key} names an act that affirmed it, and that act's own affirmation lists the key it filed`,
-    ).toContain(String(row["act_id"]));
+      Object.keys(row).filter((column) => ["project_id", "drawing_id", "ingest_id", "act_id"].includes(column)),
+      `the calibration ${key} carries no record-scoped column to name one of the two acts by: which act affirmed which ingest is the affirmations' to say, and both of them said it above`,
+    ).toEqual([]);
   }, BUDGET_MS);
 });
 

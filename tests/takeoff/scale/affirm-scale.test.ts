@@ -30,6 +30,7 @@ import {
   metresPerString,
   openSheetsStage,
   rowsNaming,
+  rowsOf,
   saidBy,
   scaleCore,
   scaleDoor,
@@ -153,7 +154,9 @@ describe("AC-5: AFFIRM_SCALE previews one subject per named view, and commits th
     expect(said, "the affirmation says which rank it stood on").toContain(FILE_UNITS);
     expect(said, "and which views it covered — every one of them").toEqual(expect.arrayContaining(stage.named));
 
-    const calibrations = rowsNaming(CALIBRATIONS, stage.person.tenantId, written.actId);
+    // A calibration is its content address and names no act (L-MEA-05), so the act's own rows are
+    // the ones its affirmation took its views to — read off the affirmation above, never transcribed.
+    const calibrations = rowsOf(CALIBRATIONS, stage.person.tenantId).filter((row) => said.includes(String(row["key"])));
     expect(calibrations.length, "and one calibration per view the act named").toBe(stage.named.length);
     for (const viewKey of stage.named) {
       const own = calibrations.filter((row) => saidBy(row).includes(viewKey));
