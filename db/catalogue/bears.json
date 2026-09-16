@@ -8,6 +8,10 @@
     "kind": "rcc.formwork"
   },
   {
+    "class": "brick_wall",
+    "kind": "masonry.brickwork"
+  },
+  {
     "class": "column",
     "kind": "rcc.concrete"
   },
@@ -54,6 +58,14 @@
   {
     "class": "pile_cap",
     "kind": "rcc.concrete"
+  },
+  {
+    "class": "surface",
+    "kind": "finish.paint"
+  },
+  {
+    "class": "surface",
+    "kind": "finish.plaster"
   },
   {
     "class": "tie_beam",

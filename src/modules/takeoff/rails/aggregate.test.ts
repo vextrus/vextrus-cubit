@@ -34,7 +34,17 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
  * lands four kinds beside the two the frame measured — `piling.bored`, `piling.boring`,
  * `earthwork.excavation` and `pcc.blinding` (B-19: an increment that lands a rail says so here).
  */
-const KINDS_BEFORE: readonly string[] = Object.freeze(["earthwork.excavation", "pcc.blinding", "piling.bored", "piling.boring", "rcc.concrete", "rcc.formwork"]);
+const KINDS_BEFORE: readonly string[] = Object.freeze([
+  "earthwork.excavation",
+  "finish.paint",
+  "finish.plaster",
+  "masonry.brickwork",
+  "pcc.blinding",
+  "piling.bored",
+  "piling.boring",
+  "rcc.concrete",
+  "rcc.formwork",
+]);
 
 async function moduleAt(relative: string): Promise<Record<string, unknown>> {
   const abs = join(REPO_ROOT, relative);

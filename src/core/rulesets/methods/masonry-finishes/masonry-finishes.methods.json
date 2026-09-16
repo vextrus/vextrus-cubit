@@ -1,0 +1,23 @@
+{
+  "methods": {
+    "masonry.brick_wall.volume@1": {
+      "ruleId": "masonry.brick_wall.volume",
+      "version": "1",
+      "law": "L-MEA-02",
+      "module": "src/core/rulesets/methods/masonry-finishes/brick-wall.ts"
+    },
+    "finish.surface.plaster@1": {
+      "ruleId": "finish.surface.plaster",
+      "version": "1",
+      "law": "L-MEA-03",
+      "module": "src/core/rulesets/methods/masonry-finishes/plaster.ts"
+    },
+    "finish.surface.paint@1": {
+      "ruleId": "finish.surface.paint",
+      "version": "1",
+      "law": "L-MEA-03",
+      "module": "src/core/rulesets/methods/masonry-finishes/paint.ts"
+    }
+  },
+  "digest": "681397f7569065d8df1a23bc6b359253aab92380ff4ad43f0173b4db982e19bb"
+}

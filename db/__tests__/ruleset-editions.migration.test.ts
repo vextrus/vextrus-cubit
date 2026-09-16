@@ -547,12 +547,13 @@ const SEEDED_SEED_VERSION = "2026.08";
  * Every version of the platform seed a landed migration has minted, oldest first: 0004's, the one
  * 0036 minted when the edition first cited its methods, and the one in force today.
  *
- * Re-baselined under B-20 by the frame leaf, which mints a THIRD row. The reading is the one this
- * case always made — a re-mint is "inserted BESIDE the immutable row, never over it" — and it is the
- * roster that grows, not the discipline: the store holds one row per mint, and an edition that had
- * been edited in place would leave a version missing here.
+ * Re-baselined under B-20 by the frame leaf, which mints a THIRD row, and again by the foundations
+ * and masonry leaves, each of which mints one more. The reading is the one this case always made — a
+ * re-mint is "inserted BESIDE the immutable row, never over it" — and it is the roster that grows,
+ * not the discipline: the store holds one row per mint, and an edition that had been edited in place
+ * would leave a version missing here.
  */
-const MINTED_SEED_VERSIONS: readonly string[] = [SEEDED_SEED_VERSION, "2026.09", SUPERSEDED_SEED_VERSION, SEED_VERSION];
+const MINTED_SEED_VERSIONS: readonly string[] = [SEEDED_SEED_VERSION, "2026.09", "2026.10", SUPERSEDED_SEED_VERSION, SEED_VERSION];
 
 describe("AC-6: the platform edition is re-minted beside the row 0004 seeded", () => {
   it("AC-6: a new migration mints the edition, and the freshly migrated store holds one row per edition ever minted", async () => {

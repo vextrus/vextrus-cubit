@@ -7,6 +7,27 @@
     "documentPrecision": 3
   },
   {
+    "kind": "finish.paint",
+    "description": "Paint to surfaces, measured as the painted face net of scheduled openings",
+    "dimension": "AREA",
+    "canonicalUnit": "m2",
+    "documentPrecision": 2
+  },
+  {
+    "kind": "finish.plaster",
+    "description": "Plaster to surfaces, measured as the finished face net of scheduled openings",
+    "dimension": "AREA",
+    "canonicalUnit": "m2",
+    "documentPrecision": 2
+  },
+  {
+    "kind": "masonry.brickwork",
+    "description": "Brickwork in walls, measured as the wall face net of scheduled openings by its nominal thickness",
+    "dimension": "VOLUME",
+    "canonicalUnit": "m3",
+    "documentPrecision": 3
+  },
+  {
     "kind": "pcc.blinding",
     "description": "Plain cement concrete blinding under foundations, measured as the laid volume",
     "dimension": "VOLUME",

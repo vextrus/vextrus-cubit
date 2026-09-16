@@ -8,13 +8,13 @@
 // An edition is immutable, so a method landing in the tree is a NEW edition rather than an edit to
 // the standing one: every earlier version stands untouched as the row the campaigns opened under it
 // measured against, and the version named below is minted beside them as the head every later pin
-// forks (B-20, L-REG-07). 2026.11 is that head: the foundations leaf's seven methods join the nine
-// 2026.10 cited, and a re-mint of 2026.10 would be an EDIT of a row campaigns have measured against.
+// forks (B-20, L-REG-07). 2026.12 is that head: the masonry leaf's three methods join the sixteen
+// 2026.11 cited, and a re-mint of 2026.11 would be an EDIT of a row campaigns have measured against.
 import type { EditionContent, EditionIdentity } from "../editions/content";
 import { enumerateMethods } from "../methods/registry";
 
 /** The identity of the platform edition: the head of every lineage in the product (L-REG-07). */
-export const SEED_EDITION_IDENTITY: EditionIdentity = { scope: "platform", name: "IS1200_IN", version: "2026.11" };
+export const SEED_EDITION_IDENTITY: EditionIdentity = { scope: "platform", name: "IS1200_IN", version: "2026.12" };
 
 /**
  * The seed's content: L-MEA-01's seventeen parameter values, and the (rule id, version) pairs of the

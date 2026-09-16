@@ -76,6 +76,8 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "EXPORT_URL_EXPIRED",
   "EXPORT_URL_INVALID",
   "FILE_TOO_LARGE",
+  "FINISH_GROSS_UNSTATED",
+  "FINISH_SELECTOR_UNSTATED",
   "FIXTURE_MISSING",
   "FORMAT_NOT_ACCEPTED",
   "FORMULA_DIVISOR_ZERO",
@@ -108,6 +110,9 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "NOT_IN_THIS_BILL",
   "NO_BEARER_SIGHTED",
   "OFFER_NOT_TO_CONTRACT",
+  "OPENING_FLOOR_UNJUDGEABLE",
+  "OPENING_NOT_AREABLE",
+  "OPENING_SCHEDULE_ABSENT",
   "ORIGIN_NOT_VERIFIED",
   "PARTITION_NOT_AVAILABLE",
   "PERMISSION_NOT_HELD",
@@ -144,12 +149,16 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "SOURCE_UNRESOLVED",
   "STOREY_HEIGHT_CONTESTED",
   "STOREY_HEIGHT_UNSTATED",
+  "SURFACE_NOT_CLOSED",
   "TOKEN_NOT_VALID",
   "TYPICAL_RANGE_UNSTATED",
   "UNIT_UNMAPPED",
   "UNSOURCED",
   "UPLOAD_NOT_RESUMABLE",
   "VIEW_SCALE_UNAFFIRMED",
+  "WALL_HEIGHT_UNSTATED",
+  "WALL_LENGTH_UNSTATED",
+  "WALL_THICKNESS_UNSTATED",
   "WORKSPACE_PERMISSION_NOT_HELD",
   "WORKSPACE_WOULD_HAVE_NO_OWNER",
 ]);
@@ -221,7 +230,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "9b59f1b35853dffb8371e2d9687745fe7853761bad8cedf13c26ced9a43cbb9d";
+const ENTRIES_DIGEST_BEFORE = "32df92f233d23f6d676ee51d208364ba75c57da271b4854ee1170a61a0da791c";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {
