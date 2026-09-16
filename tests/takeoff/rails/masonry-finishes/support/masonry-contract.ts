@@ -484,6 +484,16 @@ export const INGEST_ID = "66666666-6666-4666-8666-6666666660a1";
 export const VIEW_KEY = "PLAN:A-12:t:3";
 export const CALIBRATION_KEY = "cal-masonry-1";
 
+/**
+ * The DRAWING ENTITY a hand-built placement was read at — deliberately NOT its placement key.
+ *
+ * A placement key is a key of the setup's own map; the source entity is the handle a reader can go
+ * back to the drawing with (L-QTY-03). A fixture that spelled them the same string would make a
+ * deferral citing the key indistinguishable from one citing the entity, and a queue item carrying
+ * the key sends a reader nowhere.
+ */
+export const PLACEMENT_SOURCE_ENTITY = "A-12:e:41";
+
 /** The edition digest a hand-built case's DERIVED readings cite. */
 export const EDITION_DIGEST = "d00000000000000000000000000000000000000000000000000000000000ma50";
 
@@ -642,6 +652,26 @@ export function editionSource(edition: EditionSetupShape, parameterKey: string):
 }
 
 /**
+ * The SOURCE ENTITY the setup records for one placement — what a deferral about that placement
+ * cites (L-QTY-03, AC-4).
+ *
+ * Read off the setup a case actually handed the rail, never spelled beside it, and asserted here to
+ * differ from the placement KEY: the rule is "cites the placement's source entity", and an
+ * observation carrying the map key instead would be indistinguishable from a correct one if the two
+ * strings were ever allowed to collapse.
+ */
+export function placementSourceEntity(input: RailInputShape, placementKey: string): string {
+  const held = input.setup.placements[placementKey];
+  expect(held, `the setup places ${placementKey} — a case citing its source entity is a case that staged one`).toBeTruthy();
+  const entity = String(held?.sourceEntity);
+  expect(
+    entity,
+    `the fixture's source entity is a DRAWING handle and not the placement key — a scenario that spelled them the same string could not tell a deferral citing one from a deferral citing the other (L-QTY-03)`,
+  ).not.toBe(placementKey);
+  return entity;
+}
+
+/**
  * The edition a hand-built case binds its DERIVED readings from: the platform seed's own parameters,
  * read from the product rather than transcribed, under a surrogate digest.
  *
@@ -696,7 +726,7 @@ function oneMemberScenario(options: {
     input: railInput({
       kind: options.kind,
       objects: [row],
-      placements: { [options.placementKey]: placement({ memberFamily: options.mark, sourceEntity: options.placementKey }) },
+      placements: { [options.placementKey]: placement({ memberFamily: options.mark, sourceEntity: `${PLACEMENT_SOURCE_ENTITY}:${options.mark}` }) },
       walls: options.wall === undefined ? {} : { [options.placementKey]: options.wall },
       surfaces: options.surface === undefined ? {} : { [options.placementKey]: options.surface },
       edition: options.edition,
