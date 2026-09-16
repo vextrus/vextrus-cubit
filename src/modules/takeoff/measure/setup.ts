@@ -204,6 +204,12 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // lintel rails offer none and report LINTEL_SOURCE_ABSENT — a lintel is never inferred from the
     // wall it spans (L-QTY-04).
     lintels: {},
+    // Two more seams of the same reader (S-25): until it lands, no wall and no surface carries an
+    // opening schedule, so the masonry and finish rails offer nothing and report
+    // OPENING_SCHEDULE_ABSENT — "a face with no schedule is not measured", because its gross area
+    // would over-measure the work (L-MEA-02, L-MEA-03).
+    walls: {},
+    surfaces: {},
     // What somebody entered about the site, latest entry per fact (L-MEA-06), and the edition every
     // DERIVED reading cites by digest (L-MEA-01). Neither is judged here: a fact nobody entered is
     // simply absent, and what a rail makes of that absence is the rail's.

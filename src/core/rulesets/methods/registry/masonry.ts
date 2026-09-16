@@ -1,15 +1,22 @@
-// The MASONRY method area — empty until M3 writes it (AM-11).
+// The MASONRY method area: L-MEA-02's brickwork and L-MEA-03's two finishes, and the code each is
+// computed by.
 //
-// M3's masonry rail declares its methods HERE: a `*.methods.json` shard recorded beside the code it
-// declares, and the implementation for each pair the shard records. The barrel
-// `src/core/rulesets/methods/registry.ts` already enumerates this file, so a pair added to the group
-// below is a pair `enumerateMethods` answers and `implementationOf` can compute — with no shared
-// list to edit and no other area's file to touch (B-19).
+// The shard is imported rather than discovered by walking the tree, for the reason the barrel gives:
+// what is in force is decided at build time. It states `with { type: "json" }` because an ES module
+// loader admits a JSON module only on that attribute.
 
-import type { MethodArea } from "./area";
+import { BRICK_WALL_VOLUME_FORMULA, BRICK_WALL_VOLUME_METHOD } from "../masonry-finishes/brick-wall";
+import masonryShard from "../masonry-finishes/masonry-finishes.methods.json" with { type: "json" };
+import { PAINT_FACE_FORMULA, PAINT_FACE_METHOD } from "../masonry-finishes/paint";
+import { PLASTER_FACE_FORMULA, PLASTER_FACE_METHOD } from "../masonry-finishes/plaster";
+import { methodKey, type MethodArea } from "./area";
 
 /** This area's shards and the implementations for the pairs they record. */
 export const MASONRY_METHODS: MethodArea = Object.freeze({
-  shards: Object.freeze([]),
-  implementations: Object.freeze({}),
+  shards: Object.freeze([masonryShard]),
+  implementations: Object.freeze({
+    [methodKey(BRICK_WALL_VOLUME_METHOD)]: BRICK_WALL_VOLUME_FORMULA,
+    [methodKey(PLASTER_FACE_METHOD)]: PLASTER_FACE_FORMULA,
+    [methodKey(PAINT_FACE_METHOD)]: PAINT_FACE_FORMULA,
+  }),
 });

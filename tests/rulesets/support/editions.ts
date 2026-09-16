@@ -62,18 +62,17 @@ export const LINEAGE_SCOPES: readonly ["platform", "tenant", "project"] = ["plat
  * one, while the old row stands untouched as the campaigns opened under it measured against.
  */
 export const SEED_NAME = "IS1200_IN";
-export const SEED_VERSION = "2026.11";
+export const SEED_VERSION = "2026.12";
 
 /**
  * The version the seed stood at before this leaf, kept as the row a migration test reads.
  *
- * Re-baselined by the foundations leaf. Its spec calls for `2026.10`, but 2026.10 is already minted
- * (db/migrations/0042, the frame leaf) over a method roster that holds none of this shard's seven
- * pairs — and an edition is immutable (L-MEA-01, B-20): a re-mint of a standing version would be an
- * EDIT of a row campaigns have already measured against. So the seven pairs come in on the next
- * version beside it, which is what "re-minted ... so a pin puts them in force" means here.
+ * Re-baselined by the masonry leaf: 2026.11 is the row the foundations leaf minted, and this leaf's
+ * three pairs come in on the next version beside it rather than over it — an edition is immutable, so
+ * a re-mint of a standing version would be an EDIT of a row campaigns have already measured against
+ * (L-MEA-01, B-20). That is what "re-minted … so a pin puts them in force" means here.
  */
-export const SUPERSEDED_SEED_VERSION = "2026.10";
+export const SUPERSEDED_SEED_VERSION = "2026.11";
 
 /**
  * The seed's parameters, verbatim from L-MEA-01 and the Design Decision §3 table — the closed 17

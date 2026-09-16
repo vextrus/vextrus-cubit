@@ -14,7 +14,8 @@ import type { DeductionCandidate, DeductionChannel } from "../offers/contract";
 import { DEDUCTION_CHANNELS } from "../offers/law";
 import { isDecimalFigure } from "../projects";
 import type { EditionParameter } from "../rulesets/editions/content";
-import { convert, exact, isUnit } from "../units/canon";
+import { CANONICAL_UNIT, convert, exact, isUnit, type Dimension, type Unit } from "../units/canon";
+import { normaliseMeasure } from "./units";
 
 /** What a partition answers: the two sides, or the registered code that stopped it. */
 export type DeductionPartition =
@@ -25,8 +26,24 @@ export type DeductionPartition =
  * Which edition parameter each channel is partitioned against (L-MEA-01's parameter roster). One
  * map, so the channel a rail offers and the threshold the edition states cannot drift apart.
  */
-const CHANNEL_THRESHOLD: Readonly<Record<DeductionChannel, string>> = Object.freeze({
+export const CHANNEL_THRESHOLD: Readonly<Record<DeductionChannel, string>> = Object.freeze({
   opening: "openingDeductionMinM2",
+  // A finish is applied around the openings a wall is built around, and L-MEA-03 gives the surface
+  // group its own figure: the two channels never borrow each other's threshold (L-MEA-01).
+  finish_opening: "finishOpeningDeductionMinM2",
+});
+
+/**
+ * Which declared variable each channel's DEDUCTED SUM is bound into (L-MEA-02: "deducted sum … in
+ * the line's variables").
+ *
+ * The sum is the GATE's to bind and never a rail's: a rail enumerates candidates and computes
+ * nothing (L-MEA-08), and which side of the threshold each one falls on is decided here. One map, so
+ * the channel a method declares and the variable its tree subtracts cannot drift apart.
+ */
+export const CHANNEL_VARIABLE: Readonly<Record<DeductionChannel, string>> = Object.freeze({
+  opening: "openings",
+  finish_opening: "openings",
 });
 
 /** Is this spelling one of the channels the contract admits? */
@@ -72,4 +89,27 @@ export function partitionDeductions(candidates: readonly DeductionCandidate[], p
   }
 
   return { ok: true, deducted, kept };
+}
+
+/** What one channel's deducted sum comes to, or the registered code that stopped it. */
+export type DeductedSum = { readonly ok: true; readonly value: string; readonly unit: Unit } | { readonly ok: false; readonly code: RefusalCode };
+
+/**
+ * The exact sum of what ONE channel deducted, in the canonical unit of the dimension the variable it
+ * binds into stands in (L-MEA-02's "deducted sum", B-07).
+ *
+ * Every candidate is carried through the gate's one normalisation before it is added, so what is
+ * summed is a set of quantities rather than a set of numbers — two openings written in different
+ * units add up to what they are worth, and a unit the canon carries no factor for answers by name
+ * rather than being counted as its own digits (B-17, L-FRM-06).
+ */
+export function deductedSum(deducted: readonly DeductionCandidate[], channel: DeductionChannel, dimension: Dimension): DeductedSum {
+  let total = exact("0");
+  for (const candidate of deducted) {
+    if (candidate.channel !== channel) continue;
+    const carried = normaliseMeasure(candidate.measure, dimension);
+    if (!carried.ok) return { ok: false, code: carried.code };
+    total = total.add(carried.value);
+  }
+  return { ok: true, value: total.toString(), unit: CANONICAL_UNIT[dimension] };
 }

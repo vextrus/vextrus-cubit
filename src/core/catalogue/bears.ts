@@ -37,6 +37,13 @@ export const BEARS: readonly BearsRow[] = Object.freeze([
   Object.freeze({ class: "pile_cap", kind: "earthwork.excavation" }),
   Object.freeze({ class: "footing", kind: "pcc.blinding" }),
   Object.freeze({ class: "pile_cap", kind: "pcc.blinding" }),
+  // The masonry leaf: a brick wall bears its brickwork, and a SURFACE bears the plaster and the paint
+  // applied to it. The three cells that stay empty stay empty by rule — a brick wall bears no finish
+  // here, because a finish is borne by the face applied to it and not by the member behind it
+  // (L-MEA-03, AM-07).
+  Object.freeze({ class: "brick_wall", kind: "masonry.brickwork" }),
+  Object.freeze({ class: "surface", kind: "finish.plaster" }),
+  Object.freeze({ class: "surface", kind: "finish.paint" }),
 ] as const);
 
 /** The classes that bear at least one kind, as a set — read off the relation itself. */

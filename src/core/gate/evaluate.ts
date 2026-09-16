@@ -24,12 +24,12 @@ import { editionOf, type PinnedEdition } from "../campaigns";
 import { and, campaigns, eq, forTenant, holdStateLock, inArray, isUuid, quantityLines, queueItems, railObservations, registerObjects, type TenantTx } from "../db";
 import { writeInBatches } from "../db/batch";
 import { REFUSALS, type RefusalCode } from "../errors";
-import type { GateRefusal, GateScope, GateVerdict, Measure, Offer, RailBatch, RailObservation } from "../offers/contract";
+import type { DeductionCandidate, GateRefusal, GateScope, GateVerdict, Measure, Offer, RailBatch, RailObservation } from "../offers/contract";
 import { COVERAGES, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES, weakestBasis, type QuantityBasis } from "../offers/law";
 import type { MethodPair } from "../rulesets/editions/content";
 import { implementationOf, type FormulaMethod, type NormalisedBindings } from "../rulesets/methods/registry";
 import { CANONICAL_UNIT, exact } from "../units/canon";
-import { partitionDeductions } from "./deductions";
+import { CHANNEL_THRESHOLD, CHANNEL_VARIABLE, deductedSum, partitionDeductions } from "./deductions";
 import { renderFormula } from "./template";
 import { admissibleFigure, normaliseMeasure } from "./units";
 
@@ -90,12 +90,43 @@ function inRoster(roster: readonly string[], value: string): boolean {
  * (riskNotes (5)). A wrong selecting attribute is the right number at the wrong rate, and saying it
  * was MEASURED because the geometry was would hide exactly that.
  */
-function rollUps(offer: Offer): { readonly quantityBasis: QuantityBasis; readonly selectionBasis: QuantityBasis } {
-  const determining = Object.values(offer.bindings).map((reading) => reading.basis);
+function rollUps(offer: Offer, bound: Readonly<Record<string, Measure>>): { readonly quantityBasis: QuantityBasis; readonly selectionBasis: QuantityBasis } {
+  // Every determining attribute the FIGURE stood on, which includes the sums the gate bound from
+  // what it partitioned: a deducted sum is re-run from the pinned threshold, and a line whose figure
+  // depends on it and whose roll-up ignored it would claim a stronger recourse than it has (L-QTY-01).
+  const determining = Object.values(bound).map((reading) => reading.basis);
   return {
     quantityBasis: weakestBasis([offer.geometry.basis, ...determining]),
     selectionBasis: weakestBasis(Object.values(offer.selectors).map((reading) => reading.basis)),
   };
+}
+
+/**
+ * The readings the GATE mints for one offer: per channel the method declares, the exact sum of what
+ * the edition's threshold DEDUCTED, in the canonical unit of the variable it binds into
+ * (L-MEA-02, riskNotes (2)).
+ *
+ * The sum is DERIVED and cites the parameter that partitioned it, so a reader can go back to the very
+ * clause that decided which openings came off: the candidates themselves stand enumerated on the line
+ * beside it, each with the side it fell on, which is what makes the ignored ones readable too
+ * (L-QTY-01, L-QTY-03). A channel whose variable the method does not declare binds nothing — the
+ * method's own declaration is what the tree subtracts.
+ */
+function deductedBindings(
+  method: FormulaMethod,
+  deducted: readonly DeductionCandidate[],
+  under: MeasuredUnder,
+): { readonly ok: true; readonly readings: Readonly<Record<string, Measure>> } | { readonly ok: false; readonly code: RefusalCode } {
+  const readings: Record<string, Measure> = {};
+  for (const channel of method.deductionChannels) {
+    const name = CHANNEL_VARIABLE[channel];
+    const variable = method.variables.find((one) => one.name === name);
+    if (variable === undefined) continue;
+    const sum = deductedSum(deducted, channel, variable.dimension);
+    if (!sum.ok) return { ok: false, code: sum.code };
+    readings[name] = { value: sum.value, unit: sum.unit, basis: "DERIVED", source: `edition:${under.editionDigest}#${CHANNEL_THRESHOLD[channel]}` };
+  }
+  return { ok: true, readings };
 }
 
 /** Every reading this offer carries: what it is bound by, what it is selected by, what it deducts. */
@@ -241,6 +272,21 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
   }
   if (left.size !== offer.omitted.length) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
+  // A candidate in a channel this method does not declare is an offer to deduct through something
+  // the rule does not deduct through — a contract violation, not a threshold question.
+  if (offer.deductions.some((candidate) => !method.deductionChannels.includes(candidate.channel))) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+  const partition = partitionDeductions(offer.deductions, edition.parameters);
+  if (!partition.ok) return refuse(offer, partition.code);
+
+  // L-MEA-02 has the DEDUCTED SUM land in the line's variables, and it is the gate's to bind: a rail
+  // enumerates candidates and computes nothing (L-MEA-08), and which side of the threshold each one
+  // falls on is decided here. So an offer that bound the sum itself, or declared it omitted, has
+  // computed what it may not compute — and is answered rather than published (riskNotes (2)).
+  const summed = deductedBindings(method, partition.deducted, under);
+  if (!summed.ok) return refuse(offer, summed.code);
+  if (Object.keys(summed.readings).some((name) => Object.hasOwn(offer.bindings, name) || left.has(name))) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+  const carriedIn: Readonly<Record<string, Measure>> = { ...offer.bindings, ...summed.readings };
+
   const normalised: Record<string, { value: string; unit: string }> = {};
   const recorded: Record<string, RecordedBinding> = {};
   for (const variable of method.variables) {
@@ -248,7 +294,7 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
     // kept and states the omission, rather than a quantity over a number the machine invented
     // (L-QTY-02, L-MEA-07's "never defaulted").
     if (left.has(variable.name)) continue;
-    const reading = offer.bindings[variable.name];
+    const reading = carriedIn[variable.name];
     if (reading === undefined) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
     const carried = normaliseMeasure(reading, variable.dimension);
     if (!carried.ok) return refuse(offer, carried.code);
@@ -262,12 +308,6 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
       canonical: { value: carried.value, unit: carried.unit },
     };
   }
-
-  // A candidate in a channel this method does not declare is an offer to deduct through something
-  // the rule does not deduct through — a contract violation, not a threshold question.
-  if (offer.deductions.some((candidate) => !method.deductionChannels.includes(candidate.channel))) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
-  const partition = partitionDeductions(offer.deductions, edition.parameters);
-  if (!partition.ok) return refuse(offer, partition.code);
 
   // L-QTY-03 has a line always carry "a non-empty set of affirmed calibration references", and
   // L-QTY-04 makes a missing mandatory publishable attribute a hard block: an offer standing on no
@@ -307,7 +347,7 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
       ruleVersion: method.version,
       editionDigest: under.editionDigest,
       engine: offer.engine,
-      ...rollUps(offer),
+      ...rollUps(offer, carriedIn),
       coverage: offer.coverage,
       // "A row kept with no quantity carries no quantity" — never a zero, never a guess (L-QTY-02).
       // The unit stands even so: it is what this rule measures in, not a property of the figure.

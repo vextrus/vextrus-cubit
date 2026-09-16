@@ -34,6 +34,12 @@ export const KIND_DISCIPLINE: Readonly<Record<Kind, Discipline>> = Object.freeze
   "piling.boring": "STRUCTURAL",
   "earthwork.excavation": "STRUCTURAL",
   "pcc.blinding": "STRUCTURAL",
+  // A brick wall and the finishes on it are stated by the ARCHITECTURAL set: the structural drawings
+  // may show the same grid, but the wall plan, its nominal thickness and the opening schedule that
+  // deducts from it are the architect's statements (L-MEA-04, AM-07).
+  "masonry.brickwork": "ARCHITECTURAL",
+  "finish.plaster": "ARCHITECTURAL",
+  "finish.paint": "ARCHITECTURAL",
 });
 
 /**
@@ -52,4 +58,10 @@ export const KIND_ALGEBRA: Readonly<Record<Kind, Algebra>> = Object.freeze({
   "piling.boring": "member",
   "earthwork.excavation": "member",
   "pcc.blinding": "member",
+  // A brick wall is a MEMBER measured section × run — the algebra's own words name brick walls
+  // beside the structure — while a plaster and a paint are FACES of a space, measured gross less the
+  // scheduled openings, which is the face algebra exactly (L-MEA-08, L-MEA-03).
+  "masonry.brickwork": "member",
+  "finish.plaster": "face",
+  "finish.paint": "face",
 });

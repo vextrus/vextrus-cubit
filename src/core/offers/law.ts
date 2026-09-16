@@ -26,11 +26,14 @@ export function weakestBasis(bases: readonly QuantityBasis[]): QuantityBasis {
 }
 
 /**
- * The deduction channels a candidate can stand in. L-MEA-01 states a threshold per channel; this
- * leaf carries the one whose threshold is in a unit the canon holds (`openingDeductionMinM2`), and
- * the member-end and embedded-duct channels join it with the units they are stated in.
+ * The deduction channels a candidate can stand in. L-MEA-01 states a threshold per channel, so the
+ * channel is what decides which of the edition's figures a candidate is partitioned against: an
+ * opening in a wall is judged by `openingDeductionMinM2` and an opening in a FINISHED face by
+ * `finishOpeningDeductionMinM2`, because a face is finished around openings a wall is built around
+ * (L-MEA-02, L-MEA-03). The member-end and embedded-duct channels join them with the units they are
+ * stated in.
  */
-export const DEDUCTION_CHANNELS = ["opening"] as const;
+export const DEDUCTION_CHANNELS = ["opening", "finish_opening"] as const;
 
 /** One deduction channel, drawn from the closed roster above. */
 export type DeductionChannel = (typeof DEDUCTION_CHANNELS)[number];

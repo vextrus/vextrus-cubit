@@ -67,4 +67,27 @@ export const WORK_ITEM_CATALOGUE: Readonly<Record<Kind, WorkItem>> = Object.free
     canonicalUnit: CANONICAL_UNIT["VOLUME"],
     documentPrecision: 3,
   }),
+  // Brickwork is a VOLUME: the wall's face net of its scheduled openings, times the nominal thickness
+  // the mason builds to — which is why the thickness selects the item as well as measuring it
+  // (R-TO-032, L-MEA-02).
+  "masonry.brickwork": Object.freeze({
+    description: "Brickwork in walls, measured as the wall face net of scheduled openings by its nominal thickness",
+    dimension: "VOLUME",
+    canonicalUnit: CANONICAL_UNIT["VOLUME"],
+    documentPrecision: 3,
+  }),
+  // A finish is an AREA: the face it covers, gross less the openings the schedule states (L-MEA-03).
+  // Plaster and paint are two work items of one face — a bill pays for each by the square metre.
+  "finish.plaster": Object.freeze({
+    description: "Plaster to surfaces, measured as the finished face net of scheduled openings",
+    dimension: "AREA",
+    canonicalUnit: CANONICAL_UNIT["AREA"],
+    documentPrecision: 2,
+  }),
+  "finish.paint": Object.freeze({
+    description: "Paint to surfaces, measured as the painted face net of scheduled openings",
+    dimension: "AREA",
+    canonicalUnit: CANONICAL_UNIT["AREA"],
+    documentPrecision: 2,
+  }),
 });
