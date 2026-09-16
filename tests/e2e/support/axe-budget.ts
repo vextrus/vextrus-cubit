@@ -120,6 +120,15 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   // yet, so no moderate count has been measured. It is raised only by the commit that reads one.
   "s-schedules/tables": 0,
   "s-schedules/transcribed": 0,
+  // S-Settings-Ruleset-Author's checkpoints (J-304), named here by the acceptance that added them
+  // for the same reason the two above are: a checkpoint this file does not name FAILS, so the screen
+  // could not be walked at all without these four lines. Zero is the strictest reading and the only
+  // honest one before a run — the screen does not exist yet, so no moderate count has been measured.
+  // The light twin is its own checkpoint because it is its own axe run on its own ground (I-RSA-4).
+  "s-settings-ruleset-author/authoring-open": 0,
+  "s-settings-ruleset-author/authoring-open-light": 0,
+  "s-settings-ruleset-author/edition-minted": 0,
+  "s-settings-ruleset-author/value-changed": 0,
   "s-takeoff/measure-queued": 0,
   "s-takeoff/register": 0,
   "stack": 0,
