@@ -31,7 +31,7 @@ import { implementationOf, type FormulaMethod, type NormalisedBindings } from ".
 import { CANONICAL_UNIT, exact } from "../units/canon";
 import { partitionDeductions } from "./deductions";
 import { renderFormula } from "./template";
-import { normaliseMeasure } from "./units";
+import { admissibleFigure, normaliseMeasure } from "./units";
 
 /** The campaign a batch is judged under — what it was opened over, and what it measures against. */
 export type MeasuredUnder = {
@@ -282,6 +282,10 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
   // The offer is refused by name instead (ARCH-03, L-QTY-02) — the refused arm is what a person reads.
   const figure = offer.omitted.length === 0 ? method.attempt(bound) : null;
   if (figure !== null && !figure.ok) return refuse(offer, figure.code);
+  // "An inadmissible reading → hard block" (L-QTY-04): a quantity below zero is what the clause
+  // forecloses outright, and it is the FIGURE that is judged — the readings it was computed from may
+  // be signed, because an elevation below datum is a reading (`admissibleFigure`, L-QTY-03).
+  if (figure !== null && figure.ok && !admissibleFigure(figure.value)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
   const deductions: RecordedDeduction[] = [
     ...partition.deducted.map((candidate) => ({ channel: candidate.channel, measure: candidate.measure, side: "deducted" as const })),

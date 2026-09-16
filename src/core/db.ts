@@ -80,6 +80,7 @@ export {
   repudiatedObjects,
   levels,
   storeyHeightReadings,
+  siteFacts,
   campaigns,
   quantityLines,
   railObservations,

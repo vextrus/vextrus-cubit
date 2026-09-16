@@ -16,6 +16,7 @@ import type { Kind } from "../catalogue/kinds";
 import { registerObjects } from "../db";
 import type { RefusalCode } from "../errors";
 import type { StoreyHeightStandingName } from "../levels/law";
+import type { SiteFact } from "../site-facts/law";
 import type { Coverage, DeductionChannel, Engine, GeometryType, QuantityBasis } from "./law";
 
 // The rosters are the law file's, and published from here because this is the door a rail and the
@@ -114,6 +115,24 @@ export type PlacementSetup = {
   readonly memberFamily: string | null;
   readonly engine: Engine;
   readonly sourceEntity: string;
+  /** The plan outline a reader read for this placement, or null where none was read (L-FRM-02). */
+  readonly outline: OutlineSetup | null;
+};
+
+/**
+ * One placement's plan, as the reader of the drawing read it: which of L-FRM-01's plan geometries it
+ * is, the area it encloses, and — where the plan is a rectangle somebody measured rather than a
+ * schedule stated — the two sides of it.
+ *
+ * A polygon plan has an area and no sides, which is exactly why L-FRM-02 measures it as
+ * `A × depth` and why L-FRM-04 defers its pit: there is no `L` and no `B` to widen by the working
+ * space. Nothing here is converted — a rail binds what was read (L-REG-01).
+ */
+export type OutlineSetup = {
+  readonly type: GeometryType;
+  readonly area: Measure;
+  readonly length: Measure | null;
+  readonly breadth: Measure | null;
 };
 
 /**
@@ -130,6 +149,13 @@ export type MemberVariantSetup = {
   readonly sectionDepth: number | null;
   readonly sectionUnit: string | null;
   readonly sourceKeys: readonly string[];
+  /**
+   * The named dimensions a schedule states for the family BESIDE its section — a foundation's depth,
+   * a pile's diameter and its length, the level its top stands at. Keyed by the name the method that
+   * needs it declares, each carried as it was written (L-REG-01). Empty where the family's schedule
+   * states none: an unread dimension is never a zero, and the rail declares the omission (L-QTY-02).
+   */
+  readonly dimensions: Readonly<Record<string, Measure>>;
 };
 
 /**
@@ -268,6 +294,39 @@ export type RailSetup = {
   readonly runs: Readonly<Record<string, RunSetup>>;
   /** The opening an opening schedule states behind each lintel placement, by its placement key. */
   readonly lintels: Readonly<Record<string, LintelSetup>>;
+  /**
+   * What each SITE fact of the project stands at, where somebody entered one (L-MEA-06). A fact
+   * nobody entered is an ABSENT KEY — "an absent fact is a named deferral, never a default"
+   * (AM-06 §1) — so a rail reads an absence here and reports it rather than falling back to a zero.
+   */
+  readonly siteFacts: Readonly<Partial<Record<SiteFact, SiteFactSetup>>>;
+  /**
+   * The edition the campaign was opened under: its digest, and the parameter values it states. What
+   * no drawing carries and no person entered is bound DERIVED from a citable clause of this edition
+   * (L-MEA-06: "a citable clause is DERIVED, not DEFAULTED"), and the digest is what such a reading
+   * cites, so a reader can go back to the very edition the figure stood on (L-MEA-01, L-QTY-01).
+   */
+  readonly edition: EditionSetup;
+};
+
+/**
+ * One SITE fact as the setup carries one: the reading as it was written, the metres the canon made
+ * of it, the note that says where it came from and the act that entered it. A rail binds the value
+ * AS WRITTEN and cites the act — an ENTERED reading's recourse is the person who entered it
+ * (L-QTY-01, L-QTY-03).
+ */
+export type SiteFactSetup = {
+  readonly value: string;
+  readonly unit: string;
+  readonly canonicalMetres: string;
+  readonly sourceNote: string;
+  readonly actId: string;
+};
+
+/** The pinned edition a DERIVED reading is bound from: what it is, and what it states (L-MEA-01). */
+export type EditionSetup = {
+  readonly digest: string;
+  readonly parameters: Readonly<Record<string, { readonly value: string; readonly unit: string }>>;
 };
 
 /**

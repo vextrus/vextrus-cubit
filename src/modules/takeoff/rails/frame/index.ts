@@ -7,8 +7,9 @@
 // in the concrete composition, unchanged: the M2 rows it publishes do not move because a beam rail
 // landed beside it.
 import type { Kind } from "@/core/catalogue/kinds";
-import type { Rail, RailInput } from "@/core/offers/contract";
+import type { Rail } from "@/core/offers/contract";
 import { columnConcreteRail } from "../columns";
+import { composeRails } from "../law";
 import { lintelRail } from "./lintel";
 import { runMemberRail } from "./run-member";
 
@@ -46,25 +47,13 @@ export const lintelConcreteRail: Rail = lintelRail({ ruleId: FRAME_RULE_IDS.lint
 /** `(2·D + b) × (w + 2·bearing)` — the same opening, read as contact area (L-FRM-03). */
 export const lintelFormworkRail: Rail = lintelRail({ ruleId: FRAME_RULE_IDS.lintelFormwork, kind: RCC_FORMWORK });
 
-/**
- * One rail over several member rails: each is asked the same question of the same batch, and what
- * they answer is concatenated in the order the members are named. A rail reads only the rows of its
- * own class, so the composition offers each row exactly once (L-MEA-08).
- */
-function composed(members: readonly Rail[]): Rail {
-  return (input: RailInput) => {
-    // Each member is asked ONCE and its whole batch kept: a rail is pure, so asking twice would
-    // answer the same thing at twice the cost, over every row of every campaign (L-MEA-08).
-    const batches = members.map((rail) => rail(input));
-    return {
-      offers: batches.flatMap((batch) => batch.offers),
-      observations: batches.flatMap((batch) => batch.observations),
-    };
-  };
-}
+// How several class readers of one kind become the one rail that kind is measured by is the rail
+// law's `composeRails` — one invariant, one home (B-17, ARCH-02). Each reader is asked ONCE and its
+// whole batch kept, and each reads only the rows of its own class, so the composition offers each row
+// exactly once (L-MEA-08).
 
 /** Every class that bears `rcc.concrete` in this area, in the order `BEARS` names them (L-MEA-04). */
-export const frameConcreteRail: Rail = composed([columnConcreteRail, beamConcreteRail, tieBeamConcreteRail, lintelConcreteRail]);
+export const frameConcreteRail: Rail = composeRails(columnConcreteRail, beamConcreteRail, tieBeamConcreteRail, lintelConcreteRail);
 
 /** Every class that bears `rcc.formwork` in this area. */
-export const frameFormworkRail: Rail = composed([beamFormworkRail, tieBeamFormworkRail, lintelFormworkRail]);
+export const frameFormworkRail: Rail = composeRails(beamFormworkRail, tieBeamFormworkRail, lintelFormworkRail);

@@ -1,0 +1,47 @@
+{
+  "methods": {
+    "rcc.foundation.prism_rect@1": {
+      "ruleId": "rcc.foundation.prism_rect",
+      "version": "1",
+      "law": "L-FRM-02",
+      "module": "src/core/rulesets/methods/foundations/concrete.ts"
+    },
+    "rcc.foundation.prism_poly@1": {
+      "ruleId": "rcc.foundation.prism_poly",
+      "version": "1",
+      "law": "L-FRM-02",
+      "module": "src/core/rulesets/methods/foundations/concrete.ts"
+    },
+    "rcc.pile.concrete@1": {
+      "ruleId": "rcc.pile.concrete",
+      "version": "1",
+      "law": "L-FRM-02",
+      "module": "src/core/rulesets/methods/foundations/concrete.ts"
+    },
+    "piling.bored.count@1": {
+      "ruleId": "piling.bored.count",
+      "version": "1",
+      "law": "R-TO-032",
+      "module": "src/core/rulesets/methods/foundations/piling.ts"
+    },
+    "piling.bored.length@1": {
+      "ruleId": "piling.bored.length",
+      "version": "1",
+      "law": "AM-06",
+      "module": "src/core/rulesets/methods/foundations/piling.ts"
+    },
+    "earthwork.pit_rect@1": {
+      "ruleId": "earthwork.pit_rect",
+      "version": "1",
+      "law": "L-FRM-04",
+      "module": "src/core/rulesets/methods/foundations/earthwork.ts"
+    },
+    "pcc.blinding_rect@1": {
+      "ruleId": "pcc.blinding_rect",
+      "version": "1",
+      "law": "L-FRM-04",
+      "module": "src/core/rulesets/methods/foundations/blinding.ts"
+    }
+  },
+  "digest": "8eb1d35bbb8c2d346feecd9e584e8a43262fb8aced8231f0d5355155cb141658"
+}
