@@ -9,7 +9,8 @@
  * never off the table.
  *
  * The table's own belts (RLS, the grants and the append-only triggers) are graded by the migration
- * lane in db/__tests__/site-facts.migration.test.ts; what is graded here is the LEDGER's behaviour:
+ * suite beside this one, tests/takeoff/site-facts/site-facts-migration.test.ts; what is graded here
+ * is the LEDGER's behaviour:
  * latest-wins per fact, an absent fact as an absent key, and the three refusals a malformed entry
  * earns by name.
  */
@@ -34,6 +35,7 @@ import {
   inTenantTx,
   productModule,
   refusalCodeOf,
+  said,
   siteFactsDoor,
   siteFactsLaw,
   siteFactsStore,
@@ -73,7 +75,7 @@ afterAll(async () => {
 describe("AC-4: the SITE-fact ledger is entered, appended and read at one door", () => {
   test("AC-4: a write carries the value and the unit as written, beside the metres the canon makes of them", async () => {
     await staged();
-    const [law, { convert }] = await Promise.all([siteFactsLaw(), canon()]);
+    const [law, { convert, exact, factorOf }] = await Promise.all([siteFactsLaw(), canon()]);
     const write = law.siteFactWrite({
       fact: WORKING_ALLOWANCE,
       valueAsWritten: "457.2",
@@ -85,7 +87,15 @@ describe("AC-4: the SITE-fact ledger is entered, appended and read at one door",
     const carried = convert("457.2", MILLIMETRE, "m");
     expect(carried.ok, "the canon carries a millimetre to metres").toBe(true);
     expect(write.canonicalMetres, "and the write carries that very figure, from the one canon (B-17)").toBe(carried.value);
-    expect(write.factor, "with the factor it was carried by, recorded beside it").toBeTruthy();
+    expect(
+      write.factor,
+      `the factor recorded beside it is the CANON's own for ${MILLIMETRE} — what a unit is worth is stated in one place, and a write that records anything else has carried the reading by something nobody can read back (B-17)`,
+    ).toBe(factorOf(MILLIMETRE));
+    expect(
+      exact(write.valueAsWritten).mul(write.factor).eq(exact(write.canonicalMetres)),
+      `and the three hold together: ${write.valueAsWritten} × ${write.factor} is ${write.canonicalMetres} — the canonical value is the reading as written carried by that very factor (L-QTY-03)`,
+    ).toBe(true);
+
 
     expect([...law.SITE_FACTS].sort(), "the closed enum holds L-MEA-06's six length facts (interfaces)").toEqual(
       [GROUND_LEVEL, WATER_TABLE, WORKING_ALLOWANCE, DEPTH_EXTRA, BLINDING_PROJECTION, BLINDING_THICKNESS].sort(),
@@ -124,6 +134,23 @@ describe("AC-4: the SITE-fact ledger is entered, appended and read at one door",
     const ground = rows.filter((row) => String(row["fact"]) === GROUND_LEVEL);
     expect(ground.length, "the ledger holds both entries of the ground level, oldest first (L-ACT-01)").toBe(2);
     expect(String(ground[0]?.["valueAsWritten"] ?? ground[0]?.["value_as_written"]), "the first entry stands where it was written").toBe(FIRST_GROUND_LEVEL.value);
+
+    // Every appended row carries the factor it was carried by, and it is the canon's own for the unit
+    // that row was written in — so the metres a later reader computes from the row are the metres the
+    // row already holds. Asked of the ROW and not of the write: what survives the door is what a
+    // takeoff is measured from (B-17, L-QTY-03).
+    const { exact, factorOf } = await canon();
+    for (const row of ground) {
+      const unitAsWritten = said(row, "unitAsWritten", "unit_as_written");
+      const valueAsWritten = said(row, "valueAsWritten", "value_as_written");
+      const factor = said(row, "factor", "factor");
+      const canonicalMetres = said(row, "canonicalMetres", "canonical_metres");
+      expect(factor, `the ${valueAsWritten} ${unitAsWritten} entry stands beside the canon's own factor for ${unitAsWritten}`).toBe(factorOf(unitAsWritten));
+      expect(
+        exact(valueAsWritten).mul(factor).eq(exact(canonicalMetres)),
+        `and its canonical metres are that reading carried by that factor: ${valueAsWritten} × ${factor} is ${canonicalMetres}`,
+      ).toBe(true);
+    }
   }, 900_000);
 
   test("AC-4: a malformed entry is refused by name, and nothing is written", async () => {

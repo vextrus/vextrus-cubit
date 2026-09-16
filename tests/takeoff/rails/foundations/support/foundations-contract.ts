@@ -393,6 +393,8 @@ export type DecimalLike = {
 export type CanonSeam = {
   exact: (value: string | number) => DecimalLike;
   convert: (value: string, from: string, to: string) => { ok: boolean; value?: string; code?: string };
+  /** What one unit is worth in its canonical unit, as the exact decimal string the canon holds. */
+  factorOf: (unit: string) => string;
   isUnit: (value: unknown) => boolean;
   CANONICAL_UNIT: Readonly<Record<string, string>>;
   FACTORS: Readonly<Record<string, { dimension: string; factor: string }>>;
