@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-11T09:56:28.208Z",
-  "bibleSha256": "271f64e7850091244e2b72996ce237d2ad569260164155cab76f7dfb8106dce0",
+  "generatedAt": "2026-09-16T00:36:02.320Z",
+  "bibleSha256": "5e3cd774fb4327933afec909df33d6b00c1d95f3cfc11577527576855fbeb1b8",
   "note": "status 'green' means a merged increment cited the id (see basis); clause-level verification is the checkpoint evidence sweep's",
   "requirements": {
     "R-SPINE-001": {
@@ -299,9 +299,16 @@
       "evidence": []
     },
     "R-SPINE-041": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": "must",
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-301-export-seam",
+          "kind": "increment",
+          "ref": "inc-301-export-seam"
+        }
+      ]
     },
     "R-SPINE-050": {
       "status": "green",
@@ -626,19 +633,40 @@
       ]
     },
     "R-TO-032": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": "must",
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-306-rails-frame",
+          "kind": "increment",
+          "ref": "inc-306-rails-frame"
+        }
+      ]
     },
     "R-TO-033": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": "must",
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-302-levels-editor",
+          "kind": "increment",
+          "ref": "inc-302-levels-editor"
+        }
+      ]
     },
     "R-TO-034": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": "must",
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-303-schedules-notes-ui",
+          "kind": "increment",
+          "ref": "inc-303-schedules-notes-ui"
+        }
+      ]
     },
     "R-TO-035": {
       "status": "none",
@@ -752,9 +780,16 @@
       "evidence": []
     },
     "R-TO-070": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": "must",
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-313-register-json",
+          "kind": "increment",
+          "ref": "inc-313-register-json"
+        }
+      ]
     },
     "R-AS-001": {
       "status": "none",
@@ -1351,6 +1386,41 @@
         }
       ]
     },
+    "R-UI-080": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-UI-081": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-UI-082": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-UI-083": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-UI-084": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-UI-085": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-UI-086": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
     "J-000": {
       "status": "green",
       "basis": "cited-by-merged-increment",
@@ -1614,19 +1684,40 @@
       ]
     },
     "J-030": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": null,
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-306-rails-frame",
+          "kind": "increment",
+          "ref": "inc-306-rails-frame"
+        }
+      ]
     },
     "J-031": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": null,
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-302-levels-editor",
+          "kind": "increment",
+          "ref": "inc-302-levels-editor"
+        }
+      ]
     },
     "J-032": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": null,
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-303-schedules-notes-ui",
+          "kind": "increment",
+          "ref": "inc-303-schedules-notes-ui"
+        }
+      ]
     },
     "J-040": {
       "status": "none",
