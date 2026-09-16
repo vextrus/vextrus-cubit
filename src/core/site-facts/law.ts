@@ -12,7 +12,10 @@
 // is the canon's and none of it is here (B-17, L-FRM-06).
 import { REFUSALS } from "../errors";
 import { refusal } from "../faults/refusal-marker";
-import { CANONICAL_UNIT, convert, factorOf, isUnit, unitNamed } from "../units/canon";
+import { CANONICAL_UNIT, convert, dimensionOf, factorOf, isUnit, unitNamed, type Dimension } from "../units/canon";
+
+/** The dimension every site fact stands in: each of them is a length (L-MEA-06). */
+const LENGTH: Dimension = "LENGTH";
 
 /**
  * The six facts of L-MEA-06's ENTERED set this ledger records: where the ground stands and where the
@@ -70,16 +73,21 @@ export function siteFactWrite(input: { fact: string; valueAsWritten: string; uni
   }
   // The spelling is asked of the canon rather than folded here, the way every other reading of this
   // tree asks it: a drawing writes the millimetre as `MM` and the note that quotes it says `mm`.
+  // A site fact is a LENGTH, so what this asks the canon is narrower than "is this a unit": it is
+  // "does the canon carry a LENGTH factor for this spelling". A word it names nothing for and a word
+  // it names a MASS for are the same answer to that question — neither carries the entry to metres —
+  // and `UNIT_UNMAPPED` is the canon's own code for a spelling with no factor to hand (L-FRM-06,
+  // B-17, L-QTY-04: reason codes are closed enums, never prose).
   const named = unitNamed(input.unitAsWritten);
-  if (named === null || !isUnit(named)) {
-    throw refusal(REFUSALS.UNIT_UNMAPPED.code, `the canon carries no factor for "${input.unitAsWritten}", so the ${input.fact} entry cannot be carried to metres (L-FRM-06)`, {
+  if (named === null || !isUnit(named) || dimensionOf(named) !== LENGTH) {
+    throw refusal(REFUSALS.UNIT_UNMAPPED.code, `the canon carries no length factor for "${input.unitAsWritten}", so the ${input.fact} entry cannot be carried to metres (L-FRM-06)`, {
       unit: input.unitAsWritten,
     });
   }
-  const carried = convert(input.valueAsWritten, named, CANONICAL_UNIT.LENGTH);
-  // A site fact is a length. A unit of another dimension has no quotient into the metre, and the
-  // canon says so structurally — the refusal is carried back rather than re-spelled (ARCH-03).
-  if (!carried.ok) throw refusal(carried.code, `${input.valueAsWritten} ${input.unitAsWritten} is no length, so it is no site fact (L-MEA-06)`, { unit: input.unitAsWritten });
+  const carried = convert(input.valueAsWritten, named, CANONICAL_UNIT[LENGTH]);
+  // The carry itself can still refuse — a value that is no decimal figure, say — and that refusal is
+  // the canon's own, carried back rather than re-spelled (ARCH-03).
+  if (!carried.ok) throw refusal(carried.code, `${input.valueAsWritten} ${input.unitAsWritten} cannot be carried to metres (L-MEA-06)`, { unit: input.unitAsWritten });
   return Object.freeze({
     fact: input.fact,
     valueAsWritten: input.valueAsWritten,
