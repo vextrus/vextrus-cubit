@@ -12,12 +12,48 @@
     "kind": "rcc.concrete"
   },
   {
+    "class": "footing",
+    "kind": "earthwork.excavation"
+  },
+  {
+    "class": "footing",
+    "kind": "pcc.blinding"
+  },
+  {
+    "class": "footing",
+    "kind": "rcc.concrete"
+  },
+  {
     "class": "lintel",
     "kind": "rcc.concrete"
   },
   {
     "class": "lintel",
     "kind": "rcc.formwork"
+  },
+  {
+    "class": "pile",
+    "kind": "piling.bored"
+  },
+  {
+    "class": "pile",
+    "kind": "piling.boring"
+  },
+  {
+    "class": "pile",
+    "kind": "rcc.concrete"
+  },
+  {
+    "class": "pile_cap",
+    "kind": "earthwork.excavation"
+  },
+  {
+    "class": "pile_cap",
+    "kind": "pcc.blinding"
+  },
+  {
+    "class": "pile_cap",
+    "kind": "rcc.concrete"
   },
   {
     "class": "tie_beam",

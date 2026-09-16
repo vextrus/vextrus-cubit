@@ -67,8 +67,9 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
     const registerScope = { tenantId: payload.tenantId, projectId: payload.projectId, setRevisionId: campaign.setRevisionId };
     const objects = await registerObjectsOf(registerScope);
     // Read once for the whole roster: rails share their setup, so two rails over one campaign cannot
-    // disagree about what the drawings said (L-MEA-08).
-    const setup = await railSetupOf(registerScope);
+    // disagree about what the drawings said (L-MEA-08). The setup is read against the edition THIS
+    // campaign was opened under, so a DERIVED reading cites what the campaign measures by (L-REG-07).
+    const setup = await railSetupOf({ ...registerScope, editionId: campaign.editionId });
     for (const [kind, rail] of roster) {
       const batch = rail({ campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, kind, objects, setup });
       offers.push(...batch.offers);

@@ -75,14 +75,16 @@ export function isScaleUnit(value: unknown): value is ScaleUnit {
 
 /**
  * Metres per one drawing unit of each mapped spelling, exact (riskNotes (1): the world unit of a
- * factor is METRES). The inch is its international definition; the foot is a unit of the measurement
- * canon, so its metres are read from there rather than spelled a second time (L-FRM-06, B-17).
+ * factor is METRES). The inch and the foot are units of the measurement canon, so their metres are
+ * read from there rather than spelled a second time (L-FRM-06, B-17): this lane's `inch` and `foot`
+ * are the header spellings of the canon's `in` and `ft`, and what a unit is worth is the canon's to
+ * say. The millimetre, centimetre and metre are the SI decades themselves.
  */
 const METRES_PER_UNIT: Readonly<Record<ScaleUnit, string>> = Object.freeze({
   mm: "0.001",
   cm: "0.01",
   m: "1",
-  inch: "0.0254",
+  inch: factorOf("in"),
   foot: factorOf("ft"),
 });
 

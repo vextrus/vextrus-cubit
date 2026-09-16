@@ -59,6 +59,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "ACCOUNT_ALREADY_EXISTS",
   "ACTOR_NOT_HUMAN",
   "ACT_CHANGES_NOTHING",
+  "BLINDING_PLAN_DEFERRED",
   "CAMPAIGN_NOT_FOUND",
   "CAPTION_UNCLASSIFIABLE",
   "CELL_NOT_IN_RESIDUE",
@@ -70,6 +71,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "DIMENSION_MISMATCH",
   "DOWNLOAD_NOT_SIGNABLE",
   "DUPLICATE_IDENTITY",
+  "EARTHWORK_PLAN_DEFERRED",
   "EXPORT_NOT_FOUND",
   "EXPORT_URL_EXPIRED",
   "EXPORT_URL_INVALID",
@@ -77,7 +79,11 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "FIXTURE_MISSING",
   "FORMAT_NOT_ACCEPTED",
   "FORMULA_DIVISOR_ZERO",
+  "FOUNDATION_DEPTH_UNSTATED",
+  "FOUNDATION_PLAN_UNSTATED",
+  "FOUNDING_LEVEL_UNSTATED",
   "GRID_NO_BUBBLE_EVIDENCE",
+  "GROUND_LEVEL_UNSTATED",
   "GROUP_NOT_OFFERED",
   "INGESTION_TRUNCATED",
   "INTERPRETED_UNCORROBORATED",
@@ -105,6 +111,8 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "ORIGIN_NOT_VERIFIED",
   "PARTITION_NOT_AVAILABLE",
   "PERMISSION_NOT_HELD",
+  "PILE_DIAMETER_UNSTATED",
+  "PILE_LENGTH_UNSTATED",
   "PIN_STALE",
   "PRECISION_NOT_APPLIED",
   "PRODUCT_FACTOR_MISSING",
@@ -130,6 +138,8 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "SET_NOT_PINNABLE",
   "SHEET_NOT_INGESTABLE",
   "SIGNED_OUT",
+  "SITE_FACT_SOURCE_UNSTATED",
+  "SITE_FACT_UNKNOWN",
   "SLAB_THICKNESS_UNSTATED",
   "SOURCE_UNRESOLVED",
   "STOREY_HEIGHT_CONTESTED",
@@ -148,7 +158,18 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
  *
- * Re-baselined for THREE ADDED entries and nothing else: `RUN_UNREAD`, `SLAB_THICKNESS_UNSTATED` and
+ * Re-baselined for TEN ADDED entries and nothing else, all of them the FOUNDATIONS leaf's
+ * (./foundations.ts): the six readings a foundation rail reports rather than guess when the drawing
+ * did not state them — `FOUNDATION_PLAN_UNSTATED`, `FOUNDATION_DEPTH_UNSTATED`,
+ * `PILE_DIAMETER_UNSTATED`, `PILE_LENGTH_UNSTATED`, `FOUNDING_LEVEL_UNSTATED` and
+ * `GROUND_LEVEL_UNSTATED` (L-FRM-04, L-QTY-02); the two deferrals a polygon plan leaves a
+ * rectangular pit and its blinding under, `EARTHWORK_PLAN_DEFERRED` and `BLINDING_PLAN_DEFERRED`;
+ * and the two a SITE-fact entry is refused by, `SITE_FACT_UNKNOWN` and `SITE_FACT_SOURCE_UNSTATED`
+ * (L-MEA-06, AM-06 §1). The roster grew by those ten keys — 86 codes to 96 — and not one existing
+ * entry's code, message, remedy, severity or surface moved with them; the previous digest was
+ * 9b3547b60626ffa04e8cb3060c1bb88787578bda65dd9288db20cb4f0942e567.
+ *
+ * Re-baselined before that for THREE ADDED entries and nothing else: `RUN_UNREAD`, `SLAB_THICKNESS_UNSTATED` and
  * `LINTEL_SOURCE_ABSENT` (./frame.ts), the three readings the frame rails report rather than guess
  * when the drawing did not state them (L-MEA-09, L-QTY-02). The roster grew by those three keys — 83
  * codes to 86 — and not one existing entry's code, message, remedy, severity or surface moved with
@@ -200,7 +221,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "9b3547b60626ffa04e8cb3060c1bb88787578bda65dd9288db20cb4f0942e567";
+const ENTRIES_DIGEST_BEFORE = "9b59f1b35853dffb8371e2d9687745fe7853761bad8cedf13c26ced9a43cbb9d";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

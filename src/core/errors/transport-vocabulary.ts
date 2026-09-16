@@ -12,6 +12,7 @@ import { ACT_TYPES } from "../acts/law";
 import { NOTE_KINDS } from "../notes/law";
 import { COVERAGES, GEOMETRY_TYPES } from "../offers/law";
 import { AXIS_IDLE_READINGS } from "../residue/law";
+import { SITE_FACTS } from "../site-facts/law";
 
 /** One foreign vocabulary: who owns the names, and which of them this tree spells. */
 export type TransportVocabulary = {
@@ -236,5 +237,14 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // and it is read from there rather than copied (B-19, ARCH-02).
     vocabulary: "coverage states (L-QTY-02)",
     codes: COVERAGES,
+  }),
+  Object.freeze({
+    // L-MEA-06's SITE attributes, by the names the ledger files them under. Every one bears an
+    // underscore, so Q-07's register would read them as refusal codes nobody registered — but a site
+    // fact is a FACT a person entered about the ground, written to `site_facts` and read by the
+    // rails; a person is answered with the fact's own value, never with this name. The roster's home
+    // is `../site-facts/law.ts` and it is read from there rather than copied (B-19, ARCH-02).
+    vocabulary: "L-MEA-06 site facts",
+    codes: SITE_FACTS,
   }),
 ]);
