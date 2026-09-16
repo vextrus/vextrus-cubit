@@ -24,7 +24,13 @@
  * Modules are loaded by absolute path — the contract this tree's other split proofs use: a module the
  * product does not provide yet fails as an assertion naming the file, never as a resolution error.
  *
- * Re-baselined for ONE ADDED table and nothing else: `placementRuns` (`placement_runs`), the runs the
+ * Re-baselined for ONE ADDED table and nothing else: `barRows` (`bar_rows`), L-REG-04's bill of
+ * bars — one content-keyed row per (member, role, diameter, group), carrying the three BS 8666
+ * lengths AM-01 names side by side and what the bar weighs (L-FRM-05). Both rosters gain the one
+ * key, in code-point order, and the columns digest moves with them because the surface it hashes
+ * gained a table. Nothing already on either roster moved.
+ *
+ * Re-baselined before that for ONE ADDED table and nothing else: `placementRuns` (`placement_runs`), the runs the
  * partition reads for a beam or tie beam — one row per placement, holding the clear it measures and
  * the slab adjoining each of its two sides (L-MEA-09). Both rosters gain the one key, in code-point
  * order, and the columns digest moves with them because the surface it hashes gained a table. Nothing
@@ -55,6 +61,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "acts",
   "authAttempts",
   "authTokens",
+  "barRows",
   "bears",
   "calibrations",
   "campaigns",
@@ -199,7 +206,13 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over each key, its SQL table name and its column names in code-point order — the shape
  * half of the same baseline. Re-baselined with TABLES_BEFORE, and never on its own.
  *
- * Re-baselined for FOUR COLUMN MOVES and no table at all, each one a store change the sweep's own
+ * Re-baselined for ONE ADDED TABLE and nothing else, `barRows` (./schema-rebar.ts): the campaign's
+ * bill of bars, keyed by content and replaced whole on every measurement (L-REG-04, L-FRM-05). The
+ * roster grew by that one key — 62 tables to 63 — and not one existing table's SQL name or column
+ * moved with it; the previous digest was
+ * a2b7fcaf4077b8db7bcb296769c806e451a3fb7405775690586442187cbe1d89.
+ *
+ * Re-baselined before that for FOUR COLUMN MOVES and no table at all, each one a store change the sweep's own
  * migration (db/migrations/0047_src-core-debt-sweep.sql) lands: `append_seq` joins
  * `drawing_set_revisions`, `scale_affirmations` and `storey_height_readings`, which is how those
  * three ledgers say which write came last (L-REG-04); and `calibrations` gives up `project_id`,
@@ -227,7 +240,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * table's SQL name or column moved with it; the previous digest was
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "a2b7fcaf4077b8db7bcb296769c806e451a3fb7405775690586442187cbe1d89";
+const COLUMNS_DIGEST_BEFORE = "5e25bfe39f25bad473fdadfb417f16158425fbbbbdfa89390b9dbc35080aff18";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {

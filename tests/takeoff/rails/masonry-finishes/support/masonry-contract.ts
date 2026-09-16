@@ -123,7 +123,7 @@ export const MASONRY_PAIRS: readonly MethodPairShape[] = Object.freeze(MASONRY_R
 
 /** The identity the platform seed is re-minted at (AC-2, interfaces). */
 export const SEED_EDITION_NAME = "IS1200_IN";
-export const SEED_EDITION_VERSION = "2026.12";
+export const SEED_EDITION_VERSION = "2027.01";
 
 /** The nine codes of the masonry shard, by name (AC-4, interfaces). */
 export const OPENING_SCHEDULE_ABSENT = "OPENING_SCHEDULE_ABSENT";

@@ -67,6 +67,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "CONSEQUENCES_NOT_CARRIED",
   "CONVENTION_ROLE_UNRESOLVED",
   "CREDENTIALS_NOT_VALID",
+  "DETAILING_ROW_NOT_IN_EDITION",
   "DIGEST_MISMATCH",
   "DIMENSION_MISMATCH",
   "DOWNLOAD_NOT_SIGNABLE",
@@ -125,6 +126,9 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "RASTER_NOT_AVAILABLE",
   "RATE_LIMITED",
   "READING_NOT_NUMERIC",
+  "REBAR_SCHEDULE_UNREAD",
+  "REBAR_STOREY_RUN_UNSTATED",
+  "REBAR_TIE_ZONE_UNSTATED",
   "REQUEST_MALFORMED",
   "RUN_UNREAD",
   "SCALE_NO_EVIDENCE",
@@ -167,7 +171,18 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
  *
- * Re-baselined for TEN ADDED entries and nothing else, all of them the FOUNDATIONS leaf's
+ * Re-baselined for FOUR ADDED entries and nothing else, all of them the REBAR leaf's (./rebar.ts):
+ * `DETAILING_ROW_NOT_IN_EDITION`, which a grade or a mix the applied detailing edition holds no
+ * development-length row for is disclosed under rather than scaled off a neighbouring row
+ * (AM-03(f)); `REBAR_SCHEDULE_UNREAD`, which a member whose bar schedule nobody has read stands
+ * under rather than being billed at zero; `REBAR_TIE_ZONE_UNSTATED`, which a zone stating a spacing
+ * and no length to run it over leaves the confinement steel omitted by name under; and
+ * `REBAR_STOREY_RUN_UNSTATED`, which a vertical with no storey run leaves its bars undeclared under
+ * (L-FRM-05, L-QTY-02). The roster grew by those four keys — 105 codes to 109 — and not one existing
+ * entry's code, message, remedy, severity or surface moved with them; the previous digest was
+ * 32df92f233d23f6d676ee51d208364ba75c57da271b4854ee1170a61a0da791c.
+ *
+ * Re-baselined before that for TEN ADDED entries and nothing else, all of them the FOUNDATIONS leaf's
  * (./foundations.ts): the six readings a foundation rail reports rather than guess when the drawing
  * did not state them — `FOUNDATION_PLAN_UNSTATED`, `FOUNDATION_DEPTH_UNSTATED`,
  * `PILE_DIAMETER_UNSTATED`, `PILE_LENGTH_UNSTATED`, `FOUNDING_LEVEL_UNSTATED` and
@@ -230,7 +245,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "32df92f233d23f6d676ee51d208364ba75c57da271b4854ee1170a61a0da791c";
+const ENTRIES_DIGEST_BEFORE = "5cc17319a1c78c588fddd68a09e13418983ae40e5c4deaa4cec0c56e0f2c94ea";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {
