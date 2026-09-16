@@ -20,10 +20,14 @@ import {
   DIA,
   DIAMETER,
   FOOTING,
+  FOUNDATION_DEPTH_UNSTATED,
+  FOUNDATION_PLAN_UNSTATED,
   GRADE,
   LENGTH,
   PILE,
   PILE_CAP,
+  PILE_DIAMETER_UNSTATED,
+  PILE_LENGTH_UNSTATED,
   PRISM_POLY,
   PRISM_RECT,
   countOf,
@@ -108,11 +112,11 @@ function spreadOffer(read: Read, setup: RailSetup): Offer {
   } else if (plan.shape === "poly") {
     bindings[A] = plan.area;
   } else {
-    omitted.push({ variable: L, code: "FOUNDATION_PLAN_UNSTATED" }, { variable: B, code: "FOUNDATION_PLAN_UNSTATED" });
+    omitted.push({ variable: L, code: FOUNDATION_PLAN_UNSTATED }, { variable: B, code: FOUNDATION_PLAN_UNSTATED });
   }
 
   const depth = dimensionOf(read, DEPTH);
-  if (depth === undefined) omitted.push({ variable: D, code: "FOUNDATION_DEPTH_UNSTATED" });
+  if (depth === undefined) omitted.push({ variable: D, code: FOUNDATION_DEPTH_UNSTATED });
   else bindings[D] = depth;
 
   return offerOf(read, {
@@ -130,11 +134,11 @@ function pileOffer(read: Read, setup: RailSetup): Offer {
   const omitted: OmittedComponent[] = [];
 
   const dia = dimensionOf(read, DIA);
-  if (dia === undefined) omitted.push({ variable: DIAMETER_VARIABLE, code: "PILE_DIAMETER_UNSTATED" });
+  if (dia === undefined) omitted.push({ variable: DIAMETER_VARIABLE, code: PILE_DIAMETER_UNSTATED });
   else bindings[DIAMETER_VARIABLE] = dia;
 
   const length = dimensionOf(read, LENGTH);
-  if (length === undefined) omitted.push({ variable: PILE_LENGTH, code: "PILE_LENGTH_UNSTATED" });
+  if (length === undefined) omitted.push({ variable: PILE_LENGTH, code: PILE_LENGTH_UNSTATED });
   else bindings[PILE_LENGTH] = length;
 
   return offerOf(read, {

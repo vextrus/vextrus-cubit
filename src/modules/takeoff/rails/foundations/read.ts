@@ -42,6 +42,23 @@ export const FOUNDATIONS_RAIL_CODES = [
 /** One code of the roster above. */
 export type FoundationsRailCode = (typeof FOUNDATIONS_RAIL_CODES)[number];
 
+/**
+ * The roster's members by name, read off the roster itself rather than spelled a second time: one
+ * code has one spelling in this area, and a rail that reports one names it from here (Q-07).
+ */
+export const [
+  VIEW_SCALE_UNAFFIRMED,
+  MEMBER_TYPE_UNKNOWN,
+  PILE_LENGTH_UNSTATED,
+  PILE_DIAMETER_UNSTATED,
+  FOUNDATION_DEPTH_UNSTATED,
+  FOUNDATION_PLAN_UNSTATED,
+  FOUNDING_LEVEL_UNSTATED,
+  GROUND_LEVEL_UNSTATED,
+  EARTHWORK_PLAN_DEFERRED,
+  BLINDING_PLAN_DEFERRED,
+] = FOUNDATIONS_RAIL_CODES;
+
 /** The three classes this area measures (R-TO-032). */
 export const FOOTING: ElementType = "footing";
 export const PILE_CAP: ElementType = "pile_cap";

@@ -7,7 +7,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { GeometryType, Measure, Offer, OmittedComponent, Rail, RailInput, RailObservation, RailSetup } from "@/core/offers/contract";
-import { DIA, DIAMETER, LENGTH, PILE, PRISM_POLY, countOf, dimensionOf, resolve, type Read } from "./read";
+import { DIA, DIAMETER, LENGTH, PILE, PILE_LENGTH_UNSTATED, PRISM_POLY, countOf, dimensionOf, resolve, type Read } from "./read";
 
 /** The rules these rails offer under. An offer names a rule and never a version (L-MEA-08). */
 export const PILE_COUNT_RULE_ID = "piling.bored.count";
@@ -87,6 +87,6 @@ export const pileLengthRail: Rail = (input: RailInput) =>
   pilesOf(input, PILING_BORING, (read) => {
     const length = dimensionOf(read, LENGTH);
     return length === undefined
-      ? offerOf(read, PILING_BORING, PILE_LENGTH_RULE_ID, {}, [{ variable: PILE_LENGTH, code: "PILE_LENGTH_UNSTATED" }], boreOf(read))
+      ? offerOf(read, PILING_BORING, PILE_LENGTH_RULE_ID, {}, [{ variable: PILE_LENGTH, code: PILE_LENGTH_UNSTATED }], boreOf(read))
       : offerOf(read, PILING_BORING, PILE_LENGTH_RULE_ID, { [PILE_LENGTH]: length }, [], boreOf(read));
   });
