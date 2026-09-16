@@ -10,9 +10,9 @@
 // citable clause is DERIVED, not DEFAULTED"). Where a note states a grade the edition holds no ℓd
 // row for, the lap is an ANSWER rather than a length scaled off a neighbouring row (AM-03(f)).
 
-import type { DetailingSetup } from "../../../offers/contract";
-import type { QuantityBasis } from "../../../offers/law";
-import { exact } from "../../../units/canon";
+import type { DetailingSetup } from "@/core/offers/contract";
+import type { QuantityBasis } from "@/core/offers/law";
+import { exact } from "@/core/units/canon";
 import type { ResolverMethod } from "../law";
 import type { ShapeCode } from "./bs8666";
 import {
@@ -153,23 +153,25 @@ export type VerticalProbe = {
  * the net (AM-03(a)). A grade the edition holds no ℓd row for leaves the group out entirely — the
  * caller discloses it, because a vertical with no lap is not a vertical anybody detailed.
  */
-export function synthesiseVertical(probe: VerticalProbe): { readonly ok: true; readonly bars: readonly BarSpec[] } | NoRow {
+export function synthesiseVertical(probe: VerticalProbe): readonly BarSpec[] {
   const bars: BarSpec[] = [];
   for (const group of probe.mains) {
+    // A grade the edition holds no ℓd row for leaves the bar UNLAPPED rather than lapped at a length
+    // scaled off another row: the steel the schedule states is still steel, and the lap the drawing
+    // never let us derive is DECLARED missing by the caller (AM-03(f), L-QTY-02).
     const lap = lapLengthFor(probe.detailing, probe.edition, { diameterMm: group.diameterMm, confined: false, top: false });
-    if (!lap.ok) return lap;
     bars.push({
       role: "MAIN",
       diameterMm: group.diameterMm,
       shape: "00",
       legsMm: [exact(probe.storeyRunMm).toString()],
       barsPerUnit: group.n,
-      lapMm: lap.mm,
-      lapsPerBar: 1,
+      lapMm: lap.ok ? lap.mm : "0",
+      lapsPerBar: lap.ok ? 1 : 0,
       sourceKeys: probe.sourceKeys ?? [],
     });
   }
-  return { ok: true, bars };
+  return bars;
 }
 
 /** One zone of links: how far it runs, and what spacing it runs at. */
@@ -236,30 +238,28 @@ export type ThroughBarProbe = {
  * Both ends develop, because that is what `ANCHORAGE_ENDS.MAIN` says a main bar does — a bar that
  * stopped at the support face would not be developed there.
  */
-export function synthesiseThroughBar(probe: ThroughBarProbe): { readonly ok: true; readonly bars: readonly BarSpec[] } | NoRow {
+export function synthesiseThroughBar(probe: ThroughBarProbe): readonly BarSpec[] {
   const at: BarPosition = { diameterMm: probe.diameterMm, confined: probe.confined, top: probe.top };
+  // The anchorage IS the bar's length here, so a grade with no ℓd row leaves nothing to cut: the bar
+  // is not synthesised at all, and the caller declares the absence (L-QTY-01, AM-03(f)).
   const anchorage = anchorageLengthFor(probe.detailing, probe.edition, at);
-  if (!anchorage.ok) return anchorage;
+  if (!anchorage.ok) return [];
   const lap = lapLengthFor(probe.detailing, probe.edition, at);
-  if (!lap.ok) return lap;
   const role = probe.role ?? "MAIN";
   const ends = role === "DISTRIBUTION" ? ANCHORAGE_ENDS.DISTRIBUTION : ANCHORAGE_ENDS.MAIN;
   const length = exact(probe.spanMm).add(exact(anchorage.mm).mul(exact(ends)));
-  return {
-    ok: true,
-    bars: [
-      {
-        role,
-        diameterMm: probe.diameterMm,
-        shape: "00",
-        legsMm: [length.toString()],
-        barsPerUnit: probe.n,
-        lapMm: lap.mm,
-        lapsPerBar: 0,
-        sourceKeys: probe.sourceKeys ?? [],
-      },
-    ],
-  };
+  return [
+    {
+      role,
+      diameterMm: probe.diameterMm,
+      shape: "00",
+      legsMm: [length.toString()],
+      barsPerUnit: probe.n,
+      lapMm: lap.ok ? lap.mm : "0",
+      lapsPerBar: 0,
+      sourceKeys: probe.sourceKeys ?? [],
+    },
+  ];
 }
 
 /** What an extra top bar's schedule states: the clear span it is placed over, and its group. */
@@ -343,29 +343,25 @@ export type SlabCrankProbe = {
  * A cranked slab bar (shape CRK): the clear span, anchored ℓd at each end, with the two cranks
  * rising 0.42 D apiece — the geometry of a 45° crank through a slab of depth D.
  */
-export function synthesiseSlabCrank(probe: SlabCrankProbe): { readonly ok: true; readonly bars: readonly BarSpec[] } | NoRow {
+export function synthesiseSlabCrank(probe: SlabCrankProbe): readonly BarSpec[] {
   const at: BarPosition = { diameterMm: probe.diameterMm, confined: false, top: false };
   const anchorage = anchorageLengthFor(probe.detailing, probe.edition, at);
-  if (!anchorage.ok) return anchorage;
+  if (!anchorage.ok) return [];
   const lap = lapLengthFor(probe.detailing, probe.edition, at);
-  if (!lap.ok) return lap;
   const crank = exact(probe.depthMm).mul(exact("0.42"));
   const straight = exact(probe.clearSpanMm).add(exact(anchorage.mm).mul(exact(ANCHORAGE_ENDS.MAIN)));
-  return {
-    ok: true,
-    bars: [
-      {
-        role: "MAIN",
-        diameterMm: probe.diameterMm,
-        shape: "CRK",
-        legsMm: [straight.toString(), crank.toString(), crank.toString()],
-        barsPerUnit: probe.n,
-        lapMm: lap.mm,
-        lapsPerBar: 0,
-        sourceKeys: probe.sourceKeys ?? [],
-      },
-    ],
-  };
+  return [
+    {
+      role: "MAIN",
+      diameterMm: probe.diameterMm,
+      shape: "CRK",
+      legsMm: [straight.toString(), crank.toString(), crank.toString()],
+      barsPerUnit: probe.n,
+      lapMm: lap.ok ? lap.mm : "0",
+      lapsPerBar: 0,
+      sourceKeys: probe.sourceKeys ?? [],
+    },
+  ];
 }
 
 /** The pair that synthesises a member's bars (L-MEA-01). */
@@ -373,7 +369,7 @@ export const REBAR_SYNTHESIS: ResolverMethod = Object.freeze({
   role: "resolver",
   ruleId: "rcc.rebar.synthesis",
   version: "1",
-  resolve: (probe: VerticalProbe): { readonly ok: true; readonly bars: readonly BarSpec[] } | NoRow => synthesiseVertical(probe),
+  resolve: (probe: VerticalProbe): readonly BarSpec[] => synthesiseVertical(probe),
 });
 
 /** The hook extension a bar of `diameterMm` takes at one of the edition's angles (L-FRM-05). */

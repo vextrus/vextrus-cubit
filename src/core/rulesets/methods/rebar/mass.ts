@@ -10,7 +10,7 @@
 // allowance" governs the bill, and a resource summary is what a store-keeper orders against.
 
 import type { MethodPair } from "../../editions/content";
-import { exact } from "../../../units/canon";
+import { exact } from "@/core/units/canon";
 import { formulaFrom, plus, V, type Statement } from "../expr";
 import type { FormulaMethod, MethodVariable } from "../law";
 import { kgPerMetreOf, type DetailingEdition } from "./detailing-bnbc2020-bd";
@@ -93,14 +93,24 @@ export function resourceSummaryOf(bbs: BilledRows, edition: DetailingEdition): R
   return { billedKg: billed.toString(), wastageKg: wastage.toString(), bindingWireKg: bindingWire.toString(), resourceKg: billed.add(wastage).add(bindingWire).toString() };
 }
 
-/** The two variables the formula names: the steel net of laps, and the laps beside it (AM-03(a)). */
+/**
+ * The three components the formula names: the steel net of laps, the laps beside it (AM-03(a)), and
+ * the confinement steel — the ties and the links.
+ *
+ * Ties are their own component rather than part of the net because the length a tie zone runs is a
+ * typical detail that a drawing very often does not state, and a component nobody read must be
+ * DECLARED missing on the line rather than folded silently into another figure (L-QTY-02). A
+ * component can only be declared missing if the method names it: the gate refuses an offer that
+ * omits a variable the method never declared, so `ties` is a variable here even where it is omitted.
+ */
 const VARIABLES: readonly MethodVariable[] = Object.freeze([
   Object.freeze({ name: "net", dimension: "MASS" as const }),
   Object.freeze({ name: "lap", dimension: "MASS" as const }),
+  Object.freeze({ name: "ties", dimension: "MASS" as const }),
 ]);
 
 /** The one tree the rendered formula and the figure are BOTH taken from (L-QTY-03, AM-03(a)). */
-const TREE: Statement = Object.freeze({ result: "M", expr: plus(V("net"), V("lap")) });
+const TREE: Statement = Object.freeze({ result: "M", expr: plus(plus(V("net"), V("lap")), V("ties")) });
 
 /** The template and the evaluator, printed and evaluated from that one tree (B-17). */
 const FORMULA = formulaFrom(TREE, REBAR_MASS_METHOD.ruleId);

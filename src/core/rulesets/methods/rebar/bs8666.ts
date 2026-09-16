@@ -11,7 +11,7 @@
 // figure is a FIELD OF ITS OWN (`isAdditiveLengthOf`): recorded beside the raw, never billed, and
 // never substituted for it.
 
-import { exact } from "../../../units/canon";
+import { exact } from "@/core/units/canon";
 import type { ResolverMethod } from "../law";
 import { DETAILING_BNBC2020_BD, bendRadiusOf, type DetailingEdition } from "./detailing-bnbc2020-bd";
 

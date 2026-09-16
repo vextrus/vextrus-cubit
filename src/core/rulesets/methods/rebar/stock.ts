@@ -7,8 +7,8 @@
 // campaign: the rounded pieces, packed onto stock bars first-fit-decreasing, which is what a site
 // orders against.
 
-import { exact } from "../../../units/canon";
-import type { RefusalCode } from "../../../errors";
+import { exact } from "@/core/units/canon";
+import type { RefusalCode } from "@/core/errors";
 import type { ResolverMethod } from "../law";
 import { roundedCuttingLengthOf } from "./bs8666";
 

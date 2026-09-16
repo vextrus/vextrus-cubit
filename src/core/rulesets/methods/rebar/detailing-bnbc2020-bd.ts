@@ -9,8 +9,8 @@
 // throws — AM-03(f)'s fy 500 rows are the edition's, and a grade the table has no row for is a
 // DISCLOSURE (`DETAILING_ROW_NOT_IN_EDITION`), never a row scaled from a neighbouring one.
 
-import type { ElementType } from "../../../catalogue/classes";
-import { exact } from "../../../units/canon";
+import type { ElementType } from "@/core/catalogue/classes";
+import { exact } from "@/core/units/canon";
 import type { ResolverMethod } from "../law";
 
 /** The name and version this edition is cited by, wherever a bar row records what it was cut under. */
