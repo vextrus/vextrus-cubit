@@ -68,13 +68,19 @@ pinned renderer imposes:
   is not its own file renders as regular.
 
 So three static instances are vendored beside the woff2, under the names the seam reads them by
-(`DOCUMENT_FONT_FILES`, `src/core/documents/fonts.ts`):
+(`DOCUMENT_FONT_FILES`, `src/core/documents/fonts.ts`). They were fetched on 2026-09-16 from the
+upstream Sorkin Type repositories (`SorkinType/SplineSans` and `SorkinType/SplineSansMono`,
+`fonts/ttf/`), under the same OFL 1.1 as the woff2:
 
-| file | upstream | family the templates set | licence beside it |
-| --- | --- | --- | --- |
-| `spline-sans-regular.ttf` | Google Fonts Spline Sans `static/SplineSans-Regular.ttf` | `Spline Sans` | `OFL-spline-sans.txt` |
-| `spline-sans-semibold.ttf` | Google Fonts Spline Sans `static/SplineSans-SemiBold.ttf` | `Spline Sans` | `OFL-spline-sans.txt` |
-| `spline-sans-mono-regular.ttf` | Google Fonts Spline Sans Mono `static/SplineSansMono-Regular.ttf` | `Spline Sans Mono` | `OFL-spline-sans-mono.txt` |
+| file | upstream | family the templates set | sha256 | licence beside it |
+| --- | --- | --- | --- | --- |
+| `spline-sans-regular.ttf` | `SplineSans-Regular.ttf` | `Spline Sans` | `7313ca24903fbdee49a9a20c551f213dfaf86a2ced1948e71e919ef899960674` | `OFL-spline-sans.txt` |
+| `spline-sans-semibold.ttf` | `SplineSans-SemiBold.ttf` | `Spline Sans` | `10b3c62d5cc50fac8c76d9478d18b065f86af4490f9bea256d4be66dd8ab769a` | `OFL-spline-sans.txt` |
+| `spline-sans-mono-regular.ttf` | `SplineSansMono-Regular.ttf` | `Spline Sans Mono` | `79384820b543bd4f52dff46c2da4ddca4bb5131ee3bcba4a6d17a5609351a098` | `OFL-spline-sans-mono.txt` |
+
+`typst fonts --font-path src/ui/fonts --ignore-system-fonts` lists `Spline Sans` and
+`Spline Sans Mono`. The web UI keeps using the woff2 faces; these three are for document rendering
+only.
 
 Each is pinned by the sha256 of its own bytes, computed at render time and recorded on every
 `documents` row (`font_hashes`) — which is what makes "the same payload renders byte-identical"
