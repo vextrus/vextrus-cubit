@@ -18,10 +18,10 @@ import { editionCounts, type EditionCounts } from "../../notes/support/notes-sta
 import {
   DERIVED,
   DETAILING_ROW_NOT_IN_EDITION,
+  MEASURE_SETUP_MODULE,
   PARTIAL_DECLARED,
   RCC_REBAR,
   TRANSCRIBED,
-  appliedDetailingOf,
   barRowsOf,
   bbsThroughDoor,
   bindingsOf,
@@ -32,11 +32,13 @@ import {
   measure,
   omittedOf,
   railSetupOf,
+  railSetupWatchingTheDoor,
   said,
   stageRebarCampaign,
   transcribeNotes,
   type BarRowShape,
   type DetailingSetupShape,
+  type DoorCall,
   type MeasuredCampaign,
   type RebarStage,
   type StagedRebarMember,
@@ -122,26 +124,92 @@ function mains(rows: readonly BarRowShape[]): BarRowShape[] {
   return rows.filter((row) => row.role === "MAIN");
 }
 
+/**
+ * The two sides of the seam, read as FIGURES.
+ *
+ * The door answers a value it has and leaves out one it has not; the setup spells the same thing
+ * with a null in the empty place, and carries its figures as the decimal strings a setup is made of.
+ * Comparing them term by term is what "the setup is the door's answer" means here — the spelling is
+ * the seam's business, and a value the door never said has nowhere to come from.
+ */
+type FigureSaid = { value: number; unit: string } | null;
+type DetailingSaid = {
+  fy: FigureSaid;
+  fc: FigureSaid;
+  lapMultiplier: number | null;
+  hookExtension: { multiplier: number | null; minimumMm: number | null } | null;
+  suspended: string[];
+  sourceKeys: string[];
+};
+
+function figureSaid(held: unknown): FigureSaid {
+  if (held === undefined || held === null) return null;
+  const one = held as { value: unknown; unit: unknown };
+  return { value: Number(one.value), unit: String(one.unit) };
+}
+
+function halfSaid(held: unknown): number | null {
+  return held === undefined || held === null ? null : Number(held);
+}
+
+function asDoorSaid(answered: Record<string, unknown>): DetailingSaid {
+  const hook = answered["hookExtension"] as { multiplier?: unknown; minimumMm?: unknown } | null | undefined;
+  return {
+    fy: figureSaid(answered["fy"]),
+    fc: figureSaid(answered["fc"]),
+    lapMultiplier: halfSaid(answered["lapMultiplier"]),
+    hookExtension: hook === undefined || hook === null ? null : { multiplier: halfSaid(hook.multiplier), minimumMm: halfSaid(hook.minimumMm) },
+    suspended: [...((answered["suspended"] ?? []) as unknown[])].map(String).sort(),
+    sourceKeys: [...((answered["sourceKeys"] ?? []) as unknown[])].map(String).sort(),
+  };
+}
+
+function asSetupSays(carried: DetailingSetupShape): DetailingSaid {
+  return asDoorSaid(carried as unknown as Record<string, unknown>);
+}
+
 describe("AC-7: the notes door governs what the campaign applies, and re-presents its lines", () => {
   test(
-    "AC-7: railSetupOf carries the detailing the ONE door answers, and nothing else",
+    "AC-7: the setup reads the ONE notes door, once, in the campaign's scope — and carries that call's answer",
     async () => {
-      const { stage, unread } = await staged();
-      const door = await appliedDetailingOf(stage);
-      const carried = unread.setup.detailing as DetailingSetupShape;
-      expect(carried, `${"railSetupOf"} carries \`setup.detailing\` — the seam the rebar rail reads its applied values at (interfaces)`).toBeTruthy();
-      expect(carried.lapMultiplier, "with no note read, the door answers no lap multiplier and the setup carries none").toBe(door["lapMultiplier"] ?? null);
-      expect(carried.fy, "and no grade").toBe(null);
-      expect(carried.fc, "and no strength — a figure nobody read is unread, never defaulted in the setup (L-MEA-01)").toBe(null);
-      expect([...carried.suspended], "no kind is contested").toEqual([...((door["suspended"] ?? []) as string[])]);
-      expect([...carried.sourceKeys].sort(), "and it cites exactly the keys the door cites").toEqual([...((door["sourceKeys"] ?? []) as string[])].sort());
+      const { stage } = await staged();
 
+      // The door is watched at the module namespace the loader imports it through, so what is
+      // counted is the call the loader itself makes. A loader that reads the note readings out of
+      // the store, or folds a second spelling of the same rows, is seen HERE by the silence — the
+      // value it lands may be right and the door still never asked (AM-03(h), goal).
+      const beforeNote = await railSetupWatchingTheDoor(stage);
+      expect(
+        beforeNote.calls.length,
+        `${MEASURE_SETUP_MODULE} fills \`setup.detailing\` from \`appliedDetailingValuesOf\` — ONE call per setup, and no other reader of the notes (interfaces): it made ${beforeNote.calls.length}`,
+      ).toBe(1);
+      const asked = (beforeNote.calls[0] as DoorCall).scope;
+      expect(
+        { tenantId: asked["tenantId"], projectId: asked["projectId"], setRevisionId: asked["setRevisionId"] },
+        "asked in this campaign's own scope: the tenant, the project, and the pinned revision whose sheets carry the notes (L-REG-06)",
+      ).toEqual({ tenantId: stage.tenantId, projectId: stage.projectId, setRevisionId: stage.setRevisionId });
+
+      const carried = beforeNote.setup.detailing as DetailingSetupShape;
+      expect(carried, "`railSetupOf` carries `setup.detailing` — the seam the rebar rail reads its applied values at (interfaces)").toBeTruthy();
+      expect(asSetupSays(carried), "with nothing read, the setup carries that call's own silence — no grade, no strength, no multiplier defaulted into it (L-MEA-01)").toEqual(
+        asDoorSaid((beforeNote.calls[0] as DoorCall).answered),
+      );
+      expect(asSetupSays(carried).fy, "and the unread campaign really is unread, so the case is not comparing two absences of its own making").toBe(null);
+
+      // The same door, once more, over a campaign that now has something to answer WITH.
       const { measured } = await transcribed();
-      const afterNote = measured.input.setup.detailing;
-      const answered = await appliedDetailingOf(stage);
-      expect(Number(afterNote.lapMultiplier), "after the note, the setup's lap multiplier is the door's own answer — read there and nowhere else").toBe(Number(answered["lapMultiplier"]));
-      expect(Number((afterNote.fy as { value: string }).value), "and so is the grade").toBe(Number((answered["fy"] as { value: number }).value));
-      expect(String((afterNote.fy as { unit: string }).unit), "in the unit the drawing wrote it in (L-QTY-03)").toBe(String((answered["fy"] as { unit: string }).unit));
+      const afterNote = await railSetupWatchingTheDoor(stage);
+      expect(afterNote.calls.length, "the door is read once per setup after the note too — a second reader is a second answer (goal)").toBe(1);
+      const call = afterNote.calls[0] as DoorCall;
+      expect(call.answered["fy"], "the door itself answers the grade the sheet was read at — the case compares two figures here, not two absences").toBeTruthy();
+      expect(Number((call.answered["fy"] as { value: unknown }).value), "and it is the 500 MPa transcribed off the drawing").toBe(500);
+      expect(Number(call.answered["lapMultiplier"]), "and the transcribed 50d lap").toBe(50);
+      expect(asSetupSays(afterNote.setup.detailing as DetailingSetupShape), "and the setup is THAT call's answer, value for value — the door is where a campaign's applied values come from (AM-03(h))").toEqual(
+        asDoorSaid(call.answered),
+      );
+      expect(asSetupSays(measured.input.setup.detailing), "the setup the measure job handed the rail carries the same answer — the campaign was measured under what the door said (L-MEA-01)").toEqual(
+        asDoorSaid(call.answered),
+      );
     },
     BUDGET_MS,
   );

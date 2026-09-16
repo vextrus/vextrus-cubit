@@ -20,9 +20,9 @@
  * Nothing here judges the product: the assertions are mechanical (a door exists, an act committed, a
  * row landed), and every criterion is beside it.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect } from "vitest";
+import { expect, vi } from "vitest";
 import { BNBC_SHEET_TEXTS, type SheetText } from "../../../notes/support/bnbc-notes";
 import { notesDoor, performAct as performNoteAct, stageNotesSheet, stageRevisionHolding, transcription, reading as noteReading } from "../../../notes/support/notes-stage";
 import {
@@ -367,6 +367,52 @@ export async function railSetupOf(stage: RebarStage): Promise<RailSetupShape> {
   const door = await productModule<{ railSetupOf: (scope: { tenantId: string; projectId: string; setRevisionId: string; editionId: string }) => Promise<RailSetupShape> }>(MEASURE_SETUP_MODULE);
   expect(typeof door.railSetupOf, `${MEASURE_SETUP_MODULE} publishes \`railSetupOf\` (interfaces)`).toBe("function");
   return door.railSetupOf({ tenantId: stage.tenantId, projectId: stage.projectId, setRevisionId: stage.setRevisionId, editionId: stage.editionId });
+}
+
+/** One reading of the notes door: the scope it was asked for, and what it answered (interfaces). */
+export type DoorCall = { scope: Record<string, unknown>; answered: Record<string, unknown> };
+
+/**
+ * The two homes `appliedDetailingValuesOf` can be reached at: the notes barrel every consumer is
+ * meant to read (the ONE door of the goal), and the store the barrel re-exports it from. Both are
+ * watched, so a setup that reaches past the barrel is seen rather than mistaken for silence.
+ */
+const NOTES_DOOR_HOMES: readonly string[] = [NOTES_MODULE, "src/modules/takeoff/notes/store.ts"];
+
+/**
+ * `railSetupOf`, with the notes door WATCHED.
+ *
+ * The spy stands on the module namespace the product imports through, so the call the loader makes
+ * at its own import site is the call counted here; it delegates to the real door, so the setup is
+ * the one the campaign would really have been measured with. Nothing else answers: a loader that
+ * queries the note readings itself, or folds them out of a lower reader, records no call at all.
+ *
+ * The barrel is spied BEFORE the store, so the barrel's captured original is the store's real
+ * function and one call is one entry however the loader reached it.
+ */
+export async function railSetupWatchingTheDoor(stage: RebarStage): Promise<{ setup: RailSetupShape; calls: DoorCall[] }> {
+  const calls: DoorCall[] = [];
+  const spies: { mockRestore: () => void }[] = [];
+  for (const home of NOTES_DOOR_HOMES) {
+    if (!existsSync(join(REPO_ROOT, home))) continue;
+    const namespace = await productModule<Record<string, unknown>>(home);
+    const held = namespace["appliedDetailingValuesOf"];
+    if (typeof held !== "function") continue;
+    const answerer = held as (scope: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    spies.push(
+      vi.spyOn(namespace as unknown as { appliedDetailingValuesOf: typeof answerer }, "appliedDetailingValuesOf").mockImplementation(async (scope: Record<string, unknown>) => {
+        const answered = await answerer(scope);
+        calls.push({ scope: { ...scope }, answered });
+        return answered;
+      }),
+    );
+  }
+  expect(spies.length, `${NOTES_MODULE} publishes \`appliedDetailingValuesOf\` — the ONE door a campaign's applied values are read at (goal)`).toBeGreaterThan(0);
+  try {
+    return { setup: await railSetupOf(stage), calls };
+  } finally {
+    for (const spy of spies) spy.mockRestore();
+  }
 }
 
 /* ------------------------------------------------------------------ measuring it */

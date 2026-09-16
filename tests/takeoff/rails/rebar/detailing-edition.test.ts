@@ -103,10 +103,11 @@ describe("AC-2: the detailing edition BNBC2020_BD @ 2026.07 is data, and its loo
     }
   });
 
-  test("AC-2: f'c clamps to the row at-or-below, and a top bar takes ×1.3", async () => {
+  test("AC-2: f'c clamps to the row AT-OR-BELOW and never to the nearest one, and a top bar takes ×1.3", async () => {
     const edition = await detailingEdition();
-    const { ldMultiplierOf } = await detailingLookups();
+    const { ldMultiplierOf, developmentLengthOf } = await detailingLookups();
     const ask = ldMultiplierOf as unknown as (e: unknown, probe: Record<string, unknown>) => LdAnswer;
+    const askMm = developmentLengthOf as unknown as (e: unknown, probe: Record<string, unknown>) => MmAnswer;
     const multiplierOf = (probe: Record<string, unknown>): number => {
       const answered = ask(edition, probe);
       expect(answered.ok, `the edition answers ${JSON.stringify(probe)}: ${JSON.stringify(answered)}`).toBe(true);
@@ -115,11 +116,34 @@ describe("AC-2: the detailing edition BNBC2020_BD @ 2026.07 is data, and its loo
 
     const base = { fyMPa: 420, diameterMm: SMALL_BAR, confined: true, top: false };
     const at3000 = multiplierOf({ ...base, fcPsi: 3000 });
+    const at3500 = multiplierOf({ ...base, fcPsi: 3500 });
     const at4000 = multiplierOf({ ...base, fcPsi: 4000 });
-    expect(multiplierOf({ ...base, fcPsi: 3200 }), "3200 psi clamps DOWN to the 3000 row — never up, which would shorten the bar (L-FRM-05)").toBeCloseTo(at3000, 9);
+    expect(new Set([at3000, at3500, at4000]).size, `the edition's three f'c rows answer three different multipliers, so a clamped probe says which row it landed on (it answered ${at3000}, ${at3500}, ${at4000} d_b)`).toBe(3);
+
+    // A mix BETWEEN two rows is read on the weaker of them. The probes that matter are the ones
+    // that lie nearer the row ABOVE: there, "at or below" and "nearest" part company, and taking the
+    // nearer row would shorten ℓd — a lap under what the law asks for, which is what the clamp is for.
+    const at3200 = multiplierOf({ ...base, fcPsi: 3200 });
+    expect(at3200, "3200 psi clamps DOWN to the 3000 row — never up, which would shorten the bar (L-FRM-05)").toBeCloseTo(at3000, 9);
+    const at3400 = multiplierOf({ ...base, fcPsi: 3400 });
+    expect(at3400, "3400 psi stands on the 3000 row too, though 3500 is the nearer of the two — the clamp is to the row at-or-below (L-FRM-05)").toBeCloseTo(at3000, 9);
+    expect(Math.abs(at3400 - at3500) > 1e-9, `and not on the 3500 row's ${at3500} d_b, which is what a nearest-row lookup would have answered for 3400 psi`).toBe(true);
+    const at3900 = multiplierOf({ ...base, fcPsi: 3900 });
+    expect(at3900, "3900 psi stands on the 3500 row, the last row at or below it").toBeCloseTo(at3500, 9);
+    expect(Math.abs(at3900 - at4000) > 1e-9, `and not on the 4000 row's ${at4000} d_b, which is nearer and weaker in bond`).toBe(true);
     expect(multiplierOf({ ...base, fcPsi: 4500 }), "4500 psi clamps to the 4000 row, the strongest the edition holds").toBeCloseTo(at4000, 9);
     expect(multiplierOf({ ...base, fcPsi: 2500 }), "and below the first row it stands at the 3000 row").toBeCloseTo(at3000, 9);
     expect(multiplierOf({ ...base, fcPsi: 3000, top: true }), "a top bar takes ×1.3 off the same cell").toBeCloseTo(at3000 * 1.3, 9);
+
+    // And the LENGTH carries the flag the multiplier does: a 25 mm bar at 3000 psi stands at 83 d_b
+    // unconfined, so both readings clear the 300 mm floor and the factor is the whole difference
+    // between them — a developmentLengthOf that drops `top` answers the same length twice.
+    const flat = { fyMPa: 420, fcPsi: 3000, diameterMm: LARGE_BAR, confined: false };
+    const straight = askMm(edition, { ...flat, top: false });
+    const topped = askMm(edition, { ...flat, top: true });
+    expect(straight.ok && topped.ok, `ℓd stands for a bottom bar and for a top one: ${JSON.stringify(straight)} / ${JSON.stringify(topped)}`).toBe(true);
+    expect(Number(straight.mm) > FLOOR_MM, `and clears the floor, so nothing below is the floor's doing (it answered ${JSON.stringify(straight)})`).toBe(true);
+    expect(Number(topped.mm), "a top bar's development length is 1.3 × the same bar's — the top factor reaches the length, not just the multiplier (L-FRM-05)").toBeCloseTo(Number(straight.mm) * 1.3, 6);
   });
 
   test("AC-2: an fy the table has no row for is answered, never scaled and never thrown", async () => {
