@@ -56,6 +56,11 @@ export function normaliseMeasure(measure: Measure, dimension: Dimension): Normal
  * It is asked of the FIGURE rather than of the readings it was computed from, because that is where
  * the fact lives: readings are signed (an elevation below datum is a reading), and it is the quantity
  * a bill pays for that may never be less than nothing.
+ *
+ * This answers a boolean and raises nothing: the refusal that stands on its `false` arm is
+ * `OFFER_NOT_TO_CONTRACT`, answered by `evaluate.ts` where an offer whose figure this predicate
+ * calls inadmissible reaches a line — so a reader of this file is told which refusal an operator
+ * will read, rather than left to find it (ARCH-03, Q-17).
  */
 export function admissibleFigure(value: string): boolean {
   return isDecimalFigure(value) && !exact(value).lt(0);

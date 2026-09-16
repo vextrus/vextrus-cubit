@@ -52,7 +52,10 @@ const CALIBRATION_KEY = "a".repeat(64);
 /** Each table, the name it is exported under, the columns the criteria name and the key it stands under. */
 const TABLES = [
   { table: AFFIRMATIONS, exported: "scaleAffirmations", columns: [TENANT_COLUMN, "affirmation_id", "rank", "act_id", "created_at"], key: ["affirmation_id"] },
-  { table: CALIBRATIONS, exported: "calibrations", columns: [TENANT_COLUMN, "key", "factor_x", "factor_y", "act_id", "created_at"], key: [TENANT_COLUMN, "key"] },
+  // A calibration says what it is: the view key and the two factors, under the content address they
+  // derive. The act that filed it first is not part of that, and a column the key does not cover
+  // would stamp one record's name on a row a second record shares (L-MEA-05).
+  { table: CALIBRATIONS, exported: "calibrations", columns: [TENANT_COLUMN, "key", "view_key", "factor_x", "factor_y", "created_at"], key: [TENANT_COLUMN, "key"] },
 ] as const;
 
 /** Import a product module by repo-relative path, asserting it exists first. */

@@ -4,8 +4,12 @@
 //
 // Every number here is the canon's. No factor is spelled in this file: `src/core/units/canon.ts` is
 // the one home of the law, and this asks it (B-17).
+import { REFUSALS } from "../errors";
 import { refusal } from "../faults/refusal-marker";
 import { CANONICAL_UNIT, convert, toCanonical, unitNamed, type Unit } from "../units/canon";
+
+/** The code a reading that states no number is answered with, off the closed taxonomy (Q-07). */
+const READING_NOT_NUMERIC = REFUSALS.READING_NOT_NUMERIC.code;
 
 /**
  * Where a conversion factor came from, recorded with the reading it carried: a derivation whose
@@ -39,15 +43,21 @@ function readsAsANumber(value: string): boolean {
  * A written height in canonical metres, with its derivation.
  *
  * A unit that measures something other than length refuses by name (`DIMENSION_MISMATCH`), and a
- * packaging unit refuses `PRODUCT_FACTOR_MISSING` — never a silent 1.0 (L-FRM-06). A spelling the
- * canon does not know at all, and a value that is no number, are mistakes in the caller rather than
- * refusals anybody typed, so they say so where they are made (ARCH-03).
+ * packaging unit refuses `PRODUCT_FACTOR_MISSING` — never a silent 1.0 (L-FRM-06). A value that is
+ * no number refuses `READING_NOT_NUMERIC`: it is transport-supplied, so it is a fact about what was
+ * written and a reader is told what to do about it (ARCH-03, B-21). A spelling the canon names
+ * nothing for at all is no unit of this product, and that is a mistake in the caller: it says so
+ * where it is made.
  */
 export function carryToMetres(valueAsWritten: string, unitAsWritten: string): CarriedReading {
   const value = valueAsWritten.trim();
-  // L-REG-01: "convert of no input is no output, never a zero".
+  // L-REG-01: "convert of no input is no output, never a zero". What arrives here is transport-
+  // supplied — a person typed it, or a drawing said `N/A` in the cell it was read from — so it is
+  // answered by the registered refusal a reader can act on, never as a bare fault carrying a fault
+  // id nobody can do anything about (ARCH-03, B-21). It is the same code the register answers an
+  // unreadable reading with, off the closed taxonomy rather than spelled again (Q-07, B-17).
   if (!readsAsANumber(value)) {
-    throw new Error(`"${valueAsWritten}" is no reading of a storey height, so there is nothing to carry to metres — a convert of no input is no output, never a zero (L-REG-01)`);
+    throw refusal(READING_NOT_NUMERIC, `"${valueAsWritten}" is no reading of a storey height, so there is nothing to carry to metres — a convert of no input is no output, never a zero (L-REG-01)`, { valueAsWritten });
   }
   // A drawing writes the metre as `M`; what a written spelling NAMES is the canon's to say, and the
   // reading keeps the spelling that was drawn beside the unit it named (L-REG-01, L-FRM-06, B-17).

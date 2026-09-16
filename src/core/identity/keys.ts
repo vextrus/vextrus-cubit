@@ -14,6 +14,8 @@
 // enter a key". The one exception the law itself writes is the `@unregistered:<label>` placeholder,
 // which stands in for a level nobody has authored yet and is carried onto its surrogate exactly once
 // (`carryLevel`).
+import Decimal from "decimal.js";
+import { exact } from "../units/canon";
 
 /**
  * The separator between the fields of a key. One character, spelled once: a grammar whose parts are
@@ -106,7 +108,11 @@ const LATTICE_PARTS = 10;
  */
 export function quantise(n: number): string {
   if (!Number.isFinite(n)) throw new Error(`a placement at ${String(n)} is no point of the drawing, so it quantises to nothing (L-REG-04)`);
-  const tenths = Math.round(Math.abs(n) * LATTICE_PARTS);
+  // The lattice point is decided on the coordinate's own decimal spelling, in the canon's exact
+  // arithmetic (B-17): 4.35 is held as the double 4.3499999999999996, and `Math.round(n * 10)` would
+  // answer the lattice point of THAT number rather than of the coordinate the drawing states. Half
+  // goes away from zero, which is why the magnitude is what is rounded.
+  const tenths = exact(String(n)).abs().times(LATTICE_PARTS).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();
   // Beyond the exactly-representable integers there is no lattice: `n × 10` either overflows to
   // infinity or lands on a decade whose neighbours a double cannot tell apart, and two coordinates
   // far apart would then spell one key. A coordinate that big is no point of a drawing either.
@@ -152,11 +158,15 @@ export function levelFormOf(level: LevelRef): LevelForm {
  * The level segment of an instance key: a surrogate id, a lawful-null slot, or the placeholder for a
  * level authored later. A level's label, ordinal and height never enter a key (L-REG-02) — the one
  * label a key may carry is the placeholder's, and it is there precisely to be carried away.
+ *
+ * The surrogate is spelled the way the store renders a uuid, in lower case: one uuid is one level
+ * however it was typed, and two spellings of one surrogate would derive two keys for one instance —
+ * which the store's own CHECK over a row's level columns then refuses (L-REG-04, B-17).
  */
 export function levelSegment(level: LevelRef): string {
   switch (levelFormOf(level)) {
     case "surrogate":
-      return `${LEVEL_MARKER}${part((level as { readonly levelId: string }).levelId, "level surrogate id")}`;
+      return `${LEVEL_MARKER}${part((level as { readonly levelId: string }).levelId, "level surrogate id").toLowerCase()}`;
     case "slot":
       return `${LEVEL_MARKER}${(level as { readonly slot: LevelSlot }).slot}`;
     case "unregistered":

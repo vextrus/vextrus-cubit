@@ -201,7 +201,8 @@ function adjacentGapsOf(rows: readonly GridReading[]): AdjacentGap[] {
  * measurement text — arrives as derived records naming it as `src` (L-CAD-03). The measurement axis
  * is the one its non-text paint reaches further along, the span is the raw extent of that paint
  * along it, and the stated number is the one measurement text the dimension carries. A dimension
- * carrying no such text, two of them, or paint of no extent states nothing and is not read.
+ * carrying no such text, two of them, paint of no extent, or paint reaching equally far along both
+ * axes — which names no axis — states nothing and is not read.
  *
  * Which view a dimension measures in: the partition's own assignment where the original carried
  * points the partition could place (L-CAD-06 — one reading, B-17). An original carrying none stands
@@ -230,7 +231,11 @@ export function readDimensions(graph: EntityGraph, assignments: ReadonlyMap<stri
     const drawn = paint.filter((record) => typeof record.text !== "string");
     const extent = extentOf(drawn);
     if (extent === null) continue;
-    const axis = extent.x >= extent.y ? AXIS_X : AXIS_Y;
+    // Paint reaching equally far along both axes names no axis at all: neither span is the one the
+    // number was measured over, and a reading filed under an axis the dimension does not measure
+    // proposes a factor off evidence that says nothing (L-MEA-05, L-QTY-04).
+    if (extent.x === extent.y) continue;
+    const axis = extent.x > extent.y ? AXIS_X : AXIS_Y;
     const span = axis === AXIS_X ? extent.x : extent.y;
     if (!(span > 0) || !exact(said).gt(0)) continue;
 

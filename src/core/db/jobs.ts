@@ -270,8 +270,29 @@ function plannedQueueVersion(): number | null {
  * a job — two writers that both passed a read-committed "no ending yet" check — and such a log is
  * reported, never edited (see `createLog`).
  */
-const ONE_ENDING_INDEX = `create unique index if not exists job_events_one_ending on ${JOBS_SCHEMA}.job_events (job_id)
+const ONE_ENDING = "job_events_one_ending";
+
+const ONE_ENDING_INDEX = `create unique index if not exists ${ONE_ENDING} on ${JOBS_SCHEMA}.job_events (job_id)
    where status in (${closedList([...TERMINAL_STATUSES])})`;
+
+/**
+ * What a unique violation raised by building `job_events_one_ending` means — a fault to report, or
+ * nothing at all — judged by the jobs standing in the way.
+ *
+ * Two different facts raise one violation, and telling them apart is a judgement rather than a
+ * report (B-17, ARCH-03). An EMPTY list is a concurrent first write: another process is building
+ * this very index and the violation is its build, not this log's content — reporting it says "more
+ * than one ending for 0 job(s) — " and names nothing an operator could act on. A list naming jobs is
+ * a log that really holds two endings for one of them, which is a fault: no row of the log is
+ * deleted to make a constraint fit, so the jobs are named and the index is built by the next process
+ * once they are resolved (R-SPINE-030).
+ */
+export function oneEndingCollision(duplicated: readonly string[]): Error | null {
+  if (duplicated.length === 0) return null;
+  return new Error(
+    `the job log holds more than one ending for ${duplicated.length} job(s) — ${duplicated.join(", ")} — so ${ONE_ENDING} cannot be built until they are resolved (R-SPINE-030)`,
+  );
+}
 
 /** The row as the driver hands it back, before it is folded into the shape the seam publishes. */
 type RawJobEvent = {
@@ -394,12 +415,8 @@ export function jobsStore(url: string): JobsStore {
            group by job_id
           having count(*) > 1
            order by job_id`;
-        const jobs = duplicated.map((row) => row.job_id);
-        const cause = new Error(
-          `the job log holds more than one ending for ${jobs.length} job(s) — ${jobs.join(", ")} — so job_events_one_ending cannot be built until they are resolved (R-SPINE-030)`,
-          { cause: collision },
-        );
-        reportFault({ requestId: LOG_ROUTE, actor: LOG_ACTOR, route: LOG_ROUTE, cause });
+        const cause = oneEndingCollision(duplicated.map((row) => row.job_id));
+        if (cause !== null) reportFault({ requestId: LOG_ROUTE, actor: LOG_ACTOR, route: LOG_ROUTE, cause });
       }
     } catch (failure) {
       // A log that could not be provisioned is this seam's failure to answer for, and one every
@@ -453,8 +470,15 @@ export function jobsStore(url: string): JobsStore {
       await boss.start();
     } catch (failure) {
       // The library opens its pool before it checks for its schema and closes nothing when the
-      // check fails, and a start that failed is one it will not stop: the pool is given back here,
-      // or every failed start leaks one.
+      // check fails, and a start that failed is one it will not stop — but it may already have
+      // started supervising, and the supervisor's interval outlives the failed start and keeps the
+      // process alive. So the library's own `stop()` takes the interval down FIRST, while it still
+      // has a pool to speak through, and the pool it opened before its check is given back after —
+      // or every failed start leaks one (R-SPINE-031).
+      //
+      // The stop's own failure is swallowed: it is nothing to report on top of the failure being
+      // answered for, and one failure is one fault (ARCH-03).
+      await boss.stop().catch(() => undefined);
       // (The library's typing states its handle as a query runner only; the close is its own.)
       const handle = boss.getDb() as { close?: () => Promise<void> };
       await handle.close?.().catch(() => undefined);
