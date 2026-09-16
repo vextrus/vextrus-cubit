@@ -11,8 +11,15 @@ import type { ModelId } from "../model-ledger.types";
 import { parseSourceKey, stringsOf, type SourceKey, type SourceKeyResolver } from "./sources";
 import type { JsonValue } from "./types";
 
-/** The mark every Proposal carries: a symbol, so no JSON payload can carry one. */
-export const PROPOSAL_KIND: unique symbol = Symbol("cubit.proposal");
+/**
+ * The mark every Proposal carries: a symbol, so no JSON payload can carry one.
+ *
+ * Taken from the global registry, which is the mark's one home (B-17): `Symbol()` mints a NEW symbol
+ * per module instance, and the unit lane, the Next server bundle and the worker each load their own
+ * copy of this file — a Proposal minted under one would then fail the kind check of another, a value
+ * that IS a proposal answering that it is not (L-AI-02). One description, one symbol, whoever asks.
+ */
+export const PROPOSAL_KIND: unique symbol = Symbol.for("cubit.proposal");
 
 /** What the seam answers: the caller's decoded reading, the resolved sources it rests on, and the call that made it. */
 export type Proposal<T> = {

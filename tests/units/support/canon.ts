@@ -42,6 +42,9 @@ async function exportsUnder(directory: string, required: string): Promise<Record
   const merged: Record<string, unknown> = {};
   for (const entry of readdirSync(join(REPO_ROOT, directory), { withFileTypes: true })) {
     if (!entry.isFile() || !entry.name.endsWith(".ts") || entry.name.endsWith(".d.ts")) continue;
+    // A suite living beside the module it judges is not part of the canon's surface, and importing
+    // one from inside a running case registers its `describe` where no runner can hold it.
+    if (/\.test\.tsx?$/.test(entry.name)) continue;
     Object.assign(merged, await productModule(`${directory}/${entry.name}`));
   }
   return merged;

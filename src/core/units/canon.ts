@@ -69,6 +69,11 @@ const FACTORS = Object.freeze({
   // read in square millimetres — the square of the metre's decimal prefix, and an integer power of
   // ten like the prefix itself (L-FRM-02's shoelace plan, L-REG-01's unit as written).
   mm2: { dimension: "AREA", factor: "0.000001" },
+  // A rule-set edition states a bar's area and a section's area in square centimetres, and an
+  // edition's value is read in the unit the edition wrote it in (L-MEA-01) — a minted edition is
+  // immutable (L-REG-07), so the canon learns the unit rather than the edition being respelled. The
+  // square of the centimetre, an integer power of ten like the millimetre's square above.
+  cm2: { dimension: "AREA", factor: "0.0001" },
   sft: { dimension: "AREA", factor: "0.09290304" },
   pcs: { dimension: "COUNT", factor: "1" },
 }) satisfies Readonly<Record<string, { readonly dimension: Dimension; readonly factor: string }>>;
