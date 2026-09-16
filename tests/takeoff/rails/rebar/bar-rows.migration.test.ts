@@ -127,7 +127,12 @@ describe("AC-1: the bill of bars is migrated, keyed by its content and posture-b
   });
 
   it("AC-1: the platform edition naming the rebar shard is MINTED beside the editions that stood", async () => {
-    const rows = await ask(`select name, version, methods::text from ruleset_editions where scope = 'platform' order by name, version;`);
+    // The citation is read newline-free: `methods` is a `json` column, so it leaves the database as
+    // the exact text its migration wrote — and a pretty-printed literal (0046 spells nineteen pairs
+    // over as many lines) would reach the reader as one output line per line of JSON, splitting one
+    // edition into fragments. Stripping the line breaks leaves the stored text otherwise byte for
+    // byte, so one row here is one minted edition and the citation still reads as it was written.
+    const rows = await ask(`select name, version, replace(methods::text, chr(10), ' ') from ruleset_editions where scope = 'platform' order by name, version;`);
     const minted = rows.filter((row) => String(row[0]) === SEED_EDITION.name && String(row[1]) === SEED_EDITION.version);
     expect(minted.length, `the platform scope holds ${SEED_EDITION.name} @ ${SEED_EDITION.version}, minted by this leaf's own migration (L-REG-07)`).toBe(1);
 
