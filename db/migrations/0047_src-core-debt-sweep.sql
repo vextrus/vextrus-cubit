@@ -62,9 +62,20 @@ WHERE num_nonnulls(o."level_id", o."level_slot", o."level_label") = 0
 		WHERE standing."tenant_id" = o."tenant_id" AND standing."set_revision_id" = o."set_revision_id" AND standing."object_key" = o."placement_key" || '@UNRESOLVED')
 	AND NOT EXISTS (
 		SELECT 1 FROM "register_attributes" AS a
-		WHERE a."tenant_id" = o."tenant_id" AND a."set_revision_id" = o."set_revision_id" AND a."object_key" = o."object_key");--> statement-breakpoint
+		WHERE a."tenant_id" = o."tenant_id" AND a."set_revision_id" = o."set_revision_id" AND a."object_key" = o."object_key")
+	-- The row a second level-less row of the same placement would be rewritten ONTO. Both read the
+	-- statement's own snapshot, so neither would see the other standing at the repaired key and both
+	-- would be written to it — the primary key would then refuse the statement with a bare 23505,
+	-- which is the very stop this repair exists to prevent. One of a placement's level-less rows is
+	-- repaired, the lowest-keyed; the rest are two rows claiming one identity (L-REG-03) and the
+	-- block below names them for the person who judges which is the sighting.
+	AND NOT EXISTS (
+		SELECT 1 FROM "register_objects" AS twin
+		WHERE twin."tenant_id" = o."tenant_id" AND twin."set_revision_id" = o."set_revision_id" AND twin."placement_key" = o."placement_key"
+			AND num_nonnulls(twin."level_id", twin."level_slot", twin."level_label") = 0 AND twin."object_key" < o."object_key");--> statement-breakpoint
 -- What the repair cannot decide, the deploy says out loud rather than leaving it to a check
--- violation nobody can read: a level-less row whose repaired key already stands is two rows
+-- violation nobody can read: a level-less row whose repaired key already stands — or whose
+-- placement another level-less row of the same revision already carried there — is two rows
 -- claiming one identity inside one revision (L-REG-03), and one carrying attribute slots cannot
 -- take its key with it, because `register_attributes` is append-only. Which row is the sighting is
 -- a person's judgement, and this names the rows waiting on it.
