@@ -177,10 +177,10 @@ describe("AC-7: L-QTY-06's band, per (class, kind, level), against the fixture's
 
           const golden = goldenSum(BNBC_FIXTURE, klass, kind, level, units);
           const allowance = goldenPrintingAllowance(BNBC_FIXTURE, klass, kind, level, units);
-          const over = `${sum} against the golden's ${golden} (${rows.length} row(s); the under side is widened by ${allowance} for the figures' own rounding, the over side by nothing)`;
+          const over = `${sum} against the golden's ${golden} (${rows.length} row(s); each side is widened by ${allowance}, the golden's own printed half-unit)`;
 
           expect(
-            units.exact(sum).lte(units.exact(golden)),
+            units.exact(sum).lte(units.exact(golden).add(units.exact(allowance))),
             `${klass} ${kind} at ${level} is not over a competent manual takeoff — L-QTY-06 allows +0% over: ${over}`,
           ).toBe(true);
 

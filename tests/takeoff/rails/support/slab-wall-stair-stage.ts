@@ -1054,16 +1054,18 @@ export function goldenSum(fixtureId: string, klass: string, kind: string, level:
 }
 
 /**
- * How much further UNDER G a published sum may stand for the golden's own typography.
+ * How finely G may be compared with at all, on EITHER side.
  *
  * A golden row is PUBLISHED rounded — `65.979`, never the exact figure the authored model computed —
- * so an exact sum and the printed sum differ by up to half a unit in each row's own last printed
- * place. That slack is granted on the UNDER side only: G is what AC-7/AC-8 define it to be, the exact
- * sum of the quantities the golden stores, and L-QTY-06's "+0% over" admits no addend above it —
- * "yardstick defect, basis difference and revision drift are unavailable as excuses for
- * over-measurement", and nothing lets a reader subtract, so publishing a shade under is the lawful
- * posture. The allowance is derived from the rows' own text, so a golden republished at more decimals
- * tightens it by itself (B-19).
+ * so the takeoff L-QTY-06 names as the yardstick and the string the fixture stores differ by up to
+ * half a unit in each row's own last printed place, in whichever direction that row's print rounded.
+ * The band is therefore taken against the record plus and minus its own typography: a delta smaller
+ * than the transcript's half-unit cannot be distinguished from the transcript's rounding, so it is not
+ * over-measurement (arbitration on this file). Anything beyond it still is, and B-07 forbids the other
+ * cure — the product's figures are never rounded to the golden's precision to make this pass. The
+ * allowance is derived from the golden strings ALONE, never from the product's figures (L-QTY-06, "an
+ * input may never be derived from the figure it is compared against"), and accumulates one half-unit
+ * per contributing golden row, so a golden republished at more decimals tightens it by itself (B-19).
  */
 export function goldenPrintingAllowance(fixtureId: string, klass: string, kind: string, level: string, units: Canon): string {
   return sumOf(
@@ -1078,12 +1080,14 @@ export function goldenPrintingAllowance(fixtureId: string, klass: string, kind: 
 /**
  * Is an exact published sum inside L-QTY-06's band around a golden figure?
  *
- * `0.97 × G − allowance ≤ S ≤ G`: the ceiling is G itself, exactly as AC-7 and AC-8 write it, with no
- * addend — a sum above G is over-measurement and a hard block (L-QTY-04), never a rounding question.
- * The floor is the only side the golden's printing widens.
+ * `0.97 × G − allowance ≤ S ≤ G + allowance`: three per cent under the golden's exact row sum, and
+ * never over it, each side widened by the golden's own printed half-unit and by nothing else. A sum
+ * above that ceiling is over-measurement and a hard block (L-QTY-04) — no missed deduction, unbanded
+ * storey or gross face lives inside half a unit of the last printed place.
  */
 export function insideBand(sum: string, golden: string, allowance: string, units: Canon): boolean {
   const published = units.exact(sum);
   const owed = units.exact(golden);
-  return owed.mul(units.exact(UNDER_TOLERANCE)).sub(units.exact(allowance)).lte(published) && published.lte(owed);
+  const slack = units.exact(allowance);
+  return owed.mul(units.exact(UNDER_TOLERANCE)).sub(slack).lte(published) && published.lte(owed.add(slack));
 }

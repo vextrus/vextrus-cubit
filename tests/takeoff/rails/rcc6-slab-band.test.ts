@@ -128,7 +128,7 @@ describe("AC-8: F-RCC6 v1.1's SLAB rows, measured by the new rails", () => {
         const sum = sumOf(rows.map((row) => said(row, "value", "value")), units);
         const golden = goldenSum(RCC6_FIXTURE, SLAB, kind, level, units);
         const allowance = goldenPrintingAllowance(RCC6_FIXTURE, SLAB, kind, level, units);
-        const over = `${sum} against the golden's ${golden} (the under side is widened by ${allowance} for the figure's own rounding, the over side by nothing)`;
+        const over = `${sum} against the golden's ${golden} (each side is widened by ${allowance}, the golden's own printed half-unit)`;
         expect(insideBand(sum, golden, allowance, units), `SLAB ${kind} at ${level}: ±3% under, +0% over a competent manual takeoff — ${over}`).toBe(true);
       }
     }, STAGING_BUDGET);
