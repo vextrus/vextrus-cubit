@@ -22,7 +22,7 @@ import { sessionOf } from "@/server/shell/resolve";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { shellHref } from "@/ui/shell";
 import { strings } from "@/ui/strings";
-import { SettingsHeader, SettingsPane, projectSettingsNav } from "@/app/(app)/t/[tenant]/settings/settings-pane";
+import { SettingsHeader } from "@/app/(app)/t/[tenant]/settings/settings-pane";
 import { ParticipantsSection, type ParticipantsMember } from "./participants-section";
 import { TESTIDS } from "@/ui/testids";
 
@@ -43,22 +43,21 @@ export default async function ProjectParticipantsSettings({ params }: { params: 
       assignableSubjects(ctx),
     ]);
 
+    // The frame is the layout's (sub-navigation I-258): this route renders its section alone.
     return (
-      <SettingsPane items={projectSettingsNav(tenant, project)} active="participants">
-        <ParticipantsSection
-          tenantId={tenant}
-          projectId={project}
-          roster={roster.map((row) => ({ ...named(row.member), roles: row.roles }))}
-          history={history.map((entry) => ({
-            direction: entry.direction,
-            role: entry.role,
-            subject: named(entry.subject),
-            actor: entry.actor === null ? null : named(entry.actor),
-            occurredAt: entry.occurredAt.toISOString(),
-          }))}
-          subjects={subjects.map(named)}
-        />
-      </SettingsPane>
+      <ParticipantsSection
+        tenantId={tenant}
+        projectId={project}
+        roster={roster.map((row) => ({ ...named(row.member), roles: row.roles }))}
+        history={history.map((entry) => ({
+          direction: entry.direction,
+          role: entry.role,
+          subject: named(entry.subject),
+          actor: entry.actor === null ? null : named(entry.actor),
+          occurredAt: entry.occurredAt.toISOString(),
+        }))}
+        subjects={subjects.map(named)}
+      />
     );
   } catch (thrown) {
     const code = refusalCodeOf(thrown);
@@ -75,17 +74,15 @@ export default async function ProjectParticipantsSettings({ params }: { params: 
 function ParticipantsDenied({ tenantId, projectId }: { tenantId: string; projectId: string }) {
   const code: RefusalCode = "PERMISSION_NOT_HELD";
   return (
-    <SettingsPane items={projectSettingsNav(tenantId, projectId)} active="participants">
-      <div className="cx-participants">
-        <SettingsHeader
-          title={strings.spine_participants_heading}
-          about={[strings.spine_participants_denied_permission, strings.spine_participants_denied_holder]}
-        />
-        <div className="cx-participants-denied" data-testid={TESTIDS.participants.refusal}>
-          <RefusalState refusal={refusalOf(code)} evidence={{ href: shellHref(tenantId, "projects"), label: strings.home_evidence_projects }} />
-        </div>
+    <div className="cx-participants">
+      <SettingsHeader
+        title={strings.spine_participants_heading}
+        about={[strings.spine_participants_denied_permission, strings.spine_participants_denied_holder]}
+      />
+      <div className="cx-participants-denied" data-testid={TESTIDS.participants.refusal}>
+        <RefusalState refusal={refusalOf(code)} evidence={{ href: shellHref(tenantId, "projects"), label: strings.home_evidence_projects }} />
       </div>
-    </SettingsPane>
+    </div>
   );
 }
 

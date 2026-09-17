@@ -83,6 +83,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "DUPLICATE_IDENTITY",
   "EARTHWORK_PARAMETER_UNSTATED",
   "EARTHWORK_PLAN_DEFERRED",
+  "EDITION_VERSION_TAKEN",
   "EXPORT_NOT_FOUND",
   "EXPORT_URL_EXPIRED",
   "EXPORT_URL_INVALID",
@@ -287,7 +288,15 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * to 121 — and not one existing entry's code, message, remedy, severity or surface moved with them;
  * the previous digest was 8bb7fc6ed15553923a99ff0d2f7369558eb7292bcee4db3f0c3575ddcbaedb12.
  */
-const ENTRIES_DIGEST_BEFORE = "9d774bd9957e6d3f38c50d1e032675a3eca5d5dd282f122a983b4ab286c0aac6";
+/*
+ * Re-baselined for ONE ADDED entry and nothing else: `EDITION_VERSION_TAKEN` (./rulesets.ts), what
+ * authoring an edition under a version this project already holds is refused by — identity is
+ * (scope, name, version), so a second edition behind one name is two editions nobody can tell apart
+ * (L-MEA-01, AM-04). The roster grew by that one key — 121 codes to 122 — and not one existing
+ * entry's code, message, remedy, severity or surface moved with it; the previous digest was
+ * 9d774bd9957e6d3f38c50d1e032675a3eca5d5dd282f122a983b4ab286c0aac6.
+ */
+const ENTRIES_DIGEST_BEFORE = "53e0874a3cc2de7d4a3b2cac2cba5bf418c6533e97a05195284f50d90b79f675";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

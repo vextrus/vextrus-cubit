@@ -20,8 +20,6 @@ import { Tooltip } from "@/ui/primitives/core";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/primitives/overlay";
 import { shellHref } from "@/ui/shell";
 import { strings } from "@/ui/strings";
-import { rulesetRoute } from "../p/[project]/home/areas";
-import { participantsRoute } from "../p/[project]/settings/participants/route-address";
 import { membersRoute } from "./members/route-address";
 import { membersStrings } from "./members/strings";
 import { settingsStrings } from "./strings";
@@ -46,16 +44,6 @@ export function workspaceSettingsNav(tenantId: string): readonly SettingsNavItem
     { key: "members", label: membersStrings.members_heading, href: membersRoute(tenantId), testId: "settings-members-link" },
     { key: "books", label: strings.shell_nav_books, href: shellHref(tenantId, "books") },
     { key: "ruleset", label: settingsStrings.settings_nav_ruleset, href: null },
-    { key: "taxonomy", label: settingsStrings.settings_nav_taxonomy, href: null },
-    { key: "tax", label: settingsStrings.settings_nav_tax, href: null },
-  ];
-}
-
-/** A project's settings areas: the two this tree answers for, then the two the workspace promises. */
-export function projectSettingsNav(tenantId: string, projectId: string): readonly SettingsNavItem[] {
-  return [
-    { key: "participants", label: strings.spine_participants_heading, href: participantsRoute(tenantId, projectId) },
-    { key: "ruleset", label: settingsStrings.settings_nav_ruleset, href: rulesetRoute(tenantId, projectId) },
     { key: "taxonomy", label: settingsStrings.settings_nav_taxonomy, href: null },
     { key: "tax", label: settingsStrings.settings_nav_tax, href: null },
   ];

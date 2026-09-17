@@ -365,6 +365,17 @@ export const TESTIDS = {
     parameterTable: "ruleset-parameter-table",
     unpinned: "ruleset-unpinned",
   },
+  rulesetAuthor: {
+    diff: "ruleset-author-diff",
+    diffRow: "ruleset-author-diff-row",
+    parent: "ruleset-author-parent",
+    refusal: "ruleset-author-refusal",
+    section: "ruleset-author-section",
+    seeRuleset: "ruleset-author-see-ruleset",
+    submit: "ruleset-author-submit",
+    value: "ruleset-author-value",
+    version: "ruleset-author-version",
+  },
   sAuth: {
     email: "s-auth-email",
     fault: "s-auth-fault",
@@ -445,6 +456,7 @@ export const TESTIDS = {
     index: "sets-index",
   },
   settings: {
+    area: "settings-area",
     membersLink: "settings-members-link",
   },
   sheet: {

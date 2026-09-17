@@ -1,0 +1,151 @@
+/* S-Settings-Ruleset-Author § 1 and § 5: the screen's own rules, in semantic aliases and density
+   tokens only. No [data-theme] selector stands here — every difference between the themes arrives
+   through the token values (R-UI-001, § 6) — and no reduced-motion branch, because every duration
+   is a token zeroed at source (§ 4). */
+
+.cx-ruleset-author {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+.cx-ruleset-author-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-section);
+  min-block-size: 0;
+}
+
+.cx-ruleset-author-heading {
+  margin: 0;
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--ink);
+  line-height: 40px;
+}
+
+.cx-ruleset-author-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  min-block-size: var(--control-h);
+  font-size: var(--text-13);
+}
+
+.cx-ruleset-author-label {
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-ruleset-author-parent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  color: var(--ink-code);
+}
+
+.cx-ruleset-author-scope {
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+/* I-206's exact ruling: the digest is whole in the document and drawn at the chip measure, selectable
+   as one thing — a fingerprint is read by being copied, never by being retyped. */
+.cx-ruleset-author-digest {
+  display: inline-block;
+  inline-size: 8ch;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+  user-select: all;
+  font-size: var(--text-12);
+}
+
+.cx-ruleset-author-version-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+
+.cx-ruleset-author-version {
+  inline-size: 160px;
+  block-size: var(--control-h);
+}
+
+.cx-ruleset-author-table {
+  min-block-size: 0;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-4);
+}
+
+.cx-ruleset-author-param {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-13);
+}
+
+/* What was true recedes behind what will be: on a changed row the pinned figure goes muted, and the
+   authored one takes the ink (§ 1.1). Recession is ink weight, never a drop below the contrast floor. */
+.cx-ruleset-author-pinned {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+[data-changed="true"] .cx-ruleset-author-pinned {
+  color: var(--ink-muted);
+}
+
+.cx-ruleset-author-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cx-ruleset-author-input {
+  inline-size: 100%;
+  block-size: var(--control-h);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+[data-changed="true"] .cx-ruleset-author-input {
+  color: var(--ink);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-ruleset-author-suffix {
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-ruleset-author-refusal:empty {
+  display: none;
+}
+
+.cx-ruleset-author-act {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block-start: var(--space-4);
+}
+
+.cx-ruleset-author-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  min-block-size: var(--text-13);
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-ruleset-author-submit {
+  margin-inline-start: auto;
+  block-size: var(--control-h-lg);
+}
