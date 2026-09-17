@@ -29,15 +29,25 @@ export const PROOF_UNITS: readonly string[] = UNITS;
  */
 export const PROOF_QUANTITY_PRECISION = 3;
 
-/** One measured line of the proof: what it refers to, what it is, how much, and in what unit. */
-const proofLine = z.object({
-  ref: z.string().min(1),
-  description: z.string().min(1),
-  // The quantity is a decimal STRING end to end (B-07): a float would lose the very digits
-  // `PROOF_QUANTITY_PRECISION` exists to count.
-  quantity: z.string().min(1),
-  unit: z.enum(PROOF_UNITS as [string, ...string[]]),
-});
+/**
+ * One measured line of the proof: what it refers to, what it is, how much, and in what unit.
+ *
+ * Strict, like the payload that holds it. A line carrying a key this kind never registered is the
+ * same mistake as a top-level one — a caller describing something the document will not say — and a
+ * schema that quietly dropped it would render a document stating LESS than what was asked for, under
+ * a digest identical to the one the stripped payload answers (L-FMT-03: the digest is of the thing
+ * that was rendered). One seam owes one answer to that question at every level of a payload.
+ */
+const proofLine = z
+  .object({
+    ref: z.string().min(1),
+    description: z.string().min(1),
+    // The quantity is a decimal STRING end to end (B-07): a float would lose the very digits
+    // `PROOF_QUANTITY_PRECISION` exists to count.
+    quantity: z.string().min(1),
+    unit: z.enum(PROOF_UNITS as [string, ...string[]]),
+  })
+  .strict();
 
 /** What the proof kind is rendered from. Unknown keys are refused: a payload is a statement, not a bag. */
 export const proofPayloadSchema = z
