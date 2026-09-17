@@ -13,10 +13,11 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
+import { formatUserFigure } from "../../src/core/format";
 import { TESTIDS } from "../../src/ui/testids";
 import { SHomePage, S_HOME } from "./pages/s-home.page";
 import { ShellPage, SHELL } from "./pages/shell.page";
-import { PROJECT_SETTINGS_AREA_ORDER, SRulesetAuthorPage, S_RULESET_AUTHOR, areaAddress } from "./pages/s-settings-ruleset-author.page";
+import { PROJECT_SETTINGS_AREA_ORDER, type ProjectSettingsArea, SRulesetAuthorPage, S_RULESET_AUTHOR, areaAddress } from "./pages/s-settings-ruleset-author.page";
 import { baselinePath, laneProject } from "./support/capture-geometry";
 import { checkpoint } from "./support/checkpoint";
 import { emulateTheme, restoreLaneTheme } from "./support/lane-theme";
@@ -45,6 +46,28 @@ const DONE = `Done. The project now reads version ${AUTHORED_VERSION}.`;
 
 /** The area the disabled row is for — the one inc-304b gives an address (`route: null` here). */
 const UNBUILT = "site-facts";
+
+/**
+ * Where the nav says the reader is, read as a WHOLE LIST on whichever screen the nav is framing.
+ *
+ * "This row is current" is only half of `aria-current`'s rule and the weaker half: a nav that marks
+ * EVERY built row satisfies it on every row, and then tells a screen reader nothing at all — the
+ * attribute exists to single one out. So the reading compared here is the list across all four rows,
+ * and the expectation is derived from `PROJECT_SETTINGS_AREAS`' own order against the area whose
+ * address the page is at — never a spelled position, so a roster that grows or is reordered carries
+ * this with it. An absent attribute reads as the empty string (`everyAttribute`'s contract), which
+ * is exactly what a row that is not where the reader is must publish.
+ */
+async function expectNavCurrent(author: SRulesetAuthorPage, at: ProjectSettingsArea): Promise<void> {
+  expect(
+    await everyAttribute(author.areas, "data-area", `the project settings nav rows, framing the ${at} screen`, { min: 1 }),
+    "the nav renders the roster's areas in the roster's order on every screen it frames",
+  ).toEqual([...PROJECT_SETTINGS_AREA_ORDER]);
+  expect(
+    await everyAttribute(author.areas, "aria-current", `the project settings nav's current row, framing the ${at} screen`, { min: 1 }),
+    `exactly one row says where the reader is, and it is the row whose address this page is at (${at})`,
+  ).toEqual(PROJECT_SETTINGS_AREA_ORDER.map((area) => (area === at ? "page" : "")));
+}
 
 test.describe("J-304 — the project settings nav, and authoring the edition a project reads", () => {
   test("J-304: AC-1: the nav and the Author edition screen · AC-2: one value authored and the edition minted", async ({ page, baseURL }, testInfo) => {
@@ -82,6 +105,10 @@ test.describe("J-304 — the project settings nav, and authoring the edition a p
     const pinnedDigest = await steadyText(author.editionDigest, "the pinned edition's content digest");
     expect(pinnedDigest, "the pin publishes the digest its content keys (L-MEA-01)").not.toBe("");
     const pinnedParameters = await everyAttribute(author.parameterRows, "data-param", "the pinned edition's parameter rows", { min: 1 });
+    // What the project READS today, parameter by parameter — the figures the act is about. AC-2 comes
+    // back to this map after the commit: the edition the act minted is the one the author stated, or
+    // the screen previewed a diff it never carried.
+    const pinnedFigures = await author.parameterFigures();
     const lineageBefore = await steadyCount(author.lineageSteps, "the lineage of the pinned edition", { min: 1 });
 
     /* --- the project settings nav: four areas, in the roster's order (sub-navigation § 1) --- */
@@ -103,14 +130,16 @@ test.describe("J-304 — the project settings nav, and authoring the edition a p
         expect(await heldAttribute(row, "href"), `${area} leads to that screen's own address`).toBe(address);
       }
     }
-    expect(await heldAttribute(author.area("ruleset"), "aria-current"), "the nav names where the reader is, and this is the rule-set screen").toBe("page");
+    await expectNavCurrent(author, "ruleset");
 
     /* --- AC-1: the door is the nav row, and the screen it opens on --- */
     await author.area("ruleset-author").click();
     await expect(page).toHaveURL(`${origin}${S_RULESET_AUTHOR.route(tenantId, projectId)}`);
     await settled(page);
     await expect(author.crumbPage, "the trail names the page a reader landed on (R-UI-084)").toHaveText(AUTHOR_EDITION);
-    await expect(author.area("ruleset-author"), "…and the nav says the same thing").toHaveAttribute("aria-current", "page");
+    // …and the nav has moved its one mark with the reader: `ruleset-author` current, `ruleset` no
+    // longer so. A nav that marked every row passed the line this replaced.
+    await expectNavCurrent(author, "ruleset-author");
     await expect(author.section, "the authoring section stands").toBeVisible();
 
     expect(await heldAttribute(author.parent, "data-digest"), "the screen opens on what is being forked: the pin's own content digest (I-262)").toBe(pinnedDigest);
@@ -229,6 +258,34 @@ test.describe("J-304 — the project settings nav, and authoring the edition a p
     await expect(page).toHaveURL(`${origin}${S_HOME.ruleset(tenantId, projectId)}`);
     await settled(page);
     await expect(author.editionIdentity, "the project now reads the edition that was just minted").toContainText(AUTHORED_VERSION);
+
+    /* --- the minted edition's CONTENT is what was authored, not what was pinned --- */
+    // Identity and content are two facts and neither stands for the other (L-MEA-01), so a new
+    // version number on the pin line is not proof that the figure the author stated is the figure the
+    // act minted. A screen that previews the diff off one state and submits the pin's own values
+    // mints a VERBATIM fork under 2026.09 — a real edition, a real lineage step, a real version — and
+    // every other assertion of this walk stands. These two are what it cannot pass: the digest keys
+    // content, so a value that moved MOVES it; and the grid the project reads shows the authored
+    // figure where it moved and the pinned one everywhere else.
+    expect(
+      await steadyText(author.editionDigest, "the digest of the edition the project now reads"),
+      "a value moved, so the content digest moved with it — an edition minted from the pin's own values carries the pin's digest by construction (L-MEA-01), and that is not what was authored",
+    ).not.toBe(pinnedDigest);
+    const authoredFigures = await author.parameterFigures();
+    expect(Object.keys(authoredFigures), "the authored edition carries the pin's parameters, no more and no fewer").toEqual(Object.keys(pinnedFigures));
+    expect(
+      authoredFigures[MOVED_PARAMETER],
+      `${MOVED_PARAMETER} reads the figure that was stated on the authoring screen (${MOVED_VALUE} through the one formatter), never the pinned one`,
+    ).toContain(formatUserFigure(MOVED_VALUE));
+    expect(
+      authoredFigures[MOVED_PARAMETER],
+      "…and it is no longer the line the pin read: this is the whole of what the act was for",
+    ).not.toBe(pinnedFigures[MOVED_PARAMETER]);
+    expect(
+      Object.fromEntries(Object.entries(authoredFigures).filter(([key]) => key !== MOVED_PARAMETER)),
+      "every other parameter reads exactly what it read before the act — authoring states values and copies keys, units and methods from the pin (I-265)",
+    ).toEqual(Object.fromEntries(Object.entries(pinnedFigures).filter(([key]) => key !== MOVED_PARAMETER)));
+
     const lineageAfter = await steadyCount(author.lineageSteps, "the lineage after the mint", { min: 1 });
     expect(lineageAfter, "the minted edition is a step ON the chain it was forked from, never a replacement of it").toBe(lineageBefore + 1);
     expect(lineageAfter, "platform → tenant → project → project (AC-2)").toBe(4);

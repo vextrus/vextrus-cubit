@@ -5,6 +5,7 @@
 // reading the styling, not the screen.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { everyAttribute, steadyText } from "../support/retrying-read";
 import { S_HOME } from "./s-home.page";
 import { S_PARTICIPANTS } from "./s-participants.page";
 
@@ -147,6 +148,25 @@ export class SRulesetAuthorPage {
   /** Every parameter row of the pinned edition, as the rule-set screen publishes them. */
   get parameterRows(): Locator {
     return this.page.getByTestId(TESTIDS.ruleset.parameterRow);
+  }
+
+  /** One parameter row of the rule-set screen, addressed by the key it is for (`data-param`). */
+  parameterRow(parameter: string): Locator {
+    return this.page.locator(`${testIdSelector(TESTIDS.ruleset.parameterRow)}[data-param="${parameter}"]`);
+  }
+
+  /**
+   * What the rule-set screen READS for the edition the project is on: every parameter key beside the
+   * line its row renders (name, figure through QuantityText, unit). A caller compares one of these
+   * maps against another — which is how a walk says what the act moved and what it left alone
+   * without spelling a roster of its own (B-19). Every reading goes through the retrying instrument,
+   * so a grid still painting is never taken for a settled one.
+   */
+  async parameterFigures(): Promise<Record<string, string>> {
+    const keys = await everyAttribute(this.parameterRows, "data-param", "the rule-set screen's parameter rows", { min: 1 });
+    const figures: Record<string, string> = {};
+    for (const key of keys) figures[key] = await steadyText(this.parameterRow(key), `the ${key} row of the rule-set screen`);
+    return figures;
   }
 
   /**
