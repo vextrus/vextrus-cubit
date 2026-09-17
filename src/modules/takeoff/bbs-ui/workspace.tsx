@@ -15,7 +15,7 @@ import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNod
 import type { RefusalEntry } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import { BBS_COPY } from "./copy";
-import { bbsRowsOf, bbsSummaryOf, BBS_PLACES, statedAt, type BbsGridRow, type BbsSummaryRow } from "./present";
+import { bbsRowsOf, bbsSummaryOf, type BbsGridRow, type BbsSummaryRow } from "./present";
 import { bbsStateOf, nothingScheduled } from "./states";
 import type { BbsView } from "./view";
 
@@ -142,15 +142,6 @@ const PERMISSION_NOT_HELD = "PERMISSION_NOT_HELD";
 /** What a cell reads where the component it stands for has no such figure (I-bbs-3). */
 const NOTHING = "—";
 
-/**
- * A stored mass as this schedule prints it: at the gramme, the precision the document states a mass
- * at, by the one seam that writes a stored figure to a stated fraction length (`statedAt`).
- *
- * A column of masses is read DOWN, and figures of differing fraction length defeat the tabular
- * numerals R-UI-083 sets them in — while the same campaign's document prints every mass at three
- * digits, so a screen showing six would disagree with it about what a mass is (AM-01, L-FMT-02).
- */
-const atMassPrecision = (value: string): string => statedAt(value, BBS_PLACES.mass);
 
 // The addresses this screen links. ARCH-01 bars a module from the app layer where a route builder
 // lives, so they are spelled here for this screen and nowhere else in it (Decision §6).
@@ -472,7 +463,7 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
                 <div className="cx-bbs-summary-total" role="row">
                   <span role="cell">{BBS_COPY.bbs_summary_total}</span>
                   <span className="cx-bbs-figure" role="cell">
-                    {formatUserFigure(atMassPrecision(summary.grandTotalKg))}
+                    {formatUserFigure(summary.grandTotalKg)}
                   </span>
                   <span role="cell" />
                   <span role="cell" />
@@ -521,7 +512,7 @@ function SummaryRow({ line, testId }: { line: BbsSummaryRow; testId: string }) {
         {String(line.diameterMm)}
       </span>
       <span className="cx-bbs-figure" role="cell">
-        {formatUserFigure(atMassPrecision(line.kg))}
+        {formatUserFigure(line.kg)}
       </span>
       <span className="cx-bbs-figure" role="cell">
         {formatUserFigure(String(line.stockBars))}
@@ -639,8 +630,7 @@ function bbsColumns(chrome: Pick<BbsChrome, "EnumLabel" | "Tooltip">): BbsColumn
       size: 112,
       meta: { align: "right" },
       accessorFn: (row) => row.kg,
-      // The column a reader reads DOWN: every mass at the gramme this schedule states masses to.
-      cell: ({ row }) => <span className="cx-bbs-figure">{row.original.kg === "" ? NOTHING : formatUserFigure(atMassPrecision(row.original.kg))}</span>,
+      cell: ({ row }) => <span className="cx-bbs-figure">{printed(row.original.kg)}</span>,
     },
   ];
 }
