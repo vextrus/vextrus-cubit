@@ -79,8 +79,28 @@ const FOUNDATIONS_BEARS: readonly { class: string; kind: string }[] = Object.fre
   { class: "pile_cap", kind: "pcc.blinding" },
 ]);
 
+/**
+ * And what the REBAR leaf appends after those: `rcc.rebar`, reinforcement measured as nominal mass,
+ * with the ten `bears` rows the classes that hold steel carry (R-TO-032, L-FRM-05). Re-baselined
+ * here for the same reason as the rosters above — a derivation cannot catch a kind a leaf dropped.
+ */
+const REBAR_KINDS: readonly string[] = Object.freeze(["rcc.rebar"]);
+
+const REBAR_BEARS: readonly { class: string; kind: string }[] = Object.freeze([
+  { class: "column", kind: "rcc.rebar" },
+  { class: "beam", kind: "rcc.rebar" },
+  { class: "tie_beam", kind: "rcc.rebar" },
+  { class: "slab", kind: "rcc.rebar" },
+  { class: "footing", kind: "rcc.rebar" },
+  { class: "pile_cap", kind: "rcc.rebar" },
+  { class: "pile", kind: "rcc.rebar" },
+  { class: "shear_wall", kind: "rcc.rebar" },
+  { class: "stair", kind: "rcc.rebar" },
+  { class: "lintel", kind: "rcc.rebar" },
+]);
+
 /** Every kind the product measures, frame first, in the order the closed roster names them. */
-const MEASURED_KINDS: readonly string[] = Object.freeze([...FRAME_KINDS, ...FOUNDATIONS_KINDS, ...MASONRY_KINDS]);
+const MEASURED_KINDS: readonly string[] = Object.freeze([...FRAME_KINDS, ...FOUNDATIONS_KINDS, ...MASONRY_KINDS, ...REBAR_KINDS]);
 
 describe("AC-1: rcc.formwork is a kind the product measures", () => {
   test("AC-1: KINDS answers the two kinds the frame measures, and the new one offends no vocabulary", async () => {
@@ -133,6 +153,7 @@ describe("AC-1: rcc.formwork is a kind the product measures", () => {
       ...FRAME_PAIRS.map((held) => ({ class: held.class, kind: held.kind })),
       ...FOUNDATIONS_BEARS,
       ...MASONRY_BEARS,
+      ...REBAR_BEARS,
     ];
     expect(
       bears.BEARS.map((row) => ({ class: row.class, kind: row.kind })),

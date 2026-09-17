@@ -86,6 +86,7 @@ export {
   railObservations,
   queueItems,
   scopeDeclarations,
+  barRows,
   documents,
   SEAM_SCHEMA,
 } from "./db/schema";

@@ -19,6 +19,10 @@ export const KINDS = [
   "masonry.brickwork",
   "finish.plaster",
   "finish.paint",
+  // The rebar area's one kind. It names a trade and its material — reinforcement steel — and nothing
+  // else: `rebar` is neither a dimension, a unit, an element class, a pricing role nor a book code,
+  // which is why the bars a member holds are `rcc.rebar` and never anything spelling MASS or `kg`.
+  "rcc.rebar",
 ] as const;
 
 /** One quantity kind, drawn from the closed roster above. */

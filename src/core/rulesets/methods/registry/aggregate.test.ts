@@ -35,7 +35,13 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
 /**
  * Every pair the shards recorded before AM-11 moved a line, keyed `<ruleId>@<version>` (L-MEA-01).
  *
- * Re-baselined by the MASONRY leaf for THREE ADDED pairs and nothing else — L-MEA-02's brickwork by
+ * Re-baselined by the REBAR leaf for FIVE ADDED pairs and nothing else — the `BNBC2020_BD @ 2026.07`
+ * detailing edition carried as data, BS 8666's cutting length, the stock split, the member synthesis
+ * and the kg/m mass, recorded in `../rebar/rebar.methods.json` and cited by the platform edition
+ * `IS1200_IN @ 2027.01`. The roster grew by those five keys — nineteen pairs to twenty-four — and no
+ * pair standing before them moved (B-19, B-20).
+ *
+ * Re-baselined before that by the MASONRY leaf for THREE ADDED pairs and nothing else — L-MEA-02's brickwork by
  * nominal thickness and L-MEA-03's plaster and paint of a surface, recorded in
  * `../masonry-finishes/masonry-finishes.methods.json` and cited by the platform edition
  * `IS1200_IN @ 2026.12`. The roster grew by those three keys — sixteen pairs to nineteen — and no
@@ -54,6 +60,7 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
  */
 const PAIRS_BEFORE: readonly string[] = Object.freeze([
   "conventions.resolve@1",
+  "detailing.BNBC2020_BD@2026.07",
   "earthwork.pit_rect@1",
   "finish.surface.paint@1",
   "finish.surface.plaster@1",
@@ -70,6 +77,10 @@ const PAIRS_BEFORE: readonly string[] = Object.freeze([
   "rcc.lintel.concrete@1",
   "rcc.lintel.formwork@1",
   "rcc.pile.concrete@1",
+  "rcc.rebar.cutting_length@1",
+  "rcc.rebar.mass@1",
+  "rcc.rebar.stock@1",
+  "rcc.rebar.synthesis@1",
   "rcc.tie_beam.concrete@1",
   "rcc.tie_beam.formwork@1",
 ]);

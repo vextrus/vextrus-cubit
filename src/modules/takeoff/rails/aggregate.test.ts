@@ -30,8 +30,10 @@ const AREA_DIR = "src/modules/takeoff/rails";
 const byCodePoint = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 
 /**
- * Every kind the product measures, in code-point order. Re-baselined by the foundations leaf, which
- * lands four kinds beside the two the frame measured — `piling.bored`, `piling.boring`,
+ * Every kind the product measures, in code-point order. Re-baselined by the REBAR leaf, which lands
+ * `rcc.rebar` — reinforcement measured as nominal mass, borne by ten classes and measured by one
+ * rail (R-TO-032, L-MEA-08). Re-baselined before that by the masonry leaf and, before it, by the
+ * foundations leaf, which landed four kinds beside the two the frame measured — `piling.bored`, `piling.boring`,
  * `earthwork.excavation` and `pcc.blinding` (B-19: an increment that lands a rail says so here).
  */
 const KINDS_BEFORE: readonly string[] = Object.freeze([
@@ -44,6 +46,7 @@ const KINDS_BEFORE: readonly string[] = Object.freeze([
   "piling.boring",
   "rcc.concrete",
   "rcc.formwork",
+  "rcc.rebar",
 ]);
 
 async function moduleAt(relative: string): Promise<Record<string, unknown>> {

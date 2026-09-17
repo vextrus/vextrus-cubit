@@ -64,3 +64,61 @@ export function goldenDocument(fixtureId: string = DEFAULT_GOLDEN_FIXTURE): Gold
 export function goldenRows(fixtureId: string = DEFAULT_GOLDEN_FIXTURE): GoldenRow[] {
   return goldenDocument(fixtureId).rows;
 }
+
+/* ------------------------------------------------------------------ the bar schedule beside it */
+
+/** Where a fixture keeps its golden bar schedule: `fixtures/<id>/bbs.golden.json` (AM-01). */
+export function bbsGoldenPath(fixtureId: string): string {
+  return join("fixtures", fixtureId, "bbs.golden.json");
+}
+
+/**
+ * One bar of a golden schedule, as AM-01 records one: the member it belongs to, the shape and the
+ * legs it was detailed as, and the three lengths BS 8666 gives it — the raw cutting length (never
+ * rounded), the one rounded surface, and the IS-additive figure recorded beside them and never
+ * billed. The masses are the table's: `kg_net`, `kg_lap` and their sum.
+ */
+export type BbsGoldenRow = {
+  member: string;
+  class: string;
+  level: string;
+  mark: string;
+  bar_mark: string;
+  role: string;
+  dia_mm: number;
+  shape: string;
+  dims_mm: Record<string, string>;
+  cutting_raw_mm: string;
+  cutting_rounded_mm: string;
+  cutting_is_additive_mm: string;
+  pieces_per_bar: number;
+  lap_mm: string;
+  laps_per_bar: number;
+  bars_per_unit: number;
+  parent_count: string;
+  bars: string;
+  kg: string;
+  kg_net: string;
+  kg_lap: string;
+};
+
+/** A golden bar schedule as its file records it, with the cutting-stock result beside its rows. */
+export type BbsGoldenDocument = {
+  fixture: string;
+  schema?: number;
+  stock_mm: string;
+  rounding_mm: number;
+  rows: BbsGoldenRow[];
+  per_diameter_kg: Record<string, string>;
+  per_mark_kg: Record<string, string>;
+  cutting_stock: Record<string, { stock_bars_12m: number; pieces: number; offcut_m: string; method: string }>;
+  grand_total_kg: string;
+};
+
+/** The golden bar schedule of `fixtureId` (test contract: `bbsGoldenDocument`). */
+export function bbsGoldenDocument(fixtureId: string): BbsGoldenDocument {
+  const relative = bbsGoldenPath(fixtureId);
+  const parsed = JSON.parse(readFileSync(join(REPO_ROOT, relative), "utf8")) as BbsGoldenDocument;
+  expect(Array.isArray(parsed.rows), `${relative} records every bar mark the fixture's own detailing model produced (AM-01)`).toBe(true);
+  return parsed;
+}

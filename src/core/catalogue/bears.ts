@@ -44,6 +44,20 @@ export const BEARS: readonly BearsRow[] = Object.freeze([
   Object.freeze({ class: "brick_wall", kind: "masonry.brickwork" }),
   Object.freeze({ class: "surface", kind: "finish.plaster" }),
   Object.freeze({ class: "surface", kind: "finish.paint" }),
+  // The rebar leaf: every reinforced class bears its steel (R-TO-032, L-FRM-05). What a class bears
+  // is what it lawfully HOLDS, not what this tree can read a schedule for yet — a class whose
+  // schedule nothing reads observes REBAR_SCHEDULE_UNREAD, which is a disclosure about the drawing
+  // and would be unsayable if the relation denied the class its steel (L-QTY-02).
+  Object.freeze({ class: "column", kind: "rcc.rebar" }),
+  Object.freeze({ class: "beam", kind: "rcc.rebar" }),
+  Object.freeze({ class: "tie_beam", kind: "rcc.rebar" }),
+  Object.freeze({ class: "slab", kind: "rcc.rebar" }),
+  Object.freeze({ class: "footing", kind: "rcc.rebar" }),
+  Object.freeze({ class: "pile_cap", kind: "rcc.rebar" }),
+  Object.freeze({ class: "pile", kind: "rcc.rebar" }),
+  Object.freeze({ class: "shear_wall", kind: "rcc.rebar" }),
+  Object.freeze({ class: "stair", kind: "rcc.rebar" }),
+  Object.freeze({ class: "lintel", kind: "rcc.rebar" }),
 ] as const);
 
 /** The classes that bear at least one kind, as a set — read off the relation itself. */

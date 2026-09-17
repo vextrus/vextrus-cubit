@@ -61,5 +61,12 @@
     "dimension": "AREA",
     "canonicalUnit": "m2",
     "documentPrecision": 2
+  },
+  {
+    "kind": "rcc.rebar",
+    "description": "Reinforcement steel in place, measured as nominal mass with laps billed beside the net",
+    "dimension": "MASS",
+    "canonicalUnit": "kg",
+    "documentPrecision": 3
   }
 ]

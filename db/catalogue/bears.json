@@ -8,12 +8,20 @@
     "kind": "rcc.formwork"
   },
   {
+    "class": "beam",
+    "kind": "rcc.rebar"
+  },
+  {
     "class": "brick_wall",
     "kind": "masonry.brickwork"
   },
   {
     "class": "column",
     "kind": "rcc.concrete"
+  },
+  {
+    "class": "column",
+    "kind": "rcc.rebar"
   },
   {
     "class": "footing",
@@ -28,12 +36,20 @@
     "kind": "rcc.concrete"
   },
   {
+    "class": "footing",
+    "kind": "rcc.rebar"
+  },
+  {
     "class": "lintel",
     "kind": "rcc.concrete"
   },
   {
     "class": "lintel",
     "kind": "rcc.formwork"
+  },
+  {
+    "class": "lintel",
+    "kind": "rcc.rebar"
   },
   {
     "class": "pile",
@@ -48,6 +64,10 @@
     "kind": "rcc.concrete"
   },
   {
+    "class": "pile",
+    "kind": "rcc.rebar"
+  },
+  {
     "class": "pile_cap",
     "kind": "earthwork.excavation"
   },
@@ -58,6 +78,22 @@
   {
     "class": "pile_cap",
     "kind": "rcc.concrete"
+  },
+  {
+    "class": "pile_cap",
+    "kind": "rcc.rebar"
+  },
+  {
+    "class": "shear_wall",
+    "kind": "rcc.rebar"
+  },
+  {
+    "class": "slab",
+    "kind": "rcc.rebar"
+  },
+  {
+    "class": "stair",
+    "kind": "rcc.rebar"
   },
   {
     "class": "surface",
@@ -74,5 +110,9 @@
   {
     "class": "tie_beam",
     "kind": "rcc.formwork"
+  },
+  {
+    "class": "tie_beam",
+    "kind": "rcc.rebar"
   }
 ]

@@ -156,6 +156,12 @@ export type MemberVariantSetup = {
    * states none: an unread dimension is never a zero, and the rail declares the omission (L-QTY-02).
    */
   readonly dimensions: Readonly<Record<string, Measure>>;
+  /**
+   * The reinforcement zones the family's schedule states, in the order the schedule states them.
+   * Empty where nothing has read one — a member with no zones has no bars to bill, and the rail
+   * observes the absence by name rather than inferring steel from a section (L-QTY-01, L-QTY-02).
+   */
+  readonly rebar: readonly RebarZoneSetup[];
 };
 
 /**
@@ -311,6 +317,45 @@ export type RailSetup = {
    * cites, so a reader can go back to the very edition the figure stood on (L-MEA-01, L-QTY-01).
    */
   readonly edition: EditionSetup;
+  /**
+   * What the campaign's drawings say about DETAILING, read through the notes law's one door. A
+   * general note re-versions what a campaign APPLIES and mints no rule-set edition (AM-03(h)), so
+   * this seam is where a transcribed lap or grade reaches the rail that details with it.
+   */
+  readonly detailing: DetailingSetup;
+};
+
+/**
+ * The detailing values a campaign applies, as the notes door answered them (AM-03(h), inc-303).
+ *
+ * Every half is nullable because every half may simply not have been read: a null is an ABSENCE, and
+ * the rail falls back to the applied edition's own clause and binds it DERIVED (L-MEA-06) rather
+ * than treating the absence as a zero. `suspended` names the kinds whose readings DISAGREE — a note
+ * nobody has settled states nothing at all, and the component it governs is omitted by name.
+ */
+export type DetailingSetup = {
+  readonly fy: Measure | null;
+  readonly fc: Measure | null;
+  readonly lapMultiplier: number | null;
+  readonly hookExtension: { readonly multiplier: number | null; readonly minimumMm: number | null } | null;
+  readonly suspended: readonly string[];
+  readonly sourceKeys: readonly string[];
+};
+
+/**
+ * One reinforcement zone a schedule states for a member-type variant (L-FRM-05, R-TO-032).
+ *
+ * A zone states either a GROUP of bars (`n × ⌀`, as a column's `main` does) or a SPACING (as its
+ * ties do), and the length it runs over is the schedule's business rather than this shape's: a zone
+ * that states a spacing and no length is exactly the absence `REBAR_TIE_ZONE_UNSTATED` discloses.
+ */
+export type RebarZoneSetup = {
+  readonly zone: string;
+  readonly bars: readonly { readonly n: number; readonly diameterMm: number }[] | null;
+  readonly spacing: number | null;
+  readonly spacingUnit: string | null;
+  readonly spacingBar: number | null;
+  readonly sourceKeys: readonly string[];
 };
 
 /**
