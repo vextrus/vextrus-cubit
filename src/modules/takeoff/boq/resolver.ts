@@ -29,7 +29,7 @@ export const AT_OR_BELOW_PLINTH = "AT_OR_BELOW_PLINTH";
 export const ABOVE_PLINTH = "ABOVE_PLINTH";
 
 /** Where a plinth boundary came from: a level the stack names, or the ground floor beneath it. */
-export const PLINTH_BASES = ["PLINTH_LEVEL_NAMED", "GROUND"] as const;
+export const PLINTH_BASES = ["NAMED", "GROUND"] as const;
 
 /** One basis, drawn from the closed roster above. */
 export type PlinthBasis = (typeof PLINTH_BASES)[number];
@@ -82,7 +82,7 @@ function plinthLabelled(label: string): boolean {
  */
 export function plinthBoundaryOf(levels: readonly StackLevel[]): PlinthBoundary {
   const named = levels.filter((level) => plinthLabelled(level.label)).sort((one, other) => other.ordinal - one.ordinal)[0];
-  if (named !== undefined) return Object.freeze({ ordinal: named.ordinal, basis: "PLINTH_LEVEL_NAMED", levelId: named.levelId });
+  if (named !== undefined) return Object.freeze({ ordinal: named.ordinal, basis: "NAMED", levelId: named.levelId });
   return Object.freeze({ ordinal: GROUND_FLOOR_ORDINAL - 1, basis: "GROUND", levelId: null });
 }
 

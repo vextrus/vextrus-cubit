@@ -23,6 +23,16 @@ export const DEFERRED_CODES: Readonly<Record<string, string>> = Object.freeze({
   // is what this file is for: an owner and a reason, never a blanket. Every one names where the
   // behaviour IS proved today, so what is owed is an assertion in the executed lane and not the
   // behaviour itself.
+  // inc-311a's three: the draft's own refusals. The export door and the render job raise them, and
+  // both are proved against a live database (the increment's export-door suite), which is a lane the
+  // register does not read — so what is owed is an assertion in the executed lane, never the
+  // behaviour, exactly as the eleven below.
+  BOQ_NO_CAMPAIGN:
+    "the draft-BOQ export lane — `takeoffBoq.exportDraft` answers it where a project has no pinned campaign, proved against a live database; the owed claim is a unit assertion beside src/server/routers/takeoff-boq.ts.",
+  BOQ_NO_PUBLISHED_LINE:
+    "the draft-BOQ render lane — `runBoqDraftJob` refuses it where the campaign published no line, proved through the job's own database suite; the owed claim is an assertion on the job's answer in the executed lane.",
+  BOQ_TAXONOMY_VERSION_MOVED:
+    "inc-311b — the answer S-Documents owes a draft issued under a taxonomy that has since moved; registered here with the screen that renders it (docs/design/s-boq.md §3) and exercised by the increment that lands that reading.",
   CREDENTIALS_NOT_VALID:
     "the identity lane's unit suite — the refusal is proved end to end (tests/e2e/journeys/s-auth-refusal-uniformity-breaker.spec.ts signs in with an unknown credential and reads the card), and the e2e lane is excluded from the corpus the register reads; the owed claim is a sign-in door test that asserts the code.",
   TOKEN_NOT_VALID:

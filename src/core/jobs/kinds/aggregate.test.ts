@@ -34,6 +34,10 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
 
 /** Every kind's policy as the seam held it before AM-11 moved a line — the baseline, transcribed. */
 const POLICIES_BEFORE: Readonly<Record<string, Readonly<Record<string, number | boolean>>>> = Object.freeze({
+  // inc-311a's draft render (`src/core/jobs/kinds/boq.ts`): one at a time per process, one retry,
+  // and an expiry PB-6's own ceiling fits well inside — re-baselined here by the increment that
+  // landed the kind, which is the only lawful way this table grows (B-19, B-20).
+  "boq-render-draft": Object.freeze({ concurrency: 1, retryLimit: 1, retryDelaySeconds: 5, retryBackoff: false, expireSeconds: 300 }),
   ingest: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 5, retryBackoff: true, expireSeconds: 2100 }),
   measure: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 5, retryBackoff: true, expireSeconds: 1800 }),
   partition: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 5, retryBackoff: true, expireSeconds: 900 }),
@@ -42,7 +46,7 @@ const POLICIES_BEFORE: Readonly<Record<string, Readonly<Record<string, number | 
 });
 
 /** The order the table declared its kinds in, which `KIND_NAMES` and the runtime both read off it. */
-const ORDER_BEFORE: readonly string[] = Object.freeze(["probe", "ingest", "thumbnails", "partition", "measure"]);
+const ORDER_BEFORE: readonly string[] = Object.freeze(["probe", "ingest", "thumbnails", "partition", "measure", "boq-render-draft"]);
 
 async function moduleAt(relative: string): Promise<Record<string, unknown>> {
   const abs = join(REPO_ROOT, relative);

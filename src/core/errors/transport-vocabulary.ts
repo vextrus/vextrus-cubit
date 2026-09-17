@@ -270,4 +270,15 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     vocabulary: "L-MEA-06 site facts",
     codes: SITE_FACTS,
   }),
+  Object.freeze({
+    // L-BD-08's own machine words: why a line could not be placed in a section, which side of the
+    // plinth it was read on (AM-14 §1), and the label a provisional sum carries. Every one bears an
+    // underscore, so Q-07's register would read them as refusal codes nobody registered — but each
+    // is a READING recorded beside a line and said to a person in words (`boq_reason_*`,
+    // s-boq §3); nobody is ever answered with one of these names. Their home is
+    // `src/modules/takeoff/boq/{taxonomy,resolver}.ts`, and they are written down here rather than
+    // imported because core may not import a module (ARCH-01, the view-type precedent above).
+    vocabulary: "L-BD-08 bill placement readings",
+    codes: Object.freeze(["NO_TAXONOMY_ROW", "LEVEL_NOT_IN_STACK", "AT_OR_BELOW_PLINTH", "ABOVE_PLINTH", "PROVISIONAL_SUM"]),
+  }),
 ]);
