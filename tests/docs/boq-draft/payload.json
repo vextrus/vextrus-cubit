@@ -1,0 +1,346 @@
+{
+  "title": "Draft BOQ — unpriced",
+  "project": "Sattva Court",
+  "campaignId": "33333333-3333-4333-8333-333333333333",
+  "setRevisionId": "44444444-4444-4444-8444-444444444444",
+  "taxonomyVersion": "bill-taxonomy/2026-09-16",
+  "coverage": "INCOMPLETE",
+  "sections": [
+    {
+      "bill": "SUBSTRUCTURE",
+      "label": "Substructure",
+      "groups": [
+        {
+          "class": "column",
+          "kind": "rcc.concrete",
+          "description": "Column · Concrete",
+          "unit": "m3",
+          "lines": [
+            {
+              "lineId": "ln-0004",
+              "objectKey": "column/FDN/C1",
+              "level": "FDN",
+              "levelOrdinal": -1,
+              "quantity": "0.810",
+              "unit": "m3",
+              "coverage": "COMPLETE",
+              "quantityBasis": "MEASURED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "OVERRIDE:column"
+            }
+          ],
+          "subtotals": [
+            {
+              "unit": "m3",
+              "value": "0.810"
+            }
+          ]
+        },
+        {
+          "class": "pile_cap",
+          "kind": "rcc.concrete",
+          "description": "Pile cap · Concrete",
+          "unit": "m3",
+          "lines": [
+            {
+              "lineId": "ln-0001",
+              "objectKey": "pile_cap/FDN/PC1",
+              "level": "FDN",
+              "levelOrdinal": -1,
+              "quantity": "4.160",
+              "unit": "m3",
+              "coverage": "COMPLETE",
+              "quantityBasis": "MEASURED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "OVERRIDE:pile_cap"
+            },
+            {
+              "lineId": "ln-0002",
+              "objectKey": "pile_cap/FDN/PC2",
+              "level": "FDN",
+              "levelOrdinal": -1,
+              "quantity": "4.160",
+              "unit": "m3",
+              "coverage": "COMPLETE",
+              "quantityBasis": "MEASURED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "OVERRIDE:pile_cap"
+            }
+          ],
+          "subtotals": [
+            {
+              "unit": "m3",
+              "value": "8.320"
+            }
+          ]
+        },
+        {
+          "class": "pile_cap",
+          "kind": "rcc.formwork",
+          "description": "Pile cap · Formwork",
+          "unit": "m2",
+          "lines": [
+            {
+              "lineId": "ln-0003",
+              "objectKey": "pile_cap/FDN/PC1",
+              "level": "FDN",
+              "levelOrdinal": -1,
+              "quantity": "9.75",
+              "unit": "m2",
+              "coverage": "COMPLETE",
+              "quantityBasis": "MEASURED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "OVERRIDE:pile_cap"
+            }
+          ],
+          "subtotals": [
+            {
+              "unit": "m2",
+              "value": "9.75"
+            }
+          ]
+        }
+      ],
+      "subtotals": [
+        {
+          "unit": "m3",
+          "value": "9.130"
+        },
+        {
+          "unit": "m2",
+          "value": "9.75"
+        }
+      ]
+    },
+    {
+      "bill": "SUPERSTRUCTURE",
+      "label": "Superstructure",
+      "groups": [
+        {
+          "class": "column",
+          "kind": "rcc.concrete",
+          "description": "Column · Concrete",
+          "unit": "m3",
+          "lines": [
+            {
+              "lineId": "ln-0005",
+              "objectKey": "column/GF/C1",
+              "level": "GF",
+              "levelOrdinal": 0,
+              "quantity": "0.405",
+              "unit": "m3",
+              "coverage": "COMPLETE",
+              "quantityBasis": "MEASURED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "OVERRIDE:column"
+            }
+          ],
+          "subtotals": [
+            {
+              "unit": "m3",
+              "value": "0.405"
+            }
+          ]
+        },
+        {
+          "class": "column",
+          "kind": "rcc.formwork",
+          "description": "Column · Formwork",
+          "unit": "m2",
+          "lines": [
+            {
+              "lineId": "ln-0006",
+              "objectKey": "column/GF/C2",
+              "level": "GF",
+              "levelOrdinal": 0,
+              "quantity": "6.48",
+              "unit": "m2",
+              "coverage": "COMPLETE",
+              "quantityBasis": "DERIVED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "OVERRIDE:column"
+            }
+          ],
+          "subtotals": [
+            {
+              "unit": "m2",
+              "value": "6.48"
+            }
+          ]
+        },
+        {
+          "class": "beam",
+          "kind": "rcc.concrete",
+          "description": "Beam · Concrete",
+          "unit": "m3",
+          "lines": [
+            {
+              "lineId": "ln-0007",
+              "objectKey": "beam/GF/B1",
+              "level": "GF",
+              "levelOrdinal": 0,
+              "quantity": "1.296",
+              "unit": "m3",
+              "coverage": "COMPLETE",
+              "quantityBasis": "MEASURED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "OVERRIDE:beam"
+            }
+          ],
+          "subtotals": [
+            {
+              "unit": "m3",
+              "value": "1.296"
+            }
+          ]
+        },
+        {
+          "class": "slab",
+          "kind": "rcc.concrete",
+          "description": "Slab · Concrete",
+          "unit": "m3",
+          "lines": [
+            {
+              "lineId": "ln-0008",
+              "objectKey": "slab/1F/S1",
+              "level": "1F",
+              "levelOrdinal": 1,
+              "quantity": "12.480",
+              "unit": "m3",
+              "coverage": "COMPLETE",
+              "quantityBasis": "MEASURED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "OVERRIDE:slab"
+            }
+          ],
+          "subtotals": [
+            {
+              "unit": "m3",
+              "value": "12.480"
+            }
+          ]
+        },
+        {
+          "class": "brick_wall",
+          "kind": "masonry.brickwork",
+          "description": "Brick wall · Brickwork",
+          "unit": "m3",
+          "lines": [
+            {
+              "lineId": "ln-0009",
+              "objectKey": "brick_wall/1F/W1",
+              "level": "1F",
+              "levelOrdinal": 1,
+              "quantity": "8.640",
+              "unit": "m3",
+              "coverage": "COMPLETE",
+              "quantityBasis": "MEASURED",
+              "selectionBasis": "ENTERED",
+              "decidedBy": "OVERRIDE:brick_wall"
+            }
+          ],
+          "subtotals": [
+            {
+              "unit": "m3",
+              "value": "8.640"
+            }
+          ]
+        }
+      ],
+      "subtotals": [
+        {
+          "unit": "m3",
+          "value": "22.821"
+        },
+        {
+          "unit": "m2",
+          "value": "6.48"
+        }
+      ]
+    },
+    {
+      "bill": "FINISHES",
+      "label": "Finishes",
+      "groups": [
+        {
+          "class": "surface",
+          "kind": "finish.plaster",
+          "description": "Surface · Plaster",
+          "unit": "m2",
+          "lines": [
+            {
+              "lineId": "ln-0010",
+              "objectKey": "surface/1F/F1",
+              "level": "1F",
+              "levelOrdinal": 1,
+              "quantity": "24.50",
+              "unit": "m2",
+              "coverage": "COMPLETE",
+              "quantityBasis": "DERIVED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "GROUP:finish.plaster"
+            }
+          ],
+          "subtotals": [
+            {
+              "unit": "m2",
+              "value": "24.50"
+            }
+          ]
+        },
+        {
+          "class": "surface",
+          "kind": "finish.paint",
+          "description": "Surface · Paint",
+          "unit": "m2",
+          "lines": [
+            {
+              "lineId": "ln-0011",
+              "objectKey": "surface/1F/F1",
+              "level": "1F",
+              "levelOrdinal": 1,
+              "quantity": "24.50",
+              "unit": "m2",
+              "coverage": "PARTIAL_DECLARED",
+              "quantityBasis": "DERIVED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "GROUP:finish.paint"
+            }
+          ],
+          "subtotals": [
+            {
+              "unit": "m2",
+              "value": "24.50"
+            }
+          ]
+        }
+      ],
+      "subtotals": [
+        {
+          "unit": "m2",
+          "value": "49.00"
+        }
+      ]
+    }
+  ],
+  "unclassified": {
+    "label": "Unclassified",
+    "lines": [
+      {
+        "lineId": "ln-0012",
+        "objectKey": "column/??/C9",
+        "level": "",
+        "levelOrdinal": null,
+        "quantity": "0.324",
+        "unit": "m3",
+        "coverage": "COMPLETE",
+        "quantityBasis": "INTERPRETED",
+        "selectionBasis": "TRANSCRIBED",
+        "decidedBy": "OVERRIDE:column",
+        "class": "column",
+        "kind": "rcc.concrete",
+        "reason": "LEVEL_NOT_IN_STACK"
+      }
+    ]
+  }
+}
