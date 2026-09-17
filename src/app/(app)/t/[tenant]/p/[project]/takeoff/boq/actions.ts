@@ -18,3 +18,9 @@ export async function exportDraft(projectId: string): Promise<DoorAnswer<{ jobId
   const caller = await boqLane(CLIENT);
   return asked(() => caller.exportDraft({ projectId }));
 }
+
+/** The quantities, written now and answered as a signed link to the bytes themselves (I-272). */
+export async function exportQuantities(projectId: string, kind: "xlsx" | "csv"): Promise<DoorAnswer<{ url: string; sha256: string; kind: string }>> {
+  const caller = await boqLane(CLIENT);
+  return asked(() => caller.exportQuantities({ projectId, kind }));
+}
