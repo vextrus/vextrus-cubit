@@ -7,5 +7,7 @@
 // ARCH-01), so a reading BOTH the act and the screen take has to sit in core or be spelled twice —
 // and two spellings of "what changed" is the one defect this module exists to prevent. This file is
 // the module's face on that reading, never a second copy of it.
-export { authoredContent, diffParameters, sameDecimal } from "@/core/rulesets/editions";
-export type { ParameterDiffRow } from "@/core/rulesets/editions";
+// Reached past the barrel on purpose: the barrel also publishes the MINT, which opens the database,
+// and this reading is pure — a consumer of it may not be made to pull the driver in (ARCH-01).
+export { authoredContent, diffParameters, sameDecimal } from "@/core/rulesets/editions/authored";
+export type { ParameterDiffRow } from "@/core/rulesets/editions/authored";

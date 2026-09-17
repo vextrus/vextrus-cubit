@@ -20,7 +20,12 @@ import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { useCallback, useId, useMemo, useState } from "react";
 import { refusalOf, type RefusalCode } from "@/core/errors";
-import { diffParameters, type ParameterDiffRow, type ProjectRulesetView } from "@/core/rulesets/editions";
+// The two files behind the editions barrel that this screen needs, reached directly: the barrel
+// also publishes the MINT, which opens the database, and a client bundle may not pull the driver in
+// (ARCH-01). The reading of "what changed" is the very same one the act takes — one home, two
+// importers (B-17).
+import { diffParameters, type ParameterDiffRow } from "@/core/rulesets/editions/authored";
+import type { ProjectRulesetView } from "@/core/rulesets/editions/view";
 import { Button, Input, NumberInput, QuantityText, UnitBadge } from "@/ui/primitives/core";
 import { DataTable } from "@/ui/primitives/data";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
