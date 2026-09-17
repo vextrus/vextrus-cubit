@@ -106,7 +106,7 @@ describe("AC-6: the column method is enumerated, implemented and cited", () => {
     ]);
   });
 
-  test("AC-6: the platform seed is IS1200_IN @ 2027.01 and cites every method the shards enumerate", async () => {
+  test("AC-6: the platform seed is IS1200_IN @ 2027.02 and cites every method the shards enumerate", async () => {
     const registry = await methodsRegistry();
     const seed = await productModule<SeedModule>(SEED_MODULE);
 
@@ -115,9 +115,10 @@ describe("AC-6: the column method is enumerated, implemented and cited", () => {
       name: SEED_NAME,
       version: SEED_VERSION,
     });
-    // Re-baselined by the rebar leaf: its five methods are minted at the next version beside the
-    // standing 2026.12 rather than over it — an edition is immutable (L-MEA-01, B-20).
-    expect(SEED_VERSION, "and the version it is re-minted at is the one this increment lands").toBe("2027.01");
+    // Re-baselined by the slab, shear-wall and stair leaf: its twelve methods are minted at the next
+    // version beside the standing 2027.01 rather than over it — an edition is immutable, so a leaf
+    // that lands a method lands a version with it (L-MEA-01, B-20).
+    expect(SEED_VERSION, "and the version it is re-minted at is the one this increment lands").toBe("2027.02");
 
     expect(
       [...seed.SEED_EDITION_CONTENT.methods],
