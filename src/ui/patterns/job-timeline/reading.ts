@@ -48,6 +48,10 @@ const KIND_WORDS: Readonly<Record<JobKind, string>> = {
   partition: strings.job_step_partition,
   probe: strings.job_step_probe,
   measure: strings.job_step_measure,
+  // The draft's render, in the words the surface that starts it uses for it (s-boq §3): a step a
+  // reader meets inside that screen's own timeline reads as the screen says it, not as the queue
+  // spells the kind.
+  "boq-render-draft": strings.boq_jobs_heading,
 };
 
 /** The word each status reads as (Decision § 4). */
