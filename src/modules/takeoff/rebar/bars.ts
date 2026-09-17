@@ -12,6 +12,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { RebarRefusalCode } from "@/core/errors/rebar";
+import type { NoteContestedCode } from "@/core/notes/law";
 import { semanticDigest } from "@/core/identity/semantic";
 import { STOREY_HEIGHT_ABSENCE } from "@/core/levels/law";
 import { variantCovering } from "@/core/offers/contract";
@@ -30,6 +31,7 @@ import { cuttingLengthOf, isAdditiveLengthOf, roundedCuttingLengthOf, SHAPES } f
 import {
   coverOf,
   DETAILING_BNBC2020_BD,
+  isEditionDiameter,
   kgPerMetreOf,
   STOCK_BAR_MM,
   type DetailingEdition,
@@ -145,8 +147,15 @@ type MemberRead = {
   readonly fy: Measure | null;
   readonly bars: readonly BarRow[];
   /** The components no schedule stated, each under the code that says what is missing (L-QTY-02). */
-  readonly unstated: readonly { readonly variable: string; readonly code: RebarRefusalCode }[];
+  readonly unstated: readonly { readonly variable: string; readonly code: UnstatedCode }[];
 };
+
+/**
+ * What a component of this leaf's line is declared missing under: this area's own codes, and the
+ * notes law's contested reading where the note the component would be taken off is one two readers
+ * read differently (AM-03(h), Q-07 — the code is the notes law's, not a second spelling here).
+ */
+type UnstatedCode = RebarRefusalCode | NoteContestedCode;
 
 /** What this leaf answers a member it could not read under — its own closed roster (L-MEA-08). */
 function observe(code: RebarRefusalCode, row: RegisterObjectRow, sourceEntity: string): RailObservation {
@@ -292,7 +301,7 @@ export function readMembers(input: RailInput): { readonly reads: readonly Member
     }
 
     const head = { row, class: memberClass, placement, calibration, variant, level, applied, fy: setup.detailing.fy };
-    const unstated: { readonly variable: string; readonly code: RebarRefusalCode }[] = [];
+    const unstated: { readonly variable: string; readonly code: UnstatedCode }[] = [];
     const bars: BarRow[] = [];
 
     const run = storeyRunOf(level);
@@ -302,17 +311,33 @@ export function readMembers(input: RailInput): { readonly reads: readonly Member
       unstated.push({ variable: "net", code: "REBAR_STOREY_RUN_UNSTATED" }, { variable: "lap", code: "REBAR_STOREY_RUN_UNSTATED" });
       observations.push(observe("REBAR_STOREY_RUN_UNSTATED", row, placement.sourceEntity));
     } else {
+      // A bar the edition holds no unit weight for cannot be billed at all, and a rail never invents
+      // a rate (AM-03(b)): the group is left unsynthesised and the member keeps its line with the net
+      // declared missing — a schedule cell that yielded no bars anyone can bill is a schedule unread
+      // for this member's steel, which is the code below. A throw here would take the whole
+      // campaign's measurement with it, every other kind's lines included (L-QTY-02, L-MEA-08).
+      const priced = zones.main.bars.filter((group) => isEditionDiameter(EDITION, group.diameterMm));
+      if (priced.length < zones.main.bars.length) {
+        unstated.push({ variable: "net", code: "REBAR_SCHEDULE_UNREAD" });
+        observations.push(observe("REBAR_SCHEDULE_UNREAD", row, zones.main.sourceKeys[0] ?? placement.sourceEntity));
+      }
       const mains = synthesiseVertical({
         storeyRunMm: run.mm,
-        mains: zones.main.bars,
+        mains: priced,
         detailing: applied,
         edition: EDITION,
         sourceKeys: [...zones.main.sourceKeys, run.source],
       });
       mains.forEach((spec, at) => bars.push(rowOf(spec, at, head)));
-      // A grade the applied edition holds no ℓd row for leaves the lap underivable while the net the
-      // schedule stated is still steel: the lap alone is declared missing (AM-03(f), L-QTY-02).
-      if (mains.some((spec) => spec.lapsPerBar === 0)) unstated.push({ variable: "lap", code: "DETAILING_ROW_NOT_IN_EDITION" });
+      // Why a lap could not be derived is the detailing's OWN answer and never a guess made here: a
+      // grade the edition holds no row for and a note two readers read differently are different
+      // disclosures, and the one that applies is the one reported (AM-03(f), AM-03(h), L-QTY-02).
+      for (const group of zones.main.bars) {
+        const lap = lapLengthFor(applied, EDITION, { diameterMm: group.diameterMm, confined: false, top: false });
+        if (lap.ok) continue;
+        unstated.push({ variable: "lap", code: lap.code });
+        break;
+      }
     }
 
     // The tie zones state a SPACING and no length to run it over — "the registry states spacing,

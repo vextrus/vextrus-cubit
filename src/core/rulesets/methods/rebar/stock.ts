@@ -8,14 +8,20 @@
 // orders against.
 
 import { exact } from "@/core/units/canon";
-import type { RefusalCode } from "@/core/errors";
 import type { ResolverMethod } from "../law";
 import { roundedCuttingLengthOf } from "./bs8666";
 
-/** How one bar is got out of stock, or the code that says the ask is not answerable. */
+/**
+ * How one bar is got out of stock, or the answer that it cannot be got out of stock at all.
+ *
+ * The unanswerable arm carries no registered refusal code on purpose. It is reached only where the
+ * applied lap is as long as the mill bar or longer, which no caller puts before an operator — every
+ * one of them reads `ok` and bills the bar unspliced — and a code whose registered copy described
+ * another condition would send a reader to fix something that is not wrong (Q-07).
+ */
 export type StockSplit =
   | { readonly ok: true; readonly pieces: number; readonly billableMm: string; readonly pieceRoundedMm: string }
-  | { readonly ok: false; readonly code: RefusalCode };
+  | { readonly ok: false };
 
 /** What a caller asks about one bar: the length it needs, the lap it laps at, and the stock bar. */
 export type StockProbe = {
@@ -40,7 +46,7 @@ export function stockSplitOf(probe: StockProbe): StockSplit {
   const lap = exact(probe.lapMm);
   const stock = exact(probe.stockMm);
   if (length.lte(stock)) return { ok: true, pieces: 1, billableMm: length.toString(), pieceRoundedMm: roundedCuttingLengthOf(length.toString()) };
-  if (lap.gte(stock)) return { ok: false, code: "REBAR_SCHEDULE_UNREAD" };
+  if (lap.gte(stock)) return { ok: false };
   const pieces = length.sub(lap).div(stock.sub(lap)).ceil().toNumber();
   const billable = length.add(lap.mul(exact(pieces - 1)));
   // Split bars are cut as EQUAL pieces: the billable length shared out, each piece rounded once.

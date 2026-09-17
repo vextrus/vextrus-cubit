@@ -92,8 +92,8 @@ export type DevelopmentLengthAnswer = { readonly ok: true; readonly mm: number }
 
 /** What a caller asks the ℓd table: the grade, the mix, the bar, its confinement and its position. */
 export type LdProbe = {
-  readonly fyMPa: number;
-  readonly fcPsi: number;
+  readonly fyMPa: number | null;
+  readonly fcPsi: number | null;
   readonly diameterMm: number;
   readonly confined: boolean;
   readonly top: boolean;
@@ -101,6 +101,36 @@ export type LdProbe = {
 
 /** How many psi one MPa is, for a note that states f'c the other way about (L-FRM-05 reads psi). */
 export const PSI_PER_MPA = "145.038";
+
+/**
+ * Every unit a strength note may be WRITTEN in, against the figure that carries it to the unit the
+ * table is stated in. The notes grammar closes the set (`STRENGTH_UNITS`), and both halves of a grade
+ * note are carried through these two tables so one half cannot be read to a standard the other is not.
+ *
+ * A unit absent from a table is not silently taken at face value: the lookup answers nothing for it,
+ * which every caller already reports as a row the edition does not hold (AM-03(f), L-QTY-01).
+ */
+const PSI_PER_UNIT: Readonly<Record<string, string>> = Object.freeze({
+  psi: "1",
+  ksi: "1000",
+  mpa: PSI_PER_MPA,
+  "n/mm2": PSI_PER_MPA,
+  "n/mm²": PSI_PER_MPA,
+  // One kgf/cm² is 0.0980665 MPa, carried on through the psi factor above.
+  "kg/cm2": "14.2233",
+  "kg/cm²": "14.2233",
+});
+
+/** The same closed set, carried the other way: to the MPa the ℓd table's GRADES are stated in. */
+const MPA_PER_UNIT: Readonly<Record<string, string>> = Object.freeze({
+  mpa: "1",
+  "n/mm2": "1",
+  "n/mm²": "1",
+  psi: "0.00689476",
+  ksi: "6.89476",
+  "kg/cm2": "0.0980665",
+  "kg/cm²": "0.0980665",
+});
 
 /** The largest bar the small-diameter column of the ℓd table covers (L-FRM-05: "≤19 / ≥20 mm"). */
 const SMALL_COLUMN_UP_TO_MM = 19;
@@ -172,11 +202,19 @@ export const STOCK_BAR_MM = EDITION.STOCK_BAR_MM;
  * it there would shorten every ℓd and every lap derived from it. "Clamp f'c to the row at-or-below"
  * (L-FRM-05) is a bond rule, not a rounding one — below the first row the weakest row still governs.
  */
-function rowFor(edition: DetailingEdition, fyMPa: number, fcPsi: number): LdRow | undefined {
+function rowFor(edition: DetailingEdition, fyMPa: number | null, fcPsi: number | null): LdRow | undefined {
+  // A half the drawing stated in a unit this table cannot be compared in is a half nobody read, and
+  // no row stands for it (AM-03(f)).
+  if (fyMPa === null || fcPsi === null) return undefined;
   const graded = edition.ld.filter((row) => row.fyMPa === fyMPa);
-  if (graded.length === 0) return undefined;
+  const [first, ...rest] = graded;
+  if (first === undefined) return undefined;
+  // The rows are compared rather than indexed: "at or below" is a fact about the strengths, and a
+  // row appended out of order would otherwise clamp upward in silence.
   const atOrBelow = graded.filter((row) => row.fcPsi <= fcPsi);
-  return atOrBelow.length === 0 ? graded[0] : atOrBelow[atOrBelow.length - 1];
+  const [lowest, ...others] = atOrBelow;
+  if (lowest === undefined) return rest.reduce((least, row) => (row.fcPsi < least.fcPsi ? row : least), first);
+  return others.reduce((best, row) => (row.fcPsi > best.fcPsi ? row : best), lowest);
 }
 
 /**
@@ -239,8 +277,14 @@ export function tieSpacingOf(
   return Math.min(16 * probe.longitudinalMm, 48 * probe.tieMm, probe.leastDimensionMm);
 }
 
-/** Is this a diameter the verified unit-weight lookup holds a rate for? */
-function isEditionDiameter(edition: DetailingEdition, diameterMm: number): diameterMm is EditionDiameter {
+/**
+ * Is this a diameter the verified unit-weight lookup holds a rate for?
+ *
+ * A schedule can state a bar this edition cannot price — an 18 mm is a cell a real drawing carries —
+ * so a reader asks this BEFORE it bills, and discloses the bar it cannot rate instead of billing it
+ * at a rate nobody published (AM-03(b), L-QTY-02).
+ */
+export function isEditionDiameter(edition: DetailingEdition, diameterMm: number): diameterMm is EditionDiameter {
   return Object.hasOwn(edition.kgPerMetre, String(diameterMm));
 }
 
@@ -264,9 +308,22 @@ export function bendRadiusOf(edition: DetailingEdition, diameterMm: number): num
  * once, before any clamp: the clamp is to a row at-or-below, and a strength compared in the wrong
  * unit would land on a row the drawing never meant (L-FRM-05).
  */
-export function fcPsiOf(value: string, unit: string): number {
-  const said = exact(value);
-  return unit.trim().toLowerCase() === "mpa" ? said.mul(exact(PSI_PER_MPA)).toNumber() : said.toNumber();
+export function fcPsiOf(value: string, unit: string): number | null {
+  const per = PSI_PER_UNIT[unit.trim().toLowerCase()];
+  return per === undefined ? null : exact(value).mul(exact(per)).toNumber();
+}
+
+/**
+ * A steel grade as the ℓd table reads one — MPa — carried from whatever unit the note stated it in.
+ *
+ * The table's rows ARE grades (420, 500), matched exactly, so the carry is the whole question: `500`
+ * in kg/cm² is about 49 MPa and stands on no row at all, while `500` read as if it were MPa would be
+ * detailed at the strongest row the edition holds. The same digits in another unit are another grade
+ * (L-QTY-01), and a unit this edition cannot carry leaves the grade unread rather than guessed.
+ */
+export function fyMPaOf(value: string, unit: string): number | null {
+  const per = MPA_PER_UNIT[unit.trim().toLowerCase()];
+  return per === undefined ? null : exact(value).mul(exact(per)).toNumber();
 }
 
 /**

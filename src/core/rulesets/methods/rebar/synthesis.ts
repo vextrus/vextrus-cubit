@@ -10,6 +10,7 @@
 // citable clause is DERIVED, not DEFAULTED"). Where a note states a grade the edition holds no ℓd
 // row for, the lap is an ANSWER rather than a length scaled off a neighbouring row (AM-03(f)).
 
+import { NOTE_STANDING_ABSENCE, type NoteContestedCode } from "@/core/notes/law";
 import type { DetailingSetup } from "@/core/offers/contract";
 import type { QuantityBasis } from "@/core/offers/law";
 import { exact } from "@/core/units/canon";
@@ -19,7 +20,7 @@ import { stockSplitOf } from "./stock";
 import {
   developmentLengthOf,
   fcPsiOf,
-  hookExtensionOf,
+  fyMPaOf,
   lapLengthOf,
   STOCK_BAR_MM,
   type DetailingEdition,
@@ -62,9 +63,10 @@ export type BarSpec = {
  * it was KNOWN — TRANSCRIBED where a drawing said it, DERIVED off the applied edition's clause.
  */
 export type AppliedDetailing = {
-  readonly fyMPa: number;
-  readonly fcPsi: number;
+  readonly fyMPa: number | null;
+  readonly fcPsi: number | null;
   readonly lapMultiplier: number | null;
+  readonly suspended: readonly string[];
   readonly hook135: { readonly multiplier: number; readonly minimumMm: number };
   readonly basis: QuantityBasis;
   readonly sourceKeys: readonly string[];
@@ -83,9 +85,14 @@ export function applyDetailing(setup: DetailingSetup, edition: DetailingEdition,
   const transcribed = setup.fy !== null || setup.fc !== null || setup.lapMultiplier !== null || setup.hookExtension !== null;
   const hook = setup.hookExtension;
   return {
-    fyMPa: setup.fy === null ? edition.fyDefaultMPa : Number(setup.fy.value),
+    // Both halves are carried to the unit the TABLE is stated in before anything is looked up: a
+    // grade written in kg/cm² is a seventh of the same digits in MPa, and reading the digits alone
+    // would detail the campaign off a row the drawing never named (L-QTY-01). A unit the edition
+    // cannot carry leaves the half unread, which is a row the edition holds no answer for.
+    fyMPa: setup.fy === null ? edition.fyDefaultMPa : fyMPaOf(setup.fy.value, setup.fy.unit),
     fcPsi: setup.fc === null ? edition.fcDefaultPsi : fcPsiOf(setup.fc.value, setup.fc.unit),
     lapMultiplier: setup.lapMultiplier,
+    suspended: setup.suspended,
     hook135: {
       multiplier: hook?.multiplier ?? edition.hooks[135].multiplier,
       minimumMm: hook?.minimumMm ?? edition.hooks[135].minimumMm,
@@ -96,8 +103,27 @@ export function applyDetailing(setup: DetailingSetup, edition: DetailingEdition,
   };
 }
 
-/** A length the detailing answers, or the disclosure that the applied edition holds no row for it. */
-export type LengthAnswer = { readonly ok: true; readonly mm: string } | NoRow;
+/**
+ * A length the detailing answers, or the disclosure that stands in its place: the applied edition
+ * holds no row for it, or the note it would be taken off is one two readers read differently.
+ */
+export type LengthAnswer = { readonly ok: true; readonly mm: string } | NoRow | { readonly ok: false; readonly code: NoteContestedCode };
+
+/**
+ * The note kinds each length is taken off, and the disclosure a contested one stands under.
+ *
+ * A kind in `suspended` has readings that DISAGREE, and the setup states what that means: "a note
+ * nobody has settled states nothing at all, and the component it governs is omitted by name". So the
+ * figure is not taken off the edition's clause instead — falling back would publish, as the campaign's
+ * own derived figure, the very number a reader is still arguing about (L-QTY-01, L-QTY-02, AM-03(h)).
+ */
+const LAP_NOTES: readonly string[] = Object.freeze(["LAP", "FY", "FC"]);
+const ANCHORAGE_NOTES: readonly string[] = Object.freeze(["FY", "FC"]);
+
+/** The contested disclosure where one of `kinds` is suspended, and null where none of them is. */
+function contested(applied: AppliedDetailing, kinds: readonly string[]): { readonly ok: false; readonly code: NoteContestedCode } | null {
+  return applied.suspended.some((kind) => kinds.includes(kind)) ? { ok: false, code: NOTE_STANDING_ABSENCE.SUSPENDED as NoteContestedCode } : null;
+}
 
 /** Where one bar of the member sits, as the ℓd table asks it: confined cover, and top-cast or not. */
 export type BarPosition = {
@@ -115,6 +141,8 @@ export type BarPosition = {
  * all, the answer is the code: a lap scaled off the 420 row would be a length nobody stated.
  */
 export function lapLengthFor(applied: AppliedDetailing, edition: DetailingEdition, at: BarPosition): LengthAnswer {
+  const unsettled = contested(applied, LAP_NOTES);
+  if (unsettled !== null) return unsettled;
   if (applied.lapMultiplier !== null) return { ok: true, mm: exact(applied.lapMultiplier).mul(exact(at.diameterMm)).toString() };
   const ld = developmentLengthOf(edition, { fyMPa: applied.fyMPa, fcPsi: applied.fcPsi, diameterMm: at.diameterMm, confined: at.confined, top: at.top });
   if (!ld.ok) return ld;
@@ -123,6 +151,8 @@ export function lapLengthFor(applied: AppliedDetailing, edition: DetailingEditio
 
 /** The development length one bar anchors over, or the same disclosure a lap carries. */
 export function anchorageLengthFor(applied: AppliedDetailing, edition: DetailingEdition, at: BarPosition): LengthAnswer {
+  const unsettled = contested(applied, ANCHORAGE_NOTES);
+  if (unsettled !== null) return unsettled;
   const ld = developmentLengthOf(edition, { fyMPa: applied.fyMPa, fcPsi: applied.fcPsi, diameterMm: at.diameterMm, confined: at.confined, top: at.top });
   return ld.ok ? { ok: true, mm: exact(ld.mm).toString() } : ld;
 }
@@ -162,8 +192,10 @@ export type VerticalProbe = {
  *
  * The bar runs floor to floor THROUGH the joint (L-MEA-09's vertical rule), so its cut length is the
  * storey height itself; the splice above the floor is one lap, billed as its own component beside
- * the net (AM-03(a)). A grade the edition holds no ℓd row for leaves the group out entirely — the
- * caller discloses it, because a vertical with no lap is not a vertical anybody detailed.
+ * the net (AM-03(a)). A lap that cannot be derived — a grade the edition holds no ℓd row for, a note
+ * two readers read differently — leaves the bar UNLAPPED rather than lapped at a length taken off
+ * another row, and the caller declares the missing component by the disclosure's own code — a
+ * vertical with no lap is still the steel the schedule stated (L-QTY-02).
  */
 export function synthesiseVertical(probe: VerticalProbe): readonly BarSpec[] {
   const bars: BarSpec[] = [];
@@ -399,8 +431,3 @@ export const REBAR_SYNTHESIS: ResolverMethod = Object.freeze({
   version: "1",
   resolve: (probe: VerticalProbe): readonly BarSpec[] => synthesiseVertical(probe),
 });
-
-/** The hook extension a bar of `diameterMm` takes at one of the edition's angles (L-FRM-05). */
-export function hookOf(edition: DetailingEdition, angle: 90 | 135 | 180, diameterMm: number): number {
-  return hookExtensionOf(edition, { angle, diameterMm });
-}
