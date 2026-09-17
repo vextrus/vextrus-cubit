@@ -182,11 +182,14 @@ function zonesOf(variant: MemberVariantSetup): { readonly main: RebarZoneSetup |
 function rowOf(spec: BarSpec, sequence: number, read: Omit<MemberRead, "bars" | "unstated">): BarRow {
   const probe = { shape: spec.shape, diameterMm: spec.diameterMm, legsMm: spec.legsMm };
   const raw = cuttingLengthOf(probe, EDITION);
-  // A bar longer than the stock bar is spliced, and each splice after the first costs one more lap:
-  // the split's own laps are ADDED to the detail's, because both are steel in place (AM-03(a)).
+  // A bar longer than the stock bar is spliced, and the joints the CUT forces are laps like any
+  // other (AM-03(a)). They are not added to the detail's: a detail that calls for one splice places
+  // it at a joint the cut already makes, which is the reading every split row of the F-RCC6-BNBC
+  // roster stands on — a bar is spliced pieces − 1 times, or once where the detail says so and the
+  // stock bar reaches, and never both at once.
   const split = stockSplitOf({ lengthMm: raw, lapMm: spec.lapMm, stockMm: String(STOCK_BAR_MM) });
   const pieces = split.ok ? split.pieces : 1;
-  const lapsPerBar = spec.lapsPerBar + (pieces - 1);
+  const lapsPerBar = Math.max(spec.lapsPerBar, pieces - 1);
   const parentCount = "1";
   const bars = exact(spec.barsPerUnit).mul(exact(parentCount)).toString();
   const lapTotal = exact(spec.lapMm).mul(exact(lapsPerBar)).toString();

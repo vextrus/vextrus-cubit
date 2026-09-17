@@ -15,6 +15,7 @@ import type { QuantityBasis } from "@/core/offers/law";
 import { exact } from "@/core/units/canon";
 import type { ResolverMethod } from "../law";
 import type { ShapeCode } from "./bs8666";
+import { stockSplitOf } from "./stock";
 import {
   developmentLengthOf,
   fcPsiOf,
@@ -126,12 +127,16 @@ export function anchorageLengthFor(applied: AppliedDetailing, edition: Detailing
 }
 
 /**
- * How many bars stand at `spacingMm` over `distanceMm`: the spaces that fit, plus the bar that
- * closes the last one. The half-millimetre is the detailer's own tolerance — a 1800 mm run at 150
- * c/c is thirteen bars whether the drawing rounded the run to 1799.9 or 1800.1.
+ * How many bars stand at `spacingMm` over `distanceMm`: the WHOLE spaces that fit, plus the bar that
+ * closes the last one.
+ *
+ * The part space left at the end carries no bar of its own — a 1499.6 mm zone at 150 c/c is nine
+ * whole spaces and ten bars, not eleven, because the tenth space the run does not quite reach is a
+ * space the drawing did not space for (L-QTY-01: a figure the drawing did not state is not ours to
+ * state for it). This is the ONE counting rule: every spaced group in this file is counted here.
  */
 export function countBetween(distanceMm: string, spacingMm: string): number {
-  return exact(distanceMm).add(exact("0.5")).div(exact(spacingMm)).floor().toNumber() + 1;
+  return exact(distanceMm).div(exact(spacingMm)).floor().toNumber() + 1;
 }
 
 /* ------------------------------------------------------------------ the member classes */
@@ -233,10 +238,14 @@ export type ThroughBarProbe = {
 };
 
 /**
- * A bar that runs the span and anchors at both ends: `span + 2 ℓd`, straight (shape 00).
+ * A bar that runs the span and anchors at both ends: `span + 2 ℓd`, straight (shape 00), cut out of
+ * the stock bar with the splices that takes counted.
  *
  * Both ends develop, because that is what `ANCHORAGE_ENDS.MAIN` says a main bar does — a bar that
- * stopped at the support face would not be developed there.
+ * stopped at the support face would not be developed there. And a bar the span makes longer than the
+ * mill length is not one bar: it is n pieces lapped together, and every joint after the first is
+ * billable bar-in-place rather than a percentage (L-BD-02, AM-03(a)). How many pieces is the stock
+ * method's answer and not a second splitting rule written here (B-17, L-FRM-05's 12,000 mm stock).
  */
 export function synthesiseThroughBar(probe: ThroughBarProbe): readonly BarSpec[] {
   const at: BarPosition = { diameterMm: probe.diameterMm, confined: probe.confined, top: probe.top };
@@ -248,6 +257,8 @@ export function synthesiseThroughBar(probe: ThroughBarProbe): readonly BarSpec[]
   const role = probe.role ?? "MAIN";
   const ends = role === "DISTRIBUTION" ? ANCHORAGE_ENDS.DISTRIBUTION : ANCHORAGE_ENDS.MAIN;
   const length = exact(probe.spanMm).add(exact(anchorage.mm).mul(exact(ends)));
+  const lapMm = lap.ok ? lap.mm : "0";
+  const split = stockSplitOf({ lengthMm: length.toString(), lapMm, stockMm: String(probe.edition.STOCK_BAR_MM) });
   return [
     {
       role,
@@ -255,8 +266,8 @@ export function synthesiseThroughBar(probe: ThroughBarProbe): readonly BarSpec[]
       shape: "00",
       legsMm: [length.toString()],
       barsPerUnit: probe.n,
-      lapMm: lap.ok ? lap.mm : "0",
-      lapsPerBar: 0,
+      lapMm,
+      lapsPerBar: split.ok ? split.pieces - 1 : 0,
       sourceKeys: probe.sourceKeys ?? [],
     },
   ];
@@ -320,7 +331,7 @@ export function synthesiseMatBar(probe: MatBarProbe): readonly BarSpec[] {
       diameterMm: probe.diameterMm,
       shape: "21",
       legsMm: [hook.toString(), net.toString(), hook.toString()],
-      barsPerUnit: across.div(exact(probe.spacingMm)).floor().toNumber() + 1,
+      barsPerUnit: countBetween(across.toString(), probe.spacingMm),
       lapMm: "0",
       lapsPerBar: 0,
       sourceKeys: probe.sourceKeys ?? [],
