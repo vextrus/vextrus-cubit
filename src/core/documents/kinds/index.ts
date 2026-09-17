@@ -6,9 +6,10 @@
 // product by adding its file and ONE line to the list below, and no other file in the tree moves
 // (B-19). A key declared twice throws at import rather than one kind silently winning (`enumerateKinds`).
 //
-// This node ships exactly one kind. `boq-draft` and `bbs` are their own increments' file-and-line
-// each (inc-311a-taxonomy-boq, inc-310-bbs-view), which is what "the seam is built, the kinds extend
-// it" means in practice.
+// The unpriced draft BOQ joined the roster exactly that way: one file, one line below, nothing else
+// in the tree moved (R-TO-053, A-BOQ-PDF). `bbs` is its own increment's file and line
+// (inc-310-bbs-view), which is what "the seam is built, the kinds extend it" means in practice.
+import { BOQ_DRAFT_KIND } from "./boq-draft";
 import { enumerateKinds, type DocumentKind } from "./law";
 import { PROOF_KIND } from "./proof";
 
@@ -19,4 +20,4 @@ export type { DocumentKind } from "./law";
  * frozen and total: `renderDocument` refuses a key it does not hold rather than inventing a template
  * for it (DOCUMENT_KIND_UNKNOWN).
  */
-export const DOCUMENT_KINDS: Readonly<Record<string, DocumentKind>> = enumerateKinds([PROOF_KIND]);
+export const DOCUMENT_KINDS: Readonly<Record<string, DocumentKind>> = enumerateKinds([PROOF_KIND, BOQ_DRAFT_KIND]);

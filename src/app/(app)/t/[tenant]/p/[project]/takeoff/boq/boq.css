@@ -1,0 +1,227 @@
+/*
+ * S-BOQ — the unpriced draft by taxonomy section, cut from the grid workspace template
+ * (docs/design/s-boq.md §§1, 4, 5, 6; Design Direction 00 §3.2, §5). Every colour, size, weight and
+ * duration is a read into the committed Datum token source (R-UI-001, R-UI-003, R-UI-004): the rules
+ * are identical in light and dark, and the themes differ only in what the tokens are worth. No
+ * `[data-theme]` selector appears here.
+ *
+ * THE GEOMETRY, IN ONE PLACE. The workspace is a column that fills `shell-main`: the offline banner
+ * and the answer slot, the one status line, the job strip while a render is watched, and then the
+ * grid, which takes every remaining pixel and scrolls inside its own box. Nothing stands above them —
+ * the tabs row is the frame's tool track (takeoff.css) — and nothing stands beside them: this screen
+ * mounts no inspector (R-UI-080).
+ *
+ * The px literals are the closed set §5 fixes: the status line's 28 and the 520 measure the empty
+ * state and the error block stand at. The seven column widths are the table's own (its `size`), and
+ * the row height is the root's `--row-h`, never this sheet's.
+ *
+ * Nothing here eases in (§4): every section arrives complete, and the only transitions on this screen
+ * are inherited from single homes. Focus is not styled here either — every button, chip and link
+ * wears the reticle from its one home (B-17, R-UI-012). The table, the refusal, the timeline, the
+ * chips and the empty state are painted by their own stylesheets.
+ */
+
+.cx-boq {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+  min-height: 0;
+  max-width: none;
+  font-family: var(--font-ui);
+  line-height: var(--leading-ui);
+}
+
+/* --- the lane's tabs aside: the two chips, the standing word and the one primary (§1) --- */
+
+.cx-boq-aside {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cx-boq-aside-label {
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+}
+
+.cx-boq-standing {
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+  text-transform: none;
+}
+
+/* --- the offline banner, the answer slot and the denial (R-UI-020, R-UI-050) --- */
+
+.cx-boq-offline {
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: var(--surface-panel);
+  color: var(--ink-secondary);
+  font-size: var(--text-body);
+}
+
+.cx-boq-answer:empty {
+  display: none;
+}
+
+.cx-boq-answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-boq-denied {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+}
+
+/* --- the job strip: present only while a render is watched, never an empty box (§1) --- */
+
+.cx-boq-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-boq-document-link {
+  align-self: flex-start;
+  color: var(--accent);
+  font-size: var(--text-body);
+}
+
+/* --- the one status line: why no figure is stated for the project (I-268) --- */
+
+.cx-boq-status {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-body);
+}
+
+/* --- the grid: one section after another, in BILLS order, then the unclassified block (I-266) --- */
+
+.cx-boq-grid {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--gap-section);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.cx-boq-bill {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-boq-bill-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+}
+
+.cx-boq-bill-ordinal {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- the section's foot: one row per unit, under the one label L-QTY-04 allows --- */
+
+.cx-boq-foot {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-sunken);
+  border-top: var(--hairline);
+}
+
+.cx-boq-subtotal {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-h);
+  padding: var(--cell-py) var(--cell-px);
+}
+
+.cx-boq-subtotal-label {
+  flex: 1 1 auto;
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-boq-subtotal-figure {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  text-align: right;
+}
+
+/* --- the cells (§1's column table) --- */
+
+.cx-boq-item {
+  color: var(--ink-code);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.cx-boq-reason {
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+}
+
+.cx-boq-description,
+.cx-boq-bases {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.cx-boq-separator {
+  color: var(--ink-muted);
+}
+
+.cx-boq-level {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+}
+
+.cx-boq-figure {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* --- the teaching and the fault cells, both at the one measure §5 fixes --- */
+
+.cx-boq-empty,
+.cx-boq-error {
+  align-self: center;
+  max-width: 520px;
+  /* Centred IN the grid's box, not pinned to its top: the teaching stands where the grid it replaces
+     stands (§1's empty row), which is what S-Documents' own empty state does in the same frame. */
+  margin-block: auto;
+}
+
+.cx-boq-bones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-boq-bone-heading,
+.cx-boq-bone-chip {
+  width: 96px;
+  height: 28px;
+}

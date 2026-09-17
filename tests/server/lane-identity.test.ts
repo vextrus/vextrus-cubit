@@ -22,7 +22,7 @@ const REBASELINED_TEST = "AC-2: each lane is defined in its own file under src/s
  * `takeoffSchedules` is a lane of its own beside `takeoff` rather than a branch inside it: a lane
  * file is one increment's ground, and S-Schedules' doors are not the register's (R-TO-034).
  */
-const LANES = ["ai", "assure", "bid", "spine", "takeoff", "takeoffSchedules"] as const;
+const LANES = ["ai", "assure", "bid", "spine", "takeoff", "takeoffBoq", "takeoffSchedules"] as const;
 
 const proceduresOf = (router: RouterLike): Record<string, unknown> => router._def?.procedures ?? {};
 

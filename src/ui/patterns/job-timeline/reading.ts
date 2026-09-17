@@ -48,6 +48,9 @@ const KIND_WORDS: Readonly<Record<JobKind, string>> = {
   partition: strings.job_step_partition,
   probe: strings.job_step_probe,
   measure: strings.job_step_measure,
+  // The draft's render, in the word the area that owns the kind authored for it (s-boq §3), read
+  // under the key every kind's word is read under — `job_step_<kind>`, the kind's own spelling.
+  "boq-render-draft": strings["job_step_boq-render-draft"],
 };
 
 /** The word each status reads as (Decision § 4). */

@@ -66,7 +66,10 @@ export interface DocumentsScreenProps {
  * increment reads as words on the day it is registered rather than as a key.
  */
 function kindLabel(kind: string): string {
-  const authored = (strings as Readonly<Record<string, string>>)[`documents_kind_${kind}`];
+  // A kind spells itself with hyphens (`boq-draft`) and a string key with underscores, so the key is
+  // derived rather than transcribed: a table that had to spell `documents_kind_boq-draft` would be
+  // spelling something no other key in the seam looks like (R-SPINE-060, I-260).
+  const authored = (strings as Readonly<Record<string, string>>)[`documents_kind_${kind.replaceAll("-", "_")}`];
   return authored ?? humaniseEnum(kind);
 }
 

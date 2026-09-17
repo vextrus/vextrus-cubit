@@ -4,6 +4,7 @@ import { aiRouter } from "./routers/ai";
 import { assureRouter } from "./routers/assure";
 import { bidRouter } from "./routers/bid";
 import { spineRouter } from "./routers/spine";
+import { takeoffBoqRouter } from "./routers/takeoff-boq";
 import { takeoffRouter } from "./routers/takeoff";
 import { takeoffSchedulesRouter } from "./routers/takeoff-schedules";
 import { answerFor, router, type AnswerRequest } from "./trpc";
@@ -23,6 +24,7 @@ export const lanes = Object.freeze({
   spine: spineRouter,
   takeoff: takeoffRouter,
   takeoffSchedules: takeoffSchedulesRouter,
+  takeoffBoq: takeoffBoqRouter,
   bid: bidRouter,
   assure: assureRouter,
   ai: aiRouter,
