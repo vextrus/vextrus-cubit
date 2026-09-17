@@ -23,6 +23,10 @@ export const ACT_TYPES = [
   "REPUDIATE",
   "HOLD_OUT_OF_BILL",
   "DECLARE_NOT_IN_PROJECT_SCOPE",
+  // AM-04: minting a new immutable rule-set edition for a project. L-MEA-01's "authoring mints a
+  // new edition, never updates one, and is its own permission" is what makes it an act type of its
+  // own rather than a shape of ADMINISTER_PROJECT.
+  "AUTHOR_RULESET_EDITION",
 ] as const;
 
 /** One act type, drawn from the enum above. */
@@ -43,6 +47,9 @@ export const PERMISSIONS = [
   "ADMINISTER_BOOK",
   "PRICE",
   "BID",
+  // AM-04 cuts this one beside the twelve: authoring a rule-set edition is its own permission
+  // (L-MEA-01), and authoring a rate library's parameter values stays ADMINISTER_BOOK.
+  "AUTHOR_RULE_SET",
 ] as const;
 
 /** One permission, drawn from the closed enum above. */
@@ -101,6 +108,9 @@ export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.free
   // project's certificate speaks about — so it moves the permission the hold moves rather than a
   // fourteenth the law does not cut.
   DECLARE_NOT_IN_PROJECT_SCOPE: "SET_BILL_BOUNDARY",
+  // AM-04, verbatim: AUTHOR_RULE_SET "carrying the act type AUTHOR_RULESET_EDITION". The amendment
+  // replaces the staged reading that moved this act under ADMINISTER_PROJECT.
+  AUTHOR_RULESET_EDITION: "AUTHOR_RULE_SET",
 });
 
 /**
@@ -112,7 +122,9 @@ export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.free
 export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = Object.freeze({
   MEASURER: Object.freeze(["MEASURE", "AUTHOR_PROJECT_FACT", "ENTER_BLIND_FIGURE"] as const),
   REVIEWER: Object.freeze(["REVIEW"] as const),
-  LEAD: Object.freeze(["PIN_SET", "AUTHOR_LEVEL_STACK", "SET_BILL_BOUNDARY", "ADMINISTER_SAMPLE", "SIGN"] as const),
+  // AM-04 bundles AUTHOR_RULE_SET "into LEAD and PRINCIPAL and into no other shipped role" —
+  // PRINCIPAL takes it by holding all, so LEAD is the one bundle that names it.
+  LEAD: Object.freeze(["PIN_SET", "AUTHOR_LEVEL_STACK", "SET_BILL_BOUNDARY", "ADMINISTER_SAMPLE", "SIGN", "AUTHOR_RULE_SET"] as const),
   ESTIMATOR: Object.freeze(["PRICE"] as const),
   BID_MANAGER: Object.freeze(["BID"] as const),
   PRINCIPAL: PERMISSIONS,

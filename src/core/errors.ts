@@ -35,6 +35,7 @@ import { MASONRY_REFUSALS, type MasonryRefusalCode } from "./errors/masonry";
 import { REBAR_REFUSALS, type RebarRefusalCode } from "./errors/rebar";
 import { REGISTER_REFUSALS, type RegisterRefusalCode } from "./errors/register";
 import { RESIDUE_REFUSALS, type ResidueRefusalCode } from "./errors/residue";
+import { RULESETS_REFUSALS, type RulesetsRefusalCode } from "./errors/rulesets";
 import { SERVER_REFUSALS, type ServerRefusalCode } from "./errors/server";
 import { SLABS_REFUSALS, type SlabsRefusalCode } from "./errors/slabs";
 import { TAKEOFF_GRIDS_REFUSALS, type TakeoffGridsRefusalCode } from "./errors/takeoff-grids";
@@ -88,6 +89,7 @@ export type RefusalCode =
   | MasonryRefusalCode
   | RebarRefusalCode
   | SlabsRefusalCode
+  | RulesetsRefusalCode
   | ExportsRefusalCode;
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
@@ -136,6 +138,7 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
   ...MASONRY_REFUSALS,
   ...REBAR_REFUSALS,
   ...SLABS_REFUSALS,
+  ...RULESETS_REFUSALS,
   ...EXPORTS_REFUSALS,
 });
 

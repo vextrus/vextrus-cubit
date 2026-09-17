@@ -78,7 +78,11 @@ export const tenantRulesetEditions = pgTable(
   (table) => [
     // One template per workspace, and one pin per project: L-REG-07 pins a project once, at creation.
     uniqueIndex("tenant_ruleset_editions_template_once").on(table.tenantId).where(statement`"scope" = 'tenant'`),
-    uniqueIndex("tenant_ruleset_editions_pin_once").on(table.tenantId, table.projectId).where(statement`"scope" = 'project'`),
+    // A project holds MANY project-scope editions: L-REG-07's creation pin, and every edition
+    // AUTHOR_RULESET_EDITION has minted beside it (AM-04). The current one is the newest, so what
+    // this index owes the read is the ordering it takes — never uniqueness, which would make the
+    // second edition of a project unrepresentable (I-RSA-1).
+    index("tenant_ruleset_editions_pin_newest").on(table.tenantId, table.projectId, table.createdAt).where(statement`"scope" = 'project'`),
     // The two reads a pinned project makes: its own pin, and the template a second project reuses.
     index("tenant_ruleset_editions_scope").on(table.tenantId, table.scope),
   ],
