@@ -14,6 +14,7 @@ import { uiInstrumentArmed } from "@/app/theme-resolver";
 import { demonstrationOf, type Demonstration } from "./demonstration";
 import { DocumentsScreen, type DocumentsRowView } from "./documents-screen";
 import { DOCUMENT_LINK_TTL_SECONDS } from "./links";
+import ProjectDocumentsLoading from "./loading";
 
 export const metadata = { title: strings.documents_title };
 
@@ -27,9 +28,9 @@ const ROUTE = "/t/[tenant]/p/[project]/documents";
  * reviewer is told about is a cell they can open. The door is armed by name and shut everywhere
  * else, so an installation that never opted in cannot be talked into it (the schedules precedent).
  */
-function demanded(asked: string | readonly string[] | undefined): Demonstration | null {
+function demanded(asked: string | readonly string[] | undefined, tenantId: string): Demonstration | null {
   if (!uiInstrumentArmed() || typeof asked !== "string" || asked === "") return null;
-  return demonstrationOf(asked);
+  return demonstrationOf(asked, tenantId);
 }
 
 export default async function ProjectDocuments({
@@ -51,12 +52,15 @@ export default async function ProjectDocuments({
 
   // Asked for a state by name, on an installation that armed the instrument: the screen stands in
   // that state instead of in the one the read would put it in. The door is INSIDE authorization — an
-  // address nobody may open opens nothing here either — and it reads no document: what it hands over
-  // is listings of its own, minted into links by the same one mint the ordinary rows use (B-17).
-  const demonstration = demanded((await searchParams)["__state"]);
+  // address nobody may open opens nothing here either — and it reads no document, takes no link from
+  // this installation's storage and so can fail on no installation: the rows it hands over carry
+  // links of their own, written through the one mint the ordinary rows use (B-17).
+  const demonstration = demanded((await searchParams)["__state"], tenantId);
   if (demonstration !== null) {
-    const demonstrated = demonstration.listings.map((listing) => ({ ...listing, href: linked(listing) }));
-    return <DocumentsScreen rows={demonstrated} tenantId={tenantId} projectId={project} reportId={demonstration.reportId} />;
+    // The waiting cell is the route's own leg, so it is shown by rendering that leg's file itself
+    // rather than a second drawing of it.
+    if (demonstration.loading) return <ProjectDocumentsLoading />;
+    return <DocumentsScreen rows={demonstration.rows} tenantId={tenantId} projectId={project} reportId={demonstration.reportId} />;
   }
 
   // A read that fails is a fault, not an empty list: it is recorded once, at the one seam that mints

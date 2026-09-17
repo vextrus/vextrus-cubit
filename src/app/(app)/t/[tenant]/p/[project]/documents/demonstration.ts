@@ -12,15 +12,27 @@
 //
 // The door is armed by name (`uiInstrumentArmed`) and asked only where an address names a state, so
 // nothing here can reach a reader who did not ask for it, and no figure here can be mistaken for an
-// issue: `loading` is not answered, because it is the route's own leg (`loading.tsx`) rather than
-// anything a reading can express.
-import type { DocumentListing } from "@/core/documents/store";
+// issue. `loading` is the route's own leg (`loading.tsx`) and is answered by standing the reader in
+// that very leg, so the waiting cell is as reachable as its six neighbours.
+//
+// The links are minted here rather than by the page, and they are minted WITHOUT the installation's
+// signing secret: an installation that signs no download URLs (Q-12, `withoutSigning`) refuses to
+// sign by name, and a demonstration that asked it to would take the whole screen down instead of
+// showing a cell. What is minted instead is a link of the seam's own shape whose signature is no
+// signature at all — so the row carries a link the reader can see and follow, and the download door
+// refuses it exactly as it refuses any link it did not sign.
+import { documentDownloadUrl, type DocumentListing } from "@/core/documents/store";
+import type { Storage } from "@/core/storage";
+import type { DocumentsRowView } from "./documents-screen";
+import { DOCUMENT_LINK_TTL_SECONDS } from "./links";
 import { DOCUMENTS_STATES } from "./states";
 
 /** What the route hands the screen to stand it in one declared state. */
 export interface Demonstration {
-  /** The listings the screen draws, or the empty roster the teaching state stands on. */
-  readonly listings: readonly DocumentListing[];
+  /** The route's own waiting leg, asked for by name: `loading.tsx` is what stands in it. */
+  readonly loading: boolean;
+  /** The rows the screen draws, or the empty roster the teaching state stands on. */
+  readonly rows: readonly DocumentsRowView[];
   /** The fault the error cell quotes, in the shape the fault seam mints one. */
   readonly reportId: string | null;
 }
@@ -61,6 +73,28 @@ const ISSUES: readonly DocumentListing[] = Object.freeze([
 ]);
 
 /**
+ * A signer for demonstration rows alone: the seam's URL shape, over an expiry it really carries and
+ * a signature that is plainly none.
+ *
+ * SEAM-STORAGE is the only minter of a signature (Q-12) and this mints none — it fills the field
+ * with zeros, a value no HMAC of any secret over these ids produces, so the link is refused at the
+ * download door by the same check that refuses a forged one. It exists because `appStorage()` on an
+ * installation that states no secret refuses to sign at all, and a demonstration is not a reason to
+ * make an installation signable.
+ */
+const UNSIGNED = "0".repeat(64);
+const demonstrationSigner: Pick<Storage, "sign"> = {
+  sign: (tenantId, sha256, options) =>
+    `/storage/v1/${tenantId}/${sha256}?expires=${Math.floor(Date.now() / 1000) + options.expiresInSeconds}&signature=${UNSIGNED}`,
+};
+
+/** A demonstration listing as the screen takes it: the row, and the link minted for it (B-17). */
+const linked = (listing: DocumentListing, tenantId: string): DocumentsRowView => ({
+  ...listing,
+  href: documentDownloadUrl(demonstrationSigner, { id: listing.id, tenantId, sha256: listing.sha256 }, { expiresInSeconds: DOCUMENT_LINK_TTL_SECONDS }),
+});
+
+/**
  * The demonstration a named state asks for, or null where the name is not one this screen declares.
  *
  * A name the screen never declared is read as no instruction at all and the ordinary read answers
@@ -68,12 +102,15 @@ const ISSUES: readonly DocumentListing[] = Object.freeze([
  * (Decision §2), so inventing a fault for a mistyped query would be the screen lying about a read
  * that never happened.
  */
-export function demonstrationOf(asked: string): Demonstration | null {
+export function demonstrationOf(asked: string, tenantId: string): Demonstration | null {
   if (!(DOCUMENTS_STATES as readonly string[]).includes(asked)) return null;
-  if (asked === "ready") return { listings: ISSUES, reportId: null };
-  if (asked === "empty") return { listings: [], reportId: null };
-  if (asked === "error") return { listings: [], reportId: REPORT_ID };
-  // `loading` is `loading.tsx`'s own leg, held by the route while the read is in flight: no reading
-  // stands the screen in it, so none is offered here.
-  return null;
+  const standing = { loading: false, rows: [] as readonly DocumentsRowView[], reportId: null as string | null };
+  if (asked === "ready") return { ...standing, rows: ISSUES.map((issue) => linked(issue, tenantId)) };
+  if (asked === "error") return { ...standing, reportId: REPORT_ID };
+  // `loading` is `loading.tsx`'s own leg, held by the route while the read is in flight. The route
+  // stands the reader in that leg itself rather than imitating it, so what a reader asking for it
+  // sees is the very file the waiting render uses.
+  if (asked === "loading") return { ...standing, loading: true };
+  // `empty`, the fourth and last name `DOCUMENTS_STATES` holds: no rows, no fault, no waiting.
+  return standing;
 }

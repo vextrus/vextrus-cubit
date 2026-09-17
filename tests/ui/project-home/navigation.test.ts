@@ -33,6 +33,23 @@ const LIVE: Readonly<Record<string, string>> = {
   settings: `/t/${TENANT}/p/${PROJECT}/settings/ruleset`,
 };
 
+/**
+ * Where each quick action this suite knows about leads — spelled HERE, from the test contract, and
+ * never read back out of `areas.ts`.
+ *
+ * The roster below is derived, because the roster is `areas.ts`' own clause; the ADDRESS is not. A
+ * check that asked the same module for both sides would pass on a typo, so the two sides come from
+ * two places: the keys and their order from the product, each address from this table (B-19). It is
+ * a floor, not a freeze — a fifth action lands without touching it, and every action named here must
+ * still stand at the address named here.
+ */
+const ACTION_ADDRESSES: Readonly<Record<string, string>> = {
+  "upload-drawings": `/t/${TENANT}/p/${PROJECT}/drawings`,
+  "browse-sets": `/t/${TENANT}/p/${PROJECT}/drawings/sets`,
+  "manage-participants": `/t/${TENANT}/p/${PROJECT}/settings/participants`,
+  documents: `/t/${TENANT}/p/${PROJECT}/documents`,
+};
+
 afterEach(() => {
   cleanup();
 });
@@ -95,7 +112,7 @@ describe("AC-2 — the navigation regions", () => {
     // (B-17), so the rule graded here is "every declared action is rendered, as an anchor, at the
     // address its own `route` answers" — the rule the old list of three was an instance of. A
     // lawful fifth action passes this without a re-baseline, and an action that leads nowhere
-    // still fails it (B-19).
+    // still fails it (B-19). What the address IS stays independent: `ACTION_ADDRESSES` above.
     const areas = await areasModule();
     const root = mountHome(await projectHome(), homeData());
     const actions = all(root, "project-quick-action");
@@ -104,6 +121,13 @@ describe("AC-2 — the navigation regions", () => {
       actions.map((action) => [action.tagName, action.getAttribute("data-action"), action.getAttribute("href")]),
       "exactly the quick actions `areas.ts` declares, each an anchor to its own address",
     ).toEqual(areas.QUICK_ACTIONS.map((entry) => ["A", entry.key, entry.route?.(TENANT, PROJECT) ?? null]));
+
+    // And the addresses themselves, judged against a second spelling: without this, a wrong route in
+    // `areas.ts` would satisfy the derived comparison above by supplying both of its sides.
+    const rendered = new Map(actions.map((action) => [action.getAttribute("data-action") ?? "", action.getAttribute("href")]));
+    for (const [action, address] of Object.entries(ACTION_ADDRESSES)) {
+      expect(rendered.get(action), `the \`${action}\` action stands on the screen, at the address the contract names`).toBe(address);
+    }
     expect(one(root, "project-quick-actions").contains(actions[0] as Node), "and they stand in the quick-actions region").toBe(true);
   });
 });
