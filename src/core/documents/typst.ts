@@ -125,7 +125,12 @@ export async function stageRender(request: StageRequest): Promise<StagedRender> 
   } catch (failure) {
     // The payload bytes may already be on the volume at this point, which is the other half of why
     // this matters: a half-staged render is a canonical payload nobody is coming back for.
-    await discardRender(dir);
+    //
+    // The sweep cannot speak over what it was sweeping up after. `rm` is force+recursive and rarely
+    // refuses, but EBUSY or EPERM on a mount is a real answer — and a rejection here would leave with
+    // the rm's error in place of the missing mark or the full volume that actually stopped the
+    // render, so the fault record would name the cleanup and not the cause (ARCH-03).
+    await discardRender(dir).catch(() => undefined);
     throw failure;
   }
 }
