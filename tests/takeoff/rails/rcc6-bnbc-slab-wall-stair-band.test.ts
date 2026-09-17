@@ -175,6 +175,19 @@ describe("AC-7: the campaign measured through the barrel", () => {
     }
   }, STAGING_BUDGET);
 
+  test("AC-7: the golden this band is taken against names both kinds — neither yardstick is an empty row set", async () => {
+    await load();
+    for (const kind of KINDS) {
+      const rows = CLASSES.flatMap((klass) =>
+        (klass === SHEAR_WALL ? [WALL_ONLY_LEVEL, ...LEVELS] : [...LEVELS]).flatMap((level) => goldenRowsAt(BNBC_FIXTURE, klass, kind, level)),
+      );
+      expect(
+        rows.length,
+        `fixtures/rcc6-bnbc/takeoff.golden.json records ${kind} rows over the classes and levels AC-7 reconciles — a band taken against no rows is no band: G would collapse to zero and "0.97 × G ≤ S ≤ G" would demand that a correct figure be suppressed (L-QTY-06, arbitration on the stage's translation)`,
+      ).toBeGreaterThan(0);
+    }
+  }, STAGING_BUDGET);
+
   test("AC-7: every published line provenances to a register object this case staged on a level it named", async () => {
     await load();
     for (const kind of KINDS) {

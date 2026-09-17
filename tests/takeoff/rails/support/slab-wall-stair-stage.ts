@@ -1097,14 +1097,47 @@ export function rcc6Stack(): StagedLevel[] {
 
 /* ------------------------------------------------------------------ the golden band */
 
-/** How a golden takeoff spells a product class or kind: upper case, with the dot as an underscore. */
+/** How a golden takeoff spells a product CLASS: upper case (`slab` → SLAB, `shear_wall` → SHEAR_WALL). */
 export function fixtureSpelling(value: string): string {
   return value.toUpperCase().replace(/\./gu, "_");
 }
 
+/**
+ * How a golden takeoff spells the two KINDS these rails publish under.
+ *
+ * The two vocabularies are not one transliteration apart. AC-7 writes the correspondence out itself —
+ * "kind RCC_CONCRETE ↔ rcc.concrete, FORMWORK ↔ rcc.formwork" — and AC-8 names the golden rows in the
+ * golden's own words ("SLAB RCC_CONCRETE and SLAB FORMWORK"): the concrete kind carries the `RCC_`
+ * prefix there and the formwork kind does not. The product publishes under the catalogue's kind and
+ * the goldens are byte-frozen under AM-01, so the translation is the TEST's to carry and no lawful
+ * product write could reconcile the two (arbitration on this file; the sibling frame stage spells the
+ * same pair).
+ */
+export const GOLDEN_KIND: Readonly<Record<string, string>> = Object.freeze({
+  [RCC_CONCRETE]: "RCC_CONCRETE",
+  [RCC_FORMWORK]: "FORMWORK",
+});
+
+/**
+ * The golden's spelling of one product kind — refused where there is none.
+ *
+ * A kind this correspondence does not name has no golden rows, and a band taken against no rows is no
+ * band at all: G collapses to zero and `0.97 × G ≤ S ≤ G` degenerates into "publish nothing here",
+ * which is the opposite of what L-QTY-06 asks ("Ground truth is row sums" — a sum of an empty row set
+ * reconciles nothing). So a missing spelling fails loudly here rather than quietly passing there.
+ */
+export function goldenKind(kind: string): string {
+  const spelling = GOLDEN_KIND[kind];
+  expect(
+    spelling,
+    `the golden's own spelling of the kind ${kind} is named by AC-7's correspondence — a kind with no golden spelling has no yardstick, and an empty row set is not one (L-QTY-06)`,
+  ).toBeTruthy();
+  return String(spelling);
+}
+
 /** Every golden row of one fixture at one (class, kind, level), over all of its components. */
 export function goldenRowsAt(fixtureId: string, klass: string, kind: string, level: string): { quantity: string; component?: string }[] {
-  const wanted = { class: fixtureSpelling(klass), kind: fixtureSpelling(kind) };
+  const wanted = { class: fixtureSpelling(klass), kind: goldenKind(kind) };
   return goldenRowsOf(fixtureId).filter((row) => row.class === wanted.class && row.kind === wanted.kind && row.level === level);
 }
 
