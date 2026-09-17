@@ -51,7 +51,7 @@ const FRAME_LAW = "L-MEA-09";
  * rather than over it (B-20). The claim graded here is the frame's six pairs, which the re-minted
  * edition cites exactly as the edition before it did.
  */
-const SEED_VERSION = "2026.12";
+const SEED_VERSION = "2027.01";
 
 /** The role a method that prints a formula and computes a figure stands in (L-MEA-01). */
 const FORMULA_ROLE = "formula";

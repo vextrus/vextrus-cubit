@@ -1,0 +1,35 @@
+{
+  "methods": [
+    {
+      "ruleId": "detailing.BNBC2020_BD",
+      "version": "2026.07",
+      "law": "L-FRM-05",
+      "implementation": "src/core/rulesets/methods/rebar/detailing-bnbc2020-bd.ts"
+    },
+    {
+      "ruleId": "rcc.rebar.cutting_length",
+      "version": "1",
+      "law": "L-FRM-05",
+      "implementation": "src/core/rulesets/methods/rebar/bs8666.ts"
+    },
+    {
+      "ruleId": "rcc.rebar.stock",
+      "version": "1",
+      "law": "L-FRM-05",
+      "implementation": "src/core/rulesets/methods/rebar/stock.ts"
+    },
+    {
+      "ruleId": "rcc.rebar.synthesis",
+      "version": "1",
+      "law": "L-FRM-05",
+      "implementation": "src/core/rulesets/methods/rebar/synthesis.ts"
+    },
+    {
+      "ruleId": "rcc.rebar.mass",
+      "version": "1",
+      "law": "L-FRM-05",
+      "implementation": "src/core/rulesets/methods/rebar/mass.ts"
+    }
+  ],
+  "digest": "74c856e0a71106290150c38f04563a4d0d0453ed5d2c2d6d4e928b91c7b03473"
+}

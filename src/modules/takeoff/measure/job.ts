@@ -15,6 +15,7 @@ import { refusal } from "@/core/faults/refusal-marker";
 import type { JobPayloads, JobProgress } from "@/core/jobs";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { GateEvaluate, Offer, Rail, RailObservation } from "@/core/offers/contract";
+import { barRowsOf, REBAR_KIND, writeBarRows } from "@/modules/takeoff/rebar";
 import { registerObjectsOf } from "@/modules/takeoff/register";
 import { railSetupOf } from "./setup";
 
@@ -63,6 +64,11 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
   const roster = Object.entries(deps.rails) as readonly [Kind, Rail][];
   const offers: Offer[] = [];
   const observations: RailObservation[] = [];
+  // The bill of bars behind the reinforcement lines: the line carries the member's MASS, and the
+  // per-diameter detail is stored content-keyed beside it (L-REG-04, riskNotes (1)). It is written
+  // BEFORE the gate, because the rows are what the line's figure was taken from — a line published
+  // over rows nobody could read back would be a figure with no working behind it (L-QTY-03).
+  let bars = 0;
   if (roster.length > 0) {
     const registerScope = { tenantId: payload.tenantId, projectId: payload.projectId, setRevisionId: campaign.setRevisionId };
     const objects = await registerObjectsOf(registerScope);
@@ -70,13 +76,21 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
     // disagree about what the drawings said (L-MEA-08). The setup is read against the edition THIS
     // campaign was opened under, so a DERIVED reading cites what the campaign measures by (L-REG-07).
     const setup = await railSetupOf({ ...registerScope, editionId: campaign.editionId });
+    const common = { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, objects, setup };
     for (const [kind, rail] of roster) {
-      const batch = rail({ campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, kind, objects, setup });
+      const batch = rail({ ...common, kind });
       offers.push(...batch.offers);
       observations.push(...batch.observations);
     }
+    // The bill of bars is written only where the REINFORCEMENT rail itself ran. `writeBarRows`
+    // replaces a campaign's rows WHOLE (L-REG-04), so a run whose roster does not hold `rcc.rebar` —
+    // a rail not yet landed, a roster narrowed for one kind — would delete the bill the last run
+    // wrote and put a bill nobody measured in its place.
+    if (deps.rails[REBAR_KIND] !== undefined) {
+      bars = await writeBarRows({ ...registerScope, campaignId: campaign.campaignId }, barRowsOf({ ...common, kind: REBAR_KIND }));
+    }
   }
-  await progress.step(STEP_RAILS, { rails: roster.length, offers: offers.length, observations: observations.length });
+  await progress.step(STEP_RAILS, { rails: roster.length, offers: offers.length, observations: observations.length, bars });
 
   const verdict = await deps.gate({ tenantId: payload.tenantId, projectId: payload.projectId, campaignId: campaign.campaignId }, { offers, observations });
   await progress.step(STEP_GATE, { published: verdict.published, queued: verdict.queued, refused: verdict.refused });

@@ -67,6 +67,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "CONSEQUENCES_NOT_CARRIED",
   "CONVENTION_ROLE_UNRESOLVED",
   "CREDENTIALS_NOT_VALID",
+  "DETAILING_ROW_NOT_IN_EDITION",
   "DIGEST_MISMATCH",
   "DIMENSION_MISMATCH",
   "DOCUMENT_KIND_UNKNOWN",
@@ -131,6 +132,9 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "RASTER_NOT_AVAILABLE",
   "RATE_LIMITED",
   "READING_NOT_NUMERIC",
+  "REBAR_SCHEDULE_UNREAD",
+  "REBAR_STOREY_RUN_UNSTATED",
+  "REBAR_TIE_ZONE_UNSTATED",
   "REQUEST_MALFORMED",
   "RUN_UNREAD",
   "SCALE_NO_EVIDENCE",
@@ -173,13 +177,24 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
  *
- * Re-baselined for SIX ADDED entries and nothing else, all of them `./docs.ts`'s and all of them
+ * Re-baselined for FOUR ADDED entries and nothing else, all of them the REBAR leaf's (./rebar.ts):
+ * `DETAILING_ROW_NOT_IN_EDITION`, which a grade or a mix the applied detailing edition holds no
+ * development-length row for is disclosed under rather than scaled off a neighbouring row
+ * (AM-03(f)); `REBAR_SCHEDULE_UNREAD`, which a member whose bar schedule nobody has read stands
+ * under rather than being billed at zero; `REBAR_TIE_ZONE_UNSTATED`, which a zone stating a spacing
+ * and no length to run it over leaves the confinement steel omitted by name under; and
+ * `REBAR_STOREY_RUN_UNSTATED`, which a vertical with no storey run leaves its bars undeclared under
+ * (L-FRM-05, L-QTY-02). The roster grew by those four keys — 111 codes to 115 — and not one existing
+ * entry's code, message, remedy, severity or surface moved with them; the previous digest was
+ * f0994ec06d7e42442917eb1616dc4927f726c7f3458b39531cc6834f2ce6963a.
+ *
+ * Re-baselined before that for SIX ADDED entries and nothing else, all of them `./docs.ts`'s and all of them
  * about one document (R-SPINE-040): `DOCUMENT_KIND_UNKNOWN` and `DOCUMENT_PAYLOAD_MALFORMED`, which a
  * render refuses a kind nobody registered and a payload its schema will not read by;
  * `DOCUMENT_NOT_RENDERED`, which a renderer that fell over is answered with, carrying the id of the
  * fault it was recorded as (ARCH-03); and `DOCUMENT_NOT_FOUND`, `DOCUMENT_URL_INVALID` and
  * `DOCUMENT_URL_EXPIRED`, the three answers `GET /api/documents/[id]` gives a signed download link it
- * will not serve (R-SPINE-021, Q-12). The roster grew by those six keys — 96 codes to 102 — and not
+ * will not serve (R-SPINE-021, Q-12). The roster grew by those six keys — 105 codes to 111 — and not
  * one existing entry's code, message, remedy, severity or surface moved with them; the previous
  * digest was 32df92f233d23f6d676ee51d208364ba75c57da271b4854ee1170a61a0da791c.
  *
@@ -246,7 +261,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "f0994ec06d7e42442917eb1616dc4927f726c7f3458b39531cc6834f2ce6963a";
+const ENTRIES_DIGEST_BEFORE = "9bc34ffa33026d33a92931d1f913e7b7808ad05fcbd06a83048d8b9324ea1d7b";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

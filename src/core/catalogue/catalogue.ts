@@ -90,4 +90,13 @@ export const WORK_ITEM_CATALOGUE: Readonly<Record<Kind, WorkItem>> = Object.free
     canonicalUnit: CANONICAL_UNIT["AREA"],
     documentPrecision: 2,
   }),
+  // Reinforcement is a MASS, billed on nominal mass off the verified kg/m table and never weighed
+  // (L-BD-02, AM-03(b)). Laps are bar in place and are billed as their own component beside the net,
+  // so the figure a line publishes is the two of them added up (AM-03(a)).
+  "rcc.rebar": Object.freeze({
+    description: "Reinforcement steel in place, measured as nominal mass with laps billed beside the net",
+    dimension: "MASS",
+    canonicalUnit: CANONICAL_UNIT["MASS"],
+    documentPrecision: 3,
+  }),
 });
