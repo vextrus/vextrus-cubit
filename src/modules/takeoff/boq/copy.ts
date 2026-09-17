@@ -39,8 +39,9 @@ export const BOQ_COPY = {
   boq_document_link: "Open the issued draft",
   boq_empty_heading: "Nothing published yet",
   boq_empty_body:
-    "A draft lists every published line of the pinned campaign, grouped into sections by the project's taxonomy. Measure and publish from the takeoff register, and the sections appear here.",
-  boq_empty_action: "Go to the takeoff register",
+    "A draft lists every published line of the pinned campaign, grouped into sections by the project's taxonomy. Pin a drawing set revision, measure from the takeoff register, and the sections appear here.",
+  boq_empty_action: "Browse drawing sets",
+  boq_register_link: "Go to the takeoff register",
   boq_error_heading: "The draft could not be read",
   boq_error_body: "Nothing was changed. Try again, and quote the report id if it keeps happening.",
   boq_report_label: "Report id",

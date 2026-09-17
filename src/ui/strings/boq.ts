@@ -46,8 +46,16 @@ export const boq = {
   boq_document_link: "Open the issued draft",
   boq_empty_heading: "Nothing published yet",
   boq_empty_body:
-    "A draft lists every published line of the pinned campaign, grouped into sections by the project's taxonomy. Measure and publish from the takeoff register, and the sections appear here.",
-  boq_empty_action: "Go to the takeoff register",
+    "A draft lists every published line of the pinned campaign, grouped into sections by the project's taxonomy. Pin a drawing set revision, measure from the takeoff register, and the sections appear here.",
+
+  // The first step of that chain, in the word the two screens next door already say it in
+  // (`takeoff_register_empty_action`, `takeoff_coverage_empty_action`): a reader who meets the same
+  // emptiness on three surfaces of one lane is offered it by one name, leading to one address.
+  boq_empty_action: "Browse drawing sets",
+
+  // A refused draft is resolved where the lines come from, which is NOT where the empty state sends
+  // a reader — so it is its own sentence. One sentence, one destination (R-UI-020's evidence).
+  boq_register_link: "Go to the takeoff register",
   boq_error_heading: "The draft could not be read",
   boq_error_body: "Nothing was changed. Try again, and quote the report id if it keeps happening.",
   boq_report_label: "Report id",

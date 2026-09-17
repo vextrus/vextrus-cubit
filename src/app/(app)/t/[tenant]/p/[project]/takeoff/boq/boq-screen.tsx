@@ -103,7 +103,7 @@ export function BoqScreen({ view, tenantId, projectId, permitted, reportId, docu
   }, []);
 
   /** Where a refused render is resolved: the surface the lines come from (R-UI-020's evidence). */
-  const evidence = useMemo(() => ({ href: `/t/${tenantId}/p/${projectId}/takeoff/register`, label: strings.boq_empty_action }), [projectId, tenantId]);
+  const evidence = useMemo(() => ({ href: `/t/${tenantId}/p/${projectId}/takeoff/register`, label: strings.boq_register_link }), [projectId, tenantId]);
 
   /**
    * The job this screen started, watched through the one register that watches jobs (I-112). A

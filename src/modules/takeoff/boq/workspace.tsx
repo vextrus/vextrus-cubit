@@ -14,6 +14,7 @@
 // which is machine vocabulary a reader never meets.
 import { useCallback, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import type { BoqDraftLine, BoqDraftPayload, BoqDraftSection } from "@/core/documents/kinds/boq-draft";
+import { inWords } from "@/core/documents/kinds/boq-draft-law";
 import type { RefusalEntry } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import type { JobKind } from "@/core/jobs/kinds";
@@ -218,6 +219,7 @@ const UNSIGNED = "UNSIGNED";
 // The addresses this screen links. ARCH-01 bars a module from the app layer where a route builder
 // lives, so they are spelled here for this screen and nowhere else in it (Decision §7).
 const registerHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/register`;
+const setsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/drawings/sets`;
 const documentsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/documents`;
 const participantsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/participants`;
 
@@ -252,6 +254,17 @@ function unclassifiedRowsOf(payload: BoqDraftPayload): BoqRow[] {
     item: null,
     reason: line.reason,
   }));
+}
+
+/**
+ * Why a kept line was not placed, as a reader reads it: the sentence this screen authored for a
+ * registered reason, and — for a reason no table names — the same words the DOCUMENT writes it in
+ * (`inWords`, one rule and one home). A code never reaches the page: SCREAMING_SNAKE is machine
+ * vocabulary, and this screen puts it only where machines read (R-UI-020, I-265).
+ */
+function reasonInWords(reason: string | null): string {
+  if (reason === null) return "";
+  return BOQ_REASON_WORDS[reason] ?? inWords(reason);
 }
 
 /** What one row publishes of its own — §7's closed attribute contract, spelled once. */
@@ -420,7 +433,7 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
           </>
         )}
         {refusal === null ? null : (
-          <RefusalState refusal={refusal} evidence={{ href: registerHref(tenantId, projectId), label: BOQ_COPY.boq_empty_action }} />
+          <RefusalState refusal={refusal} evidence={{ href: registerHref(tenantId, projectId), label: BOQ_COPY.boq_register_link }} />
         )}
       </div>
 
@@ -467,7 +480,10 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
         />
       ) : nothingPublished(view) ? (
         <EmptyState className="cx-boq-empty" data-testid={ids.empty} heading={BOQ_COPY.boq_empty_heading} body={BOQ_COPY.boq_empty_body}>
-          <a className="cx-btn cx-reticle cx-boq-empty-action" data-variant="secondary" href={registerHref(tenantId, projectId)}>
+          {/* The one thing to do about an empty draft, and it leads where its own word says: a draft
+              is read from a pinned campaign, so the chain starts at the drawing sets — the address
+              and the word S-Coverage and the register already pair (R-UI-050, B-17). */}
+          <a className="cx-btn cx-reticle cx-boq-empty-action" data-variant="secondary" href={setsHref(tenantId, projectId)}>
             {BOQ_COPY.boq_empty_action}
           </a>
         </EmptyState>
@@ -541,6 +557,11 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
                 data-rows-rendered={String(unclassified.length)}
               >
                 <h2 className="cx-boq-bill-heading">{BOQ_COPY.boq_section_unclassified}</h2>
+                {/* A KEPT LINE IS STILL A LINE (L-BD-08, I-266). It is published, it is measured and
+                    it is read here — so it carries this screen's line identity like any other, and a
+                    reader (or a suite) that asks a section for its lines is answered by every line
+                    standing in it. What it does NOT carry is an item number: numbering is the six
+                    sections', and a number here would make the kept block a seventh (I-267). */}
                 <DataTable
                   tableId="s-boq-unclassified"
                   columns={unclassifiedColumns}
@@ -548,6 +569,7 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
                   getRowId={(row) => row.lineId}
                   freezeKeyColumn
                   rowDataOf={rowDataOf}
+                  rowTestId={ids.line}
                   aria-label={`${BOQ_COPY.boq_section_unclassified} — ${BOQ_COPY.boq_grid_label}`}
                 />
               </section>
@@ -591,7 +613,7 @@ function boqColumns(
       accessorFn: (row) => row.item ?? "",
       cell: ({ row }) =>
         unplaced ? (
-          <span className="cx-boq-reason">{BOQ_REASON_WORDS[row.original.reason ?? ""] ?? row.original.reason}</span>
+          <span className="cx-boq-reason">{reasonInWords(row.original.reason)}</span>
         ) : (
           <span className="cx-boq-item">{row.original.item}</span>
         ),
