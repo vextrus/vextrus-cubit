@@ -10,6 +10,7 @@ import type { RefusalGroup } from "./law";
 export type FrameRefusalCode =
   | "VIEW_SCALE_UNAFFIRMED"
   | "MEMBER_TYPE_UNKNOWN"
+  | "PLACEMENT_UNHELD"
   | "SECTION_BAND_UNCOVERED"
   | "SECTION_UNIT_UNSTATED"
   | "RUN_UNREAD"
@@ -32,6 +33,17 @@ export const FRAME_REFUSALS: RefusalGroup<FrameRefusalCode> = Object.freeze({
     code: "MEMBER_TYPE_UNKNOWN",
     message: "The schedules hold no member type for this mark, so there is no section to measure it by.",
     remedy: "Check the drawing's schedules for the mark, then rebuild the drawing's partition.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // L-MEA-08: the campaign's setup holds the placement a register row was sighted at, and a row whose
+  // placement it does not hold has no drawing, view or engine to be offered under. Its own code,
+  // because the member-type registry answered nothing wrong here and sending the reader to check the
+  // schedules would send them to the wrong page (Q-07).
+  PLACEMENT_UNHELD: Object.freeze({
+    code: "PLACEMENT_UNHELD",
+    message: "The campaign's setup holds no placement for this register row, so there is nothing to measure it from.",
+    remedy: "Rebuild the drawing's partition and measure the campaign again.",
     severity: "warning",
     surface: "inline",
   }),

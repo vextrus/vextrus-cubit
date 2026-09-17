@@ -42,6 +42,16 @@ export const BLINDING_RULE_ID = "pcc.blinding_rect";
 const EARTHWORK_EXCAVATION: Kind = "earthwork.excavation";
 const PCC_BLINDING: Kind = "pcc.blinding";
 
+/**
+ * The code a working allowance, a depth extra, a blinding projection or a blinding thickness is
+ * omitted under where neither the site nor the pinned edition states it (L-FRM-04, L-MEA-06).
+ *
+ * Its own code, and not the ground level's: the ground level is ENTERED and nothing else, so a reader
+ * sent to enter one they have already entered is sent to the wrong page — and a blinding's projection
+ * says nothing about a ground level at all (Q-07).
+ */
+const EARTHWORK_PARAMETER_UNSTATED: RefusalCode = "EARTHWORK_PARAMETER_UNSTATED";
+
 /** The variables the two rules declare, by the names their templates spell them under. */
 const COUNT = "count";
 const L = "L";
@@ -141,9 +151,9 @@ export const excavationRail: Rail = (input: RailInput) =>
     const plan = planOf(read);
     sidesOf(plan, "EARTHWORK_PLAN_DEFERRED", bindings, omitted);
 
-    bind(ALLOWANCE, enteredOrDerived(setup, "WORKING_ALLOWANCE", WORKING_ALLOWANCE_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
-    bind(DEPTH_EXTRA, enteredOrDerived(setup, "DEPTH_EXTRA", DEPTH_EXTRA_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
-    bind(THICKNESS, enteredOrDerived(setup, "BLINDING_THICKNESS", BLINDING_THICKNESS_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
+    bind(ALLOWANCE, enteredOrDerived(setup, "WORKING_ALLOWANCE", WORKING_ALLOWANCE_PARAMETER), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
+    bind(DEPTH_EXTRA, enteredOrDerived(setup, "DEPTH_EXTRA", DEPTH_EXTRA_PARAMETER), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
+    bind(THICKNESS, enteredOrDerived(setup, "BLINDING_THICKNESS", BLINDING_THICKNESS_PARAMETER), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
     bind(GROUND_LEVEL, enteredOnly(setup, "GROUND_LEVEL"), bindings, omitted, "GROUND_LEVEL_UNSTATED");
     bind(FOUNDING_LEVEL, dimensionOf(read, TOP), bindings, omitted, "FOUNDING_LEVEL_UNSTATED");
     bind(D, dimensionOf(read, DEPTH), bindings, omitted, "FOUNDATION_DEPTH_UNSTATED");
@@ -165,8 +175,8 @@ export const blindingRail: Rail = (input: RailInput) =>
     const plan = planOf(read);
     sidesOf(plan, "BLINDING_PLAN_DEFERRED", bindings, omitted);
 
-    bind(PROJECTION, enteredOrDerived(setup, "BLINDING_PROJECTION", BLINDING_PROJECTION_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
-    bind(THICKNESS, enteredOrDerived(setup, "BLINDING_THICKNESS", BLINDING_THICKNESS_PARAMETER), bindings, omitted, "GROUND_LEVEL_UNSTATED");
+    bind(PROJECTION, enteredOrDerived(setup, "BLINDING_PROJECTION", BLINDING_PROJECTION_PARAMETER), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
+    bind(THICKNESS, enteredOrDerived(setup, "BLINDING_THICKNESS", BLINDING_THICKNESS_PARAMETER), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
 
     return offerOf(read, PCC_BLINDING, BLINDING_RULE_ID, geometryOf(plan), bindings, omitted);
   });

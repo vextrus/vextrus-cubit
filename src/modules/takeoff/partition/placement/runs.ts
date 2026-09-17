@@ -60,6 +60,14 @@ const EDGE_LINE_POINTS = 2;
  * load-bearing — `PARAPET 150 THK, 1000 HIGH` states the thickness of a parapet and of no slab, and a
  * reader that took the number alone would give every roof beam a soffit it does not have (L-CAD-03).
  */
+/**
+ * The unit a slab-thickness caption is written in, whatever the drawing's own header unit is. `SLAB
+ * 150 THK` is a hundred and fifty MILLIMETRES on a drawing set out in feet as surely as on one set out
+ * in metres: the note is a detailing convention and not a length measured off the plan, and stamping
+ * the header's unit on it publishes a slab a hundred and fifty feet thick (L-MEA-01, L-CAD-03).
+ */
+const SLAB_THICKNESS_UNIT: Unit = "mm";
+
 const SLAB_THICKNESS = /\bSLAB\b[^A-Za-z0-9]*(\d+(?:\.\d+)?)\s*(?:MM)?\s*THK\b/;
 
 /** The words a plan names a hole in its slab by (L-MEA-09: "less openings"). */
@@ -526,7 +534,7 @@ function runOf(key: string, member: Axis, plan: Plan, supports: readonly Support
   // carried past it would be a reading more exact than the drawing it came from (L-QTY-01).
   const reading: RunReading = { value: quantise(clear), unit, basis: MEASURED, sourceKeys: [...member.keys, ...cut.sourceKeys] };
   if (type !== "beam") return { placementKey: key, clear: reading, sides: [null, null] };
-  return { placementKey: key, clear: reading, sides: sidesOf(member, segments, plan, unit) };
+  return { placementKey: key, clear: reading, sides: sidesOf(member, segments, plan) };
 }
 
 /** The span of a member's axis left once the member carrying each of its ends has taken its own. */
@@ -650,7 +658,7 @@ function plateOf(plan: Plan): Ring | undefined {
  * kept segment, and the side states the thickest slab any of them found — a beam half of whose length
  * runs along a void still has a soffit over the half that does not.
  */
-function sidesOf(member: Axis, segments: readonly [number, number][], plan: Plan, unit: Unit): readonly [RunReading | null, RunReading | null] {
+function sidesOf(member: Axis, segments: readonly [number, number][], plan: Plan): readonly [RunReading | null, RunReading | null] {
   const plate = plateOf(plan);
   if (plate === undefined) return [null, null];
   const openings = openingsOf(plan);
@@ -668,10 +676,10 @@ function sidesOf(member: Axis, segments: readonly [number, number][], plan: Plan
       // that is a reading of the drawing rather than an absence of one (L-QTY-02).
       const reading: RunReading | null =
         !onPlate || inOpening
-          ? { value: "0", unit, basis: DERIVED, sourceKeys: [plate.key] }
+          ? { value: "0", unit: SLAB_THICKNESS_UNIT, basis: DERIVED, sourceKeys: [plate.key] }
           : stated === null
             ? null
-            : { value: stated.value, unit, basis: TRANSCRIBED, sourceKeys: [stated.key] };
+            : { value: stated.value, unit: SLAB_THICKNESS_UNIT, basis: TRANSCRIBED, sourceKeys: [stated.key] };
       sides[side] = thicker(sides[side] ?? null, reading);
     }
   }

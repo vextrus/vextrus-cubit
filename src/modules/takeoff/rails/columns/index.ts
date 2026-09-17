@@ -45,7 +45,14 @@ export const COLUMN_CONCRETE_RULE_ID = "rcc.column.concrete";
  * a row it did not offer. Each is a registered refusal too — the same taxonomy serves a machine's
  * refusals and a reader's evidence (R-SPINE-062, L-MEA-08).
  */
-export const COLUMN_RAIL_CODES = ["VIEW_SCALE_UNAFFIRMED", "MEMBER_TYPE_UNKNOWN", "SECTION_BAND_UNCOVERED", "SECTION_UNIT_UNSTATED"] as const satisfies readonly RefusalCode[];
+export const COLUMN_RAIL_CODES = [
+  "VIEW_SCALE_UNAFFIRMED",
+  "PLACEMENT_UNHELD",
+  "MEMBER_TYPE_UNKNOWN",
+  "SECTION_BAND_UNCOVERED",
+  "SECTION_UNIT_UNSTATED",
+  "STOREY_HEIGHT_UNCITED",
+] as const satisfies readonly RefusalCode[];
 
 /** One code of the roster above. */
 export type ColumnRailCode = (typeof COLUMN_RAIL_CODES)[number];
@@ -65,6 +72,9 @@ const HEIGHT = "H";
 
 /** The item-selecting attribute a concrete line is priced by, where a reader stated one (L-QTY-03). */
 const GRADE = "grade";
+
+/** The code an agreed height that cites no drawing entity is omitted under (Q-07, L-QTY-03). */
+const STOREY_HEIGHT_UNCITED: RefusalCode = "STOREY_HEIGHT_UNCITED";
 
 /** One column instance is one member: a rail states what it counted, never a total it derived. */
 const ONE = "1";
@@ -111,23 +121,19 @@ function heightOf(level: LevelSetup | undefined): Height {
   // A row standing on a level the live stack does not hold has no reading of a storey height either:
   // it is the same absence, and L-QTY-02 keeps the row and declares it rather than dropping it.
   const height = level?.height;
+  if (height === undefined || height.standing !== "AGREED" || height.value === null || height.unit === null || height.basis === null) {
+    const code = height === undefined ? STOREY_HEIGHT_ABSENCE.NONE : STOREY_HEIGHT_ABSENCE[height.standing];
+    return { ok: false, code: code ?? (STOREY_HEIGHT_ABSENCE.NONE as RefusalCode) };
+  }
   // A reading that cites no drawing entity is a reading with nowhere to go back to, and a line always
   // carries the provenance of what it states (L-QTY-03) — so it is no height this rail can bind, and
   // the row is KEPT with H declared omitted rather than offered under a source nothing answers to
   // (L-QTY-02). A source the setup spells as nothing is no source either, the same way a calibration
   // reference it spells as nothing is no affirmed reference (riskNotes (3)).
-  if (
-    height === undefined ||
-    height.standing !== "AGREED" ||
-    height.value === null ||
-    height.unit === null ||
-    height.basis === null ||
-    height.sourceKey === null ||
-    height.sourceKey.length === 0
-  ) {
-    const code = height === undefined ? STOREY_HEIGHT_ABSENCE.NONE : STOREY_HEIGHT_ABSENCE[height.standing];
-    return { ok: false, code: code ?? STOREY_HEIGHT_ABSENCE.NONE as RefusalCode };
-  }
+  //
+  // Under its OWN code: the readings AGREE and a figure stands, so telling the reader nobody has
+  // stated this level's height would send them to enter one that is already entered (Q-07).
+  if (height.sourceKey === null || height.sourceKey.length === 0) return { ok: false, code: STOREY_HEIGHT_UNCITED };
   // The source is the entity the height was read from, as the level states it: a rail names no
   // provenance the setup did not give it, and the guard above means there is one to name (L-QTY-03).
   return { ok: true, reading: { value: height.value, unit: height.unit, basis: height.basis, source: height.sourceKey } };
@@ -210,8 +216,10 @@ export const columnConcreteRail: Rail = (input: RailInput) => {
     if (placement === undefined) {
       // The setup is read off the same partition the register was expanded from, so a row whose
       // placement it does not hold names a sighting nothing can be traced to: there is no drawing,
-      // no view and no engine to offer it under, and the row reaches the residue as evidence.
-      observations.push(observe("MEMBER_TYPE_UNKNOWN", row, row.placementKey));
+      // no view and no engine to offer it under, and the row reaches the residue as evidence. Under
+      // its OWN code: the member-type registry answered nothing wrong here, and a reader sent to
+      // check the schedules for this mark would be sent to the wrong page (Q-07).
+      observations.push(observe("PLACEMENT_UNHELD", row, row.placementKey));
       continue;
     }
 

@@ -21,6 +21,7 @@ export type FoundationsRefusalCode =
   | "FOUNDATION_PLAN_UNSTATED"
   | "FOUNDING_LEVEL_UNSTATED"
   | "GROUND_LEVEL_UNSTATED"
+  | "EARTHWORK_PARAMETER_UNSTATED"
   | "EARTHWORK_PLAN_DEFERRED"
   | "BLINDING_PLAN_DEFERRED"
   | "SITE_FACT_UNKNOWN"
@@ -73,6 +74,18 @@ export const FOUNDATIONS_REFUSALS: RefusalGroup<FoundationsRefusalCode> = Object
     code: "GROUND_LEVEL_UNSTATED",
     message: "No existing ground level has been entered for this project, so earthwork is structurally unpriceable from drawings alone until SITE facts are entered.",
     remedy: "Enter the site's existing ground level with the note it was read from, then measure the campaign again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-FRM-04's four lengths: the working allowance, the depth extra, the blinding's projection and
+  // its thickness. Each is stated by the pinned edition or entered on site (L-MEA-06), and where
+  // neither states one there is nothing to widen or to thicken by. Its own code, because a reader
+  // told the ground level is unentered would go and look at a ground level that is already entered,
+  // and a blinding's projection says nothing about a ground level at all (Q-07).
+  EARTHWORK_PARAMETER_UNSTATED: Object.freeze({
+    code: "EARTHWORK_PARAMETER_UNSTATED",
+    message: "Neither this project's rule-set edition nor its site facts state this earthwork parameter, so there is no length to widen or thicken by.",
+    remedy: "State the parameter in the project's pinned rule-set edition, or enter it as a site fact, then measure the campaign again.",
     severity: "error",
     surface: "inline",
   }),

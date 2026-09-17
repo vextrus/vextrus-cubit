@@ -269,7 +269,12 @@ export function variantCovering(
   const unbanded = variants.find((variant) => bandOpen(bandOf(variant)));
   if (level === undefined) return unbanded ?? (variants.length === 1 ? variants[0] : undefined);
   const place = placedBy(levels);
-  return variants.find((variant) => bandCovers(bandOf(variant), level.ordinal, place)) ?? unbanded;
+  // A row that states a BAND covering this level is what the schedule says about it; the unbanded row
+  // covers every level and is therefore what is left when no band covers. Asked of the banded rows
+  // first, because an unbanded row standing earlier in the schedule would otherwise win by the order
+  // the drawing happened to be written in — a reading of the store's order, not of the drawing
+  // (L-FRM-02, L-REG-04).
+  return variants.filter((variant) => !bandOpen(bandOf(variant))).find((variant) => bandCovers(bandOf(variant), level.ordinal, place)) ?? unbanded;
 }
 
 /** The band a member-type variant states, in the spelling the one reading of a band is asked in. */
