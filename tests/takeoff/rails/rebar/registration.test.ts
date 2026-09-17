@@ -1,7 +1,8 @@
 /**
  * AC-1 — the REBAR shard, registered: five method pairs recorded in one shard, one kind in the
- * closed catalogue borne by ten classes, one rail under one home, four codes in the closed taxonomy
- * and one table in the seam (L-MEA-01, L-MEA-04, L-MEA-08, AM-11, L-REG-04, riskNotes (2)).
+ * closed catalogue borne by ten classes, one rail under one home, this leaf's four codes appended to
+ * the closed taxonomy and one table in the seam (L-MEA-01, L-MEA-04, L-MEA-08, AM-11, L-REG-04,
+ * riskNotes (2)).
  *
  * The rosters are read from the product's own consts and its committed catalogue tables, never
  * typed out whole here: this leaf APPENDS to kinds, bears, refusals and the seam, and a roster
@@ -12,13 +13,14 @@
  * database lane the import graph puts it in.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import {
   BAR_ROWS_TABLE,
   CATALOGUE_DIR,
   DB_SCHEMA_REBAR_MODULE,
+  ERRORS_AREA_DIR,
   KILOGRAMS,
   KINDS_MODULE,
   MASS,
@@ -147,9 +149,42 @@ describe("AC-1: the rebar shard's methods, kind, rail, codes and table are regis
     const area = await productModule<Record<string, unknown>>(REBAR_ERRORS_MODULE);
     const local = area["REBAR_REFUSALS"] as Record<string, unknown> | undefined;
     expect(local !== undefined && typeof local === "object", `${REBAR_ERRORS_MODULE} publishes \`REBAR_REFUSALS\` — the area's own register (AM-11)`).toBe(true);
-    expect(Object.keys(local as Record<string, unknown>).sort(), "and it names this leaf's four codes").toEqual([...REBAR_CODES].sort());
+    const shard = local as Record<string, unknown>;
+
+    // CARRIAGE, not cardinality. AM-11 closes where a code is DECLARED — one shard per area, the
+    // barrel enumerating and never re-declaring — and says nothing about how many an area holds at
+    // one moment: R-TO-032 puts the beam, slab, wall and footing schedule readers in this same area,
+    // and each lawfully appends beside these four. So the four are asked for by containment, and the
+    // closure is asserted as SHAPE: every key the shard holds is the barrel's own entry, and no other
+    // area shard declares one of them (B-19, B-20).
+    expect(Object.keys(shard), "the area's register carries this leaf's four codes (AC-1), and a later reader in this area may append beside them").toEqual(
+      expect.arrayContaining([...REBAR_CODES]),
+    );
+    for (const code of REBAR_CODES) {
+      expect(String((shard[code] as { code?: string })?.code), `${code} keys itself — an entry filed under one name and carrying another is a code no surface can render (Q-07)`).toBe(code);
+    }
 
     const register = await refusalRegister();
+    for (const [code, entry] of Object.entries(shard)) {
+      expect(register[code], `REFUSALS enumerates ${code} from ${REBAR_ERRORS_MODULE} — the barrel merges the area's group and never re-declares it (AM-11)`).toBe(entry);
+    }
+
+    // Declared ONCE: the same key appearing in a second area's shard would be two homes for one
+    // code, which is the thing AM-11's "one declaring shard per area" forbids.
+    const twiceDeclared: string[] = [];
+    for (const file of readdirSync(join(REPO_ROOT, ERRORS_AREA_DIR)).sort()) {
+      if (!file.endsWith(".ts") || file.endsWith(".test.ts") || join(ERRORS_AREA_DIR, file) === REBAR_ERRORS_MODULE) continue;
+      const other = await productModule<Record<string, unknown>>(join(ERRORS_AREA_DIR, file));
+      for (const held of Object.values(other)) {
+        if (held === null || typeof held !== "object") continue;
+        for (const [key, entry] of Object.entries(held as Record<string, unknown>)) {
+          if (shard[key] === undefined || entry === null || typeof entry !== "object" || !("code" in (entry as object))) continue;
+          twiceDeclared.push(`${file}:${key}`);
+        }
+      }
+    }
+    expect(twiceDeclared, `every code of ${REBAR_ERRORS_MODULE} is declared there and nowhere else (AM-11)`).toEqual([]);
+
     for (const code of REBAR_CODES) {
       const entry = register[code];
       expect(entry, `REFUSALS carries ${code} — a code outside the one taxonomy is a code no surface can render (Q-07)`).toBeTruthy();

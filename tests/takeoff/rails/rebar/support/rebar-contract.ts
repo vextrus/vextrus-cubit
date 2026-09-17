@@ -51,6 +51,9 @@ export const RAILS_BARREL_MODULE = "src/modules/takeoff/rails/index.ts";
 export const REBAR_ERRORS_MODULE = "src/core/errors/rebar.ts";
 export const ERRORS_MODULE = "src/core/errors.ts";
 
+/** The directory the taxonomy's area shards stand in — "here is this DIRECTORY, not this file" (AM-11). */
+export const ERRORS_AREA_DIR = "src/core/errors";
+
 /** The catalogue: the kinds, what bears them, and the tables the emitter commits (AC-1). */
 export const KINDS_MODULE = "src/core/catalogue/kinds.ts";
 export const BEARS_MODULE = "src/core/catalogue/bears.ts";
