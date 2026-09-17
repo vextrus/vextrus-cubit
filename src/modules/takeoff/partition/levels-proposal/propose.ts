@@ -12,7 +12,9 @@
 // a section states none (L-REG-01, B-07).
 //
 // Pure over the artifact and the stages before it: no store, no clock, no model (L-REG-04).
+import { dotlessUpper } from "@/core/identity";
 import type { EntityGraph } from "@/core/entitygraph/schema";
+import { CANONICAL_UNIT, convert, exact, unitNamed } from "@/core/units/canon";
 import { parseFloorZone } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { VIEW_TYPE, type ViewType } from "../views/law";
@@ -97,51 +99,129 @@ function byCodePoint(left: string, right: string): number {
 }
 
 /**
- * The level stack one artifact's sections state (AC-7). Every section view is examined; one whose
- * marks state no level contributes nothing, which is an honest silence rather than an empty stack
- * somebody would have to confirm.
+ * One artifact's ONE level stack (L-MEA-07, AC-7). Every section view is examined and every mark they
+ * state is read into a single stack: a sheet ordinarily carries `SECTION A-A` beside `SECTION B-B`,
+ * and a stack per view would have a person confirming the machine's own proposal author the
+ * building's storeys twice over, under one `INSERT_LEVEL` naming two ground floors (L-ACT-01).
+ *
+ * A view whose marks state no level contributes nothing, which is an honest silence rather than an
+ * empty stack somebody would have to confirm.
  */
 export function proposeLevelStack(evidence: LevelProposalEvidence): ProposedLevelStack {
-  const levels: ProposedLevelRow[] = [];
-  let examined = 0;
+  const sections = new Map(evidence.views.filter((view) => SECTION_VIEWS.includes(view.type)).map((view) => [view.viewKey, view]));
 
-  for (const view of evidence.views) {
-    if (!SECTION_VIEWS.includes(view.type)) continue;
-    examined += 1;
+  // Read in the ARTIFACT's own order, over every section at once: what a mark says is the same fact
+  // whichever view it was drawn in, and the order the artifact lists them in is what decides which of
+  // two spellings of one storey stands (L-REG-04).
+  const marks: LevelMark[] = [];
+  for (const entity of evidence.graph.entities) {
+    const viewKey = evidence.assignments.get(entity.key);
+    if (viewKey === undefined || !sections.has(viewKey)) continue;
+    const read = levelMarkOf(entity.text ?? "");
+    if (read === null) continue;
+    marks.push({ viewKey, label: read.label, elevation: read.elevation, unit: read.unit, markKey: entity.key });
+  }
 
-    const marks: LevelMark[] = [];
-    for (const entity of evidence.graph.entities) {
-      if (evidence.assignments.get(entity.key) !== view.viewKey) continue;
-      const read = levelMarkOf(entity.text ?? "");
-      if (read === null) continue;
-      marks.push({ viewKey: view.viewKey, label: read.label, elevation: read.elevation, unit: read.unit, markKey: entity.key });
-    }
+  // One level per elevation a SECTION states: a mark drawn twice at one height in one view is one
+  // level, and the first of them in the artifact's own order is the one that stands (L-REG-04).
+  const byElevation = new Map<string, LevelMark>();
+  for (const mark of marks) {
+    const at = `${mark.viewKey}@${statedHeight(mark.elevation)}`;
+    if (!byElevation.has(at)) byElevation.set(at, mark);
+  }
+  const standing = [...byElevation.values()];
 
-    // One level per elevation the section states: a mark drawn twice at one height is one level, and
-    // the first of them in the artifact's own order is the one that stands (L-REG-04).
-    const byElevation = new Map<string, LevelMark>();
-    for (const mark of marks) {
-      const at = statedHeight(mark.elevation);
-      if (!byElevation.has(at)) byElevation.set(at, mark);
-    }
+  // A storey is named ONCE, by the label that names it and by nothing else: two sections of one
+  // building state one GF however each of them spells it. An elevation is not the identity — a member
+  // section is routinely drawn from its own datum, so a `1ST` at +0.00 on one view and the `GF` at
+  // +0.00 on another are two storeys that share a number.
+  const named = new Set<string>();
+  const stacked = [...standing]
+    .sort((left, right) => canonicalElevationOf(left) - canonicalElevationOf(right) || byCodePoint(left.markKey, right.markKey))
+    .filter((mark) => {
+      const label = dotlessUpper(mark.label);
+      if (named.has(label)) return false;
+      named.add(label);
+      return true;
+    });
 
-    const stacked = [...byElevation.values()].sort((left, right) => left.elevation - right.elevation || byCodePoint(left.markKey, right.markKey));
-    for (const [ordinal, mark] of stacked.entries()) {
+  // Which mark stands next ABOVE each one in its own view — the pair a storey height is a distance
+  // between. Read off every standing mark of the view, so a mark the label dedupe dropped still
+  // separates the two levels it stood between (B-07).
+  const nextInView = nextMarkInEachView(standing);
+
+  return {
+    views: sections.size,
+    levels: stacked.map((mark, ordinal) => {
       const above = stacked[ordinal + 1];
-      // The storey height is the distance to the level above, in the unit the mark itself was written
-      // in — a height is stated with its unit or not at all (L-MEA-01, B-07).
-      const height = above === undefined || mark.unit === null ? null : statedHeight(above.elevation - mark.elevation);
-      levels.push({
-        viewKey: view.viewKey,
+      // The storey height is the distance to the level standing above it IN THIS VIEW, and only where
+      // that level is this view's own next mark. The views are drawn from their own datums, so the gap
+      // between two of them is not a measurement anybody took, and a mark dropped by the dedupe is no
+      // neighbour of anything — both state no height rather than a figure nobody drew (B-07, L-CAD-03).
+      const measured = above !== undefined && above.viewKey === mark.viewKey && nextInView.get(mark.markKey) === above.markKey ? storeyHeightOf(mark, above) : null;
+      return {
+        viewKey: mark.viewKey,
         label: mark.label,
         ordinal,
         elevation: mark.elevation,
-        heightAsWritten: height,
-        heightUnit: height === null ? null : mark.unit,
+        heightAsWritten: measured,
+        heightUnit: measured === null ? null : mark.unit,
         markKey: mark.markKey,
-      });
+      };
+    }),
+  };
+}
+
+/** For each mark, the key of the mark standing next above it in its OWN view, where one does. */
+function nextMarkInEachView(marks: readonly LevelMark[]): Map<string, string> {
+  const next = new Map<string, string>();
+  const byView = new Map<string, LevelMark[]>();
+  for (const mark of marks) {
+    const held = byView.get(mark.viewKey);
+    if (held === undefined) byView.set(mark.viewKey, [mark]);
+    else held.push(mark);
+  }
+  for (const held of byView.values()) {
+    const ordered = [...held].sort((left, right) => left.elevation - right.elevation || byCodePoint(left.markKey, right.markKey));
+    for (const [index, mark] of ordered.entries()) {
+      const above = ordered[index + 1];
+      if (above !== undefined) next.set(mark.markKey, above.markKey);
     }
   }
+  return next;
+}
 
-  return { views: examined, levels };
+/**
+ * The storey height between two marks of one section, in the unit the LOWER mark was written in — a
+ * height is stated with its unit or not at all (L-MEA-01, B-07).
+ *
+ * Two marks of one view can still be written in two units (`+0.000 m` beneath `+3000 mm`), and a bare
+ * subtraction of those two numbers states three thousand metres. The distance is taken in canonical
+ * metres through the canon's one converter and carried back into the lower mark's own unit (B-17,
+ * L-FRM-06). A pair written in one unit is differenced as written and is untouched by any of this.
+ */
+function storeyHeightOf(below: LevelMark, above: LevelMark): string | null {
+  if (below.unit === null) return null;
+  const stated = unitNamed(below.unit);
+  const upper = above.unit === null ? stated : unitNamed(above.unit);
+  if (stated === null || upper === null || stated === upper) return statedHeight(above.elevation - below.elevation);
+
+  const foot = convert(below.elevation, stated, CANONICAL_UNIT.LENGTH);
+  const head = convert(above.elevation, upper, CANONICAL_UNIT.LENGTH);
+  if (!foot.ok || !head.ok) return null;
+  const distance = convert(exact(head.value).sub(foot.value).toString(), CANONICAL_UNIT.LENGTH, stated);
+  return distance.ok ? statedHeight(Number(distance.value)) : null;
+}
+
+/**
+ * One mark's elevation in canonical metres — what the merged stack is ordered by. Two sections written
+ * in two units state their elevations in two scales, and 3000 mm stands above 9.000 m only in the
+ * numbers (L-FRM-06). A mark whose unit the canon names nothing for is ordered as it was written,
+ * which is the only scale it states.
+ */
+function canonicalElevationOf(mark: LevelMark): number {
+  const named = mark.unit === null ? null : unitNamed(mark.unit);
+  if (named === null) return mark.elevation;
+  const carried = convert(mark.elevation, named, CANONICAL_UNIT.LENGTH);
+  return carried.ok ? Number(carried.value) : mark.elevation;
 }

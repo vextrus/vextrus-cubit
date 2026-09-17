@@ -53,5 +53,7 @@ export async function storedProposedLevelsOf(tenantId: string, ingestId: string)
     .select()
     .from(proposedLevels)
     .where(and(eq(proposedLevels.tenantId, tenantId), eq(proposedLevels.ingestId, ingestId)))
-    .orderBy(asc(proposedLevels.viewKey), asc(proposedLevels.ordinal));
+    // The stack's own run from the foot up: the stage proposes ONE stack over every section of the
+    // record, so the ordinal is the order a reader confirms them in (L-MEA-07: an ordinal is physical).
+    .orderBy(asc(proposedLevels.ordinal));
 }
