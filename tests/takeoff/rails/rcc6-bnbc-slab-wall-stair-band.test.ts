@@ -274,8 +274,12 @@ describe("AC-7: the barrel these kinds were measured through loses no area", () 
    * does not name — while the spread it would restore is last-writer-wins and loses an area in silence
    * (arbitration on F-1 REGISTRY_ENTRY_LOST). This case therefore asserts the assembly by DRIVING it:
    * every area's offers for a shared kind reach the barrel's batch, in enumeration order. A roster
-   * imported but left out of the initializer — a real lost entry — fails here by the offers that go
-   * missing, whatever shape the initializer takes.
+   * that another area also answers for — here `rcc.concrete` and `rcc.formwork` — imported but left
+   * out of the initializer is a real lost entry, and it fails here by the offers that go missing,
+   * whatever shape the initializer takes. This case reaches no further: it bands the two kinds AC-7
+   * names, so it iterates `shared` and says nothing about an area whose kinds nothing else answers.
+   * That one is caught by src/modules/takeoff/rails/aggregate.test.ts — "the barrel answers exactly
+   * the kinds it answered before the split", against the frozen KINDS_BEFORE.
    *
    * The kinds the claim is made over are the ones the two rosters BOTH answer, read off the rosters
    * themselves, so an area that comes to answer a third kind is judged by the same law (B-19).
