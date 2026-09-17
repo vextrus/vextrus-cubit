@@ -32,6 +32,13 @@ export type ScheduleCell = {
   readonly sourceKeys: string[];
 };
 
+/** One text of the table's own rows that reaches no column of it: what it says, and where from. */
+export type UnplacedText = {
+  readonly key: string;
+  /** The drawing's own words, verbatim — the same spelling a cell would have carried. */
+  readonly text: string;
+};
+
 /** One table a SCHEDULE view yielded, anchored on the caption that titles it. */
 export type ScheduleTable = {
   readonly viewKey: string;
@@ -43,6 +50,13 @@ export type ScheduleTable = {
   /** The header texts' insertion x, ascending (riskNotes (1)). */
   readonly columns: number[];
   readonly cells: ScheduleCell[];
+  /**
+   * The texts standing in the table's own rows that reach no column of it, in reading order. A
+   * revision note out in the margin is a cell of nothing and must not be folded into the nearest
+   * column — but the drawing SAID it, and a reading a drawing carries is never discarded in
+   * silence (L-QTY-04).
+   */
+  readonly unplaced: UnplacedText[];
 };
 
 /** A schedule view that yielded no table, and the closed reason it did (riskNotes (2)). */
@@ -155,6 +169,7 @@ function tableOf(view: PartitionedView, standing: readonly Placed[]): ScheduleTa
   const rows = rowsFrom(bands, header, pitch);
   const columns = columnsOf(rows[0] as Band);
   const reach = columnReachOf(columns);
+  const read = rows.map((band, rowIndex) => cellsOf(band, columns, reach, rowIndex));
 
   return {
     viewKey: view.viewKey,
@@ -162,7 +177,8 @@ function tableOf(view: PartitionedView, standing: readonly Placed[]): ScheduleTa
     title: normaliseNotation(view.caption).trim(),
     pitch,
     columns,
-    cells: rows.flatMap((band, rowIndex) => cellsOf(band, columns, reach, rowIndex)),
+    cells: read.flatMap((one) => one.cells),
+    unplaced: read.flatMap((one) => one.unplaced),
   };
 }
 
@@ -250,23 +266,29 @@ function rowsFrom(bands: readonly Band[], header: number, pitch: number): Band[]
 }
 
 /**
- * One band's cells, one per column it says anything in. A text belongs to the column its insertion
- * stands nearest, and two texts in one cell are ONE cell: they are joined in the order they are read
- * down the page, and the cell cites both of the texts it was read from (AC-2, L-CAD-03).
+ * One band's cells, one per column it says anything in, and the texts of that band that reached no
+ * column at all. A text belongs to the column its insertion stands nearest, and two texts in one cell
+ * are ONE cell: they are joined in the order they are read down the page, and the cell cites both of
+ * the texts it was read from (AC-2, L-CAD-03).
  */
-function cellsOf(band: Band, columns: readonly number[], reach: number, rowIndex: number): ScheduleCell[] {
+function cellsOf(band: Band, columns: readonly number[], reach: number, rowIndex: number): { cells: ScheduleCell[]; unplaced: UnplacedText[] } {
   const byColumn = new Map<number, Placed[]>();
+  const unplaced: UnplacedText[] = [];
   for (const text of band.texts) {
     const columnIndex = columnNearest(columns, text.x, reach);
     // A revision note out in the margin stands level with a row and in no column of it: folding it
     // into the nearest one would rewrite that cell — and on the mark column it would cost the row the
-    // member it names (L-CAD-08, L-QTY-04).
-    if (columnIndex === null) continue;
+    // member it names (L-CAD-08). It is answered instead of dropped, so what the drawing said there
+    // is still a thing a reader can go and look at (L-QTY-04).
+    if (columnIndex === null) {
+      unplaced.push({ key: text.key, text: text.text });
+      continue;
+    }
     const held = byColumn.get(columnIndex);
     if (held === undefined) byColumn.set(columnIndex, [text]);
     else held.push(text);
   }
-  return [...byColumn.entries()]
+  const cells = [...byColumn.entries()]
     .sort((left, right) => left[0] - right[0])
     .map(([columnIndex, texts]) => ({
       rowIndex,
@@ -274,6 +296,7 @@ function cellsOf(band: Band, columns: readonly number[], reach: number, rowIndex
       text: texts.map((one) => one.text).join(CELL_JOIN),
       sourceKeys: texts.map((one) => one.key),
     }));
+  return { cells, unplaced };
 }
 
 /**
