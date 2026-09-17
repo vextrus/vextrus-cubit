@@ -90,6 +90,33 @@ one ConsequenceDialog — plus the `cx-ruleset-author-*` classes this file rules
   rule-set screen's own `ruleset_param_*` keys are folded into that one home by the node that owns
   its `strings.ts`; until then the table there is the source the shared function is built from,
   byte-identical, pinned equal by a test (recorded IOU, never a comment in `src` — Q-17).
+- **I-269 — the rendering lives at the route, and the module keeps what a module may hold.** ARCH-01
+  lets `src/modules/**` import core and its own module only, so a section that consumes `src/ui`
+  primitives cannot live there. `ruleset-author-section.tsx`, `ruleset-author.css` and `states.ts`
+  are therefore the route directory's, beside the page that mounts them;
+  `src/modules/spine/ruleset-authoring` keeps the two things that are not renderings — the copy
+  (`strings.ts`) and the pure diff over a pin (`diff.ts`, `diffParameters`/`authoredValues`), which
+  is where the rule this screen is graded on actually lives and what the unit lane can grade without
+  a DOM.
+- **I-270 — an area's word has one home, and both the nav and the crumb read it.**
+  `PROJECT_SETTINGS_PAGES` in `src/ui/shell/routes.ts` is the single spelling of each area's name
+  (Rule set · Participants · Site facts · Author edition). The frame's roster
+  (`settings/areas.ts`) takes its labels from it and the screen declares its crumb with the same
+  string through `useShellPage`, so the row a reader clicks and the crumb they land on cannot drift
+  apart (R-UI-084).
+- **I-271 — an area key is not a test id.** `settings-area` is registered, and it is the one id every
+  nav row carries; the area keys themselves (`ruleset`, `participants`, `site-facts`,
+  `ruleset-author`) stay unregistered and are read off `data-area`. Registering `ruleset-author` and
+  `site-facts` as ids would make the page object's own use of them as **keys** a literal id outside
+  the registry, which `src/ui/testids.test.ts` rule 2 forbids — the registry spells elements, and the
+  roster (`PROJECT_SETTINGS_AREA_NAMES`) spells areas.
+- **I-272 — a door shut for a reason of this screen's own is the screen's own affordance.** The
+  shipped `Button` reports `aria-disabled` for busy and for nothing else and overrides a caller's,
+  so I-266's shut door renders as a focusable `span` wearing the `cx-btn` chrome with
+  `role="button"`, `tabIndex={0}`, `aria-disabled="true"`, `aria-describedby` on the standing
+  refusal and `data-permission="AUTHOR_RULE_SET"` — the idiom the BOQ and levels screens already
+  keep (I-247, R-UI-010). It keeps its test id and its place, carries no press at all, and stays in
+  the tab order so the reason is one focus away.
 
 ## 1. Regions (1440×900)
 
@@ -316,3 +343,12 @@ Two gaps in the registry, recorded rather than spelled around:
   `AUTHOR_RULESET_EDITION` under `AUTHOR_RULE_SET` (AM-04): the pinned parent, a version field, the
   whole-pin diff grid, the act through the one ConsequenceDialog. I-262–I-268 recorded; I-268
   leaves the parameter-label fold as an owed IOU for the rule-set screen's own node.
+- 2026-09-18 — inc-304a-ruleset-authoring-ui, as built. I-269 records where each file came to live:
+  the section, its stylesheet and its state matrix are the route directory's, because ARCH-01 does
+  not let a module import `src/ui`, and `src/modules/spine/ruleset-authoring` keeps the copy and the
+  pure diff. I-270 names `PROJECT_SETTINGS_PAGES` as the one home of an area's word, read by the
+  nav and by the crumb alike. I-271 records that an area key is not a test id. I-272 records the
+  shut door as the screen's own focusable affordance, the attribute the shipped Button drops. §2's
+  cells are enumerated in `states.ts` and walked by
+  `tests/rulesets/ruleset-author-section.test.tsx`; the figure conventions are handed to
+  `QuantityText` explicitly, because the settings frame mounts no `FigureProvider` (SEAM-FORMAT).
