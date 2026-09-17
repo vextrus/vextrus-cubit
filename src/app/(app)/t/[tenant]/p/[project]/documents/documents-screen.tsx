@@ -111,7 +111,7 @@ function rowDataOf(row: DocumentsRowView): Readonly<Record<string, string>> {
 
 /** I-262's Acts-cited cell: the first act ids as chips, then how many more the act log holds. */
 function ActsCited({ actIds }: { actIds: readonly string[] }): ReactNode {
-  if (actIds.length === 0) return <span className="cx-documents-absent">{strings.shell_status_absent}</span>;
+  if (actIds.length === 0) return <span className="cx-documents-absent">{strings.documents_no_acts}</span>;
   const shown = actIds.slice(0, ACTS_SHOWN);
   return (
     <span className="cx-documents-acts">

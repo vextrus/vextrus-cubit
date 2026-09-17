@@ -29,6 +29,9 @@ export const documents = {
   // I-262: two act chips and then the count of the rest — a cell never wraps, and a tooltip full of
   // identifiers teaches nothing.
   documents_acts_more: "+{count} more",
+  // An issue citing no act says so in words: a bare dash in this cell would read as a figure nobody
+  // filled in, where what is true is that the document stands on no committed act (R-UI-020).
+  documents_no_acts: "No acts cited",
 
   documents_open: "Open PDF",
   documents_open_label: "Open {kind} version {version} as a PDF",
