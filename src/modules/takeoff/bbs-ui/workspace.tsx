@@ -586,7 +586,10 @@ function bbsColumns(chrome: Pick<BbsChrome, "EnumLabel" | "Tooltip">): BbsColumn
     {
       id: "dims",
       header: BBS_COPY.bbs_col_dims,
-      size: 200,
+      // The REMAINDER column (§1's column table: "remainder, min 200"). The nine figure and code
+      // columns are read at fixed widths, so what is left of the grid's band belongs to the legs —
+      // the one cell that truncates — rather than standing empty to the right of the last mass.
+      size: 400,
       accessorFn: (row) => Object.keys(row.dimsMm).join(" "),
       cell: ({ row }) => <span className="cx-bbs-dims">{dimensionsOf(row.original)}</span>,
     },

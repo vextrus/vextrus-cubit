@@ -183,6 +183,10 @@ export function demonstrationOf(asked: string): Demonstration {
     case "ready":
       return { ...OPEN, view: whole };
     default:
-      return { ...OPEN, view: whole, refusal: NOT_A_DECLARED_STATE };
+      // A name this screen's roster does not hold is answered, and NOTHING is demonstrated beneath
+      // the answer: a refusal standing over a full schedule reads as though the instrument had also
+      // shown the cell it was asked for (R-UI-020, R-UI-050). The seven cells this route declares
+      // (`src/ui/screen-states/matrix.tsx`) each open by their own name.
+      return { ...OPEN, view: reading(false, false), refusal: NOT_A_DECLARED_STATE };
   }
 }
