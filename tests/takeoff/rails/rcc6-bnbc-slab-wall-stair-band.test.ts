@@ -267,6 +267,16 @@ describe("AC-7: the barrel these kinds were measured through loses no area", () 
    * COMPOSITION of both, in enumeration order — never by whichever roster was spread last, which would
    * claim a kind is measured while half of it never is (AM-11, settled ruling).
    *
+   * What AM-11 requires of the barrel is that every area roster be ASSEMBLED BY ENUMERATION, and what
+   * it forbids is re-declaration; it prescribes no syntactic form for the assembly. So an area roster
+   * passed to the registry's own enumerator (`enumerateRails([...])`) is enumerated as fully as a
+   * spread property ever was, and a check that reads spreads alone is asking for a form the clause
+   * does not name — while the spread it would restore is last-writer-wins and loses an area in silence
+   * (arbitration on F-1 REGISTRY_ENTRY_LOST). This case therefore asserts the assembly by DRIVING it:
+   * every area's offers for a shared kind reach the barrel's batch, in enumeration order. A roster
+   * imported but left out of the initializer — a real lost entry — fails here by the offers that go
+   * missing, whatever shape the initializer takes.
+   *
    * The kinds the claim is made over are the ones the two rosters BOTH answer, read off the rosters
    * themselves, so an area that comes to answer a third kind is judged by the same law (B-19).
    */
@@ -292,7 +302,7 @@ describe("AC-7: the barrel these kinds were measured through loses no area", () 
       expect(typeof composed, `\`RAILS\` answers ${kind}`).toBe("function");
       expect(
         composed === frame[kind] || composed === slabs[kind],
-        `the barrel's ${kind} is neither area's own function: two areas answer it, so it is a composition of both and not the one a merge kept (AM-11, settled ruling)`,
+        `the barrel's ${kind} is neither area's own function: two areas answer it, so it is a composition of both and not the one a merge kept — restoring a spread here makes one area's rail the value at this key and drops the other area's offers with no refusal and no observation (AM-11, L-MEA-08, settled ruling; arbitration on F-1)`,
       ).toBe(false);
 
       const batches = [frame[kind] as RailShape, slabs[kind] as RailShape].map((rail) => rail(input));
