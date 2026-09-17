@@ -18,6 +18,11 @@ export type ScaleStateView = {
    * declares is the scale door's own reading of the header — never re-derived here (B-17).
    */
   readonly refusal?: string | null;
+  /**
+   * The caption entity this view is anchored by, or null for the view no caption anchors — which is
+   * how a view is told which SHEET of a multi-layout record it stands on (L-CAD-05, R-TO-021).
+   */
+  readonly anchorKey?: string | null;
 };
 
 /** What a sheet's scale line stands at: the state, how many views have no scale of record, and of how many. */

@@ -52,7 +52,7 @@ async function assignmentsOf(tenantId: string, ingestId: string): Promise<Map<st
  * the panel says as "not on this sheet" rather than hiding the row (R-UI-050's partial).
  */
 async function recordsOf(scope: PartitionOverlayScope): Promise<Map<string, RenderRecord[]>> {
-  const head = await renderManifestOf({ tenantId: scope.tenantId, drawingId: scope.drawingId, layoutName: scope.layoutName }, { storage: appStorage() });
+  const head = await renderManifestOf({ tenantId: scope.tenantId, projectId: scope.projectId, drawingId: scope.drawingId, layoutName: scope.layoutName }, { storage: appStorage() });
   const byIdentity = new Map<string, RenderRecord[]>();
   if (head.kind !== "manifest") return byIdentity;
   for (const layer of head.manifest.layers) {

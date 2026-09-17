@@ -20,9 +20,9 @@ const B: SnapPoint = [20, 20];
 describe("viewMeasuring", () => {
   it("measures by the innermost view holding both picks, whatever order the store answers in", () => {
     const plan = view("PLAN", [0, 0], [100, 100]);
-    const detail = view("DETAIL", [5, 5], [40, 40]);
-    expect(viewMeasuring(sheet(plan, detail), A, B)?.viewKey, "the detail drawn inside the plan is the view these picks were drawn in").toBe("DETAIL");
-    expect(viewMeasuring(sheet(detail, plan), A, B)?.viewKey, "and the answer is the drawing's, not the store's order").toBe("DETAIL");
+    const detail = view("INSET", [5, 5], [40, 40]);
+    expect(viewMeasuring(sheet(plan, detail), A, B)?.viewKey, "the detail drawn inside the plan is the view these picks were drawn in").toBe("INSET");
+    expect(viewMeasuring(sheet(detail, plan), A, B)?.viewKey, "and the answer is the drawing's, not the store's order").toBe("INSET");
   });
 
   it("answers none where two views hold the picks and neither is drawn inside the other", () => {

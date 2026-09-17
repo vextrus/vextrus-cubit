@@ -36,8 +36,18 @@ const SCALE_NO_EVIDENCE = REFUSALS.SCALE_NO_EVIDENCE.code satisfies ScaleRefusal
 /** The distance a person entered between the two picks, in a unit of the closed lane. */
 export type EnteredDistance = { readonly value: string; readonly unit: ScaleUnit };
 
-/** What `observationOf` answers: the observation the two picks make, or the refusal that stops it. */
-export type ObservationAnswer = { readonly observation: TwoPointObservation } | { readonly refusal: typeof SCALE_OBSERVATION_UNCITED };
+/**
+ * What `observationOf` answers: the observation the two picks make, the refusal that stops it, or
+ * `pending` — the gesture is not finished.
+ *
+ * A gesture of nought or one pick is not a refused observation: nobody has claimed anything yet, and
+ * answering SCALE_OBSERVATION_UNCITED would tell a reader who has taken one mark that the mark
+ * stands on nothing (Q-07, R-UI-050).
+ */
+export type ObservationAnswer =
+  | { readonly observation: TwoPointObservation }
+  | { readonly refusal: typeof SCALE_OBSERVATION_UNCITED }
+  | { readonly pending: true };
 
 /** What `judgeObservation` answers: what core read off the observation, or the refusal it named. */
 export type ObservationJudgement =
@@ -55,7 +65,9 @@ export type ObservationJudgement =
  * refuses only what it can see: a gesture that is not two cited marks.
  */
 export function observationOf(picks: readonly SnapPick[], distance: EnteredDistance): ObservationAnswer {
-  if (picks.length !== 2) return { refusal: SCALE_OBSERVATION_UNCITED };
+  // Two marks are what an observation IS: with fewer, the gesture is still being made, and with more
+  // the region hands on the pair it holds. Nothing is refused about a gesture nobody has finished.
+  if (picks.length !== 2) return { pending: true };
   const [from, to] = [picks[0] as SnapPick, picks[1] as SnapPick];
   const cited = [from, to].map((pick) => ({ sourceKey: pick.sourceKeys[0] ?? "", x: pick.keyPoint[0], y: pick.keyPoint[1] }));
   if (cited.some((point) => point.sourceKey === "")) return { refusal: SCALE_OBSERVATION_UNCITED };

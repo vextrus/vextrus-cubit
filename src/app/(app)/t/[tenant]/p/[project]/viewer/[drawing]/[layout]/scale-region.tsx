@@ -233,6 +233,9 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
       setActRefusal(null);
       setOfflineNotice(false);
       const held = observationOf(picks, { value: distance, unit });
+      // A gesture nobody has finished says nothing at all: no row, no refusal, and the marks are kept
+      // — the reader is in the middle of taking them (R-UI-050).
+      if ("pending" in held) return;
       if ("refusal" in held) {
         setActRefusal(held.refusal as RefusalCode);
         return;
