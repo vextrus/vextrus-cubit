@@ -256,6 +256,11 @@ function unclassifiedRowsOf(payload: BoqDraftPayload): BoqRow[] {
   }));
 }
 
+/** A kind without its chapter — `rcc.concrete` → `concrete` — the key the page says a kind by. */
+function withoutChapter(kind: string): string {
+  return kind.slice(kind.indexOf(".") + 1);
+}
+
 /**
  * Why a kept line was not placed, as a reader reads it: the sentence this screen authored for a
  * registered reason, and — for a reason no table names — the same words the DOCUMENT writes it in
@@ -391,7 +396,16 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
   const aside = useMemo(
     () => (
       <div className="cx-boq-aside">
-        {view === null ? null : (
+        {/* While the read is still coming, the two chips stand as their own bones — a reader can tell
+            a loading aside from an empty one (§2 Loading). While NO campaign is pinned there is no
+            identity to state, so the aside carries the tabs alone rather than an empty chip with a
+            live copy control (§1's tabs row, I-112: never a machine hook spelling an empty id). */}
+        {state === "loading" ? (
+          <>
+            <Skeleton className="cx-boq-bone-chip" />
+            <Skeleton className="cx-boq-bone-chip" />
+          </>
+        ) : view === null || payload === null ? null : (
           <>
             <span className="cx-boq-aside-label">{BOQ_COPY.boq_revision_label}</span>
             <IdChip className="cx-boq-revision" data-testid={ids.revision} value={view.setRevisionId ?? ""} />
@@ -419,7 +433,7 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
         ) : null}
       </div>
     ),
-    [Button, IdChip, Tooltip, ids.draft, ids.export, ids.revision, ids.taxonomyVersion, jobId, offline, payload, permitted, press, view],
+    [Button, IdChip, Skeleton, Tooltip, ids.draft, ids.export, ids.revision, ids.taxonomyVersion, jobId, offline, payload, permitted, press, state, view],
   );
 
   return (
@@ -499,7 +513,7 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
           {/* The one thing to do about an empty draft, and it leads where its own word says: a draft
               is read from a pinned campaign, so the chain starts at the drawing sets — the address
               and the word S-Coverage and the register already pair (R-UI-050, B-17). */}
-          <a className="cx-btn cx-reticle cx-boq-empty-action" data-variant="secondary" href={setsHref(tenantId, projectId)}>
+          <a className="cx-btn cx-reticle cx-boq-empty-action" data-variant="primary" href={setsHref(tenantId, projectId)}>
             {BOQ_COPY.boq_empty_action}
           </a>
         </EmptyState>
@@ -639,11 +653,15 @@ function boqColumns(
       header: BOQ_COPY.boq_col_description,
       size: 320,
       accessorFn: (row) => row.description,
+      // The kind is said WITHOUT its chapter, which is the rule the document prints it by and the
+      // words the group row above already reads (`descriptionOf`): `Column · Concrete`, never
+      // `Column · Rcc.concrete`. The chapter is not lost — the row carries the whole key on
+      // `data-kind` for anything that reads by machine (§1 column 2, §3's voice, B-17).
       cell: ({ row }) => (
         <span className="cx-boq-description">
           <EnumLabel value={row.original.class} className="cx-boq-enum" />
           <span className="cx-boq-separator">{" · "}</span>
-          <EnumLabel value={row.original.kind} className="cx-boq-enum" />
+          <EnumLabel value={withoutChapter(row.original.kind)} className="cx-boq-enum" />
         </span>
       ),
     },

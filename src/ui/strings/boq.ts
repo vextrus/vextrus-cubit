@@ -58,7 +58,6 @@ export const boq = {
   boq_register_link: "Go to the takeoff register",
   boq_error_heading: "The draft could not be read",
   boq_error_body: "Nothing was changed. Try again, and quote the report id if it keeps happening.",
-  boq_report_label: "Report id",
   boq_retry: "Try again",
   boq_offline: "You are offline. The sections read as they stood when this page loaded, and nothing can be exported until the connection returns.",
   boq_denied_export: "Exporting the draft needs the MEASURE permission on this project.",

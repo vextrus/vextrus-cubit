@@ -99,7 +99,7 @@ its own viewport with the Item column frozen; the page never scrolls sideways (�
 | job strip (`boq-jobs`) | the shipped `JobTimeline` for the render job, present only while a run is watched; `boq-render-draft` is its step; `boq-document-link` follows a success | 100 % × the pattern's own, between the status line and the grid | the pattern's own | absent — never an empty box |
 | grid (primary) | `boq-grid`: DataTable v2, `tableId` `s-boq`, one `boq-bill` section per section holding a line (`BILLS` order, then `UNCLASSIFIED`), `datatable-group-row` per (class · kind) group with its `datatable-group-subtotal`, `boq-line` rows, each section closed by `boq-subtotal` per unit | `flex: 1 1 auto`; ≥ 55 % of main; rows `--row-h` 28, header 28 sticky, first column frozen, no wrapping cell | `--surface-app`, `--surface-sunken` (header, group and subtotal rows), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline`, basis palette through BasisChip | not rendered at all: `boq-empty` stands in its place |
 | empty (in the grid's place) | the shipped `EmptyState` `boq-empty`: heading, one sentence, one action to the drawing sets | max-width 520, centred in the grid's box | `--ink`, `--ink-muted`, `--accent` through Button | this IS the empty state |
-| error (in the grid's place) | `error-state`: heading, one sentence, `error-state-report` (`IdChip` under `boq_report_label`), `error-state-retry` | 100 % × auto, max-width 520 | `--ink`, `--ink-muted`, `--hairline`, `--radius-4` | — |
+| error (in the grid's place) | `error-state`: heading, one sentence, `error-state-report` (`IdChip` under the primitive's own report label), `error-state-retry` | 100 % × auto, max-width 520 | `--ink`, `--ink-muted`, `--hairline`, `--radius-4` | — |
 | inspector (frame's one slot) | nothing ever mounts it here | **absent — width 0** | — | absent |
 
 **Columns**, left to right, widths multiples of 4:
@@ -123,11 +123,14 @@ A provisional sum, when an act exists to author one, is the last `boq-line` of i
 ## 2. States (R-UI-050), ruled cell by cell
 
 `BOQ_STATES` in `takeoff/boq/states.ts` = `["loading","denied","offline","error","refused","empty",
-"partial","busy","ready"]`; `boq-screen[data-state]` derives in that order, first holding wins. The
+"partial","ready"]`; `boq-screen[data-state]` derives in that order, first holding wins. A watched
+render is NOT a state of the screen: the job strip stands beside a grid that reads on in full, so the
+draft a reader is looking at never stops being ready, partial or refused while bytes are made. The
 seven R-UI-050 cells are declared in `src/ui/screen-states/matrix.tsx` under
-`/t/[tenant]/p/[project]/takeoff/boq`, and `…/takeoff/boq?__state=<name>` stands this screen in each
-through `./demonstration` where the evidence instrument is armed; a name this screen does not declare
-is answered `REQUEST_MALFORMED` through the one RefusalState.
+`/t/[tenant]/p/[project]/takeoff/boq`, and `…/takeoff/boq?__state=<name>` stands this screen in each —
+by the screen's own name or by the matrix's (`refusal` opens `refused`, `permission-denied` opens
+`denied`) — through `./demonstration` where the evidence instrument is armed; a name neither roster
+declares is answered `REQUEST_MALFORMED` through the one RefusalState.
 
 - **Loading** — root at `data-state="loading"`, frame, tabs row and status line intact: the DataTable
   in its `loading` posture over the same `BOQ_COLUMNS` — the header real, the body two section-header
@@ -145,20 +148,24 @@ is answered `REQUEST_MALFORMED` through the one RefusalState.
   with its measured-scope subtotal, each such line keeps its `coverage-chip` below 100 %, and the
   status line states the rule. An unclassified row makes the screen partial too — a line the taxonomy
   could not place is a gap in the draft, said in words.
-- **Busy** — a render job is being watched. `data-state="busy"`, `boq-jobs` stands between the status
-  line and the grid, `boq-export` renders `aria-disabled="true"` with `data-job` beside it, and every
-  section reads on in full. A second press enqueues nothing: the key is the job's.
+- **A watched render** — not a cell of its own (see the roster above). `boq-jobs` stands between the
+  status line and the grid, `boq-export` renders `aria-disabled="true"` with `data-job` beside it, and
+  every section reads on in full under its own `data-state`. A second press enqueues nothing: the key
+  is the campaign's. It is reached by pressing the primary, which is where a reader meets it.
 - **Error** — the read threw. `page.tsx` reports it once and hands the `faultId` down; `error-state`
   stands in the grid's place with `boq_error_heading`, `boq_error_body`, the id through
-  `error-state-report` under `boq_report_label`, and `error-state-retry` re-running the read in place.
+  `error-state-report` under the label the shipped error state says a report id by
+  (`primitive_error_report` — one sentence, one home, so every fault on this product is quoted the
+  same way), and `error-state-retry` re-running the read in place.
 - **Refusal** — the one RefusalState in `boq-answer` for a refused door (`REQUEST_MALFORMED`,
   `PERMISSION_NOT_HELD`, `BOQ_NO_PUBLISHED_LINE`, `BOQ_TAXONOMY_VERSION_MOVED`), and inside the job
   timeline's own step for a refused render. Never a toast, never a screen-local block (R-UI-020).
 - **Offline** — a `<p role="status">` banner above the answer slot carrying `boq_offline`;
   `boq-export` renders `aria-disabled="true"` while it stands. The sections read on.
-- **Permission-denied** — `boq-export` renders, `aria-disabled="true"`, `data-permission="MEASURE"`,
-  its Tooltip carrying `boq_denied_export`, and the answer slot carrying that pair over the one
-  registered `PERMISSION_NOT_HELD` entry, evidence the project's participants screen. Every section,
+- **Permission-denied** — `boq-export` does NOT render: a denial is the state, and a screen standing
+  in it keeps no door open on other evidence (I-194's precedent). The answer slot carries the denial
+  over the one registered `PERMISSION_NOT_HELD` entry, evidence the project's participants screen,
+  with `boq_denied_export` beneath it naming the permission the absent door would need. Every section,
   line and subtotal reads in full — reading the draft needs membership and nothing more.
 - **Ready** — `data-state="ready"`, `data-coverage="COMPLETE"` only where the measurement statement
   is empty and no line reads `PARTIAL_DECLARED`; even then no element carries `data-scope="GRAND"`.
@@ -184,7 +191,7 @@ this kind.** · `boq_reason_level_not_in_stack` **This line's level is not in th
 of the pinned campaign, grouped into sections by the project's taxonomy. Pin a drawing set revision,
 measure from the takeoff register, and the sections appear here.** · `boq_empty_action` **Browse
 drawing sets** · `boq_register_link` **Go to the takeoff register** · `boq_error_heading` **The draft could not be read** · `boq_error_body` **Nothing was changed. Try
-again, and quote the report id if it keeps happening.** · `boq_report_label` **Report id** ·
+again, and quote the report id if it keeps happening.** ·
 `boq_retry` **Try again** · `boq_offline` **You are offline. The sections read as they stood when
 this page loaded, and nothing can be exported until the connection returns.** · `boq_denied_export`
 **Exporting the draft needs the MEASURE permission on this project.** · `boq_denied_holder` **A
@@ -288,10 +295,11 @@ Behavioural hooks without new ids: `[data-density]` at the ROOT, the one switch 
 `--row-h` from · `data-technical` on every raw enum, taxonomy key and `decidedBy.key` kept beside its
 `EnumLabel` · `role="status"` on the status line and the offline banner · `aria-live="polite"` on
 `boq-answer` · `aria-label` `boq_grid_label` on the grid · `aria-disabled="true"` on `boq-export`
-while busy, offline or unpermitted · `cx-reticle` on every focusable. Asserted absences: no element
+while a render is watched or the connection is gone (unpermitted renders no primary at all) ·
+`cx-reticle` on every focusable. Asserted absences: no element
 with `data-scope="GRAND"` anywhere (I-268); no inspector and no second right column (R-UI-080); no
-native `select` or `input[type=date]` (R-UI-083); no `boq-line` without a `data-item` matching
-`^[1-9]\d*\.[1-9]\d*\.[1-9]\d*$`; no `boq-line` carrying other than exactly two `basis-chip`s and one
+native `select` or `input[type=date]` (R-UI-083); no `data-item` that is not `^[1-9]\d*\.[1-9]\d*\.[1-9]\d*$`
+(a kept line carries none at all — I-267); no NUMBERED `boq-line` carrying other than exactly two `basis-chip`s and one
 `coverage-chip`; no `boq-bill` for a section holding no line; no `boq-grid` while `boq-empty` stands;
 no `boq-jobs` at rest; no wrapping cell; no uuid or digest as a text node outside an `IdChip`.
 

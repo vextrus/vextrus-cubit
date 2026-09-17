@@ -209,7 +209,9 @@
 .cx-boq-error {
   align-self: center;
   max-width: 520px;
-  margin-block: var(--space-4);
+  /* Centred IN the grid's box, not pinned to its top: the teaching stands where the grid it replaces
+     stands (§1's empty row), which is what S-Documents' own empty state does in the same frame. */
+  margin-block: auto;
 }
 
 .cx-boq-bones {
@@ -218,7 +220,8 @@
   gap: var(--space-2);
 }
 
-.cx-boq-bone-heading {
+.cx-boq-bone-heading,
+.cx-boq-bone-chip {
   width: 96px;
   height: 28px;
 }

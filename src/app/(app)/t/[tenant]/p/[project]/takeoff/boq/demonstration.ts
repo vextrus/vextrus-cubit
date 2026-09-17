@@ -93,6 +93,15 @@ function reading(projectId: string, lines: readonly ReturnType<typeof line>[], c
   };
 }
 
+/**
+ * The two cells R-UI-050 names differently from this screen's own roster (`src/ui/screen-states`'s
+ * `refusal` and `permission-denied` against `refused` and `denied`). A reviewer's instrument asks by
+ * the MATRIX's name, so both spellings open the same cell: a name the matrix declares is not an
+ * unreadable address, and answering it with REQUEST_MALFORMED would show a reader the one state the
+ * screen cannot reach instead of the state they asked for (R-UI-050, AM-09 §4).
+ */
+const CELL_NAMES: Readonly<Record<string, string>> = Object.freeze({ refusal: "refused", "permission-denied": "denied" });
+
 /** What every demonstration starts from: a reader who holds the door, online, with nothing refused. */
 const OPEN: Omit<Demonstration, "view"> = { state: null, permitted: true, offline: false, reportId: null, refusal: null };
 
@@ -102,7 +111,7 @@ const OPEN: Omit<Demonstration, "view"> = { state: null, permitted: true, offlin
  * did not understand the address says so instead of painting the ordinary read (R-UI-020).
  */
 export function demonstrationOf(asked: string, projectId: string): Demonstration {
-  const state = BOQ_STATES.find((name): name is BoqState => name === asked);
+  const state = BOQ_STATES.find((name): name is BoqState => name === (CELL_NAMES[asked] ?? asked));
   const whole = reading(projectId, MEASURED, true);
   switch (state) {
     case "loading":
