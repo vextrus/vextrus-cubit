@@ -263,10 +263,28 @@ function boxHolds(box: SnapBox, point: SnapPoint): boolean {
  */
 export function viewMeasuring(calibration: SnapCalibration | null, a: SnapPoint, b: SnapPoint): SnapCalibrationView | null {
   if (calibration === null) return null;
-  for (const view of calibration.views) {
-    if (view.box !== null && boxHolds(view.box, a) && boxHolds(view.box, b)) return view;
-  }
-  return null;
+  const holding = calibration.views.filter((view): view is SnapCalibrationView & { box: SnapBox } => view.box !== null && boxHolds(view.box, a) && boxHolds(view.box, b));
+  const innermost = holding.reduce<(SnapCalibrationView & { box: SnapBox }) | null>((held, view) => (held === null || areaOf(view.box) < areaOf(held.box) ? view : held), null);
+  if (innermost === null) return null;
+  // A detail drawn inside a plan is measured by the DETAIL's scale, not by the plan it sits in: the
+  // innermost view whose box holds both picks is the view that drew them, and store order is no
+  // reading of a drawing at all (L-MEA-05, I-146).
+  //
+  // Innermost only means something where the views nest. Two calibrated boxes that overlap without
+  // one holding the other, or two of the same extent, both hold these picks and neither is the view
+  // they were drawn in: the segment is measured in the drawing's own units and said to be, rather
+  // than carried into metres by a scale that may be the wrong one (L-QTY-01, R-UI-041).
+  return holding.every((view) => view === innermost || (areaOf(view.box) > areaOf(innermost.box) && boxWithin(innermost.box, view.box))) ? innermost : null;
+}
+
+/** How much drawing one box covers — the reading "innermost" is decided by. */
+function areaOf(box: SnapBox): number {
+  return (box.max[0] - box.min[0]) * (box.max[1] - box.min[1]);
+}
+
+/** Does the outer box hold the whole of the inner one? Touching edges nest; crossing ones do not. */
+function boxWithin(inner: SnapBox, outer: SnapBox): boolean {
+  return boxHolds(outer, inner.min) && boxHolds(outer, inner.max);
 }
 
 /**

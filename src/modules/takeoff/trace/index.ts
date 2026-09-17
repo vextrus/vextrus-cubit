@@ -13,6 +13,7 @@
 // The two addresses and the reading of what a line cites live in `./address.ts` and are re-published
 // here, so this barrel stays the one home the test contract names while a browser component may
 // reach the spelling without carrying the store into its bundle (ARCH-01's spirit, B-17).
+import { campaignsOf } from "@/core/campaigns";
 import { and, asc, eq, forTenant, isUuid, quantityLines, sheetDisciplines } from "@/core/db";
 import { citedKeysOf, type LineBinding, type LineEvidence } from "./address";
 import { repudiatedObjectsOf } from "@/modules/takeoff/register";
@@ -86,11 +87,27 @@ export async function lineEvidence(scope: TraceScope, lineId: string): Promise<L
  */
 export async function linesCiting(scope: TraceScope, ask: CitingAsk): Promise<LineEvidence[]> {
   if (ask.sourceKeys.length === 0 || !isUuid(ask.drawingId) || !isUuid(scope.projectId) || !isUuid(scope.tenantId)) return [];
+
+  // The campaign the register RENDERS, and no other. A way back is only a way back to a row a reader
+  // can then look at: the register's table is one campaign's — the project's latest — so a line of a
+  // campaign before it would offer a reticle for a row that is not on the screen it lands on
+  // (I-173's rule, R-UI-050). A project with no campaign at all has no line to cite.
+  const open = await campaignsOf(scope);
+  const rendered = open[open.length - 1];
+  if (rendered === undefined) return [];
+
   const rows = await forTenant({ tenantId: scope.tenantId }).transaction((tx) =>
     tx
       .select()
       .from(quantityLines)
-      .where(and(eq(quantityLines.tenantId, scope.tenantId), eq(quantityLines.projectId, scope.projectId), eq(quantityLines.drawingId, ask.drawingId)))
+      .where(
+        and(
+          eq(quantityLines.tenantId, scope.tenantId),
+          eq(quantityLines.projectId, scope.projectId),
+          eq(quantityLines.drawingId, ask.drawingId),
+          eq(quantityLines.campaignId, rendered.campaignId),
+        ),
+      )
       .orderBy(asc(quantityLines.publishedAt), asc(quantityLines.lineId)),
   );
   if (rows.length === 0) return [];

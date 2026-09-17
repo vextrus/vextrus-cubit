@@ -186,7 +186,9 @@ export const GET = routeHandler({ route: ROUTE, actor: "viewer", schema: ASKED, 
 
   // The segment Next resolved is the sheet's name: it arrives decoded, and reading it again would
   // collide two addresses and fault on a name carrying a bare `%` (R-UI-031).
-  const head = await renderManifestOf({ tenantId, drawingId: drawing, layoutName: layout }, { storage: appStorage() });
+  // The project this sheet is read under is the one the guard above admitted the caller into, so it
+  // is stated here rather than left out: a head is never built for a scope that names no project.
+  const head = await renderManifestOf({ tenantId, projectId: address.projectId, drawingId: drawing, layoutName: layout }, { storage: appStorage() });
   if (part === "head") return headAnswer(head);
   return layerAnswer(head, index ?? 0);
 });

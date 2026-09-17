@@ -22,6 +22,15 @@ export type ViewerScope = {
   tenantId: string;
   drawingId: string;
   layoutName: string;
+  /**
+   * The project the reader is standing in. A drawing is held by ONE project (L-REG-02), so an id of
+   * another project's drawing is an id this reader holds no drawing for — which is a different
+   * absence from a drawing waiting on its first reading (R-UI-050).
+   *
+   * Stated, never optional: a caller that could leave it out is a caller that keeps the confusion,
+   * and every door that opens a sheet has already named the project to its own guard.
+   */
+  projectId: string;
 };
 
 /**
@@ -109,8 +118,12 @@ export async function renderManifestOf(scope: ViewerScope, deps: { storage: Stor
     // drawing id it holds no drawing for is waiting on nothing at all. A Trace address is a
     // hand-carried URL and reaches the second as easily as the first, so the two are told apart here
     // rather than left for a screen to guess at.
+    //
+    // "This workspace" is not the whole question: a drawing is held by one PROJECT (L-REG-02), and a
+    // drawing of another project of the same workspace is, to this reader, a drawing that is not
+    // there. Telling them it has not been read yet promises a reading that is never coming.
     const project = await drawingProjectOf(scope.tenantId, scope.drawingId);
-    return { kind: "absent", reason: project === null ? "drawing-unknown" : "not-ingested" };
+    return { kind: "absent", reason: project === scope.projectId ? "not-ingested" : "drawing-unknown" };
   }
 
   const key = memoKey(scope.tenantId, record.artifactSha256, scope.layoutName);

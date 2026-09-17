@@ -139,3 +139,22 @@ export type RegisterJsonLine = z.infer<typeof RegisterJsonLine>;
 export type RegisterJsonRefusal = z.infer<typeof RegisterJsonRefusal>;
 export type RegisterJsonCampaign = z.infer<typeof RegisterJsonCampaign>;
 export type RegisterJsonDocument = z.infer<typeof RegisterJsonDocument>;
+
+/**
+ * What a refused document says about ITSELF: the path of every key the shape would not take, spelled
+ * the way a reader walks the file — `lines.0.extra` (R-UI-050).
+ *
+ * An issue reported at the document's own root says only that something, somewhere, is wrong, and a
+ * person holding a thousand-line register cannot act on that. A refusal this product publishes names
+ * what has to be gone and taken out (L-QTY-02).
+ */
+export function documentIssuePathsOf(error: unknown): readonly string[] {
+  const issues = error instanceof z.ZodError ? error.issues : [];
+  return issues.flatMap((issue) => {
+    const at = issue.path.map((step) => String(step));
+    // A closed level reports the keys it would not take AT the level, not at each key: the offending
+    // name is carried beside the path, and a reader is owed the name.
+    if (issue.code === "unrecognized_keys") return issue.keys.map((key) => [...at, key].join("."));
+    return [at.join(".")];
+  });
+}

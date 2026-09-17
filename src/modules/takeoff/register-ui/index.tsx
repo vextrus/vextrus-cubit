@@ -24,7 +24,9 @@ import type { JobKind } from "@/core/jobs/kinds";
 import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
 import { parseSourceKey } from "@/core/sources";
 import { LINE_PARAM, originAddress, traceAddress } from "@/modules/takeoff/trace/address";
+import { basisOf } from "./basis";
 import { REGISTER_COPY, fillCopy } from "./copy";
+import { originRowIndexOf } from "./origin";
 import type { RegisterView, ViewAttribute, ViewLine, ViewObject, ViewReading } from "./view";
 
 /* ------------------------------------------------------------------ what the screen is handed */
@@ -276,6 +278,16 @@ const REPUDIATED = "REPUDIATED";
 /** The basis a figure nobody read carries — the one basis no Trace is offered from (I-181). */
 const DEFAULTED: QuantityBasis = "DEFAULTED";
 
+/**
+ * One stored basis, chipped where the canon admits it (B-17). A value off the roster renders no chip
+ * at all: a label painted for a basis nobody declared would say something the register does not
+ * (R-UI-050).
+ */
+function StoredBasis({ Chip, said }: { readonly Chip: ComponentType<{ basis: QuantityBasis }>; readonly said: string }): ReactNode {
+  const basis = basisOf(said);
+  return basis === null ? null : <Chip basis={basis} />;
+}
+
 /** The job kind a measure run is watched under (SEAM-JOBS' roster). */
 const MEASURE_KIND: JobKind = "measure";
 
@@ -488,6 +500,13 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
 
   /** The row a Trace was followed from, as this screen's own address carries it (`?line=`). */
   const [originLine, setOriginLine] = useState<string | null>(null);
+  /**
+   * Where that row stands among the rows this screen renders, and the row itself — the one reading of
+   * "which rendered row is the origin" (`./origin`), asked of the rows as they are handed over rather
+   * than of the store's order. Nothing at all where no rendered row stands for the address (I-182).
+   */
+  const originAt = originRowIndexOf(lines, originLine);
+  const originRow = originAt === null ? undefined : lines[originAt];
   /** The anchor that row's cell renders, so the reticle can be put back where the reader left it. */
   const originRef = useRef<HTMLAnchorElement | null>(null);
   /** The address already restored from — the reticle is taken at most once per address (I-182). */
@@ -912,7 +931,7 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
         <dl className="cx-register-facts">
           <dt>{REGISTER_COPY.takeoff_register_basis_label}</dt>
           <dd data-testid="register-object-basis" data-basis={selected.basis}>
-            <BasisChip basis={selected.basis as QuantityBasis} />
+            <StoredBasis Chip={BasisChip} said={selected.basis} />
           </dd>
           <dt>{REGISTER_COPY.takeoff_register_role_label}</dt>
           <dd data-testid="register-object-role" data-role={selected.role}>
@@ -1341,7 +1360,11 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
               }}
               rowDataOf={(line) => rowDataOf(line, selectedLineId)}
               aria-label={REGISTER_COPY.takeoff_register_heading}
-              scrollToRowId={originLine ?? undefined}
+              // The row the origin address names, taken from the rows this screen renders at the
+              // position the one reading of that question puts it — a filter that has taken the
+              // origin away leaves nothing to travel to, and asking for it anyway would leave the
+              // reticle owed for the rest of the visit (I-182, B-17).
+              scrollToRowId={originRow?.lineId}
             />
           )}
         </div>
@@ -1412,7 +1435,7 @@ function Readings({
           <span className="cx-register-cell-mono">
             {reading.valueAsWritten} {reading.unitAsWritten}
           </span>
-          <BasisChip basis={reading.basis as QuantityBasis} />
+          <StoredBasis Chip={BasisChip} said={reading.basis} />
           <span className="cx-register-source" data-technical="">
             {reading.sourceKey}
           </span>

@@ -8,13 +8,13 @@
 // The read is core's (`@/core/views`): the act seam resolves CONFIRM_VIEW_TYPE's membership over the
 // same rows and may not reach into a module (ARCH-01), so a view has one reading and this door asks
 // for it rather than keeping a second one (B-17).
-import { and, conventionProfiles, drawings, eq, forTenant, isUuid, partitionViews, viewAssignments } from "@/core/db";
+import { and, conventionProfiles, drawings, eq, forTenant, isUuid, partitionRebuilds, partitionViews, viewAssignments } from "@/core/db";
 import { CONVENTIONS_METHOD, isConventionProfile, type ConventionProfile, type EntityCensus } from "@/core/rulesets/methods/conventions/resolve";
 import { viewRecordsOf, type ProposedViewType, type ViewRecord } from "@/core/views";
 import type { DetectedGrid } from "./grid/detect";
 import { rewriteGridRows } from "./grid/store";
-import { rewriteExpansionRows } from "./expansion/store";
-import type { ResolvedExpansion } from "./expansion/resolve";
+import { registerExpansion, rewriteExpansionRows, type RegisteredExpansion } from "./expansion/store";
+import type { ExpansionRow, ResolvedExpansion } from "./expansion/resolve";
 import { rewriteProposedLevelRows } from "./levels-proposal/store";
 import type { ProposedLevelStack } from "./levels-proposal/propose";
 import type { DetectedPlacements } from "./placement/rows";
@@ -65,6 +65,17 @@ export type PartitionWrite = {
   readonly expansion: ResolvedExpansion | null;
   /** What the levels-proposal stage read off the sections, or null for the same reason (L-MEA-07). */
   readonly proposal: ProposedLevelStack | null;
+  /**
+   * The register pass this rebuild owes: the pinned revisions its rows are registered under, and the
+   * rows themselves. Null — or absent — where the rebuild registered nothing (L-REG-06).
+   */
+  readonly register?: RegisterPass | null;
+};
+
+/** What a rebuild hands the register: the revisions that name its drawing, and the rows it derived. */
+export type RegisterPass = {
+  readonly setRevisionIds: readonly string[];
+  readonly rows: readonly ExpansionRow[];
 };
 
 /**
@@ -86,11 +97,17 @@ export async function drawingProjectOf(tenantId: string, drawingId: string): Pro
  * there, a profile resolved from views the store no longer holds, or a grid axis standing in a view
  * nobody classified (L-CAD-06, L-CAD-07, L-CAD-08).
  */
-export async function rewritePartition(write: PartitionWrite): Promise<void> {
+export async function rewritePartition(write: PartitionWrite): Promise<RegisteredExpansion[]> {
   const ofRecord = (table: typeof partitionViews | typeof viewAssignments | typeof conventionProfiles) =>
     and(eq(table.tenantId, write.tenantId), eq(table.ingestId, write.ingestId));
 
-  await forTenant({ tenantId: write.tenantId }).transaction(async (tx) => {
+  return forTenant({ tenantId: write.tenantId }).transaction(async (tx) => {
+    await tx.delete(partitionRebuilds).where(and(eq(partitionRebuilds.tenantId, write.tenantId), eq(partitionRebuilds.ingestId, write.ingestId)));
+    // That this record HAS been rebuilt, written whatever the stages read. Every other table here is
+    // conditional on what the drawing said, and a partition judged on their rows cannot tell "read,
+    // and found nothing" from "never read" — two answers a reader acts on differently (R-UI-050).
+    await tx.insert(partitionRebuilds).values({ tenantId: write.tenantId, projectId: write.projectId, drawingId: write.drawingId, ingestId: write.ingestId });
+
     await tx.delete(conventionProfiles).where(ofRecord(conventionProfiles));
     await tx.delete(viewAssignments).where(ofRecord(viewAssignments));
     await tx.delete(partitionViews).where(ofRecord(partitionViews));
@@ -158,6 +175,16 @@ export async function rewritePartition(write: PartitionWrite): Promise<void> {
     await rewritePlacementRows(tx, { ...record, placements: write.placements });
     await rewriteExpansionRows(tx, { ...record, expansion: write.expansion });
     await rewriteProposedLevelRows(tx, { ...record, proposal: write.proposal });
+
+    // And the register, through the register module's own tx-taking door — in THIS transaction, so a
+    // rebuild that fails leaves no register object standing for a partition nobody can see (L-REG-01,
+    // L-REG-04). The rows and the partition they were derived from land together or neither does.
+    const pass = write.register ?? null;
+    if (pass === null) return [];
+    const scope = { tenantId: write.tenantId, projectId: write.projectId };
+    const registered: RegisteredExpansion[] = [];
+    for (const setRevisionId of pass.setRevisionIds) registered.push(await registerExpansion(tx, { ...scope, setRevisionId }, pass.rows));
+    return registered;
   });
 }
 
@@ -167,10 +194,13 @@ export async function rewritePartition(write: PartitionWrite): Promise<void> {
  * the same answer as a drawing whose schedules were read and found none (R-UI-050).
  */
 export async function partitionStandsFor(tenantId: string, ingestId: string): Promise<boolean> {
+  // Judged on the row every rebuild writes, never on the view rows: a drawing whose captions name no
+  // view has been READ and found to state none, which is not the answer a drawing nobody has opened
+  // owes (R-UI-050, R-TO-030).
   const rows = await forTenant({ tenantId })
-    .select({ viewKey: partitionViews.viewKey })
-    .from(partitionViews)
-    .where(and(eq(partitionViews.tenantId, tenantId), eq(partitionViews.ingestId, ingestId)))
+    .select({ ingestId: partitionRebuilds.ingestId })
+    .from(partitionRebuilds)
+    .where(and(eq(partitionRebuilds.tenantId, tenantId), eq(partitionRebuilds.ingestId, ingestId)))
     .limit(1);
   return rows.length > 0;
 }

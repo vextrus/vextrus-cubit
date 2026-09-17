@@ -2,9 +2,10 @@
 // pinned set revisions its rows are registered under, and the register pass itself.
 //
 // The deferrals are rewritten inside the partition's ONE transaction (`../store`) with the placements
-// they were resolved from. The REGISTER is not: L-REG-03's double-count guard is the register's own
-// key and the door that holds it is the register module's (`registerSighting`), which opens its own
-// transaction — one door, one guard, and no second writer of a register object (B-17, ARCH-02).
+// they were resolved from, and so is the register pass: it is entered through the register module's
+// own tx-taking door (`registerSightingsIn`), inside the transaction the rebuild already holds — one
+// door, one guard, and no second writer of a register object (B-17, ARCH-02). A rebuild whose later
+// stage throws therefore leaves no register row behind for the next one to derive against (L-REG-04).
 //
 // A key already standing for a revision is skipped rather than re-offered: a blind second offer would
 // be refused `DUPLICATE_IDENTITY` and kept as evidence, so a rebuild of an unchanged drawing would
@@ -12,7 +13,7 @@
 import { and, asc, drawingSetRevisions, eq, expansionDeferrals, forTenant, typicalRanges, type TenantTx } from "@/core/db";
 import { liveLevelsOf } from "@/core/levels/store";
 import { recordOf } from "@/core/sets";
-import { registerObjectsOf, registerSighting, type RegisterScope } from "@/modules/takeoff/register";
+import { registerObjectsIn, registerObjectsOf, registerSightingsIn, type RegisterScope } from "@/modules/takeoff/register";
 import { PLACEMENT_DISCIPLINE } from "../placement/law";
 import type { AuthoredRange, ExpansionRow, ResolvedExpansion, StackedLevel } from "./resolve";
 
@@ -32,8 +33,16 @@ export type ExpansionWrite = {
   readonly expansion: ResolvedExpansion | null;
 };
 
-/** What one pass of the register left: how many rows it wrote, and how many already stood. */
-export type RegisteredExpansion = { readonly registered: number; readonly standing: number };
+/**
+ * What one pass of the register left: how many rows it wrote, how many already stood, and the keys
+ * standing under the views it read that this rebuild NO LONGER derives (L-QTY-04).
+ *
+ * `stale` is reported and not retracted: the register door has no retraction — a register object is
+ * the standing identity itself and nothing deletes one (L-REG-01) — so a rebuild that derives fewer
+ * rows than the last one says so, where saying nothing would leave a quantity nobody can see is no
+ * longer derived from any drawing.
+ */
+export type RegisteredExpansion = { readonly registered: number; readonly standing: number; readonly stale: readonly string[] };
 
 /**
  * Rewrite one record's expansion deferrals inside the partition's transaction. Cleared first, so a
@@ -112,21 +121,50 @@ export async function revisionsNaming(scope: { tenantId: string; projectId: stri
 }
 
 /**
- * Register one revision's worth of resolved rows through the register's own door (L-REG-01). What is
- * already standing is left alone: the key is the identity, so a row that stands IS this sighting, and
- * offering it again would be offering a second measured sighting of one scope (L-REG-03).
+ * What this rebuild's rows amount to against the register AS IT STANDS, read before the write.
+ *
+ * The write itself happens inside the partition's transaction and nowhere else, so the stage that
+ * resolved the rows cannot report what the write did; it reports what it resolved, against what is
+ * already standing. The two agree — the pass writes exactly the keys that were not standing when it
+ * read them, inside one transaction over one revision — and where a rebuild fails before the write,
+ * this census is what it said it would do rather than what it did (L-REG-03, L-REG-04).
  */
-export async function registerExpansion(scope: RegisterScope, rows: readonly ExpansionRow[]): Promise<RegisteredExpansion> {
-  const held = new Set((await registerObjectsOf(scope)).map((object) => object.objectKey));
+export async function expansionCensusOf(scope: RegisterScope, rows: readonly ExpansionRow[]): Promise<RegisteredExpansion> {
+  const objects = await registerObjectsOf(scope);
+  const held = new Set(objects.map((object) => object.objectKey));
   let registered = 0;
   let standing = 0;
 
   for (const row of rows) {
-    if (held.has(row.objectKey)) {
-      standing += 1;
-      continue;
+    if (held.has(row.objectKey)) standing += 1;
+    else {
+      registered += 1;
+      // Counted once: two rows of one key are one identity, and the pass offers the second no more
+      // than this census counts it twice (L-REG-03).
+      held.add(row.objectKey);
     }
-    const answer = await registerSighting(scope, {
+  }
+
+  return { registered, standing, stale: staleOf(objects, rows) };
+}
+
+/**
+ * Register one revision's worth of resolved rows through the register's own door (L-REG-01). What is
+ * already standing is left alone: the key is the identity, so a row that stands IS this sighting, and
+ * offering it again would be offering a second measured sighting of one scope (L-REG-03).
+ */
+export async function registerExpansion(tx: TenantTx, scope: RegisterScope, rows: readonly ExpansionRow[]): Promise<RegisteredExpansion> {
+  const objects = await registerObjectsIn(tx, scope);
+  const held = new Set(objects.map((object) => object.objectKey));
+  const offering = rows.filter((row) => !held.has(row.objectKey));
+
+  // The door is entered ONCE for the whole revision: a drawing's members are derived together and are
+  // offered together, so the scope is proved once and the store's key decides the batch in one
+  // statement rather than one round trip per member of the building (L-REG-03, AC-2(e)).
+  const answers = await registerSightingsIn(
+    tx,
+    scope,
+    offering.map((row) => ({
       discipline: PLACEMENT_DISCIPLINE,
       elementType: row.placement.elementType,
       mark: row.placement.mark,
@@ -144,11 +182,25 @@ export async function registerExpansion(scope: RegisterScope, rows: readonly Exp
         gridNumeral: row.placement.gridNumeral,
         memberFamily: row.placement.memberFamily,
       },
-    });
-    if (answer.registered) registered += 1;
-    else standing += 1;
-    held.add(row.objectKey);
-  }
+    })),
+  );
 
-  return { registered, standing };
+  const registered = answers.filter((answer) => answer.registered).length;
+  return { registered, standing: rows.length - registered, stale: staleOf(objects, rows) };
+}
+
+/**
+ * The keys standing in the register that this rebuild no longer derives, in key order.
+ *
+ * Judged over the VIEWS this rebuild read and no others: a set revision holds every drawing of the
+ * set, and the rows another drawing's own rebuild derived are no business of this one — naming them
+ * would report the whole register as stale on every rebuild (L-REG-02, L-CAD-06).
+ */
+function staleOf(standing: readonly { objectKey: string; viewKey: string }[], rows: readonly ExpansionRow[]): string[] {
+  const read = new Set(rows.map((row) => row.placement.viewKey));
+  const derived = new Set(rows.map((row) => row.objectKey));
+  return standing
+    .filter((object) => read.has(object.viewKey) && !derived.has(object.objectKey))
+    .map((object) => object.objectKey)
+    .sort();
 }

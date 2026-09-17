@@ -77,7 +77,7 @@ const AXIS_Y = "y" satisfies GridAxis;
  * in ten thousand on the corpus this reads. A rectangle's vertices disagree by a sixth — two orders
  * of magnitude clear of this — so the signature still tells a bubble from a box.
  */
-const ROUNDNESS_TOLERANCE = 1e-3;
+export const ROUNDNESS_TOLERANCE = 1e-3;
 
 /** How many vertices a ring must carry before equidistance means anything — see `roundnessOf`. */
 const FEWEST_ROUND_VERTICES = 5;

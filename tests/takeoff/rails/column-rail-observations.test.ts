@@ -36,6 +36,8 @@ const VIEW_SCALE_UNAFFIRMED = "VIEW_SCALE_UNAFFIRMED";
 const MEMBER_TYPE_UNKNOWN = "MEMBER_TYPE_UNKNOWN";
 const SECTION_BAND_UNCOVERED = "SECTION_BAND_UNCOVERED";
 const SECTION_UNIT_UNSTATED = "SECTION_UNIT_UNSTATED";
+/** The fifth: a row whose PLACEMENT the setup does not hold, re-homed off MEMBER_TYPE_UNKNOWN. */
+const PLACEMENT_UNHELD = "PLACEMENT_UNHELD";
 
 /** The level the row of every case below stands on, and one below it a band can name. */
 const GROUND: LevelSetup = levelStanding({ levelId: "44444444-4444-4444-8444-444444444401", label: "GF", ordinal: 0, value: "3", unit: "M", sourceKey: "S-105:e:2" });
@@ -83,14 +85,15 @@ async function reportedBy(draft: Partial<RailInputDraft>, sourceEntity: string):
 }
 
 describe("the column rail's closed code roster", () => {
-  test("the roster is exactly the four codes the rail reports under", async () => {
+  test("the roster is exactly the codes the rail reports under", async () => {
     const rail = await columnRailDoor();
-    expect([...rail.COLUMN_RAIL_CODES], "a rail-local roster is closed: a fifth reason would be a code no reader was told to expect (interfaces)").toStrictEqual([
-      VIEW_SCALE_UNAFFIRMED,
-      MEMBER_TYPE_UNKNOWN,
-      SECTION_BAND_UNCOVERED,
-      SECTION_UNIT_UNSTATED,
-    ]);
+    // TEST_AMENDED (inc-sweep-src-modules-2, AC-3(a)): the roster gains PLACEMENT_UNHELD, the code a
+    // row whose placement the setup does not hold is now reported under. The roster is still closed —
+    // a code beside these is one no reader was told to expect — and the ORDER of a roster is nobody's
+    // contract, so membership is what is asserted (interfaces, AM-11).
+    expect(new Set([...rail.COLUMN_RAIL_CODES]), "a rail-local roster is closed: a sixth reason would be a code no reader was told to expect (interfaces)").toStrictEqual(
+      new Set([VIEW_SCALE_UNAFFIRMED, MEMBER_TYPE_UNKNOWN, SECTION_BAND_UNCOVERED, SECTION_UNIT_UNSTATED, PLACEMENT_UNHELD]),
+    );
   });
 
   test("a view no affirmed calibration stands for is reported, never offered", async () => {
@@ -113,7 +116,10 @@ describe("the column rail's closed code roster", () => {
 
   test("a row whose placement the setup does not hold is reported rather than dropped", async () => {
     // There is no drawing, view or engine to offer such a row under, and silence would lose it.
-    expect(await reportedBy({ placements: {} }, PLACEMENT_KEY)).toBe(MEMBER_TYPE_UNKNOWN);
+    // TEST_AMENDED (inc-sweep-src-modules-2, AC-3(a)): under its OWN code. MEMBER_TYPE_UNKNOWN's
+    // registered message and remedy send the reader to a member-type registry that answered nothing
+    // wrong; the recourse here is to rebuild the drawing's partition (Q-07, debt-src-modules-bfezdu).
+    expect(await reportedBy({ placements: {} }, PLACEMENT_KEY)).toBe(PLACEMENT_UNHELD);
   });
 
   test("a level no section band covers defers, by name", async () => {

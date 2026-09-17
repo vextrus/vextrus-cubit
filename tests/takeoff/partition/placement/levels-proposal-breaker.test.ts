@@ -5,12 +5,12 @@
  * classes — a long-section strip and a member section — into `proposed_levels`, which
  * `proposedLevelStackOf` offers as the `levels` of ONE `INSERT_LEVEL` (increment interfaces, AC-7).
  *
- * The stage ordinals each view's marks from zero, and the door maps every stored row into the offer
- * one for one. A sheet carrying two sections — the ordinary case: `SECTION A-A` beside `SECTION B-B`
- * — therefore offers a list whose ordinals restart and whose labels repeat, and `INSERT_LEVEL` takes
- * a list like that at its word: it shifts each proposal past the ones before it and mints a level per
- * entry, so confirming the machine's own proposal authors the building's storeys twice over. Levels
- * are authored, never edited (L-ACT-01), so what lands lands.
+ * The stage reads the marks of EVERY section of the sheet into one stack: a sheet carrying two —
+ * the ordinary case, `SECTION A-A` beside `SECTION B-B` — states one building's storeys twice, and a
+ * proposal that offered each view's marks as its own list would restart the ordinals and repeat the
+ * labels. `INSERT_LEVEL` takes a list like that at its word: it shifts each proposal past the ones
+ * before it and mints a level per entry, so confirming the machine's own proposal would author the
+ * building's storeys twice over. Levels are authored, never edited (L-ACT-01), so what lands lands.
  *
  * The drawing is the acceptance's own SECTIONS artifact with its model space drawn a second time to
  * one side — the same section, on the same sheet, as a second view. The assertion is fix-agnostic:
@@ -118,8 +118,13 @@ describe("the stack a sheet of two sections proposes", () => {
   test("the sheet really did read as two sections", () => {
     const detail = stepDetail(steps, LEVELS_PROPOSAL_STAGE);
     expect(Number(detail["views"]), "both sections of the sheet were examined by the seventh stage").toBe(2);
-    const views = new Set(proposedLevelRows(stage.person.tenantId, ingestId).map((row) => said(row, "viewKey", "view_key")));
-    expect(views.size, "the stage read level marks off both of them").toBe(2);
+    const rows = proposedLevelRows(stage.person.tenantId, ingestId);
+    expect(rows.length, "and it proposed a stack off what they state").toBeGreaterThan(0);
+    // The two sections of this sheet are the SAME section drawn twice, so every storey they state is
+    // one storey of one building: the stack names it once, citing the view it was first read in, and
+    // a second row for the second drawing of it would be the duplicate the stack is not (L-MEA-07).
+    const views = new Set(rows.map((row) => said(row, "viewKey", "view_key")));
+    expect(views.size, "the marks both sections repeat are proposed once, under the view they were first read in").toBe(1);
   });
 
   test("what the door offers is one stack: each storey named once", () => {

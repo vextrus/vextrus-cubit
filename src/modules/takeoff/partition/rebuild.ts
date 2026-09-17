@@ -23,7 +23,7 @@ import type { ViewRecord } from "@/core/views";
 import { ingestRecords, type IngestRecord } from "@/modules/takeoff/ingest";
 import { censusOf } from "./conventions/census";
 import { resolveExpansion, type ResolvedExpansion } from "./expansion/resolve";
-import { authoredRangesOf, liveStackOf, registerExpansion, revisionsNaming } from "./expansion/store";
+import { authoredRangesOf, expansionCensusOf, liveStackOf, revisionsNaming } from "./expansion/store";
 import { detectGrid, type DetectedGrid } from "./grid/detect";
 import { proposeLevelStack, type ProposedLevelStack } from "./levels-proposal/propose";
 import { detectPlacements } from "./placement/detect";
@@ -32,7 +32,7 @@ import { placementSharesOf } from "./placement/shares";
 import { reconstructSchedules } from "./schedules/reconstruct";
 import { registerMemberTypes } from "./schedules/registry";
 import type { DetectedSchedules } from "./schedules/store";
-import { drawingProjectOf, rewritePartition, storedViewsOf, type ResolvedConventions, type ViewProposal } from "./store";
+import { drawingProjectOf, rewritePartition, storedViewsOf, type RegisterPass, type ResolvedConventions, type ViewProposal } from "./store";
 import { partitionArtifact, type PartitionedView } from "./views/assign";
 import { VIEW_TYPE, VIEW_TYPES, type ViewType } from "./views/law";
 
@@ -83,6 +83,8 @@ type StagedPartition = {
   readonly placements: DetectedPlacements | null;
   readonly expansion: ResolvedExpansion | null;
   readonly proposal: ProposedLevelStack | null;
+  /** The register pass the expansion stage owes the store, or null where it resolved nothing. */
+  readonly register: RegisterPass | null;
 };
 
 /**
@@ -206,16 +208,29 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
     // A sighting is scoped to a pinned set revision (L-REG-03). A drawing no pinned revision names is
     // a drawing nothing has been measured under yet: it is placed and resolved all the same, and the
     // register stands empty until somebody pins a set that carries it (L-REG-06).
+    // The rows are carried to the store rather than registered here: the register pass runs inside the
+    // partition's own transaction, so a rebuild that fails after this stage leaves no register object
+    // standing for a partition nobody can see (L-REG-01, L-REG-04).
     const revisions = await revisionsNaming({ ...scope, drawingId: context.drawingId, sha256: context.record.sha256 });
-    let registered = 0;
-    let standing = 0;
-    for (const setRevisionId of revisions) {
-      const pass = await registerExpansion({ ...scope, setRevisionId }, expansion.rows);
-      registered += pass.registered;
-      standing += pass.standing;
-    }
 
-    return { derived: { ...held, expansion }, detail: { revisions: revisions.length, registered, standing, deferred: expansion.deferrals.length } };
+    // What those rows amount to per revision, read against the register as it stands: the rows this
+    // rebuild adds, the rows that already stood, and the keys under its own views it no longer
+    // derives (L-QTY-04). The write is the store's, inside the partition's transaction; the census
+    // is this stage's, because this is the stage that resolved the rows.
+    const census = [];
+    for (const setRevisionId of revisions) census.push(await expansionCensusOf({ ...scope, setRevisionId }, expansion.rows));
+
+    return {
+      derived: { ...held, expansion, register: { setRevisionIds: revisions, rows: expansion.rows } },
+      detail: {
+        revisions: revisions.length,
+        rows: expansion.rows.length,
+        deferred: expansion.deferrals.length,
+        registered: census.reduce((count, pass) => count + pass.registered, 0),
+        standing: census.reduce((count, pass) => count + pass.standing, 0),
+        stale: census.flatMap((pass) => [...pass.stale]),
+      },
+    };
   },
   // The seventh: the level stack the sections STATE, read into a proposal a person confirms whole.
   // Nothing here authors a level — "the machine proposes a stack, never a level" (L-ACT-03).
@@ -250,7 +265,7 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
   const graph = await artifactOf(tenantId, record, deps.storage);
   await progress.step(STEP_RESOLVE, { ingest_id: ingestId, artifact_sha256: record.artifactSha256 });
 
-  let derived: StagedPartition = { views: [], assignments: new Map(), conventions: null, grid: null, schedules: null, placements: null, expansion: null, proposal: null };
+  let derived: StagedPartition = { views: [], assignments: new Map(), conventions: null, grid: null, schedules: null, placements: null, expansion: null, proposal: null, register: null };
   for (const stage of PARTITION_STAGES) {
     const outcome = await STAGES[stage]({ record, graph, tenantId, projectId, drawingId }, derived);
     derived = outcome.derived;
@@ -280,6 +295,7 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
     placements: derived.placements,
     expansion: derived.expansion,
     proposal: derived.proposal,
+    register: derived.register,
   });
   await progress.step(STEP_STORED, { views: derived.views.length, assigned: derived.assignments.size, proposed: proposals.size });
 }

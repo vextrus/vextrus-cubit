@@ -81,6 +81,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "DOCUMENT_URL_INVALID",
   "DOWNLOAD_NOT_SIGNABLE",
   "DUPLICATE_IDENTITY",
+  "EARTHWORK_PARAMETER_UNSTATED",
   "EARTHWORK_PLAN_DEFERRED",
   "EXPORT_NOT_FOUND",
   "EXPORT_URL_EXPIRED",
@@ -129,6 +130,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "PILE_DIAMETER_UNSTATED",
   "PILE_LENGTH_UNSTATED",
   "PIN_STALE",
+  "PLACEMENT_UNHELD",
   "PRECISION_NOT_APPLIED",
   "PRODUCT_FACTOR_MISSING",
   "PROJECT_WOULD_HAVE_NO_PRINCIPAL",
@@ -161,6 +163,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "SLAB_THICKNESS_UNSTATED",
   "SOURCE_UNRESOLVED",
   "STOREY_HEIGHT_CONTESTED",
+  "STOREY_HEIGHT_UNCITED",
   "STOREY_HEIGHT_UNSTATED",
   "SURFACE_NOT_CLOSED",
   "TOKEN_NOT_VALID",
@@ -273,7 +276,18 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * severity or surface moved with them; the previous digest was
  * 9bc34ffa33026d33a92931d1f913e7b7808ad05fcbd06a83048d8b9324ea1d7b.
  */
-const ENTRIES_DIGEST_BEFORE = "8bb7fc6ed15553923a99ff0d2f7369558eb7292bcee4db3f0c3575ddcbaedb12";
+/*
+ * Re-baselined for THREE ADDED entries and nothing else: `PLACEMENT_UNHELD` (./frame.ts), what a
+ * register row whose setup holds no placement is refused by; `STOREY_HEIGHT_UNCITED`
+ * (./takeoff-levels.ts), what an agreed storey height citing no source is refused by; and
+ * `EARTHWORK_PARAMETER_UNSTATED` (./foundations.ts), what a working allowance, a depth extra, a
+ * blinding projection or a blinding thickness neither the edition nor the site states is omitted
+ * under. Each says what its own absence is, where the code standing in its place sent a reader to a
+ * reading that was never missing (Q-07, L-QTY-02). The roster grew by those three keys — 118 codes
+ * to 121 — and not one existing entry's code, message, remedy, severity or surface moved with them;
+ * the previous digest was 8bb7fc6ed15553923a99ff0d2f7369558eb7292bcee4db3f0c3575ddcbaedb12.
+ */
+const ENTRIES_DIGEST_BEFORE = "9d774bd9957e6d3f38c50d1e032675a3eca5d5dd282f122a983b4ab286c0aac6";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

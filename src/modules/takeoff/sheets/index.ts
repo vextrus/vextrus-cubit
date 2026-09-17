@@ -9,13 +9,16 @@
 import { projectDrawingsOf, sheetStateOf, sheetsOfRecord, type Discipline, type FidelityFact, type ScaleState, type SheetConfirmation, type SheetFacts, type SheetProposal } from "@/core/sheets";
 import type { OfferedGroupKey } from "@/core/acts";
 import { forTenant, type TenantTx } from "@/core/db";
+import { artifactAt } from "@/core/entitygraph/artifact";
 import { judgeAnisotropy } from "@/core/scale";
 import { affirmationsOfRecord } from "@/core/scale/store";
 import { scaleTolerancesOf } from "@/core/scale/tolerances";
 import { appStorage } from "@/core/storage/app";
+import type { Storage as AppStorage } from "@/core/storage";
 import { viewRecordsOf } from "@/core/views";
 import { sheetRastersOf } from "../thumbnails";
 import { scaleStateOf, type ScaleStateView } from "./scale-state";
+import { viewsOnSheet } from "./sheet-views";
 
 export type { OfferedGroupKey } from "@/core/acts";
 export { scaleStateOf, type ScaleStateView, type SheetScaleState } from "./scale-state";
@@ -85,9 +88,14 @@ export async function sheetIndexOf(scope: SheetIndexScope): Promise<SheetCard[]>
     if (drawing.record === null) continue;
     const sheets = await sheetsOfRecord(scope.tenantId, drawing.record, storage);
     const rasters = await sheetRastersOf({ tenantId: scope.tenantId, drawingId: drawing.drawingId });
-    const views = byRecord.get(drawing.record.ingestId) ?? [];
+    const held = byRecord.get(drawing.record.ingestId) ?? [];
+    // Which sheet each of those views stands on. A record is one drawing file and may carry several
+    // paper layouts, and a view is drawn in exactly one of them: counting every view of the record on
+    // every sheet of it tells a reader of S-102 how many views S-103 holds (R-TO-021, L-CAD-05).
+    const spaces = await spacesOfRecord(scope.tenantId, drawing.record, storage);
 
     for (const sheet of sheets) {
+      const views = viewsOnSheet(held, sheet, spaces, sheets);
       const tiers = rasters.find((rendered) => rendered.layoutName === sheet.layoutName)?.tiers;
       const thumb = tiers?.[THUMB_TIER];
       // The card's scale line is derived from the calibrations in force, over the reading the sheet
@@ -108,6 +116,19 @@ export async function sheetIndexOf(scope: SheetIndexScope): Promise<SheetCard[]>
   }
   return cards;
 }
+
+/**
+ * Where every entity of a record was drawn, by its own key: the artifact's `space`, which is the
+ * layout name a sheet of the index carries (L-CAD-05).
+ *
+ * Read through the one artifact door, which answers once per content hash however many readers ask
+ * — the sheets themselves were read from the same bytes a moment ago (B-17).
+ */
+async function spacesOfRecord(tenantId: string, record: { ingestId: string; artifactSha256: string }, storage: AppStorage): Promise<Map<string, string>> {
+  const graph = await artifactAt(tenantId, record.artifactSha256, storage, `ingest ${record.ingestId}`);
+  return new Map(graph.entities.map((entity) => [entity.key, entity.space]));
+}
+
 
 /**
  * The views of each named ingest record, as a scale state is derived from them: the view rows the
@@ -131,7 +152,7 @@ export async function sheetScaleStatesOf(scope: SheetIndexScope, ingestIds: read
         ingestId,
         views.map((view) => {
           const standing = affirmed.get(view.viewKey) ?? null;
-          return { viewKey: view.viewKey, affirmed: standing === null ? null : judgeAnisotropy(standing, tolerances.anisotropy) };
+          return { viewKey: view.viewKey, anchorKey: view.anchorKey, affirmed: standing === null ? null : judgeAnisotropy(standing, tolerances.anisotropy) };
         }),
       );
     }

@@ -351,6 +351,13 @@
       "when": 1789625302905,
       "tag": "0049_rebar-engine",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1789656025651,
+      "tag": "0050_partition-rebuilds",
+      "breakpoints": true
     }
   ]
 }

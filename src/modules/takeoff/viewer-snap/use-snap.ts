@@ -218,7 +218,23 @@ export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration
   const sheetRef = useRef<Sheet>(NO_SHEET);
   /** What a pointer handler must read without a stale closure — a hover is not a render (PB-3). */
   const heldRef = useRef({ enabled, ortho, angle, picks, snap, live });
-  heldRef.current = { enabled, ortho, angle, picks, snap, live };
+  /** The same fields as the LAST render published them, which is how a moved one is told apart. */
+  const renderedRef = useRef(heldRef.current);
+  // A handler writes the live reading into the ref between renders — a hover is not a render — and a
+  // render that copied every field back over it would put the pointer back where it was when React
+  // last painted: the glyph would follow the hand and the pick would be taken where the hand was
+  // before (I-147, PB-3). Only a field the RENDER moved is carried across; the rest stays as the
+  // gesture left it.
+  const carried = <T,>(now: T, before: T, held: T): T => (now === before ? held : now);
+  heldRef.current = {
+    enabled: carried(enabled, renderedRef.current.enabled, heldRef.current.enabled),
+    ortho: carried(ortho, renderedRef.current.ortho, heldRef.current.ortho),
+    angle: carried(angle, renderedRef.current.angle, heldRef.current.angle),
+    picks: carried(picks, renderedRef.current.picks, heldRef.current.picks),
+    snap: carried(snap, renderedRef.current.snap, heldRef.current.snap),
+    live: carried(live, renderedRef.current.live, heldRef.current.live),
+  };
+  renderedRef.current = { enabled, ortho, angle, picks, snap, live };
 
   /** The crossings of the stored grid, paired within each view and never across one (I-149). */
   const grid = useMemo<readonly GridIntersection[]>(() => (axes === undefined ? [] : gridIntersectionsOf(axes)), [axes]);

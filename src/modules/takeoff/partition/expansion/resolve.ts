@@ -292,7 +292,7 @@ export function resolveExpansion(evidence: ExpansionEvidence): ResolvedExpansion
   }
 
   return {
-    rows: [...owned(rows)].sort((left, right) => byCodePoint(left.objectKey, right.objectKey)),
+    rows: [...ownedRows(rows)].sort((left, right) => byCodePoint(left.objectKey, right.objectKey)),
     deferrals: [...deferrals].sort((left, right) => byCodePoint(left.viewKey, right.viewKey)),
   };
 }
@@ -317,8 +317,12 @@ function scopeOf(row: ExpansionRow): string {
  *
  * Only across views: within one view a placement's rows stand on distinct levels already, and two
  * placements of one mark in one view stand at distinct grid references.
+ *
+ * Exported because it is the ONE implementation of this rule: a second reading of "which sighting owns
+ * this scope", keyed any other way, answers a different set of rows for the same drawing — and one of
+ * the two then bills a member twice or loses it with no word said (B-17, ARCH-02).
  */
-function owned(rows: readonly ExpansionRow[]): ExpansionRow[] {
+export function ownedRows(rows: readonly ExpansionRow[]): ExpansionRow[] {
   const drawnAt = new Map<string, string>();
   for (const row of rows) if (row.standing === MEASURED) drawnAt.set(scopeOf(row), row.placement.viewKey);
   return rows.filter((row) => {

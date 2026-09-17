@@ -6,16 +6,15 @@
 // for the worker's composition root alone. A bundler follows a barrel's every re-export, and the
 // rebuild reaches the object store and the model seam — neither of which belongs in a screen's module
 // graph (ARCH-01, and the same reason SEAM-CAD keeps its job behind its own file).
+import { dotlessUpper } from "@/core/identity";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
 import { storedExpansionDeferralsOf, storedTypicalRangesOf, type StoredExpansionDeferral, type StoredTypicalRange } from "./expansion/store";
 import { storedGridOf, type StoredGrid } from "./grid/store";
-import { statedHeight } from "./levels-proposal/propose";
 import { storedProposedLevelsOf, type StoredProposedLevel } from "./levels-proposal/store";
 import { storedPlacementsOf, storedRunsOf, type StoredPlacement, type StoredRun } from "./placement/store";
 import { storedMemberTypesOf, storedSchedulesOf, type StoredMemberTypes, type StoredSchedules } from "./schedules/store";
 import { drawingProjectOf, partitionStandsFor, storedConventionsOf, storedViewsOf, type StoredConventions } from "./store";
 import type { GroupKind, ProposedLevel, ProposedReading } from "@/core/acts";
-import { compareCanonical, dotlessUpper } from "@/core/identity";
 import type { ViewRecord } from "@/core/views";
 
 export { PARTITION_KIND, partitionJobKey, requestPartition, type PartitionRefused, type PartitionRequest, type PartitionRequested } from "./request";
@@ -180,50 +179,21 @@ export type ProposedLevelStackOffer = {
 };
 
 /**
- * The ONE stack a drawing's sections state, from the storeys they each state (L-MEA-07). A sheet
- * ordinarily carries two sections — `SECTION A-A` beside `SECTION B-B` — and the seventh stage reads
- * each into `proposed_levels` on its own, ordinalled from its own foot. What is offered below is the
- * `levels` of a single `INSERT_LEVEL`, and that act mints one level per entry it is handed: offering
- * both views' rows one after another would have a person confirming the machine's own proposal author
- * the building's storeys twice over, and a level is authored and never edited (L-ACT-01).
+ * The storey height an offered level states: the one the seventh stage READ, published as it stands
+ * (L-REG-01, L-CAD-03).
  *
- * So a storey is named once: by the LABEL that names it, and by nothing else — two sections of one
- * building state one GF, however each of them spells it. An elevation is not the identity: a member
- * section is routinely drawn from its own datum, so a `1ST` standing at +0.00 on one view and the
- * `GF` standing at +0.00 on another are two storeys that share a number, and dropping either of them
- * would leave a person confirming a stack the drawing never proposed, with nothing said about it.
+ * That stage states each height as the distance between two marks of ONE section, adjacent in the one
+ * stack it proposes — and states none anywhere else. Re-deriving a height here from the stack's own
+ * adjacency would answer the distance between two marks nobody measured together: the views are drawn
+ * from their own datums, and a mark the label dedupe dropped leaves two levels that were never
+ * neighbours standing next to each other. Committed, that is a `TRANSCRIBED` reading of a figure
+ * nobody drew, under the basis that means it was read off the drawing (B-17: one home for the rule).
  *
- * The ordinals are the stack's own run from the foot up, because an ordinal is physical (L-MEA-07)
- * and the run is what an `INSERT_LEVEL` shifts its stack by.
+ * An empty list is the drawing's silence, never a zero somebody would have to disbelieve (B-07).
  */
-function oneStack(rows: readonly StoredProposedLevel[]): StoredProposedLevel[] {
-  const stacked: StoredProposedLevel[] = [];
-  for (const row of [...rows].sort((left, right) => left.elevation - right.elevation || compareCanonical(left.markKey, right.markKey))) {
-    const named = stacked.some((held) => dotlessUpper(held.label) === dotlessUpper(row.label));
-    if (!named) stacked.push(row);
-  }
-  return stacked;
-}
-
-/**
- * The storey height an offered level states: the distance to the level standing above it IN THE
- * OFFERED STACK, and nothing else (L-REG-01, L-CAD-03).
- *
- * The seventh stage reads each section on its own and states each level's height within that view's
- * own marks. Merging the sections into one stack can put a different level above a kept one — a long
- * section stating only `GF` and `ROOF` beside a member section stating `1ST` and `2ND` between them —
- * and the reading the row was stored with would then be the distance to a level that no longer stands
- * above it. Committed, that is a `TRANSCRIBED` reading of a figure nobody drew, under the basis that
- * means it was read off the drawing.
- *
- * A storey height is a distance between two marks of ONE section: the views are drawn from their own
- * datums, so the gap between two of them is not a measurement anybody took. Where the level above
- * came from another view, or where the level's own mark stated no unit, the level states no height —
- * an empty list is the drawing's silence, never a zero somebody would have to disbelieve (B-07).
- */
-function storeyHeightOf(level: StoredProposedLevel, above: StoredProposedLevel | undefined): ProposedReading[] {
-  if (above === undefined || above.viewKey !== level.viewKey || level.heightUnit === null) return [];
-  return [{ valueAsWritten: statedHeight(above.elevation - level.elevation), unitAsWritten: level.heightUnit, sourceKey: level.markKey }];
+function storeyHeightOf(level: StoredProposedLevel): ProposedReading[] {
+  if (level.heightAsWritten === null || level.heightUnit === null) return [];
+  return [{ valueAsWritten: level.heightAsWritten, unitAsWritten: level.heightUnit, sourceKey: level.markKey }];
 }
 
 /**
@@ -242,13 +212,26 @@ export async function proposedLevelStackOf(scope: ViewsScope): Promise<ProposedL
   const proposed = await storedProposedLevelsOf(scope.tenantId, ingestId);
   if (proposed.length === 0) return null;
 
-  const stacked = oneStack(proposed);
+  // The stack is the seventh stage's, whole: it reads every section of the artifact into ONE stack,
+  // names each storey once and ordinals it from the foot up, so there is nothing left here to merge
+  // or to dedupe — the label rule has one home, and a second reading of it here would be a second
+  // answer to which spelling stands (B-17, `./levels-proposal/propose`).
+  //
+  // A record partitioned BEFORE that stage carries a stack per view: the same storey proposed twice,
+  // which `INSERT_LEVEL` would take at its word and author twice over (L-ACT-01 — a level is authored,
+  // never edited). Such rows are not one stack and are not offered as one; the drawing is rebuilt,
+  // and the rebuild is what proposes a stack a person can confirm (R-UI-050, L-MEA-07).
+  const named = new Set(proposed.map((level) => dotlessUpper(level.label)));
+  if (named.size !== proposed.length) return null;
+
+  // The ordinal offered is the row's place in that one run: an ordinal is physical, and the run the
+  // store answers in is the run from the foot up (L-MEA-07).
   return {
     group: { kind: PROPOSED_LEVEL_STACK, drawingId: scope.drawingId, ingestId },
-    levels: stacked.map((level, ordinal) => ({
+    levels: proposed.map((level, at) => ({
       label: level.label,
-      ordinal,
-      readings: storeyHeightOf(level, stacked[ordinal + 1]),
+      ordinal: at,
+      readings: storeyHeightOf(level),
     })),
   };
 }

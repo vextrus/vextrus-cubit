@@ -7,6 +7,7 @@ import type { RefusalGroup } from "./law";
 export type TakeoffLevelsRefusalCode =
   | "LEVEL_ORDINAL_UNMAPPED"
   | "STOREY_HEIGHT_UNSTATED"
+  | "STOREY_HEIGHT_UNCITED"
   | "STOREY_HEIGHT_CONTESTED";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
@@ -27,6 +28,16 @@ export const TAKEOFF_LEVELS_REFUSALS: RefusalGroup<TakeoffLevelsRefusalCode> = O
     code: "STOREY_HEIGHT_UNSTATED",
     message: "Nobody has stated this level's storey height, and a height the system invented would be priced as though somebody had.",
     remedy: "Enter the storey height for this level, or transcribe it from the drawing that states it.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-QTY-03: every measured attribute names the atom it was read from. A height the readings AGREE
+  // on and that nothing in any drawing answers for is a different absence from one nobody stated: the
+  // figure stands, and what is missing is the citation a reader would follow back (Q-07).
+  STOREY_HEIGHT_UNCITED: Object.freeze({
+    code: "STOREY_HEIGHT_UNCITED",
+    message: "This level's storey height cites no drawing entity, so nothing in the drawings answers for the figure it stands at.",
+    remedy: "Re-transcribe the storey height from the mark that states it, so the reading cites what it was read from.",
     severity: "error",
     surface: "inline",
   }),

@@ -21,6 +21,7 @@ import { formatUserFigure } from "@/core/format";
 import type { NoteProposal } from "@/core/notes/grammar";
 import { NOTE_KINDS, type NoteKind } from "@/core/notes/law";
 import { SCHEDULES_COPY, fillCopy } from "./copy";
+import { keptReadingOf } from "./kept";
 import type { FamilyView, ReadingView, ScheduleTableView, SchedulesView, SheetView, StandingView } from "./view";
 
 /* ------------------------------------------------------------------ what the screen is handed */
@@ -390,14 +391,9 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
         projectId,
         drawingId: sheet.drawingId,
         layoutName: sheet.layoutName,
-        readings: proposals.map((proposal) => ({
-          kind: proposal.kind,
-          sourceKey: proposal.sourceKey,
-          // I-254: what the box holds is what is kept — the grammar's canonical until a reader edits
-          // it. Whether that is ACCEPTED or EDITED is the seam's judgement and never this screen's.
-          valueAsWritten: drafts[draftKey(proposal)] ?? proposal.canonical,
-          unitAsWritten: proposal.unitAsWritten,
-        })),
+        // I-254: what the box holds is what is kept — the drawing's own words until a reader edits
+        // them. Whether that is ACCEPTED or EDITED is the seam's judgement and never this screen's.
+        readings: proposals.map((proposal) => keptReadingOf({ ...proposal, draft: drafts[draftKey(proposal)] })),
       };
     },
     [drafts, projectId, sheet],

@@ -228,17 +228,37 @@ function variantsOf(
   // row carries ONE variant, under the column that states the section, so the section and the rebar
   // the row states reach the registry rather than being read and dropped (R-TO-031, L-QTY-04).
   if (variants.length > 0) return variants;
-  if (stated === null) return [];
-  const cell = row.get(stated.index);
   // Whatever stands in that column is the section this row states — `12"x15" (TYP)` and `SEE DETAIL`
   // alike. A cell the parsers cannot read is kept verbatim with a null section rather than dropped,
   // because dropping it would drop the row's rebar with it (R-TO-031).
-  if (cell === undefined) return [];
+  const cell = stated === null ? undefined : row.get(stated.index);
 
   // The band this row's own LEVELS cell states, where it states one. The unit is still the SECTION
   // column's to state, because that is the column the numbers were written under (L-MEA-01).
   const bandCell = banded === null ? undefined : row.get(banded.index);
   const band = bandCell === undefined ? null : parseFloorZone(bandCell.text);
+
+  // A row with NO cell at all in the section column — and a family whose schedule states its sections
+  // in no column — still stands for the member its mark names and still states the rebar drawn beside
+  // it. One variant carrying a null section keeps that rebar; registering none drops the drawing's own
+  // bars along with the section nobody wrote (R-TO-031, L-QTY-02).
+  if (stated === null || cell === undefined) {
+    return [
+      {
+        variantKey: band === null ? columnKeyOf(stated?.header ?? "") : variantKeyOf(band),
+        bandText: band === null ? (stated?.header ?? "") : (bandCell as ScheduleCell).text,
+        bandFrom: band === null ? null : band.from,
+        bandTo: band === null ? null : band.to,
+        sectionText: "",
+        sectionWidth: null,
+        sectionDepth: null,
+        sectionUnit: null,
+        sourceKeys: bandCell === undefined ? [] : [...bandCell.sourceKeys],
+        zones: zones.map((zone) => ({ ...zone })),
+      },
+    ];
+  }
+
   if (band === null || bandCell === undefined) {
     return [variantOf({ variantKey: columnKeyOf(stated.header), bandText: stated.header, band: null, cell, zones, unitHeader: stated.header })];
   }
@@ -276,17 +296,24 @@ function levelsColumnOf(columns: readonly Column[], rows: readonly [number, Map<
 
 /**
  * The column of an unbanded header that states the schedule's sections: the first that is neither the
- * mark nor a rebar zone and whose cell reads as a section ANYWHERE in the table, falling back to the
- * first unbanded column when none of them ever parses. Chosen from the whole table because a column
- * is the section column for every row or for none, and one row's `-` says nothing about the column.
+ * mark nor a rebar zone and whose cell reads as a section ANYWHERE in the table. Chosen from the
+ * whole table because a column is the section column for every row or for none, and one row's `-`
+ * says nothing about the column.
+ *
+ * A table no unbanded column of which EVER reads as a section states its sections nowhere: taking the
+ * leftmost one regardless would read a remarks or a count column as the schedule's sections, and
+ * `SEE ARCH DETAIL` would stand where a member's dimensions belong (L-QTY-01: never a guess).
  */
 function sectionColumnOf(columns: readonly Column[], rows: readonly [number, Map<number, ScheduleCell>][]): Column | null {
   const unbanded = columns.filter((column) => column.role.kind === "none");
-  const parses = unbanded.find((column) => rows.some((row) => {
-    const cell = row[1].get(column.index);
-    return cell !== undefined && parseSizePair(cell.text) !== null;
-  }));
-  return parses ?? unbanded[0] ?? null;
+  return (
+    unbanded.find((column) =>
+      rows.some((row) => {
+        const cell = row[1].get(column.index);
+        return cell !== undefined && parseSizePair(cell.text) !== null;
+      }),
+    ) ?? null
+  );
 }
 
 /**

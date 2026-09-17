@@ -43,11 +43,6 @@ export type RailSetupScope = {
 const VECTOR = "VECTOR";
 
 /**
- * One stored reading as a rail is handed one, or null where the partition read none. The source is the
- * FIRST entity the reading was read from: a binding cites one atom of the drawing, and a reader who
- * wants the rest follows it back to the run (L-QTY-03, L-CAD-03).
- */
-/**
  * What the notes door answered, as the setup carries it: a figure it HAS becomes a reading whose
  * value is the drawing's own and whose basis is TRANSCRIBED — a note is read off a drawing, which
  * is what TRANSCRIBED means (L-QTY-01) — and a figure it has not becomes a null. Nothing is
@@ -70,8 +65,20 @@ function detailingSetupOf(applied: AppliedDetailingValues): DetailingSetup {
   };
 }
 
-function readingSetupOf(reading: SideReading | null): ReadingSetup | null {
-  return reading === null ? null : { value: reading.value, unit: reading.unit, basis: reading.basis, source: reading.sourceKeys[0] ?? "" };
+/**
+ * One stored reading as a rail is handed one, or null where the partition read none — and null, too,
+ * where it read one that cites nothing. The source is the FIRST entity the reading was read from: a
+ * binding cites one atom of the drawing, and a reader who wants the rest follows it back to the run
+ * (L-QTY-03, L-CAD-03).
+ */
+export function readingSetupOf(reading: SideReading | null): ReadingSetup | null {
+  // A reading that cites nothing is no reading a line can stand on: minting it with an empty source
+  // key publishes a figure nothing in the drawing answers for, where L-QTY-03 asks every measured
+  // attribute for the atom it was read from. The partition's silence is carried across as silence
+  // (L-CAD-03), and the rail declares what it could not bind (L-QTY-02).
+  const source = reading === null ? undefined : reading.sourceKeys[0];
+  if (reading === null || source === undefined || source.length === 0) return null;
+  return { value: reading.value, unit: reading.unit, basis: reading.basis, source };
 }
 
 /** The drawings the pinned revision names, in the order its manifest addresses them (L-REG-06). */
