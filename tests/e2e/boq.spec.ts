@@ -117,8 +117,13 @@ test.describe("J-033 — the unpriced draft BOQ, by section", () => {
       const headerPosition = await afterSettled(page, () => header.evaluate((node) => getComputedStyle(node).position));
       expect(headerPosition, `${bill}'s header is sticky, so the columns stand while the section scrolls`).toBe("sticky");
 
-      const firstCell = boq.linesIn(section).first().getByRole("cell").first();
-      const frozen = await afterSettled(page, () => firstCell.evaluate((node) => getComputedStyle(node).position));
+      // The key column is the ROW'S OWN HEADER in the shipped grid (R-UI-012: a gridcell is the
+      // focusable unit, and the pinned key column is a rowheader), so it is reached by that role.
+      const keyCell = boq.linesIn(section).first().getByRole("rowheader");
+      await expect(keyCell, `${bill}'s row carries exactly one key column, and it is the row's own header`).toHaveCount(1);
+      const keyText = (await steadyText(keyCell, `${bill}'s key column`)).trim();
+      expect(keyText.length, `${bill}'s key column carries the item number a reader tracks the row by — never an empty frozen column`).toBeGreaterThan(0);
+      const frozen = await afterSettled(page, () => keyCell.evaluate((node) => getComputedStyle(node).position));
       expect(frozen, `${bill}'s key column is frozen, so the item number stands while the row scrolls sideways`).toBe("sticky");
 
       const groupRows = await everyRow(boq.groupRows(section), `${bill}'s group rows`);
@@ -151,7 +156,7 @@ test.describe("J-033 — the unpriced draft BOQ, by section", () => {
     const headers = await everyRow(boq.header(sections[0] as Locator).first().getByRole("columnheader"), "the grid's column headers");
     const labels = await Promise.all(headers.map(async (header) => (await steadyText(header, "a column header")).trim()));
     const quantityAt = labels.indexOf(quantityColumnLabel());
-    expect(quantityAt, `the grid states a ${quantityColumnLabel()} column; it states ${labels.join(" · ")}`).toBeGreaterThanOrEqual(0);
+    expect(quantityAt, `the grid states a ${quantityColumnLabel()} column after its frozen key column; it states ${labels.join(" · ")}`).toBeGreaterThan(0);
 
     const numbers = new Set<string>();
     for (const line of lines) {
@@ -163,7 +168,9 @@ test.describe("J-033 — the unpriced draft BOQ, by section", () => {
 
       expect(await steadyCount(boq.unitBadges(line), `line ${lineId}'s unit`), `line ${lineId} states its unit through the shipped badge`).toBe(1);
 
-      const quantityCell = line.getByRole("cell").nth(quantityAt);
+      // The row's own header is not among its gridcells, so the figures column stands one place
+      // earlier among them than it does among the headers.
+      const quantityCell = line.getByRole("gridcell").nth(quantityAt - 1);
       const figure = (await steadyText(quantityCell, `line ${lineId}'s quantity`)).trim();
       expect(figure, `line ${lineId}'s figure reads as a figure`).toMatch(FIGURE);
 

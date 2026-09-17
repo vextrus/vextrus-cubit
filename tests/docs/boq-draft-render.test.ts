@@ -43,6 +43,10 @@ type Payload = { taxonomyVersion: string; coverage: string; sections: Section[];
 function fixture(relative: string): Payload {
   const absolute = inTree(relative);
   expect(existsSync(absolute), `${relative} is not in the tree yet — the draft BOQ's document seam does not provide its committed payload`).toBe(true);
+  expect(relative.startsWith("tests/"), "a fixture of this lane is read here, and nothing else ever is").toBe(true);
+  // white-box: AC-4 — this reads a COMMITTED FIXTURE of the document lane (tests/docs/**), never a
+  // file under src/, scripts/ or db/, and nothing is asserted about its text: it is the INPUT the
+  // renderer is driven with, so that what the lane grades is the document the product produced.
   return JSON.parse(readFileSync(absolute, "utf8")) as Payload;
 }
 
@@ -56,6 +60,10 @@ async function productStrings(): Promise<Record<string, string>> {
 function goldenBytes(relative: string): Uint8Array {
   const absolute = inTree(relative);
   expect(existsSync(absolute), `${relative} is not in the tree yet — the lane has no yardstick to hold the render to`).toBe(true);
+  expect(relative.startsWith("tests/"), "a golden of this lane is read here, and nothing else ever is").toBe(true);
+  // white-box: AC-4 — the bytes of a COMMITTED GOLDEN under tests/docs/**, never a file under src/,
+  // scripts/ or db/. "the proof's golden is byte-identical after the frame gains its two optional
+  // parameters" is a claim about BYTES, and the golden is the only thing the render can be held to.
   return new Uint8Array(readFileSync(absolute));
 }
 
@@ -117,6 +125,9 @@ describe("AC-4: the unpriced draft renders as a draft, byte for byte", () => {
     const draft = await renderDocument("boq-draft", fixture(PAYLOAD), ctx);
     expect(draft.sha256, `the draft renders to ${GOLDEN}`).toBe(sha256(goldenBytes(GOLDEN)));
 
+    // white-box: AC-4 — the proof kind's own COMMITTED FIXTURE under tests/docs/proof/, never a file
+    // under src/, scripts/ or db/: it is the input the shipped proof is re-rendered from, and the
+    // assertion below is on the BYTES that render produced, not on anything this file read.
     const proof = await renderDocument("proof", JSON.parse(readFileSync(inTree(PROOF_PAYLOAD), "utf8")) as unknown, ctx);
     expect(proof.sha256, `${PROOF_GOLDEN} still renders to its own bytes: a frame whose new parameters are optional moves no document that does not pass them`).toBe(
       sha256(goldenBytes(PROOF_GOLDEN)),
@@ -184,8 +195,19 @@ describe("AC-4: the unpriced draft renders as a draft, byte for byte", () => {
 
   it("AC-4: a draft is never called a bill, and carries no surveyor, credential, certificate or total", async () => {
     const { renderDocument } = await documentsIndex();
-    const rendered = await renderDocument("boq-draft", fixture(PAYLOAD), ctx);
+    const payload = fixture(PAYLOAD);
+    const rendered = await renderDocument("boq-draft", payload, ctx);
     const whole = squashed(pages(rendered.pdf).join(" "));
+
+    // THE STAMP IS NOT COPY. L-BD-08 requires the taxonomy version on the document, and the version
+    // AC-1 freezes spells the word this criterion bans (`bill-taxonomy/…`). AM-05 (2) bans the
+    // document CALLING itself a bill — a heading, a label, a foot, a file name — not a machine
+    // identifier a reader never reads as prose (the carve-out AC-8 states for `[data-technical]`).
+    // So the stamp is required to be PRESENT and then excised, by its exact literal value and by
+    // nothing wider: any other "bill" — in a heading, a label, a subtotal caption or a foot — still
+    // fails every pattern below.
+    expect(whole, "the document carries the taxonomy version it was drafted under (L-BD-08)").toContain(payload.taxonomyVersion);
+    const prose = whole.split(payload.taxonomyVersion).join(" ");
 
     const forbidden: readonly [RegExp, string][] = [
       [/\bbills?\b/iu, "a draft is not a bill — the word states a status this document does not have (AM-05, reading 9)"],
@@ -196,7 +218,7 @@ describe("AC-4: the unpriced draft renders as a draft, byte for byte", () => {
       [/\btotal\b/iu, "and no bare total either — a figure that hides what it does not cover is the failure this product is built against"],
     ];
     for (const [pattern, why] of forbidden) {
-      expect(whole, why).not.toMatch(pattern);
+      expect(prose, why).not.toMatch(pattern);
     }
 
     // white-box: AC-4 — the second half of this criterion is a property of this LANE'S OWN TEST TEXT

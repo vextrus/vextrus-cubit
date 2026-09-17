@@ -330,6 +330,15 @@ export type BoqProps = {
  * edits THIS function: the suites beside it judge what the mount RENDERS, never how the route hands
  * it over.
  */
+/** The registry's own entry for a code, exactly as a door hands it to the screen. */
+export async function registeredRefusalOf(): Promise<(code: string) => Record<string, unknown> | null> {
+  const errors = await productModule<{ REFUSALS: Record<string, Record<string, unknown>> }>(ERRORS_MODULE);
+  return (code: string) => {
+    const entry = errors.REFUSALS[code];
+    return entry === undefined ? null : { code, ...entry };
+  };
+}
+
 export async function propsFor(o: BoqProps): Promise<Record<string, unknown>> {
   return {
     view: o.view,
@@ -340,7 +349,10 @@ export async function propsFor(o: BoqProps): Promise<Record<string, unknown>> {
     tenantId: o.tenantId ?? "11111111-1111-4111-8111-111111111111",
     projectId: o.projectId ?? "22222222-2222-4222-8222-222222222222",
     chrome: await shippedChrome(),
-    doors: o.doors ?? { exportDraft: async () => ({ jobId: "job-1", deduplicated: false }), refusalOf: (code: string) => code },
+    // `refusalOf` answers the REGISTERED entry, as the route's own does: a refusal is read in the
+    // words the registry holds (R-UI-020), and a stand-in that handed back the bare code would put
+    // a code in front of a reader this acceptance is meant to keep it away from.
+    doors: o.doors ?? { exportDraft: async () => ({ jobId: "job-1", deduplicated: false }), refusalOf: await registeredRefusalOf(), retry: () => undefined },
   };
 }
 

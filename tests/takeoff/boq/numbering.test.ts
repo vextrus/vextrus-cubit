@@ -204,11 +204,18 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
     // Two lines of ONE group on two levels, with the object keys sorting the other way: the lower
     // level's key is last canonically, so a numbering that read the key alone would put the upper
     // storey first. The draft is read down the building.
+    //
+    // Beams, not columns: a beam is placed by its own override wherever it stands (SUPERSTRUCTURE),
+    // so the two storeys land in ONE section and the ordering rule is the only thing left to judge.
+    // A column would be cut by the plinth and the pair would be answering a different question.
     const reading = readingOf(TWO_LEVELS, [
-      line("l-upper", "column/GF/A1", "column", "rcc.concrete", "lvl-gf", "1.000", "m3"),
-      line("l-lower", "column/FDN/Z9", "column", "rcc.concrete", "lvl-fdn", "2.000", "m3"),
+      line("l-upper", "beam/GF/A1", "beam", "rcc.concrete", "lvl-gf", "1.000", "m3"),
+      line("l-lower", "beam/Z-FDN/Z9", "beam", "rcc.concrete", "lvl-fdn", "2.000", "m3"),
     ]);
-    expect(canonical("column/FDN/Z9", "column/GF/A1"), "the lower storey's key sorts AFTER the upper one's, so level and key disagree").toBe(1);
+    // Read in code units (L-REG-05): `Z` is above `G`, so the lower storey's key really does sort
+    // after the upper one's. The premise is checked against the shipped comparator rather than
+    // assumed, because the whole force of the case is that level and key disagree.
+    expect(canonical("beam/Z-FDN/Z9", "beam/GF/A1"), "the lower storey's key sorts AFTER the upper one's, so level and key disagree").toBe(1);
 
     // Through the seam that holds the stack: the emission knows each line's level, and the numbering
     // the document and the screen share is run over what it emitted (B-17).
