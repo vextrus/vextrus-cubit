@@ -21,6 +21,7 @@ import {
   fcPsiOf,
   hookExtensionOf,
   lapLengthOf,
+  STOCK_BAR_MM,
   type DetailingEdition,
   type NoRow,
 } from "./detailing-bnbc2020-bd";
@@ -255,10 +256,13 @@ export function synthesiseThroughBar(probe: ThroughBarProbe): readonly BarSpec[]
   if (!anchorage.ok) return [];
   const lap = lapLengthFor(probe.detailing, probe.edition, at);
   const role = probe.role ?? "MAIN";
-  const ends = role === "DISTRIBUTION" ? ANCHORAGE_ENDS.DISTRIBUTION : ANCHORAGE_ENDS.MAIN;
+  // How many ends develop is the role's own fact, read off the one roster rather than decided again
+  // here: a main bar anchors at both, a distribution bar at one, a link at neither (B-17). A role the
+  // roster states nothing for anchors like a main bar, which is what a bar that runs a span does.
+  const ends = ANCHORAGE_ENDS[role as keyof typeof ANCHORAGE_ENDS] ?? ANCHORAGE_ENDS.MAIN;
   const length = exact(probe.spanMm).add(exact(anchorage.mm).mul(exact(ends)));
   const lapMm = lap.ok ? lap.mm : "0";
-  const split = stockSplitOf({ lengthMm: length.toString(), lapMm, stockMm: String(probe.edition.STOCK_BAR_MM) });
+  const split = stockSplitOf({ lengthMm: length.toString(), lapMm, stockMm: String(STOCK_BAR_MM) });
   return [
     {
       role,
