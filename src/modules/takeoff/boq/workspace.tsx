@@ -401,6 +401,12 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
   const [jobId, setJobId] = useState<string | null>(null);
   /** The artefact the quantities door wrote, where one was asked for — a link, never a run (I-272). */
   const [link, setLink] = useState<BoqQuantitiesLink | null>(null);
+  /** The kind being written right now, where a press is in flight: the channels are shut while it is. */
+  const [writing, setWriting] = useState<BoqExportKind | null>(null);
+  /** The same fact, in the same tick as the press — state settles a paint later than a second click. */
+  const building = useRef(false);
+  /** The link a press just answered, taken by the reader's own focus as it arrives (R-UI-012). */
+  const linkRef = useRef<HTMLAnchorElement | null>(null);
   const [answered, setAnswered] = useState<string | null>(null);
   // A caller that states a refusal outright — R-UI-050's matrix walked one cell at a time — is
   // stating what a door would have answered, so it is rendered exactly as a door's answer is.
@@ -443,19 +449,31 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
   const quantitiesDoor = doors.exportQuantities;
   const pressQuantities = useCallback(
     (kind: BoqExportKind): void => {
-      if (quantitiesDoor === undefined) return;
+      if (quantitiesDoor === undefined || building.current) return;
+      // ONE BUILD AT A TIME. The bytes are written while the reader waits, so a second press would
+      // store a second artefact and the two answers would race — the later one winning whichever
+      // kind it happened to be. The ref shuts the door in the same tick as the press; the state
+      // below shuts the controls at the next paint.
+      building.current = true;
+      setWriting(kind);
+      // The link a previous press earned comes down as the new one starts: an address for bytes
+      // nobody asked for again, standing under a control that is working, states the wrong file.
+      setLink(null);
+      setAnswered(null);
       void quantitiesDoor({ kind }).then(
         (answer) => {
-          setAnswered(null);
+          building.current = false;
+          setWriting(null);
           setLink(answer);
         },
         (thrown: unknown) => {
-          setLink(null);
+          building.current = false;
+          setWriting(null);
           setAnswered(codeOf(thrown));
         },
       );
     },
-    [quantitiesDoor],
+    [building, quantitiesDoor],
   );
   const pressXlsx = useCallback((): void => pressQuantities(XLSX), [pressQuantities]);
   const pressCsv = useCallback((): void => pressQuantities(CSV), [pressQuantities]);

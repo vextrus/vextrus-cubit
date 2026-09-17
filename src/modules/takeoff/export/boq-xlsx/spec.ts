@@ -144,12 +144,31 @@ function codeOf(group: { readonly class: string; readonly kind: string }): strin
 /* ---------------------------------------------------------------------------- the section sheet */
 
 /**
- * One section as a sheet: a row per published line, numbered S.G.I, unpriced, with a live Amount, and
- * the section's own measured-scope feet under them (L-QTY-07's one lawful label).
+ * A section's foot in the Amount column: the priced total of the lines above it, and NOTHING at all
+ * until one of them is priced.
+ *
+ * `SUMIF` alone answers 0 over a column of `IF(F="","",E*F)` cells — Excel ignores a text operand —
+ * and the seam stamps money on that 0, which is the very figure I-274 keeps out of an unpriced draft
+ * (B-21). `COUNT` sees only the cells that are numbers, so the foot states a price exactly when some
+ * line above it has one, and says nothing on the draft as it stands.
+ */
+function pricedTotal(unit: string, lastLine: number): ExportCell {
+  const amounts = `G${FIRST_LINE_ROW}:G${lastLine}`;
+  return { formula: `IF(COUNT(${amounts})=0,"",SUMIF(D${FIRST_LINE_ROW}:D${lastLine},"${unit}",${amounts}))` };
+}
+
+/**
+ * One section as a sheet: a row per published line, numbered S.G.I, unpriced, with a live Amount, the
+ * section's own measured-scope feet under them (L-QTY-07's one lawful label), and the banner every
+ * page of an unsigned working document carries (AM-05 §2) — a sheet is a page a reader can print and
+ * forward on its own, so the standing travels with it.
  *
  * A foot is not an item and carries no number: an item number under a subtotal would be a line nobody
- * measured (AM-14 §2). Its own figures are SUMIFs over the unit column, so a reader who prices the
- * sheet sees the foot move with it rather than a frozen picture of what it once came to.
+ * measured (AM-14 §2). Its QUANTITY is the payload's own figure, summed once, exactly, in decimal at
+ * the section's precision (L-QTY-07, B-07, I-271) — this file re-derives nothing, and a SUMIF here
+ * would hand the reader Excel's binary-float sum of the rounded cells instead, and nothing at all to
+ * a reader whose program does not calculate. Its AMOUNT stays live, because a price is what a reader
+ * adds to this sheet.
  */
 function sectionSheetOf(section: BoqDraftSection, items: ReadonlyMap<string, string>): SheetSpec {
   const held = linesOf(section);
@@ -165,20 +184,19 @@ function sectionSheetOf(section: BoqDraftSection, items: ReadonlyMap<string, str
     { formula: amountFormula(FIRST_LINE_ROW + index) },
   ]);
 
-  const feet: ExportCell[][] = section.subtotals.map((subtotal) => [
-    null,
-    null,
-    MEASURED_SCOPE_SUBTOTAL,
-    subtotal.unit,
-    { formula: `SUMIF(D${FIRST_LINE_ROW}:D${lastLine},"${subtotal.unit}",E${FIRST_LINE_ROW}:E${lastLine})`, result: subtotal.value },
-    null,
-    { formula: `SUMIF(D${FIRST_LINE_ROW}:D${lastLine},"${subtotal.unit}",G${FIRST_LINE_ROW}:G${lastLine})` },
-  ]);
+  // A section holding no line has nothing to foot: a range that ran from row 2 back to row 1 would
+  // sweep the header into the sum.
+  const feet: ExportCell[][] =
+    held.length === 0
+      ? []
+      : section.subtotals.map((subtotal) => [null, null, MEASURED_SCOPE_SUBTOTAL, subtotal.unit, subtotal.value, null, pricedTotal(subtotal.unit, lastLine)]);
+
+  const banner: ExportCell[] = [null, null, DRAFT_BANNER, null, null, null, null];
 
   return {
     name: sectionSheetName(section.bill, section.label),
     columns: sectionColumns(placesForSection(section)),
-    rows: [...lines, ...feet],
+    rows: [...lines, ...feet, banner],
     freezeHeader: FREEZE_HEADER,
   };
 }
@@ -207,8 +225,15 @@ function summarySheetOf(reading: BoqExportReading): SheetSpec {
 
   for (const section of payload.sections) {
     const name = sectionSheetName(section.bill, section.label);
-    const lastLine = FIRST_LINE_ROW + linesOf(section).length - 1;
-    rows.push([`${(BOQ_SECTIONS as readonly string[]).indexOf(section.bill) + 1}`, section.label, { formula: `SUM('${name}'!G${FIRST_LINE_ROW}:G${lastLine})` }]);
+    const lines = linesOf(section).length;
+    const lastLine = FIRST_LINE_ROW + lines - 1;
+    // A section holding no line is totalled over nothing rather than over a range that ran backwards
+    // through its own header.
+    rows.push([
+      `${(BOQ_SECTIONS as readonly string[]).indexOf(section.bill) + 1}`,
+      section.label,
+      lines === 0 ? null : { formula: `SUM('${name}'!G${FIRST_LINE_ROW}:G${lastLine})` },
+    ]);
   }
 
   return { name: BOQ_XLSX_SHEETS.summary, columns: SUMMARY_COLUMNS, rows, freezeHeader: FREEZE_HEADER };
