@@ -31,6 +31,12 @@ describe("the diff a reader confirms (R-SPINE-012, L-MEA-01)", () => {
     expect(diffParameters(PINNED, {}).every((row) => !row.changed && row.after === row.before)).toBe(true);
   });
 
+  test("a field emptied states nothing, so the pinned decimal stands and the row is unmarked", () => {
+    const rows = diffParameters(PINNED, { openingDeductionMinM2: "" });
+    expect(rows[0]?.after).toBe("0.1");
+    expect(rows[0]?.changed).toBe(false);
+  });
+
   test("a figure authored AT its pin is not a change, however it is spelled", () => {
     expect(diffParameters(PINNED, { openingDeductionMinM2: "0.10" })[0]?.changed).toBe(false);
     expect(sameFigure("0.1", "0.10")).toBe(true);

@@ -14,6 +14,7 @@ import "./ruleset-author.css";
 import { useCallback, useId, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { refusalOf, type RefusalCode } from "@/core/errors";
+import { dhakaDateParts, formatDate, formatMoney, formatUserFigure } from "@/core/format";
 import type { CommitAnswer, PreviewAnswer } from "./actions";
 // The words a parameter is named by are the settings area's one table (I-268) — a plain function,
 // read here rather than handed across the server/client boundary, which no function may cross.
@@ -33,6 +34,17 @@ const ACT_TYPE = "AUTHOR_RULESET_EDITION";
 
 /** The identity each reader's column furniture is remembered under (§5 rule 3). */
 const DIFF_TABLE_ID = "ruleset-author-diff";
+
+/**
+ * The document's figure conventions, handed to the primitives that render one: SEAM-FORMAT itself,
+ * never a second idea of what `1,00,00,000` means (the register-ui precedent). The settings frame
+ * mounts no FigureProvider, and a figure with no conventions is not rendered ungrouped.
+ */
+const FIGURES = Object.freeze({
+  figure: formatUserFigure,
+  money: formatMoney,
+  date: (at: Date): string => formatDate(dhakaDateParts(at)),
+});
 
 /** R-UI-002's glyph for a figure a person entered, which is what an authored value is. */
 const ENTERED = "ENTERED";
@@ -160,7 +172,7 @@ export function RulesetAuthorSection({
         meta: { align: "right" },
         // Grouping is the figure seam's and precision is the edition's: the pinned decimal goes
         // through the one formatter and this screen rounds nothing (L-FMT-02).
-        cell: ({ row }) => <QuantityText className="cx-ruleset-author-pinned" value={row.original.before} />,
+        cell: ({ row }) => <QuantityText className="cx-ruleset-author-pinned" value={row.original.before} format={FIGURES} />,
       },
       {
         id: "authored",
