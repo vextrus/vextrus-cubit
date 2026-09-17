@@ -288,7 +288,13 @@ and the re-take of every picture the fourth button moves
   (4) The empty state stands at the same 520 measure as the fault block beside it (§1, §5): at the
   full width of the work column its one sentence set as a single ~1 110 px line and read as a banner.
 - **inc-300b-documents-list, the demonstration door.** `documents/demonstration.ts` answers the
-  `?__state=` instrument for `ready`, `empty` and `error` (`loading` is `loading.tsx`'s own leg), so
-  the grid, its chips and its links can be reviewed on a served product before the first door that
-  issues a document lands. The rows it answers are named as a demonstration and name nothing any
-  workspace holds; the instrument is armed by name and shut everywhere else.
+  `?__state=` instrument for all four names §2 resolves — `ready`, `empty`, `error`, and `loading`,
+  which stands the reader in `loading.tsx` itself rather than in a second drawing of it — so the
+  grid, its chips, its bones and its links can be reviewed on a served product before the first door
+  that issues a document lands. The rows it answers are named as a demonstration and name nothing any
+  workspace holds; the instrument is armed by name and shut everywhere else. Their links are written
+  through `documentDownloadUrl` (§7's one mint) over a signer of the door's own that signs nothing:
+  an installation that states no signing secret refuses to sign at all (Q-12), and a demonstration
+  that asked it to would answer the reviewer with the crash boundary instead of a cell. What the row
+  then carries is a link of the seam's shape that the download door refuses, as it refuses any link
+  it did not sign.
