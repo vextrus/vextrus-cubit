@@ -17,6 +17,7 @@ import type { ResolverMethod } from "../law";
 import type { ShapeCode } from "./bs8666";
 import { stockSplitOf } from "./stock";
 import {
+  coverOf,
   developmentLengthOf,
   fcPsiOf,
   hookExtensionOf,
@@ -357,13 +358,19 @@ export type SlabCrankProbe = {
 /**
  * A cranked slab bar (shape CRK): the clear span, anchored ℓd at each end, with the two cranks
  * rising 0.42 D apiece — the geometry of a 45° crank through a slab of depth D.
+ *
+ * D is the depth the crank actually RISES THROUGH, which is the slab inside its two covers and not
+ * the slab's gross thickness: a bar that rose 0.42 × the thickness would break the cover it started
+ * under. The roster fixes it — every CRK row of F-RCC6-BNBC cranks 35.700 in a 125 slab and 46.200
+ * in a 150, both of them 0.42 × (t − 2 × the edition's 20 mm slab cover) (AM-01, AM-03(d)).
  */
 export function synthesiseSlabCrank(probe: SlabCrankProbe): readonly BarSpec[] {
   const at: BarPosition = { diameterMm: probe.diameterMm, confined: false, top: false };
   const anchorage = anchorageLengthFor(probe.detailing, probe.edition, at);
   if (!anchorage.ok) return [];
   const lap = lapLengthFor(probe.detailing, probe.edition, at);
-  const crank = exact(probe.depthMm).mul(exact("0.42"));
+  const between = exact(probe.depthMm).sub(exact(coverOf(probe.edition, "slab")).mul(exact(2)));
+  const crank = between.mul(exact("0.42"));
   const straight = exact(probe.clearSpanMm).add(exact(anchorage.mm).mul(exact(ANCHORAGE_ENDS.MAIN)));
   return [
     {

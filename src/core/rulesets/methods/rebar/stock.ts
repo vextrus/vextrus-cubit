@@ -99,10 +99,13 @@ export function cuttingStockOf(pieces: readonly CutPiece[], stockMm: string): Re
         bins[at] = capacity.sub(length.mul(exact(fits)));
         left -= fits;
       }
+      // A piece longer than the stock bar is one the SPLIT should already have cut up, and a bar that
+      // holds none of it can hold no more of it however many are opened: it takes a bar of its own
+      // with nothing left over, and the packing answers rather than turning forever.
       const perBar = stock.div(length).floor().toNumber();
       while (left > 0) {
-        const takes = Math.min(left, perBar);
-        bins.push(stock.sub(length.mul(exact(takes))));
+        const takes = Math.min(left, Math.max(perBar, 1));
+        bins.push(perBar > 0 ? stock.sub(length.mul(exact(takes))) : exact(0));
         left -= takes;
       }
     }

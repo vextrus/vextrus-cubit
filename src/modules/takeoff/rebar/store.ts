@@ -10,7 +10,7 @@
 import { and, barRows, eq, forTenant } from "@/core/db";
 import { writeInBatches } from "@/core/db/batch";
 import { isShapeCode, type ShapeCode } from "@/core/rulesets/methods/rebar/bs8666";
-import { cuttingStockOf, type CuttingStockAnswer } from "@/core/rulesets/methods/rebar/stock";
+import { cuttingStockOf, stockSplitOf, type CuttingStockAnswer } from "@/core/rulesets/methods/rebar/stock";
 import { exact } from "@/core/units/canon";
 import type { BarRow } from "./bars";
 import { REBAR_EDITION } from "./bars";
@@ -167,7 +167,19 @@ export async function bbsOf(scope: BbsScope): Promise<BbsDocument> {
     perMarkKg[row.barMark] = exact(perMarkKg[row.barMark] ?? 0).add(exact(row.kg)).toString();
     grand = grand.add(exact(row.kg));
   }
-  const pieces = rows.map((row) => ({ diameterMm: row.diameterMm, roundedMm: row.cuttingRoundedMm, count: Number(row.bars) * row.piecesPerBar }));
+  // What is packed onto a stock bar is what a site CUTS, and a spliced bar is never cut at its own
+  // length: a 22 m pile bar leaves the yard as two pieces of the split's own length, and packing the
+  // 22 m would ask for a stock bar nobody sells (AM-03(e)). The split is asked for it here rather
+  // than recomputed — `stockSplitOf` is the one home of how a bar comes out of stock (B-17).
+  const stockMm = String(REBAR_EDITION.STOCK_BAR_MM);
+  const pieces = rows.map((row) => {
+    const split = stockSplitOf({ lengthMm: row.cuttingRawMm, lapMm: row.lapMm, stockMm });
+    return {
+      diameterMm: row.diameterMm,
+      roundedMm: split.ok ? split.pieceRoundedMm : row.cuttingRoundedMm,
+      count: Number(row.bars) * row.piecesPerBar,
+    };
+  });
   return {
     campaignId: scope.campaignId,
     stockMm: String(REBAR_EDITION.STOCK_BAR_MM),
