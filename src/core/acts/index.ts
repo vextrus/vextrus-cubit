@@ -7,6 +7,7 @@
 import { acts, forTenant, holdStateLock, type TenantTx } from "../db";
 import { affirmScale, type AffirmScaleInput } from "./affirm-scale";
 import { assignParticipantRole, type AssignParticipantRoleInput } from "./assign-participant-role";
+import { authorRulesetEdition, type AuthorRulesetEditionInput } from "./author-ruleset-edition";
 import { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-storey-height";
 import { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typical-range";
 import { confirmDiscipline, type ConfirmDisciplineInput } from "./confirm-discipline";
@@ -56,6 +57,7 @@ export { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typic
 export { transcribeSheetNotes, type ProposedNoteReading, type TranscribeSheetNotesInput } from "./transcribe-sheet-notes";
 export { holdOutOfBill, type HoldOutOfBillInput } from "./hold-out-of-bill";
 export { declareNotInProjectScope, type DeclareNotInProjectScopeInput } from "./declare-not-in-project-scope";
+export { authorRulesetEdition, editionVersionTaken, type AuthorRulesetEditionInput } from "./author-ruleset-edition";
 
 /** Everything a caller may ask the seam to do: one member per act type the enum declares. */
 export type ActInput =
@@ -72,7 +74,8 @@ export type ActInput =
   | CorroborateInput
   | RepudiateInput
   | HoldOutOfBillInput
-  | DeclareNotInProjectScopeInput;
+  | DeclareNotInProjectScopeInput
+  | AuthorRulesetEditionInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -94,6 +97,7 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
   REPUDIATE: repudiate,
   HOLD_OUT_OF_BILL: holdOutOfBill,
   DECLARE_NOT_IN_PROJECT_SCOPE: declareNotInProjectScope,
+  AUTHOR_RULESET_EDITION: authorRulesetEdition,
 });
 
 /**
@@ -144,6 +148,8 @@ function renderingFor(input: ActInput): BoundRendering {
     case "HOLD_OUT_OF_BILL":
       return bind(ACT_MAP[input.type], input);
     case "DECLARE_NOT_IN_PROJECT_SCOPE":
+      return bind(ACT_MAP[input.type], input);
+    case "AUTHOR_RULESET_EDITION":
       return bind(ACT_MAP[input.type], input);
     default:
       return unrendered(input);

@@ -110,6 +110,10 @@ const PERMISSIONS_IN_LAW = [
   "ADMINISTER_BOOK",
   "PRICE",
   "BID",
+  // AM-04 amends the clause's enum: "L-ACT-03's closed permission enum gains AUTHOR_RULE_SET,
+  // carrying the act type AUTHOR_RULESET_EDITION". The amendments are current law, so the roster
+  // this file holds the tree to is the clause read with them.
+  "AUTHOR_RULE_SET",
 ] as const;
 
 /** L-ACT-03's shipped roles — "the only thing a human picks". */
@@ -119,7 +123,8 @@ const ROLES_IN_LAW = ["MEASURER", "REVIEWER", "LEAD", "ESTIMATOR", "BID_MANAGER"
 const BUNDLES_IN_LAW: Readonly<Record<string, readonly string[]>> = {
   MEASURER: ["MEASURE", "AUTHOR_PROJECT_FACT", "ENTER_BLIND_FIGURE"],
   REVIEWER: ["REVIEW"],
-  LEAD: ["PIN_SET", "AUTHOR_LEVEL_STACK", "SET_BILL_BOUNDARY", "ADMINISTER_SAMPLE", "SIGN"],
+  // AM-04 bundles AUTHOR_RULE_SET into LEAD and PRINCIPAL and into no other shipped role.
+  LEAD: ["PIN_SET", "AUTHOR_LEVEL_STACK", "SET_BILL_BOUNDARY", "ADMINISTER_SAMPLE", "SIGN", "AUTHOR_RULE_SET"],
   ESTIMATOR: ["PRICE"],
   BID_MANAGER: ["BID"],
 };

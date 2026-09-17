@@ -189,6 +189,8 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
       "ADMINISTER_BOOK",
       "PRICE",
       "BID",
+      // AM-04's fourteenth: what minting a rule-set edition moves (`AUTHOR_RULESET_EDITION`).
+      "AUTHOR_RULE_SET",
       "MEASURER",
       "REVIEWER",
       "LEAD",

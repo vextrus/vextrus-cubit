@@ -76,9 +76,15 @@ export const tenantRulesetEditions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    // One template per workspace, and one pin per project: L-REG-07 pins a project once, at creation.
+    // One template per workspace: L-REG-07 forks the platform seed into a workspace exactly once.
     uniqueIndex("tenant_ruleset_editions_template_once").on(table.tenantId).where(statement`"scope" = 'tenant'`),
-    uniqueIndex("tenant_ruleset_editions_pin_once").on(table.tenantId, table.projectId).where(statement`"scope" = 'project'`),
+    // The project's editions, newest first. It was `tenant_ruleset_editions_pin_once`, a UNIQUE
+    // index admitting one project-scope row per project — which is true of L-REG-07's creation pin
+    // and false of authoring: AM-04's act mints a new immutable edition with the pin as its parent,
+    // never updates a row, so a project accumulates project-scope rows and the CURRENT edition is
+    // the newest of them (L-MEA-01). The index is what that read is served by; uniqueness would
+    // make the second edition unrepresentable.
+    index("tenant_ruleset_editions_pin_newest").on(table.tenantId, table.projectId, table.createdAt),
     // The two reads a pinned project makes: its own pin, and the template a second project reuses.
     index("tenant_ruleset_editions_scope").on(table.tenantId, table.scope),
   ],

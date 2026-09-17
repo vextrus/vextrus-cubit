@@ -4,15 +4,19 @@
 //
 // L-MEA-01 keeps identity and digest apart, so this view carries them as two fields and never lets
 // one stand in for the other.
-import { and, eq, forTenant, isUuid, tenantRulesetEditions, rulesetEditions, type TenantDb } from "../../db";
-import type { EditionIdentity, EditionLineageStep, EditionParameter } from "./content";
+import { and, desc, eq, forTenant, isUuid, tenantRulesetEditions, rulesetEditions, type TenantDb, type TenantTx } from "../../db";
+import type { EditionIdentity, EditionLineageStep, EditionParameter, MethodPair } from "./content";
 
 /** A project with a pin: what it pinned, what that content digests to, and where it came from. */
 export interface PinnedRulesetView {
   readonly pinned: true;
+  /** The row the project reads today — what an authored fork of it names as its parent (L-MEA-01). */
+  readonly editionId: string;
   readonly identity: EditionIdentity;
   readonly digest: string;
   readonly parameters: Readonly<Record<string, EditionParameter>>;
+  /** The (rule id, version) pairs in force. Authoring copies them verbatim and never states them. */
+  readonly methods: readonly MethodPair[];
   /** Ordered platform → tenant → project: the head of the chain first (L-REG-07). */
   readonly lineage: readonly EditionLineageStep[];
 }
@@ -43,6 +47,12 @@ interface StoredEdition {
   readonly parentEditionId: string | null;
 }
 
+/** A project-scope row whole: the stored edition, plus the id and the methods a fork needs. */
+export interface StoredProjectEdition extends StoredEdition {
+  readonly editionId: string;
+  readonly methods: readonly MethodPair[];
+}
+
 /** The columns a surface reads off a tenant-scoped edition, with the parent it was forked from. */
 const TENANT_COLUMNS = {
   scope: tenantRulesetEditions.scope,
@@ -51,6 +61,13 @@ const TENANT_COLUMNS = {
   contentDigest: tenantRulesetEditions.contentDigest,
   parameters: tenantRulesetEditions.parameters,
   parentEditionId: tenantRulesetEditions.parentEditionId,
+} as const;
+
+/** A project-scope row as a fork of it reads one: the view's columns, plus the id and the methods. */
+const PROJECT_COLUMNS = {
+  ...TENANT_COLUMNS,
+  editionId: tenantRulesetEditions.editionId,
+  methods: tenantRulesetEditions.methods,
 } as const;
 
 /** The same columns off a platform edition, which is the head of a chain and so has no parent. */
@@ -109,19 +126,42 @@ export async function projectRulesetView({ tenantId, projectId }: { tenantId: st
   if (!isUuid(tenantId) || !isUuid(projectId)) return { pinned: false, tenantId };
 
   const db = forTenant({ tenantId });
-  const pins = await db
-    .select(TENANT_COLUMNS)
-    .from(tenantRulesetEditions)
-    .where(and(eq(tenantRulesetEditions.tenantId, tenantId), eq(tenantRulesetEditions.projectId, projectId), eq(tenantRulesetEditions.scope, "project")))
-    .limit(1);
-  const pin = pins[0];
+  const pin = await currentProjectEdition(db, { tenantId, projectId });
   if (pin === undefined) return { pinned: false, tenantId };
 
   return {
     pinned: true,
+    editionId: pin.editionId,
     identity: { scope: pin.scope, name: pin.name, version: pin.version },
     digest: pin.contentDigest,
     parameters: pin.parameters,
+    methods: pin.methods,
     lineage: await lineageOf(db, pin),
   };
+}
+
+/**
+ * The edition a project reads RIGHT NOW: the newest project-scope row it holds (L-MEA-01, AM-04).
+ *
+ * L-REG-07's creation pin is the first such row and is never touched; authoring appends another with
+ * the pin as its parent, so "which edition is in force" is a question about recency rather than
+ * about a mutable column — `created_at` desc, with the edition id as the tiebreak, because two rows
+ * written inside one transaction carry the same `now()` and a project's current edition may not
+ * depend on which of two equal timestamps the planner happened to return first.
+ *
+ * This is the ONE reading of that question: the settings screen asks it through `projectRulesetView`
+ * and the authoring act asks it on its own transaction, so a screen and a commit can never disagree
+ * about what is being forked (B-17).
+ */
+export async function currentProjectEdition(
+  db: TenantDb | TenantTx,
+  { tenantId, projectId }: { tenantId: string; projectId: string },
+): Promise<StoredProjectEdition | undefined> {
+  const rows = await db
+    .select(PROJECT_COLUMNS)
+    .from(tenantRulesetEditions)
+    .where(and(eq(tenantRulesetEditions.tenantId, tenantId), eq(tenantRulesetEditions.projectId, projectId), eq(tenantRulesetEditions.scope, "project")))
+    .orderBy(desc(tenantRulesetEditions.createdAt), desc(tenantRulesetEditions.editionId))
+    .limit(1);
+  return rows[0];
 }
