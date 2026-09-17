@@ -36,7 +36,11 @@ screen is a reader: it issues nothing, so no copper, no ConsequenceDialog and no
 - **I-262 — two act chips and a count.** A cell never wraps (R-UI-083) and a tooltip full of uuids
   teaches nothing, so the Acts-cited cell renders the first two act ids as chips in the listing's
   order, then `documents_acts_more` in `--ink-muted`; with no act cited it renders
-  `shell_status_absent`. The whole set belongs to the act log, which the audit screen already lists.
+  `documents_no_acts` — **No acts cited** — in `--ink-muted`. The whole set belongs to the act log,
+  which the audit screen already lists. *Amended by inc-300b-documents-list (§9): the cell said
+  `shell_status_absent`, the em dash of an absent figure, and a dash in a column of identifiers reads
+  as a value nobody filled in rather than as the fact that the document stands on no committed act.
+  Silence never happens, so this cell says what is true in words (R-UI-020).*
 - **I-263 — retry is this address, requested again.** The screen runs no procedure, so `documents-retry`
   is a `next/link` to `documentsRoute(tenantId, projectId)` wearing the core Button at
   `data-variant="secondary"` — which is why the screen is handed its two segment ids. `useRouter` is
@@ -77,7 +81,7 @@ never scrolls sideways (§7 C10).
 | top bar + rail | the shell's; `shell-crumb-page` reads **Documents** under workspace › project › Projects, declared by `useShellPage(strings.documents_title)` and `routes.ts` | `--rail-w` 48 · `--topbar-h` 40 | the shell's | — |
 | header track | `<h1>` `documents_title` at `--text-20`/`--weight-heading`, and at its right the `<span role="status">` count readout `documents_count` in `--font-mono` `--text-caption`, tabular | 100 % × 32; `margin-bottom: var(--space-1)` | `--ink`, `--ink-muted`, `--font-mono` | the count reads **0 documents** and the heading stands |
 | grid (primary) | `documents-grid`: DataTable v2 over the listing, `tableId` `s-documents`, `data-rows-rendered` = `String(rows.length)`, rows `documents-row`, seven columns (below), no sort, no filter row, no group rows, no selection | `flex: 1 1 auto`, 100 % × remainder; ≥ 55 % of main; rows `--row-h` 28, header 28 sticky, first column frozen | `--surface-app`, `--surface-sunken` (header), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline` | not rendered at all: `documents-empty` stands in its place |
-| empty (in the grid's place) | the shipped `EmptyState` `documents-empty`: heading, one sentence, one action to the takeoff register | 100 % × auto, centred in the grid's box | `--ink`, `--ink-muted`, `--accent` through Button | this IS the empty state |
+| empty (in the grid's place) | the shipped `EmptyState` `documents-empty`: heading, one sentence, one action to the takeoff register | max-width 520, centred in the grid's box — the sentence is a paragraph at the measure the fault block stands at, never a line the width of the work column | `--ink`, `--ink-muted`, `--accent` through Button | this IS the empty state |
 | error (in the grid's place) | `documents-error`: heading, one sentence, `documents-report-id` (`IdChip` under `documents_report_label`), `documents-retry` | 100 % × auto, max-width 520 | `--ink`, `--ink-muted`, `--hairline`, `--radius-4` | — |
 | inspector (frame's one slot) | nothing ever mounts it here (I-258) | **absent — width 0** | — | absent |
 
@@ -89,7 +93,7 @@ never scrolls sideways (§7 C10).
 | 2 | `documents_col_version` | 96, `meta.align: 'right'` | the bare integer, `--font-mono` tabular slashed-zero |
 | 3 | `documents_col_issued_by` | 200 | `IdChip` `documents-issued-by`, `data-value` the whole uuid |
 | 4 | `documents_col_digest` | 200 | `IdChip` `documents-digest`, `data-value` the whole 64-hex sha256 |
-| 5 | `documents_col_acts` | remainder, min 240 | up to two `IdChip`s `documents-act`, then `documents_acts_more`; `shell_status_absent` where none (I-262) |
+| 5 | `documents_col_acts` | remainder, min 240 | up to two `IdChip`s `documents-act`, then `documents_acts_more`; `documents_no_acts` where none (I-262) |
 | 6 | `documents_col_superseded` | 220 | `documents-superseded-by`: an `IdChip` of the superseding id, or `documents_current` in `--ink-muted` (I-261) |
 | 7 | `documents_col_document` | 160 | `documents-open`: an `<a href={row.href}>` wearing `cx-btn cx-reticle` `data-variant="ghost"`, text `documents_open`, `aria-label` `documents_open_label` filled with kind and version |
 
@@ -135,12 +139,13 @@ cells below overridden; `tests/screen-states/**` reflects over it and `missingSt
 
 ## 3. Copy, verbatim (`src/ui/strings/documents.ts`, keys `documents_…`)
 
-`documents_title` **Documents** · `documents_count` count-forms — one **1 document**, other
-**{count} documents** · `documents_grid_label` **Issued documents** · `documents_col_kind` **Kind** ·
+`documents_title` **Documents** · the count readout's two forms, `documents_count_one` **1 document**
+and `documents_count_other` **{count} documents** · `documents_grid_label` **Issued documents** · `documents_col_kind` **Kind** ·
 `documents_col_version` **Version** · `documents_col_issued_by` **Issued by** · `documents_col_digest`
 **Digest** · `documents_col_acts` **Acts cited** · `documents_col_superseded` **Superseded by** ·
 `documents_col_document` **Document** · `documents_kind_proof` **Proof** · `documents_current`
-**Current** · `documents_acts_more` **+{count} more** · `documents_open` **Open PDF** ·
+**Current** · `documents_acts_more` **+{count} more** · `documents_no_acts` **No acts cited** ·
+`documents_open` **Open PDF** ·
 `documents_open_label` **Open {kind} version {version} as a PDF** · `documents_empty_heading` **No
 document issued yet** · `documents_empty_body` **An issued document seals a published figure, the
 basis behind it and the acts that committed it into a PDF that never changes. Publish from the
@@ -152,15 +157,20 @@ happening.** · `documents_report_label` **Report id** · `documents_retry` **Tr
 
 In `home/strings.ts`, for the fourth quick action: `project_home_action_documents` **Documents**.
 
-Reused by key and never respelled (B-17): `shell_status_absent` (the `—` of an absent figure), the
-registered `DOCUMENT_URL_EXPIRED` and `PERMISSION_NOT_HELD` messages and remedies.
-`src/ui/strings/screen-states.ts` mirrors, word for word: `state_empty_documents_heading` ≡
-`documents_empty_heading` · `state_empty_documents_body` ≡ `documents_empty_body` ·
-`state_documents_action` ≡ `documents_empty_action`. Matrix-only: `state_partial_documents` **The
-list is one read answered whole: every issue this project holds is shown, and a row that could not be
-read would be the read failing, not a row refusing.** · `state_denied_documents_permission` **Reading
-this project's documents needs membership of the project.** · `state_denied_documents_holder` **A
-project principal can add you on the participants screen.**
+Reused by key and never respelled (B-17): the registered `DOCUMENT_URL_EXPIRED` and
+`PERMISSION_NOT_HELD` messages and remedies.
+
+The matrix reads THIS TABLE, and there is no mirror. This screen's copy lives in the shared
+`src/ui/strings/documents.ts` rather than in a `strings.ts` beside its route, and `src/ui/strings` is
+a layer the matrix may import — so `src/ui/screen-states/matrix.tsx` says this screen's sentences by
+this screen's own keys and a second spelling of any of them would be the drift a mirror exists to
+survive. Matrix-only, and keyed with the rest: `documents_state_partial` **The list is one read
+answered whole: every issue this project holds is shown, and a row that could not be read would be
+the read failing, not a row refusing.** · `documents_denied_permission` **Reading this project's
+documents needs membership of the project.** · `documents_denied_holder` **A project principal can
+add you on the participants screen.** *Amended by inc-300b-documents-list (§9): this section ruled a
+mirror into `src/ui/strings/screen-states.ts` under `state_…` keys, which is the arrangement a
+route-local table needs and this screen does not have (C-13, R-SPINE-060).*
 
 Voice: calm, concrete, professional; no exclamation marks; no build vocabulary — "seam", "store",
 "door", "digest pin" and every clause id appear nowhere a reader can see. Kinds render as words
@@ -187,8 +197,9 @@ This screen spends: `--surface-app` · `--surface-panel` · `--surface-sunken` �
 `--text-20` · `--text-body` · `--text-caption` · `--font-ui` · `--font-mono` · `--leading-ui` ·
 `--weight-body-medium` / `--weight-heading` · `--motion-state` / `--motion-reticle` / `--ease`; and,
 read by the primitives rather than stated here, `--row-h`, `--cell-px`, `--cell-py`, `--control-h`.
-Px literals, closed set: the header track's 32, the error block's 520 max-width, the seven column
-widths (200/96/200/200/240/220/160) and the loading leg's eight bones. Any other literal is a defect.
+Px literals, closed set: the header track's 32, the 520 measure the error block and the empty state
+both stand at, the seven column widths (200/96/200/200/240/220/160) and the loading leg's eight
+bones. Any other literal is a defect.
 No basis colour, no semantic tint and **no copper anywhere**: listing a document is never an act.
 
 ## 6. Themes
@@ -262,3 +273,22 @@ and the re-take of every picture the fourth button moves
   listing; the column is `documents_col_issued`, a `RelativeTime` cell at 130, when it exists.
 - **Issuing from this screen.** No act door, no render, no BOQ or BBS kind. Owners: inc-311a
   (`boq-draft`) and inc-310 (`bbs`), each one kind file and one line (AM-11).
+
+## 9. Changelog
+
+- **inc-300b-documents-list, after the build.** Four amendments, each recorded where it changes the
+  screen's contract rather than only here (C-13). (1) The Acts-cited cell with nothing in it says
+  `documents_no_acts` **No acts cited** instead of `shell_status_absent`: a dash in a column of
+  identifiers reads as a value nobody filled in, and R-UI-020 asks the cell to say the true thing.
+  §0's I-262 and §1's column table carry the amendment. (2) The matrix says this screen's sentences
+  by this screen's own `documents_…` keys; §3's ruled mirror into `src/ui/strings/screen-states.ts`
+  is withdrawn, because that arrangement exists for a screen whose copy sits beside its route and
+  this screen's sits in the shared table the matrix may read. (3) §3 names the count readout's two
+  forms, `documents_count_one` and `documents_count_other`, which is what a count in words needs.
+  (4) The empty state stands at the same 520 measure as the fault block beside it (§1, §5): at the
+  full width of the work column its one sentence set as a single ~1 110 px line and read as a banner.
+- **inc-300b-documents-list, the demonstration door.** `documents/demonstration.ts` answers the
+  `?__state=` instrument for `ready`, `empty` and `error` (`loading` is `loading.tsx`'s own leg), so
+  the grid, its chips and its links can be reviewed on a served product before the first door that
+  issues a document lands. The rows it answers are named as a demonstration and name nothing any
+  workspace holds; the instrument is armed by name and shut everywhere else.

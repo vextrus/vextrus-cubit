@@ -13,7 +13,7 @@
  */
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
-import { PROJECT, TENANT, all, copy, homeData, homeStrings, mountHome, one, projectHome, text } from "./support/project-home-stage";
+import { PROJECT, TENANT, all, areasModule, copy, homeData, homeStrings, mountHome, one, projectHome, text } from "./support/project-home-stage";
 import { TESTIDS } from "@/ui/testids";
 
 /** S-Project's clause order: "Drawings · Takeoff · Assure · Estimate · Bid · Activity · Settings". */
@@ -32,20 +32,6 @@ const LIVE: Readonly<Record<string, string>> = {
   activity: `/t/${TENANT}/p/${PROJECT}/audit`,
   settings: `/t/${TENANT}/p/${PROJECT}/settings/ruleset`,
 };
-
-/**
- * The quick actions and where each one goes (test contract).
- *
- * Four since inc-300b-documents-list: S-Documents is reached from this screen and from nowhere else
- * (R-UI-031), so the roster the old law froze at three is re-baselined here rather than worked
- * around — the documents action is appended last, exactly as `areas.ts` declares it.
- */
-const QUICK_ACTIONS: readonly (readonly [string, string])[] = [
-  ["upload-drawings", `/t/${TENANT}/p/${PROJECT}/drawings`],
-  ["browse-sets", `/t/${TENANT}/p/${PROJECT}/drawings/sets`],
-  ["manage-participants", `/t/${TENANT}/p/${PROJECT}/settings/participants`],
-  ["documents", `/t/${TENANT}/p/${PROJECT}/documents`],
-];
 
 afterEach(() => {
   cleanup();
@@ -105,13 +91,19 @@ describe("AC-2 — the navigation regions", () => {
   });
 
   test("AC-2: the quick actions are links to the addresses they name", async () => {
+    // The roster is DERIVED, never frozen: `areas.ts` is the one place a quick action is declared
+    // (B-17), so the rule graded here is "every declared action is rendered, as an anchor, at the
+    // address its own `route` answers" — the rule the old list of three was an instance of. A
+    // lawful fifth action passes this without a re-baseline, and an action that leads nowhere
+    // still fails it (B-19).
+    const areas = await areasModule();
     const root = mountHome(await projectHome(), homeData());
     const actions = all(root, "project-quick-action");
 
     expect(
       actions.map((action) => [action.tagName, action.getAttribute("data-action"), action.getAttribute("href")]),
-      "exactly the quick actions the contract names, each an anchor to its own address",
-    ).toEqual(QUICK_ACTIONS.map(([action, href]) => ["A", action, href]));
+      "exactly the quick actions `areas.ts` declares, each an anchor to its own address",
+    ).toEqual(areas.QUICK_ACTIONS.map((entry) => ["A", entry.key, entry.route?.(TENANT, PROJECT) ?? null]));
     expect(one(root, "project-quick-actions").contains(actions[0] as Node), "and they stand in the quick-actions region").toBe(true);
   });
 });

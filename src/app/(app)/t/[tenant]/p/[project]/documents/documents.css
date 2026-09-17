@@ -86,8 +86,14 @@
 
 /* --- the states that stand in the grid's place (§2) --- */
 
+/* The teaching state is a paragraph, not a banner: its sentence is held to the same 520 px measure
+   the fault block beside it stands at, and the block is centred in the grid's box (§1). Without the
+   cap the one line runs the whole work column and the heading, sentence and action lose their
+   common centre of gravity. */
 .cx-documents-empty {
   flex: 1 1 auto;
+  max-width: 520px;
+  margin-inline: auto;
 }
 
 .cx-documents-fault {
