@@ -76,6 +76,15 @@ export type NumberingModule = {
 /** The taxonomy the draft is stamped with (inc-311a). */
 export type BillTaxonomyModule = { BILLS: readonly string[]; BILL_TAXONOMY: { version: string } };
 
+/** The bar bending schedule's kind, as inc-310's interfaces publish it (`bbs`, A-BBS-PDF). */
+export type BbsModule = { BBS_KIND: DocumentKind; BBS_TITLE: string };
+
+/** Where a kind's template stands: beside the kind file, never under documents/templates (AM-11). */
+export type KindsLawModule = { kindTemplate(file: string): string };
+
+/** The BS 8666 shapes the product holds — the roster the sketch dispatch is judged against. */
+export type Bs8666Module = { SHAPE_CODES: readonly string[] };
+
 /** The seam's modules, by the paths the increment's interfaces give them. */
 export const documentsIndex = (): Promise<DocumentsIndex> => productModule<DocumentsIndex>("src/core/documents/index.ts");
 export const typstModule = (): Promise<TypstModule> => productModule<TypstModule>("src/core/documents/typst.ts");
@@ -86,3 +95,6 @@ export const figuresModule = (): Promise<FiguresModule> => productModule<Figures
 export const boqDraftModule = (): Promise<BoqDraftModule> => productModule<BoqDraftModule>("src/core/documents/kinds/boq-draft.ts");
 export const boqNumberingModule = (): Promise<NumberingModule> => productModule<NumberingModule>("src/modules/takeoff/boq/numbering.ts");
 export const boqTaxonomyModule = (): Promise<BillTaxonomyModule> => productModule<BillTaxonomyModule>("src/modules/takeoff/boq/taxonomy.ts");
+export const bbsModule = (): Promise<BbsModule> => productModule<BbsModule>("src/core/documents/kinds/bbs.ts");
+export const kindsLawModule = (): Promise<KindsLawModule> => productModule<KindsLawModule>("src/core/documents/kinds/law.ts");
+export const bs8666Module = (): Promise<Bs8666Module> => productModule<Bs8666Module>("src/core/rulesets/methods/rebar/bs8666.ts");
