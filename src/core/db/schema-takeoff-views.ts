@@ -167,6 +167,37 @@ export const conventionProfiles = pgTable(
 );
 
 /**
+ * That a record's partition HAS been rebuilt — one row per record, written by every rebuild whatever
+ * it read (R-TO-030, R-UI-050).
+ *
+ * The stage tables are all conditional: a drawing whose captions name no view, whose layers carry no
+ * geometry and whose sections state no level leaves every one of them empty, and a partition judged on
+ * their rows would read as a drawing nobody has opened. "Read, and found nothing" and "never read" are
+ * different answers and a reader acts on them differently, so the rebuild writes this row for the
+ * record it rebuilt and the doors judge on it.
+ *
+ * Deleted and re-inserted with the rest of the partition, in the same transaction and for the same
+ * reason: it says what the rows beside it were derived by, so it stands with them or not at all.
+ */
+export const partitionRebuilds = pgTable(
+  "partition_rebuilds",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    rebuiltAt: timestamp("rebuilt_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One rebuild row per record, in one workspace: a rebuilt partition replaces the row of the
+    // record it rebuilt rather than standing a second one beside it.
+    primaryKey({ name: "partition_rebuilds_key", columns: [table.tenantId, table.ingestId] }),
+    // The read a drawing's own screens make: which of its records have been read at all.
+    index("partition_rebuilds_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
  * Every table this area publishes. `schema.ts` spreads it into `SEAM_SCHEMA`, so a table added to
  * this file joins the typed surface without a second roster being edited (B-19, AM-11).
  */
@@ -175,4 +206,5 @@ export const TAKEOFF_VIEWS_TABLES = {
   viewAssignments,
   viewTypeConfirmations,
   conventionProfiles,
+  partitionRebuilds,
 };

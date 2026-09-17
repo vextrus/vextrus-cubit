@@ -158,12 +158,23 @@ async function proveScope(tx: TenantTx, scope: RegisterScope): Promise<void> {
  * is kept whole in a table no foreign key reaches — refused is not discarded, it is evidence.
  */
 export async function registerSighting(scope: RegisterScope, sighting: Sighting): Promise<RegisteredSighting> {
+  return forTenant({ tenantId: scope.tenantId }).transaction((tx) => registerSightingIn(tx, scope, sighting));
+}
+
+/**
+ * The same door, entered inside a transaction the caller already holds (L-ACT-01's tx-taking form).
+ *
+ * A rebuild registers what it derived in ITS OWN transaction: the register rows and the partition
+ * they were derived from stand or fall together, so a rebuild whose later stage throws leaves no
+ * register row behind to be re-derived against (L-REG-04, ARCH-03).
+ */
+export async function registerSightingIn(tx: TenantTx, scope: RegisterScope, sighting: Sighting): Promise<RegisteredSighting> {
   const identity = identityOf(sighting);
   const semantic = semanticDigest(sighting.content);
   const discipline: Discipline = drawnFrom(DISCIPLINES, sighting.discipline, "discipline");
   const standing: SightingStanding = drawnFrom(SIGHTING_STANDINGS, sighting.standing, "sighting standing");
 
-  return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
+  {
     await proveScope(tx, scope);
     const written = await tx
       .insert(registerObjects)
@@ -210,18 +221,21 @@ export async function registerSighting(scope: RegisterScope, sighting: Sighting)
       sighting,
     });
     return { registered: false, refusal: DUPLICATE_IDENTITY, objectKey: identity.objectKey, semanticUnchanged };
-  });
+  }
+}
+
+/** Every register object of one pinned set revision, inside a transaction the caller already holds. */
+export async function registerObjectsIn(tx: TenantTx, scope: RegisterScope): Promise<RegisterObjectRow[]> {
+  return tx
+    .select()
+    .from(registerObjects)
+    .where(and(eq(registerObjects.tenantId, scope.tenantId), eq(registerObjects.setRevisionId, scope.setRevisionId)))
+    .orderBy(asc(registerObjects.registeredAt), asc(registerObjects.objectKey));
 }
 
 /** Every register object of one pinned set revision, in the order they were registered. */
 export async function registerObjectsOf(scope: RegisterScope): Promise<RegisterObjectRow[]> {
-  return forTenant({ tenantId: scope.tenantId }).transaction((tx) =>
-    tx
-      .select()
-      .from(registerObjects)
-      .where(and(eq(registerObjects.tenantId, scope.tenantId), eq(registerObjects.setRevisionId, scope.setRevisionId)))
-      .orderBy(asc(registerObjects.registeredAt), asc(registerObjects.objectKey)),
-  );
+  return forTenant({ tenantId: scope.tenantId }).transaction((tx) => registerObjectsIn(tx, scope));
 }
 
 /** Every sighting refused inside one pinned set revision, in the order they were refused. */

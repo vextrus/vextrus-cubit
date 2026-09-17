@@ -52,6 +52,7 @@ export {
   viewAssignments,
   viewTypeConfirmations,
   conventionProfiles,
+  partitionRebuilds,
   grids,
   gridDeferrals,
   schedules,

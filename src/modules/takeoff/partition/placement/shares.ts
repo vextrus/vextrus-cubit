@@ -38,22 +38,21 @@ const SHARE_NAMES = Object.keys(SHARE_PARAMETER) as (keyof PlacementShares)[];
  * after it down with it — R-TO-030's stages are total over any artifact, and a partition that stops
  * halfway is a drawing nobody can see the views of either (ARCH-03).
  *
- * A PINNED edition that states none of these is a different thing and is not answered: the seed
- * states all four, so an edition missing one is an inconsistency of the store rather than a state of
- * the project anybody could act on.
+ * A PINNED edition stating none of them answers the same absence, for the same reason: the stage is
+ * scaled by nothing either way, and the four shares are read together or not at all. Throwing there
+ * would take the whole partition down mid-job over one parameter — the views, the grid and the
+ * schedules of a drawing along with the placements nobody could have measured (ARCH-03).
  */
 export async function placementSharesOf(scope: { readonly tenantId: string; readonly projectId: string }): Promise<PlacementShares | null> {
   const view = await projectRulesetView(scope);
   if (!view.pinned) return null;
-  const read = (share: keyof PlacementShares): string => {
-    const parameter = SHARE_PARAMETER[share];
-    const held = view.parameters[parameter];
-    if (held === undefined) {
-      throw new Error(`the pinned rule-set edition states no \`${parameter}\`, so the placement share \`${share}\` is scaled by nothing (L-MEA-01)`);
-    }
-    return held.value;
-  };
-  return Object.fromEntries(SHARE_NAMES.map((share) => [share, read(share)])) as unknown as PlacementShares;
+  const stated: Partial<Record<keyof PlacementShares, string>> = {};
+  for (const share of SHARE_NAMES) {
+    const held = view.parameters[SHARE_PARAMETER[share]];
+    if (held === undefined) return null;
+    stated[share] = held.value;
+  }
+  return stated as PlacementShares;
 }
 
 /**
