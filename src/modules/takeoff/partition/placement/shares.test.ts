@@ -32,7 +32,7 @@ describe("L-MEA-01: the shares a project's pin states", () => {
   });
 
   test("an edition missing one share answers none, and never throws", async () => {
-    const bare: Record<string, string> = { ...WHOLE };
+    const bare: Record<string, { value: string }> = { ...WHOLE };
     delete bare["placementNearAnchor"];
     view.answer = { pinned: true, parameters: bare };
 

@@ -22,6 +22,7 @@ import { useRef } from "react";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { cellRef, type CellGrain, type ResidueCell, type ResidueLevel, type TruncatedSheet } from "@/core/residue/law";
 import { compareCanonical } from "@/core/identity";
+import { BILL_AXIS, axisReadOf } from "./cited-act";
 import { fillCoverageCopy, COVERAGE_COPY } from "./copy";
 import { CauseGlyph, type GlyphReading } from "./glyphs";
 import { MARK_OF, rampStep, rowShare, sharePublished, type Mark } from "./heat";
@@ -51,7 +52,7 @@ export const causeWords = (code: string): RefusalEntry | undefined => (REFUSALS 
  * inspector states while the measurement axis goes on saying what it always said (L-QTY-05).
  */
 export function causeRead(cell: ResidueCell): string {
-  return cell.bill === "NOT_IN_THIS_BILL" ? cell.bill : cell.measurement;
+  return axisReadOf(cell) === BILL_AXIS ? cell.bill : cell.measurement;
 }
 
 /** The mark one cell wears — the mark of the cause it is READ under (§4.3, I-198). */

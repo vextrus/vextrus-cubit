@@ -23,7 +23,7 @@ import type { ViewRecord } from "@/core/views";
 import { ingestRecords, type IngestRecord } from "@/modules/takeoff/ingest";
 import { censusOf } from "./conventions/census";
 import { resolveExpansion, type ResolvedExpansion } from "./expansion/resolve";
-import { authoredRangesOf, liveStackOf, revisionsNaming } from "./expansion/store";
+import { authoredRangesOf, expansionCensusOf, liveStackOf, revisionsNaming } from "./expansion/store";
 import { detectGrid, type DetectedGrid } from "./grid/detect";
 import { proposeLevelStack, type ProposedLevelStack } from "./levels-proposal/propose";
 import { detectPlacements } from "./placement/detect";
@@ -213,9 +213,23 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
     // standing for a partition nobody can see (L-REG-01, L-REG-04).
     const revisions = await revisionsNaming({ ...scope, drawingId: context.drawingId, sha256: context.record.sha256 });
 
+    // What those rows amount to per revision, read against the register as it stands: the rows this
+    // rebuild adds, the rows that already stood, and the keys under its own views it no longer
+    // derives (L-QTY-04). The write is the store's, inside the partition's transaction; the census
+    // is this stage's, because this is the stage that resolved the rows.
+    const census = [];
+    for (const setRevisionId of revisions) census.push(await expansionCensusOf({ ...scope, setRevisionId }, expansion.rows));
+
     return {
       derived: { ...held, expansion, register: { setRevisionIds: revisions, rows: expansion.rows } },
-      detail: { revisions: revisions.length, rows: expansion.rows.length, deferred: expansion.deferrals.length },
+      detail: {
+        revisions: revisions.length,
+        rows: expansion.rows.length,
+        deferred: expansion.deferrals.length,
+        registered: census.reduce((count, pass) => count + pass.registered, 0),
+        standing: census.reduce((count, pass) => count + pass.standing, 0),
+        stale: census.flatMap((pass) => [...pass.stale]),
+      },
     };
   },
   // The seventh: the level stack the sections STATE, read into a proposal a person confirms whole.
@@ -267,7 +281,7 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
     held: await storedViewsOf(tenantId, ingestId),
   });
 
-  const passes = await rewritePartition({
+  await rewritePartition({
     tenantId,
     projectId,
     drawingId,
@@ -283,17 +297,7 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
     proposal: derived.proposal,
     register: derived.register,
   });
-  // What the register pass left, reported with the write it happened inside: the rows this rebuild
-  // wrote, the rows that already stood, and the keys standing under its own views that it no longer
-  // derives — reported, never retracted, because the register door has no retraction (L-REG-01).
-  await progress.step(STEP_STORED, {
-    views: derived.views.length,
-    assigned: derived.assignments.size,
-    proposed: proposals.size,
-    registered: passes.reduce((held, pass) => held + pass.registered, 0),
-    standing: passes.reduce((held, pass) => held + pass.standing, 0),
-    stale: passes.flatMap((pass) => [...pass.stale]),
-  });
+  await progress.step(STEP_STORED, { views: derived.views.length, assigned: derived.assignments.size, proposed: proposals.size });
 }
 
 /** What the proposal pass is run with: whom the call is attributed to, and what it may cite. */

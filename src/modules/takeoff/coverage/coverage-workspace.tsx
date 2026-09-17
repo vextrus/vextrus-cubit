@@ -23,6 +23,7 @@ import type { RefusalEntry } from "@/core/errors";
 // The marker's one reader (ARCH-02): whether a rejection carries a registered code is not a
 // judgement this screen makes for itself, and a second reading of it would be a second home (B-17).
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { axisReadOf, citedActOf } from "./cited-act";
 import { COVERAGE_COPY, countCoverageCopy, fillCoverageCopy } from "./copy";
 import { CoverageGrid, causeRead, causeWords, markOf, type CoverageDensity } from "./grid";
 import { LegendGlyph, type GlyphReading } from "./glyphs";
@@ -583,7 +584,9 @@ function Inspector({
   const measured = read === QUANTITY_BEARING;
   const entry = measured ? undefined : causeWords(read);
   const grain = cell.grain === "KIND";
-  const actId = cell.measurementActId ?? cell.billActId;
+  // The act cited is the act of the axis this cell is read under: the measurement act beside a cell
+  // the BILL moved says nothing about why the cell reads as it does (L-QTY-05, B-17).
+  const actId = citedActOf(cell, axisReadOf(cell));
   // Every act standing over this cell, on either axis — a cell can carry one on each (I-189), and a
   // reader is owed both. Deduplicated, because one act could in principle be cited by both.
   const declarations = [...new Set([cell.measurementActId, cell.billActId].filter((held): held is string => held !== null))];
@@ -739,7 +742,7 @@ function Inspector({
  * first and in full, then bill, never merged and never a shared cause column. No count appears
  * anywhere in this section — a count is not a boundary.
  */
-function CertificatePreviewSection({
+export function CertificatePreviewSection({
   measurement,
   bill,
   pinned,

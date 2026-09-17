@@ -51,7 +51,6 @@ export const COLUMN_RAIL_CODES = [
   "MEMBER_TYPE_UNKNOWN",
   "SECTION_BAND_UNCOVERED",
   "SECTION_UNIT_UNSTATED",
-  "STOREY_HEIGHT_UNCITED",
 ] as const satisfies readonly RefusalCode[];
 
 /** One code of the roster above. */

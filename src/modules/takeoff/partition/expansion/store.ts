@@ -13,7 +13,7 @@
 import { and, asc, drawingSetRevisions, eq, expansionDeferrals, forTenant, typicalRanges, type TenantTx } from "@/core/db";
 import { liveLevelsOf } from "@/core/levels/store";
 import { recordOf } from "@/core/sets";
-import { registerObjectsIn, registerSightingIn, type RegisterScope } from "@/modules/takeoff/register";
+import { registerObjectsIn, registerObjectsOf, registerSightingIn, type RegisterScope } from "@/modules/takeoff/register";
 import { PLACEMENT_DISCIPLINE } from "../placement/law";
 import type { AuthoredRange, ExpansionRow, ResolvedExpansion, StackedLevel } from "./resolve";
 
@@ -118,6 +118,34 @@ export async function revisionsNaming(scope: { tenantId: string; projectId: stri
     .map((row) => recordOf(row))
     .filter((record) => record.manifest.some((member) => member.drawingId === scope.drawingId && member.sha256 === scope.sha256))
     .map((record) => record.setRevisionId);
+}
+
+/**
+ * What this rebuild's rows amount to against the register AS IT STANDS, read before the write.
+ *
+ * The write itself happens inside the partition's transaction and nowhere else, so the stage that
+ * resolved the rows cannot report what the write did; it reports what it resolved, against what is
+ * already standing. The two agree — the pass writes exactly the keys that were not standing when it
+ * read them, inside one transaction over one revision — and where a rebuild fails before the write,
+ * this census is what it said it would do rather than what it did (L-REG-03, L-REG-04).
+ */
+export async function expansionCensusOf(scope: RegisterScope, rows: readonly ExpansionRow[]): Promise<RegisteredExpansion> {
+  const objects = await registerObjectsOf(scope);
+  const held = new Set(objects.map((object) => object.objectKey));
+  let registered = 0;
+  let standing = 0;
+
+  for (const row of rows) {
+    if (held.has(row.objectKey)) standing += 1;
+    else {
+      registered += 1;
+      // Counted once: two rows of one key are one identity, and the pass offers the second no more
+      // than this census counts it twice (L-REG-03).
+      held.add(row.objectKey);
+    }
+  }
+
+  return { registered, standing, stale: staleOf(objects, rows) };
 }
 
 /**

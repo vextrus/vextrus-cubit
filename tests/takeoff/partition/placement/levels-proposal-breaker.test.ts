@@ -118,8 +118,13 @@ describe("the stack a sheet of two sections proposes", () => {
   test("the sheet really did read as two sections", () => {
     const detail = stepDetail(steps, LEVELS_PROPOSAL_STAGE);
     expect(Number(detail["views"]), "both sections of the sheet were examined by the seventh stage").toBe(2);
-    const views = new Set(proposedLevelRows(stage.person.tenantId, ingestId).map((row) => said(row, "viewKey", "view_key")));
-    expect(views.size, "the stage read level marks off both of them").toBe(2);
+    const rows = proposedLevelRows(stage.person.tenantId, ingestId);
+    expect(rows.length, "and it proposed a stack off what they state").toBeGreaterThan(0);
+    // The two sections of this sheet are the SAME section drawn twice, so every storey they state is
+    // one storey of one building: the stack names it once, citing the view it was first read in, and
+    // a second row for the second drawing of it would be the duplicate the stack is not (L-MEA-07).
+    const views = new Set(rows.map((row) => said(row, "viewKey", "view_key")));
+    expect(views.size, "the marks both sections repeat are proposed once, under the view they were first read in").toBe(1);
   });
 
   test("what the door offers is one stack: each storey named once", () => {
