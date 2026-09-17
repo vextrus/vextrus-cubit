@@ -23,6 +23,7 @@ export const ACT_TYPES = [
   "REPUDIATE",
   "HOLD_OUT_OF_BILL",
   "DECLARE_NOT_IN_PROJECT_SCOPE",
+  "AUTHOR_RULESET_EDITION",
 ] as const;
 
 /** One act type, drawn from the enum above. */
@@ -43,6 +44,11 @@ export const PERMISSIONS = [
   "ADMINISTER_BOOK",
   "PRICE",
   "BID",
+  // AM-04 cuts a fourteenth: minting a rule-set edition is its own permission, so L-MEA-01's
+  // "authoring mints a new edition, never updates one, and is its own permission" is true of the
+  // enum rather than of a comment. Authoring a rate library's parameter values is untouched and
+  // stays ADMINISTER_BOOK.
+  "AUTHOR_RULE_SET",
 ] as const;
 
 /** One permission, drawn from the closed enum above. */
@@ -101,6 +107,9 @@ export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.free
   // project's certificate speaks about — so it moves the permission the hold moves rather than a
   // fourteenth the law does not cut.
   DECLARE_NOT_IN_PROJECT_SCOPE: "SET_BILL_BOUNDARY",
+  // AM-04: "L-ACT-03's closed permission enum gains AUTHOR_RULE_SET, carrying the act type
+  // AUTHOR_RULESET_EDITION". This replaces the staged reading that used ADMINISTER_PROJECT.
+  AUTHOR_RULESET_EDITION: "AUTHOR_RULE_SET",
 });
 
 /**
@@ -112,7 +121,9 @@ export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.free
 export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = Object.freeze({
   MEASURER: Object.freeze(["MEASURE", "AUTHOR_PROJECT_FACT", "ENTER_BLIND_FIGURE"] as const),
   REVIEWER: Object.freeze(["REVIEW"] as const),
-  LEAD: Object.freeze(["PIN_SET", "AUTHOR_LEVEL_STACK", "SET_BILL_BOUNDARY", "ADMINISTER_SAMPLE", "SIGN"] as const),
+  // AM-04 bundles AUTHOR_RULE_SET "into LEAD and PRINCIPAL and into no other shipped role";
+  // PRINCIPAL takes it by holding the whole enum, so LEAD is the only bundle that is written.
+  LEAD: Object.freeze(["PIN_SET", "AUTHOR_LEVEL_STACK", "SET_BILL_BOUNDARY", "ADMINISTER_SAMPLE", "SIGN", "AUTHOR_RULE_SET"] as const),
   ESTIMATOR: Object.freeze(["PRICE"] as const),
   BID_MANAGER: Object.freeze(["BID"] as const),
   PRINCIPAL: PERMISSIONS,

@@ -29,6 +29,8 @@ type DeclaredCode = Extract<
   | "SET_NAME_NOT_USABLE"
   | "SET_MEMBER_NOT_IN_PROJECT"
   | "DOCUMENT_URL_EXPIRED"
+  | "ACT_CHANGES_NOTHING"
+  | "EDITION_VERSION_TAKEN"
 >;
 
 /**
@@ -49,6 +51,21 @@ export const REFUSAL_ENTRIES: Readonly<{ [C in DeclaredCode]: RefusalEntry & { c
     remedy: "Ask a principal of the project to give you a role that carries it.",
     severity: "error",
     surface: "banner",
+  }),
+  // The two the Author edition screen answers beside PERMISSION_NOT_HELD (its Decision § 2).
+  ACT_CHANGES_NOTHING: Object.freeze({
+    code: "ACT_CHANGES_NOTHING",
+    message: "This action would leave the project exactly as it is, so nothing was recorded.",
+    remedy: "Choose a change that moves something — what you asked for is already the case.",
+    severity: "info",
+    surface: "dialog",
+  }),
+  EDITION_VERSION_TAKEN: Object.freeze({
+    code: "EDITION_VERSION_TAKEN",
+    message: "An edition of this rule set already carries that version, so nothing was authored.",
+    remedy: "State a version this project's rule set has not used, then try again.",
+    severity: "error",
+    surface: "inline",
   }),
   PROJECT_WOULD_HAVE_NO_PRINCIPAL: Object.freeze({
     code: "PROJECT_WOULD_HAVE_NO_PRINCIPAL",

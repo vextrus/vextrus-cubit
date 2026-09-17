@@ -4,8 +4,8 @@
 //
 // L-MEA-01 keeps identity and digest apart, so this view carries them as two fields and never lets
 // one stand in for the other.
-import { and, eq, forTenant, isUuid, tenantRulesetEditions, rulesetEditions, type TenantDb } from "../../db";
-import type { EditionIdentity, EditionLineageStep, EditionParameter } from "./content";
+import { and, desc, eq, forTenant, isUuid, tenantRulesetEditions, rulesetEditions, type TenantDb, type TenantTx } from "../../db";
+import type { EditionIdentity, EditionLineageStep, EditionParameter, MethodPair } from "./content";
 
 /** A project with a pin: what it pinned, what that content digests to, and where it came from. */
 export interface PinnedRulesetView {
@@ -53,6 +53,31 @@ const TENANT_COLUMNS = {
   parentEditionId: tenantRulesetEditions.parentEditionId,
 } as const;
 
+/**
+ * The current project-scope edition, whole — what the authoring act forks from (AM-04). The view
+ * above shows a reader identity, digest, parameters and lineage; an author needs the row itself:
+ * the id the new edition names as its parent, and the methods in force, which are copied verbatim
+ * and never authored (L-MEA-01 keys the digest over values × the (rule id, version) pairs).
+ */
+export interface CurrentProjectEdition {
+  readonly editionId: string;
+  readonly name: string;
+  readonly version: string;
+  readonly digest: string;
+  readonly parameters: Readonly<Record<string, EditionParameter>>;
+  readonly methods: readonly MethodPair[];
+}
+
+/** The columns the authoring read takes, which is the whole stored edition bar its scope. */
+const AUTHORING_COLUMNS = {
+  editionId: tenantRulesetEditions.editionId,
+  name: tenantRulesetEditions.name,
+  version: tenantRulesetEditions.version,
+  digest: tenantRulesetEditions.contentDigest,
+  parameters: tenantRulesetEditions.parameters,
+  methods: tenantRulesetEditions.methods,
+} as const;
+
 /** The same columns off a platform edition, which is the head of a chain and so has no parent. */
 const PLATFORM_COLUMNS = {
   scope: rulesetEditions.scope,
@@ -61,6 +86,37 @@ const PLATFORM_COLUMNS = {
   contentDigest: rulesetEditions.contentDigest,
   parameters: rulesetEditions.parameters,
 } as const;
+
+/** Every project-scope edition this project has ever held — the creation pin and each one authored. */
+function pinOf(tenantId: string, projectId: string) {
+  return and(eq(tenantRulesetEditions.tenantId, tenantId), eq(tenantRulesetEditions.projectId, projectId), eq(tenantRulesetEditions.scope, "project"));
+}
+
+/**
+ * The order the CURRENT edition is read in (AM-04's reading): newest first. `created_at` is the
+ * fact, and `edition_id` breaks a tie — two rows minted inside one clock tick would otherwise be
+ * ordered by whatever the plan happened to return, and "the project's current edition" cannot be a
+ * property of a query plan.
+ */
+const NEWEST_FIRST = [desc(tenantRulesetEditions.createdAt), desc(tenantRulesetEditions.editionId)] as const;
+
+/**
+ * The project's current edition as the authoring act reads it, on the transaction the act runs in
+ * (L-ACT-01: the preview reads the state the write will see). `undefined` means no project-scope
+ * row at all, which is the no-pin shape the view above answers a reader with.
+ */
+export async function currentProjectEdition(tx: TenantTx, { tenantId, projectId }: { tenantId: string; projectId: string }): Promise<CurrentProjectEdition | undefined> {
+  if (!isUuid(tenantId) || !isUuid(projectId)) return undefined;
+  const rows = await tx.select(AUTHORING_COLUMNS).from(tenantRulesetEditions).where(pinOf(tenantId, projectId)).orderBy(...NEWEST_FIRST).limit(1);
+  return rows[0];
+}
+
+/** Every version this project's rule set has already been minted under (L-MEA-01's identity). */
+export async function projectEditionVersions(tx: TenantTx, { tenantId, projectId }: { tenantId: string; projectId: string }): Promise<readonly string[]> {
+  if (!isUuid(tenantId) || !isUuid(projectId)) return [];
+  const rows = await tx.select({ version: tenantRulesetEditions.version }).from(tenantRulesetEditions).where(pinOf(tenantId, projectId));
+  return rows.map((row) => row.version);
+}
 
 /** The edition of this id, wherever it is held: a workspace's own first, then the platform's. */
 async function editionById(db: TenantDb, editionId: string): Promise<StoredEdition | undefined> {
@@ -112,7 +168,8 @@ export async function projectRulesetView({ tenantId, projectId }: { tenantId: st
   const pins = await db
     .select(TENANT_COLUMNS)
     .from(tenantRulesetEditions)
-    .where(and(eq(tenantRulesetEditions.tenantId, tenantId), eq(tenantRulesetEditions.projectId, projectId), eq(tenantRulesetEditions.scope, "project")))
+    .where(pinOf(tenantId, projectId))
+    .orderBy(...NEWEST_FIRST)
     .limit(1);
   const pin = pins[0];
   if (pin === undefined) return { pinned: false, tenantId };

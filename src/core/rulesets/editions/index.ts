@@ -3,5 +3,9 @@
 // this barrel; the two files behind it are the content law and the read.
 export { editionDigest } from "./content";
 export type { EditionContent, EditionIdentity, EditionLineageStep, EditionParameter, EditionScope, MethodPair } from "./content";
-export { projectRulesetView } from "./view";
-export type { PinnedRulesetView, ProjectRulesetView, UnpinnedRulesetView } from "./view";
+export { currentProjectEdition, projectEditionVersions, projectRulesetView } from "./view";
+export type { CurrentProjectEdition, PinnedRulesetView, ProjectRulesetView, UnpinnedRulesetView } from "./view";
+export { authoredContent, diffParameters, sameDecimal } from "./authored";
+export type { ParameterDiffRow } from "./authored";
+export { mintProjectEdition } from "./mint";
+export type { MintedProjectEdition, ProjectEditionMinted } from "./mint";

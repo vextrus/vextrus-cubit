@@ -76,9 +76,14 @@ export const tenantRulesetEditions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    // One template per workspace, and one pin per project: L-REG-07 pins a project once, at creation.
+    // One template per workspace: L-REG-07 forks the platform seed once per workspace.
     uniqueIndex("tenant_ruleset_editions_template_once").on(table.tenantId).where(statement`"scope" = 'tenant'`),
-    uniqueIndex("tenant_ruleset_editions_pin_once").on(table.tenantId, table.projectId).where(statement`"scope" = 'project'`),
+    // A project holds MANY project-scope rows, one per edition authored for it (AM-04, L-MEA-01:
+    // "authoring mints a new edition, never updates one"). The creation pin of L-REG-07 is the
+    // first of them and is never touched; the project's CURRENT edition is the newest row. So this
+    // is a plain index on the order that read takes, not a uniqueness claim the store no longer
+    // makes.
+    index("tenant_ruleset_editions_pin_newest").on(table.tenantId, table.projectId, table.createdAt),
     // The two reads a pinned project makes: its own pin, and the template a second project reuses.
     index("tenant_ruleset_editions_scope").on(table.tenantId, table.scope),
   ],

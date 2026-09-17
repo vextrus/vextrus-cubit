@@ -20,8 +20,6 @@ import { Tooltip } from "@/ui/primitives/core";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/primitives/overlay";
 import { shellHref } from "@/ui/shell";
 import { strings } from "@/ui/strings";
-import { rulesetRoute } from "../p/[project]/home/areas";
-import { participantsRoute } from "../p/[project]/settings/participants/route-address";
 import { membersRoute } from "./members/route-address";
 import { membersStrings } from "./members/strings";
 import { settingsStrings } from "./strings";
@@ -51,16 +49,6 @@ export function workspaceSettingsNav(tenantId: string): readonly SettingsNavItem
   ];
 }
 
-/** A project's settings areas: the two this tree answers for, then the two the workspace promises. */
-export function projectSettingsNav(tenantId: string, projectId: string): readonly SettingsNavItem[] {
-  return [
-    { key: "participants", label: strings.spine_participants_heading, href: participantsRoute(tenantId, projectId) },
-    { key: "ruleset", label: settingsStrings.settings_nav_ruleset, href: rulesetRoute(tenantId, projectId) },
-    { key: "taxonomy", label: settingsStrings.settings_nav_taxonomy, href: null },
-    { key: "tax", label: settingsStrings.settings_nav_tax, href: null },
-  ];
-}
-
 export interface SettingsPaneProps {
   items: readonly SettingsNavItem[];
   /** The area the reader is standing in — the row that carries `aria-current` (R-UI-031). */
@@ -79,7 +67,10 @@ export function SettingsPane({ items, active, children }: SettingsPaneProps) {
                 // A promise, not a control: it takes no tab stop and no pointer, and the tooltip
                 // says why it does nothing rather than a sentence standing in the pane forever.
                 <Tooltip content={settingsStrings.settings_nav_unbuilt}>
-                  <span className="cx-settings-nav-item" data-unbuilt="true" aria-disabled="true">
+                  {/* The promise carries the row's own id and area exactly as the link does: a reader
+                      of the nav reads the same roster whether a row leads anywhere yet or not, and
+                      availability is read off the address rather than off which rows are present. */}
+                  <span className="cx-settings-nav-item" data-testid={item.testId} data-area={item.key} data-unbuilt="true" aria-disabled="true">
                     {item.label}
                   </span>
                 </Tooltip>
@@ -87,6 +78,7 @@ export function SettingsPane({ items, active, children }: SettingsPaneProps) {
                 <Link
                   className="cx-settings-nav-item cx-reticle"
                   data-testid={item.testId}
+                  data-area={item.key}
                   href={item.href}
                   aria-current={item.key === active ? "page" : undefined}
                 >

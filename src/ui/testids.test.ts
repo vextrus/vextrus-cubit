@@ -306,6 +306,17 @@ const GOLDEN: readonly string[] = [
   "root-home-main",
   "root-home-tagline",
   "root-home-workspace-door",
+  // inc-304a re-baseline: the nine ids S-Settings-Ruleset-Author publishes (its Decision § 7), in
+  // the registry's own code-point order among the `ruleset-` ids already here.
+  "ruleset-author-diff",
+  "ruleset-author-diff-row",
+  "ruleset-author-parent",
+  "ruleset-author-refusal",
+  "ruleset-author-section",
+  "ruleset-author-see-ruleset",
+  "ruleset-author-submit",
+  "ruleset-author-value",
+  "ruleset-author-version",
   "ruleset-edition-digest",
   "ruleset-edition-identity",
   "ruleset-lineage",
@@ -380,6 +391,8 @@ const GOLDEN: readonly string[] = [
   "set-row-name",
   "sets-empty",
   "sets-index",
+  // inc-304a re-baseline: one row of the project settings sub-navigation (the layout's roster).
+  "settings-area",
   "settings-members-link",
   "sheet-card",
   "sheet-card-cited-more",

@@ -353,3 +353,5 @@ three-step lineage sharing that digest; and the no-pin shape, asserting the abse
 and that no pinned-view id renders beside it. No new journey ships (the J-000/J-001 roster
 is frozen); painted facts are graded by the design gallery's baselines when this screen's
 consumers land, per R-UI-011.
+
+- 2026-09-18 — inc-304a-ruleset-authoring-ui: the project settings frame moved into `settings/layout.tsx` over `PROJECT_SETTINGS_AREAS` (`settings/areas.ts`), and `projectSettingsNav` — the second spelling of that roster — is deleted (B-17). The nav now holds four rows: Rule set · Participants · Site facts · Author edition, each carrying `data-testid="settings-area"` and `data-area`, availability read off the entry's `route` (`site-facts` ships with `route: null` for inc-304b). I-198/I-204/I-209 are re-pointed at the layout; the pages below it render their own content and none of the frame.

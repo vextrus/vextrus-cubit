@@ -567,6 +567,35 @@ export const screenStates: ScreenStatesMatrix = {
     refusal: reasonedRefusal(strings.state_refusal_read_fault, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
   }),
 
+  // Authoring the next rule-set edition (s-settings-ruleset-author § 2): the empty leg is a project
+  // with nothing to fork, and the three refusals the door can answer stand together in the order the
+  // seam judges them — the version the schema would not read, the version this project already
+  // holds, and an act that would leave the edition exactly as it is. The denial names the permission
+  // AM-04 cuts for this act and who holds it; nothing is hidden from a reader who can see the
+  // project (I-266).
+  "/t/[tenant]/p/[project]/settings/ruleset-author": declare({
+    ...workspaceCells,
+    loading: bones(8),
+    empty: (): ReactNode => (
+      <EmptyTeaching heading={strings.state_empty_ruleset_heading} body={strings.state_empty_ruleset_body} action={strings.home_evidence_projects} />
+    ),
+    refusal: (): ReactNode => (
+      <>
+        <Refusal refusal={REFUSAL_ENTRIES.EDITION_VERSION_TAKEN} evidence={PROJECTS_EVIDENCE} />
+        <Refusal refusal={REFUSAL_ENTRIES.ACT_CHANGES_NOTHING} evidence={PROJECTS_EVIDENCE} />
+      </>
+    ),
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.spine_participants_denied_permission}
+        holder={strings.spine_participants_denied_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={WORKSPACE_EVIDENCE}
+      />
+    ),
+  }),
+
   // Workspace settings (shell § 2): a workspace always has a name, and the rename door answers what
   // it was given in place — the door's own copy, deliberately not one of the closed taxonomy's. The
   // registered refusal the screen can still meet stands under it with its code and remedy.

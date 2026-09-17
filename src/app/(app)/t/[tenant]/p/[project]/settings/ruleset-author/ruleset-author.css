@@ -1,0 +1,157 @@
+/* The Author edition surface (docs/design/s-settings-ruleset-author.md §1, §5, §6; Design Direction
+   00 §3.6): the pin being forked as one line with the version beside it, the whole pin as a diff
+   grid, then the refusal slot, the status line and the one primary. Colour, spacing, type and
+   motion are tokens only — no literal value and no [data-theme] selector, so both themes are the
+   same rules read against different token values (R-UI-001).
+
+   The px literals are the closed set §5 fixes: the 160 version measure and the refusal's 420. The
+   digest's measure is stated in `ch`, because what it fixes is a count of CHARACTERS of a
+   fingerprint (I-206). The grid's column widths are the columns' own, stated in the component. */
+
+.cx-ruleset-author {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-section);
+  min-width: 0;
+}
+
+.cx-ruleset-author-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-section);
+  min-width: 0;
+}
+
+/* --- the identity line: what is being forked, and the version it is forked under (I-262) --- */
+
+.cx-ruleset-author-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  min-height: var(--control-h);
+  font-size: var(--text-13);
+  color: var(--ink);
+}
+
+.cx-ruleset-author-label,
+.cx-ruleset-author-version-label {
+  font-size: var(--text-12);
+  color: var(--ink-muted);
+}
+
+.cx-ruleset-author-version-label {
+  margin-inline-start: auto;
+}
+
+.cx-ruleset-author-parent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* A scope is the model's own word, so it reads as data: mono, muted, never title-cased into prose. */
+.cx-ruleset-author-scope {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--ink-muted);
+}
+
+.cx-ruleset-author-edition {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--ink-code);
+  white-space: nowrap;
+}
+
+/* The fingerprint: whole in the document and as many characters as tell two of them apart on the
+   screen. It selects as ONE thing, so the value a reader copies is the value the digest IS — a
+   truncated digest compares nothing (I-206, L-MEA-01). */
+.cx-ruleset-author-digest {
+  display: inline-block;
+  max-width: 8ch;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--ink-code);
+  user-select: all;
+}
+
+.cx-ruleset-author-version {
+  inline-size: 160px;
+  block-size: var(--control-h);
+}
+
+/* --- the diff grid --- */
+
+.cx-ruleset-author-table {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cx-ruleset-author-param {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-13);
+  color: var(--ink);
+}
+
+/* §5 rule 5: a figure is mono, tabular and right-aligned; the cell's own alignment is the grid's. */
+.cx-ruleset-author-pinned {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--ink-code);
+}
+
+/* What was true recedes behind what will be: on a changed row the pinned figure goes muted and the
+   authored one takes the page's ink and a medium weight. Nothing here means anything by COLOUR
+   alone — the row also publishes `data-changed`, and the ink weight is the visible half (§6). */
+[data-changed="true"] .cx-ruleset-author-pinned {
+  color: var(--ink-muted);
+}
+
+[data-changed="true"] .cx-ruleset-author-field {
+  color: var(--ink);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-ruleset-author-field {
+  inline-size: 100%;
+  block-size: var(--control-h);
+}
+
+/* --- the answer slot, the status line and the one door --- */
+
+.cx-ruleset-author-refusal {
+  max-inline-size: 420px;
+}
+
+.cx-ruleset-author-act {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: var(--control-h-lg);
+}
+
+/* The line keeps its height while it is empty, so nothing under it moves when the act answers. */
+.cx-ruleset-author-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  min-block-size: var(--text-13);
+  font-size: var(--text-12);
+  color: var(--ink-muted);
+}
+
+.cx-ruleset-author-act > :last-child {
+  margin-inline-start: auto;
+}

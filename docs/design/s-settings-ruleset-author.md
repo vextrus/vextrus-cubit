@@ -312,6 +312,23 @@ Two gaps in the registry, recorded rather than spelled around:
 
 ## Changelog
 
+- 2026-09-18 — inc-304a-ruleset-authoring-ui, as built. Three readings settled while building, each
+  forced by a law that outranks a placement this file had guessed at:
+  - **§ 2's states table lives at `settings/ruleset-author/states.ts`**, not in the module. The cell
+    shape is `ShellStateCell`, which is `src/ui`'s, and a module may not import `src/ui` (the import
+    matrix, ARCH-01). Every other screen's row sits beside its route for the same reason, and
+    `tests/rulesets/state-matrix.test.ts` already calls that home "the route directory".
+  - **I-268's shared reading of "what changed" lives at `src/core/rulesets/editions/authored.ts`**,
+    published by `src/modules/spine/ruleset-authoring`. The act seam is core and core imports
+    nothing above it, so a reading BOTH the act and this screen take has to sit in core or be
+    spelled twice — and two spellings of "what changed" is the defect the one home exists to
+    prevent. The module is that reading's face, never a second copy of it.
+  - **The screen root carries `ruleset-author-section`**, and no separate `ruleset-author` id is
+    published. `ruleset-author` is also the address segment and the nav's area key, and registering
+    it as a test id makes every page object that spells that key fail `src/ui/testids.test.ts`'s
+    no-literal rule. The `<section>` carries `data-state` and the grid carries
+    `data-rendered-region` / `data-rows-rendered`, which is the whole of what the RENDERED contract
+    asked the root for.
 - 2026-09-16 — inc-304a-ruleset-authoring-ui: first edition. The authoring screen for
   `AUTHOR_RULESET_EDITION` under `AUTHOR_RULE_SET` (AM-04): the pinned parent, a version field, the
   whole-pin diff grid, the act through the one ConsequenceDialog. I-262–I-268 recorded; I-268

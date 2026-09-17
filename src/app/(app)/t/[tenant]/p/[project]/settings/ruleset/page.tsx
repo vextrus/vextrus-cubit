@@ -5,7 +5,6 @@
 // (I-28).
 import { authorizePage } from "@/server/authorize-page";
 import { projectRulesetView } from "@/core/rulesets/editions";
-import { SettingsPane, projectSettingsNav } from "@/app/(app)/t/[tenant]/settings/settings-pane";
 import { RulesetSettingsSection } from "./ruleset-settings-section";
 import { rulesetStrings } from "./strings";
 
@@ -16,12 +15,8 @@ export default async function ProjectRulesetSettings({ params }: { params: Promi
   // The emptiest door of the six: it read a workspace's ruleset with a tenant taken from the URL and
   // no session at all. The scope the read runs under is the guard's answer now, never the segment.
   const { tenantId } = await authorizePage({ tenant, project });
-  // The two-pane template (Design Direction 00 §3.6): the project's settings areas on the left, this
-  // screen's own content on the right. The nav is the frame's, so the screen below it is the same
-  // component a suite mounts on its own.
-  return (
-    <SettingsPane items={projectSettingsNav(tenant, project)} active="ruleset">
-      <RulesetSettingsSection view={await projectRulesetView({ tenantId, projectId: project })} />
-    </SettingsPane>
-  );
+  // The two-pane template (Design Direction 00 §3.6) is the frame's: `settings/layout.tsx` draws the
+  // project's settings areas on the left for every screen of this area alike, so this page renders
+  // its own content and nothing else — which is also what a suite mounts on its own.
+  return <RulesetSettingsSection view={await projectRulesetView({ tenantId, projectId: project })} />;
 }
