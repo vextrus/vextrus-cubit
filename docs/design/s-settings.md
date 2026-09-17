@@ -489,7 +489,7 @@ mocked module.
   is now the one place a project's settings areas are stated; `projectSettingsNav` is deleted from
   `settings-pane.tsx` (a second spelling of the roster — B-17). Four rows: Rule set · Participants ·
   Site facts · Author edition, an area's availability read off its `route` and never written beside
-  it (the home/areas.ts law). `site-facts` ships with `route: null` and inc-304b gives it an
+  it (the home/areas.ts law). The Site facts row ships with a null route and inc-304b gives it an
   address. Every row — a link or a promise — carries `data-testid="settings-area"` and
   `data-area=<key>`; the active row is read from the selected child segment in a small client
   component, because a server layout cannot read the address. I-198/I-204/I-209 re-point at the
