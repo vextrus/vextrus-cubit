@@ -183,6 +183,11 @@ export const DOCUMENTS_COLUMNS: ColumnDef<DocumentsRowView, unknown>[] = [
     id: "document",
     header: strings.documents_col_document,
     size: WIDTH_DOCUMENT,
+    // A CONTROL WELL: the cell holds one anchor and nothing else, so the anchor IS the cell — it
+    // fills it rather than floating inside it, which is what makes the row's door a target of the
+    // cell's own size (WCAG 2.2 SC 2.5.8, the primitive's `meta.control`). A well carries no text to
+    // widen, so it is not resized either, and its edge never crowds the header's column chooser.
+    meta: { control: true },
     // I-258: the door serves an attachment, so this is a plain anchor at a minted address and never
     // a client navigation into a viewer this screen does not have.
     cell: ({ row }) => (
@@ -261,6 +266,10 @@ export function DocumentsScreen({ rows, tenantId, projectId, reportId }: Documen
             columns={DOCUMENTS_COLUMNS}
             data={listed}
             getRowId={(row) => row.id}
+            // R-UI-083's own default, stated as the density REGION the primitive provides for it
+            // (§5 rule 1): a list of issues is a reference grid and reads at the compact 28 px row
+            // whatever height the reader's other surfaces stand at.
+            density="compact"
             rowTestId={TESTIDS.documents.row}
             rowDataOf={rowDataOf}
             aria-label={strings.documents_grid_label}

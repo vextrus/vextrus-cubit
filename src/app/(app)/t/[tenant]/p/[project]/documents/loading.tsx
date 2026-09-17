@@ -26,6 +26,7 @@ export default function ProjectDocumentsLoading() {
           columns={DOCUMENTS_COLUMNS}
           data={[]}
           getRowId={(row) => row.id}
+          density="compact"
           loading
           loadingRows={BONES}
           aria-label={strings.documents_grid_label}
