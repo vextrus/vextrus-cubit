@@ -212,14 +212,17 @@ export function DocumentsScreen({ rows, tenantId, projectId, reportId }: Documen
   const listed = useMemo(() => (rows === null ? [] : [...rows]), [rows]);
   const rowsDrawn = useRowsDrawn(gridRegion, listed.length);
 
-  // §2's order, first holding wins. A read that answered nothing is the fault state whether or not
-  // it left a report id behind: rows this screen never received are not an empty project.
-  const state: DocumentsState = reportId !== null || rows === null ? "error" : listed.length === 0 ? "empty" : "ready";
+  // §2's order, first holding wins: the read that failed left a report id behind, and it is the
+  // fault that decides the state — the rows are null in that case because there are none to draw,
+  // never the other way round. `loading` is loading.tsx's, which holds the route before this mounts.
+  const state: DocumentsState = reportId !== null ? "error" : listed.length === 0 ? "empty" : "ready";
 
   return (
     <div className="cx-documents" data-testid={TESTIDS.documents.screen} data-state={state}>
       <header className="cx-documents-header">
         <h1 className="cx-documents-heading">{strings.documents_title}</h1>
+        {/* The count is what the list HOLDS, so it stands wherever there is a list to count — and
+            it is absent where the read failed, because a zero there would be a figure nobody read. */}
         {state === "error" ? null : (
           <span className="cx-documents-count" role="status">
             {countReadout(listed.length)}
