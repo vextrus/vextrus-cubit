@@ -37,6 +37,12 @@ export const boq = {
   boq_reason_no_taxonomy_row: "No taxonomy row places this kind.",
   boq_reason_level_not_in_stack: "This line's level is not in the level stack.",
   boq_jobs_heading: "Rendering the draft",
+
+  // The step's own word inside the shipped timeline (job-timeline I-107): the pattern reads
+  // `job_step_<kind>` for every registered kind, and the area that owns the kind authors the word —
+  // the precedent `job_step_measure` and `job_step_partition` set. The key carries the kind's own
+  // spelling, hyphen and all, because it IS the kind's name.
+  "job_step_boq-render-draft": "Render the draft",
   boq_document_link: "Open the issued draft",
   boq_empty_heading: "Nothing published yet",
   boq_empty_body:

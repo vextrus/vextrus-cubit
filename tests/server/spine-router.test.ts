@@ -27,7 +27,7 @@ import {
  * The module lanes of the layered tree (ARCH-01), in the increment's own order. `takeoffSchedules`
  * is the sixth: S-Schedules' doors are their own lane file beside the register's (R-TO-034).
  */
-const LANES = ["spine", "takeoff", "takeoffSchedules", "bid", "assure", "ai"] as const;
+const LANES = ["spine", "takeoff", "takeoffSchedules", "takeoffBoq", "bid", "assure", "ai"] as const;
 
 const request = (headers: Record<string, string> = {}) => new Request("http://cubit.test/api/trpc/spine.health", { headers: new Headers(headers) });
 

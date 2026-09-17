@@ -186,6 +186,8 @@ export interface BoqWorkspaceProps {
   readonly offline?: boolean;
   /** The fault the read left behind, quoted verbatim beside the retry (B-21). */
   readonly reportId?: string | null;
+  /** The code a door answered with, rendered through the one refusal renderer (R-UI-020). */
+  readonly refused?: string | null;
   readonly tenantId?: string;
   readonly projectId?: string;
   /** What the route is watching of the export it started, where one is being watched (I-270). */
@@ -305,7 +307,10 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
 
   /** The job this screen started and is watching, until the page is left (I-270). */
   const [jobId, setJobId] = useState<string | null>(null);
-  const [refused, setRefused] = useState<string | null>(null);
+  const [answered, setAnswered] = useState<string | null>(null);
+  // A caller that states a refusal outright — R-UI-050's matrix walked one cell at a time — is
+  // stating what a door would have answered, so it is rendered exactly as a door's answer is.
+  const refused = answered ?? props.refused ?? null;
 
   const state = boqStateOf({ view, permitted: props.permitted, offline, refused, state: props.state ?? null });
   // I-194's precedent: a denial is the STATE, and a screen standing in it keeps no door open on any
@@ -329,8 +334,7 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
       (thrown: unknown) => {
         // A refused door is answered in the one place a refusal is rendered, by its registered code —
         // never a toast and never an improvised sentence (R-UI-020, ARCH-03).
-        const code = codeOf(thrown);
-        setRefused(code);
+        setAnswered(codeOf(thrown));
       },
     );
   }, [doors, props]);

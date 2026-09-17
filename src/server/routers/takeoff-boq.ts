@@ -14,7 +14,7 @@ import { campaignsOf } from "../../core/campaigns";
 import { REFUSALS } from "../../core/errors";
 import { refusal } from "../../core/faults/refusal-marker";
 import { enqueue } from "../../core/jobs";
-import { BOQ_RENDER_DRAFT_KIND, boqDraftJobKey } from "../../modules/takeoff/boq/job";
+import { BOQ_RENDER_DRAFT_KIND, boqDraftJobKey } from "../../modules/takeoff/boq";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { signedOut } from "../auth/refusals";
 import { parsed } from "../call";

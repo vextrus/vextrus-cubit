@@ -60,6 +60,9 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "ACTOR_NOT_HUMAN",
   "ACT_CHANGES_NOTHING",
   "BLINDING_PLAN_DEFERRED",
+  "BOQ_NO_CAMPAIGN",
+  "BOQ_NO_PUBLISHED_LINE",
+  "BOQ_TAXONOMY_VERSION_MOVED",
   "CAMPAIGN_NOT_FOUND",
   "CAPTION_UNCLASSIFIABLE",
   "CELL_NOT_IN_RESIDUE",
@@ -261,7 +264,16 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "9bc34ffa33026d33a92931d1f913e7b7808ad05fcbd06a83048d8b9324ea1d7b";
+/*
+ * Re-baselined for THREE ADDED entries and nothing else: `BOQ_NO_CAMPAIGN`,
+ * `BOQ_NO_PUBLISHED_LINE` and `BOQ_TAXONOMY_VERSION_MOVED` (./boq.ts), the codes the draft BOQ's
+ * export door and its render answer with — a project with no register to draft from, a campaign
+ * that published no line, and a draft issued under a taxonomy that has since moved. The roster grew
+ * by those three keys — 115 codes to 118 — and not one existing entry's code, message, remedy,
+ * severity or surface moved with them; the previous digest was
+ * 9bc34ffa33026d33a92931d1f913e7b7808ad05fcbd06a83048d8b9324ea1d7b.
+ */
+const ENTRIES_DIGEST_BEFORE = "8bb7fc6ed15553923a99ff0d2f7369558eb7292bcee4db3f0c3575ddcbaedb12";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

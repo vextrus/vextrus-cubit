@@ -6,7 +6,8 @@
 // hold the module, the document seam and the store at once.
 import { appStorage } from "../../core/storage/app";
 import { registerJobHandler } from "../../core/jobs";
-import { BOQ_RENDER_DRAFT_KIND, runBoqDraftJob, type BoqDraftDeps } from "../../modules/takeoff/boq/job";
+import { BOQ_RENDER_DRAFT_KIND } from "../../modules/takeoff/boq";
+import { runBoqDraftJob, type BoqDraftDeps } from "../../modules/takeoff/boq/job";
 
 /**
  * What a render runs against in production: this installation's artefact store, and the pinned

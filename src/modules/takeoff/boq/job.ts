@@ -19,8 +19,13 @@ import type { JobPayloads, JobProgress } from "@/core/jobs";
 import { boqViewOf } from "./server";
 import { BILL_TAXONOMY } from "./taxonomy";
 
-/** The kind this run is enqueued under (`src/core/jobs/kinds/boq.ts`). */
-export const BOQ_RENDER_DRAFT_KIND = "boq-render-draft" as const;
+/**
+ * The kind and the key, re-published beside the run that uses them. They are DECLARED in the barrel
+ * next door, which a screen may import without pulling the renderer's process boundary in behind it
+ * (ARCH-01, AS-01) — and read here, where the run stands, so a caller holding either file reads one
+ * spelling of both (B-17).
+ */
+export { BOQ_RENDER_DRAFT_KIND, boqDraftJobKey } from "./index";
 
 /**
  * The steps one render reports, in the order they run: the campaign read, the document rendered, the
@@ -30,15 +35,6 @@ export const BOQ_RENDER_DRAFT_KIND = "boq-render-draft" as const;
 export const BOQ_DRAFT_STEPS = ["boq:read", "boq:render", "boq:file"] as const;
 
 const [STEP_READ, STEP_RENDER, STEP_FILE] = BOQ_DRAFT_STEPS;
-
-/**
- * The key a draft's render is idempotent on: one live render per campaign, per workspace. A second
- * press while the first is queued or running is answered with the first job's id rather than a
- * second render of the same draft (SEAM-JOBS, I-270).
- */
-export function boqDraftJobKey(tenantId: string, campaignId: string): string {
-  return `boq-draft:${tenantId}:${campaignId}`;
-}
 
 /** What a render is run with: where the bytes go, and — for a lane — what compiles them. */
 export type BoqDraftDeps = RenderDeps & { readonly storage: DocumentStoreDeps["storage"] };

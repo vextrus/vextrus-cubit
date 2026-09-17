@@ -505,6 +505,29 @@ export const screenStates: ScreenStatesMatrix = {
     ),
   }),
 
+  // The unpriced draft (s-boq § 2): the pinned campaign's published lines, grouped into the six
+  // sections the taxonomy names. Its partial cell is a gap in the DRAFT — a line no taxonomy row
+  // could place, or a line that declared what it could not measure — said in words and never hidden;
+  // incomplete coverage is not that gap, because every section states what it measured and says so.
+  // Its denial names MEASURE, the one permission the export door moves.
+  "/t/[tenant]/p/[project]/takeoff/boq": declare({
+    loading: bones(5),
+    empty: (): ReactNode => <EmptyTeaching heading={strings.boq_empty_heading} body={strings.boq_empty_body} action={strings.boq_empty_action} />,
+    error: fault(strings.boq_error_body),
+    refusal: refusal(REFUSAL_ENTRIES.PERMISSION_NOT_HELD, PARTICIPANTS_EVIDENCE),
+    partial: (): ReactNode => <InlineAnswer text={strings.boq_reason_no_taxonomy_row} />,
+    offline: (): ReactNode => <InlineAnswer text={strings.boq_offline} />,
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.boq_denied_export}
+        holder={strings.boq_denied_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={PARTICIPANTS_EVIDENCE}
+      />
+    ),
+  }),
+
   // The takeoff address itself (s-takeoff § 1): a redirect that renders nothing, so every one of its
   // seven cells is the register's own, taken from the surface a reader is carried to and named as
   // handed over — a route that shows nothing has no state of its own to invent (Decision § 2).
