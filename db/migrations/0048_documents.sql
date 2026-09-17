@@ -18,7 +18,6 @@ CREATE TABLE "documents" (
 --> statement-breakpoint
 CREATE INDEX "documents_by_project" ON "documents" USING btree ("tenant_id","project_id","version");
 --> statement-breakpoint
--- carried by the engine from db/migrations/0043_documents.sql (v22 fault 538)
 -- hand-written: RLS, grants (SEAM-TENANT)
 -- Appended by hand in the form the tenancy-base migration set: the drift lane proves the schema and
 -- the committed migrations agree by generating into a scratch directory, and that proof only holds
