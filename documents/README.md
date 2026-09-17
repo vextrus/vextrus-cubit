@@ -6,9 +6,10 @@ its kind file in `src/core/documents/kinds/<kind>.typ`; only what every kind sha
 
 Nothing in this directory is compiled in place. `stageRender` (`src/core/documents/typst.ts`) copies
 it into a temporary directory per invocation, lays the canonical `payload.json` beside it, copies the
-brand mark in as `base/mark.svg`, and roots the renderer at that directory — so a template's absolute
-paths (`/base/frame.typ`, `/payload.json`) resolve inside the staging tree and reach nothing else on
-the volume. The directory is removed in a `finally`, whether the render answered or threw.
+brand mark in as `base/mark.svg`, and roots the renderer at that directory — so a template reaches the
+shared frame at `/base/frame.typ` and its own datum at `payload.json`, the sibling `stageRender` wrote
+for it, and both resolve inside the staging tree and reach nothing else on the volume. The directory
+is removed in a `finally`, whether the render answered or threw.
 
 ## What a template may and may not do
 

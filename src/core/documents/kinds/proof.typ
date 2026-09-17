@@ -12,7 +12,13 @@
 // or `#import "/main.typ"` therefore SETS those characters and does not run them: the renderer never
 // sees them as source, because nothing built source around them (L-FMT-03). That property is the
 // reason the payload crosses as a file at all rather than as an argument.
-#let payload = json("/payload.json")
+//
+// It is read by NAME, not by a rooted path: `stageRender` writes `payload.json` beside this template,
+// so the name says "the datum laid down for this render" where `/payload.json` would only say "some
+// file in the tree". The frame above is the other case and keeps its rooted path — `base/` is staged
+// material every kind shares, not this render's own. Either way `--root` is the staging directory, so
+// neither spelling can reach past it.
+#let payload = json("payload.json")
 
 #document-frame(title: payload.title, subtitle: payload.project)[
   #table(
