@@ -126,6 +126,20 @@ export const TESTIDS = {
   dialog: {
     content: "dialog-content",
   },
+  documents: {
+    act: "documents-act",
+    digest: "documents-digest",
+    empty: "documents-empty",
+    error: "documents-error",
+    grid: "documents-grid",
+    issuedBy: "documents-issued-by",
+    open: "documents-open",
+    reportId: "documents-report-id",
+    retry: "documents-retry",
+    row: "documents-row",
+    screen: "documents-screen",
+    supersededBy: "documents-superseded-by",
+  },
   dropdown: {
     content: "dropdown-content",
   },

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * AC-2's screen half — the seven areas and the three quick actions (S-Project, R-UI-031,
+ * AC-2's screen half — the seven areas and the quick actions (S-Project, R-UI-031,
  * docs/design/s-project.md §1, I-125/I-126).
  *
  * AC-2's browser half — activating the `drawings` tab from the keyboard and landing on the drawings
@@ -33,11 +33,18 @@ const LIVE: Readonly<Record<string, string>> = {
   settings: `/t/${TENANT}/p/${PROJECT}/settings/ruleset`,
 };
 
-/** The three quick actions and where each one goes (test contract). */
+/**
+ * The quick actions and where each one goes (test contract).
+ *
+ * Four since inc-300b-documents-list: S-Documents is reached from this screen and from nowhere else
+ * (R-UI-031), so the roster the old law froze at three is re-baselined here rather than worked
+ * around — the documents action is appended last, exactly as `areas.ts` declares it.
+ */
 const QUICK_ACTIONS: readonly (readonly [string, string])[] = [
   ["upload-drawings", `/t/${TENANT}/p/${PROJECT}/drawings`],
   ["browse-sets", `/t/${TENANT}/p/${PROJECT}/drawings/sets`],
   ["manage-participants", `/t/${TENANT}/p/${PROJECT}/settings/participants`],
+  ["documents", `/t/${TENANT}/p/${PROJECT}/documents`],
 ];
 
 afterEach(() => {
@@ -97,13 +104,13 @@ describe("AC-2 — the navigation regions", () => {
     }
   });
 
-  test("AC-2: the three quick actions are links to the addresses they name", async () => {
+  test("AC-2: the quick actions are links to the addresses they name", async () => {
     const root = mountHome(await projectHome(), homeData());
     const actions = all(root, "project-quick-action");
 
     expect(
       actions.map((action) => [action.tagName, action.getAttribute("data-action"), action.getAttribute("href")]),
-      "exactly three quick actions, each an anchor to the address the contract names",
+      "exactly the quick actions the contract names, each an anchor to its own address",
     ).toEqual(QUICK_ACTIONS.map(([action, href]) => ["A", action, href]));
     expect(one(root, "project-quick-actions").contains(actions[0] as Node), "and they stand in the quick-actions region").toBe(true);
   });

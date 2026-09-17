@@ -208,13 +208,21 @@ root is `<div data-testid="project-home" data-project={projectId}>`.
 verbatim, `var(--text-20)` `var(--weight-heading)` `var(--ink)`, margin 0, one line with ellipsis
 (I-144); the shipped `Badge` reading `home_status_archived` when the project wears that status, and
 nothing at all when it does not (the s-home I-35 reading, by the same key); then, pushed right,
-`cx-project-title-controls` `data-testid="project-quick-actions"` — the three `QUICK_ACTIONS` as
+`cx-project-title-controls` `data-testid="project-quick-actions"` — the `QUICK_ACTIONS` as
 `next/link`s wearing the core Button (`class="cx-btn cx-reticle"`, the `sheet-card-open` precedent,
 B-17), `data-testid="project-quick-action" data-action={key}`: `upload-drawings`
 `project_home_action_upload` → the drawings route, at `data-variant="primary"` — the screen's one
 primary — then `browse-sets` `project_home_action_sets` → the sets route and
-`manage-participants` `project_home_action_participants` → the participants route, both
+`manage-participants` `project_home_action_participants` → the participants route, and
+`documents` `project_home_action_documents` → the documents route, all three
 `data-variant="secondary"`.
+
+**Changelog.** *inc-300b-documents-list* appends a fourth quick action, `documents`
+(`project_home_action_documents`, **Documents**), leading to `documentsRoute(tenantId, projectId)` —
+S-Documents, the project's issued documents (docs/design/s-documents.md, R-SPINE-040). It is
+appended after the three that stood here, so nothing a reader had learned to reach moves; it is
+this screen's only change, and it is what makes S-Documents reachable by visible navigation from the
+shell (R-UI-031).
 
 **Facts line** — under the title row, the `<dl class="cx-project-facts">` (margin 0), one flex line
 at `min-height: 24px`, `white-space: nowrap`, `overflow: hidden`, gap `var(--space-4)`; each cell a
@@ -497,7 +505,7 @@ and on `data-role` (I-146). Every `tests/e2e/baselines/design/s-project/**` imag
 the rebuild and is regenerated in its own `baseline:` commit, never by widening a tolerance. Checkpoints, axe serious/critical = 0 at each, never widened
 (Q-11): **s-project/home** — sign in, open S-Home, follow `s-home-project-open` on the journey
 project's card, and at 1440×900 assert the header (name, client, district, `data-count="0"` zones,
-GFA in m² and sft), seven tabs with three `data-available="true"`, three quick actions, the AI
+GFA in m² and sft), seven tabs with three `data-available="true"`, the quick actions, the AI
 figures with the `USD` badge and the none line, activity, and the roster holding the creator as
 `PRINCIPAL`; then `toHaveScreenshot` against `tests/e2e/baselines/design/s-project/home.png`
 (`["s-project", "home.png"]`, animations disabled, maxDiffPixelRatio 0.002) with `masks()` over the
@@ -508,6 +516,6 @@ travel to the `drawings` tab and Enter: the URL is the drawings route and `sheet
 `j-000/first-project-on-s-home.png` are owned here for the I-131 underline (B-20). jsdom acceptance
 (`tests/ui/project-home/**`) mounts `ProjectHome` bare over injected data: the header's three
 absence branches, the zone-count invariant, both GFA figures against the format seam, the seven
-tabs' order and availability derived from `PROJECT_AREAS`, the three quick actions' hrefs, the AI
+tabs' order and availability derived from `PROJECT_AREAS`, every quick action's href, the AI
 region at zero and above zero, the `RECENT_ACTIVITY_LIMIT` cap over six acts and the empty branch,
 and the roster's two arms including the RefusalState's code, remedy and evidence href.

@@ -22,8 +22,13 @@ export const S_PROJECT = Object.freeze({
 /** S-Project's clause order: "Drawings · Takeoff · Assure · Estimate · Bid · Activity · Settings". */
 export const PROJECT_AREA_KEYS = ["drawings", "takeoff", "assure", "estimate", "bid", "activity", "settings"] as const;
 
-/** The three quick actions the screen offers, by the `data-action` each one carries. */
-export const PROJECT_QUICK_ACTIONS = ["upload-drawings", "browse-sets", "manage-participants"] as const;
+/**
+ * The quick actions the screen offers, by the `data-action` each one carries — four since
+ * inc-300b-documents-list appended the documents list, which is reached from this screen and from
+ * nowhere else (R-UI-031). A new action is appended here, never inserted: the walks that read this
+ * roster assert the older actions still stand ahead of the newest.
+ */
+export const PROJECT_QUICK_ACTIONS = ["upload-drawings", "browse-sets", "manage-participants", "documents"] as const;
 
 /** How many Tab presses a keyboard walk of this screen is allowed before it has plainly failed. */
 const TAB_TRAVEL_LIMIT = 80;

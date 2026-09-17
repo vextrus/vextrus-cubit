@@ -6,6 +6,7 @@
 //
 // An address that already has a home is imported from it rather than respelled (B-17); the two this
 // screen is the first to link have their spelling here.
+import { documentsRoute } from "../documents/route-address";
 import { drawingsRoute } from "../drawings/route-address";
 import { setsRoute } from "../drawings/sets/route-address";
 import { participantsRoute } from "../settings/participants/route-address";
@@ -65,13 +66,18 @@ export interface ProjectQuickAction extends ProjectArea {
 }
 
 /**
- * The three things a reader most often comes to a project home to do (R-SPINE-013's quick actions).
- * Every one of them has a screen, so every one of them is a link.
+ * The things a reader most often comes to a project home to do (R-SPINE-013's quick actions). Every
+ * one of them has a screen, so every one of them is a link.
+ *
+ * The documents list is the fourth, appended rather than inserted: what a reader already reaches for
+ * keeps its place, and the newest door stands after them (R-UI-031 — a screen reachable only by a
+ * typed URL is a failing criterion, and this is how S-Documents is reached).
  */
 export const QUICK_ACTIONS: readonly ProjectQuickAction[] = Object.freeze([
   { key: "upload-drawings", label: "project_home_action_upload", route: drawingsRoute },
   { key: "browse-sets", label: "project_home_action_sets", route: setsRoute },
   { key: "manage-participants", label: "project_home_action_participants", route: participantsRoute },
+  { key: "documents", label: "project_home_action_documents", route: documentsRoute },
 ]);
 
 /**

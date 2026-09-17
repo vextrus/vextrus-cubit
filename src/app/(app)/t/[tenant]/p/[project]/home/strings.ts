@@ -31,6 +31,7 @@ export const projectHomeStrings = {
   project_home_action_upload: "Add drawings",
   project_home_action_sets: "Browse drawing sets",
   project_home_action_participants: "Manage participants",
+  project_home_action_documents: "Documents",
 
   project_home_ai_heading: "AI cost so far",
   project_home_ai_cost_unit: "USD",

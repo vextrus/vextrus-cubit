@@ -6,6 +6,7 @@ import { commandPalette } from "./command-palette";
 import { consequenceDialog } from "./consequence-dialog";
 import { coverage } from "./coverage";
 import { design } from "./design";
+import { documents } from "./documents";
 import { dropzone } from "./dropzone";
 import { evidenceLink } from "./evidence-link";
 import { home } from "./home";
@@ -34,6 +35,7 @@ export const strings = {
   ...consequenceDialog,
   ...coverage,
   ...design,
+  ...documents,
   ...dropzone,
   ...evidenceLink,
   ...home,

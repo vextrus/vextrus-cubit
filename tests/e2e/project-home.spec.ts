@@ -16,6 +16,7 @@
 // Design Decision closes over, and an import into this file would be a second reading of the screen.
 import { expect, test } from "@playwright/test";
 import { SAuthPage, S_AUTH } from "./pages/s-auth.page";
+import { S_DOCUMENTS } from "./pages/s-documents.page";
 import { SDrawingsPage } from "./pages/s-drawings.page";
 import { SHomePage } from "./pages/s-home.page";
 import { SProjectPage, PROJECT_AREA_KEYS, PROJECT_QUICK_ACTIONS, S_PROJECT } from "./pages/s-project.page";
@@ -43,11 +44,16 @@ const LIVE_AREAS: readonly (readonly [string, (tenantId: string, projectId: stri
   ["settings", S_PROJECT.ruleset],
 ];
 
-/** Each quick action and where it goes (test contract). */
+/**
+ * Each quick action and where it goes (test contract). The documents list joined them in
+ * inc-300b-documents-list, addressed by the page object that owns that screen's one spelling rather
+ * than by a second `/t/…/documents` written here (B-17).
+ */
 const QUICK_ACTION_ROUTES: readonly (readonly [string, (tenantId: string, projectId: string) => string])[] = [
   ["upload-drawings", S_PROJECT.drawings],
   ["browse-sets", S_PROJECT.sets],
   ["manage-participants", S_PROJECT.participants],
+  ["documents", S_DOCUMENTS.documents],
 ];
 
 /** The width the frame paints all four of its regions at (R-UI-030, lg and up). */
@@ -139,8 +145,8 @@ test.describe("J-010 — the project home", () => {
       }
     }
 
-    /* --- the three quick actions --- */
-    await expect(project.quickActions, "exactly the three quick actions S-Project offers").toHaveCount(PROJECT_QUICK_ACTIONS.length);
+    /* --- the quick actions --- */
+    await expect(project.quickActions, "exactly the quick actions S-Project offers").toHaveCount(PROJECT_QUICK_ACTIONS.length);
     for (const [action, route] of QUICK_ACTION_ROUTES) {
       await expect(project.quickAction(action), `the \`${action}\` action opens the address it names`).toHaveAttribute("href", route(tenantId, projectId));
     }
