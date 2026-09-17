@@ -84,6 +84,19 @@ function statedHere(failure: unknown): keyof typeof STATUS | null {
 }
 
 /**
+ * One part of the file's name, reduced to what may stand inside a quoted `filename` parameter.
+ *
+ * `kind` is a free `text` column, not an enum: every writer reaches it through `storeDocument` with a
+ * registry key today, and neither the schema nor this door is what makes that so. A value carrying a
+ * quote, a semicolon or CR/LF would end the parameter early and let the rest be read as header, so
+ * the door states the alphabet its own header is written in rather than trusting the column's
+ * (R-SPINE-040). A registered kind and a uuid pass through unchanged.
+ */
+function headerSafe(part: string): string {
+  return part.replace(/[^A-Za-z0-9._-]/gu, "-");
+}
+
+/**
  * The document itself. It is named for the kind and the issue it is, and marked private: one
  * workspace's document is its own, and nothing between this door and the person who asked may keep a
  * copy of it.
@@ -95,7 +108,7 @@ function documentAnswer(bytes: Uint8Array, kind: string, id: string): Response {
     status: 200,
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `attachment; filename="${kind}-${id}.pdf"`,
+      "content-disposition": `attachment; filename="${headerSafe(kind)}-${headerSafe(id)}.pdf"`,
       "cache-control": "private, no-store",
     },
   });

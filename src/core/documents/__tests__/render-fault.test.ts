@@ -8,6 +8,8 @@
 // Both the subprocess and the faces are injected, so this judges the SEAM's behaviour and not the
 // machine's: the fault is the one the test raised, and no vendored byte is read to reach it.
 import { existsSync } from "node:fs";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { REFUSALS } from "../../errors";
@@ -15,7 +17,7 @@ import { refusalCodeOf } from "../../faults/refusal-marker";
 import { setFaultSink, type FaultRecord } from "../../faults/report";
 import type { EmbeddedFont } from "../fonts";
 import { renderDocument } from "../index";
-import type { StagedRender } from "../typst";
+import { stageRender, type StagedRender } from "../typst";
 
 const ctx = { requestId: "render-fault-request", actor: "render-fault-suite" };
 
@@ -99,5 +101,35 @@ describe("a renderer that fails is recorded once and answered by name", () => {
     expect(refusalCodeOf(failure), "the compile failed, so the render is refused by name").toBe("DOCUMENT_NOT_RENDERED");
     expect(staged.length, "the compile was reached, so there was a directory to clean up").toBe(1);
     expect(existsSync(staged[0] ?? ""), "a staging directory that outlived its render is a payload left on the volume").toBe(false);
+  });
+
+  it("leaves nothing behind when the STAGING itself fails, before any compile is reached", async () => {
+    // The other arm, and the one a caller cannot clean up after: a stage that throws part-way never
+    // hands its directory back, so whatever it had already written would sit on the volume for the
+    // life of the box. The directory is made by `stageRender` and is therefore `stageRender`'s to
+    // take away (R-SPINE-040: one temp directory per invocation, removed whatever happens).
+    //
+    // Staging is aimed at a sandbox of this case's own, so "nothing is left behind" is read off an
+    // empty directory rather than guessed at from a machine-wide temp folder every other suite is
+    // also writing into. `os.tmpdir()` reads TMPDIR at each call, which is what makes that possible.
+    const sandbox = await mkdtemp(join(tmpdir(), "cubit-stage-probe-"));
+    const held = process.env["TMPDIR"];
+    process.env["TMPDIR"] = sandbox;
+    try {
+      const failed = await stageRender({
+        template: join(sandbox, "no-kind-has-this-template.typ"),
+        payload: new TextEncoder().encode('{"title":"a payload that must not outlive its stage"}'),
+      }).then(
+        () => null,
+        (thrown: unknown) => thrown,
+      );
+
+      expect(failed, "a template that is not there is a stage that cannot answer").not.toBeNull();
+      expect(await readdir(sandbox), "a half-staged render is a canonical payload nobody is coming back for").toEqual([]);
+    } finally {
+      if (held === undefined) delete process.env["TMPDIR"];
+      else process.env["TMPDIR"] = held;
+      await rm(sandbox, { recursive: true, force: true });
+    }
   });
 });

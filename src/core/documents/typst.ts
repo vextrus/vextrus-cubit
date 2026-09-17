@@ -106,16 +106,28 @@ function argvFor(staged: StagedRender): string[] {
  */
 export async function stageRender(request: StageRequest): Promise<StagedRender> {
   const dir = await mkdtemp(join(tmpdir(), "cubit-document-"));
-  const main = join(dir, "main.typ");
-  const base = join(dir, "base");
-  await cp(documentBasePath(), base, { recursive: true });
-  // The mark is staged UNDER the frame that draws it, at the one name every template knows it by.
-  // It is copied from `src/ui/brand` rather than kept beside the frame, so this product's mark has
-  // one drawing and the templates have one name for it (B-17).
-  await cp(documentMarkFile(), join(base, "mark.svg"));
-  await cp(request.template, main);
-  await writeFile(join(dir, "payload.json"), request.payload);
-  return { dir, main, out: join(dir, "out.pdf") };
+  // From here the directory EXISTS and this function is the only holder of its path: a caller cannot
+  // discard what it was never handed. So every way of leaving without answering takes it away first —
+  // a missing mark, a full volume, an EACCES — and the invocation owns its directory from the moment
+  // the directory is made rather than from the moment it is staged (R-SPINE-040: one temp directory
+  // per invocation, removed whatever happens).
+  try {
+    const main = join(dir, "main.typ");
+    const base = join(dir, "base");
+    await cp(documentBasePath(), base, { recursive: true });
+    // The mark is staged UNDER the frame that draws it, at the one name every template knows it by.
+    // It is copied from `src/ui/brand` rather than kept beside the frame, so this product's mark has
+    // one drawing and the templates have one name for it (B-17).
+    await cp(documentMarkFile(), join(base, "mark.svg"));
+    await cp(request.template, main);
+    await writeFile(join(dir, "payload.json"), request.payload);
+    return { dir, main, out: join(dir, "out.pdf") };
+  } catch (failure) {
+    // The payload bytes may already be on the volume at this point, which is the other half of why
+    // this matters: a half-staged render is a canonical payload nobody is coming back for.
+    await discardRender(dir);
+    throw failure;
+  }
 }
 
 /**
