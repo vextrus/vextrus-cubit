@@ -18,6 +18,7 @@ import {
   PARTIAL_DECLARED,
   QUANTITY_LINES_SCHEMA_MODULE,
   SIX_BILLS,
+  TAXONOMY_MODULE,
   TAXONOMY_VERSION,
   catalogue,
   compareCanonical,
@@ -328,6 +329,75 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
     expect((declared as { line: { quantity: string | null } }).line.quantity, "and it states no figure at all — never a zero, which would be a quantity nobody measured (L-QTY-04)").toBeNull();
 
     expect(payload.taxonomyVersion, "the payload is stamped with the taxonomy it was drafted under").toBe(TAXONOMY_VERSION);
-    expect(payload.coverage, "the reading's coverage is carried into the payload").toBe("INCOMPLETE");
+    // What this reading's COVERAGE is worth is not asked here: its statement is incomplete and it
+    // carries a declared line, so an answer of INCOMPLETE would be forced twice over and would show
+    // nothing. The case below asks it where exactly one thing decides it.
+  });
+
+  test("AC-3: a draft every line of which was measured is COMPLETE, and one line no bill can place takes it out of completeness", async () => {
+    await ready();
+    const taxonomy = await productModule<{ UNCLASSIFIED_REASONS: readonly string[] }>(TAXONOMY_MODULE);
+
+    // One reading, stated COMPLETE by the residue and holding no declared line: every OTHER road to
+    // INCOMPLETE is shut, so what the payload answers is decided by the unplaced line and by nothing
+    // else (L-BD-08, AM-16 §3 — an unplaceable line is a VISIBLE gap, never a silent one).
+    const mapped: ReadingShape["lines"] = [
+      { lineId: "l-1", objectKey: "column/GF/C1", class: "column", kind: "rcc.concrete", levelId: "lvl-gf", value: "1.000", unit: "m3", quantityBasis: "MEASURED", selectionBasis: "TRANSCRIBED", coverage: COMPLETE },
+      { lineId: "l-2", objectKey: "beam/GF/B1", class: "beam", kind: "rcc.concrete", levelId: "lvl-gf", value: "2.000", unit: "m3", quantityBasis: "MEASURED", selectionBasis: "TRANSCRIBED", coverage: COMPLETE },
+      { lineId: "l-3", objectKey: "surface/GF/S1", class: "surface", kind: "finish.plaster", levelId: "lvl-gf", value: "3.00", unit: "m2", quantityBasis: "MEASURED", selectionBasis: "TRANSCRIBED", coverage: COMPLETE },
+    ];
+    const whole: ReadingShape = {
+      project: "Sattva Court",
+      campaignId: "33333333-3333-4333-8333-333333333333",
+      setRevisionId: "44444444-4444-4444-8444-444444444444",
+      levels: [...TWO_LEVELS],
+      coverageComplete: true,
+      lines: mapped,
+    };
+
+    /* --- the control: every pair the taxonomy places, and the draft says so --- */
+    const control = emission.boqDraftPayloadOf(whole);
+    expect(control.unclassified.lines, "every line of this reading was placed, so nothing stands outside the six sections").toEqual([]);
+    expect(control.coverage, "a statement with no row, no declared line and nothing unplaced is COMPLETE").toBe("COMPLETE");
+
+    /* --- the discriminator: the same reading, plus one line no bill can take --- */
+    // A column is billed by WHERE it stands, and this one stands on a level the stack does not hold,
+    // so no row of the taxonomy can place it. (The other spelling of "no row maps this pair" — a
+    // kind outside the catalogue — cannot be asked of the emission at all: the document's precision
+    // is read from the catalogue by kind, so such a line faults before any resolution is reached.)
+    const unplaceable = {
+      lineId: "l-unplaced",
+      objectKey: "column/none/C9",
+      class: "column",
+      kind: "rcc.concrete",
+      levelId: "lvl-nowhere",
+      value: "4.000",
+      unit: "m3",
+      quantityBasis: "MEASURED",
+      selectionBasis: "TRANSCRIBED",
+      coverage: COMPLETE,
+    } as ReadingShape["lines"][number];
+    const withGap = emission.boqDraftPayloadOf({ ...whole, lines: [...mapped, unplaceable] });
+
+    expect(withGap.unclassified.lines.length, "the line no bill can take is KEPT, and once — never dropped and never doubled (L-BD-08)").toBe(1);
+    const kept = withGap.unclassified.lines[0] as { lineId: string; reason: string; coverage: string };
+    expect(kept.lineId, "kept under its own identity, so a reader can go and look at it").toBe("l-unplaced");
+    expect([...taxonomy.UNCLASSIFIED_REASONS], "labelled with a reason the law admits, stated by name").toContain(kept.reason);
+    expect(kept.coverage, "and it is not a line that declared what it could not measure: it was measured, and could not be placed").toBe(COMPLETE);
+
+    const inSections = withGap.sections.flatMap((section) => section.groups.flatMap((group) => group.lines));
+    expect(
+      inSections.map((line) => line.lineId),
+      "it stands in NO section: a line the taxonomy could not place is outside the six, never quietly filed inside one (AC-2)",
+    ).toEqual(mapped.map((line) => line.lineId));
+    expect(
+      inSections.filter((line) => line.coverage === PARTIAL_DECLARED),
+      "and no line of any section declared what it could not measure — that road to INCOMPLETE is shut, so only the unplaced line is left to answer for it",
+    ).toEqual([]);
+
+    expect(
+      withGap.coverage,
+      "so the draft states INCOMPLETE: a draft holding a line no bill could place is not complete, whatever the measurement statement says (AM-16 §3, L-QTY-07)",
+    ).toBe("INCOMPLETE");
   });
 });
