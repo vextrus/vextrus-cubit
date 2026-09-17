@@ -62,7 +62,7 @@ export default async function ProjectParticipantsSettings({ params }: { params: 
   } catch (thrown) {
     const code = refusalCodeOf(thrown);
     if (code !== "PERMISSION_NOT_HELD") throw thrown;
-    return <ParticipantsDenied tenantId={tenant} projectId={project} />;
+    return <ParticipantsDenied tenantId={tenant} />;
   }
 }
 
@@ -71,7 +71,7 @@ export default async function ProjectParticipantsSettings({ params }: { params: 
  * sentences that name the permission and who holds it are what the `(i)` on the header carries —
  * §6 keeps a screen to one helper line, and a refused screen's one line is the refusal's own remedy.
  */
-function ParticipantsDenied({ tenantId, projectId }: { tenantId: string; projectId: string }) {
+function ParticipantsDenied({ tenantId }: { tenantId: string }) {
   const code: RefusalCode = "PERMISSION_NOT_HELD";
   return (
     <div className="cx-participants">

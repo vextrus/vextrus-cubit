@@ -8,7 +8,8 @@
 import { authorizePage } from "@/server/authorize-page";
 import { authorize } from "@/server/authorize";
 import { projectRulesetView } from "@/core/rulesets/editions";
-import { RulesetAuthorSection, rulesetAuthorStrings } from "@/modules/spine/ruleset-authoring";
+import { rulesetAuthorStrings } from "@/modules/spine/ruleset-authoring";
+import { RulesetAuthorSection } from "./ruleset-author-section";
 import { participantsRoute } from "../participants/route-address";
 import { parameterLabel } from "../strings";
 import { rulesetRoute } from "../../home/areas";

@@ -9,7 +9,7 @@
 // server-rendered and pass straight through.
 // The template's own chrome — the 160 px nav, the content pane and the seam between them — has one
 // home, and this frame renders inside it rather than restating its rules (s-settings I-198, B-17).
-import "../../../settings/settings.css";
+import "@/app/(app)/t/[tenant]/settings/settings.css";
 
 import { useSelectedLayoutSegment } from "next/navigation";
 import Link from "next/link";

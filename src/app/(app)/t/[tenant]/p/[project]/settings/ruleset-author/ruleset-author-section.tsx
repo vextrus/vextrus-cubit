@@ -14,6 +14,7 @@ import "./ruleset-author.css";
 import { useCallback, useId, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { refusalOf, type RefusalCode } from "@/core/errors";
+import type { CommitAnswer, PreviewAnswer } from "./actions";
 import type { EditionIdentity, EditionParameter } from "@/core/rulesets/editions";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
@@ -22,8 +23,7 @@ import { DataTable } from "@/ui/primitives/data";
 import { ShellEmptyState, useShellPage } from "@/ui/shell";
 import { fill } from "@/ui/strings";
 import { TESTIDS } from "@/ui/testids";
-import { diffParameters, authoredValues, type ParameterDiffRow } from "./diff";
-import { rulesetAuthorStrings } from "./strings";
+import { authoredValues, diffParameters, rulesetAuthorStrings, type ParameterDiffRow } from "@/modules/spine/ruleset-authoring";
 
 /** The act this screen renders (L-ACT-02's pair), spelled once. */
 const ACT_TYPE = "AUTHOR_RULESET_EDITION";
@@ -33,14 +33,6 @@ const DIFF_TABLE_ID = "ruleset-author-diff";
 
 /** R-UI-002's glyph for a figure a person entered, which is what an authored value is. */
 const ENTERED = "ENTERED";
-
-/** What a preview answered: the Consequence and the digest that binds it, or the refusal. */
-export type AuthorPreviewAnswer =
-  | { previewed: true; consequence: { actType: string; tenantId: string; projectId: string; rendering: "SUBJECTS"; subjects: readonly { subjectId: string; subjectLabel?: string; before: readonly string[]; after: readonly string[] }[] }; consequenceDigest: string }
-  | { previewed: false; refusal: RefusalCode };
-
-/** What a commit answered: the act it wrote, or the refusal that stopped it. */
-export type AuthorCommitAnswer = { committed: true; actId: string } | { committed: false; refusal: RefusalCode };
 
 /** What an author states: the version, and the decimals under the pin's own parameter keys. */
 export interface AuthorRequest {
@@ -68,8 +60,8 @@ export interface RulesetAuthorSectionProps {
   mayAuthor: boolean;
   /** The words a parameter is named by — the settings area's one table (I-268). */
   parameterLabel: (key: string) => string;
-  preview: (request: AuthorRequest) => Promise<AuthorPreviewAnswer>;
-  commit: (request: AuthorRequest & { consequenceDigest: string }) => Promise<AuthorCommitAnswer>;
+  preview: (request: AuthorRequest) => Promise<PreviewAnswer>;
+  commit: (request: AuthorRequest & { consequenceDigest: string }) => Promise<CommitAnswer>;
 }
 
 /** An edition as L-MEA-01 spells one: `IS1200_IN @ 2026.08`. */

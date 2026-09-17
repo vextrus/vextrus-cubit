@@ -4,8 +4,8 @@
 import type { ShellStateCell, ShellStateName } from "@/ui/shell/states";
 
 /** The screen's own home, spelled once: every cell that names a file of it starts here. */
-const SECTION = "src/modules/spine/ruleset-authoring/ruleset-author-section.tsx";
 const ROUTE = "src/app/(app)/t/[tenant]/p/[project]/settings/ruleset-author";
+const SECTION = `${ROUTE}/ruleset-author-section.tsx`;
 
 export const RULESET_AUTHOR_STATES: Readonly<Record<ShellStateName, ShellStateCell>> = {
   // Bones that keep the shape the answer will take, hidden from the accessibility tree by the

@@ -10,6 +10,7 @@
 // project reads today, and the project reads the newest one from the moment it lands. The creation
 // pin L-REG-07 wrote stands untouched, as the head of the chain this edition is a step on.
 import type { TenantTx } from "../db";
+import { REFUSALS } from "../errors";
 import { refusal } from "../faults/refusal-marker";
 import { authoredContent, mintProjectEdition, projectHoldsVersion } from "../rulesets/editions/mint";
 import { currentProjectEdition, type CurrentProjectEdition } from "../rulesets/editions/view";
@@ -57,10 +58,10 @@ interface Derived {
 async function derive(ctx: ActorCtx, input: AuthorRulesetEditionInput, tx: TenantTx): Promise<Derived> {
   const pin = await currentProjectEdition(tx, { tenantId: ctx.tenantId, projectId: input.projectId });
   if (pin === undefined) {
-    throw refusal("REQUEST_MALFORMED", `the project ${input.projectId} reads no rule-set edition, so there is nothing to fork (L-REG-07)`);
+    throw refusal(REFUSALS.REQUEST_MALFORMED.code, `the project ${input.projectId} reads no rule-set edition, so there is nothing to fork (L-REG-07)`);
   }
   if (await projectHoldsVersion(tx, { tenantId: ctx.tenantId, projectId: input.projectId, version: input.version })) {
-    throw refusal("EDITION_VERSION_TAKEN", `this project already holds a rule-set edition at version ${input.version} (L-MEA-01: identity is (scope, name, version))`);
+    throw refusal(REFUSALS.EDITION_VERSION_TAKEN.code, `this project already holds a rule-set edition at version ${input.version} (L-MEA-01: identity is (scope, name, version))`);
   }
 
   const content = authoredContent(pin.content, input.values);
