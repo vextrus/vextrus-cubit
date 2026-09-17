@@ -46,15 +46,17 @@
 )
 
 /// A section's foot: one row per unit, under the one label incomplete coverage allows (L-QTY-07).
-#let subtotal-rows(label, subtotals) = subtotals
-  .map(subtotal => (
-    [],
-    text(size: 9.5pt, weight: "semibold", fill: ink)[#label],
-    [],
-    figure-cell(subtotal.value),
-    unit-cell(subtotal.unit),
-  ))
-  .flatten()
+#let subtotal-rows(label, subtotals) = {
+  subtotals
+    .map(subtotal => (
+      [],
+      text(size: 9.5pt, weight: "semibold", fill: ink)[#label],
+      [],
+      figure-cell(subtotal.value),
+      unit-cell(subtotal.unit),
+    ))
+    .flatten()
+}
 
 #document-frame(
   title: payload.title,
