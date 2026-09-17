@@ -39,8 +39,18 @@ async function productModule<T>(relative: string): Promise<T> {
 const DISCIPLINE = "STRUCTURAL";
 const CLASS_COLUMN = "column";
 
-/** The one level the staged columns stand on, and the storey height a bar is cut to run through. */
-const LEVEL_LABEL = "GF";
+/**
+ * The stack the staged schedule's bands are read against, lowest first.
+ *
+ * A band is a range over a BUILDING: a schedule row banded `GF TO 3RD` selects nothing at all where
+ * the project's stack carries no level called `3RD`, because a band whose endpoints cannot be placed
+ * is a statement nothing can judge (L-MEA-07, `bandJudgeable`). So the stack is the one the drawing's
+ * own bands name, and `bandsStood` below fails by name where the schedule ever names another.
+ */
+const STACK: readonly string[] = Object.freeze(["GF", "3RD", "4TH", "ROOF"]);
+
+/** The level the staged columns stand on, and the storey height a bar is cut to run through. */
+const LEVEL_LABEL = STACK[0] as string;
 const STOREY_HEIGHT = Object.freeze({ value: "3048", unit: "mm" } as const);
 const TRANSCRIBED = "TRANSCRIBED";
 
@@ -68,9 +78,12 @@ type RegisterSeam = {
   registerObjectsOf: (scope: { tenantId: string; projectId: string; setRevisionId: string }) => Promise<Record<string, unknown>[]>;
 };
 
+/** One variant of a family, as the store holds one: the band it stands in, and the bars it states. */
+type StoredVariantShape = { variantKey: string; bandFrom: string | null; bandTo: string | null; zones: { zone: string; bars: readonly unknown[] | null }[] };
+
 type MemberTypesSeam = {
   memberTypesOf: (scope: { tenantId: string; projectId: string; drawingId: string }) => Promise<{
-    families: { family: string; variants: { variantKey: string; zones: { zone: string; bars: unknown }[] }[] }[];
+    families: { family: string; variants: StoredVariantShape[] }[];
   } | null>;
 };
 
@@ -89,6 +102,8 @@ type PlacementSetup = {
 type RailSetupShape = {
   placements: Record<string, PlacementSetup>;
   calibrations: Record<string, Record<string, string>>;
+  memberTypes: Record<string, Record<string, readonly unknown[]>>;
+  levels: readonly unknown[];
 };
 
 type RailInputShape = { setup: RailSetupShape };
@@ -153,10 +168,16 @@ export async function stageBbs(page: Page, options: { label?: string } = {}): Pr
     return acts.commit(actor, input, acts.consequenceDigest(consequence));
   };
 
-  /* --- the level the marks stand on, and the run a vertical bar is cut to (L-MEA-07, L-MEA-09) --- */
-  await perform({ type: "INSERT_LEVEL", projectId: staged.projectId, levels: [{ label: LEVEL_LABEL, ordinal: 0 }] });
+  /* --- the stack the schedule's bands are read against, and the run a bar is cut to (L-MEA-07) --- */
+  for (const [ordinal, label] of STACK.map((label, ordinal) => [ordinal, label] as const)) {
+    await perform({ type: "INSERT_LEVEL", projectId: staged.projectId, levels: [{ label, ordinal }] });
+  }
   const levels = await productModule<LevelsSeam>("src/modules/takeoff/levels/index.ts");
   const stack = await levels.levelStackOf(scope);
+  expect(
+    stack.map((level) => level.label),
+    `the staged project stands on the levels the schedule's bands name: ${JSON.stringify(stack.map((level) => level.label))}`,
+  ).toEqual([...STACK]);
   const ground = stack.find((level) => level.label === LEVEL_LABEL);
   expect(ground, `the level ${LEVEL_LABEL} stands on the staged project: ${JSON.stringify(stack.map((level) => level.label))}`).toBeTruthy();
   const levelId = (ground as { levelId: string }).levelId;
@@ -197,11 +218,21 @@ export async function stageBbs(page: Page, options: { label?: string } = {}): Pr
   /* --- the schedule states a bar group for each of them, which is what there is to bill --- */
   const types = await productModule<MemberTypesSeam>("src/modules/takeoff/partition/index.ts");
   const registered = await types.memberTypesOf({ ...scope, drawingId: staged.drawingId });
-  const stating = (registered?.families ?? []).filter((family) => family.variants.some((variant) => variant.zones.some((zone) => zone.bars !== null)));
+  const families = registered?.families ?? [];
+  const stating = families.filter((family) => family.variants.some((variant) => variant.zones.some((zone) => (zone.bars ?? []).length > 0)));
   expect(
     stating.map((family) => family.family).sort(),
-    `each mark's schedule row states the bar group its steel is billed from: ${JSON.stringify(registered?.families ?? [])}`,
+    `each mark's schedule row states the bar group its steel is billed from: ${JSON.stringify(families)}`,
   ).toEqual([...staged.families].sort());
+
+  // And every band those rows stand in is a band this stack can place: a schedule that banded its
+  // rows over levels the project does not carry would select no row at all, and the rail would
+  // report a schedule unread for every member rather than billing one (L-FRM-02).
+  const named = families
+    .flatMap((family) => family.variants.flatMap((variant) => [variant.bandFrom, variant.bandTo]))
+    .filter((label): label is string => label !== null)
+    .filter((label, at, all) => all.indexOf(label) === at);
+  expect(named.filter((label) => !STACK.includes(label)), `the staged stack places every band endpoint the schedule names: ${JSON.stringify(named)}`).toEqual([]);
 
   /* --- the one seam this stage stands in for: a placement per register row, and its calibration --- */
   const placements: Record<string, PlacementSetup> = {};
@@ -209,6 +240,12 @@ export async function stageBbs(page: Page, options: { label?: string } = {}): Pr
   for (const row of rows) {
     const placementKey = String(row["placementKey"]);
     const viewKey = String(row["viewKey"]);
+    // The family a placement names is the family the SCHEDULE states, so a register that spells a
+    // mark its own way is seen here rather than measured as a member whose schedule nobody found.
+    expect(
+      staged.families,
+      `the register keeps the mark the schedule states, so a placement can name the family it belongs to: ${String(row["mark"])}`,
+    ).toContain(String(row["mark"]));
     placements[placementKey] = {
       drawingId: staged.drawingId,
       ingestId: staged.ingestId,
@@ -276,26 +313,51 @@ export async function measureStaged(staged: StagedBbs): Promise<MeasuredBbs> {
   const rail = roster.RAILS[RCC_REBAR];
   expect(typeof rail, `RAILS["${RCC_REBAR}"] is the rail the measure job runs for this kind (L-MEA-08)`).toBe("function");
 
+  // What the rail made of the campaign, kept so a measurement that billed nothing says WHY: a member
+  // it could not read is an observation under this area's own code (L-MEA-08).
+  const seen: { observations: unknown[]; read: unknown } = { observations: [], read: null };
   const wrapped = (input: RailInputShape): unknown => {
     Object.assign(input.setup.placements, staged.placements);
     Object.assign(input.setup.calibrations, { [staged.ingestId]: { ...(input.setup.calibrations[staged.ingestId] ?? {}), ...staged.calibrations } });
-    return (rail as (one: RailInputShape) => unknown)(input);
+    seen.read = {
+      levels: input.setup.levels,
+      placements: Object.keys(input.setup.placements),
+      families: Object.keys(input.setup.memberTypes[staged.ingestId] ?? {}),
+      memberTypes: input.setup.memberTypes[staged.ingestId],
+      calibrations: input.setup.calibrations[staged.ingestId],
+    };
+    const batch = (rail as (one: RailInputShape) => { observations?: readonly unknown[] })(input);
+    seen.observations = [...(batch.observations ?? [])];
+    return batch;
   };
 
+  // The gate is the real one; what it made of the batch is kept, so a campaign that published nothing
+  // says whether the offers were refused, deferred or never made (SEAM-GATE).
+  const verdicts: unknown[] = [];
   await job.runMeasureJob(
     { tenantId: staged.tenantId, projectId: staged.projectId, campaignId: staged.campaignId, requestedBy: staged.userId },
     { step: async () => undefined },
-    { rails: { ...roster.RAILS, [RCC_REBAR]: wrapped }, gate: gate.evaluateOffers },
+    {
+      rails: { ...roster.RAILS, [RCC_REBAR]: wrapped },
+      gate: async (gateScope: unknown, batch: unknown) => {
+        const answer = await gate.evaluateOffers(gateScope, batch);
+        verdicts.push(answer);
+        return answer;
+      },
+    },
   );
 
   const rebar = await productModule<RebarSeam>("src/modules/takeoff/rebar/index.ts");
   const document = await rebar.bbsOf({ tenantId: staged.tenantId, projectId: staged.projectId, campaignId: staged.campaignId });
-  expect(document.rows.length, "the measured campaign wrote the bar rows the schedule is drawn from (L-REG-04)").toBeGreaterThan(0);
+  expect(
+    document.rows.length,
+    `the measured campaign wrote the bar rows the schedule is drawn from (L-REG-04) — the rail observed ${JSON.stringify(seen.observations)} over ${JSON.stringify(seen.read)}`,
+  ).toBeGreaterThan(0);
 
   const coverage = laneRows(
     `select coverage from quantity_lines
        where tenant_id = '${staged.tenantId}' and campaign_id = '${staged.campaignId}' and kind = '${RCC_REBAR}';`,
   ).map((row) => row[0] ?? "");
-  expect(coverage.length, `the measurement published the campaign's ${RCC_REBAR} lines: ${JSON.stringify(coverage)}`).toBeGreaterThan(0);
+  expect(coverage.length, `the measurement published the campaign's ${RCC_REBAR} lines — the gate answered ${JSON.stringify(verdicts)}`).toBeGreaterThan(0);
   return { document, expectedState: coverage.includes(PARTIAL_DECLARED) ? "partial" : "ready" };
 }
