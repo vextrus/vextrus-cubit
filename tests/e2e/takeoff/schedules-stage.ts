@@ -155,6 +155,10 @@ function handle(ordinal: number): string {
 }
 
 /** Import a product module by repo-relative path, saying which file is missing when one is. */
+/** The density seam, and the density the product opens a reader at when they have chosen none. */
+type PrefsSeam = { setDensity: (userId: string, density: "comfortable" | "compact") => Promise<void> };
+const DEFAULT_DENSITY = "comfortable";
+
 async function productModule<T = Record<string, unknown>>(relative: string): Promise<T> {
   const absolute = join(process.cwd(), relative);
   if (!existsSync(absolute)) throw new Error(`${relative} is missing from the checkout — the product does not provide it yet`);
@@ -383,6 +387,13 @@ export async function stageSchedules(page: Page, options: { label?: string; cont
   const tenantId = new URL(page.url()).pathname.split("/")[2] ?? "";
   expect(tenantId, "the workspace door leads to the workspace this person holds").not.toBe("");
   const userId = await userIdOf(page);
+  // The reader opens at the product's OWN default density. A density is a stored preference of a
+  // person, the lane's tenants are seeded and shared, and a walk that left one flipped would draw
+  // every later walk's screens — and every later RUN's pictures — at a density nobody in that walk
+  // chose. Stating it here makes each walk's own screens the same screens whatever ran before them;
+  // a walk that needs another density says so after this (R-UI-005, R-UI-086).
+  const prefs = await productModule<PrefsSeam>("src/core/prefs/index.ts");
+  await prefs.setDensity(userId, DEFAULT_DENSITY);
 
   /* --- a project of that workspace, made through the shipped screen --- */
   const project = `Sattva Schedules ${mark}`;
