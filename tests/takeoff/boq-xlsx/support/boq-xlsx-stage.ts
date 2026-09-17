@@ -337,6 +337,21 @@ export async function openWorkbook(bytes: Uint8Array): Promise<ExcelJS.Workbook>
   return workbook;
 }
 
+/**
+ * A number format code as the READER hands it back.
+ *
+ * The seam writes a conditional lakh/crore code whose separators are escaped, because Excel would
+ * otherwise regroup them by threes — and exceljs renders a `formatCode` verbatim on the way out
+ * (`lib/xlsx/xform/style/numfmt-xform.js:32`) but strips those escapes on the way back in (`:40`).
+ * The escapes are therefore IN the artefact and can never be in the reader's model: a read-back is
+ * compared to the same code unescaped. The seam's own `workbook-fidelity.test.ts` reads this exact
+ * point the same way; what a clause requires of the product is the code, not the reader's rendering
+ * of it (L-FMT-01, A-BOQ-XLSX).
+ */
+export function asRead(code: string): string {
+  return code.replace(/\\(.)/gu, "$1");
+}
+
 /** The sheet names a workbook carries, in the order a reader meets them. */
 export function sheetNames(workbook: ExcelJS.Workbook): string[] {
   return workbook.worksheets.map((sheet) => sheet.name);

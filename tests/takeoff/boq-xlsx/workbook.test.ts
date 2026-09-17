@@ -24,6 +24,7 @@ import {
   SECTION_HEADER,
   SPEC_MODULE,
   SUMMARY_SHEET,
+  asRead,
   cellFormula,
   cellText,
   draftLaw,
@@ -177,11 +178,15 @@ describe("AC-1: the roster's draft, composed as the A-BOQ-XLSX workbook", () => 
 
       lines.forEach((_held, index) => {
         const row = FIRST_BODY_ROW + index;
+        // Read back through `asRead`: exceljs renders a format code verbatim on the way out
+        // (numfmt-xform.js:32) and strips the backslash escapes on the way back in (:40), so the
+        // escaped separators are in the artefact and can never be in the reader's model. What is
+        // under judgement is the CODE the column carries, never the reader's rendering of it.
         expect(sheet.getRow(row).getCell(QUANTITY).numFmt, `${sheet.name} row ${row} groups its quantity as the document groups, at ${places} places (L-FMT-01)`).toBe(
-          quantityFormat,
+          asRead(quantityFormat),
         );
-        expect(sheet.getRow(row).getCell(RATE).numFmt, `${sheet.name} row ${row}'s Rate is money, at the document convention's own precision`).toBe(moneyFormat);
-        expect(sheet.getRow(row).getCell(AMOUNT).numFmt, `${sheet.name} row ${row}'s Amount is money, at the document convention's own precision`).toBe(moneyFormat);
+        expect(sheet.getRow(row).getCell(RATE).numFmt, `${sheet.name} row ${row}'s Rate is money, at the document convention's own precision`).toBe(asRead(moneyFormat));
+        expect(sheet.getRow(row).getCell(AMOUNT).numFmt, `${sheet.name} row ${row}'s Amount is money, at the document convention's own precision`).toBe(asRead(moneyFormat));
       });
     }
   });
