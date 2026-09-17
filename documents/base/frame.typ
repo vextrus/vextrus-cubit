@@ -69,16 +69,48 @@
   #text(size: 8.5pt, fill: quiet)[This document has not been issued. It states no approved quantity and carries no signature.]
 ]
 
-/// The page frame. `title` and `subtitle` are DATA the caller read out of its payload — they are set
-/// as content, never spliced into markup, because nothing in this product builds a template out of a
-/// payload (L-FMT-03).
-#let document-frame(title: "", subtitle: "", body) = {
+/// The same words, set to be carried on EVERY leaf: one line in the top margin, above whatever the
+/// page holds. A document that runs to many pages and says DRAFT on the first one is a document a
+/// reader can quote a page of without the word (A-BOQ-PDF, AM-05).
+#let running-draft-banner() = block(
+  width: 100%,
+  inset: (x: 4mm, y: 1.6mm),
+  radius: 1mm,
+  fill: draft-tint,
+  stroke: 0.5pt + rule,
+)[
+  #text(size: 8.5pt, weight: "semibold", fill: ink)[DRAFT — UNSIGNED]
+]
+
+/// What a document states it was made UNDER: label and value pairs, set quietly under the title.
+/// The values are mono because they are identifiers and figures, not prose.
+#let facts-block(facts) = grid(
+  columns: (auto, auto),
+  column-gutter: 4mm,
+  row-gutter: 1.4mm,
+  ..facts
+    .map(fact => (text(size: 8.5pt, fill: quiet)[#fact.label], text(size: 8.5pt, font: mono-face, fill: ink)[#fact.value]))
+    .flatten(),
+)
+
+/// The page frame. `title`, `subtitle` and `facts` are DATA the caller read out of its payload — they
+/// are set as content, never spliced into markup, because nothing in this product builds a template
+/// out of a payload (L-FMT-03).
+///
+/// The two optional parameters are the draft BOQ's and default to what every document already did:
+/// `facts` adds the "stated under" block below the title, and `draft-every-page` moves the unsigned
+/// banner from the first page's flow into the running header, where it stands on every leaf. A
+/// document that passes neither is set exactly as it was before they existed.
+#let document-frame(title: "", subtitle: "", facts: (), draft-every-page: false, body) = {
   set document(title: title, author: "Vextrus Cubit")
   set page(
     paper: "a4",
     fill: page-fill,
-    margin: (top: 22mm, bottom: 20mm, x: 18mm),
+    // The running banner stands in the top margin, so a page that carries one is given the room for
+    // it: a header drawn into a 22 mm margin would print over the first row of the body.
+    margin: (top: if draft-every-page { 30mm } else { 22mm }, bottom: 20mm, x: 18mm),
     background: watermark(),
+    header: if draft-every-page { running-draft-banner() } else { none },
     footer: context [
       #set text(size: 8pt, fill: quiet, font: body-face)
       #grid(
@@ -107,8 +139,15 @@
   v(3mm)
   line(length: 100%, stroke: 0.6pt + rule)
   v(4mm)
-  draft-unsigned-banner()
-  v(5mm)
+  // The banner stands in the flow where it is not already standing on every page.
+  if not draft-every-page {
+    draft-unsigned-banner()
+    v(5mm)
+  }
+  if facts != () {
+    facts-block(facts)
+    v(5mm)
+  }
   body
 }
 
