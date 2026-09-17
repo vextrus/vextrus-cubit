@@ -55,7 +55,15 @@ import {
   type RailShape,
 } from "./support/foundations-contract";
 
-/** The ten codes this shard registers (AC-8, interfaces). */
+/**
+ * TEST_AMENDED (inc-sweep-src-modules-2, AC-3(d)): the shard gains EARTHWORK_PARAMETER_UNSTATED —
+ * the code an allowance, a depth extra, a projection or a thickness neither the site nor the edition
+ * states is now omitted under. GROUND_LEVEL_UNSTATED keeps its own copy and its own case below
+ * (Q-07, debt-src-modules-t9z401).
+ */
+const EARTHWORK_PARAMETER_UNSTATED = "EARTHWORK_PARAMETER_UNSTATED";
+
+/** The codes this shard registers (AC-8, interfaces). */
 const REGISTERED: readonly string[] = [
   PILE_LENGTH_UNSTATED,
   PILE_DIAMETER_UNSTATED,
@@ -67,9 +75,10 @@ const REGISTERED: readonly string[] = [
   BLINDING_PLAN_DEFERRED,
   SITE_FACT_UNKNOWN,
   SITE_FACT_SOURCE_UNSTATED,
+  EARTHWORK_PARAMETER_UNSTATED,
 ];
 
-/** The eight of them a rail answers, plus the two it reports as observations (AC-8). */
+/** The ones a rail answers, plus the two it reports as observations (AC-8). */
 const RAIL_CODES: readonly string[] = [
   VIEW_SCALE_UNAFFIRMED,
   MEMBER_TYPE_UNKNOWN,
@@ -81,6 +90,7 @@ const RAIL_CODES: readonly string[] = [
   GROUND_LEVEL_UNSTATED,
   EARTHWORK_PLAN_DEFERRED,
   BLINDING_PLAN_DEFERRED,
+  EARTHWORK_PARAMETER_UNSTATED,
 ];
 
 /** The severities and surfaces a registered entry carries (interfaces). */
