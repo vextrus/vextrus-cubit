@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * AC-2's screen half — the seven areas and the three quick actions (S-Project, R-UI-031,
+ * AC-2's screen half — the seven areas and the quick actions (S-Project, R-UI-031,
  * docs/design/s-project.md §1, I-125/I-126).
  *
  * AC-2's browser half — activating the `drawings` tab from the keyboard and landing on the drawings
@@ -13,7 +13,7 @@
  */
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
-import { PROJECT, TENANT, all, copy, homeData, homeStrings, mountHome, one, projectHome, text } from "./support/project-home-stage";
+import { PROJECT, TENANT, all, areasModule, copy, homeData, homeStrings, mountHome, one, projectHome, text } from "./support/project-home-stage";
 import { TESTIDS } from "@/ui/testids";
 
 /** S-Project's clause order: "Drawings · Takeoff · Assure · Estimate · Bid · Activity · Settings". */
@@ -33,12 +33,22 @@ const LIVE: Readonly<Record<string, string>> = {
   settings: `/t/${TENANT}/p/${PROJECT}/settings/ruleset`,
 };
 
-/** The three quick actions and where each one goes (test contract). */
-const QUICK_ACTIONS: readonly (readonly [string, string])[] = [
-  ["upload-drawings", `/t/${TENANT}/p/${PROJECT}/drawings`],
-  ["browse-sets", `/t/${TENANT}/p/${PROJECT}/drawings/sets`],
-  ["manage-participants", `/t/${TENANT}/p/${PROJECT}/settings/participants`],
-];
+/**
+ * Where each quick action this suite knows about leads — spelled HERE, from the test contract, and
+ * never read back out of `areas.ts`.
+ *
+ * The roster below is derived, because the roster is `areas.ts`' own clause; the ADDRESS is not. A
+ * check that asked the same module for both sides would pass on a typo, so the two sides come from
+ * two places: the keys and their order from the product, each address from this table (B-19). It is
+ * a floor, not a freeze — a fifth action lands without touching it, and every action named here must
+ * still stand at the address named here.
+ */
+const ACTION_ADDRESSES: Readonly<Record<string, string>> = {
+  "upload-drawings": `/t/${TENANT}/p/${PROJECT}/drawings`,
+  "browse-sets": `/t/${TENANT}/p/${PROJECT}/drawings/sets`,
+  "manage-participants": `/t/${TENANT}/p/${PROJECT}/settings/participants`,
+  documents: `/t/${TENANT}/p/${PROJECT}/documents`,
+};
 
 afterEach(() => {
   cleanup();
@@ -97,14 +107,27 @@ describe("AC-2 — the navigation regions", () => {
     }
   });
 
-  test("AC-2: the three quick actions are links to the addresses they name", async () => {
+  test("AC-2: the quick actions are links to the addresses they name", async () => {
+    // The roster is DERIVED, never frozen: `areas.ts` is the one place a quick action is declared
+    // (B-17), so the rule graded here is "every declared action is rendered, as an anchor, at the
+    // address its own `route` answers" — the rule the old list of three was an instance of. A
+    // lawful fifth action passes this without a re-baseline, and an action that leads nowhere
+    // still fails it (B-19). What the address IS stays independent: `ACTION_ADDRESSES` above.
+    const areas = await areasModule();
     const root = mountHome(await projectHome(), homeData());
     const actions = all(root, "project-quick-action");
 
     expect(
       actions.map((action) => [action.tagName, action.getAttribute("data-action"), action.getAttribute("href")]),
-      "exactly three quick actions, each an anchor to the address the contract names",
-    ).toEqual(QUICK_ACTIONS.map(([action, href]) => ["A", action, href]));
+      "exactly the quick actions `areas.ts` declares, each an anchor to its own address",
+    ).toEqual(areas.QUICK_ACTIONS.map((entry) => ["A", entry.key, entry.route?.(TENANT, PROJECT) ?? null]));
+
+    // And the addresses themselves, judged against a second spelling: without this, a wrong route in
+    // `areas.ts` would satisfy the derived comparison above by supplying both of its sides.
+    const rendered = new Map(actions.map((action) => [action.getAttribute("data-action") ?? "", action.getAttribute("href")]));
+    for (const [action, address] of Object.entries(ACTION_ADDRESSES)) {
+      expect(rendered.get(action), `the \`${action}\` action stands on the screen, at the address the contract names`).toBe(address);
+    }
     expect(one(root, "project-quick-actions").contains(actions[0] as Node), "and they stand in the quick-actions region").toBe(true);
   });
 });

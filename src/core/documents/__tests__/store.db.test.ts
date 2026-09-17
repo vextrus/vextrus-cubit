@@ -31,7 +31,15 @@ type Issue = { tenantId: string; projectId: string; issuedBy: string; taxonomyVe
 
 type Storage = { put(tenantId: string, bytes: Uint8Array): Promise<{ sha256: string }>; get(tenantId: string, sha256: string): Promise<Uint8Array | null> };
 
-type DocumentListing = { id: string; kind: string; version: number; sha256: string; issuedBy: string; supersededBy: string | null };
+type DocumentListing = {
+  id: string;
+  kind: string;
+  version: number;
+  sha256: string;
+  issuedBy: string;
+  actIds: readonly string[];
+  supersededBy: string | null;
+};
 
 type StoreModule = {
   storeDocument(deps: { tx: TenantTx; storage: Storage }, rendered: RenderedDocument, issue: Issue): Promise<{ id: string; version: number }>;
@@ -185,9 +193,12 @@ describe("AC-4: the documents table", () => {
 
     const newest = listed[0];
     expect(newest, "the listing is not empty").toBeDefined();
-    for (const field of ["id", "kind", "version", "sha256", "issuedBy"] as const) {
+    for (const field of ["id", "kind", "version", "sha256", "issuedBy", "actIds"] as const) {
       expect(newest?.[field], `a listed document states its ${field}`).toBeDefined();
     }
+    // R-SPINE-040's act ids come back as the listing's own array, so a reader of the list can say
+    // what an issue stands on without a second read of the row it was already given.
+    expect(Array.isArray(newest?.actIds), "and the acts it was rendered under are a roster, not a scalar").toBe(true);
     expect(newest?.issuedBy, "who issued it").toBe(scene.userId);
     expect(newest?.supersededBy, "the newest issue is superseded by nothing").toBeNull();
     const superseded = listed.find((entry) => entry.version === (newest?.version ?? 0) - 1 && entry.kind === KIND);

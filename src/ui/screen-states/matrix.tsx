@@ -322,6 +322,31 @@ export const screenStates: ScreenStatesMatrix = {
     refusal: reasonedRefusal(strings.state_refusal_read_fault, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
   }),
 
+  // The issued documents list (s-documents § 2): one read answered whole, over rows that cannot
+  // individually refuse — so its partial cell says why partial cannot arise here rather than
+  // withholding anything (I-258…I-264). The one refusal a reader can meet on the way to a document
+  // is a link that has gone stale, answered at the download door and remedied by this list itself;
+  // the denial names the membership the project's documents are read under.
+  "/t/[tenant]/p/[project]/documents": declare({
+    ...workspaceCells,
+    loading: bones(8),
+    empty: (): ReactNode => (
+      <EmptyTeaching heading={strings.documents_empty_heading} body={strings.documents_empty_body} action={strings.documents_empty_action} />
+    ),
+    error: fault(strings.documents_error_body),
+    refusal: refusal(REFUSAL_ENTRIES.DOCUMENT_URL_EXPIRED, { href: "/", label: strings.documents_evidence_list }),
+    partial: (): ReactNode => <InlineAnswer text={strings.documents_state_partial} />,
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.documents_denied_permission}
+        holder={strings.documents_denied_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={PARTICIPANTS_EVIDENCE}
+      />
+    ),
+  }),
+
   // The sheet renderer (s-viewer § 2): the head carries the whole layer roster before any geometry
   // arrives, so a layer that fails to load is a listed row with its own retry rather than a lost
   // sheet (I-81), and a reading nothing can be drawn from is refused in place with its facts.

@@ -28,6 +28,7 @@ type DeclaredCode = Extract<
   | "SET_NOT_PINNABLE"
   | "SET_NAME_NOT_USABLE"
   | "SET_MEMBER_NOT_IN_PROJECT"
+  | "DOCUMENT_URL_EXPIRED"
 >;
 
 /**
@@ -159,6 +160,13 @@ export const REFUSAL_ENTRIES: Readonly<{ [C in DeclaredCode]: RefusalEntry & { c
     message: "That drawing is not one of this project's, so the set was not changed.",
     remedy: "Reload the set and toggle a drawing the project holds.",
     severity: "error",
+    surface: "inline",
+  }),
+  DOCUMENT_URL_EXPIRED: Object.freeze({
+    code: "DOCUMENT_URL_EXPIRED",
+    message: "This document link has expired.",
+    remedy: "Open the document again to get a fresh link.",
+    severity: "warning",
     surface: "inline",
   }),
 } satisfies Record<DeclaredCode, RefusalEntry>);

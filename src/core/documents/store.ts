@@ -67,6 +67,13 @@ export interface DocumentListing {
   readonly version: number;
   readonly sha256: string;
   readonly issuedBy: string;
+  /**
+   * The acts the document was rendered under, as the row recorded them at the moment it was issued
+   * (R-SPINE-040). The listing answers them because the row already holds them: a reader asking what
+   * a published figure stands on would otherwise have to open a second read for a column that was
+   * already in hand.
+   */
+  readonly actIds: readonly string[];
   readonly supersededBy: string | null;
 }
 
@@ -163,13 +170,18 @@ export async function listDocuments(tx: TenantTx, projectId: string): Promise<re
       version: documents.version,
       sha256: documents.sha256,
       issuedBy: documents.issuedBy,
+      actIds: documents.actIds,
       supersededBy: documents.supersededBy,
     })
     .from(documents)
     .where(eq(documents.projectId, projectId))
     .orderBy(desc(documents.issuedAt), desc(documents.version), desc(documents.id));
 
-  return Object.freeze(rows.map((row) => Object.freeze({ ...row, supersededBy: row.supersededBy ?? null })));
+  // The act ids are frozen as their own array: the row's column is a fresh array per row, and a
+  // listing a caller could push onto is a listing a caller could change after the read (B-17).
+  return Object.freeze(
+    rows.map((row) => Object.freeze({ ...row, actIds: Object.freeze([...row.actIds]), supersededBy: row.supersededBy ?? null })),
+  );
 }
 
 /**

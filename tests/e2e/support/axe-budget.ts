@@ -101,6 +101,13 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "s-auth-signed-in-sessions": 0,
   "s-project-drawings-via-tab": 0,
   "s-project-home": 0,
+  // S-Documents' three checkpoints (J-030), named by the increment that added them. Zero is the
+  // strictest reading and the only honest one before a run: the list is a grid of shipped primitives
+  // over staged rows, so a moderate finding on it would be a defect to repair rather than a number
+  // to raise, and the light capture is the same screen under other token values.
+  "s-documents/empty": 0,
+  "s-documents/list": 0,
+  "s-documents/list-light": 0,
   // S-Schedules' two checkpoints (J-032), named here by the acceptance that added them: a checkpoint
   // this file does not name FAILS, so the screen could not be walked at all without these two lines.
   // Zero is the strictest reading and the only honest one before a run — the screen does not exist

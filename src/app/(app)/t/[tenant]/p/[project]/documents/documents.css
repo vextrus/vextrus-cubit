@@ -1,0 +1,131 @@
+/*
+ * S-Documents — the project's issued documents, cut from the grid workspace template
+ * (docs/design/s-documents.md §§1, 4, 5, 6; Design Direction 00 §3.2). Every colour, size, weight
+ * and duration is a read into the committed Datum tokens (R-UI-001, R-UI-086): the rules are the
+ * same in both themes and only the token values differ, so no [data-theme] selector appears here.
+ *
+ * THE GEOMETRY, IN ONE PLACE. The screen is a column that fills `shell-main`: a 32 px header track
+ * holding the heading and the count readout, then the grid, which takes every remaining pixel. That
+ * puts the grid's sticky header 60 px below the top of main and its first row at 88 px, at 1440×900
+ * and at 1280×800 alike (§1, R-UI-081).
+ *
+ * The px literals are §5's closed set: the header track's 32 and the fault block's 520 measure. The
+ * column widths are the table's own (its `size`), never this sheet's.
+ *
+ * Nothing here eases in (§4) and nothing here styles focus: every chip, button and anchor wears the
+ * reticle from its one home (B-17, R-UI-012). The table, the empty state and the chips are painted
+ * by their own stylesheets.
+ */
+
+.cx-documents {
+  display: flex;
+  flex-direction: column;
+  /* `shell-main` is a track of definite height, so the grid takes what the header leaves rather
+     than growing the page. */
+  height: 100%;
+  min-height: 0;
+  max-width: none;
+  font-family: var(--font-ui);
+  line-height: var(--leading-ui);
+}
+
+/* --- the header track: what the screen is, and how much of it there is (§1) --- */
+
+.cx-documents-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: 32px;
+  margin-bottom: var(--space-1);
+}
+
+.cx-documents-heading {
+  margin: 0;
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--ink);
+}
+
+.cx-documents-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+/* --- the grid (§1's primary region) --- */
+
+.cx-documents-grid {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.cx-documents-version {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--ink);
+}
+
+/* A cell never wraps (R-UI-083): the act chips sit on one line and the count closes it. */
+.cx-documents-acts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cx-documents-acts-more,
+.cx-documents-current,
+.cx-documents-absent {
+  color: var(--ink-muted);
+}
+
+/* --- the states that stand in the grid's place (§2) --- */
+
+/* The teaching state is a paragraph, not a banner: its sentence is held to the same 520 px measure
+   the fault block beside it stands at, and the block is centred in the grid's box (§1). Without the
+   cap the one line runs the whole work column and the heading, sentence and action lose their
+   common centre of gravity. */
+.cx-documents-empty {
+  flex: 1 1 auto;
+  max-width: 520px;
+  margin-inline: auto;
+}
+
+.cx-documents-fault {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: 520px;
+  padding: var(--space-4);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: var(--surface-panel);
+}
+
+.cx-documents-fault-heading {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: var(--weight-heading);
+  color: var(--ink);
+}
+
+.cx-documents-fault-body {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink-secondary);
+}
+
+.cx-documents-report {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
