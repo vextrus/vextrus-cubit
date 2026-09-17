@@ -32,6 +32,9 @@ import { authoredValues, diffParameters, rulesetAuthorStrings, type ParameterDif
 /** The act this screen renders (L-ACT-02's pair), spelled once. */
 const ACT_TYPE = "AUTHOR_RULESET_EDITION";
 
+/** The permission AM-04 bundles into LEAD and PRINCIPAL, which the door names when it is shut. */
+const AUTHOR_RULE_SET = "AUTHOR_RULE_SET";
+
 /** The identity each reader's column furniture is remembered under (§5 rule 3). */
 const DIFF_TABLE_ID = "ruleset-author-diff";
 
@@ -301,17 +304,29 @@ export function RulesetAuthorSection({
             )}
           </p>
           {/* I-266: the door stands for a reader who cannot walk through it, and the standing
-              PERMISSION_NOT_HELD beside it says why — nothing is hidden (R-SPINE-006). */}
-          <Button
-            className="cx-ruleset-author-submit"
-            data-testid={TESTIDS.rulesetAuthor.submit}
-            loading={pending}
-            aria-disabled={mayAuthor ? undefined : true}
-            aria-describedby={mayAuthor ? undefined : refusalId}
-            onClick={() => void submit()}
-          >
-            {rulesetAuthorStrings.ruleset_author_submit}
-          </Button>
+              PERMISSION_NOT_HELD beside it says why — nothing is hidden (R-SPINE-006).
+              The shipped Button reports `aria-disabled` for busy and for nothing else, so a door shut
+              for a reason of this screen's own renders as the screen's unavailable affordance instead
+              — `cx-btn` chrome, `role="button"`, in the tab order, so the reason is one focus away
+              (I-247, R-UI-010). Shut, it carries no press at all. */}
+          {mayAuthor ? (
+            <Button className="cx-ruleset-author-submit" data-testid={TESTIDS.rulesetAuthor.submit} loading={pending} onClick={() => void submit()}>
+              {rulesetAuthorStrings.ruleset_author_submit}
+            </Button>
+          ) : (
+            <span
+              className="cx-btn cx-reticle cx-ruleset-author-submit"
+              data-variant="primary"
+              data-testid={TESTIDS.rulesetAuthor.submit}
+              data-permission={AUTHOR_RULE_SET}
+              role="button"
+              tabIndex={0}
+              aria-disabled="true"
+              aria-describedby={refusalId}
+            >
+              <span className="cx-btn-label">{rulesetAuthorStrings.ruleset_author_submit}</span>
+            </span>
+          )}
         </div>
       </section>
 
