@@ -108,6 +108,12 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "s-documents/empty": 0,
   "s-documents/list": 0,
   "s-documents/list-light": 0,
+  // S-BOQ's three checkpoints (J-033). Zero is the strictest reading and the only honest one: the
+  // draft is a grid of shipped primitives over a staged campaign, and its empty state is the shipped
+  // empty-state, so a moderate finding here would be a defect to repair rather than a number to raise.
+  "s-boq/empty": 0,
+  "s-boq/sections": 0,
+  "s-boq/sections-light": 0,
   // S-Schedules' two checkpoints (J-032), named here by the acceptance that added them: a checkpoint
   // this file does not name FAILS, so the screen could not be walked at all without these two lines.
   // Zero is the strictest reading and the only honest one before a run — the screen does not exist

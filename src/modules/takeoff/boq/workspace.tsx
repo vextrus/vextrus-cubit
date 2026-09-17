@@ -20,7 +20,7 @@ import type { JobKind } from "@/core/jobs/kinds";
 import type { QuantityBasis } from "@/core/offers/law";
 import { BOQ_COPY, BOQ_REASON_WORDS, BOQ_SECTION_WORDS } from "./copy";
 import { boqStateOf, nothingPublished } from "./states";
-import { UNCLASSIFIED } from "./taxonomy";
+import { BILLS, UNCLASSIFIED } from "./taxonomy";
 import type { BoqView } from "./view";
 
 /* ------------------------------------------------------------------ what the screen is handed */
@@ -480,19 +480,23 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
           </p>
 
           <div className="cx-boq-grid" data-testid={ids.grid} aria-label={BOQ_COPY.boq_grid_label} data-rows-rendered={countOf(payload)}>
-            {sections.map((section, index) => {
+            {sections.map((section) => {
               const rows = rowsOf(section, items);
+              // S is the section's ordinal among L-BD-08's SIX, never its position among the sections
+              // this campaign happens to fill — the same S the item numbers carry, so a heading and the
+              // lines beneath it can never state two different sections (AM-14 §2, I-269).
+              const ordinal = (BILLS as readonly string[]).indexOf(section.bill) + 1;
               return (
                 <section
                   key={section.bill}
                   className="cx-boq-bill"
                   data-testid={ids.bill}
                   data-bill={section.bill}
-                  data-ordinal={String(index + 1)}
+                  data-ordinal={String(ordinal)}
                   data-rows-rendered={String(rows.length)}
                 >
                   <h2 className="cx-boq-bill-heading">
-                    <span className="cx-boq-bill-ordinal">{index + 1}</span>
+                    <span className="cx-boq-bill-ordinal">{ordinal}</span>
                     {BOQ_SECTION_WORDS[section.bill] ?? section.label}
                   </h2>
                   <DataTable

@@ -5,44 +5,35 @@
 // `DRAFT — UNSIGNED` on every leaf and the document carries no surveyor, no credential and no
 // certificate — and it is never called by the name the law reserves for the signed thing (AM-05).
 //
-// THE ITEM NUMBER IS DERIVED HERE AND STORED NOWHERE (AM-14 §2). `numberItems` stands in this file
-// because BOTH faces of the draft must call ONE derivation — the screen that shows it and the
-// presenter that prints it — and `src/core` is the one layer a module, a server door and this seam
-// can all reach (ARCH-01, B-17). `src/modules/takeoff/boq/numbering.ts` publishes it to the takeoff
-// module under the name the interfaces give it, and re-implements nothing.
-//
-// The section roster is here for the same reason: it is the closed set of sections a draft can
-// print, read by this kind's schema and re-published by the takeoff module's taxonomy as `BILLS`,
-// so the taxonomy that PLACES a line and the document that prints it cannot hold two rosters.
+// THE ITEM NUMBER IS DERIVED AND STORED NOWHERE (AM-14 §2), and the section roster is one roster
+// read by two readers. Both live in `./boq-draft-law.ts` — the pure law beside this kind — because a
+// `DocumentKind` names its template, and a template resolves through `node:fs`: a screen that reached
+// this file for the roster would pull a process boundary into the browser's graph (ARCH-01, AS-01).
+// This file re-publishes every one of those names, so a reader of the kind still finds them here.
 import { z } from "zod";
 import { ELEMENT_TYPES } from "../../catalogue/classes";
 import { KINDS } from "../../catalogue/kinds";
-import { WORK_ITEM_CATALOGUE } from "../../catalogue/catalogue";
-import { compareCanonical } from "../../identity";
 import { UNITS } from "../../units/canon";
 import { figure } from "../figures";
+import { BOQ_DRAFT, BOQ_SECTIONS, MEASURED_SCOPE_SUBTOTAL, descriptionOf, inWords, numberItems, placesForUnit, placesOf } from "./boq-draft-law";
 import { kindTemplate, type DocumentKind } from "./law";
 
-/** What this kind is asked for by, and the key the barrel files it under. */
-export const BOQ_DRAFT = "boq-draft";
-
-/** What the document calls itself where a payload states no title of its own. */
-export const BOQ_DRAFT_TITLE = "Draft BOQ — unpriced";
-
-/**
- * L-BD-08's six sections (L244), in the clause's own order (AM-16). The closed set a draft can print
- * and the roster `src/modules/takeoff/boq/taxonomy.ts` publishes as `BILLS` — one roster, two readers.
- */
-export const BOQ_SECTIONS = ["SUBSTRUCTURE", "SUPERSTRUCTURE", "FINISHES", "ELECTRICAL", "PLUMBING", "EXTERNAL"] as const;
-
-/** One section of a draft, drawn from the closed roster above. */
-export type BoqSection = (typeof BOQ_SECTIONS)[number];
-
-/** The banner this document carries on every page while no signature exists (A-BOQ-PDF, AM-05). */
-export const DRAFT_BANNER = "DRAFT — UNSIGNED";
-
-/** The one label a section's foot may carry while coverage is incomplete (L-QTY-04, L-QTY-07). */
-export const MEASURED_SCOPE_SUBTOTAL = "Measured-scope subtotal";
+export {
+  BOQ_DRAFT,
+  BOQ_DRAFT_TITLE,
+  BOQ_SECTIONS,
+  DRAFT_BANNER,
+  MEASURED_SCOPE_SUBTOTAL,
+  descriptionOf,
+  inWords,
+  numberItems,
+  placesForUnit,
+  placesOf,
+  type BoqSection,
+  type NumberableGroup,
+  type NumberableLine,
+  type NumberableSection,
+} from "./boq-draft-law";
 
 /* ------------------------------------------------------------------ the payload, parsed once */
 
@@ -135,98 +126,7 @@ export type BoqDraftGroup = z.output<typeof draftGroup>;
 /** One section of a payload, as the schema reads it. */
 export type BoqDraftSection = z.output<typeof draftSection>;
 
-/* ------------------------------------------------------------ AM-14 §2's item number, derived */
-
-/** What numbering needs of a line: its identity, its key, and the storey it stands on. */
-export type NumberableLine = { readonly lineId: string; readonly objectKey: string; readonly levelOrdinal?: number | null };
-
-/** What numbering needs of a group: the (class, kind) pair the catalogue orders it by. */
-export type NumberableGroup = { readonly class: string; readonly kind: string; readonly lines: readonly NumberableLine[] };
-
-/** What numbering needs of a section: which section it is, and the groups it holds. */
-export type NumberableSection = { readonly bill: string; readonly groups: readonly NumberableGroup[] };
-
-/**
- * Where a class or a kind stands in its closed roster. A name no roster holds sorts last rather than
- * first: an unknown pair is a defect of the data, and a defect that took position 1 would renumber
- * every well-formed group behind it.
- */
-function rosterIndex(roster: readonly string[], value: string): number {
-  const at = roster.indexOf(value);
-  return at === -1 ? roster.length : at;
-}
-
-/**
- * Every line's item number, keyed by `lineId`: `S.G.I`.
- *
- * `S` is the section's ordinal among the SIX — the number a reader can quote across two projects —
- * and not its position among the sections this draft happens to hold, so a campaign that published
- * nothing into Substructure still opens its Superstructure at 2. `G` is the (class, kind) group's
- * ordinal in `ELEMENT_TYPES`-then-`KINDS` order, counting only the groups the section holds. `I` is
- * the line's ordinal inside its group, read DOWN THE BUILDING first and, where two lines share a
- * storey, in the canonical order of the object key (L-REG-05's code-unit sort, never a locale's).
- *
- * A section outside the roster — the kept `UNCLASSIFIED` block — has no `S` and is not numbered at
- * all: an item number belongs to a numbered line, and numbering the unplaced would be a seventh
- * section by the back door (I-267).
- *
- * Pure: the same sections answer the same map, whatever order the arrays happen to hold. A line
- * measured tomorrow renumbers the lines around it and takes nobody's identity away — which is why
- * nothing in this product keys on an item number.
- */
-export function numberItems(sections: readonly NumberableSection[]): ReadonlyMap<string, string> {
-  const numbers = new Map<string, string>();
-  for (const section of sections) {
-    const sectionOrdinal = (BOQ_SECTIONS as readonly string[]).indexOf(section.bill) + 1;
-    if (sectionOrdinal === 0) continue;
-    const groups = [...section.groups].sort(
-      (one, other) => rosterIndex(ELEMENT_TYPES, one.class) - rosterIndex(ELEMENT_TYPES, other.class) || rosterIndex(KINDS, one.kind) - rosterIndex(KINDS, other.kind),
-    );
-    groups.forEach((group, groupIndex) => {
-      const lines = [...group.lines].sort((one, other) => (one.levelOrdinal ?? 0) - (other.levelOrdinal ?? 0) || compareCanonical(one.objectKey, other.objectKey));
-      lines.forEach((line, lineIndex) => {
-        numbers.set(line.lineId, `${sectionOrdinal}.${groupIndex + 1}.${lineIndex + 1}`);
-      });
-    });
-  }
-  return numbers;
-}
-
-/* ------------------------------------------------------------------------ what the page shows */
-
-/**
- * A key as a page says it: `rcc.concrete` → `Concrete`, `brick_wall` → `Brick wall`,
- * `NO_TAXONOMY_ROW` → `No taxonomy row`. One rule and no roster to keep in step — the same rule the
- * screen's own `EnumLabel` reads a key by, so the two faces of a draft say a key the same way.
- *
- * The chapter is dropped from a kind because the class beside it already names the trade's subject:
- * `Column · Concrete` reads as a bill item, `Column · Rcc.concrete` reads as a database row.
- */
-export function inWords(value: string): string {
-  const words = value.slice(value.indexOf(".") + 1).replace(/_/gu, " ").toLowerCase();
-  return `${words.slice(0, 1).toUpperCase()}${words.slice(1)}`;
-}
-
-/** What a (class, kind) group is called on the page: the class and the trade, in that order. */
-export function descriptionOf(klass: string, kind: string): string {
-  return `${inWords(klass)} · ${inWords(kind)}`;
-}
-
-/** The places a kind's figures are written to (L-MEA-04's catalogue, L-FMT-02's per-kind precision). */
-export function placesOf(kind: string): number {
-  return WORK_ITEM_CATALOGUE[kind as keyof typeof WORK_ITEM_CATALOGUE].documentPrecision;
-}
-
-/**
- * The places a foot in one unit is written to: the widest any group standing in that unit is written
- * to, so a section that adds three-place concrete to three-place brickwork states three places and a
- * mixed unit never quietly loses a digit. Exported because the emission writes the figure and this
- * presenter checks it: one rule, or the two would refuse each other (L-FMT-02, B-17).
- */
-export function placesForUnit(groups: readonly { readonly kind: string; readonly unit: string }[], unit: string): number {
-  const held = groups.filter((group) => group.unit === unit).map((group) => placesOf(group.kind));
-  return held.length === 0 ? 0 : Math.max(...held);
-}
+/* ------------------------------------------------------- the payload, as the template reads it */
 
 /**
  * One line as the template receives it. The figure crosses `figure()` here, so a quantity that is

@@ -7,7 +7,7 @@ import "./boq.css";
 
 import { permissionsHeld } from "@/core/acts";
 import { forTenant } from "@/core/db";
-import { BOQ_DRAFT } from "@/core/documents/kinds/boq-draft";
+import { BOQ_DRAFT } from "@/core/documents/kinds/boq-draft-law";
 import { listDocuments } from "@/core/documents/store";
 import { reportFault } from "@/core/faults/report";
 import { boqViewOf } from "@/modules/takeoff/boq/server";

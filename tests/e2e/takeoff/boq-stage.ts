@@ -9,9 +9,17 @@
  * `stageBareProject` is re-exported because the empty checkpoint needs a project with no campaign
  * and the schedules stage already makes one.
  *
+ * IT ALSO PUTS A WORKER ON THE STAGE. Exporting the draft is an ENQUEUE (SEAM-JOBS): the door files
+ * a `boq-render-draft` job and answers, and the bytes are rendered by the shipped worker afterwards.
+ * The journeys' `webServer` starts `next start` and nothing else, so a lane with no worker would show
+ * a job strip that never finishes — the product behaving correctly over a world with no hands. The
+ * world is the stage's to make, so the stage starts the shipped worker (never a second copy of its
+ * logic) against the same database and storage root the served product uses.
+ *
  * The Builder may edit this file (test contract).
  */
 import { type Page } from "@playwright/test";
+import { startJourneyWorker, type JourneyWorker } from "../support/worker";
 import { stageCoverage, type CoverageCellRef, type StagedCoverage } from "./coverage-stage";
 
 export { stageBareProject } from "./schedules-stage";
@@ -26,10 +34,31 @@ export type StagedBoq = StagedCoverage & {
 };
 
 /**
+ * The one worker this Playwright worker process needs, started at most once however many journeys
+ * of this file it runs: a second copy would claim the same jobs and prove nothing about either.
+ *
+ * It is stopped when the process ends. `stop()` sends SIGTERM before its first await, so an `exit`
+ * handler — where nothing asynchronous can be waited for — still delivers the signal, and the worker
+ * is never left polling the lane's database after the run that started it.
+ */
+let workerOfThisProcess: Promise<JourneyWorker> | null = null;
+
+/** Make sure the jobs this journey's acts enqueue are actually run. */
+async function jobsAreRun(): Promise<void> {
+  workerOfThisProcess ??= startJourneyWorker().then((worker) => {
+    process.once("exit", () => void worker.stop());
+    return worker;
+  });
+  await workerOfThisProcess;
+}
+
+/**
  * A pinned campaign whose register published `rcc.concrete` lines on the ground floor, beside one
- * class sighted on a second level that no rail measured.
+ * class sighted on a second level that no rail measured — and a worker to run what the draft's own
+ * door enqueues.
  */
 export async function stageBoq(page: Page, options: { label?: string } = {}): Promise<StagedBoq> {
   const staged = await stageCoverage(page, { label: options.label ?? "boq" });
+  await jobsAreRun();
   return { ...staged, lineIds: [...staged.objectKeys] };
 }

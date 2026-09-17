@@ -17,15 +17,15 @@
 // closed rosters, so a project cannot be special-cased by adding a row.
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
-import { BOQ_SECTIONS } from "@/core/documents/kinds/boq-draft";
+import { BOQ_SECTIONS } from "@/core/documents/kinds/boq-draft-law";
 
 /**
  * L-BD-08's six bills (L244), in the clause's own order — AM-16 restored Electrical and Plumbing and
  * took Masonry and Provisional sums out.
  *
- * The roster itself is declared in core, beside the document kind whose schema and presenter read it:
- * ARCH-01 forbids the document seam to import this module, and a draft that printed six sections
- * while the taxonomy placed lines into a seventh would be two rosters pretending to be one (B-17).
+ * The roster itself is declared in core, in the law beside the document kind whose schema and
+ * presenter read it: ARCH-01 forbids the document seam to import this module, and a draft that printed
+ * six sections while the taxonomy placed lines into a seventh would be two rosters as one (B-17).
  * This is the name the takeoff module knows it by, and it re-declares nothing.
  */
 export const BILLS = BOQ_SECTIONS;
