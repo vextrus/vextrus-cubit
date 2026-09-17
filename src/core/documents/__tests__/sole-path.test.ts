@@ -82,10 +82,13 @@ describe("AC-1: the seam's surface", () => {
     const { DOCUMENT_KINDS } = await kindsModule();
     const keys = Object.keys(DOCUMENT_KINDS);
 
-    // The seam ships one kind per file behind the barrel; `bbs` is a later increment's one file and
-    // one barrel line, and it amends this expectation with its own criterion rather than inheriting
-    // it. Re-baselined by inc-311a (AC-4), which lands `boq-draft` beside the proof.
-    expect([...keys].sort(), "this seam ships exactly the `boq-draft` and `proof` kinds").toEqual(["boq-draft", "proof"]);
+    // The seam ships one kind per file behind the barrel. What is asserted is CARRIAGE, never a
+    // frozen roster: `proof` stands and inc-311a (AC-4) adds `boq-draft` beside it, while A-BBS-PDF's
+    // one file and one barrel line may land later without touching this line (AM-18, B-19). The
+    // roster itself is derived below, from the kind files the directory holds.
+    for (const shipped of ["proof", "boq-draft"]) {
+      expect(keys, `the barrel carries the \`${shipped}\` kind`).toContain(shipped);
+    }
 
     for (const [key, kind] of Object.entries(DOCUMENT_KINDS)) {
       expect(kind.kind, `the barrel enumerates ${key} under the key the kind file states — it never re-declares it`).toBe(key);

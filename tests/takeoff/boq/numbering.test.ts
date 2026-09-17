@@ -57,6 +57,29 @@ const ready = (): Promise<void> =>
     canonical = await compareCanonical();
   })());
 
+/** The two-level stack the readings below stand on. */
+const TWO_LEVELS = [
+  { levelId: "lvl-fdn", ordinal: -1, label: "FDN" },
+  { levelId: "lvl-gf", ordinal: 0, label: "GF" },
+];
+
+/** One published line of a reading, as the register hands one over. */
+function line(lineId: string, objectKey: string, klass: string, kind: string, levelId: string, value: string | null, unit: string): ReadingShape["lines"][number] {
+  return { lineId, objectKey, class: klass, kind, levelId, value, unit, quantityBasis: "MEASURED", selectionBasis: "TRANSCRIBED", coverage: value === null ? PARTIAL_DECLARED : COMPLETE };
+}
+
+/** A reading of one campaign over a stack and a set of published lines. */
+function readingOf(levels: ReadingShape["levels"], lines: ReadingShape["lines"]): ReadingShape {
+  return {
+    project: "Sattva Court",
+    campaignId: "33333333-3333-4333-8333-333333333333",
+    setRevisionId: "44444444-4444-4444-8444-444444444444",
+    levels,
+    lines,
+    coverageComplete: false,
+  };
+}
+
 /** The group ordinal a section owes each of its groups: `ELEMENT_TYPES` then `KINDS`, present only. */
 function expectedGroupOrdinals(section: PayloadSectionShape): Map<string, number> {
   const order = [...section.groups]
@@ -72,8 +95,10 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
     const schema = kind.boqDraftPayloadSchema;
     expect(typeof schema?.safeParse, `${BOQ_KIND_MODULE} publishes boqDraftPayloadSchema, the one parse of a draft payload`).toBe("function");
 
-    const clean = syntheticDraftPayload(24);
-    expect(schema.safeParse(clean).success, "the synthetic payload is a payload the kind accepts — the refusals below are about the extra key and nothing else").toBe(true);
+    // The clean payload is one the SEAM emitted, so it is a payload of whatever shape the kind's own
+    // schema states: the refusals below are then about the extra key and nothing else.
+    const clean = emission.boqDraftPayloadOf(readingOf(TWO_LEVELS, [line("l-1", "column/GF/C1", "column", "rcc.concrete", "lvl-gf", "1.000", "m3")]));
+    expect(schema.safeParse(clean).success, `the seam's own payload is a payload the kind accepts: ${JSON.stringify(schema.safeParse(clean))}`).toBe(true);
 
     for (const key of ["item", "itemNumber"]) {
       const carried = JSON.parse(JSON.stringify(clean)) as PayloadShape;
@@ -123,6 +148,80 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
         expect(withinGroup, `I runs 1..n inside ${group.class} · ${group.kind} with no gap and no zero`).toEqual(group.lines.map((_line, index) => index + 1));
       }
     }
+  });
+
+  test("AC-3: S is the section's ordinal among the SIX, not its position among the sections present", async () => {
+    await ready();
+    // A campaign that published nothing into Substructure: the draft holds Superstructure and
+    // Finishes and nothing else. Their item numbers still open 2 and 3, because S is what L-BD-08
+    // calls the section — a number a reader can quote across two projects — not where it happens to
+    // sit in this draft's array.
+    const whole = syntheticDraftPayload(96);
+    const wanted = ["SUPERSTRUCTURE", "FINISHES"];
+    const sections = whole.sections.filter((section) => wanted.includes(section.bill));
+    expect(sections.map((section) => section.bill), "the payload under test holds exactly those two sections, in this order").toEqual(wanted);
+
+    const map = numbering.numberItems(sections);
+    for (const section of sections) {
+      const expected = SIX_BILLS.indexOf(section.bill) + 1;
+      for (const group of section.groups) {
+        for (const held of group.lines) {
+          const S = Number((map.get(held.lineId) as string).split(".")[0]);
+          expect(S, `${section.bill} opens ${expected} — its ordinal in BILLS — however few sections stand beside it`).toBe(expected);
+        }
+      }
+    }
+  });
+
+  test("AC-3: G follows the catalogue's order, not the order the section happens to hold its groups in", async () => {
+    await ready();
+    // The groups are handed over in REVERSED catalogue order, so "the position in the array" and
+    // "the ordinal in ELEMENT_TYPES-then-KINDS" are opposite answers and only one of them is right.
+    const whole = syntheticDraftPayload(96);
+    const section = whole.sections[0] as PayloadSectionShape;
+    expect(section.groups.length, "the section under test holds several groups, so an order exists to get wrong").toBeGreaterThan(2);
+
+    const catalogueOrder = [...section.groups].sort(
+      (a, b) => classes.indexOf(a.class) - classes.indexOf(b.class) || kindRoster.indexOf(a.kind) - kindRoster.indexOf(b.kind),
+    );
+    const reversed: PayloadSectionShape = { ...section, groups: [...catalogueOrder].reverse() };
+    expect(reversed.groups.map((group) => `${group.class}:${group.kind}`), "and it is handed over back to front").not.toEqual(
+      catalogueOrder.map((group) => `${group.class}:${group.kind}`),
+    );
+
+    const map = numbering.numberItems([reversed]);
+    catalogueOrder.forEach((group, index) => {
+      const held = group.lines[0] as { lineId: string };
+      const G = Number((map.get(held.lineId) as string).split(".")[1]);
+      expect(G, `${group.class} · ${group.kind} is group ${index + 1} of this section by ELEMENT_TYPES then KINDS — the array handed it over at position ${reversed.groups.indexOf(group) + 1}`).toBe(
+        index + 1,
+      );
+    });
+  });
+
+  test("AC-3: I takes the lower level first, and only then the canonical order of the object key", async () => {
+    await ready();
+    // Two lines of ONE group on two levels, with the object keys sorting the other way: the lower
+    // level's key is last canonically, so a numbering that read the key alone would put the upper
+    // storey first. The draft is read down the building.
+    const reading = readingOf(TWO_LEVELS, [
+      line("l-upper", "column/GF/A1", "column", "rcc.concrete", "lvl-gf", "1.000", "m3"),
+      line("l-lower", "column/FDN/Z9", "column", "rcc.concrete", "lvl-fdn", "2.000", "m3"),
+    ]);
+    expect(canonical("column/FDN/Z9", "column/GF/A1"), "the lower storey's key sorts AFTER the upper one's, so level and key disagree").toBe(1);
+
+    // Through the seam that holds the stack: the emission knows each line's level, and the numbering
+    // the document and the screen share is run over what it emitted (B-17).
+    const payload = emission.boqDraftPayloadOf(reading);
+    const map = numbering.numberItems(payload.sections);
+
+    const lower = map.get("l-lower");
+    const upper = map.get("l-upper");
+    expect(lower, "the line on the foundation level is numbered").toBeTruthy();
+    expect(upper, "and so is the one on the ground floor").toBeTruthy();
+    expect((lower as string).split(".").slice(0, 2), "both lines stand in one section and one group, so only I may differ between them").toEqual((upper as string).split(".").slice(0, 2));
+    expect(Number((lower as string).split(".")[2]), "the lower level takes I = 1: level ordinal ascending FIRST, and the object key only where two lines share a level (AM-14 §2)").toBe(1);
+    expect(Number((upper as string).split(".")[2]), "and the storey above it follows").toBe(2);
   });
 
   test("AC-3: I orders a group by level then by the canonical order of the object key, never by the array's order", async () => {

@@ -46,6 +46,12 @@ function fixture(relative: string): Payload {
   return JSON.parse(readFileSync(absolute, "utf8")) as Payload;
 }
 
+/** The copy the product publishes, as its one registry holds it (`src/ui/strings`). */
+async function productStrings(): Promise<Record<string, string>> {
+  const module_ = (await import(inTree("src/ui/strings/index.ts"))) as { strings?: Record<string, string> };
+  return module_.strings ?? {};
+}
+
 /** The bytes of a committed golden. */
 function goldenBytes(relative: string): Uint8Array {
   const absolute = inTree(relative);
@@ -68,7 +74,22 @@ describe("AC-4: the unpriced draft renders as a draft, byte for byte", () => {
   it("AC-4: the kinds barrel enumerates boq-draft beside proof, each behind its own file", async () => {
     const { DOCUMENT_KINDS } = await kindsModule();
     const keys = Object.keys(DOCUMENT_KINDS);
-    expect([...keys].sort(), "the seam ships the proof and the unpriced draft — one barrel line each, enumerated and never re-declared").toEqual(["boq-draft", "proof"]);
+    for (const shipped of ["proof", "boq-draft"]) {
+      expect(keys, `the barrel carries the \`${shipped}\` kind — one file, one barrel line, enumerated and never re-declared`).toContain(shipped);
+    }
+
+    // The roster is DERIVED, never frozen: every kind module under kinds/ is in the barrel exactly
+    // once and the barrel names no kind that no module declares, so a later increment's own kind
+    // (A-BBS-PDF's, AM-18) grows this expectation with it rather than reddening it (B-19).
+    // white-box: AC-4 — the barrel's rule is "enumerates the FILES beside it"; the directory is
+    // listed and each module is then IMPORTED and asked what kind it declares. No source is read.
+    const declared = filesUnder("src/core/documents/kinds", [".ts"]).filter((file) => !/\/(index|law)\.ts$/u.test(file) && !file.includes("__tests__") && !file.endsWith(".test.ts"));
+    const modules = await Promise.all(declared.map(async (file) => (await import(inTree(file))) as Record<string, unknown>));
+    const kindsOfFiles = modules
+      .flatMap((module_) => Object.values(module_))
+      .filter((value): value is DocumentKind => typeof value === "object" && value !== null && typeof (value as DocumentKind).kind === "string" && "payloadSchema" in value)
+      .map((kind) => kind.kind);
+    expect([...kindsOfFiles].sort(), "the barrel's keys are exactly the kinds its own files declare").toEqual([...keys].sort());
 
     const draft = DOCUMENT_KINDS["boq-draft"] as DocumentKind;
     expect(draft?.kind, "the barrel files the draft under the key its own module states").toBe("boq-draft");
@@ -120,11 +141,25 @@ describe("AC-4: the unpriced draft renders as a draft, byte for byte", () => {
     for (const section of payload.sections) {
       expect(whole, `the label of the ${section.bill} section stands in the document`).toContain(section.label);
     }
-    if (payload.unclassified.lines.length > 0) {
-      expect(whole, "a line the taxonomy could not place is kept and labelled, never dropped (L-BD-08)").toContain(payload.unclassified.label);
-      for (const line of payload.unclassified.lines) {
-        expect(whole, `and the reason it could not be placed is stated beside it (${line.reason})`).toMatch(new RegExp(line.reason.replace(/_/gu, "[ _]"), "iu"));
-      }
+
+    // A golden only proves what its payload exercises. This lane's fixture therefore has to reach
+    // the parts of the template a draft exists to carry — more than one section, so a section label
+    // is a label and not the title; and at least one line the taxonomy could not place, so the
+    // block that keeps it is rendered and graded rather than skipped (L-BD-08: kept, labelled,
+    // reason stated, never dropped).
+    expect(payload.sections.length, `${PAYLOAD} holds more than one section, so the section labels are graded as labels`).toBeGreaterThanOrEqual(2);
+    expect(payload.unclassified.lines.length, `${PAYLOAD} holds at least one unplaced line, so the Unclassified block is rendered and graded — a golden that skips it proves the template never drops a line it never printed`).toBeGreaterThanOrEqual(1);
+
+    expect(whole, "a line the taxonomy could not place is kept and labelled, never dropped (L-BD-08)").toContain(payload.unclassified.label);
+
+    // The reason is STATED. Whether the document spells the law's own code or the words the product
+    // publishes for it is the kind's business (R-UI-082 reads codes as words); what a draft may not
+    // do is print the block and say nothing about why the line is in it.
+    const strings = await productStrings();
+    for (const held of payload.unclassified.lines) {
+      const inWords = strings[`boq_reason_${held.reason.toLowerCase()}`];
+      const said = whole.match(new RegExp(held.reason.replace(/_/gu, "[ _]"), "iu")) !== null || (typeof inWords === "string" && inWords.length > 0 && whole.includes(squashed(inWords)));
+      expect(said, `the reason ${held.reason} is stated beside the unplaced line — as the law's own code or as the words the product publishes for it`).toBe(true);
     }
   });
 

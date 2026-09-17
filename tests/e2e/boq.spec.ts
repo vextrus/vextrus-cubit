@@ -12,6 +12,8 @@
  * Nothing here measures time (AM-10 §3) — PB-6 lives in tests/e2e/boq-draft-perf.spec.ts.
  */
 import { expect, test, type Locator } from "@playwright/test";
+import { WORK_ITEM_CATALOGUE } from "../../src/core/catalogue/catalogue";
+import { strings } from "../../src/ui/strings";
 import { SBoqPage } from "./pages/s-boq.page";
 import { SDocumentsPage } from "./pages/s-documents.page";
 import { STakeoffPage } from "./pages/s-takeoff.page";
@@ -38,6 +40,17 @@ const SGI = /^[1-9]\d*\.[1-9]\d*\.[1-9]\d*$/u;
 /** A quantity a reader reads: digits, a decimal point, and the lakh/crore grouping between them. */
 const FIGURE = /^[0-9][0-9,]*(\.[0-9]+)?$/u;
 
+/**
+ * What the grid calls its figures column, read from the string seam this screen publishes its copy
+ * in — never a word typed here (AM-09 §2). Until that file lands the lookup fails by name, which is
+ * the red this increment is owed.
+ */
+function quantityColumnLabel(): string {
+  const label = (strings as unknown as Record<string, string | undefined>)["boq_col_quantity"];
+  if (typeof label !== "string") throw new Error("src/ui/strings publishes no boq_col_quantity — the draft's columns have not landed yet");
+  return label;
+}
+
 test.describe("J-033 — the unpriced draft BOQ, by section", () => {
   test("J-033: the fifth tab lands on the draft, every line is numbered and every section is closed by its measured scope", async ({ page }, testInfo) => {
     await signInAsSeededTenant(page, testInfo.parallelIndex);
@@ -62,12 +75,23 @@ test.describe("J-033 — the unpriced draft BOQ, by section", () => {
     expect(await heldAttribute(boq.screen, "data-taxonomy-version"), "and the screen states the taxonomy it read the sections under").toBe(TAXONOMY_VERSION);
     expect(await steadyText(boq.crumbPage, "the page crumb"), "the crumb names the screen a reader asked for").toBe(DRAFT_BOQ);
 
-    /* --- the two chips in the tabs aside: whole values, never truncated text --- */
+    /* --- the two chips in the tabs aside: the shipped IdChip, whole values, never truncated text --- */
     for (const [what, chip] of [["the pinned revision", boq.revision], ["the taxonomy", boq.taxonomyVersion]] as const) {
       await expect(chip, `${what} stands in the tabs aside`).toBeVisible();
-      expect(await heldAttribute(chip, "data-testid"), `${what} renders through the shipped IdChip`).toBeTruthy();
-      const value = await heldAttribute(chip, "data-value");
+      const value = (await heldAttribute(chip, "data-value")) as string;
       expect(value, `${what} carries its WHOLE value on the chip, so a reader who copies it copies all of it`).toBeTruthy();
+
+      // An id renders THROUGH IdChip (R-UI-003) — not as a span that merely wears the chip's
+      // attributes. What the primitive brings with it is asked for: its own element, and the copy
+      // control that is the whole reason a whole value is carried on an element a reader sees short.
+      await expect(chip, `${what} is the shipped IdChip, so it wears the primitive's own class`).toHaveClass(/cx-id-chip/u);
+      const copy = chip.locator(".cx-id-chip-copy");
+      await expect(copy, `${what} offers the primitive's copy control — one, and its own`).toHaveCount(1);
+      await expect(copy, `${what}'s copy control is a real control a reader can press`).toBeEnabled();
+
+      const shown = (await steadyText(chip.locator(".cx-id-chip-value"), `${what}'s shown form`)).trim();
+      expect(shown.length, `${what} shows something`).toBeGreaterThan(0);
+      expect(value.startsWith(shown), `${what} SHORTENS what it shows (${shown}) from the value it carries (${value}) — a chip that relabels an id is not this primitive`).toBe(true);
     }
     expect(await heldAttribute(boq.taxonomyVersion, "data-value"), "the taxonomy chip carries the version the resolver stamped").toBe(TAXONOMY_VERSION);
     expect(await heldAttribute(boq.revision, "data-value"), "and the revision chip carries the campaign's own pinned revision").toBe(staged.setRevisionId);
@@ -93,7 +117,7 @@ test.describe("J-033 — the unpriced draft BOQ, by section", () => {
       const headerPosition = await afterSettled(page, () => header.evaluate((node) => getComputedStyle(node).position));
       expect(headerPosition, `${bill}'s header is sticky, so the columns stand while the section scrolls`).toBe("sticky");
 
-      const firstCell = boq.linesIn(section).first().locator("> *").first();
+      const firstCell = boq.linesIn(section).first().getByRole("cell").first();
       const frozen = await afterSettled(page, () => firstCell.evaluate((node) => getComputedStyle(node).position));
       expect(frozen, `${bill}'s key column is frozen, so the item number stands while the row scrolls sideways`).toBe("sticky");
 
@@ -121,6 +145,14 @@ test.describe("J-033 — the unpriced draft BOQ, by section", () => {
     /* --- every line: its number, its unit, its figure, its two bases, its coverage --- */
     const lines = await everyRow(boq.lines, "the lines of the draft");
     expect(lines.length, "the staged campaign's published lines are listed").toBeGreaterThan(0);
+
+    // Which column the figures stand in is read off the grid's own header, by the label the strings
+    // give it — never a column index typed here (B-19).
+    const headers = await everyRow(boq.header(sections[0] as Locator).first().getByRole("columnheader"), "the grid's column headers");
+    const labels = await Promise.all(headers.map(async (header) => (await steadyText(header, "a column header")).trim()));
+    const quantityAt = labels.indexOf(quantityColumnLabel());
+    expect(quantityAt, `the grid states a ${quantityColumnLabel()} column; it states ${labels.join(" · ")}`).toBeGreaterThanOrEqual(0);
+
     const numbers = new Set<string>();
     for (const line of lines) {
       const lineId = (await heldAttribute(line, "data-line")) as string;
@@ -131,9 +163,22 @@ test.describe("J-033 — the unpriced draft BOQ, by section", () => {
 
       expect(await steadyCount(boq.unitBadges(line), `line ${lineId}'s unit`), `line ${lineId} states its unit through the shipped badge`).toBe(1);
 
-      const quantityCell = line.locator("[data-quantity]").first();
+      const quantityCell = line.getByRole("cell").nth(quantityAt);
       const figure = (await steadyText(quantityCell, `line ${lineId}'s quantity`)).trim();
       expect(figure, `line ${lineId}'s figure reads as a figure`).toMatch(FIGURE);
+
+      // THE FIGURE IS WRITTEN TO THE CATALOGUE'S PRECISION, per kind (L-MEA-04, interfaces:
+      // `figure(quantity, WORK_ITEM_CATALOGUE[kind].documentPrecision)`). The places are asked of the
+      // catalogue by the line's OWN kind, so concrete at three places and formwork at two are two
+      // different assertions made by one rule, and a screen that printed everything at three places
+      // would be caught by the formwork lines it printed wrong.
+      const kind = (await heldAttribute(line, "data-kind")) as string;
+      expect(WORK_ITEM_CATALOGUE[kind as keyof typeof WORK_ITEM_CATALOGUE], `line ${lineId}'s kind (${kind}) is a kind the catalogue holds`).toBeTruthy();
+      const places = WORK_ITEM_CATALOGUE[kind as keyof typeof WORK_ITEM_CATALOGUE].documentPrecision;
+      const stated = await heldAttribute(line, "data-quantity");
+      expect(stated, `line ${lineId} states the figure it rendered; only a line that declared what it could not measure may state none`).not.toBeNull();
+      expect((String(stated).split(".")[1] ?? "").length, `line ${lineId} states its quantity (${stated}) at ${kind}'s own document precision of ${places} places`).toBe(places);
+      expect((figure.split(".")[1] ?? "").length, `and the figure a reader reads (${figure}) is written to the same ${places} places — the page and the attribute never disagree`).toBe(places);
       const alignment = await afterSettled(page, () => quantityCell.evaluate((node) => getComputedStyle(node).textAlign));
       expect(alignment, `line ${lineId}'s figure is right-aligned so a column of them reads down`).toBe("right");
       const numerals = await afterSettled(page, () => quantityCell.evaluate((node) => getComputedStyle(node).fontVariantNumeric));

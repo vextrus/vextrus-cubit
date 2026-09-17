@@ -98,6 +98,35 @@ async function load(): Promise<void> {
   });
 }
 
+/** Which list of the taxonomy a deciding row was drawn from (`OVERRIDE` → `overrides`, …). */
+function listNameOf(row: string): string {
+  return `${row.toLowerCase()}s`;
+}
+
+/**
+ * The taxonomy row a resolution says decided it, found in the data by its own identifying field:
+ * an override by its class (and its kind where the row states one), a group by the whole kind, a
+ * division by the kind's chapter prefix. `null` when the data holds no such row — which is the
+ * answer that makes "records which row decided" a claim rather than a label.
+ */
+function rowNamedBy(decidedBy: { row: string; key: string }, line: { class: string; kind: string }): { bill: string } | null {
+  const key = decidedBy.key;
+  const data = taxonomy.BILL_TAXONOMY;
+  if (decidedBy.row === "OVERRIDE") {
+    return (
+      data.overrides.find(
+        (row) => key.includes(row.class) && row.class === line.class && (row.kind === undefined || (row.kind === line.kind && key.includes(row.kind))),
+      ) ?? null
+    );
+  }
+  if (decidedBy.row === "GROUP") return data.groups.find((row) => row.group === line.kind && key.includes(row.group)) ?? null;
+  if (decidedBy.row === "DIVISION") {
+    const chapter = line.kind.split(".")[0] as string;
+    return data.divisions.find((row) => row.division === chapter && key.includes(row.division)) ?? null;
+  }
+  return null;
+}
+
 describe("AC-1: the six bills are swappable data, resolved most-specific-first", () => {
   test("AC-1: BILLS is L-BD-08's six sections in L-BD-08's order, and holds no seventh", async () => {
     await ready();
@@ -129,9 +158,58 @@ describe("AC-1: the six bills are swappable data, resolved most-specific-first",
       expect(answer.bill, `${what} is placed by a row; nothing the rosters hold falls through to UNCLASSIFIED (AM-14: an unmapped class is a defect of the data)`).not.toBe(UNCLASSIFIED);
       expect(answer.reason, `${what} is classified, so it carries no unclassified reason`).toBeNull();
       expect(DECIDING_ROWS, `${what} records WHICH row decided it (L-BD-08), and ${answer.decidedBy.row} is not one of the three`).toContain(answer.decidedBy.row);
-      expect(answer.decidedBy.key.length, `${what} records the deciding row's own key, never an empty string`).toBeGreaterThan(0);
       expect(answer.taxonomyVersion, `${what} carries the version the resolution was made under`).toBe(taxonomy.BILL_TAXONOMY.version);
+
+      // "The resolver records WHICH ROW decided" (L-BD-08) is a claim about the DATA, not a label:
+      // the key it reports is looked up in the taxonomy's own list for the row it names, and the row
+      // found there must be the one that produced this answer.
+      const deciding = rowNamedBy(answer.decidedBy, row);
+      expect(deciding, `${what}: decidedBy ${answer.decidedBy.row}:${answer.decidedBy.key} names a row BILL_TAXONOMY.${listNameOf(answer.decidedBy.row)} does not hold`).not.toBeNull();
+      expect([row.expected, LOCATION], `${what}: the row that is recorded as deciding targets the bill that was answered (or the location cut that chose it)`).toContain(
+        (deciding as { bill: string }).bill,
+      );
     }
+  });
+
+  test("AC-1: the resolver READS the taxonomy — an injected table moves the answer, most specific first", async () => {
+    await ready();
+    // L-BD-08's "swappable data" is only true if swapping it swaps the answer. The table below
+    // contradicts the shipped one at every level: a beam is sent to FINISHES by an override, its
+    // kind is sent to PLUMBING by a group, and the whole `rcc` chapter to EXTERNAL by a division —
+    // so each answer names which of the three reached the pair first.
+    const injected = {
+      version: "bill-taxonomy/injected",
+      bills: [...SIX_BILLS],
+      overrides: [{ class: "beam", bill: "FINISHES" }],
+      groups: [{ group: "rcc.concrete", bill: "PLUMBING" }],
+      divisions: [{ division: "rcc", bill: "EXTERNAL" }],
+    };
+
+    const overridden = resolver.resolveBill({ class: "beam", kind: "rcc.concrete", levelOrdinal: 0 }, boundary, injected);
+    expect(overridden.bill, "an element-type override is the most specific row, and it takes the pair before the group or the division can").toBe("FINISHES");
+    expect(overridden.decidedBy.row, "and the resolution says an override decided it").toBe("OVERRIDE");
+    expect(overridden.taxonomyVersion, "the stamp is the taxonomy that was READ, never a constant beside the resolver").toBe(injected.version);
+
+    const byGroup = resolver.resolveBill({ class: "slab", kind: "rcc.concrete", levelOrdinal: 0 }, boundary, injected);
+    expect(byGroup.bill, "with no override for the class, the kind's own group row decides — before the chapter it belongs to").toBe("PLUMBING");
+    expect(byGroup.decidedBy.row, "and the resolution says a group decided it").toBe("GROUP");
+
+    const byDivision = resolver.resolveBill({ class: "slab", kind: "rcc.formwork", levelOrdinal: 0 }, boundary, injected);
+    expect(byDivision.bill, "with neither an override nor a group, the kind's chapter decides").toBe("EXTERNAL");
+    expect(byDivision.decidedBy.row, "and the resolution says a division decided it").toBe("DIVISION");
+
+    const unreached = resolver.resolveBill({ class: "slab", kind: "masonry.brickwork", levelOrdinal: 0 }, boundary, injected);
+    expect(unreached.bill, "and a pair this table reaches by no row at all is kept as UNCLASSIFIED, however the shipped table would have placed it").toBe(UNCLASSIFIED);
+    expect(unreached.reason, "with the reason stated").toBe("NO_TAXONOMY_ROW");
+
+    const located = resolver.resolveBill({ class: "beam", kind: "rcc.concrete", levelOrdinal: -5 }, boundary, {
+      ...injected,
+      overrides: [{ class: "beam", bill: LOCATION }],
+    });
+    expect(located.bill, "a row whose target is the location cut sends the line to the side of the plinth it stands on — the cut is data, never a class the resolver knows by name").toBe(
+      "SUBSTRUCTURE",
+    );
+    expect(located.location, "and records which side").toBe("AT_OR_BELOW_PLINTH");
   });
 
   test("AC-1: the classes the plinth cuts read their side of it off the level stack", async () => {
@@ -161,7 +239,9 @@ describe("AC-1: the six bills are swappable data, resolved most-specific-first",
       const answer: BillResolutionShape = resolver.resolveBill({ class: "surface", kind, levelOrdinal: 0 }, boundary);
       expect(answer.bill, `surface × ${kind} bills to Finishes — the one surface-trade bill (docs/decisions/bill-taxonomy.md)`).toBe("FINISHES");
       expect(DECIDING_ROWS, `surface × ${kind} names the row that decided it`).toContain(answer.decidedBy.row);
-      expect(answer.decidedBy.key.length, `surface × ${kind} names the deciding row's key`).toBeGreaterThan(0);
+      const deciding = rowNamedBy(answer.decidedBy, { class: "surface", kind });
+      expect(deciding, `surface × ${kind}: decidedBy ${answer.decidedBy.row}:${answer.decidedBy.key} names a row BILL_TAXONOMY.${listNameOf(answer.decidedBy.row)} does not hold`).not.toBeNull();
+      expect((deciding as { bill: string }).bill, `and that row is the one that sends a finished surface to Finishes`).toBe("FINISHES");
     }
   });
 
