@@ -1,8 +1,19 @@
 // S-Settings-Ruleset-Author as a journey drives it, and the project settings nav it is drawn in.
-// Every handle is one of the test ids the two Design Decisions close over
+// Every TEST ID this file reaches for is one of the ids the two Design Decisions close over
 // (docs/design/s-settings-ruleset-author.md § 7, docs/design/s-settings-project-sub-navigation.md
 // § 7) read from the one registry — a journey that reached for a class or a copy string would be
 // reading the styling, not the screen.
+//
+// An id and an ATTRIBUTE VALUE are two kinds, and AM-09 §1 speaks about one of them: the registry is
+// "the single source of every test id", and a test id is a string the DOM carries as data-testid.
+// The four area keys below are not that. They are the values of data-area, qualifying the ONE
+// registered id every nav row carries — TESTIDS.settings.area, reached from the registry like every
+// other handle here. So the keys spelled below are not test ids, neither of the two this increment's
+// contract once listed as ids is registered in src/ui/testids.ts, and rule 2 of
+// src/ui/testids.test.ts — which reads this file's TEXT — has nothing to say about them.
+//
+// Nothing in this file may spell a registered id, in code or in prose: that rule reads quoted and
+// backticked words alike, so an id is named here by its registry path or not at all.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import { everyAttribute, steadyText } from "../support/retrying-read";
@@ -19,6 +30,12 @@ export const S_RULESET_AUTHOR = Object.freeze({
  * beside the address it is reached at — `null` for the area the product has promised and not built.
  * The three that are built are read from the spellings their own page objects already hold (B-17),
  * so a screen that moves takes its nav row with it.
+ *
+ * These four strings are data-area values, never test ids (see the header). AC-1's own sentence
+ * holds the two kinds apart — the nav renders exactly four rows of the one registered nav-row id, in
+ * the order their data-area values are declared in — and that order cannot be asserted without
+ * spelling the keys once, which is here. Every real id this screen publishes carries a prefix of its
+ * own and is reached through TESTIDS below.
  */
 export const PROJECT_SETTINGS_AREA_ORDER = ["ruleset", "participants", "site-facts", "ruleset-author"] as const;
 export type ProjectSettingsArea = (typeof PROJECT_SETTINGS_AREA_ORDER)[number];
