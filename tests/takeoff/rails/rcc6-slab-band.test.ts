@@ -11,21 +11,18 @@
  * the refusal register's OWN scanner, over the live corpus, so "exercised by name" means what the
  * register means by it and not what this file would like it to mean.
  */
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, test } from "vitest";
 import { DEFERRED_CODES } from "../../refusal-register/deferrals";
 import { exercisedNames, unadmittedCodes } from "../../refusal-register/scan";
 import {
-  COMPLEX_STAIR_GEOMETRY,
-  JUNCTION_DEFERRED,
-  JUNCTION_UNBOUNDED,
-  OUTLINE_NOT_CLOSED,
-  PLAN_READING_ABSENT,
   RCC6_FIXTURE,
   RCC_CONCRETE,
   RCC_FORMWORK,
   REPO_ROOT,
   SLAB,
+  SLABS_SHARD_CODES,
   canon,
   closeStage,
   gateSeam,
@@ -136,34 +133,59 @@ describe("AC-8: F-RCC6 v1.1's SLAB rows, measured by the new rails", () => {
 });
 
 /**
- * The five codes AC-8 names. Spelled here rather than read off the shard, because what the criterion
- * says is that these five and no others are registered — a roster read from the thing under test would
- * be satisfied by a shard that registers none of them, and would ask nothing at all of the rest.
+ * The five codes AC-8 names, read from the acceptance's ONE spelling of them (the shared stage) rather
+ * than spelled in this file.
+ *
+ * The spelling matters because of what the register's scanner counts: a code named inside a matcher's
+ * argument IS its exercise (Q-07), so a file that both spells the five and then asserts they are
+ * exercised admits them by the act of asking. The roster claim below is therefore made against a list
+ * this file does not utter, and the exercise claim asks for an assertion in some OTHER file — one that
+ * observes a rail or the gate answering the code, which is the only thing "exercised by name" can mean.
  */
-const OWED_CODES: readonly string[] = [COMPLEX_STAIR_GEOMETRY, JUNCTION_DEFERRED, JUNCTION_UNBOUNDED, OUTLINE_NOT_CLOSED, PLAN_READING_ABSENT];
+const OWED_CODES: readonly string[] = [...SLABS_SHARD_CODES].sort();
+
+/** This file, as the scanner names it — so its own spelling can never be its own exercise (Q-07). */
+const THIS_FILE = relative(REPO_ROOT, fileURLToPath(import.meta.url)).split(sep).join("/");
 
 describe("AC-8: the slabs refusal shard, registered and exercised by name", () => {
   test("AC-8: `src/core/errors/slabs.ts` registers exactly this leaf's five codes, and the barrel holds each", async () => {
     const shard = await slabsRefusals();
     const registered = await refusals();
+    const door = await slabWallStairDoor();
 
     expect(
       Object.keys(shard).sort(),
       "the area's own file registers its own codes and no other area's — one home per code (AM-11, interfaces)",
-      // The five are spelled INSIDE the claim, not read off a roster this file built earlier: an
-      // assertion is what admits a code to the register (Q-07), and this one breaks the moment the
-      // shard stops answering for any of them.
-    ).toStrictEqual([COMPLEX_STAIR_GEOMETRY, JUNCTION_DEFERRED, JUNCTION_UNBOUNDED, OUTLINE_NOT_CLOSED, PLAN_READING_ABSENT].sort());
+    ).toStrictEqual(OWED_CODES);
 
     for (const name of OWED_CODES) {
       expect(shard[name]?.code, `${name} is registered under its own spelling`).toBe(name);
       expect(registered[name], `and the closed taxonomy the barrel assembles holds ${name} — the shard is enumerated, never re-declared (AM-11)`).toBeTruthy();
     }
+
+    // And the shard is tied to the rails it serves rather than to a list: every entry is a code these
+    // rails can actually answer, and every code they declare stands in the closed taxonomy — whether
+    // this area registered it or the area that registered it first did (AM-11: one home per code).
+    expect(
+      Object.keys(shard).filter((name) => ![...door.SLAB_WALL_STAIR_RAIL_CODES].includes(name)),
+      "the shard registers no code this area's rails cannot answer — a registered code no rail reaches is a code nothing measures (Q-07)",
+    ).toEqual([]);
+    expect(
+      [...door.SLAB_WALL_STAIR_RAIL_CODES].filter((name) => registered[name] === undefined),
+      "and every code the rails declare is one the closed taxonomy holds — a rail that observes an unregistered code speaks a name the product does not know (Q-07)",
+    ).toEqual([]);
   }, STAGING_BUDGET);
 
-  test("AC-8: each of the five is admitted by an executed assertion, and none by a deferral", async () => {
+  test("AC-8: each of the five is admitted by an assertion in a test that OBSERVES it, and none by a deferral", async () => {
     const spoken = await exercisedNames([join(REPO_ROOT, "src"), join(REPO_ROOT, "tests")]);
     const registered = await refusals();
+
+    // The scanner's own answer over the live corpus, with this file's spellings taken out of it: a
+    // file cannot be the corpus of its own question, so what is left is the exercises that observe
+    // something (Q-07).
+    const elsewhere = new Map<string, string[]>(
+      [...spoken].map(([code, files]) => [code, files.filter((where) => where !== THIS_FILE)]).filter(([, files]) => (files as string[]).length > 0) as [string, string[]][],
+    );
 
     for (const code of OWED_CODES) {
       expect(
@@ -171,8 +193,8 @@ describe("AC-8: the slabs refusal shard, registered and exercised by name", () =
         `${code} is a code the closed taxonomy holds — the register admits what is registered, so there is nothing to admit until this leaf's shard registers it (Q-07)`,
       ).toBeTruthy();
       expect(
-        spoken.get(code) ?? [],
-        `${code} is named inside an assertion of a test the lane collects — a registered code no executed test claims anything about is a code nothing proves (Q-07)`,
+        elsewhere.get(code) ?? [],
+        `${code} is asserted by a lane-collected test OTHER than this one — a rail driven into it, or the gate answering it. This file asks the question, so its own spelling cannot be the answer: "exercised by name" is a claim about a test that observes the code, not about the roster that names it (Q-07)`,
       ).not.toEqual([]);
       expect(
         DEFERRED_CODES[code],
@@ -181,8 +203,8 @@ describe("AC-8: the slabs refusal shard, registered and exercised by name", () =
     }
 
     expect(
-      unadmittedCodes(OWED_CODES, spoken, {}),
-      "and with the deferral branch taken away entirely, every one of this leaf's codes is still admitted — the exercises are real (AC-8)",
+      unadmittedCodes(OWED_CODES, elsewhere, {}),
+      "and with the deferral branch taken away entirely and this file's own spellings with it, every one of this leaf's codes is still admitted — the exercises are real (AC-8)",
     ).toEqual([]);
   }, STAGING_BUDGET);
 });

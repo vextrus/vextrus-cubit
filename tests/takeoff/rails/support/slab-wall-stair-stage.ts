@@ -82,6 +82,9 @@ export const SLABS_RAILS_MODULE = "src/modules/takeoff/rails/slabs.ts";
 export const RAILS_MODULE = "src/modules/takeoff/rails/index.ts";
 export const RAILS_LAW_MODULE = "src/modules/takeoff/rails/law.ts";
 
+/** The adjacent area that answers these same two kinds — the one the barrel must not lose (AM-11). */
+export const FRAME_RAILS_MODULE = "src/modules/takeoff/rails/frame.ts";
+
 /** The rail↔gate contract, which gains `PlanReadingSetup`, `RailSetup.plans` and `PLAN_MEMBERS`. */
 export const OFFERS_CONTRACT_MODULE = "src/core/offers/contract.ts";
 
@@ -163,6 +166,13 @@ export const GROUND = "GROUND";
 export const STRAIGHT = "STRAIGHT";
 export const COMPLEX = "COMPLEX";
 export const RECT = "RECT";
+
+/** The dimensions a declared variable and a bound reading stand in (`Dimension`, L-FRM-06). */
+export const AREA_DIMENSION = "AREA";
+export const LENGTH_DIMENSION = "LENGTH";
+
+/** How every method of this leaf spells the thickness it measures through (interfaces). */
+export const THICKNESS_VARIABLE = "t";
 
 /** The geometries the twelve methods stand in (L-FRM-01/02). */
 export const AREA_THICK = "AREA_THICK";
@@ -341,6 +351,8 @@ export type Exact = {
 export type Canon = {
   exact: (value: string | number) => Exact;
   convert: (value: string, from: string, to: string) => { ok: boolean; value?: string; code?: string };
+  /** Which dimension a unit stands in — the canon's own answer, and a refusal for a unit it knows not. */
+  toCanonical: (unit: string) => { ok: boolean; dimension?: string; code?: string };
   CANONICAL_UNIT: Readonly<Record<string, string>>;
 };
 
@@ -379,7 +391,7 @@ export async function railsRoster(): Promise<Record<string, RailShape>> {
 /** The barrel's two composition doors (interfaces: `enumerateRails`, `composeRails`). */
 export type RailsLaw = {
   enumerateRails: (areas: readonly Record<string, RailShape>[]) => Record<string, RailShape>;
-  composeRails: (rails: readonly RailShape[]) => RailShape;
+  composeRails: (...rails: readonly RailShape[]) => RailShape;
 };
 
 export async function railsLaw(): Promise<RailsLaw> {
@@ -395,6 +407,14 @@ export async function slabsRails(): Promise<Record<string, RailShape>> {
   const door = await productModule<Record<string, unknown>>(SLABS_RAILS_MODULE);
   const roster = door["SLABS_RAILS"];
   expect(roster !== null && typeof roster === "object", `${SLABS_RAILS_MODULE} publishes \`SLABS_RAILS\` — this area's kinds and rails (interfaces)`).toBe(true);
+  return roster as Record<string, RailShape>;
+}
+
+/** The FRAME area's rail roster, as its own file declares it — the other area answering these kinds. */
+export async function frameRails(): Promise<Record<string, RailShape>> {
+  const door = await productModule<Record<string, unknown>>(FRAME_RAILS_MODULE);
+  const roster = door["FRAME_RAILS"];
+  expect(roster !== null && typeof roster === "object", `${FRAME_RAILS_MODULE} publishes \`FRAME_RAILS\` — the frame area's kinds and rails (AM-11)`).toBe(true);
   return roster as Record<string, RailShape>;
 }
 
@@ -777,6 +797,46 @@ export function shift(value: string, places: number): string {
   }
   while (point > whole.length) whole = `${whole}0`;
   return `${negative ? "-" : ""}${`${whole.slice(0, point)}.${whole.slice(point)}`.replace(/\.$/u, "")}`;
+}
+
+/** One reading, in the unit named — carried by the canon itself, never by a hand-moved point (B-17). */
+export function carriedInto(measure: { value: string; unit: string }, unit: string, units: Canon): string {
+  const answer = units.convert(measure.value, measure.unit, unit);
+  expect(answer.ok, `the canon carries ${measure.value} ${measure.unit} into ${unit} — a reading is figured in the canon or not at all (B-17): ${JSON.stringify(answer)}`).toBe(true);
+  return String(answer.value);
+}
+
+/** One binding, as an offer states one (a reading) or as a line records one (a reading plus its canonical). */
+export type BoundShape = { value?: string; unit?: string; basis?: string; canonical?: { value: string; unit: string } };
+
+/**
+ * Which DIMENSION each binding stands in, as the canon reads the unit it was stated in (L-FRM-06).
+ *
+ * Both spellings are read — the unit the binding was stated in and the canonical unit the gate carried
+ * it into — so a binding is judged by what it MEASURES rather than by how it was spelled: an area
+ * bound in mm2 stands in AREA as plainly as one bound in m2. A unit the canon does not know stands in
+ * no dimension and is named as such, so it can never pass a dimension claim by being unreadable.
+ */
+export function dimensionsBound(bindings: Record<string, BoundShape>, units: Canon): Record<string, string[]> {
+  const dimensions: Record<string, string[]> = {};
+  for (const [name, bound] of Object.entries(bindings)) {
+    const spellings = [bound?.unit, bound?.canonical?.unit].filter((unit): unit is string => typeof unit === "string");
+    const stood = new Set<string>();
+    for (const unit of spellings) {
+      const answer = units.toCanonical(unit);
+      stood.add(answer.ok ? String(answer.dimension) : `UNREADABLE(${unit})`);
+    }
+    dimensions[name] = [...stood].sort();
+  }
+  return dimensions;
+}
+
+/** Every binding of this set standing in one dimension, by name — the rule a dimension claim is made of. */
+export function boundInDimension(bindings: Record<string, BoundShape>, dimension: string, units: Canon): string[] {
+  return Object.entries(dimensionsBound(bindings, units))
+    .filter(([, stood]) => stood.includes(dimension))
+    .map(([name]) => name)
+    .sort();
 }
 
 /** A figure a fixture wrote in millimetres, as an exact decimal number of metres. */

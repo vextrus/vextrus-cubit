@@ -13,6 +13,7 @@
  */
 import { afterAll, describe, expect, test } from "vitest";
 import {
+  AREA_DIMENSION,
   AREA_THICK,
   DEDUCTED,
   GROUND,
@@ -24,6 +25,7 @@ import {
   RULE_VERSION,
   SLAB,
   STAIR,
+  boundInDimension,
   canon,
   carried,
   closeStage,
@@ -42,6 +44,7 @@ import {
   stageSlabWallStairCampaign,
   stairFlight,
   stairLanding,
+  type BoundShape,
   type Canon,
   type OfferShape,
   type PlanDraft,
@@ -220,10 +223,22 @@ describe("AC-2: the formwork lines, soffit against edge", () => {
     expect(figures(row, "6"), `40 m × 150 mm is 6 m2; the line states ${said(row, "value", "value")}`).toBe(true);
 
     const method = await methodOf(RULE.slabEdgeFormwork);
-    const bindings = carried<Record<string, unknown>>(row, "bindings", "bindings");
+    const bindings = carried<Record<string, BoundShape>>(row, "bindings", "bindings");
     expect(Object.keys(bindings).sort(), `the line records exactly what ${RULE.slabEdgeFormwork} declares — no soffit area is formed, so none is bound (AC-2)`).toStrictEqual(
       method.variables.map((variable) => variable.name).sort(),
     );
+
+    // "Binds no soffit area at all" is a claim about a DIMENSION, not about a roster: whatever the
+    // edge rule comes to declare, an edge run is lengths through a thickness, so neither its
+    // declaration nor its line may carry a figure measured in area (AM-06 §3, B-19).
+    expect(
+      method.variables.filter((variable) => variable.dimension === AREA_DIMENSION).map((variable) => variable.name),
+      `${RULE.slabEdgeFormwork} declares no variable standing in ${AREA_DIMENSION} — a slab on grade forms edges only, so the rule takes lengths and a thickness and no area at all (AM-06 §3)`,
+    ).toEqual([]);
+    expect(
+      boundInDimension(bindings, AREA_DIMENSION, run.units),
+      `and the line binds nothing measured in ${AREA_DIMENSION}: the 200 m2 plate this panel bears on the ground with is a soffit nobody forms, so no area of it reaches the edge line (AC-2)`,
+    ).toEqual([]);
     expect(carried<readonly unknown[]>(row, "deductions", "deductions"), "and an edge run partitions no channel at all").toEqual([]);
   }, STAGING_BUDGET);
 

@@ -14,6 +14,7 @@
  */
 import { afterAll, describe, expect, test } from "vitest";
 import {
+  AREA_DIMENSION,
   AREA_THICK,
   CALIBRATION_KEY,
   GROUND,
@@ -23,6 +24,7 @@ import {
   RCC_FORMWORK,
   RULE,
   SLAB,
+  boundInDimension,
   canon,
   closeStage,
   methodOf,
@@ -177,6 +179,20 @@ describe("AC-2: the formwork rail, soffit against edge", () => {
       Object.keys(offer.bindings).sort(),
       `the offer binds exactly what ${RULE.slabEdgeFormwork} declares — ground bears the slab, so no soffit area is formed and none is bound (AC-2)`,
     ).toStrictEqual(method.variables.map((variable) => variable.name).sort());
+
+    // The roster claim above holds whatever the rule declares, because both sides of it are the
+    // Builder's; what makes it a claim about the EDGE is the dimension. An edge run is lengths
+    // through a thickness, so neither the rule's declaration nor the offer's bindings may carry a
+    // figure measured in area — whichever unit that area is spelled in (AM-06 §3, B-19).
+    const units = await canon();
+    expect(
+      method.variables.filter((variable) => variable.dimension === AREA_DIMENSION).map((variable) => variable.name),
+      `${RULE.slabEdgeFormwork} declares no variable standing in ${AREA_DIMENSION} at all — the rule that forms edges takes a run and a thickness (AM-06 §3)`,
+    ).toEqual([]);
+    expect(
+      boundInDimension(offer.bindings, AREA_DIMENSION, units),
+      `and the offer binds nothing measured in ${AREA_DIMENSION}: this panel's 200 m2 plate is a soffit the ground bears, and a soffit nobody forms is a soffit no edge offer carries (AC-2)`,
+    ).toEqual([]);
     expect(offer.deductions, "and an edge run has no opening channel to partition at all (interfaces)").toEqual([]);
   });
 });
