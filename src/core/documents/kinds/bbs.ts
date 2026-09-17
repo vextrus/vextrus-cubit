@@ -8,8 +8,10 @@
 // THREE LENGTHS, ONE OF THEM ROUNDED (AM-01, L-FRM-05). The raw BS 8666 length prints as it was
 // stored, to its full stated precision; the rounded figure is the ONE rounded surface; the
 // IS-additive figure stands beside them both and is billed by nothing. This kind rounds none of
-// them — `figure()` refuses a value that is not already at the precision stated below, so a schedule
-// whose figures drifted is refused before a subprocess is reached rather than rounded into agreement.
+// them: every figure of the payload is READ at the precision stated below — the schema offers it to
+// `figure()`, which refuses a value that is not already at that precision — so a schedule whose
+// figures drifted is a malformed payload, refused whole before a subprocess is reached rather than
+// rounded into agreement or failed halfway through a render (SEAM-DOC, L-FMT-02).
 //
 // A LAP IS ITS OWN LINE (AM-03(a), L-BD-02). A bar that laps prints a `LAP` component line beneath
 // its own row carrying the lap's own mass — never a percentage, and never a column of the bar's row:
@@ -18,6 +20,7 @@
 // THE CUTTING STOCK IS INFORMATIONAL (AM-03(e)). What a site cuts from a stock bar is stated per
 // diameter beneath the schedule and is billed by nothing.
 import { z } from "zod";
+import { refusalCodeOf } from "../../faults/refusal-marker";
 import { SHAPE_CODES } from "../../rulesets/methods/rebar/bs8666";
 import { figure } from "../figures";
 import { kindTemplate, type DocumentKind } from "./law";
@@ -44,6 +47,35 @@ const LAP = "LAP";
 
 /* ------------------------------------------------------------------ the payload, parsed once */
 
+/**
+ * A figure this kind states at exactly `places` fraction digits, judged AT THE SCHEMA.
+ *
+ * The precision is not a second grammar written here: the value is offered to `figure()`, the one
+ * seam that groups a figure and counts the fraction it was handed, and a figure that seam will not
+ * take is a payload this kind cannot read. Judging it here rather than in `present()` is what makes
+ * a schedule whose figures drifted a MALFORMED PAYLOAD — refused whole, by name, before a directory
+ * is staged or a subprocess reached — instead of a render that fails halfway through a document
+ * (SEAM-DOC, L-FMT-02). Anything that is not that seam's refusal is nothing this predicate may
+ * swallow, so it is raised on (ARCH-03).
+ */
+function decimal(places: number) {
+  return z
+    .string()
+    .min(1)
+    .refine(
+      (value) => {
+        try {
+          figure(value, places);
+          return true;
+        } catch (cause) {
+          if (refusalCodeOf(cause) === null) throw cause;
+          return false;
+        }
+      },
+      { message: `this kind states the figure as an ungrouped decimal at ${String(places)} fraction digits (L-FMT-02)` },
+    );
+}
+
 /** One bar of the schedule. Every figure is an exact decimal as text (B-07). */
 const barRow = z
   .object({
@@ -59,23 +91,23 @@ const barRow = z
     /** A BS 8666 shape this tree details in — the roster is the product's, never a list here. */
     shape: z.enum(SHAPE_CODES as unknown as [string, ...string[]]),
     /** The legs the shape is dimensioned by, by the letter BS 8666 gives each. */
-    dimsMm: z.record(z.string().min(1), z.string().min(1)),
-    cuttingRawMm: z.string().min(1),
-    cuttingRoundedMm: z.string().min(1),
-    cuttingIsAdditiveMm: z.string().min(1),
+    dimsMm: z.record(z.string().min(1), decimal(LENGTH_PLACES)),
+    cuttingRawMm: decimal(LENGTH_PLACES),
+    cuttingRoundedMm: decimal(ROUNDED_PLACES),
+    cuttingIsAdditiveMm: decimal(LENGTH_PLACES),
     piecesPerBar: z.number().int().positive(),
-    lapMm: z.string().min(1),
+    lapMm: decimal(ROUNDED_PLACES),
     lapsPerBar: z.number().int().nonnegative(),
-    bars: z.string().min(1),
-    kgNet: z.string().min(1),
-    kgLap: z.string().min(1),
-    kg: z.string().min(1),
+    bars: decimal(COUNT_PLACES),
+    kgNet: decimal(MASS_PLACES),
+    kgLap: decimal(MASS_PLACES),
+    kg: decimal(MASS_PLACES),
   })
   .strict();
 
 /** What one diameter's stock came to: the bars ordered, the pieces cut, and the offcut left. */
 const cuttingStock = z
-  .object({ stockBars: z.number().int().nonnegative(), pieces: z.number().int().nonnegative(), offcutMm: z.string().min(1) })
+  .object({ stockBars: z.number().int().nonnegative(), pieces: z.number().int().nonnegative(), offcutMm: decimal(ROUNDED_PLACES) })
   .strict();
 
 /** What the schedule is rendered from. Unknown keys are refused: a payload is a statement, not a bag. */
@@ -86,12 +118,13 @@ export const bbsPayloadSchema = z
     campaignId: z.string().min(1),
     setRevisionId: z.string().min(1),
     /** What the schedule was cut from, and the one surface it rounded to (AM-01). */
-    stockMm: z.string().min(1),
+    stockMm: decimal(COUNT_PLACES),
     roundingMm: z.number().int().positive(),
     rows: z.array(barRow),
-    perDiameterKg: z.record(z.string().min(1), z.string().min(1)),
+    /** The kg/m table's mass per diameter, and the campaign's own total — never a figure derived here. */
+    perDiameterKg: z.record(z.string().min(1), decimal(MASS_PLACES)),
     cuttingStock: z.record(z.string().min(1), cuttingStock),
-    grandTotalKg: z.string().min(1),
+    grandTotalKg: decimal(MASS_PLACES),
   })
   .strict();
 
