@@ -6,6 +6,7 @@
 // for the worker's composition root alone. A bundler follows a barrel's every re-export, and the
 // rebuild reaches the object store and the model seam — neither of which belongs in a screen's module
 // graph (ARCH-01, and the same reason SEAM-CAD keeps its job behind its own file).
+import { dotlessUpper } from "@/core/identity";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
 import { storedExpansionDeferralsOf, storedTypicalRangesOf, type StoredExpansionDeferral, type StoredTypicalRange } from "./expansion/store";
 import { storedGridOf, type StoredGrid } from "./grid/store";
@@ -212,10 +213,19 @@ export async function proposedLevelStackOf(scope: ViewsScope): Promise<ProposedL
   if (proposed.length === 0) return null;
 
   // The stack is the seventh stage's, whole: it reads every section of the artifact into ONE stack,
-  // so there is nothing left here to merge (B-17). The ordinal OFFERED is the row's place in that one
-  // run, because an ordinal names a storey once: a record partitioned before the stage read every
-  // section together carries rows ordinalled per view, and offering those ordinals as they stand
-  // would hand `INSERT_LEVEL` a list naming two ground floors at ordinal 0 (L-MEA-07, L-ACT-01).
+  // names each storey once and ordinals it from the foot up, so there is nothing left here to merge
+  // or to dedupe — the label rule has one home, and a second reading of it here would be a second
+  // answer to which spelling stands (B-17, `./levels-proposal/propose`).
+  //
+  // A record partitioned BEFORE that stage carries a stack per view: the same storey proposed twice,
+  // which `INSERT_LEVEL` would take at its word and author twice over (L-ACT-01 — a level is authored,
+  // never edited). Such rows are not one stack and are not offered as one; the drawing is rebuilt,
+  // and the rebuild is what proposes a stack a person can confirm (R-UI-050, L-MEA-07).
+  const named = new Set(proposed.map((level) => dotlessUpper(level.label)));
+  if (named.size !== proposed.length) return null;
+
+  // The ordinal offered is the row's place in that one run: an ordinal is physical, and the run the
+  // store answers in is the run from the foot up (L-MEA-07).
   return {
     group: { kind: PROPOSED_LEVEL_STACK, drawingId: scope.drawingId, ingestId },
     levels: proposed.map((level, at) => ({

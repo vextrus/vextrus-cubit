@@ -16,7 +16,7 @@
 //     a reading, a refusal or an attribute slot; the store holds no privilege that would let it.
 //   · L-REG-03: "disagreement is declared, never resolved silently" — a standing is DERIVED from the
 //     readings at read time, so no column anywhere holds a "current value" to overwrite.
-import { and, asc, drawingSetRevisions, eq, forTenant, refusedSightings, registerObjects, type TenantTx } from "@/core/db";
+import { and, asc, drawingSetRevisions, eq, forTenant, inArray, refusedSightings, registerObjects, type TenantTx } from "@/core/db";
 import { REFUSALS } from "@/core/errors";
 import { DISCIPLINES, type Discipline } from "@/core/sheets/law";
 import { SIGHTING_STANDINGS, instanceKey, levelFormOf, placementKey, semanticDigest, viewKey, type LevelRef, type SightingStanding, type ViewRef } from "@/core/identity";
@@ -25,7 +25,6 @@ import {
   attributeStandingIn,
   drawnFrom,
   observationsIn,
-  registerObjectIn,
   repudiatedObjectsIn,
   type AppendedObservation,
   type ObservationInput,
@@ -169,59 +168,12 @@ export async function registerSighting(scope: RegisterScope, sighting: Sighting)
  * register row behind to be re-derived against (L-REG-04, ARCH-03).
  */
 export async function registerSightingIn(tx: TenantTx, scope: RegisterScope, sighting: Sighting): Promise<RegisteredSighting> {
-  const identity = identityOf(sighting);
-  const semantic = semanticDigest(sighting.content);
-  const discipline: Discipline = drawnFrom(DISCIPLINES, sighting.discipline, "discipline");
-  const standing: SightingStanding = drawnFrom(SIGHTING_STANDINGS, sighting.standing, "sighting standing");
-
-  {
-    await proveScope(tx, scope);
-    const written = await tx
-      .insert(registerObjects)
-      .values({
-        tenantId: scope.tenantId,
-        setRevisionId: scope.setRevisionId,
-        objectKey: identity.objectKey,
-        projectId: scope.projectId,
-        discipline,
-        elementType: sighting.elementType,
-        mark: sighting.mark,
-        viewKey: identity.viewKey,
-        placementKey: identity.placementKey,
-        ...levelColumns(sighting.level),
-        standing,
-        semantic,
-      })
-      .onConflictDoNothing()
-      .returning({ objectKey: registerObjects.objectKey });
-    if (written[0] !== undefined) return { registered: true, objectKey: identity.objectKey };
-
-    // The identity is already registered. WHAT the standing row says about the scope decides whether
-    // this second sighting is a rebuild that derived the same column again or a drawing saying
-    // something else about it — read inside the same transaction the refusal is written in, so the
-    // recognition is of the row the refusal is about.
-    const alreadyStanding = await registerObjectIn(tx, scope, identity.objectKey);
-    if (alreadyStanding === undefined) {
-      throw new Error(`the register refused ${identity.objectKey} as already standing, yet no register object stands at it — the store's own key and this read disagree (L-REG-03)`);
-    }
-    const semanticUnchanged = alreadyStanding.semantic === semantic;
-
-    await tx.insert(refusedSightings).values({
-      tenantId: scope.tenantId,
-      setRevisionId: scope.setRevisionId,
-      projectId: scope.projectId,
-      objectKey: identity.objectKey,
-      refusal: DUPLICATE_IDENTITY,
-      discipline,
-      elementType: sighting.elementType,
-      mark: sighting.mark,
-      viewKey: identity.viewKey,
-      placementKey: identity.placementKey,
-      semantic,
-      sighting,
-    });
-    return { registered: false, refusal: DUPLICATE_IDENTITY, objectKey: identity.objectKey, semanticUnchanged };
-  }
+  // One sighting is a batch of one: the write, the store's own key and the refusal evidence have ONE
+  // implementation, and a caller offering one row is the same caller offering a hundred (B-17).
+  const answered = await registerSightingsIn(tx, scope, [sighting]);
+  const answer = answered[0];
+  if (answer === undefined) throw new Error(`the register answered nothing about a sighting it was handed, which is no answer at all (L-REG-03)`);
+  return answer;
 }
 
 /**
@@ -279,7 +231,22 @@ export async function registerSightingsIn(tx: TenantTx, scope: RegisterScope, si
   // What each refusal is about is read from the rows that STAND, inside this same transaction — the
   // ones this insert just wrote among them, so a key the batch derived twice recognises itself.
   const refused = read.filter((row, at) => !(wrote.has(row.identity.objectKey) && offeredAt.get(row.identity.objectKey) === at));
-  const standing = new Map((await registerObjectsIn(tx, scope)).map((object) => [object.objectKey, object]));
+  const standing = new Map(
+    refused.length === 0
+      ? []
+      : (
+          await tx
+            .select()
+            .from(registerObjects)
+            .where(
+              and(
+                eq(registerObjects.tenantId, scope.tenantId),
+                eq(registerObjects.setRevisionId, scope.setRevisionId),
+                inArray(registerObjects.objectKey, [...new Set(refused.map((row) => row.identity.objectKey))]),
+              ),
+            )
+        ).map((object) => [object.objectKey, object] as const),
+  );
   for (const row of refused) {
     if (standing.get(row.identity.objectKey) === undefined) {
       throw new Error(`the register refused ${row.identity.objectKey} as already standing, yet no register object stands at it — the store's own key and this read disagree (L-REG-03)`);
