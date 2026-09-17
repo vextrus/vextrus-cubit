@@ -87,6 +87,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "participantRoleWithdrawals",
   "participantRoles",
   "participants",
+  "partitionRebuilds",
   "partitionViews",
   "placementRuns",
   "placements",
@@ -208,7 +209,14 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over each key, its SQL table name and its column names in code-point order — the shape
  * half of the same baseline. Re-baselined with TABLES_BEFORE, and never on its own.
  *
- * Re-baselined for ONE ADDED TABLE and nothing else, `barRows` (./schema-rebar.ts): the campaign's
+ * Re-baselined for ONE ADDED TABLE and nothing else, `partitionRebuilds`
+ * (./schema-takeoff-views.ts): the marker one drawing's partition rebuild leaves behind, keyed by
+ * (tenant, ingest), so a drawing whose rebuild read no class at all is still known to have been
+ * rebuilt rather than read as unpartitioned (L-CAD-08, L-REG-04). The roster grew by that one key —
+ * 63 tables to 64 — and not one existing table's SQL name or column moved with it; the previous
+ * digest was 9f909eb434d10e2a907f6cae8da705d0a4e0ffcfd2ab0a008fbd88e25e41cfe4.
+ *
+ * Re-baselined before that for ONE ADDED TABLE and nothing else, `barRows` (./schema-rebar.ts): the campaign's
  * bill of bars, keyed by content and replaced whole on every measurement (L-REG-04, L-FRM-05). The
  * roster grew by that one key — 62 tables to 63 — and not one existing table's SQL name or column
  * moved with it; the previous digest was
@@ -248,7 +256,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * table's SQL name or column moved with it; the previous digest was
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "9f909eb434d10e2a907f6cae8da705d0a4e0ffcfd2ab0a008fbd88e25e41cfe4";
+const COLUMNS_DIGEST_BEFORE = "fa85b87ab493abf90c3b60c50dc6417a793f21cf10fa47913a389f074b35c3ae";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {
