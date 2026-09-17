@@ -65,6 +65,17 @@ export type ProofModule = { PROOF_KIND: DocumentKind; PROOF_UNITS: readonly stri
 
 export type FiguresModule = { figure(value: string, precision: number): string };
 
+/** The unpriced draft BOQ's kind, as inc-311a's interfaces publish it (`boq-draft`, R-TO-053). */
+export type BoqDraftModule = { BOQ_DRAFT_KIND: DocumentKind; BOQ_DRAFT_TITLE: string };
+
+/** The numbering the draft's `present()` derives an item from — the same function the screen calls. */
+export type NumberingModule = {
+  numberItems(sections: readonly { bill: string; groups: readonly { class: string; kind: string; lines: readonly { lineId: string }[] }[] }[]): ReadonlyMap<string, string>;
+};
+
+/** The taxonomy the draft is stamped with (inc-311a). */
+export type BillTaxonomyModule = { BILLS: readonly string[]; BILL_TAXONOMY: { version: string } };
+
 /** The seam's modules, by the paths the increment's interfaces give them. */
 export const documentsIndex = (): Promise<DocumentsIndex> => productModule<DocumentsIndex>("src/core/documents/index.ts");
 export const typstModule = (): Promise<TypstModule> => productModule<TypstModule>("src/core/documents/typst.ts");
@@ -72,3 +83,6 @@ export const fontsModule = (): Promise<FontsModule> => productModule<FontsModule
 export const kindsModule = (): Promise<KindsModule> => productModule<KindsModule>("src/core/documents/kinds/index.ts");
 export const proofModule = (): Promise<ProofModule> => productModule<ProofModule>("src/core/documents/kinds/proof.ts");
 export const figuresModule = (): Promise<FiguresModule> => productModule<FiguresModule>("src/core/documents/figures.ts");
+export const boqDraftModule = (): Promise<BoqDraftModule> => productModule<BoqDraftModule>("src/core/documents/kinds/boq-draft.ts");
+export const boqNumberingModule = (): Promise<NumberingModule> => productModule<NumberingModule>("src/modules/takeoff/boq/numbering.ts");
+export const boqTaxonomyModule = (): Promise<BillTaxonomyModule> => productModule<BillTaxonomyModule>("src/modules/takeoff/boq/taxonomy.ts");

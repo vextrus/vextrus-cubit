@@ -82,10 +82,10 @@ describe("AC-1: the seam's surface", () => {
     const { DOCUMENT_KINDS } = await kindsModule();
     const keys = Object.keys(DOCUMENT_KINDS);
 
-    // The node ships exactly one kind; `boq-draft` and `bbs` are later increments' one file and one
-    // barrel line each (this increment's out-of-scope list), and each amends this expectation with
-    // its own criterion rather than inheriting it.
-    expect(keys, "this node ships exactly the `proof` kind").toEqual(["proof"]);
+    // The seam ships one kind per file behind the barrel; `bbs` is a later increment's one file and
+    // one barrel line, and it amends this expectation with its own criterion rather than inheriting
+    // it. Re-baselined by inc-311a (AC-4), which lands `boq-draft` beside the proof.
+    expect([...keys].sort(), "this seam ships exactly the `boq-draft` and `proof` kinds").toEqual(["boq-draft", "proof"]);
 
     for (const [key, kind] of Object.entries(DOCUMENT_KINDS)) {
       expect(kind.kind, `the barrel enumerates ${key} under the key the kind file states — it never re-declares it`).toBe(key);
