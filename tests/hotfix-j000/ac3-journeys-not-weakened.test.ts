@@ -125,20 +125,12 @@ function isRegeneratedBaseline(path: string): boolean {
  * without a named entry the very commit that criterion demands is the red no actor may clear that
  * this reading exists to avoid. Its own commit names the proof (`baseline: the proof document's
  * golden PDF, minted by the pinned renderer`). One path, backed by a quoted criterion, as the note
- * above requires; the licence does not widen in kind, and `tests/docs/**` at large is still stray.
- *
- * That ninth entry is the ARBITRATION's, not a Builder's, in the manner of the third through eighth:
- * the ruling on inc-300a's AC-2 (TEST_AMENDED) orders it kept and ratifies commit b30e9530, which
- * added it, as lawful — so no reviewer reads either as scope drift. Its footing is the stronger one
- * of the nine, because the declaration is a PUBLIC acceptance criterion of the increment under test,
- * quoted verbatim above and not inferred: AC-2 requires "the golden byte-frozen and committed in its
- * own `baseline:` commit naming this proof", so read as it stood the stray reading red the very
- * commit AC-2 commands, and two lawful instructions contradicted. The cure is the state-scoped form
- * this list serves: the stray reading is disarmed for a path a committed increment criterion declares
- * frozen, and for no other. The ruling's wider cure — reading that declaration out of the increment
- * spec on the branch and deleting this list — still waits on a spec committed to the tree, so the
- * second limb governs here too and the list stands. What the ruling does NOT clear is inc-300a's own
- * owned work: the Builder must still mint the golden under the AM-08 pin and commit it byte-frozen.
+ * above requires: that literal path alone, no pattern over `tests/docs/**` and none over `*.pdf`, the
+ * fifth-to-eighth note's bar on class-wide rules governing here too — the licence does not widen in
+ * kind, and `tests/docs/**` at large is still stray. This entry and this note are the ARBITRATION's
+ * and not a Builder's — the ruling on inc-300a's AC-2 (TEST_AMENDED) orders the entry kept, quoting
+ * "the golden byte-frozen and committed in its own `baseline:` commit naming this proof", and ratifies
+ * as lawful the commit that added it, b30e9530 — so no reviewer reads either as scope drift.
  */
 const DECLARED_REBASELINED: readonly string[] = [
   "tests/rulesets/support/editions.ts",
