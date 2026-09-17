@@ -156,6 +156,60 @@ test.describe("J-304 — the project settings nav, and authoring the edition a p
       params.filter((_, at) => marks[at] === "true"),
       "that row alone is marked: typing in one field moves no other row (I-263)",
     ).toEqual([MOVED_PARAMETER]);
+
+    /* --- the mark is the DECIMAL DIFFERING, never the field having been touched --- */
+    // The rule, stated so that the wrong body cannot pass: a row is changed WHEN its authored decimal
+    // differs from its pinned decimal, and UNCHANGED when the two are equal — whatever was typed into
+    // it. A grid that marks a row because its field is non-empty satisfies every assertion above, and
+    // then previews to the author a diff that did not happen: L-MEA-01's edition keys CONTENT, so a
+    // figure authored back AT the pin is no change, and R-SPINE-012's diff view is the reading the
+    // author confirms in the dialog. The figures typed here are the rows' own `data-before`, read off
+    // the screen — never a decimal this spec spells (B-19).
+    const pinnedBefore = await everyAttribute(author.diffRows, "data-before", "the diff rows' pinned figures", { min: 1 });
+    const movedBefore = pinnedBefore[params.indexOf(MOVED_PARAMETER)] ?? "";
+    expect(movedBefore, `${MOVED_PARAMETER} publishes the pinned decimal its mark is judged against`).not.toBe("");
+    // A SECOND row, so the rule is proven on a row this walk never moved as well as on the one it did.
+    // Which row that is comes from the pin: the first one that is not the moved row and publishes a
+    // pinned figure — a roster that grows or is reordered still finds one.
+    const controlAt = params.findIndex((param, at) => param !== MOVED_PARAMETER && (pinnedBefore[at] ?? "") !== "");
+    const control = controlAt < 0 ? null : (params[controlAt] as string);
+    const controlBefore = controlAt < 0 ? "" : (pinnedBefore[controlAt] as string);
+
+    await author.value(MOVED_PARAMETER).fill(movedBefore);
+    if (control !== null) await author.value(control).fill(controlBefore);
+    await author.version.focus();
+    await settled(page);
+
+    expect(
+      await heldAttribute(moved, "data-changed"),
+      `${MOVED_PARAMETER} authored at its own pinned figure (${movedBefore}) is NOT a change — the mark reads the decimal, not whether the field was typed in`,
+    ).toBe("false");
+    expect(await heldAttribute(moved, "data-after"), "…and the figure it publishes as authored is that same decimal").toBe(movedBefore);
+    if (control !== null) {
+      const controlRow = author.row(control);
+      expect(
+        await heldAttribute(controlRow, "data-changed"),
+        `${control} authored at its own pinned figure (${controlBefore}) is NOT a change either — a row this walk never moved is marked on the same rule`,
+      ).toBe("false");
+      expect(await heldAttribute(controlRow, "data-after"), `${control}'s authored figure is the pinned one it was given`).toBe(controlBefore);
+      expect(await heldAttribute(controlRow, "data-before"), `…and the pin it is judged against has not moved under it`).toBe(controlBefore);
+    }
+    expect(
+      (await everyAttribute(author.diffRows, "data-changed", "the diff rows' marks, every field authored at its pin")).filter((mark) => mark === "true"),
+      "every authored decimal now equals its pinned one, so the diff holds nothing: a marked row here is a diff of what was TOUCHED rather than of what MOVED",
+    ).toEqual([]);
+
+    /* --- and back: the mark follows the decimal in both directions --- */
+    await author.value(MOVED_PARAMETER).fill(MOVED_VALUE);
+    if (control !== null) await author.value(control).fill("");
+    await author.version.focus();
+    await settled(page);
+    const marksAgain = await everyAttribute(author.diffRows, "data-changed", "the diff rows' marks, one figure moved off its pin again");
+    expect(
+      params.filter((_, at) => marksAgain[at] === "true"),
+      `${MOVED_PARAMETER} differs from its pin again and is marked again, and it alone — the state the act is carried in`,
+    ).toEqual([MOVED_PARAMETER]);
+    expect(await heldAttribute(moved, "data-after"), "…carrying the decimal that was stated, verbatim").toBe(MOVED_VALUE);
     await expect(author.version, "the version the author stated stands in the field").toHaveValue(AUTHORED_VERSION);
 
     await checkpoint(page, testInfo, "s-settings-ruleset-author/value-changed");
