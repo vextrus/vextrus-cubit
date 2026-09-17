@@ -14,7 +14,7 @@
  */
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { SDocumentsPage, S_DOCUMENTS } from "./pages/s-documents.page";
-import { SProjectPage, S_PROJECT } from "./pages/s-project.page";
+import { PROJECT_QUICK_ACTIONS, SProjectPage, S_PROJECT } from "./pages/s-project.page";
 import { stageBareProject, stageDocuments } from "./documents/documents-stage";
 import { checkpoint } from "./support/checkpoint";
 import { emulateTheme, restoreLaneTheme } from "./support/lane-theme";
@@ -24,6 +24,17 @@ import { settled } from "./support/settled";
 
 /** The key S-Project files this screen's quick action under (increment interfaces). */
 const DOCUMENTS_ACTION = "documents";
+
+/** The screen this journey walks, and its baseline directory — one spelling for both (B-17). */
+const SCREEN = "s-documents";
+
+/**
+ * One checkpoint of this walk, as the increment's journey contract names it: `<screen>/<leg>`.
+ *
+ * Composed rather than written out, so the screen is spelled once and the name of a leg is never
+ * mistaken for an address: a checkpoint id is an evidence label, not a route this increment renders.
+ */
+const checkpointAt = (leg: string): string => [SCREEN, leg].join("/");
 
 /** Copy this walk reads on screen, verbatim from docs/design/s-documents.md §3. */
 const DOCUMENTS_TITLE = "Documents";
@@ -110,7 +121,11 @@ test.describe("J-030 — the project's issued documents", () => {
       await expect(row, "carrying the kind the store recorded").toHaveAttribute("data-kind", issue.kind);
       await expect(row, "and the issue it is").toHaveAttribute("data-version", String(issue.version));
       await expect(row, `and whether a later issue replaced it (${String(issue.supersededBy)})`).toHaveAttribute("data-superseded", String(issue.supersededBy !== null));
-      await expect(row, `the kind reads as a word, never as the stored key: ${PROOF_LABEL} (R-UI-082)`).toContainText(PROOF_LABEL);
+      // The kind renders over its own stored value, and what stands there is the WORD for it: the
+      // rule the bare mount binds cell by cell (tests/ui/documents), read here on the served screen.
+      const kindLabel = row.locator(`[data-value="${issue.kind}"]`);
+      await expect(kindLabel, `the kind renders as a label over the value the row carries: ${issue.kind} (R-UI-082)`).toHaveCount(1);
+      await expect(kindLabel, `reading the word the copy table gives that kind: ${PROOF_LABEL}`).toContainText(PROOF_LABEL);
 
       /* --- every opaque value through the one chip: whole in the data, short on screen --- */
       await expect(documents.digest(row), "the document's digest is a chip").toHaveCount(1);
@@ -145,13 +160,13 @@ test.describe("J-030 — the project's issued documents", () => {
     await measureGridLaw(documents, page, "1440×900");
 
     /* --- s-documents/list: axe over the page, then the committed baselines, dark then light --- */
-    await checkpoint(page, testInfo, "s-documents/list");
-    await expect(page).toHaveScreenshot(["s-documents", "list.png"], { mask: documents.masks(), animations: "disabled" });
+    await checkpoint(page, testInfo, checkpointAt("list"));
+    await expect(page).toHaveScreenshot([SCREEN, "list.png"], { mask: documents.masks(), animations: "disabled" });
 
     await emulateTheme(page, "light");
     await settled(page);
-    await checkpoint(page, testInfo, "s-documents/list-light");
-    await expect(page).toHaveScreenshot(["s-documents", "list-light.png"], { mask: documents.masks(), animations: "disabled" });
+    await checkpoint(page, testInfo, checkpointAt("list-light"));
+    await expect(page).toHaveScreenshot([SCREEN, "list-light.png"], { mask: documents.masks(), animations: "disabled" });
     await restoreLaneTheme(page, testInfo);
 
     await page.setViewportSize({ ...NARROW });
@@ -175,7 +190,7 @@ test.describe("J-030 — the project's issued documents", () => {
       "the one action it offers is the takeoff register, where a document is published from",
     ).toHaveAttribute("href", `/t/${bare.tenantId}/p/${bare.projectId}/takeoff`);
 
-    await checkpoint(page, testInfo, "s-documents/empty");
+    await checkpoint(page, testInfo, checkpointAt("empty"));
   });
 
   test("J-030: S-Project's fourth quick action stands beside the three that were there", async ({ page }, testInfo) => {
@@ -187,7 +202,13 @@ test.describe("J-030 — the project's issued documents", () => {
     await settled(page);
     const actions = await everyAttribute(project.quickActions, "data-action", "S-Project's quick actions");
     expect(actions, `the documents action is one of the quick actions this screen offers: ${JSON.stringify(actions)}`).toContain(DOCUMENTS_ACTION);
-    expect(actions.indexOf(DOCUMENTS_ACTION), "appended after the actions that already stood there, never inserted among them (AC-2)").toBe(actions.length - 1);
+    // APPENDED, not last: every action the screen's own contract knew before this one still stands
+    // ahead of it, and a lawful fifth action landing later does not red this walk (B-19).
+    const at = actions.indexOf(DOCUMENTS_ACTION);
+    for (const stood of PROJECT_QUICK_ACTIONS.filter((one) => one !== DOCUMENTS_ACTION)) {
+      expect(actions.indexOf(stood), `the \`${stood}\` action still stands on the screen`).toBeGreaterThanOrEqual(0);
+      expect(at, `and the documents action was appended after \`${stood}\`, never inserted in front of it (AC-2)`).toBeGreaterThan(actions.indexOf(stood));
+    }
     expect(S_PROJECT.home(bare.tenantId, bare.projectId), "and this walk stood on S-Project's own address").toBe(`/t/${bare.tenantId}/p/${bare.projectId}`);
   });
 });

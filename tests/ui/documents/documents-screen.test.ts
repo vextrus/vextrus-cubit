@@ -14,7 +14,6 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
 import {
-  PROOF,
   aDocumentRow,
   all,
   attribute,
@@ -23,11 +22,15 @@ import {
   documentsProps,
   documentsScreen,
   documentsStrings,
+  enumLabelShape,
+  humaniseEnum,
   mountDocuments,
   one,
   rowsOf,
   text,
   twoIssues,
+  unlabelledKind,
+  visibleText,
 } from "./support/documents-stage";
 
 afterEach(cleanup);
@@ -72,24 +75,59 @@ describe("AC-1 — the list, as the screen draws it", () => {
     });
   });
 
-  test("AC-1: the frozen first cell reads the kind's label, never the stored key", async () => {
+  test("AC-1: the frozen first cell renders the kind through the shipped EnumLabel, reading the words its own key is authored under", async () => {
     const screen = await documentsScreen();
     const strings = await documentsStrings();
     const rows = twoIssues();
     const root = mountDocuments(screen, documentsProps({ rows }));
-    const label = copy(strings, `documents_kind_${PROOF}`);
 
     for (const element of rowsOf(root)) {
+      // The kind the ROW says it is — so a cell that painted one word whatever the row held would be
+      // caught by the row beside it rather than agreed with (B-19).
       const kind = attribute(element, "data-kind") ?? "";
+      const label = copy(strings, `documents_kind_${kind}`);
       const cells = cellsOf(element);
       expect(cells.length, "the row is drawn as cells, the kind first (Decision §1)").toBeGreaterThan(1);
 
       const rendered = cells[0] as HTMLElement;
-      const enumLabel = rendered.querySelector(`[data-value="${kind}"]`);
+      const enumLabel = rendered.querySelector(`[data-value="${kind}"]`) as HTMLElement | null;
       expect(enumLabel, `the kind renders as a label over its stored value \`${kind}\` (R-UI-082)`).not.toBeNull();
-      expect(text(rendered), `and reads the word the copy table gives that kind: ${label}`).toBe(label);
-      expect(text(element).includes(kind), `the stored key \`${kind}\` is never a word on the screen (R-UI-082)`).toBe(false);
+
+      // Rendered THROUGH the primitive, not merely like it: the element is compared with what the
+      // shipped EnumLabel itself produces for this value and these words — its classes, what a
+      // reader sees, and where the raw value is allowed to be.
+      const shape = await enumLabelShape(kind, label);
+      expect(
+        shape.classes.every((className) => (enumLabel as HTMLElement).classList.contains(className)),
+        `the kind is the shipped EnumLabel's own element (it wears ${JSON.stringify(shape.classes)})`,
+      ).toBe(true);
+      expect(visibleText(enumLabel), `and says the words this kind is authored under: ${label}`).toBe(shape.visibleText);
+      expect(visibleText(enumLabel), "which is the copy table's own word for it").toBe(label);
+      expect(
+        visibleText(element).includes(kind),
+        `the stored key \`${kind}\` is never read out loud — it lives in the technical disclosure alone (R-UI-082)`,
+      ).toBe(false);
     }
+  });
+
+  test("AC-1: a kind the copy table authors no words for reads by the enum's own mechanical rule", async () => {
+    const screen = await documentsScreen();
+    const strings = await documentsStrings();
+    const humanise = await humaniseEnum();
+    // A kind this screen has authored no `documents_kind_<kind>` for — probed from the table, so the
+    // day one of them IS authored the suite moves to the next rather than freezing today's roster.
+    const kind = unlabelledKind(strings);
+    const row = aDocumentRow({ kind });
+    const root = mountDocuments(screen, documentsProps({ rows: [row] }));
+
+    const cell = cellsOf(one(root, "row"))[0] as HTMLElement;
+    const enumLabel = cell.querySelector(`[data-value="${kind}"]`) as HTMLElement | null;
+    expect(enumLabel, `the unlabelled kind \`${kind}\` still renders over its stored value`).not.toBeNull();
+
+    const shape = await enumLabelShape(kind);
+    expect(visibleText(enumLabel), `an unlabelled kind falls back to the enum's own reading of it: ${humanise(kind)}`).toBe(shape.visibleText);
+    expect(visibleText(enumLabel), "which is `humaniseEnum`'s answer and no word this screen invented").toBe(humanise(kind));
+    expect(visibleText(cell).includes(kind), `and the raw key \`${kind}\` is still never read out loud (R-UI-082)`).toBe(false);
   });
 
   test("AC-1: the version cell is the bare integer, and it is not the kind's cell", async () => {

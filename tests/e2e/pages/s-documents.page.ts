@@ -9,7 +9,7 @@
  *
  * The Builder may edit this file (test contract).
  */
-import { type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, isTestId, testIdSelector, type TestId } from "../../../src/ui/testids";
 import { heldAttribute } from "../support/retrying-read";
 
@@ -39,9 +39,14 @@ function idOf(key: string): TestId {
 export class SDocumentsPage {
   constructor(private readonly page: Page) {}
 
-  /** Open the screen at its own address (R-UI-031: the URL is the source of truth). */
+  /**
+   * Open the screen at its own address and wait for it to stand (R-UI-031: the URL is the source of
+   * truth). The screen answering at its address is the least a walk may assume before it reads one
+   * word of it, so the wait is asserted here rather than repeated in every leg.
+   */
   async open(tenantId: string, projectId: string): Promise<void> {
     await this.page.goto(S_DOCUMENTS.documents(tenantId, projectId));
+    await expect(this.screen, "the documents list renders at the address a reader typed").toBeVisible();
   }
 
   /* --- the screen, and the state it says it is in (R-UI-050) --- */

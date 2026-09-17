@@ -22,6 +22,10 @@ import { areasModule, documentsRoute } from "../documents/support/documents-stag
 /** The key the increment's interfaces give the fourth action, and the id it renders under. */
 const DOCUMENTS = "documents";
 
+/** Its line of S-Project's string table, and the word that line reads (docs/design/s-documents.md §3). */
+const LABEL_KEY = "project_home_action_documents";
+const LABEL = "Documents";
+
 afterEach(cleanup);
 
 describe("AC-2 — S-Documents is reached from S-Project", () => {
@@ -32,13 +36,15 @@ describe("AC-2 — S-Documents is reached from S-Project", () => {
 
     const action = areas.QUICK_ACTIONS.find((entry) => entry.key === DOCUMENTS);
     expect(action, `areas.ts declares a \`${DOCUMENTS}\` quick action (increment interfaces): ${JSON.stringify(areas.QUICK_ACTIONS.map((entry) => entry.key))}`).toBeDefined();
-    expect(typeof action?.route, "with an address, which is what makes the action live (B-17, I-126)").toBe("function");
-    expect(
-      action?.route?.(TENANT, PROJECT),
-      "spelled by the address's one home rather than respelled beside it",
-    ).toBe(route(TENANT, PROJECT));
+    // IDENTITY, not equality of two answers: the entry's `route` IS `documentsRoute`, imported from
+    // the address's one home. A second function that happens to build the same string today is the
+    // second spelling B-17 forbids — and the one that drifts when the address moves.
+    expect(action?.route, "the action's address is `documentsRoute` itself, imported from documents/route-address (B-17)").toBe(route);
     expect(route(TENANT, PROJECT), "and that home answers the address the test contract fixes").toBe(`/t/${TENANT}/p/${PROJECT}/documents`);
-    expect(copy(strings, action?.label ?? "").length, "the action is named by a line of S-Project's own string table").toBeGreaterThan(0);
+    // The KEY the interfaces name, and the word the Decision authored for it — not merely some key
+    // whose copy is non-empty.
+    expect(action?.label, "the action is named by the string key the increment's interfaces fix").toBe(LABEL_KEY);
+    expect(copy(strings, LABEL_KEY), `which reads the Decision's own word for it: ${LABEL}`).toBe(LABEL);
   });
 
   test("AC-2: every declared quick action is rendered as an anchor to the address it names — the documents one among them", async () => {

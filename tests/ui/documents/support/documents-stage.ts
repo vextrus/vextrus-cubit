@@ -19,7 +19,7 @@
  * `.ts`, not `.tsx`: tsconfig typechecks `tests/**\/*.ts`, so the tree is built with `createElement`.
  */
 import { cleanup, render } from "@testing-library/react";
-import { createElement, type FunctionComponent } from "react";
+import { Fragment, createElement, type FunctionComponent, type ReactNode } from "react";
 import { expect } from "vitest";
 import { productModule } from "../../../server/support/wire";
 import { TESTIDS, isTestId } from "../../../../src/ui/testids";
@@ -58,6 +58,9 @@ export const PROJECT_HOME_AREAS_MODULE = "src/app/(app)/t/[tenant]/p/[project]/h
 
 /** The one identifier primitive (R-UI-082) — the short form it renders is read from it, never guessed. */
 export const ID_CHIP_MODULE = "src/ui/primitives/core/id-chip.tsx";
+
+/** The one enum rendering (R-UI-082): its words, its fallback and its technical disclosure. */
+export const ENUM_LABEL_MODULE = "src/ui/primitives/core/enum-label.tsx";
 
 /** R-UI-050's matrix, made arithmetic: `missingStates(routes)`. */
 export const SCREEN_STATES_MODULE = "src/ui/screen-states/index.ts";
@@ -204,6 +207,110 @@ export async function missingStates(): Promise<(routes: readonly string[]) => st
   return module["missingStates"] as (routes: readonly string[]) => string[];
 }
 
+/** One declared state of one screen: the node it mounts (`ScreenState`, src/ui/screen-states). */
+export interface ScreenStateLike {
+  render: () => unknown;
+}
+
+/** The matrix itself, so a screen's OWN cells can be mounted and read rather than merely counted. */
+export async function screenStates(): Promise<Record<string, Record<string, ScreenStateLike>>> {
+  const module = await productModule<Record<string, unknown>>(SCREEN_STATES_MODULE);
+  const matrix = module["screenStates"];
+  expect(typeof matrix, `${SCREEN_STATES_MODULE} publishes \`screenStates\` — R-UI-050's matrix itself`).toBe("object");
+  return matrix as Record<string, Record<string, ScreenStateLike>>;
+}
+
+/** `humaniseEnum(value)` — the mechanical reading of an enum a screen has authored no words for. */
+export async function humaniseEnum(): Promise<(value: string) => string> {
+  const module = await productModule<Record<string, unknown>>(ENUM_LABEL_MODULE);
+  expect(typeof module["humaniseEnum"], `${ENUM_LABEL_MODULE} publishes \`humaniseEnum\` — the fallback R-UI-082 reads an unlabelled value by`).toBe("function");
+  return module["humaniseEnum"] as (value: string) => string;
+}
+
+/**
+ * A kind this screen's copy table has authored NO words for.
+ *
+ * Probed, never frozen: the candidates are kinds the document seam may plausibly grow (the BOQ and
+ * BBS issues inc-311a and inc-310 own), and the first one the table holds no `documents_kind_<kind>`
+ * for is the one the fallback rule is proved on. A table that had authored words for all of them
+ * would make this suite say so rather than quietly proving nothing (B-19).
+ */
+export function unlabelledKind(table: Record<string, string>): string {
+  const candidates = ["boq", "bbs", "BAR_SCHEDULE", "bill_of_quantities", "variation_order"];
+  const found = candidates.find((kind) => typeof table[`documents_kind_${kind}`] !== "string");
+  expect(
+    found,
+    `the copy table authors words for every kind this suite knows of (${JSON.stringify(candidates)}), so the fallback cannot be exercised — name another kind here`,
+  ).toBeDefined();
+  return found as string;
+}
+
+/* ----------------------------------------------------------------- the primitives, as they render */
+
+/** What the shipped `EnumLabel` makes of a value: the classes it wears and what a reader sees. */
+export interface EnumLabelShape {
+  readonly classes: readonly string[];
+  readonly visibleText: string;
+  readonly disclosedText: string;
+}
+
+/**
+ * Mount the product's own `EnumLabel` and read what it produced.
+ *
+ * Nothing about the primitive is transcribed here — not its class, not its disclosure, not the words
+ * it falls back to. A screen's cell is then compared against THIS, so "rendered through EnumLabel"
+ * is a claim about the element on screen rather than about a name in a file (R-UI-082).
+ */
+export async function enumLabelShape(value: string, label?: string): Promise<EnumLabelShape> {
+  const module = await productModule<Record<string, unknown>>(ENUM_LABEL_MODULE);
+  expect(typeof module["EnumLabel"], `${ENUM_LABEL_MODULE} publishes \`EnumLabel\` — the one home of an enum's rendering (R-UI-082)`).toBe("function");
+  const { container, unmount } = render(createElement(module["EnumLabel"] as FunctionComponent<{ value: string; label?: string }>, { value, label }));
+  const root = container.querySelector(`[data-value="${value}"]`);
+  expect(root, "EnumLabel renders an element carrying the value it was given").not.toBeNull();
+  const shape = {
+    classes: [...(root as HTMLElement).classList],
+    visibleText: visibleText(root as HTMLElement),
+    disclosedText: text((root as HTMLElement).querySelector("[data-technical]")),
+  };
+  // Only the probe is taken down — never `cleanup()`, which would unmount the screen this shape is
+  // about to be compared against.
+  unmount();
+  return shape;
+}
+
+/** What the shipped `IdChip` makes of a value under a given test id (R-UI-082's three obligations). */
+export interface IdChipShape {
+  readonly classes: readonly string[];
+  readonly copyTestId: string;
+  readonly valueText: string;
+  readonly focusableValue: boolean;
+}
+
+/**
+ * Mount the product's own `IdChip` under the id a documents cell will carry, and read what it
+ * produced: the classes it wears, the id its copy control derives, and that the short form sits on a
+ * focusable element. A named chip on the screen is then required to match THIS — which is what makes
+ * "through IdChip" a binding claim rather than two attributes anyone can spell by hand.
+ */
+export async function idChipShape(value: string, testId: string): Promise<IdChipShape> {
+  const module = await productModule<Record<string, unknown>>(ID_CHIP_MODULE);
+  expect(typeof module["IdChip"], `${ID_CHIP_MODULE} publishes \`IdChip\` — the one rendering of an identifier (R-UI-082)`).toBe("function");
+  const { container, unmount } = render(createElement(module["IdChip"] as FunctionComponent<{ value: string; "data-testid": string }>, { value, "data-testid": testId }));
+  const root = container.querySelector(`[data-testid="${testId}"]`);
+  expect(root, "IdChip renders its root under the id it was handed").not.toBeNull();
+  const copy_ = [...(root as HTMLElement).querySelectorAll("[data-testid]")].find((node) => node.getAttribute("data-testid") !== testId);
+  expect(copy_, "IdChip carries a copy control of its own — the `copy` half of R-UI-082's short form, copy, full").toBeTruthy();
+  const focusable = (root as HTMLElement).querySelector("[tabindex]");
+  const shape = {
+    classes: [...(root as HTMLElement).classList],
+    copyTestId: (copy_ as HTMLElement).getAttribute("data-testid") as string,
+    valueText: text(focusable ?? root),
+    focusableValue: focusable !== null,
+  };
+  unmount();
+  return shape;
+}
+
 /* --------------------------------------------------------------------------------- the mount */
 
 /** What the screen is handed, whole (increment interfaces). */
@@ -268,6 +375,27 @@ export function cellsOf(row: HTMLElement): HTMLElement[] {
 /** The text a node states, whitespace-normalised the way a reader sees it. */
 export function text(node: Element | null): string {
   return (node?.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * The text a node states OUT LOUD: everything a data-technical disclosure holds is taken out first.
+ *
+ * R-UI-082 bans a raw enum value "outside a data-technical disclosure", and the shipped `EnumLabel`
+ * carries exactly such a disclosure — so a suite that read `textContent` would find the raw key in a
+ * correct rendering and refuse it. What a reader sees is what is left when the disclosure is gone.
+ */
+export function visibleText(node: Element | null): string {
+  if (node === null) return "";
+  const copy_ = node.cloneNode(true) as Element;
+  for (const disclosed of [...copy_.querySelectorAll("[data-technical]")]) disclosed.remove();
+  return text(copy_);
+}
+
+/** Mount a node the product built (a state cell, a primitive) and answer the element it rendered. */
+export function mountNode(node: unknown, what: string): HTMLElement {
+  const { container } = render(createElement(Fragment, null, node as ReactNode));
+  expect(container.firstElementChild, `${what} mounts an element of its own`).not.toBeNull();
+  return container as HTMLElement;
 }
 
 /** An attribute as the DOM holds it, or `null` — read by the contract's spelling only. */
