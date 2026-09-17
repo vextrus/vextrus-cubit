@@ -66,20 +66,22 @@ entry is added.
 │▤ │            rev a3f9c2 ⎘ · taxonomy 2026-09-16 ⎘ · Draft — unsigned  ● Export │
 │⚙ ├──────────────────────────────────────────────────────────────────────────────┤
 │  │ Coverage is incomplete, so each section states a measured-scope subtotal …   │ 28
-│  ├───────┬──────────────────────────┬────────┬──────────┬────┬────────┬─────────┤
-│  │ Item  │ Description              │ Level  │ Quantity │Unit│ Basis  │ Coverage│ 28 sticky
 │  │ 1 Substructure                                                               │ 28
-│  │ ▾ Pile cap · Concrete by grade                 12.480  CUM                   │ 28 group
+│  ├───────┬──────────────────────────┬────────┬──────────┬────┬────────┬─────────┤
+│  │ Item  │ Description              │ Level  │ Quantity │Unit│ Basis  │ Coverage│ sticky
+│  │ ▾ Pile cap · Concrete by grade                 12.480  CUM                   │ group
 │  │ 1.1.1 │ Pile cap · Concrete by grade │ FDN   │   4.160 │CUM │◆ M ▣ T│  100%   │ 28 line
 │  │ 1.1.2 │ Pile cap · Concrete by grade │ FDN   │   4.160 │CUM │◆ M ▣ T│  100%   │
 │  │ ▾ Column · Concrete by grade                    2.430  CUM                   │
 │  │ 1.2.1 │ Column · Concrete by grade   │ PILE  │   0.810 │CUM │◆ M ▣ T│   67%   │
 │  │       │ Measured-scope subtotal                14.910  CUM                   │ 28 subtotal
 │  │ 2 Superstructure                                                             │
+│  ├───────┬──────────────────────────┬────────┬──────────┬────┬────────┬─────────┤
+│  │ Item  │ Description              │ Level  │ Quantity │Unit│ Basis  │ Coverage│ sticky
 │  │ 2.1.1 │ Column · Concrete by grade   │ GF    │   0.405 │CUM │◆ M ▣ T│   100%  │
 │  │ 2.2.1 │ Brick wall · Brickwork 250   │ GF    │   8.640 │CUM │◆ M ✎ E│    82%  │
 │  │       │ Measured-scope subtotal                 9.045  CUM                   │
-│  │ 3 Finishes                          28 px rows · 13 px · frozen Item column   │
+│  │ 3 Finishes                    rows at `--row-h` · 13 px · frozen Item column   │
 │  └───────┴──────────────────────────────────────────────────────────────────────┘
 └──┴──────────────────────────────────────────────────────────────────────────────┘
         (no right column: nothing here is selectable — R-UI-080, scope)
@@ -97,7 +99,7 @@ its own viewport with the Item column frozen; the page never scrolls sideways (�
 | answer slot (`boq-answer`) | one RefusalState from a refused door; the offline banner above it; the denial pair | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--state-warn(-surface)` through RefusalState, `--radius-4`, `--hairline` | absent (no box) |
 | status line | the ONE helper line, `<p role="status">`, `boq_coverage_incomplete` or `boq_coverage_complete` | 100 % × 28 | `--ink-muted`, `--text-body` | absent with the grid |
 | job strip (`boq-jobs`) | the shipped `JobTimeline` for the render job, present only while a run is watched; `boq-render-draft` is its step; `boq-document-link` follows a success | 100 % × the pattern's own, between the status line and the grid | the pattern's own | absent — never an empty box |
-| grid (primary) | `boq-grid`: DataTable v2, `tableId` `s-boq`, one `boq-bill` section per section holding a line (`BILLS` order, then `UNCLASSIFIED`), `datatable-group-row` per (class · kind) group with its `datatable-group-subtotal`, `boq-line` rows, each section closed by `boq-subtotal` per unit | `flex: 1 1 auto`; ≥ 55 % of main; rows `--row-h` 28, header 28 sticky, first column frozen, no wrapping cell | `--surface-app`, `--surface-sunken` (header, group and subtotal rows), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline`, basis palette through BasisChip | not rendered at all: `boq-empty` stands in its place |
+| grid (primary) | `boq-grid`: one DataTable v2 per section (`tableId` `s-boq-<bill>`), one `boq-bill` per section holding a line (`BILLS` order, then `UNCLASSIFIED`), each carrying its OWN sticky `datatable-header` over its frozen first column and its own `data-rows-rendered`; `datatable-group-row` per (class · kind) group with its `datatable-group-subtotal`, `boq-line` rows, each section closed by `boq-subtotal` per unit | `flex: 1 1 auto`; ≥ 55 % of main; rows and header at `--row-h` — 28 compact, 36 comfortable, revalued at the ROOT by `[data-density]` and never by this screen (R-UI-005, `DEFAULT_DENSITY`) — first column frozen, no wrapping cell | `--surface-app`, `--surface-sunken` (header, group and subtotal rows), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline`, basis palette through BasisChip | not rendered at all: `boq-empty` stands in its place |
 | empty (in the grid's place) | the shipped `EmptyState` `boq-empty`: heading, one sentence, one action to the drawing sets | max-width 520, centred in the grid's box | `--ink`, `--ink-muted`, `--accent` through Button | this IS the empty state |
 | error (in the grid's place) | `error-state`: heading, one sentence, `error-state-report` (`IdChip` under the primitive's own report label), `error-state-retry` | 100 % × auto, max-width 520 | `--ink`, `--ink-muted`, `--hairline`, `--radius-4` | — |
 | inspector (frame's one slot) | nothing ever mounts it here | **absent — width 0** | — | absent |
@@ -111,8 +113,15 @@ its own viewport with the Item column frozen; the page never scrolls sideways (�
 | 3 | `boq_col_level` | 120 | the level label verbatim; `data-level` and `data-ordinal` on the row |
 | 4 | `boq_col_quantity` | 140, `meta.align: 'right'` | the rounded figure, `--font-mono` tabular slashed-zero, lakh/crore grouped (I-271) |
 | 5 | `boq_col_unit` | 80 | one `unit-badge` |
-| 6 | `boq_col_basis` | 184 | exactly two `basis-chip`s — the quantity basis then the selection basis, in that order |
+| 6 | `boq_col_basis` | 240 — the PAIR at its longest (`Measured` beside `Transcribed`) reads in full, because §6 promises a glyph and a word | exactly two `basis-chip`s — the quantity basis then the selection basis, in that order |
 | 7 | `boq_col_coverage` | 112, `meta.align: 'right'` | one `coverage-chip` |
+
+**One grid per section, not one grid with section rows.** Each section is its own DataTable v2 under
+its own heading, because a reader of a bill reads a section at a time and the lane's own contract
+reads each section's header, its frozen key column and its `data-rows-rendered` from the section
+itself (`tests/e2e/pages/s-boq.page.ts` `header(bill)`, exercised per section in `tests/e2e/
+boq.spec.ts`). A single table holding every section could publish neither a header nor a rendered
+count per section, so the sticky header and the frozen first column are per section too.
 
 A section header row carries the ordinal and the label (`1 Substructure`). A group row carries the
 class · kind words and the group's per-unit subtotal in the Quantity and Unit cells, no parenthesised
@@ -134,7 +143,7 @@ declares is answered `REQUEST_MALFORMED` through the one RefusalState.
 
 - **Loading** — root at `data-state="loading"`, frame, tabs row and status line intact: the DataTable
   in its `loading` posture over the same `BOQ_COLUMNS` — the header real, the body two section-header
-  bones each over eight 28 px row bones at `--row-h`. The aside's two chips render as 28 × 96 bones;
+  bones each over eight row bones at `--row-h`. The aside's two chips render as 28 × 96 bones;
   the primary does not render. Never a spinner on a table (R-UI-004).
 - **Empty** — the project has no published line on its pinned campaign, or no campaign is pinned.
   `boq-empty` fills the grid's place, the grid and the status line do not render, and the one action

@@ -23,12 +23,13 @@ import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { TENANT_COLUMN } from "../../../db/__tests__/support/fixtures";
 import { ident, lit } from "../../../db/__tests__/support/live-sql";
-import { closeStage, enrol, openStage, productModule, sql, stageProject, type Person } from "../../spine/uploads/support/upload-stage";
+import { closeStage, enrol, openStage, productModule, sql, sqlValue, stageProject, type Person } from "../../spine/uploads/support/upload-stage";
 
 /** The homes this suite reads: the door, the context the door is handed, and the register. */
 const BOQ_ROUTER_MODULE = "src/server/routers/takeoff-boq.ts";
 const CONTEXT_MODULE = "src/server/context.ts";
 const BOQ_JOB_MODULE = "src/modules/takeoff/boq/job.ts";
+const BOQ_MODULE = "src/modules/takeoff/boq/index.ts";
 const REFUSAL_MARKER_MODULE = "src/core/faults/refusal-marker.ts";
 const ERRORS_MODULE = "src/core/errors.ts";
 
@@ -52,6 +53,9 @@ interface JobModule {
     progress: { step(name: string, detail?: unknown): Promise<void> },
     deps: unknown,
   ): Promise<unknown>;
+}
+interface KindModule {
+  BOQ_RENDER_DRAFT_KIND: string;
 }
 interface MarkerModule {
   refusalCodeOf(error: unknown): string | null;
@@ -84,14 +88,39 @@ async function doorFor(person: Person): Promise<BoqDoor> {
   return takeoffBoqRouter.createCaller(await createContext({ req: request }));
 }
 
-/** What the door threw, or a failure of the case itself where it answered instead. */
+/**
+ * What the door threw — and, where it ANSWERED instead, a failure that says so in those words.
+ *
+ * The verdict is taken OUTSIDE the `try`: an `expect.fail` raised inside it would be caught by the
+ * catch that exists to hold the door's refusal, and the case would then fail further down on a
+ * missing code while the thing worth reading — that the door answered at all, and with what — was
+ * swallowed. The regression this helper exists to catch is exactly that answer.
+ */
 async function refusalFrom(work: () => Promise<unknown>, what: string): Promise<unknown> {
+  let answered: unknown;
+  let thrown: unknown;
+  let refused = false;
   try {
-    const answered = await work();
-    expect.fail(`${what} must be refused, and the door answered with ${JSON.stringify(answered)}`);
-  } catch (thrown) {
-    return thrown;
+    answered = await work();
+  } catch (caught) {
+    thrown = caught;
+    refused = true;
   }
+  if (!refused) expect.fail(`${what} must be refused, and the door answered with ${JSON.stringify(answered)}`);
+  return thrown;
+}
+
+/**
+ * How many renders this scratch world has been asked for — the queue read as the system reads it.
+ *
+ * The queue's schema is provisioned by the first enqueue, so a world where nothing was ever queued
+ * has no table at all: that is zero renders, not a failure of the read (SEAM-JOBS).
+ */
+async function rendersQueued(): Promise<number> {
+  const { BOQ_RENDER_DRAFT_KIND } = await productModule<KindModule>(BOQ_MODULE);
+  const stands = sqlValue(`select (to_regclass('cubit_jobs.job_events') is not null)::text;`).trim();
+  if (stands !== "t") return 0;
+  return Number(sqlValue(`select count(*)::text from cubit_jobs.job_events where kind = ${lit(BOQ_RENDER_DRAFT_KIND)};`));
 }
 
 /** The registered code the failure carries — the refusal named, never merely a failure (ARCH-03). */
@@ -123,6 +152,7 @@ describe("the draft-BOQ export door, at the guard", () => {
     const thrown = await refusalFrom(() => door.exportDraft({ projectId }), `a ${REVIEWER} asking for the draft`);
 
     await refusedWith(thrown, permission, `${REVIEWER} holds no MEASURE, so the one guard refuses this door before it reads anything (L-ACT-03)`);
+    expect(await rendersQueued(), "a refused door queues nothing: the guard answers before any work is enqueued").toBe(0);
   }, 300_000);
 
   it("refuses a MEASURER whose project has no campaign open, by the register's own code", async () => {

@@ -256,11 +256,6 @@ function unclassifiedRowsOf(payload: BoqDraftPayload): BoqRow[] {
   }));
 }
 
-/** A kind without its chapter — `rcc.concrete` → `concrete` — the key the page says a kind by. */
-function withoutChapter(kind: string): string {
-  return kind.slice(kind.indexOf(".") + 1);
-}
-
 /**
  * Why a kept line was not placed, as a reader reads it: the sentence this screen authored for a
  * registered reason, and — for a reason no table names — the same words the DOCUMENT writes it in
@@ -654,14 +649,16 @@ function boqColumns(
       size: 320,
       accessorFn: (row) => row.description,
       // The kind is said WITHOUT its chapter, which is the rule the document prints it by and the
-      // words the group row above already reads (`descriptionOf`): `Column · Concrete`, never
-      // `Column · Rcc.concrete`. The chapter is not lost — the row carries the whole key on
-      // `data-kind` for anything that reads by machine (§1 column 2, §3's voice, B-17).
+      // words the group row above already reads: `Column · Concrete`, never `Column · Rcc.concrete`.
+      // The rule is the DOCUMENT's own `inWords` — one home, never a second stripping beside it —
+      // and it is handed in through the primitive's `label` seam, so the value the primitive knows
+      // stays the catalogue's real key and `data-technical` keeps disclosing a key that exists
+      // (§1 column 2, §7's raw-enum rule, B-17).
       cell: ({ row }) => (
         <span className="cx-boq-description">
-          <EnumLabel value={row.original.class} className="cx-boq-enum" />
+          <EnumLabel value={row.original.class} label={inWords(row.original.class)} className="cx-boq-enum" />
           <span className="cx-boq-separator">{" · "}</span>
-          <EnumLabel value={withoutChapter(row.original.kind)} className="cx-boq-enum" />
+          <EnumLabel value={row.original.kind} label={inWords(row.original.kind)} className="cx-boq-enum" />
         </span>
       ),
     },
@@ -693,7 +690,10 @@ function boqColumns(
     {
       id: "basis",
       header: BOQ_COPY.boq_col_basis,
-      size: 184,
+      // Wide enough for the PAIR at its longest — `Measured` beside `Transcribed` — because §6
+      // promises a basis is a glyph AND a word, and a column that cuts the second chip mid-word
+      // keeps neither. The row has the room: the seven columns still leave the grid slack.
+      size: 240,
       // I-25's pair, in the order it is read: how the quantity was got, then how the object was
       // selected. Each wears R-UI-002's glyph AND its word, so neither carries meaning by colour.
       cell: ({ row }) => (
