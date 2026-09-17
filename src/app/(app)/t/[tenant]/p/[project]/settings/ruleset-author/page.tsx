@@ -11,7 +11,6 @@ import { projectRulesetView } from "@/core/rulesets/editions";
 import { rulesetAuthorStrings } from "@/modules/spine/ruleset-authoring";
 import { RulesetAuthorSection } from "./ruleset-author-section";
 import { participantsRoute } from "../participants/route-address";
-import { parameterLabel } from "../strings";
 import { rulesetRoute } from "../../home/areas";
 import { commitAuthorEdition, previewAuthorEdition } from "./actions";
 
@@ -32,7 +31,6 @@ export default async function ProjectRulesetAuthor({ params }: { params: Promise
       rulesetHref={rulesetRoute(tenantId, project)}
       participantsHref={participantsRoute(tenantId, project)}
       mayAuthor={door.authorized}
-      parameterLabel={parameterLabel}
       preview={previewAuthorEdition}
       commit={commitAuthorEdition}
     />

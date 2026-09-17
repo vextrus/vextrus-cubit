@@ -15,6 +15,9 @@ import { useCallback, useId, useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import type { CommitAnswer, PreviewAnswer } from "./actions";
+// The words a parameter is named by are the settings area's one table (I-268) — a plain function,
+// read here rather than handed across the server/client boundary, which no function may cross.
+import { parameterLabel } from "../strings";
 import type { EditionIdentity, EditionParameter } from "@/core/rulesets/editions";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
@@ -58,8 +61,6 @@ export interface RulesetAuthorSectionProps {
   participantsHref: string;
   /** Whether this reader holds AUTHOR_RULE_SET. False renders the whole screen and a shut door (I-266). */
   mayAuthor: boolean;
-  /** The words a parameter is named by — the settings area's one table (I-268). */
-  parameterLabel: (key: string) => string;
   preview: (request: AuthorRequest) => Promise<PreviewAnswer>;
   commit: (request: AuthorRequest & { consequenceDigest: string }) => Promise<CommitAnswer>;
 }
@@ -75,7 +76,6 @@ export function RulesetAuthorSection({
   rulesetHref,
   participantsHref,
   mayAuthor,
-  parameterLabel,
   preview,
   commit,
 }: RulesetAuthorSectionProps) {
@@ -188,7 +188,7 @@ export function RulesetAuthorSection({
         cell: ({ row }) => <UnitBadge unit={row.original.unit} />,
       },
     ],
-    [parameterLabel],
+    [],
   );
 
   if (parent === null) {
