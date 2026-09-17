@@ -12,7 +12,7 @@ CREATE TABLE "documents" (
 	"act_ids" uuid[] NOT NULL,
 	"issued_by" uuid NOT NULL,
 	"superseded_by" uuid,
-	"issued_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"issued_at" timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
 	CONSTRAINT "documents_one_version_per_kind" UNIQUE("project_id","kind","version")
 );
 --> statement-breakpoint

@@ -13,7 +13,6 @@
 // download route — the pattern `src/core/exports/store.ts` records, and for the same reason. There is
 // no second signer and no second secret (Q-12): what a URL carries is what storage minted, and
 // reading one back hands those fields to storage to judge.
-import { sql } from "drizzle-orm";
 import { and, desc, documents, eq, holdStateLock, isUuid, type TenantTx } from "../db";
 import { REFUSALS } from "../errors";
 import type { DocsRefusalCode } from "../errors/docs";
@@ -128,14 +127,8 @@ export async function storeDocument(deps: DocumentStoreDeps, rendered: RenderedD
       taxonomyVersion: issue.taxonomyVersion,
       actIds: [...issue.actIds],
       issuedBy: issue.issuedBy,
-      // The STATEMENT's clock, not the transaction's. `now()` — the column's default — is fixed for
-      // the length of a transaction, so a caller issuing a bill and its schedule together would stamp
-      // both at the same instant and leave the list with nothing to order them by; under that tie the
-      // per-kind version becomes the leading key and files one chain's superseded issue above
-      // another's live one. `clock_timestamp()` advances between statements, so "newest first"
-      // (R-SPINE-040) is the order the issues were actually made in. This is the product's existing
-      // answer for a row that is read back in the order it was written (0021's dispositions).
-      issuedAt: sql`clock_timestamp()`,
+      // `issued_at` is the column's own: it defaults to the STATEMENT's clock, so two issues made in
+      // one transaction are stamped apart and list in the order they were made (R-SPINE-040).
     })
     .returning({ id: documents.id });
 

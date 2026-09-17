@@ -9,6 +9,7 @@
 // (scripts/eslint/rules/no-db-outside-seam.mjs allowlists `src/core/db.ts` and ONE level under
 // `src/core/db/`, and nothing deeper).
 
+import { sql } from "drizzle-orm";
 import { index, integer, jsonb, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
 /**
@@ -47,7 +48,15 @@ export const documents = pgTable(
     issuedBy: uuid("issued_by").notNull(),
     /** The issue that replaced this one, once one has; the newest issue is superseded by nothing. */
     supersededBy: uuid("superseded_by"),
-    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    // The STATEMENT's clock, not the transaction's. `now()` is fixed for the length of a transaction,
+    // so a caller issuing a bill and its schedule together would stamp both at the same instant and
+    // leave "newest first" (R-SPINE-040) nothing to order them by — under that tie the per-kind
+    // version becomes the leading key and files one chain's superseded issue above another chain's
+    // live one. `clock_timestamp()` advances between statements, so the list reads back in the order
+    // the issues were made. The same reading the dispositions table takes (0021).
+    issuedAt: timestamp("issued_at", { withTimezone: true })
+      .notNull()
+      .default(sql`clock_timestamp()`),
   },
   (table) => [
     // A project holds ONE document of a kind at a version. Two writers racing to issue the next
