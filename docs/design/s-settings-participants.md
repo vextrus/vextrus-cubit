@@ -384,3 +384,12 @@ acceptance mounts `ParticipantsSection` with injected data and perform: list and
 rendering (order, data attributes, the unnamed-member fallback), the I-48 single-selection
 groups, the local judgement, both settled-refusal renderings, and the dialog handoff with
 the wrapper's input snapshot.
+
+## Changelog
+
+- 2026-09-18 — inc-304a-ruleset-authoring-ui: this screen no longer renders `SettingsPane` itself.
+  The project settings frame is `settings/layout.tsx` over `PROJECT_SETTINGS_AREAS`
+  (docs/design/s-settings.md), which draws four rows where this screen drew two and reads the active
+  row off the address; `projectSettingsNav` is gone (B-17). Nothing of this screen's own content,
+  copy, ids or states moved — the committed picture of it moves with the nav's two new rows and is
+  re-taken by the journey runner (B-20).

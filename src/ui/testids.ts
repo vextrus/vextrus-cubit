@@ -356,6 +356,17 @@ export const TESTIDS = {
     homeTagline: "root-home-tagline",
     homeWorkspaceDoor: "root-home-workspace-door",
   },
+  rulesetAuthor: {
+    diff: "ruleset-author-diff",
+    diffRow: "ruleset-author-diff-row",
+    parent: "ruleset-author-parent",
+    refusal: "ruleset-author-refusal",
+    section: "ruleset-author-section",
+    seeRuleset: "ruleset-author-see-ruleset",
+    submit: "ruleset-author-submit",
+    value: "ruleset-author-value",
+    version: "ruleset-author-version",
+  },
   ruleset: {
     editionDigest: "ruleset-edition-digest",
     editionIdentity: "ruleset-edition-identity",
@@ -445,6 +456,7 @@ export const TESTIDS = {
     index: "sets-index",
   },
   settings: {
+    area: "settings-area",
     membersLink: "settings-members-link",
   },
   sheet: {

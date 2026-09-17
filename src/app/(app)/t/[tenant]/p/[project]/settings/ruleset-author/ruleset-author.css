@@ -1,0 +1,138 @@
+/* S-Settings-Ruleset-Author § 5: semantic aliases and density/layout tokens only, and no
+   `[data-theme]` selector — every difference between the themes arrives through token values
+   (R-UI-001). The closed px set is § 5's: the 160 version measure, the 420 refusal measure and the
+   digest's 8ch chip measure. */
+
+.cx-ruleset-author {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+/* The identity line: the pin at the leading edge, the version field at the trailing one. */
+.cx-ruleset-author-identity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-block-size: var(--control-h);
+}
+
+.cx-ruleset-author-parent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  min-inline-size: 0;
+  font-size: var(--text-13);
+}
+
+.cx-ruleset-author-label {
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-ruleset-author-scope {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+}
+
+.cx-ruleset-author-edition {
+  color: var(--ink-code);
+  font-family: var(--font-mono);
+}
+
+/* I-206: whole in the document, drawn at the chip measure, selectable as one thing. */
+.cx-ruleset-author-digest {
+  display: inline-block;
+  overflow: hidden;
+  inline-size: 8ch;
+  color: var(--ink-code);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  white-space: nowrap;
+  text-overflow: clip;
+  user-select: all;
+}
+
+.cx-ruleset-author-version-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cx-ruleset-author-version {
+  inline-size: 160px;
+}
+
+.cx-ruleset-author-heading {
+  margin-block: 0 var(--space-2);
+}
+
+.cx-ruleset-author-table {
+  min-inline-size: 0;
+}
+
+.cx-ruleset-author-param {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cx-ruleset-author-pinned {
+  color: var(--ink);
+}
+
+/* What was true recedes behind what will be — ink weight, never a drop below the contrast floor. */
+.cx-ruleset-author-table [data-changed="true"] .cx-ruleset-author-pinned {
+  color: var(--ink-muted);
+}
+
+.cx-ruleset-author-authored {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.cx-ruleset-author-field {
+  min-inline-size: 0;
+  block-size: var(--control-h);
+  flex: 1 1 auto;
+}
+
+.cx-ruleset-author-authored[data-changed="true"] .cx-ruleset-author-field {
+  color: var(--ink);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-ruleset-author-suffix {
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-ruleset-author [data-testid="ruleset-author-refusal"] {
+  max-inline-size: 420px;
+}
+
+/* The act row: the status at the leading edge, the one primary at the trailing one. */
+.cx-ruleset-author-act {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block-start: var(--space-4);
+  min-block-size: var(--control-h-lg);
+}
+
+.cx-ruleset-author-status {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+  min-block-size: var(--text-13);
+}
+
+.cx-ruleset-author-submit {
+  margin-inline-start: auto;
+}

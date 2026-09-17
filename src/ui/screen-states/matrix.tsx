@@ -567,6 +567,40 @@ export const screenStates: ScreenStatesMatrix = {
     refusal: reasonedRefusal(strings.state_refusal_read_fault, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
   }),
 
+  // Author edition (s-settings-ruleset-author § 2): the one screen of the settings area that ACTS,
+  // so it is the one with refusals of its own — the four its two doors answer with, in the order the
+  // seam judges them. Nothing is hidden from a reader without the permission (I-266): the denial
+  // names the permission, the act it moves and who holds it, with the participants screen as the
+  // place it is granted.
+  "/t/[tenant]/p/[project]/settings/ruleset-author": declare({
+    ...workspaceCells,
+    loading: bones(8),
+    empty: (): ReactNode => (
+      <EmptyTeaching
+        heading={strings.ruleset_author_state_empty_heading}
+        body={strings.ruleset_author_state_empty_body}
+        action={strings.ruleset_author_state_empty_action}
+      />
+    ),
+    refusal: (): ReactNode => (
+      <>
+        <Refusal refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD} evidence={PARTICIPANTS_EVIDENCE} />
+        <Refusal refusal={REFUSAL_ENTRIES.EDITION_VERSION_TAKEN} evidence={PARTICIPANTS_EVIDENCE} />
+        <Refusal refusal={REFUSAL_ENTRIES.CONSEQUENCES_NOT_CARRIED} evidence={PARTICIPANTS_EVIDENCE} />
+        <Refusal refusal={REFUSAL_ENTRIES.ACT_CHANGES_NOTHING} evidence={PARTICIPANTS_EVIDENCE} />
+      </>
+    ),
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.ruleset_author_state_denied_permission}
+        holder={strings.ruleset_author_state_denied_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={PARTICIPANTS_EVIDENCE}
+      />
+    ),
+  }),
+
   // Workspace settings (shell § 2): a workspace always has a name, and the rename door answers what
   // it was given in place — the door's own copy, deliberately not one of the closed taxonomy's. The
   // registered refusal the screen can still meet stands under it with its code and remedy.

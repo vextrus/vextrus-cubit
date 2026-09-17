@@ -481,3 +481,16 @@ in that row, under the member it answers, and the roster is unchanged. jsdom acc
 mounts `MembersSection` with injected rows and actions and walks `MEMBERS_STATES`; the
 live proof drives the shipped route doors against a provisioned scratch database, no
 mocked module.
+
+## Changelog
+
+- 2026-09-18 — inc-304a-ruleset-authoring-ui: the PROJECT settings frame moved out of the pages and
+  into `settings/layout.tsx` over the roster `settings/areas.ts` (`PROJECT_SETTINGS_AREAS`), which
+  is now the one place a project's settings areas are stated; `projectSettingsNav` is deleted from
+  `settings-pane.tsx` (a second spelling of the roster — B-17). Four rows: Rule set · Participants ·
+  Site facts · Author edition, an area's availability read off its `route` and never written beside
+  it (the home/areas.ts law). `site-facts` ships with `route: null` and inc-304b gives it an
+  address. Every row — a link or a promise — carries `data-testid="settings-area"` and
+  `data-area=<key>`; the active row is read from the selected child segment in a small client
+  component, because a server layout cannot read the address. I-198/I-204/I-209 re-point at the
+  layout. The workspace's own settings pane is unchanged.

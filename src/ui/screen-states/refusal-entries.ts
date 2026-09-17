@@ -29,6 +29,9 @@ type DeclaredCode = Extract<
   | "SET_NAME_NOT_USABLE"
   | "SET_MEMBER_NOT_IN_PROJECT"
   | "DOCUMENT_URL_EXPIRED"
+  | "EDITION_VERSION_TAKEN"
+  | "CONSEQUENCES_NOT_CARRIED"
+  | "ACT_CHANGES_NOTHING"
 >;
 
 /**
@@ -49,6 +52,31 @@ export const REFUSAL_ENTRIES: Readonly<{ [C in DeclaredCode]: RefusalEntry & { c
     remedy: "Ask a principal of the project to give you a role that carries it.",
     severity: "error",
     surface: "banner",
+  }),
+  // The three the Author edition screen's two doors answer with beside PERMISSION_NOT_HELD
+  // (s-settings-ruleset-author § 2). Copy verbatim from the register (`src/core/errors`): `src/ui`
+  // may not import a core VALUE (ARCH-01), so it is transcribed here under the fidelity test that
+  // holds every entry of this file byte-equal to the register's own.
+  EDITION_VERSION_TAKEN: Object.freeze({
+    code: "EDITION_VERSION_TAKEN",
+    message: "An edition of this rule set already carries that version, so nothing was authored.",
+    remedy: "State a version this project's rule set has not used, then try again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  CONSEQUENCES_NOT_CARRIED: Object.freeze({
+    code: "CONSEQUENCES_NOT_CARRIED",
+    message: "This change was reviewed against an earlier state of the project, which has moved since.",
+    remedy: "Review the change again — what it would do now is not what was shown.",
+    severity: "warning",
+    surface: "dialog",
+  }),
+  ACT_CHANGES_NOTHING: Object.freeze({
+    code: "ACT_CHANGES_NOTHING",
+    message: "This action would leave the project exactly as it is, so nothing was recorded.",
+    remedy: "Choose a change that moves something — what you asked for is already the case.",
+    severity: "info",
+    surface: "dialog",
   }),
   PROJECT_WOULD_HAVE_NO_PRINCIPAL: Object.freeze({
     code: "PROJECT_WOULD_HAVE_NO_PRINCIPAL",

@@ -19,6 +19,7 @@ import { participants } from "./participants";
 import { partition } from "./partition";
 import { primitives } from "./primitives";
 import { schedules } from "./schedules";
+import { rulesetAuthor } from "./ruleset-author";
 import { screenStates } from "./screen-states";
 import { shell } from "./shell";
 import { shortcuts } from "./shortcuts";
@@ -49,6 +50,7 @@ export const strings = {
   ...partition,
   ...primitives,
   ...schedules,
+  ...rulesetAuthor,
   ...screenStates,
   ...shell,
   ...shortcuts,
