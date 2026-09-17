@@ -18,6 +18,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { formatUserFigure } from "../../../src/core/format";
 import { strings } from "../../../src/ui/strings";
 import { TESTIDS } from "../../../src/ui/testids";
 import { SBbsPage } from "../pages/s-bbs.page";
@@ -113,10 +114,14 @@ type DoorDocument = {
  * — never a word typed here (AM-09 §2). Until that file lands the lookup fails by name, which is the
  * red this increment is owed.
  */
+function copyOf(key: string): string {
+  const said = (strings as unknown as Record<string, string | undefined>)[key];
+  if (typeof said !== "string" || said.length === 0) throw new Error(`src/ui/strings publishes no ${key} — this screen's copy has not landed yet (AM-09 §2)`);
+  return said.replace(/\s+/gu, " ").trim();
+}
+
 function navLabel(): string {
-  const label = (strings as unknown as Record<string, string | undefined>)["takeoff_nav_bbs"];
-  if (typeof label !== "string") throw new Error("src/ui/strings publishes no takeoff_nav_bbs — the lane's sixth tab has not landed yet");
-  return label;
+  return copyOf("takeoff_nav_bbs");
 }
 
 /** The box an element occupies, once the screen has stopped moving. */
@@ -141,7 +146,7 @@ async function assertWorkSurface(bbs: SBbsPage, where: string): Promise<void> {
 }
 
 test.describe("J-032 — the bar schedule the transcribed notes produce", () => {
-  test("J-032 · AC-2 · AC-4 · AC-5: the 50d note re-versions the lap, and the sixth tab shows every bar of the measured campaign", async ({ page }, testInfo) => {
+  test("J-032 · AC-2 · AC-3 · AC-4 · AC-5: the 50d note re-versions the lap, and the sixth tab shows every bar of the measured campaign", async ({ page }, testInfo) => {
     await signInAsSeededTenant(page, testInfo.parallelIndex);
     const { stageBbs, measureStaged } = await bbsStage();
     const staged = await stageBbs(page, { label: "j032-bbs" });
@@ -194,6 +199,14 @@ test.describe("J-032 — the bar schedule the transcribed notes produce", () => 
 
     /* --- what the screen says about itself (AC-2) --- */
     expect(await bbs.state(), "a campaign whose rebar lines are wholly or partly declared is read and rendered — the ground decides which").toBe(measured.expectedState);
+    expect(["partial", "ready"], `a measured campaign is READ: its state is what its own lines declare, wholly or partly (the stage reckoned ${measured.expectedState} from the coverage they stored)`).toContain(measured.expectedState);
+
+    // A reading nobody can see is not a disclosure: a campaign the door calls partly declared SAYS
+    // so, in the Decision's own sentence, and one it calls ready says nothing of the sort (Decision
+    // §2, L-QTY-02). The derivation itself is graded over a real campaign in `view.db.test.ts`.
+    const answerSaid = (await steadyText(bbs.answer, "the schedule's answer region")).replace(/\s+/gu, " ");
+    expect(answerSaid.includes(copyOf("bbs_partial")), `the partial notice stands exactly where the state does — the screen reads ${measured.expectedState}`).toBe(measured.expectedState === "partial");
+
     expect(await heldAttribute(bbs.screen, "data-rows"), "the screen states how many bar rows the door answered with").toBe(String(doorRows.length));
     expect(await heldAttribute(bbs.screen, "data-campaign"), "and which campaign it read").toBeTruthy();
     expect(await steadyText(bbs.crumbPage, "the page crumb"), "the crumb names the screen a reader asked for").toBe(navLabel());
@@ -228,6 +241,31 @@ test.describe("J-032 — the bar schedule the transcribed notes produce", () => 
       const read = await everyAttribute(bbs.rows, attribute, `the schedule's ${attribute} column`, { min: 1 });
       const expected = barKeys.map((key) => owed(byKey.get(key) as DoorRow));
       expect(read, `every row's ${attribute} is the door's own figure for that bar, carried verbatim and never re-reckoned (I-bbs-2)`).toEqual(expected);
+    }
+
+    /* --- AC-3: the figures a reader READS are the stored figures, grouped by the one formatter --- */
+    //
+    // The attributes carry the door's decimal verbatim (asserted above); a CELL is where that decimal
+    // becomes something a person reads, and the one home for that is `formatUserFigure` (SEAM-FORMAT,
+    // I-bbs-2). The rows this is read on are the ones where the two forms DIFFER — a four-figure
+    // cutting length — so a screen that printed the stored string, or grouped it in thousands, shows
+    // a different line from the one asserted here.
+    const groupedRows = doorRows.filter((row) => formatUserFigure(row.cuttingRawMm) !== row.cuttingRawMm).slice(0, 5);
+    expect(groupedRows.length, "the staged campaign holds bars whose cutting length is long enough to be grouped — a schedule of three-digit lengths could not show this rule either way").toBeGreaterThan(0);
+    for (const row of groupedRows) {
+      const said = (await steadyText(bbs.row(row.barKey), `${row.barMark}'s row`)).replace(/\s+/gu, " ");
+      expect(said, `${row.barMark}'s cutting length reads ${formatUserFigure(row.cuttingRawMm)} — lakh/crore grouping through @/core/format, over the stored ${row.cuttingRawMm}`).toContain(
+        formatUserFigure(row.cuttingRawMm),
+      );
+      expect(said, `and the raw decimal ${row.cuttingRawMm} is what the ATTRIBUTE carries, never what the cell shows a reader (R-UI-083)`).not.toContain(row.cuttingRawMm);
+    }
+
+    const grandTotal = (await heldAttribute(bbs.summary, "data-kg")) as string;
+    expect(grandTotal, "the summary region carries the door's own grand total").toBe(document_.grandTotalKg);
+    const summarySaid = (await steadyText(bbs.summary, "the cutting-stock summary")).replace(/\s+/gu, " ");
+    expect(summarySaid, `the total a reader reads is ${formatUserFigure(grandTotal)} — the stored ${grandTotal} through the one formatter`).toContain(formatUserFigure(grandTotal));
+    if (formatUserFigure(grandTotal) !== grandTotal) {
+      expect(summarySaid, "and the ungrouped decimal is not what the total cell shows").not.toContain(grandTotal);
     }
 
     /* --- the lap: its own row, at the multiple the drawing's note states (AM-03(a), L-BD-02) --- */

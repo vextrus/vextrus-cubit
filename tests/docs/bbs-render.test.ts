@@ -6,10 +6,11 @@
  *
  * What is judged is the ARTEFACT. The lane commits a payload, puts it through the pinned renderer,
  * and reads the bytes and the extracted text back — so what this file grades is the document the
- * product produced, never the template that produced it. The single exception is the sketch
- * dispatch: "the shape codes are DRAWN rather than imaged" is a property of the bytes (no
- * `/Subtype /Image`) and of the template's own text (every `SHAPE_CODES` entry named), and the
- * second half is marked white-box where it stands.
+ * product produced, never the template that produced it. "The shape codes are DRAWN" is read from
+ * the artefact too — no `/Subtype /Image`, and paths constructed and painted at least once per bar
+ * scheduled — and only the last of its three clauses is white-box: a code of the roster that this
+ * payload's rows never exercise is reachable nowhere but in the template's own dispatch, and what is
+ * read there is that its branch REACHES A DRAWING PRIMITIVE, never that the code is mentioned.
  *
  * THE PAYLOAD IS THE GOLDEN ROSTER'S, NEVER A LIST TYPED HERE. Every figure the committed payload
  * carries is proved to be a row of `fixtures/rcc6-bnbc/bbs.golden.json`, read in file order through
@@ -28,6 +29,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { REFUSALS } from "../../src/core/errors";
 import { refusalCodeOf } from "../../src/core/faults/refusal-marker";
+import { paintCountOf } from "./support/pdf-paint";
 import { pdfText } from "./support/pdf-text";
 import { inTree, squashed } from "./support/product";
 import { bbsGoldenRows, BBS_FIXTURE, type BbsGoldenRow } from "./support/bbs-golden";
@@ -41,6 +43,13 @@ const PROOF_GOLDEN = "tests/docs/proof/golden.pdf";
 const PROOF_PAYLOAD = "tests/docs/proof/payload.json";
 const DRAFT_GOLDEN = "tests/docs/boq-draft/golden.pdf";
 const DRAFT_PAYLOAD = "tests/docs/boq-draft/payload.json";
+
+/**
+ * The Typst primitives a sketch is drawn with. A branch of the shape dispatch that reaches none of
+ * them draws nothing, whatever it prints (A-BBS-PDF: the codes are DRAWN, never imaged and never
+ * merely lettered).
+ */
+const DRAWING_PRIMITIVES = ["line(", "curve(", "path(", "polygon(", "circle(", "arc(", "rect(", "bezier("];
 
 /** The banner AM-05 puts on every page of a working document before M7. */
 const BANNER = "DRAFT — UNSIGNED";
@@ -228,14 +237,47 @@ describe("AC-1: the bar bending schedule renders as its own kind, byte for byte"
       expect(whole, `${row.barMark}'s IS-additive figure prints beside them both, and is billed by nothing (AM-03(c))`).toContain(squashed(figure(row.cuttingIsAdditiveMm, 3)));
     }
 
-    // A lap is its own component, never a percentage of the bar (AM-03(a), L-BD-02): every lapping
-    // row owes a LAP line carrying the lap's OWN mass.
+    // A LAP LINE BELONGS TO ITS ROW, AND A COLUMN IS NOT A LINE (AM-03(a), L-BD-02, I-bbs-3).
+    //
+    // The document is cut into one SEGMENT per payload row — from that row's mark to the next row's
+    // — and the rule is read inside the segment: a row that laps carries the token `LAP` with the
+    // lap's OWN mass beside it, and a row that does not laps carries no `LAP` at all. A template
+    // that printed `kg LAP` as a per-row COLUMN heading says LAP on every page, which the count
+    // below refuses; one that printed the lap's mass in a column beside the bar's says LAP in a
+    // segment that has no lap, which the segment rule refuses.
     const lapping = input.rows.filter((row) => row.lapsPerBar > 0);
-    for (const row of lapping) {
-      expect(whole, `${row.barMark} laps ${row.lapsPerBar} time(s), so its lap stands as its own component carrying ${row.kgLap} kg (AM-03(a))`).toContain(squashed(figure(row.kgLap, 3)));
+    expect(lapping.length, `${PAYLOAD} reaches a row that laps — see the roster case below`).toBeGreaterThan(0);
+    const said = [...whole.matchAll(/\bLAP\b/gu)].length;
+    expect(said, `the document names a LAP component exactly once per lapping row — ${lapping.length} row(s) lap, and it says LAP ${said} time(s). A column heading repeated on every page is not a component line (AM-03(a))`).toBe(
+      lapping.length,
+    );
+
+    const wrong: string[] = [];
+    let cursor = 0;
+    for (const [at, row] of input.rows.entries()) {
+      const mark = squashed(row.barMark);
+      const from = whole.indexOf(mark, cursor);
+      if (from === -1) {
+        wrong.push(`row ${at} (${row.barMark}) does not stand in the document in the order the payload puts it`);
+        continue;
+      }
+      const next = input.rows[at + 1];
+      const to = next === undefined ? whole.length : (() => {
+        const found = whole.indexOf(squashed(next.barMark), from + mark.length);
+        return found === -1 ? whole.length : found;
+      })();
+      const segment = whole.slice(from, to);
+      cursor = from + mark.length;
+
+      const saysLap = /\bLAP\b/u.test(segment);
+      if (row.lapsPerBar > 0) {
+        if (!saysLap) wrong.push(`${row.barMark} laps ${row.lapsPerBar} time(s) and its own line says no LAP`);
+        else if (!segment.includes(squashed(figure(row.kgLap, 3)))) wrong.push(`${row.barMark}'s LAP line does not carry the lap's own mass (${row.kgLap} kg)`);
+      } else if (saysLap) {
+        wrong.push(`${row.barMark} laps nothing and a LAP stands on its line anyway`);
+      }
     }
-    const said = whole.split("LAP").length - 1;
-    expect(said, `the document names a LAP component once for each of the ${lapping.length} lapping row(s) it carries`).toBeGreaterThanOrEqual(lapping.length);
+    expect(wrong.slice(0, 5), `each lap stands on its own bar's line, and only there — ${wrong.length} do not`).toEqual([]);
   });
 
   it("AC-1: the cutting stock prints one line per diameter, with its stock bars, pieces and offcut", async () => {
@@ -264,16 +306,42 @@ describe("AC-1: the bar bending schedule renders as its own kind, byte for byte"
     const bytes = Buffer.from(first.pdf).toString("latin1");
     expect(/\/Subtype\s*\/Image/u.test(bytes), "no page of the schedule embeds an image: the shape sketches are drawn by the template (A-BBS-PDF)").toBe(false);
 
+    // SOMETHING WAS DRAWN, AND IT SCALES WITH THE ROWS. A document that prints the code as text and
+    // draws nothing embeds no image either — so the absence of an image proves nothing on its own.
+    // What a sketch per row leaves behind is geometry: a path constructed and then painted, once per
+    // bar at least (A-BBS-PDF: the shape codes are Typst-drawn vector sketches).
+    const drawn = paintCountOf(first.pdf);
+    const rows = payload().rows.length;
+    expect(drawn.painted, `the schedule PAINTS at least one path per bar it schedules — ${rows} row(s), and the pages paint ${drawn.painted} (A-BBS-PDF)`).toBeGreaterThanOrEqual(rows);
+    expect(drawn.constructed, `and constructs the paths it paints — ${drawn.constructed} construction operator(s) across the document`).toBeGreaterThanOrEqual(drawn.painted);
+
     expect(existsSync(inTree(TEMPLATE)), `${TEMPLATE} stands beside its kind — the template is a file of this increment, not a tree under documents/templates`).toBe(true);
     // white-box: AC-1 — "the sketches are drawn for every shape the roster holds" is a property of
-    // the TEMPLATE'S OWN TEXT: a code the dispatch does not name draws nothing, and no payload of
-    // this lane can exercise a shape its rows do not carry. The roster is read from the product
-    // (SHAPE_CODES), so a shape a later increment adds grows this assertion rather than freezing it.
+    // the TEMPLATE'S OWN TEXT: no payload of this lane can exercise a shape its rows do not carry,
+    // so the roster's unexercised codes are reachable only by reading the dispatch. What is read is
+    // that each code's BRANCH REACHES A DRAWING PRIMITIVE — a code named in a dead tuple and printed
+    // as a letter draws nothing, and that is the implementation this line exists to refuse. The
+    // roster is the product's (SHAPE_CODES), so a shape a later increment adds grows this with it.
     const template = withoutComments(TEMPLATE);
     expect(SHAPE_CODES.length, "the product publishes the BS 8666 shapes it holds").toBeGreaterThan(0);
+    const undrawn: string[] = [];
     for (const code of SHAPE_CODES) {
-      expect(template.includes(`"${code}"`), `${TEMPLATE} draws the ${code} shape — every code of SHAPE_CODES is named in its sketch dispatch`).toBe(true);
+      const at = template.indexOf(`"${code}"`);
+      if (at === -1) {
+        undrawn.push(`${code} is named nowhere in ${TEMPLATE}`);
+        continue;
+      }
+      // The branch: from this code to the next code literal of the roster, or to the end of the file
+      // — whichever comes first. A dispatch that answers a code with a drawing reaches a primitive
+      // inside it; one that answers with a string does not.
+      const following = SHAPE_CODES.map((other) => template.indexOf(`"${other}"`, at + code.length + 2)).filter((found) => found !== -1);
+      const until = following.length === 0 ? template.length : Math.min(...following);
+      const branch = template.slice(at, until);
+      if (!DRAWING_PRIMITIVES.some((primitive) => branch.includes(primitive))) {
+        undrawn.push(`${code}'s branch draws nothing — it reaches none of ${DRAWING_PRIMITIVES.join(", ")}`);
+      }
     }
+    expect(undrawn, `every code of SHAPE_CODES is answered by a sketch, never by its own letters — ${undrawn.length} draw nothing`).toEqual([]);
   });
 
   it("AC-1: the committed payload is the golden roster's own rows, in file order", async () => {

@@ -182,15 +182,14 @@ describe("AC-3: the bar schedule the screen draws is the door's own answer, row 
     const unknown = rows.filter((row) => row.component === "NET" && !stored.has(row.cuttingRawMm));
     expect(firstFew(unknown.map((row) => row.barMark)), "and every raw cutting length a row carries is one the document stored (L-FRM-05: the raw length is never rounded)").toEqual([]);
 
-    // The printed form is SEAM-FORMAT's, over the stored string: lakh/crore grouping, the digits
-    // untouched. Asserted as the rule rather than as today's total (B-19) — the grand total of this
-    // fixture is a six-figure mass, so the grouping it receives is the lakh grouping.
-    const printed = formatUserFigure(summary.grandTotalKg);
-    expect(printed.split(",").join(""), "the printed grand total holds the stored digits, unchanged").toBe(summary.grandTotalKg);
-    const [whole = ""] = printed.split(".");
-    const groups = whole.split(",");
-    expect(groups.length, `a six-figure mass is grouped, so ${printed} carries its separators (SEAM-FORMAT)`).toBeGreaterThan(1);
-    expect(groups[groups.length - 1]?.length, "the last group before the point is three digits").toBe(3);
-    for (const group of groups.slice(1, -1)) expect(group.length, `and every group above it is two — lakh/crore, never thousands (${printed})`).toBe(2);
+    // THE PRESENTER HANDS ON THE STORED STRING; THE CELL IS WHERE IT IS FORMATTED. The grand total
+    // the summary carries is the document's own decimal, and a screen that showed it as it stands
+    // would show `166626.107` where a reader reads `1,66,626.107` — so the printed form is asserted
+    // where it can be seen, on the RENDERED screen, in `tests/e2e/journeys/j-032-schedules-notes.
+    // spec.ts` ("the figures a reader reads are formatUserFigure of the figures the rows carry").
+    // What belongs here is the half this module owns: the total that reaches the cell is the door's
+    // string, ungrouped and unrounded, and the grouped form is not it.
+    expect(summary.grandTotalKg, "the summary hands the cell the document's own decimal").toBe(document_.grandTotalKg);
+    expect(summary.grandTotalKg.includes(","), `the presenter never formats: ${formatUserFigure(summary.grandTotalKg)} is what the CELL shows, and ${summary.grandTotalKg} is what the attribute carries`).toBe(false);
   });
 });
