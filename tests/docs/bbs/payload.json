@@ -3602,19 +3602,19 @@
   },
   "cuttingStock": {
     "12": {
-      "stockBars": 1238,
-      "pieces": 5445,
-      "offcutMm": "142700"
+      "stockBars": 134,
+      "pieces": 564,
+      "offcutMm": "68050"
     },
     "16": {
-      "stockBars": 1200,
-      "pieces": 3604,
-      "offcutMm": "199600"
+      "stockBars": 122,
+      "pieces": 631,
+      "offcutMm": "91675"
     },
     "20": {
-      "stockBars": 1737,
-      "pieces": 3776,
-      "offcutMm": "859300"
+      "stockBars": 38,
+      "pieces": 134,
+      "offcutMm": "28850"
     }
   },
   "grandTotalKg": "4576.017"
