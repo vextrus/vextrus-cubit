@@ -48,8 +48,15 @@ import {
   type MethodPairShape,
 } from "./support/rebar-contract";
 
-/** The platform edition this leaf's migration mints, so a pin puts the five pairs in force (AC-1). */
-const SEED_EDITION = { name: "IS1200_IN", version: "2027.01" };
+/**
+ * The platform edition in force, so a pin puts the five pairs of this shard in force (AC-1).
+ *
+ * Re-baselined by the SLABS leaf, which mints 2027.02 beside the 2027.01 row this leaf minted: an
+ * edition is immutable, so a later shard is cited by a NEW head and the seed the product ships names
+ * that head (L-MEA-01, B-20). What this case grades is unchanged — the five pairs are cited by the
+ * edition the seed names, whichever version that has become.
+ */
+const SEED_EDITION = { name: "IS1200_IN", version: "2027.02" };
 
 /** Is this pair one of this shard's five? The shard owns `rcc.rebar.*` and the detailing edition. */
 function isRebarPair(pair: MethodPairShape): boolean {

@@ -15,14 +15,14 @@ import type { ElementType } from "../catalogue/classes";
 import type { Kind } from "../catalogue/kinds";
 import { registerObjects } from "../db";
 import type { RefusalCode } from "../errors";
-import type { StoreyHeightStandingName } from "../levels/law";
+import { STOREY_HEIGHT_ABSENCE, type StoreyHeightStandingName } from "../levels/law";
 import type { SiteFact } from "../site-facts/law";
 import type { Coverage, DeductionChannel, Engine, GeometryType, QuantityBasis } from "./law";
 
 // The rosters are the law file's, and published from here because this is the door a rail and the
 // gate both read the contract at (B-17).
-export { COVERAGES, DEDUCTION_CHANNELS, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES, weakestBasis } from "./law";
-export type { Coverage, DeductionChannel, Engine, GeometryType, QuantityBasis } from "./law";
+export { COVERAGES, DEDUCTION_CHANNELS, ENGINES, GEOMETRY_TYPES, PLAN_MEMBERS, QUANTITY_BASES, weakestBasis } from "./law";
+export type { Coverage, DeductionChannel, Engine, GeometryType, PlanMember, QuantityBasis } from "./law";
 
 /**
  * One reading, as a rail offers it: what the drawing said, the unit it said it in, how it was known,
@@ -282,6 +282,43 @@ function bandOf(variant: MemberVariantSetup): BandStatement {
   return { from: variant.bandFrom, to: variant.bandTo };
 }
 
+/** The reading of the height a level stands at — or the code a rail omits that row's `H` under. */
+export type StoreyHeightReading = { readonly ok: true; readonly reading: Measure } | { readonly ok: false; readonly code: RefusalCode };
+
+/** The code an agreed height that cites no drawing entity is omitted under (Q-07, L-QTY-03). */
+const STOREY_HEIGHT_UNCITED: RefusalCode = "STOREY_HEIGHT_UNCITED";
+
+/**
+ * The storey height a level stands at, as a reading — or the code it stands under instead. A height
+ * whose readings disagree, and one nobody read, are both a level with no height (L-MEA-07), and the
+ * code each is reported under is the levels law's own pairing rather than a map spelled here (B-17).
+ *
+ * It lives here rather than beside one rail because every VERTICAL class asks it of the same setup —
+ * a column and a shear wall both measure floor-to-floor through the joint (L-MEA-09) — and one
+ * invariant has one home (B-17, ARCH-02).
+ */
+export function heightOf(level: LevelSetup | undefined): StoreyHeightReading {
+  // A row standing on a level the live stack does not hold has no reading of a storey height either:
+  // it is the same absence, and L-QTY-02 keeps the row and declares it rather than dropping it.
+  const height = level?.height;
+  if (height === undefined || height.standing !== "AGREED" || height.value === null || height.unit === null || height.basis === null) {
+    const code = height === undefined ? STOREY_HEIGHT_ABSENCE.NONE : STOREY_HEIGHT_ABSENCE[height.standing];
+    return { ok: false, code: code ?? (STOREY_HEIGHT_ABSENCE.NONE as RefusalCode) };
+  }
+  // A reading that cites no drawing entity is a reading with nowhere to go back to, and a line always
+  // carries the provenance of what it states (L-QTY-03) — so it is no height a rail can bind, and the
+  // row is KEPT with H declared omitted rather than offered under a source nothing answers to
+  // (L-QTY-02). A source the setup spells as nothing is no source either, the same way a calibration
+  // reference it spells as nothing is no affirmed reference.
+  //
+  // Under its OWN code: the readings AGREE and a figure stands, so telling the reader nobody has
+  // stated this level's height would send them to enter one that is already entered (Q-07).
+  if (height.sourceKey === null || height.sourceKey.length === 0) return { ok: false, code: STOREY_HEIGHT_UNCITED };
+  // The source is the entity the height was read from, as the level states it: a rail names no
+  // provenance the setup did not give it, and the guard above means there is one to name (L-QTY-03).
+  return { ok: true, reading: { value: height.value, unit: height.unit, basis: height.basis, source: height.sourceKey } };
+}
+
 /**
  * The read-only setup every rail is handed beside the register's rows — "rails share only setup, the
  * register and the document stage" (L-MEA-08).
@@ -301,6 +338,13 @@ export type RailSetup = {
   readonly calibrations: Readonly<Record<string, Readonly<Record<string, string>>>>;
   /** The concrete grade a drawing's general notes stated, where a reader stated one. */
   readonly grades: Readonly<Record<string, Measure>>;
+  /**
+   * What the plan reader read of each placement, by placement key: the plate, the sunken drop, the
+   * flight, the landing and the wall run a rail measures from (R-TO-032, AM-06 §3/§4). A placement
+   * with no entry here is one nobody read a plan for, and the rail reports that absence rather than
+   * measuring something nobody read (L-QTY-01, L-QTY-04).
+   */
+  readonly plans: Readonly<Record<string, PlanReadingSetup>>;
   /** The run the partition read for each beam and tie-beam placement, by its placement key. */
   readonly runs: Readonly<Record<string, RunSetup>>;
   /** The opening an opening schedule states behind each lintel placement, by its placement key. */
@@ -394,6 +438,58 @@ export type ReadingSetup = {
   readonly basis: QuantityBasis;
   readonly source: string;
 };
+
+/**
+ * How a junction stands where one member's quantity turns on another's (L-QTY-04, L-MEA-09).
+ *
+ * RESOLVED is the figure read outright. BOUNDED is a reading that could only BOUND the junction: it
+ * is deducted at its bound and the published figure is then UNDER, which is a lawful disclosure.
+ * UNBOUNDED carries no reading at all — "over-measurement → hard block, never a disclosure" — so
+ * there is no bound to deduct at and nothing publishes.
+ */
+export type JunctionReading =
+  | { readonly reading: ReadingSetup; readonly standing: "RESOLVED" | "BOUNDED" }
+  | { readonly reading: null; readonly standing: "UNBOUNDED" };
+
+/**
+ * One reading of a plan member, as the plan reader states it and a rail measures from it (R-TO-032,
+ * AM-06 §3/§4). The five members are `PLAN_MEMBERS`, and the discriminant is which of them it is.
+ *
+ * Nothing here is derived and nothing is converted: each field is what the drawing said, in the unit
+ * it was written in, with the basis and the entity it was read from (L-MEA-08, L-QTY-03). What a
+ * reading says ABOUT ITSELF — whether the outline closed, what bears the plate, what shape a stair
+ * is — is STATED rather than inferred, because a surface that is not a closed outline defers with a
+ * reason and is never bounding-boxed (L-MEA-03).
+ */
+export type PlanReadingSetup =
+  | {
+      readonly member: "SLAB_PANEL";
+      readonly outline: "CLOSED" | "OPEN";
+      readonly bearing: "FRAMED" | "GROUND";
+      readonly area: ReadingSetup;
+      /** The column and wall plan areas the plate runs past — the vertical owns that volume (L-MEA-09). */
+      readonly members: JunctionReading;
+      /** The beam soffits the plate stands over — the beam owns that face (L-MEA-09). */
+      readonly beamSoffit: JunctionReading;
+      readonly freeEdge: ReadingSetup;
+      readonly thickness: ReadingSetup;
+      /** The second thickness a tapering plate was read at, where the reader stated one. */
+      readonly thickness2: ReadingSetup | null;
+      readonly openings: readonly ReadingSetup[];
+    }
+  | { readonly member: "SLAB_DROP"; readonly length: ReadingSetup; readonly breadth: ReadingSetup; readonly height: ReadingSetup }
+  | {
+      readonly member: "STAIR_FLIGHT";
+      readonly shape: "STRAIGHT" | "COMPLEX";
+      readonly sloped: ReadingSetup;
+      readonly width: ReadingSetup;
+      readonly waist: ReadingSetup;
+      readonly going: ReadingSetup;
+      readonly rise: ReadingSetup;
+      readonly risers: ReadingSetup;
+    }
+  | { readonly member: "STAIR_LANDING"; readonly shape: "RECT" | "COMPLEX"; readonly area: ReadingSetup; readonly thickness: ReadingSetup }
+  | { readonly member: "WALL_RUN"; readonly length: ReadingSetup; readonly thickness: ReadingSetup; readonly contact: ReadingSetup; readonly ends: ReadingSetup };
 
 /**
  * One placement's run (L-MEA-09): the drawn axis clear between the faces of the members supporting

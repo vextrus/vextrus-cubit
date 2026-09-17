@@ -35,7 +35,14 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
 /**
  * Every pair the shards recorded before AM-11 moved a line, keyed `<ruleId>@<version>` (L-MEA-01).
  *
- * Re-baselined by the REBAR leaf for FIVE ADDED pairs and nothing else — the `BNBC2020_BD @ 2026.07`
+ * Re-baselined by the SLABS leaf for TWELVE ADDED pairs and nothing else — L-MEA-09 (AM-02) and
+ * AM-06 §3/§4's plate and its taper, its soffit and its edge band, a sunken panel's drop, a
+ * shear-wall storey, a straight flight and a rectangular landing, each for the concrete it holds and
+ * the formwork it is cast against, recorded in `../slab-wall-stair/slab-wall-stair.methods.json` and
+ * cited by the platform edition `IS1200_IN @ 2027.02`. The roster grew by those twelve keys —
+ * twenty-four pairs to thirty-six — and no pair standing before them moved (B-19, B-20).
+ *
+ * Re-baselined before that by the REBAR leaf for FIVE ADDED pairs and nothing else — the `BNBC2020_BD @ 2026.07`
  * detailing edition carried as data, BS 8666's cutting length, the stock split, the member synthesis
  * and the kg/m mass, recorded in `../rebar/rebar.methods.json` and cited by the platform edition
  * `IS1200_IN @ 2027.01`. The roster grew by those five keys — nineteen pairs to twenty-four — and no
@@ -81,8 +88,20 @@ const PAIRS_BEFORE: readonly string[] = Object.freeze([
   "rcc.rebar.mass@1",
   "rcc.rebar.stock@1",
   "rcc.rebar.synthesis@1",
+  "rcc.slab.concrete@1",
+  "rcc.slab.drop.concrete@1",
+  "rcc.slab.drop.formwork@1",
+  "rcc.slab.edge-formwork@1",
+  "rcc.slab.formwork@1",
+  "rcc.slab.taper.concrete@1",
+  "rcc.stair.flight.concrete@1",
+  "rcc.stair.flight.formwork@1",
+  "rcc.stair.landing.concrete@1",
+  "rcc.stair.landing.formwork@1",
   "rcc.tie_beam.concrete@1",
   "rcc.tie_beam.formwork@1",
+  "rcc.wall.concrete@1",
+  "rcc.wall.formwork@1",
 ]);
 
 /** One area's contribution, as this file reads one. */

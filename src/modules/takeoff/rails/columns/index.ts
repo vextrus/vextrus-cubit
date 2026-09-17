@@ -20,10 +20,8 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { RefusalCode } from "@/core/errors";
-import { STOREY_HEIGHT_ABSENCE } from "@/core/levels/law";
-import { variantCovering } from "@/core/offers/contract";
+import { heightOf, variantCovering } from "@/core/offers/contract";
 import type {
-  LevelSetup,
   Measure,
   MemberVariantSetup,
   Offer,
@@ -34,6 +32,7 @@ import type {
   RailObservation,
   RailSetup,
   RegisterObjectRow,
+  StoreyHeightReading,
 } from "@/core/offers/contract";
 import { CANONICAL_UNIT } from "@/core/units/canon";
 
@@ -72,9 +71,6 @@ const HEIGHT = "H";
 /** The item-selecting attribute a concrete line is priced by, where a reader stated one (L-QTY-03). */
 const GRADE = "grade";
 
-/** The code an agreed height that cites no drawing entity is omitted under (Q-07, L-QTY-03). */
-const STOREY_HEIGHT_UNCITED: RefusalCode = "STOREY_HEIGHT_UNCITED";
-
 /** One column instance is one member: a rail states what it counted, never a total it derived. */
 const ONE = "1";
 
@@ -85,9 +81,6 @@ const ONE = "1";
 type Section =
   | { readonly ok: true; readonly width: Measure; readonly depth: Measure }
   | { readonly ok: false; readonly code: ColumnRailCode; readonly source: string | undefined };
-
-/** The reading of the height a level stands at — or the code the row's H is omitted under. */
-type Height = { readonly ok: true; readonly reading: Measure } | { readonly ok: false; readonly code: RefusalCode };
 
 /** Every row of the batch this rail measures: the instances of its own class (L-MEA-08). */
 function columnsOf(objects: readonly RegisterObjectRow[]): readonly RegisterObjectRow[] {
@@ -111,32 +104,6 @@ function sectionOf(variant: MemberVariantSetup): Section {
   return { ok: true, width: read(variant.sectionWidth), depth: read(variant.sectionDepth) };
 }
 
-/**
- * The storey height a level stands at, as a reading — or the code it stands under instead. A height
- * whose readings disagree, and one nobody read, are both a level with no height (L-MEA-07), and the
- * code each is reported under is the levels law's own pairing rather than a map spelled here (B-17).
- */
-function heightOf(level: LevelSetup | undefined): Height {
-  // A row standing on a level the live stack does not hold has no reading of a storey height either:
-  // it is the same absence, and L-QTY-02 keeps the row and declares it rather than dropping it.
-  const height = level?.height;
-  if (height === undefined || height.standing !== "AGREED" || height.value === null || height.unit === null || height.basis === null) {
-    const code = height === undefined ? STOREY_HEIGHT_ABSENCE.NONE : STOREY_HEIGHT_ABSENCE[height.standing];
-    return { ok: false, code: code ?? (STOREY_HEIGHT_ABSENCE.NONE as RefusalCode) };
-  }
-  // A reading that cites no drawing entity is a reading with nowhere to go back to, and a line always
-  // carries the provenance of what it states (L-QTY-03) — so it is no height this rail can bind, and
-  // the row is KEPT with H declared omitted rather than offered under a source nothing answers to
-  // (L-QTY-02). A source the setup spells as nothing is no source either, the same way a calibration
-  // reference it spells as nothing is no affirmed reference (riskNotes (3)).
-  //
-  // Under its OWN code: the readings AGREE and a figure stands, so telling the reader nobody has
-  // stated this level's height would send them to enter one that is already entered (Q-07).
-  if (height.sourceKey === null || height.sourceKey.length === 0) return { ok: false, code: STOREY_HEIGHT_UNCITED };
-  // The source is the entity the height was read from, as the level states it: a rail names no
-  // provenance the setup did not give it, and the guard above means there is one to name (L-QTY-03).
-  return { ok: true, reading: { value: height.value, unit: height.unit, basis: height.basis, source: height.sourceKey } };
-}
 
 /**
  * One observation about a row this rail did not offer, under its own closed roster (L-MEA-08).
@@ -158,7 +125,7 @@ type Read = {
   readonly placement: PlacementSetup;
   readonly calibration: string;
   readonly section: { readonly width: Measure; readonly depth: Measure };
-  readonly height: Height;
+  readonly height: StoreyHeightReading;
 };
 
 /** The offer one read row stands to be measured by (L-MEA-08's offer, whole). */

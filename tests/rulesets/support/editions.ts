@@ -57,24 +57,26 @@ export const LINEAGE_SCOPES: readonly ["platform", "tenant", "project"] = ["plat
 /**
  * The seed edition's identity. Re-baselined under B-20 by inc-213: the platform edition is re-minted
  * as `IS1200_IN @ 2026.10` citing every method the shards enumerate — re-baselined again by the
- * frame leaf, whose six methods the edition in force has to cite, and again by the REBAR leaf, whose
+ * frame leaf, whose six methods the edition in force has to cite, again by the REBAR leaf, whose
  * five pairs — the detailing edition itself, BS 8666's cutting length, the stock split, the member
- * synthesis and the mass — the edition in force has to cite — inserted beside the immutable
- * 2026.08 row rather than over it — so the SEED the product ships, and every fork of it, is the new
- * one, while the old row stands untouched as the campaigns opened under it measured against.
+ * synthesis and the mass — the edition in force has to cite, and again by the SLABS leaf, whose
+ * twelve pairs for a plate, a sunken drop, a shear-wall storey, a flight and a landing it has to
+ * cite too — each inserted beside the immutable 2026.08 row rather than over it — so the SEED the
+ * product ships, and every fork of it, is the new one, while the old rows stand untouched as the
+ * campaigns opened under them measured against.
  */
 export const SEED_NAME = "IS1200_IN";
-export const SEED_VERSION = "2027.01";
+export const SEED_VERSION = "2027.02";
 
 /**
  * The version the seed stood at before this leaf, kept as the row a migration test reads.
  *
- * Re-baselined by the REBAR leaf: 2026.12 is the row the masonry leaf minted, and this leaf's five
+ * Re-baselined by the SLABS leaf: 2027.01 is the row the rebar leaf minted, and this leaf's twelve
  * pairs come in on the next version beside it rather than over it — an edition is immutable, so
  * a re-mint of a standing version would be an EDIT of a row campaigns have already measured against
  * (L-MEA-01, B-20). That is what "re-minted … so a pin puts them in force" means here.
  */
-export const SUPERSEDED_SEED_VERSION = "2026.12";
+export const SUPERSEDED_SEED_VERSION = "2027.01";
 
 /**
  * The seed's parameters, verbatim from L-MEA-01 and the Design Decision §3 table — the closed 17

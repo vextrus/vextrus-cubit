@@ -36,3 +36,30 @@ export function composeRails(...rails: readonly Rail[]): Rail {
     return { offers, observations };
   };
 }
+
+/**
+ * Every AREA's rails as one roster: a kind exactly one area answers is answered by that area's very
+ * function, and a kind several areas answer is answered by `composeRails` over them, in the order
+ * the areas were enumerated.
+ *
+ * More than one area measures a kind — the frame's beams and the slab area's plates are both
+ * `rcc.concrete` and both `rcc.formwork` — and a SPREAD of one area's map over another's would keep
+ * the last and lose the first in silence: the roster would claim a kind is measured while half of it
+ * never was (AM-11, L-MEA-08, B-19).
+ *
+ * The identity in the single-area case is kept on purpose: a roster that wrapped every rail would
+ * make "which function measures this kind" unanswerable, and a reader auditing it would find a
+ * closure where its area declared a rail.
+ */
+export function enumerateRails(areas: readonly RailRoster[]): RailRoster {
+  const held = new Map<Kind, Rail[]>();
+  for (const area of areas) {
+    for (const [kind, rail] of Object.entries(area) as readonly [Kind, Rail | undefined][]) {
+      if (rail === undefined) continue;
+      held.set(kind, [...(held.get(kind) ?? []), rail]);
+    }
+  }
+  const roster: Partial<Record<Kind, Rail>> = {};
+  for (const [kind, rails] of held) roster[kind] = rails.length === 1 ? (rails[0] as Rail) : composeRails(...rails);
+  return Object.freeze(roster);
+}

@@ -1,0 +1,77 @@
+{
+  "methods": {
+    "rcc.slab.concrete@1": {
+      "ruleId": "rcc.slab.concrete",
+      "version": "1",
+      "law": "L-MEA-09",
+      "module": "src/core/rulesets/methods/slab-wall-stair/slab.ts"
+    },
+    "rcc.slab.taper.concrete@1": {
+      "ruleId": "rcc.slab.taper.concrete",
+      "version": "1",
+      "law": "L-FRM-02",
+      "module": "src/core/rulesets/methods/slab-wall-stair/slab.ts"
+    },
+    "rcc.slab.formwork@1": {
+      "ruleId": "rcc.slab.formwork",
+      "version": "1",
+      "law": "AM-06",
+      "module": "src/core/rulesets/methods/slab-wall-stair/slab.ts"
+    },
+    "rcc.slab.edge-formwork@1": {
+      "ruleId": "rcc.slab.edge-formwork",
+      "version": "1",
+      "law": "AM-06",
+      "module": "src/core/rulesets/methods/slab-wall-stair/slab.ts"
+    },
+    "rcc.slab.drop.concrete@1": {
+      "ruleId": "rcc.slab.drop.concrete",
+      "version": "1",
+      "law": "L-FRM-02",
+      "module": "src/core/rulesets/methods/slab-wall-stair/slab.ts"
+    },
+    "rcc.slab.drop.formwork@1": {
+      "ruleId": "rcc.slab.drop.formwork",
+      "version": "1",
+      "law": "L-FRM-03",
+      "module": "src/core/rulesets/methods/slab-wall-stair/slab.ts"
+    },
+    "rcc.wall.concrete@1": {
+      "ruleId": "rcc.wall.concrete",
+      "version": "1",
+      "law": "L-MEA-09",
+      "module": "src/core/rulesets/methods/slab-wall-stair/wall.ts"
+    },
+    "rcc.wall.formwork@1": {
+      "ruleId": "rcc.wall.formwork",
+      "version": "1",
+      "law": "L-FRM-03",
+      "module": "src/core/rulesets/methods/slab-wall-stair/wall.ts"
+    },
+    "rcc.stair.flight.concrete@1": {
+      "ruleId": "rcc.stair.flight.concrete",
+      "version": "1",
+      "law": "AM-06",
+      "module": "src/core/rulesets/methods/slab-wall-stair/stair.ts"
+    },
+    "rcc.stair.flight.formwork@1": {
+      "ruleId": "rcc.stair.flight.formwork",
+      "version": "1",
+      "law": "AM-06",
+      "module": "src/core/rulesets/methods/slab-wall-stair/stair.ts"
+    },
+    "rcc.stair.landing.concrete@1": {
+      "ruleId": "rcc.stair.landing.concrete",
+      "version": "1",
+      "law": "L-FRM-02",
+      "module": "src/core/rulesets/methods/slab-wall-stair/stair.ts"
+    },
+    "rcc.stair.landing.formwork@1": {
+      "ruleId": "rcc.stair.landing.formwork",
+      "version": "1",
+      "law": "L-FRM-03",
+      "module": "src/core/rulesets/methods/slab-wall-stair/stair.ts"
+    }
+  },
+  "digest": "3313143293f4f47b7742445f59c1b49644b9cc017c75c5c37eba88e5746cc3ef"
+}

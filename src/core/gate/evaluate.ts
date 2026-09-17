@@ -29,7 +29,7 @@ import { COVERAGES, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES, weakestBasis, type 
 import type { MethodPair } from "../rulesets/editions/content";
 import { implementationOf, type FormulaMethod, type NormalisedBindings } from "../rulesets/methods/registry";
 import { CANONICAL_UNIT, exact } from "../units/canon";
-import { CHANNEL_THRESHOLD, CHANNEL_VARIABLE, deductedSum, partitionDeductions } from "./deductions";
+import { CHANNEL_VARIABLE, deductedSum, partitionDeductions } from "./deductions";
 import { renderFormula } from "./template";
 import { admissibleFigure, normaliseMeasure } from "./units";
 
@@ -106,16 +106,18 @@ function rollUps(offer: Offer, bound: Readonly<Record<string, Measure>>): { read
  * the edition's threshold DEDUCTED, in the canonical unit of the variable it binds into
  * (L-MEA-02, riskNotes (2)).
  *
- * The sum is DERIVED and cites the parameter that partitioned it, so a reader can go back to the very
- * clause that decided which openings came off: the candidates themselves stand enumerated on the line
- * beside it, each with the side it fell on, which is what makes the ignored ones readable too
- * (L-QTY-01, L-QTY-03). A channel whose variable the method does not declare binds nothing — the
- * method's own declaration is what the tree subtracts.
+ * The sum is DERIVED, because nobody read it off a drawing — the gate computed it — and it is
+ * provenanced to the REGISTER OBJECT the offer was made for: that is the thing the sum is a sum
+ * about, and it is where a reader goes to see which openings were read there. The threshold that
+ * decided the partition is not lost by that: the candidates stand enumerated on the line beside it,
+ * each with the side it fell on, and the edition the figures were judged under is the line's own
+ * (L-QTY-01, L-QTY-03, settled reading on L-MEA-02). A channel whose variable the method does not
+ * declare binds nothing — the method's own declaration is what the tree subtracts.
  */
 function deductedBindings(
   method: FormulaMethod,
   deducted: readonly DeductionCandidate[],
-  under: MeasuredUnder,
+  objectKey: string,
 ): { readonly ok: true; readonly readings: Readonly<Record<string, Measure>> } | { readonly ok: false; readonly code: RefusalCode } {
   const readings: Record<string, Measure> = {};
   for (const channel of method.deductionChannels) {
@@ -124,7 +126,7 @@ function deductedBindings(
     if (variable === undefined) continue;
     const sum = deductedSum(deducted, channel, variable.dimension);
     if (!sum.ok) return { ok: false, code: sum.code };
-    readings[name] = { value: sum.value, unit: sum.unit, basis: "DERIVED", source: `edition:${under.editionDigest}#${CHANNEL_THRESHOLD[channel]}` };
+    readings[name] = { value: sum.value, unit: sum.unit, basis: "DERIVED", source: objectKey };
   }
   return { ok: true, readings };
 }
@@ -282,7 +284,7 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
   // enumerates candidates and computes nothing (L-MEA-08), and which side of the threshold each one
   // falls on is decided here. So an offer that bound the sum itself, or declared it omitted, has
   // computed what it may not compute — and is answered rather than published (riskNotes (2)).
-  const summed = deductedBindings(method, partition.deducted, under);
+  const summed = deductedBindings(method, partition.deducted, offer.register.objectKey);
   if (!summed.ok) return refuse(offer, summed.code);
   if (Object.keys(summed.readings).some((name) => Object.hasOwn(offer.bindings, name) || left.has(name))) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
   const carriedIn: Readonly<Record<string, Measure>> = { ...offer.bindings, ...summed.readings };

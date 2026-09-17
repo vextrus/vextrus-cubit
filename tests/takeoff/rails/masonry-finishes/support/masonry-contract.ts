@@ -121,9 +121,14 @@ export const MASONRY_VERSION = "1";
 export const MASONRY_RULE_IDS: readonly string[] = Object.freeze([BRICK_WALL_VOLUME_RULE_ID, PLASTER_RULE_ID, PAINT_RULE_ID]);
 export const MASONRY_PAIRS: readonly MethodPairShape[] = Object.freeze(MASONRY_RULE_IDS.map((ruleId) => Object.freeze({ ruleId, version: MASONRY_VERSION })));
 
-/** The identity the platform seed is re-minted at (AC-2, interfaces). */
+/**
+ * The identity the platform seed stands at (AC-2, interfaces) — re-baselined by each leaf that mints
+ * a head beside it: an edition is immutable, so a later shard is cited by a NEW version and the seed
+ * names that one (L-MEA-01, B-20). What the cases below grade is that this area's three pairs are
+ * cited by the edition the seed names, whichever version that has become.
+ */
 export const SEED_EDITION_NAME = "IS1200_IN";
-export const SEED_EDITION_VERSION = "2027.01";
+export const SEED_EDITION_VERSION = "2027.02";
 
 /** The nine codes of the masonry shard, by name (AC-4, interfaces). */
 export const OPENING_SCHEDULE_ABSENT = "OPENING_SCHEDULE_ABSENT";
