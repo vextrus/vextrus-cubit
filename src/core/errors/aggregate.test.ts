@@ -70,6 +70,12 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "DETAILING_ROW_NOT_IN_EDITION",
   "DIGEST_MISMATCH",
   "DIMENSION_MISMATCH",
+  "DOCUMENT_KIND_UNKNOWN",
+  "DOCUMENT_NOT_FOUND",
+  "DOCUMENT_NOT_RENDERED",
+  "DOCUMENT_PAYLOAD_MALFORMED",
+  "DOCUMENT_URL_EXPIRED",
+  "DOCUMENT_URL_INVALID",
   "DOWNLOAD_NOT_SIGNABLE",
   "DUPLICATE_IDENTITY",
   "EARTHWORK_PLAN_DEFERRED",
@@ -178,9 +184,19 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * under rather than being billed at zero; `REBAR_TIE_ZONE_UNSTATED`, which a zone stating a spacing
  * and no length to run it over leaves the confinement steel omitted by name under; and
  * `REBAR_STOREY_RUN_UNSTATED`, which a vertical with no storey run leaves its bars undeclared under
- * (L-FRM-05, L-QTY-02). The roster grew by those four keys — 105 codes to 109 — and not one existing
+ * (L-FRM-05, L-QTY-02). The roster grew by those four keys — 111 codes to 115 — and not one existing
  * entry's code, message, remedy, severity or surface moved with them; the previous digest was
- * 32df92f233d23f6d676ee51d208364ba75c57da271b4854ee1170a61a0da791c.
+ * f0994ec06d7e42442917eb1616dc4927f726c7f3458b39531cc6834f2ce6963a.
+ *
+ * Re-baselined before that for SIX ADDED entries and nothing else, all of them `./docs.ts`'s and all of them
+ * about one document (R-SPINE-040): `DOCUMENT_KIND_UNKNOWN` and `DOCUMENT_PAYLOAD_MALFORMED`, which a
+ * render refuses a kind nobody registered and a payload its schema will not read by;
+ * `DOCUMENT_NOT_RENDERED`, which a renderer that fell over is answered with, carrying the id of the
+ * fault it was recorded as (ARCH-03); and `DOCUMENT_NOT_FOUND`, `DOCUMENT_URL_INVALID` and
+ * `DOCUMENT_URL_EXPIRED`, the three answers `GET /api/documents/[id]` gives a signed download link it
+ * will not serve (R-SPINE-021, Q-12). The roster grew by those six keys — 105 codes to 111 — and not
+ * one existing entry's code, message, remedy, severity or surface moved with them; the previous
+ * digest was 32df92f233d23f6d676ee51d208364ba75c57da271b4854ee1170a61a0da791c.
  *
  * Re-baselined before that for TEN ADDED entries and nothing else, all of them the FOUNDATIONS leaf's
  * (./foundations.ts): the six readings a foundation rail reports rather than guess when the drawing
@@ -245,7 +261,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "5cc17319a1c78c588fddd68a09e13418983ae40e5c4deaa4cec0c56e0f2c94ea";
+const ENTRIES_DIGEST_BEFORE = "9bc34ffa33026d33a92931d1f913e7b7808ad05fcbd06a83048d8b9324ea1d7b";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {
