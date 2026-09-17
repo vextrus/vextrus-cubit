@@ -17,7 +17,6 @@ import type { ResolverMethod } from "../law";
 import type { ShapeCode } from "./bs8666";
 import { stockSplitOf } from "./stock";
 import {
-  coverOf,
   developmentLengthOf,
   fcPsiOf,
   hookExtensionOf,
@@ -129,16 +128,22 @@ export function anchorageLengthFor(applied: AppliedDetailing, edition: Detailing
 }
 
 /**
- * How many bars stand at `spacingMm` over `distanceMm`: the WHOLE spaces that fit, plus the bar that
- * closes the last one.
+ * How many bars stand at `spacingMm` over `distanceMm`: the spaces that fit, plus the bar that closes
+ * the last one. This is the ONE counting rule — every spaced group is counted through it.
  *
- * The part space left at the end carries no bar of its own — a 1499.6 mm zone at 150 c/c is nine
- * whole spaces and ten bars, not eleven, because the tenth space the run does not quite reach is a
- * space the drawing did not space for (L-QTY-01: a figure the drawing did not state is not ours to
- * state for it). This is the ONE counting rule: every spaced group in this file is counted here.
+ * A MEASURED run is allowed half a millimetre before it is called short. A zone a drawing spaces at
+ * 150 c/c and dimensions 1499.6 is a run of ten spaces detailed, not nine and a sliver: the tenth
+ * space is missing by four tenths of a millimetre, which is the arithmetic of the cover and the
+ * support faces the zone was struck between and not a space the detailer left out (L-QTY-01 — the
+ * figure the drawing STATED is the spacing, and a count that dropped a bar to a rounding would be a
+ * figure of ours). Beyond that half millimetre the part space carries no bar of its own.
+ *
+ * A caller whose distance is DERIVED rather than measured — a mat's width inside its own cover, which
+ * is arithmetic to the last digit — states `toleranceMm` "0" and gets the plain floor: there is no
+ * measurement there to be generous about.
  */
-export function countBetween(distanceMm: string, spacingMm: string): number {
-  return exact(distanceMm).div(exact(spacingMm)).floor().toNumber() + 1;
+export function countBetween(distanceMm: string, spacingMm: string, toleranceMm = "0.5"): number {
+  return exact(distanceMm).add(exact(toleranceMm)).div(exact(spacingMm)).floor().toNumber() + 1;
 }
 
 /* ------------------------------------------------------------------ the member classes */
@@ -323,7 +328,9 @@ export type MatBarProbe = {
  * (shape 21), spaced across the other direction inside the same cover.
  *
  * The count is the spaces inside the cover plus the closing bar — a mat's outermost bars sit at the
- * cover line, not beyond it.
+ * cover line, not beyond it. The distance it is counted over is struck here, not measured off a
+ * drawing, so it is counted to the plain floor with none of the half millimetre a measured zone is
+ * allowed: ⌊(distDim − 2c) ÷ spacing⌋ + 1.
  */
 export function synthesiseMatBar(probe: MatBarProbe): readonly BarSpec[] {
   const inset = exact(probe.coverMm).mul(exact(2));
@@ -336,7 +343,7 @@ export function synthesiseMatBar(probe: MatBarProbe): readonly BarSpec[] {
       diameterMm: probe.diameterMm,
       shape: "21",
       legsMm: [hook.toString(), net.toString(), hook.toString()],
-      barsPerUnit: countBetween(across.toString(), probe.spacingMm),
+      barsPerUnit: countBetween(across.toString(), probe.spacingMm, "0"),
       lapMm: "0",
       lapsPerBar: 0,
       sourceKeys: probe.sourceKeys ?? [],
@@ -359,18 +366,17 @@ export type SlabCrankProbe = {
  * A cranked slab bar (shape CRK): the clear span, anchored ℓd at each end, with the two cranks
  * rising 0.42 D apiece — the geometry of a 45° crank through a slab of depth D.
  *
- * D is the depth the crank actually RISES THROUGH, which is the slab inside its two covers and not
- * the slab's gross thickness: a bar that rose 0.42 × the thickness would break the cover it started
- * under. The roster fixes it — every CRK row of F-RCC6-BNBC cranks 35.700 in a 125 slab and 46.200
- * in a 150, both of them 0.42 × (t − 2 × the edition's 20 mm slab cover) (AM-01, AM-03(d)).
+ * D is the depth the crank rises through, which is what the caller states: a slab's rows in
+ * F-RCC6-BNBC crank 35.700 in a 125 mm slab and 46.200 in a 150 mm one, the 0.42 taken over the slab
+ * inside its covers, and it is the member's reader that takes the cover off — this method cranks
+ * through the depth it was given and invents no dimension of its own (L-QTY-01, AM-03(d)).
  */
 export function synthesiseSlabCrank(probe: SlabCrankProbe): readonly BarSpec[] {
   const at: BarPosition = { diameterMm: probe.diameterMm, confined: false, top: false };
   const anchorage = anchorageLengthFor(probe.detailing, probe.edition, at);
   if (!anchorage.ok) return [];
   const lap = lapLengthFor(probe.detailing, probe.edition, at);
-  const between = exact(probe.depthMm).sub(exact(coverOf(probe.edition, "slab")).mul(exact(2)));
-  const crank = between.mul(exact("0.42"));
+  const crank = exact(probe.depthMm).mul(exact("0.42"));
   const straight = exact(probe.clearSpanMm).add(exact(anchorage.mm).mul(exact(ANCHORAGE_ENDS.MAIN)));
   return [
     {
