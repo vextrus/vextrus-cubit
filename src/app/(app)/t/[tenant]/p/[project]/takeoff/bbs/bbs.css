@@ -1,0 +1,244 @@
+/*
+ * S-BBS — the bill of bars by member and mark, cut from the grid workspace template
+ * (docs/design/s-bbs.md §§1, 4, 5, 6; Design Direction 00 §3.2, §5). Every colour, size, weight and
+ * duration is a read into the committed Datum token source (R-UI-001, R-UI-003, R-UI-004): the rules
+ * are identical in light and dark, and the themes differ only in what the tokens are worth. No
+ * `[data-theme]` selector appears here.
+ *
+ * THE GEOMETRY, IN ONE PLACE. The workspace is a column that fills `shell-main`: the offline banner,
+ * the answer slot with the one status line in it, the grid — which takes every remaining pixel and
+ * scrolls inside its own box — and the cutting-stock summary beneath it, capped so the grid keeps
+ * the screen. Nothing stands above them (the tabs row is the frame's tool track, takeoff.css) and
+ * nothing stands beside them: this screen mounts no inspector, because nothing here is selectable
+ * (R-UI-080).
+ *
+ * The px literals are the closed set §5 fixes: the status line's and the summary heading's 28, the
+ * summary's 224 cap, and the 520 the empty state and the error block stand at. The ten column widths
+ * are the table's own (its `size`), and the row height is the root's `--row-h`, never this sheet's.
+ *
+ * Nothing here eases in (§4). Focus is not styled here either — every chip and link wears the
+ * reticle from its one home (B-17, R-UI-012).
+ */
+
+.cx-bbs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+  min-height: 0;
+  max-width: none;
+  font-family: var(--font-ui);
+  line-height: var(--leading-ui);
+}
+
+/* --- the lane's tabs aside: the pinned revision and what the schedule was cut from (§1) --- */
+
+.cx-bbs-aside {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cx-bbs-aside-label,
+.cx-bbs-stock {
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+}
+
+.cx-bbs-stock {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.cx-bbs-bone-chip {
+  width: 96px;
+  height: 28px;
+}
+
+/* --- the offline banner and the one answer slot (R-UI-020, R-UI-050, I-bbs-7) --- */
+
+.cx-bbs-offline {
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: var(--surface-panel);
+  color: var(--ink-secondary);
+  font-size: var(--text-body);
+}
+
+.cx-bbs-answer:empty {
+  display: none;
+}
+
+.cx-bbs-answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-bbs-denied {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+}
+
+/* --- the one helper line: whether every bar of this campaign is here (§2) --- */
+
+.cx-bbs-status {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-body);
+}
+
+/* --- the grid: one member after another, in the document's own order (§1) --- */
+
+.cx-bbs-grid {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.cx-bbs-member-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.cx-bbs-member {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-h);
+  margin: 0;
+  padding: var(--cell-py) var(--cell-px);
+  background: var(--surface-sunken);
+  border-bottom: var(--hairline);
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: var(--weight-body-medium);
+  white-space: nowrap;
+}
+
+.cx-bbs-member-level {
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+}
+
+.cx-bbs-member-mark {
+  color: var(--ink-code);
+  font-family: var(--font-mono);
+}
+
+/* --- the cells (§1's column table) --- */
+
+.cx-bbs-mark,
+.cx-bbs-shape {
+  color: var(--ink-code);
+  font-family: var(--font-mono);
+}
+
+.cx-bbs-lap-label {
+  color: var(--ink-secondary);
+}
+
+.cx-bbs-nothing {
+  color: var(--ink-muted);
+}
+
+.cx-bbs-dims {
+  color: var(--ink-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cx-bbs-figure {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  text-align: right;
+}
+
+.cx-bbs-enum {
+  min-width: 0;
+}
+
+/* --- the cutting stock: informational, capped, and scrolling inside itself (I-bbs-5) --- */
+
+.cx-bbs-summary {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  max-height: 224px;
+  min-height: 0;
+  border-top: var(--hairline);
+}
+
+.cx-bbs-summary-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 28px;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: var(--weight-heading);
+}
+
+.cx-bbs-summary-table {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cx-bbs-summary-head,
+.cx-bbs-summary-row,
+.cx-bbs-summary-total {
+  display: grid;
+  grid-template-columns: 112px 160px 128px 112px 160px;
+  align-items: center;
+  min-height: var(--row-h);
+  padding: 0 var(--cell-px);
+  border-bottom: var(--hairline);
+}
+
+.cx-bbs-summary-head > span,
+.cx-bbs-summary-total > span {
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+  text-align: right;
+}
+
+.cx-bbs-summary-head,
+.cx-bbs-summary-total {
+  background: var(--surface-sunken);
+}
+
+.cx-bbs-summary-total > span:first-child {
+  color: var(--ink);
+  font-weight: var(--weight-body-medium);
+  text-align: left;
+}
+
+.cx-bbs-summary-total .cx-bbs-figure {
+  color: var(--ink);
+  font-size: var(--text-body);
+}
+
+.cx-bbs-summary-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* --- the empty state and the error block, in the grid's place (§2) --- */
+
+.cx-bbs-empty,
+.cx-bbs-error {
+  max-width: 520px;
+  margin: 0 auto;
+}
