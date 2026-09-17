@@ -48,6 +48,14 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   met by rendering them inside `data-technical` mono rather than by inventing English for them. The
   PDF draws the same codes as Typst vector sketches; no raster image is ever emitted (A-BBS-PDF).
 
+- **I-bbs-7 — the screen's one helper line stands inside the answer slot, and is named for what it
+  says.** A reading that is partly declared is something this screen ANSWERS about itself, so the
+  sentence stands in the same polite live region as a refusal and a denial rather than in a second
+  region beside it: a reader using a screen reader hears one place speak, and `bbs-answer` is that
+  place (R-UI-020, R-UI-060). The two sentences are keyed `bbs_partial` and `bbs_complete` — the
+  state they belong to, named as the state is. Rejected: a status line outside the answer slot under
+  `bbs_coverage_*` keys, which gave the screen two live regions saying two halves of one answer.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -91,8 +99,8 @@ frozen; the page never scrolls sideways (§7 C10).
 | Region | What it holds | Width / height rule | Tokens | State when empty |
 |---|---|---|---|---|
 | tabs row (frame's track) | the five shipped entries then `takeoff-nav-bbs` (`aria-current="page"` here); in `useTakeoffTabsAside`: `bbs-revision` (IdChip, `data-value` the whole `setRevisionId`) and `bbs-stock` (`data-stock-mm`, `data-rounding-mm`). **No primary** — nothing on this screen commits (export is owed at the door) | 100 % × `--toolbar-h` 32 | `--surface-panel`, `--ink`, `--ink-secondary`, `--ink-muted`, `--line-accent`, `--font-mono` | the aside carries the tabs alone while no campaign is pinned |
-| answer slot (`bbs-answer`) | one RefusalState from a refused or denied door; the offline banner above it | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--state-warn(-surface)` through RefusalState, `--radius-4`, `--hairline` | absent (no box) |
-| status line | the ONE helper line, `<p role="status">`: `bbs_coverage_partial` or `bbs_coverage_complete` | 100 % × 28 | `--ink-muted`, `--text-body` | absent with the grid |
+| answer slot (`bbs-answer`) | one RefusalState from a refused or denied door; the offline banner above it; and, beneath them, the status line — everything this screen ANSWERS about its own reading stands in the one polite live region | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--state-warn(-surface)` through RefusalState, `--radius-4`, `--hairline` | absent (no box) |
+| status line | the ONE helper line, `<p role="status">` inside the answer slot: `bbs_partial` or `bbs_complete` | 100 % × 28 | `--ink-muted`, `--text-body` | absent with the grid |
 | grid (primary) | `bbs-grid` (DataTable v2, `tableId` `s-bbs-bars`, `aria-label` `bbs_grid_label`, `data-rows-rendered`): one `bbs-member` group row per distinct `objectKey` in `document.rows` order, then its `bbs-row` (NET) rows each optionally followed by one `bbs-lap` | `flex: 1 1 auto`; ≥ 55 % of main; header and rows at `--row-h` (28 compact / 36 comfortable, revalued at the ROOT by `[data-density]`, never here); first column frozen; no wrapping cell | `--surface-app`, `--surface-sunken` (sticky header, group rows), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline` | not rendered at all: `bbs-empty` stands in its place |
 | summary (`bbs-summary`) | the heading, its `(i)` popover, and a 5-column table: one `bbs-summary-row` per key of `perDiameterKg` in ascending numeric diameter, closed by the sticky total row carrying `grandTotalKg`; `data-kg` on the region is that grand total | 100 % × 28 heading + 28 header + rows + 28 total, **max 224**, body scrolls inside | `--surface-sunken` (header and total row), `--ink`, `--ink-code`, `--font-mono`, `--hairline` | absent with the grid |
 | empty (in the grid's place) | the shipped `EmptyState` `bbs-empty`: heading, one sentence, one action to `…/takeoff/register` | max-width 520, centred in the grid's box | `--ink`, `--ink-muted`, `--accent` through Button | this IS the empty state |
@@ -157,8 +165,8 @@ through `./demonstration`, exactly as `takeoff/boq/demonstration.ts` does.
   the lane's other empty states offer.
 - **Partial** — rendered, never hidden. `data-state="partial"` while any `rcc.rebar` line of the
   campaign carries coverage `PARTIAL_DECLARED` (a tie zone unread, `REBAR_TIE_ZONE_UNSTATED`): every
-  member, bar, lap and stock row stands in full, and the status line reads `bbs_coverage_partial`.
-- **Ready** — `data-state="ready"`; the status line reads `bbs_coverage_complete`.
+  member, bar, lap and stock row stands in full, and the status line reads `bbs_partial`.
+- **Ready** — `data-state="ready"`; the status line reads `bbs_complete`.
 
 ## 3. Copy, verbatim (`src/ui/strings/bbs.ts`, aggregated by `index.ts`)
 
@@ -174,8 +182,8 @@ never as a percentage of it.** · `bbs_summary_heading` **Cutting stock by diame
 are never billed.** · `bbs_summary_col_diameter` **Diameter (mm)** · `bbs_summary_col_kg` **Mass (kg)**
 · `bbs_summary_col_stock_bars` **Stock bars** · `bbs_summary_col_pieces` **Pieces** ·
 `bbs_summary_col_offcut` **Offcut (mm)** · `bbs_summary_total` **Total mass** ·
-`bbs_coverage_partial` **Some rebar lines are partly declared, so their bars stand here as they read.**
-· `bbs_coverage_complete` **Every bar of the pinned campaign is scheduled, with laps as their own
+`bbs_partial` **Some rebar lines are partly declared, so their bars stand here as they read.**
+· `bbs_complete` **Every bar of the pinned campaign is scheduled, with laps as their own
 rows.** · `bbs_empty_heading` **No bars scheduled yet** · `bbs_empty_body` **A bar schedule lists every
 bar of the pinned campaign by member and mark, with its shape, its cutting lengths and its mass.
 Measure the campaign from the takeoff register and the schedule appears here.** · `bbs_empty_action`
