@@ -26,6 +26,7 @@ import { parseSourceKey } from "@/core/sources";
 import { LINE_PARAM, originAddress, traceAddress } from "@/modules/takeoff/trace/address";
 import { basisOf } from "./basis";
 import { REGISTER_COPY, fillCopy } from "./copy";
+import { originRowIndexOf } from "./origin";
 import type { RegisterView, ViewAttribute, ViewLine, ViewObject, ViewReading } from "./view";
 
 /* ------------------------------------------------------------------ what the screen is handed */
@@ -1352,7 +1353,11 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
               }}
               rowDataOf={(line) => rowDataOf(line, selectedLineId)}
               aria-label={REGISTER_COPY.takeoff_register_heading}
-              scrollToRowId={originLine ?? undefined}
+              // The table is asked to travel only to a row it is in fact rendering: an origin a
+              // filter has taken away stands nowhere, and asking for it would leave the reticle owed
+              // for the rest of the visit. Where the row does stand, WHERE it stands is the table's
+              // own reading of its sorted order, never this screen's of the unsorted list (I-182).
+              scrollToRowId={originRowIndexOf(lines, originLine) === null ? undefined : (originLine ?? undefined)}
             />
           )}
         </div>
