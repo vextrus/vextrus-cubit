@@ -314,11 +314,21 @@ test.describe("J-032 — the bar schedule the transcribed notes produce", () => 
     const rowStyle = await afterSettled(page, () =>
       firstRow.evaluate((node) => {
         const style = getComputedStyle(node);
-        return { height: node.getBoundingClientRect().height, wrap: style.whiteSpace, density: document.documentElement.getAttribute("data-density") ?? document.body.getAttribute("data-density") };
+        // The density is published ONCE, above the grid and below the document: `shell-root` carries
+        // `data-density` (the density Decision §1, I-35), and a screen reads it by looking up — the
+        // way the product's own readers do. So the row asks its own ancestors first (I-310-a).
+        const density = node.closest("[data-density]")?.getAttribute("data-density") ?? document.querySelector("[data-density]")?.getAttribute("data-density");
+        return {
+          height: node.getBoundingClientRect().height,
+          wrap: style.whiteSpace,
+          density,
+          switches: document.querySelectorAll("[data-density]").length,
+        };
       }),
     );
     expect(Math.round(rowStyle.height), "a row of the compact grid stands at the density's own row height, revalued at the root and never per screen").toBe(28);
-    expect(rowStyle.density, "and the density is declared at the ROOT, which is the one switch the grid reads `--row-h` from").toBeTruthy();
+    expect(rowStyle.density, "and the row inherits `--row-h` from a frame standing at the compact density — the one switch it reads it from").toBe("compact");
+    expect(rowStyle.switches, "declared in ONE place above the grid: a screen that stamped its own `data-density` beside the frame's would be a second source of truth (R-UI-083, density Decision §1)").toBe(1);
 
     const massCell = firstRow.getByRole("gridcell").last();
     const numerals = await afterSettled(page, () => massCell.evaluate((node) => ({ align: getComputedStyle(node).textAlign, variant: getComputedStyle(node).fontVariantNumeric })));
