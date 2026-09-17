@@ -116,7 +116,6 @@
 .cx-bbs-member-block:not(:first-of-type) .cx-table-header {
   position: absolute;
   width: 1px;
-  height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
@@ -137,7 +136,6 @@
 .cx-bbs-name {
   position: absolute;
   width: 1px;
-  height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
