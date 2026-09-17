@@ -381,3 +381,91 @@ export function sectionLines(payload: PayloadShape): { section: PayloadShape["se
 export function csvLines(bytes: Uint8Array): string[] {
   return Buffer.from(bytes).toString("utf8").split("\r\n");
 }
+
+/**
+ * A CSV artefact as its fields, read the way RFC 4180 says to read one: a quoted field may hold a
+ * comma, a newline and a doubled quote, so a split on `,` would tear a formula in half. Mechanics —
+ * this is the reader every other program on the far side of the link has.
+ */
+export function csvRows(bytes: Uint8Array): string[][] {
+  const text = Buffer.from(bytes).toString("utf8");
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let quoted = false;
+  let at = 0;
+  while (at < text.length) {
+    const char = text[at] as string;
+    if (quoted) {
+      if (char === '"' && text[at + 1] === '"') {
+        field += '"';
+        at += 2;
+        continue;
+      }
+      if (char === '"') {
+        quoted = false;
+        at += 1;
+        continue;
+      }
+      field += char;
+      at += 1;
+      continue;
+    }
+    if (char === '"') {
+      quoted = true;
+      at += 1;
+      continue;
+    }
+    if (char === ",") {
+      row.push(field);
+      field = "";
+      at += 1;
+      continue;
+    }
+    if (char === "\r" && text[at + 1] === "\n") {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+      at += 2;
+      continue;
+    }
+    field += char;
+    at += 1;
+  }
+  if (field !== "" || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows;
+}
+
+/** A sheet or an artefact read as a table: the header a reader sees, and the rows beneath it. */
+export type Table = { header: string[]; rows: string[][] };
+
+/** One worksheet of an opened workbook, as text — every cell the sheet declares a column for. */
+export function sheetTable(sheet: ExcelJS.Worksheet): Table {
+  const width = sheet.columnCount;
+  return {
+    header: rowText(sheet, HEADER_ROW, width),
+    rows: Array.from({ length: Math.max(sheet.rowCount - HEADER_ROW, 0) }, (_unused, index) => rowText(sheet, FIRST_BODY_ROW + index, width)),
+  };
+}
+
+/** A CSV artefact read as the same table, so one reading serves both kinds of the artefact. */
+export function csvTable(bytes: Uint8Array): Table {
+  const rows = csvRows(bytes);
+  return { header: rows[0] ?? [], rows: rows.slice(1) };
+}
+
+/** The column a header names, asserted to stand on the artefact before it is read. */
+export function columnAt(table: Table, header: string): number {
+  const at = table.header.indexOf(header);
+  expect(at, `the artefact heads a ${JSON.stringify(header)} column; it heads ${JSON.stringify(table.header)}`).toBeGreaterThanOrEqual(0);
+  return at;
+}
+
+/** What one row says under one header. */
+export function underHeader(table: Table, row: readonly string[], header: string): string {
+  return row[columnAt(table, header)] ?? "";
+}

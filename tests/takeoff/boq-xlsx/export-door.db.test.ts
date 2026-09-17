@@ -33,16 +33,22 @@ import {
   SERVER_MODULE,
   STORAGE_APP_MODULE,
   XLSX,
+  columnAt,
   csvLines,
+  csvTable,
   exportsSeam,
   openWorkbook,
   serverModule,
+  sheetNamed,
   sheetNames,
+  sheetTable,
   specModule,
+  underHeader,
   type ExportsSeam,
 } from "./support/boq-xlsx-stage";
 import {
   REFUSAL_MARKER_MODULE,
+  REGISTER_UI_SERVER_MODULE,
   closeStage,
   productModule,
   refusalRegister,
@@ -251,11 +257,13 @@ describe("AC-3: the quantities door is guarded, and its link serves the bytes it
       const bytes = new Uint8Array(await answer.arrayBuffer());
       expect(bytes.length, "the body is the artefact, not an empty answer").toBeGreaterThan(0);
 
+      let table;
       if (kind === XLSX) {
         // "XLSX export opens with formulas" (J-030): the bytes a person downloads open as a
         // workbook, and the sheet every line of the campaign stands on is in it.
         const workbook = await openWorkbook(bytes);
         expect(sheetNames(workbook), `the downloaded workbook carries the ${QUANTITIES_SHEET} sheet (A-BOQ-XLSX)`).toContain(QUANTITIES_SHEET);
+        table = sheetTable(sheetNamed(workbook, QUANTITIES_SHEET));
       } else {
         const composer = await specModule();
         const composition = await serverModule();
@@ -264,6 +272,37 @@ describe("AC-3: the quantities door is guarded, and its link serves the bytes it
         expect(csvLines(bytes)[0], "the CSV opens with the Quantities sheet's own header — it IS that sheet, as interchange (R-TO-070)").toBe(
           sheet.columns.map((column) => column.header).join(","),
         );
+        table = csvTable(bytes);
+      }
+
+      /* --- the artefact carries the LIVE campaign's own lines, with the register's own evidence --- */
+
+      // What the door composed is only evidence if it was composed from the register. The register's
+      // own reading of this campaign is asked for here, and the artefact a person downloaded is read
+      // back against it line by line: a composition that joined no evidence writes a Quantities sheet
+      // whose Formula, Drawing and Source sheet cells are empty, and this is where that shows
+      // (A-BOQ-XLSX: "every line with bases, coverage, source sheet, formula string").
+      const register = await productModule<{
+        registerViewOf: (scope: { tenantId: string; projectId: string }) => Promise<{ lines: { lineId: string; formula: string; drawingId: string | null; layoutName: string | null }[] }>;
+      }>(REGISTER_UI_SERVER_MODULE);
+      const published = (await register.registerViewOf({ tenantId: staged.tenantId, projectId: staged.projectId })).lines;
+      expect(published.length, "the staged campaign published lines the register reads — an artefact of nothing would prove nothing").toBeGreaterThan(0);
+
+      const lineIdAt = columnAt(table, "Line");
+      expect(
+        new Set(table.rows.map((row) => row[lineIdAt])),
+        `the ${kind} carries every line the register publishes for this campaign, and no line it does not (A-BOQ-XLSX, L-QTY-04)`,
+      ).toEqual(new Set(published.map((line) => line.lineId)));
+      expect(table.rows.length, `and one row each — the ${kind} states a line once`).toBe(published.length);
+
+      const byLineId = new Map(published.map((line) => [line.lineId, line]));
+      for (const row of table.rows) {
+        const lineId = row[lineIdAt] as string;
+        const line = byLineId.get(lineId) as NonNullable<ReturnType<typeof byLineId.get>>;
+        const where = `${kind} row for ${lineId}`;
+        expect(underHeader(table, row, "Formula"), `${where} prints the formula the register holds for it, verbatim (R-TO-070)`).toBe(line.formula);
+        expect(underHeader(table, row, "Drawing"), `${where} cites the drawing the register holds for it (L-QTY-03)`).toBe(line.drawingId ?? "");
+        expect(underHeader(table, row, "Source sheet"), `${where} cites the sheet the register read it from`).toBe(line.layoutName ?? "");
       }
     }, 600_000);
   }
