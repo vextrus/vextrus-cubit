@@ -23,10 +23,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, vi } from "vitest";
+import { ROLE_APP } from "../../../../../db/__tests__/support/fixtures";
+import { lit } from "../../../../../db/__tests__/support/live-sql";
 import { BNBC_SHEET_TEXTS, type SheetText } from "../../../notes/support/bnbc-notes";
 import { notesDoor, performAct as performNoteAct, stageNotesSheet, stageRevisionHolding, transcription, reading as noteReading } from "../../../notes/support/notes-stage";
 import {
   COLUMN_C1,
+  OFFER_NOT_TO_CONTRACT,
   QUANTITY_LINES_TABLE,
   RAIL_OBSERVATIONS_TABLE,
   actorOf,
@@ -42,6 +45,7 @@ import {
   productModule,
   registerSeam,
   rowsOfCampaign,
+  sql,
   stageTenantTemplate,
   storeRows,
   unique,
@@ -76,8 +80,24 @@ import {
 } from "./rebar-contract";
 
 export * from "./rebar-contract";
-export { closeStage, field, storeRows, rowsOfCampaign, QUANTITY_LINES_TABLE, RAIL_OBSERVATIONS_TABLE };
+export { closeStage, field, storeRows, rowsOfCampaign, OFFER_NOT_TO_CONTRACT, QUANTITY_LINES_TABLE, RAIL_OBSERVATIONS_TABLE, ROLE_APP };
 export type { StoreRow };
+
+/**
+ * The privileges the app role holds on a store, as the catalogue reports them.
+ *
+ * What a campaign can do to a line that already stands is a fact about the STORE, not about the
+ * rail: a re-offer can only re-present a standing row where the role that writes it may move one.
+ */
+export function privilegesOf(table: string): string[] {
+  return sql(
+    `select distinct privilege_type from information_schema.role_table_grants
+      where table_schema = 'public' and table_name = ${lit(table)} and grantee = ${lit(ROLE_APP)}
+      order by privilege_type;`,
+  )
+    .map((row) => String(row[0] ?? ""))
+    .sort();
+}
 
 /** The calibration every staged view stands affirmed at — a rail cites what the setup holds. */
 const CALIBRATION_KEY = "CAL:S-01:grid-A";
