@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { readingSetupOf } from "./setup";
 
 describe("readingSetupOf", () => {
-  const reading = { value: "3200", unit: "mm", basis: "DERIVED" as const, sourceKeys: ["ent-9", "ent-10"] };
+  const reading = { value: "3200", unit: "mm" as const, basis: "DERIVED" as const, sourceKeys: ["ent-9", "ent-10"] };
 
   it("carries the first cited entity as the source", () => {
     expect(readingSetupOf(reading)).toEqual({ value: "3200", unit: "mm", basis: "DERIVED", source: "ent-9" });

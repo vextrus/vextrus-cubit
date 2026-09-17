@@ -24,6 +24,7 @@ import type { JobKind } from "@/core/jobs/kinds";
 import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
 import { parseSourceKey } from "@/core/sources";
 import { LINE_PARAM, originAddress, traceAddress } from "@/modules/takeoff/trace/address";
+import { basisOf } from "./basis";
 import { REGISTER_COPY, fillCopy } from "./copy";
 import type { RegisterView, ViewAttribute, ViewLine, ViewObject, ViewReading } from "./view";
 
@@ -275,6 +276,16 @@ const REPUDIATED = "REPUDIATED";
 
 /** The basis a figure nobody read carries — the one basis no Trace is offered from (I-181). */
 const DEFAULTED: QuantityBasis = "DEFAULTED";
+
+/**
+ * One stored basis, chipped where the canon admits it (B-17). A value off the roster renders no chip
+ * at all: a label painted for a basis nobody declared would say something the register does not
+ * (R-UI-050).
+ */
+function StoredBasis({ Chip, said }: { readonly Chip: ComponentType<{ basis: QuantityBasis }>; readonly said: string }): ReactNode {
+  const basis = basisOf(said);
+  return basis === null ? null : <Chip basis={basis} />;
+}
 
 /** The job kind a measure run is watched under (SEAM-JOBS' roster). */
 const MEASURE_KIND: JobKind = "measure";
@@ -912,7 +923,7 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
         <dl className="cx-register-facts">
           <dt>{REGISTER_COPY.takeoff_register_basis_label}</dt>
           <dd data-testid="register-object-basis" data-basis={selected.basis}>
-            <BasisChip basis={selected.basis as QuantityBasis} />
+            <StoredBasis Chip={BasisChip} said={selected.basis} />
           </dd>
           <dt>{REGISTER_COPY.takeoff_register_role_label}</dt>
           <dd data-testid="register-object-role" data-role={selected.role}>
@@ -1412,7 +1423,7 @@ function Readings({
           <span className="cx-register-cell-mono">
             {reading.valueAsWritten} {reading.unitAsWritten}
           </span>
-          <BasisChip basis={reading.basis as QuantityBasis} />
+          <StoredBasis Chip={BasisChip} said={reading.basis} />
           <span className="cx-register-source" data-technical="">
             {reading.sourceKey}
           </span>
