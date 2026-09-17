@@ -12,9 +12,12 @@
 import { z } from "zod";
 import { campaignsOf } from "../../core/campaigns";
 import { REFUSALS } from "../../core/errors";
+import { EXPORT_KINDS, exportDownloadUrl, storeExport, type ExportKind } from "../../core/exports";
 import { refusal } from "../../core/faults/refusal-marker";
 import { enqueue } from "../../core/jobs";
+import { appStorage } from "../../core/storage/app";
 import { BOQ_RENDER_DRAFT_KIND, boqDraftJobKey } from "../../modules/takeoff/boq";
+import { BOQ_EXPORT_LINK_SECONDS, boqExportReadingOf, buildBoqExport } from "../../modules/takeoff/export/boq-xlsx";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { signedOut } from "../auth/refusals";
 import { parsed } from "../call";
@@ -41,8 +44,20 @@ const project = z.object({
     .min(1, { error: 'takeoff-boq: "projectId" must not be blank' }),
 });
 
+/**
+ * What the quantities door may be asked for: a project, and one of the kinds the export seam writes.
+ * A kind this seam cannot write is refused as REQUEST_MALFORMED by the one reading this tier has,
+ * never as a 500 and never as an empty file (ARCH-03, B-21).
+ */
+const quantities = project.extend({
+  kind: z.enum(EXPORT_KINDS, { error: 'takeoff-boq: "kind" must name a kind this product writes' }),
+});
+
 /** What the door answers: the run being watched, and whether it was already running (SEAM-JOBS). */
 export type BoqExportAnswer = { readonly jobId: string; readonly deduplicated: boolean };
+
+/** What the quantities door answers: a signed link, the address of the bytes it serves, and the kind. */
+export type BoqQuantitiesLink = { readonly url: string; readonly sha256: string; readonly kind: ExportKind };
 
 export const takeoffBoqRouter = router({
   /**
@@ -75,5 +90,40 @@ export const takeoffBoqRouter = router({
         },
         { key: boqDraftJobKey(actor.tenantId, campaign.campaignId) },
       );
+    }),
+
+  /**
+   * Write this campaign's published lines as a workbook or as CSV, and answer a signed link to the
+   * bytes (A-BOQ-XLSX, R-TO-070, Q-12).
+   *
+   * SYNCHRONOUS, AND NOT A JOB (I-272). A workbook is evidence addressed by its own bytes, not a
+   * document of the kinds barrel: there is nothing to file in Documents, nothing to preview and no
+   * consequence to bind, so the door builds, stores through SEAM-STORAGE and hands back the address
+   * the shipped `GET /api/exports/[id]` serves. Two presses of one unchanged campaign answer one
+   * address, because a build is a pure function of its spec (R-SPINE-021).
+   */
+  exportQuantities: signedInProcedure
+    .input(parsed(quantities))
+    .mutation(async ({ ctx, input }): Promise<BoqQuantitiesLink> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+
+      const open = await campaignsOf({ tenantId: actor.tenantId, projectId: input.projectId });
+      if (open[open.length - 1] === undefined) {
+        throw refusal(REFUSALS.BOQ_NO_CAMPAIGN.code, "the quantities were asked for a project with no campaign open", { projectId: input.projectId });
+      }
+
+      const reading = await boqExportReadingOf({ tenantId: actor.tenantId, projectId: input.projectId });
+      if (reading === null) {
+        throw refusal(REFUSALS.BOQ_NO_PUBLISHED_LINE.code, "the quantities were asked for a campaign that published no line", { projectId: input.projectId });
+      }
+
+      const storage = appStorage();
+      const { sha256 } = await storeExport(storage, actor.tenantId, await buildBoqExport(reading, input.kind));
+      return {
+        url: exportDownloadUrl(storage, { tenantId: actor.tenantId, sha256, kind: input.kind, expiresInSeconds: BOQ_EXPORT_LINK_SECONDS }),
+        sha256,
+        kind: input.kind,
+      };
     }),
 });

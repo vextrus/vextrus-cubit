@@ -51,6 +51,31 @@
   text-transform: none;
 }
 
+/* The two quantity channels and the link one press hands back (§1, R-TO-070). The controls are the
+   shipped secondary's own chrome; what is stated here is the link beside them — a text link at the
+   control's height so the row keeps one baseline, and the shut affordance a gone connection leaves
+   in a channel's place (I-247, the levels screen's precedent). */
+
+.cx-boq-export-shut {
+  cursor: not-allowed;
+  color: var(--ink-muted);
+}
+
+.cx-boq-export-link {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-2);
+  color: var(--accent);
+  font-size: var(--text-caption);
+  text-decoration: none;
+}
+
+.cx-boq-export-link:hover {
+  background: var(--surface-hover);
+}
+
 /* --- the offline banner, the answer slot and the denial (R-UI-020, R-UI-050) --- */
 
 .cx-boq-offline {
