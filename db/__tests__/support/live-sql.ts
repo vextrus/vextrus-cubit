@@ -352,6 +352,40 @@ function anyRowOf(url: string, table: TableRef, tenantId: string): Record<string
 }
 
 /**
+ * The literals a table's MULTI-column CHECKs name, read off the constraints themselves.
+ *
+ * A CHECK that spans columns can say what a row's key is MADE of: `register_objects` states its
+ * level exactly one way and carries that statement in its own key, so the key column is the other
+ * columns' values joined by the grammar's markers. The markers are the constraint's own literals,
+ * which is where they are read from — nothing here knows a table's name (B-19).
+ */
+function crossColumnChecks(url: string, table: TableRef): { columns: string[]; literals: string[] }[] {
+  const rows = run(
+    url,
+    `select (select string_agg(a.attname, ',' order by k.ord)
+               from unnest(c.conkey) with ordinality k(attnum, ord)
+               join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k.attnum),
+            -- A constraint Postgres renders across several lines is one VALUE, and psql writes a row
+            -- per line: folded here, or every line after the first reads back as a row of its own.
+            translate(pg_get_constraintdef(c.oid), chr(10) || chr(13), '  ')
+       from pg_constraint c
+       join pg_class ch on ch.oid = c.conrelid
+       join pg_namespace n on n.oid = ch.relnamespace
+      where c.contype = 'c' and n.nspname = ${lit(table.schema)} and ch.relname = ${lit(table.table)}
+        and array_length(c.conkey, 1) > 1
+      order by c.conname;`,
+  );
+  return rows.map((row) => {
+    const literals: string[] = [];
+    for (const quoted of (row[1] ?? "").match(/'(?:[^']|'')*'/g) ?? []) {
+      const said = quoted.slice(1, -1).replace(/''/g, "'");
+      if (said !== "" && !literals.includes(said)) literals.push(said);
+    }
+    return { columns: (row[0] ?? "").split(",").filter((name) => name !== ""), literals };
+  });
+}
+
+/**
  * The values a single-column CHECK constraint shuts this column to, read from the catalogue — so a
  * column closed to a set ('live' | 'fixture', say) gets a value it will actually admit instead of
  * the generic probe string, which every such CHECK refuses. Derived, never listed: a table a later
@@ -416,23 +450,80 @@ function combinations(closed: Map<string, string[]>): Map<string, string>[] {
  * built without this helper knowing what either column means. Any refusal that is not a CHECK
  * violation stops the search and is reported: it is a real fault in the seeding, not a bad guess.
  */
-function insertProbeRow(url: string, table: TableRef, chosen: Map<string, string>, closed: Map<string, string[]>): void {
+function insertProbeRow(url: string, table: TableRef, chosen: Map<string, string>, closed: Map<string, string[]>, spanning: Map<string, string>[] = []): void {
   let last: SqlResult | undefined;
-  for (const combo of combinations(closed)) {
-    const values = new Map(chosen);
-    for (const [name, value] of combo) values.set(name, value);
-    const result = psql(
+  const attempt = (values: Map<string, string>): SqlResult =>
+    psql(
       url,
       withSession(
         { [GUC_SYSTEM_REASON]: SEED_REASON },
         `insert into ${table.sql} (${[...values.keys()].map(ident).join(", ")}) values (${[...values.values()].join(", ")});`,
       ),
     );
+
+  for (const combo of combinations(closed)) {
+    const values = new Map(chosen);
+    for (const [name, value] of combo) values.set(name, value);
+    const result = attempt(values);
     if (result.ok) return;
     last = result;
     if (result.sqlstate !== "23514") break;
   }
+  // A CHECK that spans several columns refuses every row above, however the closed columns are
+  // spelled: `register_objects` states its level exactly one way and carries that statement in its
+  // own key, so a row leaving the level columns empty is refused by what the table IS, not by a bad
+  // guess at a closed value. The rows tried here are the ones such a constraint describes — one
+  // stated form, and the key column composed the way the constraint says the key is composed.
+  for (const overrides of spanning) {
+    if (last?.sqlstate !== "23514") break;
+    const values = new Map(chosen);
+    for (const [name, value] of overrides) values.set(name, value);
+    const result = attempt(values);
+    if (result.ok) return;
+    last = result;
+  }
   throw new Error(`no probe row could be written to ${qualified(table)} (SQLSTATE ${last?.sqlstate ?? "none"}):\n${last?.stderr.slice(-1200) ?? ""}`);
+}
+
+/**
+ * The rows a multi-column CHECK describes, as overrides on the generic probe row.
+ *
+ * Two facts such a constraint can state, both read off the catalogue and neither listed here (B-19):
+ * a column the row must STATE although it may be null (one closed to a set, so its values are
+ * known), and a column the row must COMPOSE out of another column of the same constraint and the
+ * markers the constraint itself spells. Every combination of the two is offered, and the database
+ * decides which of them the table admits — this helper knows no table's name and no grammar.
+ */
+function spanningRows(url: string, table: TableRef, chosen: Map<string, string>): Map<string, string>[] {
+  const nullable = new Map(allColumns(url, table).map((column) => [column.name, column.nullable]));
+  const rows: Map<string, string>[] = [];
+  const seen = new Set<string>();
+  for (const check of crossColumnChecks(url, table)) {
+    const stated = check.columns
+      .filter((name) => (nullable.get(name) ?? false) && !chosen.has(name))
+      .flatMap((name) => closedValues(url, table, name).map((value) => [name, lit(value)] as const));
+    const composed = check.columns.filter((name) => (chosen.get(name) ?? "").startsWith("'"));
+    for (const [name, value] of stated) {
+      for (const target of composed) {
+        for (const other of composed) {
+          if (other === target) continue;
+          for (const marker of check.literals) {
+            for (const tail of [` || ${value}`, ""]) {
+              const overrides = new Map([
+                [name, value],
+                [target, `${chosen.get(other) ?? ""} || ${lit(marker)}${tail}`],
+              ]);
+              const spelling = JSON.stringify([...overrides]);
+              if (seen.has(spelling)) continue;
+              seen.add(spelling);
+              rows.push(overrides);
+            }
+          }
+        }
+      }
+    }
+  }
+  return rows;
 }
 
 /**
@@ -467,7 +558,7 @@ function ensureRowForTenant(url: string, table: TableRef, tenantId: string): Rec
   }
   for (const [name, value] of inherited) chosen.set(name, value);
 
-  insertProbeRow(url, table, chosen, closed);
+  insertProbeRow(url, table, chosen, closed, spanningRows(url, table, chosen));
   const made = anyRowOf(url, table, tenantId);
   if (made === undefined) throw new Error(`seeding a probe row into ${qualified(table)} for tenant ${tenantId} left nothing behind`);
   return made;

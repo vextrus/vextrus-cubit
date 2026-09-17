@@ -104,6 +104,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "sheetDisciplines",
   "sheetRasters",
   "sheetUnderstandingDispositions",
+  "siteFacts",
   "storeyHeightReadings",
   "tenantRulesetEditions",
   "tenants",
@@ -204,7 +205,23 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * documents SEAM-DOC renders and stores — one row per issue, chained by `superseded_by`
  * (R-SPINE-040). The roster grew by that one key — 61 tables to 62 — and not one existing table's
  * SQL name or column moved with it; the previous digest was
- * 1ac7cb4dc110be065d1e878aaf436aea5bcfeea5b669446704e199f55033393e.
+ * a2b7fcaf4077b8db7bcb296769c806e451a3fb7405775690586442187cbe1d89.
+ *
+ * Re-baselined before that for FOUR COLUMN MOVES and no table at all, each one a store change the sweep's own
+ * migration (db/migrations/0047_src-core-debt-sweep.sql) lands: `append_seq` joins
+ * `drawing_set_revisions`, `scale_affirmations` and `storey_height_readings`, which is how those
+ * three ledgers say which write came last (L-REG-04); and `calibrations` gives up `project_id`,
+ * `drawing_id`, `ingest_id` and `act_id`, because a calibration is the content address of what it
+ * says and a column its key does not cover names one record on a row a second record shares
+ * (L-MEA-05). The roster of tables did not change — 61 keys before and after, the assertion above
+ * holds unedited — and no table's SQL name moved; the previous digest was
+ * 7ec5d140c545e3db8ed1ba274e6576d154f0b5a56c4ae909bf8a5bade814f6e7.
+ *
+ * Re-baselined before that for ONE ADDED table and nothing else: `siteFacts` (./schema-foundations.ts), the
+ * project-scoped append-only ledger a person enters a SITE fact into — an existing ground level, a
+ * working allowance — that no drawing states (L-MEA-06, L-FRM-04). The roster grew by that one key —
+ * 60 tables to 61 — and not one existing table's SQL name or column moved with it; the previous
+ * digest was 1ac7cb4dc110be065d1e878aaf436aea5bcfeea5b669446704e199f55033393e.
  *
  * Re-baselined before that for ONE ADDED table and nothing else: `placementRuns` (./schema-frame.ts), the runs
  * the frame rails read off a placement and report as their own rows (L-MEA-09). The roster grew by
@@ -218,7 +235,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * table's SQL name or column moved with it; the previous digest was
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "03ef983af919efc14e8ac3b85204fbeb2ed38bff2416e791161273ae1f79a9d3";
+const COLUMNS_DIGEST_BEFORE = "a3ca8bc39f20771fb84ebaa151e990c7b74a955a63815fab4a0e71521f3eb6b1";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {

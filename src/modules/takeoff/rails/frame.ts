@@ -6,6 +6,13 @@
 // M3 writes its frame rail HERE. The barrel `./index.ts` already enumerates this file, so a kind
 // added to the roster below is a kind the measure job runs — with no shared roster to edit and no
 // other area's file to touch (AM-11).
+//
+// `rcc.concrete` is measured by ONE rail (L-MEA-08) and borne by classes of two areas — a column, a
+// beam, a tie beam and a lintel here, and a footing, a pile cap and a pile in the foundations
+// (L-MEA-04's `bears`). `frameConcreteRail` is where their readers are composed: each reads the rows
+// of its own class and the batch is theirs concatenated, in the order the areas landed (riskNotes
+// (1)). A second `rcc.concrete` key in another area's roster would be a second rail for one kind,
+// which the barrel's own proof refuses.
 
 import { frameConcreteRail, frameFormworkRail } from "./frame/index";
 import type { RailRoster } from "./law";

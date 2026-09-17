@@ -152,6 +152,14 @@ export const pinDrawingSet: ActRendering<PinDrawingSetInput> = {
     // L-REG-07: a pinned revision is measured under a campaign, and the campaign copies what was in
     // force at the pin. It is opened HERE, on this act's transaction, so the revision and the
     // campaign land together or neither does — and the campaign cites the act that wrote both.
-    await openCampaign(tx, { tenantId: ctx.tenantId, projectId: input.projectId, setRevisionId, actId: act.actId });
+    // The absent arm is a project this transaction can see no rule-set pin for. L-REG-07 makes that
+    // unrepresentable through the product's own door — creation forks the pin in the same
+    // transaction — so reaching it means the revision just written would stand with nothing to be
+    // measured under. The act fails, this transaction rolls back, and no revision is committed
+    // without its campaign; swallowing the null would leave a pin no measurement could ever cite.
+    const { campaignId } = await openCampaign(tx, { tenantId: ctx.tenantId, projectId: input.projectId, setRevisionId, actId: act.actId });
+    if (campaignId === null) {
+      throw new Error(`the pinned revision ${setRevisionId} opened no campaign — the project holds no rule-set pin, and a revision nothing is measured under is not a pin (L-REG-07)`);
+    }
   },
 };

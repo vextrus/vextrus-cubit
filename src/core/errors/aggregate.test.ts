@@ -59,6 +59,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "ACCOUNT_ALREADY_EXISTS",
   "ACTOR_NOT_HUMAN",
   "ACT_CHANGES_NOTHING",
+  "BLINDING_PLAN_DEFERRED",
   "CAMPAIGN_NOT_FOUND",
   "CAPTION_UNCLASSIFIABLE",
   "CELL_NOT_IN_RESIDUE",
@@ -76,14 +77,21 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "DOCUMENT_URL_INVALID",
   "DOWNLOAD_NOT_SIGNABLE",
   "DUPLICATE_IDENTITY",
+  "EARTHWORK_PLAN_DEFERRED",
   "EXPORT_NOT_FOUND",
   "EXPORT_URL_EXPIRED",
   "EXPORT_URL_INVALID",
   "FILE_TOO_LARGE",
+  "FINISH_GROSS_UNSTATED",
+  "FINISH_SELECTOR_UNSTATED",
   "FIXTURE_MISSING",
   "FORMAT_NOT_ACCEPTED",
   "FORMULA_DIVISOR_ZERO",
+  "FOUNDATION_DEPTH_UNSTATED",
+  "FOUNDATION_PLAN_UNSTATED",
+  "FOUNDING_LEVEL_UNSTATED",
   "GRID_NO_BUBBLE_EVIDENCE",
+  "GROUND_LEVEL_UNSTATED",
   "GROUP_NOT_OFFERED",
   "INGESTION_TRUNCATED",
   "INTERPRETED_UNCORROBORATED",
@@ -108,9 +116,14 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "NOT_IN_THIS_BILL",
   "NO_BEARER_SIGHTED",
   "OFFER_NOT_TO_CONTRACT",
+  "OPENING_FLOOR_UNJUDGEABLE",
+  "OPENING_NOT_AREABLE",
+  "OPENING_SCHEDULE_ABSENT",
   "ORIGIN_NOT_VERIFIED",
   "PARTITION_NOT_AVAILABLE",
   "PERMISSION_NOT_HELD",
+  "PILE_DIAMETER_UNSTATED",
+  "PILE_LENGTH_UNSTATED",
   "PIN_STALE",
   "PRECISION_NOT_APPLIED",
   "PRODUCT_FACTOR_MISSING",
@@ -136,16 +149,22 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "SET_NOT_PINNABLE",
   "SHEET_NOT_INGESTABLE",
   "SIGNED_OUT",
+  "SITE_FACT_SOURCE_UNSTATED",
+  "SITE_FACT_UNKNOWN",
   "SLAB_THICKNESS_UNSTATED",
   "SOURCE_UNRESOLVED",
   "STOREY_HEIGHT_CONTESTED",
   "STOREY_HEIGHT_UNSTATED",
+  "SURFACE_NOT_CLOSED",
   "TOKEN_NOT_VALID",
   "TYPICAL_RANGE_UNSTATED",
   "UNIT_UNMAPPED",
   "UNSOURCED",
   "UPLOAD_NOT_RESUMABLE",
   "VIEW_SCALE_UNAFFIRMED",
+  "WALL_HEIGHT_UNSTATED",
+  "WALL_LENGTH_UNSTATED",
+  "WALL_THICKNESS_UNSTATED",
   "WORKSPACE_PERMISSION_NOT_HELD",
   "WORKSPACE_WOULD_HAVE_NO_OWNER",
 ]);
@@ -160,9 +179,20 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * `DOCUMENT_NOT_RENDERED`, which a renderer that fell over is answered with, carrying the id of the
  * fault it was recorded as (ARCH-03); and `DOCUMENT_NOT_FOUND`, `DOCUMENT_URL_INVALID` and
  * `DOCUMENT_URL_EXPIRED`, the three answers `GET /api/documents/[id]` gives a signed download link it
- * will not serve (R-SPINE-021, Q-12). The roster grew by those six keys — 86 codes to 92 — and not
+ * will not serve (R-SPINE-021, Q-12). The roster grew by those six keys — 96 codes to 102 — and not
  * one existing entry's code, message, remedy, severity or surface moved with them; the previous
- * digest was 9b3547b60626ffa04e8cb3060c1bb88787578bda65dd9288db20cb4f0942e567.
+ * digest was 32df92f233d23f6d676ee51d208364ba75c57da271b4854ee1170a61a0da791c.
+ *
+ * Re-baselined before that for TEN ADDED entries and nothing else, all of them the FOUNDATIONS leaf's
+ * (./foundations.ts): the six readings a foundation rail reports rather than guess when the drawing
+ * did not state them — `FOUNDATION_PLAN_UNSTATED`, `FOUNDATION_DEPTH_UNSTATED`,
+ * `PILE_DIAMETER_UNSTATED`, `PILE_LENGTH_UNSTATED`, `FOUNDING_LEVEL_UNSTATED` and
+ * `GROUND_LEVEL_UNSTATED` (L-FRM-04, L-QTY-02); the two deferrals a polygon plan leaves a
+ * rectangular pit and its blinding under, `EARTHWORK_PLAN_DEFERRED` and `BLINDING_PLAN_DEFERRED`;
+ * and the two a SITE-fact entry is refused by, `SITE_FACT_UNKNOWN` and `SITE_FACT_SOURCE_UNSTATED`
+ * (L-MEA-06, AM-06 §1). The roster grew by those ten keys — 86 codes to 96 — and not one existing
+ * entry's code, message, remedy, severity or surface moved with them; the previous digest was
+ * 9b3547b60626ffa04e8cb3060c1bb88787578bda65dd9288db20cb4f0942e567.
  *
  * Re-baselined before that for THREE ADDED entries and nothing else: `RUN_UNREAD`, `SLAB_THICKNESS_UNSTATED` and
  * `LINTEL_SOURCE_ABSENT` (./frame.ts), the three readings the frame rails report rather than guess
@@ -216,7 +246,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "e6e381b3f66896be051f9fafe92959d98f0945e0a4d49e670d777c1c48b4129c";
+const ENTRIES_DIGEST_BEFORE = "f0994ec06d7e42442917eb1616dc4927f726c7f3458b39531cc6834f2ce6963a";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

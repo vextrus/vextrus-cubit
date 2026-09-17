@@ -26,10 +26,15 @@ export function normaliseMeasure(measure: Measure, dimension: Dimension): Normal
   // full precision" (L-QTY-03), and a value that is not a finite decimal is a hard block (L-QTY-04).
   // The grammar is the one the tree already stores decimals by, never a second one (B-07, B-17).
   if (!isDecimalFigure(measure.value)) return { ok: false, code: REFUSALS.OFFER_NOT_TO_CONTRACT.code };
-  // A quantity below zero is the one thing L-QTY-04 forecloses outright — "a disclosure lets a reader
-  // add; nothing lets a reader subtract" — so a negative reading is an inadmissible reading and a hard
-  // block, never a figure carried into a line for a reader to subtract by.
-  if (exact(measure.value).lt(0)) return { ok: false, code: REFUSALS.OFFER_NOT_TO_CONTRACT.code };
+  // A READING may be signed. An elevation is a reading against a datum, and a site whose ground lies
+  // below the project datum has an existing ground level of −152.4 mm: refusing it would refuse the
+  // site rather than the measurement, and L-FRM-04 measures a pit from exactly that reading down to a
+  // founding level that is lower still (L-QTY-03, L-MEA-06).
+  //
+  // What L-QTY-04 forecloses is a published QUANTITY below zero — "a disclosure lets a reader add;
+  // nothing lets a reader subtract" — and that is a fact about the figure a formula answers, not about
+  // the readings it is answered over. `admissibleFigure` below is where it is refused, at the one
+  // place a figure exists (B-17).
   // A rail carries a reading in the unit the drawing WROTE it in — "source unit as written"
   // (L-REG-01) — and a drawing writes the metre as `M` and the foot as `FT`. What a written spelling
   // names is the canon's to say and nobody else's, so this asks it rather than folding case of its
@@ -41,4 +46,22 @@ export function normaliseMeasure(measure: Measure, dimension: Dimension): Normal
   const carried = convert(measure.value, named, unit);
   if (!carried.ok) return { ok: false, code: carried.code };
   return { ok: true, value: carried.value, unit };
+}
+
+/**
+ * Is this figure one a line may carry? L-QTY-04: "an inadmissible reading → hard block", and a
+ * published line carrying a negative quantity is the one thing the clause forecloses outright —
+ * "a disclosure lets a reader add; nothing lets a reader subtract".
+ *
+ * It is asked of the FIGURE rather than of the readings it was computed from, because that is where
+ * the fact lives: readings are signed (an elevation below datum is a reading), and it is the quantity
+ * a bill pays for that may never be less than nothing.
+ *
+ * This answers a boolean and raises nothing: the refusal that stands on its `false` arm is
+ * `OFFER_NOT_TO_CONTRACT`, answered by `evaluate.ts` where an offer whose figure this predicate
+ * calls inadmissible reaches a line — so a reader of this file is told which refusal an operator
+ * will read, rather than left to find it (ARCH-03, Q-17).
+ */
+export function admissibleFigure(value: string): boolean {
+  return isDecimalFigure(value) && !exact(value).lt(0);
 }

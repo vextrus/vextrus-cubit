@@ -28,6 +28,18 @@ export type Algebra = (typeof ALGEBRAS)[number];
 export const KIND_DISCIPLINE: Readonly<Record<Kind, Discipline>> = Object.freeze({
   "rcc.concrete": "STRUCTURAL",
   "rcc.formwork": "STRUCTURAL",
+  // A pile, a pit and the blinding under a footing are all stated by the structural set: the
+  // architectural set may draw the same ground, but it is not what any of them is measured from.
+  "piling.bored": "STRUCTURAL",
+  "piling.boring": "STRUCTURAL",
+  "earthwork.excavation": "STRUCTURAL",
+  "pcc.blinding": "STRUCTURAL",
+  // A brick wall and the finishes on it are stated by the ARCHITECTURAL set: the structural drawings
+  // may show the same grid, but the wall plan, its nominal thickness and the opening schedule that
+  // deducts from it are the architect's statements (L-MEA-04, AM-07).
+  "masonry.brickwork": "ARCHITECTURAL",
+  "finish.plaster": "ARCHITECTURAL",
+  "finish.paint": "ARCHITECTURAL",
 });
 
 /**
@@ -39,4 +51,17 @@ export const KIND_ALGEBRA: Readonly<Record<Kind, Algebra>> = Object.freeze({
   // Formwork is the contact face of a MEMBER, measured along the member's own run — a face of a
   // member, never a face of a space, so it takes the member algebra and not the face one (L-MEA-08).
   "rcc.formwork": "member",
+  // Each of the four is measured off ONE member's own description — a pile's count and its bored
+  // length, the pit around a footing's plan, the blinding under it. None is a face of a space and
+  // none is a network of runs, so all four take the member algebra (L-MEA-08, L-FRM-04).
+  "piling.bored": "member",
+  "piling.boring": "member",
+  "earthwork.excavation": "member",
+  "pcc.blinding": "member",
+  // A brick wall is a MEMBER measured section × run — the algebra's own words name brick walls
+  // beside the structure — while a plaster and a paint are FACES of a space, measured gross less the
+  // scheduled openings, which is the face algebra exactly (L-MEA-08, L-MEA-03).
+  "masonry.brickwork": "member",
+  "finish.plaster": "face",
+  "finish.paint": "face",
 });

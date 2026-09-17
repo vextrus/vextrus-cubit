@@ -1,5 +1,54 @@
 [
   {
+    "kind": "earthwork.excavation",
+    "description": "Excavation in earth for foundations, measured as the pit's volume including working space",
+    "dimension": "VOLUME",
+    "canonicalUnit": "m3",
+    "documentPrecision": 3
+  },
+  {
+    "kind": "finish.paint",
+    "description": "Paint to surfaces, measured as the painted face net of scheduled openings",
+    "dimension": "AREA",
+    "canonicalUnit": "m2",
+    "documentPrecision": 2
+  },
+  {
+    "kind": "finish.plaster",
+    "description": "Plaster to surfaces, measured as the finished face net of scheduled openings",
+    "dimension": "AREA",
+    "canonicalUnit": "m2",
+    "documentPrecision": 2
+  },
+  {
+    "kind": "masonry.brickwork",
+    "description": "Brickwork in walls, measured as the wall face net of scheduled openings by its nominal thickness",
+    "dimension": "VOLUME",
+    "canonicalUnit": "m3",
+    "documentPrecision": 3
+  },
+  {
+    "kind": "pcc.blinding",
+    "description": "Plain cement concrete blinding under foundations, measured as the laid volume",
+    "dimension": "VOLUME",
+    "canonicalUnit": "m3",
+    "documentPrecision": 3
+  },
+  {
+    "kind": "piling.bored",
+    "description": "Bored cast-in-situ piles installed, counted as members",
+    "dimension": "COUNT",
+    "canonicalUnit": "pcs",
+    "documentPrecision": 0
+  },
+  {
+    "kind": "piling.boring",
+    "description": "Boring for cast-in-situ piles, measured along the bored length below cut-off",
+    "dimension": "LENGTH",
+    "canonicalUnit": "m",
+    "documentPrecision": 3
+  },
+  {
     "kind": "rcc.concrete",
     "description": "Reinforced cement concrete cast in place, measured net of its reinforcement",
     "dimension": "VOLUME",

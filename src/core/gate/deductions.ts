@@ -14,7 +14,8 @@ import type { DeductionCandidate, DeductionChannel } from "../offers/contract";
 import { DEDUCTION_CHANNELS } from "../offers/law";
 import { isDecimalFigure } from "../projects";
 import type { EditionParameter } from "../rulesets/editions/content";
-import { convert, exact, isUnit } from "../units/canon";
+import { CANONICAL_UNIT, convert, exact, isUnit, type Dimension, type Unit } from "../units/canon";
+import { normaliseMeasure } from "./units";
 
 /** What a partition answers: the two sides, or the registered code that stopped it. */
 export type DeductionPartition =
@@ -25,8 +26,24 @@ export type DeductionPartition =
  * Which edition parameter each channel is partitioned against (L-MEA-01's parameter roster). One
  * map, so the channel a rail offers and the threshold the edition states cannot drift apart.
  */
-const CHANNEL_THRESHOLD: Readonly<Record<DeductionChannel, string>> = Object.freeze({
+export const CHANNEL_THRESHOLD: Readonly<Record<DeductionChannel, string>> = Object.freeze({
   opening: "openingDeductionMinM2",
+  // A finish is applied around the openings a wall is built around, and L-MEA-03 gives the surface
+  // group its own figure: the two channels never borrow each other's threshold (L-MEA-01).
+  finish_opening: "finishOpeningDeductionMinM2",
+});
+
+/**
+ * Which declared variable each channel's DEDUCTED SUM is bound into (L-MEA-02: "deducted sum … in
+ * the line's variables").
+ *
+ * The sum is the GATE's to bind and never a rail's: a rail enumerates candidates and computes
+ * nothing (L-MEA-08), and which side of the threshold each one falls on is decided here. One map, so
+ * the channel a method declares and the variable its tree subtracts cannot drift apart.
+ */
+export const CHANNEL_VARIABLE: Readonly<Record<DeductionChannel, string>> = Object.freeze({
+  opening: "openings",
+  finish_opening: "openings",
 });
 
 /** Is this spelling one of the channels the contract admits? */
@@ -39,8 +56,9 @@ function isChannel(channel: string): channel is DeductionChannel {
  *
  * A candidate in a channel the contract does not admit is a violation of the rail↔gate contract and
  * not a measurement question, so it answers `OFFER_NOT_TO_CONTRACT`; a candidate or a threshold the
- * canon cannot carry answers `UNIT_UNMAPPED`. An edition that states no threshold for a channel it
- * admits is an inconsistency of the store rather than an answer anyone is owed (ARCH-03).
+ * canon cannot carry answers `UNIT_UNMAPPED`; an edition that states no threshold for the channel
+ * answers `METHOD_NOT_IN_EDITION`. A threshold the edition states as something that is not a figure
+ * at all is the store contradicting itself rather than an answer anyone is owed (ARCH-03).
  */
 export function partitionDeductions(candidates: readonly DeductionCandidate[], parameters: Readonly<Record<string, EditionParameter>>): DeductionPartition {
   const deducted: DeductionCandidate[] = [];
@@ -53,9 +71,12 @@ export function partitionDeductions(candidates: readonly DeductionCandidate[], p
     if (!isDecimalFigure(candidate.measure.value)) return { ok: false, code: REFUSALS.OFFER_NOT_TO_CONTRACT.code };
     const named = CHANNEL_THRESHOLD[candidate.channel];
     const threshold = parameters[named];
-    if (threshold === undefined) {
-      throw new Error(`the rule-set edition states no ${named} — the ${candidate.channel} channel is partitioned against it, and a threshold nobody stated is not one to guess (L-MEA-01)`);
-    }
+    // An edition that states no threshold for this channel is an edition this measurement is not in:
+    // the offer names a channel the edition in force carries no figure for, and the answer is the
+    // registered code that says so — a person pins the edition that states it. This function's own
+    // contract is a refusal union, and an arm that threw instead reached the caller as a fault id
+    // where a refusal was promised (ARCH-03, L-MEA-01).
+    if (threshold === undefined) return { ok: false, code: REFUSALS.METHOD_NOT_IN_EDITION.code };
     // A threshold is authored, versioned content and not a rail's reading: one that is not a figure
     // at all is an inconsistency of the store rather than an answer this offer is owed (ARCH-03).
     if (!isDecimalFigure(threshold.value)) {
@@ -72,4 +93,27 @@ export function partitionDeductions(candidates: readonly DeductionCandidate[], p
   }
 
   return { ok: true, deducted, kept };
+}
+
+/** What one channel's deducted sum comes to, or the registered code that stopped it. */
+export type DeductedSum = { readonly ok: true; readonly value: string; readonly unit: Unit } | { readonly ok: false; readonly code: RefusalCode };
+
+/**
+ * The exact sum of what ONE channel deducted, in the canonical unit of the dimension the variable it
+ * binds into stands in (L-MEA-02's "deducted sum", B-07).
+ *
+ * Every candidate is carried through the gate's one normalisation before it is added, so what is
+ * summed is a set of quantities rather than a set of numbers — two openings written in different
+ * units add up to what they are worth, and a unit the canon carries no factor for answers by name
+ * rather than being counted as its own digits (B-17, L-FRM-06).
+ */
+export function deductedSum(deducted: readonly DeductionCandidate[], channel: DeductionChannel, dimension: Dimension): DeductedSum {
+  let total = exact("0");
+  for (const candidate of deducted) {
+    if (candidate.channel !== channel) continue;
+    const carried = normaliseMeasure(candidate.measure, dimension);
+    if (!carried.ok) return { ok: false, code: carried.code };
+    total = total.add(carried.value);
+  }
+  return { ok: true, value: total.toString(), unit: CANONICAL_UNIT[dimension] };
 }

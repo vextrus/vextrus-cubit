@@ -59,7 +59,21 @@ const FACTORS = Object.freeze({
   // it joins no needle of the literal ban below.
   mm: { dimension: "LENGTH", factor: "0.001" },
   ft: { dimension: "LENGTH", factor: "0.3048" },
+  // A rule-set edition writes a blinding's projection and its thickness in inches, and an edition's
+  // value is read in the unit the edition wrote it in (L-MEA-01) — so the inch carries its exact
+  // factor here, in the one home, rather than in the reader that met it (B-17). It is the foot's
+  // twelfth, exactly: 0.3048 ÷ 12.
+  in: { dimension: "LENGTH", factor: "0.0254" },
   m2: { dimension: "AREA", factor: "1" },
+  // A plan outline is read off a drawing in the millimetres the drawing is drawn in, so its AREA is
+  // read in square millimetres — the square of the metre's decimal prefix, and an integer power of
+  // ten like the prefix itself (L-FRM-02's shoelace plan, L-REG-01's unit as written).
+  mm2: { dimension: "AREA", factor: "0.000001" },
+  // A rule-set edition states a bar's area and a section's area in square centimetres, and an
+  // edition's value is read in the unit the edition wrote it in (L-MEA-01) — a minted edition is
+  // immutable (L-REG-07), so the canon learns the unit rather than the edition being respelled. The
+  // square of the centimetre, an integer power of ten like the millimetre's square above.
+  cm2: { dimension: "AREA", factor: "0.0001" },
   sft: { dimension: "AREA", factor: "0.09290304" },
   pcs: { dimension: "COUNT", factor: "1" },
 }) satisfies Readonly<Record<string, { readonly dimension: Dimension; readonly factor: string }>>;

@@ -215,9 +215,32 @@ export async function enrol(label: string): Promise<Person> {
   return { userId, email, tenantId, cookie: `${cookieName}=${sessionToken}` };
 }
 
-/** A project of a workspace, made in the store — the thing an upload is addressed to. */
+/**
+ * A project of a workspace, made in the store — the thing an upload is addressed to.
+ *
+ * The row is written by SQL rather than through `createProject`, so the pin that door forks inside
+ * its own transaction is forked here too: L-REG-07 pins every project to a rule-set edition at
+ * creation, and a project standing without one is a project the product could never have made —
+ * a pin of one of its drawing sets would open no campaign. The fork is verbatim, as
+ * `src/modules/spine/projects/ruleset-pin.ts` forks: off the workspace's template where it holds
+ * one, off the platform seed where it does not. No template is minted here — a stage that states
+ * its workspace's methods mints that template itself, and the workspace holds exactly one.
+ */
 export function stageProject(tenantId: string, name = "Upload acceptance"): string {
-  return sqlValue(`insert into projects (${ident(TENANT_COLUMN)}, name) values (${lit(tenantId)}, ${lit(name)}) returning project_id::text;`);
+  const projectId = sqlValue(`insert into projects (${ident(TENANT_COLUMN)}, name) values (${lit(tenantId)}, ${lit(name)}) returning project_id::text;`);
+  sql(
+    `insert into ${ident("tenant_ruleset_editions")} (${ident(TENANT_COLUMN)}, scope, project_id, parent_edition_id, name, version, content_digest, parameters, methods)
+       select ${lit(tenantId)}::uuid, 'project', ${lit(projectId)}::uuid, edition_id, name, version, content_digest, parameters, methods
+         from (
+           select edition_id, name, version, content_digest, parameters, methods, 0 as nearest
+             from ${ident("tenant_ruleset_editions")} where ${ident(TENANT_COLUMN)} = ${lit(tenantId)} and scope = 'tenant'
+           union all
+           select edition_id, name, version, content_digest, parameters, methods, 1 as nearest
+             from ${ident("ruleset_editions")} where scope = 'platform'
+         ) forked order by nearest, name limit 1
+       on conflict do nothing;`,
+  );
+  return projectId;
 }
 
 /* ------------------------------------------------------------------ the shipped doors, in process */

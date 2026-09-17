@@ -10,7 +10,7 @@
 
 import { acts } from "./schema-acts";
 import { drawings } from "./schema-drawings";
-import { index, json, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { bigserial, index, json, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
 /**
  * R-TO-005's drawing set: a named grouping of a project's drawings, told apart from its siblings by
@@ -84,6 +84,11 @@ export const drawingSetRevisions = pgTable(
       .notNull()
       .references(() => acts.actId),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // The store's own write order. `created_at` is `now()`, which is fixed for a transaction, so an
+    // act that pins twice writes two revisions under ONE instant and a random surrogate would then
+    // decide which of them the set stands at. The sequence is handed out in the order the rows are
+    // written, and `currentSetRevisionOf` reads it (R-TO-005, L-REG-04).
+    appendSeq: bigserial("append_seq", { mode: "number" }).notNull(),
   },
   (table) => [
     // The read the set browser makes: one set's pinned revisions, in the order they were pinned.

@@ -11,9 +11,11 @@
 // the calibrations, and what a rail makes of that absence is the rail's (riskNotes (3)). Nothing is
 // converted either — every reading is carried as the drawing wrote it, and the canon is reached at
 // the gate (B-17, L-FRM-06).
+import { editionOf } from "@/core/campaigns";
 import { drawingSetRevisions, eq, and, forTenant, type TenantTx } from "@/core/db";
 import { levelStackOf } from "@/modules/takeoff/levels";
-import type { LevelSetup, MemberVariantSetup, PlacementSetup, RailSetup, ReadingSetup, RunSetup } from "@/core/offers/contract";
+import { siteFactsOf, type SiteFact } from "@/modules/takeoff/site-facts";
+import type { LevelSetup, MemberVariantSetup, PlacementSetup, RailSetup, ReadingSetup, RunSetup, SiteFactSetup } from "@/core/offers/contract";
 import { affirmationsOfRecord } from "@/core/scale/store";
 import { viewAddressOf, viewRecordsOf } from "@/core/views";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
@@ -24,6 +26,12 @@ export type RailSetupScope = {
   readonly tenantId: string;
   readonly projectId: string;
   readonly setRevisionId: string;
+  /**
+   * The edition the CAMPAIGN was opened under, never the one the project is pinned to now: a
+   * DERIVED reading cites the edition the figure stood on, and a campaign measures under what it
+   * snapshotted (L-REG-07, L-MEA-01).
+   */
+  readonly editionId: string;
 };
 
 /**
@@ -86,6 +94,26 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
   const levels = (await levelStackOf({ tenantId: scope.tenantId, projectId: scope.projectId })).map(levelSetupOf);
   const drawingIds = await forTenant({ tenantId: scope.tenantId }).transaction((tx) => drawingsOfRevision(tx, scope));
 
+  // What the site states, read at the ONE door the ledger is read through (ARCH-02), and what the
+  // campaign's own edition states. A project whose ledger holds nothing carries no facts at all, and
+  // a rail reads that absence as the named deferral it is rather than a default (AM-06 §1).
+  const standing = await siteFactsOf({ tenantId: scope.tenantId, projectId: scope.projectId });
+  const siteFacts: Partial<Record<SiteFact, SiteFactSetup>> = {};
+  for (const [fact, held] of Object.entries(standing)) {
+    // The reading AS WRITTEN, the metres the canon made of it, and the act a reader takes recourse
+    // to — a rail binds the written value and cites the act, never the ledger's own columns
+    // (L-QTY-03, L-QTY-01).
+    if (held !== undefined) {
+      siteFacts[fact as SiteFact] = { value: held.valueAsWritten, unit: held.unitAsWritten, canonicalMetres: held.canonicalMetres, sourceNote: held.sourceNote, actId: held.actId };
+    }
+  }
+  const edition = await forTenant({ tenantId: scope.tenantId }).transaction((tx) => editionOf(tx, scope.tenantId, scope.editionId));
+  if (edition === null) {
+    throw new Error(
+      `the campaign's revision ${scope.setRevisionId} cites the rule-set edition ${scope.editionId}, which this workspace does not hold — a campaign measures under the edition it copied (L-REG-07)`,
+    );
+  }
+
   const placements: Record<string, PlacementSetup> = {};
   const memberTypes: Record<string, Record<string, readonly MemberVariantSetup[]>> = {};
   const calibrations: Record<string, Record<string, string>> = {};
@@ -106,6 +134,10 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
         // A count provenances to the entity it was counted off, which is the placement itself
         // (L-QTY-03: "the (drawing, view) read from", and the source entity beside it).
         sourceEntity: placement.placementKey,
+        // A seam, empty until the plan-outline reader lands: no reader has read this placement's
+        // plan, so a foundation is measured by the section its schedule states and a polygon plan
+        // defers by name rather than being given an area nobody read (L-QTY-02, riskNotes).
+        outline: null,
       };
     }
 
@@ -129,6 +161,10 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
           sectionDepth: variant.sectionDepth,
           sectionUnit: variant.sectionUnit,
           sourceKeys: variant.sourceKeys,
+          // A seam, empty until the schedule-dimension reader lands: a family's depth, diameter,
+          // length and founding level are columns of its own schedule, and until one is read the
+          // rails keep the row and name the reading they did not get (L-QTY-02, riskNotes).
+          dimensions: {},
         }));
       }
       memberTypes[registered.ingestId] = families;
@@ -168,5 +204,16 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // lintel rails offer none and report LINTEL_SOURCE_ABSENT — a lintel is never inferred from the
     // wall it spans (L-QTY-04).
     lintels: {},
+    // Two more seams of the same reader (S-25): until it lands, no wall and no surface carries an
+    // opening schedule, so the masonry and finish rails offer nothing and report
+    // OPENING_SCHEDULE_ABSENT — "a face with no schedule is not measured", because its gross area
+    // would over-measure the work (L-MEA-02, L-MEA-03).
+    walls: {},
+    surfaces: {},
+    // What somebody entered about the site, latest entry per fact (L-MEA-06), and the edition every
+    // DERIVED reading cites by digest (L-MEA-01). Neither is judged here: a fact nobody entered is
+    // simply absent, and what a rail makes of that absence is the rail's.
+    siteFacts,
+    edition: { digest: edition.digest, parameters: edition.parameters },
   };
 }

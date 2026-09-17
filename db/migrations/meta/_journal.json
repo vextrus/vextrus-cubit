@@ -302,6 +302,48 @@
       "when": 1789506135423,
       "tag": "0042_ruleset-edition-frame",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1789556849405,
+      "tag": "0043_foundations-kinds-and-site-facts",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1789556849406,
+      "tag": "0044_ruleset-edition-foundations",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1789566511561,
+      "tag": "0045_masonry-kinds-and-classes",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1789566511562,
+      "tag": "0046_ruleset-edition-masonry",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1789571816336,
+      "tag": "0047_src-core-debt-sweep",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1789619102353,
+      "tag": "0048_doc-seam",
+      "breakpoints": true
     }
   ]
 }

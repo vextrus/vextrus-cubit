@@ -16,6 +16,7 @@ import type { Kind } from "../catalogue/kinds";
 import { registerObjects } from "../db";
 import type { RefusalCode } from "../errors";
 import type { StoreyHeightStandingName } from "../levels/law";
+import type { SiteFact } from "../site-facts/law";
 import type { Coverage, DeductionChannel, Engine, GeometryType, QuantityBasis } from "./law";
 
 // The rosters are the law file's, and published from here because this is the door a rail and the
@@ -114,6 +115,24 @@ export type PlacementSetup = {
   readonly memberFamily: string | null;
   readonly engine: Engine;
   readonly sourceEntity: string;
+  /** The plan outline a reader read for this placement, or null where none was read (L-FRM-02). */
+  readonly outline: OutlineSetup | null;
+};
+
+/**
+ * One placement's plan, as the reader of the drawing read it: which of L-FRM-01's plan geometries it
+ * is, the area it encloses, and — where the plan is a rectangle somebody measured rather than a
+ * schedule stated — the two sides of it.
+ *
+ * A polygon plan has an area and no sides, which is exactly why L-FRM-02 measures it as
+ * `A × depth` and why L-FRM-04 defers its pit: there is no `L` and no `B` to widen by the working
+ * space. Nothing here is converted — a rail binds what was read (L-REG-01).
+ */
+export type OutlineSetup = {
+  readonly type: GeometryType;
+  readonly area: Measure;
+  readonly length: Measure | null;
+  readonly breadth: Measure | null;
 };
 
 /**
@@ -130,6 +149,13 @@ export type MemberVariantSetup = {
   readonly sectionDepth: number | null;
   readonly sectionUnit: string | null;
   readonly sourceKeys: readonly string[];
+  /**
+   * The named dimensions a schedule states for the family BESIDE its section — a foundation's depth,
+   * a pile's diameter and its length, the level its top stands at. Keyed by the name the method that
+   * needs it declares, each carried as it was written (L-REG-01). Empty where the family's schedule
+   * states none: an unread dimension is never a zero, and the rail declares the omission (L-QTY-02).
+   */
+  readonly dimensions: Readonly<Record<string, Measure>>;
 };
 
 /**
@@ -268,6 +294,43 @@ export type RailSetup = {
   readonly runs: Readonly<Record<string, RunSetup>>;
   /** The opening an opening schedule states behind each lintel placement, by its placement key. */
   readonly lintels: Readonly<Record<string, LintelSetup>>;
+  /** The wall plan's readings and the opening schedule behind each brick-wall placement, by key. */
+  readonly walls: Readonly<Record<string, WallSetup>>;
+  /** The outline, the selecting facts and the opening schedule behind each surface placement, by key. */
+  readonly surfaces: Readonly<Record<string, SurfaceSetup>>;
+  /**
+   * What each SITE fact of the project stands at, where somebody entered one (L-MEA-06). A fact
+   * nobody entered is an ABSENT KEY — "an absent fact is a named deferral, never a default"
+   * (AM-06 §1) — so a rail reads an absence here and reports it rather than falling back to a zero.
+   */
+  readonly siteFacts: Readonly<Partial<Record<SiteFact, SiteFactSetup>>>;
+  /**
+   * The edition the campaign was opened under: its digest, and the parameter values it states. What
+   * no drawing carries and no person entered is bound DERIVED from a citable clause of this edition
+   * (L-MEA-06: "a citable clause is DERIVED, not DEFAULTED"), and the digest is what such a reading
+   * cites, so a reader can go back to the very edition the figure stood on (L-MEA-01, L-QTY-01).
+   */
+  readonly edition: EditionSetup;
+};
+
+/**
+ * One SITE fact as the setup carries one: the reading as it was written, the metres the canon made
+ * of it, the note that says where it came from and the act that entered it. A rail binds the value
+ * AS WRITTEN and cites the act — an ENTERED reading's recourse is the person who entered it
+ * (L-QTY-01, L-QTY-03).
+ */
+export type SiteFactSetup = {
+  readonly value: string;
+  readonly unit: string;
+  readonly canonicalMetres: string;
+  readonly sourceNote: string;
+  readonly actId: string;
+};
+
+/** The pinned edition a DERIVED reading is bound from: what it is, and what it states (L-MEA-01). */
+export type EditionSetup = {
+  readonly digest: string;
+  readonly parameters: Readonly<Record<string, { readonly value: string; readonly unit: string }>>;
 };
 
 /**
@@ -303,6 +366,54 @@ export type LintelSetup = {
   readonly D: ReadingSetup;
   readonly w: ReadingSetup;
   readonly bearing: ReadingSetup;
+};
+
+/**
+ * One row of an opening schedule, as the reader read it (L-MEA-02: "the opening schedule is the
+ * authority"). A row states a mark, the face area of one opening of that mark, how many of them it
+ * claims, and the floors it claims them on — and the cell it was read at, which every candidate
+ * expanded from it cites.
+ */
+export type OpeningSetup = {
+  readonly mark: string;
+  /** The opening's face area as the schedule reader stated it (w × h of the row); null where the opening was seen but is not areable (L-MEA-03). */
+  readonly area: ReadingSetup | null;
+  /** How many of this mark the row states; expanded by the rail into that many candidates. */
+  readonly count: ReadingSetup;
+  /** The floors the schedule row claims (L-MEA-02); null where the row claims none and stands in the wall's own floor group. */
+  readonly floors: BandStatement | null;
+  /** The schedule cell / entity the row was read at — what every candidate cites. */
+  readonly source: string;
+};
+
+/**
+ * One placement's brick wall, as the wall plan and the opening schedule state it: the three readings
+ * its brickwork is measured from, and the openings that deduct from its face. Each reading is null
+ * where nothing stated it — an unread reading is never a zero, and the rail declares the omission
+ * (L-QTY-02).
+ */
+export type WallSetup = {
+  readonly length: ReadingSetup | null;
+  readonly height: ReadingSetup | null;
+  readonly thickness: ReadingSetup | null;
+  /** The scheduled openings of this wall; null where NO opening schedule stands behind it (the face is then not measured). */
+  readonly openings: readonly OpeningSetup[] | null;
+};
+
+/**
+ * One placement's finished surface, as the reader read it: whether the outline closed at all, the
+ * gross area it encloses, the facts that SELECT the finish item (L-MEA-06), and the openings that
+ * deduct from it.
+ */
+export type SurfaceSetup = {
+  /** Whether the reader read a closed outline; false defers SURFACE_NOT_CLOSED, never a bounding box. */
+  readonly closed: boolean;
+  readonly gross: ReadingSetup | null;
+  readonly face: ReadingSetup;
+  readonly floor: ReadingSetup;
+  readonly thickness: ReadingSetup | null;
+  readonly mix: ReadingSetup | null;
+  readonly openings: readonly OpeningSetup[] | null;
 };
 
 /** What a rail is asked: which campaign, over which pinned revision, for which kind, and of what. */

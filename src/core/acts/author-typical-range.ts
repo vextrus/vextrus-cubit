@@ -21,6 +21,7 @@
 // Nothing is re-derived on the way — what a key IS stays the identity grammar's (`levelSegment`), and
 // every other column of a minted row is the placeholder's own, copied across (B-17).
 import { and, asc, eq, inArray, memberTypeVariants, placements, registerObjects, typicalRanges, type TenantTx } from "../db";
+import { violatesConstraint } from "../db/violations";
 import type { RefusalCode } from "../errors";
 import { refusal } from "../faults/refusal-marker";
 import { levelSegment, SIGHTING_STANDINGS, type SightingStanding } from "../identity";
@@ -44,8 +45,12 @@ const DERIVED: SightingStanding = SIGHTING_STANDINGS[1];
 /** The lawful-null slot a placeholder of an unstated range stands in (L-REG-04). */
 const UNRESOLVED_SLOT = "UNRESOLVED";
 
-/** The code this act answers with, read off the closed taxonomy rather than agreed with by chance (Q-07). */
+/** The codes this act answers with, read off the closed taxonomy rather than agreed with by chance (Q-07). */
 const LEVEL_RANGE_ENDPOINT_UNMAPPED: RefusalCode = "LEVEL_RANGE_ENDPOINT_UNMAPPED";
+const DUPLICATE_IDENTITY: RefusalCode = "DUPLICATE_IDENTITY";
+
+/** The register's own statement that one identity is one row — the key this act's re-key can meet. */
+const REGISTER_OBJECTS_KEY = "register_objects_key";
 
 /** The act's input: whose view is typical, and between which two levels of the live stack. */
 export type AuthorTypicalRangeInput = {
@@ -348,16 +353,28 @@ export const authorTypicalRange: ActRendering<AuthorTypicalRangeInput> = {
       // The one hop: the placeholder becomes the drawn row. Its key moves once, `level_id` takes the
       // surrogate and the lawful-null slot is cleared — the row is the same sighting all along
       // (L-REG-04, and the same shape as the level store's own carry).
-      await tx
-        .update(registerObjects)
-        .set({ objectKey: drawn.objectKey, levelId: drawn.levelId, levelSlot: null, levelLabel: null, standing: drawn.standing })
-        .where(
-          and(
-            eq(registerObjects.tenantId, ctx.tenantId),
-            eq(registerObjects.setRevisionId, placeholder.setRevisionId),
-            eq(registerObjects.objectKey, placeholder.objectKey),
-          ),
-        );
+      try {
+        await tx
+          .update(registerObjects)
+          .set({ objectKey: drawn.objectKey, levelId: drawn.levelId, levelSlot: null, levelLabel: null, standing: drawn.standing })
+          .where(
+            and(
+              eq(registerObjects.tenantId, ctx.tenantId),
+              eq(registerObjects.setRevisionId, placeholder.setRevisionId),
+              eq(registerObjects.objectKey, placeholder.objectKey),
+            ),
+          );
+      } catch (failure) {
+        // The key this hop moves to can already be standing — another sighting of the same physical
+        // scope under this revision, registered before this range was authored. The register's own
+        // key says so, and what it says is the registered refusal a person can act on: one identity,
+        // one row (L-REG-03, L-REG-04). Handed on as the driver's error it would reach that person
+        // as a fault id for a fact about their drawing (ARCH-03, B-21).
+        if (violatesConstraint(failure, REGISTER_OBJECTS_KEY)) {
+          throw refusal(DUPLICATE_IDENTITY, `${drawn.objectKey} already stands in this revision of the set, so the placeholder cannot be carried onto it`, { objectKey: drawn.objectKey });
+        }
+        throw failure;
+      }
 
       const minted = instances.filter((instance) => instance.levelId !== drawn.levelId);
       if (minted.length === 0) continue;

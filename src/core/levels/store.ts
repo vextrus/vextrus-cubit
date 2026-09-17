@@ -132,22 +132,28 @@ export async function writeReadings(tx: TenantTx, scope: LevelScope, actId: stri
   );
 }
 
-/** Every reading of every level of one project, oldest first — the order a standing is derived in. */
+/**
+ * Every reading of every level of one project, oldest first — the order a standing is derived in.
+ *
+ * Oldest first by the store's own write order, never by `read_at`: that is `now()`, fixed for a
+ * transaction, so a rebuild appending a drawing's readings writes them all under one instant and the
+ * reading a level is CURRENT at would then be decided by a random surrogate (L-REG-01, L-MEA-07).
+ */
 export async function readingsOfProject(tx: TenantTx, scope: LevelScope): Promise<StoreyHeightReadingRow[]> {
   return tx
     .select()
     .from(storeyHeightReadings)
     .where(and(eq(storeyHeightReadings.tenantId, scope.tenantId), eq(storeyHeightReadings.projectId, scope.projectId)))
-    .orderBy(asc(storeyHeightReadings.readAt), asc(storeyHeightReadings.readingId));
+    .orderBy(asc(storeyHeightReadings.appendSeq));
 }
 
-/** Every reading of ONE level, oldest first. */
+/** Every reading of ONE level, oldest first — in the same write order `readingsOfProject` reads. */
 export async function readingsOfLevel(tx: TenantTx, scope: LevelScope, levelId: string): Promise<StoreyHeightReadingRow[]> {
   return tx
     .select()
     .from(storeyHeightReadings)
     .where(and(eq(storeyHeightReadings.tenantId, scope.tenantId), eq(storeyHeightReadings.projectId, scope.projectId), eq(storeyHeightReadings.levelId, levelId)))
-    .orderBy(asc(storeyHeightReadings.readAt), asc(storeyHeightReadings.readingId));
+    .orderBy(asc(storeyHeightReadings.appendSeq));
 }
 
 /**

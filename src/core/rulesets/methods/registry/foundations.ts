@@ -1,15 +1,34 @@
-// The FOUNDATIONS method area — empty until M3 writes it (AM-11).
+// The FOUNDATIONS method area: L-FRM-02's and L-FRM-04's pairs for a footing, a pile cap and a pile,
+// and the code each is computed by.
 //
-// M3's foundations rail declares its methods HERE: a `*.methods.json` shard recorded beside the code it
-// declares, and the implementation for each pair the shard records. The barrel
-// `src/core/rulesets/methods/registry.ts` already enumerates this file, so a pair added to the group
-// below is a pair `enumerateMethods` answers and `implementationOf` can compute — with no shared
-// list to edit and no other area's file to touch (B-19).
+// The shard is imported rather than discovered by walking the tree, for the reason the barrel gives:
+// what is in force is decided at build time. It states `with { type: "json" }` because an ES module
+// loader admits a JSON module only on that attribute.
 
-import type { MethodArea } from "./area";
+import { BLINDING_FORMULA, BLINDING_METHOD } from "../foundations/blinding";
+import {
+  FOUNDATION_PRISM_POLY_FORMULA,
+  FOUNDATION_PRISM_POLY_METHOD,
+  FOUNDATION_PRISM_RECT_FORMULA,
+  FOUNDATION_PRISM_RECT_METHOD,
+  PILE_CONCRETE_FORMULA,
+  PILE_CONCRETE_METHOD,
+} from "../foundations/concrete";
+import { EXCAVATION_FORMULA, EXCAVATION_METHOD } from "../foundations/earthwork";
+import foundationsShard from "../foundations/foundations.methods.json" with { type: "json" };
+import { PILE_COUNT_FORMULA, PILE_COUNT_METHOD, PILE_LENGTH_FORMULA, PILE_LENGTH_METHOD } from "../foundations/piling";
+import { methodKey, type MethodArea } from "./area";
 
 /** This area's shards and the implementations for the pairs they record. */
 export const FOUNDATIONS_METHODS: MethodArea = Object.freeze({
-  shards: Object.freeze([]),
-  implementations: Object.freeze({}),
+  shards: Object.freeze([foundationsShard]),
+  implementations: Object.freeze({
+    [methodKey(FOUNDATION_PRISM_RECT_METHOD)]: FOUNDATION_PRISM_RECT_FORMULA,
+    [methodKey(FOUNDATION_PRISM_POLY_METHOD)]: FOUNDATION_PRISM_POLY_FORMULA,
+    [methodKey(PILE_CONCRETE_METHOD)]: PILE_CONCRETE_FORMULA,
+    [methodKey(PILE_COUNT_METHOD)]: PILE_COUNT_FORMULA,
+    [methodKey(PILE_LENGTH_METHOD)]: PILE_LENGTH_FORMULA,
+    [methodKey(EXCAVATION_METHOD)]: EXCAVATION_FORMULA,
+    [methodKey(BLINDING_METHOD)]: BLINDING_FORMULA,
+  }),
 });

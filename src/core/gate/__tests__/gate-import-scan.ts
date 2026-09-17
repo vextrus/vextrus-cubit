@@ -44,7 +44,8 @@ export type GateImport = {
 type Token =
   | { readonly shape: "word"; readonly text: string; readonly line: number }
   | { readonly shape: "punct"; readonly text: string; readonly line: number }
-  | { readonly shape: "string"; readonly text: string; readonly line: number };
+  | { readonly shape: "string"; readonly text: string; readonly line: number }
+  | { readonly shape: "regex"; readonly text: string; readonly line: number };
 
 /** Is this character one an identifier or keyword is spelled with? */
 function isWordChar(char: string): boolean {
@@ -52,7 +53,34 @@ function isWordChar(char: string): boolean {
 }
 
 /**
- * The text, as words, punctuation and string literals — with comments dropped.
+ * The punctuation a VALUE ends with. After one of these `/` is the division operator; after any
+ * other punctuation an expression is awaited, and `/` opens a pattern.
+ */
+const VALUE_ENDS: readonly string[] = Object.freeze([")", "]"]);
+
+/**
+ * The words an expression may stand right after. After a keyword the text reads a value, so `/`
+ * opens a pattern; after an identifier or a number it reads an operator, so `/` divides.
+ */
+const VALUE_AWAITED_AFTER: readonly string[] = Object.freeze(["await", "case", "delete", "do", "else", "in", "instanceof", "new", "of", "return", "throw", "typeof", "void", "yield"]);
+
+/**
+ * Does a `/` standing after this token open a regex literal, or divide by what came before it?
+ *
+ * The one question a hand-written lexer has to answer about a slash, and the whole reason this
+ * function exists: read as punctuation, `/'/u` opens a string at the apostrophe and swallows the
+ * rest of the file — and every import after it is invisible to the ban, which is the ban not
+ * happening (SEAM-GATE).
+ */
+function opensPattern(previous: Token | undefined): boolean {
+  if (previous === undefined) return true;
+  if (previous.shape === "punct") return !VALUE_ENDS.includes(previous.text);
+  if (previous.shape === "word") return VALUE_AWAITED_AFTER.includes(previous.text);
+  return false;
+}
+
+/**
+ * The text, as words, punctuation, string literals and regex literals — with comments dropped.
  *
  * A hand-written pass rather than a parser: the tree holds no TypeScript parser it may import here,
  * and what this has to tell apart is exactly what a comment, a string and a keyword are. Every token
@@ -80,6 +108,36 @@ function tokensOf(source: string): Token[] {
         at += 1;
       }
       at += 2;
+      continue;
+    }
+    if (char === "/" && opensPattern(tokens.at(-1))) {
+      const began = line;
+      let text = "";
+      let inClass = false;
+      at += 1;
+      while (at < source.length) {
+        const inner = source[at] as string;
+        // A backslash carries the character after it whatever it is, so `/\//u` is one pattern and
+        // not two; a `[` opens a class, inside which a `/` is a character and not the end.
+        if (inner === "\\") {
+          text += inner + (source[at + 1] ?? "");
+          at += 2;
+          continue;
+        }
+        // No pattern spans a line: a slash this reading took for one when it was an operator stops
+        // here rather than swallowing the file, which is the failure being answered for.
+        if (inner === "\n") break;
+        if (inner === "[") inClass = true;
+        else if (inner === "]") inClass = false;
+        else if (inner === "/" && !inClass) {
+          at += 1;
+          break;
+        }
+        text += inner;
+        at += 1;
+      }
+      while (at < source.length && isWordChar(source[at] as string)) at += 1;
+      tokens.push({ shape: "regex", text, line: began });
       continue;
     }
     if (char === '"' || char === "'" || char === "`") {

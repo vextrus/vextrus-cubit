@@ -48,7 +48,16 @@ function normalised(value: unknown): unknown {
   }
   if (isPlainRecord(value)) {
     const ordered: Record<string, unknown> = {};
-    for (const key of sortCanonical(Object.keys(value))) ordered[key] = normalised(value[key]);
+    for (const key of sortCanonical(Object.keys(value))) {
+      const held: unknown = value[key];
+      // A key JSON has no spelling for is the same fact as a Date: the canon cannot read it, and
+      // JSON.stringify would drop the key silently — so `{ a: undefined }` and `{}` would spell one
+      // semantic, and a person's disposition of the second would carry onto the first (L-REG-04).
+      if (held === undefined || typeof held === "function" || typeof held === "symbol") {
+        throw new Error(`the key "${key}" carries ${typeof held === "undefined" ? "undefined" : typeof held}, which the semantic has no spelling for — a key it cannot read is refused, never dropped (L-REG-04)`);
+      }
+      ordered[key] = normalised(held);
+    }
     return ordered;
   }
   return value;

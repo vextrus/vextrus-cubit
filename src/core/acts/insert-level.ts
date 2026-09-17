@@ -174,15 +174,26 @@ function subjectsOf(derived: Derived): ConsequenceSubject[] {
       before: [`ordinal:${String(level.from)}`],
       after: [`ordinal:${String(level.to)}`],
     })),
-    // One subject per register object carried, by the key it stands on NOW: "registers N objects
-    // across M classes" is stated by naming each of them and what class it is (settled reading 4).
-    ...derived.carried.map((object) => ({
-      subjectId: object.objectKey,
-      subjectLabel: object.elementType,
-      before: [],
-      after: [object.levelLabel],
-    })),
+    ...carriedSubjects(derived.carried),
   ];
+}
+
+/**
+ * One subject per register object carried, by the key it stands on NOW: "registers N objects across
+ * M classes" is stated by naming each of them and what class it is (settled reading 4).
+ *
+ * One per DISTINCT key. A placeholder stands under every pinned revision that holds it, so a carry
+ * spanning three revisions reads back as three rows for one object — and a Consequence naming it
+ * three times tells a person three objects move when one does, which is exactly the count they are
+ * being asked to judge (L-ACT-02). The rows still each carry; what is counted is the object.
+ */
+export function carriedSubjects(carried: readonly PlaceholderObject[]): ConsequenceSubject[] {
+  const subjects = new Map<string, ConsequenceSubject>();
+  for (const object of carried) {
+    if (subjects.has(object.objectKey)) continue;
+    subjects.set(object.objectKey, { subjectId: object.objectKey, subjectLabel: object.elementType, before: [], after: [object.levelLabel] });
+  }
+  return [...subjects.values()];
 }
 
 export const insertLevel: ActRendering<InsertLevelInput> = {
@@ -236,7 +247,14 @@ export const insertLevel: ActRendering<InsertLevelInput> = {
       const level = levelFor(derived, object);
       const levelId = minted[level.at];
       if (levelId === undefined) throw new Error(`the store minted no surrogate for the proposed level ${level.label} (L-MEA-07)`);
-      await carryObjectOntoLevel(tx, scope, object, levelId);
+      // The Consequence this act was judged against says the object moves. A carry the identity
+      // grammar declines — a key that no longer stands under the placeholder the read found it by —
+      // moves nothing, and swallowing it would leave the record claiming a move that did not happen.
+      // The whole act is refused instead, so the register and the Consequence cannot disagree
+      // (L-REG-04, L-ACT-02, ARCH-03).
+      if (!(await carryObjectOntoLevel(tx, scope, object, levelId))) {
+        throw new Error(`${object.objectKey} does not stand under the placeholder for "${object.levelLabel}", so the carry the Consequence states did not happen (L-REG-04)`);
+      }
     }
   },
 };

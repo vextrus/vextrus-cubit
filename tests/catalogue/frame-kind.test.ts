@@ -44,12 +44,52 @@ const MEMBER_ALGEBRA = "member";
 /** The precision a formwork figure is documented at (AC-1). */
 const DOCUMENT_PRECISION = 2;
 
+/**
+ * What the FOUNDATIONS leaf appends to the two closed rosters this file grades, in the order it
+ * appends them — the four kinds its rails measure, and the nine `bears` rows its classes hold.
+ *
+ * Re-baselined here rather than derived: a derivation cannot catch a roster an increment dropped, and
+ * this file's claim is that the frame's own statement did not move when another area landed beside it
+ * (B-19, the same re-baselining `src/modules/takeoff/rails/aggregate.test.ts` carries).
+ */
+const FOUNDATIONS_KINDS: readonly string[] = Object.freeze(["piling.bored", "piling.boring", "earthwork.excavation", "pcc.blinding"]);
+
+/**
+ * And what the MASONRY leaf appends after it, in the order it appends them: the brickwork a mason
+ * builds and the two finishes a surface bears, with the three `bears` rows those two classes hold
+ * (R-TO-032, L-MEA-03). Re-baselined here for the same reason as the four above.
+ */
+const MASONRY_KINDS: readonly string[] = Object.freeze(["masonry.brickwork", "finish.plaster", "finish.paint"]);
+
+const MASONRY_BEARS: readonly { class: string; kind: string }[] = Object.freeze([
+  { class: "brick_wall", kind: "masonry.brickwork" },
+  { class: "surface", kind: "finish.plaster" },
+  { class: "surface", kind: "finish.paint" },
+]);
+
+const FOUNDATIONS_BEARS: readonly { class: string; kind: string }[] = Object.freeze([
+  { class: "footing", kind: RCC_CONCRETE },
+  { class: "pile_cap", kind: RCC_CONCRETE },
+  { class: "pile", kind: RCC_CONCRETE },
+  { class: "pile", kind: "piling.bored" },
+  { class: "pile", kind: "piling.boring" },
+  { class: "footing", kind: "earthwork.excavation" },
+  { class: "pile_cap", kind: "earthwork.excavation" },
+  { class: "footing", kind: "pcc.blinding" },
+  { class: "pile_cap", kind: "pcc.blinding" },
+]);
+
+/** Every kind the product measures, frame first, in the order the closed roster names them. */
+const MEASURED_KINDS: readonly string[] = Object.freeze([...FRAME_KINDS, ...FOUNDATIONS_KINDS, ...MASONRY_KINDS]);
+
 describe("AC-1: rcc.formwork is a kind the product measures", () => {
   test("AC-1: KINDS answers the two kinds the frame measures, and the new one offends no vocabulary", async () => {
     const kinds = await productModule<{ KINDS: readonly string[]; isKind: (value: unknown) => boolean }>(KINDS_MODULE);
     const law = await productModule<{ offendingTokens: (name: string) => readonly { token: string; vocabulary: string }[] }>(KIND_LAW_MODULE);
 
-    expect([...kinds.KINDS], `${KINDS_MODULE} closes over the two kinds this area measures, concrete first (AC-1)`).toEqual([...FRAME_KINDS]);
+    expect([...kinds.KINDS], `${KINDS_MODULE} closes over the two kinds this area measures, concrete first, and the foundations leaf's four beside them (AC-1)`).toEqual([
+      ...MEASURED_KINDS,
+    ]);
     expect(kinds.isKind(RCC_FORMWORK), "and admits the new one as a kind — the closed list and its guard are one statement").toBe(true);
     expect(
       law.offendingTokens(RCC_FORMWORK),
@@ -88,7 +128,12 @@ describe("AC-1: rcc.formwork is a kind the product measures", () => {
 
     // The relation this leaf leaves behind, derived from the six (class × kind) pairs it lands and
     // the one the column leaf landed before it — never a table of rows typed here (B-19).
-    const owed = [{ class: COLUMN_CLASS, kind: RCC_CONCRETE }, ...FRAME_PAIRS.map((held) => ({ class: held.class, kind: held.kind }))];
+    const owed = [
+      { class: COLUMN_CLASS, kind: RCC_CONCRETE },
+      ...FRAME_PAIRS.map((held) => ({ class: held.class, kind: held.kind })),
+      ...FOUNDATIONS_BEARS,
+      ...MASONRY_BEARS,
+    ];
     expect(
       bears.BEARS.map((row) => ({ class: row.class, kind: row.kind })),
       "the column's concrete stands first, and each frame class bears both of the kinds this area measures (AC-1)",
@@ -105,7 +150,7 @@ describe("AC-1: rcc.formwork is a kind the product measures", () => {
     expect(
       Object.keys(rails).sort(),
       "a kind with no rail is a kind nothing measures, and a rail under no kind is never run: the roster is exactly the kinds this product measures (L-MEA-08)",
-    ).toEqual([...FRAME_KINDS].sort());
-    for (const kind of FRAME_KINDS) expect(typeof rails[kind], `${kind} is measured by a pure function (L-MEA-08)`).toBe("function");
+    ).toEqual([...MEASURED_KINDS].sort());
+    for (const kind of MEASURED_KINDS) expect(typeof rails[kind], `${kind} is measured by a pure function (L-MEA-08)`).toBe("function");
   });
 });

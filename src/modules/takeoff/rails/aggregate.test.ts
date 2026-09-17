@@ -29,8 +29,22 @@ const AREA_DIR = "src/modules/takeoff/rails";
 /** Code-point order — the only order this tree sorts a roster by (L-REG-05). */
 const byCodePoint = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 
-/** Every kind the product measured before AM-11 moved a line, in code-point order. */
-const KINDS_BEFORE: readonly string[] = Object.freeze(["rcc.concrete", "rcc.formwork"]);
+/**
+ * Every kind the product measures, in code-point order. Re-baselined by the foundations leaf, which
+ * lands four kinds beside the two the frame measured — `piling.bored`, `piling.boring`,
+ * `earthwork.excavation` and `pcc.blinding` (B-19: an increment that lands a rail says so here).
+ */
+const KINDS_BEFORE: readonly string[] = Object.freeze([
+  "earthwork.excavation",
+  "finish.paint",
+  "finish.plaster",
+  "masonry.brickwork",
+  "pcc.blinding",
+  "piling.bored",
+  "piling.boring",
+  "rcc.concrete",
+  "rcc.formwork",
+]);
 
 async function moduleAt(relative: string): Promise<Record<string, unknown>> {
   const abs = join(REPO_ROOT, relative);
@@ -44,6 +58,9 @@ async function areaRosters(): Promise<{ file: string; roster: Readonly<Record<st
   const abs = join(REPO_ROOT, AREA_DIR);
   expect(existsSync(abs), `${AREA_DIR} is missing — AM-11 puts each area's rails in its own file there`).toBe(true);
   const found: { file: string; roster: Readonly<Record<string, unknown>> }[] = [];
+  // white-box: AC-1 — the claim IS a property of the directory: AM-11 says the barrel enumerates the
+  // area files, so the denominator has to be the files that stand there. Nothing is asserted about
+  // any file's text: each is IMPORTED, and it is the roster it exports that is judged (B-19).
   for (const name of readdirSync(abs).filter((entry) => entry.endsWith(".ts") && !entry.endsWith(".test.ts") && entry !== "law.ts" && entry !== "index.ts").sort(byCodePoint)) {
     const file = `${AREA_DIR}/${name}`;
     const mod = await moduleAt(file);
