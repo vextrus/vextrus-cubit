@@ -3,7 +3,8 @@
 Route `/t/{tenant}/p/{project}/takeoff/boq` — the **fifth** tab of the takeoff lane, under
 `src/app/(app)/t/[tenant]/p/[project]/takeoff/boq/**`, inside the shell frame and behind
 `authorizePage({ tenant, project })`. Increment inc-311a-taxonomy-boq. Law: L-BD-08, AM-14, AM-16,
-AM-05, L-QTY-07, R-TO-053, A-BOQ-PDF, S-BOQ, J-033, R-UI-002/003/004/005/010/012/020/024/030/031/
+AM-05, L-QTY-07, R-TO-053, R-TO-070, A-BOQ-PDF, A-BOQ-XLSX, L-FMT-01, R-SPINE-021, R-SPINE-041,
+S-BOQ, J-030, J-033, R-UI-002/003/004/005/010/012/020/024/030/031/
 050/060/080/081/082/083/084/085/086, B-17, B-19, B-20, C-05, C-13.
 
 Cut from the **grid workspace template** (Direction §3.2) and re-deciding nothing it settled: the
@@ -11,8 +12,9 @@ tabs row is the frame's tool track (s-takeoff I-230), the grid is DataTable v2 w
 (I-235), the one RefusalState and the one JobTimeline are the shipped patterns. The template's tree
 and inspector are **absent by scope**: the draft is read whole, nothing on it is selectable, and the
 Trace lives on the register (out of scope by name). Files: `takeoff/layout.tsx` (one nav entry);
-`takeoff/boq/{page.tsx,boq-screen.tsx,route-address.ts,states.ts,demonstration.ts,boq.css}`; copy at
-`src/ui/strings/boq.ts`. Chrome is shipped primitives only — DataTable v2, IdChip, EnumLabel,
+`takeoff/boq/{page.tsx,boq-screen.tsx,actions.ts,route-address.ts,states.ts,demonstration.ts,boq.css}`;
+the quantities composer at `src/modules/takeoff/export/boq-xlsx/**`; copy at `src/ui/strings/boq.ts`
+and, for the module that renders it, `src/modules/takeoff/boq/copy.ts`. Chrome is shipped primitives only — DataTable v2, IdChip, EnumLabel,
 BasisChip, CoverageChip, UnitBadge, EmptyState, Button, Skeleton, Tooltip, the one RefusalState, the
 one JobTimeline — plus the `cx-boq-*` classes this file rules. No pattern is invented, so no gallery
 entry is added.
@@ -56,6 +58,33 @@ entry is added.
   tabular mono with lakh/crore grouping. The register keeps full precision and is reached from the
   register screen, not re-derived here: the draft reads lines and never re-measures.
 
+### 0.1 inc-312 — the quantities export
+
+- **I-272 — the quantities are a synchronous door answering a signed link, not a job.** A workbook is
+  EVIDENCE addressed by its own bytes (R-SPINE-021), not a document of the kinds barrel: there is
+  nothing to file in Documents, no consequence to preview and no act to commit.
+  `takeoffBoq.exportQuantities` (permission MEASURE) builds through the one export seam, stores the
+  bytes and answers `{ url, sha256, kind }`; the shipped `GET /api/exports/[id]` serves them. Rejected:
+  a second keyed job filing an issue — a build is a pure function of its spec, so two presses of one
+  unchanged campaign answer one address and there is nothing for a timeline to watch.
+- **I-273 — A-BOQ-XLSX's "bill sheets" are SECTION sheets, named `<S> <label>`.** The ordinal is the
+  section's among L-BD-08's six (AM-16 §1), so `1 Substructure` reads the same across two projects.
+  The reserved word appears in no sheet name, no header and no cell (AM-05, I-265); the file itself is
+  named by its address, `<sha256>.<kind>`, and by nothing a person chose. The line's formula string,
+  drawing and source sheet are JOINED from the register by `lineId`, never carried on the draft
+  payload, whose schema is strict and whose subject is what a document prints.
+- **I-274 — unpriced means the Rate is empty and the Amount is `IF(F="","",E*F)`.** The formula is
+  live, so a reader who prices a sheet sees the bill compute; until they do, the Amount states
+  nothing. Rejected: `E*F` alone, which would put `0.00` in every Amount of an unpriced draft — a
+  figure nobody stated, on a document that says it has no prices (B-21).
+- **I-275 — a column carries one precision: the widest `placesOf` among the kinds standing in it.** The
+  cell holds the payload's already-rounded string, written as a number Excel can total and never
+  re-rounded here (L-FMT-02, I-271); the lakh/crore number format is the seam's, from `BD_DOCUMENT`
+  (L-FMT-01). A section that mixes kinds therefore never quietly loses a digit.
+- **I-276 — Resources and Assumptions/Exclusions are not written.** Their sources are the resource
+  outputs (M6) and the certificate (M7), and neither exists; an empty sheet under either name would be
+  a claim this product cannot support (A-BOQ-XLSX, AM-05). They arrive with their sources.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -95,7 +124,7 @@ its own viewport with the Item column frozen; the page never scrolls sideways (�
 
 | Region | What it holds | Width / height rule | Tokens | State when empty |
 |---|---|---|---|---|
-| tabs row (frame's track) | `takeoff-nav-register` · `-coverage` · `-levels` · `-schedules` · `takeoff-nav-boq` (`aria-current="page"` here); in `useTakeoffTabsAside`: `boq-revision` and `boq-taxonomy-version` as `IdChip`s, `boq-draft` as the standing word, and the ONE primary `boq-export` | 100 % × `--toolbar-h` 32 | `--ink-secondary`, `--ink`, `--ink-muted`, `--line-accent`, `--surface-panel`, `--accent` through Button | the aside carries the tabs alone while no campaign is pinned; the primary does not render |
+| tabs row (frame's track) | `takeoff-nav-register` · `-coverage` · `-levels` · `-schedules` · `takeoff-nav-boq` (`aria-current="page"` here); in `useTakeoffTabsAside`: `boq-revision` and `boq-taxonomy-version` as `IdChip`s, `boq-draft` as the standing word, the ONE primary `boq-export`, then the two secondary channels `boq-export-xlsx` and `boq-export-csv` and, after a press answers, the `boq-export-link` anchor | 100 % × `--toolbar-h` 32; each control at `--control-h`, the link too | `--ink-secondary`, `--ink`, `--ink-muted`, `--line-accent`, `--surface-panel`, `--surface-hover`, `--accent` through Button and through the link | the aside carries the tabs alone while no campaign is pinned; neither the primary nor the two channels render, and the link stands only after a press |
 | answer slot (`boq-answer`) | one RefusalState from a refused door; the offline banner above it; the denial pair | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--state-warn(-surface)` through RefusalState, `--radius-4`, `--hairline` | absent (no box) |
 | status line | the ONE helper line, `<p role="status">`, `boq_coverage_incomplete` or `boq_coverage_complete` | 100 % × 28 | `--ink-muted`, `--text-body` | absent with the grid |
 | job strip (`boq-jobs`) | the shipped `JobTimeline` for the render job, present only while a run is watched; `boq-render-draft` is its step; `boq-document-link` follows a success | 100 % × the pattern's own, between the status line and the grid | the pattern's own | absent — never an empty box |
@@ -183,7 +212,10 @@ declares is answered `REQUEST_MALFORMED` through the one RefusalState.
 
 `takeoff_nav_boq` **Draft BOQ** (the fifth tab and `shell-crumb-page`) · `boq_revision_label`
 **Pinned revision** · `boq_taxonomy_label` **Taxonomy** · `boq_draft_standing` **Draft — unsigned** ·
-`boq_export` **Export the draft** · `boq_coverage_incomplete` **Coverage is incomplete, so each
+`boq_export` **Export the draft** · `boq_export_xlsx` **Quantities XLSX** · `boq_export_csv`
+**Quantities CSV** · `boq_export_xlsx_hint` **Download every published line with its bases and formula
+as a workbook with live formulas.** · `boq_export_csv_hint` **Download the Quantities sheet as CSV.** ·
+`boq_export_link` **Save the file** · `boq_coverage_incomplete` **Coverage is incomplete, so each
 section states a measured-scope subtotal over what was measured, and no figure is stated for the
 project.** · `boq_coverage_complete` **Every section states a measured-scope subtotal over what was
 measured.** · `boq_grid_label` **Draft lines by section** · `boq_col_item` **Item** ·
@@ -241,7 +273,8 @@ Only the semantic alias group and the density/layout tokens (Direction §4.1, §
 or `--beam-*` reference outside `tokens.ts` is a lint failure (R-UI-086). This screen spends:
 `--surface-app` · `--surface-panel` · `--surface-sunken` · `--surface-hover` · `--ink` ·
 `--ink-secondary` · `--ink-muted` · `--ink-code` · `--line` · `--line-accent` · `--hairline` ·
-`--accent` (only through the Button in the aside and in the empty state) · `--state-info(-surface)`
+`--accent` (only through the Button in the aside and in the empty state, and as the aside's
+`boq-export-link` text) · `--state-info(-surface)`
 and `--state-warn(-surface)` reached only through RefusalState · the basis palette reached only
 through `BasisChip` · `--state-danger` / `--state-warn` / `--state-success` reached only through
 `CoverageChip`'s own banding · `--space-1/2/3/4` · `--gap-section` · `--radius-2/4` · `--text-20` ·
@@ -273,14 +306,20 @@ Routes: `/t/{tenant}/p/{project}/takeoff/boq` (`boqRoute`, the one spelling; cru
 `/t/[tenant]/p/[project]/takeoff/boq` (the matrix key). Linked, all shipped:
 `/t/{tenant}/p/{project}/documents` (the issue, and `BOQ_TAXONOMY_VERSION_MOVED`'s evidence),
 `…/takeoff/register` (the empty state's action and `BOQ_NO_PUBLISHED_LINE`'s evidence),
-`…/settings/participants` (the denial's evidence). Procedures: `takeoffBoq.exportDraft`. Reads:
-`boqViewOf`, `boqDraftPayloadOf`, `resolveBill`, `plinthBoundaryOf`, `numberItems`, `listDocuments`.
+`…/settings/participants` (the denial's evidence) and the signed
+`/api/exports/{sha256}?tenant=…&kind={xlsx|csv}&expires=…&signature=…` the quantities link addresses.
+Procedures: `takeoffBoq.exportDraft`, `takeoffBoq.exportQuantities`. Reads: `boqViewOf`,
+`boqDraftPayloadOf`, `resolveBill`, `plinthBoundaryOf`, `numberItems`, `listDocuments`,
+`boqExportReadingOf`, `boqWorkbookSpecOf`, `boqQuantitiesSheetOf`.
 
 Test ids, exactly the registry's spellings, on the elements ruled in §1: `boq-screen` (`data-state`,
 `data-campaign`, `data-coverage`, `data-taxonomy-version`) · `boq-answer` · `boq-revision`
 (an `id-chip`, `data-value` the whole revision) · `boq-taxonomy-version` (an `id-chip`, `data-value`
 the whole `BILL_TAXONOMY.version`) · `boq-draft` (the standing word, `data-state="UNSIGNED"`) ·
-`boq-export` (`data-permission`, `data-job`) · `boq-jobs` (`data-job`) · `boq-render-draft` (the job's
+`boq-export` (`data-permission`, `data-job`) · `boq-export-xlsx` and `boq-export-csv` (each
+`data-permission="MEASURE"`, `data-kind="xlsx"`/`"csv"`, `aria-disabled="true"` and no press while the
+connection is gone) · `boq-export-link` (`data-kind`, `data-sha256`, `href` the signed address,
+`download`; present only after a press answered) · `boq-jobs` (`data-job`) · `boq-render-draft` (the job's
 step, `data-kind="boq-draft"`, `data-state`) · `boq-document-link` (`data-document`) · `boq-grid`
 (`data-rows-rendered`) · `boq-bill` (`data-bill`, `data-ordinal`, `data-rows-rendered`) · `boq-line`
 (`data-line`, `data-item`, `data-bill`, `data-group`, `data-class`, `data-kind`, `data-level`,
@@ -304,7 +343,10 @@ Behavioural hooks without new ids: `[data-density]` at the ROOT, the one switch 
 `--row-h` from · `data-technical` on every raw enum, taxonomy key and `decidedBy.key` kept beside its
 `EnumLabel` · `role="status"` on the status line and the offline banner · `aria-live="polite"` on
 `boq-answer` · `aria-label` `boq_grid_label` on the grid · `aria-disabled="true"` on `boq-export`
-while a render is watched or the connection is gone (unpermitted renders no primary at all) ·
+while a render is watched or the connection is gone (unpermitted renders no primary at all) · the two
+quantity channels, offline, stand as the frame's own unavailable affordance — `cx-btn` chrome,
+`role="button"`, in the tab order, `aria-disabled="true"`, no press — because the shipped Button
+reports `aria-disabled` for busy and for nothing else (I-247's precedent, R-UI-010) ·
 `cx-reticle` on every focusable. Asserted absences: no element
 with `data-scope="GRAND"` anywhere (I-268); no inspector and no second right column (R-UI-080); no
 native `select` or `input[type=date]` (R-UI-083); no `data-item` that is not `^[1-9]\d*\.[1-9]\d*\.[1-9]\d*$`
@@ -312,8 +354,11 @@ native `select` or `input[type=date]` (R-UI-083); no `data-item` that is not `^[
 `coverage-chip`; no `boq-bill` for a section holding no line; no `boq-grid` while `boq-empty` stands;
 no `boq-jobs` at rest; no wrapping cell; no uuid or digest as a text node outside an `IdChip`.
 
-Suites and evidence. Unit: `tests/takeoff/boq/taxonomy.test.ts`, `…/numbering.test.ts` and
-`tests/takeoff/boq/support/**` (no duration is asserted in any of them — AM-10 §3). Docs:
+Suites and evidence. Unit: `tests/takeoff/boq/taxonomy.test.ts`, `…/numbering.test.ts`,
+`tests/takeoff/boq/support/**` and the quantities export's own `tests/takeoff/boq-xlsx/**` — the
+workbook composed over the F-RCC6-BNBC roster and read back with exceljs, and the aside that presses
+the door — with `tests/takeoff/boq-xlsx/export-door.db.test.ts` on the database lane (no duration is
+asserted in any of them — AM-10 §3). Docs:
 `tests/docs/boq-draft/{payload.json,golden.pdf,render.test.ts}` under `pnpm test:docs`. Perf:
 `tests/e2e/boq-draft-perf.spec.ts`, titles carrying **PERF-311**, collected only by `pnpm test:perf`.
 Journey `tests/e2e/boq.spec.ts`, every title carrying **J-033**, staged by
@@ -331,7 +376,9 @@ Re-baselined under B-20 in its own `baseline:`-subject commit naming the fifth t
 - **A line's Trace on this screen.** Every figure here came from a drawing, and R-UI-022 will want an
   EvidenceLink on the Quantity cell and an inspector behind it. Out of scope by name; the register
   carries the Trace meanwhile. Owner: the M4 BOQ leaf.
-- **A-BOQ-XLSX and every other export channel.** One door, one kind at M3. Owner: inc-311b.
+- **The Resources and Assumptions/Exclusions sheets, and a priced workbook.** A-BOQ-XLSX's two
+  remaining sheets wait on the resource outputs and the certificate, and the Rate column waits on
+  pricing (I-276). Owners: M6 for the resources and the priced BOQ, M7 for the certificate.
 - **Electrical, Plumbing, External and provisional sums.** Their taxonomy rows exist and no rail
   publishes into them, so those sections never render today and no act authors a provisional sum.
   Owners: the network rail's node and the provisional-sum authoring leaf.

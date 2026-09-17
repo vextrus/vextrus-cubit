@@ -13,6 +13,14 @@ export const BOQ_COPY = {
   boq_taxonomy_label: "Taxonomy",
   boq_draft_standing: "Draft — unsigned",
   boq_export: "Export the draft",
+
+  // The two quantity channels beside the primary (R-TO-070, A-BOQ-XLSX). Each says WHAT it hands over
+  // rather than what it runs, and neither calls the unsigned draft by the reserved name (AM-05, I-265).
+  boq_export_xlsx: "Quantities XLSX",
+  boq_export_csv: "Quantities CSV",
+  boq_export_xlsx_hint: "Download every published line with its bases and formula as a workbook with live formulas.",
+  boq_export_csv_hint: "Download the Quantities sheet as CSV.",
+  boq_export_link: "Save the file",
   boq_coverage_incomplete:
     "Coverage is incomplete, so each section states a measured-scope subtotal over what was measured, and no figure is stated for the project.",
   boq_coverage_complete: "Every section states a measured-scope subtotal over what was measured.",
