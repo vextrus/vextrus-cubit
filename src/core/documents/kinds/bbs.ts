@@ -17,6 +17,12 @@
 // its own row carrying the lap's own mass — never a percentage, and never a column of the bar's row:
 // net-of-laps and gross-of-laps are both readable because they are two lines.
 //
+// THE RATE THE BILL WAS TAKEN AT IS STATED (AM-03(b), R-TO-054). Every row carries the kg/m table's
+// own figure for its diameter beside the mass it produced, so a reader can reconcile a printed mass
+// against the table that billed it. d²/162 only checks a rate and bills nothing, and no mass on this
+// schedule is ever reckoned from the IS-additive length — that figure is printed and billed by
+// nothing (AM-03(c)).
+//
 // THE CUTTING STOCK IS INFORMATIONAL (AM-03(e)). What a site cuts from a stock bar is stated per
 // diameter beneath the schedule and is billed by nothing.
 import { z } from "zod";
@@ -98,7 +104,12 @@ const barRow = z
     piecesPerBar: z.number().int().positive(),
     lapMm: decimal(ROUNDED_PLACES),
     lapsPerBar: z.number().int().nonnegative(),
+    /** How the bar count was reached: the bars one member takes, and how many members take them. */
+    barsPerUnit: z.number().int().positive(),
+    parentCount: decimal(COUNT_PLACES),
     bars: decimal(COUNT_PLACES),
+    /** The rate this bar was BILLED at — the kg/m table's own figure (AM-03(b), R-TO-054). */
+    kgPerMetre: decimal(MASS_PLACES),
     kgNet: decimal(MASS_PLACES),
     kgLap: decimal(MASS_PLACES),
     kg: decimal(MASS_PLACES),

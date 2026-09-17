@@ -43,7 +43,12 @@ export function bbsPayloadOf(document_: BbsDocument, meta: BbsPayloadMeta): BbsP
       piecesPerBar: row.piecesPerBar,
       lapMm: row.lapMm,
       lapsPerBar: row.lapsPerBar,
+      barsPerUnit: row.barsPerUnit,
+      parentCount: row.parentCount,
       bars: row.bars,
+      // The rate the row was billed at, as the store holds it: the kg/m table's figure, crossing
+      // verbatim so the document states the basis of its own masses (AM-03(b)).
+      kgPerMetre: row.kgPerMetre,
       kgNet: row.kgNet,
       kgLap: row.kgLap,
       kg: row.kg,
