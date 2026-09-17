@@ -77,7 +77,7 @@
 
 .cx-ruleset-author-table {
   min-block-size: 0;
-  border: var(--hairline) solid var(--line);
+  border: var(--hairline);
   border-radius: var(--radius-4);
 }
 
