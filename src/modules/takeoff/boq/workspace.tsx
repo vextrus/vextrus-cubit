@@ -336,13 +336,17 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
   const steps = props.jobs?.steps ?? [];
   const documentId = props.jobs?.documentId ?? null;
 
+  // The two things a press needs, named one by one: keeping the whole props object in the deps would
+  // give this callback — and the memoised aside that holds it — a new identity on every render, and a
+  // node with a new identity every render sets the frame's slot on every render (see `aside` below).
+  const exportDoor = doors.exportDraft;
+  const onExportStarted = props.onExportStarted;
   const press = useCallback((): void => {
-    const door = doors.exportDraft;
-    if (door === undefined) return;
-    void door().then(
+    if (exportDoor === undefined) return;
+    void exportDoor().then(
       (answer) => {
         setJobId(answer.jobId);
-        props.onExportStarted?.(answer.jobId);
+        onExportStarted?.(answer.jobId);
       },
       (thrown: unknown) => {
         // A refused door is answered in the one place a refusal is rendered, by its registered code —
@@ -350,7 +354,7 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
         setAnswered(codeOf(thrown));
       },
     );
-  }, [doors, props]);
+  }, [exportDoor, onExportStarted]);
 
   /* --- the sections: one grid each, in BILLS order, then the unclassified block (I-266) --- */
   const sections = useMemo(() => payload?.sections ?? [], [payload]);
@@ -377,6 +381,47 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
   const denial = denied ? (doors.refusalOf?.(PERMISSION_NOT_HELD) ?? null) : null;
   const refusal = refused === null ? null : (doors.refusalOf?.(refused) ?? null);
 
+  /**
+   * What this surface hangs in the lane's tabs row, MEMOISED ON WHAT IT SHOWS. The slot is state in
+   * the frame (`useTakeoffTabsAside`), so a node with a new identity every render would set that
+   * state every render, re-render the frame, and re-render this surface — a loop that never idles,
+   * which is also a loop no `router.refresh()` can land inside. The register's and the levels'
+   * asides are memoised for the same reason (R-UI-030, I-170).
+   */
+  const aside = useMemo(
+    () => (
+      <div className="cx-boq-aside">
+        {view === null ? null : (
+          <>
+            <span className="cx-boq-aside-label">{BOQ_COPY.boq_revision_label}</span>
+            <IdChip className="cx-boq-revision" data-testid={ids.revision} value={view.setRevisionId ?? ""} />
+            <span className="cx-boq-aside-label">{BOQ_COPY.boq_taxonomy_label}</span>
+            <IdChip className="cx-boq-taxonomy" data-testid={ids.taxonomyVersion} value={view.taxonomyVersion} />
+            <span className="cx-boq-standing" data-testid={ids.draft} data-state={UNSIGNED}>
+              {BOQ_COPY.boq_draft_standing}
+            </span>
+          </>
+        )}
+        {permitted && payload !== null ? (
+          <Tooltip content={BOQ_COPY.boq_export}>
+            <Button
+              variant="primary"
+              className="cx-boq-export"
+              data-testid={ids.export}
+              data-permission={MEASURE}
+              data-job={jobId ?? undefined}
+              aria-disabled={offline || jobId !== null ? "true" : undefined}
+              onClick={offline || jobId !== null ? undefined : press}
+            >
+              {BOQ_COPY.boq_export}
+            </Button>
+          </Tooltip>
+        ) : null}
+      </div>
+    ),
+    [Button, IdChip, Tooltip, ids.draft, ids.export, ids.revision, ids.taxonomyVersion, jobId, offline, payload, permitted, press, view],
+  );
+
   return (
     <div
       className="cx-boq"
@@ -386,36 +431,7 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
       data-coverage={view?.coverage ?? ""}
       data-taxonomy-version={view?.taxonomyVersion ?? ""}
     >
-      <TabsAside>
-        <div className="cx-boq-aside">
-          {view === null ? null : (
-            <>
-              <span className="cx-boq-aside-label">{BOQ_COPY.boq_revision_label}</span>
-              <IdChip className="cx-boq-revision" data-testid={ids.revision} value={view.setRevisionId ?? ""} />
-              <span className="cx-boq-aside-label">{BOQ_COPY.boq_taxonomy_label}</span>
-              <IdChip className="cx-boq-taxonomy" data-testid={ids.taxonomyVersion} value={view.taxonomyVersion} />
-              <span className="cx-boq-standing" data-testid={ids.draft} data-state={UNSIGNED}>
-                {BOQ_COPY.boq_draft_standing}
-              </span>
-            </>
-          )}
-          {permitted && payload !== null ? (
-            <Tooltip content={BOQ_COPY.boq_export}>
-              <Button
-                variant="primary"
-                className="cx-boq-export"
-                data-testid={ids.export}
-                data-permission={MEASURE}
-                data-job={jobId ?? undefined}
-                aria-disabled={offline || jobId !== null ? "true" : undefined}
-                onClick={offline || jobId !== null ? undefined : press}
-              >
-                {BOQ_COPY.boq_export}
-              </Button>
-            </Tooltip>
-          ) : null}
-        </div>
-      </TabsAside>
+      <TabsAside>{aside}</TabsAside>
 
       {offline ? (
         <p className="cx-boq-offline" role="status">
