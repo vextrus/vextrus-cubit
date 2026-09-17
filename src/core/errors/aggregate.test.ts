@@ -69,6 +69,12 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "CREDENTIALS_NOT_VALID",
   "DIGEST_MISMATCH",
   "DIMENSION_MISMATCH",
+  "DOCUMENT_KIND_UNKNOWN",
+  "DOCUMENT_NOT_FOUND",
+  "DOCUMENT_NOT_RENDERED",
+  "DOCUMENT_PAYLOAD_MALFORMED",
+  "DOCUMENT_URL_EXPIRED",
+  "DOCUMENT_URL_INVALID",
   "DOWNLOAD_NOT_SIGNABLE",
   "DUPLICATE_IDENTITY",
   "EARTHWORK_PLAN_DEFERRED",
@@ -167,7 +173,17 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
  *
- * Re-baselined for TEN ADDED entries and nothing else, all of them the FOUNDATIONS leaf's
+ * Re-baselined for SIX ADDED entries and nothing else, all of them `./docs.ts`'s and all of them
+ * about one document (R-SPINE-040): `DOCUMENT_KIND_UNKNOWN` and `DOCUMENT_PAYLOAD_MALFORMED`, which a
+ * render refuses a kind nobody registered and a payload its schema will not read by;
+ * `DOCUMENT_NOT_RENDERED`, which a renderer that fell over is answered with, carrying the id of the
+ * fault it was recorded as (ARCH-03); and `DOCUMENT_NOT_FOUND`, `DOCUMENT_URL_INVALID` and
+ * `DOCUMENT_URL_EXPIRED`, the three answers `GET /api/documents/[id]` gives a signed download link it
+ * will not serve (R-SPINE-021, Q-12). The roster grew by those six keys — 96 codes to 102 — and not
+ * one existing entry's code, message, remedy, severity or surface moved with them; the previous
+ * digest was 32df92f233d23f6d676ee51d208364ba75c57da271b4854ee1170a61a0da791c.
+ *
+ * Re-baselined before that for TEN ADDED entries and nothing else, all of them the FOUNDATIONS leaf's
  * (./foundations.ts): the six readings a foundation rail reports rather than guess when the drawing
  * did not state them — `FOUNDATION_PLAN_UNSTATED`, `FOUNDATION_DEPTH_UNSTATED`,
  * `PILE_DIAMETER_UNSTATED`, `PILE_LENGTH_UNSTATED`, `FOUNDING_LEVEL_UNSTATED` and
@@ -230,7 +246,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "32df92f233d23f6d676ee51d208364ba75c57da271b4854ee1170a61a0da791c";
+const ENTRIES_DIGEST_BEFORE = "f0994ec06d7e42442917eb1616dc4927f726c7f3458b39531cc6834f2ce6963a";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

@@ -116,6 +116,21 @@ function isRegeneratedBaseline(path: string): boolean {
  * a pattern over every file called `aggregate.test.ts` would admit an arbitrary edit to any roster for
  * all time and defeat the checkpoint below. The licence widens by exactly these declared paths and not
  * in kind: every undeclared file is still a stray.
+ *
+ * The ninth is inc-300a-doc-seam's, declared by its AC-2 in the same manner as the third and fourth:
+ * the golden PDF is "byte-identical to the committed golden tests/docs/proof/golden.pdf (sha256
+ * compared, the golden byte-frozen and committed in its own `baseline:` commit naming this proof)".
+ * A golden PDF is a frozen expectation a lane grades against — the same kind of thing as the cad
+ * lane's entity graphs, and not an image — so B-20's discipline is exactly what it lands under, and
+ * without a named entry the very commit that criterion demands is the red no actor may clear that
+ * this reading exists to avoid. Its own commit names the proof (`baseline: the proof document's
+ * golden PDF, minted by the pinned renderer`). One path, backed by a quoted criterion, as the note
+ * above requires: that literal path alone, no pattern over `tests/docs/**` and none over `*.pdf`, the
+ * fifth-to-eighth note's bar on class-wide rules governing here too — the licence does not widen in
+ * kind, and `tests/docs/**` at large is still stray. This entry and this note are the ARBITRATION's
+ * and not a Builder's — the ruling on inc-300a's AC-2 (TEST_AMENDED) orders the entry kept, quoting
+ * "the golden byte-frozen and committed in its own `baseline:` commit naming this proof", and ratifies
+ * as lawful the commit that added it, b30e9530 — so no reviewer reads either as scope drift.
  */
 const DECLARED_REBASELINED: readonly string[] = [
   "tests/rulesets/support/editions.ts",
@@ -126,6 +141,7 @@ const DECLARED_REBASELINED: readonly string[] = [
   "db/catalogue/bears.json",
   "db/catalogue/digest.txt",
   "src/modules/takeoff/rails/aggregate.test.ts",
+  "tests/docs/proof/golden.pdf",
 ];
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {

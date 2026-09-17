@@ -59,6 +59,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "calibrations",
   "campaigns",
   "conventionProfiles",
+  "documents",
   "drawingSetMembers",
   "drawingSetRevisions",
   "drawingSets",
@@ -138,6 +139,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
   "calibrations",
   "campaigns",
   "conventionProfiles",
+  "documents",
   "drawingSetMembers",
   "drawingSetRevisions",
   "drawingSets",
@@ -199,7 +201,13 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over each key, its SQL table name and its column names in code-point order — the shape
  * half of the same baseline. Re-baselined with TABLES_BEFORE, and never on its own.
  *
- * Re-baselined for FOUR COLUMN MOVES and no table at all, each one a store change the sweep's own
+ * Re-baselined for ONE ADDED table and nothing else: `documents` (./schema-docs.ts), the issued
+ * documents SEAM-DOC renders and stores — one row per issue, chained by `superseded_by`
+ * (R-SPINE-040). The roster grew by that one key — 61 tables to 62 — and not one existing table's
+ * SQL name or column moved with it; the previous digest was
+ * a2b7fcaf4077b8db7bcb296769c806e451a3fb7405775690586442187cbe1d89.
+ *
+ * Re-baselined before that for FOUR COLUMN MOVES and no table at all, each one a store change the sweep's own
  * migration (db/migrations/0047_src-core-debt-sweep.sql) lands: `append_seq` joins
  * `drawing_set_revisions`, `scale_affirmations` and `storey_height_readings`, which is how those
  * three ledgers say which write came last (L-REG-04); and `calibrations` gives up `project_id`,
@@ -227,7 +235,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * table's SQL name or column moved with it; the previous digest was
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "a2b7fcaf4077b8db7bcb296769c806e451a3fb7405775690586442187cbe1d89";
+const COLUMNS_DIGEST_BEFORE = "a3ca8bc39f20771fb84ebaa151e990c7b74a955a63815fab4a0e71521f3eb6b1";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {

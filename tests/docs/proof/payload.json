@@ -1,0 +1,12 @@
+{
+  "title": "Document seam proof",
+  "project": "F-RCC6 six-storey residential",
+  "lines": [
+    {
+      "ref": "1.01",
+      "description": "Damp-proof course along the external wall, ground floor",
+      "quantity": "12.500",
+      "unit": "m"
+    }
+  ]
+}
