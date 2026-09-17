@@ -57,6 +57,9 @@ const TRANSCRIBED = "TRANSCRIBED";
 /** The calibration the view the marks were sighted in stands affirmed at. */
 const CALIBRATION_KEY = "S-101:PLAN:scale";
 
+/** The density a schedule of four thousand bars is read at (R-UI-005: the roster's own spelling). */
+const COMPACT = "compact";
+
 /** The kind the rebar rail publishes its lines under, and the coverage that leaves one PARTIAL. */
 const RCC_REBAR = "rcc.rebar";
 const PARTIAL_DECLARED = "PARTIAL_DECLARED";
@@ -70,6 +73,8 @@ type ActsSeam = {
 };
 
 type LevelsSeam = { levelStackOf: (scope: { tenantId: string; projectId: string }) => Promise<{ levelId: string; label: string; ordinal: number }[]> };
+
+type PrefsSeam = { setDensity: (userId: string, density: "comfortable" | "compact") => Promise<void> };
 
 type CampaignsSeam = { campaignsOf: (scope: { tenantId: string; projectId: string }) => Promise<Record<string, unknown>[]> };
 
@@ -167,6 +172,13 @@ export async function stageBbs(page: Page, options: { label?: string } = {}): Pr
     const consequence = await acts.preview(actor, input);
     return acts.commit(actor, input, acts.consequenceDigest(consequence));
   };
+
+  // The reader this walk signs in as works at COMPACT density — a schedule of four thousand bars is
+  // read at 28 px rows, and the density is a person's stored preference, switched at the root for
+  // every screen they open (R-UI-005, R-UI-086). It is set through the product's own door, before
+  // the walk opens a screen, so what the walk reads is the frame that preference draws.
+  const prefs = await productModule<PrefsSeam>("src/core/prefs/index.ts");
+  await prefs.setDensity(actor.userId, COMPACT);
 
   /* --- the stack the schedule's bands are read against, and the run a bar is cut to (L-MEA-07) --- */
   for (const [ordinal, label] of STACK.map((label, ordinal) => [ordinal, label] as const)) {
