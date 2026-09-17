@@ -109,6 +109,40 @@
   flex-direction: column;
 }
 
+/* §1 reads ONE column band above the schedule. Every member stands under the same ten columns, so
+   only the first block SHOWS its header; the others keep theirs for the reader who is listening —
+   each grid names its own columns — and take it out of the flow, so a screen of five rows does not
+   print the header band three times and a scroll does not stack sticky bands (R-UI-012, §1). */
+.cx-bbs-member-block:not(:first-of-type) .cx-table-header {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The loading posture's bones: a member's name, and a line of the summary beneath it (§2). */
+.cx-bbs-bone-member {
+  width: 180px;
+  height: var(--row-h);
+}
+
+.cx-bbs-bone-row {
+  width: 100%;
+  height: var(--row-h);
+}
+
+/* R-UI-012: the screen's own name, for a reader who arrives without the crumb beside them. */
+.cx-bbs-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .cx-bbs-member {
   display: flex;
   align-items: center;
@@ -240,5 +274,14 @@
 .cx-bbs-empty,
 .cx-bbs-error {
   max-width: 520px;
-  margin: 0 auto;
+  /* §2 gives the block the GRID's own box, so it stands in the middle of it: the auto margins of a
+     flex child absorb the free space above and below as well as beside. Pinned to the top, with the
+     rest of the screen blank beneath it, a designed empty reads as a page that stopped loading. */
+  margin: auto;
+}
+
+/* The one thing to do about an empty schedule is a BUTTON: the underline the document face puts on
+   every link would read as a second thing, painted over the fill (§1, R-UI-012). */
+.cx-bbs-empty-action {
+  text-decoration: none;
 }

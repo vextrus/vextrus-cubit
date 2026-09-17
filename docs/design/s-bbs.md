@@ -172,12 +172,14 @@ through `./demonstration`, exactly as `takeoff/boq/demonstration.ts` does.
 
 `takeoff_nav_bbs` **Bar schedule** (the sixth tab and `shell-crumb-page`) · `bbs_revision_label`
 **Pinned revision** · `bbs_stock_label` **Stock bar** · `bbs_stock_rounding_label` **rounded** ·
+`bbs_unit_mm` **mm** (the unit every millimetre figure on this screen is printed with) ·
 `bbs_grid_label` **Bars by member and mark** · `bbs_col_mark` **Bar mark** · `bbs_col_role` **Role** ·
 `bbs_col_shape` **Shape** · `bbs_col_diameter` **Diameter (mm)** · `bbs_col_dims` **Dimensions** ·
 `bbs_col_cutting_raw` **Cutting length (mm)** · `bbs_col_cutting_rounded` **Rounded (mm)** ·
 `bbs_col_cutting_is` **IS additive (mm)** · `bbs_col_bars` **Bars** · `bbs_col_kg` **Mass (kg)** ·
 `bbs_lap_label` **Lap** · `bbs_lap_tooltip` **A lap is scheduled as its own row beside the net bar,
-never as a percentage of it.** · `bbs_summary_heading` **Cutting stock by diameter** · `bbs_stock_note`
+never as a percentage of it.** · `bbs_summary_heading` **Cutting stock by diameter** ·
+`bbs_stock_note_label` **About cutting stock** (the `(i)` trigger's accessible name) · `bbs_stock_note`
 **Stock bars, pieces and offcut describe what a site cuts from a stock bar. They are informational and
 are never billed.** · `bbs_summary_col_diameter` **Diameter (mm)** · `bbs_summary_col_kg` **Mass (kg)**
 · `bbs_summary_col_stock_bars` **Stock bars** · `bbs_summary_col_pieces` **Pieces** ·
@@ -191,7 +193,8 @@ Measure the campaign from the takeoff register and the schedule appears here.** 
 `bbs_error_body` **Nothing was changed. Try again, and quote the report id if it keeps happening.** ·
 `bbs_retry` **Try again** · `bbs_offline` **You are offline. The schedule reads as it stood when this
 page loaded.** · `bbs_denied_body` **Reading the bar schedule needs the MEASURE permission on this
-project.** · `bbs_denied_holder` **A project principal can grant it on the participants screen.**
+project.** · `bbs_denied_holder` **Open the participants screen** (the refusal's evidence link — a
+destination, never a third telling of the remedy the banner already gives)
 
 Voice: calm, concrete, professional; no exclamation marks; no build vocabulary — "seam", "rail",
 "door", "job kind" and every clause id appear nowhere a reader can see. Marks, diameters, lengths and

@@ -11,11 +11,11 @@
 // groups a figure with (`formatUserFigure`, SEAM-FORMAT). No mass is summed here, no length is
 // rounded here, and the member group row carries no subtotal at all — the domain's totals are per
 // diameter and per mark, and both stand in the summary beneath the grid (B-17).
-import { useMemo, type ComponentType, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import type { RefusalEntry } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import { BBS_COPY } from "./copy";
-import { bbsRowsOf, bbsSummaryOf, type BbsGridRow, type BbsSummaryRow } from "./present";
+import { bbsRowsOf, bbsSummaryOf, BBS_PLACES, statedAt, type BbsGridRow, type BbsSummaryRow } from "./present";
 import { bbsStateOf, nothingScheduled } from "./states";
 import type { BbsView } from "./view";
 
@@ -142,6 +142,16 @@ const PERMISSION_NOT_HELD = "PERMISSION_NOT_HELD";
 /** What a cell reads where the component it stands for has no such figure (I-bbs-3). */
 const NOTHING = "—";
 
+/**
+ * A stored mass as this schedule prints it: at the gramme, the precision the document states a mass
+ * at, by the one seam that writes a stored figure to a stated fraction length (`statedAt`).
+ *
+ * A column of masses is read DOWN, and figures of differing fraction length defeat the tabular
+ * numerals R-UI-083 sets them in — while the same campaign's document prints every mass at three
+ * digits, so a screen showing six would disagree with it about what a mass is (AM-01, L-FMT-02).
+ */
+const atMassPrecision = (value: string): string => statedAt(value, BBS_PLACES.mass);
+
 // The addresses this screen links. ARCH-01 bars a module from the app layer where a route builder
 // lives, so they are spelled here for this screen and nowhere else in it (Decision §6).
 const registerHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/register`;
@@ -243,7 +253,40 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
   const denial = denied ? (doors.refusalOf?.(PERMISSION_NOT_HELD) ?? null) : null;
   const refusal = refused === null ? null : (doors.refusalOf?.(refused) ?? null);
 
-  const drawsGrid = state !== "loading" && state !== "error" && state !== "denied" && !nothingScheduled(view);
+  // A screen with NO READING says so, whatever else it knows about itself. The state cell keeps the
+  // Decision §2 precedence its roster declares — an offline reader stands in `offline` — but what is
+  // drawn beneath it is the reading this screen actually has: an empty grid under the completeness
+  // line would state a completeness nobody read, and the fault the failed read minted would never
+  // reach the reader it was minted for (R-UI-050, ARCH-03, B-21).
+  const unread = view === null && state !== "loading" && state !== "denied";
+  const drawsError = state === "error" || unread;
+  const drawsGrid = !drawsError && state !== "loading" && state !== "denied" && !nothingScheduled(view);
+
+  /**
+   * What the grid ACTUALLY PAINTED, as the shipped table itself states it.
+   *
+   * A count taken from the model would say `n` however many rows reached the page, which is the
+   * assertion the lane forbids (`.count()` on a virtualised table is not an assertion): this reads
+   * each member table's own `data-rows-rendered` — the pair the retrying reads wait on — and sums
+   * them, exactly as the documents screen reads the one table it mounts. The model's count stands
+   * only until the primitive has stated one of its own.
+   */
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [painted, setPainted] = useState<number | null>(null);
+  useEffect(() => {
+    const box = gridRef.current;
+    if (box === null) return;
+    const count = (): void => {
+      const stated = Array.from(box.querySelectorAll("[data-rows-rendered]"), (table) => table.getAttribute("data-rows-rendered")).filter(
+        (said): said is string => said !== null,
+      );
+      setPainted(stated.length === 0 ? null : stated.reduce((total, said) => total + Number(said), 0));
+    };
+    count();
+    const watch = new MutationObserver(count);
+    watch.observe(box, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-rows-rendered"] });
+    return () => watch.disconnect();
+  }, [rows, drawsGrid]);
 
   /**
    * What this surface hangs in the lane's tabs row, MEMOISED ON WHAT IT SHOWS. The slot is state in
@@ -269,7 +312,9 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
               data-stock-mm={document_.stockMm}
               data-rounding-mm={String(document_.roundingMm)}
             >
-              {`${BBS_COPY.bbs_stock_label} ${formatUserFigure(document_.stockMm)} · ${BBS_COPY.bbs_stock_rounding_label} ${String(document_.roundingMm)}`}
+              {/* Both figures carry the unit they are in: a bare `25` beside a `12,000` reads as a
+                  count of something rather than as the millimetre tolerance it is (§1, L-FMT-01). */}
+              {`${BBS_COPY.bbs_stock_label} ${formatUserFigure(document_.stockMm)} ${BBS_COPY.bbs_unit_mm} · ${BBS_COPY.bbs_stock_rounding_label} ${String(document_.roundingMm)} ${BBS_COPY.bbs_unit_mm}`}
             </span>
           </>
         )}
@@ -281,6 +326,10 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
   return (
     <div className="cx-bbs" data-testid={ids.screen} data-state={state} data-campaign={view?.campaignId ?? ""} data-rows={String(document_?.rows.length ?? 0)}>
       <TabsAside>{aside}</TabsAside>
+
+      {/* The screen's own name. It is read, not shown: the frame prints it in the crumb, and a
+          reader who arrives with no frame beside them still lands on a page that has one. */}
+      <h1 className="cx-bbs-name">{BBS_COPY.takeoff_nav_bbs}</h1>
 
       {offline ? (
         <p className="cx-bbs-offline" role="status">
@@ -309,19 +358,42 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
       </div>
 
       {state === "loading" ? (
-        <div className="cx-bbs-grid" data-testid={ids.grid} aria-label={BBS_COPY.bbs_grid_label}>
-          <DataTable
-            tableId="s-bbs-loading"
-            columns={columns}
-            data={[]}
-            getRowId={(row) => row.key}
-            freezeKeyColumn
-            loading
-            loadingRows={8}
-            aria-label={BBS_COPY.bbs_grid_label}
-          />
-        </div>
-      ) : state === "error" ? (
+        /* §2's loading posture: the schedule's own shape, boned — two member blocks over eight row
+           bones each, and the summary beneath them over three. A header standing alone above blank
+           rows is indistinguishable from a screen that finished and found nothing (R-UI-050). */
+        <>
+          <div className="cx-bbs-grid" data-testid={ids.grid} aria-label={BBS_COPY.bbs_grid_label}>
+            {LOADING_MEMBERS.map((bone) => (
+              <section key={bone} className="cx-bbs-member-block">
+                <Skeleton className="cx-bbs-bone-member" />
+                <DataTable
+                  tableId={`s-bbs-loading-${bone}`}
+                  columns={columns}
+                  data={[]}
+                  getRowId={(row) => row.key}
+                  freezeKeyColumn
+                  loading
+                  loadingRows={8}
+                  aria-label={BBS_COPY.bbs_grid_label}
+                />
+              </section>
+            ))}
+          </div>
+          <section className="cx-bbs-summary" data-loading="">
+            <h2 className="cx-bbs-summary-heading">{BBS_COPY.bbs_summary_heading}</h2>
+            <div className="cx-bbs-summary-table" role="table" aria-label={BBS_COPY.bbs_summary_heading}>
+              <SummaryHead />
+              <div className="cx-bbs-summary-body">
+                {LOADING_SUMMARY_ROWS.map((bone) => (
+                  <div className="cx-bbs-summary-row" role="row" key={bone}>
+                    <Skeleton className="cx-bbs-bone-row" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </>
+      ) : drawsError ? (
         <ErrorState
           className="cx-bbs-error"
           heading={BBS_COPY.bbs_error_heading}
@@ -330,6 +402,10 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
           retryLabel={BBS_COPY.bbs_retry}
           onRetry={doors.retry}
         />
+      ) : denied ? (
+        /* I-194: the denial IS the answer. A reader who may not read this schedule is not also told
+           to go and measure one — the empty state's door is one they would be refused at. */
+        null
       ) : !drawsGrid ? (
         <EmptyState className="cx-bbs-empty" data-testid={ids.empty} heading={BBS_COPY.bbs_empty_heading} body={BBS_COPY.bbs_empty_body}>
           {/* The one thing to do about a schedule with no bars: a bill of bars is read off a MEASURED
@@ -340,7 +416,13 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
         </EmptyState>
       ) : (
         <>
-          <div className="cx-bbs-grid" data-testid={ids.grid} aria-label={BBS_COPY.bbs_grid_label} data-rows-rendered={String(rows.length)}>
+          <div
+            className="cx-bbs-grid"
+            data-testid={ids.grid}
+            aria-label={BBS_COPY.bbs_grid_label}
+            data-rows-rendered={String(painted ?? rows.length)}
+            ref={gridRef}
+          >
             {members.map((member) => (
               <section key={member.objectKey} className="cx-bbs-member-block">
                 {/* The member group row: where it stands, what it is, what it is marked — and no
@@ -376,16 +458,12 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
             <section className="cx-bbs-summary" data-testid={ids.summary} data-kg={summary.grandTotalKg}>
               <h2 className="cx-bbs-summary-heading">
                 {BBS_COPY.bbs_summary_heading}
-                <Note label={BBS_COPY.bbs_summary_heading} body={BBS_COPY.bbs_stock_note} />
+                {/* The trigger is named for what it does, not for the section it stands in: a button
+                    whose name repeats the heading reads that heading twice (R-UI-012). */}
+                <Note label={BBS_COPY.bbs_stock_note_label} body={BBS_COPY.bbs_stock_note} />
               </h2>
               <div className="cx-bbs-summary-table" role="table" aria-label={BBS_COPY.bbs_summary_heading}>
-                <div className="cx-bbs-summary-head" role="row">
-                  <span role="columnheader">{BBS_COPY.bbs_summary_col_diameter}</span>
-                  <span role="columnheader">{BBS_COPY.bbs_summary_col_kg}</span>
-                  <span role="columnheader">{BBS_COPY.bbs_summary_col_stock_bars}</span>
-                  <span role="columnheader">{BBS_COPY.bbs_summary_col_pieces}</span>
-                  <span role="columnheader">{BBS_COPY.bbs_summary_col_offcut}</span>
-                </div>
+                <SummaryHead />
                 <div className="cx-bbs-summary-body">
                   {summary.rows.map((line) => (
                     <SummaryRow key={line.diameterMm} line={line} testId={ids.summaryRow} />
@@ -394,7 +472,7 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
                 <div className="cx-bbs-summary-total" role="row">
                   <span role="cell">{BBS_COPY.bbs_summary_total}</span>
                   <span className="cx-bbs-figure" role="cell">
-                    {formatUserFigure(summary.grandTotalKg)}
+                    {formatUserFigure(atMassPrecision(summary.grandTotalKg))}
                   </span>
                   <span role="cell" />
                   <span role="cell" />
@@ -405,6 +483,23 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/** The two member blocks the loading posture bones, and the three lines its summary bones (§2). */
+const LOADING_MEMBERS = Object.freeze(["a", "b"]);
+const LOADING_SUMMARY_ROWS = Object.freeze(["a", "b", "c"]);
+
+/** The cutting-stock summary's column band — one spelling, read by the summary and by its bones. */
+function SummaryHead() {
+  return (
+    <div className="cx-bbs-summary-head" role="row">
+      <span role="columnheader">{BBS_COPY.bbs_summary_col_diameter}</span>
+      <span role="columnheader">{BBS_COPY.bbs_summary_col_kg}</span>
+      <span role="columnheader">{BBS_COPY.bbs_summary_col_stock_bars}</span>
+      <span role="columnheader">{BBS_COPY.bbs_summary_col_pieces}</span>
+      <span role="columnheader">{BBS_COPY.bbs_summary_col_offcut}</span>
     </div>
   );
 }
@@ -426,7 +521,7 @@ function SummaryRow({ line, testId }: { line: BbsSummaryRow; testId: string }) {
         {String(line.diameterMm)}
       </span>
       <span className="cx-bbs-figure" role="cell">
-        {formatUserFigure(line.kg)}
+        {formatUserFigure(atMassPrecision(line.kg))}
       </span>
       <span className="cx-bbs-figure" role="cell">
         {formatUserFigure(String(line.stockBars))}
@@ -544,14 +639,15 @@ function bbsColumns(chrome: Pick<BbsChrome, "EnumLabel" | "Tooltip">): BbsColumn
       size: 112,
       meta: { align: "right" },
       accessorFn: (row) => row.kg,
-      cell: ({ row }) => <span className="cx-bbs-figure">{printed(row.original.kg)}</span>,
+      // The column a reader reads DOWN: every mass at the gramme this schedule states masses to.
+      cell: ({ row }) => <span className="cx-bbs-figure">{row.original.kg === "" ? NOTHING : formatUserFigure(atMassPrecision(row.original.kg))}</span>,
     },
   ];
 }
 
 /** The legs a bar is dimensioned by, or the lap's own length on the row beneath it (I-bbs-3). */
 function dimensionsOf(row: BbsGridRow): string {
-  if (row.component === "LAP") return `${BBS_COPY.bbs_lap_label} ${formatUserFigure(row.lapMm)}`;
+  if (row.component === "LAP") return `${BBS_COPY.bbs_lap_label} ${formatUserFigure(row.lapMm)} ${BBS_COPY.bbs_unit_mm}`;
   return Object.entries(row.dimsMm)
     .map(([letter, value]) => `${letter} ${formatUserFigure(value)}`)
     .join(" · ");

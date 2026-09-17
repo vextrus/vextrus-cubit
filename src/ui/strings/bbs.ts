@@ -14,6 +14,7 @@ export const bbs = {
   bbs_revision_label: "Pinned revision",
   bbs_stock_label: "Stock bar",
   bbs_stock_rounding_label: "rounded",
+  bbs_unit_mm: "mm",
   bbs_grid_label: "Bars by member and mark",
   bbs_col_mark: "Bar mark",
   bbs_col_role: "Role",
@@ -28,6 +29,7 @@ export const bbs = {
   bbs_lap_label: "Lap",
   bbs_lap_tooltip: "A lap is scheduled as its own row beside the net bar, never as a percentage of it.",
   bbs_summary_heading: "Cutting stock by diameter",
+  bbs_stock_note_label: "About cutting stock",
   bbs_stock_note:
     "Stock bars, pieces and offcut describe what a site cuts from a stock bar. They are informational and are never billed.",
   bbs_summary_col_diameter: "Diameter (mm)",
@@ -47,5 +49,5 @@ export const bbs = {
   bbs_retry: "Try again",
   bbs_offline: "You are offline. The schedule reads as it stood when this page loaded.",
   bbs_denied_body: "Reading the bar schedule needs the MEASURE permission on this project.",
-  bbs_denied_holder: "A project principal can grant it on the participants screen.",
+  bbs_denied_holder: "Open the participants screen",
 } as const;

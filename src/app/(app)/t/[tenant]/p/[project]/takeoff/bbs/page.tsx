@@ -62,8 +62,13 @@ export default async function ProjectBbs({
   let permitted = true;
   let reportId: string | null = null;
   try {
-    view = await bbsViewOf({ tenantId, projectId: project });
-    permitted = await forTenant({ tenantId }).transaction(async (tx) => (await permissionsHeld(tx, project, userId)).has(MEASURE));
+    // BOTH answers, or neither: a schedule held while the permission behind it went unanswered would
+    // be rendered to a reader whose MEASURE nobody could confirm, under a `permitted` that never
+    // stopped being its own opening guess (R-UI-050, ARCH-02).
+    const reading = await bbsViewOf({ tenantId, projectId: project });
+    const holds = await forTenant({ tenantId }).transaction(async (tx) => (await permissionsHeld(tx, project, userId)).has(MEASURE));
+    view = reading;
+    permitted = holds;
   } catch (cause) {
     reportId = reportFault({ requestId: crypto.randomUUID(), actor: userId, route: ROUTE, cause }).faultId;
   }

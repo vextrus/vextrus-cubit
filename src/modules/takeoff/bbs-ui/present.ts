@@ -16,6 +16,35 @@
 // happens in the CELL, so the attribute a machine reads stays the stored decimal (R-UI-083).
 import type { BbsDocument } from "@/modules/takeoff/rebar";
 
+/**
+ * The fraction length this schedule states each kind of figure at: a length to the thousandth of a
+ * millimetre because BS 8666's raw length is, the one rounded surface to the whole millimetre, a
+ * mass to the gramme, and a count whole (AM-01, L-FMT-02).
+ *
+ * The `bbs` document kind states the same four, and states them for the payload it parses. They are
+ * mirrored here rather than imported because that file reaches the filesystem to find its template
+ * and this one is read by a client component — the same reason `copy.ts` mirrors the string table.
+ */
+export const BBS_PLACES = Object.freeze({ length: 3, rounded: 0, mass: 3, count: 0 });
+
+/**
+ * A stored decimal as this schedule STATES it: the same figure, written to the fraction length the
+ * document states that kind of figure at (`BBS_PLACES`).
+ *
+ * The store keeps whatever fraction the arithmetic that made a figure left behind — a mass out of a
+ * division chain, a length out of a ceil — and both the schedule and the document it is printed in
+ * state a mass to the gramme and a length to the thousandth. Writing the fraction out to that length
+ * is FORMATTING: it is done on the text, digit by digit, so no float ever touches a stored figure and
+ * nothing here re-sums, re-rounds or re-derives anything (B-07, L-FMT-02, I-bbs-2). What a row
+ * publishes on its `data-*` is still the stored string, untouched.
+ */
+export function statedAt(value: string, places: number): string {
+  const [whole = "", fraction = ""] = value.split(".");
+  if (whole === "") return value;
+  if (places === 0) return whole;
+  return `${whole}.${`${fraction}${"0".repeat(places)}`.slice(0, places)}`;
+}
+
 /** Which component of a bar a row stands for: the bar itself, or the lap beside it (AM-03(a)). */
 export type BbsComponent = "NET" | "LAP";
 
