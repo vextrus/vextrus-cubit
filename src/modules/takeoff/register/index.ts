@@ -224,6 +224,99 @@ export async function registerSightingIn(tx: TenantTx, scope: RegisterScope, sig
   }
 }
 
+/**
+ * The same door, entered ONCE for a whole batch of one revision's sightings (L-REG-03).
+ *
+ * A rebuild derives every instance of a drawing at once, and offering them one at a time is one scope
+ * proof and one round trip per member of the building. The batch is proved once, offered as one
+ * insert the store's own key decides, and the answers come back in the order the rows were handed
+ * over — each row still registered or refused on its own identity, exactly as the single-sighting
+ * door answers it.
+ */
+export async function registerSightingsIn(tx: TenantTx, scope: RegisterScope, sightings: readonly Sighting[]): Promise<RegisteredSighting[]> {
+  if (sightings.length === 0) return [];
+  await proveScope(tx, scope);
+
+  const read = sightings.map((sighting) => ({
+    sighting,
+    identity: identityOf(sighting),
+    semantic: semanticDigest(sighting.content),
+    discipline: drawnFrom(DISCIPLINES, sighting.discipline, "discipline") as Discipline,
+    standing: drawnFrom(SIGHTING_STANDINGS, sighting.standing, "sighting standing") as SightingStanding,
+  }));
+
+  // One identity is offered once however many times the batch derives it: a second row of one key in
+  // one statement is the same double count the store's key refuses, and it is answered as one here
+  // rather than sent to the store to be refused by (L-REG-03).
+  const offeredAt = new Map<string, number>();
+  read.forEach((row, at) => {
+    if (!offeredAt.has(row.identity.objectKey)) offeredAt.set(row.identity.objectKey, at);
+  });
+  const offered = [...offeredAt.values()].map((at) => read[at] as (typeof read)[number]);
+
+  const written = await tx
+    .insert(registerObjects)
+    .values(
+      offered.map((row) => ({
+        tenantId: scope.tenantId,
+        setRevisionId: scope.setRevisionId,
+        objectKey: row.identity.objectKey,
+        projectId: scope.projectId,
+        discipline: row.discipline,
+        elementType: row.sighting.elementType,
+        mark: row.sighting.mark,
+        viewKey: row.identity.viewKey,
+        placementKey: row.identity.placementKey,
+        ...levelColumns(row.sighting.level),
+        standing: row.standing,
+        semantic: row.semantic,
+      })),
+    )
+    .onConflictDoNothing()
+    .returning({ objectKey: registerObjects.objectKey });
+  const wrote = new Set(written.map((row) => row.objectKey));
+
+  // What each refusal is about is read from the rows that STAND, inside this same transaction — the
+  // ones this insert just wrote among them, so a key the batch derived twice recognises itself.
+  const refused = read.filter((row, at) => !(wrote.has(row.identity.objectKey) && offeredAt.get(row.identity.objectKey) === at));
+  const standing = new Map((await registerObjectsIn(tx, scope)).map((object) => [object.objectKey, object]));
+  for (const row of refused) {
+    if (standing.get(row.identity.objectKey) === undefined) {
+      throw new Error(`the register refused ${row.identity.objectKey} as already standing, yet no register object stands at it — the store's own key and this read disagree (L-REG-03)`);
+    }
+  }
+  if (refused.length > 0) {
+    await tx.insert(refusedSightings).values(
+      refused.map((row) => ({
+        tenantId: scope.tenantId,
+        setRevisionId: scope.setRevisionId,
+        projectId: scope.projectId,
+        objectKey: row.identity.objectKey,
+        refusal: DUPLICATE_IDENTITY,
+        discipline: row.discipline,
+        elementType: row.sighting.elementType,
+        mark: row.sighting.mark,
+        viewKey: row.identity.viewKey,
+        placementKey: row.identity.placementKey,
+        semantic: row.semantic,
+        sighting: row.sighting,
+      })),
+    );
+  }
+
+  const refusedAt = new Set(refused.map((row) => read.indexOf(row)));
+  return read.map((row, at) =>
+    refusedAt.has(at)
+      ? {
+          registered: false,
+          refusal: DUPLICATE_IDENTITY,
+          objectKey: row.identity.objectKey,
+          semanticUnchanged: standing.get(row.identity.objectKey)?.semantic === row.semantic,
+        }
+      : { registered: true, objectKey: row.identity.objectKey },
+  );
+}
+
 /** Every register object of one pinned set revision, inside a transaction the caller already holds. */
 export async function registerObjectsIn(tx: TenantTx, scope: RegisterScope): Promise<RegisterObjectRow[]> {
   return tx

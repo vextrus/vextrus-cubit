@@ -23,11 +23,14 @@ export type ViewerScope = {
   drawingId: string;
   layoutName: string;
   /**
-   * The project the reader is standing in, where the caller knows it. A drawing is held by ONE
-   * project (L-REG-02), so an id of another project's drawing is an id this reader holds no drawing
-   * for — which is a different absence from a drawing waiting on its first reading (R-UI-050).
+   * The project the reader is standing in. A drawing is held by ONE project (L-REG-02), so an id of
+   * another project's drawing is an id this reader holds no drawing for — which is a different
+   * absence from a drawing waiting on its first reading (R-UI-050).
+   *
+   * Stated, never optional: a caller that could leave it out is a caller that keeps the confusion,
+   * and every door that opens a sheet has already named the project to its own guard.
    */
-  projectId?: string;
+  projectId: string;
 };
 
 /**
@@ -120,8 +123,7 @@ export async function renderManifestOf(scope: ViewerScope, deps: { storage: Stor
     // drawing of another project of the same workspace is, to this reader, a drawing that is not
     // there. Telling them it has not been read yet promises a reading that is never coming.
     const project = await drawingProjectOf(scope.tenantId, scope.drawingId);
-    const held = project !== null && (scope.projectId === undefined || project === scope.projectId);
-    return { kind: "absent", reason: held ? "not-ingested" : "drawing-unknown" };
+    return { kind: "absent", reason: project === scope.projectId ? "not-ingested" : "drawing-unknown" };
   }
 
   const key = memoKey(scope.tenantId, record.artifactSha256, scope.layoutName);

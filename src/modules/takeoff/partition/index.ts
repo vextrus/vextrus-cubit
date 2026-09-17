@@ -212,12 +212,15 @@ export async function proposedLevelStackOf(scope: ViewsScope): Promise<ProposedL
   if (proposed.length === 0) return null;
 
   // The stack is the seventh stage's, whole: it reads every section of the artifact into ONE stack,
-  // ordinalled from the foot up, so there is nothing left here to merge or to re-ordinal (B-17).
+  // so there is nothing left here to merge (B-17). The ordinal OFFERED is the row's place in that one
+  // run, because an ordinal names a storey once: a record partitioned before the stage read every
+  // section together carries rows ordinalled per view, and offering those ordinals as they stand
+  // would hand `INSERT_LEVEL` a list naming two ground floors at ordinal 0 (L-MEA-07, L-ACT-01).
   return {
     group: { kind: PROPOSED_LEVEL_STACK, drawingId: scope.drawingId, ingestId },
-    levels: proposed.map((level) => ({
+    levels: proposed.map((level, at) => ({
       label: level.label,
-      ordinal: level.ordinal,
+      ordinal: at,
       readings: storeyHeightOf(level),
     })),
   };

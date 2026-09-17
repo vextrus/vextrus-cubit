@@ -55,5 +55,10 @@ export async function storedProposedLevelsOf(tenantId: string, ingestId: string)
     .where(and(eq(proposedLevels.tenantId, tenantId), eq(proposedLevels.ingestId, ingestId)))
     // The stack's own run from the foot up: the stage proposes ONE stack over every section of the
     // record, so the ordinal is the order a reader confirms them in (L-MEA-07: an ordinal is physical).
-    .orderBy(asc(proposedLevels.ordinal));
+    //
+    // The view and the mark break a tie the ordinal alone leaves open. A record partitioned before the
+    // stage read every section into one stack carries rows ordinalled per view, and two rows at one
+    // ordinal would otherwise come back in whatever order the store felt like — a stack a reader
+    // confirms is never in an order nothing decided (L-REG-05).
+    .orderBy(asc(proposedLevels.ordinal), asc(proposedLevels.viewKey), asc(proposedLevels.markKey));
 }

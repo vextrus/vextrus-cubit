@@ -500,6 +500,13 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
 
   /** The row a Trace was followed from, as this screen's own address carries it (`?line=`). */
   const [originLine, setOriginLine] = useState<string | null>(null);
+  /**
+   * Where that row stands among the rows this screen renders, and the row itself — the one reading of
+   * "which rendered row is the origin" (`./origin`), asked of the rows as they are handed over rather
+   * than of the store's order. Nothing at all where no rendered row stands for the address (I-182).
+   */
+  const originAt = originRowIndexOf(lines, originLine);
+  const originRow = originAt === null ? undefined : lines[originAt];
   /** The anchor that row's cell renders, so the reticle can be put back where the reader left it. */
   const originRef = useRef<HTMLAnchorElement | null>(null);
   /** The address already restored from — the reticle is taken at most once per address (I-182). */
@@ -1353,11 +1360,11 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
               }}
               rowDataOf={(line) => rowDataOf(line, selectedLineId)}
               aria-label={REGISTER_COPY.takeoff_register_heading}
-              // The table is asked to travel only to a row it is in fact rendering: an origin a
-              // filter has taken away stands nowhere, and asking for it would leave the reticle owed
-              // for the rest of the visit. Where the row does stand, WHERE it stands is the table's
-              // own reading of its sorted order, never this screen's of the unsorted list (I-182).
-              scrollToRowId={originRowIndexOf(lines, originLine) === null ? undefined : (originLine ?? undefined)}
+              // The row the origin address names, taken from the rows this screen renders at the
+              // position the one reading of that question puts it — a filter that has taken the
+              // origin away leaves nothing to travel to, and asking for it anyway would leave the
+              // reticle owed for the rest of the visit (I-182, B-17).
+              scrollToRowId={originRow?.lineId}
             />
           )}
         </div>

@@ -3,7 +3,7 @@
 //
 // The deferrals are rewritten inside the partition's ONE transaction (`../store`) with the placements
 // they were resolved from, and so is the register pass: it is entered through the register module's
-// own tx-taking door (`registerSightingIn`), inside the transaction the rebuild already holds — one
+// own tx-taking door (`registerSightingsIn`), inside the transaction the rebuild already holds — one
 // door, one guard, and no second writer of a register object (B-17, ARCH-02). A rebuild whose later
 // stage throws therefore leaves no register row behind for the next one to derive against (L-REG-04).
 //
@@ -13,7 +13,7 @@
 import { and, asc, drawingSetRevisions, eq, expansionDeferrals, forTenant, typicalRanges, type TenantTx } from "@/core/db";
 import { liveLevelsOf } from "@/core/levels/store";
 import { recordOf } from "@/core/sets";
-import { registerObjectsIn, registerObjectsOf, registerSightingIn, type RegisterScope } from "@/modules/takeoff/register";
+import { registerObjectsIn, registerObjectsOf, registerSightingsIn, type RegisterScope } from "@/modules/takeoff/register";
 import { PLACEMENT_DISCIPLINE } from "../placement/law";
 import type { AuthoredRange, ExpansionRow, ResolvedExpansion, StackedLevel } from "./resolve";
 
@@ -156,15 +156,15 @@ export async function expansionCensusOf(scope: RegisterScope, rows: readonly Exp
 export async function registerExpansion(tx: TenantTx, scope: RegisterScope, rows: readonly ExpansionRow[]): Promise<RegisteredExpansion> {
   const objects = await registerObjectsIn(tx, scope);
   const held = new Set(objects.map((object) => object.objectKey));
-  let registered = 0;
-  let standing = 0;
+  const offering = rows.filter((row) => !held.has(row.objectKey));
 
-  for (const row of rows) {
-    if (held.has(row.objectKey)) {
-      standing += 1;
-      continue;
-    }
-    const answer = await registerSightingIn(tx, scope, {
+  // The door is entered ONCE for the whole revision: a drawing's members are derived together and are
+  // offered together, so the scope is proved once and the store's key decides the batch in one
+  // statement rather than one round trip per member of the building (L-REG-03, AC-2(e)).
+  const answers = await registerSightingsIn(
+    tx,
+    scope,
+    offering.map((row) => ({
       discipline: PLACEMENT_DISCIPLINE,
       elementType: row.placement.elementType,
       mark: row.placement.mark,
@@ -182,13 +182,11 @@ export async function registerExpansion(tx: TenantTx, scope: RegisterScope, rows
         gridNumeral: row.placement.gridNumeral,
         memberFamily: row.placement.memberFamily,
       },
-    });
-    if (answer.registered) registered += 1;
-    else standing += 1;
-    held.add(row.objectKey);
-  }
+    })),
+  );
 
-  return { registered, standing, stale: staleOf(objects, rows) };
+  const registered = answers.filter((answer) => answer.registered).length;
+  return { registered, standing: rows.length - registered, stale: staleOf(objects, rows) };
 }
 
 /**

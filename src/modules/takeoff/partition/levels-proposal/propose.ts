@@ -135,15 +135,19 @@ export function proposeLevelStack(evidence: LevelProposalEvidence): ProposedLeve
   // building state one GF however each of them spells it. An elevation is not the identity — a member
   // section is routinely drawn from its own datum, so a `1ST` at +0.00 on one view and the `GF` at
   // +0.00 on another are two storeys that share a number.
+  // Which of two spellings stands is decided in the ARTIFACT's own order, before anything is sorted:
+  // two sections are routinely drawn from their own datums, so a `GF` at −0.150 on the second section
+  // is the same storey as the `GF` at +0.000 on the first, and sorting by elevation first would keep
+  // whichever of them happens to sit lower rather than the one the drawing states first (L-REG-04).
   const named = new Set<string>();
-  const stacked = [...standing]
-    .sort((left, right) => canonicalElevationOf(left) - canonicalElevationOf(right) || byCodePoint(left.markKey, right.markKey))
-    .filter((mark) => {
-      const label = dotlessUpper(mark.label);
-      if (named.has(label)) return false;
-      named.add(label);
-      return true;
-    });
+  const kept = standing.filter((mark) => {
+    const label = dotlessUpper(mark.label);
+    if (named.has(label)) return false;
+    named.add(label);
+    return true;
+  });
+  // The stack itself counts from the foot up: an ordinal is physical (L-MEA-07).
+  const stacked = [...kept].sort((left, right) => canonicalElevationOf(left) - canonicalElevationOf(right) || byCodePoint(left.markKey, right.markKey));
 
   // Which mark stands next ABOVE each one in its own view — the pair a storey height is a distance
   // between. Read off every standing mark of the view, so a mark the label dedupe dropped still
