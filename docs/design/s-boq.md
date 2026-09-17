@@ -29,13 +29,15 @@ entry is added.
   seventh section and never sorts among the six: it stands last, labelled, each of its rows stating
   its reason (`NO_TAXONOMY_ROW`, `LEVEL_NOT_IN_STACK`) as words. It is kept and visible, which is
   L-BD-08's whole point, and it is not a place a failed mapping can hide.
-- **I-267 — an item number belongs to a numbered line, so an unclassified row is not one.** S.G.I is
+- **I-267 — an item number belongs to a numbered line, so an unclassified row carries none.** S.G.I is
   derived from the section's ordinal in `BILLS`; a row outside `BILLS` has no S and may not be given
-  one. Its row is therefore a plain `datatable-row` carrying `data-bill="UNCLASSIFIED"` and
-  `data-reason`, never a `boq-line`, and it renders no item cell value but the reason in words. So
-  "every `boq-line` carries a well-formed `data-item`" stays true of every row that claims the name.
-  Rejected: numbering Unclassified 7.x.y (a seventh section by the back door) and `data-item=""` (a
-  machine hook spelling an empty identity — job-timeline I-112).
+  one. Its row carries NO `data-item` at all, and its item cell holds the reason in words instead.
+  What it does carry is this screen's line identity: a kept line is a published, measured line
+  (L-BD-08), so it is a `boq-line` under `boq-bill[data-bill="UNCLASSIFIED"]` with `data-reason`, and
+  a reader — or a suite — that asks a section for its lines is answered by every line standing in it.
+  Rejected: numbering Unclassified 7.x.y (a seventh section by the back door); `data-item=""` (a
+  machine hook spelling an empty identity — job-timeline I-112); and withholding the `boq-line` name
+  from the kept rows, which made the block visible to a reader and invisible to every lookup.
 - **I-268 — no grand total, and the absence is stated once in words.** Under incomplete coverage
   L-QTY-07 allows only a labelled measured-scope subtotal. Each section ends in one subtotal row per
   unit, labelled **Measured-scope subtotal**; the screen carries no footer that adds sections
@@ -96,7 +98,7 @@ its own viewport with the Item column frozen; the page never scrolls sideways (�
 | status line | the ONE helper line, `<p role="status">`, `boq_coverage_incomplete` or `boq_coverage_complete` | 100 % × 28 | `--ink-muted`, `--text-body` | absent with the grid |
 | job strip (`boq-jobs`) | the shipped `JobTimeline` for the render job, present only while a run is watched; `boq-render-draft` is its step; `boq-document-link` follows a success | 100 % × the pattern's own, between the status line and the grid | the pattern's own | absent — never an empty box |
 | grid (primary) | `boq-grid`: DataTable v2, `tableId` `s-boq`, one `boq-bill` section per section holding a line (`BILLS` order, then `UNCLASSIFIED`), `datatable-group-row` per (class · kind) group with its `datatable-group-subtotal`, `boq-line` rows, each section closed by `boq-subtotal` per unit | `flex: 1 1 auto`; ≥ 55 % of main; rows `--row-h` 28, header 28 sticky, first column frozen, no wrapping cell | `--surface-app`, `--surface-sunken` (header, group and subtotal rows), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline`, basis palette through BasisChip | not rendered at all: `boq-empty` stands in its place |
-| empty (in the grid's place) | the shipped `EmptyState` `boq-empty`: heading, one sentence, one action to the takeoff register | max-width 520, centred in the grid's box | `--ink`, `--ink-muted`, `--accent` through Button | this IS the empty state |
+| empty (in the grid's place) | the shipped `EmptyState` `boq-empty`: heading, one sentence, one action to the drawing sets | max-width 520, centred in the grid's box | `--ink`, `--ink-muted`, `--accent` through Button | this IS the empty state |
 | error (in the grid's place) | `error-state`: heading, one sentence, `error-state-report` (`IdChip` under `boq_report_label`), `error-state-retry` | 100 % × auto, max-width 520 | `--ink`, `--ink-muted`, `--hairline`, `--radius-4` | — |
 | inspector (frame's one slot) | nothing ever mounts it here | **absent — width 0** | — | absent |
 
@@ -133,7 +135,11 @@ is answered `REQUEST_MALFORMED` through the one RefusalState.
   the primary does not render. Never a spinner on a table (R-UI-004).
 - **Empty** — the project has no published line on its pinned campaign, or no campaign is pinned.
   `boq-empty` fills the grid's place, the grid and the status line do not render, and the one action
-  is `boq_empty_action` → the takeoff register.
+  is `boq_empty_action` → `/t/{tenant}/p/{project}/drawings/sets`. The chain a draft is read through
+  starts at the drawing sets, and the takeoff lane already offers that step under one word on two
+  screens (`takeoff_register_empty_action`, `takeoff_coverage_empty_action`); this screen says it in
+  the same word, to the same address. The sentence that leads to the register is its own
+  (`boq_register_link`), because it answers a different question — where a REFUSED draft is resolved.
 - **Partial** — rendered, never hidden. `data-state="partial"` and `data-coverage="INCOMPLETE"` while
   the coverage statement holds an entry or any line reads `PARTIAL_DECLARED`: every section stands
   with its measured-scope subtotal, each such line keeps its `coverage-chip` below 100 %, and the
@@ -175,9 +181,9 @@ measured.** · `boq_grid_label` **Draft lines by section** · `boq_col_item` **I
 this kind.** · `boq_reason_level_not_in_stack` **This line's level is not in the level stack.** ·
 `boq_jobs_heading` **Rendering the draft** · `boq_document_link` **Open the issued draft** ·
 `boq_empty_heading` **Nothing published yet** · `boq_empty_body` **A draft lists every published line
-of the pinned campaign, grouped into sections by the project's taxonomy. Measure and publish from the
-takeoff register, and the sections appear here.** · `boq_empty_action` **Go to the takeoff register**
-· `boq_error_heading` **The draft could not be read** · `boq_error_body` **Nothing was changed. Try
+of the pinned campaign, grouped into sections by the project's taxonomy. Pin a drawing set revision,
+measure from the takeoff register, and the sections appear here.** · `boq_empty_action` **Browse
+drawing sets** · `boq_register_link` **Go to the takeoff register** · `boq_error_heading` **The draft could not be read** · `boq_error_body` **Nothing was changed. Try
 again, and quote the report id if it keeps happening.** · `boq_report_label` **Report id** ·
 `boq_retry` **Try again** · `boq_offline` **You are offline. The sections read as they stood when
 this page loaded, and nothing can be exported until the connection returns.** · `boq_denied_export`
@@ -263,11 +269,12 @@ step, `data-kind="boq-draft"`, `data-state`) · `boq-document-link` (`data-docum
 (`data-rows-rendered`) · `boq-bill` (`data-bill`, `data-ordinal`, `data-rows-rendered`) · `boq-line`
 (`data-line`, `data-item`, `data-bill`, `data-group`, `data-class`, `data-kind`, `data-level`,
 `data-ordinal`, `data-quantity`, `data-unit`, `data-quantity-basis`, `data-selection-basis`,
-`data-coverage`, `data-decided-by`, `data-scope` only on a provisional line) · `boq-subtotal`
+`data-coverage`, `data-decided-by`, `data-scope` only on a provisional line; `data-item` on a numbered
+row and `data-reason` on a kept one, never both — I-267) · `boq-subtotal`
 (`data-scope="MEASURED"`, `data-bill`, `data-unit`, `data-quantity`) · `boq-empty`. Used and never
 redefined, other files' ids: `takeoff-nav`, `takeoff-nav-boq` (`aria-current="page"` here),
-`datatable-header`, `datatable-row` (every `boq-line` is also one, and the unclassified rows are only
-one — I-267), `datatable-group-row` (`data-group`), `datatable-group-subtotal` (`data-unit`,
+`datatable-header`, `datatable-row` (the primitive's own name, which `rowTestId` replaces on every row
+this screen renders — placed and kept alike, I-267), `datatable-group-row` (`data-group`), `datatable-group-subtotal` (`data-unit`,
 `data-quantity`), `basis-chip` (`data-basis`), `basis-glyph`, `coverage-chip`, `unit-badge`,
 `id-chip` (`data-value`), `enum-label`, `empty-state`, `error-state`, `error-state-report`,
 `error-state-retry`, `refusal-state`, `skeleton`, `shell-crumb-page`, `shell-main`,
