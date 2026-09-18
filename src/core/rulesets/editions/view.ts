@@ -4,8 +4,8 @@
 //
 // L-MEA-01 keeps identity and digest apart, so this view carries them as two fields and never lets
 // one stand in for the other.
-import { and, eq, forTenant, isUuid, tenantRulesetEditions, rulesetEditions, type TenantDb } from "../../db";
-import type { EditionIdentity, EditionLineageStep, EditionParameter } from "./content";
+import { and, desc, eq, forTenant, isUuid, tenantRulesetEditions, rulesetEditions, type TenantDb, type TenantTx } from "../../db";
+import type { EditionContent, EditionIdentity, EditionLineageStep, EditionParameter, MethodPair } from "./content";
 
 /** A project with a pin: what it pinned, what that content digests to, and where it came from. */
 export interface PinnedRulesetView {
@@ -41,6 +41,59 @@ interface StoredEdition {
   readonly contentDigest: string;
   readonly parameters: Readonly<Record<string, EditionParameter>>;
   readonly parentEditionId: string | null;
+}
+
+/**
+ * The project's CURRENT edition, whole: the row itself, so a caller that forks it can name it as a
+ * parent and copy its content (I-RSA-1). The creation pin is one project-scope row and authoring
+ * appends more, so "current" is the NEWEST of them — created_at first, then the edition id, which
+ * settles two rows written in one instant deterministically rather than by whatever order the
+ * planner happened to return.
+ */
+export interface CurrentProjectEdition {
+  readonly editionId: string;
+  readonly identity: EditionIdentity;
+  readonly digest: string;
+  readonly content: EditionContent;
+  readonly parentEditionId: string;
+}
+
+/** The columns the whole row is read by — the surface's four, the id, the parent and the methods. */
+const CURRENT_COLUMNS = {
+  editionId: tenantRulesetEditions.editionId,
+  scope: tenantRulesetEditions.scope,
+  name: tenantRulesetEditions.name,
+  version: tenantRulesetEditions.version,
+  contentDigest: tenantRulesetEditions.contentDigest,
+  parameters: tenantRulesetEditions.parameters,
+  methods: tenantRulesetEditions.methods,
+  parentEditionId: tenantRulesetEditions.parentEditionId,
+} as const;
+
+/**
+ * The edition a project reads today, on the transaction the caller is in. One reading, one home
+ * (B-17): the settings screen's view below and the authoring act both ask this, so what a screen
+ * shows and what an act forks can never be two different rows.
+ */
+export async function currentProjectEdition(
+  db: TenantDb | TenantTx,
+  { tenantId, projectId }: { tenantId: string; projectId: string },
+): Promise<CurrentProjectEdition | undefined> {
+  const rows = await db
+    .select(CURRENT_COLUMNS)
+    .from(tenantRulesetEditions)
+    .where(and(eq(tenantRulesetEditions.tenantId, tenantId), eq(tenantRulesetEditions.projectId, projectId), eq(tenantRulesetEditions.scope, "project")))
+    .orderBy(desc(tenantRulesetEditions.createdAt), desc(tenantRulesetEditions.editionId))
+    .limit(1);
+  const current = rows[0];
+  if (current === undefined) return undefined;
+  return {
+    editionId: current.editionId,
+    identity: { scope: current.scope, name: current.name, version: current.version },
+    digest: current.contentDigest,
+    content: { parameters: current.parameters, methods: current.methods as readonly MethodPair[] },
+    parentEditionId: current.parentEditionId,
+  };
 }
 
 /** The columns a surface reads off a tenant-scoped edition, with the parent it was forked from. */
@@ -109,19 +162,24 @@ export async function projectRulesetView({ tenantId, projectId }: { tenantId: st
   if (!isUuid(tenantId) || !isUuid(projectId)) return { pinned: false, tenantId };
 
   const db = forTenant({ tenantId });
-  const pins = await db
-    .select(TENANT_COLUMNS)
-    .from(tenantRulesetEditions)
-    .where(and(eq(tenantRulesetEditions.tenantId, tenantId), eq(tenantRulesetEditions.projectId, projectId), eq(tenantRulesetEditions.scope, "project")))
-    .limit(1);
-  const pin = pins[0];
-  if (pin === undefined) return { pinned: false, tenantId };
+  // The newest project-scope row, because authoring appends one beside the creation pin and the
+  // project reads the edition minted last from the moment it is minted (I-RSA-1).
+  const current = await currentProjectEdition(db, { tenantId, projectId });
+  if (current === undefined) return { pinned: false, tenantId };
 
+  const pin: StoredEdition = {
+    scope: current.identity.scope,
+    name: current.identity.name,
+    version: current.identity.version,
+    contentDigest: current.digest,
+    parameters: current.content.parameters,
+    parentEditionId: current.parentEditionId,
+  };
   return {
     pinned: true,
-    identity: { scope: pin.scope, name: pin.name, version: pin.version },
-    digest: pin.contentDigest,
-    parameters: pin.parameters,
+    identity: current.identity,
+    digest: current.digest,
+    parameters: current.content.parameters,
     lineage: await lineageOf(db, pin),
   };
 }

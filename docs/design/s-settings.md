@@ -114,9 +114,16 @@ test ids and fixed attribute values.
   Design Direction 00 §3.6 rules settings a two-pane template: a 160 px section nav and a
   content pane whose primary is a table. The frame lives once, in
   `src/app/(app)/t/[tenant]/settings/settings-pane.tsx` (`SettingsPane`, `SettingsHeader`,
-  `SettingsAbout`, `workspaceSettingsNav`, `projectSettingsNav`) with `settings.css` beside
+  `SettingsAbout`, `workspaceSettingsNav`) with `settings.css` beside
   it, and the workspace's and the project's settings screens are all rendered inside it —
   a second spelling of the nav or of the 40 px header would be the copy B-17 forbids.
+  **Amended 2026-09-18 (inc-304a-ruleset-authoring-ui):** the project's side of that nav is no
+  longer a function of this template that each project screen calls. The project settings areas are
+  a frame — `src/app/(app)/t/[tenant]/p/[project]/settings/layout.tsx` over the roster in
+  `settings/areas.ts` — which Next mounts once around every area, so the nav is rendered exactly
+  once however many project settings screens there come to be, and `projectSettingsNav` is deleted
+  rather than left as a second way to draw it. The frame keeps this template's own `settings.css`:
+  the 160 px pane, the 40 px header and the row chrome are still spelled here, once.
 - **I-199 — the nav row IS the door to this screen (discharging I-60).** The landing's
   `SettingsMembersLink` section is deleted: `settings-members-link` is the nav's Members
   row, which stands on every settings screen, carries `aria-current` on this one, and is

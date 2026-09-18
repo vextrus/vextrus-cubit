@@ -67,6 +67,28 @@ export function areaLabel(area: ShellArea): string {
   return AREA_LABEL[area];
 }
 
+/**
+ * The project's settings areas, in the order the sub-navigation renders them (I-259). The roster is
+ * declared here and the addresses are declared beside the screens, because this is the file R-UI-084
+ * puts a screen's CRUMBS in — and the nav row and the page crumb of one area wear the same words.
+ */
+export const PROJECT_SETTINGS_AREA_NAMES = ["ruleset", "participants", "site-facts", "ruleset-author"] as const;
+
+/** One project settings area, derived from the roster so the two can never name different sets. */
+export type ProjectSettingsArea = (typeof PROJECT_SETTINGS_AREA_NAMES)[number];
+
+/**
+ * What each project settings area is called: the `shell-crumb-page` a reader lands on, and the words
+ * its nav row is read by — one home for both (B-17, sub-navigation § 3). Nouns, never verbs: "Author
+ * edition" names the page and the verb lives on that page's own button.
+ */
+export const PROJECT_SETTINGS_PAGES: Readonly<Record<ProjectSettingsArea, string>> = Object.freeze({
+  ruleset: "Rule set",
+  participants: "Participants",
+  "site-facts": "Site facts",
+  "ruleset-author": "Author edition",
+});
+
 /** The address of an area within a workspace — Projects is the workspace's own home. */
 export function shellHref(tenantId: string, area: ShellArea): string {
   const home = `/t/${tenantId}`;

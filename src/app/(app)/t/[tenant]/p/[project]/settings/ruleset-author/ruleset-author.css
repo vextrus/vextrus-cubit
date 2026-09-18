@@ -1,0 +1,178 @@
+/* S-Settings-Ruleset-Author § 1 and § 5: the screen's own rules, in semantic aliases and density
+   tokens only. No [data-theme] selector stands here — every difference between the themes arrives
+   through the token values (R-UI-001, § 6) — and no reduced-motion branch, because every duration
+   is a token zeroed at source (§ 4). */
+
+/* § 1: the act row and the status line are regions of the PAGE, and the grid is what scrolls. Both
+   boxes down to the table therefore take the height the pane has left and refuse to grow past it —
+   without `min-block-size: 0` a flex child floors at its content and pushes the primary off the
+   fold, which is a screen whose one door cannot be seen. */
+.cx-ruleset-author {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  /* The height the frame leaves this screen, said in the shell's OWN row tokens: the settings pane
+     is a grid of auto rows, so nothing above this box is definite and a flex child would floor at
+     its content and push the act row past the status bar. Stated here, the chain has something to
+     shrink against and the grid — the only region that may lose height — takes the loss. */
+  max-block-size: calc(100dvh - var(--topbar-h) - var(--toolbar-h) - var(--status-h) - var(--gap-section) * 2);
+}
+
+.cx-ruleset-author-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: var(--gap-section);
+  min-block-size: 0;
+}
+
+.cx-ruleset-author-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  min-block-size: var(--control-h);
+  font-size: var(--text-13);
+}
+
+/* The pin's own sentence: the words a reader reads as one line, and nothing else inside it. */
+.cx-ruleset-author-pin {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.cx-ruleset-author-label {
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-ruleset-author-parent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  color: var(--ink-code);
+}
+
+.cx-ruleset-author-scope {
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+/* I-206's exact ruling: the digest is whole in the document and drawn at the chip measure, selectable
+   as one thing — a fingerprint is read by being copied, never by being retyped. */
+.cx-ruleset-author-digest {
+  display: inline-block;
+  inline-size: 8ch;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+  user-select: all;
+  font-size: var(--text-12);
+}
+
+.cx-ruleset-author-version-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+
+.cx-ruleset-author-version {
+  inline-size: 160px;
+  block-size: var(--control-h);
+}
+
+/* § 1: the grid is the primary and it takes the height the screen has left — 640 at 1440×900 and
+   540 at 1280×800, which is a MEASURE rather than a rule, so it is left to the box to arrive at
+   rather than stated as a figure (§5's closed px set). The rows past it are reached by scrolling
+   THE GRID (§7 C10, "grids may scroll inside their own container"). The frame is the shipped
+   table's own box; given a bounded flex parent its viewport carries the overflow, which is the only
+   way the sticky header and the frozen column keep their meaning. */
+.cx-ruleset-author-table {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: hidden;
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+}
+
+.cx-ruleset-author-table > .cx-table-frame {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.cx-ruleset-author-param {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-13);
+}
+
+/* What was true recedes behind what will be: on a changed row the pinned figure goes muted, and the
+   authored one takes the ink (§ 1.1). Recession is ink weight, never a drop below the contrast floor. */
+.cx-ruleset-author-pinned {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+[data-changed="true"] .cx-ruleset-author-pinned {
+  color: var(--ink-muted);
+}
+
+.cx-ruleset-author-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cx-ruleset-author-input {
+  inline-size: 100%;
+  block-size: var(--control-h);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+[data-changed="true"] .cx-ruleset-author-input {
+  color: var(--ink);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-ruleset-author-suffix {
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-ruleset-author-refusal:empty {
+  display: none;
+}
+
+.cx-ruleset-author-act {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block-start: var(--space-4);
+}
+
+.cx-ruleset-author-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  min-block-size: var(--text-13);
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-ruleset-author-submit {
+  margin-inline-start: auto;
+  block-size: var(--control-h-lg);
+}

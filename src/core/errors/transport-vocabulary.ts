@@ -189,6 +189,9 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
       "ADMINISTER_BOOK",
       "PRICE",
       "BID",
+      // AM-04: authoring a rule-set edition is its own permission (L-MEA-01), bundled into LEAD
+      // and PRINCIPAL and into no other shipped role.
+      "AUTHOR_RULE_SET",
       "MEASURER",
       "REVIEWER",
       "LEAD",

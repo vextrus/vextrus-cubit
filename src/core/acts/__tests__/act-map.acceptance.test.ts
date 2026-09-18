@@ -110,6 +110,9 @@ const PERMISSIONS_IN_LAW = [
   "ADMINISTER_BOOK",
   "PRICE",
   "BID",
+  // AM-04 cuts a fourteenth beside the thirteen: authoring a rule-set edition is its own permission
+  // (L-MEA-01), and it replaces the staged reading that moved that act under ADMINISTER_PROJECT.
+  "AUTHOR_RULE_SET",
 ] as const;
 
 /** L-ACT-03's shipped roles — "the only thing a human picks". */
@@ -119,7 +122,9 @@ const ROLES_IN_LAW = ["MEASURER", "REVIEWER", "LEAD", "ESTIMATOR", "BID_MANAGER"
 const BUNDLES_IN_LAW: Readonly<Record<string, readonly string[]>> = {
   MEASURER: ["MEASURE", "AUTHOR_PROJECT_FACT", "ENTER_BLIND_FIGURE"],
   REVIEWER: ["REVIEW"],
-  LEAD: ["PIN_SET", "AUTHOR_LEVEL_STACK", "SET_BILL_BOUNDARY", "ADMINISTER_SAMPLE", "SIGN"],
+  // AM-04 bundles AUTHOR_RULE_SET "into LEAD and PRINCIPAL and into no other shipped role";
+  // PRINCIPAL takes it by holding all, so LEAD is the one named bundle the amendment moves.
+  LEAD: ["PIN_SET", "AUTHOR_LEVEL_STACK", "SET_BILL_BOUNDARY", "ADMINISTER_SAMPLE", "SIGN", "AUTHOR_RULE_SET"],
   ESTIMATOR: ["PRICE"],
   BID_MANAGER: ["BID"],
 };
