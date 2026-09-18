@@ -12,6 +12,11 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-block-size: 0;
+  /* The height the frame leaves this screen, said in the shell's OWN row tokens: the settings pane
+     is a grid of auto rows, so nothing above this box is definite and a flex child would floor at
+     its content and push the act row past the status bar. Stated here, the chain has something to
+     shrink against and the grid — the only region that may lose height — takes the loss. */
+  max-block-size: calc(100dvh - var(--topbar-h) - var(--toolbar-h) - var(--status-h) - var(--gap-section) * 2);
 }
 
 .cx-ruleset-author-section {
@@ -82,17 +87,17 @@
   block-size: var(--control-h);
 }
 
-/* § 1: the grid is the primary and it is 640 tall at 1440×900 — it takes the height the pane has
-   left, never more, and the rows past it are reached by scrolling THE GRID (§7 C10, "grids may
-   scroll inside their own container"). The frame is the shipped table's own box; given a bounded
-   flex parent its viewport is what carries the overflow, which is the only way the sticky header
-   and the frozen column keep their meaning. */
+/* § 1: the grid is the primary and it takes the height the screen has left — 640 at 1440×900 and
+   540 at 1280×800, which is a MEASURE rather than a rule, so it is left to the box to arrive at
+   rather than stated as a figure (§5's closed px set). The rows past it are reached by scrolling
+   THE GRID (§7 C10, "grids may scroll inside their own container"). The frame is the shipped
+   table's own box; given a bounded flex parent its viewport carries the overflow, which is the only
+   way the sticky header and the frozen column keep their meaning. */
 .cx-ruleset-author-table {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-block-size: 0;
-  max-block-size: 640px;
   overflow: hidden;
   border: var(--hairline);
   border-radius: var(--radius-4);
