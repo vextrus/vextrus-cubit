@@ -25,8 +25,12 @@ import { RefusalState } from "@/ui/patterns/refusal-state";
 import { BasisChip, Button, Input, NumberInput, QuantityText, UnitBadge } from "@/ui/primitives/core";
 import { DataTable } from "@/ui/primitives/data";
 import { ShellEmptyState, useShellPage } from "@/ui/shell";
+// The one spelling of each settings area's word (R-UI-084, B-17): the refusal's evidence link is
+// named by the screen it travels to, never by the screen the reader is already standing on.
+import { PROJECT_SETTINGS_PAGES } from "@/ui/shell/routes";
 import { fill } from "@/ui/strings";
 import { TESTIDS } from "@/ui/testids";
+import { SettingsHeader } from "@/app/(app)/t/[tenant]/settings/settings-pane";
 import { authoredValues, diffParameters, rulesetAuthorStrings, type ParameterDiffRow } from "@/modules/spine/ruleset-authoring";
 
 /** The act this screen renders (L-ACT-02's pair), spelled once. */
@@ -51,6 +55,13 @@ const FIGURES = Object.freeze({
 
 /** R-UI-002's glyph for a figure a person entered, which is what an authored value is. */
 const ENTERED = "ENTERED";
+
+/**
+ * §1's header: what a subtitle used to say, behind the `(i)` — what authoring does to the edition
+ * pinned before it, and what a version has to be. The settings frame's own disclosure holds it, so
+ * the prose is one press away rather than standing over the grid forever (s-settings §6).
+ */
+const ABOUT = Object.freeze([rulesetAuthorStrings.ruleset_author_caption, rulesetAuthorStrings.ruleset_author_version_hint]);
 
 /** What an author states: the version, and the decimals under the pin's own parameter keys. */
 export interface AuthorRequest {
@@ -112,7 +123,9 @@ export function RulesetAuthorSection({
   /** Where each reachable refusal is resolved (§ 2) — a place, named in the button voice. */
   const evidenceFor = useCallback(
     (code: RefusalCode) => {
-      if (code === "PERMISSION_NOT_HELD") return { href: participantsHref, label: rulesetAuthorStrings.ruleset_author_heading };
+      // R-UI-020's evidence is the place that RESOLVES the refusal, and the link is named by where
+      // it goes: the participants screen, where the grant is made — never by this screen's own word.
+      if (code === "PERMISSION_NOT_HELD") return { href: participantsHref, label: PROJECT_SETTINGS_PAGES.participants };
       if (code === "EDITION_VERSION_TAKEN") return { href: rulesetHref, label: rulesetAuthorStrings.ruleset_author_see_ruleset };
       return { href: rulesetHref, label: rulesetAuthorStrings.ruleset_author_see_ruleset };
     },
@@ -185,6 +198,10 @@ export function RulesetAuthorSection({
           <span className="cx-ruleset-author-field">
             <NumberInput
               className="cx-ruleset-author-input"
+              // R-UI-010's lakh/crore reading on blur, through the one figure seam the column beside
+              // it reads with: a field resting on `20000` while the pinned cell says `20,000` is two
+              // spellings of one figure, and the eye reads the difference as a change (§1.1).
+              format={formatUserFigure}
               data-testid={TESTIDS.rulesetAuthor.value}
               aria-label={fill(rulesetAuthorStrings.ruleset_author_value_label, { parameter: parameterLabel(row.original.key) })}
               value={row.original.after}
@@ -210,9 +227,7 @@ export function RulesetAuthorSection({
     return (
       <div className="cx-ruleset-author" data-state="empty">
         <section className="cx-ruleset-author-section" data-testid={TESTIDS.rulesetAuthor.section} aria-labelledby={headingId}>
-          <h1 className="cx-ruleset-author-heading" id={headingId}>
-            {rulesetAuthorStrings.ruleset_author_heading}
-          </h1>
+          <SettingsHeader title={rulesetAuthorStrings.ruleset_author_heading} titleId={headingId} about={ABOUT} />
           <div data-testid={TESTIDS.ruleset.unpinned}>
             <ShellEmptyState heading={rulesetAuthorStrings.ruleset_author_unpinned_heading} body={rulesetAuthorStrings.ruleset_author_unpinned_body}>
               <a className="cx-shell-link cx-reticle" data-testid={TESTIDS.rulesetAuthor.seeRuleset} href={rulesetHref}>
@@ -230,26 +245,30 @@ export function RulesetAuthorSection({
   return (
     <div className="cx-ruleset-author" data-state={state}>
       <section className="cx-ruleset-author-section" data-testid={TESTIDS.rulesetAuthor.section} aria-labelledby={headingId}>
-        <h1 className="cx-ruleset-author-heading" id={headingId}>
-          {rulesetAuthorStrings.ruleset_author_heading}
-        </h1>
+        <SettingsHeader title={rulesetAuthorStrings.ruleset_author_heading} titleId={headingId} about={ABOUT} />
 
         {/* I-262: the screen opens on what is being forked — one line, the pin itself, with the
-            parent's content digest whole in the document beside its identity (L-MEA-01). */}
-        <p className="cx-ruleset-author-identity">
-          <span className="cx-ruleset-author-label">{rulesetAuthorStrings.ruleset_author_parent_label}</span>
-          <span
-            className="cx-ruleset-author-parent"
-            data-testid={TESTIDS.rulesetAuthor.parent}
-            data-digest={parent.digest}
-            data-technical=""
-          >
-            <span className="cx-ruleset-author-scope" data-scope={parent.identity.scope}>
-              {parent.identity.scope}
+            parent's content digest whole in the document beside its identity (L-MEA-01), under the
+            word that says what the fingerprint IS. The version a reader states is its own element
+            beside it, never inside that sentence: a paragraph that ran the 64-character digest into
+            the field's label is what a screen reader would read out as one breath (§ 3). */}
+        <div className="cx-ruleset-author-identity">
+          <p className="cx-ruleset-author-pin">
+            <span className="cx-ruleset-author-label">{rulesetAuthorStrings.ruleset_author_parent_label}</span>
+            <span
+              className="cx-ruleset-author-parent"
+              data-testid={TESTIDS.rulesetAuthor.parent}
+              data-digest={parent.digest}
+              data-technical=""
+            >
+              <span className="cx-ruleset-author-scope" data-scope={parent.identity.scope}>
+                {parent.identity.scope}
+              </span>
+              <span className="cx-ruleset-author-edition">{identityLine(parent.identity)}</span>
+              <span className="cx-ruleset-author-label">{rulesetAuthorStrings.ruleset_author_digest_label}</span>
+              <span className="cx-ruleset-author-digest">{parent.digest}</span>
             </span>
-            <span className="cx-ruleset-author-edition">{identityLine(parent.identity)}</span>
-            <span className="cx-ruleset-author-digest">{parent.digest}</span>
-          </span>
+          </p>
           <span className="cx-ruleset-author-version-field">
             <span className="cx-ruleset-author-label">{rulesetAuthorStrings.ruleset_author_version_label}</span>
             <Input
@@ -261,7 +280,7 @@ export function RulesetAuthorSection({
               onChange={(event) => setVersion(event.target.value)}
             />
           </span>
-        </p>
+        </div>
 
         {/* I-264: the diff is the whole pin, always — changed rows are marked, never filtered. */}
         <div className="cx-ruleset-author-table" data-testid={TESTIDS.rulesetAuthor.diff} data-rendered-region="ruleset-author-diff">

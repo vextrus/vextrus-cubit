@@ -7,6 +7,9 @@
 // fork share its parent's digest by construction: `authoredContent` over unmoved values produces the
 // parent's own content, and `editionDigest` is a function of content alone.
 import { and, eq, tenantRulesetEditions, type TenantTx } from "../../db";
+import { violatesConstraint } from "../../db/violations";
+import { REFUSALS } from "../../errors";
+import { refusal } from "../../faults/refusal-marker";
 import { editionDigest } from "./content";
 import type { EditionContent, EditionParameter } from "./content";
 
@@ -49,6 +52,17 @@ export function authoredContent(parent: EditionContent, values: Readonly<Record<
  * what a second edition would collide on — and the store cannot say so for itself: the pin index is
  * `tenant_ruleset_editions_pin_newest`, a plain index over a column authoring appends to.
  */
+/** The index that holds L-MEA-01's identity apart, named once so a caller can answer what it refused. */
+const IDENTITY_ONCE = "tenant_ruleset_editions_identity_once";
+
+/**
+ * A version this project's rule set already carries, refused by name — the one sentence, whether it
+ * was the read below that saw the row or the store itself that refused the write (B-17).
+ */
+export function editionVersionTaken(version: string): Error {
+  return refusal(REFUSALS.EDITION_VERSION_TAKEN.code, `this project already holds a rule-set edition at version ${version} (L-MEA-01: identity is (scope, name, version))`);
+}
+
 export async function projectHoldsVersion(tx: TenantTx, { tenantId, projectId, version }: { tenantId: string; projectId: string; version: string }): Promise<boolean> {
   const held = await tx
     .select({ editionId: tenantRulesetEditions.editionId })
@@ -73,7 +87,31 @@ export async function projectHoldsVersion(tx: TenantTx, { tenantId, projectId, v
  */
 export async function mintProjectEdition(tx: TenantTx, mint: MintProjectEdition): Promise<MintedEdition> {
   const digest = editionDigest(mint.content);
-  const written = await tx
+  const written = await insertEdition(tx, mint, digest);
+  const row = written[0];
+  if (row === undefined) {
+    throw new Error(`the rule-set edition store accepted no row for ${mint.name} @ ${mint.version} — an edition nobody can point at is not an edition (L-MEA-01)`);
+  }
+  return { editionId: row.editionId, digest };
+}
+
+/**
+ * The write itself, with the one thing the store may refuse read as the answer it is: the identity
+ * index judging a version this project already holds. Two commits racing on one project each read a
+ * store with no such row and both reach here, so the second is told what the first made true —
+ * `EDITION_VERSION_TAKEN`, the same sentence the read before it speaks, never a 500 (ARCH-03, B-21).
+ */
+async function insertEdition(tx: TenantTx, mint: MintProjectEdition, digest: string): Promise<{ editionId: string }[]> {
+  try {
+    return await writeEdition(tx, mint, digest);
+  } catch (thrown: unknown) {
+    if (violatesConstraint(thrown, IDENTITY_ONCE)) throw editionVersionTaken(mint.version);
+    throw thrown;
+  }
+}
+
+async function writeEdition(tx: TenantTx, mint: MintProjectEdition, digest: string): Promise<{ editionId: string }[]> {
+  return tx
     .insert(tenantRulesetEditions)
     .values({
       tenantId: mint.tenantId,
@@ -87,9 +125,4 @@ export async function mintProjectEdition(tx: TenantTx, mint: MintProjectEdition)
       methods: mint.content.methods,
     })
     .returning({ editionId: tenantRulesetEditions.editionId });
-  const row = written[0];
-  if (row === undefined) {
-    throw new Error(`the rule-set edition store accepted no row for ${mint.name} @ ${mint.version} — an edition nobody can point at is not an edition (L-MEA-01)`);
-  }
-  return { editionId: row.editionId, digest };
 }

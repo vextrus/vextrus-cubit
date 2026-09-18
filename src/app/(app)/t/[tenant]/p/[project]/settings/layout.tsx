@@ -12,65 +12,42 @@
 import "@/app/(app)/t/[tenant]/settings/settings.css";
 
 import { useSelectedLayoutSegment } from "next/navigation";
-import Link from "next/link";
 import { use, type ReactNode } from "react";
-import { Tooltip } from "@/ui/primitives/core";
 import { TESTIDS } from "@/ui/testids";
+import { SettingsPane, type SettingsNavItem } from "@/app/(app)/t/[tenant]/settings/settings-pane";
 import { PROJECT_SETTINGS_AREAS } from "./areas";
 import { projectSettingsStrings } from "./strings";
 
 /**
- * The section nav: one row per roster entry, in the roster's order, built or not. An area with an
- * address is a link; one with none is a disabled span with its reason a hover or a focus away
- * (I-259). Exactly one row says where the reader is — the one whose area IS the segment — and no row
- * says so when the segment names no area of the roster: `aria-current` is a claim, not a position.
+ * The roster as the template's nav reads it: one item per area, in the roster's order, built or not.
+ * An area with an address is a place and one with none is a promise — availability is READ off
+ * `route` and never written beside a row (I-259). The rows themselves are drawn by `SettingsPane`,
+ * which is the one home of the settings frame's chrome (s-settings I-198, B-17): a second spelling
+ * of that markup here is what let two navs of one product disagree.
  */
-export function ProjectSettingsNav({ tenantId, projectId, segment }: { tenantId: string; projectId: string; segment: string | null }) {
-  return (
-    <nav className="cx-settings-nav" aria-label={projectSettingsStrings.project_settings_nav_label}>
-      <ul className="cx-settings-nav-list">
-        {PROJECT_SETTINGS_AREAS.map((entry) => (
-          <li className="cx-settings-nav-row" key={entry.area}>
-            {entry.route === null ? (
-              // A promise, not a control — and it keeps its tab stop, so the reason it does nothing
-              // is reachable by keyboard as well as by pointer (Q-11).
-              <Tooltip content={projectSettingsStrings.project_settings_unbuilt}>
-                <span
-                  className="cx-settings-nav-item cx-reticle"
-                  data-testid={TESTIDS.settings.area}
-                  data-area={entry.area}
-                  data-unbuilt="true"
-                  aria-disabled="true"
-                  tabIndex={0}
-                >
-                  {entry.label}
-                </span>
-              </Tooltip>
-            ) : (
-              <Link
-                className="cx-settings-nav-item cx-reticle"
-                data-testid={TESTIDS.settings.area}
-                data-area={entry.area}
-                href={entry.route(tenantId, projectId)}
-                aria-current={entry.area === segment ? "page" : undefined}
-              >
-                {entry.label}
-              </Link>
-            )}
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
+export function projectSettingsNavItems(tenantId: string, projectId: string): readonly SettingsNavItem[] {
+  return PROJECT_SETTINGS_AREAS.map((entry) => ({
+    key: entry.area,
+    label: entry.label,
+    href: entry.route === null ? null : entry.route(tenantId, projectId),
+    testId: TESTIDS.settings.area,
+  }));
 }
 
 export default function ProjectSettingsLayout({ children, params }: { children: ReactNode; params: Promise<{ tenant: string; project: string }> }) {
   const { tenant, project } = use(params);
+  // I-260: the current row is decided by the segment, which only a client component can read; no row
+  // says where the reader is when the segment names no area of the roster — `aria-current` is a
+  // claim, not a position.
   const segment = useSelectedLayoutSegment();
   return (
-    <div className="cx-settings">
-      <ProjectSettingsNav tenantId={tenant} projectId={project} segment={segment} />
-      <div className="cx-settings-content">{children}</div>
-    </div>
+    <SettingsPane
+      items={projectSettingsNavItems(tenant, project)}
+      active={segment ?? ""}
+      navLabel={projectSettingsStrings.project_settings_nav_label}
+      unbuiltHint={projectSettingsStrings.project_settings_unbuilt}
+    >
+      {children}
+    </SettingsPane>
   );
 }

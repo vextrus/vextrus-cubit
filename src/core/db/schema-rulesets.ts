@@ -83,6 +83,14 @@ export const tenantRulesetEditions = pgTable(
     // this index owes the read is the ordering it takes — never uniqueness, which would make the
     // second edition of a project unrepresentable (I-RSA-1).
     index("tenant_ruleset_editions_pin_newest").on(table.tenantId, table.projectId, table.createdAt).where(statement`"scope" = 'project'`),
+    // …but identity is (scope, name, version), so the MANY a project holds are many DIFFERENT
+    // editions: two rows behind one name are two editions nobody can tell apart, in a table nothing
+    // can repair (L-MEA-01). `EDITION_VERSION_TAKEN` is the answer a reader gets, and this is what
+    // makes that answer true under two commits racing on one project — a SELECT before an INSERT
+    // sees no row in either transaction and both would write.
+    uniqueIndex("tenant_ruleset_editions_identity_once")
+      .on(table.tenantId, table.projectId, table.name, table.version)
+      .where(statement`"scope" = 'project'`),
     // The two reads a pinned project makes: its own pin, and the template a second project reuses.
     index("tenant_ruleset_editions_scope").on(table.tenantId, table.scope),
   ],

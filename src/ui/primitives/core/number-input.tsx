@@ -9,12 +9,19 @@
  * end — and touches the text only where the reader asked for a step: ↑ and ↓ move by `step` and
  * the result is clamped to `[min, max]`, exactly as a spinner would, without the chrome.
  */
-import { useId, type ChangeEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useState, type ChangeEvent, type KeyboardEvent, type ReactNode } from "react";
 import { cx } from "./class-names";
 
 export interface NumberInputProps {
   value: string;
   onChange: (value: string) => void;
+  /**
+   * R-UI-010's lakh/crore reading on blur: the face the figure RESTS in, while the value itself
+   * stays the exact string the reader typed (B-07). The reading is handed in rather than decided
+   * here, because the conventions are the document's and the figure seam is their one home
+   * (SEAM-FORMAT) — a field with none given is shown exactly as it is held, as it always was.
+   */
+  format?: (value: string) => string;
   step?: number;
   min?: number;
   max?: number;
@@ -61,6 +68,7 @@ export function clampValue(value: string, min?: number, max?: number): string {
 export function NumberInput({
   value,
   onChange,
+  format,
   step = 1,
   min,
   max,
@@ -73,6 +81,10 @@ export function NumberInput({
   ...labelling
 }: NumberInputProps): ReactNode {
   const generated = useId();
+  // While the field is being typed into it shows the keystrokes themselves — a reading that
+  // regrouped mid-word would move the caret under the reader's hands.
+  const [typing, setTyping] = useState(false);
+  const shown = !typing && format !== undefined && figureOf(value) !== null ? format(value) : value;
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
     event.preventDefault();
@@ -96,10 +108,12 @@ export function NumberInput({
       data-testid={testId}
       disabled={disabled}
       placeholder={placeholder}
-      value={value}
+      value={shown}
       onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value)}
       onKeyDown={onKeyDown}
+      onFocus={() => setTyping(true)}
       onBlur={() => {
+        setTyping(false);
         const held = clampValue(value, min, max);
         if (held !== value) onChange(held);
       }}

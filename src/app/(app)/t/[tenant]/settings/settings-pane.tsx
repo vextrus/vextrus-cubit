@@ -53,21 +53,40 @@ export interface SettingsPaneProps {
   items: readonly SettingsNavItem[];
   /** The area the reader is standing in — the row that carries `aria-current` (R-UI-031). */
   active: string;
+  /** What the nav is announced as, where a settings area names itself better than the workspace's. */
+  navLabel?: string;
+  /** Why an area with no address does nothing, where an area says it better than the general word. */
+  unbuiltHint?: string;
   children: ReactNode;
 }
 
-export function SettingsPane({ items, active, children }: SettingsPaneProps) {
+export function SettingsPane({
+  items,
+  active,
+  navLabel = settingsStrings.settings_nav_label,
+  unbuiltHint = settingsStrings.settings_nav_unbuilt,
+  children,
+}: SettingsPaneProps) {
   return (
     <div className="cx-settings">
-      <nav className="cx-settings-nav" aria-label={settingsStrings.settings_nav_label}>
+      <nav className="cx-settings-nav" aria-label={navLabel}>
         <ul className="cx-settings-nav-list">
           {items.map((item) => (
             <li className="cx-settings-nav-row" key={item.key}>
               {item.href === null ? (
-                // A promise, not a control: it takes no tab stop and no pointer, and the tooltip
-                // says why it does nothing rather than a sentence standing in the pane forever.
-                <Tooltip content={settingsStrings.settings_nav_unbuilt}>
-                  <span className="cx-settings-nav-item" data-unbuilt="true" aria-disabled="true">
+                // A promise, not a control: it carries no press, and the tooltip says why it does
+                // nothing rather than a sentence standing in the pane forever. It keeps its tab
+                // stop, because a reason reachable only by hover is a reason a keyboard cannot read
+                // (Q-11) — the same idiom the shut act door keeps (I-247).
+                <Tooltip content={unbuiltHint}>
+                  <span
+                    className="cx-settings-nav-item cx-reticle"
+                    data-testid={item.testId}
+                    data-area={item.key}
+                    data-unbuilt="true"
+                    aria-disabled="true"
+                    tabIndex={0}
+                  >
                     {item.label}
                   </span>
                 </Tooltip>
@@ -75,6 +94,7 @@ export function SettingsPane({ items, active, children }: SettingsPaneProps) {
                 <Link
                   className="cx-settings-nav-item cx-reticle"
                   data-testid={item.testId}
+                  data-area={item.key}
                   href={item.href}
                   aria-current={item.key === active ? "page" : undefined}
                 >
@@ -92,16 +112,20 @@ export function SettingsPane({ items, active, children }: SettingsPaneProps) {
 
 export interface SettingsHeaderProps {
   title: string;
+  /** The id the title answers to, where a screen's own section is labelled by it (`aria-labelledby`). */
+  titleId?: string;
   /** The sentence this screen would have worn as a subtitle — §6 puts it behind the `(i)` instead. */
   about?: string | readonly string[];
   children?: ReactNode;
 }
 
 /** The 40 px header: the title, the `(i)` that holds what a subtitle used to say, then the controls. */
-export function SettingsHeader({ title, about, children }: SettingsHeaderProps) {
+export function SettingsHeader({ title, titleId, about, children }: SettingsHeaderProps) {
   return (
     <header className="cx-settings-header">
-      <h1 className="cx-settings-title">{title}</h1>
+      <h1 className="cx-settings-title" id={titleId}>
+        {title}
+      </h1>
       {about === undefined ? null : <SettingsAbout body={about} />}
       {children === undefined ? null : <div className="cx-settings-header-end">{children}</div>}
     </header>

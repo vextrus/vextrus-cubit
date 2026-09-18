@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "tenant_ruleset_editions_identity_once" ON "tenant_ruleset_editions" USING btree ("tenant_id","project_id","name","version") WHERE "scope" = 'project';

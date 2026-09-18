@@ -21,7 +21,10 @@ let segment: string | null = "ruleset";
 vi.mock("next/navigation", () => ({ useSelectedLayoutSegment: () => segment }));
 
 const { PROJECT_SETTINGS_AREAS } = await import("@/app/(app)/t/[tenant]/p/[project]/settings/areas");
-const { ProjectSettingsNav } = await import("@/app/(app)/t/[tenant]/p/[project]/settings/layout");
+const { projectSettingsNavItems } = await import("@/app/(app)/t/[tenant]/p/[project]/settings/layout");
+// The rows are drawn by the settings template itself (s-settings I-198): the frame contributes the
+// roster and nothing else, so what is asserted here is what a reader sees on every settings screen.
+const { SettingsPane } = await import("@/app/(app)/t/[tenant]/settings/settings-pane");
 const { PROJECT_SETTINGS_NAV_STATES } = await import("@/app/(app)/t/[tenant]/p/[project]/settings/states");
 
 afterEach(cleanup);
@@ -33,7 +36,11 @@ function rows(): HTMLElement[] {
 
 function renderNav(at: string | null): void {
   segment = at;
-  render(<ProjectSettingsNav tenantId={TENANT} projectId={PROJECT} segment={at} />);
+  render(
+    <SettingsPane items={projectSettingsNavItems(TENANT, PROJECT)} active={at ?? ""}>
+      {null}
+    </SettingsPane>,
+  );
 }
 
 describe("the project settings nav renders its roster (I-258, I-259)", () => {

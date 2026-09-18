@@ -3,25 +3,23 @@
    through the token values (R-UI-001, § 6) — and no reduced-motion branch, because every duration
    is a token zeroed at source (§ 4). */
 
+/* § 1: the act row and the status line are regions of the PAGE, and the grid is what scrolls. Both
+   boxes down to the table therefore take the height the pane has left and refuse to grow past it —
+   without `min-block-size: 0` a flex child floors at its content and pushes the primary off the
+   fold, which is a screen whose one door cannot be seen. */
 .cx-ruleset-author {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   min-block-size: 0;
 }
 
 .cx-ruleset-author-section {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: var(--gap-section);
   min-block-size: 0;
-}
-
-.cx-ruleset-author-heading {
-  margin: 0;
-  font-size: var(--text-20);
-  font-weight: var(--weight-heading);
-  color: var(--ink);
-  line-height: 40px;
 }
 
 .cx-ruleset-author-identity {
@@ -31,6 +29,15 @@
   margin: 0;
   min-block-size: var(--control-h);
   font-size: var(--text-13);
+}
+
+/* The pin's own sentence: the words a reader reads as one line, and nothing else inside it. */
+.cx-ruleset-author-pin {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  min-inline-size: 0;
 }
 
 .cx-ruleset-author-label {
@@ -75,10 +82,25 @@
   block-size: var(--control-h);
 }
 
+/* § 1: the grid is the primary and it is 640 tall at 1440×900 — it takes the height the pane has
+   left, never more, and the rows past it are reached by scrolling THE GRID (§7 C10, "grids may
+   scroll inside their own container"). The frame is the shipped table's own box; given a bounded
+   flex parent its viewport is what carries the overflow, which is the only way the sticky header
+   and the frozen column keep their meaning. */
 .cx-ruleset-author-table {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   min-block-size: 0;
+  max-block-size: 640px;
+  overflow: hidden;
   border: var(--hairline);
   border-radius: var(--radius-4);
+}
+
+.cx-ruleset-author-table > .cx-table-frame {
+  flex: 1 1 auto;
+  min-block-size: 0;
 }
 
 .cx-ruleset-author-param {

@@ -12,7 +12,7 @@
 import type { TenantTx } from "../db";
 import { REFUSALS } from "../errors";
 import { refusal } from "../faults/refusal-marker";
-import { authoredContent, mintProjectEdition, projectHoldsVersion } from "../rulesets/editions/mint";
+import { authoredContent, editionVersionTaken, mintProjectEdition, projectHoldsVersion } from "../rulesets/editions/mint";
 import { currentProjectEdition, type CurrentProjectEdition } from "../rulesets/editions/view";
 import { editionDigest } from "../rulesets/editions/content";
 import type { Consequence } from "./consequence";
@@ -65,7 +65,9 @@ async function derive(ctx: ActorCtx, input: AuthorRulesetEditionInput, tx: Tenan
     throw refusal(REFUSALS.REQUEST_MALFORMED.code, `the project ${input.projectId} reads no rule-set edition, so there is nothing to fork (L-REG-07)`);
   }
   if (await projectHoldsVersion(tx, { tenantId: ctx.tenantId, projectId: input.projectId, version: input.version })) {
-    throw refusal(REFUSALS.EDITION_VERSION_TAKEN.code, `this project already holds a rule-set edition at version ${input.version} (L-MEA-01: identity is (scope, name, version))`);
+    // The store says the same thing for itself when two commits race (`mintProjectEdition`), in this
+    // very sentence: the read tells a reader early, the index makes it true.
+    throw editionVersionTaken(input.version);
   }
 
   const content = authoredContent(pin.content, input.values);
