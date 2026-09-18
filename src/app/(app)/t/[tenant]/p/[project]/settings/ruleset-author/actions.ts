@@ -30,12 +30,14 @@ export type CommitAnswer = { committed: true; actId: string } | { committed: fal
  * read as one — stated, non-empty and short enough to be a version rather than a paragraph; a
  * statement that is not one is REQUEST_MALFORMED and never a 500 (`serverCall`'s own answer). The
  * values are decimal strings under the pin's own keys: what a key MEANS stays the edition's law, and
- * a key the pin does not hold is dropped where the content is built (I-265).
+ * a key the pin does not hold is dropped where the content is built (I-265). A statement that names
+ * no value at all is a verbatim fork, which is a lawful act (L-MEA-01), so it reads as the empty
+ * record rather than as a malformed statement.
  */
 const AUTHORED = z.object({
   projectId: z.string(),
   version: z.string().trim().min(1).max(64),
-  values: z.record(z.string(), z.string()),
+  values: z.record(z.string(), z.string()).default({}),
 });
 
 const CARRIED = AUTHORED.extend({ consequenceDigest: z.string() });
