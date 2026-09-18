@@ -16,7 +16,6 @@ import { authoredContent, mintProjectEdition, projectHoldsVersion } from "../rul
 import { currentProjectEdition, type CurrentProjectEdition } from "../rulesets/editions/view";
 import { editionDigest } from "../rulesets/editions/content";
 import type { Consequence } from "./consequence";
-import { actChangesNothing } from "./refusals";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
 /** The act this file renders, spelled once. */
@@ -48,12 +47,17 @@ interface Derived {
 /**
  * The act, judged against the state this transaction read.
  *
- * Three things are refused before a Consequence is computed, in the order the seam judges them: a
+ * Two things are refused before a Consequence is computed, in the order the seam judges them: a
  * project with no edition to fork (which is an address naming no pinned project of this workspace,
- * L-REG-07's unrepresentable case reached another way), a version this project has already minted
- * an edition under (identity is (scope, name, version) — a second edition behind one name), and an
- * authored content identical to the pin's, which mints a row that changes no figure anybody reads
- * (I-265, L-ACT-01's "an act changes what the machine would derive").
+ * L-REG-07's unrepresentable case reached another way), and a version this project has already
+ * minted an edition under (identity is (scope, name, version) — a second edition behind one name).
+ *
+ * An authored content identical to the pin's is NOT one of them. L-MEA-01 keeps identity and digest
+ * apart: what a verbatim fork moves is the identity — the project reads a new edition, under a
+ * version nobody has used — and the digest it carries is its parent's BY CONSTRUCTION, which is the
+ * clause's own example of content keying content rather than of nothing happening. So this act
+ * never answers ACT_CHANGES_NOTHING for a fork whose figures all stand: it mints, and the sameness
+ * of the two digests is what the lineage then shows (I-265).
  */
 async function derive(ctx: ActorCtx, input: AuthorRulesetEditionInput, tx: TenantTx): Promise<Derived> {
   const pin = await currentProjectEdition(tx, { tenantId: ctx.tenantId, projectId: input.projectId });
@@ -65,9 +69,7 @@ async function derive(ctx: ActorCtx, input: AuthorRulesetEditionInput, tx: Tenan
   }
 
   const content = authoredContent(pin.content, input.values);
-  const digest = editionDigest(content);
-  if (digest === pin.digest) throw actChangesNothing(AUTHOR_RULESET_EDITION, [input.projectId]);
-  return { pin, digest, content };
+  return { pin, digest: editionDigest(content), content };
 }
 
 export const authorRulesetEdition: ActRendering<AuthorRulesetEditionInput> = {

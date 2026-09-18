@@ -16,7 +16,8 @@ export const RULESET_AUTHOR_STATES: Readonly<Record<ShellStateName, ShellStateCe
   empty: { declared: "rendered", by: SECTION, testId: "ruleset-unpinned" },
   // The refusal slot: one RefusalState with code, message, remedy and evidence, never a toast
   // (R-UI-020). PERMISSION_NOT_HELD stands there for a reader without AUTHOR_RULE_SET (I-266);
-  // REQUEST_MALFORMED, EDITION_VERSION_TAKEN and ACT_CHANGES_NOTHING answer a preview (I-267).
+  // REQUEST_MALFORMED and EDITION_VERSION_TAKEN answer a preview, and ACT_CHANGES_NOTHING is the
+  // seam's own guard, rendered by the same slot because one renderer serves every code (I-267).
   refusal: { declared: "rendered", by: SECTION, testId: "ruleset-author-refusal" },
   error: {
     declared: "delegated",

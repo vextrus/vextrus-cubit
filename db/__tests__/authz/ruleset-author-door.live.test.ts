@@ -6,7 +6,8 @@
  *
  * AM-04 is what makes this a door of its own: AUTHOR_RULE_SET is bundled into LEAD and PRINCIPAL and
  * into no other shipped role, so a MEASURER on the very same project — a full participant, with a
- * permission of their own — is the honest counter-example.
+ * permission of their own — is the honest counter-example. The last describe walks the whole shipped
+ * roster rather than that one example, because "and into no other role" is a claim about all six.
  *
  * Raw SQL is spoken through psql, never a driver import (SEAM-TENANT). Product modules are imported
  * after DATABASE_URL names the scratch database, and by relative path: `@/*` is not resolved here.
@@ -32,6 +33,23 @@ const AUTHOR_RULESET_EDITION = "AUTHOR_RULESET_EDITION" as const;
 
 /** One workspace, one pinned project, and three people who differ only in the roles they hold. */
 const scene = { tenantId: "", leadId: "", measurerId: "", bystanderId: "", projectId: "" };
+
+/**
+ * Every shipped role, and whether AM-04 bundles AUTHOR_RULE_SET into it: "into LEAD and PRINCIPAL
+ * and into no other shipped role". The roster is walked whole so the door is proven to admit by the
+ * permission and by nothing else — a bundle that quietly gained it would fail here by name.
+ */
+const BUNDLING: Readonly<Record<string, boolean>> = {
+  MEASURER: false,
+  REVIEWER: false,
+  LEAD: true,
+  ESTIMATOR: false,
+  BID_MANAGER: false,
+  PRINCIPAL: true,
+};
+
+/** The one participant of each role, by role — seeded once, asked at both doors below. */
+const holders: Record<string, string> = {};
 
 function seed(sql: string): string {
   return scalar(scratch.urlMigrate, `set ${GUC_SYSTEM_REASON} = ${lit(SEED_REASON)};\n${sql}`);
@@ -67,6 +85,14 @@ beforeAll(async () => {
   scene.projectId = seed(`insert into projects (tenant_id, name) values (${lit(scene.tenantId)}, 'Authoring door') returning project_id::text;`);
   participant(scene.leadId, "LEAD");
   participant(scene.measurerId, "MEASURER");
+  holders["LEAD"] = scene.leadId;
+  holders["MEASURER"] = scene.measurerId;
+  for (const role of Object.keys(BUNDLING)) {
+    if (holders[role] !== undefined) continue;
+    const userId = person(role.toLowerCase());
+    participant(userId, role);
+    holders[role] = userId;
+  }
 
   // The project's pin: a fork of the platform seed the migration minted, which is what the act would
   // fork in turn. The door is refused before it is ever read, so its content does not matter here.
@@ -90,6 +116,16 @@ afterAll(async () => {
 
 /** What the screen states, so both doors are asked the same question about the same act. */
 const stated = () => ({ type: AUTHOR_RULESET_EDITION, projectId: scene.projectId, version: "2026.09", values: { openingDeductionMinM2: "0.25" } }) as const;
+
+/**
+ * The same act stating no figure at all — a verbatim fork. It is a lawful submission (L-MEA-01: the
+ * identity moves and the digest is the parent's by construction), so the only thing that can refuse
+ * it here is the permission, which is what makes the roster below about the grant and nothing else.
+ */
+const verbatim = () => ({ type: AUTHOR_RULESET_EDITION, projectId: scene.projectId, version: "2026.10", values: {} }) as const;
+
+/** The actor context a participant acts in — the human the act log takes as its author (L-ACT-01). */
+const actorOf = (userId: string) => ({ tenantId: scene.tenantId, userId, actorKind: "human" as const });
 
 describe("the Author edition door asks for AUTHOR_RULE_SET (AM-04, AM-11)", () => {
   it("admits the LEAD, who is the role AM-04 bundles the permission into", async () => {
@@ -134,4 +170,27 @@ describe("the act seam asks the same question, and answers it the same way (L-AC
     expect(consequence.actType).toBe(AUTHOR_RULESET_EDITION);
     expect(consequence.subjects.map((subject) => subject.subjectId)).toEqual([scene.projectId]);
   });
+});
+
+describe("AM-04 walked whole: the permission admits, and every role that lacks it is refused", () => {
+  for (const [role, bundles] of Object.entries(BUNDLING)) {
+    it(`${bundles ? "admits" : "refuses"} a participant holding only ${role}, at authorize() and at the seam`, async () => {
+      const userId = holders[role] ?? "";
+      const answer = await authorize({ userId, projectId: scene.projectId, permission: AUTHOR_RULE_SET, actType: AUTHOR_RULESET_EDITION });
+      expect(answer.authorized, `${role} is ${bundles ? "" : "not "}a holder of ${AUTHOR_RULE_SET} (AM-04)`).toBe(bundles);
+
+      // The seam is asked the same question about the same act, with a submission nothing but the
+      // permission can refuse — so a difference between the two answers would be the door's, not
+      // the input's (L-ACT-03: the permission check lives in the act seam).
+      const answered = await preview(actorOf(userId), verbatim()).catch((error: unknown) => error);
+      if (bundles) {
+        expect((answered as { actType?: string }).actType).toBe(AUTHOR_RULESET_EDITION);
+        return;
+      }
+      expect(answer.authorized === false && answer.refusal).toBe("PERMISSION_NOT_HELD");
+      expect(refusalCodeOf(answered)).toBe("PERMISSION_NOT_HELD");
+      expect(String((answered as Error).message)).toContain(AUTHOR_RULESET_EDITION);
+      expect(String((answered as Error).message)).toContain(AUTHOR_RULE_SET);
+    });
+  }
 });

@@ -9,8 +9,9 @@
  *   2. The project reads the NEWEST project-scope row. That is why `tenant_ruleset_editions_pin_once`
  *      had to become the plain `tenant_ruleset_editions_pin_newest`: a project holds every edition it
  *      has ever minted, and "current" is a question about order, not about uniqueness.
- *   3. The digest keys CONTENT. A value that moved moves it; a verbatim fork does not move it, and
- *      the seam refuses that by name rather than minting a row that changes no figure anybody reads.
+ *   3. The digest keys CONTENT. A value that moved moves it; a verbatim fork does not, and is minted
+ *      all the same — what such a fork moves is the identity, and the digest it shares with its
+ *      parent is L-MEA-01's construction rather than a sign that nothing happened.
  *   4. Identity is (scope, name, version), so a version this project already holds is refused
  *      EDITION_VERSION_TAKEN — a second edition behind one name is two editions nobody can tell apart.
  *
@@ -148,10 +149,31 @@ describe("authoring mints a new edition and never updates one (L-MEA-01, R-SPINE
     expect(editionsOfProject()).toHaveLength(2);
   });
 
-  it("refuses a verbatim fork by name: a row that changes no figure is no act (ACT_CHANGES_NOTHING)", async () => {
-    const thrown = await preview(lead(), stated("2026.11", {})).catch((error: unknown) => error);
-    expect(refusalCodeOf(thrown)).toBe("ACT_CHANGES_NOTHING");
-    expect(editionsOfProject()).toHaveLength(2);
+  it("mints a verbatim fork, which carries its parent's digest by construction (L-MEA-01)", async () => {
+    // Every figure left as the current edition holds it. What moves is the IDENTITY — the project
+    // reads a new edition under a version nobody has used — and the content is word for word its
+    // parent's, so the digest is too. That sameness is the clause's own example of a digest keying
+    // content, never a sign that nothing happened, so it is minted and never refused.
+    const input = stated("2026.11", {});
+    const current = await projectRulesetView({ tenantId: scene.tenantId, projectId: scene.projectId });
+    expect(current.pinned).toBe(true);
+    if (!current.pinned) return;
+
+    await commit(lead(), input, consequenceDigest(await preview(lead(), input)));
+
+    const held = editionsOfProject();
+    expect(held).toHaveLength(3);
+    expect(held[2]?.split("|")[0]).toBe("2026.11");
+    expect(held[2]?.split("|")[1]).toBe(current.digest);
+    // …and it is a step of the chain, not a copy standing beside it: its parent is what it forked.
+    expect(held[2]?.split("|")[2]).not.toBe("");
+
+    const after = await projectRulesetView({ tenantId: scene.tenantId, projectId: scene.projectId });
+    expect(after.pinned).toBe(true);
+    if (!after.pinned) return;
+    expect(after.identity.version).toBe("2026.11");
+    expect(after.digest).toBe(current.digest);
+    expect(after.lineage.map((step) => step.scope)).toEqual(["platform", "project", "project", "project"]);
   });
 
   it("refuses a commit carrying a digest the current state does not produce (CONSEQUENCES_NOT_CARRIED)", async () => {
@@ -159,6 +181,6 @@ describe("authoring mints a new edition and never updates one (L-MEA-01, R-SPINE
     const stale = consequenceDigest(await preview(lead(), stated("2026.12", { [MOVED]: "0.5" })));
     const thrown = await commit(lead(), input, stale).catch((error: unknown) => error);
     expect(refusalCodeOf(thrown)).toBe("CONSEQUENCES_NOT_CARRIED");
-    expect(editionsOfProject()).toHaveLength(2);
+    expect(editionsOfProject()).toHaveLength(3);
   });
 });

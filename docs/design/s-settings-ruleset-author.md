@@ -67,7 +67,11 @@ one ConsequenceDialog — plus the `cx-ruleset-author-*` classes this file rules
   carries the pin's unit as its suffix and the row's `data-unit`; there is no unit control, no key
   column (s-settings-ruleset I-207 — the key is `data-param`, not body text), and nothing on this
   screen states a method. `AuthorRulesetEditionInput` carries `values` only, so a verbatim fork —
-  every field left as pinned — is a lawful submission that the seam answers `ACT_CHANGES_NOTHING`.
+  every field left as pinned — is a lawful submission that MINTS: what it moves is the identity (a
+  version nobody has used), and the edition it mints carries its parent's digest **by construction**,
+  which is L-MEA-01's own example of a digest keying content. The act therefore never answers
+  `ACT_CHANGES_NOTHING` for a fork whose figures all stand; the two equal digests are what the
+  lineage on the rule-set screen then shows, side by side, under two identities.
 - **I-266 — the door stands for a reader who cannot walk through it, and says why in place.**
   R-SPINE-006 forbids hiding: a reader without `AUTHOR_RULE_SET` sees the whole screen, the parent,
   the version field and every row. `ruleset-author-submit` renders with `aria-disabled="true"` and
@@ -77,7 +81,9 @@ one ConsequenceDialog — plus the `cx-ruleset-author-*` classes this file rules
   its evidence. The same code is what `authorize()` and the act seam answer if the door is reached
   another way, so the screen and the server say one sentence.
 - **I-267 — a preview that is refused is answered in place; only a consequence opens a dialog.**
-  `ACT_CHANGES_NOTHING`, `EDITION_VERSION_TAKEN` and `REQUEST_MALFORMED` (an unstated or
+  `EDITION_VERSION_TAKEN`, `ACT_CHANGES_NOTHING` (the seam's own guard, which this act's judging no
+  longer reaches — a stated version is always new, so the identity always moves) and
+  `REQUEST_MALFORMED` (an unstated or
   ill-formed version) are refusals of the preview: they render as one RefusalState in
   `ruleset-author-refusal` and **no dialog opens** (s-levels I-245, s-schedules I-255). The field
   the refusal is about keeps what the reader typed — a refusal that clears the form makes the
@@ -183,7 +189,9 @@ Declared in the one enumerable home `src/modules/spine/ruleset-authoring/states.
   `PERMISSION_NOT_HELD` (evidence: the participants screen), `REQUEST_MALFORMED` (no version
   stated, or one the schema does not accept — evidence: this screen),
   `EDITION_VERSION_TAKEN` (evidence: `ruleset_author_see_ruleset` → the rule set screen, where the
-  versions this project already holds are listed), `ACT_CHANGES_NOTHING` (evidence: this screen).
+  versions this project already holds are listed), `ACT_CHANGES_NOTHING` (evidence: this screen —
+  the seam's generic guard, kept in the slot because one renderer serves every code the seam can
+  answer, not because a verbatim fork reaches it: a verbatim fork is minted, I-265).
   `CONSEQUENCES_NOT_CARRIED` renders as the dialog's own stale notice and is never in this slot
   (I-267). The refusal clears when the next preview is asked for and never clears a typed field.
 - **Busy** — while a preview is in flight the submit takes core's loading state (`aria-busy`, no
@@ -352,3 +360,9 @@ Two gaps in the registry, recorded rather than spelled around:
   cells are enumerated in `states.ts` and walked by
   `tests/rulesets/ruleset-author-section.test.tsx`; the figure conventions are handed to
   `QuantityText` explicitly, because the settings frame mounts no `FigureProvider` (SEAM-FORMAT).
+- 2026-09-19 — inc-304a-ruleset-authoring-ui: I-265 corrected. A verbatim fork is MINTED, not
+  refused `ACT_CHANGES_NOTHING`: L-MEA-01 keeps identity and digest apart, and a fork under a new
+  version moves the identity while carrying its parent's digest by construction — which is the
+  clause's own illustration rather than a sign that nothing happened. The act's judging drops that
+  guard; §2's refusal cell keeps the code, because one RefusalState renders every code the seam can
+  answer (R-UI-020) and the screen's state matrix enumerates it.
