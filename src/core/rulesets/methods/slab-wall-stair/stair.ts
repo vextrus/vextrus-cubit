@@ -1,4 +1,4 @@
-// AM-06 §4, as formulas: what a straight flight and a rectangular landing are measured by.
+// AM-06 §3, as formulas: what a straight flight and a rectangular landing are measured by.
 //
 // A flight is its waist — the sloped plate — plus the step triangles cast on top of it: each step is
 // a right triangle of going × rise across the width, and the flight's steps together are
@@ -42,7 +42,7 @@ const FLIGHT_CONCRETE_TREE: Statement = Object.freeze({
 
 const FLIGHT_CONCRETE = formulaFrom(FLIGHT_CONCRETE_TREE, FLIGHT_CONCRETE_METHOD.ruleId);
 
-/** `rcc.stair.flight.concrete@1`: the waist plus the step triangles (AM-06 §4). */
+/** `rcc.stair.flight.concrete@1`: the waist plus the step triangles (AM-06 §3). */
 export const FLIGHT_CONCRETE_FORMULA: FormulaMethod = Object.freeze({
   role: "formula",
   ruleId: FLIGHT_CONCRETE_METHOD.ruleId,
@@ -71,7 +71,7 @@ const FLIGHT_FORMWORK_TREE: Statement = Object.freeze({
 
 const FLIGHT_FORMWORK = formulaFrom(FLIGHT_FORMWORK_TREE, FLIGHT_FORMWORK_METHOD.ruleId);
 
-/** `rcc.stair.flight.formwork@1`: the soffit, the risers and the two strings (AM-06 §4). */
+/** `rcc.stair.flight.formwork@1`: the soffit, the risers and the two strings (AM-06 §3). */
 export const FLIGHT_FORMWORK_FORMULA: FormulaMethod = Object.freeze({
   role: "formula",
   ruleId: FLIGHT_FORMWORK_METHOD.ruleId,

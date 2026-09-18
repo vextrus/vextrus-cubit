@@ -1,4 +1,4 @@
-// L-MEA-09 (AM-02) and AM-06 §3, as formulas: what a slab plate, a tapering plate, a soffit, an
+// L-MEA-09 (AM-02) and L-FRM-02/03, as formulas: what a slab plate, a tapering plate, a soffit, an
 // edge band and a sunken drop are measured by.
 //
 // "Slabs run through: outline to the edge-beam outer face, less column and wall plan areas, less
@@ -105,7 +105,7 @@ export const SLAB_TAPER_CONCRETE_FORMULA: FormulaMethod = Object.freeze({
 
 export const SLAB_FORMWORK_METHOD: MethodPair = Object.freeze({ ruleId: "rcc.slab.formwork", version: "1" });
 
-// AM-06 §3: the soffit net of the members and the beam soffits it stands over, plus the free edges
+// L-FRM-03: the soffit net of the members and the beam soffits it stands over, plus the free edges
 // through the thickness — `L_edge × t` is the edge term, named so a reader can see it on the line.
 const SLAB_FORMWORK_TREE: Statement = Object.freeze({
   result: "F",
@@ -136,7 +136,7 @@ const SLAB_EDGE_TREE: Statement = Object.freeze({ result: "F", expr: times(V(COU
 const SLAB_EDGE = formulaFrom(SLAB_EDGE_TREE, SLAB_EDGE_FORMWORK_METHOD.ruleId);
 
 /**
- * `rcc.slab.edge-formwork@1`: a slab on grade forms its edges and nothing else (AM-06 §3).
+ * `rcc.slab.edge-formwork@1`: a slab on grade forms its edges and nothing else (L-FRM-03).
  *
  * No soffit area is declared, because the ground bears the soffit and nothing is formed there — a
  * variable declared and bound at zero would put a figure on the line for a face nobody shuttered.

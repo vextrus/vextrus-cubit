@@ -36,8 +36,8 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
  * Every pair the shards recorded before AM-11 moved a line, keyed `<ruleId>@<version>` (L-MEA-01).
  *
  * Re-baselined by the SLABS leaf for TWELVE ADDED pairs and nothing else — L-MEA-09 (AM-02) and
- * AM-06 §3/§4's plate and its taper, its soffit and its edge band, a sunken panel's drop, a
- * shear-wall storey, a straight flight and a rectangular landing, each for the concrete it holds and
+ * L-FRM-02/03's plate and its taper, its soffit and its edge band, a sunken panel's drop, AM-06 §4's
+ * shear-wall storey and AM-06 §3's straight flight and rectangular landing, each for the concrete it holds and
  * the formwork it is cast against, recorded in `../slab-wall-stair/slab-wall-stair.methods.json` and
  * cited by the platform edition `IS1200_IN @ 2027.02`. The roster grew by those twelve keys —
  * twenty-four pairs to thirty-six — and no pair standing before them moved (B-19, B-20).

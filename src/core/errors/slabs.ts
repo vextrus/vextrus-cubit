@@ -36,7 +36,7 @@ export const SLABS_REFUSALS: RefusalGroup<SlabsRefusalCode> = Object.freeze({
     severity: "error",
     surface: "inline",
   }),
-  // AM-06 §4: a straight flight and a rectangular landing are measured; anything else is deferred
+  // AM-06 §3: a straight flight and a rectangular landing are measured; anything else is deferred
   // rather than approximated by the nearest shape the machine knows (L-MEA-03).
   COMPLEX_STAIR_GEOMETRY: Object.freeze({
     code: "COMPLEX_STAIR_GEOMETRY",

@@ -193,7 +193,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * the figure is then UNDER, which L-QTY-04 admits as a disclosure; `JUNCTION_UNBOUNDED`, which a
  * junction nothing bounds at all blocks under, because a figure there would read OVER and
  * "over-measurement → hard block, never a disclosure"; `COMPLEX_STAIR_GEOMETRY`, which a stair that
- * is neither a straight flight nor a rectangular landing is left to a person under (AM-06 §4);
+ * is neither a straight flight nor a rectangular landing is left to a person under (AM-06 §3);
  * `PLAN_READING_ABSENT`, which a placement nobody read a plate, drop, flight, landing or wall run of
  * stands under; and `OUTLINE_NOT_CLOSED`, which an outline that does not close defers under rather
  * than being bounding-boxed (L-MEA-03). The roster grew by those five keys — 115 codes to 120 — and

@@ -16,7 +16,7 @@
 // What the rails could not read is REPORTED rather than offered. L-MEA-08 reserves the refused arm
 // for contract violations and sends a non-offer to the residue as evidence: a placement nothing was
 // sighted from, a view nobody affirmed a scale for, a plan nobody read, an outline that does not
-// close (L-MEA-03), a stair that is neither a straight flight nor a rectangular landing (AM-06 §4),
+// close (L-MEA-03), a stair that is neither a straight flight nor a rectangular landing (AM-06 §3),
 // a wall on a level no schedule band covers (L-FRM-02), and a junction nothing bounds at all — which
 // L-QTY-04 makes a hard block, because an over-measured figure is never a disclosure.
 import type { ElementType } from "@/core/catalogue/classes";
@@ -193,7 +193,7 @@ function slabConcreteOf(plan: Extract<PlanReadingSetup, { member: "SLAB_PANEL" }
 
 /**
  * What a plate measures for formwork: its soffit net of the members and the beam soffits it stands
- * over, plus its free edges — or, where the GROUND bears it, those edges alone (AM-06 §3).
+ * over, plus its free edges — or, where the GROUND bears it, those edges alone (L-FRM-03).
  */
 function slabFormworkOf(plan: Extract<PlanReadingSetup, { member: "SLAB_PANEL" }>, count: Measure): Read {
   if (plan.bearing === "GROUND") {
@@ -267,7 +267,7 @@ function readOf(plan: PlanReadingSetup, kind: Kind, row: RegisterObjectRow, plac
       };
 
     case "STAIR_FLIGHT": {
-      // AM-06 §4 measures a STRAIGHT flight; anything else is left for a person (L-MEA-03).
+      // AM-06 §3 measures a STRAIGHT flight; anything else is left for a person (L-MEA-03).
       if (plan.shape !== "STRAIGHT") return { ok: false, code: "COMPLEX_STAIR_GEOMETRY" };
       return {
         ok: true,
