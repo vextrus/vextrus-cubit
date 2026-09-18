@@ -24,8 +24,9 @@ import {
   SLAB,
   SLAB_DROP,
   STAIR,
-  bnbcModel,
+  UNDER_TOLERANCE,
   bnbcPlans,
+  bnbcRevealAllowance,
   bnbcStack,
   canon,
   carriedInto,
@@ -153,17 +154,20 @@ function publishedSum(klass: string, kind: string, level: string): string {
 }
 
 /**
- * Is every SLAB panel of this level bearing on the ground?
+ * The one term of a level's golden SLAB formwork figure this leaf is not charged with measuring — the
+ * opening reveals of the panels bearing on grade, in square metres (R).
  *
- * A slab on grade forms EDGES ONLY, and the golden's edge figure is `free edges · t + opening reveals · t`
- * — and opening reveals are named out of this leaf's scope. Where every panel of a level is on grade
- * there is nothing else in that level's formwork figure for this leaf to reach, so the under-band is
- * not a statement it can make there. Read from the model, so the carve-out moves with the fixture
- * rather than naming a level (B-19).
+ * The golden's EDGE component is `free edges · t + opening reveals · t`, and the reveals half is named
+ * out of this leaf's scope while the free-edge half is exactly what AC-2 binds. So a level carrying such
+ * reveals may read under by AT MOST that much and by nothing else: the floor falls by R and no further,
+ * which leaves a dropped free edge or an unmeasured drop wall failing by name instead of hiding inside a
+ * blanket exemption. R is computed from the fixture's own model — hole perimeter through panel thickness
+ * — never from the golden it is compared against (L-QTY-06, B-19), and it retires itself: where no reveal
+ * stands R is `0` and the band is AC-7's own, and when the reveals leaf lands and S rises to include them
+ * the floor is met with the allowance unused (arbitration on this line).
  */
-function allPanelsOnGround(level: string): boolean {
-  const panels = bnbcModel().members.filter((member) => member.class === "SLAB" && member.level === level);
-  return panels.length > 0 && panels.every((member) => member.on_ground === true);
+function revealAllowance(klass: string, kind: string, level: string, units: Canon): string {
+  return klass === SLAB && kind === RCC_FORMWORK ? bnbcRevealAllowance(level, units) : "0";
 }
 
 describe("AC-7: the campaign measured through the barrel", () => {
@@ -343,18 +347,20 @@ describe("AC-7: L-QTY-06's band, per (class, kind, level), against the fixture's
             `${klass} ${kind} at ${level} is not over a competent manual takeoff — L-QTY-06 allows +0% over: ${over}`,
           ).toBe(true);
 
-          if (kind === RCC_FORMWORK && klass === SLAB && allPanelsOnGround(level)) {
-            // Every panel of this level bears on the ground, so its whole golden formwork figure is
-            // the EDGE term — which includes the opening reveals this leaf's scope excludes. The
-            // over-measure half above still binds; the under-band is the reveals leaf's to earn.
-            expect(
-              measured.published.has(`${klass}|${kind}|${level}`),
-              `every slab on grade at ${level} is still measured for formwork — its edges are formed even where its soffit is not (AM-06 §3)`,
-            ).toBe(true);
+          const reveals = revealAllowance(klass, kind, level, units);
+          if (units.exact(reveals).eq(units.exact("0"))) {
+            expect(insideBand(sum, golden, allowance, units), `${klass} ${kind} at ${level} is no more than three per cent under a competent manual takeoff: ${over}`).toBe(true);
             return;
           }
 
-          expect(insideBand(sum, golden, allowance, units), `${klass} ${kind} at ${level} is no more than three per cent under a competent manual takeoff: ${over}`).toBe(true);
+          // This level's slabs on grade are cut by openings whose REVEALS the golden's EDGE term prices
+          // and this leaf's scope excludes, so the floor falls by exactly that model-derived figure —
+          // the over-measure half above is untouched, and every other term of the level still binds.
+          const floor = units.exact(golden).mul(units.exact(UNDER_TOLERANCE)).sub(units.exact(allowance)).sub(units.exact(reveals));
+          expect(
+            floor.lte(units.exact(sum)),
+            `${klass} ${kind} at ${level} is no more than three per cent under a competent manual takeoff, less the ${reveals} m2 of opening reveals this leaf does not measure (floor ${floor.toString()}): ${over}`,
+          ).toBe(true);
         }, STAGING_BUDGET);
       }
     }

@@ -864,7 +864,7 @@ type BnbcMember = {
   level: string;
   geom: string;
   poly?: readonly (readonly string[])[];
-  holes?: readonly { kind: string; area: string; outside?: boolean }[];
+  holes?: readonly { kind: string; area: string; outside?: boolean; rect?: readonly string[]; poly?: readonly (readonly string[])[] }[];
   t?: string;
   t2?: string;
   slope?: string;
@@ -930,6 +930,53 @@ export function perimeterMm(poly: readonly (readonly string[])[], units: Canon):
     const dy = units.exact(String(next[1])).sub(units.exact(String(here[1])));
     const straight = dx.eq(0) ? dy : dy.eq(0) ? dx : null;
     total = total.add(straight === null ? units.exact(Math.hypot(Number(dx.toString()), Number(dy.toString())).toFixed(9)) : units.exact(straight.toString().replace("-", "")));
+  }
+  return total.toString();
+}
+
+/** The reveal one hole cuts, in millimetres of perimeter, from the outline the MODEL states for it. */
+function holePerimeterMm(hole: { area: string; rect?: readonly string[]; poly?: readonly (readonly string[])[] }, units: Canon): string {
+  if (hole.rect !== undefined) {
+    const span = (from: unknown, to: unknown): Exact =>
+      units.exact(
+        units
+          .exact(String(to))
+          .sub(units.exact(String(from)))
+          .toString()
+          .replace("-", ""),
+      );
+    return units
+      .exact("2")
+      .mul(span(hole.rect[0], hole.rect[2]).add(span(hole.rect[1], hole.rect[3])))
+      .toString();
+  }
+  if (hole.poly !== undefined) return perimeterMm(hole.poly, units);
+  // A hole the model outlines not at all: the perimeter a square of that area would be cut by, which
+  // is the largest a rectangular reveal of it can be — so an allowance built on it is never short.
+  return units.exact((4 * Math.sqrt(Number(hole.area))).toFixed(6)).toString();
+}
+
+/**
+ * The opening-reveal formwork one level's slabs ON GRADE carry and this leaf does not measure — R, in
+ * square metres.
+ *
+ * The golden's EDGE component is `free edges · t + opening reveals · t` (fixtures/gen/rcc6_bnbc/golden.py),
+ * and the reveals term is named out of this leaf's scope, while the free-edge term is exactly the one
+ * AC-2 binds. A slab on grade forms edges only, so at such a panel the reveals are the whole of what
+ * this leaf cannot reach; a framed panel's soffit formwork is measured in full and owes no slack, so it
+ * contributes nothing here. R is read off the MODEL's own holes — a reveal is the hole's own perimeter
+ * through the panel's own thickness — and never off the golden figure the band is taken against
+ * (L-QTY-06: "an input may never be derived from the figure it is compared against"). Where no such
+ * reveal stands the answer is exactly `0`, and the band it widens collapses to L-QTY-06's own.
+ */
+export function bnbcRevealAllowance(level: string, units: Canon): string {
+  let total: Exact = units.exact("0");
+  for (const member of bnbcModel().members) {
+    if (member.class !== "SLAB" || member.level !== level || member.on_ground !== true) continue;
+    for (const hole of member.holes ?? []) {
+      if (hole.outside === true) continue;
+      total = total.add(units.exact(asMetres(holePerimeterMm(hole, units))).mul(units.exact(asMetres(String(member.t)))));
+    }
   }
   return total.toString();
 }
