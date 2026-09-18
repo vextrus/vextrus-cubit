@@ -510,6 +510,26 @@ export const screenStates: ScreenStatesMatrix = {
   // could place, or a line that declared what it could not measure — said in words and never hidden;
   // incomplete coverage is not that gap, because every section states what it measured and says so.
   // Its denial names MEASURE, the one permission the export door moves.
+  // The bar schedule (s-bbs § 2): a reader without MEASURE meets the denial and no schedule at all,
+  // and the empty cell teaches where a campaign is measured — the takeoff register.
+  "/t/[tenant]/p/[project]/takeoff/bbs": declare({
+    loading: bones(6),
+    empty: (): ReactNode => <EmptyTeaching heading={strings.bbs_empty_heading} body={strings.bbs_empty_body} action={strings.bbs_empty_action} />,
+    error: fault(strings.bbs_error_body),
+    refusal: refusal(REFUSAL_ENTRIES.PERMISSION_NOT_HELD, PARTICIPANTS_EVIDENCE),
+    partial: (): ReactNode => <InlineAnswer text={strings.bbs_partial} />,
+    offline: (): ReactNode => <InlineAnswer text={strings.bbs_offline} />,
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.bbs_denied_body}
+        holder={strings.bbs_denied_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={PARTICIPANTS_EVIDENCE}
+      />
+    ),
+  }),
+
   "/t/[tenant]/p/[project]/takeoff/boq": declare({
     loading: bones(5),
     empty: (): ReactNode => <EmptyTeaching heading={strings.boq_empty_heading} body={strings.boq_empty_body} action={strings.boq_empty_action} />,

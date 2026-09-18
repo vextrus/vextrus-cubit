@@ -47,6 +47,19 @@ export const TESTIDS = {
     chip: "basis-chip",
     glyph: "basis-glyph",
   },
+  bbs: {
+    answer: "bbs-answer",
+    empty: "bbs-empty",
+    grid: "bbs-grid",
+    lap: "bbs-lap",
+    member: "bbs-member",
+    revision: "bbs-revision",
+    row: "bbs-row",
+    screen: "bbs-screen",
+    stock: "bbs-stock",
+    summary: "bbs-summary",
+    summaryRow: "bbs-summary-row",
+  },
   boq: {
     answer: "boq-answer",
     bill: "boq-bill",
@@ -533,6 +546,7 @@ export const TESTIDS = {
   },
   takeoff: {
     nav: "takeoff-nav",
+    navBbs: "takeoff-nav-bbs",
     navBoq: "takeoff-nav-boq",
     navCoverage: "takeoff-nav-coverage",
     navLevels: "takeoff-nav-levels",

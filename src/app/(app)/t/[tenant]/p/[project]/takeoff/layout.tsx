@@ -6,6 +6,7 @@
 // screen draws a second one above the grid.
 import "./takeoff.css";
 
+import { bbsRoute } from "./bbs/route-address";
 import { boqRoute } from "./boq/route-address";
 import { coverageRoute } from "./coverage/route-address";
 import { COVERAGE_COPY } from "@/modules/takeoff/coverage/copy";
@@ -41,6 +42,9 @@ export default async function TakeoffLayout({
           // The fifth entry's label is S-BOQ's own table, which is where that screen's copy lives
           // (s-boq.md §3), and its id is read from the one registry that spells ids.
           { testId: TESTIDS.takeoff.navBoq, label: strings.takeoff_nav_boq, href: boqRoute(tenant, project) },
+          // The sixth entry's label is S-BBS's own table, which is where that screen's copy lives
+          // (s-bbs.md §3), and its id is read from the one registry that spells ids.
+          { testId: TESTIDS.takeoff.navBbs, label: strings.takeoff_nav_bbs, href: bbsRoute(tenant, project) },
         ]}
       >
         {children}

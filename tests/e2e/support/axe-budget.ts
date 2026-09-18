@@ -108,6 +108,13 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "s-documents/empty": 0,
   "s-documents/list": 0,
   "s-documents/list-light": 0,
+  // S-BBS's three checkpoints (J-032): the measured schedule on both papers, and the screen a project
+  // with no campaign stands in. Zero is the strictest reading and the only honest one — the schedule
+  // is a grid of shipped primitives over a measured campaign and its empty state is the shipped
+  // empty-state, so a moderate finding here is a defect to repair rather than a number to raise.
+  "s-bbs/empty": 0,
+  "s-bbs/schedule": 0,
+  "s-bbs/schedule-light": 0,
   // S-BOQ's three checkpoints (J-033). Zero is the strictest reading and the only honest one: the
   // draft is a grid of shipped primitives over a staged campaign, and its empty state is the shipped
   // empty-state, so a moderate finding here would be a defect to repair rather than a number to raise.

@@ -155,6 +155,10 @@ function handle(ordinal: number): string {
 }
 
 /** Import a product module by repo-relative path, saying which file is missing when one is. */
+/** The density seam, and the density the product opens a reader at when they have chosen none. */
+type PrefsSeam = { setDensity: (userId: string, density: "comfortable" | "compact") => Promise<void> };
+const DEFAULT_DENSITY = "comfortable";
+
 async function productModule<T = Record<string, unknown>>(relative: string): Promise<T> {
   const absolute = join(process.cwd(), relative);
   if (!existsSync(absolute)) throw new Error(`${relative} is missing from the checkout — the product does not provide it yet`);
@@ -288,8 +292,8 @@ export async function stageBareProject(page: Page, options: { label?: string } =
   return { tenantId, projectId };
 }
 
-/** The signed-in person, as the shell states them. */
-async function userIdOf(page: Page): Promise<string> {
+/** The signed-in person, as the shell states them — read once here, for every stage built on this one. */
+export async function userIdOf(page: Page): Promise<string> {
   const userId = await heldAttribute(page.locator(testIdSelector(TESTIDS.shell.user)), "data-user-id");
   expect(userId, "the journey is signed in, so the shell names the person acting").toBeTruthy();
   return userId as string;
@@ -368,7 +372,7 @@ function storedZones(tenantId: string, ingestId: string): StoredZone[] {
  * with its member types, a schedule view that defers, and a notes sheet — pinned as a drawing-set
  * revision, with one LAP reading already standing under a second MEASURER's name.
  */
-export async function stageSchedules(page: Page, options: { label?: string } = {}): Promise<StagedSchedules> {
+export async function stageSchedules(page: Page, options: { label?: string; contest?: boolean } = {}): Promise<StagedSchedules> {
   const shell = new ShellPage(page);
   const home = new SHomePage(page);
   const uploads = new UploadPage(page);
@@ -383,6 +387,13 @@ export async function stageSchedules(page: Page, options: { label?: string } = {
   const tenantId = new URL(page.url()).pathname.split("/")[2] ?? "";
   expect(tenantId, "the workspace door leads to the workspace this person holds").not.toBe("");
   const userId = await userIdOf(page);
+  // The reader opens at the product's OWN default density. A density is a stored preference of a
+  // person, the lane's tenants are seeded and shared, and a walk that left one flipped would draw
+  // every later walk's screens — and every later RUN's pictures — at a density nobody in that walk
+  // chose. Stating it here makes each walk's own screens the same screens whatever ran before them;
+  // a walk that needs another density says so after this (R-UI-005, R-UI-086).
+  const prefs = await productModule<PrefsSeam>("src/core/prefs/index.ts");
+  await prefs.setDensity(userId, DEFAULT_DENSITY);
 
   /* --- a project of that workspace, made through the shipped screen --- */
   const project = `Sattva Schedules ${mark}`;
@@ -524,16 +535,22 @@ export async function stageSchedules(page: Page, options: { label?: string } = {
   expect(sheetsHolding, `the barren sheet carries no text, no schedule and no deferral: ${JSON.stringify(sheetsHolding)}`).not.toContain(BARREN_LAYOUT);
   expect(sheetsHolding.length, "while the sheet with the schedule and the sheet with the notes both hold something").toBe(2);
 
-  await perform(
-    { tenantId, userId: secondUserId, actorKind: "human" },
-    {
-      type: TRANSCRIBE_SHEET_NOTES,
-      projectId,
-      drawingId,
-      layoutName: NOTES_LAYOUT,
-      readings: [{ kind: OTHER_ACTOR_READING.kind, sourceKey: lapKey, valueAsWritten: OTHER_ACTOR_READING.valueAsWritten, unitAsWritten: OTHER_ACTOR_READING.unitAsWritten }],
-    },
-  );
+  // The other actor's reading is what a CONTEST is made of, and not every walk wants one: a leg that
+  // reads the sheet's own LAP note and expects the campaign to apply it stages nobody disagreeing with
+  // it (`contest: false`). The default plants it, so a walk that says nothing is the walk that was
+  // staged before this option existed (L-BD-02).
+  if (options.contest ?? true) {
+    await perform(
+      { tenantId, userId: secondUserId, actorKind: "human" },
+      {
+        type: TRANSCRIBE_SHEET_NOTES,
+        projectId,
+        drawingId,
+        layoutName: NOTES_LAYOUT,
+        readings: [{ kind: OTHER_ACTOR_READING.kind, sourceKey: lapKey, valueAsWritten: OTHER_ACTOR_READING.valueAsWritten, unitAsWritten: OTHER_ACTOR_READING.unitAsWritten }],
+      },
+    );
+  }
 
   return {
     tenantId,
