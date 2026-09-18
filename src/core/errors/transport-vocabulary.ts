@@ -11,7 +11,7 @@
 import { ACT_TYPES } from "../acts/law";
 import { BAR_ROLES } from "../rulesets/methods/rebar/synthesis";
 import { NOTE_KINDS } from "../notes/law";
-import { COVERAGES, GEOMETRY_TYPES } from "../offers/law";
+import { COVERAGES, GEOMETRY_TYPES, PLAN_MEMBERS } from "../offers/law";
 import { AXIS_IDLE_READINGS } from "../residue/law";
 import { SITE_FACTS } from "../site-facts/law";
 
@@ -222,6 +222,16 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // so a shape the law gains tomorrow is declared with no edit (B-19, ARCH-02).
     vocabulary: "member geometry types (L-FRM-01)",
     codes: GEOMETRY_TYPES,
+  }),
+  Object.freeze({
+    // R-TO-032's plan members: which member a reading off a plan is a reading OF. Every one bears an
+    // underscore, so Q-07's register would read them as refusal codes nobody registered — but a plan
+    // member names the SHAPE the reading carries, read by the slab, shear-wall and stair rails to
+    // pick the method a row is measured by; a person is answered with the row's own figure or with
+    // the registered refusal beside it, never with this name. The roster's home is `../offers/law.ts`
+    // and it is read from there rather than copied (B-19, ARCH-02).
+    vocabulary: "plan members (R-TO-032)",
+    codes: PLAN_MEMBERS,
   }),
   Object.freeze({
     // L-QTY-05's two idle axis readings: what a cell of the residue says when nothing is wrong on

@@ -217,8 +217,19 @@ describe("AC-1: the foundations shard is registered — kinds, rails, bears and 
       `the composed rail reads the footing of the corpus — a composition that said nothing about a foundation would prove nothing (it answered ${JSON.stringify(whole.offers.map((one) => one.class))})`,
     ).toBeGreaterThan(0);
 
+    // The frame area's roster line is where "this kind is measured by this very function" is claimed,
+    // and it still holds: this shard's reader is composed INTO that function. What the barrel owes is
+    // completeness rather than identity — a second area answers `rcc.concrete` now (a plate is
+    // concreted as surely as a footing is), so the roster's rail is the areas COMPOSED, and over a
+    // corpus only this area's classes stand in, that composition answers exactly this area's own
+    // batch. A barrel that dropped an area fails here just as loudly (AM-11, settled reading).
     const frame = await productModule<{ FRAME_RAILS: Record<string, RailShape> }>(FRAME_ROSTER_MODULE);
-    expect(frame.FRAME_RAILS[RCC_CONCRETE], "and the frame's own roster line is the function the barrel hands out (AM-11)").toBe(kindRail);
+    const declared = frame.FRAME_RAILS[RCC_CONCRETE];
+    expect(typeof declared, `${FRAME_ROSTER_MODULE} declares the rail this kind's readers are composed into (AM-11)`).toBe("function");
+    expect(
+      (declared as RailShape)(input),
+      "and the barrel's rail answers that declaration whole over this corpus — the areas it composes are its own, and none of them is lost (AM-11, L-MEA-08)",
+    ).toEqual(whole);
   });
 
   test("AC-1: each new kind offends no vocabulary, and the catalogue says what it is measured in", async () => {

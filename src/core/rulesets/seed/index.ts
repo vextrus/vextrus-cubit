@@ -8,15 +8,16 @@
 // An edition is immutable, so a method landing in the tree is a NEW edition rather than an edit to
 // the standing one: every earlier version stands untouched as the row the campaigns opened under it
 // measured against, and the version named below is minted beside them as the head every later pin
-// forks (B-20, L-REG-07). 2027.01 is that head: the rebar leaf's five methods — the detailing
-// edition itself, BS 8666's cutting length, the stock split, the synthesis and the mass — join the
-// nineteen 2026.12 cited, and a re-mint of 2026.12 would be an EDIT of a row campaigns have
-// measured against.
+// forks (B-20, L-REG-07). 2027.02 is that head: the slab, shear-wall and stair leaf's twelve
+// methods — the plate and its taper, the soffit and the edge band, the sunken drop, the shear-wall
+// storey, the straight flight and the rectangular landing, each for concrete and for formwork —
+// join the twenty-four 2027.01 cited, and a re-mint of 2027.01 would be an EDIT of a row campaigns
+// have measured against.
 import type { EditionContent, EditionIdentity } from "../editions/content";
 import { enumerateMethods } from "../methods/registry";
 
 /** The identity of the platform edition: the head of every lineage in the product (L-REG-07). */
-export const SEED_EDITION_IDENTITY: EditionIdentity = { scope: "platform", name: "IS1200_IN", version: "2027.01" };
+export const SEED_EDITION_IDENTITY: EditionIdentity = { scope: "platform", name: "IS1200_IN", version: "2027.02" };
 
 /**
  * The seed's content: L-MEA-01's seventeen parameter values, and the (rule id, version) pairs of the

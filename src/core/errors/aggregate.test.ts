@@ -67,6 +67,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "CAPTION_UNCLASSIFIABLE",
   "CELL_NOT_IN_RESIDUE",
   "CHARACTER_NOT_COVERED",
+  "COMPLEX_STAIR_GEOMETRY",
   "CONSEQUENCES_NOT_CARRIED",
   "CONVENTION_ROLE_UNRESOLVED",
   "CREDENTIALS_NOT_VALID",
@@ -101,6 +102,8 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "INGESTION_TRUNCATED",
   "INTERPRETED_UNCORROBORATED",
   "INVITATION_NOT_CLAIMABLE",
+  "JUNCTION_DEFERRED",
+  "JUNCTION_UNBOUNDED",
   "KIND_NOT_YET_SEEDED",
   "LEVEL_ORDINAL_UNMAPPED",
   "LEVEL_RANGE_ENDPOINT_UNMAPPED",
@@ -125,12 +128,14 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "OPENING_NOT_AREABLE",
   "OPENING_SCHEDULE_ABSENT",
   "ORIGIN_NOT_VERIFIED",
+  "OUTLINE_NOT_CLOSED",
   "PARTITION_NOT_AVAILABLE",
   "PERMISSION_NOT_HELD",
   "PILE_DIAMETER_UNSTATED",
   "PILE_LENGTH_UNSTATED",
   "PIN_STALE",
   "PLACEMENT_UNHELD",
+  "PLAN_READING_ABSENT",
   "PRECISION_NOT_APPLIED",
   "PRODUCT_FACTOR_MISSING",
   "PROJECT_WOULD_HAVE_NO_PRINCIPAL",
@@ -183,7 +188,19 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
  *
- * Re-baselined for FOUR ADDED entries and nothing else, all of them the REBAR leaf's (./rebar.ts):
+ * Re-baselined for FIVE ADDED entries and nothing else, all of them the SLABS leaf's (./slabs.ts):
+ * `JUNCTION_DEFERRED`, which a row measured at the bound its reading could only state stands under —
+ * the figure is then UNDER, which L-QTY-04 admits as a disclosure; `JUNCTION_UNBOUNDED`, which a
+ * junction nothing bounds at all blocks under, because a figure there would read OVER and
+ * "over-measurement → hard block, never a disclosure"; `COMPLEX_STAIR_GEOMETRY`, which a stair that
+ * is neither a straight flight nor a rectangular landing is left to a person under (AM-06 §3);
+ * `PLAN_READING_ABSENT`, which a placement nobody read a plate, drop, flight, landing or wall run of
+ * stands under; and `OUTLINE_NOT_CLOSED`, which an outline that does not close defers under rather
+ * than being bounding-boxed (L-MEA-03). The roster grew by those five keys — 115 codes to 120 — and
+ * not one existing entry's code, message, remedy, severity or surface moved with them; the previous
+ * digest was 9d774bd9957e6d3f38c50d1e032675a3eca5d5dd282f122a983b4ab286c0aac6.
+ *
+ * Re-baselined before that for FOUR ADDED entries and nothing else, all of them the REBAR leaf's (./rebar.ts):
  * `DETAILING_ROW_NOT_IN_EDITION`, which a grade or a mix the applied detailing edition holds no
  * development-length row for is disclosed under rather than scaled off a neighbouring row
  * (AM-03(f)); `REBAR_SCHEDULE_UNREAD`, which a member whose bar schedule nobody has read stands
@@ -287,7 +304,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * to 121 — and not one existing entry's code, message, remedy, severity or surface moved with them;
  * the previous digest was 8bb7fc6ed15553923a99ff0d2f7369558eb7292bcee4db3f0c3575ddcbaedb12.
  */
-const ENTRIES_DIGEST_BEFORE = "9d774bd9957e6d3f38c50d1e032675a3eca5d5dd282f122a983b4ab286c0aac6";
+const ENTRIES_DIGEST_BEFORE = "232a37e61de34f1cff9c5665b78e567925d0ddaec1f709cb6823b732ff3ce84d";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {
