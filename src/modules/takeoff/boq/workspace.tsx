@@ -67,6 +67,12 @@ export type BoqJobStep = {
   readonly evidence: Evidence;
 };
 
+/** The two artefacts the quantities travel as (R-TO-070, R-SPINE-041's kinds). */
+export type BoqExportKind = "xlsx" | "csv";
+
+/** What a quantities press answers: where the bytes are, what they are addressed by, and which kind. */
+export type BoqQuantitiesLink = { readonly url: string; readonly sha256: string; readonly kind: string };
+
 /** What the route knows about the export it is watching, where one is being watched (I-270). */
 export type BoqJobs = {
   readonly steps: readonly BoqJobStep[];
@@ -89,6 +95,10 @@ export interface BoqTestIds {
   readonly line: string;
   readonly subtotal: string;
   readonly export: string;
+  /** The two quantity channels beside the primary, and the link a press hands back (R-TO-070). */
+  readonly exportXlsx: string;
+  readonly exportCsv: string;
+  readonly exportLink: string;
   readonly empty: string;
   readonly revision: string;
   readonly taxonomyVersion: string;
@@ -106,6 +116,9 @@ const DEFAULT_TEST_IDS: BoqTestIds = Object.freeze({
   line: "boq-line",
   subtotal: "boq-subtotal",
   export: "boq-export",
+  exportXlsx: "boq-export-xlsx",
+  exportCsv: "boq-export-csv",
+  exportLink: "boq-export-link",
   empty: "boq-empty",
   revision: "boq-revision",
   taxonomyVersion: "boq-taxonomy-version",
@@ -163,6 +176,7 @@ export interface BoqChrome {
     "data-testid"?: string;
     "data-permission"?: string;
     "data-job"?: string;
+    "data-kind"?: string;
   }>;
   /** The lane's own tabs row, filled by the surface standing in it (Direction §3.2). */
   readonly TabsAside?: ComponentType<{ children: ReactNode }>;
@@ -172,6 +186,12 @@ export interface BoqChrome {
 export interface BoqDoors {
   /** The keyed render job (I-270): one press, one job, however many times it is pressed. */
   readonly exportDraft: () => Promise<{ jobId: string; deduplicated: boolean }>;
+  /**
+   * The quantities, written now and handed back as a signed link (R-TO-070, I-272). Synchronous:
+   * a workbook is evidence addressed by its own bytes, so there is no run to watch and nothing is
+   * filed — the answer IS the artefact's address.
+   */
+  readonly exportQuantities?: (input: { kind: BoqExportKind }) => Promise<BoqQuantitiesLink>;
   readonly refusalOf: (code: string) => RefusalEntry | undefined;
   /** Re-run the read in place — R-UI-050's error cell owns the one door that clears it. */
   readonly retry?: () => void;
@@ -216,12 +236,71 @@ const COMPLETE = "COMPLETE";
 /** The standing an unsigned draft carries, said once and in words (AM-05). */
 const UNSIGNED = "UNSIGNED";
 
+/** The two kinds the quantities travel as, as this screen states them on its own controls. */
+const XLSX = "xlsx";
+const CSV = "csv";
+
 // The addresses this screen links. ARCH-01 bars a module from the app layer where a route builder
 // lives, so they are spelled here for this screen and nowhere else in it (Decision §7).
 const registerHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/register`;
 const setsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/drawings/sets`;
 const documentsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/documents`;
 const participantsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/participants`;
+
+/**
+ * One quantities channel: the shipped secondary, and — while the connection is gone — the frame's own
+ * unavailable affordance in its place.
+ *
+ * The shipped Button reports `aria-disabled` for busy and for nothing else, so a door shut for a
+ * reason of this screen's own says so itself, exactly as the levels screen's shut doors do (I-247,
+ * R-UI-010). Shut, it carries no press at all: a control a reader can activate while nothing can be
+ * written would answer with a file of the register as it is not (R-UI-020).
+ */
+function ExportChannel({
+  Button,
+  Tooltip,
+  testid,
+  kind,
+  label,
+  hint,
+  offline,
+  onPress,
+}: {
+  Button: BoqChrome["Button"];
+  Tooltip: BoqChrome["Tooltip"];
+  testid: string;
+  kind: string;
+  label: string;
+  hint: string;
+  offline: boolean;
+  onPress: () => void;
+}): ReactNode {
+  if (offline) {
+    return (
+      <Tooltip content={BOQ_COPY.boq_offline}>
+        <span
+          className="cx-btn cx-reticle cx-boq-export-shut"
+          data-variant="secondary"
+          role="button"
+          tabIndex={0}
+          aria-disabled="true"
+          data-testid={testid}
+          data-permission={MEASURE}
+          data-kind={kind}
+        >
+          <span className="cx-btn-label">{label}</span>
+        </span>
+      </Tooltip>
+    );
+  }
+  return (
+    <Tooltip content={hint}>
+      <Button variant="secondary" className="cx-boq-export-quantities" data-testid={testid} data-permission={MEASURE} data-kind={kind} onClick={onPress}>
+        {label}
+      </Button>
+    </Tooltip>
+  );
+}
 
 /** A node rendered where it stands, for a caller that hands no slot mount (I-209). */
 function InPlace({ children }: { children: ReactNode }): ReactNode {
@@ -320,6 +399,8 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
 
   /** The job this screen started and is watching, until the page is left (I-270). */
   const [jobId, setJobId] = useState<string | null>(null);
+  /** The artefact the quantities door wrote, where one was asked for — a link, never a run (I-272). */
+  const [link, setLink] = useState<BoqQuantitiesLink | null>(null);
   const [answered, setAnswered] = useState<string | null>(null);
   // A caller that states a refusal outright — R-UI-050's matrix walked one cell at a time — is
   // stating what a door would have answered, so it is rendered exactly as a door's answer is.
@@ -355,6 +436,29 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
       },
     );
   }, [exportDoor, onExportStarted]);
+
+  // The quantities are written while the reader waits and answered as a link, so a press leaves no
+  // run to watch: what it leaves is the address of the bytes (I-272). A refusal lands where every
+  // other refusal on this screen lands — the one answer slot, by its registered code (R-UI-020).
+  const quantitiesDoor = doors.exportQuantities;
+  const pressQuantities = useCallback(
+    (kind: BoqExportKind): void => {
+      if (quantitiesDoor === undefined) return;
+      void quantitiesDoor({ kind }).then(
+        (answer) => {
+          setAnswered(null);
+          setLink(answer);
+        },
+        (thrown: unknown) => {
+          setLink(null);
+          setAnswered(codeOf(thrown));
+        },
+      );
+    },
+    [quantitiesDoor],
+  );
+  const pressXlsx = useCallback((): void => pressQuantities(XLSX), [pressQuantities]);
+  const pressCsv = useCallback((): void => pressQuantities(CSV), [pressQuantities]);
 
   /* --- the sections: one grid each, in BILLS order, then the unclassified block (I-266) --- */
   const sections = useMemo(() => payload?.sections ?? [], [payload]);
@@ -426,9 +530,63 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
             </Button>
           </Tooltip>
         ) : null}
+        {/* The two quantity channels, beside the primary and never in front of it: the draft is what
+            this screen is for, and these hand a reader the same lines to work with elsewhere
+            (R-TO-070, A-BOQ-XLSX). A press writes the file and answers where it is (I-272). */}
+        {permitted && payload !== null ? (
+          <>
+            <ExportChannel
+              Button={Button}
+              Tooltip={Tooltip}
+              testid={ids.exportXlsx}
+              kind={XLSX}
+              label={BOQ_COPY.boq_export_xlsx}
+              hint={BOQ_COPY.boq_export_xlsx_hint}
+              offline={offline}
+              onPress={pressXlsx}
+            />
+            <ExportChannel
+              Button={Button}
+              Tooltip={Tooltip}
+              testid={ids.exportCsv}
+              kind={CSV}
+              label={BOQ_COPY.boq_export_csv}
+              hint={BOQ_COPY.boq_export_csv_hint}
+              offline={offline}
+              onPress={pressCsv}
+            />
+            {link === null ? null : (
+              <a className="cx-boq-export-link cx-reticle" data-testid={ids.exportLink} data-kind={link.kind} data-sha256={link.sha256} href={link.url} download>
+                {BOQ_COPY.boq_export_link}
+              </a>
+            )}
+          </>
+        ) : null}
       </div>
     ),
-    [Button, IdChip, Skeleton, Tooltip, ids.draft, ids.export, ids.revision, ids.taxonomyVersion, jobId, offline, payload, permitted, press, state, view],
+    [
+      Button,
+      IdChip,
+      Skeleton,
+      Tooltip,
+      ids.draft,
+      ids.export,
+      ids.exportCsv,
+      ids.exportLink,
+      ids.exportXlsx,
+      ids.revision,
+      ids.taxonomyVersion,
+      jobId,
+      link,
+      offline,
+      payload,
+      permitted,
+      press,
+      pressCsv,
+      pressXlsx,
+      state,
+      view,
+    ],
   );
 
   return (

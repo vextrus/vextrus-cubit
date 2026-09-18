@@ -19,7 +19,7 @@ import { useShellPage } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import { TESTIDS } from "@/ui/testids";
 import { useTakeoffTabsAside } from "../nav";
-import { exportDraft, type DoorAnswer } from "./actions";
+import { exportDraft, exportQuantities, type DoorAnswer } from "./actions";
 import type { Demonstration } from "./demonstration";
 
 /** The lane's tabs row, filled by the surface standing in it (Direction §3.2). */
@@ -40,6 +40,9 @@ const CHROME: BoqChrome = {
     line: TESTIDS.boq.line,
     subtotal: TESTIDS.boq.subtotal,
     export: TESTIDS.boq.export,
+    exportXlsx: TESTIDS.boq.exportXlsx,
+    exportCsv: TESTIDS.boq.exportCsv,
+    exportLink: TESTIDS.boq.exportLink,
     empty: TESTIDS.boq.empty,
     revision: TESTIDS.boq.revision,
     taxonomyVersion: TESTIDS.boq.taxonomyVersion,
@@ -119,6 +122,7 @@ export function BoqScreen({ view, tenantId, projectId, permitted, reportId, docu
   const doors = useMemo(
     () => ({
       exportDraft: async () => carried(await exportDraft(projectId)),
+      exportQuantities: async ({ kind }: { kind: "xlsx" | "csv" }) => carried(await exportQuantities(projectId, kind)),
       refusalOf: (code: string): RefusalEntry | undefined => (REFUSALS as Readonly<Record<string, RefusalEntry>>)[code],
       // R-UI-050's error cell owns the one door that clears it: the read is the server component's,
       // so re-running it IS re-rendering this route — never a second reading beside the first (B-17).

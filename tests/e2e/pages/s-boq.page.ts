@@ -72,6 +72,16 @@ export class SBoqPage {
   get exportButton(): Locator {
     return this.page.getByTestId(idOf("export"));
   }
+  /** The two quantity channels beside the primary, and the link a press hands back (R-TO-070). */
+  get exportXlsxButton(): Locator {
+    return this.page.getByTestId(idOf("exportXlsx"));
+  }
+  get exportCsvButton(): Locator {
+    return this.page.getByTestId(idOf("exportCsv"));
+  }
+  get exportLink(): Locator {
+    return this.page.getByTestId(idOf("exportLink"));
+  }
   get jobs(): Locator {
     return this.page.getByTestId(idOf("jobs"));
   }
