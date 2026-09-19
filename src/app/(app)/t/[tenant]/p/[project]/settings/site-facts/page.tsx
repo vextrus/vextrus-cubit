@@ -8,7 +8,11 @@
 import { authorize } from "@/server/authorize";
 import { authorizePage } from "@/server/authorize-page";
 import { siteFactsOf } from "@/modules/takeoff/site-facts-ui/server";
-import { siteFactsStrings } from "@/modules/takeoff/site-facts-ui";
+// The copy is taken from the table itself rather than through the module's barrel: the barrel is a
+// client module (it publishes the panel), and a value imported from one into a server file is a
+// client reference — a `metadata.title` built from one renders no <title> at all (AM-09: a document
+// states what it is).
+import { siteFactsStrings } from "@/modules/takeoff/site-facts-ui/strings";
 import { SiteFactsScreen } from "./site-facts-screen";
 import { participantsRoute } from "../participants/route-address";
 import { rulesetRoute } from "../../home/areas";
