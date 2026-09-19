@@ -44,8 +44,10 @@ const ACT_TYPE = "AUTHOR_RULESET_EDITION";
 /** The status line's copy once the act has been carried out (Decision § 3, `ruleset_author_status_done`). */
 const DONE = `Done. The project now reads version ${AUTHORED_VERSION}.`;
 
-/** The area the disabled row is for — the one inc-304b gives an address (`route: null` here). */
-const UNBUILT = "site-facts";
+// TEST_AMENDED (inc-304b-site-facts-panel, AC-5): the `site-facts` row was the one area with no
+// address, and this walk asserted the disabled idiom on it. inc-304b gives that area its route, so
+// the branch is gone and the roster is walked as four addressed rows — the assertion the nav's own
+// rule always made, with nothing left to except from it (B-20).
 
 /**
  * Where the nav says the reader is, read as a WHOLE LIST on whichever screen the nav is framing.
@@ -118,17 +120,13 @@ test.describe("J-304 — the project settings nav, and authoring the edition a p
     for (const area of PROJECT_SETTINGS_AREA_ORDER) {
       const row = author.area(area);
       const address = areaAddress(area, tenantId, projectId);
-      if (address === null) {
-        // The promise not yet kept: shown, never hidden, and disabled with its reason (I-259).
-        expect(area, "the one area with no address is the one inc-304b gives one").toBe(UNBUILT);
-        expect(await heldAttribute(row, "data-unbuilt"), `${area} states that it is not built`).toBe("true");
-        expect(await heldAttribute(row, "aria-disabled"), `${area} says so to a screen reader as well`).toBe("true");
-        expect(await heldAttribute(row, "href"), `${area} is no link: an area with no address carries none`).toBeNull();
-        await expect(author.areaLink(area), `${area} is not an anchor — availability is read off the address (I-259)`).toHaveCount(0);
-      } else {
-        await expect(author.areaLink(area), `${area} is a link, because it has somewhere to go`).toHaveCount(1);
-        expect(await heldAttribute(row, "href"), `${area} leads to that screen's own address`).toBe(address);
-      }
+      // Every area of the roster is addressed since inc-304b gave the site facts panel its route, so
+      // every row is an anchor to the screen it names and none of them states that it is unbuilt.
+      expect(address, `${area} is an area of this product, so it has somewhere to go (I-259)`).not.toBeNull();
+      await expect(author.areaLink(area), `${area} is a link, because it has somewhere to go`).toHaveCount(1);
+      expect(await heldAttribute(row, "href"), `${area} leads to that screen's own address`).toBe(address);
+      expect(await heldAttribute(row, "data-unbuilt"), `${area} is built, and says nothing about not being so`).toBeNull();
+      expect(await heldAttribute(row, "aria-disabled"), `${area} is not disabled to a screen reader either`).toBeNull();
     }
     await expectNavCurrent(author, "ruleset");
 
