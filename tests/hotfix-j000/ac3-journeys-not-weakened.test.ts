@@ -131,6 +131,21 @@ function isRegeneratedBaseline(path: string): boolean {
  * and not a Builder's — the ruling on inc-300a's AC-2 (TEST_AMENDED) orders the entry kept, quoting
  * "the golden byte-frozen and committed in its own `baseline:` commit naming this proof", and ratifies
  * as lawful the commit that added it, b30e9530 — so no reviewer reads either as scope drift.
+ *
+ * The tenth is inc-304b-site-facts-panel's `tests/ui/project-settings/support/hotfix-304a-fork-point.ts`,
+ * and it too is the ARBITRATION's and not a Builder's — ordered in the manner of the third and fourth,
+ * so no reviewer reads it as scope drift. It is a frozen-bytes expectation, the kind B-20 re-baselines
+ * beside the pictures, and its own docblock — a locked instrument on this branch — orders the re-take by
+ * name: "A later increment that lawfully re-takes any picture or amends any Decision below owns this
+ * manifest with it (B-20): the line is re-taken in the same `baseline:` commit as the picture." The
+ * re-take is compelled, not elective: AC-4 adds the checkpoint `s-settings-site-facts/panel-absent` and
+ * checkpoint.ts fails any checkpoint the budget does not name, so the frozen `tests/e2e/support/axe-budget.ts`
+ * had to move, and AC-5 names the sub-nav Decision re-baselined because I-259's disabled span for
+ * site-facts became a link. It rode its own commit, 593e07cc, `baseline: the fork-point manifest catches
+ * up with the sub-nav Decision and the axe budget (inc-304b-site-facts-panel)`, which names its proof;
+ * the stray reading below is what would otherwise make that compelled commit a red no actor may clear.
+ * One literal path, as the fifth-to-eighth note requires — no pattern over `tests/ui/**` and none over
+ * `*-fork-point.ts`: the licence widens by this declared path and not in kind.
  */
 const DECLARED_REBASELINED: readonly string[] = [
   "tests/rulesets/support/editions.ts",
@@ -142,6 +157,7 @@ const DECLARED_REBASELINED: readonly string[] = [
   "db/catalogue/digest.txt",
   "src/modules/takeoff/rails/aggregate.test.ts",
   "tests/docs/proof/golden.pdf",
+  "tests/ui/project-settings/support/hotfix-304a-fork-point.ts",
 ];
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {
