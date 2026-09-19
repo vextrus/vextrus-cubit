@@ -96,6 +96,17 @@ describe("the Site facts panel's rows (AM-06 §1, § 2 Ready)", () => {
 });
 
 describe("the Site facts panel's act door (R-UI-021, R-UI-020)", () => {
+  test("a reader who may not enter a fact is told so beside the shut doors, and sees the whole panel", () => {
+    mountSiteFactsPanel({ standing: {}, mayAuthor: false });
+
+    expect(screen.getAllByTestId(TESTIDS.siteFacts.row).length, "nothing is hidden from anyone who can see the project (R-SPINE-006)").toBe(SITE_FACTS.length);
+    const refusal = within(screen.getByTestId(TESTIDS.siteFacts.refusal)).getByTestId(TESTIDS.refusal.state);
+    expect(refusal.getAttribute("data-code"), "the panel's own refusal names the permission that is not held").toBe("PERMISSION_NOT_HELD");
+    for (const door of screen.getAllByTestId(TESTIDS.siteFacts.enter)) {
+      expect(door.getAttribute("aria-disabled"), "each door stands shut, in the tab order, described by the refusal (I-272)").toBe("true");
+    }
+  });
+
   test("a refused preview is answered inside the consequence dialog, and nowhere else", async () => {
     mountSiteFactsPanel({
       standing: {},

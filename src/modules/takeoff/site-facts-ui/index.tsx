@@ -219,8 +219,14 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
   const [sourceNote, setSourceNote] = useState("");
   const [pending, setPending] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  /** A refusal of the panel's own — never of a row's absence, which is the deferral beside it. */
-  const [refusal, setRefusal] = useState<RefusalCode | null>(mayAuthor ? null : PERMISSION_NOT_HELD);
+  /**
+   * The refusal the PANEL itself stands under — never a row's absence, which is the deferral beside
+   * it, and never an entry's, which the dialog answers where the entry is carried (I-282). There is
+   * exactly one: a reader who may see the project but not enter a fact, told so beside the shut
+   * doors rather than by a screen that hides itself (R-SPINE-006). It is a fact about this reader,
+   * so it is read from the door's answer and not held as state that could drift from it.
+   */
+  const refusal: RefusalCode | null = mayAuthor ? null : PERMISSION_NOT_HELD;
   /** The entry the last act carried, once it has been carried: what the status line speaks (§ 2). */
   const [entered, setEntered] = useState<{ fact: SiteFact; reading: string } | null>(null);
   /**
@@ -269,7 +275,6 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
     setValueAsWritten("");
     setUnitAsWritten(SITE_FACT_UNIT_DEFAULT);
     setSourceNote("");
-    setRefusal(null);
     setEntered(null);
   };
 
@@ -286,7 +291,6 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
   const submit = (): void => {
     if (pending || !mayAuthor || openFact === null) return;
     setEntered(null);
-    setRefusal(null);
     setPending(true);
     setDialogOpen(true);
   };
