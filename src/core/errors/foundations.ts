@@ -21,6 +21,7 @@ export type FoundationsRefusalCode =
   | "FOUNDATION_PLAN_UNSTATED"
   | "FOUNDING_LEVEL_UNSTATED"
   | "GROUND_LEVEL_UNSTATED"
+  | "WATER_TABLE_UNSTATED"
   | "EARTHWORK_PARAMETER_UNSTATED"
   | "EARTHWORK_PLAN_DEFERRED"
   | "BLINDING_PLAN_DEFERRED"
@@ -74,6 +75,17 @@ export const FOUNDATIONS_REFUSALS: RefusalGroup<FoundationsRefusalCode> = Object
     code: "GROUND_LEVEL_UNSTATED",
     message: "No existing ground level has been entered for this project, so earthwork is structurally unpriceable from drawings alone until SITE facts are entered.",
     remedy: "Enter the site's existing ground level with the note it was read from, then measure the campaign again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // The other reading the ground carries and no drawing states (L-MEA-06): where the water stands.
+  // Its own code beside the ground level's, because earthwork below the water table is a different
+  // item from earthwork above it, and a reader told the ground level is unentered would go and look
+  // at a ground level that is already there (Q-07).
+  WATER_TABLE_UNSTATED: Object.freeze({
+    code: "WATER_TABLE_UNSTATED",
+    message: "No water table level has been entered for this project, so earthwork below it is unpriceable from drawings alone.",
+    remedy: "Enter the water table level with the note it was read from, then measure the campaign again.",
     severity: "error",
     surface: "inline",
   }),

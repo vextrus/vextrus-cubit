@@ -136,6 +136,12 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "s-settings-ruleset-author/authoring-open-light": 0,
   "s-settings-ruleset-author/edition-minted": 0,
   "s-settings-ruleset-author/value-changed": 0,
+  // S-Settings · Site facts, seeded from the J-305 run of 2026-09-19 with CUBIT_AXE_BUDGET_SEED=1:
+  // the panel carried no moderate finding on either theme, entered or absent. The light twin is its
+  // own checkpoint because it is its own axe run on its own ground (I-RSA-4).
+  "s-settings-site-facts/fact-entered": 0,
+  "s-settings-site-facts/panel-absent": 0,
+  "s-settings-site-facts/panel-absent-light": 0,
   "s-takeoff/measure-queued": 0,
   "s-takeoff/register": 0,
   "stack": 0,

@@ -181,6 +181,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "WALL_HEIGHT_UNSTATED",
   "WALL_LENGTH_UNSTATED",
   "WALL_THICKNESS_UNSTATED",
+  "WATER_TABLE_UNSTATED",
   "WORKSPACE_PERMISSION_NOT_HELD",
   "WORKSPACE_WOULD_HAVE_NO_OWNER",
 ]);
@@ -314,7 +315,15 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * 9d774bd9957e6d3f38c50d1e032675a3eca5d5dd282f122a983b4ab286c0aac6.
  */
 /*
- * Re-baselined on the merge of main, for the FIVE ADDED entries the slabs/walls/stairs rails brought
+ * Re-baselined for ONE ADDED entry and nothing else, the FOUNDATIONS leaf's (./foundations.ts):
+ * `WATER_TABLE_UNSTATED`, which a project whose water table nobody has entered defers the earthwork
+ * below it under — the other reading the ground carries that no drawing states, beside the ground
+ * level's own code (L-MEA-06, AM-06 §1). The roster grew by that one key — 127 codes to 128 — and
+ * not one existing entry's code, message, remedy, severity or surface moved with it; the previous
+ * digest was e0322dc445c95755b41502e4f052cba2fa8c2c6d3154f294845d09ce44a67158.
+ */
+/*
+ * Re-baselined before that on the merge of main, for the FIVE ADDED entries the slabs/walls/stairs rails brought
  * and nothing else: `COMPLEX_STAIR_GEOMETRY`, `JUNCTION_DEFERRED`, `JUNCTION_UNBOUNDED`,
  * `OUTLINE_NOT_CLOSED` and `PLAN_READING_ABSENT`. Both sides of the merge added to the roster and
  * neither edited an existing entry, so the roster is the union — 122 codes on this branch and 126 on
@@ -323,7 +332,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * 53e0874a3cc2de7d4a3b2cac2cba5bf418c6533e97a05195284f50d90b79f675 and main's was
  * 232a37e61de34f1cff9c5665b78e567925d0ddaec1f709cb6823b732ff3ce84d.
  */
-const ENTRIES_DIGEST_BEFORE = "e0322dc445c95755b41502e4f052cba2fa8c2c6d3154f294845d09ce44a67158";
+const ENTRIES_DIGEST_BEFORE = "9c312d75d69be433a6852865243d225472972fff6d674399ee015e6a4f4648c4";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

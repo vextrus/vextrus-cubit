@@ -21,6 +21,7 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, type Page } from "@playwright/test";
+import { DEFAULT_DENSITY } from "../../../src/core/prefs/density";
 import { stageSchedules, userIdOf } from "./schedules-stage";
 import { laneRows } from "../viewer/viewer-partition-stage";
 
@@ -157,6 +158,29 @@ export type StagedBbs = {
 export type MeasuredBbs = { document: BbsDocumentShape; expectedState: "partial" | "ready" };
 
 /**
+ * Put the shared person back at the density the product defaults them to — what this stage found
+ * before it flipped them to COMPACT for a schedule of four thousand bars. The default is imported,
+ * never spelled (B-19: declared once).
+ *
+ * The ARBITRATION on the J-304/J-305 pictures ordered this stage to close the hazard from its own
+ * side, and this is the door it closes it with; what it is NOT is a restore fired from inside the
+ * stage, and the reason is evidence rather than preference. The end of a walk a stage can hear from
+ * where it stands is its page closing, and a restore there lands BETWEEN the two tests of
+ * `j-032-schedules-notes.spec.ts`: the second of them (`a project with no campaign says so`) stages a
+ * bare project, states no density of its own, and pictures `s-bbs/empty.png` — a baseline taken while
+ * the shared person still stood COMPACT. Firing the restore reds it by 6,394 px of pure geometry, and
+ * that picture belongs to J-032, which this increment neither owns nor may re-take: a red no lawful
+ * actor may clear (B-20), which is the shape the same ruling forbids an amendment to create. So the
+ * restore is published for a walk to call where the walk itself knows it has finished reading at
+ * COMPACT, and the hazard is closed on the reading side by every walk that states the density it
+ * reads at — `stageSchedules` at its start, and J-304 and J-305 at theirs.
+ */
+export async function restoreLaneDensity(userId: string): Promise<void> {
+  const prefs = await productModule<PrefsSeam>("src/core/prefs/index.ts");
+  await prefs.setDensity(userId, DEFAULT_DENSITY);
+}
+
+/**
  * A project whose pinned revision holds the reconstructed COLUMN SCHEDULE, the general notes nobody
  * has contested, a level with its storey height, and one register object per mark the schedule
  * states — everything a bill of bars is read from, and nothing measured yet.
@@ -179,6 +203,10 @@ export async function stageBbs(page: Page, options: { label?: string } = {}): Pr
   // the walk opens a screen, so what the walk reads is the frame that preference draws.
   const prefs = await productModule<PrefsSeam>("src/core/prefs/index.ts");
   await prefs.setDensity(actor.userId, COMPACT);
+  // The flip is the lane's one writer of a shared preference, so the way back out is published beside
+  // it: `restoreLaneDensity(staged.userId)` puts this person back at the product's own default, and
+  // `staged.userId` below is the account it was flipped on (ARBITRATION on the J-304/J-305 pictures,
+  // R-UI-085). It is handed over rather than fired from here — see the note on `restoreLaneDensity`.
 
   /* --- the stack the schedule's bands are read against, and the run a bar is cut to (L-MEA-07) --- */
   for (const [ordinal, label] of STACK.map((label, ordinal) => [ordinal, label] as const)) {

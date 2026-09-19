@@ -13,9 +13,11 @@ export const projectSettingsStrings = {
   project_settings_area_participants: PROJECT_SETTINGS_PAGES.participants,
   project_settings_area_site_facts: PROJECT_SETTINGS_PAGES["site-facts"],
   project_settings_area_ruleset_author: PROJECT_SETTINGS_PAGES["ruleset-author"],
-  // Nouns on nav rows, never verbs; the tooltip says what is true of the product, never when a
-  // session will ship it (§ 3).
-  project_settings_unbuilt: "Site facts are not open yet. Each fact is entered as its own act, with the note it was read from.",
+  // The words a row with no address wears. Every area of this roster is a place today — the site
+  // facts panel was the last promise and it is kept — so the hint stands for the NEXT area the
+  // roster names before its screen lands, and says what is true of the product rather than when a
+  // session will ship it (§ 3). Nouns on nav rows, never verbs.
+  project_settings_unbuilt: "This settings area is not open yet. It is listed so that what the project can be told is never a secret.",
 };
 
 /**

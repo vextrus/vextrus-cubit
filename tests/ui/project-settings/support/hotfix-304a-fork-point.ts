@@ -9,12 +9,29 @@
 //
 // A later increment that lawfully re-takes any picture or amends any Decision below owns this
 // manifest with it (B-20): the line is re-taken in the same `baseline:` commit as the picture.
+//
+// TWO LINES HAVE BEEN RE-TAKEN under that clause, and say so rather than reading as the fork
+// point's bytes. The Site facts panel gave the settings sub-nav's site-facts row its route, which
+// moved that row's ink from disabled to link:
+//
+//   · `docs/design/s-settings-project-sub-navigation.md` is amended in place, with its own changelog
+//     line naming the node that amended it — which is what B-20 asks of a Decision that moved, and
+//     is the line this manifest is told about rather than left to read as a deviation.
+//   · `tests/e2e/support/axe-budget.ts` is re-taken with it. That file's own law is that a screen
+//     added by another node is named there in the commit that adds its checkpoint, and
+//     `checkpoint.ts` FAILS a checkpoint the budget does not name — so a node that adds a checkpoint
+//     cannot leave this support file untouched, and the freeze above is a claim about the hotfix's
+//     own branch rather than about every branch after it.
+//
+// The four `s-settings-ruleset-author` pictures stand at the fork point's bytes ON PURPOSE, though
+// the journey runner has since re-taken them: the sibling suite reads this manifest as the STALE
+// reference that proves they were re-taken at all (hotfix-304a-settings-contract.test.tsx, AC-3).
 export const FORK_POINT = "94056277b004474bf7dcf99ef64825f23d318240";
 
 /** Every frozen path, repo-relative, with the SHA-256 of its bytes at the fork point. */
 export const FORK_POINT_DIGESTS: Readonly<Record<string, string>> = Object.freeze({
   "docs/design/s-settings-participants.md": "6184f713faced1940db11c907f7f3768e18cea96629d0ae2e1f67ba44984ab9b",
-  "docs/design/s-settings-project-sub-navigation.md": "7c4fa29323f0daa48cf2fac634f2eda26baca6859be6a2b75ce7a88a54b1a1b4",
+  "docs/design/s-settings-project-sub-navigation.md": "29d4b294c78712d3e6b23e082b5f004bdc9f98dc9bcf0a7a6c45e1d574446839",
   "docs/design/s-settings-ruleset-author.md": "eb5be78ea626e6cd771d96849751cdbc8a9ad565cec2ee97ac1f50bd8ce2a4a0",
   "docs/design/s-settings-ruleset.md": "7303bb4fdbb9cf9aece1c54642e01095f53511559b93cdeb082514ecd618dd7d",
   "docs/design/s-settings.md": "69983b946d8937739344fe54877d6ac27a3049ef01ac40672d57573d6e173a03",
@@ -38,7 +55,7 @@ export const FORK_POINT_DIGESTS: Readonly<Record<string, string>> = Object.freez
   "tests/e2e/journeys/j-000/m2-run-partition.spec.ts": "96be1445a0a9689aa19ab5fcbc8b1af5518dd8a79fce16a433fff3f1eb9c61d6",
   "tests/e2e/journeys/j-000/m3-bill-and-schedules.spec.ts": "8fa1a39a262253482f626b6873a11d2c4257e24f34f3ce439b97ba3d75426abc",
   "tests/e2e/journeys/j-000/m4-sheet-and-manual-measure.spec.ts": "ee834558403dc6c3731a16c73bcd3dc84e972977c40fd9302454e9c11f7f9aaf",
-  "tests/e2e/support/axe-budget.ts": "d46134f7e2bd3c5e9b6da88c5f11e0aa5533d604364efec2afe5195b343648c1",
+  "tests/e2e/support/axe-budget.ts": "1a243e56edcb6ab3b3a372f5810c6a7a9b1651a89790daed8bf107d12db63cd7",
   "tests/e2e/support/capture-geometry.ts": "5018727416cf83681b7030e945a576aeefd99ae091e9087f0294734b143d76c7",
   "tests/e2e/support/checkpoint.ts": "f63948a7ff2bc7a9cdfe74b2fede24cb51c4a77076bb86b59c1987a1bcaa7553",
   "tests/e2e/support/global-setup.ts": "a41116276c5385cb2182cc10a9f82387b7c2301dfc86a7290d19c0df268b2000",

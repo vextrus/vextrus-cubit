@@ -8,6 +8,7 @@ import { acts, forTenant, holdStateLock, type TenantTx } from "../db";
 import { affirmScale, type AffirmScaleInput } from "./affirm-scale";
 import { assignParticipantRole, type AssignParticipantRoleInput } from "./assign-participant-role";
 import { authorRulesetEdition, type AuthorRulesetEditionInput } from "./author-ruleset-edition";
+import { authorSiteFact, type AuthorSiteFactInput } from "./author-site-fact";
 import { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-storey-height";
 import { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typical-range";
 import { confirmDiscipline, type ConfirmDisciplineInput } from "./confirm-discipline";
@@ -58,6 +59,7 @@ export { transcribeSheetNotes, type ProposedNoteReading, type TranscribeSheetNot
 export { holdOutOfBill, type HoldOutOfBillInput } from "./hold-out-of-bill";
 export { declareNotInProjectScope, type DeclareNotInProjectScopeInput } from "./declare-not-in-project-scope";
 export { authorRulesetEdition, type AuthorRulesetEditionInput } from "./author-ruleset-edition";
+export { authorSiteFact, earthworkLinesRederiving, type AuthorSiteFactInput } from "./author-site-fact";
 
 /** Everything a caller may ask the seam to do: one member per act type the enum declares. */
 export type ActInput =
@@ -75,7 +77,8 @@ export type ActInput =
   | RepudiateInput
   | HoldOutOfBillInput
   | DeclareNotInProjectScopeInput
-  | AuthorRulesetEditionInput;
+  | AuthorRulesetEditionInput
+  | AuthorSiteFactInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -98,6 +101,7 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
   HOLD_OUT_OF_BILL: holdOutOfBill,
   DECLARE_NOT_IN_PROJECT_SCOPE: declareNotInProjectScope,
   AUTHOR_RULESET_EDITION: authorRulesetEdition,
+  AUTHOR_SITE_FACT: authorSiteFact,
 });
 
 /**
@@ -118,6 +122,19 @@ function bind<TInput>(rendering: ActRendering<TInput>, input: TInput): BoundRend
     commit: (ctx, act, tx) => rendering.commit(ctx, input, act, tx),
   };
 }
+
+/**
+ * The act types whose write APPENDS an observation instead of setting a state — R-TO-051: "every
+ * human change is an act adding a competing observation with declared precedence; nothing
+ * overwrites." Entering a site fact a second time off a second survey sheet leaves the same metres
+ * standing and is still a write: the ledger gains a reading, its source note and the act that made
+ * it (AM-06 §1), so a figure that repeats is no reason to refuse it.
+ *
+ * It is read by act type and not by the figures, because which acts append is settled by the ledger
+ * they write to rather than by what a particular reading happened to say; it is enumerated here,
+ * beside the map it qualifies, so the seam's one guard has one place to be read from.
+ */
+const APPENDS_OBSERVATION: readonly ActType[] = ["AUTHOR_SITE_FACT"];
 
 function renderingFor(input: ActInput): BoundRendering {
   switch (input.type) {
@@ -150,6 +167,8 @@ function renderingFor(input: ActInput): BoundRendering {
     case "DECLARE_NOT_IN_PROJECT_SCOPE":
       return bind(ACT_MAP[input.type], input);
     case "AUTHOR_RULESET_EDITION":
+      return bind(ACT_MAP[input.type], input);
+    case "AUTHOR_SITE_FACT":
       return bind(ACT_MAP[input.type], input);
     default:
       return unrendered(input);
@@ -208,7 +227,13 @@ export async function commit(ctx: ActorCtx, input: ActInput, carriedDigest: stri
     // A carried digest can agree with the current state and still describe nothing happening — a
     // role already held, granted again. That is not an act, and the seam says so by name rather than
     // writing the act row and letting the ledger's uniqueness belt refuse the caller (L-ACT-01).
-    if (movesNothing(consequence)) throw actChangesNothing(actType, consequence.subjects.map((subject) => subject.subjectId));
+    //
+    // An act that APPENDS an observation is the exception R-TO-051 names, and the roster above says
+    // which acts those are: a figure that repeats still records a reading, its source note and the
+    // act that made it.
+    if (!APPENDS_OBSERVATION.includes(actType) && movesNothing(consequence)) {
+      throw actChangesNothing(actType, consequence.subjects.map((subject) => subject.subjectId));
+    }
 
     const written = await tx
       .insert(acts)

@@ -89,9 +89,11 @@ Declared in `src/app/(app)/t/[tenant]/p/[project]/settings/states.ts`, export
   area's `loading.tsx` bones. A skeleton for four known words would be theatre.
 - **Empty** — impossible: `PROJECT_SETTINGS_AREAS` is a constant of four entries, and a roster of
   none is a compile error, not a render.
-- **Partial** — rendered, and it is the `site-facts` row: an area the product has promised and not
-  built stands in its place, disabled, with its reason one hover or one focus away. Nothing is
-  hidden because it is not ready.
+- **Partial** — rendered, and it is the row of any area whose `route` is `null`: an area the product
+  has promised and not built stands in its place, disabled, with its reason one hover or one focus
+  away. Nothing is hidden because it is not ready. Since inc-304b **no area is in that state**:
+  `site-facts` — the roster's one unbuilt entry — has its address, so the state is declared and
+  carried by the rendering, and the first area promised after it wears it with no edit here.
 - **Error** — delegated: a fault inside a child area surfaces that segment's error boundary inside
   this layout's content slot, so the nav survives the fault and a reader can leave the broken area
   by clicking another one. A fault in the layout itself surfaces the root boundary
@@ -163,13 +165,16 @@ Routes: `/t/{tenant}/p/{project}/settings/ruleset` · `/t/{tenant}/p/{project}/s
 
 - `settings-area` — every nav row, built or not, in the roster's order; each carries `data-area`
   with one of `ruleset`, `participants`, `site-facts`, `ruleset-author`.
-- `site-facts` — the unbuilt row, which is the same element as its `settings-area` row.
+- `site-facts` — the site facts row, which is the same element as its `settings-area` row. It was
+  the unbuilt one; since inc-304b it is an `<a>` to `/t/{tenant}/p/{project}/settings/site-facts`,
+  and the id is kept because the journeys enter that screen by clicking this row (R-UI-031).
 
 `shell-crumb-page` is the shell's own, read here only to name the area a reader landed in. The
 S-Home door `s-home-project-ruleset` is s-home's element and is not added by this file.
 
-Behavioural hooks without new ids: `data-unbuilt="true"` and `aria-disabled="true"` on the
-`site-facts` row, which carries no `href` and is not an `<a>`; `aria-current="page"` on exactly the
+Behavioural hooks without new ids: `data-unbuilt="true"` and `aria-disabled="true"` on the row of
+an area with no `route` — carried by no row today, since `site-facts` has its address (inc-304b) and
+every entry of the roster is an `<a>`; `aria-current="page"` on exactly the
 row matching `useSelectedLayoutSegment()`; each built row's resolved `href`; `aria-label` on the
 `<nav>`; `cx-reticle` on every focusable row, the disabled one included (it is `tabindex="0"` so
 its reason is reachable by keyboard, Q-11).
@@ -196,3 +201,8 @@ spelling to invent here.
 - 2026-09-16 — inc-304a-ruleset-authoring-ui: first edition. The project settings frame becomes a
   layout over `PROJECT_SETTINGS_AREAS`; `projectSettingsNav` is deleted (I-258); `site-facts` ships
   as the roster's one `route: null` entry (I-259), addressed by inc-304b.
+- 2026-09-19 — inc-304b-site-facts-panel: the `site-facts` entry gains its `route`, so its row is an
+  `<a>` with no `data-unbuilt` and no `aria-disabled`, and `project_settings_unbuilt` no longer says
+  site facts are unopened — it is the reason ANY promised area carries, read by whichever row has no
+  address. No row is in that state today. The Author edition baselines were re-taken for the ink the
+  live row changed (B-20).

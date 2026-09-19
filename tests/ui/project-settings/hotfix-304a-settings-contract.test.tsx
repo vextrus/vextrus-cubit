@@ -5,7 +5,7 @@
  * The hotfix undoes nothing inc-304a shipped. J-304 walks two surfaces, and this file mounts both
  * and asks them what that journey asks, in the lane that costs seconds rather than a browser:
  *
- *   the project settings nav — four rows in one order, `site-facts` a promise and not a place;
+ *   the project settings nav — four rows in one order, every one of them a place (inc-304b);
  *   the Author edition screen — a preview that opens the act's own dialog and mints through it,
  *   and `EDITION_VERSION_TAKEN` answered IN PLACE with nothing the reader typed thrown away.
  *
@@ -85,8 +85,12 @@ const ACT_TYPE = "AUTHOR_RULESET_EDITION";
 /** The four areas, in the order AC-3 fixes — the nav J-304 walks, row for row. */
 const AREA_ORDER = ["ruleset", "participants", "site-facts", "ruleset-author"] as const;
 
-/** The one area inc-304b gives an address; here it is a promise the nav keeps visible. */
-const UNBUILT = "site-facts";
+// TEST_AMENDED (inc-304b-site-facts-panel, AC-5). This file asserted that `site-facts` was a promise
+// and not a place: no address, `data-unbuilt`, `aria-disabled`, no anchor. inc-304b builds that
+// panel and gives the row its route, so the exception is withdrawn and the claim below is the one
+// the nav's own rule always made — EVERY entry of the roster has an address, and every row is an
+// anchor to it (I-259, B-20). What this file still guards is what it was written to guard: the four
+// areas, in this order, none renamed, reordered or dropped.
 
 afterEach(cleanup);
 
@@ -199,20 +203,18 @@ describe("AC-3: the screen J-304 walks keeps its contract, and its stale picture
     expect(PROJECT_SETTINGS_AREAS.map((entry) => entry.area), "the product's own roster no longer spells the contract's four areas").toEqual([...AREA_ORDER]);
   });
 
-  test("AC-3: `site-facts` is a promise, not a place; the other three are links to their own addresses", () => {
+  test("AC-3: every area of the roster is a place — each row an anchor to its own address", () => {
     renderNav("ruleset");
+    expect(
+      PROJECT_SETTINGS_AREAS.filter((entry) => entry.route === null).map((entry) => entry.area),
+      "an area of the roster with no route is a promise the product is making and not keeping (I-259)",
+    ).toEqual([]);
     for (const [at, area] of AREA_ORDER.entries()) {
       const row = navRows()[at] as HTMLElement;
-      if (area === UNBUILT) {
-        expect(row.getAttribute("data-unbuilt"), `${area} has no address in this increment — inc-304b gives it one`).toBe("true");
-        expect(row.getAttribute("aria-disabled"), `${area} is shown disabled, never hidden (R-SPINE-006)`).toBe("true");
-        expect(row.getAttribute("href"), `${area} must carry no address while no screen answers for it`).toBeNull();
-        expect(row.tagName.toLowerCase(), `${area} is no link`).not.toBe("a");
-        continue;
-      }
       expect(row.tagName.toLowerCase(), `${area} has an address, so it is a link`).toBe("a");
       expect(row.getAttribute("href"), `${area} must answer at its own address under the project's settings`).toBe(`/t/${TENANT}/p/${PROJECT}/settings/${area}`);
       expect(row.getAttribute("data-unbuilt"), `${area} is built`).toBeNull();
+      expect(row.getAttribute("aria-disabled"), `${area} is not disabled to a screen reader either`).toBeNull();
     }
   });
 

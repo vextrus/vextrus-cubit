@@ -21,6 +21,7 @@ import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import { everyAttribute, steadyText } from "../support/retrying-read";
 import { S_HOME } from "./s-home.page";
 import { S_PARTICIPANTS } from "./s-participants.page";
+import { S_SITE_FACTS, SITE_FACTS_AREA } from "./s-settings-site-facts.page";
 
 /** The address this screen answers at, spelled once so a journey never writes a path twice. */
 export const S_RULESET_AUTHOR = Object.freeze({
@@ -37,9 +38,14 @@ const AUTHOR_AREA = PROJECT_SETTINGS_AREA_NAMES[3];
 
 /**
  * The settings areas a project carries, in the order `PROJECT_SETTINGS_AREAS` declares them, each
- * beside the address it is reached at — `null` for the area the product has promised and not built.
- * The three that are built are read from the spellings their own page objects already hold (B-17),
- * so a screen that moves takes its nav row with it.
+ * beside the address it is reached at. Every one of the four is built since inc-304b gave the site
+ * facts panel its address, and each address is read from the spelling that screen's own page object
+ * already holds (B-17), so a screen that moves takes its nav row with it. The `null` arm of the
+ * return type stands for the next area promised before it is built (I-259).
+ *
+ * The site-facts key is TAKEN from the product's roster for the same reason the Author edition key
+ * is: that panel's own root carries the word as its registered test id, and nothing in this file may
+ * spell a registered id (AM-09 §1).
  *
  * These four strings are data-area values, never test ids (see the header). AC-1's own sentence
  * holds the two kinds apart — the nav renders exactly four rows of the one registered nav-row id, in
@@ -47,7 +53,7 @@ const AUTHOR_AREA = PROJECT_SETTINGS_AREA_NAMES[3];
  * spelling the keys once, which is here. Every real id this screen publishes carries a prefix of its
  * own and is reached through TESTIDS below.
  */
-export const PROJECT_SETTINGS_AREA_ORDER = ["ruleset", "participants", "site-facts", AUTHOR_AREA] as const;
+export const PROJECT_SETTINGS_AREA_ORDER = ["ruleset", "participants", SITE_FACTS_AREA, AUTHOR_AREA] as const;
 export type ProjectSettingsArea = (typeof PROJECT_SETTINGS_AREA_ORDER)[number];
 
 export function areaAddress(area: ProjectSettingsArea, tenantId: string, projectId: string): string | null {
@@ -56,8 +62,8 @@ export function areaAddress(area: ProjectSettingsArea, tenantId: string, project
       return S_HOME.ruleset(tenantId, projectId);
     case "participants":
       return S_PARTICIPANTS.route(tenantId, projectId);
-    case "site-facts":
-      return null;
+    case SITE_FACTS_AREA:
+      return S_SITE_FACTS.route(tenantId, projectId);
     case AUTHOR_AREA:
       return S_RULESET_AUTHOR.route(tenantId, projectId);
   }
