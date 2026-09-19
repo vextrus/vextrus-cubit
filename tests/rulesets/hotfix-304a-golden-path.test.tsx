@@ -65,8 +65,8 @@ function mount(options: { pinned?: boolean; doors?: StagedDoors } = {}): StagedD
 /** The workspace this staged project stands in — an address, never a word a screen renders. */
 const TENANT = "5eed0000-0000-4000-8000-000000000001";
 
-/** The area the Author edition screen answers for, read off the roster rather than spelled. */
-const AUTHOR_AREA = (PROJECT_SETTINGS_AREAS.at(-1) ?? PROJECT_SETTINGS_AREAS[0])?.area ?? "";
+/** The area the Author edition screen answers for: the roster's last entry, read rather than spelled. */
+const AUTHOR_AREA = PROJECT_SETTINGS_AREAS.at(-1)?.area ?? "";
 
 /** The screen root a retrying read targets, and the state it publishes there. */
 function screenRoot(): HTMLElement {
