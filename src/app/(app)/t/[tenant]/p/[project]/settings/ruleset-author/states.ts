@@ -3,6 +3,18 @@
 // it is handed to a module outside this screen, or it cannot arise and says why.
 import type { ShellStateCell, ShellStateName } from "@/ui/shell/states";
 
+/**
+ * What `data-state` on `ruleset-author` may say (§ 7): the states § 2 names, with the two the screen
+ * itself never paints — `loading` is the route's own `loading.tsx` and `error` the boundary's —
+ * standing in the roster, because a read of the screen meets them at the same element. `partial` is
+ * impossible here (§ 2). The roster is the one home of the spelling, so a suite reflects over it
+ * rather than transcribing a list of its own (B-19).
+ */
+export const RULESET_AUTHOR_SCREEN_STATES = ["loading", "empty", "error", "refused", "busy", "ready"] as const;
+
+/** One of the states above — what the section's own `data-state` is typed by. */
+export type RulesetAuthorScreenState = (typeof RULESET_AUTHOR_SCREEN_STATES)[number];
+
 /** The screen's own home, spelled once: every cell that names a file of it starts here. */
 const ROUTE = "src/app/(app)/t/[tenant]/p/[project]/settings/ruleset-author";
 const SECTION = `${ROUTE}/ruleset-author-section.tsx`;

@@ -386,6 +386,9 @@ export const TESTIDS = {
     diffRow: "ruleset-author-diff-row",
     parent: "ruleset-author-parent",
     refusal: "ruleset-author-refusal",
+    // The screen root in the content pane — the region a retrying read targets, carrying the
+    // screen's `data-state` (s-settings-ruleset-author § 7).
+    screen: "ruleset-author",
     section: "ruleset-author-section",
     seeRuleset: "ruleset-author-see-ruleset",
     submit: "ruleset-author-submit",

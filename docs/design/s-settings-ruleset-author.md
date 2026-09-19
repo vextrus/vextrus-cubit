@@ -366,3 +366,15 @@ Two gaps in the registry, recorded rather than spelled around:
   clause's own illustration rather than a sign that nothing happened. The act's judging drops that
   guard; §2's refusal cell keeps the code, because one RefusalState renders every code the seam can
   answer (R-UI-020) and the screen's state matrix enumerates it.
+- 2026-09-19 — inc-304a-ruleset-authoring-ui-hotfix-a1: §7's first id is rendered, and the four
+  pictures are re-taken under it (B-20). `ruleset-author` — the screen root a retrying read targets —
+  is registered and carried by the element that already held `data-state`, whose values are now the
+  roster `states.ts` declares beside §2's matrix; `data-rows-rendered` joins `data-rendered-region`
+  on the diff grid. The pictures the first edition committed were taken before the screen it shipped
+  and J-304 was red against them at this branch's fork point: they show 36 px diff rows where §1
+  rules `--row-h` 28, an ungrouped `20000` where §1's lakh/crore reading renders `20,000`, and a
+  parent at `IS1200_IN @ 2027.01` where the platform seed has stood at 2027.02 since inc-307. They
+  are re-taken here, of the screen as it stands, in a `baseline:` commit of their own — and the
+  capture's mask moves from the top bar's two chips to the top bar itself first, because a crumb and
+  a user chip as wide as this run's own names push everything laid out between them a few pixels
+  along, and one baseline met 27,332 / 27,402 / 27,462 px from three runs of one tree (AM-09 (4)).
