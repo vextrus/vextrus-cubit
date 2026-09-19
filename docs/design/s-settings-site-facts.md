@@ -330,3 +330,8 @@ Two conflicts in the closed surface, recorded rather than spelled around:
   `PERMISSION_NOT_HELD`. I-283: the act a commit answers with stands on its row at once. `§ 3` gains
   `site_facts_row_value`, so the entered cell is composed from the copy table like every other
   string this panel shows. No region, token or picture moves.
+- 2026-09-20 — inc-304b-site-facts-panel: the deferral's 880 measure is the screen's box, not the
+  card's. The sub-row's cell holds a `cx-site-facts-deferral` box carrying the measure and the one
+  `RefusalState` inside it, so no rule of the refusal card is written outside
+  `src/ui/patterns/refusal-state/refusal-state.css` (R-UI-020, B-17). The rendered geometry is
+  unchanged — the card is a block-level flex box and fills the 880 either way — so no picture moves.

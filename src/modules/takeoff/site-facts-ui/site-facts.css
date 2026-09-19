@@ -175,7 +175,10 @@
   border-block-end: var(--hairline);
 }
 
-.cx-site-facts-sub .cx-refusal {
+/* The measure the deferral is read at is the row's, not the card's: the box this screen owns is
+   narrowed, and the one refusal card inside it keeps every rule it has from its own stylesheet
+   (R-UI-020 — the card's rules have one home, and no screen re-declares them). */
+.cx-site-facts-deferral {
   max-inline-size: 880px;
 }
 

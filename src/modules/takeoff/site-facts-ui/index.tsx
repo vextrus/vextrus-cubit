@@ -451,14 +451,16 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
                 {held === undefined ? (
                   <tr className="cx-site-facts-sub">
                     <td colSpan={COLUMNS} data-testid={testIds.rowDeferral}>
-                      <RefusalState
-                        refusal={refusalOf(SITE_FACT_DEFERRALS[fact])}
-                        evidence={
-                          statedByEdition(fact)
-                            ? { href: rulesetHref, label: siteFactsStrings.site_facts_evidence_ruleset }
-                            : { href: rowHref(fact), label: siteFactsStrings.site_facts_evidence_enter }
-                        }
-                      />
+                      <div className="cx-site-facts-deferral">
+                        <RefusalState
+                          refusal={refusalOf(SITE_FACT_DEFERRALS[fact])}
+                          evidence={
+                            statedByEdition(fact)
+                              ? { href: rulesetHref, label: siteFactsStrings.site_facts_evidence_ruleset }
+                              : { href: rowHref(fact), label: siteFactsStrings.site_facts_evidence_enter }
+                          }
+                        />
+                      </div>
                     </td>
                   </tr>
                 ) : null}
