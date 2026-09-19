@@ -200,13 +200,19 @@ export class SRulesetAuthorPage {
    * The regions a baseline may not compare: the frame wears this worker's own seeded identity — the
    * workspace name in the breadcrumb and the switcher, the address in the top bar — and none of it
    * is a fact these checkpoints assert.
+   *
+   * The WHOLE top bar is masked rather than the two chips inside it, because masking those two left
+   * a picture that still drifted: the crumb and the user chip are as wide as the names this run
+   * happened to make, so everything laid out between them — the search affordance, the jobs
+   * readout — sits a few pixels further along in every run, and the same screen compared 27,332 /
+   * 27,402 / 27,462 px against one baseline on three runs of one tree. A mask over the chips cannot
+   * hold what moves BESIDE them; the top bar's own box is 100 % × 40 whatever it holds, so the
+   * capture is the same bytes every run (AM-09 (4): the lane is deterministic, and a picture
+   * re-frozen over a drifting region proves nothing). The top bar is shell chrome with its own
+   * baselines (`gallery-shell-dark.png`); nothing §1 of either Decision rules stands in it.
    */
   masks(): Locator[] {
-    return [
-      this.page.getByTestId(TESTIDS.shell.breadcrumb),
-      this.page.getByTestId(TESTIDS.shell.user),
-      this.page.getByTestId(TESTIDS.shell.tenantSwitcher),
-    ];
+    return [this.page.getByTestId(TESTIDS.shell.topbar), this.page.getByTestId(TESTIDS.shell.tenantSwitcher)];
   }
 
   /** Open this screen by its address — for a walk that has already proven the door (R-UI-031). */
