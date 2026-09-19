@@ -233,8 +233,10 @@ the product's own user-facing law. No clause id and no enum spelling appears in 
 
 ## 4. Motion (R-UI-004)
 
-Row ink and the ghost button's fill transition over `var(--motion-state)` `var(--ease)` on hover and
-focus. The deferral card, the entry form and the status line mount with **no** entrance — no height
+The ghost button's fill transitions over `var(--motion-state)` `var(--ease)` on hover and focus. The
+ROW wears no hover state: the one pointer target a row holds is its door, so a fill under the pointer
+would paint a row the reader cannot act on — and it would make every picture of this table a function
+of where the pointer came to rest rather than of what the panel holds. The deferral card, the entry form and the status line mount with **no** entrance — no height
 tween, no fade, no stagger: an answer and a form both arrive instantly, and theatre in front of a
 refusal reads as apology. The ConsequenceDialog's entrance is the pattern's own. Skeleton pulse and
 the reticle draw live in their single homes. Every duration is a token zeroed at source under
@@ -244,7 +246,7 @@ the reticle draw live in their single homes. Every duration is a token zeroed at
 
 Semantic aliases and density/layout tokens only (Direction §4; a `--graphite-*`/`--beam-*` reference
 here is a `cubit/no-primitive-token` failure): `--surface-app` · `--surface-panel` ·
-`--surface-sunken` (the entry sub-row) · `--surface-hover` · `--ink` / `--ink-muted` / `--ink-code`
+`--surface-sunken` (the entry sub-row) · `--ink` / `--ink-muted` / `--ink-code`
 · `--ink-disabled` (the shut door) · `--line` through `--hairline` · `--accent` (the submit, the
 primitive's own) · `--row-h` · `--control-h` · `--control-h-lg` · `--cell-px` / `--cell-py` ·
 `--drawer-w-min` · `--gap-section` · `--space-2/3/4` · `--text-12/13/20` · `--font-mono` /
@@ -335,3 +337,9 @@ Two conflicts in the closed surface, recorded rather than spelled around:
   `RefusalState` inside it, so no rule of the refusal card is written outside
   `src/ui/patterns/refusal-state/refusal-state.css` (R-UI-020, B-17). The rendered geometry is
   unchanged — the card is a block-level flex box and fills the 880 either way — so no picture moves.
+- 2026-09-20 — inc-304b-site-facts-panel: the Value column is right-aligned as § 1.1 states, and the
+  row wears no hover. The alignment rule named a class only and lost to the cell and header rules,
+  which each name an element, so the column painted start-aligned; the rule now names the element
+  too. The row hover fill is withdrawn (§ 4): a row is not a target, and the fill made the table's
+  pictures a function of where the pointer rested after the last click. `--surface-hover` leaves § 5.
+  Both checkpoints of this screen move by these two changes and are the gate's to re-take.

@@ -114,17 +114,27 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
 type BoundRendering = {
   preview(ctx: ActorCtx, tx: TenantTx): Promise<Consequence>;
   commit(ctx: ActorCtx, act: WrittenAct, tx: TenantTx): Promise<void>;
-  /** R-TO-051: whether this act's write is an APPENDED observation rather than a state that is set. */
-  appendsObservation: boolean;
 };
 
 function bind<TInput>(rendering: ActRendering<TInput>, input: TInput): BoundRendering {
   return {
     preview: (ctx, tx) => rendering.preview(ctx, input, tx),
     commit: (ctx, act, tx) => rendering.commit(ctx, input, act, tx),
-    appendsObservation: rendering.appendsObservation === true,
   };
 }
+
+/**
+ * The act types whose write APPENDS an observation instead of setting a state — R-TO-051: "every
+ * human change is an act adding a competing observation with declared precedence; nothing
+ * overwrites." Entering a site fact a second time off a second survey sheet leaves the same metres
+ * standing and is still a write: the ledger gains a reading, its source note and the act that made
+ * it (AM-06 §1), so a figure that repeats is no reason to refuse it.
+ *
+ * It is read by act type and not by the figures, because which acts append is settled by the ledger
+ * they write to rather than by what a particular reading happened to say; it is enumerated here,
+ * beside the map it qualifies, so the seam's one guard has one place to be read from.
+ */
+const APPENDS_OBSERVATION: readonly ActType[] = ["AUTHOR_SITE_FACT"];
 
 function renderingFor(input: ActInput): BoundRendering {
   switch (input.type) {
@@ -218,14 +228,10 @@ export async function commit(ctx: ActorCtx, input: ActInput, carriedDigest: stri
     // role already held, granted again. That is not an act, and the seam says so by name rather than
     // writing the act row and letting the ledger's uniqueness belt refuse the caller (L-ACT-01).
     //
-    // An act that APPENDS an observation is the exception R-TO-051 names: "every human change is an
-    // act adding a competing observation with declared precedence; nothing overwrites". Entering a
-    // site fact a second time off a second survey sheet leaves the same metres standing and is still
-    // a write — the ledger gains a reading, its source note and the act that made it (AM-06 §1) — so
-    // the figure standing still is no reason to refuse it. The exemption is the act type's own
-    // declaration, not a test of the figures, because which acts append is settled by the ledger
-    // they write to rather than by what a particular reading happened to say.
-    if (!rendering.appendsObservation && movesNothing(consequence)) {
+    // An act that APPENDS an observation is the exception R-TO-051 names, and the roster above says
+    // which acts those are: a figure that repeats still records a reading, its source note and the
+    // act that made it.
+    if (!APPENDS_OBSERVATION.includes(actType) && movesNothing(consequence)) {
       throw actChangesNothing(actType, consequence.subjects.map((subject) => subject.subjectId));
     }
 

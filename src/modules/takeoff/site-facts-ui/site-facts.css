@@ -106,11 +106,10 @@
   font-weight: normal;
 }
 
-.cx-site-facts-row:hover .cx-site-facts-line > th,
-.cx-site-facts-row:hover .cx-site-facts-line > td {
-  background: var(--surface-hover);
-  transition: background var(--motion-state) var(--ease);
-}
+/* No row wears a hover fill. A row here is not a target — the one pointer target it holds is its
+   door, a ghost button with the primitive's own hover — so a fill under the pointer would paint a
+   row the reader cannot act on, and it would make every picture of this table a function of where
+   the pointer came to rest rather than of what the panel holds (R-UI-004, § 4). */
 
 /* § 1.1: the frozen key column — the row's own header, which stays while the table scrolls. */
 .cx-site-facts-fact {
@@ -134,8 +133,12 @@
   text-overflow: ellipsis;
 }
 
-/* I-276: the reading as written, right-aligned in tabular numerals — no grouping, no re-spelling. */
-.cx-site-facts-numeric {
+/* I-276: the reading as written, right-aligned in tabular numerals — no grouping, no re-spelling.
+   The element stands in the selector because the rules this one overrides — the cell rule above and
+   the header's — each name one, and a bare class loses to a class plus an element however far down
+   the sheet it sits: without it the column paints start-aligned (§ 1.1, "Value — 180, right"). */
+th.cx-site-facts-numeric,
+td.cx-site-facts-numeric {
   text-align: end;
 }
 
