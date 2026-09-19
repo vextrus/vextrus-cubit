@@ -7,6 +7,7 @@
 import { rulesetRoute } from "../home/areas";
 import { participantsRoute } from "./participants/route-address";
 import { rulesetAuthorRoute } from "./ruleset-author/route-address";
+import { siteFactsRoute } from "./site-facts/route-address";
 import { PROJECT_SETTINGS_PAGES, type ProjectSettingsArea } from "@/ui/shell/routes";
 
 /** Where an area answers, or null while no screen of this tree answers for it. */
@@ -22,8 +23,6 @@ export interface ProjectSettingsAreaEntry {
 export const PROJECT_SETTINGS_AREAS: readonly ProjectSettingsAreaEntry[] = Object.freeze([
   Object.freeze({ area: "ruleset", label: PROJECT_SETTINGS_PAGES.ruleset, route: rulesetRoute }),
   Object.freeze({ area: "participants", label: PROJECT_SETTINGS_PAGES.participants, route: participantsRoute }),
-  // inc-304b gives this one its address; here it ships with none, and the nav says so rather than
-  // leaving the reader to wonder whether the product has forgotten it (I-259).
-  Object.freeze({ area: "site-facts", label: PROJECT_SETTINGS_PAGES["site-facts"], route: null }),
+  Object.freeze({ area: "site-facts", label: PROJECT_SETTINGS_PAGES["site-facts"], route: siteFactsRoute }),
   Object.freeze({ area: "ruleset-author", label: PROJECT_SETTINGS_PAGES["ruleset-author"], route: rulesetAuthorRoute }),
 ] as const);

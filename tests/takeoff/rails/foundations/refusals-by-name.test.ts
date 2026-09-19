@@ -63,6 +63,14 @@ import {
  */
 const EARTHWORK_PARAMETER_UNSTATED = "EARTHWORK_PARAMETER_UNSTATED";
 
+/**
+ * TEST_AMENDED (inc-304b-site-facts-panel, AC-4): the shard gains WATER_TABLE_UNSTATED — the code a
+ * project whose water table nobody has entered defers the earthwork below it under (L-MEA-06,
+ * AM-06 §1). No rail reads it yet; the project's Site facts panel is its consumer, and the deferral
+ * map that renders it is exercised by name in tests/takeoff/site-facts-ui/deferrals.test.ts.
+ */
+const WATER_TABLE_UNSTATED = "WATER_TABLE_UNSTATED";
+
 /** The codes this shard registers (AC-8, interfaces). */
 const REGISTERED: readonly string[] = [
   PILE_LENGTH_UNSTATED,
@@ -76,6 +84,7 @@ const REGISTERED: readonly string[] = [
   SITE_FACT_UNKNOWN,
   SITE_FACT_SOURCE_UNSTATED,
   EARTHWORK_PARAMETER_UNSTATED,
+  WATER_TABLE_UNSTATED,
 ];
 
 /** The ones a rail answers, plus the two it reports as observations (AC-8). */

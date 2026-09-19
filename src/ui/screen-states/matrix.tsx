@@ -587,6 +587,27 @@ export const screenStates: ScreenStatesMatrix = {
     refusal: reasonedRefusal(strings.state_refusal_read_fault, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
   }),
 
+  // The project's site facts (s-settings-site-facts § 2): a roster of six that is never empty, where
+  // a fact nobody entered is a NAMED deferral rather than a default (AM-06 §1) — and a reader
+  // without AUTHOR_PROJECT_FACT sees the whole panel with its doors shut, never a hidden screen
+  // (R-SPINE-006).
+  "/t/[tenant]/p/[project]/settings/site-facts": declare({
+    ...workspaceCells,
+    loading: bones(6),
+    empty: reason(strings.state_empty_site_facts),
+    partial: reason(strings.state_partial_site_facts),
+    refusal: refusal(REFUSAL_ENTRIES.PERMISSION_NOT_HELD, PARTICIPANTS_EVIDENCE),
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.state_denied_site_facts_permission}
+        holder={strings.state_denied_site_facts_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={PARTICIPANTS_EVIDENCE}
+      />
+    ),
+  }),
+
   // Authoring the next edition (s-settings-ruleset-author § 2): a project that pins nothing has
   // nothing to fork, and the door a reader may not walk through stands with the registered
   // PERMISSION_NOT_HELD beside it rather than hidden (I-266, R-SPINE-006).

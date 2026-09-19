@@ -27,6 +27,10 @@ export const ACT_TYPES = [
   // new edition, never updates one, and is its own permission" is what makes it an act type of its
   // own rather than a shape of ADMINISTER_PROJECT.
   "AUTHOR_RULESET_EDITION",
+  // AM-06 §1: entering a site fact — a reading no drawing carries — is a human write that changes
+  // what the machine would derive, so it is an act type of its own; the permission it moves is the
+  // project-fact one L-ACT-03 already cuts, and no new permission is minted for it.
+  "AUTHOR_SITE_FACT",
 ] as const;
 
 /** One act type, drawn from the enum above. */
@@ -88,6 +92,10 @@ export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.free
   // height is a correctable attribute of the project, read rather than authored into identity
   // (L-REG-02), and the MEASURER who reads a drawing is who states it.
   AUTHOR_STOREY_HEIGHT: "AUTHOR_PROJECT_FACT",
+  // AM-06 §1, verbatim: the act "enters under the existing AUTHOR_PROJECT_FACT permission (no new
+  // permission)". A site fact is one of L-ACT-03's "later project facts" — a reading about the
+  // project that no drawing carries — so the MEASURER who reads the site states it.
+  AUTHOR_SITE_FACT: "AUTHOR_PROJECT_FACT",
   // L-ACT-03 cuts MEASURE on exactly this: "MEASURE (… AUTHOR_TYPICAL_RANGE …)". Stating which
   // floors a typical plan is typical of is a reading of the drawing — it registers the members on
   // every floor of the range (L-CAD-07) — so it moves the permission the measuring itself moves.

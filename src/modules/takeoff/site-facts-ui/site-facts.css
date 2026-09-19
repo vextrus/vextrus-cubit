@@ -1,0 +1,227 @@
+/* S-Settings · Site facts § 1 and § 5: the panel's own rules, in semantic aliases and density tokens
+   only. No [data-theme] selector stands here — every difference between the themes arrives through
+   the token values (R-UI-001, § 6) — and no reduced-motion branch, because every duration is a token
+   zeroed at source (§ 4). The px literals are § 5's closed set: the column measures 260 / 180 / 140 /
+   120 and the two max-inline-size measures 880 and 420. */
+
+.cx-site-facts {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  /* The height the frame leaves this screen, said in the shell's own row tokens: the settings pane is
+     a grid of auto rows, so nothing above this box is definite and a flex child would floor at its
+     content and push the table past the status bar. Stated here, the table is the one region that
+     may lose height, and it takes the loss by scrolling inside itself (§ 1, C10). */
+  max-block-size: calc(100dvh - var(--topbar-h) - var(--toolbar-h) - var(--status-h) - var(--gap-section) * 2);
+}
+
+.cx-site-facts-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: var(--space-2);
+  min-block-size: 0;
+}
+
+/* § 1: the screen's one helper line, under the header and above the table. */
+.cx-site-facts-face {
+  margin: 0;
+  max-inline-size: 880px;
+  min-block-size: 28px;
+  color: var(--ink-muted);
+  font-size: var(--text-13);
+}
+
+/* § 1: the table is the primary and takes the height the screen has left; the rows past it are
+   reached by scrolling THE TABLE, never the page (§ 7 C10). */
+.cx-site-facts-table {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  margin-block-start: var(--gap-section);
+  overflow: auto;
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: var(--surface-panel);
+}
+
+.cx-site-facts-grid {
+  inline-size: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-13);
+  table-layout: fixed;
+}
+
+.cx-site-facts-col-fact {
+  inline-size: 260px;
+}
+
+.cx-site-facts-col-value {
+  inline-size: 180px;
+}
+
+.cx-site-facts-col-act {
+  inline-size: 140px;
+}
+
+.cx-site-facts-col-door {
+  inline-size: 120px;
+}
+
+/* § 1.1: the sticky header, at the grid's own row height. */
+.cx-site-facts-head th {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  block-size: var(--row-h);
+  padding: var(--cell-py) var(--cell-px);
+  border-block-end: var(--hairline);
+  background: var(--surface-panel);
+  color: var(--ink-muted);
+  font-weight: var(--weight-body-medium);
+  text-align: start;
+  white-space: nowrap;
+}
+
+/* The door's column is headed by a word only a screen reader needs (R-UI-012). */
+.cx-site-facts-hidden-head {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.cx-site-facts-line > th,
+.cx-site-facts-line > td {
+  block-size: var(--row-h);
+  padding: var(--cell-py) var(--cell-px);
+  border-block-end: var(--hairline);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: start;
+  font-weight: normal;
+}
+
+.cx-site-facts-row:hover .cx-site-facts-line > th,
+.cx-site-facts-row:hover .cx-site-facts-line > td {
+  background: var(--surface-hover);
+  transition: background var(--motion-state) var(--ease);
+}
+
+/* § 1.1: the frozen key column — the row's own header, which stays while the table scrolls. */
+.cx-site-facts-fact {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background: var(--surface-panel);
+  color: var(--ink);
+}
+
+.cx-site-facts-fact-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.cx-site-facts-fact-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* I-276: the reading as written, right-aligned in tabular numerals — no grouping, no re-spelling. */
+.cx-site-facts-numeric {
+  text-align: end;
+}
+
+.cx-site-facts-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--ink-code);
+}
+
+.cx-site-facts-source {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink);
+}
+
+/* I-275: an absent fact wears no basis and no figure — the em dash says the absence in the cell, and
+   the row's own deferral says what the absence costs. */
+.cx-site-facts-absent {
+  color: var(--ink-muted);
+}
+
+.cx-site-facts-door {
+  text-align: end;
+}
+
+.cx-site-facts-enter[aria-disabled="true"] {
+  color: var(--ink-disabled);
+}
+
+/* The two sub-rows: the deferral that stands under an absent fact, and the form that opens under the
+   row it belongs to. Neither mounts with an entrance — an answer and a form both arrive instantly,
+   and theatre in front of a refusal reads as apology (§ 4). */
+.cx-site-facts-sub > td {
+  padding: var(--space-2) var(--cell-px);
+  border-block-end: var(--hairline);
+}
+
+.cx-site-facts-sub .cx-refusal {
+  max-inline-size: 880px;
+}
+
+.cx-site-facts-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border-radius: var(--radius-4);
+  background: var(--surface-sunken);
+}
+
+.cx-site-facts-field-value {
+  inline-size: 180px;
+  block-size: var(--control-h);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-site-facts-field-unit {
+  block-size: var(--control-h);
+}
+
+.cx-site-facts-field-source {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  block-size: var(--control-h);
+}
+
+.cx-site-facts-submit {
+  block-size: var(--control-h-lg);
+}
+
+.cx-site-facts-refusal {
+  max-inline-size: 420px;
+  margin-block-start: var(--space-3);
+}
+
+.cx-site-facts-refusal:empty {
+  display: none;
+}
+
+.cx-site-facts-status {
+  margin: 0;
+  margin-block-start: var(--space-3);
+  min-block-size: var(--text-13);
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}

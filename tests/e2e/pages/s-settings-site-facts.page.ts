@@ -100,7 +100,7 @@ export class SSiteFactsPage {
   /**
    * The refusal INSIDE a deferral, and the code it carries.
    *
-   * The registry names `refusal-code`, and the shipped RefusalState draws no such element: its own
+   * The registry declares `TESTIDS.refusal.code`, and the shipped RefusalState draws no such element: its own
    * Decision withdrew the code chip and rules the code machine-readable on `data-code`
    * (s-settings-site-facts.md I-280 and its § Additional test hooks). So the code is read off the
    * renderer's own attribute, and this journey builds no chip of its own to close the gap — that

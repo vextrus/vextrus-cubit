@@ -8,6 +8,7 @@ import { acts, forTenant, holdStateLock, type TenantTx } from "../db";
 import { affirmScale, type AffirmScaleInput } from "./affirm-scale";
 import { assignParticipantRole, type AssignParticipantRoleInput } from "./assign-participant-role";
 import { authorRulesetEdition, type AuthorRulesetEditionInput } from "./author-ruleset-edition";
+import { authorSiteFact, type AuthorSiteFactInput } from "./author-site-fact";
 import { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-storey-height";
 import { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typical-range";
 import { confirmDiscipline, type ConfirmDisciplineInput } from "./confirm-discipline";
@@ -58,6 +59,7 @@ export { transcribeSheetNotes, type ProposedNoteReading, type TranscribeSheetNot
 export { holdOutOfBill, type HoldOutOfBillInput } from "./hold-out-of-bill";
 export { declareNotInProjectScope, type DeclareNotInProjectScopeInput } from "./declare-not-in-project-scope";
 export { authorRulesetEdition, type AuthorRulesetEditionInput } from "./author-ruleset-edition";
+export { authorSiteFact, earthworkLinesRederiving, type AuthorSiteFactInput } from "./author-site-fact";
 
 /** Everything a caller may ask the seam to do: one member per act type the enum declares. */
 export type ActInput =
@@ -75,7 +77,8 @@ export type ActInput =
   | RepudiateInput
   | HoldOutOfBillInput
   | DeclareNotInProjectScopeInput
-  | AuthorRulesetEditionInput;
+  | AuthorRulesetEditionInput
+  | AuthorSiteFactInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -98,6 +101,7 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
   HOLD_OUT_OF_BILL: holdOutOfBill,
   DECLARE_NOT_IN_PROJECT_SCOPE: declareNotInProjectScope,
   AUTHOR_RULESET_EDITION: authorRulesetEdition,
+  AUTHOR_SITE_FACT: authorSiteFact,
 });
 
 /**
@@ -150,6 +154,8 @@ function renderingFor(input: ActInput): BoundRendering {
     case "DECLARE_NOT_IN_PROJECT_SCOPE":
       return bind(ACT_MAP[input.type], input);
     case "AUTHOR_RULESET_EDITION":
+      return bind(ACT_MAP[input.type], input);
+    case "AUTHOR_SITE_FACT":
       return bind(ACT_MAP[input.type], input);
     default:
       return unrendered(input);

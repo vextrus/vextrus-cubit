@@ -544,6 +544,26 @@ export const TESTIDS = {
     sheetKeys: "shortcut-sheet-keys",
     sheetRow: "shortcut-sheet-row",
   },
+  // S-Settings · Site facts (docs/design/s-settings-site-facts.md § 7): the project's ledger of the
+  // readings no drawing carries, one row per fact of the closed roster.
+  siteFacts: {
+    enter: "site-facts-enter",
+    face: "site-facts-face",
+    refusal: "site-facts-refusal",
+    row: "site-facts-row",
+    rowAct: "site-facts-row-act",
+    rowDeferral: "site-facts-row-deferral",
+    rowSource: "site-facts-row-source",
+    rowValue: "site-facts-row-value",
+    /** The route's root region in the content pane, carrying the screen's `data-state`. */
+    screen: "site-facts",
+    section: "site-facts-section",
+    sourceNote: "site-facts-source-note",
+    submit: "site-facts-submit",
+    table: "site-facts-table",
+    unit: "site-facts-unit",
+    value: "site-facts-value",
+  },
   skeleton: {
     root: "skeleton",
   },

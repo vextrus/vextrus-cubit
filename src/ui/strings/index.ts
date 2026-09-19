@@ -23,6 +23,7 @@ import { schedules } from "./schedules";
 import { screenStates } from "./screen-states";
 import { shell } from "./shell";
 import { shortcuts } from "./shortcuts";
+import { siteFacts } from "./site-facts";
 import { spine } from "./spine";
 import { takeoff } from "./takeoff";
 import { trace } from "./trace";
@@ -54,6 +55,7 @@ export const strings = {
   ...screenStates,
   ...shell,
   ...shortcuts,
+  ...siteFacts,
   ...spine,
   ...takeoff,
   ...trace,
