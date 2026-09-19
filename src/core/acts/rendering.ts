@@ -27,4 +27,15 @@ export type WrittenAct = {
 export type ActRendering<TInput> = {
   preview(ctx: ActorCtx, input: TInput, tx: TenantTx): Promise<Consequence>;
   commit(ctx: ActorCtx, input: TInput, act: WrittenAct, tx: TenantTx): Promise<void>;
+  /**
+   * Does this act APPEND an observation rather than set a state? R-TO-051: "every human change is an
+   * act adding a competing observation with declared precedence; nothing overwrites."
+   *
+   * Left unset — which is every act that sets something — the seam refuses a Consequence whose every
+   * subject ends as it began, because a state that did not move records nothing (L-ACT-01). Where it
+   * is declared, the seam does not: a second reading of one fact off a second source is a write the
+   * ledger keeps whether or not the figure repeats, and the entry's own note and act are what the
+   * reader gains by it (AM-06 §1). It is a property of the act type, never of one reading.
+   */
+  readonly appendsObservation?: true;
 };

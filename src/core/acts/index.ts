@@ -114,12 +114,15 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
 type BoundRendering = {
   preview(ctx: ActorCtx, tx: TenantTx): Promise<Consequence>;
   commit(ctx: ActorCtx, act: WrittenAct, tx: TenantTx): Promise<void>;
+  /** R-TO-051: whether this act's write is an APPENDED observation rather than a state that is set. */
+  appendsObservation: boolean;
 };
 
 function bind<TInput>(rendering: ActRendering<TInput>, input: TInput): BoundRendering {
   return {
     preview: (ctx, tx) => rendering.preview(ctx, input, tx),
     commit: (ctx, act, tx) => rendering.commit(ctx, input, act, tx),
+    appendsObservation: rendering.appendsObservation === true,
   };
 }
 
@@ -214,7 +217,17 @@ export async function commit(ctx: ActorCtx, input: ActInput, carriedDigest: stri
     // A carried digest can agree with the current state and still describe nothing happening — a
     // role already held, granted again. That is not an act, and the seam says so by name rather than
     // writing the act row and letting the ledger's uniqueness belt refuse the caller (L-ACT-01).
-    if (movesNothing(consequence)) throw actChangesNothing(actType, consequence.subjects.map((subject) => subject.subjectId));
+    //
+    // An act that APPENDS an observation is the exception R-TO-051 names: "every human change is an
+    // act adding a competing observation with declared precedence; nothing overwrites". Entering a
+    // site fact a second time off a second survey sheet leaves the same metres standing and is still
+    // a write — the ledger gains a reading, its source note and the act that made it (AM-06 §1) — so
+    // the figure standing still is no reason to refuse it. The exemption is the act type's own
+    // declaration, not a test of the figures, because which acts append is settled by the ledger
+    // they write to rather than by what a particular reading happened to say.
+    if (!rendering.appendsObservation && movesNothing(consequence)) {
+      throw actChangesNothing(actType, consequence.subjects.map((subject) => subject.subjectId));
+    }
 
     const written = await tx
       .insert(acts)

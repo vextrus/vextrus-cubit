@@ -79,6 +79,11 @@ async function derive(ctx: ActorCtx, input: AuthorSiteFactInput, tx: TenantTx): 
 }
 
 export const authorSiteFact: ActRendering<AuthorSiteFactInput> = {
+  // The ledger is append-only (R-TO-051): a fact is restated by entering it again, and the second
+  // entry stands whether or not the canon carries it to the metres the first one did — what the
+  // reader gains is the reading's own source note and the act that made it (AM-06 §1, L-ACT-01).
+  appendsObservation: true,
+
   async preview(ctx: ActorCtx, input: AuthorSiteFactInput, tx: TenantTx): Promise<Consequence> {
     const derived = await derive(ctx, input, tx);
     return {
