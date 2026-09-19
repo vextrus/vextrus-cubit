@@ -102,6 +102,26 @@ export async function validationLaw(): Promise<ValidationLaw> {
   return law as unknown as ValidationLaw;
 }
 
+/** One entry of the refusal register, as the area file declares it and the barrel enumerates it. */
+export type RefusalEntryShape = { message?: string; remedy?: string; severity?: string; surface?: string };
+
+/**
+ * The entry the AREA's own register file declares for a code — found by looking through that module's
+ * exported records for one that carries the code, so the group's export name is the area's business
+ * and not this acceptance's. The barrel enumerates areas and re-declares nothing (AM-11), so the
+ * entry the barrel answers must be this very one.
+ */
+export async function areaRefusalEntry(relative: string, code: string): Promise<RefusalEntryShape> {
+  const area = await productModule<Record<string, unknown>>(relative);
+  const groups = Object.values(area).filter((held): held is Record<string, unknown> => typeof held === "object" && held !== null);
+  const carrying = groups.filter((group) => Object.prototype.hasOwnProperty.call(group, code));
+  expect(
+    carrying.length,
+    `${relative} publishes a refusal group carrying \`${code}\` — the area file DECLARES its refusals and the barrel only enumerates them, so a code declared in the barrel or in another area's group is a second home for one register (AM-11, Q-07). Its exports: ${JSON.stringify(Object.keys(area))}`,
+  ).toBeGreaterThan(0);
+  return (carrying[0] as Record<string, unknown>)[code] as RefusalEntryShape;
+}
+
 /**
  * The registered code a call refused with — asserted to have refused at all. A refusal is read as a
  * CODE off the shipped marker, never matched as prose (L-QTY-04).

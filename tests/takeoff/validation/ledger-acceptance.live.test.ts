@@ -21,10 +21,12 @@ import {
   DB_ROSTER_MODULE,
   DB_SCHEMA_VALIDATION_MODULE,
   ERRORS_MODULE,
+  ERRORS_VALIDATION_MODULE,
   SCHEMA_VALIDATION_MODULE,
   VALIDATION_OBSERVATIONS,
   VALIDATION_PROVENANCE_UNKNOWN,
   VECTOR,
+  areaRefusalEntry,
   productModule,
   recordedAtMs,
   refusalCodeOf,
@@ -32,6 +34,7 @@ import {
   saidText,
   validationDoor,
   type ObservationInput,
+  type RefusalEntryShape,
   type Scope,
 } from "./support/validation-acceptance";
 
@@ -149,12 +152,21 @@ describe("AC-3: the validation ledger is appended, cited and read back", () => {
       `a provenance outside \`VALIDATION_PROVENANCES\` is ${VALIDATION_PROVENANCE_UNKNOWN} — how a yardstick was authored is a closed roster, never prose (L-QTY-06, L-QTY-04)`,
     ).toBe(VALIDATION_PROVENANCE_UNKNOWN);
 
-    const registry = await productModule<{ REFUSALS: Record<string, { message?: string; remedy?: string; severity?: string; surface?: string } | undefined> }>("src/core/errors.ts");
+    const registry = await productModule<{ REFUSALS: Record<string, RefusalEntryShape | undefined> }>("src/core/errors.ts");
     const entry = registry.REFUSALS[VALIDATION_PROVENANCE_UNKNOWN];
     expect(entry, `${ERRORS_MODULE} carries ${VALIDATION_PROVENANCE_UNKNOWN} — the area's register is spread into the barrel and never re-declared (AM-11)`).toBeTruthy();
     for (const part of ["message", "remedy", "severity", "surface"] as const) {
       expect(typeof entry?.[part], `and the entry states its ${part}, like every other refusal of the register (L-AI-01)`).toBe("string");
     }
+
+    // The area file is where the code is DECLARED; the barrel only enumerates. An entry written into
+    // another area's group, or inline beside the barrel's spreads, answers `refusalOf` just as well and
+    // is a second home for one register — which is the thing AM-11 closed.
+    const declared = await areaRefusalEntry(ERRORS_VALIDATION_MODULE, VALIDATION_PROVENANCE_UNKNOWN);
+    expect(
+      entry,
+      `and the barrel's entry for ${VALIDATION_PROVENANCE_UNKNOWN} is the one ${ERRORS_VALIDATION_MODULE} declares — the barrel enumerates areas and never re-declares a code (AM-11)`,
+    ).toEqual(declared);
 
     expect((await door.observationsOf(scope)).length, "a refused observation leaves the ledger where it stood — a row is appended only after the citation is admitted").toBe(before);
   }, 900_000);
