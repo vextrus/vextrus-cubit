@@ -22,7 +22,12 @@ import { expect } from "vitest";
 import type { Consequence } from "../../../../src/core/acts";
 import type { RefusalCode } from "../../../../src/core/errors";
 import type { SiteFact, StandingSiteFact } from "../../../../src/core/site-facts/law";
-import { SiteFactsPanel } from "../../../../src/modules/takeoff/site-facts-ui";
+import { SiteFactsPanel, type SiteFactsChrome } from "../../../../src/modules/takeoff/site-facts-ui";
+import { SettingsHeader } from "../../../../src/app/(app)/t/[tenant]/settings/settings-pane";
+import { ConsequenceDialog } from "../../../../src/ui/patterns/consequence-dialog";
+import { RefusalState } from "../../../../src/ui/patterns/refusal-state";
+import { BasisChip, Button, IdChip, Input, NumberInput, Select } from "../../../../src/ui/primitives/core";
+import { TESTIDS } from "../../../../src/ui/testids";
 
 /** What the screen states at either door, for one fact of one project. */
 export interface StagedSiteFactStatement {
@@ -39,7 +44,12 @@ export type StagedPreviewAnswer = { previewed: true; consequence: Consequence; c
 /** What a commit answered: the act it wrote, or the refusal that stopped it. */
 export type StagedCommitAnswer = { committed: true; actId: string } | { committed: false; refusal: RefusalCode };
 
-/** Everything the panel is mounted with. A prop the panel needs that is absent here is a plan defect. */
+/**
+ * Everything the panel is mounted with — the nine props the screen itself passes
+ * (`settings/site-facts/site-facts-screen.tsx`), the chrome seam among them. A prop the panel needs
+ * that is absent here is a plan defect; the list grows with the screen's own arity, never against it
+ * (B-19, B-20: an increment that changes the law owns the acceptance the old law froze).
+ */
 export interface StagedSiteFactsPanel {
   readonly tenantId: string;
   readonly projectId: string;
@@ -53,7 +63,49 @@ export interface StagedSiteFactsPanel {
   readonly rulesetHref: string;
   /** Where PERMISSION_NOT_HELD is resolved: the screen a role is granted on. */
   readonly participantsHref: string;
+  /**
+   * The shipped renderers and the id registry a module may not import (ARCH-01: `src/modules` reaches
+   * `core` and its own module only, and `src/ui` is neither); test code may reach both trees. The
+   * panel renders the ONE RefusalState, the ONE ConsequenceDialog and IdChip because the screen hands
+   * them to it — so the suite exercises the shipped renderers rather than a stand-in (R-UI-020,
+   * R-UI-021, R-UI-082, B-17).
+   */
+  readonly chrome: SiteFactsChrome;
 }
+
+/**
+ * The chrome, assembled exactly as `settings/site-facts/site-facts-screen.tsx` assembles it: the
+ * registry's own ids and the shipped renderers, unwrapped and unstyled. Nothing here substitutes for
+ * a pattern — a stage-local refusal block is the defect R-UI-020 names.
+ */
+export const SITE_FACTS_CHROME: SiteFactsChrome = {
+  testIds: {
+    screen: TESTIDS.siteFacts.screen,
+    section: TESTIDS.siteFacts.section,
+    face: TESTIDS.siteFacts.face,
+    table: TESTIDS.siteFacts.table,
+    row: TESTIDS.siteFacts.row,
+    rowValue: TESTIDS.siteFacts.rowValue,
+    rowSource: TESTIDS.siteFacts.rowSource,
+    rowAct: TESTIDS.siteFacts.rowAct,
+    rowDeferral: TESTIDS.siteFacts.rowDeferral,
+    enter: TESTIDS.siteFacts.enter,
+    value: TESTIDS.siteFacts.value,
+    unit: TESTIDS.siteFacts.unit,
+    sourceNote: TESTIDS.siteFacts.sourceNote,
+    submit: TESTIDS.siteFacts.submit,
+    refusal: TESTIDS.siteFacts.refusal,
+  },
+  SettingsHeader,
+  RefusalState,
+  ConsequenceDialog,
+  Button,
+  NumberInput,
+  Select,
+  Input,
+  IdChip,
+  BasisChip,
+};
 
 /**
  * The DOM instruments a suite reads this mount with, re-exported from here so that every caller —
@@ -80,6 +132,8 @@ export function mountSiteFactsPanel(staged: Partial<StagedSiteFactsPanel> = {}):
     commit: () => Promise.reject(new Error("this mount states no commit door")),
     rulesetHref: `/t/${STAGED_TENANT}/p/${STAGED_PROJECT}/settings/ruleset`,
     participantsHref: `/t/${STAGED_TENANT}/p/${STAGED_PROJECT}/settings/participants`,
+    // Ahead of the spread, so a case may override the chrome but can never silently omit it.
+    chrome: SITE_FACTS_CHROME,
     ...staged,
   };
   return render(createElement(SiteFactsPanel, props));
