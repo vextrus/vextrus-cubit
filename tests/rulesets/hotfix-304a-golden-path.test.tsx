@@ -80,13 +80,21 @@ function blames(why: string): string {
   return `${J000_LEG} — ${why}`;
 }
 
+/**
+ * The screen root's registered id, read through the registry that is its only spelling — and read
+ * so that its ABSENCE is a red of this file's own words. A reproduction that hands an unregistered
+ * id straight to the query helper prints the helper's confusion about `undefined`, and the reader
+ * of that red learns nothing about the journey that broke.
+ */
+const SCREEN_ID = (TESTIDS.rulesetAuthor as Record<string, string | undefined>).screen ?? "";
+
 /** The screen root a retrying read targets, and the state it publishes there. */
 function screenRoot(): HTMLElement {
-  const roots = screen.queryAllByTestId(TESTIDS.rulesetAuthor.screen);
+  const roots = SCREEN_ID === "" ? [] : screen.queryAllByTestId(SCREEN_ID);
   expect(
     roots,
     blames(
-      "its read of this screen is aimed at the screen root the Decision's §7 registers, and finding no element under that id it falls back to re-reading text until it stops moving",
+      "its read of this screen is aimed at the screen root §7 of the Decision registers, and finding no element under that id it falls back to re-reading text until it stops moving — late on a loaded box, mid-flight on a fast one",
     ),
   ).toHaveLength(1);
   return roots[0] as HTMLElement;
