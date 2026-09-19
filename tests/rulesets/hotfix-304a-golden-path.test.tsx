@@ -68,48 +68,71 @@ const TENANT = "5eed0000-0000-4000-8000-000000000001";
 /** The area the Author edition screen answers for: the roster's last entry, read rather than spelled. */
 const AUTHOR_AREA = PROJECT_SETTINGS_AREAS.at(-1)?.area ?? "";
 
+/**
+ * The J-000 leg this file is the reproduction of, spelled once and spoken where a FAILING RUN
+ * PRINTS it: the suite's own name and every message below. Whoever reads a red here is looking for
+ * the journey that broke, and the header above this file is not in the output they are handed.
+ */
+const J000_LEG = "tests/e2e/journeys/j-000/m0-workspace-and-project.spec.ts";
+
+/** Why a limb is owed, said with the leg that goes red when it is not. */
+function blames(why: string): string {
+  return `${J000_LEG} — ${why}`;
+}
+
 /** The screen root a retrying read targets, and the state it publishes there. */
 function screenRoot(): HTMLElement {
-  return screen.getByTestId(TESTIDS.rulesetAuthor.screen);
+  const roots = screen.queryAllByTestId(TESTIDS.rulesetAuthor.screen);
+  expect(
+    roots,
+    blames(
+      "its read of this screen is aimed at the screen root the Decision's §7 registers, and finding no element under that id it falls back to re-reading text until it stops moving",
+    ),
+  ).toHaveLength(1);
+  return roots[0] as HTMLElement;
 }
 
 function publishedState(): string | null {
   return screenRoot().getAttribute("data-state");
 }
 
-describe("inc-304a-ruleset-authoring-ui-hotfix-a1: the settings screen publishes the contract a read of it needs", () => {
-  test("the screen root is addressable, and it is the element that carries `data-state`", () => {
+describe(`inc-304a-ruleset-authoring-ui-hotfix-a1 (${J000_LEG}): the settings screen publishes the contract a read of it needs`, () => {
+  test(`the screen root is addressable, and it is the element that carries \`data-state\` — ${J000_LEG}`, () => {
     mount();
 
     const root = screenRoot();
     expect(
       within(root).getByTestId(TESTIDS.rulesetAuthor.section),
-      "the screen root wraps the section: the region a retrying read targets holds what the read is about",
+      blames("the screen root wraps the section: the region its retrying read targets holds what the read is about"),
     ).toBeTruthy();
     expect(
       [...RULESET_AUTHOR_SCREEN_STATES] as string[],
-      `the state a read of this screen gets is one of the screen's own roster, never a word invented at the element; it published ${JSON.stringify(publishedState())}`,
+      blames(
+        `the state its read of this screen gets is one of the screen's own roster, never a word invented at the element; it published ${JSON.stringify(publishedState())}`,
+      ),
     ).toContain(publishedState());
   });
 
-  test("every state the screen is DRIVEN into is published on that same element", async () => {
+  test(`every state the screen is DRIVEN into is published on that same element — ${J000_LEG}`, async () => {
     const standing = mount();
-    expect(publishedState(), "a pinned project with a door open to it stands ready").toBe("ready");
-    expect(standing.previewed, "nothing was asked of the door by rendering the screen").toHaveLength(0);
+    expect(publishedState(), blames("a pinned project with a door open to it stands ready")).toBe("ready");
+    expect(standing.previewed, blames("nothing was asked of the door by rendering the screen")).toHaveLength(0);
     cleanup();
 
     mount({ doors: stageDoors({ refuseWith: "EDITION_VERSION_TAKEN" }) });
     fireEvent.change(screen.getByTestId(TESTIDS.rulesetAuthor.version), { target: { value: "2026.09" } });
     fireEvent.click(screen.getByTestId(TESTIDS.rulesetAuthor.submit));
-    await waitFor(() => expect(screen.getByTestId(TESTIDS.rulesetAuthor.refusal).textContent, "the refusal stands in its slot").not.toBe(""));
-    expect(publishedState(), "a refused preview leaves the screen refused, and says so where a read can reach it").toBe("refused");
+    await waitFor(() =>
+      expect(screen.getByTestId(TESTIDS.rulesetAuthor.refusal).textContent, blames("the refusal stands in its slot")).not.toBe(""),
+    );
+    expect(publishedState(), blames("a refused preview leaves the screen refused, and says so where a read can reach it")).toBe("refused");
     cleanup();
 
     mount({ pinned: false });
-    expect(publishedState(), "a project that pins nothing has nothing to fork, and the screen states that state too").toBe("empty");
+    expect(publishedState(), blames("a project that pins nothing has nothing to fork, and the screen states that state too")).toBe("empty");
   });
 
-  test("the settings frame hands the screen through whole: the contract survives the pane the leg reads back in", () => {
+  test(`the settings frame hands the screen through whole: the contract survives the pane the leg reads back in — ${J000_LEG}`, () => {
     const doors = stageDoors();
     render(
       <SettingsPane active={AUTHOR_AREA} items={projectSettingsNavItems(TENANT, STAGED_PROJECT)}>
@@ -126,21 +149,26 @@ describe("inc-304a-ruleset-authoring-ui-hotfix-a1: the settings screen publishes
     );
 
     const current = screen.getAllByTestId(TESTIDS.settings.area).filter((row) => row.getAttribute("aria-current") === "page");
-    expect(current.map((row) => row.getAttribute("data-area")), "the frame marks the one row the reader is standing on").toEqual([AUTHOR_AREA]);
+    expect(
+      current.map((row) => row.getAttribute("data-area")),
+      blames("the frame marks the one row the reader is standing on"),
+    ).toEqual([AUTHOR_AREA]);
     expect(
       within(screenRoot()).getByTestId(TESTIDS.rulesetAuthor.diff).getAttribute("data-rows-rendered"),
-      "the screen inside the frame is the same screen: its root is addressable and its grid still says what it rendered",
+      blames("the screen inside the frame is the same screen: its root is addressable and its grid still says what it rendered"),
     ).not.toBeNull();
   });
 
-  test("the diff grid says how many rows it rendered, beside the region it publishes", () => {
+  test(`the diff grid says how many rows it rendered, beside the region it publishes — ${J000_LEG}`, () => {
     mount();
 
     const grid = screen.getByTestId(TESTIDS.rulesetAuthor.diff);
-    expect(grid.getAttribute("data-rendered-region"), "the grid names the region a read of it waits on").toBe(TESTIDS.rulesetAuthor.diff);
+    expect(grid.getAttribute("data-rendered-region"), blames("the grid names the region a read of it waits on")).toBe(TESTIDS.rulesetAuthor.diff);
     expect(
       grid.getAttribute("data-rows-rendered"),
-      "a read of the grid waits for the rows it rendered, counted by the grid itself — never by counting locators the browser happened to resolve",
+      blames(
+        "its read of the grid waits for the rows the grid rendered, counted by the grid itself — never by counting locators the browser happened to resolve",
+      ),
     ).toBe(String(within(grid).getAllByTestId(TESTIDS.rulesetAuthor.diffRow).length));
   });
 });
