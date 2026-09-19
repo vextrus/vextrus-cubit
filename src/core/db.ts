@@ -89,6 +89,9 @@ export {
   scopeDeclarations,
   barRows,
   documents,
+  validationObservations,
+  VALIDATION_PROVENANCES,
+  VALIDATION_VERDICTS,
   SEAM_SCHEMA,
 } from "./db/schema";
 export { isAcceptedFormat } from "./db/schema";
@@ -107,6 +110,8 @@ export type {
   RebarZone,
   ScheduleDeferralReason,
   ExpansionDeferralReason,
+  ValidationProvenance,
+  ValidationVerdict,
 } from "./db/schema";
 export { closePools } from "./db/pools";
 export {

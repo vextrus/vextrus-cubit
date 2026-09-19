@@ -53,6 +53,7 @@ import { MASONRY_TABLES } from "./schema-masonry";
 import { REBAR_TABLES } from "./schema-rebar";
 import { DOCS_TABLES } from "./schema-docs";
 import { BOQ_TABLES } from "./schema-boq";
+import { VALIDATION_TABLES } from "./schema-validation";
 
 export * from "./schema-tenants";
 export * from "./schema-projects";
@@ -85,6 +86,7 @@ export * from "./schema-masonry";
 export * from "./schema-rebar";
 export * from "./schema-docs";
 export * from "./schema-boq";
+export * from "./schema-validation";
 
 /**
  * Everything the typed surface covers. A table joins the surface by joining ITS AREA’S group, and
@@ -129,4 +131,5 @@ export const SEAM_SCHEMA = {
   ...REBAR_TABLES,
   ...DOCS_TABLES,
   ...BOQ_TABLES,
+  ...VALIDATION_TABLES,
 };

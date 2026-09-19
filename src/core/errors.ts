@@ -46,6 +46,7 @@ import { TAKEOFF_SCALE_REFUSALS, type TakeoffScaleRefusalCode } from "./errors/t
 import { TAKEOFF_SCHEDULES_REFUSALS, type TakeoffSchedulesRefusalCode } from "./errors/takeoff-schedules";
 import { TAKEOFF_VIEWS_REFUSALS, type TakeoffViewsRefusalCode } from "./errors/takeoff-views";
 import { UNITS_REFUSALS, type UnitsRefusalCode } from "./errors/units";
+import { VALIDATION_REFUSALS, type ValidationRefusalCode } from "./errors/validation";
 
 // The shape an entry is registered in lives beside the areas that declare theirs against it, and is
 // published from here because this is the door every reader opens (B-17).
@@ -90,7 +91,8 @@ export type RefusalCode =
   | RebarRefusalCode
   | SlabsRefusalCode
   | RulesetsRefusalCode
-  | ExportsRefusalCode;
+  | ExportsRefusalCode
+  | ValidationRefusalCode;
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -140,6 +142,7 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
   ...SLABS_REFUSALS,
   ...RULESETS_REFUSALS,
   ...EXPORTS_REFUSALS,
+  ...VALIDATION_REFUSALS,
 });
 
 /**

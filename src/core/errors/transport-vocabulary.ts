@@ -14,6 +14,7 @@ import { NOTE_KINDS } from "../notes/law";
 import { COVERAGES, GEOMETRY_TYPES, PLAN_MEMBERS } from "../offers/law";
 import { AXIS_IDLE_READINGS } from "../residue/law";
 import { SITE_FACTS } from "../site-facts/law";
+import { VALIDATION_PROVENANCES, VALIDATION_VERDICTS } from "../db/schema-validation";
 
 /** One foreign vocabulary: who owns the names, and which of them this tree spells. */
 export type TransportVocabulary = {
@@ -293,5 +294,22 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // imported because core may not import a module (ARCH-01, the view-type precedent above).
     vocabulary: "L-BD-08 bill placement readings",
     codes: Object.freeze(["NO_TAXONOMY_ROW", "LEVEL_NOT_IN_STACK", "AT_OR_BELOW_PLINTH", "ABOVE_PLINTH", "PROVISIONAL_SUM"]),
+  }),
+  Object.freeze({
+    // L-QTY-06's own words for where a yardstick came from, written to `validation_observations`
+    // and read back by the M3 exit. Every one bears an underscore, so Q-07's register would read
+    // them as refusal codes nobody registered — but a provenance is a FACT about evidence, cited on
+    // a ledger row; nobody is ever answered with one of these names. Their home is
+    // `../db/schema-validation.ts`, where the CHECK that closes the column is written from them,
+    // and they are read from there rather than copied (B-19, ARCH-02).
+    vocabulary: "L-QTY-06 validation provenances",
+    codes: VALIDATION_PROVENANCES,
+  }),
+  Object.freeze({
+    // How a graded cell stood against its yardstick, written to the same ledger. `PASS` and `OVER`
+    // bear no underscore, but the three are one closed roster and a list split by typography is a
+    // list that drifts — so the verdicts are declared together, at their home beside the provenances.
+    vocabulary: "L-QTY-06 validation verdicts",
+    codes: VALIDATION_VERDICTS,
   }),
 ]);
