@@ -14,6 +14,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { formatUserFigure } from "../../src/core/format";
+// The barrel does not re-export the default (SEAM-PREFS keeps the roster beside the store's own
+// column), so the value is read from the file that declares it — never spelled "comfortable" here.
+import { DEFAULT_DENSITY } from "../../src/core/prefs/density";
 import { TESTIDS } from "../../src/ui/testids";
 import { SHomePage, S_HOME } from "./pages/s-home.page";
 import { ShellPage, SHELL } from "./pages/shell.page";
@@ -22,8 +25,12 @@ import { baselinePath, laneProject } from "./support/capture-geometry";
 import { checkpoint } from "./support/checkpoint";
 import { emulateTheme, restoreLaneTheme } from "./support/lane-theme";
 import { everyAttribute, heldAttribute, steadyCount, steadyText } from "./support/retrying-read";
+import { e2eDatabaseUrl } from "./support/scratch-db";
 import { signInAsSeededTenant } from "./support/seeded-session";
 import { settled } from "./support/settled";
+
+/** The journeys' own database, stated before a product module opens a pool (the lane's own idiom). */
+process.env["DATABASE_URL"] = e2eDatabaseUrl();
 
 /** The width R-UI-030 paints the frame at, and the geometry §1 of both Decisions is ruled in. */
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -48,6 +55,29 @@ const DONE = `Done. The project now reads version ${AUTHORED_VERSION}.`;
 // address, and this walk asserted the disabled idiom on it. inc-304b gives that area its route, so
 // the branch is gone and the roster is walked as four addressed rows — the assertion the nav's own
 // rule always made, with nothing left to except from it (B-20).
+
+/** The density seam, called the way the lane's own stages call it (schedules-stage.ts, SEAM-PREFS). */
+type PrefsSeam = { setDensity: (userId: string, density: typeof DEFAULT_DENSITY) => Promise<void> };
+
+/**
+ * The third condition these four pictures are taken under, STATED rather than inherited.
+ *
+ * R-UI-085 puts density beside the theme: a stored preference of the signed-in PERSON, which the
+ * shell reads per request and seats on one `[data-density]` at the root, where it revalues `--row-h`,
+ * `--control-h` and `--cell-px` for every table on the screen. This lane signs in as one seeded
+ * identity per worker against a persistent, additive database, so a picture taken at an unstated
+ * density freezes whatever the last walk left on that person — not the product. This walk already
+ * pins the two other conditions that move geometry (width by `test.use`, theme by `emulateTheme`);
+ * this is the third, written through the product's own door, at the default the product itself names
+ * (DEFAULT_DENSITY, imported and never spelled). ARBITRATION on this spec's pictures: B-19's
+ * declared-once rule, and B-20's "a red no lawful actor may clear".
+ */
+async function readAtDefaultDensity(shell: ShellPage): Promise<void> {
+  const userId = await heldAttribute(shell.user, "data-user-id");
+  expect(userId, "the walk is signed in, so the shell names the person whose preference it states").toBeTruthy();
+  const prefs = (await import("../../src/core/prefs/index")) as PrefsSeam;
+  await prefs.setDensity(userId as string, DEFAULT_DENSITY);
+}
 
 /**
  * Where the nav says the reader is, read as a WHOLE LIST on whichever screen the nav is framing.
@@ -88,6 +118,10 @@ test.describe("J-304 — the project settings nav, and authoring the edition a p
     await page.waitForURL(/\/t\/[0-9a-f-]{36}$/);
     const tenantId = new URL(page.url()).pathname.split("/")[2] ?? "";
     expect(tenantId, "the workspace door leads to the workspace this person holds").not.toBe("");
+    // …read at the density this walk states, before it opens the pin or any screen it pictures. Stated
+    // here rather than at the nameplate for the reason `stageSchedules` states it here: the shell names
+    // the person acting on the workspace the session opens into (schedules-stage.ts, `userIdOf`).
+    await readAtDefaultDensity(shell);
 
     const projectName = `Rule set ${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
     await home.createWith({ name: projectName, code: "RA-001", client: "Sattva Holdings", district: "Dhaka", buildingType: 1, storeys: "9" });
@@ -152,6 +186,13 @@ test.describe("J-304 — the project settings nav, and authoring the edition a p
       "nothing has been typed, so no row is marked as moved",
     ).toEqual(pinnedParameters.map(() => "false"));
     await expect(author.version, "the version field opens empty — a version is stated, never guessed").toHaveValue("");
+
+    // The stated condition, PROVEN on the screen rather than assumed: the frame publishes the density
+    // it drew this picture at, once, at the shell's own root (R-UI-086, the density Decision § 1).
+    expect(
+      await heldAttribute(shell.root, "data-density"),
+      "the authoring screen is pictured at the density this walk stated, which is the one the product itself defaults a person to",
+    ).toBe(DEFAULT_DENSITY);
 
     await checkpoint(page, testInfo, "s-settings-ruleset-author/authoring-open");
     await expect(page).toHaveScreenshot(["s-settings-ruleset-author", "authoring-open.png"], { mask: author.masks(), animations: "disabled" });

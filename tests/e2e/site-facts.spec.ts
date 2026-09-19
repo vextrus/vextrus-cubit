@@ -15,6 +15,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { REFUSALS } from "../../src/core/errors";
+// The barrel does not re-export the default (SEAM-PREFS keeps the roster beside the store's own
+// column), so the value is read from the file that declares it — never spelled "comfortable" here.
+import { DEFAULT_DENSITY } from "../../src/core/prefs/density";
 import { SITE_FACTS } from "../../src/core/site-facts/law";
 import { dimensionOf, UNITS } from "../../src/core/units/canon";
 import { PROJECT_SETTINGS_AREA_NAMES, PROJECT_SETTINGS_PAGES } from "../../src/ui/shell/routes";
@@ -25,8 +28,12 @@ import { SSiteFactsPage, S_SITE_FACTS, SITE_FACTS_AREA } from "./pages/s-setting
 import { baselinePath, laneProject } from "./support/capture-geometry";
 import { checkpoint } from "./support/checkpoint";
 import { everyAttribute, heldAttribute, steadyText } from "./support/retrying-read";
+import { e2eDatabaseUrl } from "./support/scratch-db";
 import { signInAsSeededTenant } from "./support/seeded-session";
 import { settled } from "./support/settled";
+
+/** The journeys' own database, stated before a product module opens a pool (the lane's own idiom). */
+process.env["DATABASE_URL"] = e2eDatabaseUrl();
 
 /** The width R-UI-030 paints the frame at, and the geometry §1 of the Decision is ruled in. */
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -59,6 +66,29 @@ async function deferrals(): Promise<Readonly<Record<string, string>>> {
   const map = module.SITE_FACT_DEFERRALS;
   expect(map, "the panel renders an absent fact as the deferral its own map names (I-279)").toBeDefined();
   return map ?? {};
+}
+
+/** The density seam, called the way the lane's own stages call it (schedules-stage.ts, SEAM-PREFS). */
+type PrefsSeam = { setDensity: (userId: string, density: typeof DEFAULT_DENSITY) => Promise<void> };
+
+/**
+ * The third condition these pictures are taken under, STATED rather than inherited.
+ *
+ * R-UI-085 puts density beside the theme: a stored preference of the signed-in PERSON, which the
+ * shell reads per request and seats on one `[data-density]` at the root, where it revalues `--row-h`,
+ * `--control-h` and `--cell-px` for every table on the screen. This lane signs in as one seeded
+ * identity per worker against a persistent, additive database, so a picture taken at an unstated
+ * density freezes whatever the last walk left on that person — not the product. The walk already
+ * pins the two other conditions that move geometry (width by `test.use`, theme by `?__theme=`); this
+ * is the third, written through the product's own door, at the default the product itself names
+ * (DEFAULT_DENSITY, imported and never spelled). ARBITRATION on this spec's checkpoints: B-19's
+ * declared-once rule, and B-20's "a red no lawful actor may clear".
+ */
+async function readAtDefaultDensity(shell: ShellPage): Promise<void> {
+  const userId = await heldAttribute(shell.user, "data-user-id");
+  expect(userId, "the walk is signed in, so the shell names the person whose preference it states").toBeTruthy();
+  const prefs = (await import("../../src/core/prefs/index")) as PrefsSeam;
+  await prefs.setDensity(userId as string, DEFAULT_DENSITY);
 }
 
 /**
@@ -97,6 +127,10 @@ test.describe("J-305 — the project's site facts: six deferrals, and the act th
     await page.waitForURL(/\/t\/[0-9a-f-]{36}$/);
     const tenantId = new URL(page.url()).pathname.split("/")[2] ?? "";
     expect(tenantId, "the workspace door leads to the workspace this person holds").not.toBe("");
+    // …read at the density this walk states, before it opens a screen it pictures. Stated here rather
+    // than at the nameplate for the reason `stageSchedules` states it here: the shell names the person
+    // acting on the workspace the session opens into (schedules-stage.ts, `userIdOf`).
+    await readAtDefaultDensity(shell);
 
     const projectName = `Site facts ${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
     await home.createWith({ name: projectName, code: "SF-001", client: "Sattva Holdings", district: "Dhaka", buildingType: 1, storeys: "9" });
@@ -155,6 +189,13 @@ test.describe("J-305 — the project's site facts: six deferrals, and the act th
       await expect(facts.deferralEvidence(fact), "a refusal always carries the way to resolve it (R-UI-020)").toHaveCount(1);
       await expect(facts.rowValue(fact), `${fact} renders no figure: an absent fact is a deferral, never a default (AM-06 §1)`).toHaveCount(0);
     }
+
+    // The stated condition, PROVEN on the screen rather than assumed: the frame publishes the density
+    // it drew this picture at, once, at the shell's own root (R-UI-086, the density Decision § 1).
+    expect(
+      await heldAttribute(shell.root, "data-density"),
+      "the panel is pictured at the density this walk stated, which is the one the product itself defaults a person to",
+    ).toBe(DEFAULT_DENSITY);
 
     await checkpoint(page, testInfo, "s-settings-site-facts/panel-absent");
     await expect(page).toHaveScreenshot(["s-settings-site-facts", "panel-absent.png"], { mask: facts.masks(), animations: "disabled" });
