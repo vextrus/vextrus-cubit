@@ -19,6 +19,7 @@ import type { CommitAnswer, PreviewAnswer } from "./actions";
 // The words a parameter is named by are the settings area's one table (I-268) — a plain function,
 // read here rather than handed across the server/client boundary, which no function may cross.
 import { parameterLabel } from "../strings";
+import type { RulesetAuthorScreenState } from "./states";
 import type { EditionIdentity, EditionParameter } from "@/core/rulesets/editions";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
@@ -225,7 +226,7 @@ export function RulesetAuthorSection({
 
   if (parent === null) {
     return (
-      <div className="cx-ruleset-author" data-state="empty">
+      <div className="cx-ruleset-author" data-testid={TESTIDS.rulesetAuthor.screen} data-state="empty">
         <section className="cx-ruleset-author-section" data-testid={TESTIDS.rulesetAuthor.section} aria-labelledby={headingId}>
           <SettingsHeader title={rulesetAuthorStrings.ruleset_author_heading} titleId={headingId} about={ABOUT} />
           <div data-testid={TESTIDS.ruleset.unpinned}>
@@ -240,10 +241,12 @@ export function RulesetAuthorSection({
     );
   }
 
-  const state = pending ? "busy" : refusal !== null ? "refused" : "ready";
+  // § 7: the state a read of this screen gets, spelled from the screen's own roster and published
+  // on the element that roster's reader targets.
+  const state: RulesetAuthorScreenState = pending ? "busy" : refusal !== null ? "refused" : "ready";
 
   return (
-    <div className="cx-ruleset-author" data-state={state}>
+    <div className="cx-ruleset-author" data-testid={TESTIDS.rulesetAuthor.screen} data-state={state}>
       <section className="cx-ruleset-author-section" data-testid={TESTIDS.rulesetAuthor.section} aria-labelledby={headingId}>
         <SettingsHeader title={rulesetAuthorStrings.ruleset_author_heading} titleId={headingId} about={ABOUT} />
 
@@ -283,7 +286,14 @@ export function RulesetAuthorSection({
         </div>
 
         {/* I-264: the diff is the whole pin, always — changed rows are marked, never filtered. */}
-        <div className="cx-ruleset-author-table" data-testid={TESTIDS.rulesetAuthor.diff} data-rendered-region="ruleset-author-diff">
+        {/* § 7: the region a read waits on, and the count that says the grid finished rendering —
+            the rows it was given, never a number a locator happened to resolve. */}
+        <div
+          className="cx-ruleset-author-table"
+          data-testid={TESTIDS.rulesetAuthor.diff}
+          data-rendered-region={TESTIDS.rulesetAuthor.diff}
+          data-rows-rendered={String(rows.length)}
+        >
           <DataTable
             tableId={DIFF_TABLE_ID}
             aria-label={rulesetAuthorStrings.ruleset_author_heading}

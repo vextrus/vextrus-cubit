@@ -8,13 +8,15 @@
 // "the single source of every test id", and a test id is a string the DOM carries as data-testid.
 // The four area keys below are not that. They are the values of data-area, qualifying the ONE
 // registered id every nav row carries — TESTIDS.settings.area, reached from the registry like every
-// other handle here. So the keys spelled below are not test ids, neither of the two this increment's
-// contract once listed as ids is registered in src/ui/testids.ts, and rule 2 of
-// src/ui/testids.test.ts — which reads this file's TEXT — has nothing to say about them.
+// other handle here. One of the four keys is spelled the same as a registered id — the Author
+// edition screen's own root (§ 7) — so that key is TAKEN from the product's roster instead of typed
+// here, and rule 2 of src/ui/testids.test.ts, which reads this file's TEXT, finds no id spelled in
+// it.
 //
 // Nothing in this file may spell a registered id, in code or in prose: that rule reads quoted and
 // backticked words alike, so an id is named here by its registry path or not at all.
 import { expect, type Locator, type Page } from "@playwright/test";
+import { PROJECT_SETTINGS_AREA_NAMES } from "../../../src/ui/shell/routes";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import { everyAttribute, steadyText } from "../support/retrying-read";
 import { S_HOME } from "./s-home.page";
@@ -24,6 +26,14 @@ import { S_PARTICIPANTS } from "./s-participants.page";
 export const S_RULESET_AUTHOR = Object.freeze({
   route: (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/ruleset-author`,
 } as const);
+
+/**
+ * The Author edition area's key, taken from the product's own roster rather than typed again: the
+ * screen root carries that same word as its registered test id (s-settings-ruleset-author § 7), and
+ * nothing in this file may SPELL a registered id. I-271 still holds — an area key is not a test id —
+ * and the two kinds are kept apart by where each is read from, not by luck of spelling.
+ */
+const AUTHOR_AREA = PROJECT_SETTINGS_AREA_NAMES[3];
 
 /**
  * The settings areas a project carries, in the order `PROJECT_SETTINGS_AREAS` declares them, each
@@ -37,7 +47,7 @@ export const S_RULESET_AUTHOR = Object.freeze({
  * spelling the keys once, which is here. Every real id this screen publishes carries a prefix of its
  * own and is reached through TESTIDS below.
  */
-export const PROJECT_SETTINGS_AREA_ORDER = ["ruleset", "participants", "site-facts", "ruleset-author"] as const;
+export const PROJECT_SETTINGS_AREA_ORDER = ["ruleset", "participants", "site-facts", AUTHOR_AREA] as const;
 export type ProjectSettingsArea = (typeof PROJECT_SETTINGS_AREA_ORDER)[number];
 
 export function areaAddress(area: ProjectSettingsArea, tenantId: string, projectId: string): string | null {
@@ -48,7 +58,7 @@ export function areaAddress(area: ProjectSettingsArea, tenantId: string, project
       return S_PARTICIPANTS.route(tenantId, projectId);
     case "site-facts":
       return null;
-    case "ruleset-author":
+    case AUTHOR_AREA:
       return S_RULESET_AUTHOR.route(tenantId, projectId);
   }
 }

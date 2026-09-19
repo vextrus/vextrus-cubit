@@ -320,6 +320,7 @@ const GOLDEN: readonly string[] = [
   "root-home-main",
   "root-home-tagline",
   "root-home-workspace-door",
+  "ruleset-author",
   "ruleset-author-diff",
   "ruleset-author-diff-row",
   "ruleset-author-parent",
