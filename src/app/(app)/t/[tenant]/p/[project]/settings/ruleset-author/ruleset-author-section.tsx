@@ -11,7 +11,7 @@
 // `data-changed` and does no more; the door is the only door, and it previews before it commits.
 import "./ruleset-author.css";
 
-import { useCallback, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { dhakaDateParts, formatDate, formatMoney, formatUserFigure } from "@/core/format";
@@ -42,6 +42,9 @@ const AUTHOR_RULE_SET = "AUTHOR_RULE_SET";
 
 /** The identity each reader's column furniture is remembered under (§5 rule 3). */
 const DIFF_TABLE_ID = "ruleset-author-diff";
+
+/** The attribute the grid states its drawn rows in, and the region mirrors from it (§5 rule 9). */
+const ROWS_DRAWN = "data-rows-rendered";
 
 /**
  * The document's figure conventions, handed to the primitives that render one: SEAM-FORMAT itself,
@@ -224,9 +227,25 @@ export function RulesetAuthorSection({
     [],
   );
 
+  // § 7 + B-17: the region's count is the count the TABLE drew, mirrored off the table's own
+  // attribute rather than counted a second way here. DataTable windows past 200 rows, and two
+  // numbers under one attribute in one subtree would contradict each other the moment it does —
+  // the ancestor being the one a read climbing out of the grid stops at first.
+  const tableRef = useRef<HTMLDivElement | null>(null);
+  const [rowsDrawn, setRowsDrawn] = useState<string | null>(null);
+  useEffect(() => {
+    const drawn = tableRef.current?.querySelector<HTMLElement>(`[${ROWS_DRAWN}]`) ?? null;
+    if (drawn === null) return;
+    const mirror = (): void => setRowsDrawn(drawn.getAttribute(ROWS_DRAWN));
+    mirror();
+    const watch = new MutationObserver(mirror);
+    watch.observe(drawn, { attributes: true, attributeFilter: [ROWS_DRAWN] });
+    return () => watch.disconnect();
+  });
+
   if (parent === null) {
     return (
-      <div className="cx-ruleset-author" data-testid={TESTIDS.rulesetAuthor.screen} data-state="empty">
+      <div className="cx-ruleset-author" data-testid={TESTIDS.rulesetAuthor.screen} data-screen-root="" data-state="empty">
         <section className="cx-ruleset-author-section" data-testid={TESTIDS.rulesetAuthor.section} aria-labelledby={headingId}>
           <SettingsHeader title={rulesetAuthorStrings.ruleset_author_heading} titleId={headingId} about={ABOUT} />
           <div data-testid={TESTIDS.ruleset.unpinned}>
@@ -246,7 +265,7 @@ export function RulesetAuthorSection({
   const state: RulesetAuthorScreenState = pending ? "busy" : refusal !== null ? "refused" : "ready";
 
   return (
-    <div className="cx-ruleset-author" data-testid={TESTIDS.rulesetAuthor.screen} data-state={state}>
+    <div className="cx-ruleset-author" data-testid={TESTIDS.rulesetAuthor.screen} data-screen-root="" data-state={state}>
       <section className="cx-ruleset-author-section" data-testid={TESTIDS.rulesetAuthor.section} aria-labelledby={headingId}>
         <SettingsHeader title={rulesetAuthorStrings.ruleset_author_heading} titleId={headingId} about={ABOUT} />
 
@@ -289,10 +308,11 @@ export function RulesetAuthorSection({
         {/* § 7: the region a read waits on, and the count that says the grid finished rendering —
             the rows it was given, never a number a locator happened to resolve. */}
         <div
+          ref={tableRef}
           className="cx-ruleset-author-table"
           data-testid={TESTIDS.rulesetAuthor.diff}
           data-rendered-region={TESTIDS.rulesetAuthor.diff}
-          data-rows-rendered={String(rows.length)}
+          data-rows-rendered={rowsDrawn ?? String(rows.length)}
         >
           <DataTable
             tableId={DIFF_TABLE_ID}
