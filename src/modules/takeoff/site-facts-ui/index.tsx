@@ -49,6 +49,13 @@ const COLUMNS = 5;
 /** Where a refusal is resolved — the one evidence shape the refusal pattern rules. */
 type Evidence = { href: string; label: string };
 
+/**
+ * What a row shows of a fact that stands entered: the reading as it was written, the note it was read
+ * from and the act that entered it. `StandingSiteFact` is one of these and carries more besides — the
+ * canonical metres and the hour — which are the ledger's and are not this screen's to show (I-276).
+ */
+type EnteredFact = { readonly valueAsWritten: string; readonly unitAsWritten: string; readonly sourceNote: string; readonly actId: string };
+
 /* ------------------------------------------------------------------ what the panel is handed */
 
 /**
@@ -182,6 +189,21 @@ function rowAnchor(fact: SiteFact): string {
   return `site-fact-${fact.toLowerCase()}`;
 }
 
+/** Where a deferral resolved on this screen leads: the fact's own row, as a link a reader can take. */
+function rowHref(fact: SiteFact): string {
+  return `#${rowAnchor(fact)}`;
+}
+
+/**
+ * One reading as a person reads it — the figure as it was written beside the unit it was written in
+ * (L-QTY-03). The words between them are the copy table's, like every other string this panel shows:
+ * a screen that composes a sentence in its own JSX has taken copy out of the one place it is read
+ * from and checked (§ 3).
+ */
+function reading(valueAsWritten: string, unitAsWritten: string): string {
+  return fillSiteFacts(siteFactsStrings.site_facts_row_value, { value: valueAsWritten, unit: unitAsWritten });
+}
+
 /** The units the form offers, in the canon's own order, with the words they are read by (§ 3). */
 const UNIT_OPTIONS: readonly { value: string; label: string }[] = Object.freeze(
   SITE_FACT_UNITS.map((unit) => Object.freeze({ value: unit, label: unitLabel(unit) })),
@@ -201,6 +223,13 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
   const [refusal, setRefusal] = useState<RefusalCode | null>(mayAuthor ? null : PERMISSION_NOT_HELD);
   /** The entry the last act carried, once it has been carried: what the status line speaks (§ 2). */
   const [entered, setEntered] = useState<{ fact: SiteFact; reading: string } | null>(null);
+  /**
+   * What the acts THIS panel carried entered, by fact. The ledger is append-only and the act was the
+   * latest entry of its fact at the moment it was written, so the row it moved stands entered from
+   * then on — the read that names the same act replaces it, and a read that has not caught up with it
+   * does not put the deferral back over a fact the reader has just entered (L-ACT-01, § 2 Ready).
+   */
+  const [carried, setCarried] = useState<Readonly<Partial<Record<SiteFact, EnteredFact>>>>({});
 
   const headingId = useId();
   const refusalId = useId();
@@ -245,28 +274,32 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
   };
 
   /**
-   * The act's door: preview first, and open the dialog only over a Consequence. A refusal of the
-   * preview is answered in place and NO dialog opens — a malformed entry is refused before any row
-   * exists, so the dialog never stands on one (§ 2).
+   * The act's door, and the whole of it: the entry is stated to the one ConsequenceDialog, which
+   * previews it itself (R-UI-021: the dialog computes its own preview at every open, so what a
+   * person confirms is never older than the moment they were shown it).
+   *
+   * The preview is asked ONCE and its answer — a Consequence or a refusal — is read in the one place
+   * the act is being carried out: the dialog's own refusal slot, through the one RefusalState
+   * (R-UI-020). The panel's slot answers nothing the dialog is already answering; a refusal said in
+   * two places is the second spelling B-17 forbids.
    */
-  const submit = async (): Promise<void> => {
+  const submit = (): void => {
     if (pending || !mayAuthor || openFact === null) return;
-    setPending(true);
     setEntered(null);
     setRefusal(null);
-    const answered = await preview(stated());
-    setPending(false);
-    if (!answered.previewed) {
-      setRefusal(answered.refusal);
-      return;
-    }
+    setPending(true);
     setDialogOpen(true);
   };
 
   const dialogPreview = useCallback(async () => {
-    const answered = await preview(stated());
-    if (!answered.previewed) throw refused(answered.refusal);
-    return { consequence: answered.consequence, consequenceDigest: answered.consequenceDigest };
+    try {
+      const answered = await preview(stated());
+      if (!answered.previewed) throw refused(answered.refusal);
+      return { consequence: answered.consequence, consequenceDigest: answered.consequenceDigest };
+    } finally {
+      // § 2 Busy: the screen is busy exactly while the entry is being checked, however it is answered.
+      setPending(false);
+    }
   }, [preview, refused, stated]);
 
   const dialogCommit = useCallback(
@@ -281,7 +314,20 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
   /** § 7: the state a read of this screen gets, spelled from the screen's own roster (§ 2). */
   const state: SiteFactsScreenState = pending ? "busy" : refusal !== null ? "refused" : "ready";
 
-  const rows = useMemo(() => SITE_FACTS.map((fact) => ({ fact, held: standing[fact] })), [standing]);
+  /**
+   * One row per fact of the closed roster, in the roster's own order (B-19), showing the latest entry
+   * this surface knows of: the read's, or — where the read has not caught up with an act carried here
+   * — the one that act entered. A read naming the same act is the same entry said better, so it wins.
+   */
+  const rows = useMemo(
+    (): readonly { fact: SiteFact; held: EnteredFact | undefined }[] =>
+      SITE_FACTS.map((fact) => {
+        const read = standing[fact];
+        const written = carried[fact];
+        return { fact, held: read !== undefined && (written === undefined || read.actId === written.actId) ? read : written };
+      }),
+    [carried, standing],
+  );
 
   return (
     <div className="cx-site-facts" data-testid={testIds.screen} data-screen-root="" data-state={state}>
@@ -346,7 +392,7 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
                       // I-276: the reading AS WRITTEN, in the unit it was written in — the canonical
                       // metres the canon made of it are the ledger's, not this screen's (L-QTY-03).
                       <span className="cx-site-facts-value" data-testid={testIds.rowValue}>
-                        {`${held.valueAsWritten} ${held.unitAsWritten}`}
+                        {reading(held.valueAsWritten, held.unitAsWritten)}
                       </span>
                     )}
                   </td>
@@ -406,7 +452,7 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
                         evidence={
                           statedByEdition(fact)
                             ? { href: rulesetHref, label: siteFactsStrings.site_facts_evidence_ruleset }
-                            : { href: `#${rowAnchor(fact)}`, label: siteFactsStrings.site_facts_evidence_enter }
+                            : { href: rowHref(fact), label: siteFactsStrings.site_facts_evidence_enter }
                         }
                       />
                     </td>
@@ -443,7 +489,7 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
                         <Button variant="secondary" onClick={closeForm}>
                           {siteFactsStrings.site_facts_cancel}
                         </Button>
-                        <Button className="cx-site-facts-submit" data-testid={testIds.submit} loading={pending} onClick={() => void submit()}>
+                        <Button className="cx-site-facts-submit" data-testid={testIds.submit} loading={pending} onClick={submit}>
                           {siteFactsStrings.site_facts_submit}
                         </Button>
                       </div>
@@ -467,7 +513,7 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
           {pending
             ? siteFactsStrings.site_facts_status_pending
             : entered === null
-              ? ""
+              ? null
               : fillSiteFacts(siteFactsStrings.site_facts_status_done, { fact: factLabel(entered.fact), value: entered.reading })}
         </p>
       </section>
@@ -477,12 +523,20 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
         actType={ACT_TYPE}
         preview={dialogPreview}
         commit={dialogCommit}
-        onOpenChange={setDialogOpen}
-        onCommitted={() => {
-          // The entered fact IS the answer: the route revalidates and the row re-renders ENTERED
-          // with no deferral, so the form closes on what it carried rather than holding a reading
-          // the ledger now states (§ 2, Ready).
-          if (openFact !== null) setEntered({ fact: openFact, reading: `${valueAsWritten} ${unitAsWritten}` });
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          // A door closed on an entry that was never answered leaves nothing in flight behind it.
+          if (!open) setPending(false);
+        }}
+        onCommitted={({ actId }) => {
+          // The act carried IS the answer: that fact's row stands ENTERED from here on, naming the
+          // act that entered it and keeping its deferral off, while the other five keep theirs
+          // (§ 2, Ready). The route revalidates behind this and answers with the same act.
+          if (openFact !== null) {
+            const fact = openFact;
+            setEntered({ fact, reading: reading(valueAsWritten, unitAsWritten) });
+            setCarried((held) => ({ ...held, [fact]: { valueAsWritten, unitAsWritten, sourceNote, actId } }));
+          }
           closeForm();
         }}
       />

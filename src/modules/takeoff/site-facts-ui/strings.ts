@@ -22,6 +22,8 @@ export const siteFactsStrings = {
 
   /** What a cell of a fact nobody has entered reads — the absence itself, never a stand-in figure. */
   site_facts_absent_value: "—",
+  /** The slots are data — the reading as it was written and the unit it was written in (§ 3). */
+  site_facts_row_value: "{value} {unit}",
 
   site_facts_fact_ground_level: "Existing ground level",
   site_facts_fact_water_table: "Water table level",

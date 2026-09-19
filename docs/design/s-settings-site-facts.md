@@ -86,6 +86,20 @@ JSX carries no string literal beyond test ids and fixed attribute values.
 - **I-281 — one form open at a time, and one act per fact.** `site-facts-enter` on any row closes a
   form open on another. Each entry is its own act over its own subject (AM-06 §1); no bulk row is
   offered, because six facts read from six different notes are not one group (R-UI-023).
+- **I-282 — the entry is stated to the dialog, and the dialog answers it.** `site-facts-submit`
+  opens the one `ConsequenceDialog`, which computes its own preview (R-UI-021, the pattern's I-41)
+  and renders either the consequence or — through the one `RefusalState` in its own slot — the
+  reason there is none. A refusal of the entry is therefore read where the entry is being carried,
+  and is not also written into `site-facts-refusal`: a refusal said in two places is the second
+  spelling B-17 forbids, and the panel's own slot keeps the one refusal that is about the panel
+  rather than about an entry (`PERMISSION_NOT_HELD`). Rejected: previewing at the panel first and
+  opening the dialog only over a consequence — it puts the same refusal in a second home and asks
+  the seam the same question twice for one act.
+- **I-283 — the act carried stands on its row at once.** A commit answers with the act it wrote;
+  the ledger is append-only and that act is the latest entry of its fact, so the row it moved
+  renders ENTERED with the reading, the note and the act id from that moment — the revalidated read
+  arrives behind it naming the same act and replaces it. Rejected: leaving the row deferred until a
+  read comes back, which shows a reader the absence of a fact they have just entered.
 
 ## 1. Regions (1440×900; the content pane is 1184 × 812, per the sub-navigation Decision)
 
@@ -97,7 +111,7 @@ JSX carries no string literal beyond test ids and fixed attribute values.
 | table (primary) | `site-facts-table`, the grid law's own table (I-273: a `<tbody>` per fact, not DataTable v2 — that primitive renders a row's refusal as a SIBLING of the row, and this screen's contract requires the deferral INSIDE the fact's row element), sticky 28 px header, frozen Fact column, one `site-facts-row` per fact in `SITE_FACTS` order (§1.1) | 1184 × 720 = **71 % of `shell-main`**; `--gap-section` 16 above; scrolls inside itself, never the page | `--row-h` 28, `--cell-px`, `--cell-py`, `--text-13`, `--font-mono`, `--ink`, `--ink-muted`, `--ink-code`, `--line` | never — the roster is six (I-278) |
 | deferral sub-row | `site-facts-row-deferral`, one `RefusalState` (inline surface), on every ABSENT row | cell spans the table; `max-inline-size` 880; padding-block `--space-2` | RefusalState's own | absent on an ENTERED row |
 | entry sub-row | the row's form: `site-facts-value` · `site-facts-unit` · `site-facts-source-note` · Cancel · `site-facts-submit` | cell spans the table; row-flex, gap `--space-3`, controls `--control-h` 28, submit `--control-h-lg` 32 | `--surface-sunken`, `--space-2/3`, `--control-h`, `--control-h-lg`, `--accent` (the primitive's) | mounted only while open (I-281) |
-| refusal slot | `site-facts-refusal`, exactly one `RefusalState` for a panel-wide refusal (permission, malformed, act) | 100 % × auto, `--space-3` above the table; `max-inline-size` 420 | RefusalState's own | absent |
+| refusal slot | `site-facts-refusal`, exactly one `RefusalState` for a refusal of the panel itself — the standing `PERMISSION_NOT_HELD` (I-282: an entry's own refusal is answered where the entry is being carried, inside the dialog) | 100 % × auto, `--space-3` above the table; `max-inline-size` 420 | RefusalState's own | absent |
 | status line | `<p role="status" aria-live="polite">` under the table: pending, then done | 100 % × `--text-13` min-height, `--space-3` above | `--ink-muted`, `--text-12` | empty string, height kept |
 | right column | none. Nothing on this screen is selectable, so the shell's inspector slot stays at width 0 (R-UI-080) | 0 | — | — |
 
@@ -139,21 +153,27 @@ Declared in the one enumerable home `src/modules/takeoff/site-facts-ui/states.ts
 - **Error** — a render, read or action fault surfaces the root error boundary (`src/app/error.tsx`,
   unowned here), which shows **Try again** and the report id; the nav survives the fault, so a
   reader can leave by clicking another area (sub-navigation §2).
-- **Refusal** — in place, never a toast (R-UI-020), through the one renderer in two homes: the row's
-  `site-facts-row-deferral` for an absent fact (codes per §3), and `site-facts-refusal` for a
-  refusal of the panel's own — `PERMISSION_NOT_HELD` (evidence: participants), `REQUEST_MALFORMED`,
-  `SITE_FACT_UNKNOWN`, `SITE_FACT_SOURCE_UNSTATED` and `UNIT_UNMAPPED` (evidence: this screen; the
-  preview refuses these before any row exists, so the dialog never opens on them).
-  `CONSEQUENCES_NOT_CARRIED` renders as the dialog's own stale notice and is never in this slot.
+- **Refusal** — in place, never a toast (R-UI-020), through the one renderer in three homes, each
+  the place the thing refused is being done (I-282): the row's `site-facts-row-deferral` for an
+  absent fact (codes per §3); the dialog's own refusal slot for the refusals of the entry being
+  carried — `REQUEST_MALFORMED`, `SITE_FACT_UNKNOWN`, `SITE_FACT_SOURCE_UNSTATED`, `UNIT_UNMAPPED`
+  and a `PERMISSION_NOT_HELD` answered at the door — since `site-facts-submit` states the entry to
+  the one `ConsequenceDialog`, which previews it itself (R-UI-021) and shows either the consequence
+  or the reason there is none; and `site-facts-refusal` for the refusal of the panel itself, the
+  standing `PERMISSION_NOT_HELD` (evidence: participants). No refusal is said in two places.
+  `CONSEQUENCES_NOT_CARRIED` renders as the dialog's own stale notice and is never in either slot.
   A refusal clears when the next preview is asked for, and clears no typed field.
-- **Busy** — while a preview is in flight `site-facts-submit` takes core's loading state
-  (`aria-busy`, no spinner) and the status line reads `site_facts_status_pending`; the fields stay
-  enabled, because nothing is committed. While the commit is in flight the dialog's confirm takes
-  the loading state (the pattern's own) and the status line speaks the same pending line.
+- **Busy** — while the entry is being checked `site-facts-submit` takes core's loading state
+  (`aria-busy`, no spinner), `site-facts` reads `data-state="busy"` and the status line reads
+  `site_facts_status_pending`; the dialog stands over it holding the pattern's own bones, and the
+  fields stay enabled, because nothing is committed. While the commit is in flight the dialog's
+  confirm takes the loading state (the pattern's own) and the status line speaks the same pending
+  line.
 - **Ready** — six rows in roster order, each ENTERED with value, note and act chip or ABSENT with
-  its deferral; the doors armed. After a commit: the dialog closes, the route revalidates, that row
-  re-renders ENTERED with no deferral while the others keep theirs, and the status line reads
-  `site_facts_status_done`.
+  its deferral; the doors armed. After a commit: the dialog closes, that row stands ENTERED at once
+  with no deferral while the others keep theirs — the act carried is the latest entry of its fact,
+  so the row shows it without waiting to be told (I-283) — the route revalidates behind it and
+  answers with the same act, and the status line reads `site_facts_status_done`.
 - **Offline** — a fault of reachability (shell I-20): a failed navigation or action surfaces the
   error path or the registered refusal; no invented banner, and no figure ages on screen pretending
   to be current.
@@ -174,7 +194,8 @@ entered.** ·
 act, with the note it was read from, and is restated by entering it again.** ·
 `site_facts_column_fact` **Fact** · `site_facts_column_value` **Value** ·
 `site_facts_column_source` **Source note** · `site_facts_column_act` **Entered by** ·
-`site_facts_absent_value` **—** ·
+`site_facts_absent_value` **—** · `site_facts_row_value` **{value} {unit}** (the entered reading as
+one cell: the figure as it was written and the unit it was written in) ·
 `site_facts_fact_ground_level` **Existing ground level** · `site_facts_fact_water_table` **Water
 table level** · `site_facts_fact_working_allowance` **Working allowance** ·
 `site_facts_fact_depth_extra` **Depth extra** · `site_facts_fact_blinding_projection` **Blinding
@@ -303,3 +324,9 @@ Two conflicts in the closed surface, recorded rather than spelled around:
   by enumeration, each absent fact a named deferral through the one `RefusalState`, entry through
   the one `ConsequenceDialog`. I-273–I-281 recorded; the sub-navigation's `site-facts` row gains its
   route and its `data-unbuilt` is withdrawn.
+- 2026-09-20 — inc-304b-site-facts-panel: where an entry's refusal is read, and when its row moves.
+  I-282: `site-facts-submit` states the entry to the one `ConsequenceDialog`, which previews it and
+  answers a refusal in its own slot — `site-facts-refusal` keeps only the panel's own standing
+  `PERMISSION_NOT_HELD`. I-283: the act a commit answers with stands on its row at once. `§ 3` gains
+  `site_facts_row_value`, so the entered cell is composed from the copy table like every other
+  string this panel shows. No region, token or picture moves.
