@@ -28,8 +28,11 @@
  */
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
+import { PROJECT_SETTINGS_AREAS } from "@/app/(app)/t/[tenant]/p/[project]/settings/areas";
+import { projectSettingsNavItems } from "@/app/(app)/t/[tenant]/p/[project]/settings/layout";
 import { RulesetAuthorSection } from "@/app/(app)/t/[tenant]/p/[project]/settings/ruleset-author/ruleset-author-section";
 import { RULESET_AUTHOR_SCREEN_STATES } from "@/app/(app)/t/[tenant]/p/[project]/settings/ruleset-author/states";
+import { SettingsPane } from "@/app/(app)/t/[tenant]/settings/settings-pane";
 import { TESTIDS } from "@/ui/testids";
 import {
   STAGED_PARTICIPANTS_HREF,
@@ -58,6 +61,12 @@ function mount(options: { pinned?: boolean; doors?: StagedDoors } = {}): StagedD
   );
   return doors;
 }
+
+/** The workspace this staged project stands in — an address, never a word a screen renders. */
+const TENANT = "5eed0000-0000-4000-8000-000000000001";
+
+/** The area the Author edition screen answers for, read off the roster rather than spelled. */
+const AUTHOR_AREA = (PROJECT_SETTINGS_AREAS.at(-1) ?? PROJECT_SETTINGS_AREAS[0])?.area ?? "";
 
 /** The screen root a retrying read targets, and the state it publishes there. */
 function screenRoot(): HTMLElement {
@@ -98,6 +107,30 @@ describe("inc-304a-ruleset-authoring-ui-hotfix-a1: the settings screen publishes
 
     mount({ pinned: false });
     expect(publishedState(), "a project that pins nothing has nothing to fork, and the screen states that state too").toBe("empty");
+  });
+
+  test("the settings frame hands the screen through whole: the contract survives the pane the leg reads back in", () => {
+    const doors = stageDoors();
+    render(
+      <SettingsPane active={AUTHOR_AREA} items={projectSettingsNavItems(TENANT, STAGED_PROJECT)}>
+        <RulesetAuthorSection
+          commit={doors.commit}
+          mayAuthor
+          parent={STAGED_PIN}
+          participantsHref={STAGED_PARTICIPANTS_HREF}
+          preview={doors.preview}
+          projectId={STAGED_PROJECT}
+          rulesetHref={STAGED_RULESET_HREF}
+        />
+      </SettingsPane>,
+    );
+
+    const current = screen.getAllByTestId(TESTIDS.settings.area).filter((row) => row.getAttribute("aria-current") === "page");
+    expect(current.map((row) => row.getAttribute("data-area")), "the frame marks the one row the reader is standing on").toEqual([AUTHOR_AREA]);
+    expect(
+      within(screenRoot()).getByTestId(TESTIDS.rulesetAuthor.diff).getAttribute("data-rows-rendered"),
+      "the screen inside the frame is the same screen: its root is addressable and its grid still says what it rendered",
+    ).not.toBeNull();
   });
 
   test("the diff grid says how many rows it rendered, beside the region it publishes", () => {
