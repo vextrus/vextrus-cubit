@@ -62,8 +62,15 @@ const GROUND_LEVEL = "GROUND_LEVEL";
 /** The reading this walk enters, and the note it was read from (AM-06 §1: every entry carries one). */
 const READING = { value: "-1.2", unit: "m", note: "Survey sheet S-01" } as const;
 
-/** The restatement: the same fact, read again off a later sheet — an entry, never an edit. */
-const RESTATED = { value: "-1.5", unit: "m", note: "Survey sheet S-02" } as const;
+/**
+ * The restatement: the same fact, read again off a later sheet — an entry, never an edit.
+ *
+ * It is written in MILLIMETRES deliberately. A reading stated in metres is its own canonical figure
+ * (`convert(v, "m", "m")` is `v`), so a Consequence that carried the value AS WRITTEN would be
+ * indistinguishable from one that carried the canon's. In millimetres the two differ, and the
+ * assertions below can say which one the act computed (L-QTY-03, L-FRM-06).
+ */
+const RESTATED = { value: "-1200", unit: "mm", note: "Survey sheet S-02" } as const;
 
 /**
  * One workspace, one MEASURER, and two projects: the one this walk enters a fact on — which also
@@ -193,6 +200,9 @@ afterAll(async () => {
 const canonical = (reading: { value: string; unit: string; note: string }): string =>
   siteFactWrite({ fact: GROUND_LEVEL, valueAsWritten: reading.value, unitAsWritten: reading.unit, sourceNote: reading.note }).canonicalMetres;
 
+/** The millimetre reading and the metres it carries to are different strings — which is the point. */
+const CARRIED_FROM_MM = (): string => canonical(RESTATED);
+
 describe("AC-2: the preview is a typed Consequence over one subject, with the earthwork lines it moves", () => {
   it("AC-2: names the act, the rendering, and exactly one subject standing at nothing", async () => {
     const consequence = await preview(measurer(), stated(scene.projectId, READING));
@@ -240,6 +250,11 @@ describe("AC-2: the commit appends the act and the entry in one transaction (L-A
     const consequence = await preview(measurer(), stated(scene.projectId, RESTATED));
     expect(consequence.subjects[0]?.before, "the digest binds what the fact stood at when it was previewed").toEqual([canonical(READING)]);
 
+    // The reading is in millimetres, so what the Consequence carries says whether the act asked the
+    // canon at all: `after` is the metres the canon made of it, never the figure the person typed.
+    expect(consequence.subjects[0]?.after, "the subject's `after` is siteFactWrite's own canonical metres").toEqual([CARRIED_FROM_MM()]);
+    expect(consequence.subjects[0]?.after, "…and not the reading as written, which a millimetre entry is not (L-QTY-03)").not.toEqual([RESTATED.value]);
+
     const written = await commit(measurer(), stated(scene.projectId, RESTATED), consequenceDigest(consequence));
     const rows = ledgerRows();
     expect(rows.length, "the ledger is append-only: a correction is another entry (R-TO-051)").toBe(2);
@@ -248,7 +263,14 @@ describe("AC-2: the commit appends the act and the entry in one transaction (L-A
     const standing = standingSiteFacts(rows);
     expect(standing[GROUND_LEVEL]?.valueAsWritten, "what the fact stands at is the latest entry of it").toBe(RESTATED.value);
     expect(standing[GROUND_LEVEL]?.actId).toBe(written.actId);
+    expect(standing[GROUND_LEVEL]?.canonicalMetres, "the ledger holds the canon's figure beside the reading (L-QTY-03)").toBe(CARRIED_FROM_MM());
     expect(actsOfType(AUTHOR_SITE_FACT).length, "two entries are two acts").toBe(2);
+
+    // What the fact NOW stands at, read back through a further preview: the standing a Consequence
+    // binds is the canonical figure, not the millimetre string the last entry was written in.
+    const next = await preview(measurer(), stated(scene.projectId, READING));
+    expect(next.subjects[0]?.before, "`before` is what the ledger stands at, in metres").toEqual([CARRIED_FROM_MM()]);
+    expect(next.subjects[0]?.before, "…never the reading as written of the entry that set it").not.toEqual([RESTATED.value]);
   });
 
   it("AC-2: a digest the current state does not produce refuses CONSEQUENCES_NOT_CARRIED and writes nothing", async () => {

@@ -44,6 +44,15 @@ const ENTERED = "ENTERED";
 /** The fact this walk enters, and the reading and note it is entered with. */
 const WALKED = { fact: "GROUND_LEVEL", value: "-1.2", unit: "m", note: "Survey sheet S-01" } as const;
 
+/**
+ * The register entry an ABSENT fact defers under, as I-B rules it: the ground level and the water
+ * table are each named by the rail's own code for them, and every other site fact is an earthwork
+ * parameter the edition may also state — so it defers under that one. A rule rather than a roster:
+ * a seventh fact is judged by it the day it ships (B-19).
+ */
+const deferralFor = (fact: string): string =>
+  fact === "GROUND_LEVEL" ? "GROUND_LEVEL_UNSTATED" : fact === "WATER_TABLE" ? "WATER_TABLE_UNSTATED" : "EARTHWORK_PARAMETER_UNSTATED";
+
 /** The deferral map the panel renders an absent fact through, loaded from the module that owns it (I-279). */
 async function deferrals(): Promise<Readonly<Record<string, string>>> {
   const module = (await import("../../src/modules/takeoff/site-facts-ui/deferrals")) as { SITE_FACT_DEFERRALS?: Readonly<Record<string, string>> };
@@ -126,15 +135,20 @@ test.describe("J-305 — the project's site facts: six deferrals, and the act th
     ).toEqual([...SITE_FACTS]);
 
     /* --- every fact absent, and every absence a NAMED deferral through the one renderer (R-UI-020) --- */
-    expect(Object.keys(SITE_FACT_DEFERRALS).sort(), "the deferral map is total over the roster: a fact without one would render nothing").toEqual([...SITE_FACTS].sort());
-    expect(SITE_FACT_DEFERRALS["GROUND_LEVEL"], "the rail defers under this code where the ground level is unstated (I-B)").toBe("GROUND_LEVEL_UNSTATED");
-    expect(SITE_FACT_DEFERRALS["WATER_TABLE"], "…and under this one where the water table is").toBe("WATER_TABLE_UNSTATED");
+    // The RULE, not the map (I-B): an absent fact defers under the register entry the earthwork rail
+    // defers under when that fact is absent — the ground level and the water table each under their
+    // own, and every other member of the roster under the earthwork parameter's. The expectation is
+    // derived per fact, so a seventh member of SITE_FACTS is JUDGED here rather than accepted, and
+    // the Builder's own map is compared against the rule rather than standing in for it (B-19).
+    expect(SITE_FACTS.map((fact) => SITE_FACT_DEFERRALS[fact]), "the deferral map is the rule I-B states, fact for fact, and total over the roster").toEqual(
+      SITE_FACTS.map(deferralFor),
+    );
 
     expect(await everyAttribute(facts.rows, "data-basis", "the rows' bases", { min: 1 }), "nothing has been entered, so nothing is ENTERED").toEqual(
       SITE_FACTS.map(() => ABSENT),
     );
     for (const fact of SITE_FACTS) {
-      const code = SITE_FACT_DEFERRALS[fact] ?? "";
+      const code = deferralFor(fact);
       expect(REFUSALS[code as keyof typeof REFUSALS], `${fact} defers under a code the closed register holds (${code})`).toBeDefined();
       await expect(facts.rowDeferral(fact), `${fact} is deferred in place, in its own row`).toBeVisible();
       expect(await heldAttribute(facts.deferralRefusal(fact), "data-code"), `${fact} names the deferral it stands under`).toBe(code);
@@ -193,6 +207,12 @@ test.describe("J-305 — the project's site facts: six deferrals, and the act th
 
     const actId = (await heldAttribute(facts.rowAct(WALKED.fact), "data-value")) ?? "";
     expect(actId.length, "the row names the act that entered the fact (AM-06 §1)").toBe(36);
+    // The chip is the SHIPPED primitive and not a span that looks like one: IdChip's own root class
+    // and its short-form child are what it renders, and a hand-rolled element carries neither. The
+    // class is read here as the primitive's identity, never as styling (the Direction's rule).
+    await expect(facts.rowAct(WALKED.fact), "an id renders through IdChip (src/ui/primitives/core/id-chip.tsx)").toHaveClass(/cx-id-chip/);
+    await expect(facts.rowAct(WALKED.fact).locator(".cx-id-chip-value"), "…with the primitive's own short-form element inside it").toHaveCount(1);
+
     const chip = await steadyText(facts.rowAct(WALKED.fact), "the act chip");
     expect(chip, "an id renders through IdChip in its short form — the 36-char id is body text nowhere (R-UI-082)").not.toContain(actId);
     expect(await steadyText(facts.table, "the site facts table"), "…and appears nowhere in the table as body text either").not.toContain(actId);

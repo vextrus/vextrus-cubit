@@ -18,6 +18,7 @@
  */
 import { render, type RenderResult } from "@testing-library/react";
 import { createElement } from "react";
+import { expect } from "vitest";
 import type { Consequence } from "../../../../src/core/acts";
 import type { RefusalCode } from "../../../../src/core/errors";
 import type { SiteFact, StandingSiteFact } from "../../../../src/core/site-facts/law";
@@ -67,6 +68,9 @@ export const STAGED_PROJECT = "00000000-0000-4000-8000-0000000000bb";
 
 /** The panel, mounted with the values a case states and the defaults for everything it does not. */
 export function mountSiteFactsPanel(staged: Partial<StagedSiteFactsPanel> = {}): RenderResult {
+  // The panel is a component before it is anything else: a barrel that exports something else under
+  // this name fails HERE, naming the module, rather than as an opaque render fault in the caller.
+  expect(typeof SiteFactsPanel, "src/modules/takeoff/site-facts-ui exports SiteFactsPanel as a component").toBe("function");
   const props: StagedSiteFactsPanel = {
     tenantId: STAGED_TENANT,
     projectId: STAGED_PROJECT,
