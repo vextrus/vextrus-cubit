@@ -58,6 +58,14 @@
   "exclude": [
     "node_modules",
     "tests/lint-fixtures",
+    "scripts/probe/probe.mjs",
+    "scripts/probe/server.mjs",
+    "scripts/probe/crop.mjs",
+    "scripts/probe/diff-bbox.mjs",
+    "scripts/probe/pixdiff.mjs",
+    "scripts/probe/lib/axe.mjs",
+    "scripts/probe/lib/craft.mjs",
+    "scripts/probe/lib/settled.mjs",
     "tests/e2e"
   ]
 }
