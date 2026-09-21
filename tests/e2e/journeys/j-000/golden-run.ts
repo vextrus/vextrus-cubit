@@ -50,6 +50,7 @@ import { SDrawingsPage, S_DRAWINGS } from "../../pages/s-drawings.page";
 import { SHomePage, S_HOME } from "../../pages/s-home.page";
 import { SLevelsPage } from "../../pages/s-levels.page";
 import { SScalePage } from "../../pages/s-scale.page";
+import { SSchedulesPage } from "../../pages/s-schedules.page";
 import { STakeoffPage } from "../../pages/s-takeoff.page";
 import { ShellPage, SHELL } from "../../pages/shell.page";
 import { newestMail } from "../../support/outbox";
@@ -77,6 +78,17 @@ export interface GoldenRun {
   /** The signed-in session, carried so a later leg file walks as the same person. */
   readonly cookies: Cookie[];
   /** Whether `measuredRun` has walked the campaign to its first measure run on this project. */
+  readonly measured?: boolean;
+  /** The M3 fixture's own project on the same workspace, once `bnbcRun` has walked it (AM-17). */
+  readonly bnbc?: BnbcRun;
+}
+
+/** What the M3 prologue leaves behind: the project F-RCC6-BNBC stands in, and how far it was walked. */
+export interface BnbcRun {
+  readonly projectId: string;
+  /** Whether `bnbcTranscribed` has affirmed the scales, transcribed the stack and the notes and authored the ranges. */
+  readonly transcribed?: boolean;
+  /** Whether `bnbcMeasured` has pressed Measure on it and the register counts lines. */
   readonly measured?: boolean;
 }
 
@@ -328,10 +340,10 @@ const setsRoute = (tenantId: string, projectId: string): string => `/t/${tenantI
  * address), the uploaded drawing is toggled into its draft, and the draft is PINNED through the one
  * ConsequenceDialog. Every locator here is the screen's own test id, and every step is a click.
  */
-async function pinASetOverTheDrawing(page: Page, tenantId: string, projectId: string): Promise<void> {
+async function pinASetOverTheDrawing(page: Page, tenantId: string, projectId: string, setName: string = SET_NAME): Promise<void> {
   await page.goto(setsRoute(tenantId, projectId));
   await expect(page.getByTestId("set-create-form"), "the sets index stands, with the door that names a set").toBeVisible({ timeout: 60_000 });
-  await page.getByTestId("set-name-input").fill(SET_NAME);
+  await page.getByTestId("set-name-input").fill(setName);
   await page.getByTestId("set-create").click();
   await expect(page, "the named set stands open at its own address").toHaveURL(new RegExp(`/t/${tenantId}/p/${projectId}/drawings/sets/[0-9a-f-]{36}$`), {
     timeout: 60_000,
@@ -463,4 +475,318 @@ async function affirmScales(page: Page, run: GoldenRun): Promise<void> {
   await expect(page.locator(`${testIdSelector(TESTIDS.viewer.scaleView)}[data-state="affirmed"]`), "the checked views now carry a scale of record").toHaveCount(checked, {
     timeout: 60_000,
   });
+}
+
+/* ------------------------------------------------------ the M3 fixture's campaign (M3's leg, AM-17) */
+
+/**
+ * THE M3 YARDSTICK (AM-01): F-RCC6-BNBC, 27 sheets, uploaded through the product exactly as F-RCC6
+ * is — into a SECOND project on the golden run's own workspace, because a campaign is one measurement
+ * effort against one pinned set revision (AS-06) and the M2 legs read the F-RCC6 project as they
+ * left it. Every step below is a click; nothing is staged (AM-09 §2).
+ */
+export const BNBC_FIXTURE = join(process.cwd(), "fixtures", "rcc6-bnbc", "rcc6-bnbc.dxf");
+export const BNBC_PROJECT_NAME = "Bashundhara G+6";
+export const BNBC_SET_NAME = "Golden Path Set (F-RCC6-BNBC)";
+
+/** How long the 27-sheet reading, its rasters, its partition and its measure run may each take. */
+export const BNBC_READING_BUDGET_MS = 600_000;
+
+/** The two sheets whose texts propose the detailing figures a person transcribes (J-032, AM-03(h)). */
+export const BNBC_NOTES_SHEETS: readonly string[] = Object.freeze(["S-01 GENERAL NOTES (1 OF 2)", "S-02 GENERAL NOTES (2 OF 2) & LAP-DEVELOPMENT TABLE"]);
+
+/**
+ * THE STACK, AS THE DRAWING STATES IT. S-25's BUILDING SECTION A-A carries one level mark per storey
+ * (`GF EL +0.000` … `ROOF EL +21.641`), so the partition proposes the stack and a person confirms it
+ * whole (L-MEA-07, R-UI-023). The marks state an elevation and no unit, so the proposal carries no
+ * storey height (L-CAD-03: a reading never invents what the drawing withheld) and a person transcribes
+ * each one — the distance to the mark above, in the metres the section's `EL` figures are stated in,
+ * citing the mark it is read off (TRANSCRIBED, L-QTY-01; STOREY_HEIGHT_UNCITED refuses a reading that
+ * cites none). ROOF is the top of the section and states no height above it. Where no stack is
+ * offered, the same eight labels are inserted by hand through J-031's door, in this order.
+ */
+export const BNBC_STOREYS: readonly { readonly label: string; readonly height: string; readonly sourceKey: string }[] = Object.freeze([
+  { label: "GF", height: "3.353", sourceKey: "DXF_HANDLE:1D4C" },
+  { label: "1F", height: "3.048", sourceKey: "DXF_HANDLE:1D4E" },
+  { label: "2F", height: "3.048", sourceKey: "DXF_HANDLE:1D50" },
+  { label: "3F", height: "3.048", sourceKey: "DXF_HANDLE:1D52" },
+  { label: "4F", height: "3.048", sourceKey: "DXF_HANDLE:1D54" },
+  { label: "5F", height: "3.048", sourceKey: "DXF_HANDLE:1D56" },
+  { label: "6F", height: "3.048", sourceKey: "DXF_HANDLE:1D58" },
+]);
+export const BNBC_LEVELS: readonly string[] = Object.freeze([...BNBC_STOREYS.map((storey) => storey.label), "ROOF"]);
+export const BNBC_HEIGHT_UNIT = "m";
+export const BNBC_HEIGHT_BASIS = "TRANSCRIBED";
+
+/**
+ * THE TYPICAL RANGES A PERSON AUTHORS (L-CAD-07). A plan whose caption states no level stands for a
+ * range of floors it must be told: the typical beam layout is titled "(2ND TO 6TH FLOOR)" on its
+ * sheet, the typical slab plan stands beside it for the same floors, and the one column layout plan
+ * is the plan of every storey the column schedule bands (GF to 6F). Each is authored on the levels
+ * rail's own row for the view, by the caption the partition read.
+ */
+export const BNBC_TYPICAL_RANGES: readonly { readonly caption: string; readonly from: string; readonly to: string }[] = Object.freeze([
+  { caption: "COLUMN LAYOUT PLAN", from: "GF", to: "6F" },
+  { caption: "TYPICAL FLOOR BEAM LAYOUT", from: "2F", to: "6F" },
+  { caption: "TYPICAL SLAB REINFORCEMENT PLAN", from: "2F", to: "6F" },
+]);
+
+/** A golden run that holds the M3 fixture's project. */
+export type BnbcGoldenRun = GoldenRun & { readonly bnbc: BnbcRun };
+
+/** How many offered discipline groups the M3 drawing can fan out into before the loop is a defect. */
+const OFFERED_GROUPS_CAP = 8;
+
+/**
+ * The M3 fixture's project, uploaded, its disciplines confirmed and its set pinned — restored from
+ * the run written down for this worker, or walked from the golden run's own workspace.
+ */
+export async function bnbcRun(page: Page): Promise<BnbcGoldenRun> {
+  const run = await goldenRun(page);
+  if (run.bnbc !== undefined && (await standsBnbc(page, run))) return run as BnbcGoldenRun;
+  const bnbc = await establishBnbc(page, run);
+  const carried: BnbcGoldenRun = { ...run, bnbc };
+  remember(carried);
+  established = Promise.resolve(carried);
+  return carried;
+}
+
+/**
+ * The M3 fixture's campaign, MEASURED: scales affirmed on every sheet that proposes one, the stack
+ * confirmed and every storey height transcribed, the typical ranges authored, the general notes
+ * transcribed, Measure pressed and its run finished — every step a click (AM-09 §2). Memoised the
+ * way `measuredRun` is: trusted only while the product still stands it.
+ */
+/**
+ * The M3 fixture's campaign TRANSCRIBED: scales affirmed on every sheet that proposes one, the stack
+ * confirmed or inserted and every storey height read off the section's marks, the typical ranges
+ * authored, the general notes transcribed — J-031's and J-032's doors, by clicks (AM-09 §2), and
+ * nothing measured yet. Memoised like the rest: trusted only while the product still stands it.
+ */
+export async function bnbcTranscribed(page: Page): Promise<BnbcGoldenRun> {
+  const run = await bnbcRun(page);
+  if (run.bnbc.transcribed === true && (await standsTranscribedAt(page, run.tenantId, run.bnbc.projectId))) return run;
+  await transcribeBnbc(page, run);
+  const transcribed: BnbcGoldenRun = { ...run, bnbc: { ...run.bnbc, transcribed: true } };
+  remember(transcribed);
+  established = Promise.resolve(transcribed);
+  return transcribed;
+}
+
+export async function bnbcMeasured(page: Page): Promise<BnbcGoldenRun> {
+  const run = await bnbcTranscribed(page);
+  if (run.bnbc.measured === true && (await standsMeasuredAt(page, run.tenantId, run.bnbc.projectId))) return run;
+  await measureBnbc(page, run);
+  const measured: BnbcGoldenRun = { ...run, bnbc: { ...run.bnbc, measured: true } };
+  remember(measured);
+  established = Promise.resolve(measured);
+  return measured;
+}
+
+/** Does the product still stand the M3 project this run wrote down? Its notes sheet on the drawings screen says. */
+async function standsBnbc(page: Page, run: GoldenRun): Promise<boolean> {
+  const drawings = new SDrawingsPage(page);
+  await drawings.open(run.tenantId, run.bnbc?.projectId ?? "").catch(() => undefined);
+  const standing = await drawings
+    .cardForLayout(BNBC_NOTES_SHEETS[0] as string)
+    .waitFor({ state: "visible", timeout: 30_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!standing) walkedAgain(`the product no longer stands the M3 project ${run.bnbc?.projectId ?? "(none)"} written for this worker`);
+  return standing;
+}
+
+/** Does the stack of this project still stand with every level the section states? The levels screen says. */
+async function standsTranscribedAt(page: Page, tenantId: string, projectId: string): Promise<boolean> {
+  const levels = new SLevelsPage(page);
+  await levels.open(tenantId, projectId);
+  const rows = await everyRow(levels.rows, "the stack's levels", { min: 0 }).catch(() => []);
+  if (rows.length === BNBC_LEVELS.length) return true;
+  process.stdout.write(`J-000 golden run: transcribing the M3 campaign again — the stack of project ${projectId} holds ${rows.length} level(s)\n`);
+  return false;
+}
+
+/** Does the register of this project hold published lines? The same reading `standsMeasured` makes. */
+async function standsMeasuredAt(page: Page, tenantId: string, projectId: string): Promise<boolean> {
+  const takeoff = new STakeoffPage(page);
+  await takeoff.open(tenantId, projectId);
+  const count = await steadyText(takeoff.linesCount, "the register's count line").catch(() => NO_LINES);
+  if (count !== NO_LINES) return true;
+  process.stdout.write(`J-000 golden run: measuring the M3 campaign again — the register of project ${projectId} reads "${count}"\n`);
+  return false;
+}
+
+/** A second project on the run's workspace, F-RCC6-BNBC dropped on it, its disciplines confirmed, a set pinned. */
+async function establishBnbc(page: Page, run: GoldenRun): Promise<BnbcRun> {
+  const home = new SHomePage(page);
+  const drawings = new SDrawingsPage(page);
+
+  await home.open(S_HOME.workspace(run.tenantId));
+  await home.createWith({ name: BNBC_PROJECT_NAME, buildingType: 0 });
+  const card = home.cardNamed(BNBC_PROJECT_NAME).first();
+  await expect(card, "the M3 project stands on S-Home").toBeVisible();
+  const projectId = (await heldAttribute(card, "data-project")) ?? "";
+  expect(projectId, "the card names the project it is for").not.toBe("");
+
+  // The worker first, for the reason the prologue states it: the reading is asked for ONCE, by the
+  // screen session that takes the file.
+  await goldenWorker();
+  await drawings.open(run.tenantId, projectId);
+  await drawings.dropFile(BNBC_FIXTURE);
+  await expect(drawings.dropzoneItems.first(), "the M3 drawing is stored by the upload seam").toHaveAttribute("data-state", "stored", { timeout: BNBC_READING_BUDGET_MS });
+  await expect(drawings.timeline, "the jobs the upload asked for finish where the work was started (X-1)").toHaveAttribute("data-state", "done", { timeout: BNBC_READING_BUDGET_MS });
+  await expect(drawings.cardForLayout(BNBC_NOTES_SHEETS[0] as string), "the general-notes sheet fanned out as a card of its own").toHaveCount(1, { timeout: BNBC_READING_BUDGET_MS });
+
+  /* --- every discipline the reading offers, confirmed as the group it is offered as (L-REG-03) --- */
+  for (let confirmed = 0; confirmed < OFFERED_GROUPS_CAP; confirmed += 1) {
+    const offer = drawings.groups.first();
+    if (!(await appears(offer, 5_000))) break;
+    const offered = (await heldAttribute(offer, "data-discipline")) ?? "";
+    expect(offered, "an offered group names the discipline it proposes").not.toBe("");
+    await drawings.confirmGroup(offered);
+    await expect(drawings.groupFor(offered), `the ${offered} group is no longer an offer standing open`).toHaveCount(0, { timeout: 60_000 });
+  }
+
+  await pinASetOverTheDrawing(page, run.tenantId, projectId, BNBC_SET_NAME);
+  return { projectId };
+}
+
+/**
+ * Affirm a scale of record on EVERY sheet whose panel proposes one — the M3 drawing draws its plans
+ * on many sheets, and a rail measures nothing on a view no affirmation act names (R-TO-021). Each
+ * sheet is opened from its own card, as a person opens it, and `affirmScales`' one-act rule holds.
+ */
+async function affirmScalesOnEverySheet(page: Page, tenantId: string, projectId: string): Promise<void> {
+  const drawings = new SDrawingsPage(page);
+  const viewer = new SViewerPage(page);
+  const scale = new SScalePage(page);
+
+  await drawings.open(tenantId, projectId);
+  const sheets = (await everyRow(drawings.cards, "the M3 drawing's sheet cards")).length;
+  expect(sheets, "the M3 drawing fanned out into its sheets").toBeGreaterThan(20);
+
+  for (let index = 0; index < sheets; index += 1) {
+    await drawings.open(tenantId, projectId);
+    await drawings.cell(drawings.cards.nth(index), S_DRAWINGS.open).click();
+    await expect(viewer.status, "the sheet paints").toHaveAttribute("data-first-paint", "true", { timeout: 60_000 });
+    await scale.open();
+    const rows = await everyRow(scale.rows, "the scale panel's view rows", { min: 0 });
+    let checked = 0;
+    for (const row of rows) {
+      if ((await heldAttribute(row, "data-state")) === "affirmed") continue;
+      const proposal = row.getByTestId(TESTIDS.viewer.scaleProposal).first();
+      if (!(await appears(proposal))) continue;
+      await proposal.click();
+      await row.getByTestId(TESTIDS.viewer.scaleMember).click();
+      checked += 1;
+    }
+    if (checked === 0) continue;
+    const door = page.locator(`${testIdSelector(TESTIDS.viewer.scaleAffirm)}:not([disabled])`).first();
+    await expect(door, `an affirm door stands open at a rank every one of the ${checked} checked views can stand at`).toBeVisible({ timeout: 60_000 });
+    await door.click();
+    await expect(scale.dialog, "affirming a scale is an act, previewed in the one ConsequenceDialog").toBeVisible();
+    await scale.confirm.click();
+    await expect(scale.dialog, "the committed act closes the dialog").toHaveCount(0, { timeout: 60_000 });
+  }
+}
+
+/** The stack the section proposes, confirmed whole; or the same labels inserted by hand where nothing is offered. */
+async function transcribeStack(page: Page, tenantId: string, projectId: string): Promise<void> {
+  const takeoff = new STakeoffPage(page);
+  const levels = new SLevelsPage(page);
+
+  await takeoff.open(tenantId, projectId);
+  const offer = takeoff.levelStack.getByTestId(TESTIDS.offered.groupConfirm).first();
+  if (await appears(offer, 5_000)) {
+    await offer.click();
+    await expect(levels.dialog, "confirming the proposed stack is one act — every level at once (R-UI-023)").toHaveAttribute("data-act-type", "INSERT_LEVEL");
+    await levels.confirmAct();
+  } else {
+    process.stdout.write("J-000 golden run: the register offers no proposed level stack for the M3 drawing — the stack is inserted by hand through J-031's door\n");
+    await levels.open(tenantId, projectId);
+    for (const [ordinal, label] of BNBC_LEVELS.entries()) {
+      await levels.proposeLevel(label, ordinal);
+      await levels.confirmAct();
+    }
+  }
+
+  await levels.open(tenantId, projectId);
+  await expect(levels.rows, "the eight levels of the section stand in the stack").toHaveCount(BNBC_LEVELS.length);
+  for (const [ordinal, label] of BNBC_LEVELS.entries()) {
+    await expect(levels.rowAtOrdinal(ordinal), `${label} stands at ordinal ${ordinal}`).toContainText(label);
+  }
+
+  /* --- one storey height per level, read off the section's own marks (TRANSCRIBED, L-QTY-01) --- */
+  for (const [ordinal, storey] of BNBC_STOREYS.entries()) {
+    const row = levels.rowAtOrdinal(ordinal);
+    await row.click();
+    await expect(levels.inspector, `${storey.label} fills the shell's one inspector`).toBeVisible();
+    await levels.inspector.getByTestId(TESTIDS.levels.heightValue).fill(storey.height);
+    await levels.chooseIn(levels.inspector.getByTestId(TESTIDS.levels.heightUnit), BNBC_HEIGHT_UNIT);
+    await levels.chooseIn(levels.inspector.getByTestId(TESTIDS.levels.heightBasis), BNBC_HEIGHT_BASIS);
+    await levels.inspector.getByTestId(TESTIDS.levels.heightSource).fill(storey.sourceKey);
+    await levels.authorHeight.click();
+    await expect(levels.dialog, "reading a height is an act, previewed in the one dialog").toHaveAttribute("data-act-type", "AUTHOR_STOREY_HEIGHT");
+    await levels.confirmAct();
+    await expect(row, `${storey.label} stands at ${storey.height} ${BNBC_HEIGHT_UNIT}, agreed`).toHaveAttribute("data-standing", "AGREED");
+  }
+}
+
+/** The typical ranges the sheets state, authored on the rail's own rows for the views whose captions state none. */
+async function authorTypicalRanges(page: Page, tenantId: string, projectId: string): Promise<void> {
+  const levels = new SLevelsPage(page);
+  await levels.open(tenantId, projectId);
+  for (const range of BNBC_TYPICAL_RANGES) {
+    const row = levels.rangeRows.filter({ hasText: range.caption }).first();
+    if (!(await appears(row, 5_000))) {
+      process.stdout.write(`J-000 golden run: the levels rail offers no unstated range for "${range.caption}" on the M3 drawing — nothing to author\n`);
+      continue;
+    }
+    await levels.authorRange(row, range.from, range.to);
+    await levels.confirmAct();
+    await expect(row, `the range ${range.from}–${range.to} authored for "${range.caption}" takes the row off the rail`).toHaveCount(0, { timeout: 60_000 });
+  }
+}
+
+/** The general notes, transcribed sheet by sheet as J-032 transcribes them: the grammar's proposals, taken as proposed. */
+async function transcribeNotes(page: Page, tenantId: string, projectId: string): Promise<void> {
+  const schedules = new SSchedulesPage(page);
+  await schedules.open(tenantId, projectId);
+  for (const sheet of BNBC_NOTES_SHEETS) {
+    const row = schedules.sheetRowForLayout(sheet);
+    await expect(row, `the sheet rail lists "${sheet}", which holds general notes`).toBeVisible({ timeout: 60_000 });
+    await row.click();
+    await expect(schedules.notes, `the notes panel of "${sheet}" stands`).toBeVisible({ timeout: 60_000 });
+    if (!(await appears(schedules.transcribe, 5_000))) {
+      process.stdout.write(`J-000 golden run: "${sheet}" offers no reading to transcribe — its figures already stand, or it proposes none\n`);
+      continue;
+    }
+    await schedules.transcribe.click();
+    await schedules.confirmAct();
+  }
+}
+
+/** Affirm, transcribe, author, transcribe: the M3 campaign walked to the point Measure can be pressed. */
+async function transcribeBnbc(page: Page, run: BnbcGoldenRun): Promise<void> {
+  await goldenWorker();
+  const { tenantId } = run;
+  const { projectId } = run.bnbc;
+  await affirmScalesOnEverySheet(page, tenantId, projectId);
+  await transcribeStack(page, tenantId, projectId);
+  await authorTypicalRanges(page, tenantId, projectId);
+  await transcribeNotes(page, tenantId, projectId);
+}
+
+/** Measure: the transcribed M3 campaign walked to its first measure run and a register that counts lines. */
+async function measureBnbc(page: Page, run: BnbcGoldenRun): Promise<void> {
+  await goldenWorker();
+  const takeoff = new STakeoffPage(page);
+  const { tenantId } = run;
+  const { projectId } = run.bnbc;
+
+  await takeoff.open(tenantId, projectId);
+  await takeoff.measure.click();
+  await expect(takeoff.timeline, "the run is watched where it was started (R-UI-024)").toBeVisible();
+  await expect(takeoff.measureStep, "the measure run finishes").toHaveAttribute("data-status", "succeeded", { timeout: BNBC_READING_BUDGET_MS });
+  await expect(takeoff.linesCount, "and the register counts the lines the rails published").not.toHaveText(NO_LINES, { timeout: BNBC_READING_BUDGET_MS });
 }

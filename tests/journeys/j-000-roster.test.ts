@@ -33,10 +33,10 @@ const MILESTONE_MARKER = /^\[M(\d+)\]\s*/;
 /** The rider that carries J-000's M3 and M4 segments, because a clause is never edited (L34, AM-15). */
 const RIDER_ID = "AM-17";
 
-/** The milestones whose legs must RUN today, in the order the directory names them. */
-const SHIPPED = ["m0", "m1", "m2"] as const;
+/** The milestones whose legs must RUN today, in the order the directory names them (m3 since session 4, AM-17). */
+const SHIPPED = ["m0", "m1", "m2", "m3"] as const;
 /** The milestones AM-09 §3 writes into the path ahead of the product, as declared stubs. */
-const ANNOUNCED = ["m3", "m4"] as const;
+const ANNOUNCED = ["m4"] as const;
 
 /** The Bible's own J-000 text — the one source of what the golden path walks. */
 function journeyText(): string {

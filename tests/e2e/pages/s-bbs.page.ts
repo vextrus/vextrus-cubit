@@ -79,6 +79,16 @@ export class SBbsPage {
   get summary(): Locator {
     return this.page.getByTestId(idOf("summary"));
   }
+  /** The export door, the job strip a press mounts, and the link a finished render offers (I-bbs-8). */
+  get exportButton(): Locator {
+    return this.page.getByTestId(idOf("export"));
+  }
+  get jobs(): Locator {
+    return this.page.getByTestId(idOf("jobs"));
+  }
+  get documentLink(): Locator {
+    return this.page.getByTestId(idOf("documentLink"));
+  }
   get navBbs(): Locator {
     return this.page.getByTestId(navId());
   }

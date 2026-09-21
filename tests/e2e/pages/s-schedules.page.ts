@@ -102,6 +102,14 @@ export class SSchedulesPage {
   sheetRow(drawingId: string, layoutName: string): Locator {
     return this.sheets.locator(`${testIdSelector(idOf("sheetRow"))}[data-drawing="${drawingId}"][data-layout="${layoutName}"]`);
   }
+  /**
+   * One sheet of the pinned revision, by the layout it is alone — how a person finds a sheet on the
+   * rail, by its name (the golden path holds no drawing id: it clicked what a customer clicks, and a
+   * customer never sees one). Unambiguous on a revision that holds one drawing.
+   */
+  sheetRowForLayout(layoutName: string): Locator {
+    return this.sheets.locator(`${testIdSelector(idOf("sheetRow"))}[data-layout="${layoutName}"]`);
+  }
 
   /* --- the reconstructed tables --- */
   get tables(): Locator {

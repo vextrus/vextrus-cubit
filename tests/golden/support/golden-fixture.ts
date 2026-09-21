@@ -7,10 +7,16 @@
 // stage reaches live Postgres through the product modules it drives, and a suite that only wants
 // to read committed bytes must not be dragged into the database lane by importing it. The rail
 // re-exports these, so its callers are unchanged.
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect } from "vitest";
+
+// `node:assert` rather than a runner's `expect`, on purpose (session 4, 2026-09-21): the golden path
+// reads a golden through this one home too (AM-17's M3 leg, `goldenRows("rcc6-bnbc")`), and a
+// vitest `expect` has no runner to bind to inside a Playwright process — the BNBC notes roster
+// (tests/takeoff/notes/support/bnbc-notes.ts) made the same choice for the same reason. A reader
+// that fails still throws, naming the file, in every lane that opens it.
 
 /** tests/golden/support/ → the checkout. */
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -56,7 +62,7 @@ export type GoldenDocument = { fixture: string; schema?: number; provenance?: st
 export function goldenDocument(fixtureId: string = DEFAULT_GOLDEN_FIXTURE): GoldenDocument {
   const relative = goldenFixturePath(fixtureId);
   const parsed = JSON.parse(readFileSync(join(REPO_ROOT, relative), "utf8")) as GoldenDocument;
-  expect(Array.isArray(parsed.rows), `${relative} records the rows a competent manual takeoff produced`).toBe(true);
+  assert.ok(Array.isArray(parsed.rows), `${relative} records the rows a competent manual takeoff produced`);
   return parsed;
 }
 
@@ -119,6 +125,6 @@ export type BbsGoldenDocument = {
 export function bbsGoldenDocument(fixtureId: string): BbsGoldenDocument {
   const relative = bbsGoldenPath(fixtureId);
   const parsed = JSON.parse(readFileSync(join(REPO_ROOT, relative), "utf8")) as BbsGoldenDocument;
-  expect(Array.isArray(parsed.rows), `${relative} records every bar mark the fixture's own detailing model produced (AM-01)`).toBe(true);
+  assert.ok(Array.isArray(parsed.rows), `${relative} records every bar mark the fixture's own detailing model produced (AM-01)`);
   return parsed;
 }

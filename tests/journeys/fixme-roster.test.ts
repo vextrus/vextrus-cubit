@@ -30,8 +30,12 @@ const ROSTER: Readonly<Record<string, Readonly<Record<string, string>>>> = {
       "with motion in force a Reveal's arrival paints no frame a screenshot can see between `data-flyto=settled` and stillness — paint vs WebGL compositing, which this journey's node cannot own (R-UI-022, docs/design/viewer.md §4; the restore recipe is at the foot of the file)",
   },
   "tests/e2e/journeys/j-000/m3-bill-and-schedules.spec.ts": {
-    "J-000 m3-bill-and-schedules: levels and schedules transcribed, the campaign run on the M3 fixture, the register reviewed, and the unpriced BOQ and BBS emitted as DRAFT — UNSIGNED with the XLSX opened":
-      "M3 has not shipped; the increment that ships it replaces this stub with the walk and never deletes the file",
+    "MISSING DOOR: J-000 m3-bill-and-schedules: the structural campaign is measured on F-RCC6-BNBC and the register is reviewed":
+      "the partition reads no caption for F-RCC6-BNBC's column layout plan — named only by its paper-space viewport title (S-10) — and its grid bubbles as no axis, so the campaign places nothing; owner: the partition's viewport-caption door (R-TO-030, L-CAD-06/07)",
+    "MISSING DOOR: J-000 m3-bill-and-schedules: the unpriced BOQ is emitted as DRAFT — UNSIGNED, the XLSX is opened, and the takeoff is read against the golden":
+      "the same door: with nothing placed there is no line to bill, no draft to open and no cell to hold against takeoff.golden.json (R-TO-030, L-QTY-06)",
+    "MISSING DOOR: J-000 m3-bill-and-schedules: the bar schedule is emitted as DRAFT — UNSIGNED and read against the golden":
+      "the same door: the rebar rail reads columns and shear walls, and none is placed until the column layout plan has a caption the partition can read (R-TO-030, R-TO-054)",
   },
   "tests/e2e/journeys/j-000/m4-sheet-and-manual-measure.spec.ts": {
     "J-000 m4-sheet-and-manual-measure: a PDF sheet ingested and corroborated, a manual condition measured, rooms and finishes taken, and a question asked of the drawings":

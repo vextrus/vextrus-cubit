@@ -37,8 +37,18 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "grid": 0,
   "held-out": 0,
   "invite-pending": 0,
+  // The M3 leg's checkpoints (AM-17, session 4): the M3 fixture's stack, notes, register, coverage,
+  // draft, documents and schedule, each a screen of shipped primitives over a measured campaign.
+  // Zero is the strictest reading and the only honest one before a run.
+  "j-000/bbs-schedule": 0,
+  "j-000/bnbc-coverage": 0,
+  "j-000/bnbc-register": 0,
+  "j-000/boq-draft": 0,
   "j-000/column-lines": 0,
   "j-000/coverage-grid": 0,
+  "j-000/documents-issued": 0,
+  "j-000/levels-transcribed": 0,
+  "j-000/notes-transcribed": 0,
   "j-000/disciplines-confirmed": 0,
   "j-000/entity-selected": 0,
   "j-000/first-project-on-s-home": 0,
