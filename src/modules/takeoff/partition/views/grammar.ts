@@ -53,6 +53,10 @@ const GRAMMAR: readonly Rule[] = [
   // sheet every column instance is placed off, and a detail yields no instances — so reading it as
   // one loses the drawing's columns to a word (L-CAD-06).
   { reads: (said) => said.words.has("PLAN") && !said.words.has("LAYOUT") && MEMBER_WORDS.some((word) => said.words.has(word)), type: VIEW_TYPE.DETAIL },
+  // A caption that says LAYOUT names a layout plan whether or not it also says PLAN: "TYPICAL FLOOR
+  // BEAM LAYOUT" and "ROOF BEAM LAYOUT (AT ROOF LEVEL)" are the sheets F-RCC6-BNBC places its beams
+  // off, and reading them as no class left the M3 campaign with nothing to place (session 4).
+  { reads: (said) => said.words.has("LAYOUT"), type: VIEW_TYPE.LAYOUT_PLAN },
   { reads: (said) => said.words.has("PLAN"), type: VIEW_TYPE.LAYOUT_PLAN },
   { reads: (said) => said.words.has("SECTION"), type: VIEW_TYPE.MEMBER_SECTION },
 ];

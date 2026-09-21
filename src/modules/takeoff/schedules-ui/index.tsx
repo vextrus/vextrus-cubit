@@ -591,7 +591,9 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
                 }}
               >
                 <button type="button" className="cx-schedules-sheet-choose cx-reticle">
-                  <span className="cx-schedules-sheet-name">{held.layoutName}</span>
+                  <span className="cx-schedules-sheet-name" title={held.layoutName}>
+                    {held.layoutName}
+                  </span>
                   <span className="cx-schedules-sheet-holds">{holdsSaid(held)}</span>
                 </button>
                 {/* The chip does not hold its click back: a pointer anywhere in this row chose this

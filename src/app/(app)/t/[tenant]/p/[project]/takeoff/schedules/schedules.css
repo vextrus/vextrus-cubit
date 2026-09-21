@@ -100,11 +100,16 @@
   color: var(--ink-secondary);
 }
 
+/* A row is exactly one row tall and keeps its contents inside it: a sheet name longer than the rail
+   ellipsises (§1's cell rule — no wrap, ellipsis plus tooltip) rather than spilling over the rows
+   beneath it, where it would take the pointer aimed at them (R-UI-005, R-UI-060). */
 .cx-schedules-sheet-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--row-h);
+  flex: 0 0 auto;
+  height: var(--row-h);
+  overflow: hidden;
   padding: 0 var(--space-2);
   border: 0;
   border-radius: var(--radius-4);
@@ -147,11 +152,18 @@
 }
 
 .cx-schedules-sheet-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-weight: var(--weight-body-medium);
 }
 
 .cx-schedules-sheet-holds {
+  flex: 0 0 auto;
   margin-left: auto;
+  white-space: nowrap;
   color: var(--ink-muted);
 }
 

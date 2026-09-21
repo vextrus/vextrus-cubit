@@ -1,0 +1,7 @@
+[
+  { "caption": "TYPICAL FLOOR BEAM LAYOUT", "type": "LAYOUT_PLAN" },
+  { "caption": "ROOF BEAM LAYOUT (AT ROOF LEVEL)", "type": "LAYOUT_PLAN" },
+  { "caption": "1ST FLOOR BEAM LAYOUT", "type": "LAYOUT_PLAN" },
+  { "caption": "STAIR ROOF BEAM LAYOUT", "type": "LAYOUT_PLAN" },
+  { "caption": "TYPICAL SLAB REINFORCEMENT PLAN", "type": "DETAIL" }
+]

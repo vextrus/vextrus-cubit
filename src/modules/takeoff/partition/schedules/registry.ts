@@ -129,7 +129,7 @@ function familiesOf(table: ScheduleTable): MemberFamily[] {
       markText: markCell.text,
       rowIndex,
       sourceKeys: [...markCell.sourceKeys],
-      variants: variantsOf(columns, row, zones, stated, banded),
+      variants: variantsOf(columns, row, zones, stated, banded, markCell),
     });
   }
 
@@ -209,6 +209,7 @@ function variantsOf(
   zones: readonly MemberZone[],
   stated: Column | null,
   banded: Column | null,
+  markCell: ScheduleCell,
 ): MemberVariant[] {
   const variants: MemberVariant[] = [];
   const held = new Set<string>();
@@ -241,7 +242,11 @@ function variantsOf(
   // A row with NO cell at all in the section column — and a family whose schedule states its sections
   // in no column — still stands for the member its mark names and still states the rebar drawn beside
   // it. One variant carrying a null section keeps that rebar; registering none drops the drawing's own
-  // bars along with the section nobody wrote (R-TO-031, L-QTY-02).
+  // bars along with the section nobody wrote (R-TO-031, L-QTY-02). What such a variant CITES is the
+  // row it was read from — the band cell where one states the band, else the mark cell that names the
+  // member — because a registry row that cites nothing is unsourced, and the store refuses it whole
+  // (`member_type_variants_cited`; L-QTY-03). F-RCC6-BNBC's pile-cap schedule leaves the SECTION cell
+  // of PC3 and S3 blank, and a rebuild that wrote them uncited stored no partition at all.
   if (stated === null || cell === undefined) {
     return [
       {
@@ -253,7 +258,7 @@ function variantsOf(
         sectionWidth: null,
         sectionDepth: null,
         sectionUnit: null,
-        sourceKeys: bandCell === undefined ? [] : [...bandCell.sourceKeys],
+        sourceKeys: bandCell === undefined ? [...markCell.sourceKeys] : [...bandCell.sourceKeys],
         zones: zones.map((zone) => ({ ...zone })),
       },
     ];
