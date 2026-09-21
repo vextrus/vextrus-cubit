@@ -13,6 +13,7 @@ from __future__ import annotations
 from .census import census_of
 from .convert import DwgConversion, convert_dwg
 from .errors import DwgError
+from .heal import WRAP_COLUMN, Rejoined, heal_wrapped_text, rejoin_wrapped_text
 from .reconcile import SHORTFALL, UNKNOWN_ENT, RefusedClass, reconcile
 from .tally import geometry_tally
 from .toolchain import DEFAULT_TOOLCHAIN, DWG_TIMEOUT_SECONDS, Toolchain
@@ -22,12 +23,16 @@ __all__ = [
     "DWG_TIMEOUT_SECONDS",
     "SHORTFALL",
     "UNKNOWN_ENT",
+    "WRAP_COLUMN",
     "DwgConversion",
     "DwgError",
     "RefusedClass",
+    "Rejoined",
     "Toolchain",
     "census_of",
     "convert_dwg",
     "geometry_tally",
+    "heal_wrapped_text",
     "reconcile",
+    "rejoin_wrapped_text",
 ]

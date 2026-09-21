@@ -23,6 +23,7 @@ from typing import Any, Final
 
 from .census import census_of
 from .errors import DwgError
+from .heal import Rejoined, heal_wrapped_text
 from .reconcile import RefusedClass, reconcile
 from .tally import geometry_tally
 from .toolchain import (
@@ -76,6 +77,11 @@ class DwgConversion:
     refused: tuple[RefusedClass, ...]
     tool: str
     tool_version: str
+    #: How many wrapped text lines the conversion had to rejoin before a reader would admit it,
+    #: and how many MTEXT chunk runs it had to re-code into the reference's order (L-CAD-09's
+    #: sanity numbers); both zero for a DXF the converter spelled lawfully.
+    rejoined_lines: int = 0
+    reordered_texts: int = 0
 
 
 def convert_dwg(source: Path, out_dir: Path, *, toolchain: Toolchain = DEFAULT_TOOLCHAIN) -> DwgConversion:
@@ -89,7 +95,7 @@ def convert_dwg(source: Path, out_dir: Path, *, toolchain: Toolchain = DEFAULT_T
     scratch = Path(tempfile.mkdtemp(prefix="vextrus-dwg-"))
     try:
         census = _census_pass(source, scratch, toolchain, deadline)
-        converted, geometry = _geometry_pass(source, scratch, toolchain, deadline)
+        converted, geometry, healed = _geometry_pass(source, scratch, toolchain, deadline)
         # Asked last, and asked of the toolchain this call was given: by now both its programs have
         # done the work whose identity is being recorded (R-TO-001), and a program that will not
         # answer cannot be the reason the drawing outran its budget.
@@ -106,6 +112,8 @@ def convert_dwg(source: Path, out_dir: Path, *, toolchain: Toolchain = DEFAULT_T
         refused=tuple(reconcile(census, geometry)),
         tool=TOOL,
         tool_version=version,
+        rejoined_lines=healed.rejoined,
+        reordered_texts=healed.reordered,
     )
 
 
@@ -228,11 +236,15 @@ def _geometry_pass(
     scratch: Path,
     toolchain: Toolchain,
     deadline: Deadline,
-) -> tuple[Path, dict[str, dict[str, int]]]:
-    """`dwg2dxf`, read back and tallied — or the drawing refused by name.
+) -> tuple[Path, dict[str, dict[str, int]], Rejoined]:
+    """`dwg2dxf`, healed of wrapped text, read back and tallied — or the drawing refused by name.
 
     Each attempt converts into a room of its own, so a converter that named its own output is still
-    found and one attempt's leavings can never be read as another's.
+    found and one attempt's leavings can never be read as another's. Before a DXF is read back, the
+    string values LibreDWG wrapped across a raw line break are rejoined and its rotated MTEXT
+    chunks re-coded (`heal_wrapped_text`): a reader stops at the first such line, and a drawing
+    refused over a long note is a drawing lost for nothing. What was healed is the third thing
+    returned.
     """
     problems: list[str] = []
     program = toolchain.dwg2dxf
@@ -256,7 +268,8 @@ def _geometry_pass(
         # beside its work, and a name that sorts first is not evidence of anything.
         for converted in written:
             try:
-                return converted, geometry_tally(converted)
+                healed = heal_wrapped_text(converted)
+                return converted, geometry_tally(converted), healed
             except DwgError as error:
                 problems.append(f"the {form} conversion: {error}")
     raise DwgError(refusal(source, GEOMETRY_PASS, program, "; ".join(problems)))

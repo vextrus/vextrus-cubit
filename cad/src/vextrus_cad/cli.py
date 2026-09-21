@@ -13,6 +13,7 @@ import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
+from . import report
 from .dwg import DwgError, convert_dwg
 from .ingest import IngestError, ingest_dxf
 from .model import EntityGraphError, parse_entity_graph
@@ -51,7 +52,16 @@ def _ingest(source: str, destination: str) -> int:
         if _is_dwg(source_path):
             with tempfile.TemporaryDirectory(prefix=".vextrus-dwg-") as scratch:
                 conversion = convert_dwg(source_path, Path(scratch))
-                artifact = ingest_dxf(conversion.dxf_path)
+                notes = report.Report()
+                healed = conversion.rejoined_lines + conversion.reordered_texts
+                if healed:
+                    notes.add(
+                        report.REJOINED_WRAPPED_TEXT,
+                        f"{conversion.rejoined_lines} wrapped text lines rejoined,"
+                        f" {conversion.reordered_texts} MTEXT chunk runs re-coded",
+                        healed,
+                    )
+                artifact = ingest_dxf(conversion.dxf_path, notes)
         else:
             artifact = ingest_dxf(source_path)
         # The artifact is the whole hand-off across the seam (L-CAD-05), so the extractor reads its

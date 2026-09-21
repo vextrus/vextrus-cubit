@@ -29,6 +29,11 @@ from typing import Any, Final
 #: L-CAD-09 asks for — how many lines were dropped to bring the code/value rhythm back.
 RESYNCED_TAG_STREAM: Final = "RESYNCED_TAG_STREAM"
 
+#: The converter wrapped string values across raw line breaks, or spelled an MTEXT's chunks with
+#: their codes rotated, and the conversion healed the file before any reader saw it; the detail is
+#: how many lines were joined back and how many chunk runs were re-coded (L-CAD-09).
+REJOINED_WRAPPED_TEXT: Final = "REJOINED_WRAPPED_TEXT"
+
 #: `ezdxf`'s recover pass repaired structures on the way in; how many, so a silent repair is not one.
 AUDIT_REPAIRED: Final = "AUDIT_REPAIRED"
 
@@ -79,6 +84,7 @@ NOTE_CODES: Final[tuple[str, ...]] = tuple(
             MULTILEADER_NOT_EXPLODED,
             OLE2FRAME,
             PROXY_ENTITY,
+            REJOINED_WRAPPED_TEXT,
             RESYNCED_TAG_STREAM,
             SHX_FONT_UNRESOLVED,
             WIPEOUT,

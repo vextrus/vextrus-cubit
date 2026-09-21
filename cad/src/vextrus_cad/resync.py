@@ -87,6 +87,15 @@ def _in_any(code: int, ranges: tuple[tuple[int, int], ...]) -> bool:
     return any(low <= code <= high for low, high in ranges)
 
 
+def takes_string(code: int) -> bool:
+    """Whether this code's value is a string — the only kind of value a converter can wrap.
+
+    The DXF reference gives every code a shape; a code outside the float and integer ranges takes a
+    string, and a string is the one value that can run past a converter's line buffer.
+    """
+    return not (_in_any(code, _FLOAT_CODES) or _in_any(code, _INT_CODES))
+
+
 def admits(code: int, value: bytes) -> bool:
     """Whether this code can be followed by this value — the shape the DXF reference gives the code.
 
