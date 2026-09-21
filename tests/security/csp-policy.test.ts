@@ -6,7 +6,7 @@
  * assertion is made against the headers of what came back. Nothing reads the module's source.
  */
 import { NextRequest } from "next/server";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import {
   CSP_HEADER,
   CSP_REPORT_ONLY_HEADER,
@@ -96,5 +96,29 @@ describe("AC-2: the nonce is per response and reaches the renderer", () => {
     }
 
     expect(checkoutHolds(MIDDLEWARE_MODULE), `${MIDDLEWARE_MODULE} must not exist — ${PROXY_MODULE} is the one home for the per-request policy (Next 16's convention)`).toBe(false);
+  });
+});
+
+describe("development mode: script-src admits 'unsafe-eval' for React callstack reconstruction", () => {
+  test("in development mode, script-src includes 'unsafe-eval'", async () => {
+    const contentSecurityPolicy = await shippedPolicyBuilder();
+    vi.stubEnv("NODE_ENV", "development");
+    try {
+      const devPolicy = contentSecurityPolicy("test-nonce");
+      expect(devPolicy).toContain("'unsafe-eval'");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  test("in non-development mode, script-src omits 'unsafe-eval'", async () => {
+    const contentSecurityPolicy = await shippedPolicyBuilder();
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const prodPolicy = contentSecurityPolicy("test-nonce");
+      expect(prodPolicy).not.toContain("'unsafe-eval'");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

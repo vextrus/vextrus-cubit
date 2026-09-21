@@ -33,9 +33,21 @@ async function headers() {
   ];
 }
 
+const publicOriginHostname = process.env["CUBIT_PUBLIC_ORIGIN"]
+  ? URL.parse(process.env["CUBIT_PUBLIC_ORIGIN"])?.hostname
+  : undefined;
+
 const nextConfig = {
   distDir: process.env["NEXT_DIST_DIR"] ?? ".next-cubit",
   headers,
+  allowedDevOrigins: [
+    "127.0.0.1",
+    "localhost",
+    ...(publicOriginHostname ? [publicOriginHostname] : []),
+    "10.*.*.*",
+    "172.*.*.*",
+    "192.168.*.*",
+  ],
   // `next build` type-checks the whole tree, and so does the chain's own `types` lane — the same
   // work twice, serially, in the one command the gate waits on. The chain says so by name
   // (CUBIT_BUILD_SKIP_TYPECHECK=1, set only by scripts/verify.mjs, and only for a run whose `types`

@@ -35,9 +35,10 @@ const NONCE_BYTES = 16;
  * `default-src 'self'` are the whole allow list.
  */
 export function contentSecurityPolicy(nonce: string): string {
+  const devEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'sha256-${THEME_RESOLVER_SHA256}'`,
+    `script-src 'self' 'nonce-${nonce}' 'sha256-${THEME_RESOLVER_SHA256}'${devEval}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
