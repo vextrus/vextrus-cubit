@@ -46,4 +46,10 @@ export const BBS_COPY = {
   bbs_offline: "You are offline. The schedule reads as it stood when this page loaded.",
   bbs_denied_body: "Reading the bar schedule needs the MEASURE permission on this project.",
   bbs_denied_holder: "Open the participants screen",
+
+  // The export door, and what stands beside it while a render is watched (Decision §1, I-270's
+  // precedent): the one primary, the job strip's heading, and the link a finished render offers.
+  bbs_export: "Export the schedule",
+  bbs_jobs_heading: "Rendering the schedule",
+  bbs_document_link: "Open the issued schedule",
 } as const;

@@ -132,4 +132,42 @@ describe("AC-2: the view S-BBS is drawn from is the project's own campaign, decl
     },
     BUDGET_MS,
   );
+
+  test(
+    "I-bbs-8: the export door's render files the measured campaign's schedule in Documents as its own kind, DRAFT — UNSIGNED",
+    async () => {
+      const stage = await staged();
+      // The campaign the case above measured: the render reads the same view the screen paints.
+      const { runBbsRenderJob, BBS_RENDER_KIND } = await productModule<{
+        runBbsRenderJob: (
+          payload: { tenantId: string; projectId: string; campaignId: string; requestedBy: string },
+          progress: { jobId: string; step: (name: string, detail?: unknown) => Promise<void> },
+          deps: { storage: unknown },
+        ) => Promise<{ documentId: string; version: number }>;
+        BBS_RENDER_KIND: string;
+      }>("src/modules/takeoff/bbs-ui/job.ts");
+      const { appStorage } = await productModule<{ appStorage: () => unknown }>("src/core/storage/app.ts");
+      const { forTenant } = await productModule<{ forTenant: (scope: { tenantId: string }) => { transaction: <T>(work: (tx: unknown) => Promise<T>) => Promise<T> } }>("src/core/db.ts");
+      const { listDocuments } = await productModule<{ listDocuments: (tx: unknown, projectId: string) => Promise<readonly { id: string; kind: string; version: number }[]> }>(
+        "src/core/documents/store.ts",
+      );
+      const { BBS } = await productModule<{ BBS: string }>("src/core/documents/kinds/bbs.ts");
+
+      expect(BBS_RENDER_KIND, "the render runs under the kind the rebar area declares (AM-11)").toBe("bbs-render");
+      const steps: string[] = [];
+      const issued = await runBbsRenderJob(
+        { tenantId: stage.tenantId, projectId: stage.projectId, campaignId: stage.campaignId, requestedBy: stage.actor.userId },
+        { jobId: `bbs-render-${stage.campaignId}`, step: async (name) => void steps.push(name) },
+        { storage: appStorage() },
+      );
+      expect(steps, "the run reports its three steps in order: the read, the render, the filing (SEAM-JOBS)").toEqual(["bbs:read", "bbs:render", "bbs:file"]);
+      expect(issued.version, "the first schedule this project issues is version 1 (R-SPINE-040)").toBe(1);
+
+      const listed = await forTenant({ tenantId: stage.tenantId }).transaction((tx) => listDocuments(tx, stage.projectId));
+      const row = listed.find((document) => document.id === issued.documentId);
+      expect(row, "Documents lists the issue the render filed").toBeDefined();
+      expect(row?.kind, "under the schedule's own document kind, never the draft's (A-BBS-PDF)").toBe(BBS);
+    },
+    BUDGET_MS,
+  );
 });

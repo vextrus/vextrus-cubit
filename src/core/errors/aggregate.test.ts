@@ -59,6 +59,8 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "ACCOUNT_ALREADY_EXISTS",
   "ACTOR_NOT_HUMAN",
   "ACT_CHANGES_NOTHING",
+  "BBS_NO_BAR_ROW",
+  "BBS_NO_CAMPAIGN",
   "BLINDING_PLAN_DEFERRED",
   "BOQ_NO_CAMPAIGN",
   "BOQ_NO_PUBLISHED_LINE",
@@ -335,7 +337,15 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * 53e0874a3cc2de7d4a3b2cac2cba5bf418c6533e97a05195284f50d90b79f675 and main's was
  * 232a37e61de34f1cff9c5665b78e567925d0ddaec1f709cb6823b732ff3ce84d.
  */
-const ENTRIES_DIGEST_BEFORE = "391b2acf75a271401fa25575583dbf889ec4525e96d9b83df7aff184b22139b6";
+/*
+ * Re-baselined for TWO ADDED entries and nothing else, the bar schedule's export door's
+ * (./rebar.ts, R-TO-054, I-bbs-8, session 4): `BBS_NO_CAMPAIGN`, what `takeoffBbs.exportSchedule`
+ * answers a project with no campaign open, and `BBS_NO_BAR_ROW`, what the render refuses where the
+ * campaign scheduled no bar. The roster grew by those two keys — 131 codes to 133 — and not one
+ * existing entry's code, message, remedy, severity or surface moved with them; the previous digest
+ * was 391b2acf75a271401fa25575583dbf889ec4525e96d9b83df7aff184b22139b6.
+ */
+const ENTRIES_DIGEST_BEFORE = "8b354f8274b172db57a7c1be48380d4842aebe3668255da5ec0bfbf6e92a5b9a";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

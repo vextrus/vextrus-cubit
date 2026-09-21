@@ -11,9 +11,10 @@
 // groups a figure with (`formatUserFigure`, SEAM-FORMAT). No mass is summed here, no length is
 // rounded here, and the member group row carries no subtotal at all — the domain's totals are per
 // diameter and per mark, and both stand in the summary beneath the grid (B-17).
-import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import type { RefusalEntry } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
+import type { JobKind } from "@/core/jobs/kinds";
 import { BBS_COPY } from "./copy";
 import { bbsRowsOf, bbsSummaryOf, type BbsGridRow, type BbsSummaryRow } from "./present";
 import { bbsStateOf, nothingScheduled } from "./states";
@@ -56,6 +57,10 @@ export interface BbsTestIds {
   readonly summary: string;
   readonly summaryRow: string;
   readonly empty: string;
+  /** The export door, the job strip a press mounts, and the link a finished render offers (§1). */
+  readonly export: string;
+  readonly jobs: string;
+  readonly documentLink: string;
 }
 
 /** The registry's spellings, as this screen falls back to them when a caller hands none. */
@@ -71,7 +76,30 @@ const DEFAULT_TEST_IDS: BbsTestIds = Object.freeze({
   summary: "bbs-summary",
   summaryRow: "bbs-summary-row",
   empty: "bbs-empty",
+  export: "bbs-export",
+  jobs: "bbs-jobs",
+  documentLink: "bbs-document-link",
 });
+
+/** One step of the render job, as the shipped timeline reads one (job-timeline I-113). */
+export type BbsJobStep = {
+  readonly id: string;
+  readonly jobId: string | null;
+  readonly kind: JobKind;
+  readonly status: "queued" | "running" | "succeeded" | "failed" | "refused";
+  readonly timing: string | null;
+  readonly refusal: RefusalEntry | null;
+  readonly faultId: string | null;
+  readonly evidence: Evidence;
+};
+
+/** What the route knows about the export it is watching, where one is being watched (I-270). */
+export type BbsJobs = {
+  readonly steps: readonly BbsJobStep[];
+  readonly lost?: boolean;
+  /** The document the finished render filed, once it exists (Decision §1's job strip). */
+  readonly documentId?: string | null;
+};
 
 /** The shipped renderers the app layer injects (I-170), each declared by the props it is handed. */
 export interface BbsChrome {
@@ -105,12 +133,28 @@ export interface BbsChrome {
   readonly Tooltip: ComponentType<{ content: ReactNode; children: ReactNode }>;
   /** The `(i)` note the summary's heading carries: the shipped Popover, composed by the app (§1). */
   readonly Note: ComponentType<{ label: string; body: string }>;
+  /** The job pattern's timeline, rendered where the render was started (R-UI-024, I-270). */
+  readonly JobTimeline: ComponentType<{ heading: string; steps: readonly BbsJobStep[]; lost?: boolean }>;
+  /** The shipped Button, for the one primary this screen holds (§1). */
+  readonly Button: ComponentType<{
+    variant?: "primary" | "secondary" | "ghost" | "danger" | "act";
+    disabled?: boolean;
+    onClick?: () => void;
+    className?: string;
+    children?: ReactNode;
+    "aria-disabled"?: "true";
+    "data-testid"?: string;
+    "data-permission"?: string;
+    "data-job"?: string;
+  }>;
   /** The lane's own tabs row, filled by the surface standing in it (Direction §3.2). */
   readonly TabsAside?: ComponentType<{ children: ReactNode }>;
 }
 
-/** The one lookup a refusal's words are read through, and the one door the error cell owns. */
+/** The doors this screen presses, and the one lookup a refusal's words are read through (I-170). */
 export interface BbsDoors {
+  /** The keyed render job (I-270): one press, one job, however many times it is pressed. */
+  readonly exportSchedule?: () => Promise<{ jobId: string; deduplicated: boolean }>;
   readonly refusalOf: (code: string) => RefusalEntry | undefined;
   /** Re-run the read in place — R-UI-050's error cell owns the one door that clears it. */
   readonly retry?: () => void;
@@ -130,6 +174,10 @@ export interface BbsWorkspaceProps {
   readonly refused?: string | null;
   readonly tenantId?: string;
   readonly projectId?: string;
+  /** What the route is watching of the export it started, where one is being watched (I-270). */
+  readonly jobs?: BbsJobs | null;
+  /** Told when a press started a run, so the route can watch it (`useTrackedJobs` is the ui's). */
+  readonly onExportStarted?: (jobId: string) => void;
   readonly chrome: BbsChrome;
   readonly doors?: Partial<BbsDoors>;
 }
@@ -139,6 +187,18 @@ export interface BbsWorkspaceProps {
 /** The code the screen's own denial renders, off the registry the caller looks it up in. */
 const PERMISSION_NOT_HELD = "PERMISSION_NOT_HELD";
 
+/** The permission the one door on this screen moves (L-ACT-03). */
+const MEASURE = "MEASURE";
+
+/** The registered code a door's rejection carries, read off the marker the lane put on it. */
+function codeOf(thrown: unknown): string {
+  const marked = thrown as { refusalCode?: unknown; cause?: { refusalCode?: unknown } } | null;
+  const direct = marked?.refusalCode;
+  if (typeof direct === "string") return direct;
+  const carried = marked?.cause?.refusalCode;
+  return typeof carried === "string" ? carried : "";
+}
+
 /** What a cell reads where the component it stands for has no such figure (I-bbs-3). */
 const NOTHING = "—";
 
@@ -147,6 +207,7 @@ const NOTHING = "—";
 // lives, so they are spelled here for this screen and nowhere else in it (Decision §6).
 const registerHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/register`;
 const participantsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/participants`;
+const documentsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/documents`;
 
 /** A node rendered where it stands, for a caller that hands no slot mount (I-209). */
 function InPlace({ children }: { children: ReactNode }): ReactNode {
@@ -221,15 +282,43 @@ function rowDataOf(ids: BbsTestIds): (row: BbsGridRow) => Record<string, string>
 export function BbsWorkspace(props: BbsWorkspaceProps) {
   const { chrome, view } = props;
   const ids = chrome.testIds ?? DEFAULT_TEST_IDS;
-  const { DataTable, EmptyState, ErrorState, RefusalState, IdChip, EnumLabel, Skeleton, Tooltip, Note, TabsAside = InPlace } = chrome;
+  const { DataTable, EmptyState, ErrorState, RefusalState, IdChip, EnumLabel, Skeleton, Tooltip, Note, JobTimeline, Button, TabsAside = InPlace } = chrome;
   const doors: Partial<BbsDoors> = props.doors ?? {};
   const tenantId = props.tenantId ?? "";
   const projectId = props.projectId ?? "";
   const reportId = props.reportId ?? null;
   const offline = props.offline ?? false;
-  const refused = props.refused ?? null;
+
+  /** The job this screen started and is watching, until the page is left (I-270). */
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [answered, setAnswered] = useState<string | null>(null);
+  // A caller that states a refusal outright — R-UI-050's matrix walked one cell at a time — is
+  // stating what a door would have answered, so it is rendered exactly as a door's answer is.
+  const refused = answered ?? props.refused ?? null;
 
   const state = bbsStateOf({ view, permitted: props.permitted, offline, refused, state: props.state ?? null });
+  const steps = props.jobs?.steps ?? [];
+  const documentId = props.jobs?.documentId ?? null;
+
+  // The two things a press needs, named one by one: keeping the whole props object in the deps would
+  // give this callback — and the memoised aside that holds it — a new identity on every render, and a
+  // node with a new identity every render sets the frame's slot on every render (see `aside` below).
+  const exportDoor = doors.exportSchedule;
+  const onExportStarted = props.onExportStarted;
+  const press = useCallback((): void => {
+    if (exportDoor === undefined) return;
+    void exportDoor().then(
+      (answer) => {
+        setJobId(answer.jobId);
+        onExportStarted?.(answer.jobId);
+      },
+      (thrown: unknown) => {
+        // A refused door is answered in the one place a refusal is rendered, by its registered code —
+        // never a toast and never an improvised sentence (R-UI-020, ARCH-03).
+        setAnswered(codeOf(thrown));
+      },
+    );
+  }, [exportDoor, onExportStarted]);
   // I-194's precedent: a denial is the STATE, and a screen standing in it shows no schedule on any
   // other evidence — the grid, the summary and both chips are absent, never emptied.
   const denied = state === "denied";
@@ -243,6 +332,9 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
 
   const denial = denied ? (doors.refusalOf?.(PERMISSION_NOT_HELD) ?? null) : null;
   const refusal = refused === null ? null : (doors.refusalOf?.(refused) ?? null);
+  // I-bbs-1: a reader without MEASURE is denied the whole screen, so the door stands for a permitted
+  // reader with a schedule to render and for nobody else — never disabled, absent (R-UI-080).
+  const permitted = (props.permitted ?? true) && !denied;
 
   // A screen with NO READING says so, whatever else it knows about itself. The state cell keeps the
   // Decision §2 precedence its roster declares — an offline reader stands in `offline` — but what is
@@ -283,7 +375,8 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
    * What this surface hangs in the lane's tabs row, MEMOISED ON WHAT IT SHOWS. The slot is state in
    * the frame (`useTakeoffTabsAside`), so a node with a new identity every render would set that
    * state every render, re-render the frame, and re-render this surface — a loop that never idles
-   * (R-UI-030, I-170). There is no primary here: nothing on this screen commits.
+   * (R-UI-030, I-170). The one primary stands here: the export door, which commits nothing — a
+   * schedule is unsigned by definition (AM-05, I-270), so a render is a keyed job and not an act.
    */
   const aside = useMemo(
     () => (
@@ -309,9 +402,24 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
             </span>
           </>
         )}
+        {permitted && drawsGrid ? (
+          <Tooltip content={BBS_COPY.bbs_export}>
+            <Button
+              variant="primary"
+              className="cx-bbs-export"
+              data-testid={ids.export}
+              data-permission={MEASURE}
+              data-job={jobId ?? undefined}
+              aria-disabled={offline || jobId !== null ? "true" : undefined}
+              onClick={offline || jobId !== null ? undefined : press}
+            >
+              {BBS_COPY.bbs_export}
+            </Button>
+          </Tooltip>
+        ) : null}
       </div>
     ),
-    [IdChip, Skeleton, document_, ids.revision, ids.stock, state, view],
+    [Button, IdChip, Skeleton, Tooltip, document_, drawsGrid, ids.export, ids.revision, ids.stock, jobId, offline, permitted, press, state, view],
   );
 
   return (
@@ -351,6 +459,20 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
           </p>
         ) : null}
       </div>
+
+      {/* The job strip, standing between the answer slot and the grid ONLY while a render this
+          screen started is watched (R-UI-024, R-UI-080): the pattern's own timeline, and — once the
+          issue is filed — the link to where it stands. Never an empty box at rest. */}
+      {jobId === null ? null : (
+        <div className="cx-bbs-jobs" data-testid={ids.jobs} data-job={jobId}>
+          <JobTimeline heading={BBS_COPY.bbs_jobs_heading} steps={steps} lost={props.jobs?.lost ?? false} />
+          {documentId === null ? null : (
+            <a className="cx-bbs-document-link cx-reticle" data-testid={ids.documentLink} data-document={documentId} href={documentsHref(tenantId, projectId)}>
+              {BBS_COPY.bbs_document_link}
+            </a>
+          )}
+        </div>
+      )}
 
       {state === "loading" ? (
         /* §2's loading posture: the schedule's own shape, boned — two member blocks over eight row

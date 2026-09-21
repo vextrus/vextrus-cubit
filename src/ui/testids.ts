@@ -49,8 +49,13 @@ export const TESTIDS = {
   },
   bbs: {
     answer: "bbs-answer",
+    // The export door and what stands beside it while a render is watched (docs/design/s-bbs.md
+    // §1, §6; the draft BOQ's `boq-export`, `boq-jobs` and `boq-document-link`, one door over).
+    documentLink: "bbs-document-link",
     empty: "bbs-empty",
+    export: "bbs-export",
     grid: "bbs-grid",
+    jobs: "bbs-jobs",
     lap: "bbs-lap",
     member: "bbs-member",
     revision: "bbs-revision",

@@ -11,10 +11,37 @@
 import type { RefusalGroup } from "./law";
 
 /** Every code this area registers. The barrel folds this union into `RefusalCode` (B-19). */
-export type RebarRefusalCode = "DETAILING_ROW_NOT_IN_EDITION" | "REBAR_SCHEDULE_UNREAD" | "REBAR_TIE_ZONE_UNSTATED" | "REBAR_STOREY_RUN_UNSTATED";
+export type RebarRefusalCode =
+  | "DETAILING_ROW_NOT_IN_EDITION"
+  | "REBAR_SCHEDULE_UNREAD"
+  | "REBAR_TIE_ZONE_UNSTATED"
+  | "REBAR_STOREY_RUN_UNSTATED"
+  | "BBS_NO_CAMPAIGN"
+  | "BBS_NO_BAR_ROW";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const REBAR_REFUSALS: RefusalGroup<RebarRefusalCode> = Object.freeze({
+  // The bar schedule's export door (R-TO-054, AM-17's M3 segment). A schedule is read off a
+  // campaign's bar rows, so a project with no campaign pinned has nothing to schedule rather than an
+  // empty schedule: an absence is stated, never rendered as a document that would look like an
+  // answer (the draft BOQ's BOQ_NO_CAMPAIGN, one step over).
+  BBS_NO_CAMPAIGN: Object.freeze({
+    code: "BBS_NO_CAMPAIGN",
+    message: "No campaign is open on this project, so there is no bill of bars to schedule.",
+    remedy: "Pin a drawing set revision and measure the campaign, then export the schedule.",
+    severity: "info",
+    surface: "inline",
+  }),
+  // A campaign whose measurement wrote no bar row is the same absence one step later — the remedy
+  // names the surface the bars come from, because a schedule states what was measured and assumes
+  // nothing (L-QTY-02).
+  BBS_NO_BAR_ROW: Object.freeze({
+    code: "BBS_NO_BAR_ROW",
+    message: "This campaign has scheduled no bar to render.",
+    remedy: "Measure the campaign from the takeoff register — a schedule states the bars the measurement wrote and assumes nothing.",
+    severity: "info",
+    surface: "inline",
+  }),
   // AM-03(f): the ℓd table holds the rows it holds. A grade outside them is answered by name — a
   // multiplier scaled off a neighbouring row would be a lap length the code never states.
   DETAILING_ROW_NOT_IN_EDITION: Object.freeze({

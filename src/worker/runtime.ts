@@ -6,6 +6,7 @@
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { jobsHealth, startJobsRuntime, stopJobsRuntime } from "../core/jobs";
 import { reportFault } from "../core/faults/report";
+import { registerBbsRenderHandler } from "./handlers/bbs-render";
 import { registerBoqDraftHandler } from "./handlers/boq-draft";
 import { registerIngestHandler } from "./handlers/ingest";
 import { registerMeasureHandler } from "./handlers/measure";
@@ -51,6 +52,7 @@ export async function runWorker(options: WorkerOptions): Promise<Worker> {
   registerPartitionHandler();
   registerMeasureHandler();
   registerBoqDraftHandler();
+  registerBbsRenderHandler();
   await startJobsRuntime(options.databaseUrl);
   let health: Server;
   try {

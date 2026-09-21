@@ -51,6 +51,8 @@ const KIND_WORDS: Readonly<Record<JobKind, string>> = {
   // The draft's render, in the word the area that owns the kind authored for it (s-boq §3), read
   // under the key every kind's word is read under — `job_step_<kind>`, the kind's own spelling.
   "boq-render-draft": strings["job_step_boq-render-draft"],
+  // The bar schedule's render, in the word its own area authored (s-bbs §3), read the same way.
+  "bbs-render": strings["job_step_bbs-render"],
 };
 
 /** The word each status reads as (Decision § 4). */

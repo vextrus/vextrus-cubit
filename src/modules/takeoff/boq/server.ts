@@ -103,8 +103,12 @@ async function linesOfCampaign(tenantId: string, campaignId: string) {
   );
 }
 
-/** What the draft is a draft OF, as a reader names it — the project's own name, never its id. */
-async function projectNameOf(scope: BoqScope): Promise<string> {
+/**
+ * What a document is a document OF, as a reader names it — the project's own name, never its id.
+ * Published because the bar schedule's render asks the same question of the same project, and one
+ * read is one answer (B-17).
+ */
+export async function projectNameOf(scope: BoqScope): Promise<string> {
   const rows = await forTenant({ tenantId: scope.tenantId }).transaction((tx) =>
     tx
       .select({ name: projects.name })

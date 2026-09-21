@@ -32,6 +32,14 @@ export const DEFERRED_CODES: Readonly<Record<string, string>> = Object.freeze({
     "the draft-BOQ export lane — `takeoffBoq.exportDraft` answers it where a project has no campaign open, proved by name against a live database in tests/takeoff/boq/export-door-guard.db.test.ts; the owed claim is a unit assertion beside src/server/routers/takeoff-boq.ts.",
   BOQ_NO_PUBLISHED_LINE:
     "the draft-BOQ render lane — `runBoqDraftJob` refuses it where the campaign published no line, proved by name in the same live suite (tests/takeoff/boq/export-door-guard.db.test.ts); the owed claim is an assertion on the job's answer in the executed lane.",
+  // The bar schedule's own two, raised by the export door and its render (R-TO-054, AM-17's M3
+  // segment): both are proved by name against a live database in
+  // tests/takeoff/bbs-ui/export-door.db.test.ts, which is not the lane the register reads
+  // (vitest.config.ts) — so what is owed is an assertion in the EXECUTED lane, never the behaviour.
+  BBS_NO_CAMPAIGN:
+    "the bar-schedule export lane — `takeoffBbs.exportSchedule` answers it where a project has no campaign open, proved by name against a live database in tests/takeoff/bbs-ui/export-door.db.test.ts; the owed claim is a unit assertion beside src/server/routers/takeoff-bbs.ts.",
+  BBS_NO_BAR_ROW:
+    "the bar-schedule render lane — `runBbsRenderJob` refuses it where the campaign scheduled no bar, proved by name in the same live suite (tests/takeoff/bbs-ui/export-door.db.test.ts); the owed claim is an assertion on the job's answer in the executed lane.",
   BOQ_TAXONOMY_VERSION_MOVED:
     "inc-311b — the answer S-Documents owes a draft issued under a taxonomy that has since moved. Nothing raises it yet: the behaviour itself is owed, not merely an assertion, and it is registered here with the screen that renders it (docs/design/s-boq.md §3) so the increment that lands that reading inherits a named code rather than inventing one.",
   CREDENTIALS_NOT_VALID:

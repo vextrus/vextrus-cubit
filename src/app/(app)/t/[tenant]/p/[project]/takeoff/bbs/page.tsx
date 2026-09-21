@@ -7,6 +7,8 @@ import "./bbs.css";
 
 import { permissionsHeld } from "@/core/acts";
 import { forTenant } from "@/core/db";
+import { BBS } from "@/core/documents/kinds/bbs";
+import { listDocuments } from "@/core/documents/store";
 import { reportFault } from "@/core/faults/report";
 import { bbsViewOf } from "@/modules/takeoff/bbs-ui/server";
 import type { BbsView } from "@/modules/takeoff/bbs-ui/view";
@@ -48,7 +50,7 @@ export default async function ProjectBbs({
 
   const demonstration = demanded((await searchParams)["__state"]);
   if (demonstration !== null) {
-    return <BbsScreen view={null} tenantId={tenantId} projectId={project} permitted={false} reportId={null} demonstration={demonstration} />;
+    return <BbsScreen view={null} tenantId={tenantId} projectId={project} permitted={false} reportId={null} documentId={null} demonstration={demonstration} />;
   }
 
   // A read that fails is a fault, not an empty grid: it is recorded once, at the one seam that mints
@@ -61,6 +63,7 @@ export default async function ProjectBbs({
   let view: BbsView | null = null;
   let permitted = true;
   let reportId: string | null = null;
+  let documentId: string | null = null;
   try {
     // BOTH answers, or neither: a schedule held while the permission behind it went unanswered would
     // be rendered to a reader whose MEASURE nobody could confirm, under a `permitted` that never
@@ -69,9 +72,21 @@ export default async function ProjectBbs({
     const holds = await forTenant({ tenantId }).transaction(async (tx) => (await permissionsHeld(tx, project, userId)).has(MEASURE));
     view = reading;
     permitted = holds;
+    documentId = await issuedScheduleOf(tenantId, project);
   } catch (cause) {
     reportId = reportFault({ requestId: crypto.randomUUID(), actor: userId, route: ROUTE, cause }).faultId;
   }
 
-  return <BbsScreen view={view} tenantId={tenantId} projectId={project} permitted={permitted} reportId={reportId} />;
+  return <BbsScreen view={view} tenantId={tenantId} projectId={project} permitted={permitted} reportId={reportId} documentId={documentId} />;
+}
+
+/**
+ * The newest schedule this project has issued, where one exists. It is read HERE rather than watched
+ * in the browser because the documents list is the store's own answer to "what was filed"
+ * (R-SPINE-040): a render that succeeds re-reads this page, and the link it offers is the row the
+ * store now holds — never an id the screen minted for itself (B-17, the draft BOQ's precedent).
+ */
+async function issuedScheduleOf(tenantId: string, projectId: string): Promise<string | null> {
+  const listed = await forTenant({ tenantId }).transaction((tx) => listDocuments(tx, projectId));
+  return listed.find((document) => document.kind === BBS)?.id ?? null;
 }

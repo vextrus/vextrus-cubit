@@ -82,6 +82,20 @@
   font-size: var(--text-caption);
 }
 
+/* --- the job strip: the pattern's timeline, and the link a finished render offers (§1, I-270) --- */
+
+.cx-bbs-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-bbs-document-link {
+  align-self: flex-start;
+  color: var(--accent);
+  font-size: var(--text-body);
+}
+
 /* --- the one helper line: whether every bar of this campaign is here (§2) --- */
 
 .cx-bbs-status {

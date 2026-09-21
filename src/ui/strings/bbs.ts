@@ -50,4 +50,18 @@ export const bbs = {
   bbs_offline: "You are offline. The schedule reads as it stood when this page loaded.",
   bbs_denied_body: "Reading the bar schedule needs the MEASURE permission on this project.",
   bbs_denied_holder: "Open the participants screen",
+
+  // The export door, and what stands beside it while a render is watched (Decision §1, I-270's
+  // precedent): the one primary, the job strip's heading, and the link a finished render offers.
+  bbs_export: "Export the schedule",
+  bbs_jobs_heading: "Rendering the schedule",
+  bbs_document_link: "Open the issued schedule",
+
+  // The job pattern names a step by the kind's own spelling (`job_step_<kind>`, job-timeline §4):
+  // the word for this area's render kind is this area's to author, so it stands here.
+  "job_step_bbs-render": "Render the bar schedule",
+
+  // S-Documents reads a kind as words by key (`documents_kind_<kind>`, s-documents I-260). The one
+  // kind this screen files is named here, beside the screen that files it, as the draft's is.
+  documents_kind_bbs: "Bar schedule",
 } as const;

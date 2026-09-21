@@ -14,6 +14,7 @@
 // re-raises it as the refusal it is and renders the registry's own words (ARCH-03, B-21).
 import { actionContext, refused } from "@/server/call";
 import { takeoffRouter } from "@/server/routers/takeoff";
+import { takeoffBbsRouter } from "@/server/routers/takeoff-bbs";
 import { takeoffBoqRouter } from "@/server/routers/takeoff-boq";
 import { takeoffSchedulesRouter } from "@/server/routers/takeoff-schedules";
 
@@ -57,4 +58,13 @@ export async function asked<T>(call: () => Promise<T>): Promise<DoorAnswer<T>> {
  */
 export async function boqLane(client: string) {
   return takeoffBoqRouter.createCaller(await actionContext(client));
+}
+
+/**
+ * The bar-schedule lane (`takeoffBbs`), called the same way and for the same reason: the lane table
+ * in `src/server/root.ts` grows by enumeration, so the tier below it does too — the session, the
+ * guard and the seam the export door answers through are the ONE set the wire answers through.
+ */
+export async function bbsLane(client: string) {
+  return takeoffBbsRouter.createCaller(await actionContext(client));
 }

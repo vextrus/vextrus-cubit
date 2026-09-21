@@ -48,6 +48,16 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   met by rendering them inside `data-technical` mono rather than by inventing English for them. The
   PDF draws the same codes as Typst vector sketches; no raster image is ever emitted (A-BBS-PDF).
 
+- **I-bbs-8 — exporting is a keyed job, not an act (session 4, 2026-09-21; the draft's I-270, one
+  door over).** A schedule is unsigned by definition (AM-05), so there is no consequence to preview
+  and no copper on this screen: `bbs-export` runs `takeoffBbs.exportSchedule` (permission MEASURE),
+  which enqueues a `bbs-render` under `bbsRenderJobKey` and files the issue in Documents under the
+  `bbs` kind. While the job is watched the inline `bbs-jobs` timeline stands between the answer
+  slot and the grid (R-UI-024); when it succeeds the link to the issue appears beside it and no
+  reload happens. The door stands only for a permitted reader with bars to render — a reader without
+  MEASURE is denied the whole screen (I-bbs-1), and an empty campaign has nothing to export — and it
+  is absent, never disabled, on any other evidence. This pays §7's first IOU; AM-17's M3 segment
+  "emit the unpriced BOQ and the BBS as DRAFT UNSIGNED" is walked through it by J-000.
 - **I-bbs-7 — the screen's one helper line stands inside the answer slot, and is named for what it
   says.** A reading that is partly declared is something this screen ANSWERS about itself, so the
   sentence stands in the same polite live region as a refusal and a denial rather than in a second
@@ -98,8 +108,9 @@ frozen; the page never scrolls sideways (§7 C10).
 
 | Region | What it holds | Width / height rule | Tokens | State when empty |
 |---|---|---|---|---|
-| tabs row (frame's track) | the five shipped entries then `takeoff-nav-bbs` (`aria-current="page"` here); in `useTakeoffTabsAside`: `bbs-revision` (IdChip, `data-value` the whole `setRevisionId`) and `bbs-stock` (`data-stock-mm`, `data-rounding-mm`). **No primary** — nothing on this screen commits (export is owed at the door) | 100 % × `--toolbar-h` 32 | `--surface-panel`, `--ink`, `--ink-secondary`, `--ink-muted`, `--line-accent`, `--font-mono` | the aside carries the tabs alone while no campaign is pinned |
-| answer slot (`bbs-answer`) | one RefusalState from a refused or denied door; the offline banner above it; and, beneath them, the status line — everything this screen ANSWERS about its own reading stands in the one polite live region | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--state-warn(-surface)` through RefusalState, `--radius-4`, `--hairline` | absent (no box) |
+| tabs row (frame's track) | the five shipped entries then `takeoff-nav-bbs` (`aria-current="page"` here); in `useTakeoffTabsAside`: `bbs-revision` (IdChip, `data-value` the whole `setRevisionId`), `bbs-stock` (`data-stock-mm`, `data-rounding-mm`) and the ONE primary `bbs-export` (I-bbs-8), present only for a permitted reader with bars to render | 100 % × `--toolbar-h` 32; the primary at `--control-h` | `--surface-panel`, `--ink`, `--ink-secondary`, `--ink-muted`, `--line-accent`, `--font-mono`, `--accent` through the Button | the aside carries the tabs alone while no campaign is pinned; the primary is absent, never disabled, while nothing is scheduled |
+| answer slot (`bbs-answer`) | one RefusalState from a refused or denied door (`REQUEST_MALFORMED`, `PERMISSION_NOT_HELD`, `BBS_NO_CAMPAIGN`); the offline banner above it; and, beneath them, the status line — everything this screen ANSWERS about its own reading stands in the one polite live region | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--state-warn(-surface)` through RefusalState, `--radius-4`, `--hairline` | absent (no box) |
+| job strip (`bbs-jobs`) | the shipped `JobTimeline` for the render job, present only while a run is watched; `bbs-document-link` follows a success (I-bbs-8) | 100 % × the pattern's own, between the answer slot and the grid | the pattern's own; `--accent` as the link's text | absent — never an empty box |
 | status line | the ONE helper line, `<p role="status">` inside the answer slot: `bbs_partial` or `bbs_complete` | 100 % × 28 | `--ink-muted`, `--text-body` | absent with the grid |
 | grid (primary) | `bbs-grid` (DataTable v2, `tableId` `s-bbs-bars`, `aria-label` `bbs_grid_label`, `data-rows-rendered`): one `bbs-member` group row per distinct `objectKey` in `document.rows` order, then its `bbs-row` (NET) rows each optionally followed by one `bbs-lap` | `flex: 1 1 auto`; ≥ 55 % of main; header and rows at `--row-h` (28 compact / 36 comfortable, revalued at the ROOT by `[data-density]`, never here); first column frozen; no wrapping cell | `--surface-app`, `--surface-sunken` (sticky header, group rows), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline` | not rendered at all: `bbs-empty` stands in its place |
 | summary (`bbs-summary`) | the heading, its `(i)` popover, and a 5-column table: one `bbs-summary-row` per key of `perDiameterKg` in ascending numeric diameter, closed by the sticky total row carrying `grandTotalKg`; `data-kg` on the region is that grand total | 100 % × 28 heading + 28 header + rows + 28 total, **max 224**, body scrolls inside | `--surface-sunken` (header and total row), `--ink`, `--ink-code`, `--font-mono`, `--hairline` | absent with the grid |
@@ -194,7 +205,19 @@ Measure the campaign from the takeoff register and the schedule appears here.** 
 `bbs_retry` **Try again** · `bbs_offline` **You are offline. The schedule reads as it stood when this
 page loaded.** · `bbs_denied_body` **Reading the bar schedule needs the MEASURE permission on this
 project.** · `bbs_denied_holder` **Open the participants screen** (the refusal's evidence link — a
-destination, never a third telling of the remedy the banner already gives)
+destination, never a third telling of the remedy the banner already gives) · `bbs_export` **Export
+the schedule** · `bbs_jobs_heading` **Rendering the schedule** · `bbs_document_link` **Open the
+issued schedule** · the job pattern's word for the render kind, `job_step_bbs-render` **Render the
+bar schedule** · and, on S-Documents, the one kind label `documents_kind_bbs` **Bar schedule**
+(s-documents I-260; the draft's `documents_kind_boq_draft` precedent).
+
+Registry entries this door adds to `src/core/errors/rebar.ts` (refusal-state §3's copy rules bind;
+the code is never rendered as text):
+
+| code | severity | surface | message | remedy |
+|---|---|---|---|---|
+| `BBS_NO_CAMPAIGN` | info | inline | **No campaign is open on this project, so there is no bill of bars to schedule.** | **Pin a drawing set revision and measure the campaign, then export the schedule.** |
+| `BBS_NO_BAR_ROW` | info | inline | **This campaign has scheduled no bar to render.** | **Measure the campaign from the takeoff register — a schedule states the bars the measurement wrote and assumes nothing.** |
 
 Voice: calm, concrete, professional; no exclamation marks; no build vocabulary — "seam", "rail",
 "door", "job kind" and every clause id appear nowhere a reader can see. Marks, diameters, lengths and
@@ -266,7 +289,10 @@ the whole `setRevisionId`) · `bbs-stock` (`data-stock-mm`, `data-rounding-mm`) 
 `data-component="NET"`) · `bbs-lap` (`data-bar-key`, `data-component="LAP"`, `data-lap-mm`,
 `data-laps`, `data-kg` = `kgLap`; rendered only where `lapsPerBar > 0` — I-bbs-3) · `bbs-summary`
 (`data-kg` = `grandTotalKg`) · `bbs-summary-row` (`data-diameter`, `data-kg`, `data-stock-bars`,
-`data-pieces`, `data-offcut-mm`) · `bbs-empty`. Used and never redefined, other files' ids:
+`data-pieces`, `data-offcut-mm`) · `bbs-empty` · `bbs-export` (`data-permission="MEASURE"`,
+`data-job` while a render is watched, `aria-disabled="true"` while offline or watched) · `bbs-jobs`
+(`data-job`) · `bbs-document-link` (`data-document`) — the last three added by I-bbs-8. Used and
+never redefined, other files' ids:
 `takeoff-nav-bbs` (`aria-current="page"` here) beside `takeoff-nav-boq` and its three elders,
 `error-state-report`, `error-state-retry`, `shell-crumb-page`, `shell-main`, `shell-tenant-switcher`,
 `shell-user`, and the primitives' own (`datatable-header`, `datatable-row`, `datatable-group-row`,
@@ -299,10 +325,10 @@ tab as the proof.
 
 ## 7. Recorded IOUs (owner named, never a comment in `src/`)
 
-- **The export primary, its `bbs-render` job kind and the S-Documents row.** R-TO-054's export is
-  satisfied at the seam here (`renderDocument("bbs")`) and owed at the door; when it lands, the aside
-  gains this screen's one primary and the job strip stands between the status line and the grid,
-  exactly as S-BOQ's does. Owner: the follow-on BBS door leaf.
+- **The export primary, its `bbs-render` job kind and the S-Documents row.** *(PAID by I-bbs-8,
+  session 4: `takeoffBbs.exportSchedule`, the `bbs-render` kind under `src/core/jobs/kinds/rebar.ts`,
+  `runBbsRenderJob`, the worker handler, and the `bbs` row on S-Documents. Live proof:
+  `tests/takeoff/bbs-ui/export-door.db.test.ts`; the walk: J-000's `m3-bill-and-schedules`.)*
 - **A-BBS-XLSX.** No workbook of the schedule at M3. Owner: the export-channel leaf.
 - **The d²/162 check column.** AM-03(b) makes it informational with a stated tolerance; neither the
   screen nor the PDF prints it today. Owner: the disclosure leaf that adds it to both faces at once.

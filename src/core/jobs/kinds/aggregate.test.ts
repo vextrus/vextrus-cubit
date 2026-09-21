@@ -38,6 +38,10 @@ const POLICIES_BEFORE: Readonly<Record<string, Readonly<Record<string, number | 
   // and an expiry PB-6's own ceiling fits well inside — re-baselined here by the increment that
   // landed the kind, which is the only lawful way this table grows (B-19, B-20).
   "boq-render-draft": Object.freeze({ concurrency: 1, retryLimit: 1, retryDelaySeconds: 5, retryBackoff: false, expireSeconds: 300 }),
+  // The bar schedule's render (`src/core/jobs/kinds/rebar.ts`, R-TO-054, AM-17's M3 segment): the
+  // draft's own policy, one kind over — re-baselined here by the session that landed the kind,
+  // which is the only lawful way this table grows (B-19, B-20).
+  "bbs-render": Object.freeze({ concurrency: 1, retryLimit: 1, retryDelaySeconds: 5, retryBackoff: false, expireSeconds: 300 }),
   ingest: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 5, retryBackoff: true, expireSeconds: 2100 }),
   measure: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 5, retryBackoff: true, expireSeconds: 1800 }),
   partition: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 5, retryBackoff: true, expireSeconds: 900 }),
@@ -46,7 +50,7 @@ const POLICIES_BEFORE: Readonly<Record<string, Readonly<Record<string, number | 
 });
 
 /** The order the table declared its kinds in, which `KIND_NAMES` and the runtime both read off it. */
-const ORDER_BEFORE: readonly string[] = Object.freeze(["probe", "ingest", "thumbnails", "partition", "measure", "boq-render-draft"]);
+const ORDER_BEFORE: readonly string[] = Object.freeze(["probe", "ingest", "thumbnails", "partition", "measure", "bbs-render", "boq-render-draft"]);
 
 async function moduleAt(relative: string): Promise<Record<string, unknown>> {
   const abs = join(REPO_ROOT, relative);
