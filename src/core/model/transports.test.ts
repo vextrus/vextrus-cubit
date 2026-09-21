@@ -62,6 +62,33 @@ describe("the fixture transport", () => {
     expect((answer.refusal as Error & { requestHash?: unknown }).requestHash).toBe(hash);
   });
 
+  it("replays the judgment a fixture recorded, and answers null for a corpus that recorded none", async () => {
+    const root = fixtureRoot();
+    const asked = request();
+    const hash = requestHash(asked);
+    const judgment = { provider: "jev-1.13.0", confidence: 0.64, answers: { view_type: { type: "choice", value: "DETAIL", confidence: 0.64, probabilities: { DETAIL: 0.64, TITLE: 0.36 } } } };
+    writeFileSync(join(root, `${hash}.json`), JSON.stringify({ requestHash: hash, modelId: asked.modelId, payload: {}, inputTokens: 10, outputTokens: 2, judgment }));
+    const answer = await fixtureTransport(root).answer(ctx, asked, hash);
+    expect(answer.kind === "answered" && answer.judgment).toEqual(judgment);
+
+    const silent = request({ temperature: 0 });
+    const silentHash = requestHash(silent);
+    writeFileSync(join(root, `${silentHash}.json`), JSON.stringify({ requestHash: silentHash, modelId: silent.modelId, payload: {}, inputTokens: 10, outputTokens: 2 }));
+    const older = await fixtureTransport(root).answer(ctx, silent, silentHash);
+    expect(older.kind === "answered" && older.judgment, "a fixture minted before judgments were recorded replays with none").toBeNull();
+  });
+
+  it("fails a fixture whose judgment is not the record's shape as the corpus defect it is, not a refusal", async () => {
+    const root = fixtureRoot();
+    const asked = request();
+    const hash = requestHash(asked);
+    writeFileSync(join(root, `${hash}.json`), JSON.stringify({ requestHash: hash, modelId: asked.modelId, payload: {}, inputTokens: 10, outputTokens: 2, judgment: "sure" }));
+    const rejection = (await rejectionOf(fixtureTransport(root).answer(ctx, asked, hash))) as Error;
+    expect(rejection).toBeInstanceOf(Error);
+    expect(refusalCodeOf(rejection)).toBeNull();
+    expect(rejection.message).toContain("judgment");
+  });
+
   it("fails a fixture whose token figure is not a count exactly as the derivation does", async () => {
     for (const figure of [1.5, -1, "7"]) {
       const root = fixtureRoot();

@@ -16,6 +16,9 @@ export const auditStrings = {
   audit_filter_any_actor: "All actors",
   audit_count: "{shown} of {total} acts",
 
+  audit_col_type: "Act type",
+  audit_col_actor: "Actor",
+  audit_col_occurred: "Occurred",
   audit_consequence_label: "Consequence",
   audit_evidence_label: "Cited evidence",
 
@@ -29,6 +32,23 @@ export const auditStrings = {
   audit_ledger_disarmed:
     "This installation does not record model calls yet, so there is nothing to list. When it does, every call appears here with its cost and outcome.",
   audit_ledger_count_caption: "recorded model calls",
+
+  audit_ledger_col_call: "Call",
+  audit_ledger_col_question: "Question",
+  audit_ledger_col_model: "Model",
+  audit_ledger_col_transport: "Transport",
+  audit_ledger_col_outcome: "Outcome",
+  audit_ledger_col_confidence: "Confidence",
+  audit_ledger_col_tokens: "Tokens in / out",
+  audit_ledger_col_cost: "Cost",
+  audit_ledger_col_called: "Called",
+  audit_ledger_outcome_awaiting: "Awaiting a person",
+  audit_ledger_no_confidence: "—",
+  audit_ledger_calibration_heading: "Calibration by question",
+  audit_ledger_calibration_counts: "{proposed} proposed · {confirmed} confirmed · {overruled} overruled · {repudiated} repudiated · {affirmed} affirmed · {awaiting} awaiting a person · {refused} refused",
+  audit_ledger_calibration_confidence: "Confidence {right} when a person agreed, {wrong} when a person did not.",
+  audit_ledger_calibration_confidence_partial: "Confidence {stated} where a person has judged; the other side has no figure yet.",
+  audit_ledger_calibration_no_confidence: "No judged call stated a confidence.",
 
   audit_jobs_heading: "Jobs",
   audit_jobs_disarmed: "This installation does not run recorded background jobs yet, so there is no history to list. When it does, every job appears here.",

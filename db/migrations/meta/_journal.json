@@ -379,6 +379,13 @@
       "when": 1789977374626,
       "tag": "0053_density-default-compact",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1789987855558,
+      "tag": "0054_jev-ledger-outcomes",
+      "breakpoints": true
     }
   ]
 }

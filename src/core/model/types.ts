@@ -2,10 +2,21 @@
 // what the ledger records about every call, and the format a recorded answer is replayed from. The
 // closed model ids and their money live in `../model-ledger.types` (AS-05, B-17); this file names
 // only the seam's own contract around them.
+import type { AnswerJudgmentRecord, ModelJudgmentRecord } from "../db";
 import type { ModelId } from "../model-ledger.types";
 
 /** Any JSON value: what a request's params hold and what a model's answer is carried as. */
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+
+/**
+ * What a System One model said about its own answer — the provider it reported, each question's
+ * value with its confidence and probabilities, and the call's confidence (the weakest answer's).
+ * The shape's home is the ledger column's declaration (`ModelJudgmentRecord`), taken here rather
+ * than restated so the row and the seam cannot drift (B-17). A generative provider states none of
+ * this, and a fixture recorded from one carries null.
+ */
+export type ModelJudgment = ModelJudgmentRecord;
+export type AnswerJudgment = AnswerJudgmentRecord;
 
 /** The two ways a call reaches an answer — the same two spellings `model_calls.transport` admits. */
 export type ModelTransport = "fixture" | "live";
@@ -19,15 +30,21 @@ export type ModelCallContext = { tenantId: string; projectId: string; actor: str
 /** One turn of a single text exchange. */
 export type ModelMessage = { role: "user" | "assistant"; content: string };
 
-/** What a caller asks of a model: a pinned id, a system prompt, the exchange so far and provider params. */
+/**
+ * What a caller asks of a model: a pinned id, a system prompt, the exchange so far and provider
+ * params — and the closed question it is, by name (`MODEL_QUESTIONS`), which the ledger records and
+ * the request hash leaves out: the same evidence asked under a renamed question is the same request,
+ * and a recorded answer stays filed under it.
+ */
 export type ModelRequest = {
   modelId: ModelId;
   system: string;
   messages: readonly ModelMessage[];
   params?: Readonly<Record<string, JsonValue>>;
+  question?: string;
 };
 
-/** A proposed answer: the payload as the transport carried it, what it spent, and the ledger row that records it. */
+/** A proposed answer: the payload as the transport carried it, what it spent, what it judged, and the ledger row that records it. */
 export type ModelAnswer = {
   callId: string;
   modelId: ModelId;
@@ -38,6 +55,7 @@ export type ModelAnswer = {
   inputTokens: number;
   outputTokens: number;
   attributedCost: string;
+  judgment: ModelJudgment | null;
 };
 
 /** One row of the model-call ledger: every answered or refused call, attributed to a tenant and a project. */
@@ -52,6 +70,8 @@ export type ModelLedgerRow = {
   inputTokens: number;
   outputTokens: number;
   attributedCost: string;
+  question: string | null;
+  judgment: ModelJudgment | null;
 };
 
 /** Where ledger rows go. The shipped adapter writes `model_calls`; acceptance hands in a memory one. */
@@ -59,13 +79,18 @@ export interface ModelLedger {
   record(row: ModelLedgerRow): Promise<{ callId: string }>;
 }
 
-/** A recorded model answer, keyed by the request hash it answers — the file format under a fixture root. */
+/**
+ * A recorded model answer, keyed by the request hash it answers — the file format under a fixture
+ * root. `judgment` is what the model said about its answer when it was recorded, absent or null for
+ * a corpus minted from a provider that states none.
+ */
 export type ModelFixture = {
   requestHash: string;
   modelId: ModelId;
   payload: JsonValue;
   inputTokens: number;
   outputTokens: number;
+  judgment?: ModelJudgment | null;
 };
 
 /**
@@ -73,7 +98,7 @@ export type ModelFixture = {
  * throw. A transport that could do neither has already reported its fault and thrown (ARCH-03).
  */
 export type TransportAnswer =
-  | { kind: "answered"; payload: JsonValue; inputTokens: number; outputTokens: number }
+  | { kind: "answered"; payload: JsonValue; inputTokens: number; outputTokens: number; judgment: ModelJudgment | null }
   | { kind: "refused"; code: string; refusal: Error };
 
 /** One transport, chosen at seam construction (B-23): where an answer comes from. */

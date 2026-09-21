@@ -1,0 +1,27 @@
+// The closed questions the product puts to a model, by name (L-AI-01, L-AI-03). A request names
+// the one it is, the ledger records it, the calibration line is read per name, and the fixture
+// corpus is rostered by it — one spelling, one home (B-17). A question added to the product is one
+// line here, its Decision amendment and its recorded corpus; the name is a key for code and a reader,
+// never sent to the model, whose question carries its whole meaning in its own instructions.
+//
+// The name is not hashed into the request's identity: the same evidence asked under a renamed
+// question is the same request, and a recorded answer stays filed under the hash it was answered to.
+
+/** The questions, by the key code files them under and the name the ledger records. */
+export const MODEL_QUESTIONS = Object.freeze({
+  /** A silent sheet's discipline, title and number, as three choices over its own texts (R-AI-001). */
+  sheetReading: "sheet-reading",
+  /** A silent view caption's class, as one choice over the view vocabulary (R-TO-030). */
+  viewCaption: "view-caption",
+} as const);
+
+/** One of the closed names above. */
+export type ModelQuestion = (typeof MODEL_QUESTIONS)[keyof typeof MODEL_QUESTIONS];
+
+/** The names, in the order the roster spells them. */
+export const MODEL_QUESTION_NAMES: readonly ModelQuestion[] = Object.freeze(Object.values(MODEL_QUESTIONS));
+
+/** Is this a question the product asks? The one predicate, for a request read off a file or a wire. */
+export function isModelQuestion(value: unknown): value is ModelQuestion {
+  return typeof value === "string" && (MODEL_QUESTION_NAMES as readonly string[]).includes(value);
+}

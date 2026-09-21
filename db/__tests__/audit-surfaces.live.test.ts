@@ -22,7 +22,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, describe, expect, test } from "vitest";
 import { provisionScratchDb } from "./harness";
 import { GUC_SYSTEM_REASON, SEED_REASON, TENANT_ALPHA, TENANT_COLUMN } from "./support/fixtures";
-import { ident, isTrue, lit, scalar, seedTenants, withSession } from "./support/live-sql";
+import { ident, isTrue, lit, run, scalar, seedTenants, withSession } from "./support/live-sql";
 
 /** The table a project's row lives in, named once beside the tenant column it carries. */
 const PROJECTS_TABLE = "projects";
@@ -44,7 +44,9 @@ const DISARMED_KEY: Readonly<Record<string, string>> = { modelLedger: "audit_led
 const EXPLORER_TESTIDS = ["audit-filter-type", "audit-filter-actor", "audit-filter-subject", "audit-acts-empty"] as const;
 
 type AuditPanel = { armed: false } | { armed: true; rowCount: number };
-type AuditSurfaces = { acts: readonly unknown[]; modelLedger: AuditPanel; jobs: AuditPanel };
+type AuditLedgerCall = { callId: string; question: string | null; outcome: string; judged: string | null; confidence: string | null; attributedCost: string };
+type CalibrationLine = { question: string; proposed: number; refused: number; confirmed: number; overruled: number; repudiated: number; affirmed: number; awaiting: number; meanConfidenceWhenRight: string | null; meanConfidenceWhenWrong: string | null };
+type AuditSurfaces = { acts: readonly unknown[]; modelLedger: AuditPanel; jobs: AuditPanel; ledger: { calls: readonly AuditLedgerCall[]; calibration: readonly CalibrationLine[] } };
 type GetAuditSurfaces = (ctx: { tenantId: string }, projectId: string) => Promise<AuditSurfaces>;
 
 async function productModule<T>(relative: string): Promise<T> {
@@ -160,6 +162,58 @@ describe("AC-3 — on the schema as migrated today, both panels answer that they
         `an armed ${panel} panel answers a whole count of the rows this project may see, not ${String(rowCount)}`,
       ).toBe(true);
     }
+  });
+});
+
+describe("I-37 — an armed ledger with rows reads itself: the outcome beside each call, and a line per question", () => {
+  test("I-37: a project with two proposed calls, one judged, and one refused call answers the calls newest first with their outcomes and one calibration line (L-AI-01, L-AI-02)", async () => {
+    const stage = await staged();
+    if (!tableExists(stage.urlMigrate, stage.panelTables["modelLedger"] ?? "")) return;
+
+    // A second project of the same workspace, so the fresh project's zero-row scene above stays what it is.
+    const projectId = scalar(
+      stage.urlMigrate,
+      withSession({ [GUC_SYSTEM_REASON]: SEED_REASON }, `insert into ${ident(PROJECTS_TABLE)} (${ident(TENANT_COLUMN)}, name) values (${lit(stage.tenantId)}, 'Audit ledger reads itself') returning project_id::text;`),
+    );
+    const judgment = (confidence: number): string => `'{"provider":"jev-1.13.0","confidence":${confidence},"answers":{"view_type":{"type":"choice","value":"DETAIL","confidence":${confidence},"probabilities":{"DETAIL":${confidence}}}}}'::json`;
+    const call = (hash: string, outcome: string, refusal: string, judged: string): string =>
+      `insert into ${ident("model_calls")} (tenant_id, project_id, model_id, request_hash, transport, outcome, refusal_code, input_tokens, output_tokens, attributed_cost, question, judgment, called_at)
+         values (${lit(stage.tenantId)}::uuid, ${lit(projectId)}::uuid, 'claude-sonnet-5', ${lit(hash)}, 'fixture', ${lit(outcome)}, ${refusal}, 90, 5, 0.00042, 'view-caption', ${judged}, clock_timestamp()) returning call_id::text;`;
+    const session = (script: string): string => withSession({ [GUC_SYSTEM_REASON]: SEED_REASON }, script);
+    const first = scalar(stage.urlMigrate, session(call("a".repeat(64), "proposed", "null", judgment(0.91))));
+    const second = scalar(stage.urlMigrate, session(call("b".repeat(64), "proposed", "null", judgment(0.4))));
+    const third = scalar(stage.urlMigrate, session(call("c".repeat(64), "refused", "'FIXTURE_MISSING'", "null")));
+    run(
+      stage.urlMigrate,
+      session(
+        `insert into ${ident("model_call_outcomes")} (tenant_id, project_id, call_id, question, outcome, act_id, actor_user_id)
+           values (${lit(stage.tenantId)}::uuid, ${lit(projectId)}::uuid, ${lit(first)}::uuid, 'view-caption', 'CONFIRMED', null, gen_random_uuid());`,
+      ),
+    );
+
+    const surfaces = await stage.getAuditSurfaces({ tenantId: stage.tenantId }, projectId);
+    expect((surfaces.modelLedger as { rowCount?: number }).rowCount, "the count is of every call of the project").toBe(3);
+    expect(surfaces.ledger.calls.map((row) => row.callId), "the calls list newest first").toEqual([third, second, first]);
+    expect(surfaces.ledger.calls.map((row) => row.judged), "the person's outcome stands beside the call it judged, and nothing is invented for the rest").toEqual([null, null, "CONFIRMED"]);
+    expect(surfaces.ledger.calls.map((row) => row.confidence), "the provider's confidence to three places, none for a refusal").toEqual([null, "0.400", "0.910"]);
+    expect(surfaces.ledger.calls[2]?.attributedCost, "money as the ledger spells it").toBe("0.00042");
+    expect(surfaces.ledger.calibration, "one line for the one question, over the same rows").toEqual([
+      {
+        question: "view-caption",
+        proposed: 2,
+        refused: 1,
+        confirmed: 1,
+        overruled: 0,
+        repudiated: 0,
+        affirmed: 0,
+        awaiting: 1,
+        meanConfidenceWhenRight: "0.910",
+        meanConfidenceWhenWrong: null,
+      },
+    ]);
+
+    const fresh = await stage.getAuditSurfaces({ tenantId: stage.tenantId }, stage.projectId);
+    expect(fresh.ledger, "a project nothing was called for lists nothing and derives no line").toEqual({ calls: [], calibration: [] });
   });
 });
 

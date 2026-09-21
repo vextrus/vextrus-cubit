@@ -28,7 +28,7 @@ export function fixtureTransport(fixtureRoot: string): TransportPort {
         return { kind: "refused", code: FIXTURE_MISSING, refusal: missing };
       }
       const fixture = parseFixture(text, file, request, hash);
-      return { kind: "answered", payload: fixture.payload, inputTokens: fixture.inputTokens, outputTokens: fixture.outputTokens };
+      return { kind: "answered", payload: fixture.payload, inputTokens: fixture.inputTokens, outputTokens: fixture.outputTokens, judgment: fixture.judgment ?? null };
     },
   };
 }
@@ -59,7 +59,29 @@ function parseFixture(text: string, file: string, request: ModelRequest, hash: s
   if (!Object.hasOwn(parsed, "payload")) throw new Error(`the recorded model answer at ${file} carries no payload`);
   // Whether a figure is a token count is the money derivation's one judgement (B-17), asked here
   // before any row is written; a figure that is not one fails as the derivation fails for it.
-  return { requestHash: hash, modelId: request.modelId, payload: parsed["payload"] as JsonValue, inputTokens: tokenCount(inputTokens), outputTokens: tokenCount(outputTokens) };
+  return {
+    requestHash: hash,
+    modelId: request.modelId,
+    payload: parsed["payload"] as JsonValue,
+    inputTokens: tokenCount(inputTokens),
+    outputTokens: tokenCount(outputTokens),
+    judgment: judgmentOf(parsed["judgment"], file),
+  };
+}
+
+/**
+ * The judgment a fixture recorded, or null where it recorded none: absent and null both say the
+ * provider stated nothing about its answer. Anything else must be the record's own shape — a
+ * corpus file that says a judgment is a string is a corpus defect, not a null (B-21).
+ */
+function judgmentOf(value: unknown, file: string): ModelFixture["judgment"] {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "object" || Array.isArray(value)) throw new Error(`the recorded model answer at ${file} carries a judgment that is not an object`);
+  const { provider, confidence, answers } = value as { provider?: unknown; confidence?: unknown; answers?: unknown };
+  if (provider !== null && typeof provider !== "string") throw new Error(`the recorded model answer at ${file} names a provider that is not a string`);
+  if (confidence !== null && typeof confidence !== "number") throw new Error(`the recorded model answer at ${file} carries a confidence that is not a number`);
+  if (answers === null || typeof answers !== "object" || Array.isArray(answers)) throw new Error(`the recorded model answer at ${file} carries a judgment without its answers`);
+  return value as NonNullable<ModelFixture["judgment"]>;
 }
 
 function parseJson(text: string, file: string): JsonValue {

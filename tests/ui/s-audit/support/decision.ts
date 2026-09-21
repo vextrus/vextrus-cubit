@@ -7,7 +7,7 @@
  * re-words a line under B-20 re-words the Decision, and these tests follow it instead of freezing
  * the wording of the day they were written (B-19).
  *
- * The ten test ids are the closed contract of C-05 (Increment Spec "testids", Decision §7): they are
+ * The fourteen test ids are the closed contract — C-05's ten and the ledger's four (Decision §7, I-37): they are
  * spelled here because they are the acceptance's own vocabulary, not a roster that grows.
  */
 import { existsSync, readFileSync, statSync } from "node:fs";
@@ -42,6 +42,10 @@ export const TESTID = {
   filterSubject: "audit-filter-subject",
   panelModelLedger: "audit-panel-model-ledger",
   panelJobs: "audit-panel-jobs",
+  ledgerGrid: "audit-ledger-grid",
+  ledgerRow: "audit-ledger-row",
+  ledgerCalibration: "audit-ledger-calibration",
+  ledgerCalibrationLine: "audit-ledger-calibration-line",
 } as const;
 
 /** The two data attributes a row carries, and the one a panel carries (test contract). */

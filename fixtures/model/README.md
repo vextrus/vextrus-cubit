@@ -23,9 +23,27 @@ The `ModelFixture` shape, as JSON:
 | `payload`      | any JSON value       | the provider's `content` as it was answered               |
 | `inputTokens`  | whole number ≥ 0     | the provider's `usage.input_tokens`                       |
 | `outputTokens` | whole number ≥ 0     | the provider's `usage.output_tokens`                      |
+| `judgment`     | object or null, optional | what a System One model said of its answer — `provider` (the versioned id it reported), `confidence` (the weakest answer's), and `answers` keyed by question id, each `{type, value, confidence, probabilities}`; absent or null for a generative provider |
 
 A file that exists but does not fit this shape, or whose `requestHash` or `modelId` disagrees with
 the request it is filed under, is a corpus defect: the seam fails plainly rather than replaying it.
 
 Every fixture committed here is deliberate corpus (Q-08); acceptance mints its own under a
 temporary root instead of writing into this directory.
+
+## The corpus's roster
+
+`corpus.json` beside this file lists every fixture in this root: the request hash, the closed
+question it answers (`MODEL_QUESTIONS` in `src/core/model/questions.ts`), the subject it was asked
+about, the day it was recorded and the ledger's cost line for the call. It is written by the
+recorder (`scripts/model-corpus.ts`, run by a person with the key, never by a lane) and kept in
+step with the files by `tests/ai/model-corpus-roster.test.ts`: a fixture the roster does not name,
+or a roster line with no fixture, fails. The subdirectory `sheet-understanding/` is that
+increment's own corpus root, addressed by its acceptance by path; the product's lanes read this
+root, flat.
+
+Recording: `node --import tsx scripts/model-corpus.ts record --question <name> --out <dir>` mints
+under a temporary root from the live provider behind `TYPESAFE_API_KEY`, prints what came back and
+the cost line, and never writes here; `node --import tsx scripts/model-corpus.ts file --from <dir>`
+moves what a person has read into this root and re-derives `corpus.json`. Each filing is its own
+commit quoting the cost line (Q-08).

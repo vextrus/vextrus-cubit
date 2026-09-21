@@ -16,6 +16,7 @@ import { DISCIPLINES } from "../../sheets";
 import { readViewTypeProposal, viewCaptionRequest } from "../../view-captions";
 import { canonicalJson } from "../canonical";
 import { liveTransport } from "../live";
+import { MODEL_QUESTIONS } from "../questions";
 import { resolveProposal } from "../proposal";
 import { sourceKeyResolver } from "../sources";
 import { CANDIDATE_CAP, TYPESAFE_ENDPOINT, TYPESAFE_MODEL, structuredTaskOf } from "../typesafe";
@@ -119,6 +120,84 @@ describe("what is asked of Jev", () => {
     await port.answer(CTX, sheetRequest(many), "hash-many");
     const criteria = ((posted[0] as Posted).body["questions"] as Questions)["title_candidate"]!.criteria;
     expect(Object.keys(criteria)).toHaveLength(CANDIDATE_CAP);
+  });
+});
+
+describe("the contract the docs state (docs.typesafe.ai/api, read 2026-09-21)", () => {
+  test("every instruction names the state it reads by its backticked field path, and carries the question's whole meaning", async () => {
+    const { port, posted } = jev(answers({ discipline: "STRUCTURAL", title_candidate: "cand_2", number_candidate: "cand_3" }));
+    await port.answer(CTX, sheetRequest(), "hash-sheet");
+    const questions = (posted[0] as Posted).body["questions"] as Record<string, { instructions: string }>;
+    for (const [id, question] of Object.entries(questions)) {
+      expect(question.instructions, `${id} names \`candidates\`, the state it chooses from`).toContain("`candidates`");
+      expect(question.instructions.length, `${id} says what is being judged, not only which field`).toBeGreaterThan(60);
+    }
+    expect(questions["discipline"]!.instructions).toContain("`layout`");
+    expect(questions["number_candidate"]!.instructions, "the no-match outcome is named where nothing may fit").toContain("NONE");
+
+    const caption = jev(answers({ view_type: MEMBER_SECTION }));
+    await caption.port.answer(CTX, viewCaptionRequest("SECTION 1-1", "DXF_HANDLE:201"), "hash-caption");
+    const asked = ((caption.posted[0] as Posted).body["questions"] as Record<string, { instructions: string }>)["view_type"]!;
+    expect(asked.instructions).toContain("`caption`");
+    expect(asked.instructions, "a caption that names no class has UNTYPED to fall to").toContain("UNTYPED");
+  });
+
+  test("the request names its closed question for the ledger, and the two names are the roster's", () => {
+    expect(viewCaptionRequest("SECTION 1-1", "DXF_HANDLE:201").question).toBe("view-caption");
+    expect(MODEL_QUESTIONS).toEqual({ sheetReading: "sheet-reading", viewCaption: "view-caption" });
+  });
+});
+
+describe("what Jev says about its answer — the judgment the ledger records", () => {
+  /** An answer as the API spells one: the choice, its confidence, and the distribution over criteria. */
+  const judged = (choice: string, confidence: number, probabilities: Record<string, number>): unknown => ({ type: "choice", choice, confidence, probabilities });
+
+  test("each answer's confidence and probabilities are carried, the provider is the versioned id reported, and the call's confidence is the weakest answer's", async () => {
+    const { port } = jev({
+      model: "jev-1.13.0",
+      answers: {
+        discipline: judged("STRUCTURAL", 0.97, { STRUCTURAL: 0.97, ARCHITECTURAL: 0.02, MEP: 0.01 }),
+        title_candidate: judged("cand_2", 0.71, { cand_2: 0.71, cand_1: 0.29 }),
+        number_candidate: judged("cand_3", 0.88, { cand_3: 0.88, NONE: 0.12 }),
+      },
+      usage: { input_tokens: 320, output_tokens: 45 },
+    });
+    const answer = await port.answer(CTX, sheetRequest(), "hash");
+    expect(answer.kind).toBe("answered");
+    if (answer.kind !== "answered") return;
+    expect(answer.judgment).toEqual({
+      provider: "jev-1.13.0",
+      confidence: 0.71,
+      answers: {
+        discipline: { type: "choice", value: "STRUCTURAL", confidence: 0.97, probabilities: { STRUCTURAL: 0.97, ARCHITECTURAL: 0.02, MEP: 0.01 } },
+        title_candidate: { type: "choice", value: "cand_2", confidence: 0.71, probabilities: { cand_2: 0.71, cand_1: 0.29 } },
+        number_candidate: { type: "choice", value: "cand_3", confidence: 0.88, probabilities: { cand_3: 0.88, NONE: 0.12 } },
+      },
+    });
+  });
+
+  test("a figure the contract did not state is null, never invented — and a call with no confidence anywhere has none", async () => {
+    const { port } = jev(answers({ view_type: MEMBER_SECTION }));
+    const answer = await port.answer(CTX, viewCaptionRequest("SECTION 1-1", "DXF_HANDLE:201"), "hash");
+    if (answer.kind !== "answered") throw new Error("refused");
+    expect(answer.judgment).toEqual({
+      provider: TYPESAFE_MODEL,
+      confidence: null,
+      answers: { view_type: { type: "choice", value: MEMBER_SECTION, confidence: null, probabilities: null } },
+    });
+  });
+
+  test("a Noul's probability is its whole judgment, and a probabilities map with a figure that is not a number is no map", async () => {
+    const { port } = jev({
+      model: "jev-1.13.0",
+      answers: { view_type: { type: "choice", choice: MEMBER_SECTION, confidence: "high", probabilities: { MEMBER_SECTION: "most" } }, header: { type: "noul", noul: 0.12 } },
+      usage: { input_tokens: 1, output_tokens: 0 },
+    });
+    const answer = await port.answer(CTX, viewCaptionRequest("SECTION 1-1", "DXF_HANDLE:201"), "hash");
+    if (answer.kind !== "answered") throw new Error("refused");
+    expect(answer.judgment?.answers["view_type"]).toEqual({ type: "choice", value: MEMBER_SECTION, confidence: null, probabilities: null });
+    expect(answer.judgment?.answers["header"]).toEqual({ type: "noul", value: 0.12, confidence: 0.12, probabilities: null });
+    expect(answer.judgment?.confidence).toBe(0.12);
   });
 });
 

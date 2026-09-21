@@ -25,6 +25,7 @@ export type Request = {
   system: string;
   messages: readonly Message[];
   params?: Readonly<Record<string, JsonValue>>;
+  question?: string;
 };
 
 export type Context = { tenantId: string; projectId: string; actor: string; requestId: string };
@@ -39,6 +40,7 @@ export type Answer = {
   inputTokens: number;
   outputTokens: number;
   attributedCost: string;
+  judgment: unknown;
 };
 
 export type LedgerRow = {
@@ -52,13 +54,15 @@ export type LedgerRow = {
   inputTokens: number;
   outputTokens: number;
   attributedCost: string;
+  question: string | null;
+  judgment: unknown;
 };
 
 export type Ledger = { record(row: LedgerRow): Promise<{ callId: string }> };
 
 export type Seam = { transport: string; callModel(ctx: Context, request: Request): Promise<Answer> };
 
-export type Fixture = { requestHash: string; modelId: string; payload: JsonValue; inputTokens: number; outputTokens: number };
+export type Fixture = { requestHash: string; modelId: string; payload: JsonValue; inputTokens: number; outputTokens: number; judgment?: unknown };
 
 /** The barrel's surface as this acceptance reads it — every member optional, so absence is a finding. */
 export type Barrel = {

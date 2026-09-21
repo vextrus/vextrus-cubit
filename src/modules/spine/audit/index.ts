@@ -10,7 +10,8 @@
 // question only the catalogue can answer, and it is asked on every call rather than remembered at
 // import time — a process that outlives a migration would otherwise answer for the schema it started
 // on.
-import { acts, desc, eq, forTenant, isUuid, type TenantDb } from "@/core/db";
+import { acts, desc, eq, forTenant, isUuid, modelLedgerRowsOf, modelOutcomeRowsOf, type ModelLedgerEntry, type ModelOutcome, type TenantDb } from "@/core/db";
+import { calibrationLinesOf, type CalibrationLine } from "@/core/model-calibration";
 
 /**
  * The tables the two panels probe. One home for the names (ARCH-02): whoever ships these surfaces
@@ -43,12 +44,45 @@ export interface AuditAct {
  */
 export type AuditPanel = { readonly armed: false } | { readonly armed: true; readonly rowCount: number };
 
+/**
+ * One call of the model ledger as the panel lists it (L-AI-01), with the person's newest judgment
+ * of it beside it (L-AI-02) — or null where nobody has judged it yet, or nothing was proposed.
+ */
+export interface AuditLedgerCall {
+  readonly callId: string;
+  readonly modelId: string;
+  readonly question: string | null;
+  readonly transport: string;
+  readonly outcome: string;
+  readonly refusalCode: string | null;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly attributedCost: string;
+  /** The call's confidence as the provider stated it, to three places, or null where it stated none. */
+  readonly confidence: string | null;
+  readonly judged: ModelOutcome | null;
+  readonly calledAt: Date;
+}
+
+/**
+ * The ledger's own reading of itself (L-AI-01, L-AI-02): the newest calls, each with its outcome,
+ * and one calibration line per question. Answered only when the ledger panel is armed; the two
+ * lists are empty for a project nothing was called for.
+ */
+export interface AuditLedger {
+  readonly calls: readonly AuditLedgerCall[];
+  readonly calibration: readonly CalibrationLine[];
+}
+
 /** What one read of this screen answers, whole. */
 export interface AuditSurfaces {
   readonly acts: readonly AuditAct[];
   readonly modelLedger: AuditPanel;
   readonly jobs: AuditPanel;
+  readonly ledger: AuditLedger;
 }
+
+const NO_LEDGER: AuditLedger = { calls: [], calibration: [] };
 
 /** The caller's scope: the tenant whose acts are being read. */
 export interface AuditCtx {
@@ -174,7 +208,7 @@ async function panelFor(db: TenantDb, table: string, projectId: string): Promise
  * gets, never a fault raised out of an address a person typed.
  */
 export async function getAuditSurfaces(ctx: AuditCtx, projectId: string): Promise<AuditSurfaces> {
-  if (!isUuid(ctx.tenantId)) return { acts: [], modelLedger: DISARMED, jobs: DISARMED };
+  if (!isUuid(ctx.tenantId)) return { acts: [], modelLedger: DISARMED, jobs: DISARMED, ledger: NO_LEDGER };
 
   const db = forTenant(ctx);
   const [logged, modelLedger, jobs] = await Promise.all([
@@ -182,6 +216,44 @@ export async function getAuditSurfaces(ctx: AuditCtx, projectId: string): Promis
     panelFor(db, AUDIT_PANEL_TABLES.modelLedger, projectId),
     panelFor(db, AUDIT_PANEL_TABLES.jobs, projectId),
   ]);
+  // The ledger is read only where its panel is armed and the project is one: a disarmed panel has no
+  // table to read, and a segment naming no project has no calls (R-SPINE-007).
+  const ledger = modelLedger.armed && modelLedger.rowCount > 0 && isUuid(projectId) ? await ledgerOf(db, ctx.tenantId, projectId) : NO_LEDGER;
 
-  return { acts: logged, modelLedger, jobs };
+  return { acts: logged, modelLedger, jobs, ledger };
+}
+
+/**
+ * The ledger's calls with the newest outcome per call beside each, and the calibration line per
+ * question read over the same rows (B-17: one read, one derivation, quoted by the panel and the
+ * handoff alike). The outcomes are asked for the listed calls only; the calibration is read over
+ * every outcome of the project, because a line is about the question and not about the window.
+ */
+async function ledgerOf(db: TenantDb, tenantId: string, projectId: string): Promise<AuditLedger> {
+  const scope = { tenantId, projectId };
+  const [calls, outcomes] = await Promise.all([modelLedgerRowsOf(db, scope), modelOutcomeRowsOf(db, scope)]);
+  const newest = new Map<string, ModelOutcome>();
+  for (const outcome of outcomes) if (!newest.has(outcome.callId)) newest.set(outcome.callId, outcome.outcome);
+  return {
+    calls: calls.map((call) => ledgerCallOf(call, newest.get(call.callId) ?? null)),
+    calibration: calibrationLinesOf(calls, outcomes),
+  };
+}
+
+function ledgerCallOf(call: ModelLedgerEntry, judged: ModelOutcome | null): AuditLedgerCall {
+  const confidence = call.judgment?.confidence ?? null;
+  return {
+    callId: call.callId,
+    modelId: call.modelId,
+    question: call.question,
+    transport: call.transport,
+    outcome: call.outcome,
+    refusalCode: call.refusalCode,
+    inputTokens: call.inputTokens,
+    outputTokens: call.outputTokens,
+    attributedCost: call.attributedCost,
+    confidence: confidence === null ? null : confidence.toFixed(3),
+    judged,
+    calledAt: call.calledAt,
+  };
 }

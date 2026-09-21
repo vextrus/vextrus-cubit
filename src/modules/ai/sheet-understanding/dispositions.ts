@@ -9,12 +9,20 @@
 // The caller-defect cases below — a call id nobody made, an edit that settled on nothing — are
 // faults, not refusals (ARCH-03): no person can act differently in response to them, so there is no
 // remedy to show and no registry code to carry.
-import { DISPOSITIONS, and, desc, eq, forTenant, isUuid, modelCalls, sheetUnderstandingDispositions, type Disposition } from "@/core/db";
+import { DISPOSITIONS, and, desc, eq, forTenant, isUuid, modelCalls, recordModelOutcome, sheetUnderstandingDispositions, type Disposition, type ModelOutcome } from "@/core/db";
 import type { ModelCallContext, ModelLedgerRow } from "@/core/model";
 import { readingOf, type SheetReading } from "./law";
 
 /** How the ledger spells a call that answered, in the seam's own vocabulary rather than a second one. */
 const PROPOSED: ModelLedgerRow["outcome"] = "proposed";
+
+/**
+ * What a disposition is as the ledger's outcome column spells it (L-AI-02): taking a reading
+ * confirms the proposal, taking it with edits overrules it, turning it down repudiates it. One
+ * table per vocabulary — the disposition stays R-AI-001's word and the outcome the ledger's — and
+ * the row for each lands in the disposition's own transaction, so neither stands without the other.
+ */
+const OUTCOME_OF: Readonly<Record<Disposition, ModelOutcome>> = Object.freeze({ accepted: "CONFIRMED", edited: "OVERRULED", rejected: "REPUDIATED" });
 
 /** Which project's dispositions are being asked for, in whose workspace. */
 export type DispositionScope = { tenantId: string; projectId: string };
@@ -85,6 +93,8 @@ export async function recordDisposition(ctx: ModelCallContext, input: Dispositio
       })
       .returning({ dispositionId: sheetUnderstandingDispositions.dispositionId });
     if (written === undefined) throw new Error(`the ${disposition} disposition of call ${input.callId} was written and answered no disposition id`);
+    // A disposition is a record and not an act (L-ACT-01), so the outcome it is names no act.
+    await recordModelOutcome(tx, { tenantId: ctx.tenantId, projectId: ctx.projectId, callId: input.callId, outcome: OUTCOME_OF[disposition], actId: null, actorUserId: ctx.actor });
     return { dispositionId: written.dispositionId };
   });
 }

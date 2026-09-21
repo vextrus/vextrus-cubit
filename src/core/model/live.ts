@@ -40,7 +40,7 @@ export function liveTransport(env: ModelEnv, fetch: typeof globalThis.fetch): Tr
       // Whether the usage counts tokens is the money derivation's one judgement (B-17), and a
       // figure that is not a count fails exactly as the derivation fails for it — outside the
       // exchange, so the sentence the caller reads is the derivation's own and not a fault id.
-      return { kind: "answered", payload: body.content, inputTokens: tokenCount(body.inputTokens), outputTokens: tokenCount(body.outputTokens) };
+      return { kind: "answered", payload: body.content, inputTokens: tokenCount(body.inputTokens), outputTokens: tokenCount(body.outputTokens), judgment: body.judgment };
     },
   };
 }
@@ -110,5 +110,7 @@ function answered(body: unknown): ProviderBody {
   }
   const usage = (body as { usage?: unknown }).usage;
   const counts = usage !== null && typeof usage === "object" ? (usage as { input_tokens?: unknown; output_tokens?: unknown }) : {};
-  return { content: (body as { content: JsonValue }).content, inputTokens: counts.input_tokens, outputTokens: counts.output_tokens };
+  // A generative provider states nothing about its own answer: no choice, no probability, no
+  // confidence — so the call carries no judgment, and the calibration line has nothing to read.
+  return { content: (body as { content: JsonValue }).content, inputTokens: counts.input_tokens, outputTokens: counts.output_tokens, judgment: null };
 }

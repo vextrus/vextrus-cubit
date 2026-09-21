@@ -509,6 +509,14 @@ export function viewTypeConfirmationRows(tenantId: string): { viewKey: string; t
   ).map((row) => ({ viewKey: row[0] ?? "", type: row[1] ?? "", actId: row[2] ?? "" }));
 }
 
+/** Every outcome a workspace recorded against its model calls, in the order they were recorded (L-AI-02). */
+export function modelOutcomeRows(tenantId: string): { callId: string; outcome: string; actId: string; question: string }[] {
+  return sql(
+    `select call_id::text, outcome, coalesce(act_id::text, ''), question from ${ident("model_call_outcomes")}
+       where ${ident(TENANT_COLUMN)} = ${lit(tenantId)}::uuid order by recorded_seq;`,
+  ).map((row) => ({ callId: row[0] ?? "", outcome: row[1] ?? "", actId: row[2] ?? "", question: row[3] ?? "" }));
+}
+
 /** Every model call one workspace made, by the call id the ledger minted (L-AI-01). */
 export function modelCallRows(tenantId: string): { callId: string; modelId: string; outcome: string; requestHash: string }[] {
   return sql(

@@ -111,7 +111,7 @@ describe("AC-1 — S-Audit stands at its address, with the files its Design Deci
     }
   });
 
-  test("AC-1: the screen's test ids are C-05's ten and no eleventh", () => {
+  test("AC-1: the screen's test ids are the contract's fourteen — C-05's ten and the ledger's four (I-37) — and no fifteenth", () => {
     const contract = new Set<string>(Object.values(TESTID));
     const used = new Set<string>();
     for (const relative of routeFiles().filter((file) => /\.tsx?$/.test(file))) {
@@ -119,7 +119,8 @@ describe("AC-1 — S-Audit stands at its address, with the files its Design Deci
       // (`data-testid={TESTIDS.audit.acts}`) and not the string. Both spellings are read here: the
       // literal, and the registry key resolved back to the id it declares.
       for (const match of code(sourceOf(relative)).matchAll(/data-testid\s*=\s*["'{]?\s*["']?(audit-[a-z0-9-]+)/g)) used.add(match[1] ?? "");
-      for (const match of code(sourceOf(relative)).matchAll(/data-testid\s*=\s*\{\s*(TESTIDS\.[A-Za-z0-9_.]+)\s*\}/g)) {
+      // A DataTable publishes its rows' id through `rowTestId`, which is the same registry key spelled on a prop.
+      for (const match of code(sourceOf(relative)).matchAll(/(?:data-testid|rowTestId)\s*=\s*\{\s*(TESTIDS\.[A-Za-z0-9_.]+)\s*\}/g)) {
         const id = idOfKey(match[1] ?? "");
         if (id !== null) used.add(id);
       }
@@ -128,7 +129,7 @@ describe("AC-1 — S-Audit stands at its address, with the files its Design Deci
       expect(used.has(id), `[data-testid="${id}"] is in the increment's closed test-hook contract and appears nowhere in ${ROUTE_DIR}`).toBe(true);
     }
     for (const id of used) {
-      expect(contract.has(id), `${ROUTE_DIR} adds the hook "${id}" — ${DESIGN_DECISION} §7 closes this screen's ids at the contract's ten ("No others are added")`).toBe(true);
+      expect(contract.has(id), `${ROUTE_DIR} adds the hook "${id}" — ${DESIGN_DECISION} §7 closes this screen's ids at the contract's fourteen ("No others are added")`).toBe(true);
     }
   });
 });

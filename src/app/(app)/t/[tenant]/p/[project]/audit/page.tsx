@@ -28,14 +28,14 @@ export default async function ProjectAudit({ params }: { params: Promise<{ tenan
   const surfaces = await getAuditSurfaces({ tenantId: tenant }, project);
 
   return (
-    <div className="cx-audit">
+    <div className="cx-audit" data-screen-root="" data-state={surfaces.acts.length === 0 ? "empty" : "ready"}>
       <header className="cx-audit-header">
         <h1 className="cx-audit-heading">{auditStrings.audit_heading}</h1>
         <p className="cx-audit-caption">{auditStrings.audit_caption}</p>
       </header>
 
       <ActLogExplorer acts={surfaces.acts} />
-      <AuditPanels jobs={surfaces.jobs} modelLedger={surfaces.modelLedger} />
+      <AuditPanels jobs={surfaces.jobs} ledger={surfaces.ledger} modelLedger={surfaces.modelLedger} />
     </div>
   );
 }

@@ -30,6 +30,7 @@ import {
   keyOf,
   mintFixture,
   modelCallRows,
+  modelOutcomeRows,
   openSheetsStage,
   partitionDoor,
   productModule,
@@ -212,6 +213,16 @@ describe("AC-4: CONFIRM_VIEW_TYPE is offered by group, and confirms by act", () 
     expect(view.confirmed, "the view now reports what was confirmed and the act it came from").toStrictEqual({ type: DETAIL, actId: written.actId });
     expect(view.type, "and the view's own type is still what the grammar read — a confirmation is a fact beside the reading, never a rewrite of it").toBe(UNTYPED);
     expect(view.reason, "the reason the grammar was silent does not stop being true").toBe(CAPTION_UNCLASSIFIABLE);
+
+    // Confirming a model's proposal as proposed is the CONFIRMED outcome of the call that made it,
+    // written with the act (L-AI-02, L-ACT-01) — the labeled outcome the calibration line reads.
+    const outcomes = modelOutcomeRows(stage.person.tenantId).filter((row) => row.actId === written.actId);
+    expect(outcomes.length, "one outcome per confirmed view, each naming the act that carried it").toBe(subjects.length);
+    for (const outcome of outcomes) {
+      expect(outcome.outcome).toBe("CONFIRMED");
+      expect(outcome.callId, "the outcome judges the call whose proposal was confirmed").toBe(view.proposed?.callId);
+      expect(outcome.question, "filed under the question the call put").toBe("view-caption");
+    }
   }, BUDGET_MS);
 
   test("AC-4: takeoff.previewConfirmViewType and takeoff.confirmViewType carry the same Consequence, digest and act to the wire", async () => {

@@ -26,7 +26,8 @@ import { afterAll, describe, expect, test } from "vitest";
 import { provisionScratchDb, type ScratchDb } from "../../../../db/__tests__/harness";
 import { TENANT_ALPHA } from "../../../../db/__tests__/support/fixtures";
 import { seedTenants } from "../../../../db/__tests__/support/live-sql";
-import { closePools, forTenant, isUuid, modelSpendByProject } from "../../db";
+import { closePools, forTenant, isUuid, modelLedgerRowsOf, modelOutcomeRowsOf, modelSpendByProject, recordModelOutcome } from "../../db";
+import { calibrationLinesOf } from "../../model-calibration";
 import { refusalCodeOf } from "../../faults/refusal-marker";
 import { MODEL_IDS, modelCallCost } from "../../model-ledger.types";
 import type { ModelFixture } from "../types";
@@ -43,7 +44,7 @@ const README = "fixtures/model/README.md";
  * and excess-property checking fails it if the type loses a field the map still names.
  */
 const FIXTURE_FIELDS = Object.keys(
-  { requestHash: true, modelId: true, payload: true, inputTokens: true, outputTokens: true } satisfies Record<keyof ModelFixture, true>,
+  { requestHash: true, modelId: true, payload: true, inputTokens: true, outputTokens: true, judgment: true } satisfies Record<keyof ModelFixture, true>,
 ) as (keyof ModelFixture)[];
 
 type Stage = { tenantId: string; projectId: string; ledger: Ledger; fixtureRoot: string };
@@ -98,6 +99,8 @@ describe("AC-6: the shipped ledger adapter writes the real table", () => {
       inputTokens: 1000,
       outputTokens: 2000,
       attributedCost: modelCallCost(SONNET, 1000, 2000),
+      question: null,
+      judgment: null,
     };
     const first = await ledger.record(proposed);
     expect(typeof first.callId, "record answers the generated callId").toBe("string");
@@ -114,6 +117,8 @@ describe("AC-6: the shipped ledger adapter writes the real table", () => {
       inputTokens: 0,
       outputTokens: 0,
       attributedCost: "0",
+      question: null,
+      judgment: null,
     };
     const second = await ledger.record(refused);
     expect(isUuid(second.callId), "the refused row's callId is a uuid too").toBe(true);
@@ -131,6 +136,65 @@ describe("AC-6: the shipped ledger adapter writes the real table", () => {
       outputTokens: 2000,
       attributedCost: modelCallCost(SONNET, 1000, 2000),
     });
+  });
+
+  test("AC-6: a call's question and judgment land on the real row, a person's outcome lands beside it, and the calibration line reads both (L-AI-02)", async () => {
+    const { tenantId, ledger } = await staged();
+    const projectId = randomUUID();
+    const judgment = { provider: "jev-1.13.0", confidence: 0.82, answers: { view_type: { type: "choice", value: "DETAIL", confidence: 0.82, probabilities: { DETAIL: 0.82, TITLE: 0.18 } } } };
+    const base: LedgerRow = {
+      tenantId,
+      projectId,
+      modelId: SONNET,
+      requestHash: "c".repeat(64),
+      transport: "fixture",
+      outcome: "proposed",
+      refusalCode: null,
+      inputTokens: 90,
+      outputTokens: 5,
+      attributedCost: modelCallCost(SONNET, 90, 5),
+      question: "view-caption",
+      judgment,
+    };
+    const confirmed = await ledger.record(base);
+    const overruled = await ledger.record({ ...base, requestHash: "d".repeat(64), judgment: { ...judgment, confidence: 0.41 } });
+    const awaiting = await ledger.record({ ...base, requestHash: "e".repeat(64) });
+    const refused = await ledger.record({ ...base, requestHash: "f".repeat(64), outcome: "refused", refusalCode: FIXTURE_MISSING, inputTokens: 0, outputTokens: 0, attributedCost: "0", judgment: null });
+
+    const db = forTenant({ tenantId });
+    const actor = randomUUID();
+    await recordModelOutcome(db, { tenantId, projectId, callId: confirmed.callId, outcome: "CONFIRMED", actId: null, actorUserId: actor });
+    await recordModelOutcome(db, { tenantId, projectId, callId: overruled.callId, outcome: "OVERRULED", actId: null, actorUserId: actor });
+    const judgingARefusal = await rejectionOf(recordModelOutcome(db, { tenantId, projectId, callId: refused.callId, outcome: "CONFIRMED", actId: null, actorUserId: actor }));
+    expect(judgingARefusal, "a refused call proposed nothing a person could judge — a caller defect, not a row").not.toBe(RESOLVED);
+    expect(String((judgingARefusal as Error).message)).toContain("proposed nothing");
+
+    const calls = await modelLedgerRowsOf(db, { tenantId, projectId });
+    expect(calls.map((row) => row.callId).sort(), "the project's four calls read back").toEqual([confirmed.callId, overruled.callId, awaiting.callId, refused.callId].sort());
+    const held = calls.find((row) => row.callId === confirmed.callId);
+    expect(held?.question, "the question the request named is on the row").toBe("view-caption");
+    expect(held?.judgment, "the judgment is on the row, whole and in the order it was asked").toEqual(judgment);
+
+    const outcomes = await modelOutcomeRowsOf(db, { tenantId, projectId });
+    expect(outcomes.map((row) => [row.callId, row.outcome, row.question]), "two outcomes, newest first, each under the call's question").toEqual([
+      [overruled.callId, "OVERRULED", "view-caption"],
+      [confirmed.callId, "CONFIRMED", "view-caption"],
+    ]);
+
+    expect(calibrationLinesOf(calls, outcomes), "one line for the one question: two judged, one awaiting, one refused, the two means apart").toEqual([
+      {
+        question: "view-caption",
+        proposed: 3,
+        refused: 1,
+        confirmed: 1,
+        overruled: 1,
+        repudiated: 0,
+        affirmed: 0,
+        awaiting: 1,
+        meanConfidenceWhenRight: "0.820",
+        meanConfidenceWhenWrong: "0.410",
+      },
+    ]);
   });
 
   test("AC-6: the barrel's production callModel takes (ctx, request)", async () => {

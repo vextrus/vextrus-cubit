@@ -51,7 +51,38 @@ ConsequenceDialog appears anywhere on it.
   module load — and `{ armed: false }` means the installation holds no such table yet. That
   is rendered as calm copy in the panel's own place: not an error, not a refusal (the
   taxonomy registers no code for it), not an empty table pretending the ledger exists.
-- **I-36 — the log is a list, not a DataTable and not a fixed-height table.** No sort, no
+- **I-37 — the model ledger reads itself: the outcome beside each call, and a calibration line
+  per question (session 4's Jev programme; L-AI-01, L-AI-02, R-AI-005).** An armed ledger panel
+  that holds rows no longer stops at a count. Beneath the count it lists the project's newest
+  calls (the ledger's window, 200) as a DataTable v2 grid — call id through IdChip, the closed
+  question the call put, model and transport, the OUTCOME as the ledger spelled it and then as a
+  person did (`model_call_outcomes`: CONFIRMED, OVERRULED, REPUDIATED, AFFIRMED; a refused call
+  shows its refusal code; a proposal nobody has judged reads `audit_ledger_outcome_awaiting`),
+  the provider's confidence to three places, tokens in / out, cost, and the day — and beneath the
+  grid one line per question read over the same rows: proposed, confirmed, overruled, repudiated,
+  affirmed, awaiting, refused, and the mean confidence where a person agreed against where a
+  person did not. The derivation is `src/core/model-calibration.ts` and nothing on this screen
+  re-derives it (B-17). Why a grid here and a list for the log (I-36): a ledger row is fixed-height
+  tabular data with numerals to right-align, which is what R-UI-005 binds a DataTable to. The panel
+  with rows spans both columns (`cx-audit-panel-ledger`), because a nine-column grid in half a
+  1080 px measure would ellipsise every cell; with no rows it keeps its half. The zero-row
+  rendering is byte-identical to the one before this Interpretation, so the committed picture
+  (a fresh project) did not move. An outcome is never written by this screen: it is a record the
+  disposition writes or an act carries (L-ACT-01), and the screen stays a reader.
+- **I-38 — the log is a 28 px grid, and its identifiers are IdChips (session 4, AM-08 Part 2's
+  rubric as CLAUDE.md reads it; amends I-36 and I-26).** The act log is the screen's primary
+  region and is measured as one: a DataTable v2 (`tableId` `audit-acts`, labelled by the section's
+  `<h2>`) inside `<div data-testid="audit-acts" data-rows>`, columns **Act type**
+  (`audit_col_type`, verbatim mono, 220) · **Actor** (`audit_col_actor`, the label, or an IdChip
+  where the log names the actor by account id, 160) · **Occurred** (`audit_col_occurred`, the day
+  per I-34, 120) · **Consequence** (`audit_consequence_label`, the digest as an IdChip carrying
+  `audit-act-consequence`, 140) · **Cited evidence** (`audit_evidence_label`, one IdChip per
+  subject on one line inside `audit-act-evidence`; a `scheme:key` subject shows its key as the
+  measure, 360). Rows keep `audit-act-row` with `data-act-type` and `data-actor-id`; the filters,
+  the count line and the empty block are unchanged. A digest or a subject is shown whole as the
+  chip's value, on its tooltip and on the clipboard, never as body text; the screen drops the 1080 px
+  page measure so the grid fills the work surface (§1 amended: `max-width: none`).
+- **I-36 — the log is a list, not a DataTable and not a fixed-height table.** *Amended by I-38.* No sort, no
   column operations, no inline edit, no virtualisation (pagination is out of scope by name),
   and the contract's filters are external controls, not column filters — DataTable would be
   machinery with none of its behaviour in use (the I-29 class). An entry carries a digest
@@ -175,8 +206,33 @@ fault (I-35).
 - **Armed** (`data-armed="true"`): the row count — `formatUserFigure(String(rowCount))` in
   `var(--font-mono)` `var(--text-24)` `var(--weight-heading)` `var(--graphite-900)`
   `tabular-nums slashed-zero` — over its caption `audit_ledger_count_caption` /
-  `audit_jobs_count_caption` in `var(--text-12)` `var(--graphite-600)`. Nothing more: the
-  ledger's columns and job detail are those increments' surfaces, not this slice's.
+  `audit_jobs_count_caption` in `var(--text-12)` `var(--graphite-600)`. Job detail is that
+  increment's surface, not this slice's.
+- **Armed with rows, the model ledger only** (I-37; `data-rows` > 0 on the section, which takes
+  `cx-audit-panel-ledger` and spans both columns): after the count and caption, `<div
+  class="cx-audit-ledger">` — column flex, `gap: var(--space-3)`, `margin-top: var(--space-2)`:
+  - `<div data-testid="audit-ledger-grid" data-rows>` holding a DataTable v2 (`tableId`
+    `audit-ledger`, labelled by the panel's `<h2>`; max-height 360 px, scrolls within): columns
+    **Call** (`audit_ledger_col_call`, IdChip short, 120) · **Question**
+    (`audit_ledger_col_question`, the question name verbatim in mono, 150) · **Model**
+    (`audit_ledger_col_model`, mono, 150) · **Transport** (`audit_ledger_col_transport`,
+    EnumLabel, 100) · **Outcome** (`audit_ledger_col_outcome`, 180: EnumLabel of the person's
+    newest outcome; else EnumLabel of the refusal code where the ledger's outcome is `refused`;
+    else `audit_ledger_outcome_awaiting` in `var(--ink-muted)`) · **Confidence**
+    (`audit_ledger_col_confidence`, right, mono, three places, `audit_ledger_no_confidence` where
+    none, 110) · **Tokens in / out** (`audit_ledger_col_tokens`, right, mono, 140) · **Cost**
+    (`audit_ledger_col_cost`, right, mono, `formatUserFigure`, 110) · **Called**
+    (`audit_ledger_col_called`, the day per I-34, mono, 120). Each row
+    `data-testid="audit-ledger-row"` carries `data-call`, `data-question`, `data-judged`.
+  - `<dl data-testid="audit-ledger-calibration" class="cx-audit-calibration">`: `<dt>`
+    `audit_ledger_calibration_heading` (`var(--text-13)` `var(--weight-body-medium)`
+    `var(--ink)`), then one `<dd data-testid="audit-ledger-calibration-line" data-question>` per
+    question in code-point order — flex, wrap, baseline, `gap: var(--space-2) var(--space-3)`,
+    `var(--text-12)` `var(--ink-muted)`: the question name in mono `var(--ink)`, the counts
+    sentence `audit_ledger_calibration_counts` (every figure through `formatUserFigure`), then the
+    confidence clause: `audit_ledger_calibration_confidence` where both means exist,
+    `audit_ledger_calibration_confidence_partial` where one does,
+    `audit_ledger_calibration_no_confidence` where none.
 
 ## 2. States (R-UI-050), ruled cell by cell
 
@@ -209,6 +265,7 @@ consequence and the evidence it cited.** · `audit_acts_heading` **Act log** ·
 `audit_filter_type_label` **Act type** · `audit_filter_actor_label` **Actor** ·
 `audit_filter_subject_label` **Subject** · `audit_filter_any_type` **All act types** ·
 `audit_filter_any_actor` **All actors** · `audit_count` **{shown} of {total} acts** ·
+`audit_col_type` **Act type** · `audit_col_actor` **Actor** · `audit_col_occurred` **Occurred** ·
 `audit_consequence_label` **Consequence** · `audit_evidence_label` **Cited evidence** ·
 `audit_empty_none_heading` **No acts recorded yet** · `audit_empty_none_body` **Acts are
 recorded here the moment they are committed anywhere in this project — there is nothing to
@@ -220,7 +277,19 @@ nothing to list. When it does, every call appears here with its cost and outcome
 `audit_ledger_count_caption` **recorded model calls** · `audit_jobs_heading` **Jobs** ·
 `audit_jobs_disarmed` **This installation does not run recorded background jobs yet, so
 there is no history to list. When it does, every job appears here.** ·
-`audit_jobs_count_caption` **recorded jobs**.
+`audit_jobs_count_caption` **recorded jobs** · `audit_ledger_col_call` **Call** ·
+`audit_ledger_col_question` **Question** · `audit_ledger_col_model` **Model** ·
+`audit_ledger_col_transport` **Transport** · `audit_ledger_col_outcome` **Outcome** ·
+`audit_ledger_col_confidence` **Confidence** · `audit_ledger_col_tokens` **Tokens in / out** ·
+`audit_ledger_col_cost` **Cost** · `audit_ledger_col_called` **Called** ·
+`audit_ledger_outcome_awaiting` **Awaiting a person** · `audit_ledger_no_confidence` **—** ·
+`audit_ledger_calibration_heading` **Calibration by question** ·
+`audit_ledger_calibration_counts` **{proposed} proposed · {confirmed} confirmed · {overruled}
+overruled · {repudiated} repudiated · {affirmed} affirmed · {awaiting} awaiting a person ·
+{refused} refused** · `audit_ledger_calibration_confidence` **Confidence {right} when a person
+agreed, {wrong} when a person did not.** · `audit_ledger_calibration_confidence_partial`
+**Confidence {stated} where a person has judged; the other side has no figure yet.** ·
+`audit_ledger_calibration_no_confidence` **No judged call stated a confidence.**
 
 Voice: calm and concrete, no exclamation marks, no build vocabulary in prose — act types,
 actor ids, subjects and digests are model data and render verbatim as data (I-25's class),
@@ -254,12 +323,15 @@ colour, no semantic tint and no copper appears anywhere on this screen.
 
 ## 7. Test hooks (closed contract, C-05)
 
-Route introduced: `/t/{tenantId}/p/{projectId}/audit`. Test ids, exactly the ten of the
-contract, on the elements ruled in §1: `audit-acts` (the `<ol>`) · `audit-act-row` (each
-`<li>`, `data-act-type`, `data-actor-id`) · `audit-act-consequence` · `audit-act-evidence`
-· `audit-acts-empty` · `audit-filter-type` · `audit-filter-actor` · `audit-filter-subject`
-· `audit-panel-model-ledger` · `audit-panel-jobs` (each `<section>`, `data-armed`). No
-others are added; the clear-filters Button and the count line are found by role and name.
+Route introduced: `/t/{tenantId}/p/{projectId}/audit`. Test ids, exactly the fourteen of the
+contract — C-05's ten and the ledger's four (I-37) — on the elements ruled in §1: `audit-acts`
+(the `<ol>`) · `audit-act-row` (each `<li>`, `data-act-type`, `data-actor-id`) ·
+`audit-act-consequence` · `audit-act-evidence` · `audit-acts-empty` · `audit-filter-type` ·
+`audit-filter-actor` · `audit-filter-subject` · `audit-panel-model-ledger` · `audit-panel-jobs`
+(each `<section>`, `data-armed`; the ledger's also `data-rows`) · `audit-ledger-grid`
+(`data-rows`) · `audit-ledger-row` (`data-call`, `data-question`, `data-judged`) ·
+`audit-ledger-calibration` · `audit-ledger-calibration-line` (`data-question`). No others are
+added; the clear-filters Button and the count line are found by role and name.
 
 Behavioural hooks without new ids: newest-first document order of the rows; `role="status"`
 on the count line; visible `<label for…>` on all three filters; the `<h1>`/`<h2>` hierarchy

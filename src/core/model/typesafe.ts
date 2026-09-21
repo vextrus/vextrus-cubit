@@ -15,9 +15,20 @@
 // carried as Jev states it, and a usage that is not a count fails as the ledger's own derivation
 // fails for it (B-17). A request Jev has no question for is infrastructure's fault, never a
 // product decision (B-14): it is thrown, and no question is posted.
+//
+// The contract spoken is the HTTP API as its documentation states it (docs.typesafe.ai/api, read
+// 2026-09-21): `POST /v1/systemone` with a bearer key; a body of `model`, `state` and `questions`,
+// each question `{type, instructions, criteria}`; an answer of `{type, choice, probabilities,
+// confidence}` per question; `usage.input_tokens` and `usage.output_tokens`; and `model` reporting
+// the versioned id the alias resolved to. The guidance the docs give is followed to the letter:
+// instructions reference the state by its backticked field paths, a question carries its whole
+// meaning in itself (its id is never sent), and a no-match outcome is offered where nothing may fit.
+// What Jev says about its answer — the choice's confidence and probabilities — is carried beside the
+// wire as the call's judgment, for the ledger to record and the calibration line to read; the seam
+// never routes on it here, because a threshold is the caller's policy, evaluated on that corpus.
 import { VIEW_TYPE_SPELLINGS } from "../errors/transport-vocabulary";
 import { DISCIPLINES } from "../sheets";
-import type { JsonValue, ModelRequest } from "./types";
+import type { AnswerJudgment, JsonValue, ModelJudgment, ModelRequest } from "./types";
 
 /** Where Jev is reached, and the model asked for. */
 export const TYPESAFE_ENDPOINT = "https://api.typesafe.ai/v1/systemone";
@@ -32,8 +43,8 @@ const CRITERION_LENGTH = 100;
 /** The answer a number question may give when the sheet states none. */
 const NO_NUMBER = "NONE";
 
-/** What a provider's body is read into: the wire the seam resolves, and the usage as stated. */
-export type ProviderBody = { content: JsonValue; inputTokens: unknown; outputTokens: unknown };
+/** What a provider's body is read into: the wire the seam resolves, the usage as stated, and what the model said of its answer. */
+export type ProviderBody = { content: JsonValue; inputTokens: unknown; outputTokens: unknown; judgment: ModelJudgment | null };
 
 /** One text a sheet reading may cite: the key it is cited by, and what it says. */
 type Candidate = { key: string; text: string };
@@ -129,13 +140,20 @@ export async function exchangeTypeSafe(apiKey: string, fetch: typeof globalThis.
   const answered = (await response.json()) as unknown;
   const answers = answersOf(answered);
   const usage = usageOf(answered);
-  return { content: question.read(answers), inputTokens: usage.input_tokens, outputTokens: usage.output_tokens };
+  return { content: question.read(answers), inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, judgment: judgmentOf(answered, answers) };
 }
 
 /** A question as posted, and the reading of its answers into the wire. */
 type Question = { body: JsonValue; read: (answers: Record<string, unknown>) => JsonValue };
 
-/** The silent-sheet reading as three choices: the discipline, the title candidate, the number candidate. */
+/**
+ * The silent-sheet reading as three choices over one state, asked together (the fan-out pattern:
+ * independent questions over the same state run in one request): the discipline, the title
+ * candidate, the number candidate. Each instruction names the state it reads by its field path, as
+ * the docs ask, and says what a candidate is; the number question offers the no-match outcome
+ * because a sheet may state none, and the title question does not, because a reading with no title
+ * is no reading (the seam refuses it as MALFORMED rather than this adapter guessing one).
+ */
 function sheetQuestion(task: Extract<StructuredTask, { kind: "sheet" }>): Question {
   const candidates = task.candidates.slice(0, CANDIDATE_CAP);
   const byId = new Map<string, Candidate>();
@@ -151,11 +169,21 @@ function sheetQuestion(task: Extract<StructuredTask, { kind: "sheet" }>): Questi
     model: TYPESAFE_MODEL,
     state: { layout: task.layout, candidates: criteria },
     questions: {
-      discipline: { type: "choice", instructions: "Which engineering discipline is this drawing sheet?", criteria: disciplineCriteria },
-      title_candidate: { type: "choice", instructions: "Which candidate text is the sheet's title?", criteria },
+      discipline: {
+        type: "choice",
+        instructions:
+          "`candidates` holds the texts found on one construction drawing sheet, keyed by candidate id, and `layout` is the sheet's layout name. Which engineering discipline is this drawing sheet?",
+        criteria: disciplineCriteria,
+      },
+      title_candidate: {
+        type: "choice",
+        instructions: "`candidates` holds the texts found on one construction drawing sheet, keyed by candidate id. Which candidate is the sheet's title — the name of what the sheet shows, as its title block states it?",
+        criteria,
+      },
       number_candidate: {
         type: "choice",
-        instructions: "Which candidate text is the sheet's number or identifier?",
+        instructions:
+          "`candidates` holds the texts found on one construction drawing sheet, keyed by candidate id. Which candidate is the sheet's number or identifier — the short code its title block files it under, such as S-02 or C-402? Choose NONE if no candidate states one.",
         criteria: { ...criteria, [NO_NUMBER]: "The sheet states no number" },
       },
     },
@@ -183,7 +211,14 @@ function captionQuestion(task: Extract<StructuredTask, { kind: "caption" }>): Qu
   const body: JsonValue = {
     model: TYPESAFE_MODEL,
     state: { caption: task.caption },
-    questions: { view_type: { type: "choice", instructions: "Which class of view does this caption name?", criteria } },
+    questions: {
+      view_type: {
+        type: "choice",
+        instructions:
+          "`caption` is the text captioning one view on a structural construction drawing, which the deterministic caption grammar could not classify. Which class of view does this caption name? Choose UNTYPED if the caption names no class of view a reader could tell.",
+        criteria,
+      },
+    },
   };
   return {
     body,
@@ -210,6 +245,53 @@ function answersOf(body: unknown): Record<string, unknown> {
 function usageOf(body: unknown): { input_tokens?: unknown; output_tokens?: unknown } {
   const usage = (body as { usage?: unknown }).usage;
   return usage !== null && typeof usage === "object" ? (usage as { input_tokens?: unknown; output_tokens?: unknown }) : {};
+}
+
+/**
+ * What Jev said about its answers, read as the API states it and never supplied where it stated
+ * nothing: a `confidence` or `probabilities` that is not what the contract spells is null, not a
+ * figure. The call's own confidence is the weakest answer's — one uncertain question makes an
+ * uncertain call — and null where no answer carried one.
+ */
+function judgmentOf(body: unknown, answers: Record<string, unknown>): ModelJudgment {
+  const provider = (body as { model?: unknown }).model;
+  const read: Record<string, AnswerJudgment> = {};
+  const confidences: number[] = [];
+  for (const [id, answer] of Object.entries(answers)) {
+    const judged = answerJudgmentOf(answer);
+    if (judged === null) continue;
+    read[id] = judged;
+    if (judged.confidence !== null) confidences.push(judged.confidence);
+  }
+  return { provider: typeof provider === "string" ? provider : null, confidence: confidences.length === 0 ? null : Math.min(...confidences), answers: read };
+}
+
+/** One answer's judgment as the API spells it, or null for an answer that is not an object. */
+function answerJudgmentOf(answer: unknown): AnswerJudgment | null {
+  if (answer === null || typeof answer !== "object") return null;
+  const { type, choice, noul, score, confidence, probabilities } = answer as Record<string, unknown>;
+  const primitive = type === "noul" ? "noul" : type === "score" ? "score" : "choice";
+  const value = primitive === "choice" ? (typeof choice === "string" ? choice : null) : primitive === "noul" ? probability(noul) : probability(score);
+  // A Noul's probability is its whole judgment; the contract states no separate confidence for it.
+  const stated = primitive === "noul" ? value : probability(confidence);
+  return { type: primitive, value, confidence: typeof stated === "number" ? stated : null, probabilities: probabilitiesOf(probabilities) };
+}
+
+/** A figure as a probability the contract could have stated: a finite number, or null. */
+function probability(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/** The distribution over criteria as stated, every entry a finite number, or null where it is not one. */
+function probabilitiesOf(value: unknown): Record<string, number> | null {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  const read: Record<string, number> = {};
+  for (const [criterion, figure] of Object.entries(value as Record<string, unknown>)) {
+    const held = probability(figure);
+    if (held === null) return null;
+    read[criterion] = held;
+  }
+  return read;
 }
 
 /** A body nobody will read, released so the connection is not held until collection. */

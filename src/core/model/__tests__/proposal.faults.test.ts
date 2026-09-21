@@ -120,6 +120,8 @@ function proposedRow(staged: Staged): LedgerRow {
     inputTokens: INPUT_TOKENS,
     outputTokens: OUTPUT_TOKENS,
     attributedCost: modelCallCost(MODEL_ID, INPUT_TOKENS, OUTPUT_TOKENS),
+    question: null,
+    judgment: null,
   };
 }
 

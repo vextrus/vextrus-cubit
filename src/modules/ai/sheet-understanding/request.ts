@@ -3,7 +3,7 @@
 // the request hash a recorded answer is filed under is a fact about the sheet rather than about the
 // run (L-AI-01 replays deterministically from fixtures).
 import type { EntityGraph } from "@/core/entitygraph/schema";
-import { canonicalJson, type ModelRequest } from "@/core/model";
+import { MODEL_QUESTIONS, canonicalJson, type ModelRequest } from "@/core/model";
 import { DISCIPLINES } from "@/core/sheets";
 import { UNDERSTANDING_MODEL } from "./law";
 
@@ -53,6 +53,7 @@ export function sheetUnderstandingRequest(graph: EntityGraph, layoutName: string
     modelId: UNDERSTANDING_MODEL,
     system: SYSTEM,
     messages: [{ role: "user", content: canonicalJson(evidenceOn(graph, layoutName)) }],
+    question: MODEL_QUESTIONS.sheetReading,
   };
 }
 

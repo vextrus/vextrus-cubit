@@ -17,7 +17,7 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { afterAll, describe, expect, test } from "vitest";
 import { closeStage, enrol, openStage, stageProject } from "../spine/uploads/support/upload-stage";
-import { and, closePools, eq, forTenant, modelCalls } from "../../src/core/db";
+import { and, closePools, eq, forTenant, modelCalls, modelOutcomeRowsOf } from "../../src/core/db";
 import { refusalCodeOf } from "../../src/core/faults/refusal-marker";
 import { minimalDecimal, modelCallCost } from "../../src/core/model-ledger.types";
 import { readTitleBlock } from "../../src/core/sheets";
@@ -166,6 +166,23 @@ describe("AC-3: every disposition is recorded", () => {
     expect(byDisposition.get(EDITED)?.resolved, "an edited disposition records the reading the person settled on").toEqual(resolved);
     expect(byDisposition.get(ACCEPTED)?.resolved, "an accepted disposition resolved nothing of its own").toBeNull();
     expect(byDisposition.get(REJECTED)?.resolved, "a rejected disposition resolved nothing of its own").toBeNull();
+  });
+
+  test("AC-3: each disposition is also the ledger's outcome of the call it answers — accepted CONFIRMED, edited OVERRULED, rejected REPUDIATED — with no act, and the call's question on it (L-AI-02)", async () => {
+    const stage = await staged();
+    await disposed();
+    const callId = stage.understanding.callId ?? "";
+    const outcomes = await modelOutcomeRowsOf(forTenant({ tenantId: stage.tenantId }), { tenantId: stage.tenantId, projectId: stage.projectId }, [callId]);
+    expect(outcomes.map((row) => row.outcome), "one outcome per disposition, newest first — the rejection was recorded last").toEqual(["REPUDIATED", "OVERRULED", "CONFIRMED"]);
+    for (const row of outcomes) {
+      expect(row.callId, "every outcome judges the call the disposition answered").toBe(callId);
+      expect(row.actId, "a disposition is a record and not an act, so its outcome names none (L-ACT-01)").toBeNull();
+      expect(row.actorUserId, "and records who judged it").toBe(stage.actor);
+      expect(row.question, "the outcome files under the question the call put").toBe("sheet-reading");
+    }
+    const ledger = await ledgerRowsOf(stage.tenantId, stage.projectId);
+    const proposedRow = ledger.find((row) => row.callId === callId);
+    expect(proposedRow?.question, "the proposed call's row names the question it put").toBe("sheet-reading");
   });
 });
 

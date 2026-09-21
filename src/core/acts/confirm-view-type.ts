@@ -12,7 +12,7 @@
 // the view's `type` and the model's proposal stays beside it, so a confirmation is a row appended
 // naming the act that carried it — a fact about what a person judged, never a rewrite of what the
 // drawing says.
-import { viewTypeConfirmations, type TenantTx } from "../db";
+import { recordModelOutcome, viewTypeConfirmations, type TenantTx } from "../db";
 import { violatesConstraint } from "../db/violations";
 import type { RefusalCode } from "../errors";
 import { refusal } from "../faults/refusal-marker";
@@ -140,6 +140,20 @@ export const confirmViewType: ActRendering<ConfirmViewTypeInput> = {
       // would be a different fact, and it stays a fault until somebody decides what it answers.
       if (violatesConstraint(failure, CONFIRMED_ONCE)) throw viewGroupNotOffered(input.group);
       throw failure;
+    }
+
+    // Every member was a model's proposal, and confirming it as proposed is the CONFIRMED outcome of
+    // the call that made it — the labeled outcome the calibration line reads (L-AI-02). It lands in
+    // this transaction, with the act row, or neither (L-ACT-01).
+    for (const member of members) {
+      await recordModelOutcome(tx, {
+        tenantId: ctx.tenantId,
+        projectId: input.projectId,
+        callId: member.view.proposed?.callId ?? "",
+        outcome: "CONFIRMED",
+        actId: act.actId,
+        actorUserId: ctx.userId,
+      });
     }
   },
 };

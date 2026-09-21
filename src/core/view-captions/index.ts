@@ -8,7 +8,7 @@
 //
 // What comes back is a Proposal and stays one (L-AI-02): a classification held until a person
 // confirms it. Nothing here writes a view, a type or a confirmation.
-import { canonicalJson, propose } from "../model";
+import { MODEL_QUESTIONS, canonicalJson, propose } from "../model";
 import type { DecodeResult, ModelCallContext, ModelRequest, Proposal, SourceKeyResolver } from "../model";
 import { VIEW_TYPE_SPELLINGS } from "../errors/transport-vocabulary";
 import type { ModelId } from "../model-ledger.types";
@@ -50,6 +50,7 @@ export function viewCaptionRequest(caption: string, anchorKey: string): ModelReq
     modelId: VIEW_CAPTION_MODEL,
     system: SYSTEM,
     messages: [{ role: "user", content: canonicalJson({ caption, key: anchorKey }) }],
+    question: MODEL_QUESTIONS.viewCaption,
   };
 }
 

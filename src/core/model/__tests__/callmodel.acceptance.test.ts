@@ -242,10 +242,30 @@ describe("AC-2: fixture replay is deterministic", () => {
       inputTokens: fixture.inputTokens,
       outputTokens: fixture.outputTokens,
       attributedCost: cost,
+      question: null,
+      judgment: null,
     };
     expect(row, "the ledger row carries the ctx, the request, the transport, the outcome, the tokens and the cost").toEqual(expectedRow);
     const [callId] = await answeredCallIds(record);
     expect(answer.callId, "the answer's callId is what the ledger answered").toBe(callId);
+  });
+
+  test("AC-2: a request that names its question and a fixture that recorded a judgment put both on the row — the question never in the hash, the judgment on the answer", async () => {
+    const requestHash = await member("requestHash");
+    const root = fixtureRoot();
+    const request: Request = { ...sampleRequest(), question: "view-caption" };
+    const hash = requestHash(request);
+    const { question: _unhashed, ...withoutQuestion } = request;
+    void _unhashed;
+    expect(requestHash(withoutQuestion), "the question is a name for the ledger, not part of the request's identity — a recorded answer stays filed under its hash").toBe(hash);
+
+    const judgment = { provider: "jev-1.13.0", confidence: 0.82, answers: { view_type: { type: "choice", value: "DETAIL", confidence: 0.82, probabilities: { DETAIL: 0.82, MEMBER_SECTION: 0.18 } } } };
+    writeFixture(root, { requestHash: hash, modelId: request.modelId, payload: { payload: { type: "DETAIL" }, sources: ["DXF_HANDLE:1"] }, inputTokens: 90, outputTokens: 5, judgment });
+    const { seam, record } = await fixtureSeam(root);
+
+    const answer = await seam.callModel(context(), request);
+    expect(answer.judgment, "the ModelAnswer carries what the model said of its answer, as the fixture recorded it").toEqual(judgment);
+    expect(record.mock.calls[0]?.[0], "and the row records the question by name and the judgment whole").toMatchObject({ question: "view-caption", judgment });
   });
 
   test("AC-2: the same request replays to a deep-equal answer and a deep-equal ledger row", async () => {
@@ -299,6 +319,8 @@ describe("AC-3: a missing fixture is FIXTURE_MISSING, never a network call", () 
       inputTokens: 0,
       outputTokens: 0,
       attributedCost: "0",
+      question: null,
+      judgment: null,
     };
     expect(record.mock.calls[0]?.[0], "the refused row: zero tokens, cost 0, the ctx's tenant and project").toEqual(expectedRow);
   });

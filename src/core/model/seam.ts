@@ -20,7 +20,7 @@ import { requestHash } from "./canonical";
 import { PROPOSAL_KIND, resolveProposal, type Proposal, type ProposalContract, type Resolution, type ResolutionCode } from "./proposal";
 import type { SourceKey } from "./sources";
 import { selectTransport, type ModelEnv } from "./transport";
-import type { JsonValue, ModelAnswer, ModelCallContext, ModelLedger, ModelLedgerRow, ModelRequest, ModelTransport, TransportPort } from "./types";
+import type { JsonValue, ModelAnswer, ModelCallContext, ModelJudgment, ModelLedger, ModelLedgerRow, ModelRequest, ModelTransport, TransportPort } from "./types";
 
 /** The routes the fault seam records this seam's own failures under — one per public entry (B-21). */
 const ROUTES = { callModel: "model/callModel", propose: "model/propose" } as const;
@@ -77,6 +77,7 @@ type Settled<T> = {
   inputTokens: number;
   outputTokens: number;
   attributedCost: string;
+  judgment: ModelJudgment | null;
 };
 
 /** What a resolved proposal settles to: the decoded payload and the sources it rests on. */
@@ -97,6 +98,11 @@ function modelAnswer(settled: Settled<JsonValue>): ModelAnswer {
   return { ...call, outcome: "proposed", payload: value };
 }
 
+/**
+ * L-AI-02 closes a Proposal's list at payload, sources, model and callId, so what the model said
+ * about its own answer is not carried here: it is the ledger row's, read back by the call id a
+ * Proposal does carry (the judgment is a ledger fact, like the tokens — recorded Interpretation).
+ */
 function proposal<T>(settled: Settled<ResolvedProposal<T>>): Proposal<T> {
   return { kind: PROPOSAL_KIND, payload: settled.value.payload, sources: settled.value.sources, model: settled.modelId, callId: settled.callId };
 }
@@ -106,16 +112,19 @@ async function answerThroughPort<T>(port: TransportPort, ledger: ModelLedger, ct
   const modelId = pinned(request.modelId);
   const hash = requestHash(request);
   const answer = await port.answer(ctx, request, hash);
-  const attribution = { tenantId: ctx.tenantId, projectId: ctx.projectId, modelId, requestHash: hash, transport: port.transport } as const;
+  const attribution = { tenantId: ctx.tenantId, projectId: ctx.projectId, modelId, requestHash: hash, transport: port.transport, question: request.question ?? null } as const;
 
   if (answer.kind === "refused") {
-    // Nothing was spent: the transport answered nothing.
-    await recordedOrNone(ledger, ctx, route, { ...attribution, outcome: "refused", refusalCode: answer.code, inputTokens: 0, outputTokens: 0, attributedCost: modelCallCost(modelId, 0, 0) });
+    // Nothing was spent and nothing was judged: the transport answered nothing.
+    await recordedOrNone(ledger, ctx, route, { ...attribution, outcome: "refused", refusalCode: answer.code, inputTokens: 0, outputTokens: 0, attributedCost: modelCallCost(modelId, 0, 0), judgment: null });
     throw answer.refusal;
   }
 
   const attributedCost = modelCallCost(modelId, answer.inputTokens, answer.outputTokens);
-  const spent = { inputTokens: answer.inputTokens, outputTokens: answer.outputTokens, attributedCost } as const;
+  // What the model spent and what it said of its answer travel together onto every row that
+  // follows: a reading the seam refuses still records the judgment the model gave, because the
+  // calibration line is read over refusals too.
+  const spent = { inputTokens: answer.inputTokens, outputTokens: answer.outputTokens, attributedCost, judgment: answer.judgment } as const;
   const reading = await readOrFault(read, answer.payload, ledger, ctx, route, { ...attribution, ...spent });
   if (!reading.ok) {
     // The model answered, so the tokens it spent stay attributed on the refused row (L-AI-02).

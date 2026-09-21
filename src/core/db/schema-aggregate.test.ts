@@ -81,6 +81,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "memberTypeVariants",
   "memberTypes",
   "memberships",
+  "modelCallOutcomes",
   "modelCalls",
   "modelFixtures",
   "notesReadings",
@@ -131,6 +132,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
   "DISPOSITIONS",
   "GRID_AXES",
   "GRID_FAMILIES",
+  "MODEL_OUTCOMES",
   "RASTER_TIERS",
   "REBAR_ZONES",
   "SCAN_VERDICTS",
@@ -163,6 +165,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
   "memberTypeVariants",
   "memberTypes",
   "memberships",
+  "modelCallOutcomes",
   "modelCalls",
   "modelFixtures",
   "participantRoleWithdrawals",
@@ -209,7 +212,16 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over each key, its SQL table name and its column names in code-point order — the shape
  * half of the same baseline. Re-baselined with TABLES_BEFORE, and never on its own.
  *
- * Re-baselined for ONE ADDED TABLE and nothing else, `partitionRebuilds`
+ * Re-baselined for ONE ADDED TABLE and TWO ADDED COLUMNS, the ledger's outcome column and what the
+ * model said of its answer (./schema-model.ts, session 4's Jev programme, L-AI-01, L-AI-02):
+ * `modelCallOutcomes` — one append-only row per person's judgment of a proposed call, CONFIRMED,
+ * OVERRULED, REPUDIATED or AFFIRMED, keyed to the call by the composite (tenant, call) key — and on
+ * `model_calls` the nullable `question` (the closed question the call put, by name) and `judgment`
+ * (the provider's own confidence and probabilities, json). The roster grew by that one key — 64
+ * tables to 65 — and not one existing table's SQL name or existing column moved; the previous digest
+ * was fa85b87ab493abf90c3b60c50dc6417a793f21cf10fa47913a389f074b35c3ae.
+ *
+ * Re-baselined before that for ONE ADDED TABLE and nothing else, `partitionRebuilds`
  * (./schema-takeoff-views.ts): the marker one drawing's partition rebuild leaves behind, keyed by
  * (tenant, ingest), so a drawing whose rebuild read no class at all is still known to have been
  * rebuilt rather than read as unpartitioned (L-CAD-08, L-REG-04). The roster grew by that one key —
@@ -256,7 +268,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * table's SQL name or column moved with it; the previous digest was
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "fa85b87ab493abf90c3b60c50dc6417a793f21cf10fa47913a389f074b35c3ae";
+const COLUMNS_DIGEST_BEFORE = "f3e45a1f899709c8d0161b0a3750d9c8d3e2cc1ce8d3afe93579b2ea1345fa4a";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {

@@ -21,6 +21,8 @@ export function dbModelLedger(db: TenantDb): ModelLedger {
           inputTokens: row.inputTokens,
           outputTokens: row.outputTokens,
           attributedCost: row.attributedCost,
+          question: row.question,
+          judgment: row.judgment,
         })
         .returning({ callId: modelCalls.callId });
       if (inserted === undefined) {

@@ -8,7 +8,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  max-width: 1080px;
+  /* I-38: the log is the screen's primary grid and fills the work surface; no page measure. */
+  max-width: none;
+  min-height: 0;
 }
 
 .cx-audit-header {
@@ -104,25 +106,10 @@
 /* --- the log -------------------------------------------------------------------------------- */
 
 .cx-audit-acts {
-  margin: 0;
-  margin-top: var(--space-3);
-  padding: 0;
-  list-style: none;
-  border-top: var(--hairline);
-}
-
-.cx-audit-act {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding-block: var(--space-3);
-  border-bottom: var(--hairline);
-}
-
-.cx-audit-act-meta {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
+  min-height: 0;
+  margin-top: var(--space-3);
 }
 
 .cx-audit-act-type {
@@ -138,40 +125,18 @@
 }
 
 .cx-audit-act-when {
-  margin-left: auto;
   font-family: var(--font-mono);
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
   color: var(--ink-muted);
 }
 
-.cx-audit-act-line {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-}
-
-.cx-audit-act-label {
-  min-width: 96px;
-  font-size: var(--text-12);
-  color: var(--ink-muted);
-}
-
-/* A digest and a subject are identifiers: they are shown whole, wrap rather than truncate, and
-   select in one gesture (I-26). */
-.cx-audit-act-value {
-  overflow-wrap: anywhere;
-  user-select: all;
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--ink-secondary);
-}
-
+/* The cited subjects, each an IdChip, on one line of the cell (I-38). */
 .cx-audit-act-evidence {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--space-2);
+  overflow: hidden;
 }
 
 /* --- the empty answer, in the list's place (I-33) ------------------------------------------- */
@@ -245,4 +210,68 @@
   margin: 0;
   font-size: var(--text-12);
   color: var(--ink-muted);
+}
+
+/* --- the ledger's own reading of itself (I-37): the newest calls and the line per question ---- */
+
+.cx-audit-panel-ledger {
+  grid-column: 1 / -1;
+}
+
+.cx-audit-ledger {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.cx-audit-ledger-grid {
+  min-height: 0;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.cx-audit-ledger-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-audit-ledger-awaiting {
+  color: var(--ink-muted);
+}
+
+.cx-audit-calibration {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-audit-calibration-heading {
+  margin: 0;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--ink);
+}
+
+.cx-audit-calibration-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--ink-muted);
+}
+
+.cx-audit-calibration-question {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--ink);
+}
+
+.cx-audit-calibration-counts,
+.cx-audit-calibration-confidence {
+  font-variant-numeric: tabular-nums;
 }

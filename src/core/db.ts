@@ -34,6 +34,8 @@ export {
   modelCalls,
   userPrefs,
   modelFixtures,
+  modelCallOutcomes,
+  MODEL_OUTCOMES,
   DISPOSITIONS,
   sheetUnderstandingDispositions,
   ACCEPTED_FORMATS,
@@ -96,6 +98,9 @@ export type {
   WorkspaceRole,
   Disposition,
   SheetReadingRecord,
+  ModelOutcome,
+  ModelJudgmentRecord,
+  AnswerJudgmentRecord,
   AcceptedFormat,
   UploadState,
   ScanVerdict,
@@ -121,6 +126,8 @@ export {
 } from "./db/seam";
 export { scopedClient } from "./db/seam";
 export type { Scope, TenantDb, TenantTx, SystemDb, ModelSpend } from "./db/seam";
+export { UNNAMED_QUESTION, modelLedgerRowsOf, modelOutcomeRowsOf, recordModelOutcome } from "./db/model-outcomes";
+export type { ModelLedgerEntry, ModelOutcomeEntry, ModelOutcomeInput } from "./db/model-outcomes";
 export { jobsStore } from "./db/jobs";
 export type { JobEventDraft, JobEventRow, QueuedJob, QueueShape, LiveClaim, ClaimCursor, QueueState, JobsStore } from "./db/jobs";
 export { recordSystemReasonsWith, type SystemReasonRecord, type SystemReasonRecorder } from "./db/reason";

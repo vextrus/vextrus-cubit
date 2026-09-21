@@ -240,6 +240,8 @@ function proposedRow(staged: Staged): LedgerRow {
     inputTokens: INPUT_TOKENS,
     outputTokens: OUTPUT_TOKENS,
     attributedCost: modelCallCost(PROPOSAL_MODEL_ID, INPUT_TOKENS, OUTPUT_TOKENS),
+    question: null,
+    judgment: null,
   };
 }
 
@@ -255,6 +257,8 @@ function refusedRow(staged: Staged, refusalCode: string): LedgerRow {
     inputTokens: INPUT_TOKENS,
     outputTokens: OUTPUT_TOKENS,
     attributedCost: modelCallCost(PROPOSAL_MODEL_ID, INPUT_TOKENS, OUTPUT_TOKENS),
+    question: null,
+    judgment: null,
   };
 }
 
@@ -473,6 +477,8 @@ describe("AC-2: propose answers exactly a Proposal over the fixture transport", 
       { key: "inputTokens", check: () => expect(proposeRow?.inputTokens, "the propose row attributes the input tokens the transport reported").toBe(viaCallModel.inputTokens) },
       { key: "outputTokens", check: () => expect(proposeRow?.outputTokens, "the propose row attributes the output tokens the transport reported").toBe(viaCallModel.outputTokens) },
       { key: "attributedCost", check: () => expect(proposeRow?.attributedCost, "the propose row attributes the cost those tokens cost (L-AI-02)").toBe(viaCallModel.attributedCost) },
+      // L-AI-02 closes the Proposal's list, so what the model said of its answer is the row's and never the Proposal's.
+      { key: "judgment", check: () => expect(proposeRow?.judgment, "the propose row records the judgment the transport carried, which the Proposal does not carry (L-AI-02)").toEqual(viaCallModel.judgment) },
     ];
 
     for (const { key, check } of accounting) {
