@@ -45,7 +45,10 @@ const USERS_TABLE = "users";
 const COMFORTABLE = "comfortable";
 const COMPACT = "compact";
 const DENSITY_MODES: readonly string[] = [COMFORTABLE, COMPACT];
-const DEFAULT_DENSITY = COMFORTABLE;
+// The default is the compact row — "grids default to the compact 28 px row" (R-UI-083, AM-08; Design
+// Direction 00 §4.2). It read `comfortable` here until 2026-09-21 (4c5a1da3): R-UI-005 names the two
+// modes and a per-user control, and no default; the seam, the column and the shell now say compact.
+const DEFAULT_DENSITY = COMPACT;
 
 /** A value the CHECK must refuse — anything that is not one of the two modes. */
 const NOT_A_MODE = "roomy";
@@ -272,7 +275,7 @@ describe("AC-1: the user-prefs migration lands the store under the identity idio
     ).toStrictEqual([`${USER_ID_COLUMN}->${USERS_TABLE}(${USER_ID_COLUMN})`]);
   });
 
-  it("AC-1: density is NOT NULL, defaults to comfortable and is closed by a CHECK to exactly the two modes", async () => {
+  it("AC-1: density is NOT NULL, defaults to compact (R-UI-083, migration 0053) and is closed by a CHECK to exactly the two modes", async () => {
     const { bootstrapUrl, userId } = await staged();
 
     const density = columnFacts(bootstrapUrl, DENSITY_COLUMN);
@@ -290,7 +293,7 @@ describe("AC-1: the user-prefs migration lands the store under the identity idio
     );
     expect(
       defaulted.map((row) => row[0]),
-      `a preference row written with no mode must land as ${DEFAULT_DENSITY} — R-UI-005's default is the store's, so densityFor has one honest answer for an account that never chose`,
+      `a preference row written with no mode must land as ${DEFAULT_DENSITY} — R-UI-083's default is the store's (migration 0053), so densityFor has one honest answer for an account that never chose`,
     ).toStrictEqual([DEFAULT_DENSITY]);
 
     // Closure, both ways: every mode the clause names is lawful, and a value outside them is not.

@@ -42,7 +42,10 @@ const USERS_TABLE = "users";
 const COMFORTABLE = "comfortable";
 const COMPACT = "compact";
 const DENSITY_MODES: readonly string[] = [COMFORTABLE, COMPACT];
-const DEFAULT_DENSITY = COMFORTABLE;
+// The default is the compact row — "grids default to the compact 28 px row" (R-UI-083, AM-08; Design
+// Direction 00 §4.2). It read `comfortable` here until 2026-09-21 (4c5a1da3): R-UI-005 names the two
+// modes and a per-user control, and no default; the seam, the column and the shell now say compact.
+const DEFAULT_DENSITY = COMPACT;
 
 const usersRef = (): TableRef => ({ schema: "public", table: USERS_TABLE, sql: `public.${ident(USERS_TABLE)}` });
 
@@ -160,12 +163,12 @@ function storedRows(bootstrapUrl: string, userId: string): string[] {
  * ------------------------------------------------------------------ */
 
 describe("AC-2: SEAM-PREFS answers a density for every account and stores the one it is given", () => {
-  it("AC-2: an account with no stored row reads as comfortable", async () => {
+  it("AC-2: an account with no stored row reads as compact, the seam's default (R-UI-083)", async () => {
     const { userId, bootstrapUrl, seam } = await account("unset");
     expect(storedRows(bootstrapUrl, userId).length, "this case's account must start with no preference row").toBe(0);
     expect(
       await densityFor(seam)(userId),
-      `densityFor must answer ${DEFAULT_DENSITY} for an account that never chose — R-UI-005's default is the seam's answer, never an absence a screen has to handle`,
+      `densityFor must answer ${DEFAULT_DENSITY} for an account that never chose — R-UI-083's default is the seam's answer, never an absence a screen has to handle`,
     ).toBe(DEFAULT_DENSITY);
   });
 
@@ -201,7 +204,7 @@ describe("AC-2: SEAM-PREFS answers a density for every account and stores the on
     const { seam } = await staged();
     expect(
       [...((seam.DENSITIES ?? []) as readonly string[])],
-      `R-UI-005 gives density two modes and the test contract fixes their order — comfortable first, because it is the default a screen reads first`,
+      `R-UI-005 gives density two modes and the test contract fixes their order — comfortable first, the order the store's CHECK lists them (the default itself is compact, R-UI-083)`,
     ).toStrictEqual([...DENSITY_MODES]);
   });
 
