@@ -166,7 +166,9 @@ test.describe("J-012 — a set, pinned, and a changed file that revises it", () 
     await expect(firstPin, "which is the one the set stands at").toHaveAttribute("data-current", "true");
     const firstDigest = (await heldAttribute(firstPin, "data-digest")) ?? "";
     expect(firstDigest, "a manifest digest is a lowercase 64-hex sha256").toMatch(DIGEST);
-    await expect(firstPin.locator(`[data-testid="${S_SETS.revisionDigest}"]`), "and it is shown whole, character for character (I-99)").toHaveText(firstDigest);
+    // I-107: the digest is an IdChip — the whole value is the chip's `data-value`, the tooltip and the
+    // clipboard; the document shows the measure.
+    await expect(firstPin.locator(`[data-testid="${S_SETS.revisionDigest}"]`), "and its chip carries the digest whole, character for character (I-107)").toHaveAttribute("data-value", firstDigest);
     const firstCitation = firstPin.locator(`[data-testid="${S_SETS.revisionMember}"]`);
     await expect(firstCitation, "citing the one member it held").toHaveCount(1);
     await expect(firstCitation.first(), "at the content that member stood at (L-REG-06: the manifest is the citation list)").toHaveAttribute("data-sha256", firstSha);
@@ -179,8 +181,8 @@ test.describe("J-012 — a set, pinned, and a changed file that revises it", () 
       const wanted = getComputedStyle(document.documentElement).getPropertyValue("--font-mono");
       const flat = (value: string): string => value.replace(/["']/g, "").replace(/\s+/g, " ").trim().toLowerCase();
       return { shown: flat(digest === null ? "" : getComputedStyle(digest).fontFamily), wanted: flat(wanted) };
-    }, testIdSelector(TESTIDS.set.revisionDigest)));
-    expect(mono.shown, "the digest renders in the mono face the design tokens name").toBe(mono.wanted);
+    }, `${testIdSelector(TESTIDS.set.revisionDigest)} .cx-id-chip-value`));
+    expect(mono.shown, "the digest's chip renders its measure in the mono face the design tokens name").toBe(mono.wanted);
     await checkpoint(page, testInfo, "j-012-set-pinned");
 
     /* --- j-012-revision-added: the same name, changed bytes, a second revision --- */

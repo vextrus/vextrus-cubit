@@ -70,6 +70,10 @@ export function selectLanes(roster, only) {
  */
 export function runLane(lane, io) {
   return new Promise((resolveExit) => {
+    // The e2e lanes clean test-results/, the directory the logs live under, so the directory is made
+    // again before every lane's log is opened — a lane that follows an e2e lane once crashed here on
+    // ENOENT and took the gate down with it (session 4).
+    mkdirSync(io.logDir, { recursive: true });
     const log = createWriteStream(join(io.logDir, `${lane.id}.log`));
     const [command, ...args] = lane.argv;
     if (command === undefined) throw new Error(`lane ${lane.id} names no command`);
