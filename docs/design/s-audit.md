@@ -101,8 +101,8 @@ rows), `audit-panels.tsx` (server-rendered panel pair), `strings.ts` (keys `audi
 before any query (the shell's `scopedTenantId` precedent) — the module answers the same
 `AuditSurfaces` shape with no acts, never a 22P02 driver fault.
 
-The page renders in `shell-main`, one column `cx-audit`: `max-width: 1080px`, column flex,
-`gap: var(--space-6)`. Rail and breadcrumb are the shell's, per I-30: `areaOf` reads this
+The page renders in `shell-main`, one column `cx-audit`: no page measure (I-38 — the act log is the
+screen's primary grid and fills the work surface), column flex, `gap: var(--space-6)`. Rail and breadcrumb are the shell's, per I-30: `areaOf` reads this
 address as Projects, the rail row carries `aria-current="true"`, the Projects crumb links
 back, and no crumb names this screen. Recorded IOU: visible navigation to this route
 (R-UI-031) is owed by the node that owns the shell's project navigation — the increment's
