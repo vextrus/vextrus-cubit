@@ -141,7 +141,7 @@ describe("AC-6: the shipped ledger adapter writes the real table", () => {
   test("AC-6: a call's question and judgment land on the real row, a person's outcome lands beside it, and the calibration line reads both (L-AI-02)", async () => {
     const { tenantId, ledger } = await staged();
     const projectId = randomUUID();
-    const judgment = { provider: "jev-1.13.0", confidence: 0.82, answers: { view_type: { type: "choice", value: "DETAIL", confidence: 0.82, probabilities: { DETAIL: 0.82, TITLE: 0.18 } } } };
+    const judgment = { provider: "jev-1.13.0", confidence: 0.82, answers: { view_type: { type: "choice", value: "CLASS_A", confidence: 0.82, probabilities: { CLASS_A: 0.82, CLASS_B: 0.18 } } } };
     const base: LedgerRow = {
       tenantId,
       projectId,

@@ -23,7 +23,7 @@ import { CANDIDATE_CAP, TYPESAFE_ENDPOINT, TYPESAFE_MODEL, structuredTaskOf } fr
 import type { JsonValue, ModelCallContext, ModelRequest } from "../types";
 
 /** View classes addressed through the vocabulary's one home, never spelled here (L-CAD-06). */
-const [LAYOUT_PLAN, , , MEMBER_SECTION, DETAIL, , , , TITLE] = VIEW_TYPE_SPELLINGS;
+const [LAYOUT_PLAN, , , MEMBER_SECTION, DETAIL, , , , TITLE, UNTYPED] = VIEW_TYPE_SPELLINGS;
 
 const CTX: ModelCallContext = {
   tenantId: "d3e00000-0000-4000-8000-000000000001",
@@ -139,7 +139,7 @@ describe("the contract the docs state (docs.typesafe.ai/api, read 2026-09-21)", 
     await caption.port.answer(CTX, viewCaptionRequest("SECTION 1-1", "DXF_HANDLE:201"), "hash-caption");
     const asked = ((caption.posted[0] as Posted).body["questions"] as Record<string, { instructions: string }>)["view_type"]!;
     expect(asked.instructions).toContain("`caption`");
-    expect(asked.instructions, "a caption that names no class has UNTYPED to fall to").toContain("UNTYPED");
+    expect(asked.instructions, "a caption that names no class has the vocabulary's own no-class member to fall to").toContain(UNTYPED);
   });
 
   test("the request names its closed question for the ledger, and the two names are the roster's", () => {

@@ -128,8 +128,10 @@ describe("AC-4: a pinned view renders identity, digest, lineage and the paramete
       expect(identity, `${TESTID_IDENTITY} must show all three identity fields (scope, name, version); "${field}" is not in "${identity}"`).toContain(field);
     }
 
-    const digest = textOf(one(container, TESTID_DIGEST));
-    expect(digest, "the digest renders whole — a truncated digest compares nothing (Decision I-26)").toBe(view.digest);
+    // I-209 amends I-26: the digest is an IdChip — the whole value is the chip's `data-value`, the
+    // tooltip and the clipboard; the document shows the measure.
+    const digest = one(container, TESTID_DIGEST).getAttribute("data-value");
+    expect(digest, "the digest is the chip's whole value — a truncated digest compares nothing (Decision I-209)").toBe(view.digest);
     expect(identity, "identity and digest are shown as separate fields; neither substitutes for the other (L-MEA-01)").not.toContain(view.digest);
   });
 
@@ -150,9 +152,11 @@ describe("AC-4: a pinned view renders identity, digest, lineage and the paramete
 
     view.lineage.forEach((expected, index) => {
       const rendered = textOf(steps[index]);
-      for (const field of [expected.scope, expected.name, expected.version, expected.digest]) {
-        expect(rendered, `lineage step ${index + 1} shows its own (scope, name, version) and its digest; "${field}" is not in "${rendered}"`).toContain(field);
+      for (const field of [expected.scope, expected.name, expected.version]) {
+        expect(rendered, `lineage step ${index + 1} shows its own (scope, name, version); "${field}" is not in "${rendered}"`).toContain(field);
       }
+      const chips = [...(steps[index]?.querySelectorAll("[data-value]") ?? [])].map((chip) => chip.getAttribute("data-value"));
+      expect(chips, `lineage step ${index + 1} carries its digest as an IdChip's whole value (I-209)`).toContain(expected.digest);
     });
   });
 

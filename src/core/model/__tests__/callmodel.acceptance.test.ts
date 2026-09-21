@@ -259,8 +259,10 @@ describe("AC-2: fixture replay is deterministic", () => {
     void _unhashed;
     expect(requestHash(withoutQuestion), "the question is a name for the ledger, not part of the request's identity — a recorded answer stays filed under its hash").toBe(hash);
 
-    const judgment = { provider: "jev-1.13.0", confidence: 0.82, answers: { view_type: { type: "choice", value: "DETAIL", confidence: 0.82, probabilities: { DETAIL: 0.82, MEMBER_SECTION: 0.18 } } } };
-    writeFixture(root, { requestHash: hash, modelId: request.modelId, payload: { payload: { type: "DETAIL" }, sources: ["DXF_HANDLE:1"] }, inputTokens: 90, outputTokens: 5, judgment });
+    // The class names are the fixture's own — a judgment is replayed, never decoded here, so no member of
+    // the view vocabulary is spelled (L-CAD-06's one home).
+    const judgment = { provider: "jev-1.13.0", confidence: 0.82, answers: { view_type: { type: "choice", value: "CLASS_A", confidence: 0.82, probabilities: { CLASS_A: 0.82, CLASS_B: 0.18 } } } };
+    writeFixture(root, { requestHash: hash, modelId: request.modelId, payload: { payload: { type: "CLASS_A" }, sources: ["DXF_HANDLE:1"] }, inputTokens: 90, outputTokens: 5, judgment });
     const { seam, record } = await fixtureSeam(root);
 
     const answer = await seam.callModel(context(), request);

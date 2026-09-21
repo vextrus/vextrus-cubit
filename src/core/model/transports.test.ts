@@ -66,7 +66,7 @@ describe("the fixture transport", () => {
     const root = fixtureRoot();
     const asked = request();
     const hash = requestHash(asked);
-    const judgment = { provider: "jev-1.13.0", confidence: 0.64, answers: { view_type: { type: "choice", value: "DETAIL", confidence: 0.64, probabilities: { DETAIL: 0.64, TITLE: 0.36 } } } };
+    const judgment = { provider: "jev-1.13.0", confidence: 0.64, answers: { view_type: { type: "choice", value: "CLASS_A", confidence: 0.64, probabilities: { CLASS_A: 0.64, CLASS_B: 0.36 } } } };
     writeFileSync(join(root, `${hash}.json`), JSON.stringify({ requestHash: hash, modelId: asked.modelId, payload: {}, inputTokens: 10, outputTokens: 2, judgment }));
     const answer = await fixtureTransport(root).answer(ctx, asked, hash);
     expect(answer.kind === "answered" && answer.judgment).toEqual(judgment);

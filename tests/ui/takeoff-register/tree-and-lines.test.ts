@@ -112,6 +112,13 @@ function spreadsOver(held: readonly string[], roster: readonly string[], column:
   );
 }
 
+/** The IdChip values inside one row's cell under a named column — the whole identifiers it carries. */
+function chipValuesUnder(row: HTMLElement, key: string): string[] {
+  const at = COLUMN_KEYS.indexOf(key);
+  const cells = [...row.querySelectorAll('[role="gridcell"], [role="rowheader"]')] as HTMLElement[];
+  return [...(cells[at]?.querySelectorAll("[data-value]") ?? [])].map((chip) => chip.getAttribute("data-value") ?? "");
+}
+
 /** The cell of one row under a named column — the position the header order gives it. */
 function cellUnder(row: HTMLElement, key: string): string {
   const at = COLUMN_KEYS.indexOf(key);
@@ -258,7 +265,10 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
       expect(bases, "the quantity basis stands as R-UI-002's chip").toContain(line.quantityBasis);
       expect(bases, "and the selecting basis beside it, whose SCREAMING form the label keeps").toContain(line.selectionBasis);
       expect(cellUnder(row, "takeoff_register_col_coverage"), "the coverage states its own word").toContain(line.coverage);
-      for (const key of line.calibrationKeys) expect(cellUnder(row, "takeoff_register_col_calibration"), "every calibration key is stated, whole").toContain(key);
+      // A calibration key is an identifier and stands as an IdChip: the whole key is the chip's value
+      // (R-UI-082; the register Decision's craft amendment, session 4), the document shows the measure.
+      const calibrationChips = chipValuesUnder(row, "takeoff_register_col_calibration");
+      for (const key of line.calibrationKeys) expect(calibrationChips, "every calibration key is stated, whole, as a chip's value").toContain(key);
       expect(cellUnder(row, "takeoff_register_col_engine"), "the engine states its own word").toContain(line.engine);
       // §6: a source key renders as the chips a person reads — the sheet it stands on, the mark it
       // was read for, and the extractor's handle. A key of no known grammar is not abbreviated into

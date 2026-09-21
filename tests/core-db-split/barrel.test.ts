@@ -119,6 +119,14 @@ const VALUES_BEFORE: Readonly<Record<string, string>> = {
   forTenant: "function",
   runAsSystem: "function",
   modelSpendByProject: "function",
+  // Re-baselined for the ledger's outcome column (session 4, L-AI-01, L-AI-02, B-20): the seam's own
+  // writer and two readers of `model_call_outcomes`, the closed outcome roster the column's CHECK is
+  // built from (the DISPOSITIONS precedent), and the one word an unnamed question is filed under.
+  MODEL_OUTCOMES: "object",
+  UNNAMED_QUESTION: "string",
+  modelLedgerRowsOf: "function",
+  modelOutcomeRowsOf: "function",
+  recordModelOutcome: "function",
   jobsStore: "function",
 };
 
