@@ -87,6 +87,26 @@ describe("AC-2 — one invocation, judged by its artifact", () => {
     CLI_BUDGET_MS,
   );
 
+  test(
+    "AC-2: DWG drawings are converted and ingested across the CLI seam",
+    async () => {
+      const { ingestDrawing } = await seam();
+      const { entityGraphSchema } = await productModule<GraphSchema>(ENTITYGRAPH_MODULE);
+      const dwgBytes = new Uint8Array(readFileSync(join(REPO_ROOT, "cad/tests/dwg/fixtures/basic.dwg")));
+      const dir = tempDir("cli-dwg");
+
+      const outcome = await ingestDrawing(dwgBytes, "dwg", { tempDir: dir });
+      expect(outcome.ok, `basic.dwg answered: ${JSON.stringify(outcome)}`).toBe(true);
+      if (!outcome.ok) return;
+
+      const parsed = entityGraphSchema.parse(JSON.parse(new TextDecoder().decode(outcome.artifact)));
+      expect(outcome.graph).toStrictEqual(parsed);
+      const entities = Array.isArray(outcome.graph["entities"]) ? outcome.graph["entities"] : [];
+      expect(entities.length).toBeGreaterThan(0);
+    },
+    CLI_BUDGET_MS,
+  );
+
   test("AC-2: the CLI is spawned once, at the checkout root, with the argv the contract spells", async () => {
     const { ingestDrawing } = await seam();
     const bytes = cadFixture("basic");

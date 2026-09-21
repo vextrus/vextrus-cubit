@@ -194,6 +194,9 @@ _NOTED_TYPES: Final[dict[str, str]] = {
     "WIPEOUT": WIPEOUT,
 }
 
+#: Structural records that are not drawing content and never mint entity keys (L-CAD-03).
+_NOT_CONTENT_BYTES: Final = frozenset({b"ATTRIB", b"ATTDEF", b"SEQEND", b"VERTEX", b"VIEWPORT"})
+
 
 def _handles_in(data: bytes) -> list[str]:
     """Every entity handle the tag stream states, in the order it states them (group code 5).
@@ -204,9 +207,23 @@ def _handles_in(data: bytes) -> list[str]:
     """
     lines = data.split(b"\n")
     handles: list[str] = []
+    in_entities = False
+    current_type: bytes | None = None
+    has_sections = b"SECTION" in data
     for index in range(0, len(lines) - 1, 2):
-        if lines[index].strip() == b"5":
-            handles.append(lines[index + 1].strip().decode("latin-1"))
+        code = lines[index].strip()
+        val = lines[index + 1].strip()
+        if code == b"0" and val == b"SECTION":
+            if index + 2 < len(lines) and lines[index + 2].strip() == b"2":
+                in_entities = lines[index + 3].strip() == b"ENTITIES"
+        elif code == b"0" and val == b"ENDSEC":
+            in_entities = False
+            current_type = None
+        elif in_entities or not has_sections:
+            if code == b"0":
+                current_type = val
+            elif code == b"5" and current_type is not None and current_type not in _NOT_CONTENT_BYTES:
+                handles.append(val.decode("latin-1"))
     return handles
 
 

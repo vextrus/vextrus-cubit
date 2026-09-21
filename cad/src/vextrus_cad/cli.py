@@ -13,6 +13,7 @@ import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
+from .dwg import DwgError, convert_dwg
 from .ingest import IngestError, ingest_dxf
 from .model import EntityGraphError, parse_entity_graph
 from .serialise import write_artifact
@@ -27,21 +28,38 @@ def _parser() -> argparse.ArgumentParser:
         description="Turn a drawing file into one EntityGraph artifact, and stop.",
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
-    ingest = subcommands.add_parser("ingest", help="ingest a DXF file into an EntityGraph artifact")
+    ingest = subcommands.add_parser("ingest", help="ingest a DXF or DWG file into an EntityGraph artifact")
     ingest.add_argument("input", help="the drawing to read")
     ingest.add_argument("--out", required=True, help="where to write the EntityGraph artifact")
     return parser
 
 
-def _ingest(source: str, destination: str) -> int:
+def _is_dwg(path: Path) -> bool:
+    if path.suffix.lower() == ".dwg":
+        return True
     try:
-        artifact = ingest_dxf(Path(source))
+        with path.open("rb") as stream:
+            magic = stream.read(6)
+            return magic.startswith(b"AC")
+    except OSError:
+        return False
+
+
+def _ingest(source: str, destination: str) -> int:
+    source_path = Path(source)
+    try:
+        if _is_dwg(source_path):
+            with tempfile.TemporaryDirectory(prefix=".vextrus-dwg-") as scratch:
+                conversion = convert_dwg(source_path, Path(scratch))
+                artifact = ingest_dxf(conversion.dxf_path)
+        else:
+            artifact = ingest_dxf(source_path)
         # The artifact is the whole hand-off across the seam (L-CAD-05), so the extractor reads its
         # own output through the mirror before pinning it as a revision: a drawing that mints one
         # handle twice, or an attribute with no tag, is a drawing this extractor cannot represent,
         # and refusing it by name beats writing a file neither mirror will parse (L-CAD-02).
         parse_entity_graph(artifact)
-    except (IngestError, EntityGraphError) as error:
+    except (DwgError, IngestError, EntityGraphError) as error:
         print(f"vextrus-cad: cannot ingest {source}: {error}", file=sys.stderr)
         return EXIT_REFUSED
 

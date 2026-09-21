@@ -33,6 +33,15 @@ def test_ingest_writes_into_a_directory_that_does_not_exist_yet(tmp_path: Path) 
     assert out.is_file()
 
 
+def test_dwg_ingest_writes_the_artifact_and_exits_zero(tmp_path: Path) -> None:
+    dwg_source = Path(__file__).parent / "dwg" / "fixtures" / "basic.dwg"
+    out = tmp_path / "basic.dwg.entitygraph.json"
+    assert main(["ingest", str(dwg_source), "--out", str(out)]) == 0
+    assert out.is_file()
+    graph = parse_entity_graph(json.loads(out.read_text(encoding="utf-8")))
+    assert len(graph.document["entities"]) > 0
+
+
 def test_an_unparseable_drawing_is_refused_by_name(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
