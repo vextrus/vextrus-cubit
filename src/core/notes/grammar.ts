@@ -54,8 +54,16 @@ const MULTIPLE_OF_D = new RegExp(String.raw`(${FIGURE})\s*d\b`, "i");
 /** The lap a note states for bars in TENSION, which is the one detailing applies (AM-03(f)). */
 const TENSION = /\bTENSION\b/i;
 
-/** What a note separates its clauses with — one sentence states the tension lap and the other's. */
-const CLAUSES = /[/;]/;
+/** Does this text speak of a lap at all — `LAP`, `LAPS`, in either case? */
+const STATES_LAP = /\bLAPS?\b/i;
+
+/**
+ * The clauses a lap is read within — what a note separates its clauses with (one sentence states the
+ * tension lap and the other's), plus an MTEXT paragraph mark and a sentence
+ * end — a general-notes block is many clauses in one text, and a lap figure belongs to the clause
+ * that names the lap, never to a stirrup clause two paragraphs on.
+ */
+const LAP_CLAUSES = /[/;]|\\P|\.(?=\s|$)/;
 
 /** The stirrup and tie hook this product bills: the 135° bend (AM-03, BS 8666). */
 const HOOK_BEND = "135";
@@ -126,13 +134,25 @@ function readFc(said: string): Found | null {
  * clause that names TENSION is what says which figure that is, never the order they were written in.
  */
 function readLap(said: string): Found | null {
-  if (!/\bLAP\b/i.test(said)) return null;
-  for (const clause of said.split(CLAUSES)) {
+  if (!STATES_LAP.test(said)) return null;
+  const clauses = said.split(LAP_CLAUSES);
+  for (const clause of clauses) {
     if (!TENSION.test(clause)) continue;
     const stated = multipleOfD(clause);
     if (stated !== null) return stated;
   }
-  return multipleOfD(said);
+  // No clause names TENSION: the figure is read from a clause that names the lap itself, and from no
+  // other. A detailing note that says "NO LAP WITHIN A BEAM-COLUMN JOINT" and, two paragraphs on,
+  // "STIRRUP ZONES: 2D FROM EACH SUPPORT FACE" states no lap — F-RCC6-BNBC's S-02 does exactly this,
+  // and reading the whole text's first multiple of d proposed a 2d lap against the 50d the sheet
+  // states beside it, suspending the standing (R-TO-034, L-MEA-01: nothing is assumed where a note
+  // is silent).
+  for (const clause of clauses) {
+    if (!STATES_LAP.test(clause)) continue;
+    const stated = multipleOfD(clause);
+    if (stated !== null) return stated;
+  }
+  return null;
 }
 
 /**

@@ -106,6 +106,23 @@ describe("AC-1: the notes grammar reads F-RCC6-BNBC's general notes, and nothing
     expect(again, "a deterministic grammar carries no state between two readings (L-CAD-08)").toEqual(once);
   });
 
+  test("AC-1: a detailing note that names the lap in one clause and a stirrup zone's 2D two paragraphs on states no lap (F-RCC6-BNBC S-02, DXF_HANDLE:1F75)", async () => {
+    // The M3 leg's finding (session 4): the whole text's first multiple of d was read as a 2d lap
+    // against the 50d the sheet states beside it, and the standing stood SUSPENDED between them. A
+    // lap figure is read from a clause that names the lap, and from no other (R-TO-034, L-MEA-01).
+    const grammar = await grammarSeam();
+    const detailing: SheetText = {
+      sourceKey: "DXF_HANDLE:1F75",
+      text: String.raw`{\fSwis721 Cn BT|b1|i0|c0|p34;\LDETAILING NOTES}\P11. LAPS SHALL BE STAGGERED; NOT MORE THAN 50%%% OF BARS MAY BE LAPPED AT ONE SECTION. NO LAP WITHIN A BEAM-COLUMN JOINT.\P12. TOP BARS OVER SUPPORTS SHALL EXTEND L/4 EACH SIDE OF THE SUPPORT FACE, BOTTOM BARS L/5, UNLESS THE LONG SECTION SHOWS OTHERWISE.\P13. STIRRUP ZONES: 2D FROM EACH SUPPORT FACE AT THE CLOSE SPACING, THE MIDDLE AT THE WIDE SPACING.\P14. CHAIRS AT 1.0 m c/c BOTH WAYS IN EVERY DOUBLE-LAYER SLAB AND RAFT.\P`,
+    };
+    const lapNote: SheetText = { sourceKey: "DXF_HANDLE:1F76", text: "LAP 50d TENSION / 40d COMPRESSION U.N.O." };
+    const proposed = grammar.proposeNotes([detailing, lapNote]).map(proposalFacts);
+    const laps = proposed.filter((fact) => (fact as { kind?: string }).kind === "LAP");
+    expect(laps.length, "one lap on the sheet: the 50d the lap note states, and nothing off the detailing note").toBe(1);
+    expect((laps[0] as { valueAsWritten?: string }).valueAsWritten, "the tension lap, as the drawing wrote it").toBe("50d");
+    expect((laps[0] as { sourceKey?: string }).sourceKey, "read off the note that states it").toBe("DXF_HANDLE:1F76");
+  });
+
   test("AC-1: a sentence that states no figure proposes nothing, and an empty sheet proposes nothing", async () => {
     const grammar = await grammarSeam();
     expect(grammar.proposeNotes(BNBC_SILENT_NOTES).map(proposalFacts), "a standard's name, a heading and a label state no reinforcement figure").toEqual([]);
