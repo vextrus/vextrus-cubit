@@ -1,23 +1,50 @@
 /**
  * J-000 SEGMENTS: see column lines
- * MISSING DOOR: nothing in the UI re-partitions an ingested sheet, and the register's objects are
- * made only by the partition job's expansion stage for a set revision that already names the
- * drawing — while the reading a sheet gets is asked for ONCE, by the screen session that took the
- * upload. There is therefore no order of clicks that reaches a measurable campaign on a project a
- * customer has just made. AM-09 §2: "A leg that cannot be reached through the UI is a missing
- * screen, not a licence to stage." The door owed is a re-partition (or a pin that re-expands),
- * reachable from S-Drawings or the register. J-021 covers the column slice today, over a stage.
  *
- * The walk itself is written and held here rather than deleted: a level inserted through
- * offered-group → INSERT_LEVEL, `register-measure` pressed, `register-measure-step` reaching done,
- * and the published lines standing in `register-lines` with their evidence links. The increment that
- * lands the door turns this `test.fixme` into a `test` and deletes the MISSING DOOR line above —
- * which is the moment the roster stops accepting a stub for M2.
+ * M2's third leg of the golden path: the campaign the prologue opened is MEASURED, by clicks, and its
+ * column lines stand in the register. The door this leg waited on (recorded here as MISSING DOOR
+ * until 2026-09-21) was the register following the acts that move the expansion's inputs: a pin, a
+ * level, a typical range each re-expand the stored partition (L-CAD-07; the partition module's
+ * `reexpandProject`), so a customer's own order of clicks — pin the set, insert the levels, author
+ * the typical plan's range, press Measure — reaches a measurable campaign on a project they have just
+ * made. The walk itself lives in `golden-run.ts` (`measuredRun`), because the coverage leg starts from
+ * the same measured campaign and a second worker of the lane walks it on its own project.
  */
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { STakeoffPage } from "../../pages/s-takeoff.page";
+import { checkpoint } from "../../support/checkpoint";
+import { settled } from "../../support/settled";
+import { TESTIDS } from "../../../../src/ui/testids";
+import { LEVELS, measuredRun, releaseGoldenWorker } from "./golden-run";
 
-test.describe("J-000 — Golden Path: the column lines of the measured campaign", () => {
-  test.fixme("J-000 m2-column-lines: a level is inserted, the campaign is measured, and its column lines stand in the register", () => {
-    // Held on the missing door named above (AM-09 §2).
+test.use({ viewport: { width: 1440, height: 900 } });
+
+test.describe.serial("J-000 — Golden Path: the column lines of the measured campaign", () => {
+  test.afterAll(async () => {
+    await releaseGoldenWorker();
+  });
+
+  test("J-000 m2-column-lines: the levels stand, the typical plan's range is authored, the campaign is measured, and its column lines stand in the register with their evidence", async ({ page }, testInfo) => {
+    test.setTimeout(900_000);
+    const run = await measuredRun(page);
+    const takeoff = new STakeoffPage(page);
+
+    await takeoff.open(run.tenantId, run.projectId);
+    await expect(takeoff.root, "the register reads the measured campaign").toHaveAttribute("data-state", /ready|partial/);
+    await expect(takeoff.levelStack, "and states the stack the campaign was measured over").toBeVisible();
+
+    const rows = takeoff.lines.getByTestId(TESTIDS.datatable.row);
+    await expect(rows, "the campaign's published lines stand in the table").not.toHaveCount(0);
+
+    // The column lines, through the class filter — the table is virtualised, so its rendered rows
+    // are a window and never the roster; narrowing is how a reader reaches one class (§3.2).
+    await takeoff.filter("class").click();
+    await page.getByRole("option", { name: /^column$/i }).first().click();
+    await expect(takeoff.linesCount, `the register counts the column lines the typical floor plan's columns measure to across ${LEVELS.length} levels`).not.toHaveText(/^0 of/);
+    await expect(rows, "and shows them").not.toHaveCount(0);
+    await expect(takeoff.evidenceLinks, "every line offering a Trace to the entities it cites (R-UI-022)").not.toHaveCount(0);
+
+    await settled(page);
+    await checkpoint(page, testInfo, "j-000/column-lines");
   });
 });

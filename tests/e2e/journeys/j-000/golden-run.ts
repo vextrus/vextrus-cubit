@@ -46,12 +46,17 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { dirname, join } from "node:path";
 import { expect, test, type Cookie, type Page } from "@playwright/test";
 import { SAuthPage, S_AUTH } from "../../pages/s-auth.page";
-import { SDrawingsPage } from "../../pages/s-drawings.page";
+import { SDrawingsPage, S_DRAWINGS } from "../../pages/s-drawings.page";
 import { SHomePage, S_HOME } from "../../pages/s-home.page";
+import { SLevelsPage } from "../../pages/s-levels.page";
+import { SScalePage } from "../../pages/s-scale.page";
+import { STakeoffPage } from "../../pages/s-takeoff.page";
 import { ShellPage, SHELL } from "../../pages/shell.page";
 import { newestMail } from "../../support/outbox";
 import { startJourneyWorker, type JourneyWorker } from "../../support/worker";
-import { heldAttribute } from "../../support/retrying-read";
+import { appears, everyRow, heldAttribute, steadyText } from "../../support/retrying-read";
+import { SViewerPage, VIEWER_BUDGETS } from "../../viewer/s-viewer.page";
+import { TESTIDS, testIdSelector } from "../../../../src/ui/testids";
 
 /** The corpus the golden path uploads, and the sheet its later legs stand on. */
 export const FIXTURE = join(process.cwd(), "fixtures", "rcc6", "rcc6.dxf");
@@ -71,7 +76,26 @@ export interface GoldenRun {
   readonly email: string;
   /** The signed-in session, carried so a later leg file walks as the same person. */
   readonly cookies: Cookie[];
+  /** Whether `measuredRun` has walked the campaign to its first measure run on this project. */
+  readonly measured?: boolean;
 }
+
+/**
+ * THE LEVELS THE GOLDEN PATH INSERTS, and the range it authors for the typical floor plan.
+ *
+ * F-RCC6's typical floor plan is captioned bare ("TYPICAL FLOOR PLAN"; its note says 1F TO 5F), so
+ * the plan states no membership of its own and its columns register on no level until a person
+ * inserts the levels and authors the range (L-CAD-07, TYPICAL_RANGE_UNSTATED). The foundation plan's
+ * footings need neither: foundation classes take the lawful-null level basis and stand in the
+ * register from the pin.
+ */
+export const LEVELS: readonly { readonly label: string; readonly ordinal: number }[] = Object.freeze(
+  // GF through ROOF, as the fixture's schedules band their members (columns GF–5F, beams 1F–ROOF): a
+  // member whose band ends on a level the stack does not hold is SECTION_BAND_UNCOVERED and offers
+  // nothing (L-FRM-02), so the stack a customer inserts is the building's, not the typical plan's alone.
+  ["GF", "1F", "2F", "3F", "4F", "5F", "ROOF"].map((label, index) => ({ label, ordinal: index })),
+);
+export const TYPICAL_RANGE = Object.freeze({ from: "1F", to: "5F" });
 
 /**
  * WHERE THE RUN IS WRITTEN DOWN, AND WHY IT HAS TO BE. Playwright gives each test FILE its own
@@ -305,6 +329,119 @@ async function pinASetOverTheDrawing(page: Page, tenantId: string, projectId: st
   await page.getByTestId("consequence-confirm").click();
   await expect(dialog, "the pinned revision closes the dialog").toHaveCount(0, { timeout: 60_000 });
   await expect(page.getByTestId("set-revision"), "the pin recorded one set revision — the campaign the register measures is now open").toHaveCount(1, {
+    timeout: 60_000,
+  });
+}
+
+/* ------------------------------------------------------------- the measured campaign (M2's legs) */
+
+/** What the register's count line reads while nothing has been measured. */
+const NO_LINES = "0 of 0 lines";
+
+/**
+ * THE GOLDEN RUN, MEASURED: the levels inserted, the typical plan's range authored, the Measure door
+ * pressed and its run finished — every step a click, none staged (AM-09 §2). The two M2 legs that
+ * read the campaign (the column lines, the coverage grid) start from here, and a second worker of
+ * the lane walks it again on its own project exactly as it walks the prologue.
+ *
+ * Memoised the way the prologue is: the run file carries `measured`, and a run that says so is
+ * trusted only if the product still stands it — the register holding lines is the product's own
+ * answer, and a run that has lost them is walked again.
+ */
+export async function measuredRun(page: Page): Promise<GoldenRun> {
+  const run = await goldenRun(page);
+  if (run.measured === true && (await standsMeasured(page, run))) return run;
+  await measureCampaign(page, run);
+  const measured: GoldenRun = { ...run, measured: true };
+  remember(measured);
+  established = Promise.resolve(measured);
+  return measured;
+}
+
+/** Does the register of this run hold published lines? The product's answer, read where a customer reads it. */
+async function standsMeasured(page: Page, run: GoldenRun): Promise<boolean> {
+  const takeoff = new STakeoffPage(page);
+  await takeoff.open(run.tenantId, run.projectId);
+  const count = await steadyText(takeoff.linesCount, "the register's count line").catch(() => NO_LINES);
+  if (count !== NO_LINES) return true;
+  process.stdout.write(`J-000 golden run: measuring the campaign again — the register of project ${run.projectId} reads "${count}"\n`);
+  return false;
+}
+
+/**
+ * Insert the levels, author the typical plan's range, press Measure, and wait for the run to publish.
+ * The worker is up first: the measure run is a job, and a door pressed with no consumer behind it
+ * would wait for nobody.
+ */
+async function measureCampaign(page: Page, run: GoldenRun): Promise<void> {
+  await goldenWorker();
+  const levels = new SLevelsPage(page);
+  const takeoff = new STakeoffPage(page);
+
+  /* --- a scale of record for every view the panel proposes one for: a rail measures nothing on a
+     view no affirmation act names (R-TO-021, VIEW_SCALE_UNAFFIRMED) — the affirm-scale leg walks
+     this same door for one view; the campaign needs it for the views its members stand on --- */
+  await affirmScales(page, run);
+
+  /* --- the stack: every level of the typical range, through the one insert door (J-031's door) --- */
+  await levels.open(run.tenantId, run.projectId);
+  for (const level of LEVELS) {
+    await levels.proposeLevel(level.label, level.ordinal);
+    await levels.confirmAct();
+    await expect(levels.rowAtOrdinal(level.ordinal), `${level.label} stands at ordinal ${level.ordinal}`).toContainText(level.label);
+  }
+
+  /* --- the range the caption's note states, authored for the one view that stands for a range --- */
+  const range = levels.rangeRows.first();
+  await expect(range, "the typical floor plan stands as the one view with no typical range").toBeVisible();
+  await levels.authorRange(range, TYPICAL_RANGE.from, TYPICAL_RANGE.to);
+  await levels.confirmAct();
+
+  /* --- the Measure door, and the run it queues --- */
+  await takeoff.open(run.tenantId, run.projectId);
+  await takeoff.measure.click();
+  await expect(takeoff.timeline, "the run is watched where it was started (R-UI-024)").toBeVisible();
+  await expect(takeoff.measureStep, "the measure run finishes").toHaveAttribute("data-status", "succeeded", { timeout: READING_BUDGET_MS });
+  await expect(takeoff.linesCount, "and the register counts the lines the rails published").not.toHaveText(NO_LINES, { timeout: READING_BUDGET_MS });
+}
+
+/**
+ * Affirm a scale of record for every view the panel proposes one for, in one act: open the sheet,
+ * check every view that carries a proposal, and press the one affirm door every checked member can
+ * stand at (L-MEA-05: an act names one rank for all its views; the file's own units are the rank
+ * every view reaches, at worst). A view the drawing offers no scale for is left as the panel states
+ * it — its members stay unmeasured and the coverage grid says so (R-TO-021).
+ */
+async function affirmScales(page: Page, run: GoldenRun): Promise<void> {
+  const drawings = new SDrawingsPage(page);
+  const viewer = new SViewerPage(page);
+  const scale = new SScalePage(page);
+
+  await drawings.open(run.tenantId, run.projectId);
+  await drawings.cell(drawings.cardForLayout(SHEET), S_DRAWINGS.open).click();
+  await expect(viewer.status, "the sheet paints").toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
+  await scale.open();
+  await expect(scale.rows, "every view of the sheet is listed, with its proposals or its declared absence").not.toHaveCount(0, { timeout: 120_000 });
+
+  let checked = 0;
+  for (const row of await everyRow(scale.rows, "the scale panel's view rows")) {
+    if ((await heldAttribute(row, "data-state")) === "affirmed") continue;
+    const proposal = row.getByTestId(TESTIDS.viewer.scaleProposal).first();
+    if (!(await appears(proposal))) continue;
+    await proposal.click();
+    await row.getByTestId(TESTIDS.viewer.scaleMember).click();
+    checked += 1;
+  }
+  if (checked === 0) return;
+
+  const door = page.locator(`${testIdSelector(TESTIDS.viewer.scaleAffirm)}:not([disabled])`).first();
+  await expect(door, `an affirm door stands open at a rank every one of the ${checked} checked views can stand at`).toBeVisible({ timeout: 120_000 });
+  await door.click();
+  await expect(scale.dialog, "affirming a scale is an act, and an act is previewed in the one ConsequenceDialog").toBeVisible();
+  await expect(scale.dialog, "which names the act it is about to commit").toHaveAttribute("data-act-type", "AFFIRM_SCALE");
+  await scale.confirm.click();
+  await expect(scale.dialog, "the committed act closes the dialog").toHaveCount(0, { timeout: 60_000 });
+  await expect(page.locator(`${testIdSelector(TESTIDS.viewer.scaleView)}[data-state="affirmed"]`), "the checked views now carry a scale of record").toHaveCount(checked, {
     timeout: 60_000,
   });
 }

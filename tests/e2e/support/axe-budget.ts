@@ -37,6 +37,8 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "grid": 0,
   "held-out": 0,
   "invite-pending": 0,
+  "j-000/column-lines": 0,
+  "j-000/coverage-grid": 0,
   "j-000/disciplines-confirmed": 0,
   "j-000/entity-selected": 0,
   "j-000/first-project-on-s-home": 0,

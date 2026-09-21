@@ -155,6 +155,26 @@ export class SLevelsPage {
   rangeRow(viewKey: string): Locator {
     return this.ranges.locator(`${id(LEVELS_IDS.rangeRow)}[data-view="${viewKey}"]`);
   }
+  /** Every view standing for a range nobody has stated — the rail's range rows, in the store's order. */
+  get rangeRows(): Locator {
+    return this.ranges.locator(id(LEVELS_IDS.rangeRow));
+  }
+
+  /**
+   * Author a typical range on one range row: the two ends chosen at the shipped Selects by the level's
+   * own label, then the preview door (`levels-author-range`), which opens the one ConsequenceDialog.
+   */
+  async authorRange(row: Locator, fromLabel: string, toLabel: string): Promise<void> {
+    await this.chooseByName(row.getByTestId(LEVELS_IDS.rangeFrom), fromLabel);
+    await this.chooseByName(row.getByTestId(LEVELS_IDS.rangeTo), toLabel);
+    await row.getByTestId(LEVELS_IDS.authorRange).click();
+  }
+
+  /** Choose an option of a shipped Select by the word it shows, exactly. */
+  async chooseByName(control: Locator, name: string): Promise<void> {
+    await control.click();
+    await this.page.getByRole("option", { name, exact: true }).first().click();
+  }
 
   /* --- the one ConsequenceDialog (R-UI-021, the pattern's own ids) --- */
   get dialog(): Locator {

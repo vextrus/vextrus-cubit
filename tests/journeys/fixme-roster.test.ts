@@ -29,14 +29,6 @@ const ROSTER: Readonly<Record<string, Readonly<Record<string, string>>>> = {
     "J-011: the selection is repainted after the fly-to settles, and the pulse ends by itself (R-UI-022)":
       "with motion in force a Reveal's arrival paints no frame a screenshot can see between `data-flyto=settled` and stillness — paint vs WebGL compositing, which this journey's node cannot own (R-UI-022, docs/design/viewer.md §4; the restore recipe is at the foot of the file)",
   },
-  "tests/e2e/journeys/j-000/m2-column-lines.spec.ts": {
-    "J-000 m2-column-lines: a level is inserted, the campaign is measured, and its column lines stand in the register":
-      "the M2 door this leg walks has not landed; AM-09 §3 writes the segment into the golden path before the milestone exists",
-  },
-  "tests/e2e/journeys/j-000/m2-coverage-grid.spec.ts": {
-    "J-000 m2-coverage-grid: the grid states every cell's coverage, and the certificate preview says it in sentences":
-      "the same: the coverage door is announced ground, declared here until M2's screen ships",
-  },
   "tests/e2e/journeys/j-000/m3-bill-and-schedules.spec.ts": {
     "J-000 m3-bill-and-schedules: levels and schedules transcribed, the campaign run on the M3 fixture, the register reviewed, and the unpriced BOQ and BBS emitted as DRAFT — UNSIGNED with the XLSX opened":
       "M3 has not shipped; the increment that ships it replaces this stub with the walk and never deletes the file",

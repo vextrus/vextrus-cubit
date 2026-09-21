@@ -1,21 +1,51 @@
 /**
  * J-000 SEGMENTS: view coverage grid
- * MISSING DOOR: the coverage grid reads a campaign's residue, and a campaign only bears cells once
- * its register holds objects — which needs the door m2-column-lines names (nothing in the UI
- * re-partitions an ingested sheet, so a set pinned after the reading never expands into register
- * objects). On a project a customer has just made, the grid can only ever answer `coverage-empty`.
- * AM-09 §2: "A leg that cannot be reached through the UI is a missing screen, not a licence to
- * stage." J-022 covers the grid today, over a stage.
  *
- * The walk this leg owes: the takeoff lane's own nav entry (`takeoff-nav-coverage`, never a typed
- * URL), the grid's cells with their measurement and bill readings, the legend, and the certificate
- * preview's MEASUREMENT and BILL statements. The increment that lands the door turns this
- * `test.fixme` into a `test` and deletes the MISSING DOOR line above.
+ * M2's fourth leg of the golden path: what the measured campaign did and did not establish, read
+ * off the coverage grid a customer reaches from the takeoff lane's own nav entry, and said in
+ * sentences by the certificate preview beneath it (X-3, R-TO-052, L-QTY-05, L-QTY-07). It starts from
+ * the same measured campaign the column-lines leg does (`golden-run.ts`, `measuredRun`): the door
+ * this leg waited on was the same one, recorded here as MISSING DOOR until 2026-09-21.
  */
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { QUANTITY_BEARING, NOT_ESTABLISHED, SCoveragePage } from "../../pages/s-coverage.page";
+import { STakeoffPage } from "../../pages/s-takeoff.page";
+import { checkpoint } from "../../support/checkpoint";
+import { settled } from "../../support/settled";
+import { measuredRun, releaseGoldenWorker } from "./golden-run";
 
-test.describe("J-000 — Golden Path: what the campaign did and did not establish", () => {
-  test.fixme("J-000 m2-coverage-grid: the grid states every cell's coverage, and the certificate preview says it in sentences", () => {
-    // Held on the missing door named above (AM-09 §2).
+test.use({ viewport: { width: 1440, height: 900 } });
+
+test.describe.serial("J-000 — Golden Path: what the campaign did and did not establish", () => {
+  test.afterAll(async () => {
+    await releaseGoldenWorker();
+  });
+
+  test("J-000 m2-coverage-grid: the grid states every cell's coverage, and the certificate preview says it in sentences", async ({ page }, testInfo) => {
+    test.setTimeout(900_000);
+    const run = await measuredRun(page);
+    const takeoff = new STakeoffPage(page);
+    const coverage = new SCoveragePage(page);
+
+    /* --- reached by the lane's own nav entry, never a typed address (R-UI-031) --- */
+    await takeoff.open(run.tenantId, run.projectId);
+    await expect(coverage.navCoverage, "the takeoff lane offers the coverage grid beside the register").toBeVisible();
+    await coverage.openThroughNav();
+    await expect(coverage.navCoverage, "and the entry for the address in the browser says so").toHaveAttribute("aria-current", "page");
+    await expect(coverage.screen, "the coverage screen reads the measured campaign").toHaveAttribute("data-state", /ready|partial/);
+
+    /* --- the grid: every cell a reading, on both axes --- */
+    await expect(coverage.grid, "the residue reads as a grid").toBeVisible();
+    await expect(coverage.cells, "with a cell per kind and class the campaign stands on").not.toHaveCount(0);
+    await expect(coverage.measuring(QUANTITY_BEARING), "the measured column concrete bears published quantity").not.toHaveCount(0);
+    await expect(coverage.measuring(NOT_ESTABLISHED), "and what the rails did not establish is stated as such — never blank (L-QTY-05)").not.toHaveCount(0);
+    await expect(coverage.legend, "the legend beneath names every mark the grid draws (R-UI-060)").toBeVisible();
+
+    /* --- the certificate preview: the boundaries in sentences, enumerations never counts (L-QTY-07, AM-05) --- */
+    await expect(coverage.statement("MEASUREMENT"), "the measurement boundary prints in full").toBeVisible();
+    await expect(coverage.statement("BILL"), "and the bill boundary beside it").toBeVisible();
+
+    await settled(page);
+    await checkpoint(page, testInfo, "j-000/coverage-grid");
   });
 });
