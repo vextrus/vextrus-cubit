@@ -227,9 +227,43 @@ def _insunits(value: Any) -> None:
         _fail("insunits", "names a unit yet is flagged unmapped")
 
 
+def _pair(value: Any, where: str) -> None:
+    pair = _array(value, where)
+    if len(pair) != 2:
+        _fail(where, "an [x, y] pair")
+    _number(pair[0], f"{where}[0]")
+    _number(pair[1], f"{where}[1]")
+
+
+def _viewport(value: Any, where: str) -> None:
+    """One window a paper layout opens onto model space: only what the VIEWPORT itself states."""
+    record = _object(value, where)
+    _closed_keys(
+        record,
+        frozenset({"handle", "on", "centre", "size", "view_centre", "view_height", "twist", "clipped"}),
+        where,
+    )
+    for key in ("handle", "on", "centre", "size", "view_centre", "view_height", "twist", "clipped"):
+        _required(record, key, where)
+    _string(record["handle"], f"{where}.handle", non_empty=True)
+    _boolean(record["on"], f"{where}.on")
+    _boolean(record["clipped"], f"{where}.clipped")
+    _pair(record["centre"], f"{where}.centre")
+    _pair(record["size"], f"{where}.size")
+    _pair(record["view_centre"], f"{where}.view_centre")
+    if _number(record["view_height"], f"{where}.view_height") <= 0:
+        _fail(f"{where}.view_height", "a window of no height frames nothing")
+    _number(record["twist"], f"{where}.twist")
+
+
 def _layout(value: Any, where: str) -> None:
     record = _object(value, where)
-    _closed_keys(record, frozenset({"name", "kind", "bbox", "strays_rejected"}), where)
+    _closed_keys(record, frozenset({"name", "kind", "bbox", "strays_rejected", "viewports"}), where)
+    # Optional, as the Zod mirror has it: an artifact read before viewports were inventoried carries
+    # no key, and a paper layout with no window onto model space carries an empty list.
+    if "viewports" in record:
+        for index, viewport in enumerate(_array(record["viewports"], f"{where}.viewports")):
+            _viewport(viewport, f"{where}.viewports[{index}]")
     _string(record.get("name"), f"{where}.name", non_empty=True)
     if _string(record.get("kind"), f"{where}.kind") not in LAYOUT_KINDS:
         _fail(f"{where}.kind", f"{record['kind']!r} is outside the closed set")

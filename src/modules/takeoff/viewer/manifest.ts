@@ -8,9 +8,19 @@
 // the record's own `height`; the world box comes from the layout inventory's bbox, robust and
 // stray-free as the reading left it (L-CAD-05). A second answer to any of those would be a second
 // reading, and a drawing has one (ARCH-02).
+//
+// A paper sheet is its own paint and what its viewports show of model space. The inventory carries
+// each window as the drawing states it; `./projection` moves the model-space records a window frames
+// onto the paper, clipped to the frame, each named by the model entity it shows (`src`) and the
+// window that showed it (`via`). Those pieces join the sheet's layers under the layer the model
+// entity names, so the layers panel of a sheet lists what the sheet shows, as a plot of it would.
 import { createHash } from "node:crypto";
 import type { EntityGraph } from "@/core/entitygraph/schema";
+import { projectedRecords, unionOfFrames, windowsOf } from "./projection";
 import type { RenderLayer, RenderManifest, RenderRecord } from "./types";
+
+/** The name the artifact gives model space (`vextrus_cad.ingest.MODEL_SPACE`). */
+const MODEL_SPACE = "model";
 
 /** The manifest shape's own version — a client reads it before it trusts the rest. */
 const MANIFEST_VERSION = 1;
@@ -84,6 +94,7 @@ function digestSubject(manifest: Omit<RenderManifest, "digest">): string {
       record.text ?? null,
       record.height ?? null,
       record.anchor ?? null,
+      record.via ?? null,
     ]),
   ]);
   return JSON.stringify([manifest.version, manifest.layoutName, manifest.extents, manifest.insunits, layers]);
@@ -114,19 +125,30 @@ export function graphHoldsLayout(graph: EntityGraph, layoutName: string): boolea
 }
 
 /**
- * The render manifest of one sheet: every record whose space is that layout, grouped under the layer
- * it names, in the artifact's own order, and nothing else. The layers partition the sheet — a record
- * is carried once, under one layer, and Σ of the counts is the sheet's own record count.
+ * The render manifest of one sheet: every record whose space is that layout, then every piece of
+ * model space its windows show, grouped under the layer each names, in the artifact's own order,
+ * and nothing else. The layers partition the sheet — a record is carried once, under one layer,
+ * and Σ of the counts is the sheet's own record count. Model space itself opens no windows.
  */
 export function buildRenderManifest(graph: EntityGraph, layoutName: string): RenderManifest {
   // Typed non-empty: a layer exists because a record named it, and the swatch reading takes that
   // first record rather than a list it would have to invent a colour for (B-17).
   const grouped = new Map<string, [RenderRecord, ...RenderRecord[]]>();
-  for (const record of [...graph.entities, ...graph.derived] as DrawnRecord[]) {
-    if (record.space !== layoutName) continue;
-    const held = grouped.get(record.layer);
-    if (held === undefined) grouped.set(record.layer, [renderRecordOf(record)]);
-    else held.push(renderRecordOf(record));
+  const add = (layer: string, record: RenderRecord): void => {
+    const held = grouped.get(layer);
+    if (held === undefined) grouped.set(layer, [record]);
+    else held.push(record);
+  };
+  const drawn = [...graph.entities, ...graph.derived] as DrawnRecord[];
+  for (const record of drawn) {
+    if (record.space === layoutName) add(record.layer, renderRecordOf(record));
+  }
+
+  const inventory = graph.layouts.find((layout) => layout.name === layoutName);
+  const windows = inventory?.kind === "paper" && layoutName !== MODEL_SPACE ? windowsOf(inventory) : [];
+  if (windows.length > 0) {
+    const modelRecords = drawn.filter((record) => record.space === MODEL_SPACE);
+    for (const { record, layer } of projectedRecords(modelRecords, windows, renderRecordOf)) add(layer, record);
   }
 
   const layers: RenderLayer[] = [...grouped.entries()].map(([name, records]) => ({
@@ -136,11 +158,11 @@ export function buildRenderManifest(graph: EntityGraph, layoutName: string): Ren
     records,
   }));
 
-  const inventory = graph.layouts.find((layout) => layout.name === layoutName);
+  // A sheet of windows and nothing else still has a place its windows stand: their frames.
   const draft = {
     version: MANIFEST_VERSION,
     layoutName,
-    extents: inventory?.bbox ?? null,
+    extents: inventory?.bbox ?? unionOfFrames(windows),
     insunits: graph.insunits,
     layers,
   } as const satisfies Omit<RenderManifest, "digest">;

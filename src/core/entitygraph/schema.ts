@@ -123,12 +123,35 @@ const insunitsSchema = z
 /** A space's extents, robust: strays took no part in them and were counted (L-CAD-05). */
 const bboxSchema = z.strictObject({ min: point, max: point });
 
-/** The layout inventory: model space and every content-bearing paper layout (L-CAD-05). */
+/**
+ * One window a paper layout opens onto model space, as the VIEWPORT itself states it: where it
+ * stands on the paper, which piece of model space it looks at and at what height, whether it is
+ * switched on, its twist and whether a non-rectangular boundary clips it. Inventory rather than
+ * paint — it frames what is drawn and draws nothing — and it restates no derived figure: the scale
+ * is `size[1] / view_height`, and the projecting is the consumer's (L-CAD-05).
+ */
+const viewportSchema = z.strictObject({
+  handle: z.string().min(1),
+  on: z.boolean(),
+  centre: point,
+  size: point,
+  view_centre: point,
+  view_height: z.number().positive(),
+  twist: z.number(),
+  clipped: z.boolean(),
+});
+
+/**
+ * The layout inventory: model space and every content-bearing paper layout (L-CAD-05). `viewports`
+ * is optional because an artifact read before windows were inventoried carries no key; a paper
+ * layout with no window onto model space carries an empty list, and model space carries one too.
+ */
 const layoutSchema = z.strictObject({
   name: z.string().min(1),
   kind: z.enum(LAYOUT_KINDS),
   bbox: bboxSchema.nullable(),
   strays_rejected: z.number().int().min(0),
+  viewports: z.array(viewportSchema).optional(),
 });
 
 /** One space's fidelity counters — what the extraction lost, and where (R-TO-001). */

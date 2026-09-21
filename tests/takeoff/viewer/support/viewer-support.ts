@@ -49,6 +49,7 @@ export async function productModule<T = Record<string, unknown>>(relative: strin
 export type RenderRecord = {
   key?: string;
   src?: string;
+  via?: string;
   type: string;
   rgb: [number, number, number];
   points?: unknown;

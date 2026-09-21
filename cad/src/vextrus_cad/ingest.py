@@ -17,6 +17,7 @@ from typing import Any, Final
 
 import ezdxf
 import ezdxf.recover
+from ezdxf.lldxf.const import VSF_NON_RECTANGULAR_CLIPPING
 
 from . import colours, geometry, report, units
 from .parameters import DERIVED_ENTITY_BUDGET, EXPLODE_DEPTH_CAP, parameter_set_hash
@@ -42,6 +43,11 @@ _NOT_CONTENT: Final = frozenset({"ATTRIB", "ATTDEF", "SEQEND", "VERTEX", "VIEWPO
 #: dimension paints its rendered geometry — its measurement text among it. Both stay originals and
 #: the paint they carry becomes derived entities naming them.
 _PAINTS_DERIVED: Final = frozenset({"INSERT", "DIMENSION"})
+
+#: How close a viewport's view must stand to its own frame, in drawing units, to be the paper's own
+#: viewport (the paper seen at 1:1) where its LAYOUT names none. A real window onto model space
+#: looks at model coordinates, not at its own place on the page.
+_OWN_VIEWPORT_TOLERANCE: Final = 1e-6
 
 #: The DXF names for "where this entity sits", in the order they are asked for. A type answers to
 #: at most one of them, and asking for the other raises rather than returning nothing.
@@ -102,6 +108,9 @@ class _Space:
     attributes: list[dict[str, Any]] = field(default_factory=list)
     boxes: list[tuple[float, float, float, float]] = field(default_factory=list)
     counters: _Counters = field(default_factory=_Counters)
+    #: The windows a paper layout opens onto model space, as the drawing states them; a model space
+    #: has none. Inventory rather than paint: a viewport frames what is drawn and draws nothing.
+    viewports: list[dict[str, Any]] = field(default_factory=list)
 
     def is_content_less(self) -> bool:
         return not self.entities and not self.derived
@@ -110,6 +119,69 @@ class _Space:
 def source_key(handle: str) -> str:
     """`scheme:key` for a DXF entity — the file's own handle, uppercased (L-CAD-02)."""
     return f"{SCHEME}:{handle.upper()}"
+
+
+def _viewport_records(layout: Any) -> list[dict[str, Any]]:
+    """Every window a paper layout opens onto model space, in the drawing's own order (L-CAD-05).
+
+    A VIEWPORT is not content — it frames paint rather than being paint, so no source key is minted
+    for it and no space's extents include it — but what it frames is a fact of the drawing a reader
+    of the sheet needs: without it a paper layout is a title block around an empty page. Each record
+    restates only what the entity carries: where its window stands on the paper (`centre`, `size`),
+    which piece of model space it looks at (`view_centre`, `view_height`), whether it is switched
+    on, its twist and whether a non-rectangular boundary clips it. A consumer derives the scale
+    (`size[1] / view_height`) and does the projecting; nothing here does either.
+
+    The layout's own viewport — the paper seen at 1:1, the one its LAYOUT object names as
+    `viewport_handle` — is not a window onto model space and is left out. Where the LAYOUT names
+    one, that handle is the reading. Where it names none (a converter that dropped the reference,
+    a writer that deleted the viewport and left the pointer dangling), the paper's own viewport is
+    known by its shape instead: it looks at its own centre at its own height. The `id` is never
+    consulted — LibreDWG's conversion flattens every viewport's id to 1, so an id tells a converted
+    drawing's windows apart from nothing. A window of no height frames nothing and is left out.
+    """
+    dxf_layout = getattr(layout, "dxf_layout", None)
+    own = None if dxf_layout is None else dxf_layout.dxf.get("viewport_handle", None)
+    own = None if own is None else str(own).upper()
+    records: list[dict[str, Any]] = []
+    for entity in layout:
+        if entity.dxftype() != "VIEWPORT":
+            continue
+        handle = entity.dxf.get("handle", None)
+        if handle is None:
+            continue
+        handle = str(handle).upper()
+        view_height = float(entity.dxf.get("view_height", 0.0))
+        if not (math.isfinite(view_height) and view_height > 0):
+            continue
+        centre = entity.dxf.center
+        target = entity.dxf.view_center_point
+        if own is not None:
+            is_own = handle == own
+        else:
+            is_own = (
+                math.isclose(target.x, centre.x, abs_tol=_OWN_VIEWPORT_TOLERANCE)
+                and math.isclose(target.y, centre.y, abs_tol=_OWN_VIEWPORT_TOLERANCE)
+                and math.isclose(view_height, float(entity.dxf.height), abs_tol=_OWN_VIEWPORT_TOLERANCE)
+            )
+        if is_own:
+            continue
+        records.append(
+            {
+                "centre": [geometry.quantise(centre.x), geometry.quantise(centre.y)],
+                "clipped": bool(int(entity.dxf.get("flags", 0)) & VSF_NON_RECTANGULAR_CLIPPING),
+                "handle": handle,
+                "on": int(entity.dxf.get("status", 0)) > 0,
+                "size": [
+                    geometry.quantise(float(entity.dxf.width)),
+                    geometry.quantise(float(entity.dxf.height)),
+                ],
+                "twist": geometry.quantise(float(entity.dxf.get("view_twist_angle", 0.0))),
+                "view_centre": [geometry.quantise(target.x), geometry.quantise(target.y)],
+                "view_height": geometry.quantise(view_height),
+            }
+        )
+    return records
 
 
 def _closed_flag(entity: Any, dxftype: str) -> bool | None:
@@ -286,6 +358,8 @@ class _Extractor:
 
     def read_space(self, layout: Any, name: str, kind: str) -> _Space:
         space = _Space(name=name, kind=kind)
+        if kind == "paper":
+            space.viewports = _viewport_records(layout)
         for entity in layout:
             handle = entity.dxf.get("handle", None)
             if handle is None:
@@ -345,6 +419,7 @@ def ingest_document(doc: Any, notes: report.Report | None = None) -> dict[str, A
                 "kind": space.kind,
                 "bbox": _bbox_record(box),
                 "strays_rejected": strays,
+                "viewports": space.viewports,
             }
         )
 

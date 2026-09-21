@@ -15,6 +15,12 @@ import type { IngestFacts } from "../ingest/facts";
 export type RenderRecord = {
   readonly key?: string;
   readonly src?: string;
+  /**
+   * The handle of the paper-space viewport this record was projected through, where it is model
+   * space seen on a sheet rather than paint of the sheet itself. Such a record names the model
+   * entity it shows as `src`, so it selects as that entity; `via` says which window showed it.
+   */
+  readonly via?: string;
   readonly type: string;
   readonly rgb: readonly [number, number, number];
   readonly points?: readonly (readonly [number, number])[];

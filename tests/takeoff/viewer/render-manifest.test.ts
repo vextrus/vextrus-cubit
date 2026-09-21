@@ -45,9 +45,21 @@ function totals(manifest: RenderManifest): { counted: number; carried: number } 
  * because the criterion is one rule stated over "every committed artifact (each of its layouts) and
  * the synthetic graph" — a rule spelled twice is a rule that can drift.
  */
-function judgeManifest(manifest: RenderManifest, graph: ReturnType<typeof syntheticEntityGraph>, layoutName: string, what: string): void {
+function judgeManifest(built: RenderManifest, graph: ReturnType<typeof syntheticEntityGraph>, layoutName: string, what: string): void {
   const expected = recordsInLayout(graph, layoutName);
   const counts = expectedLayerCounts(graph, layoutName);
+
+  // A sheet's layers carry its own paint and, through its viewports, pieces of model space (`via`).
+  // The partition below is stated over the sheet's own records; the projected pieces are judged by
+  // tests/takeoff/viewer/projection.test.ts, and here only for being counted where they are carried.
+  for (const layer of built.layers) {
+    expect(layer.entityCount, `${what}: layer ${layer.name} counts the records it carries, projected pieces included`).toBe(layer.records.length);
+  }
+  const ownLayers = built.layers
+    .map((layer) => ({ ...layer, records: layer.records.filter((record) => record.via === undefined) }))
+    .map((layer) => ({ ...layer, entityCount: layer.records.length }))
+    .filter((layer) => layer.records.length > 0);
+  const manifest: RenderManifest = { ...built, layers: ownLayers };
 
   expect(manifest.layoutName, `${what}: the manifest names the layout it was built for`).toBe(layoutName);
   expect(totals(manifest).counted, `${what}: Σ layers[].entityCount is the count of records whose space is ${layoutName}`).toBe(expected.length);
