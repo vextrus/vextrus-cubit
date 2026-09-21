@@ -194,7 +194,8 @@ describe("AC-5: the sets index", () => {
         expect((digest.textContent ?? "").trim(), "and says so in prose from the screen's own table, never a dash and never a fake hex value").toBe(table["sets_row_digest_none"]);
       } else {
         expect(digest.getAttribute("data-digest"), "a pinned set publishes the digest it stands at").toBe(set.currentDigest);
-        expect((digest.textContent ?? "").trim(), "and shows it character for character (I-99)").toBe(set.currentDigest);
+        // I-107 amends I-99: the digest is an IdChip — the whole value is the chip's data-value.
+        expect(digest.querySelector("[data-value]")?.getAttribute("data-value"), "and its chip carries it character for character (I-107)").toBe(set.currentDigest);
       }
     }
   });
@@ -271,7 +272,10 @@ describe("AC-5: the set browser", () => {
         expect(element.getAttribute("data-sha256"), "a revision publishes the content it is").toBe(revision.sha256);
         expect(element.getAttribute("data-ordinal"), "and the ordinal it stands at").toBe(String(revision.ordinal));
         expect(element.getAttribute("data-current"), "and whether it is the one the drawing stands at").toBe(revision === drawing.current ? "true" : "false");
-        expect(element.textContent ?? "", "and shows the sha256 whole — a machine identifier renders verbatim (I-25, I-95)").toContain(revision.sha256);
+        expect(
+          [...element.querySelectorAll("[data-value]")].map((chip) => chip.getAttribute("data-value")),
+          "and carries the sha256 whole as its chip's value — a machine identifier renders through the IdChip (I-107)",
+        ).toContain(revision.sha256);
         expect(element.textContent ?? "", "saying in words which revision is current, never by colour alone (R-UI-060)").toContain(revision === drawing.current ? table["sets_revision_current"] : table["sets_revision_superseded"]);
       }
 
@@ -302,7 +306,7 @@ describe("AC-5: the set browser", () => {
       expect(element.getAttribute("data-digest"), "a pinned revision publishes its address").toBe(revision.digest);
       expect(element.getAttribute("data-current"), "and whether the set stands at it now").toBe(revision.current ? "true" : "false");
       const digest = one(element, "set-revision-digest", `the revision ${revision.setRevisionId}`);
-      expect((digest.textContent ?? "").trim(), "the digest renders whole, character for character, and equals the value published on the card (I-99)").toBe(revision.digest);
+      expect(digest.getAttribute("data-value"), "the digest's chip carries it whole, character for character, and equals the value published on the card (I-107)").toBe(revision.digest);
 
       const cited = all(element, "set-revision-member");
       expect(
@@ -313,7 +317,7 @@ describe("AC-5: the set browser", () => {
         const entry = revision.manifest.find((candidate) => candidate.drawingId === citation.getAttribute("data-drawing"));
         expect(citation.getAttribute("data-revision"), "a citation names the revision it pinned").toBe(entry?.revisionId);
         expect(citation.getAttribute("data-sha256"), "and the content that revision is").toBe(entry?.sha256);
-        expect(citation.textContent ?? "", "and shows that content address whole").toContain(entry?.sha256 ?? "");
+        expect(citation.querySelector("[data-value]")?.getAttribute("data-value"), "and carries that content address whole as its chip's value (I-107)").toBe(entry?.sha256);
       }
     }
   });

@@ -151,6 +151,16 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   a project with cards: the Dropzone stands as its own region either way, FIRST while the index is
   empty (it is then the teaching frame) and AFTER the sheets section once a card exists, so the grid
   begins within 240 px of main's top and is the primary region the rubric measures (§7 C1, C2).
+- **I-284 — the card's picture masks the views line and waits for no partition (session 4).** The
+  view count on a card is the partition's answer, a job the upload's timeline does not report and
+  whose clock is the job runner's, shared with every other journey the lane is running: in the
+  2026-09-21 sweep (four workers, J-000's legs beside it) the upload's own two jobs took 66 s and
+  the answer had not landed 53 s later, so J-010's wait for `data-views` outlasted the journey's
+  120 s. A journey pictures what its own acts produced:
+  the card is captured at j-010-sheets-fanned-out with `sheet-card-views` masked beside the
+  thumbnail, and the count it would have shown is J-021's and M2's to prove (L-CAD-07). The
+  picture of the drawn and classified card that `d6e7410f` intended is one of those journeys'
+  to take, on a project whose partition has already answered.
 
 ## 1. Layout and hierarchy
 
@@ -525,8 +535,9 @@ serious/critical = 0 at each, never widened (Q-11). One baseline (B-20, reason r
 here): at j-010-sheets-fanned-out, `toHaveScreenshot` on the first `sheet-card`, name
 `"j-010-sheet-card.png"` — the bare file name, since the locked `snapshotPathTemplate`
 already carries the `design/` segment — animations disabled, maxDiffPixelRatio 0.002, mask on
-`sheet-card-thumbnail`: those pixels are the raster increment's evidence, and a toolchain
-version moving them must not red this screen's picture. jsdom acceptance mounts `SheetIndex`
+`sheet-card-thumbnail` and on `sheet-card-views` (I-284): the thumbnail's pixels are the raster
+increment's evidence, and a toolchain version moving them must not red this screen's picture; the
+views line is the partition's answer, which lands on the job runner's clock and not the upload's. jsdom acceptance mounts `SheetIndex`
 with injected cards, groups and perform: the card anatomy and its data-attributes, all five
 facts including zeros, the three empty causes, search and filter per I-94, the chooser's
 single selection, both settled-refusal renderings, and the dialog handoff carrying exactly

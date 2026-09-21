@@ -161,7 +161,7 @@ describe("AC-4: the drawings route renders the index server-side", () => {
     }
   }, BUDGET_MS);
 
-  test("AC-4: the Dropzone stands above the index, with search, discipline chips and the offered groups — and no timeline until a job runs", async () => {
+  test("AC-4: the index stands first and the Dropzone after it once a card exists, with search, discipline chips and the offered groups — and no timeline until a job runs", async () => {
     const stage = await staged();
     const document_ = await documentAt(drawingsPath(stage.person.tenantId, stage.projectId));
 
@@ -170,8 +170,9 @@ describe("AC-4: the drawings route renders the index server-side", () => {
     expect(dropzone, "the screen mounts the one Dropzone (R-SPINE-020's pattern, its own Decision ruling it)").toBeTruthy();
     expect(index, "the screen renders its index").toBeTruthy();
     const order = (dropzone as Element).compareDocumentPosition(index as Element);
-    // Node.DOCUMENT_POSITION_FOLLOWING is 4: the index comes after the dropzone in document order.
-    expect(order & 4, "the Dropzone is mounted above the sheets it fills (Design Decision §1)").toBe(4);
+    // Node.DOCUMENT_POSITION_PRECEDING is 2: with a card on the index, the index comes first and the
+    // Add region follows it, so the primary begins within the fold (Design Decision I-97).
+    expect(order & 2, "the index is mounted first, the Dropzone after it once a card exists (Design Decision I-97)").toBe(2);
 
     expect(all(document_, "sheet-search").length, "the index is searchable (R-TO-004: filter and search)").toBe(1);
 

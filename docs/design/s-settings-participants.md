@@ -136,7 +136,11 @@ no string literal beyond test ids and fixed attribute values.
   (§1's table) and takes the height the header leaves — `cx-participants` is a full-height column,
   `cx-participants-table` grows and the grid inside it stretches — so the surface reads as the grid
   it is rather than a two-row table over a page of form; the assign form and the history follow
-  beneath, and the page scrolls to them (AM-08 Part 2's rubric, C1).
+  beneath, and the page scrolls to them (AM-08 Part 2's rubric, C1). The frame is sixteen `--row-h`
+  rows deep whatever the roster holds (a two-member project reads as the same surface a forty-member
+  one does), and no deeper: at 1440x900, with a granted role on the history and the last-PRINCIPAL
+  refusal standing, the screen must stay under twice the viewport — the cap every capture is held to
+  (Design Direction 00 §9.3); twenty rows put it at 1812 px on 2026-09-21.
 
 ## 1. Layout and hierarchy
 

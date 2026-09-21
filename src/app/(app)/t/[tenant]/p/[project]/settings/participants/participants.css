@@ -25,9 +25,11 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-width: 0;
-  /* The roster's frame is twenty rows deep whatever the roster holds (I-214): a grid is a frame the
-     rows scroll inside, and a two-member project reads as the same surface a forty-member one does. */
-  min-height: calc(var(--row-h) * 20);
+  /* The roster's frame is sixteen rows deep whatever the roster holds (I-214): a grid is a frame the
+     rows scroll inside, and a two-member project reads as the same surface a forty-member one does.
+     Sixteen, not more: at 1440x900 the screen with a granted role on the history and the last-PRINCIPAL
+     refusal standing must stay under twice the viewport, the cap every capture is held to. */
+  min-height: calc(var(--row-h) * 16);
 }
 
 .cx-participants-table > * {
@@ -72,12 +74,15 @@
   white-space: nowrap;
 }
 
-/* The record's own column carries a date, so its figures are tabular and its zeroes slashed. */
+/* The record's own column carries a date, so its figures are tabular and its zeroes slashed. At
+   12 px on the grid row's surface the muted ink reads 4.24:1 (dark), under the 4.5:1 floor the
+   axe run at every checkpoint holds a capture to (serious color-contrast); the secondary ink reads
+   5.96:1. */
 .cx-participants-history-by {
   overflow: hidden;
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--ink-muted);
+  color: var(--ink-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

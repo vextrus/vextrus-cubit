@@ -24,7 +24,7 @@ import { PROJECT_SETTINGS_AREA_ORDER, type ProjectSettingsArea, SRulesetAuthorPa
 import { baselinePath, laneProject } from "./support/capture-geometry";
 import { checkpoint } from "./support/checkpoint";
 import { emulateTheme, restoreLaneTheme } from "./support/lane-theme";
-import { everyAttribute, heldAttribute, steadyCount, steadyText } from "./support/retrying-read";
+import { everyAttribute, heldAttribute, steadyAttribute, steadyCount } from "./support/retrying-read";
 import { e2eDatabaseUrl } from "./support/scratch-db";
 import { signInAsSeededTenant } from "./support/seeded-session";
 import { settled } from "./support/settled";
@@ -138,7 +138,8 @@ test.describe("J-304 — the project settings nav, and authoring the edition a p
     // What the project is pinned to, read off the screen that publishes it — the walk carries this
     // forward instead of spelling a digest or a parameter roster of its own (B-19): a seeded edition
     // that gains a parameter grows this expectation with it.
-    const pinnedDigest = await steadyText(author.editionDigest, "the pinned edition's content digest");
+    // I-155: the digest is an IdChip — the whole value is the chip's data-value; the document shows the measure.
+    const pinnedDigest = await steadyAttribute(author.editionDigest, "data-value", "the pinned edition's content digest");
     expect(pinnedDigest, "the pin publishes the digest its content keys (L-MEA-01)").not.toBe("");
     const pinnedParameters = await everyAttribute(author.parameterRows, "data-param", "the pinned edition's parameter rows", { min: 1 });
     // What the project READS today, parameter by parameter — the figures the act is about. AC-2 comes
@@ -307,7 +308,7 @@ test.describe("J-304 — the project settings nav, and authoring the edition a p
     // content, so a value that moved MOVES it; and the grid the project reads shows the authored
     // figure where it moved and the pinned one everywhere else.
     expect(
-      await steadyText(author.editionDigest, "the digest of the edition the project now reads"),
+      await steadyAttribute(author.editionDigest, "data-value", "the digest of the edition the project now reads", { not: pinnedDigest }),
       "a value moved, so the content digest moved with it — an edition minted from the pin's own values carries the pin's digest by construction (L-MEA-01), and that is not what was authored",
     ).not.toBe(pinnedDigest);
     const authoredFigures = await author.parameterFigures();

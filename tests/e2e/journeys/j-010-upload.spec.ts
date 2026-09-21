@@ -160,17 +160,17 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
       await expect(structural.locator(`[data-testid="${S_DRAWINGS.groupCount}"]`), "the group states its live membership").not.toBeEmpty();
       await checkpoint(page, testInfo, "j-010-sheets-fanned-out");
 
-      // The card is pictured SETTLED: its view count is the partition's answer, which lands after the
-      // two jobs above (m2-run-partition walks that job), and a card read before it says "Views not
-      // classified yet" — the same picture taken twice differed by exactly that line (2026-09-21).
-      await expect(drawings.cell(drawings.cards.first(), S_DRAWINGS.views), "the first card's views are classified before its picture").toHaveAttribute("data-views", /^\d+$/, { timeout: 120_000 });
-      // B-20, ruled by docs/design/s-drawings.md §7: one baseline, on the first card, with the
-      // thumbnail masked — those pixels are the raster increment's evidence, and a toolchain version
-      // moving them must not red this screen's picture.
-      await expect(drawings.cards.first()).toHaveScreenshot("j-010-sheet-card.png", {
+      // B-20, ruled by docs/design/s-drawings.md (the one-baseline rule, I-284): one picture, on the
+      // first card, the thumbnail and the views line masked. The thumbnail's pixels are the raster
+      // increment's evidence, and a toolchain version moving them must not red this screen's picture;
+      // the views line is the partition's answer, which lands on the job runner's clock and not the
+      // upload's — a journey that waited for it outlasted its own budget under the lane's four
+      // workers (2026-09-21). The count is J-021's and M2's to prove.
+      const firstCard = drawings.cards.first();
+      await expect(firstCard).toHaveScreenshot("j-010-sheet-card.png", {
         animations: "disabled",
         maxDiffPixelRatio: 0.002,
-        mask: [drawings.cards.first().locator(`[data-testid="${S_DRAWINGS.thumbnail}"]`)],
+        mask: [firstCard.locator(`[data-testid="${S_DRAWINGS.thumbnail}"]`), firstCard.locator(`[data-testid="${S_DRAWINGS.views}"]`)],
       });
 
       /* --- j-010-discipline-confirmed: the act, carried through the one ConsequenceDialog --- */

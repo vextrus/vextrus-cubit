@@ -228,13 +228,13 @@ test.describe("J-012 — a set, pinned, and a changed file that revises it", () 
     const secondDigest = (await heldAttribute(newest, "data-digest")) ?? "";
     expect(secondDigest, "the new manifest has an address of its own").toMatch(DIGEST);
     expect(secondDigest, "and it is not the old one: the content decided the address (L-REG-06)").not.toBe(firstDigest);
-    await expect(newest.locator(`[data-testid="${S_SETS.revisionDigest}"]`), "shown whole").toHaveText(secondDigest);
+    await expect(newest.locator(`[data-testid="${S_SETS.revisionDigest}"]`), "its chip carrying the new digest whole (I-107)").toHaveAttribute("data-value", secondDigest);
     await expect(newest.locator(`[data-testid="${S_SETS.revisionMember}"]`).first(), "citing the revision the member stands at now").toHaveAttribute("data-sha256", secondSha);
 
     await page.goto(`${origin}${setsRoute(tenantId, projectId)}`);
     const indexRow = at(page, S_SETS.row).first();
     await expect(indexRow.locator(`[data-testid="${S_SETS.rowName}"]`), "the set stands on the index under its name").toHaveText(SET_NAME);
-    await expect(indexRow.locator(`[data-testid="${S_SETS.rowDigest}"]`), "and the index shows the digest it now stands pinned at").toHaveText(secondDigest);
+    await expect(indexRow.locator(`[data-testid="${S_SETS.rowDigest}"]`), "and the index carries the digest it now stands pinned at — the chip's whole value (I-107)").toHaveAttribute("data-digest", secondDigest);
     await checkpoint(page, testInfo, "j-012-repinned");
   });
 });
