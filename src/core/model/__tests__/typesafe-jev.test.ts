@@ -21,6 +21,9 @@ import { sourceKeyResolver } from "../sources";
 import { CANDIDATE_CAP, TYPESAFE_ENDPOINT, TYPESAFE_MODEL, structuredTaskOf } from "../typesafe";
 import type { JsonValue, ModelCallContext, ModelRequest } from "../types";
 
+/** View classes addressed through the vocabulary's one home, never spelled here (L-CAD-06). */
+const [LAYOUT_PLAN, , , MEMBER_SECTION, DETAIL, , , , TITLE] = VIEW_TYPE_SPELLINGS;
+
 const CTX: ModelCallContext = {
   tenantId: "d3e00000-0000-4000-8000-000000000001",
   projectId: "d3e00000-0000-4000-8000-000000000002",
@@ -37,7 +40,7 @@ const SHEET_EVIDENCE = {
     { key: "DXF_HANDLE:103", type: "TEXT", layer: "NOTES", text: "   ", height: 3.5 },
   ],
   derived: [{ key: "DXF_HANDLE:104", type: "TEXT", layer: "NOTES", text: "ALL CONCRETE C25/30", height: 3.5 }],
-  blockAttributes: [{ src: "DXF_HANDLE:90", tag: "TITLE", text: "EDISON LAVINIA", height: 4 }],
+  blockAttributes: [{ src: "DXF_HANDLE:90", tag: "SHEET_TITLE", text: "EDISON LAVINIA", height: 4 }],
   census: { TEXT: 3, LINE: 120 },
 };
 
@@ -96,7 +99,7 @@ describe("what is asked of Jev", () => {
   });
 
   test("a caption is one closed choice over the view vocabulary, on the request core itself spells", async () => {
-    const { port, posted } = jev(answers({ view_type: "MEMBER_SECTION" }));
+    const { port, posted } = jev(answers({ view_type: MEMBER_SECTION }));
     await port.answer(CTX, viewCaptionRequest("SECTION 1-1 THROUGH ROOF BEAM", "DXF_HANDLE:201"), "hash-caption");
     const questions = (posted[0] as Posted).body["questions"] as Questions;
     expect(Object.keys(questions)).toEqual(["view_type"]);
@@ -158,20 +161,20 @@ describe("how Jev's choices are spelled on the wire", () => {
   test("a caption's class is proposed citing the caption's own entity, and a class outside the caller's set is refused", async () => {
     const request = viewCaptionRequest("SECTION 1-1 THROUGH ROOF BEAM", "DXF_HANDLE:201");
     const artifact = sourceKeyResolver("digest-2", ["DXF_HANDLE:201"]);
-    const decode = readViewTypeProposal(["LAYOUT_PLAN", "MEMBER_SECTION", "DETAIL"] as const);
+    const decode = readViewTypeProposal([LAYOUT_PLAN, MEMBER_SECTION, DETAIL] as const);
 
-    const good = await wireOf(jev(answers({ view_type: "MEMBER_SECTION" })).port, request);
+    const good = await wireOf(jev(answers({ view_type: MEMBER_SECTION })).port, request);
     const resolution = resolveProposal({ payload: good.payload, sources: good.sources }, { artifact, decode });
-    expect(resolution.ok && resolution.payload).toEqual({ type: "MEMBER_SECTION" });
+    expect(resolution.ok && resolution.payload).toEqual({ type: MEMBER_SECTION });
     expect(resolution.ok && resolution.sources).toEqual(["DXF_HANDLE:201"]);
 
-    const outside = await wireOf(jev(answers({ view_type: "TITLE" })).port, request);
+    const outside = await wireOf(jev(answers({ view_type: TITLE })).port, request);
     const refused = resolveProposal({ payload: outside.payload, sources: outside.sources }, { artifact, decode });
     expect(!refused.ok && refused.code).toBe("MALFORMED");
   });
 
   test("a usage that is not a count fails as the ledger's derivation fails", async () => {
-    const { port } = jev(answers({ view_type: "DETAIL" }, { input_tokens: "many", output_tokens: 2 }));
+    const { port } = jev(answers({ view_type: DETAIL }, { input_tokens: "many", output_tokens: 2 }));
     await expect(port.answer(CTX, viewCaptionRequest("DETAIL A", "DXF_HANDLE:1"), "hash")).rejects.toThrow();
   });
 });
