@@ -142,10 +142,29 @@ const stateFile = (): string => join(STATE_DIR, `j-000-golden-run.${test.info().
 let established: Promise<GoldenRun> | null = null;
 let worker: JourneyWorker | null = null;
 
+/**
+ * What a leg needs of the run beyond its standing. `unmeasured`: the leg walks a door that only an
+ * unmeasured campaign still offers (m2-affirm-scale affirms a proposal — and `measuredRun` affirms
+ * every proposal on its way to Measure). Playwright dequeues leg files in roster order, so on one
+ * worker the affirm leg runs before the measured ones; but a worker that failed is REPLACED by a new
+ * process under the same `parallelIndex`, and that process restores the measured run its
+ * predecessor wrote (found 2026-09-21: a sweep with ten moved pictures restarted a worker into
+ * m2-affirm-scale with every view already "Affirmed", 2.0 m red for a cause nobody printed). A run
+ * that cannot offer what the leg needs is not the leg's run: the prologue is walked again, and says so.
+ */
+export interface GoldenNeed {
+  readonly unmeasured?: boolean;
+}
+
 /** The golden run this leg walks: restored from the run before it, or established from nothing. */
-export async function goldenRun(page: Page): Promise<GoldenRun> {
+export async function goldenRun(page: Page, need: GoldenNeed = {}): Promise<GoldenRun> {
   established ??= (async (): Promise<GoldenRun> => (await restore(page)) ?? (await establish(page)))();
-  const run = await established;
+  let run = await established;
+  if (need.unmeasured === true && run.measured === true) {
+    walkedAgain(`the run written for this worker (project ${run.projectId}) has been measured, and this leg needs the campaign before Measure`);
+    established = establish(page);
+    run = await established;
+  }
   await adopt(page, run);
   return run;
 }

@@ -27,7 +27,7 @@ test.describe.serial("J-000 — Golden Path: a scale of record for the sheet", (
 
   test("J-000 m2-affirm-scale: the panel's own proposal is affirmed, and the view carries a scale of record", async ({ page }, testInfo) => {
     test.setTimeout(900_000);
-    const run = await goldenRun(page);
+    const run = await goldenRun(page, { unmeasured: true });
     const drawings = new SDrawingsPage(page);
     const viewer = new SViewerPage(page);
     const scale = new SScalePage(page);
