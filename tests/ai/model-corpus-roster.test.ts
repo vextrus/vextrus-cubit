@@ -13,7 +13,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MODEL_IDS } from "../../src/core/model-ledger.types";
-import { MODEL_QUESTION_NAMES } from "../../src/core/model/questions";
+import { MODEL_QUESTION_NAMES } from "../../src/core/model";
 
 const REPO_ROOT = resolve(import.meta.dirname, "../..");
 const CORPUS_ROOT = join(REPO_ROOT, "fixtures", "model");
