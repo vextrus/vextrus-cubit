@@ -161,16 +161,17 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
       await checkpoint(page, testInfo, "j-010-sheets-fanned-out");
 
       // B-20, ruled by docs/design/s-drawings.md (the one-baseline rule, I-284): one picture, on the
-      // first card, the thumbnail and the views line masked. The thumbnail's pixels are the raster
-      // increment's evidence, and a toolchain version moving them must not red this screen's picture;
-      // the views line is the partition's answer, which lands on the job runner's clock and not the
-      // upload's — a journey that waited for it outlasted its own budget under the lane's four
-      // workers (2026-09-21). The count is J-021's and M2's to prove.
+      // first card, the thumbnail, the scale line and the views line masked. The thumbnail's pixels
+      // are the raster increment's evidence, and a toolchain version moving them must not red this
+      // screen's picture; the scale and views lines are the partition's answers, which land on the job
+      // runner's clock and not the upload's — a journey that waited for them outlasted its own budget
+      // under the lane's four workers (2026-09-21). The count and the scale are J-021's and M2's to
+      // prove.
       const firstCard = drawings.cards.first();
       await expect(firstCard).toHaveScreenshot("j-010-sheet-card.png", {
         animations: "disabled",
         maxDiffPixelRatio: 0.002,
-        mask: [firstCard.locator(`[data-testid="${S_DRAWINGS.thumbnail}"]`), firstCard.locator(`[data-testid="${S_DRAWINGS.views}"]`)],
+        mask: [S_DRAWINGS.thumbnail, S_DRAWINGS.scale, S_DRAWINGS.views].map((id) => firstCard.locator(`[data-testid="${id}"]`)),
       });
 
       /* --- j-010-discipline-confirmed: the act, carried through the one ConsequenceDialog --- */
