@@ -27,9 +27,18 @@ touch: `docs/design/s-takeoff.md`, `s-schedules.md`, `s-boq.md`, `s-bbs.md`, `s-
 (I-121, I-122), `00-direction.md` §§ 4, 9.
 
 Inherited, still standing:
-- The TypeSafe key in history (`d4bc0da3`, `61a9632b`): never printed, used or reintroduced as a
-  literal; rotation is the owner's. A live Jev call needs `TYPESAFE_API_KEY` in the environment
-  and nothing else; with no key the seam replays `fixtures/model` and posts nothing.
+- The TypeSafe key: the owner keeps `TYPESAFE_API_KEY` in `~/.bashrc`, and it stands in this
+  session's shell (session 3 confirmed it present, 107 characters, without printing it). It is
+  never printed, never written into a file, a fixture, a log or a commit, and never reintroduced
+  as a literal; the two commits that once carried one (`d4bc0da3`, `61a9632b`) are the owner's to
+  rotate. A live Jev call needs the key in the environment and nothing else; with no key, or with
+  `CUBIT_MODEL_FIXTURE_ROOT` set, the seam replays `fixtures/model` and posts nothing.
+- **The budget is open.** The owner allows this session to spend on live Jev calls as much as its
+  development and testing need — recording fixture corpora, calibrating thresholds, walking the
+  reference sheets live. Spend is not the constraint; the law is: every live answer a lane will
+  ever need is recorded once into `fixtures/model` (Q-08) and the lanes replay it (L-AI-01), every
+  call is a ledger row with its cost (R-AI-005), and no verify, db, golden, e2e or perf lane ever
+  reaches the network.
 - Jev is not among AS-05's closed model ids and no rate exists for it. Session 2 recorded the
   objection, session 3 restated it: no rate is invented, the adapter stays opt-in, and the
   amendment that admits Jev with its rate is the Bible's owner's. This session writes that
@@ -129,6 +138,20 @@ request only where an answer is needed to fetch evidence.
    a question the person answers, and the answer is the outcome.
 7. **Beyond M3 where the law admits it:** the drawing-set's sheet revision recency (a Score),
    the reference sheets' discipline at upload — each only with a fixture corpus and a Decision.
+
+**Where live calls happen, and where they never do.** The transport is chosen by
+`src/core/model/transport.ts`: a non-blank `CUBIT_MODEL_FIXTURE_ROOT`, or the verify mode, means
+fixture replay; otherwise live, and live means the key. `pnpm dev` goes live when the key is set
+(scripts/dev.mjs hands the fixture root only when it is not); the probe's server sets the fixture
+root explicitly (`scripts/probe/server.mjs`), so a probe walk replays by default — start it with
+`CUBIT_MODEL_FIXTURE_ROOT=` unset in its `ENV` on purpose, in a script you commit, when a walk is
+meant to be live; the journeys' server is handed the fixture root by `tests/e2e/support/journey-env.ts`
+and stays replayed whatever the shell holds. Record a corpus with a committed script under
+`scripts/` that names the questions it asks and the state it hands them, so a corpus can be
+re-minted when a question moves (Q-08); mint under a temporary root first, read what came back,
+then move it into `fixtures/model` in its own commit with the ledger's cost line quoted. The
+outcome column and the calibration read (above) are how the open budget turns into evidence
+rather than spend.
 
 Write `docs/decisions/as-05-jev-amendment.md`: the amendment text the owner would add to AS-05 —
 the model id, the rate the ledger needs and where it comes from, the fixture corpus's home, the
