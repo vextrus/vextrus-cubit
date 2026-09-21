@@ -347,8 +347,16 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     // open by the pin first, exactly as the three legs above it do (§3.1, I-152). No assertion here
     // is loosened by it.
     await viewer.pinInspector();
+    // A fresh sheet opens in the pan tool (R-UI-032's H; §5 "plain drag pans"): read off the canvas
+    // BEFORE the drag, so a sheet that opened in select — where the same drag is a marquee — fails
+    // by name rather than by whatever the rectangle happened to hold (found 2026-09-21: the viewer
+    // opened in select, and this read passed only while the drawn rectangle held nothing).
+    await expect(viewer.canvas, "the sheet opens in the pan tool").toHaveAttribute("data-tool", "pan");
+    const beforeDrag = await viewer.viewportParam();
     await viewer.dragAcross();
+    await expect(viewer.marquee, "a plain drag draws no rectangle").toHaveCount(0);
     await expect(viewer.inspector, "a plain drag is a pan, and selects nothing").toHaveAttribute("data-count", "0");
+    await expect.poll(() => viewer.viewportParam(), { message: "and the camera moved: the address carries the new viewport (AC-4)" }).not.toBe(beforeDrag);
     await viewer.fit.click();
 
     await viewer.rectangleSelect();

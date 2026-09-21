@@ -78,7 +78,13 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       not data: it belongs to the screen, which is the one thing that knows both regions stand. */
   const [layersOpen, setLayersOpen] = useState(true);
   const [inspectorPinned, setInspectorPinned] = useState(false);
-  const [tool, setTool] = useState<ViewerTool>("select");
+  // The sheet opens in the PAN tool: every gesture sentence of the Decision reads "plain drag pans"
+  // and "Shift+drag draws the marquee" (viewer.md §5, the inspector leaf's canvas gestures), and
+  // J-011 walks a plain drag that selects nothing. V takes the select tool, where a plain drag is
+  // the marquee, and H returns (R-UI-032). Until 2026-09-21 this opened in `select`, so a plain drag
+  // on a fresh sheet drew a marquee — J-011's "a plain drag is a pan" passed only while the drawn
+  // rectangle happened to hold nothing, and failed the moment the compact density re-fitted the sheet.
+  const [tool, setTool] = useState<ViewerTool>("pan");
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
