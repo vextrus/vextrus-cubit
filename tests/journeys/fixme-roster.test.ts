@@ -4,8 +4,8 @@
  * A fixme is lawful: an assertion a node cannot honestly make today is better declared, collected
  * and impossible to forget than deleted. What makes it lawful is that somebody WILL notice it is
  * still there. Until 2026-09-12 nothing did for the lane at large: `j-000-roster.test.ts` reads the
- * Bible's J-000 segments and governs that journey's legs only, and `hotfix-j000/
- * ac3-journeys-not-weakened.test.ts` walks a fixed path list — so the stub added to
+ * Bible's J-000 segments and governs that journey's legs only, and `tests/journeys/guards/
+ * journeys-not-weakened.test.ts` walks a fixed path list — so the stub added to
  * `j-011-viewer.spec.ts` on this branch (the pulse, R-UI-022) passed both suites unremarked.
  *
  * So: every `test.fixme` under `tests/e2e` is listed here with the defect it is waiting on, in one

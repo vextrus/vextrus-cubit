@@ -157,6 +157,9 @@ function isRegeneratedBaseline(path: string): boolean {
  * ever carries them without a declaration of their own.
  */
 const DECLARED_REBASELINED: readonly string[] = [
+  // Retired on 2026-09-21 with the hotfix that wrote it (the J-000 byte-freeze); its two re-takes
+  // on this branch stand in history, so the path stays declared for the baseline commits that carry it.
+  "tests/ui/project-settings/support/hotfix-304a-fork-point.ts",
   "fixtures/gen/rcc6_bnbc/traps.json",
   "fixtures/rcc6-bnbc/manifest.json",
   "fixtures/rcc6-bnbc/rcc6-bnbc.dwg",
@@ -174,7 +177,6 @@ const DECLARED_REBASELINED: readonly string[] = [
   "db/catalogue/digest.txt",
   "src/modules/takeoff/rails/aggregate.test.ts",
   "tests/docs/proof/golden.pdf",
-  "tests/ui/project-settings/support/hotfix-304a-fork-point.ts",
 ];
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {

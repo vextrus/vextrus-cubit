@@ -29,6 +29,8 @@ export const PRE_FIX = "7af2a17";
  * in it. It survives as the subject of a loud assertion instead: whatever commit closes the interval
  * must actually track this file, or the interval is not this increment's.
  */
+// The marker is a HISTORICAL path: it is looked up at past commits to find the fix interval, so it
+// keeps the name the file had when the interval was cut (the file itself lives in this directory now).
 export const FIX_MARKER = "tests/hotfix-j000/ac2-forward-only.test.ts";
 
 /** Where the mainline is looked for, in the order a checkout is likeliest to answer with it. */

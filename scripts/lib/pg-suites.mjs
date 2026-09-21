@@ -19,7 +19,7 @@ const SUITE_ROOTS = ["src", "tests", "db"];
  * The modules whose reach defines the database lane: the scratch-database harness, and the module
  * every live statement in this tree is spoken through — `db/__tests__/support/live-sql.ts` spawns
  * psql, so a suite that imports it opens a database whether or not it ever asks the harness for one
- * (tests/hotfix-j000/ac4-fresh-ground-migration.test.ts makes its own database through it, and was
+ * (tests/journeys/guards/fresh-ground-migration.test.ts makes its own database through it, and was
  * collected by the unit lane for want of this second seed).
  */
 const SEEDS = [join("db", "__tests__", "harness.ts"), join("db", "__tests__", "support", "live-sql.ts")];

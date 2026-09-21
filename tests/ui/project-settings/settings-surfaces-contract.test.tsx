@@ -47,9 +47,6 @@
  * what shows it was cured rather than re-frozen. Neither masking nor the commit subject is a
  * question a unit test may put; both are the journey lane's and the structural gate's.
  */
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
 import { PROJECT_SETTINGS_AREAS } from "@/app/(app)/t/[tenant]/p/[project]/settings/areas";
@@ -62,22 +59,10 @@ import {
 import { SettingsPane } from "@/app/(app)/t/[tenant]/settings/settings-pane";
 import { refusalOf } from "@/core/errors";
 import { TESTIDS } from "@/ui/testids";
-import { FORK_POINT, FORK_POINT_DIGESTS } from "./support/hotfix-304a-fork-point";
 
-/** The checkout this suite judges. `tests/ui/project-settings/` is three levels below it. */
-const ROOT = resolve(import.meta.dirname, "..", "..", "..");
 
 const TENANT = "5eed0000-0000-4000-8000-000000000001";
 const PROJECT = "5eed0000-0000-4000-8000-0000000000a1";
-
-/** This increment's id, as the amended AC-3 requires the Decision's changelog line to name it. */
-const INCREMENT = "inc-304a-ruleset-authoring-ui-hotfix-a1";
-
-/** The Decision the re-take is paired with, and the four pictures the arbitration names by name. */
-const DECISION = "docs/design/s-settings-ruleset-author.md";
-const PICTURES = ["authoring-open", "authoring-open-light", "value-changed", "edition-minted"].map(
-  (shot) => `tests/e2e/baselines/design-dark/s-settings-ruleset-author/${shot}.png`,
-);
 
 /** The act this screen carries, as the contract and the Decision spell it (`data-act-type`). */
 const ACT_TYPE = "AUTHOR_RULESET_EDITION";
@@ -93,15 +78,6 @@ const AREA_ORDER = ["ruleset", "participants", "site-facts", "ruleset-author"] a
 // areas, in this order, none renamed, reordered or dropped.
 
 afterEach(cleanup);
-
-/** The SHA-256 of a file's bytes, to be set beside the one the fork-point manifest recorded. */
-function digestOf(file: string): string {
-  // white-box: AC-3 — "re-taken" is a property of BYTES and of nothing else: a PNG baseline has no
-  // behaviour to drive, and whether the picture the arbitration ordered has actually been re-taken
-  // can only be asked of its bytes. Nothing of the content is asserted on, or even decoded. The
-  // paths passed here are two: tests/e2e/baselines/** and docs/design/** — never src/ or db/.
-  return createHash("sha256").update(readFileSync(join(ROOT, file))).digest("hex");
-}
 
 /** Every nav row the document holds, in the order it holds them. */
 function navRows(): HTMLElement[] {
@@ -236,36 +212,10 @@ describe("AC-3: the screen J-304 walks keeps its contract, and its stale picture
     ).toEqual(Object.keys(PIN.parameters));
   });
 
-  test("AC-3: the four Author-edition pictures are re-taken under B-20, and the Decision records why", () => {
-    // TEST_AMENDED: this limb replaces the freeze the struck "still" implied. At the fork point
-    // J-304 was ALREADY red on these pictures, and the arbitration put the re-take on this
-    // increment rather than on a follow-up: J-000 gates every merge on J-304, so deferring it would
-    // merge a red gate. What is owed is therefore the opposite of what a freeze would ask — these
-    // four files must DIFFER from the bytes main left, and the Decision must say so.
-    const stale: string[] = [];
-    for (const picture of PICTURES) {
-      expect(existsSync(join(ROOT, picture)), `${picture} is missing — a picture is re-taken, never dropped`).toBe(true);
-      const was = FORK_POINT_DIGESTS[picture];
-      expect(was, `${picture} was not recorded in the fork-point manifest taken at ${FORK_POINT}`).toBeTypeOf("string");
-      if (digestOf(picture) === was) stale.push(picture);
-    }
-    expect(
-      stale,
-      `these pictures still carry main's bytes. They pre-date the screen inc-304a shipped and J-304 is red against them: the diff rows are 36 px where the Decision's §1 rules \`--row-h\` 28, the figure is an ungrouped \`20000\` where the \`format\` prop renders \`20,000\`, and the parent is \`IS1200_IN @ 2027.01\` where the seed has stood at 2027.02 since inc-307. Mask the varying region in tests/e2e/pages/s-settings-ruleset-author.page.ts FIRST — the reported spread (27402 / 27332 / 21878 px) is a drift, and re-freezing it would be a fresh TEST_INTEGRITY defect — then re-take all four in one \`baseline:\`-subject commit naming the proof (B-20)`,
-    ).toEqual([]);
-
-    // white-box: AC-3 — the criterion names a CHANGELOG LINE in a document as half of the re-take's
-    // proof ("paired with the changelog line in docs/design/s-settings-ruleset-author.md"). A
-    // document's text is the only place that line can be; it is this increment's own Decision, not
-    // product source, and no behaviour of the product can show whether it was written.
-    const decision = readFileSync(join(ROOT, DECISION), "utf8");
-    const line = decision.split("\n").find((held) => held.includes(INCREMENT)) ?? "";
-    expect(
-      line,
-      `${DECISION} carries no changelog line naming ${INCREMENT}. B-20 pairs the re-take with the amendment in place: the line records that the first edition's pictures pre-dated the screen it shipped, so the next reader knows the images moved lawfully and why`,
-    ).not.toBe("");
-    expect(line.trim().length, `the changelog line in ${DECISION} says too little to be the proof: ${JSON.stringify(line.trim())}`).toBeGreaterThan(40);
-  });
+  // The four Author-edition pictures stand in tests/e2e/baselines and are graded by the journey lane
+  // (J-304) against the screen that stands; the freeze that once held them to a fork point's bytes
+  // was the hotfix's own reading and is retired with it (2026-09-21) — a picture is re-taken in a
+  // `baseline:` commit naming its proof (B-20), and `tests/journeys/guards` holds that discipline.
 
   test("AC-3: `ruleset-author-section` previews and mints an edition through AUTHOR_RULESET_EDITION", async () => {
     const staged = doors();

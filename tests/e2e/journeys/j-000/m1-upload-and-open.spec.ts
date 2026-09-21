@@ -5,7 +5,7 @@
  * navigation, paying s-viewer I-77), selects one entity in the viewer, copies its source key and
  * reloads the deep link to find the same selection standing.
  *
- * A NEW file rather than an edit of `j-000/m0-workspace-and-project.spec.ts`: the merged `tests/hotfix-j000`
+ * A NEW file rather than an edit of `j-000/m0-workspace-and-project.spec.ts`: the merged golden-path guards (now `tests/journeys/guards`)
  * suite byte-freezes every J-000 asset the pre-fix merge tracked, and its own words make an addition
  * under its own name no trespass. The titles name J-000, which is what `pnpm e2e --journey J-000`
  * greps on, so the Golden Path collects this leg beside the three it already runs.

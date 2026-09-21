@@ -814,9 +814,9 @@ R-SPINE-022 tier leaf. The inspector's copy is mirrored rather than read from it
 `tests/takeoff/viewer-inspector/copy-mirror.test.ts` failing the build if the two ever differ (the
 `src/ui/screen-states/refusal-entries.ts` precedent). The cure is a copy home both layers may read,
 which ARCH-01's matrix offers nowhere today — owner: the node that owns the import matrix and
-`src/ui/strings`. And a debt against `tests/hotfix-j000`: its freeze reads an unmerged J-000
+`src/ui/strings`. And a debt against `tests/journeys/guards`: its freeze reads an unmerged J-000
 extender as a trespass; the cure is bounding `FIX_END` at the hotfix's own landing when main does
-not yet contain HEAD — owner: the node that owns `tests/hotfix-j000`.
+not yet contain HEAD — owner: the node that owns `tests/journeys/guards`.
 
 ## 9. The Trace block and the Cited-by block (inc-215-trace)
 

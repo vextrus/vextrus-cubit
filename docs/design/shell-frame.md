@@ -184,6 +184,6 @@ probe, never a literal.
 Grading surfaces this hotfix answers to, not edits: J-000's three tests and checkpoints
 (`j-000/workspace-named`, `j-000/first-project-on-s-home` — pixel-identical to pre-hotfix
 baselines, I-26); J-001/J-002 stay green, re-baselined only under B-20's `baseline:` discipline;
-the regression file `src/modules/spine/tenancy/__tests__/j000-hotfix-regression.test.ts` (AC-1)
+the regression file `src/modules/spine/tenancy/__tests__/origin-rule-addresses.test.ts` (AC-1)
 pins the mechanism before the repair. jsdom coverage of the frame's mechanics lives in
-`tests/ui/shell/**` and, for hotfix acceptance, `tests/hotfix-j000/**`.
+`tests/ui/shell/**` and, for the golden path's guards, `tests/journeys/guards/**`.

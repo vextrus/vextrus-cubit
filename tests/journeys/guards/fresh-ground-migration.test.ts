@@ -19,8 +19,8 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { BOOTSTRAP_URL, ROLE_MIGRATE } from "../../db/__tests__/support/fixtures";
-import { count, ident, lit, psql, run, scalar } from "../../db/__tests__/support/live-sql";
+import { BOOTSTRAP_URL, ROLE_MIGRATE } from "../../../db/__tests__/support/fixtures";
+import { count, ident, lit, psql, run, scalar } from "../../../db/__tests__/support/live-sql";
 
 const REPO_ROOT = process.cwd();
 
