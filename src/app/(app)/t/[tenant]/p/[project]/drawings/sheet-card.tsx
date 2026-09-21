@@ -183,18 +183,20 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
         {card.viewCount === null ? drawings.drawings_views_unclassified : fill(drawings.drawings_views_count, { count: formatUserFigure(String(card.viewCount)) })}
       </p>
 
-      <p className="cx-drawings-facts">
+      {/* I-96: the facts are a list of five figures, not a paragraph — a row of readings a card states,
+          each its own item, never a sentence. */}
+      <div className="cx-drawings-facts" role="list">
         {FIDELITY_FACTS.map((name) => {
           const value = card.facts[name] ?? 0;
           const notable = typeof value === "boolean" ? value : value > 0;
           return (
-            <span className="cx-drawings-fact" data-testid={TESTIDS.sheet.fact} data-fact={name} data-value={String(value)} data-notable={notable ? "true" : "false"} key={name}>
+            <span className="cx-drawings-fact" role="listitem" data-testid={TESTIDS.sheet.fact} data-fact={name} data-value={String(value)} data-notable={notable ? "true" : "false"} key={name}>
               <span className="cx-drawings-fact-label">{FACT_WORDS[name]}</span>
               <span className="cx-drawings-fact-value">{factValue(value)}</span>
             </span>
           );
         })}
-      </p>
+      </div>
 
       {/* I-84: every discipline is offered with the proposal preselected — a sheet the grammar read
           wrongly must still be confirmable, or it can never be measured. A confirmed card renders no

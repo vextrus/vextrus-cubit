@@ -143,7 +143,9 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   shows render through the IdChip — the key's own tail as the measure (`1F43` for
   `DXF_HANDLE:1F43`), the whole source key as the value, the tooltip and the clipboard — never a
   handle as body text (R-UI-082); the row is `nowrap`, clipped, so a card is the height of its facts
-  and no cited list wraps it taller (§7 C7). *Amends the "shown verbatim" reading of I-25 for keys.*
+  and no cited list wraps it taller (§7 C7). The fidelity facts are a `role="list"` of five items,
+  not a `<p>`: a row of readings a card states is a list, and §7 C7 counts paragraphs. *Amends the
+  "shown verbatim" reading of I-25 for keys.*
 - **I-97 — the Add region follows the grid once a card exists.** The v22 frame (§3.4) puts Add in the
   header and the Dropzone in the grid's empty state. Read against the journeys that drop a file on
   a project with cards: the Dropzone stands as its own region either way, FIRST while the index is
