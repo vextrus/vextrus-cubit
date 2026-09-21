@@ -768,7 +768,14 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
       id: "calibration",
       header: REGISTER_COPY.takeoff_register_col_calibration,
       size: 120,
-      cell: ({ row }) => <span className="cx-register-cell-mono">{row.original.calibrationKeys.join(" ")}</span>,
+      // A calibration key is an identifier and renders through the IdChip, never as body text (R-UI-082).
+      cell: ({ row }) => (
+        <span className="cx-register-cell-mono cx-register-cell-keys">
+          {row.original.calibrationKeys.map((key) => (
+            <IdChip key={key} value={key} />
+          ))}
+        </span>
+      ),
     },
     {
       id: "engine",

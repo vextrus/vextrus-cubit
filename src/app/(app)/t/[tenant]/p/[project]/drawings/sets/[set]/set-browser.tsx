@@ -15,7 +15,7 @@ import { refusalOf, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { Button } from "@/ui/primitives/core";
+import { Button, IdChip } from "@/ui/primitives/core";
 import { ShellEmptyState, useShellPage } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
 import type { DrawingLineage, DrawingSetView, SetRevision } from "@/modules/takeoff/sets";
@@ -128,7 +128,7 @@ export function SetBrowser({
   const emptiness = cause === null ? null : <Empty cause={cause} tenantId={tenantId} projectId={projectId} />;
 
   return (
-    <div className="cx-set" data-testid={TESTIDS.set.browser} data-set={set.setId}>
+    <div className="cx-set" data-testid={TESTIDS.set.browser} data-screen-root="" data-state="ready" data-set={set.setId}>
       <header className="cx-sets-header">
         <h1 className="cx-sets-heading" data-testid={TESTIDS.set.heading}>
           {set.name}
@@ -313,7 +313,7 @@ function DrawingRow({ lineage, member, canPin, onToggle }: { lineage: DrawingLin
                 key={revision.revisionId}
               >
                 <span className="cx-sets-ordinal">{formatUserFigure(String(revision.ordinal))}</span>
-                <span className="cx-sets-digest">{revision.sha256}</span>
+                <IdChip className="cx-sets-digest" value={revision.sha256} />
                 <span className="cx-sets-standing">{current ? sets.sets_revision_current : sets.sets_revision_superseded}</span>
               </li>
             );
@@ -347,15 +347,13 @@ function PinnedRevision({ revision }: { revision: SetRevision }) {
       <p className="cx-set-revision-head">
         <span className="cx-sets-standing">{revision.current ? sets.sets_revision_current : sets.sets_revision_superseded}</span>
         <span className="cx-sets-row-digest-label">{sets.sets_revision_digest_label}</span>
-        <span className="cx-sets-digest" data-testid={TESTIDS.set.revisionDigest}>
-          {revision.digest}
-        </span>
+        <IdChip className="cx-sets-digest" data-testid={TESTIDS.set.revisionDigest} value={revision.digest} />
       </p>
       <ul className="cx-set-citations">
         {revision.manifest.map((member) => (
           <li className="cx-set-citation" data-testid={TESTIDS.set.revisionMember} data-drawing={member.drawingId} data-revision={member.revisionId} data-sha256={member.sha256} key={member.revisionId}>
             <span className="cx-set-citation-name">{member.name}</span>
-            <span className="cx-sets-digest">{member.sha256}</span>
+            <IdChip className="cx-sets-digest" value={member.sha256} />
           </li>
         ))}
       </ul>

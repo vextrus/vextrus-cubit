@@ -85,6 +85,9 @@ const HEADING_ID = Object.freeze({
 /** The identities the readers' column furniture is remembered under (DataTable, §5 rule 3). */
 const TABLE_ID = Object.freeze({ activity: "s-project-activity", roster: "s-project-participants" });
 
+/** The shape of an account id: a roster member the store can name only so is rendered as the identifier it is (I-149). */
+const IDENTIFIER = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** A cell with nothing to state says so with the readout's own mark, never with a blank (§3.1). */
 function Absent() {
   return <span className="cx-project-absent">{strings.shell_status_absent}</span>;
@@ -416,7 +419,8 @@ function Participants({ tenantId, projectId, participants }: { tenantId: string;
       id: "member",
       header: strings.spine_participants_field_member,
       size: 320,
-      cell: ({ row }) => <span className="cx-project-member-label">{row.original.label}</span>,
+      // A member the roster can name only by id is named through the IdChip, never as body text (R-UI-082).
+      cell: ({ row }) => (IDENTIFIER.test(row.original.label) ? <IdChip value={row.original.label} /> : <span className="cx-project-member-label">{row.original.label}</span>),
     },
     {
       id: "roles",

@@ -222,7 +222,7 @@ export function ProjectsHome({ tenantId, projects }: ProjectsHomeProps) {
   const empty = projects.length === 0;
 
   return (
-    <div className="cx-home">
+    <div className="cx-home" data-screen-root="" data-state={empty ? "empty" : "ready"}>
       <div className="cx-home-title">
         <h1 className="cx-shell-heading">{strings.shell_projects_heading}</h1>
         <div className="cx-home-title-controls">

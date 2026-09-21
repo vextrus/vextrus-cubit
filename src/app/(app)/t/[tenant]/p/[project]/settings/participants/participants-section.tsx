@@ -260,7 +260,7 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
   const invalidBy = (field: "member" | "role"): string | undefined => (judged === field ? alertId : undefined);
 
   return (
-    <div className="cx-participants">
+    <div className="cx-participants" data-screen-root="" data-state="ready">
       <SettingsHeader title={strings.spine_participants_heading} about={strings.spine_participants_caption} />
 
       <section className="cx-settings-section" aria-labelledby={headingIds.current}>

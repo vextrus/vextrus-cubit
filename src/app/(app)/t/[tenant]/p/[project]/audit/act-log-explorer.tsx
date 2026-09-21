@@ -3,47 +3,83 @@
  * The act log explorer (R-SPINE-081): the project's acts newest first, each showing what it did and
  * what it cited, over three conjunctive filters.
  *
- * Filtering is in-component over the rows it was given — the read already answered, and narrowing a
- * list a person is looking at is not a second question for the server. Nothing is discarded: a
- * cleared filter brings its rows straight back, because the given rows are what the component holds.
- *
- * The screen is a reader (L-ACT-01): nothing here commits an act, so the one action it carries is
- * the clearing of its own filters.
+ * The log is a 28 px grid (I-38, amending I-36): a DataTable v2 whose rows keep the contract's ids
+ * and data attributes, whose identifiers — the consequence digest and every cited subject — render
+ * through the IdChip (I-38, amending I-26), and whose act type stands verbatim in mono because it is
+ * the model's own word (I-25). Filtering is in-component over the given rows; the rows themselves
+ * are never re-ordered.
  */
 import { useMemo, useRef, useState } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
 
 import { dhakaDateParts, formatDate, formatUserFigure } from "@/core/format";
 import type { AuditAct } from "@/modules/spine/audit";
-import { Button, Input, Select, type SelectOption } from "@/ui/primitives/core";
+import { Button, IdChip, Input, Select, type SelectOption } from "@/ui/primitives/core";
+import { DataTable } from "@/ui/primitives/data";
 import { useShellPage } from "@/ui/shell";
 import { fill } from "@/ui/strings";
 import { auditStrings } from "./strings";
 import { TESTIDS } from "@/ui/testids";
 
-/** The value a filter carries when it is filtering nothing — its own first option (I-31). */
 const ANY = "";
 
-/** One actor, as the actor filter offers them: the id it filters by, under the name it shows. */
+/** The identity the grid's column furniture is remembered under (DataTable's `tableId`). */
+const ACTS_TABLE_ID = "audit-acts";
+
+/** The shape of an account id: an actor the log can name only so is rendered as the identifier it is. */
+const IDENTIFIER = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 interface ActorChoice {
   readonly actorId: string;
   readonly actorLabel: string;
 }
 
-/** Code-point order: `localeCompare` is a locale's opinion, and these are identifiers (I-25). */
 function byCodePoint(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-/**
- * The date seam's date, from the act's Asia/Dhaka wall-clock parts (I-34, SEAM-FORMAT). `getDate()`
- * and its siblings read the host's zone, which on a UTC-clocked server puts an act committed before
- * six in the morning on the previous day — a wrong date on the one surface whose work is exactness.
- * Both halves of the conversion are the format seam's, so the day is the reader's day wherever the
- * process runs and this screen holds no offset of its own (B-17, L-FMT-01).
- */
 function occurred(at: Date): string {
   return formatDate(dhakaDateParts(at));
 }
+
+/**
+ * The measure a subject shows on its chip: a `scheme:key` source key shows its key, because the
+ * scheme is the same on every subject of a row and the key is what a reader recognises; anything
+ * else takes the chip's own leading characters. The whole subject is the chip's value either way.
+ */
+function subjectMeasure(subject: string): string | undefined {
+  const colon = subject.indexOf(":");
+  return colon > 0 && colon < subject.length - 1 ? subject.slice(colon + 1) : undefined;
+}
+
+const COLUMNS: ColumnDef<AuditAct, unknown>[] = [
+  { id: "type", header: auditStrings.audit_col_type, size: 220, cell: ({ row }) => <span className="cx-audit-act-type">{row.original.actType}</span> },
+  {
+    id: "actor",
+    header: auditStrings.audit_col_actor,
+    size: 160,
+    cell: ({ row }) => (IDENTIFIER.test(row.original.actorLabel) ? <IdChip value={row.original.actorLabel} /> : <span className="cx-audit-act-actor">{row.original.actorLabel}</span>),
+  },
+  { id: "occurred", header: auditStrings.audit_col_occurred, size: 120, cell: ({ row }) => <span className="cx-audit-act-when">{occurred(row.original.occurredAt)}</span> },
+  {
+    id: "consequence",
+    header: auditStrings.audit_consequence_label,
+    size: 140,
+    cell: ({ row }) => <IdChip data-testid={TESTIDS.audit.actConsequence} value={row.original.consequenceDigest} />,
+  },
+  {
+    id: "evidence",
+    header: auditStrings.audit_evidence_label,
+    size: 360,
+    cell: ({ row }) => (
+      <span className="cx-audit-act-evidence" data-testid={TESTIDS.audit.actEvidence}>
+        {row.original.subjects.map((each) => (
+          <IdChip key={each} short={subjectMeasure(each)} value={each} />
+        ))}
+      </span>
+    ),
+  },
+];
 
 export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
   // R-UI-084: the trail's last crumb is this screen's own word, under the project's home.
@@ -161,33 +197,17 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
           )}
         </div>
       ) : (
-        <ol className="cx-audit-acts" data-testid={TESTIDS.audit.acts}>
-          {shown.map((given) => (
-            <li className="cx-audit-act" data-act-type={given.actType} data-actor-id={given.actorId} data-testid={TESTIDS.audit.actRow} key={given.actId}>
-              <div className="cx-audit-act-meta">
-                <span className="cx-audit-act-type">{given.actType}</span>
-                <span className="cx-audit-act-actor">{given.actorLabel}</span>
-                <span className="cx-audit-act-when">{occurred(given.occurredAt)}</span>
-              </div>
-              <div className="cx-audit-act-line">
-                <span className="cx-audit-act-label">{auditStrings.audit_consequence_label}</span>
-                <span className="cx-audit-act-value" data-testid={TESTIDS.audit.actConsequence}>
-                  {given.consequenceDigest}
-                </span>
-              </div>
-              <div className="cx-audit-act-line">
-                <span className="cx-audit-act-label">{auditStrings.audit_evidence_label}</span>
-                <span className="cx-audit-act-evidence" data-testid={TESTIDS.audit.actEvidence}>
-                  {given.subjects.map((each) => (
-                    <span className="cx-audit-act-value" key={each}>
-                      {each}
-                    </span>
-                  ))}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <div className="cx-audit-acts" data-testid={TESTIDS.audit.acts} data-rows={shown.length}>
+          <DataTable
+            tableId={ACTS_TABLE_ID}
+            aria-labelledby="audit-acts-heading"
+            columns={COLUMNS}
+            data={shown}
+            getRowId={(act) => act.actId}
+            rowTestId={TESTIDS.audit.actRow}
+            rowDataOf={(act) => ({ "data-act-type": act.actType, "data-actor-id": act.actorId })}
+          />
+        </div>
       )}
     </section>
   );

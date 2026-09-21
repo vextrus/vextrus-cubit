@@ -291,34 +291,41 @@ export function SheetIndex({
     count: fill(drawings.drawings_group_count, { count: formatUserFigure(String(group.members.length)) }),
   }));
 
+  const addDrawings = (
+    <section className="cx-drawings-section" aria-labelledby={headingIds.upload}>
+      <h2 className="cx-drawings-section-heading" id={headingIds.upload}>
+        {drawings.drawings_upload_heading}
+      </h2>
+      {offline ? (
+        <div className="cx-drawings-offline" role="status">
+          {drawings.drawings_offline}
+        </div>
+      ) : null}
+      <Dropzone
+        items={items}
+        onFiles={(gathered) => {
+          void onFiles(gathered);
+        }}
+      />
+      {/* A stored drawing the seam refused to read: no job, so no step — and never silence. */}
+      {askRefusal === null ? null : (
+        <div className="cx-drawings-answer">
+          <RefusalState refusal={refusalOf(askRefusal)} evidence={evidenceFor(askRefusal)} />
+        </div>
+      )}
+    </section>
+  );
+
   return (
-    <div className="cx-drawings">
+    <div className="cx-drawings" data-screen-root="" data-state={cards.length === 0 ? "empty" : "ready"}>
       <header className="cx-drawings-header">
         <h1 className="cx-drawings-heading">{drawings.drawings_heading}</h1>
       </header>
 
-      <section className="cx-drawings-section" aria-labelledby={headingIds.upload}>
-        <h2 className="cx-drawings-section-heading" id={headingIds.upload}>
-          {drawings.drawings_upload_heading}
-        </h2>
-        {offline ? (
-          <div className="cx-drawings-offline" role="status">
-            {drawings.drawings_offline}
-          </div>
-        ) : null}
-        <Dropzone
-          items={items}
-          onFiles={(gathered) => {
-            void onFiles(gathered);
-          }}
-        />
-        {/* A stored drawing the seam refused to read: no job, so no step — and never silence. */}
-        {askRefusal === null ? null : (
-          <div className="cx-drawings-answer">
-            <RefusalState refusal={refusalOf(askRefusal)} evidence={evidenceFor(askRefusal)} />
-          </div>
-        )}
-      </section>
+      {/* I-97: with no card the Add region is the screen's teaching frame and stands first; with cards
+          the grid is the primary region and Add follows it, so the work surface begins within the
+          fold (the v22 frame's "↑ Add" reading of §3.4). */}
+      {cards.length === 0 ? addDrawings : null}
 
       {/* I-109: the ingest is not the whole chain — until the thumbnails job the worker chains after
           it has been asked for, this region is still running however well the ingest went. */}
@@ -429,6 +436,8 @@ export function SheetIndex({
           </div>
         )}
       </section>
+
+      {cards.length > 0 ? addDrawings : null}
 
       <ConsequenceDialog
         open={dialogOpen}

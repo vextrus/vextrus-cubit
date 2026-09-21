@@ -25,7 +25,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { formatUserFigure } from "@/core/format";
 import type { EditionLineageStep, EditionParameter, ProjectRulesetView } from "@/core/rulesets/editions";
-import { UnitBadge } from "@/ui/primitives/core";
+import { IdChip, UnitBadge } from "@/ui/primitives/core";
 import { DataTable } from "@/ui/primitives/data";
 import { ShellEmptyState, shellHref, useShellPage } from "@/ui/shell";
 import { PROJECT_SETTINGS_PAGES } from "@/ui/shell/routes";
@@ -118,11 +118,9 @@ function editionLabel(step: { name: string; version: string }): string {
  * surface to show, so it is never abbreviated in the DATA it publishes.
  */
 function Digest({ value, testId }: { value: string; testId?: string }) {
-  return (
-    <span className="cx-ruleset-digest" data-testid={testId} data-technical="">
-      {value}
-    </span>
-  );
+  // I-155: a digest is an identifier, and an identifier renders through the IdChip — the chip
+  // measure on screen, the whole 64 characters in `data-value`, on the tooltip and on the clipboard.
+  return <IdChip className="cx-ruleset-digest" data-testid={testId} value={value} />;
 }
 
 export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
@@ -130,7 +128,7 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
   useShellPage(PROJECT_SETTINGS_PAGES.ruleset);
   if (!view.pinned) {
     return (
-      <div className="cx-ruleset">
+      <div className="cx-ruleset" data-screen-root="" data-state="ready">
         <SettingsHeader title={rulesetStrings.ruleset_heading} about={rulesetStrings.ruleset_caption} />
         <div data-testid={TESTIDS.ruleset.unpinned}>
           <ShellEmptyState heading={rulesetStrings.ruleset_unpinned_heading} body={rulesetStrings.ruleset_unpinned_body}>
@@ -145,7 +143,7 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
   }
 
   return (
-    <div className="cx-ruleset">
+    <div className="cx-ruleset" data-screen-root="" data-state="unpinned">
       <SettingsHeader title={rulesetStrings.ruleset_heading} about={rulesetStrings.ruleset_caption} />
 
       {/* ONE line (§3.6), standing at the datum right under the title — §8's "the table starts at

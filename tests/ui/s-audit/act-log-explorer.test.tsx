@@ -106,7 +106,7 @@ function rows(): HTMLElement[] {
 /** What is on screen, named by the digest each row renders — the act's own identity (I-26). */
 function shown(): string[] {
   return rows()
-    .map((row) => (within(row).getByTestId(TESTID.consequence).textContent ?? "").trim())
+    .map((row) => within(row).getByTestId(TESTID.consequence).getAttribute("data-value") ?? "")
     .sort();
 }
 
@@ -180,7 +180,7 @@ describe("AC-1 — the act log lists the project's acts, each showing what it di
 
   test("AC-1: the rows stand in the order the module answered them — newest first", async () => {
     await mount(ACTS);
-    const digests = rows().map((row) => (within(row).getByTestId(TESTID.consequence).textContent ?? "").trim());
+    const digests = rows().map((row) => within(row).getByTestId(TESTID.consequence).getAttribute("data-value") ?? "");
     expect(digests, "the list renders the acts in the given (newest-first) order — it does not re-order them").toEqual(ACTS.map((given) => given.consequenceDigest));
   });
 
@@ -193,8 +193,8 @@ describe("AC-1 — the act log lists the project's acts, each showing what it di
       expect(text, `row ${index} shows the act type verbatim (Decision I-25)`).toContain(given.actType);
       expect(text, `row ${index} shows who acted`).toContain(given.actorLabel);
       expect(
-        (within(row).getByTestId(TESTID.consequence).textContent ?? "").trim(),
-        `[data-testid=${TESTID.consequence}] holds the digest whole — a digest is never abbreviated (Decision I-26)`,
+        within(row).getByTestId(TESTID.consequence).getAttribute("data-value") ?? "",
+        `[data-testid=${TESTID.consequence}] is the IdChip holding the digest whole as its value (Decision I-38) — a digest is never abbreviated (Decision I-26)`,
       ).toBe(given.consequenceDigest);
     });
   });
@@ -204,7 +204,7 @@ describe("AC-1 — the act log lists the project's acts, each showing what it di
 
     rows().forEach((row, index) => {
       const given = ACTS[index] as AuditAct;
-      const evidence = (within(row).getByTestId(TESTID.evidence).textContent ?? "").replace(/\s+/g, " ");
+      const evidence = [...within(row).getByTestId(TESTID.evidence).querySelectorAll("[data-value]")].map((chip) => chip.getAttribute("data-value") ?? "");
       for (const subject of given.subjects) {
         expect(evidence, `[data-testid=${TESTID.evidence}] of row ${index} must cite ${subject} — an act's cited evidence is its subjects, shown whole`).toContain(subject);
       }

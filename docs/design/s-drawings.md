@@ -138,6 +138,17 @@ Dropzone; the one OfferedGroups; the one ConsequenceDialog; the one RefusalState
 Recorded IOU — visible navigation (R-UI-031), owner: the node owning the shell's project
 navigation (the S-Audit and participants precedent, unpaid). Until it lands the route is
 journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its one address.
+- **I-95 — the screen states itself on its root, and every identifier renders through the IdChip (session 4, AM-08 Part 2's rubric read as CLAUDE.md reads it).** `cx-drawings` states `empty` with no card and `ready` otherwise; the grid's own `data-rendered-region` contract is unchanged. The root carries `data-screen-root` and a `data-state` a reader of the DOM can take after `settled()` — `ready`, `empty`, or the screen's own word — which is the rubric's twelfth criterion and was unstated here. An identifier a person meets on this screen (an account id, a content digest, a source key) is an IdChip: the chip measure on screen, the whole value in `data-value`, on the tooltip and on the clipboard, never a raw uuid, hex digest or handle in body text (R-UI-082). Where an earlier Interpretation of this file ruled a digest rendered whole in the document, this one amends it: the whole value is the chip's DATA and the copy it hands over, and the document shows the measure.
+- **I-96 — a cited key is an IdChip, and the cited row is one line.** The five cited keys a card
+  shows render through the IdChip — the key's own tail as the measure (`1F43` for
+  `DXF_HANDLE:1F43`), the whole source key as the value, the tooltip and the clipboard — never a
+  handle as body text (R-UI-082); the row is `nowrap`, clipped, so a card is the height of its facts
+  and no cited list wraps it taller (§7 C7). *Amends the "shown verbatim" reading of I-25 for keys.*
+- **I-97 — the Add region follows the grid once a card exists.** The v22 frame (§3.4) puts Add in the
+  header and the Dropzone in the grid's empty state. Read against the journeys that drop a file on
+  a project with cards: the Dropzone stands as its own region either way, FIRST while the index is
+  empty (it is then the teaching frame) and AFTER the sheets section once a card exists, so the grid
+  begins within 240 px of main's top and is the primary region the rubric measures (§7 C1, C2).
 
 ## 1. Layout and hierarchy
 

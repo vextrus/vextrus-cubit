@@ -174,6 +174,7 @@ no section heading over a sentence.
   colour nor length is the only carrier (Q-11). The same reading governs the estimated-value
   tile: until a project holds an estimate the tile states `—`, never `৳ 0.00` (Direction 00 §8's
   reading of `0 USD`).
+- **I-143 — the screen states itself on its root, and every identifier renders through the IdChip (session 4, AM-08 Part 2's rubric read as CLAUDE.md reads it).** `cx-home` states `empty` on the zero-project branch and `ready` otherwise. The root carries `data-screen-root` and a `data-state` a reader of the DOM can take after `settled()` — `ready`, `empty`, or the screen's own word — which is the rubric's twelfth criterion and was unstated here. An identifier a person meets on this screen (an account id, a content digest, a source key) is an IdChip: the chip measure on screen, the whole value in `data-value`, on the tooltip and on the clipboard, never a raw uuid, hex digest or handle in body text (R-UI-082). Where an earlier Interpretation of this file ruled a digest rendered whole in the document, this one amends it: the whole value is the chip's DATA and the copy it hands over, and the document shows the measure.
 
 ## 1. Layout and hierarchy
 

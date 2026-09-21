@@ -10,7 +10,7 @@ import Link from "next/link";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { Button, Input } from "@/ui/primitives/core";
+import { Button, IdChip, Input } from "@/ui/primitives/core";
 import { ShellEmptyState, useShellPage } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
 import type { DrawingSetSummary } from "@/modules/takeoff/sets";
@@ -72,7 +72,7 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
   };
 
   return (
-    <div className="cx-sets">
+    <div className="cx-sets" data-screen-root="" data-state={held.length === 0 ? "empty" : "ready"}>
       <header className="cx-sets-header">
         <h1 className="cx-sets-heading">{sets.sets_heading}</h1>
         <p className="cx-sets-caption">{sets.sets_caption}</p>
@@ -188,8 +188,8 @@ function SetRow({ set, tenantId, projectId }: { set: DrawingSetSummary; tenantId
               {sets.sets_row_digest_none}
             </span>
           ) : (
-            <span className="cx-sets-digest" data-testid={TESTIDS.set.rowDigest} data-digest={set.currentDigest}>
-              {set.currentDigest}
+            <span className="cx-sets-row-digest" data-testid={TESTIDS.set.rowDigest} data-digest={set.currentDigest}>
+              <IdChip className="cx-sets-digest" value={set.currentDigest} />
             </span>
           )}
         </p>

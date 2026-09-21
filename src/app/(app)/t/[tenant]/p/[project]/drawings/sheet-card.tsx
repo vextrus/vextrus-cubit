@@ -12,7 +12,7 @@
 import { useId, useState } from "react";
 import { DISCIPLINES, FIDELITY_FACTS, type Discipline, type FidelityFact } from "@/core/sheets/law";
 import { formatUserFigure } from "@/core/format";
-import { Badge, Button, Chip } from "@/ui/primitives/core";
+import { Badge, Button, Chip, IdChip } from "@/ui/primitives/core";
 import { fill } from "@/ui/strings";
 import type { ReactNode } from "react";
 import { viewerSheetRoute } from "../viewer/[drawing]/[layout]/route-address";
@@ -23,6 +23,12 @@ import { TESTIDS } from "@/ui/testids";
 /** §8's cap for this screen: "cited entities capped at 5 + '+N more' — the 280×5404 baseline ends".
     A card whose height is the length of a list is a card that has no height of its own. */
 const CITED_SHOWN = 5;
+
+/** The measure a cited `scheme:key` shows on its chip: the key, because the scheme is every citation's. */
+function citedMeasure(key: string): string | undefined {
+  const colon = key.indexOf(":");
+  return colon > 0 && colon < key.length - 1 ? key.slice(colon + 1) : undefined;
+}
 
 export interface SheetCardData {
   readonly sheetId: string;
@@ -152,10 +158,10 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
       {card.proposal.cited.length === 0 ? null : (
         <p className="cx-drawings-cited cx-reticle" tabIndex={0} role="group" aria-label={drawings.drawings_cited_label}>
           <span className="cx-drawings-cited-label">{drawings.drawings_cited_label}</span>
+          {/* I-96: a cited key is an identifier and renders through the IdChip — the key's own tail as
+              the measure, the whole source key as the value, never a handle as body text (R-UI-082). */}
           {card.proposal.cited.slice(0, CITED_SHOWN).map((key) => (
-            <span className="cx-drawings-enum" key={key}>
-              {key}
-            </span>
+            <IdChip key={key} short={citedMeasure(key)} value={key} />
           ))}
           {card.proposal.cited.length > CITED_SHOWN ? (
             <span className="cx-drawings-enum" data-testid={TESTIDS.sheet.cardCitedMore}>

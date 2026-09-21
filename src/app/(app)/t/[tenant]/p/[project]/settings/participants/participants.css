@@ -14,10 +14,23 @@
   flex-direction: column;
   gap: var(--gap-section);
   min-width: 0;
+  /* I-214: the roster is the primary region and fills the work surface; the form and the history
+     follow beneath it and the page scrolls to them. */
+  height: 100%;
+  min-height: 0;
 }
 
 .cx-participants-table {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
+}
+
+.cx-participants-table > * {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .cx-participants-member {

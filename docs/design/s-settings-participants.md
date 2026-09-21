@@ -131,6 +131,12 @@ no string literal beyond test ids and fixed attribute values.
   the assign hint and the history hint are the disclosures on the headings they explain, and on
   the permission-denied branch the two sentences that name the permission and who holds it are
   the header's, leaving the `RefusalState` to be the one answer on the screen.
+- **I-213 — the screen states itself on its root, and every identifier renders through the IdChip (session 4, AM-08 Part 2's rubric read as CLAUDE.md reads it).** `cx-participants` states `ready` — the roster is never empty (a project holds a PRINCIPAL at every moment). The root carries `data-screen-root` and a `data-state` a reader of the DOM can take after `settled()` — `ready`, `empty`, or the screen's own word — which is the rubric's twelfth criterion and was unstated here. An identifier a person meets on this screen (an account id, a content digest, a source key) is an IdChip: the chip measure on screen, the whole value in `data-value`, on the tooltip and on the clipboard, never a raw uuid, hex digest or handle in body text (R-UI-082). Where an earlier Interpretation of this file ruled a digest rendered whole in the document, this one amends it: the whole value is the chip's DATA and the copy it hands over, and the document shows the measure.
+- **I-214 — the roster fills the work surface.** The current-roles grid is the primary region
+  (§1's table) and takes the height the header leaves — `cx-participants` is a full-height column,
+  `cx-participants-table` grows and the grid inside it stretches — so the surface reads as the grid
+  it is rather than a two-row table over a page of form; the assign form and the history follow
+  beneath, and the page scrolls to them (AM-08 Part 2's rubric, C1).
 
 ## 1. Layout and hierarchy
 
