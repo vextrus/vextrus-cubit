@@ -28,6 +28,7 @@ import type { OverlayToggles, PartitionOverlayView } from "@/modules/takeoff/vie
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { OfferedGroups } from "@/ui/patterns/offered-group";
 import { RefusalState } from "@/ui/patterns/refusal-state";
+import { IdChip } from "@/ui/primitives/core";
 import { strings } from "@/ui/strings";
 import { participantsRoute } from "@/app/(app)/t/[tenant]/p/[project]/settings/participants/route-address";
 import { commitConfirmViewType, previewConfirmViewType, type CommitAnswer, type PreviewAnswer } from "./partition-actions";
@@ -210,6 +211,7 @@ export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, 
    */
   const panel = (
     <PartitionPanel
+      IdChip={IdChip}
       state={partition.phase}
       overlay={partition.overlay}
       toggles={toggles}

@@ -24,7 +24,7 @@ import { VIEW_TYPE } from "@/modules/takeoff/partition/views/law";
 import { PARTITION_COPY, fillCopy } from "./copy";
 import type { OverlayToggles, PartitionOverlay, PartitionOverlayAxis, PartitionOverlayView } from "./types";
 import type { GridDeferralRow } from "@/modules/takeoff/partition";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 import "./viewer-partition.css";
 
@@ -50,7 +50,24 @@ export type PartitionPanelProps = {
   /** The region's answer slot: one RefusalState — the feed's or the act's — or the offline notice,
       or nothing. In the `refused` state it stands in the body's place; otherwise beside the offer. */
   answer: ReactNode;
+  /**
+   * The shipped IdChip, handed in by the screen (ARCH-01: a module reaches no primitive of its own):
+   * a view key is an identifier and renders through it, the anchor's handle as the measure and the
+   * whole key as the value (I-190). Without one — a jsdom mount — the key stands whole in mono.
+   */
+  IdChip?: ComponentType<{ value: string; short?: string }>;
 };
+
+/** The measure a view key shows on its chip: its last segment, the anchor's own handle. */
+function keyMeasure(viewKey: string): string | undefined {
+  const at = viewKey.lastIndexOf(":");
+  return at > 0 && at < viewKey.length - 1 ? viewKey.slice(at + 1) : undefined;
+}
+
+/** One view key, through the chip where the screen handed one and whole otherwise. */
+function ViewKey({ viewKey, IdChip }: { viewKey: string; IdChip?: ComponentType<{ value: string; short?: string }> }) {
+  return IdChip === undefined ? <span className="cx-viewer-partition-key">{viewKey}</span> : <IdChip short={keyMeasure(viewKey)} value={viewKey} />;
+}
 
 /**
  * A stored measurement as a decimal string the figure seam accepts (R-SPINE-010, L-FMT-02).
@@ -103,7 +120,7 @@ function OverlaySwitch({ testId, label, on, onFlip }: { testId: string; label: s
 }
 
 /** One stored view: its badge, its key, its caption, what it holds, and the reason it carries. */
-function ViewRow({ view }: { view: PartitionOverlayView }) {
+function ViewRow({ view, IdChip }: { view: PartitionOverlayView; IdChip?: PartitionPanelProps["IdChip"] }) {
   const untyped = view.type === VIEW_TYPE.UNTYPED;
   const onSheet = view.box !== null;
   const reason = messageOf(view.reason);
@@ -125,7 +142,7 @@ function ViewRow({ view }: { view: PartitionOverlayView }) {
         <span className="cx-badge cx-viewer-partition-badge" data-testid="viewer-partition-view-badge" data-untyped={String(untyped)}>
           {view.type}
         </span>
-        <span className="cx-viewer-partition-key">{view.viewKey}</span>
+        <ViewKey viewKey={view.viewKey} IdChip={IdChip} />
       </span>
       {view.caption === "" ? null : <span className="cx-viewer-partition-caption">{view.caption}</span>}
       <span className="cx-viewer-partition-line">
@@ -170,16 +187,16 @@ function AxisRow({ axis }: { axis: PartitionOverlayAxis }) {
 }
 
 /** One layout plan a grid could not lawfully be read off, naming the closed reason it deferred for. */
-function DeferralRow({ deferral }: { deferral: GridDeferralRow }) {
+function DeferralRow({ deferral, IdChip }: { deferral: GridDeferralRow; IdChip?: PartitionPanelProps["IdChip"] }) {
   return (
     <li className="cx-viewer-partition-row" data-testid="viewer-partition-grid-deferral" data-view-key={deferral.viewKey} data-reason={deferral.reason}>
-      <span className="cx-viewer-partition-key">{deferral.viewKey}</span>
+      <ViewKey viewKey={deferral.viewKey} IdChip={IdChip} />
       <span className="cx-viewer-partition-reason">{messageOf(deferral.reason)}</span>
     </li>
   );
 }
 
-export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, faultId, groups, answer }: PartitionPanelProps) {
+export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, faultId, groups, answer, IdChip }: PartitionPanelProps) {
   const views = overlay?.views ?? [];
   const axes = overlay?.axes ?? [];
   const deferrals = overlay?.deferrals ?? [];
@@ -251,7 +268,7 @@ export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, fau
         <div className="cx-viewer-partition-body">
           <ol className="cx-viewer-partition-list" aria-label={PARTITION_COPY.viewer_partition_views_list_label}>
             {views.map((view) => (
-              <ViewRow key={view.viewKey} view={view} />
+              <ViewRow key={view.viewKey} view={view} IdChip={IdChip} />
             ))}
           </ol>
           {axes.length === 0 ? null : (
@@ -264,7 +281,7 @@ export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, fau
           {deferrals.length === 0 ? null : (
             <ul className="cx-viewer-partition-list" aria-label={PARTITION_COPY.viewer_partition_deferrals_list_label}>
               {deferrals.map((deferral) => (
-                <DeferralRow key={`${deferral.viewKey}|${deferral.reason}`} deferral={deferral} />
+                <DeferralRow key={`${deferral.viewKey}|${deferral.reason}`} deferral={deferral} IdChip={IdChip} />
               ))}
             </ul>
           )}

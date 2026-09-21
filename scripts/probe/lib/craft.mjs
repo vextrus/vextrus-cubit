@@ -64,8 +64,13 @@ export async function readCraft(page, options = {}) {
       ...qa(`[data-testid="${ids.sheetIndex}"]`, main),
       ...qa(`[data-testid="${ids.homeGrid}"]`, main),
     ];
+    // A candidate standing inside another candidate is part of that region, not a region of its own:
+    // a bill's table inside the BOQ grid, a DataTable inside the home grid. The primary is measured
+    // at the outermost region that holds it — the frame a reader sees — never at a nested table whose
+    // own box the frame clips.
+    const outermost = candidates.filter((candidate) => !candidates.some((other) => other !== candidate && other.contains(candidate)));
     let primary = null;
-    for (const candidate of candidates) {
+    for (const candidate of outermost) {
       const box = rect(candidate);
       if (box && box.area > 0 && (primary === null || box.area > primary.box.area)) primary = { id: candidate.getAttribute("data-testid") ?? candidate.tagName.toLowerCase(), box };
     }

@@ -347,7 +347,8 @@ function RecentActivity({ tenantId, projectId, acts }: { tenantId: string; proje
       id: "who",
       header: copy.project_home_col_who,
       size: 220,
-      cell: ({ row }) => <span className="cx-project-member-label">{row.original.actorLabel}</span>,
+      // An actor the log can name only by account id is named through the IdChip (I-149).
+      cell: ({ row }) => (IDENTIFIER.test(row.original.actorLabel) ? <IdChip value={row.original.actorLabel} /> : <span className="cx-project-member-label">{row.original.actorLabel}</span>),
     },
     {
       id: "when",
