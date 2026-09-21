@@ -1034,15 +1034,18 @@ second reason, ruled by s-scale I-160 and recorded here in the overlay's own ter
 
 The stage still dominates. The panel recedes exactly as the layers panel does — same fill
 (`var(--graphite-50)`), same header geometry, same hairline seams — so the left stack reads as one
-column of two lists rather than two competing panels. The section is the scroll container and its
-header row is sticky at its top, which keeps the two switches inside the scrollable region: a
-scrolled region always holds focusable content, so axe's scrollable-region rule can never fire here.
+column of two lists rather than two competing panels. The section is a column: its head stands
+above, and the body beneath it is the scroll container (I-190, session 4 — until then the section
+scrolled whole with the head sticky inside it, which kept the two switches in the scrolled region
+for axe's scrollable-region rule; now every row carries a key chip with two focus stops, the body
+always holds focusable content of its own, and no row's copy target ever passes under the head,
+which axe's target-size rule read as an obscured target at j-021/partition-confirmed).
 
 ```
 <section class="cx-viewer-partition" data-testid="viewer-partition"
          aria-labelledby="cx-viewer-partition-title"
          data-state="loading|ready|empty|failed" data-views="on|off" data-grid="on|off">
-  <div class="cx-viewer-partition-head">          ← position: sticky, inset-block-start: 0
+  <div class="cx-viewer-partition-head">          ← the head; the body below is the scroller
     <h2 id="cx-viewer-partition-title" tabindex="-1">Views and grid</h2>
     <button role="switch" data-testid="viewer-partition-views-toggle" aria-checked class="cx-reticle">
     <button role="switch" data-testid="viewer-partition-grid-toggle"  aria-checked class="cx-reticle">
@@ -1763,7 +1766,7 @@ one RefusalState, the one ConsequenceDialog — plus the `cx-viewer-scale-*` cla
   only by the attribute drawn on it.
 - **I-188 — the screen states itself on its root, and every identifier renders through the IdChip (session 4, AM-08 Part 2's rubric read as CLAUDE.md reads it).** `viewer-screen` states `loading` until the paint context is probed and `ready` after; `data-flyto` and the rest stand beside it as before. The root carries `data-screen-root` and a `data-state` a reader of the DOM can take after `settled()` — `ready`, `empty`, or the screen's own word — which is the rubric's twelfth criterion and was unstated here. An identifier a person meets on this screen (an account id, a content digest, a source key) is an IdChip: the chip measure on screen, the whole value in `data-value`, on the tooltip and on the clipboard, never a raw uuid, hex digest or handle in body text (R-UI-082). Where an earlier Interpretation of this file ruled a digest rendered whole in the document, this one amends it: the whole value is the chip's DATA and the copy it hands over, and the document shows the measure.
 - **I-189 — the status line is a rendered region.** `viewer-status` carries `data-rendered-region` and a `data-state` that reads `pending` until the sheet's first paint and `settled` after, so `settled()` and every retrying read take one reading of a painted sheet rather than three agreeing ones of a canvas still arriving (tests/e2e/support/settled.ts; AM-09 §2). `data-first-paint` stands beside it unchanged.
-- **I-190 — a view key in the partition panel is an IdChip.** The panel's view rows and grid deferrals render the view key through the shipped IdChip the screen hands in (ARCH-01: the module reaches no primitive of its own) — the anchor's handle as the measure, the whole key as the value, on the tooltip and on the clipboard — never as body text (R-UI-082; AM-08 Part 2 C6). *Amends the "whole, `user-select: all`" reading of the key's line.* A jsdom mount that hands no chip sees the key whole in mono, as before.
+- **I-190 — a view key in the partition panel is an IdChip.** The panel's view rows and grid deferrals render the view key through the shipped IdChip the screen hands in (ARCH-01: the module reaches no primitive of its own) — the anchor's handle as the measure, the whole key as the value, on the tooltip and on the clipboard — never as body text (R-UI-082; AM-08 Part 2 C6). *Amends the "whole, `user-select: all`" reading of the key's line.* A jsdom mount that hands no chip sees the key whole in mono, as before. A chip is two keyboard stops — its measure, focusable so the whole key stands on its tooltip, and its copy — and both wear the reticle like every other stop of the shell; AC-5's walk therefore passes through every row's chip between the two toggles and the offered groups, in DOM order, and the journey reads it so (session 4, the gate of 2026-09-21).
 
 ## 1. Layout and hierarchy
 

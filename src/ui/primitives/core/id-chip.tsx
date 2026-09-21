@@ -55,7 +55,7 @@ export function IdChip({ value, short, className, "data-testid": testId }: IdChi
       onBlur={() => setCopied(false)}
     >
       <Tooltip content={value}>
-        <span className="cx-id-chip-value" tabIndex={0}>
+        <span className="cx-id-chip-value cx-reticle" tabIndex={0}>
           {short ?? shortForm(value)}
         </span>
       </Tooltip>

@@ -167,13 +167,37 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
     /* --- AC-5: the region is walked on the keyboard, in DOM order, every stop wearing the reticle --- */
     await partition.heading.focus();
     expect(await afterSettled(partition.heading, () => partition.heading.evaluate((element) => element === document.activeElement)), "the region takes focus at its own heading (I-110)").toBe(true);
-    const walk: string[] = ["viewer-partition-views-toggle", "viewer-partition-grid-toggle", ...members.map(() => "offered-group-confirm")];
-    for (const expected of walk) {
+    const reaches = async (expected: string): Promise<void> => {
       await page.keyboard.press("Tab");
       const stop = await partition.focused();
       expect(stop.testId, `tabbing through the panel reaches ${expected} in DOM order`).toBe(expected);
       expect(stop.classes.split(/\s+/), `and ${expected} wears the reticle a keyboard reader is followed by`).toContain(RETICLE);
+    };
+    await reaches("viewer-partition-views-toggle");
+    await reaches("viewer-partition-grid-toggle");
+    // Between the toggles and the offered groups stand the view rows' keys — IdChips since I-190, each
+    // two stops: the measure (focusable, the whole key on its tooltip) and the copy. The walk passes
+    // through them in DOM order, every stop a chip's and every stop reticled, and comes out at the first
+    // offered group's confirm; a walk still among chips after two stops for every row the panel could
+    // hold has left the panel.
+    const CHIP_STOPS: readonly string[] = ["id-chip", "id-chip-copy"];
+    const mostChipStops = 2 * staged.views.length + 2 * (await steadyCount(partition.deferralRows, "the grid deferrals the panel lists"));
+    let chipStops = 0;
+    for (;;) {
+      await page.keyboard.press("Tab");
+      const stop = await partition.focused();
+      if (stop.testId === "offered-group-confirm") {
+        expect(stop.classes.split(/\s+/), "the first offered group's confirm wears the reticle a keyboard reader is followed by").toContain(RETICLE);
+        break;
+      }
+      expect(chipStops, "the stops between the toggles and the offered groups are the rows' chips, two a row, and nothing else").toBeLessThan(mostChipStops);
+      expect(CHIP_STOPS, `a stop between the toggles and the offered groups is a view key's chip — its measure or its copy — never ${JSON.stringify(stop)}`).toContain(stop.ownerTestId);
+      expect(stop.classes.split(/\s+/), "and the chip's stop wears the reticle (I-190)").toContain(RETICLE);
+      chipStops += 1;
     }
+    expect(chipStops, "every stored view's key is a chip of two stops (I-190)").toBeGreaterThanOrEqual(2 * staged.views.length);
+    expect(chipStops % 2, "and no chip was passed by half").toBe(0);
+    for (let at = 1; at < members.length; at += 1) await reaches("offered-group-confirm");
 
     /* --- j-021/partition-toggled: Views off from the keyboard, and nothing else moves --- */
     const scaleBefore = await viewer.scale();

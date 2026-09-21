@@ -12,16 +12,16 @@
   flex-direction: column;
   min-height: 0;
   max-block-size: 55%;
-  overflow-y: auto;
+  overflow: hidden;
   background: var(--surface-panel);
   border-block-start: var(--hairline);
 }
 
-/* The header is sticky at the top of the scroller, which keeps the two switches inside the
-   scrollable region: a scrolled region always holds focusable content here (§ 1, axe). */
+/* The head stands above the scroller and the body scrolls beneath it (I-190): every row carries a
+   key chip — two focus stops — so the scrolled region always holds focusable content without the
+   switches, and no row's copy target ever passes under the head (axe target-size). Until session 4
+   the section scrolled whole and this head was sticky inside it. */
 .cx-viewer-partition-head {
-  position: sticky;
-  inset-block-start: 0;
   display: grid;
   /* The two switch chips are sized by their labels and do not shrink, so a `1fr` title column beside
      them collapses to a few characters at the left stack's own width and the region's title — the
@@ -34,7 +34,6 @@
   padding: var(--space-2) var(--space-3);
   background: var(--surface-panel);
   border-block-end: var(--hairline);
-  z-index: var(--z-base);
 }
 
 .cx-viewer-partition-heading {
@@ -95,8 +94,11 @@
 
 .cx-viewer-partition-body {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .cx-viewer-partition-list {

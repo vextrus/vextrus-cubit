@@ -96,10 +96,15 @@ export class SViewerPartitionPage {
   }
 
   /** The test id the focused element carries, and the classes it wears — the keyboard walk's reading. */
-  async focused(): Promise<{ testId: string; classes: string }> {
+  /** The focused element: its own test id, the nearest test id above it (a chip's measure has none of its own), and its classes. */
+  async focused(): Promise<{ testId: string; ownerTestId: string; classes: string }> {
     return afterSettled(this.page, () => this.page.evaluate(() => {
       const active = document.activeElement;
-      return { testId: active?.getAttribute("data-testid") ?? "", classes: active?.className ?? "" };
+      return {
+        testId: active?.getAttribute("data-testid") ?? "",
+        ownerTestId: active?.closest("[data-testid]")?.getAttribute("data-testid") ?? "",
+        classes: active?.className ?? "",
+      };
     }));
   }
 
