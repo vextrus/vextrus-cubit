@@ -171,23 +171,28 @@ describe("AC-4: the layers panel is the manifest's own roster, and the status li
     expect(dataNumber(status(), "data-drawn-entities"), "a locked layer is still drawn — lock takes it out of the hit-test, not off the sheet").toBe(totalEntities());
   });
 
-  test("AC-tool: default tool is select, and hotkeys V and H toggle select and pan", async () => {
+  // The sheet opens in the PAN tool: every gesture sentence of the Decision reads "plain drag pans"
+  // and "Shift+drag draws the marquee" (viewer.md §5), and J-011 walks a plain drag that selects
+  // nothing. Until 2026-09-21 this test pinned `select` as the default, under which a plain drag
+  // drew a marquee on a fresh sheet — J-011's "a plain drag is a pan" passed only while the drawn
+  // rectangle happened to hold nothing. V takes select and H returns to pan (R-UI-032).
+  test("AC-tool: default tool is pan, and hotkeys V and H take select and pan", async () => {
     await prepare();
     const user = userEvent.setup();
     render(<ViewerScreen {...props(manifestHead())} />);
 
     const canvas = screen.getByTestId(TESTIDS.viewer.canvas);
-    expect(canvas.getAttribute("data-tool"), "default tool on canvas is select").toBe("select");
+    expect(canvas.getAttribute("data-tool"), "the sheet opens in the pan tool (viewer.md §5: plain drag pans)").toBe("pan");
 
     canvas.focus();
 
-    // Press H to switch to pan (R-UI-032)
-    await user.keyboard("h");
-    expect(canvas.getAttribute("data-tool"), "pressing h switches tool to pan").toBe("pan");
-
-    // Press V to switch back to select (R-UI-032)
+    // Press V to take the select tool (R-UI-032)
     await user.keyboard("v");
     expect(canvas.getAttribute("data-tool"), "pressing v switches tool to select").toBe("select");
+
+    // Press H to return to pan (R-UI-032)
+    await user.keyboard("h");
+    expect(canvas.getAttribute("data-tool"), "pressing h switches tool to pan").toBe("pan");
   });
 });
 

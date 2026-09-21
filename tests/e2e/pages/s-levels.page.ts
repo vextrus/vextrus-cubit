@@ -163,7 +163,7 @@ export class SLevelsPage {
 
   /**
    * Author a typical range on one range row: the two ends chosen at the shipped Selects by the level's
-   * own label, then the preview door (`levels-author-range`), which opens the one ConsequenceDialog.
+   * own label, then the preview door (`TESTIDS.levels.authorRange`), which opens the one ConsequenceDialog.
    */
   async authorRange(row: Locator, fromLabel: string, toLabel: string): Promise<void> {
     await this.chooseByName(row.getByTestId(LEVELS_IDS.rangeFrom), fromLabel);

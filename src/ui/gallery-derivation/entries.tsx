@@ -19,7 +19,7 @@ import { CommandPalette, CommandPaletteProvider, ShortcutSheet } from "../patter
 import { ConsequenceDialog } from "../patterns/consequence-dialog";
 import { Dropzone, type DropzoneItem } from "../patterns/dropzone";
 import { EvidenceLink } from "../patterns/evidence-link";
-import { JobTimeline, JobsProvider, type JobsFormat, type TimelineStep } from "../patterns/job-timeline";
+import { JobTimeline, JobsProvider, TrackedJobTimeline, type JobsFormat, type TimelineStep } from "../patterns/job-timeline";
 import { OfferedGroups, type OfferedGroupItem } from "../patterns/offered-group";
 import { RefusalState } from "../patterns/refusal-state";
 import { SAMPLE_REFUSAL_BY_SEVERITY, sampleRefusal } from "./sample-refusals";
@@ -972,6 +972,25 @@ export const galleryEntries: GalleryEntries = {
         render: () => (
           <JobsProvider format={SAMPLE_JOBS_FORMAT}>
             <JobsTray />
+          </JobsProvider>
+        ),
+      },
+    ],
+  },
+  // The pattern's two halves composed (R-UI-024, X-1): a screen hands the jobs it started, the
+  // register follows them, the timeline draws what it reads. Sampled with one job the register has
+  // not yet read, so the step stands exactly as the register's Measure run stands the moment the
+  // door is pressed (docs/design/s-takeoff.md § 0, I-170).
+  "patterns/job-timeline/TrackedJobTimeline": {
+    states: [
+      {
+        name: "tracking",
+        render: () => (
+          <JobsProvider format={SAMPLE_JOBS_FORMAT}>
+            <TrackedJobTimeline
+              heading="Measure run"
+              jobs={[{ jobId: "11111111-1111-4111-8111-111111111111", kind: "measure", subject: "campaign-1", evidence: { href: "/t/tenant-1/p/project-1/takeoff/register", label: "Open the register" } }]}
+            />
           </JobsProvider>
         ),
       },
