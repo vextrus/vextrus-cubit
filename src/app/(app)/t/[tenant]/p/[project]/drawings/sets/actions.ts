@@ -22,6 +22,10 @@ import { z } from "zod";
 import { commit, consequenceDigest, permissionsHeld, preview, type Consequence, type PinDrawingSetInput } from "@/core/acts";
 import { forTenant } from "@/core/db";
 import { REFUSALS, type RefusalCode } from "@/core/errors";
+// A pin moves the expansion resolver's inputs — the revisions a drawing's rows register under — so
+// the project's stored partitions are re-expanded after the commit, and the campaign the pin opens
+// holds its objects at once (L-CAD-07, L-REG-06; src/modules/takeoff/partition/expansion/reexpand.ts).
+import { reexpandProject } from "@/modules/takeoff/partition/expansion/reexpand";
 import { createSet as createSetInModule, setOf, toggleMember as toggleMemberInModule } from "@/modules/takeoff/sets";
 import type { AuthSession } from "@/server/auth/session";
 import { serverCall } from "@/server/call";
@@ -115,6 +119,9 @@ const committing = serverCall(
     if (pinned === undefined) {
       throw new Error(`${PIN_DRAWING_SET} committed act ${written.actId} but the set stands at no pinned revision — the act row and its state change land together or neither (L-ACT-01)`);
     }
+    // The campaign this pin opens holds its objects at once: every stored partition of the project
+    // is re-resolved over the live stack and registered under the revision the pin just minted.
+    await reexpandProject({ tenantId: actor.tenantId, projectId: request.projectId });
     return { committed: true, actId: written.actId, setRevisionId: pinned.setRevisionId, digest: pinned.digest };
   },
   (refusal): CommitPinAnswer => ({ committed: false, refusal }),

@@ -37,6 +37,10 @@ import { certificatePreviewOf, coverageCellOf, coverageViewOf } from "../../modu
 import type { CertificatePreview, CoverageCellView, CoverageView } from "../../modules/takeoff/coverage/view";
 import { requestMeasure, type MeasureRefused, type MeasureRequested } from "../../modules/takeoff/measure";
 import { viewsOf, type ViewRecord } from "../../modules/takeoff/partition";
+// The register follows the acts that move the expansion resolver's inputs — the stack, the ranges —
+// so a level inserted or repudiated and a typical range authored re-expand the project's stored
+// partitions after their commit (L-CAD-07; src/modules/takeoff/partition/expansion/reexpand.ts).
+import { reexpandProject } from "../../modules/takeoff/partition/expansion/reexpand";
 import { levelsViewOf } from "../../modules/takeoff/levels-ui/server";
 import type { LevelsView } from "../../modules/takeoff/levels-ui/view";
 import { registerViewOf } from "../../modules/takeoff/register-ui/server";
@@ -396,6 +400,7 @@ export const takeoffRouter = router({
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
       const actor = await projectActorFor(ctx.session.userId, input.input.projectId, INSERT_LEVEL, AUTHOR_LEVEL_STACK);
       const written = await commit(actor, input.input, input.consequenceDigest);
+      await reexpandProject({ tenantId: actor.tenantId, projectId: input.input.projectId });
       return { actId: written.actId };
     }),
 
@@ -433,6 +438,7 @@ export const takeoffRouter = router({
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
       const actor = await projectActorFor(ctx.session.userId, input.input.projectId, REPUDIATE_LEVEL, AUTHOR_LEVEL_STACK);
       const written = await commit(actor, input.input, input.consequenceDigest);
+      await reexpandProject({ tenantId: actor.tenantId, projectId: input.input.projectId });
       return { actId: written.actId };
     }),
 
@@ -469,6 +475,7 @@ export const takeoffRouter = router({
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
       const actor = await projectActorFor(ctx.session.userId, input.input.projectId, AUTHOR_TYPICAL_RANGE, MEASURE);
       const written = await commit(actor, input.input, input.consequenceDigest);
+      await reexpandProject({ tenantId: actor.tenantId, projectId: input.input.projectId });
       return { actId: written.actId };
     }),
 
