@@ -1,8 +1,8 @@
-# Architectural Decision Record: Supervised Local Development Lane (AM-19)
+# Architectural Decision Record: Supervised Local Development Lane (proposed amendment, unnumbered)
 
 **Status:** Accepted / Implemented  
 **Date:** 2026-09-20  
-**Scope:** Toolchain, Database Provisioning, Local Development Lifecycle, AM-19 Amendment Draft
+**Scope:** Toolchain, Database Provisioning, Local Development Lifecycle, a draft amendment (proposed, unnumbered)
 
 ---
 
@@ -46,40 +46,40 @@ We implemented a five-stage local development architecture:
 
 ---
 
-## 3. Draft Amendment Text: AM-19 (Local Development Lane)
+## 3. Draft Amendment Text (proposed, unnumbered): Local Development Lane
 
 The following draft text is prepared for incorporation into `docs/specs/cubit.bible.xml` under `<amendments>`:
 
 ```xml
-<amendment id="AM-19" title="Local Development Lane & Supervisor">
+<amendment id="AM-NN" title="Local Development Lane & Supervisor">
   <rationale>
     Provides a turnkey, deterministic local development environment isolated from verify,
     database test suites, and Playwright journeys, guaranteeing zero collision across build
     artifacts and database instances.
   </rationale>
   <clauses>
-    <clause id="AM-19-01" ref="ARCH-02">
+    <clause id="AM-NN-01" ref="ARCH-02">
       The command `pnpm dev` supervises the web application and worker process for local
       development. The dev lane binds port 3210 by default and isolates its build output
       under `.next-dev` and its file assets under `storage/dev`. Dev builds never write to
       or read from `.next-cubit`.
     </clause>
-    <clause id="AM-19-02" ref="B-21">
+    <clause id="AM-NN-02" ref="B-21">
       The development database is named `cubit_dev`. It is owned by role `cubit_migrate`
       and accessed by application runtime role `cubit_app`. Migrations are applied
       automatically on startup up to the committed migration head.
     </clause>
-    <clause id="AM-19-03" ref="B-19">
+    <clause id="AM-NN-03" ref="B-19">
       Development seeding is authored strictly in `db/seed.ts` and invoked via `pnpm seed`.
       The dev seed is idempotent, installs founder identity `founder@cubit.dev` with
       scrypt N=32768, r=8, p=1, and mounts the F-RCC6 SAMPLE project from
       `scripts-data/sample-seed/manifest.json`.
     </clause>
-    <clause id="AM-19-04" ref="C-06">
+    <clause id="AM-NN-04" ref="C-06">
       `pnpm dev:clean` purges dev-lane artifacts (`cubit_dev`, `.next-dev`, `storage/dev`).
       Cleanup is strictly refused while a live dev server holds `.dev-server.lock`.
     </clause>
-    <clause id="AM-19-05" ref="B-23">
+    <clause id="AM-NN-05" ref="B-23">
       `pnpm checkup` probes dev-lane readiness: `dev-db` validates presence and migration
       head of `cubit_dev`, `dev-storage` validates writability of `storage/dev`, and
       `dev-env` validates declarations in `.env.example`.

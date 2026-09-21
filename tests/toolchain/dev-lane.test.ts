@@ -1,14 +1,15 @@
-// Focused tests for the local development lane (ARCH-02, AM-19).
+// Focused tests for the local development lane (ARCH-02, C-06; docs/decisions/dev-lane.md).
 // Validates CLI options parsing, lockfile enforcement, .env.example declaration parity,
 // and the founder authentication cryptographic contract without opening a database.
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { ENV_NAMES } from "../../src/core/env";
 import { verifyPassword } from "../../src/server/auth/secrets";
 import { DEV_FOUNDER, DEV_PROJECT, DEV_TENANT, seedPasswordHash } from "../../db/seed";
-import { parseArgs } from "../../scripts/dev.mjs";
+import { modelFixtureRoot, parseArgs } from "../../scripts/dev.mjs";
 import { cleanDevLane } from "../../scripts/dev-clean.mjs";
 import { DEV_DIST_DIR, DEV_SERVER_LOCK, heldBy, holdDistDir } from "../../scripts/lib/dist.mjs";
 
@@ -92,6 +93,54 @@ describe(".env.example environment declaration parity", () => {
     for (const name of ENV_NAMES) {
       expect(content, `.env.example does not declare ${name}`).toMatch(new RegExp(`^${name}=`, "m"));
     }
+  });
+});
+
+/**
+ * THE MODEL FIXTURE ROOT (L-AI-01, F-MODEL; found 2026-09-21). With no TypeSafe key the dev lane
+ * replays recorded model answers, and the corpus of those answers lives in `fixtures/model`
+ * (fixtures/model/README.md). The lane and `.env.example` both pointed at `fixtures/rcc6` — the
+ * drawing corpus, which holds no recorded answer — so every model request the lane made was refused
+ * FIXTURE_MISSING, and nobody running `pnpm dev` could reach a Jev answer without a live key.
+ */
+describe("the dev lane replays model answers from the corpus's own home", () => {
+  const root = fileURLToPath(new URL("../../", import.meta.url));
+
+  test("with nothing configured the root is fixtures/model, which holds the corpus", () => {
+    expect(modelFixtureRoot({}, root)).toBe(join(root, "fixtures/model"));
+    expect(modelFixtureRoot({ CUBIT_MODEL_FIXTURE_ROOT: "   " }, root), "a blank value is nothing configured").toBe(join(root, "fixtures/model"));
+    expect(existsSync(join(root, "fixtures/model/README.md")), "the corpus's own README stands at the default root").toBe(true);
+  });
+
+  test("a configured root is taken as given, so a session may point the seam at a minted corpus (Q-08)", () => {
+    expect(modelFixtureRoot({ CUBIT_MODEL_FIXTURE_ROOT: "/tmp/minted" }, root)).toBe("/tmp/minted");
+  });
+
+  test(".env.example names the same home, never the drawing corpus", () => {
+    const content = readFileSync(join(root, ".env.example"), "utf8");
+    expect(content).toMatch(/^CUBIT_MODEL_FIXTURE_ROOT=fixtures\/model$/m);
+    expect(content).not.toMatch(/^CUBIT_MODEL_FIXTURE_ROOT=fixtures\/rcc6/m);
+  });
+});
+
+/**
+ * A CITATION NAMES LAW THE BIBLE CARRIES. The dev lane's files cited a nineteenth amendment as if it were an
+ * amendment of the Bible; the Bible's amendments end at AM-18, and the lane's ADR only DRAFTS the next. A
+ * comment that cites an amendment nobody wrote teaches the next reader a law that does not exist,
+ * so every `AM-nn` these files name must stand in `docs/specs/cubit.bible.xml`'s `<amendments>`.
+ */
+describe("the dev lane cites only amendments the Bible carries", () => {
+  const root = fileURLToPath(new URL("../../", import.meta.url));
+  const bible = readFileSync(join(root, "docs/specs/cubit.bible.xml"), "utf8");
+  const carried = new Set([...bible.matchAll(/<[a-zA-Z]+\b[^>]*\bid="(AM-\d+)"/g)].map((match) => match[1]));
+
+  test.each(["scripts/dev.mjs", "scripts/dev-clean.mjs", "docs/dev.md", "docs/decisions/dev-lane.md", ".env.example", "tests/toolchain/dev-lane.test.ts"])("%s", (file) => {
+    const cited = new Set([...readFileSync(join(root, file), "utf8").matchAll(/\bAM-\d+\b/g)].map((match) => match[0]));
+    for (const id of cited) expect(carried.has(id), `${file} cites ${id}, which the Bible does not carry`).toBe(true);
+  });
+
+  test("the Bible does carry amendments — an empty roster would make the test above vacuous", () => {
+    expect(carried.size).toBeGreaterThan(0);
   });
 });
 

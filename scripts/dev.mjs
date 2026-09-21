@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Supervised local development lane for Vextrus Cubit (ARCH-02, AM-19).
+// Supervised local development lane for Vextrus Cubit (ARCH-02, C-06; docs/decisions/dev-lane.md).
 // Provisions isolated native-Postgres database (cubit_dev), seeds founder & SAMPLE project,
 // and supervises Next.js dev server (.next-dev) and worker with isolated storage (storage/dev).
 import { spawn, spawnSync } from "node:child_process";
@@ -158,6 +158,20 @@ export async function waitForHttp(url, timeoutMs = 60_000) {
   return false;
 }
 
+/**
+ * Where the model seam replays recorded answers from when no TypeSafe key is set: the corpus's own
+ * home, `fixtures/model` (fixtures/model/README.md; L-AI-01, F-MODEL), unless the environment names
+ * another root. Until 2026-09-21 this defaulted to `fixtures/rcc6` — the DRAWING corpus, which holds
+ * no recorded answer — so every model request the dev lane made was refused FIXTURE_MISSING.
+ * @param {Readonly<Record<string, string | undefined>>} env
+ * @param {string} root the checkout
+ * @returns {string}
+ */
+export function modelFixtureRoot(env, root) {
+  const configured = env["CUBIT_MODEL_FIXTURE_ROOT"];
+  return typeof configured === "string" && configured.trim() !== "" ? configured : resolve(root, "fixtures/model");
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const options = parseArgs(argv);
   const { port, hostSpecified, worker, reset } = options;
@@ -228,7 +242,7 @@ export async function main(argv = process.argv.slice(2)) {
 
   // TypeSafe Jev System One model integration for dev
   const typeSafeKey = process.env["TYPESAFE_API_KEY"] || process.env["TYPESAFE_AI_API_KEY"] || "";
-  const fixtureRoot = typeSafeKey ? "" : (process.env["CUBIT_MODEL_FIXTURE_ROOT"] || resolve(ROOT, "fixtures/rcc6"));
+  const fixtureRoot = typeSafeKey ? "" : modelFixtureRoot(process.env, ROOT);
 
   // Common environment for child processes
   const childEnv = {

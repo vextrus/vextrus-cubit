@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Cleans dev-lane artifacts (ARCH-02, AM-19).
+// Cleans dev-lane artifacts (ARCH-02, C-06; docs/decisions/dev-lane.md).
 // Refuses cleanup while the dev server holds its lock, then removes only
 // dev database (cubit_dev), dev build (.next-dev), and dev storage (storage/dev).
 import { existsSync, rmSync } from "node:fs";

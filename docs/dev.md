@@ -1,4 +1,4 @@
-# Vextrus Cubit — Local Development Lane Runbook (AM-19)
+# Vextrus Cubit — Local Development Lane Runbook (ARCH-02, C-06; docs/decisions/dev-lane.md)
 
 The local development lane provides an isolated, deterministic native-Postgres development environment supervised by `pnpm dev`. It provisions and migrates the database, seeds the founder account and F-RCC6 SAMPLE project, and runs the web app and background worker without interfering with `pnpm verify`, `pnpm test:db`, `pnpm e2e`, or `vextrus-builder`.
 
