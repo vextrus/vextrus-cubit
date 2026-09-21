@@ -8,6 +8,9 @@ import type { RefusalGroup } from "./law";
 export type TakeoffIngestRefusalCode =
   | "SHEET_NOT_INGESTABLE"
   | "RASTER_NOT_AVAILABLE"
+  | "RASTER_URL_INVALID"
+  | "RASTER_URL_EXPIRED"
+  | "RASTER_NOT_FOUND"
   | "MANIFEST_NOT_RENDERABLE"
   | "PARTITION_NOT_AVAILABLE";
 
@@ -28,6 +31,30 @@ export const TAKEOFF_INGEST_REFUSALS: RefusalGroup<TakeoffIngestRefusalCode> = O
     code: "RASTER_NOT_AVAILABLE",
     message: "This drawing has no sheet rasters yet, because it has not been ingested.",
     remedy: "Ingest the drawing first, then ask for its rasters again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // The signed object door's three answers (R-SPINE-021, Q-12): a link whose signature does not
+  // verify, a link past its expiry, and an address the store does not hold. The seam mints every
+  // such link (SEAM-STORAGE) and `src/app/storage/v1/[tenant]/[address]/route.ts` answers it.
+  RASTER_URL_INVALID: Object.freeze({
+    code: "RASTER_URL_INVALID",
+    message: "This link to a sheet image is not one the product issued, so nothing was served.",
+    remedy: "Reload the screen that showed the image, which mints a fresh link.",
+    severity: "error",
+    surface: "inline",
+  }),
+  RASTER_URL_EXPIRED: Object.freeze({
+    code: "RASTER_URL_EXPIRED",
+    message: "This link to a sheet image has expired, so nothing was served.",
+    remedy: "Reload the screen that showed the image, which mints a fresh link.",
+    severity: "error",
+    surface: "inline",
+  }),
+  RASTER_NOT_FOUND: Object.freeze({
+    code: "RASTER_NOT_FOUND",
+    message: "The store holds no sheet image at this address.",
+    remedy: "Reload the sheet index; if the image is still missing, add the drawing again to have it rendered afresh.",
     severity: "error",
     surface: "inline",
   }),
