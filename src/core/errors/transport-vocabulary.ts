@@ -104,6 +104,8 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
       "WORKER_HEALTH_PORT",
       "CUBIT_MODEL_FIXTURE_ROOT",
       "ANTHROPIC_API_KEY",
+      "TYPESAFE_API_KEY",
+      "TYPESAFE_AI_API_KEY",
       "CUBIT_STORAGE_SIGNING_SECRET",
       "CUBIT_CAD_COMMAND",
       "CUBIT_UI_INSTRUMENT",

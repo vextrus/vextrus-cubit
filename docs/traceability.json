@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T00:36:02.320Z",
+  "generatedAt": "2026-09-20T00:03:36.556Z",
   "bibleSha256": "5e3cd774fb4327933afec909df33d6b00c1d95f3cfc11577527576855fbeb1b8",
   "note": "status 'green' means a merged increment cited the id (see basis); clause-level verification is the checkpoint evidence sweep's",
   "requirements": {
@@ -198,6 +198,11 @@
           "incrementId": "inc-015-ruleset-editions",
           "kind": "increment",
           "ref": "inc-015-ruleset-editions"
+        },
+        {
+          "incrementId": "inc-304a-ruleset-authoring-ui",
+          "kind": "increment",
+          "ref": "inc-304a-ruleset-authoring-ui"
         }
       ]
     },
@@ -294,9 +299,21 @@
       ]
     },
     "R-SPINE-040": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": "must",
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-300a-doc-seam",
+          "kind": "increment",
+          "ref": "inc-300a-doc-seam"
+        },
+        {
+          "incrementId": "inc-300b-documents-list",
+          "kind": "increment",
+          "ref": "inc-300b-documents-list"
+        }
+      ]
     },
     "R-SPINE-041": {
       "status": "green",
@@ -641,6 +658,26 @@
           "incrementId": "inc-306-rails-frame",
           "kind": "increment",
           "ref": "inc-306-rails-frame"
+        },
+        {
+          "incrementId": "inc-305-rails-foundations",
+          "kind": "increment",
+          "ref": "inc-305-rails-foundations"
+        },
+        {
+          "incrementId": "inc-308-rails-masonry-finishes",
+          "kind": "increment",
+          "ref": "inc-308-rails-masonry-finishes"
+        },
+        {
+          "incrementId": "inc-309-rebar-engine",
+          "kind": "increment",
+          "ref": "inc-309-rebar-engine"
+        },
+        {
+          "incrementId": "inc-307-rails-slabs-walls-stairs",
+          "kind": "increment",
+          "ref": "inc-307-rails-slabs-walls-stairs"
         }
       ]
     },
@@ -750,14 +787,28 @@
       ]
     },
     "R-TO-053": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": "must",
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-311a-taxonomy-boq",
+          "kind": "increment",
+          "ref": "inc-311a-taxonomy-boq"
+        }
+      ]
     },
     "R-TO-054": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": "must",
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-310-bbs-view",
+          "kind": "increment",
+          "ref": "inc-310-bbs-view"
+        }
+      ]
     },
     "R-TO-055": {
       "status": "none",
@@ -788,6 +839,11 @@
           "incrementId": "inc-313-register-json",
           "kind": "increment",
           "ref": "inc-313-register-json"
+        },
+        {
+          "incrementId": "inc-312-boq-xlsx",
+          "kind": "increment",
+          "ref": "inc-312-boq-xlsx"
         }
       ]
     },
@@ -1187,6 +1243,11 @@
           "incrementId": "inc-012-participants",
           "kind": "increment",
           "ref": "inc-012-participants"
+        },
+        {
+          "incrementId": "inc-304b-site-facts-panel",
+          "kind": "increment",
+          "ref": "inc-304b-site-facts-panel"
         }
       ]
     },
@@ -1371,6 +1432,16 @@
           "incrementId": "inc-292-ui-shell-debt-sweep",
           "kind": "increment",
           "ref": "inc-292-ui-shell-debt-sweep"
+        },
+        {
+          "incrementId": "inc-300b-documents-list",
+          "kind": "increment",
+          "ref": "inc-300b-documents-list"
+        },
+        {
+          "incrementId": "inc-304b-site-facts-panel",
+          "kind": "increment",
+          "ref": "inc-304b-site-facts-panel"
         }
       ]
     },
@@ -1397,19 +1468,45 @@
       "evidence": []
     },
     "R-UI-082": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": "must",
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-300b-documents-list",
+          "kind": "increment",
+          "ref": "inc-300b-documents-list"
+        }
+      ]
     },
     "R-UI-083": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": "must",
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-300b-documents-list",
+          "kind": "increment",
+          "ref": "inc-300b-documents-list"
+        },
+        {
+          "incrementId": "inc-311a-taxonomy-boq",
+          "kind": "increment",
+          "ref": "inc-311a-taxonomy-boq"
+        }
+      ]
     },
     "R-UI-084": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": "must",
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-300b-documents-list",
+          "kind": "increment",
+          "ref": "inc-300b-documents-list"
+        }
+      ]
     },
     "R-UI-085": {
       "status": "none",
@@ -1450,6 +1547,11 @@
           "incrementId": "inc-216-coverage-grid",
           "kind": "increment",
           "ref": "inc-216-coverage-grid"
+        },
+        {
+          "incrementId": "inc-304a-ruleset-authoring-ui-hotfix",
+          "kind": "increment",
+          "ref": "inc-304a-ruleset-authoring-ui-hotfix"
         }
       ]
     },
@@ -1692,6 +1794,36 @@
           "incrementId": "inc-306-rails-frame",
           "kind": "increment",
           "ref": "inc-306-rails-frame"
+        },
+        {
+          "incrementId": "inc-305-rails-foundations",
+          "kind": "increment",
+          "ref": "inc-305-rails-foundations"
+        },
+        {
+          "incrementId": "inc-308-rails-masonry-finishes",
+          "kind": "increment",
+          "ref": "inc-308-rails-masonry-finishes"
+        },
+        {
+          "incrementId": "inc-309-rebar-engine",
+          "kind": "increment",
+          "ref": "inc-309-rebar-engine"
+        },
+        {
+          "incrementId": "inc-312-boq-xlsx",
+          "kind": "increment",
+          "ref": "inc-312-boq-xlsx"
+        },
+        {
+          "incrementId": "inc-307-rails-slabs-walls-stairs",
+          "kind": "increment",
+          "ref": "inc-307-rails-slabs-walls-stairs"
+        },
+        {
+          "incrementId": "inc-310-bbs-view",
+          "kind": "increment",
+          "ref": "inc-310-bbs-view"
         }
       ]
     },
@@ -1716,6 +1848,11 @@
           "incrementId": "inc-303-schedules-notes-ui",
           "kind": "increment",
           "ref": "inc-303-schedules-notes-ui"
+        },
+        {
+          "incrementId": "inc-309-rebar-engine",
+          "kind": "increment",
+          "ref": "inc-309-rebar-engine"
         }
       ]
     },
