@@ -297,6 +297,16 @@ census is stripped of VIEWPORT before it becomes `expected`, `expected == drawn 
 type in both directions (validate/tally.py checks the reverse too), and `sanity.json["dwg"][*]` states
 `not_counted` and the reason. The cad DWG test strips the same class before comparing.
 
+**W-18 Every paper layout keeps its own viewport.** `page_setup` plants the layout's own VIEWPORT (id 1,
+the paper seen at 1:1, named by the LAYOUT's `viewport_handle`); an earlier wave deleted it and discarded the
+reference so that "both sanity numbers count the same set". W-16 had already made VIEWPORT content on
+neither side, so the deletion counted nothing and left every sheet without the viewport AutoCAD itself
+writes for a layout. It now stays, in the paper set, the model-frames set and the DWG canary. Nothing
+authored moves: the handle was allocated before the deletion, so every later handle (the traps, the
+cells) is what it was; the ingest excludes this viewport from a sheet's window inventory by the handle
+the LAYOUT names, so the 53 windows are the 53 windows. Blast radius: the DXF bytes, the DWGs (judged by
+census, VIEWPORT stripped) and the manifest hashes.
+
 **W-17 Document traps carry their own evidence (F2-7; amends W-06).** T-FRAMES-MODELSPACE's handle is
 the frames set's caption TEXT in its `SHEET` layout — which is also the one TEXT the model twin has over
 the paper set (F2-8's 2,628 vs 2,627: named, not equalised). T-INSUNITS-0 has `handle: null` and anchors

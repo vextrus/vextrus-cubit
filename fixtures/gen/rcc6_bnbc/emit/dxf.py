@@ -306,13 +306,14 @@ def _write_images(images: dict[str, bytes], scratch: Path) -> None:
         (folder / f"{name}.png").write_bytes(images[name])
 
 
-def _delete_main_viewport(layout: Any) -> None:
-    """page_setup plants a main VIEWPORT; the artifact never records one, so the sheet carries
-    none and both sanity numbers count the same set (fixtures/gen/rcc6.py)."""
-    viewport = layout.main_viewport()
-    if viewport is not None:
-        layout.delete_entity(viewport)
-        layout.dxf_layout.dxf.discard("viewport_handle")
+def _keep_main_viewport(layout: Any) -> None:
+    """page_setup plants the layout's own VIEWPORT — the paper seen at 1:1, the one its LAYOUT
+    names as `viewport_handle` — and it stays (W-18). An earlier wave deleted it so that the two
+    sanity numbers counted the same set; VIEWPORT is content on neither side (W-16), so the
+    deletion bought nothing and left every sheet without the viewport AutoCAD writes and expects.
+    The product's ingest tells this viewport from the sheet's windows by the handle the LAYOUT
+    names, so keeping it changes no window inventory either."""
+    assert layout.main_viewport() is not None, f"{layout.name}: page_setup planted no main viewport"
 
 
 def assign_model_offsets(sheets: list[Sheet]) -> None:
@@ -359,7 +360,7 @@ def write_paper(
     for sheet in sheets:
         layout = doc.layouts.new(sheet.layout_name)
         layout.page_setup(size=PAPER_MM[sheet.size], margins=(0, 0, 0, 0), units="mm")
-        _delete_main_viewport(layout)
+        _keep_main_viewport(layout)
         placer.place(layout, sheet.paper, sheet.layout_name)
         for view in sheet.views:
             _viewport(layout, view, skip=skip)
@@ -437,7 +438,7 @@ def write_model_frames(
             _carry_handles(placer, view.scene.items, inside.items)
     layout = doc.layouts.new("SHEET")
     layout.page_setup(size=PAPER_MM[sheets[0].size], margins=(0, 0, 0, 0), units="mm")
-    _delete_main_viewport(layout)
+    _keep_main_viewport(layout)
     note = Scene()
     note.text(f"{plan.FIXTURE}  MODEL-SPACE FRAMES  -  ONE VIEWPORT OVER {sheets[0].number}",
               (20.0, 8.0), 3.0, "S-SHEET")

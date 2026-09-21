@@ -95,7 +95,7 @@ def _tiny(scene: Scene, blocks: list[Block], images: dict[str, bytes], room: Pat
     if with_viewport:
         layout = doc.layouts.new("CANARY")
         layout.page_setup(size=(420, 297), margins=(0, 0, 0, 0), units="mm")
-        _dxf._delete_main_viewport(layout)
+        _dxf._keep_main_viewport(layout)
         note = Scene()
         note.text("CANARY", (20.0, 10.0), 4.0, "S-SHEET")
         placer.place(layout, note, "CANARY")
