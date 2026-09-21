@@ -155,9 +155,9 @@ function handle(ordinal: number): string {
 }
 
 /** Import a product module by repo-relative path, saying which file is missing when one is. */
-/** The density seam, and the density the product opens a reader at when they have chosen none. */
+/** The density seam; the density the product opens a reader at when they have chosen none is the seam's own default. */
 type PrefsSeam = { setDensity: (userId: string, density: "comfortable" | "compact") => Promise<void> };
-const DEFAULT_DENSITY = "comfortable";
+
 
 async function productModule<T = Record<string, unknown>>(relative: string): Promise<T> {
   const absolute = join(process.cwd(), relative);

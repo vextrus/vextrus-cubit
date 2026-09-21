@@ -120,7 +120,10 @@ export function AppShell({
   page,
   email,
   userId,
-  density = "comfortable",
+  // The product's default, compact (R-UI-083): a mirror of src/core/prefs/density.ts's DEFAULT_DENSITY,
+  // because ARCH-01 lets src/ui take only types from core — pinned equal by
+  // tests/ui/density-prefs/default-density.test.ts, so the two can never disagree (B-17).
+  density = "compact",
   status,
   toolbar,
   signOut,

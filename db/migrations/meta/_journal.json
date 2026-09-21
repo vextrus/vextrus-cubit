@@ -372,6 +372,13 @@
       "when": 1789772446638,
       "tag": "0052_ruleset-authoring-ui",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1789977374626,
+      "tag": "0053_density-default-compact",
+      "breakpoints": true
     }
   ]
 }

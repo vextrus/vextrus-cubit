@@ -127,9 +127,10 @@ hr {
 /* ------------------------------------------------------------------ density
  * The density and layout tokens (Design Direction 00 §4.2). They carry no colour, so they are
  * handwritten here rather than emitted from `tokens.ts`, whose generated stylesheet is closed at
- * three constructs by R-UI-001's AC-1. Comfortable is the product's default (app-shell.tsx) and sits on `:root`, so a surface
- * outside the shell — the auth doors — keeps the height it always drew; the one
- * `[data-density]` attribute the shell already carries switches the whole set, so the eight
+ * three constructs by R-UI-001's AC-1. The comfortable values sit on `:root`, so a surface
+ * outside the shell — the auth doors — keeps the height it always drew; the one `[data-density]`
+ * attribute the shell carries — the product's default, compact (R-UI-083; src/core/prefs/density.ts),
+ * or the mode a person chose — switches the whole set, so the eight
  * per-screen row-height overrides have nothing left to say. Every value is a multiple of 4, and
  * 28/36 are R-UI-001's two row heights, unchanged.
  */
