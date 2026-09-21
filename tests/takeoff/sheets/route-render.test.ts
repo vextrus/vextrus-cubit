@@ -58,9 +58,6 @@ function jsdom(): { JSDOM: new (html: string) => { window: { document: Document 
 /** One real extraction, one `next build`, one served page: the whole staged run lives in here. */
 const BUDGET_MS = 900_000;
 
-/** The dist directory this file builds into, so `git status` stays clean and no lane collides. */
-const DIST = ".next-sheets-acceptance";
-
 interface Staged {
   core: CoreSheetsSeam;
   person: Person;
@@ -88,7 +85,7 @@ function staged(): Promise<Staged> {
 
     const cards = await sheets.sheetIndexOf({ tenantId: person.tenantId, projectId });
     const groups = await sheets.offeredGroupsOf({ tenantId: person.tenantId, projectId });
-    const { origin } = await serveStagedApp(DIST);
+    const { origin } = await serveStagedApp();
     return { core, person, projectId, emptyProjectId, cards, groups, origin };
   })());
 }

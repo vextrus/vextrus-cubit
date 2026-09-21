@@ -43,9 +43,6 @@ import { closeBrowser, codesIn, countOf, deviceFor, documentOrder, invitationsMa
 /** A live stage of this shape costs minutes to build; every test states its own budget. */
 const LIVE = 900_000;
 
-/** The dist directory this suite's build lands in: regenerable output under a gitignored name. */
-const DIST = ".next-invitations";
-
 /** The reason the one read this file makes of the store is recorded under. */
 const READ_REASON = "test: read the inviting workspace's own name for the accept screen's assertion";
 
@@ -65,7 +62,7 @@ function staged(): Promise<Stage> {
   pending ??= (async (): Promise<Stage> => {
     const scratch = await openDatabase();
     const inviter = await enrol("inviter");
-    const served = await serveApp(DIST);
+    const served = await serveApp();
     return { origin: served.origin, inviter, scratch };
   })();
   return pending;

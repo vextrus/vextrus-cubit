@@ -50,9 +50,6 @@ import {
 /** A live stage of this shape takes minutes to build; every test states its own budget. */
 const LIVE = 900_000;
 
-/** The dist directory this suite's build lands in: regenerable output under a gitignored name. */
-const DIST = ".next-members";
-
 /** The roles the staging gives its three people, so each row is identifiable by the word it shows. */
 const OWNER = "OWNER";
 const ADMIN = "ADMIN";
@@ -97,7 +94,7 @@ const staged = (): Promise<Stage> =>
       { person: member, role: MEASURER },
     ]);
 
-    const served = await serveApp(DIST);
+    const served = await serveApp();
     return {
       origin: served.origin,
       tenantId: owner.tenantId,

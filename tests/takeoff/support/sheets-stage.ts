@@ -18,10 +18,11 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:net";
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { join } from "node:path";
 import { expect } from "vitest";
 import { ident, lit } from "../../../db/__tests__/support/live-sql";
+import { ensureAcceptanceBuild } from "../../support/acceptance-build";
 import { TENANT_COLUMN } from "../../../db/__tests__/support/fixtures";
 import { closeStage, enrol, openStage, sql, sqlValue, stageProject, type Person } from "../../spine/uploads/support/upload-stage";
 import {
@@ -602,7 +603,7 @@ async function freePort(): Promise<number> {
  * and the signing secret the stage already published, so a signed raster URL minted in the server
  * verifies in the suite and the other way round.
  */
-export async function serveStagedApp(distDir: string): Promise<ServedApp> {
+export async function serveStagedApp(): Promise<ServedApp> {
   if (served !== undefined) return served;
   expect(typeof process.env["DATABASE_URL"], "the scratch database is open before the product is served").toBe("string");
 
@@ -611,14 +612,16 @@ export async function serveStagedApp(distDir: string): Promise<ServedApp> {
   const next = join(REPO_ROOT, "node_modules", ".bin", "next");
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) if (value !== undefined) env[key] = value;
-  env["NEXT_DIST_DIR"] = distDir;
   env["CUBIT_PUBLIC_ORIGIN"] = origin;
   // NODE_ENV=test makes `next build` skip devDependency paths; the built product is production.
   delete env["NODE_ENV"];
   const childEnv = env as unknown as NodeJS.ProcessEnv;
 
-  const built = spawnSync(next, ["build"], { cwd: REPO_ROOT, env: childEnv, encoding: "utf8", timeout: 420_000 });
-  expect(built.status, `next build failed:\n${(built.stderr || built.stdout || "").slice(-1500)}`).toBe(0);
+  // ONE build of the tree for every live suite of the lane (tests/support/acceptance-build.ts) —
+  // the members stage's reading, for the same reason: three concurrent compiles of one tree
+  // rewrote one shared shim under each other's type-checks and came back red under load.
+  const build = ensureAcceptanceBuild({ env: childEnv });
+  childEnv["NEXT_DIST_DIR"] = build.distDir;
 
   const started = spawn(next, ["start", "--hostname", "127.0.0.1", "--port", String(port)], { cwd: REPO_ROOT, env: childEnv, stdio: "ignore" });
   child = started;

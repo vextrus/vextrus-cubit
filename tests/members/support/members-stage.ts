@@ -17,12 +17,13 @@
  * Raw SQL is spoken through psql, never a driver import (SEAM-TENANT), and every statement carries
  * the system reason it is made under.
  */
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { createServer } from "node:net";
 import { join } from "node:path";
 import { expect } from "vitest";
+import { ensureAcceptanceBuild } from "../../support/acceptance-build";
 import { provisionScratchDb, type ScratchDb } from "../../../db/__tests__/harness";
 import { GUC_SYSTEM_REASON, TENANT_COLUMN } from "../../../db/__tests__/support/fixtures";
 import { ident, lit, run, scalar, withSession } from "../../../db/__tests__/support/live-sql";
@@ -231,7 +232,7 @@ async function freePort(): Promise<number> {
  * The deployment states its own address: `CUBIT_PUBLIC_ORIGIN` is the origin it is actually served
  * at, which is what a cookie-authenticated mutation's origin check is judged against (R-SPINE-006).
  */
-export async function serveApp(distDir: string): Promise<ServedApp> {
+export async function serveApp(): Promise<ServedApp> {
   if (served !== undefined) return served;
   const database = process.env["DATABASE_URL"];
   expect(typeof database, "the scratch database is open before the product is served").toBe("string");
@@ -241,7 +242,6 @@ export async function serveApp(distDir: string): Promise<ServedApp> {
   const next = join(REPO_ROOT, "node_modules", ".bin", "next");
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) if (value !== undefined) env[key] = value;
-  env["NEXT_DIST_DIR"] = distDir;
   env["CUBIT_PUBLIC_ORIGIN"] = origin;
   // NODE_ENV=test makes `next build` skip devDependency paths; the built product is production.
   delete env["NODE_ENV"];
@@ -249,14 +249,12 @@ export async function serveApp(distDir: string): Promise<ServedApp> {
   // The deployment's environment, as a plain record: `NODE_ENV` is required by the tree's own
   // `ProcessEnv`, and the build must not inherit the runner's `test`.
   const childEnv = env as unknown as NodeJS.ProcessEnv;
-  // `next build` rewrites the generated typing shim (next-env.d.ts) to point at whichever dist
-  // directory it was given. This stage does NOT snapshot or restore it: test support never writes a
-  // tracked repository file (the arbitration on next-env.d.ts, B-17). The churn is a toolchain fact
-  // of the product's own build, and its cure — committing the form the tool writes, or ignoring the
-  // shim per the product's convention — is landed once at the shim's home by its owner, not worked
-  // around here.
-  const built = spawnSync(next, ["build"], { cwd: REPO_ROOT, env: childEnv, encoding: "utf8", timeout: 420_000 });
-  expect(built.status, `next build failed:\n${(built.stderr || built.stdout || "").slice(-1500)}`).toBe(0);
+  // ONE build of the tree for every live suite of the lane (tests/support/acceptance-build.ts):
+  // made by the first process that asks, reused by the rest, never two compiles at once. Three
+  // suites each compiling the same tree beside each other rewrote one shared shim while the others'
+  // type-checks read it, and under load one of them came back red (2026-09-21).
+  const build = ensureAcceptanceBuild({ env: childEnv });
+  childEnv["NEXT_DIST_DIR"] = build.distDir;
 
   const started = spawn(next, ["start", "--hostname", "127.0.0.1", "--port", String(port)], { cwd: REPO_ROOT, env: childEnv, stdio: "ignore" });
   child = started;
