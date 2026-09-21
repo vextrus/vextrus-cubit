@@ -65,7 +65,7 @@ In order of landing. Each commit's message carries the finding, the reading and 
 | `905e8c64` | the dev lane replays model answers from `fixtures/model` (it pointed at the drawing corpus) and cites only law the Bible carries (`AM-19` did not exist) | L-AI-01, F-MODEL, ARCH-02, C-06 | `tests/toolchain/dev-lane.test.ts` (db lane) |
 | `375c2daa` | the gate's unit lane: the tracked timeline catalogued in the S-Design gallery, the viewer test reading the pan default, a page-object comment spelling no id | R-UI-011, viewer.md §5, AM-09 §1 | `src/ui/gallery-derivation/gallery-derivation.test.ts`, `tests/takeoff/viewer/viewer-screen.test.tsx`, `src/ui/testids.test.ts` |
 | `8776cd7b` | the gate's db lane: the density seam's and the store's default read compact | R-UI-083 | `db/__tests__/density-seam.live.test.ts`, `db/__tests__/user-prefs.migration.test.ts` |
-| baseline commits `e602d2c3`, `404120bb`, `b27567f1`, `632125c1` | the fork-point manifest, the refusal roster freeze, and the forty-six design pictures the lawful changes moved — each copied from its run's `-actual.png` after its diff was read | AM-09 §4 | `tests/ui/project-settings/hotfix-304a-reproduction.test.ts`, `tests/hotfix-j000/*` |
+| baseline commits `e602d2c3`, `404120bb`, `b27567f1`, `632125c1` | the fork-point manifest (retired after the gate, section 9), the refusal roster freeze, and the forty-six design pictures the lawful changes moved — each copied from its run's `-actual.png` after its diff was read | AM-09 §4 | `tests/journeys/guards/journeys-not-weakened.test.ts` |
 
 ## 3. What was built
 
@@ -316,6 +316,7 @@ another heavy lane measures the box, not the product).
 ## 8. Reproducing each proof
 
 ```
+pnpm gate                                     # every lane below, in order, one at a time, logs under test-results/gate
 pnpm verify                                   # ten lanes, LANE <id> <seconds> each
 pnpm checkup
 pnpm test:golden
@@ -328,7 +329,75 @@ pnpm vitest run tests/ui/takeoff-register tests/takeoff/register-ui tests/ui/den
 pnpm test:db tests/toolchain/dev-lane.test.ts
 ```
 
-The probe (scratch only, never committed): `node probe/server.mjs` (the journeys' own database
-and roots, port 3211; `--stop`), `node probe/probe.mjs walk --themes dark,light
---viewports 1440x900,1280x800 --shot --out out/<dir> <routes…>`; the craft walk is
-`bash probe/craft-walk.sh test-results/j-000-golden-run.dark.w<N>.json out/craft` after a J-000 run.
+The probe now lives in the tree (`scripts/probe/`, section 9): `pnpm probe:server` serves the
+journeys' own build on 3211 with the worker (`-- --stop` ends it); `pnpm probe -- walk --themes
+dark,light --viewports 1440x900,1280x800 --shot --out test-results/probe/<dir> <routes…>`; the
+craft walk is `bash scripts/probe/craft-walk.sh test-results/j-000-golden-run.dark.w<N>.json
+test-results/probe/craft` after a J-000 run.
+
+## 9. After the gate: the frictions this session hit, removed
+
+Everything below landed after the gate lines in section 5 were quoted, in its own commits, and was
+proved by the lanes named in each commit. It is the environment session 4 starts from.
+
+- **Tests named after builder increments and hotfixes are named after what they protect.** The
+  regression pins keep their assertions under their subject's name: `tests/jobs/template-readiness.test.ts`
+  (was `jobs-seam-hotfix`), `src/core/jobs/__tests__/pool-freshness-lock-scope.test.ts` (was
+  `jobs-edges-hotfix`), `src/modules/spine/tenancy/__tests__/origin-rule-addresses.test.ts` (was
+  `j000-hotfix-regression`), `tests/ui/project-settings/settings-surfaces-contract.test.tsx` and
+  `tests/rulesets/ruleset-rendered-contract.test.tsx` (were `hotfix-304a-*`), and the golden path's
+  guards moved from `tests/hotfix-j000/` to `tests/journeys/guards/` (`journeys-not-weakened`,
+  `fresh-ground-migration`). The files that asserted a hotfix's PROCESS rather than the product —
+  "the reproduction exists", "the branch added the regression", "the acceptance is extended",
+  "J-000 stands byte-for-byte at the fork point" — are retired: `hotfix-304a-reproduction.test.ts`
+  with its fork-point manifest, `jobs-edges-hotfix.acceptance.test.ts`, `tests/jobs/hotfix-acceptance.test.ts`,
+  `tests/hotfix-j000/ac1-regression-file.test.ts` and `ac2-forward-only.test.ts`. The byte-freeze was
+  the cost this session paid three times: every lawful J-000 change owed a `baseline:` commit
+  re-taking a manifest of digests, for a claim the guards and git already make. The manifest's path
+  stays in `journeys-not-weakened`'s declared list, because two baseline commits on this branch
+  carry it and the guard reads history.
+- **The probe is in the tree** (`scripts/probe/`, `pnpm probe`, `pnpm probe:server`): the walk,
+  the craft rubric, the settle contract, axe, and the three picture readers session 3 wrote in
+  scratch — `diff-bbox.mjs` (where a diff picture differs, by bands), `pixdiff.mjs` (where two
+  captures differ), `crop.mjs` (a region of expected and actual, stacked). It spells no test id:
+  `lib/testids.mjs` reads `src/ui/testids.ts`, and `tests/toolchain/probe-testids.test.ts` holds the
+  reading equal to the module, id for id. The readers that run inside the page are excluded from
+  the node type program in `tsconfig.json` (their DOM code is the browser's); `lib/png.mjs` and
+  `lib/testids.mjs`, which the lanes import, are typed. Outputs go under `test-results/probe/`,
+  never committed.
+- **`pnpm gate`** (`scripts/gate.mjs`): the seven lanes of section 5 in their order, one at a time,
+  the db lane refused by name while a served product holds 3210 or 3211, every lane's whole
+  output in `test-results/gate/<lane>.log`, the verdict lines echoed as they come, one summary,
+  the exit code the first red's. `--only verify,e2e` takes a subset in the same order.
+- **`pnpm e2e:retake`** (`scripts/e2e-retake.mjs`): after a red sweep, every moved picture named
+  with its baseline and the bands where it differs; `-- --write` copies the run's captures over
+  their baselines, and nothing else, for the `baseline:` commit that names the run. Never
+  `--update-snapshots`. Session 3 did this by hand over six rounds.
+- **`pnpm db:migrate:dev`**: the dev database taken to the committed head — the remedy for
+  `checkup`'s `dev-db` refusal after a migration lands.
+
+Proof: `pnpm vitest run tests/toolchain tests/ui/project-settings tests/rulesets tests/journeys
+src/modules/spine/tenancy` and `pnpm test:db tests/jobs/template-readiness.test.ts
+src/core/jobs/__tests__/pool-freshness-lock-scope.test.ts tests/journeys/guards/fresh-ground-migration.test.ts`
+green; `tsc --noEmit --incremental false` 0 errors; and `pnpm verify` over the wrapped-up tree:
+
+```
+LANE typegen 0.25s
+cad: fixture regeneration skipped — its inputs digest d3031fbbc5be, the tree a green regeneration proved at 2026-09-21T08:30:44.805Z (node_modules/.cache/cubit/cad-regeneration.json; the golden lane still checks the committed corpus)
+LANE catalogue-drift 0.04s
+LANE method-hash 0.05s
+LANE schema-drift 2.63s
+LANE golden 3.13s
+LANE types 32.14s
+LANE lint 33.45s
+LANE cad 52.45s
+LANE unit 53.79s
+RUN build
+LANE build 7.14s
+verify wall-time 61.19s
+verify exit 0
+```
+
+(`LANE types 32.14s` against 5.65 s in section 5: the type program's cache was cold after the
+`tsconfig.json` edit, and the wall-time stood 1.2 s over V-VERIFY's ceiling on this one run; the
+run before it, on the same lanes, was 54.34 s. Session 4 quotes its own.)
