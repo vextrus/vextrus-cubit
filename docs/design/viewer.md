@@ -1037,9 +1037,12 @@ The stage still dominates. The panel recedes exactly as the layers panel does �
 column of two lists rather than two competing panels. The section is a column: its head stands
 above, and the body beneath it is the scroll container (I-190, session 4 — until then the section
 scrolled whole with the head sticky inside it, which kept the two switches in the scrolled region
-for axe's scrollable-region rule; now every row carries a key chip with two focus stops, the body
-always holds focusable content of its own, and no row's copy target ever passes under the head,
-which axe's target-size rule read as an obscured target at j-021/partition-confirmed).
+for axe's scrollable-region rule; now the body takes focus itself — `tabindex="0"`, reticled, the
+stop after the two switches — because it may overflow while holding no stop of its own (bones while
+loading, a paragraph when empty, squeezed to a few rows under a long layers list, as PERF-011's 100k
+sheet showed at j-011-sheet-open); in the ready state every row's key chip adds two stops more, and
+no row's copy target ever passes under the head, which axe's target-size rule read as an obscured
+target at j-021/partition-confirmed).
 
 ```
 <section class="cx-viewer-partition" data-testid="viewer-partition"

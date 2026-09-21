@@ -175,6 +175,12 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
     };
     await reaches("viewer-partition-views-toggle");
     await reaches("viewer-partition-grid-toggle");
+    // The body is the panel's one scroller and takes focus itself (axe scrollable-region-focusable):
+    // the stop after the switches is the body, reticled, before anything it holds.
+    await page.keyboard.press("Tab");
+    const body = await partition.focused();
+    expect(body.classes.split(/\s+/), "tabbing on from the switches reaches the scrolling body itself (I-190)").toContain("cx-viewer-partition-body");
+    expect(body.classes.split(/\s+/), "and the body wears the reticle a keyboard reader is followed by").toContain(RETICLE);
     // Between the toggles and the offered groups stand the view rows' keys — IdChips since I-190, each
     // two stops: the measure (focusable, the whole key on its tooltip) and the copy. The walk passes
     // through them in DOM order, every stop a chip's and every stop reticled, and comes out at the first

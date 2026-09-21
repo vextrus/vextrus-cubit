@@ -196,6 +196,20 @@ function DeferralRow({ deferral, IdChip }: { deferral: GridDeferralRow; IdChip?:
   );
 }
 
+/**
+ * The scrolling body beneath the head — the panel's one scroller (I-190). It takes focus itself: a
+ * scrolled region must be keyboard-reachable (axe scrollable-region-focusable), and this one may hold
+ * no stop of its own — bones while loading, a paragraph when empty — and still overflow where the
+ * layers list above has taken the stack's room. It wears the reticle like every stop of the shell.
+ */
+function Body({ children }: { children: ReactNode }) {
+  return (
+    <div className="cx-viewer-partition-body cx-reticle" tabIndex={0}>
+      {children}
+    </div>
+  );
+}
+
 export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, faultId, groups, answer, IdChip }: PartitionPanelProps) {
   const views = overlay?.views ?? [];
   const axes = overlay?.axes ?? [];
@@ -232,40 +246,40 @@ export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, fau
       </div>
 
       {state === "loading" ? (
-        <div className="cx-viewer-partition-body">
+        <Body>
           <span className="cx-viewer-hidden">{PARTITION_COPY.viewer_partition_loading_label}</span>
           {Array.from({ length: LOADING_BONES }, (_unused, bone) => (
             <div key={bone} className="cx-skeleton cx-viewer-partition-bone" aria-hidden="true" />
           ))}
-        </div>
+        </Body>
       ) : null}
 
       {/* An empty list says why it is empty (R-UI-020). The one action a reader has is on S-Drawings,
           which owns the rebuild — so this cell teaches rather than offering a door that cannot act. */}
       {state === "empty" ? (
-        <div className="cx-viewer-partition-body">
+        <Body>
           <p className="cx-viewer-partition-empty">{PARTITION_COPY.viewer_partition_empty}</p>
-        </div>
+        </Body>
       ) : null}
 
       {state === "failed" ? (
-        <div className="cx-viewer-partition-body">
+        <Body>
           <p className="cx-viewer-partition-failed">{PARTITION_COPY.viewer_partition_failed}</p>
           <button type="button" className="cx-btn cx-reticle" data-variant="secondary" data-testid="viewer-partition-retry" onClick={onRetry}>
             <span className="cx-btn-label">{PARTITION_COPY.viewer_partition_retry}</span>
           </button>
           {faultId === null ? null : <p className="cx-viewer-partition-fault">{fillCopy("viewer_partition_report_id", { id: faultId })}</p>}
-        </div>
+        </Body>
       ) : null}
 
       {/* A door that would not answer this read is answered HERE, in the body's place: the sheet, the
           layers list and this panel's own switches go on standing, because what was refused is the
           partition and not the drawing (Decision § 2, R-UI-050's partial). The screen hands in the one
           RefusalState with the address that resolves it — this panel never spells a refusal. */}
-      {state === "refused" ? <div className="cx-viewer-partition-body">{answer}</div> : null}
+      {state === "refused" ? <Body>{answer}</Body> : null}
 
       {state === "ready" ? (
-        <div className="cx-viewer-partition-body">
+        <Body>
           <ol className="cx-viewer-partition-list" aria-label={PARTITION_COPY.viewer_partition_views_list_label}>
             {views.map((view) => (
               <ViewRow key={view.viewKey} view={view} IdChip={IdChip} />
@@ -290,7 +304,7 @@ export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, fau
             {groups}
             <div className="cx-viewer-partition-answer">{answer}</div>
           </div>
-        </div>
+        </Body>
       ) : null}
     </section>
   );
