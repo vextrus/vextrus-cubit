@@ -7,7 +7,8 @@
  * publishes its group there, which is where they are spelled for the product itself.
  */
 import { expect, type Locator, type Page } from "@playwright/test";
-import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { TESTIDS } from "../../../src/ui/testids";
+import { idChipMasks, shellMasks } from "./shell.page";
 import { heldAttribute } from "../support/retrying-read";
 
 /** The address this screen answers at (Decision §7, test contract). */
@@ -205,11 +206,7 @@ export class SLevelsPage {
 
   /** What the frame paints differently on every run, masked for the design pictures. */
   masks(): Locator[] {
-    return [
-      this.page.locator(testIdSelector(TESTIDS.shell.breadcrumb)),
-      this.page.locator(testIdSelector(TESTIDS.shell.user)),
-      this.page.locator(testIdSelector(TESTIDS.shell.tenantSwitcher)),
-      this.page.locator(id(TESTIDS.consequence.digestLine)),
-    ];
+    // Each level's id chip is the staged run's own.
+    return [...shellMasks(this.page), this.page.locator(id(TESTIDS.consequence.digestLine)), ...idChipMasks(this.page)];
   }
 }

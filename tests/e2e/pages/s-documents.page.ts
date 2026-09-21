@@ -11,6 +11,7 @@
  */
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, isTestId, testIdSelector, type TestId } from "../../../src/ui/testids";
+import { idChipMasks, shellMasks } from "./shell.page";
 import { heldAttribute } from "../support/retrying-read";
 
 /** The address this screen answers at (Decision §7, test contract). */
@@ -119,10 +120,7 @@ export class SDocumentsPage {
 
   /** What the frame paints differently on every run, masked for the design pictures (Decision §7). */
   masks(): Locator[] {
-    return [
-      this.page.locator(testIdSelector(TESTIDS.shell.breadcrumb)),
-      this.page.locator(testIdSelector(TESTIDS.shell.user)),
-      this.page.locator(testIdSelector(TESTIDS.shell.tenantSwitcher)),
-    ];
+    // Every identifier on this screen is a chip (Decision §1), and every one is the staged run's own.
+    return [...shellMasks(this.page), ...idChipMasks(this.page)];
   }
 }

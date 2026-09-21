@@ -11,6 +11,7 @@
  */
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, isTestId, testIdSelector, type TestId } from "../../../src/ui/testids";
+import { shellMasks } from "./shell.page";
 import { heldAttribute } from "../support/retrying-read";
 
 /** The address this screen answers at (Decision §7, test contract). */
@@ -158,12 +159,6 @@ export class SBoqPage {
    * chips whose values change with every staged run.
    */
   masks(): Locator[] {
-    return [
-      this.page.getByTestId(TESTIDS.shell.crumbPage),
-      this.page.getByTestId(TESTIDS.shell.user),
-      this.page.getByTestId(TESTIDS.shell.tenantSwitcher),
-      this.page.locator(".cx-boq-revision"),
-      this.page.locator(".cx-boq-taxonomy"),
-    ];
+    return [...shellMasks(this.page), this.page.locator(".cx-boq-revision"), this.page.locator(".cx-boq-taxonomy")];
   }
 }

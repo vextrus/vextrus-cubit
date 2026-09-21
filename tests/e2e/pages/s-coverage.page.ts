@@ -7,6 +7,7 @@
  */
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { shellMasks } from "./shell.page";
 import { heldAttribute } from "../support/retrying-read";
 
 /** The address this screen answers at, and the parameter one cell widens it by (Decision §7). */
@@ -185,9 +186,7 @@ export class SCoveragePage {
    */
   masks(): Locator[] {
     return [
-      this.page.getByTestId(TESTIDS.shell.breadcrumb),
-      this.page.getByTestId(TESTIDS.shell.user),
-      this.page.getByTestId(TESTIDS.shell.tenantSwitcher),
+      ...shellMasks(this.page),
       // Each is rendered through the shipped IdChip and keeps the screen's own class for the mask.
       this.page.locator(".cx-coverage-revision"),
       this.page.locator(".cx-coverage-act-id"),

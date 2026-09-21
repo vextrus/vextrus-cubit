@@ -6,6 +6,7 @@
  */
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { shellMasks } from "./shell.page";
 import { everyRow, heldAttribute } from "../support/retrying-read";
 
 /** The Trace address, spelled once (C-05): the cited keys, the origin line, and no `v`. */
@@ -134,7 +135,7 @@ export class SViewerTracePage {
    * value and unit, and reads nothing into which uuid this run happened to mint.
    */
   masks(): Locator[] {
-    return [this.page.getByTestId(TESTIDS.shell.user), this.page.getByTestId(TESTIDS.shell.tenantSwitcher), this.citedLines.getByTestId(TESTIDS.evidence.link)];
+    return [...shellMasks(this.page), this.citedLines.getByTestId(TESTIDS.evidence.link)];
   }
 
   at(): Page {

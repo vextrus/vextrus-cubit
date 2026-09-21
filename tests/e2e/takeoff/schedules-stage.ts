@@ -23,6 +23,7 @@
  */
 import { Buffer } from "node:buffer";
 import { createHash, randomUUID } from "node:crypto";
+import { DEFAULT_DENSITY } from "../../../src/core/prefs/density";
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

@@ -4,6 +4,7 @@
 // Decision itself names: they are the per-run texts a committed picture may not compare.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { shellMasks } from "./shell.page";
 import { appears } from "../support/retrying-read";
 
 /** The addresses the test contract names, spelled once so a journey never writes a path twice. */
@@ -194,12 +195,7 @@ export class SProjectPage {
    * an act's date and a member's label.
    */
   masks(): Locator[] {
-    return [
-      this.page.getByTestId(TESTIDS.shell.breadcrumb),
-      this.page.getByTestId(TESTIDS.shell.user),
-      this.page.locator(".cx-project-activity-when"),
-      this.page.locator(".cx-project-member-label"),
-    ];
+    return [...shellMasks(this.page), this.page.locator(".cx-project-activity-when"), this.page.locator(".cx-project-member-label")];
   }
 
   /** The page this screen is driven on, for the assertions that are about the browser itself. */

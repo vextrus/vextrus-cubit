@@ -11,6 +11,7 @@
  */
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, isTestId, testIdSelector, type TestId } from "../../../src/ui/testids";
+import { shellMasks } from "./shell.page";
 import { heldAttribute } from "../support/retrying-read";
 
 /** The addresses this screen answers at and offers (Decision §6, test contract). */
@@ -139,11 +140,6 @@ export class SBbsPage {
    * whose value changes with every staged run.
    */
   masks(): Locator[] {
-    return [
-      this.page.getByTestId(TESTIDS.shell.crumbPage),
-      this.page.getByTestId(TESTIDS.shell.user),
-      this.page.getByTestId(TESTIDS.shell.tenantSwitcher),
-      this.revision,
-    ];
+    return [...shellMasks(this.page), this.revision];
   }
 }

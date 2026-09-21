@@ -70,6 +70,21 @@ values.
   as the third crumb, which names no location a reader is in. s-documents.md's wireframe writes
   `Projects › Documents`; under this reading it renders `<project> › Project › Documents`, and the
   `page` crumb J-030 asserts is unchanged. Proof: `src/ui/shell/routes-in-project.test.ts`.
+- **I-122 — a screen's design picture masks the top bar whole (session 3, 2026-09-21).** The trail
+  names the project (I-121) and the user trigger names the account, and a journey's staged project
+  and account are the run's own — so their WIDTH moves from run to run, and a mask laid over the
+  crumb or the trigger alone moves with it. Found when the session-3 sweep's second run of J-021,
+  J-030, J-031 and J-032 differed from its first in the bar's masked pixels alone: a picture that
+  cannot pass twice on one machine is not a baseline. Every page object now masks
+  `TESTIDS.shell.topbar` — a fixed rectangle, the viewport's width by `--topbar-h`, whatever it
+  says — and the rail's tenant switcher, through one home, `shellMasks()` in
+  `tests/e2e/pages/shell.page.ts` (B-17; the site-facts and author-edition page objects had
+  already spelled this pair). The bar's own picture is the shell's, taken on the seeded tenant.
+  Beside it, `idChipMasks()` masks every IdChip on a screen whose rows carry run-minted
+  surrogates (documents, levels, schedules, the register's Technical disclosure) — R-UI-082's
+  surrogates are read aloud, never compared as ink. Rejected: widening the crumb's box to a fixed
+  width, which would be a layout change made for a picture; and per-screen masks of the trail,
+  which had drifted into three spellings already.
 
 ## 1. Layout and hierarchy
 

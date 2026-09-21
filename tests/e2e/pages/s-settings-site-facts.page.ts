@@ -13,6 +13,7 @@
 import { type Locator, type Page } from "@playwright/test";
 import { PROJECT_SETTINGS_AREA_NAMES } from "../../../src/ui/shell/routes";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { shellMasks } from "./shell.page";
 
 /** The address this screen answers at, spelled once so a journey never writes a path twice. */
 export const S_SITE_FACTS = Object.freeze({
@@ -183,7 +184,7 @@ export class SSiteFactsPage {
    * BESIDE them, and a picture re-frozen over a drifting region proves nothing (AM-09 (4)).
    */
   masks(): Locator[] {
-    return [this.page.getByTestId(TESTIDS.shell.topbar), this.page.getByTestId(TESTIDS.shell.tenantSwitcher)];
+    return shellMasks(this.page);
   }
 
   /** The page this screen is driven on, for the assertions that are about the browser itself. */

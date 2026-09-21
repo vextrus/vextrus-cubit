@@ -18,6 +18,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { PROJECT_SETTINGS_AREA_NAMES } from "../../../src/ui/shell/routes";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { shellMasks } from "./shell.page";
 import { everyAttribute, steadyText } from "../support/retrying-read";
 import { S_HOME } from "./s-home.page";
 import { S_PARTICIPANTS } from "./s-participants.page";
@@ -218,7 +219,7 @@ export class SRulesetAuthorPage {
    * baselines (`gallery-shell-dark.png`); nothing §1 of either Decision rules stands in it.
    */
   masks(): Locator[] {
-    return [this.page.getByTestId(TESTIDS.shell.topbar), this.page.getByTestId(TESTIDS.shell.tenantSwitcher)];
+    return shellMasks(this.page);
   }
 
   /** Open this screen by its address — for a walk that has already proven the door (R-UI-031). */

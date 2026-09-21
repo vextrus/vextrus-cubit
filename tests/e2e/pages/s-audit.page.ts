@@ -3,6 +3,7 @@
 // would be reading the styling, not the screen.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS } from "../../../src/ui/testids";
+import { shellMasks } from "./shell.page";
 
 /** The address the test contract names, spelled once so a journey never writes a path twice. */
 export const S_AUDIT = Object.freeze({
@@ -59,6 +60,6 @@ export class SAuditPage {
    * the occurred-at column, which is the one value of a row that moves with the calendar.
    */
   masks(): Locator[] {
-    return [this.page.getByTestId(TESTIDS.shell.breadcrumb), this.page.getByTestId(TESTIDS.shell.user), this.page.locator(".cx-audit-act-when")];
+    return [...shellMasks(this.page), this.page.locator(".cx-audit-act-when")];
   }
 }

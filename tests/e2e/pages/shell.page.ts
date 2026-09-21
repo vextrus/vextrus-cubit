@@ -21,6 +21,31 @@ export const SHELL_AREAS = ["projects", "books", "settings"] as const;
 export type ShellArea = (typeof SHELL_AREAS)[number];
 
 /**
+ * WHAT EVERY SCREEN PICTURE MASKS OF THE FRAME (2026-09-21). The top bar, whole: the trail names the
+ * project and the user trigger names the account (R-UI-084, R-UI-030), and a journey's staged
+ * project and account are the run's own — so their WIDTH moves from run to run, and a mask over the
+ * crumb or the trigger alone moves with it. Found when the session-3 sweep's second run of J-021,
+ * J-030, J-031 and J-032 differed from its first in the bar's masked pixels alone: a picture that
+ * cannot pass twice on one machine is not a baseline. The bar is a fixed rectangle — the viewport's
+ * width by `--topbar-h` — whatever it says; the frame's own picture is the shell's (J-004's gallery,
+ * on the seeded tenant). The tenant switcher stands in the rail and carries the staged workspace's
+ * name, so it is masked with the bar. One home (B-17): the site-facts and author-edition page
+ * objects spelled this pair inline; every page object now reads it here.
+ */
+export function shellMasks(page: Page): Locator[] {
+  return [page.getByTestId(TESTIDS.shell.topbar), page.getByTestId(TESTIDS.shell.tenantSwitcher)];
+}
+
+/**
+ * Every IdChip standing on the screen: a surrogate the run minted (R-UI-082 — read aloud to support,
+ * never compared as ink). Addressed by the primitive's own class rather than its test id, because a
+ * screen may hand a chip its own id and the mask must still find every one.
+ */
+export function idChipMasks(page: Page): Locator[] {
+  return [page.locator(".cx-id-chip")];
+}
+
+/**
  * The regions R-UI-030 composes the frame from — each one owed *inside* shell-root.
  *
  * The INSPECTOR is not among them, and that is the clause read, not the clause dropped: R-UI-030

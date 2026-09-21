@@ -6,7 +6,7 @@
  */
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
-import { screenInFrame } from "./shell.page";
+import { idChipMasks, screenInFrame, shellMasks } from "./shell.page";
 import { everyRow, heldAttribute, steadyText } from "../support/retrying-read";
 
 /** The two addresses this screen answers at (test contract: routes). */
@@ -196,10 +196,8 @@ export class STakeoffPage {
    */
   masks(): Locator[] {
     return [
-      this.page.getByTestId(TESTIDS.shell.breadcrumb),
-      this.page.getByTestId(TESTIDS.shell.user),
-      // The staged workspace's own label — a name the run minted, beside the person who signed in.
-      this.page.getByTestId(TESTIDS.shell.tenantSwitcher),
+      // The frame's own per-run ink — the trail, the account, the staged workspace's label.
+      ...shellMasks(this.page),
       // The job strip, which stands only while a run does (R-UI-080) — and carries the run's own id
       // when it does. A locator that resolves to nothing masks nothing, which is the right answer
       // for a region that is absent at rest.
@@ -212,6 +210,11 @@ export class STakeoffPage {
       // stand inside the Technical disclosure (§6), which is closed at rest, so they are not text the
       // picture can freeze — and the inspector itself is absent until something is selected.
       this.page.getByTestId(TESTIDS.register.refusalObject),
+      // Where a walk HAS opened the Technical disclosure before its picture (J-021 does), the object
+      // key and the source key it shows end in the staged revision's own id: masked by the mark the
+      // screen itself puts on technical text, so the mask follows the disclosure and not a class.
+      this.page.locator("[data-technical]"),
+      ...idChipMasks(this.page),
     ];
   }
 

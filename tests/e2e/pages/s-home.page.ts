@@ -3,6 +3,7 @@
 // would be reading the styling, not the screen.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { shellMasks } from "./shell.page";
 
 /** The addresses the test contract names, spelled once so a journey never writes a path twice. */
 export const S_HOME = Object.freeze({
@@ -182,7 +183,7 @@ export class SHomePage {
 
   /** The regions a baseline may not compare: the last-activity dates and the per-run address. */
   masks(): Locator[] {
-    return [this.page.getByTestId(TESTIDS.sHome.projectLastActivity), this.page.getByTestId(TESTIDS.shell.user)];
+    return [this.page.getByTestId(TESTIDS.sHome.projectLastActivity), ...shellMasks(this.page)];
   }
 
   /** The page this screen is driven on, for the assertions that are about the browser itself. */
