@@ -10,8 +10,9 @@
  * transcribed from a run (B-19).
  */
 import { describe, expect, test } from "vitest";
-import { committedGraph, drawnRecordsOf, identityOf, viewerSeam, type RenderManifest, type RenderRecord } from "./support/viewer-support";
+import { committedGraph, drawnRecordsOf, identityOf, viewerSeam } from "./support/viewer-support";
 import { clipPolyline, projectRecord, windowOf, type Window } from "../../../src/modules/takeoff/viewer/projection";
+import type { RenderManifest, RenderRecord } from "../../../src/modules/takeoff/viewer/types";
 
 const SHEET = "SHEET";
 const MODEL = "model";
