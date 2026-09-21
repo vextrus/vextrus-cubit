@@ -26,16 +26,18 @@ function identityOf(record: DrawnRecord): { key: string } | { src: string } {
 /** One artifact record as the client paints it. Text keeps its world height and its single anchor. */
 function renderRecordOf(record: DrawnRecord): RenderRecord {
   const common = { ...identityOf(record), type: record.type, rgb: record.colour.rgb };
+  const closed = "closed" in record && record.closed === true ? { closed: true } : {};
   if (record.text !== undefined) {
     const anchor = record.points?.[0];
     return {
       ...common,
+      ...closed,
       text: record.text,
       ...(record.height === undefined ? {} : { height: record.height }),
       ...(anchor === undefined ? {} : { anchor }),
     };
   }
-  return { ...common, ...(record.points === undefined ? {} : { points: record.points }) };
+  return { ...common, ...closed, ...(record.points === undefined ? {} : { points: record.points }) };
 }
 
 /**
@@ -78,6 +80,7 @@ function digestSubject(manifest: Omit<RenderManifest, "digest">): string {
       record.type,
       record.rgb,
       record.points ?? null,
+      record.closed ?? null,
       record.text ?? null,
       record.height ?? null,
       record.anchor ?? null,

@@ -18,6 +18,7 @@ export type RenderRecord = {
   readonly type: string;
   readonly rgb: readonly [number, number, number];
   readonly points?: readonly (readonly [number, number])[];
+  readonly closed?: boolean;
   readonly text?: string;
   readonly height?: number;
   readonly anchor?: readonly [number, number];

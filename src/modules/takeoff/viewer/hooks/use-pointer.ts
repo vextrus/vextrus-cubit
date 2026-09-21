@@ -29,6 +29,7 @@ export type UsePointerOptions = {
   canvasRef?: RefObject<HTMLCanvasElement | null>;
   cameraRef?: RefObject<Camera | null>;
   facts?: SheetFacts;
+  tool?: "select" | "pan";
   keysUnder: (world: [number, number], takeable?: boolean) => Promise<string[]>;
   ask: (request: SpatialAsk) => Promise<string[]>;
   openLayers: () => string[];
@@ -55,7 +56,7 @@ export type UsePointer = {
   marqueeBox: MarqueeBox;
 };
 
-export function usePointer({ head, canvasRef, cameraRef, facts, keysUnder, ask, openLayers, hold, toggleKey, moveCamera, onHoverWorld, onLeaveWorld, onPick }: UsePointerOptions): UsePointer {
+export function usePointer({ head, canvasRef, cameraRef, facts, tool = "pan", keysUnder, ask, openLayers, hold, toggleKey, moveCamera, onHoverWorld, onLeaveWorld, onPick }: UsePointerOptions): UsePointer {
   const [hovered, setHovered] = useState<HoverFact | null>(null);
   const [marqueeOn, setMarqueeOn] = useState(false);
   const sheet = useHandedRef(canvasRef, null);
@@ -129,15 +130,19 @@ export function usePointer({ head, canvasRef, cameraRef, facts, keysUnder, ask, 
         return;
       }
       event.currentTarget.setPointerCapture(event.pointerId);
-      gestureRef.current = { x: event.clientX, y: event.clientY, marquee: event.shiftKey };
-      if (event.shiftKey && on !== null) {
+      const isMiddle = event.button === 1;
+      const isPan = isMiddle || (tool === "pan" && !event.shiftKey);
+      const isMarquee = !isPan && (tool === "select" || event.shiftKey);
+
+      gestureRef.current = { x: event.clientX, y: event.clientY, marquee: isMarquee };
+      if (isMarquee && on !== null) {
         drawMarquee(on.px, on.px);
         setMarqueeOn(true);
         return;
       }
       dragRef.current = { x: event.clientX, y: event.clientY };
     },
-    [drawMarquee, onHoverWorld, onPick, pointOn],
+    [drawMarquee, onHoverWorld, onPick, pointOn, tool],
   );
 
   const onPointerMove = useCallback(
@@ -214,7 +219,7 @@ export function usePointer({ head, canvasRef, cameraRef, facts, keysUnder, ask, 
           }).then((keys) => hold(keys.filter((key) => factOf(key) !== undefined)));
           return;
         }
-        if (on !== null) void keysUnder(on.world).then((keys) => (keys[0] === undefined ? undefined : toggleKey(keys[0])));
+        if (on !== null) void keysUnder(on.world).then((keys) => (keys[0] === undefined ? undefined : event.shiftKey ? toggleKey(keys[0]) : hold([keys[0]])));
         return;
       }
 
@@ -228,7 +233,8 @@ export function usePointer({ head, canvasRef, cameraRef, facts, keysUnder, ask, 
       void keysUnder(on.world).then(async (keys) => {
         const key = keys[0];
         if (key !== undefined) {
-          hold([key]);
+          if (event.shiftKey) toggleKey(key);
+          else hold([key]);
           return;
         }
         // Nothing here may be taken — but a locked layer is painted, so the reader may have pressed

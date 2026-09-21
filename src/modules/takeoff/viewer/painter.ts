@@ -486,6 +486,11 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
           const to = record.points[at] as readonly [number, number];
           positions.push(from[0], from[1], to[0], to[1]);
         }
+        if (record.closed === true && record.points.length >= 3) {
+          const from = record.points[record.points.length - 1] as readonly [number, number];
+          const to = record.points[0] as readonly [number, number];
+          positions.push(from[0], from[1], to[0], to[1]);
+        }
         continue;
       }
       if (box === null) continue;
@@ -714,10 +719,23 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     for (const record of layer.records) {
       const points = record.points;
       if (points === undefined || points.length < 2) continue;
-      lineRuns.push({ rgb: recordColour(record), vertices: (points.length - 1) * 2 });
+      const isClosed = record.closed === true && points.length >= 3;
+      const segCount = points.length - 1 + (isClosed ? 1 : 0);
+      lineRuns.push({ rgb: recordColour(record), vertices: segCount * 2 });
       for (let at = 1; at < points.length; at += 1) {
         const from = points[at - 1] as readonly [number, number];
         const to = points[at] as readonly [number, number];
+        positions.push(from[0], from[1], to[0], to[1]);
+        chunkBox = [
+          Math.min(chunkBox[0], from[0], to[0]),
+          Math.min(chunkBox[1], from[1], to[1]),
+          Math.max(chunkBox[2], from[0], to[0]),
+          Math.max(chunkBox[3], from[1], to[1]),
+        ];
+      }
+      if (isClosed) {
+        const from = points[points.length - 1] as readonly [number, number];
+        const to = points[0] as readonly [number, number];
         positions.push(from[0], from[1], to[0], to[1]);
         chunkBox = [
           Math.min(chunkBox[0], from[0], to[0]),

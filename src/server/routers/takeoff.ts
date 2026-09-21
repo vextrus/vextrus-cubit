@@ -255,7 +255,7 @@ export const takeoffRouter = router({
   register: signedInProcedure
     .input(parsed(project))
     .query(async ({ ctx, input }): Promise<RegisterView> => {
-      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      const actor = await projectReaderFor(ctx.session.userId, input.projectId);
       return registerViewOf({ tenantId: actor.tenantId, projectId: input.projectId });
     }),
 
@@ -267,7 +267,7 @@ export const takeoffRouter = router({
   lineEvidence: signedInProcedure
     .input(parsed(line))
     .query(async ({ ctx, input }): Promise<LineEvidence | null> => {
-      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      const actor = await projectReaderFor(ctx.session.userId, input.projectId);
       return lineEvidence({ tenantId: actor.tenantId, projectId: input.projectId }, input.lineId);
     }),
 
@@ -275,7 +275,7 @@ export const takeoffRouter = router({
   linesCiting: signedInProcedure
     .input(parsed(citing))
     .query(async ({ ctx, input }): Promise<LineEvidence[]> => {
-      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      const actor = await projectReaderFor(ctx.session.userId, input.projectId);
       // The Trace answers about a drawing this project may have published nothing on, and says so by
       // name; binding the id here would answer that lawful question with "you may not" instead.
       return linesCiting({ tenantId: actor.tenantId, projectId: input.projectId }, { drawingId: input.drawingId, sourceKeys: input.sourceKeys });
@@ -289,7 +289,7 @@ export const takeoffRouter = router({
   coverage: signedInProcedure
     .input(parsed(project))
     .query(async ({ ctx, input }): Promise<CoverageView> => {
-      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      const actor = await projectReaderFor(ctx.session.userId, input.projectId);
       return coverageViewOf({ tenantId: actor.tenantId, projectId: input.projectId });
     }),
 
@@ -297,7 +297,7 @@ export const takeoffRouter = router({
   coverageCell: signedInProcedure
     .input(parsed(cellAt))
     .query(async ({ ctx, input }): Promise<CoverageCellView | null> => {
-      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      const actor = await projectReaderFor(ctx.session.userId, input.projectId);
       return coverageCellOf({ tenantId: actor.tenantId, projectId: input.projectId }, input.cell);
     }),
 
@@ -305,7 +305,7 @@ export const takeoffRouter = router({
   certificatePreview: signedInProcedure
     .input(parsed(project))
     .query(async ({ ctx, input }): Promise<CertificatePreview> => {
-      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      const actor = await projectReaderFor(ctx.session.userId, input.projectId);
       return certificatePreviewOf({ tenantId: actor.tenantId, projectId: input.projectId });
     }),
 

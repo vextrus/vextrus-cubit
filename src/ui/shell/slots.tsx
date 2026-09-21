@@ -28,24 +28,32 @@
  */
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-interface Slots {
+interface SlotsValue {
   readonly toolbar: ReactNode | null;
-  readonly setToolbar: (node: ReactNode | null) => void;
   readonly status: ReactNode | null;
-  readonly setStatus: (node: ReactNode | null) => void;
-  /** The name of the screen inside the area — the breadcrumb's last crumb (R-UI-084). */
   readonly page: string | null;
+}
+
+interface SlotsDispatch {
+  readonly setToolbar: (node: ReactNode | null) => void;
+  readonly setStatus: (node: ReactNode | null) => void;
   readonly setPage: (name: string | null) => void;
 }
 
-const SlotsContext = createContext<Slots | null>(null);
+const SlotsValueContext = createContext<SlotsValue>({ toolbar: null, status: null, page: null });
+const SlotsDispatchContext = createContext<SlotsDispatch | null>(null);
 
 export function ShellSlotsProvider({ children }: { children: ReactNode }) {
   const [toolbar, setToolbar] = useState<ReactNode | null>(null);
   const [status, setStatus] = useState<ReactNode | null>(null);
   const [page, setPage] = useState<string | null>(null);
-  const slots = useMemo<Slots>(() => ({ toolbar, setToolbar, status, setStatus, page, setPage }), [toolbar, status, page]);
-  return <SlotsContext.Provider value={slots}>{children}</SlotsContext.Provider>;
+  const value = useMemo<SlotsValue>(() => ({ toolbar, status, page }), [toolbar, status, page]);
+  const dispatch = useMemo<SlotsDispatch>(() => ({ setToolbar, setStatus, setPage }), []);
+  return (
+    <SlotsDispatchContext.Provider value={dispatch}>
+      <SlotsValueContext.Provider value={value}>{children}</SlotsValueContext.Provider>
+    </SlotsDispatchContext.Provider>
+  );
 }
 
 /**
@@ -55,7 +63,7 @@ export function ShellSlotsProvider({ children }: { children: ReactNode }) {
  * ever made to know whether it is inside the shell.
  */
 export function useShellToolbar(toolbar: ReactNode | null): boolean {
-  const set = useContext(SlotsContext)?.setToolbar;
+  const set = useContext(SlotsDispatchContext)?.setToolbar;
   useEffect(() => {
     if (set === undefined) return;
     set(toolbar);
@@ -69,7 +77,7 @@ export function useShellToolbar(toolbar: ReactNode | null): boolean {
  * Answers whether a frame took it; `false` means the screen renders it where it stands.
  */
 export function useShellStatus(status: ReactNode | null): boolean {
-  const set = useContext(SlotsContext)?.setStatus;
+  const set = useContext(SlotsDispatchContext)?.setStatus;
   useEffect(() => {
     if (set === undefined) return;
     set(status);
@@ -85,7 +93,7 @@ export function useShellStatus(status: ReactNode | null): boolean {
  * already do — through the slot, rather than by the frame guessing at the address (B-17).
  */
 export function useShellPage(page: string | null): boolean {
-  const set = useContext(SlotsContext)?.setPage;
+  const set = useContext(SlotsDispatchContext)?.setPage;
   useEffect(() => {
     if (set === undefined) return;
     set(page);
@@ -96,7 +104,5 @@ export function useShellPage(page: string | null): boolean {
 
 /** The slots as the frame reads them. Absent provider = all empty, which is the frame's default. */
 export function useShellSlots(): { toolbar: ReactNode | null; status: ReactNode | null; page: string | null } {
-  const slots = useContext(SlotsContext);
-  if (slots === null) return { toolbar: null, status: null, page: null };
-  return { toolbar: slots.toolbar, status: slots.status, page: slots.page };
+  return useContext(SlotsValueContext);
 }

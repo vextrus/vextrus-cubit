@@ -38,6 +38,7 @@ export type ViewerStageProps = {
       view of the partition stands, which is how an observation names the view it was taken in. */
   partition: { panel: ReactNode; canvas: ReactNode; views: readonly ScaleViewBox[] };
   pointer: UsePointer;
+  tool?: "select" | "pan";
   /** The snapping region: its toolbar on the stage and its marks on the overlay stack (I-151). */
   snap: UseSnap;
   onKeyDown: (event: ReactKeyboardEvent<HTMLCanvasElement>) => void;
@@ -52,7 +53,7 @@ export type ViewerStageProps = {
   renderer: "webgl" | "unavailable";
 };
 
-export function ViewerStage({ panel, partition, pointer, snap, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, layersOpen }: ViewerStageProps) {
+export function ViewerStage({ panel, partition, pointer, tool = "select", snap, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, layersOpen }: ViewerStageProps) {
   return (
     /* Every panel carries a stable id and order, so a layout stored by another build's group no
        longer matches this group and is dropped rather than misapplied (Decision § 1). */
@@ -71,7 +72,7 @@ export function ViewerStage({ panel, partition, pointer, snap, onKeyDown, stageR
         </>
       ) : null}
       <ResizablePanel id="viewer-stage-panel" order={2}>
-        <div className="cx-viewer-stage" ref={stageRef}>
+        <div className="cx-viewer-stage" ref={stageRef} data-tool={tool}>
           {probed && renderer === "unavailable" ? (
             <div className="cx-viewer-empty">
               <h2 className="cx-viewer-empty-heading">{strings.viewer_no_webgl_heading}</h2>
@@ -87,6 +88,7 @@ export function ViewerStage({ panel, partition, pointer, snap, onKeyDown, stageR
           <canvas
             className="cx-viewer-canvas cx-reticle"
             data-testid={TESTIDS.viewer.canvas}
+            data-tool={tool}
             ref={canvasRef}
             // The sheet is driven from the keyboard, so it is not announced as a picture: the keys
             // it answers are named beside it and pointed at from here (R-TO-010, A-11Y).

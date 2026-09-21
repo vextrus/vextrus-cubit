@@ -385,6 +385,10 @@ function distanceTo(record: RenderRecord, point: readonly [number, number]): num
     const gap = distanceToSegment(point, points[at - 1] as readonly [number, number], points[at] as readonly [number, number]);
     if (gap < nearest) nearest = gap;
   }
+  if (record.closed === true && points.length >= 3) {
+    const gap = distanceToSegment(point, points[points.length - 1] as readonly [number, number], points[0] as readonly [number, number]);
+    if (gap < nearest) nearest = gap;
+  }
   return nearest;
 }
 

@@ -405,25 +405,45 @@ export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration
 
   const scene = useMemo<SnapScene>(() => snapScene({ camera, enabled, snap, picks, live }), [camera, enabled, live, picks, snap]);
 
-  return {
-    enabled,
-    ortho,
-    angle,
-    motion,
-    snap,
-    picks,
-    announcement,
-    readout,
-    scene,
-    glyphRef,
-    toggleSnapping,
-    pressOrtho,
-    pressAngle,
-    onHover,
-    onLeave,
-    takePick,
-    clearPicks,
-  };
+  return useMemo(
+    () => ({
+      enabled,
+      ortho,
+      angle,
+      motion,
+      snap,
+      picks,
+      announcement,
+      readout,
+      scene,
+      glyphRef,
+      toggleSnapping,
+      pressOrtho,
+      pressAngle,
+      onHover,
+      onLeave,
+      takePick,
+      clearPicks,
+    }),
+    [
+      enabled,
+      ortho,
+      angle,
+      motion,
+      snap,
+      picks,
+      announcement,
+      readout,
+      scene,
+      toggleSnapping,
+      pressOrtho,
+      pressAngle,
+      onHover,
+      onLeave,
+      takePick,
+      clearPicks,
+    ],
+  );
 }
 
 export type UseSnapCalibrationOptions = {

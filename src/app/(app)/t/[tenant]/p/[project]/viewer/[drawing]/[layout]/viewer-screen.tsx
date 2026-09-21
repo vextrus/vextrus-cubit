@@ -168,16 +168,10 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const snapping = useSnapRegion({ feed, enabled: sheet.head?.kind === "manifest", supplied: suppliedCalibration, onDenied: setDenied, layers: arrived, stateRef: layers.stateRef, cameraRef, camera: camera.camera, axes: partition.axes });
   const snap = snapping.snap;
 
-  const pointer = usePointer({ head: sheet.head, canvasRef, cameraRef, facts, keysUnder: index.keysUnder, ask: index.ask, openLayers: layers.openLayers, hold: held.hold, toggleKey: held.toggleKey, moveCamera: camera.moveCamera, onHoverWorld: snap.onHover, onLeaveWorld: snap.onLeave, onPick: snap.takePick });
+  const pointer = usePointer({ head: sheet.head, canvasRef, cameraRef, facts, tool, keysUnder: index.keysUnder, ask: index.ask, openLayers: layers.openLayers, hold: held.hold, toggleKey: held.toggleKey, moveCamera: camera.moveCamera, onHoverWorld: snap.onHover, onLeaveWorld: snap.onLeave, onPick: snap.takePick });
   const keyboard = useKeyboard({
-    moveCamera: camera.moveCamera,
-    zoomBy: camera.zoomBy,
-    fitSheet: camera.fitSheet,
-    hold: held.hold,
-    isSnapKey: snapping.isSnapKey,
-    toggleSnapping: snap.toggleSnapping,
-    takePick: snap.takePick,
-    clearPicks: snap.clearPicks,
+    moveCamera: camera.moveCamera, zoomBy: camera.zoomBy, fitSheet: camera.fitSheet, hold: held.hold, setTool,
+    isSnapKey: snapping.isSnapKey, toggleSnapping: snap.toggleSnapping, takePick: snap.takePick, clearPicks: snap.clearPicks,
   });
   const paint = usePainter({ head: sheet.head, refused: denied !== null, canvasRef, stageRef, statusRef, painterRef, stateRef: layers.stateRef, cameraRef, layers: arrived, facts, loadedLayers: sheet.loadedLayers, drawnLayers: layers.drawnLayers, selection: held.selection, hovered: pointer.hovered });
 
@@ -217,6 +211,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
           onSelectLayer: (name) => void index.ask({ kind: "layer", layer: name }).then((keys) => held.hold(keys.filter((key) => facts.has(key)))),
         }}
         pointer={pointer}
+        tool={tool}
         snap={snap}
         onKeyDown={keyboard.onKeyDown}
         stageRef={stageRef}

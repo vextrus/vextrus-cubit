@@ -170,6 +170,25 @@ describe("AC-4: the layers panel is the manifest's own roster, and the status li
     expect(rowFor(layer.name).getAttribute("data-locked"), `${layer.name} is locked`).toBe("true");
     expect(dataNumber(status(), "data-drawn-entities"), "a locked layer is still drawn — lock takes it out of the hit-test, not off the sheet").toBe(totalEntities());
   });
+
+  test("AC-tool: default tool is select, and hotkeys V and H toggle select and pan", async () => {
+    await prepare();
+    const user = userEvent.setup();
+    render(<ViewerScreen {...props(manifestHead())} />);
+
+    const canvas = screen.getByTestId(TESTIDS.viewer.canvas);
+    expect(canvas.getAttribute("data-tool"), "default tool on canvas is select").toBe("select");
+
+    canvas.focus();
+
+    // Press H to switch to pan (R-UI-032)
+    await user.keyboard("h");
+    expect(canvas.getAttribute("data-tool"), "pressing h switches tool to pan").toBe("pan");
+
+    // Press V to switch back to select (R-UI-032)
+    await user.keyboard("v");
+    expect(canvas.getAttribute("data-tool"), "pressing v switches tool to select").toBe("select");
+  });
 });
 
 describe("AC-3: a damaged reading renders in place, with the facts and the evidence link", () => {

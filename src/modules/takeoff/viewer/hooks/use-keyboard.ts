@@ -18,6 +18,8 @@ export type UseKeyboardOptions = {
   fitSheet?: () => void;
   /** What is held, as Escape leaves it. */
   hold?: (keys: string[]) => void;
+  /** Toggle viewer tool: V for select, H for pan (R-UI-032). */
+  setTool?: (tool: "select" | "pan") => void;
   /**
    * Whether this press is the binding R-UI-032 gives snapping. The reading is handed DOWN from the
    * screen, which is where the one roster may be read: ARCH-01 forbids this module importing
@@ -36,7 +38,7 @@ export type UseKeyboard = {
   onKeyDown: (event: ReactKeyboardEvent<HTMLCanvasElement>) => void;
 };
 
-export function useKeyboard({ moveCamera, zoomBy, fitSheet, hold, isSnapKey, toggleSnapping, takePick, clearPicks }: UseKeyboardOptions): UseKeyboard {
+export function useKeyboard({ moveCamera, zoomBy, fitSheet, hold, setTool, isSnapKey, toggleSnapping, takePick, clearPicks }: UseKeyboardOptions): UseKeyboard {
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLCanvasElement>): void => {
       const pan = (dx: number, dy: number): void => {
@@ -57,6 +59,8 @@ export function useKeyboard({ moveCamera, zoomBy, fitSheet, hold, isSnapKey, tog
       if (event.key === "+" || event.key === "=") zoomBy?.(ZOOM_STEP);
       else if (event.key === "-") zoomBy?.(1 / ZOOM_STEP);
       else if (event.key === "f" || event.key === "F") fitSheet?.();
+      else if (event.key === "v" || event.key === "V") setTool?.("select");
+      else if (event.key === "h" || event.key === "H") setTool?.("pan");
       else if (event.key === "ArrowLeft") pan(-KEYBOARD_PAN_PX, 0);
       else if (event.key === "ArrowRight") pan(KEYBOARD_PAN_PX, 0);
       else if (event.key === "ArrowUp") pan(0, -KEYBOARD_PAN_PX);
@@ -69,7 +73,7 @@ export function useKeyboard({ moveCamera, zoomBy, fitSheet, hold, isSnapKey, tog
         hold?.([]);
       }
     },
-    [clearPicks, fitSheet, hold, isSnapKey, moveCamera, takePick, toggleSnapping, zoomBy],
+    [clearPicks, fitSheet, hold, isSnapKey, moveCamera, setTool, takePick, toggleSnapping, zoomBy],
   );
 
   return { onKeyDown };
