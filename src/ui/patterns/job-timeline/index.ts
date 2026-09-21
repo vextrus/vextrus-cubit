@@ -13,6 +13,8 @@ import "./job-timeline.css";
 
 export { JobTimeline } from "./job-timeline";
 export type { JobTimelineProps } from "./job-timeline";
+export { TrackedJobTimeline } from "./tracked-job-timeline";
+export type { TrackedJobTimelineProps } from "./tracked-job-timeline";
 export { JobsProvider, useJobs, useTrackedJobs } from "./jobs-register";
 export type { JobsFormat, JobsProviderProps, TrackedJob, TrackedJobReading, TrackedJobsOptions } from "./jobs-register";
 export { kindWord, statusWord, timelineState } from "./reading";

@@ -20,7 +20,7 @@ import { RegisterWorkspace, type RegisterChrome, type RegisterDoors, type Previe
 import type { RegisterView } from "@/modules/takeoff/register-ui/view";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { EvidenceLink } from "@/ui/patterns/evidence-link";
-import { JobTimeline } from "@/ui/patterns/job-timeline";
+import { TrackedJobTimeline } from "@/ui/patterns/job-timeline";
 import { OfferedGroups } from "@/ui/patterns/offered-group";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { BasisChip, Button, Combobox, CoverageChip, EmptyState, EnumLabel, IdChip, Input, QuantityText, Skeleton, Tooltip, UnitBadge } from "@/ui/primitives/core";
@@ -33,7 +33,7 @@ import { DataTable, Tree } from "@/ui/primitives/data";
 // The exact per-unit addition the grid's own group subtotals are taken with (B-07): the register's
 // sticky footer adds the same way, in the same home, or the two would disagree about a total.
 import { subtotalsByUnit } from "@/ui/primitives/data/data-table";
-import { useInspector } from "@/ui/shell";
+import { useInspector, useShellPage } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import { useTakeoffTabsAside } from "../nav";
 import { commitCorroborate, commitInsertLevel, commitRepudiate, previewCorroborate, previewInsertLevel, previewRepudiate, readRegister, requestMeasure, type DoorAnswer } from "./actions";
@@ -66,7 +66,7 @@ const CHROME: RegisterChrome = {
   RefusalState,
   OfferedGroups,
   ConsequenceDialog,
-  JobTimeline,
+  TrackedJobTimeline,
   Skeleton,
   BasisChip,
   CoverageChip,
@@ -111,6 +111,8 @@ export interface RegisterScreenProps {
 }
 
 export function RegisterScreen({ view, tenantId, projectId, permitted, reportId }: RegisterScreenProps) {
+  // R-UI-084: the trail's last crumb is this screen's own word — the one the lane's tab says.
+  useShellPage(strings.takeoff_nav_register);
   const [held, setHeld] = useState<RegisterView | null>(view);
   // What a retry answered when it did not answer a reading: the registered refusal it carried, or
   // the fault it left — neither is dropped, and neither is spoken by this file (R-UI-020, B-21).
@@ -199,5 +201,7 @@ export function RegisterScreen({ view, tenantId, projectId, permitted, reportId 
     );
   }
 
-  return <RegisterWorkspace view={held} permitted={permitted} offline={offline} chrome={CHROME} doors={doors} />;
+  // A run that succeeds is followed by a read of what it wrote (X-1): the workspace tracks the run
+  // through the frame's jobs register and tells the screen the moment it finishes.
+  return <RegisterWorkspace view={held} permitted={permitted} offline={offline} chrome={CHROME} doors={doors} onRunSucceeded={retry} />;
 }

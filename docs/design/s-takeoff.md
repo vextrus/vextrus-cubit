@@ -36,7 +36,7 @@ inspector is the frame's one right column.
 | index rail | the object tree (discipline › level › class › object), the struck count, every sighting that produced no line, and the level-stack offers | 240 (min 160, max 320), scrolls on its own | the tree is empty and the two sections state their own zero | `RefusalState` per sighting | one rail bone |
 | grid (primary) | the shipped `DataTable`: 28 px rows, sticky header, frozen Kind, group rows with per-unit subtotals, sticky totals footer | flex; ≥ 60 % of `shell-main` at both viewports | `EmptyState` in the grid's own place — no campaign, nothing registered, or nothing matching the filters | the read's fault is the screen's error cell (`register-empty`, with the report id and the retry) | the header is real, the body is bones |
 | footer | the visible set's totals, exactly and per unit (B-07) | 100 % × 28, sticky | no footer cell where the set adds to nothing | — | — |
-| job strip | the shipped `JobTimeline`, **present only while a run is being watched** (R-UI-080) | 100 % × the pattern's own | absent — never an empty "Measure runs" block | the step carries its own refusal | the pattern's own |
+| job strip | the shipped `TrackedJobTimeline` — the pattern's timeline over the runs this screen started, FOLLOWED through the frame's jobs register — **present only while a run is being watched** (R-UI-080) | 100 % × the pattern's own | absent — never an empty "Measure runs" block | the step carries its own refusal | the pattern's own |
 | inspector (frame's one slot) | the selected LINE (kind, value, bases, coverage, source chips, the formula expanded with its live variables, the Trace, the Technical disclosure) or the selected OBJECT (basis, role, corroboration, Technical, Repudiate, the attributes and their two doors) | `--inspector-w` 320 (280–480) | **absent — width 0**, never a sentence saying nothing is selected | `RefusalState` in the answer slot | — |
 
 Above the fold at 1440×900 and at 1280×800: the grid's first row is 88 px below the top of main
@@ -58,7 +58,8 @@ variants on data-attributes, tokens-only colour and motion, `cx-reticle` solely 
 home, no `[data-theme]` selector in authored CSS, model values verbatim in mono (ruleset I-25),
 identifiers whole (I-26). Interpretations I-1–I-169 remain in force. Chrome comes only from shipped
 primitives and patterns — core Button, Input, Skeleton, BasisChip, CoverageChip; data Tree and
-DataTable; the one RefusalState, OfferedGroups, ConsequenceDialog and JobTimeline — plus the
+DataTable; the one RefusalState, OfferedGroups, ConsequenceDialog and TrackedJobTimeline (the
+job pattern's timeline over the runs the screen started; `JobTimeline` until 2026-09-21) — plus the
 `cx-register-*` classes this file rules.
 
 ## 0. Interpretations (numbering continues the global chain's highest, s-scale's I-169)
@@ -67,8 +68,9 @@ DataTable; the one RefusalState, OfferedGroups, ConsequenceDialog and JobTimelin
   `src/modules` from importing `src/ui`, and B-17 bars a screen from re-implementing a shipped
   primitive. `RegisterWorkspace` therefore takes its renderers: props are exactly
   `{ view, density, permitted, offline, chrome, doors }`, where `chrome` is
-  `{ Tree, DataTable, RefusalState, OfferedGroups, ConsequenceDialog, JobTimeline, Skeleton,
-  BasisChip, CoverageChip }` and `doors` the six procedures plus `refusalOf`. `register-screen.tsx`
+  `{ Tree, DataTable, RefusalState, OfferedGroups, ConsequenceDialog, TrackedJobTimeline, Skeleton,
+  BasisChip, CoverageChip }` and `doors` the six procedures plus `refusalOf` (and, since
+  2026-09-21, the optional `onRunSucceeded` the screen binds to its own re-read). `register-screen.tsx`
   — app layer, which may reach both — binds them once. The jsdom acceptance binds the same shipped
   components, so what a test mounts is what the route renders. Rejected: hand-rolling a tree, a
   table or a refusal card inside the module (the B-17 defect the clause calls review-blocking), and
@@ -219,11 +221,17 @@ around it (R-UI-020): `CAMPAIGN_NOT_FOUND` from the Measure door, `READING_NOT_N
 rejection is answered here and **no dialog opens** — a dialog that opens on nothing is a consequence
 of nothing. The offline banner is its sibling, above it.
 
-**Job strip** — `<section data-testid="register-timeline">` holding the shipped `JobTimeline`,
-rendered **only while this screen is watching a run** and absent otherwise (I-230's companion rule,
-R-UI-080): the "Measure runs" block that stood empty over the grid is exactly the height §8 took
-this screen's first point for. One tracked job per measure run the door answered, the job pattern
-rendered where the operation was started (R-UI-024).
+**Job strip** — `<section data-testid="register-timeline">` holding the shipped
+`TrackedJobTimeline`, rendered **only while this screen is watching a run** and absent otherwise
+(I-230's companion rule, R-UI-080): the "Measure runs" block that stood empty over the grid is
+exactly the height §8 took this screen's first point for. One tracked job per measure run the door
+answered, the job pattern rendered where the operation was started (R-UI-024). *Amended 2026-09-21
+(session 3):* "tracked" is now literal — the workspace hands the pattern the JOB the door answered
+(`jobId`, `kind`, the campaign as `subject`, the evidence) and never a step it wrote; the pattern
+follows it through the frame's jobs register and draws what it reads, and tells the workspace when
+the run succeeds (`onRunSucceeded`), which is the screen's cue to read the register again (X-1). The
+register had drawn a `queued` step of its own and never followed the job: J-000's column-lines leg
+read `data-status="queued"` for 240 s over a run the worker had completed at +2 s.
 
 **Filter bar** (I-232) — `<div class="cx-register-filters">`: one row, `height: 36px`, `overflow:
 hidden`, never wrapping. Five shipped `Combobox`es in the `chip` skin, in this order, each labelled

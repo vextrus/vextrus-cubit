@@ -63,15 +63,16 @@ type GroupKey = { readonly key: string; readonly label: string };
 /** One subtotal a group or the footer states: a figure already written, and the unit it is in. */
 type Subtotal = { readonly value: string; readonly unit: string };
 
-/** One step of the shipped JobTimeline, already resolved (the pattern formats nothing). */
-type TimelineStep = {
-  readonly id: string;
-  readonly jobId: string | null;
+/**
+ * One run this workspace started, as the pattern's tracked timeline is handed it (R-UI-024): the job
+ * the Measure door answered, never a status the workspace assumed. The timeline follows the job
+ * through the jobs register the frame renders and draws what it reads — the register drew a `queued`
+ * step of its own once, and it said `queued` for the whole of a run the worker finished in seconds.
+ */
+type MeasureRun = {
+  readonly jobId: string;
   readonly kind: JobKind;
-  readonly status: "queued" | "running" | "succeeded" | "failed" | "refused";
-  readonly timing: string | null;
-  readonly refusal: RefusalEntry | null;
-  readonly faultId: string | null;
+  readonly subject: string;
   readonly evidence: { href: string; label: string };
 };
 
@@ -145,7 +146,8 @@ export interface RegisterChrome {
     onOpenChange: (open: boolean) => void;
     onCommitted: (committed: { actId: string }) => void;
   }>;
-  readonly JobTimeline: ComponentType<{ heading: string; steps: readonly TimelineStep[] }>;
+  /** The pattern's tracked timeline: handed the runs this workspace started, it follows them and draws what it reads. */
+  readonly TrackedJobTimeline: ComponentType<{ heading: string; jobs: readonly MeasureRun[]; onSucceeded?: () => void }>;
   readonly Skeleton: ComponentType<{ style?: CSSProperties }>;
   readonly BasisChip: ComponentType<{ basis: QuantityBasis }>;
   readonly CoverageChip: ComponentType<{ value: number }>;
@@ -254,6 +256,8 @@ export interface RegisterWorkspaceProps {
   readonly offline: boolean;
   readonly chrome: RegisterChrome;
   readonly doors: RegisterDoors;
+  /** Told when a measure run this workspace started succeeds — the screen's cue to read the register again (X-1). */
+  readonly onRunSucceeded?: () => void;
 }
 
 /* --------------------------------------------------------------------------- the addresses */
@@ -441,14 +445,14 @@ type Pending =
 /** A reading being written, before it is previewed at the door (I-175). */
 type Draft = { attribute: string; value: string; unit: string; precedence: string };
 
-export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: RegisterWorkspaceProps) {
+export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onRunSucceeded }: RegisterWorkspaceProps) {
   const {
     Tree,
     DataTable,
     RefusalState,
     OfferedGroups,
     ConsequenceDialog,
-    JobTimeline,
+    TrackedJobTimeline,
     BasisChip,
     CoverageChip,
     Combobox,
@@ -473,7 +477,7 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [answer, setAnswer] = useState<Answer>(null);
   const [pending, setPending] = useState<Pending | null>(null);
-  const [steps, setSteps] = useState<readonly TimelineStep[]>([]);
+  const [runs, setRuns] = useState<readonly MeasureRun[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
   /** What a door left that no registry entry stands for: held here, raised in render (ARCH-03, B-21). */
   const [fault, setFault] = useState<unknown>(null);
@@ -589,12 +593,11 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
       return;
     }
     const jobId = asked.jobId;
+    const subject = view.campaign?.campaignId ?? view.projectId;
     setAnswer(null);
-    setSteps((held) =>
-      held.some((step) => step.jobId === jobId)
-        ? held
-        : [...held, { id: jobId, jobId, kind: MEASURE_KIND, status: "queued", timing: null, refusal: null, faultId: null, evidence }],
-    );
+    // The run is HANDED to the tracked timeline as the job the door answered, never as a status this
+    // workspace assumed: the pattern follows it through the jobs register and draws what it reads.
+    setRuns((held) => (held.some((run) => run.jobId === jobId) ? held : [...held, { jobId, kind: MEASURE_KIND, subject, evidence }]));
   }, [doors, evidence, refuse, view.campaign?.campaignId, view.projectId]);
 
   /**
@@ -1182,9 +1185,9 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
 
       {/* R-UI-080: the job strip EXISTS ONLY WHILE THERE IS A RUN. A "Measure runs" block standing
           empty over the grid was the height §8 took this screen's first point for. */}
-      {steps.length === 0 ? null : (
+      {runs.length === 0 ? null : (
         <section className="cx-register-timeline" data-testid="register-timeline">
-          <JobTimeline heading={REGISTER_COPY.takeoff_register_timeline_heading} steps={steps} />
+          <TrackedJobTimeline heading={REGISTER_COPY.takeoff_register_timeline_heading} jobs={runs} {...(onRunSucceeded === undefined ? {} : { onSucceeded: onRunSucceeded })} />
         </section>
       )}
 

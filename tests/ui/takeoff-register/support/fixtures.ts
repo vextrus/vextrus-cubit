@@ -85,7 +85,7 @@ export const CHROME_NAMES: readonly string[] = [
   "RefusalState",
   "OfferedGroups",
   "ConsequenceDialog",
-  "JobTimeline",
+  "TrackedJobTimeline",
   "Skeleton",
   "BasisChip",
   "CoverageChip",
@@ -765,6 +765,15 @@ export interface MountOptions {
   permitted?: boolean;
   offline?: boolean;
   doors?: Record<string, unknown>;
+  /** Chrome a case stands in for the shipped one, by name — a probe of what the workspace hands it. */
+  chrome?: Record<string, unknown>;
+  /** What the workspace is told when a measure run it started succeeds (the screen re-reads). */
+  onRunSucceeded?: () => void;
+}
+
+/** The register's format, as the tenant frame's JobsProvider hands one: seconds and the registry. */
+function jobsFormat(): { seconds: (elapsedMs: number) => string; refusal: (code: string) => null } {
+  return { seconds: (elapsedMs) => `${Math.round(elapsedMs / 1000)} s`, refusal: () => null };
 }
 
 /** Mount the workspace over one view and hand back its own root (`register-workspace`). */
@@ -780,6 +789,7 @@ export async function mountRegister(view: RegisterViewLike, over: MountOptions =
     offline: over.offline ?? false,
     chrome: {
       ...bound,
+      ...(over.chrome ?? {}),
       // The four ids ARCH-01 bars the module from looking up arrive as chrome, off the registry —
       // the same hand-down the shipped screen makes (AM-09 §1).
       testIds: {
@@ -790,8 +800,12 @@ export async function mountRegister(view: RegisterViewLike, over: MountOptions =
       },
     },
     doors,
+    ...(over.onRunSucceeded === undefined ? {} : { onRunSucceeded: over.onRunSucceeded }),
   };
-  const { container } = render(createElement(component as unknown as FunctionComponent<typeof props>, props));
+  // The workspace follows the runs its Measure door starts through the pattern's jobs register,
+  // which the tenant frame renders around every screen (R-UI-024); the mount stands the same provider.
+  const { JobsProvider } = await productModule<{ JobsProvider: FunctionComponent<{ format: unknown; children?: unknown }> }>("src/ui/patterns/job-timeline/index.ts");
+  const { container } = render(createElement(JobsProvider, { format: jobsFormat() }, createElement(component as unknown as FunctionComponent<typeof props>, props)));
   const root = container.querySelector(testIdSelector(TESTIDS.register.workspace));
   expect(root, "RegisterWorkspace renders its root `register-workspace` (test contract)").not.toBeNull();
   return root as HTMLElement;
