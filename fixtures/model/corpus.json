@@ -1,3 +1,114 @@
 {
-  "fixtures": []
+  "fixtures": [
+    {
+      "requestHash": "0ae6874af48c25e1cdea3ac58b8d867f4b50d7b9db2c527bd4de2ffabc9f16b9",
+      "question": "view-caption",
+      "subject": "rcc6-bnbc.dxf · DXF_HANDLE:B04 · C2",
+      "recordedOn": "2026-09-21",
+      "provider": "jev-1.13.0",
+      "inputTokens": 502,
+      "outputTokens": 118,
+      "attributedCost": "0.003276",
+      "providerCost": "0.000021084"
+    },
+    {
+      "requestHash": "0b2fe2e2424a531002b1cb970c6497321a990330bebd1de6e926868d430b0471",
+      "question": "view-caption",
+      "subject": "rcc6-bnbc.dxf · DXF_HANDLE:B30 · C3",
+      "recordedOn": "2026-09-21",
+      "provider": "jev-1.13.0",
+      "inputTokens": 502,
+      "outputTokens": 118,
+      "attributedCost": "0.003276",
+      "providerCost": "0.000021084"
+    },
+    {
+      "requestHash": "151431a4192f38e68857efe3b3737181b3d502655152b07638e9f2580c36cbed",
+      "question": "view-caption",
+      "subject": "rcc6-bnbc.dxf · DXF_HANDLE:B8C · C5",
+      "recordedOn": "2026-09-21",
+      "provider": "jev-1.13.0",
+      "inputTokens": 502,
+      "outputTokens": 118,
+      "attributedCost": "0.003276",
+      "providerCost": "0.000021084"
+    },
+    {
+      "requestHash": "20850cd27ecd8db4febb39668b6307d7f3f860c25b9323f20929374e2a5b3e1e",
+      "question": "view-caption",
+      "subject": "rcc6-bnbc.dxf · DXF_HANDLE:10C1 · ROOF BEAM LAYOUT (AT ROOF LEVEL)",
+      "recordedOn": "2026-09-21",
+      "provider": "jev-1.13.0",
+      "inputTokens": 513,
+      "outputTokens": 118,
+      "attributedCost": "0.003309",
+      "providerCost": "0.000021546"
+    },
+    {
+      "requestHash": "24c5c2b77e6ea424ee64d95645766b9cb4f3aeb05b8a809f7f136a8e84948a58",
+      "question": "view-caption",
+      "subject": "rcc6-bnbc.dxf · DXF_HANDLE:F31 · TYPICAL FLOOR BEAM LAYOUT",
+      "recordedOn": "2026-09-21",
+      "provider": "jev-1.13.0",
+      "inputTokens": 510,
+      "outputTokens": 118,
+      "attributedCost": "0.0033",
+      "providerCost": "0.00002142"
+    },
+    {
+      "requestHash": "50f7c93811fa4d2da6f49d189d4736e9f8e2dcac7e20bacc016e78e607bc2932",
+      "question": "sheet-reading",
+      "subject": "silent-title-block.graph.json · SHEET-01",
+      "recordedOn": "2026-09-21",
+      "provider": "jev-1.13.0",
+      "inputTokens": 969,
+      "outputTokens": 231,
+      "attributedCost": "0.03186",
+      "providerCost": "0.000040698"
+    },
+    {
+      "requestHash": "641f59a1dc3b788dbdf3f23c26516717a21f3c63ab183ceeac5dd4ea9bf6c3da",
+      "question": "view-caption",
+      "subject": "rcc6-bnbc.dxf · DXF_HANDLE:AD6 · C1",
+      "recordedOn": "2026-09-21",
+      "provider": "jev-1.13.0",
+      "inputTokens": 502,
+      "outputTokens": 118,
+      "attributedCost": "0.003276",
+      "providerCost": "0.000021084"
+    },
+    {
+      "requestHash": "9d785cac2a24138664ac2cb45a62fb5faba163c10b929171bae8396655971e61",
+      "question": "view-caption",
+      "subject": "rcc6-bnbc.dxf · DXF_HANDLE:B60 · C4",
+      "recordedOn": "2026-09-21",
+      "provider": "jev-1.13.0",
+      "inputTokens": 502,
+      "outputTokens": 118,
+      "attributedCost": "0.003276",
+      "providerCost": "0.000021084"
+    },
+    {
+      "requestHash": "ac21ab7c24717a02557bdc4f644f22bfaafaad1bdc2dbfce30f2529f6319077c",
+      "question": "view-caption",
+      "subject": "rcc6-bnbc.dxf · DXF_HANDLE:F30 · (2ND TO 6TH FLOOR)",
+      "recordedOn": "2026-09-21",
+      "provider": "jev-1.13.0",
+      "inputTokens": 510,
+      "outputTokens": 118,
+      "attributedCost": "0.0033",
+      "providerCost": "0.00002142"
+    },
+    {
+      "requestHash": "c9a141a3e32cedc68705b0134b0a097cfddbdc506116c8d498af8cef8e458c99",
+      "question": "view-caption",
+      "subject": "rcc6-bnbc.dxf · DXF_HANDLE:BB8 · C6",
+      "recordedOn": "2026-09-21",
+      "provider": "jev-1.13.0",
+      "inputTokens": 502,
+      "outputTokens": 118,
+      "attributedCost": "0.003276",
+      "providerCost": "0.000021084"
+    }
+  ]
 }

@@ -1,0 +1,38 @@
+{
+  "requestHash": "ac21ab7c24717a02557bdc4f644f22bfaafaad1bdc2dbfce30f2529f6319077c",
+  "modelId": "claude-sonnet-5",
+  "payload": {
+    "payload": {
+      "type": "UNTYPED"
+    },
+    "sources": [
+      "DXF_HANDLE:F30"
+    ]
+  },
+  "inputTokens": 510,
+  "outputTokens": 118,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.4,
+    "answers": {
+      "view_type": {
+        "type": "choice",
+        "value": "UNTYPED",
+        "confidence": 0.4,
+        "probabilities": {
+          "SCHEDULE": 0.04,
+          "LAYOUT_PLAN": 0.13,
+          "STAIR_SECTION": 0.07,
+          "UNTYPED": 0.46,
+          "MEMBER_SECTION": 0,
+          "UNASSIGNED": 0.07,
+          "LONG_SECTION_STRIP": 0.1,
+          "STAIR_PLAN": 0.01,
+          "DETAIL": 0,
+          "LEGEND_NOTES": 0,
+          "TITLE": 0.12
+        }
+      }
+    }
+  }
+}

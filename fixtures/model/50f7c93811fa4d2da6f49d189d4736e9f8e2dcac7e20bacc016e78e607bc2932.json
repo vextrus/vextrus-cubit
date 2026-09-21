@@ -1,0 +1,64 @@
+{
+  "requestHash": "50f7c93811fa4d2da6f49d189d4736e9f8e2dcac7e20bacc016e78e607bc2932",
+  "modelId": "claude-opus-5",
+  "payload": {
+    "payload": {
+      "number": "C-402",
+      "title": "SITE GRADING PLAN",
+      "discipline": "CIVIL",
+      "captions": []
+    },
+    "sources": [
+      "DXF_HANDLE:2A0"
+    ]
+  },
+  "inputTokens": 969,
+  "outputTokens": 231,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.96,
+    "answers": {
+      "discipline": {
+        "type": "choice",
+        "value": "CIVIL",
+        "confidence": 1,
+        "probabilities": {
+          "ARCHITECTURAL": 0,
+          "STRUCTURAL": 0,
+          "CIVIL": 1,
+          "MEP": 0,
+          "OTHER": 0
+        }
+      },
+      "title_candidate": {
+        "type": "choice",
+        "value": "cand_2",
+        "confidence": 0.99,
+        "probabilities": {
+          "cand_1": 0.01,
+          "cand_2": 0.99,
+          "cand_4": 0,
+          "cand_6": 0,
+          "cand_3": 0,
+          "cand_5": 0,
+          "cand_7": 0
+        }
+      },
+      "number_candidate": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 0.96,
+        "probabilities": {
+          "cand_2": 0,
+          "cand_5": 0,
+          "cand_4": 0,
+          "cand_6": 0,
+          "NONE": 0.03,
+          "cand_3": 0,
+          "cand_1": 0.97,
+          "cand_7": 0
+        }
+      }
+    }
+  }
+}
