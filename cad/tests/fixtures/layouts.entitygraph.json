@@ -1326,7 +1326,8 @@
       },
       "kind": "model",
       "name": "model",
-      "strays_rejected": 1
+      "strays_rejected": 1,
+      "viewports": []
     },
     {
       "bbox": {
@@ -1341,7 +1342,8 @@
       },
       "kind": "paper",
       "name": "SHEET A1",
-      "strays_rejected": 0
+      "strays_rejected": 0,
+      "viewports": []
     }
   ]
 }

@@ -3669,7 +3669,8 @@
       },
       "kind": "model",
       "name": "model",
-      "strays_rejected": 0
+      "strays_rejected": 0,
+      "viewports": []
     }
   ]
 }
