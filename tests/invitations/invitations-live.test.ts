@@ -92,9 +92,31 @@ async function membersScreen(stage: Stage): Promise<Page> {
 }
 
 /** Invite an address through the panel, and wait for its row to stand. */
-async function invite(page: Page, email: string): Promise<void> {
+/**
+ * Invite, and answer with the id of the row the invitation just made.
+ *
+ * WHY THE ANSWER IS POLLED FOR (B-19 — a flake is a defect with a cause). This waited for the FIRST
+ * pending row to be visible and returned; the case that read the rows afterwards took one reading.
+ * The stage is one workspace for every case in the file, so from the second invitation on the first
+ * row is the PREVIOUS case's, already visible, and the wait returned at once — the one reading that
+ * followed was of a screen still arriving, and under lane load (the unit lane beside `pnpm test:db`,
+ * 2026-09-21) it missed the new row: "expected undefined to be truthy". What the case is waiting
+ * for is a row that was not there before, so that is what is polled for, and the case reads it once.
+ */
+async function invite(page: Page, email: string): Promise<string> {
+  const before = new Set(await pendingRows(page, TESTIDS.row, INVITATION_ATTRIBUTE));
   await submitField(page, TESTIDS.email, email, TESTIDS.submit);
-  await page.locator(`${testId(TESTIDS.row)}[${INVITATION_ATTRIBUTE}]`).first().waitFor({ state: "visible", timeout: 60_000 });
+  let made: string | undefined;
+  await expect
+    .poll(
+      async () => {
+        made = (await pendingRows(page, TESTIDS.row, INVITATION_ATTRIBUTE)).find((id) => id.length > 0 && !before.has(id));
+        return made !== undefined;
+      },
+      { timeout: 60_000, interval: 250, message: `the invitation to ${email} stands as a pending row of its own, told apart by ${INVITATION_ATTRIBUTE} from the ${before.size} that stood before (AC-2)` },
+    )
+    .toBe(true);
+  return made as string;
 }
 
 describe("AC-2: the invitations panel stands in I-61's slots and moves invitations", () => {
@@ -129,11 +151,12 @@ describe("AC-2: the invitations panel stands in I-61's slots and moves invitatio
       const invitee = await enrol("invitee-mailed");
       const page = await membersScreen(stage);
 
-      await invite(page, invitee.email);
+      const made = await invite(page, invitee.email);
 
       const rows = await pendingRows(page, TESTIDS.row, INVITATION_ATTRIBUTE);
       expect(rows.length, "the invitation just made stands as one pending row").toBe(1);
-      expect(rows[0]?.length ?? 0, `the row carries ${INVITATION_ATTRIBUTE} so one invitation can be told from another (AC-2)`).toBeGreaterThan(0);
+      expect(rows[0], `the row carries ${INVITATION_ATTRIBUTE} so one invitation can be told from another (AC-2)`).toBe(made);
+      expect(made.length, `${INVITATION_ATTRIBUTE} names the invitation`).toBeGreaterThan(0);
       expect(await countOf(page, TESTIDS.resend), `each pending row carries ${TESTIDS.resend}`).toBe(1);
       expect(await countOf(page, TESTIDS.revoke), `each pending row carries ${TESTIDS.revoke}`).toBe(1);
       expect(await countOf(page, TESTIDS.none), `${TESTIDS.none} steps aside once a row stands`).toBe(0);
@@ -157,9 +180,7 @@ describe("AC-2: the invitations panel stands in I-61's slots and moves invitatio
       // Which row this case revokes is read off the panel, not assumed: the offers other cases made
       // in this same workspace lawfully still stand, and R-SPINE-003 schedules them all. The identity
       // that appears between the two readings is the one this case just created.
-      const standingBefore = await pendingRows(page, TESTIDS.row, INVITATION_ATTRIBUTE);
-      await invite(page, invitee.email);
-      const revokedId = (await pendingRows(page, TESTIDS.row, INVITATION_ATTRIBUTE)).find((id) => id.length > 0 && !standingBefore.includes(id));
+      const revokedId = await invite(page, invitee.email);
       expect(revokedId, `the invitation just made stands as a pending row of its own, told apart by ${INVITATION_ATTRIBUTE} (AC-2)`).toBeTruthy();
 
       const afterInvite = invitationsMailed(invitee.email).length;
