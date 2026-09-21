@@ -130,3 +130,30 @@ describe("verify gates its independent lanes at once, and answers for every one 
     expect(lines.join("\n")).toContain("not-a-lane");
   });
 });
+
+describe("a lane's green is told once, after its LANE line — the cad lane's regeneration proof hangs on it", () => {
+  test("onGreen names each green lane exactly once, never a red one, and nothing past a red wave", async () => {
+    const green: string[] = [];
+    const lines: string[] = [];
+    const code = await runChainInWaves(fullyArmed(), {
+      report: () => true,
+      exec: async (_argv, _env, label) => (label === "cad" ? 1 : 0),
+      write: (line) => lines.push(line.trimEnd()),
+      onGreen: (id) => {
+        green.push(id);
+        lines.push(`GREEN ${id}`);
+      },
+    });
+    expect(code).toBe(1);
+    expect(green).not.toContain("cad");
+    expect(green, "build stands behind the red wave and never runs").not.toContain("build");
+    expect(green).toEqual(expect.arrayContaining(["typegen", "types", "lint", "unit", "golden"]));
+    expect(new Set(green).size, "once each").toBe(green.length);
+    expect(lines.indexOf("GREEN typegen"), "after the lane's own LANE line").toBeGreaterThan(lines.findIndex((line) => line.startsWith("LANE typegen")));
+  });
+
+  test("absent, onGreen is a no-op — a suite driving the chain records nothing on the machine", async () => {
+    const { code } = await drive(fullyArmed());
+    expect(code).toBe(0);
+  });
+});

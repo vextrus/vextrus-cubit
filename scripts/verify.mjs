@@ -18,7 +18,7 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { UNIT_LANE_KNEE, VERIFY_WAVE_SIBLINGS, laneWorkers, waveParallelism } from "./lib/box.mjs";
-import { cadLane } from "./lib/cad-lane.mjs";
+import { cadLane, recordRegenerationProof } from "./lib/cad-lane.mjs";
 import { deriveLanes } from "./lib/lanes.mjs";
 import { announce, run, runAsync, wallTime } from "./lib/report.mjs";
 
@@ -166,14 +166,18 @@ export function runChain(lanes, io = {}) {
  * that fails does not silence its siblings — each failure prints its own `FAIL <id> exit=<code>`.
  * Fail-fast survives where it means something: a wave that came back red ends the chain, so no
  * later wave is announced or run, and the code is the first failure's in roster order.
+ * `onGreen` is told each lane that came back green, once, after its `LANE` line — the cad lane's
+ * regeneration proof is written there and nowhere earlier (scripts/lib/cad-lane.mjs). Absent by
+ * default, so a suite driving this chain with a fake exec records nothing on the real machine.
  * @param {ReadonlyArray<Lane>} lanes
- * @param {{exec?: (argv: string[], env?: Record<string, string>, label?: string) => number | Promise<number>, report?: (lane: Lane) => boolean, write?: (line: string) => void}} [io]
+ * @param {{exec?: (argv: string[], env?: Record<string, string>, label?: string) => number | Promise<number>, report?: (lane: Lane) => boolean, write?: (line: string) => void, onGreen?: (laneId: string) => void}} [io]
  * @returns {Promise<number>} the exit code, which is the whole contract
  */
 export async function runChainInWaves(lanes, io = {}) {
   const exec = io.exec ?? ((argv, env, label) => runAsync(argv, { cwd: ROOT, env: { ...process.env, ...env }, label }));
   const report = io.report ?? announce;
   const write = io.write ?? ((line) => process.stdout.write(line));
+  const onGreen = io.onGreen ?? (() => undefined);
 
   const unrunnable = lanes.filter((lane) => LANE_COMMANDS[lane.id] === undefined).map((lane) => lane.id);
   if (unrunnable.length > 0) {
@@ -201,6 +205,7 @@ export async function runChainInWaves(lanes, io = {}) {
         if (answer !== 0) break;
       }
       write(`LANE ${lane.id} ${wallTime(startedAt)}\n`);
+      if (answer === 0) onGreen(lane.id);
       return { lane, code: answer };
     });
     for (const verdict of verdicts) {
@@ -245,7 +250,13 @@ function isEntryPoint() {
 
 if (isEntryPoint()) {
   const startedAt = performance.now();
-  const code = await runChainInWaves(deriveLanes(ROOT));
+  const code = await runChainInWaves(deriveLanes(ROOT), {
+    // The cad lane's regeneration proof: written on the lane's own green, only where the
+    // regeneration actually RAN over a digested tree (scripts/lib/cad-lane.mjs).
+    onGreen: (laneId) => {
+      if (laneId === "cad" && CAD_LANE.regenerate && CAD_LANE.digest !== null) recordRegenerationProof(ROOT, CAD_LANE.digest);
+    },
+  });
   process.stdout.write(`verify wall-time ${wallTime(startedAt)}\n`);
   process.exit(code);
 }

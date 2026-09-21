@@ -5,18 +5,32 @@
 //
 // Driven with an injected git, so every branch is provable on a tree of whatever shape this test
 // happens to run on.
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { FIXTURE_REGENERATION_TESTS, REGENERATION_SKIPPED_LINE, cadLane, cadPytestArgv, changedPaths, touchesFixtureInputs } from "../../scripts/lib/cad-lane.mjs";
+import {
+  FIXTURE_REGENERATION_TESTS,
+  REGENERATION_ENVIRONMENT,
+  REGENERATION_PROOF_PATH,
+  REGENERATION_SKIPPED_LINE,
+  cadLane,
+  cadPytestArgv,
+  changedPaths,
+  readRegenerationProof,
+  recordRegenerationProof,
+  regenerationInputsDigest,
+  regenerationProvenLine,
+  touchesFixtureInputs,
+} from "../../scripts/lib/cad-lane.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 type GitRun = (argv: string[]) => { status: number | null; stdout: string };
 
-/** A git that answers a named branch, a base, a committed diff and a working tree. */
-function fakeGit(answers: { branch?: string; committed?: string[]; working?: string[]; fails?: string }): GitRun {
+/** A git that answers a named branch, a base, a committed diff, a working tree and the index's blobs. */
+function fakeGit(answers: { branch?: string; committed?: string[]; working?: string[]; index?: string[]; fails?: string }): GitRun {
   return (argv) => {
     const command = argv.join(" ");
     const fail = { status: 1, stdout: "" };
@@ -26,6 +40,8 @@ function fakeGit(answers: { branch?: string; committed?: string[]; working?: str
     if (command === "merge-base HEAD main") return { status: 0, stdout: "cafef00d\n" };
     if (command.startsWith("diff --name-only")) return { status: 0, stdout: `${(answers.committed ?? []).join("\n")}\n` };
     if (command.startsWith("status --porcelain")) return { status: 0, stdout: (answers.working ?? []).map((name) => ` M ${name}`).join("\n") };
+    // `ls-files -s` prints `<mode> <blob> <stage>\t<path>` per tracked file under the paths asked.
+    if (command.startsWith("ls-files -s")) return { status: 0, stdout: (answers.index ?? []).map((line) => `${line}\n`).join("") };
     throw new Error(`the lane asked git something this test does not answer: ${command}`);
   };
 }
@@ -111,5 +127,106 @@ describe("what the lane then runs, and what it says about it", () => {
   test("the suite itself is never narrowed — everything that reads committed bytes still runs", () => {
     expect(cadPytestArgv({ regenerate: false })[1]).toBe("cad");
     expect(cadPytestArgv({ regenerate: true })).toEqual(["pytest", "cad"]);
+  });
+});
+
+/**
+ * THE PROOF (2026-09-21). On a lane branch that touched the extractor once, the diff against main
+ * names it on every gate after, and the ~80 s recomputation ran on every one — `LANE cad 137.52s`
+ * against a 60 s ceiling. A green regeneration now leaves a digest of exactly the bytes it ran over,
+ * and the same bytes buy the skip; one byte moved does not.
+ */
+describe("a green regeneration's proof buys the skip a second time — and only for the same bytes", () => {
+  const moved = { committed: ["cad/src/vextrus_cad/report.py"] };
+  const index = ["100644 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 0\tcad/src/vextrus_cad/report.py"];
+  const neverRead = (): null => {
+    throw new Error("the proof must not be consulted here");
+  };
+
+  test("the inputs' digest follows the index's blobs and the working tree's bytes — and a deleted file digests as absent", () => {
+    const root = mkdtempSync(join(tmpdir(), "cad-lane-digest-"));
+    try {
+      mkdirSync(join(root, "fixtures/gen"), { recursive: true });
+      writeFileSync(join(root, "fixtures/gen/x.py"), "a");
+      const git = fakeGit({ ...moved, index, working: ["fixtures/gen/x.py"] });
+      const one = regenerationInputsDigest(root, git);
+      expect(one).toMatch(/^[0-9a-f]{64}$/);
+      expect(regenerationInputsDigest(root, git), "the same bytes digest the same").toBe(one);
+      writeFileSync(join(root, "fixtures/gen/x.py"), "b");
+      expect(regenerationInputsDigest(root, git), "a working-tree byte moved").not.toBe(one);
+      writeFileSync(join(root, "fixtures/gen/x.py"), "a");
+      expect(regenerationInputsDigest(root, git), "and moved back").toBe(one);
+      const otherBlob = fakeGit({ ...moved, index: ["100644 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 0\tcad/src/vextrus_cad/report.py"], working: ["fixtures/gen/x.py"] });
+      expect(regenerationInputsDigest(root, otherBlob), "an index blob moved").not.toBe(one);
+      rmSync(join(root, "fixtures/gen/x.py"));
+      expect(regenerationInputsDigest(root, git), "a file deleted from the tree is not the file that was there").not.toBe(one);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a git that cannot list the index yields no digest, and the lane regenerates without consulting a proof", () => {
+    expect(regenerationInputsDigest("/nowhere", fakeGit({ ...moved, fails: "ls-files" }))).toBeNull();
+    const lane = cadLane("/nowhere", fakeGit({ ...moved, fails: "ls-files" }), { readProof: neverRead });
+    expect(lane.regenerate).toBe(true);
+    expect(lane.argv).toEqual(["pytest", "cad"]);
+    expect(lane.digest).toBeNull();
+  });
+
+  test("inputs moved against main, and a proof of exactly this tree: deselected, and said out loud with the digest", () => {
+    const git = fakeGit({ ...moved, index });
+    const digest = regenerationInputsDigest("/nowhere", git);
+    expect(digest).not.toBeNull();
+    const proof = { digest: digest as string, provedAt: "2026-09-21T10:00:00.000Z" };
+    const lane = cadLane("/nowhere", git, { readProof: () => proof });
+    expect(lane.regenerate).toBe(false);
+    expect(lane.argv).toEqual(cadPytestArgv({ regenerate: false }));
+    expect(lane.note).toBe(regenerationProvenLine(proof));
+    expect(lane.note).toContain((digest as string).slice(0, 12));
+    expect(lane.note).toContain(REGENERATION_PROOF_PATH);
+    expect(lane.note, "a reader can tell this skip from the diff's").not.toBe(REGENERATION_SKIPPED_LINE);
+    expect(lane.digest).toBe(digest);
+  });
+
+  test("a proof of another tree, or none at all, regenerates — and hands the digest up for the proof a green run will leave", () => {
+    const git = fakeGit({ ...moved, index });
+    const digest = regenerationInputsDigest("/nowhere", git) as string;
+    for (const readProof of [() => null, () => ({ digest: "0".repeat(64), provedAt: "2026-09-21T10:00:00.000Z" })]) {
+      const lane = cadLane("/nowhere", git, { readProof });
+      expect(lane.regenerate).toBe(true);
+      expect(lane.argv).toEqual(["pytest", "cad"]);
+      expect(lane.note).toBeNull();
+      expect(lane.digest).toBe(digest);
+    }
+  });
+
+  test("nothing moved against main needs no proof and takes no digest — the diff's skip stands as it was", () => {
+    const lane = cadLane("/nowhere", fakeGit({ committed: ["src/app/page.tsx"] }), { readProof: neverRead });
+    expect(lane.regenerate).toBe(false);
+    expect(lane.note).toBe(REGENERATION_SKIPPED_LINE);
+    expect(lane.digest).toBeNull();
+  });
+
+  test("the proof is written under node_modules/.cache, read back as written, and a torn or malformed one reads as none", () => {
+    const root = mkdtempSync(join(tmpdir(), "cad-lane-proof-"));
+    try {
+      expect(readRegenerationProof(root)).toBeNull();
+      const digest = "ab".repeat(32);
+      const written = recordRegenerationProof(root, digest, "2026-09-21T10:00:00.000Z");
+      expect(written).toEqual({ digest, provedAt: "2026-09-21T10:00:00.000Z" });
+      expect(existsSync(join(root, REGENERATION_PROOF_PATH)), "machine-local, never a committed path").toBe(true);
+      expect(readRegenerationProof(root)).toEqual(written);
+      writeFileSync(join(root, REGENERATION_PROOF_PATH), '{"digest": "torn');
+      expect(readRegenerationProof(root), "a torn proof").toBeNull();
+      writeFileSync(join(root, REGENERATION_PROOF_PATH), JSON.stringify({ digest: "not-a-digest", provedAt: "x" }));
+      expect(readRegenerationProof(root), "a malformed proof").toBeNull();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("the proof's path is gitignored ground — node_modules — and the roster of inputs it covers is the lane's own", () => {
+    expect(REGENERATION_PROOF_PATH.startsWith("node_modules/")).toBe(true);
+    for (const pin of REGENERATION_ENVIRONMENT) expect(existsSync(join(REPO_ROOT, pin)), `${pin} pins the extractor's environment`).toBe(true);
   });
 });
