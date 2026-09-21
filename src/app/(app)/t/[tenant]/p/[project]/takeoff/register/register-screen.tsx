@@ -56,6 +56,7 @@ const CHROME: RegisterChrome = {
   // AM-09 §1: the module may not import the registry (ARCH-01), so the four ids it publishes are
   // read HERE, where the registry is lawfully reachable, and handed down with the rest of its chrome.
   testIds: {
+    empty: TESTIDS.register.empty,
     inspector: TESTIDS.register.inspector,
     objectKey: TESTIDS.register.objectKey,
     sourceKey: TESTIDS.register.sourceKey,

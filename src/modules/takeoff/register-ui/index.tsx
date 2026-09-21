@@ -93,6 +93,7 @@ type Evidence = { href: string; label: string };
  * byte-identical to the id that was already in the DOM.
  */
 export interface RegisterTestIds {
+  readonly empty: string;
   readonly inspector: string;
   readonly objectKey: string;
   readonly sourceKey: string;
@@ -1331,7 +1332,7 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
         <div className="cx-register-mount cx-register-lines" data-testid="register-lines" onClick={(event) => takeRowAt(event.target)}>
           {nothingRegistered ? (
             <EmptyState
-              data-testid="register-empty"
+              data-testid={chrome.testIds.empty}
               className="cx-register-empty"
               heading={view.campaign === null ? REGISTER_COPY.takeoff_register_empty_heading : REGISTER_COPY.takeoff_register_empty_campaign_heading}
               body={view.campaign === null ? REGISTER_COPY.takeoff_register_empty_body : REGISTER_COPY.takeoff_register_empty_campaign_body}
@@ -1343,7 +1344,21 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
               ) : null}
             </EmptyState>
           ) : lines.length === 0 ? (
-            <EmptyState className="cx-register-empty" heading={REGISTER_COPY.takeoff_register_lines_none} />
+            // Two empties left, each saying WHY (R-UI-020, §2): a filter that matches nothing keeps
+            // the rail and the count and carries no state id; a campaign nobody has measured —
+            // objects registered, no run published, no filter set — is the campaign's own empty. It
+            // names the Measure door that already stands in the tabs row (never a second one) and
+            // carries the same `register-empty` the other two truths do.
+            Object.values(filters).some((value) => value !== "") ? (
+              <EmptyState className="cx-register-empty" heading={REGISTER_COPY.takeoff_register_lines_none} />
+            ) : (
+              <EmptyState
+                data-testid={chrome.testIds.empty}
+                className="cx-register-empty"
+                heading={REGISTER_COPY.takeoff_register_lines_unmeasured_heading}
+                body={REGISTER_COPY.takeoff_register_lines_unmeasured_body}
+              />
+            )
           ) : (
             // The origin is named, not hunted for: the table is told which row a reader must be able
             // to reach and answers with it drawn, so this screen reads nothing of the table's insides

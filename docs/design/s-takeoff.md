@@ -344,13 +344,18 @@ and the redirect as the reason — a route that renders nothing has no state of 
   beside a full bone for the grid. No bone stands for a region that is absent at rest: the tabs row
   is the frame's own track and the inspector is absent until something is selected (R-UI-080).
 - **Empty** — the shipped `EmptyState` **in the grid's own place**, the rail beside it untouched,
-  each of two truths saying why (R-UI-020). No campaign pinned: `takeoff_register_empty_heading` /
+  each of three truths saying why (R-UI-020). No campaign pinned: `takeoff_register_empty_heading` /
   `_body` and the one action, a core secondary link to `…/drawings/sets`,
   `takeoff_register_empty_action`. A campaign with nothing registered:
   `takeoff_register_empty_campaign_heading` / `_body`, no second action — `register-measure` already
-  stands in the tabs row, and a duplicate door teaches a second way to do one thing. Both carry
-  `data-testid="register-empty"`. A filtered-to-nothing table is not this cell: it is the same
-  primitive stating `takeoff_register_lines_none`, carrying no state id, with the rail untouched.
+  stands in the tabs row, and a duplicate door teaches a second way to do one thing. A campaign
+  with objects registered and no line published, no filter set — the pin has landed and nobody has
+  pressed Measure (amended 2026-09-21; before it this campaign fell into the filter cell and told a
+  reader who had narrowed nothing to clear a filter): `takeoff_register_lines_unmeasured_heading` /
+  `_body`, naming the door in the tabs row and never a second one. All three carry
+  `data-testid="register-empty"` (`TESTIDS.register.empty`, handed down as chrome like the
+  inspector's ids). A filtered-to-nothing table is not this cell: it is the same primitive stating
+  `takeoff_register_lines_none`, carrying no state id, with the rail untouched.
 - **Error** — `register-screen.tsx`'s own cell, which is the read's and not the register's:
   `takeoff_register_error_heading` / `_body`, the report id through an `IdChip` under
   `takeoff_register_report_label` (R-UI-082 — a fault id is read aloud to support, which is what the
@@ -401,6 +406,10 @@ classes** · `_any_kind` **All kinds** · `_any_level` **All levels** · `_any_b
 every reading and every line measured from it stays on record, and its lines are withheld from the
 table.** · `takeoff_register_lines_none` **No line matches
 these filters. Every line stays registered — clear a filter to see the rest.** ·
+`takeoff_register_lines_unmeasured_heading` **Not measured yet.** ·
+`takeoff_register_lines_unmeasured_body` **The objects are registered and no measure run has
+published a line over them. Measure this campaign runs the rails; each line stands here with its
+trace as it is published.** ·
 `takeoff_register_object_key_label` **Object key** · `takeoff_register_basis_label` **Basis** ·
 `takeoff_register_role_label` **Role** · `takeoff_register_corroboration_label` **Corroboration** ·
 `takeoff_register_source_label` **Read from** · `takeoff_register_attributes_label` **Attributes** ·

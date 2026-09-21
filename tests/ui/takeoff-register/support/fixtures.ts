@@ -793,6 +793,7 @@ export async function mountRegister(view: RegisterViewLike, over: MountOptions =
       // The four ids ARCH-01 bars the module from looking up arrive as chrome, off the registry —
       // the same hand-down the shipped screen makes (AM-09 §1).
       testIds: {
+        empty: TESTIDS.register.empty,
         inspector: TESTIDS.register.inspector,
         objectKey: TESTIDS.register.objectKey,
         sourceKey: TESTIDS.register.sourceKey,

@@ -46,6 +46,8 @@ export type RegisterCopyKey =
   | "takeoff_register_col_source"
   | "takeoff_register_repudiated_note"
   | "takeoff_register_lines_none"
+  | "takeoff_register_lines_unmeasured_heading"
+  | "takeoff_register_lines_unmeasured_body"
   | "takeoff_register_object_key_label"
   | "takeoff_register_basis_label"
   | "takeoff_register_role_label"
@@ -127,6 +129,8 @@ export const REGISTER_COPY: Readonly<Record<RegisterCopyKey, string>> = Object.f
   takeoff_register_repudiated_note:
     "A person judged this object to be nothing. Nothing was deleted: every reading and every line measured from it stays on record, and its lines are withheld from the table.",
   takeoff_register_lines_none: "No line matches these filters. Every line stays registered — clear a filter to see the rest.",
+  takeoff_register_lines_unmeasured_heading: "Not measured yet.",
+  takeoff_register_lines_unmeasured_body: "The objects are registered and no measure run has published a line over them. Measure this campaign runs the rails; each line stands here with its trace as it is published.",
 
   takeoff_register_object_key_label: "Object key",
   takeoff_register_basis_label: "Basis",
