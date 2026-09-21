@@ -396,7 +396,7 @@ Routes introduced: `/t/{tenant}/p/{project}/viewer/{drawing}/{layout}`, the same
 which are other files' ids and are not redefined here. `resizable-handle` and `skeleton` arrive with
 their primitives. No other id is added.
 
-Behavioural hooks without new ids: on `viewer-status` — `data-first-paint`, `data-renderer`
+Behavioural hooks without new ids: on `viewer-status` — `data-rendered-region` with `data-state` `pending` until the first paint and `settled` after (the rendered contract of `tests/e2e/support/settled.ts`, I-189), `data-first-paint`, `data-renderer`
 (`webgl` | `unavailable`), `data-loaded-layers`, `data-total-layers`, `data-entity-count`,
 `data-drawn-entities`, `data-scale`, `data-frame-median-ms`, `data-frame-p95-ms` (the painter's rAF
 ledger over the last 120 frames, written each frame) and `data-hit-ms` / `data-hit-keys` (the last
@@ -1762,6 +1762,7 @@ one RefusalState, the one ConsequenceDialog — plus the `cx-viewer-scale-*` cla
   The same guard stands in `pressAffirm`, so what the control refuses to do is decided once and not
   only by the attribute drawn on it.
 - **I-188 — the screen states itself on its root, and every identifier renders through the IdChip (session 4, AM-08 Part 2's rubric read as CLAUDE.md reads it).** `viewer-screen` states `loading` until the paint context is probed and `ready` after; `data-flyto` and the rest stand beside it as before. The root carries `data-screen-root` and a `data-state` a reader of the DOM can take after `settled()` — `ready`, `empty`, or the screen's own word — which is the rubric's twelfth criterion and was unstated here. An identifier a person meets on this screen (an account id, a content digest, a source key) is an IdChip: the chip measure on screen, the whole value in `data-value`, on the tooltip and on the clipboard, never a raw uuid, hex digest or handle in body text (R-UI-082). Where an earlier Interpretation of this file ruled a digest rendered whole in the document, this one amends it: the whole value is the chip's DATA and the copy it hands over, and the document shows the measure.
+- **I-189 — the status line is a rendered region.** `viewer-status` carries `data-rendered-region` and a `data-state` that reads `pending` until the sheet's first paint and `settled` after, so `settled()` and every retrying read take one reading of a painted sheet rather than three agreeing ones of a canvas still arriving (tests/e2e/support/settled.ts; AM-09 §2). `data-first-paint` stands beside it unchanged.
 
 ## 1. Layout and hierarchy
 

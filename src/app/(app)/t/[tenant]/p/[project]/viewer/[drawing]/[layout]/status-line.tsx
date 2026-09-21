@@ -127,6 +127,11 @@ export function StatusLine({
       data-testid={TESTIDS.viewer.status}
       role="status"
       aria-live="polite"
+      // The rendered contract (tests/e2e/support/settled.ts, I-189): the readout is a rendered region
+      // whose state is pending until the sheet's first paint and settled after — so a retrying read
+      // and settled() take one reading of the sheet, never a reading of a canvas still arriving.
+      data-rendered-region=""
+      data-state={firstPaint ? "settled" : "pending"}
       data-first-paint={String(firstPaint)}
       data-renderer={renderer}
       data-loaded-layers={loadedLayers}
