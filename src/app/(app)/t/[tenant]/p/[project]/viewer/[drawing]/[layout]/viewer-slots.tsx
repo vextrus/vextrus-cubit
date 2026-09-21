@@ -31,7 +31,7 @@ import type { CitedBlock } from "@/modules/takeoff/viewer-inspector/inspector-pa
 import type { PartitionRegion } from "./partition-region";
 import type { ScaleRegion } from "./scale-region";
 import { ZOOM_STEP } from "@/modules/takeoff/viewer/hooks/use-camera";
-import { useInspector, useShellStatus, useShellToolbar } from "@/ui/shell";
+import { useInspector, useShellPage, useShellStatus, useShellToolbar } from "@/ui/shell";
 import { SnapTools } from "./snap-region";
 import { StatusLine } from "./status-line";
 import { InspectorTabs } from "./viewer-stage";
@@ -107,6 +107,9 @@ export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
       [drawable, tool, snap, camera.fitSheet, camera.zoomBy, layersOpen, inspectorPinned],
   );
   const framedToolbar = useShellToolbar(toolbar);
+  // R-UI-084: the trail's last crumb names the sheet a reader opened (viewer.md's frame:
+  // `ws › Riverside Tower ▾ › Drawings › A-101 Foundation Plan`) — the layout's own name, as data.
+  useShellPage(input.sheetName);
 
   const readout = useMemo(
       () => (

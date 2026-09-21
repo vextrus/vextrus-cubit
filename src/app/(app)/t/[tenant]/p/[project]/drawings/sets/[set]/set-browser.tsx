@@ -16,7 +16,7 @@ import { formatUserFigure } from "@/core/format";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button } from "@/ui/primitives/core";
-import { ShellEmptyState } from "@/ui/shell";
+import { ShellEmptyState, useShellPage } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
 import type { DrawingLineage, DrawingSetView, SetRevision } from "@/modules/takeoff/sets";
 import { participantsRoute } from "@/app/(app)/t/[tenant]/p/[project]/settings/participants/route-address";
@@ -60,6 +60,8 @@ export function SetBrowser({
   preview = previewPinAction,
   commit = commitPinAction,
 }: SetBrowserProps) {
+  // R-UI-084: the trail's last crumb is the sets screen's own word, under the project's Drawings area.
+  useShellPage(sets.sets_heading);
   // The draft as this screen stands: a toggle writes at once and the row moves with it (I-96).
   const [members, setMembers] = useState<readonly string[]>(set.members);
   const [memberRefusal, setMemberRefusal] = useState<RefusalCode | null>(null);

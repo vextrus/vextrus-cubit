@@ -156,6 +156,61 @@ export function projectLabel(project: ShellProject): string {
   return hasVisibleText(project.name) ? project.name : strings.shell_project_unnamed;
 }
 
+/* ------------------------------------------------------ the areas inside a project (R-UI-084) */
+
+/**
+ * The breadcrumb's third crumb INSIDE a project is the project's own area, never the workspace's
+ * (every Design Decision's trail: `ws › Trace Survey ▾ › Takeoff › Register`, `ws › Riverside Tower ▾
+ * › Drawings › A-101 Foundation Plan`, `ws › Sattva Court ▾ › Project`). Four areas: the project
+ * itself — its home, and the documents and audit screens under it — its drawings (the index, the
+ * sets, the viewer), its takeoff lane and its settings.
+ */
+export const PROJECT_AREAS = ["home", "drawings", "takeoff", "settings"] as const;
+
+export type ProjectArea = (typeof PROJECT_AREAS)[number];
+
+const PROJECT_AREA_LABEL: Readonly<Record<ProjectArea, string>> = {
+  home: strings.shell_project_area_home,
+  drawings: strings.shell_project_area_drawings,
+  takeoff: strings.takeoff_nav_label,
+  settings: strings.shell_nav_settings,
+};
+
+/** The first path segment under `/p/{project}/` that each area owns; `viewer` is a drawing's own screen. */
+const PROJECT_AREA_OF_SEGMENT: Readonly<Record<string, ProjectArea>> = Object.freeze({
+  drawings: "drawings",
+  viewer: "drawings",
+  takeoff: "takeoff",
+  settings: "settings",
+});
+
+export function projectAreaLabel(area: ProjectArea): string {
+  return PROJECT_AREA_LABEL[area];
+}
+
+/** The area's own home: the project's address for `home`, the area's segment beneath it otherwise. */
+export function projectAreaHref(tenantId: string, projectId: string, area: ProjectArea): string {
+  const home = projectHref(tenantId, projectId);
+  return area === "home" ? home : `${home}/${area}`;
+}
+
+/** Which of the project's areas the address is inside, or null outside a project. */
+export function projectAreaOf(pathname: string | null): ProjectArea | null {
+  if (pathname === null) return null;
+  const match = /^\/t\/[^/]+\/p\/[^/?#]+(?:\/([^/?#]*))?/.exec(pathname);
+  if (match === null) return null;
+  const segment = match[1] ?? "";
+  return PROJECT_AREA_OF_SEGMENT[segment] ?? "home";
+}
+
+/** Is the address the project area's own home — the area crumb is then the page (as `isAreaHome`)? */
+export function isProjectAreaHome(pathname: string | null, tenantId: string, projectId: string): boolean {
+  const area = projectAreaOf(pathname);
+  if (pathname === null || area === null) return false;
+  const bare = pathname.replace(/[?#].*$/, "").replace(/\/+$/, "");
+  return bare === projectAreaHref(tenantId, projectId, area);
+}
+
 /** What a screen declares about where it is, and everything the trail is derived from. */
 export interface ShellCrumbsInput {
   workspace: ShellWorkspace;
@@ -166,6 +221,11 @@ export interface ShellCrumbsInput {
   area: ShellArea;
   /** Whether the address is the area's own home; deeper, the area crumb is a step, not the page. */
   atAreaHome: boolean;
+  /**
+   * The project's own area the address is inside (R-UI-084), read where `project` is named: the third
+   * crumb is then this area — never the workspace's — and `atAreaHome` reads against it.
+   */
+  projectArea?: ProjectArea | null;
   /** The screen inside the area, named as its own crumb — the caller's words, never a key here. */
   page?: string;
 }
@@ -181,7 +241,7 @@ export interface ShellCrumbsInput {
  * The last crumb of the trail is the page, and it is the only one without an address: a crumb that
  * claims to be where the reader is may not also be a link to somewhere else (Q-11).
  */
-export function shellCrumbs({ workspace, project, projects, area, atAreaHome, page }: ShellCrumbsInput): BreadcrumbCrumb[] {
+export function shellCrumbs({ workspace, project, projects, area, atAreaHome, projectArea, page }: ShellCrumbsInput): BreadcrumbCrumb[] {
   const trail: BreadcrumbCrumb[] = [
     { id: "workspace", label: workspaceLabel(workspace), href: shellHref(workspace.tenantId, "projects") },
   ];
@@ -203,6 +263,22 @@ export function shellCrumbs({ workspace, project, projects, area, atAreaHome, pa
             })),
           }),
     });
+  }
+
+  // INSIDE A PROJECT the third crumb is the project's own area — Takeoff, Drawings, Settings, or
+  // the project itself — never the workspace's "Projects", which the workspace crumb already reaches
+  // (R-UI-084; every Decision's trail: `ws › Trace Survey ▾ › Takeoff › Register`). The same two
+  // readings as below: at the area's home the area crumb is the page; deeper it is a step, and the
+  // screen's own word is the page.
+  if (project !== undefined && project !== null && projectArea !== undefined && projectArea !== null) {
+    const named = !atAreaHome && page !== undefined && hasVisibleText(page);
+    trail.push({
+      id: "area",
+      label: projectAreaLabel(projectArea),
+      ...(atAreaHome ? { current: true } : { href: projectAreaHref(workspace.tenantId, project.projectId, projectArea) }),
+    });
+    if (named) trail.push({ id: "page", testId: TESTIDS.shell.crumbPage, current: true, label: page });
+    return trail;
   }
 
   // The page crumb exists only where the screen names one AND the address is inside the area: at the

@@ -24,6 +24,11 @@ export const shell = {
   shell_nav_projects: "Projects",
   shell_nav_books: "Books",
   shell_nav_settings: "Settings",
+  // The breadcrumb's third crumb INSIDE a project names the project's area (R-UI-084): the project
+  // itself (its home, documents, audit), its drawings (the index, the sets, the viewer), its takeoff
+  // lane (the lane's own word, `takeoff_nav_label`) or its settings (`shell_nav_settings`).
+  shell_project_area_home: "Project",
+  shell_project_area_drawings: "Drawings",
 
   shell_breadcrumb_label: "Breadcrumb",
   // What the user menu is named when the account's address is not a value that can be shown.

@@ -14,7 +14,7 @@ import { strings } from "../strings";
 import { CommandPaletteTrigger } from "./command-palette-trigger";
 import { useFailureHandOff } from "./failure-hand-off";
 import { JobsTray } from "./jobs-tray";
-import { shellCrumbs, type ShellArea, type ShellProject, type ShellWorkspace } from "./routes";
+import { shellCrumbs, type ProjectArea, type ShellArea, type ShellProject, type ShellWorkspace } from "./routes";
 import { TESTIDS } from "@/ui/testids";
 
 export interface ShellTopBarProps {
@@ -26,6 +26,8 @@ export interface ShellTopBarProps {
   area: ShellArea;
   /** Whether the address is the area's own home; deeper, the area crumb is a step, not the page. */
   atAreaHome: boolean;
+  /** Inside a project, the project's own area the address is in — the trail's third crumb (R-UI-084). */
+  projectArea?: ProjectArea | null;
   /**
    * The screen inside the area, named as its own crumb. Optional because a screen that is the
    * area's own home names nothing beneath it, and the words are the caller's — the page's own
@@ -45,7 +47,7 @@ export interface ShellTopBarProps {
   signOut: () => void | Promise<void>;
 }
 
-export function ShellTopBar({ workspace, project, projects, area, atAreaHome, page, email, userId, signOut }: ShellTopBarProps) {
+export function ShellTopBar({ workspace, project, projects, area, atAreaHome, projectArea, page, email, userId, signOut }: ShellTopBarProps) {
   const [signingOut, startSignOut] = useTransition();
   // A failed sign-out is a failure, not a silence: a discarded promise would leave the control idle
   // and the screen claiming nothing happened (ARCH-03, B-21). The hand-off holds the rejection and
@@ -66,7 +68,7 @@ export function ShellTopBar({ workspace, project, projects, area, atAreaHome, pa
       {/* The id the frame has always published for the trail, kept byte-identical; the `<nav>`, its
           label and the crumbs' own markup are the primitive's, which is where they belong (B-17). */}
       <div className="cx-shell-breadcrumb" data-testid={TESTIDS.shell.breadcrumb}>
-        <Breadcrumb crumbs={shellCrumbs({ workspace, project, projects, area, atAreaHome, page })} className="cx-shell-crumbs" />
+        <Breadcrumb crumbs={shellCrumbs({ workspace, project, projects, area, atAreaHome, projectArea, page })} className="cx-shell-crumbs" />
       </div>
 
       {/* The bar's right-hand cluster, in R-UI-030's own order: the ⌘K trigger, the jobs tray, then

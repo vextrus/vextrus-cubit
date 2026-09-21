@@ -9,6 +9,8 @@
 // second reading of what the answer means.
 import { cache } from "react";
 import { densityFor } from "@/core/prefs";
+import { projectsForHome } from "@/modules/spine/projects";
+import type { ShellProject } from "@/ui/shell";
 import { viewerFor } from "@/server/shell/viewer";
 import { namedWorkspaceFor } from "@/server/shell/workspace";
 
@@ -25,3 +27,11 @@ export const namedWorkspaceRead = cache(namedWorkspaceFor);
 
 /** The density this person chose, read once however many screens inside the frame want it. */
 export const densityRead = cache(densityFor);
+
+/**
+ * The workspace's projects, read once per request for the frame's project crumb (R-UI-084): the
+ * project the address is inside is named by it, and its ▾ menu offers the others.
+ */
+export const projectsRead = cache(async (tenantId: string, userId: string): Promise<readonly ShellProject[]> =>
+  (await projectsForHome({ tenantId, userId, actorKind: "human" })).map((project) => ({ projectId: project.projectId, name: project.name })),
+);

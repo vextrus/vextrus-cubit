@@ -20,7 +20,7 @@ import type { CoverageView } from "@/modules/takeoff/coverage/view";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button, EmptyState, EnumLabel, ErrorState, IdChip, Tooltip } from "@/ui/primitives/core";
-import { ShellToolbar, useInspector } from "@/ui/shell";
+import { ShellToolbar, useInspector, useShellPage } from "@/ui/shell";
 import { COVERAGE_COPY } from "@/modules/takeoff/coverage/copy";
 import { useTakeoffTabsAside } from "../nav";
 import {
@@ -113,6 +113,8 @@ export interface CoverageScreenProps {
 }
 
 export function CoverageScreen({ view, projectId, permitted, reportId, initialCell }: CoverageScreenProps) {
+  // R-UI-084: the trail's last crumb is this screen's own word — the one the lane's tab says.
+  useShellPage(COVERAGE_COPY.takeoff_nav_coverage);
   const [held, setHeld] = useState<CoverageView | null>(view);
   // What a door answered when it did not answer a reading: the registered code it carried, or the
   // fault it left — neither is dropped, and neither is spoken by this file (R-UI-020, B-21).

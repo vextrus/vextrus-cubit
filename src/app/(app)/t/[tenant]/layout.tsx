@@ -10,7 +10,7 @@ import { workspacesFor } from "@/server/shell/workspace";
 import { ShellDenied, shellHref } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import { signOutAction } from "./actions";
-import { densityRead, namedWorkspaceRead, viewerRead } from "./reads";
+import { densityRead, namedWorkspaceRead, projectsRead, viewerRead } from "./reads";
 import { ShellFrame } from "./shell-frame";
 
 export default async function WorkspaceLayout({ children, params }: { children: ReactNode; params: Promise<{ tenant: string }> }) {
@@ -39,9 +39,11 @@ export default async function WorkspaceLayout({ children, params }: { children: 
   // R-UI-005: the stored mode is read once, here, and published by the frame — every screen inside
   // it inherits one source of truth rather than asking the seam for itself.
   const density = await densityRead(viewer.userId);
+  // R-UI-084: the frame names the project the address is inside, from the workspace's own roster.
+  const projects = await projectsRead(workspace.tenantId, viewer.userId);
 
   return (
-    <ShellFrame workspace={workspace} workspaces={held} email={viewer.email} userId={viewer.userId} density={density} signOut={signOutAction}>
+    <ShellFrame workspace={workspace} workspaces={held} projects={projects} email={viewer.email} userId={viewer.userId} density={density} signOut={signOutAction}>
       {children}
     </ShellFrame>
   );

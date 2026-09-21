@@ -8,7 +8,7 @@ import { REFUSALS, refusalOf, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import type { Density } from "@/core/prefs";
 import { JobsProvider, type JobsFormat } from "@/ui/patterns/job-timeline";
-import { AppShell, areaOf, isAreaHome, type ShellWorkspace } from "@/ui/shell";
+import { AppShell, areaOf, isAreaHome, isProjectAreaHome, projectAreaOf, type ShellProject, type ShellWorkspace } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
 import { PaletteHost } from "./palette/palette-host";
 import { projectOf } from "./palette/rows";
@@ -21,6 +21,8 @@ export interface ShellFrameProps {
   workspace: ShellWorkspace;
   /** Every workspace the account holds — the switcher's own list (R-SPINE-003). */
   workspaces: readonly ShellWorkspace[];
+  /** The workspace's projects: the one the address is inside is the trail's second crumb, the rest its ▾ menu (R-UI-084). */
+  projects: readonly ShellProject[];
   email: string | null;
   /** The account the session stands for, which the top bar states as data (L-ACT-01). */
   userId: string;
@@ -30,7 +32,7 @@ export interface ShellFrameProps {
   children: ReactNode;
 }
 
-export function ShellFrame({ workspace, workspaces, email, userId, density, signOut, children }: ShellFrameProps) {
+export function ShellFrame({ workspace, workspaces, projects, email, userId, density, signOut, children }: ShellFrameProps) {
   const pathname = usePathname();
   const router = useRouter();
   // The two things the job pattern cannot do for itself, bound here exactly once: `src/ui` holds no
@@ -50,14 +52,23 @@ export function ShellFrame({ workspace, workspaces, email, userId, density, sign
   // closes and the frame stays, which is what keeps the rail's own state across it (I-135).
   const navigate = useCallback((href: string) => router.push(href), [router]);
 
+  // The project the address is inside — the trail's second crumb (R-UI-084) — resolved from the
+  // workspace's own roster by the address's segment. An address naming no project, or one the
+  // roster does not hold, has no project crumb and reads as the workspace's area.
+  const projectId = projectOf(pathname);
+  const project = useMemo(() => projects.find((held) => held.projectId === projectId) ?? null, [projects, projectId]);
+
   return (
     <PaletteHost tenantId={workspace.tenantId} projectId={projectOf(pathname)} search={searchWorkspaceAction} navigate={navigate}>
       <JobsProvider format={format}>
         <AppShell
           workspace={workspace}
           workspaces={workspaces}
+          project={project}
+          projects={projects}
           area={areaOf(pathname)}
-          atAreaHome={isAreaHome(pathname, workspace.tenantId)}
+          atAreaHome={project === null ? isAreaHome(pathname, workspace.tenantId) : isProjectAreaHome(pathname, workspace.tenantId, project.projectId)}
+          projectArea={project === null ? null : projectAreaOf(pathname)}
           email={email}
           userId={userId}
           density={density}

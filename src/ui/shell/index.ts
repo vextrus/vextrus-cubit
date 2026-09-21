@@ -27,7 +27,24 @@ export { ShellToolbar, ShellToolbarGroup } from "./shell-toolbar";
 export { HOVER_HOLD_MS, ShellRail } from "./shell-rail";
 export { ShellTopBar } from "./shell-top-bar";
 export { useFailureHandOff } from "./failure-hand-off";
-export { SHELL_AREAS, areaLabel, areaOf, hasVisibleText, isAreaHome, projectHref, projectLabel, shellCrumbs, shellHref, workspaceLabel, workspaceOf } from "./routes";
+export {
+  PROJECT_AREAS,
+  SHELL_AREAS,
+  areaLabel,
+  areaOf,
+  hasVisibleText,
+  isAreaHome,
+  isProjectAreaHome,
+  projectAreaHref,
+  projectAreaLabel,
+  projectAreaOf,
+  projectHref,
+  projectLabel,
+  shellCrumbs,
+  shellHref,
+  workspaceLabel,
+  workspaceOf,
+} from "./routes";
 export { CHORD_TIMEOUT_MS, SCOPE_LABEL, SHORTCUTS, SHORTCUT_SCOPES, chordOf, isTextField, keyWords, matchesStep, shortcutById } from "./shortcuts/roster";
 export { SHELL_STATES, SHELL_STATE_NAMES, shellStateKey } from "./states";
 
@@ -38,7 +55,7 @@ export type { ShellDeniedProps } from "./shell-denied";
 export type { ShellEmptyStateProps } from "./shell-empty-state";
 export type { ShellRailProps } from "./shell-rail";
 export type { ShellTopBarProps } from "./shell-top-bar";
-export type { ShellArea, ShellCrumbsInput, ShellProject, ShellWorkspace } from "./routes";
+export type { ProjectArea, ShellArea, ShellCrumbsInput, ShellProject, ShellWorkspace } from "./routes";
 export type { ScreenRootState } from "./screen-state";
 export type { StatusBarProps, StatusCellId, StatusJobState } from "./status-bar";
 export type { ShellToolbarGroupProps, ShellToolbarProps } from "./shell-toolbar";

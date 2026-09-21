@@ -54,6 +54,22 @@ values.
   Settings; a hard reload empties the tray (recorded IOU, owner: the increment that gives the tray a
   durable store — `sessionStorage` or a workspace query). The heading and the empty line therefore say
   *in this tab* rather than implying a complete record.
+- **I-121 — inside a project the third crumb is the project's own area (session 3, 2026-09-21).**
+  R-UI-084 says the trail always names workspace, project, area and page, and every Decision draws
+  it so: `ws › Trace Survey ▾ › Takeoff › Register`, `ws › Riverside Tower ▾ › Drawings › A-101
+  Foundation Plan`, `ws › Sattva Court ▾ › Project`. Until this session every project screen read
+  `ws › Projects`: the frame never resolved the project the address is inside, and the third crumb
+  was the workspace's area. Now the tenant frame reads the workspace's projects once (`projectsRead`),
+  names the one the address is inside as the second crumb with the others in its ▾, and the third
+  crumb is the PROJECT area the address is in — `Project` (its home, and the documents and audit
+  screens beneath it), `Drawings` (the index, the sets, the viewer), `Takeoff`, `Settings` — linking
+  to that area's home and current at it (`routes.ts`: `PROJECT_AREAS`, `projectAreaOf`,
+  `projectAreaHref`, `isProjectAreaHome`). The page crumb stays the screen's own word, published
+  through `useShellPage`; the register, coverage, levels, sets, audit and viewer screens now publish
+  theirs (the viewer's is the sheet's name, as data). Rejected: repeating the workspace's `Projects`
+  as the third crumb, which names no location a reader is in. s-documents.md's wireframe writes
+  `Projects › Documents`; under this reading it renders `<project> › Project › Documents`, and the
+  `page` crumb J-030 asserts is unchanged. Proof: `src/ui/shell/routes-in-project.test.ts`.
 
 ## 1. Layout and hierarchy
 

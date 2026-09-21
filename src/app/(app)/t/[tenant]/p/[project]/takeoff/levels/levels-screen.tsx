@@ -20,7 +20,8 @@ import { BasisChip, Button, CoverageChip, EmptyState, EnumLabel, IdChip, Input, 
 import { humaniseEnum } from "@/ui/primitives/core/enum-label";
 import { DataTable } from "@/ui/primitives/data";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/primitives/overlay";
-import { useInspector } from "@/ui/shell";
+import { useInspector, useShellPage } from "@/ui/shell";
+import { strings } from "@/ui/strings";
 import { TESTIDS } from "@/ui/testids";
 import { useTakeoffTabsAside } from "../nav";
 import {
@@ -124,6 +125,8 @@ export interface LevelsScreenProps {
 }
 
 export function LevelsScreen({ view, projectId, permitted, reportId }: LevelsScreenProps) {
+  // R-UI-084: the trail's last crumb is this screen's own word — the one the lane's tab says.
+  useShellPage(strings.takeoff_nav_levels);
   const [held, setHeld] = useState<LevelsView | null>(view);
   const [offline, setOffline] = useState(false);
   const [fault, setFault] = useState<unknown>(null);

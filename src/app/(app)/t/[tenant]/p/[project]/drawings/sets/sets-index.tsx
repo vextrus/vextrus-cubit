@@ -11,7 +11,7 @@ import { refusalOf, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button, Input } from "@/ui/primitives/core";
-import { ShellEmptyState } from "@/ui/shell";
+import { ShellEmptyState, useShellPage } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
 import type { DrawingSetSummary } from "@/modules/takeoff/sets";
 import { participantsRoute } from "../../settings/participants/route-address";
@@ -37,6 +37,8 @@ interface Evidence {
 }
 
 export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet = createSetAction }: SetsIndexProps) {
+  // R-UI-084: the trail's last crumb is this screen's own word, under the project's Drawings area.
+  useShellPage(sets.sets_heading);
   const [name, setName] = useState("");
   const [pending, setPending] = useState(false);
   const [refusal, setRefusal] = useState<RefusalCode | null>(null);

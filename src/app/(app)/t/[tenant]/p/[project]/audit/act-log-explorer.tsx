@@ -15,6 +15,7 @@ import { useMemo, useRef, useState } from "react";
 import { dhakaDateParts, formatDate, formatUserFigure } from "@/core/format";
 import type { AuditAct } from "@/modules/spine/audit";
 import { Button, Input, Select, type SelectOption } from "@/ui/primitives/core";
+import { useShellPage } from "@/ui/shell";
 import { fill } from "@/ui/strings";
 import { auditStrings } from "./strings";
 import { TESTIDS } from "@/ui/testids";
@@ -45,6 +46,8 @@ function occurred(at: Date): string {
 }
 
 export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
+  // R-UI-084: the trail's last crumb is this screen's own word, under the project's home.
+  useShellPage(auditStrings.audit_heading);
   // Where focus goes when the control holding it clears the filters: that button stands inside the
   // filtered-empty block, which the clearing unmounts, and focus dropped to <body> puts a keyboard
   // reader back at the top of the document (R-UI-012). The first filter is the field the cleared

@@ -13,7 +13,7 @@ import { ShellRail } from "./shell-rail";
 import { ShellSlotsProvider, useShellSlots } from "./slots";
 import { ShellTopBar } from "./shell-top-bar";
 import { StatusBar, type StatusBarProps } from "./status-bar";
-import type { ShellArea, ShellProject, ShellWorkspace } from "./routes";
+import type { ProjectArea, ShellArea, ShellProject, ShellWorkspace } from "./routes";
 import { TESTIDS } from "@/ui/testids";
 
 export interface AppShellProps {
@@ -27,6 +27,8 @@ export interface AppShellProps {
   area: ShellArea;
   /** Whether the address is the area's own home, or a screen inside it — see `isAreaHome`. */
   atAreaHome: boolean;
+  /** Inside a project, the project's own area the address is in — the trail's third crumb (R-UI-084). */
+  projectArea?: ProjectArea | null;
   /** The name of the screen inside the area, when there is one — the breadcrumb's last crumb. */
   page?: string;
   email: string | null;
@@ -114,6 +116,7 @@ export function AppShell({
   projects,
   area,
   atAreaHome,
+  projectArea,
   page,
   email,
   userId,
@@ -139,6 +142,7 @@ export function AppShell({
               projects={projects}
               area={area}
               atAreaHome={atAreaHome}
+              projectArea={projectArea}
               page={page}
               email={email}
               userId={userId}
