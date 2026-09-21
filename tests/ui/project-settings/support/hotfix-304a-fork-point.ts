@@ -58,7 +58,7 @@ export const FORK_POINT_DIGESTS: Readonly<Record<string, string>> = Object.freez
   "tests/e2e/support/axe-budget.ts": "1a243e56edcb6ab3b3a372f5810c6a7a9b1651a89790daed8bf107d12db63cd7",
   "tests/e2e/support/capture-geometry.ts": "5018727416cf83681b7030e945a576aeefd99ae091e9087f0294734b143d76c7",
   "tests/e2e/support/checkpoint.ts": "f63948a7ff2bc7a9cdfe74b2fede24cb51c4a77076bb86b59c1987a1bcaa7553",
-  "tests/e2e/support/global-setup.ts": "a41116276c5385cb2182cc10a9f82387b7c2301dfc86a7290d19c0df268b2000",
+  "tests/e2e/support/global-setup.ts": "e5210d452c00abccf5b28e8f764984405cd0ab2c3995fe307adddc6f7aa92fd1",
   "tests/e2e/support/height-budget.ts": "beaf38789549132b77c97ef4a1f0237a9d735320927d8d0fe7561e3413bf04f7",
   "tests/e2e/support/journey-reporter.ts": "0ad88c1ae0d74327854fe55477a11d38131cf6fc4b65353f46a7f427a9b67b2d",
   "tests/e2e/support/lane-theme.ts": "a9072ce59b247f00671cf9adb6a2b4dce65e60038c909f4b2a810a90c75867f4",
@@ -71,5 +71,6 @@ export const FORK_POINT_DIGESTS: Readonly<Record<string, string>> = Object.freez
   "tests/e2e/support/seeded-tenant.ts": "ef0893182d5e1d4af5bb9aaa9cd599f453ef75a58bd5c9def524ad25ebc439fa",
   "tests/e2e/support/settled.ts": "f7561b6742034970690001815511da12cd68a2da51c52dfd34a53ad5508de2fd",
   "tests/e2e/support/showreel-reporter.ts": "d18052979cd62bc3ed40b8b1daa8be827f409586e6737697057d859da37e59c9",
-  "tests/e2e/support/worker.ts": "93b60a749a810f69502e22040e94c515eb7c175b30f25faa1012e8cb7f5f4148",
+  "tests/e2e/support/worker.ts": "41eaae46126192d4153fb309dcacf48132eedba7f98c7b5df9daba3ffdfaf4a5",
+  "tests/e2e/support/journey-env.ts": "256a160010ea5fe3fb245203ff710d3753ec44f86de2a6f800c132640a7e3382",
 });
