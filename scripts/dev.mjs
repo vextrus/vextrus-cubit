@@ -227,7 +227,7 @@ export async function main(argv = process.argv.slice(2)) {
   const releaseLock = holdDistDir(devDistPath, port, DEV_SERVER_LOCK);
 
   // TypeSafe Jev System One model integration for dev
-  const typeSafeKey = process.env["TYPESAFE_API_KEY"] || process.env["TYPESAFE_AI_API_KEY"] || "apikey_244bc7cb2167849415daea3891d1fe190e1_deb194f2845d07cc1667124eefea300c2747e6f5e98806752ee1ff17eea8b174";
+  const typeSafeKey = process.env["TYPESAFE_API_KEY"] || process.env["TYPESAFE_AI_API_KEY"] || "";
   const fixtureRoot = typeSafeKey ? "" : (process.env["CUBIT_MODEL_FIXTURE_ROOT"] || resolve(ROOT, "fixtures/rcc6"));
 
   // Common environment for child processes
