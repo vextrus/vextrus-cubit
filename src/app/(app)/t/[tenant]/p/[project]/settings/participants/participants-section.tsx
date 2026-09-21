@@ -20,7 +20,8 @@ import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button, Chip, EnumLabel } from "@/ui/primitives/core";
 import { DataTable } from "@/ui/primitives/data";
-import { shellHref } from "@/ui/shell";
+import { shellHref, useShellPage } from "@/ui/shell";
+import { PROJECT_SETTINGS_PAGES } from "@/ui/shell/routes";
 import { fill, strings, type StringKey } from "@/ui/strings";
 import { SettingsAbout, SettingsHeader } from "@/app/(app)/t/[tenant]/settings/settings-pane";
 import { commitAssignRole, previewAssignRole, type CommitAnswer, type PreviewAnswer } from "./actions";
@@ -148,6 +149,8 @@ const HISTORY_COLUMNS: ColumnDef<ParticipantsHistoryRow, unknown>[] = [
 ];
 
 export function ParticipantsSection({ tenantId, projectId, roster, history, subjects, preview = previewAssignRole, commit = commitAssignRole }: ParticipantsSectionProps) {
+  // The page crumb (R-UI-084): the same word the section nav's row and the header wear (B-17).
+  useShellPage(PROJECT_SETTINGS_PAGES.participants);
   const [subjectUserId, setSubjectUserId] = useState("");
   const [role, setRole] = useState("");
   const [direction, setDirection] = useState<Direction>("GRANT");

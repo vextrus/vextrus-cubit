@@ -178,13 +178,15 @@ test.describe("J-003 — participants: the roles a project holds, moved by act",
     await page.goto(route(tenantId, projectId));
 
     /*
-     * AC-6 / Decision § 1 — the deep route wears the shell's crumb and rail UNCHANGED.
+     * AC-6 / Decision § 1 — the deep route wears the shell's crumb and rail, unmodified by this screen.
      *
-     * Derived, never transcribed: the area's name is read off the rail row and compared with the
-     * crumb's own current entry, so no copy string is frozen here; the link is compared with the
-     * workspace address this walk already holds. The only count pinned is the one the Decision
-     * itself defines — two entries, the workspace link and the area crumb — which is exactly the
-     * claim "unmodified by the depth of the route" makes.
+     * The rail is the workspace's and says ancestor rather than page (I-30). The trail is the one
+     * R-UI-084 names — workspace, project, area, page — and since 2026-09-21 the frame reads the
+     * project off the address and the area is the PROJECT'S (Settings), never the workspace's
+     * "Projects" (shell-top-bar I-121; this spec pinned the older two-entry trail until then).
+     * Derived, never transcribed: the area crumb's word is the rail's Settings row's own, the page
+     * crumb's word is the screen's own heading, the project crumb's is the project this walk made,
+     * and the area's link is compared with the address the settings frame opens on.
      */
     await shell.expectFrame();
     const crumb = shell.breadcrumb;
@@ -200,22 +202,26 @@ test.describe("J-003 — participants: the roles a project holds, moved by act",
 
     // The entries a reader is given, decoration excluded — the `›` between them is aria-hidden.
     const crumbs = crumb.locator("ol > li:not([aria-hidden='true'])");
-    await expect(crumbs, "the crumb is the shell's two entries — the workspace and the area — with no third naming the project or the screen").toHaveCount(2);
+    await expect(crumbs, "the crumb names workspace, project, area and page — four entries, no more (R-UI-084)").toHaveCount(4);
 
-    // Addressed by its identity, not by its index: the trail's length is the address's business
-    // (R-UI-084 grew a project crumb on screens that are inside a project), and a test that counts
-    // to the second `li` grades whatever happens to stand there.
+    // Addressed by its identity, not by its index (`data-crumb`), so a trail that grows on another
+    // screen cannot move what this one grades.
+    await expect(shell.crumb("project"), "the project crumb names the project this walk made").toContainText(PROJECT);
+
     const areaCrumb = shell.crumbLink("area");
-    await expect(areaCrumb, "the area crumb links back, because a reader this deep in the area is not at its home").toHaveCount(1);
+    await expect(areaCrumb, "the area crumb links, because the settings frame has no page of its own and a reader is never at its home").toHaveCount(1);
     expect(
       new URL((await heldAttribute(areaCrumb, "href")) ?? "", origin).pathname.replace(/\/+$/, ""),
-      "back to the projects area's home, which is the workspace root",
-    ).toBe(SHELL.workspace(tenantId));
+      "to the first settings section, where the project home's Settings tab lands too",
+    ).toBe(`${SHELL.workspace(tenantId)}/p/${projectId}/settings/ruleset`);
 
     const areaLabel = await steadyText(shell.crumb("area"), "the area crumb");
     expect(areaLabel, "the area crumb names the area").not.toBe("");
-    await expect(shell.nav("projects"), "with the rail's own word for it — one home for the area's name (B-17)").toContainText(areaLabel);
-    await expect(crumb, "the crumb does not name the project: a deeper crumb is a shell-contract change, not this screen's (arbitration)").not.toContainText(PROJECT);
+    await expect(shell.nav("settings"), "with the rail's own word for settings — one home for the area's name (B-17)").toContainText(areaLabel);
+
+    const pageCrumb = shell.crumb("page");
+    await expect(shell.crumbLink("page"), "the page crumb is where the reader is, so it is no link (Q-11)").toHaveCount(0);
+    await expect(pageCrumb, "and it wears the screen's own heading").toHaveText(await steadyText(page.getByRole("heading", { level: 1 }), "the screen's heading"));
 
     const list = page.getByTestId(ID.list);
     await expect(list, "the screen renders the project's current roles").toBeVisible();

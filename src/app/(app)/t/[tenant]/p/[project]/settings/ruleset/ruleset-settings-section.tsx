@@ -27,7 +27,8 @@ import { formatUserFigure } from "@/core/format";
 import type { EditionLineageStep, EditionParameter, ProjectRulesetView } from "@/core/rulesets/editions";
 import { UnitBadge } from "@/ui/primitives/core";
 import { DataTable } from "@/ui/primitives/data";
-import { ShellEmptyState, shellHref } from "@/ui/shell";
+import { ShellEmptyState, shellHref, useShellPage } from "@/ui/shell";
+import { PROJECT_SETTINGS_PAGES } from "@/ui/shell/routes";
 import { SettingsAbout, SettingsHeader } from "@/app/(app)/t/[tenant]/settings/settings-pane";
 import { rulesetParameterLabel, rulesetStrings } from "./strings";
 import { TESTIDS } from "@/ui/testids";
@@ -125,6 +126,8 @@ function Digest({ value, testId }: { value: string; testId?: string }) {
 }
 
 export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
+  // The page crumb (R-UI-084): the same word the section nav's row and the header wear (B-17).
+  useShellPage(PROJECT_SETTINGS_PAGES.ruleset);
   if (!view.pinned) {
     return (
       <div className="cx-ruleset">

@@ -188,10 +188,22 @@ export function projectAreaLabel(area: ProjectArea): string {
   return PROJECT_AREA_LABEL[area];
 }
 
-/** The area's own home: the project's address for `home`, the area's segment beneath it otherwise. */
+/** The address of one project settings area — the one spelling the sub-navigation and the trail share. */
+export function projectSettingsHref(tenantId: string, projectId: string, area: ProjectSettingsArea): string {
+  return `${projectHref(tenantId, projectId)}/settings/${area}`;
+}
+
+/**
+ * The area's own home: the project's address for `home`, the area's segment beneath it otherwise.
+ * The settings area has no screen of its own — its frame opens on its first section, which is
+ * where the project home's Settings tab lands too (s-settings-project-sub-navigation § 1) — so
+ * its crumb takes a reader there, and is never the page (`isProjectAreaHome`).
+ */
 export function projectAreaHref(tenantId: string, projectId: string, area: ProjectArea): string {
   const home = projectHref(tenantId, projectId);
-  return area === "home" ? home : `${home}/${area}`;
+  if (area === "home") return home;
+  if (area === "settings") return projectSettingsHref(tenantId, projectId, PROJECT_SETTINGS_AREA_NAMES[0]);
+  return `${home}/${area}`;
 }
 
 /** Which of the project's areas the address is inside, or null outside a project. */
@@ -206,7 +218,7 @@ export function projectAreaOf(pathname: string | null): ProjectArea | null {
 /** Is the address the project area's own home — the area crumb is then the page (as `isAreaHome`)? */
 export function isProjectAreaHome(pathname: string | null, tenantId: string, projectId: string): boolean {
   const area = projectAreaOf(pathname);
-  if (pathname === null || area === null) return false;
+  if (pathname === null || area === null || area === "settings") return false;
   const bare = pathname.replace(/[?#].*$/, "").replace(/\/+$/, "");
   return bare === projectAreaHref(tenantId, projectId, area);
 }

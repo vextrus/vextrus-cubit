@@ -28,6 +28,7 @@ import {
   projectAreaLabel,
   projectAreaOf,
   projectHref,
+  projectSettingsHref,
   shellCrumbs,
   shellHref,
   type ShellProject,
@@ -71,6 +72,16 @@ describe("projectAreaOf: which of the project's areas an address is inside", () 
     expect(projectAreaHref(WORKSPACE.tenantId, TOWER.projectId, "home")).toBe(projectHref(WORKSPACE.tenantId, TOWER.projectId));
     expect(projectAreaHref(WORKSPACE.tenantId, TOWER.projectId, "takeoff")).toBe(AT("/takeoff"));
     expect(projectAreaLabel("takeoff")).toBe(strings.takeoff_nav_label);
+  });
+
+  test("the settings area has no screen of its own: its crumb opens the first section, and is never the page", () => {
+    // `/settings` is a frame with no page (s-settings-project-sub-navigation § 1): a crumb linking
+    // there would be a door onto a 404. The project home's Settings tab lands on the rule set, and
+    // so does the crumb — one address for one place.
+    expect(projectAreaHref(WORKSPACE.tenantId, TOWER.projectId, "settings")).toBe(AT("/settings/ruleset"));
+    expect(projectSettingsHref(WORKSPACE.tenantId, TOWER.projectId, "participants")).toBe(AT("/settings/participants"));
+    expect(isProjectAreaHome(AT("/settings/ruleset"), WORKSPACE.tenantId, TOWER.projectId)).toBe(false);
+    expect(isProjectAreaHome(AT("/settings"), WORKSPACE.tenantId, TOWER.projectId)).toBe(false);
   });
 
   test("isProjectAreaHome: the area's own address, and nothing beneath it", () => {

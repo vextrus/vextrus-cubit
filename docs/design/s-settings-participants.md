@@ -2,7 +2,7 @@
 
 ```
 ┌R─┬─────────────┬──────────────────────────────────────────────────────────────┐
-│  │ ws › Projects › Participants                              ⌘K ⟳ ✉ ◉         │
+│  │ ws › Trace Survey ▾ › Settings › Participants             ⌘K ⟳ ✉ ◉         │
 │  ├─────────────┼──────────────────────────────────────────────────────────────┤
 │  │Participants◂│ Participants  (i)                                            │  header 40
 │  │Rule set     │ Current roles  2                                             │  section 28
@@ -143,9 +143,14 @@ jsdom with injected data and settlements — the s-auth `SignInForm` precedent),
 `loading.tsx`, `states.ts` (§2), `strings.ts` (§3's one authored heading), `participants.css`.
 
 The screen renders in the template's content pane, one column `cx-participants`, gap
-`var(--gap-section)`. Rail and breadcrumb are the shell's: `areaOf` answers `projects`, the
-Projects rail row carries `aria-current="true"` and the Projects crumb links back (ruleset
-I-30, unchanged); which SETTINGS area a reader is standing in is what the section nav says.
+`var(--gap-section)`. Rail and breadcrumb are the shell's: `areaOf` answers `projects` and the
+Projects rail row carries `aria-current="true"` (ruleset I-30, unchanged). The trail reads
+`ws › <project> ▾ › Settings › Participants` (R-UI-084, amended 2026-09-21 — before it the crumb
+was the workspace's `ws › Projects` on every project screen, shell-top-bar I-121): the project
+switcher, the Settings area linking to its first section (the frame has no page of its own,
+sub-navigation § 1), and this screen's page crumb, the same word the nav row and the header
+wear (`PROJECT_SETTINGS_PAGES.participants`, declared through `useShellPage`). Which SETTINGS
+area a reader is standing in is what the section nav says, and the page crumb says it too.
 
 **The header** (40 px): `<h1>` `spine_participants_heading` at `var(--text-20)`
 `var(--weight-heading)`, then the `(i)` holding `spine_participants_caption` (I-212). No

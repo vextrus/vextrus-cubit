@@ -2,7 +2,7 @@
 
 ```
 ┌R─┬─────────────┬──────────────────────────────────────────────────────────────┐
-│  │ ws › Projects › Rule set                                  ⌘K ⟳ ✉ ◉         │
+│  │ ws › Trace Survey ▾ › Settings › Rule set                 ⌘K ⟳ ✉ ◉         │
 │  ├─────────────┼──────────────────────────────────────────────────────────────┤
 │  │Participants │ Rule set  (i)                                                │  header 40
 │  │Rule set   ◂ │ Pinned edition  (i)                                          │  section 28
@@ -97,10 +97,12 @@ M3, inc-304).
   it carries `aria-current="true"`, the current item of the set. The paint is the same in
   both (the selection rules key on `[aria-current]`, not on its value), so a keyboard or
   screen-reader user still has a statement of where they are; what differs is that the
-  statement is true. The breadcrumb follows the same reading: at the area's home the area
-  crumb is the current page, and here it is a link back to Projects, with no crumb claiming
-  to be this page — naming the project and this screen in the trail is inc-011's, the same
-  IOU §1 records.
+  statement is true. The breadcrumb (amended 2026-09-21, R-UI-084 — the IOU §1 recorded is paid
+  by the shell, shell-top-bar I-121): `ws › <project> ▾ › Settings › Rule set` — the project
+  switcher, the Settings area linking to its first section, which is this screen (the settings
+  frame has no page of its own, so the area crumb is a step even here and never the page), and
+  the page crumb, the nav row's own word (`PROJECT_SETTINGS_PAGES.ruleset`, declared through
+  `useShellPage`).
 
 - **I-204 — the screen is drawn in the settings TEMPLATE.** Design Direction 00 §3.6 rules
   settings a two-pane template, and its one home is
@@ -154,8 +156,9 @@ The screen renders in the template's content pane, one column `cx-ruleset`, gap
 them: `areaOf` reads any address under a workspace that names neither `books` nor `settings`
 as being in Projects, so the Projects rail row is selected and carries `aria-current="true"` —
 the area it is in, not the page it is (I-30) — while the section nav beside the content is what
-says which settings area a reader is standing in (I-204). The nav is also the visible
-navigation between this screen and Participants, which is the debt I-30's IOU recorded.
+says which settings area a reader is standing in (I-204), and the trail's page crumb says it too
+(R-UI-084, 2026-09-21). The nav is also the visible navigation between this screen and
+Participants, which is the debt I-30's IOU recorded.
 
 **The header** (40 px): `<h1>` `ruleset_heading` at `var(--text-20)` `var(--weight-heading)`,
 then the `(i)` holding `ruleset_caption` (I-208). No subtitle, and no second line anywhere on
