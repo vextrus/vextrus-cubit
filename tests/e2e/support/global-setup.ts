@@ -15,7 +15,7 @@ import { ROLE_MIGRATE } from "../../../db/__tests__/support/fixtures";
 import { PICTURE_CLOCK, PICTURE_TENANT, seedPictureTenant } from "./picture-tenant";
 import { e2eDatabaseUrl, migrateUrlForPictureTenant, provisionE2eDatabase } from "./scratch-db";
 import { SEEDED_FIXTURE, seedWorkerTenants, seededTenant, seededTenantCount } from "./seeded-tenant";
-import { journeyStorageRoot } from "./worker";
+import { journeyStorageRoot } from "./journey-env";
 
 /**
  * How many worker tenants this run needs: the worker count it was asked for, in the one spelling

@@ -9,6 +9,10 @@ import { defineConfig } from "@playwright/test";
 import { journeyWorkers } from "./scripts/lib/box.mjs";
 import { portFor } from "./scripts/lib/ports.mjs";
 import { SNAPSHOT_PATH_TEMPLATE, detectGpu, journeyUse, pictureLane } from "./tests/e2e/support/capture-geometry";
+// The two roots every process of the lane must agree on — the storage root and the model fixture
+// root — have one home, and the served product is handed them here exactly as the worker and the
+// global setup are (tests/e2e/support/journey-env.ts).
+import { journeyProcessEnv } from "./tests/e2e/support/journey-env";
 import { e2eDatabaseUrl } from "./tests/e2e/support/scratch-db";
 
 const port = portFor("e2e");
@@ -143,6 +147,15 @@ export default defineConfig({
   // card is drawn from a signed raster URL. The value is this stage's own, not a secret: it is
   // stated here beside the database and the address, and nothing in the repo ships it to an
   // installation.
+  //
+  // And it states its two ROOTS (2026-09-21). `next start` loads the checkout's untracked `.env`, so
+  // a `.env` naming `STORAGE_ROOT=storage/dev` — the dev lane's, as `.env.example` suggests — sent
+  // this server to one directory while the global setup's seed and every journey's worker wrote to
+  // `<cwd>/storage`: every sheet answered "the store holds no object" and J-011 and J-020 were red
+  // unless a shell exported the root by hand. The model fixture root is the same fact for the
+  // transport: a served product runs under NODE_ENV=production, which put the seam on the LIVE
+  // transport in a lane whose law is fixture replay (V-E2E, L-AI-01). Both are spread here from
+  // their one home, and tests/journeys/journey-server-env.test.ts holds this block to it.
   webServer: {
     // scripts/e2e-server.mjs builds only when the built output is older than an input — verify's
     // build of the same tree is walked as it stands (a 27 s cold build per journey invocation before).
@@ -151,6 +164,7 @@ export default defineConfig({
     // The journeys' stage arms the evidence instrument by name: `?__theme=` and `?__state=` are
     // capabilities an installation grants, never ones a URL can take (src/app/theme-resolver.ts).
     env: {
+      ...journeyProcessEnv(),
       DATABASE_URL: e2eDatabaseUrl(),
       CUBIT_PUBLIC_ORIGIN: baseURL,
       CUBIT_STORAGE_SIGNING_SECRET: "the-journeys-stage-signing-key",

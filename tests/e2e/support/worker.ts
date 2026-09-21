@@ -48,17 +48,16 @@
 // worker would never hear the stop and never say it had drained. `pnpm worker` is that same entry
 // (`tsx src/worker/main.ts`), so nothing about what runs changes — only who receives the signal.
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { join } from "node:path";
+import { journeyProcessEnv, journeyStorageRoot } from "./journey-env";
 import { e2eDatabaseUrl } from "./scratch-db";
 
 /**
  * Where the SERVED product keeps its objects, which is the only root a worker of this lane may
- * write to: `src/core/storage/app.ts` reads `STORAGE_ROOT` or falls back to `<cwd>/storage`, and the
- * server read it before this process existed. Stated here so the two agree by declaration.
+ * write to. The reading itself now lives in `./journey-env` — the one home the config hands the
+ * served product its root from — and is re-exported here for the callers that always read it off
+ * the worker (tests/e2e/journeys/j-000/golden-run.ts's kin).
  */
-export function journeyStorageRoot(): string {
-  return process.env["STORAGE_ROOT"] ?? join(process.cwd(), "storage");
-}
+export { journeyStorageRoot };
 
 /** The lines the worker prints at either end of its life (src/worker/main.ts's own contract). */
 const READY = "worker: ready";
@@ -83,7 +82,7 @@ export async function startJourneyWorker(): Promise<JourneyWorker> {
   const said: string[] = [];
   const child: ChildProcessWithoutNullStreams = spawn(process.execPath, ["--import", "tsx", "src/worker/main.ts"], {
     cwd: process.cwd(),
-    env: { ...process.env, DATABASE_URL: e2eDatabaseUrl(), STORAGE_ROOT: journeyStorageRoot(), WORKER_HEALTH_PORT: "0" },
+    env: { ...process.env, ...journeyProcessEnv(), DATABASE_URL: e2eDatabaseUrl(), WORKER_HEALTH_PORT: "0" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.setEncoding("utf8");

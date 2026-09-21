@@ -47,7 +47,10 @@ describe("P4b §1: the golden run is keyed per LANE and per WORKER", () => {
     const src = source(JOURNEY_WORKER);
     expect(src, "worker.ts's header names the unit of isolation this server can actually serve").toMatch(/TENANT/);
     expect(src, "and says why a per-worker DATABASE_URL is not one of them: one server, one URL").toMatch(/DATABASE_URL/);
-    expect(src, "STORAGE_ROOT is stated rather than left to two defaults agreeing in silence").toMatch(/STORAGE_ROOT: journeyStorageRoot\(\)/);
+    // The root is STATED rather than left to two defaults agreeing in silence — and stated from the
+    // one home the served product is handed it from too (tests/e2e/support/journey-env.ts), so the
+    // worker, the server and the seed cannot drift apart by each spelling a default of its own.
+    expect(src, "the worker's env spreads the lane's own roots (journeyProcessEnv) over what it inherits").toMatch(/\.\.\.journeyProcessEnv\(\)/);
   });
 });
 
