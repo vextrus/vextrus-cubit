@@ -141,6 +141,9 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "PRODUCT_FACTOR_MISSING",
   "PROJECT_WOULD_HAVE_NO_PRINCIPAL",
   "RASTER_NOT_AVAILABLE",
+  "RASTER_NOT_FOUND",
+  "RASTER_URL_EXPIRED",
+  "RASTER_URL_INVALID",
   "RATE_LIMITED",
   "READING_NOT_NUMERIC",
   "REBAR_SCHEDULE_UNREAD",
@@ -332,7 +335,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * 53e0874a3cc2de7d4a3b2cac2cba5bf418c6533e97a05195284f50d90b79f675 and main's was
  * 232a37e61de34f1cff9c5665b78e567925d0ddaec1f709cb6823b732ff3ce84d.
  */
-const ENTRIES_DIGEST_BEFORE = "9c312d75d69be433a6852865243d225472972fff6d674399ee015e6a4f4648c4";
+const ENTRIES_DIGEST_BEFORE = "391b2acf75a271401fa25575583dbf889ec4525e96d9b83df7aff184b22139b6";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {
