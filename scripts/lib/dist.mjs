@@ -17,20 +17,27 @@ import { join } from "node:path";
  */
 export const DEFAULT_DIST_DIR = process.env["NEXT_DIST_DIR"] ?? ".next-cubit";
 
+/** The distDir dedicated to the dev lane, kept separate from the built product and e2e. */
+export const DEV_DIST_DIR = ".next-dev";
+
 /** The file a serving process writes inside the dist directory it is serving from. */
 export const SERVER_LOCK = ".e2e-server.lock";
+
+/** The file a dev server writes inside its dist directory while running. */
+export const DEV_SERVER_LOCK = ".dev-server.lock";
 
 /**
  * The pid of the process serving from this directory, if one says it is — or null. A lock naming a
  * pid that is not running holds nothing: a server killed without cleanup must not lock a directory
  * forever.
  * @param {string} dir the dist directory, as an absolute path
+ * @param {string} [lockName=SERVER_LOCK] the lock file name
  * @returns {number|null}
  */
-export function heldBy(dir) {
+export function heldBy(dir, lockName = SERVER_LOCK) {
   let pid;
   try {
-    pid = Number(/** @type {{pid?: unknown}} */ (JSON.parse(readFileSync(join(dir, SERVER_LOCK), "utf8"))).pid);
+    pid = Number(/** @type {{pid?: unknown}} */ (JSON.parse(readFileSync(join(dir, lockName), "utf8"))).pid);
   } catch {
     return null;
   }
@@ -52,10 +59,11 @@ export function heldBy(dir) {
  * whether the pid is still there.
  * @param {string} dir the dist directory, as an absolute path
  * @param {number} port the port being served
+ * @param {string} [lockName=SERVER_LOCK]
  * @returns {() => void} release it
  */
-export function holdDistDir(dir, port) {
-  const lock = join(dir, SERVER_LOCK);
+export function holdDistDir(dir, port, lockName = SERVER_LOCK) {
+  const lock = join(dir, lockName);
   mkdirSync(dir, { recursive: true });
   writeFileSync(lock, `${JSON.stringify({ pid: process.pid, port, at: new Date().toISOString() })}\n`);
   let released = false;

@@ -8,12 +8,13 @@ import { spawnSync } from "node:child_process";
 import { createServer } from "node:net";
 import { connect } from "node:net";
 import { accessSync, constants, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deriveMachineChecks } from "./lib/lanes.mjs";
 import { fileDigest, toolPath, toolPin, toolVerdict } from "./lib/tools.mjs";
 import { portFor } from "./lib/ports.mjs";
 import { announce, wallTime } from "./lib/report.mjs";
+import { checkMigrationHead, databaseExists, devDatabaseUrl, DEV_DATABASE, ROLE_MIGRATE } from "./lib/pg-database.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 
@@ -164,6 +165,16 @@ const CHECKS = {
     const present = connecting === "" || roles.includes(connecting);
     return { ok: roles.length > 0 && present, detail: `db roles ${roles.length > 0 ? roles.join(" ") : "none"}${present ? "" : ` — ${connecting} is not among them`}` };
   },
+  "dev-db": () => {
+    if (!databaseExists(DEV_DATABASE, databaseUrl())) {
+      return { ok: false, detail: `database ${DEV_DATABASE} absent — run pnpm dev or pnpm seed` };
+    }
+    const head = checkMigrationHead(devDatabaseUrl(ROLE_MIGRATE, databaseUrl()), ROOT);
+    if (!head.ok) {
+      return { ok: false, detail: `database ${DEV_DATABASE} migration drift (${head.detail})` };
+    }
+    return { ok: true, detail: `database ${DEV_DATABASE} present at migration head (${head.detail})` };
+  },
   uv: () => pinnedTool("uv", ["--version"]),
   typst: () => pinnedTool("typst", ["--version"]),
   libredwg: () => {
@@ -184,6 +195,37 @@ const CHECKS = {
       return { ok: true, detail: `storage root ${root} writable` };
     } catch {
       return { ok: false, detail: `storage root ${root} not writable` };
+    }
+  },
+  "dev-storage": () => {
+    const root = join(ROOT, "storage", "dev");
+    try {
+      accessSync(root, constants.W_OK);
+      return { ok: true, detail: `dev storage root ${root} writable` };
+    } catch {
+      return { ok: false, detail: `dev storage root ${root} not writable` };
+    }
+  },
+  "dev-env": () => {
+    const envExamplePath = join(ROOT, ".env.example");
+    try {
+      const content = readFileSync(envExamplePath, "utf8");
+      const declared = [
+        "DATABASE_URL",
+        "STORAGE_ROOT",
+        "CUBIT_PUBLIC_ORIGIN",
+        "WORKER_HEALTH_PORT",
+        "CUBIT_MODEL_FIXTURE_ROOT",
+        "CUBIT_STORAGE_SIGNING_SECRET",
+        "CUBIT_CAD_COMMAND",
+      ];
+      const missing = declared.filter((name) => !new RegExp(`^${name}=`, "m").test(content));
+      if (missing.length > 0) {
+        return { ok: false, detail: `.env.example missing declared variables: ${missing.join(", ")}` };
+      }
+      return { ok: true, detail: `.env.example declares all ${declared.length} environment variables` };
+    } catch (err) {
+      return { ok: false, detail: `cannot read .env.example: ${err instanceof Error ? err.message : String(err)}` };
     }
   },
 };

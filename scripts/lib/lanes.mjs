@@ -34,6 +34,8 @@ export const INPUT_ROOTS = Object.freeze({
   docsTests: "tests/docs",
   nodePin: ".nvmrc",
   packageManifest: "package.json",
+  devLane: "scripts/dev.mjs",
+  devEnv: ".env.example",
 });
 
 /**
@@ -70,6 +72,8 @@ const STAGE_SPECS = Object.freeze([
   { id: "db:migrate", input: "dbMigrations", title: "drizzle migrations" },
   { id: "db:drift", input: "dbSchema", title: "schema drift against the database" },
   { id: "seed", input: "dbSeed", title: "seed data" },
+  { id: "dev", input: "devLane", title: "supervised dev server" },
+  { id: "dev:clean", input: "devLane", title: "dev lane clean" },
 ]);
 
 /**
@@ -82,11 +86,14 @@ const MACHINE_CHECK_SPECS = Object.freeze([
   { id: "pnpm", input: "packageManifest", title: "pnpm pin" },
   { id: "postgres", input: "dbSchema", title: "Postgres reachable" },
   { id: "db-roles", input: "dbSchema", title: "database roles" },
+  { id: "dev-db", input: "devLane", title: "dev database (cubit_dev)" },
   { id: "uv", input: "cad", title: "uv" },
   { id: "typst", input: "cad", title: "typst" },
   { id: "libredwg", input: "cad", title: "libredwg" },
   { id: "ports", input: "app", title: "ports bindable" },
   { id: "storage-root", input: "app", title: "storage root" },
+  { id: "dev-storage", input: "devLane", title: "dev storage root (storage/dev)" },
+  { id: "dev-env", input: "devEnv", title: "dev environment (.env.example)" },
 ]);
 
 /**

@@ -25,6 +25,8 @@
     "test:perf": "node scripts/e2e.mjs --journey PERF-",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:drift": "node scripts/db-drift.mjs",
+    "dev": "node scripts/dev.mjs",
+    "dev:clean": "node scripts/dev-clean.mjs",
     "seed": "node scripts/seed.mjs",
     "method-hashes": "node scripts/method-hashes.mjs",
     "lint": "eslint . && eslint src/ui --max-warnings 0 --ignore-pattern 'src/ui/patterns/**' --ignore-pattern 'src/ui/primitives/core/**' --ignore-pattern 'src/ui/primitives/data/**' --ignore-pattern 'src/ui/shell/**'",
