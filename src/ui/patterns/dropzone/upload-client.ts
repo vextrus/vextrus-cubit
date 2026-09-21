@@ -111,12 +111,143 @@ interface Answered {
   body: UploadAnswer;
 }
 
-/** The sha256 of a file, lowercase hex — the digest the browser declares and the server checks. */
-async function digestOf(file: Blob): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
+/** The 64 SHA-256 round constants (first 32 bits of fractional parts of cube roots of primes 2..311). */
+const K = new Uint32Array(
+  (
+    "428a2f98 71374491 b5c0fbcf e9b5dba5 3956c25b 59f111f1 923f82a4 ab1c5ed5 " +
+    "d807aa98 12835b01 243185be 550c7dc3 72be5d74 80deb1fe 9bdc06a7 c19bf174 " +
+    "e49b69c1 efbe4786 0fc19dc6 240ca1cc 2de92c6f 4a7484aa 5cb0a9dc 76f988da " +
+    "983e5152 a831c66d b00327c8 bf597fc7 c6e00bf3 d5a79147 06ca6351 14292967 " +
+    "27b70a85 2e1b2138 4d2c6dfc 53380d13 650a7354 766a0abb 81c2c92e 92722c85 " +
+    "a2bfe8a1 a81a664b c24b8b70 c76c51a3 d192e819 d6990624 f40e3585 106aa070 " +
+    "19a4c116 1e376c08 2748774c 34b0bcb5 391c0cb3 4ed8aa4a 5b9cca4f 682e6ff3 " +
+    "748f82ee 78a5636f 84c87814 8cc70208 90befffa a4506ceb bef9a3f7 c67178f2"
+  )
+    .split(" ")
+    .map((hex) => Number.parseInt(hex, 16)),
+);
+
+/** The initial SHA-256 state values (fractional parts of square roots of first 8 primes 2..19). */
+const H_INIT = new Uint32Array(
+  "6a09e667 bb67ae85 3c6ef372 a54ff53a 510e527f 9b05688c 1f83d9ab 5be0cd19"
+    .split(" ")
+    .map((hex) => Number.parseInt(hex, 16)),
+);
+
+/** 32-bit right rotate. */
+function rotr(x: number, n: number): number {
+  return ((x >>> n) | (x << (32 - n))) >>> 0;
+}
+
+/**
+ * Pure TypeScript SHA-256 fallback when Web Cryptography API (`crypto.subtle`) is unavailable,
+ * such as in non-secure HTTP contexts (e.g. dev server accessed over WSL2 / local network IP).
+ */
+export function sha256Fallback(bytes: Uint8Array): string {
+  let h0 = H_INIT[0] ?? 0;
+  let h1 = H_INIT[1] ?? 0;
+  let h2 = H_INIT[2] ?? 0;
+  let h3 = H_INIT[3] ?? 0;
+  let h4 = H_INIT[4] ?? 0;
+  let h5 = H_INIT[5] ?? 0;
+  let h6 = H_INIT[6] ?? 0;
+  let h7 = H_INIT[7] ?? 0;
+
+  const w = new Uint32Array(64);
+
+  const processBlock = (view: DataView, offset: number): void => {
+    for (let t = 0; t < 16; t++) {
+      w[t] = view.getUint32(offset + t * 4, false);
+    }
+    for (let t = 16; t < 64; t++) {
+      const w15 = w[t - 15] ?? 0;
+      const w2 = w[t - 2] ?? 0;
+      const s0 = rotr(w15, 7) ^ rotr(w15, 18) ^ (w15 >>> 3);
+      const s1 = rotr(w2, 17) ^ rotr(w2, 19) ^ (w2 >>> 10);
+      w[t] = ((w[t - 16] ?? 0) + s0 + (w[t - 7] ?? 0) + s1) >>> 0;
+    }
+
+    let a = h0;
+    let b = h1;
+    let c = h2;
+    let d = h3;
+    let e = h4;
+    let f = h5;
+    let g = h6;
+    let h = h7;
+
+    for (let t = 0; t < 64; t++) {
+      const s1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const kt = K[t] ?? 0;
+      const wt = w[t] ?? 0;
+      const t1 = (h + s1 + ch + kt + wt) >>> 0;
+      const s0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (s0 + maj) >>> 0;
+
+      h = g;
+      g = f;
+      f = e;
+      e = (d + t1) >>> 0;
+      d = c;
+      c = b;
+      b = a;
+      a = (t1 + t2) >>> 0;
+    }
+
+    h0 = (h0 + a) >>> 0;
+    h1 = (h1 + b) >>> 0;
+    h2 = (h2 + c) >>> 0;
+    h3 = (h3 + d) >>> 0;
+    h4 = (h4 + e) >>> 0;
+    h5 = (h5 + f) >>> 0;
+    h6 = (h6 + g) >>> 0;
+    h7 = (h7 + h) >>> 0;
+  };
+
+  const len = bytes.length;
+  const mainView = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const fullBlocks = Math.floor(len / 64);
+
+  for (let b = 0; b < fullBlocks; b++) {
+    processBlock(mainView, b * 64);
+  }
+
+  const rem = len % 64;
+  const tailLen = rem < 56 ? 64 : 128;
+  const tail = new Uint8Array(tailLen);
+  tail.set(bytes.subarray(fullBlocks * 64));
+  tail[rem] = 0x80;
+
+  const tailView = new DataView(tail.buffer);
+  tailView.setUint32(tailLen - 8, Math.floor(len / 536870912), false);
+  tailView.setUint32(tailLen - 4, (len * 8) >>> 0, false);
+
+  processBlock(tailView, 0);
+  if (tailLen === 128) {
+    processBlock(tailView, 64);
+  }
+
+  return [h0, h1, h2, h3, h4, h5, h6, h7]
+    .map((p) => p.toString(16).padStart(8, "0"))
     .join("");
+}
+
+/** The sha256 of a file, lowercase hex — the digest the browser declares and the server checks. */
+export async function digestOf(file: Blob): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  if (typeof globalThis.crypto?.subtle?.digest === "function") {
+    try {
+      const digest = await globalThis.crypto.subtle.digest("SHA-256", buffer);
+      return Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
+    } catch {
+      // In insecure contexts or environments where subtle.digest throws, fall back to pure JS sha256.
+    }
+  }
+  return sha256Fallback(new Uint8Array(buffer));
 }
 
 /** One call, read as JSON when it carries any. */
