@@ -47,12 +47,13 @@ function at(x: number, y: number, shiftKey = false): ReactPointerEvent<HTMLCanva
   return event as unknown as ReactPointerEvent<HTMLCanvasElement>;
 }
 
-function mount() {
+function mount(tool?: "select" | "pan") {
   return renderHook(() =>
     usePointer({
       head,
       cameraRef: { current: CAMERA },
       facts,
+      ...(tool === undefined ? {} : { tool }),
       keysUnder,
       ask,
       openLayers: () => ["GRID"],
@@ -162,5 +163,35 @@ describe("usePointer: a gesture is not a render", () => {
       result.current.onPointerUp(at(300, 300));
     });
     expect(hold, "only bare paper clears").toHaveBeenCalledWith([]);
+  });
+
+  test("the select tool's click obeys the same law: the topmost hit is taken, bare paper lets go, Shift toggles", async () => {
+    // The screen opens in the select tool (R-UI-032), where every press begins a rectangle; a press
+    // that never travels is still a click and not a rectangle of no extent (I-87, J-011's AC-1).
+    keysUnder.mockResolvedValue([HELD_KEY]);
+    const { result } = mount("select");
+
+    result.current.onPointerDown(at(100, 100));
+    await act(async () => {
+      result.current.onPointerUp(at(100, 100));
+    });
+    expect(hold, "a click of no travel takes what is under it").toHaveBeenCalledWith([HELD_KEY]);
+
+    hold.mockClear();
+    keysUnder.mockResolvedValue([]);
+    result.current.onPointerDown(at(300, 300));
+    await act(async () => {
+      result.current.onPointerUp(at(300, 300));
+    });
+    expect(hold, "a click on bare paper lets go of what was held").toHaveBeenCalledWith([]);
+
+    hold.mockClear();
+    keysUnder.mockResolvedValue([HELD_KEY]);
+    result.current.onPointerDown(at(100, 100, true));
+    await act(async () => {
+      result.current.onPointerUp(at(100, 100, true));
+    });
+    expect(toggleKey, "Shift+click toggles rather than replaces").toHaveBeenCalledWith(HELD_KEY);
+    expect(hold, "and holds nothing anew").not.toHaveBeenCalled();
   });
 });

@@ -219,8 +219,15 @@ export function usePointer({ head, canvasRef, cameraRef, facts, tool = "pan", ke
           }).then((keys) => hold(keys.filter((key) => factOf(key) !== undefined)));
           return;
         }
-        if (on !== null) void keysUnder(on.world).then((keys) => (keys[0] === undefined ? undefined : event.shiftKey ? toggleKey(keys[0]) : hold([keys[0]])));
-        return;
+        // With Shift held it toggles what is under it and leaves bare paper alone. Without Shift
+        // it is the plain click below, whichever tool drew the rectangle: the select tool's click
+        // selects the topmost hit and, on bare paper, lets go of what was held (Decision § 5's
+        // "click", J-011's AC-1) — a select tool whose click could not let go would hold a selection
+        // until the reader found the one place that releases it.
+        if (event.shiftKey) {
+          if (on !== null) void keysUnder(on.world).then((keys) => (keys[0] === undefined ? undefined : toggleKey(keys[0])));
+          return;
+        }
       }
 
       // The gesture is over: where it left the camera is published now rather than on the settle.
