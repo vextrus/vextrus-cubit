@@ -145,6 +145,14 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
         await expect(sheet, `the card for "${name}" awaits confirmation of its proposed discipline`).toHaveAttribute("data-confirmed", "false");
         await expect(drawings.cell(sheet, S_DRAWINGS.discipline), `the card for "${name}" says the title block was read`).toHaveAttribute("data-basis", "GRAMMAR");
         await expect(drawings.cell(sheet, S_DRAWINGS.thumbnail), `the card for "${name}" shows the raster the worker drew`).toHaveAttribute("src", /.+/);
+        // The raster is SERVED, not only addressed: a signed link nothing answers is a card with a
+        // broken picture, which a `src` alone never notices (the signed object door, R-SPINE-021).
+        await expect
+          .poll(() => drawings.cell(sheet, S_DRAWINGS.thumbnail).evaluate((image) => (image as HTMLImageElement).naturalWidth), {
+            timeout: 30_000,
+            message: `the card for "${name}" draws its raster — the signed link the card carries is answered with the image`,
+          })
+          .toBeGreaterThan(0);
         await expect(drawings.cell(sheet, S_DRAWINGS.fact), `the card for "${name}" states its fidelity facts as calm badges (R-TO-001)`).not.toHaveCount(0);
       }
       const structural = drawings.groupFor(STRUCTURAL);
@@ -152,6 +160,10 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
       await expect(structural.locator(`[data-testid="${S_DRAWINGS.groupCount}"]`), "the group states its live membership").not.toBeEmpty();
       await checkpoint(page, testInfo, "j-010-sheets-fanned-out");
 
+      // The card is pictured SETTLED: its view count is the partition's answer, which lands after the
+      // two jobs above (m2-run-partition walks that job), and a card read before it says "Views not
+      // classified yet" — the same picture taken twice differed by exactly that line (2026-09-21).
+      await expect(drawings.cell(drawings.cards.first(), S_DRAWINGS.views), "the first card's views are classified before its picture").toHaveAttribute("data-views", /^\d+$/, { timeout: 120_000 });
       // B-20, ruled by docs/design/s-drawings.md §7: one baseline, on the first card, with the
       // thumbnail masked — those pixels are the raster increment's evidence, and a toolchain version
       // moving them must not red this screen's picture.
