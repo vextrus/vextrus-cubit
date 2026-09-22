@@ -1,0 +1,48 @@
+{
+  "requestHash": "63cf2978a3b47d5be9634a295c3e8b92f7263cde010a7c6157a7424c75628bf3",
+  "modelId": "claude-sonnet-5",
+  "payload": {
+    "payload": {
+      "evidence": "B 12-08-2026 C4 3RD-4TH BARS REVISED; ISSUED FO",
+      "level": 4,
+      "score": 3.41
+    },
+    "sources": [
+      "DXF_HANDLE:214D",
+      "DXF_HANDLE:214E",
+      "DXF_HANDLE:214F"
+    ]
+  },
+  "inputTokens": 3964,
+  "outputTokens": 81,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.45,
+    "answers": {
+      "revision_evidence": {
+        "type": "choice",
+        "value": "cand_4",
+        "confidence": 0.45,
+        "probabilities": {
+          "cand_3": 0,
+          "NONE": 0,
+          "cand_1": 0,
+          "cand_2": 0.43,
+          "cand_4": 0.5700000000000001
+        }
+      },
+      "revision_recency": {
+        "type": "score",
+        "value": 3.41,
+        "confidence": 0.51,
+        "probabilities": {
+          "0": 0.08,
+          "1": 0.06,
+          "2": 0.03,
+          "3": 0.03,
+          "4": 0.8
+        }
+      }
+    }
+  }
+}

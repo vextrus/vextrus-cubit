@@ -23,6 +23,17 @@
       "providerCost": "0.000039858"
     },
     {
+      "requestHash": "01e5074f575411c09428e0baf034b2d20f9f3cd0f58b0e1cab9fa8ba2bad7b19",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-21 ROOF, STAIR ROOF & PARAPET",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
       "requestHash": "01ff4d5d5c550602fdbe94a390df5457a93573089be258c3f64ee076d20b1238",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · C1 · DXF_HANDLE:309",
@@ -243,6 +254,17 @@
       "providerCost": "0.00003801"
     },
     {
+      "requestHash": "18765ede44e9fcd6a6025ae12b1b150b1d78131fc7e2b15cac0df7a9e48a105a",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-22 STAIR DETAILS",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
       "requestHash": "194e0b31f842eeb1bf548862e701354e82f07b9d9827bb25f796aa3ef1b19619",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-02 GENERAL NOTES (2 OF 2) & LAP-DEVELOPMENT TABLE · DXF_HANDLE:1FAA#1 · BAR BENDING TO BS 8666; THE IS ADDITIVE FIGURE IS PRINTED BE",
@@ -408,6 +430,17 @@
       "providerCost": "0.00003486"
     },
     {
+      "requestHash": "2c0e37ddefeb0ba79f1a163aa5a7920d6e7ee98518e614e99f1b74585574c28e",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-23 LIFT CORE & SHEAR WALL DETAILS",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
       "requestHash": "2cd8e8f0371b6f6ffb0a43fdc8fde04ff7e1b5c65c44ac76561c6e24989e602e",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · PC1 · DXF_HANDLE:18E",
@@ -463,6 +496,17 @@
       "providerCost": "0.000233982"
     },
     {
+      "requestHash": "311c12600e18c50fd1cf90883350dcc7aa80db082e54acc80779ace01b63d881",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-26 BAR BENDING SCHEDULE (SAMPLE- PC3, 2B7, SLAB S3)",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
       "requestHash": "3356d49cfcf58b2019dfd333ad898f10e11ffe9db3de7b27af54df42699fe231",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · F4 · DXF_HANDLE:19D",
@@ -516,6 +560,17 @@
       "outputTokens": 93,
       "attributedCost": "0.029055",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "36248246d163737a66abfb357f7bb7592b91bac2b77d0a03ce9ddd114e2c3681",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-14 TYPICAL FLOOR BEAM LAYOUT (2ND TO 6TH FLOOR)",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
     },
     {
       "requestHash": "3710d2691786879e279a61cec731c64f74d5ef63fa10220eee96fd0e1cbc4f2a",
@@ -626,6 +681,17 @@
       "outputTokens": 89,
       "attributedCost": "0.004077",
       "providerCost": "0.000038388"
+    },
+    {
+      "requestHash": "458d063b565493fcf0ec19f24ff96a828217b363146a66eb4ba4bf07a9ceee4d",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-13 1ST FLOOR BEAM LAYOUT",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
     },
     {
       "requestHash": "477820501a59df8b69662accab57eb9bf233a36b85d6b58313f5a20c27e605fb",
@@ -815,6 +881,17 @@
       "providerCost": "0.000034524"
     },
     {
+      "requestHash": "5776381719b008784933b26214c0eb6a1ca2e8cab49501c9272e182b85868c6f",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-09 GRADE BEAM DETAILS (LONG SECTIONS)",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
       "requestHash": "5827c2faeacc219213fe9a89599583e93fc2a7e8612ef1749d8945715348e2ac",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 18",
@@ -835,6 +912,17 @@
       "outputTokens": 24,
       "attributedCost": "0.002823",
       "providerCost": "0.000034482"
+    },
+    {
+      "requestHash": "5974e9745a913323584e2c07b05917bfb2e15736866fc8461bbfeb417298770d",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-07 PILE CAP DETAILS",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
     },
     {
       "requestHash": "5a6a3341bc35373cb18b97e0d74d93b201ee02e60541e352471292061d9b61e1",
@@ -914,6 +1002,28 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "63aead4cc490679730f7dd3b1ca2e4e29747a42d4a4fdb0a719ac968095cd7b7",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-02 GENERAL NOTES (2 OF 2) & LAP-DEVELOPMENT TABLE",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
+      "requestHash": "63cf2978a3b47d5be9634a295c3e8b92f7263cde010a7c6157a7424c75628bf3",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-15 ROOF & STAIR ROOF BEAM LAYOUT",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
       "requestHash": "641f59a1dc3b788dbdf3f23c26516717a21f3c63ab183ceeac5dd4ea9bf6c3da",
       "question": "view-caption",
       "subject": "rcc6-bnbc.dxf · DXF_HANDLE:AD6 · C1",
@@ -956,6 +1066,17 @@
       "outputTokens": 57,
       "attributedCost": "0.021075",
       "providerCost": "0.00004704"
+    },
+    {
+      "requestHash": "65fc085aea874eacabcd5659cf682c6c40f04300496454c22cbdffe9b8f48257",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-03 TYPICAL REINFORCEMENT DETAILS",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
     },
     {
       "requestHash": "684063acae94a38b0eed2e3176da487fc00a992e6b90a443e2a9a43971b74cef",
@@ -1090,6 +1211,17 @@
       "providerCost": "0.000034524"
     },
     {
+      "requestHash": "7717d15303162b7ac995ce6f4c76243467adf6c8e31d7e57a72a57bd2c0bff4a",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-04 PILE LAYOUT PLAN",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
       "requestHash": "78364e7aa850d6379e36fde0824d926943a230bab1526b1351ef9e06f4b75e7a",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:1F4B#1 · COUNTING: ⌊(distance + 0.5 mm)/spacing⌋ + 1",
@@ -1123,6 +1255,17 @@
       "providerCost": "0.000061782"
     },
     {
+      "requestHash": "791bb1aca8dda09d6c379ecde73cbf50014a3ca83262ed6fdaf2be1ae108a365",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2)",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
       "requestHash": "7b321b6cea465d09c2891b5ed0078ff4dfd26e8b6db6c2e3858d3f30bc0919af",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · LINTEL & SUNSHADE SCHEDULE · row 3",
@@ -1143,6 +1286,17 @@
       "outputTokens": 93,
       "attributedCost": "0.02904",
       "providerCost": "0.000061782"
+    },
+    {
+      "requestHash": "802c1e0586340e7c738b6e8ac59673ed5b9be111eb4da64a2a18b87cf10e3a58",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-25 LINTEL & SUNSHADE SCHEDULE, BUILDING SECTION",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
     },
     {
       "requestHash": "8062438f5cd89b4ef35a719d98edd49b4f890a03357f8b9f9e03136da5e30438",
@@ -1198,6 +1352,17 @@
       "outputTokens": 110,
       "attributedCost": "0.005196",
       "providerCost": "0.000049644"
+    },
+    {
+      "requestHash": "822736ca94c536f4d3e46c8e165cf9045e7af31f468903955a41083edab1f3d5",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-24 OVERHEAD WATER TANK & UGWR - SEPTIC TANK",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
     },
     {
       "requestHash": "82496ad3501247daef72a6458fffe56abde0f8d6e12bcc9874ef661ba2a47b57",
@@ -1398,6 +1563,17 @@
       "providerCost": "0.000036876"
     },
     {
+      "requestHash": "97e8fba484203dec75c964959d6a4b0936645e25a7d9d2a7566be6f649d3a76d",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-12 COLUMN DETAILS",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
       "requestHash": "984eb468206503d7db059beea7a23de7602c5dc2cfbc6a051809075260657d2f",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 11",
@@ -1418,6 +1594,17 @@
       "outputTokens": 87,
       "attributedCost": "0.004128",
       "providerCost": "0.000039522"
+    },
+    {
+      "requestHash": "9a39ef276b36315345a5b78fdb30c21488219d9c46824e314ebcb3c66bd98940",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-05 PILE DETAILS & PILE SCHEDULE",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
     },
     {
       "requestHash": "9aa326ef714c82d5951b39a7dba10dad93332bd4e8aa9f8fbaf052d1a1a48986",
@@ -1508,6 +1695,17 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "a48d054b205f2ac79e4a0b8e8347261b0af1432b7c174977d49b397e5c5ffca0",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-17 BEAM DETAILS (2 OF 3) - TYPICAL",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
       "requestHash": "a4acc423ad0eba9f8fbda3b8c7fc0c515ac932a7855b0d9a404e45bfdf994978",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · C3 · DXF_HANDLE:341",
@@ -1583,6 +1781,17 @@
       "outputTokens": 118,
       "attributedCost": "0.0033",
       "providerCost": "0.00002142"
+    },
+    {
+      "requestHash": "aca730883687df12a1896aa6706f57d740e6d0e597facee8df091d48dee7e85d",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-20 TYPICAL SLAB REINFORCEMENT PLAN",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
     },
     {
       "requestHash": "adab25876f24790de9cfb9e86b0b297f84fa778769a3f17b06a5c75e279b8672",
@@ -1673,6 +1882,28 @@
       "providerCost": "0.000036414"
     },
     {
+      "requestHash": "b72df78dfc4c890a58892d8b045ccd51c9fde9e3946aecca444534dabfadab0a",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-10 COLUMN LAYOUT PLAN",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
+      "requestHash": "b795deeaf9fdaa7ea51499b3d929137c20f26d6dc0ddf3a01590cbc6de5700b2",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-06 PILE CAP LAYOUT & SCHEDULE",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
       "requestHash": "b7f9d68438b45a70010af074d8474d6a9eb3fa41c0c5f1c417a8f1d9d6fcd6be",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 11",
@@ -1693,6 +1924,28 @@
       "outputTokens": 93,
       "attributedCost": "0.029055",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "ba4625ca62fdcbb43418dbdf7318a4e52cc2c153c7593f6ebf55d9a6051c0844",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-19 1ST FLOOR SLAB REINFORCEMENT PLAN",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
+      "requestHash": "bee90754cbbad94a781bf60eb88e7d87e756ccf350f19acfc757c13784089664",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-08 GRADE BEAM LAYOUT & GF SLAB-ON-GRADE",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
     },
     {
       "requestHash": "c0b89329d48cb4f19ddf22e964a8dd1221c635f56c61a13c6c1c9bbe15fab18b",
@@ -1803,6 +2056,17 @@
       "outputTokens": 118,
       "attributedCost": "0.003276",
       "providerCost": "0.000021084"
+    },
+    {
+      "requestHash": "ca974888b4666623789f2aab8cc05c3b53f315d8b21f202ff0783f9b4b855337",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-00 COVER, DRAWING INDEX & KEY PLAN",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
     },
     {
       "requestHash": "ca9d7c44cb9546645adc224861693daae49031800f75066060c9945ef443bde5",
@@ -1990,6 +2254,17 @@
       "outputTokens": 57,
       "attributedCost": "0.021315",
       "providerCost": "0.000047712"
+    },
+    {
+      "requestHash": "d6279cdeb7984abb08112dbd850dbbaf4a556f9ef9706ca5a19d97a7394f379a",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-18 BEAM DETAILS (3 OF 3) - ROOF & SCHEDULE",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
     },
     {
       "requestHash": "d76d873a172c8ffb06ef001234540a99decf96178a5aa80b8a95c1efc87edb11",
@@ -2256,6 +2531,17 @@
       "providerCost": "0.000042336"
     },
     {
+      "requestHash": "f544ab9b5d5586fb99a4164cd9ef18919b2088a2efe19872d615ba08310ff522",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-11 COLUMN SCHEDULE",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
+    },
+    {
       "requestHash": "f69467c2766e462497035a09d9a1c3506ce040c20f1950fc4d2e08d3a4c91563",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · COLUMN SCHEDULE · row 4",
@@ -2298,6 +2584,17 @@
       "outputTokens": 93,
       "attributedCost": "0.029055",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "fb20bae87f3efb7566b414d80dba080b5fc7017fba37b7526010483f6a9b84d0",
+      "question": "sheet-revision-recency",
+      "subject": "rcc6-bnbc.dxf · S-16 BEAM DETAILS (1 OF 3) - 1ST FLOOR",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 3964,
+      "outputTokens": 81,
+      "attributedCost": "0.013107",
+      "providerCost": "0.000166488"
     },
     {
       "requestHash": "fcf31adee78831eec55b240286103cf22ce0656b5fb18b42e16c9a374a669487",
