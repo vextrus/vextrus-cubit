@@ -119,7 +119,10 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
   views: (context, held) => {
     const partitioned = partitionArtifact(context.graph);
     const derived = { ...held, views: partitioned.views, assignments: partitioned.assignments };
-    return { derived, detail: { views: derived.views.length, assigned: derived.assignments.size } };
+    // `framed` is how many of those views a paper sheet's own window captioned, as against the views
+    // read out of model space alone: which reading a drawing partitioned by is a fact about the
+    // drawing, and R-TO-030 asks for each stage's result to be visible.
+    return { derived, detail: { views: derived.views.length, assigned: derived.assignments.size, framed: partitioned.framed } };
   },
   conventions: (context, held) => {
     const census = censusOf(context.graph, held.views);

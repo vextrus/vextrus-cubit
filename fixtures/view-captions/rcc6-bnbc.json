@@ -3,5 +3,11 @@
   { "caption": "ROOF BEAM LAYOUT (AT ROOF LEVEL)", "type": "LAYOUT_PLAN" },
   { "caption": "1ST FLOOR BEAM LAYOUT", "type": "LAYOUT_PLAN" },
   { "caption": "STAIR ROOF BEAM LAYOUT", "type": "LAYOUT_PLAN" },
-  { "caption": "TYPICAL SLAB REINFORCEMENT PLAN", "type": "DETAIL" }
+  { "caption": "TYPICAL SLAB REINFORCEMENT PLAN", "type": "DETAIL" },
+  { "caption": "COLUMN LAYOUT PLAN  SCALE 1:100", "type": "LAYOUT_PLAN" },
+  { "caption": "1ST FLOOR BEAM LAYOUT  SCALE 1:100", "type": "LAYOUT_PLAN" },
+  { "caption": "C1 SECTION  SCALE 1:20 (DRAWN x5, DIMLFAC 0.2)", "type": "MEMBER_SECTION" },
+  { "caption": "BAR BENDING SCHEDULE  SCALE 1:50", "type": "SCHEDULE" },
+  { "caption": "PILE SET-OUT TABLE  SCALE 1:100", "type": "UNTYPED" },
+  { "caption": "1ST FLOOR BEAM DETAILS  SCALE 1:50", "type": "UNTYPED" }
 ]

@@ -296,6 +296,25 @@ export const PAPER_SPACE = "SHEET-1";
 /** One caption of the built artifact: the words it says and where its cluster stands. */
 export type CaptionSpec = { caption: string; at: [number, number] };
 
+/**
+ * One WINDOW of the built artifact's paper layout: the piece of model space it frames, and the
+ * title the sheet letters under its frame (L-CAD-05, L-CAD-06). A frame with no title is a window
+ * the sheet says nothing about.
+ *
+ * The paper rectangle each window fills is laid out by `buildArtifact` — a case is about which
+ * model box is framed and what captions it, never about where on the paper the frame happens to be.
+ */
+export type FrameSpec = { handle: string; model: [number, number, number, number]; title?: string };
+
+/** The height a sheet letters a window's title at, and the paper geometry the windows are laid on. */
+export const TITLE_HEIGHT = 4;
+const FRAME_PITCH = 95;
+const FRAME_LEFT = 10;
+const FRAME_BOTTOM = 30;
+const FRAME_WIDTH = 90;
+const FRAME_HEIGHT = 90;
+const TITLE_DROP = 4;
+
 /** What a built artifact carries, so a criterion can derive its expectations from it. */
 export type BuiltArtifact = {
   /** The artifact as bytes, for the stand-in CLI to write. */
@@ -304,6 +323,8 @@ export type BuiltArtifact = {
   graph: Record<string, JsonValue>;
   /** The key of each caption's own text entity, by caption. */
   anchorOf: Map<string, string>;
+  /** The key of each window TITLE's own paper text entity, by the words it letters. */
+  titleOf: Map<string, string>;
   /** Every ORIGINAL entity key standing in model space. */
   modelKeys: string[];
   /** Every original entity key standing on the paper layout. */
@@ -325,12 +346,13 @@ function handle(ordinal: number): string {
  *
  * Every ordinal is minted from `salt`, so two artifacts built here are two different drawings.
  */
-export function buildArtifact(captions: readonly CaptionSpec[], salt: number): BuiltArtifact {
+export function buildArtifact(captions: readonly CaptionSpec[], salt: number, frames: readonly FrameSpec[] = []): BuiltArtifact {
   const base = salt * 0x10000;
   let ordinal = 0;
   const next = (): string => handle(base + (ordinal += 1));
   const entities: Record<string, JsonValue>[] = [];
   const anchorOf = new Map<string, string>();
+  const titleOf = new Map<string, string>();
 
   const at = (x: number, y: number): JsonValue => [[x, y]] as unknown as JsonValue;
 
@@ -357,6 +379,30 @@ export function buildArtifact(captions: readonly CaptionSpec[], salt: number): B
   entities.push({ key: paperText, type: "TEXT", space: PAPER_SPACE, layer: "TITLEBLOCK", colour: CHANNELS, text: "S-101 GENERAL ARRANGEMENT", height: 3, points: at(5, 5) });
   entities.push({ key: paperLine, type: "LINE", space: PAPER_SPACE, layer: "BORDER", colour: CHANNELS, points: [[0, 0], [297, 210]] as unknown as JsonValue });
 
+  // The windows the sheet opens onto model space, laid out left to right, each with the title the
+  // sheet letters in the band beneath its own frame (L-CAD-05). A layout given no frames carries no
+  // `viewports` key at all, which is exactly the artifact this builder has always produced.
+  const paperKeys = [paperText, paperLine];
+  const viewports = frames.map((frame, index) => {
+    const left = FRAME_LEFT + index * FRAME_PITCH;
+    if (frame.title !== undefined) {
+      const titleKey = next();
+      titleOf.set(frame.title, titleKey);
+      paperKeys.push(titleKey);
+      entities.push({ key: titleKey, type: "TEXT", space: PAPER_SPACE, layer: "TITLES", colour: CHANNELS, text: frame.title, height: TITLE_HEIGHT, points: at(left + 2, FRAME_BOTTOM - TITLE_DROP) });
+    }
+    return {
+      handle: frame.handle,
+      on: true,
+      twist: 0,
+      clipped: false,
+      centre: [left + FRAME_WIDTH / 2, FRAME_BOTTOM + FRAME_HEIGHT / 2],
+      size: [FRAME_WIDTH, FRAME_HEIGHT],
+      view_centre: [(frame.model[0] + frame.model[2]) / 2, (frame.model[1] + frame.model[3]) / 2],
+      view_height: frame.model[3] - frame.model[1],
+    };
+  });
+
   const derivedSource = entities.find((entity) => entity["space"] === MODEL_SPACE && entity["type"] === "LINE")?.["key"] as string;
   const derived = [{ src: derivedSource, type: "LWPOLYLINE", space: MODEL_SPACE, layer: "GRID", colour: CHANNELS, points: [[0, 0], [1, 0]] as unknown as JsonValue }];
 
@@ -366,7 +412,7 @@ export function buildArtifact(captions: readonly CaptionSpec[], salt: number): B
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
       { name: MODEL_SPACE, kind: "model", bbox: { min: [0, 0], max: [9010, 9010] }, strays_rejected: 0 },
-      { name: PAPER_SPACE, kind: "paper", bbox: { min: [0, 0], max: [297, 210] }, strays_rejected: 0 },
+      { name: PAPER_SPACE, kind: "paper", bbox: { min: [0, 0], max: [297, 210] }, strays_rejected: 0, ...(viewports.length === 0 ? {} : { viewports }) },
     ] as unknown as JsonValue,
     dropped_layouts: [],
     entities: entities as unknown as JsonValue,
@@ -379,8 +425,9 @@ export function buildArtifact(captions: readonly CaptionSpec[], salt: number): B
     json: JSON.stringify(graph),
     graph,
     anchorOf,
+    titleOf,
     modelKeys: entities.filter((entity) => entity["space"] === MODEL_SPACE).map((entity) => String(entity["key"])),
-    paperKeys: [paperText, paperLine],
+    paperKeys,
     derivedSources: [derivedSource],
   };
 }
@@ -406,11 +453,11 @@ export function sha256Of(bytes: Uint8Array): string {
  * stand-in CLI that hands back the artifact. What lands is a real `ingests` row, written by the
  * product's own pipeline.
  */
-export async function stageIngested(person: Person, projectId: string, captions: readonly CaptionSpec[], salt: number, label: string): Promise<StagedIngest> {
+export async function stageIngested(person: Person, projectId: string, captions: readonly CaptionSpec[], salt: number, label: string, frames: readonly FrameSpec[] = []): Promise<StagedIngest> {
   const job = await productModule<{ runIngestJob: (payload: unknown, progress: ProgressLike, deps: { storage: unknown }) => Promise<void> }>(INGEST_JOB_MODULE);
   const records = await productModule<{ ingestRecordOf: (scope: { tenantId: string; drawingId: string }) => Promise<{ ingestId: string } | null> }>(INGEST_MODULE);
 
-  const artifact = buildArtifact(captions, salt);
+  const artifact = buildArtifact(captions, salt, frames);
   const drawing = await stageDrawing(person, projectId, drawingBytes(label), { name: unique(`${label}.dxf`), format: "dxf" });
   const stub = stubCli({ artifact: artifact.json, stderr: "", exitCode: 0 });
 
@@ -484,12 +531,18 @@ export async function withFixtureRoot<T>(root: string | undefined, body: () => P
 /* ------------------------------------------------------------------ reading the store */
 
 /** Every `partition_views` row of one ingest, as the acceptance's own audit read. */
-export function partitionViewRows(tenantId: string, ingestId: string): { viewKey: string; type: string; reason: string | null }[] {
+export function partitionViewRows(tenantId: string, ingestId: string): { viewKey: string; type: string; reason: string | null; caption: string; anchorKey: string | null }[] {
   return sql(
-    `select view_key, type, coalesce(reason, '') from ${ident(PARTITION_VIEWS)}
+    `select view_key, type, coalesce(reason, ''), caption, coalesce(anchor_key, '') from ${ident(PARTITION_VIEWS)}
        where ${ident(TENANT_COLUMN)} = ${lit(tenantId)}::uuid and ingest_id = ${lit(ingestId)}::uuid
        order by view_key;`,
-  ).map((row) => ({ viewKey: row[0] ?? "", type: row[1] ?? "", reason: (row[2] ?? "") === "" ? null : (row[2] ?? null) }));
+  ).map((row) => ({
+    viewKey: row[0] ?? "",
+    type: row[1] ?? "",
+    reason: (row[2] ?? "") === "" ? null : (row[2] ?? null),
+    caption: row[3] ?? "",
+    anchorKey: (row[4] ?? "") === "" ? null : (row[4] ?? null),
+  }));
 }
 
 /** Every `view_assignments` row of one ingest: which entity key landed in which view. */

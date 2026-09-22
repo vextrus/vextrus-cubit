@@ -1035,6 +1035,139 @@ second reason, ruled by s-scale I-160 and recorded here in the overlay's own ter
   so J-021 reads exactly what it always read. The map is threaded by `viewer-screen.tsx`, which
   composes the scale region ahead of this one: the store is read once, by the door that owns it.
 
+**Amended by session 5 (the M3 viewport-caption door; L-CAD-06 read with L-CAD-05 and R-TO-030):**
+
+- **I-290 — a paper sheet's window is a REGION of model space, and the text under its frame captions
+  it.** A drawing that titles its plans only on the paper says nothing in model space over them, and
+  the caption competition — which reads model text and distance alone — hands such a plan to
+  whichever distant model caption reaches furthest: all 71 entities of F-RCC6-BNBC's S-10 column
+  layout landed in COLUMN SCHEDULE, whose caption reached 206,989 drawing units, and the M3 leg
+  placed no column. So `partitionArtifact` reads the layout inventory first (`views/regions.ts`, one
+  home). For every paper layout's viewport that passes the shipped `projectable`, the model box of
+  the shipped `windowOf` is a region, and its TITLE is the tallest original TEXT of that same paper
+  layout, height ≥ 3.5, whose first point lies within the frame's width and in the band 8 deep
+  beneath its bottom edge — ties to the lower source key, block attributes never candidates
+  (L-CAD-03: a title block's own name is not the name of any one window on it). Both numbers are
+  plot-size facts stated beside the code: 3.5 is the smallest lettering a sheet titles with, and what
+  is drawn smaller in that band is title-block furniture; 8 is two title heights, enough room for the
+  way a draughtsman spaces a title and not enough to reach the next window down the sheet; the band
+  has no horizontal padding, because a title stands within the width of the frame it titles. A
+  region's anchor then follows the drawing's own order of authority: (1) a TYPED model caption
+  standing inside the window titles it — tallest, then higher, then lower key — so every view
+  F-RCC6-BNBC already read keeps its key, its caption and its model anchor (the nine: SCHEDULE:9C6,
+  LAYOUT_PLAN:F31, LAYOUT_PLAN:10C1, SCHEDULE:17DF, SCHEDULE:18A0, DETAIL:1B04, SCHEDULE:1D2B,
+  MEMBER_SECTION:1D96, SCHEDULE:1E3D), and a schedule stays anchored on the model text its own bands
+  are read down from (L-CAD-08); (2) otherwise the window's title, classified by the untouched
+  grammar, keyed `classifyCaption(title).type + ':' + titleKey` and captioned in the artifact's own
+  words, the trailing "  SCALE 1:100" and all — INCLUDING where the grammar reads it UNTYPED, which
+  mints an honestly untyped view exactly as a lone untyped model caption does (ten of the
+  fifty-three, holding 2,071 entities that are not residue); (3) a window with neither frames no
+  region, and its interior falls to the caption competition, which is where an untitled piece of
+  model space belonged. An UNTYPED model caption inside a titled region anchors nothing and is
+  content of it — S-12's six "Cn" marks, S-14's "(2ND TO 6TH FLOOR)" — which is L-CAD-06 read at its
+  word: an unclassifiable caption TYPES nothing. A caption a region frames competes for nothing
+  outside that frame, though its REACH is still computed over the whole model space as before.
+  Rejected: reading any tall paper text as a caption without requiring a window (eight extra views
+  on byte-frozen F-RCC6, which carries eight paper titles at height 6 and zero viewports); mixing a
+  paper anchor into the distance competition (paper units near 1e2 against model units near 1e6).
+  Measured: 53 of 53 BNBC windows carry exactly one title; the model-frames twin's one window carries
+  none (its only paper text stands at height 3, under the floor); F-RCC6 is unreachable at zero
+  viewports and its views, keys and every pointed entity's assignment are unchanged. The views stage's
+  detail line reads `{views, assigned, framed}`; the panel's rows are the regions' views.
+- **I-291 — where an original with no points of its own stands, and which sheet a view stands on
+  (L-CAD-02, L-CAD-03, L-CAD-05).** An INSERT, a DIMENSION or a LEADER draws its paint, so such an
+  original stands at the CENTRE OF THE BOUNDING BOX of the derived records whose `src` is its key —
+  the paint's extent, never the mean of its vertices, because a flattened circle of 608 points beside
+  a line of two would otherwise drag it into the circle, and that vertex count is an artefact of
+  L-CAD-02's flattening tolerance rather than a fact about the drawing. The same reading answers both
+  of the file's questions — which frame shows an entity, and which caption reaches it — so a
+  block-drawn bubble on a model-captioned plan joins that plan; an original with neither points nor
+  paint stands nowhere and is honestly UNASSIGNED. Measured on F-RCC6-BNBC: 247 of the 250 pointless
+  originals land in exactly one window and three (13F8, 13FA, 19DE) carry no paint at all; F-RCC6's
+  29 pointless dimensions, which all carry paint, therefore stand in their plans' views (10 in
+  FOUNDATION PLAN, 10 in TYPICAL FLOOR PLAN, 2 in ROOF PLAN, 7 in SECTION A-A) rather than in
+  UNASSIGNED — its partition holds eight views where it held nine, the anchorless view existing only
+  where something is really in it — which is the one lawful movement AM-01 admits: the fixture is
+  byte-frozen, its partition is what the law derives from it; its eight anchored keys, captions and
+  every pointed entity's assignment are unchanged. Second: a view no longer stands on the model sheet
+  merely because its caption was written there. `sheetOfView` is given the record's frames beside its
+  spaces map, and a view whose anchor is a MODEL entity standing inside exactly ONE window stands on
+  THAT window's paper sheet — the frame that shows it is the sheet it is drawn on (L-CAD-05); a paper
+  anchor stands on its own paper sheet as before; a view no frame shows, a view no caption anchors,
+  and a view whose anchor two windows show all stand on the model sheet, because in the last case the
+  record does not say which sheet it is drawn on and neither should the product (R-UI-050). Measured:
+  all 53 of BNBC's region views stand on paper sheets and only UNASSIGNED remains on the model sheet;
+  F-RCC6's views stay on the model sheet, since it opens no window.
+- **I-292 — a bubble a drawing draws as ONE block is read structurally, and a block instance is
+  counted as what it drew (L-CAD-03, L-CAD-07).** F-RCC6-BNBC draws every bubble as a GRID_BUBBLE
+  INSERT on layer "Grid Circle": the original carries no points, its ring is derived paint (closed,
+  608 points, area 785601, r 500, `src` the INSERT), its label a block attribute {tag GRID, text "1"}
+  on the same key. Two readings follow. (1) The entity census reads an entity's kind off its OWN
+  record wherever that record answers, and off its PAINT only where the record answers nothing at
+  all: a closed figure makes it a ring, else a text a text, else a path, tallied against the layer the
+  ORIGINAL stands on. Measured on BNBC: "Grid Circle" 0/0/0/0 → rings 110 and "Grid text" → rings 1,
+  both joining `outlines`; linework, text and dimensions resolve to the identical lists;
+  `conventions.resolve` is NOT edited and its `(ruleId, version)` is not bumped — that the census's
+  INPUT now differs for a block-drawn drawing is a version question raised in the handoff, never
+  bumped silently. (2) The grid stage admits one structural bubble beside the geometric one: an
+  original standing in the view whose paint holds exactly one round closed ring (the same
+  `roundnessOf`, over the painted ring's points) and whose block attributes hold exactly one row that
+  `gridFamilyOf` accepts IS that bubble, centred on that ring, with bubbleKey = labelKey = the
+  instance's own key (L-CAD-03: only an original entity is a thing a source key names; the `grids`
+  PK is on bubble_key alone). The label is read from the ATTRIBUTES and never from the paint, and the
+  attribute's TAG is read by nobody — that is what makes S-13's key plan (a PAPER INSERT painting 11
+  rings about 11 PAINTED bare labels and carrying no attribute) unreadable by construction, and keeps
+  F-RCC6's 29 numeral-looking derived dimension texts out of the signature. Measured with the
+  regions: seven layout-plan windows read 11 axes each (A–E, 1–6) at minSpacing 2438.4 — 77 rows
+  where there were none; S-15's STAIR ROOF BEAM window (215C) and S-23's LIFT CORE PLAN window (224C)
+  hold no bubble and honestly defer GRID_NO_BUBBLE_EVIDENCE; the 33 bubbles in the three windows whose
+  captions classify DETAIL (21CF, 21EF) and STAIR_PLAN (2210) are lawfully read by nobody (L-CAD-06:
+  only layout-plan-class views yield). F-RCC6's census, profile and grid are byte-identical before
+  and after (3 views, 36 axes, minSpacing 3999.9999999999927, 0 deferrals).
+- **I-293 — `EL` is a storey word (L-MEA-07, L-CAD-08).** F-RCC6-BNBC's building section S-25 marks
+  its storeys `GF EL +0.000` … `ROOF EL +21.641`. `EL` says only that the number beside it is an
+  elevation and nothing about WHICH floor, which is what the notation's storey roster is for; read
+  without it, `GF EL` joins to `GFEL`, names no level, and a section that marks every storey the
+  building has proposes no stack. So `EL` stands in `STOREY_WORDS` beside FLOOR, FLR, LVL, LEVEL and
+  STOREY, and alone: `ELEV`, `ELEVATION` and `RL` are written by neither fixture, and a word admitted
+  on a hunch is a reading nobody proved. The roster has two homes today (`notation/index.ts`, which
+  the levels proposal reads, and `notation/grammar.ts`, a verbatim copy) and both carry the word,
+  because a roster spelled twice with two contents is a defect; the grammar's copy is a measured
+  no-op (3,102 corpus strings and 1,098 distinct fixture texts, 0 readings moved) — the two homes
+  are a recorded debt. S-25 then states the drawing's own stack: GF, 1F, 2F, 3F, 4F, 5F, 6F, ROOF at
+  0.000 … 21.641, labelled as the drawing labels them through the ordinal `F` suffix, never `1ST`,
+  with every height null because the marks print metres without writing the unit and a storey height
+  is a person's to transcribe (B-07); the four feet-and-inches notes beside them mark no storey.
+  F-RCC6's own stack, partition, keys and schedules are identical before and after (AM-01). The
+  floor-zone corpus grows 12 → 17 cases.
+- **I-294 — a schedule's ROW is delimited by its mark cells (L-CAD-08, R-TO-031).** S-11's COLUMN
+  SCHEDULE states each mark's band as THREE stacked texts — the section over the bars over the ties —
+  with the mark written once, level with the third, under four merged band headers. L-CAD-08's
+  "row-cluster by y with band-first clustering" is read as: the bands are found first, and the ROWS
+  are made out of them — a row is delimited by its MARK CELLS, and the bands standing between one mark
+  and the next belong to that mark's row, their texts joined per column in reading order with the
+  same sign two texts of one cell are joined with, every cell citing every text it was read from.
+  Read band for band instead, the mark's row carries the TIES string as its section, two of every
+  three rows name no member, all fourteen C variants read sectionless with no zone, and no column
+  line can publish from a drawing that schedules every column it has. The folding is the
+  RECONSTRUCTOR's, not the registry's, because the reconstructed table is what the store holds and
+  what the trace and the overlay show: the merge happens before the rows are stored, or four readers
+  re-do the same fold. How near a band must stand to a mark's row is the table's own statement, read
+  as a column's reach already is — half the closest the table's mark cells stand to each other, one
+  share (`NEAREST_SHARE`) for both, content-scaled (L-MEA-01); a table with fewer than two mark cells
+  is read band for band as before. The registry then takes each part of the joined cell for the
+  question it answers: a pair of sides is the section, a group of bars the main steel, and a call
+  stating two centres in one breath (`10Ø@100/150 (TIES)`) is the END zones' and the MIDDLE's as the
+  two zones they are, never one folded `ties` (L-FRM-05); a zone the cell states stands before a zone
+  only a column heads. Two band headers S-11 writes are admitted as bands: a LIST of two CONSECUTIVE
+  floors (`3RD & 4TH`) is the band between them (a list of two floors that are not consecutive names
+  no band), and a band one end of which names a label no ladder places (`ROOF-SRR`) carries that
+  label as written — where SRR sits is the expansion stage's question (L-CAD-07's
+  `LEVEL_RANGE_ENDPOINT_UNMAPPED`), never this reader's to guess. Measured: S-11's table 27 rows → 11
+  (C1..C7 and three note rows), C1..C7 each with four banded variants carrying a section, main bars
+  and two tie zones (28 variants, 84 zones, where there were 14 sectionless variants and no zone);
+  the other four BNBC tables and all of F-RCC6's line-for-line identical.
+
 ## 1. Layout and hierarchy
 
 The stage still dominates. The panel recedes exactly as the layers panel does — same fill
@@ -1775,6 +1908,25 @@ one RefusalState, the one ConsequenceDialog — plus the `cx-viewer-scale-*` cla
 - **I-188 — the screen states itself on its root, and every identifier renders through the IdChip (session 4, AM-08 Part 2's rubric read as CLAUDE.md reads it).** `viewer-screen` states `loading` until the paint context is probed and `ready` after; `data-flyto` and the rest stand beside it as before. The root carries `data-screen-root` and a `data-state` a reader of the DOM can take after `settled()` — `ready`, `empty`, or the screen's own word — which is the rubric's twelfth criterion and was unstated here. An identifier a person meets on this screen (an account id, a content digest, a source key) is an IdChip: the chip measure on screen, the whole value in `data-value`, on the tooltip and on the clipboard, never a raw uuid, hex digest or handle in body text (R-UI-082). Where an earlier Interpretation of this file ruled a digest rendered whole in the document, this one amends it: the whole value is the chip's DATA and the copy it hands over, and the document shows the measure.
 - **I-189 — the status line is a rendered region.** `viewer-status` carries `data-rendered-region` and a `data-state` that reads `pending` until the sheet's first paint and `settled` after, so `settled()` and every retrying read take one reading of a painted sheet rather than three agreeing ones of a canvas still arriving (tests/e2e/support/settled.ts; AM-09 §2). `data-first-paint` stands beside it unchanged.
 - **I-190 — a view key in the partition panel is an IdChip.** The panel's view rows and grid deferrals render the view key through the shipped IdChip the screen hands in (ARCH-01: the module reaches no primitive of its own) — the anchor's handle as the measure, the whole key as the value, on the tooltip and on the clipboard — never as body text (R-UI-082; AM-08 Part 2 C6). *Amends the "whole, `user-select: all`" reading of the key's line.* A jsdom mount that hands no chip sees the key whole in mono, as before. A chip is two keyboard stops — its measure, focusable so the whole key stands on its tooltip, and its copy — and both wear the reticle like every other stop of the shell; AC-5's walk therefore passes through every row's chip between the two toggles and the offered groups, in DOM order, and the journey reads it so (session 4, the gate of 2026-09-21).
+- **I-295 — a text that states its own unit states a length, and a header that states none does not
+  silence it (session 5, L-MEA-05, T-INSUNITS-0).** L-MEA-05's strict unit lane ("unknown or unmapped
+  unit ⇒ null, never a guessed scale") bars GUESSING, not reading: a bare `4572` under `$INSUNITS = 0`
+  is a number whose unit the drawing withheld, and calling it millimetres would invent what nobody
+  wrote; `15'-0"` withholds nothing — it states fifteen feet in a unit its own words name — so fifteen
+  feet over the span that dimension is drawn across is metres per drawing unit, which is exactly what
+  rank 3 is evidence of, whether or not the header ever named a unit. So DIMENSION_RATIO, and
+  GRID_SPACING where a stored grid gap matches such a dimension's span, may be proposed on a unitless
+  header from dimensions whose texts name their units; a bare-number dimension on that header proposes
+  nothing; FILE_UNITS stays absent, because the header still carries no metres of its own; the closed
+  roster of ranks does not grow; nothing is written into the artifact or stored about the header. The
+  disclosure the trap asks for is the proposal's own evidence: rank 3 cites the DIMENSION source keys
+  it was read off, which the panel prints whole (I-159). Because the feet-and-inches reading is the
+  notation grammar's one home and core may not reach a module (ARCH-01), the reading crosses the seam
+  already parsed: the takeoff door hands `scaleEvidenceOf` a per-dimension `{text, metres}` reading and
+  core measures spans and divides, parsing no notation of its own. Rejected: a second feet-inches
+  parser in core (B-17); inferring the file's unit from the SCALE_BAR block's `UNIT` attrib, since a
+  scale bar is a printed claim about scale and L-MEA-05 admits printed scale notes at no rank.
+  F-RCC6's proposals are identical before and after (it states no length in its own units).
 
 ## 1. Layout and hierarchy
 
