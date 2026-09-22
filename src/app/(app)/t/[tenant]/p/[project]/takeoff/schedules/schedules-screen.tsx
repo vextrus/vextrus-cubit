@@ -50,6 +50,7 @@ const CHROME: SchedulesChrome = {
     empty: TESTIDS.schedules.empty,
     sheets: TESTIDS.schedules.sheets,
     sheetRow: TESTIDS.schedules.sheetRow,
+    grid: TESTIDS.schedules.grid,
     table: TESTIDS.schedules.table,
     cell: TESTIDS.schedules.cell,
     deferral: TESTIDS.schedules.deferral,

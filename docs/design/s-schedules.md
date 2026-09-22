@@ -88,6 +88,21 @@ this file rules. No gallery entry is added (nothing new is invented here).
   reads `ready`, and one holding neither a table nor a reading reads `empty`. Rejected: deriving the
   state over every sheet at once, which paints a screen partial on a sheet where everything stands
   and can never reach the empty cell while any sheet exists.
+- **I-288 — the schedules region is the primary the rubric measures, by the id it carries.** §1 names
+  the *schedules region* — the stacked tables, the deferrals and the notes panel, scrolling as one —
+  the primary work surface, and states its share at 57 %. The craft instrument (AM-08 Part 2) reads
+  that share off the DOM, at the largest OUTERMOST candidate inside `shell-main`; the region's
+  scrolling frame carried no id a candidate is known by, so the instrument fell through to ONE
+  `schedules-table` (28 % of main) and graded the screen on a quarter of the surface a reader in fact
+  reads. The frame therefore carries `schedules-grid`, and with it the rendered contract every
+  primary region publishes: `data-rows-rendered` is the **sum of the chosen sheet's stored tables'
+  band counts**, added and never re-counted (I-250) — each `schedules-table` goes on stating what IT
+  drew — and a notes-only sheet publishes `0`, which is the honest count of a sheet that holds no
+  table rather than a region that failed to paint. A customer sees no change: no class, no geometry,
+  no copy and no pixel moves, and nothing is rendered that was not rendered before. The registry pane
+  and the sheet rail are **not** wrapped and stay regions of their own — the rail stands BESIDE the
+  work surface (I-233) and the pane yields its height to the inspector (I-249), so a frame drawn
+  around either would publish a surface this Decision never named.
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -151,7 +166,7 @@ sideways (§7 C10).
 | tabs row (frame's track) | `takeoff-nav-register` · `-coverage` · `-levels` · `takeoff-nav-schedules` (`aria-current="page"` here). No aside: this screen's one primary lives in the notes panel | 100 % × `--toolbar-h` 32 | `--ink-secondary`, `--ink`, `--line-accent`, `--surface-panel` | — |
 | answer slot | one RefusalState from a refused door; the offline banner above it | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--radius-4`, `--hairline` | absent (no box) |
 | sheet rail (`schedules-sheets`) | one `schedules-sheet-row[data-drawing][data-layout]` per sheet of the pinned revision holding a schedule, a deferral or a note text: sheet name in 13 px, drawing `IdChip`, and what it holds as muted words | `flex: 0 0 var(--drawer-w)` 200 (min 160, max 320); rows `--row-h` 28 | `--surface-panel`, `--hairline`, `--ink-muted`, `--text-caption`, `--surface-selected` | the rail is absent only in `empty`; otherwise it always has a row |
-| schedules region (primary) | `schedules-table[data-schedule][data-rows-rendered]`, one per stored schedule, stacked with `--gap-section`; each a DataTable v2 titled by its stored title. Or `schedules-deferral`. Or `schedules-notes` on a notes-only sheet | `flex: 1 1 auto`, min 320; ≥ 55 % of main; rows `--row-h` 28, header 28 sticky, first column frozen | `--surface-app`, `--surface-sunken` (header), `--ink-code`, `--font-mono`, `--cell-px/py`, `--basis-transcribed` through EvidenceLink | never silent: a deferral or `NOTES_NONE_PROPOSED` stands in its place |
+| schedules region (primary) | the one scrolling frame `schedules-grid[data-rows-rendered]` (I-288), holding `schedules-table[data-schedule][data-rows-rendered]`, one per stored schedule, stacked with `--gap-section`; each a DataTable v2 titled by its stored title. Or `schedules-deferral`. Or `schedules-notes` on a notes-only sheet | `flex: 1 1 auto`, min 320; ≥ 55 % of main; rows `--row-h` 28, header 28 sticky, first column frozen | `--surface-app`, `--surface-sunken` (header), `--ink-code`, `--font-mono`, `--cell-px/py`, `--basis-transcribed` through EvidenceLink | never silent: a deferral or `NOTES_NONE_PROPOSED` stands in its place |
 | registry pane (`schedules-registry`) | `schedules-family[data-family]` group rows, `schedules-variant[data-variant]` beneath, `schedules-zone[data-zone]` per rebar zone; all text verbatim; no count (I-251) | `flex: 0 0 240` (200 below `lg`); collapses to 28 with the inspector (I-249); scrolls alone | `--surface-panel`, `--surface-sunken`, `--hairline`, `--ink`, `--font-mono` | the pane stands and states `schedules_registry_none` |
 | notes panel (`schedules-notes`) | the three sections of I-253 and the one `schedules-transcribe` | inside the schedules region; sections separated by `--gap-section`; rows `--row-h` 28 | `--surface-app`, `--hairline`, `--ink-code`, `--warn-surface` through RefusalState | one RefusalState, `NOTES_NONE_PROPOSED`, and no act door |
 | inspector (frame's one slot) | `schedules-inspector`: the selection's heading, its source keys as `IdChip`s under `schedules_inspector_sources_label`, its kind / basis / acceptance as `EnumLabel`s, and its one EvidenceLink | `--inspector-w` 320 (280–480) | `--surface-panel`, `--hairline`, basis palette through EvidenceLink | **absent — width 0**, never a sentence |
@@ -327,7 +342,9 @@ action), `…/settings/participants` (the denial's evidence). Procedures:
 
 Test ids, exactly the registry's, on the elements ruled in §1 — every key of `TESTIDS.schedules`:
 `schedules-screen` (`data-state`: loading|denied|offline|error|refused|empty|partial|ready) ·
-`schedules-sheets` · `schedules-sheet-row` (`data-drawing`, `data-layout`) · `schedules-table`
+`schedules-sheets` · `schedules-sheet-row` (`data-drawing`, `data-layout`) · `schedules-grid`
+(`data-rows-rendered`, the sum of the chosen sheet's stored band counts — the schedules region's own
+scrolling frame, the primary §1 measures, I-288) · `schedules-table`
 (`data-schedule`, `data-rows-rendered`) · `schedules-cell` (`data-row`, `data-column`) ·
 `schedules-registry` · `schedules-family` (`data-family`) · `schedules-variant` (`data-variant`) ·
 `schedules-zone` (`data-zone`: main|ties|ties-end|ties-mid) · `schedules-deferral` (`data-code`) ·

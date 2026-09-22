@@ -59,6 +59,8 @@ export interface SchedulesTestIds {
   readonly empty: string;
   readonly sheets: string;
   readonly sheetRow: string;
+  /** The schedules region's own scrolling frame — the PRIMARY work surface §1 names (I-288). */
+  readonly grid: string;
   readonly table: string;
   readonly cell: string;
   readonly deferral: string;
@@ -348,6 +350,16 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
   /** The sheet the rail has selected — the first one until a reader chooses another (I-248). */
   const sheet = useMemo(() => sheets.find((held) => sameSheet(sheetKey, held)) ?? sheets[0] ?? null, [sheetKey, sheets]);
 
+  /**
+   * What the schedules region publishes as its rendered contract (I-288, §7 C10): the bands the
+   * chosen sheet's stored tables hold, added up and nothing else. Each table still states what IT
+   * drew, off the grid's own number; this is the frame's statement about the whole region, so it is
+   * the SUM OF THE STORED COUNTS each table was handed — the screen counts nothing of its own
+   * (I-250). A sheet holding notes and no table says `0`, which is the truth about that sheet and
+   * not a region that failed to paint.
+   */
+  const rowsDrawn = sheet === null ? 0 : sheet.schedules.reduce((total, table) => total + table.rows.length, 0);
+
   const holdsMeasure = permitted[MEASURE] === true;
   const evidence = useMemo<Evidence>(() => ({ href: addresses.participants, label: OPEN_PARTICIPANTS }), [addresses]);
 
@@ -610,8 +622,13 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
             {/* What the sheet HOLDS scrolls as one, so a long schedule and a long record of readings
                 follow each other down a single column; the registry pane below is pinned to the foot
                 of the work column and scrolls alone (§1, I-249). Two scroll regions rather than one
-                is what keeps either of them from pushing the other off the screen. */}
-            <div className="cx-schedules-scroll">
+                is what keeps either of them from pushing the other off the screen.
+
+                This frame IS the primary work surface §1 measures, so it carries the id that says so
+                and the rows the region holds (I-288): the instrument reads the frame a reader reads,
+                rather than one table inside it. No geometry of the frame changes — the id and the
+                count are a statement about what is already drawn here. */}
+            <div className="cx-schedules-scroll" data-testid={testIds.grid} data-rows-rendered={rowsDrawn}>
             <section className="cx-schedules-tables" aria-label={SCHEDULES_COPY.schedules_tables_heading}>
               {sheet.schedules.length === 0 ? null : <h2 className="cx-schedules-section-heading">{SCHEDULES_COPY.schedules_tables_heading}</h2>}
               {sheet.schedules.map((table) => (

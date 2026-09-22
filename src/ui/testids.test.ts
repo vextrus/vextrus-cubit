@@ -372,6 +372,7 @@ const GOLDEN: readonly string[] = [
   "schedules-deferral",
   "schedules-empty",
   "schedules-family",
+  "schedules-grid",
   "schedules-inspector",
   "schedules-notes",
   "schedules-proposal",
