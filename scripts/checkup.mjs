@@ -5,14 +5,14 @@
 // rather than passed over in silence (B-23). A check whose input exists but whose tool or service
 // is absent fails the report.
 import { spawnSync } from "node:child_process";
-import { createServer } from "node:net";
 import { connect } from "node:net";
 import { accessSync, constants, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deriveMachineChecks } from "./lib/lanes.mjs";
 import { fileDigest, toolPath, toolPin, toolVerdict } from "./lib/tools.mjs";
-import { portFor } from "./lib/ports.mjs";
+import { servedPorts } from "./lib/ports.mjs";
+import { portState } from "./lib/port-probe.mjs";
 import { announce, wallTime } from "./lib/report.mjs";
 import { checkMigrationHead, databaseExists, devDatabaseUrl, DEV_DATABASE, ROLE_MIGRATE } from "./lib/pg-database.mjs";
 
@@ -73,18 +73,6 @@ function reachable(host, port) {
     socket.once("connect", () => settle(true));
     socket.once("timeout", () => settle(false));
     socket.once("error", () => settle(false));
-  });
-}
-
-/**
- * @param {number} port
- * @returns {Promise<boolean>}
- */
-function bindable(port) {
-  return new Promise((done) => {
-    const server = createServer();
-    server.once("error", () => done(false));
-    server.listen(port, "127.0.0.1", () => server.close(() => done(true)));
   });
 }
 
@@ -183,9 +171,11 @@ const CHECKS = {
   },
   ports: async () => {
     // The port set comes from the tree's one home, never from the environment alone: a check whose
-    // list an unset variable can empty is a check that cannot fail (C-06, B-23).
-    const ports = [portFor("app"), portFor("e2e")];
-    const states = await Promise.all(ports.map(async (port) => `${port}:${(await bindable(port)) ? "free" : "busy"}`));
+    // list an unset variable can empty is a check that cannot fail (C-06, B-23). Each port is asked
+    // the one way the tree asks (scripts/lib/port-probe.mjs), one at a time: two binds of one port
+    // from this process would read each other as busy.
+    const states = [];
+    for (const port of new Set(servedPorts())) states.push(`${port}:${await portState(port)}`);
     return { ok: states.every((state) => state.endsWith("free")), detail: `ports ${states.join(" ")}` };
   },
   "storage-root": () => {

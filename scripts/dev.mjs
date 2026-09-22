@@ -4,11 +4,11 @@
 // and supervises Next.js dev server (.next-dev) and worker with isolated storage (storage/dev).
 import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
-import { createServer } from "node:net";
 import os from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEV_DIST_DIR, DEV_SERVER_LOCK, holdDistDir, heldBy } from "./lib/dist.mjs";
+import { attribution, portState } from "./lib/port-probe.mjs";
 import { portFor } from "./lib/ports.mjs";
 import { devDatabaseUrl, provisionDevDatabase, ROLE_APP } from "./lib/pg-database.mjs";
 
@@ -63,22 +63,6 @@ export function parseArgs(argv = process.argv.slice(2)) {
   }
 
   return { port, host, hostSpecified, worker, reset };
-}
-
-/**
- * Checks whether a TCP port is bindable on the given host.
- * @param {number} port
- * @param {string} [host="0.0.0.0"]
- * @returns {Promise<boolean>}
- */
-export function isPortBindable(port, host = "0.0.0.0") {
-  return new Promise((resolveDone) => {
-    const server = createServer();
-    server.once("error", () => resolveDone(false));
-    server.listen(port, host, () => {
-      server.close(() => resolveDone(true));
-    });
-  });
 }
 
 /**
@@ -191,14 +175,15 @@ export async function main(argv = process.argv.slice(2)) {
   const externalIp = hostSpecified ? resolveExternalIp() : "127.0.0.1";
   const publicOrigin = `http://${hostSpecified ? externalIp : "127.0.0.1"}:${port}`;
 
-  // Verify port bindability
-  const portFree = await isPortBindable(port, bindHost);
+  // Verify port bindability — asked the tree's one way (scripts/lib/port-probe.mjs), on the host the
+  // server will bind: 0.0.0.0 under --host, 127.0.0.1 otherwise.
+  const portFree = (await portState(port, bindHost)) === "free";
   if (!portFree) {
     const holdingPid = findHoldingPid(port);
     if (holdingPid !== null) {
       process.stderr.write(`REFUSE dev: port ${port} is occupied by PID ${holdingPid} — refuse to start\n`);
     } else {
-      process.stderr.write(`REFUSE dev: port ${port} is occupied — refuse to start\n`);
+      process.stderr.write(`REFUSE dev: port ${port} is occupied (${attribution(port)}) — refuse to start\n`);
     }
     process.exit(1);
   }
@@ -207,13 +192,13 @@ export async function main(argv = process.argv.slice(2)) {
   // Verify worker health port if worker enabled
   const workerHealthPort = port + 2;
   if (worker) {
-    const workerPortFree = await isPortBindable(workerHealthPort, "127.0.0.1");
+    const workerPortFree = (await portState(workerHealthPort, "127.0.0.1")) === "free";
     if (!workerPortFree) {
       const holdingPid = findHoldingPid(workerHealthPort);
       if (holdingPid !== null) {
         process.stderr.write(`REFUSE dev: worker health port ${workerHealthPort} is occupied by PID ${holdingPid} — refuse to start\n`);
       } else {
-        process.stderr.write(`REFUSE dev: worker health port ${workerHealthPort} is occupied — refuse to start\n`);
+        process.stderr.write(`REFUSE dev: worker health port ${workerHealthPort} is occupied (${attribution(workerHealthPort)}) — refuse to start\n`);
       }
       process.exit(1);
     }
@@ -381,8 +366,10 @@ export async function main(argv = process.argv.slice(2)) {
     ];
 
     if (hostSpecified) {
-      banner.push(" WSL2 Port Forwarding Hint (run in elevated Windows PowerShell):");
-      banner.push(`   netsh interface portproxy add v4tov4 listenport=${port} listenaddress=0.0.0.0 connectport=${port} connectaddress=${externalIp}`);
+      // No portproxy hint any more: under WSL2 mirrored networking Windows and WSL share one port
+      // space, and a `netsh portproxy` rule on this port is a Windows listener that takes it from WSL.
+      banner.push(` Under WSL2 mirrored networking Windows reaches http://127.0.0.1:${port} directly;`);
+      banner.push("   keep `netsh interface portproxy show all` empty — a rule there takes the port from WSL");
       banner.push("");
     } else {
       banner.push(" WSL2 localhost forwarding makes this reachable from Windows Edge/Chrome");

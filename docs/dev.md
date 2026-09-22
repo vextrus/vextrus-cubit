@@ -44,7 +44,7 @@ pnpm dev
 # Custom port
 pnpm dev --port 3220
 
-# Bind to 0.0.0.0 with WSL2 address resolution and portproxy hint
+# Bind to 0.0.0.0 (other machines on the LAN; see §5)
 pnpm dev --host
 
 # Web tier only (skip background worker)
@@ -108,18 +108,28 @@ The development lane is architecturally isolated from testing and build lanes:
 
 ## 5. WSL2 Reachability & Windows Browser Access
 
-### Localhost Forwarding (Default)
-When running inside WSL2 on Windows 10/11:
-- `pnpm dev` binds to `127.0.0.1:3210`.
-- WSL2's built-in localhost forwarding automatically forwards traffic from Windows host browsers (Edge, Chrome, Firefox) to `http://127.0.0.1:3210`.
+### Mirrored networking (the reference machine since 2026-09-23)
+The reference machine runs WSL2 with `networkingMode=mirrored` in `%UserProfile%\.wslconfig`
+(Windows side). Under it:
+- `pnpm dev` binds `127.0.0.1:3210`, and a Windows browser opens `http://127.0.0.1:3210` directly —
+  no relay, no forwarding rule (measured: a WSL listener on `127.0.0.1:3211` answered Windows
+  `curl.exe` with HTTP 200 in 4 ms). Prefer `127.0.0.1` to `localhost`: Windows tries `::1` first
+  (0.21 s against 0.004 s).
+- Windows and WSL share ONE loopback port space. A Windows listener on a port takes it from WSL, so
+  keep `netsh interface portproxy show all` EMPTY — a portproxy rule is exactly such a listener, and
+  NAT-era rules left behind held 3210/3211 against every lane. The tree's port probe
+  (`scripts/lib/port-probe.mjs`) binds to decide "held" and says when the holder is not visible to
+  `ss` (held outside Linux).
+- A connect to an UNBOUND port on `127.0.0.1` (or `localhost`) hangs rather than being refused;
+  `127.0.0.2`, `::1` and the LAN address still refuse at once. A test that needs "nothing listening"
+  owns a listener or dials `127.0.0.2`.
 
 ### External Host Mode (`--host`)
 To expose the development server to other machines on the local network:
 ```bash
 pnpm dev --host
 ```
-`pnpm dev` binds to `0.0.0.0`, discovers your WSL2 virtual Ethernet IPv4 address, and prints the exact port-forwarding command to run in an **elevated Windows PowerShell**:
-
-```powershell
-netsh interface portproxy add v4tov4 listenport=3210 listenaddress=0.0.0.0 connectport=3210 connectaddress=<WSL_IP>
-```
+`pnpm dev` binds to `0.0.0.0` and prints the address. Under mirrored networking the LAN reaches the
+Windows host's own address directly, subject to the Hyper-V firewall (`firewall=true`): opening it is
+a security decision for the machine's owner, never a script's. Under NAT (the older setup) Windows
+reached WSL only through its localhost forwarding.

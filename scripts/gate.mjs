@@ -8,10 +8,17 @@
 //   pnpm gate --out <dir>          where the logs go (default node_modules/.cache/cubit/gate)
 //
 // The lanes and their order (docs/handoff/fable-5.1-session-3.md § 5): verify → checkup → golden →
-// db → e2e → e2e J-000 → perf. The e2e lanes serve the product on port 3211; the db lane is refused
-// while anything holds 3210 or 3211, because a served product and the lane's template copies share
-// one cluster (V-DB). A red lane does not stop the chain — the session wants every verdict — but the
-// exit code is the first red's.
+// db → e2e → e2e J-000 → perf. The e2e lanes serve the product on the journeys' port
+// (`portFor("e2e")`); the db lane is refused while anything holds a served port (`servedPorts()`,
+// scripts/lib/ports.mjs), because a served product and the lane's template copies share one cluster
+// (V-DB). A red lane does not stop the chain — the session wants every verdict — but the exit code
+// is the first red's.
+//
+// "HELD" IS ASKED BY BINDING (scripts/lib/port-probe.mjs). The gate read `ss -ltn`, which under WSL2
+// mirrored networking cannot see a port Windows holds: it read the journeys' port free while the
+// served lanes then died on `listen EADDRINUSE` on it 20–37 s in. So each served lane is
+// pre-flighted the same way the db lane is — its port bound and given back first — and refused BY
+// NAME at once, with who holds the port, instead of dying late.
 //
 // THE LOGS SURVIVE THE GATE (docs/handoff/fable-5.1-session-4.md § 7 item 6, C-06). They were
 // written under `test-results/gate/`, the directory the e2e lanes that follow clean: by the time the
@@ -30,10 +37,12 @@
 //
 // Session 3 ran these seven by hand, one background command at a time, and read each log by hand;
 // the order and the port discipline are the part worth keeping (C-06).
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createWriteStream, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { attribution, heldPorts, portState } from "./lib/port-probe.mjs";
+import { portFor, servedPorts } from "./lib/ports.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 
@@ -57,18 +66,13 @@ export const GATE_LANES = Object.freeze([
  */
 export const DEFAULT_LOG_DIR = join("node_modules", ".cache", "cubit", "gate");
 
-/** The ports a served product holds (scripts/lib/ports.mjs): the dev lane's and the journeys'. */
-export const SERVED_PORTS = Object.freeze([3210, 3211]);
-
 /**
- * Which of the ports are held, by asking the kernel (Linux `ss`); an unanswerable box reads as free.
- * @param {(argv: string[]) => {status: number | null, stdout: string}} [run] injected, so the reading is provable without a socket
- * @returns {number[]}
+ * The held ports, each with who holds it: `<port> [a Linux listener ("node" pid=4242)]`.
+ * @param {number[]} held
+ * @param {(port: number) => string} attribute
  */
-export function heldPorts(run = (argv) => spawnSync(argv[0] ?? "ss", argv.slice(1), { encoding: "utf8" })) {
-  const result = run(["ss", "-ltn"]);
-  if (result.status !== 0 || typeof result.stdout !== "string") return [];
-  return SERVED_PORTS.filter((port) => new RegExp(`[:.]${port}\\s`).test(result.stdout));
+function heldBy(held, attribute) {
+  return held.map((port) => `${port} [${attribute(port)}]`).join(", ");
 }
 
 /**
@@ -123,14 +127,16 @@ export function runLane(lane, io) {
 }
 
 /**
- * The whole gate. Refuses the db lane while a product is served; runs the rest in order; answers
- * the first red's exit code.
- * @param {{only?: string, out?: string, write?: (line: string) => void, run?: typeof runLane, ports?: () => number[]}} [options]
+ * The whole gate. Refuses the db lane while a product is served, and a served lane whose port is
+ * already held; runs the rest in order; answers the first red's exit code.
+ * @param {{only?: string, out?: string, write?: (line: string) => void, run?: typeof runLane, probe?: import("./lib/port-probe.mjs").PortProbe, attribute?: (port: number) => string}} [options]
+ *   `probe` answers whether one port is free (default: bind it, scripts/lib/port-probe.mjs); `attribute` says who holds a busy one (default: `ss -ltnp`)
  */
 export async function gate(options = {}) {
   const write = options.write ?? ((line) => process.stdout.write(line));
   const run = options.run ?? runLane;
-  const ports = options.ports ?? heldPorts;
+  const probe = options.probe ?? portState;
+  const attribute = options.attribute ?? attribution;
   const logDir = resolve(ROOT, options.out ?? DEFAULT_LOG_DIR);
   mkdirSync(logDir, { recursive: true });
   const lanes = selectLanes(GATE_LANES, options.only);
@@ -138,10 +144,21 @@ export async function gate(options = {}) {
   let first = 0;
   const summary = [];
   for (const lane of lanes) {
+    // Asked right before each lane, never once up front: a lane before this one may have left a
+    // server behind, or given its port back.
     if (lane.needsPortsFree) {
-      const held = ports();
+      const held = await heldPorts(servedPorts(), probe);
       if (held.length > 0) {
-        write(`GATE ${lane.id} REFUSED — a served product holds port ${held.join(", ")}; the db lane never runs beside one (V-DB)\n`);
+        write(`GATE ${lane.id} REFUSED — a served product holds port ${heldBy(held, attribute)}; the db lane never runs beside one (V-DB)\n`);
+        summary.push(`${lane.id}: refused (port ${held.join(", ")} held)`);
+        if (first === 0) first = 1;
+        continue;
+      }
+    }
+    if (lane.servesProduct) {
+      const held = await heldPorts([portFor("e2e")], probe);
+      if (held.length > 0) {
+        write(`GATE ${lane.id} REFUSED — the lane serves the product on port ${heldBy(held, attribute)}, which is not bindable; it would die on EADDRINUSE (E2E_PORT moves the port)\n`);
         summary.push(`${lane.id}: refused (port ${held.join(", ")} held)`);
         if (first === 0) first = 1;
         continue;

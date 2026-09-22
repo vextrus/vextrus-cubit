@@ -25,13 +25,15 @@ import { writeBuildStamp } from "./lib/build-stamp.mjs";
 // Whether the built output is current for this tree has one home (scripts/lib/build-currency.mjs):
 // the live acceptance suites of the database lane read the same verdict over their shared build.
 import { buildIsCurrent } from "./lib/build-currency.mjs";
+// The journeys' port has one home too (scripts/lib/ports.mjs); `--port` still wins, as Playwright passes it.
+import { portFor } from "./lib/ports.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const DIST = DEFAULT_DIST_DIR;
 const args = process.argv.slice(2);
 const valueOf = (/** @type {string} */ flag, /** @type {string} */ fallback) => { const at = args.indexOf(flag); return at === -1 ? fallback : (args[at + 1] ?? fallback); };
 const NEXT = join(ROOT, valueOf("--next", "node_modules/next/dist/bin/next"));
-const port = valueOf("--port", "3211");
+const port = valueOf("--port", String(portFor("e2e")));
 const policy = args.includes("build") ? "build" : args.includes("build-if-stale") ? "build-if-stale" : "build-if-stale";
 if (args.includes("dev")) { process.stderr.write("e2e-server: the journeys never drive a dev server (V-E2E)\n"); process.exit(2); }
 

@@ -7,7 +7,7 @@ database and roots, with the shipped worker beside it. Nothing here is a dev ser
 here is a lane: the gate's verdicts are the lanes' own.
 
 ```
-pnpm probe:server                # build-if-stale, serve on 3211, start the worker; exits when ready
+pnpm probe:server                # build-if-stale, serve on the journeys' port, start the worker; exits when ready
 pnpm probe:server -- --stop      # stop both
 pnpm probe signin <email> <password> [--out cookies.json]      # no `--`: pnpm 10 forwards it as the mode
 pnpm probe walk [--cookies f] [--themes dark,light] [--viewports 1440x900,1280x800] \
@@ -18,6 +18,11 @@ node scripts/probe/diff-bbox.mjs test-results/**/x-diff.png     # where a diff p
 node scripts/probe/pixdiff.mjs a.png b.png                       # where two captures differ
 node scripts/probe/crop.mjs expected.png actual.png x y w h out.png
 ```
+
+The port and the origin have one home, `scripts/lib/ports.mjs`: `server.mjs` serves on
+`portFor("e2e")` and `probe.mjs` dials `originFor("e2e")` (`http://127.0.0.1:<port>`, never
+`localhost`). `E2E_PORT` moves both at once; there is no probe-only port variable. `probe.mjs`
+reads the port from that home rather than importing `server.mjs`, which acts as it is imported.
 
 A verdict line:
 
@@ -55,5 +60,8 @@ holding an issued document and a rendered Bar schedule, which is what grades Doc
 schedule on a project that has them. The header line and the `craft-table.md` name the project they
 graded.
 
-Outputs go under `test-results/probe/` by default, which git ignores. The J-000 run files hold the
-run's session cookies: never commit a probe output directory.
+What the probe writes when no path is named, all of it git-ignored: `scripts/probe/out/` (walk and
+run outputs), `scripts/probe/cookies.json` (signin's cookies, and the default `--cookies`),
+`scripts/probe/server.pids`, and `scripts/probe/{server,worker}.log`. `craft-walk.sh` writes under
+the directory it is given (`test-results/probe/…` in the examples above, which git ignores too).
+The cookie files and the J-000 run files hold session cookies: never commit a probe output.

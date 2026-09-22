@@ -1,7 +1,9 @@
 // The database this suite must never reach: a closed port, so a read that happens at all fails
 // loudly and immediately. Set before the first import of src/server, because the database seam
-// reads the variable when it first connects.
-process.env.DATABASE_URL = "postgres://cubit:none@127.0.0.1:1/cubit";
+// reads the variable when it first connects. 127.0.0.2, not 127.0.0.1: under WSL2 mirrored
+// networking a dial to an unbound 127.0.0.1 port hangs until the driver's connect timeout, while
+// the rest of 127/8 is still refused at once (postgres 3.4.9: 127.0.0.2 → ECONNREFUSED in 4 ms).
+process.env.DATABASE_URL = "postgres://cubit:none@127.0.0.2:1/cubit";
 
 /**
  * AC-4(c), AC-4(d), AC-4(g), AC-6(a) and AC-6(d) — the tenancy transport asks the origin question

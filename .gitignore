@@ -41,8 +41,10 @@ storage/*
 !storage/.gitkeep
 
 # The cad extraction seam is uv-managed: its virtual environment and caches are build output
-# (L-CAD-04 — stateless, temp per invocation), never source.
-cad/.venv/
+# (L-CAD-04 — stateless, temp per invocation), never source. No trailing slash, for the reason
+# `node_modules` has none: an agent worktree links `cad/.venv` at the checkout's own, and a
+# directory pattern does not match a symlink.
+cad/.venv
 __pycache__/
 .pytest_cache/
 .ruff_cache/
@@ -55,3 +57,14 @@ __pycache__/
 
 # Vextrus Builder (v22 fault 300): the checkpoint review reads its demo pack from the reviewed tree; the engine never stages it
 .builder-demo/
+
+# The probe's own leavings when no path is named (scripts/probe/README.md): the stage's pids, the
+# signin's session cookies, and the walk's outputs. Its logs are `*.log`, above. The cookies are a
+# live session: never source.
+scripts/probe/server.pids
+scripts/probe/cookies.json
+scripts/probe/out/
+
+# An orchestrating session's isolated worktrees (git worktree add under .claude/worktrees/): each is
+# a checkout of this tree, never a part of it.
+/.claude/worktrees/

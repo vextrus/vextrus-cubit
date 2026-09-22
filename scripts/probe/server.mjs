@@ -1,17 +1,22 @@
 #!/usr/bin/env node
 // The probe's stage: the same built product the journey lane serves (scripts/e2e-server.mjs,
 // build-if-stale start), on the journeys' own database and roots, plus the shipped worker. Nothing
-// here is a dev server (V-E2E). Writes pids to <scratch>/probe/server.pids; `--stop` kills them.
+// here is a dev server (V-E2E). Writes pids to scripts/probe/server.pids and its logs to
+// scripts/probe/{server,worker}.log (all git-ignored); `--stop` kills them. It serves on the
+// journeys' port (`portFor("e2e")`, scripts/lib/ports.mjs; E2E_PORT moves it) — the one probe.mjs
+// reads its origin from.
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { attribution, portState } from "../lib/port-probe.mjs";
+import { originFor, portFor } from "../lib/ports.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PIDS = join(HERE, "server.pids");
-const PORT = Number(process.env["PROBE_PORT"] ?? "3211");
-export const ORIGIN = `http://127.0.0.1:${PORT}`;
+const PORT = portFor("e2e");
+export const ORIGIN = originFor("e2e");
 export const DATABASE_URL = "postgres://cubit_app:cubit_app@127.0.0.1:5544/cubit_e2e";
 export const MIGRATE_URL = "postgres://cubit_migrate:cubit_migrate@127.0.0.1:5544/cubit_e2e";
 
@@ -54,6 +59,13 @@ if (process.argv.includes("--stop")) {
   stop();
 } else {
   stop();
+  // A port held by anything else — a journey lane, a demo, a Windows listener under mirrored
+  // networking — would let `waitHttp` below call THAT server ready. Refuse by name instead, asked the
+  // tree's one way (scripts/lib/port-probe.mjs).
+  if ((await portState(PORT)) !== "free") {
+    console.error(`REFUSE probe:server — port ${PORT} is held (${attribution(PORT)}); stop its holder or move the stage with E2E_PORT`);
+    process.exit(1);
+  }
   const logs = { server: join(HERE, "server.log"), worker: join(HERE, "worker.log") };
   const serverOut = (await import("node:fs")).openSync(logs.server, "w");
   const workerOut = (await import("node:fs")).openSync(logs.worker, "w");

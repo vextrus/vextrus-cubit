@@ -12,11 +12,19 @@
  * file unchanged — and fails it the moment the two stop agreeing, which is the whole point of the
  * row this increment pays down.
  *
- * No live database: `DATABASE_URL` is pointed at a port nothing listens on, so every query answers
- * from the driver itself. That is what makes "the pool was ended" and "a fresh pool was built"
- * distinguishable — an ended pool answers without dialling, a fresh one dials and is refused.
+ * No live database: `DATABASE_URL` is pointed at a listener this file owns, which COUNTS the dials it
+ * accepts and answers every one with the refusal a server gives before it admits anyone — a FATAL
+ * ErrorResponse, SQLSTATE 08004. That is what makes "the pool was ended" and "a fresh pool was built"
+ * distinguishable, and by count rather than by inference: an ended pool answers without dialling
+ * (the count stands still), a fresh one dials (the count moves by one) and is refused.
+ *
+ * It once pointed at `127.0.0.1:1` on the premise that a dial there is refused at once. Under WSL2
+ * mirrored networking a dial to an unbound 127.0.0.1 port HANGS until the driver's connect timeout,
+ * so the proof rested on how the host treats a port nobody holds. A listener the file owns answers
+ * the same way on every host, in milliseconds, and opens no database.
  */
 import { existsSync, statSync } from "node:fs";
+import { createServer, type AddressInfo, type Server, type Socket } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -42,8 +50,75 @@ type SweptSeam = {
 /** A tenant uuid the seam admits, so a handle can be taken without a live server. */
 const TENANT = "00000000-0000-4000-8000-000000000001";
 
-/** A reachable address with nothing behind it: a dial is refused at once rather than timing out. */
-const UNREACHABLE_DATABASE = "postgresql://cubit:cubit@127.0.0.1:1/cubit_acceptance_no_server";
+/**
+ * The SQLSTATE the listener refuses every dial with: 08004, "sqlserver rejected establishment of
+ * sqlconnection" — a server's own word for "you reached me, and I will not admit you".
+ */
+const REFUSED_BY_SERVER = "08004";
+
+/** One field of a backend ErrorResponse: its type byte, then its value, NUL-terminated. */
+function errorField(type: string, value: string): Buffer {
+  return Buffer.concat([Buffer.from(type, "latin1"), Buffer.from(value, "utf8"), Buffer.from([0])]);
+}
+
+/**
+ * The backend's refusal as the wire carries it (the PostgreSQL frontend/backend protocol's
+ * ErrorResponse): `E`, an Int32 length that counts itself, the fields, and a closing NUL.
+ */
+const FATAL_REFUSAL: Buffer = (() => {
+  const fields = Buffer.concat([
+    errorField("S", "FATAL"),
+    errorField("V", "FATAL"),
+    errorField("C", REFUSED_BY_SERVER),
+    errorField("M", "the acceptance listener admits no one"),
+    Buffer.from([0]),
+  ]);
+  const header = Buffer.alloc(5);
+  header.write("E", 0, "latin1");
+  header.writeInt32BE(fields.length + 4, 1);
+  return Buffer.concat([header, fields]);
+})();
+
+/** A listener this file owns: it counts every connection it accepts, and refuses each on first data. */
+interface CountingListener {
+  url: string;
+  dials: () => number;
+  close: () => Promise<void>;
+}
+
+async function countingListener(): Promise<CountingListener> {
+  let dials = 0;
+  const open = new Set<Socket>();
+  const server: Server = createServer((socket) => {
+    dials += 1;
+    open.add(socket);
+    socket.on("close", () => open.delete(socket));
+    // A client that goes away mid-refusal is no fault of the listener's.
+    socket.on("error", () => undefined);
+    socket.once("data", () => socket.end(FATAL_REFUSAL));
+  });
+  await new Promise<void>((listening, failed) => {
+    server.once("error", failed);
+    server.listen(0, "127.0.0.1", () => listening());
+  });
+  const { port } = server.address() as AddressInfo;
+  return {
+    url: `postgresql://cubit:cubit@127.0.0.1:${port}/cubit_acceptance_no_server`,
+    dials: () => dials,
+    close: async () => {
+      for (const socket of open) socket.destroy();
+      await new Promise<void>((closed) => server.close(() => closed()));
+    },
+  };
+}
+
+let listener: CountingListener | undefined;
+
+/** The listener, asserted to be up before anything is counted against it. */
+function counting(): CountingListener {
+  expect(listener, "the counting listener is started in beforeAll, before any handle is taken").toBeDefined();
+  return listener as CountingListener;
+}
 
 /**
  * Drizzle marks its own table objects with a well-known symbol (drizzle-orm 0.45.2, the pinned
@@ -104,7 +179,7 @@ function failureCode(failure: unknown): string {
 async function queryFailure(run: () => Promise<unknown>): Promise<string> {
   return await Promise.resolve()
     .then(run)
-    .then(() => "the query somehow succeeded — nothing is listening on this address", failureCode);
+    .then(() => "the query somehow succeeded — the listener behind this address admits no one", failureCode);
 }
 
 /** One read through a handle, issued so the pool behind it has to answer for itself. */
@@ -112,13 +187,15 @@ async function readThrough(seam: Seam, handle: ReturnType<Seam["forTenant"]>): P
   return await queryFailure(async () => await handle.select().from(seam.tenants).limit(1));
 }
 
-beforeAll(() => {
-  process.env["DATABASE_URL"] = UNREACHABLE_DATABASE;
+beforeAll(async () => {
+  listener = await countingListener();
+  process.env["DATABASE_URL"] = listener.url;
 });
 
 afterAll(async () => {
   const seam = await loadSeam();
   if (typeof seam.closePools === "function") await seam.closePools();
+  await listener?.close();
 });
 
 describe("AC-1: closePools — the seam's pools can be closed", () => {
@@ -139,9 +216,14 @@ describe("AC-1: closePools — the seam's pools can be closed", () => {
     expect(typeof seam.closePools, `${SEAM_MODULE} must export closePools(): Promise<void>`).toBe("function");
     const closePools = seam.closePools as () => Promise<void>;
 
+    const dials = counting().dials;
+    const atStart = dials();
+
     const before = seam.forTenant({ tenantId: TENANT });
     const dialled = await readThrough(seam, before);
-    expect(dialled, "a handle taken before the close dials the configured address, so there is a live pool to end").toBe("ECONNREFUSED");
+    expect(dialled, "a handle taken before the close reaches the configured server and is refused by it, so there is a live pool to end").toBe(REFUSED_BY_SERVER);
+    expect(dials() - atStart, "a handle taken before the close DIALS the configured address — exactly once").toBe(1);
+    const afterFirst = dials();
 
     await closePools();
 
@@ -152,14 +234,18 @@ describe("AC-1: closePools — the seam's pools can be closed", () => {
       afterClose.startsWith("CONNECTION_"),
       `a handle held across closePools() must answer from an ENDED pool — it answered ${afterClose}`,
     ).toBe(true);
+    expect(dials(), "a handle held across closePools() answers WITHOUT dialling — the listener counted a connection").toBe(afterFirst);
 
     // …and the registry is empty, so the next scoped call builds a fresh pool rather than handing
-    // out the ended one: a fresh pool dials, and a dial at this address is refused.
+    // out the ended one: a fresh pool dials, and the server refuses it.
     const fresh = seam.forTenant({ tenantId: TENANT });
     expect(
       await readThrough(seam, fresh),
       "after closePools() a later scoped call must build a fresh pool — the ended one must not be handed out again",
-    ).toBe("ECONNREFUSED");
+    ).toBe(REFUSED_BY_SERVER);
+    // The fresh dial is counted after any dial the ended pool could have made (loopback accepts in
+    // order), so this also holds the ended pool to zero dials, not merely to none yet.
+    expect(dials(), "the fresh pool dials exactly once, and the ended one never did").toBe(afterFirst + 1);
 
     await closePools();
   });

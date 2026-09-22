@@ -54,7 +54,9 @@ function collectedBy(config: string | null): string[] {
     cwd: ROOT,
     encoding: "utf8",
     timeout: 300_000,
-    env: { ...process.env, DATABASE_URL: "postgresql://x@127.0.0.1:1/x" },
+    // 127.0.0.2, not 127.0.0.1: under WSL2 mirrored networking an unbound 127.0.0.1 port hangs a
+    // dial until its timeout, while the rest of 127/8 is refused at once — a dead port must be dead.
+    env: { ...process.env, DATABASE_URL: "postgresql://x@127.0.0.2:1/x" },
   });
   expect(listed.status, `vitest could not list ${config ?? "the unit lane"}:\n${`${listed.stdout ?? ""}${listed.stderr ?? ""}`.slice(-1600)}`).toBe(0);
   return (listed.stdout ?? "")

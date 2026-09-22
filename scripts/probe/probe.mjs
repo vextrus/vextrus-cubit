@@ -18,9 +18,12 @@ import { runAxe, axeLine, blocking } from "./lib/axe.mjs";
 import { readCraft, scoreCraft } from "./lib/craft.mjs";
 import { railState } from "./lib/rail.mjs";
 import { sel } from "./lib/testids.mjs";
+// The origin server.mjs serves on, from the ports' one home — never by importing server.mjs, which
+// acts (stops and starts the stage) the moment it is imported. E2E_PORT moves both.
+import { originFor } from "../lib/ports.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ORIGIN = process.env["PROBE_ORIGIN"] ?? "http://127.0.0.1:3211";
+const ORIGIN = originFor("e2e");
 const LAUNCH = { args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-prefers-reduced-motion", "--font-render-hinting=none", "--disable-font-subpixel-positioning", "--disable-lcd-text"] };
 
 /**
