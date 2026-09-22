@@ -60,15 +60,18 @@ let staging: Promise<StagedRegisterCampaign> | undefined;
 const staged = (): Promise<StagedRegisterCampaign> => (staging ??= stageRegisterCampaign("corroboration-outcome"));
 
 /**
- * One proposed call in the ledger, with the probability Jev stated for it — a Noul's probability IS
- * its judgment, so the ledger's `confidence` is the figure the caller's band is applied to.
+ * One proposed call in the ledger, with the probability Jev stated for it, recorded exactly as the
+ * seam records a Noul today (`src/core/model/typesafe.ts`): the probability is the answer's `value`,
+ * and NO confidence is stated anywhere — a Noul carries none, so the call carries none either. It is
+ * the value the caller's band is applied to, and staging it this way is what proves the band reads
+ * the probability rather than a confidence that is no longer there to read.
  */
 function proposalStanding(it: StagedRegisterCampaign, probability: number, question: string = QUESTION): string {
   const callId = randomUUID();
   const judgment = JSON.stringify({
     provider: "jev-2026.09",
-    confidence: probability,
-    answers: { outline_corroborates: { type: "noul", value: probability, confidence: probability, probabilities: null } },
+    confidence: null,
+    answers: { outline_corroborates: { type: "noul", value: probability, confidence: null, probabilities: null } },
   });
   sql(
     `insert into ${MODEL_CALLS_TABLE} (call_id, tenant_id, project_id, model_id, request_hash, transport, outcome, input_tokens, output_tokens, attributed_cost, question, judgment)

@@ -198,7 +198,7 @@ describe("what Jev says about its answer — the judgment the ledger records", (
     });
   });
 
-  test("a Noul's probability is its whole judgment, and a probabilities map with a figure that is not a number is no map", async () => {
+  test("a Noul's probability is its value and its confidence is none, and a probabilities map with a figure that is not a number is no map", async () => {
     const { port } = jev({
       model: "jev-1.13.0",
       answers: { view_type: { type: "choice", choice: MEMBER_SECTION, confidence: "high", probabilities: { MEMBER_SECTION: "most" } }, header: { type: "noul", noul: 0.12 } },
@@ -207,8 +207,29 @@ describe("what Jev says about its answer — the judgment the ledger records", (
     const answer = await port.answer(CTX, viewCaptionRequest("SECTION 1-1", "DXF_HANDLE:201"), "hash");
     if (answer.kind !== "answered") throw new Error("refused");
     expect(answer.judgment?.answers["view_type"]).toEqual({ type: "choice", value: MEMBER_SECTION, confidence: null, probabilities: null });
-    expect(answer.judgment?.answers["header"]).toEqual({ type: "noul", value: 0.12, confidence: 0.12, probabilities: null });
-    expect(answer.judgment?.confidence).toBe(0.12);
+    expect(answer.judgment?.answers["header"]).toEqual({ type: "noul", value: 0.12, confidence: null, probabilities: null });
+    // Neither answer stated a confidence — the choice's was not a figure and a Noul has none — so
+    // the call states none either, rather than the Noul's probability standing in for one.
+    expect(answer.judgment?.confidence).toBeNull();
+  });
+
+  test("one Noul never drags a mixed call's confidence to its own probability: the call is the weakest answer that states one", async () => {
+    const { port } = jev({
+      model: "jev-1.13.0",
+      // The shape the schedule-cell corpus is full of: a row-header Noul all but certain the answer
+      // is NO (0.02) beside a choice the model was ordinarily sure of (0.68).
+      answers: { view_type: { type: "choice", choice: MEMBER_SECTION, confidence: 0.68 }, header: { type: "noul", noul: 0.02 } },
+      usage: { input_tokens: 1, output_tokens: 0 },
+    });
+    const answer = await port.answer(CTX, viewCaptionRequest("SECTION 1-1", "DXF_HANDLE:201"), "hash");
+    if (answer.kind !== "answered") throw new Error("refused");
+    expect(answer.judgment?.confidence, "the choice's own confidence, not the Noul's directional probability").toBe(0.68);
+    expect(answer.judgment?.answers["header"], "the probability is not lost — it is the Noul's value").toEqual({
+      type: "noul",
+      value: 0.02,
+      confidence: null,
+      probabilities: null,
+    });
   });
 });
 

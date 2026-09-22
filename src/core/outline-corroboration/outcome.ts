@@ -3,16 +3,18 @@
 // the act row, or neither) — the CONFIRM_VIEW_TYPE precedent, over the two acts the register's
 // inspector already presses.
 //
-// The model's own figure is read off the ledger row rather than carried on the act's input: a Noul's
-// probability IS its whole judgment (`../model/typesafe.ts`'s `answerJudgmentOf` sets the call's
-// confidence to it), so the call the person judged already holds the figure the band is applied to,
-// and nothing a caller states about a model's answer can disagree with what the ledger recorded.
+// The model's own figure is read off the ledger row rather than carried on the act's input, so that
+// nothing a caller states about a model's answer can disagree with what the ledger recorded. The
+// figure is the Noul's PROBABILITY, which is the answer's `value`: a Noul states no confidence at
+// all (`../model/typesafe.ts`'s `answerJudgmentOf`), so this call's `judgment.confidence` is null
+// and the probability has exactly one home. Reading it off the confidence would be reading a
+// different quantity — a model certain the outline is NOT the member states a low probability.
 //
 // An act is the person's and never fails because a proposal moved: a call this project did not make,
 // a call that refused, a call put under another question, and a proposal in the uncertain band all
 // write NOTHING and answer null. The act itself stands in every one of those cases.
 import { and, eq, modelCalls, recordModelOutcome, type ModelOutcome, type TenantTx } from "../db";
-import { MODEL_QUESTIONS } from "../model";
+import { MODEL_QUESTIONS, OUTLINE_QUESTION_ID } from "../model";
 import { corroborationOutcomeOf, corroborationReadingOf, type CorroborationAct } from "./law";
 
 /** How the ledger spells a call that answered — the only kind an outcome can judge (L-AI-02). */
@@ -43,7 +45,11 @@ export async function recordCorroborationOutcomeIn(tx: TenantTx, judgment: Corro
   // act judged nothing of: the person still acted, and the ledger is left saying what it said.
   if (call === undefined || call.outcome !== PROPOSED || call.question !== MODEL_QUESTIONS.outlineCorroboration) return null;
 
-  const outcome = corroborationOutcomeOf(corroborationReadingOf(call.judgment?.confidence ?? null), judgment.act);
+  // The one answer this question has, by the id its arm asked under — never a second spelling of it.
+  // A value that is not a number is no probability, and a call that recorded no judgment at all (a
+  // generative transport states none) holds none: both read as silence, and silence files nothing.
+  const answered = call.judgment?.answers[OUTLINE_QUESTION_ID]?.value ?? null;
+  const outcome = corroborationOutcomeOf(corroborationReadingOf(typeof answered === "number" ? answered : null), judgment.act);
   // The band: the model stated it could not tell, so the act files the proposal neither right nor
   // wrong — the calibration line this threshold is set from would be poisoned by either (`./law`).
   if (outcome === null) return null;

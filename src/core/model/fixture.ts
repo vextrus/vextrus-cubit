@@ -2,6 +2,13 @@
 // format every recorded answer is kept in (F-MODEL), and nothing else: an answer nobody recorded is
 // the FIXTURE_MISSING refusal, never a network call. A file that exists but is not a fixture is a
 // corpus defect — a plain failure, not a refusal and not a row (B-21).
+//
+// What a fixture holds of a judgment is the judgment the SEAM DERIVED, not the provider's raw body:
+// `./mint` files `answer.judgment`, which is already `./typesafe`'s reading of the response, and the
+// line below hands that record straight back. No recorded body survives anywhere. So a change to
+// how an answer is read — `answerJudgmentOf` — cannot be proved or disproved against this corpus,
+// and replay keeps serving the judgments as they were derived when they were minted: a fixture is
+// evidence of what the provider ANSWERED, never of how the seam reads an answer today.
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { RefusalCode } from "../errors";

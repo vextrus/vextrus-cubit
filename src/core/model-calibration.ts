@@ -10,6 +10,14 @@
 // confirmed or affirmed against the mean over the calls a person overruled or repudiated. A model
 // whose confidence is higher where it was right than where it was wrong is one a threshold can be
 // set on; one whose confidence does not separate the two is one no threshold should move for.
+//
+// Not every question HAS a confidence to average. A Noul states a probability and no confidence at
+// all (`./model/typesafe`), so a question asked as one is judged, counted and still has no figure
+// either mean can be taken over. `confidenceStated` is what keeps that from reading as silence: it
+// says how many judged calls stated a confidence, so a reader can tell a question nobody has judged
+// from a question whose answers state none. Nothing here invents a figure in its place — a mean of
+// the probabilities would be a different instrument, calibrating the band a caller bands ON rather
+// than the confidence a threshold is set from, and it is not this line's (L-AI-02).
 import { UNNAMED_QUESTION, type ModelOutcome } from "./db";
 
 /** How the ledger spells a call that answered. */
@@ -39,6 +47,12 @@ export type CalibrationLine = {
   readonly repudiated: number;
   readonly affirmed: number;
   readonly awaiting: number;
+  /**
+   * How many of the judged calls stated a confidence at all — the population both means are taken
+   * over. Zero beside a judged count above zero says this question's answers state no confidence (a
+   * Noul), which is a different fact from nobody having judged it yet.
+   */
+  readonly confidenceStated: number;
   /** Mean confidence over the calls a person confirmed or affirmed, spelled to three places, or null where none carried one. */
   readonly meanConfidenceWhenRight: string | null;
   /** Mean confidence over the calls a person overruled or repudiated, the same way. */
@@ -94,6 +108,7 @@ export function calibrationLinesOf(calls: readonly CalibrationCall[], outcomes: 
         repudiated: tally.counts.REPUDIATED,
         affirmed: tally.counts.AFFIRMED,
         awaiting: tally.proposed - judged,
+        confidenceStated: tally.right.length + tally.wrong.length,
         meanConfidenceWhenRight: meanOf(tally.right),
         meanConfidenceWhenWrong: meanOf(tally.wrong),
       };

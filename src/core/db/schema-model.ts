@@ -17,9 +17,16 @@ import { bigint, check, foreignKey, index, integer, json, numeric, pgTable, prim
 /**
  * One answer's judgment, as a System One model states it beside the answer (L-AI-01, AS-05 amendment
  * proposal): the primitive it was asked as, the value it answered, and how the probability stood
- * behind it. A Choice or a Score carries a `confidence` of its own; a Noul's probability IS its
- * judgment, so its `confidence` is that probability spelled once more, and a provider that states no
- * such figure leaves each null rather than inventing one.
+ * behind it.
+ *
+ * `value` is WHAT was answered — the criterion a Choice picked, the position a Score gave, the
+ * probability of yes a Noul states. `confidence` is the separate figure a Choice or a Score carries
+ * about how concentrated its own distribution was, and it is a statement about the model's certainty
+ * rather than about the proposition. A NOUL STATES NO CONFIDENCE AT ALL: its `confidence` is null
+ * and its probability lives in `value` and nowhere else, because the two are different quantities —
+ * a model certain the answer is no states a low probability with no want of certainty, and copying
+ * that figure into this field would record the opposite of what it said. A provider that states no
+ * such figure leaves each null rather than inventing one (L-AI-02).
  */
 export type AnswerJudgmentRecord = {
   readonly type: "choice" | "noul" | "score";
@@ -31,10 +38,11 @@ export type AnswerJudgmentRecord = {
 /**
  * What a model said about its own answer, kept beside the call it belongs to. `provider` is the
  * model as the provider REPORTED it — a versioned id under the alias the request pinned — and
- * `confidence` is the weakest of the answers', because a call whose one question was uncertain is
- * an uncertain call: it is the figure the per-question calibration line reads. Declared here rather
- * than in the model seam because the column is built from it and the seam takes its type from this
- * declaration (the `SheetReadingRecord` precedent), so the two cannot drift (B-17).
+ * `confidence` is the weakest of the answers that STATE one, because a call whose one question was
+ * uncertain is an uncertain call: it is the figure the per-question calibration line reads. A call
+ * of Nouls alone states none and carries null. Declared here rather than in the model seam because
+ * the column is built from it and the seam takes its type from this declaration (the
+ * `SheetReadingRecord` precedent), so the two cannot drift (B-17).
  */
 export type ModelJudgmentRecord = {
   readonly provider: string | null;

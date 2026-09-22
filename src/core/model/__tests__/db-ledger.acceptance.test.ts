@@ -191,6 +191,7 @@ describe("AC-6: the shipped ledger adapter writes the real table", () => {
         repudiated: 0,
         affirmed: 0,
         awaiting: 1,
+        confidenceStated: 2,
         meanConfidenceWhenRight: "0.820",
         meanConfidenceWhenWrong: "0.410",
       },

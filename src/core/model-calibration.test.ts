@@ -4,7 +4,9 @@
  * and from nothing else: one line per question, the newest outcome per call standing, refusals
  * counted beside proposals, the awaiting count what nobody has judged yet, and the two mean
  * confidences read over the calls a person confirmed or affirmed against the calls a person
- * overruled or repudiated. A mean over nothing is null, never 0.
+ * overruled or repudiated. A mean over nothing is null, never 0 — and `confidenceStated` says how
+ * many judged calls stated a confidence at all, so a question asked as a Noul, which states none,
+ * is counted and judged on the line rather than reading as a question nobody has judged.
  */
 import { describe, expect, it } from "vitest";
 import { UNNAMED_QUESTION } from "./db";
@@ -41,6 +43,7 @@ describe("calibrationLinesOf", () => {
         repudiated: 0,
         affirmed: 1,
         awaiting: 0,
+        confidenceStated: 1,
         meanConfidenceWhenRight: "0.700",
         meanConfidenceWhenWrong: null,
       },
@@ -53,6 +56,7 @@ describe("calibrationLinesOf", () => {
         repudiated: 0,
         affirmed: 0,
         awaiting: 1,
+        confidenceStated: 2,
         meanConfidenceWhenRight: "0.900",
         meanConfidenceWhenWrong: "0.600",
       },
@@ -82,6 +86,7 @@ describe("calibrationLinesOf", () => {
         repudiated: 0,
         affirmed: 0,
         awaiting: 1,
+        confidenceStated: 0,
         meanConfidenceWhenRight: null,
         meanConfidenceWhenWrong: null,
       },
@@ -90,5 +95,35 @@ describe("calibrationLinesOf", () => {
 
   it("answers no line at all over an empty ledger", () => {
     expect(calibrationLinesOf([], [])).toEqual([]);
+  });
+
+  it("tells a question whose answers state no confidence from a question nobody has judged", () => {
+    // A Noul states a probability and no confidence, so its call carries a judgment whose
+    // confidence is null — which is not the same fact as a call that recorded no judgment at all.
+    const noul = (callId: string): CalibrationCall => ({ callId, question: "outline-corroboration", outcome: "proposed", judgment: { confidence: null } });
+    const lines = calibrationLinesOf([noul("c1"), noul("c2"), call("c3", "view-caption", "proposed", 0.8)], [
+      { callId: "c1", outcome: "AFFIRMED" },
+      { callId: "c2", outcome: "OVERRULED" },
+    ]);
+    const [corroboration, caption] = lines;
+    expect(corroboration, "judged twice, and nothing either mean can be taken over").toMatchObject({
+      question: "outline-corroboration",
+      proposed: 2,
+      affirmed: 1,
+      overruled: 1,
+      awaiting: 0,
+      confidenceStated: 0,
+      meanConfidenceWhenRight: null,
+      meanConfidenceWhenWrong: null,
+    });
+    expect(caption, "a question nobody has judged reads the same two nulls, and its own count tells them apart").toMatchObject({
+      question: "view-caption",
+      proposed: 1,
+      awaiting: 1,
+      confidenceStated: 0,
+      meanConfidenceWhenRight: null,
+      meanConfidenceWhenWrong: null,
+    });
+    expect([corroboration?.affirmed, corroboration?.overruled], "the one that was judged says so in its counts").not.toEqual([caption?.affirmed, caption?.overruled]);
   });
 });

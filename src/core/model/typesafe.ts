@@ -129,8 +129,9 @@ function usageOf(body: unknown): { input_tokens?: unknown; output_tokens?: unkno
 /**
  * What Jev said about its answers, read as the API states it and never supplied where it stated
  * nothing: a `confidence` or `probabilities` that is not what the contract spells is null, not a
- * figure. The call's own confidence is the weakest answer's — one uncertain question makes an
- * uncertain call — and null where no answer carried one.
+ * figure. The call's own confidence is the weakest of the answers that STATE one — one uncertain
+ * question makes an uncertain call — and null where none does, which is the honest answer for a
+ * call of Nouls alone rather than a hole to fill (L-AI-02).
  */
 function judgmentOf(body: unknown, answers: Record<string, unknown>): ModelJudgment {
   const provider = (body as { model?: unknown }).model;
@@ -151,9 +152,15 @@ function answerJudgmentOf(answer: unknown): AnswerJudgment | null {
   const { type, choice, noul, score, confidence, probabilities } = answer as Record<string, unknown>;
   const primitive = type === "noul" ? "noul" : type === "score" ? "score" : "choice";
   const value = primitive === "choice" ? (typeof choice === "string" ? choice : null) : primitive === "noul" ? probability(noul) : probability(score);
-  // A Noul's probability is its whole judgment; the contract states no separate confidence for it.
-  const stated = primitive === "noul" ? value : probability(confidence);
-  return { type: primitive, value, confidence: typeof stated === "number" ? stated : null, probabilities: probabilitiesOf(probabilities) };
+  // A Noul states a probability and NO confidence — the contract is explicit that there is no
+  // separate `confidence` value for one, unlike a Choice or a Score — so it carries none here.
+  // Spelling its probability a second time in this field would put two quantities in one column and
+  // invert what the model said: a model CERTAIN the answer is no states a LOW probability, and read
+  // as a confidence that is a model that was unsure. The probability is not lost — it is the
+  // answer's `value`, which is where a caller reads it (L-AI-02: nothing is supplied where the
+  // provider supplied nothing).
+  const stated = primitive === "noul" ? null : probability(confidence);
+  return { type: primitive, value, confidence: stated, probabilities: probabilitiesOf(probabilities) };
 }
 
 /** A figure as a probability the contract could have stated: a finite number, or null. */

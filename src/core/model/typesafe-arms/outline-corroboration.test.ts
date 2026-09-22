@@ -114,10 +114,11 @@ describe("what comes back", () => {
     expect(answer.kind).toBe("answered");
     if (answer.kind !== "answered") return;
     expect(answer.payload).toEqual({ payload: { corroborates: 0.93 }, sources: [EVIDENCE.outlineKey, EVIDENCE.markKey] });
-    // A Noul's probability IS its whole judgment, so the ledger's confidence for this question is
-    // that probability — which is what the calibration line's two means are read over.
-    expect(answer.judgment?.answers[OUTLINE_QUESTION_ID]).toEqual({ type: "noul", value: 0.93, confidence: 0.93, probabilities: null });
-    expect(answer.judgment?.confidence).toBe(0.93);
+    // The probability is the answer's VALUE and the Noul states no confidence, so this question's
+    // call carries none: the band `../../outline-corroboration/law` applies is read off the value,
+    // and the calibration line's two means have nothing to average for it and say so.
+    expect(answer.judgment?.answers[OUTLINE_QUESTION_ID]).toEqual({ type: "noul", value: 0.93, confidence: null, probabilities: null });
+    expect(answer.judgment?.confidence, "a call of Nouls alone states no confidence at all").toBeNull();
   });
 
   test("nothing is supplied where Jev supplied nothing: a Noul that is no figure is null, and the reading is refused", async () => {
