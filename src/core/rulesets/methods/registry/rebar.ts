@@ -5,9 +5,10 @@
 // loader admits a JSON module only on that attribute.
 //
 // The shard records its five pairs as a LIST — one entry per method, each naming the file that
-// implements it — and this file keys them for the roster the registry enumerates. The list is the
-// record; the key is how a roster is read. Neither is a second spelling of the other: the entry is
-// carried through whole, so the manifest's digest and the roster's key move together (L-MEA-01).
+// implements it under `module`, the one spelling every shard uses for that path — and this file keys
+// them for the roster the registry enumerates. The list is the record; the key is how a roster is
+// read. Neither is a second spelling of the other: the entry is carried through whole, so the
+// manifest's digest and the roster's key move together (L-MEA-01).
 
 import rebarShard from "../rebar/rebar.methods.json" with { type: "json" };
 import { CUTTING_LENGTH_BS8666 } from "../rebar/bs8666";
@@ -37,7 +38,7 @@ export const MASS_METHOD: MethodPair = REBAR_MASS_METHOD;
 const RECORDED: MethodShard = Object.freeze({
   methods: Object.freeze(
     Object.fromEntries(
-      rebarShard.methods.map((entry) => [methodKey(entry), Object.freeze({ ruleId: entry.ruleId, version: entry.version, law: entry.law, module: entry.implementation })] as const),
+      rebarShard.methods.map((entry) => [methodKey(entry), Object.freeze({ ruleId: entry.ruleId, version: entry.version, law: entry.law, module: entry.module })] as const),
     ),
   ),
   digest: rebarShard.digest,

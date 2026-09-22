@@ -4,32 +4,56 @@
       "ruleId": "detailing.BNBC2020_BD",
       "version": "2026.07",
       "law": "L-FRM-05",
-      "implementation": "src/core/rulesets/methods/rebar/detailing-bnbc2020-bd.ts"
+      "module": "src/core/rulesets/methods/rebar/detailing-bnbc2020-bd.ts"
     },
     {
       "ruleId": "rcc.rebar.cutting_length",
       "version": "1",
       "law": "L-FRM-05",
-      "implementation": "src/core/rulesets/methods/rebar/bs8666.ts"
+      "module": "src/core/rulesets/methods/rebar/bs8666.ts"
     },
     {
       "ruleId": "rcc.rebar.stock",
       "version": "1",
       "law": "L-FRM-05",
-      "implementation": "src/core/rulesets/methods/rebar/stock.ts"
+      "module": "src/core/rulesets/methods/rebar/stock.ts"
     },
     {
       "ruleId": "rcc.rebar.synthesis",
       "version": "1",
       "law": "L-FRM-05",
-      "implementation": "src/core/rulesets/methods/rebar/synthesis.ts"
+      "module": "src/core/rulesets/methods/rebar/synthesis.ts"
     },
     {
       "ruleId": "rcc.rebar.mass",
       "version": "1",
       "law": "L-FRM-05",
-      "implementation": "src/core/rulesets/methods/rebar/mass.ts"
+      "module": "src/core/rulesets/methods/rebar/mass.ts"
     }
   ],
-  "digest": "74c856e0a71106290150c38f04563a4d0d0453ed5d2c2d6d4e928b91c7b03473"
+  "digest": "e22b5433454a8bf33f47de97c5bd94902b1664fc1aac438d7f26ff718ff32acb",
+  "sha256": {
+    "detailing.BNBC2020_BD@2026.07": {
+      "src/core/rulesets/methods/rebar/detailing-bnbc2020-bd.ts": "b51adc7835fc9ce259d24ccd66fdc9702ba72060284cc8fc08011fd2b1672468"
+    },
+    "rcc.rebar.cutting_length@1": {
+      "src/core/rulesets/methods/rebar/bs8666.ts": "079f0de55329f8e0dd658da59dde0c21af0bea7a0b4e84b213ab2f0c1afe9caa",
+      "src/core/rulesets/methods/rebar/detailing-bnbc2020-bd.ts": "b51adc7835fc9ce259d24ccd66fdc9702ba72060284cc8fc08011fd2b1672468"
+    },
+    "rcc.rebar.mass@1": {
+      "src/core/rulesets/methods/rebar/detailing-bnbc2020-bd.ts": "b51adc7835fc9ce259d24ccd66fdc9702ba72060284cc8fc08011fd2b1672468",
+      "src/core/rulesets/methods/rebar/mass.ts": "96a2da8e063de55fd6e32bf08aeba366265ab2a42ccb8c424ac5fff243a085b4"
+    },
+    "rcc.rebar.stock@1": {
+      "src/core/rulesets/methods/rebar/bs8666.ts": "079f0de55329f8e0dd658da59dde0c21af0bea7a0b4e84b213ab2f0c1afe9caa",
+      "src/core/rulesets/methods/rebar/detailing-bnbc2020-bd.ts": "b51adc7835fc9ce259d24ccd66fdc9702ba72060284cc8fc08011fd2b1672468",
+      "src/core/rulesets/methods/rebar/stock.ts": "ce007eee76a96f6a22932b610aab0596f2a787a2caab73bb0ba5d1b13c027b23"
+    },
+    "rcc.rebar.synthesis@1": {
+      "src/core/rulesets/methods/rebar/bs8666.ts": "079f0de55329f8e0dd658da59dde0c21af0bea7a0b4e84b213ab2f0c1afe9caa",
+      "src/core/rulesets/methods/rebar/detailing-bnbc2020-bd.ts": "b51adc7835fc9ce259d24ccd66fdc9702ba72060284cc8fc08011fd2b1672468",
+      "src/core/rulesets/methods/rebar/stock.ts": "ce007eee76a96f6a22932b610aab0596f2a787a2caab73bb0ba5d1b13c027b23",
+      "src/core/rulesets/methods/rebar/synthesis.ts": "5ad046f9287ad9e8968b37e8a681c64f622d4fdd0066ca093abad6cb0ed0ad2b"
+    }
+  }
 }

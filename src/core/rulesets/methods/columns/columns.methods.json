@@ -13,5 +13,13 @@
       "module": "src/core/rulesets/methods/columns/concrete.ts"
     }
   },
-  "digest": "a970ca0be95047c7115d20309aaddf455003ac367edb1a5ed52ad5333dc382cd"
+  "digest": "a970ca0be95047c7115d20309aaddf455003ac367edb1a5ed52ad5333dc382cd",
+  "sha256": {
+    "rcc.column.circular.concrete@1": {
+      "src/core/rulesets/methods/columns/concrete.ts": "e6d048ca773ec0000b65f2ebf71f900cc915162c46020dec19c351c04f1ef5bf"
+    },
+    "rcc.column.concrete@1": {
+      "src/core/rulesets/methods/columns/concrete.ts": "e6d048ca773ec0000b65f2ebf71f900cc915162c46020dec19c351c04f1ef5bf"
+    }
+  }
 }

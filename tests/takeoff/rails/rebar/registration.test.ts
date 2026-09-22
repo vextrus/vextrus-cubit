@@ -96,13 +96,13 @@ describe("AC-1: the rebar shard's methods, kind, rail, codes and table are regis
     }
 
     expect(existsSync(join(REPO_ROOT, REBAR_SHARD)), `${REBAR_SHARD} records the pairs this area declares (L-MEA-01: one file per method, hashed whole into a committed manifest)`).toBe(true);
-    const recorded = JSON.parse(readFileSync(join(REPO_ROOT, REBAR_SHARD), "utf8")) as { methods?: { ruleId: string; version: string; implementation?: string; law?: string }[]; digest?: string };
+    const recorded = JSON.parse(readFileSync(join(REPO_ROOT, REBAR_SHARD), "utf8")) as { methods?: { ruleId: string; version: string; module?: string; law?: string }[]; digest?: string };
     const methods = recorded.methods ?? [];
     expect(methods.map((method) => said(method)).sort(), `${REBAR_SHARD} records the shard's five pairs (L-MEA-01: one file per method, hashed whole into a committed manifest)`).toEqual(
       REBAR_PAIRS.map(said).sort(),
     );
     for (const method of methods) {
-      expect(String(method.implementation ?? ""), `${said(method)} names the file under ${REBAR_METHOD_DIR}/ that implements it`).toContain(REBAR_METHOD_DIR);
+      expect(String(method.module ?? ""), `${said(method)} names the file under ${REBAR_METHOD_DIR}/ that implements it, under \`module\` as every shard spells it`).toContain(REBAR_METHOD_DIR);
     }
     expect(typeof recorded.digest, `${REBAR_SHARD} records the digest \`${METHOD_HASHES_SCRIPT}\` keeps honest (L-MEA-01)`).toBe("string");
   });

@@ -73,5 +73,43 @@
       "module": "src/core/rulesets/methods/slab-wall-stair/stair.ts"
     }
   },
-  "digest": "8b5f4fadbe9683d72f2bcb9a091dbc2c9c971346be21af274ef1f3da477b2989"
+  "digest": "8b5f4fadbe9683d72f2bcb9a091dbc2c9c971346be21af274ef1f3da477b2989",
+  "sha256": {
+    "rcc.slab.concrete@1": {
+      "src/core/rulesets/methods/slab-wall-stair/slab.ts": "a9477c934907f6c7653e990908aa747b5a807415859c0bfbd97d4743f5979414"
+    },
+    "rcc.slab.drop.concrete@1": {
+      "src/core/rulesets/methods/slab-wall-stair/slab.ts": "a9477c934907f6c7653e990908aa747b5a807415859c0bfbd97d4743f5979414"
+    },
+    "rcc.slab.drop.formwork@1": {
+      "src/core/rulesets/methods/slab-wall-stair/slab.ts": "a9477c934907f6c7653e990908aa747b5a807415859c0bfbd97d4743f5979414"
+    },
+    "rcc.slab.edge-formwork@1": {
+      "src/core/rulesets/methods/slab-wall-stair/slab.ts": "a9477c934907f6c7653e990908aa747b5a807415859c0bfbd97d4743f5979414"
+    },
+    "rcc.slab.formwork@1": {
+      "src/core/rulesets/methods/slab-wall-stair/slab.ts": "a9477c934907f6c7653e990908aa747b5a807415859c0bfbd97d4743f5979414"
+    },
+    "rcc.slab.taper.concrete@1": {
+      "src/core/rulesets/methods/slab-wall-stair/slab.ts": "a9477c934907f6c7653e990908aa747b5a807415859c0bfbd97d4743f5979414"
+    },
+    "rcc.stair.flight.concrete@1": {
+      "src/core/rulesets/methods/slab-wall-stair/stair.ts": "5a756ec031c6a00bc165dadf98e3360ad57a93eb900dd2e709a3ac26c7f48a68"
+    },
+    "rcc.stair.flight.formwork@1": {
+      "src/core/rulesets/methods/slab-wall-stair/stair.ts": "5a756ec031c6a00bc165dadf98e3360ad57a93eb900dd2e709a3ac26c7f48a68"
+    },
+    "rcc.stair.landing.concrete@1": {
+      "src/core/rulesets/methods/slab-wall-stair/stair.ts": "5a756ec031c6a00bc165dadf98e3360ad57a93eb900dd2e709a3ac26c7f48a68"
+    },
+    "rcc.stair.landing.formwork@1": {
+      "src/core/rulesets/methods/slab-wall-stair/stair.ts": "5a756ec031c6a00bc165dadf98e3360ad57a93eb900dd2e709a3ac26c7f48a68"
+    },
+    "rcc.wall.concrete@1": {
+      "src/core/rulesets/methods/slab-wall-stair/wall.ts": "6d237bdb3c5305efe495892a83578cabb00b5990378e62683b7801faf3f573cb"
+    },
+    "rcc.wall.formwork@1": {
+      "src/core/rulesets/methods/slab-wall-stair/wall.ts": "6d237bdb3c5305efe495892a83578cabb00b5990378e62683b7801faf3f573cb"
+    }
+  }
 }

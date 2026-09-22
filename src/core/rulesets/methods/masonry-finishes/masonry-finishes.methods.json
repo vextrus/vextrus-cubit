@@ -19,5 +19,18 @@
       "module": "src/core/rulesets/methods/masonry-finishes/paint.ts"
     }
   },
-  "digest": "681397f7569065d8df1a23bc6b359253aab92380ff4ad43f0173b4db982e19bb"
+  "digest": "681397f7569065d8df1a23bc6b359253aab92380ff4ad43f0173b4db982e19bb",
+  "sha256": {
+    "finish.surface.paint@1": {
+      "src/core/rulesets/methods/masonry-finishes/face.ts": "8d54bf7d38c854f94986c7e0f6d358b9a0f9918bb0487c4fad6b33c91ed8abe9",
+      "src/core/rulesets/methods/masonry-finishes/paint.ts": "8b2e38cf86f36c5c707c36f39e742eace70633facb160b8c1e838edaab23f395"
+    },
+    "finish.surface.plaster@1": {
+      "src/core/rulesets/methods/masonry-finishes/face.ts": "8d54bf7d38c854f94986c7e0f6d358b9a0f9918bb0487c4fad6b33c91ed8abe9",
+      "src/core/rulesets/methods/masonry-finishes/plaster.ts": "15a5e7b59be029a6754e890faf7b68f34cc8a5d520921b33fce8d9f2cc14a357"
+    },
+    "masonry.brick_wall.volume@1": {
+      "src/core/rulesets/methods/masonry-finishes/brick-wall.ts": "41e978361de28b49fcdb15bce2ca63ac996e3ac772f587c6a6174fe30cd89435"
+    }
+  }
 }
