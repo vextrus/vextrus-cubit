@@ -30,7 +30,7 @@ export type { PlacementShares } from "./placement/shares";
 // CHECK and this door's answer read ONE roster, for the reason the schedule list above does (Q-07).
 export { EXPANSION_DEFERRAL_REASONS } from "@/core/errors";
 export type { ExpansionDeferralReason } from "@/core/db";
-export type { MemberFamily, MemberVariant, MemberZone } from "./schedules/registry";
+export type { MemberDimension, MemberFamily, MemberVariant, MemberZone } from "./schedules/registry";
 export type { ScheduleCell, ScheduleDeferralRow, ScheduleTable } from "./schedules/reconstruct";
 // The closed list a schedule view defers under, published where its readers already look: it is the
 // store's CHECK and this door's answer read off ONE roster, which is why it is the seam's (Q-07).

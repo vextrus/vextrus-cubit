@@ -20,7 +20,7 @@ import type { DetailingSetup, LevelSetup, Measure, MemberVariantSetup, Placement
 import { affirmationsOfRecord } from "@/core/scale/store";
 import { viewAddressOf, viewRecordsOf } from "@/core/views";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
-import { memberTypesOf, placementsOf, runsOf, type SideReading } from "@/modules/takeoff/partition";
+import { memberTypesOf, placementsOf, runsOf, type MemberDimension, type MemberVariant, type SideReading } from "@/modules/takeoff/partition";
 // The notation grammar registers its storey reading with core's band placement at load (`sameStorey`,
 // `useStoreyEquivalence`): the rails place a schedule's band ("3RD & 4TH") on the stack ("3F") through
 // it, and a measure run that never loaded the grammar would place by letters alone. Loaded here, where
@@ -84,6 +84,56 @@ export function readingSetupOf(reading: SideReading | null): ReadingSetup | null
   const source = reading === null ? undefined : reading.sourceKeys[0];
   if (reading === null || source === undefined || source.length === 0) return null;
   return { value: reading.value, unit: reading.unit, basis: reading.basis, source };
+}
+
+/**
+ * One stored member-type variant as a rail is handed it — the ONE mapping from the registry's store
+ * to the setup, exported so a proof of what a rail binds reads the same mapping `railSetupOf` does
+ * (B-17). Nothing is converted: every reading is carried as the schedule wrote it.
+ */
+export function memberVariantSetupOf(variant: MemberVariant): MemberVariantSetup {
+  return {
+    variantKey: variant.variantKey,
+    bandFrom: variant.bandFrom,
+    bandTo: variant.bandTo,
+    sectionText: variant.sectionText,
+    sectionWidth: variant.sectionWidth,
+    sectionDepth: variant.sectionDepth,
+    sectionUnit: variant.sectionUnit,
+    sourceKeys: variant.sourceKeys,
+    // What the family's own schedule states beside its section — a pile's diameter and its length
+    // (I-315, AM-06 §2) — each carried as it was written, in the unit it was written in, and cited
+    // to the cell it was read at. A dimension no schedule stated is simply absent, and the rail keeps
+    // its row and names the reading it did not get (L-QTY-02).
+    dimensions: dimensionsSetupOf(variant.dimensions ?? []),
+    // The reinforcement zones the schedule stated, carried across as they were read: a zone that
+    // states a spacing and no length is handed on WITH that absence, because what a rail makes of it
+    // is the rail's (L-QTY-01, L-FRM-05).
+    rebar: variant.zones.map((zone) => ({
+      zone: zone.zone,
+      bars: zone.bars,
+      spacing: zone.spacing,
+      spacingUnit: zone.spacingUnit,
+      spacingBar: zone.spacingBar,
+      sourceKeys: zone.sourceKeys,
+    })),
+  };
+}
+
+/**
+ * A variant's stored dimensions as a rail binds them, keyed by the name the method declares
+ * (I-315). The figure is TRANSCRIBED — read off a schedule cell — and cites the FIRST entity it was
+ * read from, as every other reading of this setup does (`readingSetupOf`); one that cites nothing
+ * is carried as silence, never as a figure nothing answers for (L-QTY-03).
+ */
+export function dimensionsSetupOf(dimensions: readonly MemberDimension[]): Record<string, Measure> {
+  const held: Record<string, Measure> = {};
+  for (const dimension of dimensions) {
+    const source = dimension.sourceKeys[0];
+    if (source === undefined || source.length === 0) continue;
+    held[dimension.dimension] = { value: String(dimension.value), unit: dimension.unit, basis: "TRANSCRIBED", source };
+  }
+  return held;
 }
 
 /** The drawings the pinned revision names, in the order its manifest addresses them (L-REG-06). */
@@ -202,33 +252,7 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     const registered = await memberTypesOf(viewsScope);
     if (registered !== null) {
       const families: Record<string, readonly MemberVariantSetup[]> = memberTypes[registered.ingestId] ?? {};
-      for (const family of registered.families) {
-        families[family.family] = family.variants.map((variant) => ({
-          variantKey: variant.variantKey,
-          bandFrom: variant.bandFrom,
-          bandTo: variant.bandTo,
-          sectionText: variant.sectionText,
-          sectionWidth: variant.sectionWidth,
-          sectionDepth: variant.sectionDepth,
-          sectionUnit: variant.sectionUnit,
-          sourceKeys: variant.sourceKeys,
-          // A seam, empty until the schedule-dimension reader lands: a family's depth, diameter,
-          // length and founding level are columns of its own schedule, and until one is read the
-          // rails keep the row and name the reading they did not get (L-QTY-02, riskNotes).
-          dimensions: {},
-          // The reinforcement zones the schedule stated, carried across as they were read: a zone
-          // that states a spacing and no length is handed on WITH that absence, because what a rail
-          // makes of it is the rail's (L-QTY-01, L-FRM-05).
-          rebar: variant.zones.map((zone) => ({
-            zone: zone.zone,
-            bars: zone.bars,
-            spacing: zone.spacing,
-            spacingUnit: zone.spacingUnit,
-            spacingBar: zone.spacingBar,
-            sourceKeys: zone.sourceKeys,
-          })),
-        }));
-      }
+      for (const family of registered.families) families[family.family] = family.variants.map(memberVariantSetupOf);
       memberTypes[registered.ingestId] = families;
     }
 

@@ -18,10 +18,34 @@
 // member, and a table none of whose rows names one contributes nothing rather than a guess (L-QTY-04).
 //
 // Pure over the tables: no store, no clock, no model (L-REG-04).
-import type { RebarZone, SectionUnit } from "@/core/db";
+import type { ElementType } from "@/core/catalogue/classes";
+import type { RebarZone, ScheduleDimension, SectionUnit } from "@/core/db";
 import { REFUSALS } from "@/core/errors";
 import type { ConventionProfile, DeclaredDimensionUnit } from "@/core/rulesets/methods/conventions/resolve";
-import { REBAR_ZONE, cellParts, isMarkFamily, isMarkHeader, normaliseMark, normaliseNotation, parseFloorZone, parseRebarGroups, parseSizePair, parseSpacing, parseZonedSpacing, rebarZoneOfHeader, sectionUnitOfHeader, type FloorBand, type RebarGroup, type SizePair } from "../notation";
+import {
+  DIMENSION,
+  REBAR_ZONE,
+  cellParts,
+  dimensionOfHeader,
+  isMarkFamily,
+  isMarkHeader,
+  isPlacedNumberHeader,
+  normaliseMark,
+  normaliseNotation,
+  parseFigure,
+  parseFloorZone,
+  parseRebarGroups,
+  parseSizePair,
+  parseSpacing,
+  parseWholeNumber,
+  parseZonedSpacing,
+  rebarZoneOfHeader,
+  sectionUnitOfHeader,
+  type FloorBand,
+  type RebarGroup,
+  type SizePair,
+} from "../notation";
+import { classOfFamily, classOfPrefix } from "../placement/law";
 import type { ScheduleCell, ScheduleDeferralRow, ScheduleTable } from "./reconstruct";
 
 /** The rebar one zone column states for one row: the cell verbatim, and what it reads as. */
@@ -32,6 +56,19 @@ export type MemberZone = {
   readonly spacing: number | null;
   readonly spacingUnit: SectionUnit | null;
   readonly spacingBar: number | null;
+  readonly sourceKeys: string[];
+};
+
+/**
+ * One dimension a row states BESIDE its section (Interpretation I-315): which of the roster it is,
+ * the cell verbatim, the figure that cell reads as, the unit it was written in, and the cells — and,
+ * where it answered, the declaration — it was read from (L-QTY-03).
+ */
+export type MemberDimension = {
+  readonly dimension: ScheduleDimension;
+  readonly text: string;
+  readonly value: number;
+  readonly unit: SectionUnit;
   readonly sourceKeys: string[];
 };
 
@@ -47,7 +84,21 @@ export type MemberVariant = {
   readonly sectionUnit: SectionUnit | null;
   readonly sourceKeys: string[];
   readonly zones: MemberZone[];
+  /**
+   * The dimensions the row states beside the section — a pile's diameter and its length — present
+   * only where the row states one its class is read for (I-315). Absent rather than empty, so a
+   * registry of a drawing that states none is the registry it always was.
+   */
+  readonly dimensions?: MemberDimension[];
 };
+
+/**
+ * What a BARE-PREFIX row's `NOS` cell states: the number of its members the row says the plans hold
+ * (I-314). CORROBORATION, and nothing else: placement checks the plans against it before the prefix
+ * may name a family for the numbered members it places, and it is never stored and never billed —
+ * the count is placement's answer off the layout plans (R-TO-031, T-SCHED-NORULES).
+ */
+export type PlacedNumber = { readonly placed: number; readonly text: string; readonly sourceKeys: string[] };
 
 /** One mark family of one schedule, with the variants and the rebar beneath it. */
 export type MemberFamily = {
@@ -58,6 +109,8 @@ export type MemberFamily = {
   readonly rowIndex: number;
   readonly sourceKeys: string[];
   readonly variants: MemberVariant[];
+  /** A bare-prefix row's `NOS` cell, where it states one (I-314) — absent on every other family. */
+  readonly corroboration?: PlacedNumber;
 };
 
 /** What the registry made of the tables: the families, and the views that contributed none. */
@@ -129,7 +182,12 @@ function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null
 
   for (const [rowIndex, row] of rows) {
     const markCell = row.get(mark.index);
-    if (markCell === undefined || !isMarkFamily(markCell.text)) continue;
+    if (markCell === undefined) continue;
+    // A bare class prefix — `P` over a plan that numbers its piles `P1`…`P89` — names the TYPE of
+    // those members, so it is a family too (I-314). Whether it may name any of them is placement's
+    // question, asked against the plans; here it is only read.
+    const bare = !isMarkFamily(markCell.text) && classOfPrefix(markCell.text) !== null;
+    if (!isMarkFamily(markCell.text) && !bare) continue;
     const family = normaliseMark(markCell.text);
     // One row per mark family: a mark drawn twice in one schedule is one member type, read from the
     // first row that names it (riskNotes (3)).
@@ -137,17 +195,72 @@ function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null
     minted.add(family);
 
     const zones = zonesOf(columns, row);
+    const variants = variantsOf(columns, row, zones, stated, banded, markCell, declared);
+    // The row's dimensions are the ROW's, as its rebar columns are: every variant carries them.
+    const dimensions = dimensionsOf(columns, row, family, declared);
+    const corroboration = bare ? placedNumberOf(columns, row) : undefined;
     families.push({
       scheduleKey: table.scheduleKey,
       family,
       markText: markCell.text,
       rowIndex,
       sourceKeys: [...markCell.sourceKeys],
-      variants: variantsOf(columns, row, zones, stated, banded, markCell, declared),
+      variants: dimensions.length === 0 ? variants : variants.map((variant) => ({ ...variant, dimensions: dimensions.map((one) => ({ ...one, sourceKeys: [...one.sourceKeys] })) })),
+      ...(corroboration === undefined ? {} : { corroboration }),
     });
   }
 
   return families;
+}
+
+/**
+ * The dimensions a family's class is read for (I-315): the names its methods bind a figure of the
+ * schedule by. A pile is bored to a diameter and a length (AM-06 §2), so those two are read for it.
+ *
+ * Read PER CLASS, never off any column that happens to be headed so, because the same head states
+ * different things of different tables: F-RCC6-BNBC's BAR BENDING SCHEDULE heads a column `DIA` over
+ * the diameter of a BAR, and the member it files that bar under is a pile cap — whose diameter no
+ * method asks for. A foundation's DEPTH is not read yet: its plan must be the outline's before its
+ * depth is the schedule's, or F-RCC6-BNBC's pile caps would bill a schedule rectangle as their
+ * volume (FND-2), and F-RCC6's FOOTING SCHEDULE would start billing on a fixture byte-frozen at v1.1.
+ */
+const DIMENSIONS_READ: Readonly<Partial<Record<ElementType, readonly ScheduleDimension[]>>> = Object.freeze({
+  pile: Object.freeze([DIMENSION.dia, DIMENSION.length]),
+});
+
+/**
+ * The dimensions one row states for its family, in the order its columns stand: each read from the
+ * column whose head names it (`dimensionOfHeader`), as a figure (`parseFigure`), in the unit the cell
+ * wrote, else the unit its head states, else the unit the drawing declares (I-302) — the same three
+ * statements, nearest first, a section's unit is read from (`unitOf`). A cell with no figure, and a
+ * figure nobody gave a unit to, is no dimension: the rail keeps its row and names what is missing
+ * (L-QTY-02).
+ */
+function dimensionsOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>, family: string, declared: DeclaredDimensionUnit | null): MemberDimension[] {
+  const type = classOfFamily(family);
+  const admitted = type === null ? [] : (DIMENSIONS_READ[type] ?? []);
+  const read: MemberDimension[] = [];
+  if (admitted.length === 0) return read;
+  for (const column of columns) {
+    if (column.role.kind !== "none") continue;
+    const dimension = dimensionOfHeader(column.header);
+    if (dimension === null || !admitted.includes(dimension) || read.some((one) => one.dimension === dimension)) continue;
+    const cell = row.get(column.index);
+    const figure = cell === undefined ? null : parseFigure(cell.text);
+    if (cell === undefined || figure === null || !(figure.value > 0)) continue;
+    const measured = unitOf(figure, column.header, declared);
+    if (measured.unit === null) continue;
+    read.push({ dimension, text: cell.text, value: figure.value, unit: measured.unit, sourceKeys: [...cell.sourceKeys, ...measured.cited] });
+  }
+  return read;
+}
+
+/** The number a bare-prefix row's `NOS` cell states, where it states one (I-314) — corroboration only. */
+function placedNumberOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>): PlacedNumber | undefined {
+  const column = columns.find((one) => one.role.kind === "none" && isPlacedNumberHeader(one.header));
+  const cell = column === undefined ? undefined : row.get(column.index);
+  const placed = cell === undefined ? null : parseWholeNumber(cell.text);
+  return cell === undefined || placed === null ? undefined : { placed, text: cell.text, sourceKeys: [...cell.sourceKeys] };
 }
 
 /** What each header column of a table says, and what its column reads as. */
@@ -296,7 +409,8 @@ function variantsOf(
 }
 
 /**
- * The unit one section is measured in, and what that reading CITES (R-TO-031, I-302).
+ * The unit one section — or one dimension beside it (I-315) — is measured in, and what that reading
+ * CITES (R-TO-031, I-302).
  *
  * Three statements, nearest first. The cell's own mark is the nearest — `12"x24"` is in inches
  * wherever it stands, which is what F-RCC6-BNBC's T-NOT-SIZE-IN turns on and what the drawing's own
@@ -309,7 +423,7 @@ function variantsOf(
  * not read off S-01, and citing S-01 there would put evidence under a figure it took no part in
  * (L-QTY-03).
  */
-function unitOf(section: SizePair | null, unitHeader: string, declared: DeclaredDimensionUnit | null): { unit: SectionUnit | null; cited: readonly string[] } {
+function unitOf(section: Pick<SizePair, "unit"> | null, unitHeader: string, declared: DeclaredDimensionUnit | null): { unit: SectionUnit | null; cited: readonly string[] } {
   if (section === null) return { unit: null, cited: [] };
   const nearer = section.unit ?? sectionUnitOfHeader(unitHeader);
   if (nearer !== null) return { unit: nearer, cited: [] };

@@ -6,8 +6,8 @@
 // with the views they were read off — a run that fails leaves the schedules that stood before it
 // rather than half of a new set (L-REG-04, R-TO-030). That is why this file takes a transaction
 // rather than opening a handle.
-import { and, eq, forTenant, memberTypeVariants, memberTypes, rebarZones, scheduleCells, scheduleDeferrals, schedules, type TenantTx } from "@/core/db";
-import type { MemberFamily } from "./registry";
+import { and, eq, forTenant, memberTypeDimensions, memberTypeVariants, memberTypes, rebarZones, scheduleCells, scheduleDeferrals, schedules, type TenantTx } from "@/core/db";
+import type { MemberDimension, MemberFamily } from "./registry";
 import type { ScheduleCell, ScheduleDeferralRow, ScheduleTable } from "./reconstruct";
 
 /** What the schedules stage derived: the views it examined, and what it read in them. */
@@ -50,11 +50,11 @@ export type ScheduleWrite = {
   readonly schedules: DetectedSchedules | null;
 };
 
-/** The six tables of this stage, as one type — every one of them scoped and rewritten together. */
-type ScheduleTableOf = typeof schedules | typeof scheduleCells | typeof memberTypes | typeof memberTypeVariants | typeof rebarZones | typeof scheduleDeferrals;
+/** The seven tables of this stage, as one type — every one of them scoped and rewritten together. */
+type ScheduleTableOf = typeof schedules | typeof scheduleCells | typeof memberTypes | typeof memberTypeVariants | typeof memberTypeDimensions | typeof rebarZones | typeof scheduleDeferrals;
 
 /**
- * Rewrite one record's schedule rows inside the partition's transaction. All six tables are cleared
+ * Rewrite one record's schedule rows inside the partition's transaction. All seven tables are cleared
  * first, so a rebuild that now reads fewer tables — or a deferral where a table stood — leaves
  * exactly what it derived and nothing of what it replaced.
  */
@@ -64,6 +64,7 @@ export async function rewriteScheduleRows(tx: TenantTx, write: ScheduleWrite): P
   // Cleared beneath first: nothing ever stands for a moment as a variant of a family the store no
   // longer holds.
   await tx.delete(rebarZones).where(ofRecord(rebarZones));
+  await tx.delete(memberTypeDimensions).where(ofRecord(memberTypeDimensions));
   await tx.delete(memberTypeVariants).where(ofRecord(memberTypeVariants));
   await tx.delete(memberTypes).where(ofRecord(memberTypes));
   await tx.delete(scheduleCells).where(ofRecord(scheduleCells));
@@ -105,6 +106,26 @@ export async function rewriteScheduleRows(tx: TenantTx, write: ScheduleWrite): P
     })),
   );
   if (variants.length > 0) await tx.insert(memberTypeVariants).values(variants);
+
+  // What a row states beside its section (I-315). A bare-prefix row's `NOS` cell is NOT among them:
+  // it is corroboration placement read, and a stored count is the question a schedule was never
+  // asked (R-TO-031, T-SCHED-NORULES).
+  const dimensions = families.flatMap((family) =>
+    family.variants.flatMap((variant) =>
+      (variant.dimensions ?? []).map((dimension) => ({
+        ...stamp,
+        scheduleKey: family.scheduleKey,
+        family: family.family,
+        variantKey: variant.variantKey,
+        dimension: dimension.dimension,
+        text: dimension.text,
+        value: dimension.value,
+        unit: dimension.unit,
+        sourceKeys: dimension.sourceKeys,
+      })),
+    ),
+  );
+  if (dimensions.length > 0) await tx.insert(memberTypeDimensions).values(dimensions);
 
   const zones = families.flatMap((family) =>
     family.variants.flatMap((variant) =>
@@ -208,6 +229,21 @@ export async function storedMemberTypesIn(tx: TenantTx, tenantId: string, ingest
     .where(and(eq(memberTypeVariants.tenantId, tenantId), eq(memberTypeVariants.ingestId, ingestId)))
     .orderBy(memberTypeVariants.scheduleKey, memberTypeVariants.family, memberTypeVariants.variantKey);
 
+  const dimensions = await tx
+    .select({
+      scheduleKey: memberTypeDimensions.scheduleKey,
+      family: memberTypeDimensions.family,
+      variantKey: memberTypeDimensions.variantKey,
+      dimension: memberTypeDimensions.dimension,
+      text: memberTypeDimensions.text,
+      value: memberTypeDimensions.value,
+      unit: memberTypeDimensions.unit,
+      sourceKeys: memberTypeDimensions.sourceKeys,
+    })
+    .from(memberTypeDimensions)
+    .where(and(eq(memberTypeDimensions.tenantId, tenantId), eq(memberTypeDimensions.ingestId, ingestId)))
+    .orderBy(memberTypeDimensions.scheduleKey, memberTypeDimensions.family, memberTypeDimensions.variantKey, memberTypeDimensions.dimension);
+
   const zones = await tx
     .select({
       scheduleKey: rebarZones.scheduleKey,
@@ -231,28 +267,35 @@ export async function storedMemberTypesIn(tx: TenantTx, tenantId: string, ingest
       ...family,
       variants: variants
         .filter((variant) => variant.scheduleKey === family.scheduleKey && variant.family === family.family)
-        .map((variant) => ({
-          variantKey: variant.variantKey,
-          bandText: variant.bandText,
-          bandFrom: variant.bandFrom,
-          bandTo: variant.bandTo,
-          sectionText: variant.sectionText,
-          sectionWidth: variant.sectionWidth,
-          sectionDepth: variant.sectionDepth,
-          sectionUnit: variant.sectionUnit,
-          sourceKeys: variant.sourceKeys,
-          zones: zones
-            .filter((zone) => zone.scheduleKey === family.scheduleKey && zone.family === family.family && zone.variantKey === variant.variantKey)
-            .map((zone) => ({
-              zone: zone.zone,
-              text: zone.text,
-              bars: zone.bars === null ? null : [...zone.bars],
-              spacing: zone.spacing,
-              spacingUnit: zone.spacingUnit,
-              spacingBar: zone.spacingBar,
-              sourceKeys: zone.sourceKeys,
-            })),
-        })),
+        .map((variant) => {
+          // Absent rather than empty where the row stated none — the registry's own shape (I-315).
+          const stated: MemberDimension[] = dimensions
+            .filter((one) => one.scheduleKey === family.scheduleKey && one.family === family.family && one.variantKey === variant.variantKey)
+            .map((one) => ({ dimension: one.dimension, text: one.text, value: one.value, unit: one.unit, sourceKeys: one.sourceKeys }));
+          return {
+            variantKey: variant.variantKey,
+            bandText: variant.bandText,
+            bandFrom: variant.bandFrom,
+            bandTo: variant.bandTo,
+            sectionText: variant.sectionText,
+            sectionWidth: variant.sectionWidth,
+            sectionDepth: variant.sectionDepth,
+            sectionUnit: variant.sectionUnit,
+            sourceKeys: variant.sourceKeys,
+            ...(stated.length === 0 ? {} : { dimensions: stated }),
+            zones: zones
+              .filter((zone) => zone.scheduleKey === family.scheduleKey && zone.family === family.family && zone.variantKey === variant.variantKey)
+              .map((zone) => ({
+                zone: zone.zone,
+                text: zone.text,
+                bars: zone.bars === null ? null : [...zone.bars],
+                spacing: zone.spacing,
+                spacingUnit: zone.spacingUnit,
+                spacingBar: zone.spacingBar,
+                sourceKeys: zone.sourceKeys,
+              })),
+          };
+        }),
     })),
   };
 }

@@ -14,7 +14,7 @@
 // a record KEYED BY the roster's own type, so a member the seam does not hold does not compile and a
 // member it holds that this file omits does not compile either: the roster keeps its one home in the
 // seam, and this module publishes it for the callers that read a zone off a header (ARCH-01).
-import type { RebarZone, SectionUnit } from "@/core/db";
+import type { RebarZone, ScheduleDimension, SectionUnit } from "@/core/db";
 import { normaliseNotation } from "@/core/entitygraph/notation";
 import { dotlessUpper } from "@/core/identity";
 import { useStoreyEquivalence } from "@/core/offers/contract";
@@ -42,6 +42,12 @@ export const REBAR_ZONES: readonly RebarZone[] = Object.freeze(Object.values(REB
 
 /** The two units a drawing states a section or a spacing in, named the same way. */
 const UNIT: Readonly<Record<SectionUnit, SectionUnit>> = Object.freeze({ in: "in", mm: "mm" });
+
+/**
+ * The four dimensions a schedule states beside a section, named the same way: a record keyed by the
+ * seam's own roster, so the store's CHECK, this grammar and the rails spell one list (B-17).
+ */
+export const DIMENSION: Readonly<Record<ScheduleDimension, ScheduleDimension>> = Object.freeze({ depth: "depth", dia: "dia", length: "length", top: "top" });
 
 /** A section as a drawing writes one: width by depth, in the unit it stated or in none at all. */
 export type SizePair = { readonly width: number; readonly depth: number; readonly unit: SectionUnit | null };
@@ -202,6 +208,69 @@ export function sectionUnitOfHeader(header: string): SectionUnit | null {
     if (held !== undefined) return held[1];
   }
   return null;
+}
+
+/**
+ * The words a column head names a dimension by. `TOP` is not one of them: a beam schedule heads its
+ * top BARS `TOP`, and a head that reads as a level on one sheet and as steel on the next names
+ * neither until a drawing says which (L-QTY-01: never a guess).
+ */
+const DIMENSION_WORDS: readonly (readonly [string, ScheduleDimension])[] = Object.freeze([
+  ["DIA", DIMENSION.dia],
+  ["DIAMETER", DIMENSION.dia],
+  ["LENGTH", DIMENSION.length],
+  ["DEPTH", DIMENSION.depth],
+] as const);
+
+/**
+ * The dimension a column head names — `DIA (mm)`, `LENGTH (mm)` — or null where it names none
+ * (R-TO-032, AM-06 §2: "pile length comes from the pile schedule").
+ *
+ * The head is read WHOLE: once the unit it states is set aside, exactly one word must remain and it
+ * must be one of the words above. A bar-bending schedule's `CUT LENGTH` is the length of a BAR, and
+ * a head that names a member's length and something else besides is a head this grammar cannot say
+ * which of the two it measures — so both answer null, and nothing is read under them.
+ */
+export function dimensionOfHeader(header: string): ScheduleDimension | null {
+  const words = wordsOf(spelled(header)).filter((word) => !HEADER_UNITS.some((unit) => unit[0] === word));
+  const only = words.length === 1 ? words[0] : undefined;
+  return DIMENSION_WORDS.find((candidate) => candidate[0] === only)?.[1] ?? null;
+}
+
+/**
+ * One figure a cell states — `500`, `21336`, `4'-3"`, `1295 MM` — in the unit the cell wrote, or in
+ * none: a bare number is a number until its column head or the drawing's declaration says what it
+ * measures (L-MEA-01). The same reading a SIDE of a section is read by, so a figure is read one way
+ * wherever it stands (B-17).
+ */
+export function parseFigure(text: string): { readonly value: number; readonly unit: SectionUnit | null } | null {
+  return sideOf(text);
+}
+
+/** The one head word a schedule states the plans' number of its member under. */
+const PLACED_NUMBER_WORD = "NOS";
+
+/**
+ * Does this head stand over a column stating how many of the row's member the plans hold — `NOS`?
+ * Read WHOLE, like a dimension's head: `NOS PER LEVEL` states something else again, and a `NO.`
+ * alone heads a serial number as often as a count.
+ *
+ * What such a column states is CORROBORATION and never a count: how many members stand is read off
+ * the layout plans (R-TO-031, T-SCHED-NORULES), and the registry keeps this figure only to check the
+ * plans against it — it is stored nowhere and bills nothing.
+ */
+export function isPlacedNumberHeader(header: string): boolean {
+  const words = wordsOf(spelled(header));
+  return words.length === 1 && words[0] === PLACED_NUMBER_WORD;
+}
+
+/** A cell stating a whole number and nothing else. */
+const WHOLE_NUMBER = /^\s*(\d+)\s*$/;
+
+/** The whole number a cell states, or null where it states anything else. */
+export function parseWholeNumber(text: string): number | null {
+  const match = WHOLE_NUMBER.exec(normaliseNotation(text));
+  return match === null ? null : Number(match[1]);
 }
 
 /** What separates the count of a rebar group from the diameter of its bars. Never nothing: a bare

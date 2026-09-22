@@ -130,3 +130,83 @@ describe("L-CAD-08: a schedule's texts beyond every column", () => {
     ).toEqual(["REV B", "(TYP)"]);
   });
 });
+
+/* ------------------------------------------------------------------ I-313: a caption on the paper */
+
+/**
+ * A sheet that titles a schedule's window on its PAPER, beneath the frame — F-RCC6-BNBC's PILE
+ * SCHEDULE is drawn that way: the caption `PILE SCHEDULE  SCALE 1:50` stands on S-05's paper under
+ * the viewport, and model space holds only a note, the header band and the rows, ABOVE any caption.
+ * The partition assigns no paper text to a view (L-CAD-06), so the view's anchor is none of its own
+ * texts. Drawn here at the pile schedule's own spacing (header 700 above the row), never read out of
+ * the fixture (B-19).
+ */
+const MODEL = "Model";
+const PAPER = "S-05";
+const LAYOUTS = [
+  { name: MODEL, kind: "model" },
+  { name: PAPER, kind: "paper" },
+];
+
+/** A text written on the sheet's paper rather than in model space. */
+function onPaper(key: string, said: string, x: number, y: number, height = 5): Record<string, unknown> {
+  return { ...text(key, said, x, y, height), space: PAPER };
+}
+
+const PAPER_CAPTION = onPaper("p:1", "PILE SCHEDULE  SCALE 1:50", 10, 5);
+const PILE_NOTE = text("p:2", "BORED CAST-IN-SITU PILES, f'c = 3000 psi", 0, 1890, 260);
+const PILE_HEADER = [text("p:3", "MARK", 0, 700, 240), text("p:4", "DIA (mm)", 1400, 700, 240), text("p:5", "LENGTH (mm)", 3000, 700, 240), text("p:6", "NOS", 10600, 700, 240)];
+const PILE_ROW = [text("p:7", "P", 0, 0, 240), text("p:8", "500", 1400, 0, 240), text("p:9", "21336", 3000, 0, 240), text("p:10", "89", 10600, 0, 240)];
+
+/** What the stage answers for one SCHEDULE view anchored on `anchor`, over the model texts drawn. */
+function readUnder(anchor: string, entities: readonly Record<string, unknown>[], layouts: readonly unknown[] | null = LAYOUTS) {
+  const model = entities.filter((entity) => entity["space"] === MODEL);
+  return reconstructSchedules({
+    graph: (layouts === null ? { entities } : { entities, layouts }) as unknown as EntityGraph,
+    views: [{ viewKey: VIEW_KEY, type: VIEW_TYPE.SCHEDULE, reason: null, caption: "PILE SCHEDULE  SCALE 1:50", anchorKey: anchor } as PartitionedView],
+    // Model space only: a paper text is assigned to no view, exactly as the views stage leaves it.
+    assignments: new Map(model.map((entity) => [entity["key"] as string, VIEW_KEY])),
+  });
+}
+
+describe("I-313: a schedule its sheet titles on the PAPER reads its own model texts top-down", () => {
+  test("the header is the first band naming the column of marks, the note above it is no row, and the paper caption titles the table", () => {
+    const answer = readUnder(PAPER_CAPTION["key"] as string, [PAPER_CAPTION, PILE_NOTE, ...PILE_HEADER, ...PILE_ROW]);
+    expect(answer.deferrals, "a table was read, so the view does not defer").toEqual([]);
+    const table = answer.tables[0];
+    expect(table?.scheduleKey, "the table is keyed by the caption that titles it — the paper text, traced back to the drawing (L-CAD-03)").toBe("p:1");
+    expect(table?.title, "and titled by it").toBe("PILE SCHEDULE  SCALE 1:50");
+    expect(table?.pitch, "the pitch is the step from the header to the band beneath it").toBe(700);
+    expect(
+      table?.cells.map((cell) => `${cell.rowIndex}:${cell.columnIndex}=${cell.text}`),
+      "the header band and the one row beneath it, cell by cell; the note above the header is in no row",
+    ).toEqual(["0:0=MARK", "0:1=DIA (mm)", "0:2=LENGTH (mm)", "0:3=NOS", "1:0=P", "1:1=500", "1:2=21336", "1:3=89"]);
+  });
+
+  test("a paper-titled view whose only mark header has nothing beneath it reads no table, and defers", () => {
+    // F-RCC6-BNBC's PILE CAP SCHEDULE: the real header is inside one MTEXT the header reader cannot
+    // read yet, and the footer beneath the rows reads as one (`… NO NOS COLUMN`) with no band under it.
+    const footer = text("p:11", "COUNTS ARE TAKEN FROM THE LAYOUT ABOVE THIS OFFICE PRINTS NO NOS COLUMN", 0, -1000, 220);
+    const answer = readUnder(PAPER_CAPTION["key"] as string, [PAPER_CAPTION, ...PILE_ROW, footer]);
+    expect(answer.tables, "half a table — rows with no header over them — is worse than none (L-QTY-04)").toEqual([]);
+    expect(answer.deferrals.map((one) => one.reason)).toEqual(["SCHEDULE_NONE_RECONSTRUCTED"]);
+  });
+
+  test("an anchor in MODEL space that its view does not hold still reads nothing — the top-down reading is the paper caption's alone", () => {
+    const stray = text("p:12", "PILE SCHEDULE  SCALE 1:50", 0, 5000, 400);
+    const held = [PILE_NOTE, ...PILE_HEADER, ...PILE_ROW];
+    const answer = reconstructSchedules({
+      graph: { entities: [...held, stray], layouts: LAYOUTS } as unknown as EntityGraph,
+      views: [{ viewKey: VIEW_KEY, type: VIEW_TYPE.SCHEDULE, reason: null, caption: "PILE SCHEDULE  SCALE 1:50", anchorKey: stray["key"] as string } as PartitionedView],
+      // The caption is a model-space text another view was handed: this view holds everything but it.
+      assignments: new Map([...held.map((entity) => [entity["key"] as string, VIEW_KEY] as const), [stray["key"] as string, "SCHEDULE:2"]]),
+    });
+    expect(answer.tables.length, "a caption drawn in model space anchors by where it stands, and one its view does not hold anchors nothing").toBe(0);
+  });
+
+  test("an artifact naming no model layout says of no text that it stands on paper, so the reading stands as it always did", () => {
+    const answer = readUnder(PAPER_CAPTION["key"] as string, [PAPER_CAPTION, PILE_NOTE, ...PILE_HEADER, ...PILE_ROW], null);
+    expect(answer.tables, "no layout says the caption is paper, so nothing anchors the table").toEqual([]);
+    expect(answer.deferrals.map((one) => one.reason)).toEqual(["SCHEDULE_NONE_RECONSTRUCTED"]);
+  });
+});

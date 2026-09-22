@@ -43,10 +43,10 @@ import type { ElementType } from "@/core/catalogue/classes";
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import { placementKey, viewKey as viewKeyOf, type ViewRef } from "@/core/identity";
 import type { DetectedGrid, GridAxisRow } from "../grid/detect";
-import { normaliseMark } from "../notation";
+import { DIMENSION, normaliseMark } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
-import { classOfMark, isFramedClass, memberNoteOf, soleNotesAmong, type MemberNote } from "./law";
+import { classOfFamily, classOfMark, classOfPrefix, isFramedClass, memberNoteOf, soleNotesAmong, type MemberNote } from "./law";
 import type { DetectedPlacements, FamilyNamed, PlacementEvidence, PlacementNote, PlacementRow, UngriddedView } from "./rows";
 import { detectRuns } from "./runs";
 import { shareValue } from "./shares";
@@ -147,12 +147,79 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
     for (const row of read.rows) placements.push(row);
   }
 
+  // What a bare-prefix schedule row names, asked once every plan has placed what it places: the
+  // corroboration is a fact about the whole ARTIFACT's members of that class, never one plan's (I-314).
+  const rings = new Map(plans.flatMap((plan) => plan.read.outlines).map((outline) => [outline.key, outline]));
+  const typed = typedByPrefix(placements, evidence.families, rings, scale);
+
   // The members no closed outline stands for: a beam is drawn as the pair of lines either side of its
   // axis, and it is placed off that pair with the run it measures beside it (`./runs`, L-MEA-09). It
   // runs here, after the outline pass, because the outlines that pass placed are the members that
   // CARRY a beam's ends and the rings a slab must not be read from.
-  const framed = detectRuns(evidence, placements);
-  return { views: examined, placements: [...placements, ...framed.placements], ungridded, runs: framed.runs, noted, minted };
+  const framed = detectRuns(evidence, typed);
+  return { views: examined, placements: [...typed, ...framed.placements], ungridded, runs: framed.runs, noted, minted };
+}
+
+/**
+ * The rows as a BARE-PREFIX family leaves them (Interpretation I-314).
+ *
+ * F-RCC6-BNBC's PILE SCHEDULE types its piles in one row whose mark is the bare prefix `P`, and the
+ * PILE LAYOUT PLAN writes each pile's NUMBER — `P1` to `P89` — at the centre of its ring. The mark
+ * placement reads is the number, and the join `families.has(mark)` finds no family `P1`, so every
+ * pile stood untyped. The number stays the placement's identity (L-REG-04: the key is the mark the
+ * plan wrote); what the prefix row names is the member's FAMILY.
+ *
+ * It names it only where three things the drawing states agree, and otherwise names nothing and
+ * MEMBER_TYPE_UNKNOWN stands (L-QTY-01: never a guess):
+ *
+ *   · the row is the SOLE family of its class the schedules registered — a second row of piles,
+ *     bare or numbered, and the prefix no longer says which type a numbered pile is;
+ *   · its `NOS` cell states exactly the number of members of that class the plans place — the
+ *     schedule's own count of what the plans draw, read as CORROBORATION and never as a count
+ *     (T-SCHED-NORULES): the lines are still one per placed member;
+ *   · its diameter equals every placed ring, at the scale the drawing's plans and schedules agree on
+ *     (`drawnScaleOf`), to the half-unit the schedule printed the figure to — the schedule says what
+ *     the member IS, and a ring of another size is another member. A row stating no diameter
+ *     corroborates no ring, so a bare prefix types only a ROUND member today.
+ *
+ * Only an outline-placed class: a beam's family is the run reader's (`./runs`).
+ */
+function typedByPrefix(rows: readonly PlacementRow[], families: readonly FamilyNamed[], rings: ReadonlyMap<string, Outline>, scale: number | null): PlacementRow[] {
+  let typed = [...rows];
+  for (const named of families) {
+    const type = classOfPrefix(named.family);
+    if (type === null || isFramedClass(type)) continue;
+    if (families.filter((other) => classOfFamily(other.family) === type).length !== 1) continue;
+    const members = rows.filter((row) => row.elementType === type);
+    if (members.length === 0 || named.corroboration?.placed !== members.length) continue;
+    const diameter = statedDiameterOf(named);
+    if (diameter === null || scale === null) continue;
+    const agrees = members.every((row) => {
+      const ring = rings.get(row.outlineKey);
+      return ring !== undefined && Math.abs(ring.longest / scale - diameter.value) <= diameter.halfUnit;
+    });
+    if (!agrees) continue;
+    typed = typed.map((row) => (row.elementType === type && row.memberFamily === null ? { ...row, memberFamily: named.family } : row));
+  }
+  return typed;
+}
+
+/**
+ * The diameter a family's schedule states, and the half-unit of the place it was printed to — `500`
+ * is a figure in [499.5, 500.5], and a ring the drawing drew inside that is the ring the schedule
+ * describes. Null where no variant states one.
+ */
+function statedDiameterOf(named: FamilyNamed): { readonly value: number; readonly halfUnit: number } | null {
+  for (const variant of named.variants ?? []) {
+    const dia = (variant.dimensions ?? []).find((one) => one.dimension === DIMENSION.dia);
+    if (dia !== undefined) return { value: dia.value, halfUnit: 0.5 * 10 ** -placesOf(dia.text) };
+  }
+  return null;
+}
+
+/** How many places a figure is printed to: the most decimals any number in its text carries. */
+function placesOf(text: string): number {
+  return Math.max(0, ...[...text.matchAll(/\d+(?:\.(\d+))?/g)].map((match) => (match[1] ?? "").length));
 }
 
 /** What one plan places, keyed and grid-referenced. */

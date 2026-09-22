@@ -10,7 +10,10 @@
 // height of its own insertion; the header is the FIRST band beneath the caption holding a cell that
 // names the column of marks, so the notes a draughtsman writes above the table are no rows of it;
 // the columns are that header's own insertion x's, ascending (riskNotes (1)); and the rows run down
-// from the header until a gap over 3.5× the pitch says the table has ended.
+// from the header until a gap over 3.5× the pitch says the table has ended. A caption the sheet wrote
+// on its PAPER, under the window that frames the table, stands in no band of model space at all: the
+// view's own texts are read top-down from the first band naming the column of marks, and the paper
+// caption stays the title (Interpretation I-313).
 //
 // A band is not always a row. Where a schedule stacks a mark's whole statement — the section, the
 // bars and the ties on three lines of text with the mark written once beside them — the row is
@@ -113,6 +116,7 @@ type Band = { y: number; readonly texts: Placed[] };
  */
 export function reconstructSchedules(evidence: ScheduleEvidence): ReconstructedSchedules {
   const standing = textsByView(evidence);
+  const onPaper = paperCaptionsOf(evidence);
 
   const tables: ScheduleTable[] = [];
   const deferrals: ScheduleDeferralRow[] = [];
@@ -121,7 +125,7 @@ export function reconstructSchedules(evidence: ScheduleEvidence): ReconstructedS
   for (const view of evidence.views) {
     if (view.type !== VIEW_TYPE.SCHEDULE) continue;
     examined += 1;
-    const table = tableOf(view, standing.get(view.viewKey) ?? []);
+    const table = tableOf(view, standing.get(view.viewKey) ?? [], onPaper);
     if (table === null) {
       deferrals.push({ viewKey: view.viewKey, reason: REFUSALS.SCHEDULE_NONE_RECONSTRUCTED.code });
       continue;
@@ -155,17 +159,52 @@ function textsByView(evidence: ScheduleEvidence): Map<string, Placed[]> {
 }
 
 /**
+ * The SCHEDULE views' caption keys that are texts of a PAPER layout (Interpretation I-313): the
+ * windows a sheet titles on its own paper, beneath the frame, with nothing in model space saying so
+ * (L-CAD-05, I-290). Only a schedule's anchors are looked up, so the set is as small as the question.
+ */
+function paperCaptionsOf(evidence: ScheduleEvidence): ReadonlySet<string> {
+  const onPaper = new Set<string>();
+  // An artifact naming no model layout says of no text that it stands anywhere ELSE, so none is a
+  // paper caption — the reading every schedule was read by before stands for it unchanged.
+  const modelSpace = (evidence.graph.layouts ?? []).find((layout) => layout.kind === "model")?.name;
+  if (modelSpace === undefined) return onPaper;
+  const anchors = new Set(evidence.views.flatMap((view) => (view.type === VIEW_TYPE.SCHEDULE && view.anchorKey !== null ? [view.anchorKey] : [])));
+  for (const entity of evidence.graph.entities) {
+    if (anchors.has(entity.key) && entity.space !== modelSpace && (entity.text ?? "").trim() !== "") onPaper.add(entity.key);
+  }
+  return onPaper;
+}
+
+/**
  * The table one schedule view yielded, or null where its texts amount to none: no caption to anchor
  * it on, no two bands to read a pitch from, or no band naming the column of marks. Half a table —
  * rows with no header to say what their columns mean — is worse than none (L-QTY-04).
+ *
+ * The caption anchors the table in one of two places (I-313). A caption drawn in MODEL space stands
+ * over its table, and the table is what stands beneath it. A caption the sheet wrote on its PAPER,
+ * under the window that frames the table, stands in no model-space band at all — the partition
+ * assigns no paper text to a view (L-CAD-06) — so it anchors nothing by position: the view's own
+ * model texts are the whole of what the window shows, read top-down from the first band that names
+ * the column of marks, and the paper caption stays what it is, the table's title. F-RCC6-BNBC's
+ * PILE SCHEDULE and PILE CAP SCHEDULE are titled that way, beneath their windows.
  */
-function tableOf(view: PartitionedView, standing: readonly Placed[]): ScheduleTable | null {
+function tableOf(view: PartitionedView, standing: readonly Placed[], onPaper: ReadonlySet<string>): ScheduleTable | null {
   const anchor = standing.find((text) => text.key === view.anchorKey);
-  if (anchor === undefined) return null;
+  if (anchor !== undefined) {
+    // A schedule reads DOWN from its title, so the table is what stands beneath the caption.
+    return tableUnder(view, anchor.key, bandsOf(standing.filter((text) => text.key !== anchor.key && text.y < anchor.y)));
+  }
+  if (view.anchorKey === null || !onPaper.has(view.anchorKey)) return null;
+  return tableUnder(view, view.anchorKey, bandsOf(standing));
+}
 
-  // A schedule reads DOWN from its title, so the table is what stands beneath the caption.
-  const bands = bandsOf(standing.filter((text) => text.key !== anchor.key && text.y < anchor.y));
-
+/**
+ * The table the bands of one view hold, keyed by the caption that titles it: the header is the FIRST
+ * band naming the column of marks — so a note a draughtsman writes above the table is no row of it —
+ * and the rows run down from it until the gap says the table has ended.
+ */
+function tableUnder(view: PartitionedView, scheduleKey: string, bands: readonly Band[]): ScheduleTable | null {
   const header = bands.findIndex((band) => band.texts.some((text) => isMarkHeader(text.text)));
   if (header < 0) return null;
 
@@ -179,7 +218,7 @@ function tableOf(view: PartitionedView, standing: readonly Placed[]): ScheduleTa
 
   return {
     viewKey: view.viewKey,
-    scheduleKey: anchor.key,
+    scheduleKey,
     title: normaliseNotation(view.caption).trim(),
     pitch,
     columns,

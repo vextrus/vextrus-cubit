@@ -32,6 +32,20 @@ export const REBAR_ZONES = ["main", "ties", "ties-end", "ties-mid"] as const;
 export type RebarZone = (typeof REBAR_ZONES)[number];
 
 /**
+ * The dimensions a schedule states for a member BESIDE its section (R-TO-032, AM-06 §2): a pile's
+ * diameter and its length, a foundation's depth and the level its top stands at. The names are the
+ * ones the foundation methods declare their variables under, and the rails bind them by these names
+ * (`MemberVariantSetup.dimensions`), so the store closes the roster the rails read (Q-07, B-17).
+ */
+export const SCHEDULE_DIMENSIONS = ["depth", "dia", "length", "top"] as const;
+
+/** One of the four. */
+export type ScheduleDimension = (typeof SCHEDULE_DIMENSIONS)[number];
+
+/** The one of them that is a LEVEL rather than a size — the only figure that may stand below zero. */
+const LEVEL_DIMENSION: ScheduleDimension = "top";
+
+/**
  * Why a schedule view defers: the register's own narrowing to the two a schedule defers under, so
  * the column cannot hold a reason nobody registered (Q-07, riskNotes (2)). The list is the refusal
  * register's, and this CHECK is written from it — one vocabulary, two readers (B-17).
@@ -163,6 +177,50 @@ export const memberTypeVariants = pgTable(
     check("member_type_variants_section_unit_closed", statement`${table.sectionUnit} is null or ${table.sectionUnit} in (${statement.raw(closedList(SECTION_UNITS))})`),
     check("member_type_variants_cited", statement`cardinality(${table.sourceKeys}) >= 1`),
     index("member_type_variants_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
+ * The dimensions a schedule states for one variant BESIDE its section, one row per dimension its
+ * columns name: the cell verbatim, the figure it reads as, and the unit it was written in — the
+ * column head's `(mm)`, or the unit the drawing declares where the head states none (I-302).
+ *
+ * Its own table rather than a column of the variant, for the reason `rebar_zones` is one: a schedule
+ * states as many of these as it has columns for, and a column per dimension on the variant would fix
+ * in the store a set the drawing decides. What a member IS and never how many stand — a schedule's
+ * NOS column is corroboration read at placement and stored nowhere (R-TO-031, T-SCHED-NORULES).
+ *
+ * Rewritten per ingest with the variants it hangs from, in the partition's one transaction, so the
+ * app role holds a DELETE here as it does on the variants (L-REG-04, R-TO-030).
+ */
+export const memberTypeDimensions = pgTable(
+  "member_type_dimensions",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    scheduleKey: text("schedule_key").notNull(),
+    family: text("family").notNull(),
+    variantKey: text("variant_key").notNull(),
+    dimension: text("dimension").$type<ScheduleDimension>().notNull(),
+    text: text("text").notNull(),
+    value: doublePrecision("value").notNull(),
+    unit: text("unit").$type<SectionUnit>().notNull(),
+    sourceKeys: citedKeys(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "member_type_dimensions_key", columns: [table.tenantId, table.ingestId, table.scheduleKey, table.family, table.variantKey, table.dimension] }),
+    // The roster is closed, so the store closes it: a dimension no method declares cannot be written.
+    check("member_type_dimensions_dimension_closed", statement`${table.dimension} in (${statement.raw(closedList(SCHEDULE_DIMENSIONS))})`),
+    // A figure nobody gave a unit to is not a dimension anybody can carry into metres (L-MEA-01), so
+    // the reader reads none and the store admits none.
+    check("member_type_dimensions_unit_closed", statement`${table.unit} in (${statement.raw(closedList(SECTION_UNITS))})`),
+    // A diameter, a length or a depth of nothing is no reading; only a LEVEL may stand below zero.
+    check("member_type_dimensions_value_measured", statement`${table.dimension} = ${statement.raw(closedList([LEVEL_DIMENSION]))} or ${table.value} > 0`),
+    check("member_type_dimensions_cited", statement`cardinality(${table.sourceKeys}) >= 1`),
+    index("member_type_dimensions_by_drawing").on(table.tenantId, table.drawingId),
   ],
 );
 
@@ -360,6 +418,7 @@ export const TAKEOFF_SCHEDULES_TABLES = {
   scheduleCells,
   memberTypes,
   memberTypeVariants,
+  memberTypeDimensions,
   rebarZones,
   scheduleDeferrals,
   notesReadings,

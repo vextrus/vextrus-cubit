@@ -10,6 +10,7 @@
 // and the carrying into canonical units is the gate's, through the one canon (L-MEA-08, B-17).
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
+import type { ScheduleDimension } from "@/core/db";
 import type { RefusalCode } from "@/core/errors";
 import { variantCovering } from "@/core/offers/contract";
 import type { Measure, MemberVariantSetup, PlacementSetup, RailObservation, RailSetup, RegisterObjectRow } from "@/core/offers/contract";
@@ -81,11 +82,15 @@ export const GRADE = "grade";
 /** The item-selecting attribute a piling line is priced by: a bore is priced by its diameter. */
 export const DIAMETER = "diameter";
 
-/** The names the schedules state a foundation's readings under, beyond its section (interfaces). */
-export const DEPTH = "depth";
-export const DIA = "dia";
-export const LENGTH = "length";
-export const TOP = "top";
+/**
+ * The names the schedules state a foundation's readings under, beyond its section (interfaces) —
+ * NAMED as members of the store's closed roster rather than restated beside it, so the dimension
+ * the schedule reader stores and the one a rail binds are one name (I-315, B-17).
+ */
+export const DEPTH = "depth" satisfies ScheduleDimension;
+export const DIA = "dia" satisfies ScheduleDimension;
+export const LENGTH = "length" satisfies ScheduleDimension;
+export const TOP = "top" satisfies ScheduleDimension;
 
 /** The edition parameter each DERIVED reading of L-FRM-04 falls back to (L-MEA-01's roster). */
 export const WORKING_ALLOWANCE_PARAMETER = "earthworkWorkingAllowance";

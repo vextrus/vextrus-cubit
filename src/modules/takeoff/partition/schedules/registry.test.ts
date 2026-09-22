@@ -186,3 +186,57 @@ describe("I-302: the unit a drawing declares is the LAST word on a section that 
     expect(blank.variants[0]?.sourceKeys, "and the row cites what it was really read from").not.toContain(NOTES_KEY);
   });
 });
+
+/* ------------------------------------------------------------------ I-314, I-315: the pile schedule */
+
+/** F-RCC6-BNBC's PILE SCHEDULE at its own words: one row, a bare prefix, a diameter and a length. */
+const PILE_HEADERS = ["MARK", "DIA (mm)", "LENGTH (mm)", "MAIN BARS", "SPIRAL", "NOS"];
+const PILE_ROW = ["P", "500", "21336", "4-20%%C + 3-20%%C", "10%%C @ 75/150", "89"];
+
+describe("I-314: a bare class prefix in the mark column is a family", () => {
+  test("`P` mints the family P, with the NOS cell kept beside it as corroboration", () => {
+    const family = familyOf(tableOf(PILE_HEADERS, [PILE_ROW]), "P");
+    expect(family.markText, "the mark cell verbatim").toBe("P");
+    expect(family.corroboration, "the row's own NOS, cited to its cell — what placement checks the plans against, never a count (T-SCHED-NORULES)").toEqual({ placed: 89, text: "89", sourceKeys: ["r:0:5"] });
+  });
+
+  test("a numbered family carries no corroboration, and a prefix naming no class is no family", () => {
+    const families = registerMemberTypes([tableOf(PILE_HEADERS, [["P1", "500", "21336", MAIN, "-", "4"], ["S", "500", "21336", MAIN, "-", "4"], ["Q", "500", "21336", MAIN, "-", "4"]])]).families;
+    expect(families.map((family) => family.family), "`S` and `Q` name no class the placement law maps, so they stand for no member (L-QTY-04)").toEqual(["P1"]);
+    expect(families[0]?.corroboration, "a numbered mark IS its member's identity; its row's count corroborates nothing here").toBeUndefined();
+  });
+});
+
+describe("I-315: the dimensions a schedule states beside a section", () => {
+  test("a pile's DIA and LENGTH are read in the unit the column head states, each cited to its cell", () => {
+    const variant = familyOf(tableOf(PILE_HEADERS, [PILE_ROW]), "P").variants[0];
+    expect(variant?.dimensions, "the diameter and the length the pile is bored to (AM-06 §2)").toEqual([
+      { dimension: "dia", text: "500", value: 500, unit: "mm", sourceKeys: ["r:0:1"] },
+      { dimension: "length", text: "21336", value: 21336, unit: "mm", sourceKeys: ["r:0:2"] },
+    ]);
+  });
+
+  test("a head that states no unit takes the drawing's declaration, and cites it; with none, no dimension is read", () => {
+    const headers = ["MARK", "DIA", "LENGTH", "NOS"];
+    const declared = familyOf(tableOf(headers, [["P", "500", "21336", "89"]]), "P", declaring("mm", NOTES_KEY)).variants[0]?.dimensions;
+    expect(declared?.map((one) => [one.dimension, one.unit, one.sourceKeys]), "the unit the drawing declares is the last word on a bare figure (I-302), and it is evidence").toEqual([
+      ["dia", "mm", ["r:0:1", NOTES_KEY]],
+      ["length", "mm", ["r:0:2", NOTES_KEY]],
+    ]);
+    const silent = familyOf(tableOf(headers, [["P", "500", "21336", "89"]]), "P").variants[0];
+    expect(silent?.dimensions, "a figure nobody gave a unit to is no dimension: the rail keeps its row and names what is missing (L-MEA-01, L-QTY-02)").toBeUndefined();
+  });
+
+  test("dimensions are read for the classes whose methods bind them, and a bar's DIA under a pile cap is none of them", () => {
+    // F-RCC6-BNBC's BAR BENDING SCHEDULE files bars under `PC3`: its DIA is a BAR's diameter.
+    const cap = familyOf(tableOf(["MEMBER", "BAR MARK", "DIA", "CUT LENGTH"], [["PC3", "PC3-B1", "16", "2100"]]), "PC3", declaring("mm", NOTES_KEY)).variants[0];
+    expect(cap?.dimensions, "no method of a pile cap binds a diameter, and `CUT LENGTH` is a bar's").toBeUndefined();
+    const footing = familyOf(tableOf(["MARK", "L x B (mm)", "DEPTH (mm)"], [["F1", "1500x1500", "450"]]), "F1").variants[0];
+    expect(footing?.dimensions, "a footing's DEPTH waits for its plan to be the outline's (FND-2): read now, a byte-frozen fixture's footings would start billing").toBeUndefined();
+  });
+
+  test("a cell that states no figure is no dimension, and the head is read whole", () => {
+    const variant = familyOf(tableOf(["MARK", "DIA (mm)", "PILE LENGTH (mm)", "NOS"], [["P", "SEE DETAIL", "21336", "89"]]), "P").variants[0];
+    expect(variant?.dimensions, "`SEE DETAIL` is no diameter, and a head naming a length AND something else names neither (L-QTY-01)").toBeUndefined();
+  });
+});

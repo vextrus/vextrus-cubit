@@ -131,7 +131,18 @@ export type DetectedPlacements = {
  */
 export type FamilyNamed = {
   readonly family: string;
-  readonly variants?: readonly { readonly sectionWidth: number | null; readonly sectionDepth: number | null; readonly bandText?: string }[];
+  readonly variants?: readonly {
+    readonly sectionWidth: number | null;
+    readonly sectionDepth: number | null;
+    readonly bandText?: string;
+    /** The dimensions the row states beside its section, where it states any (I-315). */
+    readonly dimensions?: readonly { readonly dimension: string; readonly text: string; readonly value: number }[];
+  }[];
+  /**
+   * What a bare-prefix row's `NOS` cell states (I-314): corroboration a placement checks the plans
+   * against, never a count, and never stored — absent on every other family.
+   */
+  readonly corroboration?: { readonly placed: number };
 };
 
 /** What the stage is handed: the artifact, what the stages before it derived, and the pinned shares. */

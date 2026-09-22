@@ -61,6 +61,7 @@ export {
   scheduleCells,
   memberTypes,
   memberTypeVariants,
+  memberTypeDimensions,
   rebarZones,
   scheduleDeferrals,
   notesReadings,
@@ -112,6 +113,7 @@ export type {
   MemberShape,
   SectionUnit,
   RebarZone,
+  ScheduleDimension,
   ScheduleDeferralReason,
   ExpansionDeferralReason,
 } from "./db/schema";

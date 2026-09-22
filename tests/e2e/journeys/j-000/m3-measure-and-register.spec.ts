@@ -34,7 +34,12 @@
  * alone (`goldenCellAllowance`: the one home of the allowance the tree's arbitrated band, at
  * tests/takeoff/rails/support/slab-wall-stair-stage.ts's `insideBand`, widens each side by and by
  * nothing else; B-07 forbids rounding the register's figure to the golden's precision to make it
- * pass). The band is read HERE, at register precision, and nowhere else: a document states each line
+ * pass). The same band is read on the three PILE cells — the piles counted, the length bored, the
+ * concrete cast — over every level, because a pile stands in the lawful-null FOUNDATION slot: S-05's
+ * PILE SCHEDULE types the 89 numbered piles of S-04 by its bare `P` row and states the diameter and
+ * the length the rails bind (I-313, I-314, I-315; AM-06 §2), so the count is the golden's 89 members
+ * and the concrete is π/4·d² with d the schedule's DIA — the flattened ring's area would stand over
+ * the golden, and that is the ceiling's to catch. The band is read HERE, at register precision, and nowhere else: a document states each line
  * rounded once to its kind's places, so a document's sum is a different figure from the register's,
  * and m3-bill-and-schedules.spec.ts proves the documents faithful to these totals rather than banding
  * them a second time.
@@ -48,7 +53,7 @@
  */
 import Decimal from "decimal.js";
 import { expect, test, type TestInfo } from "@playwright/test";
-import { goldenCellAllowance, goldenCellRows, goldenKindOf } from "../../../golden/support/golden-fixture";
+import { goldenCellAllowance, goldenCellRows, goldenKindOf, goldenRows } from "../../../golden/support/golden-fixture";
 import { NOT_ESTABLISHED, QUANTITY_BEARING, SCoveragePage } from "../../pages/s-coverage.page";
 import { STakeoffPage } from "../../pages/s-takeoff.page";
 import { checkpoint } from "../../support/checkpoint";
@@ -65,6 +70,16 @@ const FIXTURE = "rcc6-bnbc";
 /** The cell this leg reads the campaign's figures on, in the product's words (the register's filters). */
 const COLUMN = "column";
 const RCC_CONCRETE = "rcc.concrete";
+
+/**
+ * The pile, and the three kinds its rails bear (R-TO-032): the piles counted, the length bored, the
+ * concrete cast. A pile stands in the lawful-null FOUNDATION slot and on no storey (L-CAD-07), so it
+ * is read over EVERY level — the level filter's own "any" — and the golden's level for it is read off
+ * the golden's own rows rather than spelled here.
+ */
+const PILE = "pile";
+const PILE_KINDS: readonly string[] = Object.freeze(["piling.bored", "piling.boring", RCC_CONCRETE]);
+const EVERY_LEVEL = "";
 
 /** L-QTY-06's floor: three per cent under the golden, and nothing over it. */
 const UNDER_TOLERANCE = "0.97";
@@ -173,6 +188,61 @@ test.describe.serial("J-000 — Golden Path: M3's measure on F-RCC6-BNBC", () =>
       expect(
         figure.gte(floor),
         `${said}: the register's ${figure.toString()} is no more than three per cent under the golden's ${reading.golden.toString()} (floor ${floor.toString()}, L-QTY-06)`,
+      ).toBe(true);
+    }
+
+    /* --- the piles, typed by their own schedule and sized by it, per kind (I-313..I-315, AM-06 §2) --- */
+    // S-05's PILE SCHEDULE types every numbered pile of S-04 by its bare `P` row and states the
+    // diameter and the length the rails bind; the register keeps one line per pile per kind. Read at
+    // the register's precision exactly as the columns are, against the golden's own PILE cells.
+    await takeoff.narrow("level", EVERY_LEVEL);
+    await takeoff.narrow("class", PILE);
+    const piles: StoreyReading[] = [];
+    for (const kind of PILE_KINDS) {
+      const owed = goldenRows(FIXTURE).filter((row) => row.class === PILE.toUpperCase() && row.kind === goldenKindOf(kind));
+      const levels = [...new Set(owed.map((row) => row.level))];
+      expect(levels.length, `${FIXTURE}'s golden states ${PILE} × ${kind} in one cell — it states it at ${JSON.stringify(levels)}`).toBe(1);
+      const cell = { class: PILE.toUpperCase(), kind: goldenKindOf(kind), level: levels[0] as string };
+      await takeoff.narrow("kind", kind);
+      const kept = await takeoff.kept(`${PILE} × ${kind}`);
+      piles.push({
+        level: `${kind} @ ${cell.level}`,
+        goldenRows: owed.length,
+        members: new Set(owed.flatMap((row) => row.members ?? [])).size,
+        unit: owed[0]?.unit ?? "",
+        golden: owed.reduce((sum, row) => sum.plus(row.quantity), new Exact(0)),
+        allowance: new Exact(goldenCellAllowance(FIXTURE, cell)),
+        shown: kept.shown,
+        statedUnit: kept.unit,
+        total: kept.total,
+      });
+    }
+    await attach(
+      testInfo,
+      "m3-register-band-piles",
+      [
+        `${PILE}, per kind over every level — register lines (golden members) · register total · golden ± allowance`,
+        ...piles.map(
+          (reading) =>
+            `${reading.level}: ${reading.shown} (${reading.members}) · ${reading.total ?? "no footer"} ${reading.statedUnit ?? ""} · ${reading.golden.toString()} ± ${reading.allowance.toString()} ${reading.unit}${
+              reading.total === null ? "" : ` · ${new Exact(reading.total).div(reading.golden).minus(1).times(100).toFixed(3)} %`
+            }`,
+        ),
+      ].join("\n"),
+    );
+    for (const reading of piles) {
+      const said = `${PILE} × ${reading.level}`;
+      expect(reading.goldenRows, `${FIXTURE}'s golden carries ${said} — a band over no row is no band (L-QTY-06)`).toBeGreaterThan(0);
+      expect(reading.shown, `${said}: the register keeps one line per pile the golden lists — every numbered pile typed by the schedule's \`P\` row (I-314)`).toBe(reading.members);
+      expect(reading.statedUnit, `${said}: the footer states the unit the golden is written in`).toBe(reading.unit);
+      const figure = new Exact(reading.total ?? "0");
+      expect(
+        figure.lte(reading.golden.plus(reading.allowance)),
+        `${said}: the register's ${figure.toString()} is not over the golden's ${reading.golden.toString()} widened by its printed half-unit ${reading.allowance.toString()} — the shaft is π/4·d² with d the schedule's DIA, never the flattened ring (L-QTY-06, L-QTY-04)`,
+      ).toBe(true);
+      expect(
+        figure.gte(reading.golden.times(UNDER_TOLERANCE).minus(reading.allowance)),
+        `${said}: the register's ${figure.toString()} is no more than three per cent under the golden's ${reading.golden.toString()} (L-QTY-06)`,
       ).toBe(true);
     }
 

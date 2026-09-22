@@ -88,6 +88,31 @@ export function classOfMark(mark: string): ElementType | null {
 }
 
 /**
+ * The class a BARE PREFIX names — `P`, the whole of a schedule's mark cell with no number after it —
+ * or null where the text is not exactly one of the prefixes the map above holds (Interpretation
+ * I-314).
+ *
+ * F-RCC6-BNBC's PILE SCHEDULE writes one row, `P`, and numbers the piles of its layout plan `P1` to
+ * `P89`: the number tells one pile from another and the prefix is the TYPE. A mark reader asking
+ * `isMarkFamily` refuses `P` (no number), so this is the one reading that says what such a cell
+ * names — a class, never a member, and never a guess at which member (L-QTY-01). Exact, like the map:
+ * `S` is nothing and `PC` is a pile cap.
+ */
+export function classOfPrefix(text: string): ElementType | null {
+  const normalised = normaliseMark(text);
+  return Object.hasOwn(CLASS_OF_PREFIX, normalised) ? (CLASS_OF_PREFIX[normalised] ?? null) : null;
+}
+
+/**
+ * The class a registered FAMILY names: the class its mark names where the family is a numbered mark,
+ * or the class its prefix names where the schedule wrote the bare prefix (I-314). One reading for
+ * both, so the registry and the placement ask "what is this family a family of" the same way (B-17).
+ */
+export function classOfFamily(family: string): ElementType | null {
+  return classOfMark(family) ?? classOfPrefix(family);
+}
+
+/**
  * L-REG-03: "each quantity kind has exactly one authoritative discipline". Every class this map
  * names is an RCC member — a column, a shear wall, a footing, a pile cap, a pile — and the discipline
  * that measures one is the structural. Read off the sheet law's closed roster rather than spelled

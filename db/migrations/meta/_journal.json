@@ -407,6 +407,13 @@
       "when": 1790111268194,
       "tag": "0057_jev-model-id",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1790119166652,
+      "tag": "0058_member-type-dimensions",
+      "breakpoints": true
     }
   ]
 }

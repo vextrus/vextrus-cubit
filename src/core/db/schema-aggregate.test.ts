@@ -24,7 +24,16 @@
  * Modules are loaded by absolute path — the contract this tree's other split proofs use: a module the
  * product does not provide yet fails as an assertion naming the file, never as a resolution error.
  *
- * Re-baselined for ONE ADDED table and nothing else: `noteClauseProposals` (`note_clause_proposals`),
+ * Re-baselined for ONE ADDED table and nothing else: `memberTypeDimensions` (`member_type_dimensions`,
+ * db/migrations/0058_member-type-dimensions.sql), the dimensions a schedule states for a member
+ * type BESIDE its section — one row per (variant, dimension): a pile's diameter and its length, read
+ * off the pile schedule's own cells in the unit its head states (Interpretation I-315, AM-06 §2). A
+ * schedule's NOS column is not among them: it is corroboration placement reads, and is stored
+ * nowhere (R-TO-031). Both rosters gain the one key, in code-point order, and the columns digest
+ * moves with them because the surface it hashes gained a table. Nothing already on either roster
+ * moved; the previous digest was 67ccfde82c100befbf5ea691e5e2677974a40dc895b4856bbba95002c7b41c8d.
+ *
+ * Re-baselined before that for ONE ADDED table and nothing else: `noteClauseProposals` (`note_clause_proposals`),
  * the offers a model made of the general-note clauses the grammar read nothing in — one row per
  * clause of an ingest, carrying the class proposed, the grammar's own figure for it and the ledger
  * call that made it, so TRANSCRIBE_SHEET_NOTES can judge what was kept against what was offered
@@ -86,6 +95,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "ingests",
   "invitations",
   "levels",
+  "memberTypeDimensions",
   "memberTypeVariants",
   "memberTypes",
   "memberships",
@@ -171,6 +181,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
   "invitations",
   "isAcceptedFormat",
   "levels",
+  "memberTypeDimensions",
   "memberTypeVariants",
   "memberTypes",
   "memberships",
@@ -291,7 +302,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * table's SQL name or column moved with it; the previous digest was
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "67ccfde82c100befbf5ea691e5e2677974a40dc895b4856bbba95002c7b41c8d";
+const COLUMNS_DIGEST_BEFORE = "4ee17c4350f985251ad06254a7050b69db32b33b91623c34b18c46db8c4e0fe4";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {
