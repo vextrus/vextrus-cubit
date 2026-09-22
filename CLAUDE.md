@@ -124,6 +124,28 @@ your prompt. The engine rewrites the lessons block after merges; nothing here is
   (the Verifier's), the toolchain scripts and CI unless owned. A debt sweep's worklist is
   `mcp__builder__debt_rows`; fix each row where it lives, test beside it.
 
+## Standing facts from session 5 (the owner asked for them here; the handoff holds the proofs)
+- The M3 door stands on F-RCC6-BNBC: a viewport's title captions its model-space region (I-290),
+  block bubbles georeference (I-292), `EL` marks propose the stack (I-293), the stacked schedule
+  reads (I-294), a feet-and-inches dimension scales a unitless header (I-295), a band written in
+  ordinal words covers the stack's floor labels (`sameStorey`), and the unit a drawing DECLARES is
+  the last word on a unitless section (I-302). `m3-measure-and-register` walks green: 182 column
+  concrete lines COMPLETE. `m3-bill-and-schedules` stands fixme on two named doors: a circular
+  section (`%%C450`, T-NOT-PCTC) and a plan member's own storey range ("STARTS AT 1F").
+- Two spellings of one fact are the defect to look for first: the partition's view key vs
+  L-REG-04's address (`partitionViewKey`, `viewAddressOf`), the schedule's band words vs the stack's
+  labels (`sameStorey`). A reader that answers nothing over a drawing it should read: diff the keys.
+- A screen fills the lane's tabs row by a portal in place (`useTakeoffTabsAside` answers a node the
+  surface RENDERS); the frame's own slots still hand over by effect and are the next defect of that
+  class. Hydration stands the register twice for ~100 ms; nothing may depend on mount order.
+- Read the run's own database after a journey (`cubit_e2e`, `set cubit.system_reason` first), never
+  while the db lane runs; a killed run keeps no trace (`CUBIT_E2E_TRACE=on` for a diagnosis run); the
+  M3 staging caps every action at a minute (`capActions`) so a stalled tab is red with its action
+  named. `pnpm probe signin …` takes no `--` (pnpm 10 forwards it as the mode).
+- Six Jev questions stand recorded (240 fixtures; every call billed under `claude-sonnet-5` until the
+  owner's AS-05 amendment); `answerJudgmentOf` reads a Noul's probability as its confidence — fix
+  before reading any threshold off the schedule-cell or note-clause lines.
+
 ## Compact instructions
 When this session's context is compacted, the summary must carry, verbatim where it can: the
 increment id and every acceptance criterion id with its current verdict (green, red, untouched);

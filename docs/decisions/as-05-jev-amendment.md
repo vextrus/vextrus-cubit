@@ -75,6 +75,34 @@ that figure is the one to write.
 - The corpus recorder `scripts/model-corpus.ts` and the roster `fixtures/model/corpus.json`, kept
   in step by `tests/ai/model-corpus-roster.test.ts`.
 
+### 3.1 What session 5 built without the amendment, on the same footing
+
+- The adapter enumerates one arm per question (`src/core/model/typesafe-arms/registry.ts`, AM-11's
+  split-registry shape) and the recorder one recorder per question (`scripts/model-corpus/registry.ts`);
+  `MODEL_QUESTIONS` names eight. Every arm below is pinned to `claude-sonnet-5` through the seam's
+  one `TYPESAFE_MODEL` and billed at the Claude rate, exactly as view-caption is; nothing adds
+  `jev-latest` or a Jev rate to AS-05.
+- `schedule-cell` (logic-point 2): a Choice per contested cell over the grammar's own candidates +
+  NOT_STATED, and a Noul on the row's standing; judged through `judgeCellReading`; no pass asks it
+  yet. Corpus: 80 contested rows of F-RCC6-BNBC's five schedules.
+- `note-clause` (point 3): a Choice over NOTE_KINDS + NONE_OF_THESE and a Noul on whether the lap
+  governs the table; the offer stored (migration 0055) and judged by TRANSCRIBE_SHEET_NOTES; the pass
+  exists and is unwired. Corpus: 38 clauses of S-01/S-02.
+- `coverage-cause` (point 4): a Choice over SCOPE_DECLARATION_CAUSES + NOTHING_TO_DECLARE, gated
+  and floored by code, judged by the two boundary acts. Corpus: nine hand-authored states, every
+  one of which answers NOTHING_TO_DECLARE.
+- `boq-line-description` (point 5): a Choice over the closed item-description catalogue +
+  NONE_OF_THESE and a Noul on whether the attributes separate; confirmed at the draft's issue; the
+  screen asks nothing. Corpus: four line states.
+- `outline-corroboration` (point 6): a criteria-less Noul over the numbers code finds; the acts name
+  the call they judged; no store yet. Corpus: F-RCC6's 72 mark-anchored outlines, whose probabilities
+  (0.54–0.76) the 0.30/0.70 band does not separate.
+- `sheet-revision-recency` (point 7, part (a)): a Choice for the evidence and a five-level Score;
+  no act, no store. Corpus: BNBC's 27 sheets, all at REV B.
+- Every cost line the session-5 handoff quotes carries the same sentence as session 4's: a Jev call
+  is billed under the pinned Claude id `claude-sonnet-5` until the owner's amendment lands, with the
+  provider's documented rate printed beside it by the recorder itself.
+
 ## 4. What stays the owner's
 
 Adding `jev-latest` to `MODEL_IDS`, its rate to `MODEL_RATES`, the migration that re-closes the
