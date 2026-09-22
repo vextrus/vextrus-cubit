@@ -17,6 +17,7 @@
 import type { RebarZone, SectionUnit } from "@/core/db";
 import { normaliseNotation } from "@/core/entitygraph/notation";
 import { dotlessUpper } from "@/core/identity";
+import { useStoreyEquivalence } from "@/core/offers/contract";
 
 // L-CAD-02's control codes and the diameter's many glyphs are core's (`@/core/entitygraph/notation`):
 // the note grammar behind TRANSCRIBE_SHEET_NOTES reads a drawing's words too and is core, which may
@@ -403,6 +404,34 @@ export function parseNOf(text: string): CountOf | null {
 export function normaliseMark(text: string): string {
   return dotlessUpper(normaliseNotation(text));
 }
+
+/**
+ * Are these two spellings ONE storey? A drawing spells a storey more than one way on one sheet set
+ * — F-RCC6-BNBC's column schedule bands its sections "GF TO 2ND" and "3RD & 4TH" while its section
+ * marks the same storeys "2F" and "3F" — and a placement that compared the spellings letter by
+ * letter covered no column with any band. Two levels are one storey where the grammar reads the
+ * same level in both (`levelOf`: the named levels and the ordinal spellings), or where both carry
+ * an ordinal count and the counts agree (3RD = 3F = 3); a word the grammar cannot read at all is
+ * compared in the mark comparison form, so a building's own label ("SRR") meets only itself
+ * (L-MEA-07: the ordinal is physical; L-QTY-01: never a guess).
+ */
+export function sameStorey(label: string, other: string): boolean {
+  const left = levelOf(label);
+  const right = levelOf(other);
+  if (left !== null && right !== null) {
+    if (left === right) return true;
+    const leftCount = ORDINAL_COUNT.exec(left);
+    const rightCount = ORDINAL_COUNT.exec(right);
+    return leftCount !== null && rightCount !== null && Number(leftCount[1]) === Number(rightCount[1]);
+  }
+  return normaliseMark(label) === normaliseMark(other);
+}
+
+// The reading is registered with core's band placement at this module's load, the way the scale
+// seam registers its stated-length reader (I-295b): core may not reach this grammar (ARCH-01), and
+// every placement over a stack — the rails', the acts', the expansion's — must judge a storey by the
+// one reading (B-17).
+useStoreyEquivalence(sameStorey);
 
 /** A mark names a member: a letter or two of its class, the number it is, and a variant letter. */
 const MARK_FAMILY = /^[A-Z]{1,3}\d+[A-Z]?$/;

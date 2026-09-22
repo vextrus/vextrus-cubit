@@ -74,3 +74,27 @@ describe("AC-3: a band that covers the level beats an unbanded row of the same s
     ).toBeUndefined();
   });
 });
+
+describe("a band written in ordinal words covers the storeys the stack labels by floor (F-RCC6-BNBC S-11)", () => {
+  test("once the grammar's storey reading is loaded, \"3RD & 4TH\" covers 3F and 4F and nothing below", async () => {
+    // The grammar registers `sameStorey` with core's placement at its load — the module is loaded
+    // here the way every measuring process loads it — and the selection is still asked of core's one
+    // door, over a stack labelled the way the drawing's section labels it.
+    await productModule<Record<string, unknown>>("src/modules/takeoff/partition/notation/index.ts");
+    const covering = await variantCovering();
+    const L3 = levelSetup({ levelId: "level-3", label: "3F", ordinal: 3 });
+    const L4 = levelSetup({ levelId: "level-4", label: "4F", ordinal: 4 });
+    const stack: Level[] = [GF, L1, L2, L3, L4];
+    const lower = variantSetup({ variantKey: "GF-2ND", width: 400, depth: 400, bandFrom: "GF", bandTo: "2ND" });
+    const upper = variantSetup({ variantKey: "3RD-4TH", width: 350, depth: 350, bandFrom: "3RD", bandTo: "4TH" });
+
+    expect(keyOf(covering([lower, upper], GF, stack)), "GF stands at the foot of the lower band").toBe("GF-2ND");
+    expect(keyOf(covering([lower, upper], L2, stack)), "2F is the lower band's own top, written \"2ND\"").toBe("GF-2ND");
+    expect(keyOf(covering([lower, upper], L3, stack)), "3F is the upper band's own foot, written \"3RD\"").toBe("3RD-4TH");
+    expect(keyOf(covering([lower, upper], L4, stack)), "4F its top, written \"4TH\"").toBe("3RD-4TH");
+    expect(
+      keyOf(covering([variantSetup({ variantKey: "ROOF-SRR", width: 300, depth: 300, bandFrom: "ROOF", bandTo: "SRR" })], L4, stack)),
+      "a band whose end names a storey the stack does not carry judges nothing, as before",
+    ).toBeUndefined();
+  });
+});

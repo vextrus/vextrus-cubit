@@ -21,6 +21,11 @@ import { affirmationsOfRecord } from "@/core/scale/store";
 import { viewAddressOf, viewRecordsOf } from "@/core/views";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
 import { memberTypesOf, placementsOf, runsOf, type SideReading } from "@/modules/takeoff/partition";
+// The notation grammar registers its storey reading with core's band placement at load (`sameStorey`,
+// `useStoreyEquivalence`): the rails place a schedule's band ("3RD & 4TH") on the stack ("3F") through
+// it, and a measure run that never loaded the grammar would place by letters alone. Loaded here, where
+// the rails' setup is made, so the reading stands in every process that measures.
+import "@/modules/takeoff/partition/notation";
 
 /** Which campaign's revision a setup is read for, in which project of which workspace. */
 export type RailSetupScope = {

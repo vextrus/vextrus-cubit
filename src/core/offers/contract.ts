@@ -203,9 +203,34 @@ export type BandStatement = {
  */
 export type BandPlacement = (label: string) => number | undefined;
 
-/** The placement a stack of labelled levels makes by its own labels, lowest ordinal first. */
+/**
+ * How two spellings of one storey are judged the same storey — the notation grammar's reading,
+ * registered by the layer above the way the scale seam registers its stated-length reader
+ * (`useStatedLengths`, I-295b): core may not reach a module (ARCH-01), and the grammar is the one
+ * home of what "3RD", "3F" and "THIRD FLOOR" have in common (B-17). Until a reading is registered,
+ * a label is the same storey as itself and no other — what this placement did before the M3
+ * drawing wrote its column schedule's bands as ordinals ("GF TO 2ND", "3RD & 4TH") while its
+ * section marked the storeys "1F".."6F", and no band ever covered a column.
+ */
+export type StoreyEquivalence = (label: string, other: string) => boolean;
+
+const STOREY_KEY = Symbol.for("vextrus.cubit.core.offers.sameStorey");
+
+const storeyScope = globalThis as typeof globalThis & { [STOREY_KEY]?: { same?: StoreyEquivalence } };
+
+const heldStorey: { same?: StoreyEquivalence } = (storeyScope[STOREY_KEY] ??= {});
+
+/** Say how two spellings of a storey are read as one, for every placement made over a stack. */
+export function useStoreyEquivalence(same: StoreyEquivalence): void {
+  heldStorey.same = same;
+}
+
+/**
+ * The placement a stack of labelled levels makes by its own labels, lowest ordinal first: the level
+ * whose label IS the one named, else the level the registered reading judges the same storey.
+ */
 export function placedBy(levels: readonly { readonly label: string; readonly ordinal: number }[]): BandPlacement {
-  return (label) => levels.find((one) => one.label === label)?.ordinal;
+  return (label) => (levels.find((one) => one.label === label) ?? levels.find((one) => heldStorey.same?.(one.label, label) === true))?.ordinal;
 }
 
 /** A band with neither end stated: the schedule named no range, so it selects nothing (L-FRM-02). */

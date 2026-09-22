@@ -14,7 +14,7 @@
 import { EXPANSION_DEFERRAL_REASONS, type ExpansionDeferralReason } from "@/core/errors";
 import { instanceKey, levelSegment, SIGHTING_STANDINGS, viewKey as viewKeyOf, type LevelRef, type SightingStanding, type ViewRef } from "@/core/identity";
 import { bandCovers, bandJudgeable, bandOpen } from "@/core/offers/contract";
-import { normaliseMark } from "../notation";
+import { sameStorey } from "../notation";
 import { isFoundationClass, isLevelClass, levelWordsOf } from "../placement/law";
 import type { PlacementRow } from "../placement/rows";
 
@@ -131,10 +131,12 @@ function byCodePoint(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-/** The live level a label names, or null where the stack carries none — labels compare normalised. */
+/**
+ * The live level a label names, or null where the stack carries none — labels compare as storeys
+ * (`sameStorey`: the grammar's one reading, so a caption's "2ND" places on a stack marked "2F").
+ */
 function levelLabelled(levels: readonly StackedLevel[], label: string): StackedLevel | null {
-  const wanted = normaliseMark(label);
-  const found = levels.filter((level) => normaliseMark(level.label) === wanted);
+  const found = levels.filter((level) => sameStorey(level.label, label));
   // Ties go to the lower ordinal, so one stack answers one way however it was handed in (AC-8).
   return found.sort((left, right) => left.ordinal - right.ordinal || byCodePoint(left.levelId, right.levelId))[0] ?? null;
 }
