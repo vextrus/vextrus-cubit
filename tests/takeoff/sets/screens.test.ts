@@ -176,6 +176,13 @@ describe("AC-5: the sets index", () => {
     const container = mount(await setsIndex(), indexProps([pinned, unpinned]));
 
     const index = one(container, "sets-index", "the sets index");
+    // I-285: the sets are a GRID. The region keeps the id the closed contract named, the one shipped
+    // DataTable stands inside it, and the region repeats the row count the table itself drew — the
+    // number a retrying read waits on and the surface the craft rubric measures (AM-08 Part 2).
+    expect(index.getAttribute("data-rows-rendered"), "the region publishes how many rows the grid drew").toBe("2");
+    const grid = one(index, "datatable", "the sets index");
+    expect(grid.getAttribute("role"), "and what a reader reads is a grid, not a list of paragraphs").toBe("grid");
+    expect(grid.getAttribute("data-density"), "at the compact 28 px row every reference surface of this product reads at (CLAUDE.md's grid law)").toBe("compact");
     const rows = all(index, "set-row");
     expect(
       rows.map((row) => row.getAttribute("data-set")),
@@ -184,6 +191,8 @@ describe("AC-5: the sets index", () => {
 
     for (const [at, row] of rows.entries()) {
       const set = [pinned, unpinned][at] as DrawingSetSummary;
+      expect(row.getAttribute("role"), "every set stands as a row of that grid (R-UI-012)").toBe("row");
+      expect(row.querySelector('[role="rowheader"]')?.textContent, "whose frozen key column is the set's own name (§5 rule 3)").toContain(set.name);
       expect(row.getAttribute("data-name"), "the row publishes the name it carries").toBe(set.name);
       expect(one(row, "set-row-name", `the row for ${set.name}`).textContent, "and shows that name verbatim").toContain(set.name);
       expect(one(row, "set-open", `the row for ${set.name}`).getAttribute("href"), "and opens the set at its own address").toBe(setRoute(TENANT, PROJECT, set.setId));
@@ -251,7 +260,14 @@ describe("AC-5: the set browser", () => {
     expect(browser.getAttribute("data-set"), "the browser publishes the set it is for").toBe(set.setId);
     expect(one(container, "set-heading", "the set browser").textContent, "and shows its name verbatim").toContain(set.name);
 
-    const drawings = all(one(container, "set-drawings", "the set browser"), "set-drawing");
+    // I-286: the drawings a set may name are a GRID — the browser's primary work surface. The region
+    // keeps the id the closed contract named and repeats the row count the table itself drew.
+    const listed = one(container, "set-drawings", "the set browser");
+    expect(listed.getAttribute("data-rows-rendered"), "the region publishes how many rows the grid drew").toBe("2");
+    const grid = one(listed, "datatable", "the set browser");
+    expect(grid.getAttribute("role"), "and what a reader reads is a grid, not a list of paragraphs").toBe("grid");
+    expect(grid.getAttribute("data-density"), "at the compact 28 px row every reference surface of this product reads at (CLAUDE.md's grid law)").toBe("compact");
+    const drawings = all(listed, "set-drawing");
     expect(
       drawings.map((row) => row.getAttribute("data-drawing")),
       "every drawing the project holds is listed, whether or not the set names it (Design Decision §3: sets_members_hint)",
@@ -260,6 +276,8 @@ describe("AC-5: the set browser", () => {
     for (const [at, row] of drawings.entries()) {
       const drawing = [member, outsider][at] as DrawingLineage;
       const isMember = set.members.includes(drawing.drawingId);
+      expect(row.getAttribute("role"), "every lineage stands as a row of that grid (R-UI-012)").toBe("row");
+      expect(row.querySelector('[role="rowheader"]')?.textContent, "whose frozen key column is the drawing's own name (§5 rule 3)").toContain(drawing.name);
       expect(row.getAttribute("data-member"), `${drawing.name} publishes whether this set names it`).toBe(isMember ? "true" : "false");
       expect(row.getAttribute("data-current-sha256"), `${drawing.name} publishes the content it stands at now`).toBe(drawing.current.sha256);
       expect(one(row, "set-drawing-name", drawing.name).textContent, "the row shows the presented name verbatim").toContain(drawing.name);

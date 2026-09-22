@@ -17,6 +17,20 @@ export const sets = {
   sets_create_pending: "Creating the set…",
   sets_list_heading: "Sets",
   sets_list_hint: "Newest set first. The digest fingerprints the revision each set stands pinned at.",
+  // The sets grid's column headers (I-285). A header is the noun the column holds, not a sentence.
+  sets_col_name: "Set",
+  sets_col_members: "Drawings",
+  sets_col_revisions: "Pinned revisions",
+  sets_col_digest: "Current digest",
+  sets_col_open: "Open",
+  // The set browser's column headers (I-286).
+  sets_col_drawing: "Drawing",
+  sets_col_revision_count: "Revisions",
+  sets_col_revision_history: "Revision history",
+  sets_col_member: "In this set",
+  // Retired by I-285 and I-286 — the counts are columns of figures now and the digest's label is a
+  // column header — and kept DECLARED so a reader of this table by key still finds what the
+  // Decision's § 3 fixed. Nothing renders them.
   sets_row_members: "{count} drawings",
   sets_row_revisions: "{count} pinned revisions",
   sets_row_digest_label: "Current digest",
@@ -29,6 +43,7 @@ export const sets = {
   sets_members_heading: "Drawings in this set",
   sets_members_hint: "Every drawing this project holds is listed, whether or not the set names it. A drawing brings its sheets with it.",
   sets_members_none: "This project holds no drawings yet, so there is nothing here for this set to name.",
+  // Retired by I-286 with the two count lines above: the revision count is a column of figures now.
   sets_revision_count: "{count} revisions",
   sets_revision_current: "Current",
   sets_revision_superseded: "Superseded",

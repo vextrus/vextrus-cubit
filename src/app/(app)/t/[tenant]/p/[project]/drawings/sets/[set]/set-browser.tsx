@@ -3,19 +3,26 @@
 // revisions it stands at, the draft toggle that says which of them this set names, the pin, and the
 // revisions this set has already been pinned at.
 //
+// I-286: the drawings a set may name are a GRID — the screen's primary work surface, one compact
+// 28 px row per lineage with a frozen name column and a sticky header, eighteen rows deep whatever
+// the project holds. The PINNED revisions stay a list: they are the secondary region, and a
+// citation nested under a card is no grid row (I-98).
+//
 // `toggle`, `preview` and `commit` replace the server actions and nothing else: given them, the
 // screen maps the settlement exactly as it maps the real ones (the SheetIndex precedent).
 //
 // I-103's precedent: the screen pre-checks the preview and the dialog opens only on a consequence. A
 // refusal before the dialog opens is this screen's answer, in the pin region's own slot; a refusal
 // that arrives once the dialog holds focus is the dialog's.
-import { useCallback, useId, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import type { ColumnDef } from "@tanstack/react-table";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button, IdChip } from "@/ui/primitives/core";
+import { DataTable } from "@/ui/primitives/data";
 import { ShellEmptyState, useShellPage } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
 import type { DrawingLineage, DrawingSetView, SetRevision } from "@/modules/takeoff/sets";
@@ -23,14 +30,27 @@ import { participantsRoute } from "@/app/(app)/t/[tenant]/p/[project]/settings/p
 import { drawingsRoute } from "../../route-address";
 import { commitPin as commitPinAction, previewPin as previewPinAction, toggleMember as toggleMemberAction } from "../actions";
 import { setRoute, setsRoute } from "../route-address";
+import { useRowsDrawn } from "../rows-drawn";
 import { sets } from "../strings";
 import { TESTIDS } from "@/ui/testids";
 
 /** The act this screen renders (L-ACT-02's pair opens the one dialog under this name). */
 const ACT_TYPE = "PIN_DRAWING_SET";
 
+/** The identity this grid's column furniture is remembered under (DataTable's `tableId`). */
+export const SET_MEMBERS_TABLE_ID = "s-drawings-set-members";
+
+/** §1's column widths, this screen's own closed set of px literals (§5). */
+const WIDTH_DRAWING = 320;
+const WIDTH_REVISION_COUNT = 120;
+const WIDTH_HISTORY = 420;
+const WIDTH_MEMBER = 160;
+
 /** Which emptiness the pin region is reporting, in the Decision's own precedence (I-97). */
 type EmptyCause = "no-drawings" | "no-revisions" | "no-members";
+
+/** One lineage as the grid is handed it: the drawing, and whether this set names it right now. */
+type MemberRow = DrawingLineage & { readonly member: boolean };
 
 export interface SetBrowserProps {
   tenantId: string;
@@ -48,6 +68,101 @@ export interface SetBrowserProps {
 interface Evidence {
   readonly href: string;
   readonly label: string;
+}
+
+/** What every row publishes of its own (§7's closed contract), from the lineage verbatim. */
+function rowDataOf(row: MemberRow): Readonly<Record<string, string>> {
+  return { "data-drawing": row.drawingId, "data-member": row.member ? "true" : "false", "data-current-sha256": row.current.sha256 };
+}
+
+/**
+ * §1's columns, left to right. The name is the frozen key column; the count is a tabular figure;
+ * the history is one `set-drawing-revision` per revision, oldest first, in a run that never wraps
+ * (the cell clips and the shipped tooltip says the rest); the toggle is a control well, and the
+ * column is built only where the reader may pin (I-101) — a door that can only refuse is theatre.
+ */
+function memberColumns(canPin: boolean, onToggle: (drawingId: string) => void): ColumnDef<MemberRow, unknown>[] {
+  const columns: ColumnDef<MemberRow, unknown>[] = [
+    {
+      id: "drawing",
+      header: sets.sets_col_drawing,
+      accessorFn: (row) => row.name,
+      size: WIDTH_DRAWING,
+      cell: ({ row }) => (
+        <span className="cx-sets-row-name" data-testid={TESTIDS.set.drawingName}>
+          {row.original.name}
+        </span>
+      ),
+    },
+    {
+      id: "revisionCount",
+      header: sets.sets_col_revision_count,
+      meta: { align: "right" },
+      accessorFn: (row) => String(row.revisions.length),
+      size: WIDTH_REVISION_COUNT,
+      cell: ({ row }) => (
+        <span className="cx-sets-row-count" data-testid={TESTIDS.set.drawingRevisionCount}>
+          {formatUserFigure(String(row.original.revisions.length))}
+        </span>
+      ),
+    },
+    {
+      id: "history",
+      header: sets.sets_col_revision_history,
+      accessorFn: (row) => row.revisions.map((revision) => revision.sha256).join(" "),
+      size: WIDTH_HISTORY,
+      // I-95: every revision renders as its ordinal and its content address — a machine identifier
+      // is data, and which one is current is said in words, never by colour alone (R-UI-060).
+      cell: ({ row }) => (
+        <span className="cx-sets-revision-run">
+          {row.original.revisions.map((revision) => {
+            const current = revision.revisionId === row.original.current.revisionId;
+            return (
+              <span
+                className="cx-sets-revision"
+                data-current={current ? "true" : "false"}
+                data-ordinal={String(revision.ordinal)}
+                data-revision={revision.revisionId}
+                data-sha256={revision.sha256}
+                data-testid={TESTIDS.set.drawingRevision}
+                key={revision.revisionId}
+              >
+                <span className="cx-sets-ordinal">{formatUserFigure(String(revision.ordinal))}</span>
+                <IdChip className="cx-sets-digest" value={revision.sha256} />
+                <span className="cx-sets-standing">{current ? sets.sets_revision_current : sets.sets_revision_superseded}</span>
+              </span>
+            );
+          })}
+        </span>
+      ),
+    },
+  ];
+
+  if (!canPin) return columns;
+  return [
+    ...columns,
+    {
+      id: "member",
+      header: sets.sets_col_member,
+      accessorFn: (row) => (row.member ? sets.sets_member_remove : sets.sets_member_add),
+      size: WIDTH_MEMBER,
+      // A CONTROL WELL: the cell holds one control and nothing else, so the control IS the cell and
+      // the pair is one target of the cell's own size (WCAG 2.2 SC 2.5.8, the primitive's `control`).
+      meta: { control: true },
+      cell: ({ row }) => (
+        <Button
+          aria-label={fill(row.original.member ? sets.sets_member_remove_label : sets.sets_member_add_label, { drawing: row.original.name })}
+          aria-pressed={row.original.member}
+          data-drawing={row.original.drawingId}
+          data-testid={TESTIDS.set.memberToggle}
+          onClick={() => onToggle(row.original.drawingId)}
+          variant={row.original.member ? "secondary" : "ghost"}
+        >
+          {row.original.member ? sets.sets_member_remove : sets.sets_member_add}
+        </Button>
+      ),
+    },
+  ];
 }
 
 export function SetBrowser({
@@ -68,6 +183,7 @@ export function SetBrowser({
   const [pinRefusal, setPinRefusal] = useState<RefusalCode | null>(null);
   const [pending, setPending] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const gridRegion = useRef<HTMLDivElement | null>(null);
   const headingIds = { members: useId(), pin: useId(), revisions: useId() };
 
   const evidenceFor = useCallback(
@@ -83,15 +199,26 @@ export function SetBrowser({
   /** A refusal, in the shape the one act pattern rejects with and the one renderer composes. */
   const refused = useCallback((code: RefusalCode): unknown => ({ refusal: refusalOf(code), evidence: evidenceFor(code) }), [evidenceFor]);
 
-  const onToggle = async (drawingId: string): Promise<void> => {
-    setMemberRefusal(null);
-    const answered = await toggle({ tenantId, projectId, setId: set.setId, drawingId });
-    if (!answered.toggled) {
-      setMemberRefusal(answered.refusal);
-      return;
-    }
-    setMembers((held) => (answered.member ? [...held.filter((id) => id !== drawingId), drawingId] : held.filter((id) => id !== drawingId)));
-  };
+  const onToggle = useCallback(
+    (drawingId: string): void => {
+      void (async () => {
+        setMemberRefusal(null);
+        const answered = await toggle({ tenantId, projectId, setId: set.setId, drawingId });
+        if (!answered.toggled) {
+          setMemberRefusal(answered.refusal);
+          return;
+        }
+        setMembers((held) => (answered.member ? [...held.filter((id) => id !== drawingId), drawingId] : held.filter((id) => id !== drawingId)));
+      })();
+    },
+    [projectId, set.setId, tenantId, toggle],
+  );
+
+  // Membership is a fact of the ROW, so the grid redraws a flipped toggle the way it redraws any
+  // other cell — the column list itself never changes while a reader works (I-96).
+  const rows = useMemo<MemberRow[]>(() => lineages.map((lineage) => ({ ...lineage, member: members.includes(lineage.drawingId) })), [lineages, members]);
+  const columns = useMemo(() => memberColumns(canPin, onToggle), [canPin, onToggle]);
+  const rowsDrawn = useRowsDrawn(gridRegion, rows.length);
 
   const dialogPreview = useCallback(async () => {
     const answered = await preview({ tenantId, projectId, setId: set.setId });
@@ -134,14 +261,12 @@ export function SetBrowser({
           {set.name}
         </h1>
         <p className="cx-sets-caption">{sets.sets_set_caption}</p>
-        <p className="cx-set-links">
-          <Link className="cx-sets-link cx-reticle" data-testid={TESTIDS.set.drawingsLink} href={drawingsRoute(tenantId, projectId)}>
-            {sets.sets_drawings_link}
-          </Link>
-          <Link className="cx-sets-link cx-reticle" href={setsRoute(tenantId, projectId)}>
-            {sets.sets_sets_link}
-          </Link>
-        </p>
+        <Link className="cx-sets-link cx-reticle" data-testid={TESTIDS.set.drawingsLink} href={drawingsRoute(tenantId, projectId)}>
+          {sets.sets_drawings_link}
+        </Link>
+        <Link className="cx-sets-link cx-reticle" href={setsRoute(tenantId, projectId)}>
+          {sets.sets_sets_link}
+        </Link>
       </header>
 
       {/* I-101: the browser stands whole for a reader without PIN_SET, and one banner names the
@@ -154,24 +279,28 @@ export function SetBrowser({
         </div>
       )}
 
-      <section className="cx-sets-section" aria-labelledby={headingIds.members}>
-        <h2 className="cx-sets-section-heading" id={headingIds.members}>
-          {sets.sets_members_heading}
-        </h2>
-        <p className="cx-sets-hint">{sets.sets_members_hint}</p>
-        <ul className="cx-sets-list" data-testid={TESTIDS.set.drawings}>
-          {lineages.map((lineage) => (
-            <DrawingRow
-              canPin={canPin}
-              key={lineage.drawingId}
-              lineage={lineage}
-              member={members.includes(lineage.drawingId)}
-              onToggle={() => {
-                void onToggle(lineage.drawingId);
-              }}
-            />
-          ))}
-        </ul>
+      <section className="cx-sets-section cx-set-members" aria-labelledby={headingIds.members}>
+        <div className="cx-sets-track">
+          <h2 className="cx-sets-section-heading" id={headingIds.members}>
+            {sets.sets_members_heading}
+          </h2>
+          <p className="cx-sets-hint">{sets.sets_members_hint}</p>
+        </div>
+        {/* The region a retrying read waits on keeps the id the contract names and repeats the
+            table's own drawn-row count (§7, unchanged — the id moved from a `<ul>` to the frame
+            around the grid, and no test id was added or renamed). */}
+        <div className="cx-set-drawings" ref={gridRegion} data-testid={TESTIDS.set.drawings} data-rows-rendered={rowsDrawn}>
+          <DataTable
+            tableId={SET_MEMBERS_TABLE_ID}
+            aria-labelledby={headingIds.members}
+            columns={columns}
+            data={rows}
+            getRowId={(row) => row.drawingId}
+            density="compact"
+            rowTestId={TESTIDS.set.drawing}
+            rowDataOf={rowDataOf}
+          />
+        </div>
         {/* R-UI-020: an empty list says why it is empty where it stands. The one `set-empty` element
             is the pin region's (I-97), so what this list owes is a sentence and not a second one. */}
         {lineages.length === 0 ? <p className="cx-sets-silence">{sets.sets_members_none}</p> : null}
@@ -182,10 +311,12 @@ export function SetBrowser({
 
       {canPin ? (
         <section className="cx-sets-section" aria-labelledby={headingIds.pin}>
-          <h2 className="cx-sets-section-heading" id={headingIds.pin}>
-            {sets.sets_pin_heading}
-          </h2>
-          <p className="cx-sets-hint">{sets.sets_pin_hint}</p>
+          <div className="cx-sets-track">
+            <h2 className="cx-sets-section-heading" id={headingIds.pin}>
+              {sets.sets_pin_heading}
+            </h2>
+            <p className="cx-sets-hint">{sets.sets_pin_hint}</p>
+          </div>
           <Button
             className="cx-set-pin"
             data-testid={TESTIDS.set.pin}
@@ -214,10 +345,12 @@ export function SetBrowser({
       {emptiness}
 
       <section className="cx-sets-section" aria-labelledby={headingIds.revisions}>
-        <h2 className="cx-sets-section-heading" id={headingIds.revisions}>
-          {sets.sets_revisions_heading}
-        </h2>
-        <p className="cx-sets-hint">{sets.sets_revisions_hint}</p>
+        <div className="cx-sets-track">
+          <h2 className="cx-sets-section-heading" id={headingIds.revisions}>
+            {sets.sets_revisions_heading}
+          </h2>
+          <p className="cx-sets-hint">{sets.sets_revisions_hint}</p>
+        </div>
         {set.revisions.length === 0 ? (
           <p className="cx-sets-silence">{sets.sets_revisions_none}</p>
         ) : (
@@ -285,61 +418,11 @@ function Empty({ cause, tenantId, projectId }: { cause: EmptyCause; tenantId: st
 }
 
 /**
- * One drawing of the project: its lineage, whether this set names it, and the door that moves it in
- * or out. Every revision renders as its ordinal and its content address whole (I-95) — a machine
- * identifier is data, and which one is current is said in words, never by colour alone.
- */
-function DrawingRow({ lineage, member, canPin, onToggle }: { lineage: DrawingLineage; member: boolean; canPin: boolean; onToggle: () => void }) {
-  return (
-    <li className="cx-sets-row" data-testid={TESTIDS.set.drawing} data-drawing={lineage.drawingId} data-member={member ? "true" : "false"} data-current-sha256={lineage.current.sha256}>
-      <div className="cx-sets-row-facts">
-        <p className="cx-sets-row-name" data-testid={TESTIDS.set.drawingName}>
-          {lineage.name}
-        </p>
-        <p className="cx-sets-row-counts" data-testid={TESTIDS.set.drawingRevisionCount}>
-          {fill(sets.sets_revision_count, { count: formatUserFigure(String(lineage.revisions.length)) })}
-        </p>
-        <ol className="cx-sets-revision-list">
-          {lineage.revisions.map((revision) => {
-            const current = revision.revisionId === lineage.current.revisionId;
-            return (
-              <li
-                className="cx-sets-revision"
-                data-current={current ? "true" : "false"}
-                data-ordinal={String(revision.ordinal)}
-                data-revision={revision.revisionId}
-                data-sha256={revision.sha256}
-                data-testid={TESTIDS.set.drawingRevision}
-                key={revision.revisionId}
-              >
-                <span className="cx-sets-ordinal">{formatUserFigure(String(revision.ordinal))}</span>
-                <IdChip className="cx-sets-digest" value={revision.sha256} />
-                <span className="cx-sets-standing">{current ? sets.sets_revision_current : sets.sets_revision_superseded}</span>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
-      {canPin ? (
-        <Button
-          aria-label={fill(member ? sets.sets_member_remove_label : sets.sets_member_add_label, { drawing: lineage.name })}
-          aria-pressed={member}
-          data-drawing={lineage.drawingId}
-          data-testid={TESTIDS.set.memberToggle}
-          onClick={onToggle}
-          variant={member ? "secondary" : "ghost"}
-        >
-          {member ? sets.sets_member_remove : sets.sets_member_add}
-        </Button>
-      ) : null}
-    </li>
-  );
-}
-
-/**
  * One pinned revision, shown exactly as it was pinned (I-98): the manifest is the citation list, so
  * every member it held renders — including a drawing the set no longer names and a revision since
- * superseded — and nothing is recomputed against today's membership.
+ * superseded — and nothing is recomputed against today's membership. This region stays a LIST: the
+ * citations of a manifest are nested under the revision that cited them, and a nested citation is
+ * no row of a grid (I-286).
  */
 function PinnedRevision({ revision }: { revision: SetRevision }) {
   return (

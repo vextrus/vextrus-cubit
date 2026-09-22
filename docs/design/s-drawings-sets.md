@@ -103,6 +103,8 @@ navigation (the S-Drawings and S-Audit precedent, unpaid). Until it lands both r
 journey- and URL-reachable, and `route-address.ts` (`setsRoute`, `setRoute`) is their one
 address; `set-drawings-link` keeps the sheet index one click away from both.
 - **I-107 — the screen states itself on its root, and every identifier renders through the IdChip (session 4, AM-08 Part 2's rubric read as CLAUDE.md reads it).** The index's current-digest cell, the browser's per-revision sha256, the pinned revision's digest (`set-revision-digest`) and each citation's sha256 are IdChips; `set-row-digest` wraps the chip and keeps `data-digest`. Both roots — `cx-sets` and `cx-set` — state `ready`, the index `empty` where it lists no set. The root carries `data-screen-root` and a `data-state` a reader of the DOM can take after `settled()` — `ready`, `empty`, or the screen's own word — which is the rubric's twelfth criterion and was unstated here. An identifier a person meets on this screen (an account id, a content digest, a source key) is an IdChip: the chip measure on screen, the whole value in `data-value`, on the tooltip and on the clipboard, never a raw uuid, hex digest or handle in body text (R-UI-082). Where an earlier Interpretation of this file ruled a digest rendered whole in the document, this one amends it: the whole value is the chip's DATA and the copy it hands over, and the document shows the measure.
+- **I-285 — the sets index is a GRID, and the tracks above it are single rows (session 5, AM-08 Part 2's rubric read as CLAUDE.md's grid law reads it).** A register of sets is a reference surface, and CLAUDE.md rules what a reference surface is: compact 28 px rows, a sticky header, a frozen key column, no wrapping, tabular right-aligned numerals. The `<ul>` this file first ruled was none of those, and it was no candidate the craft rubric measures either — so the screen was graded on a primary work surface it did not have (session 4 read it at 3.58, `workSurface` 0 and `aboveTheFold` 0). The sets therefore stand in the one shipped `DataTable`, inside the region whose id the closed contract already named: `sets-index` moves from the `<ul>` to the frame around the grid, and no test id is added, renamed or retired by this reading (§7 stands word for word). Two consequences follow and are ruled above: the counts and the digest label stop being lines of a card and become COLUMNS — the count-line keys are retired, kept declared, and rendered nowhere — and the header and create tracks become single rows, so the grid starts within 240 px of the top of `shell-main` at 1440x900 and at 1280x800 alike. Nothing is rendered to move a score: a grid is what a list of sets with four facts each was always trying to be, and the rubric only says so.
+- **I-286 — the drawings a set may name are a GRID; the revisions it has been pinned at stay a LIST.** The membership surface is the browser's primary region by I-285's reasoning, one row per lineage, and its frame is `calc(var(--row-h) * 18)` deep whatever the project holds (I-214's precedent), so the surface reads the same for a project with two drawings and one with forty and the region is the primary at both viewports. The per-drawing revisions become one non-wrapping run in a cell of that row — a cell is one line (R-UI-083), and the shipped table clips it with its own tooltip. The membership toggle stands in a control well, and where the reader may not pin the COLUMN is not built at all (I-101): an empty well would still be a column of the grid. The pinned revisions are NOT a grid and are not rebuilt as one: a pinned revision is a citation list nested under a manifest digest (I-98), a nested citation is no row, and the rubric measures the PRIMARY surface — making the secondary region a second grid would put two frames in competition on one screen for no reader's benefit.
 
 ## 1. Layout and hierarchy
 
@@ -111,49 +113,64 @@ actor's `PIN_SET` standing, renders `SetsIndex`), `sets-index.tsx`, `[set]/page.
 `setOf` and `drawingLineagesOf`; a set the project does not hold is Next's 404; its
 `generateMetadata` titles the tab with the set's name behind the same guard, I-106),
 `[set]/set-browser.tsx`, `actions.ts`, `route-address.ts`, `strings.ts`, `states.ts` ×2,
-`loading.tsx` ×2, `sets.css`. A segment that is no uuid names nothing and is judged before any
-query (the shell's `scopedTenantId` precedent). Both pages render in `shell-main`, one column
-(`cx-sets`, `cx-set`): max-width `var(--breakpoint-lg)`, column flex, gap `var(--space-6)`.
+`loading.tsx` ×2, `rows-drawn.ts` (the one reading of a grid's own drawn-row count, worn by
+both screens, B-17), `sets.css`. A segment that is no uuid names nothing and is judged before
+any query (the shell's `scopedTenantId` precedent). Both pages render in `shell-main`, one
+column (`cx-sets`, `cx-set`): column flex, gap `var(--gap-section)`. Amended by I-285 and
+I-286: `cx-sets` is a full-height column (`height: 100%`, `min-height: 0`, no page measure) so
+its grid takes what the tracks above it leave; `cx-set` keeps the page measure
+`var(--breakpoint-lg)` it was ruled at. Every section is a head TRACK of one row — its `<h2>`
+beside its hint, both clipped rather than wrapped (`cx-sets-track`, gap `var(--space-4)`) —
+over whatever that section holds, with `var(--space-2)` between the two; a stack of headings
+and sentences is what put the work surface below the fold (AM-08 Part 2's C1 and C2).
 
 ### The sets index
 
-Header block (gap `var(--space-2)`): `<h1>` `sets_heading` — `var(--text-20)`
-`var(--weight-heading)` `var(--graphite-900)`, margin 0 — over `sets_caption` (`var(--text-13)`
-`var(--graphite-600)`), then the `next/link` `<a data-testid="set-drawings-link">` to
+Header **track** — ONE row (flex, baseline, gap `var(--space-4)`, amended by I-285): `<h1>`
+`sets_heading` — `var(--text-20)` `var(--weight-heading)` `var(--ink)`, margin 0 — then
+`sets_caption` (`var(--text-13)` `var(--ink-muted)`, one line, clipped with an ellipsis where
+the measure is short of it), then the `next/link` `<a data-testid="set-drawings-link">` to
 `drawingsRoute(…)`, label `sets_drawings_link`, in the evidence-link idiom (`var(--text-13)`
-`var(--weight-body-medium)` `var(--beam-600)`, underlined, hover `var(--beam-500)`,
+`var(--weight-body-medium)` `var(--ink-link)`, underlined, hover `var(--accent)`,
 `cx-reticle`).
 
-**Create a set** (`<section aria-labelledby>`) — `<h2>` `sets_create_heading`
-(`var(--text-16)` `var(--weight-heading)`), hint `sets_create_hint` (`var(--text-12)`
-`var(--graphite-600)`), then `<form data-testid="set-create-form">`: flex, wrap, gap
-`var(--space-3)`, align-items end, `padding-block-end var(--space-2)` (reticle clearance). A
-core Input `data-testid="set-name-input"`, width 280 px, with a visible `<label for…>`
-`sets_name_label` (`var(--text-13)` `var(--weight-body-medium)` `var(--graphite-700)`) and no
-placeholder (the s-auth ruling); then a core primary Button `data-testid="set-create"`, label
-`sets_create_submit`. While the action is in flight the door takes core's loading state and
+**Create a set** (`<section aria-labelledby>`) — a head track of one row (`cx-sets-track`):
+`<h2>` `sets_create_heading` (`var(--text-16)` `var(--weight-heading)`) beside its hint
+`sets_create_hint` (`var(--text-12)` `var(--ink-muted)`, one line, clipped); then
+`<form data-testid="set-create-form">`: flex, wrap, gap `var(--space-3)`, align-items center,
+`padding-block-end var(--space-2)` (reticle clearance) — the visible `<label for…>`
+`sets_name_label` (`var(--text-13)` `var(--weight-body-medium)` `var(--ink-secondary)`), the
+core Input `data-testid="set-name-input"`, width 280 px, no placeholder (the s-auth ruling),
+and the core primary Button `data-testid="set-create"`, label `sets_create_submit`, all on the
+one row. While the action is in flight the door takes core's loading state and
 `<p role="status" aria-live="polite">` `sets_create_pending` renders below the form. On
 `{ created: true }` the client navigates to `setRoute(tenantId, projectId, setId)` — the new
 set standing open is the answer, no toast. Below the form the region's **answer slot**
 `<div class="cx-sets-answer">` (no test id; the contract is closed) holds exactly one
 RefusalState. This whole section is absent for a reader without `PIN_SET` (I-101).
 
-**Sets** (`<section aria-labelledby>`) — `<h2>` `sets_list_heading`, hint `sets_list_hint`,
-then `<ul data-testid="sets-index">` (list-style none, margin 0, padding 0), one
-`<li data-testid="set-row" data-set={setId} data-name={name}>` per set, newest first:
-padding-block `var(--space-3)`, border-top `var(--hairline)` after the first, grid
-`minmax(0, 1fr) auto`, gap `var(--space-3)`, min-height `var(--row-comfortable)`, re-keyed
-`var(--row-compact)` under an ancestor `[data-density="compact"]` (the dropzone I-75
-mechanism). First column, three lines: `<p data-testid="set-row-name">` the name verbatim
-(`var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`); the counts line
-`sets_row_members` and `sets_row_revisions` through `formatUserFigure`, joined by the layout
-(flex, gap `var(--space-3)`), `var(--text-12)` `var(--graphite-600)`; then the digest line —
-label `sets_row_digest_label` (`var(--text-12)` `var(--graphite-600)`) then
-`<span data-testid="set-row-digest" data-digest={digest ?? ""}>`, `var(--font-mono)`
-`var(--text-12)` `var(--graphite-700)` `tabular-nums slashed-zero`, whole, wrapping,
-select-all, or `sets_row_digest_none` in `var(--font-ui)` `var(--graphite-600)` when the set
-has no pinned revision (I-99). Second column, `align-self: center`: the `next/link`
-`<a data-testid="set-open">` to `setRoute(…)`, label `sets_open`, evidence-link idiom.
+**Sets** (`<section aria-labelledby>`, `flex: 1 1 auto`) — a head track of one row: `<h2>`
+`sets_list_heading` beside its hint `sets_list_hint`; then the GRID (I-285), which takes every
+pixel the tracks above it leave. `<div data-testid="sets-index" data-rows-rendered={drawn}>`
+is the region a retrying read waits on — the id the contract already named, now on the frame
+around the grid rather than on a `<ul>` — and `drawn` is the shipped table's own
+`data-rows-rendered`, read back through the region rather than restated from the data. Inside
+it one `DataTable` (`tableId` `s-drawings-sets`, `density="compact"`, `getRowId` the set id,
+`aria-labelledby` the `<h2>`, `rowTestId` `set-row`, `rowDataOf` `data-set={setId}`
+`data-name={name}`), one row per set in the module's order (newest first), five columns:
+
+- **Set** (`sets_col_name`, 320 px) — the frozen key column, so it is each row's `rowheader`:
+  `<span data-testid="set-row-name">` the name verbatim, `var(--weight-body-medium)`
+  `var(--ink)`, never wrapping.
+- **Drawings** (`sets_col_members`, 120 px) and **Pinned revisions** (`sets_col_revisions`,
+  160 px) — right-aligned tabular figures through `formatUserFigure`, the table's own mono
+  numerals.
+- **Current digest** (`sets_col_digest`, 220 px) — `<span data-testid="set-row-digest"
+  data-digest={digest ?? ""}>` holding one IdChip (I-99, I-107), or `sets_row_digest_none` in
+  `var(--font-ui)` `var(--ink-muted)` when the set has no pinned revision.
+- **Open** (`sets_col_open`, 140 px) — a CONTROL WELL (`meta.control`): the cell holds the
+  `next/link` `<a data-testid="set-open">` to `setRoute(…)`, label `sets_open`, evidence-link
+  idiom at `var(--control-h)` so cell and link are one target (WCAG 2.2 SC 2.5.8).
 
 **Empty** — in the list's place, one `ShellEmptyState` (its own `shell-empty` ids nest inside)
 wrapped in `<div data-testid="sets-empty">`: heading `sets_empty_heading`, body
@@ -167,45 +184,53 @@ idiom pointing at the sheet index, since naming a set is not theirs to do.
 
 ### The set browser
 
-`<div data-testid="set-browser" data-set={setId}>`, same column. Header block: `<h1
-data-testid="set-heading">` the set name verbatim (`var(--text-20)`), caption
-`sets_set_caption`, then two links in one row (flex, gap `var(--space-4)`), both in the
-evidence-link idiom: `<a data-testid="set-drawings-link">` to `drawingsRoute(…)`, label
-`sets_drawings_link`, and the way back to `setsRoute(…)`, label `sets_sets_link` (no test id —
-found by role and name).
+`<div data-testid="set-browser" data-set={setId}>`, same column. Header **track** — ONE row
+(flex, baseline, gap `var(--space-4)`, amended by I-286): `<h1 data-testid="set-heading">` the
+set name verbatim (`var(--text-20)`), the caption `sets_set_caption` (one line, clipped), then
+the two links, both in the evidence-link idiom: `<a data-testid="set-drawings-link">` to
+`drawingsRoute(…)`, label `sets_drawings_link`, and the way back to `setsRoute(…)`, label
+`sets_sets_link` (no test id — found by role and name).
 
-**Drawings in this set** (`<section aria-labelledby>`) — `<h2>` `sets_members_heading`, hint
-`sets_members_hint`, then `<ul data-testid="set-drawings">` (list-style none, margin 0,
-padding 0), one `<li data-testid="set-drawing" data-drawing={drawingId}
-data-member="true|false" data-current-sha256={current.sha256}>` per lineage in the module's
-order: padding-block `var(--space-3)`, border-top `var(--hairline)` after the first, grid
-`minmax(0, 1fr) auto`, gap `var(--space-3)`.
+**Drawings in this set** (`<section aria-labelledby>`) — a head track of one row: `<h2>`
+`sets_members_heading` beside its hint `sets_members_hint`; then the GRID (I-286).
+`<div data-testid="set-drawings" data-rows-rendered={drawn}>` is the region a retrying read
+waits on — the id the contract already named, now on the frame around the grid rather than on
+a `<ul>` — and its frame is `calc(var(--row-h) * 18)` deep whatever the project holds, so the
+surface reads the same at two drawings and at forty (I-214's precedent). Inside it one
+`DataTable` (`tableId` `s-drawings-set-members`, `density="compact"`, `getRowId` the drawing
+id, `aria-labelledby` the `<h2>`, `rowTestId` `set-drawing`, `rowDataOf`
+`data-drawing={drawingId}` `data-member="true|false"`
+`data-current-sha256={current.sha256}`), one row per lineage in the module's order, four
+columns (three where the reader may not pin):
 
-- First column, line one: `<p data-testid="set-drawing-name">` the stored presented name
-  verbatim (`var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`, wrapping) and
-  `<p data-testid="set-drawing-revision-count">` `sets_revision_count` through
-  `formatUserFigure` (`var(--text-12)` `var(--graphite-600)`).
-- First column, line two: `<ol class="cx-sets-revisions">`, one
-  `<li data-testid="set-drawing-revision" data-revision={revisionId} data-sha256={sha256}
-  data-ordinal={ordinal} data-current="true|false">` per revision, oldest first: flex, wrap,
-  gap `var(--space-2)`, baseline. The ordinal in `var(--font-mono)` `var(--text-12)`
-  `var(--graphite-600)` `tabular-nums slashed-zero`, min-width 24 px so ordinals column-align;
-  the sha256 whole in `var(--font-mono)` `var(--text-12)` `var(--graphite-700)`, wrapping,
-  select-all (I-95); then `sets_revision_current` or `sets_revision_superseded` in
-  `var(--font-ui)` `var(--text-12)`, `var(--graphite-900)` for the current one at
-  `var(--weight-body-medium)`, `var(--graphite-600)` otherwise.
-- Second column, `align-self: start`: `<Button data-testid="set-member-toggle"
-  data-drawing={drawingId} aria-pressed={member}>`, variant `secondary` when a member and
-  `ghost` when not, label `sets_member_remove` / `sets_member_add`, `aria-label`
-  `sets_member_remove_label` / `sets_member_add_label` filled with the drawing's name. A press
-  calls `toggleMember` at once (I-96); the row's `data-member`, the label and the pressed state
-  move together. Absent for a reader without `PIN_SET` (I-101).
+- **Drawing** (`sets_col_drawing`, 320 px) — the frozen key column, so it is each row's
+  `rowheader`: `<span data-testid="set-drawing-name">` the stored presented name verbatim
+  (`var(--weight-body-medium)` `var(--ink)`, never wrapping).
+- **Revisions** (`sets_col_revision_count`, 120 px) — `<span
+  data-testid="set-drawing-revision-count">` the figure through `formatUserFigure`,
+  right-aligned and tabular.
+- **Revision history** (`sets_col_revision_history`, 420 px) — one run that never wraps
+  (`cx-sets-revision-run`, gap `var(--space-4)`; the cell clips it and the table's own tooltip
+  says the rest), holding one `<span data-testid="set-drawing-revision"
+  data-revision={revisionId} data-sha256={sha256} data-ordinal={ordinal}
+  data-current="true|false">` per revision, oldest first: the ordinal in `var(--font-mono)`
+  `var(--text-12)` `var(--ink-muted)` `tabular-nums slashed-zero`, min-width 24 px so ordinals
+  column-align; the sha256 as one IdChip (I-95, I-107); then `sets_revision_current` or
+  `sets_revision_superseded` in `var(--font-ui)` `var(--text-12)`, `var(--ink)` for the
+  current one at `var(--weight-body-medium)`, `var(--ink-muted)` otherwise.
+- **In this set** (`sets_col_member`, 160 px) — a CONTROL WELL (`meta.control`) holding
+  `<Button data-testid="set-member-toggle" data-drawing={drawingId} aria-pressed={member}>`,
+  variant `secondary` when a member and `ghost` when not, label `sets_member_remove` /
+  `sets_member_add`, `aria-label` `sets_member_remove_label` / `sets_member_add_label` filled
+  with the drawing's name. A press calls `toggleMember` at once (I-96); the row's
+  `data-member`, the label and the pressed state move together. The COLUMN is not built at all
+  for a reader without `PIN_SET` (I-101) — an empty well would still be a column.
 
-Where the project holds no drawings the list stands empty, and directly under it — inside this
-region, so it is read where the void is — `<p class="cx-sets-silence">` `sets_members_none`
-(`var(--text-12)` `var(--graphite-600)`, the hint idiom). It carries no test id and is no
-second empty state: I-97's one `set-empty` element stands in the column, and this line is
-what R-UI-020 owes a list that would otherwise be silent (I-104).
+Where the project holds no drawings the grid stands with its header and no rows, and directly
+under it — inside this region, so it is read where the void is — `<p class="cx-sets-silence">`
+`sets_members_none` (`var(--text-12)` `var(--ink-muted)`, the hint idiom). It carries no test
+id and is no second empty state: I-97's one `set-empty` element stands in the column, and this
+line is what R-UI-020 owes a region that would otherwise be silent (I-104).
 
 Below it the region's **answer slot** `<div class="cx-sets-answer cx-shell-live">`: exactly one
 RefusalState, the code `toggleMember` answered. Every answer slot and status line on both
@@ -245,21 +270,21 @@ list is the answer.
 `<ol data-testid="set-revisions">` (list-style none, margin
 0, padding 0), one `<li data-testid="set-revision" data-set-revision={setRevisionId}
 data-digest={digest} data-current="true|false">` newest first: padding `var(--space-3)`, fill
-`var(--graphite-50)`, border `var(--hairline)`, radius `var(--radius-8)`, column flex, gap
+`var(--surface-panel)`, border `var(--hairline)`, radius `var(--radius-8)`, column flex, gap
 `var(--space-2)`, `var(--space-3)` between cards. Head line: `sets_revision_current` /
 `sets_revision_superseded` (`var(--text-12)`, weights and greys as above), then the label
 `sets_revision_digest_label` and `<span data-testid="set-revision-digest">` — the digest
-character-for-character, `var(--font-mono)` `var(--text-12)` `var(--graphite-700)`
+character-for-character, `var(--font-mono)` `var(--text-12)` `var(--ink-secondary)`
 `tabular-nums slashed-zero`, whole, wrapping, select-all (I-99). Then `<ul>` of citations, one
 `<li data-testid="set-revision-member" data-drawing={drawingId} data-revision={revisionId}
 data-sha256={sha256}>` per manifest member in the manifest's canonical order: the member's
-name (`var(--text-12)` `var(--graphite-900)`) then its sha256 whole in `var(--font-mono)`
-`var(--text-12)` `var(--graphite-600)`, wrapping, select-all.
+name (`var(--text-12)` `var(--ink)`) then its sha256 whole in `var(--font-mono)`
+`var(--text-12)` `var(--ink-muted)`, wrapping, select-all.
 
 For a reader without `PIN_SET`, one banner-surface RefusalState from the registered
 `PERMISSION_NOT_HELD` stands directly under the header block on both screens, preceded by
 `<p>` `sets_denied_permission` and `<p>` `sets_denied_holder` (`var(--text-13)`
-`var(--graphite-700)`, gap `var(--space-2)`), evidence `{ href: the project's participants
+`var(--ink-secondary)`, gap `var(--space-2)`), evidence `{ href: the project's participants
 route, label: sets_evidence_participants }`.
 
 ## 2. States (R-UI-050), ruled cell by cell
@@ -272,9 +297,11 @@ Declared in `states.ts` beside each page — exports `SETS_INDEX_STATES` and
 permission-denied cells are `PermissionDenied` naming PIN_SET.
 
 - **Loading** — `loading.tsx` per route, frame intact, core Skeletons keeping the layout, gap
-  `var(--space-3)`. Index: 24 × 240 px (heading), 16 × 360 px (caption), 32 × 280 px and
-  32 × 120 px (the create row), four 56 × min(720 px, 100 %) row bones. Browser: 24 × 280 px,
-  16 × 360 px, five 72 × min(720 px, 100 %) drawing bones, 32 × 160 px (the pin door), three
+  `var(--space-3)`. Re-cut for the grids (I-285, I-286): one bone per TRACK, then the grid's
+  own rows at the compact row height, so the shape that arrives is the shape that was held.
+  Index: 24 × 360 px (the header track), 32 × 280 px (the create row), eight
+  28 × min(720 px, 100 %) row bones. Browser: 24 × 360 px (the header track), eight
+  28 × min(720 px, 100 %) drawing rows, 32 × 160 px (the pin door), three
   96 × min(720 px, 100 %) revision bones. Never a spinner (R-UI-004).
 - **Empty** — index: `sets-empty`, whose one action names the first set. Browser: `set-empty`
   with its three causes (I-97). Both teach the next step and say why they are empty (R-UI-020).
@@ -304,17 +331,19 @@ sets** · `sets_create_heading` **Create a set** · `sets_create_hint` **Give th
 other set of this project carries. Which drawings it names is chosen on the set itself.** ·
 `sets_name_label` **Set name** · `sets_create_submit` **Create set** · `sets_create_pending`
 **Creating the set…** · `sets_list_heading` **Sets** · `sets_list_hint` **Newest set first.
-The digest fingerprints the revision each set stands pinned at.** · `sets_row_members`
-**{count} drawings** · `sets_row_revisions` **{count} pinned revisions** ·
-`sets_row_digest_label` **Current digest** · `sets_row_digest_none` **Not pinned yet** ·
-`sets_open` **Open set** · `sets_empty_heading` **No sets yet** · `sets_empty_body` **A set
+The digest fingerprints the revision each set stands pinned at.** · the two grids' column
+headers (I-285, I-286): `sets_col_name` **Set** · `sets_col_members` **Drawings** ·
+`sets_col_revisions` **Pinned revisions** · `sets_col_digest` **Current digest** ·
+`sets_col_open` **Open** · `sets_col_drawing` **Drawing** · `sets_col_revision_count`
+**Revisions** · `sets_col_revision_history` **Revision history** · `sets_col_member` **In this
+set** · `sets_row_digest_none` **Not pinned yet** · `sets_open` **Open set** · `sets_empty_heading` **No sets yet** · `sets_empty_body` **A set
 names the drawings a campaign measures. Name the first one above, then choose its drawings on
 the set itself.** · `sets_empty_action` **Name the first set** · `sets_set_caption` **Choose
 the drawings this set names, then pin it to record the revision each one stands at.** ·
 `sets_members_heading` **Drawings in this set** · `sets_members_hint` **Every drawing this
 project holds is listed, whether or not the set names it. A drawing brings its sheets with
 it.** · `sets_members_none` **This project holds no drawings yet, so there is nothing here for
-this set to name.** · `sets_revision_count` **{count} revisions** · `sets_revision_current` **Current** ·
+this set to name.** · `sets_revision_current` **Current** ·
 `sets_revision_superseded` **Superseded** · `sets_member_add` **Add to set** ·
 `sets_member_remove` **Remove from set** · `sets_member_add_label` **Add {drawing} to this
 set** · `sets_member_remove_label` **Remove {drawing} from this set** · `sets_pin_heading`
@@ -367,6 +396,13 @@ the route table): `state_empty_sets_heading` ≡ `sets_empty_heading` ·
 member it held, including a drawing the set no longer names and a revision since superseded;
 those citations are shown exactly as they were pinned, never recomputed.**
 
+RETIRED by I-285 and I-286, and kept DECLARED in `strings.ts` word for word so a reader of the
+table by key still finds what this section fixed — `sets_row_members` **{count} drawings** ·
+`sets_row_revisions` **{count} pinned revisions** · `sets_row_digest_label` **Current
+digest** · `sets_revision_count` **{count} revisions**. Each was a count line of a card; the
+figure is a column of its own now and the label is that column's header, so nothing renders
+them. A retired key is deleted by the increment that proves no suite reads it.
+
 Voice: calm, concrete, professional; no exclamation marks; no build vocabulary in prose.
 Digests, sha256 values, ordinals, drawing names and the act type are data and render verbatim
 as data (I-25's class), never woven into sentences. `PIN_SET` in the denial copy is the
@@ -384,13 +420,16 @@ motion, so `sets.css` carries no `prefers-reduced-motion` branch.
 
 ## 5. Tokens
 
-`--graphite-50/600/700/900` · `--beam-500/600` · `--hairline` · `--space-2/3/4/6` ·
-`--radius-8` · `--text-12/13/16/20` · `--font-ui`/`--font-mono` · `--leading-ui` ·
-`--weight-body-medium`/`--weight-heading` · `--row-comfortable`/`--row-compact` ·
-`--breakpoint-lg` (the page measure, read as a token) · `--motion-state`/`--ease`. Px
-literals, closed set (core I-1's mandated class): the 280 px name field, the 24 px ordinal
-column, and the skeleton bones 16/24/32/56/72/96 × 120/160/240/280/360/720. Any other literal
-is a defect. No copper appears on either screen — it lives only on the ConsequenceDialog's
+The semantic aliases `--ink`/`--ink-secondary`/`--ink-muted`/`--ink-link` · `--accent` ·
+`--surface-panel` · `--hairline` · `--space-2/3/4` · `--gap-section` · `--radius-8` ·
+`--text-12/13/16/20` · `--font-ui`/`--font-mono` · `--leading-ui` ·
+`--weight-body-medium`/`--weight-heading` · the density tokens `--row-h`, `--control-h` and
+`--cell-px` · `--breakpoint-lg` (the browser's page measure, read as a token) ·
+`--motion-state`/`--ease`. Px literals, closed set (core I-1's mandated class): the 280 px
+name field, the 24 px ordinal column, the two grids' column widths — 320/120/160/220/140 on
+the index and 320/120/420/160 on the browser, which are the tables' own `size` and are spelled
+beside the columns, never in the stylesheet — and the skeleton bones 24/28/32/96 ×
+160/280/360/720. Any other literal is a defect. No copper appears on either screen — it lives only on the ConsequenceDialog's
 confirm, where its own Decision puts it — and no basis colour appears at all: a revision is
 not a basis.
 

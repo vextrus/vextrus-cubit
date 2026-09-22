@@ -2,24 +2,44 @@
 // S-Drawings-Sets (R-TO-005): the sets index — the door that names a set, and one row per set the
 // project holds with the digest it stands pinned at.
 //
+// I-285: the sets are a GRID. The list they used to be was no work surface a reader could read as
+// one — no sticky header, no frozen key column, no compact row — and no candidate the craft rubric
+// measures, so the screen scored the primary region it did not have. The rows now stand in the one
+// shipped DataTable, at the compact 28 px row every other reference surface of this product reads
+// at, and the header and create tracks are single rows so the grid starts within 240 px of the top
+// of `shell-main` (AM-08 Part 2, CLAUDE.md's grid law).
+//
 // `createSet` replaces the server action and nothing else: given it, the screen maps the settlement
 // exactly as it maps the real one, which is what makes the screen a browser renders and the section
 // a test renders one component (the SheetIndex precedent).
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import type { ColumnDef } from "@tanstack/react-table";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button, IdChip, Input } from "@/ui/primitives/core";
+import { DataTable } from "@/ui/primitives/data";
 import { ShellEmptyState, useShellPage } from "@/ui/shell";
-import { fill, strings } from "@/ui/strings";
+import { strings } from "@/ui/strings";
 import type { DrawingSetSummary } from "@/modules/takeoff/sets";
 import { participantsRoute } from "../../settings/participants/route-address";
 import { drawingsRoute } from "../route-address";
 import { createSet as createSetAction } from "./actions";
 import { setRoute, setsRoute } from "./route-address";
+import { useRowsDrawn } from "./rows-drawn";
 import { sets } from "./strings";
 import { TESTIDS } from "@/ui/testids";
+
+/** The identity this grid's column furniture is remembered under (DataTable's `tableId`). */
+export const SETS_TABLE_ID = "s-drawings-sets";
+
+/** §1's column widths, this screen's own closed set of px literals (§5). */
+const WIDTH_NAME = 320;
+const WIDTH_MEMBERS = 120;
+const WIDTH_REVISIONS = 160;
+const WIDTH_DIGEST = 220;
+const WIDTH_OPEN = 140;
 
 export interface SetsIndexProps {
   tenantId: string;
@@ -36,6 +56,78 @@ interface Evidence {
   readonly label: string;
 }
 
+/** What every row publishes of its own (§7's closed contract), from the summary verbatim. */
+function rowDataOf(set: DrawingSetSummary): Readonly<Record<string, string>> {
+  return { "data-set": set.setId, "data-name": set.name };
+}
+
+/**
+ * §1's five columns, left to right. The name is the frozen key column; the two counts are tabular
+ * figures through the one document formatter; the digest keeps the element the contract names, with
+ * its `data-digest` and its chip inside it (I-99, I-107); the door is a control well, so the cell
+ * and the link a reader aims at are one target (WCAG 2.2 SC 2.5.8, the S-Documents precedent).
+ */
+function setsColumns(tenantId: string, projectId: string): ColumnDef<DrawingSetSummary, unknown>[] {
+  return [
+    {
+      id: "name",
+      header: sets.sets_col_name,
+      accessorFn: (row) => row.name,
+      size: WIDTH_NAME,
+      cell: ({ row }) => (
+        <span className="cx-sets-row-name" data-testid={TESTIDS.set.rowName}>
+          {row.original.name}
+        </span>
+      ),
+    },
+    {
+      id: "members",
+      header: sets.sets_col_members,
+      meta: { align: "right" },
+      accessorFn: (row) => String(row.memberCount),
+      size: WIDTH_MEMBERS,
+      cell: ({ row }) => formatUserFigure(String(row.original.memberCount)),
+    },
+    {
+      id: "revisions",
+      header: sets.sets_col_revisions,
+      meta: { align: "right" },
+      accessorFn: (row) => String(row.revisionCount),
+      size: WIDTH_REVISIONS,
+      cell: ({ row }) => formatUserFigure(String(row.original.revisionCount)),
+    },
+    {
+      id: "digest",
+      header: sets.sets_col_digest,
+      accessorFn: (row) => row.currentDigest ?? "",
+      size: WIDTH_DIGEST,
+      // I-99: a set that has never been pinned publishes no digest and says so in prose — never a
+      // dash, and never a fake hex value. The label the line used to carry is the column's header.
+      cell: ({ row }) =>
+        row.original.currentDigest === null ? (
+          <span className="cx-sets-row-unpinned" data-testid={TESTIDS.set.rowDigest} data-digest="">
+            {sets.sets_row_digest_none}
+          </span>
+        ) : (
+          <span className="cx-sets-row-digest" data-testid={TESTIDS.set.rowDigest} data-digest={row.original.currentDigest}>
+            <IdChip className="cx-sets-digest" value={row.original.currentDigest} />
+          </span>
+        ),
+    },
+    {
+      id: "open",
+      header: sets.sets_col_open,
+      size: WIDTH_OPEN,
+      meta: { control: true },
+      cell: ({ row }) => (
+        <Link className="cx-sets-link cx-sets-open cx-reticle" data-testid={TESTIDS.set.open} href={setRoute(tenantId, projectId, row.original.setId)}>
+          {sets.sets_open}
+        </Link>
+      ),
+    },
+  ];
+}
+
 export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet = createSetAction }: SetsIndexProps) {
   // R-UI-084: the trail's last crumb is this screen's own word, under the project's Drawings area.
   useShellPage(sets.sets_heading);
@@ -43,8 +135,13 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
   const [pending, setPending] = useState(false);
   const [refusal, setRefusal] = useState<RefusalCode | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+  const gridRegion = useRef<HTMLDivElement | null>(null);
   const headingIds = { create: useId(), list: useId() };
   const nameId = useId();
+
+  const rows = useMemo(() => [...held], [held]);
+  const columns = useMemo(() => setsColumns(tenantId, projectId), [tenantId, projectId]);
+  const rowsDrawn = useRowsDrawn(gridRegion, rows.length);
 
   const evidenceFor = useCallback(
     (code: RefusalCode): Evidence => {
@@ -73,6 +170,9 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
 
   return (
     <div className="cx-sets" data-screen-root="" data-state={held.length === 0 ? "empty" : "ready"}>
+      {/* I-285: one track, not three — the heading, what the screen is for and the way to the
+          drawings stand on a single row, so the grid beneath them is the first thing a reader's eye
+          lands on. */}
       <header className="cx-sets-header">
         <h1 className="cx-sets-heading">{sets.sets_heading}</h1>
         <p className="cx-sets-caption">{sets.sets_caption}</p>
@@ -94,10 +194,12 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
 
       {canPin ? (
         <section className="cx-sets-section" aria-labelledby={headingIds.create}>
-          <h2 className="cx-sets-section-heading" id={headingIds.create}>
-            {sets.sets_create_heading}
-          </h2>
-          <p className="cx-sets-hint">{sets.sets_create_hint}</p>
+          <div className="cx-sets-track">
+            <h2 className="cx-sets-section-heading" id={headingIds.create}>
+              {sets.sets_create_heading}
+            </h2>
+            <p className="cx-sets-hint">{sets.sets_create_hint}</p>
+          </div>
           <form
             className="cx-sets-form"
             data-testid={TESTIDS.set.createForm}
@@ -106,12 +208,10 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
               void submit();
             }}
           >
-            <span className="cx-sets-field">
-              <label className="cx-sets-field-label" htmlFor={nameId}>
-                {sets.sets_name_label}
-              </label>
-              <Input className="cx-sets-name" data-testid={TESTIDS.set.nameInput} id={nameId} ref={nameRef} value={name} onChange={(event) => setName(event.target.value)} />
-            </span>
+            <label className="cx-sets-field-label" htmlFor={nameId}>
+              {sets.sets_name_label}
+            </label>
+            <Input className="cx-sets-name" data-testid={TESTIDS.set.nameInput} id={nameId} ref={nameRef} value={name} onChange={(event) => setName(event.target.value)} />
             <Button data-testid={TESTIDS.set.create} loading={pending} type="submit">
               {sets.sets_create_submit}
             </Button>
@@ -125,11 +225,13 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
         </section>
       ) : null}
 
-      <section className="cx-sets-section" aria-labelledby={headingIds.list}>
-        <h2 className="cx-sets-section-heading" id={headingIds.list}>
-          {sets.sets_list_heading}
-        </h2>
-        <p className="cx-sets-hint">{sets.sets_list_hint}</p>
+      <section className="cx-sets-section cx-sets-listing" aria-labelledby={headingIds.list}>
+        <div className="cx-sets-track">
+          <h2 className="cx-sets-section-heading" id={headingIds.list}>
+            {sets.sets_list_heading}
+          </h2>
+          <p className="cx-sets-hint">{sets.sets_list_hint}</p>
+        </div>
 
         {held.length === 0 ? (
           <div data-testid={TESTIDS.sets.empty}>
@@ -146,11 +248,24 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
             </ShellEmptyState>
           </div>
         ) : (
-          <ul className="cx-sets-list" data-testid={TESTIDS.sets.index}>
-            {held.map((set) => (
-              <SetRow key={set.setId} projectId={projectId} set={set} tenantId={tenantId} />
-            ))}
-          </ul>
+          // The region a retrying read waits on keeps the id the contract names and repeats the
+          // table's own drawn-row count (§7, unchanged — the id moved from a `<ul>` to the frame
+          // around the grid, and no test id was added or renamed).
+          <div className="cx-sets-grid" ref={gridRegion} data-testid={TESTIDS.sets.index} data-rows-rendered={rowsDrawn}>
+            <DataTable
+              tableId={SETS_TABLE_ID}
+              aria-labelledby={headingIds.list}
+              columns={columns}
+              data={rows}
+              getRowId={(row) => row.setId}
+              // R-UI-083's own default, stated as the density REGION the primitive provides for it:
+              // a list of sets is a reference grid and reads at the compact 28 px row whatever
+              // height the reader's other surfaces stand at.
+              density="compact"
+              rowTestId={TESTIDS.set.row}
+              rowDataOf={rowDataOf}
+            />
+          </div>
         )}
       </section>
     </div>
@@ -161,42 +276,4 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
 function standAt(href: string): void {
   if (typeof window === "undefined") return;
   window.location.assign(href);
-}
-
-/**
- * One set of the project: what it is called, how much it holds, and the address it stands pinned at.
- *
- * I-99: the digest renders character for character, so its label sits outside the element the
- * contract names and the text equals `data-digest` exactly. A set that has never been pinned
- * publishes no digest and says so in prose — never a dash, and never a fake hex value.
- */
-function SetRow({ set, tenantId, projectId }: { set: DrawingSetSummary; tenantId: string; projectId: string }) {
-  return (
-    <li className="cx-sets-row" data-testid={TESTIDS.set.row} data-set={set.setId} data-name={set.name}>
-      <div className="cx-sets-row-facts">
-        <p className="cx-sets-row-name" data-testid={TESTIDS.set.rowName}>
-          {set.name}
-        </p>
-        <p className="cx-sets-row-counts">
-          <span>{fill(sets.sets_row_members, { count: formatUserFigure(String(set.memberCount)) })}</span>
-          <span>{fill(sets.sets_row_revisions, { count: formatUserFigure(String(set.revisionCount)) })}</span>
-        </p>
-        <p className="cx-sets-row-digest-line">
-          <span className="cx-sets-row-digest-label">{sets.sets_row_digest_label}</span>
-          {set.currentDigest === null ? (
-            <span className="cx-sets-row-unpinned" data-testid={TESTIDS.set.rowDigest} data-digest="">
-              {sets.sets_row_digest_none}
-            </span>
-          ) : (
-            <span className="cx-sets-row-digest" data-testid={TESTIDS.set.rowDigest} data-digest={set.currentDigest}>
-              <IdChip className="cx-sets-digest" value={set.currentDigest} />
-            </span>
-          )}
-        </p>
-      </div>
-      <Link className="cx-sets-link cx-sets-open cx-reticle" data-testid={TESTIDS.set.open} href={setRoute(tenantId, projectId, set.setId)}>
-        {sets.sets_open}
-      </Link>
-    </li>
-  );
 }

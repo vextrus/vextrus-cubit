@@ -4,8 +4,17 @@
  * R-UI-003, R-UI-004): the rules are identical in light and dark, and the themes differ only in
  * what the tokens are worth. No `[data-theme]` selector appears here.
  *
+ * THE GEOMETRY, IN ONE PLACE (I-285, I-286). Both screens are columns of single-row tracks over a
+ * grid: the header is one row, each section's heading and hint are one row, and the grid takes what
+ * they leave. On the index `cx-sets` is a full-height column and the grid is its last track, so the
+ * sets fill the work surface; on the browser `cx-set` keeps the page measure it was ruled at and the
+ * drawings' frame is eighteen `--row-h` rows deep whatever the project holds, so the same surface
+ * reads the same whether a project holds two drawings or forty (I-214's precedent), with the pin
+ * section and the pinned revisions following beneath it.
+ *
  * The px literals are the closed set the Decision § 5 fixes: the 280 px name field and the 24 px
- * ordinal column. Any other literal is a defect.
+ * ordinal column. The grids' column widths are the tables' own (their `size`), never this sheet's.
+ * Any other literal is a defect.
  *
  * Focus is not styled here: every button, input and link wears the reticle from its one home
  * (B-17, R-UI-012). Nothing on either screen animates beyond the inherited idioms, so no
@@ -16,20 +25,39 @@
 .cx-set {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--gap-section);
+  min-width: 0;
+}
+
+/* I-285: the sets are the work surface, so the index is a column of the height `shell-main` gives
+   it and the grid takes what the tracks above it leave, rather than growing the page. */
+.cx-sets {
+  height: 100%;
+  min-height: 0;
+}
+
+.cx-set {
   max-width: var(--breakpoint-lg);
 }
 
 .cx-sets-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-2);
+  min-width: 0;
 }
 
-.cx-sets-header {
+/* A track: one row of the column. The heading leads, the sentence that explains it follows on the
+   same line, and a sentence too long for the measure is clipped rather than allowed to push the
+   grid down the page. */
+.cx-sets-header,
+.cx-sets-track {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
 .cx-sets-heading {
@@ -39,14 +67,19 @@
   font-weight: var(--weight-heading);
   line-height: var(--leading-ui);
   color: var(--ink);
+  white-space: nowrap;
 }
 
 .cx-sets-caption {
   margin: 0;
+  min-width: 0;
+  overflow: hidden;
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
   color: var(--ink-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cx-sets-section-heading {
@@ -56,6 +89,7 @@
   font-weight: var(--weight-heading);
   line-height: var(--leading-ui);
   color: var(--ink);
+  white-space: nowrap;
 }
 
 .cx-sets-hint,
@@ -68,6 +102,13 @@
   color: var(--ink-muted);
 }
 
+.cx-sets-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* The evidence-link idiom: underlined, so a link never rides colour alone (R-UI-060). */
 .cx-sets-link {
   font-family: var(--font-ui);
@@ -76,6 +117,7 @@
   line-height: var(--leading-ui);
   color: var(--ink-link);
   text-decoration: underline;
+  white-space: nowrap;
   transition: color var(--motion-state) var(--ease);
 }
 
@@ -83,26 +125,15 @@
   color: var(--accent);
 }
 
-.cx-set-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  margin: 0;
-}
-
-/* The create form: the field and its door share a baseline, and the row keeps the reticle clear. */
+/* The create form: one row — the label, the field and the door — and the row keeps the reticle
+   clear of the track beneath it. */
 .cx-sets-form {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: center;
   gap: var(--space-3);
   padding-block-end: var(--space-2);
-}
-
-.cx-sets-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
 }
 
 .cx-sets-field-label {
@@ -117,81 +148,90 @@
   width: 280px;
 }
 
-.cx-sets-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* --- the two grids (§1's primary regions) --- */
+
+.cx-sets-listing {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-/* One row per set, and one per drawing: the facts to the left, the one door to the right. */
-.cx-sets-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-3);
-  min-height: var(--row-h);
-  padding-block: var(--space-3);
+.cx-sets-grid {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
 }
 
-.cx-sets-row + .cx-sets-row {
-  border-top: var(--hairline);
+/* The table's own frame takes the region, rather than standing at the height of the rows it
+   happens to hold: a register of two sets reads as the same surface a register of forty does. */
+.cx-sets-grid > * {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.cx-sets-row-facts {
+/* I-286: the drawings a set may name are the browser's primary region, and its frame is eighteen
+   rows deep whatever the project holds — a project with one drawing reads as the same surface a
+   project with forty does. */
+.cx-set-drawings {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
   min-width: 0;
+  min-height: calc(var(--row-h) * 18);
 }
 
+.cx-set-drawings > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* A cell never wraps (R-UI-083): the name and the figures stand on one line and the shipped table
+   clips them with its own tooltip where the column is too narrow. */
 .cx-sets-row-name {
-  margin: 0;
-  font-family: var(--font-ui);
-  font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  line-height: var(--leading-ui);
   color: var(--ink);
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
-.cx-sets-row-counts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin: 0;
-  font-family: var(--font-ui);
-  font-size: var(--text-12);
-  line-height: var(--leading-ui);
-  color: var(--ink-muted);
-}
-
-.cx-sets-row-digest-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin: 0;
-}
-
-.cx-sets-row-digest-label,
+.cx-sets-row-count,
 .cx-sets-row-unpinned {
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
   color: var(--ink-muted);
+  white-space: nowrap;
 }
 
-/* I-25, I-26, I-99: a machine identifier renders verbatim, whole, wrapping and select-all. */
+.cx-sets-row-digest,
+.cx-sets-row-digest-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--ink-muted);
+}
+
+.cx-sets-row-digest {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* I-25, I-107: a machine identifier renders through the IdChip — the measure on screen, the whole
+   value the chip's data and the copy it hands over. */
 .cx-sets-digest {
   font-family: var(--font-mono);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
   color: var(--ink-secondary);
   font-variant-numeric: tabular-nums slashed-zero;
-  overflow-wrap: anywhere;
-  user-select: all;
 }
 
+/* The row's own door, in its control well: the link IS the cell, so cell and link are one target
+   of the cell's height (WCAG 2.2 SC 2.5.8, the table's `meta.control`). */
 .cx-sets-open {
-  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h);
+  padding-inline: var(--cell-px);
 }
 
 .cx-sets-answer,
@@ -213,20 +253,19 @@
   color: var(--ink-secondary);
 }
 
-/* A drawing's revisions: the ordinals column-align, and the content address stands beside them. */
-.cx-sets-revision-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+/* A drawing's revisions, in one cell: the ordinals column-align, the content address stands beside
+   them, and the run never wraps — a cell is one line (R-UI-083). */
+.cx-sets-revision-run {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .cx-sets-revision {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-2);
 }
 
@@ -237,6 +276,7 @@
   line-height: var(--leading-ui);
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums slashed-zero;
+  text-align: right;
 }
 
 /* Which revision is current is said in words, never by colour alone (R-UI-060). */
