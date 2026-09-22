@@ -1,6 +1,28 @@
 {
   "fixtures": [
     {
+      "requestHash": "053e38deadded8594bb38c6d3ca8ef85b4a5978fe831a1df46ea2e18d4f0cc5f",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 19",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "0682f4d8dbe47ed4adad0380c0f8c104603a54f3515654e9ae8144a1a850c7e1",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 2",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1136,
+      "outputTokens": 57,
+      "attributedCost": "0.021315",
+      "providerCost": "0.000047712"
+    },
+    {
       "requestHash": "0ae6874af48c25e1cdea3ac58b8d867f4b50d7b9db2c527bd4de2ffabc9f16b9",
       "question": "view-caption",
       "subject": "rcc6-bnbc.dxf · DXF_HANDLE:B04 · C2",
@@ -21,6 +43,72 @@
       "outputTokens": 118,
       "attributedCost": "0.003276",
       "providerCost": "0.000021084"
+    },
+    {
+      "requestHash": "0b4797bb50442f51422145677a5a2aa63489b72be7e0b633301624d5e17173b2",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 14",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1137,
+      "outputTokens": 57,
+      "attributedCost": "0.02133",
+      "providerCost": "0.000047754"
+    },
+    {
+      "requestHash": "0ca676a7a508aac4175cbe45dc0e37379a7fbbf3350ef86c90ff284e904238ec",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · COLUMN SCHEDULE · row 6",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 5571,
+      "outputTokens": 417,
+      "attributedCost": "0.11484",
+      "providerCost": "0.000233982"
+    },
+    {
+      "requestHash": "0cc84b5cb6612e4fe7ad0e6e63952dabec9cbf5785a7e25a540141b45cad03b4",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 9",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1471,
+      "outputTokens": 93,
+      "attributedCost": "0.02904",
+      "providerCost": "0.000061782"
+    },
+    {
+      "requestHash": "0d64f4f235d67b198f244959d01d1fe0d2fa362fb37ca3bac494456ce2c0ee4e",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 4",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1470,
+      "outputTokens": 93,
+      "attributedCost": "0.029025",
+      "providerCost": "0.00006174"
+    },
+    {
+      "requestHash": "0d764bcb5606a7a3e795f881986b866c5a92342535b6c2f140bf4c7f145f8b55",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 25",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "0f4111ce64e0eac4d789a5fc847adcf1d09595ed772b90b80f7e7520fd5ab65f",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 14",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
     },
     {
       "requestHash": "151431a4192f38e68857efe3b3737181b3d502655152b07638e9f2580c36cbed",
@@ -56,6 +144,160 @@
       "providerCost": "0.00002142"
     },
     {
+      "requestHash": "30c3f86fc9591714bacfe8721ff090219f36e72c9d756b5532f2f9d5b999249c",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · COLUMN SCHEDULE · row 5",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 5571,
+      "outputTokens": 417,
+      "attributedCost": "0.11484",
+      "providerCost": "0.000233982"
+    },
+    {
+      "requestHash": "3393120cf90d9048ffaf873f7be3dcfd26fe8af3f3e075ff8a41563961b6871b",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 3",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1137,
+      "outputTokens": 57,
+      "attributedCost": "0.02133",
+      "providerCost": "0.000047754"
+    },
+    {
+      "requestHash": "349466316cd104455bda774b7c6f1540340237b8c5dafadeb5114af05e53c8be",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 8",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1471,
+      "outputTokens": 93,
+      "attributedCost": "0.02904",
+      "providerCost": "0.000061782"
+    },
+    {
+      "requestHash": "35b233b9797f4d11c2e5fa0ef8136c32e700c38b47b235e95dbc8c809f8808ac",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 19",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "38fc5f3d9e308a0029bd941c66882fed0b8a639dde35da2c1a3dafaf238d1e06",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 24",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "39aa3e97924fb22a5b842e6ee750c54aa935476acb2fab6988f626f818742879",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 7",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1118,
+      "outputTokens": 57,
+      "attributedCost": "0.021045",
+      "providerCost": "0.000046956"
+    },
+    {
+      "requestHash": "3ba1e786d3d7f84ba670f2bb7f11f317c6c35fc6bf984bb9c86dfe6560f8c8da",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 3",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1471,
+      "outputTokens": 93,
+      "attributedCost": "0.02904",
+      "providerCost": "0.000061782"
+    },
+    {
+      "requestHash": "4160fbb4f5f54a2b90a47dbcda764d36f4b759b98e5eee4ecec3e21864e3a29e",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 8",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1118,
+      "outputTokens": 57,
+      "attributedCost": "0.021045",
+      "providerCost": "0.000046956"
+    },
+    {
+      "requestHash": "4858a2e2721df850769e4a6e7720eb7e36d00e208282920b4ce8d15d1c2210af",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 1",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1470,
+      "outputTokens": 93,
+      "attributedCost": "0.029025",
+      "providerCost": "0.00006174"
+    },
+    {
+      "requestHash": "4c4544ceb7ad455c03d162c32c1b0a340d3031df7432748fa86f3c6a786daed3",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 5",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1471,
+      "outputTokens": 93,
+      "attributedCost": "0.02904",
+      "providerCost": "0.000061782"
+    },
+    {
+      "requestHash": "4cbbb37ee2647d3e544b7c7e406e270c3de1d596227210da735b12774d625d83",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 17",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "4d70e108ad6e26b5169be10c0cbea12ecbf96d70c29e12ddab4f9f040cd2ba7f",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · COLUMN SCHEDULE · row 8",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1583,
+      "outputTokens": 102,
+      "attributedCost": "0.031395",
+      "providerCost": "0.000066486"
+    },
+    {
+      "requestHash": "4d823931c743aac34ff00ab0f6f8855116ac79565513d432b42f4315d1d2e03a",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · COLUMN SCHEDULE · row 1",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 5571,
+      "outputTokens": 417,
+      "attributedCost": "0.11484",
+      "providerCost": "0.000233982"
+    },
+    {
+      "requestHash": "509973b234bf0591b696cebf78d479914d57c451e00608988704aceeea6c1394",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 10",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
       "requestHash": "50f7c93811fa4d2da6f49d189d4736e9f8e2dcac7e20bacc016e78e607bc2932",
       "question": "sheet-reading",
       "subject": "silent-title-block.graph.json · SHEET-01",
@@ -65,6 +307,72 @@
       "outputTokens": 231,
       "attributedCost": "0.03186",
       "providerCost": "0.000040698"
+    },
+    {
+      "requestHash": "552bf773aa4a65f7cdd3a888000dc9810a577467e6acda5b79003869ca4d2280",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 23",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "5827c2faeacc219213fe9a89599583e93fc2a7e8612ef1749d8945715348e2ac",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 18",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "5b4b0ff4641bfa7f0078fed5caac0582fb822a041d9024d47ea4f1674e0e3a3e",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 11",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "5cbb5db10623b66fcefb9712630478b60d5179a9790cf4f1388df58e4ab2637a",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 24",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "5e0d89a666aac57032237f267fede0c38017bbf3f97eb8756413d13681033d64",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 6",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1470,
+      "outputTokens": 93,
+      "attributedCost": "0.029025",
+      "providerCost": "0.00006174"
+    },
+    {
+      "requestHash": "63a6c36c3cc5fc35fdbf51919a7e6be06524c2fad33536eb9ad668dec9b04db9",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 18",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
     },
     {
       "requestHash": "641f59a1dc3b788dbdf3f23c26516717a21f3c63ab183ceeac5dd4ea9bf6c3da",
@@ -78,6 +386,226 @@
       "providerCost": "0.000021084"
     },
     {
+      "requestHash": "656250de327c644f48114c5f4655f2a2fc584c659edfe903cb11a3c354c6636b",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · LINTEL & SUNSHADE SCHEDULE · row 5",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 989,
+      "outputTokens": 57,
+      "attributedCost": "0.01911",
+      "providerCost": "0.000041538"
+    },
+    {
+      "requestHash": "65ee9cefcd6013af8c5b9e5832443f92567bb4a5bdfb999eb51bc04dc618a44e",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 9",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1120,
+      "outputTokens": 57,
+      "attributedCost": "0.021075",
+      "providerCost": "0.00004704"
+    },
+    {
+      "requestHash": "6949ae71deae71cec0ff79b76440e852ce526d24d067bbbbf8ee80d1e92b0871",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 10",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "6ba879aef6e75b275fa4aa1520316747dd1d7576a8e51c2f8cfdca4df1031343",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · COLUMN SCHEDULE · row 2",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 5580,
+      "outputTokens": 417,
+      "attributedCost": "0.114975",
+      "providerCost": "0.00023436"
+    },
+    {
+      "requestHash": "6c8f98b246de0ec72d2bcf0fb204cbfb828fb81e3fc732b685addfc6b63e621f",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 10",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1164,
+      "outputTokens": 57,
+      "attributedCost": "0.021735",
+      "providerCost": "0.000048888"
+    },
+    {
+      "requestHash": "706bf8e2fa2d6b6641e562607db55ebe4baf829b7dc1b5885e4edb9ed4f40d9e",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 1",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1137,
+      "outputTokens": 57,
+      "attributedCost": "0.02133",
+      "providerCost": "0.000047754"
+    },
+    {
+      "requestHash": "71c6980c39ce152e6c1650ef07491bdb38af58933be051042bf0bce1d39c15f3",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · COLUMN SCHEDULE · row 7",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 5571,
+      "outputTokens": 417,
+      "attributedCost": "0.11484",
+      "providerCost": "0.000233982"
+    },
+    {
+      "requestHash": "71d639887858bfcd41329877165110cbbb60030b1f164e7900988e63ef9fb064",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 7",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1470,
+      "outputTokens": 93,
+      "attributedCost": "0.029025",
+      "providerCost": "0.00006174"
+    },
+    {
+      "requestHash": "71d8f70eb3ff8efcfad5b1f63f89166739b3c33012f21776b451989ffdf2f8a7",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 3",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1470,
+      "outputTokens": 93,
+      "attributedCost": "0.029025",
+      "providerCost": "0.00006174"
+    },
+    {
+      "requestHash": "78befd14db6234dc968455a8bc114c2a0abc13d0e391eedacb801bc93bdebcaf",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 21",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1471,
+      "outputTokens": 93,
+      "attributedCost": "0.02904",
+      "providerCost": "0.000061782"
+    },
+    {
+      "requestHash": "7b321b6cea465d09c2891b5ed0078ff4dfd26e8b6db6c2e3858d3f30bc0919af",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · LINTEL & SUNSHADE SCHEDULE · row 3",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 985,
+      "outputTokens": 57,
+      "attributedCost": "0.01905",
+      "providerCost": "0.00004137"
+    },
+    {
+      "requestHash": "7fe1090aa2ce188cf13a6a9b5a9da88159217fc0a655d25bc00ed7d870c30e4a",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 6",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1471,
+      "outputTokens": 93,
+      "attributedCost": "0.02904",
+      "providerCost": "0.000061782"
+    },
+    {
+      "requestHash": "80fba28f7f83c7ff1fd108388ebe3d71bbfcb51d26b2ca521bc8a9fee0cde791",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 6",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1118,
+      "outputTokens": 57,
+      "attributedCost": "0.021045",
+      "providerCost": "0.000046956"
+    },
+    {
+      "requestHash": "824aca94bf224ba18296804c2238155799d19746512e7d78afe57dd92f96ae5c",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · LINTEL & SUNSHADE SCHEDULE · row 2",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 984,
+      "outputTokens": 57,
+      "attributedCost": "0.019035",
+      "providerCost": "0.000041328"
+    },
+    {
+      "requestHash": "89a51b29a860146f06243fd4fd462568bfc7ab48669e2ba33afd24f3202aecd6",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · LINTEL & SUNSHADE SCHEDULE · row 1",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 986,
+      "outputTokens": 57,
+      "attributedCost": "0.019065",
+      "providerCost": "0.000041412"
+    },
+    {
+      "requestHash": "8ce57ea30a2ccc8242d726b0c4ca461a8b34c00e7f19ecdaba8a8dcdba0d6df4",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 8",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1470,
+      "outputTokens": 93,
+      "attributedCost": "0.029025",
+      "providerCost": "0.00006174"
+    },
+    {
+      "requestHash": "916678831a6436c17fb0b8405c93e8f3f226bee57d4d498183a3a282bba5ade6",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 13",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1129,
+      "outputTokens": 57,
+      "attributedCost": "0.02121",
+      "providerCost": "0.000047418"
+    },
+    {
+      "requestHash": "94949a5564af132e7ba9be42e839a83bea5d7028ec3675ea8ebd0ac6b72fe7e8",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 21",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "95af04041567909f319719e52ece08be6d1143687cfddb67184308637d3e1652",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 15",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1135,
+      "outputTokens": 57,
+      "attributedCost": "0.0213",
+      "providerCost": "0.00004767"
+    },
+    {
+      "requestHash": "984eb468206503d7db059beea7a23de7602c5dc2cfbc6a051809075260657d2f",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 11",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1138,
+      "outputTokens": 57,
+      "attributedCost": "0.021345",
+      "providerCost": "0.000047796"
+    },
+    {
       "requestHash": "9d785cac2a24138664ac2cb45a62fb5faba163c10b929171bae8396655971e61",
       "question": "view-caption",
       "subject": "rcc6-bnbc.dxf · DXF_HANDLE:B60 · C4",
@@ -87,6 +615,50 @@
       "outputTokens": 118,
       "attributedCost": "0.003276",
       "providerCost": "0.000021084"
+    },
+    {
+      "requestHash": "a01ba787e974ddf40f8e90b202c516409b1be3f264208f8a399c048d0fd5e219",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 4",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1471,
+      "outputTokens": 93,
+      "attributedCost": "0.02904",
+      "providerCost": "0.000061782"
+    },
+    {
+      "requestHash": "a1b2a3b217e66e2d51ec8c5cf0eb0c4577ce7ecb1822614d05e9aa75c29a2145",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 4",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1137,
+      "outputTokens": 57,
+      "attributedCost": "0.02133",
+      "providerCost": "0.000047754"
+    },
+    {
+      "requestHash": "a3b51408fc4ab1cc6b1ad37ca3ab19afdd34e99c1cfa1e2698580cae7f21d168",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 22",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "a8749831ecf7f483211975f4dabcf0277c8c620eb350f532da148f7a7b8188e5",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 2",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1471,
+      "outputTokens": 93,
+      "attributedCost": "0.02904",
+      "providerCost": "0.000061782"
     },
     {
       "requestHash": "ac21ab7c24717a02557bdc4f644f22bfaafaad1bdc2dbfce30f2529f6319077c",
@@ -100,6 +672,116 @@
       "providerCost": "0.00002142"
     },
     {
+      "requestHash": "adab25876f24790de9cfb9e86b0b297f84fa778769a3f17b06a5c75e279b8672",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 2",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1470,
+      "outputTokens": 93,
+      "attributedCost": "0.029025",
+      "providerCost": "0.00006174"
+    },
+    {
+      "requestHash": "add11a835230241ff7faa3d28cf3ff556a83403060d2de1d764f241f8d94c21f",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 12",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "b3166a8920824ef6900c76ccd3a9168ce0f17a4331582ce4f595d4b5a6a24982",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 12",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "b6dc351cf60eaf3e6365c5c3c94940e1d0324a7a5e8a8d04dc6bd0fe356839fa",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 26",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "b7f9d68438b45a70010af074d8474d6a9eb3fa41c0c5f1c417a8f1d9d6fcd6be",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 11",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "b8fc5a933218ae368d1e3f55b9642ce0a80eb89b7cfb6846512c834cb15cb3ca",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 13",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "c118dce03094ffddf55146c324528f9c5ee1d7fd5815f4cdd0bcc32fd42322c6",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · COLUMN SCHEDULE · row 3",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 5562,
+      "outputTokens": 417,
+      "attributedCost": "0.114705",
+      "providerCost": "0.000233604"
+    },
+    {
+      "requestHash": "c1a416f819b77036078a5887d4c02b571b3b2784623575f12cf7331849ec8346",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 13",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "c1c5143f39c3818aeb646f80d0359ce17428134aedee2307effc8594418ccf3f",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 5",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1117,
+      "outputTokens": 57,
+      "attributedCost": "0.02103",
+      "providerCost": "0.000046914"
+    },
+    {
+      "requestHash": "c59b210a5e26be4915341a9d90027fff4493575a81dac42b049d91bcabf81931",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 20",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
       "requestHash": "c9a141a3e32cedc68705b0134b0a097cfddbdc506116c8d498af8cef8e458c99",
       "question": "view-caption",
       "subject": "rcc6-bnbc.dxf · DXF_HANDLE:BB8 · C6",
@@ -109,6 +791,204 @@
       "outputTokens": 118,
       "attributedCost": "0.003276",
       "providerCost": "0.000021084"
+    },
+    {
+      "requestHash": "cb7854717d9502b47df7371d4f64cede9f4120cffdab2506f4c44573245ef892",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 20",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "cce46fa3f17e8ca351ade8ae9800f63faef5f314e20176157881033c2b4efefc",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 9",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1470,
+      "outputTokens": 93,
+      "attributedCost": "0.029025",
+      "providerCost": "0.00006174"
+    },
+    {
+      "requestHash": "cfa663e2168f640ed0fb0ee9e2b9100dda45d060e2cbd44c46c9c3150ce3fe65",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · LINTEL & SUNSHADE SCHEDULE · row 4",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 989,
+      "outputTokens": 57,
+      "attributedCost": "0.01911",
+      "providerCost": "0.000041538"
+    },
+    {
+      "requestHash": "d31f48bc070e48a2ab88bdf7ace84191274076f33ade02cd8793557ad562ff4f",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 1",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1471,
+      "outputTokens": 93,
+      "attributedCost": "0.02904",
+      "providerCost": "0.000061782"
+    },
+    {
+      "requestHash": "d524a96d50290e799a24ab32d9b8671295fd6787a814baad1ae1a40a95cfaa91",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 12",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1136,
+      "outputTokens": 57,
+      "attributedCost": "0.021315",
+      "providerCost": "0.000047712"
+    },
+    {
+      "requestHash": "d76d873a172c8ffb06ef001234540a99decf96178a5aa80b8a95c1efc87edb11",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 14",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "db71828d37a452e2b270c002906b9a92d1f655c283190b4acfa6077abcc33038",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 7",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1471,
+      "outputTokens": 93,
+      "attributedCost": "0.02904",
+      "providerCost": "0.000061782"
+    },
+    {
+      "requestHash": "dc1fc25f02ed740c599b456ce58e3055ff77070c31b03fcd32487b700072f18e",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 15",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "e4ca37926511de450b9a5a961e3c750842d443a2816b49f8d1172cfcd04bcbe2",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 16",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "e8fec5765c45b4579581332847ee9e37c779b1a90bc4585ebfc478075440c80b",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 22",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "e9d91834b0e1870775e199905427484e608ef4988756b22c12d8a9cdcfcea12f",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 23",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "eb2c758610ab54b359be2bfc9044edb76b22cced9dc2356b93654873f9067723",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 16",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1129,
+      "outputTokens": 57,
+      "attributedCost": "0.02121",
+      "providerCost": "0.000047418"
+    },
+    {
+      "requestHash": "eecbe31aa5817bfdcd541128b4de7292a70d3f3cba7c14840f21f3200503a11d",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 25",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "f51cf3ad7f496080ba5033d3d608ae75ae6ab10bb66d555d8c2b64ce48870f52",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 5",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1470,
+      "outputTokens": 93,
+      "attributedCost": "0.029025",
+      "providerCost": "0.00006174"
+    },
+    {
+      "requestHash": "f69467c2766e462497035a09d9a1c3506ce040c20f1950fc4d2e08d3a4c91563",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · COLUMN SCHEDULE · row 4",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 5440,
+      "outputTokens": 408,
+      "attributedCost": "0.1122",
+      "providerCost": "0.00022848"
+    },
+    {
+      "requestHash": "f9007b76bca9dc99b6fb92aa54259db9672bca5e38d8a2217f2daded819eca15",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 16",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "f99e0a4e687f58b1e18923f428319fce2780eab6d7a08e5f527662e59cafb1ba",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 17",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "fe7c3131c3a9857763451215d0483dcfe51fa1baccc3a8edb09cc6d21316bb07",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 15",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1472,
+      "outputTokens": 93,
+      "attributedCost": "0.029055",
+      "providerCost": "0.000061824"
     }
   ]
 }

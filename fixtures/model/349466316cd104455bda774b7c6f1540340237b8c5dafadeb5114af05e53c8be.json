@@ -1,0 +1,67 @@
+{
+  "requestHash": "349466316cd104455bda774b7c6f1540340237b8c5dafadeb5114af05e53c8be",
+  "modelId": "claude-opus-5",
+  "payload": {
+    "payload": {
+      "header": 0.02,
+      "cells": [
+        {
+          "column": 3,
+          "attribute": "main",
+          "text": "2-16%%C",
+          "sourceKeys": [
+            "DXF_HANDLE:1837"
+          ]
+        },
+        {
+          "column": 4,
+          "attribute": "main",
+          "text": "3-16%%C",
+          "sourceKeys": [
+            "DXF_HANDLE:1838"
+          ]
+        }
+      ]
+    },
+    "sources": [
+      "DXF_HANDLE:1834",
+      "DXF_HANDLE:1835",
+      "DXF_HANDLE:1836",
+      "DXF_HANDLE:1837",
+      "DXF_HANDLE:1838",
+      "DXF_HANDLE:1839"
+    ]
+  },
+  "inputTokens": 1471,
+  "outputTokens": 93,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.02,
+    "answers": {
+      "row_is_header": {
+        "type": "noul",
+        "value": 0.02,
+        "confidence": 0.02,
+        "probabilities": null
+      },
+      "cell_3": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 1,
+        "probabilities": {
+          "cand_1": 1,
+          "NOT_STATED": 0
+        }
+      },
+      "cell_4": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 1,
+        "probabilities": {
+          "cand_1": 1,
+          "NOT_STATED": 0
+        }
+      }
+    }
+  }
+}
