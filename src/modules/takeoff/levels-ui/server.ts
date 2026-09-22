@@ -16,6 +16,7 @@ import { campaignsOf } from "@/core/campaigns";
 import { and, asc, drawingSetRevisions, eq, forTenant, quantityLines, registerObjects } from "@/core/db";
 import type { RefusalCode } from "@/core/errors";
 import { exact } from "@/core/units/canon";
+import { viewAddressOf } from "@/core/views";
 import { levelStackOf, readingsOf, type LevelScope, type StackLevel, type StoreyHeightReadingRow } from "@/modules/takeoff/levels";
 import { expansionDeferralsOf, viewsOf } from "@/modules/takeoff/partition";
 import type { LevelsView, LevelsViewLevel, LevelsViewRange, LevelsViewReading, LevelsViewRollup } from "./view";
@@ -208,7 +209,11 @@ async function unstatedRangesOf(scope: LevelsViewScope, setRevisionId: string): 
     drawingIds.map(async (drawingId) => {
       const viewsScope = { tenantId: scope.tenantId, projectId: scope.projectId, drawingId };
       const [deferrals, views] = await Promise.all([expansionDeferralsOf(viewsScope), viewsOf(viewsScope)]);
-      const captions = new Map(views.map((view) => [view.viewKey, view.caption]));
+      // A deferral names its view by L-REG-04's ADDRESS (`v:`-prefixed, the key a placement row
+      // carries), not by the partition's own key the view record is stored under; the captions are
+      // keyed by the address, derived by the one function that derives one (B-17). Keyed by the
+      // partition's key, every unstated range on F-RCC6-BNBC read as its raw address on the rail.
+      const captions = new Map(views.map((view) => [viewAddressOf(view), view.caption]));
       return (deferrals ?? [])
         .filter((deferral) => deferral.reason === TYPICAL_RANGE_UNSTATED)
         .map((deferral): LevelsViewRange => ({ viewKey: deferral.viewKey, drawingId, caption: captions.get(deferral.viewKey) ?? deferral.viewKey, code: TYPICAL_RANGE_UNSTATED }));
