@@ -45,6 +45,17 @@
       "providerCost": "0.000047712"
     },
     {
+      "requestHash": "091b7f61deb7211c461f5cfe947194484dcb0be3f88da8b1a6dc52accef45a97",
+      "question": "coverage-cause",
+      "subject": "02-beam-concrete-roof-view-scale-unaffirmed.state.json · rcc.concrete on beam, ROOF",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 815,
+      "outputTokens": 53,
+      "attributedCost": "0.00324",
+      "providerCost": "0.00003423"
+    },
+    {
       "requestHash": "0ae6874af48c25e1cdea3ac58b8d867f4b50d7b9db2c527bd4de2ffabc9f16b9",
       "question": "view-caption",
       "subject": "rcc6-bnbc.dxf · DXF_HANDLE:B04 · C2",
@@ -166,6 +177,28 @@
       "providerCost": "0.000040068"
     },
     {
+      "requestHash": "1a66f7948daf2682b2e21d24369623a8e16d92cb8d7030419e1a592cd8594a88",
+      "question": "coverage-cause",
+      "subject": "03-column-concrete-5f-member-type-unknown.state.json · rcc.concrete on column, 5F",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 832,
+      "outputTokens": 53,
+      "attributedCost": "0.003291",
+      "providerCost": "0.000034944"
+    },
+    {
+      "requestHash": "1d719a00fd2643d97bad95c7d68bccb9155add28263f6832f19f9cfd712ecd3a",
+      "question": "coverage-cause",
+      "subject": "01-column-concrete-2f-plan-reading-absent.state.json · rcc.concrete on column, 2F",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 810,
+      "outputTokens": 53,
+      "attributedCost": "0.003225",
+      "providerCost": "0.00003402"
+    },
+    {
       "requestHash": "20850cd27ecd8db4febb39668b6307d7f3f860c25b9323f20929374e2a5b3e1e",
       "question": "view-caption",
       "subject": "rcc6-bnbc.dxf · DXF_HANDLE:10C1 · ROOF BEAM LAYOUT (AT ROOF LEVEL)",
@@ -175,6 +208,17 @@
       "outputTokens": 118,
       "attributedCost": "0.003309",
       "providerCost": "0.000021546"
+    },
+    {
+      "requestHash": "24b55b8db028cb022aeeda3c48e0c9bf4700c419f041ae3716385a2eb0536de0",
+      "question": "coverage-cause",
+      "subject": "06-lintel-concrete-4f-lintel-source-absent.state.json · rcc.concrete on lintel, 4F",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 53,
+      "attributedCost": "0.003261",
+      "providerCost": "0.000034524"
     },
     {
       "requestHash": "24c5c2b77e6ea424ee64d95645766b9cb4f3aeb05b8a809f7f136a8e84948a58",
@@ -188,6 +232,17 @@
       "providerCost": "0.00002142"
     },
     {
+      "requestHash": "2537185dda6c6e7115f206ea582e8d96621a8260a12870df217e59fe659171bc",
+      "question": "coverage-cause",
+      "subject": "09-j022-staged-column-concrete-l1.state.json · rcc.concrete on column, L1",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 761,
+      "outputTokens": 53,
+      "attributedCost": "0.003078",
+      "providerCost": "0.000031962"
+    },
+    {
       "requestHash": "2560caae210aaa68ddf9b1d159b981a2e83788762366a380dd28ddcdba7c980e",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:1F48#1 · 40mm clear cover (columns)",
@@ -197,6 +252,17 @@
       "outputTokens": 89,
       "attributedCost": "0.003885",
       "providerCost": "0.0000357"
+    },
+    {
+      "requestHash": "27efa5d3130e3988bced181b56c16edc6be983b3355d0fe41e95eb6e8db7f575",
+      "question": "coverage-cause",
+      "subject": "07-slab-concrete-1f-nothing-observed.state.json · rcc.concrete on slab, 1F",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 776,
+      "outputTokens": 53,
+      "attributedCost": "0.003123",
+      "providerCost": "0.000032592"
     },
     {
       "requestHash": "30c3f86fc9591714bacfe8721ff090219f36e72c9d756b5532f2f9d5b999249c",
@@ -760,6 +826,17 @@
       "providerCost": "0.00006174"
     },
     {
+      "requestHash": "9028e71004f4bf48672f0e30fa06e1dfedc185152e3a3079e96476d45384a2e3",
+      "question": "coverage-cause",
+      "subject": "04-column-concrete-srr-section-band-uncovered.state.json · rcc.concrete on column, SRR",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 806,
+      "outputTokens": 53,
+      "attributedCost": "0.003213",
+      "providerCost": "0.000033852"
+    },
+    {
       "requestHash": "916678831a6436c17fb0b8405c93e8f3f226bee57d4d498183a3a282bba5ade6",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 13",
@@ -846,6 +923,17 @@
       "outputTokens": 89,
       "attributedCost": "0.004233",
       "providerCost": "0.000040572"
+    },
+    {
+      "requestHash": "9c116300c806f3cb1cb01a382d5916aaac3b87ae31266b8cc4ffcb38955b1427",
+      "question": "coverage-cause",
+      "subject": "08-brick-wall-brickwork-gf-key-plan-only.state.json · masonry.brickwork on brick_wall, GF",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 818,
+      "outputTokens": 53,
+      "attributedCost": "0.003249",
+      "providerCost": "0.000034356"
     },
     {
       "requestHash": "9d4ba6ddcb50abb921cffcc2c358005d0881308078594dce63713f397c233994",
@@ -1088,6 +1176,17 @@
       "outputTokens": 118,
       "attributedCost": "0.003276",
       "providerCost": "0.000021084"
+    },
+    {
+      "requestHash": "cab44c201eeb279b9813488e632d34a0b100fff39e7af17c035cc25ee9ffc21c",
+      "question": "coverage-cause",
+      "subject": "05-brick-wall-brickwork-3f-opening-schedule-absent.state.json · masonry.brickwork on brick_wall, 3F",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 862,
+      "outputTokens": 53,
+      "attributedCost": "0.003381",
+      "providerCost": "0.000036204"
     },
     {
       "requestHash": "cb7854717d9502b47df7371d4f64cede9f4120cffdab2506f4c44573245ef892",
