@@ -30,16 +30,25 @@ export async function rewriteProposedLevelRows(tx: TenantTx, write: LevelProposa
 
   const stamp = { tenantId: write.tenantId, projectId: write.projectId, drawingId: write.drawingId, ingestId: write.ingestId };
   await tx.insert(proposedLevels).values(
-    proposal.levels.map((level) => ({
-      ...stamp,
-      viewKey: level.viewKey,
-      label: level.label,
-      ordinal: level.ordinal,
-      elevation: level.elevation,
-      heightAsWritten: level.heightAsWritten,
-      heightUnit: level.heightUnit,
-      markKey: level.markKey,
-    })),
+    proposal.levels.flatMap((level) => {
+      const row = {
+        ...stamp,
+        viewKey: level.viewKey,
+        label: level.label,
+        ordinal: level.ordinal,
+        elevation: level.elevation,
+        heightAsWritten: level.heightAsWritten,
+        heightUnit: level.heightUnit,
+        markKey: level.markKey,
+      };
+      // A row is one MARK a level was read off (the table is keyed by it). A storey its section states
+      // in a second notation was read off a second mark, so that reading is a second row of the SAME
+      // level — its label, its ordinal, its view — citing the mark it was read off (D-001, L-CAD-03).
+      // The door folds a level's rows back into the one level they are (`proposedLevelStackOf`).
+      const other = level.otherNotation;
+      if (other === undefined) return [row];
+      return [row, { ...row, elevation: other.elevation, heightAsWritten: other.heightAsWritten, heightUnit: other.heightUnit, markKey: other.markKey }];
+    }),
   );
 }
 

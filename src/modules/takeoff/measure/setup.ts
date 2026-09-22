@@ -98,9 +98,10 @@ async function drawingsOfRevision(tx: TenantTx, scope: RailSetupScope): Promise<
 
 /** One level of the live stack, as a rail reads it: the standing, and the reading it stands at. */
 function levelSetupOf(level: Awaited<ReturnType<typeof levelStackOf>>[number]): LevelSetup {
-  // Under AGREED every current reading says the same height, so the first of them IS the reading —
-  // and under SUSPENDED and NONE there is no height at all (L-MEA-07).
-  const stands = level.height.standing === "AGREED" ? level.height.current[0] : undefined;
+  // Under AGREED the standing names the reading the height stands AT — where two notations print one
+  // height, the exact one, not the rounded print beside it (D-001) — so the figure a rail binds and the
+  // entity it cites are that reading's. Under SUSPENDED and NONE there is no height at all (L-MEA-07).
+  const stands = level.height.standing === "AGREED" ? (level.height.reading ?? undefined) : undefined;
   return {
     levelId: level.levelId,
     label: level.label,

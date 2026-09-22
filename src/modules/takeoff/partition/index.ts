@@ -6,15 +6,15 @@
 // for the worker's composition root alone. A bundler follows a barrel's every re-export, and the
 // rebuild reaches the object store and the model seam — neither of which belongs in a screen's module
 // graph (ARCH-01, and the same reason SEAM-CAD keeps its job behind its own file).
-import { dotlessUpper } from "@/core/identity";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
 import { storedExpansionDeferralsOf, storedTypicalRangesOf, type StoredExpansionDeferral, type StoredTypicalRange } from "./expansion/store";
 import { storedGridOf, type StoredGrid } from "./grid/store";
-import { storedProposedLevelsOf, type StoredProposedLevel } from "./levels-proposal/store";
+import { offeredLevelsOf } from "./levels-proposal/offer";
+import { storedProposedLevelsOf } from "./levels-proposal/store";
 import { storedPlacementsOf, storedRunsOf, type StoredPlacement, type StoredRun } from "./placement/store";
 import { storedMemberTypesOf, storedSchedulesOf, type StoredMemberTypes, type StoredSchedules } from "./schedules/store";
 import { drawingProjectOf, partitionStandsFor, storedConventionsOf, storedViewsOf, type StoredConventions } from "./store";
-import type { GroupKind, ProposedLevel, ProposedReading } from "@/core/acts";
+import type { GroupKind, ProposedLevel } from "@/core/acts";
 import type { ViewRecord } from "@/core/views";
 
 export { PARTITION_KIND, partitionJobKey, requestPartition, type PartitionRefused, type PartitionRequest, type PartitionRequested } from "./request";
@@ -179,24 +179,6 @@ export type ProposedLevelStackOffer = {
 };
 
 /**
- * The storey height an offered level states: the one the seventh stage READ, published as it stands
- * (L-REG-01, L-CAD-03).
- *
- * That stage states each height as the distance between two marks of ONE section, adjacent in the one
- * stack it proposes — and states none anywhere else. Re-deriving a height here from the stack's own
- * adjacency would answer the distance between two marks nobody measured together: the views are drawn
- * from their own datums, and a mark the label dedupe dropped leaves two levels that were never
- * neighbours standing next to each other. Committed, that is a `TRANSCRIBED` reading of a figure
- * nobody drew, under the basis that means it was read off the drawing (B-17: one home for the rule).
- *
- * An empty list is the drawing's silence, never a zero somebody would have to disbelieve (B-07).
- */
-function storeyHeightOf(level: StoredProposedLevel): ProposedReading[] {
-  if (level.heightAsWritten === null || level.heightUnit === null) return [];
-  return [{ valueAsWritten: level.heightAsWritten, unitAsWritten: level.heightUnit, sourceKey: level.markKey }];
-}
-
-/**
  * The level stack a drawing's sections propose (L-MEA-07: "the machine proposes a stack, never a
  * level"), offered as the `levels` of one `INSERT_LEVEL` — labels, the ordinals the section stacks
  * them in, and the storey height each level states, kept as the drawing wrote it beside the entity it
@@ -213,27 +195,14 @@ export async function proposedLevelStackOf(scope: ViewsScope): Promise<ProposedL
   if (proposed.length === 0) return null;
 
   // The stack is the seventh stage's, whole: it reads every section of the artifact into ONE stack,
-  // names each storey once and ordinals it from the foot up, so there is nothing left here to merge
-  // or to dedupe — the label rule has one home, and a second reading of it here would be a second
-  // answer to which spelling stands (B-17, `./levels-proposal/propose`).
-  //
-  // A record partitioned BEFORE that stage carries a stack per view: the same storey proposed twice,
-  // which `INSERT_LEVEL` would take at its word and author twice over (L-ACT-01 — a level is authored,
-  // never edited). Such rows are not one stack and are not offered as one; the drawing is rebuilt,
-  // and the rebuild is what proposes a stack a person can confirm (R-UI-050, L-MEA-07).
-  const named = new Set(proposed.map((level) => dotlessUpper(level.label)));
-  if (named.size !== proposed.length) return null;
-
-  // The ordinal offered is the row's place in that one run: an ordinal is physical, and the run the
-  // store answers in is the run from the foot up (L-MEA-07).
-  return {
-    group: { kind: PROPOSED_LEVEL_STACK, drawingId: scope.drawingId, ingestId },
-    levels: proposed.map((level, at) => ({
-      label: level.label,
-      ordinal: at,
-      readings: storeyHeightOf(level),
-    })),
-  };
+  // names each storey once and ordinals it from the foot up, so there is nothing left here to dedupe
+  // — the label rule has one home, and a second reading of it here would be a second answer to which
+  // spelling stands (B-17, `./levels-proposal/propose`). What is left is to fold a level's rows back
+  // into it — a storey stated in two notations was read off two marks (D-001) — and to refuse a record
+  // whose rows are not one stack at all (`./levels-proposal/offer`).
+  const levels = offeredLevelsOf(proposed);
+  if (levels === null) return null;
+  return { group: { kind: PROPOSED_LEVEL_STACK, drawingId: scope.drawingId, ingestId }, levels };
 }
 
 /** The record a drawing's standing partition was rebuilt from, or null where none stands. */
