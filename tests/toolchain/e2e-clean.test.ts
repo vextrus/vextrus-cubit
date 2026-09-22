@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { DEFAULT_DIST_DIR, SERVER_LOCK, heldBy, holdDistDir } from "../../scripts/lib/dist.mjs";
+import { DEFAULT_DIST_DIR, SERVER_LOCK, heldBy, holdDistDir, holdersOf } from "../../scripts/lib/dist.mjs";
 import { sweepable } from "../../scripts/e2e-clean.mjs";
 
 /** A dist directory with a BUILD_ID of the given age. */
@@ -68,6 +68,22 @@ describe("the journey lane's sweep keeps what is still in use", () => {
     release();
     expect(heldBy(serving), "the hold outlived the server").toBeNull();
     expect(verdict(sweepable(root, { all: true }), ".next-stage-serving")?.take, "a directory nobody serves from is the sweep's").toBe(true);
+  });
+
+  test("two servers over one build (the demo beside a journey run): neither overwrites the other's hold, and neither's end releases the other's", () => {
+    const root = mkdtempSync(join(tmpdir(), "cubit-e2e-clean-"));
+    const shared = distDir(root, ".next-stage-shared", 3 * HOUR_MS);
+    // The other server: a process that is demonstrably alive and is not this one — this one's parent.
+    const other = process.ppid;
+    writeFileSync(join(shared, `${SERVER_LOCK}.${other}`), `${JSON.stringify({ pid: other, port: 4213, at: new Date().toISOString() })}\n`);
+
+    const release = holdDistDir(shared, 4211);
+    expect(holdersOf(shared).map((holder) => holder.pid).sort(), "both servers say they are holding it").toEqual([other, process.pid].sort());
+    expect(holdersOf(shared).find((holder) => holder.pid === other)?.port, "a holder says which port it serves").toBe(4213);
+
+    release();
+    expect(heldBy(shared), "this server's end released the other server's hold").toBe(other);
+    expect(verdict(sweepable(root, { all: true }), ".next-stage-shared")?.take, "the sweep took a build the other server still serves from").toBe(false);
   });
 
   test("a lock left behind by a dead process holds nothing", () => {

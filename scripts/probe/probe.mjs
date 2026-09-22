@@ -18,8 +18,8 @@ import { runAxe, axeLine, blocking } from "./lib/axe.mjs";
 import { readCraft, scoreCraft } from "./lib/craft.mjs";
 import { railState } from "./lib/rail.mjs";
 import { sel } from "./lib/testids.mjs";
-// The origin server.mjs serves on, from the ports' one home — never by importing server.mjs, which
-// acts (stops and starts the stage) the moment it is imported. E2E_PORT moves both.
+// The origin server.mjs serves on, from the ports' one home — never a number of server.mjs's own.
+// E2E_PORT moves both.
 import { originFor } from "../lib/ports.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));

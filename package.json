@@ -26,6 +26,7 @@
     "gate": "node scripts/gate.mjs",
     "probe": "node scripts/probe/probe.mjs",
     "probe:server": "node scripts/probe/server.mjs",
+    "demo": "node --import tsx scripts/demo.mjs",
     "test:perf": "node scripts/e2e.mjs --journey PERF-",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:drift": "node scripts/db-drift.mjs",

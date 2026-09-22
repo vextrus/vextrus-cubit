@@ -22,7 +22,10 @@ node scripts/probe/crop.mjs expected.png actual.png x y w h out.png
 The port and the origin have one home, `scripts/lib/ports.mjs`: `server.mjs` serves on
 `portFor("e2e")` and `probe.mjs` dials `originFor("e2e")` (`http://127.0.0.1:<port>`, never
 `localhost`). `E2E_PORT` moves both at once; there is no probe-only port variable. `probe.mjs`
-reads the port from that home rather than importing `server.mjs`, which acts as it is imported.
+reads the port from that home rather than from `server.mjs`. How a stage is served has one home,
+`scripts/lib/stage.mjs`: `server.mjs` names the probe's stage (the journeys' port, the worker, the
+record `scripts/probe/server.pids`), and `pnpm demo` names its own (docs/demo.md) — a record each,
+so neither `--stop` can signal the other's processes.
 
 A verdict line:
 
