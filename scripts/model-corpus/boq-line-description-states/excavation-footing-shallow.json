@@ -1,0 +1,22 @@
+{
+  "subject": "rcc6-bnbc · footing · earthwork.excavation · pit not deeper than 1.5 m",
+  "note": "Hand-written from fixtures/rcc6-bnbc/model.json: the one footing F1, 450 mm deep with its top at -609.6 mm, dug from the existing ground level the fixture's site facts state (egl -152.4 mm, working allowance 457.2 mm) — so the pit stands about 907.2 mm deep and L-BD-04's band up to 1.5 m governs. It is the shallow arm beside the pile cap's deep one, so the corpus carries both sides of the one axis. DECLARED CAVEAT: the earthwork rail publishes no selecting attribute today (`selectors: {}`), so the product cannot compose this state yet; it is deliberate corpus for the axis the law states (Q-08).",
+  "artifact": "fixtures/rcc6-bnbc/model.json",
+  "line": {
+    "class": "footing",
+    "kind": "earthwork.excavation",
+    "unit": "m3",
+    "levels": ["FDN"],
+    "bill": "SUBSTRUCTURE",
+    "decidedBy": "OVERRIDE:footing",
+    "quantityBasis": "DERIVED",
+    "selectionBasis": "DEFAULTED"
+  },
+  "attributes": [
+    { "name": "depth", "valueAsWritten": "450", "unitAsWritten": "mm" },
+    { "name": "top", "valueAsWritten": "-609.6", "unitAsWritten": "mm" },
+    { "name": "existing_ground_level", "valueAsWritten": "-152.4", "unitAsWritten": "mm" },
+    { "name": "working_allowance", "valueAsWritten": "457.2", "unitAsWritten": "mm" }
+  ],
+  "keys": ["DXF_HANDLE:F1"]
+}

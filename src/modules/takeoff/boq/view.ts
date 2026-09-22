@@ -4,6 +4,7 @@
 // A view type and nothing else — no reading, no rendering — so the screen's suite mounts the
 // workspace over a value and the route's door answers one (B-19, ARCH-01).
 import type { BoqDraftPayload } from "@/core/documents/kinds/boq-draft";
+import type { GroupDescriptions } from "./description-basis";
 
 /** The two readings a draft states about its own coverage (L-QTY-04, L-QTY-07). */
 export type BoqCoverage = "COMPLETE" | "INCOMPLETE";
@@ -28,4 +29,14 @@ export type BoqView = {
   readonly payload: BoqDraftPayload | null;
   /** lineId → `S.G.I`, derived at emission and stored nowhere (AM-14 §2). */
   readonly items: ReadonlyMap<string, string>;
+  /**
+   * `<class> <kind>` → the description a model proposed for that group, the basis it wears and the
+   * call it came from (L-BD-01, L-AI-02, I-298). Empty where nothing was asked or nothing answered;
+   * the payload above already reads it, so the screen reads this only to say WHERE a description
+   * came from — and the issue reads it to record what it took.
+   *
+   * Absent where nobody asked: a reading composed without a call context carries no proposal at
+   * all, and a screen handed one reads the plain descriptions it always read.
+   */
+  readonly descriptions?: GroupDescriptions;
 };

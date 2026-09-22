@@ -20,6 +20,7 @@ import { formatUserFigure } from "@/core/format";
 import type { JobKind } from "@/core/jobs/kinds";
 import type { QuantityBasis } from "@/core/offers/law";
 import { BOQ_COPY, BOQ_REASON_WORDS, BOQ_SECTION_WORDS } from "./copy";
+import { DEFAULTED, groupKeyOf, type DescriptionBasis, type GroupDescriptions } from "./description-basis";
 import { boqStateOf, nothingPublished } from "./states";
 import { BILLS, UNCLASSIFIED } from "./taxonomy";
 import type { BoqView } from "./view";
@@ -35,6 +36,12 @@ export type BoqRow = BoqDraftLine & {
   readonly class: string;
   readonly kind: string;
   readonly description: string;
+  /**
+   * Where this line's description came from (I-298): INTERPRETED where a model chose it from the
+   * work-item catalogue against this group's own attributes, DEFAULTED where the plain description
+   * the draft has always written stands. A reader and a suite ask the same row the same question.
+   */
+  readonly descriptionBasis: DescriptionBasis;
   /** The S.G.I string, or `null` on a row outside `BILLS` — a row with no section has no S (I-267). */
   readonly item: string | null;
   /** Why the taxonomy could not place this line, in words; `null` on a line it placed (L-BD-08). */
@@ -310,7 +317,7 @@ function InPlace({ children }: { children: ReactNode }): ReactNode {
 /* ------------------------------------------------------------------------------- the reading */
 
 /** Every row of one section, in the payload's own order — which is the order it was numbered in. */
-function rowsOf(section: BoqDraftSection, items: ReadonlyMap<string, string>): BoqRow[] {
+function rowsOf(section: BoqDraftSection, items: ReadonlyMap<string, string>, descriptions: GroupDescriptions | undefined): BoqRow[] {
   return section.groups.flatMap((group) =>
     group.lines.map((line) => ({
       ...line,
@@ -318,6 +325,7 @@ function rowsOf(section: BoqDraftSection, items: ReadonlyMap<string, string>): B
       class: group.class,
       kind: group.kind,
       description: group.description,
+      descriptionBasis: descriptions?.get(groupKeyOf(group.class, group.kind))?.basis ?? DEFAULTED,
       item: items.get(line.lineId) ?? null,
       reason: null,
     })),
@@ -330,6 +338,9 @@ function unclassifiedRowsOf(payload: BoqDraftPayload): BoqRow[] {
     ...line,
     bill: UNCLASSIFIED,
     description: `${line.class} · ${line.kind}`,
+    // A line the taxonomy could not place is billed under nothing, so nothing was ever chosen for
+    // it: its description is the plain one, and it says so (L-BD-08, I-266).
+    descriptionBasis: DEFAULTED,
     item: null,
     reason: line.reason,
   }));
@@ -360,6 +371,9 @@ function rowDataOf(row: BoqRow): Record<string, string> {
     "data-quantity-basis": row.quantityBasis,
     "data-selection-basis": row.selectionBasis,
     "data-decided-by": row.decidedBy,
+    // Where this line's group description came from (I-298): a reader sees the sentence on the group
+    // row above, and a suite reads the basis off the line itself.
+    "data-description-basis": row.descriptionBasis,
   };
   if (row.levelOrdinal !== null && row.levelOrdinal !== undefined) data["data-ordinal"] = String(row.levelOrdinal);
   if (row.item !== null) data["data-item"] = row.item;
@@ -680,7 +694,7 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
 
           <div className="cx-boq-grid" data-testid={ids.grid} aria-label={BOQ_COPY.boq_grid_label} data-rows-rendered={countOf(payload)}>
             {sections.map((section) => {
-              const rows = rowsOf(section, items);
+              const rows = rowsOf(section, items, view?.descriptions);
               // S is the section's ordinal among L-BD-08's SIX, never its position among the sections
               // this campaign happens to fill — the same S the item numbers carry, so a heading and the
               // lines beneath it can never state two different sections (AM-14 §2, I-269).
@@ -812,8 +826,11 @@ function boqColumns(
       // and it is handed in through the primitive's `label` seam, so the value the primitive knows
       // stays the catalogue's real key and `data-technical` keeps disclosing a key that exists
       // (§1 column 2, §7's raw-enum rule, B-17).
+      // `data-description-basis` says WHERE the group's description came from, on every line under
+      // it, so a reader and a suite read one answer off one row (I-298). The words themselves stay
+      // the group row's: a line repeats its class and trade, never the sentence above it.
       cell: ({ row }) => (
-        <span className="cx-boq-description">
+        <span className="cx-boq-description" data-description-basis={row.original.descriptionBasis}>
           <EnumLabel value={row.original.class} label={inWords(row.original.class)} className="cx-boq-enum" />
           <span className="cx-boq-separator">{" · "}</span>
           <EnumLabel value={row.original.kind} label={inWords(row.original.kind)} className="cx-boq-enum" />

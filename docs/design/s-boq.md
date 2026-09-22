@@ -85,6 +85,50 @@ entry is added.
   outputs (M6) and the certificate (M7), and neither exists; an empty sheet under either name would be
   a claim this product cannot support (A-BOQ-XLSX, AM-05). They arrive with their sources.
 
+### 0.2 The item description (the Jev programme's logic-point 5)
+
+- **I-298 — the item description is the method of measurement, so it is CHOSEN from the closed
+  catalogue, never written, and it is chosen where the draft is ISSUED.** L-BD-01 makes the item
+  description the method of measurement and L-AI-03 lets a model "propose item mappings" and nothing
+  more. Where the law divides a group's (class · kind) into more than one description — brickwork at
+  a nominal declared thickness (L-BD-04's 250/375, AM-16 §4's 125), a foundation pit in L-BD-04's
+  depth band — the closed list is found by code (`candidateItemsFor`,
+  `src/core/catalogue/item-descriptions.ts`, every row citing the clause that states its axis) and
+  one model selects one of it against what the drawings state, or answers `NONE_OF_THESE`. A
+  description is never composed, edited or generated: what is not chosen is the plain `Class · Kind`
+  the emission has always written (`descriptionOf`), and a pair the catalogue holds ONE description
+  for is never asked at all — a selection with nothing to select. The answer cites the register's own
+  source keys, the handles the stated attributes were read from, because a catalogue row is not a
+  thing a drawing carries and `src/core/sources.ts` closes the scheme set at DXF_HANDLE · PDF_OBJECT
+  · RASTER_TRACE; which taxonomy row placed the group (AM-14, AM-16) travels beside the proposal as
+  fact, never as a citation. **The question is put by the ISSUE**, not by every page read:
+  `runBoqDraftJob` hands `boqViewOf` a call context, so one draft read by ten people spends one call
+  and a sentence reaches a reader in the document it was chosen for (R-AI-005's spend, L-AI-01's
+  ledger row). A refusal — no recorded answer, an uncited or unreadable one — leaves the plain
+  description standing and the draft reads on, because abstention is the caller's (L-AI-02).
+  Rejected: citing the catalogue row as `CATALOGUE:<id>` (a fourth scheme invented for one screen's
+  convenience); letting the model write the description (the sentence a bill is priced from would
+  then have no author); and asking on every screen read (a live call per group per page load, for a
+  reading nothing yet acts on).
+- **I-298 (cont.) — a proposed description wears the basis it has, and the issue is what judges it.**
+  Every `boq-line` carries `data-description-basis` — `INTERPRETED` where a model's choice stands for
+  its group, `DEFAULTED` where the plain description does — so a reader and a suite ask the same row
+  the same question; the words themselves stay the group row's, which reads the chosen sentence
+  because the emission and the PDF read ONE description (I-269, I-271). Nothing on this screen writes
+  an outcome (s-audit I-37): the person who presses Export issues the draft carrying that sentence,
+  and `confirmIssuedDescriptions` records **CONFIRMED** against the call it came from, inside the very
+  transaction that files the document — `act_id` null, because a draft is not an act (AM-05, I-270)
+  and the actor is the person who asked for the render. Nothing is written where the answer was
+  `NONE_OF_THESE` and the plain description stood: the call waits on the calibration line, which is
+  the honest reading. No person can choose a different description in this product today, so
+  OVERRULED and REPUDIATED are unwritable here and `boq-line-description`'s calibration line shows no
+  mean confidence where a person disagreed; **no threshold acts on this question** until a
+  description-override act exists and the line carries both means, evaluated on the recorded corpus.
+  Rejected: a new chip vocabulary for "proposed" (R-UI-002's basis palette already says where a
+  reading came from) and printing the basis into the PDF (it would move A-BOQ-PDF's bytes and its
+  golden for a mark that belongs beside a reader's cursor, and every page already carries
+  DRAFT — UNSIGNED under AM-05).
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -138,7 +182,7 @@ its own viewport with the Item column frozen; the page never scrolls sideways (�
 | # | Header | Width | Cell |
 |---|---|---|---|
 | 1 | `boq_col_item` | 96, **frozen**, `meta.align: 'right'` | the S.G.I string in `--font-mono` tabular; on an unclassified row, the reason in words (I-267) |
-| 2 | `boq_col_description` | remainder, min 320 | the class and the kind as words through two `EnumLabel`s joined by ` · `; raw keys on `data-class` / `data-kind` |
+| 2 | `boq_col_description` | remainder, min 320 | the class and the kind as words through two `EnumLabel`s joined by ` · `; raw keys on `data-class` / `data-kind`; `data-description-basis` on the row and mirrored on this cell — `INTERPRETED` where the group's description was chosen from the work-item catalogue, `DEFAULTED` where the plain one stands (I-298). The chosen sentence itself reads on the `datatable-group-row` above the lines, which is where a bill states a group's description |
 | 3 | `boq_col_level` | 120 | the level label verbatim; `data-level` and `data-ordinal` on the row |
 | 4 | `boq_col_quantity` | 140, `meta.align: 'right'` | the rounded figure, `--font-mono` tabular slashed-zero, lakh/crore grouped (I-271) |
 | 5 | `boq_col_unit` | 80 | one `unit-badge` |
@@ -310,7 +354,8 @@ Routes: `/t/{tenant}/p/{project}/takeoff/boq` (`boqRoute`, the one spelling; cru
 `/api/exports/{sha256}?tenant=…&kind={xlsx|csv}&expires=…&signature=…` the quantities link addresses.
 Procedures: `takeoffBoq.exportDraft`, `takeoffBoq.exportQuantities`. Reads: `boqViewOf`,
 `boqDraftPayloadOf`, `resolveBill`, `plinthBoundaryOf`, `numberItems`, `listDocuments`,
-`boqExportReadingOf`, `boqWorkbookSpecOf`, `boqQuantitiesSheetOf`.
+`boqExportReadingOf`, `boqWorkbookSpecOf`, `boqQuantitiesSheetOf`, `candidateItemsFor`,
+`groupAsksOf`, `describeGroups` and `confirmIssuedDescriptions` (I-298).
 
 Test ids, exactly the registry's spellings, on the elements ruled in §1: `boq-screen` (`data-state`,
 `data-campaign`, `data-coverage`, `data-taxonomy-version`) · `boq-answer` · `boq-revision`
@@ -324,7 +369,8 @@ step, `data-kind="boq-draft"`, `data-state`) · `boq-document-link` (`data-docum
 (`data-rows-rendered`) · `boq-bill` (`data-bill`, `data-ordinal`, `data-rows-rendered`) · `boq-line`
 (`data-line`, `data-item`, `data-bill`, `data-group`, `data-class`, `data-kind`, `data-level`,
 `data-ordinal`, `data-quantity`, `data-unit`, `data-quantity-basis`, `data-selection-basis`,
-`data-coverage`, `data-decided-by`, `data-scope` only on a provisional line; `data-item` on a numbered
+`data-coverage`, `data-decided-by`, `data-description-basis` (`INTERPRETED` | `DEFAULTED`, I-298),
+`data-scope` only on a provisional line; `data-item` on a numbered
 row and `data-reason` on a kept one, never both — I-267) · `boq-subtotal`
 (`data-scope="MEASURED"`, `data-bill`, `data-unit`, `data-quantity`) · `boq-empty`. Used and never
 redefined, other files' ids: `takeoff-nav`, `takeoff-nav-boq` (`aria-current="page"` here),

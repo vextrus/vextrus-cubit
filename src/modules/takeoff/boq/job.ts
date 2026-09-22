@@ -10,12 +10,15 @@
 // worker's handler is the composition root that hands the real storage in, and the lanes that judge
 // this run hand their own (ARCH-02, the measure job's precedent).
 import { renderDocument, type RenderDeps } from "@/core/documents";
+import type { BoqDraftPayload } from "@/core/documents/kinds/boq-draft";
 import { BOQ_DRAFT } from "@/core/documents/kinds/boq-draft";
 import { storeDocument, type DocumentStoreDeps } from "@/core/documents/store";
-import { forTenant } from "@/core/db";
+import { forTenant, recordModelOutcome, type TenantTx } from "@/core/db";
 import { REFUSALS } from "@/core/errors";
 import { refusal } from "@/core/faults/refusal-marker";
 import type { JobPayloads, JobProgress } from "@/core/jobs";
+import type { BoqDescriptionPort } from "./description-question";
+import { groupKeyOf, INTERPRETED, type GroupDescriptions } from "./description-basis";
 import { boqViewOf } from "./server";
 import { BILL_TAXONOMY } from "./taxonomy";
 
@@ -36,8 +39,11 @@ export const BOQ_DRAFT_STEPS = ["boq:read", "boq:render", "boq:file"] as const;
 
 const [STEP_READ, STEP_RENDER, STEP_FILE] = BOQ_DRAFT_STEPS;
 
-/** What a render is run with: where the bytes go, and — for a lane — what compiles them. */
-export type BoqDraftDeps = RenderDeps & { readonly storage: DocumentStoreDeps["storage"] };
+/**
+ * What a render is run with: where the bytes go, — for a lane — what compiles them, and the port
+ * the draft's item-description question goes through (B-23; the seam's own `propose` by default).
+ */
+export type BoqDraftDeps = RenderDeps & { readonly storage: DocumentStoreDeps["storage"]; readonly descriptions?: BoqDescriptionPort };
 
 /** What the run answers: the issue it filed, and which issue of this project's draft it is. */
 export type BoqDraftIssued = { readonly documentId: string; readonly version: number };
@@ -56,8 +62,15 @@ export async function runBoqDraftJob(
 ): Promise<BoqDraftIssued> {
   const scope = { tenantId: payload.tenantId, projectId: payload.projectId };
   await progress.step(STEP_READ, { campaignId: payload.campaignId });
-  const view = await boqViewOf(scope);
-  if (view.payload === null) {
+  // The one place the draft's item descriptions are ASKED (I-298): a description reaches a reader
+  // when the draft is issued, so the question is put where the issue is, under the person who asked
+  // for it and the job's own request id (L-AI-01's ledger row).
+  const view = await boqViewOf(scope, {
+    ctx: { tenantId: payload.tenantId, projectId: payload.projectId, actor: payload.requestedBy, requestId: progress.jobId },
+    port: deps.descriptions,
+  });
+  const issued = view.payload;
+  if (issued === null) {
     throw refusal(REFUSALS.BOQ_NO_PUBLISHED_LINE.code, "a draft was asked for a campaign that has published no line", {
       projectId: payload.projectId,
       campaignId: payload.campaignId,
@@ -66,11 +79,11 @@ export async function runBoqDraftJob(
 
   // SEAM-DOC: the one path to the renderer, given the very payload the screen read (I-269, I-271).
   await progress.step(STEP_RENDER, { lines: view.items.size });
-  const rendered = await renderDocument(BOQ_DRAFT, view.payload, { requestId: progress.jobId, actor: payload.requestedBy }, deps);
+  const rendered = await renderDocument(BOQ_DRAFT, issued, { requestId: progress.jobId, actor: payload.requestedBy }, deps);
 
   await progress.step(STEP_FILE, { sha256: rendered.sha256 });
-  const row = await forTenant({ tenantId: payload.tenantId }).transaction((tx) =>
-    storeDocument({ tx, storage: deps.storage }, rendered, {
+  const row = await forTenant({ tenantId: payload.tenantId }).transaction(async (tx) => {
+    const stored = await storeDocument({ tx, storage: deps.storage }, rendered, {
       tenantId: payload.tenantId,
       projectId: payload.projectId,
       // The taxonomy the sections were resolved under, stamped on the row the way it is stamped on
@@ -78,8 +91,48 @@ export async function runBoqDraftJob(
       taxonomyVersion: BILL_TAXONOMY.version,
       issuedBy: payload.requestedBy,
       actIds: [],
-    }),
-  );
+    });
+    await confirmIssuedDescriptions(tx, payload, issued, view.descriptions);
+    return stored;
+  });
 
   return { documentId: row.id, version: row.version };
+}
+
+/**
+ * The judgment the ISSUE passes on every description it took (L-AI-02, I-298).
+ *
+ * CONFIRMED is written for a call whose chosen description the issued payload actually carries: a
+ * person asked for this draft on a screen showing that sentence, and the document went out with it —
+ * "taken as proposed". Nothing is written where the answer was the no-match outcome and the plain
+ * description stood: no reading of the model's reached the document, so the call waits on the
+ * calibration line rather than being counted as agreed with.
+ *
+ * It is a RECORD and not an act: a draft is not signed and `ACT_TYPES` holds no issue (AM-05,
+ * I-270), so `act_id` is null and the actor is the person who asked for the render. It lands in the
+ * document's OWN transaction — the outcome and the issue stand or fall together (L-ACT-01's habit).
+ *
+ * Published so the live lane can judge the judgment itself without compiling a document to get at
+ * it (test contract: `confirmIssuedDescriptions`, tests/takeoff/boq/issue-outcome.db.test.ts).
+ */
+export async function confirmIssuedDescriptions(
+  tx: TenantTx,
+  payload: JobPayloads["boq-render-draft"],
+  issued: BoqDraftPayload,
+  descriptions: GroupDescriptions | undefined,
+): Promise<void> {
+  if (descriptions === undefined) return;
+  const carried = new Set(issued.sections.flatMap((section) => section.groups.map((group) => `${groupKeyOf(group.class, group.kind)}\u0000${group.description}`)));
+  for (const [key, described] of descriptions) {
+    if (described.basis !== INTERPRETED || described.callId === null || described.text === null) continue;
+    if (!carried.has(`${key}\u0000${described.text}`)) continue;
+    await recordModelOutcome(tx, {
+      tenantId: payload.tenantId,
+      projectId: payload.projectId,
+      callId: described.callId,
+      outcome: "CONFIRMED",
+      actId: null,
+      actorUserId: payload.requestedBy,
+    });
+  }
 }
