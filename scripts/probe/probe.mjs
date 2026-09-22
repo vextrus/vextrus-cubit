@@ -7,7 +7,7 @@
 //   node probe.mjs run <script.mjs> [--cookies f] [--shot] [--out dir]   (script exports default async (api) => {})
 //
 // Verdict shapes:
-//   OK route=/… state=<root data-state> regions=<n> rows=<…> axe=S/C/M console=<n> net5xx=<n> craft=<total>/min<min> theme=dark 1440x900
+//   OK route=/… state=<root data-state> regions=<n> rows=<…> axe=S/C/M console=<n> net5xx=<n> rail=48/collapsed craft=<total>/min<min> theme=dark 1440x900
 //   RED route=/… why=<cause>
 import { chromium } from "@playwright/test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -16,11 +16,34 @@ import { fileURLToPath } from "node:url";
 import { settled, renderedFacts } from "./lib/settled.mjs";
 import { runAxe, axeLine, blocking } from "./lib/axe.mjs";
 import { readCraft, scoreCraft } from "./lib/craft.mjs";
+import { railState } from "./lib/rail.mjs";
 import { sel } from "./lib/testids.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ORIGIN = process.env["PROBE_ORIGIN"] ?? "http://127.0.0.1:3211";
 const LAUNCH = { args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-prefers-reduced-motion", "--font-render-hinting=none", "--disable-font-subpixel-positioning", "--disable-lcd-text"] };
+
+/**
+ * WHERE THE POINTER RESTS. Chromium starts every page with its pointer at (0, 0) and replays the
+ * hover on each layout change; (0, 0) stands inside the 48x900 workspace rail, which opens to 220
+ * after a hover-hold — so a capture taken without moving the pointer photographs a rail no customer
+ * ever meets, and grades the chrome that was hovered rather than the chrome that ships. The probe
+ * rests the pointer OFF the frame instead: the default is one pixel outside the viewport's corner,
+ * and `PROBE_POINTER_REST="x,y"` puts it anywhere a session needs it (a hover state the session is
+ * deliberately measuring, for instance).
+ */
+const POINTER_REST = (() => {
+  const raw = process.env["PROBE_POINTER_REST"];
+  if (raw === undefined || raw.trim() === "") return { x: -1, y: -1 };
+  const [x, y] = raw.split(",").map((n) => Number(n.trim()));
+  if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error(`PROBE_POINTER_REST is "x,y" — read ${JSON.stringify(raw)}`);
+  return { x, y };
+})();
+
+/** Put the pointer where it rests, so nothing is hovered while the page settles or is read. */
+async function restPointer(page) {
+  await page.mouse.move(POINTER_REST.x, POINTER_REST.y).catch(() => undefined);
+}
 
 function arg(name, fallback) {
   const at = process.argv.indexOf(name);
@@ -105,12 +128,17 @@ export async function check(page, facts, route, opts = {}) {
   try {
     const response = await page.goto(url, { waitUntil: "load" });
     details.status = response?.status() ?? null;
+    // Twice: once for the document that has just arrived, and again after it has settled — the
+    // frame mounts the rail after hydration, and a pointer resting inside its box at that moment is
+    // a hover-hold the capture would have photographed.
+    await restPointer(page);
     // A streamed document has a shell before it has a screen: wait for the network to go quiet (capped)
     // and for main to hold an element, then settle the way a checkpoint does.
     await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
     await page.waitForFunction((mainSelector) => { const m = globalThis.document.querySelector(mainSelector) ?? globalThis.document.querySelector("main"); return m !== null && m.children.length > 0; }, sel("shell.main"), { timeout: 8_000 }).catch(() => undefined);
     const settle = await settled(page, opts.settleTimeout ?? 15_000);
     details.settle = settle;
+    await restPointer(page);
     const rendered = await renderedFacts(page);
     details.rendered = rendered;
     const axe = await runAxe(page);
@@ -135,7 +163,7 @@ export async function check(page, facts, route, opts = {}) {
     if (f.net.length > 0) problems.push(`net:${f.net.length}`);
     if (f.glLost > 0) problems.push(`webgl-lost:${f.glLost}`);
     if (details.craft.total < 4 || details.craft.min < 3) problems.push(`craft:${details.craft.total}/min${details.craft.min}`);
-    const line = `${problems.length === 0 ? "OK " : "RED"} route=${route} state=${rootState} regions=${rendered.regions.length} rows=${rows} ${axeLine(axe)} console=${f.console.length + f.pageErrors.length} net5xx=${f.net.length} fcp=${details.fcp}ms long=${f.longTasks} craft=${details.craft.total}/min${details.craft.min} theme=${opts.theme} ${opts.viewport.width}x${opts.viewport.height} t=${Date.now() - started}ms${problems.length ? ` why=${problems.join(";")}` : ""}`;
+    const line = `${problems.length === 0 ? "OK " : "RED"} route=${route} state=${rootState} regions=${rendered.regions.length} rows=${rows} ${axeLine(axe)} console=${f.console.length + f.pageErrors.length} net5xx=${f.net.length} fcp=${details.fcp}ms long=${f.longTasks} ${railState(craftReading)} craft=${details.craft.total}/min${details.craft.min} theme=${opts.theme} ${opts.viewport.width}x${opts.viewport.height} t=${Date.now() - started}ms${problems.length ? ` why=${problems.join(";")}` : ""}`;
     details.line = line;
     return details;
   } catch (error) {

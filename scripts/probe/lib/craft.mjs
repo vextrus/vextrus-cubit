@@ -81,6 +81,20 @@ export async function readCraft(page, options = {}) {
     const topbar = rect(q(`[data-testid="${ids.topbar}"]`));
     const inspector = rect(q(`[data-testid="${ids.inspector}"]`));
 
+    // The chrome's own state, so a verdict line can say WHICH rail was photographed (lib/rail.mjs).
+    // `data-collapsed` is the rail's published answer; the hover and focus readings are the two
+    // causes a page can be asked for (shell-rail.tsx: `expanded = pinned || held || focused`).
+    // An element with no id of its own is named by the nearest ancestor that has one — the rail's
+    // inner divs carry none, and "the pointer is in the rail" is the fact worth printing.
+    const nameOf = (element) => (element === null ? null : element.closest("[data-testid]")?.getAttribute("data-testid") ?? element.tagName.toLowerCase());
+    const hoverChain = qa(":hover");
+    const active = globalThis.document.activeElement;
+    const chrome = {
+      railCollapsed: q(`[data-testid="${ids.rail}"]`)?.getAttribute("data-collapsed") ?? null,
+      hovered: hoverChain.length === 0 ? null : nameOf(hoverChain[hoverChain.length - 1]),
+      focused: active === null || active === globalThis.document.body || active === globalThis.document.documentElement ? null : nameOf(active),
+    };
+
     // Controls in the toolbar and in main: their heights, and any native select / date input.
     const controls = qa("button, [role=button], input, select, textarea", main).filter((element) => rect(element)?.height > 0);
     const heights = controls.map((element) => Math.round(rect(element).height));
@@ -163,7 +177,7 @@ export async function readCraft(page, options = {}) {
       viewport: { width: vw, height: vh },
       main: mainRect,
       primary,
-      rail, toolbar, status, topbar, inspector,
+      rail, toolbar, status, topbar, inspector, chrome,
       controls: { count: controls.length, heights: [...new Set(heights)].sort((a, b) => a - b), toolbarButtons: [...new Set(toolbarButtons)], nativeSelects, dateInputs },
       rows: { count: rows.length, median: medianRow, distinct: [...new Set(rowHeights)], wrappingCells },
       exposed,
