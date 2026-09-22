@@ -13,6 +13,7 @@ import {
   EXPANSION_STAGE,
   FOUNDATION,
   MEASURED,
+  PLACEMENT_STAGE,
   SCENARIO,
   STACK_LABELS,
   STRUCTURAL,
@@ -97,6 +98,14 @@ describe("AC-3: nine columns across six levels mint 54", () => {
       expect(key.endsWith(`@${FOUNDATION}`), `${key} is a vertical class, not a foundation`).toBe(false);
       expect(key.includes(UNREGISTERED_PREFIX), `${key} names an authored level, not one nobody authored`).toBe(false);
     }
+  });
+
+  test("AC-3: no note of this plan names a member, so the typical range is the whole of what decides", () => {
+    // The guard beside AC-3 rather than a case of its own: these nine columns expand over six levels
+    // BECAUSE nothing excepts them (I-303). A scenario that grew a text reading as a note would move
+    // this suite's arithmetic silently, and this is the line that reds instead.
+    const detail = stepDetail(steps, PLACEMENT_STAGE);
+    expect([Number(detail["noted"]), Number(detail["minted"])], "the plan writes no note, so none is read and none places anything").toEqual([0, 0]);
   });
 
   test("AC-3: the expansion step reports the revision it resolved and the rows it registered", () => {

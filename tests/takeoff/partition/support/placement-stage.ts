@@ -25,6 +25,7 @@
  * This file serves both lanes — the public suites beside it and the held-out set, which loads it
  * from the checkout by absolute path. Keep it free of judgement so neither lane can hide one here.
  */
+import { join } from "node:path";
 import { expect } from "vitest";
 import {
   MODEL_SPACE,
@@ -54,7 +55,7 @@ import {
   type StagedDrawing,
   type StepRecord,
 } from "./partition-stage";
-import { stageDrawing, stubCli, withCadCommand } from "../../support/ingest-stage";
+import { corpusBytes, stageDrawing, stubCli, withCadCommand } from "../../support/ingest-stage";
 import { joinWorkspace, stagePerson, stageSheets } from "../../support/sheets-stage";
 import { identitySeam, field, type IdentitySeam, type StoreRow } from "../../register/support/register-stage";
 import { insertion, performAct, previewOf, storeRows, tableStands, type ActorCtx, type ConsequenceLike, type ProposedLevel } from "../../levels/support/levels-stage";
@@ -217,6 +218,7 @@ export const SCENARIO = Object.freeze({
   FOUNDATION: "placement-foundation",
   SECTIONS: "placement-sections",
   SHARES: "placement-shares",
+  NOTED: "placement-noted",
 } as const);
 
 /** One of the six. */
@@ -230,7 +232,28 @@ export const CAPTION_OF: Readonly<Record<string, string>> = Object.freeze({
   [SCENARIO.FOUNDATION]: "FOUNDATION PLAN",
   [SCENARIO.SECTIONS]: "LONGITUDINAL SECTION",
   [SCENARIO.SHARES]: "TYPICAL FLOOR PLAN",
+  [SCENARIO.NOTED]: "TYPICAL FLOOR PLAN (1ST TO 6TH FLOOR)",
 });
+
+/**
+ * The two sentences the NOTED plan writes, in the spelling a DXF writes them (`%%C` is the degree of
+ * the diameter sign the notation normalises) — the two shapes I-303 admits, one of each.
+ *
+ * The first names a mark this plan TAGS, so it binds to the member that mark placed and states a
+ * SHAPE and no range: its member stands on the level the plan draws, alone. The second names a mark
+ * this plan tags NOWHERE, so it is the whole of the evidence that a member of it stands here at all,
+ * and it states a range: its member stands from that storey to the top of the view's span.
+ */
+export const NOTED_BINDING_NOTE = "C7 %%C450 PORCH COLUMN";
+export const NOTED_MINTING_NOTE = "C5 FLOATING COLUMN (STARTS AT 3RD)";
+
+/** The storey the minting note names, and the shape the binding one states (I-303, I-304). */
+export const NOTED_BAND_FROM = "3RD";
+export const NOTED_SHAPE = "ROUND";
+
+/** The two marks those two sentences are about. */
+export const NOTED_BINDING_MARK = "C7";
+export const NOTED_MINTING_MARK = "C5";
 
 /** The caption the member-type schedule is drawn under, where a scenario draws one. */
 export const CAPTION_SCHEDULE = "COLUMN SCHEDULE";
@@ -288,6 +311,9 @@ const LABEL_HEIGHT = 200;
 
 /** The caption of the SHARES plan stands taller because its own view is wider (reach is heights). */
 const WIDE_CAPTION_HEIGHT = 1500;
+
+/** How far the NOTED plan writes a sentence from the member it is about — well inside 0.9 x S. */
+const NOTE_OFFSET = 600;
 
 /** The bubble radius, and how many vertices a round ring is drawn from (the grid's own reading). */
 const BUBBLE_RADIUS = 300;
@@ -487,8 +513,12 @@ export function buildPlacementArtifact(scenario: PlacementScenario, salt: number
 
   const caption = CAPTION_OF[scenario] ?? "";
   const wide = scenario === SCENARIO.SHARES;
+  // A caption's reach is measured in its own heights, so a plan that carries members a bay outside
+  // the grid writes a taller one: the NOTED plan draws two members below its backbone, and a caption
+  // of the ordinary height would leave them in no view's assignment map at all (L-CAD-06).
+  const tall = wide || scenario === SCENARIO.NOTED;
   const captionAt: [number, number] = scenario === SCENARIO.SECTIONS ? [0, 12000] : wide ? [18000, 6000] : [S, 3000];
-  const captionKey = text(caption, captionAt, wide ? WIDE_CAPTION_HEIGHT : CAPTION_HEIGHT, LAYER_CAPTIONS);
+  const captionKey = text(caption, captionAt, tall ? WIDE_CAPTION_HEIGHT : CAPTION_HEIGHT, LAYER_CAPTIONS);
   let scheduleCaptionKey: string | null = null;
 
   if (scenario === SCENARIO.TYPICAL_RANGE || scenario === SCENARIO.TYPICAL_BARE || scenario === SCENARIO.SINGLE_LEVEL) {
@@ -501,6 +531,42 @@ export function buildPlacementArtifact(scenario: PlacementScenario, salt: number
         member({ markText, centre: [letterAt(column), numeralAt(row)], side: COLUMN_SIDE, gridLetter: letter, gridNumeral: numeral });
       }
     }
+  }
+
+  if (scenario === SCENARIO.NOTED) {
+    // The plan's own population first — the nine the marks place, which is what its footprint median
+    // and its typical range are read off. Then the two members I-303 is about, drawn a bay below it
+    // so neither note reaches a member of the nine and neither mark anchors a ring of theirs.
+    gridBubbles();
+    let index = 0;
+    for (const [row, numeral] of NUMERALS.entries()) {
+      for (const [column, letter] of LETTERS.entries()) {
+        const markText = NINE_MARKS[index] ?? "C9";
+        index += 1;
+        member({ markText, centre: [letterAt(column), numeralAt(row)], side: COLUMN_SIDE, gridLetter: letter, gridNumeral: numeral });
+      }
+    }
+
+    const below = numeralAt(LETTERS.length);
+    // The member its own mark tags, with a sentence about it standing within the near-anchor reach.
+    member({ markText: NOTED_BINDING_MARK, centre: [letterAt(1), below], side: COLUMN_SIDE, gridLetter: "B", gridNumeral: "3" });
+    text(NOTED_BINDING_NOTE, [letterAt(1) + NOTE_OFFSET, below], LABEL_HEIGHT, LAYER_TEXT);
+
+    // And the ring nobody tags: its only evidence is the sentence beside it, which is why the
+    // placement it yields cites that sentence as the entity that named it (I-303, L-CAD-03).
+    const unclaimed = outline([letterAt(2), below], COLUMN_SIDE, COLUMN_SIDE);
+    const noteKey = text(NOTED_MINTING_NOTE, [letterAt(2) + NOTE_OFFSET, below], LABEL_HEIGHT, LAYER_TEXT);
+    members.push({
+      markText: NOTED_MINTING_NOTE,
+      mark: NOTED_MINTING_MARK,
+      outlineKey: unclaimed,
+      markKey: noteKey,
+      x: letterAt(2),
+      y: below,
+      gridLetter: "C",
+      gridNumeral: "3",
+      placed: true,
+    });
   }
 
   if (scenario === SCENARIO.FOUNDATION) {
@@ -741,6 +807,76 @@ export async function stagePlacementIngest(
   const record = await records.ingestRecordOf({ tenantId: stage.person.tenantId, drawingId: drawing.drawingId });
   expect(record, `staging ${scenario} left no ingest record — a partition is a reading of a record`).not.toBeNull();
   return { drawing, drawingId: drawing.drawingId, ingestId: (record as { ingestId: string }).ingestId, artifact };
+}
+
+/* ------------------------------------------------------------------ the M3 yardstick corpus */
+
+/** F-RCC6-BNBC, the M3/M4 yardstick, and the format a stored `.dxf` is recorded under (AM-01). */
+export const BNBC_DXF = join("fixtures", "rcc6-bnbc", "rcc6-bnbc.dxf");
+export const BNBC_FORMAT = "dxf";
+
+/** The artifact the shipped extractor reads that corpus into, extracted ONCE per process. */
+let bnbcExtracted: Promise<string> | undefined;
+
+/**
+ * F-RCC6-BNBC as the shipped `cad/` CLI reads it (L-CAD-01), cached for the life of the process the
+ * way the sheets stage caches `fixtures/rcc6`: the bytes are the same every time, and a `uv run` per
+ * staged drawing would spend minutes proving nothing a suite is about.
+ */
+export async function bnbcArtifact(): Promise<string> {
+  return (bnbcExtracted ??= (async () => {
+    const ingest = await productModule<{
+      ingestDrawing: (bytes: Uint8Array, format: string, options: { tempDir: string }) => Promise<{ ok: boolean; artifact?: Uint8Array; refusal?: string; detail?: string }>;
+    }>(INGEST_JOB_MODULE);
+    const outcome = await withCadCommand(undefined, async () => ingest.ingestDrawing(corpusBytes(BNBC_DXF), BNBC_FORMAT, { tempDir: tempDir("rcc6-bnbc") }));
+    expect(outcome.ok, `the shipped cad CLI read ${BNBC_DXF}: ${outcome.ok ? "" : `${outcome.refusal} — ${outcome.detail}`}`).toBe(true);
+    return new TextDecoder().decode(outcome.artifact as Uint8Array);
+  })());
+}
+
+/**
+ * A recorded drawing whose ingest artifact is the ARTIFACT HANDED IN, written by the shipped ingest
+ * job over a stand-in CLI that hands it back — the corpus path of `stagePlacementIngest`.
+ *
+ * The bytes carry the label so two stagings of one corpus are two drawings: a suite that stages the
+ * same drawing twice to compare two readings of it needs the store to hold two of them.
+ */
+export async function stageArtifactIngest(stage: PlacementStage, artifact: string, label: string): Promise<{ drawingId: string; ingestId: string }> {
+  const job = await productModule<{ runIngestJob: (payload: unknown, progress: ProgressLike, deps: { storage: unknown }) => Promise<void> }>(INGEST_JOB_MODULE);
+  const records = await productModule<{ ingestRecordOf: (scope: { tenantId: string; drawingId: string }) => Promise<{ ingestId: string } | null> }>(INGEST_MODULE);
+
+  // The bytes never reach an extractor — the CLI is stood in for and hands back the artifact handed
+  // in — so they carry the label and nothing else, exactly as `stagePlacementIngest`'s do.
+  const bytes = new TextEncoder().encode(`0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF\n; ${label}\n`);
+  const drawing = await stageDrawing(stage.person, stage.projectId, bytes, { name: unique(`${label}.dxf`), format: BNBC_FORMAT });
+  const stub = stubCli({ artifact, stderr: "", exitCode: 0 });
+
+  await withCadCommand(stub.command, async () => {
+    await job.runIngestJob(
+      { tenantId: stage.person.tenantId, drawingId: drawing.drawingId, requestedBy: stage.person.userId, declared: null },
+      { jobId: unique(`ingest-${label}`), tempDir: tempDir("ingest"), step: async () => undefined },
+      { storage: await storageOf() },
+    );
+  });
+
+  const record = await records.ingestRecordOf({ tenantId: stage.person.tenantId, drawingId: drawing.drawingId });
+  expect(record, `staging ${label} left no ingest record — a partition is a reading of a record`).not.toBeNull();
+  return { drawingId: drawing.drawingId, ingestId: (record as { ingestId: string }).ingestId };
+}
+
+/**
+ * One artifact with the entities these source keys name TAKEN OUT — the counterfactual drawing.
+ *
+ * A suite proves a reading moved nothing by reading the SAME drawing twice, once with the text under
+ * test and once without it, and comparing what the product stored. Doing that by deleting the
+ * entities rather than by re-deriving the expectation is what keeps the comparison honest: both runs
+ * go through the shipped pipeline whole, and neither side is a number anybody transcribed (B-19).
+ */
+export function artifactWithout(artifact: string, keys: readonly string[]): string {
+  const graph = JSON.parse(artifact) as { entities: { key: string }[] };
+  const taken = graph.entities.filter((entity) => keys.includes(entity.key));
+  expect(taken.map((entity) => entity.key).sort(), `the artifact carries every entity this drawing is read without: ${keys.join(", ")}`).toEqual([...keys].sort());
+  return JSON.stringify({ ...graph, entities: graph.entities.filter((entity) => !keys.includes(entity.key)) });
 }
 
 /**

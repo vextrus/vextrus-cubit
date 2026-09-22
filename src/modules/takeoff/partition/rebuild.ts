@@ -108,7 +108,7 @@ type StageOutcome = { readonly derived: StagedPartition; readonly detail: Record
  * not the same value as the `null` a stage that never ran leaves (R-UI-050). The rewrite clears the
  * record's placements either way, so a project whose pin was withdrawn keeps none of what it placed.
  */
-const NOTHING_PLACED: DetectedPlacements = Object.freeze({ views: 0, placements: Object.freeze([]), ungridded: Object.freeze([]) });
+const NOTHING_PLACED: DetectedPlacements = Object.freeze({ views: 0, placements: Object.freeze([]), ungridded: Object.freeze([]), noted: 0, minted: 0 });
 
 /**
  * The stage list as functions, keyed by the list itself — a stage named in `PARTITION_STAGES` with
@@ -177,7 +177,7 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
     // A project pinned to no edition states no shares, and a stage with nothing to scale by places
     // nothing and says so: the detail carries no shares at all, which is the honest reading of a
     // plan nobody has stated the bands for (L-MEA-01). The stages after it run on regardless.
-    if (shares === null) return { derived: { ...held, placements: NOTHING_PLACED }, detail: { views: 0, placements: 0, ungridded: 0, shares: {} } };
+    if (shares === null) return { derived: { ...held, placements: NOTHING_PLACED }, detail: { views: 0, placements: 0, ungridded: 0, noted: 0, minted: 0, shares: {} } };
     const placements = detectPlacements({
       graph: context.graph,
       views: held.views,
@@ -192,6 +192,12 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
         views: placements.views,
         placements: placements.placements.length,
         ungridded: placements.ungridded.length,
+        // How many of those members a plan NOTE names, and how many of them a note PLACED (I-303):
+        // a reviewer reads off the step how many members this drawing's notes excepted from their
+        // view's typical range and how many stood on the evidence of a sentence and a ring
+        // (R-TO-030: every stage's result is visible; L-CAD-03).
+        noted: placements.noted,
+        minted: placements.minted,
         // What the stage measured UNDER, so a reader can see which edition decided what it read
         // (L-MEA-01: rules are data, and a surface shows the edition it measured by).
         shares: { ...shares },

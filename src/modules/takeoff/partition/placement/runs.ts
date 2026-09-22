@@ -226,6 +226,11 @@ export function detectRuns(evidence: PlacementEvidence, placed: readonly Placeme
         outlineKey: member.keys[0],
         markKey: mark.key,
         memberFamily: evidence.families.some((family) => family.family === normaliseMark(mark.text)) ? normaliseMark(mark.text) : null,
+        // A FRAMED member is never noted: `memberNoteOf` refuses a framed class for the reason
+        // `markOf` does — a beam is placed from the pair of edge lines it is drawn as and not from an
+        // outline standing near a text, so a note about one has no member here to be evidence about
+        // (I-303, L-MEA-09, `./law`). The null is that refusal read back, not a field left unfilled.
+        note: null,
       });
       runs.push(runOf(key, member, plan, supports, type, unit));
     }

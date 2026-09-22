@@ -47,6 +47,9 @@ function placement(mark: string, elementType: string, x: number): Record<string,
     outlineKey: `DXF_HANDLE:${mark}O`,
     markKey: `DXF_HANDLE:${mark}M`,
     memberFamily: null,
+    // No plan note names this member (I-303): the placements these cases resolve are the plan's own
+    // typical, which is what makes the two deferral reasons the whole of what is decided here.
+    note: null,
   };
 }
 

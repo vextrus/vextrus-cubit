@@ -22,7 +22,15 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { actionsAs, setsSeam } from "../../sets/support/sets-stage";
 import { door, insertion, takeoffCaller } from "../../levels-ui/support/levels-ui-stage";
 import {
+  DERIVED,
+  MEASURED,
+  NOTED_BAND_FROM,
+  NOTED_BINDING_MARK,
+  NOTED_MINTING_MARK,
+  NOTED_MINTING_NOTE,
+  NOTED_SHAPE,
   SCENARIO,
+  STACK_LABELS,
   closeStage,
   levelsOfProject,
   pinRevisionNaming,
@@ -35,6 +43,7 @@ import {
   stageStack,
   type PlacementStage,
   type StagedPlacementIngest,
+  type StoreRow,
 } from "../support/placement-stage";
 
 const LEVEL_LABEL = "2nd";
@@ -161,5 +170,112 @@ describe("the doors that move the resolver's inputs re-expand: the pin through t
     expect(pinned.committed, `the pin commits: ${JSON.stringify(pinned)}`).toBe(true);
     const keys = registeredUnder(stage, ingest, pinned.setRevisionId as string);
     expect(keys.length, `the pin re-expanded onto its own revision: ${keys.slice().sort().join("\n")}`).toBe(DRAWN_COLUMNS);
+  });
+});
+
+/* ------------------------------------------------------------------ what the store has to carry */
+
+/**
+ * THE STRUCTURAL CLOSE, GRADED: a re-expansion answers the rows the ingest-time expansion answered,
+ * for a drawing whose members a NOTE excepted (I-303, L-REG-04, B-17).
+ *
+ * The defect this case exists against is the shape of this file's own subject. There are two readers
+ * of a stored partition — the partition job, which resolves what it has just DETECTED, and this
+ * re-expansion, which resolves what it READS BACK — and until the store's one conversion was
+ * published each of them spelled a placement row out by hand. A column the first learned to carry
+ * and the second forgot is not a compile error and not a wrong number anywhere visible: it is a
+ * member standing on seven storeys after an ingest and on one after a pin, depending on which reader
+ * ran last.
+ *
+ * So the drawing here is the one whose answer DIFFERS between the two readings if the note is lost.
+ * The NOTED plan is typical of six storeys and writes two sentences: one over a member its own mark
+ * tags, stating a shape and no range (that member stands on the level the plan draws, alone), and
+ * one over a ring nobody tags, stating `STARTS AT 3RD` (that member is placed by the sentence and
+ * stands from the third floor up). A re-expansion that read the store without the note would put the
+ * first on all six storeys and the second on all six from the first — and every assertion below
+ * would be a different number.
+ */
+describe("re-expansion carries what the store carries: a noted member stands where its own note says", () => {
+  let stage: PlacementStage;
+  let ingest: StagedPlacementIngest;
+  let setRevisionId: string;
+
+  /** The label of the level each register row stands on, by the placement's mark, with its standing. */
+  function standingByMark(): Map<string, string[]> {
+    const marks = new Map(placementRows(stage.person.tenantId, ingest.ingestId).map((row) => [said(row, "placementKey", "placement_key"), said(row, "mark", "mark")]));
+    const labels = new Map(levelsOfProject(stage).map((level) => [level.levelId, level.label]));
+    const byMark = new Map<string, string[]>();
+    for (const row of registerObjectRows(stage.person.tenantId, setRevisionId)) {
+      const mark = marks.get(said(row, "placementKey", "placement_key"));
+      if (mark === undefined) continue;
+      byMark.set(mark, [...(byMark.get(mark) ?? []), `${labels.get(said(row, "levelId", "level_id")) ?? "?"}:${said(row, "standing", "standing")}`].sort());
+    }
+    return byMark;
+  }
+
+  beforeAll(async () => {
+    stage = await stagePlacementProject("reexpand-noted");
+    ingest = await stagePlacementIngest(stage, SCENARIO.NOTED, 0x2e40);
+    await runPlacementPartition(stage, ingest, "reexpand-noted");
+    // Both inputs move behind the doors, as the case above stages them, so what registers the rows
+    // is the re-expansion and nothing else.
+    setRevisionId = await pinRevisionNaming(stage, ingest.drawingId);
+    await stageStack(stage, STACK_LABELS);
+  }, 240_000);
+
+  afterAll(async () => {
+    await closeStage();
+  });
+
+  /** The one placement of this drawing standing under a mark — asserted singular rather than assumed. */
+  function placedUnder(mark: string): StoreRow {
+    const found = placementRows(stage.person.tenantId, ingest.ingestId).filter((row) => said(row, "mark", "mark") === mark);
+    expect(found.length, `exactly one member of this drawing stands under ${mark}`).toBe(1);
+    return found[0] as StoreRow;
+  }
+
+  test("the store holds the note the stage read, whole: its key, its words, its range and its shape", () => {
+    const bound = placedUnder(NOTED_BINDING_MARK);
+    expect(said(bound, "noteShape", "note_shape"), "the plan states the shape (I-304)").toBe(NOTED_SHAPE);
+    expect(
+      [said(bound, "noteFromLabel", "note_from_label"), said(bound, "noteToLabel", "note_to_label")],
+      "and states no range, which I-303 reads as the level the plan DRAWS",
+    ).toEqual(["", ""]);
+
+    // The minted member: its own mark tags nothing on this plan, so the sentence is the entity that
+    // named it and the store carries that citation (I-303, L-CAD-03).
+    const minted = placedUnder(NOTED_MINTING_MARK);
+    expect(said(minted, "markKey", "mark_key"), "the sentence is the entity that named it").toBe(said(minted, "noteKey", "note_key"));
+    expect(said(minted, "markText", "mark_text"), "kept as the drawing spelled it").toBe(NOTED_MINTING_NOTE);
+    expect(said(minted, "noteFromLabel", "note_from_label"), "and the storey its words name").toBe(NOTED_BAND_FROM);
+  });
+
+  test("before the re-expansion nothing stands, pin and stack notwithstanding", () => {
+    expect(registerObjectRows(stage.person.tenantId, setRevisionId), "the resolver has not run since the inputs moved").toEqual([]);
+  });
+
+  test("re-expanding registers each member on the levels ITS OWN evidence names, and no others", async () => {
+    const seam = await reexpandSeam();
+    await seam.reexpandProject({ tenantId: stage.person.tenantId, projectId: stage.projectId });
+    const byMark = standingByMark();
+
+    // The nine the plan tags are its typical: every storey the caption is typical of, measured at
+    // the one it was drawn at.
+    for (const mark of ["C1", "C2", "C3"]) {
+      expect(byMark.get(mark)?.length, `${mark} names three members, each over six storeys`).toBe(3 * STACK_LABELS.length);
+    }
+    // And the two the sentences are about are not typical of anything (I-303).
+    expect(byMark.get(NOTED_BINDING_MARK), "a note stating no range leaves its member on the level the plan draws, alone").toEqual([`${STACK_LABELS[0]}:${MEASURED}`]);
+    expect(byMark.get(NOTED_MINTING_MARK), "a note stating `STARTS AT 3RD` stands its member there and derives it above").toEqual(
+      [`${NOTED_BAND_FROM}:${MEASURED}`, ...STACK_LABELS.slice(3).map((label) => `${label}:${DERIVED}`)].sort(),
+    );
+  });
+
+  test("re-expanding again answers the same rows: reading the store twice is reading one drawing", async () => {
+    const before = standingByMark();
+    const seam = await reexpandSeam();
+    const again = await seam.reexpandProject({ tenantId: stage.person.tenantId, projectId: stage.projectId });
+    expect(again.find((one) => one.drawingId === ingest.drawingId)?.registered, "nothing new to register").toBe(0);
+    expect(standingByMark(), "and no member moved a storey between two readings of one store (L-REG-04)").toEqual(before);
   });
 });

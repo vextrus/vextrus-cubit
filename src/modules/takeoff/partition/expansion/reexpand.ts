@@ -22,7 +22,7 @@ import { and, drawings, eq, forTenant } from "@/core/db";
 import { viewKey as viewKeyOf, type ViewRef } from "@/core/identity";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
 import type { PlacementRow } from "../placement/rows";
-import { storedPlacementsOf } from "../placement/store";
+import { placementRowOf, storedPlacementsOf } from "../placement/store";
 import { storedMemberTypesOf } from "../schedules/store";
 import { partitionStandsFor, storedViewsOf } from "../store";
 import { resolveExpansion, type ExpandedView, type FamilyBands } from "./resolve";
@@ -75,21 +75,11 @@ export async function reexpandDrawing(scope: ReexpandScope & { readonly drawingI
     // A placement is read in a layout-plan view with an anchor (L-CAD-06); one whose view the store
     // no longer names is not a placement the resolver can key a row off, and is left as it stands.
     if (ref === undefined) continue;
-    placements.push({
-      viewKey: stored.viewKey,
-      view: ref,
-      placementKey: stored.placementKey,
-      mark: stored.mark,
-      markText: stored.markText,
-      elementType: stored.elementType,
-      x: stored.x,
-      y: stored.y,
-      gridLetter: stored.gridLetter,
-      gridNumeral: stored.gridNumeral,
-      outlineKey: stored.outlineKey,
-      markKey: stored.markKey,
-      memberFamily: stored.memberFamily,
-    });
+    // The conversion is the STORE's one published reading (`placementRowOf`) and never a literal
+    // spelled here: this reader and the partition job's own stage resolve the same rows, and a
+    // column one of them carried and the other forgot is a member standing on a different set of
+    // storeys depending on which ran last (L-REG-04, B-17).
+    placements.push(placementRowOf(stored, ref));
   }
 
   const families: FamilyBands[] = (await storedMemberTypesOf(scope.tenantId, ingestId)).families.map((family) => ({

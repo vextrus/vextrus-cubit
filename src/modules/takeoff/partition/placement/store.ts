@@ -6,8 +6,9 @@
 // deleted and re-derived with the views they were read off — a run that fails leaves the placements
 // that stood before it rather than half of a new one (L-REG-04, R-TO-030).
 import { and, asc, eq, forTenant, placementRuns, placements, type TenantTx } from "@/core/db";
+import type { ViewRef } from "@/core/identity";
 import type { QuantityBasis } from "@/core/offers/law";
-import type { DetectedPlacements, RunReading } from "./rows";
+import type { DetectedPlacements, PlacementNote, PlacementRow, RunReading } from "./rows";
 
 
 /** One stored placement, whole — every column the store holds, as it holds it. */
@@ -63,6 +64,15 @@ export async function rewritePlacementRows(tx: TenantTx, write: PlacementWrite):
       gridNumeral: row.gridNumeral,
       outlineKey: row.outlineKey,
       markKey: row.markKey,
+      // The note this member was read under, spread across its own columns (I-303). A row with no
+      // note writes five nulls, which is what "one of the plan's typical" looks like in the store:
+      // the presence of `note_key` IS the whole discriminator, so there is no flag beside it for a
+      // reader to disagree with (`@/core/db`'s `placements`).
+      noteKey: row.note?.sourceKey ?? null,
+      noteText: row.note?.text ?? null,
+      noteFromLabel: row.note?.band?.from ?? null,
+      noteToLabel: row.note?.band?.to ?? null,
+      noteShape: row.note?.shape ?? null,
       memberFamily: row.memberFamily,
     })),
   );
@@ -129,4 +139,55 @@ export async function storedPlacementsOf(tenantId: string, ingestId: string): Pr
     .from(placements)
     .where(and(eq(placements.tenantId, tenantId), eq(placements.ingestId, ingestId)))
     .orderBy(asc(placements.placementKey));
+}
+
+/**
+ * ONE stored placement as the resolver reads one — the single conversion from a stored row back to
+ * the row the placement stage answered in (`./rows`).
+ *
+ * Published here, and used by BOTH readers of the store, because the divergence it closes is the
+ * named defect: the partition job resolves the rows it just DETECTED while the re-expansion resolves
+ * the rows it READ BACK, and until this existed the second was a hand-spelled literal beside the
+ * first. Every column the stage learns to carry has to be added twice under that shape, and the run
+ * that forgets one answers a different set of instance rows for one drawing — a member standing on
+ * seven storeys after an ingest and on one after a pin (L-REG-04, B-17, ARCH-02). One conversion,
+ * one place to add a column, and no way for the two to part.
+ *
+ * The view is the CALLER's, because the two readers name it differently and neither may guess: the
+ * job holds the reference it placed the member in, and the re-expansion looks it up in the views the
+ * store holds under that row's own view key.
+ */
+export function placementRowOf(stored: StoredPlacement, view: ViewRef): PlacementRow {
+  return {
+    viewKey: stored.viewKey,
+    view,
+    placementKey: stored.placementKey,
+    mark: stored.mark,
+    markText: stored.markText,
+    elementType: stored.elementType,
+    x: stored.x,
+    y: stored.y,
+    gridLetter: stored.gridLetter,
+    gridNumeral: stored.gridNumeral,
+    outlineKey: stored.outlineKey,
+    markKey: stored.markKey,
+    memberFamily: stored.memberFamily,
+    note: storedNoteOf(stored),
+  };
+}
+
+/**
+ * The note a stored row carries, or null where it carries none (I-303). A note is stored WHOLE — the
+ * store's own CHECK refuses a key with no words and words with no key — so the key and the text are
+ * read together and a row missing either carries no note at all (B-07).
+ *
+ * BOTH LABELS NULL IS A BAND OF NULL, and that is the reading the whole rule turns on: a note that
+ * stated no range says its member stands on the level the plan DRAWS, alone, which is the precise
+ * opposite of `bandOpen`'s "covers everything" (`@/core/offers/contract`). Reading two nulls back as
+ * an open band would hand the resolver a statement that restores every storey the note took away.
+ */
+function storedNoteOf(stored: StoredPlacement): PlacementNote | null {
+  if (stored.noteKey === null || stored.noteText === null) return null;
+  const band = stored.noteFromLabel === null && stored.noteToLabel === null ? null : { from: stored.noteFromLabel, to: stored.noteToLabel };
+  return { sourceKey: stored.noteKey, text: stored.noteText, band, shape: stored.noteShape };
 }

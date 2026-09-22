@@ -8,12 +8,18 @@
 // (`TYPICAL_RANGE_UNSTATED`); a range whose endpoint the live stack does not carry expands over
 // nothing and says so (`LEVEL_RANGE_ENDPOINT_UNMAPPED`).
 //
+// What a view states is then CUT, twice, and by nothing else: by the band the member's own mark is
+// scheduled under (L-FRM-02), and by the note the plan wrote against that mark (I-303 — a member a
+// note names is not one of the plan's typical, and stands on the level the plan draws or over the
+// range its own note states). Both are intersections of the view's span, so neither can place a
+// member on a storey the plan does not reach and their order is not a question.
+//
 // Pure and order-independent: nothing here reads a store, a clock or a model, and both answers are
 // returned in the key's own order — so the same placements, stack and authored ranges resolve to the
 // same instance keys however they were handed in (L-REG-04, AC-8).
 import { EXPANSION_DEFERRAL_REASONS, type ExpansionDeferralReason } from "@/core/errors";
 import { instanceKey, levelSegment, SIGHTING_STANDINGS, viewKey as viewKeyOf, type LevelRef, type SightingStanding, type ViewRef } from "@/core/identity";
-import { bandCovers, bandJudgeable, bandOpen } from "@/core/offers/contract";
+import { bandCovers, bandJudgeable, bandOpen, type BandStatement } from "@/core/offers/contract";
 import { sameStorey } from "../notation";
 import { isFoundationClass, isLevelClass, levelWordsOf } from "../placement/law";
 import type { PlacementRow } from "../placement/rows";
@@ -239,13 +245,74 @@ function bandedLevels(placement: PlacementRow, levels: readonly StackedLevel[], 
   return levels.filter((level) => readable.some((band) => bandCovers(band, level.ordinal, place)));
 }
 
+/**
+ * The levels a NOTED member's own note states it stands on, cut from the levels its view gave it
+ * (I-303: a plan note that names a mark is evidence about that MEMBER, and a member so noted is not
+ * one of the plan's typical).
+ *
+ * Two answers and no third, off the note's own words:
+ *   · the note states NO range — its member stands on the level the plan DRAWS, alone. The drawn
+ *     level is the span's own (`spanBetween`: a typical plan is drawn once, at the storey its range
+ *     runs from), so this reads no new fact off the drawing; it takes the fact the span already
+ *     carries and keeps that one level (`C7 Ø450 PORCH COLUMN` → GF).
+ *   · the note states a range — its member stands over the levels that range covers, read by core's
+ *     own `bandCovers`, whose "an open end is no bound: a band stating only its start runs to the
+ *     top of whatever it is read against" already means exactly what `STARTS AT 1F` says (B-17).
+ *
+ * A CUT, and only ever a cut: this filters the levels handed in, so nothing it answers can place a
+ * member on a storey the view's span did not reach and nothing it answers can restore a level the
+ * schedule's own band excluded. That is I-303's whole safety — a note misread costs floors of UNDER,
+ * which the band discloses; it cannot cost a cubic metre of over (L-QTY-04, L-QTY-06).
+ *
+ * The band's ends are placed against the WHOLE live stack, never against the span being cut, for the
+ * reason `bandedLevels` places a schedule's are: `1F` names a storey of the BUILDING (L-REG-02). A
+ * band naming an end the stack cannot place is unjudgeable and `bandCovers` answers false for every
+ * level of it, so the member stands nowhere — the same answer `LEVEL_RANGE_ENDPOINT_UNMAPPED` gives
+ * a view whose stated range the stack cannot carry, and for the same reason: there is nothing for it
+ * to stand on until somebody inserts the level (L-QTY-04: never a silent default).
+ */
+export function notedLevels(placement: PlacementRow, levels: readonly StackedLevel[], drawn: StackedLevel, stack: readonly StackedLevel[]): readonly StackedLevel[] {
+  // `?? null` rather than a bare null test: the field is REQUIRED of the type, and the only way a row
+  // reaches here without it is a caller from outside TypeScript — which would otherwise read
+  // `undefined.band` and take a whole partition down over one column (ARCH-03).
+  const note = placement.note ?? null;
+  if (note === null) return levels;
+  if (note.band === null) return levels.filter((level) => level.levelId === drawn.levelId);
+  const place = (label: string): number | undefined => levelLabelled(stack, label)?.ordinal;
+  return levels.filter((level) => bandCovers(note.band as BandStatement, level.ordinal, place));
+}
+
+/**
+ * The lowest of a set of levels, or null where the set is empty — by ORDINAL, ties to the lower
+ * surrogate.
+ *
+ * Never `levels[0]`. The stack arrives "in whatever order" (`ExpansionEvidence`), and an index read
+ * would make which row is MEASURED depend on how the evidence was handed in — the one thing this
+ * resolver promises it never does (AC-8, L-REG-04).
+ */
+export function lowestOf(levels: readonly StackedLevel[]): StackedLevel | null {
+  return levels.reduce<StackedLevel | null>(
+    (held, level) => (held === null || level.ordinal < held.ordinal || (level.ordinal === held.ordinal && byCodePoint(level.levelId, held.levelId) < 0) ? level : held),
+    null,
+  );
+}
+
 /** The rows one level-class member stands on, over the span its view resolved to, cut to its own band. */
 function levelRows(placement: PlacementRow, span: Span, evidence: ExpansionEvidence): ExpansionRow[] {
   if (span.kind === "deferred") return standsUnresolved(span.reason) ? [rowOn(placement, UNRESOLVED, MEASURED)] : [];
   if (span.kind === "unregistered") return [rowOn(placement, { unregistered: span.label }, MEASURED)];
-  return bandedLevels(placement, span.levels, evidence.levels, evidence.families ?? []).map((level) =>
-    rowOn(placement, { levelId: level.levelId }, level.levelId === span.drawn.levelId ? MEASURED : DERIVED),
-  );
+  // Two cuts, both intersections of the span, so the order they are made in is not a question: the
+  // schedule states which storeys carry the MARK (L-FRM-02), and the note states which storeys carry
+  // THIS MEMBER (I-303). Neither can restore what the other took away.
+  const banded = bandedLevels(placement, span.levels, evidence.levels, evidence.families ?? []);
+  const levels = notedLevels(placement, banded, span.drawn, evidence.levels);
+  // The geometry basis (risk note 2): the storey a member's own drawing is OF. For one of the plan's
+  // typical that is the level the plan was drawn at; for a member a note excepted it is the LOWEST
+  // level the member stands on, because a noted member was drawn once and its own note says which
+  // storey that drawing is of. One rule, and it answers the same thing for both where they agree —
+  // a note stating no range leaves exactly the drawn level, whose lowest is itself.
+  const drawn = (placement.note ?? null) === null ? span.drawn : lowestOf(levels);
+  return levels.map((level) => rowOn(placement, { levelId: level.levelId }, level.levelId === drawn?.levelId ? MEASURED : DERIVED));
 }
 
 /** One instance row, keyed by the grammar and by nothing this file spells itself (L-REG-04, B-17). */

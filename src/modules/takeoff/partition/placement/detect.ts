@@ -21,6 +21,18 @@
 //   · containment/merge — outlines of one mark whose centres stand within `containmentMerge ×
 //     spacing` of each other are one member drawn twice, and yield one placement.
 //
+// Then the plan's NOTES are read over the same texts its marks were read from (I-303: a plan note
+// that names a mark is evidence about THAT member). Two phases, in this order: a note whose mark has
+// a placed row BINDS to it, and a note whose mark placed nothing MINTS one off the nearest outline no
+// mark anchors. The minting runs last and over a population already closed, so the plan's footprint
+// median and the drawing's scale are read off the mark-anchored candidates alone: a minted member is
+// judged by them and contributes to neither, which is why placing one moves no figure of any member
+// that stood before it (L-MEA-01, L-QTY-06).
+//
+// NO LAYER is consulted by either reading, here or in `./law`: L-CAD-07 reads a drawing by content
+// signature and never by layer names, and a note is what a text SAYS rather than where a draughtsman
+// filed it.
+//
 // Only layout-plan-class views are read (L-CAD-06: "only layout-plan-class views may yield
 // instances"), and only a view the grid stage georeferenced: a plan with no spacing has nothing to
 // scale a share by, so it stands in `ungridded` rather than being placed by numbers nobody read.
@@ -34,8 +46,8 @@ import type { DetectedGrid, GridAxisRow } from "../grid/detect";
 import { normaliseMark } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
-import { classOfMark, isFramedClass } from "./law";
-import type { DetectedPlacements, FamilyNamed, PlacementEvidence, PlacementRow, UngriddedView } from "./rows";
+import { classOfMark, isFramedClass, memberNoteOf, soleNotesAmong, type MemberNote } from "./law";
+import type { DetectedPlacements, FamilyNamed, PlacementEvidence, PlacementNote, PlacementRow, UngriddedView } from "./rows";
 import { detectRuns } from "./runs";
 import { shareValue } from "./shares";
 
@@ -53,6 +65,24 @@ type Outline = { readonly key: string; readonly centre: Point; readonly longest:
 
 /** An outline the plan's own marks name: the two together, which is what a placement is read from. */
 type Anchored = { readonly outline: Outline; readonly mark: Mark };
+
+/** One NOTE standing on a plan: the text it was read from, where it stands, and what it states. */
+type Noted = { readonly key: string; readonly text: string; readonly at: Point; readonly note: MemberNote };
+
+/**
+ * One plan read whole, before anything is decided about it: the texts and rings standing in it, the
+ * marks and outlines they are, and the outlines a mark anchors.
+ *
+ * ONE traversal, because the two readings partition ONE population: a text this plan carries is a
+ * mark or a note or neither, and a reader that walked the assignment map twice could see a different
+ * set the second time (`./law`'s `memberNoteOf` names the partition; B-17).
+ */
+type PlanRead = {
+  readonly standing: readonly Drawn[];
+  readonly marks: readonly Mark[];
+  readonly outlines: readonly Outline[];
+  readonly anchored: readonly Anchored[];
+};
 
 /** The two families of the backbone, named as the members of the seam's roster they are. */
 const LETTER_FAMILY = "letter";
@@ -78,7 +108,7 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
 
   const placements: PlacementRow[] = [];
   const ungridded: UngriddedView[] = [];
-  const plans: { readonly pass: PlanPass; readonly anchored: readonly Anchored[] }[] = [];
+  const plans: { readonly pass: PlanPass; readonly read: PlanRead }[] = [];
   let examined = 0;
 
   for (const view of evidence.views) {
@@ -94,24 +124,35 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
     }
     const ref: ViewRef = { viewClass: view.type, captionAnchorSourceKey: view.anchorKey };
     const pass: PlanPass = { evidence, view, axes, spacing, shares, families, ref };
-    plans.push({ pass, anchored: anchoredIn(pass) });
+    plans.push({ pass, read: readPlan(pass) });
   }
 
   // The scale is the ARTIFACT's, read once over every plan of it: a sheet's plans are drawn to one
   // scale and the drawing states it by drawing its members to the sizes its schedules give them, so
   // a plan whose own candidates are mostly not members still has a scale to be judged at (L-MEA-01).
   const scale = drawnScaleOf(
-    plans.flatMap((plan) => plan.anchored),
+    plans.flatMap((plan) => plan.read.anchored),
     stated,
   );
-  for (const plan of plans) for (const row of rowsFrom(plan.pass, plan.anchored, stated, scale)) placements.push(row);
+  let noted = 0;
+  let minted = 0;
+  for (const plan of plans) {
+    // The plan's own members first, then what its notes say about them: the note pass is handed the
+    // rows this plan placed, because "the mark placed nothing here" is the fact that tells a binding
+    // note from a minting one, and it is a fact about THIS plan (I-303).
+    const placed = rowsFrom(plan.pass, plan.read.anchored, stated, scale);
+    const read = notedRows(plan.pass, plan.read, placed, stated, scale);
+    noted += read.noted;
+    minted += read.minted;
+    for (const row of read.rows) placements.push(row);
+  }
 
   // The members no closed outline stands for: a beam is drawn as the pair of lines either side of its
   // axis, and it is placed off that pair with the run it measures beside it (`./runs`, L-MEA-09). It
   // runs here, after the outline pass, because the outlines that pass placed are the members that
   // CARRY a beam's ends and the rings a slab must not be read from.
   const framed = detectRuns(evidence, placements);
-  return { views: examined, placements: [...placements, ...framed.placements], ungridded, runs: framed.runs };
+  return { views: examined, placements: [...placements, ...framed.placements], ungridded, runs: framed.runs, noted, minted };
 }
 
 /** What one plan places, keyed and grid-referenced. */
@@ -126,11 +167,14 @@ type PlanPass = {
 };
 
 /**
- * The members one layout plan places. The bubbles the grid was read from are excluded by the grid's
- * own citation rather than by a second reading of what a bubble is: a ring the backbone stands on is
- * a georeference, and reading it as a member would place a column at every grid intersection (B-17).
+ * One layout plan read whole. The bubbles the grid was read from are excluded by the grid's own
+ * citation rather than by a second reading of what a bubble is: a ring the backbone stands on is a
+ * georeference, and reading it as a member would place a column at every grid intersection (B-17).
+ *
+ * The standing population is kept beside what was read from it, because the note pass reads the SAME
+ * texts the marks were read from and must see exactly the set this reading saw (I-303, B-17).
  */
-function anchoredIn(pass: PlanPass): Anchored[] {
+function readPlan(pass: PlanPass): PlanRead {
   const cited = new Set(pass.axes.flatMap((axis) => [axis.bubbleKey, axis.labelKey]));
   const standing = pass.evidence.graph.entities.filter(
     (entity) => pass.evidence.assignments.get(entity.key) === pass.view.viewKey && !cited.has(entity.key),
@@ -140,10 +184,181 @@ function anchoredIn(pass: PlanPass): Anchored[] {
   const outlines = standing.flatMap((entity) => outlineOf(entity) ?? []);
 
   const reach = pass.shares.nearAnchor * pass.spacing;
-  return outlines.flatMap((outline) => {
+  const anchored = outlines.flatMap((outline) => {
     const mark = nearestMark(outline, marks, reach);
     return mark === null ? [] : [{ outline, mark }];
   });
+  return { standing, marks, outlines, anchored };
+}
+
+/** What one plan's notes left behind: the rows as they now stand, and the census of what they did. */
+type NotedPlan = { readonly rows: readonly PlacementRow[]; readonly noted: number; readonly minted: number };
+
+/**
+ * One plan's rows as its NOTES leave them (I-303: a plan note that names a mark is evidence about
+ * that MEMBER). Two phases over one set of notes, and a note falls to exactly one of them:
+ *
+ *   · BINDING — the note's mark has a placed row on this plan, so the note is carried on that row
+ *     and the member it names is excepted from the view's typical range (`C7 Ø450 PORCH COLUMN`).
+ *   · MINTING — the note's mark placed NOTHING here, so the note is the whole of the evidence that a
+ *     member of it stands on this plan, and it places one off the nearest outline no mark anchors
+ *     (`C5 FLOATING COLUMN OVER TG1 (STARTS AT 1F)`, over the dashed rectangle the sheet tags with
+ *     no mark of its own). "Dashed" is invisible to this product — the artifact carries no linetype
+ *     and the ring's colour is bylayer like every other column's — so the NOTE is the evidence and
+ *     the outline is merely what it reaches (L-CAD-03, L-QTY-01).
+ *
+ * BOTH PHASES ANSWER TO THE PLAN'S OWN NEAR-ANCHOR REACH (I-303's fifth statement: a note is
+ * evidence about a member only where it stands within `nearAnchor × spacing` of it — "the reach
+ * every other placement question on this plan is already answered at"). What it is measured TO is
+ * the entity the note is evidence about, which is the one thing that differs between the phases: the
+ * MARK where a mark placed the member, and the RING itself where the note is what places it. A note
+ * written at the other end of the sheet is a note about something else (L-MEA-01, L-CAD-07).
+ *
+ * THE SINGULARITY GUARD, BOTH HALVES. A note excepts its member only where exactly ONE note names
+ * the mark (`soleNotesAmong`, the fact about the notes) AND that mark names exactly ONE member (the
+ * fact about this plan's rows, applied here). F-RCC6-BNBC's S-23 writes three notes over an `SW1`
+ * naming 27 members; a blunt rule would let any one of them collapse the whole lift core onto the
+ * level S-23 draws. Two statements about one mark are two statements, and this stage is in no
+ * position to choose between them, so it takes neither and the mark expands as it always did
+ * (L-QTY-01: never a guess).
+ */
+function notedRows(pass: PlanPass, read: PlanRead, placed: readonly PlacementRow[], stated: ReadonlyMap<string, number>, scale: number | null): NotedPlan {
+  const notes = read.standing.flatMap((entity) => noteOf(entity) ?? []);
+  if (notes.length === 0) return { rows: placed, noted: 0, minted: 0 };
+  const sole = soleNotesAmong(notes.map((seen) => seen.note));
+
+  const byMark = new Map<string, PlacementRow[]>();
+  for (const row of placed) byMark.set(row.mark, [...(byMark.get(row.mark) ?? []), row]);
+
+  // An outline a mark anchors is that mark's, whether or not the bands kept it: minting it from a
+  // note would place a member over geometry another reading already claimed, and a member drawn once
+  // and counted twice is the over-measurement L-REG-03 exists to make unrepresentable.
+  const claimed = new Set(read.anchored.map((held) => held.outline.key));
+  const median = medianFootprintOf(read.anchored);
+
+  const bound = new Map<string, PlacementNote>();
+  const minted: PlacementRow[] = [];
+  for (const seen of notes) {
+    // The note half of the guard: this note is the only note of this plan naming its mark.
+    if (sole.get(seen.note.mark) !== seen.note) continue;
+    const named = byMark.get(seen.note.mark) ?? [];
+    // The mark half: the mark names one member, or none at all and the note places it.
+    if (named.length > 1) continue;
+    const only = named[0];
+    if (only !== undefined) {
+      // I-303's fifth statement, measured to the mark that placed the member: a sentence naming
+      // this mark from the far side of the sheet is a sentence about something else.
+      const mark = read.marks.find((one) => one.key === only.markKey);
+      if (mark === undefined || distanceBetween(seen.at, mark.at) > pass.shares.nearAnchor * pass.spacing) continue;
+      bound.set(only.placementKey, statedIn(seen));
+      continue;
+    }
+    const row = mintedRow(pass, read, seen, claimed, median, stated, scale);
+    if (row === null) continue;
+    // One outline is one member: a second note reaching the same ring does not mint a second.
+    claimed.add(row.outlineKey);
+    minted.push(row);
+  }
+
+  const rows = placed.map((row) => {
+    const note = bound.get(row.placementKey);
+    return note === undefined ? row : { ...row, note };
+  });
+  return { rows: [...rows, ...minted], noted: bound.size + minted.length, minted: minted.length };
+}
+
+/**
+ * The member a note PLACES, or null where its words reach nothing this plan can stand one on
+ * (I-303's minting half). Every fence the mark reader answers to, asked of the note:
+ *
+ *   · the nearest outline within `nearAnchor × spacing` of the note, ties to the lower source key —
+ *     the plan's own reach, and `nearestMark`'s own tie rule, so one drawing anchors one way every
+ *     time (L-REG-04);
+ *   · never one a mark anchors, so the geometry a placed member already stands on is never counted
+ *     a second time;
+ *   · inside the plan's own footprint band, and inside the band its mark's SCHEDULE states — the two
+ *     statements every other candidate of this plan is judged by, asked in the same order.
+ *
+ * THE MEDIAN AND THE SCALE ARE THE MARK-ANCHORED POPULATION'S, and the minted candidate joins
+ * neither: both were closed before this ran, which is exactly what makes minting a member unable to
+ * move any figure of any member that stood without it (L-MEA-01, L-QTY-06).
+ *
+ * A plan whose own candidates state NO median states nothing to judge a stranger's footprint by, and
+ * minting there would be placing a member on the strength of one sentence and no corroboration at
+ * all: it mints nothing, and its noted mark expands as it always did (L-QTY-01, L-QTY-04).
+ */
+function mintedRow(
+  pass: PlanPass,
+  read: PlanRead,
+  seen: Noted,
+  claimed: ReadonlySet<string>,
+  median: number,
+  stated: ReadonlyMap<string, number>,
+  scale: number | null,
+): PlacementRow | null {
+  if (!(median > 0)) return null;
+  const free = read.outlines.filter((outline) => !claimed.has(outline.key));
+  const reached = nearestOutline(seen.at, free, pass.shares.nearAnchor * pass.spacing);
+  if (reached === null) return null;
+  if (!withinBand(reached.longest / median, pass.shares.footprintMin, pass.shares.footprintMax)) return null;
+  if (!matchesStatedSection(reached.longest, seen.note.mark, stated, scale, pass.shares.footprintMin, pass.shares.footprintMax)) return null;
+
+  // The identity is the grammar's, unchanged: the view, the mark and the point quantised onto the
+  // lattice (L-REG-04). The NOTE is the naming entity — a placement anybody can trace back to the
+  // two entities it was read from is what L-CAD-03 asks for, and here they are the ring and the
+  // sentence that named it (`mark_key` is the note's own key, `mark_text` its own words).
+  const placement = { view: pass.ref, mark: seen.note.mark, x: reached.centre[0], y: reached.centre[1] };
+  return {
+    viewKey: viewKeyOf(pass.ref),
+    view: pass.ref,
+    placementKey: placementKey(placement),
+    mark: seen.note.mark,
+    markText: seen.text,
+    elementType: seen.note.type,
+    x: reached.centre[0],
+    y: reached.centre[1],
+    gridLetter: nearestLabel(pass.axes, LETTER_FAMILY, reached.centre),
+    gridNumeral: nearestLabel(pass.axes, NUMERAL_FAMILY, reached.centre),
+    outlineKey: reached.key,
+    markKey: seen.key,
+    memberFamily: pass.families.has(seen.note.mark) ? seen.note.mark : null,
+    note: statedIn(seen),
+  };
+}
+
+/** The note as a placed member carries one: its own key and words, and what it stated (`./rows`). */
+function statedIn(seen: Noted): PlacementNote {
+  return { sourceKey: seen.key, text: seen.text, band: seen.note.band, shape: seen.note.shape };
+}
+
+/**
+ * This entity read as a plan note about one member, or nothing where it is not one (`./law`).
+ *
+ * The reading is the law's whole; what is added here is WHERE the text stands, because a note is
+ * evidence about a member only within the plan's own near-anchor reach of it (I-303's fifth
+ * statement) and a text with no point is a text nothing can be measured from.
+ */
+function noteOf(entity: Drawn): [Noted] | null {
+  const text = entity.text ?? "";
+  const at = (entity.points ?? [])[0];
+  if (text === "" || at === undefined) return null;
+  const note = memberNoteOf(text);
+  return note === null ? null : [{ key: entity.key, text, at: [at[0] ?? 0, at[1] ?? 0], note }];
+}
+
+/**
+ * The outline nearest this point within the reach, or null where none stands inside it. Ties go to
+ * the lower source key, exactly as `nearestMark`'s do, so one drawing anchors one way every time
+ * (L-REG-04).
+ */
+function nearestOutline(at: Point, outlines: readonly Outline[], reach: number): Outline | null {
+  let held: { outline: Outline; distance: number } | null = null;
+  for (const outline of outlines) {
+    const distance = distanceBetween(at, outline.centre);
+    if (distance > reach) continue;
+    if (held === null || distance < held.distance || (distance === held.distance && outline.key < held.outline.key)) held = { outline, distance };
+  }
+  return held?.outline ?? null;
 }
 
 /**
@@ -157,7 +372,7 @@ function rowsFrom(pass: PlanPass, anchored: readonly Anchored[], stated: Readonl
   const inBand = withinFootprintBand(anchored, pass.shares.footprintMin, pass.shares.footprintMax);
   const said = new Set(
     anchored
-      .filter((held) => matchesStatedSection(held, stated, scale, pass.shares.footprintMin, pass.shares.footprintMax))
+      .filter((held) => matchesStatedSection(held.outline.longest, held.mark.mark, stated, scale, pass.shares.footprintMin, pass.shares.footprintMax))
       .map((held) => held.outline.key),
   );
   const merged = mergedByMark(
@@ -188,6 +403,10 @@ function rowsFrom(pass: PlanPass, anchored: readonly Anchored[], stated: Readonl
       outlineKey: held.outline.key,
       markKey: held.mark.key,
       memberFamily: pass.families.has(held.mark.mark) ? held.mark.mark : null,
+      // A mark names a member; whether a NOTE names it too is the note pass's answer, made over the
+      // rows this one leaves (I-303). Null here is "no note has been read yet", and the note pass
+      // rewrites exactly the rows it binds one to.
+      note: null,
     });
   }
   return rows;
@@ -262,12 +481,24 @@ function nearestMark(outline: Outline, marks: readonly Mark[], reach: number): M
  * candidates have no size at all is left alone: a band around zero would drop every one of them.
  */
 function withinFootprintBand(anchored: readonly Anchored[], min: number, max: number): Anchored[] {
-  const median = medianOf(anchored.map((held) => held.outline.longest));
+  const median = medianFootprintOf(anchored);
   if (!(median > 0)) return [...anchored];
-  return anchored.filter((held) => {
-    const share = held.outline.longest / median;
-    return share >= min && share <= max;
-  });
+  return anchored.filter((held) => withinBand(held.outline.longest / median, min, max));
+}
+
+/**
+ * The middle footprint of one plan's MARK-ANCHORED candidates — the size this plan says its own
+ * members are. Its one home, because the footprint band and the note's minting are the same question
+ * asked of two candidates, and a second reading of "what this plan's members look like" would let a
+ * minted member be judged by a population the placed ones were not (B-17, I-303).
+ */
+function medianFootprintOf(anchored: readonly Anchored[]): number {
+  return medianOf(anchored.map((held) => held.outline.longest));
+}
+
+/** Whether one share of a stated size stands inside the edition's band (L-MEA-01). */
+function withinBand(share: number, min: number, max: number): boolean {
+  return share >= min && share <= max;
 }
 
 /**
@@ -317,11 +548,10 @@ function drawnScaleOf(anchored: readonly Anchored[], stated: ReadonlyMap<string,
  * A mark the schedules state no section for is not judged: the drawing said nothing to judge it by,
  * and a reading that refused what it could not check would place nothing on a scheduleless plan.
  */
-function matchesStatedSection(held: Anchored, stated: ReadonlyMap<string, number>, scale: number | null, min: number, max: number): boolean {
-  const said = stated.get(held.mark.mark);
+function matchesStatedSection(longest: number, mark: string, stated: ReadonlyMap<string, number>, scale: number | null, min: number, max: number): boolean {
+  const said = stated.get(mark);
   if (said === undefined || scale === null) return true;
-  const share = held.outline.longest / (said * scale);
-  return share >= min && share <= max;
+  return withinBand(longest / (said * scale), min, max);
 }
 
 /** The middle of a set of measurements — the mean of the two middles where there is no single one. */
