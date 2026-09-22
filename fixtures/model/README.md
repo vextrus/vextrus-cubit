@@ -19,14 +19,23 @@ The `ModelFixture` shape, as JSON:
 | field          | type                 | meaning                                                   |
 | -------------- | -------------------- | --------------------------------------------------------- |
 | `requestHash`  | string, 64 hex chars | the hash the file is named by — the two must agree        |
-| `modelId`      | `"claude-opus-5"` or `"claude-sonnet-5"` | the pinned id the request named (AS-05) |
-| `payload`      | any JSON value       | the provider's `content` as it was answered               |
+| `modelId`      | one of `MODEL_IDS` — `"jev-latest"` for every closed question (D-002) | the pinned id the request named |
+| `payload`      | any JSON value       | the wire the seam read out of the provider's answer on the day it was recorded |
 | `inputTokens`  | whole number ≥ 0     | the provider's `usage.input_tokens`                       |
 | `outputTokens` | whole number ≥ 0     | the provider's `usage.output_tokens`                      |
-| `judgment`     | object or null, optional | what a System One model said of its answer — `provider` (the versioned id it reported), `confidence` (the weakest answer's), and `answers` keyed by question id, each `{type, value, confidence, probabilities}`; absent or null for a generative provider |
+| `judgment`     | object or null, optional | what a System One model said of its answer, as the seam read it on the day it was recorded — `provider` (the versioned id it reported), `confidence` (the weakest stated one; a Noul states none), and `answers` keyed by question id, each `{type, value, confidence, probabilities}`; absent or null for a generative provider |
+| `body`         | object or null, optional | the provider's own answer, exactly as it arrived (`model`, `answers`, `usage`) |
 
-A file that exists but does not fit this shape, or whose `requestHash` or `modelId` disagrees with
-the request it is filed under, is a corpus defect: the seam fails plainly rather than replaying it.
+Where a fixture keeps its `body`, the body is the record: replay reads it again through the seam as
+it stands (`readTypeSafeBody` — the same arm that asks the question, the same judgment reading), so
+the `payload` and `judgment` a lane is answered with are TODAY's reading of what the provider said,
+and the file's own `payload` and `judgment` are the record-day reading, kept for a person reading
+the corpus. A change to how an answer is read therefore moves every replay it should move. A
+fixture recorded before bodies were kept has none and replays exactly as it was filed.
+
+A file that exists but does not fit this shape, whose `requestHash` or `modelId` disagrees with the
+request it is filed under, or whose kept body the seam cannot read or whose usage the file does not
+count, is a corpus defect: the seam fails plainly rather than replaying it.
 
 Every fixture committed here is deliberate corpus (Q-08); acceptance mints its own under a
 temporary root instead of writing into this directory.

@@ -39,6 +39,7 @@ Each Deviation is one row in the table below, and a section beneath it when the 
 | Id | Clause | Evidence | What the product does instead | Cost | Commit |
 |---|---|---|---|---|---|
 | D-001 | L-MEA-07: storey-height readings — "agreeing readings corroborate, disagreeing readings suspend … equality is on canonical metres" | T-NOT-LEVEL (traps.json, S-25 1D90): "levels in both notations resolve to one level stack"; S-25 states 1F as `1F EL +3.353` (1D4C) and `EL +11'-0"` (1D92), 3352.8 mm apart; model.json GF 3352.8; under equality GF would SUSPEND, and on the metric print alone GF column concrete is 16.828852 m³ against the golden's 16.828 — a hard block | A storey is read once PER NOTATION; two PRINTS (TRANSCRIBED, cited, value and unit as written) in DIFFERENT notations agree when the exact one, rounded half-even to the decimal print's written places, equals it; every pair must agree; the finest reading is carried and the rails bind it | A cross-notation disagreement smaller than the decimal print's half-unit is invisible; where the metric figure was the design, the imperial conversion is carried | the commit that adds this row (see §D-001) |
+| D-002 | AS-05: "Model ids used in production are `claude-opus-5` for reading/proposals and `claude-sonnet-5` for cheap classification" | All eight closed questions are answered only by TypeSafe Jev (the Claude path answers none: `propose` refuses a Messages content array MALFORMED, `src/core/model/proposal.ts:80-89`); all 240 prior fixtures were answered by `jev-1.13.0` yet billed under a Claude id at the tree's wrong Claude rates — 3.572892 USD against 0.01498665 at Jev's documented rate (docs.typesafe.ai/models, read 2026-09-23) | `MODEL_IDS` = claude-opus-5, claude-sonnet-5, **jev-latest**; one `JEV_MODEL` pinned UNCONDITIONALLY by the eight questions (the id is hashed into every request); rates 5/25, 2/10, 0.042/0 USD per MTok; 0057 re-closes the ledger's CHECK; the corpus re-recorded live with provider bodies | The Bible names two ids, the ledger holds three; every request hash moved (240 fixtures retired, 241 recorded); `jev-latest` moves when TypeSafe ships, so answers can change with no change here (the answering version is recorded per call) | the commit that adds this row (see §D-002) |
 
 ## D-001 — a storey stated in two notations is one storey (session 7, 2026-09-23)
 
@@ -84,3 +85,43 @@ storey stands at model.json's height; F-RCC6's proposal byte-identical). **Not y
 the register view's `{label, ordinal}` back to `INSERT_LEVEL` and drops the stack's readings (the browser assembles
 what L-ACT-02 says is offered). The slice that confirms by group key, resolved on the server, carries the readings and
 the journey's GF-at-3.3528 assertion.
+
+## D-002 — TypeSafe Jev System One is a pinned model (session 7, 2026-09-23)
+
+**Clause.** AS-05 (`docs/specs/cubit.bible.xml:873`): "Model ids used in production are `claude-opus-5` for
+reading/proposals and `claude-sonnet-5` for cheap classification; fixtures make verify network-free." The ledger's
+closed ids (`MODEL_IDS`) and their rates (`MODEL_RATES`) spelled it.
+
+**Evidence.** (1) The eight closed questions (`MODEL_QUESTIONS`) are answered only by TypeSafe Jev: each goes through
+`propose`, whose wire reading refuses the Anthropic Messages content array MALFORMED, so the Claude path answers none of
+them in production. (2) All 240 prior corpus fixtures were answered by `jev-1.13.0` and billed under a Claude id —
+3.572892 USD at the tree's rates against 0.01498665 USD at Jev's, about 238× over. (3) The tree's Claude rates
+($15/$75, $3/$15 per MTok) were themselves wrong against the published $5/$25 and $2/$10 (AS-05 names ids, not rates).
+(4) https://docs.typesafe.ai/models.md, read 2026-09-23: "Jev 1.13 `jev-1.13.0` … $42 / $0.042 [per Btok / per Mtok] …
+Charged per input token. Output tokens are free"; alias `jev-latest` → `jev-1.13.0`. The owner ruled on 2026-09-23 that
+Jev is used live and the corpus re-recorded ("use Live Jev most of the time … I'm willingly to spend … to get the
+highest quality"). The proposal this acts on is `docs/decisions/as-05-jev-amendment.md`.
+
+**What the product does instead.** `MODEL_IDS` is claude-opus-5, claude-sonnet-5 and `jev-latest`; `MODEL_RATES` is
+5/25, 2/10 and 0.042/0 USD per million tokens in/out. One `JEV_MODEL`; the eight questions' pins and the posted `model`
+point at it UNCONDITIONALLY — the model id is part of every request hash (`src/core/model/canonical.ts`), so a pin
+chosen by environment would ask a different request in the lane that replays than in the one that recorded. Migration
+0057 re-closes `model_calls_model_id_closed` over the three ids and touches nothing else. A fixture keeps the provider's
+answer BODY and replay re-derives through today's seam (a legacy fixture replays as filed), so a change to how an answer
+is read is provable against the corpus at last. The corpus was re-recorded live under the pin: 241 fixtures, 357,430
+input tokens, 0.01501206 USD.
+
+**Cost.** The Bible names two ids and the ledger holds three. The Claude ids stay closed and priced so historical rows
+stay admitted and billed; no request pins them. Every request hash moved: 240 fixtures, the sheet-understanding
+subdirectory file and two `arms-bodies` hashes were retired and re-recorded. `jev-latest` moves when TypeSafe ships, so
+answers can change with no change here; the version that answered is recorded per call (`judgment.provider`), and
+pinning `jev-1.13.0` is the owner's option once thresholds are tuned. Departs from the proposal's conditional pin (its
+§2). A `jev-latest` request in an environment holding only `ANTHROPIC_API_KEY` is now posted to Anthropic and faults —
+before, every such call was refused MALFORMED, so no working path is lost.
+
+**Proof.** `src/core/model-ledger.types.test.ts` (three ids, the new rates, the corpus figure 0.01498665);
+`src/core/model/transports.test.ts` (a body fixture replays today's derivation; a legacy fixture byte-for-byte; a seam
+change moves a body fixture's replay); `tests/ai/view-caption-recorder.test.ts` (the recorder asks exactly the
+captions the product asks — one selection, imported); `tests/takeoff/partition/view-caption-corpus.test.ts` (db lane:
+the partition job over BNBC finds every caption request in the corpus, none FIXTURE_MISSING, all `jev-latest`);
+`pnpm db:drift --scratch` clean.

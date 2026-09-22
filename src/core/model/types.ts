@@ -83,6 +83,12 @@ export interface ModelLedger {
  * A recorded model answer, keyed by the request hash it answers — the file format under a fixture
  * root. `judgment` is what the model said about its answer when it was recorded, absent or null for
  * a corpus minted from a provider that states none.
+ *
+ * `body` is the provider's own answer, exactly as it arrived (a System One body: `model`, `answers`,
+ * `usage`). Where a fixture carries one, the body is the record and `payload` and `judgment` are only
+ * what the seam derived from it on the day it was minted: replay derives both again through the seam
+ * as it reads an answer TODAY, so a change to how an answer is read is proved against the corpus
+ * rather than hidden by it. A fixture minted before bodies were kept has none and replays as filed.
  */
 export type ModelFixture = {
   requestHash: string;
@@ -91,14 +97,16 @@ export type ModelFixture = {
   inputTokens: number;
   outputTokens: number;
   judgment?: ModelJudgment | null;
+  body?: JsonValue | null;
 };
 
 /**
  * What a transport answers the seam with: a proposal to record, or a refusal to record and then
  * throw. A transport that could do neither has already reported its fault and thrown (ARCH-03).
+ * `body` is the provider's own answer where one was read (the recorder files it), null otherwise.
  */
 export type TransportAnswer =
-  | { kind: "answered"; payload: JsonValue; inputTokens: number; outputTokens: number; judgment: ModelJudgment | null }
+  | { kind: "answered"; payload: JsonValue; inputTokens: number; outputTokens: number; judgment: ModelJudgment | null; body: JsonValue | null }
   | { kind: "refused"; code: string; refusal: Error };
 
 /** One transport, chosen at seam construction (B-23): where an answer comes from. */

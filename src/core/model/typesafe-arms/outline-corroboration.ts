@@ -11,10 +11,11 @@
 // words would sharpen, so the question carries its whole meaning in its own instructions and states
 // none.
 //
-// The seam needs no change for it: `answerJudgmentOf` already reads a `noul` as the answer's value
-// AND as its confidence — the docs state "There is no separate `confidence` value for a Noul, unlike
-// a Choice or a Score" — so the ledger records the probability whole and the calibration line's two
-// means read "where the person agreed" against "where they did not" for this question.
+// The seam reads a `noul` as the answer's VALUE and states no confidence for it — the docs state
+// "There is no separate `confidence` value for a Noul, unlike a Choice or a Score" (7689a117) — so
+// the ledger records the probability whole as the answer's value, the call's confidence is null, and
+// the calibration line counts this question's judged calls with `confidenceStated` at zero rather
+// than averaging a probability as if it were a confidence.
 import { MODEL_QUESTIONS } from "../questions";
 import type { JsonValue } from "../types";
 import { TYPESAFE_MODEL, type TypeSafeArm, type TypeSafeQuestion } from "./arm";

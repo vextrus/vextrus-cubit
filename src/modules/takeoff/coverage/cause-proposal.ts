@@ -12,7 +12,7 @@
 // for the corpus recorder, which opens none either.
 import { MODEL_QUESTIONS, canonicalJson, parseSourceKey, propose } from "@/core/model";
 import type { DecodeResult, ModelCallContext, ModelRequest, Proposal, SourceKey, SourceKeyResolver } from "@/core/model";
-import type { ModelId } from "@/core/model-ledger.types";
+import { JEV_MODEL, type ModelId } from "@/core/model-ledger.types";
 import { SCOPE_DECLARATION_CAUSES, type ScopeDeclarationCause } from "@/core/errors";
 import { compareCanonical } from "@/core/identity";
 // The law module, never the residue's roster: the roster carries the query, which reaches the
@@ -23,12 +23,11 @@ import { IN_BILL, type MeasurementCause, type ResidueCell } from "@/core/residue
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 /**
- * The model an unmeasured cell's cause is proposed by. AS-05 pins `claude-sonnet-5` to cheap
- * classification, and one choice over a three-entry vocabulary is exactly that; the Jev call is
- * billed under that pinned id until the owner's amendment lands
- * (`docs/decisions/as-05-jev-amendment.md`), and nothing here adds Jev to AS-05 or invents a rate.
+ * The model an unmeasured cell's cause is proposed by: one choice over a three-entry vocabulary is a
+ * closed question only TypeSafe Jev answers, so it is pinned to Jev's id, unconditionally, and billed
+ * at Jev's published rate (Deviation D-002, `docs/decisions/deviations.md`).
  */
-export const COVERAGE_CAUSE_MODEL: ModelId = "claude-sonnet-5";
+export const COVERAGE_CAUSE_MODEL: ModelId = JEV_MODEL;
 
 /** The field a proposed cause answers with, and the only one. */
 const PROPOSAL_FIELD = "cause";

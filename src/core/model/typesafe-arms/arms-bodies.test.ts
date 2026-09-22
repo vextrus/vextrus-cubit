@@ -6,13 +6,13 @@
  * about the body an arm composes out of it: the vocabulary a criterion is drawn from, the wording of
  * an instruction and the order of the keys could all move while every hash in `fixtures/model/`
  * stayed as it is — and the corpus would then be answering a question nobody asks any more. So the
- * two bodies the corpus was recorded over are written down here as they were posted on 2026-09-21,
+ * two bodies the corpus was recorded over are written down here as they were posted on 2026-09-23 (the corpus re-recorded live under Jev's pin, D-002),
  * derived from nothing: a golden, like the recordings themselves. An arm added beside these must
  * leave them exactly as they stand.
  *
  * The subjects are the corpus's own two (`fixtures/model/corpus.json`):
- *   50f7c93811fa4d2da6f49d189d4736e9f8e2dcac7e20bacc016e78e607bc2932  sheet-reading  silent-title-block.graph.json · SHEET-01
- *   20850cd27ecd8db4febb39668b6307d7f3f860c25b9323f20929374e2a5b3e1e  view-caption   rcc6-bnbc.dxf · DXF_HANDLE:10C1 · ROOF BEAM LAYOUT (AT ROOF LEVEL)
+ *   c4db95e3f6bf79a1971f06932ae08139a5e3692cab4cae911870bda63a6388fa  sheet-reading  silent-title-block.graph.json · SHEET-01
+ *   5a81417d49afdf3a57cdebef57bb64d1b3a3269ccdfa2fde440a2de1288037ad  view-caption   rcc6-bnbc.dxf · DXF_HANDLE:2266 · SEPTIC TANK  SCALE 1:50
  *
  * The caption's whole request is composed here, because its builder is core's own, and its hash is
  * asserted against the roster's. The sheet's is composed by `@/modules/ai/sheet-understanding`,
@@ -32,15 +32,15 @@ import { sheetReadingArm } from "./sheet-reading";
 import { viewCaptionArm } from "./view-caption";
 
 /** The hashes `fixtures/model/corpus.json` files the two recordings under, quoted. */
-const SHEET_REQUEST_HASH = "50f7c93811fa4d2da6f49d189d4736e9f8e2dcac7e20bacc016e78e607bc2932";
-const CAPTION_REQUEST_HASH = "20850cd27ecd8db4febb39668b6307d7f3f860c25b9323f20929374e2a5b3e1e";
+const SHEET_REQUEST_HASH = "c4db95e3f6bf79a1971f06932ae08139a5e3692cab4cae911870bda63a6388fa";
+const CAPTION_REQUEST_HASH = "5a81417d49afdf3a57cdebef57bb64d1b3a3269ccdfa2fde440a2de1288037ad";
 
-/** The user message of request 50f7c938…: the silent sheet's evidence, canonically spelled. */
+/** The user message of request c4db95e3…: the silent sheet's evidence, canonically spelled. */
 const SILENT_SHEET_CONTENT = `{"blockAttributes":[{"height":6,"src":"DXF_HANDLE:2A0","tag":"SHEET_NO","text":"C-402"},{"height":10,"src":"DXF_HANDLE:2A0","tag":"SHEET_TITLE","text":"SITE GRADING PLAN"},{"height":3.5,"src":"DXF_HANDLE:2A0","tag":"SCALE","text":"1:100"},{"height":3.5,"src":"DXF_HANDLE:2A0","tag":"REV","text":"B"},{"height":3.5,"src":"DXF_HANDLE:2A0","tag":"ISSUE_DATE","text":"2026-04-12"}],"census":{"INSERT":3,"LINE":1,"LWPOLYLINE":1,"TEXT":1},"derived":[{"height":5,"key":"DXF_HANDLE:2A2","layer":"ANNO-VIEW","text":"SECTION A-A","type":"MTEXT"},{"height":5,"key":"DXF_HANDLE:2A5","layer":"ANNO-VIEW","text":"DETAIL 3 - KERB RETURN","type":"MTEXT"}],"entities":[],"layout":{"kind":"paper","name":"SHEET-01"}}`;
 
-/** The caption of view DXF_HANDLE:10C1 on the M3/M4 yardstick drawing, as the corpus names it. */
-const CAPTION = "ROOF BEAM LAYOUT (AT ROOF LEVEL)";
-const CAPTION_KEY = "DXF_HANDLE:10C1";
+/** The caption of view DXF_HANDLE:2266 on the M3/M4 yardstick drawing — one the rebuild asks about — as the corpus names it. */
+const CAPTION = "SEPTIC TANK  SCALE 1:50";
+const CAPTION_KEY = "DXF_HANDLE:2266";
 
 /**
  * The sheet request as the wire sees it. Only the user message reaches an arm — it is the canonical
@@ -48,7 +48,7 @@ const CAPTION_KEY = "DXF_HANDLE:10C1";
  * other fields are the module's, unread here and never restated.
  */
 function sheetRequest(): ModelRequest {
-  return { modelId: "claude-opus-5", system: "(the module's own system prompt — not read by any arm)", messages: [{ role: "user", content: SILENT_SHEET_CONTENT }] };
+  return { modelId: "jev-latest", system: "(the module's own system prompt — not read by any arm)", messages: [{ role: "user", content: SILENT_SHEET_CONTENT }] };
 }
 
 describe("the bodies the arms post, as the corpus was recorded over them", () => {
@@ -101,7 +101,7 @@ describe("the bodies the arms post, as the corpus was recorded over them", () =>
     });
   });
 
-  test("the roof-beam caption hashes to the corpus's own request, and is posted as one choice, exactly as recorded", () => {
+  test("the septic-tank caption hashes to the corpus's own request, and is posted as one choice, exactly as recorded", () => {
     const request = viewCaptionRequest(CAPTION, CAPTION_KEY);
     expect(requestHash(request), "the recording in fixtures/model answers this request and no other").toBe(CAPTION_REQUEST_HASH);
     const task = structuredTaskOf(request);
@@ -143,7 +143,7 @@ describe("the bodies the arms post, as the corpus was recorded over them", () =>
       question: "sheet-reading",
       subject: "silent-title-block.graph.json · SHEET-01",
     });
-    expect(filed(CAPTION_REQUEST_HASH), "the roof-beam caption's recording is rostered under the hash this file hashes the request to").toMatchObject({
+    expect(filed(CAPTION_REQUEST_HASH), "the septic-tank caption's recording is rostered under the hash this file hashes the request to").toMatchObject({
       question: "view-caption",
       subject: `rcc6-bnbc.dxf · ${CAPTION_KEY} · ${CAPTION}`,
     });

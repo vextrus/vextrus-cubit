@@ -1,0 +1,74 @@
+{
+  "requestHash": "871e4049e35f091e97c3d18e4ef2ed656ddf4be6eda01a162f702cf8a9b48c97",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "header": 0.02,
+      "cells": [
+        {
+          "column": 3,
+          "attribute": "main",
+          "text": "10%%C",
+          "sourceKeys": [
+            "DXF_HANDLE:1E28"
+          ]
+        }
+      ]
+    },
+    "sources": [
+      "DXF_HANDLE:1E25",
+      "DXF_HANDLE:1E26",
+      "DXF_HANDLE:1E27",
+      "DXF_HANDLE:1E28",
+      "DXF_HANDLE:1E29",
+      "DXF_HANDLE:1E2A",
+      "DXF_HANDLE:1E2B",
+      "DXF_HANDLE:1E2C"
+    ]
+  },
+  "inputTokens": 1137,
+  "outputTokens": 57,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.71,
+    "answers": {
+      "row_is_header": {
+        "type": "noul",
+        "value": 0.02,
+        "confidence": null,
+        "probabilities": null
+      },
+      "cell_3": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 0.71,
+        "probabilities": {
+          "NOT_STATED": 0.14,
+          "cand_1": 0.86
+        }
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "row_is_header": {
+        "type": "noul",
+        "noul": 0.02
+      },
+      "cell_3": {
+        "type": "choice",
+        "choice": "cand_1",
+        "confidence": 0.71,
+        "probabilities": {
+          "NOT_STATED": 0.14,
+          "cand_1": 0.86
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 1137,
+      "output_tokens": 57
+    }
+  }
+}

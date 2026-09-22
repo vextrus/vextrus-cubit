@@ -9,7 +9,7 @@
 //
 // The order is L-AI-03's own: "a deterministic grammar where the text is vector", so
 // `src/modules/takeoff/partition/views/grammar.ts` answers first and no model is asked at all where
-// it read anything. Only a caption the grammar is silent on reaches `claude-sonnet-5` (AS-05),
+// it read anything. Only a caption the grammar is silent on reaches Jev (`jev-latest`, D-002),
 // through the model seam's own `propose`, which is the tree's only path to a model (L-AI-01).
 export {
   VIEW_CAPTION_MODEL,

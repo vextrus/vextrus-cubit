@@ -1,0 +1,59 @@
+{
+  "requestHash": "f886d3d74cc63677d7dd77cb2746774801c901b5b8dc5c09f0eb3ec85c3c476e",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "item": "earthwork.excavation/pile_cap/depth-to-1500"
+    },
+    "sources": [
+      "DXF_HANDLE:PC-A1"
+    ]
+  },
+  "inputTokens": 1182,
+  "outputTokens": 110,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.23,
+    "answers": {
+      "item_description": {
+        "type": "choice",
+        "value": "earthwork.excavation/pile_cap/depth-to-1500",
+        "confidence": 0.23,
+        "probabilities": {
+          "NONE_OF_THESE": 0.11,
+          "earthwork.excavation/pile_cap/depth-over-1500": 0.41,
+          "earthwork.excavation/pile_cap/depth-to-1500": 0.48
+        }
+      },
+      "attributes_separate": {
+        "type": "noul",
+        "value": 0.81,
+        "confidence": null,
+        "probabilities": null
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "item_description": {
+        "type": "choice",
+        "choice": "earthwork.excavation/pile_cap/depth-to-1500",
+        "confidence": 0.23,
+        "probabilities": {
+          "NONE_OF_THESE": 0.11,
+          "earthwork.excavation/pile_cap/depth-over-1500": 0.41,
+          "earthwork.excavation/pile_cap/depth-to-1500": 0.48
+        }
+      },
+      "attributes_separate": {
+        "type": "noul",
+        "noul": 0.81
+      }
+    },
+    "usage": {
+      "input_tokens": 1182,
+      "output_tokens": 110
+    }
+  }
+}

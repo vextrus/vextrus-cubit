@@ -33,6 +33,7 @@ import { reconstructSchedules } from "./schedules/reconstruct";
 import { registerMemberTypes } from "./schedules/registry";
 import type { DetectedSchedules } from "./schedules/store";
 import { drawingProjectOf, rewritePartition, storedViewsOf, type RegisterPass, type ResolvedConventions, type ViewProposal } from "./store";
+import { captionsAskedOf } from "./views/asked-captions";
 import { partitionArtifact, type PartitionedView } from "./views/assign";
 import { VIEW_TYPE, VIEW_TYPES, type ViewType } from "./views/law";
 
@@ -339,8 +340,8 @@ async function proposalsFor(views: readonly PartitionedView[], pass: ProposalPas
   const citable = pass.graph.entities.map((entity) => entity.key);
   const held = new Map(pass.held.filter((view) => view.proposed !== null).map((view) => [view.viewKey, view.proposed]));
 
-  for (const view of views) {
-    if (!asksAModel(view)) continue;
+  // Which captions are asked is the one selection the corpus recorder asks too (`./views/asked-captions`).
+  for (const view of captionsAskedOf(views)) {
     // A proposal already standing for this very view is carried, not asked for again: the view key
     // is the class and the caption's own entity, so the question a second run would put to a model
     // is the question the ledger already holds the answer to — and asking it again would spend a
@@ -350,12 +351,11 @@ async function proposalsFor(views: readonly PartitionedView[], pass: ProposalPas
       proposals.set(view.viewKey, { viewKey: view.viewKey, type: standing.type, callId: standing.callId });
       continue;
     }
-    const anchorKey = view.anchorKey ?? "";
     let proposed: ViewProposal | null = null;
     try {
       const proposal = await pass.captions.proposeViewType(pass.ctx, {
         caption: view.caption,
-        anchorKey,
+        anchorKey: view.anchorKey,
         classifiable: CLASSIFIABLE,
         artifact: sourceKeyResolver(pass.record.artifactSha256, citable),
       });
@@ -373,11 +373,6 @@ async function proposalsFor(views: readonly PartitionedView[], pass: ProposalPas
     if (proposed !== null) proposals.set(view.viewKey, proposed);
   }
   return proposals;
-}
-
-/** Is this a view a model is asked about? Only one the grammar was silent on, and that has a caption. */
-function asksAModel(view: PartitionedView): boolean {
-  return (view.type as ViewType) === VIEW_TYPE.UNTYPED && view.anchorKey !== null;
 }
 
 /**

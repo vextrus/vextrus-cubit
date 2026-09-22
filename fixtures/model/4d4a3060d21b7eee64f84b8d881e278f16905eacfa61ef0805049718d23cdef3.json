@@ -1,0 +1,49 @@
+{
+  "requestHash": "4d4a3060d21b7eee64f84b8d881e278f16905eacfa61ef0805049718d23cdef3",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "cause": "NOTHING_TO_DECLARE"
+    },
+    "sources": [
+      "DXF_HANDLE:10A2"
+    ]
+  },
+  "inputTokens": 810,
+  "outputTokens": 53,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.99,
+    "answers": {
+      "cause": {
+        "type": "choice",
+        "value": "NOTHING_TO_DECLARE",
+        "confidence": 0.99,
+        "probabilities": {
+          "NOT_IN_THIS_BILL": 0,
+          "NOTHING_TO_DECLARE": 1,
+          "NOT_IN_PROJECT_SCOPE": 0
+        }
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "cause": {
+        "type": "choice",
+        "choice": "NOTHING_TO_DECLARE",
+        "confidence": 0.99,
+        "probabilities": {
+          "NOT_IN_THIS_BILL": 0,
+          "NOTHING_TO_DECLARE": 1,
+          "NOT_IN_PROJECT_SCOPE": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 810,
+      "output_tokens": 53
+    }
+  }
+}

@@ -38,10 +38,26 @@ const rejectionOf = (promise: Promise<unknown>): Promise<unknown> =>
 
 /** Where the drizzle tables live: the seam's schema module, which db/schema/*.ts re-exports (B-20). */
 const SEAM_MODULE = "src/core/db/schema-model.ts";
-const MIGRATION = "db/migrations/0013_core-model-jobs-debt-sweep.sql";
 const JOURNAL = "db/migrations/meta/_journal.json";
-const MIGRATION_TAG = "0013_core-model-jobs-debt-sweep";
 const CONSTRAINT = "model_calls_model_id_closed";
+/**
+ * The migration that closes the column TODAY: the newest journaled one that declares the CHECK. 0013
+ * closed it first; a landed migration is never edited, so each roster the column is closed over since
+ * (D-002's 0057 added `jev-latest`) is a newer migration re-declaring it — and the newest is the one
+ * the database stands on.
+ */
+const MIGRATION_TAG = newestDeclaring(CONSTRAINT);
+const MIGRATION = `db/migrations/${MIGRATION_TAG}.sql`;
+
+function newestDeclaring(constraint: string): string {
+  const journal = JSON.parse(readFileSync(join(REPO_ROOT, JOURNAL), "utf8")) as { entries?: { idx?: number; tag?: string }[] };
+  const declaring = (journal.entries ?? [])
+    .slice()
+    .sort((left, right) => (left.idx ?? 0) - (right.idx ?? 0))
+    .map((entry) => entry.tag ?? "")
+    .filter((tag) => tag !== "" && readFileSync(join(REPO_ROOT, "db", "migrations", `${tag}.sql`), "utf8").includes(`"${constraint}" CHECK`));
+  return declaring.at(-1) ?? "no journaled migration declares the check";
+}
 const MODEL_CALLS = "model_calls";
 const CHECK_REFUSAL = "23514";
 const SEAM_CLAUSE = "SEAM-TENANT";

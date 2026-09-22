@@ -16,12 +16,19 @@ const MODULE = "src/core/model-ledger.types.ts";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..");
 
-/** The two model ids AS-05 closes the set to, and the rates this spec pins (USD per million). */
+/**
+ * The model ids the set is closed to — AS-05's two, and Jev's by Deviation D-002 — and the rates
+ * this spec pins (USD per million): each provider's PUBLISHED figure. The Claude ids at $5/$25 and
+ * $2/$10; Jev at "$0.042 per Mtok … charged per input token. Output tokens are free."
+ * (docs.typesafe.ai/models, read 2026-09-23).
+ */
 const OPUS = "claude-opus-5";
 const SONNET = "claude-sonnet-5";
+const JEV = "jev-latest";
 const PINNED_RATES: Record<string, { inputPerMillionTokens: string; outputPerMillionTokens: string }> = {
-  [OPUS]: { inputPerMillionTokens: "15", outputPerMillionTokens: "75" },
-  [SONNET]: { inputPerMillionTokens: "3", outputPerMillionTokens: "15" },
+  [OPUS]: { inputPerMillionTokens: "5", outputPerMillionTokens: "25" },
+  [SONNET]: { inputPerMillionTokens: "2", outputPerMillionTokens: "10" },
+  [JEV]: { inputPerMillionTokens: "0.042", outputPerMillionTokens: "0" },
 };
 
 /** A million: the denominator the rates are quoted against. */
@@ -44,7 +51,9 @@ type Cost = typeof import("./model-ledger.types").modelCallCost;
 type Rate = { inputPerMillionTokens: string; outputPerMillionTokens: string };
 
 /** MODEL_IDS is a closed const of literals — not `readonly string[]`, which closes nothing. */
-type IdsAreTheTwoLiterals = Expect<Equal<Ids[number], typeof OPUS | typeof SONNET>>;
+type IdsAreTheThreeLiterals = Expect<Equal<Ids[number], typeof OPUS | typeof SONNET | typeof JEV>>;
+/** And the one id every closed question is pinned to is one of them, as a literal (D-002). */
+type JevIsPinnedFromTheConst = Expect<Equal<typeof import("./model-ledger.types").JEV_MODEL, typeof JEV>>;
 /** ModelId is DERIVED from it (AS-05), so the two can never drift apart. */
 type ModelIdIsDerived = Expect<Equal<ModelId, Ids[number]>>;
 /** MODEL_RATES is total over ModelId, and carries no key that is not one. */
@@ -56,7 +65,8 @@ type CostTakesAModelId = Expect<Assignable<Cost, (modelId: ModelId, inputTokens:
 type CostRefusesAnyString = Expect<Not<Assignable<Cost, (modelId: string, inputTokens: number, outputTokens: number) => string>>>;
 
 export type CompileTimeAcceptance = [
-  IdsAreTheTwoLiterals,
+  IdsAreTheThreeLiterals,
+  JevIsPinnedFromTheConst,
   ModelIdIsDerived,
   RatesAreTotal,
   RatesCarryBothDirections,
@@ -118,9 +128,9 @@ function minimal(value: string): string {
  * ------------------------------------------------------------------ */
 
 describe("AC-3: the model-id const and the rate table (AS-05)", () => {
-  it("AC-3: MODEL_IDS is a closed const holding exactly the two model ids this spec pins", async () => {
+  it("AC-3: MODEL_IDS is a closed const holding exactly the three model ids this spec pins", async () => {
     const ids = await modelIds();
-    expect([...ids].sort(), `MODEL_IDS is the closed set AS-05 names — exactly ${OPUS} and ${SONNET}`).toEqual([OPUS, SONNET].sort());
+    expect([...ids].sort(), `MODEL_IDS is the closed set AS-05 names and D-002 extends — exactly ${OPUS}, ${SONNET} and ${JEV}`).toEqual([OPUS, SONNET, JEV].sort());
     expect(new Set(ids).size, "MODEL_IDS holds no id twice").toBe(ids.length);
   });
 
@@ -145,10 +155,14 @@ describe("AC-3: the model-id const and the rate table (AS-05)", () => {
  * ------------------------------------------------------------------ */
 
 describe("AC-3: modelCallCost derives an exact decimal string", () => {
-  it("AC-3: the two costs this spec pins", async () => {
+  it("AC-3: the costs this spec pins", async () => {
     const modelCallCost = await cost();
-    expect(modelCallCost(SONNET, 1_000_000, 2_000_000), `${SONNET}: a million input tokens at 3 and two million output at 15 is 33`).toBe("33");
-    expect(modelCallCost(OPUS, 100_000, 10_000), `${OPUS}: 100k input at 15/M is 1.5 and 10k output at 75/M is 0.75`).toBe("2.25");
+    expect(modelCallCost(SONNET, 1_000_000, 2_000_000), `${SONNET}: a million input tokens at 2 and two million output at 10 is 22`).toBe("22");
+    expect(modelCallCost(OPUS, 100_000, 10_000), `${OPUS}: 100k input at 5/M is 0.5 and 10k output at 25/M is 0.25`).toBe("0.75");
+    // The 240-fixture corpus session 6 filed spent 356,825 input tokens; at Jev's rate that is the
+    // 0.01498665 USD the provider charged, whatever it answered with — output is free.
+    expect(modelCallCost(JEV, 356_825, 0), `${JEV}: 356,825 input tokens at 0.042/M`).toBe("0.01498665");
+    expect(modelCallCost(JEV, 356_825, 123_456), `${JEV}: output tokens are free`).toBe("0.01498665");
   });
 
   it("AC-3: a million tokens in either direction costs exactly that direction's rate, for every id in the closed const", async () => {
@@ -177,20 +191,23 @@ describe("AC-3: modelCallCost derives an exact decimal string", () => {
       const answer = modelCallCost(id, input, output);
       expect(answer, `modelCallCost(${id}, ${input}, ${output}) must be a plain decimal string, never exponent notation`).toMatch(/^(0|[1-9][0-9]*)(\.[0-9]*[1-9])?$/);
     }
-    // The smallest money either model can charge: one input token of the cheaper rate. A derivation
-    // that reaches for Number's own printing answers this one correctly and the next one wrongly.
-    expect(modelCallCost(SONNET, 1, 0), "one input token at 3 USD per million is 0.000003, spelled in full").toBe("0.000003");
+    // The smallest money a model can charge: one input token. A derivation that reaches for Number's
+    // own printing answers the first correctly and the second — Jev's, far below a millionth — wrongly.
+    expect(modelCallCost(SONNET, 1, 0), "one input token at 2 USD per million is 0.000002, spelled in full").toBe("0.000002");
+    expect(modelCallCost(JEV, 1, 0), "one input token at 0.042 USD per million is 0.000000042, spelled in full").toBe("0.000000042");
   });
 
   it("AC-3: the derivation is float-free — a binary-float scaling loses the last digit here", async () => {
     // 1_000_000_000_000_001 is an exact JavaScript integer (it is under 2^53), and so is the money
-    // owed for it: 1_000_000_000_000_001 x 15 / 1_000_000 = 15000000000.000015 exactly. Scaled
-    // through a double, the product 15000000000000015 rounds to ...016 and the answer comes back
-    // one cent-of-a-millionth wrong. Only a scaled-integer or BigInt derivation answers this.
+    // owed for it: 1_000_000_000_000_001 x 25 / 1_000_000 = 25000000000.000025 exactly. Scaled
+    // through a double, the product 25000000000000025 rounds to ...024 and the answer comes back
+    // wrong in its last digit; Jev's fractional rate does the same at 42000000.000000045. Only a
+    // scaled-integer or BigInt derivation answers these.
     const modelCallCost = await cost();
     expect(
-      modelCallCost(OPUS, 1_000_000_000_000_001, 0),
+      modelCallCost(OPUS, 0, 1_000_000_000_000_001),
       "modelCallCost must not scale through binary floating point (AC-3: 'computed without binary floating point')",
-    ).toBe("15000000000.000015");
+    ).toBe("25000000000.000025");
+    expect(modelCallCost(JEV, 1_000_000_000_000_001, 0), "nor a fractional rate through one").toBe("42000000.000000042");
   });
 });

@@ -26,8 +26,9 @@ export async function recordFixture(env: ModelEnv, fetch: typeof globalThis.fetc
   const hash = requestHash(request);
   const answer = await liveTransport(env, fetch).answer(ctx, request, hash);
   if (answer.kind === "refused") return { fixture: null, refused: { code: answer.code, message: answer.refusal.message } };
-  return {
-    fixture: { requestHash: hash, modelId: request.modelId, payload: answer.payload, inputTokens: answer.inputTokens, outputTokens: answer.outputTokens, judgment: answer.judgment },
-    refused: null,
-  };
+  // The provider's own body is filed beside the reading of it: the reading is what the seam derived
+  // today, the body is what the provider said — and a replay reads the body again, so tomorrow's seam
+  // is proved against what was answered rather than against what today's derived (`./fixture`).
+  const fixture: ModelFixture = { requestHash: hash, modelId: request.modelId, payload: answer.payload, inputTokens: answer.inputTokens, outputTokens: answer.outputTokens, judgment: answer.judgment };
+  return { fixture: answer.body === null ? fixture : { ...fixture, body: answer.body }, refused: null };
 }

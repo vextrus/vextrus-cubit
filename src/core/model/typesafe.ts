@@ -32,7 +32,7 @@
 // beside the wire as the call's judgment, for the ledger to record and the calibration line to read;
 // the seam never routes on it here, because a threshold is the caller's policy, evaluated on that
 // corpus.
-import { TYPESAFE_ENDPOINT, TYPESAFE_MODEL, type TypeSafeArm } from "./typesafe-arms/arm";
+import { TYPESAFE_ENDPOINT, TYPESAFE_MODEL, type TypeSafeArm, type TypeSafeQuestion } from "./typesafe-arms/arm";
 import { TYPESAFE_ARMS, type TypeSafeTask } from "./typesafe-arms/registry";
 import type { AnswerJudgment, JsonValue, ModelJudgment, ModelRequest } from "./types";
 
@@ -42,8 +42,12 @@ import type { AnswerJudgment, JsonValue, ModelJudgment, ModelRequest } from "./t
 export { TYPESAFE_ENDPOINT, TYPESAFE_MODEL };
 export { CANDIDATE_CAP } from "./typesafe-arms/sheet-reading";
 
-/** What a provider's body is read into: the wire the seam resolves, the usage as stated, and what the model said of its answer. */
-export type ProviderBody = { content: JsonValue; inputTokens: unknown; outputTokens: unknown; judgment: ModelJudgment | null };
+/**
+ * What a provider's body is read into: the wire the seam resolves, the usage as stated, what the
+ * model said of its answer — and the body itself where it is one a replay can read again (`body`,
+ * which the recorder files beside the reading; null where the provider's body is not kept).
+ */
+export type ProviderBody = { content: JsonValue; inputTokens: unknown; outputTokens: unknown; judgment: ModelJudgment | null; body: JsonValue | null };
 
 /** The closed questions this adapter can put to Jev, as recognised on a request. */
 export type StructuredTask = TypeSafeTask;
@@ -108,10 +112,29 @@ export async function exchangeTypeSafe(apiKey: string, fetch: typeof globalThis.
     await discarded(response);
     throw new Error(`TypeSafe Jev System One answered ${response.status} ${response.statusText}`.trimEnd());
   }
-  const answered = (await response.json()) as unknown;
+  return bodyRead(question, (await response.json()) as unknown);
+}
+
+/**
+ * A body Jev answered this request with, read again by the arm that asks it TODAY — the one reading
+ * a live answer and a replayed recording share, so a recording that kept its body replays what the
+ * seam would derive from that body now, never what it derived the day it was minted (L-AI-01, B-17).
+ * Nothing is posted and the arm's guard is not asked: the question was put when the body was minted.
+ * A request no arm recognises has no reading at all, and says so.
+ */
+export function readTypeSafeBody(request: ModelRequest, body: JsonValue): ProviderBody {
+  const recognised = recognisedIn(request);
+  if (recognised === null) {
+    throw new Error(`a TypeSafe Jev System One body answers only the closed questions this seam spells — ${TYPESAFE_ARMS.map((arm) => arm.question).join(", ")} — and this request is neither`);
+  }
+  return bodyRead(recognised.arm.compose(recognised.task), body);
+}
+
+/** One body, read by the question it answers: the wire, the usage as stated, the judgment, and the body kept. */
+function bodyRead(question: TypeSafeQuestion, answered: unknown): ProviderBody {
   const answers = answersOf(answered);
   const usage = usageOf(answered);
-  return { content: question.read(answers), inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, judgment: judgmentOf(answered, answers) };
+  return { content: question.read(answers), inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, judgment: judgmentOf(answered, answers), body: answered as JsonValue };
 }
 
 function answersOf(body: unknown): Record<string, unknown> {

@@ -11,7 +11,7 @@
  * stored.
  */
 import { describe, expect, test } from "vitest";
-import { MODEL_QUESTIONS, requestHash } from "@/core/model";
+import { JEV_MODEL, MODEL_QUESTIONS, requestHash } from "@/core/model";
 import { cellReadingCandidates, readCellReadingProposal, scheduleCellRequest, CELL_ATTRIBUTES, CELL_READING_MODEL, type CellReadingState } from "..";
 
 /** One contested row, as `contestedRowsOf` answers one. */
@@ -39,11 +39,11 @@ describe("the contested row's request", () => {
     expect(requestHash(scheduleCellRequest(state())), "the same evidence asked twice is one recorded answer, not two").toBe(requestHash(scheduleCellRequest(state())));
   });
 
-  test("names the question the ledger files it under and the id AS-05 bills the reading under", () => {
+  test("names the question the ledger files it under and the Jev id the reading is pinned and billed under (D-002)", () => {
     const request = scheduleCellRequest(state());
     expect(request.question).toBe(MODEL_QUESTIONS.scheduleCell);
-    expect(request.modelId, "Jev is billed under the pinned Claude id until the owner's amendment lands").toBe(CELL_READING_MODEL);
-    expect(CELL_READING_MODEL).toBe("claude-opus-5");
+    expect(request.modelId, "the request carries the id its module pins").toBe(CELL_READING_MODEL);
+    expect(CELL_READING_MODEL, "a closed question only Jev answers is pinned to Jev, unconditionally (D-002)").toBe(JEV_MODEL);
   });
 
   test("wears exactly the key set the adapter recognises this question by, and carries the cells under their own column indices", () => {

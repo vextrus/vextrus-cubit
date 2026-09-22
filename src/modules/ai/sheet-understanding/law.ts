@@ -7,7 +7,7 @@
 // a third member there would claim the grammar can answer "MODEL", which it cannot. What this module
 // publishes is a different question — who understood the sheet — so it has its own closed roster.
 import { DISCIPLINES, isDiscipline, type Discipline } from "@/core/sheets";
-import type { ModelId } from "@/core/model-ledger.types";
+import { JEV_MODEL, type ModelId } from "@/core/model-ledger.types";
 import type { DecodeResult, SourceKey } from "@/core/model";
 import type { SheetReadingRecord } from "@/core/db";
 
@@ -29,10 +29,11 @@ export const UNDERSTANDING_BASES = ["GRAMMAR", "MODEL"] as const;
 export type UnderstandingBasis = (typeof UNDERSTANDING_BASES)[number];
 
 /**
- * The model a silent sheet is read by (AS-05: `claude-opus-5` for reading and proposals). The answer
- * asked for is a four-field reading with citations, not a class, so the cheap classifier is not it.
+ * The model a silent sheet is read by. AS-05 named `claude-opus-5` for reading and proposals; the
+ * question is a closed one only TypeSafe Jev answers, so it is pinned to Jev's id, unconditionally
+ * (Deviation D-002, `docs/decisions/deviations.md`).
  */
-export const UNDERSTANDING_MODEL: ModelId = "claude-opus-5";
+export const UNDERSTANDING_MODEL: ModelId = JEV_MODEL;
 
 /**
  * What one sheet amounts to: the reading, the entities it rests on, and — where a model made it —

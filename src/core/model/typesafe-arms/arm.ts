@@ -10,12 +10,16 @@
 // The wire constants live here rather than in `../typesafe` because every arm speaks them and
 // `../typesafe` reads the registry: the arms are the leaf, the adapter the branch, and a cycle
 // between them would make the order they are evaluated in matter.
+import { JEV_MODEL } from "../../model-ledger.types";
 import type { ModelQuestion } from "../questions";
 import type { JsonValue } from "../types";
 
-/** Where Jev is reached, and the model asked for. */
+/**
+ * Where Jev is reached, and the model asked for — the very id every request is pinned, hashed and
+ * billed under (D-002), so what is posted and what is recorded are one spelling.
+ */
 export const TYPESAFE_ENDPOINT = "https://api.typesafe.ai/v1/systemone";
-export const TYPESAFE_MODEL = "jev-latest";
+export const TYPESAFE_MODEL = JEV_MODEL;
 
 /** A question as posted, and the reading of its answers into the wire the seam resolves. */
 export type TypeSafeQuestion = { body: JsonValue; read: (answers: Record<string, unknown>) => JsonValue };

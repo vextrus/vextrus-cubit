@@ -12,7 +12,7 @@
  */
 import { describe, expect, test, vi } from "vitest";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
-import { createModelSeam, sourceKeyResolver } from "@/core/model";
+import { JEV_MODEL, createModelSeam, sourceKeyResolver } from "@/core/model";
 import { CELL_ATTRIBUTES, cellReadingCandidates, contestedRowsOf, proposeCellReading, type CellReadingState } from "@/modules/takeoff/partition/schedules/cell-reading";
 import type { ScheduleCell, ScheduleTable } from "@/modules/takeoff/partition/schedules/reconstruct";
 import { contextFor, memoryLedger, rejectionOf, rowsOf } from "./support/understanding-stage";
@@ -93,7 +93,7 @@ describe("a contested schedule row read by Jev, through the seam", () => {
       "DXF_HANDLE:A2",
       "DXF_HANDLE:A3",
     ]);
-    expect(proposal.model, "the ledger's pinned id is the one the request carried").toBe("claude-opus-5");
+    expect(proposal.model, "the ledger's pinned id is the one the request carried — Jev's (D-002)").toBe(JEV_MODEL);
     expect(proposal.callId).toBeTruthy();
 
     expect(asked, "one request was posted, carrying the row's whole question set").toHaveLength(1);

@@ -18,18 +18,18 @@
 // Nothing here corroborates, repudiates, publishes or strikes.
 import { MODEL_QUESTIONS, canonicalJson, propose } from "../model";
 import type { DecodeResult, ModelCallContext, ModelRequest, Proposal, SourceKeyResolver } from "../model";
-import type { ModelId } from "../model-ledger.types";
+import { JEV_MODEL, type ModelId } from "../model-ledger.types";
 
 /** Any JSON value — what a transport carried, before it is read as anything. */
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 /**
- * The model one outline's corroboration is read by. AS-05 pins `claude-sonnet-5` to cheap
- * classification, and comparing a handful of numbers against benchmarks found beside them is exactly
- * that. Jev is billed under this pinned id until the owner's amendment lands
- * (docs/decisions/as-05-jev-amendment.md): nothing here adds a Jev id or a rate.
+ * The model one outline's corroboration is read by: comparing a handful of numbers against
+ * benchmarks found beside them is one Noul only TypeSafe Jev answers, so it is pinned to Jev's id,
+ * unconditionally, and billed at Jev's published rate (Deviation D-002,
+ * `docs/decisions/deviations.md`).
  */
-export const OUTLINE_CORROBORATION_MODEL: ModelId = "claude-sonnet-5";
+export const OUTLINE_CORROBORATION_MODEL: ModelId = JEV_MODEL;
 
 /** The field the answer carries, and the only one. */
 const PROPOSAL_FIELD = "corroborates";

@@ -17,17 +17,20 @@
 //   node --import tsx scripts/model-corpus.ts roster
 //
 // `record` mints under the directory given — never under fixtures/model — and prints, per fixture,
-// what came back and two cost lines: the ledger's (the pinned Claude id's rate, which is what the
-// product records today) and the provider's documented one (docs.typesafe.ai/models, read
-// 2026-09-21: "$0.042 per Mtok, charged per input token, output tokens are free"). A person reads
-// the answers, then `file` moves the ones worth keeping into the corpus root and re-derives
-// `corpus.json`; a fixture already filed is never overwritten (minted once). The key is read from
-// the environment by the live transport and appears nowhere in this file's output.
+// what came back and two cost lines: the ledger's (the rate of the id the request pinned) and the
+// provider's documented one — Jev's, derived through the ledger's own `modelCallCost` under
+// `JEV_MODEL` (D-002; the rate is the one docs.typesafe.ai/models states, carried in `MODEL_RATES`),
+// so the two lines agree wherever the request pins Jev and a request pinned to anything else shows
+// the difference. A person reads the answers, then `file` moves the ones worth keeping into the
+// corpus root and re-derives `corpus.json`; a fixture already filed is never overwritten (minted
+// once). The provider's own answer body is filed beside the reading of it (`recordFixture`), so a
+// replay reads it again through the seam as it stands. The key is read from the environment by the
+// live transport and appears nowhere in this file's output.
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { MODEL_QUESTIONS, isModelQuestion, recordFixture, requestHash, type ModelCallContext, type ModelFixture } from "../src/core/model";
+import { JEV_MODEL, MODEL_QUESTIONS, isModelQuestion, recordFixture, requestHash, type ModelCallContext, type ModelFixture } from "../src/core/model";
 import { modelCallCost } from "../src/core/model-ledger.types";
 import { CORPUS_RECORDERS } from "./model-corpus/registry";
 
@@ -35,8 +38,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CORPUS_ROOT = join(ROOT, "fixtures", "model");
 const ROSTER = join(CORPUS_ROOT, "corpus.json");
 
-/** The provider's documented input rate, USD per million tokens, and where and when it was read. */
-const PROVIDER_RATE = { inputPerMillionTokens: "0.042", outputPerMillionTokens: "0", source: "https://docs.typesafe.ai/models", readOn: "2026-09-21" } as const;
+/** Where the provider's rate is published — the rate itself is `MODEL_RATES[JEV_MODEL]`, and only there. */
+const PROVIDER_RATE_SOURCE = "https://docs.typesafe.ai/models";
 
 /** One roster line: what a fixture answers, and what it cost, as the recorder learnt it. */
 type RosterLine = {
@@ -69,10 +72,9 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-/** The provider's documented cost of one call, USD, to nine places — input only, output free. */
-function providerCost(inputTokens: number): string {
-  const perMillion = Number(PROVIDER_RATE.inputPerMillionTokens);
-  return ((inputTokens * perMillion) / 1_000_000).toFixed(9).replace(/0+$/, "").replace(/\.$/, "");
+/** The provider's documented cost of these tokens, USD, exact — the ledger's own derivation under Jev's id. */
+function providerCost(inputTokens: number, outputTokens: number): string {
+  return modelCallCost(JEV_MODEL, inputTokens, outputTokens);
 }
 
 /** The environment the recording runs under: the shell's, with every replay root taken away. */
@@ -99,6 +101,7 @@ async function record(): Promise<void> {
   const env = liveEnv();
   const recordedOn = new Date().toISOString().slice(0, 10);
   let totalIn = 0;
+  let totalOut = 0;
   let filed = 0;
   for (const { request, subject } of asked) {
     const hash = requestHash(request);
@@ -124,17 +127,18 @@ async function record(): Promise<void> {
       inputTokens: fixture.inputTokens,
       outputTokens: fixture.outputTokens,
       attributedCost: modelCallCost(request.modelId, fixture.inputTokens, fixture.outputTokens),
-      providerCost: providerCost(fixture.inputTokens),
+      providerCost: providerCost(fixture.inputTokens, fixture.outputTokens),
     };
     writeFileSync(join(outDir, `${hash}.meta.json`), `${JSON.stringify(line, null, 2)}\n`);
     totalIn += fixture.inputTokens;
+    totalOut += fixture.outputTokens;
     filed += 1;
     const wire = fixture.payload as { payload?: unknown };
     say(`${hash}  ${subject}`);
     say(`  answered by ${line.provider ?? "(unreported)"}; payload ${JSON.stringify(wire.payload ?? fixture.payload)}; confidence ${fixture.judgment?.confidence ?? "(none)"}`);
-    say(`  tokens ${fixture.inputTokens} in / ${fixture.outputTokens} out; ledger cost under ${request.modelId}: ${line.attributedCost} USD; provider's documented cost: ${line.providerCost} USD (${PROVIDER_RATE.source}, ${PROVIDER_RATE.readOn})`);
+    say(`  tokens ${fixture.inputTokens} in / ${fixture.outputTokens} out; ledger cost under ${request.modelId}: ${line.attributedCost} USD; provider's documented cost: ${line.providerCost} USD (${PROVIDER_RATE_SOURCE})`);
   }
-  say(`recorded ${filed} fixture(s) under ${outDir}; ${totalIn} input tokens; provider's documented total ${providerCost(totalIn)} USD`);
+  say(`recorded ${filed} fixture(s) under ${outDir}; ${totalIn} input / ${totalOut} output tokens; provider's documented total ${providerCost(totalIn, totalOut)} USD`);
 }
 
 function readRoster(): Roster {

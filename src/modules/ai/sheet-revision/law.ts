@@ -12,18 +12,18 @@
 // strip states against what its own table's last row states against what the set prints beside it —
 // and no ordering, no clock and no calendar arithmetic is derived from the answer.
 import type { DecodeResult } from "@/core/model";
-import type { ModelId } from "@/core/model-ledger.types";
+import { JEV_MODEL, type ModelId } from "@/core/model-ledger.types";
 
 /** Any JSON value — what a transport carried, before it is read as anything. */
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 /**
- * The model a sheet's issue state is read by. AS-05 pins `claude-sonnet-5` to cheap classification,
- * and choosing one candidate off a sheet's own strip and placing it on a five-level spectrum is
- * exactly that; the Jev call is billed under that pinned id until the owner's amendment lands
- * (`docs/decisions/as-05-jev-amendment.md`), and nothing here adds Jev to AS-05 or invents a rate.
+ * The model a sheet's issue state is read by: choosing one candidate off a sheet's own strip and
+ * placing it on a five-level spectrum is a closed question only TypeSafe Jev answers, so it is pinned
+ * to Jev's id, unconditionally, and billed at Jev's published rate (Deviation D-002,
+ * `docs/decisions/deviations.md`).
  */
-export const REVISION_RECENCY_MODEL: ModelId = "claude-sonnet-5";
+export const REVISION_RECENCY_MODEL: ModelId = JEV_MODEL;
 
 /**
  * The spectrum, lowest first. Each level is one concrete situation a reader could check on the paper

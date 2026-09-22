@@ -133,7 +133,7 @@ function confirming(projectId: string, viewType: string, drawingId: string): Con
 describe("AC-4: the model is asked where the grammar is silent, and answers a cited proposal", () => {
   test("AC-4: the caption module names the model AS-05 pins cheap classification to", async () => {
     const captions = await viewCaptionsDoor();
-    expect(captions.VIEW_CAPTION_MODEL, "a view-type classification is cheap work, and AS-05 pins it (L-AI-01 pins the id from a closed const)").toBe(VIEW_CAPTION_MODEL);
+    expect(captions.VIEW_CAPTION_MODEL, "a view-type classification is a closed question only Jev answers, pinned to Jev (D-002; L-AI-01 pins the id from a closed const)").toBe(VIEW_CAPTION_MODEL);
   }, BUDGET_MS);
 
   test("AC-4: the untyped view stands with the proposal beside it, and the call is in the ledger", async () => {

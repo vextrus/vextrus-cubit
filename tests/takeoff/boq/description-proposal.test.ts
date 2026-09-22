@@ -18,7 +18,7 @@ import { describe, expect, test } from "vitest";
 import { candidateItemsFor } from "@/core/catalogue/item-descriptions";
 import { REFUSALS } from "@/core/errors";
 import { refusal } from "@/core/faults/refusal-marker";
-import { PROPOSAL_KIND, requestHash, type ModelCallContext, type ModelRequest, type Proposal, type ProposalContract, type SourceKey } from "@/core/model";
+import { JEV_MODEL, PROPOSAL_KIND, requestHash, type ModelCallContext, type ModelRequest, type Proposal, type ProposalContract, type SourceKey } from "@/core/model";
 import { boqDraftPayloadOf } from "@/modules/takeoff/boq/emission";
 import { boqDescriptionRequest, readItemDescriptionProposal, type BoqDescriptionPort, type BoqDescriptionState } from "@/modules/takeoff/boq/description-question";
 import { DEFAULTED, INTERPRETED, describeGroups, groupAsksOf, groupKeyOf, type DescribableLine } from "@/modules/takeoff/boq/descriptions";
@@ -61,7 +61,7 @@ function portAnswering(payload: unknown, callId = "call-1"): BoqDescriptionPort 
     propose: async <T,>(_ctx: ModelCallContext, _request: ModelRequest, contract: ProposalContract<T>): Promise<Proposal<T>> => {
       const decoded = contract.decode(payload as never);
       if (!decoded.ok) throw refusal(REFUSALS.MALFORMED.code, decoded.detail, {});
-      return { kind: PROPOSAL_KIND, payload: decoded.value, sources: [HANDLE as SourceKey], model: "claude-sonnet-5", callId };
+      return { kind: PROPOSAL_KIND, payload: decoded.value, sources: [HANDLE as SourceKey], model: JEV_MODEL, callId };
     },
   };
 }
@@ -91,7 +91,7 @@ describe("the item-description request", () => {
     // pinned here.
     expect(Object.keys(content).sort(), "the four keys the boq-line-description arm is recognised by").toEqual(["attributes", "candidates", "keys", "line"]);
     expect(request.question, "the ledger records which closed question this call was").toBe("boq-line-description");
-    expect(request.modelId, "AS-05's cheap-classification id carries the call until an amendment moves it").toBe("claude-sonnet-5");
+    expect(request.modelId, "a closed question only Jev answers is pinned to Jev, unconditionally (D-002)").toBe(JEV_MODEL);
   });
 
   test("names the pinned model and the closed answer shape in its own system prompt", () => {

@@ -44,7 +44,7 @@ const README = "fixtures/model/README.md";
  * and excess-property checking fails it if the type loses a field the map still names.
  */
 const FIXTURE_FIELDS = Object.keys(
-  { requestHash: true, modelId: true, payload: true, inputTokens: true, outputTokens: true, judgment: true } satisfies Record<keyof ModelFixture, true>,
+  { requestHash: true, modelId: true, payload: true, inputTokens: true, outputTokens: true, judgment: true, body: true } satisfies Record<keyof ModelFixture, true>,
 ) as (keyof ModelFixture)[];
 
 type Stage = { tenantId: string; projectId: string; ledger: Ledger; fixtureRoot: string };

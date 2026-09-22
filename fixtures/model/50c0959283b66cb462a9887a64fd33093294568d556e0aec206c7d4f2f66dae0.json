@@ -1,0 +1,98 @@
+{
+  "requestHash": "50c0959283b66cb462a9887a64fd33093294568d556e0aec206c7d4f2f66dae0",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "header": 0.02,
+      "cells": [
+        {
+          "column": 3,
+          "attribute": "main",
+          "text": "2-16%%C",
+          "sourceKeys": [
+            "DXF_HANDLE:1776"
+          ]
+        },
+        {
+          "column": 4,
+          "attribute": "main",
+          "text": "3-16%%C",
+          "sourceKeys": [
+            "DXF_HANDLE:1777"
+          ]
+        }
+      ]
+    },
+    "sources": [
+      "DXF_HANDLE:1773",
+      "DXF_HANDLE:1774",
+      "DXF_HANDLE:1775",
+      "DXF_HANDLE:1776",
+      "DXF_HANDLE:1777",
+      "DXF_HANDLE:1778"
+    ]
+  },
+  "inputTokens": 1470,
+  "outputTokens": 93,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 1,
+    "answers": {
+      "row_is_header": {
+        "type": "noul",
+        "value": 0.02,
+        "confidence": null,
+        "probabilities": null
+      },
+      "cell_3": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 1,
+        "probabilities": {
+          "NOT_STATED": 0,
+          "cand_1": 1
+        }
+      },
+      "cell_4": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 1,
+        "probabilities": {
+          "NOT_STATED": 0,
+          "cand_1": 1
+        }
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "row_is_header": {
+        "type": "noul",
+        "noul": 0.02
+      },
+      "cell_3": {
+        "type": "choice",
+        "choice": "cand_1",
+        "confidence": 1,
+        "probabilities": {
+          "NOT_STATED": 0,
+          "cand_1": 1
+        }
+      },
+      "cell_4": {
+        "type": "choice",
+        "choice": "cand_1",
+        "confidence": 1,
+        "probabilities": {
+          "NOT_STATED": 0,
+          "cand_1": 1
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 1470,
+      "output_tokens": 93
+    }
+  }
+}

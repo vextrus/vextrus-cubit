@@ -1,0 +1,65 @@
+{
+  "requestHash": "8ff0256b570b98ee13c1645db2baaf44047d4a32a73e3f494c55b8a732a44b06",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "type": "DETAIL"
+    },
+    "sources": [
+      "DXF_HANDLE:218E"
+    ]
+  },
+  "inputTokens": 515,
+  "outputTokens": 116,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.98,
+    "answers": {
+      "view_type": {
+        "type": "choice",
+        "value": "DETAIL",
+        "confidence": 0.98,
+        "probabilities": {
+          "LAYOUT_PLAN": 0,
+          "TITLE": 0,
+          "UNASSIGNED": 0,
+          "UNTYPED": 0.01,
+          "LEGEND_NOTES": 0,
+          "DETAIL": 0.98,
+          "SCHEDULE": 0,
+          "MEMBER_SECTION": 0.01,
+          "LONG_SECTION_STRIP": 0,
+          "STAIR_SECTION": 0,
+          "STAIR_PLAN": 0
+        }
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "view_type": {
+        "type": "choice",
+        "choice": "DETAIL",
+        "confidence": 0.98,
+        "probabilities": {
+          "LAYOUT_PLAN": 0,
+          "TITLE": 0,
+          "UNASSIGNED": 0,
+          "UNTYPED": 0.01,
+          "LEGEND_NOTES": 0,
+          "DETAIL": 0.98,
+          "SCHEDULE": 0,
+          "MEMBER_SECTION": 0.01,
+          "LONG_SECTION_STRIP": 0,
+          "STAIR_SECTION": 0,
+          "STAIR_PLAN": 0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 515,
+      "output_tokens": 116
+    }
+  }
+}

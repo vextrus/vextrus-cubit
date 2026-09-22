@@ -1,10 +1,19 @@
 # Proposed amendment to AS-05 — TypeSafe Jev System One as a pinned model (unnumbered, a proposal)
 
-**Status:** proposal, unnumbered. Nothing here is law until the Bible's owner adds it under
-`<amendments>`; this file records what the owner would add and why, and nothing in the tree acts
-on it. AS-05 stands as written: the ledger's closed ids are `claude-opus-5` and `claude-sonnet-5`,
-and every Jev call is recorded under the id the request pinned (the objection recorded in
-`docs/handoff/fable-5.1-session-3.md` §"Jev's rate" and carried here).
+**Status (2026-09-23):** acted on by Deviation **D-002** (`docs/decisions/deviations.md`), under the
+owner's ruling of session 6 that the Bible is a default, not a cage. The tree now does what §2
+proposes with one difference: the pin is UNCONDITIONAL — every closed question pins `jev-latest`
+whatever key the environment holds — because the model id is part of the request hash, and a pin
+chosen by environment would ask a different request in the lane that replays than in the one that
+recorded. The Claude rates are the published $5/$25 and $2/$10, Jev's the $0.042 per million input
+tokens (output free) the models page states; `model_calls.model_id` is re-closed by 0057. What
+follows is the proposal as it was written, kept for the owner's amendment.
+
+**Status (as proposed):** proposal, unnumbered. Nothing here is law until the Bible's owner adds it
+under `<amendments>`; this file records what the owner would add and why. AS-05 stood as written:
+the ledger's closed ids were `claude-opus-5` and `claude-sonnet-5`, and every Jev call was recorded
+under the id the request pinned (the objection recorded in `docs/handoff/fable-5.1-session-3.md`
+§"Jev's rate" and carried here).
 
 **Clauses affected:** AS-05 (the closed model ids and their rates), L-AI-01 (one path, every call a
 ledger row, fixture replay inside verify), L-AI-02 (Proposal or refusal), L-AI-03 (what the model may

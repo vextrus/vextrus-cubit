@@ -14,18 +14,18 @@ import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import { MODEL_QUESTIONS, canonicalJson, propose } from "@/core/model";
 import type { DecodeResult, ModelCallContext, ModelRequest, Proposal, SourceKeyResolver } from "@/core/model";
-import type { ModelId } from "@/core/model-ledger.types";
+import { JEV_MODEL, type ModelId } from "@/core/model-ledger.types";
 
 /** Any JSON value — what a transport carried, before it is read as anything. */
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 /**
- * The model a group's description is chosen by. AS-05 pins `claude-sonnet-5` to cheap
- * classification, and mapping one measured line onto one sentence of a closed list is exactly that.
- * Nothing here names a second provider or a rate: which transport actually answers is the seam's
- * (L-AI-01), and the ledger bills what it was pinned under.
+ * The model a group's description is chosen by: mapping one measured line onto one sentence of a
+ * closed list is a closed question only TypeSafe Jev answers, so it is pinned to Jev's id,
+ * unconditionally, and the ledger bills Jev's published rate (Deviation D-002,
+ * `docs/decisions/deviations.md`).
  */
-export const BOQ_DESCRIPTION_MODEL: ModelId = "claude-sonnet-5";
+export const BOQ_DESCRIPTION_MODEL: ModelId = JEV_MODEL;
 
 /** The field a chosen description answers with, and the only one. */
 const PROPOSAL_FIELD = "item";

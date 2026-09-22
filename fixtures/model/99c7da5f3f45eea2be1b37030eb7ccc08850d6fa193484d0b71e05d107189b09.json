@@ -1,0 +1,40 @@
+{
+  "requestHash": "99c7da5f3f45eea2be1b37030eb7ccc08850d6fa193484d0b71e05d107189b09",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "corroborates": 0.58
+    },
+    "sources": [
+      "DXF_HANDLE:199",
+      "DXF_HANDLE:19A"
+    ]
+  },
+  "inputTokens": 830,
+  "outputTokens": 24,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": null,
+    "answers": {
+      "outline_corroborates": {
+        "type": "noul",
+        "value": 0.58,
+        "confidence": null,
+        "probabilities": null
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "outline_corroborates": {
+        "type": "noul",
+        "noul": 0.58
+      }
+    },
+    "usage": {
+      "input_tokens": 830,
+      "output_tokens": 24
+    }
+  }
+}

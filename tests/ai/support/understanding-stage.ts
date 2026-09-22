@@ -38,8 +38,8 @@ export const FIXTURE_ROOT = join("fixtures", "model", "sheet-understanding");
 /** The silent-title-block artifact of that corpus — the graph AC-2 drives (declared fixtures). */
 export const SILENT_GRAPH = join(FIXTURE_ROOT, "artifacts", "silent-title-block.graph.json");
 
-/** The model AS-05 pins reading and proposals to. */
-export const OPUS = "claude-opus-5";
+/** The model reading and proposals are pinned to: Jev, unconditionally (D-002; AS-05 named claude-opus-5). */
+export const JEV = "jev-latest";
 
 /** The transport, outcomes and refusal codes the test contract names (P-2, P-4). */
 export const TRANSPORT_FIXTURE = "fixture";
@@ -218,7 +218,7 @@ export function tempFixtureRoot(label: string): string {
  * out of.
  */
 export function mintFixture(root: string, hash: string, wire: { payload: JsonValue; sources: string[] }, tokens: { inputTokens: number; outputTokens: number }): Fixture {
-  const fixture: Fixture = { requestHash: hash, modelId: OPUS, payload: { payload: wire.payload, sources: wire.sources }, inputTokens: tokens.inputTokens, outputTokens: tokens.outputTokens };
+  const fixture: Fixture = { requestHash: hash, modelId: JEV, payload: { payload: wire.payload, sources: wire.sources }, inputTokens: tokens.inputTokens, outputTokens: tokens.outputTokens };
   writeFileSync(join(root, `${hash}.json`), JSON.stringify(fixture));
   return fixture;
 }

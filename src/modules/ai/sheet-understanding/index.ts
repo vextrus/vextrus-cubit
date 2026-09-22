@@ -5,7 +5,7 @@
 // The order is the law's own: L-AI-03 prefers "a deterministic grammar where the text is vector", so
 // the title-block grammar answers first and no model is asked at all where it read anything. Only a
 // layout the grammar is silent on — a title block carried by block attributes, exploded paint,
-// nothing readable in TEXT/MTEXT at all — reaches `claude-opus-5` (AS-05), through the model seam's
+// nothing readable in TEXT/MTEXT at all — reaches Jev (`jev-latest`, D-002), through the model seam's
 // own `propose`, which is the tree's only path to a model (L-AI-01).
 //
 // What comes back is a Proposal and stays one (L-AI-02): a reading presented for disposition. This

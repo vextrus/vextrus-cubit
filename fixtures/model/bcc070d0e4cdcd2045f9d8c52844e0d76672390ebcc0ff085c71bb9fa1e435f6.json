@@ -1,0 +1,65 @@
+{
+  "requestHash": "bcc070d0e4cdcd2045f9d8c52844e0d76672390ebcc0ff085c71bb9fa1e435f6",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "type": "DETAIL"
+    },
+    "sources": [
+      "DXF_HANDLE:2009"
+    ]
+  },
+  "inputTokens": 519,
+  "outputTokens": 116,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.27,
+    "answers": {
+      "view_type": {
+        "type": "choice",
+        "value": "DETAIL",
+        "confidence": 0.27,
+        "probabilities": {
+          "TITLE": 0.11,
+          "DETAIL": 0.35000000000000003,
+          "SCHEDULE": 0.01,
+          "LAYOUT_PLAN": 0.21,
+          "LONG_SECTION_STRIP": 0.02,
+          "UNTYPED": 0.25,
+          "STAIR_SECTION": 0.01,
+          "MEMBER_SECTION": 0.01,
+          "LEGEND_NOTES": 0,
+          "STAIR_PLAN": 0.01,
+          "UNASSIGNED": 0.02
+        }
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "view_type": {
+        "type": "choice",
+        "choice": "DETAIL",
+        "confidence": 0.27,
+        "probabilities": {
+          "TITLE": 0.11,
+          "DETAIL": 0.35000000000000003,
+          "SCHEDULE": 0.01,
+          "LAYOUT_PLAN": 0.21,
+          "LONG_SECTION_STRIP": 0.02,
+          "UNTYPED": 0.25,
+          "STAIR_SECTION": 0.01,
+          "MEMBER_SECTION": 0.01,
+          "LEGEND_NOTES": 0,
+          "STAIR_PLAN": 0.01,
+          "UNASSIGNED": 0.02
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 519,
+      "output_tokens": 116
+    }
+  }
+}

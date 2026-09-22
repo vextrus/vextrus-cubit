@@ -3,18 +3,21 @@
 // the FIXTURE_MISSING refusal, never a network call. A file that exists but is not a fixture is a
 // corpus defect — a plain failure, not a refusal and not a row (B-21).
 //
-// What a fixture holds of a judgment is the judgment the SEAM DERIVED, not the provider's raw body:
-// `./mint` files `answer.judgment`, which is already `./typesafe`'s reading of the response, and the
-// line below hands that record straight back. No recorded body survives anywhere. So a change to
-// how an answer is read — `answerJudgmentOf` — cannot be proved or disproved against this corpus,
-// and replay keeps serving the judgments as they were derived when they were minted: a fixture is
-// evidence of what the provider ANSWERED, never of how the seam reads an answer today.
+// A fixture minted with the provider's own BODY (`./mint` files it beside the reading) is replayed by
+// reading that body again, through the arm that asks the question today (`readTypeSafeBody`): the
+// payload and the judgment a replay answers are what the CURRENT seam derives from what the provider
+// said, never what it derived on the day the file was minted. So a change to how an answer is read —
+// an arm's reading, `answerJudgmentOf` — is proved against the corpus rather than hidden by it, and
+// the file's own `payload` and `judgment` are the record-day reading, kept for a reader. A fixture
+// minted before bodies were kept carries none, and it replays exactly as it was filed: what it holds
+// is the judgment the seam derived then, and nothing here can derive it again.
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { RefusalCode } from "../errors";
 import { refusal } from "../faults/refusal-marker";
 import { tokenCount } from "../model-ledger.types";
-import type { JsonValue, ModelFixture, ModelRequest, TransportAnswer, TransportPort } from "./types";
+import { readTypeSafeBody } from "./typesafe";
+import type { JsonValue, ModelFixture, ModelJudgment, ModelRequest, TransportAnswer, TransportPort } from "./types";
 
 /** The one code this transport answers with, read off the closed taxonomy (R-SPINE-062, Q-07). */
 const FIXTURE_MISSING: RefusalCode = "FIXTURE_MISSING";
@@ -35,9 +38,32 @@ export function fixtureTransport(fixtureRoot: string): TransportPort {
         return { kind: "refused", code: FIXTURE_MISSING, refusal: missing };
       }
       const fixture = parseFixture(text, file, request, hash);
-      return { kind: "answered", payload: fixture.payload, inputTokens: fixture.inputTokens, outputTokens: fixture.outputTokens, judgment: fixture.judgment ?? null };
+      const body = fixture.body ?? null;
+      if (body === null) {
+        return { kind: "answered", payload: fixture.payload, inputTokens: fixture.inputTokens, outputTokens: fixture.outputTokens, judgment: fixture.judgment ?? null, body: null };
+      }
+      const read = readAgain(body, fixture, request, file);
+      return { kind: "answered", payload: read.content, inputTokens: fixture.inputTokens, outputTokens: fixture.outputTokens, judgment: read.judgment, body };
     },
   };
+}
+
+/**
+ * A kept body, read by today's seam. A body the seam cannot read, or whose usage is not the tokens the
+ * file counts, is a corpus defect — a plain failure naming the file, never a refusal (B-21): the file
+ * and the provider it records would be telling two stories about one call.
+ */
+function readAgain(body: JsonValue, fixture: ModelFixture, request: ModelRequest, file: string): { content: JsonValue; judgment: ModelJudgment | null } {
+  let read: ReturnType<typeof readTypeSafeBody>;
+  try {
+    read = readTypeSafeBody(request, body);
+  } catch (failure) {
+    throw new Error(`the recorded model answer at ${file} keeps a provider body today's seam cannot read`, { cause: failure });
+  }
+  if (tokenCount(read.inputTokens) !== fixture.inputTokens || tokenCount(read.outputTokens) !== fixture.outputTokens) {
+    throw new Error(`the recorded model answer at ${file} counts ${fixture.inputTokens} in / ${fixture.outputTokens} out, and the provider body it keeps states other usage`);
+  }
+  return { content: read.content, judgment: read.judgment };
 }
 
 /** The file's text, or null when there is no such file. Any other failure to read is rethrown as-is. */
@@ -73,7 +99,18 @@ function parseFixture(text: string, file: string, request: ModelRequest, hash: s
     inputTokens: tokenCount(inputTokens),
     outputTokens: tokenCount(outputTokens),
     judgment: judgmentOf(parsed["judgment"], file),
+    body: bodyOf(parsed["body"], file),
   };
+}
+
+/**
+ * The provider body a fixture kept, or null where it kept none: absent and null both say the file
+ * predates kept bodies. A body is the provider's JSON object — anything else is a corpus defect.
+ */
+function bodyOf(value: JsonValue | undefined, file: string): JsonValue | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "object" || Array.isArray(value)) throw new Error(`the recorded model answer at ${file} keeps a provider body that is not an object`);
+  return value;
 }
 
 /**

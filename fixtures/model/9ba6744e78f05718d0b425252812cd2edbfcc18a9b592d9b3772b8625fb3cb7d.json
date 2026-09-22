@@ -1,0 +1,66 @@
+{
+  "requestHash": "9ba6744e78f05718d0b425252812cd2edbfcc18a9b592d9b3772b8625fb3cb7d",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "kind": null,
+      "governs": 0.01
+    },
+    "sources": [
+      "DXF_HANDLE:1F5B"
+    ]
+  },
+  "inputTokens": 905,
+  "outputTokens": 89,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 1,
+    "answers": {
+      "clause_class": {
+        "type": "choice",
+        "value": "NONE_OF_THESE",
+        "confidence": 1,
+        "probabilities": {
+          "HOOK_MIN": 0,
+          "HOOK": 0,
+          "LAP": 0,
+          "FC": 0,
+          "FY": 0,
+          "NONE_OF_THESE": 1
+        }
+      },
+      "lap_governs": {
+        "type": "noul",
+        "value": 0.01,
+        "confidence": null,
+        "probabilities": null
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "clause_class": {
+        "type": "choice",
+        "choice": "NONE_OF_THESE",
+        "confidence": 1,
+        "probabilities": {
+          "HOOK_MIN": 0,
+          "HOOK": 0,
+          "LAP": 0,
+          "FC": 0,
+          "FY": 0,
+          "NONE_OF_THESE": 1
+        }
+      },
+      "lap_governs": {
+        "type": "noul",
+        "noul": 0.01
+      }
+    },
+    "usage": {
+      "input_tokens": 905,
+      "output_tokens": 89
+    }
+  }
+}

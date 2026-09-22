@@ -11,16 +11,17 @@
 import { MODEL_QUESTIONS, canonicalJson, propose } from "../model";
 import type { DecodeResult, ModelCallContext, ModelRequest, Proposal, SourceKeyResolver } from "../model";
 import { VIEW_TYPE_SPELLINGS } from "../errors/transport-vocabulary";
-import type { ModelId } from "../model-ledger.types";
+import { JEV_MODEL, type ModelId } from "../model-ledger.types";
 
 /** Any JSON value — what a transport carried, before it is read as anything. */
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 /**
- * The model a silent caption is classified by. AS-05 pins `claude-sonnet-5` to cheap classification,
- * and reading one short caption into one class of a closed vocabulary is exactly that.
+ * The model a silent caption is classified by: one class of a closed vocabulary is a closed question
+ * only TypeSafe Jev answers, so it is pinned to Jev's id, unconditionally (Deviation D-002,
+ * `docs/decisions/deviations.md`; AS-05 named `claude-sonnet-5` for cheap classification).
  */
-export const VIEW_CAPTION_MODEL: ModelId = "claude-sonnet-5";
+export const VIEW_CAPTION_MODEL: ModelId = JEV_MODEL;
 
 /** The field a classification answers with, and the only one. */
 const PROPOSAL_FIELD = "type";

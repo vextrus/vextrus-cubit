@@ -1,0 +1,219 @@
+{
+  "requestHash": "25b11959c1540df5ca10d83e1107c5277dd56c1698dd054031689be92539bd74",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "header": 0.02,
+      "cells": [
+        {
+          "column": 1,
+          "attribute": "ties",
+          "text": "400x400+8-16%%C+10%%C@100/150 (TIES)",
+          "sourceKeys": [
+            "DXF_HANDLE:9DC",
+            "DXF_HANDLE:9DD",
+            "DXF_HANDLE:9DE"
+          ]
+        },
+        {
+          "column": 2,
+          "attribute": "section",
+          "text": "350x350",
+          "sourceKeys": [
+            "DXF_HANDLE:9E4"
+          ]
+        },
+        {
+          "column": 3,
+          "attribute": "ties",
+          "text": "300x300+8-16%%C+10%%C@100/150 (TIES)",
+          "sourceKeys": [
+            "DXF_HANDLE:9EC",
+            "DXF_HANDLE:9ED",
+            "DXF_HANDLE:9EE"
+          ]
+        },
+        {
+          "column": 4,
+          "attribute": "ties",
+          "text": "300x300+8-16%%C+10%%C@100/150 (TIES)",
+          "sourceKeys": [
+            "DXF_HANDLE:9F4",
+            "DXF_HANDLE:9F5",
+            "DXF_HANDLE:9F6"
+          ]
+        }
+      ]
+    },
+    "sources": [
+      "DXF_HANDLE:9D6",
+      "DXF_HANDLE:9DC",
+      "DXF_HANDLE:9DD",
+      "DXF_HANDLE:9DE",
+      "DXF_HANDLE:9E4",
+      "DXF_HANDLE:9E5",
+      "DXF_HANDLE:9E6",
+      "DXF_HANDLE:9EC",
+      "DXF_HANDLE:9ED",
+      "DXF_HANDLE:9EE",
+      "DXF_HANDLE:9F4",
+      "DXF_HANDLE:9F5",
+      "DXF_HANDLE:9F6"
+    ]
+  },
+  "inputTokens": 5571,
+  "outputTokens": 417,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.33,
+    "answers": {
+      "row_is_header": {
+        "type": "noul",
+        "value": 0.02,
+        "confidence": null,
+        "probabilities": null
+      },
+      "cell_1": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 0.33,
+        "probabilities": {
+          "cand_1": 0.4,
+          "NOT_STATED": 0.02,
+          "cand_7": 0.01,
+          "cand_8": 0.01,
+          "cand_3": 0,
+          "cand_2": 0.02,
+          "cand_5": 0.01,
+          "cand_4": 0.34,
+          "cand_6": 0.19
+        }
+      },
+      "cell_2": {
+        "type": "choice",
+        "value": "cand_4",
+        "confidence": 0.33,
+        "probabilities": {
+          "cand_1": 0.36,
+          "NOT_STATED": 0.04,
+          "cand_7": 0.01,
+          "cand_8": 0.01,
+          "cand_3": 0,
+          "cand_6": 0.14,
+          "cand_4": 0.42,
+          "cand_2": 0.01,
+          "cand_5": 0.01
+        }
+      },
+      "cell_3": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 0.36,
+        "probabilities": {
+          "cand_1": 0.43,
+          "NOT_STATED": 0.02,
+          "cand_7": 0.01,
+          "cand_8": 0.01,
+          "cand_3": 0,
+          "cand_6": 0.14,
+          "cand_4": 0.37,
+          "cand_5": 0.01,
+          "cand_2": 0.01
+        }
+      },
+      "cell_4": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 0.41,
+        "probabilities": {
+          "cand_1": 0.48,
+          "NOT_STATED": 0.03,
+          "cand_7": 0,
+          "cand_8": 0.01,
+          "cand_3": 0,
+          "cand_6": 0.11,
+          "cand_5": 0.01,
+          "cand_4": 0.35,
+          "cand_2": 0.01
+        }
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "row_is_header": {
+        "type": "noul",
+        "noul": 0.02
+      },
+      "cell_1": {
+        "type": "choice",
+        "choice": "cand_1",
+        "confidence": 0.33,
+        "probabilities": {
+          "cand_1": 0.4,
+          "NOT_STATED": 0.02,
+          "cand_7": 0.01,
+          "cand_8": 0.01,
+          "cand_3": 0,
+          "cand_2": 0.02,
+          "cand_5": 0.01,
+          "cand_4": 0.34,
+          "cand_6": 0.19
+        }
+      },
+      "cell_2": {
+        "type": "choice",
+        "choice": "cand_4",
+        "confidence": 0.33,
+        "probabilities": {
+          "cand_1": 0.36,
+          "NOT_STATED": 0.04,
+          "cand_7": 0.01,
+          "cand_8": 0.01,
+          "cand_3": 0,
+          "cand_6": 0.14,
+          "cand_4": 0.42,
+          "cand_2": 0.01,
+          "cand_5": 0.01
+        }
+      },
+      "cell_3": {
+        "type": "choice",
+        "choice": "cand_1",
+        "confidence": 0.36,
+        "probabilities": {
+          "cand_1": 0.43,
+          "NOT_STATED": 0.02,
+          "cand_7": 0.01,
+          "cand_8": 0.01,
+          "cand_3": 0,
+          "cand_6": 0.14,
+          "cand_4": 0.37,
+          "cand_5": 0.01,
+          "cand_2": 0.01
+        }
+      },
+      "cell_4": {
+        "type": "choice",
+        "choice": "cand_1",
+        "confidence": 0.41,
+        "probabilities": {
+          "cand_1": 0.48,
+          "NOT_STATED": 0.03,
+          "cand_7": 0,
+          "cand_8": 0.01,
+          "cand_3": 0,
+          "cand_6": 0.11,
+          "cand_5": 0.01,
+          "cand_4": 0.35,
+          "cand_2": 0.01
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 5571,
+      "output_tokens": 417
+    }
+  }
+}

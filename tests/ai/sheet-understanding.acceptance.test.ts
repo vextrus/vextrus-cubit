@@ -2,7 +2,7 @@
 /**
  * Public acceptance for AC-1 and AC-2 of the sheet-understanding leg (R-AI-001, L-AI-01, L-AI-02,
  * L-AI-03): the deterministic title-block grammar answers first and no model is asked, and only a
- * layout the grammar is silent on reaches `claude-opus-5` — replayed from the committed corpus,
+ * layout the grammar is silent on reaches Jev (`jev-latest`, D-002) — replayed from the committed corpus,
  * with citations that resolve against that very sheet.
  *
  * Neither criterion touches a database: the port is built by the barrel's `createModelSeam` over an
@@ -16,7 +16,7 @@ import { describe, expect, test } from "vitest";
 import { DISCIPLINES, readTitleBlock } from "../../src/core/sheets";
 import {
   FIXTURE_ROOT,
-  OPUS,
+  JEV,
   OUTCOME_PROPOSED,
   REPO_ROOT,
   SILENT_GRAPH,
@@ -81,7 +81,7 @@ describe("AC-1: grammar first, no call", () => {
 });
 
 describe("AC-2: silent → model, fixture-replayed from the committed corpus", () => {
-  test("AC-2: a silent layout is proposed by claude-opus-5 from the committed corpus, cited against that sheet, and recorded once", async () => {
+  test("AC-2: a silent layout is proposed by Jev from the committed corpus, cited against that sheet, and recorded once", async () => {
     const understandSheet = await understandingMember("understandSheet");
 
     const graph = silentCorpusGraph();
@@ -102,7 +102,7 @@ describe("AC-2: silent → model, fixture-replayed from the committed corpus", (
     const understanding = await understandSheet(ctx, { graph, layoutName, artifactDigest: digestOf(graph) }, port);
 
     expect(understanding.basis, "a sheet the grammar is silent on is understood on the model's basis").toBe("MODEL");
-    expect(understanding.model, "AS-05 pins reading and proposals to claude-opus-5").toBe(OPUS);
+    expect(understanding.model, "reading and proposals are pinned to Jev (D-002)").toBe(JEV);
     expect(DISCIPLINES as readonly string[], `the proposed discipline ${JSON.stringify(understanding.reading.discipline)} is one of R-TO-004's closed roster`).toContain(understanding.reading.discipline);
     expect(understanding.reading.title.trim(), "a reading proposes a title, not an empty heading").not.toBe("");
     expect(Array.isArray(understanding.cited) && understanding.cited.length > 0, "L-AI-02: a proposal cites at least one source").toBe(true);
@@ -112,10 +112,10 @@ describe("AC-2: silent → model, fixture-replayed from the committed corpus", (
 
     const rows = rowsOf(record);
     expect(rows.length, "L-AI-01 records every call, and one sheet is one call").toBe(1);
-    expect(rows[0], "the row is the fixture-replayed, proposed opus call for this context's project").toMatchObject({
+    expect(rows[0], "the row is the fixture-replayed, proposed Jev call for this context's project").toMatchObject({
       transport: TRANSPORT_FIXTURE,
       outcome: OUTCOME_PROPOSED,
-      modelId: OPUS,
+      modelId: JEV,
       projectId: ctx.projectId,
       tenantId: ctx.tenantId,
     });

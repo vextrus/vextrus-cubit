@@ -26,7 +26,7 @@ import {
   EDITED,
   FIXTURE_MISSING,
   FIXTURE_ROOT,
-  OPUS,
+  JEV,
   OUTCOME_PROPOSED,
   OUTCOME_REFUSED,
   REJECTED,
@@ -198,13 +198,13 @@ describe("AC-4: per-project AI spend is visible", () => {
     const refusedRow = rows.find((row) => row.outcome === OUTCOME_REFUSED);
     expect(proposedRow, "one of the two calls was proposed").toBeDefined();
     expect(refusedRow, "the other was refused").toBeDefined();
-    expect(proposedRow, "the proposed row is the fixture-replayed opus call").toMatchObject({ transport: TRANSPORT_FIXTURE, modelId: OPUS, refusalCode: null });
-    expect(refusedRow, "the refused row names the refusal and spends nothing").toMatchObject({ transport: TRANSPORT_FIXTURE, modelId: OPUS, refusalCode: FIXTURE_MISSING, inputTokens: 0, outputTokens: 0 });
+    expect(proposedRow, "the proposed row is the fixture-replayed Jev call").toMatchObject({ transport: TRANSPORT_FIXTURE, modelId: JEV, refusalCode: null });
+    expect(refusedRow, "the refused row names the refusal and spends nothing").toMatchObject({ transport: TRANSPORT_FIXTURE, modelId: JEV, refusalCode: FIXTURE_MISSING, inputTokens: 0, outputTokens: 0 });
 
     const inputTokens = rows.reduce((total, row) => total + row.inputTokens, 0);
     const outputTokens = rows.reduce((total, row) => total + row.outputTokens, 0);
-    expect(minimalDecimal(proposedRow?.attributedCost ?? "0"), "the proposed row is charged at the opus rate for the tokens it spent (B-17)").toBe(
-      modelCallCost(OPUS, proposedRow?.inputTokens ?? -1, proposedRow?.outputTokens ?? -1),
+    expect(minimalDecimal(proposedRow?.attributedCost ?? "0"), "the proposed row is charged at Jev's rate for the tokens it spent (B-17)").toBe(
+      modelCallCost(JEV, proposedRow?.inputTokens ?? -1, proposedRow?.outputTokens ?? -1),
     );
     expect(minimalDecimal(refusedRow?.attributedCost ?? "1"), "nothing was spent on a call the transport refused").toBe("0");
 

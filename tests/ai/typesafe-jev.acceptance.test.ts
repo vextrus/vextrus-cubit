@@ -11,7 +11,7 @@
  */
 import { describe, expect, test, vi } from "vitest";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
-import { createModelSeam } from "@/core/model";
+import { JEV_MODEL, createModelSeam } from "@/core/model";
 import { understandSheet } from "@/modules/ai/sheet-understanding";
 import { contextFor, layoutsOfKind, memoryLedger, rejectionOf, rowsOf, silentCorpusGraph } from "./support/understanding-stage";
 
@@ -67,7 +67,7 @@ describe("a silent sheet read by Jev, through the seam", () => {
     expect(understanding.basis).toBe("MODEL");
     expect(understanding.reading).toEqual({ number: "C-402", title: "SITE GRADING PLAN", discipline: "CIVIL", captions: [] });
     expect(understanding.cited, "two attributes of one block cite the block once").toEqual([block]);
-    expect(understanding.model, "the ledger's pinned id is the one the request carried").toBe("claude-opus-5");
+    expect(understanding.model, "the ledger's pinned id is the one the request carried — Jev's (D-002)").toBe(JEV_MODEL);
 
     expect(asked, "one question was posted, and it was Jev's closed one").toHaveLength(1);
     const questions = asked[0]?.["questions"] as Record<string, { criteria: Record<string, string> }>;

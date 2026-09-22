@@ -11,8 +11,13 @@ The file format and the naming rule are the parent's — one `<requestHash>.json
   single `TEXT` on it is a whitespace placeholder), and what the sheet is stands in the block
   attributes of its title block and in the paint exploded out of its two view-title blocks. That is
   the case R-AI-001 reaches a model for; every layout the grammar reads is answered without one.
-- `50f7c938….json` — the recorded answer to the question that sheet asks: a reading of number,
-  title, discipline and view captions, citing the three blocks it was read out of.
+- `c4db95e3….json` — the recorded answer to the question that sheet asks, pinned to `jev-latest`
+  (D-002) and recorded live from TypeSafe Jev System One on 2026-09-23 with the provider's own body
+  kept: a reading of number, title and discipline citing the title block it was read out of. It is
+  the same recording, byte for byte, as the flat corpus's sheet-reading fixture of the same name —
+  one request, one answer, filed in both roots because this increment's acceptance addresses this
+  one by path. (The file it replaces, `50f7c938…`, was an answer filed under a Claude id; under the
+  pin no request hashes to it.)
 
 ## Re-recording
 

@@ -10,21 +10,19 @@
 // view-caption question sits in core only because a second module publishes it; nothing publishes
 // this one but the partition that finds the cells.
 import { MODEL_QUESTIONS, canonicalJson, type ModelRequest } from "@/core/model";
-import type { ModelId } from "@/core/model-ledger.types";
+import { JEV_MODEL, type ModelId } from "@/core/model-ledger.types";
 import type { CellReadingState } from "./candidates";
 
 /** Any JSON value — what a transport carries, before it is read as anything. */
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 /**
- * The model a contested cell is read by. AS-05 pins the reading-and-proposal work to this id, and a
- * schedule cell is a READING of the drawing — which of the grammar's own candidates the draughtsman
- * meant, against the table around it — rather than a one-word class.
- *
- * Jev is billed under this pinned id until the owner's amendment lands
- * (docs/decisions/as-05-jev-amendment.md): nothing here adds Jev to AS-05 or invents a rate.
+ * The model a contested cell is read by: which of the grammar's own candidates the draughtsman meant,
+ * against the table around it, is a closed question only TypeSafe Jev answers, so it is pinned to
+ * Jev's id, unconditionally, and billed at Jev's published rate (Deviation D-002,
+ * `docs/decisions/deviations.md`).
  */
-export const CELL_READING_MODEL: ModelId = "claude-opus-5";
+export const CELL_READING_MODEL: ModelId = JEV_MODEL;
 
 /**
  * What the model is told it is doing. It states the answer's exact shape and the citation rule,

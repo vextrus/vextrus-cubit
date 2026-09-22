@@ -3,11 +3,28 @@
 // the cost a ledger row attributes. Every transport and every surface that reports spend derives it
 // here (B-17) — a second derivation would be a second answer about the same money.
 
-/** The model ids a call may name, closed (AS-05): a call pins its model by id from this const. */
-export const MODEL_IDS = ["claude-opus-5", "claude-sonnet-5"] as const;
+/**
+ * The model ids a call may name, closed (AS-05): a call pins its model by id from this const.
+ *
+ * `jev-latest` is Deviation D-002 (`docs/decisions/deviations.md`): AS-05 names the two Claude ids,
+ * but every question the product asks is a closed question only TypeSafe Jev System One answers, so a
+ * call billed under a Claude id was billed at a rate nobody charged it. The id is the provider's own
+ * alias (docs.typesafe.ai/models, read 2026-09-23: "`jev-latest` → `jev-1.13.0`, the most recent
+ * stable, official release"), and the versioned id that answered is what each answer's judgment
+ * records as its `provider`.
+ */
+export const MODEL_IDS = ["claude-opus-5", "claude-sonnet-5", "jev-latest"] as const;
 
 /** One of the ids above, derived from the const so the type and the set can never drift apart. */
 export type ModelId = (typeof MODEL_IDS)[number];
+
+/**
+ * The id every closed question the product asks is pinned to — UNCONDITIONALLY (D-002). The id is
+ * part of the request hash (`./model/canonical`), so a pin chosen by the environment would ask a
+ * different request in the lane that replays than in the one that recorded, and every replay would
+ * refuse. One spelling: each question's own `*_MODEL` constant points here, and the wire posts it.
+ */
+export const JEV_MODEL = "jev-latest" as const satisfies ModelId;
 
 /**
  * What a model costs, in USD per million tokens of each direction. Decimal strings rather than
@@ -19,10 +36,16 @@ export type ModelRate = { readonly inputPerMillionTokens: string; readonly outpu
  * The pinned rates, total over the closed const — an id without a rate is a call nobody can bill.
  * Frozen at every depth: a rate is a fact about money (L-AI-01), and a table a caller could edit at
  * runtime would make the derivation answer for a rate nobody pinned.
+ *
+ * Each is the provider's PUBLISHED rate (D-002): the two Claude ids at $5/$25 and $2/$10 per million
+ * input/output tokens, and Jev at "$42 / $0.042 per Btok / per Mtok … charged per input token. Output
+ * tokens are free." (docs.typesafe.ai/models, read 2026-09-23). A rate that moves is re-read there and
+ * moved here, with the day it was read.
  */
 export const MODEL_RATES: Readonly<Record<ModelId, ModelRate>> = Object.freeze({
-  "claude-opus-5": Object.freeze({ inputPerMillionTokens: "15", outputPerMillionTokens: "75" }),
-  "claude-sonnet-5": Object.freeze({ inputPerMillionTokens: "3", outputPerMillionTokens: "15" }),
+  "claude-opus-5": Object.freeze({ inputPerMillionTokens: "5", outputPerMillionTokens: "25" }),
+  "claude-sonnet-5": Object.freeze({ inputPerMillionTokens: "2", outputPerMillionTokens: "10" }),
+  "jev-latest": Object.freeze({ inputPerMillionTokens: "0.042", outputPerMillionTokens: "0" }),
 });
 
 /** The denominator the rates are quoted against, as the power of ten a cost is divided by. */

@@ -21,19 +21,18 @@
 // confirms it. Nothing here writes a reading, a standing or an act.
 import { MODEL_QUESTIONS, canonicalJson, propose } from "../model";
 import type { DecodeResult, ModelCallContext, ModelRequest, Proposal, SourceKeyResolver } from "../model";
-import type { ModelId } from "../model-ledger.types";
+import { JEV_MODEL, type ModelId } from "../model-ledger.types";
 import { NOTE_KINDS } from "./law";
 
 /** Any JSON value — what a transport carried, before it is read as anything. */
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
 /**
- * The model a silent clause is classified by. AS-05 pins `claude-sonnet-5` to cheap classification,
- * and reading one clause into one class of a closed roster of five is exactly that. Jev answers the
- * same question through the same seam and is billed under this pinned id until the owner's
- * amendment lands (docs/decisions/as-05-jev-amendment.md): nothing here invents a rate.
+ * The model a silent clause is classified by: one class of a closed roster of five is a closed
+ * question only TypeSafe Jev answers, so it is pinned to Jev's id, unconditionally, and billed at
+ * Jev's published rate (Deviation D-002, `docs/decisions/deviations.md`).
  */
-export const NOTE_CLAUSE_MODEL: ModelId = "claude-sonnet-5";
+export const NOTE_CLAUSE_MODEL: ModelId = JEV_MODEL;
 
 /** The two fields an answer carries, and the only ones. */
 const CLASS_FIELD = "kind";

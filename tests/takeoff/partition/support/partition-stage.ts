@@ -112,8 +112,8 @@ export const MEASURE = "MEASURE";
 export const PROPOSED_VIEW_TYPE = "PROPOSED_VIEW_TYPE";
 export const SUBJECTS = "SUBJECTS";
 
-/** The model AS-05 pins cheap classification to, and the fixture-root environment name (L-AI-01). */
-export const VIEW_CAPTION_MODEL = "claude-sonnet-5";
+/** The model a silent caption is pinned to — Jev, unconditionally (D-002) — and the fixture-root environment name (L-AI-01). */
+export const VIEW_CAPTION_MODEL = "jev-latest";
 export const FIXTURE_ROOT_VAR = "CUBIT_MODEL_FIXTURE_ROOT";
 
 /** The refusal codes this increment's doors answer with (test contract). */
