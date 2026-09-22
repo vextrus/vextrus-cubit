@@ -507,12 +507,16 @@ export async function levelsChrome(): Promise<Record<string, unknown>> {
   }
   // The lane's slot is the lane's own hook, so the one primary stands in the row a reader presses it
   // in; the inspector renders where it stands, the frame's column being no part of the lane.
-  const nav = await productModule<{ useTakeoffTabsAside?: (node: ReactNode) => void }>(TAKEOFF_NAV_MODULE);
-  const fill = stagedFunction<(node: ReactNode) => void>(nav.useTakeoffTabsAside, `${TAKEOFF_NAV_MODULE} publishes \`useTakeoffTabsAside\` — the lane's tabs-row slot (I-246)`);
-  bound["TabsAside"] = ({ children }: { children?: ReactNode }) => {
-    fill(children ?? null);
-    return null;
-  };
+  //
+  // THE HOOK ANSWERS A NODE AND THE MOUNT RENDERS IT (takeoff(nav), `ef3bb0b5`). The half is drawn
+  // in place through a portal now, not handed over by an effect, and every screen in the lane spells
+  // it `return useTakeoffTabsAside(children ?? null)`. A mount that called the hook for an effect it
+  // no longer has and rendered `null` was a SECOND SPELLING of the hook's contract, and it put the
+  // stack's one INSERT_LEVEL door nowhere: the row was drawn (see `inLane`), the portal's host with
+  // it, and the door still stood in no subtree a suite could read (I-246).
+  const nav = await productModule<{ useTakeoffTabsAside?: (node: ReactNode) => ReactNode }>(TAKEOFF_NAV_MODULE);
+  const fill = stagedFunction<(node: ReactNode) => ReactNode>(nav.useTakeoffTabsAside, `${TAKEOFF_NAV_MODULE} publishes \`useTakeoffTabsAside\` — the lane's tabs-row slot (I-246)`);
+  bound["TabsAside"] = ({ children }: { children?: ReactNode }) => fill(children ?? null);
   bound["InspectorMount"] = ({ children }: { children?: ReactNode }) => children ?? null;
   bound["testIds"] = await levelsTestIds();
   return bound;
