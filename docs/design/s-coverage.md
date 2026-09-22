@@ -163,6 +163,33 @@ all exactly where they stood.
   node's file and is not touched: every key here, the nav entry's included, lives in
   `src/modules/takeoff/coverage/copy.ts` and is read by the app layer, which may reach both. Rejected:
   appending to the register's string table.
+- **I-297 — the cause is PROPOSED, never declared; the act judges the proposal, and only the act.**
+  A cell reading `NOT_ESTABLISHED`, CELL-grain, addressable, undeclared and citable is put to the one
+  model seam as the closed question `coverage-cause` (L-AI-01's one path, `MODEL_QUESTIONS`), which
+  chooses among the two causes a PERSON may declare (`SCOPE_DECLARATION_CAUSES`) or the no-match
+  outcome `NOTHING_TO_DECLARE`. Everything about which cell is asked, which key an answer may cite —
+  the caption anchor embedded in the view key the cell was sighted at — and which causes an answer is
+  read back out of is CODE's (L-AI-03): the model chooses one of two and cites what it was given.
+  What comes back is a Proposal and stays one (L-AI-02). The inspector states it ABOVE the sightings
+  table, in `EnumLabel` and in the register's own sentence for that cause — chosen by code from the
+  chosen cause, never generated (I-191, R-SPINE-062) — and nothing is written until a person carries
+  an act. Below `COVERAGE_CAUSE_CONFIDENCE_FLOOR` (`src/modules/takeoff/coverage/cause-proposal.ts`,
+  the CALLER's policy, evaluated on the recorded corpus and never a number the seam routes on), and
+  where the model answered the no-match, and where the seam refused, no proposal stands and the
+  region is ABSENT rather than idle — which is this screen's escalation to the person, and which is
+  why no copy key here says "nothing was proposed".
+  Carrying `DECLARE_NOT_IN_PROJECT_SCOPE` or `HOLD_OUT_OF_BILL` with a proposal in hand writes the
+  model call's outcome in the act's own transaction (L-ACT-01): CONFIRMED where the cause carried is
+  the cause proposed, OVERRULED where it is the other. A person who declares unaided writes no
+  outcome at all — `awaiting` on S-Audit's `coverage-cause` calibration line is the truth about a
+  proposal nobody acted on — and nothing on this screen ever writes REPUDIATED or AFFIRMED, because
+  there is no door that dismisses a proposal and no second reading that corroborates one, so a row
+  for either would be a record nothing made.
+  Rejected: a proposed cause painted into the grid's mark or into the cell's `data-code` — a boundary
+  nobody drew is not a reading of the project, and the certificate would then be quoting a model
+  (L-QTY-07, L-AI-03). Rejected: recording a disposition when the inspector is merely closed.
+  Rejected: a test id of its own for the region — the registry is closed (§7) and the block is found
+  by its heading and by the two attributes the existing `coverage-inspector` now carries.
 
 ## 1. Layout and hierarchy
 
@@ -249,7 +276,8 @@ this reading, in the marks' own order, with the marks nothing wears left out —
 "0 held" would say something about a boundary nobody moved.
 
 **Inspector (the frame's ONE right column, I-209)** — `<aside data-testid="coverage-inspector"
-data-cell="{kind}:{class}:{levelId}" data-kind data-class data-level>`, mounted through `useInspector`
+data-cell="{kind}:{class}:{levelId}" data-kind data-class data-level data-proposed-cause
+data-proposed-call>` (the last two empty where nothing was proposed, I-297), mounted through `useInspector`
 and rendered ONLY while a cell is selected, so with no selection the column is absent at width 0
 (R-UI-080, §7 C3). In order: one fact line, kind · class · level verbatim in mono (a kind-grain row
 reads `takeoff_coverage_kind_grain_label` in place of class and level); `<h3>`
@@ -259,7 +287,16 @@ data-act>` — the mark and its word, then the registered message (I-191); the a
 data-testid="coverage-inspector-remedy">`, the registered remedy as ONE sentence and ONE button —
 `takeoff_coverage_remedy_ruleset` to the rule set for `KIND_NOT_YET_SEEDED`, `_empty_campaign_action`
 to the register for every other cause, so a refusal always carries a remedy AND a link (R-UI-020);
-`takeoff_coverage_contradicted_note` on a contradicted cell (I-192). Then `<h3>`
+`takeoff_coverage_contradicted_note` on a contradicted cell (I-192). Then, and ONLY where a boundary
+was proposed for this cell (I-297), `<section class="cx-coverage-proposal">` labelled
+`takeoff_coverage_proposed_heading` — that heading as `<h3>`, the proposed cause through `EnumLabel`,
+`takeoff_coverage_proposed_note`, then `takeoff_coverage_proposed_sentence_label` over the
+REGISTERED message of that cause (`REFUSALS[cause].message`, I-191), and one core secondary Button
+`takeoff_coverage_proposed_carry` which opens the shipped ConsequenceDialog at the door the proposed
+cause names — `HOLD_OUT_OF_BILL` for `NOT_IN_THIS_BILL`, `DECLARE_NOT_IN_PROJECT_SCOPE` for
+`NOT_IN_PROJECT_SCOPE` — through the same `setDoor` path the two foot buttons use, and carries the
+proposal into the act so the act can judge it. With no proposal the section is ABSENT: no heading, no
+sentence, no button. Then `<h3>`
 `takeoff_coverage_sightings_heading` over a compact table — header row `_channel_label` / `_view_label`
 / `_source_label`, then one `<tr data-testid="coverage-inspector-sighting" data-channel data-source>`
 per Sighting: the channel as an `EnumLabel`, the view verbatim, the source key as an `IdChip` (class
@@ -381,6 +418,12 @@ sighted this class on this level.** · `_observations_heading` **What the rails 
 `_observations_none` **Nothing was observed for this cell.** · `_hold_out` **Hold out of this bill** ·
 `_declare_out_of_scope` **Declare out of project scope**.
 
+The proposed boundary (I-297; the block is absent where nothing was proposed, so no key here says so):
+`_proposed_heading` **A boundary this cell may stand under** · `_proposed_note` **A model read this
+cell's evidence and proposes this boundary. Nothing is declared until you carry the act.** ·
+`_proposed_sentence_label` **The certificate would state** · `_proposed_carry` **Declare this
+boundary**. The cause's own sentence beneath the label is the REGISTRY's (§3.1), never a key here.
+
 The certificate: `_certificate_heading` **Certificate preview** · `_statement_measurement_title`
 **Statement of the measurement boundary** · `_statement_measurement_none` **This campaign measured
 every kind borne by every class it sighted, on every level.** · `_statement_bill_title` **Statement of
@@ -485,7 +528,8 @@ is closed and every new region is found by its class, its role or its name (AM-0
 `data-level`, `data-grain`, `data-measurement`, `data-bill`, `data-contradicted`, `data-code`,
 `data-mark`, `data-cov`) · `coverage-cell-glyph` (`data-code`, on the axis the cell is READ under and
 on that one only, I-198) · `coverage-legend` · `coverage-legend-entry` (`data-code`, `data-mark`,
-`data-meaning`) · `coverage-inspector` (`data-cell`, `data-kind`, `data-class`, `data-level`) ·
+`data-meaning`) · `coverage-inspector` (`data-cell`, `data-kind`, `data-class`, `data-level`, and, from I-297,
+`data-proposed-cause` and `data-proposed-call`, both `""` where nothing was proposed) ·
 `coverage-inspector-cause` (`data-code`, `data-cause`, `data-act`) · `coverage-inspector-remedy` ·
 `coverage-inspector-sighting` (`data-channel`, `data-source`) · `coverage-inspector-observation`
 (`data-rail`, `data-reason`) · `coverage-hold-out` · `coverage-declare-out-of-scope` ·
@@ -499,6 +543,8 @@ on that one only, I-198) · `coverage-legend` · `coverage-legend-entry` (`data-
 `consequence-confirm`, `consequence-digest-line`, `skeleton` and `screen-state` are other files' ids,
 used and never redefined. The regions with no id of their own — the tool row's contents, the tally —
 are reached by class (`.cx-coverage-tools`, `.cx-coverage-tally`) exactly as the picture masks are.
+The proposed-boundary block (I-297) is one of those: it carries NO id and is found by its accessible
+name, `section[aria-label="A boundary this cell may stand under"]` (`.cx-coverage-proposal`).
 
 Behavioural hooks without new ids: `role="grid"`/`rowgroup`/`row`/`columnheader`/`rowheader`/
 `gridcell` with `aria-label`, `aria-colcount` and `aria-rowcount` on the matrix; `aria-selected="true"`
@@ -556,3 +602,16 @@ be felt before it is measured. **A column chooser and per-user column state** (�
 later leaf; the matrix' columns are the residue's own sightings and a reader cannot yet hide one.
 **The design baselines under `tests/e2e/baselines/design/j-022-coverage/`** — owner: the gate, in its
 own `baseline:` commit (B-20): every pixel of this screen moved.
+
+Opened by I-297. **A proposal is asked for on every inspector open and is stored nowhere** — unlike
+`partition_views.proposed_type`/`proposed_call_id`, this cell carries no stored proposal, so reopening
+a cell in production mints a second ledger row and a second charge; replay makes it free in every
+lane, so this is a spend question and not a correctness one. Owner: a later leaf, with a stored
+proposal keyed by cell and its own migration. **The corpus is hand-authored state rather than observed
+state** (`scripts/model-corpus/coverage-cause-states/`): the roster test pins each state to its
+recording, but nothing pins a state to what the BNBC campaign's residue actually answers. Owner: a
+later leaf, with a db-lane assertion that `coverageCauseStateOf` over a measured BNBC campaign equals
+one committed state. **Every asked cell outside the corpus writes a FIXTURE_MISSING row** that shows
+on S-Audit's `coverage-cause` line as a refusal before a person has judged anything — the same noise
+session 4 saw on `view-caption`; owner: the handoff, which must quote it so the next reader does not
+read it as a model that abstains.

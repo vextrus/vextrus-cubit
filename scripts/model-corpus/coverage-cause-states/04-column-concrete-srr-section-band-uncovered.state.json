@@ -1,0 +1,11 @@
+{
+  "cell": { "kind": "rcc.concrete", "class": "column", "level": "SRR", "ordinal": 8 },
+  "key": "DXF_HANDLE:11F0",
+  "sightings": [{ "channel": "PARTITION", "layout": "S-11 COLUMN SCHEDULE" }],
+  "observations": [
+    {
+      "rail": "column/rcc.concrete",
+      "reason": "No band of this member's schedule covers the level it stands on, so no section applies there."
+    }
+  ]
+}

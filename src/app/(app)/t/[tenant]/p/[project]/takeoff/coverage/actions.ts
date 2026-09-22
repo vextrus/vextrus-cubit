@@ -9,7 +9,7 @@
 // to what is lawful (B-17, ARCH-03), so a statement this grid cannot make lawfully comes back as the
 // registered REQUEST_MALFORMED the lane refused it with, never as a thrown Error.
 import type { DeclareNotInProjectScopeInput, HoldOutOfBillInput } from "@/core/acts";
-import type { CoverageView } from "@/modules/takeoff/coverage/view";
+import type { CoverageCauseProposalView, CoverageView } from "@/modules/takeoff/coverage/view";
 import { asked, lane, type DoorAnswer, type Previewed } from "../lane";
 
 export type { DoorAnswer, Previewed } from "../lane";
@@ -31,11 +31,27 @@ export type BoundaryAsk = {
   readonly class: string;
   readonly kind: string;
   readonly levelId: string;
+  /**
+   * The boundary a model proposed for this cell, where the reader was shown one (s-coverage I-297).
+   * It is carried as the browser holds it and becomes a declarable cause at the lane's own door, the
+   * same way the class and the kind do — one narrowing, at the door (B-17).
+   */
+  readonly proposal?: { readonly callId: string; readonly cause: string };
 };
 
 export async function readCoverage(projectId: string): Promise<DoorAnswer<CoverageView>> {
   const caller = await lane(CLIENT);
   return asked(() => caller.coverage({ projectId }));
+}
+
+/**
+ * What boundary a model proposes for one unmeasured cell, or none (s-coverage I-297, L-AI-02). The
+ * door answers `{proposal: null}` for every cell it does not ask about and every answer it will not
+ * stand behind, so nothing is decided here either.
+ */
+export async function proposeCoverageCause(projectId: string, cell: string): Promise<DoorAnswer<CoverageCauseProposalView>> {
+  const caller = await lane(CLIENT);
+  return asked(() => caller.coverageCauseProposal({ projectId, cell }));
 }
 
 /**

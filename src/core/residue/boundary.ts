@@ -6,7 +6,7 @@
 // Both write exactly one `scope_declarations` row, in the transaction the act row is written in
 // (L-ACT-01). Neither withdraws anything: `in_force` is written true and never flipped here, and the
 // screen offers no door that would (Decision § 8).
-import { and, campaigns, eq, scopeDeclarations, type TenantTx } from "../db";
+import { and, campaigns, eq, recordModelOutcome, scopeDeclarations, type TenantTx } from "../db";
 import type { ElementType } from "../catalogue/classes";
 import type { Kind } from "../catalogue/kinds";
 import { REFUSALS, type ScopeDeclarationCause } from "../errors";
@@ -24,11 +24,24 @@ export type DeclarationCell = {
   readonly levelId: string;
 };
 
+/**
+ * The boundary a model proposed for this cell, where the person carrying the act was shown one
+ * (L-AI-02: a classification held until confirmed). It is carried INTO the act so the act can judge
+ * it: what a person did with a proposal is the labeled outcome the calibration line is read over,
+ * and only the act knows whether they took it or drew the boundary on the other axis instead.
+ */
+export type BoundaryProposal = {
+  readonly callId: string;
+  readonly cause: ScopeDeclarationCause;
+};
+
 /** What either boundary act is asked to do: one cell of one campaign of one project. */
 export type BoundaryInput<TType extends ActType> = DeclarationCell & {
   readonly type: TType;
   readonly projectId: string;
   readonly campaignId: string;
+  /** Absent where the person declared unaided — and then no outcome is written at all (I-297). */
+  readonly proposal?: BoundaryProposal;
 };
 
 /** The campaign a declaration is made under, as this project holds it (L-REG-07). */
@@ -136,6 +149,25 @@ export function boundaryRendering<TType extends ActType>(actType: TType, cause: 
         cause,
         actId: act.actId,
         inForce: true,
+      });
+
+      // A person who was shown a proposed boundary has just judged it, and this is the only place
+      // that knows how: CONFIRMED where the cause they carried is the cause proposed, OVERRULED
+      // where they drew the boundary on the OTHER axis instead. It lands in this transaction, with
+      // the act row and the declaration, or none of the three does (L-ACT-01, L-AI-02).
+      //
+      // A person who declared unaided judged no proposal and writes no outcome: `awaiting` on the
+      // calibration line is the truth about a proposal nobody acted on. REPUDIATED and AFFIRMED are
+      // never written here — S-Coverage offers no door that dismisses a proposal and no second
+      // reading that corroborates one, so a row for either would be a record nothing made (I-297).
+      if (input.proposal === undefined) return;
+      await recordModelOutcome(tx, {
+        tenantId: ctx.tenantId,
+        projectId: input.projectId,
+        callId: input.proposal.callId,
+        outcome: input.proposal.cause === cause ? "CONFIRMED" : "OVERRULED",
+        actId: act.actId,
+        actorUserId: ctx.userId,
       });
     },
   };

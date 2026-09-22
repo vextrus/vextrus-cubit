@@ -4,8 +4,16 @@
 // This file computes nothing of its own. The arms are L-QTY-05's and live in `@/core/residue`, so
 // M7's certificate reads the same answer through the same functions without ever importing a module
 // (B-17, ARCH-01).
+import { forTenant } from "@/core/db";
+// The ledger's judgment reader is the seam's own and is reached at its home: the db barrel publishes
+// main's names and the schema tree's, never a name of its own invention (ARCH-02, B-17).
+import { modelJudgmentOf } from "@/core/db/model-outcomes";
+import { SCOPE_DECLARATION_CAUSES } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { sourceKeyResolver } from "@/core/model";
 import { billStatementOf, cellRef, measurementStatementOf, parseCellRef, residueOf } from "@/core/residue";
-import type { CertificatePreview, CoverageCellView, CoverageView } from "./view";
+import { coverageCauseStateOf, proposeCoverageCause, standsAboveFloor, type CoverageCausePort } from "./cause-proposal";
+import type { CertificatePreview, CoverageCauseProposalView, CoverageCellView, CoverageView } from "./view";
 
 /** Which project's coverage is read, in whose workspace. */
 export type CoverageScope = { readonly tenantId: string; readonly projectId: string };
@@ -41,4 +49,74 @@ export async function coverageCellOf(scope: CoverageScope, address: string): Pro
 export async function certificatePreviewOf(scope: CoverageScope): Promise<CertificatePreview> {
   const residue = await residueOf(scope);
   return { measurement: measurementStatementOf(residue.cells), bill: billStatementOf(residue.cells) };
+}
+
+/** Who is asking, for the ledger row every model call writes (L-AI-01). */
+export type CoverageCaller = { readonly actor: string; readonly requestId: string };
+
+/**
+ * How the confidence a call carried is read back. It is a LEDGER fact, not a member of the Proposal
+ * (L-AI-02 closes that list), so the default reads the row the seam just wrote; a caller that hands
+ * its own hands a reader of the same fact, never a second source of it.
+ */
+export type CoverageJudgmentReader = (scope: CoverageScope, callId: string) => Promise<{ readonly confidence: number | null } | null>;
+
+/** The two seams this reading stands on: the way to a model, and the way to what it judged. */
+export type CoverageCauseSeam = {
+  readonly port?: CoverageCausePort;
+  readonly judgmentOf?: CoverageJudgmentReader;
+};
+
+/** The ledger's own answer: the judgment recorded against that call, for this tenant and project. */
+const LEDGER_JUDGMENT: CoverageJudgmentReader = async (scope, callId) => modelJudgmentOf(forTenant({ tenantId: scope.tenantId }), scope, callId);
+
+/**
+ * The boundary a model proposes for one unmeasured cell, or none (R-TO-052, L-AI-02, s-coverage
+ * I-297). CODE decides the question is asked at all — `coverageCauseStateOf` is the gate — and CODE
+ * decides what a low-confidence answer is worth; the model only chooses among the causes a PERSON
+ * may declare, and nothing here writes a declaration, a quantity or an act (L-AI-03).
+ *
+ * Every way of having no answer lands on the same `null`, because a reader does the same thing with
+ * each of them: a stale address, a cell the gate never asks about, the seam's refusal (a missing
+ * fixture, an uncited answer, the honest no-match refused MALFORMED by the decoder) and a confidence
+ * under the floor. A refusal is caught exactly as `rebuild.ts` catches a refused caption proposal —
+ * by its registered code, with anything that is not a refusal travelling on as the fault it is
+ * (ARCH-03, B-21).
+ */
+export async function coverageCauseProposalOf(
+  scope: CoverageScope,
+  address: string,
+  caller: CoverageCaller,
+  seam: CoverageCauseSeam = {},
+): Promise<CoverageCauseProposalView> {
+  const named = parseCellRef(address);
+  if (named === null) return { proposal: null };
+  const residue = await residueOf(scope);
+  if (residue.campaign === null) return { proposal: null };
+  const held = residue.cells.find((cell) => cellRef(cell) === cellRef(named));
+  if (held === undefined) return { proposal: null };
+  const state = coverageCauseStateOf(held);
+  if (state === null) return { proposal: null };
+
+  const ctx = { tenantId: scope.tenantId, projectId: scope.projectId, actor: caller.actor, requestId: caller.requestId };
+  try {
+    const proposal = await proposeCoverageCause(
+      ctx,
+      {
+        state,
+        declarable: SCOPE_DECLARATION_CAUSES,
+        // The citation resolves against the revision the campaign is pinned at, over exactly the one
+        // key code found for this cell: an answer citing anything else is SOURCE_UNRESOLVED, so the
+        // model cannot rest a boundary on evidence this cell was never sighted at (L-AI-02).
+        artifact: sourceKeyResolver(residue.campaign.setRevisionId, [state.key]),
+      },
+      seam.port,
+    );
+    const judgment = await (seam.judgmentOf ?? LEDGER_JUDGMENT)(scope, proposal.callId);
+    if (!standsAboveFloor(judgment?.confidence ?? null)) return { proposal: null };
+    return { proposal: { callId: proposal.callId, cause: proposal.payload.cause } };
+  } catch (failure) {
+    if (refusalCodeOf(failure) === null) throw failure;
+    return { proposal: null };
+  }
 }

@@ -63,6 +63,14 @@ export const COVERAGE_COPY = Object.freeze({
   takeoff_coverage_remedy_ruleset: "Open the rule set",
   takeoff_coverage_observations_heading: "What the rails observed",
   takeoff_coverage_observations_none: "Nothing was observed for this cell.",
+  // I-297: a boundary a model proposed, stated as a proposal and never as a reading. The block is
+  // absent where nothing was proposed — there is no idle panel and no idle sentence on this screen
+  // (§1) — so no key here says "nothing was proposed". The CAUSE's own words stay the registry's:
+  // what the certificate would state is `REFUSALS[cause].message`, chosen by code (I-191).
+  takeoff_coverage_proposed_heading: "A boundary this cell may stand under",
+  takeoff_coverage_proposed_note: "A model read this cell's evidence and proposes this boundary. Nothing is declared until you carry the act.",
+  takeoff_coverage_proposed_sentence_label: "The certificate would state",
+  takeoff_coverage_proposed_carry: "Declare this boundary",
   takeoff_coverage_hold_out: "Hold out of this bill",
   takeoff_coverage_declare_out_of_scope: "Declare out of project scope",
   takeoff_coverage_certificate_heading: "Certificate preview",

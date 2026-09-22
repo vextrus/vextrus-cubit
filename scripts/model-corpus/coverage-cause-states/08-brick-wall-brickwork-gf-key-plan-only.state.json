@@ -1,0 +1,11 @@
+{
+  "cell": { "kind": "masonry.brickwork", "class": "brick_wall", "level": "GF", "ordinal": 0 },
+  "key": "DXF_HANDLE:0041",
+  "sightings": [{ "channel": "LAYOUT", "layout": "S-00 COVER, DRAWING INDEX & KEY PLAN" }],
+  "observations": [
+    {
+      "rail": "brick_wall/masonry.brickwork",
+      "reason": "Nobody has read a plan for this member, so there is no outline, thickness or run to measure it by."
+    }
+  ]
+}

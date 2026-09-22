@@ -1,0 +1,11 @@
+{
+  "cell": { "kind": "rcc.concrete", "class": "beam", "level": "ROOF", "ordinal": 7 },
+  "key": "DXF_HANDLE:10C1",
+  "sightings": [{ "channel": "LAYOUT", "layout": "S-15 ROOF & STAIR ROOF BEAM LAYOUT" }],
+  "observations": [
+    {
+      "rail": "beam/rcc.concrete",
+      "reason": "Nobody has affirmed the scale of the view these members were placed in, so their measurements cannot stand on one."
+    }
+  ]
+}

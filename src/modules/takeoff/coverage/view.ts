@@ -3,6 +3,7 @@
 //
 // A view type and nothing else — no reading, no rendering — so the screen's suite can mount the
 // workspace over a value and the door can answer one (B-19, ARCH-01).
+import type { ScopeDeclarationCause } from "@/core/errors";
 import type { ResidueCell, ResidueInput, Sighting, StatementRow } from "@/core/residue";
 
 /**
@@ -32,6 +33,26 @@ export type CoverageView = {
 export type CoverageCellView = {
   readonly cell: ResidueCell;
   readonly sightings: readonly Sighting[];
+};
+
+/**
+ * A boundary a model proposed for one unmeasured cell, and the call that proposed it (L-AI-02: a
+ * classification held until confirmed). It is the ONLY thing of a Proposal that leaves the module —
+ * the symbol-marked value never crosses a transport — and the act judges it by the call id.
+ */
+export type ProposedCause = {
+  readonly callId: string;
+  readonly cause: ScopeDeclarationCause;
+};
+
+/**
+ * What the proposal door answers for one cell: a proposed boundary, or none. `null` is every form of
+ * "no answer" at once and deliberately so — a cell code never asks about, a refusal the seam threw,
+ * the model's own no-match, a confidence under the caller's floor — because what a reader does with
+ * each is the same: read the evidence and decide unaided (L-AI-02, s-coverage I-297).
+ */
+export type CoverageCauseProposalView = {
+  readonly proposal: ProposedCause | null;
 };
 
 /** The certificate preview's own answer: two enumerations, separately titled, never merged. */

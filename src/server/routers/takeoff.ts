@@ -29,12 +29,13 @@ import {
   type ViewGroupKey,
 } from "../../core/acts";
 import { isElementType, type ElementType } from "../../core/catalogue/classes";
+import { SCOPE_DECLARATION_CAUSES, type ScopeDeclarationCause } from "../../core/errors";
 import { isKind, type Kind } from "../../core/catalogue/kinds";
 import { isScaleRank, type ScaleRank, type ScaleTolerances, type TwoPointObservation } from "../../core/scale";
 import { isDiscipline, type Discipline } from "../../core/sheets";
 import { appStorage } from "../../core/storage/app";
-import { certificatePreviewOf, coverageCellOf, coverageViewOf } from "../../modules/takeoff/coverage/server";
-import type { CertificatePreview, CoverageCellView, CoverageView } from "../../modules/takeoff/coverage/view";
+import { certificatePreviewOf, coverageCauseProposalOf, coverageCellOf, coverageViewOf } from "../../modules/takeoff/coverage/server";
+import type { CertificatePreview, CoverageCauseProposalView, CoverageCellView, CoverageView } from "../../modules/takeoff/coverage/view";
 import { requestMeasure, type MeasureRefused, type MeasureRequested } from "../../modules/takeoff/measure";
 import { viewsOf, type ViewRecord } from "../../modules/takeoff/partition";
 // The register follows the acts that move the expansion resolver's inputs — the stack, the ranges —
@@ -163,6 +164,14 @@ const affirmScaleInput: z.ZodType<AffirmScaleInput> = z
   })
   .transform((stated) => ({ type: AFFIRM_SCALE, ...stated }));
 
+/**
+ * The model proposal an act was recorded beside, where the screen showed one (L-AI-02). Optional
+ * because an act is the person's and stands whether or not a model ever spoke: what the seam does
+ * with a call that is not this project's, not this question's or that refused is file nothing at
+ * all, and a person acting on an object nobody asked about names none.
+ */
+const proposalCallId = z.string({ error: 'takeoff: "proposalCallId" must be the id of the call the act judged' }).optional();
+
 /** One reading of one attribute of one object, read into the shape the seam declares (AC-5). */
 const corroborateInput: z.ZodType<CorroborateInput> = z
   .object({
@@ -173,12 +182,13 @@ const corroborateInput: z.ZodType<CorroborateInput> = z
     unitAsWritten: text("unitAsWritten"),
     precedence: figure("precedence"),
     sourceKey: text("sourceKey"),
+    proposalCallId,
   })
   .transform((stated) => ({ type: CORROBORATE, ...stated }));
 
 /** One judgement that an object is nothing, read into the shape the seam declares (R-TO-051). */
 const repudiateInput: z.ZodType<RepudiateInput> = z
-  .object({ projectId: text("projectId"), objectKey: text("objectKey") })
+  .object({ projectId: text("projectId"), objectKey: text("objectKey"), proposalCallId })
   .transform((stated) => ({ type: REPUDIATE, ...stated }));
 
 /**
@@ -230,6 +240,20 @@ const boundaryCell = z.object({
   class: elementType,
   kind: workItemKind,
   levelId: text("levelId"),
+  /**
+   * The boundary a model proposed for this cell, where the reader was shown one (s-coverage I-297).
+   * The act judges it — CONFIRMED or OVERRULED — and a person who declared unaided states none. The
+   * cause is read against the declarable roster before it reaches the seam, so a proposal naming a
+   * cause nobody may declare is REQUEST_MALFORMED rather than an outcome nobody can read.
+   */
+  proposal: z
+    .object({
+      callId: text("callId"),
+      cause: z.custom<ScopeDeclarationCause>((stated) => typeof stated === "string" && (SCOPE_DECLARATION_CAUSES as readonly string[]).includes(stated), {
+        error: "takeoff: that is not a cause a person may declare a cell under — the roster is closed",
+      }),
+    })
+    .optional(),
 });
 
 /** The hold's input, in the shape the seam declares. */
@@ -303,6 +327,24 @@ export const takeoffRouter = router({
     .query(async ({ ctx, input }): Promise<CoverageCellView | null> => {
       const actor = await projectReaderFor(ctx.session.userId, input.projectId);
       return coverageCellOf({ tenantId: actor.tenantId, projectId: input.projectId }, input.cell);
+    }),
+
+  /**
+   * The boundary a model proposes for one unmeasured cell, or none (R-TO-052, L-AI-02, s-coverage
+   * I-297). It is a MUTATION and not a query because asking it spends a tenant's money and writes a
+   * ledger row (L-AI-01), and because a query the client re-runs on its own schedule would spend it
+   * again unasked.
+   *
+   * It stands under the same permission the two boundary doors stand under: a reader who could not
+   * carry either act is shown no proposal, because a proposal nobody may act on is theatre and
+   * theatre nobody may act on is a charge to the tenant for nothing (I-194, L-AI-01).
+   */
+  coverageCauseProposal: signedInProcedure
+    .input(parsed(cellAt))
+    .mutation(async ({ ctx, input }): Promise<CoverageCauseProposalView> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, DECLARE_NOT_IN_PROJECT_SCOPE, SET_BILL_BOUNDARY);
+      return coverageCauseProposalOf({ tenantId: actor.tenantId, projectId: input.projectId }, input.cell, { actor: ctx.session.userId, requestId: ctx.requestId });
     }),
 
   /** The certificate's two boundary statements as they will print (L-QTY-07) — enumerations, no counts. */

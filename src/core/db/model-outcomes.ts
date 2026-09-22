@@ -123,6 +123,25 @@ export async function modelLedgerRowsOf(db: Handle, scope: { tenantId: string; p
 }
 
 /**
+ * What one call's model said about its own answer, read back by the call id (L-AI-02 closes a
+ * Proposal's list at payload, sources, model and callId, so the judgment is a LEDGER fact and never
+ * a member of the proposal — the seam's own recorded Interpretation).
+ *
+ * A caller reads it to apply its own threshold policy: whether a proposal carrying this confidence
+ * is shown to a person at all is the caller's decision and never the seam's. A call this tenant and
+ * project never made answers `null` — an absence, not a fault, because a caller may hold the id of a
+ * call whose row another tenant's handle wrote and must be told nothing about it (SEAM-TENANT).
+ */
+export async function modelJudgmentOf(db: Handle, scope: { tenantId: string; projectId: string }, callId: string): Promise<ModelJudgmentRecord | null> {
+  const [row] = await db
+    .select({ judgment: modelCalls.judgment })
+    .from(modelCalls)
+    .where(and(eq(modelCalls.tenantId, scope.tenantId), eq(modelCalls.projectId, scope.projectId), eq(modelCalls.callId, callId)))
+    .limit(1);
+  return row?.judgment ?? null;
+}
+
+/**
  * The outcomes recorded against some calls, newest first — the instant, then the store's own count,
  * so two outcomes inside one tick still stand in one order. An empty list of calls asks nothing.
  */

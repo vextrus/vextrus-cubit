@@ -28,7 +28,7 @@ import { COVERAGE_COPY, countCoverageCopy, fillCoverageCopy } from "./copy";
 import { CoverageGrid, causeRead, causeWords, markOf, type CoverageDensity } from "./grid";
 import { LegendGlyph, type GlyphReading } from "./glyphs";
 import { MARK_OF, MARK_TALLY, MARK_WORD, countsByMark } from "./heat";
-import type { CoverageView } from "./view";
+import type { CoverageCauseProposalView, CoverageView, ProposedCause } from "./view";
 
 export type { CoverageDensity } from "./grid";
 
@@ -45,6 +45,8 @@ export type BoundaryCell = {
   readonly class: string;
   readonly kind: string;
   readonly levelId: string;
+  /** The boundary a model proposed, where the person carrying the act was shown one (I-297). */
+  readonly proposal?: ProposedCause;
 };
 
 /**
@@ -106,6 +108,14 @@ export interface CoverageDoors {
    */
   readonly retry?: () => void;
   readonly refusalOf: (code: string) => RefusalEntry | undefined;
+  /**
+   * Ask what boundary a model would propose for the selected cell (I-297). It answers `{proposal:
+   * null}` for every cell it does not ask about and for every answer it will not stand behind, so
+   * this screen never learns the gate, the floor or the refusal taxonomy — all three are the
+   * server's, where the residue and the ledger are (L-AI-02, B-17). A mount that hands no such door
+   * shows no proposal, which is the same screen a cell with nothing proposed shows.
+   */
+  readonly proposeCause?: (argument: { cell: string }) => Promise<CoverageCauseProposalView>;
 }
 
 export interface CoverageWorkspaceProps {
@@ -157,6 +167,18 @@ const DECLARE_NOT_IN_PROJECT_SCOPE = "DECLARE_NOT_IN_PROJECT_SCOPE" as const;
 const QUANTITY_BEARING = "QUANTITY_BEARING";
 /** The one cause whose remedy names a place this product holds — the ruleset (I-191). */
 const KIND_NOT_YET_SEEDED = "KIND_NOT_YET_SEEDED";
+/** The bill cause the hold writes, and the door a proposal of it names (I-297). */
+const NOT_IN_THIS_BILL = "NOT_IN_THIS_BILL";
+
+/**
+ * Whether the two boundary doors stand over this cell for this reader — I-194's one rule, read by
+ * the inspector that draws them and by the effect that asks what a model would propose, because a
+ * proposal is only ever worth asking for where the person could carry it (L-AI-01: a call nobody
+ * could act on is a charge for nothing). A second spelling of it would be a second answer (B-17).
+ */
+function boundaryDoorsStand(cell: ResidueCell, permitted: boolean): boolean {
+  return permitted && cell.grain !== "KIND" && causeRead(cell) !== QUANTITY_BEARING && cell.class !== null && cell.levelId !== null;
+}
 
 /**
  * The address parameter this screen is widened by (Decision § 7). Exported because the route builder
@@ -243,6 +265,11 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
 
   const cells = view?.cells ?? [];
   const held = cells.find((cell) => cellRef(cell) === selected) ?? null;
+  // The boundary a model proposed for the cell the inspector stands over, filed under that cell's
+  // own address: a proposal read for one cell is never shown beside another (I-297).
+  const [proposed, setProposed] = useState<{ cell: string; proposal: ProposedCause | null } | null>(null);
+  const askable = held !== null && boundaryDoorsStand(held, permitted) && !offline;
+  const askCause = doors.proposeCause;
 
   // I-193: the address is replaced rather than pushed, so it is shareable and Back leaves the screen
   // instead of walking a reader backwards through fifty clicks.
@@ -258,6 +285,35 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
     window.history.replaceState(window.history.state, "", here.toString());
   }, [selected]);
 
+  /**
+   * One cell open, one question asked (I-297). The door is put once per cell the two boundary doors
+   * stand over, and its answer is discarded when the reader moves on — a proposal is read for the
+   * cell in front of the person, and an answer that arrives after they have moved names a cell that
+   * is no longer selected. A rejection is no proposal: the door already answers `{proposal: null}`
+   * for every refusal it can name, so anything that still reaches here leaves the region absent
+   * rather than putting a model's silence in the reader's way (R-UI-020, L-AI-02).
+   */
+  useEffect(() => {
+    if (askCause === undefined || selected === null || !askable) {
+      setProposed(null);
+      return;
+    }
+    const address = selected;
+    let standing = true;
+    setProposed(null);
+    void askCause({ cell: address }).then(
+      (answer) => {
+        if (standing) setProposed({ cell: address, proposal: answer.proposal });
+      },
+      () => {
+        if (standing) setProposed({ cell: address, proposal: null });
+      },
+    );
+    return () => {
+      standing = false;
+    };
+  }, [askCause, selected, askable]);
+
   // The registry is core, so a caller that hands no lookup gets the registry itself rather than a
   // screen with no words for a code (ARCH-02, B-17).
   const refusalOf = doors.refusalOf ?? causeWords;
@@ -269,9 +325,12 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
   /** Where a reader is sent to resolve a door's rejection — the register, where the lines are made. */
   const evidence: Evidence = { href: registerHref(tenantId, projectId), label: COVERAGE_COPY.takeoff_coverage_empty_campaign_action };
 
+  /** The proposal standing over the cell in front of the reader, and nothing for any other cell. */
+  const proposal = held !== null && proposed !== null && proposed.cell === cellRef(held) ? proposed.proposal : null;
+
   /** What a door stands over as the screen stands NOW, read by the pair below rather than closed over. */
-  const standing = useRef({ doors, refusalOf, view, held, door, evidence });
-  standing.current = { doors, refusalOf, view, held, door, evidence };
+  const standing = useRef({ doors, refusalOf, view, held, door, evidence, proposal });
+  standing.current = { doors, refusalOf, view, held, door, evidence, proposal };
 
   /**
    * A rejection at a door, shaped as the one ConsequenceDialog reads one (its I-40): a registered
@@ -299,11 +358,11 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
    * stands over is read off the ref, so the pair is stable and never stale.
    */
   const previewAtDoor = useCallback(async (): Promise<CoveragePreviewAnswer> => {
-    const { doors: at, view: over, held: cell, door: which } = standing.current;
+    const { doors: at, view: over, held: cell, door: which, proposal: offered } = standing.current;
     const open = which === HOLD_OUT_OF_BILL ? at.previewHoldOutOfBill : at.previewDeclareNotInProjectScope;
     if (over === null || cell === null || which === null || open === undefined) throw new Error(NO_DOOR_STANDS);
     try {
-      return await open({ input: inputOf(over, cell) });
+      return await open({ input: inputOf(over, cell, offered) });
     } catch (thrown) {
       return refuse(thrown);
     }
@@ -311,11 +370,11 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
 
   const commitAtDoor = useCallback(
     async (carried: { consequenceDigest: string }): Promise<{ actId: string }> => {
-      const { doors: at, view: over, held: cell, door: which } = standing.current;
+      const { doors: at, view: over, held: cell, door: which, proposal: offered } = standing.current;
       const settle = which === HOLD_OUT_OF_BILL ? at.commitHoldOutOfBill : at.commitDeclareNotInProjectScope;
       if (over === null || cell === null || which === null || settle === undefined) throw new Error(NO_DOOR_STANDS);
       try {
-        return await settle({ input: inputOf(over, cell), consequenceDigest: carried.consequenceDigest });
+        return await settle({ input: inputOf(over, cell, offered), consequenceDigest: carried.consequenceDigest });
       } catch (thrown) {
         return refuse(thrown);
       }
@@ -418,9 +477,11 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
             cell={held}
             permitted={permitted}
             offline={offline}
+            proposal={proposal}
             Button={Button}
             IdChip={IdChip}
             EnumLabel={EnumLabel}
+            onCarryProposed={() => setDoor(proposal?.cause === NOT_IN_THIS_BILL ? HOLD_OUT_OF_BILL : DECLARE_NOT_IN_PROJECT_SCOPE)}
             onHoldOut={() => setDoor(HOLD_OUT_OF_BILL)}
             onDeclareOutOfScope={() => setDoor(DECLARE_NOT_IN_PROJECT_SCOPE)}
             remedyHref={causeRead(held) === KIND_NOT_YET_SEEDED ? rulesetHref(tenantId, projectId) : registerHref(tenantId, projectId)}
@@ -451,14 +512,19 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
   );
 }
 
-/** The cell one door stands over, in the shape the seam declares. */
-function inputOf(view: CoverageView, cell: ResidueCell): BoundaryCell {
+/**
+ * The cell one door stands over, in the shape the seam declares — and the proposal the reader was
+ * shown, where one stood (I-297). A person who declared unaided carries no member at all, so the act
+ * writes no outcome rather than a row saying a proposal nobody saw was confirmed.
+ */
+function inputOf(view: CoverageView, cell: ResidueCell, proposal: ProposedCause | null): BoundaryCell {
   return {
     projectId: view.projectId ?? "",
     campaignId: view.campaignId ?? "",
     class: cell.class ?? "",
     kind: cell.kind,
     levelId: cell.levelId ?? "",
+    ...(proposal === null ? {} : { proposal }),
   };
 }
 
@@ -559,9 +625,11 @@ function Inspector({
   cell,
   permitted,
   offline,
+  proposal,
   Button,
   IdChip,
   EnumLabel,
+  onCarryProposed,
   onHoldOut,
   onDeclareOutOfScope,
   remedyHref,
@@ -570,9 +638,12 @@ function Inspector({
   cell: ResidueCell;
   permitted: boolean;
   offline: boolean;
+  /** The boundary a model proposed for this cell, or `null` — and then the region is ABSENT (I-297). */
+  proposal: ProposedCause | null;
   Button: CoverageChrome["Button"];
   IdChip: CoverageChrome["IdChip"];
   EnumLabel: CoverageChrome["EnumLabel"];
+  onCarryProposed: () => void;
   onHoldOut: () => void;
   onDeclareOutOfScope: () => void;
   remedyHref: string;
@@ -606,8 +677,11 @@ function Inspector({
   // stands in addresses its cell by level (`scope_declarations.level_id`), so that cell is a cell no
   // boundary can be declared over either — its door would carry a reader through a confirmed
   // consequence into a write that cannot land (I-194, R-UI-020).
-  const addressable = cell.class !== null && cell.levelId !== null;
-  const doorsStand = permitted && !grain && !measured && addressable;
+  const doorsStand = boundaryDoorsStand(cell, permitted);
+  // The certificate's own sentence for the proposed cause, read from the register by CODE from the
+  // cause the model chose — the very sentence the statement row prints (I-191, R-SPINE-062). It is
+  // never generated and never paraphrased: what a model chose is a cause, never a sentence.
+  const proposedWords = proposal === null ? undefined : causeWords(proposal.cause);
 
   return (
     <aside
@@ -617,6 +691,8 @@ function Inspector({
       data-kind={cell.kind}
       data-class={cell.class ?? ""}
       data-level={cell.levelId ?? ""}
+      data-proposed-cause={proposal?.cause ?? ""}
+      data-proposed-call={proposal?.callId ?? ""}
     >
       {/* Where the cell stands, as ONE fact line: kind · class · level (§3.5). */}
       <p className="cx-coverage-where">
@@ -658,6 +734,36 @@ function Inspector({
         </a>
       </div>
       {cell.contradicted ? <p className="cx-coverage-contradicted">{COVERAGE_COPY.takeoff_coverage_contradicted_note}</p> : null}
+
+      {/*
+        I-297: the boundary a model proposed, stated as a proposal and nothing more. The region is
+        ABSENT where nothing was proposed — there is no idle panel and no idle sentence on this
+        screen (§1) — so a cell the question was never put over, a refusal, the model's own no-match
+        and a confidence under the floor all read the same: the person reads the evidence below and
+        decides, which is this screen's escalation to them (L-AI-02).
+
+        No new test id: the region is found by its heading and the two attributes above, and the id
+        registry stays closed (§7, AM-09 §1). The cause renders through EnumLabel — a model value is
+        said in words (I-213) — and the sentence beneath it is the register's own for that cause.
+      */}
+      {proposal === null || proposedWords === undefined ? null : (
+        <section className="cx-coverage-proposal" aria-label={COVERAGE_COPY.takeoff_coverage_proposed_heading}>
+          <h3 className="cx-coverage-inspector-heading">{COVERAGE_COPY.takeoff_coverage_proposed_heading}</h3>
+          <p className="cx-coverage-proposed-cause">
+            <EnumLabel value={proposal.cause} className="cx-coverage-proposed-value" />
+          </p>
+          <p className="cx-coverage-proposed-note">{COVERAGE_COPY.takeoff_coverage_proposed_note}</p>
+          <p className="cx-coverage-proposed-sentence">
+            <span className="cx-coverage-label">{COVERAGE_COPY.takeoff_coverage_proposed_sentence_label}</span>
+            {proposedWords.message}
+          </p>
+          {doorsStand ? (
+            <Button variant="secondary" disabled={offline} onClick={onCarryProposed}>
+              {COVERAGE_COPY.takeoff_coverage_proposed_carry}
+            </Button>
+          ) : null}
+        </section>
+      )}
 
       <h3 className="cx-coverage-inspector-heading">{COVERAGE_COPY.takeoff_coverage_sightings_heading}</h3>
       {cell.sightings.length === 0 && declarations.length === 0 ? (

@@ -16,7 +16,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Consequence } from "@/core/acts";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { CoverageWorkspace, type BoundaryCell, type CoverageChrome, type CoverageDensity, type CoverageDoors, type CoveragePreviewAnswer } from "@/modules/takeoff/coverage";
-import type { CoverageView } from "@/modules/takeoff/coverage/view";
+import type { CoverageCauseProposalView, CoverageView } from "@/modules/takeoff/coverage/view";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button, EmptyState, EnumLabel, ErrorState, IdChip, Tooltip } from "@/ui/primitives/core";
@@ -28,6 +28,7 @@ import {
   commitHoldOutOfBill,
   previewDeclareNotInProjectScope,
   previewHoldOutOfBill,
+  proposeCoverageCause,
   readCoverage,
   type BoundaryAsk,
   type DoorAnswer,
@@ -170,6 +171,13 @@ export function CoverageScreen({ view, projectId, permitted, reportId, initialCe
       previewed(carried(await previewDeclareNotInProjectScope(ask(DECLARE_NOT_IN_PROJECT_SCOPE, input)))),
     commitDeclareNotInProjectScope: async ({ input, consequenceDigest }: { input: BoundaryCell; consequenceDigest: string }) =>
       carried(await commitDeclareNotInProjectScope(ask(DECLARE_NOT_IN_PROJECT_SCOPE, input), consequenceDigest)),
+    // I-297: the model seam's one path is the server's; the browser asks a door and is handed a
+    // proposal or nothing. A refusal the lane answered is nothing here — the workspace shows no
+    // region rather than putting a model's silence in a reader's way (L-AI-02, R-UI-020).
+    proposeCause: async ({ cell }: { cell: string }): Promise<CoverageCauseProposalView> => {
+      const answer = await proposeCoverageCause(projectId, cell);
+      return answer.ok ? answer.answer : { proposal: null };
+    },
     retry,
     refusalOf,
   };
