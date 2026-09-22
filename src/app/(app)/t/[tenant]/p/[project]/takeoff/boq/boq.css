@@ -113,7 +113,10 @@
 
 .cx-boq-document-link {
   align-self: flex-start;
-  color: var(--accent);
+  /* Link INK, not the accent: the accent is a mid-tone in the dark theme (3.94:1 on the ground —
+     axe, serious, at the J-000 M3 leg's boq-draft checkpoint) and `--ink-link` is the alias the
+     alias layer keeps readable on the ground in both themes. */
+  color: var(--ink-link);
   font-size: var(--text-body);
 }
 
