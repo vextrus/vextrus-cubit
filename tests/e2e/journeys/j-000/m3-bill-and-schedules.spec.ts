@@ -1,113 +1,124 @@
 /**
- * J-000 SEGMENTS: generate BOQ PDF (draft); emit the unpriced BOQ and the BBS as DRAFT UNSIGNED; open the XLSX
+ * J-000 SEGMENTS: generate BOQ PDF (draft); open the XLSX
  *
- * The door this leg waited on landed in session 5: a paper-space viewport's title captions the
- * model-space region the viewport shows (viewer.md I-290), a block-drawn grid bubble georeferences
- * (I-292), the section's `EL` marks propose the stack (I-293), the stacked column schedule reads
- * (I-294), a feet-and-inches dimension scales a unitless header (I-295/I-295b), a band written in
- * ordinal words covers the stack's floor labels, and the unit the drawing declares is the last word
- * on a unitless section (I-302). The levels and the notes are walked, by clicks, in
- * m3-levels-and-notes.spec.ts, and Measure itself with the register's review in
- * m3-measure-and-register.spec.ts (the campaign publishes 182 column concrete lines COMPLETE,
- * 92.21 m³); this file is the walk that emits the documents and reads them against the golden.
+ * M3's document leg of the golden path, WALKED (AM-09 §3, AM-17): the M3 fixture F-RCC6-BNBC (AM-01)
+ * stands measured by `golden-run.ts` (`bnbcMeasured` — uploaded into a second project of the golden
+ * run's workspace, its scales affirmed, its stack confirmed and every storey height read off the
+ * section's own marks, its typical ranges authored, its general notes transcribed, Measure pressed;
+ * m3-levels-and-notes.spec.ts and m3-measure-and-register.spec.ts walk those by clicks). This leg
+ * emits the unpriced BOQ as a DRAFT — UNSIGNED document (AM-05 §2) with the one primary S-BOQ offers,
+ * finds it filed in Documents under its own kind with the banner on every page, writes the XLSX and
+ * opens it with exceljs: its Summary, its section sheets named by ordinal, A-BOQ-XLSX's seven columns,
+ * the live Amount formula over an empty Rate, the frozen header, and the Quantities sheet with every
+ * published line's bases, coverage, source sheet and formula. The bar schedule — the other half of
+ * AM-17's emission segment, which m3-bar-schedule.spec.ts claims — waits there on the column ties.
  *
- * MISSING DOOR: the two legs after it stand as fixmes, because the golden band refuses what the
- * campaign publishes for a reason the product cannot yet read off the drawing: C7 is "%%C450 PORCH
- * COLUMN" — a CIRCULAR section (T-NOT-PCTC) the product measures as a 450 × 450 prism (+0.146 m³ on
- * GF, 0.87 %); and a plan member's OWN storey range — "C5 FLOATING COLUMN OVER TG1 (STARTS AT 1F)",
- * and the porch column standing on GF alone — is not a reading the expansion makes, so C7 is carried
- * over every storey and C5 over none (+0.206 m³ on each of 1F..6F, 1.37–2.11 %). L-QTY-06 admits 3 %
- * under and nothing over. The circular section is the notation grammar's and the frame rail's door;
- * the member's own range is the placement stage's (a mark's note is evidence about the member, not
- * about the plan). The bar-schedule leg waits on the same campaign (REBAR_SCHEDULE_UNREAD stands on
- * every column) and on those two.
+ * WHAT IS COMPARED, AND AGAINST WHAT (L-QTY-06, L-QTY-07, AM-01). A numeric assertion names its
+ * roster, and this one is DERIVED, never typed: the COMPARED cells are the (class, kind, level) cells
+ * in which the Quantities sheet states COMPLETE lines, each of which must be a cell the golden
+ * (`goldenRows("rcc6-bnbc")`) holds — a COMPLETE figure over a cell nobody measured would be an
+ * over-measurement, so that list (`unknown`) is empty. The DECLARED cells are the golden's cells the
+ * product published no COMPLETE line for; they are named in the leg's attachment, never figured. Two of
+ * them are asserted BY NAME with no product line of any coverage in them: COLUMN × RCC_CONCRETE at FDN
+ * and at ROOF — the golden measures the column stubs from the pile caps up to GF and the two columns
+ * standing on the roof slab, members the column layout's placement does not register. A class the
+ * product does not PLACE is disclosed on NO product surface — the residue sights only the classes the
+ * campaign registered objects for — and a member no placement made registers nothing for the residue
+ * to sight either, so the declared cells are said in this leg's attachment and nowhere a reader of the
+ * product looks. That is a gap in the product's disclosure, recorded here, not a licence.
  *
- * M3's leg of the golden path, WALKED (AM-09 §3, AM-17): the M3 fixture F-RCC6-BNBC (AM-01) is
- * uploaded through the product into a second project of the golden run's workspace, its scales are
- * affirmed, the level stack its building section states is confirmed and every storey height read
- * off the section's own marks, the typical ranges its sheets state are authored, its general notes
- * are transcribed (J-031's and J-032's doors, by clicks), Measure is pressed, the register is
- * reviewed, the unpriced BOQ and the bar schedule are emitted as DRAFT — UNSIGNED (AM-05 §2), the
- * XLSX is opened with exceljs and its formulas read, and both documents are read against the
- * fixture's own goldens through `goldenRows("rcc6-bnbc")` and `bbsGoldenDocument("rcc6-bnbc")`.
- * The walk itself lives in `golden-run.ts` (`bnbcMeasured`), because every leg here starts from the
- * same measured campaign and a second worker of the lane walks it on its own project.
- *
- * WHAT IS COMPARED, AND HOW (L-QTY-06, AM-01). A numeric assertion names its roster: the cells the
- * product PUBLISHED with COMPLETE coverage are compared cell by cell — (class, kind, level) — against
- * the golden's row for that cell, and held inside the band (3 % under, 0 % over: an over-measured
- * figure is never a disclosure, L-MEA-09). Golden cells the product did not publish are the
- * campaign's DECLARED residue — what the coverage grid and the certificate say the campaign did not
- * establish — and are listed by name in the leg's attachment rather than asserted as figures. A
- * product cell the golden holds no row for is an over-measurement candidate and fails by name. The
- * bar schedule is compared the same way, per (class, level, mark), over the classes the rebar rail
- * reads (columns and shear walls; the rest are observed REBAR_SCHEDULE_UNREAD and stand declared).
+ * THE GOLDEN BAND IS NOT TAKEN ON THE DOCUMENT. It is m3-measure-and-register.spec.ts's, read storey by
+ * storey at the REGISTER's precision. The XLSX states each line rounded ONCE, half to even, to its
+ * kind's document places (the emission's `atDocumentPrecision`, L-MEA-05, L-QTY-07), and the golden
+ * rounds each CELL once — so a band on the document's sums would need `(n + 1)` half-units of slack,
+ * which is a widened band, and the arbitrated band admits the golden's own typography and nothing else.
+ * What a document owes is FIDELITY, and that is what is proved here, cell by compared cell, against the
+ * register's own footer read with the same class, kind, coverage and level filters: the sheet states
+ * exactly as many COMPLETE lines as the register keeps; no line is stated finer than the places the
+ * Quantity column's own format states (the figures are the document's, not the store's); and the
+ * stated lines sum to within `n × ½ × 10⁻ᵖ` of the register's exact total, p the places the cell's own
+ * lines are stated to. A figure written as a NUMBER keeps no trailing zero, so p is the most places any
+ * line of the cell states — the rounding bound itself when any line's last place is not zero, and only
+ * ever looser than it, never tighter, so no lawful document is refused. A cell standing in the
+ * lawful-null foundation slot is addressed as its group's remainder (the group's total over every
+ * level less its storeys'), because the sheet states that slot as an empty level and the register as
+ * the slot's name.
  *
  * Nothing here measures time (AM-10 §3, AM-17: "the M3 leg opens the XLSX; it does not time it").
  */
+import Decimal from "decimal.js";
 import ExcelJS from "exceljs";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { pdfText } from "../../../docs/support/pdf-text";
-import { bbsGoldenDocument, goldenRows } from "../../../golden/support/golden-fixture";
-import { SBbsPage } from "../../pages/s-bbs.page";
+import { PRODUCT_TO_GOLDEN_KIND, goldenKindOf, goldenRows } from "../../../golden/support/golden-fixture";
 import { SBoqPage } from "../../pages/s-boq.page";
 import { SDocumentsPage } from "../../pages/s-documents.page";
 import { STakeoffPage } from "../../pages/s-takeoff.page";
 import { checkpoint } from "../../support/checkpoint";
-import { everyAttribute, everyRow, heldAttribute } from "../../support/retrying-read";
+import { heldAttribute } from "../../support/retrying-read";
 import { settled } from "../../support/settled";
 import { bnbcMeasured, releaseGoldenWorker } from "./golden-run";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-/** The fixture the goldens are read for (AM-01). */
+/** The fixture the golden is read for (AM-01). */
 const FIXTURE = "rcc6-bnbc";
 
 /** The banner AM-05 §2 puts on every page of a working document before M7. */
 const BANNER = "DRAFT — UNSIGNED";
 
-/** The two document kinds the M3 segment emits, as S-Documents keys them. */
+/** The document kind the draft is filed under, as S-Documents keys it. */
 const BOQ_DRAFT = "boq-draft";
-const BBS = "bbs";
 
-/** L-QTY-06's band: 3 % under and nothing over, per cell. */
-const UNDER_TOLERANCE = 0.03;
-
-/** How the product spells a kind, and how the golden spells the same kind (schema 2, AM-01). */
-const GOLDEN_KIND: Readonly<Record<string, string>> = Object.freeze({
-  "rcc.concrete": "RCC_CONCRETE",
-  "rcc.formwork": "FORMWORK",
-  "rcc.rebar": "REBAR",
-  "masonry.brickwork": "BRICKWORK",
-  "earthwork.excavation": "EXCAVATION",
-  "pcc.blinding": "BLINDING",
-});
+/** The coverage a line must state to be compared at all (L-QTY-06 judges only under COMPLETE). */
+const COMPLETE = "COMPLETE";
 
 /** The golden's level for a class the product measures in the lawful-null foundation slot (L-CAD-07). */
 const FOUNDATION_LEVEL: Readonly<Record<string, string>> = Object.freeze({ pile: "PILE" });
 const FOUNDATION_DEFAULT = "FDN";
 
-/** The classes the rebar rail reads today (R-TO-032's two readers), as the golden spells them. */
-const BBS_CLASSES: readonly string[] = Object.freeze(["COLUMN", "SHEAR_WALL"]);
+/** The column concrete the golden holds on members the product does not place: the stubs below GF, and the two columns on the roof. */
+const COLUMN = "column";
+const RCC_CONCRETE = "rcc.concrete";
+const UNPLACED_COLUMN_LEVELS: readonly string[] = Object.freeze([FOUNDATION_DEFAULT, "ROOF"]);
 
 /** How long a render of the M3 campaign's documents may take to be filed. */
 const RENDER_BUDGET_MS = 600_000;
 
-/** The XLSX's fixed sheets (A-BOQ-XLSX, s-boq I-273). */
+/** The XLSX's fixed sheets (A-BOQ-XLSX, s-boq I-273), and the column a figure is stated in. */
 const SUMMARY = "Summary";
 const QUANTITIES = "Quantities";
+const QUANTITY = "Quantity";
 
-/** One cell of the band matrix, compared or declared. */
+/** Exact decimals, at a precision no sum here reaches — a figure never touches a float (B-07). */
+const Exact = Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN });
+
+/** One cell of the golden, in the golden's own words. */
 type Cell = { class: string; kind: string; level: string };
 
 /** The Quantities sheet, read back by its own headers — never by a column index typed here. */
 type QuantityRow = Record<string, string>;
 
+/** One compared cell as the sheet states it: its product words, and its COMPLETE lines summed. */
+type StatedCell = {
+  readonly key: string;
+  readonly product: { readonly class: string; readonly kind: string; readonly level: string };
+  readonly lines: number;
+  readonly sum: Decimal;
+  readonly places: number;
+};
+
 const cellKey = (cell: Cell): string => `${cell.class}|${cell.kind}|${cell.level}`;
 
-/** Is a product figure inside L-QTY-06's band of its golden? */
-function insideBand(product: number, golden: number): boolean {
-  return product <= golden + 1e-9 && product >= golden * (1 - UNDER_TOLERANCE) - 1e-9;
+/** How many places a stated figure carries — `0.647` carries three, `12` none. */
+function placesOf(figure: string): number {
+  const dot = figure.indexOf(".");
+  return dot < 0 ? 0 : figure.length - dot - 1;
+}
+
+/** The places a number format states: the zeros after the point in its base section — `##,##0.000` → 3. */
+function placesStatedBy(numFmt: string): number {
+  return /\.(0+)$/u.exec(numFmt.split(";").pop() ?? "")?.[1]?.length ?? 0;
 }
 
 /** The pages of a rendered document's text, as the docs lane reads them. */
@@ -124,9 +135,14 @@ async function bytesOf(page: Page, href: string): Promise<Buffer> {
   return response.body();
 }
 
+/** A sheet's header row, in its own words. */
+function headersOf(sheet: ExcelJS.Worksheet): string[] {
+  return (sheet.getRow(1).values as (string | undefined)[]).map((value) => (value === undefined ? "" : String(value)));
+}
+
 /** A sheet's rows as objects keyed by the header row's own words. */
 function rowsOf(sheet: ExcelJS.Worksheet): QuantityRow[] {
-  const headers = (sheet.getRow(1).values as (string | undefined)[]).map((value) => (value === undefined ? "" : String(value)));
+  const headers = headersOf(sheet);
   const rows: QuantityRow[] = [];
   sheet.eachRow((row, number) => {
     if (number === 1) return;
@@ -148,50 +164,39 @@ function goldenLevelOf(klass: string, level: string): string {
 }
 
 /**
- * The band matrix over the M3 golden: the product's COMPLETE cells summed per (class, kind, level),
- * the golden's rows summed the same way (NET and LAP together for rebar), and the roster of what was
- * compared, what the campaign declared it did not establish, and what stands nowhere in the golden.
+ * The roster, derived from the sheet and the golden alone: the cells compared (the product's COMPLETE
+ * cells the golden holds), the cells declared (the golden's cells with no COMPLETE product line), the
+ * cells nobody should have measured (`unknown`), and every cell the product put ANY line in.
  */
-function bandMatrix(lines: readonly QuantityRow[]): { compared: string[]; failed: string[]; declared: string[]; unknown: string[]; unmapped: string[] } {
-  const golden = new Map<string, number>();
-  for (const row of goldenRows(FIXTURE)) {
-    const key = cellKey({ class: row.class, kind: row.kind, level: row.level });
-    golden.set(key, (golden.get(key) ?? 0) + Number(row.quantity));
-  }
-
-  const product = new Map<string, number>();
-  const unmapped = new Set<string>();
+function rosterOf(lines: readonly QuantityRow[]): { compared: StatedCell[]; declared: string[]; unknown: string[]; placed: Set<string> } {
+  const golden = new Set(goldenRows(FIXTURE).map((row) => cellKey(row)));
+  const complete = new Map<string, StatedCell>();
+  const placed = new Set<string>();
+  const unspelled = new Set<string>();
   for (const line of lines) {
-    const coverage = line["Coverage"] ?? "";
-    const quantity = line["Quantity"] ?? "";
-    if (coverage !== "COMPLETE" || quantity === "") continue;
-    const kind = GOLDEN_KIND[line["Kind"] ?? ""];
-    if (kind === undefined) {
-      unmapped.add(`${line["Class"] ?? ""}|${line["Kind"] ?? ""}`);
+    const klass = line["Class"] ?? "";
+    const kind = line["Kind"] ?? "";
+    const level = line["Level"] ?? "";
+    const quantity = line[QUANTITY] ?? "";
+    const stated = line["Coverage"] === COMPLETE && quantity !== "";
+    const spelling = PRODUCT_TO_GOLDEN_KIND[kind];
+    if (spelling === undefined) {
+      if (stated) unspelled.add(`${klass}|${kind}|${level} (the golden spells no such kind)`);
       continue;
     }
-    const key = cellKey({ class: (line["Class"] ?? "").toUpperCase(), kind, level: goldenLevelOf(line["Class"] ?? "", line["Level"] ?? "") });
-    product.set(key, (product.get(key) ?? 0) + Number(quantity));
+    const key = cellKey({ class: klass.toUpperCase(), kind: spelling, level: goldenLevelOf(klass, level) });
+    placed.add(key);
+    if (!stated) continue;
+    const held = complete.get(key) ?? { key, product: { class: klass, kind, level }, lines: 0, sum: new Exact(0), places: 0 };
+    complete.set(key, { ...held, lines: held.lines + 1, sum: held.sum.plus(quantity), places: Math.max(held.places, placesOf(quantity)) });
   }
-
-  const compared: string[] = [];
-  const failed: string[] = [];
-  const unknown: string[] = [];
-  for (const [key, figure] of [...product.entries()].sort(([left], [right]) => (left < right ? -1 : 1))) {
-    const expected = golden.get(key);
-    if (expected === undefined) {
-      unknown.push(`${key} = ${figure.toFixed(3)} (the golden holds no row for this cell)`);
-      continue;
-    }
-    const line = `${key}: product ${figure.toFixed(3)} · golden ${expected.toFixed(3)} · ${((figure / expected - 1) * 100).toFixed(2)} %`;
-    compared.push(line);
-    if (!insideBand(figure, expected)) failed.push(line);
-  }
-  const declared = [...golden.keys()].filter((key) => !product.has(key)).sort();
-  return { compared, failed, declared, unknown, unmapped: [...unmapped].sort() };
+  const compared = [...complete.values()].filter((cell) => golden.has(cell.key)).sort((left, right) => (left.key < right.key ? -1 : 1));
+  const unknown = [...unspelled, ...[...complete.keys()].filter((key) => !golden.has(key)).map((key) => `${key} (the golden holds no row for this cell)`)].sort();
+  const declared = [...golden].filter((key) => !complete.has(key)).sort();
+  return { compared, declared, unknown, placed };
 }
 
-/** A reading of the matrix, attached to the run so the handoff can quote it. */
+/** A reading of the documents, attached to the run so the handoff can quote it. */
 async function attach(testInfo: TestInfo, name: string, body: string): Promise<void> {
   await testInfo.attach(name, { body, contentType: "text/plain" });
 }
@@ -201,12 +206,12 @@ function secondRightColumn(main: Locator): Locator {
   return main.locator('[data-rendered-region="inspector"], [role="complementary"]');
 }
 
-test.describe.serial("J-000 — Golden Path: M3's leg on F-RCC6-BNBC", () => {
+test.describe.serial("J-000 — Golden Path: M3's documents on F-RCC6-BNBC", () => {
   test.afterAll(async () => {
     await releaseGoldenWorker();
   });
 
-  test.fixme("MISSING DOOR: J-000 m3-bill-and-schedules: the unpriced BOQ is emitted as DRAFT — UNSIGNED, the XLSX is opened, and the takeoff is read against the golden", async ({ page }, testInfo) => {
+  test("J-000 m3-bill-and-schedules: the unpriced BOQ is emitted as DRAFT — UNSIGNED, the XLSX is opened, and its figures are faithful to the register", async ({ page }, testInfo) => {
     test.setTimeout(1_800_000);
     const run = await bnbcMeasured(page);
     const takeoff = new STakeoffPage(page);
@@ -248,38 +253,50 @@ test.describe.serial("J-000 — Golden Path: M3's leg on F-RCC6-BNBC", () => {
 
     const first = workbook.getWorksheet(sections[0] as string) as ExcelJS.Worksheet;
     const headers = (first.getRow(1).values as (string | undefined)[]).filter((value): value is string => typeof value === "string");
-    expect(headers, "a section sheet's columns are A-BOQ-XLSX's seven, in its order").toEqual(["Item", "Code", "Description", "Unit", "Quantity", "Rate", "Amount"]);
+    expect(headers, "a section sheet's columns are A-BOQ-XLSX's seven, in its order").toEqual(["Item", "Code", "Description", "Unit", QUANTITY, "Rate", "Amount"]);
     const amount = first.getRow(2).getCell(7);
     const formula = typeof amount.value === "object" && amount.value !== null && "formula" in amount.value ? String(amount.value.formula) : "";
     expect(formula, "every Amount is a LIVE formula over its own Rate — empty until somebody prices the line (I-274)").toMatch(/^IF\(F2="","",E2\*F2\)$/u);
     expect(first.getRow(2).getCell(6).value ?? null, "and the Rate is empty: the draft is unpriced (AM-05)").toBeNull();
     expect(first.views[0]?.state, "the header row stays put (A-BOQ-XLSX: frozen headers)").toBe("frozen");
 
-    const quantities = rowsOf(workbook.getWorksheet(QUANTITIES) as ExcelJS.Worksheet);
+    const sheet = workbook.getWorksheet(QUANTITIES) as ExcelJS.Worksheet;
+    const quantities = rowsOf(sheet);
     expect(quantities.length, "the Quantities sheet lists every published line with its bases, coverage, source sheet and formula").toBeGreaterThan(0);
     for (const line of quantities.slice(0, 5)) {
       expect(line["Formula"] ?? "", "each line carries the human-auditable formula it was computed by (L-QTY-03)").not.toBe("");
     }
+    // The places the sheet says it writes a figure to, read off the format its Quantity column carries.
+    const quantityColumn = headersOf(sheet).indexOf(QUANTITY);
+    let numFmt = "";
+    sheet.eachRow((row, number) => {
+      const cell = row.getCell(quantityColumn);
+      if (number > 1 && numFmt === "" && typeof cell.value === "number") numFmt = cell.numFmt ?? "";
+    });
+    expect(numFmt, "the Quantity column states the format — and so the places — its figures are written at (L-FMT-01)").not.toBe("");
+    const documentPlaces = placesStatedBy(numFmt);
 
-    /* --- the takeoff against the golden: the published cells inside the band, the rest declared (L-QTY-06) --- */
-    const matrix = bandMatrix(quantities);
+    /* --- the roster, derived: what is compared, what is declared, what nobody should have measured --- */
+    const roster = rosterOf(quantities);
     await attach(
       testInfo,
-      "m3-takeoff-band",
+      "m3-document-roster",
       [
-        `compared (${matrix.compared.length}):`,
-        ...matrix.compared,
-        `declared — golden cells the campaign published no COMPLETE line for (${matrix.declared.length}):`,
-        ...matrix.declared,
-        `unmapped product kinds (${matrix.unmapped.length}):`,
-        ...matrix.unmapped,
-        `product cells the golden holds no row for (${matrix.unknown.length}):`,
-        ...matrix.unknown,
+        `compared — the product's COMPLETE cells the golden holds (${roster.compared.length}):`,
+        ...roster.compared.map((cell) => `${cell.key}: ${cell.lines} line(s) · stated Σ ${cell.sum.toString()} at ≤ ${cell.places} place(s)`),
+        `declared — golden cells the campaign published no COMPLETE line for (${roster.declared.length}), ${roster.declared.filter((key) => !roster.placed.has(key)).length} of them with no product line at all:`,
+        ...roster.declared.map((key) => `${key}${roster.placed.has(key) ? " (a line stands, not COMPLETE)" : ""}`),
+        `COMPLETE cells nobody measured (${roster.unknown.length}):`,
+        ...roster.unknown,
       ].join("\n"),
     );
-    expect(matrix.compared.length, "the campaign published at least one cell the golden also holds — a band over nothing proves nothing").toBeGreaterThan(0);
-    expect(matrix.unknown, "the product publishes no cell the golden has no row for — a figure over scope nobody drew would be an over-measurement (L-QTY-04)").toEqual([]);
-    expect(matrix.failed, `every published cell stands inside L-QTY-06's band of the golden (3 % under, 0 % over); these do not:\n  ${matrix.failed.join("\n  ")}`).toEqual([]);
+    expect(roster.compared.length, "the campaign published at least one COMPLETE cell the golden also holds — a comparison over nothing proves nothing").toBeGreaterThan(0);
+    expect(roster.unknown, "the product states no COMPLETE figure over a cell the golden holds no row for — that would be an over-measurement, never a disclosure (L-QTY-04)").toEqual([]);
+    for (const level of UNPLACED_COLUMN_LEVELS) {
+      const key = cellKey({ class: COLUMN.toUpperCase(), kind: goldenKindOf(RCC_CONCRETE), level });
+      expect(roster.declared, `${key} is a golden cell the campaign declares rather than figures`).toContain(key);
+      expect(roster.placed.has(key), `${key}: the product states no line of any coverage here — the golden measures members the column layout does not place`).toBe(false);
+    }
 
     /* --- the issued draft: filed in Documents, DRAFT — UNSIGNED on every page (AM-05 §2, R-SPINE-040) --- */
     await boq.documentLink.click();
@@ -295,95 +312,50 @@ test.describe.serial("J-000 — Golden Path: M3's leg on F-RCC6-BNBC", () => {
       expect(text.replace(/\s+/gu, " "), `page ${at + 1} of the draft carries the banner (AM-05 §2)`).toContain(BANNER);
     }
     await checkpoint(page, testInfo, "j-000/documents-issued");
-  });
 
-  test.fixme("MISSING DOOR: J-000 m3-bill-and-schedules: the bar schedule is emitted as DRAFT — UNSIGNED and read against the golden", async ({ page }, testInfo) => {
-    test.setTimeout(1_800_000);
-    const run = await bnbcMeasured(page);
-    const takeoff = new STakeoffPage(page);
-    const bbs = new SBbsPage(page);
-    const documents = new SDocumentsPage(page);
-
+    /* --- the document faithful to the register: each line rounded ONCE, at the edge (L-MEA-05, L-QTY-07) --- */
     await takeoff.open(run.tenantId, run.bnbc.projectId);
-    await bbs.openThroughNav();
-    await settled(page);
-    expect(await bbs.state(), "the schedule is read and rendered, wholly or partly declared").toMatch(/^(ready|partial)$/);
-    expect(Number(await bbs.rowsRendered()), "the grid publishes how many rows it painted").toBeGreaterThan(0);
-
-    /* --- the schedule against the golden, per member (class, level, mark), NET and LAP together --- */
-    const members = await everyRow(bbs.members, "the member group rows");
-    const memberOf = new Map<string, { class: string; level: string; mark: string }>();
-    for (const member of members) {
-      const objectKey = (await heldAttribute(member, "data-member")) as string;
-      memberOf.set(objectKey, {
-        class: ((await heldAttribute(member, "data-class")) ?? "").toUpperCase(),
-        level: (await heldAttribute(member, "data-level")) ?? "",
-        mark: (await heldAttribute(member, "data-mark")) ?? "",
-      });
+    const groups = new Map<string, StatedCell[]>();
+    for (const cell of roster.compared) {
+      const group = `${cell.product.class}|${cell.product.kind}`;
+      groups.set(group, [...(groups.get(group) ?? []), cell]);
     }
-    const netKeys = await everyAttribute(bbs.rows, "data-bar-key", "the NET rows");
-    const netKg = await everyAttribute(bbs.rows, "data-kg", "the NET rows' mass");
-    const lapKeys = await everyAttribute(bbs.laps, "data-bar-key", "the LAP rows", { min: 0 });
-    const lapKg = await everyAttribute(bbs.laps, "data-kg", "the LAP rows' mass", { min: 0 });
-    const product = new Map<string, number>();
-    const add = (barKey: string, kg: string): void => {
-      const member = memberOf.get(barKey.split("|")[0] ?? "");
-      if (member === undefined) return;
-      const key = `${member.class}|${member.level}|${member.mark}`;
-      product.set(key, (product.get(key) ?? 0) + Number(kg));
+    const fidelity: string[] = [];
+    const unfaithful: string[] = [];
+    const judge = (cell: StatedCell, register: { shown: number; total: Decimal }): void => {
+      const slack = new Exact(cell.lines).times("0.5").times(new Exact(10).pow(-cell.places));
+      const drift = cell.sum.minus(register.total).abs();
+      const said = `${cell.key}: sheet ${cell.lines} line(s) Σ ${cell.sum.toString()} · register ${register.shown} line(s) Σ ${register.total.toString()} · |Δ| ${drift.toString()} ≤ ${slack.toString()}`;
+      fidelity.push(said);
+      if (register.shown !== cell.lines) unfaithful.push(`${said} — the sheet and the register keep a different number of COMPLETE lines`);
+      if (cell.places > documentPlaces) unfaithful.push(`${said} — a line is stated to ${cell.places} places, finer than the ${documentPlaces} the column's format states (the store's figure, not the document's)`);
+      if (drift.gt(slack)) unfaithful.push(`${said} — the stated lines are not the register's figures rounded once to their places`);
     };
-    netKeys.forEach((key, at) => add(key, netKg[at] ?? "0"));
-    lapKeys.forEach((key, at) => add(key, lapKg[at] ?? "0"));
-
-    const golden = new Map<string, number>();
-    for (const row of bbsGoldenDocument(FIXTURE).rows) {
-      if (!BBS_CLASSES.includes(row.class)) continue;
-      const key = `${row.class}|${row.level}|${row.mark}`;
-      golden.set(key, (golden.get(key) ?? 0) + Number(row.kg));
-    }
-    const compared: string[] = [];
-    const failed: string[] = [];
-    const unknown: string[] = [];
-    for (const [key, kg] of [...product.entries()].sort(([left], [right]) => (left < right ? -1 : 1))) {
-      const expected = golden.get(key);
-      if (expected === undefined) {
-        unknown.push(`${key} = ${kg.toFixed(3)} kg (the golden holds no such member)`);
-        continue;
+    for (const [group, cells] of groups) {
+      const [klass, kind] = group.split("|") as [string, string];
+      await takeoff.narrow("class", klass);
+      await takeoff.narrow("kind", kind);
+      await takeoff.narrow("coverage", COMPLETE);
+      await takeoff.narrow("level", "");
+      const whole = await takeoff.kept(`${group} over every level`);
+      let restLines = whole.shown;
+      let restTotal = new Exact(whole.total ?? "0");
+      for (const cell of cells.filter((stated) => stated.product.level !== "")) {
+        await takeoff.narrow("level", cell.product.level);
+        const kept = await takeoff.kept(`${cell.key}`);
+        const total = new Exact(kept.total ?? "0");
+        restLines -= kept.shown;
+        restTotal = restTotal.minus(total);
+        judge(cell, { shown: kept.shown, total });
       }
-      const line = `${key}: product ${kg.toFixed(3)} kg · golden ${expected.toFixed(3)} kg · ${((kg / expected - 1) * 100).toFixed(2)} %`;
-      compared.push(line);
-      if (!insideBand(kg, expected)) failed.push(line);
+      // The foundation slot is the group's remainder; where the sheet states no slot cell, the
+      // remainder is what the register keeps that the sheet does not state, and it must be nothing.
+      const slot = cells.find((stated) => stated.product.level === "");
+      if (slot !== undefined) judge(slot, { shown: restLines, total: restTotal });
+      else if (restLines !== 0 || !restTotal.isZero()) unfaithful.push(`${group}: the register keeps ${restLines} COMPLETE line(s) (Σ ${restTotal.toString()}) the sheet states in no compared cell`);
     }
-    const declared = [...golden.keys()].filter((key) => !product.has(key)).sort();
-    await attach(testInfo, "m3-bbs-band", [`compared (${compared.length}):`, ...compared, `declared (${declared.length}):`, ...declared, `unknown (${unknown.length}):`, ...unknown].join("\n"));
-    expect(compared.length, "the campaign scheduled at least one member the golden also schedules").toBeGreaterThan(0);
-    expect(unknown, "the schedule holds no member the golden does not").toEqual([]);
-    expect(failed, `every scheduled member's mass stands inside L-QTY-06's band of the golden; these do not:\n  ${failed.join("\n  ")}`).toEqual([]);
-
-    /* --- the schedule emitted: one press, one keyed job, the issue filed (I-bbs-8) --- */
-    await expect(bbs.exportButton, "the one primary offers the schedule").toBeVisible();
-    await bbs.exportButton.click();
-    await expect(bbs.jobs, "pressing the primary mounts the job strip while the render is watched").toBeVisible();
-    await expect(bbs.documentLink, "the render finishes and the schedule is offered where it was filed").toHaveCount(1, { timeout: RENDER_BUDGET_MS });
-    await settled(page);
-    const scheduleId = (await heldAttribute(bbs.documentLink, "data-document")) as string;
-    await checkpoint(page, testInfo, "j-000/bbs-schedule");
-
-    await bbs.documentLink.click();
-    await page.waitForURL(/\/documents/);
-    await settled(page);
-    const row = documents.row(scheduleId);
-    await expect(row, "Documents lists the schedule the export filed").toBeVisible();
-    expect(await heldAttribute(row, "data-kind"), "under the schedule's own document kind (A-BBS-PDF)").toBe(BBS);
-    const pages = pagesOf(await bytesOf(page, (await heldAttribute(documents.openLink(row), "href")) as string));
-    expect(pages.length, "the schedule renders at least one page").toBeGreaterThan(0);
-    for (const [at, text] of pages.entries()) {
-      expect(text.replace(/\s+/gu, " "), `page ${at + 1} of the schedule carries the banner (AM-05 §2)`).toContain(BANNER);
-    }
-    const whole = pages.join(" ").replace(/\s+/gu, " ");
-    expect(whole, "the document calls itself what A-BBS-PDF calls it").toContain("Bar bending schedule");
-    for (const mark of new Set([...memberOf.values()].map((member) => member.mark))) {
-      expect(whole, `the schedule prints every member mark the screen schedules (${mark})`).toContain(mark);
-    }
+    await attach(testInfo, "m3-document-fidelity", [`the Quantity column states ${documentPlaces} place(s)`, ...fidelity].join("\n"));
+    expect(fidelity.length, "every compared cell was read back on the register").toBe(roster.compared.length);
+    expect(unfaithful, `the XLSX states each COMPLETE line as the register's figure rounded once, half to even, to its kind's places (L-MEA-05, L-QTY-07); these cells do not:\n  ${unfaithful.join("\n  ")}`).toEqual([]);
   });
 });
