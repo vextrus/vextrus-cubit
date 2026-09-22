@@ -11,10 +11,14 @@ your prompt. The engine rewrites the lessons block after merges; nothing here is
 `pnpm e2e --journeys A,B` · `pnpm checkup`.
 
 ## Law
-- The Bible is immutable: take the most defensible reading and record an Interpretation; a
-  contradiction stops the increment with a named reason. Its `<amendments>` are current law, read with
-  the clauses they affect (AM-01/02/03 fixtures, junctions, rebar; AM-08/09/10/11 UX standard, test
-  surface, gate budgets, split registries).
+- The Bible is the default reading: take the most defensible reading and record an Interpretation.
+  Its `<amendments>` are current law, read with the clauses they affect (AM-01/02/03 fixtures,
+  junctions, rebar; AM-08/09/10/11 UX standard, test surface, gate budgets, split registries).
+  **The owner's ruling of session 6: the Bible is a default, not a cage.** Where testing, measurement
+  or research shows a clause wrong, stale, self-contradictory or harmful to the product, depart from
+  it and record a Deviation in `docs/decisions/deviations.md` in the same commit — the clause, the
+  evidence, what the product does instead, what it costs. A Deviation is never silent, never edits
+  `docs/specs/**`, and never loosens a proof to pass a gate.
 - A screen is implemented against its Design Decision in `docs/design/<screen>.md` — wireframe,
   region table (id, width, min, max, owner), every state, copy verbatim, motion, tokens. A deviation
   is a defect; a second spelling of the same document is a defect.
@@ -124,27 +128,47 @@ your prompt. The engine rewrites the lessons block after merges; nothing here is
   (the Verifier's), the toolchain scripts and CI unless owned. A debt sweep's worklist is
   `mcp__builder__debt_rows`; fix each row where it lives, test beside it.
 
-## Standing facts from session 5 (the owner asked for them here; the handoff holds the proofs)
+## Standing facts from sessions 5 and 6 (the owner asked for them here; the handoffs hold the proofs)
 - The M3 door stands on F-RCC6-BNBC: a viewport's title captions its model-space region (I-290),
   block bubbles georeference (I-292), `EL` marks propose the stack (I-293), the stacked schedule
   reads (I-294), a feet-and-inches dimension scales a unitless header (I-295), a band written in
   ordinal words covers the stack's floor labels (`sameStorey`), and the unit a drawing DECLARES is
-  the last word on a unitless section (I-302). `m3-measure-and-register` walks green: 182 column
-  concrete lines COMPLETE. `m3-bill-and-schedules` stands fixme on two named doors: a circular
-  section (`%%C450`, T-NOT-PCTC) and a plan member's own storey range ("STARTS AT 1F").
-- Two spellings of one fact are the defect to look for first: the partition's view key vs
-  L-REG-04's address (`partitionViewKey`, `viewAddressOf`), the schedule's band words vs the stack's
-  labels (`sameStorey`). A reader that answers nothing over a drawing it should read: diff the keys.
+  the last word on a unitless section (I-302). Session 6 added: a plan note naming a mark is evidence
+  about the MEMBER (I-303 — read only where its remainder states a shape or a `STARTS`-bounded range;
+  C7 → GF alone, C5 minted on 1F..6F), the plan states a column's SHAPE and the schedule its SIZE
+  (I-304), and a circular column is PRISM_POLY billed by `rcc.column.circular.concrete@1` (I-305;
+  edition IS1200_IN @ 2027.03, migration 0056).
+- **The register still ignores the notes, and the cause is named**: `src/core/acts/author-typical-range.ts`
+  is a THIRD spelling of the expansion — it reads `placements` raw, re-does the band cut, never reads
+  a note, and registers objects that are never retracted. So the journey measures 189 column lines /
+  94.196 m³ where the doors give 182 / 90.83. `m3-bill-and-schedules` stays fixme until that lands AND
+  its leg does: the BBS test moves to its own file (blocked by the rebar schedule reader,
+  `REBAR_SCHEDULE_UNREAD`), and the band admits the document's own rounding, `(n + 1) × ½ulp`, because
+  the XLSX states each line to 3 dp and the golden rounds each cell once.
+- `stack` and `mark` are two namespaces that both spell `C<n>` (mark C7 = stack C7X, mark C5 = stack
+  B4). Two spellings of one fact are the defect to look for first: session 6 found six (a test stage
+  calling the tabs-row hook for an effect it no longer has, `MEMBER_SHAPES`, `SEED_VERSION` in four
+  places, the typical-range act, the Noul-confidence contract, the model ledger's rates). A reader
+  that answers nothing over a drawing it should read: diff the keys.
 - A screen fills the lane's tabs row by a portal in place (`useTakeoffTabsAside` answers a node the
   surface RENDERS); the frame's own slots still hand over by effect and are the next defect of that
   class. Hydration stands the register twice for ~100 ms; nothing may depend on mount order.
 - Read the run's own database after a journey (`cubit_e2e`, `set cubit.system_reason` first), never
-  while the db lane runs; a killed run keeps no trace (`CUBIT_E2E_TRACE=on` for a diagnosis run); the
-  M3 staging caps every action at a minute (`capActions`) so a stalled tab is red with its action
-  named. `pnpm probe signin …` takes no `--` (pnpm 10 forwards it as the mode).
-- Six Jev questions stand recorded (240 fixtures; every call billed under `claude-sonnet-5` until the
-  owner's AS-05 amendment); `answerJudgmentOf` reads a Noul's probability as its confidence — fix
-  before reading any threshold off the schedule-cell or note-clause lines.
+  while the db lane runs, and SCOPE every query to the project — the database holds every earlier
+  run. A killed run keeps no trace (`CUBIT_E2E_TRACE=on`); the M3 staging caps every action at a
+  minute (`capActions`). The run file records no password: `j000-legs-<stamp>@cubit.test` signs in
+  with `golden-path-legs-<stamp>`. `pnpm probe signin …` takes no `--`.
+- Jev: a Noul states a probability and NO confidence; a call's confidence is the minimum over the
+  answers that state one (`7689a117`). The corpus (240 fixtures) stores the judgment the seam DERIVED,
+  not the provider's body, so no change to how an answer is read is provable against it and the
+  recorded schedule-cell line reads 0.01–0.18 until re-recorded. The model ledger's rates
+  (`model-ledger.types.ts`: $15/$75, $3/$15) are the product's own — AS-05 names ids, not rates — and
+  are wrong against the published $5/$25 and $2/$10.
+- A fan-out is a heavy lane while the gate's e2e or perf lanes run (PERF-011's instrument is coarsened
+  to 0.1 ms with a half-tick tolerance). A fast green is read with `--reporter=verbose` before it is
+  trusted. The served product binds 127.0.0.1; from Windows under WSL2 NAT it needs a relay on the WSL
+  address (`socat TCP-LISTEN:3211,bind=<wsl-ip>,fork,reuseaddr TCP:127.0.0.1:3211`) or mirrored
+  networking. The builder MCP tools have been absent in every interactive session: lanes run by shell.
 
 ## Compact instructions
 When this session's context is compacted, the summary must carry, verbatim where it can: the
