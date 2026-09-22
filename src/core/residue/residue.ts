@@ -222,6 +222,9 @@ export function resolveResidue(input: ResidueInput): ResidueCell[] {
           contradicted: hasLines && (scoped !== null || boundary !== null),
           lineIds: lines.map((line) => line.lineId),
           sightings: held,
+          // A null level is lawful only twice, and the reading makes sure of it (`observationsOf`): an
+          // observation about the reading rather than an object, and an object in a lawful-null slot.
+          // Both are about the class wherever it stands, exactly as a level-less sighting is (`held`).
           observations: (observationsByKindClass.get(`${kind}\u0000${klass}`) ?? []).filter(
             (observation) => observation.levelId === null || observation.levelId === levelId,
           ),
@@ -432,6 +435,16 @@ function countersOf(facts: Readonly<Record<string, unknown>>): { space: string; 
  * ended in a quantity. So the query asks the store for the observations whose object the campaign
  * published nothing for, which is a question about rows that are not there and can only be asked one
  * way. Every other file in this tree says what it SAW.
+ *
+ * And an observation whose object the revision's register NO LONGER CARRIES is not residue either. A
+ * register key moves exactly once (L-REG-04): `AUTHOR_TYPICAL_RANGE` carries an `@UNRESOLVED`
+ * placeholder onto a level, and `INSERT_LEVEL` an `@unregistered:<label>` one, so what a press made
+ * of the placeholder before the carry is about a key that stands for nothing now — and read through
+ * the join below it came back with no level, which the cell filter reads as "about every level", so
+ * it hung on every cell of its class (54 of them on F-RCC6-BNBC's columns, session 7). The object an
+ * observation names is what places it; a key with no object places it nowhere. Two nulls stay
+ * lawful and distinct from that miss: an observation about the reading rather than an object (no
+ * key at all), and an object standing in a lawful-null slot (a key that joins, to no level).
  */
 async function observationsOf(tx: TenantTx, tenantId: string, campaignId: string, setRevisionId: string): Promise<ResidueObservation[]> {
   const rows = await tx
@@ -439,6 +452,8 @@ async function observationsOf(tx: TenantTx, tenantId: string, campaignId: string
       class: railObservations.class,
       kind: railObservations.kind,
       code: railObservations.code,
+      observed: railObservations.objectKey,
+      standing: registerObjects.objectKey,
       levelId: registerObjects.levelId,
     })
     .from(railObservations)
@@ -458,13 +473,15 @@ async function observationsOf(tx: TenantTx, tenantId: string, campaignId: string
       ),
     );
 
-  return rows.map((row) => ({
-    class: row.class,
-    kind: row.kind,
-    levelId: row.levelId,
-    rail: `${row.class}/${row.kind}`,
-    reason: reasonOf(row.code),
-  }));
+  return rows
+    .filter((row) => row.observed === null || row.standing !== null)
+    .map((row) => ({
+      class: row.class,
+      kind: row.kind,
+      levelId: row.levelId,
+      rail: `${row.class}/${row.kind}`,
+      reason: reasonOf(row.code),
+    }));
 }
 
 /**
