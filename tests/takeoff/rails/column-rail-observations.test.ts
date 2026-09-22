@@ -1,27 +1,27 @@
 /**
- * The column-concrete rail's residue: the four reasons it reports a row instead of offering one
+ * The column-concrete rail's residue: every reason it reports a row instead of offering one
  * (R-TO-031, L-MEA-08).
  *
  * L-MEA-08 reserves the refused arm for contract violations and sends a non-offer to the residue as
  * evidence, so a row the rail could not read reaches the observations rather than the refusals — and
- * a rail that dropped it in silence would lose the evidence altogether. The roster is closed at four
+ * a rail that dropped it in silence would lose the evidence altogether. The roster is closed
  * (interfaces), and each code here is spelled by the case that earns it.
  */
 import { describe, expect, test } from "vitest";
 import {
   CALIBRATION_KEY,
   COLUMN_CLASS,
-  DRAWING_ID,
   INGEST_ID,
   LEVEL_ID,
   MEMBER_FAMILY,
   PLACEMENT_KEY,
   RCC_CONCRETE,
+  ROUND,
   SECTION_SOURCE,
-  VECTOR,
   VIEW_KEY,
   columnRailDoor,
   levelStanding,
+  placement,
   railInput,
   registerRow,
   variant,
@@ -38,6 +38,8 @@ const SECTION_BAND_UNCOVERED = "SECTION_BAND_UNCOVERED";
 const SECTION_UNIT_UNSTATED = "SECTION_UNIT_UNSTATED";
 /** The fifth: a row whose PLACEMENT the setup does not hold, re-homed off MEMBER_TYPE_UNKNOWN. */
 const PLACEMENT_UNHELD = "PLACEMENT_UNHELD";
+/** The sixth: a plan note calling a section round over a schedule cell whose two sides DIFFER. */
+const SECTION_NOT_CIRCULAR = "SECTION_NOT_CIRCULAR";
 
 /** The level the row of every case below stands on, and one below it a band can name. */
 const GROUND: LevelSetup = levelStanding({ levelId: "44444444-4444-4444-8444-444444444401", label: "GF", ordinal: 0, value: "3", unit: "M", sourceKey: "S-105:e:2" });
@@ -46,8 +48,8 @@ const STANDS_ON: LevelSetup = levelStanding({ levelId: LEVEL_ID, label: "L1", or
 /** The row every case reads: one column instance, sighted at one placement, standing on L1. */
 const ROW = registerRow({ setRevisionId: "11111111-1111-4111-8111-111111111111", placementKey: PLACEMENT_KEY, levelId: LEVEL_ID, viewKey: VIEW_KEY, mark: MEMBER_FAMILY });
 
-/** The placement the setup holds for it. */
-const PLACEMENT = { drawingId: DRAWING_ID, ingestId: INGEST_ID, viewKey: VIEW_KEY, memberFamily: MEMBER_FAMILY, engine: VECTOR, sourceEntity: PLACEMENT_KEY };
+/** The placement the setup holds for it — one no plan note named. */
+const PLACEMENT = placement({});
 
 /** A setup that stands whole, with only what a case takes away from it named. */
 function input(changed: Partial<RailInputDraft> = {}): RailInputShape {
@@ -91,9 +93,15 @@ describe("the column rail's closed code roster", () => {
     // row whose placement the setup does not hold is now reported under. The roster is still closed —
     // a code beside these is one no reader was told to expect — and the ORDER of a roster is nobody's
     // contract, so membership is what is asserted (interfaces, AM-11).
-    expect(new Set([...rail.COLUMN_RAIL_CODES]), "a rail-local roster is closed: a sixth reason would be a code no reader was told to expect (interfaces)").toStrictEqual(
-      new Set([VIEW_SCALE_UNAFFIRMED, MEMBER_TYPE_UNKNOWN, SECTION_BAND_UNCOVERED, SECTION_UNIT_UNSTATED, PLACEMENT_UNHELD]),
-    );
+    //
+    // TEST_AMENDED (I-304, I-305): and SECTION_NOT_CIRCULAR, the code a plan note calling a section
+    // round is reported under where the schedule states two sides that differ. The rail now reads a
+    // SHAPE as well as a size, so it has a new way of being unable to read one — and L-REG-03 has
+    // that disagreement declared by name rather than settled by picking a side.
+    expect(
+      new Set([...rail.COLUMN_RAIL_CODES]),
+      "a rail-local roster is closed: a seventh reason would be a code no reader was told to expect (interfaces)",
+    ).toStrictEqual(new Set([VIEW_SCALE_UNAFFIRMED, MEMBER_TYPE_UNKNOWN, SECTION_BAND_UNCOVERED, SECTION_UNIT_UNSTATED, PLACEMENT_UNHELD, SECTION_NOT_CIRCULAR]));
   });
 
   test("a view no affirmed calibration stands for is reported, never offered", async () => {
@@ -135,5 +143,29 @@ describe("the column rail's closed code roster", () => {
     // (L-FRM-06, B-17).
     const unitless: VariantSetup = variant({ variantKey: MEMBER_FAMILY, width: 300, depth: 450, unit: null, sourceKeys: [SECTION_SOURCE] });
     expect(await reportedBy({ memberTypes: { [INGEST_ID]: { [MEMBER_FAMILY]: [unitless] } } }, SECTION_SOURCE)).toBe(SECTION_UNIT_UNSTATED);
+  });
+
+  test("a plan note calling the section round over a cell whose two sides differ is reported, and no side is picked", async () => {
+    // SYNTHETIC BY NECESSITY, and it is worth saying which fixture it is not. F-RCC6-BNBC's S-10
+    // writes `C7 %%C450 PORCH COLUMN` and its S-11 COLUMN SCHEDULE states `450x450` for C7 under all
+    // four band headers, so the two AGREE — b = d = 450 — and the guard this case earns never fires
+    // on that fixture. It has to be staged by hand or it cannot be staged at all.
+    //
+    // What it grades is the other half of I-304. The plan states the SHAPE and the schedule states
+    // the SIZE, which is not a disagreement while a square cell is what a circle's diameter reads
+    // off. Where the cell states two DIFFERENT sides there is no diameter anywhere in the set: it is
+    // a real disagreement, and L-REG-03 has one DECLARED and never resolved silently. So the member
+    // is reported and nothing publishes — a rail that took the width, the depth, the larger or the
+    // mean would be billing a column nobody drew (L-QTY-01, L-QTY-04).
+    const rectangular: VariantSetup = variant({ variantKey: MEMBER_FAMILY, width: 300, depth: 450, sourceKeys: [SECTION_SOURCE] });
+    expect(
+      await reportedBy(
+        { placements: { [PLACEMENT_KEY]: placement({ noteShape: ROUND }) }, memberTypes: { [INGEST_ID]: { [MEMBER_FAMILY]: [rectangular] } } },
+        // The SCHEDULE CELL, because that is where the remedy sends a reader: the note said one
+        // thing about a shape and said nothing about a size, and the cell is the surface a diameter
+        // could be stated on (L-QTY-03).
+        SECTION_SOURCE,
+      ),
+    ).toBe(SECTION_NOT_CIRCULAR);
   });
 });

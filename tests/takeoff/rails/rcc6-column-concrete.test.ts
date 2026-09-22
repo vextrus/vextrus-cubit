@@ -15,7 +15,7 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
-  COLUMN_CONCRETE_RULE_ID,
+  COLUMN_CONCRETE_RULE_IDS,
   COLUMN_CONCRETE_VERSION,
   RCC_CONCRETE,
   closeStage,
@@ -61,7 +61,14 @@ describe("AC-2: F-RCC6's column concrete, measured end to end", () => {
     expect(lines.length, `the measured campaign published column concrete lines (its verdict was ${JSON.stringify(measured.verdict)})`).toBeGreaterThan(0);
     for (const line of lines) {
       expect(said(line, "kind", "kind"), "every one of them is a quantity of the kind this rail measures (L-MEA-08)").toBe(RCC_CONCRETE);
-      expect(said(line, "ruleId", "rule_id"), "derived by the rule the rail offered under").toBe(COLUMN_CONCRETE_RULE_ID);
+      // TEST_AMENDED (I-304, I-305): EITHER of the two rules a column's concrete is billed by — the
+      // rectangular one, and the circular one a member the plan calls round is offered under. It
+      // admits both and moves no figure: F-RCC6 is byte-frozen at v1.1 (AM-01) and carries no round
+      // column, so every line this fixture publishes is still the rectangular rule's and every sum
+      // below is the sum it always was. The fixture that DOES carry one is F-RCC6-BNBC, whose S-10
+      // writes `C7 %%C450 PORCH COLUMN`, and it is measured by its own roster (AM-01: a numeric
+      // assertion names its roster).
+      expect([...COLUMN_CONCRETE_RULE_IDS], "derived by one of the rules the rail offers under").toContain(said(line, "ruleId", "rule_id"));
       expect(said(line, "ruleVersion", "rule_version"), "at the version the campaign's pinned edition puts in force (L-MEA-08)").toBe(COLUMN_CONCRETE_VERSION);
     }
   });

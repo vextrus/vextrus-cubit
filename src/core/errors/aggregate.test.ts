@@ -162,6 +162,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "SCHEDULE_NONE_RECONSTRUCTED",
   "SCHEDULE_VIEW_CONTRIBUTED_NOTHING",
   "SECTION_BAND_UNCOVERED",
+  "SECTION_NOT_CIRCULAR",
   "SECTION_UNIT_UNSTATED",
   "SELF_REMOVAL_NOT_ALLOWED",
   "SET_MEMBER_NOT_IN_PROJECT",
@@ -345,7 +346,21 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * existing entry's code, message, remedy, severity or surface moved with them; the previous digest
  * was 391b2acf75a271401fa25575583dbf889ec4525e96d9b83df7aff184b22139b6.
  */
-const ENTRIES_DIGEST_BEFORE = "8b354f8274b172db57a7c1be48380d4842aebe3668255da5ec0bfbf6e92a5b9a";
+/*
+ * Re-baselined for ONE ADDED entry and nothing else, the FRAME area's (./frame.ts, I-304, I-305):
+ * `SECTION_NOT_CIRCULAR`, what a member whose plan note calls its section ROUND is reported under
+ * where the schedule states two sides that DIFFER. The column rail now reads a SHAPE off the plan
+ * beside the SIZE it reads off the schedule, and those two are not two claims about one field while
+ * b = d — a schedule whose columns are a mark and a B × D cell has no cell in which to write
+ * "circle". Where the cell's two sides differ nothing in the set states a diameter at all, which is
+ * a REAL disagreement: L-REG-03 has one declared and never resolved silently, so the member is
+ * reported by name and no side is picked for it (L-QTY-01, L-QTY-04). It is the frame area's because
+ * a rail's refusals belong to the rail and the column rail is written there (AM-11). The roster grew
+ * by that one key — 133 codes to 134 — and not one existing entry's code, message, remedy, severity
+ * or surface moved with it; the previous digest was
+ * 8b354f8274b172db57a7c1be48380d4842aebe3668255da5ec0bfbf6e92a5b9a.
+ */
+const ENTRIES_DIGEST_BEFORE = "e6f4075f1a8e9002def558598483e4824f0fda22704bef6ee28ef6c2302d88ff";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

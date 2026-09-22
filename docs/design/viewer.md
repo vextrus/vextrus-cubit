@@ -1336,8 +1336,19 @@ second reason, ruled by s-scale I-160 and recorded here in the overlay's own ter
   closed rings that clear `outlineOf`, they share a centre, and `mergedByMark` keeps the FIRST of a
   group in the artifact's own order: the square. So the drawn geometry cannot decide the shape, and
   the pleasing reading — "the plan draws a circle and the note merely corroborates it" — is true of
-  the bytes and unusable by the product. The circle is cited nowhere; the note is the evidence, and
-  `DXF_HANDLE:9BA` is the source key a circular C7 line stands on (L-QTY-03).
+  the bytes and unusable by the product. The circle is cited nowhere; the note is the evidence.
+  **Which source key a circular line stands on, said exactly, because the two halves of a section come
+  from two places.** The SHAPE is the note's — `DXF_HANDLE:9BA` — and the placement carries that key.
+  The FIGURE and its unit are the schedule cell's, because the note states `Ø450` with no unit at all
+  and a unitless section is what `SECTION_UNIT_UNSTATED` already refuses (L-REG-01); so `d`
+  provenances to the cell that states 450 in the millimetres S-01 declares (I-302), and binding it to
+  the note would be a citation to an entity that states no unit. A line therefore cites the cell for
+  what it measures, and the note key rides the placement as the evidence for the shape it measured it
+  AS. **Carried and not yet cited: no `Offer` field publishes the note key today** — every provenance
+  a line carries arrives through a `Measure.source` or a calibration key — so a reader following a
+  circular line back reaches the schedule cell and not the sentence that made it round. That is an
+  IOU of this Interpretation and not a reading it takes: closing it means an own citation slot on the
+  offer, which moves the rectangular offer's key set too, and no figure waits on it (L-QTY-03).
 
 ## 1. Layout and hierarchy
 

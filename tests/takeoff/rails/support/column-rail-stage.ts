@@ -121,6 +121,12 @@ export const INPUTS_FIXTURE = join("fixtures", "rcc6", "inputs.json");
 /** The rule this rail offers under, with no version anywhere on the offer (goal, AC-1). */
 export const COLUMN_CONCRETE_RULE_ID = "rcc.column.concrete";
 
+/** And the rule a member the PLAN calls round is offered under instead (I-304, I-305). */
+export const COLUMN_CIRCULAR_CONCRETE_RULE_ID = "rcc.column.circular.concrete";
+
+/** Both rules a column's concrete is billed by — what "a column concrete line" means to this stage. */
+export const COLUMN_CONCRETE_RULE_IDS: readonly string[] = Object.freeze([COLUMN_CONCRETE_RULE_ID, COLUMN_CIRCULAR_CONCRETE_RULE_ID]);
+
 /** The version the edition puts in force, and the pair the shard records (AC-2, AC-6). */
 export const COLUMN_CONCRETE_VERSION = "1";
 export const COLUMN_CONCRETE_PAIR: MethodPairShape = Object.freeze({ ruleId: COLUMN_CONCRETE_RULE_ID, version: COLUMN_CONCRETE_VERSION });
@@ -131,6 +137,8 @@ export const RCC_CONCRETE = "rcc.concrete";
 
 /** The geometry a column instance is offered as, and the dimension its method stands in (AC-1, AC-6). */
 export const PRISM_RECT = "PRISM_RECT";
+/** And the geometry a ROUND one is offered as — a prism over a plan that is no rectangle (I-305). */
+export const PRISM_POLY = "PRISM_POLY";
 export const VOLUME = "VOLUME";
 
 /** L-QTY-02's two coverages this leaf publishes under (AC-1, AC-4). */
@@ -145,6 +153,8 @@ export const DEFAULTED = "DEFAULTED";
 export const STOREY_HEIGHT_UNSTATED = "STOREY_HEIGHT_UNSTATED";
 export const VIEW_SCALE_UNAFFIRMED = "VIEW_SCALE_UNAFFIRMED";
 export const OFFER_NOT_TO_CONTRACT = "OFFER_NOT_TO_CONTRACT";
+/** And the code a round note standing over two different sides is reported under (I-304, L-REG-03). */
+export const SECTION_NOT_CIRCULAR = "SECTION_NOT_CIRCULAR";
 
 /** The three standings a level's storey height stands in (`STOREY_HEIGHT_STANDINGS`, L-MEA-07). */
 export const AGREED = "AGREED";
@@ -158,6 +168,12 @@ export const COUNT = "count";
 export const LENGTH_VARIABLE = "L";
 export const BREADTH_VARIABLE = "B";
 export const HEIGHT_VARIABLE = "H";
+
+/** The one variable the CIRCULAR method declares in place of `L` and `B` — a diameter (I-305). */
+export const DIAMETER_VARIABLE = "d";
+
+/** The shape a plan note states that sends a member to the circular rule (I-304, `MEMBER_SHAPES`). */
+export const ROUND = "ROUND";
 
 /** The unit a count is read in — the canon's canonical unit of the COUNT dimension (AC-1). */
 export const PIECES = "pcs";
@@ -192,7 +208,14 @@ export type RailObservationShape = { class: string; kind: string; code: string; 
 /** What a rail answers with (`RailBatch`). */
 export type RailBatchShape = { offers: readonly ColumnOfferShape[]; observations: readonly RailObservationShape[] };
 
-/** One placement of the read-only setup, keyed by its placement key (interfaces: `RailSetup`). */
+/**
+ * One placement of the read-only setup, keyed by its placement key (interfaces: `RailSetup`).
+ *
+ * The two note fields are what a plan NOTE said about this member: the shape it named and the
+ * sentence that named it (I-303, I-304). Optional here and nowhere else — a case that says nothing
+ * about a note is a placement no note named, which is every placement this file staged before the
+ * porch column, and the rail reads the absence as "the schedule's B × D cell is all the set says".
+ */
 export type PlacementSetup = {
   drawingId: string;
   ingestId: string;
@@ -200,6 +223,8 @@ export type PlacementSetup = {
   memberFamily: string | null;
   engine: string;
   sourceEntity: string;
+  noteShape?: string | null;
+  noteKey?: string | null;
 };
 
 /** One member-type variant of a family, as the schedules registry recorded it (interfaces). */
@@ -347,6 +372,39 @@ export function variant(options: {
   };
 }
 
+/**
+ * One placement of the setup, with what a plan NOTE said about the member named beside it.
+ *
+ * A case that names no shape states a placement no note named — two nulls, the reading "the plan
+ * says nothing about this member's shape", which is what every column of F-RCC6 carries and what
+ * the rectangular rule is offered under. A case that names ROUND states the porch column's own
+ * evidence: the note is the whole of it, and the sentence's key is what a reader goes back to
+ * (I-303, I-304, L-CAD-03).
+ */
+export function placement(options: {
+  drawingId?: string;
+  ingestId?: string;
+  viewKey?: string;
+  memberFamily?: string | null;
+  sourceEntity?: string;
+  noteShape?: string | null;
+  noteKey?: string | null;
+}): PlacementSetup {
+  const shape = options.noteShape ?? null;
+  return {
+    drawingId: options.drawingId ?? DRAWING_ID,
+    ingestId: options.ingestId ?? INGEST_ID,
+    viewKey: options.viewKey ?? VIEW_KEY,
+    memberFamily: options.memberFamily === undefined ? MEMBER_FAMILY : options.memberFamily,
+    engine: VECTOR,
+    sourceEntity: options.sourceEntity ?? PLACEMENT_KEY,
+    noteShape: shape,
+    // A shape is STATED UNDER A NOTE and never beside one: the store's own check refuses a shape on
+    // a row no note named, so a stage that named a shape names the sentence too (I-303).
+    noteKey: options.noteKey ?? (shape === null ? null : NOTE_SOURCE),
+  };
+}
+
 /** One level of the setup whose height stands AGREED at a reading. */
 export function levelStanding(options: { levelId: string; label: string; ordinal: number; value: string; unit: string; basis?: string; sourceKey: string }): LevelSetup {
   return {
@@ -442,6 +500,9 @@ export const CALIBRATION_KEY = "cal-1";
 export const SECTION_SOURCE = "S-102:e:7";
 export const HEIGHT_SOURCE = "S-105:e:3";
 
+/** The plan sentence a noted case's shape was read from — the note's own entity (I-303, L-CAD-03). */
+export const NOTE_SOURCE = "S-102:e:11";
+
 /* ------------------------------------------------------------------ the golden fixture */
 
 
@@ -471,10 +532,18 @@ export function fixtureLevels(): { label: string; heightMetres: string }[] {
 
 /* ------------------------------------------------------------------ reading what the gate published */
 
-/** Every quantity line of one campaign that this rail's rule published. */
+/**
+ * Every quantity line of one campaign that this rail's rules published.
+ *
+ * BOTH rules, because a column's concrete is billed by two of them — the rectangular one and the
+ * circular one a member the plan calls round is offered under (I-305) — and a reader of a campaign's
+ * column concrete wants the concrete a column holds, not the concrete a column of one shape holds.
+ * On F-RCC6 the second set is empty: v1.1 is byte-frozen and carries no round column, so every
+ * figure this reader answers there is the figure it always answered (AM-01).
+ */
 export function columnLinesOf(tenantId: string, campaignId: string): StoreRow[] {
   return rowsOfCampaign(QUANTITY_LINES_TABLE, tenantId, campaignId).filter(
-    (row) => String(field(row, "ruleId", "rule_id")) === COLUMN_CONCRETE_RULE_ID && String(field(row, "class", "class")) === COLUMN_CLASS,
+    (row) => COLUMN_CONCRETE_RULE_IDS.includes(String(field(row, "ruleId", "rule_id"))) && String(field(row, "class", "class")) === COLUMN_CLASS,
   );
 }
 
@@ -520,14 +589,9 @@ export async function stageColumnCampaign(label: string, options: { objects?: nu
 export function setupForRows(rows: readonly Record<string, unknown>[], options: { affirmed?: boolean; height?: HeightSetup } = {}): RailSetupShape {
   const placements: Record<string, PlacementSetup> = {};
   for (const row of rows) {
-    placements[String(row["placementKey"])] = {
-      drawingId: DRAWING_ID,
-      ingestId: INGEST_ID,
-      viewKey: String(row["viewKey"]),
-      memberFamily: MEMBER_FAMILY,
-      engine: VECTOR,
-      sourceEntity: String(row["placementKey"]),
-    };
+    // No note names these rows, so nothing states a shape for them and the schedule's B × D cell is
+    // the whole of what the set says about their plan (I-304).
+    placements[String(row["placementKey"])] = placement({ viewKey: String(row["viewKey"]), sourceEntity: String(row["placementKey"]) });
   }
   const views: Record<string, string> = {};
   for (const placement of Object.values(placements)) views[placement.viewKey] = CALIBRATION_KEY;

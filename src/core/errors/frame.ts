@@ -12,6 +12,7 @@ export type FrameRefusalCode =
   | "MEMBER_TYPE_UNKNOWN"
   | "PLACEMENT_UNHELD"
   | "SECTION_BAND_UNCOVERED"
+  | "SECTION_NOT_CIRCULAR"
   | "SECTION_UNIT_UNSTATED"
   | "RUN_UNREAD"
   | "SLAB_THICKNESS_UNSTATED"
@@ -51,6 +52,17 @@ export const FRAME_REFUSALS: RefusalGroup<FrameRefusalCode> = Object.freeze({
     code: "SECTION_BAND_UNCOVERED",
     message: "No band of this member's schedule covers the level it stands on, so no section applies there.",
     remedy: "Extend the schedule's floor bands over the level, or state the level's own band, then measure again.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // A plan note may say a column is round where its schedule's B × D cell has no room to (I-304), and
+  // the two agree whenever b = d. Where they do NOT, nothing states a diameter: L-REG-03 has a
+  // disagreement DECLARED and never resolved silently, so the member is reported and no side is
+  // picked for it (L-QTY-01: never a guess).
+  SECTION_NOT_CIRCULAR: Object.freeze({
+    code: "SECTION_NOT_CIRCULAR",
+    message: "The plan note calls this member's section round while the schedule states two different sides, so there is no diameter to measure it by.",
+    remedy: "Re-read the schedule's section cell for this mark so its two sides agree, or correct the plan note that calls it round, then measure again.",
     severity: "warning",
     surface: "inline",
   }),

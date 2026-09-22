@@ -11,10 +11,12 @@ import { describe, expect, test } from "vitest";
 import {
   BREADTH_VARIABLE,
   CALIBRATION_KEY,
+  COLUMN_CIRCULAR_CONCRETE_RULE_ID,
   COLUMN_CLASS,
   COLUMN_CONCRETE_RULE_ID,
   COMPLETE,
   COUNT,
+  DIAMETER_VARIABLE,
   DRAWING_ID,
   HEIGHT_SOURCE,
   HEIGHT_VARIABLE,
@@ -26,8 +28,10 @@ import {
   PARTIAL_DECLARED,
   PIECES,
   PLACEMENT_KEY,
+  PRISM_POLY,
   PRISM_RECT,
   RCC_CONCRETE,
+  ROUND,
   SECTION_SOURCE,
   SET_REVISION,
   STOREY_HEIGHT_UNSTATED,
@@ -37,6 +41,7 @@ import {
   columnRailDoor,
   levelStanding,
   levelUnread,
+  placement,
   railInput,
   railsRoster,
   reading,
@@ -54,18 +59,17 @@ const ROW = registerRow({ setRevisionId: SET_REVISION, placementKey: PLACEMENT_K
 /** The key that row stands under — its own, never one this file mints beside it (L-REG-04). */
 const OBJECT_KEY = String(ROW["objectKey"]);
 
-/** The placement the row was sighted at, as the setup carries it. */
-const PLACEMENT = {
-  drawingId: DRAWING_ID,
-  ingestId: INGEST_ID,
-  viewKey: VIEW_KEY,
-  memberFamily: MEMBER_FAMILY,
-  engine: VECTOR,
-  sourceEntity: PLACEMENT_KEY,
-};
+/** The placement the row was sighted at, as the setup carries it — one no plan note named. */
+const PLACEMENT = placement({});
 
 /** The section the schedule stated for that family: 300 × 450, in millimetres, read at one cell. */
 const VARIANT = variant({ variantKey: MEMBER_FAMILY, width: 300, depth: 450, unit: "mm", sourceKeys: [SECTION_SOURCE] });
+
+/** The same placement, with a plan note over it calling the section ROUND (I-303, I-304). */
+const NOTED_ROUND = placement({ noteShape: ROUND });
+
+/** And the section such a schedule states: one cell, two EQUAL sides — b = d = 450 (I-304). */
+const SQUARE_CELL = variant({ variantKey: MEMBER_FAMILY, width: 450, depth: 450, unit: "mm", sourceKeys: [SECTION_SOURCE] });
 
 /** The input the criterion spells, with only what a case changes named beside it. */
 function input(changed: Partial<RailInputDraft> = {}): RailInputShape {
@@ -107,7 +111,7 @@ function keysWithin(value: unknown): string[] {
   return Object.entries(value as Record<string, unknown>).flatMap(([key, held]) => [key, ...keysWithin(held)]);
 }
 
-describe("AC-1: one column instance, one PRISM_RECT offer", () => {
+describe("AC-1: one column instance, one offer in the shape the plan says it is", () => {
   test("AC-1: the rail answers exactly the offer the criterion spells, and observes nothing", async () => {
     const rail = await columnRailDoor();
     const batch = rail.columnConcreteRail(input());
@@ -190,6 +194,68 @@ describe("AC-1: one column instance, one PRISM_RECT offer", () => {
       answered?.observations.filter((one) => one.class === COLUMN_CLASS),
       `and says about the column exactly what the column rail said about it, and nothing beside it`,
     ).toEqual(alone.observations);
+  });
+});
+
+/**
+ * The offer the same instance stands to be measured by once a plan note has called it round: the
+ * circular rule, PRISM_POLY, and a DIAMETER where the rectangle bound two sides — and every other
+ * field of it what it was, because the shape is the only thing that moved (I-304, I-305).
+ */
+const ROUND_OFFER: ColumnOfferShape = {
+  ...OFFER,
+  ruleId: COLUMN_CIRCULAR_CONCRETE_RULE_ID,
+  geometry: { type: PRISM_POLY, basis: MEASURED, calibration: CALIBRATION_KEY },
+  bindings: {
+    [COUNT]: { value: "1", unit: PIECES, basis: MEASURED, source: PLACEMENT_KEY, calibration: CALIBRATION_KEY },
+    // The FIGURE and its unit are the schedule cell's, because the note carries neither — a unitless
+    // section is what `SECTION_UNIT_UNSTATED` already refuses (L-REG-01). What the note contributes
+    // is that this 450 is a diameter rather than a side (I-304).
+    [DIAMETER_VARIABLE]: { value: "450", unit: "mm", basis: TRANSCRIBED, source: SECTION_SOURCE },
+    [HEIGHT_VARIABLE]: { value: "3", unit: "M", basis: TRANSCRIBED, source: HEIGHT_SOURCE },
+  },
+};
+
+describe("I-304/I-305: a column the plan calls round is a PRISM_POLY billed by its own rule", () => {
+  test("the rail answers exactly the circular offer, and observes nothing", async () => {
+    const rail = await columnRailDoor();
+    const batch = rail.columnConcreteRail(
+      input({ placements: { [PLACEMENT_KEY]: NOTED_ROUND }, memberTypes: { [INGEST_ID]: { [MEMBER_FAMILY]: [SQUARE_CELL] } } }),
+    );
+
+    expect(
+      [...batch.observations],
+      "the plan states the SHAPE and the schedule states the SIZE, and b = d = 450 either way — there is no disagreement here to report (I-304, L-REG-03)",
+    ).toEqual([]);
+    expect(batch.offers.length, "one instance row on one level is still one offer — the shape changes what is measured, never how many (L-FRM-02)").toBe(1);
+    expect(
+      batch.offers[0],
+      "a circle is a prism over a plan that is no rectangle, offered under the rule whose template prints the quarter of π d² a reader audits (I-305, L-FRM-01)",
+    ).toEqual(ROUND_OFFER);
+  });
+
+  test("it binds a diameter and no sides, and is COMPLETE", async () => {
+    const rail = await columnRailDoor();
+    const offered = rail.columnConcreteRail(
+      input({ placements: { [PLACEMENT_KEY]: NOTED_ROUND }, memberTypes: { [INGEST_ID]: { [MEMBER_FAMILY]: [SQUARE_CELL] } } }),
+    ).offers[0] as ColumnOfferShape;
+
+    expect(
+      Object.keys(offered.bindings).sort(),
+      "a circle declares `count`, `d` and `H` — an `L` or a `B` beside them would be a variable its method does not name (I-305, L-MEA-08)",
+    ).toStrictEqual([COUNT, DIAMETER_VARIABLE, HEIGHT_VARIABLE].sort());
+    expect([...offered.omitted], "nothing is left out: the schedule stated the section and the stack stated the storey (L-QTY-02)").toEqual([]);
+    expect(offered.coverage, "so the row publishes whole").toBe(COMPLETE);
+  });
+
+  test("a placement no note named is untouched — the rectangular offer does not move a byte", async () => {
+    const rail = await columnRailDoor();
+    const offered = rail.columnConcreteRail(input()).offers[0] as ColumnOfferShape;
+
+    expect(
+      offered,
+      "the shape is stated by a note and by nothing else, so a member no note named is measured exactly as it was before this reading landed (I-304, AM-01)",
+    ).toEqual(OFFER);
   });
 });
 

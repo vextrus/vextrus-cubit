@@ -179,6 +179,15 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
         // plan, so a foundation is measured by the section its schedule states and a polygon plan
         // defers by name rather than being given an area nobody read (L-QTY-02, riskNotes).
         outline: null,
+        // What the plan NOTE said about this member, carried across in the store's own two columns
+        // and in the store's own spelling — the shape it named, and the sentence that named it
+        // (I-303, I-304). Not `null` and not a seam: the columns are written by the placement stage
+        // and read back whole, and a rail that meets a ROUND here measures the circle the plan
+        // stated rather than the square a B × D schedule cell is all there was room to write
+        // (L-CAD-08, L-REG-03). A placement no note named carries two nulls, which is every
+        // placement of a drawing whose notes say nothing about a member.
+        noteShape: placement.noteShape,
+        noteKey: placement.noteKey,
       };
     }
 

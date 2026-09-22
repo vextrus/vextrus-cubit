@@ -116,7 +116,21 @@ function variant(variantKey: string, bandFrom: string | null, bandTo: string | n
   };
 }
 
-const PLACED: PlacementSetup = { drawingId: DRAWING, ingestId: INGEST, viewKey: VIEW, memberFamily: FAMILY, engine: "VECTOR", sourceEntity: ENTITY, outline: null };
+// No plan note names this placement, so nothing states a shape for it and nothing cites one: two
+// nulls, which is what every placement of a drawing whose notes say nothing about a member carries
+// (I-303, I-304). Spelled rather than defaulted, because a reader that builds a placement carries
+// every column the store holds or stops compiling.
+const PLACED: PlacementSetup = {
+  drawingId: DRAWING,
+  ingestId: INGEST,
+  viewKey: VIEW,
+  memberFamily: FAMILY,
+  engine: "VECTOR",
+  sourceEntity: ENTITY,
+  outline: null,
+  noteShape: null,
+  noteKey: null,
+};
 
 /** The setup a drive starts from: one placement, its affirmed scale, a three-level stack, no plan. */
 function setupOf(over: Partial<RailSetup> = {}): RailSetup {

@@ -13,11 +13,16 @@
 // into canonical units is the gate's — through the one canon (B-17).
 import type { ElementType } from "../catalogue/classes";
 import type { Kind } from "../catalogue/kinds";
-import { registerObjects } from "../db";
+import { registerObjects, type MemberShape } from "../db";
 import type { RefusalCode } from "../errors";
 import { STOREY_HEIGHT_ABSENCE, type StoreyHeightStandingName } from "../levels/law";
 import type { SiteFact } from "../site-facts/law";
 import type { Coverage, DeductionChannel, Engine, GeometryType, QuantityBasis } from "./law";
+
+// The shape roster is the store's, and published from here for the same reason: a rail types what it
+// is handed through this file and never reaches for a schema to name a value the setup already
+// carries (ARCH-01, B-17).
+export type { MemberShape } from "../db";
 
 // The rosters are the law file's, and published from here because this is the door a rail and the
 // gate both read the contract at (B-17).
@@ -106,7 +111,8 @@ export type RegisterObjectRow = typeof registerObjects.$inferSelect;
 /**
  * Where one register row was sighted, as the setup carries it: the drawing and the view it was read
  * in, the ingest record those belong to, the schedule family its mark normalises to, the engine that
- * read it, and the entity a count of it provenances to (L-QTY-03).
+ * read it, the entity a count of it provenances to, and what the plan NOTE said about it (L-QTY-03,
+ * I-303/I-304).
  */
 export type PlacementSetup = {
   readonly drawingId: string;
@@ -117,6 +123,26 @@ export type PlacementSetup = {
   readonly sourceEntity: string;
   /** The plan outline a reader read for this placement, or null where none was read (L-FRM-02). */
   readonly outline: OutlineSetup | null;
+  /**
+   * The shape the plan note stated for this member, or null where no note named it and null where
+   * the note that did named no shape (I-304).
+   *
+   * It is the PLACEMENT's and not the variant's because a section is stated by a schedule whose
+   * columns are a mark and a B × D cell, which has no cell in which to write "circle": the plan is
+   * the only surface of the set on which the shape of a column can be said at all. The schedule
+   * states the SIZE, the plan states the SHAPE, and the two are not two claims about one field —
+   * b = d = 450 either way (I-304, L-REG-03). A rail reads this to pick the rule the line prints
+   * its formula from; nothing here is computed and nothing converted (L-MEA-08).
+   */
+  readonly noteShape: MemberShape | null;
+  /**
+   * The note's own entity — the third atom a noted member was read from, beside its outline and its
+   * mark (L-CAD-03, I-303). Carried beside the shape so what a reader goes back to for the shape is
+   * held by the same setup that stated it: for F-RCC6-BNBC's porch column that is `DXF_HANDLE:9BA`,
+   * the sentence `C7 %%C450 PORCH COLUMN`, which is the whole of the evidence that C7 is round
+   * (I-304, L-QTY-03). Null wherever `noteShape` is null for want of a note at all.
+   */
+  readonly noteKey: string | null;
 };
 
 /**
