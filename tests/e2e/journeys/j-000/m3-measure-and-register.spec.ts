@@ -7,29 +7,83 @@
  * deferred are stated on the levels rail — the rail is the campaign's index (s-levels I-240) — the
  * campaign is measured again, and the register is reviewed: the lines the rails published, the
  * refusals and deferrals by their registered codes, the column lines the column layout's members
- * measure to, and the coverage grid's cells and boundary statement (L-QTY-05).
+ * measure to, the campaign's own figures storey by storey against the golden, and the coverage
+ * grid's cells and boundary statement (L-QTY-05).
  *
- * The doors this leg waited on landed in session 5: a paper-space viewport's title captions the
- * model-space region it shows (viewer.md I-290), a block-drawn grid bubble georeferences (I-292),
+ * The doors this leg waited on landed in sessions 5 and 6: a paper-space viewport's title captions
+ * the model-space region it shows (viewer.md I-290), a block-drawn grid bubble georeferences (I-292),
  * the section's `EL` marks propose the stack (I-293), the stacked column schedule reads (I-294), a
  * feet-and-inches dimension scales a unitless header (I-295/I-295b), a band written in ordinal words
- * covers the stack's floor labels, and the unit the drawing declares is the last word on a unitless
- * section (I-302). What the run's own database says at the end of this leg: 182 column concrete
- * lines COMPLETE, 92.21 m³. The legs that emit the documents and read them against the golden stand
- * in m3-bill-and-schedules.spec.ts, behind the doors that file names.
+ * covers the stack's floor labels, the unit the drawing declares is the last word on a unitless
+ * section (I-302), a plan note naming a mark is evidence about the MEMBER (I-303: the porch column
+ * C7 — stack C7X, which model.json carries at FDN and GF — stands on GF and on no storey above it, and
+ * C5 is minted on 1F..6F, its 1F line MEASURED), and a circular column is a PRISM_POLY billed by its
+ * own rule (I-305). Session 7 closed the typical-range act's third spelling of the expansion
+ * (929a37c2), so the register carries the members the doors give: 182 column concrete lines, 26 on
+ * each of GF..6F, every one COMPLETE — against a golden that prints 90.834 m³ over those seven cells
+ * (90.833288 m³ unrounded in model.json).
+ *
+ * WHAT IS COMPARED, AND AT WHAT PRECISION (L-QTY-06, L-QTY-07, AM-01). A numeric assertion names its
+ * roster: the COLUMN × RCC_CONCRETE cell of every storey `golden-run.ts` stacks (BNBC_STOREYS, GF..6F),
+ * read on the register itself — the class, kind and level filters narrowed as a reader narrows them,
+ * the count line and the sticky footer's exact total read back (s-takeoff.md §5 rule 1: B-07's exact
+ * sum of the lines the filters keep, whole in the figure's `data-value`). Both expected figures are the
+ * golden's, through `goldenRows("rcc6-bnbc")`: the count is the members the golden's row for that
+ * storey lists, and the band is `0.97 × G − a ≤ S ≤ G + a`, G the golden cell and a its printing
+ * allowance — one half-unit per golden row in its own last printed place, from the golden strings
+ * alone (`goldenCellAllowance`: the one home of the allowance the tree's arbitrated band, at
+ * tests/takeoff/rails/support/slab-wall-stair-stage.ts's `insideBand`, widens each side by and by
+ * nothing else; B-07 forbids rounding the register's figure to the golden's precision to make it
+ * pass). The band is read HERE, at register precision, and nowhere else: a document states each line
+ * rounded once to its kind's places, so a document's sum is a different figure from the register's,
+ * and m3-bill-and-schedules.spec.ts proves the documents faithful to these totals rather than banding
+ * them a second time.
+ *
+ * The count is asserted before the band because it is the sharper witness: the run before 929a37c2
+ * published 189 column concrete lines (94.196 m³), and the storey that carried a line too many fails
+ * `shown === members` by name before its volume is read — the ceiling G + a catches the same excess
+ * wherever the count happened to agree.
  *
  * Nothing here measures time (AM-10 §3).
  */
+import Decimal from "decimal.js";
 import { expect, test, type TestInfo } from "@playwright/test";
+import { goldenCellAllowance, goldenCellRows, goldenKindOf } from "../../../golden/support/golden-fixture";
 import { NOT_ESTABLISHED, QUANTITY_BEARING, SCoveragePage } from "../../pages/s-coverage.page";
 import { STakeoffPage } from "../../pages/s-takeoff.page";
 import { checkpoint } from "../../support/checkpoint";
 import { heldAttribute, steadyCount, steadyText } from "../../support/retrying-read";
 import { settled } from "../../support/settled";
 import { TESTIDS } from "../../../../src/ui/testids";
-import { bnbcMeasured, releaseGoldenWorker } from "./golden-run";
+import { BNBC_STOREYS, bnbcMeasured, releaseGoldenWorker } from "./golden-run";
 
 test.use({ viewport: { width: 1440, height: 900 } });
+
+/** The fixture the golden is read for (AM-01). */
+const FIXTURE = "rcc6-bnbc";
+
+/** The cell this leg reads the campaign's figures on, in the product's words (the register's filters). */
+const COLUMN = "column";
+const RCC_CONCRETE = "rcc.concrete";
+
+/** L-QTY-06's floor: three per cent under the golden, and nothing over it. */
+const UNDER_TOLERANCE = "0.97";
+
+/** Exact decimals, at a precision no sum here reaches — a figure never touches a float (B-07). */
+const Exact = Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN });
+
+/** One storey's reading: what the golden owes, and what the register stated. */
+type StoreyReading = {
+  readonly level: string;
+  readonly goldenRows: number;
+  readonly members: number;
+  readonly unit: string;
+  readonly golden: Decimal;
+  readonly allowance: Decimal;
+  readonly shown: number;
+  readonly statedUnit: string | null;
+  readonly total: string | null;
+};
 
 /** A reading of the register, attached to the run so the handoff can quote it. */
 async function attach(testInfo: TestInfo, name: string, body: string): Promise<void> {
@@ -68,6 +122,59 @@ test.describe.serial("J-000 — Golden Path: M3's measure on F-RCC6-BNBC", () =>
     await expect(takeoff.linesCount, "the register counts the column lines the column layout's members measure to").not.toHaveText(/^0 of/);
     await settled(page);
     await checkpoint(page, testInfo, "j-000/bnbc-register");
+
+    /* --- the campaign's figures, storey by storey, at the REGISTER's precision (L-QTY-06, L-QTY-07) --- */
+    await takeoff.narrow("class", COLUMN);
+    await takeoff.narrow("kind", RCC_CONCRETE);
+    const readings: StoreyReading[] = [];
+    for (const { label } of BNBC_STOREYS) {
+      const cell = { class: COLUMN.toUpperCase(), kind: goldenKindOf(RCC_CONCRETE), level: label };
+      const owed = goldenCellRows(FIXTURE, cell);
+      await takeoff.narrow("level", label);
+      const kept = await takeoff.kept(`${COLUMN} × ${RCC_CONCRETE} at ${label}`);
+      readings.push({
+        level: label,
+        goldenRows: owed.length,
+        members: new Set(owed.flatMap((row) => row.members ?? [])).size,
+        unit: owed[0]?.unit ?? "",
+        golden: owed.reduce((sum, row) => sum.plus(row.quantity), new Exact(0)),
+        allowance: new Exact(goldenCellAllowance(FIXTURE, cell)),
+        shown: kept.shown,
+        statedUnit: kept.unit,
+        total: kept.total,
+      });
+    }
+    await attach(
+      testInfo,
+      "m3-register-band",
+      [
+        `${COLUMN} × ${RCC_CONCRETE}, per storey — register lines (golden members) · register total · golden ± allowance`,
+        ...readings.map(
+          (reading) =>
+            `${reading.level}: ${reading.shown} (${reading.members}) · ${reading.total ?? "no footer"} ${reading.statedUnit ?? ""} · ${reading.golden.toString()} ± ${reading.allowance.toString()} ${reading.unit}${
+              reading.total === null ? "" : ` · ${new Exact(reading.total).div(reading.golden).minus(1).times(100).toFixed(3)} %`
+            }`,
+        ),
+      ].join("\n"),
+    );
+
+    for (const reading of readings) {
+      const said = `${COLUMN} × ${RCC_CONCRETE} at ${reading.level}`;
+      expect(reading.goldenRows, `${FIXTURE}'s golden carries ${said} — a band over no row is no band (L-QTY-06)`).toBeGreaterThan(0);
+      expect(reading.shown, `${said}: the register counts one line per member the golden lists on this storey`).toBe(reading.members);
+      expect(reading.statedUnit, `${said}: the footer states the unit the golden is written in`).toBe(reading.unit);
+      const figure = new Exact(reading.total ?? "0");
+      const ceiling = reading.golden.plus(reading.allowance);
+      const floor = reading.golden.times(UNDER_TOLERANCE).minus(reading.allowance);
+      expect(
+        figure.lte(ceiling),
+        `${said}: the register's ${figure.toString()} is not over the golden's ${reading.golden.toString()} widened by its own printed half-unit ${reading.allowance.toString()} — L-QTY-06 allows nothing over, and an over-measured figure is never a disclosure (L-QTY-04)`,
+      ).toBe(true);
+      expect(
+        figure.gte(floor),
+        `${said}: the register's ${figure.toString()} is no more than three per cent under the golden's ${reading.golden.toString()} (floor ${floor.toString()}, L-QTY-06)`,
+      ).toBe(true);
+    }
 
     /* --- the coverage grid: what the campaign did and did not establish, said in cells (L-QTY-05) --- */
     await coverage.openThroughNav();

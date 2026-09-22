@@ -618,7 +618,9 @@ ruled in §1: `takeoff-nav` · `takeoff-nav-register` · `register-workspace` (`
 `register-refusal-object`). `project-tab`, `offered-groups`, `offered-group`, `offered-group-count`,
 `offered-group-confirm`, `refusal-state`, `refusal-message`, `refusal-remedy`,
 `refusal-evidence-link`, `job-timeline`, `job-timeline-step`, `consequence-dialog`, `tree`,
-`tree-item`, `datatable`, `datatable-row`, `datatable-cell`, `basis-chip`, `coverage-chip`,
+`tree-item`, `datatable`, `datatable-row`, `datatable-cell`, `datatable-total` (the sticky footer's
+cell, whose `QuantityText` carries the visible set's exact total in `data-value` — the J-000 M3 leg
+reads the campaign's figures there, storey by storey), `basis-chip`, `coverage-chip`,
 `unit-badge`, `skeleton` and `screen-state` are other files' ids, used and never redefined. No
 others are added: the Corroborate, Repudiate, Preview and empty-state doors, the headings and the
 count line are found by role and name.

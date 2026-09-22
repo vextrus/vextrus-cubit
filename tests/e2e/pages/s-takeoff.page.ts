@@ -7,7 +7,13 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import { idChipMasks, screenInFrame, shellMasks } from "./shell.page";
-import { everyRow, heldAttribute, steadyText } from "../support/retrying-read";
+import { everyRow, heldAttribute, steadyAttribute, steadyText } from "../support/retrying-read";
+
+/** The five fields the filter bar narrows on (Decision §7: `register-filter-class` · `-kind` · `-level` · `-basis` · `-coverage`). */
+export type RegisterFilter = "class" | "kind" | "level" | "basis" | "coverage";
+
+/** A filter chip's id, spelled once for both readers of it. */
+const filterId = (name: string): string => `register-filter-${name}`;
 
 /** The two addresses this screen answers at (test contract: routes). */
 export const S_TAKEOFF = Object.freeze({
@@ -95,7 +101,55 @@ export class STakeoffPage {
    * labelled row with a native popup (Direction §3.2), under the same id.
    */
   filter(name: string): Locator {
-    return this.page.getByTestId(`register-filter-${name}`);
+    return this.page.getByTestId(filterId(name));
+  }
+
+  /**
+   * Narrow the register on one field, as a reader does: open the chip, take the option whose value
+   * the screen publishes (`data-value`; `""` is the all-option), and wait until the chip SAYS it holds
+   * it. The chip, the count line and the footer re-render in one commit from one filter state, so a
+   * read taken after the chip reads the new value is a read of the new set — and two storeys that
+   * both count 26 lines cannot hand the second read the first one's figure.
+   */
+  async narrow(name: RegisterFilter, value: string): Promise<void> {
+    const chip = this.root.getByTestId(filterId(name));
+    await chip.click();
+    const option = this.root.locator(`[role="option"][data-value="${value}"]`);
+    const label = await steadyText(option, `the ${name} filter's option "${value}"`);
+    await option.click();
+    // The chip names itself `<Label> <what it reads>` (the Combobox's own accessible name), so the
+    // value it now holds is the tail of that name — read until it is, never once.
+    await expect.poll(async () => (await chip.getAttribute("aria-label"))?.endsWith(` ${label}`) ?? false, { message: `the ${name} filter reads the option it was given (${label})` }).toBe(true);
+  }
+
+  /**
+   * The figure the sticky footer states for the visible set — §5 rule 1's total, B-07's exact sum of
+   * the lines the filters keep, per unit. The whole decimal rides on the figure's own `data-value`
+   * (`QuantityText`), so a read gets the register's figure rather than its lakh-grouped rendering.
+   */
+  get linesTotal(): Locator {
+    return this.root.getByTestId(TESTIDS.register.lines).getByTestId(TESTIDS.datatable.total).locator("[data-value]");
+  }
+
+  /** How many lines the count line says the filters keep — the `shown` of "{shown} of {total} lines". */
+  async shownLines(): Promise<number> {
+    const said = await steadyText(this.linesCount, "the register's count line");
+    return Number((/^([\d,]+)/u.exec(said)?.[1] ?? "").replace(/\D/gu, ""));
+  }
+
+  /**
+   * What the filters keep, as the screen states it: the count line's `shown`, and — where it keeps a
+   * line at all — the footer's exact total and the unit it states it in. A set with no line has no
+   * footer, so its count is the whole answer. Read after `narrow`, which is what makes it the new set.
+   */
+  async kept(what: string): Promise<{ readonly shown: number; readonly total: string | null; readonly unit: string | null }> {
+    const shown = await this.shownLines();
+    if (shown === 0) return { shown, total: null, unit: null };
+    return {
+      shown,
+      total: await steadyAttribute(this.linesTotal, "data-value", `the footer's exact total (${what})`),
+      unit: await steadyText(this.linesTotal.getByTestId(TESTIDS.unit.badge), `the unit the footer states (${what})`),
+    };
   }
 
   /* --- what produced no line, and what a door answered --- */
