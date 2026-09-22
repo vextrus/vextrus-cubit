@@ -26,7 +26,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "vitest";
-import { goldenRows as goldenRowsOf } from "../../../golden/support/golden-fixture";
+import { goldenCellRows, goldenKindsOf, printingAllowanceOf, type GoldenCell } from "../../../golden/support/golden-fixture";
 import {
   COLUMN_C1,
   MEASURED,
@@ -1191,13 +1191,11 @@ export function fixtureSpelling(value: string): string {
  * golden's own words ("SLAB RCC_CONCRETE and SLAB FORMWORK"): the concrete kind carries the `RCC_`
  * prefix there and the formwork kind does not. The product publishes under the catalogue's kind and
  * the goldens are byte-frozen under AM-01, so the translation is the TEST's to carry and no lawful
- * product write could reconcile the two (arbitration on this file; the sibling frame stage spells the
- * same pair).
+ * product write could reconcile the two (arbitration on this file). It is carried ONCE, in the
+ * golden's own support (`PRODUCT_TO_GOLDEN_KIND`); this is these rails' slice of it, so the key set a
+ * suite iterates is still exactly these two.
  */
-export const GOLDEN_KIND: Readonly<Record<string, string>> = Object.freeze({
-  [RCC_CONCRETE]: "RCC_CONCRETE",
-  [RCC_FORMWORK]: "FORMWORK",
-});
+export const GOLDEN_KIND: Readonly<Record<string, string>> = goldenKindsOf([RCC_CONCRETE, RCC_FORMWORK]);
 
 /**
  * The golden's spelling of one product kind — refused where there is none.
@@ -1216,10 +1214,14 @@ export function goldenKind(kind: string): string {
   return String(spelling);
 }
 
+/** One (class, kind, level) of these rails, in the golden's own words: `slab` × `rcc.concrete` → SLAB × RCC_CONCRETE. */
+export function goldenCellOf(klass: string, kind: string, level: string): GoldenCell {
+  return { class: fixtureSpelling(klass), kind: goldenKind(kind), level };
+}
+
 /** Every golden row of one fixture at one (class, kind, level), over all of its components. */
 export function goldenRowsAt(fixtureId: string, klass: string, kind: string, level: string): { quantity: string; component?: string }[] {
-  const wanted = { class: fixtureSpelling(klass), kind: goldenKind(kind) };
-  return goldenRowsOf(fixtureId).filter((row) => row.class === wanted.class && row.kind === wanted.kind && row.level === level);
+  return goldenCellRows(fixtureId, goldenCellOf(klass, kind, level));
 }
 
 /** The exact sum of a fixture's golden quantities at one (class, kind, level) — G (L-QTY-06). */
@@ -1228,27 +1230,17 @@ export function goldenSum(fixtureId: string, klass: string, kind: string, level:
 }
 
 /**
- * How finely G may be compared with at all, on EITHER side.
+ * How finely G may be compared with at all, on EITHER side (test contract: `goldenPrintingAllowance`).
  *
- * A golden row is PUBLISHED rounded — `65.979`, never the exact figure the authored model computed —
- * so the takeoff L-QTY-06 names as the yardstick and the string the fixture stores differ by up to
- * half a unit in each row's own last printed place, in whichever direction that row's print rounded.
- * The band is therefore taken against the record plus and minus its own typography: a delta smaller
- * than the transcript's half-unit cannot be distinguished from the transcript's rounding, so it is not
- * over-measurement (arbitration on this file). Anything beyond it still is, and B-07 forbids the other
- * cure — the product's figures are never rounded to the golden's precision to make this pass. The
- * allowance is derived from the golden strings ALONE, never from the product's figures (L-QTY-06, "an
- * input may never be derived from the figure it is compared against"), and accumulates one half-unit
- * per contributing golden row, so a golden republished at more decimals tightens it by itself (B-19).
+ * The golden's own typography: one half-unit per contributing row, in that row's own last printed
+ * place, derived from the golden strings ALONE. The rule was arbitrated on this file, and since
+ * session 7 it lives in ONE home beside the golden reader (`printingAllowanceOf`,
+ * tests/golden/support/golden-fixture.ts) — the foundations', the masonry leaf's and the rebar column
+ * band's half-units and the M3 journey leg's band are that same figure. This keeps the contract's
+ * product spelling and hands the figure back through the canon it is compared in.
  */
 export function goldenPrintingAllowance(fixtureId: string, klass: string, kind: string, level: string, units: Canon): string {
-  return sumOf(
-    goldenRowsAt(fixtureId, klass, kind, level).map((row) => {
-      const dot = row.quantity.indexOf(".");
-      return shift("5", -((dot < 0 ? 0 : row.quantity.length - dot - 1) + 1));
-    }),
-    units,
-  );
+  return units.exact(printingAllowanceOf(goldenRowsAt(fixtureId, klass, kind, level))).toString();
 }
 
 /**

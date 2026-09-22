@@ -21,7 +21,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "vitest";
-import { goldenRows as goldenRowsOf, type GoldenRow } from "../../../../golden/support/golden-fixture";
+import { goldenKindsOf, goldenRows as goldenRowsOf, printingAllowanceOf, type GoldenRow } from "../../../../golden/support/golden-fixture";
 import { REPO_ROOT, productModule } from "../../../../server/support/wire";
 
 export { REPO_ROOT, productModule };
@@ -234,9 +234,13 @@ export const FACE_UNIT = "face";
 export const FLOOR_UNIT = "floor";
 export const MIX_UNIT = "mix";
 
-/** How the golden spells this leaf's class and kind (test contract). */
+/**
+ * How the golden spells this leaf's class and kind (test contract). The kind is this leaf's slice of
+ * the ONE correspondence (`PRODUCT_TO_GOLDEN_KIND`, the golden's own support), so no golden kind is
+ * spelled here and the key set is still exactly this leaf's one.
+ */
 export const GOLDEN_CLASS: Readonly<Record<string, string>> = Object.freeze({ [BRICK_WALL]: "BRICK_WALL" });
-export const GOLDEN_KIND: Readonly<Record<string, string>> = Object.freeze({ [MASONRY_BRICKWORK]: "BRICKWORK" });
+export const GOLDEN_KIND: Readonly<Record<string, string>> = goldenKindsOf([MASONRY_BRICKWORK]);
 
 /** The fixtures this leaf is graded against (test contract). */
 export const BNBC_FIXTURE = "rcc6-bnbc";
@@ -918,13 +922,13 @@ export function goldenBrickworkRows(fixtureId: string = BNBC_FIXTURE): GoldenRow
  *
  * A golden row is a PRINTED figure. L-QTY-06's yardstick is the TAKEOFF the independent model
  * measured, not the string a fixture rounds it to (the reading settled at inc-307), so the over arm
- * of the band is judged against the printed figure plus that half unit.
+ * of the band is judged against the printed figure plus that half unit — the ONE printing allowance
+ * (`printingAllowanceOf`, the golden's own support), taken over this one row.
  */
 export function goldenFigure(row: GoldenRow, exact: (value: string) => DecimalLike): { printed: DecimalLike; halfUlp: DecimalLike; said: string } {
-  const places = (row.quantity.split(".")[1] ?? "").length;
   return {
     printed: exact(row.quantity),
-    halfUlp: exact(places === 0 ? "0.5" : `0.${"0".repeat(places)}5`),
+    halfUlp: exact(printingAllowanceOf([row])),
     said: `${row.quantity} ${row.unit}`,
   };
 }

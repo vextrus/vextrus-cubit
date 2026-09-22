@@ -71,6 +71,94 @@ export function goldenRows(fixtureId: string = DEFAULT_GOLDEN_FIXTURE): GoldenRo
   return goldenDocument(fixtureId).rows;
 }
 
+/* ------------------------------------------------------------ the product's kinds, in the golden's words */
+
+/**
+ * How a golden takeoff spells each KIND the product publishes under — the ONE correspondence.
+ *
+ * The two vocabularies are not one transliteration apart. AC-7 wrote the pair out itself — "kind
+ * RCC_CONCRETE ↔ rcc.concrete, FORMWORK ↔ rcc.formwork" — so the concrete kind carries `RCC_` in the
+ * golden and the formwork kind does not, and a pile is COUNTED under `piling.bored` (PILE_COUNT) and
+ * BORED under `piling.boring` (PILE_LENGTH). The product publishes under the catalogue's kind and the
+ * goldens are byte-frozen under AM-01, so the translation is the tests' to carry, and it is carried
+ * here once: four suites and the M3 journey leg each spelled their own slice of it until session 7.
+ * A suite that wants only its own kinds takes its slice through `goldenKindsOf`, so the key set it
+ * iterates is still exactly its own.
+ */
+export const PRODUCT_TO_GOLDEN_KIND: Readonly<Record<string, string>> = Object.freeze({
+  "rcc.concrete": "RCC_CONCRETE",
+  "rcc.formwork": "FORMWORK",
+  "rcc.rebar": "REBAR",
+  "masonry.brickwork": "BRICKWORK",
+  "earthwork.excavation": "EXCAVATION",
+  "pcc.blinding": "BLINDING",
+  "piling.bored": "PILE_COUNT",
+  "piling.boring": "PILE_LENGTH",
+});
+
+/**
+ * The golden's spelling of one product kind — refused by name where there is none. A kind with no
+ * golden spelling has no golden rows, and a band taken against no rows is no band at all: G collapses
+ * to zero and "three per cent under, never over" degenerates into "publish nothing here".
+ */
+export function goldenKindOf(kind: string): string {
+  const spelling = PRODUCT_TO_GOLDEN_KIND[kind];
+  assert.ok(spelling !== undefined, `the golden spells no product kind ${kind} — a kind with no golden spelling has no yardstick, and an empty row set is not one (L-QTY-06)`);
+  return spelling;
+}
+
+/** A suite's own slice of the one correspondence: exactly these product kinds, each in the golden's words. */
+export function goldenKindsOf(kinds: readonly string[]): Readonly<Record<string, string>> {
+  return Object.freeze(Object.fromEntries(kinds.map((kind) => [kind, goldenKindOf(kind)])));
+}
+
+/* ------------------------------------------------------------------ the golden's own typography */
+
+/** One cell of a golden takeoff, in the golden's own spelling: `COLUMN × RCC_CONCRETE × GF`. */
+export type GoldenCell = { readonly class: string; readonly kind: string; readonly level: string };
+
+/** Every golden row of one fixture standing in one (class, kind, level) cell, over all its components. */
+export function goldenCellRows(fixtureId: string, cell: GoldenCell): GoldenRow[] {
+  return goldenRows(fixtureId).filter((row) => row.class === cell.class && row.kind === cell.kind && row.level === cell.level);
+}
+
+/**
+ * HOW FINELY A GOLDEN FIGURE MAY BE COMPARED WITH AT ALL — the printing allowance, in its one home.
+ *
+ * A golden row is PUBLISHED rounded — `16.828`, never the exact figure the authored model computed —
+ * so the takeoff L-QTY-06 names as the yardstick and the string the fixture stores differ by up to
+ * half a unit in each row's own last printed place, in whichever direction that row's print rounded.
+ * A band is therefore taken against the record plus and minus its own typography: a delta smaller than
+ * the transcript's half-unit cannot be told from the transcript's rounding, so it is not
+ * over-measurement (the arbitration recorded at tests/takeoff/rails/support/slab-wall-stair-stage.ts's
+ * `insideBand`). Anything beyond it still is, and B-07 forbids the other cure — the product's figures
+ * are never rounded to the golden's precision to make a band pass.
+ *
+ * Derived from the golden strings ALONE, never from the product's figures (L-QTY-06: "an input may
+ * never be derived from the figure it is compared against"), and accumulated as one half-unit per
+ * contributing row, each in THAT row's own last printed place — so a golden republished at more
+ * decimals tightens it by itself (B-19). Answered as an exact decimal string, summed in integers of
+ * the finest place, so no reader of it is handed a float.
+ */
+export function printingAllowanceOf(rows: readonly { readonly quantity: string }[]): string {
+  if (rows.length === 0) return "0";
+  const places = rows.map((row) => {
+    const dot = row.quantity.indexOf(".");
+    return dot < 0 ? 0 : row.quantity.length - dot - 1;
+  });
+  // Every half-unit counted in units of the finest place any row prints to, plus one: `16.828`'s
+  // half-unit is 5 × 10⁻⁴, and at a scale of four places it is the integer 5.
+  const scale = Math.max(...places) + 1;
+  const units = places.reduce((sum, printed) => sum + 5n * 10n ** BigInt(scale - printed - 1), 0n);
+  const digits = units.toString().padStart(scale + 1, "0");
+  return `${digits.slice(0, digits.length - scale)}.${digits.slice(digits.length - scale)}`;
+}
+
+/** The printing allowance of one fixture's golden cell: one half-unit per row standing in it. */
+export function goldenCellAllowance(fixtureId: string, cell: GoldenCell): string {
+  return printingAllowanceOf(goldenCellRows(fixtureId, cell));
+}
+
 /* ------------------------------------------------------------------ the bar schedule beside it */
 
 /** Where a fixture keeps its golden bar schedule: `fixtures/<id>/bbs.golden.json` (AM-01). */

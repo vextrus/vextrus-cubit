@@ -19,6 +19,7 @@
  * An over-measured figure would never be a disclosure — that is why the band's upper arm is zero.
  */
 import { afterAll, describe, expect, test } from "vitest";
+import { printingAllowanceOf } from "../../../golden/support/golden-fixture";
 import {
   BNBC_FIXTURE_ID,
   BNBC_MODEL,
@@ -101,10 +102,12 @@ function goldenCells(): GoldenRow[] {
   );
 }
 
-/** How far a golden figure printed to three places may lie from the number it was printed from. */
+/**
+ * How far a golden figure printed to three places may lie from the number it was printed from: the
+ * ONE printing allowance (`printingAllowanceOf`, the golden's own support), taken over this one cell.
+ */
 function halfUlp(exact: (value: string) => DecimalLike, printed: string): DecimalLike {
-  const places = printed.includes(".") ? printed.split(".")[1]?.length ?? 0 : 0;
-  return exact(`5e-${places + 1}`);
+  return exact(printingAllowanceOf([{ quantity: printed }]));
 }
 
 describe("AC-8: F-RCC6-BNBC's column main bars stand inside L-QTY-06's band", () => {

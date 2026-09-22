@@ -21,7 +21,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "vitest";
-import { goldenRows as goldenRowsOf, type GoldenRow } from "../../../../golden/support/golden-fixture";
+import { goldenKindsOf, goldenRows as goldenRowsOf, printingAllowanceOf, type GoldenRow } from "../../../../golden/support/golden-fixture";
 import { REPO_ROOT, productModule } from "../../../../server/support/wire";
 
 export { REPO_ROOT, productModule };
@@ -190,14 +190,12 @@ export const MILLIMETRE_SQUARED = "mm2";
 /** The unit a count is read in — the canon's canonical unit of the COUNT dimension. */
 export const PIECES = "pcs";
 
-/** How the golden spells this leaf's kinds and classes (test contract). */
-export const GOLDEN_KIND: Readonly<Record<string, string>> = Object.freeze({
-  [RCC_CONCRETE]: "RCC_CONCRETE",
-  [PILING_BORED]: "PILE_COUNT",
-  [PILING_BORING]: "PILE_LENGTH",
-  [EARTHWORK_EXCAVATION]: "EXCAVATION",
-  [PCC_BLINDING]: "BLINDING",
-});
+/**
+ * How the golden spells this leaf's kinds and classes (test contract). The kinds are this leaf's
+ * slice of the ONE correspondence (`PRODUCT_TO_GOLDEN_KIND`, the golden's own support), so the key
+ * set is still exactly these five and no spelling of a golden kind stands here.
+ */
+export const GOLDEN_KIND: Readonly<Record<string, string>> = goldenKindsOf([RCC_CONCRETE, PILING_BORED, PILING_BORING, EARTHWORK_EXCAVATION, PCC_BLINDING]);
 export const GOLDEN_CLASS: Readonly<Record<string, string>> = Object.freeze({ [FOOTING]: "FOOTING", [PILE_CAP]: "PILE_CAP", [PILE]: "PILE" });
 export const GOLDEN_LEVEL: Readonly<Record<string, string>> = Object.freeze({ [FOOTING]: "FDN", [PILE_CAP]: "FDN", [PILE]: "PILE" });
 
@@ -730,18 +728,15 @@ export function goldenCell(fixtureId: string, cell: { class: string; kind: strin
  * A golden row is a PRINTED figure. L-QTY-06's yardstick is the TAKEOFF the independent model
  * measured, not the string a fixture rounds it to (the reading settled on adjacent ground at
  * inc-307), so the over arm of the band is judged against the printed figure plus that half unit —
- * an equality the file could not print exactly is not an over-measurement.
+ * an equality the file could not print exactly is not an over-measurement. The half unit is the ONE
+ * printing allowance (`printingAllowanceOf`, the golden's own support): one half-unit per row, each in
+ * that row's own last printed place.
  */
 export function goldenFigure(rows: readonly GoldenRow[], exact: (value: string) => DecimalLike): { printed: DecimalLike; halfUlp: DecimalLike; said: string } {
   expect(rows.length, "the golden carries this cell — a cell it does not carry is not a cell to reconcile").toBeGreaterThan(0);
   let printed = exact("0");
-  let places = 0;
-  for (const row of rows) {
-    printed = printed.add(exact(row.quantity));
-    places = Math.max(places, (row.quantity.split(".")[1] ?? "").length);
-  }
-  const halfUlp = exact(places === 0 ? "0.5" : `0.${"0".repeat(places)}5`).mul(exact(String(rows.length)));
-  return { printed, halfUlp, said: rows.map((row) => `${row.quantity} ${row.unit}`).join(" + ") };
+  for (const row of rows) printed = printed.add(exact(row.quantity));
+  return { printed, halfUlp: exact(printingAllowanceOf(rows)), said: rows.map((row) => `${row.quantity} ${row.unit}`).join(" + ") };
 }
 
 /** How a cell is keyed: the product's own class and kind spellings, joined (test contract). */

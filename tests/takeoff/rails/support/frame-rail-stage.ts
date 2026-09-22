@@ -28,7 +28,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect } from "vitest";
-import { goldenRows } from "../../../golden/support/golden-fixture";
+import { goldenKindOf, goldenRows } from "../../../golden/support/golden-fixture";
 import { REPO_ROOT, productModule } from "../../../server/support/wire";
 
 export { REPO_ROOT, goldenRows, productModule };
@@ -156,11 +156,14 @@ export const VECTOR = "VECTOR";
 /** L-QTY-06's band: three per cent under a competent manual takeoff, and never a unit over. */
 export const UNDER_TOLERANCE = "0.97";
 
-/** How the golden spells the two frame classes and the two kinds (test contract). */
+/**
+ * How the golden spells the two frame classes and the two kinds (test contract). The kinds are read
+ * from the ONE correspondence (`goldenKindOf`, the golden's own support) rather than spelled again.
+ */
 export const GOLDEN_BEAM = "BEAM";
 export const GOLDEN_TIE_BEAM = "TIE_BEAM";
-export const GOLDEN_CONCRETE = "RCC_CONCRETE";
-export const GOLDEN_FORMWORK = "FORMWORK";
+export const GOLDEN_CONCRETE = goldenKindOf(RCC_CONCRETE);
+export const GOLDEN_FORMWORK = goldenKindOf(RCC_FORMWORK);
 
 /** The label a line whose register object stands on no level is grouped under (test contract). */
 export const FOUNDATION_LABEL = "FDN";
