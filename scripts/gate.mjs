@@ -5,13 +5,28 @@
 //
 //   pnpm gate                      every lane, in the order below
 //   pnpm gate --only verify,e2e    a subset, in the same order
-//   pnpm gate --out <dir>          where the logs go (default test-results/gate)
+//   pnpm gate --out <dir>          where the logs go (default node_modules/.cache/cubit/gate)
 //
 // The lanes and their order (docs/handoff/fable-5.1-session-3.md § 5): verify → checkup → golden →
 // db → e2e → e2e J-000 → perf. The e2e lanes serve the product on port 3211; the db lane is refused
 // while anything holds 3210 or 3211, because a served product and the lane's template copies share
 // one cluster (V-DB). A red lane does not stop the chain — the session wants every verdict — but the
 // exit code is the first red's.
+//
+// THE LOGS SURVIVE THE GATE (docs/handoff/fable-5.1-session-4.md § 7 item 6, C-06). They were
+// written under `test-results/gate/`, the directory the e2e lanes that follow clean: by the time the
+// gate printed its summary the verify, checkup, golden and db logs that summary cites were gone, and
+// a red db lane had to be run again alone to be read at all. The default is now the tree's own cache
+// home, `node_modules/.cache/cubit/gate` (beside cad-regeneration.json) — git-ignored, and no lane
+// cleans it — so every lane's log is still there when the summary names it. `--out` still overrides,
+// and the GATE lines still print each log's path exactly as they did.
+//
+// THE e2e LANE IS THE REGRESSION SWEEP; THE GOLDEN PATH IS THE e2e-j000 LANE'S (§ 7 item 8,
+// AM-10 §1). The plain lane selected every spec, J-000's legs among them, and `e2e-j000` then walked
+// J-000 a second time: 1,263 s at four workers against V-E2E's 12 min ceiling, which AM-10 §1 calls a
+// defect with an owner rather than a new normal. `pnpm e2e` with no journey named now excludes J-000
+// (scripts/e2e.mjs), so each journey is walked exactly once per gate and the golden path is answered
+// for by the lane whose roster it is.
 //
 // Session 3 ran these seven by hand, one background command at a time, and read each log by hand;
 // the order and the port discipline are the part worth keeping (C-06).
@@ -34,6 +49,13 @@ export const GATE_LANES = Object.freeze([
   { id: "e2e-j000", argv: ["pnpm", "e2e", "--journeys", "J-000"], verdicts: /(^\s+✘|passed|failed|skipped|JOURNEY|e2e exit|wall-time)/, servesProduct: true },
   { id: "perf", argv: ["pnpm", "test:perf"], verdicts: /(^\s+[✓✘]|passed|failed|e2e exit|wall-time|test:perf exit)/, servesProduct: true },
 ]);
+
+/**
+ * Where the logs go when `--out` names nowhere: the tree's own cache home, which is git-ignored and
+ * which NO lane cleans — `pnpm e2e:clean` takes test-results/, playwright-report/, blob-report/ and
+ * .vitest-reports/, and the e2e lanes take test-results/ as they start (§ 7 item 6).
+ */
+export const DEFAULT_LOG_DIR = join("node_modules", ".cache", "cubit", "gate");
 
 /** The ports a served product holds (scripts/lib/ports.mjs): the dev lane's and the journeys'. */
 export const SERVED_PORTS = Object.freeze([3210, 3211]);
@@ -70,9 +92,10 @@ export function selectLanes(roster, only) {
  */
 export function runLane(lane, io) {
   return new Promise((resolveExit) => {
-    // The e2e lanes clean test-results/, the directory the logs live under, so the directory is made
-    // again before every lane's log is opened — a lane that follows an e2e lane once crashed here on
-    // ENOENT and took the gate down with it (session 4).
+    // The log directory is made again before every lane's log is opened: the default one is outside
+    // anything a lane cleans, but `--out test-results/…` is still a lawful ask and the e2e lanes
+    // clean that tree as they start — a lane that followed an e2e lane once crashed here on ENOENT
+    // and took the gate down with it (session 4).
     mkdirSync(io.logDir, { recursive: true });
     const log = createWriteStream(join(io.logDir, `${lane.id}.log`));
     const [command, ...args] = lane.argv;
@@ -108,7 +131,7 @@ export async function gate(options = {}) {
   const write = options.write ?? ((line) => process.stdout.write(line));
   const run = options.run ?? runLane;
   const ports = options.ports ?? heldPorts;
-  const logDir = resolve(ROOT, options.out ?? join("test-results", "gate"));
+  const logDir = resolve(ROOT, options.out ?? DEFAULT_LOG_DIR);
   mkdirSync(logDir, { recursive: true });
   const lanes = selectLanes(GATE_LANES, options.only);
   const startedAt = Date.now();

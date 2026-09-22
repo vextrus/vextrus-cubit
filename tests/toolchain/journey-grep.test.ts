@@ -11,7 +11,7 @@
 // what that grep selected.
 import { describe, expect, test } from "vitest";
 import { journeyWorkers } from "../../scripts/lib/box.mjs";
-import { grepFor, readWorkers } from "../../scripts/e2e.mjs";
+import { grepFor, readJourneys, readWorkers, sweepGrepInvert } from "../../scripts/e2e.mjs";
 import JourneyReporter from "../../tests/e2e/support/journey-reporter";
 
 /** The two journeys a bare substring cannot tell apart. */
@@ -87,6 +87,38 @@ describe("a journey id is a whole token, at both ends of the run", () => {
     expect(verdictsFor(["J-001"], [{ title: "the sign-in page refuses a bad password", file: "tests/e2e/journeys/j-001-auth.spec.ts", status: "failed" }])).toEqual(["JOURNEY J-001 red workers=1"]);
     // And a sibling's GREEN is not a pass for a journey nothing ran: silence stays red (V-E2E).
     expect(verdictsFor(["J-001"], [{ title: "a much later journey", file: "tests/e2e/journeys/j-0010-later.spec.ts", status: "passed" }])).toEqual(["JOURNEY J-001 red workers=1"]);
+  });
+});
+
+describe("a bare `pnpm e2e` is the regression sweep, and the golden path is the e2e-j000 lane's", () => {
+  // Handoff § 7 item 8, AM-10 §1: the sweep collected every spec, J-000's legs among them, and the
+  // gate's e2e-j000 lane then walked J-000 again — 1260 s at four workers against a 12 min ceiling.
+  // With no journey named the runner now inverts J-000 as well as PERF-, and each journey is walked
+  // exactly once per gate.
+  const inverted = new RegExp(sweepGrepInvert());
+
+  test("the sweep's grep-invert drops J-000's legs and the perf specs", () => {
+    expect(inverted.test("J-000 m3-bill-and-schedules: the structural campaign is measured on F-RCC6-BNBC"), "a J-000 leg is still swept").toBe(true);
+    expect(inverted.test("chromium tests/e2e/journeys/j-000/m0-smoke.spec.ts J-000 — Golden Path smoke J-000: the product shell renders at /")).toBe(true);
+    expect(inverted.test("PERF-011: the viewer opens a 100k sheet within budget"), "a PB budget is asserted beside ten journeys (AM-10 §3)").toBe(true);
+  });
+
+  test("the sweep still walks every other journey, and J-000's id is a whole token there too", () => {
+    expect(inverted.test(TITLES[0]), "an ordinary journey was dropped from the sweep that exists to walk it").toBe(false);
+    expect(inverted.test("J-003 the third journey")).toBe(false);
+    expect(inverted.test("J-0001 a much later journey walks"), "a sibling id is not J-000").toBe(false);
+    expect(inverted.test("J-000a the split-out golden leg"), "a sibling id is not J-000").toBe(false);
+  });
+
+  test("--journeys J-000 still selects the golden path, with a spec path beside it or without", () => {
+    const leg = "tests/e2e/journeys/j-000/m3-bill-and-schedules.spec.ts";
+    const { journeys, passthrough } = readJourneys(["--journeys", "J-000", leg]);
+    expect(journeys, "the gate's e2e-j000 lane asks for the golden path by name").toEqual(["J-000"]);
+    expect(passthrough, "a spec path is passed to Playwright untouched").toEqual([leg]);
+
+    const selects = new RegExp(String(grepFor(journeys)));
+    expect(selects.test("J-000 m3-bill-and-schedules: the structural campaign is measured on F-RCC6-BNBC")).toBe(true);
+    expect(selects.test(TITLES[0]), "the ask for one journey selected another").toBe(false);
   });
 });
 

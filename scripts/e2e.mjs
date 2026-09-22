@@ -2,6 +2,17 @@
 // The journey runner. Its roster is derived like every other stage's (ARCH-02): with no journey
 // inputs in the tree it records `SKIP e2e missing=tests/e2e` and the gate's journey line is green
 // and honest; the moment tests/e2e exists the skip is gone and Playwright runs (C-06, B-22, B-23).
+//
+// A BARE `pnpm e2e` IS THE REGRESSION SWEEP, AND THE GOLDEN PATH IS THE e2e-j000 LANE'S (C-06,
+// AM-10 §1, docs/handoff/fable-5.1-session-4.md § 7 item 8). The bare invocation selected every
+// spec, J-000's legs among them, and the gate's `e2e-j000` lane then walked J-000 again alone: with
+// the M3 leg among them the sweep stood at 1,263 s at four workers against V-E2E's 12 min ceiling,
+// and AM-10 §1 calls a lane over its ceiling a defect with an owner, not a new normal. The reading:
+// the plain lane is the REGRESSION sweep and the golden path belongs to the lane whose roster it is,
+// so with no journey named this runner inverts J-000 as well as PERF- and each journey is walked
+// exactly once per gate. J-000 is still asked for by name — `pnpm e2e --journeys J-000`, with or
+// without a spec path beside it — which is how the gate's e2e-j000 lane and every hand-run leg ask
+// for it. Nothing about `--journeys` changed; only what "everything" means when nothing is named.
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { journeyWorkers } from "./lib/box.mjs";
@@ -71,6 +82,31 @@ export function grepFor(journeys) {
     return /[0-9A-Za-z]$/.test(name) ? `${escaped}(?![0-9A-Za-z])` : escaped;
   });
   return `(?:^|[^A-Za-z0-9-])(?:${names.join("|")})`;
+}
+
+/**
+ * WHAT A SWEEP THAT NAMES NO JOURNEY LEAVES TO THE LANE THAT OWNS IT.
+ *
+ * PERF- (AM-10 §3-§4): a PB budget is asserted only in a PERF- spec, and V-PERF's verdict is
+ * RECORDED and read, never re-measured beside other work. Run beside ten journeys and two other
+ * heavy lanes the perf specs measure the box's load, not the product — PERF-011's median came in at
+ * 16.7999 ms against a 16.75 ms ceiling on one sweep of five and was green on the other four. The
+ * perf lane is asked for by name, `pnpm test:perf`, which is `--journey PERF-`.
+ *
+ * J-000 (AM-10 §1, handoff § 7 item 8): the golden path is the `e2e-j000` lane's roster, and the
+ * gate walked it twice — once inside the sweep and once alone — which put the sweep over V-E2E's
+ * ceiling. Excluding it here walks every journey exactly once per gate, and `--journeys J-000` still
+ * selects it.
+ */
+export const SWEEP_EXCLUDES = Object.freeze(["PERF-", "J-000"]);
+
+/**
+ * The one `--grep-invert` a bare `pnpm e2e` carries — the same whole-token grammar as `grepFor`,
+ * read the other way round, so `J-000` excludes J-000's legs and not J-0001's or J-000a's.
+ * @returns {string}
+ */
+export function sweepGrepInvert() {
+  return grepFor(SWEEP_EXCLUDES) ?? "";
 }
 
 /**
@@ -145,13 +181,10 @@ if (isEntryPoint()) {
   if (announce(stage)) {
     const argv = ["node", "node_modules/@playwright/test/cli.js", "test", ...passthrough];
     if (grep !== null) argv.push("--grep", grep);
-    // AM-10 §3-§4: a PB budget is asserted only in a PERF- spec, and V-PERF's verdict is RECORDED
-    // and read, never re-measured beside other work. The regression sweep — `pnpm e2e` with no
-    // journey named — therefore does not collect the perf specs: run beside ten journeys and two
-    // other heavy lanes they measure the box's load, not the product (PERF-011's median came in at
-    // 16.7999 ms against a 16.75 ms ceiling on one sweep of five and was green on the other four).
-    // The perf lane is asked for by name, `pnpm test:perf`, which is `--journey PERF-`.
-    else argv.push("--grep-invert", "PERF-");
+    // No journey named is the REGRESSION SWEEP: everything except what another lane owns and
+    // answers for by name — the perf specs (`pnpm test:perf`) and the golden path (the gate's
+    // `e2e-j000` lane). SWEEP_EXCLUDES above records why each is left to its own lane.
+    else argv.push("--grep-invert", sweepGrepInvert());
     // The journeys asked for are named to the reporter, which answers for each of them by name —
     // one exit code cannot say WHICH journey was red (tests/e2e/support/journey-reporter.ts).
     // The two spellings agree from here on: the config reads the env, the reporter prints it, and
@@ -160,6 +193,10 @@ if (isEntryPoint()) {
     if (failed !== 0) process.stdout.write(`FAIL e2e exit=${failed}\n`);
   }
 
-  process.stdout.write(`e2e${journeys.length === 0 ? "" : ` ${journeys.join(",")}`} workers=${asked.workers} wall-time ${wallTime(startedAt)}\n`);
+  // The line says WHICH run this was: a sweep names what it left to another lane, so a 12-minute
+  // wall time is read against the right roster (AM-10 §1). The shape the gate's verdict regex reads
+  // — `e2e … workers=N wall-time …` — is unchanged.
+  const which = journeys.length === 0 ? " (regression sweep, J-000 excluded)" : ` ${journeys.join(",")}`;
+  process.stdout.write(`e2e${which} workers=${asked.workers} wall-time ${wallTime(startedAt)}\n`);
   process.exit(failed);
 }
