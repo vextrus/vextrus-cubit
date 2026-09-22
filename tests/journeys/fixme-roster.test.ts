@@ -30,12 +30,10 @@ const ROSTER: Readonly<Record<string, Readonly<Record<string, string>>>> = {
       "with motion in force a Reveal's arrival paints no frame a screenshot can see between `data-flyto=settled` and stillness — paint vs WebGL compositing, which this journey's node cannot own (R-UI-022, docs/design/viewer.md §4; the restore recipe is at the foot of the file)",
   },
   "tests/e2e/journeys/j-000/m3-bill-and-schedules.spec.ts": {
-    "MISSING DOOR: J-000 m3-bill-and-schedules: the structural campaign is measured on F-RCC6-BNBC and the register is reviewed":
-      "the partition reads no caption for F-RCC6-BNBC's column layout plan — named only by its paper-space viewport title (S-10) — and its grid bubbles as no axis, so the campaign places nothing; owner: the partition's viewport-caption door (R-TO-030, L-CAD-06/07)",
     "MISSING DOOR: J-000 m3-bill-and-schedules: the unpriced BOQ is emitted as DRAFT — UNSIGNED, the XLSX is opened, and the takeoff is read against the golden":
-      "the same door: with nothing placed there is no line to bill, no draft to open and no cell to hold against takeoff.golden.json (R-TO-030, L-QTY-06)",
+      "the golden band (L-QTY-06: 3 % under, 0 % over) refuses the column concrete the campaign publishes: C7 '%%C450 PORCH COLUMN' is a circular section the product measures as a 450 × 450 prism (T-NOT-PCTC; the notation grammar's and the frame rail's door), and a plan member's own storey range — 'C5 … (STARTS AT 1F)', the porch column on GF alone — is not a reading the expansion makes (the placement stage's door); session 5's M3 run 11 names the seven cells",
     "MISSING DOOR: J-000 m3-bill-and-schedules: the bar schedule is emitted as DRAFT — UNSIGNED and read against the golden":
-      "the same door: the rebar rail reads columns and shear walls, and none is placed until the column layout plan has a caption the partition can read (R-TO-030, R-TO-054)",
+      "the same campaign's rebar lines stand PARTIAL_DECLARED under REBAR_SCHEDULE_UNREAD on every column, and the two doors the BOQ leg names stand in front of this one too (session 5)",
   },
   "tests/e2e/journeys/j-000/m4-sheet-and-manual-measure.spec.ts": {
     "J-000 m4-sheet-and-manual-measure: a PDF sheet ingested and corroborated, a manual condition measured, rooms and finishes taken, and a question asked of the drawings":

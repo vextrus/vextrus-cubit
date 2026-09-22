@@ -55,7 +55,8 @@ import { STakeoffPage } from "../../pages/s-takeoff.page";
 import { ShellPage, SHELL } from "../../pages/shell.page";
 import { newestMail } from "../../support/outbox";
 import { startJourneyWorker, type JourneyWorker } from "../../support/worker";
-import { appears, everyRow, heldAttribute, steadyText } from "../../support/retrying-read";
+import { appears, everyAttribute, everyRow, heldAttribute, steadyText } from "../../support/retrying-read";
+import { settled } from "../../support/settled";
 import { SViewerPage, VIEWER_BUDGETS } from "../../viewer/s-viewer.page";
 import { TESTIDS, testIdSelector } from "../../../../src/ui/testids";
 
@@ -670,10 +671,21 @@ async function affirmScalesOnEverySheet(page: Page, tenantId: string, projectId:
     await drawings.cell(drawings.cards.nth(index), S_DRAWINGS.open).click();
     await expect(viewer.status, "the sheet paints").toHaveAttribute("data-first-paint", "true", { timeout: 60_000 });
     await scale.open();
-    const rows = await everyRow(scale.rows, "the scale panel's view rows", { min: 0 });
+    // Three settled readings of the whole list, never a wait per row (viewer.md "View rows"): each
+    // row's `data-state` (`affirmed`, or the absence code verbatim — a row that proposes and stands
+    // unaffirmed carries the absence code too, because no scale of record stands on it yet), each
+    // row's view key, and the view keys of the rows that hold a proposal (every proposal's own row:
+    // the nearest ancestor keyed by a view). The panel lists the whole record's views on every sheet
+    // (54 on the M3 drawing, 10 of them proposing), so a two-second `appears` wait on every refused
+    // row, sheet after sheet, cost 1,368 of a 1,800 s budget before this read was made — the leg
+    // timed out in this loop.
+    const states = await everyAttribute(scale.rows, "data-state", "the scale panel's view states", { min: 0 });
+    const keys = await everyAttribute(scale.rows, "data-view-key", "the scale panel's view keys", { min: 0 });
+    const proposing = new Set(await everyAttribute(scale.proposals.locator("xpath=ancestor::*[@data-view-key][1]"), "data-view-key", "the rows that propose a scale", { min: 0 }));
     let checked = 0;
-    for (const row of rows) {
-      if ((await heldAttribute(row, "data-state")) === "affirmed") continue;
+    for (const [at, state] of states.entries()) {
+      if (state === "affirmed" || !proposing.has(keys[at] ?? "")) continue;
+      const row = scale.rows.nth(at);
       const proposal = row.getByTestId(TESTIDS.viewer.scaleProposal).first();
       if (!(await appears(proposal))) continue;
       await proposal.click();
@@ -732,10 +744,16 @@ async function transcribeStack(page: Page, tenantId: string, projectId: string):
   }
 }
 
-/** The typical ranges the sheets state, authored on the rail's own rows for the views whose captions state none. */
-async function authorTypicalRanges(page: Page, tenantId: string, projectId: string): Promise<void> {
+/**
+ * The typical ranges the sheets state, authored on the rail's own rows for the views whose captions
+ * state none — and the rail is the CAMPAIGN's index (s-levels I-240): a view is listed there only
+ * once a measure run has read the pinned revision and deferred its expansion, so this is walked
+ * after the first run, never before it. Answers how many ranges it stated.
+ */
+async function authorTypicalRanges(page: Page, tenantId: string, projectId: string): Promise<number> {
   const levels = new SLevelsPage(page);
   await levels.open(tenantId, projectId);
+  let authored = 0;
   for (const range of BNBC_TYPICAL_RANGES) {
     const row = levels.rangeRows.filter({ hasText: range.caption }).first();
     if (!(await appears(row, 5_000))) {
@@ -745,7 +763,9 @@ async function authorTypicalRanges(page: Page, tenantId: string, projectId: stri
     await levels.authorRange(row, range.from, range.to);
     await levels.confirmAct();
     await expect(row, `the range ${range.from}–${range.to} authored for "${range.caption}" takes the row off the rail`).toHaveCount(0, { timeout: 60_000 });
+    authored += 1;
   }
+  return authored;
 }
 
 /** The general notes, transcribed sheet by sheet as J-032 transcribes them: the grammar's proposals, taken as proposed. */
@@ -766,27 +786,63 @@ async function transcribeNotes(page: Page, tenantId: string, projectId: string):
   }
 }
 
-/** Affirm, transcribe, author, transcribe: the M3 campaign walked to the point Measure can be pressed. */
+/**
+ * THE CAP ON ONE ACTION OF THE M3 STAGING. The lane sets no action or navigation timeout, so a
+ * tab whose main thread stops answering holds a step for the leg's whole budget with nothing
+ * named (runs 6 and 7 of session 5: twenty-five minutes on a page that had answered every request
+ * in a tenth of a second). A step that takes a minute is a defect with a cause, and the cap makes
+ * it red in a minute with the action's own name. An expectation that lawfully waits longer — the
+ * measure run's `BNBC_READING_BUDGET_MS` — states its own timeout and is not capped by this.
+ */
+const M3_ACTION_CAP_MS = 60_000;
+
+/** Every action and navigation of this page from here on is capped; a longer wait states its own. */
+function capActions(page: Page): void {
+  page.setDefaultTimeout(M3_ACTION_CAP_MS);
+  page.setDefaultNavigationTimeout(M3_ACTION_CAP_MS);
+}
+
+/** Affirm, transcribe, transcribe: the M3 campaign walked to the point Measure can be pressed. */
 async function transcribeBnbc(page: Page, run: BnbcGoldenRun): Promise<void> {
   await goldenWorker();
+  capActions(page);
   const { tenantId } = run;
   const { projectId } = run.bnbc;
   await affirmScalesOnEverySheet(page, tenantId, projectId);
   await transcribeStack(page, tenantId, projectId);
-  await authorTypicalRanges(page, tenantId, projectId);
   await transcribeNotes(page, tenantId, projectId);
 }
 
-/** Measure: the transcribed M3 campaign walked to its first measure run and a register that counts lines. */
-async function measureBnbc(page: Page, run: BnbcGoldenRun): Promise<void> {
-  await goldenWorker();
+/** One press of Measure, watched to its end: the run succeeds and the register counts lines. */
+async function pressMeasure(page: Page, tenantId: string, projectId: string): Promise<void> {
   const takeoff = new STakeoffPage(page);
-  const { tenantId } = run;
-  const { projectId } = run.bnbc;
-
   await takeoff.open(tenantId, projectId);
+  // The screen is settled before the door is pressed: a press that lands on a button the screen has
+  // not hydrated yet is swallowed, and the run then waits its whole budget for a run nobody started
+  // (run 6 of the M3 leg: twenty minutes on two 600 s waits with no job in the queue).
+  await settled(page);
   await takeoff.measure.click();
   await expect(takeoff.timeline, "the run is watched where it was started (R-UI-024)").toBeVisible();
+  // The tracked timeline holds only the runs THIS screen session started, so a step standing here
+  // is the press's own run; a press that started none is red here, in seconds, not at the budget.
+  await expect(takeoff.measureStep, "the press started a run this screen follows").toHaveAttribute("data-status", /queued|running|succeeded/, { timeout: 30_000 });
   await expect(takeoff.measureStep, "the measure run finishes").toHaveAttribute("data-status", "succeeded", { timeout: BNBC_READING_BUDGET_MS });
   await expect(takeoff.linesCount, "and the register counts the lines the rails published").not.toHaveText(NO_LINES, { timeout: BNBC_READING_BUDGET_MS });
+}
+
+/**
+ * Measure: the transcribed M3 campaign walked to a register that counts lines. The first run reads
+ * the pinned revision and defers the expansion of every plan whose caption states no typical range
+ * (TYPICAL_RANGE_UNSTATED); the levels rail then lists those views — it is the campaign's index,
+ * not the drawing's (s-levels I-240) — a person states the ranges the sheets carry, and the
+ * campaign is measured again over the storeys they name. Exactly what a customer does.
+ */
+async function measureBnbc(page: Page, run: BnbcGoldenRun): Promise<void> {
+  await goldenWorker();
+  capActions(page);
+  const { tenantId } = run;
+  const { projectId } = run.bnbc;
+  await pressMeasure(page, tenantId, projectId);
+  const authored = await authorTypicalRanges(page, tenantId, projectId);
+  if (authored > 0) await pressMeasure(page, tenantId, projectId);
 }
