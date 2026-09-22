@@ -12,6 +12,8 @@
  * line, and the roster is asserted from BOTH sides — an unlisted fixme fails, an unnamed one fails,
  * and an entry whose fixme has been restored fails too, because a licence nobody needs is dead wood
  * (B-19). Restoring a leg therefore deletes its line here, which is the only way this file shrinks.
+ * On the golden path (tests/e2e/journeys/j-000/) a stub's title also opens `MISSING DOOR:` — the door
+ * it waits on, named first (`unnamedDoors`, session 7).
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -33,11 +35,46 @@ const ROSTER: Readonly<Record<string, Readonly<Record<string, string>>>> = {
     "MISSING DOOR: J-000 m3-bar-schedule: the bar schedule is emitted as DRAFT — UNSIGNED and read against the golden, member by member":
       "no column member's schedule is whole: the campaign's column rebar lines stand PARTIAL_DECLARED with their TIES omitted until the ties slice (R6, D-002) derives them from BNBC 2020 / ACI 318-19 (docs/reference/bnbc-2020/), and the stated LAP 50d (I-308) rides with that synthesis bump behind the FC contest (N1) — the leg compares whole members, NET and LAP, against fixtures/rcc6-bnbc/bbs.golden.json (session 7)",
   },
+  // M4's four segments (AM-17), one door-owing file each since session 7 — the owner ruled "M3 breadth
+  // first", so M4 stands on named, measured doors and nothing of it is built; each file's header holds
+  // the measured work behind its door, file by line.
+  "tests/e2e/journeys/j-000/m4-pdf-sheet.spec.ts": {
+    "MISSING DOOR: J-000 m4-pdf-sheet: cad has no PDF or raster extractor (a pdf is stored, then refused SHEET_NOT_INGESTABLE), five places accept a DXF_HANDLE source key and nothing else, and the gate has no AGREED exit, so a corroborated INTERPRETED sighting can never reach a line":
+      "ingest reads dxf|dwg only (ingest/request.ts:26-29,88, pipeline.ts:43) and pypdfium2 is a fixtures-group dependency (cad/pyproject.toml:19); DXF_HANDLE is the only scheme the EntityGraph, the Python extractor, the ingests CHECK and the inspector accept; the gate queues every INTERPRETED offer with no AGREED exit (gate/evaluate.ts:245-260) and register standing is CHECK-closed to MEASURED|DERIVED — M4 (R-TO-002/003, J-040): L for a hand trace on a raster page, XL for the vectoriser",
+  },
   "tests/e2e/journeys/j-000/m4-sheet-and-manual-measure.spec.ts": {
-    "J-000 m4-sheet-and-manual-measure: a PDF sheet ingested and corroborated, a manual condition measured, rooms and finishes taken, and a question asked of the drawings":
-      "M4 has not shipped; the same rule applies",
+    "MISSING DOOR: J-000 m4-sheet-and-manual-measure: S-Measure has no Design Decision (C-13), there is no manual measurement act, no identity rule for a row with no mark and no method over POLYLINE or POLYGON geometry, and the viewer's Linear, Area and Count tools stand disabled":
+      "no docs/design/s-measure.md (C-13); ACT_TYPES has no manual measurement act (acts/law.ts:11-34); L-REG-02's key needs a mark a traced wall lacks; no method names POLYLINE/POLYGON (offers/law.ts:57 admits them); Linear/Area/Count render disabled (viewer-toolbar.tsx:58-62) — M4 (R-TO-040, J-041): L",
+  },
+  "tests/e2e/journeys/j-000/m4-rooms-and-finishes.spec.ts": {
+    "MISSING DOOR: J-000 m4-rooms-and-finishes: F-ARCH is not in the tree (arch-plan.dxf is a 25-entity xref stub and no golden holds a plaster, paint or room row), nothing in the product models a room, and the finishes rail's surfaces seam is hard-coded empty":
+      "F-ARCH exists nowhere (fixtures/rcc6-bnbc/arch-plan.dxf: 25 entities, no room, label or schedule; the golden has no plaster, paint or room row); src models no room and closes its kinds on no floor or ceiling finish (catalogue/kinds.ts:12-26); the finishes rail gets walls: {} and surfaces: {} (measure/setup.ts:278-279) — M4 (R-TO-036/037, J-042): XL, its own increment",
+  },
+  "tests/e2e/journeys/j-000/m4-ask-the-drawings.spec.ts": {
+    "MISSING DOOR: J-000 m4-ask-the-drawings: S-Ask has no Design Decision (C-13), the ai router holds no procedure, Jev answers closed questions only so an ask needs a closed-question design over the register, and verify replays recorded answers nobody has recorded (L-AI-01)":
+      "no docs/design/s-ask.md (C-13); the ai router is router({}) (server/routers/ai.ts:5); MODEL_QUESTIONS holds no ask question and Jev generates no text (model/questions.ts:11-28, model/typesafe.ts:3); a question with no recorded answer refuses FIXTURE_MISSING (model/fixture.ts:23) and only the owner records (scripts/model-corpus.ts:2-4) — M4 (R-AI-003, J-043): M to L once recorded",
   },
 };
+
+/** The golden path's directory. A stub here stands on a door the product owes it (AM-09 §2, AM-17). */
+const GOLDEN_PATH = "tests/e2e/journeys/j-000/";
+/** What a golden-path stub's title opens with: the door it waits on, named before anything else. */
+const MISSING_DOOR = "MISSING DOOR:";
+
+/**
+ * THE GOLDEN PATH'S STUBS NAME THEIR DOORS. A fixme on J-000 is lawful only as a MISSING DOOR: "a leg
+ * that cannot be reached through the UI is a missing screen, not a licence to stage" (AM-09 §2), and
+ * the missing screen is what its title says first. Until session 7 this roster admitted
+ * "J-000 m4-sheet-and-manual-measure: a PDF sheet ingested and corroborated, …" with the reason "M4 has
+ * not shipped; the same rule applies" — a stub naming four segments and no door, which nobody could
+ * have restored because nobody could say what it waited on. Returns the titles of `file` that stand
+ * on the golden path without opening `MISSING DOOR:`; a stub elsewhere in the lane is held by its
+ * listed defect alone. j-000-roster.test.ts reads the rest of the stub's shape (its leg's own name, one
+ * segment, the clauses it cites). Exported so the rule is proved on payloads, not only on the tree.
+ */
+export function unnamedDoors(file: string, titles: readonly string[]): string[] {
+  return file.startsWith(GOLDEN_PATH) ? titles.filter((title) => !title.startsWith(MISSING_DOOR)) : [];
+}
 
 /** Every spec in the lane, whatever it is nested under. */
 function specs(dir: string, out: string[] = []): string[] {
@@ -126,6 +163,11 @@ describe("every declared stub in the journey lane is governed (Q-08, C-06, B-19)
     }
   });
 
+  it("on the golden path, opens with MISSING DOOR: — a J-000 stub names the door it waits on", () => {
+    const unnamed = [...found].flatMap(([file, titles]) => unnamedDoors(file, titles).map((title) => `${file} — ${title}`));
+    expect(unnamed, `a stub under ${GOLDEN_PATH} opens its title with "${MISSING_DOOR}" and the door the product owes (AM-09 §2):\n  ${unnamed.join("\n  ")}`).toEqual([]);
+  });
+
   it("holds no dead entry — a restored leg deletes its line", () => {
     const dead = Object.entries(ROSTER).flatMap(([file, entries]) =>
       Object.keys(entries).filter((title) => !(found.get(file) ?? []).includes(title)).map((title) => `${file} — ${title}`),
@@ -155,5 +197,26 @@ describe("the roster reads every spelling that takes a leg out of the run (P4b �
 
   it("finds nothing in a file that takes nothing out", () => {
     expect(stubsIn('test("J-000 m0: the door answers", async () => {\n  await expect(page).toHaveURL("/");\n});\n')).toEqual([]);
+  });
+});
+
+describe("a golden-path stub names its door, proved on payloads (session 7)", () => {
+  const LEG = `${GOLDEN_PATH}m4-sheet-and-manual-measure.spec.ts`;
+
+  it("refuses an m4 fixme WITHOUT \"MISSING DOOR:\" — the anonymous stub this roster admitted until session 7", () => {
+    const anonymous = 'test.fixme("J-000 m4-sheet-and-manual-measure: a PDF sheet ingested and corroborated, a manual condition measured, rooms and finishes taken, and a question asked of the drawings", () => {});\n';
+    expect(unnamedDoors(LEG, stubsIn(anonymous))).toEqual([
+      "J-000 m4-sheet-and-manual-measure: a PDF sheet ingested and corroborated, a manual condition measured, rooms and finishes taken, and a question asked of the drawings",
+    ]);
+  });
+
+  it("refuses every spelling that takes a golden-path leg out, not only a fixme", () => {
+    const skipped = 'test.skip("J-000 m4-sheet-and-manual-measure: the manual condition is measured", async () => {});\n';
+    expect(unnamedDoors(LEG, stubsIn(skipped))).toEqual(["J-000 m4-sheet-and-manual-measure: the manual condition is measured"]);
+  });
+
+  it("admits the same leg once its title opens on the door it waits on", () => {
+    const named = 'test.fixme("MISSING DOOR: J-000 m4-sheet-and-manual-measure: S-Measure has no Design Decision (C-13) and there is no manual measurement act", () => {});\n';
+    expect(unnamedDoors(LEG, stubsIn(named))).toEqual([]);
   });
 });
