@@ -2,10 +2,14 @@
 // The fixture corpus's recorder (Q-08, L-AI-01, AS-05 amendment proposal). A person with the TypeSafe
 // key runs it ON PURPOSE; no lane does, and no lane could — the seam's transport is chosen by the
 // environment, and every lane hands the seam a fixture root. What it records is the closed
-// questions the product itself composes (`sheetUnderstandingRequest`, `viewCaptionRequest`) over
-// the state the product itself finds (a committed silent sheet; the untyped captions the partition
-// leaves on a drawing), put to the live provider once through the seam's one recording door
-// (`recordFixture`), and written down as the file format the fixture transport replays.
+// questions the product itself composes over the state the product itself finds, put to the live
+// provider once through the seam's one recording door (`recordFixture`), and written down as the
+// file format the fixture transport replays.
+//
+// Which state, and which flags name it, is each question's own — one file per question under
+// `./model-corpus/`, enumerated by `./model-corpus/registry` (AM-11). This file knows only that a
+// question has subjects; a question added to the product is one new file there plus one line in
+// that registry, and nothing here moves.
 //
 //   node --import tsx scripts/model-corpus.ts record --question sheet-reading --out <dir>
 //   node --import tsx scripts/model-corpus.ts record --question view-caption --drawing <path.dxf> --out <dir> [--limit N]
@@ -20,25 +24,16 @@
 // `corpus.json`; a fixture already filed is never overwritten (minted once). The key is read from
 // the environment by the live transport and appears nowhere in this file's output.
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { entityGraphSchema, type EntityGraph } from "../src/core/entitygraph/schema";
-import { MODEL_QUESTIONS, isModelQuestion, recordFixture, requestHash, type ModelCallContext, type ModelFixture, type ModelRequest } from "../src/core/model";
+import { MODEL_QUESTIONS, isModelQuestion, recordFixture, requestHash, type ModelCallContext, type ModelFixture } from "../src/core/model";
 import { modelCallCost } from "../src/core/model-ledger.types";
-import { viewCaptionRequest } from "../src/core/view-captions";
-import { sheetUnderstandingRequest } from "../src/modules/ai/sheet-understanding";
-import { ingestDrawing } from "../src/modules/takeoff/ingest/job";
-import { partitionArtifact } from "../src/modules/takeoff/partition/views/assign";
-import { VIEW_TYPE } from "../src/modules/takeoff/partition/views/law";
+import { CORPUS_RECORDERS } from "./model-corpus/registry";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CORPUS_ROOT = join(ROOT, "fixtures", "model");
 const ROSTER = join(CORPUS_ROOT, "corpus.json");
-
-/** The committed silent sheet the sheet-reading question is recorded over (F-MODEL). */
-const SILENT_SHEET = join(CORPUS_ROOT, "sheet-understanding", "artifacts", "silent-title-block.graph.json");
 
 /** The provider's documented input rate, USD per million tokens, and where and when it was read. */
 const PROVIDER_RATE = { inputPerMillionTokens: "0.042", outputPerMillionTokens: "0", source: "https://docs.typesafe.ai/models", readOn: "2026-09-21" } as const;
@@ -88,44 +83,6 @@ function liveEnv(): Record<string, string | undefined> {
   return env;
 }
 
-function graphAt(path: string): EntityGraph {
-  const parsed = entityGraphSchema.safeParse(JSON.parse(readFileSync(path, "utf8")));
-  if (!parsed.success) fail(`${path} is no EntityGraph this product can read`);
-  return parsed.data;
-}
-
-/** One question to record, and the words a reader files it under. */
-type Asked = { request: ModelRequest; subject: string };
-
-/** The silent sheet's reading: the committed artifact's paper layout, as the product composes it. */
-function sheetReadingQuestions(): Asked[] {
-  const graph = graphAt(SILENT_SHEET);
-  const layout = graph.layouts.find((held) => held.kind === "paper");
-  if (layout === undefined) fail(`${SILENT_SHEET} carries no paper layout`);
-  return [{ request: sheetUnderstandingRequest(graph, layout.name), subject: `silent-title-block.graph.json · ${layout.name}` }];
-}
-
-/** Every caption the partition left untyped on a drawing, once each, as the product would ask it. */
-async function viewCaptionQuestions(drawing: string, limit: number): Promise<Asked[]> {
-  const bytes = new Uint8Array(readFileSync(drawing));
-  const tempDir = mkdtempSync(join(tmpdir(), "cubit-model-corpus-ingest-"));
-  const format = drawing.toLowerCase().endsWith(".dwg") ? "dwg" : "dxf";
-  const outcome = await ingestDrawing(bytes, format as Parameters<typeof ingestDrawing>[1], { tempDir });
-  if (!outcome.ok) fail(`the extractor refused ${drawing}: ${outcome.refusal} — ${outcome.detail}`);
-  const partition = partitionArtifact(outcome.graph);
-  const seen = new Set<string>();
-  const asked: Asked[] = [];
-  for (const view of partition.views) {
-    if (view.type !== VIEW_TYPE.UNTYPED || view.anchorKey === null) continue;
-    const key = `${view.caption}\u0000${view.anchorKey}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    asked.push({ request: viewCaptionRequest(view.caption, view.anchorKey), subject: `${basename(drawing)} · ${view.anchorKey} · ${view.caption}` });
-  }
-  say(`${basename(drawing)}: ${partition.views.length} views, ${asked.length} captions the grammar could not read`);
-  return asked.slice(0, limit);
-}
-
 async function record(): Promise<void> {
   const question = option("--question");
   const out = option("--out");
@@ -135,10 +92,9 @@ async function record(): Promise<void> {
   if (resolve(outDir) === CORPUS_ROOT) fail("record mints under a scratch directory; `file` moves what a person has read into fixtures/model");
   mkdirSync(outDir, { recursive: true });
 
-  const asked =
-    question === MODEL_QUESTIONS.sheetReading
-      ? sheetReadingQuestions()
-      : await viewCaptionQuestions(option("--drawing") ?? fail("--drawing <path> names the drawing whose untyped captions are asked"), Number(option("--limit") ?? "200"));
+  // Which state this question is recorded over, and which flags name it, is the question's own
+  // (`./model-corpus/registry`): what this file knows is that a question has subjects.
+  const asked = await CORPUS_RECORDERS[question]({ option, fail, say, corpusRoot: CORPUS_ROOT });
 
   const env = liveEnv();
   const recordedOn = new Date().toISOString().slice(0, 10);

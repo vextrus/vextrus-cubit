@@ -13,6 +13,18 @@ export const MODEL_QUESTIONS = Object.freeze({
   sheetReading: "sheet-reading",
   /** A silent view caption's class, as one choice over the view vocabulary (R-TO-030). */
   viewCaption: "view-caption",
+  /** A contested schedule cell's reading over code-found candidates, and its row's standing (R-TO-031, L-CAD-08). */
+  scheduleCell: "schedule-cell",
+  /** A general-note clause's detailing class over R-TO-034's closed kinds, and whether its lap governs (R-TO-034). */
+  noteClause: "note-clause",
+  /** Why one unmeasured cell of the residue stands outside a boundary, over the declarable causes (R-TO-052). */
+  coverageCause: "coverage-cause",
+  /** A BOQ line's item description, chosen from the catalogue's closed list (L-BD-01, L-AI-03). */
+  boqLineDescription: "boq-line-description",
+  /** Whether one interpreted outline is the member its mark names, at the size the drawing states (L-QTY-04). */
+  outlineCorroboration: "outline-corroboration",
+  /** How current a sheet's issue state is, read off its revision marks against its set's (R-TO-004). */
+  sheetRevisionRecency: "sheet-revision-recency",
 } as const);
 
 /** One of the closed names above. */

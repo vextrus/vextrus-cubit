@@ -142,9 +142,20 @@ describe("the contract the docs state (docs.typesafe.ai/api, read 2026-09-21)", 
     expect(asked.instructions, "a caption that names no class has the vocabulary's own no-class member to fall to").toContain(UNTYPED);
   });
 
-  test("the request names its closed question for the ledger, and the two names are the roster's", () => {
+  test("the request names its closed question for the ledger, and the names are the roster's", () => {
     expect(viewCaptionRequest("SECTION 1-1", "DXF_HANDLE:201").question).toBe("view-caption");
-    expect(MODEL_QUESTIONS).toEqual({ sheetReading: "sheet-reading", viewCaption: "view-caption" });
+    // The roster grows by one line per question the product asks (session 5: logic-points 2–7);
+    // every name here has an arm in the adapter's registry, which registry.test.ts proves.
+    expect(MODEL_QUESTIONS).toEqual({
+      sheetReading: "sheet-reading",
+      viewCaption: "view-caption",
+      scheduleCell: "schedule-cell",
+      noteClause: "note-clause",
+      coverageCause: "coverage-cause",
+      boqLineDescription: "boq-line-description",
+      outlineCorroboration: "outline-corroboration",
+      sheetRevisionRecency: "sheet-revision-recency",
+    });
   });
 });
 
