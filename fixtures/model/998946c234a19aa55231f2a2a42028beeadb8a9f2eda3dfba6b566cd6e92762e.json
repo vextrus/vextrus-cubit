@@ -1,0 +1,40 @@
+{
+  "requestHash": "998946c234a19aa55231f2a2a42028beeadb8a9f2eda3dfba6b566cd6e92762e",
+  "modelId": "claude-sonnet-5",
+  "payload": {
+    "payload": {
+      "kind": "LAP",
+      "governs": 0.79
+    },
+    "sources": [
+      "DXF_HANDLE:1F76"
+    ]
+  },
+  "inputTokens": 941,
+  "outputTokens": 87,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.79,
+    "answers": {
+      "clause_class": {
+        "type": "choice",
+        "value": "LAP",
+        "confidence": 1,
+        "probabilities": {
+          "FY": 0,
+          "HOOK": 0,
+          "FC": 0,
+          "LAP": 1,
+          "NONE_OF_THESE": 0,
+          "HOOK_MIN": 0
+        }
+      },
+      "lap_governs": {
+        "type": "noul",
+        "value": 0.79,
+        "confidence": 0.79,
+        "probabilities": null
+      }
+    }
+  }
+}
