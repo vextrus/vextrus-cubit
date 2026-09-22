@@ -14,8 +14,7 @@ import type { Kind } from "@/core/catalogue/kinds";
 import type { RebarRefusalCode } from "@/core/errors/rebar";
 import type { NoteContestedCode } from "@/core/notes/law";
 import { semanticDigest } from "@/core/identity/semantic";
-import { STOREY_HEIGHT_ABSENCE } from "@/core/levels/law";
-import { variantCovering } from "@/core/offers/contract";
+import { heightOf, variantCovering } from "@/core/offers/contract";
 import type {
   LevelSetup,
   Measure,
@@ -47,7 +46,7 @@ import {
   type BarRole,
   type BarSpec,
 } from "@/core/rulesets/methods/rebar/synthesis";
-import { exact } from "@/core/units/canon";
+import { convert, exact, unitNamed } from "@/core/units/canon";
 
 /** The one kind this rail measures — a rail is selected per quantity KIND (L-MEA-08). */
 export const RCC_REBAR: Kind = "rcc.rebar";
@@ -165,20 +164,32 @@ function observe(code: RebarRefusalCode, row: RegisterObjectRow, sourceEntity: s
 /**
  * The storey run a vertical member rises through, in millimetres.
  *
- * The bar runs floor to floor THROUGH the joint (L-MEA-09), so the run IS the level's storey height.
- * A height nobody read, or one whose readings disagree, is no run at all (L-MEA-07) — and so is one
- * written in a unit this leaf cannot cut a bar to: a rail converts nothing (L-FRM-06), and a length
- * it cannot state in millimetres is a length it has not read.
+ * The bar runs floor to floor THROUGH the joint (L-MEA-09), so the run IS the level's storey height,
+ * and it is read through `heightOf` — the one reading every vertical class asks of a level (B-17).
+ * A height nobody read, one whose readings disagree and one that cites no drawing entity are no run
+ * here either (L-MEA-07, L-QTY-03).
+ *
+ * A drawing states a storey in the unit it states it in — F-RCC6-BNBC's section writes 3.353 m and
+ * 3.048 m off its `EL` marks — and BS 8666 cuts in millimetres, so the reading is carried there by
+ * the canon's own `convert`. L-FRM-06 bans a conversion LITERAL outside the canon; asking the canon
+ * is that law kept, not broken (I-307). The carry is exact and nothing rounds it: the run is the raw
+ * cutting length's own leg (AM-01).
+ *
+ * Every refusal — no height, a standing other than AGREED, a unit the canon names nothing for, a
+ * unit that is not a length — is this leaf's REBAR_STOREY_RUN_UNSTATED rather than the levels law's
+ * code, because what is missing here is the LENGTH OF BAR, and naming the storey height alone would
+ * send a reader to a different question (L-MEA-07, L-MEA-08's roster). The spelling is asked of the
+ * canon's recogniser first because the canon throws on a unit it does not know (ARCH-03), and a rail
+ * that throws takes the whole campaign's measurement with it (L-QTY-02).
  */
 function storeyRunOf(level: LevelSetup | undefined): { readonly ok: true; readonly mm: string; readonly source: string } | { readonly ok: false } {
-  const height = level?.height;
-  if (height === undefined || height.value === null || height.unit !== MM || height.sourceKey === null || height.sourceKey.length === 0) return { ok: false };
-  // The levels law pairs each standing with the code it carries no height under, and AGREED alone is
-  // paired with none. This leaf reports its own REBAR_STOREY_RUN_UNSTATED instead of that code,
-  // because what is missing here is the LENGTH OF BAR, and naming the storey height alone would send
-  // a reader to a different question (L-MEA-07, L-MEA-08's roster).
-  if (STOREY_HEIGHT_ABSENCE[height.standing] !== null) return { ok: false };
-  return { ok: true, mm: height.value, source: height.sourceKey };
+  const height = heightOf(level);
+  if (!height.ok) return { ok: false };
+  const unit = unitNamed(height.reading.unit);
+  if (unit === null) return { ok: false };
+  const run = convert(height.reading.value, unit, MM);
+  if (!run.ok) return { ok: false };
+  return { ok: true, mm: run.value, source: height.reading.source };
 }
 
 /** The main-bar group a member's schedule states, and the tie zones it states around them. */

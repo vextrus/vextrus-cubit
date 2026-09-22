@@ -78,6 +78,24 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   (the rubric counts exactly one `h1`, and a real heading is the honest markup), and leaving the
   UA's 28 in place with a human note lowering C11 — a human may only LOWER a computed score, never
   excuse one.
+- **I-307 — the run a vertical's bars are cut to is the canon's conversion of the level's height, in
+  whatever unit the drawing stated it (session 7, 2026-09-23).** L-FRM-06 — "one factor per unit
+  (`toCanonical`); every pair derives as a quotient … a conversion literal outside the canon is a lint
+  failure" — bans a conversion LITERAL outside `src/core/units/canon.ts`; it does not ban asking the
+  canon to convert. `storeyRunOf` (`src/modules/takeoff/rebar/bars.ts`) read "a rail converts nothing"
+  into that clause and refused every height not written in `mm`, and F-RCC6-BNBC's section states its
+  storeys in metres off its `EL` marks (3.353 m, 3.048 m; since D-001 GF also as 132 in), which the
+  levels law holds AGREED and cited — so all 189 column `rcc.rebar` lines of session 7's J-000 run stood
+  PARTIAL_DECLARED under REBAR_STOREY_RUN_UNSTATED with no bar rows. The run is now `heightOf`'s reading
+  (the one reading every vertical class asks of a level; the rail's own unit check was a second spelling
+  of it), carried to millimetres by `convert(value, unitNamed(unit), "mm")`, exact and never rounded
+  (3.048 m → 3048; 11 ft → 3352.8), because it is a leg of BS 8666's raw cutting length (AM-01). Every
+  refusal — no height, not AGREED, no citation, a spelling the canon does not name, a unit that is not a
+  length — stays this leaf's REBAR_STOREY_RUN_UNSTATED, asked of the canon's recogniser first because
+  `toCanonical` throws and a rail that throws loses the whole campaign (L-QTY-02). Rejected: a literal
+  factor in the rail (the L-FRM-06 breach itself); a levels store holding millimetres (it keeps the unit
+  as written, L-REG-01); the STOREY_HEIGHT_* codes here (what is missing on this line is a length of
+  bar, L-MEA-08).
 
 ## 1. Layout and hierarchy (1440 × 900)
 
