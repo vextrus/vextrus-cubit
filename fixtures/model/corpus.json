@@ -1,6 +1,17 @@
 {
   "fixtures": [
     {
+      "requestHash": "0128e0be4f6ec909b135ab6e6018d90649e594d6d11083515051ff610fd02d4c",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C3 · DXF_HANDLE:31B",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "0162e2f761a33fec82d297ac9fa226bdeb243a2a7fab1777b4290539a5a047ef",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-02 GENERAL NOTES (2 OF 2) & LAP-DEVELOPMENT TABLE · DXF_HANDLE:1F75#5 · 14. CHAIRS AT 1.0 m c/c BOTH WAYS IN EVERY DOUBLE-LAYER SLAB",
@@ -10,6 +21,17 @@
       "outputTokens": 89,
       "attributedCost": "0.004182",
       "providerCost": "0.000039858"
+    },
+    {
+      "requestHash": "01ff4d5d5c550602fdbe94a390df5457a93573089be258c3f64ee076d20b1238",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C1 · DXF_HANDLE:309",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 821,
+      "outputTokens": 24,
+      "attributedCost": "0.002823",
+      "providerCost": "0.000034482"
     },
     {
       "requestHash": "031e617157917ce4ad63d7323a1fd46f7de369712b75ca0508d485e983faef52",
@@ -45,6 +67,28 @@
       "providerCost": "0.000047712"
     },
     {
+      "requestHash": "0716c25c86500d58ba1cfe28fa5851e0e06275367a24bc55157cf9bdafa9cc60",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F2 · DXF_HANDLE:1AB",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 828,
+      "outputTokens": 24,
+      "attributedCost": "0.002844",
+      "providerCost": "0.000034776"
+    },
+    {
+      "requestHash": "08a89aff0eea9c340019feb4691a49fddc0ed9e34185f1a8b7ba68500d179cfa",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F4 · DXF_HANDLE:18A",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
       "requestHash": "091b7f61deb7211c461f5cfe947194484dcb0be3f88da8b1a6dc52accef45a97",
       "question": "coverage-cause",
       "subject": "02-beam-concrete-roof-view-scale-unaffirmed.state.json · rcc.concrete on beam, ROOF",
@@ -54,6 +98,28 @@
       "outputTokens": 53,
       "attributedCost": "0.00324",
       "providerCost": "0.00003423"
+    },
+    {
+      "requestHash": "0a330299882be80344f1de08011183f87a7093324b74798999d13d74ab7c6581",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:32B",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "0aad7ad64105b906660cc47e5180826df92570ba1b81fe97f3cfc6db18f0e0d5",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F3 · DXF_HANDLE:173",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
     },
     {
       "requestHash": "0ae6874af48c25e1cdea3ac58b8d867f4b50d7b9db2c527bd4de2ffabc9f16b9",
@@ -133,6 +199,17 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "0ea92c511655e2f89f101b0950c58d731debefb3790124f85dbe0cea43db111d",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · PC2 · DXF_HANDLE:181",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
       "requestHash": "0f4111ce64e0eac4d789a5fc847adcf1d09595ed772b90b80f7e7520fd5ab65f",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 14",
@@ -177,6 +254,17 @@
       "providerCost": "0.000040068"
     },
     {
+      "requestHash": "1981ddfa65b1d51cead8f3c99134dfedecce20db168c10e35bd9b5bf43684980",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C4 · DXF_HANDLE:327",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "1a66f7948daf2682b2e21d24369623a8e16d92cb8d7030419e1a592cd8594a88",
       "question": "coverage-cause",
       "subject": "03-column-concrete-5f-member-type-unknown.state.json · rcc.concrete on column, 5F",
@@ -199,6 +287,17 @@
       "providerCost": "0.000049434"
     },
     {
+      "requestHash": "1d3b8aec35c65c8224f9265d5a799588d45b33eef601ad5e7c2ef5eb6c4a9c06",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F3 · DXF_HANDLE:1A3",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
       "requestHash": "1d719a00fd2643d97bad95c7d68bccb9155add28263f6832f19f9cfd712ecd3a",
       "question": "coverage-cause",
       "subject": "01-column-concrete-2f-plan-reading-absent.state.json · rcc.concrete on column, 2F",
@@ -208,6 +307,17 @@
       "outputTokens": 53,
       "attributedCost": "0.003225",
       "providerCost": "0.00003402"
+    },
+    {
+      "requestHash": "1f8dc021a6043a5ac10b07557087761e222fcd9563f36d6f95d441069d71ad36",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F1 · DXF_HANDLE:169",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
     },
     {
       "requestHash": "20850cd27ecd8db4febb39668b6307d7f3f860c25b9323f20929374e2a5b3e1e",
@@ -276,6 +386,72 @@
       "providerCost": "0.000032592"
     },
     {
+      "requestHash": "2b29ea72c2f5c34d672e681ccfad117fe61bb1446d6e5113e57f8f75c85d5b2a",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F2 · DXF_HANDLE:1AF",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 829,
+      "outputTokens": 24,
+      "attributedCost": "0.002847",
+      "providerCost": "0.000034818"
+    },
+    {
+      "requestHash": "2bdc0bae83c18fd3cacc24b1fb02eea5813769e18853a036ad9b4e4579b21d39",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F3 · DXF_HANDLE:16F",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "2cd8e8f0371b6f6ffb0a43fdc8fde04ff7e1b5c65c44ac76561c6e24989e602e",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · PC1 · DXF_HANDLE:18E",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "2d53140f8b4494286cae47400584bde7339e3363652cc38be8141226afe42d97",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F2 · DXF_HANDLE:161",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "2e3531b42e58461f854e3ef25457c25d163b40b13fe95d2ead5fd9522754ebf6",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F3 · DXF_HANDLE:16D",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "2fb0db961427568acf6018e5895589072d32c46c65a36c024f050e0c40390097",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F1 · DXF_HANDLE:1A9",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 829,
+      "outputTokens": 24,
+      "attributedCost": "0.002847",
+      "providerCost": "0.000034818"
+    },
+    {
       "requestHash": "30c3f86fc9591714bacfe8721ff090219f36e72c9d756b5532f2f9d5b999249c",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · COLUMN SCHEDULE · row 5",
@@ -285,6 +461,17 @@
       "outputTokens": 417,
       "attributedCost": "0.11484",
       "providerCost": "0.000233982"
+    },
+    {
+      "requestHash": "3356d49cfcf58b2019dfd333ad898f10e11ffe9db3de7b27af54df42699fe231",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F4 · DXF_HANDLE:19D",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
     },
     {
       "requestHash": "3393120cf90d9048ffaf873f7be3dcfd26fe8af3f3e075ff8a41563961b6871b",
@@ -309,6 +496,17 @@
       "providerCost": "0.000061782"
     },
     {
+      "requestHash": "3588feaebadc72e60f230a5b19fc6b8215a41bce02c3e06a5c03fc19be4dda32",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:321",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "35b233b9797f4d11c2e5fa0ef8136c32e700c38b47b235e95dbc8c809f8808ac",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 19",
@@ -320,6 +518,17 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "3710d2691786879e279a61cec731c64f74d5ef63fa10220eee96fd0e1cbc4f2a",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:343",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "38fc5f3d9e308a0029bd941c66882fed0b8a639dde35da2c1a3dafaf238d1e06",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 24",
@@ -329,6 +538,17 @@
       "outputTokens": 93,
       "attributedCost": "0.029055",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "392d1f43427fb127fb350014e943462bffea052beb59f7b70d49530b033c5050",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F3 · DXF_HANDLE:186",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
     },
     {
       "requestHash": "39aa3e97924fb22a5b842e6ee750c54aa935476acb2fab6988f626f818742879",
@@ -351,6 +571,39 @@
       "outputTokens": 93,
       "attributedCost": "0.02904",
       "providerCost": "0.000061782"
+    },
+    {
+      "requestHash": "3d91b9fea2507c7596dada10875bd7b8d2781425ca60995f0534b453cefa915e",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:34D",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "3f46b19eee75742e73fc21879faac6d1cb629fcef0d9ca671fe855998b6b95f2",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F1 · DXF_HANDLE:15F",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "40b339661a6a7f95ca3d31c3e1c244302127db652b9ccdcd197474ab5cb03ba3",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:31F",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
     },
     {
       "requestHash": "4160fbb4f5f54a2b90a47dbcda764d36f4b759b98e5eee4ecec3e21864e3a29e",
@@ -408,6 +661,17 @@
       "providerCost": "0.00003717"
     },
     {
+      "requestHash": "492cdb81f0e06cbd1146de48b995772886885bd633086d0878e8f55416081884",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F2 · DXF_HANDLE:163",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
       "requestHash": "4c4544ceb7ad455c03d162c32c1b0a340d3031df7432748fa86f3c6a786daed3",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 5",
@@ -452,6 +716,17 @@
       "providerCost": "0.000233982"
     },
     {
+      "requestHash": "4f6d0b837c6327132e9b766a6fe190034515852c8a1a6622b58d1dc967fa0156",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C3 · DXF_HANDLE:33B",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "4fa3763602444a6b214ab0d31b06be98f89a9b735adbfe7ba841c4dfefb54dcd",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:1F3E#3 · 2. DESIGN CODE: BNBC 2020, ACI 318-19 WHERE THE CODE IS SILE",
@@ -461,6 +736,17 @@
       "outputTokens": 89,
       "attributedCost": "0.004002",
       "providerCost": "0.000037338"
+    },
+    {
+      "requestHash": "5092043d1a91aeb390cd084dcd9be96cece02b7dbf344f05e8c77ec942b2aff2",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F4 · DXF_HANDLE:175",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
     },
     {
       "requestHash": "509973b234bf0591b696cebf78d479914d57c451e00608988704aceeea6c1394",
@@ -496,6 +782,39 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "553493366a91314afa2760e54b5b47460382e3bbd41c935e29f0e3a4565ebe2e",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:347",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "561ded50921f7c17b21a30d5a84be4cab2e013fe7cddf1ea30b88bce8c5622ce",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C4 · DXF_HANDLE:331",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "5644cf417cb3f10fe95c98474033f29bc20fe824f4b8ccfa25d0d462c04e9fae",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:311",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "5827c2faeacc219213fe9a89599583e93fc2a7e8612ef1749d8945715348e2ac",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 18",
@@ -505,6 +824,28 @@
       "outputTokens": 93,
       "attributedCost": "0.029055",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "58dfe459b20d7c0964c55c5c72558904a93e29a25f8a679cfbc03dfc275ef3f4",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C1 · DXF_HANDLE:313",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 821,
+      "outputTokens": 24,
+      "attributedCost": "0.002823",
+      "providerCost": "0.000034482"
+    },
+    {
+      "requestHash": "5a6a3341bc35373cb18b97e0d74d93b201ee02e60541e352471292061d9b61e1",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:32D",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
     },
     {
       "requestHash": "5b4b0ff4641bfa7f0078fed5caac0582fb822a041d9024d47ea4f1674e0e3a3e",
@@ -538,6 +879,17 @@
       "outputTokens": 93,
       "attributedCost": "0.029025",
       "providerCost": "0.00006174"
+    },
+    {
+      "requestHash": "5e41736b256d6d9ee25f1f554db59c04c5d554ac9124dc40c2084fe0577960b8",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F3 · DXF_HANDLE:18C",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
     },
     {
       "requestHash": "60da08298cd59884241e5af3d828882d81bebe6f38ee493886e4b155ef791c0e",
@@ -606,6 +958,17 @@
       "providerCost": "0.00004704"
     },
     {
+      "requestHash": "684063acae94a38b0eed2e3176da487fc00a992e6b90a443e2a9a43971b74cef",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:34B",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "6949ae71deae71cec0ff79b76440e852ce526d24d067bbbbf8ee80d1e92b0871",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 10",
@@ -615,6 +978,17 @@
       "outputTokens": 93,
       "attributedCost": "0.029055",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "6af67999ad5fdc94dfdd66a90a9ec96750c02254d938895af6c1fe80ca25b936",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F2 · DXF_HANDLE:1AD",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 828,
+      "outputTokens": 24,
+      "attributedCost": "0.002844",
+      "providerCost": "0.000034776"
     },
     {
       "requestHash": "6b582a22a75c1b7c3220fbb17b8f6113de4b6c3f80d7174953a7c4da6a4b8bde",
@@ -705,6 +1079,17 @@
       "providerCost": "0.00006174"
     },
     {
+      "requestHash": "76512ced0013d7f0ca99dfb24f867572eaaa85cf17d7c638f1b6831287b87bae",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C3 · DXF_HANDLE:33F",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "78364e7aa850d6379e36fde0824d926943a230bab1526b1351ef9e06f4b75e7a",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:1F4B#1 · COUNTING: ⌊(distance + 0.5 mm)/spacing⌋ + 1",
@@ -714,6 +1099,17 @@
       "outputTokens": 89,
       "attributedCost": "0.003942",
       "providerCost": "0.000036498"
+    },
+    {
+      "requestHash": "7838c1040067326c24aeed4e135cd1b377a4552b7d495f04d89c7b30af685734",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F3 · DXF_HANDLE:1A5",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
     },
     {
       "requestHash": "78befd14db6234dc968455a8bc114c2a0abc13d0e391eedacb801bc93bdebcaf",
@@ -771,6 +1167,28 @@
       "providerCost": "0.000046956"
     },
     {
+      "requestHash": "81064a1c7be2175d4b992398bfa42347083031c4338c7627d4761dd6d6f57145",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F4 · DXF_HANDLE:188",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "811e2976251ab03558f57641c681508b7598e32dc9671135eb96c0c2b1974ed2",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C3 · DXF_HANDLE:329",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "81a1adce5ad5849ada15de8f6d3425fa3246ec83d1c816671871998e084c9587",
       "question": "boq-line-description",
       "subject": "rcc6-bnbc · pile_cap · earthwork.excavation · pit deeper than 1.5 m · 2 candidates",
@@ -780,6 +1198,17 @@
       "outputTokens": 110,
       "attributedCost": "0.005196",
       "providerCost": "0.000049644"
+    },
+    {
+      "requestHash": "82496ad3501247daef72a6458fffe56abde0f8d6e12bcc9874ef661ba2a47b57",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C3 · DXF_HANDLE:32F",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
     },
     {
       "requestHash": "824aca94bf224ba18296804c2238155799d19746512e7d78afe57dd92f96ae5c",
@@ -804,6 +1233,28 @@
       "providerCost": "0.000038136"
     },
     {
+      "requestHash": "855d6e02051e72e1217fdd152cdf8c36acf4a4891794d821004896910120e014",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:30D",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "89015cb7951559e98dcb22553f5c2a347fffc473712715435d681b383ac43db0",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C3 · DXF_HANDLE:323",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "89a1dddec52f8bf5a6d026c9f7c8949a76d0d211eb88474cbeb84e7ea5bf2f9d",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:1F3F#6 · 10. WELDED HOOKS ARE NOT PERMITTED. ALL HOOKS 135° WHERE SHO",
@@ -824,6 +1275,28 @@
       "outputTokens": 57,
       "attributedCost": "0.019065",
       "providerCost": "0.000041412"
+    },
+    {
+      "requestHash": "8b649a747585641baac7ab3bcf5d3d58505a8a460a8221bf3452d568fd5bc999",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F2 · DXF_HANDLE:1B1",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "8c03e4dcdf5550b88096816569e88fcbb6e348adfa18c7ea1da5aabac8e548db",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F3 · DXF_HANDLE:1A1",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
     },
     {
       "requestHash": "8cd64f5a7e1ab4f89afb7ece7b3adcc1e3ec526c0cdd6739d095f38345fed77c",
@@ -879,6 +1352,17 @@
       "outputTokens": 89,
       "attributedCost": "0.003888",
       "providerCost": "0.000035742"
+    },
+    {
+      "requestHash": "947c2a32e9f25a7989ca55c56df9b4c0ee28078cac96b8377cf948c9f34984e8",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C3 · DXF_HANDLE:33D",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
     },
     {
       "requestHash": "94949a5564af132e7ba9be42e839a83bea5d7028ec3675ea8ebd0ac6b72fe7e8",
@@ -980,6 +1464,17 @@
       "providerCost": "0.000021084"
     },
     {
+      "requestHash": "9e44ab522e385dacf5d3619e31f1c83db819195cbb16f0dd7af7f2e6b22bdc38",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F4 · DXF_HANDLE:16B",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
       "requestHash": "a01ba787e974ddf40f8e90b202c516409b1be3f264208f8a399c048d0fd5e219",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 4",
@@ -1013,6 +1508,39 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "a4acc423ad0eba9f8fbda3b8c7fc0c515ac932a7855b0d9a404e45bfdf994978",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C3 · DXF_HANDLE:341",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "a72c5320e85781371d92102d92895ca8edc47b2ef4aa40a199402f4d5926e6fe",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C3 · DXF_HANDLE:335",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "a7965279bc747164fd657bd48886cbae892df686276aaafa52cbbe9451ea7990",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F2 · DXF_HANDLE:167",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
       "requestHash": "a8749831ecf7f483211975f4dabcf0277c8c620eb350f532da148f7a7b8188e5",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 2",
@@ -1033,6 +1561,17 @@
       "outputTokens": 110,
       "attributedCost": "0.005187",
       "providerCost": "0.000049518"
+    },
+    {
+      "requestHash": "ab449eb5f1f928e4c1c5b1d5d42da35aaa7d812521d873588240ff117961a1a4",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F3 · DXF_HANDLE:199",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
     },
     {
       "requestHash": "ac21ab7c24717a02557bdc4f644f22bfaafaad1bdc2dbfce30f2529f6319077c",
@@ -1068,6 +1607,17 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "aec669a50335cc53cf4f05832eb717b3e51611b50f60dda82ecbff84da83bbbd",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C3 · DXF_HANDLE:31D",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "b181edfac10ef3d9d3af2f355ecb99035565729199211b55aeef50ac59b5cfa5",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:1F58#1 · ROUNDED CUTTING LENGTH MM: 25",
@@ -1088,6 +1638,17 @@
       "outputTokens": 93,
       "attributedCost": "0.029055",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "b53a9419f0f3d44f6b5b8f99dbfc55ece9cc66ab44a40ef65504c01852394f66",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C3 · DXF_HANDLE:319",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
     },
     {
       "requestHash": "b6dc351cf60eaf3e6365c5c3c94940e1d0324a7a5e8a8d04dc6bd0fe356839fa",
@@ -1132,6 +1693,28 @@
       "outputTokens": 93,
       "attributedCost": "0.029055",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "c0b89329d48cb4f19ddf22e964a8dd1221c635f56c61a13c6c1c9bbe15fab18b",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · PC2 · DXF_HANDLE:194",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "c1155973b2b79d60ebc6951f6846215a519fcde8adbf83fcea4991e7755d3736",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C1 · DXF_HANDLE:34F",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 821,
+      "outputTokens": 24,
+      "attributedCost": "0.002823",
+      "providerCost": "0.000034482"
     },
     {
       "requestHash": "c118dce03094ffddf55146c324528f9c5ee1d7fd5815f4cdd0bcc32fd42322c6",
@@ -1200,6 +1783,17 @@
       "providerCost": "0.000040404"
     },
     {
+      "requestHash": "c808e4129c95116e26aad3f7de88f9d1dd4c4b7b868cfeeebb38991feec390d1",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:30B",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "c9a141a3e32cedc68705b0134b0a097cfddbdc506116c8d498af8cef8e458c99",
       "question": "view-caption",
       "subject": "rcc6-bnbc.dxf · DXF_HANDLE:BB8 · C6",
@@ -1209,6 +1803,17 @@
       "outputTokens": 118,
       "attributedCost": "0.003276",
       "providerCost": "0.000021084"
+    },
+    {
+      "requestHash": "ca9d7c44cb9546645adc224861693daae49031800f75066060c9945ef443bde5",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F4 · DXF_HANDLE:1A7",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
     },
     {
       "requestHash": "cab44c201eeb279b9813488e632d34a0b100fff39e7af17c035cc25ee9ffc21c",
@@ -1244,6 +1849,39 @@
       "providerCost": "0.00006174"
     },
     {
+      "requestHash": "cd5d4d9fefeaf95e2325ca9ea0662e1fb6056d2b7b457e7ae30f7a9ec59908ab",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:315",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "cde3d9ff40b9eb9575c412b93c4774390553c9c1683350c36ccd5aadc272b23e",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F1 · DXF_HANDLE:1B3",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "ce073798a1a10b79cc944e291b2c87c17961ee443ead6939c33b75c402ca788b",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:337",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "cfa663e2168f640ed0fb0ee9e2b9100dda45d060e2cbd44c46c9c3150ce3fe65",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · LINTEL & SUNSHADE SCHEDULE · row 4",
@@ -1253,6 +1891,50 @@
       "outputTokens": 57,
       "attributedCost": "0.01911",
       "providerCost": "0.000041538"
+    },
+    {
+      "requestHash": "d0a3d8562bf9395b15fabe0ad4d802d834c942632e99ea8d08897c4e8342296c",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F2 · DXF_HANDLE:165",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "d1cc37f3473c44e42e69e9a19eb8b386b068a3d4b556fc595b9c8ad7426773c0",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C3 · DXF_HANDLE:317",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "d1e2abbf60b9104538e0f231dc0b0d8cf3ca555b4de78ffe2a0ffcca201971ee",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F3 · DXF_HANDLE:19F",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "d27a9490dd57cde008f27c52d0f1d4c1305d52c1786c168caa99622a76197608",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F3 · DXF_HANDLE:171",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
     },
     {
       "requestHash": "d2a41cb78aa624cfffff7a2cbaab81da90b597444c163145825ecef10829ecfa",
@@ -1286,6 +1968,17 @@
       "outputTokens": 89,
       "attributedCost": "0.0042",
       "providerCost": "0.00004011"
+    },
+    {
+      "requestHash": "d4f8e3957e7f2115b3113c520167e73be47a2ebe8bd5a7110e7abd28189ee95e",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:349",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
     },
     {
       "requestHash": "d524a96d50290e799a24ab32d9b8671295fd6787a814baad1ae1a40a95cfaa91",
@@ -1365,6 +2058,17 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "e549bd58632ebaebba6e7a4b1f78a6ebfeb9a78c845765c7664b87a01d972c41",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · PC1 · DXF_HANDLE:17B",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
       "requestHash": "e5c23775754618840a24d20ca84777a23a142309e3eeffcc5ee72e6aefddfc72",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:1F3F#5 · 9. LEGACY IMPERIAL BAR CALLS: #3 = 10Ø, #4 = 12Ø, #5 = 16Ø, ",
@@ -1409,6 +2113,17 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "ea3c9c4ac86a2d30721df7c2e6c07085a0da8ae5454cae52228c56f6b9c0a91f",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C4 · DXF_HANDLE:325",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "eb2c758610ab54b359be2bfc9044edb76b22cced9dc2356b93654873f9067723",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 16",
@@ -1418,6 +2133,50 @@
       "outputTokens": 57,
       "attributedCost": "0.02121",
       "providerCost": "0.000047418"
+    },
+    {
+      "requestHash": "eb6f786cc288936c985cbeb091667cf14c7a4823f2e460f3de7f79af1995fd39",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F4 · DXF_HANDLE:19B",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "ec3246891a804fe9dd2176d3a787a25be4394d37dbcffb59a4ca9b8e21d150b2",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:30F",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "ed5c252498d2e8b4e364388a84b092be89ef8b867f66a7a93d43693550e2ca04",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F4 · DXF_HANDLE:177",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "ed7b4e3a99f3bafde8f7357a2f5dec6e5c485741ad73f24c884a42b9803d8b97",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · F3 · DXF_HANDLE:179",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 830,
+      "outputTokens": 24,
+      "attributedCost": "0.00285",
+      "providerCost": "0.00003486"
     },
     {
       "requestHash": "eecbe31aa5817bfdcd541128b4de7292a70d3f3cba7c14840f21f3200503a11d",
@@ -1464,6 +2223,17 @@
       "providerCost": "0.000049434"
     },
     {
+      "requestHash": "f48377a2558a78a71607fe77c8ff6bc4693c57eacd11bbc40aa9219f0e1234f4",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C2 · DXF_HANDLE:339",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
+    },
+    {
       "requestHash": "f51cf3ad7f496080ba5033d3d608ae75ae6ab10bb66d555d8c2b64ce48870f52",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 5",
@@ -1495,6 +2265,17 @@
       "outputTokens": 408,
       "attributedCost": "0.1122",
       "providerCost": "0.00022848"
+    },
+    {
+      "requestHash": "f873a37bb7aa2743c714f2c2c41a63f550eedd23e55567af8ab6c21045b32fce",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C1 · DXF_HANDLE:345",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 821,
+      "outputTokens": 24,
+      "attributedCost": "0.002823",
+      "providerCost": "0.000034482"
     },
     {
       "requestHash": "f9007b76bca9dc99b6fb92aa54259db9672bca5e38d8a2217f2daded819eca15",
@@ -1550,6 +2331,17 @@
       "outputTokens": 89,
       "attributedCost": "0.003918",
       "providerCost": "0.000036162"
+    },
+    {
+      "requestHash": "ffaf1eff85c0cc10ab92dfe89d6d08085d6ef92b178778afa2216642a5dd0819",
+      "question": "outline-corroboration",
+      "subject": "rcc6.dxf · C4 · DXF_HANDLE:333",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 822,
+      "outputTokens": 24,
+      "attributedCost": "0.002826",
+      "providerCost": "0.000034524"
     }
   ]
 }

@@ -1,0 +1,27 @@
+{
+  "requestHash": "f873a37bb7aa2743c714f2c2c41a63f550eedd23e55567af8ab6c21045b32fce",
+  "modelId": "claude-sonnet-5",
+  "payload": {
+    "payload": {
+      "corroborates": 0.37
+    },
+    "sources": [
+      "DXF_HANDLE:345",
+      "DXF_HANDLE:346"
+    ]
+  },
+  "inputTokens": 821,
+  "outputTokens": 24,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.37,
+    "answers": {
+      "outline_corroborates": {
+        "type": "noul",
+        "value": 0.37,
+        "confidence": 0.37,
+        "probabilities": null
+      }
+    }
+  }
+}
