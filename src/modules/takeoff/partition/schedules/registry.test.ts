@@ -50,6 +50,56 @@ describe("R-TO-031: the unbanded column a schedule states its sections in", () =
   });
 });
 
+describe("R-TO-031: a stacked cell states the band's section AND the band's rebar", () => {
+  /** F-RCC6-BNBC S-11: the whole of a mark's band is written in one cell, three lines of text deep,
+   * and the schedule holds no rebar column at all. */
+  const STACKED = "400x400+8-16Ø+10Ø@100/150 (TIES)";
+
+  test("the section is the part of the cell that reads as a pair of sides, and the cell is kept verbatim", () => {
+    const variant = familyOf(tableOf(["MARK", "GF TO 2ND"], [["C1", STACKED]]), "C1").variants[0];
+
+    expect(
+      { text: variant?.sectionText, width: variant?.sectionWidth, depth: variant?.sectionDepth },
+      "a cell says as many things as the draughtsman stacked in it; reading the whole join as one pair answers nothing and leaves the column sectionless (L-CAD-08)",
+    ).toEqual({ text: STACKED, width: 400, depth: 400 });
+  });
+
+  test("the bars and the two tie zones of that band stand beneath it, zones per BAND", () => {
+    const variant = familyOf(tableOf(["MARK", "GF TO 2ND"], [["C1", STACKED]]), "C1").variants[0];
+
+    expect(
+      variant?.zones.map((zone) => ({ zone: zone.zone, spacing: zone.spacing, bar: zone.spacingBar })),
+      "L-CAD-08 puts the rebar zones under the band, and a ties cell stating two centres states the end zones' and the middle's — folding them into one would bill the whole column at one of the two (L-FRM-05)",
+    ).toEqual([
+      { zone: "main", spacing: null, bar: null },
+      { zone: "ties-end", spacing: 100, bar: 10 },
+      { zone: "ties-mid", spacing: 150, bar: 10 },
+    ]);
+    expect(variant?.zones[0]?.bars, "and the main zone carries the groups the cell named").toEqual([{ n: 8, diameterMm: 16 }]);
+  });
+
+  test("a band written as a list of two consecutive floors, and one whose upper end names a label no roster places", () => {
+    const family = familyOf(tableOf(["MARK", "3RD & 4TH", "ROOF-SRR"], [["C1", "350x350+8-16Ø", "300x300+8-16Ø"]]), "C1");
+
+    expect(
+      family.variants.map((variant) => ({ key: variant.variantKey, from: variant.bandFrom, to: variant.bandTo, width: variant.sectionWidth })),
+      "S-11 heads two of its four bands this way; refusing either would lose the sections those columns carry, and where SRR stands on the ladder is the expansion's question and not this reader's (L-CAD-07)",
+    ).toEqual([
+      { key: "3RD-4TH", from: "3RD", to: "4TH", width: 350 },
+      { key: "ROOF-SRR", from: "ROOF", to: "SRR", width: 300 },
+    ]);
+  });
+
+  test("a zone the cell states and a zone only a column states both reach the variant", () => {
+    const variant = familyOf(tableOf(["MARK", "GF TO 2ND", "MAIN BARS"], [["C1", "400x400+10Ø@100/150 (TIES)", MAIN]]), "C1").variants[0];
+
+    expect(
+      variant?.zones.map((zone) => `${zone.zone}=${zone.text}`),
+      "the band's own statement stands first and the row's column fills the zone the cell never named — a schedule that says a thing in two places says it once (R-TO-031)",
+    ).toEqual(["ties-end=10Ø@100/150 (TIES)", "ties-mid=10Ø@100/150 (TIES)", `main=${MAIN}`]);
+  });
+});
+
 describe("L-QTY-02: a row that states no section still states its rebar", () => {
   test("a row with no cell in the section column registers one section-less variant, zones intact", () => {
     const table = tableOf(["MARK", "SIZE", "MAIN BARS"], [["B1", "300x450", MAIN], ["B2", null, "6-20Ø"]]);

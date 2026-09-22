@@ -192,8 +192,11 @@ const NAMED_LEVELS: Readonly<Record<string, string>> = Object.freeze({
 
 /** The words that say "floor" and nothing about WHICH floor. SLAB, PLAN, LAYOUT, BEAM and COLUMN are
  * NOT among them: they say what is DRAWN, and dropping them turned every sheet title on the set
- * ("1ST FLOOR BEAM LAYOUT") into a level range — a band of floors minted out of a caption. */
-const STOREY_WORDS: ReadonlySet<string> = new Set(["FLOOR", "FLOORS", "FLR", "FLRS", "LEVEL", "LEVELS", "LVL", "STOREY", "STORY"]);
+ * ("1ST FLOOR BEAM LAYOUT") into a level range — a band of floors minted out of a caption. `EL` is
+ * among them: a section marks its storeys `GF EL +0.000` (F-RCC6-BNBC S-25) and the word says only
+ * that the number beside it is an elevation. This roster is the one in `./index.ts` said twice; the
+ * two are kept in step by hand and nothing yet tests that they agree (recorded debt, B-17). */
+const STOREY_WORDS: ReadonlySet<string> = new Set(["EL", "FLOOR", "FLOORS", "FLR", "FLRS", "LEVEL", "LEVELS", "LVL", "STOREY", "STORY"]);
 
 /** What a set writes between the two ends of a band, and what it writes between two named floors. */
 const RANGE_WORDS = /\s*(?:\bTO\b|\bTHRU\b|\bTHROUGH\b|[-–—~])\s*/;

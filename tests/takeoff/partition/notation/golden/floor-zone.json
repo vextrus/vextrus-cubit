@@ -1,6 +1,6 @@
 {
   "parser": "parseFloorZone",
-  "why": "AC-6: a column header naming a band of floors, read as the two levels it runs between; a header naming anything else reads as none.",
+  "why": "AC-6: a column header naming a band of floors, read as the two levels it runs between; a header naming anything else reads as none. `GF EL` and `6F EL` are F-RCC6-BNBC S-25's section marks, where EL says the number beside it is an elevation and nothing about which storey; `3RD & 4TH` and `ROOF-SRR` are S-11's own band headers — a LIST of two consecutive floors, and a band one end of which names a label no level roster places (`GF & 5TH` is why the list must be consecutive: two floors listed say nothing about the four between them).",
   "cases": [
     { "input": "GF TO 3RD", "expect": { "from": "GF", "to": "3RD" } },
     { "input": "GF-3RD FLOOR", "expect": { "from": "GF", "to": "3RD" } },
@@ -12,6 +12,11 @@
     { "input": "FDN TO GF", "expect": { "from": "FDN", "to": "GF" } },
     { "input": "GF", "expect": { "from": "GF", "to": "GF" } },
     { "input": "ROOF", "expect": { "from": "ROOF", "to": "ROOF" } },
+    { "input": "GF EL", "expect": { "from": "GF", "to": "GF" } },
+    { "input": "6F EL", "expect": { "from": "6F", "to": "6F" } },
+    { "input": "3RD & 4TH", "expect": { "from": "3RD", "to": "4TH" } },
+    { "input": "GF & 5TH", "expect": null },
+    { "input": "ROOF-SRR", "expect": { "from": "ROOF", "to": "SRR" } },
     { "input": "MAIN BAR", "expect": null },
     { "input": "12\"x15\"", "expect": null }
   ]

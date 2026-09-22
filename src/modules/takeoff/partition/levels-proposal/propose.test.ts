@@ -97,6 +97,44 @@ describe("L-MEA-07: one artifact states one level stack", () => {
     expect({ height: stack[1]?.heightAsWritten, unit: stack[1]?.heightUnit }, "and a pair written in one unit is untouched").toEqual({ height: "3000", unit: "mm" });
   });
 
+  test("a section that marks its storeys `GF EL +0.000` states the stack it draws, and the feet-and-inches notes beside it state none", () => {
+    // F-RCC6-BNBC S-25: the building section marks GF … ROOF with the word EL between the storey and
+    // the elevation, and carries four levelled-looking notes that mark no storey at all.
+    const stack = stackOf([
+      { viewKey: SECTION_A, said: "GF EL +0.000" },
+      { viewKey: SECTION_A, said: "1F EL +3.353" },
+      { viewKey: SECTION_A, said: "6F EL +18.593" },
+      { viewKey: SECTION_A, said: "ROOF EL +21.641" },
+      { viewKey: SECTION_A, said: `P.L= +0'-0"` },
+      { viewKey: SECTION_A, said: `E.G.L (-1'-6")` },
+      { viewKey: SECTION_A, said: `EL +11'-0"` },
+      { viewKey: SECTION_A, said: "+3.353" },
+    ]);
+
+    expect(
+      stack.map((level) => ({ label: level.label, ordinal: level.ordinal })),
+      "EL says the number beside it is an elevation and nothing about WHICH floor, so the storey word is dropped and the drawing's own spelling — `1F`, never `1ST` — is what the level is called (L-MEA-01)",
+    ).toEqual([
+      { label: "GF", ordinal: 0 },
+      { label: "1F", ordinal: 1 },
+      { label: "6F", ordinal: 2 },
+      { label: "ROOF", ordinal: 3 },
+    ]);
+    expect(
+      stack.map((level) => ({ height: level.heightAsWritten, unit: level.heightUnit })),
+      "and every height is null: the marks state metres without writing the unit, and a storey height is a person's to transcribe rather than a reading's to invent (B-07)",
+    ).toEqual([
+      { height: null, unit: null },
+      { height: null, unit: null },
+      { height: null, unit: null },
+      { height: null, unit: null },
+    ]);
+    expect(
+      stack.map((level) => level.markKey),
+      "the four notes contribute nothing — three state a length in feet and inches and one states a bare elevation over no floor at all, and none of them is a storey the building holds (L-QTY-04)",
+    ).toEqual(["e:0", "e:1", "e:2", "e:3"]);
+  });
+
   test("sections written in two units are stacked by what their elevations are worth, not by their numbers", () => {
     const stack = stackOf([
       { viewKey: SECTION_A, said: "GF LVL +0 mm" },

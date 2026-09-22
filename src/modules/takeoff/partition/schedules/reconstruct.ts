@@ -12,13 +12,19 @@
 // the columns are that header's own insertion x's, ascending (riskNotes (1)); and the rows run down
 // from the header until a gap over 3.5× the pitch says the table has ended.
 //
+// A band is not always a row. Where a schedule stacks a mark's whole statement — the section, the
+// bars and the ties on three lines of text with the mark written once beside them — the row is
+// delimited by the MARK CELLS and the lines between two marks are that mark's (`rowsByMark`), which
+// is what "row-cluster by y with BAND-FIRST clustering" asks for: the bands are found first, and the
+// rows are made of them.
+//
 // Pure over the artifact and the stages before it: no store, no clock, no model. The same artifact
 // reconstructs the same tables forever, which is what makes the stored partition rebuildable and its
 // keys re-derivable (L-REG-04).
 import type { ScheduleDeferralReason } from "@/core/db";
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import { REFUSALS } from "@/core/errors";
-import { CELL_JOIN, isMarkHeader, normaliseNotation } from "../notation";
+import { CELL_JOIN, isMarkFamily, isMarkHeader, normaliseNotation } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { VIEW_TYPE } from "../views/law";
 
@@ -169,7 +175,7 @@ function tableOf(view: PartitionedView, standing: readonly Placed[]): ScheduleTa
   const rows = rowsFrom(bands, header, pitch);
   const columns = columnsOf(rows[0] as Band);
   const reach = columnReachOf(columns);
-  const read = rows.map((band, rowIndex) => cellsOf(band, columns, reach, rowIndex));
+  const read = rowsByMark(rows, columns, reach).map((band, rowIndex) => cellsOf(band, columns, reach, rowIndex));
 
   return {
     viewKey: view.viewKey,
@@ -255,6 +261,86 @@ function columnsOf(header: Band): number[] {
   return clusters.map((cluster) => medianOf(cluster.map((text) => text.x)));
 }
 
+/**
+ * The ROWS of the table, which are not always its bands (L-CAD-08's "band-first clustering"). A
+ * schedule that states a column's whole band in one cell stacks the statement: the section on one
+ * line of text, the bars on the next, the ties on the third, with the mark written once beside them
+ * (F-RCC6-BNBC S-11). Read band by band that is three rows, two of which name no member at all: the
+ * mark's row then carries the ties alone as its section, every variant of every column of the
+ * schedule reads as sectionless, and no column line can be published from a drawing that states
+ * every column it has.
+ *
+ * So a row is delimited by the MARK CELLS: a band that names no member belongs to the row of the
+ * mark it stands nearest, and the texts it carries are that row's — joined per column, in the order
+ * the page is read, by the same sign two texts of one cell are joined with (`cellsOf`, AC-2), each
+ * cell citing every text it was read from (L-CAD-03).
+ *
+ * How near is near enough is the table's own statement, read the way the COLUMNS' reach is: half the
+ * closest its mark cells ever stand to each other, which is where one row stops being the nearest.
+ * S-11's marks stand 2,600 apart and its stacked lines 400 and 800 above their own mark, so they
+ * join it; the three general notes beneath the last row stand 2,200 and further off, so they do not
+ * and stay rows of their own — which is what keeps `ALL COLUMNS f'c = 3500 psi` out of C7's section.
+ *
+ * A table with FEWER THAN TWO mark cells states no row spacing at all, and a table no band of which
+ * names a member states no rows: both are read band for band, as they were before, because there is
+ * nothing in them to read a row's extent from and a reading nobody can check is a guess (L-QTY-01).
+ */
+function rowsByMark(rows: readonly Band[], columns: readonly number[], reach: number): Band[] {
+  const head = rows[0];
+  if (head === undefined) return [...rows];
+  const body = rows.slice(1);
+  const mark = cellsOf(head, columns, reach, 0).cells.find((cell) => isMarkHeader(cell.text));
+  if (mark === undefined) return [...rows];
+
+  const marked = body.map((band) => {
+    const cell = cellsOf(band, columns, reach, 0).cells.find((one) => one.columnIndex === mark.columnIndex);
+    return cell !== undefined && isMarkFamily(cell.text);
+  });
+  const claim = rowReachOf(body, marked);
+  if (claim === null) return [...rows];
+
+  const owners = body.map((band, index) => (marked[index] === true ? index : nearestMark(body, marked, band, claim) ?? index));
+  const held = new Map<number, Placed[]>();
+  const order: number[] = [];
+  for (const [index, band] of body.entries()) {
+    const owner = owners[index] as number;
+    const kept = held.get(owner);
+    if (kept === undefined) {
+      held.set(owner, [...band.texts]);
+      order.push(owner);
+      continue;
+    }
+    kept.push(...band.texts);
+  }
+  // A row stands where its own mark stands; a band no mark claimed stands where it was drawn.
+  return [head, ...order.map((owner) => ({ y: (body[owner] as Band).y, texts: held.get(owner) as Placed[] }))];
+}
+
+/**
+ * How far off a mark a band may stand and still be a line of that mark's row: half the closest the
+ * table's own mark cells ever stand to each other (`NEAREST_SHARE`), or null where the table has
+ * fewer than two of them to measure with.
+ */
+function rowReachOf(body: readonly Band[], marked: readonly boolean[]): number | null {
+  const ys = body.filter((_band, index) => marked[index] === true).map((band) => band.y);
+  let closest = Number.POSITIVE_INFINITY;
+  for (let index = 1; index < ys.length; index += 1) closest = Math.min(closest, (ys[index - 1] as number) - (ys[index] as number));
+  return Number.isFinite(closest) && closest > 0 ? closest * NEAREST_SHARE : null;
+}
+
+/** Which mark's row this band is a line of: the nearest within reach, ties to the one higher up the
+ * page — or none, which leaves the band a row of its own. */
+function nearestMark(body: readonly Band[], marked: readonly boolean[], band: Band, claim: number): number | null {
+  let held: number | null = null;
+  for (const [index, one] of body.entries()) {
+    if (marked[index] !== true) continue;
+    const gap = Math.abs(one.y - band.y);
+    if (gap > claim) continue;
+    if (held === null || gap < Math.abs((body[held] as Band).y - band.y)) held = index;
+  }
+  return held;
+}
+
 /** The rows of the table: the header, and every band beneath it until the gap says the table ended. */
 function rowsFrom(bands: readonly Band[], header: number, pitch: number): Band[] {
   const rows: Band[] = [bands[header] as Band];
@@ -300,19 +386,20 @@ function cellsOf(band: Band, columns: readonly number[], reach: number, rowIndex
 }
 
 /**
- * How far off a column's own insertion a text may stand and still be a cell of it, as a share of the
- * closest the table's columns ever stand to each other — a content-scaled share, never a constant in
- * drawing units (L-MEA-01). Half, because half the closest spacing is where one column stops being
- * the nearest: a text further out than that stands between the columns or beyond them.
+ * How far off a thing's own insertion a text may stand and still belong to it — across the page to a
+ * column, down it to a row — as a share of the closest two of them ever stand to each other: a
+ * content-scaled share, never a constant in drawing units (L-MEA-01). Half, because half the closest
+ * spacing is where one of them stops being the nearest, and a text further out than that stands
+ * between them or beyond them. One number for one reading, whichever way the page is read (B-17).
  */
-const COLUMN_REACH = 0.5;
+const NEAREST_SHARE = 0.5;
 
 /** That reach for one table's columns. A table of one column has nothing to stand between: it reaches
  * across its band, since a text there is nearer no other column of a table that has no other. */
 function columnReachOf(columns: readonly number[]): number {
   let closest = Number.POSITIVE_INFINITY;
   for (let index = 1; index < columns.length; index += 1) closest = Math.min(closest, (columns[index] as number) - (columns[index - 1] as number));
-  return closest * COLUMN_REACH;
+  return closest * NEAREST_SHARE;
 }
 
 /** Which column a text stands in: the nearest one within reach, ties going to the leftmost — or none. */

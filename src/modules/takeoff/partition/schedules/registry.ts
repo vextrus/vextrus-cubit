@@ -7,9 +7,12 @@
 // the schedule never asked (R-TO-031).
 //
 // One family is one MARK (riskNotes (3)): `C-1`, `c1.` and `C 1` are the family `C1`, the variants
-// beneath it are the per-band readings of that mark, and the rebar zones beneath those are the
-// main/ties columns read against each variant. A family per alphabetic prefix would fold every
-// column of a drawing into one row and make the registry useless to placement.
+// beneath it are the per-band readings of that mark, and the rebar zones beneath those are read off
+// the band's own cell where the schedule wrote them there and off the row's rebar columns where it
+// wrote them there — L-CAD-08 puts the zones under the BAND, and a schedule that stacks a band's
+// section, bars and ties in one cell states all three of them about that band. A family per
+// alphabetic prefix would fold every column of a drawing into one row and make the registry useless
+// to placement.
 //
 // Noise is never a family: a note, a dash and a dimension standing in the mark column name no
 // member, and a table none of whose rows names one contributes nothing rather than a guess (L-QTY-04).
@@ -17,7 +20,7 @@
 // Pure over the tables: no store, no clock, no model (L-REG-04).
 import type { RebarZone, SectionUnit } from "@/core/db";
 import { REFUSALS } from "@/core/errors";
-import { isMarkFamily, isMarkHeader, normaliseMark, normaliseNotation, parseFloorZone, parseRebarGroups, parseSizePair, parseSpacing, rebarZoneOfHeader, sectionUnitOfHeader, type FloorBand, type RebarGroup } from "../notation";
+import { REBAR_ZONE, cellParts, isMarkFamily, isMarkHeader, normaliseMark, normaliseNotation, parseFloorZone, parseRebarGroups, parseSizePair, parseSpacing, parseZonedSpacing, rebarZoneOfHeader, sectionUnitOfHeader, type FloorBand, type RebarGroup, type SizePair } from "../notation";
 import type { ScheduleCell, ScheduleDeferralRow, ScheduleTable } from "./reconstruct";
 
 /** The rebar one zone column states for one row: the cell verbatim, and what it reads as. */
@@ -300,6 +303,64 @@ function levelsColumnOf(columns: readonly Column[], rows: readonly [number, Map<
 }
 
 /**
+ * The section ONE cell states. A cell says as many things as the drawing wrote in it, joined by the
+ * notation's own sign, and the section is whichever of them reads as a pair of sides: a schedule that
+ * stacks `400x400` over `8-16Ø` over `10Ø@100/150 (TIES)` in one cell states the same section as one
+ * that writes it in a column of its own, and the section column's own reading must not depend on how
+ * many lines the draughtsman stacked in the cell (L-CAD-08).
+ */
+function sectionOf(text: string): SizePair | null {
+  for (const part of cellParts(text)) {
+    const stated = parseSizePair(part);
+    if (stated !== null) return stated;
+  }
+  return null;
+}
+
+/**
+ * The rebar ONE cell states, which is the rebar of the BAND that cell stands under — L-CAD-08 puts
+ * "rebar zones per band", and a stacked schedule writes each band's bars and ties inside the band's
+ * own cell rather than in columns of its own (F-RCC6-BNBC S-11). Each part of the cell answers the
+ * question it can: a part naming groups of bars is the main steel, a part stating two centres is the
+ * end zones and the middle, a part stating one is the ties.
+ *
+ * A zone stated twice is read from the first part that states it: the store holds one row per zone of
+ * one variant, and a second reading of the same zone is a competing opinion rather than more of the
+ * answer. A cell that states none of them — an ordinary `300 x 450` — answers none, and the row's own
+ * rebar columns stand where they always did.
+ */
+function zonesInCell(cell: ScheduleCell): MemberZone[] {
+  const zones: MemberZone[] = [];
+  const held = new Set<RebarZone>();
+  const cited = [...cell.sourceKeys];
+
+  for (const part of cellParts(cell.text)) {
+    const banded = parseZonedSpacing(part);
+    if (banded !== null) {
+      for (const one of banded) {
+        if (held.has(one.zone)) continue;
+        held.add(one.zone);
+        zones.push({ zone: one.zone, text: part, bars: parseRebarGroups(part), spacing: one.spacing, spacingUnit: one.unit, spacingBar: one.bar, sourceKeys: [...cited] });
+      }
+      continue;
+    }
+    const bars = parseRebarGroups(part);
+    if (bars !== null) {
+      if (held.has(REBAR_ZONE.main)) continue;
+      held.add(REBAR_ZONE.main);
+      zones.push({ zone: REBAR_ZONE.main, text: part, bars, spacing: null, spacingUnit: null, spacingBar: null, sourceKeys: [...cited] });
+      continue;
+    }
+    const spacing = parseSpacing(part);
+    if (spacing === null || held.has(REBAR_ZONE.ties)) continue;
+    held.add(REBAR_ZONE.ties);
+    zones.push({ zone: REBAR_ZONE.ties, text: part, bars: null, spacing: spacing.spacing, spacingUnit: spacing.unit, spacingBar: spacing.bar, sourceKeys: [...cited] });
+  }
+
+  return zones;
+}
+
+/**
  * The column of an unbanded header that states the schedule's sections: the first that is neither the
  * mark nor a rebar zone and whose cell reads as a section ANYWHERE in the table. Chosen from the
  * whole table because a column is the section column for every row or for none, and one row's `-`
@@ -315,7 +376,7 @@ function sectionColumnOf(columns: readonly Column[], rows: readonly [number, Map
     unbanded.find((column) =>
       rows.some((row) => {
         const cell = row[1].get(column.index);
-        return cell !== undefined && parseSizePair(cell.text) !== null;
+        return cell !== undefined && sectionOf(cell.text) !== null;
       }),
     ) ?? null
   );
@@ -345,12 +406,18 @@ function variantOf(read: {
   unitHeader: string;
 }): MemberVariant {
   const { variantKey, bandText, band, cell, zones } = read;
-  const section = parseSizePair(cell.text);
+  const section = sectionOf(cell.text);
+  // The band's own rebar stands before the row's: a cell that states the ties of ITS band states them
+  // for that band, and a rebar column heads the same zone for every band of the row. Where the cell
+  // states a zone the columns also state, the nearer statement is the cell's (R-TO-031).
+  const stated = zonesInCell(cell);
+  const held = new Set(stated.map((zone) => zone.zone));
   return {
     variantKey,
     bandText,
     bandFrom: band === null ? null : band.from,
     bandTo: band === null ? null : band.to,
+    // The cell verbatim, however many lines the draughtsman stacked inside it (L-CAD-08).
     sectionText: cell.text,
     sectionWidth: section === null ? null : section.width,
     sectionDepth: section === null ? null : section.depth,
@@ -358,7 +425,7 @@ function variantOf(read: {
     // schedule states its unit once, over the column, and writes bare numbers under it (R-TO-031).
     sectionUnit: section === null ? null : section.unit ?? sectionUnitOfHeader(read.unitHeader),
     sourceKeys: [...cell.sourceKeys],
-    zones: zones.map((zone) => ({ ...zone })),
+    zones: [...stated, ...zones.filter((zone) => !held.has(zone.zone)).map((zone) => ({ ...zone }))],
   };
 }
 

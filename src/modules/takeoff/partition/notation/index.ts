@@ -24,8 +24,12 @@ import { dotlessUpper } from "@/core/identity";
 // control-code table (B-17).
 export { normaliseNotation };
 
-/** The four zones a rebar column reads as, each named as the member of the seam's roster it is. */
-const ZONE: Readonly<Record<RebarZone, RebarZone>> = Object.freeze({
+/**
+ * The four zones a rebar column reads as, each named as the member of the seam's roster it is.
+ * Published because a zone is read off a CELL as well as off a header — a stacked schedule states
+ * the ties of a band inside the band's own cell — and the name of a zone has one home (B-17).
+ */
+export const REBAR_ZONE: Readonly<Record<RebarZone, RebarZone>> = Object.freeze({
   main: "main",
   ties: "ties",
   "ties-end": "ties-end",
@@ -33,7 +37,7 @@ const ZONE: Readonly<Record<RebarZone, RebarZone>> = Object.freeze({
 });
 
 /** The closed roster itself, as the registry, the store's CHECK and the rails read it. */
-export const REBAR_ZONES: readonly RebarZone[] = Object.freeze(Object.values(ZONE));
+export const REBAR_ZONES: readonly RebarZone[] = Object.freeze(Object.values(REBAR_ZONE));
 
 /** The two units a drawing states a section or a spacing in, named the same way. */
 const UNIT: Readonly<Record<SectionUnit, SectionUnit>> = Object.freeze({ in: "in", mm: "mm" });
@@ -166,6 +170,16 @@ const REBAR_GROUP = /^(\d+)(?:\s*-\s*|\s+(?:NOS?\.?|X)\s+|\s+)(\d+)\s*(?:MM)?\s*
 export const CELL_JOIN = "+";
 
 /**
+ * The several things one cell says, in the order it says them. A schedule that stacks a mark's whole
+ * band inside one cell — the section over the bars over the ties — reaches the registry as one text
+ * joined by the sign above, and each reader takes the part of it that answers its own question
+ * (L-CAD-08: "two texts in one cell join with `+`"). A cell that says one thing is one part.
+ */
+export function cellParts(text: string): string[] {
+  return text.split(CELL_JOIN).map((part) => part.trim()).filter((part) => part !== "");
+}
+
+/**
  * The groups of bars a cell names, in the order it names them, or null where it names none. Every
  * group must read: a cell half of which is a group and half of which is prose is a cell this rule
  * does not read, and half an answer is worse than none (L-QTY-04).
@@ -204,11 +218,60 @@ export function parseSpacing(text: string): BarSpacing | null {
   return { bar: bar === undefined ? null : Number(bar), spacing: centres.value, unit: centres.unit };
 }
 
+/** What a cell writes between the centres of the end zones and the centres of the middle. */
+const ZONE_SEPARATOR = "/";
+
+/** The zone a cell names ITSELF with, written after the centres — `(TIES)`, `(LINKS)`. It is the
+ * column's own word standing inside the cell, never a third figure. */
+const NAMED_TAIL = /\s*\([^)]*\)\s*$/;
+
+/** The centres one zone of a cell states: which zone, which bar, at what spacing, in which unit. */
+export type ZonedSpacing = { readonly zone: RebarZone; readonly bar: number | null; readonly spacing: number; readonly unit: SectionUnit | null };
+
+/**
+ * The TWO spacings a ties cell states in one breath — `10Ø@100/150 (TIES)`, the way a Bangladeshi
+ * column schedule writes a column's links — as the zones they are: the first is the end zones' and
+ * the second the middle's (L-FRM-05, where the two are detailed and counted separately). Null where
+ * the cell states one spacing or none, which is `parseSpacing`'s question and not this one's.
+ *
+ * Folding the two into one `ties` would keep one of the two answers and bill the whole column at it;
+ * the store holds a row per zone for exactly that reason (AC-4).
+ */
+export function parseZonedSpacing(text: string): ZonedSpacing[] | null {
+  const said = spelled(text);
+  const at = said.indexOf(AT_CENTRES);
+  if (at < 0) return null;
+  const stated = said.slice(at + AT_CENTRES.length).replace(NAMED_TAIL, "").replace(CENTRES, "");
+  const parts = stated.split(ZONE_SEPARATOR);
+  if (parts.length !== 2) return null;
+  const end = sideOf(parts[0] ?? "");
+  const mid = sideOf(parts[1] ?? "");
+  if (end === null || mid === null) return null;
+  const bars = [...said.slice(0, at).matchAll(BAR_DIAMETER)];
+  const stamped = bars[bars.length - 1]?.[1];
+  const bar = stamped === undefined ? null : Number(stamped);
+  return [
+    { zone: REBAR_ZONE["ties-end"], bar, spacing: end.value, unit: end.unit },
+    { zone: REBAR_ZONE["ties-mid"], bar, spacing: mid.value, unit: mid.unit },
+  ];
+}
+
 /** What a schedule writes between the two ends of a band of floors. */
 const BAND_SEPARATOR = /\s*(?:\bTO\b|\bTHRU\b|\bTHROUGH\b|[-–—~])\s*/;
 
-/** The words that say "this is a floor" and nothing about WHICH floor, so a level reads without them. */
-const STOREY_WORDS: ReadonlySet<string> = new Set(["FLOOR", "FLOORS", "FLR", "FLRS", "LEVEL", "LEVELS", "LVL", "STOREY", "STORY"]);
+/** What it writes between two floors it LISTS instead of running a band between (`3RD & 4TH`). */
+const BAND_LIST = /\s*(?:&|\bAND\b|\+|,)\s*/;
+
+/**
+ * The words that say "this is a floor" and nothing about WHICH floor, so a level reads without them.
+ *
+ * `EL` is one of them: a building section marks its storeys `GF EL +0.000` … `ROOF EL +21.641`
+ * (F-RCC6-BNBC S-25), where the word says only that the number beside it is an elevation. Kept, it
+ * joined `GF EL` into `GFEL`, which names no level, and the section proposed no stack at all.
+ * `ELEV`, `ELEVATION` and `RL` are NOT here: no drawing either fixture holds writes them, and a word
+ * admitted on a hunch is a reading nobody proved (L-QTY-01).
+ */
+const STOREY_WORDS: ReadonlySet<string> = new Set(["EL", "FLOOR", "FLOORS", "FLR", "FLRS", "LEVEL", "LEVELS", "LVL", "STOREY", "STORY"]);
 
 /** The levels a drawing names by word rather than by ordinal, and the spelling each one reads as. */
 const NAMED_LEVELS: Readonly<Record<string, string>> = Object.freeze({
@@ -236,6 +299,9 @@ const NAMED_LEVELS: Readonly<Record<string, string>> = Object.freeze({
  */
 const ORDINAL_LEVEL = /^\d+(?:ST|ND|RD|TH|F)$/;
 
+/** That same counting, with the number kept — the one question a LIST of two levels can answer. */
+const ORDINAL_COUNT = /^(\d+)(?:ST|ND|RD|TH|F)$/;
+
 /** One end of a band, as the level it names, or null where it names no level at all. */
 function levelOf(text: string): string | null {
   const said = wordsOf(text).filter((word) => !STOREY_WORDS.has(word)).join("");
@@ -245,12 +311,56 @@ function levelOf(text: string): string | null {
 }
 
 /**
+ * The shape a level's own LABEL takes: one word, of letters and at least one of them — the way a
+ * building names a storey the general roster has never heard of. A bare number is a count and a
+ * sentence is a note; neither is a level, and reading one as an end of a band would invent a storey.
+ */
+const LEVEL_LABEL = /^(?=.*[A-Z])[A-Z0-9]{1,6}$/;
+
+/**
+ * One end of a band that names no level this reading knows, carried as the drawing's own word —
+ * `ROOF-SRR` runs from the roof to the stair-roof room, and SRR is a label the building's own level
+ * stack may or may not hold (F-RCC6-BNBC S-11). Where such a label sits on the ladder is the
+ * expansion's question and its refusal to answer (L-CAD-07's `LEVEL_RANGE_ENDPOINT_UNMAPPED`), never
+ * this reader's to guess; refusing the whole band here would lose the section the column heads along
+ * with the end nobody could place (L-QTY-04).
+ */
+function labelOf(text: string): string | null {
+  const said = wordsOf(text).filter((word) => !STOREY_WORDS.has(word)).join("");
+  return LEVEL_LABEL.test(said) ? said : null;
+}
+
+/**
+ * The band a LIST of two floors names — `3RD & 4TH` heads the sections carried over both of them —
+ * or null where the list names no band.
+ *
+ * Only two CONSECUTIVE ordinals read. A list is not a range: `GF & 5TH` names two floors and says
+ * nothing at all about the four between them, and reading it as a band would price four storeys the
+ * drawing never banded (L-QTY-01). Two ordinals one apart are the one list where the counting itself
+ * says nothing stands between them, so the band is the drawing's own statement rather than a guess.
+ */
+function listedBand(left: string | null, right: string | null): FloorBand | null {
+  if (left === null || right === null) return null;
+  const low = ORDINAL_COUNT.exec(left);
+  const high = ORDINAL_COUNT.exec(right);
+  if (low === null || high === null) return null;
+  return Number(high[1]) - Number(low[1]) === 1 ? { from: left, to: right } : null;
+}
+
+/**
  * The band of floors a column header names, or null where it names something else. A header naming
  * ONE level is a band of that level alone: a schedule column headed `ROOF` states the section that
  * stands at the roof, and rewriting it as a band from nowhere would lose what the drawing said.
  */
 export function parseFloorZone(text: string): FloorBand | null {
-  const parts = spelled(text).trim().split(BAND_SEPARATOR);
+  const said = spelled(text).trim();
+  // A list is read before a range, because a list writes no range sign for a range reading to find.
+  const listed = said.split(BAND_LIST);
+  if (listed.length === 2) {
+    const band = listedBand(levelOf(listed[0] ?? ""), levelOf(listed[1] ?? ""));
+    if (band !== null) return band;
+  }
+  const parts = said.split(BAND_SEPARATOR);
   if (parts.length === 1) {
     const only = levelOf(parts[0] ?? "");
     return only === null ? null : { from: only, to: only };
@@ -258,7 +368,15 @@ export function parseFloorZone(text: string): FloorBand | null {
   if (parts.length !== 2) return null;
   const from = levelOf(parts[0] ?? "");
   const to = levelOf(parts[1] ?? "");
-  return from === null || to === null ? null : { from, to };
+  if (from !== null && to !== null) return { from, to };
+  // One end the rosters place and one they do not is still a band the drawing drew a column for.
+  if (from === null && to === null) return null;
+  if (from === null) {
+    const start = labelOf(parts[0] ?? "");
+    return start === null ? null : { from: start, to: to as string };
+  }
+  const end = labelOf(parts[1] ?? "");
+  return end === null ? null : { from, to: end };
 }
 
 /** A cell that says how many of something else it holds: `2 OF 4-16Ø`, `3 NOS OF 12Ø`, `2x 4-16Ø`. */
@@ -334,9 +452,9 @@ const MAIN_WORDS: ReadonlySet<string> = new Set(["MAIN", "LONGITUDINAL", "LONGI"
 export function rebarZoneOfHeader(text: string): RebarZone | null {
   const words = wordsOf(spelled(text));
   if (words.some((word) => TIE_WORDS.has(word))) {
-    if (words.some((word) => END_WORDS.has(word))) return ZONE["ties-end"];
-    if (words.some((word) => MID_WORDS.has(word))) return ZONE["ties-mid"];
-    return ZONE.ties;
+    if (words.some((word) => END_WORDS.has(word))) return REBAR_ZONE["ties-end"];
+    if (words.some((word) => MID_WORDS.has(word))) return REBAR_ZONE["ties-mid"];
+    return REBAR_ZONE.ties;
   }
-  return words.some((word) => MAIN_WORDS.has(word)) ? ZONE.main : null;
+  return words.some((word) => MAIN_WORDS.has(word)) ? REBAR_ZONE.main : null;
 }
