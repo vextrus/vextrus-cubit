@@ -149,6 +149,11 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+  /* An `h1` left unstated is the user agent's 2em — 28 px off the 14 px body, a size R-UI-003's
+     scale does not spell (I-289). The element is absolutely positioned, 1 px wide and clipped, so
+     stating the body size paints nothing and moves nothing; it only stops the screen declaring a
+     size nobody chose. */
+  font-size: var(--text-body);
 }
 
 .cx-bbs-member {

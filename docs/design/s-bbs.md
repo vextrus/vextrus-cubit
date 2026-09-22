@@ -65,6 +65,19 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   place (R-UI-020, R-UI-060). The two sentences are keyed `bbs_partial` and `bbs_complete` — the
   state they belong to, named as the state is. Rejected: a status line outside the answer slot under
   `bbs_coverage_*` keys, which gave the screen two live regions saying two halves of one answer.
+- **I-289 — the screen's own name is a size this Decision places, on the type scale, and it paints
+  nothing (session 4, 2026-09-22).** `.cx-bbs-name` is the visually-hidden `<h1>` of I-bbs-7's
+  neighbour rule (R-UI-012): absolutely positioned, 1 px wide, `clip-path: inset(50%)`. Left with no
+  `font-size`, it wears the user agent's `h1` default of 2em — 28 px against the 14 px body — and
+  28 is not on R-UI-003's scale {10, 12, 13, 14, 16, 20, 24, 32}, so the rubric's C11 reads an
+  off-scale size on a screen that never drew one. The sheet states `font-size: var(--text-body)`,
+  which is the size this screen's own prose already stands at and is already among §5's spent
+  tokens: the closed px-literal set does not grow, and no pixel moves, because the element is
+  clipped to 1 px and outside flow. Rejected: hiding the heading from the reading (it is the page's
+  name for a reader arriving without the crumb), re-tagging it as a `<p>` with `role="heading"`
+  (the rubric counts exactly one `h1`, and a real heading is the honest markup), and leaving the
+  UA's 28 in place with a human note lowering C11 — a human may only LOWER a computed score, never
+  excuse one.
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -255,7 +268,10 @@ or `--beam-*` reference outside `tokens.ts` is a lint failure (R-UI-086). This s
 the summary heading's 28, the summary's 224 cap, the 520 the empty state and the error block stand at,
 the ten grid column widths (112/96/72/88/200/128/104/112/88/112), the five summary widths
 (112/160/128/112/160), the current-tab underline's 2, and the loading leg's bones (28/96). Any other
-literal is a defect. **No copper anywhere**: this screen commits nothing (R-UI-021 has no subject here).
+literal is a defect. **Every size on this screen is stated, the hidden one included**: `.cx-bbs-name`,
+the visually-hidden `<h1>`, reads `--text-body` like the prose beside it, so no element is left to
+the user agent's own `h1` size and the screen declares nothing off R-UI-003's scale (I-289). This
+adds no token and no literal — `--text-body` is already spent above. **No copper anywhere**: this screen commits nothing (R-UI-021 has no subject here).
 
 `bbs.css` contains no `[data-theme]` selector; every light/dark difference arrives through token
 values (R-UI-001). Dark is the default and light is complete; both are captured, the light picture by

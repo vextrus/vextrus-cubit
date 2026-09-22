@@ -354,6 +354,11 @@ on camera change and on layer arrival, never on an idle timer, so a still sheet 
 
 ## 5. Tokens
 
+The screen's visually-hidden heading (`.cx-viewer-hidden`) states `font-size: var(--text-body)`
+(session 5, s-bbs I-289's reading applied here): a heading left unstated is the user agent's 2em, a
+size R-UI-003's scale does not spell, and the rubric's C11 reads it; clipped to nothing, the size
+paints nothing.
+
 `--graphite-0/50/100/200/300/600/700/900` · `--beam-100` (pressed control fill; `--beam-500` reaches
 the canvas and the controls only through the reticle's single home) · `--canvas-paper` /
 `--canvas-grid` (the 1 px extents frame) / `--canvas-ink` (I-79), read by the screen from

@@ -220,6 +220,10 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+  /* A heading left unstated is the user agent's 2em — 28 px off the 14 px body, a size R-UI-003's
+     scale does not spell (s-bbs I-289's reading, applied here). Clipped to nothing, the size paints
+     nothing; it only stops the screen declaring a size nobody chose. */
+  font-size: var(--text-body);
 }
 
 /* A sheet that could not be drawn, with the Trace's own answer beside it. The absence keeps the
