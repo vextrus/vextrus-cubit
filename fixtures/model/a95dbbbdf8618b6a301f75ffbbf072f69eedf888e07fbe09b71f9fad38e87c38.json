@@ -1,0 +1,36 @@
+{
+  "requestHash": "a95dbbbdf8618b6a301f75ffbbf072f69eedf888e07fbe09b71f9fad38e87c38",
+  "modelId": "claude-sonnet-5",
+  "payload": {
+    "payload": {
+      "item": "earthwork.excavation/footing/depth-to-1500"
+    },
+    "sources": [
+      "DXF_HANDLE:F1"
+    ]
+  },
+  "inputTokens": 1179,
+  "outputTokens": 110,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.34,
+    "answers": {
+      "item_description": {
+        "type": "choice",
+        "value": "earthwork.excavation/footing/depth-to-1500",
+        "confidence": 0.34,
+        "probabilities": {
+          "NONE_OF_THESE": 0.14,
+          "earthwork.excavation/footing/depth-to-1500": 0.55,
+          "earthwork.excavation/footing/depth-over-1500": 0.31
+        }
+      },
+      "attributes_separate": {
+        "type": "noul",
+        "value": 0.78,
+        "confidence": 0.78,
+        "probabilities": null
+      }
+    }
+  }
+}

@@ -188,6 +188,17 @@
       "providerCost": "0.000034944"
     },
     {
+      "requestHash": "1b8fc37f0a6b75b998b4a079d396910a70f8eda3130e24b1303dea9fe5749af0",
+      "question": "boq-line-description",
+      "subject": "rcc6-bnbc · brick_wall · masonry.brickwork · 250 mm nominal · 3 candidates",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1177,
+      "outputTokens": 129,
+      "attributedCost": "0.005466",
+      "providerCost": "0.000049434"
+    },
+    {
       "requestHash": "1d719a00fd2643d97bad95c7d68bccb9155add28263f6832f19f9cfd712ecd3a",
       "question": "coverage-cause",
       "subject": "01-column-concrete-2f-plan-reading-absent.state.json · rcc.concrete on column, 2F",
@@ -760,6 +771,17 @@
       "providerCost": "0.000046956"
     },
     {
+      "requestHash": "81a1adce5ad5849ada15de8f6d3425fa3246ec83d1c816671871998e084c9587",
+      "question": "boq-line-description",
+      "subject": "rcc6-bnbc · pile_cap · earthwork.excavation · pit deeper than 1.5 m · 2 candidates",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1182,
+      "outputTokens": 110,
+      "attributedCost": "0.005196",
+      "providerCost": "0.000049644"
+    },
+    {
       "requestHash": "824aca94bf224ba18296804c2238155799d19746512e7d78afe57dd92f96ae5c",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · LINTEL & SUNSHADE SCHEDULE · row 2",
@@ -1000,6 +1022,17 @@
       "outputTokens": 93,
       "attributedCost": "0.02904",
       "providerCost": "0.000061782"
+    },
+    {
+      "requestHash": "a95dbbbdf8618b6a301f75ffbbf072f69eedf888e07fbe09b71f9fad38e87c38",
+      "question": "boq-line-description",
+      "subject": "rcc6-bnbc · footing · earthwork.excavation · pit not deeper than 1.5 m · 2 candidates",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1179,
+      "outputTokens": 110,
+      "attributedCost": "0.005187",
+      "providerCost": "0.000049518"
     },
     {
       "requestHash": "ac21ab7c24717a02557bdc4f644f22bfaafaad1bdc2dbfce30f2529f6319077c",
@@ -1418,6 +1451,17 @@
       "outputTokens": 89,
       "attributedCost": "0.003966",
       "providerCost": "0.000036834"
+    },
+    {
+      "requestHash": "f1ccb6586d982c8bbb2f251cdc7eb89ffa6a1bf7a1211b8342c43f6cf2151b64",
+      "question": "boq-line-description",
+      "subject": "rcc6-bnbc · brick_wall · masonry.brickwork · 125 mm nominal partition · 3 candidates",
+      "recordedOn": "2026-09-22",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1177,
+      "outputTokens": 129,
+      "attributedCost": "0.005466",
+      "providerCost": "0.000049434"
     },
     {
       "requestHash": "f51cf3ad7f496080ba5033d3d608ae75ae6ab10bb66d555d8c2b64ce48870f52",

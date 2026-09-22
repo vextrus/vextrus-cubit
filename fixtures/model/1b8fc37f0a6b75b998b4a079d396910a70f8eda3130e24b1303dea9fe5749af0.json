@@ -1,0 +1,37 @@
+{
+  "requestHash": "1b8fc37f0a6b75b998b4a079d396910a70f8eda3130e24b1303dea9fe5749af0",
+  "modelId": "claude-sonnet-5",
+  "payload": {
+    "payload": {
+      "item": "masonry.brickwork/brick_wall/nominal-250"
+    },
+    "sources": [
+      "DXF_HANDLE:BW250@1F"
+    ]
+  },
+  "inputTokens": 1177,
+  "outputTokens": 129,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.96,
+    "answers": {
+      "item_description": {
+        "type": "choice",
+        "value": "masonry.brickwork/brick_wall/nominal-250",
+        "confidence": 0.98,
+        "probabilities": {
+          "masonry.brickwork/brick_wall/nominal-250": 0.98,
+          "NONE_OF_THESE": 0.02,
+          "masonry.brickwork/brick_wall/nominal-125": 0,
+          "masonry.brickwork/brick_wall/nominal-375": 0
+        }
+      },
+      "attributes_separate": {
+        "type": "noul",
+        "value": 0.96,
+        "confidence": 0.96,
+        "probabilities": null
+      }
+    }
+  }
+}
