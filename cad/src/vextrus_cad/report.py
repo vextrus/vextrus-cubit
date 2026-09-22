@@ -73,17 +73,36 @@ SHX_FONT_UNRESOLVED: Final = "SHX_FONT_UNRESOLVED"
 #: are not entities, so nothing in the artifact stands for what they say.
 EMBEDDED_OBJECT: Final = "EMBEDDED_OBJECT"
 
+#: The DWG lane's two passes disagreed about one class on one sheet: the conversion carried fewer of
+#: it than the census counted (`dwg/reconcile.py`'s SHORTFALL), so the artifact stands for that class
+#: short by the difference. The class is refused on that sheet and the drawing is not: what was
+#: carried is still geometry, and a loss named per space and per class is what an operator can act
+#: on (L-CAD-04 — never a silent loss).
+CONVERSION_SHORTFALL: Final = "CONVERSION_SHORTFALL"
+
+#: The census itself could not name a class the drawing holds (`dwg/reconcile.py`'s UNKNOWN_ENT), so
+#: nothing downstream can say what the conversion did or did not carry across for it.
+CONVERSION_UNKNOWN_ENT: Final = "CONVERSION_UNKNOWN_ENT"
+
+#: The reader said something on the way in — a handle it found twice, a structure it distrusted.
+#: Its words belong to this process rather than to the caller's streams (`dwg/quiet.py`), so they
+#: are held for the duration of the open and counted here instead of leaking beside the answer.
+READER_WARNED: Final = "READER_WARNED"
+
 #: Every note code, closed and sorted — the table a test reads rather than a list it re-spells.
 NOTE_CODES: Final[tuple[str, ...]] = tuple(
     sorted(
         (
             AUDIT_REPAIRED,
+            CONVERSION_SHORTFALL,
+            CONVERSION_UNKNOWN_ENT,
             CURVE_TOLERANCE_NOT_IN_MM,
             EMBEDDED_OBJECT,
             IMAGE_REFERENCE,
             MULTILEADER_NOT_EXPLODED,
             OLE2FRAME,
             PROXY_ENTITY,
+            READER_WARNED,
             REJOINED_WRAPPED_TEXT,
             RESYNCED_TAG_STREAM,
             SHX_FONT_UNRESOLVED,
@@ -200,53 +219,82 @@ _NOTED_TYPES: Final[dict[str, str]] = {
     "WIPEOUT": WIPEOUT,
 }
 
-#: Structural records that are not drawing content and never mint entity keys (L-CAD-03).
-_NOT_CONTENT_BYTES: Final = frozenset({b"ATTRIB", b"ATTDEF", b"SEQEND", b"VERTEX", b"VIEWPORT"})
+#: Structural records that are not drawing content and never mint entity keys (L-CAD-03). `BLOCK`
+#: and `ENDBLK` stand here for the reason `dwg/vocabulary.py` keeps them out of both tallies: they
+#: delimit a block definition rather than drawing anything.
+_NOT_CONTENT_BYTES: Final = frozenset(
+    {b"ATTRIB", b"ATTDEF", b"SEQEND", b"VERTEX", b"VIEWPORT", b"BLOCK", b"ENDBLK"}
+)
+
+#: The sections a drawing's own content stands in. Model space and the active paper layout are
+#: written to ENTITIES; every OTHER layout's entities stand in BLOCKS under that layout's space
+#: block record (`cad/tests/fixtures/layouts.dxf` keeps SHEET A1's two entities there), and a block
+#: definition's paint stands in BLOCKS beside them. Everything in TABLES, CLASSES and OBJECTS is
+#: structure rather than drawing content: no source key is ever minted for it.
+_CONTENT_SECTIONS: Final = frozenset({b"ENTITIES", b"BLOCKS"})
 
 
-def _handles_in(data: bytes) -> list[str]:
-    """Every entity handle the tag stream states, in the order it states them (group code 5).
+def _stated_handles(data: bytes) -> list[tuple[str, bool]]:
+    """Every handle the tag stream states, in order, each flagged for whether the record that
+    states it is drawing content.
 
     Read along the stream's OWN rhythm — a code line, then its value line — rather than by looking
     for lines that say "5": a value that happens to be 5 is not a group code, and a scan that cannot
     tell the two apart reports duplicate handles on a perfectly sound file.
+
+    Only the FIRST group 5 of a record is that record's handle. An XRECORD's data can quote somebody
+    else's handle further in under the same code, and a scan that reads those as handles of their own
+    invents collisions — which, where the rule below is a refusal, would lose a sound drawing.
     """
     lines = data.split(b"\n")
-    handles: list[str] = []
-    in_entities = False
+    stated: list[tuple[str, bool]] = []
+    section: bytes | None = None
     current_type: bytes | None = None
     has_sections = b"SECTION" in data
+    taken = True
     for index in range(0, len(lines) - 1, 2):
         code = lines[index].strip()
         val = lines[index + 1].strip()
         if code == b"0" and val == b"SECTION":
-            if index + 2 < len(lines) and lines[index + 2].strip() == b"2":
-                in_entities = lines[index + 3].strip() == b"ENTITIES"
-        elif code == b"0" and val == b"ENDSEC":
-            in_entities = False
+            named = index + 3 < len(lines) and lines[index + 2].strip() == b"2"
+            section = lines[index + 3].strip() if named else None
             current_type = None
-        elif in_entities or not has_sections:
-            if code == b"0":
-                current_type = val
-            elif code == b"5" and current_type is not None and current_type not in _NOT_CONTENT_BYTES:
-                handles.append(val.decode("latin-1"))
-    return handles
+        elif code == b"0" and val == b"ENDSEC":
+            section = None
+            current_type = None
+        elif code == b"0":
+            current_type = val
+            taken = False
+        elif code == b"5" and current_type is not None and not taken:
+            taken = True
+            in_content = section in _CONTENT_SECTIONS or (section is None and not has_sections)
+            stated.append((val.decode("latin-1"), in_content and current_type not in _NOT_CONTENT_BYTES))
+    return stated
 
 
 def duplicate_handles(data: bytes) -> list[str]:
-    """The handles this file states more than once, sorted.
+    """The handles this file states more than once where drawing content takes part, sorted.
 
-    A handle stated twice is two entities one key names: `source_key` would mint one key for both,
-    the loader keeps whichever it read last, and everything downstream reads the artifact and
-    nothing else. That is not a note — nothing downstream could act on it — so the caller refuses
-    the drawing by name (L-CAD-02: one key minted once, L-CAD-04).
+    A DXF handle names one record in the whole file, and a reader binds every section into one
+    handle-keyed database: where two records state one handle, `ezdxf` keeps the one it read last
+    and the earlier record is dropped from the layout or block that held it. So a handle a drawing
+    entity shares with anything — another entity, or an XRECORD in OBJECTS a converter minted over
+    it — costs the artifact that entity, and the artifact then stands for less than the drawing
+    holds with nothing naming the loss. Where both records are layout content it costs more still:
+    one source key would have named two originals (L-CAD-02, L-CAD-03). Neither is a note — nothing
+    downstream could act on either — so the caller refuses the drawing by name (L-CAD-04).
+
+    A repeat between records that are NOT drawing content is left alone, and deliberately: LibreDWG
+    writes a converted drawing's TABLES with a hundred repeated `BLOCK_RECORD`, `LTYPE` and `LAYER`
+    handles (the committed F-RCC6 corpus's own conversion states 102), no entity is dropped for it,
+    and refusing those drawings would refuse the corpora this product is built on.
     """
-    seen: set[str] = set()
+    seen: dict[str, bool] = {}
     repeated: set[str] = set()
-    for handle in _handles_in(data):
-        if handle in seen:
+    for handle, content in _stated_handles(data):
+        if handle in seen and (content or seen[handle]):
             repeated.add(handle)
-        seen.add(handle)
+        seen[handle] = seen.get(handle, False) or content
     return sorted(repeated)
 
 

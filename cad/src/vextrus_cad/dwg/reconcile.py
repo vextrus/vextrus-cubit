@@ -6,6 +6,7 @@ lost it on, and the caller carries the list.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Final
 
@@ -27,12 +28,40 @@ class RefusedClass:
     census: int
     converted: int
 
-    def message(self) -> str:
-        """The refusal in words, naming both the sheet and the class it is about."""
+    def detail(self) -> str:
+        """What was refused and what the two passes said, naming both the sheet and the class.
+
+        The sentence without the reason on the front: beside a note code that already names the
+        class of loss (`note_code`), saying the reason twice in one line says it neither time.
+        """
         return (
-            f"{self.reason}: {self.dxftype} is refused on {self.space} — "
+            f"{self.dxftype} is refused on {self.space} — "
             f"the census counted {self.census}, the conversion carried {self.converted}"
         )
+
+    def message(self) -> str:
+        """The refusal in words, opening with the rule that made it."""
+        return f"{self.reason}: {self.detail()}"
+
+    @property
+    def lost(self) -> int:
+        """How many of this class the conversion did not carry across.
+
+        A shortfall loses the difference. An unnamed class loses all of it: nothing on the other
+        side can be matched to a class nothing can name, so what the census counted is what no
+        geometry in the artifact stands for.
+        """
+        if self.reason == UNKNOWN_ENT:
+            return self.census
+        return max(self.census - self.converted, 0)
+
+    def note_code(self) -> str:
+        """The code this refusal is noted under beside the artifact (`report.py`'s closed table).
+
+        One spelling per side: the reason names the rule here, `report.py` names the class of loss,
+        and `cad/tests/dwg/test_dwg_reconcile.py` holds the two together.
+        """
+        return f"CONVERSION_{self.reason}"
 
 
 def reconcile(
@@ -56,3 +85,18 @@ def reconcile(
             elif converted < counted:
                 refused.append(RefusedClass(space, dxftype, SHORTFALL, counted, converted))
     return sorted(refused, key=lambda entry: (entry.space, entry.dxftype))
+
+
+def losses_by_space(refused: Iterable[RefusedClass]) -> dict[str, dict[str, int]]:
+    """Every refused class as a count of what was lost, per space and per class.
+
+    The shape the artifact's counters keep a loss in (R-TO-001): space → DXF class → how many. Pure,
+    sorted both ways, and empty where nothing was lost — a conversion that reconciled cleanly adds
+    no key to any artifact.
+    """
+    losses: dict[str, dict[str, int]] = {}
+    for entry in refused:
+        if entry.lost <= 0:
+            continue
+        losses.setdefault(entry.space, {})[entry.dxftype] = entry.lost
+    return {space: dict(sorted(types.items())) for space, types in sorted(losses.items())}

@@ -14,7 +14,7 @@ from .census import census_of
 from .convert import DwgConversion, convert_dwg
 from .errors import DwgError
 from .heal import WRAP_COLUMN, Rejoined, heal_wrapped_text, rejoin_wrapped_text
-from .reconcile import SHORTFALL, UNKNOWN_ENT, RefusedClass, reconcile
+from .reconcile import SHORTFALL, UNKNOWN_ENT, RefusedClass, losses_by_space, reconcile
 from .tally import geometry_tally
 from .toolchain import DEFAULT_TOOLCHAIN, DWG_TIMEOUT_SECONDS, Toolchain
 
@@ -33,6 +33,7 @@ __all__ = [
     "convert_dwg",
     "geometry_tally",
     "heal_wrapped_text",
+    "losses_by_space",
     "reconcile",
     "rejoin_wrapped_text",
 ]

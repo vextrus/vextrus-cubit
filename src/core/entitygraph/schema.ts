@@ -154,12 +154,22 @@ const layoutSchema = z.strictObject({
   viewports: z.array(viewportSchema).optional(),
 });
 
-/** One space's fidelity counters — what the extraction lost, and where (R-TO-001). */
+/**
+ * One space's fidelity counters — what the extraction lost, and where (R-TO-001).
+ *
+ * `conversion_losses` is the DWG lane's own loss: how many of each class the LibreDWG conversion in
+ * front of the ingest did not carry onto this space, reconciled class by class against the census
+ * (L-CAD-04). Optional because it is a fact about a conversion — a DXF ingest crosses none, and a
+ * conversion that reconciled cleanly lost nothing — so an artifact written before this, or written
+ * from a DXF, carries no key. A space the conversion emptied altogether carries a counters row of
+ * its own: the loss is named even where no layout was left to name it on.
+ */
 const counterSchema = z.strictObject({
   space: z.string().min(1),
   explode_truncated: z.boolean(),
   explode_losses: counts,
   flatten_capped: counts,
+  conversion_losses: counts.optional(),
 });
 
 /**

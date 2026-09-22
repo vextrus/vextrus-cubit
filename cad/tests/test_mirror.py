@@ -82,6 +82,27 @@ def test_a_key_minted_twice_is_refused(basic_document: dict[str, Any]) -> None:
         parse_entity_graph(basic_document)
 
 
+def test_a_conversion_loss_on_a_counters_row_parses_and_must_be_a_tally(
+    basic_document: dict[str, Any],
+) -> None:
+    """The counters' one additive key: optional, and a per-class count where it is there.
+
+    A DXF ingest crosses no converter and writes no such key — every committed artifact here is one
+    — so the mirror has to admit both the row without it and the row with it, exactly as the Zod
+    mirror's `counts.optional()` does (L-CAD-05: one shape, not two tolerances).
+    """
+    counters = basic_document["counters"]
+    assert counters, "no counters row for a conversion loss to stand on"
+    assert "conversion_losses" not in counters[0], "a DXF ingest wrote a conversion's loss"
+
+    counters[0]["conversion_losses"] = {"LWPOLYLINE": 12691}
+    assert parse_entity_graph(basic_document).version == ENTITYGRAPH_VERSION
+
+    counters[0]["conversion_losses"] = {"LWPOLYLINE": -1}
+    with pytest.raises(EntityGraphError, match="conversion_losses"):
+        parse_entity_graph(basic_document)
+
+
 def test_an_unmapped_unit_must_carry_its_flag(basic_document: dict[str, Any]) -> None:
     # L-CAD-02: an unmapped $INSUNITS code reports null plus a flag, never "unitless".
     basic_document["insunits"] = {"code": 3, "unit": None, "unmapped": False}

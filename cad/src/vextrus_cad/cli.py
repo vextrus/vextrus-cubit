@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import report
-from .dwg import DwgError, convert_dwg
+from .dwg import DwgError, convert_dwg, losses_by_space
 from .ingest import IngestError, ingest_dxf
 from .model import EntityGraphError, parse_entity_graph
 from .serialise import write_artifact
@@ -46,13 +46,26 @@ def _is_dwg(path: Path) -> bool:
         return False
 
 
+def _said(notes: report.Report) -> None:
+    """Every note of this run on stderr, one named line each (L-CAD-04: never a silent loss).
+
+    The report travels beside the artifact rather than inside it, and this command's own stream is
+    where it travels: a caller two processes away reads a line whose left half is a code from the
+    closed table in `report.py`. Said before any refusal, so a caller that keeps only the TAIL of
+    this stream — `src/modules/takeoff/ingest/cli.ts` keeps 4,000 characters of it — keeps the
+    verdict that names the drawing.
+    """
+    for line in notes.lines():
+        print(f"{report.NOTE_PREFIX}{line}", file=sys.stderr)
+
+
 def _ingest(source: str, destination: str) -> int:
     source_path = Path(source)
+    notes = report.Report()
     try:
         if _is_dwg(source_path):
             with tempfile.TemporaryDirectory(prefix=".vextrus-dwg-") as scratch:
                 conversion = convert_dwg(source_path, Path(scratch))
-                notes = report.Report()
                 healed = conversion.rejoined_lines + conversion.reordered_texts
                 if healed:
                     notes.add(
@@ -61,15 +74,26 @@ def _ingest(source: str, destination: str) -> int:
                         f" {conversion.reordered_texts} MTEXT chunk runs re-coded",
                         healed,
                     )
-                artifact = ingest_dxf(conversion.dxf_path, notes)
+                # A class the two passes disagreed about is refused on that sheet and not the sheet
+                # itself (L-CAD-04): it is named here, once per class per space, and carried onto
+                # the artifact's counters — a drawing that still yields geometry is an ingest, and
+                # an ingest whose losses nobody is told about is the silent one this lane forbids.
+                for refused in conversion.refused:
+                    notes.add(refused.note_code(), refused.detail(), refused.lost)
+                artifact = ingest_dxf(
+                    conversion.dxf_path, notes, losses_by_space(conversion.refused)
+                )
         else:
-            artifact = ingest_dxf(source_path)
+            artifact = ingest_dxf(source_path, notes)
         # The artifact is the whole hand-off across the seam (L-CAD-05), so the extractor reads its
         # own output through the mirror before pinning it as a revision: a drawing that mints one
         # handle twice, or an attribute with no tag, is a drawing this extractor cannot represent,
         # and refusing it by name beats writing a file neither mirror will parse (L-CAD-02).
         parse_entity_graph(artifact)
     except (DwgError, IngestError, EntityGraphError) as error:
+        # The notes stand whatever the ending: what a conversion lost is true of the drawing whether
+        # or not the ingest after it could write an artifact.
+        _said(notes)
         print(f"vextrus-cad: cannot ingest {source}: {error}", file=sys.stderr)
         return EXIT_REFUSED
 
@@ -88,11 +112,13 @@ def _ingest(source: str, destination: str) -> int:
         # a full disk — ends the run the same loud way an unreadable drawing does (L-CAD-04): named
         # on stderr, non-zero, `--out` as it stood. A traceback names cli.py where the operator needs
         # the drawing and the destination, and the staging directory is cleaned up on the way out.
+        _said(notes)
         print(
             f"vextrus-cad: cannot write the artifact for {source} to {destination}: {error}",
             file=sys.stderr,
         )
         return EXIT_REFUSED
+    _said(notes)
     return 0
 
 

@@ -288,12 +288,20 @@ def _layout(value: Any, where: str) -> None:
 def _counter(value: Any, where: str) -> None:
     record = _object(value, where)
     _closed_keys(
-        record, frozenset({"space", "explode_truncated", "explode_losses", "flatten_capped"}), where
+        record,
+        frozenset(
+            {"space", "explode_truncated", "explode_losses", "flatten_capped", "conversion_losses"}
+        ),
+        where,
     )
     _string(record.get("space"), f"{where}.space", non_empty=True)
     _boolean(record.get("explode_truncated"), f"{where}.explode_truncated")
     _counts(record.get("explode_losses"), f"{where}.explode_losses")
     _counts(record.get("flatten_capped"), f"{where}.flatten_capped")
+    # Optional, as the Zod mirror has it: a DXF ingest crosses no converter and carries no key, and
+    # a conversion that reconciled cleanly lost nothing to carry (L-CAD-04, R-TO-001).
+    if "conversion_losses" in record:
+        _counts(record["conversion_losses"], f"{where}.conversion_losses")
 
 
 def _block_attribute(value: Any, where: str, keys: set[str]) -> None:

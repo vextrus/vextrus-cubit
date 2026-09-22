@@ -88,13 +88,23 @@ class _Counters:
     def cap(self, dxftype: str) -> None:
         self.flatten_capped[dxftype] = self.flatten_capped.get(dxftype, 0) + 1
 
-    def record(self, space: str) -> dict[str, Any]:
-        return {
+    def record(self, space: str, conversion_losses: dict[str, int] | None = None) -> dict[str, Any]:
+        """This space's counters, with what the conversion lost on it where a conversion lost any.
+
+        `conversion_losses` is the DWG lane's reconciliation carried into the artifact: how many of
+        each class the conversion did not carry across on this space (`dwg/reconcile.py`). It is
+        written only where there is one, so a DXF ingest — which crosses no converter — spells the
+        same bytes it always did, and both mirrors read the key as optional (L-CAD-05).
+        """
+        record: dict[str, Any] = {
             "space": space,
             "explode_truncated": self.explode_truncated,
             "explode_losses": dict(sorted(self.explode_losses.items())),
             "flatten_capped": dict(sorted(self.flatten_capped.items())),
         }
+        if conversion_losses:
+            record["conversion_losses"] = dict(sorted(conversion_losses.items()))
+        return record
 
 
 @dataclass
@@ -388,9 +398,31 @@ def _bbox_record(box: tuple[float, float, float, float] | None) -> dict[str, lis
     return {"max": [box[2], box[3]], "min": [box[0], box[1]]}
 
 
-def ingest_document(doc: Any, notes: report.Report | None = None) -> dict[str, Any]:
+def _stated_losses(conversion_losses: dict[str, dict[str, int]] | None) -> dict[str, dict[str, int]]:
+    """The caller's per-space, per-class conversion losses, kept only where something was lost."""
+    if not conversion_losses:
+        return {}
+    kept: dict[str, dict[str, int]] = {}
+    for space, types in conversion_losses.items():
+        lost = {dxftype: count for dxftype, count in types.items() if count > 0}
+        if lost:
+            kept[space] = lost
+    return kept
+
+
+def ingest_document(
+    doc: Any,
+    notes: report.Report | None = None,
+    conversion_losses: dict[str, dict[str, int]] | None = None,
+) -> dict[str, Any]:
     """The whole artifact for an already-opened drawing, with what it carries but does not draw
-    written into `notes` (L-CAD-04: never a silent loss)."""
+    written into `notes` (L-CAD-04: never a silent loss).
+
+    `conversion_losses` is what a conversion in front of this ingest lost, per space and per class
+    (the DWG lane's `reconcile`). It is a fact about the drawing this document came from rather than
+    about the document, so it can only arrive from the caller — and it is carried onto the counters,
+    where R-TO-001 already keeps what the extraction lost and where.
+    """
     notes = report.Report() if notes is None else notes
     report.survey(doc, notes)
     extractor = _Extractor(doc, notes)
@@ -423,9 +455,20 @@ def ingest_document(doc: Any, notes: report.Report | None = None) -> dict[str, A
             }
         )
 
+    # A class the conversion lost on a space this artifact never carried — a paper layout the
+    # conversion emptied, so nothing was left to keep it — has no counters row to stand on, and it
+    # is exactly the loss that must not go unsaid: the sheet is gone. It gets a row of its own,
+    # named, with nothing else on it.
+    losses = _stated_losses(conversion_losses)
+    counters = [space.counters.record(space.name, losses.get(space.name)) for space in spaces]
+    counters += [
+        _Counters().record(name, losses[name])
+        for name in sorted(set(losses) - {space.name for space in spaces})
+    ]
+
     return {
         "block_attributes": [record for space in spaces for record in space.attributes],
-        "counters": [space.counters.record(space.name) for space in spaces],
+        "counters": counters,
         "derived": [record for space in spaces for record in space.derived],
         "dropped_layouts": dropped,
         "entities": [record for space in spaces for record in space.entities],
@@ -450,13 +493,31 @@ def _open_recovered(stream: io.BytesIO, notes: report.Report) -> Any:
     flaw; recover mode repairs what it can and hands back an auditor saying what it did — and a
     repair nobody is told about is a silent edit of somebody's drawing, so the count travels
     (L-CAD-09).
+
+    What the reader SAYS on the way in is held for the duration of the open rather than written to
+    the caller's streams (L-CAD-01: this process's answer is the artifact it writes, and its streams
+    belong to whoever spawned it). `ezdxf` logs one warning per non-unique handle it finds, and
+    seventeen of those across a converted sheet set is the reader talking over this command's own
+    contract. Held is not dropped: the count and the words become a note, like everything else.
     """
-    doc, auditor = ezdxf.recover.read(stream)
+    # Imported here rather than at the top of the module: `vextrus_cad.dwg` reads this module for
+    # the name it spells model space under, so naming it up there would close the circle.
+    from .dwg.quiet import held_library_words, said
+
+    with held_library_words() as words:
+        doc, auditor = ezdxf.recover.read(stream)
     if auditor.fixes or auditor.errors:
         notes.add(
             report.AUDIT_REPAIRED,
             f"{len(auditor.fixes)} repaired, {len(auditor.errors)} left unrepaired",
             len(auditor.fixes) + len(auditor.errors),
+        )
+    if words:
+        notes.add(
+            report.READER_WARNED,
+            f"{len(words)} line(s) the reader said opening this drawing, "
+            f"held off this process's streams{said(words)}",
+            len(words),
         )
     return doc
 
@@ -514,18 +575,25 @@ def read_document(source: Path, notes: report.Report) -> Any:
     return doc
 
 
-def ingest_dxf(source: Path, notes: report.Report | None = None) -> dict[str, Any]:
+def ingest_dxf(
+    source: Path,
+    notes: report.Report | None = None,
+    conversion_losses: dict[str, dict[str, int]] | None = None,
+) -> dict[str, Any]:
     """Read a DXF file and return its EntityGraph v2 artifact, or refuse the drawing by name.
 
     `notes` is the caller's report: what the open repaired and what the drawing carries that no
     geometry in the artifact stands for is written into it. A caller that passes none is asking only
     for the artifact, and the notes are collected and dropped — never suppressed, because the
     refusals travel as exceptions whatever the caller asked for.
+
+    `conversion_losses` is what a conversion in front of this ingest lost, per space and per class;
+    only the caller that ran the conversion knows it, and it travels onto the counters.
     """
     notes = report.Report() if notes is None else notes
     doc = read_document(source, notes)
     try:
-        return ingest_document(doc, notes)
+        return ingest_document(doc, notes, conversion_losses)
     except (ezdxf.DXFError, ValueError) as error:
         # A drawing ezdxf opens but cannot be read through refuses the sheet by name rather than
         # writing half an artifact (L-CAD-04). ValueError is the extractor's own half of that: a

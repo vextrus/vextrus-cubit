@@ -102,6 +102,27 @@ describe("AC-2: both sides parse the committed fixtures", () => {
     expect(() => entityGraphSchema.parse(stripped), "a scheme-less source key must not parse (L-CAD-02)").toThrow();
   });
 
+  it("AC-2: the mirror admits a counters row's conversion_losses and refuses a loss that is not a tally", async () => {
+    // The DWG lane reconciles its two passes class by class (L-CAD-04); what the conversion did not
+    // carry onto a space rides the counters, where R-TO-001 already keeps what the extraction lost.
+    // Optional, because a DXF ingest crosses no converter: every committed artifact here is one, and
+    // the shape must admit both — the same reading `cad/tests/test_mirror.py` holds the Python half
+    // to, so the two mirrors stay one shape (L-CAD-05).
+    const { entityGraphSchema } = await schemaModule();
+    const { graph } = readCommittedArtifact(NAMED_FIXTURES[0]);
+    const carried = structuredClone(graph);
+    const counters = asArray(carried["counters"], "counters");
+    expect(counters.length, "the basic fixture must carry a counters row to put a loss on").toBeGreaterThan(0);
+    const row = asObject(counters[0], "counters[0]");
+    expect(row["conversion_losses"], "a DXF ingest wrote a conversion's loss").toBeUndefined();
+
+    row["conversion_losses"] = { LWPOLYLINE: 12691 };
+    expect(() => entityGraphSchema.parse(carried), "a conversion's per-class loss must parse").not.toThrow();
+
+    row["conversion_losses"] = { LWPOLYLINE: -1 };
+    expect(() => entityGraphSchema.parse(carried), "a loss that is not a tally must not parse").toThrow();
+  });
+
   it("AC-2: the Python mirror validates the same committed artifacts", () => {
     requireCadPackage();
     const run = runInCadProject(["pytest", "cad/tests/test_mirror.py", "-q"]);

@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import copy
 
-from vextrus_cad.dwg import SHORTFALL, UNKNOWN_ENT, RefusedClass, reconcile
+from vextrus_cad import report
+from vextrus_cad.dwg import SHORTFALL, UNKNOWN_ENT, RefusedClass, losses_by_space, reconcile
 
 # A census with, per space, one type that falls short, one that matches, and one the conversion
 # over-produced. The paper space is deliberately named so that code-point order puts it before
@@ -76,6 +77,40 @@ def test_ac2_an_unknown_entity_refuses_its_space_under_its_own_reason() -> None:
     assert UNKNOWN_ENT in entry.message()
     # The space that reconciles cleanly is untouched by its neighbour's refusal.
     assert [item for item in refused if item.space == "SHEET A-101"] == []
+
+
+def test_ac2_a_refusal_says_how_many_were_lost_and_the_code_it_travels_under() -> None:
+    """The two facts the artifact and the operator need beside the sentence.
+
+    A refusal that only says "this class is short" leaves every reader to subtract for itself, and
+    a code from `report.py`'s closed table is what lets a loss be found among the run's other
+    statements without reading prose.
+    """
+    short = RefusedClass("model", "LINE", SHORTFALL, 5, 4)
+    assert short.lost == 1
+    assert short.note_code() == report.CONVERSION_SHORTFALL
+    # One sentence, said once: the note code names the rule, so the detail beside it does not.
+    assert short.message() == f"{SHORTFALL}: {short.detail()}"
+    assert not short.detail().startswith(SHORTFALL)
+
+    # Nothing the conversion carried can be matched to a class nothing can name, so the whole
+    # census count is what no geometry in the artifact stands for.
+    unknown = RefusedClass("model", UNKNOWN_ENT, UNKNOWN_ENT, 3, 0)
+    assert unknown.lost == 3
+    assert unknown.note_code() == report.CONVERSION_UNKNOWN_ENT
+
+    assert {short.note_code(), unknown.note_code()} <= set(report.NOTE_CODES), (
+        "a refusal travels under a note code neither mirror of the report knows"
+    )
+
+
+def test_ac2_the_losses_are_carried_per_space_and_per_class() -> None:
+    """The shape the artifact's counters keep a loss in: space → class → how many (R-TO-001)."""
+    assert losses_by_space(reconcile(CENSUS, GEOMETRY)) == {
+        "SHEET A-101": {"ARC": 3, "INSERT": 2},
+        "model": {"LINE": 1},
+    }
+    assert losses_by_space([]) == {}, "a clean conversion adds no key to any artifact"
 
 
 def test_ac2_a_clean_pair_of_tallies_refuses_nothing() -> None:
