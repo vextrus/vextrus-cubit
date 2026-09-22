@@ -76,7 +76,12 @@ export async function storedExpansionDeferralsOf(tenantId: string, ingestId: str
 
 /** Every range a person has authored in one project, in the view's own order (L-ACT-01, L-CAD-07). */
 export async function storedTypicalRangesOf(tenantId: string, projectId: string): Promise<StoredTypicalRange[]> {
-  return forTenant({ tenantId })
+  return forTenant({ tenantId }).transaction((tx) => storedTypicalRangesIn(tx, tenantId, projectId));
+}
+
+/** The same list, read on a transaction the caller holds (an act's own, L-ACT-02). */
+export async function storedTypicalRangesIn(tx: TenantTx, tenantId: string, projectId: string): Promise<StoredTypicalRange[]> {
+  return tx
     .select()
     .from(typicalRanges)
     .where(and(eq(typicalRanges.tenantId, tenantId), eq(typicalRanges.projectId, projectId)))
@@ -89,13 +94,23 @@ export async function storedTypicalRangesOf(tenantId: string, projectId: string)
  * so "which levels stand" has one answer wherever it is asked (B-17).
  */
 export async function liveStackOf(tenantId: string, projectId: string): Promise<StackedLevel[]> {
-  const rows = await forTenant({ tenantId }).transaction((tx) => liveLevelsOf(tx, { tenantId, projectId }));
+  return forTenant({ tenantId }).transaction((tx) => liveStackIn(tx, tenantId, projectId));
+}
+
+/** The same stack, read on a transaction the caller holds. */
+export async function liveStackIn(tx: TenantTx, tenantId: string, projectId: string): Promise<StackedLevel[]> {
+  const rows = await liveLevelsOf(tx, { tenantId, projectId });
   return rows.map((row) => ({ levelId: row.levelId, label: row.label, ordinal: row.ordinal }));
 }
 
 /** The authored ranges of one project, as the pure resolver reads them (L-REG-02: by surrogate). */
 export async function authoredRangesOf(tenantId: string, projectId: string): Promise<AuthoredRange[]> {
-  const rows = await storedTypicalRangesOf(tenantId, projectId);
+  return forTenant({ tenantId }).transaction((tx) => authoredRangesIn(tx, tenantId, projectId));
+}
+
+/** The same ranges, read on a transaction the caller holds. */
+export async function authoredRangesIn(tx: TenantTx, tenantId: string, projectId: string): Promise<AuthoredRange[]> {
+  const rows = await storedTypicalRangesIn(tx, tenantId, projectId);
   return rows.map((row) => ({ viewKey: row.viewKey, fromLevelId: row.fromLevelId, toLevelId: row.toLevelId }));
 }
 

@@ -64,6 +64,34 @@ the `cx-levels-*` classes this file rules.
   renders `aria-disabled="true"` with `data-permission` naming the permission and a Tooltip
   carrying the denial pair, while the grid reads on in full. The screen's `data-state` is `denied`
   only when every door on it is shut.
+- **I-309 — AUTHOR_TYPICAL_RANGE writes the one resolver's rows, and one rule says which plan owns a
+  storey (session 7, 2026-09-23).** The act asks a port core declares
+  (`src/core/levels/typical-range-reading.ts`) and the partition module registers
+  (`partition/expansion/range-reading.ts`), on the act's own transaction; the port answers the rows
+  `resolveExpansion` derives for the view with the proposed range in place of the view's own. The act
+  re-keys each placeholder onto the resolver's MEASURED row (else the lowest by ordinal),
+  first-registers the rest, and keeps its endpoint refusals and its `typical_ranges` row; its own band
+  cut and its own cross-view guard are gone. So a plan note (I-303) reaches the register through the
+  act — the journey had stood C5 on GF and C7 on 1F..6F (189 lines, 94.196 m³, where the resolver
+  derives 182) — and the re-expansion the router runs next registers nothing and reports nothing stale.
+  **Ownership, one rule, one home** (`resolve.ts` `ownership`/`ownedRows`, the owner's ruling of
+  session 7): a plan that DRAWS a mark on a storey owns that storey's instances of it against a plan
+  typical of that storey — the scope is mark + storey, never grid reference, because two plans of one
+  drawing need not share a backbone: F-RCC6's ROOF PLAN letters six B1/B2 beams differently from the
+  TYPICAL FLOOR PLAN, and keyed by grid reference they stood twice on the router's path (+2.09125 m³
+  over the golden 19.205 m³; B1's run 50.4 m against 42.000), a defect the seam-path stage that graded
+  F-RCC6 never saw because it never re-expanded (it does now). The rule is computed from the drawing's
+  own evidence and never from the register, so it stays order-independent. **Surplus:** where the
+  owning plan draws FEWER instances than the typical plan derives, yielding all would be an undeclared
+  partial (L-QTY-02); the resolver reports it (`yields`) and, until it can be declared, yields only the
+  rows a drawn member's own grid reference matches — the pre-ruling reading, so nothing a surplus
+  touches moves. Neither committed drawing has a surplus. **IOUs, owner named:** the declaration's
+  home (one code in `errors/takeoff-placements.ts`, an `expansion_yields` store — a migration — and a
+  residue reader marking the cell partial; then the surplus yields in full) — the node that approves
+  that migration; and the cross-DRAWING gap — the resolver resolves one drawing at a time, so a member
+  one drawing of a multi-file set draws and another's typical plan derives stands twice, and L-CAD-07's
+  "order-independent resolver over the whole set revision" is not yet met across drawings — the node
+  that makes the resolver revision-wide.
 
 ## 1. Layout and hierarchy (1440 × 900)
 

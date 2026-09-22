@@ -58,7 +58,7 @@ import {
 import { corpusBytes, stageDrawing, stubCli, withCadCommand } from "../../support/ingest-stage";
 import { joinWorkspace, stagePerson, stageSheets } from "../../support/sheets-stage";
 import { identitySeam, field, type IdentitySeam, type StoreRow } from "../../register/support/register-stage";
-import { insertion, performAct, previewOf, storeRows, tableStands, type ActorCtx, type ConsequenceLike, type ProposedLevel } from "../../levels/support/levels-stage";
+import { TYPICAL_RANGE_READING_MODULE, insertion, performAct, previewOf, storeRows, tableStands, type ActorCtx, type ConsequenceLike, type ProposedLevel } from "../../levels/support/levels-stage";
 import { pinning, setsSeam, actsSeam } from "../../sets/support/sets-stage";
 
 export {
@@ -219,6 +219,7 @@ export const SCENARIO = Object.freeze({
   SECTIONS: "placement-sections",
   SHARES: "placement-shares",
   NOTED: "placement-noted",
+  NOTED_BARE: "placement-noted-bare",
 } as const);
 
 /** One of the six. */
@@ -233,6 +234,9 @@ export const CAPTION_OF: Readonly<Record<string, string>> = Object.freeze({
   [SCENARIO.SECTIONS]: "LONGITUDINAL SECTION",
   [SCENARIO.SHARES]: "TYPICAL FLOOR PLAN",
   [SCENARIO.NOTED]: "TYPICAL FLOOR PLAN (1ST TO 6TH FLOOR)",
+  // The same two sentences under a caption stating NO range: the members a note names wait in the
+  // unresolved slot with the plan's typical, and it is AUTHOR_TYPICAL_RANGE that settles them (I-303).
+  [SCENARIO.NOTED_BARE]: "TYPICAL FLOOR PLAN",
 });
 
 /**
@@ -516,7 +520,8 @@ export function buildPlacementArtifact(scenario: PlacementScenario, salt: number
   // A caption's reach is measured in its own heights, so a plan that carries members a bay outside
   // the grid writes a taller one: the NOTED plan draws two members below its backbone, and a caption
   // of the ordinary height would leave them in no view's assignment map at all (L-CAD-06).
-  const tall = wide || scenario === SCENARIO.NOTED;
+  const noted = scenario === SCENARIO.NOTED || scenario === SCENARIO.NOTED_BARE;
+  const tall = wide || noted;
   const captionAt: [number, number] = scenario === SCENARIO.SECTIONS ? [0, 12000] : wide ? [18000, 6000] : [S, 3000];
   const captionKey = text(caption, captionAt, tall ? WIDE_CAPTION_HEIGHT : CAPTION_HEIGHT, LAYER_CAPTIONS);
   let scheduleCaptionKey: string | null = null;
@@ -533,7 +538,7 @@ export function buildPlacementArtifact(scenario: PlacementScenario, salt: number
     }
   }
 
-  if (scenario === SCENARIO.NOTED) {
+  if (noted) {
     // The plan's own population first — the nine the marks place, which is what its footprint median
     // and its typical range are read off. Then the two members I-303 is about, drawn a bay below it
     // so neither note reaches a member of the nine and neither mark anchors a ring of theirs.
@@ -744,6 +749,9 @@ export type PlacementStage = { person: Person; projectId: string; actor: ActorCt
  */
 export async function stagePlacementProject(label: string): Promise<PlacementStage> {
   await openSheetsStage();
+  // The process a placement suite drives the seam in holds what a composed one holds: the answer
+  // AUTHOR_TYPICAL_RANGE asks core's port for, which the partition module registers when it loads.
+  await productModule(TYPICAL_RANGE_READING_MODULE);
   const { person } = await stagePerson(`placement-${label}`);
   const projects = await productModule<{ createProject: (ctx: ActorCtx, draft: { name: string }) => Promise<{ projectId: string }> }>(PROJECTS_MODULE);
   const created = await projects.createProject(actorOf(person), { name: unique(`Placement ${label}`) });

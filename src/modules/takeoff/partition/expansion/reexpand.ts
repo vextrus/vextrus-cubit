@@ -19,14 +19,13 @@
  * untouched (L-ACT-01).
  */
 import { and, drawings, eq, forTenant } from "@/core/db";
-import { viewKey as viewKeyOf, type ViewRef } from "@/core/identity";
-import { ingestRecordOf } from "@/modules/takeoff/ingest";
-import type { PlacementRow } from "../placement/rows";
-import { placementRowOf, storedPlacementsOf } from "../placement/store";
-import { storedMemberTypesOf } from "../schedules/store";
-import { partitionStandsFor, storedViewsOf } from "../store";
-import { resolveExpansion, type ExpandedView, type FamilyBands } from "./resolve";
-import { authoredRangesOf, liveStackOf, registerExpansion, revisionsNaming, rewriteExpansionRows, type RegisteredExpansion } from "./store";
+import { expansionEvidenceIn } from "./evidence";
+// Loaded for what it registers: `AUTHOR_TYPICAL_RANGE` asks the resolver through core's port, and
+// every door that commits that act re-expands through this file — so the answer is in the process
+// before the question can be asked (ARCH-01).
+import "./range-reading";
+import { resolveExpansion } from "./resolve";
+import { registerExpansion, revisionsNaming, rewriteExpansionRows, type RegisteredExpansion } from "./store";
 
 export type ReexpandScope = { readonly tenantId: string; readonly projectId: string };
 
@@ -51,49 +50,14 @@ export type ReexpandedDrawing = {
  * stored partition — a drawing waiting on its first partition is not an error anybody can act on.
  */
 export async function reexpandDrawing(scope: ReexpandScope & { readonly drawingId: string }): Promise<ReexpandedDrawing | null> {
-  const record = await ingestRecordOf({ tenantId: scope.tenantId, drawingId: scope.drawingId });
-  if (record === null) return null;
-  if (!(await partitionStandsFor(scope.tenantId, record.ingestId))) return null;
+  // The stored partition, read in one transaction so the resolver is handed one state of the store
+  // (`./evidence`: the assembly the typical-range reading asks for too).
+  const read = await forTenant({ tenantId: scope.tenantId }).transaction((tx) => expansionEvidenceIn(tx, scope));
+  if (read === null) return null;
+  const { record } = read;
   const ingestId = record.ingestId;
 
-  const views = await storedViewsOf(scope.tenantId, ingestId);
-  // Two spellings of one view's key meet here: the partition store's `TYPE:anchor` on the view row,
-  // and L-REG-04's identity key `v:TYPE:anchor` on every placement row (the job keys a placement by
-  // `viewKey(ref)`). The map is keyed by the placement's spelling, which is what has to be found.
-  const refs = new Map<string, ViewRef>();
-  const expanded: ExpandedView[] = [];
-  for (const view of views) {
-    if (view.anchorKey === null) continue;
-    const ref: ViewRef = { viewClass: view.type, captionAnchorSourceKey: view.anchorKey };
-    refs.set(viewKeyOf(ref), ref);
-    expanded.push({ caption: view.caption, view: ref });
-  }
-
-  const placements: PlacementRow[] = [];
-  for (const stored of await storedPlacementsOf(scope.tenantId, ingestId)) {
-    const ref = refs.get(stored.viewKey);
-    // A placement is read in a layout-plan view with an anchor (L-CAD-06); one whose view the store
-    // no longer names is not a placement the resolver can key a row off, and is left as it stands.
-    if (ref === undefined) continue;
-    // The conversion is the STORE's one published reading (`placementRowOf`) and never a literal
-    // spelled here: this reader and the partition job's own stage resolve the same rows, and a
-    // column one of them carried and the other forgot is a member standing on a different set of
-    // storeys depending on which ran last (L-REG-04, B-17).
-    placements.push(placementRowOf(stored, ref));
-  }
-
-  const families: FamilyBands[] = (await storedMemberTypesOf(scope.tenantId, ingestId)).families.map((family) => ({
-    family: family.family,
-    bands: family.variants.map((variant) => ({ from: variant.bandFrom, to: variant.bandTo })),
-  }));
-
-  const expansion = resolveExpansion({
-    placements,
-    views: expanded,
-    levels: await liveStackOf(scope.tenantId, scope.projectId),
-    ranges: await authoredRangesOf(scope.tenantId, scope.projectId),
-    families,
-  });
+  const expansion = resolveExpansion(read.evidence);
 
   const revisions = await revisionsNaming({ tenantId: scope.tenantId, projectId: scope.projectId, drawingId: scope.drawingId, sha256: record.sha256 });
   const stamp = { tenantId: scope.tenantId, projectId: scope.projectId, drawingId: scope.drawingId, ingestId };

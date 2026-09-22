@@ -8,7 +8,7 @@
 // The read is core's (`@/core/views`): the act seam resolves CONFIRM_VIEW_TYPE's membership over the
 // same rows and may not reach into a module (ARCH-01), so a view has one reading and this door asks
 // for it rather than keeping a second one (B-17).
-import { and, conventionProfiles, drawings, eq, forTenant, isUuid, partitionRebuilds, partitionViews, viewAssignments } from "@/core/db";
+import { and, conventionProfiles, drawings, eq, forTenant, isUuid, partitionRebuilds, partitionViews, viewAssignments, type TenantTx } from "@/core/db";
 import { CONVENTIONS_METHOD, isConventionProfile, type ConventionProfile, type EntityCensus } from "@/core/rulesets/methods/conventions/resolve";
 import { viewRecordsOf, type ProposedViewType, type ViewRecord } from "@/core/views";
 import type { DetectedGrid } from "./grid/detect";
@@ -194,10 +194,15 @@ export async function rewritePartition(write: PartitionWrite): Promise<Registere
  * the same answer as a drawing whose schedules were read and found none (R-UI-050).
  */
 export async function partitionStandsFor(tenantId: string, ingestId: string): Promise<boolean> {
+  return forTenant({ tenantId }).transaction((tx) => partitionStandsIn(tx, tenantId, ingestId));
+}
+
+/** The same question, asked on a transaction the caller holds (an act's own, L-ACT-02). */
+export async function partitionStandsIn(tx: TenantTx, tenantId: string, ingestId: string): Promise<boolean> {
   // Judged on the row every rebuild writes, never on the view rows: a drawing whose captions name no
   // view has been READ and found to state none, which is not the answer a drawing nobody has opened
   // owes (R-UI-050, R-TO-030).
-  const rows = await forTenant({ tenantId })
+  const rows = await tx
     .select({ ingestId: partitionRebuilds.ingestId })
     .from(partitionRebuilds)
     .where(and(eq(partitionRebuilds.tenantId, tenantId), eq(partitionRebuilds.ingestId, ingestId)))

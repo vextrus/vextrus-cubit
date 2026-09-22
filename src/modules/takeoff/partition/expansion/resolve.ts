@@ -102,10 +102,29 @@ export type ExpansionDeferral = {
   readonly toLabel: string | null;
 };
 
+/**
+ * One ownership decision (L-REG-03, L-MEA-09): a view whose rows of a mark on a storey stand beside a
+ * plan that DREW that mark on that storey. `derived` is how many rows of the mark the view derives
+ * there, `drawn` how many the drawing plans measured there, and `yielded` how many of the view's rows
+ * gave way. `surplus` is what the drawing plans leave unaccounted for — `derived − drawn`, zero where
+ * they draw at least as many — and a surplus is never yielded blind (see `ownedRows`).
+ */
+export type ExpansionYield = {
+  readonly viewKey: string;
+  readonly mark: string;
+  readonly level: LevelRef;
+  readonly derived: number;
+  readonly drawn: number;
+  readonly yielded: number;
+  readonly surplus: number;
+};
+
 /** What one artifact's expansion resolved to, in the key's own order (L-REG-04). */
 export type ResolvedExpansion = {
   readonly rows: readonly ExpansionRow[];
   readonly deferrals: readonly ExpansionDeferral[];
+  /** Every ownership decision the rows were filtered by, in the view's, the mark's and the level's order. */
+  readonly yields: readonly ExpansionYield[];
 };
 
 /**
@@ -360,42 +379,132 @@ export function resolveExpansion(evidence: ExpansionEvidence): ResolvedExpansion
     if (span.kind === "deferred") deferrals.push({ viewKey: key, reason: span.reason, fromLabel: span.fromLabel, toLabel: span.toLabel });
   }
 
+  const owned = ownership(rows);
   return {
-    rows: [...ownedRows(rows)].sort((left, right) => byCodePoint(left.objectKey, right.objectKey)),
+    rows: [...owned.rows].sort((left, right) => byCodePoint(left.objectKey, right.objectKey)),
     deferrals: [...deferrals].sort((left, right) => byCodePoint(left.viewKey, right.viewKey)),
+    yields: owned.yields,
   };
 }
 
+/** What the ownership rule reads of a row — every field it keys on and nothing else. */
+type OwnedRow = Pick<ExpansionRow, "standing" | "level"> & {
+  readonly placement: Pick<PlacementRow, "viewKey" | "mark" | "gridLetter" | "gridNumeral">;
+};
+
 /**
- * The physical scope a row stands for, across the plans of one building: the member's mark at its own
- * grid reference, on one level. Two plans of one drawing draw the same backbone, so a mark at one grid
- * reference names one member however many plans show it (L-CAD-07, L-REG-04).
+ * The MEMBER a row stands for: its mark at its own grid reference, on one level — where two MEASURED
+ * sightings in two views are one member drawn twice (a plan and its enlargement of one storey).
  */
-function scopeOf(row: ExpansionRow): string {
+function memberOf(row: OwnedRow): string {
   return [row.placement.mark, row.placement.gridLetter ?? "", row.placement.gridNumeral ?? "", levelSegment(row.level)].join("|");
 }
 
 /**
- * One row per physical scope, the DRAWN sighting owning it (L-REG-03: "a measured sighting landing
- * where a level expansion already stands is a promotion … not a refusal").
+ * The mark on one storey — what a plan OF that storey owns against a plan typical of it (L-MEA-09,
+ * L-CAD-07: "a plan OF a storey is what that storey is measured from, and a typical plan is typical of
+ * the storeys no plan of their own draws").
  *
- * A roof plan draws the beams a typical plan is also typical of. Both readings are lawful and they are
- * of one member: the plan that drew that storey read its geometry there, and the typical plan's
- * derived row for the same storey is the weaker of the two. Registering both would bill one beam twice
- * — the over-measurement L-REG-03 exists to make unrepresentable — so the derived row yields.
+ * Deliberately NOT the grid reference. Two plans of one drawing need not read one backbone: a grid
+ * reference is the nearest axis of each family of the view's OWN bubbles, and F-RCC6's ROOF PLAN
+ * letters six of its B1/B2 beams differently from the TYPICAL FLOOR PLAN that is also typical of the
+ * roof. Keyed by grid reference, those six stood twice — +2.09125 m³ of beam concrete at ROOF over the
+ * golden 19.205, and B1's runs summing to 50.4 m where the fixture states 42.000 — on the router's
+ * path from the day the re-expansion landed (session 7, A1).
+ */
+function storeyMarkOf(row: OwnedRow): string {
+  return `${row.placement.mark}|${levelSegment(row.level)}`;
+}
+
+/** One tally, keyed twice: by the storey-mark and by the view. */
+function tally(into: Map<string, Map<string, number>>, key: string, viewKey: string): void {
+  const held = into.get(key) ?? new Map<string, number>();
+  held.set(viewKey, (held.get(viewKey) ?? 0) + 1);
+  into.set(key, held);
+}
+
+/**
+ * The drawn sighting owns its scope (L-REG-03: "a measured sighting landing where a level expansion
+ * already stands is a promotion … not a refusal") — the ONE implementation of that rule, with the
+ * decisions it made. Pure and order-independent: every answer is a count or a set over the rows handed
+ * in, never the order they arrived in, and nothing here reads the register's state (L-REG-04, AC-8).
+ *
+ * A DERIVED row yields to a plan that DREW its mark on its storey. A roof plan draws the beams a
+ * typical plan is also typical of; the plan that drew that storey read its geometry there, so the
+ * typical plan's derived rows of that mark on that storey are the weaker reading of the same members,
+ * and registering both would bill them twice — the over-measurement L-REG-03 exists to make
+ * unrepresentable.
+ *
+ * But only where the drawing plans ACCOUNT for them: where they draw at least as many of the mark on
+ * that storey as the typical plan derives there. Where they draw fewer, yielding every derived row
+ * would drop members the drawing plans never showed with no word said — the undeclared partial L-QTY-02
+ * makes unrepresentable — and keeping every one would bill the drawn ones twice. That surplus is
+ * reported (`ExpansionYield.surplus`) and, until the store can carry its declaration, only the derived
+ * rows standing at a drawn member's own grid reference yield: the reading this rule had before it was
+ * keyed by storey, which moves nothing a surplus touches (IOU: the declaration's home, I-309).
+ *
+ * A MEASURED row yields only to another view's MEASURED row of the same member — one member drawn
+ * twice — and the later view in the evidence keeps it, as it always has.
  *
  * Only across views: within one view a placement's rows stand on distinct levels already, and two
- * placements of one mark in one view stand at distinct grid references.
- *
- * Exported because it is the ONE implementation of this rule: a second reading of "which sighting owns
- * this scope", keyed any other way, answers a different set of rows for the same drawing — and one of
- * the two then bills a member twice or loses it with no word said (B-17, ARCH-02).
+ * placements of one mark in one view are two members.
  */
-export function ownedRows(rows: readonly ExpansionRow[]): ExpansionRow[] {
-  const drawnAt = new Map<string, string>();
-  for (const row of rows) if (row.standing === MEASURED) drawnAt.set(scopeOf(row), row.placement.viewKey);
-  return rows.filter((row) => {
-    const drawn = drawnAt.get(scopeOf(row));
-    return drawn === undefined || drawn === row.placement.viewKey;
+function ownership<T extends OwnedRow>(rows: readonly T[]): { rows: T[]; yields: ExpansionYield[] } {
+  const memberDrawnBy = new Map<string, string>();
+  const drawnBy = new Map<string, Map<string, number>>();
+  const derivedBy = new Map<string, Map<string, number>>();
+  const levelOf = new Map<string, LevelRef>();
+  for (const row of rows) {
+    const key = storeyMarkOf(row);
+    levelOf.set(key, row.level);
+    if (row.standing === MEASURED) {
+      memberDrawnBy.set(memberOf(row), row.placement.viewKey);
+      tally(drawnBy, key, row.placement.viewKey);
+    } else tally(derivedBy, key, row.placement.viewKey);
+  }
+
+  /** How many of a mark on a storey the plans OTHER than this view drew there. */
+  const drawnElsewhere = (key: string, viewKey: string): number =>
+    [...(drawnBy.get(key) ?? new Map<string, number>())].reduce((sum, [drawer, count]) => (drawer === viewKey ? sum : sum + count), 0);
+
+  const kept = rows.filter((row) => {
+    const member = memberDrawnBy.get(memberOf(row));
+    const memberElsewhere = member !== undefined && member !== row.placement.viewKey;
+    if (row.standing === MEASURED) return !memberElsewhere;
+    const key = storeyMarkOf(row);
+    const drawn = drawnElsewhere(key, row.placement.viewKey);
+    if (drawn === 0) return true;
+    const derived = derivedBy.get(key)?.get(row.placement.viewKey) ?? 0;
+    // Accounted for: the drawing plans own the storey's instances of this mark. Not accounted for:
+    // only the derived row a drawn member stands on yields, and the rest is the reported surplus.
+    return derived > drawn && !memberElsewhere;
   });
+
+  const keptBy = new Map<string, Map<string, number>>();
+  for (const row of kept) if (row.standing !== MEASURED) tally(keptBy, storeyMarkOf(row), row.placement.viewKey);
+
+  const yields: ExpansionYield[] = [];
+  for (const [key, byView] of derivedBy) {
+    for (const [viewKey, derived] of byView) {
+      const drawn = drawnElsewhere(key, viewKey);
+      if (drawn === 0) continue;
+      const mark = key.slice(0, key.lastIndexOf("|"));
+      const level = levelOf.get(key) as LevelRef;
+      yields.push({ viewKey, mark, level, derived, drawn, yielded: derived - (keptBy.get(key)?.get(viewKey) ?? 0), surplus: Math.max(0, derived - drawn) });
+    }
+  }
+  yields.sort(
+    (left, right) =>
+      byCodePoint(left.viewKey, right.viewKey) || byCodePoint(left.mark, right.mark) || byCodePoint(levelSegment(left.level), levelSegment(right.level)),
+  );
+  return { rows: kept, yields };
+}
+
+/**
+ * The rows `ownership` keeps — exported because it is the ONE implementation of which sighting owns a
+ * scope: a second reading of it, keyed any other way, answers a different set of rows for the same
+ * drawing, and one of the two then bills a member twice or loses it with no word said (B-17, ARCH-02).
+ */
+export function ownedRows<T extends OwnedRow>(rows: readonly T[]): T[] {
+  return ownership(rows).rows;
 }

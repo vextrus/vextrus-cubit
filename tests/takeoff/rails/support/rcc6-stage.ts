@@ -56,6 +56,9 @@ export type { PlacementStage, StackedLevel, StoreRow };
 /** The partition's read door — where the placements a view carries are read back from. */
 const PARTITION_MODULE = "src/modules/takeoff/partition/index.ts";
 
+/** The re-expansion the lane's doors run after every act that moves the resolver's inputs (L-REG-06). */
+const REEXPAND_MODULE = "src/modules/takeoff/partition/expansion/reexpand.ts";
+
 /** The scale door, and the act that affirms a view's calibration (test contract: `AFFIRM_SCALE`). */
 const SCALE_MODULE = "src/modules/takeoff/scale/index.ts";
 const AFFIRM_SCALE = "AFFIRM_SCALE";
@@ -125,6 +128,12 @@ export type Rcc6Stage = {
   partition: { steps: { step: string; detail?: Record<string, unknown> }[]; columnViews: string[]; rangedViews: string[]; placements: number; placementRows: StoredPlacement[] };
   /** What every act this stage offered answered with — a refusal is recorded, never hidden. */
   authored: { viewKey: string; from: string; to: string; performed: boolean; answer: string }[];
+  /**
+   * What the re-expansion answered right after the acts, per drawing — the step the router takes after
+   * every `commitAuthorTypicalRange`. The act writes the rows the resolver derives, so a re-expansion
+   * that registers anything, or finds anything stale, is the act and the router parting (L-REG-04).
+   */
+  reexpanded: { drawingId: string; registered: number; stale: readonly string[] }[];
 };
 
 /** The level stack AC-2 names, in the order the fixture states it (GF at the bottom). */
@@ -272,6 +281,14 @@ export async function stageRcc6(label: string): Promise<Rcc6Stage> {
     }
   }
 
+  // THE ROUTER'S PATH, walked whole. The lane's door re-expands the project after every act that
+  // moves the resolver's inputs, and it is that register a customer's campaign is measured over. A
+  // stage that committed the act through the seam and stopped there graded a register no customer
+  // ever has: F-RCC6's roof beams stood twice on the router's path and nothing here could see it
+  // (session 7, A1). So the stage takes the step the door takes, and carries out what it answered.
+  const reexpand = await productModule<{ reexpandProject: (s: { tenantId: string; projectId: string }) => Promise<Rcc6Stage["reexpanded"]> }>(REEXPAND_MODULE);
+  const reexpanded = (await reexpand.reexpandProject(scope)).map((one) => ({ drawingId: one.drawingId, registered: one.registered, stale: one.stale }));
+
   // Every view anything was placed in, scale-affirmed at the rank the MACHINE proposes for it — the
   // stage never composes a proposal of its own, it affirms one the scale door itself ranked and
   // offered: a rail cannot mint a calibration reference it does not hold (L-MEA-05, riskNotes (3)).
@@ -334,6 +351,7 @@ export async function stageRcc6(label: string): Promise<Rcc6Stage> {
     verdict: verdicts[0] as Rcc6Stage["verdict"],
     partition: { steps: partitionSteps.map((one) => ({ step: one.step, detail: one.detail })), columnViews, rangedViews, placements: placements.length, placementRows: placements },
     authored,
+    reexpanded,
   };
 }
 

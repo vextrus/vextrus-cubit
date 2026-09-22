@@ -86,6 +86,14 @@ export const LEVELS_MODULE = "src/modules/takeoff/levels/index.ts";
 export const ACTS_MODULE = "src/core/acts/index.ts";
 export const ACTS_LAW_MODULE = "src/core/acts/law.ts";
 
+/**
+ * The module that registers the answer `AUTHOR_TYPICAL_RANGE` asks core's port for — the expansion
+ * resolver's rows under a proposed range (L-CAD-07, ARCH-01). The router's process holds it because
+ * every door that commits the act re-expands; a suite driving the seam directly loads it first.
+ */
+export const TYPICAL_RANGE_READING_MODULE = "src/modules/takeoff/partition/expansion/range-reading.ts";
+const AUTHOR_TYPICAL_RANGE = "AUTHOR_TYPICAL_RANGE";
+
 /** The closed refusal taxonomy, and the unit canon a reading is carried through (B-17). */
 export const ERRORS_MODULE = "src/core/errors.ts";
 export const UNITS_MODULE = "src/core/units/canon.ts";
@@ -336,14 +344,24 @@ export function heightReading(o: {
 /** What performing one act left behind: what it said it would do, and the act row it wrote. */
 export type Performed = { consequence: ConsequenceLike; actId: string };
 
+/**
+ * The seam as a composed process holds it for this act: `AUTHOR_TYPICAL_RANGE` is answered through a
+ * port the partition module registers when it loads, so it is loaded before the act is asked.
+ */
+export async function composedFor(input: { readonly type: string }): Promise<void> {
+  if (input.type === AUTHOR_TYPICAL_RANGE) await productModule(TYPICAL_RANGE_READING_MODULE);
+}
+
 /** Preview an act, exactly as a surface would (L-ACT-02: the digest is carried, never assembled). */
 export async function previewOf(actor: ActorCtx, input: LevelActInput): Promise<ConsequenceLike> {
+  await composedFor(input);
   const acts = await actsSeam();
   return acts.preview(actor, input);
 }
 
 /** Preview an act and commit the digest it answered — the whole L-ACT-02 pair, once. */
 export async function performAct(actor: ActorCtx, input: LevelActInput): Promise<Performed> {
+  await composedFor(input);
   const acts = await actsSeam();
   const consequence = await acts.preview(actor, input);
   const written = await acts.commit(actor, input, acts.consequenceDigest(consequence));

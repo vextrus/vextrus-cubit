@@ -3,7 +3,7 @@
 //
 // A record is never rewritten and never replaced: a declared re-ingest writes a new row naming the
 // one it supersedes, so a drawing's history reads newest first and every earlier answer stands.
-import { desc, eq, forTenant, ingests, isUuid } from "@/core/db";
+import { desc, eq, forTenant, ingests, isUuid, type TenantTx } from "@/core/db";
 import type { SourceScheme } from "@/core/model";
 import type { IngestFacts } from "./facts";
 
@@ -74,17 +74,28 @@ function record(row: IngestRow): IngestRecord {
  */
 export async function ingestRecords(scope: IngestScope): Promise<IngestRecord[]> {
   if (!isUuid(scope.drawingId)) return [];
-  const rows = await forTenant({ tenantId: scope.tenantId })
-    .select()
-    .from(ingests)
-    .where(eq(ingests.drawingId, scope.drawingId))
-    .orderBy(desc(ingests.createdAt), desc(ingests.ingestId));
+  return forTenant({ tenantId: scope.tenantId }).transaction((tx) => ingestRecordsIn(tx, scope));
+}
+
+/**
+ * The same list, read on a transaction the caller holds — for a reader that must see the state an
+ * act's own write lands in (L-ACT-02). One query, and `ingestRecords` is it on a transaction of its
+ * own, so "which record is current" has one answer wherever it is asked (B-17).
+ */
+export async function ingestRecordsIn(tx: TenantTx, scope: IngestScope): Promise<IngestRecord[]> {
+  if (!isUuid(scope.drawingId)) return [];
+  const rows = await tx.select().from(ingests).where(eq(ingests.drawingId, scope.drawingId)).orderBy(desc(ingests.createdAt), desc(ingests.ingestId));
   return rows.map(record);
 }
 
 /** The drawing's current ingest — the newest of them — or null where it has never been ingested. */
 export async function ingestRecordOf(scope: IngestScope): Promise<IngestRecord | null> {
   return (await ingestRecords(scope))[0] ?? null;
+}
+
+/** The drawing's current ingest, read on the caller's transaction. */
+export async function ingestRecordIn(tx: TenantTx, scope: IngestScope): Promise<IngestRecord | null> {
+  return (await ingestRecordsIn(tx, scope))[0] ?? null;
 }
 
 /** The record one job wrote, or null where that job has written none — what makes a retry idempotent. */

@@ -134,11 +134,30 @@ function readingOf(value: string | null, unit: string | null, basis: string | nu
  * drawing whose plans placed nothing is not a drawing nobody partitioned (R-UI-050).
  */
 export async function storedPlacementsOf(tenantId: string, ingestId: string): Promise<StoredPlacement[]> {
-  return forTenant({ tenantId })
+  return forTenant({ tenantId }).transaction((tx) => storedPlacementsIn(tx, tenantId, ingestId));
+}
+
+/** The same list, read on a transaction the caller holds (an act's own, L-ACT-02). */
+export async function storedPlacementsIn(tx: TenantTx, tenantId: string, ingestId: string): Promise<StoredPlacement[]> {
+  return tx
     .select()
     .from(placements)
     .where(and(eq(placements.tenantId, tenantId), eq(placements.ingestId, ingestId)))
     .orderBy(asc(placements.placementKey));
+}
+
+/**
+ * The drawings of one project whose stored placements stand in one view (L-REG-04's view key), in the
+ * drawing's own order. Any record of the drawing counts here — which record is CURRENT is the ingest
+ * seam's question, asked by the caller of each drawing this answers.
+ */
+export async function drawingsPlacingIn(tx: TenantTx, scope: { readonly tenantId: string; readonly projectId: string; readonly viewKey: string }): Promise<string[]> {
+  const rows = await tx
+    .selectDistinct({ drawingId: placements.drawingId })
+    .from(placements)
+    .where(and(eq(placements.tenantId, scope.tenantId), eq(placements.projectId, scope.projectId), eq(placements.viewKey, scope.viewKey)))
+    .orderBy(asc(placements.drawingId));
+  return rows.map((row) => row.drawingId);
 }
 
 /**

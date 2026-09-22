@@ -179,15 +179,18 @@ export async function storedSchedulesOf(tenantId: string, ingestId: string): Pro
  * list in the order its own key stands in.
  */
 export async function storedMemberTypesOf(tenantId: string, ingestId: string): Promise<StoredMemberTypes> {
-  const scoped = forTenant({ tenantId });
+  return forTenant({ tenantId }).transaction((tx) => storedMemberTypesIn(tx, tenantId, ingestId));
+}
 
-  const families = await scoped
+/** The same reading, on a transaction the caller holds (an act's own, L-ACT-02). */
+export async function storedMemberTypesIn(tx: TenantTx, tenantId: string, ingestId: string): Promise<StoredMemberTypes> {
+  const families = await tx
     .select({ scheduleKey: memberTypes.scheduleKey, family: memberTypes.family, markText: memberTypes.markText, rowIndex: memberTypes.rowIndex, sourceKeys: memberTypes.sourceKeys })
     .from(memberTypes)
     .where(and(eq(memberTypes.tenantId, tenantId), eq(memberTypes.ingestId, ingestId)))
     .orderBy(memberTypes.scheduleKey, memberTypes.family);
 
-  const variants = await scoped
+  const variants = await tx
     .select({
       scheduleKey: memberTypeVariants.scheduleKey,
       family: memberTypeVariants.family,
@@ -205,7 +208,7 @@ export async function storedMemberTypesOf(tenantId: string, ingestId: string): P
     .where(and(eq(memberTypeVariants.tenantId, tenantId), eq(memberTypeVariants.ingestId, ingestId)))
     .orderBy(memberTypeVariants.scheduleKey, memberTypeVariants.family, memberTypeVariants.variantKey);
 
-  const zones = await scoped
+  const zones = await tx
     .select({
       scheduleKey: rebarZones.scheduleKey,
       family: rebarZones.family,

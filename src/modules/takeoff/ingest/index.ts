@@ -10,6 +10,6 @@
 // behind that points outside the root). A screen that asks for an ingest reaches the queue and the
 // database and nothing on disk.
 export { factsOf, type IngestCounterFact, type IngestFacts, type IngestLayoutFact } from "./facts";
-export { ingestRecordOf, ingestRecords, type IngestIdentity, type IngestRecord, type IngestScope } from "./records";
+export { ingestRecordIn, ingestRecordOf, ingestRecords, type IngestIdentity, type IngestRecord, type IngestScope } from "./records";
 export { INGEST_KIND, drawingInScope, ingestJobKey, requestIngest, type IngestFormat, type IngestRefused, type IngestRequest, type IngestRequested } from "./request";
 export type { IngestRefusalCode, SheetNotIngestable } from "./refusals";

@@ -39,7 +39,7 @@ async function ownedRows(): Promise<Owner> {
 }
 
 describe("AC-2: one home for the rule that a derived sighting yields to a measured one", () => {
-  test("AC-2: a derived row yields only to a measured row of the SAME mark, grid reference and level, sighted in another view", async () => {
+  test("AC-2: where the owning view draws FEWER of a mark on a storey than the typical plan derives (a surplus, I-309), a derived row yields only to a measured row of the SAME mark, grid reference and level, sighted in another view", async () => {
     const owned = await ownedRows();
     const at = { mark: "C1", letter: "A", numeral: "1", level: "level-1" };
 
