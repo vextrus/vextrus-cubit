@@ -301,6 +301,26 @@ export function sourceKeyOf(mark: string): string {
   return `S-101:t:${mark}`;
 }
 
+/** The view class every key below is derived under, said the way the model screams it. */
+export const VIEW_CLASS = "LAYOUT_PLAN";
+
+/** The same class as a person reads it — what `humaniseEnum` owes, spelled by the contract. */
+export const VIEW_CLASS_IN_WORDS = "Layout plan";
+
+/**
+ * A VIEW key as L-REG-04 derives one — `v:{view class}:{caption-anchor source key}` — which is what
+ * every published line in fact carries (`register-ui/server.ts`). Spelled here rather than imported,
+ * so a product that moved its grammar cannot agree with this contract by construction (B-19).
+ */
+export function viewKeyOf(handle: string): string {
+  return `v:${VIEW_CLASS}:DXF_HANDLE:${handle}`;
+}
+
+/** A PLACEMENT key as L-REG-04 derives one: the view, the mark, and the quantised point. */
+export function placementKeyOf(handle: string, mark: string, x: string = "3.0", y: string = "4.0"): string {
+  return `${viewKeyOf(handle)}|${mark}|${x},${y}`;
+}
+
 /** One attribute of an object, with no reading recorded against it unless the caller states some. */
 export function anAttribute(over: Partial<ViewAttribute> = {}): ViewAttribute {
   return { attribute: "size", standing: "NONE", canonicalValue: null, canonicalUnit: null, competing: [], overruled: [], ...over };
@@ -790,12 +810,13 @@ export async function mountRegister(view: RegisterViewLike, over: MountOptions =
     chrome: {
       ...bound,
       ...(over.chrome ?? {}),
-      // The four ids ARCH-01 bars the module from looking up arrive as chrome, off the registry —
+      // The ids ARCH-01 bars the module from looking up arrive as chrome, off the registry —
       // the same hand-down the shipped screen makes (AM-09 §1).
       testIds: {
         empty: TESTIDS.register.empty,
         inspector: TESTIDS.register.inspector,
         objectKey: TESTIDS.register.objectKey,
+        refusalObject: TESTIDS.register.refusalObject,
         sourceKey: TESTIDS.register.sourceKey,
         technical: TESTIDS.register.technical,
       },

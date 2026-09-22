@@ -53,6 +53,14 @@ describe("AC-4 — a sighting that produced no line says why, in place", () => {
       const states = [...row.querySelectorAll(testIdSelector(TESTIDS.refusal.state))] as HTMLElement[];
       expect(states.length, `the row for ${refusal.code} renders exactly one RefusalState — a screen-local refusal block is a defect (B-17)`).toBe(1);
 
+      // R-UI-082 as I-287 applies it to this rail: the sighting's object key is a placement key, so
+      // it stands in the shipped IdChip — whole in `data-value`, short on the face of the row — and
+      // never as a text node of its own (the exposure itself is identifier-exposure.test.ts's).
+      const chips = [...row.querySelectorAll(testIdSelector(TESTIDS.register.refusalObject))] as HTMLElement[];
+      expect(chips.length, `the row for ${refusal.code} renders exactly one object-key chip`).toBe(1);
+      expect((chips[0] as HTMLElement).getAttribute("data-value"), "carrying the object key whole, never shortened in the datum (R-UI-082)").toBe(refusal.objectKey);
+      expect(text(chips[0] as HTMLElement), "and saying less than the whole key out loud").not.toBe(refusal.objectKey);
+
       const state = states[0] as HTMLElement;
       const entry = register[refusal.code];
       expect(entry, `${refusal.code} is a registered code — this screen adds none (scope)`).toBeTruthy();

@@ -56,7 +56,12 @@ describe("AC-3: the source cell is the link", () => {
     for (const line of view.lines) {
       const anchor = linkOf(root, line.lineId);
       expect(anchor.getAttribute("data-basis"), `${line.lineId}: the link is coloured by the line's quantity basis`).toBe(line.quantityBasis);
-      expect(text(anchor), `${line.lineId}: the visible label is the cited key, whole (I-26, I-179)`).toContain(line.sourceKey);
+      // I-287 amends I-179: the key stands on the element that IS the evidence, never in body text
+      // (R-UI-082). This fixture's key is of no grammar the product reads, so I-234's last clause
+      // keeps it whole in the label too — the reading of a VIEW key is identifier-exposure.test.ts's.
+      expect(anchor.getAttribute("data-key"), `${line.lineId}: the cited key is whole on the anchor (I-287)`).toBe(line.sourceKey);
+      expect(text(anchor), `${line.lineId}: a key of no known grammar stands whole in the chips (I-26, I-234)`).toContain(line.sourceKey);
+      expect(text(anchor), `${line.lineId}: and the sheet the line stands on opens the label`).toContain(line.layoutName as string);
       expect(anchor.getAttribute("href"), `${line.lineId}: the href is the Trace address the contract spells`).toBe(traceAddressOf(line));
 
       const href = anchor.getAttribute("href") ?? "";

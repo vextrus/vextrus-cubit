@@ -165,7 +165,10 @@ Routes: none — the pattern composes no address. Test ids, exactly these two, o
 in §1: `evidence-link` (the anchor; its `href` is the `href` prop, its text the glyph then the
 label) · `evidence-link-glyph`. Behavioural hooks without new ids: `data-basis` on the anchor;
 `title`; the `cx-evidence-link` and `cx-reticle` classes; the caller-supplied `data-line` /
-`data-origin` / `aria-current` proving the rest spread; and the asserted absences — no hex in
+`data-key` / `data-origin` / `aria-current` proving the rest spread — `data-key` is the register's
+own (s-takeoff-register I-287): the cited key whole on the element that IS the evidence, which is
+this pattern's rest spread doing exactly what I-178 built it for and is no change to the component;
+and the asserted absences — no hex in
 `evidence-link.css`, no `[data-theme]` selector, no focus rule, no `BASIS_GLYPHS` second spelling,
 no `onClick` and no router import in the component.
 

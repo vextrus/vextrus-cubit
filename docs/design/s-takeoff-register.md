@@ -110,6 +110,41 @@ route-address.ts,actions.ts,register.css}`. Law: R-UI-022, R-TO-011, X-2, J-021,
   invented and no filter is silently cleared (s-viewer-inspector I-88's idiom, and I-172's rule that
   the reader's filters are the reader's). Rejected: re-sorting or unfiltering to surface the origin,
   which would answer Back by rewriting the screen the reader set.
+- **I-287 — the words are the layout, the mark and the view's class; the key is the element's data.**
+  Amends I-179's chips and I-182's cell, and s-takeoff.md's I-234 with them. I-179 kept the key whole
+  in the chips "wherever `parseSourceKey` (L-CAD-02) finds no scheme to read a handle out of", and
+  that clause was written for a key of an UNKNOWN grammar — but the key every published line in fact
+  carries is a VIEW key (`v:{view class}:{caption-anchor source key}`, L-REG-04;
+  `register-ui/server.ts` fills each line's `sourceKey` from it), which `parseSourceKey` refuses
+  because it has three colons and not one. So the clause written for the exception fired on the rule,
+  and the source cell read `Model · B1 · v:LAYOUT_PLAN:DXF_HANDLE:424` — a machine name on the face
+  of a screen, which is what §6 forbids and what R-UI-082 names: a DXF handle, a version key and a
+  source key never render as body text; they render through `IdChip` or stand on the element's data
+  and tooltip. Ruling, in three parts. **(a)** `sourceChips` gains ONE reading and no more: a key
+  that is `v:`, a non-empty class and a rest `parseSourceKey` accepts renders its class through
+  `humaniseEnum` — `Layout plan`, the same rule `EnumLabel` says every other SCREAMING value on this
+  screen by (B-17) — so the cell reads `Model · B1 · Layout plan`. An entity key of the extractor's
+  grammar still reads `#424` (I-179 unchanged); a key of any other grammar still stands whole
+  (I-234's last clause, I-26); and a `v:` prefix over a rest of no grammar is NOT a view key and is
+  not taken apart on a guess. `sourceChips` still composes no address and still shortens no datum —
+  what it drops from the face of the screen is carried whole on the element beside it. **(b)** The
+  key is not dropped, it moves: both `EvidenceLink` call sites carry `data-key={line.sourceKey}`
+  through the pattern's rest spread (evidence-link I-178, §7), so the whole key stands on the element
+  that IS the evidence — one hover, one click and one copy away — besides being whole in the `href`'s
+  `s=` and in the inspector's Technical disclosure, which is where I-179 already put it. The shipped
+  `EvidenceLink` is untouched: a caller's `data-*` is exactly what its rest spread is for. Nothing is
+  rendered to satisfy a score — the disclosure is the same disclosure and the address is the same
+  address; what left the screen is a text node, not a fact. **(c)** The index rail's refusal rows
+  carry a PLACEMENT key (`view key|mark|x,y`), which is an identifier under the same clause and was
+  printed as bare mono text. It renders through the shipped `IdChip`: whole in `data-value` and in
+  the chip's own tooltip, short on the face of the rail — the mark where the rail knows one, the
+  chip's own leading characters where it does not, the shortening the chip's and never this screen's
+  (B-17). Its `data-testid` is read from the registry through `chrome.testIds.refusalObject` rather
+  than spelled, which is one literal fewer under `src/modules` (AM-09 §1's ratchet). Rejected: a
+  native `title` of the raw key on the label, which is a second identifier surface where the chip
+  already is one; rejected: shortening the view key by hand into `v:…:424`, which is the invented
+  shape I-26 refuses; rejected: keeping the key as the anchor's accessible name, because the name is
+  the label and a name that differs from what is read is what I-179's own last sentence forbids.
 
 ## 1. Layout and hierarchy — what moves
 
@@ -127,8 +162,8 @@ clipped. The cell renders:
 ```
 <span class="cx-register-source cx-register-trace">
   <EvidenceLink href={traceAddress(tenantId, projectId, line)} basis={line.quantityBasis}
-                label={sourceChips(line, markOf(line.objectKey))} data-line={line.lineId}
-                data-origin={isOrigin ? "true" : "false"}
+                label={sourceChips(line, markOf(line.objectKey), humaniseEnum)} data-line={line.lineId}
+                data-key={line.sourceKey} data-origin={isOrigin ? "true" : "false"}
                 aria-current={isOrigin ? "true" : undefined} onClick={stampOrigin} ref={originRef} />
 </span>
 ```
@@ -150,9 +185,12 @@ is the one spelling of this screen's own address, and `route-address.ts`'s `regi
 `originAddress(tenantId, projectId, null)` so the register path keeps one home.
 
 `sourceChips` is the module's own, spelled once: the layout name the reading resolved, the mark of
-the object the line was measured from (read off the view's own objects, never looked up), and either
-`#` and the key part of a key `parseSourceKey` accepts or the whole key where it accepts none, joined
-by ` · `. It composes no address and shortens no datum.
+the object the line was measured from (read off the view's own objects, never looked up), and the
+word the key reads as, joined by ` · `. **Amended by I-287:** that third part is a VIEW key's class
+said in words through `humaniseEnum` (`Layout plan`) where the key is a view key, `#` and the key
+part where `parseSourceKey` accepts it, and the whole key where it is of neither grammar. It composes
+no address and shortens no datum: the key it does not print stands whole on the anchor's `data-key`,
+in the `href` and in the inspector's Technical disclosure.
 
 `ViewLine` gains three readings the cell needs, filled server-side: `drawingId` and `layoutName`
 (the ingest's recorded sheet, `sheetOfView`) and `sourceKeys` — the line's own `sourceKey` followed
@@ -268,9 +306,12 @@ in cited order, `line` last, no `v`. `registerRoute` keeps its name and its spel
 Test ids: **none are added to this screen.** The cell is addressed through the pattern's own
 `evidence-link` and `evidence-link-glyph` inside `register-lines`, and the workspace's twenty-eight
 ids (s-takeoff.md §7) stand unchanged. Attributes under test, all on the anchor: `data-line`
-(the lineId), `data-basis` (the line's `quantityBasis`), `data-origin="true"` on exactly one link
+(the lineId), `data-basis` (the line's `quantityBasis`), `data-key` (the line's `sourceKey`, whole —
+I-287), `data-origin="true"` on exactly one link
 when the address names a line the table shows, `aria-current="true"` beside it, and `href` = the
-`traceAddress` for that line.
+`traceAddress` for that line. The refusal row's object key is addressed at the registry's own
+`register-refusal-object`, now carried by an `IdChip` whose `data-value` is the placement key whole
+(I-287 (c)) — a read of that row asserts the datum, never the text.
 
 Asserted absences, which are the substance of I-179 and I-181: no `evidence-link` on a repudiated
 line (it is not a row at all, I-173); no `evidence-link` on a DEFAULTED line or a line with no
@@ -283,7 +324,11 @@ called.
 Suites: `tests/ui/takeoff-register/**` (jsdom mounts of `RegisterWorkspace` over the existing
 `registerFixture()` / `linesFixture(n)`, chrome bound to the shipped components including
 `EvidenceLink`, per I-170) for the cell, the stamp, the withheld cases and the origin restore;
-`tests/takeoff/trace/**` for `traceAddress`, `originAddress`, `citedKeysOf` and the two doors.
+`identifier-exposure.test.ts` in the same directory for I-287, staging the keys the product in fact
+derives (`viewKeyOf` / `placementKeyOf` in the suite's own `support/fixtures.ts`, spelled by the
+contract and never imported from the product) and reading the craft rubric's own three patterns over
+every text node of the workspace; `tests/takeoff/trace/**` for `traceAddress`, `originAddress`,
+`citedKeysOf` and the two doors.
 Journey: `tests/e2e/journeys/j-021-column-slice.spec.ts` through
 `tests/e2e/pages/s-takeoff.page.ts` and `tests/e2e/pages/s-viewer-trace.page.ts`, staged by
 `tests/e2e/takeoff/register-stage.ts` with `stageRegister(page, { cite })` citing real

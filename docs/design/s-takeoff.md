@@ -163,6 +163,11 @@ things. Everything in §0 above stands except where an Interpretation here says 
   inside the inspector's `<details>` disclosure, where `register-object-key` and `register-source-key`
   stand under `data-technical` (§7 C6's own sanctioned home). A key of no known grammar
   (`parseSourceKey` answers null) is not abbreviated into one: it stands whole in the chips (I-26).
+  **Amended by I-287 (docs/design/s-takeoff-register.md §0):** that last clause was written for a key
+  of NO grammar and it was firing on the one key every published line in fact carries — a VIEW key,
+  `v:{class}:{anchor}` (L-REG-04), which stood whole in the cell and put `DXF_HANDLE:…` on the face
+  of the screen against R-UI-082. A view key now reads as its class in words (`Layout plan`) and the
+  key itself stands on the link's `data-key` and in Technical; a key of no grammar still stands whole.
   Every other SCREAMING value a cell held — the selecting basis, the coverage, the engine, the
   object's role and corroboration, an attribute's standing, the discipline on a tree item — is said
   in words by `EnumLabel` (or, for the Tree, which takes a string, by the rule EnumLabel says one
@@ -478,6 +483,11 @@ own entrance. Virtualised scrolling is untweened by the primitive. Every duratio
 at source under reduced motion, so `register.css` carries no `prefers-reduced-motion` branch.
 
 ## 5. Tokens
+
+The screen's own visually-hidden `<h1>` (`.cx-register-title`) states `font-size: var(--text-body)`
+(session 5, s-bbs I-289's reading applied here): an `h1` left unstated is the user agent's 2em, a
+size R-UI-003's scale does not spell, and the rubric's C11 reads it; clipped to nothing, the size
+paints nothing.
 
 Only §4.1's aliases and §4.2's density/layout tokens are consumed — a `--graphite-*` or `--beam-*`
 reference outside `tokens.ts` is a lint failure since U1 (Direction §4). This screen spends:

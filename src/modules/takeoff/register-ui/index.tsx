@@ -85,7 +85,7 @@ type Evidence = { href: string; label: string };
  * a reader sees and what a test mounts.
  */
 /**
- * THE FOUR IDS THIS SCREEN PUBLISHES THAT IT MAY NOT SPELL (AM-09 §1, ARCH-01).
+ * THE IDS THIS SCREEN PUBLISHES THAT IT MAY NOT SPELL (AM-09 §1, ARCH-01).
  *
  * `src/ui/testids.ts` is the one declaration of every test id, and ARCH-01 bars a module from
  * importing `src/ui` — so these arrive as chrome, exactly as `BasisChip` and `DataTable` do. The
@@ -96,6 +96,8 @@ export interface RegisterTestIds {
   readonly empty: string;
   readonly inspector: string;
   readonly objectKey: string;
+  /** The refusal row's object key, which is an identifier and renders as one (R-UI-082, I-287). */
+  readonly refusalObject: string;
   readonly sourceKey: string;
   readonly technical: string;
 }
@@ -175,6 +177,12 @@ export interface RegisterChrome {
     basis: QuantityBasis;
     label: string;
     "data-line": string;
+    /**
+     * The cited key, whole, on the element that IS the evidence (I-287, R-UI-082). The label reads
+     * the sheet, the mark and the view's class in words; the key itself never becomes body text, so
+     * it rides the anchor's own data through the pattern's rest spread (evidence-link I-178).
+     */
+    "data-key": string;
     "data-origin"?: "true" | "false";
     "aria-current"?: "true";
     onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
@@ -420,16 +428,45 @@ function keepsObject(object: ViewObject, filters: Filters): boolean {
   return true;
 }
 
+/** What a view key opens with (L-REG-04: `v:{view class}:{caption-anchor source key}`). */
+const VIEW_PREFIX = "v:";
+
 /**
- * A cited key as §6 writes one: `S-101 · C1 · #…` — the sheet it stands on, the mark it was read
- * for, and the extractor's handle. The scheme is the grammar's (`parseSourceKey`, L-CAD-02), so a key
- * of that grammar reads as a handle and a key of any other reads whole: a chip that invented a
- * shape for an unparsed key would be a second grammar (B-17, I-26 — nothing is abbreviated away).
+ * The class of a view, where the key IS a view key, and null where it is anything else. The reading
+ * is the grammar's own and nothing looser: the prefix, a non-empty class, and a remainder
+ * `parseSourceKey` accepts as a caption anchor (L-CAD-02). A key that fails any of the three is not
+ * a view key and is never taken apart on a guess (I-234, I-287).
  */
-function sourceChips(line: ViewLine, mark: string | null): string {
-  const parsed = parseSourceKey(line.sourceKey);
-  const handle = parsed === null ? line.sourceKey : `#${parsed.slice(parsed.indexOf(":") + 1)}`;
-  return [line.layoutName, mark, handle].filter((part): part is string => part !== null && part !== "").join(CHIP_SEPARATOR);
+function viewClassOf(key: string): string | null {
+  if (!key.startsWith(VIEW_PREFIX)) return null;
+  const rest = key.slice(VIEW_PREFIX.length);
+  const at = rest.indexOf(":");
+  if (at <= 0) return null;
+  return parseSourceKey(rest.slice(at + 1)) === null ? null : rest.slice(0, at);
+}
+
+/**
+ * One key as a person reads it (I-287 amending I-179): every published line's `sourceKey` is a VIEW
+ * key, so the word in the cell is the view's class said in words — `Layout plan` — and the key
+ * itself stands on the element's own `data-key` and in the Technical disclosure, never in body text
+ * (R-UI-082). An ENTITY key of the extractor's grammar reads as a hash and its handle, which is the
+ * same fact said to a quantity surveyor; a key of NO grammar stands whole, because a chip that
+ * invented a shape for an unparsed key would be a second grammar (B-17, I-26, I-234's last clause).
+ */
+function sourceWord(key: string, humanise: (value: string) => string): string {
+  const viewClass = viewClassOf(key);
+  if (viewClass !== null) return humanise(viewClass);
+  const parsed = parseSourceKey(key);
+  return parsed === null ? key : `#${parsed.slice(parsed.indexOf(":") + 1)}`;
+}
+
+/**
+ * A cited key as §6 writes one: `S-101 · C1 · Layout plan` — the sheet it stands on, the mark it was
+ * read for, and the word its key reads as (`sourceWord`). It composes no address and shortens no
+ * datum: what it drops from the face of the screen is carried whole on the element beside it.
+ */
+function sourceChips(line: ViewLine, mark: string | null, humanise: (value: string) => string): string {
+  return [line.layoutName, mark, sourceWord(line.sourceKey, humanise)].filter((part): part is string => part !== null && part !== "").join(CHIP_SEPARATOR);
 }
 
 /* --------------------------------------------------------------------------- the workspace */
@@ -799,7 +836,7 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
       // plain text and is offered no anchor at all, which is honest rather than hidden.
       cell: ({ row }) => {
         const line = row.original;
-        const chips = sourceChips(line, marks.get(line.objectKey) ?? null);
+        const chips = sourceChips(line, marks.get(line.objectKey) ?? null, humaniseEnum);
         if (!traceable(line)) return <span className="cx-register-source">{chips}</span>;
         const isOrigin = line.lineId === originLine;
         return (
@@ -809,6 +846,12 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
               basis={line.quantityBasis}
               label={chips}
               data-line={line.lineId}
+              // R-UI-082 as I-287 applies it here: the key a reader once read in this cell is a VIEW
+              // key, and a view key is not body text. It stands whole on the anchor — the element
+              // that IS the evidence — so the fact is one hover or one click away and nothing about
+              // the datum is lost, while the face of the screen says the sheet, the mark and the
+              // view in words.
+              data-key={line.sourceKey}
               // Whether a row is the one returned to is a two-valued fact about every row, not a
               // badge only the winner wears: each link says which it is, so "no origin at all" and
               // "not this one" are answerable from the row itself (I-182). `aria-current` is the
@@ -889,7 +932,7 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
               <EnumLabel value={selectedLine.coverage} className="cx-register-enum" />
             </dd>
             <dt>{REGISTER_COPY.takeoff_register_col_source}</dt>
-            <dd className="cx-register-source">{sourceChips(selectedLine, mark)}</dd>
+            <dd className="cx-register-source">{sourceChips(selectedLine, mark, humaniseEnum)}</dd>
           </dl>
           {/* §5 rule 2's "expand affordance in the inspector": the formula the cell could only show
               one line of, whole, with every variable it was read with beside it. */}
@@ -909,8 +952,10 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
             <EvidenceLink
               href={traceAddress(view.tenantId, view.projectId, selectedLine)}
               basis={selectedLine.quantityBasis}
-              label={sourceChips(selectedLine, mark)}
+              label={sourceChips(selectedLine, mark, humaniseEnum)}
               data-line={selectedLine.lineId}
+              // The same fact on the same kind of element, for the same reason (I-287).
+              data-key={selectedLine.sourceKey}
               onClick={() => stampOrigin(selectedLine.lineId)}
               onAuxClick={() => stampOrigin(selectedLine.lineId)}
             />
@@ -1280,9 +1325,13 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
                 >
                   <div className="cx-register-refusal-fact">
                     <span className="cx-register-refusal-label">{REGISTER_COPY.takeoff_register_refusal_object_label}</span>
-                    <span className="cx-register-cell-mono" data-testid="register-refusal-object" data-technical="">
-                      {refusal.objectKey}
-                    </span>
+                    {/* R-UI-082, I-287: a sighting's object key is a PLACEMENT key — a view key, a
+                        mark and a point — and a placement key is an identifier, not body text. It
+                        renders through the shipped IdChip, whole in `data-value` and in the chip's
+                        own tooltip, one press from the clipboard, and short on the face of the rail:
+                        the mark where this rail knows one, the leading characters where it does not
+                        (B-17 — the shortening is the chip's, never this screen's). */}
+                    <IdChip value={refusal.objectKey} short={marks.get(refusal.objectKey)} data-testid={chrome.testIds.refusalObject} />
                   </div>
                   {refusal.kind === null ? null : (
                     <div className="cx-register-refusal-fact">
