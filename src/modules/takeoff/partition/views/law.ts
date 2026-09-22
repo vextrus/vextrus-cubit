@@ -57,3 +57,15 @@ export function isViewType(value: unknown): value is ViewType {
 export function yieldsInstances(type: ViewType): boolean {
   return type === VIEW_TYPE.LAYOUT_PLAN;
 }
+
+/**
+ * THE PARTITION'S OWN VIEW KEY — the type and the caption anchor's source key, spelled once
+ * (L-CAD-06). It is what the views stage keys a view by and what the grid stage keys its axes by;
+ * it is NOT L-REG-04's identity key (`viewKey` in `@/core/identity`, the `v:`-prefixed spelling a
+ * placement row carries), and a reader that holds one and needs the other builds it here rather
+ * than spelling the seam a third time (B-17). Typed on the spelling and not the brand because a row
+ * hands back its view class as a string it was handed, never as a value it minted.
+ */
+export function partitionViewKey(type: string, anchorKey: string): string {
+  return `${type}:${anchorKey}`;
+}

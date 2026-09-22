@@ -22,6 +22,7 @@ import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { formatDate, formatMoney, formatUserFigure, dhakaDateParts } from "@/core/format";
 import type { JobKind } from "@/core/jobs/kinds";
 import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
+import type { CorroborationReading } from "@/core/outline-corroboration/law";
 import { parseSourceKey } from "@/core/sources";
 import { LINE_PARAM, originAddress, traceAddress } from "@/modules/takeoff/trace/address";
 import { basisOf } from "./basis";
@@ -258,8 +259,30 @@ export interface RegisterDoors {
   readonly refusalOf: (code: string) => RefusalEntry | undefined;
 }
 
+/**
+ * What the machine proposed about one deferred outline, as the screen is handed it (L-AI-02, I-299):
+ * which way it read, the probability it read at as a decimal string (B-07 — a figure is never a
+ * float on a screen), and the call that proposed it, which is what an act files its outcome against.
+ *
+ * A PROPOSAL and nothing else: the line is words, the figure stands in an attribute and on S-Audit,
+ * and nothing on this screen corroborates, publishes or strikes. The object stands deferred until a
+ * person presses one of the two doors beside it (L-QTY-04).
+ */
+export type ViewCorroboration = {
+  readonly reading: CorroborationReading;
+  readonly probability: string;
+  readonly callId: string;
+};
+
 export interface RegisterWorkspaceProps {
   readonly view: RegisterView;
+  /**
+   * The standing corroboration proposal of each object that carries one, by object key. Absent
+   * where the measure pass asked nothing, where the call refused (FIXTURE_MISSING is a refusal a
+   * caller handles, never a crash) and on every object nobody deferred — an empty slot is never
+   * rendered for a proposal that does not exist (R-UI-050).
+   */
+  readonly corroborations?: Readonly<Record<string, ViewCorroboration | undefined>>;
   /** Whether the reader holds MEASURE on this project, read server-side (Decision § 2). */
   readonly permitted: boolean;
   readonly offline: boolean;
@@ -287,6 +310,17 @@ const INSERT_LEVEL = "INSERT_LEVEL" as const;
 
 /** The corroboration state of an object a person has judged to be nothing (I-173). */
 const REPUDIATED = "REPUDIATED";
+
+/**
+ * The sentence each reading of a corroboration proposal is said in (I-299). Three words for three
+ * readings, and the band between them is its own sentence: "could not tell" is what the machine
+ * said, and showing it as a yes or a no would be this screen deciding what it meant (L-AI-02).
+ */
+const CORROBORATION_SAID: Readonly<Record<CorroborationReading, string>> = {
+  YES: REGISTER_COPY.takeoff_register_corroboration_yes,
+  UNSURE: REGISTER_COPY.takeoff_register_corroboration_unsure,
+  NO: REGISTER_COPY.takeoff_register_corroboration_no,
+};
 
 /** The basis a figure nobody read carries — the one basis no Trace is offered from (I-181). */
 const DEFAULTED: QuantityBasis = "DEFAULTED";
@@ -483,7 +517,7 @@ type Pending =
 /** A reading being written, before it is previewed at the door (I-175). */
 type Draft = { attribute: string; value: string; unit: string; precedence: string };
 
-export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onRunSucceeded }: RegisterWorkspaceProps) {
+export function RegisterWorkspace({ view, corroborations, permitted, offline, chrome, doors, onRunSucceeded }: RegisterWorkspaceProps) {
   const {
     Tree,
     DataTable,
@@ -645,7 +679,17 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
    */
   const openRepudiate = useCallback(
     async (objectKey: string): Promise<void> => {
-      const input: RepudiateInput = { type: REPUDIATE, projectId: view.projectId, objectKey };
+      // The proposal the person is judging travels WITH the act, because it is the one the screen
+      // showed them: what the seam then does with it is the caller's policy, and a call that is not
+      // this project's, not this question's or that the machine could not tell about files nothing
+      // (L-AI-02). An object nobody asked about names none, and the act is exactly what it was.
+      const proposed = corroborations?.[objectKey];
+      const input: RepudiateInput = {
+        type: REPUDIATE,
+        projectId: view.projectId,
+        objectKey,
+        ...(proposed === undefined ? {} : { proposalCallId: proposed.callId }),
+      };
       try {
         await doors.previewRepudiate({ input });
       } catch (thrown) {
@@ -655,11 +699,12 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
       setAnswer(null);
       setPending({ actType: REPUDIATE, input });
     },
-    [doors, refuse, view.projectId],
+    [corroborations, doors, refuse, view.projectId],
   );
 
   const openCorroborate = useCallback(
     async (object: ViewObject, attribute: ViewAttribute, written: Draft): Promise<void> => {
+      const proposed = corroborations?.[object.objectKey];
       const input: CorroborateInput = {
         type: CORROBORATE,
         projectId: view.projectId,
@@ -669,6 +714,7 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
         unitAsWritten: written.unit,
         precedence: Number(written.precedence),
         sourceKey: object.sourceKey,
+        ...(proposed === undefined ? {} : { proposalCallId: proposed.callId }),
       };
       try {
         await doors.previewCorroborate({ input });
@@ -679,7 +725,7 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
       setAnswer(null);
       setPending({ actType: CORROBORATE, input });
     },
-    [doors, refuse, view.projectId],
+    [corroborations, doors, refuse, view.projectId],
   );
 
   /* ------------------------------------------------------------- the lane's own tabs row (§3.2) */
@@ -900,6 +946,8 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
   const selected = view.objects.find((object) => object.objectKey === selectedKey) ?? null;
   const selectedLine = view.lines.find((line) => line.lineId === selectedLineId) ?? null;
   const struck = selected !== null && selected.corroboration === REPUDIATED;
+  /** What the machine proposed about the selected object, where it was asked about one (I-299). */
+  const proposal = selected === null ? undefined : corroborations?.[selected.objectKey];
   const repudiated = view.objects.filter((object) => object.corroboration === REPUDIATED).length;
   const withheld = view.lines.length - registered.length;
 
@@ -1015,6 +1063,18 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
             </dd>
           </dl>
         </details>
+        {/* I-299: what the machine proposed about this outline, in words, one line above the two
+            doors that judge it. It is a Proposal and stays one (L-AI-02's third arm): the sentence
+            is the whole of what a reader is told, the probability stands in the attribute and on
+            S-Audit, and nothing here corroborates, publishes or strikes. An object nobody asked
+            about shows no line at all rather than an empty slot (R-UI-050). */}
+        {proposal === undefined ? null : (
+          <Tooltip content={REGISTER_COPY.takeoff_register_corroboration_hint}>
+            <p className="cx-register-corroboration" data-reading={proposal.reading} data-probability={proposal.probability}>
+              {CORROBORATION_SAID[proposal.reading]}
+            </p>
+          </Tooltip>
+        )}
         {/* I-173: a struck object states what its repudiation did — and offers no door to corroborate
             or to strike again what a person has already judged to be nothing. */}
         {struck ? <p className="cx-register-repudiated-note">{REGISTER_COPY.takeoff_register_repudiated_note}</p> : null}
@@ -1108,12 +1168,14 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors, onR
     EvidenceLink,
     Input,
     QuantityText,
+    Tooltip,
     draft,
     marks,
     offline,
     openCorroborate,
     openRepudiate,
     permitted,
+    proposal,
     selected,
     selectedLine,
     stampOrigin,

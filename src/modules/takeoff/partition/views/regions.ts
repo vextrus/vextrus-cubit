@@ -20,7 +20,7 @@
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import { projectable, windowOf, type Box } from "../../viewer/projection";
 import { classifyCaption } from "./grammar";
-import { VIEW_TYPE, type ViewType } from "./law";
+import { VIEW_TYPE, partitionViewKey, type ViewType } from "./law";
 
 /**
  * The smallest lettering, in the paper units the layout is plotted in, that a sheet titles a window
@@ -136,10 +136,10 @@ export function regionAt(at: Point | null, regions: readonly Region[]): Region |
 function regionOf(model: Box, via: string, title: RegionTitle | null, captions: readonly RegionCaption[]): Region | null {
   const said = titledInModelSpace(model, captions);
   const frame = { model, area: (model[2] - model[0]) * (model[3] - model[1]), via };
-  if (said !== null) return { viewKey: `${said.type}:${said.key}`, type: said.type, reason: said.reason, caption: said.text, anchorKey: said.key, ...frame };
+  if (said !== null) return { viewKey: partitionViewKey(said.type, said.key), type: said.type, reason: said.reason, caption: said.text, anchorKey: said.key, ...frame };
   if (title === null) return null;
   const read = classifyCaption(title.text);
-  return { viewKey: `${read.type}:${title.key}`, type: read.type, reason: read.reason, caption: title.text, anchorKey: title.key, ...frame };
+  return { viewKey: partitionViewKey(read.type, title.key), type: read.type, reason: read.reason, caption: title.text, anchorKey: title.key, ...frame };
 }
 
 /**

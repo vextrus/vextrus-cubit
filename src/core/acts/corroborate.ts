@@ -13,6 +13,7 @@
 import type { TenantTx } from "../db";
 import { REFUSALS } from "../errors";
 import { refusal } from "../faults/refusal-marker";
+import { recordCorroborationOutcomeIn } from "../outline-corroboration/outcome";
 import {
   appendObservationIn,
   isRepudiatedIn,
@@ -48,6 +49,14 @@ export type CorroborateInput = {
   readonly unitAsWritten: string;
   readonly precedence: number;
   readonly sourceKey: string;
+  /**
+   * The model proposal this reading was recorded beside, as the screen showed it, or absent where
+   * none stood (L-AI-02: what the person then did is the labeled outcome the calibration line is
+   * read over). It changes NOTHING about the act: the reading, its standing and its refusals are
+   * the same whether or not a model ever spoke, and a call that is not this project's, not this
+   * question's or that refused files nothing at all (`../outline-corroboration/outcome`).
+   */
+  readonly proposalCallId?: string;
 };
 
 /** What the act would do, derived from the state this transaction read (L-ACT-02). */
@@ -162,6 +171,22 @@ export const corroborate: ActRendering<CorroborateInput> = {
     // anybody could act on (ARCH-03, B-17).
     if (!appended.appended) {
       throw new Error(`${CORROBORATE} previewed a reading the register then refused as ${appended.refusal} — the preview and the append disagree (L-ACT-02)`);
+    }
+
+    // What this person did with the proposal that stood beside the object: corroborating an outline
+    // the machine read as the member its mark names AFFIRMS what it said, and corroborating one it
+    // read as something else OVERRULES it (L-AI-02). It lands in this transaction, with the act row,
+    // or neither (L-ACT-01) — and where the machine could not tell, or never spoke, nothing is filed
+    // and the act stands exactly as it stands today.
+    if (input.proposalCallId !== undefined) {
+      await recordCorroborationOutcomeIn(tx, {
+        tenantId: ctx.tenantId,
+        projectId: input.projectId,
+        callId: input.proposalCallId,
+        act: CORROBORATE,
+        actId: act.actId,
+        actorUserId: ctx.userId,
+      });
     }
   },
 };

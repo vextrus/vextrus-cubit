@@ -70,6 +70,12 @@ export const takeoff = {
   takeoff_register_corroborate_preview: "Preview this reading",
   takeoff_register_repudiate: "Repudiate this object",
 
+  // What the machine proposed about a deferred outline, held until a person acts (I-299, L-AI-02).
+  takeoff_register_corroboration_yes: "The machine reads this outline as the member its mark names, at the size the drawing states for it.",
+  takeoff_register_corroboration_unsure: "The machine could not tell whether this outline is the member its mark names.",
+  takeoff_register_corroboration_no: "The machine reads this outline as something other than the member its mark names.",
+  takeoff_register_corroboration_hint: "A proposal, not a reading. Nothing is corroborated until you record a reading or strike the object.",
+
   takeoff_register_refusals_heading: "Deferred and refused",
   takeoff_register_refusals_hint: "These sightings produced no line. Each says why, and where to resolve it.",
   takeoff_register_refusal_object_label: "Object",

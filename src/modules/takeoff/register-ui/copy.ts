@@ -67,6 +67,10 @@ export type RegisterCopyKey =
   | "takeoff_register_corroborate_precedence_hint"
   | "takeoff_register_corroborate_preview"
   | "takeoff_register_repudiate"
+  | "takeoff_register_corroboration_yes"
+  | "takeoff_register_corroboration_unsure"
+  | "takeoff_register_corroboration_no"
+  | "takeoff_register_corroboration_hint"
   | "takeoff_register_refusals_heading"
   | "takeoff_register_refusals_hint"
   | "takeoff_register_refusal_object_label"
@@ -152,6 +156,12 @@ export const REGISTER_COPY: Readonly<Record<RegisterCopyKey, string>> = Object.f
   takeoff_register_corroborate_precedence_hint: "Lower numbers rank first. A reading at the same precedence as another suspends the attribute.",
   takeoff_register_corroborate_preview: "Preview this reading",
   takeoff_register_repudiate: "Repudiate this object",
+
+  // What the machine proposed about a deferred outline, held until a person acts (I-299, L-AI-02).
+  takeoff_register_corroboration_yes: "The machine reads this outline as the member its mark names, at the size the drawing states for it.",
+  takeoff_register_corroboration_unsure: "The machine could not tell whether this outline is the member its mark names.",
+  takeoff_register_corroboration_no: "The machine reads this outline as something other than the member its mark names.",
+  takeoff_register_corroboration_hint: "A proposal, not a reading. Nothing is corroborated until you record a reading or strike the object.",
 
   takeoff_register_refusals_heading: "Deferred and refused",
   takeoff_register_refusals_hint: "These sightings produced no line. Each says why, and where to resolve it.",

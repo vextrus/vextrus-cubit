@@ -13,7 +13,7 @@
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import type { Box } from "../../viewer/projection";
 import { classifyCaption } from "./grammar";
-import { VIEW_TYPE, type ViewType } from "./law";
+import { VIEW_TYPE, partitionViewKey, type ViewType } from "./law";
 import { regionAt, regionsOf, type RegionCaption } from "./regions";
 
 /** One view of the partition: its content-derived key, what it is, and the caption that anchors it. */
@@ -116,9 +116,9 @@ export function partitionArtifact(graph: EntityGraph): ViewPartition {
   // the drawing spaces its titles and not about which of them a window happened to claim.
   const residue = captions.filter((caption) => regionAt(caption.at, regions) === null);
   for (const caption of residue) {
-    views.set(`${caption.type}:${caption.key}`, { viewKey: `${caption.type}:${caption.key}`, type: caption.type, reason: caption.reason, caption: caption.text, anchorKey: caption.key });
+    views.set(partitionViewKey(caption.type, caption.key), { viewKey: partitionViewKey(caption.type, caption.key), type: caption.type, reason: caption.reason, caption: caption.text, anchorKey: caption.key });
   }
-  const anchors: Anchor[] = residue.map((caption) => ({ viewKey: `${caption.type}:${caption.key}`, at: caption.at, reach: reachOf(caption, captions) }));
+  const anchors: Anchor[] = residue.map((caption) => ({ viewKey: partitionViewKey(caption.type, caption.key), at: caption.at, reach: reachOf(caption, captions) }));
 
   const painted = paintBoxes(graph, modelSpace);
   const assignments = new Map<string, string>();

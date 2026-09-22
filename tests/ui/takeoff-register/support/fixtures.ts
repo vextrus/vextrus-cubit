@@ -789,6 +789,8 @@ export interface MountOptions {
   chrome?: Record<string, unknown>;
   /** What the workspace is told when a measure run it started succeeds (the screen re-reads). */
   onRunSucceeded?: () => void;
+  /** What the machine proposed about a deferred outline, by object key (I-299, L-AI-02). */
+  corroborations?: Record<string, { reading: string; probability: string; callId: string }>;
 }
 
 /** The register's format, as the tenant frame's JobsProvider hands one: seconds and the registry. */
@@ -823,6 +825,7 @@ export async function mountRegister(view: RegisterViewLike, over: MountOptions =
     },
     doors,
     ...(over.onRunSucceeded === undefined ? {} : { onRunSucceeded: over.onRunSucceeded }),
+    ...(over.corroborations === undefined ? {} : { corroborations: over.corroborations }),
   };
   // The workspace follows the runs its Measure door starts through the pattern's jobs register,
   // which the tenant frame renders around every screen (R-UI-024); the mount stands the same provider.

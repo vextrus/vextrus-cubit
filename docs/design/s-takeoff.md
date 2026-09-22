@@ -191,6 +191,32 @@ things. Everything in §0 above stands except where an Interpretation here says 
   this screen itself put there. The row a pointer took also publishes that it is taken, and is
   painted from `--surface-selected` — the same alias the grid paints its own selection with, so the
   two read as one thing. Both halves are owed to the primitive and recorded in §8.
+- **I-299 — an uncorroborated outline carries a proposal, and the two acts judge it (Jev
+  logic-point 6; L-QTY-04, L-AI-01, L-AI-02, L-AI-03, R-TO-051).** L-QTY-04 defers an interpreted
+  outline nobody corroborated and never publishes a line from it. The machine may say, before a
+  person looks, whether the outline it interpreted is the member its mark names at the size the
+  drawing states — that is L-AI-03's "flag anomalies against benchmarks", and the benchmarks are the
+  drawing's own: the section its schedules state for that mark, the median footprint of the plan's
+  own members, and the near-anchor reach and footprint band the pinned edition states. The question
+  is ONE Noul over one state of fifteen named numeric fields, every one of them found by code before
+  the call (`src/modules/takeoff/partition/placement/evidence.ts`, the one home the request builder
+  and the corpus recorder both read), asked once per deferred outline after the gate and never on a
+  page render; what comes back is a probability and nothing else. On this screen it is three words
+  and a Tooltip in the inspector, one line above the two doors that judge it — the sentence is the
+  whole of what a reader is told, the figure stands in `data-probability` and on S-Audit, and an
+  object nobody asked about carries no line at all. Nothing here corroborates, publishes or strikes:
+  it is L-AI-02's third arm, a classification held until a person acts, and the queue item stands
+  until they do. **Corroborating** the object affirms what the machine said (AFFIRMED) or overrules
+  it (OVERRULED); **repudiating** it repudiates what it said (REPUDIATED) or confirms the reading it
+  pointed to (CONFIRMED); each act writes that outcome in its own transaction, with the act row or
+  not at all (`recordModelOutcome`, the CONFIRM_VIEW_TYPE precedent). The band between the two
+  thresholds — `CORROBORATION_NO` 0.30 and `CORROBORATION_YES` 0.70, the caller's policy in
+  `src/core/outline-corroboration/law.ts`, never the seam's — is the machine's own statement that it
+  could not tell, and a proposal inside it is filed neither way: an outcome taken from it would
+  poison the very calibration line the thresholds are read off. The act names the proposal it judged
+  because the screen showed it: an act beside no proposal is exactly the act it has always been, and
+  a call that is not this project's, not this question's, or that refused, files nothing. The
+  proposal is not exported: an export is a published reading and a proposal is not one.
 
 ## 1. Layout and hierarchy
 
@@ -317,7 +343,11 @@ the reticle from its single home) titled `takeoff_register_object_key_label`, ho
 `takeoff_register_basis_label` → `<dd data-testid="register-object-basis" data-basis>` a BasisChip,
 `_role_label` → `<dd data-testid="register-object-role" data-role>` an `EnumLabel`,
 `_corroboration_label` → `<dd data-testid="register-object-corroboration" data-standing>` an
-`EnumLabel`; the same `<details>`; then, on a struck object, `takeoff_register_repudiated_note`, and
+`EnumLabel`; the same `<details>`; then, where the machine proposed something about this object,
+ONE line — `<p class="cx-register-corroboration" data-reading data-probability>` carrying
+`takeoff_register_corroboration_yes` / `_unsure` / `_no` by its reading, inside the shipped Tooltip
+whose content is `takeoff_register_corroboration_hint` (I-299) — and none at all where it proposed
+nothing; then, on a struck object, `takeoff_register_repudiated_note`, and
 otherwise the core **secondary** Button `takeoff_register_repudiate` (I-175) — a door in the
 inspector, never the full-width bar §8 marked — absent also while `permitted` is false.
 **Attributes** — `<h3>` `takeoff_register_attributes_label`, then one `<section
@@ -429,6 +459,12 @@ and the readings recorded against it.** · `takeoff_register_corroborate` **Reco
 `takeoff_register_corroborate_precedence_hint` **Lower numbers rank first. A reading at the same
 precedence as another suspends the attribute.** · `takeoff_register_corroborate_preview` **Preview
 this reading** · `takeoff_register_repudiate` **Repudiate this object** ·
+`takeoff_register_corroboration_yes` **The machine reads this outline as the member its mark names,
+at the size the drawing states for it.** · `takeoff_register_corroboration_unsure` **The machine
+could not tell whether this outline is the member its mark names.** ·
+`takeoff_register_corroboration_no` **The machine reads this outline as something other than the
+member its mark names.** · `takeoff_register_corroboration_hint` **A proposal, not a reading.
+Nothing is corroborated until you record a reading or strike the object.** (I-299) ·
 `takeoff_register_refusals_heading` **Deferred and refused** · `takeoff_register_refusals_hint`
 **These sightings produced no line. Each says why, and where to resolve it.** ·
 `takeoff_register_refusal_object_label` **Object** · `takeoff_register_refusal_kind_label` **Kind** ·
@@ -539,6 +575,13 @@ ruled in §1: `takeoff-nav` · `takeoff-nav-register` · `register-workspace` (`
 others are added: the Corroborate, Repudiate, Preview and empty-state doors, the headings and the
 count line are found by role and name.
 
+**I-299's proposal line carries no test id yet.** It is read in the unit lane by its class and its
+two attributes (`.cx-register-corroboration[data-reading][data-probability]`). The id it wants is
+`register-corroboration`, and it is added to `src/ui/testids.ts` and published through
+`RegisterChrome.testIds` by the increment that gives the line a journey — the same increment that
+gives the server read its standing proposals, since a leg clicks what a customer clicks and today no
+composed view carries one (§8).
+
 **No test id is added by the v22 rebuild, and none is renamed.** Every region it moved answers to
 the id it already published: `register-measure` and `register-campaign` are found on the page rather
 than under the workspace, because the tabs row is the frame's track (I-230); `register-inspector`
@@ -590,6 +633,13 @@ offered group (J-040) — owner: M4. Resizable, remembered widths for the index 
 owner: the prefs seam's node, which holds the same debt for the viewer; the inspector's own width is
 now the frame's and IS remembered. A CORROBORATE that names more than one attribute, and an inline
 correction on a line — deliberately absent: a line is a record.
+
+Opened by I-299, with the node that owns the fix: **the proposal has no composed read yet.** The
+screen renders what it is handed (`corroborations`, by object key) and the two acts carry the call
+they judged, but no server read fills it: binding one object to the standing call needs a store keyed
+(tenant, project, set revision, object), which needs a migration this increment did not take. Owner:
+the increment that lands `src/core/register/corroboration.ts` and `registerViewOf`'s read of it —
+with it come `register-corroboration` in `src/ui/testids.ts`, the id on the line, and the J-021 leg.
 
 Opened by the v22 rebuild, each with the node that owns the fix:
 
