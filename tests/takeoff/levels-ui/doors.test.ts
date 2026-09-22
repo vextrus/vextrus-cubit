@@ -7,6 +7,7 @@
  * facts the law says it names. The roll-up counts and the stack's order are derived from the store
  * and from the shipped read-only door, never typed beside them (B-19, B-17).
  */
+import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, test } from "vitest";
 import {
   ACT_CHANGES_NOTHING,
@@ -99,7 +100,7 @@ describe("AC-3: the reading door answers the LevelsView", () => {
   test("AC-3: a statement missing projectId is a refusal by name, never a 500", async () => {
     const it = await staged();
     const caller = await takeoffCaller(it.person);
-    for (const name of ["levels", "previewRepudiateLevel", "previewAuthorStoreyHeight", "previewAuthorTypicalRange"]) {
+    for (const name of ["levels", "previewInsertLevel", "commitInsertLevel", "previewRepudiateLevel", "previewAuthorStoreyHeight", "previewAuthorTypicalRange"]) {
       const refused = await refusalOf(() => door(caller, name)(name === "levels" ? {} : { input: {} }), `takeoff.${name} with no projectId`);
       expect(refused.code, `takeoff.${name} parses its statement through one zod schema: ${refused.said}`).toBe(REQUEST_MALFORMED);
     }
@@ -121,16 +122,28 @@ describe("AC-3: the act doors refuse the permission they need, by name", () => {
     const caller = await takeoffCaller(measurer);
     const live = await liveStack(it);
 
+    // Both statements INSERT_LEVEL's doors read: levels typed in by hand, and an offered stack named by
+    // its key. The permission is asked BEFORE the key is resolved, so a MEASURER is told what they may
+    // not do and never whether the drawing they named offers a stack (R-SPINE-004, L-ACT-02).
+    const offered = { type: INSERT_LEVEL, projectId: it.projectId, group: { kind: "PROPOSED_LEVEL_STACK", drawingId: randomUUID(), ingestId: randomUUID() } };
+    const byHand = insertion(it.projectId, [{ label: "MEZZ", ordinal: 1 }]);
     const asked: readonly [string, Record<string, unknown>, string][] = [
-      ["previewInsertLevel", insertion(it.projectId, [{ label: "MEZZ", ordinal: 1 }]), INSERT_LEVEL],
-      ["previewRepudiateLevel", repudiation(it.projectId, (live[0] as { levelId: string }).levelId), REPUDIATE_LEVEL],
+      ["previewInsertLevel", { input: byHand }, INSERT_LEVEL],
+      ["commitInsertLevel", { input: byHand, consequenceDigest: "0".repeat(64) }, INSERT_LEVEL],
+      ["previewInsertLevel", { input: offered }, INSERT_LEVEL],
+      ["commitInsertLevel", { input: offered, consequenceDigest: "0".repeat(64) }, INSERT_LEVEL],
+      ["previewRepudiateLevel", { input: repudiation(it.projectId, (live[0] as { levelId: string }).levelId) }, REPUDIATE_LEVEL],
     ];
-    for (const [name, input, actType] of asked) {
-      const refused = await refusalOf(() => door(caller, name)({ input }), `takeoff.${name} as a MEASURER`);
+    for (const [name, statement, actType] of asked) {
+      const refused = await refusalOf(() => door(caller, name)(statement), `takeoff.${name} as a MEASURER`);
       expect(refused.code, `takeoff.${name} is refused by name: ${refused.said}`).toBe(PERMISSION_NOT_HELD);
       expect(refused.said, `and the refusal names the act ${actType} it refused`).toContain(actType);
       expect(refused.said, `and the permission ${AUTHOR_LEVEL_STACK} that would have carried it`).toContain(AUTHOR_LEVEL_STACK);
     }
+    expect(
+      (await liveStack(it)).map((level) => level.levelId),
+      "and the stack stands exactly as it stood: no refused door wrote a level",
+    ).toEqual(live.map((level) => level.levelId));
   }, BUDGET_MS);
 
   test("AC-3: a REVIEWER may neither read a height nor state a typical range", async () => {

@@ -11,6 +11,8 @@
 // the subject `proposed:<i>` — its index in the act that proposed it — and a carried object says the
 // label it is carried onto, with the key it lands on observable once the act has landed.
 import type { TenantTx } from "../db";
+import type { RefusalCode } from "../errors";
+import { refusal } from "../faults/refusal-marker";
 import { dotlessUpper } from "../identity";
 import { STOREY_HEIGHT_BASES, carryToMetres, declaredOrdinal, readingKey, type CarriedReading, type StoreyHeightBasis } from "../levels";
 import { carryObjectOntoLevel, insertLevels, liveLevelsOf, moveOrdinal, objectsUnderPlaceholders, writeReadings, type LevelScope, type PlaceholderObject, type ReadingWrite } from "../levels/store";
@@ -21,6 +23,9 @@ import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
 /** The act this file renders, spelled once. */
 const INSERT_LEVEL = "INSERT_LEVEL" as const;
+
+/** L-ACT-02's answer for a key whose offer the current state does not carry (R-SPINE-062). */
+const GROUP_NOT_OFFERED: RefusalCode = "GROUP_NOT_OFFERED";
 
 /**
  * A reading proposed alongside a level: it was read off the drawing that named the level, so its
@@ -64,6 +69,50 @@ export type InsertLevelInput = {
   readonly projectId: string;
   readonly levels: readonly ProposedLevel[];
 };
+
+/**
+ * One level a person inserts by hand: what it is called and where it stands, and nothing else. A
+ * person states no reading here. A storey height they read goes through `AUTHOR_STOREY_HEIGHT`, which
+ * judges the basis and the source it cites; a height the drawing states comes with the offer, and the
+ * server resolves that (L-MEA-07, L-ACT-02).
+ */
+export type HandInsertedLevel = {
+  readonly label: string;
+  readonly ordinal: number;
+};
+
+/**
+ * What a transport is TOLD at this act's doors, which is not the same as the act's input. There are
+ * two statements and no third:
+ *
+ * - `group`: the offered stack, named by its typed key and nothing else. "Bulk is offered, never
+ *   assembled" (L-ACT-02), so the levels, and the readings the drawing stated for them, are resolved
+ *   on the server from the offer that stands now. A caller cannot widen that list or cite a source
+ *   key of its own choosing.
+ * - `levels`: levels a person typed in by hand. Each is a label and an ordinal and cites nothing.
+ *
+ * Both become one `InsertLevelInput` before they reach the seam, and preview and commit resolve them
+ * the same way, so the Consequence a person confirms describes the levels that get written.
+ */
+export type InsertLevelStatement =
+  | { readonly type: typeof INSERT_LEVEL; readonly projectId: string; readonly group: LevelStackGroupKey }
+  | { readonly type: typeof INSERT_LEVEL; readonly projectId: string; readonly levels: readonly HandInsertedLevel[] };
+
+/**
+ * L-ACT-02's answer when a key names a stack the project no longer offers. That covers a drawing that
+ * was re-ingested since, a partition that no longer stands, a section that states no stack, or a
+ * drawing this project does not hold. It is refused by name and never confirmed as an empty act.
+ * The code is the one the other offered groups use (`groupNotOffered`, `viewGroupNotOffered`), so an
+ * offer that has gone stale is the same answer on every screen that offers one (R-SPINE-062).
+ */
+export function levelStackNotOffered(group: LevelStackGroupKey): Error {
+  return refusal(GROUP_NOT_OFFERED, `${INSERT_LEVEL} was asked for a level stack the project does not offer now`, {
+    actType: INSERT_LEVEL,
+    groupKind: group.kind,
+    drawingId: group.drawingId,
+    ingestId: group.ingestId,
+  });
+}
 
 /** Where a proposal ends up, once every proposal of the act has been applied in the order stated. */
 type Placed = {

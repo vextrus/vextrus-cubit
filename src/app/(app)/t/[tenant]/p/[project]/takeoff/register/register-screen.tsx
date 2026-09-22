@@ -14,7 +14,7 @@
 // about the register: the fault the read left behind, with the report id and the retry R-UI-050 asks
 // for, and the reading itself once a retry has answered.
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { Consequence, CorroborateInput, InsertLevelInput, RepudiateInput } from "@/core/acts";
+import type { Consequence, CorroborateInput, InsertLevelStatement, RepudiateInput } from "@/core/acts";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { RegisterWorkspace, type RegisterChrome, type RegisterDoors, type PreviewAnswer } from "@/modules/takeoff/register-ui";
 import type { RegisterView } from "@/modules/takeoff/register-ui/view";
@@ -166,8 +166,8 @@ export function RegisterScreen({ view, tenantId, projectId, permitted, reportId 
       commitCorroborate: async ({ input, consequenceDigest }: { input: CorroborateInput; consequenceDigest: string }) => carried(await commitCorroborate(input, consequenceDigest)),
       previewRepudiate: async ({ input }: { input: RepudiateInput }) => previewed(carried(await previewRepudiate(input))),
       commitRepudiate: async ({ input, consequenceDigest }: { input: RepudiateInput; consequenceDigest: string }) => carried(await commitRepudiate(input, consequenceDigest)),
-      previewInsertLevel: async ({ input }: { input: InsertLevelInput }) => previewed(carried(await previewInsertLevel(input))),
-      commitInsertLevel: async ({ input, consequenceDigest }: { input: InsertLevelInput; consequenceDigest: string }) => carried(await commitInsertLevel(input, consequenceDigest)),
+      previewInsertLevel: async ({ input }: { input: InsertLevelStatement }) => previewed(carried(await previewInsertLevel(input))),
+      commitInsertLevel: async ({ input, consequenceDigest }: { input: InsertLevelStatement; consequenceDigest: string }) => carried(await commitInsertLevel(input, consequenceDigest)),
       requestMeasure: async ({ projectId: asked, campaignId }: { projectId: string; campaignId: string }) => carried(await requestMeasure(asked, campaignId)),
       refusalOf,
     }),

@@ -499,22 +499,34 @@ export const BNBC_NOTES_SHEETS: readonly string[] = Object.freeze(["S-01 GENERAL
 /**
  * THE STACK, AS THE DRAWING STATES IT. S-25's BUILDING SECTION A-A carries one level mark per storey
  * (`GF EL +0.000` … `ROOF EL +21.641`), so the partition proposes the stack and a person confirms it
- * whole (L-MEA-07, R-UI-023). The marks state an elevation and no unit, so the proposal carries no
- * storey height (L-CAD-03: a reading never invents what the drawing withheld) and a person transcribes
- * each one — the distance to the mark above, in the metres the section's `EL` figures are stated in,
- * citing the mark it is read off (TRANSCRIBED, L-QTY-01; STOREY_HEIGHT_UNCITED refuses a reading that
- * cites none). ROOF is the top of the section and states no height above it. Where no stack is
- * offered, the same eight labels are inserted by hand through J-031's door, in this order.
+ * whole (L-MEA-07, R-UI-023). The metric marks state an elevation and no unit, so the proposal carries
+ * no metric storey height (L-CAD-03: a reading never invents what the drawing withheld) and a person
+ * transcribes each one — `height`: the distance to the mark above, in the metres the section's `EL`
+ * figures are stated in, citing the mark it is read off (TRANSCRIBED, L-QTY-01; STOREY_HEIGHT_UNCITED
+ * refuses a reading that cites none). ROOF is the top of the section and states no height above it.
+ * Where no stack is offered, the same eight labels are inserted by hand through J-031's door, in
+ * this order.
+ *
+ * The ground storey is stated TWICE (T-NOT-LEVEL): the section's left side marks `P.L= +0'-0"` beside
+ * GF and `EL +11'-0"` beside 1F, so the confirmed stack already carries GF's height read in feet and
+ * inches (132 in, citing `P.L=`'s mark 1D90), and the metric `+3.353` a person transcribes is that
+ * design rounded to three places. The two readings agree and GF stands at the exact one — `metres`
+ * 3.3528, the storey F-RCC6-BNBC's model states (D-001) — where the metric print alone stood GF at
+ * 3.353 and measured every column through it 0.2 mm tall. Every storey above is stated once, and
+ * stands at what the person transcribed.
  */
-export const BNBC_STOREYS: readonly { readonly label: string; readonly height: string; readonly sourceKey: string }[] = Object.freeze([
-  { label: "GF", height: "3.353", sourceKey: "DXF_HANDLE:1D4C" },
-  { label: "1F", height: "3.048", sourceKey: "DXF_HANDLE:1D4E" },
-  { label: "2F", height: "3.048", sourceKey: "DXF_HANDLE:1D50" },
-  { label: "3F", height: "3.048", sourceKey: "DXF_HANDLE:1D52" },
-  { label: "4F", height: "3.048", sourceKey: "DXF_HANDLE:1D54" },
-  { label: "5F", height: "3.048", sourceKey: "DXF_HANDLE:1D56" },
-  { label: "6F", height: "3.048", sourceKey: "DXF_HANDLE:1D58" },
+export const BNBC_STOREYS: readonly { readonly label: string; readonly height: string; readonly sourceKey: string; readonly metres: string }[] = Object.freeze([
+  { label: "GF", height: "3.353", sourceKey: "DXF_HANDLE:1D4C", metres: "3.3528" },
+  { label: "1F", height: "3.048", sourceKey: "DXF_HANDLE:1D4E", metres: "3.048" },
+  { label: "2F", height: "3.048", sourceKey: "DXF_HANDLE:1D50", metres: "3.048" },
+  { label: "3F", height: "3.048", sourceKey: "DXF_HANDLE:1D52", metres: "3.048" },
+  { label: "4F", height: "3.048", sourceKey: "DXF_HANDLE:1D54", metres: "3.048" },
+  { label: "5F", height: "3.048", sourceKey: "DXF_HANDLE:1D56", metres: "3.048" },
+  { label: "6F", height: "3.048", sourceKey: "DXF_HANDLE:1D58", metres: "3.048" },
 ]);
+
+/** The ground storey's imperial reading, as the confirmed stack carries it (D-001, T-NOT-LEVEL). */
+export const BNBC_GF_IMPERIAL_SOURCE = "DXF_HANDLE:1D90";
 export const BNBC_LEVELS: readonly string[] = Object.freeze([...BNBC_STOREYS.map((storey) => storey.label), "ROOF"]);
 export const BNBC_HEIGHT_UNIT = "m";
 export const BNBC_HEIGHT_BASIS = "TRANSCRIBED";
@@ -740,7 +752,9 @@ async function transcribeStack(page: Page, tenantId: string, projectId: string):
     await levels.authorHeight.click();
     await expect(levels.dialog, "reading a height is an act, previewed in the one dialog").toHaveAttribute("data-act-type", "AUTHOR_STOREY_HEIGHT");
     await levels.confirmAct();
-    await expect(row, `${storey.label} stands at ${storey.height} ${BNBC_HEIGHT_UNIT}, agreed`).toHaveAttribute("data-standing", "AGREED");
+    // Agreed, and not contested: on GF the transcription is the second reading of a height the stack
+    // already carries in feet and inches, and the two agree at the places `+3.353` is printed to (D-001).
+    await expect(row, `${storey.label} reads ${storey.height} ${BNBC_HEIGHT_UNIT} off the section, and stands agreed`).toHaveAttribute("data-standing", "AGREED");
   }
 }
 

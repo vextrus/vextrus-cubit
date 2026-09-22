@@ -25,9 +25,6 @@ export type RegisterViewScope = { readonly tenantId: string; readonly projectId:
 /** The basis a queue item leaves an object standing on: interpreted, and uncorroborated (L-QTY-04). */
 const INTERPRETED: QuantityBasis = "INTERPRETED";
 
-/** The kind the offered level stack is keyed on (L-ACT-02's closed enum, `LevelStackGroupKey`). */
-const PROPOSED_LEVEL_STACK = "PROPOSED_LEVEL_STACK" as const;
-
 /** The corroboration states an object can be read at (R-TO-050's per-object attribute). */
 const REPUDIATED = "REPUDIATED";
 const SUSPENDED = "SUSPENDED";
@@ -182,11 +179,12 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
   for (const member of manifest) {
     const offer = await proposedLevelStackOf({ tenantId: scope.tenantId, projectId: scope.projectId, drawingId: member.drawingId });
     if (offer === null) continue;
+    // The key and the count, never the levels: the browser hands the key back, and the door resolves the
+    // offer again, with the readings the drawing stated (L-ACT-02, `levelsOfferedUnder`).
     levelStacks.push({
-      key: { kind: PROPOSED_LEVEL_STACK, drawingId: offer.group.drawingId, ingestId: offer.group.ingestId },
+      key: { kind: offer.group.kind, drawingId: offer.group.drawingId, ingestId: offer.group.ingestId },
       label: member.name,
       count: offer.levels.length,
-      levels: offer.levels.map((level) => ({ label: level.label, ordinal: level.ordinal })),
     });
   }
 

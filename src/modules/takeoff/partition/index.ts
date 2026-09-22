@@ -14,7 +14,7 @@ import { storedProposedLevelsOf } from "./levels-proposal/store";
 import { storedPlacementsOf, storedRunsOf, type StoredPlacement, type StoredRun } from "./placement/store";
 import { storedMemberTypesOf, storedSchedulesOf, type StoredMemberTypes, type StoredSchedules } from "./schedules/store";
 import { drawingProjectOf, partitionStandsFor, storedConventionsOf, storedViewsOf, type StoredConventions } from "./store";
-import type { GroupKind, ProposedLevel } from "@/core/acts";
+import type { GroupKind, LevelStackGroupKey, ProposedLevel } from "@/core/acts";
 import type { ViewRecord } from "@/core/views";
 
 export { PARTITION_KIND, partitionJobKey, requestPartition, type PartitionRefused, type PartitionRequest, type PartitionRequested } from "./request";
@@ -170,11 +170,15 @@ export async function typicalRangesOf(scope: { tenantId: string; projectId: stri
  * section states is confirmed whole or not at all, so the fact the group is keyed on is the stack —
  * the kind is the act seam's closed roster's, never a spelling of this module's (B-17, ARCH-02).
  */
-const PROPOSED_LEVEL_STACK: GroupKind = "PROPOSED_LEVEL_STACK";
+const PROPOSED_LEVEL_STACK: Extract<GroupKind, LevelStackGroupKey["kind"]> = "PROPOSED_LEVEL_STACK";
 
-/** The stack a drawing's sections state, as ONE `INSERT_LEVEL` a person confirms whole (R-UI-023). */
+/**
+ * The stack a drawing's sections state, as ONE `INSERT_LEVEL` a person confirms whole (R-UI-023). The
+ * group is the act's own key (`LevelStackGroupKey`), so a screen hands it back unchanged and the door
+ * resolves it with `levelsOfferedUnder`.
+ */
 export type ProposedLevelStackOffer = {
-  readonly group: { readonly kind: GroupKind; readonly drawingId: string; readonly ingestId: string };
+  readonly group: LevelStackGroupKey;
   readonly levels: readonly ProposedLevel[];
 };
 
@@ -203,6 +207,22 @@ export async function proposedLevelStackOf(scope: ViewsScope): Promise<ProposedL
   const levels = offeredLevelsOf(proposed);
   if (levels === null) return null;
   return { group: { kind: PROPOSED_LEVEL_STACK, drawingId: scope.drawingId, ingestId }, levels };
+}
+
+/**
+ * The levels an offered stack's key names, with the readings the drawing stated for each, or null
+ * where that offer no longer stands. That is the case when the drawing has been ingested again
+ * (another record), its partition no longer stands, its sections now state no stack, or the project
+ * does not hold it (L-ACT-02: "resolved membership in the Consequence").
+ *
+ * The offer is the one `proposedLevelStackOf` answers, read again now. The key only names it. A
+ * list that came back from the browser would be a stack the browser assembled, and every reading in
+ * it would cite a source the caller chose (B-17, L-CAD-03).
+ */
+export async function levelsOfferedUnder(scope: { tenantId: string; projectId: string }, group: LevelStackGroupKey): Promise<readonly ProposedLevel[] | null> {
+  const offer = await proposedLevelStackOf({ tenantId: scope.tenantId, projectId: scope.projectId, drawingId: group.drawingId });
+  if (offer === null || offer.group.kind !== group.kind || offer.group.ingestId !== group.ingestId) return null;
+  return offer.levels;
 }
 
 /** The record a drawing's standing partition was rebuilt from, or null where none stands. */

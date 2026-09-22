@@ -80,11 +80,17 @@ contest. On such a storey a line's H cites the imperial mark in inches (132 in @
 `proposed_levels` holds one row per MARK, so a two-notation storey is two rows, folded back by `offeredLevelsOf`.
 
 **Proof.** `src/core/levels/standing-notations.test.ts`; `tests/takeoff/partition/levels-two-notations.test.ts` (every S-25
-storey stands at model.json's height; F-RCC6's proposal byte-identical). **Not yet in the product path**: a J-000 run
-(session 7) stored the proposal's `132 in @1D90` row and still stood GF at 3.353 — confirming an offered stack posts
-the register view's `{label, ordinal}` back to `INSERT_LEVEL` and drops the stack's readings (the browser assembles
-what L-ACT-02 says is offered). The slice that confirms by group key, resolved on the server, carries the readings and
-the journey's GF-at-3.3528 assertion.
+storey stands at model.json's height; F-RCC6's proposal byte-identical). **The product path (session 7, A3b)**: a J-000
+run stored the proposal's `132 in @1D90` row and still stood GF at 3.353. The reason was that confirming an offered stack
+posted the register view's `{label, ordinal}` back to `INSERT_LEVEL`, which dropped the stack's readings: the browser
+assembled what L-ACT-02 says is offered. Now a person confirms the stack by its `PROPOSED_LEVEL_STACK` key alone, and
+the takeoff lane resolves the offer on the server with its readings (`levelsOfferedUnder`), for the preview and the
+commit alike. A reading a client states beside a level is refused REQUEST_MALFORMED. `tests/takeoff/register-ui/offered-stack.test.ts`
+confirms S-25's offer by key through the doors, transcribes 3.353 m @1D4C as J-000 does, and reads GF AGREED at 3.3528
+on two readings. Confirming F-RCC6's offer by key gives the old list's Consequence, digest and levels, with no reading. And the journey, read back: a J-000 run (session 7, 04:16) walked `m3-levels-and-notes` green with GF at `data-metres`
+3.3528 on its two readings, and the run's store holds GF `132 in @1D90` (3.3528) and `3.353 m @1D4C`; that campaign's
+column concrete is 182 COMPLETE lines summing 90.83328779985… m³ — model.json's unrounded golden, 90.833288.
+The journey's GF-at-3.3528 assertion (`m3-levels-and-notes`) has not been run yet.
 
 ## D-002 — TypeSafe Jev System One is a pinned model (session 7, 2026-09-23)
 

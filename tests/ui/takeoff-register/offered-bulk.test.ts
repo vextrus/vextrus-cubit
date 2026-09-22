@@ -6,7 +6,7 @@
  * The asserted ABSENCE is the substance of the clause: a register of 50 000 rows with a select-all
  * is a register that lets a person confirm what they have not read. The offer itself is the shipped
  * OfferedGroups over the key the machine judged, and confirming it opens the one ConsequenceDialog
- * on ONE act with the offer's levels verbatim.
+ * on ONE act that names the offer by that key, which the server resolves.
  */
 import { cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -97,10 +97,12 @@ describe("AC-8 — the level stack is offered whole, and nothing is picked row b
 
     const previewed = staged.calls.filter((call) => call.door === "previewInsertLevel");
     expect(previewed.length, "the dialog previews the act once — bulk is one act with N subjects (L-ACT-01)").toBe(1);
+    const input = (previewed[0]?.argument as { input?: Record<string, unknown> } | undefined)?.input;
     expect(
-      (previewed[0]?.argument as { input?: Record<string, unknown> } | undefined)?.input,
-      "over the offer's own levels, verbatim: nothing is assembled from what a person clicked",
-    ).toEqual({ type: "INSERT_LEVEL", projectId: view.projectId, levels: (view.levelStacks[0] as (typeof view.levelStacks)[number]).levels });
+      input,
+      "naming the offer by its KEY, verbatim, and nothing else — the server resolves the levels and their readings, so nothing is assembled in the browser (L-ACT-02)",
+    ).toStrictEqual({ type: "INSERT_LEVEL", projectId: view.projectId, group: (view.levelStacks[0] as (typeof view.levelStacks)[number]).key });
+    expect(Object.hasOwn(input ?? {}, "levels"), "a list of levels never leaves the browser as a confirmation").toBe(false);
   });
 
   test("AC-8: the Measure door asks once, and a project with no campaign is answered in place", async () => {

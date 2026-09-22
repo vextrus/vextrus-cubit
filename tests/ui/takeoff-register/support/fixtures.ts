@@ -270,12 +270,11 @@ export interface ViewRefusal {
   kind: string | null;
 }
 
-/** One offered level stack, keyed on the fact judged (R-UI-023, test contract). */
+/** One offered level stack, keyed on the fact judged: the key and the count, never its levels (R-UI-023, L-ACT-02). */
 export interface ViewLevelStack {
   key: { kind: "PROPOSED_LEVEL_STACK"; drawingId: string; ingestId: string };
   label: string;
   count: number;
-  levels: { label: string; ordinal: number }[];
 }
 
 /** `RegisterView` (test contract) — the whole reading, in one prop. */
@@ -597,7 +596,6 @@ export function levelStackFixture(levels: number = 3): RegisterViewLike {
         key: { kind: "PROPOSED_LEVEL_STACK", drawingId: DRAWING, ingestId: INGEST },
         label: "S-101",
         count: levels,
-        levels: Array.from({ length: levels }, (_, at) => ({ label: at === 0 ? LEVEL_GF : `${at}F`, ordinal: at })),
       },
     ],
   };

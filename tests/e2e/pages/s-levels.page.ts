@@ -124,6 +124,10 @@ export class SLevelsPage {
   reading(basis: string): Locator {
     return this.inspector.locator(`${id(LEVELS_IDS.reading)}[data-basis="${basis}"]`);
   }
+  /** The reading that cites one source key — the entity it was read off (L-CAD-03). */
+  readingFrom(sourceKey: string): Locator {
+    return this.inspector.locator(`${id(LEVELS_IDS.reading)}[data-source="${sourceKey}"]`);
+  }
   /** Every reading a later reading under the same key superseded (L-MEA-07). */
   get supersededReadings(): Locator {
     return this.inspector.locator(`${id(LEVELS_IDS.reading)}[data-superseded="true"]`);

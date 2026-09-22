@@ -6,7 +6,7 @@
 // the one reading of what a reader stated — a reading of its own beside that one would be a second
 // answer to what is lawful (B-17, ARCH-03), so a statement this workspace cannot make lawfully comes
 // back as the registered refusal the lane refused it with, never as a thrown Error.
-import type { AuthorStoreyHeightInput, AuthorTypicalRangeInput, InsertLevelInput, RepudiateLevelInput } from "@/core/acts";
+import type { AuthorStoreyHeightInput, AuthorTypicalRangeInput, InsertLevelStatement, RepudiateLevelInput } from "@/core/acts";
 import type { LevelsView } from "@/modules/takeoff/levels-ui/view";
 import { asked, lane, type DoorAnswer, type Previewed } from "../lane";
 
@@ -20,12 +20,12 @@ export async function readLevels(projectId: string): Promise<DoorAnswer<LevelsVi
   return asked(() => caller.levels({ projectId }));
 }
 
-export async function previewInsertLevel(input: InsertLevelInput): Promise<DoorAnswer<Previewed>> {
+export async function previewInsertLevel(input: InsertLevelStatement): Promise<DoorAnswer<Previewed>> {
   const caller = await lane(CLIENT);
   return asked(() => caller.previewInsertLevel({ input }));
 }
 
-export async function commitInsertLevel(input: InsertLevelInput, consequenceDigest: string): Promise<DoorAnswer<{ actId: string }>> {
+export async function commitInsertLevel(input: InsertLevelStatement, consequenceDigest: string): Promise<DoorAnswer<{ actId: string }>> {
   const caller = await lane(CLIENT);
   return asked(() => caller.commitInsertLevel({ input, consequenceDigest }));
 }

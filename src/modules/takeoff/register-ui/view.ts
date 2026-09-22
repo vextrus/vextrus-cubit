@@ -5,6 +5,7 @@
 //
 // Everything is already resolved: no id is looked up while a cell renders, no figure is computed a
 // second time, and every value is model data the screen shows verbatim (I-25).
+import type { LevelStackGroupKey } from "@/core/acts";
 import type { QuantityBasis } from "@/core/offers/law";
 import type { AttributeStanding } from "@/core/register/store";
 
@@ -102,13 +103,17 @@ export type ViewRefusal = {
   readonly kind: string | null;
 };
 
-/** One level stack the machine proposes, keyed on the fact judged (R-UI-023, L-ACT-02). */
+/**
+ * One level stack the machine proposes, keyed on the fact judged (R-UI-023, L-ACT-02). The key and
+ * the count are all the screen gets. Confirming sends the key back, and the server resolves the
+ * levels and their readings from the offer that stands at that moment. A list handed to the browser
+ * would come back as a stack the browser assembled.
+ */
 export type ViewLevelStack = {
-  readonly key: { readonly kind: "PROPOSED_LEVEL_STACK"; readonly drawingId: string; readonly ingestId: string };
+  readonly key: LevelStackGroupKey;
   /** The drawing the stack was read from, as the offer's sentence names it. */
   readonly label: string;
   readonly count: number;
-  readonly levels: readonly { readonly label: string; readonly ordinal: number }[];
 };
 
 /** The whole reading, in one value (test contract: `RegisterView`). */

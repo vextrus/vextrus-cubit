@@ -14,81 +14,18 @@
  * extent was left out of it. No database, no CLI: the unit lane reads bytes (L-CAD-03, B-19).
  */
 import { readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import type { EntityGraph } from "@/core/entitygraph/schema";
 import { carryToMetres, readingKey, storeyHeightStanding } from "@/core/levels";
 import { exact } from "@/core/units/canon";
-import { proposeLevelStack, type ProposedLevelRow } from "@/modules/takeoff/partition/levels-proposal/propose";
-import type { PartitionedView } from "@/modules/takeoff/partition/views/assign";
-import { VIEW_TYPE } from "@/modules/takeoff/partition/views/law";
-
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-
-/** One model-space TEXT of a committed DXF: its handle, its string, and its insertion point. */
-type DrawnText = { readonly handle: string; readonly text: string; readonly x: number; readonly y: number };
-
-/**
- * Every model-space TEXT the ENTITIES section of a committed DXF carries. A DXF is group-code/value
- * line pairs; a TEXT states its handle under 5, its insertion under 10/20 (the first pair — 11/21 is
- * its alignment point) and its string under 1, and a paper-space one says so under 67.
- */
-function modelTexts(relative: string): DrawnText[] {
-  const lines = readFileSync(join(REPO_ROOT, relative), "utf8").split(/\r?\n/);
-  const texts: DrawnText[] = [];
-  let section: string | null = null;
-  let entity: { type: string; codes: Map<string, string> } | null = null;
-  const close = (): void => {
-    if (entity === null || entity.type !== "TEXT" || entity.codes.get("67") === "1") return;
-    const [handle, text, x, y] = ["5", "1", "10", "20"].map((code) => entity?.codes.get(code));
-    if (handle !== undefined && text !== undefined && x !== undefined && y !== undefined) texts.push({ handle, text, x: Number(x), y: Number(y) });
-  };
-  for (let at = 0; at + 1 < lines.length; at += 2) {
-    const code = (lines[at] as string).trim();
-    const value = lines[at + 1] as string;
-    if (code === "0") {
-      if (section === "ENTITIES") close();
-      entity = { type: value, codes: new Map() };
-      if (value === "ENDSEC") section = null;
-    } else if (code === "2" && entity?.type === "SECTION") {
-      section = value;
-    } else if (entity !== null && !entity.codes.has(code)) {
-      entity.codes.set(code, value);
-    }
-  }
-  return texts;
-}
-
-/** One section as the partition cuts it: what it proposes, the texts it holds, and every text in its extent. */
-type Section = { readonly proposed: ProposedLevelRow[]; readonly handles: readonly string[]; readonly inside: readonly string[] };
-
-/** A section as the partition cuts it: the texts it holds, read off the DXF, in one view. */
-function sectionOf(relative: string, viewKey: string, handles: readonly string[]): Section {
-  const all = modelTexts(relative);
-  const texts = handles.map((handle) => {
-    const found = all.find((text) => text.handle === handle);
-    if (found === undefined) throw new Error(`${relative} holds no model-space TEXT ${handle}`);
-    return found;
-  });
-  // The extent the named texts span, and every text of the model inside it: none may be left out.
-  const [left, right] = [Math.min(...texts.map((t) => t.x)), Math.max(...texts.map((t) => t.x))];
-  const [foot, head] = [Math.min(...texts.map((t) => t.y)), Math.max(...texts.map((t) => t.y))];
-  const inside = all.filter((text) => text.x >= left && text.x <= right && text.y >= foot && text.y <= head).map((text) => text.handle);
-
-  const entities = texts.map((text) => ({ key: `DXF_HANDLE:${text.handle}`, type: "TEXT", space: "model", layer: "", colour: { rgb: [0, 0, 0], source: "bylayer" }, text: text.text, points: [[text.x, text.y]] }));
-  const view = { viewKey, type: VIEW_TYPE.MEMBER_SECTION, reason: null, caption: "SECTION A-A", anchorKey: viewKey.slice(viewKey.indexOf(":") + 1) } as PartitionedView;
-  const stack = proposeLevelStack({ graph: { entities } as unknown as EntityGraph, views: [view], assignments: new Map(entities.map((entity) => [entity.key, viewKey])) });
-  return { proposed: [...stack.levels], handles, inside };
-}
+import type { ProposedLevelRow } from "@/modules/takeoff/partition/levels-proposal/propose";
+import { REPO_ROOT, rcc6Section, s25Section } from "./support/section-texts";
 
 /** S-25's building section, F-RCC6-BNBC: eight storey marks, four figures on the left, the caption. */
-const S25 = sectionOf("fixtures/rcc6-bnbc/rcc6-bnbc.dxf", "MEMBER_SECTION:DXF_HANDLE:1D96", [
-  "1D4A", "1D4C", "1D4E", "1D50", "1D52", "1D54", "1D56", "1D58", "1D90", "1D91", "1D92", "1D93", "1D96",
-]);
+const S25 = s25Section();
 
 /** F-RCC6's section A-A: eight storey marks, the ground's word, the caption and its note. */
-const RCC6 = sectionOf("fixtures/rcc6/rcc6.dxf", "MEMBER_SECTION:DXF_HANDLE:669", ["5AC", "5AE", "5B0", "5B2", "5B4", "5B6", "5B8", "5BA", "5F8", "669", "66A"]);
+const RCC6 = rcc6Section();
 
 /** The generator's independent model of F-RCC6-BNBC: its storey heights, in millimetres (AM-01). */
 const MODEL_STOREYS = (JSON.parse(readFileSync(join(REPO_ROOT, "fixtures", "rcc6-bnbc", "model.json"), "utf8")) as { storeys: Record<string, string> }).storeys;

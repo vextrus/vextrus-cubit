@@ -11,8 +11,10 @@ import {
   actChangesNothing,
   commit,
   consequenceDigest,
+  levelStackNotOffered,
   movesNothing,
   preview,
+  type ActorCtx,
   type AffirmScaleInput,
   type AuthorStoreyHeightInput,
   type AuthorTypicalRangeInput,
@@ -21,8 +23,11 @@ import {
   type Consequence,
   type CorroborateInput,
   type DeclareNotInProjectScopeInput,
+  type HandInsertedLevel,
   type HoldOutOfBillInput,
   type InsertLevelInput,
+  type InsertLevelStatement,
+  type LevelStackGroupKey,
   type OfferedGroupKey,
   type RepudiateInput,
   type RepudiateLevelInput,
@@ -37,7 +42,7 @@ import { appStorage } from "../../core/storage/app";
 import { certificatePreviewOf, coverageCauseProposalOf, coverageCellOf, coverageViewOf } from "../../modules/takeoff/coverage/server";
 import type { CertificatePreview, CoverageCauseProposalView, CoverageCellView, CoverageView } from "../../modules/takeoff/coverage/view";
 import { requestMeasure, type MeasureRefused, type MeasureRequested } from "../../modules/takeoff/measure";
-import { viewsOf, type ViewRecord } from "../../modules/takeoff/partition";
+import { levelsOfferedUnder, viewsOf, type ViewRecord } from "../../modules/takeoff/partition";
 // The register follows the acts that move the expansion resolver's inputs — the stack, the ranges —
 // so a level inserted or repudiated and a typical range authored re-expand the project's stored
 // partitions after their commit (L-CAD-07; src/modules/takeoff/partition/expansion/reexpand.ts).
@@ -68,6 +73,7 @@ const AUTHOR_TYPICAL_RANGE = "AUTHOR_TYPICAL_RANGE" as const;
 const HOLD_OUT_OF_BILL = "HOLD_OUT_OF_BILL" as const;
 const DECLARE_NOT_IN_PROJECT_SCOPE = "DECLARE_NOT_IN_PROJECT_SCOPE" as const;
 const PROPOSED_VIEW_TYPE = "PROPOSED_VIEW_TYPE" as const;
+const PROPOSED_LEVEL_STACK = "PROPOSED_LEVEL_STACK" as const satisfies LevelStackGroupKey["kind"];
 const MEASURE = "MEASURE" as const;
 /** The permission both boundary acts move — the same LEAD-held decision on either axis (L-ACT-03). */
 const SET_BILL_BOUNDARY = "SET_BILL_BOUNDARY" as const;
@@ -191,17 +197,78 @@ const repudiateInput: z.ZodType<RepudiateInput> = z
   .object({ projectId: text("projectId"), objectKey: text("objectKey"), proposalCallId })
   .transform((stated) => ({ type: REPUDIATE, ...stated }));
 
+/** The offered stack's key as it arrives on the wire, read into the shape the act declares (L-ACT-02). */
+const levelStackGroupKey: z.ZodType<LevelStackGroupKey> = z.object({
+  kind: z.literal(PROPOSED_LEVEL_STACK, { error: "takeoff: that is not a level-stack kind — L-ACT-02's grouping key is over a closed enum" }),
+  drawingId: text("drawingId"),
+  ingestId: text("ingestId"),
+});
+
 /**
- * The levels one offered stack proposes, carried across as they were offered. What a level may be is
- * L-MEA-07's law and the seam's own guard; a second reading of it here would be a second answer to a
- * question that has one (B-17).
+ * One level a person inserts by hand: a label and an ordinal. A reading stated beside it is refused
+ * by name rather than trusted or quietly dropped. The only readings an insert carries are the ones
+ * the offered stack's drawing stated, and the server resolves those (`levelsOfferedUnder`). A reading
+ * a person makes goes through AUTHOR_STOREY_HEIGHT, whose act judges its basis and the source it
+ * cites (L-MEA-07, L-ACT-02, L-CAD-03). Whether the label and ordinal are lawful is L-MEA-07's law
+ * and the seam's own guard. Checking it here too would give that question two answers (B-17).
  */
-const insertLevelInput: z.ZodType<InsertLevelInput> = z
+const handInsertedLevel = z
+  .object({
+    label: text("label"),
+    ordinal: figure("ordinal"),
+    readings: z
+      .undefined({
+        error: 'takeoff: a level inserted by hand states no "readings" — a height a person reads is AUTHOR_STOREY_HEIGHT\'s, and an offered stack\'s are resolved from its key (L-ACT-02)',
+      })
+      .optional(),
+  })
+  .transform(({ label, ordinal }): HandInsertedLevel => ({ label, ordinal }));
+
+/**
+ * What a caller may state at the INSERT_LEVEL doors: the offered stack's `group`, or the `levels` a
+ * person inserts by hand. Exactly one of them (`InsertLevelStatement`). A statement naming both, or
+ * neither, is not an insert this lane can read.
+ */
+const insertLevelStatement: z.ZodType<InsertLevelStatement> = z
   .object({
     projectId: text("projectId"),
-    levels: z.custom<InsertLevelInput["levels"]>(Array.isArray, { error: 'takeoff: "levels" is required and must be an array' }),
+    group: levelStackGroupKey.optional(),
+    levels: z.array(handInsertedLevel, { error: 'takeoff: "levels" must be an array of levels, each a label and an ordinal' }).optional(),
   })
-  .transform((stated) => ({ type: INSERT_LEVEL, ...stated }));
+  .transform((stated, context): InsertLevelStatement => {
+    if (stated.group !== undefined && stated.levels === undefined) return { type: INSERT_LEVEL, projectId: stated.projectId, group: stated.group };
+    if (stated.levels !== undefined && stated.group === undefined) return { type: INSERT_LEVEL, projectId: stated.projectId, levels: stated.levels };
+    context.issues.push({
+      code: "custom",
+      input: stated,
+      message: 'takeoff: an insert names the offered stack\'s "group" or the "levels" a person inserts by hand — exactly one of them (L-ACT-02)',
+    });
+    return z.NEVER;
+  });
+
+/**
+ * The act a statement at the INSERT_LEVEL doors asks for. Preview and commit both come through here,
+ * so the Consequence a person is shown is computed over the same levels the commit writes.
+ *
+ * Levels typed in by hand are taken as stated. A group key is resolved against the offer that stands
+ * now (`levelsOfferedUnder`): its levels, and the readings the drawing stated for them, as the
+ * partition proposed them. A key whose offer no longer stands is refused by name (L-ACT-02). The
+ * resolution is done here, not inside the act, because the offer's one spelling is the takeoff
+ * module's and `src/core/acts` may not import a module (ARCH-01). Resolving inside the act would also
+ * gain no atomicity: the module reads on its own tenant handle, not the act's transaction. What binds
+ * preview to commit is the Consequence digest the seam checks.
+ */
+async function insertionOf(actor: ActorCtx, statement: InsertLevelStatement): Promise<InsertLevelInput> {
+  if (!("group" in statement)) return { type: INSERT_LEVEL, projectId: statement.projectId, levels: statement.levels };
+  const levels = await levelsOfferedUnder({ tenantId: actor.tenantId, projectId: statement.projectId }, statement.group);
+  if (levels === null) throw levelStackNotOffered(statement.group);
+  return { type: INSERT_LEVEL, projectId: statement.projectId, levels };
+}
+
+/** The drawing an insert statement names, which the guard binds to the project before anything is read. */
+function drawingNamedBy(statement: InsertLevelStatement): string | undefined {
+  return "group" in statement ? statement.group.drawingId : undefined;
+}
 
 /** One judgement that a level is nothing, read into the shape the seam declares (L-MEA-07). */
 const repudiateLevelInput: z.ZodType<RepudiateLevelInput> = z
@@ -427,21 +494,26 @@ export const takeoffRouter = router({
       return { actId: written.actId };
     }),
 
+  /**
+   * INSERT_LEVEL's pair. Both doors authorise first, and only then resolve what the statement names
+   * (`insertionOf`): a person who may not move the stack is told so by name, and is never told
+   * whether the drawing they named offers one (R-SPINE-004).
+   */
   previewInsertLevel: signedInProcedure
-    .input(parsed(previewing(insertLevelInput)))
+    .input(parsed(previewing(insertLevelStatement)))
     .mutation(async ({ ctx, input }): Promise<{ consequence: Consequence; consequenceDigest: string }> => {
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, INSERT_LEVEL, AUTHOR_LEVEL_STACK);
-      const consequence = await preview(actor, input.input);
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, INSERT_LEVEL, AUTHOR_LEVEL_STACK, drawingNamedBy(input.input));
+      const consequence = await preview(actor, await insertionOf(actor, input.input));
       return { consequence, consequenceDigest: consequenceDigest(consequence) };
     }),
 
   commitInsertLevel: signedInProcedure
-    .input(parsed(committing(insertLevelInput)))
+    .input(parsed(committing(insertLevelStatement)))
     .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, INSERT_LEVEL, AUTHOR_LEVEL_STACK);
-      const written = await commit(actor, input.input, input.consequenceDigest);
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, INSERT_LEVEL, AUTHOR_LEVEL_STACK, drawingNamedBy(input.input));
+      const written = await commit(actor, await insertionOf(actor, input.input), input.consequenceDigest);
       await reexpandProject({ tenantId: actor.tenantId, projectId: input.input.projectId });
       return { actId: written.actId };
     }),

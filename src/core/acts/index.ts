@@ -49,7 +49,16 @@ export { GROUP_KINDS, groupNotOffered, type ConfirmDisciplineInput, type GroupKi
 export { viewGroupNotOffered, type ConfirmViewTypeInput, type ViewGroupKey } from "./confirm-view-type";
 export { setNotPinnable, type PinDrawingSetInput } from "./pin-drawing-set";
 export { affirmScale, type AffirmScaleInput } from "./affirm-scale";
-export { insertLevel, type InsertLevelInput, type LevelStackGroupKey, type ProposedLevel, type ProposedReading } from "./insert-level";
+export {
+  insertLevel,
+  levelStackNotOffered,
+  type HandInsertedLevel,
+  type InsertLevelInput,
+  type InsertLevelStatement,
+  type LevelStackGroupKey,
+  type ProposedLevel,
+  type ProposedReading,
+} from "./insert-level";
 export { repudiateLevel, type RepudiateLevelInput } from "./repudiate-level";
 export { corroborate, type CorroborateInput } from "./corroborate";
 export { repudiate, type RepudiateInput } from "./repudiate";

@@ -6,7 +6,7 @@
 // what a reader stated — a reading of its own beside that one would be a second answer to what is
 // lawful (B-17, ARCH-03), so a statement this workspace cannot make lawfully comes back as the
 // registered REQUEST_MALFORMED the lane refused it with, never as a thrown Error.
-import type { CorroborateInput, InsertLevelInput, RepudiateInput } from "@/core/acts";
+import type { CorroborateInput, InsertLevelStatement, RepudiateInput } from "@/core/acts";
 import type { MeasureRefused, MeasureRequested } from "@/modules/takeoff/measure";
 import type { RegisterView } from "@/modules/takeoff/register-ui/view";
 import { asked, lane, type DoorAnswer, type Previewed } from "../lane";
@@ -41,12 +41,12 @@ export async function commitRepudiate(input: RepudiateInput, consequenceDigest: 
   return asked(() => caller.commitRepudiate({ input, consequenceDigest }));
 }
 
-export async function previewInsertLevel(input: InsertLevelInput): Promise<DoorAnswer<Previewed>> {
+export async function previewInsertLevel(input: InsertLevelStatement): Promise<DoorAnswer<Previewed>> {
   const caller = await lane(CLIENT);
   return asked(() => caller.previewInsertLevel({ input }));
 }
 
-export async function commitInsertLevel(input: InsertLevelInput, consequenceDigest: string): Promise<DoorAnswer<{ actId: string }>> {
+export async function commitInsertLevel(input: InsertLevelStatement, consequenceDigest: string): Promise<DoorAnswer<{ actId: string }>> {
   const caller = await lane(CLIENT);
   return asked(() => caller.commitInsertLevel({ input, consequenceDigest }));
 }

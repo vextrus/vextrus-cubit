@@ -240,6 +240,26 @@ things. Everything in §0 above stands except where an Interpretation here says 
   what it is: measuring the porch column as a 450 × 450 prism because a B × D cell is all the
   schedule offered is precisely the "silent bounding-box fallback" L-FRM-01 forbids, and it has been
   shipping.
+- **I-311 — an offered level stack is confirmed as its KEY, and its membership is the offer standing
+  now (session 7, 2026-09-23; L-ACT-02, L-MEA-07, D-001).** L-ACT-02: "Bulk is offered, never
+  assembled: the machine offers groups keyed on the fact judged (typed grouping key over a closed enum
+  + resolved membership in the Consequence)". The register used to hand the browser the offer's levels
+  as `{label, ordinal}` and post that list back to INSERT_LEVEL — the browser assembled the stack, and
+  the drawing's own storey readings (D-001's `132 in` @1D90 on F-RCC6-BNBC's GF) never reached the act,
+  so a J-000 run stood GF at 3.353 on one reading while the store held the proposal. Now the register
+  posts `{kind: PROPOSED_LEVEL_STACK, drawingId, ingestId}` alone; the server resolves the offer
+  (`levelsOfferedUnder` over `proposedLevelStackOf`) — members only while that drawing's standing
+  partition is the same ingest and proposes a stack, else `GROUP_NOT_OFFERED`, the code every offered
+  group shares — and hands the act the offer's levels WITH the readings the drawing stated (TRANSCRIBED,
+  each citing its mark), the same way for preview and commit. A level inserted by hand states a label
+  and an ordinal only; a reading a client states is `REQUEST_MALFORMED`, because a person's reading of
+  a height belongs to AUTHOR_STOREY_HEIGHT. F-RCC6's confirm is unchanged in effect (its proposal
+  carries no readings; the by-key Consequence and digest equal the old list's). **IOUs, owner named:**
+  the Consequence names levels and ordinals, not the readings the offer carries, so the digest does not
+  bind them (only a re-partition of the same ingest could move them between preview and commit) — the
+  node that next amends INSERT_LEVEL's rendering; and a confirmed offer is still offered, so confirming
+  it twice authors the stack twice — retiring an offer needs a record of which offer a stack came from
+  (a migration) — the same node.
 
 ## 1. Layout and hierarchy
 
@@ -319,8 +339,13 @@ value, the one lawful literal in a media query — S-Audit's ruling).
   evidence `{ href: …/drawings, label: takeoff_register_evidence }`; and, while `permitted`,
   `<section data-testid="register-level-stack">` with the same heading-and-Tooltip shape over the
   shipped `OfferedGroups` — one item per drawing of the pinned revision with a non-null proposal,
-  `key` the `PROPOSED_LEVEL_STACK` key verbatim. Confirming opens the one ConsequenceDialog at
-  `actType` `INSERT_LEVEL` with the offer's levels verbatim. There is no `input[type=checkbox]`, no
+  `key` the `PROPOSED_LEVEL_STACK` key verbatim. The view carries that key and the count, and no
+  levels. Confirming opens the one ConsequenceDialog at `actType` `INSERT_LEVEL` over
+  `{ projectId, group: key }` and nothing else. For the preview and the commit alike, the door
+  resolves the offer that stands at that moment: its levels, each with the readings the drawing
+  states for it (F-RCC6-BNBC's GF arrives carrying `132 in` @1D90, D-001). A key whose offer no
+  longer stands is answered `GROUP_NOT_OFFERED` in the dialog. The browser never assembles the
+  stack (L-ACT-02). There is no `input[type=checkbox]`, no
   `[role=checkbox]` and no select-all anywhere under `register-workspace` — the asserted absence is
   the substance of R-UI-023 (offered-group I-77). No code, message or remedy is spelled anywhere else
   on the screen: outside a `refusal-state` no text node under `register-workspace` spells a refusal

@@ -20,7 +20,7 @@ import { SSchedulesPage } from "../../pages/s-schedules.page";
 import { STakeoffPage } from "../../pages/s-takeoff.page";
 import { checkpoint } from "../../support/checkpoint";
 import { settled } from "../../support/settled";
-import { BNBC_LEVELS, BNBC_NOTES_SHEETS, BNBC_STOREYS, bnbcTranscribed, releaseGoldenWorker } from "./golden-run";
+import { BNBC_GF_IMPERIAL_SOURCE, BNBC_LEVELS, BNBC_NOTES_SHEETS, BNBC_STOREYS, bnbcTranscribed, releaseGoldenWorker } from "./golden-run";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -52,11 +52,19 @@ test.describe.serial("J-000 — Golden Path: M3's first leg on F-RCC6-BNBC", () 
     for (const [ordinal, storey] of BNBC_STOREYS.entries()) {
       const row = levels.rowAtOrdinal(ordinal);
       await expect(row, `${storey.label} stands at ordinal ${ordinal}`).toContainText(storey.label);
-      await expect(row, `${storey.label}'s storey height is agreed — one reading, read off the section's mark`).toHaveAttribute("data-standing", AGREED);
-      await expect(row, `and stands at ${storey.height} m, the distance to the mark above it`).toHaveAttribute("data-metres", storey.height);
+      await expect(row, `${storey.label}'s storey height is agreed — every reading of it, read off the section's marks, says one height`).toHaveAttribute("data-standing", AGREED);
+      await expect(row, `and stands at ${storey.metres} m, the distance to the mark above it (GF: 11'-0", which +3.353 prints to three places — D-001)`).toHaveAttribute("data-metres", storey.metres);
     }
     await expect(levels.inspector, "nothing is selected, so no inspector stands (R-UI-080)").toHaveCount(0);
     await checkpoint(page, testInfo, "j-000/levels-transcribed");
+
+    /* --- the ground storey, stated in two notations: ONE level, both readings cited (T-NOT-LEVEL) --- */
+    const gf = BNBC_STOREYS[0] as (typeof BNBC_STOREYS)[number];
+    await levels.rowAtOrdinal(0).click();
+    await expect(levels.inspector, `${gf.label} fills the shell's one inspector`).toBeVisible();
+    await expect(levels.readings, `${gf.label} carries two readings — the section's metric print and its imperial design`).toHaveCount(2);
+    await expect(levels.readingFrom(gf.sourceKey), `the metric reading cites ${gf.sourceKey} and is worth ${gf.height} m`).toHaveAttribute("data-metres", gf.height);
+    await expect(levels.readingFrom(BNBC_GF_IMPERIAL_SOURCE), `the imperial reading cites ${BNBC_GF_IMPERIAL_SOURCE} and is worth ${gf.metres} m`).toHaveAttribute("data-metres", gf.metres);
 
     /* --- the notes, on the two sheets that state them (J-032) --- */
     await schedules.openThroughNav();

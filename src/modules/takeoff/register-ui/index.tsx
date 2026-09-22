@@ -16,7 +16,7 @@
 // through the one RefusalState, and opens the one ConsequenceDialog only over a Consequence that was
 // answered. Nothing on this screen commits anything itself (L-ACT-02, I-175).
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type MouseEvent, type ReactNode, type Ref } from "react";
-import type { Consequence, CorroborateInput, InsertLevelInput, LevelStackGroupKey, RepudiateInput } from "@/core/acts";
+import type { Consequence, CorroborateInput, InsertLevelStatement, LevelStackGroupKey, RepudiateInput } from "@/core/acts";
 import type { RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { formatDate, formatMoney, formatUserFigure, dhakaDateParts } from "@/core/format";
@@ -253,8 +253,8 @@ export interface RegisterDoors {
   readonly commitCorroborate: (argument: { input: CorroborateInput; consequenceDigest: string }) => Promise<{ actId: string }>;
   readonly previewRepudiate: (argument: { input: RepudiateInput }) => Promise<PreviewAnswer>;
   readonly commitRepudiate: (argument: { input: RepudiateInput; consequenceDigest: string }) => Promise<{ actId: string }>;
-  readonly previewInsertLevel: (argument: { input: InsertLevelInput }) => Promise<PreviewAnswer>;
-  readonly commitInsertLevel: (argument: { input: InsertLevelInput; consequenceDigest: string }) => Promise<{ actId: string }>;
+  readonly previewInsertLevel: (argument: { input: InsertLevelStatement }) => Promise<PreviewAnswer>;
+  readonly commitInsertLevel: (argument: { input: InsertLevelStatement; consequenceDigest: string }) => Promise<{ actId: string }>;
   readonly requestMeasure: (argument: { projectId: string; campaignId: string }) => Promise<MeasureAnswer>;
   readonly refusalOf: (code: string) => RefusalEntry | undefined;
 }
@@ -512,7 +512,7 @@ type Answer = { refusal: RefusalEntry; evidence: Evidence } | null;
 type Pending =
   | { readonly actType: typeof CORROBORATE; readonly input: CorroborateInput }
   | { readonly actType: typeof REPUDIATE; readonly input: RepudiateInput }
-  | { readonly actType: typeof INSERT_LEVEL; readonly input: InsertLevelInput };
+  | { readonly actType: typeof INSERT_LEVEL; readonly input: InsertLevelStatement };
 
 /** A reading being written, before it is previewed at the door (I-175). */
 type Draft = { attribute: string; value: string; unit: string; precedence: string };
@@ -1430,11 +1430,12 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
                   label: fillCopy("takeoff_register_level_stack_label", { drawing: stack.label }),
                   count: fillCopy("takeoff_register_level_stack_count", { count: formatUserFigure(String(stack.count)) }),
                 }))}
+                // The offer is confirmed by its KEY, and nothing else goes back: the server resolves the
+                // levels and the readings the drawing stated from the offer that stands now, for the
+                // preview and the commit alike (L-ACT-02 — bulk is offered, never assembled).
                 onConfirm={(key) => {
-                  const offer = view.levelStacks.find((stack) => stack.key.drawingId === key.drawingId && stack.key.ingestId === key.ingestId);
-                  if (offer === undefined) return;
                   setAnswer(null);
-                  setPending({ actType: INSERT_LEVEL, input: { type: INSERT_LEVEL, projectId: view.projectId, levels: offer.levels } });
+                  setPending({ actType: INSERT_LEVEL, input: { type: INSERT_LEVEL, projectId: view.projectId, group: key } });
                 }}
               />
             </section>

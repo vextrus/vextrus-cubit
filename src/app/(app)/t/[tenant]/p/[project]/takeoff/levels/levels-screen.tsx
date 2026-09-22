@@ -7,7 +7,7 @@
 // It also holds what the workspace cannot: the fault the read left behind, with the report id and
 // the retry R-UI-050 asks for, and the reading a retry answered.
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { AuthorStoreyHeightInput, AuthorTypicalRangeInput, InsertLevelInput, RepudiateLevelInput } from "@/core/acts";
+import type { AuthorStoreyHeightInput, AuthorTypicalRangeInput, InsertLevelStatement, RepudiateLevelInput } from "@/core/acts";
 import type { Consequence } from "@/core/acts";
 import { LevelsWorkspace, type LevelsChrome, type LevelsDoors, type PreviewAnswer } from "@/modules/takeoff/levels-ui";
 import type { LevelsView } from "@/modules/takeoff/levels-ui/view";
@@ -150,8 +150,8 @@ export function LevelsScreen({ view, projectId, permitted, reportId }: LevelsScr
   const doors = useMemo<LevelsDoors>(
     () => ({
       levels: async ({ projectId: asked }: { projectId: string }) => carried(await readLevels(asked)),
-      previewInsertLevel: async ({ input }: { input: InsertLevelInput }) => previewed(carried(await previewInsertLevel(input))),
-      commitInsertLevel: async ({ input, consequenceDigest }: { input: InsertLevelInput; consequenceDigest: string }) => carried(await commitInsertLevel(input, consequenceDigest)),
+      previewInsertLevel: async ({ input }: { input: InsertLevelStatement }) => previewed(carried(await previewInsertLevel(input))),
+      commitInsertLevel: async ({ input, consequenceDigest }: { input: InsertLevelStatement; consequenceDigest: string }) => carried(await commitInsertLevel(input, consequenceDigest)),
       previewRepudiateLevel: async ({ input }: { input: RepudiateLevelInput }) => previewed(carried(await previewRepudiateLevel(input))),
       commitRepudiateLevel: async ({ input, consequenceDigest }: { input: RepudiateLevelInput; consequenceDigest: string }) => carried(await commitRepudiateLevel(input, consequenceDigest)),
       previewAuthorStoreyHeight: async ({ input }: { input: AuthorStoreyHeightInput }) => previewed(carried(await previewAuthorStoreyHeight(input))),

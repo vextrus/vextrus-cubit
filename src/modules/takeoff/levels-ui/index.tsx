@@ -15,7 +15,7 @@
 // Nothing here re-derives a figure (I-241, B-17): a standing, a coverage and a roll-up's total are
 // all `levelsViewOf`'s answers, rendered as they stand.
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode, type RefObject } from "react";
-import type { AuthorStoreyHeightInput, AuthorTypicalRangeInput, Consequence, InsertLevelInput, RepudiateLevelInput } from "@/core/acts";
+import type { AuthorStoreyHeightInput, AuthorTypicalRangeInput, Consequence, InsertLevelStatement, RepudiateLevelInput } from "@/core/acts";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { formatDate, formatMoney, formatUserFigure, dhakaDateParts } from "@/core/format";
@@ -175,8 +175,8 @@ export type PreviewAnswer = { consequence: Consequence; consequenceDigest: strin
 /** The doors this screen presses — the takeoff lane's own, as `src/server/routers/takeoff.ts` takes them. */
 export interface LevelsDoors {
   readonly levels: (argument: { projectId: string }) => Promise<{ stack: readonly LevelsViewLevel[]; unstatedRanges: readonly LevelsViewRange[] }>;
-  readonly previewInsertLevel: (argument: { input: InsertLevelInput }) => Promise<PreviewAnswer>;
-  readonly commitInsertLevel: (argument: { input: InsertLevelInput; consequenceDigest: string }) => Promise<{ actId: string }>;
+  readonly previewInsertLevel: (argument: { input: InsertLevelStatement }) => Promise<PreviewAnswer>;
+  readonly commitInsertLevel: (argument: { input: InsertLevelStatement; consequenceDigest: string }) => Promise<{ actId: string }>;
   readonly previewRepudiateLevel: (argument: { input: RepudiateLevelInput }) => Promise<PreviewAnswer>;
   readonly commitRepudiateLevel: (argument: { input: RepudiateLevelInput; consequenceDigest: string }) => Promise<{ actId: string }>;
   readonly previewAuthorStoreyHeight: (argument: { input: AuthorStoreyHeightInput }) => Promise<PreviewAnswer>;
@@ -275,7 +275,7 @@ type Answer = { refusal: RefusalEntry; evidence: Evidence } | null;
 
 /** The act a confirmed door opened the one dialog over, with the input it will be committed on. */
 type Pending =
-  | { readonly actType: typeof INSERT_LEVEL; readonly input: InsertLevelInput }
+  | { readonly actType: typeof INSERT_LEVEL; readonly input: InsertLevelStatement }
   | { readonly actType: typeof REPUDIATE_LEVEL; readonly input: RepudiateLevelInput }
   | { readonly actType: typeof AUTHOR_STOREY_HEIGHT; readonly input: AuthorStoreyHeightInput }
   | { readonly actType: typeof AUTHOR_TYPICAL_RANGE; readonly input: AuthorTypicalRangeInput };
@@ -483,7 +483,7 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
   );
 
   const openInsert = useCallback((): void => {
-    const input: InsertLevelInput = {
+    const input: InsertLevelStatement = {
       type: INSERT_LEVEL,
       projectId: view.projectId,
       levels: [{ label: insertDraft.label, ordinal: Number(insertDraft.ordinal) }],
