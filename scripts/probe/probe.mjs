@@ -177,7 +177,10 @@ async function main() {
   const mode = process.argv[2];
   if (!mode) { console.error("usage: probe.mjs signin|walk|run …"); process.exit(2); }
   const out = arg("--out", join(HERE, "out"));
-  mkdirSync(out, { recursive: true });
+  // `--out` names a DIRECTORY for walk and run and a FILE for signin: making the directory here for
+  // every mode once turned signin's cookies.json into a directory and the write into EISDIR
+  // (session 5's probes); signin makes the file's own parent below.
+  if (mode !== "signin") mkdirSync(out, { recursive: true });
   const browser = await chromium.launch({ headless: true, ...LAUNCH });
   try {
     if (mode === "signin") {
@@ -192,6 +195,7 @@ async function main() {
       const refusal = await page.getByTestId("s-auth-refusal").count();
       const file = arg("--out", join(HERE, "cookies.json"));
       if (refusal > 0 || !/\/$/.test(page.url())) { console.log(`RED signin ${email} url=${page.url()} refusal=${refusal}`); process.exit(1); }
+      mkdirSync(dirname(file), { recursive: true });
       writeFileSync(file, JSON.stringify(await context.cookies()));
       console.log(`OK signin ${email} cookies=${file}`);
       return;
