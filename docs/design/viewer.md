@@ -1927,6 +1927,46 @@ one RefusalState, the one ConsequenceDialog — plus the `cx-viewer-scale-*` cla
   parser in core (B-17); inferring the file's unit from the SCALE_BAR block's `UNIT` attrib, since a
   scale bar is a printed claim about scale and L-MEA-05 admits printed scale notes at no rank.
   F-RCC6's proposals are identical before and after (it states no length in its own units).
+- **I-295b — a dimension measures between its definition points; its extension lines and its
+  arrowheads are style. Amends I-295.** L-MEA-05 ranks "overridden dimension ratio: the style factor
+  divided out" third. I-295 read the NUMERATOR of that ratio — what a dimension's text states, in a
+  unit the text itself may name. This reads the denominator. `cad/` emits a dimension as an original
+  carrying no points, its paint arriving as derived records naming it as `src` (L-CAD-03): two
+  extension lines, two arrowheads, a dimension line, the measurement text — and the definition
+  points the draughtsman picked, as POINT records on the reserved layer. Taking the span as the raw
+  extent of all that paint divides the stated length by the length PLUS the style: on F-RCC6-BNBC a
+  constant 132 drawing units of extension line and arrowhead, so the ratio each dimension leaves
+  falls with the length it measures — 15'-0" reads 0.000971938776 and 9'-0" reads 0.000954089857,
+  1.836 % apart on x and 2.568 % on y — and every axis of every feet-and-inches plan fails the
+  edition's ±1 % verification. That is not a drawing disagreeing with itself; it is the engine
+  measuring the style and then dividing by it. So the span a factor is divided by is the extent of
+  the dimension's OWN definition points along the axis it measures, and the raw extent of its paint
+  only where the drawing carries none. The measurement AXIS is untouched: still the one the non-text
+  paint reaches further along, because a dimension line's location point offsets the definition
+  points across the measurement. Measured: every feet-and-inches plan of F-RCC6-BNBC then reads
+  exactly 0.001000000000 metres per drawing unit on both axes — ten views propose where none did —
+  and F-RCC6's three layout plans read exactly 0.100000000000 where they read 0.096153846154 /
+  0.095693779904 and 0.099206349206 / 0.099108027750 (drawn at 1:100; the overshoot made them read
+  1:96); the golden path affirms F-RCC6 at FILE_UNITS, whose factor does not move, so no quantity
+  moves. **A dimension whose printed text its own axis contradicts is an observation, not a refusal
+  of the axis.** An axis with one reading stands at it. An axis with two or more is judged as a
+  body: it stands at the factor a majority of them agree on within the verification tolerance — at
+  least two readings, and more than half of that axis's own — and every reading outside the
+  majority is an OVERRIDDEN dimension, named on the proposal as a `DIMENSION_OVERRIDE` observation
+  carrying the source key, the axis, the words printed verbatim and the factor those words alone
+  would have given (T-DIM-OVERRIDE: S-10 prints `14'-2"` (DXF_HANDLE:926) across a span its
+  geometry draws as fourteen feet; the printed text wins for the model and the schedule while the
+  four dimensions that agree are what the VIEW is scaled by). Where no majority stands the axis is
+  absent rather than resolved (fail-closed, L-QTY-04); nothing is averaged, and the overridden
+  reading stays in the proposal's evidence. **And the act stands on the evidence the panel offered.**
+  AFFIRM_SCALE gathers its own evidence in core, which may not reach the module's grammar
+  (ARCH-01), so the module that owns the grammar hands its reading down to core once, at its own
+  import (`useStatedLengths`), and core's gatherer answers a caller that brought no reader with it —
+  the job seam's shape read from the other end (ARCH-02); a gatherer with nothing registered reads
+  the header alone and refuses by name. Rejected: a second feet-and-inches parser in core (B-17);
+  averaging a disagreeing axis; dropping an outlier silently; requiring two agreeing readings of
+  every axis, which would have taken rank 3 away from a plan the drawing dimensions once per axis.
+  The panel does not yet show the override — its own increment, with the Decision's copy.
 
 ## 1. Layout and hierarchy
 

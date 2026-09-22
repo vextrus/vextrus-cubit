@@ -38,6 +38,8 @@ function evidenceWith(unit: string | null): ScaleEvidence {
     assignments: new Map(),
     grid: [],
     unit,
+    // An empty drawing states no length in any unit of its own: the header is the whole question here.
+    statedMetres: new Map(),
     tolerances: { verification: TOLERANCE, anisotropy: TOLERANCE },
   };
 }

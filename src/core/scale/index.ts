@@ -4,6 +4,7 @@
 // stands beside it (./store, ./tolerances, ./evidence) and is reached by the act seam and the takeoff
 // door by name, so the law stays a law (ARCH-02, B-17).
 export {
+  DIMENSION_OVERRIDE,
   FACTOR_MINIMUM,
   FACTOR_PATTERN,
   FACTOR_PLACES,
@@ -29,6 +30,7 @@ export {
   type DecimalValue,
   type FactorPair,
   type MachineScaleRank,
+  type ScaleObservation,
   type ScalePrecedence,
   type ScaleRank,
   type ScaleUnit,
@@ -51,6 +53,7 @@ export {
   type DimensionReading,
   type GridReading,
   type ScaleEvidence,
+  type ScaleOverride,
   type ScaleProposal,
   type ScaleTolerances,
 } from "./proposals";

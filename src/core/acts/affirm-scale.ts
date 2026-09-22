@@ -34,7 +34,7 @@ import {
   type ScaleRank,
   type TwoPointObservation,
 } from "../scale";
-import { scaleEvidenceOf } from "../scale/evidence";
+import { scaleEvidenceOf, statedLengthReader } from "../scale/evidence";
 import { affirmationsOfRecord, writeAffirmation, type ViewCalibrationMove } from "../scale/store";
 import { scaleTolerancesOf } from "../scale/tolerances";
 import { projectDrawingsOf } from "../sheets";
@@ -118,7 +118,10 @@ async function derive(ctx: ActorCtx, input: AffirmScaleInput, tx: TenantTx): Pro
   });
 
   const tolerances = await scaleTolerancesOf({ tenantId: ctx.tenantId, projectId: input.projectId });
-  const evidence = await scaleEvidenceOf(tx, { ...scope, viewKeys: named }, record, appStorage(), tolerances);
+  // The evidence the DOOR reads, not half of it: the reader the takeoff module registered carries the
+  // lengths a drawing's own dimension texts state, so a rank the panel offered on a unitless header
+  // is one this act can stand on rather than one it refuses SCALE_UNIT_UNMAPPED (I-295b, ARCH-01).
+  const evidence = await scaleEvidenceOf(tx, { ...scope, viewKeys: named }, record, appStorage(), tolerances, statedLengthReader());
   const proposals = proposalsFor(evidence);
   const standing = await affirmationsOfRecord(tx, scope);
 

@@ -33,6 +33,18 @@ export type MachineScaleRank = Exclude<ScaleRank, "QS_TWO_POINT">;
 /** The rank a person's two-point observation stands at, spelled once as a member of the roster. */
 export const QS_TWO_POINT = "QS_TWO_POINT" satisfies ScaleRank;
 
+/**
+ * What a reading overruled by its axis's agreeing majority is recorded as (T-DIM-OVERRIDE: "the
+ * printed text wins (DO NOT SCALE); a DIMENSION_OVERRIDE observation is recorded"). It is an
+ * observation and not a refusal: nothing is refused by it, and the code it is spelled by is the
+ * trap's own word, held here beside the ranks so one spelling serves the engine, the proposal and
+ * whatever later reads one (B-17).
+ */
+export const DIMENSION_OVERRIDE = "DIMENSION_OVERRIDE" as const;
+
+/** The closed set of observations this engine records about a reading — one, so far. */
+export type ScaleObservation = typeof DIMENSION_OVERRIDE;
+
 /** Is this value one of the four ranks? Asked wherever a rank arrives as text — a row, a wire. */
 export function isScaleRank(value: unknown): value is ScaleRank {
   return typeof value === "string" && (SCALE_RANKS as readonly string[]).includes(value);

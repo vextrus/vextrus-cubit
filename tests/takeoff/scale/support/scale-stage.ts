@@ -270,9 +270,10 @@ export const SCENARIO = Object.freeze({
   UNITS_ONLY: "scale-units-only",
   UNMAPPED: "scale-unmapped",
   UNITLESS: "scale-unitless",
+  FEET_INCHES: "scale-feet-inches",
 } as const);
 
-/** One of the four. */
+/** One of the five. */
 export type ScaleScenario = (typeof SCENARIO)[keyof typeof SCENARIO];
 
 /** The `$INSUNITS` record each scenario's header reports (L-CAD-02's closed map). */
@@ -281,7 +282,30 @@ const INSUNITS: Readonly<Record<ScaleScenario, { code: number; unit: string | nu
   [SCENARIO.UNITS_ONLY]: { code: 4, unit: MM, unmapped: false },
   [SCENARIO.UNMAPPED]: { code: 3, unit: null, unmapped: true },
   [SCENARIO.UNITLESS]: { code: 0, unit: UNITLESS, unmapped: false },
+  // A drawing that names no unit in its header and names one in every dimension text: F-RCC6-BNBC's
+  // own case (T-INSUNITS-0, I-295), drawn at a tenth of a metre to the unit.
+  [SCENARIO.FEET_INCHES]: { code: 0, unit: UNITLESS, unmapped: false },
 });
+
+/**
+ * The feet-and-inches drawing's own dimensions, as its texts write them and as it draws them: one
+ * along each axis at a tenth of a metre per drawing unit, two more along x agreeing with the first,
+ * and one that PRINTS `14'-2"` across a span its geometry draws as fourteen feet — the override
+ * T-DIM-OVERRIDE names ("the printed text wins (DO NOT SCALE); a DIMENSION_OVERRIDE observation is
+ * recorded"). Three readings of x agree and one does not, so the majority is what x measures at.
+ */
+export const FEET_INCHES_METRES_PER_UNIT = "0.100000000000";
+
+const FEET_INCHES_DIMENSIONS: readonly { text: string; inches: number; span: number; axis: "x" | "y" }[] = Object.freeze([
+  { text: `15'-0"`, inches: 180, span: 45.72, axis: "x" },
+  { text: `14'-0"`, inches: 168, span: 42.672, axis: "x" },
+  { text: `14'-0"`, inches: 168, span: 42.672, axis: "x" },
+  { text: `14'-2"`, inches: 170, span: 42.672, axis: "x" },
+  { text: `9'-0"`, inches: 108, span: 27.432, axis: "y" },
+]);
+
+/** The text the overridden dimension prints — the one reading the majority of its axis overrules. */
+export const FEET_INCHES_OVERRIDE_TEXT = `14'-2"`;
 
 /** The text the "SCALE 1:100" note says — a claim about scale that is not evidence of one (AC-4). */
 export const SCALE_NOTE = "SCALE 1:100";
@@ -418,7 +442,15 @@ export function buildScaleArtifact(scenario: ScaleScenario, salt: number): Built
    * One dimension as `cad/` emits one: an original carrying no points at all, and paint that names
    * it — a line spanning what it measures, and the measurement text (riskNotes (3), L-CAD-03).
    */
-  const dimension = (from: [number, number], to: [number, number], stated: number): Dimension => {
+  const dimension = (from: [number, number], to: [number, number], stated: number): Dimension => statedDimension(from, to, stated, `${stated}`);
+
+  /**
+   * The same dimension, with the words it prints stated apart from the number they state: a text
+   * reading `15'-0"` states fifteen feet in a unit its own words name, which is what rank 3 reads on
+   * a header that names none (I-295). `stated` is the number those words say, in the unit they say
+   * it in — inches, here — so a reader of this stage never has to parse the drawing's own notation.
+   */
+  const statedDimension = (from: [number, number], to: [number, number], stated: number, statedText: string): Dimension => {
     const key = next();
     entities.push({ key, type: TYPE_DIMENSION, space: MODEL_SPACE, layer: LAYER_DIMS, colour: CHANNELS as unknown as JsonValue });
     derived.push({ src: key, type: TYPE_LINE, space: MODEL_SPACE, layer: LAYER_DIMS, colour: CHANNELS as unknown as JsonValue, points: [[...from], [...to]] as unknown as JsonValue });
@@ -429,13 +461,13 @@ export function buildScaleArtifact(scenario: ScaleScenario, salt: number): Built
       space: MODEL_SPACE,
       layer: LAYER_DIMS,
       colour: CHANNELS as unknown as JsonValue,
-      text: `${stated}`,
+      text: statedText,
       height: LABEL_HEIGHT,
       points: [[...midpoint]] as unknown as JsonValue,
     });
     const spanX = Math.abs(to[0] - from[0]);
     const spanY = Math.abs(to[1] - from[1]);
-    return { key, axis: spanX >= spanY ? "x" : "y", statedText: `${stated}`, stated, span: Math.max(spanX, spanY) };
+    return { key, axis: spanX >= spanY ? "x" : "y", statedText, stated, span: Math.max(spanX, spanY) };
   };
 
   const cluster = (caption: string, origin: readonly [number, number], o: { bubbles: boolean; dimensions?: readonly Dimension[] }): Cluster => {
@@ -478,6 +510,20 @@ export function buildScaleArtifact(scenario: ScaleScenario, salt: number): Built
 
   if (scenario === SCENARIO.UNMAPPED || scenario === SCENARIO.UNITLESS) {
     clusters.push(cluster("TYPICAL FLOOR PLAN", CLUSTER_AT[0] as [number, number], { bubbles: true }));
+  }
+
+  if (scenario === SCENARIO.FEET_INCHES) {
+    // One plan, dimensioned in the unit its own texts name, under a header that names none. The four
+    // along x are drawn one below another so each stands on its own row of the plan; the one along y
+    // runs down its left side. Nothing here is a grid gap: what is being staged is rank 3.
+    const origin = CLUSTER_AT[0] as [number, number];
+    const drawn = FEET_INCHES_DIMENSIONS.map((stated, index) => {
+      const row = origin[1] - 50 - index * 4;
+      const from: [number, number] = stated.axis === "x" ? [origin[0], row] : [origin[0] - 45, origin[1] - 20];
+      const to: [number, number] = stated.axis === "x" ? [origin[0] + stated.span, row] : [origin[0] - 45, origin[1] - 20 - stated.span];
+      return statedDimension(from, to, stated.inches, stated.text);
+    });
+    clusters.push(cluster("TYPICAL FLOOR PLAN", origin, { bubbles: true, dimensions: drawn }));
   }
 
   // The paper layout: a sheet's own furniture, which L-CAD-06 does not partition at all.
