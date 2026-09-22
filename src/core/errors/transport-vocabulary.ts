@@ -296,4 +296,51 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     vocabulary: "L-BD-08 bill placement readings",
     codes: Object.freeze(["NO_TAXONOMY_ROW", "LEVEL_NOT_IN_STACK", "AT_OR_BELOW_PLINTH", "ABOVE_PLINTH", "PROVISIONAL_SUM"]),
   }),
+  Object.freeze({
+    // The no-match outcome of the `coverage-cause` question (s-coverage I-297). TypeSafe's docs ask
+    // every closed list to carry an escape hatch, so the choice Jev is offered beside the two causes
+    // a PERSON may declare is a name meaning "no boundary at all". It bears an underscore, so Q-07's
+    // register would read it as a refusal code nobody registered — but it is never answered to a
+    // person and never stored: the caller's decoder reads an answer back OUT of
+    // `SCOPE_DECLARATION_CAUSES`, so this outcome is refused MALFORMED, which is the honest reading
+    // of an abstention (L-AI-02). Its home is `../model/typesafe-arms/coverage-cause.ts`, and it is
+    // written down here rather than imported because nothing outside `src/core/model/` may reach
+    // inside the seam (L-AI-01, the view-type precedent above).
+    vocabulary: "coverage-cause no-match outcome (R-TO-052)",
+    codes: Object.freeze(["NOTHING_TO_DECLARE"]),
+  }),
+  Object.freeze({
+    // The no-match outcome of the `note-clause` question (s-schedules I-296). TypeSafe's docs ask
+    // every closed list to carry an escape hatch, so the choice Jev is offered beside R-TO-034's
+    // five detailing figures is a name meaning "this clause states none of them". It bears
+    // underscores, so Q-07's register would read it as a refusal code nobody registered — but it is
+    // never answered to a person and never stored: the arm reads it back as a class of NULL, which
+    // is the abstention L-AI-02 makes the CALLER's decision, and the caller offers nothing for it.
+    // Its home is `../model/typesafe-arms/note-clause.ts` and `../notes/model.ts`, and it is written
+    // down here rather than imported because nothing outside `src/core/model/` may reach inside the
+    // seam (L-AI-01, the view-type precedent above).
+    vocabulary: "note-clause no-match outcome (R-TO-034)",
+    codes: Object.freeze(["NONE_OF_THESE"]),
+  }),
+  Object.freeze({
+    // The no-match outcome of the `schedule-cell` question (s-schedules I-300): the answer a cell
+    // that states no attribute of the member earns — a remark, a cross-reference, a count. It bears
+    // an underscore, so Q-07's register would read it as a refusal code nobody registered — but it
+    // is never answered to a person and never stored: the arm contributes no reading for it, which
+    // is the abstention L-AI-02 makes the CALLER's decision. Its home is
+    // `../model/typesafe-arms/schedule-cell.ts`, written down here rather than imported because
+    // nothing outside `src/core/model/` may reach inside the seam (L-AI-01).
+    vocabulary: "schedule-cell no-match outcome (R-TO-031, L-CAD-08)",
+    codes: Object.freeze(["NOT_STATED"]),
+  }),
+  Object.freeze({
+    // The scale engine's one OBSERVATION (s-scale I-295b, T-DIM-OVERRIDE): a dimension whose printed
+    // text its own axis contradicts, named on the proposal beside the majority that stands. It bears
+    // an underscore, so Q-07's register would read it as a refusal code nobody registered — but
+    // nothing is refused by it: it is a reading carried in a proposal's evidence and said to a
+    // person in words. Its home is `../scale/law.ts` beside the ranks; written down here rather than
+    // imported for the reason the ranks above are.
+    vocabulary: "L-MEA-05 scale observations",
+    codes: Object.freeze(["DIMENSION_OVERRIDE"]),
+  }),
 ]);

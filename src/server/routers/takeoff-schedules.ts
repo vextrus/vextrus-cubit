@@ -9,7 +9,9 @@
 // that has one (B-17).
 import { z } from "zod";
 import { actChangesNothing, commit, consequenceDigest, movesNothing, preview, type Consequence, type TranscribeSheetNotesInput } from "../../core/acts";
+import { DISPOSITIONS } from "../../core/db";
 import { NOTE_KINDS } from "../../core/notes/law";
+import { recordCellReadingDisposition } from "../../modules/takeoff/partition/schedules/cell-reading/dispositions";
 import { schedulesViewOf } from "../../modules/takeoff/schedules-ui/server";
 import type { SchedulesView } from "../../modules/takeoff/schedules-ui/view";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
@@ -72,6 +74,17 @@ const committing = <S extends z.ZodType>(input: S) => z.object({ input, conseque
 /** The project a reading is asked about. */
 const project = z.object({ projectId: text("projectId") });
 
+/**
+ * What a person states when they judge a proposed cell reading (L-AI-02): the ledger's own call id,
+ * and which of the three words R-AI-001 spells they made of it. The roster is the store's, read
+ * through the seam rather than restated here, so the door and the column close on one list (B-17).
+ */
+const cellReadingJudgment = z.object({
+  projectId: text("projectId"),
+  callId: text("callId"),
+  disposition: z.enum(DISPOSITIONS, { error: "takeoff-schedules: that is not a disposition — a proposal is accepted, edited or rejected" }),
+});
+
 export const takeoffSchedulesRouter = router({
   /**
    * S-Schedules' whole reading (R-TO-034): the pinned revision's sheets, their reconstructed
@@ -109,5 +122,22 @@ export const takeoffSchedulesRouter = router({
       const actor = await projectActorFor(ctx.session.userId, input.input.projectId, TRANSCRIBE_SHEET_NOTES, MEASURE);
       const written = await commit(actor, input.input, input.consequenceDigest);
       return { actId: written.actId };
+    }),
+
+  /**
+   * What a person made of a proposed schedule-cell reading (R-TO-031, L-AI-02). A judgment is a
+   * RECORD and not an act — it writes the ledger's outcome column and moves no member type — so it
+   * names no act type; it still names the permission this screen's work sits behind, because
+   * writing anything about this project's takeoff is MEASURE's (L-ACT-03).
+   */
+  judgeCellReading: signedInProcedure
+    .input(parsed(cellReadingJudgment))
+    .mutation(async ({ ctx, input }): Promise<{ outcomeId: string; outcome: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      return recordCellReadingDisposition(
+        { tenantId: actor.tenantId, projectId: input.projectId, actor: actor.userId },
+        { callId: input.callId, disposition: input.disposition },
+      );
     }),
 });
