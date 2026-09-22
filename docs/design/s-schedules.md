@@ -175,6 +175,32 @@ this file rules. No gallery entry is added (nothing new is invented here).
   F-RCC6-BNBC the recorder finds 80 contested rows of 87 across five tables; S-25's lintel
   schedule is an ATTRIB-block table the reconstructor cannot reach, which is the reconstructor's
   own debt and not the model's.
+- **I-320 — a schedule whose caption is a paper-layout text reads its own model texts top-down
+  (session 7, 2026-09-23; L-CAD-08, L-CAD-06, I-290).** A SCHEDULE view captioned by a text on a paper
+  layout has no model-space band to read DOWN from, and the reader required the caption among the view's
+  own texts — so F-RCC6-BNBC's S-05 PILE SCHEDULE (200A) and S-06 PILE CAP SCHEDULE (202D), whose tables
+  stand ABOVE their paper captions, deferred SCHEDULE_NONE_RECONSTRUCTED and every pile stood
+  MEMBER_TYPE_UNKNOWN. Such a view's table is its own model texts read top-down from the first band
+  holding a mark header; the paper caption stays the title and the schedule's key. A model-space caption
+  keeps the read-down rule, and a model caption the view does not hold still anchors nothing. 202D still
+  defers (its header is MTEXT 639; its footer 658 reads as a header with nothing beneath) — the cap slice's.
+- **I-321 — a mark cell that is exactly a class prefix is a family, and it types that class's numbered
+  placements only where the schedule corroborates them (session 7; R-TO-031, L-CAD-07, L-QTY-01,
+  T-SCHED-NORULES).** S-05's one row is `P | 500 | 21336 | … | 89` and the plan numbers its 89 rings
+  `P1`..`P89`. `P` is a family; it names the family of the placed `P<n>` — which keep `P<n>` as their
+  identity — ONLY when it is the sole registered family of its class, its NOS equals the placements of
+  that class, and its DIA equals every ring's longest side at the drawn scale within half a unit of the
+  printed figure. Otherwise MEMBER_TYPE_UNKNOWN stands. NOS is corroboration only: never stored, never a
+  count that bills. A row stating no DIA types nothing, so only round members are typed this way today.
+- **I-322 — a schedule's dimension columns are read per class, only where the class's methods use them
+  (session 7; AM-06(2), R-TO-032, L-QTY-03, I-302).** For piles: DIA and LENGTH. A header is read whole,
+  so `CUT LENGTH` (a bar's), `PILE LENGTH` and a bar schedule's DIA read nothing; the unit comes from the
+  cell, then the header's `(mm)`, then the drawing's declared unit, which is cited where it answered.
+  Stored in `member_type_dimensions` (0058) with the value as written and its citation, and bound as
+  TRANSCRIBED measures cited to the cell — so a pile's `d` is the schedule's 500, never the tessellated
+  ring (whose area would put the BNBC pile concrete over the golden). DEPTH waits for the cap slice
+  (reading it now would bill F-RCC6's byte-frozen FOOTING SCHEDULE and BNBC cap rectangles before the
+  outline governs); TOP is not a dimension word, because beam schedules head their top bars `TOP`.
 
 ## 1. Layout and hierarchy (1440 × 900)
 
