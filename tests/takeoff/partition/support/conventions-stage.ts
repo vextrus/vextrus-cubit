@@ -119,14 +119,27 @@ export type LayerCensus = { layer: string; paths: number; rings: number; texts: 
 /** One grammar's tally (increment interfaces: `GrammarCensus`). */
 export type GrammarCensus = { grammar: string; captions: number };
 
+/** One unit declaration, counted (increment interfaces: `UnitDeclarationCensus`, I-302). */
+export type UnitDeclarationCensus = { unit: string; sourceKey: string; declarations: number };
+
 /** What the resolver is given (increment interfaces: `EntityCensus`). */
-export type EntityCensus = { layers: LayerCensus[]; grammars: GrammarCensus[] };
+export type EntityCensus = { layers: LayerCensus[]; grammars: GrammarCensus[]; unitDeclarations?: UnitDeclarationCensus[] };
 
 /** One deferred role (increment interfaces: `ConventionDeferral`). */
 export type ConventionDeferral = { code: string; role: string };
 
 /** What the resolver answers (increment interfaces: `ConventionProfile`). */
-export type ConventionProfile = { roles: Record<string, string[]>; captionGrammars: string[]; deferrals: ConventionDeferral[] };
+export type ConventionProfile = {
+  roles: Record<string, string[]>;
+  captionGrammars: string[];
+  deferrals: ConventionDeferral[];
+  /**
+   * The unit the drawing DECLARES its dimensions in, and the text that declares it — `null` where it
+   * declares none or declares two that disagree (I-302). Optional because a profile stored before
+   * the declaration was read at all carries no such reading.
+   */
+  dimensionUnit?: { unit: string; sourceKey: string } | null;
+};
 
 /** The pure method's module, as this acceptance reads it. */
 export type ResolveSeam = {

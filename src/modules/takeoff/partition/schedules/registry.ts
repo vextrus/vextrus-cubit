@@ -20,6 +20,7 @@
 // Pure over the tables: no store, no clock, no model (L-REG-04).
 import type { RebarZone, SectionUnit } from "@/core/db";
 import { REFUSALS } from "@/core/errors";
+import type { ConventionProfile, DeclaredDimensionUnit } from "@/core/rulesets/methods/conventions/resolve";
 import { REBAR_ZONE, cellParts, isMarkFamily, isMarkHeader, normaliseMark, normaliseNotation, parseFloorZone, parseRebarGroups, parseSizePair, parseSpacing, parseZonedSpacing, rebarZoneOfHeader, sectionUnitOfHeader, type FloorBand, type RebarGroup, type SizePair } from "../notation";
 import type { ScheduleCell, ScheduleDeferralRow, ScheduleTable } from "./reconstruct";
 
@@ -80,13 +81,23 @@ type Column = { readonly index: number; readonly header: string; readonly role: 
  * mark column names, or defers: a table with no mark column and a table whose every row is noise
  * both contributed nothing, and that is a thing a reader can act on rather than an absence to guess
  * at (R-UI-050, riskNotes (2)).
+ *
+ * `conventions` is the drawing's own profile where a caller has it — the LAST place a section's unit
+ * is read from, after the cell and after the column head (I-302). It is optional because this is a
+ * pure fold over the tables and a caller with no profile still gets every family the tables name;
+ * what such a caller does not get is a unit for a pair nobody wrote one over, which is exactly the
+ * reading it is entitled to.
  */
-export function registerMemberTypes(tables: readonly ScheduleTable[]): RegisteredMemberTypes {
+export function registerMemberTypes(tables: readonly ScheduleTable[], conventions?: ConventionProfile | null): RegisteredMemberTypes {
   const families: MemberFamily[] = [];
   const deferrals: ScheduleDeferralRow[] = [];
+  // The drawing's own declaration, where the conventions stage resolved one. It is handed in rather
+  // than read here because the profile is one drawing's reading and this function is pure over the
+  // tables — the stage that resolved it is the stage that knows (I-302, L-CAD-08).
+  const declared = conventions?.dimensionUnit ?? null;
 
   for (const table of tables) {
-    const minted = familiesOf(table);
+    const minted = familiesOf(table, declared);
     if (minted.length === 0) {
       deferrals.push({ viewKey: table.viewKey, reason: REFUSALS.SCHEDULE_VIEW_CONTRIBUTED_NOTHING.code });
       continue;
@@ -98,7 +109,7 @@ export function registerMemberTypes(tables: readonly ScheduleTable[]): Registere
 }
 
 /** The families one table names, in the order its rows name them. */
-function familiesOf(table: ScheduleTable): MemberFamily[] {
+function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null): MemberFamily[] {
   const columns = columnsOf(table);
   const mark = columns.find((column) => column.role.kind === "mark");
   // The mark column is what makes a table a schedule OF something: with none, no row of it names a
@@ -132,7 +143,7 @@ function familiesOf(table: ScheduleTable): MemberFamily[] {
       markText: markCell.text,
       rowIndex,
       sourceKeys: [...markCell.sourceKeys],
-      variants: variantsOf(columns, row, zones, stated, banded, markCell),
+      variants: variantsOf(columns, row, zones, stated, banded, markCell, declared),
     });
   }
 
@@ -213,6 +224,7 @@ function variantsOf(
   stated: Column | null,
   banded: Column | null,
   markCell: ScheduleCell,
+  declared: DeclaredDimensionUnit | null,
 ): MemberVariant[] {
   const variants: MemberVariant[] = [];
   const held = new Set<string>();
@@ -224,7 +236,7 @@ function variantsOf(
     const cell = row.get(column.index);
     if (cell === undefined) continue;
     held.add(variantKey);
-    variants.push(variantOf({ variantKey, bandText: column.header, band: column.role.band, cell, zones, unitHeader: column.header }));
+    variants.push(variantOf({ variantKey, bandText: column.header, band: column.role.band, cell, zones, unitHeader: column.header, declared }));
   }
 
   // A schedule that heads its section column by what it measures rather than by a band of floors —
@@ -268,17 +280,40 @@ function variantsOf(
   }
 
   if (band === null || bandCell === undefined) {
-    return [variantOf({ variantKey: columnKeyOf(stated.header), bandText: stated.header, band: null, cell, zones, unitHeader: stated.header })];
+    return [variantOf({ variantKey: columnKeyOf(stated.header), bandText: stated.header, band: null, cell, zones, unitHeader: stated.header, declared })];
   }
   // Two cells were read to state one variant, so both are cited: the semantic a rebuild compares
   // carries the evidence a row was read from, and a band read at a cell nobody cited is unsourced
   // (L-QTY-03, L-REG-04). The section's cell stays first — it is the reading the section is read at.
   return [
     {
-      ...variantOf({ variantKey: variantKeyOf(band), bandText: bandCell.text, band, cell, zones, unitHeader: stated.header }),
-      sourceKeys: [...cell.sourceKeys, ...bandCell.sourceKeys],
+      ...variantOf({ variantKey: variantKeyOf(band), bandText: bandCell.text, band, cell, zones, unitHeader: stated.header, declared }),
+      // The declaration, where the unit was read off one, is cited beside both cells for the reason
+      // they are: a unit read off the general notes is evidence from the general notes (I-302).
+      sourceKeys: [...cell.sourceKeys, ...bandCell.sourceKeys, ...unitOf(sectionOf(cell.text), stated.header, declared).cited],
     },
   ];
+}
+
+/**
+ * The unit one section is measured in, and what that reading CITES (R-TO-031, I-302).
+ *
+ * Three statements, nearest first. The cell's own mark is the nearest — `12"x24"` is in inches
+ * wherever it stands, which is what F-RCC6-BNBC's T-NOT-SIZE-IN turns on and what the drawing's own
+ * `FIGURED DIMENSIONS GOVERN` says. The column's head is next: a schedule states its unit once, over
+ * the column, and writes bare numbers under it. The drawing's DECLARATION is last and applies only
+ * to a pair that states none and stands under a head that states none — the general note is the
+ * whole drawing's word, and the nearer statement always outranks it.
+ *
+ * A declaration is cited only where it ANSWERED. A variant whose column was headed `SIZE (mm)` was
+ * not read off S-01, and citing S-01 there would put evidence under a figure it took no part in
+ * (L-QTY-03).
+ */
+function unitOf(section: SizePair | null, unitHeader: string, declared: DeclaredDimensionUnit | null): { unit: SectionUnit | null; cited: readonly string[] } {
+  if (section === null) return { unit: null, cited: [] };
+  const nearer = section.unit ?? sectionUnitOfHeader(unitHeader);
+  if (nearer !== null) return { unit: nearer, cited: [] };
+  return declared === null ? { unit: null, cited: [] } : { unit: declared.unit, cited: [declared.sourceKey] };
 }
 
 /**
@@ -404,9 +439,12 @@ function variantOf(read: {
   zones: readonly MemberZone[];
   /** The header of the column the SECTION cell was written under — where a stated unit is read. */
   unitHeader: string;
+  /** The unit the DRAWING declares, where its own texts declare one — the last word, never the first. */
+  declared: DeclaredDimensionUnit | null;
 }): MemberVariant {
   const { variantKey, bandText, band, cell, zones } = read;
   const section = sectionOf(cell.text);
+  const measured = unitOf(section, read.unitHeader, read.declared);
   // The band's own rebar stands before the row's: a cell that states the ties of ITS band states them
   // for that band, and a rebar column heads the same zone for every band of the row. Where the cell
   // states a zone the columns also state, the nearer statement is the cell's (R-TO-031).
@@ -421,10 +459,12 @@ function variantOf(read: {
     sectionText: cell.text,
     sectionWidth: section === null ? null : section.width,
     sectionDepth: section === null ? null : section.depth,
-    // The cell's own unit where it wrote one, and otherwise the one its column is headed with: a
-    // schedule states its unit once, over the column, and writes bare numbers under it (R-TO-031).
-    sectionUnit: section === null ? null : section.unit ?? sectionUnitOfHeader(read.unitHeader),
-    sourceKeys: [...cell.sourceKeys],
+    // The cell's own unit where it wrote one, else the one its column is headed with, else the one
+    // the DRAWING declares: a schedule states its unit once over the column and writes bare numbers
+    // under it, and a drawing that heads no column at all still said it in its notes (R-TO-031,
+    // I-302).
+    sectionUnit: measured.unit,
+    sourceKeys: [...cell.sourceKeys, ...measured.cited],
     zones: [...stated, ...zones.filter((zone) => !held.has(zone.zone)).map((zone) => ({ ...zone }))],
   };
 }

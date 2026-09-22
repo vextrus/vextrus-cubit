@@ -1,7 +1,8 @@
 // The entity census L-CAD-08's convention profile is resolved from: what each layer was drawn with,
-// and which caption grammars named views. Read off one ingest artifact and the views stage's own
-// result, and nothing else — the method beside it (`@/core/rulesets/methods/conventions/resolve`)
-// turns this reading into the profile, and this file never decides a role.
+// which caption grammars named views, and which unit the drawing's own texts DECLARE its dimensions
+// in. Read off one ingest artifact and the views stage's own result, and nothing else — the method
+// beside it (`@/core/rulesets/methods/conventions/resolve`) turns this reading into the profile, and
+// this file never decides a role, nor which of two disagreeing declarations wins (I-302).
 //
 // What is counted is what L-CAD-03 makes an atom: the ORIGINAL entities standing in model space.
 // Derived paint is carried by the entity it came out of, so counting it would tally one drawn thing
@@ -13,8 +14,10 @@
 // A grammar id is the class the views stage read a caption under. The two classes that stand for
 // "not read at all" — untyped, and the view no caption anchors — named no view, so neither is a
 // grammar that names anything (L-CAD-06).
+import type { SectionUnit } from "@/core/db";
 import type { EntityGraph } from "@/core/entitygraph/schema";
-import type { EntityCensus, GrammarCensus, LayerCensus } from "@/core/rulesets/methods/conventions/resolve";
+import { clausesOf } from "@/core/notes/clauses";
+import type { EntityCensus, GrammarCensus, LayerCensus, UnitDeclarationCensus } from "@/core/rulesets/methods/conventions/resolve";
 import { VIEW_TYPE, type ViewType } from "../views/law";
 
 /** The one DXF type whose records are dimensions, as the extractor normalises it (L-CAD-02). */
@@ -35,6 +38,92 @@ type Tally = { layer: string; paths: number; rings: number; texts: number; dimen
 /** Code-point order, which is the only order a stored derivation sorts by (L-REG-05). */
 function byCodePoint(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/**
+ * How a drawing DECLARES the unit its dimensions are figured in (I-302, L-CAD-08): the general-notes
+ * sentence every structural set opens with — `ALL DIMENSIONS ARE IN MILLIMETRES`, `ALL DIMENSIONS IN
+ * mm`, `ALL DIMENSIONS SHALL BE IN INCHES`. The copula is the draughtsman's style and not a second
+ * statement, so it is optional; the unit is the FIRST word after the `IN`, and nothing past it is
+ * read.
+ *
+ * Only the clause that speaks of the DIMENSIONS matches. `LEVELS ARE IN METRES ABOVE P.L.` standing
+ * in the same sentence declares the unit of a level and not of a size, and a pattern loose enough to
+ * take it would measure a 400 mm column in metres (L-MEA-05: a unit is read, never guessed).
+ */
+const DECLARATION = /\bALL\s+DIMENSIONS?\s+(?:ARE\s+|SHALL\s+BE\s+|TO\s+BE\s+)?IN\s+([A-Za-z]+)/i;
+
+/**
+ * The unit words a declaration may name, and the member of the store's own roster each is. The
+ * roster is closed at `SECTION_UNITS` (`@/core/db`), so a note declaring METRES or FEET declares a
+ * unit this product does not measure a section in, and the census counts NO reading for it: the
+ * section stays unitless and the rail refuses by name, which is what a figure nobody can state
+ * honestly deserves (L-QTY-04).
+ */
+const DECLARED_UNITS: readonly (readonly [string, SectionUnit])[] = Object.freeze([
+  ["MM", "mm"],
+  ["MILLIMETRE", "mm"],
+  ["MILLIMETRES", "mm"],
+  ["MILLIMETER", "mm"],
+  ["MILLIMETERS", "mm"],
+  ["IN", "in"],
+  ["INCH", "in"],
+  ["INCHES", "in"],
+] as const);
+
+/**
+ * The unit ONE text declares, or null where it declares none. The text is cut into the clauses a
+ * reader reads it in by the one reading of a drawing's notes (`clausesOf`, B-17): a general-notes
+ * block is a numbered MTEXT of many clauses drawn with the font and alignment codes an MTEXT
+ * carries, and a declaration is one clause of it.
+ *
+ * The FIRST clause that declares a unit answers for the text. `4. ALL DIMENSIONS ARE IN MILLIMETRES
+ * UNLESS FIGURED IN FEET AND INCHES.` declares millimetres and states its own exception; the
+ * exception is not a second declaration, and the pair that is figured in inches keeps its own mark
+ * where it is written (I-302, clause 5's `FIGURED DIMENSIONS GOVERN`).
+ */
+function declaredUnitIn(text: string): SectionUnit | null {
+  for (const clause of clausesOf(text)) {
+    const said = DECLARATION.exec(clause);
+    if (said === null) continue;
+    const word = (said[1] ?? "").toUpperCase();
+    const held = DECLARED_UNITS.find((candidate) => candidate[0] === word);
+    if (held !== undefined) return held[1];
+  }
+  return null;
+}
+
+/**
+ * Every unit declaration standing in the drawing, counted per unit, with the first entity that
+ * declares each (I-302).
+ *
+ * Read over the WHOLE artifact rather than model space alone, unlike the layer tallies above. A
+ * layer's role is a fact about what model space was drawn with; a general note is the drawing
+ * SPEAKING ABOUT ITSELF, and every office prints it on a notes sheet — F-RCC6-BNBC's stands on the
+ * paper layout `S-01 GENERAL NOTES (1 OF 2)`. Reading model space alone would make a drawing that
+ * declares its unit in the one place a drawing declares it a drawing that declares none, and a
+ * reading refused where the drawing plainly speaks is not a conservative reading but a lost one
+ * (L-CAD-08, L-MEA-05).
+ *
+ * ORIGINALS only, like every other tally: derived paint is carried by the entity it came out of, and
+ * counting it would tally one note twice (L-CAD-03).
+ */
+function unitDeclarationsOf(graph: EntityGraph): UnitDeclarationCensus[] {
+  const declared = new Map<SectionUnit, { sourceKey: string; declarations: number }>();
+  for (const entity of graph.entities) {
+    if (typeof entity.text !== "string") continue;
+    const unit = declaredUnitIn(entity.text);
+    if (unit === null) continue;
+    const held = declared.get(unit);
+    // The FIRST declaring entity in code-point order of key, so the same drawing cites the same note
+    // however the artifact's entities were ordered (L-REG-04).
+    if (held === undefined) declared.set(unit, { sourceKey: entity.key, declarations: 1 });
+    else declared.set(unit, { sourceKey: byCodePoint(entity.key, held.sourceKey) < 0 ? entity.key : held.sourceKey, declarations: held.declarations + 1 });
+  }
+
+  return [...declared.entries()]
+    .map(([unit, held]) => ({ unit, sourceKey: held.sourceKey, declarations: held.declarations }))
+    .sort((left, right) => byCodePoint(left.unit, right.unit));
 }
 
 /**
@@ -138,5 +227,5 @@ export function censusOf(graph: EntityGraph, views: readonly CensusView[]): Enti
   const grammars: GrammarCensus[] = [...named.entries()]
     .map(([grammar, captions]) => ({ grammar, captions }))
     .sort((left, right) => byCodePoint(left.grammar, right.grammar));
-  return { layers, grammars };
+  return { layers, grammars, unitDeclarations: unitDeclarationsOf(graph) };
 }

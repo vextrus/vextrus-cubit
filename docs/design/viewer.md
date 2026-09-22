@@ -1167,6 +1167,52 @@ second reason, ruled by s-scale I-160 and recorded here in the overlay's own ter
   (C1..C7 and three note rows), C1..C7 each with four banded variants carrying a section, main bars
   and two tie zones (28 variants, 84 zones, where there were 14 sectionless variants and no zone);
   the other four BNBC tables and all of F-RCC6's line-for-line identical.
+- **I-302 — the unit a drawing DECLARES for its dimensions is a convention of the drawing, resolved
+  per drawing from the entity census, and the LAST word on a section that states none (L-CAD-08,
+  L-MEA-05, L-BD-03).** S-11's COLUMN SCHEDULE heads its columns with bands (`GF TO 2ND`) and writes
+  bare numbers under them — `400x400`, no unit in the cell and none over the column — and the file's
+  `$INSUNITS` is 0 (T-INSUNITS-0: the file states no unit, so the text must). Every one of C1..C7's
+  four variants therefore stood with `section_unit` NULL, the frame rail answered
+  `SECTION_UNIT_UNSTATED` for every column, and no column line was published — of a drawing that says
+  plainly, on S-01 clause 4, `ALL DIMENSIONS ARE IN MILLIMETRES UNLESS FIGURED IN FEET AND INCHES`.
+  A unit is READ, never guessed; this is a reading. So the census
+  (`partition/conventions/census.ts`) counts, per unit, the texts that DECLARE one — the clause shape
+  `ALL DIMENSIONS [ARE|SHALL BE|TO BE] IN <unit>`, cut into clauses by the one reading of a drawing's
+  notes (`clausesOf`, B-17) — and the method beside it
+  (`core/rulesets/methods/conventions/resolve.ts`) resolves `dimensionUnit: { unit, sourceKey } |
+  null` onto the ConventionProfile. The registry then reads a section's unit in three statements,
+  nearest first: the cell's own mark, else the head of its column (`sectionUnitOfHeader`), else the
+  drawing's declaration — which is CITED in the variant's `source_keys` beside the cell, because a
+  unit read off S-01 is evidence from S-01 (L-QTY-03), and never cited where the cell or the head
+  answered. **Its limits, and they are the whole of it.** The declaration is the drawing's
+  convention, never an override of a figure: a pair that states its own unit keeps it
+  (`12"x24"` stays inches — T-NOT-SIZE-IN, and clause 5's own `FIGURED DIMENSIONS GOVERN`), and a
+  column headed `SIZE (B X D) MM` outranks a note declaring inches. A clause's exception is not a
+  second declaration — clause 4's `UNLESS FIGURED IN FEET AND INCHES` declares millimetres and says
+  what to do about the exception, and `LEVELS ARE IN METRES ABOVE P.L.` in the same sentence declares
+  the unit of a level, not of a size. A header that merely NAMES a unit (`DIA (mm)`, `SPAN (mm)` —
+  twelve of them on this drawing) is that column's word about its own cells and is read where a
+  section is read under it; promoting it to the drawing's convention would let a rebar table state a
+  column schedule's unit. A unit outside the roster a section may be stored in (`SECTION_UNITS`:
+  `in`, `mm`) is no reading — a drawing figured in metres leaves the section unitless. And two texts
+  declaring DIFFERENT units resolve to null, because a disagreement is not a reading and a section
+  measured off the wrong one is wrong by a factor of twenty-five. Where the reading fails for any of
+  those reasons the section stays unitless and the rail refuses `SECTION_UNIT_UNSTATED` exactly as it
+  does today — nothing here is defaulted (L-QTY-04). The declaration is read over the WHOLE artifact,
+  model space and paper layouts alike, unlike the layer tallies beside it: a layer's role is a fact
+  about what model space was drawn with, while a general note is the drawing speaking about itself
+  and every office prints it on a notes sheet (F-RCC6-BNBC's stands on the paper layout `S-01 GENERAL
+  NOTES (1 OF 2)`, `DXF_HANDLE:1F3E`). The seed still corroborates and never adds: `resolve(census,
+  seed)` deep-equals `resolve(census)` for the new field as for every other, and the method's version
+  does not move — no role, no grammar and no deferral it ever answered changes, so nothing an edition
+  cites it for has moved. Measured on F-RCC6-BNBC: `dimensionUnit` resolves to `mm` cited at
+  `DXF_HANDLE:1F3E`; 79 of the drawing's 81 member-type variants go `null` → `mm` (C1..C7's 28
+  banded variants and the 51 beam-schedule rows), each citing the note beside its own cells; the two
+  that stay unitless (PC3, S3) are the pile-cap rows whose SECTION cell the drawing left blank, which
+  state no figure for a unit to be the unit of. On F-RCC6 the same reading resolves `mm` from its
+  sheet line `ALL DIMENSIONS IN mm` and moves NOTHING — every one of its 18 families is headed with
+  its unit already (`SIZE (mm)`, `L X B MM`), and the whole families list is byte-identical before
+  and after (sha256 `6eb675d480be8e93…`, AM-01).
 
 ## 1. Layout and hierarchy
 

@@ -243,7 +243,16 @@ export type ReconstructSeam = {
  * one row per mark family, with the views that contributed nothing standing beside them.
  */
 export type RegistrySeam = {
-  registerMemberTypes: (tables: readonly ReconstructedTable[]) => { families: FamilyRow[]; deferrals: ScheduleDeferralRow[] };
+  /**
+   * The conventions the drawing resolved to stand beside the tables: the LAST place a section's unit
+   * is read from, after the cell's own mark and the head of its column (I-302). It is optional in the
+   * published signature because the fold is pure over the tables — a caller with no profile still
+   * gets every family the tables name, and a pair nobody wrote a unit over simply keeps none.
+   */
+  registerMemberTypes: (
+    tables: readonly ReconstructedTable[],
+    conventions?: { dimensionUnit?: { unit: string; sourceKey: string } | null } | null,
+  ) => { families: FamilyRow[]; deferrals: ScheduleDeferralRow[] };
 };
 
 /** The stage's own store — called from the partition's ONE rewrite transaction (AC-3). */
@@ -596,6 +605,26 @@ export function keysOf(band: BuiltBand): string[] {
   return band.cells.flatMap((one) => one.keys);
 }
 
+/**
+ * What the staged drawing DECLARES its dimensions are in, and the text that declares it (I-302).
+ *
+ * The office writes it where every office writes it: a note above the table — this drawing's leading
+ * note says `ALL DIMENSIONS ARE IN INCH`. Read off the band that was really drawn, like every other
+ * reading in this file, so an artifact drawn with no such note declares nothing and a variant under
+ * it keeps no unit at all (B-19).
+ */
+export function declaredUnitOf(built: BuiltScheduleArtifact): { unit: string; sourceKey: string } | null {
+  for (const band of built.bands) {
+    for (const cell of band.cells) {
+      const said = /\bALL\s+DIMENSIONS\s+ARE\s+IN\s+(INCH|MM)\b/i.exec(cell.text);
+      const key = cell.keys[0];
+      if (said === null || key === undefined) continue;
+      return { unit: (said[1] ?? "").toUpperCase() === "MM" ? "mm" : "in", sourceKey: key };
+    }
+  }
+  return null;
+}
+
 /** The columns a table takes from its header: the header texts' insertion x, ascending (riskNotes (1)). */
 export function columnsOf(built: BuiltScheduleArtifact): number[] {
   return [...(headerBandOf(built)?.cells ?? [])].map((one) => one.x).sort((left, right) => left - right);
@@ -689,6 +718,11 @@ export function expectedFamiliesOf(built: BuiltScheduleArtifact, notation: Notat
   const markColumn = roles.find((one) => one.role.kind === "mark");
   if (markColumn === undefined) return [];
   const rows = [header, ...dataBandsOf(built)];
+  // The drawing's own declaration, where it makes one. None of this artifact's band headers names a
+  // unit — they name floors (`GF TO 3RD`) — so for a cell that carries no inch mark of its own the
+  // declaration is the only statement of a unit there is, and the row cites the note it was read off
+  // (I-302, L-QTY-03).
+  const declared = declaredUnitOf(built);
 
   const families: FamilyRow[] = [];
   for (const [rowIndex, row] of rows.entries()) {
@@ -723,6 +757,10 @@ export function expectedFamiliesOf(built: BuiltScheduleArtifact, notation: Notat
       const sectionCell = cellAt(column.x);
       if (sectionCell === undefined) return [];
       const section = notation.parseSizePair(sectionCell.text);
+      // A pair the cell wrote a unit on keeps it; a pair written bare takes the unit the DRAWING
+      // declares, and cites the note that declared it (I-302). A drawing that declares none leaves
+      // the pair unitless — never an inch nobody said (L-MEA-01).
+      const fallback = section === null || section.unit !== null ? null : declared;
       return [
         {
           variantKey: variantKeyOf(column.role.from, column.role.to),
@@ -732,8 +770,8 @@ export function expectedFamiliesOf(built: BuiltScheduleArtifact, notation: Notat
           sectionText: sectionCell.text,
           sectionWidth: section === null ? null : section.width,
           sectionDepth: section === null ? null : section.depth,
-          sectionUnit: section === null ? null : section.unit,
-          sourceKeys: [...sectionCell.keys],
+          sectionUnit: section === null ? null : (section.unit ?? fallback?.unit ?? null),
+          sourceKeys: [...sectionCell.keys, ...(fallback === null ? [] : [fallback.sourceKey])],
           zones: zones.map((zone) => zone.row),
         },
       ];

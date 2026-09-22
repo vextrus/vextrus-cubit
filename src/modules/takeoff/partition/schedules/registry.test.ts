@@ -4,6 +4,7 @@
 // The tables are built here at the shape the reconstruction answers, so each case varies one thing:
 // what the unbanded columns are headed, and whether the row drew a cell under the chosen one (B-19).
 import { describe, expect, test } from "vitest";
+import type { ConventionProfile } from "@/core/rulesets/methods/conventions/resolve";
 import type { ScheduleCell, ScheduleTable } from "./reconstruct";
 import { registerMemberTypes, type MemberFamily } from "./registry";
 
@@ -21,12 +22,20 @@ function tableOf(headers: readonly string[], rows: readonly (readonly (string | 
   return { viewKey: VIEW_KEY, scheduleKey: "e:1", title: "BEAM SCHEDULE", pitch: 10, columns: headers.map((_header, index) => index * 100), cells, unplaced: [] };
 }
 
-/** The one family a table minted for a mark. */
-function familyOf(table: ScheduleTable, mark: string): MemberFamily {
-  const held = registerMemberTypes([table]).families.filter((family) => family.family === mark);
+/** The one family a table minted for a mark, under the conventions the drawing resolved (if any). */
+function familyOf(table: ScheduleTable, mark: string, conventions?: ConventionProfile | null): MemberFamily {
+  const held = registerMemberTypes([table], conventions).families.filter((family) => family.family === mark);
   expect(held.length, `one family stands for ${mark}`).toBe(1);
   return held[0] as MemberFamily;
 }
+
+/** A drawing whose general notes declare a unit, as the conventions stage resolves it (I-302). */
+function declaring(unit: "in" | "mm", sourceKey: string): ConventionProfile {
+  return { roles: { linework: [], outlines: [], text: [], dimensions: [] }, captionGrammars: [], deferrals: [], dimensionUnit: { unit, sourceKey } };
+}
+
+/** The entity F-RCC6-BNBC declares its unit on: S-01's general-notes MTEXT, clause 4 (I-302). */
+const NOTES_KEY = "DXF_HANDLE:1F3E";
 
 const REMARK = "SEE ARCH DETAIL";
 const MAIN = "8-16Ø";
@@ -119,5 +128,61 @@ describe("L-QTY-02: a row that states no section still states its rebar", () => 
     const family = familyOf(tableOf(["MARK", "MAIN BARS"], [["B1", MAIN]]), "B1");
     expect(family.variants.length, "one variant, under no column").toBe(1);
     expect(family.variants[0]?.zones.map((zone) => zone.text), "carrying what the drawing states about the member's steel").toEqual([MAIN]);
+  });
+});
+
+describe("I-302: the unit a drawing declares is the LAST word on a section that states none", () => {
+  /** F-RCC6-BNBC S-11: a banded column schedule, no unit over the column and none in the cell. */
+  const STACKED = "400x400+8-16Ø+10Ø@100/150 (TIES)";
+
+  test("a unitless pair under a unitless header takes the unit the drawing declares, and cites the note", () => {
+    const table = tableOf(["MARK", "GF TO 2ND"], [["C1", STACKED]]);
+    const variant = familyOf(table, "C1", declaring("mm", NOTES_KEY)).variants[0];
+
+    expect(
+      { width: variant?.sectionWidth, depth: variant?.sectionDepth, unit: variant?.sectionUnit },
+      "S-11 heads its columns with bands and writes bare numbers under them; the drawing said `ALL DIMENSIONS ARE IN MILLIMETRES` once, on S-01, and that is a reading rather than a guess (L-MEA-05)",
+    ).toEqual({ width: 400, depth: 400, unit: "mm" });
+    expect(
+      variant?.sourceKeys,
+      "and the row cites the note beside its own cell: a unit read off S-01 is evidence from S-01, and a row that cited only its cell could not show a reader where its unit came from (L-QTY-03)",
+    ).toEqual(["r:0:1", NOTES_KEY]);
+  });
+
+  test("the same table with no declaration keeps the numbers and no unit at all — never a millimetre nobody said", () => {
+    const variant = familyOf(tableOf(["MARK", "GF TO 2ND"], [["C1", STACKED]]), "C1").variants[0];
+
+    expect({ width: variant?.sectionWidth, unit: variant?.sectionUnit }, "a number nobody gave a unit to is not a millimetre (L-MEA-01)").toEqual({ width: 400, unit: null });
+    expect(variant?.sourceKeys, "and it cites its own cell and nothing else — there was no note to cite").toEqual(["r:0:1"]);
+  });
+
+  test("a pair that states its OWN unit keeps it, and cites no note", () => {
+    const variant = familyOf(tableOf(["MARK", "SIZE"], [["B1", '12"x24"']]), "B1", declaring("mm", NOTES_KEY)).variants[0];
+
+    expect(
+      { width: variant?.sectionWidth, depth: variant?.sectionDepth, unit: variant?.sectionUnit },
+      "T-NOT-SIZE-IN: a size figured in inches is figured in inches wherever it stands, and the drawing's own `FIGURED DIMENSIONS GOVERN` says so — the general note states the convention, never an override of a figure",
+    ).toEqual({ width: 12, depth: 24, unit: "in" });
+    expect(variant?.sourceKeys, "the note took no part in this reading, so citing it would put evidence under a figure it never touched").toEqual(["r:0:1"]);
+  });
+
+  test("a column HEADED with a unit outranks the declaration, and cites no note", () => {
+    const variant = familyOf(tableOf(["MARK", "SIZE (B X D) MM"], [["F1", "1500x1500"]]), "F1", declaring("in", NOTES_KEY)).variants[0];
+
+    expect(
+      { width: variant?.sectionWidth, unit: variant?.sectionUnit },
+      "the nearer statement wins: a schedule states its unit once over the column and writes bare numbers under it, and the drawing's note is the whole drawing's word rather than that column's (R-TO-031)",
+    ).toEqual({ width: 1500, unit: "mm" });
+    expect(variant?.sourceKeys, "and the note is not cited, because the column head is what answered").toEqual(["r:0:1"]);
+  });
+
+  test("a row that states no section at all takes no unit from the declaration", () => {
+    const blank = familyOf(tableOf(["MARK", "SIZE", "MAIN BARS"], [["B1", "300x450", MAIN], ["B2", null, "6-20Ø"]]), "B2", declaring("mm", NOTES_KEY));
+
+    expect(
+      { width: blank.variants[0]?.sectionWidth, unit: blank.variants[0]?.sectionUnit },
+      "there is no figure for the declared unit to be the unit OF — a unit standing over no number states nothing (L-QTY-01)",
+    ).toEqual({ width: null, unit: null });
+    expect(blank.variants[0]?.sourceKeys, "and the row cites what it was really read from").not.toContain(NOTES_KEY);
   });
 });

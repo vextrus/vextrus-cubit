@@ -130,7 +130,13 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
     // nothing: a fully-deferred profile written for it would be a reading nobody took (L-QTY-04).
     if (census === null) return { derived: { ...held, conventions: null }, detail: { layers: 0, deferrals: 0 } };
     const conventions = { census, profile: resolveConventions(census) };
-    return { derived: { ...held, conventions }, detail: { layers: census.layers.length, deferrals: conventions.profile.deferrals.length } };
+    // The declared unit is part of what this stage READ, so it is part of what the stage reports:
+    // R-TO-030 asks for a partition whose every stage's result is visible, and a drawing measured in
+    // millimetres because its notes said so is a fact a reader is owed (I-302).
+    return {
+      derived: { ...held, conventions },
+      detail: { layers: census.layers.length, deferrals: conventions.profile.deferrals.length, dimension_unit: conventions.profile.dimensionUnit?.unit ?? null },
+    };
   },
   // The grid runs after the conventions because its candidates are the entities standing on a layer
   // that profile gave a role to — filtered before detection, as L-CAD-07 asks (riskNotes (a)).
@@ -148,7 +154,10 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
   // of those tables in the same pass, so what the store writes is one derivation (R-TO-031).
   schedules: (context, held) => {
     const reconstructed = reconstructSchedules({ graph: context.graph, views: held.views, assignments: held.assignments });
-    const registered = registerMemberTypes(reconstructed.tables);
+    // The conventions stage stands second in the list and this is the fourth, so the drawing's own
+    // profile is already resolved when the registry folds the tables: a size pair that states no
+    // unit and stands under a head that states none takes the one the drawing DECLARES (I-302).
+    const registered = registerMemberTypes(reconstructed.tables, held.conventions?.profile ?? null);
     const schedules: DetectedSchedules = {
       views: reconstructed.views,
       tables: reconstructed.tables,

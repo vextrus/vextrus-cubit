@@ -1,6 +1,6 @@
-// L-CAD-08's convention profile: which layers carry linework, outlines, text and dimensions, and
-// which caption grammars name views — resolved per drawing from an entity census by geometry
-// statistics, and from nothing else.
+// L-CAD-08's convention profile: which layers carry linework, outlines, text and dimensions, which
+// caption grammars name views, and which UNIT the drawing declares its dimensions in — resolved per
+// drawing from an entity census, and from nothing else.
 //
 // A pure method over core types (L-MEA-01's sense of one): no store, no clock, no model, no module.
 // The same census resolves the same profile forever, which is what lets the stored partition rebuild
@@ -16,6 +16,7 @@
 // business, and the classes a caption grammar reads are spelled once in the view law (L-CAD-06 bans
 // a second home for those literals). This method compares tallies and sorts names, and knows the
 // meaning of neither.
+import type { SectionUnit } from "@/core/db";
 import { REFUSALS, type RefusalCode } from "@/core/errors";
 
 /** L-MEA-01's citation form: an edition holds a method as (rule id, version) and by nothing else. */
@@ -39,8 +40,41 @@ export type LayerCensus = {
 /** What one caption grammar read: how many views it named. */
 export type GrammarCensus = { readonly grammar: string; readonly captions: number };
 
-/** The whole reading a drawing offers about its own conventions. */
-export type EntityCensus = { readonly layers: readonly LayerCensus[]; readonly grammars: readonly GrammarCensus[] };
+/**
+ * What one UNIT the drawing declared its dimensions in was read from: how many of its texts declare
+ * it, and the first entity that does, in code-point order of source key (I-302).
+ *
+ * The census counts; this method decides. A drawing declaring one unit ten times has declared it
+ * once, and a drawing declaring two has declared neither — which is a comparison of counted
+ * readings, and needs no reading of any text here (L-CAD-08 keeps this method pure over a census).
+ */
+export type UnitDeclarationCensus = {
+  readonly unit: SectionUnit;
+  readonly sourceKey: string;
+  readonly declarations: number;
+};
+
+/**
+ * The whole reading a drawing offers about its own conventions.
+ *
+ * `unitDeclarations` is OPTIONAL because a census stored before the drawing's declared unit was read
+ * at all carries none, and a row an older reading left is a record of what that reading took rather
+ * than a drawing that was examined and found to declare nothing (L-QTY-04). A census this method's
+ * own counter takes always carries the field, empty where the drawing declares nothing.
+ */
+export type EntityCensus = {
+  readonly layers: readonly LayerCensus[];
+  readonly grammars: readonly GrammarCensus[];
+  readonly unitDeclarations?: readonly UnitDeclarationCensus[];
+};
+
+/**
+ * The unit a drawing DECLARES its dimensions in, and the entity that declares it (I-302, L-CAD-08).
+ *
+ * The source key is part of the reading and not a convenience: a unit read off S-01 is evidence from
+ * S-01, and a figure measured under it cites the note that gave it one (L-QTY-03).
+ */
+export type DeclaredDimensionUnit = { readonly unit: SectionUnit; readonly sourceKey: string };
 
 /**
  * A corroborating seed: what somebody else believes each role's layers are. Accepted and never read
@@ -59,6 +93,13 @@ export type ConventionProfile = {
   readonly roles: Readonly<Record<ConventionRole, readonly string[]>>;
   readonly captionGrammars: readonly string[];
   readonly deferrals: readonly ConventionDeferral[];
+  /**
+   * The unit this drawing declares its dimensions in, `null` where it declares none or declares two
+   * that disagree (I-302). Optional for the reason the census's own field is: a profile stored before
+   * the declaration was read carries no such reading, and `undefined` says that where `null` says the
+   * drawing was read and found silent.
+   */
+  readonly dimensionUnit?: DeclaredDimensionUnit | null;
 };
 
 /**
@@ -78,6 +119,7 @@ export function isConventionProfile(value: unknown): value is ConventionProfile 
   const roles = candidate.roles as Record<string, unknown>;
   if (!CONVENTION_ROLES.every((role) => isStringList(roles[role]))) return false;
   if (!isStringList(candidate.captionGrammars)) return false;
+  if (!isDeclaredDimensionUnit((value as { dimensionUnit?: unknown }).dimensionUnit)) return false;
   return (
     Array.isArray(candidate.deferrals) &&
     candidate.deferrals.every((deferral) => {
@@ -93,6 +135,22 @@ function isStringList(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 
+/**
+ * Whether a value is what this method answers for the drawing's declared unit: a reading, the `null`
+ * that says the drawing declares none, or ABSENT — which is what a profile stored before the
+ * declaration was read at all carries, and a record this method still recognises as its own.
+ *
+ * The unit is judged against nothing here but its being a string: the roster is the store's
+ * (`SECTION_UNITS`), the column's own check closes it, and a second closed list in this file would
+ * be a second answer to which units a drawing may be measured in (B-17).
+ */
+function isDeclaredDimensionUnit(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  if (typeof value !== "object") return false;
+  const stated = value as { unit?: unknown; sourceKey?: unknown };
+  return typeof stated.unit === "string" && typeof stated.sourceKey === "string";
+}
+
 /** Which tally of a layer's census decides each role — the geometry statistic the role is read from. */
 const ROLE_TALLY: Readonly<Record<ConventionRole, (layer: LayerCensus) => number>> = Object.freeze({
   linework: (layer) => layer.paths,
@@ -104,6 +162,26 @@ const ROLE_TALLY: Readonly<Record<ConventionRole, (layer: LayerCensus) => number
 /** Code-point order, which is the only order a derivation sorts by: no locale reaches a stored row. */
 function byCodePoint(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/**
+ * The unit the drawing declares its dimensions in, read off the counted declarations alone (I-302).
+ *
+ * ONE unit declared, however many texts declare it, is the drawing's convention: a set that prints
+ * `ALL DIMENSIONS ARE IN MILLIMETRES` on every sheet has said one thing many times. TWO units
+ * declared is no convention at all — a disagreement is not a reading, and nothing here is in a
+ * position to decide which sheet the office meant (L-QTY-04, and `parseSizePair`'s own refusal of a
+ * pair whose two sides disagree). NONE declared is `null`: a number nobody gave a unit to is not a
+ * millimetre (L-MEA-01).
+ *
+ * The census counts a declaration only where a text really declares one, so a census that carries
+ * none and a census that was taken before this was read at all resolve alike — to nothing.
+ */
+function declaredUnitOf(census: EntityCensus): DeclaredDimensionUnit | null {
+  const declared = census.unitDeclarations ?? [];
+  const stated = declared.filter((reading) => reading.declarations > 0);
+  const only = stated.length === 1 ? stated[0] : undefined;
+  return only === undefined ? null : { unit: only.unit, sourceKey: only.sourceKey };
 }
 
 /**
@@ -123,8 +201,9 @@ function roleOf(layer: LayerCensus): ConventionRole | null {
 /**
  * One drawing's conventions, resolved (L-CAD-08). Every list is in code-point order so that the same
  * census resolves to the identical profile however the census was assembled (L-REG-04), a grammar
- * names views only where it really read a caption, and a role no layer carries is deferred by the
- * register's own code rather than defaulted to a layer.
+ * names views only where it really read a caption, a role no layer carries is deferred by the
+ * register's own code rather than defaulted to a layer, and the unit the drawing declares for its
+ * dimensions is the one unit its texts declare — or nothing at all (I-302).
  */
 export function resolve(census: EntityCensus, seed?: ConventionSeed): ConventionProfile;
 // The implementation takes the census and nothing else: the seed stands in the published signature
@@ -140,6 +219,7 @@ export function resolve(census: EntityCensus): ConventionProfile {
 
   return {
     roles: carried,
+    dimensionUnit: declaredUnitOf(census),
     captionGrammars: census.grammars
       .filter((grammar) => grammar.captions > 0)
       .map((grammar) => grammar.grammar)

@@ -53,6 +53,7 @@ import {
   cellOf,
   countWordsAmong,
   dataBandsOf,
+  declaredUnitOf,
   deferralOf,
   evidenceOf,
   expectedFamiliesOf,
@@ -437,7 +438,12 @@ describe("AC-5: the tables fold into one row per mark family, with variants and 
     const stage = await staged();
     const { reconstructSchedules } = await reconstructDoor();
     const { registerMemberTypes } = await registryDoor();
-    const registered = registerMemberTypes(reconstructSchedules(await evidenceOf(stage.plain.artifact)).tables);
+    // Handed the drawing's own conventions, as `partition/rebuild.ts` hands them: the conventions
+    // stage stands second and the schedules fourth, so the unit this drawing DECLARES is resolved
+    // before a section is read (I-302). A registry asked without them is a second composition, and
+    // it would agree with the store only by accident.
+    const declared = declaredUnitOf(stage.plain.artifact);
+    const registered = registerMemberTypes(reconstructSchedules(await evidenceOf(stage.plain.artifact)).tables, { dimensionUnit: declared });
     expect(shapeOf(registered.families), "the pure registry answers the families the store holds — the store keeps a derivation, never a second opinion").toEqual(
       shapeOf(await owedFamilies(stage)),
     );
@@ -486,10 +492,14 @@ describe("AC-5: the tables fold into one row per mark family, with variants and 
       sectionOf("C3", gfTo3rd),
       "and a section written in feet and inches reads as the same inches a draughtsman would total — the notation is the drawing's, the number is one (AC-6)",
     ).toEqual({ text: `1'-0"x1'-3"`, width: 12, depth: 15, unit: "in" });
+    // What the drawing DECLARES, read off the note it declares it in — never assumed here, so an
+    // artifact drawn without that note grades the other half of the rule (I-302, B-19).
+    const declared = declaredUnitOf(stage.plain.artifact);
+    expect(declared?.unit, "the staged drawing really prints a note declaring the unit its dimensions are figured in, or this case grades nothing").toBe("in");
     expect(
       sectionOf("C3", fourthToRoof),
-      "while a section the drawing wrote without a unit keeps the numbers and no unit at all — never an inch nobody said",
-    ).toEqual({ text: "12X12", width: 12, depth: 12, unit: null });
+      "while a section the drawing wrote without a unit of its own takes the unit the DRAWING declares — `ALL DIMENSIONS ARE IN INCH` stands over the table, and a note is where a drawing says this once (I-302). It is still never an inch nobody said: the inch here was said, on the sheet, and a drawing that declared nothing would leave this pair unitless",
+    ).toEqual({ text: "12X12", width: 12, depth: 12, unit: "in" });
 
     expect(mainOf("C1", gfTo3rd), "C1's main zone keeps the cell verbatim and reads the group it names").toEqual({ text: "8-16Ø", bars: [{ n: 8, diameterMm: 16 }] });
     expect(mainOf("C2", gfTo3rd), "and C2's reads its own count of the same diameter").toEqual({ text: "6-16Ø", bars: [{ n: 6, diameterMm: 16 }] });
@@ -512,11 +522,23 @@ describe("AC-5: the tables fold into one row per mark family, with variants and 
     const stored = memberTypeRows(stage.person.tenantId, stage.plain.ingestId);
     const header = headerBandOf(built);
     const dataBands = dataBandsOf(built);
+    // The note the drawing declares its unit in is evidence too, and a VARIANT that took its unit
+    // from that note cites it beside the cell it took its numbers from. It belongs in the variant's
+    // own `source_keys` and not in a list beside them: `member_type_variants` carries ONE citation
+    // per row, the unit is a column of that row, and a row whose unit came off S-01 while it cited
+    // only its own cell could not show a reader where that unit came from (L-QTY-03, B-17 — a second
+    // column for the same fact would be a second home for it). A variant that read its unit off its
+    // own cell or its column head cites no note at all, because the note took no part (I-302).
+    const declaredKeys = [declaredUnitOf(built)?.sourceKey].filter((key): key is string => key !== undefined);
 
     for (const family of stored) {
       const drawn = dataBands[family.rowIndex - 1];
       const mine = owed.find((one) => one.family === family.family);
       const rowKeys = new Set([...(drawn === undefined ? [] : keysOf(drawn)), ...(header === null ? [] : keysOf(header))]);
+      // The declaration is citable by a VARIANT and by nothing else: a family is minted from its
+      // mark cell and a rebar zone is read from its zone cell, and neither of those readings has any
+      // use for the unit the drawing stated (L-QTY-03).
+      const variantKeysCitable = new Set([...rowKeys, ...declaredKeys]);
       expect(family.sourceKeys.length, `${family.family} cites the cell it was read from`).toBeGreaterThan(0);
       expect(
         (mine?.sourceKeys ?? []).filter((key) => !family.sourceKeys.includes(key)),
@@ -527,7 +549,10 @@ describe("AC-5: the tables fold into one row per mark family, with variants and 
       for (const variant of family.variants) {
         const owedVariant = (mine?.variants ?? []).find((one) => one.variantKey === variant.variantKey);
         expect((owedVariant?.sourceKeys ?? []).filter((key) => !variant.sourceKeys.includes(key)), `${family.family}/${variant.variantKey} cites the section cell it was read from`).toEqual([]);
-        expect(variant.sourceKeys.filter((key) => !rowKeys.has(key)), `and nothing outside its own row and the header over it`).toEqual([]);
+        expect(
+          variant.sourceKeys.filter((key) => !variantKeysCitable.has(key)),
+          `and nothing outside its own row, the header over it and the note the drawing declares its unit in`,
+        ).toEqual([]);
         for (const zone of variant.zones) {
           const owedZone = (owedVariant?.zones ?? []).find((one) => one.zone === zone.zone);
           expect((owedZone?.sourceKeys ?? []).filter((key) => !zone.sourceKeys.includes(key)), `${family.family}/${variant.variantKey}/${zone.zone} cites the zone cell it was read from`).toEqual([]);

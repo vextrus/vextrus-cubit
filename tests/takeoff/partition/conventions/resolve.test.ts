@@ -29,11 +29,16 @@ const CENSUS: EntityCensus = {
   ],
 };
 
-/** The profile that census resolves to: every list in code-point order, and nothing deferred. */
+/**
+ * The profile that census resolves to: every list in code-point order, nothing deferred, and no
+ * declared dimension unit — the census above counts no text declaring one, and a drawing that
+ * declares nothing is measured in nothing (I-302, L-MEA-01).
+ */
 const PROFILE: ConventionProfile = {
   roles: { linework: ["AXES", "GRID"], outlines: ["WALLS"], text: ["NOTES"], dimensions: ["DIMS"] },
   captionGrammars: ["plan", "section"],
   deferrals: [],
+  dimensionUnit: null,
 };
 
 /** A layer whose two kinds tie, and one that was drawn on at all — neither carries a role. */
