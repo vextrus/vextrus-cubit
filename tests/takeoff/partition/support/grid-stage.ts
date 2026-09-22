@@ -5,8 +5,9 @@
  * recorded drawing and the stand-in for the `cad/` CLI all come from the stage the stored partition
  * already runs on (`./partition-stage`), so this file adds exactly what a grid needs beyond a
  * partitioned ingest: artifacts whose MODEL SPACE really carries bubbles — round closed rings each
- * enclosing one text — beside the things that are NOT bubbles, the doors the criteria drive, and the
- * store reads they are graded by.
+ * enclosing one text, and instances whose PAINT is the ring and whose ATTRIBUTE is the label
+ * (L-CAD-03) — beside the things that are NOT bubbles, the doors the criteria drive, and the store
+ * reads they are graded by.
  *
  * Product modules are loaded by absolute path (`productModule`), so a file the Builder has not
  * written yet fails as an assertion naming it rather than as a collection death that reads as a
@@ -97,14 +98,22 @@ export const LAYER_GRID = "GRID";
 const TYPE_TEXT = "TEXT";
 const TYPE_LINE = "LINE";
 const TYPE_RING = "LWPOLYLINE";
+const TYPE_INSTANCE = "INSERT";
+const TYPE_CIRCLE = "CIRCLE";
 
-/** The five scenarios the criteria are staged over (test contract: fixture scenarios). */
+/** The tags a block-drawn bubble says its label in. Two of them, because a tag is a name and names
+ * decide nothing about a grid (L-CAD-07: the signature is what the text SAYS). */
+export const TAG_GRID = "GRID";
+export const TAG_AXIS = "AXIS";
+
+/** The scenarios the criteria are staged over (test contract: fixture scenarios). */
 export const SCENARIO = Object.freeze({
   PLAN: "grid-plan",
   RENAMED: "grid-plan-renamed",
   NO_BUBBLES: "grid-plan-no-bubbles",
   ROLELESS: "grid-plan-roleless",
   SCHEDULE_BUBBLES: "grid-schedule-bubbles",
+  BLOCK_DRAWN: "grid-plan-blocks",
 } as const);
 
 /** One of the five. */
@@ -173,6 +182,12 @@ const CHANNELS = { rgb: [0, 0, 0] as [number, number, number], source: "bylayer"
 /** One drawn record of the built artifact, in the shape the mirror validates (L-CAD-05). */
 export type Drawn = { key: string; type: string; space: string; layer: string; text?: string; height?: number; points?: number[][]; closed?: boolean };
 
+/** One piece of derived paint: what an original DREW, carried by the original it came out of (L-CAD-03). */
+export type Painted = { src: string; type: string; space: string; layer: string; text?: string; height?: number; points?: number[][]; closed?: boolean };
+
+/** One block attribute row: the slot an instance said something in, and what it said (L-CAD-03). */
+export type Attributed = { src: string; tag: string; text: string; height: number };
+
 /** A source key of the DXF-handle scheme, from an ordinal (L-CAD-02). */
 function handle(ordinal: number): string {
   return `DXF_HANDLE:${ordinal.toString(16).toUpperCase()}`;
@@ -236,6 +251,12 @@ const SCHEDULE_BUBBLES: readonly BubbleSpec[] = [
   { text: "B", centre: [620, -30], radius: RADIUS, vertices: VERTICES, round: true },
 ];
 
+/** The eleven labels a key plan paints, and where it paints them: a miniature of a real grid. */
+const KEY_PLAN_LABELS: readonly string[] = ["A", "B", "C", "D", "E", "1", "2", "3", "4", "5", "6"];
+const KEY_PLAN_AT: readonly [number, number] = [250, 180];
+const KEY_PLAN_PITCH = 2.4;
+const KEY_PLAN_RADIUS = 1.2;
+
 /** Where each caption stands. Far enough apart that no caption reaches another's cluster. */
 const PLAN_AT: [number, number] = [0, 0];
 const SCHEDULE_AT: [number, number] = [600, 0];
@@ -260,6 +281,14 @@ export type BuiltGridArtifact = {
   graph: Record<string, JsonValue>;
   /** Every ORIGINAL record, model space and paper alike. */
   originals: readonly Drawn[];
+  /** Every piece of derived paint, and every attribute row the instances carry (L-CAD-03). */
+  derived: readonly Painted[];
+  attributes: readonly Attributed[];
+  /**
+   * What the block-drawn scenario staged: the instances that ARE bubbles, the one that paints its
+   * own label (a picture of a bubble), and the key plan on the paper sheet. Null where undrawn.
+   */
+  blocks: { bubbles: readonly string[]; paintedLabel: string | null; keyPlan: string | null };
   /** The keys of the caption entities anchoring a view, by the words those captions say. */
   anchorOf: ReadonlyMap<string, readonly string[]>;
   /** The keys of the three things AC-1 names as standing outside the grid; null where undrawn. */
@@ -280,8 +309,11 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
   let ordinal = 0;
   const next = (): string => handle(base + (ordinal += 1));
   const originals: Drawn[] = [];
+  const derived: Painted[] = [];
+  const attributes: Attributed[] = [];
   const anchorOf = new Map<string, string[]>();
   const excluded: BuiltGridArtifact["excluded"] = { pairedRing: null, looseLabel: null, squareRing: null };
+  const blocks: BuiltGridArtifact["blocks"] = { bubbles: [], paintedLabel: null, keyPlan: null };
 
   /** The layer a record is drawn on — opaque where the renamed scenario re-draws the same artifact. */
   const on = (layer: string): string => (scenario === SCENARIO.RENAMED ? (OPAQUE[layer] ?? layer) : layer);
@@ -309,6 +341,35 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
 
   const line = (from: [number, number], to: [number, number], layer: string): void => {
     originals.push({ key: next(), type: TYPE_LINE, space: MODEL_SPACE, layer: on(layer), points: [[...from], [...to]] });
+  };
+
+  /**
+   * An instance: an original carrying no geometry of its own, because what a block draws is its
+   * PAINT and what it says is its ATTRIBUTES (L-CAD-03 — and the measured shape of a real
+   * block-drawn drawing, where no instance carries a point).
+   */
+  const instance = (layer: string, space: string = MODEL_SPACE): string => {
+    const key = next();
+    originals.push({ key, type: TYPE_INSTANCE, space, layer: on(layer) });
+    return key;
+  };
+
+  /** A round closed ring an instance painted, in that instance's own name. */
+  const paintRing = (src: string, centre: readonly [number, number], radius: number, layer: string, space: string = MODEL_SPACE): void => {
+    derived.push({ src, type: TYPE_CIRCLE, space, layer: on(layer), closed: true, points: ringPoints(centre, radius, VERTICES) });
+  };
+
+  /** A text an instance PAINTED — block geometry that looks like a label and is not one. */
+  const paintText = (src: string, said: string, centre: readonly [number, number], layer: string, space: string = MODEL_SPACE): void => {
+    derived.push({ src, type: TYPE_TEXT, space, layer: on(layer), text: said, height: LABEL_HEIGHT, points: [[...centre]] });
+  };
+
+  /** A bubble drawn as ONE block: its ring is paint, its label is an attribute row, both its own. */
+  const blockBubble = (spec: BubbleSpec, tag: string): string => {
+    const key = instance(LAYER_BUBBLES);
+    paintRing(key, spec.centre, spec.radius, LAYER_BUBBLES);
+    attributes.push({ src: key, tag, text: spec.text, height: LABEL_HEIGHT });
+    return key;
   };
 
   caption(CAPTION_PLAN, PLAN_AT);
@@ -375,9 +436,42 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
     line([0, -35], [0, -5], LAYER_LINES);
   }
 
+  if (scenario === SCENARIO.BLOCK_DRAWN) {
+    // The same five bubbles the `grid-plan` cluster draws, drawn as five BLOCKS: each instance
+    // paints its own ring and carries its own label. Their tags differ between the two families
+    // because a tag is a name, and L-CAD-07 reads a grid off what a text SAYS and never off a name.
+    blocks.bubbles = PLAN_BUBBLES.map((spec) => blockBubble(spec, normalisedLabelOf(spec.text)?.family === FAMILY_LETTER ? TAG_GRID : TAG_AXIS));
+
+    // An instance that PAINTS its own label: one round ring about one bare letter, and not one
+    // attribute row — a picture of a bubble, standing in the middle of the plan it would otherwise
+    // georeference. What tells it from a bubble is where its label came from, and nothing else.
+    blocks.paintedLabel = instance(LAYER_BUBBLES);
+    paintRing(blocks.paintedLabel, [40, -50], RADIUS, LAYER_BUBBLES);
+    paintText(blocks.paintedLabel, "F", [40, -50], LAYER_LABELS);
+
+    line([-5, -30], [55, -30], LAYER_LINES);
+    line([-30, -5], [-30, -30], LAYER_LINES);
+    line([0, -35], [0, -5], LAYER_LINES);
+    line([595, -5], [640, -5], LAYER_LINES);
+    line([595, -15], [640, -15], LAYER_LINES);
+  }
+
   // The paper layout: a sheet's own furniture, which L-CAD-06 does not partition at all.
   originals.push({ key: next(), type: TYPE_TEXT, space: PAPER_SPACE, layer: "TITLEBLOCK", text: "S-101 GENERAL ARRANGEMENT", height: 3, points: [[5, 5]] });
   originals.push({ key: next(), type: TYPE_LINE, space: PAPER_SPACE, layer: "TITLEBLOCK", points: [[0, 0], [297, 210]] });
+
+  if (scenario === SCENARIO.BLOCK_DRAWN) {
+    // A KEY PLAN on that sheet: ONE instance painting a miniature of the building's grid — eleven
+    // small rings, each about a bare label the block PAINTS, and not one attribute row between them.
+    // A perfectly formed grid signature, drawn as a picture, on a layout nobody partitions.
+    const keyPlan = instance(LAYER_BUBBLES, PAPER_SPACE);
+    blocks.keyPlan = keyPlan;
+    KEY_PLAN_LABELS.forEach((said, index) => {
+      const centre: [number, number] = normalisedLabelOf(said)?.family === FAMILY_LETTER ? [KEY_PLAN_AT[0] + index * KEY_PLAN_PITCH, KEY_PLAN_AT[1]] : [KEY_PLAN_AT[0] - KEY_PLAN_PITCH, KEY_PLAN_AT[1] - index * KEY_PLAN_PITCH];
+      paintRing(keyPlan, centre, KEY_PLAN_RADIUS, LAYER_BUBBLES, PAPER_SPACE);
+      paintText(keyPlan, said, centre, LAYER_BUBBLES, PAPER_SPACE);
+    });
+  }
 
   const graph: Record<string, JsonValue> = {
     entitygraph_version: 2,
@@ -389,8 +483,8 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
     ] as unknown as JsonValue,
     dropped_layouts: [],
     entities: originals.map((record) => ({ ...record, colour: CHANNELS })) as unknown as JsonValue,
-    derived: [],
-    block_attributes: [],
+    derived: derived.map((record) => ({ ...record, colour: CHANNELS })) as unknown as JsonValue,
+    block_attributes: attributes as unknown as JsonValue,
     counters: [],
   };
 
@@ -398,13 +492,13 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
     left < right ? -1 : left > right ? 1 : 0,
   );
 
-  return { scenario, json: JSON.stringify(graph), graph, originals, anchorOf, excluded, layers };
+  return { scenario, json: JSON.stringify(graph), graph, originals, derived, attributes, blocks, anchorOf, excluded, layers };
 }
 
 /* ------------------------------------------------------------------ the acceptance's own reading */
 
 /** Where a record stands: the mean of the points it is drawn from (AC-1's vertex centroid). */
-function centroidOf(record: Drawn): [number, number] {
+function centroidOf(record: { points?: number[][] }): [number, number] {
   const points = record.points ?? [];
   const summed = points.reduce<[number, number]>((held, point) => [held[0] + (point[0] ?? 0), held[1] + (point[1] ?? 0)], [0, 0]);
   return [summed[0] / points.length, summed[1] / points.length];
@@ -424,7 +518,7 @@ const FEWEST_ROUND_VERTICES = 5;
  * whether the ring is a circle at all, and what "inside" it means. A second radius derived a second
  * way would be a second rule, and the two would draw different boundaries (B-19, L-CAD-07).
  */
-function roundnessOf(ring: Drawn): { centre: [number, number]; radius: number } | null {
+function roundnessOf(ring: { points?: number[][] }): { centre: [number, number]; radius: number } | null {
   const points = ring.points ?? [];
   if (points.length < FEWEST_ROUND_VERTICES) return null;
   const centre = centroidOf(ring);
@@ -456,6 +550,12 @@ export function normalisedLabelOf(text: string): { label: string; family: string
  * is a bare letter or a bare numeral; each family georeferenced along the world axis its bubbles
  * really spread along; and one minimum spacing for the whole view.
  *
+ * The same signature, read structurally where a drawing draws it as ONE thing: an instance whose
+ * paint holds exactly one round closed ring and whose attributes hold exactly one row saying a bare
+ * label is that bubble, keyed by the instance itself, because L-CAD-03 makes an original entity the
+ * only thing a source key names. A label the instance PAINTED is not a label it says — that is a
+ * picture of a bubble, and the two readings are told apart by where the label came from.
+ *
  * Derived, never transcribed (B-19): an artifact that changes changes the expectation with it.
  */
 export function expectedGridRows(built: BuiltGridArtifact, within: readonly string[] | null = null): Omit<GridAxisRow, "viewKey">[] {
@@ -479,6 +579,17 @@ export function expectedGridRows(built: BuiltGridArtifact, within: readonly stri
     const read = normalisedLabelOf(only.text ?? "");
     if (read === null) continue;
     found.push({ bubbleKey: ring.key, labelKey: only.key, label: read.label, family: read.family, centre });
+  }
+
+  for (const record of standing) {
+    const painted = built.derived.filter((piece) => piece.src === record.key && piece.closed === true).map(roundnessOf);
+    const ring = painted.filter((round) => round !== null);
+    if (ring.length !== 1) continue;
+    const rows = built.attributes.filter((row) => row.src === record.key);
+    if (rows.length !== 1) continue;
+    const read = normalisedLabelOf(rows[0]!.text);
+    if (read === null) continue;
+    found.push({ bubbleKey: record.key, labelKey: record.key, label: read.label, family: read.family, centre: ring[0]!.centre });
   }
 
   // Each family georeferences along the world axis its own bubbles spread along.

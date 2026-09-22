@@ -9,6 +9,14 @@
 // (L-CAD-08 resolves those roles from geometry statistics, never from a name), and the signature
 // decides everything after that.
 //
+// A drawing may draw that same signature as ONE thing: a block instance whose paint is the circle and
+// whose attribute is the label. The signature is then read structurally — the ring and the label come
+// out of the same original, which is a tighter bond than "inside this circle" and not a second rule
+// about what a bubble is (`bubblesAmong`). The label is read from the instance's own ATTRIBUTES and
+// never from its paint: a block that PAINTS its letters has drawn a picture of a grid, which is what
+// a key plan on a title sheet is, and a picture of a grid georeferences nothing (L-CAD-03 collects
+// attributes separately from paint for exactly this reason; L-QTY-04).
+//
 // Only layout-plan-class views are read, through the view law's own predicate (L-CAD-06: "only
 // layout-plan-class views may yield instances"). A layout plan the drawing offered no lawful evidence
 // for georeferences as DEFERRED under the register's code — never as a grid guessed off gridlines and
@@ -88,6 +96,21 @@ type Point = readonly [number, number];
 /** An entity as this detection reads one — the artifact's own shape, narrowed to what it needs. */
 type Drawn = EntityGraph["entities"][number];
 
+/** One piece of derived paint: what an original drew, carried by the original (L-CAD-03). */
+type Painted = EntityGraph["derived"][number];
+
+/** One block attribute row: a label an instance carries, collected apart from its paint (L-CAD-03). */
+type Attribute = EntityGraph["block_attributes"][number];
+
+/** Anything drawn from points, original or painted — what roundness and a centroid are read off. */
+type Shape = { readonly points?: readonly (readonly number[])[] };
+
+/** What each original drew and what it carries, by its own source key (L-CAD-03's `src`). */
+type BlockEvidence = {
+  readonly paint: ReadonlyMap<string, readonly Painted[]>;
+  readonly attributes: ReadonlyMap<string, readonly Attribute[]>;
+};
+
 /** One lawful bubble, before its family has been georeferenced against the rest of its view. */
 type Bubble = {
   readonly bubbleKey: string;
@@ -104,6 +127,7 @@ type Bubble = {
  */
 export function detectGrid(evidence: GridEvidence): DetectedGrid {
   const standing = candidatesOf(evidence);
+  const block = blockEvidenceOf(evidence.graph);
 
   const axes: GridAxisRow[] = [];
   const deferrals: GridDeferralRow[] = [];
@@ -112,7 +136,7 @@ export function detectGrid(evidence: GridEvidence): DetectedGrid {
   for (const view of evidence.views) {
     if (!yieldsInstances(view.type)) continue;
     examined += 1;
-    const read = georeference(bubblesAmong(standing.get(view.viewKey) ?? []));
+    const read = georeference(bubblesAmong(standing.get(view.viewKey) ?? [], block));
     if (read.length === 0) {
       deferrals.push({ viewKey: view.viewKey, reason: REFUSALS.GRID_NO_BUBBLE_EVIDENCE.code });
       continue;
@@ -151,18 +175,78 @@ function candidatesOf(evidence: GridEvidence): Map<string, Drawn[]> {
   return byView;
 }
 
+/** Every original's paint and attributes, by its own key — read once per artifact (L-CAD-03). */
+function blockEvidenceOf(graph: EntityGraph): BlockEvidence {
+  const paint = new Map<string, Painted[]>();
+  for (const record of graph.derived) {
+    const held = paint.get(record.src);
+    if (held === undefined) paint.set(record.src, [record]);
+    else held.push(record);
+  }
+  const attributes = new Map<string, Attribute[]>();
+  for (const row of graph.block_attributes) {
+    const held = attributes.get(row.src);
+    if (held === undefined) attributes.set(row.src, [row]);
+    else held.push(row);
+  }
+  return { paint, attributes };
+}
+
+/**
+ * The bubble a block instance IS, or null where it is not one. An original standing in the view whose
+ * paint holds exactly one round closed ring and whose attributes hold exactly one row saying a bare
+ * label is a bubble centred on that ring: the circle and the letter came out of one original, which
+ * is what "this letter is inside that circle" was ever a way of establishing (L-CAD-07).
+ *
+ * Every "exactly one" is the geometric reading's own. Two rings and a reader must choose which circle
+ * the label is in; two attribute rows and the instance says two things, as a ring enclosing a label
+ * and a bar mark says two things — and picking one of them would be a guess (L-QTY-04).
+ *
+ * The label is read from the ATTRIBUTES and never from the paint. A block that paints its own letters
+ * is a picture of a grid — a key plan, a north rose, a title-sheet diagram — and the letters in it
+ * are draughtsmanship rather than a statement about where the building's axes run. The tag those
+ * attributes carry is read by nobody here: a content signature is what the text SAYS, never what a
+ * block calls the slot it says it in (L-CAD-07).
+ */
+function blockBubbleOf(instance: Drawn, block: BlockEvidence): { bubble: Bubble; radius: number } | null {
+  const ring = (block.paint.get(instance.key) ?? [])
+    .filter((record) => record.closed === true)
+    .map(roundnessOf)
+    .filter((round) => round !== null);
+  if (ring.length !== 1) return null;
+
+  const rows = block.attributes.get(instance.key) ?? [];
+  if (rows.length !== 1) return null;
+  const said = (rows[0] as Attribute).text;
+  const family = gridFamilyOf(said);
+  if (family === null) return null;
+
+  // The key is the INSTANCE's own, for both the ring and the label: L-CAD-03 makes an original
+  // entity the only thing a source key names, and neither a piece of paint nor an attribute row is
+  // one. A reading that minted a key for either would cite an atom the artifact does not publish.
+  const round = ring[0] as { centre: Point; radius: number };
+  return {
+    bubble: { bubbleKey: instance.key, labelKey: instance.key, label: normaliseGridLabel(said), family, centre: round.centre },
+    radius: round.radius,
+  };
+}
+
 /**
  * The lawful bubbles among one view's candidates: for each round closed ring, the one text standing
  * inside it, where that text says a bare label. "Exactly one" is the whole of it — a ring enclosing a
  * label and a dimension mark says two things, and a reading that picked one of them would be a guess.
+ * Beside that geometric reading stands the structural one (`blockBubbleOf`), for the drawing that
+ * draws the same signature as a single block instance.
  *
  * One LABEL is one bubble. Draughtsmen ring a bubble twice — an inner circle and an outer one about
  * the same letter — and each ring encloses exactly that text, so read ring by ring the drawing grows
  * an axis it does not have: a duplicate at the same position, and a backbone claiming twice the grid
  * lines. Among the rings enclosing one text the SMALLEST is the bubble, which is the one the tightest
- * reading of "inside this circle" names (L-CAD-07).
+ * reading of "inside this circle" names (L-CAD-07). A block-drawn bubble is held by that same rule,
+ * under the key of the instance its label was read from — it carries its one ring with it, so the
+ * instance is its own tightest ring.
  */
-function bubblesAmong(candidates: readonly Drawn[]): Bubble[] {
+function bubblesAmong(candidates: readonly Drawn[], block: BlockEvidence): Bubble[] {
   const texts = candidates.filter((entity) => typeof entity.text === "string" && (entity.points ?? []).length > 0);
 
   const tightest = new Map<string, { bubble: Bubble; radius: number }>();
@@ -184,6 +268,13 @@ function bubblesAmong(candidates: readonly Drawn[]): Bubble[] {
       bubble: { bubbleKey: ring.key, labelKey: only.key, label: normaliseGridLabel(said), family, centre: round.centre },
       radius: round.radius,
     });
+  }
+
+  for (const instance of candidates) {
+    const drawn = blockBubbleOf(instance, block);
+    if (drawn === null) continue;
+    const held = tightest.get(drawn.bubble.labelKey);
+    if (held === undefined || held.radius > drawn.radius) tightest.set(drawn.bubble.labelKey, drawn);
   }
   return [...tightest.values()].map((held) => held.bubble);
 }
@@ -300,7 +391,7 @@ function spanOf(values: readonly number[]): number {
  * (L-CAD-07 asks for a circle); the mean carries the rest, because a circle crosses the seam
  * flattened into a polygon and no one of its vertices is the true radius (L-CAD-02).
  */
-function roundnessOf(ring: Drawn): { centre: Point; radius: number } | null {
+function roundnessOf(ring: Shape): { centre: Point; radius: number } | null {
   const points = ring.points ?? [];
   if (points.length < FEWEST_ROUND_VERTICES) return null;
   const centre = centroidOf(ring);
@@ -310,8 +401,8 @@ function roundnessOf(ring: Drawn): { centre: Point; radius: number } | null {
   return radii.every((radius) => Math.abs(radius - mean) <= ROUNDNESS_TOLERANCE * mean) ? { centre, radius: mean } : null;
 }
 
-/** Where an entity stands: the mean of the points it is drawn from — a ring's own vertex centroid. */
-function centroidOf(entity: Drawn): Point {
+/** Where a thing stands: the mean of the points it is drawn from — a ring's own vertex centroid. */
+function centroidOf(entity: Shape): Point {
   const points = entity.points ?? [];
   if (points.length === 0) return [0, 0];
   const summed = points.reduce<[number, number]>((held, point) => [held[0] + (point[0] ?? 0), held[1] + (point[1] ?? 0)], [0, 0]);
