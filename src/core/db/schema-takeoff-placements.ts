@@ -23,6 +23,24 @@ import { check, doublePrecision, index, integer, pgTable, primaryKey, text, time
 export type { ExpansionDeferralReason };
 
 /**
+ * The shapes a plan NOTE states about its member (I-303). One member — the circle — because that is
+ * the one shape a plan writes in words a schedule has no cell for: `C7 Ø450 PORCH COLUMN` is a
+ * circular column whose schedule row states `450x450` under every band, and the two are not in
+ * disagreement (b = d = 450 either way; a B x D column schedule has no shape column). THE PLAN STATES
+ * THE SHAPE, THE SCHEDULE STATES THE SIZE.
+ *
+ * Its home is here for the reason `GRID_FAMILIES` and `SECTION_UNITS` have theirs in the seam: the
+ * store's CHECK is written from the roster, and the reader that publishes a shape NAMES the member it
+ * means against this type (`satisfies`) rather than restating the list — so the roster keeps one home
+ * and a shape nobody registered cannot be written however it reached the insert (B-17, ARCH-01: core
+ * imports nothing above it, so the list cannot travel the other way).
+ */
+export const MEMBER_SHAPES = ["ROUND"] as const;
+
+/** One shape a note states, drawn from the closed roster above. */
+export type MemberShape = (typeof MEMBER_SHAPES)[number];
+
+/**
  * L-CAD-07's placement: one row per member a layout-plan view places — the fifth stage of R-TO-030's
  * stored partition.
  *
@@ -35,6 +53,14 @@ export type { ExpansionDeferralReason };
  * nobody can trace back to the two entities it was read from is a reading nobody can audit
  * (L-CAD-03). `member_family` names the schedule family of the same record whose family is this mark,
  * and is null where the record's schedules name none — a join, never a constant (R-TO-031).
+ *
+ * The `note_*` columns carry what a plan NOTE naming this mark said about THIS member (I-303: a note
+ * that names a mark is evidence about that member, so the member is not one of the plan's typical and
+ * is not expanded by the view's authored typical range — it stands on the level the plan draws, or
+ * over the range its own note states, and it only ever NARROWS). They are STORED rather than re-read
+ * because the two readers of that fact must answer the same rows: the rebuild reads the drawing and
+ * the re-expansion reads only these rows, and two spellings of one fact are two answers that drift
+ * (B-17, L-REG-04).
  *
  * Rewritten per ingest with the views it was read off, in the same transaction, so the app role holds
  * a DELETE here for the reason it holds one on the views (L-REG-04, R-TO-030).
@@ -59,6 +85,23 @@ export const placements = pgTable(
     gridNumeral: text("grid_numeral"),
     outlineKey: text("outline_key").notNull(),
     markKey: text("mark_key").notNull(),
+    // The third entity a noted member was read from, beside its outline and its mark: the note's own
+    // source key. ITS PRESENCE IS THE WHOLE DISCRIMINATOR — a row carrying one is a member some note
+    // named, a row carrying none is one of the plan's typical — so there is no flag and no code beside
+    // it for a reader to disagree with (I-303, L-CAD-03).
+    noteKey: text("note_key"),
+    // And the note's own words, kept beside the reading: a reading never replaces what was drawn
+    // (L-CAD-03), and a person auditing a narrowed member reads the sentence that narrowed it.
+    noteText: text("note_text"),
+    // The two ends of the range the note STATED, as the labels it wrote them as — `STARTS AT 1F` is
+    // `1F` and an open top. BOTH NULL UNDER A NOTE IS NORMAL AND MEANS SOMETHING: the note stated no
+    // range at all, which I-303 reads as the level the plan DRAWS, alone. It can never mean "covers
+    // everything": the reader cannot answer a band with both ends open at all, and `bandOpen` is what
+    // that would have said (`@/core/offers/contract`).
+    noteFromLabel: text("note_from_label"),
+    noteToLabel: text("note_to_label"),
+    // The shape the note stated, or null where it stated none — closed at the roster above.
+    noteShape: text("note_shape").$type<MemberShape>(),
     memberFamily: text("member_family"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -69,6 +112,20 @@ export const placements = pgTable(
     // The class roster is the catalogue's and it is closed, so the store closes it: a class outside
     // it cannot be written at all, however it reached the insert (R-TO-032).
     check("placements_element_type_closed", statement`${table.elementType} in (${statement.raw(closedList(ELEMENT_TYPES))})`),
+    // A note is stored WHOLE or not at all: a key with no words is a citation nobody can read back,
+    // and words with no key are a reading of nothing (L-CAD-03).
+    check("placements_note_read_whole", statement`num_nonnulls(${table.noteKey}, ${table.noteText}) <> 1`),
+    // And nothing is STATED under no note. A range label or a shape standing on a row no note named
+    // would be a narrowing with no evidence behind it, and a narrowing is the one thing I-303 does
+    // (L-QTY-01: never a guess). The converse is not checked, because a note that stated no range is
+    // exactly C7's note and says its member stands on the level the plan draws.
+    check(
+      "placements_note_statement_under_a_note",
+      statement`${table.noteKey} is not null or num_nonnulls(${table.noteFromLabel}, ${table.noteToLabel}, ${table.noteShape}) = 0`,
+    ),
+    // The shape roster is the reader's and it is closed, so the store closes it: a shape outside it
+    // cannot be written at all, however it reached the insert (I-303, R-TO-032).
+    check("placements_note_shape_closed", statement`${table.noteShape} is null or ${table.noteShape} in (${statement.raw(closedList(MEMBER_SHAPES))})`),
     // The read a drawing's own overlay makes: the placements that stand for it now.
     index("placements_by_drawing").on(table.tenantId, table.drawingId),
     // And the read the expansion makes: one view's placements.

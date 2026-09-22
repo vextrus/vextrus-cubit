@@ -35,7 +35,13 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
 /**
  * Every pair the shards recorded before AM-11 moved a line, keyed `<ruleId>@<version>` (L-MEA-01).
  *
- * Re-baselined by the SLABS leaf for TWELVE ADDED pairs and nothing else — L-MEA-09 (AM-02) and
+ * Re-baselined by the CIRCULAR COLUMN for ONE ADDED pair and nothing else — L-FRM-02's other prism,
+ * `rcc.column.circular.concrete@1`, the quarter of π d² a column of circular section holds over a
+ * storey, recorded in `../columns/columns.methods.json` beside the rectangular pair it stands next
+ * to and cited by the platform edition `IS1200_IN @ 2027.03`. The roster grew by that one key —
+ * thirty-six pairs to thirty-seven — and no pair standing before it moved (B-19, B-20).
+ *
+ * Re-baselined before that by the SLABS leaf for TWELVE ADDED pairs and nothing else — L-MEA-09 (AM-02) and
  * L-FRM-02/03's plate and its taper, its soffit and its edge band, a sunken panel's drop, AM-06 §4's
  * shear-wall storey and AM-06 §3's straight flight and rectangular landing, each for the concrete it holds and
  * the formwork it is cast against, recorded in `../slab-wall-stair/slab-wall-stair.methods.json` and
@@ -78,6 +84,7 @@ const PAIRS_BEFORE: readonly string[] = Object.freeze([
   "piling.bored.length@1",
   "rcc.beam.concrete@1",
   "rcc.beam.formwork@1",
+  "rcc.column.circular.concrete@1",
   "rcc.column.concrete@1",
   "rcc.foundation.prism_poly@1",
   "rcc.foundation.prism_rect@1",

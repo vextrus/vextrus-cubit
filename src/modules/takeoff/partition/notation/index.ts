@@ -134,6 +134,51 @@ export function parseSizePair(text: string): SizePair | null {
   return { width: width.value, depth: depth.value, unit };
 }
 
+/** A round section as a drawing writes one: the diameter across it, in the unit it stated or in none. */
+export type Diameter = { readonly diameter: number; readonly unit: SectionUnit | null };
+
+/**
+ * The sign standing BEFORE the figure — `Ø450`, which is the `%%C450` a DXF carries once L-CAD-02's
+ * control code is resolved — and the sign or the word standing AFTER it — `450Ø`, `450 MM DIA`. One
+ * statement, written with the draughtsman's hand the other way round; a drawing that says a circle
+ * of four hundred and fifty says it either way, and a reader that held only one spelling would read
+ * half the sheets.
+ */
+const DIAMETER_BEFORE = /^\s*Ø\s*/;
+const DIAMETER_AFTER = /\s*(?:Ø|DIA\.?)\s*$/i;
+
+/**
+ * The diameter a round member is written with, or null where the text writes no diameter at all.
+ * The unit is the one the drawing stated, taken exactly as a SIDE of a pair takes one (`sideOf`): a
+ * `450` beside the sign is a figure nobody gave a unit to and keeps none, while `18" DIA` carries
+ * the inch the draughtsman wrote (L-MEA-01). One shape, one reading, wherever it stands.
+ *
+ * This answers the FIGURE and nothing else. The area of a circle is π/4 d², and computing it here
+ * would put a quantity in the grammar: a parser says what the drawing said, and what that figure
+ * then measures is the method's question (B-17, R-TO-031 — nothing here reaches a model).
+ *
+ * It is a RECOGNISER and not a scanner: the sign must stand at one END of the text, so the whole
+ * note `C7 Ø450 PORCH COLUMN` answers null even though a diameter is written inside it. The note
+ * reader puts this function to a note's tokens ONE AT A TIME; a version that scanned a sentence
+ * would read a diameter out of prose — `89 NOS. Ø500 BORED PILES, TOE AT EL -23.165` would become a
+ * 500 section for whatever member the sentence happened to name (L-QTY-01: never a guess).
+ *
+ * `16Ø` reads AS a diameter of sixteen, and that is not a mistake about a bar: the string does say
+ * a circle of sixteen, and what makes it a bar rather than a section is the column it stands under,
+ * not the glyph. The caller asking the question knows which column it is holding; the grammar does
+ * not, and inventing a threshold here ("under 32 is a bar") would be this file deciding a thing no
+ * drawing stated.
+ */
+export function parseDiameter(text: string): Diameter | null {
+  const said = normaliseNotation(text);
+  for (const sign of [DIAMETER_BEFORE, DIAMETER_AFTER]) {
+    if (!sign.test(said)) continue;
+    const side = sideOf(said.replace(sign, ""));
+    if (side !== null) return { diameter: side.value, unit: side.unit };
+  }
+  return null;
+}
+
 /** How a schedule heads a column with the unit its cells are written in, per member of the roster. */
 const HEADER_UNITS: readonly (readonly [string, SectionUnit])[] = Object.freeze([
   ["MM", UNIT.mm],

@@ -1214,6 +1214,131 @@ second reason, ruled by s-scale I-160 and recorded here in the overlay's own ter
   its unit already (`SIZE (mm)`, `L X B MM`), and the whole families list is byte-identical before
   and after (sha256 `6eb675d480be8e93…`, AM-01).
 
+**Amended by session 6 (the M3 column-concrete door; L-CAD-07 read with L-CAD-06 and L-QTY-04):**
+
+- **I-303 — a plan note that NAMES a mark is evidence about that MEMBER, and a member so noted is not
+  one of the plan's typical (L-CAD-07, L-CAD-06, L-QTY-04, L-QTY-06, L-QTY-01).** L-CAD-07's
+  expansion is a statement about a VIEW — "a `TYPICAL FLOOR PLAN` sighting nine columns across six
+  levels mints 54 instance rows" — and the person who authored `COLUMN LAYOUT PLAN` over GF → 6F said
+  what the plan is typical OF. A note the SAME plan writes against ONE mark says that THAT member is
+  not one of the typical. The two are not in competition, and reading them as though they were is
+  what mints a column on every storey for two marks the building stands almost nowhere:
+  F-RCC6-BNBC's mark C7 is the porch column and exists on FDN and GF alone (2 members, stack C7X),
+  while the expansion mints it over all seven of S-10's storeys; its mark C5 is the floating column
+  and exists on 1F..6F (6 members, stack B4), while the expansion mints it on GF, where the building
+  has no C5 at all. So the member a note names stands on the level the plan DRAWS it on, or over the
+  range its own note STATES — and never over the view's authored typical range.
+  **The trigger is five conjunctive statements about one entity, every one of them testable.** (1) It
+  is an ORIGINAL model-space TEXT assigned to a LAYOUT-PLAN-class view. Three arms, and this fixture
+  writes a real string that falls to a different one of them: `C4 3RD-4TH BARS REVISED; ISSUED FO` is
+  the revision row every paper layout's title block carries, and it stands in PAPER space; `C2 GF TO
+  2ND:` is the restated-in-inches note under S-11's table, and its view classifies SCHEDULE, which
+  L-CAD-06 says yields types and dimensions and never instances; derived paint is no original and is
+  not a thing a source key names (L-CAD-03, I-291). Each names a mark and then names two levels, and
+  a reader that took either would pin seven C4 placements to 3F-4F and eight C2 placements to GF-2F —
+  five and four storeys UNDER on the two biggest mark families on the sheet, L-QTY-06's 3 % arm
+  measured in whole floors. (2) Its FIRST whitespace-delimited token passes `classOfMark` and is not a
+  framed class: a draughtsman writes the subject of a note first, and a framed member is refused for
+  the reason the mark reader refuses one — a beam is placed from the pair of edge lines it is drawn
+  as and not from an outline standing near its text, so a note about one has no member here to be
+  evidence about (L-MEA-09, `placement/runs.ts`). (3) The text carries MORE than that token: a text
+  whose whole content is a mark IS a mark and is the mark reader's (`markOf`, `placement/detect.ts`),
+  and the guard asks `classOfMark` of the WHOLE text first, because whitespace is the only thing
+  standing between `C7 450` and the mark `C7450`, and a text the mark reader takes may never also be
+  read as a note about itself. (4) The remainder carries at least one reading the grammar ALREADY
+  takes, and the roster is closed at two — a storey word, or a diameter or a pair of sides. A note is
+  read for what it says about a member's SPAN and its SHAPE and for nothing else, so `C4 SEE DETAIL
+  3/S-12` is a cross-reference and is not read: the grammar has a `Reference` reading for it, that
+  reading is not on this roster, and a text saying only where to look says nothing about where a
+  member stands. (5) It stands within the plan's own near-anchor reach of the mark — `nearAnchor ×
+  spacing`, the edition's content-scaled share of this view's own minimum grid spacing, which is the
+  reach every other placement question on this plan is already answered at (L-MEA-01, L-CAD-07).
+  **NO LAYER is consulted, here or anywhere in the reading**, and the temptation is named in writing
+  because it is real: on this fixture every note read here stands on `S-TEXT2` while every mark stands
+  on `S-TEXT`, so a layer test would pass tonight's door and mean nothing on the next drawing.
+  L-CAD-07 reads a drawing by content signature and never by layer names, the mark reader this
+  partitions against reads no layer either, and a note is what a text SAYS rather than where a
+  draughtsman filed it. **What a note ANSWERS**, off its remainder: no storey word at all → the level
+  the plan draws, alone (`C7 Ø450 PORCH COLUMN` → GF); one storey word beside the bounding word
+  `STARTS` → that storey to the far end of the view's span (`C5 FLOATING COLUMN OVER TG1 (STARTS AT
+  1F)` → 1F..6F, read through core's own `bandCovers`, whose "an open end is no bound: a band stating
+  only its start runs to the top of whatever it is read against" already means exactly what `STARTS
+  AT` says — B-17, the band has one meaning and this is not a second one) — **and nothing else. A
+  remainder stating neither a shape nor a `STARTS`-bounded range is not read as a note at all**: it
+  names a mark and then says something else, and its member expands exactly as the plan's typical
+  range found it. That last arm is the fence that makes this rule safe rather than merely narrow, and
+  it is worth saying why, because the unfenced version passes this fixture. A note stating no range is
+  NOT inert — the first arm puts its member on the level the plan draws and takes every other storey
+  away — so a reader that took any mark-headed sentence for a note would collapse a mark's span on the
+  strength of a cross-reference. `C4 SEE DETAIL 3/S-12` and this drawing's own `C4 3RD-4TH BARS
+  REVISED; ISSUED FO` and `C2 GF TO 2ND:` are each refused by their own WORDS here, rather than by the
+  accident that the first two are drawn in paper space and on a schedule sheet: those two fences are
+  true of THIS drawing and are no guarantee about the next one, and a reading that is only safe
+  because of where a text was filed is not a reading (L-QTY-04: the drawing was silent, so never a
+  silent default). **The invariant that makes the whole reading safe: I-303 only ever NARROWS.** It may
+  never place a member on a storey the view's span does not reach, so no reading any note admits can
+  move a published cell in the OVER direction — the one direction L-QTY-04 blocks hard and never
+  discloses and the one arm L-QTY-06 holds at +0 %. A note misread costs floors of UNDER, which is a
+  defect and is visible in the band; it cannot cost a cubic metre of over. **The singularity guard,
+  and it is not belt-and-braces.** A note excepts its member only where exactly ONE note names the
+  mark AND that mark names exactly ONE member. F-RCC6-BNBC's S-23 LIFT CORE PLAN writes THREE notes
+  naming `SW1` — `SW1 L=2563` (`DXF_HANDLE:1CB3`, `DXF_HANDLE:1CB4`) and `SW1 L=2493`
+  (`DXF_HANDLE:1CB5`), each stating a leg's length and none of them a storey — over a mark that names
+  27 members, three legs on each of FDN..ROOF. Every one of the three passes the five statements. A
+  blunt rule would let any of them except the mark and collapse the whole core onto the one level
+  S-23 draws: 24 members of shear wall gone, the over-narrowing this Interpretation exists to forbid.
+  Three notes about one mark are three statements, this stage is in no position to choose between
+  them, so it takes none and the mark expands as it always did (L-QTY-01: never a guess). The fourth
+  `SW1` text on that sheet is the bare mark, refused one fence earlier by (3). **The weakest joint,
+  recorded as one rather than hidden.** The bounding roster is ONE WORD, `STARTS`. `FROM`, `ABOVE`
+  and `ONWARDS` are not on it and admitting them would be a hunch — neither fixture writes one, and a
+  word admitted on a hunch is a reading nobody proved (I-293's own rule, applied to itself). The
+  consequence is written down because it is real: `C5 FLOATING COLUMN FROM 1F` states a storey word
+  with no bounding word and no shape, so it clears no arm of the answer and is not read as a note at
+  all — and on this fixture, where the note is the WHOLE of mark C5's evidence, that means C5 is never
+  minted and its six members are never measured. Six members UNDER, which is the direction the band
+  discloses and the direction that cannot bill a cubic metre nobody drew. It is the one place this
+  Interpretation's answer is quietly narrower than the
+  drawing's meaning, and the roster grows by measurement — a drawing that writes one of those words,
+  read and recorded — never by taste. **Measured.** On F-RCC6-BNBC exactly two texts pass all five
+  statements and the guard, both on S-10's COLUMN LAYOUT PLAN: `C7 Ø450 PORCH COLUMN`
+  (`DXF_HANDLE:9BA`) and `C5 FLOATING COLUMN OVER TG1 (STARTS AT 1F)` (`DXF_HANDLE:9BC`), the two
+  notes whose absent reading carries every storey of the column-concrete campaign over the band today
+  — GF by 0.87 %, 1F and 2F by 1.35 %, 3F and 4F by 1.71 %, 5F and 6F by 2.11 %, against a band that
+  admits 0 % over. S-10 writes no C5 MARK text at all — its mark roster is C2×8, C4×7, C3×6, C1×3,
+  C6×1, C7×1, `C-4`×1, `C-2`×1 — because the sheet tags only its GF columns and mark C5 has no GF
+  member; C5's only geometry there is a DASHED rectangle, which is why the note is the whole of the
+  evidence. On byte-frozen F-RCC6 nothing moves (AM-01): of the 1,157 strings its DXF writes under
+  group code 1, eighteen are a mark-looking token followed by more words and they spell seven
+  distinct texts (`T16 @ 125 B/W ON 3 PILES` and six siblings), every one of them opening `T` —
+  which `CLASS_OF_PREFIX` deliberately does not name, `S` being nothing and `T` being nothing so that
+  a stair mark is never read as a shear wall — so not one text of that fixture passes statement (2).
+- **I-304 — the plan states the SHAPE, the schedule states the SIZE, and that is not a disagreement
+  (L-CAD-08, L-REG-03, L-QTY-03).** S-10 writes `C7 Ø450 PORCH COLUMN` against the porch mark and
+  S-11's COLUMN SCHEDULE states `450x450` for C7 under all four of its band headers. Read as two
+  claims about one field they contradict, and L-REG-03 would have them declared and never resolved;
+  they are not two claims about one field. b = d = 450 either way, so the two agree on every number
+  either of them states, and a schedule whose columns are a mark and a B × D section has no cell in
+  which to write "circle" — the plan is the only surface in this set on which the shape of a column
+  can be said at all. So each is read for the question it is the drawing's own answer to: the
+  schedule states the size, the note on the plan states the shape. The in-cell section sketch is not
+  a third statement. It is paint under a caption that says so — the view is captioned `COLUMN
+  SCHEDULE  (SECTIONS N.T.S.)` — and it is in fact drawn as a rectangle 900 wide by 900·d/b high with
+  four rod circles at its corners for C7 exactly as for C1, so a reader who took it for a statement
+  would be told the porch column is square by a picture the draughtsman scaled off nothing. A REAL
+  disagreement is a different thing and is declared, never resolved silently (L-REG-03): a round note
+  standing over a schedule cell whose two sides DIFFER refuses by name, `SECTION_NOT_CIRCULAR`, and
+  publishes nothing (L-QTY-04). **The measured fact that makes this necessary, and it is the opposite
+  of what the sheet looks like.** S-10 draws the porch column TWICE. At the porch centre, on layer
+  `Column`, the artifact carries BOTH an LWPOLYLINE of four vertices measuring 450.0 × 450.0 (handle
+  `994`) AND a CIRCLE of radius 225.0 (handle `9B9`) — the fixture's `circular` flag lives on the MARK
+  spec while its column-drawing routine branches on the STACK, which carries only `porch`. Both are
+  closed rings that clear `outlineOf`, they share a centre, and `mergedByMark` keeps the FIRST of a
+  group in the artifact's own order: the square. So the drawn geometry cannot decide the shape, and
+  the pleasing reading — "the plan draws a circle and the note merely corroborates it" — is true of
+  the bytes and unusable by the product. The circle is cited nowhere; the note is the evidence, and
+  `DXF_HANDLE:9BA` is the source key a circular C7 line stands on (L-QTY-03).
+
 ## 1. Layout and hierarchy
 
 The stage still dominates. The panel recedes exactly as the layers panel does — same fill

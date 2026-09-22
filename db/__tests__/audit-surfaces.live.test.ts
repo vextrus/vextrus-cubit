@@ -207,6 +207,11 @@ describe("I-37 — an armed ledger with rows reads itself: the outcome beside ea
         repudiated: 0,
         affirmed: 0,
         awaiting: 1,
+        // How many of the judged calls stated a confidence at all — the population both means are
+        // taken over. One here, and equal to `confirmed`, because view-caption is asked as a Choice
+        // and a Choice states one. A question asked as a Noul would read 0 beside a judged count
+        // above 0, which is what tells "judged, nothing to average" from "nobody judged it yet".
+        confidenceStated: 1,
         meanConfidenceWhenRight: "0.910",
         meanConfidenceWhenWrong: null,
       },

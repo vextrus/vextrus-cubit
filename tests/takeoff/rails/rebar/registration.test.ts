@@ -56,7 +56,7 @@ import {
  * that head (L-MEA-01, B-20). What this case grades is unchanged — the five pairs are cited by the
  * edition the seed names, whichever version that has become.
  */
-const SEED_EDITION = { name: "IS1200_IN", version: "2027.02" };
+const SEED_EDITION = { name: "IS1200_IN", version: "2027.03" };
 
 /** Is this pair one of this shard's five? The shard owns `rcc.rebar.*` and the detailing edition. */
 function isRebarPair(pair: MethodPairShape): boolean {

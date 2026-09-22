@@ -221,7 +221,21 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over each key, its SQL table name and its column names in code-point order — the shape
  * half of the same baseline. Re-baselined with TABLES_BEFORE, and never on its own.
  *
- * Re-baselined for ONE ADDED TABLE and TWO ADDED COLUMNS, the ledger's outcome column and what the
+ * Re-baselined for FIVE ADDED COLUMNS on one standing table and NO table at all — `placements`
+ * (./schema-takeoff-placements.ts) gains `note_key`, `note_text`, `note_from_label`, `note_to_label`
+ * and `note_shape`, the plan note a placement was read with (Interpretation I-303, db/migrations/
+ * 0056_member-note-and-circular-column.sql). A plan note that names a mark is evidence about that
+ * MEMBER: the member it names is not one of the plan's typical, so it is not expanded by the view's
+ * authored typical range but stands on the level the plan draws, or over the range its own note
+ * states. It is stored on the row rather than re-read because the partition is built two ways —
+ * `rebuild` reads the drawing, `reexpand` reads only these rows — and a reading living in one of them
+ * would give the two a different answer for the same drawing (B-17). Every one is nullable, so not a
+ * standing row moved and no backfill was owed. TABLES_BEFORE is untouched — 65 keys before and after,
+ * the assertion above holds unedited — no table's SQL name moved, and no existing column of any table
+ * changed; the previous digest was
+ * d5bc069b60d597f717e9a2c7942ef84f88a349083c2138308691f3234e8edcce.
+ *
+ * Re-baselined before that for ONE ADDED TABLE and TWO ADDED COLUMNS, the ledger's outcome column and what the
  * model said of its answer (./schema-model.ts, session 4's Jev programme, L-AI-01, L-AI-02):
  * `modelCallOutcomes` — one append-only row per person's judgment of a proposed call, CONFIRMED,
  * OVERRULED, REPUDIATED or AFFIRMED, keyed to the call by the composite (tenant, call) key — and on
@@ -277,7 +291,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * table's SQL name or column moved with it; the previous digest was
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "d5bc069b60d597f717e9a2c7942ef84f88a349083c2138308691f3234e8edcce";
+const COLUMNS_DIGEST_BEFORE = "67ccfde82c100befbf5ea691e5e2677974a40dc895b4856bbba95002c7b41c8d";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {

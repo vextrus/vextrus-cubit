@@ -264,6 +264,9 @@ export type SizePair = { width: number; depth: number; unit: string | null } | n
 /** A spacing, as `parseSpacing` reads one (AC-6). */
 export type Spacing = { bar: number | null; spacing: number; unit: string | null } | null;
 
+/** A round section, as `parseDiameter` reads one off a plan's note (AC-6, L-CAD-08). */
+export type Diameter = { diameter: number; unit: string | null } | null;
+
 /** A floor band, as `parseFloorZone` reads one (AC-6). */
 export type FloorZone = { from: string; to: string } | null;
 
@@ -272,6 +275,7 @@ export type NotationSeam = {
   normaliseNotation: (text: string) => string;
   parseFeetInches: (text: string) => number | null;
   parseSizePair: (text: string) => SizePair;
+  parseDiameter: (text: string) => Diameter;
   parseRebarGroups: (text: string) => { n: number; diameterMm: number }[] | null;
   parseSpacing: (text: string) => Spacing;
   parseFloorZone: (text: string) => FloorZone;
@@ -288,6 +292,7 @@ export const NOTATION_CALLS: readonly string[] = [
   "normaliseNotation",
   "parseFeetInches",
   "parseSizePair",
+  "parseDiameter",
   "parseRebarGroups",
   "parseSpacing",
   "parseFloorZone",

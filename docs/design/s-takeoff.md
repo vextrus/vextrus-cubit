@@ -217,6 +217,29 @@ things. Everything in §0 above stands except where an Interpretation here says 
   because the screen showed it: an act beside no proposal is exactly the act it has always been, and
   a call that is not this project's, not this question's, or that refused, files nothing. The
   proposal is not exported: an export is a published reading and a proposal is not one.
+- **I-305 — a circular column is L-FRM-01's PRISM_POLY, and it is billed by its own rule (L-FRM-01,
+  L-FRM-02, L-QTY-03, B-17).** L-FRM-01's geometry union is a CLOSED one — PRISM_RECT · PRISM_POLY ·
+  FRUSTUM_RECT · TAPER_LINEAR · AREA_THICK — and a builder may not amend the Bible, so a round column
+  is not a new member of it. It does not need to be: a circle is a plan that is no rectangle, which
+  is the whole of what PRISM_POLY is for, and the precedent is landed and is cited rather than
+  re-argued. `src/modules/takeoff/rails/foundations/concrete.ts:60-66` reads a bored pile exactly
+  this way — "A pile's shaft is a prism over a plan that is no rectangle — a circle — so it is offered
+  under L-FRM-01's PRISM_POLY like every other non-rectangular prism this leaf reads. What makes it a
+  circle rather than a polygon is the RULE its line names, `rcc.pile.concrete`, whose template prints
+  the π/4 · d² a reader audits (L-QTY-03)." A circular column follows it clause for clause:
+  PRISM_POLY geometry, a rule of its own standing beside the rectangular one
+  (`rcc.column.circular.concrete@1` against `rcc.column.concrete@1`), and a printed formula that
+  states the shape it measured — `count × π × d × d × H ÷ 4`, the quarter of π d² written as a
+  division rather than off a radius nobody read on a drawing, π by its digits rather than its glyph,
+  and `d × d` rather than a power node the tree does not have. Two rules rather than one that took
+  whichever reading it was handed, because a single method prints a sentence that does not say what
+  was measured, and the difference is not decoration: a 450 circle is 78.5 % of a 450 square, which
+  is the whole of what the band refuses. Where the shape comes from is not this Decision's to
+  restate — the plan states the shape and the schedule states the size (viewer.md's I-304) — and what
+  this one records is the consequence for the bill. And the thing being replaced must be named for
+  what it is: measuring the porch column as a 450 × 450 prism because a B × D cell is all the
+  schedule offered is precisely the "silent bounding-box fallback" L-FRM-01 forbids, and it has been
+  shipping.
 
 ## 1. Layout and hierarchy
 

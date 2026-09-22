@@ -1,0 +1,22 @@
+{
+  "parser": "parseDiameter",
+  "why": "L-CAD-08: the round section a plan note states, read off the strings F-RCC6-BNBC really draws — `C7 %%C450 PORCH COLUMN` (S-10, handle 9BA) and `89 NOS. %%C500 BORED PILES` (S-02) — one token at a time. The sign stands at an END of the text or the text states no diameter: a note read whole would take a diameter out of prose, so every sentence here answers null. `16%%C` answers a diameter of sixteen because the string does say a circle of sixteen; what makes it a bar rather than a section is the column it stands under, not the glyph, and that is the caller's question. Every case is the fixture's own save the two sign-after forms (`450Ø`, `450 MM DIA`), which pin that a diameter takes its unit exactly as a side of a pair does (L-MEA-01: a figure nobody gave a unit to keeps none).",
+  "cases": [
+    { "input": "%%C450", "expect": { "diameter": 450, "unit": null } },
+    { "input": "Ø450", "expect": { "diameter": 450, "unit": null } },
+    { "input": "%%C500", "expect": { "diameter": 500, "unit": null } },
+    { "input": "16%%C", "expect": { "diameter": 16, "unit": null } },
+    { "input": "450Ø", "expect": { "diameter": 450, "unit": null } },
+    { "input": "450 MM DIA", "expect": { "diameter": 450, "unit": "mm" } },
+    { "input": "450x450", "expect": null },
+    { "input": "450", "expect": null },
+    { "input": "#5", "expect": null },
+    { "input": "T16", "expect": null },
+    { "input": "8-20%%C", "expect": null },
+    { "input": "10%%C@100/150", "expect": null },
+    { "input": "10%%C@100/150 (TIES)", "expect": null },
+    { "input": "10Ø @ 150 c/c B/W", "expect": null },
+    { "input": "C7 %%C450 PORCH COLUMN", "expect": null },
+    { "input": "89 NOS. %%C500 BORED PILES, TOE AT EL -23.165", "expect": null }
+  ]
+}

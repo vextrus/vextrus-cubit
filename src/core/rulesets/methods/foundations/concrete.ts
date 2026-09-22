@@ -15,7 +15,7 @@
 // than a multiplier a rail folded into a length: "there is no field where a computed value could
 // land" (L-MEA-08), and a reader auditing the line sees how many members the figure is of.
 import type { MethodPair } from "../../editions/content";
-import { K, formulaFrom, over, times, V, type Statement } from "../expr";
+import { K, PI, formulaFrom, over, times, V, type Statement } from "../expr";
 import type { FormulaMethod, MethodVariable } from "../law";
 
 /** The pairs these methods are in force under: an edition cites them, the registry maps them. */
@@ -32,15 +32,10 @@ const AREA: MethodVariable = Object.freeze({ name: "A", dimension: "AREA" as con
 const DIAMETER: MethodVariable = Object.freeze({ name: "d", dimension: "LENGTH" as const });
 const PILE_LENGTH: MethodVariable = Object.freeze({ name: "length", dimension: "LENGTH" as const });
 
-/**
- * π, as the law's own constant rather than a machine's: twenty-one significant digits, which is more
- * than the canon's forty-digit arithmetic loses over a pile and far more than any drawing states.
- *
- * It is a CONSTANT of the tree and not a variable, because nobody reads it off a drawing — the
- * printed formula says `× 3.14159…`, which is what a person auditing a circular section checks
- * (L-QTY-03, B-07).
- */
-const PI = "3.14159265358979323846";
+// π is `../expr`'s, hoisted there beside `K` when the circular COLUMN landed: two leaves measuring a
+// circular section are two methods of ONE constant, and the second spelling is the copy that parts
+// (B-17). The tree below and every figure it computes are unchanged — `K(PI)` over the same
+// twenty-one digits is the same node.
 
 /** `V = count × L × B × D` — the rectangular prism a spread foundation is (L-FRM-02). */
 const PRISM_RECT_TREE: Statement = Object.freeze({ result: "V", expr: times(V("count"), V("L"), V("B"), V("D")) });

@@ -109,6 +109,7 @@ export type {
   GridFamily,
   GridAxis,
   GridDeferralReason,
+  MemberShape,
   SectionUnit,
   RebarZone,
   ScheduleDeferralReason,

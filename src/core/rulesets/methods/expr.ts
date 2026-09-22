@@ -55,6 +55,24 @@ export const V = (name: string): Expr => {
   return Object.freeze({ node: "var" as const, name });
 };
 export const K = (value: string): Expr => Object.freeze({ node: "const" as const, value });
+
+/**
+ * π, as the law's own constant rather than a machine's: twenty-one significant digits, which is more
+ * than the canon's forty-digit arithmetic loses over a pile or a porch column and far more than any
+ * drawing states.
+ *
+ * It lives here, beside `K`, because it is "a constant the law states" in the roster's own words and
+ * every circular section in the tree is the same π — a pile's shaft and a circular column's storey
+ * are two methods of one constant, and a second spelling of it in a second leaf is the copy that
+ * parts (B-17). It is a CONSTANT of the tree and never a variable, because nobody reads it off a
+ * drawing: the printed formula says `× 3.14159…`, which is what a person auditing a circular section
+ * checks (L-QTY-03, B-07).
+ *
+ * The DIGITS and not a π glyph, because `parse` tokenises only the signs, the decimals and a
+ * nameable — a glyph would be dropped silently on the way back, and the drift proof would compare a
+ * tree to a tree that lost a factor.
+ */
+export const PI = "3.14159265358979323846";
 export const times = (...factors: readonly Expr[]): Expr => Object.freeze({ node: "product" as const, factors: Object.freeze([...factors]) });
 export const plus = (...terms: readonly Expr[]): Expr => Object.freeze({ node: "sum" as const, terms: Object.freeze([...terms]) });
 export const minus = (minuend: Expr, subtrahend: Expr): Expr => Object.freeze({ node: "difference" as const, minuend, subtrahend });
