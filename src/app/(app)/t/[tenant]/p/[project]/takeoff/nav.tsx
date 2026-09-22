@@ -25,7 +25,8 @@
 // side empty and the row is still one row: nothing is drawn to state an absence (R-UI-080).
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useShellToolbar } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import { TESTIDS } from "@/ui/testids";
@@ -36,36 +37,39 @@ export interface TakeoffNavEntry {
   readonly href: string;
 }
 
-interface TabsSlot {
-  readonly aside: ReactNode | null;
-  readonly setAside: (node: ReactNode | null) => void;
-}
-
-const TabsContext = createContext<TabsSlot | null>(null);
+/** Where the row's right half is drawn: the element the lane's row renders for it, once mounted. */
+const TabsHostContext = createContext<HTMLElement | null>(null);
 
 /**
- * What a takeoff surface mounts its own half of the row through: hand it the node, or null. A screen
- * rendered outside the lane finds no provider and this is a no-op, so no component is ever made to
- * know whether it is inside the lane (the inspector slot's own law, `useInspector`).
+ * What a takeoff surface mounts its own half of the row through: hand it the node, or null, and
+ * RENDER what comes back. A screen rendered outside the lane finds no host and this answers null,
+ * so no component is ever made to know whether it is inside the lane (the inspector slot's own law,
+ * `useInspector`).
+ *
+ * THE HALF IS DRAWN IN PLACE, NOT HANDED OVER. It was handed over — an effect set the node on the
+ * row's state on mount and null on unmount — and the register hydrates through a window of about a
+ * hundred milliseconds in which two of it stand in the frame (the streamed HTML and the client
+ * tree, both `data-state="ready"`); with that ordering, a customer's SECOND visit to the register
+ * (a stored grid furniture is what moved it) had no Measure door and no revision chip (session 5's
+ * M3 leg, runs 8 and 9). A portal has no ordering to get wrong: the surface renders its node into
+ * the host element of the row its own tree drew, in the same commit as the rest of the surface,
+ * and it is gone the moment the surface is — a revision chip outliving the screen that named it
+ * would be one surface's fact drawn over another's.
  */
-export function useTakeoffTabsAside(aside: ReactNode | null): void {
-  const set = useContext(TabsContext)?.setAside;
-  useEffect(() => {
-    if (set === undefined) return;
-    set(aside);
-    // Leaving the surface empties the slot: a revision chip outliving the screen that named it would
-    // be one surface's fact drawn over another's.
-    return () => set(null);
-  }, [set, aside]);
+export function useTakeoffTabsAside(aside: ReactNode | null): ReactNode {
+  const host = useContext(TabsHostContext);
+  return host === null || aside === null ? null : createPortal(aside, host);
 }
 
 export function TakeoffTabs({ entries, children }: { entries: readonly TakeoffNavEntry[]; children?: ReactNode }) {
   const here = usePathname();
-  const [aside, setAside] = useState<ReactNode | null>(null);
-  const slot = useMemo<TabsSlot>(() => ({ aside, setAside }), [aside]);
+  // The host is state, set by the aside element's own ref when the frame draws the row: a surface
+  // rendered before the row is drawn portals in the moment the host exists, and never before.
+  const [host, setHost] = useState<HTMLElement | null>(null);
 
   // Memoised on what it shows: mounting a slot is state in the frame, so a row with a new identity
-  // every render would re-render the frame on every render of the surface inside it.
+  // every render would re-render the frame on every render of the surface inside it. The right half
+  // is an empty host the surfaces draw into, so nothing a surface shows re-makes the row.
   const row = useMemo(
     () => (
       <div className="cx-takeoff-tabs">
@@ -82,12 +86,12 @@ export function TakeoffTabs({ entries, children }: { entries: readonly TakeoffNa
             </Link>
           ))}
         </nav>
-        <div className="cx-takeoff-tabs-aside">{aside}</div>
+        <div className="cx-takeoff-tabs-aside" ref={setHost} />
       </div>
     ),
-    [aside, entries, here],
+    [entries, here],
   );
   useShellToolbar(row);
 
-  return <TabsContext.Provider value={slot}>{children}</TabsContext.Provider>;
+  return <TabsHostContext.Provider value={host}>{children}</TabsHostContext.Provider>;
 }

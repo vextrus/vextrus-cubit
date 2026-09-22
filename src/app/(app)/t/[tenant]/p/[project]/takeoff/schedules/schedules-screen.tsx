@@ -29,8 +29,7 @@ import { commitTranscribeSheetNotes, previewTranscribeSheetNotes, readSchedules,
 
 /** The lane's tabs row, filled by the surface standing in it (Direction §3.2). */
 function TabsAside({ children }: { children?: ReactNode }) {
-  useTakeoffTabsAside(children ?? null);
-  return null;
+  return useTakeoffTabsAside(children ?? null);
 }
 
 /** The frame's ONE right column, filled on selection and absent — width 0 — otherwise (R-UI-080). */

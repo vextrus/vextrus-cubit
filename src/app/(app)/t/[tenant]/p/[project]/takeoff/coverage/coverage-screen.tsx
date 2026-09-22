@@ -62,8 +62,7 @@ function InspectorMount({ children }: { children: ReactNode }) {
  * one row rather than two screens taking turns at one.
  */
 function ToolbarMount({ children }: { children: ReactNode }) {
-  useTakeoffTabsAside(<ShellToolbar label={COVERAGE_COPY.takeoff_coverage_tools_label}>{children}</ShellToolbar>);
-  return null;
+  return useTakeoffTabsAside(<ShellToolbar label={COVERAGE_COPY.takeoff_coverage_tools_label}>{children}</ShellToolbar>);
 }
 
 /** The shipped renderers, bound once (I-170): what a test mounts is what this route renders. */

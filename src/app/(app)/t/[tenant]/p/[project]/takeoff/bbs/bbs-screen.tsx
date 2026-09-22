@@ -31,8 +31,7 @@ function carried<T>(answer: DoorAnswer<T>): T {
 
 /** The lane's tabs row, filled by the surface standing in it (Direction §3.2). */
 function TabsAside({ children }: { children?: ReactNode }) {
-  useTakeoffTabsAside(children ?? null);
-  return null;
+  return useTakeoffTabsAside(children ?? null);
 }
 
 /**

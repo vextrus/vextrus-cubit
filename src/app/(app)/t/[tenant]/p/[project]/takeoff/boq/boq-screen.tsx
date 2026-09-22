@@ -24,8 +24,7 @@ import type { Demonstration } from "./demonstration";
 
 /** The lane's tabs row, filled by the surface standing in it (Direction §3.2). */
 function TabsAside({ children }: { children?: ReactNode }) {
-  useTakeoffTabsAside(children ?? null);
-  return null;
+  return useTakeoffTabsAside(children ?? null);
 }
 
 /** The shipped renderers, bound once: what a reader sees is what every suite of this screen mounts. */
