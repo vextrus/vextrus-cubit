@@ -88,6 +88,11 @@ const PROPOSAL = {
   valueAsWritten: "50d",
   unitAsWritten: "d",
   canonical: "50",
+  // The demonstrated sheet's own lap is the GRAMMAR's reading, with the proposition a model made
+  // about it standing beside it — which is what §1's notes panel wireframes (I-296, AM-03(e)).
+  proposedBy: "grammar" as const,
+  callId: null,
+  governs: "0.94",
 };
 
 /** The notes the demonstrated sheet's own words state, with one reading committed against them. */

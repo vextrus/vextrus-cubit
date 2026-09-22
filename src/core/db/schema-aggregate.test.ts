@@ -24,7 +24,15 @@
  * Modules are loaded by absolute path — the contract this tree's other split proofs use: a module the
  * product does not provide yet fails as an assertion naming the file, never as a resolution error.
  *
- * Re-baselined for ONE ADDED table and nothing else: `barRows` (`bar_rows`), L-REG-04's bill of
+ * Re-baselined for ONE ADDED table and nothing else: `noteClauseProposals` (`note_clause_proposals`),
+ * the offers a model made of the general-note clauses the grammar read nothing in — one row per
+ * clause of an ingest, carrying the class proposed, the grammar's own figure for it and the ledger
+ * call that made it, so TRANSCRIBE_SHEET_NOTES can judge what was kept against what was offered
+ * (R-TO-034, L-AI-02, L-AI-03). Both rosters gain the one key, in code-point order, and the columns
+ * digest moves with them because the surface it hashes gained a table. Nothing already on either
+ * roster moved; the previous digest was f3e45a1f899709c8d0161b0a3750d9c8d3e2cc1ce8d3afe93579b2ea1345fa4a.
+ *
+ * Re-baselined before that for ONE ADDED table and nothing else: `barRows` (`bar_rows`), L-REG-04's bill of
  * bars — one content-keyed row per (member, role, diameter, group), carrying the three BS 8666
  * lengths AM-01 names side by side and what the bar weighs (L-FRM-05). Both rosters gain the one
  * key, in code-point order, and the columns digest moves with them because the surface it hashes
@@ -84,6 +92,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "modelCallOutcomes",
   "modelCalls",
   "modelFixtures",
+  "noteClauseProposals",
   "notesReadings",
   "participantRoleWithdrawals",
   "participantRoles",
@@ -268,7 +277,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * table's SQL name or column moved with it; the previous digest was
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "f3e45a1f899709c8d0161b0a3750d9c8d3e2cc1ce8d3afe93579b2ea1345fa4a";
+const COLUMNS_DIGEST_BEFORE = "d5bc069b60d597f717e9a2c7942ef84f88a349083c2138308691f3234e8edcce";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {

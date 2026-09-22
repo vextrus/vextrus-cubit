@@ -26,6 +26,8 @@ export const schedules = {
   schedules_proposal_written_label: "As written",
   schedules_proposal_value_label: "Value",
   schedules_proposal_already_read: "Already read at this figure.",
+  schedules_proposal_proposed_by_model: "Proposed by a model from this clause — check it against the sheet.",
+  schedules_proposal_lap_governs: "Proposed: this note states the tension lap that governs over the sheet's table.",
   schedules_transcribe: "Preview these readings",
   schedules_reading_accepted: "Accepted as proposed",
   schedules_reading_edited: "Edited",

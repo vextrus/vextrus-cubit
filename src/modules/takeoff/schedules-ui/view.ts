@@ -86,9 +86,37 @@ export type StandingView = {
   readonly code: NoteContestedCode | null;
 };
 
+/**
+ * Who read a figure off a clause: the deterministic grammar, or a model asked about a clause the
+ * grammar read nothing in (L-AI-03, I-296). Closed, because the screen renders the origin and a
+ * third word would be a third thing to render.
+ */
+export const PROPOSED_BY = ["grammar", "model"] as const;
+
+/** One of the two. */
+export type ProposedBy = (typeof PROPOSED_BY)[number];
+
+/**
+ * One figure this sheet offers, and who offered it (I-253, I-296). A model's offer is one more
+ * proposal in this list: it carries the same kind, the same words and the same figure — which is the
+ * GRAMMAR's reading of the clause the model classified, never a digit the model moved (L-AI-03) —
+ * and it is kept through the same NumberInput and the same one act door (I-254).
+ */
+export type ProposalView = NoteProposal & {
+  readonly proposedBy: ProposedBy;
+  /** The ledger call that proposed the class, where a model did; null where the grammar read it. */
+  readonly callId: string | null;
+  /**
+   * What a model made of whether this clause's lap governs over the sheet's own development-length
+   * table (AM-03(e)) — the probability exactly as it was stated, or null where none was. A
+   * proposition presented for disposition: it moves no figure and enters no applied value.
+   */
+  readonly governs: string | null;
+};
+
 /** What one sheet's general notes hold: the answer, the record, and the offer (I-253). */
 export type NotesView = {
-  readonly proposals: readonly NoteProposal[];
+  readonly proposals: readonly ProposalView[];
   readonly readings: readonly ReadingView[];
   readonly standings: readonly StandingView[];
 };

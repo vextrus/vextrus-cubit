@@ -218,7 +218,9 @@ describe("I-288: the schedules region publishes itself as the primary work surfa
   test("a notes-only sheet publishes 0 — the honest count of a sheet that holds no table", () => {
     const sheet = aSheet("S-03", {
       notes: {
-        proposals: [{ kind: "LAP", sourceKey: "DXF_HANDLE:4122", text: "TENSION LAP 50d", valueAsWritten: "50", unitAsWritten: "d", canonical: "50" }],
+        proposals: [
+          { kind: "LAP", sourceKey: "DXF_HANDLE:4122", text: "TENSION LAP 50d", valueAsWritten: "50", unitAsWritten: "d", canonical: "50", proposedBy: "grammar", callId: null, governs: null },
+        ],
         readings: [],
         standings: [],
       },

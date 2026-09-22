@@ -316,6 +316,18 @@
   color: var(--ink-muted);
 }
 
+/* I-296: what a model proposed, and what it made of the lap's standing over the sheet's own table.
+   Muted and in place: an offer is an offer, and a line that shouted would read as a figure. */
+.cx-schedules-proposed-by,
+.cx-schedules-governs {
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+.cx-schedules-governs {
+  flex-basis: 100%;
+}
+
 .cx-schedules-door-shut {
   opacity: 0.6;
   cursor: not-allowed;

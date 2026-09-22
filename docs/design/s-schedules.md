@@ -104,6 +104,78 @@ this file rules. No gallery entry is added (nothing new is invented here).
   work surface (I-233) and the pane yields its height to the inspector (I-249), so a frame drawn
   around either would publish a surface this Decision never named.
 
+- **I-296 — the grammar speaks first, and a model may only name a clause the grammar had no word
+  for.** R-TO-034's grammar reads a sheet's notes ENTITY by entity; a general-notes MTEXT is many
+  clauses in one entity (`clausesOf`, the font, underline and alignment codes stripped and `\P` the
+  break), and a clause standing on an entity the grammar attributed no kind to is a clause nobody
+  has read. Where such a clause states a figure IN A SENTENCE — four words, one of them four letters
+  long, on a PAPER layout — and only there, its CLASS — never its
+  figure — is put to a model as one closed choice over `NOTE_KINDS` with the no-match outcome
+  `NONE_OF_THESE`, in the partition job and never at render time (L-AI-01: a question asked when a
+  page is looked at makes a ledger row and a tenant's money out of a page view). The FIGURE is
+  always the grammar's own reader run over that clause (`readFigure`), so a model cannot move a
+  digit (L-AI-03); a class whose reader reads nothing is stored with **no figure at all**, offers
+  nothing, and silence stays silence (L-MEA-01, R-UI-050). The no-match outcome comes back as a
+  class of **null** and is not a refusal: L-AI-02 makes abstention the caller's decision, and on
+  F-RCC6-BNBC's S-01 the four clear-cover clauses have no class to be read into at all, because the
+  roster is closed at five and carries no COVER — adding one is the owner's amendment, never this
+  screen's. An offer that DOES carry a figure is one more row of *Read from this sheet*, with
+  `data-proposed-by="model"`, its own line of copy, the same NumberInput and the same one door
+  (I-254); it is judged by the seam like any other reading — kept as offered it is ACCEPTED and the
+  call it came from is CONFIRMED, kept at another figure it is EDITED and the call is OVERRULED. A
+  reader who reads the clause under a DIFFERENT class judges no call and the offer stays AWAITING:
+  a reading cites the ENTITY and not the clause (`noteReadingKey`), and one entity may carry several
+  offers, so "which call did they overrule" has no answer a record could stand on. Nothing on this
+  screen turns an offer down, so REPUDIATED and AFFIRMED are **declared unwritten** here (I-37).
+  Beside the lap, one muted line states what a model was asked about the contested 50d note
+  (T-NOTE-OVERRIDE, AM-03(e)): that this clause states the tension lap that governs over the sheet's
+  ℓd table, with the probability it gave in mono. It is a proposition presented, not a standing: it
+  moves no figure, enters no `AppliedDetailingValues`, and a SUSPENDED lap still renders no figure at
+  all (I-253). Rejected: letting the model pick the figure from the clause's own candidates — lawful
+  at the seam, but a lap is billed and this product will not put a billed number, even a copied one,
+  behind a judgment. Rejected also: refusing the no-match answer as MALFORMED (the caption path's
+  shape), which would throw away exactly the calibration evidence this question is worth asking for.
+  The sentence rule is a COST decision and says so: without it F-RCC6-BNBC's S-16 alone would put
+  113 bar calls to a model, and with it the whole drawing's printed words ask 148 clauses, 38 of
+  them on the two sheets that carry general notes. It is tested sheet by sheet against the fixture's
+  own corpus and is cheap to move; it is not a reading of the law.
+- **I-300 — a class the grammar's readers can already reach is a class the model is never asked
+  for, so today a model offer carries no figure and keeps no row.** Each of the five kinds is read
+  by a pattern run over the WHOLE entity, so a pattern that matches one clause matches the entity it
+  stands in: an entity the grammar was silent on cannot hold a clause whose figure those same
+  readers would read. It follows that a class a model proposes for a silent clause stores `kind`
+  with a null figure — every time, on this fixture and on any sheet — and therefore renders no
+  proposal row, is kept by nobody, and answers its call with AWAITING. That is **the honest state of
+  the question today**, not a defect of this screen: what the pass buys now is the calibration line
+  (does the model abstain where the law has no class? does it fall into the 2D-stirrup trap session
+  4's fix removed?) and the Noul beside the lap. The CONFIRMED/OVERRULED path stands in the act and
+  in the store's CHECKs, closed and tested, and becomes reachable the day the law gains a kind whose
+  reader is clause-scoped — an owner's amendment, named here rather than half-built.
+- **I-301 — a contested schedule cell is put to a model over the grammar's own readings, and what
+  comes back is judged, never written into the table (Jev logic-point 2; R-TO-031, L-CAD-08,
+  L-AI-01, L-AI-02, L-AI-03).** A cell is CONTESTED where the deterministic path is silent or split
+  about it: its column is headed by no role the notation vocabulary knows and the table resolves
+  that column as neither its sections nor its levels, or the grammar reads more than one attribute
+  in the cell's own words. Such a row is put to the one seam as `schedule-cell`: one Choice per
+  contested cell over exactly the candidates the grammar itself found in that cell's words (each
+  carrying its own sentence for what it would state), plus the no-match outcome `NOT_STATED`, and
+  one Noul over the same state asking whether the row heads or annotates the table rather than
+  stating a member — asked together as one request. CODE decides which rows are contested and
+  which candidates exist; the model chooses among them and nothing else (a criterion is a span of
+  the cell's own text, never a figure the model supplies). The reading is a Proposal its caller
+  holds: nothing writes it into `schedule_cells`, `member_types` or a variant, and the table a
+  reader sees is the reconstructor's alone. A person judges it through the disposition door
+  (`judgeCellReading`, under MEASURE through the one `authorize()`), which records CONFIRMED,
+  OVERRULED or REPUDIATED against the call in `model_call_outcomes` and nothing else. Two things
+  are deliberately not here yet: no pass asks the question in the product (the natural caller is
+  the partition rebuild's proposal pass beside the view-caption one) and no inspector surface
+  offers it — so the corpus is recorded from the identical request the recorder composes, and the
+  calibration line reads zero until the pass lands; `HEADER_SHOWN_AT` (0.5, a presentational
+  threshold the surface will read, never on the write path) is declared and read by nothing. On
+  F-RCC6-BNBC the recorder finds 80 contested rows of 87 across five tables; S-25's lintel
+  schedule is an ATTRIB-block table the reconstructor cannot reach, which is the reconstructor's
+  own debt and not the model's.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 A schedule sheet selected, nothing selected inside it:
@@ -168,7 +240,7 @@ sideways (§7 C10).
 | sheet rail (`schedules-sheets`) | one `schedules-sheet-row[data-drawing][data-layout]` per sheet of the pinned revision holding a schedule, a deferral or a note text: sheet name in 13 px, drawing `IdChip`, and what it holds as muted words | `flex: 0 0 var(--drawer-w)` 200 (min 160, max 320); rows `--row-h` 28 | `--surface-panel`, `--hairline`, `--ink-muted`, `--text-caption`, `--surface-selected` | the rail is absent only in `empty`; otherwise it always has a row |
 | schedules region (primary) | the one scrolling frame `schedules-grid[data-rows-rendered]` (I-288), holding `schedules-table[data-schedule][data-rows-rendered]`, one per stored schedule, stacked with `--gap-section`; each a DataTable v2 titled by its stored title. Or `schedules-deferral`. Or `schedules-notes` on a notes-only sheet | `flex: 1 1 auto`, min 320; ≥ 55 % of main; rows `--row-h` 28, header 28 sticky, first column frozen | `--surface-app`, `--surface-sunken` (header), `--ink-code`, `--font-mono`, `--cell-px/py`, `--basis-transcribed` through EvidenceLink | never silent: a deferral or `NOTES_NONE_PROPOSED` stands in its place |
 | registry pane (`schedules-registry`) | `schedules-family[data-family]` group rows, `schedules-variant[data-variant]` beneath, `schedules-zone[data-zone]` per rebar zone; all text verbatim; no count (I-251) | `flex: 0 0 240` (200 below `lg`); collapses to 28 with the inspector (I-249); scrolls alone | `--surface-panel`, `--surface-sunken`, `--hairline`, `--ink`, `--font-mono` | the pane stands and states `schedules_registry_none` |
-| notes panel (`schedules-notes`) | the three sections of I-253 and the one `schedules-transcribe` | inside the schedules region; sections separated by `--gap-section`; rows `--row-h` 28 | `--surface-app`, `--hairline`, `--ink-code`, `--warn-surface` through RefusalState | one RefusalState, `NOTES_NONE_PROPOSED`, and no act door |
+| notes panel (`schedules-notes`) | the three sections of I-253 and the one `schedules-transcribe`. A proposal row carries `data-proposed-by`; a model's (I-296) leads with `schedules_proposal_proposed_by_model` and a row a model judged the lap's standing on trails with `schedules_proposal_lap_governs` and its probability in mono | inside the schedules region; sections separated by `--gap-section`; rows `--row-h` 28, a model's caption and the governs line `--text-caption` inside the same row | `--surface-app`, `--hairline`, `--ink-code`, `--ink-muted` (`cx-schedules-proposed-by`, `cx-schedules-governs`), `--warn-surface` through RefusalState | one RefusalState, `NOTES_NONE_PROPOSED`, and no act door |
 | inspector (frame's one slot) | `schedules-inspector`: the selection's heading, its source keys as `IdChip`s under `schedules_inspector_sources_label`, its kind / basis / acceptance as `EnumLabel`s, and its one EvidenceLink | `--inspector-w` 320 (280–480) | `--surface-panel`, `--hairline`, basis palette through EvidenceLink | **absent — width 0**, never a sentence |
 
 **Cells.** Schedule cell: one EvidenceLink, 12 px mono, TRANSCRIBED blue rule and ▣ glyph, label
@@ -242,6 +314,9 @@ types** · `schedules_registry_mark` **Mark** · `schedules_registry_band` **Ban
 `schedules_readings_heading` **Readings on this sheet** · `schedules_proposals_heading` **Read from
 this sheet** · `schedules_proposal_written_label` **As written** · `schedules_proposal_value_label`
 **Value** · `schedules_proposal_already_read` **Already read at this figure.** ·
+`schedules_proposal_proposed_by_model` **Proposed by a model from this clause — check it against the
+sheet.** · `schedules_proposal_lap_governs` **Proposed: this note states the tension lap that governs
+over the sheet's table.** ·
 `schedules_transcribe` **Preview these readings** · `schedules_reading_accepted` **Accepted as
 proposed** · `schedules_reading_edited` **Edited** · `schedules_reading_superseded` **Superseded by
 a later reading under the same source.** · `schedules_inspector_cell_heading` **Schedule cell** ·
@@ -350,7 +425,7 @@ scrolling frame, the primary §1 measures, I-288) · `schedules-table`
 `schedules-zone` (`data-zone`: main|ties|ties-end|ties-mid) · `schedules-deferral` (`data-code`) ·
 `schedules-notes` · `schedules-standing` (`data-kind`, `data-standing`, `data-code`) ·
 `schedules-reading` (`data-kind`, `data-acceptance`, `data-basis`, `data-source`) ·
-`schedules-proposal` (`data-kind`) · `schedules-proposal-value` · `schedules-transcribe`
+`schedules-proposal` (`data-kind`, `data-proposed-by`: grammar|model — I-296) · `schedules-proposal-value` · `schedules-transcribe`
 (`data-permission`) · `schedules-inspector` · `schedules-empty`; plus
 `TESTIDS.takeoff.navSchedules` → `takeoff-nav-schedules` (`aria-current="page"` here) and
 `shell-crumb-page`. Used and never redefined: `evidence-link` (`data-basis="TRANSCRIBED"`),
@@ -393,6 +468,13 @@ that shows it.
 sentence and by I-253's muted superseded rows, but it is **not** in the closed attribute registry
 this increment was handed. It is recorded here under its contract spelling; the registry is short one
 row and that is a plan defect, not a licence to invent a second name.
+
+The governs line of I-296 renders inside `schedules-proposal` with **no id of its own**: the id it
+wants is `TESTIDS.schedules.proposalGoverns` → `schedules-proposal-governs`, and
+`src/ui/testids.ts` is the registry's one home and was not this increment's to edit. Until that key
+is added the line is asserted through its row's `data-proposed-by` and its copy, and J-032's leg over
+the lap's Noul is owed that id. Named here rather than spelled a second time in `src/`
+(`cubit/no-literal-testid`: the frozen count does not rise).
 
 ## 8. Recorded IOUs (owner named, never a comment in `src/`)
 

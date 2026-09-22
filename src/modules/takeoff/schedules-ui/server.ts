@@ -9,13 +9,13 @@
 // Nothing here counts anything. A table answers the rows the store holds for it, a family answers the
 // mark the schedule wrote, and no field below is a number of members (L-CAD-08, I-250, I-251).
 import { and, desc, drawingSetRevisions, eq, forTenant } from "@/core/db";
-import { proposeNotes, type SheetText } from "@/core/notes/grammar";
+import { proposeNotes, type NoteProposal, type SheetText } from "@/core/notes/grammar";
 import { NOTE_KINDS, type NoteKind } from "@/core/notes/law";
 import { noteStanding } from "@/core/notes/standing";
 import type { NoteReadingRow } from "@/core/notes/store";
-import { readingsOnDrawings, sheetLayoutsOf } from "@/modules/takeoff/notes";
+import { clauseOffersOnDrawing, readingsOnDrawings, sheetLayoutsOf, type NoteClauseOfferWrite } from "@/modules/takeoff/notes";
 import { memberTypesOf, schedulesOf, type MemberFamily, type ScheduleCell, type StoredSchedule, type ViewsScope } from "@/modules/takeoff/partition";
-import type { FamilyView, NotesView, ReadingView, ScheduleTableView, SchedulesView, SheetView, StandingView } from "./view";
+import type { FamilyView, NotesView, ProposalView, ReadingView, ScheduleTableView, SchedulesView, SheetView, StandingView } from "./view";
 
 /** Which project's sheets are being read, in which workspace. */
 export type SchedulesViewScope = { readonly tenantId: string; readonly projectId: string };
@@ -77,7 +77,12 @@ async function pinnedRevisionOf(scope: SchedulesViewScope): Promise<PinnedRevisi
  */
 async function sheetsOfDrawing(scope: SchedulesViewScope, drawingId: string, readings: readonly NoteReadingRow[]): Promise<SheetView[]> {
   const viewsScope: ViewsScope = { tenantId: scope.tenantId, projectId: scope.projectId, drawingId };
-  const [layouts, stored, types] = await Promise.all([sheetLayoutsOf(viewsScope), schedulesOf(viewsScope), memberTypesOf(viewsScope)]);
+  const [layouts, stored, types, offers] = await Promise.all([
+    sheetLayoutsOf(viewsScope),
+    schedulesOf(viewsScope),
+    memberTypesOf(viewsScope),
+    clauseOffersOnDrawing({ tenantId: scope.tenantId, projectId: scope.projectId }, drawingId),
+  ]);
   const modelSpace = layouts.find((layout) => layout.kind === MODEL_SPACE)?.layoutName ?? null;
 
   const sheets: SheetView[] = [];
@@ -93,7 +98,11 @@ async function sheetsOfDrawing(scope: SchedulesViewScope, drawingId: string, rea
       schedules,
       deferrals,
       families,
-      notes: notesOf(layout.texts, readings.filter((reading) => reading.layoutName === layout.layoutName)),
+      notes: notesOf(
+        layout.texts,
+        readings.filter((reading) => reading.layoutName === layout.layoutName),
+        offers.filter((offer) => offer.layoutName === layout.layoutName),
+      ),
     });
   }
   return sheets;
@@ -155,10 +164,10 @@ function familyOf(family: MemberFamily): FamilyView {
  * (`noteStanding`, R-TO-051, B-17). A second person's disagreeing reading supersedes nothing: it
  * suspends the kind, and precedence never clears a disagreement (L-REG-03).
  */
-function notesOf(texts: readonly SheetText[], readings: readonly NoteReadingRow[]): NotesView {
+function notesOf(texts: readonly SheetText[], readings: readonly NoteReadingRow[], offers: readonly NoteClauseOfferWrite[]): NotesView {
   const superseded = new Set(noteStanding(readings).superseded.map((reading) => reading.readingKey));
   const spoken = new Set<NoteKind>(readings.map((reading) => reading.kind));
-  const proposals = proposeNotes(texts);
+  const proposals = proposalsOf(proposeNotes(texts), offers);
   for (const proposal of proposals) spoken.add(proposal.kind);
 
   return {
@@ -169,6 +178,45 @@ function notesOf(texts: readonly SheetText[], readings: readonly NoteReadingRow[
     ),
     standings: NOTE_KINDS.filter((kind) => spoken.has(kind)).map((kind) => standingOf(kind, readings)),
   };
+}
+
+/**
+ * Every figure this sheet offers, with who offered it (I-296). The GRAMMAR's readings come first —
+ * L-AI-03's order, as `rebuild.ts` keeps it for captions — and a model's offers stand after them, in
+ * the store's own order.
+ *
+ * A model offer carrying NO figure is no offer at all: its class's own reader read nothing in the
+ * clause, so there is nothing for a person to keep and nothing an act could judge. It stays in the
+ * store, where the ledger's line still counts the call that made it (I-296).
+ *
+ * The lap's Noul is attached to the offer standing on the same text: what a model said about whether
+ * that clause's lap governs over the sheet's table is a proposition about THAT clause, and it is
+ * shown beside it whether the grammar or the model read the figure (AM-03(e)).
+ */
+function proposalsOf(proposals: readonly NoteProposal[], offers: readonly NoteClauseOfferWrite[]): ProposalView[] {
+  const governsOn = new Map<string, string>();
+  for (const offer of offers) {
+    if (offer.governs !== null && !governsOn.has(offer.sourceKey)) governsOn.set(offer.sourceKey, offer.governs);
+  }
+  const fromGrammar = proposals.map((proposal): ProposalView => ({ ...proposal, proposedBy: "grammar", callId: null, governs: governsOn.get(proposal.sourceKey) ?? null }));
+  const fromModel = offers.flatMap((offer): ProposalView[] =>
+    offer.kind === null || offer.canonical === null || offer.valueAsWritten === null || offer.unitAsWritten === null
+      ? []
+      : [
+          {
+            kind: offer.kind,
+            sourceKey: offer.sourceKey,
+            text: offer.clause,
+            valueAsWritten: offer.valueAsWritten,
+            unitAsWritten: offer.unitAsWritten,
+            canonical: offer.canonical,
+            proposedBy: "model",
+            callId: offer.callId,
+            governs: offer.governs,
+          },
+        ],
+  );
+  return [...fromGrammar, ...fromModel];
 }
 
 /**

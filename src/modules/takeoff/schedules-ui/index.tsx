@@ -22,7 +22,7 @@ import type { NoteProposal } from "@/core/notes/grammar";
 import { NOTE_KINDS, type NoteKind } from "@/core/notes/law";
 import { SCHEDULES_COPY, fillCopy } from "./copy";
 import { keptReadingOf } from "./kept";
-import type { FamilyView, ReadingView, ScheduleTableView, SchedulesView, SheetView, StandingView } from "./view";
+import type { FamilyView, ProposalView, ReadingView, ScheduleTableView, SchedulesView, SheetView, StandingView } from "./view";
 
 /* ------------------------------------------------------------------ what the screen is handed */
 
@@ -1116,7 +1116,7 @@ function Proposal({
   EvidenceLink,
   NumberInput,
 }: {
-  proposal: NoteProposal;
+  proposal: ProposalView;
   testIds: SchedulesTestIds;
   href: string;
   value: string;
@@ -1127,8 +1127,11 @@ function Proposal({
   NumberInput: SchedulesChrome["NumberInput"];
 }) {
   return (
-    <div className="cx-schedules-proposal" data-testid={testIds.proposal} data-kind={proposal.kind}>
+    <div className="cx-schedules-proposal" data-testid={testIds.proposal} data-kind={proposal.kind} data-proposed-by={proposal.proposedBy}>
       <EnumLabel value={proposal.kind} label={KIND_SAID[proposal.kind]} className="cx-schedules-enum" />
+      {/* I-296: a figure a model classified says so, in place, before a reader keeps it. The figure
+          itself is the grammar's reading of the clause — a model moves no digit (L-AI-03). */}
+      {proposal.proposedBy === "model" ? <span className="cx-schedules-proposed-by">{SCHEDULES_COPY.schedules_proposal_proposed_by_model}</span> : null}
       <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_proposal_written_label}</span>
       <EvidenceLink href={href} basis={TRANSCRIBED} label={proposal.valueAsWritten} />
       <label className="cx-schedules-field">
@@ -1138,6 +1141,13 @@ function Proposal({
       <span className="cx-schedules-unit cx-schedules-mono">{proposal.unitAsWritten}</span>
       {/* I-255: a reader sees the reason a preview would move nothing BEFORE they press. */}
       {stands ? <span className="cx-schedules-already">{SCHEDULES_COPY.schedules_proposal_already_read}</span> : null}
+      {/* AM-03(e), I-296: what a model made of whether THIS note's lap governs over the sheet's own
+          table is a proposition presented with its figure — it moves nothing and stands for nothing. */}
+      {proposal.governs === null ? null : (
+        <span className="cx-schedules-governs">
+          {SCHEDULES_COPY.schedules_proposal_lap_governs} <span className="cx-schedules-mono">{formatUserFigure(proposal.governs)}</span>
+        </span>
+      )}
     </div>
   );
 }

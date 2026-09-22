@@ -39,6 +39,13 @@ export type NoteProposal = {
 /** A figure as a note writes one: digits, the thousands commas a draughtsman groups them with. */
 const FIGURE = String.raw`\d[\d,]*(?:\.\d+)?`;
 
+/**
+ * The same pattern, published: the clause reader beside this file lists the figures a clause states
+ * so a model classifies with the drawing's own numbers in view, and a second spelling of "what a
+ * figure looks like" would list numbers this grammar would not read (B-17).
+ */
+export const NOTE_FIGURE: string = FIGURE;
+
 /** The units a strength is stated in. The roster is closed: a unit nobody wrote is not a unit. */
 const STRENGTH_UNITS = String.raw`MPa|N\/mm2|N\/mm²|psi|ksi|kg\/cm2|kg\/cm²`;
 
@@ -183,6 +190,27 @@ const READINGS: Readonly<Record<NoteKind, (said: string) => Found | null>> = Obj
   HOOK: readHook,
   HOOK_MIN: readHookMin,
 });
+
+/** A figure one kind's own reader found, as a caller outside this file reads it. */
+export type ReadFigure = {
+  readonly valueAsWritten: string;
+  readonly unitAsWritten: string;
+  readonly canonical: string;
+};
+
+/**
+ * What ONE kind's reader reads off one sentence, or null where that sentence states no such figure.
+ *
+ * Published so the figure of a clause a MODEL classified is still the grammar's own reading of it:
+ * the class is the only thing the model answers, and the digits are read here, by the same function
+ * `proposeNotes` runs, off the same normalised text (L-AI-03 — a model reads and classifies, and
+ * never moves a figure).
+ */
+export function readFigure(kind: NoteKind, said: string): ReadFigure | null {
+  const found = READINGS[kind](normaliseNotation(said));
+  if (found === null) return null;
+  return { valueAsWritten: found.valueAsWritten, unitAsWritten: found.unitAsWritten, canonical: found.canonical };
+}
 
 /**
  * Every figure these texts state, in the reading's own order (AC-1): by the source key the sentence

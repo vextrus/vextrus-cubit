@@ -64,6 +64,7 @@ export {
   rebarZones,
   scheduleDeferrals,
   notesReadings,
+  noteClauseProposals,
   placements,
   placementRuns,
   expansionDeferrals,

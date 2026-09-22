@@ -13,7 +13,7 @@ import { NOTE_ACCEPTANCES, NOTE_BASIS, NOTE_KINDS, type NoteAcceptance, type Not
 import { acts } from "./schema-acts";
 import { closedList } from "./sql";
 import { sql as statement } from "drizzle-orm";
-import { check, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { check, doublePrecision, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /**
  * The units a schedule's own notation is written in (R-TO-031). Not the bill's canon (L-FRM-06): a
@@ -281,6 +281,77 @@ export const notesReadings = pgTable(
 );
 
 /**
+ * R-TO-034's PROPOSED half, model arm: one row per clause of a sheet's general notes that the
+ * deterministic grammar read nothing in and a model was asked to classify (L-AI-02 — a
+ * classification held until confirmed).
+ *
+ * It stands beside `notes_readings` and never in it. A reading is what a PERSON kept, under an act;
+ * this is an OFFER, and the only reason it is stored at all is that the act has to know what was
+ * offered to judge what was kept: TRANSCRIBE_SHEET_NOTES re-derives ACCEPTED against EDITED by
+ * comparing a kept figure with the offer it came from, and an offer that had to be asked again at
+ * commit time would be a second ledger row for a question already answered (L-AI-01).
+ *
+ * REBUILT PER INGEST, like `partition_views`: the rows are deleted and written again in one
+ * transaction, so this is a derived table and not a ledger, and the app role holds a DELETE on it.
+ * The key is content-derived and mints nothing (L-REG-04) — a clause is the entity it stands on and
+ * its place in that entity, so re-deriving the same artifact reproduces the same key multiset.
+ *
+ * It references no ledger, for the reason `partition_views` references none: a table rebuilt per
+ * ingest may not be a child of an append-only one. `call_id` names the model call that proposed the
+ * class, so every offer on a screen is answerable from the ledger row that made it (L-AI-01).
+ *
+ * THE FIGURE IS NOT THE MODEL'S (L-AI-03). `kind` is what the model proposed; the three figure
+ * columns are the GRAMMAR's own reading of that clause under that kind, and they are null where its
+ * reader reads nothing — a class with no figure behind it is stored as what it is, an offer nobody
+ * can bill. `governs` is the probability the model gave that this clause's lap prevails over a
+ * development-length table on the same sheet (AM-03(e)): a proposition presented, never a standing.
+ */
+export const noteClauseProposals = pgTable(
+  "note_clause_proposals",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    layoutName: text("layout_name").notNull(),
+    sourceKey: text("source_key").notNull(),
+    /** Which clause of that entity this is, counting from one in the drawing's own order. */
+    ordinal: integer("ordinal").notNull(),
+    /** The clause verbatim, as the evidence the offer rests on (L-CAD-03). */
+    clause: text("clause").notNull(),
+    /** The class a model proposed, or null where it read none of the five in the clause. */
+    kind: text("kind").$type<NoteKind>(),
+    valueAsWritten: text("value_as_written"),
+    unitAsWritten: text("unit_as_written"),
+    canonical: text("canonical"),
+    /** The Noul's own probability, exactly as it was stated — never a float (L-AI-01). */
+    governs: numeric("governs"),
+    callId: uuid("call_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "note_clause_proposals_key", columns: [table.tenantId, table.ingestId, table.sourceKey, table.ordinal] }),
+    // The roster is closed, so the store closes it: a class outside R-TO-034's five cannot be
+    // written however it reached the insert, and a clause nobody could class is null (Q-07, B-19).
+    check("note_clause_proposals_kind_closed", statement`${table.kind} is null or ${table.kind} in (${statement.raw(closedList(NOTE_KINDS))})`),
+    // A figure is whole or it is absent: the three columns are one reading of the grammar's, and
+    // two of three would be a figure nobody could compare (L-REG-01).
+    check(
+      "note_clause_proposals_figure_whole",
+      statement`(${table.canonical} is null) = (${table.valueAsWritten} is null) and (${table.canonical} is null) = (${table.unitAsWritten} is null)`,
+    ),
+    // A figure with no class behind it is a number this product would have invented (L-MEA-01).
+    check("note_clause_proposals_figure_classed", statement`${table.canonical} is null or ${table.kind} is not null`),
+    // A probability is a probability. A figure outside [0,1] is not a judgment anybody can read.
+    check("note_clause_proposals_governs_is_probability", statement`${table.governs} is null or (${table.governs} >= 0 and ${table.governs} <= 1)`),
+    // An offer cites the clause it was made about, and a blank clause is evidence of nothing.
+    check("note_clause_proposals_clause_said", statement`length(btrim(${table.clause})) > 0`),
+    // The read the screen and the act seam make: what was offered on THIS sheet.
+    index("note_clause_proposals_by_sheet").on(table.tenantId, table.drawingId, table.layoutName),
+  ],
+);
+
+/**
  * Every table this area publishes. `schema.ts` spreads it into `SEAM_SCHEMA`, so a table added to
  * this file joins the typed surface without a second roster being edited (B-19, AM-11).
  */
@@ -292,4 +363,5 @@ export const TAKEOFF_SCHEDULES_TABLES = {
   rebarZones,
   scheduleDeferrals,
   notesReadings,
+  noteClauseProposals,
 };

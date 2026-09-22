@@ -12,9 +12,11 @@
 import { and, drawingSetRevisions, eq, forTenant } from "@/core/db";
 import { NOTE_KINDS, type NoteKind } from "@/core/notes/law";
 import { noteStanding } from "@/core/notes/standing";
+import { noteClauseOffersOfDrawing, type NoteClauseOfferWrite } from "@/core/notes/clause-store";
 import { readingsOfDrawings, readingsOfSheet, type NoteReadingRow, type NotesScope, type SheetRef } from "@/core/notes/store";
 
 export type { NoteReadingRow, NotesScope, SheetRef } from "@/core/notes/store";
+export type { NoteClauseOffer, NoteClauseOfferWrite } from "@/core/notes/clause-store";
 export { readingsOfSheet, writeNoteReadings } from "@/core/notes/store";
 
 /** Which revision's applied values are being asked for, in whose workspace and project. */
@@ -129,4 +131,13 @@ export async function readingsOnSheet(scope: NotesScope, sheet: SheetRef): Promi
  */
 export async function readingsOnDrawings(scope: NotesScope, drawingIds: readonly string[]): Promise<NoteReadingRow[]> {
   return forTenant({ tenantId: scope.tenantId }).transaction((tx) => readingsOfDrawings(tx, scope, drawingIds));
+}
+
+/**
+ * What a MODEL offered about the clauses of one drawing's sheets, as its current partition stored
+ * them (R-TO-034, L-AI-02). An offer and not a reading: it stands beside what the grammar offers and
+ * is judged by the same one act, and a drawing nobody has put a clause of to a model answers none.
+ */
+export async function clauseOffersOnDrawing(scope: NotesScope, drawingId: string): Promise<NoteClauseOfferWrite[]> {
+  return forTenant({ tenantId: scope.tenantId }).transaction((tx) => noteClauseOffersOfDrawing(tx, scope, drawingId));
 }
