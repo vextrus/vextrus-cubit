@@ -216,3 +216,16 @@ the 75 cells lack is drawn in F-RCC6-BNBC itself, appended so that no existing h
   and continue")**, together with the R0 chain (`wf_9c4650fd-ab3`, R0-G0 in its worktree
   `.claude/worktrees/wf_9c4650fd-ab3-1`). Both resume by the recovery pattern (continue in the
   worktrees), not a blind resume.
+- **After the pause.** Gate 2 (on `e82c627d`): `GATE summary — verify: green 54.08s · checkup: green
+  0.78s · golden: green 12.27s · db: green 101.34s · e2e: RED exit=1 127.37s · e2e-j000: green 232.15s ·
+  perf: green 19.61s` — `GATE wall-time 547.63s exit 1`. The sweep's reds were only the SECOND and
+  THIRD picture checkpoints of three journeys (never reached while the first ones failed): J-022
+  held-out and certificate, J-305 panel-absent-light and fact-entered, J-021 panel-dark — each looked
+  at, each lawful (VD-1's stage, C7, C3) → `baseline: 271826db`, `baseline: 9ebdf29a`. Sweep then
+  53 passed + the 2 re-taken. **Read-back of gate 2's J-000** (project `5d236653`): every figure
+  unchanged from gate 0 (column 208 / 93.892896 m³; piles 89 / 1,898.904 m / 372.848929 m³; caps
+  128.781275 m³ / 254.132613 m²; beams 172 objects, 344 PARTIAL lines; orphans 0 / placeholders 0).
+  - New FRICTION for C8: site facts' "Entered by" shows a user-id fragment, not a person.
+- **Relaunched:** the R0 chain (`wf_ac8b4004-f31`) continuing IN its worktree (R0-G0 had 4 commits:
+  the Rev C append pass, pinned Rev B windows, the revision register and its blob-pinned test, the
+  declared re-baselines), then G1, G2; wave 2 (`wf_dc4bf718-221`) from `9ebdf29a`, 18 slices.
