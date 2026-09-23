@@ -20,11 +20,15 @@ const seams = vi.hoisted(() => ({
   projectHeld: vi.fn(async (_scope: { tenantId: string }, projectId: string) => projectId === "project-held"),
   projectsForHome: vi.fn(async () => [{ projectId: "project-held" }]),
   getAuditSurfaces: vi.fn(async () => ({ acts: [], jobs: [], modelLedger: [] })),
+  // The roster's people, as the page reads them through the participants door (s-audit I-38): the
+  // session and the roster are other seams' business, so they stand in as one answer here.
+  projectPeople: vi.fn(async () => ({ "user-1": "rafiq@cubit.test" })),
 }));
 
 vi.mock("next/navigation", () => ({ notFound: seams.notFound, redirect: vi.fn() }));
 vi.mock("../../src/modules/spine/projects", () => ({ projectHeld: seams.projectHeld, projectsForHome: seams.projectsForHome }));
 vi.mock("../../src/modules/spine/audit", () => ({ getAuditSurfaces: seams.getAuditSurfaces }));
+vi.mock("../../src/app/(app)/t/[tenant]/p/[project]/roster", () => ({ projectPeople: seams.projectPeople }));
 // The two panels are other increments' screens; this criterion is about which answer the page gives,
 // so they stand in as markers and nothing here depends on their internals.
 vi.mock("../../src/app/(app)/t/[tenant]/p/[project]/audit/act-log-explorer", () => ({ ActLogExplorer: () => <div data-testid="act-log-explorer" /> }));
@@ -62,6 +66,19 @@ test("AC-2(b): the existence check is one projectHeld call carrying the address'
   // The shim that named an account the screen does not have goes with the roster read: the door is
   // scoped by the workspace alone, which is the whole of what this question is about.
   expect(seams.projectHeld.mock.calls[0], "the door is asked about the two segments the address carries").toEqual([{ tenantId: TENANT }, HELD]);
+});
+
+test("I-38: the log is read with the project's roster, so an actor is named by it and not by an account id", async () => {
+  await ProjectAudit({ params: Promise.resolve({ tenant: TENANT, project: HELD }) });
+
+  expect(seams.projectPeople, "the roster is asked about this address's own workspace and project").toHaveBeenCalledWith(TENANT, HELD);
+  expect(seams.getAuditSurfaces, "and its people are handed to the one audit read").toHaveBeenCalledWith({ tenantId: TENANT }, HELD, { "user-1": "rafiq@cubit.test" });
+});
+
+test("I-38: a project nobody holds reads no roster either", async () => {
+  await ProjectAudit({ params: Promise.resolve({ tenant: TENANT, project: "project-nobody-has" }) }).catch(() => null);
+
+  expect(seams.projectPeople, "an absent address asks nothing past the existence door").not.toHaveBeenCalled();
 });
 
 test("AC-2(b): the workspace's whole project roster is never read to answer it", async () => {

@@ -12,6 +12,7 @@ import "./audit.css";
 import { notFound } from "next/navigation";
 import { getAuditSurfaces } from "@/modules/spine/audit";
 import { projectHeld } from "@/modules/spine/projects";
+import { projectPeople } from "../roster";
 import { ActLogExplorer } from "./act-log-explorer";
 import { AuditPanels } from "./audit-panels";
 import { auditStrings } from "./strings";
@@ -25,7 +26,9 @@ export default async function ProjectAudit({ params }: { params: Promise<{ tenan
   // project nobody has ever being queried for it.
   if (!(await projectHeld({ tenantId: tenant }, project))) notFound();
 
-  const surfaces = await getAuditSurfaces({ tenantId: tenant }, project);
+  // The log names its actors by the project's roster, read through the roster's own guarded door: a
+  // reader it refuses sees the ids the log recorded, never a name it may not read (I-38).
+  const surfaces = await getAuditSurfaces({ tenantId: tenant }, project, await projectPeople(tenant, project));
 
   return (
     <div className="cx-audit" data-screen-root="" data-state={surfaces.acts.length === 0 ? "empty" : "ready"}>
@@ -34,7 +37,7 @@ export default async function ProjectAudit({ params }: { params: Promise<{ tenan
         <p className="cx-audit-caption">{auditStrings.audit_caption}</p>
       </header>
 
-      <ActLogExplorer acts={surfaces.acts} />
+      <ActLogExplorer acts={surfaces.acts} names={surfaces.names} />
       <AuditPanels jobs={surfaces.jobs} ledger={surfaces.ledger} modelLedger={surfaces.modelLedger} />
     </div>
   );

@@ -10,8 +10,27 @@
 // question only the catalogue can answer, and it is asked on every call rather than remembered at
 // import time — a process that outlives a migration would otherwise answer for the schema it started
 // on.
-import { acts, desc, eq, forTenant, isUuid, modelLedgerRowsOf, modelOutcomeRowsOf, type ModelLedgerEntry, type ModelOutcome, type TenantDb } from "@/core/db";
+import {
+  acts,
+  and,
+  desc,
+  drawings,
+  eq,
+  forTenant,
+  inArray,
+  isUuid,
+  levels,
+  modelLedgerRowsOf,
+  modelOutcomeRowsOf,
+  partitionViews,
+  type ModelLedgerEntry,
+  type ModelOutcome,
+  type TenantDb,
+} from "@/core/db";
 import { calibrationLinesOf, type CalibrationLine } from "@/core/model-calibration";
+import { NO_SUBJECT_NAMES, namesAskedBy, type SubjectNames } from "./subjects";
+
+export { NO_SUBJECT_NAMES, isSurrogate, parseSubject, type ParsedSubject, type SubjectLevel, type SubjectNames } from "./subjects";
 
 /**
  * The tables the two panels probe. One home for the names (ARCH-02): whoever ships these surfaces
@@ -25,10 +44,12 @@ export interface AuditAct {
   readonly actType: string;
   readonly actorId: string;
   /**
-   * How the actor is named on screen. On M0's schema the account behind an actor id lives in
-   * `users`, whose row-level security admits the system scope alone — and a per-tenant audit read
-   * may not take that handle — so the log names the actor by the identifier it recorded. An act is
-   * never dropped for want of a name: the id is who the record says it was.
+   * How the actor is named on screen: the label the project's own roster names them by, handed in
+   * by the page that read the roster through its guarded door (`people`). The account behind an
+   * actor id lives in `users`, whose row-level security admits the system scope alone, and a
+   * per-tenant audit read may not take that handle — so where the roster cannot name the actor (a
+   * reader it refused, a person who has since left), the log names them by the identifier it
+   * recorded. An act is never dropped for want of a name: the id is who the record says it was.
    */
   readonly actorLabel: string;
   /** The facts judged, at the granularity performed — an act's cited evidence (L-ACT-01). */
@@ -80,7 +101,12 @@ export interface AuditSurfaces {
   readonly modelLedger: AuditPanel;
   readonly jobs: AuditPanel;
   readonly ledger: AuditLedger;
+  /** The names the acts' cited subjects are known by, for the screens that present them. */
+  readonly names: SubjectNames;
 }
+
+/** Account id → the label a project's roster names the person by, as the page read it. */
+export type AuditPeople = Readonly<Record<string, string>>;
 
 const NO_LEDGER: AuditLedger = { calls: [], calibration: [] };
 
@@ -127,7 +153,7 @@ export function panelTableName(table: string): string {
  * column cannot hold fails the statement as a cast error (22P02) — a fault — rather than matching no
  * row (R-SPINE-007).
  */
-async function actsOf(db: TenantDb, projectId: string): Promise<readonly AuditAct[]> {
+async function actsOf(db: TenantDb, projectId: string, people: AuditPeople): Promise<readonly AuditAct[]> {
   if (!isUuid(projectId)) return [];
 
   const rows = await db
@@ -143,7 +169,54 @@ async function actsOf(db: TenantDb, projectId: string): Promise<readonly AuditAc
     .where(eq(acts.projectId, projectId))
     .orderBy(desc(acts.occurredAt), desc(acts.actId));
 
-  return rows.map((row) => ({ ...row, actorLabel: row.actorId, subjects: [...row.subjects] }));
+  return rows.map((row) => ({ ...row, actorLabel: people[row.actorId] ?? row.actorId, subjects: [...row.subjects] }));
+}
+
+/**
+ * The names this project's store knows the acts' subjects by: each level's label, each drawing's
+ * file name, each view's caption — read on the tenant's own handle and bounded to the project, so a
+ * key naming another project's row names nothing here. People come from the page's roster read, the
+ * one door that may name them (participants I-50).
+ *
+ * A surrogate is asked of every table that could hold it — a bare uuid in a subject is a level, a
+ * drawing or a person according to the act that cited it, and the key does not say which — and a
+ * miss is simply no name: the screen then shows the identifier, never a guess.
+ */
+async function namesOf(db: TenantDb, tenantId: string, projectId: string, logged: readonly AuditAct[], people: AuditPeople): Promise<SubjectNames> {
+  const asked = namesAskedBy(logged.flatMap((act) => act.subjects));
+  const ids = asked.ids.filter(isUuid);
+  const [levelRows, drawingRows, viewRows] = await Promise.all([
+    ids.length === 0
+      ? []
+      : db
+          .select({ id: levels.levelId, label: levels.label })
+          .from(levels)
+          .where(and(eq(levels.tenantId, tenantId), eq(levels.projectId, projectId), inArray(levels.levelId, ids))),
+    ids.length === 0
+      ? []
+      : db
+          .select({ id: drawings.drawingId, name: drawings.name })
+          .from(drawings)
+          .where(and(eq(drawings.tenantId, tenantId), eq(drawings.projectId, projectId), inArray(drawings.drawingId, ids))),
+    asked.viewKeys.length === 0
+      ? []
+      : db
+          .select({ viewKey: partitionViews.viewKey, caption: partitionViews.caption })
+          .from(partitionViews)
+          .where(and(eq(partitionViews.tenantId, tenantId), eq(partitionViews.projectId, projectId), inArray(partitionViews.viewKey, [...asked.viewKeys]))),
+  ]);
+
+  const views: Record<string, string> = {};
+  // A view is re-read with each ingest, so one key may stand in several records; any caption the
+  // drawing stated names it, and an empty one names nothing.
+  for (const row of viewRows) if (row.caption.trim() !== "" && views[row.viewKey] === undefined) views[row.viewKey] = row.caption.trim();
+
+  return {
+    levels: Object.fromEntries(levelRows.map((row) => [row.id, row.label])),
+    drawings: Object.fromEntries(drawingRows.map((row) => [row.id, row.name])),
+    views,
+    people,
+  };
 }
 
 /** One scalar the catalogue answers, asked on the caller's own handle. */
@@ -201,26 +274,34 @@ async function panelFor(db: TenantDb, table: string, projectId: string): Promise
 }
 
 /**
- * S-Audit's one read: the project's act log and the two panels' postures, answered whole.
+ * S-Audit's one read: the project's act log and the two panels' postures, answered whole, with the
+ * names its acts' subjects are known by.
+ *
+ * `people` is the project's roster as the page read it through its own guarded door (account id →
+ * label); an actor it names is named so, and one it does not is named by the id the log recorded.
  *
  * A caller who names no tenant the policies can read gets no handle at all (SEAM-TENANT), so the
  * surfaces answer their empty, disarmed shape — the same honest absence a mistyped project segment
  * gets, never a fault raised out of an address a person typed.
  */
-export async function getAuditSurfaces(ctx: AuditCtx, projectId: string): Promise<AuditSurfaces> {
-  if (!isUuid(ctx.tenantId)) return { acts: [], modelLedger: DISARMED, jobs: DISARMED, ledger: NO_LEDGER };
+export async function getAuditSurfaces(ctx: AuditCtx, projectId: string, people: AuditPeople = {}): Promise<AuditSurfaces> {
+  if (!isUuid(ctx.tenantId)) return { acts: [], modelLedger: DISARMED, jobs: DISARMED, ledger: NO_LEDGER, names: NO_SUBJECT_NAMES };
 
   const db = forTenant(ctx);
   const [logged, modelLedger, jobs] = await Promise.all([
-    actsOf(db, projectId),
+    actsOf(db, projectId, people),
     panelFor(db, AUDIT_PANEL_TABLES.modelLedger, projectId),
     panelFor(db, AUDIT_PANEL_TABLES.jobs, projectId),
   ]);
   // The ledger is read only where its panel is armed and the project is one: a disarmed panel has no
   // table to read, and a segment naming no project has no calls (R-SPINE-007).
-  const ledger = modelLedger.armed && modelLedger.rowCount > 0 && isUuid(projectId) ? await ledgerOf(db, ctx.tenantId, projectId) : NO_LEDGER;
+  const [ledger, names] = await Promise.all([
+    modelLedger.armed && modelLedger.rowCount > 0 && isUuid(projectId) ? ledgerOf(db, ctx.tenantId, projectId) : NO_LEDGER,
+    // A segment naming no project has no acts, so it asks the store for no names either.
+    logged.length === 0 ? { ...NO_SUBJECT_NAMES, people } : namesOf(db, ctx.tenantId, projectId, logged, people),
+  ]);
 
-  return { acts: logged, modelLedger, jobs, ledger };
+  return { acts: logged, modelLedger, jobs, ledger, names };
 }
 
 /**

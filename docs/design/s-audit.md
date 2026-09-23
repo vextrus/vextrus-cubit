@@ -26,11 +26,17 @@ ConsequenceDialog appears anywhere on it.
   reach. Options derive from the given rows (the distinct `actType`s; the distinct
   `actorId`s labelled by `actorLabel`), plus one all-option each; a filter over values the
   list does not hold would offer choices that can only produce emptiness.
-- **I-32 — the subject filter compares whole identifiers.** "Acts whose subjects include
+- **I-32 — the subject filter compares whole identifiers.** *Amended by I-38 (session 7): a
+  person also finds a subject by the name the row shows for it, compared whole.* "Acts whose subjects include
   it" is array membership: an act matches when the trimmed entered value equals one of its
   subjects exactly. A subject is an identifier, and a fragment match would show an act as
   citing evidence the person did not name (the I-26 class: identifiers compare whole, never
-  in part). A blank or whitespace-only entry is no filter.
+  in part). A blank or whitespace-only entry is no filter. Since the evidence chips read by
+  what a key names, a pasted key still matches itself whole, and a typed entry ALSO matches
+  a subject whose presented name — or one whole fact of it, split at ` · ` — equals it,
+  case-insensitively: "C1" finds `C1 · GF` and never `C10 · GF`, and "LAP" finds every lap
+  note. A whole key a person must paste is a box nobody can use (R-UI-020); comparing facts
+  whole keeps I-26's rule that nothing matches in part.
 - **I-33 — the empty answer lives inside the region and has two truths.** `audit-acts-empty`
   renders in the list's place, beside the filters that stay the screen's content — the
   shell's `ShellEmptyState` is the centred teaching frame of a screen with nothing on it,
@@ -51,6 +57,14 @@ ConsequenceDialog appears anywhere on it.
   module load — and `{ armed: false }` means the installation holds no such table yet. That
   is rendered as calm copy in the panel's own place: not an error, not a refusal (the
   taxonomy registers no code for it), not an empty table pretending the ledger exists.
+  *Amended (session 7):* the copy says only what the disarmed posture proves. Jobs DO run on
+  an installation that ingests drawings — their event log is `cubit_jobs.job_events`, outside
+  the tenant schema, and it carries no project column — so "this installation does not run
+  recorded background jobs" was false on every project with a drawing (R-UI-020). The jobs
+  panel's disarmed line now states the fact that holds: job history is not kept per project
+  yet (`audit_jobs_disarmed`). Arming it on the job log, joined to a project through the job's
+  key, is the jobs node's (C-SPINE-JOBS) — `AUDIT_PANEL_TABLES.jobs` is re-pointed there under
+  B-20, never here.
 - **I-37 — the model ledger reads itself: the outcome beside each call, and a calibration line
   per question (session 4's Jev programme; L-AI-01, L-AI-02, R-AI-005).** An armed ledger panel
   that holds rows no longer stops at a count. Beneath the count it lists the project's newest
@@ -82,6 +96,36 @@ ConsequenceDialog appears anywhere on it.
   the count line and the empty block are unchanged. A digest or a subject is shown whole as the
   chip's value, on its tooltip and on the clipboard, never as body text; the screen drops the 1080 px
   page measure so the grid fills the work surface (§1 amended: `max-width: none`).
+
+  *Amended in place (session 7, the craft look; R-UI-082/083/084, AM-08 — the later law, which wins
+  over I-25 for this screen as S-Project's I-146 already ruled for the same field).* The look found
+  identifiers as body text in three of five columns on every row, and the act type spelled two ways
+  on two screens. So:
+  - **Act type** (220) is the shipped `EnumLabel` (`cx-audit-act-type`, the UI face at
+    `var(--weight-body-medium)`), not verbatim mono: "Author typical range", with the stored value
+    kept on the row's `data-act-type` and in the primitive's `[data-technical]` disclosure. The
+    Act-type filter's options are labelled in the same words (their VALUES stay the stored act
+    types, so a choice is exact), and the select reads in the UI face whatever is chosen — the
+    `cx-audit-select-mono` class is retired.
+  - **Actor** (220) is the label the project's roster names the person by — the page reads the
+    roster through `projectParticipants`' own guarded door and hands `getAuditSurfaces` its
+    `people` (account id → address); an actor the roster cannot name (a refused reader, a person
+    no longer attached, a digest-keyed account) is the IdChip of the id the log recorded. The Actor
+    filter's options read the same label, or the id's short form.
+  - **Cited evidence** (420) is `SubjectChips` (`subject-chips.tsx`, shared with S-Project): ONE
+    presenter over the key schemes an act records, parsed in `src/modules/spine/audit/subjects.ts`
+    and named from the store by `getAuditSurfaces` (`names`: level labels, drawing names, view
+    captions, the roster). Each subject is still an IdChip whose VALUE is the whole key; its
+    measure is what the key names — a placement `C1 · GF` (mark · level; an unresolved level says
+    nothing), a note reading `LAP · S-02` (kind · sheet number), a storey-height reading its level,
+    a view its caption, a sheet its number, a level INSERT_LEVEL proposed `Proposed level {n}`
+    (`audit_subject_proposed_level`; the key carries the proposal's index and nothing else, so
+    the screen does not guess which minted level it became), and a bare surrogate the level,
+    drawing or person the store names by it. A key the presenter cannot read keeps the chip's own
+    short form. At most three chips show; the rest fold into `+{count}` (`audit_subject_more`), a
+    tab stop whose tooltip lists their names and which keeps each folded key in the DOM as a
+    hidden `data-value` — ellipsis plus a count, never silent loss (R-UI-084). The cell clips with
+    an ellipsis, never mid-glyph.
 - **I-36 — the log is a list, not a DataTable and not a fixed-height table.** *Amended by I-38.* No sort, no
   column operations, no inline edit, no virtualisation (pagination is out of scope by name),
   and the contract's filters are external controls, not column filters — DataTable would be
@@ -125,20 +169,19 @@ control is label over field, `gap: var(--space-1)`, `<label for…>` `var(--text
   padding-inline, `var(--text-14)` `var(--graphite-900)`, hover `var(--graphite-400)`,
   disabled and invalid — is worn by taking `.cx-input` itself, never restated here (B-17);
   `.cx-audit-select` adds min-width 180 px and nothing else. Focus: the reticle fallback (a
-  replaced element hosts no `::after`). **While an act type is chosen** the control also
-  takes `.cx-audit-select-mono` — `var(--font-mono)` `tabular-nums slashed-zero` — because a
-  chosen act type is a source key rendered verbatim (I-25); with the all-option showing it
-  reads in `var(--font-ui)`, since that option is the control's own chrome and not a model
-  value, and two adjacent filters must not disagree on typeface over chrome. First option
-  `audit_filter_any_type`, value empty; then the distinct `actType`s of the given rows,
-  code-point order, each its own verbatim label and value.
+  replaced element hosts no `::after`). *Amended by I-38 (session 7):* the control reads in
+  the UI face throughout — `.cx-audit-select-mono` is retired, because an act type is read in
+  words now and not as a source key. First option `audit_filter_any_type`, value empty; then
+  the distinct `actType`s of the given rows, code-point order of the value, each labelled by
+  the words its row's `EnumLabel` reads and valued by the stored act type.
 - **Actor** — `<select data-testid="audit-filter-actor">`, same chrome, always in
   `var(--font-ui)` (an actor label is prose, not a source key). First option
-  `audit_filter_any_actor`; then the distinct actors, option label `actorLabel`, option
-  value `actorId`.
+  `audit_filter_any_actor`; then the distinct actors, option label `actorLabel` (the
+  roster's label, or the recorded id's short form — I-38), option value `actorId`.
 - **Subject** — the core Input, `data-testid="audit-filter-subject"`, width 240 px,
   labelled `audit_filter_subject_label`, no placeholder (the s-auth ruling). Matching per
-  I-32, conjunctive with both selects.
+  I-32 as amended — a pasted key whole, or a chip's presented name or one whole fact of it —
+  conjunctive with both selects.
 - **The count line** — `<p role="status">`, margin 0, `align-self: center`,
   `margin-left: auto`: `audit_count` filled by the string seam's `fill` with `{shown}` and
   `{total}` through `formatUserFigure`, `var(--font-ui)` `var(--text-12)`
@@ -267,6 +310,7 @@ consequence and the evidence it cited.** · `audit_acts_heading` **Act log** ·
 `audit_filter_any_actor` **All actors** · `audit_count` **{shown} of {total} acts** ·
 `audit_col_type` **Act type** · `audit_col_actor` **Actor** · `audit_col_occurred` **Occurred** ·
 `audit_consequence_label` **Consequence** · `audit_evidence_label` **Cited evidence** ·
+`audit_subject_proposed_level` **Proposed level {n}** · `audit_subject_more` **+{count}** ·
 `audit_empty_none_heading` **No acts recorded yet** · `audit_empty_none_body` **Acts are
 recorded here the moment they are committed anywhere in this project — there is nothing to
 set up.** · `audit_empty_filtered_heading` **No acts match these filters** ·
@@ -275,8 +319,8 @@ set up.** · `audit_empty_filtered_heading` **No acts match these filters** ·
 `audit_ledger_disarmed` **This installation does not record model calls yet, so there is
 nothing to list. When it does, every call appears here with its cost and outcome.** ·
 `audit_ledger_count_caption` **recorded model calls** · `audit_jobs_heading` **Jobs** ·
-`audit_jobs_disarmed` **This installation does not run recorded background jobs yet, so
-there is no history to list. When it does, every job appears here.** ·
+`audit_jobs_disarmed` **Job history is not kept per project yet, so none is listed here.**
+(I-35 as amended) ·
 `audit_jobs_count_caption` **recorded jobs** · `audit_ledger_col_call` **Call** ·
 `audit_ledger_col_question` **Question** · `audit_ledger_col_model` **Model** ·
 `audit_ledger_col_transport` **Transport** · `audit_ledger_col_outcome` **Outcome** ·
@@ -291,9 +335,10 @@ agreed, {wrong} when a person did not.** · `audit_ledger_calibration_confidence
 **Confidence {stated} where a person has judged; the other side has no figure yet.** ·
 `audit_ledger_calibration_no_confidence` **No judged call stated a confidence.**
 
-Voice: calm and concrete, no exclamation marks, no build vocabulary in prose — act types,
-actor ids, subjects and digests are model data and render verbatim as data (I-25's class),
-never woven into sentences.
+Voice: calm and concrete, no exclamation marks, no build vocabulary in prose — digests and
+subject keys are model data and stay whole as data (I-25's class), never woven into
+sentences; an act type is read in words and a subject by what its key names (I-38 as
+amended).
 
 ## 4. Motion (R-UI-004)
 

@@ -115,6 +115,21 @@
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
+/* The stated spend, the trigger of the tooltip that reads the ledger's exact decimal (I-145 as
+   amended): a button only in behaviour — it wears the figure's own type and nothing of a control. */
+.cx-project-cost {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-variant-numeric: inherit;
+  color: inherit;
+  cursor: default;
+  /* WCAG 2.2 SC 2.5.8: a pointer target is at least 24 px tall (axe `target-size`). */
+  min-block-size: var(--space-6);
+}
+
 .cx-project-figure-converted {
   color: var(--ink-secondary);
 }
@@ -265,7 +280,6 @@
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
-.cx-project-subjects,
 .cx-project-roles {
   display: inline-flex;
   align-items: center;

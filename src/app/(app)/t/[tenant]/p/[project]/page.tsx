@@ -11,18 +11,14 @@
 // the header, the areas, the quick actions, the AI cost and the recent activity all answer.
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
-import type { RefusalCode } from "@/core/errors";
-import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { projectAiSpendOf } from "@/modules/ai/spend";
 import { getAuditSurfaces } from "@/modules/spine/audit";
-import { projectParticipants } from "@/modules/spine/participants";
 import { projectHeld, projectsForHome } from "@/modules/spine/projects";
-import { presentedValue } from "@/server/auth/folded-key";
 import { sessionOf } from "@/server/shell/resolve";
 import { presentedSessionToken } from "@/server/shell/session";
-import { strings } from "@/ui/strings";
 import { namedWorkspaceRead } from "../../reads";
-import { ProjectHome, type ProjectHomeRoster } from "./home/project-home";
+import { ProjectHome } from "./home/project-home";
+import { peopleOf, rosterOf } from "./roster";
 
 /**
  * The project this address names, read once per request (React's `cache`, the memoisation home
@@ -72,11 +68,14 @@ export default async function ProjectHomePage({ params }: { params: Promise<{ te
   if (!(await projectHeld({ tenantId: tenant }, project))) notFound();
 
   const ctx = { tenantId: tenant, userId: session.userId, actorKind: "human" as const };
+  // The act log names its actors by the roster (I-146), so it waits on the roster alone and the
+  // other reads run beside both.
+  const roster = rosterOf(ctx, project);
   const [row, spend, surfaces, participants] = await Promise.all([
     projectRow(tenant, session.userId, project),
     projectAiSpendOf({ tenantId: tenant, projectId: project }),
-    getAuditSurfaces(ctx, project),
-    rosterOf(ctx, project),
+    roster.then((answered) => getAuditSurfaces(ctx, project, peopleOf(answered))),
+    roster,
   ]);
 
   // The row itself, from the workspace's own reading of its projects. It was held a moment ago; a
@@ -95,30 +94,8 @@ export default async function ProjectHomePage({ params }: { params: Promise<{ te
         participants,
         spend,
         recentActs: surfaces.acts,
+        subjectNames: surfaces.names,
       }}
     />
   );
-}
-
-/**
- * The roster, or the refusal that stands in its place (I-129). A code the register knows is this
- * screen's partial answer; anything else is a fault and rises to the boundary untouched (ARCH-03).
- */
-async function rosterOf(ctx: { tenantId: string; userId: string; actorKind: "human" }, projectId: string): Promise<ProjectHomeRoster> {
-  try {
-    const roster = await projectParticipants(ctx, { projectId });
-    return {
-      roster: roster.map((row) => ({
-        userId: row.member.userId,
-        // I-51: `users.email` holds the folded key, so the address is read back out of it by the
-        // fold's own reader — a digest-keyed account has no address and is named as unnamed.
-        label: (row.member.emailKey === null ? null : presentedValue(row.member.emailKey)) ?? strings.spine_participants_member_unnamed,
-        roles: row.roles,
-      })),
-    };
-  } catch (thrown) {
-    const code = refusalCodeOf(thrown);
-    if (code !== "PERMISSION_NOT_HELD") throw thrown;
-    return { refusal: code satisfies RefusalCode };
-  }
 }

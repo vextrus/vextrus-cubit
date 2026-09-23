@@ -19,7 +19,7 @@ import { existsSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterAll, describe, expect, test } from "vitest";
+import { afterAll, describe, expect, test, vi } from "vitest";
 import { provisionScratchDb } from "./harness";
 import { GUC_SYSTEM_REASON, SEED_REASON, TENANT_ALPHA, TENANT_COLUMN } from "./support/fixtures";
 import { ident, isTrue, lit, run, scalar, seedTenants, withSession } from "./support/live-sql";
@@ -32,6 +32,15 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 /** The homes the Increment Spec's interfaces name. */
 const AUDIT_MODULE = "src/modules/spine/audit/index.ts";
 const PAGE_MODULE = "src/app/(app)/t/[tenant]/p/[project]/audit/page.tsx";
+
+// The page names the log's actors through the project roster, read on the REQUEST's session
+// (roster.ts projectPeople → the session cookie). This suite renders the page as a function, outside
+// any request, and asserts the panels and the explorer — never a name — so the roster answers the
+// empty roster a refused reader gets: every actor then shows the id the log recorded (I-38).
+vi.mock("../../src/app/(app)/t/[tenant]/p/[project]/roster", async (original) => ({
+  ...(await original<typeof import("../../src/app/(app)/t/[tenant]/p/[project]/roster")>()),
+  projectPeople: async () => ({}),
+}));
 const STRINGS_MODULE = "src/app/(app)/t/[tenant]/p/[project]/audit/strings.ts";
 
 /** The hooks AC-3 and the test contract fix on the two panels. */

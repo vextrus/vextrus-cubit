@@ -23,35 +23,32 @@ import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { refusalOf, type RefusalCode } from "@/core/errors";
-import { BD_DOCUMENT, dhakaDateParts, formatDate, formatMoney, formatUserFigure } from "@/core/format";
+import { formatUserFigure } from "@/core/format";
 import type { Project } from "@/modules/spine/projects";
+// §4.3's ramp step has one home — the coverage grid's — so this cell and S-Coverage's rows can never
+// paint one share at two steps (B-17).
+import { rampStep } from "@/modules/takeoff/coverage/heat";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { Badge, Button, CoverageChip, EmptyState, Input, MoneyText, RelativeTime, Stat, type FigureFormat } from "@/ui/primitives/core";
+import { Badge, Button, CoverageChip, EmptyState, Input, MoneyText, RelativeTime, Stat } from "@/ui/primitives/core";
 import { DataTable } from "@/ui/primitives/data";
 import { Sheet, SheetContent } from "@/ui/primitives/overlay";
 import { shellHref } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import type { LifecycleAnswer } from "../actions";
 import { projectHomeRoute } from "../p/[project]/home/areas";
+import { FIGURES } from "../figures";
 import { ProjectsOnboarding } from "../projects-onboarding";
 import { ProjectForm } from "./project-form";
 import { ProjectRowMenu } from "./project-row";
 import { homeScreenStrings } from "./strings";
 import { TESTIDS } from "@/ui/testids";
 
-/**
- * The document's conventions, handed to the figure primitives (I-139). `money` answers WITHOUT the
- * currency character because `MoneyText` draws the ৳ itself; the seam still writes it, so L-FMT-02's
- * refusal of a badly-shaped amount is the one that fires and no grouping is spelled twice (B-17).
- */
-const FIGURES: FigureFormat = {
-  figure: (value) => formatUserFigure(value),
-  money: (amount) => formatMoney(amount).replace(BD_DOCUMENT.currencySymbol, ""),
-  date: (at) => formatDate(dhakaDateParts(at)),
-};
 
 /** The identity the reader's column furniture is remembered under (DataTable, §5 rule 3). */
 const TABLE_ID = "s-home-projects";
+
+/** No share read: every project's coverage cell states the absent mark. One object, so the roster's memo holds. */
+const NO_COVERAGE: Readonly<Record<string, number>> = Object.freeze({});
 
 /** Which project the form is open on, or null when it is open on none — a creation. */
 type FormTarget = { readonly project: Project | null };
@@ -59,6 +56,12 @@ type FormTarget = { readonly project: Project | null };
 export interface ProjectsHomeProps {
   tenantId: string;
   projects: readonly Project[];
+  /**
+   * The published share of each project that has one (I-142), keyed by project id — read by the page
+   * through the coverage door. A project absent from it has no campaign, or none bearing a cell yet,
+   * and states the absent mark.
+   */
+  coverage?: Readonly<Record<string, number>>;
 }
 
 /** A cell with nothing to state says so with the readout's own mark, never with a blank (§3.1). */
@@ -69,30 +72,22 @@ function Absent() {
 /**
  * What share of this project's work is published, or null where the question has no answer yet: a
  * project with no campaign has nothing measured to cover, and a ramp drawn at 0 % would state a
- * failure where there is only an absence (R-UI-020).
+ * failure where there is only an absence (R-UI-020). The share is the page's reading of the coverage
+ * door; this screen never invents one.
  */
-function coverageOf(project: Project): number | null {
+function coverageOf(project: Project, coverage: Readonly<Record<string, number>>): number | null {
   if (project.quickStats.campaigns === 0) return null;
-  return 0;
-}
-
-/** §4.3's ramp step for a share: 0 %, 1–25, 26–50, 51–75, 76–100 — lightness, never hue. */
-function rampStep(share: number): string {
-  if (share <= 0) return "0";
-  if (share <= 0.25) return "1";
-  if (share <= 0.5) return "2";
-  if (share <= 0.75) return "3";
-  return "4";
+  return coverage[project.projectId] ?? null;
 }
 
 /**
- * What this workspace's projects are estimated to be worth, or null while none of them holds an
- * estimate. The figure is a sum of what the store answers, so the tile lights up the day the first
- * estimate lands and states an absence — never a `৳ 0.00` — until then (§8's reading of `0 USD`).
+ * What this workspace's projects are estimated to be worth, or null while none of them can say. No
+ * store holds an estimate's value yet (`quickStats.estimates` counts an empty set), so the tile
+ * states an absence — never a `৳ 0.00` — and lights up the day an estimate read lands (§8's reading
+ * of `0 USD`, I-142).
  */
-function estimatedValueOf(projects: readonly Project[]): string | null {
-  const estimates = projects.reduce((held, project) => held + project.quickStats.estimates, 0);
-  return estimates === 0 ? null : "0.00";
+function estimatedValueOf(): string | null {
+  return null;
 }
 
 /** The workspace total of one of the counts a project carries, through the one figure seam. */
@@ -106,7 +101,7 @@ function matches(project: Project, query: string): boolean {
   return [project.name, project.code, project.client, project.district].some((said) => (said ?? "").toLowerCase().includes(needle));
 }
 
-export function ProjectsHome({ tenantId, projects }: ProjectsHomeProps) {
+export function ProjectsHome({ tenantId, projects, coverage = NO_COVERAGE }: ProjectsHomeProps) {
   const [target, setTarget] = useState<FormTarget | null>(null);
   const [query, setQuery] = useState("");
   // One refusal per row, held here so the answer belongs to the project the door was taken on.
@@ -181,13 +176,13 @@ export function ProjectsHome({ tenantId, projects }: ProjectsHomeProps) {
         header: strings.takeoff_register_col_coverage,
         size: 140,
         cell: ({ row }) => {
-          const share = coverageOf(row.original);
+          const share = coverageOf(row.original, coverage);
           if (share === null) return <Absent />;
           return (
             <span className="cx-home-coverage">
               {/* The bar is redundant to the numeral beside it — meaning never rides on colour or
                   on length alone (§4.3, Q-11) — so it is out of the accessibility tree. */}
-              <span className="cx-home-ramp" data-step={rampStep(share)} aria-hidden="true">
+              <span className="cx-home-ramp" data-step={String(rampStep(share))} aria-hidden="true">
                 <span className="cx-home-ramp-fill" style={{ inlineSize: `${Math.round(share * 100)}%` }} />
               </span>
               <CoverageChip value={share} />
@@ -215,10 +210,10 @@ export function ProjectsHome({ tenantId, projects }: ProjectsHomeProps) {
         cell: ({ row }) => <ProjectRowMenu tenantId={tenantId} project={row.original} onEdit={(open) => setTarget({ project: open })} onAnswer={answered} />,
       },
     ],
-    [tenantId, answered],
+    [tenantId, answered, coverage],
   );
 
-  const estimated = estimatedValueOf(projects);
+  const estimated = estimatedValueOf();
   const empty = projects.length === 0;
 
   return (

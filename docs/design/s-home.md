@@ -101,6 +101,13 @@ no section heading over a sentence.
   renders the four counts as literal counts of the project's (empty) sheet/campaign/estimate/
   bid sets from `projectsForHome` — honest zeros the later J-000 legs fill, never a hidden
   region and never a `0` literal in JSX.
+  *Amended in place (session 7, the craft look; R-UI-020):* the sets were never filled — the read
+  counted four empty M0 arrays forever, so a project holding a drawing set and a campaign said
+  Sheets 0 / Campaigns 0 on both S-Home and S-Project. `projectsForHome` now COUNTS: a project's
+  sheets are the layouts of each of its drawings' current (newest) ingest record — the very
+  cards its sheet index shows — and its campaigns are its `campaigns` rows, each read once for the
+  whole workspace and grouped by project. Estimates and bids have no store yet, so they stay
+  counted empty sets.
 - **I-37 — last activity is an absolute date through the format seam, and it is masked.**
   *Amended by I-139 and by S-Project's I-147: the cell is the shipped `RelativeTime`, which is
   deterministic by construction — it takes its present from an injected clock or from nothing at
@@ -174,6 +181,14 @@ no section heading over a sentence.
   colour nor length is the only carrier (Q-11). The same reading governs the estimated-value
   tile: until a project holds an estimate the tile states `—`, never `৳ 0.00` (Direction 00 §8's
   reading of `0 USD`).
+  *Amended in place (session 7):* where a share is known it is READ, never typed — the screen had
+  drawn a literal 0 % for every project with a campaign. The page asks the coverage door
+  (`coverageViewOf`) for each project holding a campaign and takes S-Coverage's own reading of
+  it, `rowShare` over the residue's cells (the published cells over every cell the campaign
+  bears); the ramp step is S-Coverage's `rampStep`, so one share never paints at two steps. A
+  campaign whose residue bears no cell yet has no share and states `—`. The estimated-value tile
+  states `—` until an estimate's value has a store to be read from; it no longer holds a typed
+  `0.00` in reserve.
 - **I-143 — the screen states itself on its root, and every identifier renders through the IdChip (session 4, AM-08 Part 2's rubric read as CLAUDE.md reads it).** `cx-home` states `empty` on the zero-project branch and `ready` otherwise. The root carries `data-screen-root` and a `data-state` a reader of the DOM can take after `settled()` — `ready`, `empty`, or the screen's own word — which is the rubric's twelfth criterion and was unstated here. An identifier a person meets on this screen (an account id, a content digest, a source key) is an IdChip: the chip measure on screen, the whole value in `data-value`, on the tooltip and on the clipboard, never a raw uuid, hex digest or handle in body text (R-UI-082). Where an earlier Interpretation of this file ruled a digest rendered whole in the document, this one amends it: the whole value is the chip's DATA and the copy it hands over, and the document shows the measure.
 
 ## 1. Layout and hierarchy
@@ -231,7 +246,7 @@ column state (sort, width, visibility, pinning) is remembered per reader per tab
 | 2 | `home_field_client` | 180 | the stored text, or `—` (`cx-home-absent`) |
 | 3 | `home_field_district` | 140 | the stored text, or `—` |
 | 4 | `home_stat_sheets` (sortable, right) | 90 | the count in mono tabular through the seam |
-| 5 | `takeoff_register_col_coverage` | 140 | §4.3's ramp bar (`cx-home-ramp`, `data-step` 0–4 over `--cov-0…4`, `aria-hidden`) beside the shipped `CoverageChip`'s percentage — or `—` where no campaign exists (I-142) |
+| 5 | `takeoff_register_col_coverage` | 140 | §4.3's ramp bar (`cx-home-ramp`, `data-step` 0–4 over `--cov-0…4` from S-Coverage's `rampStep`, `aria-hidden`) beside the shipped `CoverageChip`'s percentage of the share the coverage door reads — or `—` where no campaign exists or none bears a cell yet (I-142 as amended) |
 | 6 | `home_col_last_act` (sortable) | 130 | `RelativeTime` `s-home-project-last-activity`, bound to `FIGURES` (I-139): "2 h ago" inside a day, the document date beyond it — and the document date wherever no clock is installed, which is what keeps a capture photographable twice (I-37 is amended: the cell is the primitive's, and the reading is relative where a present is known) |
 | 7 | `⋯` | 56 | `ProjectRowMenu` (I-140) |
 

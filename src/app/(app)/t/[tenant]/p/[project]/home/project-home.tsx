@@ -15,23 +15,28 @@
 // I-144 amends I-127 — the four facts are ONE line under the name, not a four-column `<dl>` block.
 // I-145 amends I-128 — the ledger's money is still USD (converting is out of scope by name), but a
 // spend of nothing is an absence, not a figure: at zero calls the tile states the readout's absent
-// mark and the screen's one helper line says "No model calls yet" (§8).
+// mark and the screen's one helper line says "No model calls yet" (§8). Above zero the tile states the
+// spend to the cent ("< 0.01" under one) with the ledger's exact decimal on its tooltip.
 // I-146 — every SCREAMING enum on this screen renders through `EnumLabel`, and every opaque
-// identifier through `IdChip`: an act type is `Assign participant role`, a role is `Principal`, and
-// a subject is a copyable chip, never a uuid as body text (§6, §7 C6).
+// identifier through `IdChip`: an act type is `Assign participant role`, a role is `Principal`, an
+// actor is the roster's label, and a subject is a copyable chip reading what its key names ("C1 ·
+// GF"), never a uuid or a key prefix as body text (§6, §7 C6).
 import "./project-home.css";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import Decimal from "decimal.js";
 import Link from "next/link";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { dhakaDateParts, formatDate, formatSquareFeet, formatUserFigure } from "@/core/format";
 import type { ProjectAiSpend } from "@/modules/ai/spend";
 import type { AuditAct } from "@/modules/spine/audit";
+import { NO_SUBJECT_NAMES, isSurrogate, type SubjectNames } from "@/modules/spine/audit/subjects";
 import type { Project } from "@/modules/spine/projects";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Badge, EmptyState, EnumLabel, IdChip, RelativeTime, Stat, Tooltip, UnitBadge, type FigureFormat } from "@/ui/primitives/core";
 import { DataTable } from "@/ui/primitives/data";
 import { fill, strings } from "@/ui/strings";
+import { SubjectChips } from "../audit/subject-chips";
 import { participantsRoute } from "../settings/participants/route-address";
 import { PROJECT_AREAS, QUICK_ACTIONS, RECENT_ACTIVITY_LIMIT, auditRoute } from "./areas";
 import { projectHomeStrings as copy } from "./strings";
@@ -59,6 +64,8 @@ export interface ProjectHomeParticipant {
   readonly userId: string;
   readonly label: string;
   readonly roles: readonly string[];
+  /** False where the account has no address and `label` is the roster's "unnamed" word, not a name. */
+  readonly named?: boolean;
 }
 
 /** The roster, or the refusal that stands in its place — the screen's one partial cell (I-129). */
@@ -74,6 +81,8 @@ export interface ProjectHomeData {
   readonly spend: ProjectAiSpend;
   /** Newest first, in the order `getAuditSurfaces` answered — never re-sorted here (I-132). */
   readonly recentActs: readonly AuditAct[];
+  /** The names the acts' subjects are known by, as the same read answered them (I-146). */
+  readonly subjectNames?: SubjectNames;
 }
 
 /** The headings the regions are read under, named once so each region's label cannot drift. */
@@ -85,12 +94,25 @@ const HEADING_ID = Object.freeze({
 /** The identities the readers' column furniture is remembered under (DataTable, §5 rule 3). */
 const TABLE_ID = Object.freeze({ activity: "s-project-activity", roster: "s-project-participants" });
 
-/** The shape of an account id: a roster member the store can name only so is rendered as the identifier it is (I-149). */
-const IDENTIFIER = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /** A cell with nothing to state says so with the readout's own mark, never with a blank (§3.1). */
 function Absent() {
   return <span className="cx-project-absent">{strings.shell_status_absent}</span>;
+}
+
+/** The places money is read to: a spend is a sum of cents, whatever precision the ledger keeps. */
+const COST_PLACES = 2;
+
+/**
+ * The ledger's spend as the tile states it (I-145 as amended): rounded half-up to the cent and through
+ * the figure seam, or "< 0.01" for a spend that is real but under a cent — a tile reading "0.00" would
+ * state a nothing where something was spent. The exact decimal is never rounded in the DATA: it is the
+ * tooltip's and `data-exact`'s.
+ */
+function presentedCost(exact: string): string {
+  const spent = new Decimal(exact);
+  const cent = new Decimal(1).dividedBy(10 ** COST_PLACES);
+  if (spent.greaterThan(0) && spent.lessThan(cent)) return fill(copy.project_home_ai_cost_under, { figure: formatUserFigure(cent.toFixed(COST_PLACES)) });
+  return formatUserFigure(spent.toDecimalPlaces(COST_PLACES, Decimal.ROUND_HALF_UP).toFixed(COST_PLACES));
 }
 
 /** A stored fact, or the line that says it is not stated — never a blank cell and never a 0 (I-133). */
@@ -99,11 +121,13 @@ function stated(value: string | null) {
 }
 
 export function ProjectHome({ data }: { data: ProjectHomeData }) {
-  const { tenantId, projectId, project, zones, participants, spend, recentActs } = data;
+  const { tenantId, projectId, project, zones, participants, spend, recentActs, subjectNames = NO_SUBJECT_NAMES } = data;
   const roster = "refusal" in participants ? null : participants.roster;
 
   return (
-    <div className="cx-project" data-testid={TESTIDS.project.home} data-project={projectId}>
+    // I-149: the root states itself — a project home always has a name, a title row and its regions,
+    // so it is `ready` whenever it renders (its loading state is the route's own `loading.tsx`).
+    <div className="cx-project" data-testid={TESTIDS.project.home} data-project={projectId} data-screen-root="" data-state="ready">
       <ProjectTitle tenantId={tenantId} projectId={projectId} project={project} zones={zones} />
       <ProjectTabs tenantId={tenantId} projectId={projectId} />
 
@@ -120,8 +144,17 @@ export function ProjectHome({ data }: { data: ProjectHomeData }) {
                 <Absent />
               </span>
             ) : (
-              <span className="cx-project-figure" data-testid={TESTIDS.project.homeAiCost}>
-                {formatUserFigure(spend.attributedCost)}
+              // I-145 as amended: the tile states the spend at the precision a reader reads money by
+              // — two places, or "< 0.01" under a cent — and the ledger's exact decimal stays one
+              // hover or focus away on the tooltip, and whole on `data-exact`.
+              <span className="cx-project-figure" data-testid={TESTIDS.project.homeAiCost} data-exact={spend.attributedCost}>
+                <Tooltip content={`${formatUserFigure(spend.attributedCost)} ${copy.project_home_ai_cost_unit}`}>
+                  {/* The tooltip's own trigger idiom, a button that opens nothing but the hint, so
+                      the keyboard reaches the exact figure as the pointer does (R-UI-012). */}
+                  <button type="button" className="cx-project-cost">
+                    {presentedCost(spend.attributedCost)}
+                  </button>
+                </Tooltip>
                 {/* I-134: the shipped badge fixes its own test id, so the contract's id rides a
                     `display: contents` wrapper rather than a second badge drawn to carry it. */}
                 <span className="cx-project-unit" data-testid={TESTIDS.project.homeAiCostUnit}>
@@ -134,7 +167,7 @@ export function ProjectHome({ data }: { data: ProjectHomeData }) {
         <Stat value={roster === null ? <Absent /> : formatUserFigure(String(roster.length))} label={copy.project_home_participants_heading} />
       </div>
 
-      <RecentActivity tenantId={tenantId} projectId={projectId} acts={recentActs} />
+      <RecentActivity tenantId={tenantId} projectId={projectId} acts={recentActs} names={subjectNames} />
       <Participants tenantId={tenantId} projectId={projectId} participants={participants} />
 
       {/* The screen's ONE line of helper copy, at the foot: the model calls behind the tile above,
@@ -331,7 +364,7 @@ function AiLine({ tenantId, projectId, spend }: { tenantId: string; projectId: s
  * The newest acts as the one 28 px table (§3.3): what was done, by whom, when, and to what. The cap
  * is the screen's own number (I-132) and the order is the audit door's, never re-sorted here.
  */
-function RecentActivity({ tenantId, projectId, acts }: { tenantId: string; projectId: string; acts: readonly AuditAct[] }) {
+function RecentActivity({ tenantId, projectId, acts, names }: { tenantId: string; projectId: string; acts: readonly AuditAct[]; names: SubjectNames }) {
   const shown = acts.slice(0, RECENT_ACTIVITY_LIMIT);
 
   const columns: ColumnDef<AuditAct, unknown>[] = [
@@ -347,8 +380,10 @@ function RecentActivity({ tenantId, projectId, acts }: { tenantId: string; proje
       id: "who",
       header: copy.project_home_col_who,
       size: 220,
-      // An actor the log can name only by account id is named through the IdChip (I-149).
-      cell: ({ row }) => (IDENTIFIER.test(row.original.actorLabel) ? <IdChip value={row.original.actorLabel} /> : <span className="cx-project-member-label">{row.original.actorLabel}</span>),
+      // The actor's label is the roster's (I-146); an actor the roster cannot name is named by the
+      // account id the log recorded, through the IdChip (I-149).
+      cell: ({ row }) =>
+        isSurrogate(row.original.actorLabel) ? <IdChip value={row.original.actorLabel} /> : <span className="cx-project-member-label">{row.original.actorLabel}</span>,
     },
     {
       id: "when",
@@ -359,16 +394,11 @@ function RecentActivity({ tenantId, projectId, acts }: { tenantId: string; proje
     {
       id: "subject",
       header: copy.project_home_col_subject,
-      size: 170,
-      // An act's subject is an opaque key: short on screen, whole in the DOM, one press from the
-      // clipboard (R-UI-082) — never a uuid as body text.
-      cell: ({ row }) => (
-        <span className="cx-project-subjects">
-          {row.original.subjects.map((subject) => (
-            <IdChip key={subject} value={subject} />
-          ))}
-        </span>
-      ),
+      size: 400,
+      // I-146 as amended: a subject is an IdChip whose measure is what its key names — S-Audit's
+      // one presenter — at most three and a `+k`; whole in the DOM, one press from the clipboard
+      // (R-UI-082), never a uuid or a key prefix as the thing a person reads.
+      cell: ({ row }) => <SubjectChips names={names} subjects={row.original.subjects} />,
     },
   ];
 
@@ -421,7 +451,7 @@ function Participants({ tenantId, projectId, participants }: { tenantId: string;
       header: strings.spine_participants_field_member,
       size: 320,
       // A member the roster can name only by id is named through the IdChip, never as body text (R-UI-082).
-      cell: ({ row }) => (IDENTIFIER.test(row.original.label) ? <IdChip value={row.original.label} /> : <span className="cx-project-member-label">{row.original.label}</span>),
+      cell: ({ row }) => (isSurrogate(row.original.label) ? <IdChip value={row.original.label} /> : <span className="cx-project-member-label">{row.original.label}</span>),
     },
     {
       id: "roles",

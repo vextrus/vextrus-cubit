@@ -2,8 +2,9 @@
 // their own beyond test ids and fixed attribute values. The keys read `audit_…`, under the same
 // discipline as the tables in `src/ui/strings/*` (Design Decision I-24).
 //
-// Act types, actor ids, subjects and digests are model data: they render verbatim as data and are
-// never woven into a sentence here (I-25).
+// Digests and subject keys are model data: they stay whole as data and are never woven into a
+// sentence here (I-25). An act type is read in words through EnumLabel, and a subject by what its
+// key names (I-38) — the two words a subject chip may need are this table's.
 export const auditStrings = {
   audit_heading: "Audit",
   audit_caption: "Every act committed on this project, with its consequence and the evidence it cited.",
@@ -21,6 +22,9 @@ export const auditStrings = {
   audit_col_occurred: "Occurred",
   audit_consequence_label: "Consequence",
   audit_evidence_label: "Cited evidence",
+
+  audit_subject_proposed_level: "Proposed level {n}",
+  audit_subject_more: "+{count}",
 
   audit_empty_none_heading: "No acts recorded yet",
   audit_empty_none_body: "Acts are recorded here the moment they are committed anywhere in this project — there is nothing to set up.",
@@ -51,6 +55,6 @@ export const auditStrings = {
   audit_ledger_calibration_no_confidence: "No judged call stated a confidence.",
 
   audit_jobs_heading: "Jobs",
-  audit_jobs_disarmed: "This installation does not run recorded background jobs yet, so there is no history to list. When it does, every job appears here.",
+  audit_jobs_disarmed: "Job history is not kept per project yet, so none is listed here.",
   audit_jobs_count_caption: "recorded jobs",
 } as const;

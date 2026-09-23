@@ -75,18 +75,8 @@
   min-width: 180px;
 }
 
-/* An act type is a source key, so a chosen one renders in the face the log's own values render in
-   (I-25). Chrome — the all-option — is not a model value and does not take it.
-
-   Both classes are named because this rule has to outrank `.cx-input`'s own `font-family`, which is
-   the primitive's default face and is a single-class selector like this one: whichever sheet the
-   bundler happens to serve second would otherwise decide the face, and a screen's paint may not
-   depend on chunk order. The face is the only declaration taken back from the primitive — border,
-   height, hover, disabled and invalid still have their one home in core.css (B-17). */
-.cx-audit-select.cx-audit-select-mono {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums slashed-zero;
-}
+/* An act type is read in words now (I-38 as amended for R-UI-083), in the row and in the filter
+   alike, so no option takes the mono face: the select reads in the primitive's own face throughout. */
 
 .cx-audit-subject {
   width: 240px;
@@ -112,9 +102,8 @@
   margin-top: var(--space-3);
 }
 
+/* The act type in words (EnumLabel), in the UI face: the raw value is the primitive's disclosure. */
 .cx-audit-act-type {
-  font-family: var(--font-mono);
-  font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   color: var(--ink);
 }
@@ -131,12 +120,13 @@
   color: var(--ink-muted);
 }
 
-/* The cited subjects, each an IdChip, on one line of the cell (I-38). */
+/* The cited subjects (I-38): at most three chips and a `+k`, on one line of the cell, clipped with an
+   ellipsis should a name still run past it — never cut mid-glyph (R-UI-084). The chips' own layout
+   is the shared `.cx-subject-chips` (subject-chips.css). */
 .cx-audit-act-evidence {
-  display: inline-flex;
-  flex-wrap: nowrap;
-  gap: var(--space-2);
+  max-inline-size: 100%;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* --- the empty answer, in the list's place (I-33) ------------------------------------------- */

@@ -4,30 +4,33 @@
  * what it cited, over three conjunctive filters.
  *
  * The log is a 28 px grid (I-38, amending I-36): a DataTable v2 whose rows keep the contract's ids
- * and data attributes, whose identifiers — the consequence digest and every cited subject — render
- * through the IdChip (I-38, amending I-26), and whose act type stands verbatim in mono because it is
- * the model's own word (I-25). Filtering is in-component over the given rows; the rows themselves
- * are never re-ordered.
+ * and data attributes. Its act type is read in words through EnumLabel — the raw value stays on
+ * `data-act-type` and in the primitive's technical disclosure (I-38 as amended for R-UI-083) — its
+ * actor by the roster's label, and its identifiers through the IdChip: the consequence digest whole
+ * as the chip's value, and every cited subject by what its key names, at most three and a `+k`
+ * (`SubjectChips`, shared with S-Project). Filtering is in-component over the given rows; the rows
+ * themselves are never re-ordered.
  */
 import { useMemo, useRef, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { dhakaDateParts, formatDate, formatUserFigure } from "@/core/format";
 import type { AuditAct } from "@/modules/spine/audit";
-import { Button, IdChip, Input, Select, type SelectOption } from "@/ui/primitives/core";
+import { NO_SUBJECT_NAMES, isSurrogate, type SubjectNames } from "@/modules/spine/audit/subjects";
+import { Button, EnumLabel, IdChip, Input, Select, type SelectOption } from "@/ui/primitives/core";
+import { humaniseEnum } from "@/ui/primitives/core/enum-label";
+import { shortForm } from "@/ui/primitives/core/id-chip";
 import { DataTable } from "@/ui/primitives/data";
 import { useShellPage } from "@/ui/shell";
 import { fill } from "@/ui/strings";
 import { auditStrings } from "./strings";
+import { SubjectChips, subjectAnswers } from "./subject-chips";
 import { TESTIDS } from "@/ui/testids";
 
 const ANY = "";
 
 /** The identity the grid's column furniture is remembered under (DataTable's `tableId`). */
 const ACTS_TABLE_ID = "audit-acts";
-
-/** The shape of an account id: an actor the log can name only so is rendered as the identifier it is. */
-const IDENTIFIER = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface ActorChoice {
   readonly actorId: string;
@@ -43,45 +46,49 @@ function occurred(at: Date): string {
 }
 
 /**
- * The measure a subject shows on its chip: a `scheme:key` source key shows its key, because the
- * scheme is the same on every subject of a row and the key is what a reader recognises; anything
- * else takes the chip's own leading characters. The whole subject is the chip's value either way.
+ * The actor as the filter's option names them: the roster's label, or — where the log could name
+ * them only by the account id it recorded — the id's short form, the same measure the row's IdChip
+ * shows (R-UI-082: never a whole uuid as a word).
  */
-function subjectMeasure(subject: string): string | undefined {
-  const colon = subject.indexOf(":");
-  return colon > 0 && colon < subject.length - 1 ? subject.slice(colon + 1) : undefined;
+function actorWords(actorLabel: string): string {
+  return isSurrogate(actorLabel) ? shortForm(actorLabel) : actorLabel;
 }
 
-const COLUMNS: ColumnDef<AuditAct, unknown>[] = [
-  { id: "type", header: auditStrings.audit_col_type, size: 220, cell: ({ row }) => <span className="cx-audit-act-type">{row.original.actType}</span> },
-  {
-    id: "actor",
-    header: auditStrings.audit_col_actor,
-    size: 160,
-    cell: ({ row }) => (IDENTIFIER.test(row.original.actorLabel) ? <IdChip value={row.original.actorLabel} /> : <span className="cx-audit-act-actor">{row.original.actorLabel}</span>),
-  },
-  { id: "occurred", header: auditStrings.audit_col_occurred, size: 120, cell: ({ row }) => <span className="cx-audit-act-when">{occurred(row.original.occurredAt)}</span> },
-  {
-    id: "consequence",
-    header: auditStrings.audit_consequence_label,
-    size: 140,
-    cell: ({ row }) => <IdChip data-testid={TESTIDS.audit.actConsequence} value={row.original.consequenceDigest} />,
-  },
-  {
-    id: "evidence",
-    header: auditStrings.audit_evidence_label,
-    size: 360,
-    cell: ({ row }) => (
-      <span className="cx-audit-act-evidence" data-testid={TESTIDS.audit.actEvidence}>
-        {row.original.subjects.map((each) => (
-          <IdChip key={each} short={subjectMeasure(each)} value={each} />
-        ))}
-      </span>
-    ),
-  },
-];
+/** The log's columns, over the names the cited subjects are known by. */
+function columnsOf(names: SubjectNames): ColumnDef<AuditAct, unknown>[] {
+  return [
+    {
+      id: "type",
+      header: auditStrings.audit_col_type,
+      size: 220,
+      // R-UI-083: a closed enum is read in words, and the stored value is kept, not deleted — on
+      // the row's `data-act-type` and in the primitive's technical disclosure (I-38).
+      cell: ({ row }) => <EnumLabel className="cx-audit-act-type" value={row.original.actType} />,
+    },
+    {
+      id: "actor",
+      header: auditStrings.audit_col_actor,
+      size: 220,
+      cell: ({ row }) =>
+        isSurrogate(row.original.actorLabel) ? <IdChip value={row.original.actorLabel} /> : <span className="cx-audit-act-actor">{row.original.actorLabel}</span>,
+    },
+    { id: "occurred", header: auditStrings.audit_col_occurred, size: 120, cell: ({ row }) => <span className="cx-audit-act-when">{occurred(row.original.occurredAt)}</span> },
+    {
+      id: "consequence",
+      header: auditStrings.audit_consequence_label,
+      size: 140,
+      cell: ({ row }) => <IdChip data-testid={TESTIDS.audit.actConsequence} value={row.original.consequenceDigest} />,
+    },
+    {
+      id: "evidence",
+      header: auditStrings.audit_evidence_label,
+      size: 420,
+      cell: ({ row }) => <SubjectChips className="cx-audit-act-evidence" data-testid={TESTIDS.audit.actEvidence} names={names} subjects={row.original.subjects} />,
+    },
+  ];
+}
 
-export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
+export function ActLogExplorer({ acts, names = NO_SUBJECT_NAMES }: { acts: readonly AuditAct[]; names?: SubjectNames }) {
   // R-UI-084: the trail's last crumb is this screen's own word, under the project's home.
   useShellPage(auditStrings.audit_heading);
   // Where focus goes when the control holding it clears the filters: that button stands inside the
@@ -103,20 +110,26 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
   }, [acts]);
 
   // What each filter offers, in the shape the Select takes: the all-option first (I-31), then the
-  // values themselves — an act type is shown verbatim because it IS the model's word (I-25).
+  // values themselves — each act type labelled in the words its row's EnumLabel reads (I-38), each
+  // actor by the roster's label; the VALUE is the stored one either way, so the choice is exact.
   const typeOptions = useMemo<SelectOption[]>(
-    () => [{ value: ANY, label: auditStrings.audit_filter_any_type }, ...actTypes.map((type) => ({ value: type, label: type }))],
+    () => [{ value: ANY, label: auditStrings.audit_filter_any_type }, ...actTypes.map((type) => ({ value: type, label: humaniseEnum(type) }))],
     [actTypes],
   );
   const actorOptions = useMemo<SelectOption[]>(
-    () => [{ value: ANY, label: auditStrings.audit_filter_any_actor }, ...actors.map((actor) => ({ value: actor.actorId, label: actor.actorLabel }))],
+    () => [{ value: ANY, label: auditStrings.audit_filter_any_actor }, ...actors.map((actor) => ({ value: actor.actorId, label: actorWords(actor.actorLabel) }))],
     [actors],
   );
+  const columns = useMemo(() => columnsOf(names), [names]);
 
-  // A subject is an identifier, so it is compared whole; a blank entry is no filter (I-32).
+  // A pasted key is compared whole, and a typed name matches a subject's presented name or one whole
+  // fact of it (I-32 as amended); a blank entry is no filter.
   const cited = subject.trim();
   const shown = acts.filter(
-    (given) => (actType === ANY || given.actType === actType) && (actorId === ANY || given.actorId === actorId) && (cited === "" || given.subjects.includes(cited)),
+    (given) =>
+      (actType === ANY || given.actType === actType) &&
+      (actorId === ANY || given.actorId === actorId) &&
+      (cited === "" || given.subjects.some((each) => subjectAnswers(each, names, cited))),
   );
 
   const clearFilters = (): void => {
@@ -139,12 +152,10 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
           </label>
           {/* The shipped Select (Design Direction 00 §1 refuses the native control — the
               platform's popup cannot be drawn at this instrument's weight). The closed choice I-31
-              rules is unchanged: the all-option first, then exactly the act types the rows hold.
-              Mono is I-25's treatment of a model value, and only a chosen act type is one: the
-              all-option is this control's own chrome and reads in the face the row's other control
-              reads in. */}
+              rules is unchanged: the all-option first, then exactly the act types the rows hold,
+              each in words and in the UI face, like the row it filters (I-38). */}
           <Select
-            className={actType === ANY ? "cx-audit-select" : "cx-audit-select cx-audit-select-mono"}
+            className="cx-audit-select"
             data-testid={TESTIDS.audit.filterType}
             id="audit-filter-type-field"
             onChange={setActType}
@@ -201,7 +212,7 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
           <DataTable
             tableId={ACTS_TABLE_ID}
             aria-labelledby="audit-acts-heading"
-            columns={COLUMNS}
+            columns={columns}
             data={shown}
             getRowId={(act) => act.actId}
             rowTestId={TESTIDS.audit.actRow}

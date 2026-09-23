@@ -35,6 +35,8 @@ export const projectHomeStrings = {
 
   project_home_ai_heading: "AI cost so far",
   project_home_ai_cost_unit: "USD",
+  // I-145 as amended: a spend that is real but under a cent is stated as under one, never as 0.00.
+  project_home_ai_cost_under: "< {figure}",
   project_home_ai_cost_caption: "attributed to this project",
   project_home_ai_calls_caption: "model calls",
   project_home_ai_outcomes: "{proposed} proposals, {refused} refused",

@@ -46,9 +46,13 @@ describe("AC-3 — the AI cost so far", () => {
     const spend = aSpend({ calls: 1234, proposed: 41, refused: 7, attributedCost: "18.4207" });
     const root = mountHome(await projectHome(), homeData({ spend }));
 
-    expect(text(one(root, "project-home-ai-cost")), "the cost is the ledger's exact decimal through the user-figure seam").toContain(
-      format.formatUserFigure(spend.attributedCost),
-    );
+    // I-145 as amended (session 7): the tile STATES the spend to the cent, through the user-figure
+    // seam, and the ledger's exact decimal is kept whole — on `data-exact` and the figure's tooltip —
+    // never rounded in the data.
+    const cost = one(root, "project-home-ai-cost");
+    expect(text(cost), "the cost is stated to the cent through the user-figure seam").toContain(format.formatUserFigure("18.42"));
+    expect(text(cost), "and the ledger's seven-place noise is not what the tile reads").not.toContain(spend.attributedCost);
+    expect(cost.getAttribute("data-exact"), "the exact decimal stays whole on the cost itself").toBe(spend.attributedCost);
 
     const unit = one(root, "project-home-ai-cost-unit");
     const badges = unit.matches(testIdSelector(TESTIDS.unit.badge)) ? [unit] : all(unit, "unit-badge");
@@ -96,6 +100,21 @@ describe("AC-3 — the AI cost so far", () => {
     expect(all(root, "project-home-ai-calls"), "no call is not a count of calls: the line below states it in words").toHaveLength(0);
     expect(all(root, "project-home-ai-outcomes"), "and no call has no outcomes to enumerate").toHaveLength(0);
     expect(text(one(root, "project-home-ai-none")), "silence never happens: the absence is explained (R-UI-020)").toBe(copy(strings, "project_home_ai_none"));
+  });
+
+  test("I-145 as amended: a spend under a cent is stated as under one — never as 0.00 and never as the raw decimal", async () => {
+    const strings = await homeStrings();
+    const format = await formatSeam();
+    const fill = await filler();
+    const spend = aSpend({ calls: 10, proposed: 7, refused: 3, attributedCost: "0.0002163" });
+    const root = mountHome(await projectHome(), homeData({ spend }));
+
+    const cost = one(root, "project-home-ai-cost");
+    expect(text(cost), "the tile says the spend is under a cent, in the table's own words").toContain(
+      fill(copy(strings, "project_home_ai_cost_under"), { figure: format.formatUserFigure("0.01") }),
+    );
+    expect(text(cost), "a real spend is never stated as nothing").not.toContain("0.00 ");
+    expect(cost.getAttribute("data-exact"), "and the ledger's exact decimal is kept whole").toBe("0.0002163");
   });
 
   test("AC-3: above zero the none line is absent — it explains zeros and nothing else", async () => {

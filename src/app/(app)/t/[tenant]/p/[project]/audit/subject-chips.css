@@ -1,0 +1,43 @@
+/* An act's cited subjects (s-audit I-38, s-project I-146), shared by S-Audit's cited evidence and
+   S-Project's subject column: imported beside the component that paints it, so neither screen can
+   render the chips unstyled. Tokens only; no `[data-theme]` selector — both themes arrive through
+   the token values (R-UI-001). */
+
+.cx-subject-chips {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* The count of the subjects the row folds away. Their names are on its tooltip, and it is a tab stop
+   so the keyboard reaches them as the pointer does (R-UI-012). It never shrinks: the count is the
+   part of the cell that says something was folded, so it is the last thing a narrow cell may lose. */
+.cx-subject-chips-more {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* WCAG 2.2 SC 2.5.8: a pointer target is at least 24 × 24 (axe `target-size`). */
+  min-block-size: var(--space-6);
+  min-inline-size: var(--space-6);
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--space-1);
+  border: none;
+  border-radius: var(--radius-4);
+  background: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--ink-muted);
+  cursor: default;
+}
+
+.cx-subject-chips-more:hover {
+  color: var(--ink);
+}

@@ -158,6 +158,14 @@ section sits over a sentence.
   screen's one helper line says `project_home_ai_none` — **No model calls yet** — with the ledger
   link beside it. AC-3's three figures are still on the screen wherever there is a spend to state:
   cost in the tile, calls and outcomes in the line.
+  *Amended in place (session 7, the craft look; L-FMT-02's readable precision):* above zero the
+  tile STATES the spend to the cent — `formatUserFigure` of the exact decimal rounded half-up to
+  two places, or `project_home_ai_cost_under` filled with `0.01` where the spend is real but under
+  a cent ("0.0002163 USD" read as noise to a QS, and "0.00" would state a nothing where something
+  was spent). The exact decimal is never rounded in the data: it stands whole on the cost span's
+  `data-exact` and on a `Tooltip` over the stated figure (a tab stop, so the keyboard reaches it),
+  reading the exact figure and the unit. The `USD` badge, the zero-call absence and the line are
+  unchanged.
 - **I-146 — every SCREAMING enum renders through `EnumLabel`, and every opaque identifier through
   `IdChip`.** *Amends participants I-47 and ruleset I-25 FOR THIS SCREEN.* `PRINCIPAL` is what the
   store holds; "Principal" is what a person reads (§6, §7 C6). The raw value is not deleted — it
@@ -166,6 +174,16 @@ section sits over a sentence.
   the screen says out loud. The same reading covers an act's subject: a uuid as body text is a C6
   finding, so it renders as an `IdChip` — seven characters on screen, whole in `data-value`, one
   press from the clipboard (R-UI-082).
+  *Amended in place (session 7, the craft look; R-UI-082, R-UI-084):* seven leading characters of a
+  composite key are not a name — `v:LAYOU` twice for 27 columns, `note:50` for every note — and an
+  account-id chip is not "the actor's label" this file's table promised. So the **Who** cell is
+  the label the project's roster names the actor by (the page reads the roster once and hands
+  `getAuditSurfaces` its `people`; an actor the roster cannot name is still the IdChip of the
+  recorded id), and the **Subject** cell is S-Audit's `SubjectChips` — the one presenter over the
+  act log's key schemes (s-audit I-38 as amended): each subject an IdChip whose value is the whole
+  key and whose measure is what the key names (`C1 · GF`, `LAP · S-02`, a level's label, a view's
+  caption), at most three and a `+k` whose tooltip lists the rest. The column widens to 400 so
+  three names and the count fit at 1280.
 - **I-147 — recent activity and the roster are 28 px tables, not lists of rows.** *Amends the
   activity and participants clauses of §1.* §3.3 asks for "Recent activity as a 28 px table (act,
   who, when, subject) — not a card with a sentence", and the same is true of a roster of members
@@ -266,7 +284,7 @@ shipped `Stat` (value 20 mono, label 12, height `--stat-h`):
 |---|---|---|---|
 | sheets | `quickStats.sheets` through the figure seam | `home_stat_sheets` | — |
 | campaigns | `quickStats.campaigns` | `home_stat_campaigns` | — |
-| AI cost so far | `formatUserFigure(spend.attributedCost)` beside the `USD` `UnitBadge` on the I-134 `display: contents` wrapper — or `—` at zero calls (I-145) | `project_home_ai_heading` | `project-home-ai-spend`, with `project-home-ai-cost` and `project-home-ai-cost-unit` inside it |
+| AI cost so far | the spend to the cent through `formatUserFigure` (or `project_home_ai_cost_under` under a cent), the exact decimal on its `Tooltip` and `data-exact`, beside the `USD` `UnitBadge` on the I-134 `display: contents` wrapper — or `—` at zero calls (I-145 as amended) | `project_home_ai_heading` | `project-home-ai-spend`, with `project-home-ai-cost` and `project-home-ai-cost-unit` inside it |
 | participants | the roster's length — or `—` where the roster refused (I-129) | `project_home_participants_heading` | — |
 
 **Recent activity** (I-147, I-132) — `<section aria-labelledby>`: a 24 px head with `<h2>`
@@ -280,9 +298,9 @@ shipped `DataTable` (`tableId` `s-project-activity`, `aria-labelledby` the headi
 | Column | Size | Cell |
 |---|---|---|
 | `project_home_col_act` | 230 | `EnumLabel` over `actType` — "Assign participant role", with the raw value in the primitive's technical disclosure (I-146) |
-| `project_home_col_who` | 220 | the actor's label, `cx-project-member-label`, one line, ellipsis |
+| `project_home_col_who` | 220 | the actor's label as the roster names them, `cx-project-member-label`, one line, ellipsis — or the recorded id's IdChip where the roster cannot name them (I-146 as amended) |
 | `project_home_col_when` | 130 | `RelativeTime` `cx-project-activity-when`, bound to the screen's `FIGURES` (I-147) |
-| `project_home_col_subject` | 170 | one `IdChip` per subject the act names (I-146) |
+| `project_home_col_subject` | 400 | `SubjectChips` — at most three IdChips reading what each subject's key names, then `+k` (I-146 as amended, s-audit I-38) |
 
 With no act, in the table's place the shipped `EmptyState`
 `data-testid="project-home-activity-empty"`: heading `state_empty_project_home_heading` (four
@@ -372,6 +390,7 @@ under {book}** · `project_home_unit_m2` **m²** · `project_home_unit_sft` **sf
 actions** · `project_home_action_upload` **Add drawings** · `project_home_action_sets` **Browse
 drawing sets** · `project_home_action_participants` **Manage participants** ·
 `project_home_ai_heading` **AI cost so far** · `project_home_ai_cost_unit` **USD** ·
+`project_home_ai_cost_under` **< {figure}** (I-145 as amended) ·
 `project_home_ai_cost_caption` **attributed to this project** · `project_home_ai_calls_caption`
 **model calls** · `project_home_ai_outcomes` **{proposed} proposals, {refused} refused** ·
 `project_home_ai_none` **No model calls yet** (§8's own words for this line, I-145)
