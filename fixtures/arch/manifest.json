@@ -14,12 +14,12 @@
    "emit/blocks.py": "3065f9d91f8cb3a1721751bbf06ef94d985920ad3b8049c4ca21062a3603ca08",
    "emit/dxf.py": "5430184a29f29b4e634ffb75ec4ac16783a51690b593c33fdc491420cdbf7472",
    "emit/manifest.py": "e930b568c24ad24ff3ca9e4d50f86d7caab9d18eb5a5d2b3a3462082fad0ea21",
-   "emit/sheets.py": "7db65170bd85c195aee1c77927de1571b706bd0f1c57f8ff3844c8aba2827747",
+   "emit/sheets.py": "c89bf74407093c53ecab35c36a98c2eef8cfbaa2e72985c5aadbbb9970868ea2",
    "golden.py": "35591a3658509b75130c11cbba5be4540f5dd5242027e3b12b2592df34caa255",
    "golden_check.py": "932cd7283526216991e0359aa0a33dbfa98d21aff3a9c3996ac9686d187fe915",
    "model.py": "f919c188978df5361c120738429073dd46063f37a0a2c77ea5c40b762169120a",
    "selfcheck.py": "d49019f224ff1e355244a7a2b54fe90d3129fa57e192334ddd9fe524f421982b",
-   "traps.json": "5f56da8bf41ec88119ad9774ceb917d4ef6b5229d562175f7d3385b95fbbd7df",
+   "traps.json": "c6efc15a8f550d0c89a4f5a98f8e775ca2a7a03b60b77ad1e473c6cc76b60bd4",
    "validate/__init__.py": "742e938ce832a513334e091bd0d53330e0f14474c6a6260d6744f89f41377897"
   }
  },
@@ -143,7 +143,7 @@
     {
      "caption": "WALL TYPES",
      "scale": 50,
-     "expect": "UNTYPED"
+     "expect": "SCHEDULE"
     }
    ],
    "traps": [
@@ -176,7 +176,7 @@
   "notation.corpus.json": "e73782161cbbfa12222cb08272ddf05496b18953e7fec9ec66fad106016c9a72",
   "sanity.json": "8796f3504a89acbe78042f7704e11345c312ed4cc9c68949d00dc56f9c668a66",
   "takeoff.golden.json": "a1bfe3ff38d7bdec6803649b5448e8ad03609fd3adfc0ec8012fae4b33135965",
-  "traps.json": "2483e4fbeb66df235b752361fba1dc99d97be65c83e95a11f3ebcdba46d8d6eb"
+  "traps.json": "a6cd2e3d39a3646a58dc134aff446c4063492a44ac377d130c1be55a5f5b2eee"
  },
  "selfcheck": {
   "two_path_agreement": true,
