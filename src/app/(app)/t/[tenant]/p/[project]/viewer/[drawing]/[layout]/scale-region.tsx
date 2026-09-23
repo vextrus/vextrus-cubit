@@ -24,10 +24,10 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
-import { SCALE_RANKS, SCALE_UNITS, type ScaleRank, type ScaleUnit, type TwoPointObservation } from "@/core/scale";
+import { SCALE_RANKS, SCALE_UNITS, type AxisStanding, type ScaleAxis, type ScaleRank, type ScaleUnit, type TwoPointObservation } from "@/core/scale";
 import type { ScaleProposal, ViewScale } from "@/modules/takeoff/scale";
 import { SCALE_COPY, fillCopy } from "@/modules/takeoff/scale-ui/copy";
-import { judgeObservation, observationOf } from "@/modules/takeoff/scale-ui/two-point";
+import { corroboratedRows, judgeObservation, observationOf, standingOf, type RowScope } from "@/modules/takeoff/scale-ui/two-point";
 import type { SnapPick } from "@/modules/takeoff/viewer-snap/snap";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
@@ -77,21 +77,32 @@ export type ScaleViewBox = { readonly viewKey: string; readonly box: { readonly 
 
 /** One observation standing in the panel: what core read off it, and the observation itself, which
     is what an affirmation at rank QS_TWO_POINT is judged over by the seam (L-MEA-05). */
-export type ScaleObservation = {
+export type ScaleObservation = TakenRow & {
+  /** Verified by a second observation across other points along its axis, or by the drawing's own
+      evidence, in the scope an affirmation would carry it in — judged over the rows standing now,
+      never frozen when taken (I-419). */
+  readonly verified: boolean;
+};
+
+/** One observation as it was taken: what core read off it and where, before the set judges it. */
+type TakenRow = {
   readonly id: number;
-  readonly axis: string;
+  readonly axis: ScaleAxis;
   readonly drawn: string;
   readonly factor: string;
-  readonly verified: boolean;
   /** The view the two picks stood inside, or null where they stood in none. */
   readonly viewKey: string | null;
   readonly observation: TwoPointObservation;
 };
 
-/** One door of the affirm footer: the rank it affirms at, and whether the evidence that rank stands
-    on is there yet. A door whose evidence is missing is shown and natively disabled — never absent
-    (I-169), so the two-point rank is a standing promise of what the tool beside it leads to. */
-export type AffirmDoor = { readonly rank: ScaleRank; readonly ready: boolean };
+/** One thing a disabled door still wants, in words, with the reason it answers to (I-420). */
+export type DoorWhy = { readonly reason: string; readonly text: string };
+
+/** One door of the affirm footer: the rank it affirms at, whether the evidence that rank stands on is
+    there yet, and — where it is not — what is missing, in words. A door whose evidence is missing is
+    shown and natively disabled — never absent (I-169), so the two-point rank is a standing promise of
+    what the tool beside it leads to — and never silent about why (I-420). */
+export type AffirmDoor = { readonly rank: ScaleRank; readonly ready: boolean; readonly why: readonly DoorWhy[] };
 
 export type ScaleRegionOptions = {
   tenantId: string;
@@ -126,8 +137,12 @@ export type ScaleRegion = {
   observations: readonly ScaleObservation[];
   /** The two picks standing on the sheet turned into one observation, and then spent (I-158). */
   observe: (o: { picks: readonly SnapPick[]; views: readonly ScaleViewBox[]; onSpent: () => void }) => void;
+  /** An observation taken in error, taken back — the remedy a disagreeing axis names (I-420). */
+  removeObservation: (id: number) => void;
   /** The doors of the affirm footer, in L-MEA-05's precedence (I-157, I-169). */
   affirmDoors: readonly AffirmDoor[];
+  /** What every door wants while no view is chosen, said once for all of them — or null (I-420). */
+  membersWhy: string | null;
   pressAffirm: (rank: ScaleRank) => void;
   /** The one answer slot's content: a refusal through the one renderer, or the offline notice (I-156). */
   answer: ReactNode;
@@ -150,8 +165,8 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
   const [members, setMembers] = useState<ReadonlySet<string>>(() => new Set());
   const [distance, setDistance] = useState("");
   const [unit, setUnit] = useState<ScaleUnit>(SCALE_UNITS[0] as ScaleUnit);
-  const [observations, setObservations] = useState<readonly ScaleObservation[]>([]);
-  const taken = useRef(0);
+  const [taken, setTaken] = useState<readonly TakenRow[]>([]);
+  const counted = useRef(0);
 
   const [affirming, setAffirming] = useState<AffirmScaleRequest | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -219,11 +234,32 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
   }, []);
 
   /**
+   * The observations standing, each judged in the light of the others (I-155, I-419): a row is
+   * verified by a second observation across other points along its axis, or by what the drawing reads,
+   * in the scope an affirmation would carry it in — beside every row of the chosen views and against
+   * what they read when its view is chosen, beside the rows of its own view and against what that view
+   * reads when it is not. Judged at every render rather than frozen when taken, so a second
+   * observation verifies the first where it lands, and removing one takes its word back.
+   */
+  const observations = useMemo<readonly ScaleObservation[]>(() => {
+    if (tolerances === null) return taken.map((row) => ({ ...row, verified: false }));
+    const scopeOf = (row: TakenRow): RowScope => {
+      if (row.viewKey !== null && members.has(row.viewKey)) {
+        return { key: CHOSEN_SCOPE, corroborating: views.filter((view) => members.has(view.viewKey)).flatMap((view) => view.proposals.map((proposal) => factorOn(proposal, row.axis))) };
+      }
+      const standing = views.find((view) => view.viewKey === row.viewKey) ?? null;
+      // A row whose picks stood in no view is judged alone: no affirmation can carry it (L-MEA-05).
+      return { key: row.viewKey === null ? `row:${row.id}` : `view:${row.viewKey}`, corroborating: standing === null ? [] : standing.proposals.map((proposal) => factorOn(proposal, row.axis)) };
+    };
+    const verified = corroboratedRows(taken, scopeOf, tolerances.verification);
+    return taken.map((row, at) => ({ ...row, verified: verified[at] === true }));
+  }, [members, taken, tolerances, views]);
+
+  /**
    * The two picks and the entered distance as one observation row (AC-2).
    *
-   * The axis is core's own reading of the two points, so it is asked for rather than derived here
-   * (B-17): a first judgement over no corroboration names the axis, and the second is made against
-   * what the drawing's own evidence offers on THAT axis inside the view the picks stood in. An
+   * The axis, the span and the factor are core's own reading of the two points, so they are asked for
+   * rather than derived here (B-17); whether the row is verified is the set's judgement above. An
    * observation nothing corroborates keeps its row and says it is not verified (I-155); what core
    * refuses about the gesture itself renders in the answer slot and appends no row.
    */
@@ -246,20 +282,19 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
         return;
       }
       const viewKey = viewHolding(boxes, picks);
-      const standing = views.find((view) => view.viewKey === viewKey) ?? null;
-      const corroborating = standing === null ? [] : standing.proposals.filter((proposal) => proposal.placeable).map((proposal) => factorOn(proposal, named.axis));
-      const judged = judgeObservation(held.observation, corroborating, tolerances.verification);
-      if ("refusal" in judged) {
-        setActRefusal(judged.refusal as RefusalCode);
-        return;
-      }
-      taken.current += 1;
-      setObservations((rows) => [...rows, { id: taken.current, axis: judged.axis, drawn: judged.drawn, factor: judged.factor, verified: judged.verified, viewKey, observation: held.observation }]);
+      counted.current += 1;
+      const id = counted.current;
+      setTaken((rows) => [...rows, { id, axis: named.axis, drawn: named.drawn, factor: named.factor, viewKey, observation: held.observation }]);
       // The marks are spent: an observation is never taken twice from picks already read (I-158).
       onSpent();
     },
-    [distance, tolerances, unit, views],
+    [distance, tolerances, unit],
   );
+
+  const removeObservation = useCallback((id: number): void => {
+    setActRefusal(null);
+    setTaken((rows) => rows.filter((row) => row.id !== id));
+  }, []);
 
   /**
    * The footer's doors, in L-MEA-05's precedence.
@@ -268,19 +303,35 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
    * the door answered about these views, and an act names one rank for all of its views (I-157).
    * QS_TWO_POINT is not read off the drawing — it is what the tool in this panel makes — so its door
    * always stands and its evidence gates it through `disabled` (I-169): a rank a person can reach by
-   * working is never hidden from them. Its evidence is a VERIFIED observation on each of x and y,
-   * because a scale of record is a factor pair and one axis is half of one; which observations may
-   * carry which views is the seam's own judgement and is never second-guessed here (L-MEA-05).
+   * working is never hidden from them. Its evidence is each of x and y verified, judged the way the
+   * act judges it (I-419): over the observations the request carries — those taken in a chosen
+   * view — as a SET, one measurement per span, by core's `axisStandingOf`, against what the drawing
+   * reads for the chosen views. So two agreeing observations per axis open it with nothing
+   * machine-made under them, and a door the panel opens is one the act behind it takes. Which point
+   * may cite which view stays the seam's judgement (L-MEA-05). A door that stays shut says why, in
+   * words (I-420).
    */
   const affirmDoors = useMemo<readonly AffirmDoor[]>(() => {
     const chosen = views.filter((view) => members.has(view.viewKey));
-    const stands = (axis: string): boolean => observations.some((row) => row.verified && row.axis === axis);
-    const evidenced = stands("x") && stands("y");
+    const carried = observations.filter((row) => row.viewKey !== null && members.has(row.viewKey));
+    const why: DoorWhy[] = [];
+    if (tolerances !== null) {
+      for (const axis of AXES) {
+        const corroborating = chosen.flatMap((view) => view.proposals.map((proposal) => factorOn(proposal, axis)));
+        const standing = standingOf(axis, carried, corroborating, tolerances.verification);
+        const said = axisWhy(standing, observations.some((row) => row.axis === axis && row.viewKey !== null));
+        if (said !== null) why.push(said);
+      }
+    }
     return SCALE_RANKS.filter((rank) => rank === QS_TWO_POINT || chosen.every((view) => view.proposals.some((proposal) => proposal.rank === rank))).map((rank) => ({
       rank,
-      ready: chosen.length > 0 && (rank !== QS_TWO_POINT || evidenced),
+      ready: chosen.length > 0 && tolerances !== null && (rank !== QS_TWO_POINT || why.length === 0),
+      why: rank === QS_TWO_POINT ? why : [],
     }));
-  }, [members, observations, views]);
+  }, [members, observations, tolerances, views]);
+
+  /** Every door's first want while nothing is chosen, said once for all of them (I-420). */
+  const membersWhy = members.size === 0 ? SCALE_COPY.viewer_scale_why_members : null;
 
   /** What an affirmation at one rank asks for: the views checked, and — at rank QS_TWO_POINT — the
       observations they were taken from. What each view moves TO is the seam's to derive (L-ACT-02). */
@@ -421,7 +472,9 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
     setUnit,
     observations,
     observe,
+    removeObservation,
     affirmDoors,
+    membersWhy,
     pressAffirm,
     answer,
     // I-156: one slot holding one thing — in the body's place while there is no reading to show
@@ -437,8 +490,40 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
 const EMPTY_VIEWS: readonly ViewScale[] = Object.freeze([]);
 
 /** The factor a proposal offers along one axis. X and Y derive independently (L-MEA-05). */
-function factorOn(proposal: ScaleProposal, axis: string): string {
+function factorOn(proposal: ScaleProposal, axis: ScaleAxis): string {
   return axis === "x" ? proposal.factorX : proposal.factorY;
+}
+
+/** Both world axes, in the order a factor pair states them. */
+const AXES: readonly ScaleAxis[] = ["x", "y"];
+
+/** The one scope every row of a chosen view is judged in: the affirmation's own (I-419). */
+const CHOSEN_SCOPE = "chosen";
+
+/** The word an axis is read by, from this panel's one copy home (I-153). */
+function axisWord(axis: ScaleAxis): string {
+  return axis === "x" ? SCALE_COPY.scale_axis_x : SCALE_COPY.scale_axis_y;
+}
+
+/**
+ * What an axis the two-point door is waiting on still wants, in words — or null where it stands
+ * verified (I-420). An axis no carried observation speaks for is either one nobody has observed
+ * yet, or one observed only in a view that is not chosen: the words differ because the remedies do.
+ */
+function axisWhy(standing: AxisStanding, observedAnywhere: boolean): DoorWhy | null {
+  const axis = axisWord(standing.axis);
+  switch (standing.state) {
+    case "verified":
+      return null;
+    case "absent":
+      return observedAnywhere
+        ? { reason: `${standing.axis}-unchosen`, text: fillCopy(SCALE_COPY.viewer_scale_why_axis_unchosen, { axis }) }
+        : { reason: `${standing.axis}-absent`, text: fillCopy(SCALE_COPY.viewer_scale_why_axis_absent, { axis }) };
+    case "single":
+      return { reason: `${standing.axis}-single`, text: fillCopy(SCALE_COPY.viewer_scale_why_axis_single, { axis }) };
+    case "disagreeing":
+      return { reason: `${standing.axis}-disagreeing`, text: fillCopy(SCALE_COPY.viewer_scale_why_axis_disagreeing, { axis }) };
+  }
 }
 
 /** The view both picks stand inside, or null where they stand in none: a point on the edge stands
@@ -475,6 +560,7 @@ export type ScalePanelProps = {
 export function ScalePanel({ scale, picks, views, onSpent }: ScalePanelProps) {
   const loading = scale.state === "loading";
   const denied = scale.state === "denied";
+  const membersWhyId = useId();
   const answerSlot = (
     <div className="cx-viewer-scale-answer" data-testid={TESTIDS.viewer.scaleAnswer}>
       {scale.answer}
@@ -527,24 +613,54 @@ export function ScalePanel({ scale, picks, views, onSpent }: ScalePanelProps) {
               <p className="cx-viewer-scale-members">
                 {fillCopy(SCALE_COPY.viewer_scale_members_count, { count: formatUserFigure(String(scale.members.size)), total: formatUserFigure(String(scale.views.length)) })}
               </p>
+              {scale.membersWhy === null ? null : (
+                // Said once, for every door it shuts: a want every door shares is one line (I-420).
+                <p className="cx-viewer-scale-why" id={membersWhyId} data-testid={TESTIDS.viewer.scaleAffirmWhy} data-reason="members">
+                  {scale.membersWhy}
+                </p>
+              )}
               {scale.affirmDoors.map((door) => (
-                <Button
-                  key={door.rank}
-                  variant="secondary"
-                  data-testid={TESTIDS.viewer.scaleAffirm}
-                  data-rank={door.rank}
-                  // The door stands; what it wants is what disables it (I-169).
-                  disabled={!door.ready}
-                  onClick={() => scale.pressAffirm(door.rank)}
-                >
-                  {fillCopy(SCALE_COPY.viewer_scale_affirm, { rank: rankWord(door.rank) })}
-                </Button>
+                <AffirmDoorControl key={door.rank} door={door} scale={scale} membersWhyId={scale.membersWhy === null ? null : membersWhyId} />
               ))}
             </footer>
           )}
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * One door of the footer and, while it is shut, what it wants in words (I-169, I-420). The words
+ * stand under the door and describe it (`aria-describedby`), so a reader who reaches a greyed button
+ * by eye or by keyboard is told what opens it rather than left to guess.
+ */
+function AffirmDoorControl({ door, scale, membersWhyId }: { door: AffirmDoor; scale: ScaleRegion; membersWhyId: string | null }) {
+  const whyId = useId();
+  const describedBy = door.ready ? [] : [membersWhyId, door.why.length === 0 ? null : whyId].filter((id): id is string => id !== null);
+  return (
+    <div className="cx-viewer-scale-door">
+      <Button
+        variant="secondary"
+        data-testid={TESTIDS.viewer.scaleAffirm}
+        data-rank={door.rank}
+        // The door stands; what it wants is what disables it (I-169), and it says so (I-420).
+        disabled={!door.ready}
+        aria-describedby={describedBy.length === 0 ? undefined : describedBy.join(" ")}
+        onClick={() => scale.pressAffirm(door.rank)}
+      >
+        {fillCopy(SCALE_COPY.viewer_scale_affirm, { rank: rankWord(door.rank) })}
+      </Button>
+      {door.why.length === 0 ? null : (
+        <ul className="cx-viewer-scale-why" id={whyId} data-testid={TESTIDS.viewer.scaleAffirmWhy} data-rank={door.rank}>
+          {door.why.map((line) => (
+            <li key={line.reason} data-reason={line.reason}>
+              {line.text}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -727,7 +843,7 @@ function TwoPointTool({ scale, picks, views, onSpent }: ScalePanelProps) {
       />
 
       <ol className="cx-viewer-scale-observations" aria-label={SCALE_COPY.viewer_scale_observations_label}>
-        {scale.observations.map((row) => (
+        {scale.observations.map((row, at) => (
           <li
             className="cx-viewer-scale-observation"
             data-testid={TESTIDS.viewer.scaleObservation}
@@ -744,6 +860,17 @@ function TwoPointTool({ scale, picks, views, onSpent }: ScalePanelProps) {
             {/* An observation nothing corroborates is shown, never refused: the span and the factor
                 are facts, and this is the panel's partial cell (I-155). */}
             <span className="cx-viewer-scale-flag">{row.verified ? SCALE_COPY.viewer_scale_verified : SCALE_COPY.viewer_scale_unverified}</span>
+            {/* A mistaken observation is taken back here — the remedy a disagreeing axis names, so the
+                door's words are never a remedy the panel does not offer (I-420). */}
+            <Button
+              variant="ghost"
+              className="cx-viewer-scale-remove"
+              data-testid={TESTIDS.viewer.scaleObservationRemove}
+              aria-label={fillCopy(SCALE_COPY.viewer_scale_observation_remove_label, { index: formatUserFigure(String(at + 1)), axis: axisWord(row.axis) })}
+              onClick={() => scale.removeObservation(row.id)}
+            >
+              {SCALE_COPY.viewer_scale_observation_remove}
+            </Button>
           </li>
         ))}
       </ol>

@@ -37,6 +37,12 @@ REJOINED_WRAPPED_TEXT: Final = "REJOINED_WRAPPED_TEXT"
 #: `ezdxf`'s recover pass repaired structures on the way in; how many, so a silent repair is not one.
 AUDIT_REPAIRED: Final = "AUDIT_REPAIRED"
 
+#: The conversion carried dimensions with no picture behind them — LibreDWG's own DWG writer leaves a
+#: dimension's reference to its picture empty — and each one's picture was drawn from its own
+#: definition before any reader saw the file (`dwg/dimensions.py`). Without it the recover-mode
+#: audit removes every such dimension whole; the detail is how many were drawn (L-CAD-09).
+DREW_DIMENSION_PICTURES: Final = "DREW_DIMENSION_PICTURES"
+
 #: The drawing states no unit this extractor can turn into millimetres, so the curve tolerance stood
 #: in the drawing's own units instead of the pinned millimetre one (L-CAD-02, L-CAD-05).
 CURVE_TOLERANCE_NOT_IN_MM: Final = "CURVE_TOLERANCE_NOT_IN_MM"
@@ -122,6 +128,7 @@ NOTE_CODES: Final[tuple[str, ...]] = tuple(
             CONVERSION_SHORTFALL,
             CONVERSION_UNKNOWN_ENT,
             CURVE_TOLERANCE_NOT_IN_MM,
+            DREW_DIMENSION_PICTURES,
             EMBEDDED_OBJECT,
             IMAGE_REFERENCE,
             MULTILEADER_NOT_EXPLODED,

@@ -74,6 +74,13 @@ def _ingest(source: str, destination: str) -> int:
                         f" {conversion.reordered_texts} MTEXT chunk runs re-coded",
                         healed,
                     )
+                if conversion.drawn_dimensions:
+                    notes.add(
+                        report.DREW_DIMENSION_PICTURES,
+                        f"{conversion.drawn_dimensions} dimensions carried no picture, and each was"
+                        " drawn from its own definition",
+                        conversion.drawn_dimensions,
+                    )
                 # A class the two passes disagreed about is refused on that sheet and not the sheet
                 # itself (L-CAD-04): it is named here, once per class per space, and carried onto
                 # the artifact's counters — a drawing that still yields geometry is an ingest, and

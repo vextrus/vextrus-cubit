@@ -7,7 +7,7 @@
 // `s-viewer-partition.page.ts`'s. A journey that reads several opens several.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS } from "../../../src/ui/testids";
-import { everyRow, heldAttribute } from "../support/retrying-read";
+import { everyAttribute, everyRow, heldAttribute } from "../support/retrying-read";
 import { afterSettled } from "../support/settled";
 
 /** The test ids this region publishes (Decision §7, C-05). */
@@ -28,6 +28,8 @@ export const S_SCALE = Object.freeze({
   checkVerification: TESTIDS.viewer.scaleCheckVerification,
   answer: TESTIDS.viewer.scaleAnswer,
   retry: TESTIDS.viewer.scaleRetry,
+  why: TESTIDS.viewer.scaleAffirmWhy,
+  remove: TESTIDS.viewer.scaleObservationRemove,
 });
 
 /** One drawn record of the sheet, as the layer feed serves one. */
@@ -35,6 +37,12 @@ export type SheetRecord = { key: string; type: string; points: [number, number][
 
 /** A segment of the sheet a two-point calibration can be taken across: its key and its two ends. */
 export type Segment = { key: string; from: [number, number]; to: [number, number] };
+
+/** A span two picks can be taken across: two drawn ends on one axis, whichever entities drew them. */
+export type Span = { from: [number, number]; to: [number, number]; length: number };
+
+/** Two spans along each axis, across different points, near enough to share one camera (I-419). */
+export type CalibrationSet = { x: [Span, Span]; y: [Span, Span]; centre: [number, number] };
 
 export class SScalePage {
   constructor(private readonly page: Page) {}
@@ -147,6 +155,16 @@ export class SScalePage {
     return this.page.locator(`[data-testid="${S_SCALE.affirm}"][data-rank="${rank}"]`);
   }
 
+  /** The words a shut door stands over: one line for every door (`members`), or one per axis under the door. */
+  why(reason: string): Locator {
+    return this.page.locator(`[data-testid="${S_SCALE.why}"][data-reason="${reason}"], [data-testid="${S_SCALE.why}"] [data-reason="${reason}"]`);
+  }
+
+  /** Every reason a door is shut for, in the order the panel says them. */
+  async whyReasons(): Promise<string[]> {
+    return everyAttribute(this.page.locator(`[data-testid="${S_SCALE.why}"][data-reason], [data-testid="${S_SCALE.why}"] [data-reason]`), "data-reason", "the reasons a shut door states", { min: 0 });
+  }
+
   /** The panel opened at its tab, once the door has answered. */
   async open(): Promise<void> {
     // §3.1 makes the shell's right slot ABSENT — width 0, never a placeholder — until something is
@@ -229,6 +247,56 @@ export class SScalePage {
     const segment = found[0];
     expect(segment, `the staged sheet draws a ${o.type} on one axis whose ends stand ${o.clearance} drawing units clear of everything else`).toBeTruthy();
     return segment as Segment;
+  }
+
+  /**
+   * Two spans along x and two along y a two-point calibration can be taken across, all four near one
+   * another (within `reach` drawing units) so one camera frames them and one view is likely to hold
+   * them, and each end clear of every other drawn point by `clearance` so a pick can only have met it
+   * (I-419: two agreeing observations per axis, across DIFFERENT points). A span joins two ends
+   * standing on one axis, whether one entity drew both or two did — a bay between two grid lines is a
+   * span as surely as a line's own length. Chosen by the longest set, and derived from the served
+   * sheet rather than transcribed (B-19); which view holds the picks is the panel's answer, read after.
+   */
+  static calibrationSet(records: readonly SheetRecord[], o: { type: string; clearance: number; reach: number }): CalibrationSet {
+    const points = records.flatMap((record) => record.points.map((at) => ({ key: record.key, at })));
+    const clear = (key: string, at: [number, number]): boolean =>
+      points.every((other) => other.key === key || Math.hypot(other.at[0] - at[0], other.at[1] - at[1]) > o.clearance);
+    const ends = records
+      .filter((record) => record.type === o.type && record.points.length === 2)
+      .flatMap((record) => record.points.map((at) => ({ key: record.key, at })))
+      .filter((end) => clear(end.key, end.at))
+      .map((end) => end.at)
+      .filter((at, index, all) => all.findIndex((other) => other[0] === at[0] && other[1] === at[1]) === index)
+      .sort((left, right) => left[0] - right[0] || left[1] - right[1]);
+
+    const spans = ends.flatMap((from, at) =>
+      ends.slice(at + 1).flatMap((to): (Span & { axis: "x" | "y" })[] => {
+        if (from[1] === to[1] && from[0] !== to[0]) return [{ from, to, length: Math.abs(to[0] - from[0]), axis: "x" }];
+        if (from[0] === to[0] && from[1] !== to[1]) return [{ from, to, length: Math.abs(to[1] - from[1]), axis: "y" }];
+        return [];
+      }),
+    );
+
+    const sets = ends.flatMap((anchor): (CalibrationSet & { total: number })[] => {
+      const near = (at: [number, number]): boolean => Math.hypot(at[0] - anchor[0], at[1] - anchor[1]) <= o.reach;
+      const held = spans.filter((span) => near(span.from) && near(span.to)).sort((left, right) => right.length - left.length);
+      const x = held.filter((span) => span.axis === "x").slice(0, 2);
+      const y = held.filter((span) => span.axis === "y").slice(0, 2);
+      if (x.length < 2 || y.length < 2) return [];
+      const all = [...x, ...y].flatMap((span) => [span.from, span.to]);
+      const centre: [number, number] = [
+        (Math.min(...all.map((at) => at[0])) + Math.max(...all.map((at) => at[0]))) / 2,
+        (Math.min(...all.map((at) => at[1])) + Math.max(...all.map((at) => at[1]))) / 2,
+      ];
+      const strip = ({ from, to, length }: Span): Span => ({ from, to, length });
+      return [{ x: [strip(x[0] as Span), strip(x[1] as Span)], y: [strip(y[0] as Span), strip(y[1] as Span)], centre, total: [...x, ...y].reduce((sum, span) => sum + span.length, 0) }];
+    });
+
+    const best = [...sets].sort((left, right) => right.total - left.total)[0];
+    expect(best, `the staged sheet draws two ${o.type} spans along each axis, ends ${o.clearance} drawing units clear, within ${o.reach} of one another`).toBeTruthy();
+    const { x, y, centre } = best as CalibrationSet;
+    return { x, y, centre };
   }
 
   /** Flip the document's theme the way the shell does, and wait for the root to say so. */

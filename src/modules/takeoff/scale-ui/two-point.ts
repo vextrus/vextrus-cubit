@@ -2,17 +2,22 @@
 // distance read into the observation L-MEA-05 defines, and that observation judged.
 //
 // Nothing of the law is re-derived here (B-17, ARCH-02). `citeObservation` is what reads a raw
-// observation into an axis, a lattice span and a 12-place factor, and `verifyAxis` is what decides
-// whether a single observation is corroborated at the edition's tolerance — this file only turns the
-// snap region's own picks into the shape core asks for, and turns core's thrown refusals into the
-// answers a panel renders (ARCH-03, B-21: a refusal is an answer, never a swallowed fault).
+// observation into an axis, a lattice span and a 12-place factor, `verifyAxis` is what decides
+// whether a single observation is corroborated at the edition's tolerance, and `axisStandingOf` is
+// where an axis's observations stand as a set (I-419) — this file only turns the snap region's
+// own picks into the shape core asks for, and turns core's thrown refusals into the answers a panel
+// renders (ARCH-03, B-21: a refusal is an answer, never a swallowed fault).
 //
 // The picks are inc-206's `SnapPick`, whole: no second pick model exists (I-158).
 import {
   DISTANCE_BASIS_ENTERED,
+  axisStandingOf,
   citeObservation,
   isFactorString,
+  sameSpan,
   verifyAxis,
+  withinTolerance,
+  type AxisStanding,
   type ScaleAxis,
   type ScaleRefusalCode,
   type ScaleUnit,
@@ -119,4 +124,59 @@ function refused(thrown: unknown): ScaleRefusalCode {
   const code = refusalCodeOf(thrown);
   if (code === null) throw thrown;
   return code as ScaleRefusalCode;
+}
+
+/** One observation as the panel holds it: what core read off it, the view it was taken in, and the observation. */
+export type TakenObservation = {
+  readonly axis: ScaleAxis;
+  readonly factor: string;
+  readonly viewKey: string | null;
+  readonly observation: TwoPointObservation;
+};
+
+/**
+ * Where one axis of a two-point calibration stands for an affirmation, judged exactly as the act will
+ * judge it (L-MEA-05, I-419): core's `axisStandingOf` over the observations the affirmation would
+ * carry and the factors the drawing reads for its views along that axis — asked of core rather than
+ * restated (B-17). The answer is a reading, never a fault, so the door a reader looks at can say which
+ * of three things a shut axis still wants, in words (I-420): an observation (`absent`), a second
+ * one across two other points (`single`), or the one that disagrees taken away (`disagreeing`).
+ */
+export function standingOf(axis: ScaleAxis, carried: readonly TakenObservation[], corroborating: readonly string[], tolerance: string): AxisStanding {
+  return axisStandingOf(
+    axis,
+    carried.map((taken) => ({ axis: taken.axis, factor: taken.factor, points: taken.observation.points })),
+    // A factor the law cannot speak verifies nothing, and handing it on would raise a plain Error
+    // out of core — a fault where the law has an answer (B-21).
+    corroborating.filter((factor) => isFactorString(factor)),
+    tolerance,
+  );
+}
+
+/**
+ * Where a row's word comes from: the rows it is judged beside, named by one key, and the factors the
+ * drawing reads for it along its axis. The screen draws the scope as the affirmation would carry the
+ * row — every row of a chosen view beside every other and against what the chosen views read, a row of
+ * a view not chosen beside the rows of its own view and against what that view reads — so a row reads
+ * Verified exactly where an affirmation would verify it (I-419).
+ */
+export type RowScope = { readonly key: string; readonly corroborating: readonly string[] };
+
+/**
+ * Whether each taken observation stands verified, row by row (I-155, amended by I-419): by
+ * another observation in its scope, along the same axis, across DIFFERENT points, that agrees with it
+ * within tolerance — or by a factor the drawing reads for its scope along that axis. The same span taken
+ * twice vouches for nothing. A row is verified by what corroborates IT, so of three rows where one
+ * disagrees the two that agree read Verified and the odd one out reads Not verified — the row the
+ * door's words ask a reader to remove.
+ */
+export function corroboratedRows<Row extends TakenObservation>(rows: readonly Row[], scopeOf: (row: Row) => RowScope, tolerance: string): boolean[] {
+  const scopes = rows.map((row) => scopeOf(row));
+  return rows.map((row, at) => {
+    const own = scopes[at] as RowScope;
+    const measured = rows
+      .filter((other, index) => index !== at && scopes[index]?.key === own.key && other.axis === row.axis && !sameSpan(other.observation.points, row.observation.points))
+      .map((other) => other.factor);
+    return [...measured, ...own.corroborating].filter((factor) => isFactorString(factor)).some((factor) => withinTolerance(row.factor, factor, tolerance));
+  });
 }

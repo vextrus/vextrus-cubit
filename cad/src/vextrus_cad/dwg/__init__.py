@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from .census import census_of
 from .convert import DwgConversion, convert_dwg
+from .dimensions import DrawnDimensions, carries_picture, draw_missing_pictures
 from .errors import DwgError
 from .heal import WRAP_COLUMN, Rejoined, heal_wrapped_text, rejoin_wrapped_text
 from .reconcile import SHORTFALL, UNKNOWN_ENT, RefusedClass, losses_by_space, reconcile
@@ -24,13 +25,16 @@ __all__ = [
     "SHORTFALL",
     "UNKNOWN_ENT",
     "WRAP_COLUMN",
+    "DrawnDimensions",
     "DwgConversion",
     "DwgError",
     "RefusedClass",
     "Rejoined",
     "Toolchain",
+    "carries_picture",
     "census_of",
     "convert_dwg",
+    "draw_missing_pictures",
     "geometry_tally",
     "heal_wrapped_text",
     "losses_by_space",

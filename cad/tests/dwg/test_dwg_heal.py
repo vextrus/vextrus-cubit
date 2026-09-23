@@ -228,6 +228,9 @@ def test_the_reference_structural_drawing_converts_and_ingests(tmp_path: Path) -
     """22,000 entities and 100-odd layers, once refused over 13 wrapped lines of general notes."""
     result = convert_dwg(REFERENCE_DRAWING, tmp_path / "out")
     assert result.rejoined_lines >= 1, "the reference drawing no longer wraps; move this proof"
+    assert result.drawn_dimensions == 0, (
+        "a drawing AutoCAD wrote carries every dimension's picture: the lane draws none, rewrites nothing"
+    )
     document = ezdxf.readfile(str(result.dxf_path))
     assert len(document.modelspace()) >= 22_000
     assert len(document.layers) >= 100

@@ -129,6 +129,19 @@ type Drawn = {
 /** What the built artifact carries, so a journey derives its expectations from it (B-19). */
 type BuiltArtifact = { json: string; anchorOf: ReadonlyMap<string, string> };
 
+/**
+ * The header the built artifact states: millimetres (`insunits` code 4), which gives every view the
+ * file's own units as a scale proposal — or, asked for by name, no unit at all (code 0), which is the
+ * sheet a DWG exported unitless hands the product: no rank of L-MEA-05's machine precedence reads a
+ * factor off it, and only a two-point calibration can scale it (J-020, I-419).
+ */
+export type StagedHeader = "mm" | "unitless";
+
+const HEADERS: Readonly<Record<StagedHeader, { code: number; unit: string | null; unmapped: boolean }>> = Object.freeze({
+  mm: { code: 4, unit: "mm", unmapped: false },
+  unitless: { code: 0, unit: null, unmapped: true },
+});
+
 /** A source key of the DXF-handle scheme, from an ordinal (L-CAD-02). */
 function handle(ordinal: number): string {
   return `DXF_HANDLE:${ordinal.toString(16).toUpperCase()}`;
@@ -148,7 +161,7 @@ function ringPoints(centre: readonly [number, number], radius: number, vertices:
  * georeference that defers), and three captions the grammar cannot read — plus a paper layout,
  * which L-CAD-06 does not partition at all.
  */
-function buildPartitionPlan(): BuiltArtifact {
+function buildPartitionPlan(header: StagedHeader): BuiltArtifact {
   let ordinal = 0;
   const next = (): string => handle((ordinal += 1));
   const entities: Drawn[] = [];
@@ -197,7 +210,7 @@ function buildPartitionPlan(): BuiltArtifact {
   const graph = writtenAtV3({
     entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-journey", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
-    insunits: { code: 4, unit: "mm", unmapped: false },
+    insunits: HEADERS[header],
     layouts: [
       { name: MODEL_SPACE, kind: "model", bbox: { min: [-60, -140], max: [3700, 20] }, strays_rejected: 0 },
       { name: PAPER_SPACE, kind: "paper", bbox: { min: [0, 0], max: [297, 210] }, strays_rejected: 0 },
@@ -341,7 +354,7 @@ export function confirmationsOf(tenantId: string, ingestId: string): { viewKey: 
  * answer minted for each caption the grammar could not read, filed under the request the product
  * itself composes for that caption on that anchor (L-AI-01: nothing here knows how one is built).
  */
-export async function stagePartitionedSheet(page: Page, options: { label?: string } = {}): Promise<StagedPartitionedSheet> {
+export async function stagePartitionedSheet(page: Page, options: { label?: string; header?: StagedHeader } = {}): Promise<StagedPartitionedSheet> {
   const auth = new SAuthPage(page);
   const shell = new ShellPage(page);
   const home = new SHomePage(page);
@@ -399,7 +412,7 @@ export async function stagePartitionedSheet(page: Page, options: { label?: strin
   const drawingId = uploads.onlyDrawing(last).drawingId;
 
   /* --- the reading of it: the shipped ingest job, with the plan artifact standing in for cad/ --- */
-  const artifact = buildPartitionPlan();
+  const artifact = buildPartitionPlan(options.header ?? "mm");
   const storage = (await productModule<{ uploadStorage: () => unknown }>("src/modules/spine/uploads/index.ts")).uploadStorage();
   const ingestJob = await productModule<{ runIngestJob: (payload: unknown, progress: unknown, deps: { storage: unknown }) => Promise<void> }>(
     "src/modules/takeoff/ingest/job.ts",

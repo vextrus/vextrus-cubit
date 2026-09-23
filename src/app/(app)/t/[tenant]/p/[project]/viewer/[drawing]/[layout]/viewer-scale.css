@@ -286,6 +286,32 @@
   padding: var(--space-3);
 }
 
+/* One door and, while it is shut, what it wants (I-420): the words sit under the door they
+   describe, in the secondary ink the panel's other helper lines use. */
+.cx-viewer-scale-door {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.cx-viewer-scale-why {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--ink-secondary);
+}
+
+/* Remove stands at the end of its observation's line, never ahead of the figures it takes back. */
+.cx-viewer-scale-remove {
+  margin-inline-start: auto;
+}
+
 .cx-viewer-scale-bone-row {
   display: flex;
   flex-direction: column;

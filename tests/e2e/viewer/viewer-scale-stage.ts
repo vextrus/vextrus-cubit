@@ -10,7 +10,7 @@
  * millimetres — which is what gives every view a `FILE_UNITS` proposal and no view an affirmation.
  */
 import { expect, type Page } from "@playwright/test";
-import { MODEL_SPACE, stagePartitionedSheet, type StagedPartitionedSheet } from "./viewer-partition-stage";
+import { MODEL_SPACE, stagePartitionedSheet, type StagedHeader, type StagedPartitionedSheet } from "./viewer-partition-stage";
 
 export { MODEL_SPACE };
 export type StagedScaleSheet = StagedPartitionedSheet;
@@ -25,10 +25,11 @@ export const HEADER_UNIT = "mm";
 /**
  * A member of a fresh workspace, a project of theirs, and a sheet of theirs whose partition stands —
  * with no affirmation of record on any view of it, which is where R-TO-021's hatch and the panel's
- * declared absences begin.
+ * declared absences begin. `header: "unitless"` stages the same sheet with a header that names no
+ * unit, so no view carries a machine proposal at all (I-419's leg).
  */
-export async function stageScaleSheet(page: Page, options: { label?: string } = {}): Promise<StagedScaleSheet> {
-  const staged = await stagePartitionedSheet(page, { label: options.label ?? "scale" });
+export async function stageScaleSheet(page: Page, options: { label?: string; header?: StagedHeader } = {}): Promise<StagedScaleSheet> {
+  const staged = await stagePartitionedSheet(page, { label: options.label ?? "scale", header: options.header ?? "mm" });
   expect(staged.views.length, "the staged sheet holds views for a scale to be affirmed over (L-MEA-05)").toBeGreaterThan(0);
   return staged;
 }

@@ -2525,6 +2525,74 @@ one RefusalState, the one ConsequenceDialog — plus the `cx-viewer-scale-*` cla
   averaging a disagreeing axis; dropping an outlier silently; requiring two agreeing readings of
   every axis, which would have taken rank 3 away from a plan the drawing dimensions once per axis.
   The panel does not yet show the override — its own increment, with the Decision's copy.
+- **I-418 — a dimension the conversion carries with no picture is drawn from its own
+  definition, and one that cannot be drawn is a named shortfall (session 8, SCALE-1; L-CAD-03,
+  L-CAD-04, L-MEA-05).** Walk-0 uploaded F-RCC6-BNBC's DWG and no view proposed a scale, where the
+  DXF of the same drawing proposes DIMENSION_RATIO on ten views. Nothing had regressed: the DWG path
+  had never carried a dimension. LibreDWG 0.13's writer (`dxf2dwg`, which mints the fixtures' DWGs)
+  keeps every dimension's DEFINITION and leaves the reference to its PICTURE empty (the census reads
+  `block: 0` on all 125). The geometry pass counted them as carried, and the extractor's
+  recover-mode open then removed every one (ezdxf's audit, `UNDEFINED_BLOCK`). The only trace was a
+  count in `AUDIT_REPAIRED`, so the artifact held no dimension and rank 3 had nothing to read. So
+  the DWG lane now draws each missing picture from the dimension's own points, style, overrides and
+  text, with the renderer the pinned extractor already carries. That is what BricsCAD does with a
+  dimension whose block is missing. The lane rewrites the conversion only when it has drawn
+  something and names the repair (`DREW_DIMENSION_PICTURES`, with the count). The tally counts as
+  carried only what the recover-mode open keeps, so a picture the renderer cannot draw becomes a
+  `CONVERSION_SHORTFALL` on its sheet, never a silent loss. Measured on the committed DWG, the
+  rewrite changes nothing else in the artifact: every other original, derived record and block
+  attribute is identical. The model bbox now reaches the dimension paint. The ten DXF views propose
+  again at the same factors, 0.001000000000 on both axes. The minted DWG also lost one thing that
+  cannot be recovered: `dxf2dwg` filed the rotation of the vertical dimensions as their oblique angle.
+  The one vertical `<>` dimension therefore measures along x and reads `0`, which rank 3 does not
+  read. The other 124 dimensions read word for word as the DXF's do. A drawing AutoCAD wrote
+  carries its pictures, so the lane draws nothing and rewrites nothing. No source key moves: the
+  dimensions keep their own handles, and a picture's content is derived paint. Rejected: reading
+  the printed `SCALE 1:100` as a proposal (L-MEA-05 admits printed scale notes at no rank).
+  Rejected: re-minting the fixture's DWG, because LibreDWG's writer cannot write the link and a real
+  upload of a DWG minted this way would still lose its dimensions.
+- **I-419 — an axis's observations are judged as a set, one measurement per span, by the act and
+  the panel alike, so two agreeing observations per axis scale a view with nothing machine-made
+  under them. Amends I-155 and I-169 (session 8, SCALE-1; L-MEA-05).** Walk-0 took two 4,572 mm
+  observations on S-10's grid of a fresh upload that proposed nothing. Both read Not verified and
+  the two-point door stayed disabled for good: the panel judged each observation alone, against the
+  machine's proposals, when it was taken, and the door wanted a verified row per axis. So a sheet
+  the drawing offers no scale for — a PDF page, a scan, a unitless sheet with no dimension in its own
+  unit — could never be scaled, although core already verified a factor by every further observation
+  along its axis. Now one judgement, core's `axisStandingOf`, reads an axis's observations as a set
+  and answers `absent`, `single`, `disagreeing` or `verified`. The act refuses by it
+  (`verifyObservations`); the door reads it over exactly the observations the request would carry
+  (those taken in a chosen view) and the factors the chosen views' proposals read, so a door the
+  panel opens is one the act takes. The axis stands at the first observation's factor, never an
+  average. Every observation along it, a repeat included, is held to the first within the edition's
+  verification tolerance, and one that disagrees is `SCALE_OBSERVATION_UNVERIFIED`, never set
+  aside. Only an observation across OTHER points vouches: the same two lattice points taken twice,
+  in either order and however the value is spelled, are one measurement, and L-MEA-05 verifies a
+  single measurement or rejects it — without this a repeated click would verify itself. A row reads
+  Verified by the same rule, in the scope an affirmation would carry it in: beside every row of the
+  chosen views and against what they read when its view is chosen; beside the rows of its own view
+  and against what that view reads when it is not; alone when its picks stood in no view. It is
+  judged at every render, never frozen when taken, so a second observation verifies the first where
+  it lands. A row's corroboration now reads every proposal of its scope, as the act always has,
+  where it read the placeable ones only. Rejected: letting a single uncorroborated observation stand
+  at `QS_TWO_POINT` labelled "not corroborated" (walk-0's second suggestion), because L-MEA-05
+  rejects an unverified single observation; reading the printed `SCALE 1:100` as a proposal (its
+  first), because L-MEA-05 admits printed scale notes at no rank; averaging a disagreeing axis.
+- **I-420 — a shut door says why, in words, and a mistaken observation can be taken back
+  (session 8, SCALE-1; R-UI-020, I-169).** While no view is chosen, one line under the member count
+  says `viewer_scale_why_members`, once for every door (`viewer-scale-affirm-why[data-reason=
+  "members"]`). Under the two-point door a list names each axis still short, in the words of its
+  remedy — `viewer_scale_why_axis_absent` (nothing observed along it in a chosen view),
+  `_why_axis_unchosen` (observed only in a view not chosen), `_why_axis_single` (one span, and
+  nothing agrees with it), `_why_axis_disagreeing` (remove the one marked Not verified) — each an
+  `li[data-reason="<axis>-<state>"]` inside `viewer-scale-affirm-why[data-rank="QS_TWO_POINT"]`, and
+  the shut door is `aria-describedby` those words. A machine rank's door wants only a chosen view,
+  so it carries no list. Each observation row carries a ghost **Remove**
+  (`viewer-scale-observation-remove`, labelled `viewer_scale_observation_remove_label`), because
+  "remove the one marked Not verified" is a remedy only where the panel offers it. The verification
+  line now says what verifies (`viewer_scale_check_verification`). Rejected: a tooltip on the
+  disabled door — a disabled button takes neither focus nor hover, so its words would be unreadable
+  exactly where they are needed.
 
 ## 1. Layout and hierarchy
 
@@ -2599,14 +2667,19 @@ exactly one, always rendered — `viewer_scale_check_verification` filled with t
 verification tolerance in mono. Then `<ol aria-label={observations_label}>` of `<li
 data-testid="viewer-scale-observation" data-axis data-drawn data-factor data-verified
 data-view-key>`: the axis word, the drawn span, the 12-place factor, and `viewer_scale_verified` /
-`viewer_scale_unverified` at `var(--weight-body-medium)` (I-155).
+`viewer_scale_unverified` at `var(--weight-body-medium)` (I-155, judged as I-419 rules), then,
+at the line's end, a core ghost Button `viewer-scale-observation-remove` reading
+`viewer_scale_observation_remove` that takes the observation back (I-420).
 
 **Answer slot** — `<div data-testid="viewer-scale-answer">` per I-156.
 
 **Affirm footer** — `viewer_scale_members_count` through `formatUserFigure`, then one core secondary
 Button `viewer-scale-affirm[data-rank]` per standing door (I-157, I-169), text `viewer_scale_affirm`
-filled with the rank word, natively `disabled` at zero members and — at `QS_TWO_POINT` — until one
-verified observation stands on each of x and y. A press judges offline first, then awaits
+filled with the rank word, natively `disabled` at zero members and — at `QS_TWO_POINT` — until each
+of x and y stands verified as I-419 judges it. While a door is shut its wants stand as words:
+`viewer_scale_why_members` once under the count while nothing is chosen, and under the two-point
+door one line per axis still short (I-420), `var(--text-12)` in `var(--ink-secondary)`, each
+door and its words a column `cx-viewer-scale-door`. A press judges offline first, then awaits
 `previewAffirmScale`; a refusal renders in the answer slot and no dialog opens on nothing. A
 consequence opens the one ConsequenceDialog (`actType="AFFIRM_SCALE"`, the SUBJECTS rendering plus
 the two effect slots `docs/design/consequence-dialog.md` now rules — one subject row per checked
@@ -2648,8 +2721,10 @@ count, or `""` when null (the `sheet-card-views` precedent).
   through the one RefusalState in the answer slot (I-155, I-156). No screen-local refusal block
   exists (R-UI-020, B-17) and no new refusal code is minted.
 - **Partial** — two, both rendered. An observation judged `verified: false` keeps its row and says
-  so (I-155). A view with no proposal, or placeable at no rank, keeps its row, its absence sentence
-  and its checkbox — shown, not hidden; the rows that can be affirmed are unaffected.
+  so (I-155), with its Remove beside it; the two-point door says what its axes still want
+  (I-420). A view with no proposal, or placeable at no rank, keeps its row, its absence sentence
+  and its checkbox — shown, not hidden; the rows that can be affirmed are unaffected, and two
+  agreeing observations per axis affirm it at `QS_TWO_POINT` (I-419).
 - **Offline** — no banner for the read. Picking, entering and judging an observation are wholly
   local and keep working. The one act is guarded: **Affirm** pressed offline opens no dialog and
   renders `viewer_scale_offline` as a `role="alert"` notice in the answer slot, in the house notice
@@ -2685,9 +2760,17 @@ points on the sheet, or press Enter with the sheet focused.** · `viewer_scale_p
 `viewer_scale_observe` **Take observation** · `viewer_scale_observations_label` **Observations taken
 here** · `viewer_scale_observation_axis` **Axis {axis}** · `viewer_scale_observation_drawn` **{drawn}
 drawing units** · `viewer_scale_verified` **Verified** · `viewer_scale_unverified` **Not verified** ·
-`viewer_scale_check_verification` **An observation is verified when the drawing's own evidence agrees
-within {tolerance}.** · `viewer_scale_members_count` **{count} of {total} views chosen** ·
-`viewer_scale_affirm` **Affirm at {rank}** · `viewer_scale_loading_label` **Reading the scale of each
+`viewer_scale_check_verification` **An observation is verified when a second observation across
+other points, or a scale read from the drawing, agrees within {tolerance}.** ·
+`viewer_scale_members_count` **{count} of {total} views chosen** · `viewer_scale_affirm` **Affirm at
+{rank}** · `viewer_scale_observation_remove` **Remove** · `viewer_scale_observation_remove_label`
+**Remove observation {index}, along {axis}** · `scale_axis_x` **X** · `scale_axis_y` **Y** ·
+`viewer_scale_why_members` **Choose the views this scale covers.** · `viewer_scale_why_axis_absent`
+**{axis}: take an observation along {axis} in a chosen view.** · `viewer_scale_why_axis_unchosen`
+**{axis}: the observation along {axis} stands in a view that is not chosen. Choose that view.** ·
+`viewer_scale_why_axis_single` **{axis}: take a second observation along {axis} across two other
+points.** · `viewer_scale_why_axis_disagreeing` **{axis}: the observations along {axis} disagree.
+Remove the one marked Not verified.** · `viewer_scale_loading_label` **Reading the scale of each
 view.** · `viewer_scale_failed` **The scale of this sheet could not be read.** · `viewer_scale_retry`
 **Retry** · `viewer_scale_report_id` **Report id {id}** · `viewer_scale_offline` **Nothing was
 previewed: the connection to the product is gone.** · `viewer_scale_denied_permission` **Affirming a
@@ -2757,9 +2840,11 @@ contract's: `viewer-inspector-tabs` · `viewer-inspector-tab-selection` · `view
 `viewer-scale-unit` · `viewer-scale-observe` · `viewer-scale-observation` (`data-axis`,
 `data-drawn`, `data-factor`, `data-verified`, `data-view-key`) · `viewer-scale-check-verification` ·
 `viewer-scale-answer` · `viewer-scale-retry`; plus `data-scale-hatched` on
-`viewer-partition-canvas` and `data-unplaceable` on `sheet-card-scale`. No other id is added: the
-head, the tool fieldset, the picks, the affirm footer and the notice are found by role, class and
-text.
+`viewer-partition-canvas` and `data-unplaceable` on `sheet-card-scale`. I-420 adds two:
+`viewer-scale-affirm-why` (`data-reason="members"` on the one line said for every door, or
+`data-rank` on the list under a door whose items carry `data-reason="<axis>-<state>"`) and
+`viewer-scale-observation-remove`. No other id is added: the head, the tool fieldset, the picks, the
+affirm footer and the notice are found by role, class and text.
 
 Behavioural hooks without new ids: `role="tablist"` on `viewer-inspector-tabs` with
 `aria-selected="true"` on `viewer-inspector-tab-selection` at mount; `aria-busy` while loading;
@@ -2773,16 +2858,25 @@ Suites: `tests/takeoff/scale-ui/**` over `two-point.ts` (`observationOf`'s uncit
 `judgeObservation`'s axis, span, 12-place factor and verified flag) against fixtures in
 `tests/takeoff/scale-ui/support/**`, and a jsdom mount of the region over injected door answers for
 all seven states; the drawings `__tests__` over `scaleStateOf` and `sheetIndexOf`'s new fields.
+I-419/c add `tests/takeoff/scale/observation-set.test.ts` (the set judgement, pure) and
+`tests/takeoff/scale-ui/two-point-doors.test.tsx` (the region over a sheet with no proposal: rows,
+doors, words and Remove), both on the unit lane.
 Journey `tests/e2e/journeys/j-020-scale.spec.ts` (every title beginning **J-020**, staged by
 `stageScaleSheet`, page object `tests/e2e/pages/s-scale.page.ts`) at `j-020-scale/panel-open`,
-`observation`, `affirm-open`, `affirmed` and `sheet-card`, axe serious/critical = 0 at each, never
-widened; `j-020-snapping` and J-000 stay green. Pictures: `viewer-scale` alone as
+`observation`, `affirm-open`, `affirmed` and `sheet-card` — and, for I-418/b/c,
+`unitless-open`, `two-point-ready`, `two-point-affirmed` (a staged sheet whose header names no unit,
+scaled by two observations per axis) and `fresh-proposal` (F-RCC6-BNBC's DWG uploaded fresh through
+the Dropzone and the shipped worker, its column layout plan proposing and affirmed at
+`DIMENSION_RATIO`) — axe serious/critical = 0 at each, never widened; `j-020-snapping` and J-000
+stay green. Pictures: `viewer-scale` alone as
 `j-020-scale/panel-light.png` and `panel-dark.png` (`data-theme` flipped, animations disabled,
 `maxDiffPixelRatio` 0.002) — DOM and deterministic, never the sheet or the overlay canvas (s-viewer
 §7). Re-baselined in their own `baseline:` commits naming this Decision (B-20):
 `j-010-sheet-card.png` for the card's new line, and `j-000/entity-selected.png` **only** if it moves
 by the aside's height under the strip (I-152). `consequence-dialog-open.png` does not move: its
-sample preview carries no `effects`.
+sample preview carries no `effects`. `panel-light.png` and `panel-dark.png` move by I-420's
+words under the shut doors and are re-taken by the gate (`pnpm e2e:retake`) in their own
+`baseline:` commit naming J-020.
 
 ## 8. Recorded IOUs (owner named, never a comment in `src/`)
 
@@ -2790,11 +2884,12 @@ Refreshing the snap calibration feed in place after a commit — owner: the view
 a fresh calibration reaches the status cell when the sheet is reopened, which is what J-020 walks.
 Persisting the inspector's chosen tab across mounts, and the left stack's remembered sizes — owner:
 the prefs seam's node (s-viewer I-84, still unpaid). Committing at rank `QS_TWO_POINT` from this
-panel end to end, and persisting observations beyond the session — owner: inc-204's seam, whose
-acceptance already carries the door's gating. Re-affirmation copy naming outgoing keys and the
-signatures a re-affirmation voids, beyond the dialog's Before/After and the two effect slots —
-owner: the increment that ships quantity lines and signatures, which is the code path that fills
-them. The certificate's declaration of unplaceable views (R-TO-021's last clause) — owner: M7. The
+panel end to end is paid by J-020's unitless leg (I-419); persisting observations beyond the
+session — owner: inc-204's seam, whose acceptance already carries the door's gating.
+Re-affirmation copy naming outgoing keys and the signatures a re-affirmation voids, beyond the
+dialog's Before/After and the two effect slots — owner: the increment that ships quantity lines and
+signatures, which is the code path that fills them. The certificate's declaration of unplaceable
+views (R-TO-021's last clause) — owner: M7. The
 `NumberInput` primitive R-UI-010 names, with its unit suffix and decimal-only entry — owner: the
 foundation leaf that mints it; the distance field here is the core Input and the unit a native
 `<select>` in the house field classes, replaced when that primitive lands. Moving this panel's keys

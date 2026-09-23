@@ -16,7 +16,9 @@
  * from the factor the panel itself published for the file's own units; the hatch count, the member
  * count and the card's figures are all read from the screen under test (B-19).
  */
-import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { expect, test, type Page } from "@playwright/test";
 import { REFUSALS } from "../../../src/core/errors";
 import { metresPer } from "../../../src/core/scale";
 import { strings } from "../../../src/ui/strings";
@@ -24,13 +26,18 @@ import { SCALE_COPY } from "../../../src/modules/takeoff/scale-ui/copy";
 import { drawings } from "../../../src/app/(app)/t/[tenant]/p/[project]/drawings/strings";
 import { checkpoint } from "../support/checkpoint";
 import { laneTheme } from "../support/lane-theme";
-import { SDrawingsPage } from "../pages/s-drawings.page";
-import { S_SCALE, SScalePage } from "../pages/s-scale.page";
+import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
+import { SDrawingsPage, S_DRAWINGS } from "../pages/s-drawings.page";
+import { SHomePage } from "../pages/s-home.page";
+import { ShellPage } from "../pages/shell.page";
+import { newestMail } from "../support/outbox";
+import { startJourneyWorker } from "../support/worker";
+import { S_SCALE, SScalePage, type Span } from "../pages/s-scale.page";
 import { SViewerPartitionPage } from "../pages/s-viewer-partition.page";
 import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
 import { SViewerSnapPage } from "../viewer/s-viewer-snap.page";
 import { HEADER_UNIT, stageScaleSheet } from "../viewer/viewer-scale-stage";
-import { everyRow, steadyCount, steadyText } from "../support/retrying-read";
+import { everyAttribute, everyRow, heldAttribute, steadyCount, steadyText } from "../support/retrying-read";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import { afterSettled } from "../support/settled";
 
@@ -49,6 +56,35 @@ const LINE = "LINE";
  */
 const CLEARANCE = 6;
 const PICK_SCALE = 8;
+
+/** The two ranks the legs below affirm at: a person's own calibration, and the dimensions' ratio. */
+const QS_TWO_POINT = "QS_TWO_POINT";
+const DIMENSION_RATIO = "DIMENSION_RATIO";
+
+/**
+ * The unitless leg (I-419): how far each end of a calibrated span stands clear of every other
+ * drawn point, how near one another the four spans stand so one camera frames them, and the scale
+ * the reader states they measured at — one hundred millimetres to the drawing unit, entered for
+ * every span alike, so what agrees is what was measured and not a number chosen to agree.
+ */
+const SPAN_REACH = 60;
+const ENTERED_MM_PER_UNIT = 100;
+
+/** F-RCC6-BNBC's DWG — the upload walk-0 made in front of the product — and its manifest (B-19). */
+const BNBC_DWG = join(process.cwd(), "fixtures", "rcc6-bnbc", "rcc6-bnbc.dwg");
+const BNBC_MANIFEST = join(process.cwd(), "fixtures", "rcc6-bnbc", "manifest.json");
+
+/** How long the DWG's two passes, its rasters and the partition the ingest chains may take. */
+const FRESH_READING_MS = 90_000;
+
+/** The column layout plan's sheet and the caption of its one view, as the manifest declares them. */
+function columnLayoutPlan(): { layoutName: string; caption: string } {
+  const manifest = JSON.parse(readFileSync(BNBC_MANIFEST, "utf8")) as { sheets?: { number?: string; layout_name?: string; views?: { title?: string }[] }[] };
+  const sheet = (manifest.sheets ?? []).find((held) => held.number === "S-10");
+  expect(sheet?.layout_name, "the manifest declares S-10's layout").toBeTruthy();
+  expect(sheet?.views?.[0]?.title, "and the one view it draws").toBeTruthy();
+  return { layoutName: sheet?.layout_name as string, caption: sheet?.views?.[0]?.title as string };
+}
 
 /** One registered string, read by key: this journey is written before the table carries it. */
 function copy(key: string): string {
@@ -301,4 +337,190 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     );
     await checkpoint(page, testInfo, "j-020-scale/sheet-card");
   });
+
+  test("J-020: a sheet the drawing offers no scale for is scaled by two agreeing observations per axis, and a shut door says why", async ({ page }, testInfo) => {
+    const staged = await stageScaleSheet(page, { label: "scale-unitless", header: "unitless" });
+    const viewer = new SViewerPage(page);
+    const scale = new SScalePage(page);
+    const snap = new SViewerSnapPage(page);
+
+    await page.goto(S_VIEWER.route(staged.tenantId, staged.projectId, staged.drawingId, staged.layoutName), { waitUntil: "commit" });
+    await expect(viewer.status, "the staged sheet paints").toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
+    await expect
+      .poll(async () => {
+        const total = await viewer.statusNumber("data-total-layers");
+        return total > 0 && (await viewer.statusNumber("data-loaded-layers")) === total;
+      }, { timeout: 120_000, message: "every layer of the sheet arrives before it is read" })
+      .toBe(true);
+    const layers = await viewer.statusNumber("data-total-layers");
+
+    /* --- j-020-scale/unitless-open: no rank of the machine's reads a factor off this header --- */
+    await viewer.pinInspector();
+    await scale.open();
+    const keys = await scale.viewKeys();
+    expect(keys.length, "one row per view of the sheet").toBe(staged.views.length);
+    for (const state of await everyAttribute(scale.rows, "data-state", "the scale panel's view states")) {
+      expect(state, "a header that names no unit carries no factor for any machine rank (L-MEA-05's strict unit lane)").toBe("SCALE_UNIT_UNMAPPED");
+    }
+    await expect(scale.proposals, "and the drawing offers no scale for any view — the sheet walk-0 could not scale").toHaveCount(0);
+    await expect(scale.row(keys[0] as string), "a view with nothing to offer says so rather than falling silent (R-UI-020)").toContainText(scaleCopy("viewer_scale_no_proposals"));
+
+    const door = scale.affirm(QS_TWO_POINT);
+    await expect(door, "the two-point door stands, shut until its evidence does (I-169)").toBeDisabled();
+    await expect(scale.why("members"), "and says, in words, what it wants first (I-420)").toHaveText(scaleCopy("viewer_scale_why_members"));
+    await checkpoint(page, testInfo, "j-020-scale/unitless-open");
+
+    /* --- two spans along each axis, read off the served sheet, all in one camera --- */
+    const set = SScalePage.calibrationSet(await scale.sheetRecords(staged, layers), { type: LINE, clearance: CLEARANCE, reach: SPAN_REACH });
+    await page.goto(S_VIEWER.at(staged.tenantId, staged.projectId, staged.drawingId, staged.layoutName, `${set.centre[0]},${set.centre[1]},${PICK_SCALE}`), { waitUntil: "commit" });
+    await expect(viewer.status, "the sheet paints again at the camera the address states").toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
+    await expect
+      .poll(async () => {
+        const total = await viewer.statusNumber("data-total-layers");
+        return total > 0 && (await viewer.statusNumber("data-loaded-layers")) === total;
+      }, { timeout: 120_000, message: "every layer arrives again before the picks are taken" })
+      .toBe(true);
+    await viewer.pinInspector();
+    await scale.open();
+
+    const observeAcross = async (span: Span, taken: number): Promise<void> => {
+      await snap.pickAt(await viewer.screenPointOf(span.from));
+      await snap.pickAt(await viewer.screenPointOf(span.to));
+      await expect(snap.statusDistance, "two picks stand on drawn ends (I-158)").toHaveAttribute("data-picks", "2");
+      // Stated back at the lattice's own precision, so a span drawn at 45.7 units is entered as
+      // 4570 and never as the 4570.000000000001 a float would spell it.
+      await scale.distance.fill(String(Number((span.length * ENTERED_MM_PER_UNIT).toFixed(3))));
+      await scale.select(S_SCALE.unit, "mm");
+      await scale.observe.click();
+      await expect(scale.observations, "Observe appends one observation").toHaveCount(taken);
+      await expect(snap.statusDistance, "and spends the marks it was taken from (I-158)").toHaveAttribute("data-picks", "0");
+    };
+
+    await observeAcross(set.x[0], 1);
+    const first = scale.observations.first();
+    await expect(first, "one bay along x, and nothing on this sheet to check it against").toHaveAttribute("data-verified", "unverified");
+    const plan = await scale.hook(first, "data-view-key");
+    expect(keys, "the picks stood inside one of the sheet's views").toContain(plan);
+    await scale.member(plan).click();
+    await expect(scale.why(`x-single`), "one x reading: the door asks for a second one across other points (I-420)").toHaveText(fill(scaleCopy("viewer_scale_why_axis_single"), { axis: scaleCopy("scale_axis_x") }));
+    await expect(scale.why(`y-absent`), "and for a y reading at all").toHaveText(fill(scaleCopy("viewer_scale_why_axis_absent"), { axis: scaleCopy("scale_axis_y") }));
+
+    await observeAcross(set.x[1], 2);
+    for (const row of await everyRow(scale.observations, "the observations taken")) {
+      await expect(row, "two x bays across different points verify each other, with nothing machine-made under them (I-419)").toHaveAttribute("data-verified", "verified");
+    }
+    await observeAcross(set.y[0], 3);
+    await observeAcross(set.y[1], 4);
+    const factors = await everyAttribute(scale.observations, "data-factor", "the observations' factors");
+    expect(new Set(factors).size, "every span entered at one scale reads one factor").toBe(1);
+    expect(await everyAttribute(scale.observations, "data-view-key", "the observations' views"), "all four stood in the one view chosen").toEqual([plan, plan, plan, plan]);
+    for (const row of await everyRow(scale.observations, "the observations taken")) {
+      await expect(row, "and every one is vouched for by its axis's other span").toHaveAttribute("data-verified", "verified");
+    }
+    expect(await scale.whyReasons(), "an open door says nothing it no longer wants").toEqual([]);
+    await expect(door, "both axes verified: the door the walk found shut for good opens").toBeEnabled();
+    await checkpoint(page, testInfo, "j-020-scale/two-point-ready");
+
+    /* --- j-020-scale/two-point-affirmed: the act, at the person's own rank --- */
+    await door.click();
+    await expect(scale.dialog, "the act opens the one ConsequenceDialog (R-UI-021)").toHaveAttribute("data-act-type", AFFIRM_SCALE);
+    await expect(scale.subjectRows, "over the one view chosen").toHaveCount(1);
+    await expect(scale.subjectRows.first()).toHaveAttribute("data-subject", plan);
+    await scale.confirm.click();
+    await expect(scale.dialog, "a committed act closes the dialog it was confirmed in").toBeHidden();
+
+    const row = scale.row(plan);
+    await expect(row, "the view the drawing offered nothing for now stands under a scale of record").toHaveAttribute("data-state", "affirmed");
+    await expect(row, "at the two-point rank").toHaveAttribute("data-rank", QS_TWO_POINT);
+    await expect(row, "at the factor the first observation read, along x (L-MEA-05: never an average)").toHaveAttribute("data-factor-x", factors[0] as string);
+    await expect(row, "and along y").toHaveAttribute("data-factor-y", factors[0] as string);
+    await checkpoint(page, testInfo, "j-020-scale/two-point-affirmed");
+  });
+
+  test("J-020: a fresh upload of F-RCC6-BNBC's DWG proposes a dimension-ratio scale on S-10's column layout plan, affirmed in one act", async ({ page }, testInfo) => {
+    const worker = await startJourneyWorker();
+    try {
+      const { tenantId, projectId } = await enrolWithProject(page, "fresh");
+      const sheet = columnLayoutPlan();
+      const drawings = new SDrawingsPage(page);
+      const viewer = new SViewerPage(page);
+      const scale = new SScalePage(page);
+
+      /* --- the drawing walk-0 uploaded, through the screen's own Dropzone and the shipped worker --- */
+      await drawings.open(tenantId, projectId);
+      await drawings.dropFile(BNBC_DWG);
+      await expect(drawings.dropzoneItems.first(), "the DWG is stored by the upload seam").toHaveAttribute("data-state", "stored", { timeout: FRESH_READING_MS });
+      await expect(drawings.timeline, "the jobs the upload asked for finish where the work was started (X-1)").toHaveAttribute("data-state", "done", { timeout: FRESH_READING_MS });
+      // The partition the ingest chains lands on the job runner's clock, not the upload's: the card's
+      // views line publishes a count once it has (s-drawings I-284), and the sheet is opened then.
+      await expect
+        .poll(async () => {
+          await drawings.open(tenantId, projectId);
+          return (await heldAttribute(drawings.cell(drawings.cardForLayout(sheet.layoutName), S_DRAWINGS.views), "data-views")) ?? "";
+        }, { timeout: FRESH_READING_MS, message: `the partition of ${sheet.layoutName} stands` })
+        .not.toBe("");
+
+      await drawings.cell(drawings.cardForLayout(sheet.layoutName), S_DRAWINGS.open).click();
+      await expect(viewer.status, "the sheet paints").toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
+      await viewer.pinInspector();
+      await scale.open();
+
+      /* --- j-020-scale/fresh-proposal: the dimensions reached the artifact, so rank 3 reads them --- */
+      const row = scale.rows.filter({ hasText: sheet.caption });
+      await expect(row, `one view of the drawing is captioned ${sheet.caption}`).toHaveCount(1);
+      const proposal = row.locator(`[data-testid="${S_SCALE.proposal}"][data-rank="${DIMENSION_RATIO}"]`);
+      await expect(proposal, "a fresh DWG upload proposes the dimensions' own ratio on the column layout plan again (I-418)").toHaveCount(1);
+      await expect(proposal, "one the view can be placed at").toHaveAttribute("data-placeable", "true");
+      expect(await scale.hook(proposal, "data-factor-x"), "its factor a 12-place decimal, unrounded (I-159)").toMatch(/^[0-9]+\.[0-9]{12}$/);
+      await checkpoint(page, testInfo, "j-020-scale/fresh-proposal");
+
+      /* --- the proposal affirmed: choose the view, press its door, confirm --- */
+      const viewKey = await scale.hook(row, "data-view-key");
+      await scale.member(viewKey).click();
+      await scale.affirm(DIMENSION_RATIO).click();
+      await expect(scale.dialog, "the act opens the one ConsequenceDialog (R-UI-021)").toHaveAttribute("data-act-type", AFFIRM_SCALE);
+      await scale.confirm.click();
+      await expect(scale.dialog, "a committed act closes the dialog it was confirmed in").toBeHidden();
+      await expect(scale.row(viewKey), "the column layout plan stands under a scale of record").toHaveAttribute("data-state", "affirmed");
+      await expect(scale.row(viewKey), "at the rank the drawing's dimensions proposed").toHaveAttribute("data-rank", DIMENSION_RATIO);
+    } finally {
+      await worker.stop();
+    }
+  });
 });
+
+/**
+ * A person of a fresh workspace, signed in, with a project of theirs made through the shipped
+ * screen — the prologue J-010 walks, so the drawing this leg uploads lands in no other spec's
+ * workspace.
+ */
+async function enrolWithProject(page: Page, label: string): Promise<{ tenantId: string; projectId: string }> {
+  const auth = new SAuthPage(page);
+  const shell = new ShellPage(page);
+  const home = new SHomePage(page);
+  const mark = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+  const email = `j020-${label}-${mark}@cubit.test`;
+  const password = `scale-journey-${mark}`;
+  const project = `Sattva Scale ${mark}`;
+
+  await auth.open(S_AUTH.signUp);
+  await auth.signUpWith(email, password, `Scale ${mark}`);
+  await auth.expectNotice();
+  const verifyMail = await newestMail(email, "verify-email");
+  await auth.openWithToken(S_AUTH.verify, verifyMail.token);
+  await auth.expectNotice();
+  await auth.open(S_AUTH.signIn);
+  await auth.signInWith(email, password);
+
+  await shell.workspaceDoor.click();
+  await page.waitForURL(/\/t\/[0-9a-f-]{36}$/);
+  const tenantId = new URL(page.url()).pathname.split("/")[2] ?? "";
+  expect(tenantId, "the workspace door leads to the workspace this person holds").not.toBe("");
+
+  await home.createWith({ name: project, code: `SSC-${mark.slice(0, 4)}`, client: "Sattva Holdings", district: "Dhaka", buildingType: 1, storeys: "7" });
+  const card = home.cardNamed(project);
+  await expect(card, "the created project stands on S-Home").toBeVisible();
+  const projectId = (await heldAttribute(card, "data-project")) ?? "";
+  expect(projectId, "the card names the project it is for").not.toBe("");
+  return { tenantId, projectId };
+}

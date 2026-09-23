@@ -88,6 +88,12 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "j-020-scale/observation": 0,
   "j-020-scale/panel-open": 0,
   "j-020-scale/sheet-card": 0,
+  // I-418/b/c (session 8, SCALE-1): a sheet with no machine proposal scaled by two observations
+  // per axis, and a fresh DWG upload's proposal. Zero before a run, as every entry here was seeded.
+  "j-020-scale/fresh-proposal": 0,
+  "j-020-scale/two-point-affirmed": 0,
+  "j-020-scale/two-point-ready": 0,
+  "j-020-scale/unitless-open": 0,
   "j-020-snap-glyph": 0,
   "j-020-snap-readout": 0,
   "j-021-column-slice/cited": 0,

@@ -37,12 +37,17 @@ export {
 } from "./law";
 export {
   DISTANCE_BASIS_ENTERED,
+  axisStandingOf,
   citeObservation,
+  sameSpan,
   verifyAxis,
+  verifyObservations,
+  type AxisStanding,
   type AxisVerification,
   type CitedObservation,
   type CitedPoint,
   type EnteredDistance,
+  type ObservedSpan,
   type ScaleAxis,
   type TwoPointObservation,
 } from "./observation";

@@ -5,10 +5,10 @@
 // The act names its views and the rank it stands on. What each view moves TO is not the caller's to
 // say: the factor pair is derived here, from the state the seam's own transaction read — the
 // machine's proposal at that rank (ranks 2 to 4, recomputed from the frozen artifact) or the
-// person's own observations judged against it (rank 1) — so the Consequence carries what the
-// current state supports and nothing a caller typed (L-ACT-02). A rank the evidence does not carry
-// is refused by name, never filled from a weaker one: X and Y derive independently and are averaged
-// as nothing, and a view's scale is the rank it stood on (L-MEA-05).
+// person's own observations judged as a set, against each other and against it (rank 1) — so the
+// Consequence carries what the current state supports and nothing a caller typed (L-ACT-02). A rank
+// the evidence does not carry is refused by name, never filled from a weaker one: X and Y derive
+// independently and are averaged as nothing, and a view's scale is the rank it stood on (L-MEA-05).
 //
 // Nothing is overwritten (L-ACT-01): a calibration is content-addressed and an affirmation is a row
 // appended naming the act that carried it, so a re-affirmation is a later act rather than an edit.
@@ -26,7 +26,7 @@ import {
   scaleObservationUncited,
   scaleUnitUnmapped,
   unitFactor,
-  verifyAxis,
+  verifyObservations,
   type CitedObservation,
   type FactorPair,
   type ScaleAxis,
@@ -159,9 +159,9 @@ type Judged = {
 /**
  * The factor pair each named view takes at the rank the act stands on (L-MEA-05's precedence):
  * rank 4 from the header alone, ranks 2 and 3 from the machine's own proposal for the view, rank 1
- * from the person's observations verified against the machine's. Every rank is judged against the
- * evidence it names and none is filled from another — a view whose evidence does not carry the
- * rank is refused by name.
+ * from the person's observations verified against each other or against the machine's. Every rank
+ * is judged against the evidence it names and none is filled from another — a view whose evidence
+ * does not carry the rank is refused by name.
  */
 function judgeRank(
   input: AffirmScaleInput,
@@ -213,13 +213,16 @@ function judgeRank(
         sourceKeys.add(point.sourceKey);
       }
     }
-    // The machine's own readings along each axis, across the named views, are what verify a single
-    // observation — a person's reading is checked against the drawing's, never against itself.
+    // The observations along each axis are judged as a SET (I-419): two of them across
+    // different points are two measurements and verify each other, the same span taken twice is one
+    // measurement and verifies nothing, and every one of them — a repeat included — is held to the
+    // first, so a disagreeing reading is the refusal and never set aside. A single measurement is
+    // checked against the machine's own readings along that axis across the named views: a person's
+    // reading is checked against the drawing's or against a second measurement, never against itself.
     const corroborating = (axis: ScaleAxis): string[] =>
       named.flatMap((viewKey) => (proposals.get(viewKey) ?? []).map((proposal) => (axis === "x" ? proposal.factorX : proposal.factorY)));
-    const observed = (axis: ScaleAxis): string[] => observations.filter((observation) => observation.axis === axis).map((observation) => observation.factor);
-    const x = verifyAxis("x", observed("x"), corroborating("x"), verificationTolerance);
-    const y = verifyAxis("y", observed("y"), corroborating("y"), verificationTolerance);
+    const x = verifyObservations("x", observations, corroborating("x"), verificationTolerance);
+    const y = verifyObservations("y", observations, corroborating("y"), verificationTolerance);
     const pair = factorPair(x.factor, y.factor);
     for (const viewKey of named) pairs.set(viewKey, pair);
     return { pairs, sourceKeys: [...sourceKeys], observations };

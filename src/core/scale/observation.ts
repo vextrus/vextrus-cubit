@@ -147,6 +147,24 @@ function objectOf(raw: unknown, what: string): Record<string, unknown> {
   return raw as Record<string, unknown>;
 }
 
+/** An observation as an axis's set reads one: the axis it speaks for, its factor and the two points it spans. */
+export type ObservedSpan = { readonly axis: ScaleAxis; readonly factor: string; readonly points: readonly [CitedPoint, CitedPoint] };
+
+/**
+ * Whether two observations span the same two points of the lattice, whichever end was picked first
+ * and whichever entity each point cited. A point is its place on the lattice compared as a value:
+ * `20`, `20.0` and `20.00` are one point, exactly as `citeObservation` quantises them.
+ */
+export function sameSpan(left: readonly [CitedPoint, CitedPoint], right: readonly [CitedPoint, CitedPoint]): boolean {
+  return spanKey(left) === spanKey(right);
+}
+
+/** One span as a key that names it whichever end was picked first: its two lattice points, as values, in order. */
+function spanKey(points: readonly [CitedPoint, CitedPoint]): string {
+  const [from, to] = points.map((point) => `${exact(point.x).toString()} ${exact(point.y).toString()}`) as [string, string];
+  return from < to ? `${from}|${to}` : `${to}|${from}`;
+}
+
 /** What verifying an axis answers: the factor the axis stands at and what vouched for it. */
 export type AxisVerification = {
   readonly axis: ScaleAxis;
@@ -156,32 +174,109 @@ export type AxisVerification = {
 };
 
 /**
+ * Where one axis of a two-point calibration stands over the observations taken along it — the ONE
+ * judgement the act refuses by and the panel's door reads, so a door the panel opens is a door the
+ * act behind it takes (B-17, I-419). Four answers, each a reading and never a fault:
+ *
+ * - `absent` — nobody observed this axis;
+ * - `disagreeing` — an observation along it differs from the FIRST beyond tolerance (`against`);
+ * - `single` — every observation agrees with the first, but none measured a span of its own and
+ *   nothing the drawing reads for these views agrees with it either (`against`: what it was held to);
+ * - `verified` — the first observation's factor, vouched for by `verifiedBy`.
+ */
+export type AxisStanding =
+  | { readonly axis: ScaleAxis; readonly state: "absent" }
+  | { readonly axis: ScaleAxis; readonly state: "disagreeing" | "single"; readonly factor: string; readonly against: readonly string[] }
+  | ({ readonly state: "verified" } & AxisVerification);
+
+/**
+ * One axis judged over a SET of observations (L-MEA-05, I-419). Two observations verify each
+ * other because they are two MEASUREMENTS: the same two points taken twice are one measurement, so
+ * a repeat of the first observation's span agrees or disagrees with it and never vouches for it —
+ * only an observation across other points does. Nothing is dropped: every observation along the axis,
+ * a repeat included, is held to the first, and one that disagrees is the refusal, never set aside. So
+ * two agreeing observations per axis across different points scale a view with nothing machine-made
+ * under them, which is how a sheet the drawing offers no scale for is scaled at all.
+ */
+export function axisStandingOf(axis: ScaleAxis, observations: readonly ObservedSpan[], corroborating: readonly string[], tolerance: string): AxisStanding {
+  const along = observations.filter((observation) => observation.axis === axis);
+  const first = along[0];
+  return judged(
+    axis,
+    along.map((observation) => ({ factor: observation.factor, ownSpan: first !== undefined && !sameSpan(observation.points, first.points) })),
+    corroborating,
+    tolerance,
+  );
+}
+
+/** `axisStandingOf`, answered as the act needs it: the verification, or the refusal L-MEA-05 names. */
+export function verifyObservations(axis: ScaleAxis, observations: readonly ObservedSpan[], corroborating: readonly string[], tolerance: string): AxisVerification {
+  return verificationOf(axisStandingOf(axis, observations, corroborating, tolerance), tolerance);
+}
+
+/**
  * Verify one axis of a two-point calibration (L-MEA-05: "a single-observation scale is verified at
  * ±1% or rejected"). The axis stands at the FIRST observation's factor — never at an average — and
  * that factor is verified either by every further observation along the same axis agreeing with it
  * within tolerance, or, for a single observation, by at least one factor the drawing's own evidence
  * offers along that axis (a machine proposal at ranks 2–4). An axis nobody observed is no evidence
  * at all, which is the positive-membership refusal rather than a factor borrowed from another rank.
+ * Factors alone carry no span, so each is read as a measurement of its own; where the observations
+ * are at hand, `verifyObservations` reads their spans too (I-419).
  */
 export function verifyAxis(axis: ScaleAxis, observed: readonly string[], corroborating: readonly string[], tolerance: string): AxisVerification {
-  const first = observed[0];
-  if (first === undefined) {
-    throw scaleNoEvidence(`no observation was taken along ${axis}, and X and Y derive independently`, { axis });
-  }
-  for (const factor of [first, ...observed.slice(1), ...corroborating]) {
+  return verificationOf(
+    judged(
+      axis,
+      observed.map((factor, at) => ({ factor, ownSpan: at > 0 })),
+      corroborating,
+      tolerance,
+    ),
+    tolerance,
+  );
+}
+
+/** One reading of an axis's set: its factor, and whether it measured a span other than the first's. */
+type Reading = { readonly factor: string; readonly ownSpan: boolean };
+
+/** The one arithmetic under `axisStandingOf` and `verifyAxis`: the first reading, held to by all. */
+function judged(axis: ScaleAxis, readings: readonly Reading[], corroborating: readonly string[], tolerance: string): AxisStanding {
+  const [first, ...others] = readings;
+  if (first === undefined) return { axis, state: "absent" };
+  for (const factor of [first.factor, ...others.map((reading) => reading.factor), ...corroborating]) {
     if (!isFactorString(factor)) throw new Error(`"${factor}" is not a factor string, so it can verify nothing (L-MEA-05)`);
   }
 
-  const others = observed.slice(1);
-  const disagreeing = others.filter((factor) => !withinTolerance(first, factor, tolerance));
-  if (disagreeing.length > 0) {
-    throw scaleObservationUnverified(`the observations along ${axis} disagree beyond ±${tolerance} of the first`, { axis, factor: first, tolerance, against: disagreeing });
-  }
-  if (others.length > 0) return { axis, factor: first, verifiedBy: others };
+  const disagreeing = others.filter((reading) => !withinTolerance(first.factor, reading.factor, tolerance)).map((reading) => reading.factor);
+  if (disagreeing.length > 0) return { axis, state: "disagreeing", factor: first.factor, against: disagreeing };
+  const measured = others.filter((reading) => reading.ownSpan).map((reading) => reading.factor);
+  if (measured.length > 0) return { axis, state: "verified", factor: first.factor, verifiedBy: measured };
 
-  const agreeing = corroborating.filter((factor) => withinTolerance(first, factor, tolerance));
-  if (agreeing.length === 0) {
-    throw scaleObservationUnverified(`the single observation along ${axis} is verified by nothing within ±${tolerance}`, { axis, factor: first, tolerance, against: corroborating });
+  const agreeing = corroborating.filter((factor) => withinTolerance(first.factor, factor, tolerance));
+  if (agreeing.length === 0) return { axis, state: "single", factor: first.factor, against: [...corroborating] };
+  return { axis, state: "verified", factor: first.factor, verifiedBy: agreeing };
+}
+
+/** A standing as the act answers it: the verification, or the refusal the standing names. */
+function verificationOf(standing: AxisStanding, tolerance: string): AxisVerification {
+  switch (standing.state) {
+    case "verified":
+      return { axis: standing.axis, factor: standing.factor, verifiedBy: standing.verifiedBy };
+    case "absent":
+      throw scaleNoEvidence(`no observation was taken along ${standing.axis}, and X and Y derive independently`, { axis: standing.axis });
+    case "disagreeing":
+      throw scaleObservationUnverified(`the observations along ${standing.axis} disagree beyond ±${tolerance} of the first`, {
+        axis: standing.axis,
+        factor: standing.factor,
+        tolerance,
+        against: standing.against,
+      });
+    case "single":
+      throw scaleObservationUnverified(`the single observation along ${standing.axis} is verified by nothing within ±${tolerance}`, {
+        axis: standing.axis,
+        factor: standing.factor,
+        tolerance,
+        against: standing.against,
+      });
   }
-  return { axis, factor: first, verifiedBy: agreeing };
 }
