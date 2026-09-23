@@ -13,6 +13,7 @@
  */
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { STakeoffPage } from "../pages/s-takeoff.page";
+import { SYNTHETIC_SOURCES } from "../takeoff/register-stage";
 import { checkpoint } from "../support/checkpoint";
 import { heldAttribute } from "../support/retrying-read";
 
@@ -39,6 +40,12 @@ const INSERTED_ORDINAL = 1;
 const CONTESTED_VALUE = "3.2";
 const SETTLED_VALUE = "3.048";
 const METRE = "m";
+/**
+ * The entity both of the walker's readings cite: the staged sheet's own height mark, the one the
+ * stage transcribed GF off. The form refuses a height that cites nothing (s-levels I-435), and the
+ * re-affirmation settles the contest only under the SAME key — this actor, this basis, this source.
+ */
+const READ_FROM = SYNTHETIC_SOURCES.height;
 
 /** The screen's page object, through the surface this journey drives (test contract). */
 interface LevelsPage {
@@ -64,7 +71,7 @@ interface LevelsPage {
   rollup(row: Locator, kind: string): Locator;
   reading(basis: string): Locator;
   proposeLevel(label: string, ordinal: number): Promise<void>;
-  authorStoreyHeight(value: string, unit: string, basis: string): Promise<void>;
+  authorStoreyHeight(value: string, unit: string, basis: string, sourceKey: string): Promise<void>;
   confirmAct(): Promise<void>;
   masks(): Locator[];
 }
@@ -150,7 +157,7 @@ test.describe("J-031 — the level stack editor", () => {
     await expect(levels.inspector, "the level a reader chose fills the shell's one inspector").toHaveAttribute("data-level", staged.groundLevelId);
     await expect(levels.readings, "which lists the reading the stage transcribed from the sheet").toHaveCount(1);
 
-    await levels.authorStoreyHeight(CONTESTED_VALUE, METRE, ENTERED);
+    await levels.authorStoreyHeight(CONTESTED_VALUE, METRE, ENTERED, READ_FROM);
     await expect(levels.dialog, "reading a height is an act, and opens the same one dialog").toHaveAttribute("data-act-type", AUTHOR_STOREY_HEIGHT);
     await levels.confirmAct();
 
@@ -176,7 +183,7 @@ test.describe("J-031 — the level stack editor", () => {
     await expect(page).toHaveScreenshot(["j-031-levels", "contested.png"], { mask: levels.masks(), animations: "disabled" });
 
     /* --- the re-affirmation: the same key, read again, which is the only thing that settles it --- */
-    await levels.authorStoreyHeight(SETTLED_VALUE, METRE, ENTERED);
+    await levels.authorStoreyHeight(SETTLED_VALUE, METRE, ENTERED, READ_FROM);
     await expect(levels.dialog, "the re-affirmation is the same act, under the same key").toHaveAttribute("data-act-type", AUTHOR_STOREY_HEIGHT);
     for (const lineId of published) {
       await expect(levels.dialogLines, `and it names the stored line ${lineId} as one that re-derives (R-TO-020)`).toContainText(lineId);

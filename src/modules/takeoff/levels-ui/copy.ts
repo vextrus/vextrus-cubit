@@ -49,7 +49,7 @@ export const LEVELS_COPY = Object.freeze({
   levels_repudiate: "Repudiate this level",
   levels_repudiated_note:
     "A person judged this level to be nothing. Nothing was deleted: every reading stays on record, and the lines measured through it re-derive at the next campaign.",
-  levels_ranges_heading: "Views with no typical range",
+  levels_ranges_heading: "Typical ranges to state",
   levels_ranges_hint: "A view that stands for a range of floors states it once. Until it does, nothing it holds expands.",
   levels_ranges_none: "Every view states the floors it stands for.",
   levels_range_from_label: "From level",
@@ -66,6 +66,13 @@ export const LEVELS_COPY = Object.freeze({
   levels_denied_range: "Stating a view's typical range needs the MEASURE permission on this project.",
   levels_denied_holder: "A project principal can grant it on the participants screen.",
   levels_denied_evidence: "Open the participants screen",
+  levels_slot_foundation: "Foundation",
+  levels_slot_foundation_note: "Below the lowest level",
+  levels_slot_unplaced: "On no level",
+  levels_slot_unplaced_note: "Level not yet settled",
+  levels_height_value_missing: "Type the height the drawing states.",
+  levels_height_source_missing:
+    "Name the drawing entity this height was read from. A height that cites nothing leaves every quantity measured through this level partial.",
 });
 
 /**

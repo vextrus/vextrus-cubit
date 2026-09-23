@@ -185,7 +185,7 @@ export function LevelsScreen({ view, projectId, permitted, reportId }: LevelsScr
   // the read belongs to the route, and the workspace renders what the read answered.
   return (
     <LevelsWorkspace
-      view={held ?? { projectId, stack: [], unstatedRanges: [] }}
+      view={held ?? { projectId, stack: [], slots: [], unstatedRanges: [] }}
       permitted={permitted}
       offline={offline}
       state={held === null ? "error" : null}

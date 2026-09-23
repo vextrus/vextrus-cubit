@@ -11,40 +11,28 @@
 // values, the weakest coverage over them and the code that weakest line declared its omission under
 // (I-241). A contested height reaches a line only through the gate (L-MEA-07), so a reading that
 // changed today moves no line here — the act's own Consequence is what names the lines that will
-// re-derive at the next campaign.
+// re-derive at the next campaign. Which row a line stands on, and what a row's lines amount to, is
+// `./rollups`' one rule (I-433): every line of the campaign lands on exactly one row.
 import { campaignsOf } from "@/core/campaigns";
 import { and, asc, drawingSetRevisions, eq, forTenant, quantityLines, registerObjects } from "@/core/db";
 import type { RefusalCode } from "@/core/errors";
-import { exact } from "@/core/units/canon";
 import { viewAddressOf } from "@/core/views";
 import { levelStackOf, readingsOf, type LevelScope, type StackLevel, type StoreyHeightReadingRow } from "@/modules/takeoff/levels";
 import { expansionDeferralsOf, viewsOf } from "@/modules/takeoff/partition";
-import type { LevelsView, LevelsViewLevel, LevelsViewRange, LevelsViewReading, LevelsViewRollup } from "./view";
+import { rollupsOf, rowsOfLines, type RolledLine } from "./rollups";
+import type { LevelsView, LevelsViewLevel, LevelsViewRange, LevelsViewReading } from "./view";
 
 /** Which project's stack is being read, in which workspace. */
 export type LevelsViewScope = { readonly tenantId: string; readonly projectId: string };
 
-/** L-QTY-02's two coverages a stored line stands at; the second is the weaker of them. */
-const COMPLETE = "COMPLETE";
-const PARTIAL_DECLARED = "PARTIAL_DECLARED";
-
 /** The code a view whose caption stated no typical range is deferred under (L-CAD-07). */
 const TYPICAL_RANGE_UNSTATED = "TYPICAL_RANGE_UNSTATED";
-
-/** One stored line, in the two facts a roll-up is composed of plus the level it was measured on. */
-type RolledLine = {
-  readonly levelId: string;
-  readonly kind: string;
-  readonly unit: string;
-  readonly coverage: string;
-  readonly value: string | null;
-  readonly omitted: readonly unknown[];
-};
 
 /**
  * The whole reading of one project's stack (test contract: `levelsViewOf`). A project with no
  * campaign open still HAS a stack — a level is project-scoped, not campaign-scoped (L-MEA-07) — so
- * the levels read and only the roll-ups and the index stand empty (R-UI-050).
+ * the levels read and only the roll-ups, the rows that are no level and the index stand empty
+ * (R-UI-050).
  */
 export async function levelsViewOf(scope: LevelsViewScope): Promise<LevelsView> {
   const levelScope: LevelScope = { tenantId: scope.tenantId, projectId: scope.projectId };
@@ -57,18 +45,12 @@ export async function levelsViewOf(scope: LevelsViewScope): Promise<LevelsView> 
     campaign === undefined ? Promise.resolve<LevelsViewRange[]>([]) : unstatedRangesOf(scope, campaign.setRevisionId),
   ]);
 
-  // The lines are keyed by level in one pass rather than scanned once per level: a campaign holds as
-  // many lines as the register holds objects, and a scan per level would price the page in their
-  // product (the register workspace's own reading takes the same care).
-  const linesByLevel = new Map<string, RolledLine[]>();
-  for (const line of lines) {
-    const held = linesByLevel.get(line.levelId);
-    if (held === undefined) linesByLevel.set(line.levelId, [line]);
-    else held.push(line);
-  }
+  // Every line on the one row it stands on: a live level, the Foundation beneath the stack, or the
+  // row of lines that stand on no live level (I-433) — so no roll-up the grid shows leaves a line out.
+  const rows = rowsOfLines(stack.map((level) => level.levelId), lines);
 
-  const composed = await Promise.all(stack.map(async (level) => levelOf(levelScope, level, linesByLevel.get(level.levelId) ?? [])));
-  return { projectId: scope.projectId, stack: composed, unstatedRanges };
+  const composed = await Promise.all(stack.map(async (level) => levelOf(levelScope, level, rows.byLevel.get(level.levelId) ?? [])));
+  return { projectId: scope.projectId, stack: composed, slots: rows.slots, unstatedRanges };
 }
 
 /**
@@ -118,63 +100,20 @@ function codeOfStanding(refusal: RefusalCode | null): LevelsViewLevel["code"] {
 }
 
 /**
- * One roll-up cell per kind the level's stored lines bear, in the kind's own order. Weakest-wins over
- * the level's lines of that kind: one PARTIAL_DECLARED line makes the cell partial, and the code is
- * the one that line declared its omission under — read off the record, never derived from the
- * level's standing (L-QTY-02, I-241, settled reading).
- */
-function rollupsOf(lines: readonly RolledLine[]): LevelsViewRollup[] {
-  const byKind = new Map<string, RolledLine[]>();
-  for (const line of lines) {
-    const held = byKind.get(line.kind);
-    if (held === undefined) byKind.set(line.kind, [line]);
-    else held.push(line);
-  }
-  return [...byKind.entries()]
-    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
-    .map(([kind, held]) => {
-      const partial = held.filter((line) => line.coverage !== COMPLETE);
-      const complete = held.filter((line) => line.coverage === COMPLETE && line.value !== null);
-      // A partial roll-up carries no figure at all: L-QTY-02's rule about a row, applied to the cell
-      // that sums them — a sum over the COMPLETE half would print an under-measured total as a fact.
-      const value = partial.length > 0 || complete.length === 0 ? null : complete.reduce((total, line) => total.add(exact(line.value as string)), exact("0")).toString();
-      return {
-        kind,
-        unit: held[0]?.unit ?? "",
-        lines: held.length,
-        value,
-        coverage: partial.length > 0 ? PARTIAL_DECLARED : COMPLETE,
-        code: firstOmissionCode(partial),
-      };
-    });
-}
-
-/**
- * The code the level's weakest line of this kind declared its omission under — the first one it
- * enumerated, as L-QTY-02 makes it enumerate every omitted component on the row. A partial line that
- * enumerated none carries no code, which the cell states as none rather than inventing one.
- */
-function firstOmissionCode(partial: readonly RolledLine[]): RefusalCode | null {
-  for (const line of partial) {
-    for (const omission of line.omitted) {
-      const code = (omission as { code?: unknown } | null)?.code;
-      if (typeof code === "string") return code as RefusalCode;
-    }
-  }
-  return null;
-}
-
-/**
- * Every line the campaign published, with the level the register object it was measured off stands
- * on. A line is keyed on that object and the level is the register's reading of it (L-REG-04), so
- * the level comes from the register row rather than from a column of the line — the join
- * `@/core/acts/level-effects` makes for the acts, made here for the reading.
+ * Every line the campaign published, with where the register object it was measured off stands. A
+ * line is keyed on that object and the level is the register's reading of it (L-REG-04), so the
+ * place comes from the register row rather than from a column of the line — the join
+ * `@/core/acts/level-effects` makes for the acts, made here for the reading. All three of the row's
+ * level columns are read, and no line is dropped here: one whose object stands in a lawful-null slot
+ * or under a placeholder is laid on its own row (I-433), never filtered out of the sum.
  */
 async function linesOnLevels(scope: LevelsViewScope, campaignId: string): Promise<RolledLine[]> {
   const rows = await forTenant({ tenantId: scope.tenantId }).transaction((tx) =>
     tx
       .select({
         levelId: registerObjects.levelId,
+        levelSlot: registerObjects.levelSlot,
+        levelLabel: registerObjects.levelLabel,
         kind: quantityLines.kind,
         unit: quantityLines.unit,
         coverage: quantityLines.coverage,
@@ -193,9 +132,14 @@ async function linesOnLevels(scope: LevelsViewScope, campaignId: string): Promis
       .where(and(eq(quantityLines.tenantId, scope.tenantId), eq(quantityLines.campaignId, campaignId)))
       .orderBy(asc(quantityLines.publishedAt), asc(quantityLines.lineId)),
   );
-  return rows
-    .filter((row): row is typeof row & { levelId: string } => row.levelId !== null)
-    .map((row) => ({ levelId: row.levelId, kind: row.kind, unit: row.unit, coverage: row.coverage, value: row.value, omitted: row.omitted }));
+  return rows.map((row) => ({
+    place: { levelId: row.levelId, levelSlot: row.levelSlot, levelLabel: row.levelLabel },
+    kind: row.kind,
+    unit: row.unit,
+    coverage: row.coverage,
+    value: row.value,
+    omitted: row.omitted,
+  }));
 }
 
 /**

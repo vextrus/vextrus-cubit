@@ -85,10 +85,17 @@
   background: var(--surface-panel);
 }
 
+/* I-434: the heading is one line at the rail's narrowest. `Typical ranges to state` is 125 px at
+   the caption's weight against the 134 the 160 px rail leaves inside its padding at 1280 (the old
+   `Views with no typical range`, 153 px, wrapped to two); a face that grows past it ends in an
+   ellipsis and never wraps, and the heading's Tooltip still says what the list is for (I-lev-3). */
 .cx-levels-panel-heading {
+  overflow: hidden;
   font-size: var(--text-caption);
   font-weight: var(--weight-heading);
   color: var(--ink-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* I-lev-4: the screen's h1, for heading navigation only — out of flow and clipped to nothing (the
@@ -225,6 +232,14 @@
   color: var(--ink);
 }
 
+/* I-433: a row that is no level — the Foundation beneath the stack, the lines on no live level —
+   names itself in the level's own face, and where a level states its storey height it says one
+   muted phrase instead: no surrogate, no ordinal, no height, because it is not a level. */
+.cx-levels-slot-note {
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
+
 /* The code a level's height is absent under is a second statement, not the same phrase continued —
    it is separated from the standing it qualifies. */
 .cx-levels-code::before {
@@ -343,6 +358,14 @@
   gap: var(--space-1);
   font-size: var(--text-caption);
   color: var(--ink-secondary);
+}
+
+/* I-435: a field a press found empty says so directly under itself, in the danger ink the product
+   states a refusal's reason in — a sentence, never colour alone (Q-11). */
+.cx-levels-field-fault {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--state-danger);
 }
 
 /* A door the reader's permission does not carry: shown, refusing the press, and saying which

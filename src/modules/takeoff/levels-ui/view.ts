@@ -45,6 +45,19 @@ export type LevelsViewLevel = {
   readonly rollups: readonly LevelsViewRollup[];
 };
 
+/**
+ * A row of the stack's grid that is no level (I-433): where stored lines stand that no live level
+ * carries. `FOUNDATION` is the register's lawful-null slot beneath every level — the piles, the pile
+ * caps and what is measured with them (L-REG-04) — and stands beneath the stack's lowest level.
+ * `UNPLACED` is every line whose object stands on no live level at all: the UNRESOLVED slot, a
+ * placeholder label no level was authored for, or a level since repudiated. Neither has an ordinal,
+ * a storey height or a surrogate, because neither is a level (L-REG-02).
+ */
+export type LevelsViewSlot = {
+  readonly slot: "FOUNDATION" | "UNPLACED";
+  readonly rollups: readonly LevelsViewRollup[];
+};
+
 /** One view of the partition whose typical range nobody has stated (L-CAD-07) — the rail's index. */
 export type LevelsViewRange = {
   readonly viewKey: string;
@@ -53,9 +66,14 @@ export type LevelsViewRange = {
   readonly code: "TYPICAL_RANGE_UNSTATED";
 };
 
-/** The whole reading S-Levels renders: the stack in ordinal order, and the index beside it (I-240). */
+/**
+ * The whole reading S-Levels renders: the stack in ordinal order, the rows that are no level (only
+ * those that hold a line, FOUNDATION before UNPLACED), and the index beside them (I-240, I-433).
+ * Every line the campaign published stands on exactly one of those rows.
+ */
 export type LevelsView = {
   readonly projectId: string;
   readonly stack: readonly LevelsViewLevel[];
+  readonly slots: readonly LevelsViewSlot[];
   readonly unstatedRanges: readonly LevelsViewRange[];
 };

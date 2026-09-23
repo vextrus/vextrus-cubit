@@ -13,8 +13,9 @@
 // Consequence that was answered. Nothing on this screen commits anything itself.
 //
 // Nothing here re-derives a figure (I-241, B-17): a standing, a coverage and a roll-up's total are
-// all `levelsViewOf`'s answers, rendered as they stand.
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode, type RefObject } from "react";
+// all `levelsViewOf`'s answers, rendered as they stand — the Foundation's and the unplaced lines' rows
+// among them (I-433).
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode, type RefObject } from "react";
 import type { AuthorStoreyHeightInput, AuthorTypicalRangeInput, Consequence, InsertLevelStatement, RepudiateLevelInput } from "@/core/acts";
 import { isKind } from "@/core/catalogue/kinds";
 // The places each kind's figure is written to (L-MEA-04's catalogue), read where the draft BOQ reads
@@ -30,18 +31,30 @@ import { CANONICAL_UNIT, UNITS, dimensionOf, isUnit } from "@/core/units/canon";
 // A stored decimal stated at a fraction length, half-up on the text (B-07) — the bar schedule's home.
 import { statedAt } from "@/modules/takeoff/bbs-ui/present";
 import { LEVELS_COPY, fillCopy } from "./copy";
-import type { LevelsView, LevelsViewLevel, LevelsViewRange, LevelsViewReading, LevelsViewRollup } from "./view";
+import type { LevelsView, LevelsViewLevel, LevelsViewRange, LevelsViewReading, LevelsViewRollup, LevelsViewSlot } from "./view";
 
 /* ------------------------------------------------------------------ what the screen is handed */
 
+/**
+ * One row of the stack table: a live level, or a row that is no level — the Foundation beneath the
+ * stack, or the lines that stand on no live level (I-433). A slot row carries roll-ups and nothing
+ * else: no surrogate, no ordinal, no storey height, and no inspector (L-REG-02).
+ */
+export type StackRow = {
+  readonly rowId: string;
+  readonly level: LevelsViewLevel | null;
+  readonly slot: LevelsViewSlot["slot"] | null;
+  readonly rollups: readonly LevelsViewRollup[];
+};
+
 /** One cell of the stack table, as the shipped DataTable hands one its row. */
-type LevelCell = { readonly row: { readonly original: LevelsViewLevel } };
+type LevelCell = { readonly row: { readonly original: StackRow } };
 
 /** One column of the stack table, as the shipped DataTable takes one. */
 type LevelColumn = {
   id: string;
   header: string;
-  accessorFn?: (level: LevelsViewLevel) => string;
+  accessorFn?: (row: StackRow) => string;
   enableSorting?: boolean;
   /** The width the column is READ at (§5 rule 3), never the primitive's 150. */
   size?: number;
@@ -88,12 +101,12 @@ export interface LevelsChrome {
   readonly DataTable: ComponentType<{
     tableId: string;
     columns: LevelColumn[];
-    data: LevelsViewLevel[];
-    getRowId: (row: LevelsViewLevel, index: number) => string;
+    data: StackRow[];
+    getRowId: (row: StackRow, index: number) => string;
     freezeKeyColumn?: boolean;
     onRowSelect?: (rowIds: readonly string[]) => void;
     /** What each row publishes of its own — the level it stands for, as §7's contract spells it. */
-    rowDataOf?: (row: LevelsViewLevel, rowId: string) => Readonly<Record<string, string>>;
+    rowDataOf?: (row: StackRow, rowId: string) => Readonly<Record<string, string>>;
     /** The id a row carries: this screen's own `levels-row`, not the primitive's (AM-09 §1). */
     rowTestId?: string;
     "aria-label"?: string;
@@ -124,6 +137,7 @@ export interface LevelsChrome {
     placeholder?: string;
     "aria-label"?: string;
     "aria-describedby"?: string;
+    "aria-invalid"?: boolean;
     "data-testid"?: string;
   }>;
   /** R-UI-083: a figure is written in the shipped NumberInput, never a bare `input type=number`. */
@@ -133,6 +147,7 @@ export interface LevelsChrome {
     step?: number;
     className?: string;
     "aria-label"?: string;
+    "aria-invalid"?: boolean;
     "data-testid"?: string;
   }>;
   /** R-UI-083: a roster is chosen at the shipped Select, never a native `select`. */
@@ -181,7 +196,7 @@ export type PreviewAnswer = { consequence: Consequence; consequenceDigest: strin
 
 /** The doors this screen presses — the takeoff lane's own, as `src/server/routers/takeoff.ts` takes them. */
 export interface LevelsDoors {
-  readonly levels: (argument: { projectId: string }) => Promise<{ stack: readonly LevelsViewLevel[]; unstatedRanges: readonly LevelsViewRange[] }>;
+  readonly levels: (argument: { projectId: string }) => Promise<{ stack: readonly LevelsViewLevel[]; slots?: readonly LevelsViewSlot[]; unstatedRanges: readonly LevelsViewRange[] }>;
   readonly previewInsertLevel: (argument: { input: InsertLevelStatement }) => Promise<PreviewAnswer>;
   readonly commitInsertLevel: (argument: { input: InsertLevelStatement; consequenceDigest: string }) => Promise<{ actId: string }>;
   readonly previewRepudiateLevel: (argument: { input: RepudiateLevelInput }) => Promise<PreviewAnswer>;
@@ -246,17 +261,60 @@ const PARTIAL_DECLARED = "PARTIAL_DECLARED";
 const LEVELS_TABLE_ID = "takeoff-level-stack";
 
 /**
- * The column widths §5 fixes, in the closed set the Decision's own token rule admits (I-lev-1). The
- * roll-ups are the figures a quantity surveyor opens this screen for, so they take the width: `26
- * lines 15.225 m³ 100%` and `26 lines Note reading contested` whole. The standing says one thing
- * now — the word, and metres where they agree; a code that only restates the word is not repeated
- * beside it — so it gives back what it held for a second phrase. With two kinds the grid is 888 px:
- * inside 1280's 928 with the last column's resize grip clear of the table's own tools (R-UI-012).
+ * The column widths §5 fixes, in the closed set the Decision's own token rule admits (I-lev-1,
+ * I-434). The roll-ups are the figures a quantity surveyor opens this screen for, so they take what
+ * the three fixed columns leave. The standing says one thing — the word, and metres where they agree
+ * (`Agreed 3.353 m`, 115 px measured at 1440) — so it stands at 152, not the 200 it held.
  */
 const WIDTH_LEVEL = 144;
 const WIDTH_ORDINAL = 64;
-const WIDTH_STANDING = 200;
+const WIDTH_STANDING = 152;
+/** What the three fixed columns take together. */
+const WIDTH_FIXED = WIDTH_LEVEL + WIDTH_ORDINAL + WIDTH_STANDING;
+/**
+ * A roll-up's widest: `26 lines 15.225 m³ 100%` (208 px measured at 1440) whole inside the cell's
+ * padding, with room for a three-digit count. It is also the width every roll-up takes when the
+ * kinds in view cannot share the grid at a width that says a figure — then the grid scrolls sideways
+ * under its frozen Level column, and nothing in it is cut.
+ */
 const WIDTH_ROLLUP = 240;
+/**
+ * The least a roll-up is narrowed to so that the kinds in view stand in view: the count, the figure
+ * and its unit whole (`26 lines 16.828 m³`, 156 px), the chip or a code after them ending in the
+ * table's own ellipsis and Tooltip (§1). Narrower than this a roll-up would say no figure at all.
+ */
+const WIDTH_ROLLUP_MIN = 176;
+/**
+ * What the grid keeps clear at its trailing edge: the table's `⋯` over the header's last `--row-h`
+ * and the last column's 24 px resize target beside it, plus a vertical scroller (R-UI-012, SC 2.5.8)
+ * — the s-bbs allowance, for the same table.
+ */
+const TRAILING_ALLOWANCE = 40;
+/** Widths stay on the 4 px grid the rest of the screen stands on. */
+const GRID_STEP = 4;
+/**
+ * The grid's width before it is measured — the server's paint, a suite with no layout: the grid at
+ * 1440 × 900 with nothing selected (1092 px measured, §1), the viewport the journey lane reads. A
+ * paint there is already the measured one, so the pictures never catch a first paint that moves.
+ */
+const UNMEASURED_GRID = 1092;
+
+/**
+ * The width each roll-up column is read at (I-434), derived as s-bbs derives its Dimensions column:
+ * from the grid's measured width and how many kinds must stand IN VIEW — the kinds the live levels
+ * bear, the frame every storey's row reads (`kindsOf`'s lead). Where those fit at a width that still
+ * says a figure, they share what the fixed columns leave, on the 4 px grid and never wider than 240,
+ * and any kind only the Foundation bears follows them at the same width, a scroll away under the
+ * frozen Level column. Where even they cannot, each takes its whole 240 and the grid scrolls: a stack
+ * of cells cut to `26 li…` reads as nothing, while a scroll hides no figure.
+ */
+export function rollupWidthOf(gridWidth: number | null, kindsInView: number): number {
+  if (kindsInView <= 0) return WIDTH_ROLLUP;
+  const room = (gridWidth ?? UNMEASURED_GRID) - WIDTH_FIXED - TRAILING_ALLOWANCE;
+  const share = Math.floor(room / kindsInView / GRID_STEP) * GRID_STEP;
+  if (share >= WIDTH_ROLLUP) return WIDTH_ROLLUP;
+  return share >= WIDTH_ROLLUP_MIN ? share : WIDTH_ROLLUP;
+}
 
 /**
  * The code a height's standing already SAYS: `Not stated` is STOREY_HEIGHT_UNSTATED and `Suspended`
@@ -327,6 +385,20 @@ type Pending =
 /** A height being written in the inspector, before it is previewed at the door (I-243). */
 type HeightDraft = { value: string; unit: string; basis: string; sourceKey: string };
 
+/** The draft a selected level's form starts from: nothing written, the metre, the first lawful basis. */
+const HEIGHT_DRAFT: HeightDraft = Object.freeze({ value: "", unit: CANONICAL_UNIT.LENGTH, basis: STOREY_HEIGHT_BASES[0], sourceKey: "" });
+
+/**
+ * Which field of the height form a press found empty (I-435). Refused on the field, where it is
+ * typed, and never sent: a height with no figure is no reading, and one that cites no drawing entity
+ * binds no `H` (`STOREY_HEIGHT_UNCITED`), so every quantity measured through the level would publish
+ * partial behind an `Agreed` standing that looked whole.
+ */
+type HeightFault = { readonly value: boolean; readonly source: boolean };
+
+/** The height form as it stands, and the level it was written for (I-435). */
+type HeightForm = { readonly levelId: string | null; readonly draft: HeightDraft; readonly fault: HeightFault | null };
+
 /** A typical range being written in the rail, stated as the two ordinals a plan stands for. */
 type RangeDraft = { from: string; to: string };
 
@@ -356,13 +428,52 @@ function inOrdinalOrder(stack: readonly LevelsViewLevel[]): LevelsViewLevel[] {
   return [...stack].sort((left, right) => left.ordinal - right.ordinal || (left.levelId < right.levelId ? -1 : left.levelId > right.levelId ? 1 : 0));
 }
 
-/** Every kind the stack's stored lines bear, in the order the reading answers them (code point). */
-function kindsOf(stack: readonly LevelsViewLevel[]): string[] {
-  const held: string[] = [];
-  for (const level of stack) {
-    for (const rollup of level.rollups) if (!held.includes(rollup.kind)) held.push(rollup.kind);
-  }
-  return held.sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+/** Code-point order, the order the reading answers kinds in. */
+function byCodePoint(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/**
+ * Every kind the stored lines bear, one column each (I-433, I-434): first the kinds the live levels
+ * bear — the frame every storey carries, so it leads on every row and is what must stand in view
+ * (`lead`) — then the kinds only a row that is no level bears (the Foundation's piling, boring,
+ * blinding and excavation), each run in code-point order. A stack whose levels bear no line at all
+ * leads with every kind it has.
+ */
+function kindsOf(stack: readonly LevelsViewLevel[], slots: readonly LevelsViewSlot[]): { readonly kinds: readonly string[]; readonly lead: number } {
+  const onLevels = new Set<string>();
+  for (const level of stack) for (const rollup of level.rollups) onLevels.add(rollup.kind);
+  const beneath = new Set<string>();
+  for (const slot of slots) for (const rollup of slot.rollups) if (!onLevels.has(rollup.kind)) beneath.add(rollup.kind);
+  const kinds = [...[...onLevels].sort(byCodePoint), ...[...beneath].sort(byCodePoint)];
+  return { kinds, lead: onLevels.size > 0 ? onLevels.size : kinds.length };
+}
+
+/** The slot the register's lawful-null row beneath every level is answered under (I-433). */
+const FOUNDATION_ROW = "FOUNDATION";
+/** The row of the lines whose object stands on no live level (I-433). */
+const UNPLACED_ROW = "UNPLACED";
+
+/**
+ * The grid's rows, as the stack physically stands (I-433): the Foundation beneath the lowest level,
+ * the live levels in ordinal order, and last the lines no live level carries.
+ */
+function stackRowsOf(stack: readonly LevelsViewLevel[], slots: readonly LevelsViewSlot[]): StackRow[] {
+  const slotRow = (slot: LevelsViewSlot): StackRow => ({ rowId: `slot:${slot.slot}`, level: null, slot: slot.slot, rollups: slot.rollups });
+  return [
+    ...slots.filter((slot) => slot.slot === FOUNDATION_ROW).map(slotRow),
+    ...stack.map((level): StackRow => ({ rowId: level.levelId, level, slot: null, rollups: level.rollups })),
+    ...slots.filter((slot) => slot.slot === UNPLACED_ROW).map(slotRow),
+  ];
+}
+
+/**
+ * The kinds some of whose lines stand on no live level (I-433). A level's roll-up of such a kind may
+ * be leaving out lines that belong on it, so it wears no coverage chip: a `100%` over it would call a
+ * floor whole that nobody can show is.
+ */
+function unplacedKindsOf(slots: readonly LevelsViewSlot[]): ReadonlySet<string> {
+  return new Set(slots.filter((slot) => slot.slot === UNPLACED_ROW).flatMap((slot) => slot.rollups.map((rollup) => rollup.kind)));
 }
 
 /**
@@ -373,6 +484,16 @@ function kindsOf(stack: readonly LevelsViewLevel[]): string[] {
  */
 function standingSaid(standing: string): string | undefined {
   return standing === NONE ? LEVELS_COPY.levels_standing_none : undefined;
+}
+
+/** The words a row that is no level is named by in the Level column (I-433, §3). */
+function slotSaid(slot: StackRow["slot"]): string {
+  return slot === FOUNDATION_ROW ? LEVELS_COPY.levels_slot_foundation : LEVELS_COPY.levels_slot_unplaced;
+}
+
+/** The one muted phrase such a row says where a level states its storey height (I-433, §3). */
+function slotNoteSaid(slot: StackRow["slot"]): string {
+  return slot === FOUNDATION_ROW ? LEVELS_COPY.levels_slot_foundation_note : LEVELS_COPY.levels_slot_unplaced_note;
 }
 
 /**
@@ -404,8 +525,14 @@ function useRowsDrawn(region: RefObject<HTMLElement | null>, rows: number): numb
   return drawn;
 }
 
-/** What every row of the stack publishes of its own (§7's closed contract, I-242). */
-function rowDataOf(level: LevelsViewLevel, selected: string | null): Readonly<Record<string, string>> {
+/**
+ * What every row of the stack publishes of its own (§7's closed contract, I-242). A row that is no
+ * level publishes the slot it stands for and none of a level's attributes (I-433): no surrogate a
+ * pointer could select, and no ordinal a reader of the stack would count as a storey.
+ */
+function rowDataOf(row: StackRow, selected: string | null): Readonly<Record<string, string>> {
+  const level = row.level;
+  if (level === null) return { "data-slot": row.slot ?? "" };
   const published: Record<string, string> = {
     "data-level": level.levelId,
     "data-ordinal": String(level.ordinal),
@@ -443,13 +570,17 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
     InspectorMount,
   } = chrome;
 
-  /** The reading as it stands: the route's, until a committed act makes this screen read it again. */
-  const [reading, setReading] = useState<{ stack: readonly LevelsViewLevel[]; unstatedRanges: readonly LevelsViewRange[] }>({
+  /**
+   * The reading as it stands: the route's, until a committed act makes this screen read it again. A
+   * reading that answers no rows beyond the levels holds none (`slots` absent is `[]`).
+   */
+  const [reading, setReading] = useState<{ stack: readonly LevelsViewLevel[]; slots: readonly LevelsViewSlot[]; unstatedRanges: readonly LevelsViewRange[] }>({
     stack: view.stack,
+    slots: view.slots ?? [],
     unstatedRanges: view.unstatedRanges,
   });
   useEffect(() => {
-    setReading({ stack: view.stack, unstatedRanges: view.unstatedRanges });
+    setReading({ stack: view.stack, slots: view.slots ?? [], unstatedRanges: view.unstatedRanges });
   }, [view]);
 
   const [selected, setSelected] = useState<string | null>(level ?? null);
@@ -457,19 +588,59 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
   const [pending, setPending] = useState<Pending | null>(null);
   const [insertOpen, setInsertOpen] = useState(false);
   const [insertDraft, setInsertDraft] = useState<{ label: string; ordinal: string }>({ label: "", ordinal: "" });
-  const [heightDraft, setHeightDraft] = useState<HeightDraft>({ value: "", unit: CANONICAL_UNIT.LENGTH, basis: STOREY_HEIGHT_BASES[0], sourceKey: "" });
+  const [heightForm, setHeightForm] = useState<HeightForm>({ levelId: null, draft: HEIGHT_DRAFT, fault: null });
   const [rangeDrafts, setRangeDrafts] = useState<Readonly<Record<string, RangeDraft>>>({});
   /** What a door left that no registry entry stands for: held here, raised in render (ARCH-03, B-21). */
   const [fault, setFault] = useState<unknown>(null);
 
+  // I-435: the height form belongs to the level it stands under. A figure written for GF and left
+  // unsent is not carried onto ROOF when ROOF is chosen, and neither is the field a press found empty:
+  // a form held for another level reads as a fresh one for this.
+  const heightDraft = heightForm.levelId === selected ? heightForm.draft : HEIGHT_DRAFT;
+  const heightFault = heightForm.levelId === selected ? heightForm.fault : null;
+  /** Write one change into the selected level's form, clearing the refusal on the field it answers. */
+  const editHeight = useCallback(
+    (change: (draft: HeightDraft) => HeightDraft, answers?: keyof HeightFault): void => {
+      setHeightForm((held) => {
+        const own = held.levelId === selected;
+        const draft = own ? held.draft : HEIGHT_DRAFT;
+        const refused = own ? held.fault : null;
+        return { levelId: selected, draft: change(draft), fault: refused === null || answers === undefined ? refused : { ...refused, [answers]: false } };
+      });
+    },
+    [selected],
+  );
+
   const stack = useMemo(() => inOrdinalOrder(reading.stack), [reading.stack]);
-  const kinds = useMemo(() => kindsOf(reading.stack), [reading.stack]);
+  const columnKinds = useMemo(() => kindsOf(reading.stack, reading.slots), [reading.stack, reading.slots]);
+  const kinds = columnKinds.kinds;
+  const rows = useMemo(() => stackRowsOf(stack, reading.slots), [stack, reading.slots]);
+  const unplacedKinds = useMemo(() => unplacedKindsOf(reading.slots), [reading.slots]);
   /** The live stack as a roster to choose a level from: in ordinal order, valued by surrogate. */
   const levelOptions = useMemo(() => stack.map((held) => ({ value: held.levelId, label: held.label })), [stack]);
 
   /** The primary region, and the number of rows the table inside it drew (§7 C10). */
   const gridRegion = useRef<HTMLDivElement>(null);
-  const rowsDrawn = useRowsDrawn(gridRegion, stack.length);
+  const rowsDrawn = useRowsDrawn(gridRegion, rows.length);
+
+  /**
+   * The width the grid's region is READ at, so the roll-up columns can share what the fixed columns
+   * leave (I-434) — measured as s-bbs measures its band, before the browser paints and again on every
+   * resize (the inspector's arrival narrows it). Unmeasured — the server's paint, a suite with no
+   * layout — the width is the grid's at the journey lane's viewport (`UNMEASURED_GRID`).
+   */
+  const [gridWidth, setGridWidth] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const box = gridRegion.current;
+    if (box === null) return;
+    const measure = (): void => setGridWidth(box.clientWidth > 0 ? box.clientWidth : null);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(measure);
+    watch.observe(box);
+    return () => watch.disconnect();
+  }, [state]);
+  const rollupWidth = rollupWidthOf(gridWidth, columnKinds.lead);
 
   const holdsStack = permitted[AUTHOR_LEVEL_STACK] === true;
   const holdsFact = permitted[AUTHOR_PROJECT_FACT] === true;
@@ -502,7 +673,7 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
     void doors
       .levels({ projectId: view.projectId })
       .then((answered) => {
-        setReading({ stack: answered.stack ?? [], unstatedRanges: answered.unstatedRanges ?? [] });
+        setReading({ stack: answered.stack ?? [], slots: answered.slots ?? [], unstatedRanges: answered.unstatedRanges ?? [] });
       })
       .catch((thrown: unknown) => refuse(codeOf(thrown), thrown));
   }, [doors, refuse, view.projectId]);
@@ -545,14 +716,20 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
 
   const openHeight = useCallback(
     (levelId: string): void => {
+      // I-435: an empty figure and an empty source are refused on their own fields, where they are
+      // typed, and the door previews nothing. A height that cites no drawing entity binds no `H`
+      // (`STOREY_HEIGHT_UNCITED`): recorded, it would stand `Agreed` while every quantity measured
+      // through the level published partial — so the evidence is asked for before the act, not after.
+      const missing: HeightFault = { value: heightDraft.value.trim() === "", source: heightDraft.sourceKey.trim() === "" };
+      const refused = missing.value || missing.source;
+      setHeightForm({ levelId, draft: heightDraft, fault: refused ? missing : null });
+      if (refused) return;
       const input: AuthorStoreyHeightInput = {
         type: AUTHOR_STOREY_HEIGHT,
         projectId: view.projectId,
         levelId,
         basis: heightDraft.basis,
-        // A height somebody entered cites no drawing entity, and an empty box is that absence rather
-        // than a key spelled as "" (L-MEA-07's reading key, `NO_SOURCE_SLOT`).
-        sourceKey: heightDraft.sourceKey === "" ? null : heightDraft.sourceKey,
+        sourceKey: heightDraft.sourceKey.trim(),
         valueAsWritten: heightDraft.value,
         unitAsWritten: heightDraft.unit,
       };
@@ -649,9 +826,16 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
               step={HEIGHT_STEP}
               data-testid={testIds.heightValue}
               aria-label={LEVELS_COPY.levels_height_value_label}
-              onChange={(value) => setHeightDraft((draft) => ({ ...draft, value }))}
+              aria-invalid={heightFault?.value === true ? true : undefined}
+              onChange={(value) => editHeight((draft) => ({ ...draft, value }), "value")}
             />
           </label>
+          {/* I-435: the field a press found empty says so under itself, and nothing was sent. */}
+          {heightFault?.value === true ? (
+            <p className="cx-levels-field-fault" role="alert" data-field="value">
+              {LEVELS_COPY.levels_height_value_missing}
+            </p>
+          ) : null}
           {/* A Select's field is a div, not a label: the browser forwards a click inside a <label>
               to the control that label names, so choosing an option would immediately re-open the
               listbox it was chosen from — and the open list then covers the field below it. */}
@@ -662,7 +846,7 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
               value={heightDraft.unit}
               data-testid={testIds.heightUnit}
               aria-label={LEVELS_COPY.levels_height_unit_label}
-              onChange={(unit) => setHeightDraft((draft) => ({ ...draft, unit }))}
+              onChange={(unit) => editHeight((draft) => ({ ...draft, unit }))}
             />
           </div>
           <div className="cx-levels-field">
@@ -674,7 +858,7 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
               value={heightDraft.basis}
               data-testid={testIds.heightBasis}
               aria-label={LEVELS_COPY.levels_height_basis_label}
-              onChange={(basis) => setHeightDraft((draft) => ({ ...draft, basis }))}
+              onChange={(basis) => editHeight((draft) => ({ ...draft, basis }))}
             />
           </div>
           <label className="cx-levels-field">
@@ -683,10 +867,16 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
               value={heightDraft.sourceKey}
               data-testid={testIds.heightSource}
               aria-label={LEVELS_COPY.levels_height_source_label}
-              aria-describedby="levels-height-source-hint"
-              onChange={(event) => setHeightDraft((draft) => ({ ...draft, sourceKey: event.target.value }))}
+              aria-describedby={heightFault?.source === true ? "levels-height-source-fault levels-height-source-hint" : "levels-height-source-hint"}
+              aria-invalid={heightFault?.source === true ? true : undefined}
+              onChange={(event) => editHeight((draft) => ({ ...draft, sourceKey: event.target.value }), "source")}
             />
           </label>
+          {heightFault?.source === true ? (
+            <p className="cx-levels-field-fault" role="alert" id="levels-height-source-fault" data-field="source">
+              {LEVELS_COPY.levels_height_source_missing}
+            </p>
+          ) : null}
           <p className="cx-levels-hint" id="levels-height-source-hint">
             {LEVELS_COPY.levels_height_source_hint}
           </p>
@@ -728,7 +918,9 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
     Select,
     Tooltip,
     chosen,
+    editHeight,
     heightDraft,
+    heightFault,
     holdsFact,
     holdsStack,
     humaniseEnum,
@@ -744,44 +936,60 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
     {
       id: "level",
       header: LEVELS_COPY.levels_col_level,
-      accessorFn: (held) => held.label,
+      accessorFn: (held) => held.level?.label ?? slotSaid(held.slot),
       size: WIDTH_LEVEL,
       // R-UI-082: the surrogate renders as an IdChip beside the label, never woven into a sentence.
-      cell: ({ row }) => (
-        <span className="cx-levels-cell-level">
-          <span className="cx-levels-label">{row.original.label}</span>
-          <IdChip value={row.original.levelId} />
-        </span>
-      ),
+      // I-433: a row that is no level is named in words and carries no surrogate at all.
+      cell: ({ row }) => {
+        const held = row.original.level;
+        if (held === null) {
+          return (
+            <span className="cx-levels-cell-level">
+              <span className="cx-levels-label">{slotSaid(row.original.slot)}</span>
+            </span>
+          );
+        }
+        return (
+          <span className="cx-levels-cell-level">
+            <span className="cx-levels-label">{held.label}</span>
+            <IdChip value={held.levelId} />
+          </span>
+        );
+      },
     },
     {
       id: "ordinal",
       header: LEVELS_COPY.levels_col_ordinal,
       meta: { align: "right" },
-      accessorFn: (held) => String(held.ordinal),
+      accessorFn: (held) => (held.level === null ? "" : String(held.level.ordinal)),
       size: WIDTH_ORDINAL,
-      cell: ({ row }) => <span className="cx-levels-mono">{formatUserFigure(String(row.original.ordinal))}</span>,
+      // A row that is no level stands at no ordinal: the cell is left empty rather than dashed, because
+      // a dash would state an absence where there is nothing to be absent (I-433).
+      cell: ({ row }) => (row.original.level === null ? null : <span className="cx-levels-mono">{formatUserFigure(String(row.original.level.ordinal))}</span>),
     },
     {
       id: "standing",
       header: LEVELS_COPY.levels_col_standing,
-      accessorFn: (held) => held.standing,
+      accessorFn: (held) => held.level?.standing ?? "",
       size: WIDTH_STANDING,
       // I-242: the standing in words, and a figure ONLY where the readings agreed on one.
       // I-lev-2: the code stays on `data-code` for a machine, and is said aloud only where it adds a
-      // fact the standing word does not already say.
-      cell: ({ row }) => (
-        <span className="cx-levels-cell-standing" data-code={row.original.code ?? ""}>
-          <EnumLabel value={row.original.standing} label={standingSaid(row.original.standing)} className="cx-levels-enum" />
-          {row.original.standing === AGREED && row.original.canonicalMetres !== null ? (
-            <QuantityText value={row.original.canonicalMetres} format={figuresAt(HEIGHT_PLACES)} className="cx-levels-figure cx-levels-height" />
-          ) : null}
-          {row.original.standing === AGREED && row.original.canonicalMetres !== null ? <UnitBadge unit={CANONICAL_UNIT.LENGTH} /> : null}
-          {row.original.code === null || CODE_SAID_BY[row.original.standing] === row.original.code ? null : (
-            <EnumLabel value={row.original.code} className="cx-levels-enum cx-levels-code" />
-          )}
-        </span>
-      ),
+      // fact the standing word does not already say. I-433: a row that is no level has no storey
+      // height, and says in one muted phrase where it stands instead.
+      cell: ({ row }) => {
+        const held = row.original.level;
+        if (held === null) return <span className="cx-levels-slot-note">{slotNoteSaid(row.original.slot)}</span>;
+        return (
+          <span className="cx-levels-cell-standing" data-code={held.code ?? ""}>
+            <EnumLabel value={held.standing} label={standingSaid(held.standing)} className="cx-levels-enum" />
+            {held.standing === AGREED && held.canonicalMetres !== null ? (
+              <QuantityText value={held.canonicalMetres} format={figuresAt(HEIGHT_PLACES)} className="cx-levels-figure cx-levels-height" />
+            ) : null}
+            {held.standing === AGREED && held.canonicalMetres !== null ? <UnitBadge unit={CANONICAL_UNIT.LENGTH} /> : null}
+            {held.code === null || CODE_SAID_BY[held.standing] === held.code ? null : <EnumLabel value={held.code} className="cx-levels-enum cx-levels-code" />}
+          </span>
+        );
+      },
     },
     ...kinds.map((kind) => ({
       id: `rollup:${kind}`,
@@ -789,13 +997,17 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
       // the register's Kind column says the same kind by. The stored key stays on the column's id and
       // on every roll-up's `data-kind`, where a reader of the machine finds it.
       header: inWords(kind),
-      size: WIDTH_ROLLUP,
-      // I-241: the cell states the STORED lines of that kind on that level, exactly as the reading
-      // answered them. A level bearing no line of this kind bears no roll-up to state.
+      // I-434: every roll-up at the one width the grid's measure leaves it.
+      size: rollupWidth,
+      // I-241: the cell states the STORED lines of that kind on that row, exactly as the reading
+      // answered them. A row bearing no line of this kind bears no roll-up to state.
       cell: ({ row }: LevelCell) => {
         const held = row.original.rollups.find((rollup) => rollup.kind === kind);
         if (held === undefined) return <span className="cx-levels-none">{DASH}</span>;
-        return <Rollup rollup={held} testId={testIds.rollup} CoverageChip={CoverageChip} EnumLabel={EnumLabel} QuantityText={QuantityText} UnitBadge={UnitBadge} />;
+        // I-433: a level's roll-up of a kind some of whose lines stand on no level may be leaving
+        // lines out, so it states its figure and wears no chip; every other row keeps its own.
+        const whole = row.original.level === null || !unplacedKinds.has(kind);
+        return <Rollup rollup={held} whole={whole} testId={testIds.rollup} CoverageChip={CoverageChip} EnumLabel={EnumLabel} QuantityText={QuantityText} UnitBadge={UnitBadge} />;
       },
     })),
   ];
@@ -966,12 +1178,13 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
             <DataTable
               tableId={LEVELS_TABLE_ID}
               columns={columns}
-              data={stack}
-              getRowId={(held) => held.levelId}
+              data={rows}
+              getRowId={(held) => held.rowId}
               freezeKeyColumn
               rowTestId={testIds.row}
               rowDataOf={(held) => rowDataOf(held, selected)}
-              onRowSelect={(ids) => setSelected(ids[0] ?? null)}
+              // A row that is no level has no inspector to fill (I-433): only a level is selected.
+              onRowSelect={(ids) => setSelected(ids.find((id) => stack.some((held) => held.levelId === id)) ?? null)}
               aria-label={LEVELS_COPY.levels_grid_label}
             />
           )}
@@ -1261,6 +1474,7 @@ function Reading({
  */
 function Rollup({
   rollup,
+  whole,
   testId,
   CoverageChip,
   EnumLabel,
@@ -1268,6 +1482,8 @@ function Rollup({
   UnitBadge,
 }: {
   rollup: LevelsViewRollup;
+  /** False where lines of this kind stand on no level, so this row may be leaving some out (I-433). */
+  whole: boolean;
   testId: string;
   CoverageChip: LevelsChrome["CoverageChip"];
   EnumLabel: LevelsChrome["EnumLabel"];
@@ -1278,8 +1494,18 @@ function Rollup({
   // I-lev-1: the figure at its kind's display precision (exact in `data-value`), and a coverage chip
   // only where a share was in fact measured. A partial roll-up carries no quantity, and the red `0%`
   // it wore was a percentage nobody computed (R-UI-002): its code, in words, says why instead.
+  // I-433: and no chip over a roll-up that may be leaving lines out — the figure stands, because it
+  // is the sum of the lines this row does hold, but `100%` would claim the floor whole.
   return (
-    <span className="cx-levels-rollup" data-testid={testId} data-kind={rollup.kind} data-lines={rollup.lines} data-coverage={rollup.coverage} data-code={rollup.code ?? ""}>
+    <span
+      className="cx-levels-rollup"
+      data-testid={testId}
+      data-kind={rollup.kind}
+      data-lines={rollup.lines}
+      data-coverage={rollup.coverage}
+      data-code={rollup.code ?? ""}
+      data-whole={String(whole)}
+    >
       {/* I-352: the count and the figure each stand in a slot of their own width, right-aligned, so a
           column of roll-ups reads down its figures — `16.828` over `9.761` on the decimal, the unit
           and the chip in one column beside them — and never as a ragged run of text. */}
@@ -1288,7 +1514,7 @@ function Rollup({
       </span>
       {complete && rollup.value !== null ? <QuantityText value={rollup.value} format={figuresOfKind(rollup.kind)} className="cx-levels-figure" /> : null}
       {complete && rollup.value !== null && isUnit(rollup.unit) ? <UnitBadge unit={rollup.unit} /> : null}
-      {complete ? <CoverageChip value={1} /> : null}
+      {complete && whole ? <CoverageChip value={1} /> : null}
       {rollup.code === null ? null : <EnumLabel value={rollup.code} className="cx-levels-enum" />}
     </span>
   );

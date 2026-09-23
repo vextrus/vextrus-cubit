@@ -224,7 +224,10 @@ export type LevelShape = {
 
 export type RangeShape = { viewKey: string; drawingId: string; caption: string; code: string };
 
-export type LevelsViewShape = { projectId: string; stack: LevelShape[]; unstatedRanges: RangeShape[] };
+/** A row of the grid that is no level (docs/design/s-levels.md I-433): the Foundation, or the lines on no live level. */
+export type SlotShape = { slot: string; rollups: RollupShape[] };
+
+export type LevelsViewShape = { projectId: string; stack: LevelShape[]; slots: SlotShape[]; unstatedRanges: RangeShape[] };
 
 /* --------------------------------------------------------------- a reading, carried by the core */
 
@@ -334,10 +337,11 @@ export function unstatedRange(o: { viewKey: string; drawingId?: string; caption?
 }
 
 /** One whole reading, as the route hands it to the workspace. */
-export function viewFixture(o: { projectId?: string; stack: readonly LevelShape[]; unstatedRanges?: readonly RangeShape[] }): LevelsViewShape {
+export function viewFixture(o: { projectId?: string; stack: readonly LevelShape[]; slots?: readonly SlotShape[]; unstatedRanges?: readonly RangeShape[] }): LevelsViewShape {
   return {
     projectId: o.projectId ?? surrogate(500),
     stack: [...o.stack],
+    slots: [...(o.slots ?? [])],
     unstatedRanges: [...(o.unstatedRanges ?? [])],
   };
 }

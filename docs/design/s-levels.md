@@ -347,8 +347,9 @@ Decision in place (§1, §3, §5 carry the new text).
 
 - **I-lev-1 — the roll-ups take the width, state their figure at display precision, and wear a chip
   only where a share was measured (I-241 amended; L-QTY-02, L-FMT-02, R-UI-002).** Widths: Level 144 ·
-  Ordinal 64 · Storey height 200 · each roll-up 240 — 888 px with two kinds, inside 1280's 928 with
-  the last column's resize grip clear of the table's own tools (R-UI-012). A COMPLETE roll-up's
+  Ordinal 64 · Storey height 152 · each roll-up derived from the measured grid, 176–240 (I-434, which
+  replaces this ruling's fixed 200 and 240: with three kinds they summed to 1,128 px against a grid of
+  1,092 at 1440 and 1,012 at 1280, so Rebar was cut at the viewport's edge with no ellipsis). A COMPLETE roll-up's
   `QuantityText` keeps the exact sum in `data-value` and states it at the places the catalogue writes
   the kind to (`placesOf`, the draft BOQ's precision: `15.225`, not `15.22476`). The `CoverageChip`
   stands only on a COMPLETE roll-up: a PARTIAL_DECLARED one carries no quantity, and a `0%` beside it
@@ -358,8 +359,8 @@ Decision in place (§1, §3, §5 carry the new text).
   the standing word that already says it; it stays on the cell's `data-code`. A code any other
   standing carried would still be printed. This is what lets the standing column give back 88 px.
 - **I-lev-3 — the rail's explanation is its heading's Tooltip (R-UI-081).** `levels_ranges_hint` is
-  the Tooltip of the `Views with no typical range` heading — the register's refusals-hint idiom —
-  and no longer a paragraph under it; the one `levels_ranges_none` line stands.
+  the Tooltip of the rail's heading (`levels_ranges_heading`, reworded by I-434) — the register's
+  refusals-hint idiom — and no longer a paragraph under it; the one `levels_ranges_none` line stands.
 - **I-lev-4 — the screen names itself once, clipped (hierarchy; R-UI-012).** One `<h1>`
   `levels_heading` **Levels**, out of flow and clipped (`cx-levels-title`, the register's
   `cx-register-title` idiom). The breadcrumb and the current tab already say *Levels* where a reader
@@ -397,6 +398,78 @@ place.
   table's text box, clipped and never ellipsised, the fault s-takeoff I-350 (b) removed from the
   register.
 
+**Session 8's walk (wave 1, slice C5, 2026-09-23; L-QTY-02, L-REG-04, L-QTY-03, R-UI-012, R-UI-083).**
+Walk 0 read J-000's BNBC stack as a quantity surveyor does and blocked the demo on it: FDN read
+`26 lines 3.060 m³ 100%` while the stored lines put 89 piles (372.848929 m³, 1,898.904 m of boring) and
+26 pile caps (128.781275 m³, 254.132613 m² of formwork, with the blinding and the excavation) in the
+FOUNDATION slot, on no row of the stack — a green `100%` over the neck's 3 m³ at the foundation of a
+frame whose foundation holds about 500. The three kinds overflowed the grid at both widths (1,128 px of
+columns in a 1,092 px grid at 1440 and 1,012 at 1280, Rebar cut to `Note rea` with no ellipsis), and a
+height previewed with an empty Source key went straight to the dialog. Ids are slice tokens the
+integrator renumbers.
+
+- **I-433 — every line the campaign published stands on exactly one row; a row that is no level
+  says so (I-241 amended; L-QTY-02, L-REG-04, L-REG-02).** The reading laid a line on a level by its
+  object's surrogate and dropped every other line, so the stack's roll-ups together left out whatever
+  the register holds in a lawful-null slot or under a placeholder. Now `levelsViewOf` reads all three
+  of the object's level columns and `rowsOfLines` (`levels-ui/rollups.ts`, the one rule) lays each line
+  on one row: a live level's; the **Foundation** row, for the FOUNDATION slot — the register's place
+  for members beneath every level, where the rails put piles, caps, blinding and excavation — drawn
+  first, beneath the stack's lowest level; or the **On no level** row, drawn last, for every line whose
+  object stands on no live level (the UNRESOLVED slot, a placeholder label no level was authored for,
+  a level since repudiated). Each of the two appears only while it holds a line. A slot row carries
+  roll-ups and nothing a level carries: no surrogate, no ordinal, no storey height, no inspector —
+  it names itself in the Level column and says one muted phrase where a level states its height
+  (§3). It publishes `data-slot` and no `data-level`, so no pointer selects it and no reader of the
+  stack counts it as a storey. Roll-up columns follow the rows: the kinds the live levels bear lead
+  (the frame every storey carries), then the kinds only a slot row bears (the Foundation's excavation,
+  blinding, piling and boring), each run in code-point order. **And no `100%` over a roll-up that may be
+  leaving lines out:** where some lines of a kind stand on no level, they may belong on any floor, so
+  every level's roll-up of that kind states its figure — the true sum of the lines it holds — and wears
+  no CoverageChip (`data-whole="false"`); the On no level row, in the same column, says what is out.
+  The Foundation's lines are no floor's, so FDN keeps its chip beside them. Measured on J-000's BNBC
+  campaign (db read of the FOUNDATION slot's lines): Foundation `115 lines 501.630 m³ 100%` (372.848929
+  + 128.781275), formwork 26 lines 254.13 m², 89 bored piles, 1,898.904 m of boring, blinding and
+  excavation partial with their codes; FDN unchanged at the neck's 26 lines. Rejected: rolling the slot's lines onto the FDN row — FDN is
+  the storey a person inserted beneath GF for the column neck (I-339), and a level is identified by
+  surrogate, never by its label (L-REG-02), so the choice of "the foundation level" would be a guess
+  that a stack with no neck (J-000's M2 legs) cannot even make.
+- **I-434 — the roll-up columns share the width the grid is measured at (I-lev-1 amended; R-UI-012,
+  R-UI-083, §1's "no cell wraps; a clipped cell earns the table's own Tooltip").** Measured the s-bbs
+  way (`bbs-ui/workspace.tsx`, a layout effect and a ResizeObserver on the grid's region): the fixed
+  columns take Level 144 · Ordinal 64 · Storey height 152 (the standing says `Agreed 3.353 m`, 115 px
+  measured), the trailing edge keeps 40 clear for the table's `⋯` and the last column's resize grip,
+  and the kinds that must stand in view — the ones the live levels bear, the frame every storey's row
+  reads — take an equal share on the 4 px grid, never above 240. Three kinds: 228 at 1440 (whole —
+  `26 lines 15.225 m³ 100%` is 208 px), 204 at 1280 (every column in view; a chip or a code that does
+  not fit ends in the table's ellipsis and Tooltip). The kinds only the Foundation bears (BNBC's
+  excavation, blinding, piles and boring) follow at the same width, a scroll away under the frozen
+  Level column, so the Foundation's own columns never squeeze every storey's frame out of view. Where
+  the lead kinds cannot share the grid at 176 or more — the width that still says `26 lines 16.828 m³`
+  whole — each takes its whole 240 and the grid scrolls: three beside the open inspector, say. A
+  column cut to `26 li…` says nothing; a scroll hides no figure. Before the grid is
+  measured (the server's paint, a suite with no layout) the width is the 1440 grid's 1,092, so a paint
+  at the journey lane's viewport is already the measured one and J-031's pictures never catch a first
+  paint that moves. The words beside the roll-ups are sized to the same widths, measured in Spline
+  Sans at 12 px on the served product: a slot row's note stands whole in Storey height's 152 at
+  either density (136 px inside compact's padding, 128 inside comfortable's) — `Below the lowest
+  level` 121 px, `Level not yet settled` 110 (the first wording, `No live level carries these lines`,
+  was 165 and would have ended in an ellipsis on the grid's first row) — and the index rail's heading
+  is one line at the rail's 160 px floor at 1280 (134 px inside its padding): `Typical ranges to
+  state`, 125 px at the heading's weight, replaces `Views with no typical range` (153 px, which
+  wrapped to two lines, relook p20), and the heading never wraps (`nowrap`, ending in an ellipsis
+  if a face ever outgrows it; its Tooltip still carries `levels_ranges_hint`, I-lev-3).
+- **I-435 — the height form refuses an empty figure or an empty source where it is typed, and belongs
+  to the level it stands under (I-243 amended; L-QTY-03, L-MEA-07, R-UI-020).** A height that cites no
+  drawing entity binds no `H` (`STOREY_HEIGHT_UNCITED`, `heightOf`): recorded, it stands `Agreed` while
+  every quantity measured through the level publishes partial. So `Preview this height` with an empty
+  Height or an empty Source key sends nothing: the empty field is marked `aria-invalid` and says, under
+  itself, `levels_height_value_missing` or `levels_height_source_missing` (`role="alert"`,
+  `data-field`); typing in it clears it. The source is sent trimmed. The act itself still takes an
+  uncited reading — the door is where the evidence is asked for. The form's draft and its refusals
+  are held for the level they were written on: choosing another level shows a fresh form, so a figure
+  typed for GF is never previewed against ROOF.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -428,14 +501,16 @@ Above the fold at 1440×900 and 1280×800: the grid's first row is **52 px** bel
 own 120. Work-surface share: with nothing selected the grid is 1136 × 756 of main's 1392 × 804 =
 77 %; with the inspector mounted 816 × 756 = 55 %. At 1280×800 the rail takes its 160 min while the
 inspector stands (736 × 756 of 1232 × 804 = 56 %), and the grid scrolls inside its own container —
-never the page (§7 C10).
+never the page (§7 C10). Measured on the running screen (session 8): the grid's region is **1,092**
+px wide at 1440 with nothing selected and **1,012** at 1280 — the widths I-434 shares among the
+roll-ups.
 
 | Region | What it holds | Width / height rule | Tokens | Empty |
 |---|---|---|---|---|
 | tabs row (frame's track) | `takeoff-nav-register` · `takeoff-nav-coverage` · `takeoff-nav-levels` (`aria-current="page"` here), and in `useTakeoffTabsAside` the ONE primary `levels-insert` | 100 % × `--toolbar-h` 32 | `--ink-secondary`, `--ink`, `--line-accent`, `--surface-panel` | the aside is empty while the stack is empty (I-246) |
 | answer slot | one RefusalState from a refused door; the offline banner above it | 100 % × auto, `display:none` while empty | `--state-info(-surface)`, `--radius-4`, `--hairline` | absent (no box) |
 | index rail (`levels-ranges`) | the views whose typical range is unstated: caption, drawing `IdChip`, `levels-range-from` / `-to` Selects over the live stack, valued by level and read in ordinal order, and the `levels-author-range` door, one `levels-range-row[data-view]` each | `flex: 0 0 240px` (min 160, max 320), scrolls alone; rows auto | `--surface-panel`, `--hairline`, `--ink-muted`, `--text-caption` | the section stands and states `levels_ranges_none` |
-| grid (primary) | the shipped DataTable: `levels-row` per LIVE level in ordinal order; columns Level (frozen) · Ordinal · Storey height · one roll-up per kind | flex, ≥ 55 % of main; rows `--row-h` 28, header 28 sticky | `--surface-app`, `--surface-selected`, `--ink-code`, `--font-mono`, `--cell-px/py` | `levels-empty` in the grid's own place, rail untouched |
+| grid (primary) | the shipped DataTable: the **Foundation** row while the FOUNDATION slot holds a line, then `levels-row` per LIVE level in ordinal order, then the **On no level** row while any line stands on no live level (I-433); columns Level (frozen) · Ordinal · Storey height · one roll-up per kind, the levels' kinds first (I-433), each roll-up at the width the measured grid leaves it (I-434) | flex, ≥ 55 % of main; rows `--row-h` 28, header 28 sticky | `--surface-app`, `--surface-selected`, `--ink-code`, `--font-mono`, `--cell-px/py` | `levels-empty` in the grid's own place, rail untouched |
 | inspector (frame's one slot) | `levels-inspector[data-level]`: the label, ordinal, standing; `levels-reading` per reading; the height form; `levels-repudiate` | `--inspector-w` 320 (280–480) | `--surface-panel`, `--hairline`, basis palette through BasisChip | **absent — width 0**, never a sentence |
 
 **Grid cells.** Level: the label in 13 px `--weight-body-medium` beside its `levelId` as an `IdChip`
@@ -447,9 +522,14 @@ millimetre, flush right in a 6 ch slot, exact in `data-value` (I-352), with a me
 Roll-up column: headed by its kind in words (`Concrete`, I-352), the key on the column id and each
 roll-up's `data-kind`. Roll-up: `{count} lines` in mono, right-aligned in an 8 ch slot, then
 `QuantityText` at the kind's display precision, flush right in an 8 ch slot (I-352), + `UnitBadge`
-(absent when PARTIAL_DECLARED), then the `CoverageChip` on a COMPLETE roll-up only and, where a code
-stands, its `EnumLabel` (I-lev-1). The rail's heading carries `levels_ranges_hint` as its Tooltip
-(I-lev-3), and the screen's one `<h1>` is clipped out of sight (I-lev-4).
+(absent when PARTIAL_DECLARED), then the `CoverageChip` on a COMPLETE roll-up only — and not on a
+level's roll-up of a kind some of whose lines stand on no level (I-433, `data-whole="false"`) — and,
+where a code stands, its `EnumLabel` (I-lev-1). A slot row (I-433): Level says `levels_slot_foundation`
+or `levels_slot_unplaced` in the label's face with no `IdChip`; Ordinal is empty; Storey height says
+`levels_slot_foundation_note` or `levels_slot_unplaced_note` in `--text-caption` `--ink-muted`
+(`cx-levels-slot-note`); its roll-ups are the level's, cell for cell. The rail's heading carries
+`levels_ranges_hint` as its Tooltip (I-lev-3), and the screen's one `<h1>` is clipped out of sight
+(I-lev-4).
 A level bearing no line of that kind renders `—` in both halves and carries `data-lines="0"`.
 No cell wraps; a clipped cell earns the table's own Tooltip (§5 rule 2).
 
@@ -518,7 +598,7 @@ was read from. A later reading under the same source and basis supersedes the ea
 `levels_author_height` **Preview this height** · `levels_repudiate` **Repudiate this level** ·
 `levels_repudiated_note` **A person judged this level to be nothing. Nothing was deleted: every
 reading stays on record, and the lines measured through it re-derive at the next campaign.** ·
-`levels_ranges_heading` **Views with no typical range** · `levels_ranges_hint` **A view that stands
+`levels_ranges_heading` **Typical ranges to state** (I-434) · `levels_ranges_hint` **A view that stands
 for a range of floors states it once. Until it does, nothing it holds expands.** ·
 `levels_ranges_none` **Every view states the floors it stands for.** · `levels_range_from_label`
 **From level** · `levels_range_to_label` **To level** · `levels_author_range` **Preview this
@@ -530,7 +610,12 @@ connection returns.** · `levels_denied_stack` **Inserting and repudiating a lev
 AUTHOR_LEVEL_STACK permission on this project.** · `levels_denied_height` **Recording a storey
 height needs the AUTHOR_PROJECT_FACT permission on this project.** · `levels_denied_range`
 **Stating a view's typical range needs the MEASURE permission on this project.** ·
-`levels_denied_holder` **A project principal can grant it on the participants screen.**
+`levels_denied_holder` **A project principal can grant it on the participants screen.** ·
+`levels_slot_foundation` **Foundation** · `levels_slot_foundation_note` **Below the lowest level** ·
+`levels_slot_unplaced` **On no level** · `levels_slot_unplaced_note` **Level not yet settled**
+(I-433) · `levels_height_value_missing` **Type the height the drawing states.** ·
+`levels_height_source_missing` **Name the drawing entity this height was read from. A height that
+cites nothing leaves every quantity measured through this level partial.** (I-435)
 
 Voice: calm, concrete, professional; no exclamation marks; no build vocabulary — "seam", "door",
 "rail", "gate", "ingest" and every clause id appear nowhere a reader can see. Level ids, source
@@ -565,15 +650,17 @@ through BasisChip and CoverageChip · `--hairline` · `--space-1/2/3/4` · `--ga
 `--weight-body-medium` / `--weight-heading` · `--row-h`, `--control-h`, `--cell-px`, `--cell-py`,
 `--toolbar-h`, `--inspector-w` through the primitives that read them · `--motion-state` /
 `--motion-panel` / `--ease`. Px literals, closed set: the index rail's 240 and its 160/320 bounds,
-the tabs-row current underline's 2, the column widths (Level 144 · Ordinal 64 · Storey height 200 ·
-each roll-up 240, I-lev-1), the lg media-query value, and the loading bones' 28/240. Any other
-literal is a defect. The figure slots (I-352) are no px at all: 8, 8 and 6 `ch` of the face each
-number is set in, so a density that revalues `--text-body` revalues the slot with it. The standing column went 200 → 288 when it said two things — the word and the
-code — and is 200 again since I-lev-2: the code the word already says is no longer printed beside
-it, and the 88 px it held went to the roll-ups, which were cut at 160. With two kinds the columns
-sum to 888, short of the width at which the last column's resize grip would stand under the table's
-own tools at 1280 (R-UI-012). No copper appears anywhere except the ConsequenceDialog's confirm, which is the primitive's
-own — this screen commits nothing itself.
+the tabs-row current underline's 2, the column widths (Level 144 · Ordinal 64 · Storey height 152 ·
+each roll-up between 176 and 240, derived, I-434), the derivation's trailing allowance 40, its 4 px
+step and its unmeasured grid of 1,092 (I-434), the lg media-query value, and the loading bones'
+28/240. Any other literal is a defect. The figure slots (I-352) are no px at all: 8, 8 and 6 `ch` of
+the face each number is set in, so a density that revalues `--text-body` revalues the slot with it.
+The standing column went 200 → 288 when it said two things — the word and the code — back to 200
+with I-lev-2, and to 152 with I-434: it says `Agreed 3.353 m` (115 px measured) and nothing else.
+The roll-ups take what the fixed columns leave, so the last column's resize grip stands clear of the
+table's own tools at every width (R-UI-012). No copper appears anywhere except the
+ConsequenceDialog's confirm, which is the primitive's own — this screen commits nothing itself. The
+height form's field refusal (I-435) spends `--state-danger` on its sentence, never colour alone.
 
 ## 6. Themes
 
@@ -600,7 +687,9 @@ row's drawing). Procedures: `takeoff.levels`, `takeoff.previewInsertLevel`,
 Test ids, exactly the registry's, on the elements ruled in §1: `takeoff-nav-register` ·
 `takeoff-nav-coverage` · `takeoff-nav-levels` · `levels-screen` (`data-state`) · `levels-grid`
 (`data-rows-rendered`) · `levels-row` (`data-level`, `data-ordinal`, `data-standing`, `data-code`,
-`data-metres`) · `levels-rollup` (`data-kind`, `data-lines`, `data-coverage`, `data-code`) ·
+`data-metres` on a level's row; `data-slot` — `FOUNDATION` or `UNPLACED` — and none of the five on a
+row that is no level, I-433) · `levels-rollup` (`data-kind`, `data-lines`, `data-coverage`,
+`data-code`, `data-whole`) ·
 `levels-empty` · `levels-insert` (`data-permission`) · `levels-insert-label` ·
 `levels-insert-ordinal` · `levels-insert-confirm` · `levels-inspector` (`data-level`) ·
 `levels-reading` (`data-basis`, `data-source`, `data-metres`, `data-superseded`) ·
@@ -627,12 +716,21 @@ second right column; no native `select` or `input[type=date]` (R-UI-083); no `DE
 under `levels-height-basis` (I-244); no `consequence-dialog` after a preview refused
 `ACT_CHANGES_NOTHING` (I-245); no more than one `levels-insert` element (I-246); no `data-metres`
 value on a row whose `data-standing` is not `AGREED` (I-242); no value text in a `levels-rollup`
-whose `data-coverage` is `PARTIAL_DECLARED` (I-241).
+whose `data-coverage` is `PARTIAL_DECLARED` (I-241); no `coverage-chip` in a `levels-rollup` whose
+`data-whole` is `false` (I-433); no `previewAuthorStoreyHeight` while the Height or the Source key
+field is empty — the field instead carries `aria-invalid="true"` and a `[role="alert"][data-field]`
+sentence under it (I-435). The journey page object's `rows` is the stack's LEVELS
+(`levels-row[data-level]`) and `slotRow(slot)` the rows that are no level, so a count of the stack
+never counts the Foundation as a storey.
 
 Suites: `tests/takeoff/levels-ui/effects.test.ts` (the three acts' `effects`),
 `tests/takeoff/levels-ui/doors.test.ts` (the nine procedures, each refusing by name),
 `tests/takeoff/levels-ui/**` jsdom mounts of `LevelsWorkspace` over the fixtures at
-`tests/takeoff/levels-ui/support/**`, and the copy-mirror test that fails the build if the module's
+`tests/takeoff/levels-ui/support/**` (`craft-rollups.test.ts` holds I-433's read-back figures, I-434's
+three-kind width case over a 1280 grid, the rail heading's one line and I-435's field refusals),
+`tests/takeoff/levels-ui/foundation-rows.test.ts` (the reading door over a live campaign with a line
+on a level, in the FOUNDATION slot and under a placeholder — every line on exactly one row), and the
+copy-mirror test that fails the build if the module's
 `copy.ts` and `src/ui/strings/levels.ts` ever differ. Journey: `tests/e2e/journeys/j-031-levels.spec.ts`
 over `tests/e2e/takeoff/levels-stage.ts`, page objects `tests/e2e/pages/s-levels.page.ts` and
 `s-takeoff.page.ts`; checkpoints `stack`, `contested`, `reaffirmed` under
@@ -657,3 +755,12 @@ shows it — and `tests/takeoff/levels/**` where a deep-equal froze a Consequenc
   names a source key and cannot yet be traced to the sheet. Owner: the Trace node.
 - **A copy home both layers may read**, so the module's `copy.ts` need not mirror
   `src/ui/strings/levels.ts` — re-recorded unpaid (the register's §8 precedent).
+- **The Foundation's kinds in a QS's words (I-433).** The one rule a kind is said by (`inWords`, I-352)
+  heads `piling.bored` `Bored` and `piling.boring` `Boring`; a QS says *Piles* and *Pile boring*. The
+  cure is a display name per kind in the catalogue, read by `inWords`, which moves the register, the
+  bill and these columns together (`docs/design/s-takeoff.md`'s kind-names note). Owner: the catalogue
+  node that lands the display names.
+- **A split of a roll-up by class.** From 1F up, Concrete reads `49 lines · Slab thickness unstated`
+  with no figure, because the partial beam lines hide the 26 COMPLETE column lines on the same floor
+  (walk 0). Splitting the cell by class, or stating the complete subtotal beside a partial remainder,
+  is a reading of L-QTY-02 this slice did not take. Owner: the next levels slice.

@@ -68,8 +68,17 @@ export class SLevelsPage {
   get grid(): Locator {
     return this.page.getByTestId(LEVELS_IDS.grid);
   }
+  /**
+   * The stack's LEVELS: every row that stands for a live level. The grid also draws rows that are no
+   * level — the Foundation beneath the stack, and the lines no live level carries (s-levels I-433) —
+   * which publish `data-slot` and no `data-level`, and are read through `slotRow`.
+   */
   get rows(): Locator {
-    return this.grid.getByTestId(LEVELS_IDS.row);
+    return this.grid.locator(`${id(LEVELS_IDS.row)}[data-level]`);
+  }
+  /** A row that is no level, by the slot it stands for: `FOUNDATION` or `UNPLACED` (I-433). */
+  slotRow(slot: string): Locator {
+    return this.grid.locator(`${id(LEVELS_IDS.row)}[data-slot="${slot}"]`);
   }
   /** One row, by the label the level carries — what a reader points at. */
   row(levelId: string): Locator {
@@ -139,11 +148,16 @@ export class SLevelsPage {
     return this.inspector.getByTestId(LEVELS_IDS.authorHeight);
   }
 
-  /** Read a height into the form and press the door that previews it. */
-  async authorStoreyHeight(value: string, unit: string, basis: string): Promise<void> {
+  /**
+   * Read a height into the form, name the drawing entity it was read from, and press the door that
+   * previews it. The form refuses a height that cites nothing on the field (s-levels I-435), so every
+   * reading a walk records names its source.
+   */
+  async authorStoreyHeight(value: string, unit: string, basis: string, sourceKey: string): Promise<void> {
     await this.inspector.getByTestId(LEVELS_IDS.heightValue).fill(value);
     await this.chooseIn(this.inspector.getByTestId(LEVELS_IDS.heightUnit), unit);
     await this.chooseIn(this.inspector.getByTestId(LEVELS_IDS.heightBasis), basis);
+    await this.inspector.getByTestId(LEVELS_IDS.heightSource).fill(sourceKey);
     await this.authorHeight.click();
   }
 

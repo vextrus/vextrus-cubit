@@ -46,7 +46,7 @@ export const levels = {
   levels_repudiate: "Repudiate this level",
   levels_repudiated_note:
     "A person judged this level to be nothing. Nothing was deleted: every reading stays on record, and the lines measured through it re-derive at the next campaign.",
-  levels_ranges_heading: "Views with no typical range",
+  levels_ranges_heading: "Typical ranges to state",
   levels_ranges_hint: "A view that stands for a range of floors states it once. Until it does, nothing it holds expands.",
   levels_ranges_none: "Every view states the floors it stands for.",
   levels_range_from_label: "From level",
@@ -66,4 +66,15 @@ export const levels = {
   // RefusalState takes that place's name — the §3 pair states WHAT is denied and WHO grants it, and
   // neither of those two sentences is the name of a destination (I-247).
   levels_denied_evidence: "Open the participants screen",
+  // The rows of the grid that are no level (s-levels I-433): the register's FOUNDATION slot beneath
+  // the stack, and the lines whose object stands on no live level. Each names itself in the Level
+  // column and says one muted phrase where a level states its storey height.
+  levels_slot_foundation: "Foundation",
+  levels_slot_foundation_note: "Below the lowest level",
+  levels_slot_unplaced: "On no level",
+  levels_slot_unplaced_note: "Level not yet settled",
+  // The height form's own refusals, on the field a press found empty (s-levels I-435).
+  levels_height_value_missing: "Type the height the drawing states.",
+  levels_height_source_missing:
+    "Name the drawing entity this height was read from. A height that cites nothing leaves every quantity measured through this level partial.",
 } as const;
