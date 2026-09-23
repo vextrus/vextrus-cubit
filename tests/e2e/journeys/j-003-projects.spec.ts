@@ -358,7 +358,7 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
 
     await expect(participants.dialogCard, "consequence-dialog-open.png pictures the dialog that now stands").toHaveScreenshot(
       "consequence-dialog-open.png",
-      { mask: participants.dialogMasks(), animations: "disabled", maxDiffPixelRatio: 0.002 },
+      { mask: participants.foldedDialogMasks(), animations: "disabled", maxDiffPixelRatio: 0.002 },
     );
   });
 });

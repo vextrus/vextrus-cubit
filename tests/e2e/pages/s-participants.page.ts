@@ -111,6 +111,15 @@ export class SParticipantsPage {
     return [this.digestLine, this.page.locator(SUBJECT_LABEL_CLASS)];
   }
 
+  /**
+   * The per-run text the dialog shows while Details is folded (I-447): the subject's label alone. The
+   * folded digest still has a box, and a mask over it would paint across the footer's two buttons and
+   * leave the picture no longer asking for them.
+   */
+  foldedDialogMasks(): Locator[] {
+    return [this.page.locator(SUBJECT_LABEL_CLASS)];
+  }
+
   /** Every history row's direction and role, as the rows themselves carry them. */
   async historyOf(): Promise<{ direction: string | null; role: string | null }[]> {
     const total = await steadyCount(this.historyRows, "the role-history rows");
