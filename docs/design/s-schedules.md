@@ -241,6 +241,103 @@ this file rules. No gallery entry is added (nothing new is invented here).
   otherwise it binds the ring's own sides. With no ring, the schedule's section stands as before. The
   plan is never a bounding box, and never the schedule's rectangle for a polygon. Corroboration never
   defers: a rectangle that disagrees with its schedule is measured by its own sides.
+- **I-340 — a run is read in the drawing's one unit, and a support is addressed off each axis by the
+  axis's own orientation (session 7, FRM-1; L-MEA-09, L-CAD-02, I-302, I-333, L-QTY-03/06).** Two
+  statements, both about reading BNBC's plane as it is drawn. (a) *The unit.* A run's clear was read in
+  the header's `$INSUNITS` alone, and BNBC's header is unitless, so every BNBC clear would have been
+  `null` (RUN_UNREAD). The unit the placement stage reads geometry in is now ONE reading
+  (`drawnUnitIn`, `placement/detect.ts`), shared by a ring's plan and a run's clear: the header's where
+  it names one the canon carries, else the unit the drawing's own notes declare where the drawn scale is
+  1 within 1e-3. On BNBC that is S-01's `1F3E` ("ALL DIMENSIONS ARE IN MILLIMETRES"), and a clear read
+  in it cites `1F3E` after its edge lines and supports. F-RCC6 (header mm) cites nothing more.
+  (b) *The orientation.* `addressOf`/`faceAt` (`placement/runs.ts`) took a support's x offset off "the
+  letter axis" and its y offset off "the numeral axis". That is right for F-RCC6, which letters its grid
+  along x, and wrong for BNBC, which letters along y and numbers along x. Every support S-10 places
+  (20B6) was then a stranger at its own grid reference, every beam end fell through to the crossing
+  beam's edges, and each clear came out OVER by the two column half-widths (S-14's B6 4297, B7 4017.2,
+  B1 4297). Each offset is now taken off whichever axis the grid stage read standing ACROSS that
+  direction (`GridAxisRow.axis`), and the face is set back off the same axis. Measured with the pairing
+  band widened to 0.2 (the band itself is FRM-2's): B6 4097, B7 3817.2 and B1 4222, the golden model's
+  own clears, each cut at the faces of the columns S-10 places at its two ends. F-RCC6's stage digest
+  (`a3c0c6e0…`) and BNBC's piles, caps and columns are byte-identical.
+- **I-341 — the framed prefixes a floor-by-floor set writes are beams, by exact prefix, and a storey
+  digit keys a beam to its floor (session 7, FRM-1; L-CAD-07, L-MEA-09, L-QTY-04/06).** The class map
+  (`CLASS_OF_PREFIX`, `placement/law.ts`) held only `B` and `TB` of the framed prefixes. The notation
+  grammar already reads `RB`, `REB`, `CB`, `EB`, `LB`, `PB`, `TG` and `SB-R` (compared as `SBR`) as marks.
+  Each is now a beam: a roof beam, a roof-edge beam, a cantilever, an edge beam, a landing beam, a porch
+  beam, a transfer girder and a stair-roof beam all span between the faces of what carries them and
+  under the slab they carry. The lookup stays exact, so `L` (a lintel), `S` (a slab), `P` (a pile) and
+  `PC` (a pile cap) keep their own classes. A mark written as one storey digit and then a beam mark
+  (`1B12`, `1CB3`, `1EB2`) is that floor's beam, and the digit is the level. Only a beam is keyed this
+  way: a digit before any other class is a count or a code (`8T16` is eight bars). `GB` is held back: a
+  grade beam is a tie beam, and a tie beam is cut at the foundation members its own plan places. S-08
+  draws its 27 caps as unmarked rings, so a grade beam read now would be cut at the columns a storey up
+  and measure about two-thirds over (GB1-1: +67 %). It waits for the caps to stand on S-08. The roof
+  schedule's families (`RB*`, `REB2`, `SBR*`) now name a class, but no dimension is read for a beam
+  (`DIMENSIONS_READ`), so the registry's output is byte-identical.
+- **I-342 — a bound xref's layers are another drawing's background, and no member is read off them
+  (session 7, FRM-1; T-XREF-BOUND, L-CAD-07, L-QTY-04/06).** S-13 carries the architect's plan bound in
+  as background: `ARCH-PLAN$0$WALL`, `…$WINDOW` and `…$DOOR`, with the walls and windows drawn as eight
+  congruent pairs 125 apart. That is inside the edition's pairing band (195.1), so once I-341 made the
+  `1B` marks beams, the run reader placed eight beams on them, 9000 and 1800 long and carried at
+  neither end, where no beam was drawn. An entity on a layer named with a CAD program's binding infix
+  (`<xref>$<n>$<layer>`) now stands in no population of the placement stage, for the outline reader and
+  the run reader alike. This reads a layer's NAME for the one part no draughtsman typed. What the name
+  says (`Beam Line`, `Column`, `S-BEAM`) is still never read. An attached, unbound xref spells its layers
+  `XREF|LAYER`; neither fixture draws one, and none is read. F-RCC6 has no such layer, and no BNBC
+  pile, cap or column stands on one.
+- **I-343 — a long-section strip's label is a member type, banded by its sheet's title (session 7,
+  FRM-2; R-TO-031, L-FRM-02, I-302, T-SCHED-CONTD).** BNBC states no beam schedule for its floors. S-17
+  (view 218E) details the typical floors' 53 beams as strips, and S-16 (2173) the first floor's 53. Each
+  strip is labelled with its mark and, on the same baseline 1500 to the right, its section (`B1` ·
+  `300x600`, `1B1` · `300x600`, `TG1` · `400x900`). Each sheet's title states the floors:
+  `TYPICAL FLOOR BEAM LONG SECTIONS (2ND TO 6TH FLOOR)` (1718) and `1ST FLOOR BEAM LONG SECTIONS - …`
+  (13F7). The schedules stage now reads such labels (`schedules/strips.ts`, joined to the registry by the
+  rebuild). It reads every view that is neither a SCHEDULE nor a layout plan. A label is a text that is
+  exactly a framed mark, and the nearest text to its right on its baseline (within half the mark's
+  height) must be exactly a section. Each label is one family (keyed by the view's anchor), with one
+  variant: the label's section, in the label's unit or else the declared one (1F3E), cited to the size
+  text, the title and the declaration. The band runs from the first to the last level word of the
+  sheet's non-label texts and its caption. They must agree (`sameStorey`). A sheet stating none is
+  unbanded; a sheet stating two different bands contributes nothing (SCHEDULE_VIEW_CONTRIBUTED_NOTHING).
+  A mark labelled twice is read once, so T-SCHED-CONTD's `B9` (S-17's `CONTD. ON S-18`) is one family.
+  Bars are not read here (L-FRM-05). The roof schedule's `SPAN (mm)` is a centre-to-centre figure and is
+  never read as a clear. F-RCC6 carries no strip label, and its families are byte-identical.
+  *Recorded, not taken:* the roof schedule's variants keep `bandText` `SIZE` (the section column's head
+  as its band text). The fix is general — a header word is no band — and it would move F-RCC6's
+  byte-frozen FOOTING SCHEDULE variants (`L x B (mm)`) and the stage digest `a3c0c6e0…`. That is a
+  `baseline:` commit and the owner's call. No measurement reads it: the rails read `bandFrom`/`bandTo`,
+  and the screen already says `—` (I-sch-1(c)).
+- **I-344 — a pair wider than the pairing band is a member only where its gap is its naming mark's
+  stated width (session 7, FRM-2; L-MEA-01, L-MEA-09, L-CAD-03, L-QTY-06, T-TEXT-ROTATED).** The edition's
+  pairing band (`containmentMerge × spacing`, 195.1 on BNBC) pairs none of BNBC's 250, 300 and 400 beams.
+  Widening the band pairs whatever else a plan draws alike and names each pair by the nearest mark.
+  Measured that way, EB1's four 250 × 300 spans were named `B2`…`B5` (300 × 600), two cantilevers `B3`,
+  `TG1` a 250 beam, and `LB1` and `B31` each other: every one billed at a section that is not its own.
+  The band is unchanged. A pair beyond it (`statedPairsIn`, `placement/runs.ts`) is a member only where
+  all of these hold:
+  (a) its gap equals the width (`b`) its naming mark's family states, at the drawn scale, within half the
+  printed unit;
+  (b) the naming mark is the one `markedIn` would choose, from the labels that stand on no drawn pair — a
+  mark standing between a pair's edge lines is that pair's own lettering (a vertical beam's, written on
+  its axis and turned along it) and names no other pair;
+  (c) the mark stands nearer this pair than any other drawn pair it stands beside;
+  (d) the pair runs along an axis of the plane. A slanted pair is measured by its projection and probed
+  square to the wrong direction; S-13's `PB4`/`PB5` then read no slab either side and published COMPLETE
+  concrete 15 % over the golden's own figure. A slanted pair waits for D13.
+  The mark that admitted the pair is the one that names it. On BNBC at the edition's own band this places
+  72 beams: S-14 25, S-13 23, S-15 24. Each is typed by its own family and stands on the golden model's
+  member of its mark. None is named by a neighbour. The vertical beams (lettered on their axes), TG1
+  (lettered inside its own pair), the cantilevers, LB1 and the slanted members stay unplaced: under,
+  never over. No beam layout states a slab thickness, and no run reads both of its sides, so every beam
+  line is PARTIAL_DECLARED (SLAB_THICKNESS_UNSTATED) and none is COMPLETE. F-RCC6's pairs are all inside
+  the band; its stage digest `a3c0c6e0…` is byte-identical.
+  *Recorded for FRM-4:* 17 of the 72 clears are OVER the golden model's because a support the plan draws
+  is not yet a placed member. The lift core's walls are unplaced (WLS-1), so a beam framing into the core
+  is cut at the crossing beam's half-width instead: B12/B14/B17/B18 and their 1F twins are +125,
+  B13/1B11 +250, and RB12/14/17/18 +50 with RB13 +200. EB1a (and 1EB1a) is cut at no end, because the
+  cantilevers carrying it are unplaced (FRM-3): +250. No figure is published from them today. They must
+  be cut before a slab thickness makes any beam line COMPLETE.
 
 - **I-sch-1 — the craft look of session 7 (2026-09-23): the drawing's words as the drawing shows
   them, a rail that names its sheets, and a registry that reads as rows.** The vision review found

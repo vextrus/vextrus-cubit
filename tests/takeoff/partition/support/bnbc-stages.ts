@@ -18,9 +18,11 @@ import { ingestDrawing } from "@/modules/takeoff/ingest/cli";
 import { censusOf } from "@/modules/takeoff/partition/conventions/census";
 import { detectGrid } from "@/modules/takeoff/partition/grid/detect";
 import { detectPlacements } from "@/modules/takeoff/partition/placement/detect";
+import type { PlacementEvidence } from "@/modules/takeoff/partition/placement/rows";
 import type { PlacementShares } from "@/modules/takeoff/partition/placement/shares";
 import { reconstructSchedules } from "@/modules/takeoff/partition/schedules/reconstruct";
 import { registerMemberTypes } from "@/modules/takeoff/partition/schedules/registry";
+import { readSectionStrips } from "@/modules/takeoff/partition/schedules/strips";
 import { partitionArtifact } from "@/modules/takeoff/partition/views/assign";
 
 /** The two fixtures, never a replacement (AM-01): the M3 yardstick, and the byte-frozen v1.1 corpus. */
@@ -52,8 +54,11 @@ export async function stagesOver(relative: string) {
   const profile = census === null ? null : resolveConventions(census);
   const grid = detectGrid({ graph, views: parted.views, assignments: parted.assignments, profile });
   const reconstructed = reconstructSchedules({ graph, views: parted.views, assignments: parted.assignments });
-  const registered = registerMemberTypes(reconstructed.tables, profile);
-  const placed = detectPlacements({
+  const tabled = registerMemberTypes(reconstructed.tables, profile);
+  // The long-section sheets' member types join the tables' — the rebuild's own composition (I-343).
+  const strips = readSectionStrips({ graph, views: parted.views, assignments: parted.assignments }, profile);
+  const registered = { families: [...tabled.families, ...strips.families], deferrals: [...tabled.deferrals, ...strips.deferrals] };
+  const evidence: PlacementEvidence = {
     graph,
     views: parted.views,
     assignments: parted.assignments,
@@ -61,8 +66,12 @@ export async function stagesOver(relative: string) {
     shares: SEED_SHARES,
     families: registered.families,
     declaredUnit: profile?.dimensionUnit ?? null,
-  });
-  return { graph, reconstructed, registered, placed };
+  };
+  const placed = detectPlacements(evidence);
+  // The evidence the placement stage was handed, kept so a case can ask the SAME stage the same
+  // question under other shares without reading the drawing twice (the pairing band FRM-1 leaves
+  // alone is widened that way to read the runs it governs).
+  return { graph, reconstructed, registered, placed, evidence };
 }
 
 /** What the stages answered over one drawing. */

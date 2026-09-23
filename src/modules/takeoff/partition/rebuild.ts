@@ -31,6 +31,7 @@ import type { DetectedPlacements } from "./placement/rows";
 import { placementSharesOf } from "./placement/shares";
 import { reconstructSchedules } from "./schedules/reconstruct";
 import { registerMemberTypes } from "./schedules/registry";
+import { readSectionStrips } from "./schedules/strips";
 import type { DetectedSchedules } from "./schedules/store";
 import { drawingProjectOf, rewritePartition, storedViewsOf, type RegisterPass, type ResolvedConventions, type ViewProposal } from "./store";
 import { captionsAskedOf } from "./views/asked-captions";
@@ -159,13 +160,17 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
     // profile is already resolved when the registry folds the tables: a size pair that states no
     // unit and stands under a head that states none takes the one the drawing DECLARES (I-302).
     const registered = registerMemberTypes(reconstructed.tables, held.conventions?.profile ?? null);
+    // And the member types a set states on its long-section sheets rather than in a schedule — each
+    // strip's mark and the section written beside it, banded by the sheet's own title (I-343). They
+    // join the registry the tables folded, so placement and the rails read ONE registry (B-17).
+    const strips = readSectionStrips({ graph: context.graph, views: held.views, assignments: held.assignments }, held.conventions?.profile ?? null);
     const schedules: DetectedSchedules = {
       views: reconstructed.views,
       tables: reconstructed.tables,
-      registry: registered.families,
+      registry: [...registered.families, ...strips.families],
       // A view that yielded no table and a table that named no member are both deferrals of this
       // stage, and they stand in one list because they stand in one table (riskNotes (2)).
-      deferrals: [...reconstructed.deferrals, ...registered.deferrals],
+      deferrals: [...reconstructed.deferrals, ...registered.deferrals, ...strips.deferrals],
     };
     return { derived: { ...held, schedules }, detail: { views: schedules.views, tables: schedules.tables.length, deferred: schedules.deferrals.length } };
   },

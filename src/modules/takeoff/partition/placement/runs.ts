@@ -28,6 +28,7 @@
 //
 // Pure over the artifact and the stages before it: no store, no clock, no model (L-REG-04).
 import type { ElementType } from "@/core/catalogue/classes";
+import type { GridAxis } from "@/core/db";
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import { placementKey, quantise, viewKey as viewKeyOf, type ViewRef } from "@/core/identity";
 import type { QuantityBasis } from "@/core/offers/law";
@@ -36,8 +37,8 @@ import type { GridAxisRow } from "../grid/detect";
 import { normaliseMark } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
-import { classOfMark, isFoundationClass, isFramedClass, isVerticalClass, levelWordsOf } from "./law";
-import type { DetectedRuns, FamilyNamed, PlacementEvidence, PlacementRow, RunReading, RunRow } from "./rows";
+import { classOfMark, isBoundXrefContext, isFoundationClass, isFramedClass, isVerticalClass, levelWordsOf } from "./law";
+import type { DetectedRuns, DrawnUnit, FamilyNamed, PlacementEvidence, PlacementRow, RunReading, RunRow } from "./rows";
 import { shareValue } from "./shares";
 
 /** The bases a reading of this stage stands on, read off the offer law's closed roster (L-QTY-01). */
@@ -48,6 +49,10 @@ const DERIVED: QuantityBasis = "DERIVED";
 /** The two families of the backbone, named as the members of the seam's roster they are. */
 const LETTER_FAMILY = "letter";
 const NUMERAL_FAMILY = "numeral";
+
+/** The plane's two directions an axis can stand across, named as the members of the grid roster they are. */
+const AXIS_X = "x" satisfies GridAxis;
+const AXIS_Y = "y" satisfies GridAxis;
 
 /** How few vertices a closed ring may be drawn from and still enclose an area. */
 const FEWEST_OUTLINE_VERTICES = 3;
@@ -162,13 +167,19 @@ type Plan = {
  *
  * Handed what `./detect` already placed, because two of its answers are evidence here: the closed
  * outlines those placements were read off are the members that CARRY a beam's ends, and they are also
- * the rings this stage must not read as a slab.
+ * the rings this stage must not read as a slab. And handed the unit the drawing's geometry is read in,
+ * read once by `./detect` for the rings and the runs alike (I-340): the header's where it names one,
+ * and the drawing's own declaration where the header is unitless and its members bear the declaration
+ * out — null where neither does, and then no clear is read at all. And handed the drawn scale `./detect`
+ * read off the outlines — how many drawing units one unit of the schedules measures — which is what a
+ * width a schedule states is set against a pair's gap at (I-344); null where nothing could be compared,
+ * and then only the edition's own band pairs.
  */
-export function detectRuns(evidence: PlacementEvidence, placed: readonly PlacementRow[]): DetectedRuns {
+export function detectRuns(evidence: PlacementEvidence, placed: readonly PlacementRow[], unit: DrawnUnit | null, scale: number | null): DetectedRuns {
   const shares = { containmentMerge: shareValue(evidence.shares, "containmentMerge"), nearAnchor: shareValue(evidence.shares, "nearAnchor") };
-  const unit = drawnUnitOf(evidence.graph);
   const axesByView = axesOf(evidence.grid);
   const ringsByKey = new Map<string, Ring>();
+  const widths = statedWidthsOf(evidence.families, scale);
 
   const plans: Plan[] = [];
   for (const view of evidence.views) {
@@ -179,14 +190,27 @@ export function detectRuns(evidence: PlacementEvidence, placed: readonly Placeme
     // distance: it is left alone rather than paired by numbers nobody read (L-CAD-07).
     if (!(spacing > 0)) continue;
 
-    const standing = evidence.graph.entities.filter((entity) => evidence.assignments.get(entity.key) === view.viewKey);
+    // What another drawing bound in as background is none of this plan's members, slabs or marks: the
+    // architect's walls are drawn as congruent pairs too, and paired they are beams nobody drew (I-342).
+    const standing = evidence.graph.entities.filter((entity) => evidence.assignments.get(entity.key) === view.viewKey && !isBoundXrefContext(entity.layer));
     const rings = standing.flatMap((entity) => ringOf(entity) ?? []);
     for (const ring of rings) ringsByKey.set(ring.key, ring);
-    const members = pairsIn(
-      standing.flatMap((entity) => edgeOf(entity) ?? []),
-      shares.containmentMerge * spacing,
-    );
+    const edges = standing.flatMap((entity) => edgeOf(entity) ?? []);
     const said = standing.flatMap((entity) => saidOf(entity) ?? []);
+    const apart = shares.containmentMerge * spacing;
+    const reach = shares.nearAnchor * spacing;
+    const banded = pairsIn(edges, apart);
+    // The pairs the edition's band admits, and then the pairs wider than it that the drawing's own
+    // schedules admit: a pair whose gap IS the width its naming mark's schedule states (I-344). Each of
+    // those carries the mark it was admitted by, which is the mark that names it — one reading, never a
+    // second pass that could name it otherwise (B-17).
+    const taken = new Set(banded.flatMap((member) => member.keys));
+    const stated = statedPairsIn(
+      edges.filter((edge) => !taken.has(edge.key)),
+      { apart, reach, marks: said.filter((one) => isFramedClass(classOfMark(one.text))) },
+      widths,
+    );
+    const members = [...banded, ...stated.map((one) => one.member)];
     const ref: ViewRef = { viewClass: view.type, captionAnchorSourceKey: view.anchorKey };
     const key = viewKeyOf(ref);
     const plan: Plan = {
@@ -199,7 +223,7 @@ export function detectRuns(evidence: PlacementEvidence, placed: readonly Placeme
       said,
       members,
       placed: new Set(placed.filter((row) => row.viewKey === key).map((row) => row.outlineKey)),
-      marked: markedIn(members, said, shares.nearAnchor * spacing),
+      marked: new Map([...markedIn(banded, said, reach), ...stated.map((one) => [one.member, one.mark] as const)]),
     };
     plans.push(plan);
   }
@@ -383,21 +407,165 @@ function markedIn(members: readonly Axis[], said: readonly Said[], reach: number
   const marks = said.filter((one) => isFramedClass(classOfMark(one.text)));
   const named = new Map<Axis, Said>();
   for (const member of members) {
-    const centre: Point = [(member.from[0] + member.to[0]) / 2, (member.from[1] + member.to[1]) / 2];
-    let held: { mark: Said; distance: number } | null = null;
-    for (const mark of marks) {
-      const along = member.along === "x" ? mark.at[0] : mark.at[1];
-      const off = Math.abs((member.along === "x" ? mark.at[1] : mark.at[0]) - member.at);
-      if (off <= member.width / 2) continue;
-      if (along < member.start - member.width || along > member.end + member.width) continue;
-      const distance = Math.hypot(mark.at[0] - centre[0], mark.at[1] - centre[1]);
-      if (distance > reach) continue;
-      // Ties go to the lower source key, so one drawing anchors one way every time (L-REG-04).
-      if (held === null || distance < held.distance || (distance === held.distance && mark.key < held.mark.key)) held = { mark, distance };
-    }
-    if (held !== null) named.set(member, held.mark);
+    const mark = markNaming(member, marks, reach);
+    if (mark !== null) named.set(member, mark);
   }
   return named;
+}
+
+/** The one mark that names one member — `markedIn`'s rule, asked of a single member (B-17). */
+function markNaming(member: Axis, marks: readonly Said[], reach: number): Said | null {
+  let held: { mark: Said; distance: number } | null = null;
+  for (const mark of marks) {
+    const distance = besideAt(mark, member, reach);
+    if (distance === null) continue;
+    // Ties go to the lower source key, so one drawing anchors one way every time (L-REG-04).
+    if (held === null || distance < held.distance || (distance === held.distance && mark.key < held.mark.key)) held = { mark, distance };
+  }
+  return held?.mark ?? null;
+}
+
+/** One width a framed family's schedule states, in drawing units, and the half-unit it was printed to. */
+type StatedWidth = { readonly value: number; readonly halfUnit: number };
+
+/**
+ * The widths each FRAMED family's schedules state, set at the drawn scale (I-344): a beam's `b`, the
+ * first side of its section, in drawing units — beside half a unit of the place the schedule printed
+ * it to, since `250` is a figure in [249.5, 250.5] and a pair drawn inside that is the member the
+ * schedule describes (the tolerance I-321 reads a diameter to). Empty where the drawing states no
+ * scale: a width nobody can set against the plan admits nothing.
+ */
+function statedWidthsOf(families: readonly FamilyNamed[], scale: number | null): ReadonlyMap<string, readonly StatedWidth[]> {
+  const widths = new Map<string, StatedWidth[]>();
+  if (scale === null || !(scale > 0)) return widths;
+  for (const named of families) {
+    if (!isFramedClass(classOfMark(named.family))) continue;
+    for (const variant of named.variants ?? []) {
+      const width = variant.sectionWidth;
+      if (width === null || !(width > 0)) continue;
+      widths.set(named.family, [...(widths.get(named.family) ?? []), { value: width * scale, halfUnit: halfUnitOf(width) * scale }]);
+    }
+  }
+  return widths;
+}
+
+/** Half a unit of the last place a figure is written to — `250` → 0.5, `12.5` → 0.05. */
+function halfUnitOf(value: number): number {
+  const places = String(value).split(".")[1]?.length ?? 0;
+  return 0.5 * 10 ** -places;
+}
+
+/**
+ * The members one plan draws WIDER than the edition's pairing band, admitted by the drawing's own
+ * statement of how wide they are (Interpretation I-344, D2 of the session-7 beams map).
+ *
+ * The band — `containmentMerge × spacing` — is 195.1 on F-RCC6-BNBC, whose beams are 250, 300 and 400
+ * wide: at the band alone the set's beams are never paired at all. Widening the band would pair
+ * whatever else a plan draws alike and a little apart, and name each pair by whichever mark stood
+ * nearest — measured: EB1's four 250 × 300 spans named `B2`…`B5` (300 × 600), two cantilevers named
+ * `B3`, each billed at a section twice the one drawn (L-QTY-06). So a pair beyond the band is a member
+ * only where its gap EQUALS the width its naming mark's schedule states, at the drawn scale and within
+ * half the printed unit — the mark `markedIn` would name it by, asked first, and never a second mark
+ * when the first disagrees (L-QTY-01: never a guess).
+ *
+ * Greedy over the closest candidates first, each line taken once and never one the band already took,
+ * as `pairsIn` is (L-REG-04). A candidate wider than every stated width is not a candidate at all.
+ *
+ * Two fences more, and both are here rather than beside the band's own pairing, because the band's
+ * members are F-RCC6's byte-frozen reading and these are the members only a stated width admits:
+ *   · A mark standing ON a drawn pair — between its two edge lines, within its stretch — is that
+ *     pair's own lettering, and names no OTHER pair. A set that letters a beam running up the sheet
+ *     writes its mark on the axis, turned along it (T-TEXT-ROTATED), and the artifact carries no
+ *     rotation to tell such a mark from a label standing beside: so it names nothing here, rather than
+ *     the next beam over. Measured on S-14 without it: `LB1` (250 × 375) and `B31` (250 × 450) stand
+ *     1219 apart, each on its own axis, and each named the OTHER — the same width, so the width could
+ *     not tell (L-CAD-03: a reading names the atom it was read from).
+ *   · The mark names the pair it stands NEAREST, and no other: of every drawn pair it stands beside and
+ *     within reach of, this one. A label is written beside the member it names, and a pair it merely
+ *     reaches — S-14's `LB1`, 914 off `B12`'s label and 1399 from its centre, where `B12`'s own pair
+ *     is 160 off — is the next member over, whatever width the two share.
+ *   · The pair runs along an axis of the plane. A run is measured and probed along the axis it
+ *     dominantly runs (`axisBetween`), which is exact for a member drawn square to the grid and not for
+ *     one drawn on a slant: S-13's porch beams `PB4`/`PB5` measured their projection, and probed off
+ *     the slab plate at both sides read a soffit of nothing — a line COMPLETE and 15 % over the
+ *     golden's own (L-QTY-06). A slanted pair waits for the run to be read along its own direction.
+ */
+function statedPairsIn(
+  edges: readonly Edge[],
+  near: { readonly apart: number; readonly reach: number; readonly marks: readonly Said[] },
+  widths: ReadonlyMap<string, readonly StatedWidth[]>,
+): { readonly member: Axis; readonly mark: Said }[] {
+  const stated = [...widths.values()].flat();
+  const widest = Math.max(0, ...stated.map((width) => width.value + width.halfUnit));
+  if (!(widest > near.apart)) return [];
+  const tolerance = near.apart / 1000;
+  const candidates: { readonly left: Edge; readonly right: Edge; readonly gap: number; readonly member: Axis }[] = [];
+  for (let index = 0; index < edges.length; index += 1) {
+    for (let other = index + 1; other < edges.length; other += 1) {
+      const left = edges[index] as Edge;
+      const right = edges[other] as Edge;
+      if (left.layer !== right.layer) continue;
+      const gap = translationBetween(left, right, tolerance);
+      // A pair drawn as wide as SOME framed member of the drawing is stated to be — the pairs the
+      // fences below and the naming then judge.
+      if (gap === null || !(gap > near.apart) || !stated.some((width) => Math.abs(gap - width.value) <= width.halfUnit)) continue;
+      candidates.push({ left, right, gap, member: axisBetween(left, right, gap) });
+    }
+  }
+  candidates.sort((left, right) => left.gap - right.gap || (left.left.key < right.left.key ? -1 : left.left.key > right.left.key ? 1 : 0));
+
+  const lettering = near.marks.filter((mark) => !candidates.some((candidate) => standsOn(mark, candidate.member)));
+  // The drawn pair each label stands nearest, among the pairs it stands beside and within reach of.
+  const nearestTo = new Map<string, Axis>();
+  for (const mark of lettering) {
+    let held: { member: Axis; distance: number } | null = null;
+    for (const candidate of candidates) {
+      const distance = besideAt(mark, candidate.member, near.reach);
+      // Ties go to the earlier candidate — the narrower, then the lower key — as the pairing's are.
+      if (distance !== null && (held === null || distance < held.distance)) held = { member: candidate.member, distance };
+    }
+    if (held !== null) nearestTo.set(mark.key, held.member);
+  }
+
+  const taken = new Set<string>();
+  const members: { member: Axis; mark: Said }[] = [];
+  for (const candidate of candidates) {
+    if (taken.has(candidate.left.key) || taken.has(candidate.right.key)) continue;
+    if (!squareToThePlane(candidate.left, tolerance)) continue;
+    const mark = markNaming(candidate.member, lettering, near.reach);
+    if (mark === null || nearestTo.get(mark.key) !== candidate.member) continue;
+    const named = widths.get(normaliseMark(mark.text));
+    if (named === undefined || !named.some((width) => Math.abs(candidate.gap - width.value) <= width.halfUnit)) continue;
+    taken.add(candidate.left.key);
+    taken.add(candidate.right.key);
+    members.push({ member: candidate.member, mark });
+  }
+  return members;
+}
+
+/**
+ * How far a mark stands from a member's centre where it stands BESIDE it — clear of its edge lines,
+ * alongside its stretch, within the reach — or null where it does not: `markNaming`'s own test (B-17).
+ */
+function besideAt(mark: Said, member: Axis, reach: number): number | null {
+  const along = member.along === "x" ? mark.at[0] : mark.at[1];
+  const off = Math.abs((member.along === "x" ? mark.at[1] : mark.at[0]) - member.at);
+  if (off <= member.width / 2) return null;
+  if (along < member.start - member.width || along > member.end + member.width) return null;
+  const distance = Math.hypot(mark.at[0] - (member.from[0] + member.to[0]) / 2, mark.at[1] - (member.from[1] + member.to[1]) / 2);
+  return distance > reach ? null : distance;
+}
+
+/** Does this mark stand ON a member — between its two edge lines, and within the stretch it runs? */
+function standsOn(mark: Said, member: Axis): boolean {
+  const along = member.along === "x" ? mark.at[0] : mark.at[1];
+  const off = Math.abs((member.along === "x" ? mark.at[1] : mark.at[0]) - member.at);
+  return off <= member.width / 2 && member.start <= along && along <= member.end;
+}
+
+/** Does this edge line run along one of the plane's two axes, to within the pairing's own tolerance? */
+function squareToThePlane(edge: Edge, tolerance: number): boolean {
+  return Math.min(Math.abs(edge.to[0] - edge.from[0]), Math.abs(edge.to[1] - edge.from[1])) <= tolerance;
 }
 
 /**
@@ -485,15 +653,27 @@ function supportsOf(plan: Plan, placed: readonly PlacementRow[], rings: Readonly
   return carried;
 }
 
-/** Where a point stands on one view's backbone: the nearest axis of each family, and the offset off it. */
+/**
+ * Where a point stands on one view's backbone: the nearest axis of each family, and the offset off it
+ * along each of the plane's two directions.
+ *
+ * Each offset is taken off the axis that stands ACROSS that direction — the one whose own orientation
+ * the grid stage read as it (`GridAxisRow.axis`) — and never off a family by its name (I-340). A
+ * drawing letters whichever way its draughtsman chose: F-RCC6 stands its letters along x and its
+ * numerals along y, F-RCC6-BNBC the other way about, and an offset taken off "the letter" measured a
+ * BNBC point's x against a letter axis's y. Every support of another plan was then a stranger at its
+ * own grid reference, every beam end fell through to the crossing beam's edges, and each clear was
+ * OVER by the column's half-width at both ends (L-QTY-06: over is never a disclosure).
+ */
 function addressOf(axes: readonly GridAxisRow[], at: Point): Address {
   const letter = nearestAxis(axes, LETTER_FAMILY, at);
   const numeral = nearestAxis(axes, NUMERAL_FAMILY, at);
+  const across = (direction: GridAxisRow["axis"]): GridAxisRow | undefined => [letter, numeral].find((axis) => axis?.axis === direction);
   return {
     letter: letter?.label ?? null,
     numeral: numeral?.label ?? null,
-    offX: letter === undefined ? at[0] : at[0] - letter.position,
-    offY: numeral === undefined ? at[1] : at[1] - numeral.position,
+    offX: at[0] - (across(AXIS_X)?.position ?? 0),
+    offY: at[1] - (across(AXIS_Y)?.position ?? 0),
   };
 }
 
@@ -521,10 +701,21 @@ function nearestLabel(axes: readonly GridAxisRow[], family: string, at: Point): 
   return nearestAxis(axes, family, at)?.label ?? null;
 }
 
-/** The position of one view's axis by label, or null where its backbone carries no such axis. */
-function axisAt(axes: readonly GridAxisRow[], family: string, label: string | null): number | null {
-  if (label === null) return null;
-  return axes.find((axis) => axis.family === family && axis.label === label)?.position ?? null;
+/**
+ * The position of the axis at one grid reference that stands ACROSS a direction of the plane — the
+ * letter or the numeral, whichever the grid stage read standing that way (I-340) — or null where this
+ * view's backbone carries no such axis.
+ */
+function originAcross(axes: readonly GridAxisRow[], address: Address, direction: GridAxis): number | null {
+  for (const [family, label] of [
+    [LETTER_FAMILY, address.letter],
+    [NUMERAL_FAMILY, address.numeral],
+  ] as const) {
+    if (label === null) continue;
+    const axis = axes.find((one) => one.family === family && one.label === label);
+    if (axis?.axis === direction) return axis.position;
+  }
+  return null;
 }
 
 /**
@@ -532,9 +723,9 @@ function axisAt(axes: readonly GridAxisRow[], family: string, label: string | nu
  * (L-MEA-09). A tie beam reads no side — it carries no slab, and a reading of a soffit that is not
  * there would be a figure nobody drew (L-QTY-04).
  */
-function runOf(key: string, member: Axis, plan: Plan, supports: readonly Support[], type: ElementType, unit: Unit | null): RunRow {
-  // A drawing whose units the seam could not map states no length at all: the run is unread rather
-  // than stated in a unit nobody named (L-CAD-02, B-07).
+function runOf(key: string, member: Axis, plan: Plan, supports: readonly Support[], type: ElementType, unit: DrawnUnit | null): RunRow {
+  // A drawing whose units neither the seam nor the drawing's own notes could name states no length at
+  // all: the run is unread rather than stated in a unit nobody named (L-CAD-02, B-07, I-340).
   if (unit === null) return { placementKey: key, clear: null, sides: [null, null] };
 
   const cut = supportedSpan(member, plan, supports);
@@ -545,8 +736,11 @@ function runOf(key: string, member: Axis, plan: Plan, supports: readonly Support
   // Written onto the same 0.1-drawing-unit lattice a placement is keyed on (L-REG-04). The clear is a
   // difference of coordinates read off doubles, so a run drawn 4200 long can arrive as
   // 4199.999999999985: the lattice is the precision the artifact states a coordinate to, and a figure
-  // carried past it would be a reading more exact than the drawing it came from (L-QTY-01).
-  const reading: RunReading = { value: quantise(clear), unit, basis: MEASURED, sourceKeys: [...member.keys, ...cut.sourceKeys] };
+  // carried past it would be a reading more exact than the drawing it came from (L-QTY-01). A clear
+  // read in a unit the drawing DECLARED cites the declaration beside the lines it was read off, as a
+  // ring's plan does (I-333, I-340; L-QTY-03).
+  const declared = unit.sourceKey === null ? [] : [unit.sourceKey];
+  const reading: RunReading = { value: quantise(clear), unit: unit.unit, basis: MEASURED, sourceKeys: [...member.keys, ...cut.sourceKeys, ...declared] };
   if (type !== "beam") return { placementKey: key, clear: reading, sides: [null, null] };
   return { placementKey: key, clear: reading, sides: sidesOf(member, segments, plan) };
 }
@@ -575,8 +769,6 @@ function supportedSpan(member: Axis, plan: Plan, supports: readonly Support[]): 
  */
 function faceAt(point: Point, member: Axis, plan: Plan, supports: readonly Support[]): { reach: readonly [number, number]; key: string } | null {
   const address = addressOf(plan.axes, point);
-  const letterAt = axisAt(plan.axes, LETTER_FAMILY, address.letter);
-  const numeralAt = axisAt(plan.axes, NUMERAL_FAMILY, address.numeral);
   const reaching = supports
     .filter(
       (support) =>
@@ -592,7 +784,10 @@ function faceAt(point: Point, member: Axis, plan: Plan, supports: readonly Suppo
 
   const held = reaching[0];
   if (held !== undefined) {
-    const [origin, off, half] = member.along === "x" ? [letterAt, held.offX, held.halfX] : [numeralAt, held.offY, held.halfY];
+    // The support's offset along the run is taken back off the axis standing ACROSS the run at this
+    // grid reference — the one the offset was measured off (I-340).
+    const origin = originAcross(plan.axes, address, member.along);
+    const [off, half] = member.along === AXIS_X ? [held.offX, held.halfX] : [held.offY, held.halfY];
     if (origin !== null) return { reach: [origin + off - half, origin + off + half], key: held.key };
   }
 

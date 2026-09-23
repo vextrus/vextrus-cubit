@@ -83,6 +83,14 @@ export type PlacementRow = {
 /** A layout plan that placed nothing because it georeferenced as deferred (L-CAD-07). */
 export type UngriddedView = { readonly viewKey: string };
 
+/**
+ * The length unit one artifact's geometry is read in — a ring's plan and a run's clear alike — and the
+ * declaration it was read off where the header named none (I-302, I-333, I-340). `sourceKey` is null
+ * where the header named the unit: a figure read in a unit somebody DECLARED is evidence from that
+ * declaration too, and is cited to it (L-QTY-03); one read in the header's unit cites nothing more.
+ */
+export type DrawnUnit = { readonly unit: Unit; readonly sourceKey: string | null };
+
 /** One reading a run carries: what was read, in the unit it was read in, and off which entities. */
 export type RunReading = {
   readonly value: string;

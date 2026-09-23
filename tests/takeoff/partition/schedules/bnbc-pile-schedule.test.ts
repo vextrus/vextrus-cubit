@@ -67,6 +67,17 @@ const BNBC_PLACEMENTS_BAR_CAPS_BEFORE = "8742a15d0e8e0734cfa65e28d539397e883542d
 /** The schedule the pile-cap families are registered from, since FND-2 (S-06's paper caption). */
 const PILE_CAP_SCHEDULE = "DXF_HANDLE:202D";
 
+/**
+ * TEST_AMENDED (FRM-2, I-343/I-344): the beam slice adds two things this ratchet's filters took in, each
+ * on purpose and each graded in tests/takeoff/partition/placement/bnbc-beam-sections.test.ts rather
+ * than re-pinned blind here. S-16's and S-17's long-section sheets register 106 beam families (I-343),
+ * keyed by the two sheets' own views; and the beam layouts now place their beams (I-344). So what may
+ * not move is every family bar P, the caps' and the strips' — the same bytes as before — and every
+ * placement that is neither a pile cap nor a beam: the 89 piles and the 27 columns, unchanged.
+ */
+const STRIP_SHEETS: readonly string[] = Object.freeze(["DXF_HANDLE:218E", "DXF_HANDLE:2173"]);
+const FRAMED: readonly string[] = Object.freeze(["beam", "tie_beam"]);
+
 /** F-RCC6's `{ placements, runs, tables, families }` before FND-1 — the integrator's harness digest. */
 const RCC6_STAGES_BEFORE = "a3c0c6e0f692e49074b9c1276dbc955f248bd5287740c6babc1275c08018a703";
 
@@ -132,12 +143,12 @@ describe("FND-1 moves nothing it was not asked to", () => {
   test("every family and every placement BNBC stood on before stands byte for byte, bar what FND-2 re-read (TEST_AMENDED)", async () => {
     const { registered, placed } = await bnbc();
     expect(
-      sha(registered.families.filter((family) => family.family !== "P" && family.scheduleKey !== PILE_CAP_SCHEDULE)),
-      "the families registered before, P and the cap schedule's aside — which is FND-1's roster less the two a bar schedule minted",
+      sha(registered.families.filter((family) => family.family !== "P" && family.scheduleKey !== PILE_CAP_SCHEDULE && !STRIP_SHEETS.includes(family.scheduleKey))),
+      "the families registered before, P, the cap schedule's and the long-section sheets' aside — which is FND-1's roster less the two a bar schedule minted",
     ).toBe(BNBC_FAMILIES_BAR_P_AND_CAPS_BEFORE);
     expect(
-      sha(placed.placements.filter((row) => row.elementType !== "pile_cap")),
-      "every placement that is not a pile cap — the 89 piles and the 27 columns — key for key and point for point",
+      sha(placed.placements.filter((row) => row.elementType !== "pile_cap" && !FRAMED.includes(row.elementType))),
+      "every placement that is neither a pile cap nor a beam — the 89 piles and the 27 columns — key for key and point for point",
     ).toBe(BNBC_PLACEMENTS_BAR_CAPS_BEFORE);
   }, BUDGET_MS);
 

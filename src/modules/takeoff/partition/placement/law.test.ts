@@ -27,7 +27,7 @@
 import { describe, expect, test } from "vitest";
 import { type BandStatement, bandCovers, bandOpen, placedBy } from "@/core/offers/contract";
 import { isMarkFamily, normaliseMark } from "../notation";
-import { bandStatedIn, classOfMark, levelSightingsOf, levelWordsOf, memberNoteOf, soleNotesAmong } from "./law";
+import { bandStatedIn, classOfMark, isBoundXrefContext, levelSightingsOf, levelWordsOf, memberNoteOf, soleNotesAmong } from "./law";
 
 /** S-10's two notes, verbatim, control codes and brackets and all. */
 const C7_NOTE = "C7 %%C450 PORCH COLUMN";
@@ -295,5 +295,58 @@ describe("the level words a text says", () => {
     for (const said of [...EVERY_TEXT, "TYPICAL FLOOR PLAN (1ST TO 6TH)"]) {
       expect(levelWordsOf(said)).toEqual(levelSightingsOf(said).flatMap((sighting) => sighting.level ?? []));
     }
+  });
+});
+
+// I-341: the beams a floor-by-floor set letters by what they DO, and the storey-keyed beam roster,
+// read as beams by exact prefix — on the marks F-RCC6-BNBC's beam layouts actually write (S-13's
+// `1B12`/`1CB3`/`1EB2`/`LB1`/`PB4`/`TG1`, S-14's `CB2`/`EB1`, S-15's `RB10`/`REB2`/`SB-R4`).
+describe("I-341: the framed prefixes a beam layout writes", () => {
+  test("each beam family the set letters is a beam — the hyphen of `SB-R` is the comparison form's to take away", () => {
+    const marks = ["B4", "RB10", "REB2", "CB2", "EB1", "LB1", "PB4", "TG1", "SB-R4", "SBR4", "cb 3"];
+    expect(marks.map((mark) => classOfMark(mark))).toEqual(marks.map(() => "beam"));
+  });
+
+  test("a storey digit before a beam mark keys the beam to its floor and leaves it a beam", () => {
+    expect(["1B12", "2B7", "1CB3", "1EB2", "1LB1"].map((mark) => classOfMark(mark))).toEqual(["beam", "beam", "beam", "beam", "beam"]);
+  });
+
+  test("a leading digit before any other class names no storey — a count of bars, a code, a band — and reads nothing", () => {
+    // `8T16` is eight 16 mm bars on the column schedule; `1C1` is no floor-keyed column on any roster;
+    // `1FTO2F` is what a band `1F TO 2F` closes up into; `1TB1` would key a tie beam, which stands in
+    // the FOUNDATION slot and on no floor.
+    expect(["8T16", "1C1", "1P1", "1PC1", "1FTO2F", "1TB1", "12B1"].map((mark) => classOfMark(mark))).toEqual([null, null, null, null, null, null, null]);
+  });
+
+  test("exact prefix: the lintel, the slab, the pile and the pile cap keep their own classes, and a grade beam is held back", () => {
+    // `L1` (S-25's lintel) and `S3` (a slab panel) are no member this stage places; `P1` a pile and
+    // `PC1` a pile cap, as before. `GB1` is a tie beam the day its caps stand on S-08 — until then a
+    // grade beam would be cut at a storey's column faces and measure two-thirds over (GB1-1: +67 %).
+    expect(["L1", "S3", "P1", "PC1", "GB1", "TB1", "SW1", "C5"].map((mark) => classOfMark(mark))).toEqual([null, null, "pile", "pile_cap", null, "tie_beam", "shear_wall", "column"]);
+  });
+
+  test("a note about a newly-read beam family is refused as every framed note is — no outline stands for a beam", () => {
+    // S-13's own note under the transfer girder names `TG1` first; it is evidence about a beam, and a
+    // beam is placed off its edge lines (`./runs`), never off a note (I-303's framed refusal).
+    expect(memberNoteOf("TG1 400x900 TRANSFER GIRDER UNDER C5")).toBeNull();
+    expect(memberNoteOf("1EB2 CURVED EDGE BEAM R 1524")).toBeNull();
+  });
+});
+
+// I-342: T-XREF-BOUND — what another drawing was bound in on is no member of this one.
+describe("I-342: a bound xref's layers are another drawing's background", () => {
+  test("the binding infix a CAD program writes marks the layer, and nothing a draughtsman names does", () => {
+    expect(["ARCH-PLAN$0$WALL", "ARCH-PLAN$0$WINDOW", "ARCH-PLAN$0$DOOR", "SITE$12$KERB"].map((layer) => isBoundXrefContext(layer))).toEqual([true, true, true, true]);
+    expect(["Beam Line", "Column", "S-BEAM", "OLD-SCHEME-REV0", "Wall", "0", "$0$", "PRICE$", "A$B$C"].map((layer) => isBoundXrefContext(layer))).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
   });
 });

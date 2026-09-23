@@ -137,7 +137,13 @@ describe("I-321: what a bare prefix names", () => {
       null,
       null,
     ]);
-    expect([classOfFamily("P"), classOfFamily("P7"), classOfFamily("PC3"), classOfFamily("RB1")], "a family is of the class its mark or its prefix names").toEqual(["pile", "pile", "pile_cap", null]);
+    // TEST_AMENDED (FRM-1, I-341): `RB1` answered null here while the class map held only `B` and `TB`
+    // of the framed prefixes; a roof beam is a beam, and the roof schedule's own families say so now.
+    // `S3` keeps the null the old case proved — exact prefix, so a slab mark is still no member.
+    expect(
+      [classOfFamily("P"), classOfFamily("P7"), classOfFamily("PC3"), classOfFamily("RB1"), classOfFamily("S3")],
+      "a family is of the class its mark or its prefix names",
+    ).toEqual(["pile", "pile", "pile_cap", "beam", null]);
   });
 });
 

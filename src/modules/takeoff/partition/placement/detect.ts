@@ -44,7 +44,9 @@
 //
 // NO LAYER is consulted by either reading, here or in `./law`: L-CAD-07 reads a drawing by content
 // signature and never by layer names, and a note is what a text SAYS rather than where a draughtsman
-// filed it.
+// filed it. The one thing read off a layer's name is what no draughtsman wrote there — the binding
+// infix a CAD program gives a layer another drawing was bound in on (`ARCH-PLAN$0$WALL`), which says
+// the entity is that drawing's background and no member of this one (I-342, T-XREF-BOUND).
 //
 // Only layout-plan-class views are read (L-CAD-06: "only layout-plan-class views may yield
 // instances"), and only a view the grid stage georeferenced: a plan with no spacing has nothing to
@@ -54,15 +56,14 @@
 // places the same members forever, which is what makes the stored partition rebuildable (L-REG-04).
 import type { ElementType } from "@/core/catalogue/classes";
 import type { EntityGraph } from "@/core/entitygraph/schema";
-import type { Unit } from "@/core/units/canon";
 import { placementKey, viewKey as viewKeyOf, type ViewRef } from "@/core/identity";
 import type { DetectedGrid, GridAxisRow } from "../grid/detect";
 import { DIMENSION, normaliseMark } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
-import { classOfFamily, classOfMark, classOfPrefix, isFramedClass, memberNoteOf, soleNotesAmong, type MemberNote } from "./law";
+import { classOfFamily, classOfMark, classOfPrefix, isBoundXrefContext, isFramedClass, memberNoteOf, soleNotesAmong, type MemberNote } from "./law";
 import { enclosedAreaOf, outlineReadingOf, ringHolds } from "./outline";
-import type { DetectedPlacements, FamilyNamed, OutlineRow, PlacementEvidence, PlacementNote, PlacementRow, UngriddedView } from "./rows";
+import type { DetectedPlacements, DrawnUnit, FamilyNamed, OutlineRow, PlacementEvidence, PlacementNote, PlacementRow, UngriddedView } from "./rows";
 import { detectRuns, drawnUnitOf } from "./runs";
 import { shareValue } from "./shares";
 
@@ -185,21 +186,25 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
   const rings = new Map(plans.flatMap((plan) => plan.read.outlines).map((outline) => [outline.key, outline]));
   const typed = typedByPrefix(placements, evidence.families, rings, scale);
 
+  // The unit the drawing's geometry is read in, read ONCE for the rings and the runs alike (I-340): a
+  // plan and a clear drawn on one sheet are drawn in one unit, and two readings of it could disagree.
+  const unit = drawnUnitIn(evidence, scale);
+
   // The plan each ring-placed member encloses, read off the ring it was placed by (I-333): what the
   // measure of a foundation stands on, so a chamfered cap is its shoelace and a turned one its own
   // sides — never a bounding box, and never the schedule's rectangle (L-FRM-02).
-  const outlines = outlinesOf(typed, rings, outlineUnitOf(evidence, scale));
+  const outlines = outlinesOf(typed, rings, unit);
 
   // The members no closed outline stands for: a beam is drawn as the pair of lines either side of its
   // axis, and it is placed off that pair with the run it measures beside it (`./runs`, L-MEA-09). It
   // runs here, after the outline pass, because the outlines that pass placed are the members that
   // CARRY a beam's ends and the rings a slab must not be read from.
-  const framed = detectRuns(evidence, typed);
+  const framed = detectRuns(evidence, typed, unit, scale);
   return { views: examined, placements: [...typed, ...framed.placements], ungridded, runs: framed.runs, outlines, scale, noted, minted };
 }
 
 /** The plan each ring-placed row's ring encloses, in the rows' own order — none where no unit reads. */
-function outlinesOf(rows: readonly PlacementRow[], rings: ReadonlyMap<string, Outline>, unit: OutlineUnit | null): OutlineRow[] {
+function outlinesOf(rows: readonly PlacementRow[], rings: ReadonlyMap<string, Outline>, unit: DrawnUnit | null): OutlineRow[] {
   if (unit === null) return [];
   return rows.flatMap((row) => {
     const ring = rings.get(row.outlineKey);
@@ -208,9 +213,6 @@ function outlinesOf(rows: readonly PlacementRow[], rings: ReadonlyMap<string, Ou
   });
 }
 
-/** The unit a ring's plan is read in, and the declaration it was read off where one answered. */
-type OutlineUnit = { readonly unit: Unit; readonly sourceKey: string | null };
-
 /**
  * How near one the drawn scale must stand for a unitless drawing's geometry to be read in the unit
  * its notes declare: a thousandth — a millimetre in a metre, a pure number (L-MEA-01).
@@ -218,16 +220,17 @@ type OutlineUnit = { readonly unit: Unit; readonly sourceKey: string | null };
 const DECLARED_SCALE_AGREEMENT = 1e-3;
 
 /**
- * The unit the rings of this drawing are read in (I-333), or null where none is stated.
+ * The unit the geometry of this drawing is read in — the rings' plans (I-333) and the runs' clears
+ * (I-340) alike — or null where none is stated.
  *
- * The header's, where it names one the canon carries — the unit a run is read in (`drawnUnitOf`,
- * B-17). Where the header is UNITLESS — F-RCC6-BNBC's is — the unit the drawing's own notes declare
- * (I-302: the declaration is the last word on a figure nobody gave a unit to), and only where the
- * drawing's own members corroborate it: drawn at scale one, a member IS the size its schedule states
- * in that unit, so a unit of the drawing is a unit of the declaration. A declaration the members do
- * not bear out reads no plan at all (L-QTY-01: never a guess).
+ * The header's, where it names one the canon carries (`drawnUnitOf`, B-17). Where the header is
+ * UNITLESS — F-RCC6-BNBC's is — the unit the drawing's own notes declare (I-302: the declaration is
+ * the last word on a figure nobody gave a unit to), and only where the drawing's own members
+ * corroborate it: drawn at scale one, a member IS the size its schedule states in that unit, so a unit
+ * of the drawing is a unit of the declaration. A declaration the members do not bear out reads no
+ * plan and no run at all (L-QTY-01: never a guess).
  */
-function outlineUnitOf(evidence: PlacementEvidence, scale: number | null): OutlineUnit | null {
+function drawnUnitIn(evidence: PlacementEvidence, scale: number | null): DrawnUnit | null {
   const header = drawnUnitOf(evidence.graph);
   if (header !== null) return { unit: header, sourceKey: null };
   const declared = evidence.declaredUnit ?? null;
@@ -419,12 +422,13 @@ type PlanPass = {
  * georeference, and reading it as a member would place a column at every grid intersection (B-17).
  *
  * The standing population is kept beside what was read from it, because the note pass reads the SAME
- * texts the marks were read from and must see exactly the set this reading saw (I-303, B-17).
+ * texts the marks were read from and must see exactly the set this reading saw (I-303, B-17). What
+ * another drawing bound in as background stands in no population of this one (I-342).
  */
 function readPlan(pass: PlanPass): PlanRead {
   const cited = new Set(pass.axes.flatMap((axis) => [axis.bubbleKey, axis.labelKey]));
   const standing = pass.evidence.graph.entities.filter(
-    (entity) => pass.evidence.assignments.get(entity.key) === pass.view.viewKey && !cited.has(entity.key),
+    (entity) => pass.evidence.assignments.get(entity.key) === pass.view.viewKey && !cited.has(entity.key) && !isBoundXrefContext(entity.layer),
   );
 
   const marks = standing.flatMap((entity) => markOf(entity) ?? []);

@@ -37,10 +37,39 @@ const CLASS_OF_PREFIX: Readonly<Record<string, ElementType>> = Object.freeze({
   P: PILE,
   B: BEAM,
   TB: TIE_BEAM,
+  // The beams a floor-by-floor set letters by what they DO rather than as `B` (Interpretation I-341):
+  // roof and roof-edge beams, cantilevers, edge beams, a landing beam, porch beams, a transfer girder,
+  // and the stair roof's beams — whose own spelling carries a hyphen (`SB-R4`) that the comparison
+  // form takes away. Every one is a floor beam in L-MEA-09's sense: it spans between the faces of what
+  // carries it and below the slab it carries. The notation grammar's roster already reads each as a
+  // mark (`../notation/grammar`'s MARK_FAMILIES); what is added here is the CLASS it names, and only
+  // by exact prefix — `L` stays a lintel, `S` a slab, `P` a pile and `PC` a pile cap.
+  //
+  // `GB` is held back, and on purpose: a grade beam is a tie beam, and a tie beam's run is cut at the
+  // faces of the foundation members its OWN plan places — but S-08 draws its 27 caps as unmarked rings,
+  // so a grade beam read today would be cut at the column faces a storey above instead and measure
+  // two-thirds over (GB1-1: +67 %). It waits for the caps to stand on its plan (L-QTY-06).
+  RB: BEAM,
+  REB: BEAM,
+  CB: BEAM,
+  EB: BEAM,
+  LB: BEAM,
+  PB: BEAM,
+  TG: BEAM,
+  SBR: BEAM,
 });
 
 /** The letters a mark opens with, before the number that tells one member of a family from another. */
 const MARK_PREFIX = /^([A-Z]+)\d/;
+
+/**
+ * A STOREY-KEYED mark: one digit naming the storey, then a mark of its own (`1B12` is the first
+ * floor's beam 12, `1CB3` its cantilever 3, `1EB2` its edge beam 2 — the digit is the level, not part
+ * of the class; `../notation/grammar`'s `MARK_NUMBERED` reads the same shape). Only a BEAM is keyed so
+ * (I-341): a floor-by-floor set rosters its beams storey by storey and nothing else, and a leading
+ * digit before any other class is a count or a code rather than a storey — `8T16` is eight bars.
+ */
+const STOREY_KEYED_MARK = /^\d([A-Z]+\d+[A-Z]?)$/;
 
 /**
  * L-CAD-07's vertical classes — "vertical classes (column, shear wall) expand per level at
@@ -82,6 +111,13 @@ export const FRAMED_CLASSES: readonly ElementType[] = Object.freeze([BEAM, TIE_B
  */
 export function classOfMark(mark: string): ElementType | null {
   const normalised = normaliseMark(mark);
+  const keyed = STOREY_KEYED_MARK.exec(normalised)?.[1];
+  if (keyed !== undefined) return classOfUnkeyed(keyed) === BEAM ? BEAM : null;
+  return classOfUnkeyed(normalised);
+}
+
+/** The class a mark written in the comparison form names, read by the letters it opens with. */
+function classOfUnkeyed(normalised: string): ElementType | null {
   if (!isMarkFamily(normalised)) return null;
   const prefix = MARK_PREFIX.exec(normalised)?.[1];
   return prefix === undefined ? null : (CLASS_OF_PREFIX[prefix] ?? null);
@@ -119,6 +155,31 @@ export function classOfFamily(family: string): ElementType | null {
  * beside the sighting it is registered under (Q-07, B-17).
  */
 export const PLACEMENT_DISCIPLINE: Discipline = DISCIPLINES[0];
+
+/**
+ * The name a CAD program gives a layer it BOUND in from an external reference: the xref's own name, a
+ * `$`, the bind's ordinal, a `$`, then the layer as the other drawing called it — `ARCH-PLAN$0$WALL`.
+ * The draughtsman typed none of the infix; the program wrote it when the architect's plan was bound
+ * into this sheet as background (T-XREF-BOUND).
+ */
+const BOUND_XREF_LAYER = /^[^$]+\$\d+\$./;
+
+/**
+ * Was this entity drawn by ANOTHER drawing, bound into this one as its background (Interpretation
+ * I-342)? A bound xref is architectural context — the architect's walls and windows under the
+ * structural plan — and no member of this drawing is read off it: F-RCC6-BNBC's S-13 carries the
+ * architect's WALL and WINDOW lines as eight congruent pairs 125 apart, and a mark reader that took
+ * them as edge lines placed eight 9000- and 1800-long beams under the first floor's `1B` marks, carried
+ * at neither end, where no beam was ever drawn (L-QTY-04, L-QTY-06).
+ *
+ * This reads a layer's NAME for the one thing in it no draughtsman wrote — the program's binding infix
+ * — and never for what the name says: `Beam Line`, `Column` and `S-BEAM` stay words this stage does
+ * not read (L-CAD-07 reads by content signature). An xref still ATTACHED rather than bound spells its
+ * layers `XREF|LAYER`; neither fixture draws one, and this reads none — recorded, not guessed.
+ */
+export function isBoundXrefContext(layer: string): boolean {
+  return BOUND_XREF_LAYER.test(layer);
+}
 
 /** Does a member of this class expand over the levels its view states (L-CAD-07)? */
 export function isVerticalClass(type: ElementType): boolean {

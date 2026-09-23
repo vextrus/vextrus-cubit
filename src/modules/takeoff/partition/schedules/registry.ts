@@ -462,7 +462,7 @@ function variantsOf(
  * not read off S-01, and citing S-01 there would put evidence under a figure it took no part in
  * (L-QTY-03).
  */
-function unitOf(section: Pick<SizePair, "unit"> | null, unitHeader: string, declared: DeclaredDimensionUnit | null): { unit: SectionUnit | null; cited: readonly string[] } {
+export function unitOf(section: Pick<SizePair, "unit"> | null, unitHeader: string, declared: DeclaredDimensionUnit | null): { unit: SectionUnit | null; cited: readonly string[] } {
   if (section === null) return { unit: null, cited: [] };
   const nearer = section.unit ?? sectionUnitOfHeader(unitHeader);
   if (nearer !== null) return { unit: nearer, cited: [] };
@@ -497,7 +497,7 @@ function levelsColumnOf(columns: readonly Column[], rows: readonly [number, Map<
  * that writes it in a column of its own, and the section column's own reading must not depend on how
  * many lines the draughtsman stacked in the cell (L-CAD-08).
  */
-function sectionOf(text: string): SizePair | null {
+export function sectionOf(text: string): SizePair | null {
   for (const part of cellParts(text)) {
     const stated = parseSizePair(part);
     if (stated !== null) return stated;
