@@ -30,6 +30,10 @@
   font-size: var(--text-14);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
+  /* A link wearing the Button (`<a class="cx-btn">`, a `next/link` door) is a button to the eye: the
+     UA's link underline would read a row of doors as a row of links in boxes (Direction 00 §1, one
+     button style). The box, the fill and the reticle are its affordance, as they are a button's. */
+  text-decoration: none;
   cursor: pointer;
   transition:
     background-color var(--motion-state) var(--ease),
@@ -986,10 +990,19 @@ button.cx-chip:hover:not(:disabled) {
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
-/* The copy button is an IconButton at the chip's own height, not the toolbar's. */
+/* The copy button is an IconButton at WCAG 2.2 SC 2.5.8's 24 px, not the toolbar's 28 — and not the
+   chip's 20 either. A 20 px target in a 28 px row passes on spacing alone until something overlaps
+   the row: the register's sticky totals footer left axe a 3.6 px sliver of the last visible row's
+   copy and it reported a serious `target-size` (craft look, session 7, I-313). The glyph is the same
+   `sm` glyph, centred; the value pill beside it stays 20 px.
+   The TARGET grows and the LINE does not: the negative block margin gives the box back to the
+   chip's 20 px line, so the 24 px box overhangs it by 2 px above and below and nothing a chip stands
+   in — a card's one-line cited row, a list, a 28 px grid row (a cell clips at its padding box) —
+   grows by a pixel. A screen's height may only fall (tests/e2e/support/height-budget.ts). */
 .cx-id-chip-copy {
-  width: var(--space-5);
-  height: var(--space-5);
+  width: var(--space-6);
+  height: var(--space-6);
+  margin-block: calc(var(--space-1) * -1);
 }
 
 .cx-id-chip[data-copied="true"] .cx-id-chip-copy {

@@ -292,7 +292,13 @@
   width: 100%;
 }
 
+/* A hovered row carries `--ink` and `--ink-secondary`, never a caption's `--ink-muted`: no hover a
+   reader can see leaves a caption its 4.5:1 (src/ui/contrast.test.ts rules it by arithmetic). So for
+   as long as the pointer rests on a row, the muted ink inside it — a unit badge, a unit, a count —
+   steps up to secondary. The alias is re-pointed for the row's own subtree and nowhere else; the
+   first run of session 7's craft window found a UnitBadge at 4.23:1 under a resting pointer. */
 .cx-table-body .cx-table-row:hover {
+  --ink-muted: var(--ink-secondary);
   background-color: var(--surface-hover);
 }
 
@@ -335,6 +341,15 @@
   text-align: right;
 }
 
+/* The header is a LABEL row: a right-aligned column's header stands over its figures' edge, in the
+   face every other header is set in. Without this the rule above reached the header cells too, and
+   one header row mixed two typefaces — `Drawings` and `Pinned revisions` in mono beside `Set` in
+   the UI face (craft look, session 7; §5 rule 5 makes the NUMERALS mono, not their labels). */
+.cx-table-headercell[data-align="right"] {
+  font-family: var(--font-ui);
+  font-variant-numeric: normal;
+}
+
 .cx-table-cell[data-pinned] {
   position: sticky;
   z-index: var(--z-sticky);
@@ -362,6 +377,21 @@
 }
 
 .cx-table-row[data-refused="true"] {
+  background-color: var(--state-warn-surface);
+}
+
+/* A frozen cell paints its own ground so the columns scrolling under it stay hidden, and so it has to
+   paint the ROW's state too: at rest it stood in the app ground while the rest of a hovered or selected
+   row lit, and the row read as two rows (session 7's craft window, the rule set's key column). */
+.cx-table-body .cx-table-row:hover .cx-table-cell[data-pinned] {
+  background-color: var(--surface-hover);
+}
+
+.cx-table-row[data-selected="true"] .cx-table-cell[data-pinned] {
+  background-color: var(--surface-selected);
+}
+
+.cx-table-row[data-refused="true"] .cx-table-cell[data-pinned] {
   background-color: var(--state-warn-surface);
 }
 
@@ -456,6 +486,20 @@
   font: inherit;
   cursor: pointer;
   transition: color var(--motion-state) var(--ease);
+}
+
+/* The sort control is a 24 px target (SC 2.5.8) in the header's 28 px row. A right-aligned column's
+   label ends at the cell's padding, INSIDE the 24 px resize target that hugs the column edge
+   (below), so part of the control is always under the handle; what is left clear of it has to be
+   24 px wide on its own. The UI-face header label (above) is narrower than the mono one was, and the
+   register's `Value` came out 34 px with 18 px of it clear — axe called it serious (session 7). */
+.cx-table-sort {
+  min-block-size: var(--space-6);
+}
+
+.cx-table-headercell[data-align="right"] .cx-table-sort {
+  min-inline-size: calc(var(--space-6) * 2);
+  justify-content: flex-end;
 }
 
 .cx-table-sort[data-direction] {

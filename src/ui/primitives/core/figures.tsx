@@ -41,6 +41,16 @@ export function FigureProvider({ format, children }: FigureProviderProps): React
  * neither is not rendered ungrouped — a document that quietly prints `10000000` where it means
  * `1,00,00,000` is worse than one that stops — so the absence is raised where it can be fixed.
  */
+/**
+ * The tree's conventions where a FigureProvider is mounted, else null — for a primitive that writes a
+ * figure of its OWN inside a surface that may predate the provider (the DataTable's group subtotal,
+ * which the table sums itself). It never invents a grouping: with no conventions the caller shows
+ * the exact decimal it summed, and says so in its Decision.
+ */
+export function useFigureContext(): FigureFormat | null {
+  return useContext(FigureContext);
+}
+
 export function useFigures(format?: FigureFormat): FigureFormat {
   const provided = useContext(FigureContext);
   const held = format ?? provided;

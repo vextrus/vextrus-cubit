@@ -7,10 +7,15 @@
  * A digest, a uuid and an act id are not prose and are never abbreviated in the DATA — the short
  * form is a rendering, and the element carries the full value in `data-value` so a suite, a
  * screen reader's copy and the clipboard all get the real thing.
+ *
+ * Inside a grid cell the chip's two stops — the value and its copy — leave the Tab order and are
+ * reached through the cell (Enter or F2, then Tab between them): a grid is one Tab stop, and a
+ * register with a chip per line was 848 of them (grid-cell.ts). Anywhere else both stay in it.
  */
 import { useState, type ReactNode } from "react";
 import { cx } from "./class-names";
 import { IconCopy } from "../../icons";
+import { cellControlTabIndex, useInGridCell } from "./grid-cell";
 import { IconButton } from "./icon-button";
 import { Tooltip } from "./tooltip";
 import { strings } from "../../strings";
@@ -33,6 +38,7 @@ export function shortForm(value: string, length: number = SHORT_LENGTH): string 
 
 export function IdChip({ value, short, className, "data-testid": testId }: IdChipProps): ReactNode {
   const [copied, setCopied] = useState(false);
+  const cellTabIndex = cellControlTabIndex(useInGridCell());
 
   const copy = (): void => {
     // The clipboard is a browser capability, not a guarantee: a denied permission or a context that
@@ -55,12 +61,13 @@ export function IdChip({ value, short, className, "data-testid": testId }: IdChi
       onBlur={() => setCopied(false)}
     >
       <Tooltip content={value}>
-        <span className="cx-id-chip-value cx-reticle" tabIndex={0}>
+        <span className="cx-id-chip-value cx-reticle" tabIndex={cellTabIndex ?? 0}>
           {short ?? shortForm(value)}
         </span>
       </Tooltip>
       <IconButton
         className="cx-id-chip-copy"
+        tabIndex={cellTabIndex}
         data-testid={testId === undefined ? "id-chip-copy" : `${testId}-copy`}
         icon={<IconCopy size="sm" />}
         label={copied ? strings.primitive_id_chip_copied : strings.primitive_id_chip_copy}

@@ -77,6 +77,8 @@ export function Tree({
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   const rows = useMemo(() => flatten(items, expanded), [items, expanded]);
+  /** Each visible item's place in `rows`, read once — a search per drawn item was O(n²) over the tree. */
+  const rowIndexOf = useMemo(() => new Map(rows.map((row, index) => [row.item.id, index])), [rows]);
 
   /**
    * A roving tabindex: exactly one item is tabbable, and it is the one the arrows last landed on —
@@ -170,7 +172,7 @@ export function Tree({
       const children = item.children ?? [];
       const hasChildren = children.length > 0;
       const isExpanded = hasChildren && expanded.has(item.id);
-      const index = rows.findIndex((row) => row.item.id === item.id);
+      const index = rowIndexOf.get(item.id) ?? -1;
       return (
         <div
           key={item.id}

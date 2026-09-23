@@ -55,6 +55,8 @@ import {
 import { lightTokens } from "../../tokens";
 import { BASIS_GLYPHS } from "../core/basis";
 import { cx } from "../core/class-names";
+import { useFigureContext } from "../core/figures";
+import { GridCellScope } from "../core/grid-cell";
 import { Input } from "../core/input";
 import { Skeleton } from "../core/skeleton";
 import { Tooltip } from "../core/tooltip";
@@ -142,6 +144,19 @@ export interface DataTableGroup<TRow> {
   readonly valueOf?: (row: TRow) => string | null;
   readonly unitOf?: (row: TRow) => string;
   readonly subtotal?: (rows: readonly TRow[]) => readonly DataTableSubtotal[];
+  /**
+   * The document's figure conventions the BUILT-IN sum is written in (§5 rule 5's lakh/crore,
+   * L-FMT-01) — the same `FigureFormat` the grid's figure cells are handed, because a subtotal
+   * grouped differently from the lines above it is two conventions on one screen. Left out, the
+   * tree's `FigureProvider` answers; with neither, the exact decimal is shown as summed. A consumer's
+   * own `subtotal` arrives already written and is shown as written. The sum's unit rides as the
+   * second argument, so a screen that states each unit at its own places (the register's m³ to 3,
+   * m² to 2, I-reg-2) writes its subtotals as it writes its footer; a `FigureFormat`'s `figure`,
+   * which reads the value alone, is one of these as it stands (I-335).
+   */
+  readonly format?: { readonly figure: (value: string, unit: string) => string };
+  /** Whether the group row states how many rows it holds, `(4)` (§5 rule 4). Left out, it does. */
+  readonly showCount?: boolean;
 }
 
 /** §5 rule 8's row states, as the row itself answers them. Selection is the table's own. */
@@ -326,22 +341,33 @@ export function subtotalsByUnit<TRow>(
 /* ------------------------------------------------------------------ the body's flat item list */
 
 type BodyItem<TRow> =
-  | { kind: "group"; id: string; label: string; count: number; subtotals: readonly DataTableSubtotal[] }
+  | {
+      kind: "group";
+      id: string;
+      label: string;
+      count: number;
+      subtotals: readonly DataTableSubtotal[];
+      /** The subtotals are the table's own exact sums (and so go through the figure seam), not the consumer's written ones. */
+      summed: boolean;
+    }
   | { kind: "row"; id: string; row: Row<TRow>; dataIndex: number };
 
 /**
  * The rows to draw, in document order, with a group header before each run of them. The group's
  * count and subtotals are taken over the rows the group actually HAS, not over the ones a collapsed
  * group happens to be showing — a subtotal that changed when you folded a group would be a lie.
+ *
+ * `itemAt` maps a data row's index (the cursor's coordinate) to its item's index (the window's), so
+ * the keyboard and `scrollToRowId` travel through a grouped list by the same arithmetic as a flat one.
  */
 function bodyItemsOf<TRow>(
   rows: readonly Row<TRow>[],
   group: DataTableGroup<TRow> | undefined,
   collapsed: ReadonlySet<string>,
-): { items: BodyItem<TRow>[]; dataRows: Row<TRow>[] } {
+): { items: BodyItem<TRow>[]; dataRows: Row<TRow>[]; itemAt: number[] } {
   if (group === undefined) {
     const items = rows.map<BodyItem<TRow>>((row, index) => ({ kind: "row", id: row.id, row, dataIndex: index }));
-    return { items, dataRows: [...rows] };
+    return { items, dataRows: [...rows], itemAt: rows.map((_row, index) => index) };
   }
   const order: DataTableGroupKey[] = [];
   const members = new Map<string, Row<TRow>[]>();
@@ -357,23 +383,26 @@ function bodyItemsOf<TRow>(
   }
   const items: BodyItem<TRow>[] = [];
   const dataRows: Row<TRow>[] = [];
+  const itemAt: number[] = [];
   for (const key of order) {
     const held = members.get(key.key) ?? [];
     const originals = held.map((row) => row.original);
+    const summed = group.subtotal === undefined && group.valueOf !== undefined && group.unitOf !== undefined;
     const subtotals =
       group.subtotal !== undefined
         ? group.subtotal(originals)
         : group.valueOf !== undefined && group.unitOf !== undefined
           ? subtotalsByUnit(originals, group.valueOf, group.unitOf)
           : [];
-    items.push({ kind: "group", id: key.key, label: key.label, count: held.length, subtotals });
+    items.push({ kind: "group", id: key.key, label: key.label, count: held.length, subtotals, summed });
     if (collapsed.has(key.key)) continue;
     for (const row of held) {
+      itemAt.push(items.length);
       items.push({ kind: "row", id: row.id, row, dataIndex: dataRows.length });
       dataRows.push(row);
     }
   }
-  return { items, dataRows };
+  return { items, dataRows, itemAt };
 }
 
 /* ------------------------------------------------------------------------------- the table */
@@ -419,7 +448,10 @@ export function DataTable<TRow>({
   useEffect(() => {
     const resolved = storage === undefined ? defaultStorage() : storage;
     setStore(resolved);
-    setFurniture(readColumnState(resolved, tableId));
+    // What is remembered is often exactly what the table already holds (nothing moved last visit);
+    // an equal state kept as it is spares the grid a second render of every row it drew.
+    const remembered = readColumnState(resolved, tableId);
+    setFurniture((held) => (JSON.stringify(held) === JSON.stringify(remembered) ? held : remembered));
     restored.current = true;
   }, [storage, tableId]);
 
@@ -491,7 +523,10 @@ export function DataTable<TRow>({
   });
 
   const rows = table.getRowModel().rows;
-  const { items, dataRows } = useMemo(() => bodyItemsOf(rows, group, collapsed), [rows, group, collapsed]);
+  const { items, dataRows, itemAt } = useMemo(() => bodyItemsOf(rows, group, collapsed), [rows, group, collapsed]);
+  /** The conventions a group's own sum is written in: the group's, else the tree's (§5 rule 5). */
+  const treeFigures = useFigureContext();
+  const subtotalFigures = group?.format ?? treeFigures;
   const leafColumns = table.getAllLeafColumns();
   const visibleColumns = table.getVisibleLeafColumns();
 
@@ -516,12 +551,17 @@ export function DataTable<TRow>({
     return () => observer.disconnect();
   }, [density]);
 
-  /** §5 rule 9: a window past 200 rows. Group rows and refusal notes lay out in flow, so a table
-      that draws either is not windowed — a virtualiser needs every row to be one height. */
-  const virtualised = items.length > VIRTUALISE_ABOVE_ROWS && group === undefined && renderRefusal === undefined && !loading;
+  /**
+   * §5 rule 9: a window past 200 rows — over the ITEMS the body draws, group headers and lines
+   * alike, because a group header is one `--row-h` like every line (the served register measured
+   * all 434 of its rows at exactly 28 px). A refusal note lays out in flow beneath its row and has no
+   * height the virtualiser can know, so a table that can draw one stays whole; so does the loading
+   * state, whose bones are not the list.
+   */
+  const virtualised = items.length > VIRTUALISE_ABOVE_ROWS && renderRefusal === undefined && !loading;
 
   const virtualizer = useVirtualizer({
-    count: virtualised ? dataRows.length : 0,
+    count: virtualised ? items.length : 0,
     getScrollElement: () => viewportRef.current,
     estimateSize: () => rowHeight,
     overscan: OVERSCAN_ROWS,
@@ -539,7 +579,9 @@ export function DataTable<TRow>({
    * The row a caller asked to be reachable, by position. Everything below is keyed on the position
    * rather than the id, so a sort or a filter that moves the row moves the answer with it.
    */
-  const askedIndex = scrollToRowId === undefined ? -1 : dataRows.findIndex((row) => row.id === scrollToRowId);
+  const askedRow = scrollToRowId === undefined ? -1 : dataRows.findIndex((row) => row.id === scrollToRowId);
+  /** …and that row's place among the items the window runs over, group headers counted. */
+  const askedIndex = askedRow < 0 ? -1 : (itemAt[askedRow] ?? -1);
 
   /** The row already travelled to, so the journey is made once per row asked for and not once per
       position it happens to be at. Sorting and filtering MOVE a row; they do not re-ask for it. */
@@ -560,19 +602,21 @@ export function DataTable<TRow>({
    * a request — scrolling a box is asynchronous, and a caller owed a row would otherwise be owed it
    * forever.
    */
-  const placed = ((): { item: BodyItem<TRow>; offset: number | null }[] => {
+  const placed = ((): { item: BodyItem<TRow>; index: number; offset: number | null }[] => {
     // Computed in render, never memoised: the virtualiser is one stable object that re-renders this
     // component when its window moves, so a memo keyed on it would hand back the window the table
     // had before it had measured anything — an empty list, forever.
-    if (!virtualised) return items.map((item) => ({ item, offset: null }));
+    if (!virtualised) return items.map((item, index) => ({ item, index, offset: null }));
     const window = virtualizer.getVirtualItems().map((virtual) => ({ index: virtual.index, start: virtual.start }));
     const drawn =
       askedIndex < 0 || window.some((entry) => entry.index === askedIndex)
         ? window
         : [...window, { index: askedIndex, start: askedIndex * rowHeight }].sort((left, right) => left.index - right.index);
+    // Each drawn entry carries its item's index, so a row states its place in the whole list
+    // (`aria-rowindex`) without searching the list for itself — a search per drawn row was O(n) each.
     return drawn.flatMap((entry) => {
       const item = items[entry.index];
-      return item === undefined ? [] : [{ item, offset: entry.start }];
+      return item === undefined ? [] : [{ item, index: entry.index, offset: entry.start }];
     });
   })();
 
@@ -602,7 +646,9 @@ export function DataTable<TRow>({
       const nextCol = Math.min(Math.max(col, 0), lastCol);
       setCursor({ row: nextRow, col: nextCol });
       setCursorFocused(true);
-      if (virtualised) virtualizer.scrollToIndex(nextRow);
+      // The cursor moves by data row; the window scrolls by item, so a grouped list travels through
+      // its group headers rather than landing a header's height short per group passed.
+      if (virtualised) virtualizer.scrollToIndex(itemAt[nextRow] ?? nextRow);
       if (!extend) {
         anchor.current = nextRow;
         return;
@@ -611,7 +657,7 @@ export function DataTable<TRow>({
       const to = Math.max(anchor.current, nextRow);
       select(dataRows.slice(from, to + 1).map((row) => row.id));
     },
-    [lastRow, lastCol, virtualised, virtualizer, dataRows, select],
+    [lastRow, lastCol, virtualised, virtualizer, itemAt, dataRows, select],
   );
 
   /**
@@ -768,19 +814,24 @@ export function DataTable<TRow>({
                     ))}
                   </div>
                 ))
-              : placed.map(({ item, offset }, index) => {
-                  const rowIndex = headerRowCount + (virtualised ? items.indexOf(item) : index) + 1;
+              : placed.map(({ item, index, offset }) => {
+                  const rowIndex = headerRowCount + index + 1;
                   const style = offset === null ? undefined : { transform: `translateY(${offset}px)` };
                   if (item.kind === "group") {
+                    // The same positioned wrapper a line rides, so a group header takes its place in
+                    // the window by the one offset rule (data.css `.cx-table-rowgroup[style]`).
                     return (
-                      <GroupRow
-                        key={`group-${item.id}`}
-                        item={item}
-                        rowIndex={rowIndex}
-                        colSpan={visibleColumns.length}
-                        collapsed={collapsed.has(item.id)}
-                        onToggle={() => toggleGroup(item.id)}
-                      />
+                      <div className="cx-table-rowgroup" key={`group-${item.id}`} role="presentation" style={style}>
+                        <GroupRow
+                          item={item}
+                          rowIndex={rowIndex}
+                          colSpan={visibleColumns.length}
+                          collapsed={collapsed.has(item.id)}
+                          showCount={group?.showCount !== false}
+                          figure={item.summed ? subtotalFigures?.figure : undefined}
+                          onToggle={() => toggleGroup(item.id)}
+                        />
+                      </div>
                     );
                   }
                   const state = rowStateOf?.(item.row.original, item.row.id);
@@ -908,6 +959,16 @@ const COLLAPSED_GLYPH = "▸";
 const EXPANDED_GLYPH = "▾";
 const REFUSED_GLYPH = "⚠";
 
+/**
+ * What a cell's controls ARE, for the walk Enter/F2 begins and Tab continues inside a cell. They are
+ * out of the Tab order by design (grid-cell.ts), so they are found by kind, never by `tabindex ≥ 0`.
+ */
+const CELL_CONTROLS = "a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]";
+
+function controlsIn(cell: HTMLElement): HTMLElement[] {
+  return [...cell.querySelectorAll<HTMLElement>(CELL_CONTROLS)];
+}
+
 /** The sticky offset a pinned column sits at, and the width every cell of it shares. */
 function cellStyle<TRow>(column: Header<TRow, unknown>["column"]): CSSProperties {
   const pinned = column.getIsPinned();
@@ -1017,11 +1078,22 @@ interface GroupRowProps<TRow> {
   rowIndex: number;
   colSpan: number;
   collapsed: boolean;
+  /** `(4)` after the label — §5 rule 4's default; a screen whose Decision says no count says false. */
+  showCount: boolean;
+  /** The figure seam the table's OWN sum is written through, where there is one (§5 rule 5). */
+  figure: ((value: string, unit: string) => string) | undefined;
   onToggle: () => void;
 }
 
-/** §5 rule 4: `▾ GF · column (4)` on the sunken surface, with the subtotals of what it holds. */
-function GroupRow<TRow>({ item, rowIndex, colSpan, collapsed, onToggle }: GroupRowProps<TRow>) {
+/**
+ * §5 rule 4: `▾ GF · column (4)` on the sunken surface, with the subtotals of what it holds.
+ *
+ * A sum the table made is a figure like any in the column above it, so it is written through the
+ * same seam (lakh/crore, L-FMT-01) and carries its exact decimal on `data-value` — the element a
+ * suite and a copy read, never the rendering (B-07). With no seam the exact decimal is shown as
+ * summed: a primitive may not carry a second grouping of its own (figures.tsx).
+ */
+function GroupRow<TRow>({ item, rowIndex, colSpan, collapsed, showCount, figure, onToggle }: GroupRowProps<TRow>) {
   return (
     <div
       className="cx-table-row cx-table-group"
@@ -1042,12 +1114,14 @@ function GroupRow<TRow>({ item, rowIndex, colSpan, collapsed, onToggle }: GroupR
             {collapsed ? COLLAPSED_GLYPH : EXPANDED_GLYPH}
           </span>
           <span className="cx-table-group-label">{item.label}</span>
-          <span className="cx-table-group-count">{`(${item.count})`}</span>
+          {showCount ? <span className="cx-table-group-count">{`(${item.count})`}</span> : null}
         </button>
         <span className="cx-table-group-subtotals" data-testid={TESTIDS.datatable.groupSubtotal}>
           {item.subtotals.map((subtotal) => (
             <span className="cx-table-group-subtotal" key={subtotal.unit}>
-              <span className="cx-table-number">{subtotal.value}</span>
+              <span className="cx-table-number" data-value={subtotal.value}>
+                {figure === undefined ? subtotal.value : figure(subtotal.value, subtotal.unit)}
+              </span>
               <span className="cx-table-unit">{subtotal.unit}</span>
             </span>
           ))}
@@ -1182,15 +1256,59 @@ function BodyCell<TRow>({
   };
 
   const onCellKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (event.key === "Enter") {
-      if (!editable || editing) return;
-      event.preventDefault();
-      event.stopPropagation();
-      startEditing();
+    // A key a control already answered is the control's — and so is one from a menu a control
+    // opened, whose React events bubble through this cell although its DOM is portalled away.
+    if (event.defaultPrevented) return;
+    const cellNode = cellRef.current;
+    const onCell = event.target === event.currentTarget;
+    // A key pressed on a CONTROL this cell holds (reached by Enter/F2 below): Enter and Space are the
+    // control's own, Escape hands the cursor back to the cell, Tab walks the cell's controls before
+    // it leaves the cell, and every other key is the grid's cursor again (WAI-ARIA grid, R-UI-012).
+    if (!editing && !onCell && cellNode !== null && cellNode.contains(event.target as Node)) {
+      if (event.key === "Enter" || event.key === " ") return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        cellNode.focus();
+        return;
+      }
+      if (event.key === "Tab") {
+        const controls = controlsIn(cellNode);
+        const next = controls[controls.indexOf(event.target as HTMLElement) + (event.shiftKey ? -1 : 1)];
+        if (next !== undefined) {
+          event.preventDefault();
+          next.focus();
+          return;
+        }
+      }
+      onGridKeyDown(event);
       return;
     }
+    if (event.key === "Enter") {
+      if (editing) return;
+      if (editable) {
+        event.preventDefault();
+        event.stopPropagation();
+        startEditing();
+        return;
+      }
+      // The controls a cell holds are out of the Tab order (grid-cell.ts): Enter takes the reader
+      // into them. A cell that holds none lets Enter through to the consumer's own handler.
+      if (onCell) enterControls(event);
+      return;
+    }
+    if (event.key === "F2" && onCell && !editing && !editable && enterControls(event)) return;
     if (editing) return;
     onGridKeyDown(event);
+  };
+
+  /** Move focus to the first control this cell holds, if it holds one; true when it did. */
+  const enterControls = (event: KeyboardEvent<HTMLDivElement>): boolean => {
+    const first = cellRef.current === null ? undefined : controlsIn(cellRef.current)[0];
+    if (first === undefined) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    first.focus();
+    return true;
   };
 
   const cellNode = (
@@ -1247,7 +1365,9 @@ function BodyCell<TRow>({
             </span>
           ) : null}
           <span className="cx-table-cell-text" ref={textRef}>
-            {rendered}
+            {/* What the cell holds is inside a grid: its controls leave the Tab order and are
+                reached through the cell (grid-cell.ts, R-UI-012). */}
+            <GridCellScope value>{rendered}</GridCellScope>
           </span>
         </>
       )}

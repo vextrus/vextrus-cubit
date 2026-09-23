@@ -90,6 +90,15 @@ describe("AC-2: the act variant's authored CSS (R-UI-010)", () => {
     expect([...seen].sort(), "R-UI-010 names all three act tokens; act's rules must read all three").toEqual([...ACT_TOKENS].sort());
   });
 
+  test("a link that wears the Button wears no link underline (Direction 00 §1: one button style)", () => {
+    // `<a class="cx-btn">` and `next/link` doors stand beside real buttons in title rows and empty
+    // states; the UA underline made a row of them read as links in boxes (craft look, session 7).
+    const base = [...primitiveStylesheets()].flatMap((file) => cssRules(readRepoFile(file))).filter((rule) => rule.selector === ".cx-btn");
+    expect(base.length, `${CORE_DIR} authors one \`.cx-btn\` rule`).toBe(1);
+    const decoration = declarations(base[0]?.body ?? "").find(({ prop }) => prop === "text-decoration");
+    expect(decoration?.value, "the Button clears the UA's link underline, whatever element wears it").toBe("none");
+  });
+
   test("AC-2: the act dot is authored at 7px square", () => {
     const sizes = new Map<string, string>();
     for (const file of primitiveStylesheets()) {

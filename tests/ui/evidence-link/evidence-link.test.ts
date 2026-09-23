@@ -105,6 +105,18 @@ describe("AC-1: the link", () => {
     expect(css.match(/#[0-9a-fA-F]{3,8}\b/g), "no hex: every colour is a token (Decision §5)").toBeNull();
     expect(css.includes("[data-theme"), "no `[data-theme]` selector: the themes differ by token value alone (Decision §6)").toBe(false);
   });
+
+  test("I-313: the link is a 24 px target whose glyph and key still share one baseline", () => {
+    // white-box, for the reason above: the box is a stylesheet fact. The served register's Source
+    // cell measured 191.8 × 18.8 and failed axe `target-size` under the sticky totals footer.
+    const css = stylesheetText().replace(/\/\*[\s\S]*?\*\//g, "");
+    const at = css.indexOf(".cx-evidence-link {");
+    expect(at, "evidence-link.css declares the anchor's box").toBeGreaterThan(-1);
+    const box = css.slice(css.indexOf("{", at) + 1, css.indexOf("}", at));
+    expect(box, "at least 24 px tall — SC 2.5.8's minimum").toContain("min-block-size: var(--space-6);");
+    expect(box, "its one row centred in that height").toContain("align-content: center;");
+    expect(box, "and the 13 px mark and the 12 px key still on one baseline (§ 1)").toContain("align-items: baseline;");
+  });
 });
 
 describe("AC-1: the catalogue", () => {

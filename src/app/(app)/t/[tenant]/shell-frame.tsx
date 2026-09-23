@@ -8,8 +8,10 @@ import { REFUSALS, refusalOf, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import type { Density } from "@/core/prefs";
 import { JobsProvider, type JobsFormat } from "@/ui/patterns/job-timeline";
+import { FigureProvider } from "@/ui/primitives/core";
 import { AppShell, areaOf, isAreaHome, isProjectAreaHome, projectAreaOf, type ShellProject, type ShellWorkspace } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
+import { FIGURES } from "./figures";
 import { PaletteHost } from "./palette/palette-host";
 import { projectOf } from "./palette/rows";
 import { searchWorkspaceAction } from "./palette/search-action";
@@ -61,21 +63,26 @@ export function ShellFrame({ workspace, workspaces, projects, email, userId, den
   return (
     <PaletteHost tenantId={workspace.tenantId} projectId={projectOf(pathname)} search={searchWorkspaceAction} navigate={navigate}>
       <JobsProvider format={format}>
-        <AppShell
-          workspace={workspace}
-          workspaces={workspaces}
-          project={project}
-          projects={projects}
-          area={areaOf(pathname)}
-          atAreaHome={project === null ? isAreaHome(pathname, workspace.tenantId) : isProjectAreaHome(pathname, workspace.tenantId, project.projectId)}
-          projectArea={project === null ? null : projectAreaOf(pathname)}
-          email={email}
-          userId={userId}
-          density={density}
-          signOut={signOut}
-        >
-          {children}
-        </AppShell>
+        {/* The document's figure conventions, installed once for the frame (figures.tsx: "the tenant
+            frame installs one"), so a primitive that writes a figure of its own — a grid's group
+            subtotal — groups it as every other figure is grouped (B-17, SEAM-FORMAT). */}
+        <FigureProvider format={FIGURES}>
+          <AppShell
+            workspace={workspace}
+            workspaces={workspaces}
+            project={project}
+            projects={projects}
+            area={areaOf(pathname)}
+            atAreaHome={project === null ? isAreaHome(pathname, workspace.tenantId) : isProjectAreaHome(pathname, workspace.tenantId, project.projectId)}
+            projectArea={project === null ? null : projectAreaOf(pathname)}
+            email={email}
+            userId={userId}
+            density={density}
+            signOut={signOut}
+          >
+            {children}
+          </AppShell>
+        </FigureProvider>
       </JobsProvider>
     </PaletteHost>
   );

@@ -58,10 +58,14 @@ or an `onClick` and may never re-id or re-class the element. The label rides its
 graphite can be stated without touching the anchor's basis colour; `anchor.textContent` is still the
 glyph followed by the label, and the accessible name is still the key.
 
-- Box: `display: inline-flex`, `align-items: baseline`, `gap: var(--space-1)`, no padding, no fill,
-  no border, no radius — it is a word in a cell, not a chip beside one. It wraps rather than
-  truncates: `overflow-wrap: anywhere` (I-26 — evidence is never ellipsised behind something a
-  reader cannot open).
+- Box: a one-row grid — `display: inline-grid`, `grid-auto-flow: column`, `justify-content: start`,
+  `column-gap: var(--space-1)`, `align-items: baseline` — at least `var(--space-6)` tall
+  (`min-block-size`) with its row centred in that height (`align-content: center`): the link is a
+  24 px pointer target (primitives-core I-313, WCAG 2.2 SC 2.5.8) while the glyph and the key still
+  share one baseline, and the extra height is empty box above and below them, which a 28 px row
+  holds. No padding, no fill, no border, no radius — it is a word in a cell, not a chip beside one.
+  It wraps rather than truncates: `overflow-wrap: anywhere` (I-26 — evidence is never ellipsised
+  behind something a reader cannot open).
 - Type: `var(--font-mono)` `var(--text-12)` with `font-variant-numeric: tabular-nums slashed-zero`
   (R-UI-003 — a source key is a key, not prose). Weight is inherited on the anchor and on the label;
   the glyph is the one exception and states why below.
@@ -85,10 +89,12 @@ glyph followed by the label, and the accessible name is still the key.
   glyph and the key sit on one baseline and the 13 px mark rises off it, rather than centring against
   a key it would then no longer align with.
 - Focus: `cx-reticle` and nothing else; the four corner ticks are drawn by the reticle's one home.
-  The pattern authors no focus rule (B-17).
+  The pattern authors no focus rule (B-17). Inside a grid's body cell the anchor takes
+  `tabindex="-1"` and is reached through its cell — Enter or F2 (primitives-data I-314); anywhere
+  else it keeps its own Tab stop, and a consumer that hands it a `tabIndex` keeps that.
 
-Density (R-UI-005): the pattern sets no height and no block padding, so it takes the line box of the
-36 px or 28 px row it sits in; nothing here re-keys on `[data-density]`.
+Density (R-UI-005): the pattern sets no block padding and no height beyond its 24 px target minimum,
+which fits both the 36 px and the 28 px row it sits in; nothing here re-keys on `[data-density]`.
 
 ## 2. States (R-UI-050)
 
@@ -140,6 +146,7 @@ durations are tokens zeroed at source under reduced motion, so `evidence-link.cs
 
 `--basis-measured` · `--basis-transcribed` · `--basis-derived` · `--basis-imported` ·
 `--basis-entered` · `--basis-interpreted` · `--basis-defaulted` · `--graphite-900` · `--space-1` ·
+`--space-6` (the target minimum, §1) ·
 `--font-mono` · `--text-12` · `--text-13` and `--weight-body-medium` (the glyph's own step, §1) ·
 `--motion-state` / `--ease` (and `--motion-reticle` inherited from the
 reticle's home). Px literals, closed set (primitives-core I-1's mandated class): the 1 px and 2 px

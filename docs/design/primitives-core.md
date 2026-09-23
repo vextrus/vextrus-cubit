@@ -17,6 +17,19 @@ estimate (M6). No route, no gallery here; the `/design` gallery leaf screenshots
 - **I-2 — no `transparent` keyword.** `cubit/no-colour-literal` bans named colours; where a
   variant needs no fill it uses `background: none`, and where it needs no border it drops the
   border and compensates padding by 1 px so variants keep one geometry.
+- **I-313 — a control that stands in a 28 px row is a 24 px target, and the row does not grow
+  (session 7, craft slice CR-A).** WCAG 2.2 SC 2.5.8, which Q-11's axe grades serious. Evidence:
+  on the served register at 1440 × 900 and 1280 × 800 the IdChip copy (20 × 20) and the
+  EvidenceLink (191.8 × 18.8) failed `target-size` wherever the sticky totals footer overlapped the
+  last visible row — axe kept a 3.6 px sliver of the target and measured that; with both targets at
+  24 px it returned no violation in any run at either viewport, and all 848 targets passed. Ruling:
+  IdChip's copy is 24 × 24 (`var(--space-6)`), the same `sm` glyph centred in it, the value pill
+  beside it still 20 px; a block margin of `calc(var(--space-1) * -1)` gives the 4 px overhang back
+  to the chip's 20 px line, so no grid row, card row or list a chip stands in grows by a pixel (a
+  screen's height may only fall — `tests/e2e/support/height-budget.ts`). The EvidenceLink's box is
+  ruled in its own Decision (evidence-link §1) on this same reading. Rejected: a `::before` hit
+  area (axe measures the element's box, never a pseudo-element); a 2 px padding ring the hover fill
+  does not paint (off the 4-pt grid, C8); a taller row (§5 rule 1 fixes it).
 
 ## 1. Shared anatomy
 
@@ -63,7 +76,10 @@ class `cx-reticle`.
 ### Button (`cx-btn cx-reticle`, native `<button type="button">`)
 Padding-inline `var(--space-3)`, gap `var(--space-2)`, 1 px border per variant (ghost:
 borderless, padding compensated +1 px per I-2). Hover transitions background/border/colour
-over `var(--motion-state)` `var(--ease)`.
+over `var(--motion-state)` `var(--ease)`. `text-decoration: none`: a link that wears the
+Button's chrome (`<a class="cx-btn">`, a `next/link` door in a title row or an empty state)
+reads as a button — its box, fill and reticle are the affordance, and the UA's link underline
+would make a row of doors read as links in boxes (Direction 00 §1, one button style).
 
 | variant | rest | hover |
 |---|---|---|

@@ -237,6 +237,17 @@ describe("§5 rule 3: the sticky header and the frozen key column, with the corn
       "§5 rule 3: the corner is a frozen HEADER cell, above both",
     ).toContain("z-index: calc(var(--z-sticky) + 2);");
   });
+
+  test("a right-aligned column's HEADER is a label in the UI face; only the figures beneath it are mono", () => {
+    // §5 rule 5 makes the NUMERALS mono. The body rule's selector also matched the header cell, and
+    // one header row read in two typefaces (craft look, session 7).
+    const header = block('.cx-table-headercell[data-align="right"]');
+    expect(header, "the header of a figure column is set in the face every header is").toContain("font-family: var(--font-ui);");
+    expect(header, "and without the figures' tabular, slashed numerals").toContain("font-variant-numeric: normal;");
+    expect(RULES.indexOf('.cx-table-headercell[data-align="right"] {'), "and it is written AFTER the body rule it overrides").toBeGreaterThan(
+      RULES.indexOf('.cx-table-cell[data-align="right"],'),
+    );
+  });
 });
 
 describe("§5 rule 9: virtualised past 200 rows, and it publishes what it drew", () => {

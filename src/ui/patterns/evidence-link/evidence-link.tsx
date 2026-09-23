@@ -15,9 +15,15 @@
  *
  * The glyph comes only from `BASIS_GLYPHS`, R-UI-002's single home, and is `aria-hidden`: it is the
  * colour's greyscale twin, not a second announcement. The accessible name stays the key itself.
+ *
+ * Inside a grid cell the link leaves the Tab order and is reached through its cell (Enter or F2):
+ * a grid is one Tab stop, and a register's Source column was one stop per line (grid-cell.ts). A
+ * consumer that states its own `tabIndex` keeps it; a screen that puts focus back on the link a
+ * reader left (the register's origin, I-182) still can — out of the Tab order is not unfocusable.
  */
 import type { ComponentPropsWithRef } from "react";
 import { BASIS_GLYPHS, type Basis } from "../../primitives/core/basis";
+import { cellControlTabIndex, useInGridCell } from "../../primitives/core/grid-cell";
 import { strings } from "../../strings";
 import { TESTIDS } from "@/ui/testids";
 
@@ -35,9 +41,11 @@ export type EvidenceLinkProps = {
  * an `onClick` or a ref and may never re-id or re-class the element (Decision § 1).
  */
 export function EvidenceLink({ href, basis, label, ...rest }: EvidenceLinkProps) {
+  const cellTabIndex = cellControlTabIndex(useInGridCell());
   return (
     <a
       {...rest}
+      tabIndex={rest.tabIndex ?? cellTabIndex}
       className="cx-evidence-link cx-reticle"
       data-testid={TESTIDS.evidence.link}
       data-basis={basis}

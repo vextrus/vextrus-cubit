@@ -31,6 +31,64 @@ I-1 (geometry constants in px) and I-2 (no `transparent` keyword) remain in forc
   renders header (and filter row) over an empty viewport; the owning screen's R-UI-050
   empty/partial states owe the explanation (R-UI-020). A message invented here would be
   copy no consumer wrote.
+- **I-314 — a grid is one Tab stop; the controls a cell holds are reached through the cell
+  (session 7, craft slice CR-A).** R-UI-012, Direction 00 §5 rule 6, the WAI-ARIA grid pattern.
+  Evidence: the served register put 424 IdChip values, 424 IdChip copies and 424 EvidenceLinks in
+  the Tab order beside a grid whose cells rove at −1. Ruling: the body cell states a grid-cell scope
+  (`src/ui/primitives/core/grid-cell.ts`, not published by the barrel — a rule, not a primitive);
+  a control that reads it — IdChip's value and copy, EvidenceLink — takes `tabindex="-1"` inside a
+  body cell and keeps its own stop everywhere else (an EvidenceLink handed its own `tabIndex` keeps
+  it). The cell's keys: on a cell that is not editable, **Enter** or **F2** puts focus on the cell's
+  first control; **Tab** / **⇧Tab** walk the cell's controls and, past the last, move the cursor as
+  §5 rule 6 always has; **Escape** hands focus back to the cell; **Enter** and **Space** pressed on a
+  control are the control's (Space no longer takes the row from inside a copy); an arrow from a
+  control moves the cursor. A key a control has already answered (`preventDefault`) stays its own —
+  so an open tooltip or a row menu takes its Escape and its arrows first, and a menu's portalled
+  content is never read as the cell's. A cell that holds no control lets Enter through, as before.
+  Header and group cells state no scope. Rejected: reading `closest('[role=grid]')` at mount, which the server
+  render and the client render would answer differently.
+- **I-315 — a grouped list is windowed over its items (session 7, craft slice CR-A).** §5 rule 9
+  read with rule 4. Evidence: the table refused a window to any list with group rows because "a
+  virtualiser needs every row to be one height" — untrue of this grid, whose group header is one
+  `--row-h` like every line (all 434 rows of the served register measured exactly 28 px); the
+  refusal cost the register 23,447 nodes, a 3,020,658-byte page and a 13–14 s axe walk per capture.
+  Ruling: past 200 ITEMS — group headers and lines together — the window runs over the items; a
+  group header rides the same positioned `cx-table-rowgroup` wrapper a line does; `aria-rowindex` is
+  the item's own place after the header rows (read off the window, never searched for); the
+  cursor still moves by line and the window follows by item through the line→item map;
+  `scrollToRowId` draws the asked line at its item's place; `data-rows-rendered` counts every body
+  row the window drew, group headers included. A group's count and subtotal stay the rows the
+  group HAS, never the rows the window holds. Two tables stay whole: one that can draw a refusal
+  note (`renderRefusal`, a note of no height the virtualiser can know) and the loading bones.
+  Measured under jsdom, a grouped 424-line, 10-column table: 432 body rows and 9,436 nodes before,
+  23 and 523 after.
+- **I-316 — a group's own sum is a figure, written through the one figure seam (session 7, craft
+  slice CR-A).** §5 rules 4 and 5, L-FMT-01. Evidence: the group row printed the sum it made raw —
+  no lakh/crore grouping — under lines written through `QuantityText`. Ruling: the built-in sum
+  (`valueOf` + `unitOf`) is written by `group.format` (the `figure` of a `FigureFormat`), else by the
+  tree's `FigureProvider`, and carries its exact decimal on `data-value` (B-07); with neither it is
+  shown exactly as summed, because a primitive carries no grouping of its own (figures.tsx). A
+  consumer's own `subtotal` arrives written and is shown as written — never grouped twice.
+  `group.showCount: false` drops the `(n)` for a screen whose Decision rules no parenthesised count
+  (s-boq §1); left out, §5 rule 4's `(4)` stands. The IOU this slice left — figures.tsx said the
+  tenant frame installs the `FigureProvider` and it did not — is discharged at integration:
+  `shell-frame.tsx` mounts it once with the one `FIGURES` (`src/app/(app)/t/[tenant]/figures.ts`).
+- **I-335 — a hovered row carries no caption ink, and a sort control is a whole target (session 7,
+  integration).** Evidence, the first sweep of the integrated craft window: a UnitBadge in a
+  hovered rule-set row measured 4.23:1 (`--ink-muted` #7E8899 on `--surface-hover` #22262E, dark),
+  axe serious; and the register's right-aligned `Value` sort control measured 34×17 with 18 px of
+  it clear of the column's 24 px resize target, axe serious — the UI-face header label (CR-A) is
+  about 6 px narrower than the mono one HEAD passed by. Ruling: (a) a hovered body row re-points
+  `--ink-muted` to `--ink-secondary` for its own subtree — `src/ui/contrast.test.ts` already rules
+  that no visible hover leaves a caption its 4.5:1, so a hovered row carries `--ink` and
+  `--ink-secondary` only; (b) a pinned cell paints the row's hover, selected and refused fill,
+  as §1's "row hover fill wins" already said; (c) every sort control is at least `--space-6` tall,
+  and a right-aligned header's at least two of them wide, so what stands clear of the resize handle
+  is a 24 px target on its own. A column whose right edge stands under the `⋯` loses its resize
+  target to it; a screen that fills the band to its edge keeps the `⋯`'s width clear (s-bbs).
+  (d) `group.format.figure` is handed the sum's unit as its second argument, so a screen that
+  states each unit at its own places writes its group sums as it writes its footer — J-000 read
+  the register's `20.7950000 m3` through the frame's provider alone.
 
 ## 1. Shared anatomy
 
@@ -177,14 +235,22 @@ measurements).
   `var(--weight-body-medium)` `var(--graphite-600)`, padding-inline `var(--space-3)`. A
   sortable column wraps its label in a ghost sort button (`cx-reticle`) cycling the
   header's `aria-sort` ascending → descending → none; while sorted the label reads
-  `var(--graphite-900)` with an ↑/↓ glyph (`aria-hidden`) in `var(--beam-600)`. When any
+  `var(--graphite-900)` with an ↑/↓ glyph (`aria-hidden`) in `var(--beam-600)`. A right-aligned
+  column's header aligns right over its figures but stays in the header's own face
+  (`var(--font-ui)`, no tabular numerals) — only the figures beneath it are mono. When any
   column has `meta.filterable`, a second header row renders the core Input (I-5) per
   filterable column, `aria-label` = `Filter` + the column header; typing narrows rows. The
   filter row is exempt from the density row heights — core's control height stands at either
   density (I-5), so the row sizes to its Input with `var(--space-1)` block padding.
 - **Rows** (`role="row"`, `aria-rowindex`): height `var(--row-comfortable)` /
   `var(--row-compact)` by `[data-density]` (R-UI-005), border-bottom `var(--hairline)`,
-  hover fill `var(--graphite-50)`.
+  hover fill `var(--graphite-50)`. Past 200 body rows — group headers counted — the body is a
+  window (I-315).
+- **Group rows** (§5 rule 4, `datatable-group-row`): the label, the `(n)` unless the group says
+  `showCount: false`, and one subtotal per unit written through the figure seam with its exact
+  decimal on `data-value` (I-316).
+- **Controls in a cell**: out of the Tab order, reached with Enter or F2 and walked with Tab
+  (I-314).
 - **Cells** (`role="cell"`): padding-inline `var(--space-3)` (compact: `var(--space-2)`),
   `var(--text-13)` `var(--graphite-900)`. `meta.align: 'right'` → `data-align="right"`,
   right-aligned, `var(--font-mono)` tabular-nums slashed-zero (numerals, R-UI-005/003).

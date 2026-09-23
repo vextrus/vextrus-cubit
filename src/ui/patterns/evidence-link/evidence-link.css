@@ -8,10 +8,20 @@
  * (R-UI-001). No focus rule either — the reticle's single home draws it (B-17).
  */
 
+/* I-313: the link is a 24 px TARGET (WCAG 2.2 SC 2.5.8) around a line box it does not change. The
+   served register's Source cell measured 191.8 × 18.8 and failed axe `target-size` wherever the
+   sticky totals footer overlapped its row (craft look, session 7). The box is therefore a one-row
+   grid at least 24 px tall with its row centred in it: the glyph and the key still share one
+   baseline (§ 1 — the 13 px mark rises off the 12 px key's baseline), and the extra height is
+   transparent box above and below them, which a 28 px row holds (a cell clips at its padding box). */
 .cx-evidence-link {
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-flow: column;
+  justify-content: start;
+  align-content: center;
   align-items: baseline;
-  gap: var(--space-1);
+  column-gap: var(--space-1);
+  min-block-size: var(--space-6);
   /* Evidence is never ellipsised behind something a reader cannot open (I-26). */
   overflow-wrap: anywhere;
   font-family: var(--font-mono);
