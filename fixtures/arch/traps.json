@@ -102,7 +102,7 @@
    "id": "T-WALL-TYPES-CAPTION",
    "sheet": "A-03",
    "handle": "7A2",
-   "expected": "the wall-type table is captioned WALL TYPES (no SCHEDULE, LEGEND or PLAN word): a key of types is a schedule, so the caption grammar reads TYPES with no projection word as a SCHEDULE and the table's rows are read (s-schedules I-ARCH3-a)"
+   "expected": "the wall-type table is captioned WALL TYPES (no SCHEDULE, LEGEND or PLAN word): a key of types is a schedule, so the caption grammar reads TYPES with no projection word as a SCHEDULE and the table's rows are read (s-schedules I-502)"
   }
  ]
 }

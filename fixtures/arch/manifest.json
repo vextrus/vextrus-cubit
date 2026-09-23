@@ -19,7 +19,7 @@
    "golden_check.py": "932cd7283526216991e0359aa0a33dbfa98d21aff3a9c3996ac9686d187fe915",
    "model.py": "f919c188978df5361c120738429073dd46063f37a0a2c77ea5c40b762169120a",
    "selfcheck.py": "d49019f224ff1e355244a7a2b54fe90d3129fa57e192334ddd9fe524f421982b",
-   "traps.json": "c6efc15a8f550d0c89a4f5a98f8e775ca2a7a03b60b77ad1e473c6cc76b60bd4",
+   "traps.json": "372c62ef0140e85a865eb7a4313f68e394756a2da50bad6947a76a0ad9ea4125",
    "validate/__init__.py": "742e938ce832a513334e091bd0d53330e0f14474c6a6260d6744f89f41377897"
   }
  },
@@ -176,7 +176,7 @@
   "notation.corpus.json": "e73782161cbbfa12222cb08272ddf05496b18953e7fec9ec66fad106016c9a72",
   "sanity.json": "8796f3504a89acbe78042f7704e11345c312ed4cc9c68949d00dc56f9c668a66",
   "takeoff.golden.json": "a1bfe3ff38d7bdec6803649b5448e8ad03609fd3adfc0ec8012fae4b33135965",
-  "traps.json": "a6cd2e3d39a3646a58dc134aff446c4063492a44ac377d130c1be55a5f5b2eee"
+  "traps.json": "836c0e70e285e88ebea6cb0d55865cad60db25fadd85efcabafd0df4ce752539"
  },
  "selfcheck": {
   "two_path_agreement": true,
