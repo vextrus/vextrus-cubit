@@ -9,8 +9,12 @@ export type ModelEnv = Readonly<Record<string, string | undefined>>;
 /** The chosen transport, and for fixtures the resolved root the answers are read from. */
 export type SelectedTransport = { transport: "live" } | { transport: "fixture"; fixtureRoot: string };
 
-/** The directory recorded answers live in when the environment names none (F-MODEL). */
-const defaultFixtureRoot = (): string => resolve(process.cwd(), "fixtures", "model");
+/**
+ * The directory recorded answers live in when the environment names none (F-MODEL). It is read at
+ * runtime, so the bundler is told not to trace it: traced, its `<hash>.json` reads were a file
+ * pattern over 10,867 files of the checkout.
+ */
+const defaultFixtureRoot = (): string => resolve(/* turbopackIgnore: true */ process.cwd(), "fixtures", "model");
 
 /**
  * The mode the verify chain runs a process in (V-VERIFY). Inside it every answer replays from a

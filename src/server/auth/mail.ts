@@ -26,9 +26,14 @@ export interface OutboxMail {
   token: string;
 }
 
-/** Where the outbox actually is: the repo-relative directory, resolved against the running process. */
+/**
+ * Where the outbox actually is: the repo-relative directory, resolved against the running process.
+ * A runtime address, never a build input, so the bundler is told not to trace it (the
+ * `core/storage/app.ts` precedent). Traced, it was a file pattern over every mail every run had
+ * written, 10,492 of them at session 7's close, so each journey's mail turned the next build cold.
+ */
 export function outboxDir(): string {
-  return isAbsolute(MAIL_OUTBOX_DIR) ? MAIL_OUTBOX_DIR : resolve(process.cwd(), MAIL_OUTBOX_DIR);
+  return isAbsolute(MAIL_OUTBOX_DIR) ? MAIL_OUTBOX_DIR : resolve(/* turbopackIgnore: true */ process.cwd(), MAIL_OUTBOX_DIR);
 }
 
 /**
@@ -92,7 +97,7 @@ function dropSpentMail(directory: string, now: number): void {
     // The sweep is also what ends the litter of a killed writer: a `.json.tmp` past the retention is
     // nobody's half-written mail any more, and nothing else would ever remove it.
     if (!name.endsWith(".json") && !name.endsWith(`.json${PARTIAL_SUFFIX}`)) continue;
-    const path = join(directory, name);
+    const path = join(/* turbopackIgnore: true */ directory, name);
     const at = statSync(path, { throwIfNoEntry: false })?.mtimeMs;
     if (at !== undefined && now - at > OUTBOX_RETENTION_MS) rmSync(path, { force: true });
   }
@@ -122,7 +127,7 @@ export function deliver(mail: OutboxMail): void {
   chmodSync(directory, OUTBOX_MODE);
   const now = Date.now();
   if (sweep.due(now)) dropSpentMail(directory, now);
-  const path = join(directory, `${Date.now().toString(36)}-${(sent++).toString(36).padStart(8, "0")}-${randomUUID()}.json`);
+  const path = join(/* turbopackIgnore: true */ directory, `${Date.now().toString(36)}-${(sent++).toString(36).padStart(8, "0")}-${randomUUID()}.json`);
   const partial = `${path}${PARTIAL_SUFFIX}`;
   writeFileSync(partial, `${JSON.stringify(mail, null, 2)}\n`, { encoding: "utf8", mode: MAIL_MODE });
   renameSync(partial, path);

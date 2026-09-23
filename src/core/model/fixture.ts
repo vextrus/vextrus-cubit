@@ -28,7 +28,7 @@ export function fixtureTransport(fixtureRoot: string): TransportPort {
     transport: "fixture",
     async answer(_ctx, request, hash): Promise<TransportAnswer> {
       const fileName = `${hash}.json`;
-      const file = join(fixtureRoot, fileName);
+      const file = join(/* turbopackIgnore: true */ fixtureRoot, fileName);
       const text = await recordedText(file);
       if (text === null) {
         // The refusal names the request and the file it would be filed as, never the root: where the
