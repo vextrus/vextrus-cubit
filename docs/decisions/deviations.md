@@ -40,7 +40,7 @@ Each Deviation is one row in the table below, and a section beneath it when the 
 |---|---|---|---|---|---|
 | D-001 | L-MEA-07: storey-height readings — "agreeing readings corroborate, disagreeing readings suspend … equality is on canonical metres" | T-NOT-LEVEL (traps.json, S-25 1D90): "levels in both notations resolve to one level stack"; S-25 states 1F as `1F EL +3.353` (1D4C) and `EL +11'-0"` (1D92), 3352.8 mm apart; model.json GF 3352.8; under equality GF would SUSPEND, and on the metric print alone GF column concrete is 16.828852 m³ against the golden's 16.828 — a hard block | A storey is read once PER NOTATION; two PRINTS (TRANSCRIBED, cited, value and unit as written) in DIFFERENT notations agree when the exact one, rounded half-even to the decimal print's written places, equals it; every pair must agree; the finest reading is carried and the rails bind it | A cross-notation disagreement smaller than the decimal print's half-unit is invisible; where the metric figure was the design, the imperial conversion is carried | the commit that adds this row (see §D-001) |
 | D-002 | AS-05: "Model ids used in production are `claude-opus-5` for reading/proposals and `claude-sonnet-5` for cheap classification" | All eight closed questions are answered only by TypeSafe Jev (the Claude path answers none: `propose` refuses a Messages content array MALFORMED, `src/core/model/proposal.ts:80-89`); all 240 prior fixtures were answered by `jev-1.13.0` yet billed under a Claude id at the tree's wrong Claude rates — 3.572892 USD against 0.01498665 at Jev's documented rate (docs.typesafe.ai/models, read 2026-09-23) | `MODEL_IDS` = claude-opus-5, claude-sonnet-5, **jev-latest**; one `JEV_MODEL` pinned UNCONDITIONALLY by the eight questions (the id is hashed into every request); rates 5/25, 2/10, 0.042/0 USD per MTok; 0057 re-closes the ledger's CHECK; the corpus re-recorded live with provider bodies | The Bible names two ids, the ledger holds three; every request hash moved (240 fixtures retired, 241 recorded); `jev-latest` moves when TypeSafe ships, so answers can change with no change here (the answering version is recorded per call) | the commit that adds this row (see §D-002) |
-| D-004 | The stack element's version pins (`cubit.bible.xml:285-308`; AM-08 PART 1): TypeScript "5.9.3 exact", pnpm "10.x", TanStack Table "8.x", Vitest "4.x" | TypeScript 7 (native) type-checks the tree in 2.3 s against 14.8 s; Next 16.3.1 carried three critical advisories fixed in 16.3.3 and 16.3.6; typescript-eslint refuses TypeScript ≥ 7 | The toolchain moves to its current stable majors, TypeScript 7 beside a TypeScript 6 API alias; pg-boss holds at 10.4.2 | Two TypeScript compilers read the tree; Chromium moved, so the design baselines were re-taken; a Bible reader finds older versions | the session-7 extension's toolchain commit |
+| D-004 | The stack element's version pins (`cubit.bible.xml:285-308`; AM-08 PART 1): TypeScript "5.9.3 exact", pnpm "10.x", TanStack Table "8.x", Vitest "4.x" | TypeScript 7 (native) type-checks the tree in 2.3 s against 14.8 s; Next 16.3.1 carried three critical advisories fixed in 16.3.3 and 16.3.6; typescript-eslint refuses TypeScript ≥ 7 | The toolchain moves to its current stable majors, TypeScript 7 beside a TypeScript 6 API alias; pg-boss holds at 10.4.2 and Playwright at 1.62.1 | Two TypeScript compilers read the tree; a Bible reader finds older versions | the session-7 extension's toolchain commit |
 
 ## D-001 — a storey stated in two notations is one storey (session 7, 2026-09-23)
 
@@ -147,7 +147,7 @@ ships no compiler API, and typescript-eslint throws on TypeScript ≥ 7 ("run ty
 fixed in 16.3.3 (GHSA-p293-qw3h-jr36, GHSA-2xp9-vwfh-vxw4) and a next/og RCE fixed in 16.3.6
 (GHSA-vcvr-r3jv-pc5j); 16.3.4 is the first Next that resolves the aliased TypeScript's `tsc6`. (3) pnpm 11
 is the maintained line (12 is a days-old Rust rewrite that downloads a native binary at runtime). (4)
-TanStack Table 9, Vitest 5, react-resizable-panels 4 and Playwright 1.63 are the current majors; the
+TanStack Table 9, Vitest 5 and react-resizable-panels 4 are the current majors; the
 migrations were measured before they were made (the DataTable's DOM, the viewer split's geometry to the
 sub-pixel, the gallery's widths unchanged). (5) pg-boss 12 cannot migrate a v10 schema ("Automatic
 migration from v10 or lower is not supported", 11.0.0) and would rewrite the security-reviewed queue
@@ -158,18 +158,22 @@ installer (migrations 0018/0019); 10.4.2 is npm's maintained `maint-v10` release
 `pnpm-workspace.yaml`'s override) for typescript-eslint, Next's build-time check and the tree's five
 readers of the compiler API. `tsconfig.json` drops `baseUrl` (removed in TypeScript 7; `paths` resolve from
 the config). pnpm 11.27.1 with its settings in `pnpm-workspace.yaml`; Next 16.3.6; React 19.3.0; Vitest
-5.0.1 with Vite 8.3.0 as its declared peer; Playwright 1.63.0 (Chromium r1243); ESLint 10.11.0 and
+5.0.1 with Vite 8.3.0 as its declared peer; ESLint 10.11.0 and
 typescript-eslint 8.70.1; TanStack Table 9.2.4 behind `DataTableColumnDef`; react-resizable-panels 4.13.2
 (sizes as `"%"` strings); zod 4.6.5; tRPC 11.19.0; every dependency save-exact (the carets pinned at their
 current versions, `decimal.js` among them). The cad lane's dev group moves to pytest 9.1.1 and ruff 0.16.8
 and gains pytest-xdist 3.8.0 (the lane runs on six workers); ezdxf, LibreDWG and Typst do not move (their
-versions are corpus and document identity). pg-boss stays at 10.4.2.
+versions are corpus and document identity). pg-boss stays at 10.4.2. Playwright stays at 1.62.1 (Chromium r1234):
+1.63.0 was tried and J-011's hover sweep met no entity under the pointer on 1.63.0 with either Chromium (r1243 or
+r1234), while J-011 walked green on 1.62.1 with every other move of this row in place — bisected over
+react-resizable-panels (v2 restored), Chromium, zod (4.4.3) and Next (16.3.4), none of which moved the verdict. The
+1.63.0 release notes name no mouse or input change; finding the cause is owed before the move.
 
 **Cost.** Two TypeScript compilers read the tree: the types lane is TypeScript 7 while `next build`'s
 check and typescript-eslint's types are TypeScript 6, so an error only one of them reports could split
 their verdicts (none does at this commit). TypeScript 7.1 is expected to ship a new API; typescript-eslint
-follows it, and the alias goes then. Playwright's Chromium moved from r1234 to r1243, so the design
-pictures were re-taken in their own `baseline:` commit. A reader of the Bible's stack finds older
+follows it, and the alias goes then. Playwright is one minor behind its latest until J-011's sweep is
+explained. A reader of the Bible's stack finds older
 versions than the tree runs; this row is the current law until the owner folds it into an amendment.
 
 **Proof.** The gate on the toolchain commit (every lane, quoted in the extension's handoff notes and in
