@@ -317,3 +317,65 @@ lines the resync drops. `validate/traps.py` and the cad sanity test verify each 
 **W-18 R4 is a real keystone (F2-8; amends W-10).** The page now lands on the photo as a trapezoid — top
 edge inset 7–11 % per corner, bottom 0.5–2 %, plus a ±1.5 % lean — so the page-quad width grows
 monotonically top to bottom; the earlier transform zoomed into the page and left only an in-plane lean.
+
+## R0 — Rev C, "Regenerate and draw all" (session 8; the owner's ruling on R0)
+
+**W-19 The Rev C append pass: Rev B's handles are kept.** The set was issued as Rev B, and the product
+keys on its handles: the trap registry, the notation corpus, the model recordings, the journeys. ezdxf
+mints handles in creation order, so one record created early moves every later one — one new layer
+moved 8,198 of 8,592 records and one TEXT inside S-08's scene 6,391 (the R0 design's measurements).
+Ruling: the writers (`emit/dxf.py`) build Rev B exactly as issued — its layers (`REV_B_LAYERS`), its
+blocks (`REV_B_BLOCKS`), every untagged item, its layouts and viewports, down to deleting `Layout1` —
+then end the issue as its save did (`_close_issue`: pending changes committed, the sorted CLASSES, and
+`update_all`'s two APPIDs and DICTIONARYVAR), and only then append Rev C (`scene.APPENDED`): the layers
+and blocks Rev B did not have (a plan or library entry outside the Rev B rosters, wherever it stands),
+every item drawn inside `Scene.revision("C")`, every view `revc.add_view` adds (`View.rev`; its model
+square after Rev B's, `assign_model_offsets`) and every sheet first issued in C (`Sheet.new_in`; its
+layout and frame after Rev B's). Rev B's composers read a `Ctx` fenced of the members Rev C draws first
+(`revc.DRAWN_IN_C`); `emit/sheets/revc.py` appends after every Rev B sheet is composed and never calls
+a Rev B composer. A value correction is made in place — same type, layer and position in its scene, so
+the same handle with a new body — and registered in `revc.CORRECTED` per file with its correction's
+id. Check 9 (`validate/revision.py`, run by `validate.run` and by
+`python -m fixtures.gen.rcc6_bnbc.validate.revision` in about 3 s) reads the Rev B paper set, frames
+set and twin by git blob id (`b7e37fa7`, `828bf6e7`, `0abc7958`; traps `d5505eae`) from the raw tag
+stream and refuses by handle: a Rev B record lost, retyped or moved to another layer; a rewrite the
+register does not name, or a registered record that did not change; a VIEWPORT, table or dictionary
+in the register; a correction registered in one set and not the other; a record added below Rev B's
+`$HANDSEED` (22A8, 21F3, 246A); a header variable other than `$HANDSEED` moved; Rev B's CLASSES no
+longer first; a trap whose handle moved. The design's "three containers" exemption is read as its
+cause — a container may only GROW (a table head's counts rise, entries are added, nothing it held
+changes) — and the append-pass probe (`cad/tests/rcc6_bnbc/test_rcc6_bnbc_revision.py`: an item on a
+Rev B view and on a Rev B sheet, a dimension, a new layer, a block defined mid-library, a new view, a
+new sheet) grows exactly those three in the paper set (the LAYER and BLOCK_RECORD tables and the
+layout dictionary) and two in the frames set, and moves no other Rev B record. Two hazards closed on
+the way: every writer asserts every authored item was placed (a tagged item no pass placed would print
+on the PDF and be missing from the DXF, which no handle check sees), and `_carry_handles` drops a
+frame copy's entry once carried (a dead copy's id may be reused by a later copy that the appended pass
+never places, which would carry a stale handle). Cost: the generator reads the repository's object
+store — a clone without R0's Rev B blobs refuses by name, never skips. At R0-G0 the revision draws
+nothing and corrects nothing; the proof is the corpus regenerating byte for byte (below).
+
+**W-19a Rev B's windows are pinned.** `Paper.view` centred each window on its scene's extents, so an
+in-place correction that moves a scene's extents re-centred its Rev B VIEWPORT and moved every frames
+record of the view (the refuter's D-TANK trial: VIEWPORT `226A` −75, frames `2066..2075` and `206A`
++150). Ruling: `emit/sheets/revb_windows.json` pins each Rev B view's window — `"<sheet>#<index>"`, its
+title as a check, the scene point at the window's lower-left — and `Paper.view` frames a Rev B view on
+its pin and refuses a view with none (a later view is `revc.add_view`'s, centred on its own scene).
+The 53 pins were minted once, at R0-G0, from the unmodified composers (a `git archive` of `0c4f31b1`),
+and equal the design's scratch pins 53 of 53. They are never re-minted — a pin minted after a
+correction would freeze a moved window; a corrected scene that outgrows its window is refused by check
+5b (`validate/fit.py` reads the pinned origin) and is fixed by a smaller correction or a Rev C view,
+never by moving the window. Check 9 re-centres every Rev B view no correction touched and demands its
+pin exactly, so the pins' provenance is proved for as long as it can hold (53 of 53 at R0-G0).
+
+**R0-G0's proof (the append pass and the pins, no content change).** `python -m fixtures.gen.rcc6_bnbc
+--out <scratch>` over this generator wrote 44 files; 43 are byte-identical to the committed corpus —
+both DXFs, the twin, both DWGs (judged by census; byte-equal this run), both PDFs, the 24 rasters and
+every JSON — and `manifest.json` differs only where it must: `generator.modules` (the five modules this
+step edits, the three it adds) and `validate.revision`, check 9's report (paper 8,591 records, frames
+8,410, twin 8,591, each 0 corrected, 0 grown, 0 added; traps 52/52; 5,975 authored items in both sets;
+53 windows pinned, 53 untouched and centred on their pins). The cad lane's own regeneration test
+reads the same: `regenerated files differ from the committed bytes: ['manifest.json']`, both DWG
+censuses equal. The manifest re-mints with the corpus at R0-BASE; until then its module-pin tests
+(`test_manifest_pins_the_generator_and_its_outputs`, the AC-1 byte-identity and manifest-pin cases)
+read the generator as moved — the window in which the generator and the corpus disagree opens here.
