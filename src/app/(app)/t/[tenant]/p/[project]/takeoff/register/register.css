@@ -407,12 +407,47 @@
   text-overflow: ellipsis;
 }
 
+/* The footer's totals stand under the column they total — right-aligned, the unit beside each
+   figure — and the box holding them never outgrows the cell: it is the cell's width, flush right,
+   so a figure is never pushed past the unit that says what it is (I-235, I-reg-2). */
+.cx-register-totals {
+  justify-content: flex-end;
+  max-width: 100%;
+}
+
+/* A line kept with no quantity says why in the Value cell (L-QTY-02, I-reg-1): muted words in the UI
+   face, never mono — it is a sentence about a figure, not a figure — ellipsised like every cell. */
+.cx-register-omitted {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+.cx-register-omission {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--ink-secondary);
+}
+
 /* The campaign's pinned revision, in the tabs row: a label and the surrogate it names. */
 .cx-register-campaign {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+}
+
+/* The screen's half of the lane's tabs row, inside the same inline gutter the shipped ShellToolbar
+   keeps on Coverage: the revision and the one primary end where every surface's controls end. */
+.cx-register-tabs-aside {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-inline-end: var(--space-2);
 }
 
 .cx-register-campaign-label {

@@ -11,6 +11,8 @@
 import { cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test } from "vitest";
+import { inWords } from "../../../src/core/documents/kinds/boq-draft-law";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import {
   DISCIPLINE,
   LEVEL_GF,
@@ -42,8 +44,9 @@ afterEach(() => {
 
 /**
  * The columns of the lines table, in the order the Decision fixes, by their copy keys — Design
- * Direction 00 §3.2's own order since v22: what a thing is, how much of it, in what, on what basis,
- * how covered, and only then how it was worked out and where it was read.
+ * Direction 00 §3.2's order as s-takeoff I-reg-3 amends it: what a thing is, how much of it, in what,
+ * on what basis, how covered, where it was read — the evidence, on screen at 1440 and at 1280 — and
+ * only then how it was worked out. The calibration keys and the engine are the inspector's.
  */
 const COLUMN_KEYS: readonly string[] = [
   "takeoff_register_col_kind",
@@ -51,11 +54,9 @@ const COLUMN_KEYS: readonly string[] = [
   "takeoff_register_col_unit",
   "takeoff_register_col_bases",
   "takeoff_register_col_coverage",
+  "takeoff_register_col_source",
   "takeoff_register_col_formula",
   "takeoff_register_col_variables",
-  "takeoff_register_col_calibration",
-  "takeoff_register_col_engine",
-  "takeoff_register_col_source",
 ];
 
 /**
@@ -112,13 +113,6 @@ function spreadsOver(held: readonly string[], roster: readonly string[], column:
   );
 }
 
-/** The IdChip values inside one row's cell under a named column — the whole identifiers it carries. */
-function chipValuesUnder(row: HTMLElement, key: string): string[] {
-  const at = COLUMN_KEYS.indexOf(key);
-  const cells = [...row.querySelectorAll('[role="gridcell"], [role="rowheader"]')] as HTMLElement[];
-  return [...(cells[at]?.querySelectorAll("[data-value]") ?? [])].map((chip) => chip.getAttribute("data-value") ?? "");
-}
-
 /** The cell of one row under a named column — the position the header order gives it. */
 function cellUnder(row: HTMLElement, key: string): string {
   const at = COLUMN_KEYS.indexOf(key);
@@ -136,7 +130,7 @@ function rowOf(root: HTMLElement, line: ViewLine): HTMLElement {
 }
 
 describe("AC-2 — discipline → level → class → object, and the lines beneath", () => {
-  test("AC-2: the tree nests discipline → level → class → object, labelled verbatim", async () => {
+  test("AC-2: the tree nests discipline → level → class → object, the level verbatim and the class in words", async () => {
     const view: RegisterViewLike = await corpus();
     const root = await mountRegister(view);
 
@@ -147,7 +141,8 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
     // one rule EnumLabel says one by, and the SCREAMING form stays where the model holds it.
     const discipline = treeItem(root, await enumWords(DISCIPLINE));
     const level = treeItem(root, LEVEL_GF);
-    const cls = treeItem(root, CLASS_COLUMN);
+    // I-reg-2: a class is a model value, said by the draft BOQ's own rule (`column` → `Column`).
+    const cls = treeItem(root, inWords(CLASS_COLUMN));
     expect(discipline.contains(level), `the level \`${LEVEL_GF}\` is nested under the discipline \`${DISCIPLINE}\``).toBe(true);
     expect(level.contains(cls), `the class \`${CLASS_COLUMN}\` is nested under the level \`${LEVEL_GF}\``).toBe(true);
 
@@ -204,6 +199,7 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
     const view = await corpus();
     const rosters = await offerRosters();
     const root = await mountRegister(view);
+    const user = userEvent.setup();
 
     // The corpus each cell below is read against varies in every column it renders, so a cell that
     // held a constant states the wrong words for at least one row rather than passing on a corpus
@@ -265,11 +261,18 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
       expect(bases, "the quantity basis stands as R-UI-002's chip").toContain(line.quantityBasis);
       expect(bases, "and the selecting basis beside it, whose SCREAMING form the label keeps").toContain(line.selectionBasis);
       expect(cellUnder(row, "takeoff_register_col_coverage"), "the coverage states its own word").toContain(line.coverage);
-      // A calibration key is an identifier and stands as an IdChip: the whole key is the chip's value
-      // (R-UI-082; the register Decision's craft amendment, session 4), the document shows the measure.
-      const calibrationChips = chipValuesUnder(row, "takeoff_register_col_calibration");
+      // A line kept with no quantity SAYS so in its Value cell rather than standing blank (I-reg-1).
+      if (line.value === null) expect(cellUnder(row, "takeoff_register_col_value").length, "a line with no figure says why in its Value cell").toBeGreaterThan(0);
+      // I-reg-3: the calibration keys and the engine are the inspector's. A calibration key is an
+      // identifier and stands as an IdChip whose value is the whole key (R-UI-082); the engine is said
+      // in words with its stored value kept inside the label.
+      await user.click(row);
+      const inspector = one(root, "register-inspector");
+      expect(inspector.getAttribute("data-line"), "the row a pointer took is the line the inspector states").toBe(line.lineId);
+      const calibrationChips = [...inspector.querySelectorAll(testIdSelector(TESTIDS.idChip.root))].map((chip) => chip.getAttribute("data-value") ?? "");
       for (const key of line.calibrationKeys) expect(calibrationChips, "every calibration key is stated, whole, as a chip's value").toContain(key);
-      expect(cellUnder(row, "takeoff_register_col_engine"), "the engine states its own word").toContain(line.engine);
+      expect(text(inspector), "the engine states its own word").toContain(line.engine);
+      await user.click(row);
       // §6: a source key renders as the chips a person reads — the sheet it stands on, the mark it
       // was read for, and the extractor's handle. A key of no known grammar is not abbreviated into
       // one: it stands whole (I-26).

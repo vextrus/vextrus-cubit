@@ -77,8 +77,11 @@ export const CAUSE_GLYPHS: Readonly<Record<GlyphReading, Mark>> = Object.freeze(
  * row height, at either density (`--row-h`, R-UI-005) — so this file states geometry only inside the
  * viewBox and never a pixel outside it (I-189, ARCH-01).
  */
-export function CauseGlyph({ reading, read = false, corner = false }: { reading: GlyphReading; read?: boolean; corner?: boolean }) {
-  const Mark = CAUSE_GLYPHS[reading];
+export function CauseGlyph({ reading, read = false, corner = false, partial = false }: { reading: GlyphReading; read?: boolean; corner?: boolean; partial?: boolean }) {
+  // I-cov-1: a published cell whose lines carry no quantity, or carry it only in part, wears the
+  // partial mark's drawn geometry — the broken ring the key line calls Partial — while the hook and
+  // the code still name the reading the residue answered, so nothing machine-read is re-labelled.
+  const Mark = partial ? CAUSE_GLYPHS.INGESTION_TRUNCATED : CAUSE_GLYPHS[reading];
   // I-189 draws a cell's two axes as two marks, and I-198 names exactly ONE of them as the reading a
   // person is answered with. So the mark of the read axis is the cell's mark and carries the hook and
   // the code; the other axis is drawn beside it, unnamed — a cell states one cause, not two.
@@ -91,8 +94,9 @@ export function CauseGlyph({ reading, read = false, corner = false }: { reading:
 }
 
 /** The same mark, standing on its own in the key line beside the word it means (I-195). */
-export function LegendGlyph({ reading }: { reading: GlyphReading }) {
-  const Mark = CAUSE_GLYPHS[reading];
+export function LegendGlyph({ reading, partial = false }: { reading: GlyphReading; partial?: boolean }) {
+  // The same rule as the cell's own glyph (I-cov-1): drawn partial, named by its reading.
+  const Mark = partial ? CAUSE_GLYPHS.INGESTION_TRUNCATED : CAUSE_GLYPHS[reading];
   return (
     <svg className="cx-coverage-legend-mark" data-testid="coverage-cell-glyph" data-code={reading} viewBox={VIEW_BOX} aria-hidden="true" focusable="false">
       <Mark />

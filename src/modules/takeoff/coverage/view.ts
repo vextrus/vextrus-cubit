@@ -27,6 +27,13 @@ export type CoverageView = {
   readonly cells: readonly ResidueCell[];
   readonly measurement: readonly StatementRow[];
   readonly bill: readonly StatementRow[];
+  /**
+   * The campaign's published lines kept with NO quantity (PARTIAL_DECLARED), by id (s-coverage
+   * I-cov-1). The residue reads a cell QUANTITY_BEARING when it has published lines at all; this is
+   * how the grid tells a cell whose lines bear a figure from one whose lines only declare what they
+   * left out (L-QTY-02). Absent reads as none.
+   */
+  readonly declaredLineIds?: readonly string[];
 };
 
 /** One cell read on its own, as the inspector's own door answers it (`takeoff.coverageCell`). */

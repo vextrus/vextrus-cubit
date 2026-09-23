@@ -17,13 +17,22 @@
 // answered. Nothing on this screen commits anything itself (L-ACT-02, I-175).
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type MouseEvent, type ReactNode, type Ref } from "react";
 import type { Consequence, CorroborateInput, InsertLevelStatement, LevelStackGroupKey, RepudiateInput } from "@/core/acts";
+import { isKind } from "@/core/catalogue/kinds";
+// The one rule a page says a key by (`rcc.concrete` → `Concrete`, `pile_cap` → `Pile cap`) and the
+// places each kind's figure is written to (L-MEA-04's catalogue): the draft BOQ reads both from here,
+// so the register and the bill say a line the same way (B-17, s-takeoff I-reg-2).
+import { inWords, placesForUnit, placesOf } from "@/core/documents/kinds/boq-draft-law";
 import type { RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { formatDate, formatMoney, formatUserFigure, dhakaDateParts } from "@/core/format";
+import { isLevelSlot } from "@/core/identity";
 import type { JobKind } from "@/core/jobs/kinds";
 import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
 import type { CorroborationReading } from "@/core/outline-corroboration/law";
 import { parseSourceKey } from "@/core/sources";
+// A stored decimal STATED at a fraction length, half-up on the text — never a float, never a re-sum
+// (B-07, L-FMT-02). The bar schedule's own home for it; this screen states a figure the same way.
+import { statedAt } from "@/modules/takeoff/bbs-ui/present";
 import { LINE_PARAM, originAddress, traceAddress } from "@/modules/takeoff/trace/address";
 import { basisOf } from "./basis";
 import { REGISTER_COPY, fillCopy } from "./copy";
@@ -366,6 +375,101 @@ const FIGURES = Object.freeze({
 const CHIP_SEPARATOR = " · ";
 
 /**
+ * The figure conventions at one DISPLAY precision (s-takeoff I-reg-2). The register keeps every line
+ * at full precision (L-QTY-03) and `QuantityText` keeps that exact decimal in `data-value`; what the
+ * FACE of a cell writes is the figure stated at the places the catalogue writes its kind to — the
+ * places the draft BOQ prints the same line at — so `0.53323979985339035022662733` reads `0.533`
+ * and the exact value is one selection away, in the inspector. Held per precision, because a format
+ * with a new identity every render re-renders every figure of the grid.
+ */
+const FIGURES_AT = new Map<number, typeof FIGURES>();
+function figuresAt(places: number | null): typeof FIGURES {
+  if (places === null) return FIGURES;
+  const held = FIGURES_AT.get(places);
+  if (held !== undefined) return held;
+  const made = Object.freeze({ ...FIGURES, figure: (value: string): string => formatUserFigure(statedAt(value, places)) });
+  FIGURES_AT.set(places, made);
+  return made;
+}
+
+/** The places a kind's figure is written to, or null for a kind the catalogue does not hold. */
+function placesOfKind(kind: string): number | null {
+  return isKind(kind) ? placesOf(kind) : null;
+}
+
+/** The places a total in one unit is written to: the widest of the kinds adding into it (L-FMT-02). */
+function placesOfTotal(lines: readonly ViewLine[], unit: string): number | null {
+  const kinds = lines.filter((line) => line.unit === unit && isKind(line.kind)).map((line) => ({ kind: line.kind, unit: line.unit }));
+  return kinds.length === 0 ? null : placesForUnit(kinds, unit);
+}
+
+/**
+ * A level as a reader reads it (R-UI-082): a label the stack holds is the drawing's own word and
+ * stands verbatim (`GF`, `1F`); a lawful-null SLOT is an enum the register files a level-less object
+ * under (`FOUNDATION`), and is said in words by the rule EnumLabel says one by.
+ */
+function levelSaid(level: string, humanise: (value: string) => string): string {
+  return isLevelSlot(level) ? humanise(level) : level;
+}
+
+/**
+ * A formula's one-line face (s-takeoff I-reg-2): a constant written to more than six places — the
+ * circular column's π, printed by its digits (I-305) — is cut at six with an ellipsis, so the cell
+ * says what was measured rather than twenty digits of one number. The formula stands WHOLE in the
+ * inspector's expansion, which is the one place it is audited from (§5 rule 2).
+ */
+const LONG_CONSTANT = /(\d+\.\d{6})\d+/gu;
+function formulaFace(formula: string): string {
+  return formula.replace(LONG_CONSTANT, "$1…");
+}
+
+/** The variables a line left out, each named once, in the order the line enumerated them (L-QTY-02). */
+function omittedVariables(line: ViewLine): string[] {
+  return [...new Set((line.omitted ?? []).map((omission) => omission.variable))];
+}
+
+/** The registered codes a line left its components out under, each once, in the line's own order. */
+function omittedCodes(line: ViewLine): string[] {
+  return [...new Set((line.omitted ?? []).map((omission) => omission.code))];
+}
+
+/**
+ * Why a line kept with no quantity has none, in its own Value cell (s-takeoff I-reg-1): the
+ * variables the drawing did not state — `L, B, D unstated` — or, where the line enumerated none, that
+ * no figure stands. Never a blank: a blank Value beside a declared line is the silence R-UI-020 bars.
+ */
+function omissionSaid(line: ViewLine): string {
+  const variables = omittedVariables(line);
+  return variables.length === 0 ? REGISTER_COPY.takeoff_register_value_unstated : fillCopy("takeoff_register_value_omitted", { variables: variables.join(", ") });
+}
+
+/**
+ * Marks in the order a quantity surveyor reads them — `P2` before `P10`, `C1` before `C1A` (R-UI-083).
+ * A run of digits orders by its value and every other run by its code points, so no locale is asked
+ * (the platform's collator is SEAM-FORMAT's alone, L-FMT-01) and the order is the same everywhere.
+ */
+const RUNS = /\d+|\D+/gu;
+function markOrder(left: string, right: string): number {
+  const a = left.match(RUNS) ?? [];
+  const b = right.match(RUNS) ?? [];
+  for (let at = 0; at < Math.min(a.length, b.length); at += 1) {
+    const x = a[at] as string;
+    const y = b[at] as string;
+    if (x === y) continue;
+    const digits = /^\d/u.test(x) && /^\d/u.test(y);
+    if (digits) {
+      const bare = (run: string): string => run.replace(/^0+(?=\d)/u, "");
+      const [p, q] = [bare(x), bare(y)];
+      if (p.length !== q.length) return p.length - q.length;
+      if (p !== q) return p < q ? -1 : 1;
+      continue;
+    }
+    return x < y ? -1 : 1;
+  }
+  return a.length - b.length || (left < right ? -1 : left > right ? 1 : 0);
+}
+
+/**
  * What every row of the lines table publishes of its own: the line it stands for — which is how a
  * row a POINTER landed on is read back — and, on the one a reader chose, that it is chosen, because
  * the shipped grid paints only the selection IT took (§5 rule 8, and the IOU in §8).
@@ -412,11 +516,23 @@ function treeOf(objects: readonly ViewObject[], humanise: (value: string) => str
     // §6: people see labels, never machine identifiers — a discipline is a SCREAMING enum in the
     // store and a word on a screen. The Tree takes a string, so the humanising is the one the
     // EnumLabel does, handed in rather than written again (B-17).
+    // A level is the drawing's own label and stands verbatim; a lawful-null slot and a class are
+    // model enums and are said in words, the class by the same rule the draft BOQ says it by (I-reg-2).
     const discipline = at(items, `d:${object.discipline}`, humanise(object.discipline));
-    const level = at(discipline.children as TreeNode[], `d:${object.discipline}|l:${object.level}`, object.level);
-    const cls = at(level.children as TreeNode[], `d:${object.discipline}|l:${object.level}|c:${object.class}`, object.class);
+    const level = at(discipline.children as TreeNode[], `d:${object.discipline}|l:${object.level}`, levelSaid(object.level, humanise));
+    const cls = at(level.children as TreeNode[], `d:${object.discipline}|l:${object.level}|c:${object.class}`, inWords(object.class));
     (cls.children as TreeNode[]).push({ id: `o:${object.objectKey}`, label: object.mark });
   }
+  // The objects of a class in the order a reader reads marks — P1, P2 … P10 — not the order they
+  // were registered in, which read P10 … P19, P1, P20 (R-UI-083).
+  const sortObjects = (nodes: TreeNode[]): void => {
+    for (const node of nodes) {
+      const children = node.children ?? [];
+      if (children.every((child) => child.id.startsWith("o:"))) children.sort((left, right) => markOrder(left.label, right.label));
+      else sortObjects(children);
+    }
+  };
+  sortObjects(items);
   return { items, expanded };
 }
 
@@ -767,16 +883,20 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
 
   /* ------------------------------------------------------------------ the lines table's columns */
 
-  // §3.2's own order: what a thing is, how much of it, in what, on what basis, how covered — and only
-  // then how it was worked out and where it was read. Ten columns at the widths they are read at.
+  // §3.2's order as I-reg-3 amends it: what a thing is, how much of it, in what, on what basis, how
+  // covered, WHERE IT WAS READ — the evidence — and only then how it was worked out. Eight columns
+  // that fit the grid at 1440 (1,068 of 1,088 px) and keep the evidence on screen at 1280; the
+  // calibration keys and the engine are stated in the inspector, beside the formula they qualify.
   const columns: LineColumn[] = [
     {
       id: "kind",
       header: REGISTER_COPY.takeoff_register_col_kind,
       accessorFn: (line) => line.kind,
       enableSorting: true,
-      size: 148,
-      cell: ({ row }) => <span className="cx-register-cell-mono">{row.original.kind}</span>,
+      size: 120,
+      // R-UI-082: a kind is a model value, said in words — `Concrete`, by the draft BOQ's own rule —
+      // with the stored key kept inside the label's technical disclosure (I-reg-2).
+      cell: ({ row }) => <EnumLabel value={row.original.kind} label={inWords(row.original.kind)} className="cx-register-enum" />,
     },
     {
       id: "value",
@@ -785,18 +905,25 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
       accessorFn: (line) => line.value ?? "",
       enableSorting: true,
       size: 116,
-      // The SI value at the precision it was published at, never re-rounded (I-25), grouped as the
-      // document groups a figure (L-FMT-01) and kept whole in `data-value`; a row kept with no
-      // quantity states none, never a zero (L-QTY-02).
+      // The figure at its kind's display precision, grouped as the document groups one (L-FMT-01),
+      // with the exact published value kept whole in `data-value` and stated whole in the inspector
+      // (L-QTY-03, I-reg-2). A row kept with no quantity states none, never a zero — and SAYS why:
+      // the components it left out, off the line itself (L-QTY-02, I-reg-1).
       cell: ({ row }) =>
-        row.original.value === null ? null : <QuantityText value={row.original.value} format={FIGURES} className="cx-register-figure" />,
+        row.original.value === null ? (
+          <span className="cx-register-omitted" data-omitted={omittedCodes(row.original).join(" ")}>
+            {omissionSaid(row.original)}
+          </span>
+        ) : (
+          <QuantityText value={row.original.value} format={figuresAt(placesOfKind(row.original.kind))} className="cx-register-figure" />
+        ),
     },
     {
       id: "unit",
       header: REGISTER_COPY.takeoff_register_col_unit,
       accessorFn: (line) => line.unit,
       enableSorting: true,
-      size: 64,
+      size: 56,
       cell: ({ row }) => <UnitBadge unit={row.original.unit} />,
     },
     {
@@ -822,58 +949,24 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
       header: REGISTER_COPY.takeoff_register_col_coverage,
       accessorFn: (line) => line.coverage,
       enableSorting: true,
-      // 152 for the same reason as `bases` above: the coverage chip and the word beside it are two
-      // boxes, not one text cell, so the table's ellipsis never reached them and "Complete" stood
-      // cut at the cell's edge.
-      size: 152,
+      // The chip and the word are two boxes, not one text cell, so the width is the content's. The
+      // chip stands only where a share was in fact measured: a PARTIAL_DECLARED line carries no
+      // quantity, and a red `0%` beside it was a percentage nobody computed (R-UI-002, I-reg-1) —
+      // the word says the coverage, and the Value cell says what was left out.
+      size: 128,
       cell: ({ row }) => (
         <span className="cx-register-coverage">
-          <CoverageChip value={row.original.coverage === COMPLETE ? 1 : 0} />
+          {row.original.coverage === COMPLETE ? <CoverageChip value={1} /> : null}
           <EnumLabel value={row.original.coverage} className="cx-register-enum" />
         </span>
       ),
-    },
-    {
-      id: "formula",
-      header: REGISTER_COPY.takeoff_register_col_formula,
-      size: 180,
-      // §5 rule 2: never a taller row. The cell is one line; the table's own Tooltip states it whole
-      // when it is clipped, and the inspector expands it beside the variables it was read with.
-      cell: ({ row }) => <span className="cx-register-formula">{row.original.formula}</span>,
-    },
-    {
-      id: "variables",
-      header: REGISTER_COPY.takeoff_register_col_variables,
-      size: 180,
-      cell: ({ row }) => <span className="cx-register-cell-mono">{variablesOf(row.original)}</span>,
-    },
-    {
-      id: "calibration",
-      header: REGISTER_COPY.takeoff_register_col_calibration,
-      size: 120,
-      // A calibration key is an identifier and renders through the IdChip, never as body text (R-UI-082).
-      cell: ({ row }) => (
-        <span className="cx-register-cell-mono cx-register-cell-keys">
-          {row.original.calibrationKeys.map((key) => (
-            <IdChip key={key} value={key} />
-          ))}
-        </span>
-      ),
-    },
-    {
-      id: "engine",
-      header: REGISTER_COPY.takeoff_register_col_engine,
-      accessorFn: (line) => line.engine,
-      enableSorting: true,
-      size: 104,
-      cell: ({ row }) => <EnumLabel value={row.original.engine} className="cx-register-enum" />,
     },
     {
       id: "source",
       header: REGISTER_COPY.takeoff_register_col_source,
       accessorFn: (line) => line.sourceKey,
       enableSorting: true,
-      size: 180,
+      size: 168,
       // I-179 as §6 amends it: a number's evidence is the key it was read at, so the key IS the
       // affordance and the cell's whole content is the link — but a person reads `S-101 · C1 · #1F`,
       // not a scheme and a handle. The key itself stays whole in the address the link carries and in
@@ -915,31 +1008,59 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
         );
       },
     },
+    {
+      id: "formula",
+      header: REGISTER_COPY.takeoff_register_col_formula,
+      size: 152,
+      // §5 rule 2: never a taller row. The cell is one line, a long constant cut at six places
+      // (I-reg-2); the table's own Tooltip states the face when it is clipped, and the inspector
+      // expands the formula WHOLE beside the variables it was read with.
+      cell: ({ row }) => <span className="cx-register-formula">{formulaFace(row.original.formula)}</span>,
+    },
+    {
+      id: "variables",
+      header: REGISTER_COPY.takeoff_register_col_variables,
+      size: 140,
+      cell: ({ row }) => <span className="cx-register-cell-mono">{variablesOf(row.original)}</span>,
+    },
   ];
 
-  /** §5 rule 4: one group per level and class, as the wireframe writes one — `▾ GF · column (4)`. */
+  /**
+   * §5 rule 4: one group per level and class, as the wireframe writes one — `▾ GF · Column (4)`. The
+   * level is the stack's own label and a slot is said in words; the class is said by the draft BOQ's
+   * rule, so `FOUNDATION · pile_cap` reads `Foundation · Pile cap` (R-UI-082, I-reg-2).
+   */
   const group = useMemo(
     () => ({
-      of: (line: ViewLine): GroupKey => ({ key: `${line.level}|${line.class}`, label: `${line.level}${CHIP_SEPARATOR}${line.class}` }),
+      of: (line: ViewLine): GroupKey => ({ key: `${line.level}|${line.class}`, label: `${levelSaid(line.level, humaniseEnum)}${CHIP_SEPARATOR}${inWords(line.class)}` }),
       valueOf: (line: ViewLine): string | null => line.value,
       unitOf: (line: ViewLine): string => line.unit,
+      // A group's sum is stated as the footer states its total — at the widest places of the kinds
+      // adding into that unit — with the exact sum on its `data-value` (I-reg-2, I-316). Through the
+      // frame's FigureProvider alone it printed every digit the exact addition left: `20.7950000 m3`.
+      format: { figure: (value: string, unit: string): string => figuresAt(placesOfTotal(lines, unit)).figure(value) },
     }),
-    [],
+    [humaniseEnum, lines],
   );
 
-  /** §5 rule 1's sticky footer: what the visible set adds up to, exactly and per unit (B-07). */
-  const totals = useMemo(
-    () => ({
-      value: (
-        <span className="cx-register-totals">
-          {subtotalsByUnit(lines, (line) => line.value, (line) => line.unit).map((subtotal) => (
-            <QuantityText key={subtotal.unit} value={subtotal.value} unit={subtotal.unit} format={FIGURES} />
-          ))}
-        </span>
-      ),
-    }),
-    [QuantityText, lines, subtotalsByUnit],
-  );
+  /**
+   * §5 rule 1's sticky footer: what the visible set adds up to, exactly and per unit (B-07). The sum
+   * is the table's own exact addition and stands whole in each figure's `data-value` — the J-000 leg
+   * reads it there — while the face states it at the widest places of the kinds adding into it, right
+   * under the column it totals, with its unit beside it (I-reg-2). More than one unit cannot share
+   * one 116 px cell legibly, so the cell then carries every total in its Tooltip as well.
+   */
+  const totals = useMemo(() => {
+    const subtotals = subtotalsByUnit(lines, (line) => line.value, (line) => line.unit);
+    const said = (
+      <span className="cx-register-totals">
+        {subtotals.map((subtotal) => (
+          <QuantityText key={subtotal.unit} value={subtotal.value} unit={subtotal.unit} format={figuresAt(placesOfTotal(lines, subtotal.unit))} />
+        ))}
+      </span>
+    );
+    return { value: subtotals.length > 1 ? <Tooltip content={said}>{said}</Tooltip> : said };
+  }, [QuantityText, Tooltip, lines, subtotalsByUnit]);
 
   /* ----------------------------------------------------------- the shell's ONE inspector (§3.2) */
 
@@ -963,11 +1084,19 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
       const mark = marks.get(selectedLine.objectKey) ?? null;
       return (
         <div className="cx-register-inspector" data-testid={chrome.testIds.inspector} data-object={selectedLine.objectKey} data-line={selectedLine.lineId}>
-          <p className="cx-register-inspector-title">{selectedLine.kind}</p>
+          <p className="cx-register-inspector-title">
+            <EnumLabel value={selectedLine.kind} label={inWords(selectedLine.kind)} />
+          </p>
           <dl className="cx-register-facts">
             <dt>{REGISTER_COPY.takeoff_register_col_value}</dt>
+            {/* The EXACT published value — the one place on this screen it is written whole, because
+                the grid's face states it at its kind's display precision (L-QTY-03, I-reg-2). */}
             <dd>
-              {selectedLine.value === null ? null : <QuantityText value={selectedLine.value} unit={selectedLine.unit} format={FIGURES} />}
+              {selectedLine.value === null ? (
+                <span className="cx-register-omitted">{omissionSaid(selectedLine)}</span>
+              ) : (
+                <QuantityText value={selectedLine.value} unit={selectedLine.unit} format={FIGURES} />
+              )}
             </dd>
             <dt>{REGISTER_COPY.takeoff_register_col_bases}</dt>
             <dd data-basis={selectedLine.quantityBasis}>
@@ -976,11 +1105,37 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
             </dd>
             <dt>{REGISTER_COPY.takeoff_register_col_coverage}</dt>
             <dd>
-              <CoverageChip value={selectedLine.coverage === COMPLETE ? 1 : 0} />
+              {selectedLine.coverage === COMPLETE ? <CoverageChip value={1} /> : null}
               <EnumLabel value={selectedLine.coverage} className="cx-register-enum" />
             </dd>
+            {/* L-QTY-02: every omitted component enumerated, each with the registered sentence it was
+                left out under — the Value cell's short form, said in full (I-reg-1). */}
+            {(selectedLine.omitted ?? []).length === 0 ? null : (
+              <>
+                <dt>{REGISTER_COPY.takeoff_register_omitted_label}</dt>
+                <dd className="cx-register-omissions">
+                  {(selectedLine.omitted ?? []).map((omission) => (
+                    <p key={`${omission.variable}:${omission.code}`} className="cx-register-omission" data-variable={omission.variable} data-code={omission.code}>
+                      <span className="cx-register-cell-mono">{omission.variable}</span> {doors.refusalOf(omission.code)?.message ?? humaniseEnum(omission.code)}
+                    </p>
+                  ))}
+                </dd>
+              </>
+            )}
             <dt>{REGISTER_COPY.takeoff_register_col_source}</dt>
             <dd className="cx-register-source">{sourceChips(selectedLine, mark, humaniseEnum)}</dd>
+            {/* I-reg-3: the two columns the grid no longer carries stand here, beside the formula
+                they qualify — the engine in words, and every calibration key as its IdChip. */}
+            <dt>{REGISTER_COPY.takeoff_register_col_engine}</dt>
+            <dd>
+              <EnumLabel value={selectedLine.engine} className="cx-register-enum" />
+            </dd>
+            <dt>{REGISTER_COPY.takeoff_register_col_calibration}</dt>
+            <dd className="cx-register-cell-keys">
+              {selectedLine.calibrationKeys.map((key) => (
+                <IdChip key={key} value={key} />
+              ))}
+            </dd>
           </dl>
           {/* §5 rule 2's "expand affordance in the inspector": the formula the cell could only show
               one line of, whole, with every variable it was read with beside it. */}
@@ -1166,6 +1321,9 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
     CoverageChip,
     EnumLabel,
     EvidenceLink,
+    IdChip,
+    doors,
+    humaniseEnum,
     Input,
     QuantityText,
     Tooltip,
@@ -1252,6 +1410,13 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
     coverage: { label: REGISTER_COPY.takeoff_register_filter_coverage, any: REGISTER_COPY.takeoff_register_filter_any_coverage, options: optionsOf(registered, (line) => line.coverage) },
   };
 
+  /** One filter option in the words its column is said in on the face of the grid (I-reg-2). */
+  const optionSaid = (name: keyof Filters, option: string): string => {
+    if (name === "class" || name === "kind") return inWords(option);
+    if (name === "level") return levelSaid(option, humaniseEnum);
+    return humaniseEnum(option);
+  };
+
   /**
    * A row chosen with the pointer. The shipped grid raises its own selection (Space, ⇧-range) through
    * `onRowSelect`, and a click moves the cell cursor without taking a row — so the row a reader
@@ -1318,7 +1483,9 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
             variant="chip"
             label={filterOptions[name].label}
             placeholder={filterOptions[name].any}
-            options={[{ value: "", label: filterOptions[name].any }, ...filterOptions[name].options.map((option) => ({ value: option, label: option }))]}
+            // The value is the stored one; the label is the word the grid says it by (I-reg-2), so a
+            // chip never offers `pile_cap` beside a group row that reads `Pile cap`.
+            options={[{ value: "", label: filterOptions[name].any }, ...filterOptions[name].options.map((option) => ({ value: option, label: optionSaid(name, option) }))]}
             value={filters[name]}
             onChange={(chosen) => setFilters((held) => ({ ...held, [name]: chosen }))}
           />
@@ -1398,7 +1565,7 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
                   {refusal.kind === null ? null : (
                     <div className="cx-register-refusal-fact">
                       <span className="cx-register-refusal-label">{REGISTER_COPY.takeoff_register_refusal_kind_label}</span>
-                      <span className="cx-register-cell-mono">{refusal.kind}</span>
+                      <EnumLabel value={refusal.kind} label={inWords(refusal.kind)} className="cx-register-enum" />
                     </div>
                   )}
                   <RefusalState refusal={entry} evidence={evidence} />

@@ -19,13 +19,14 @@
 // states no size at all. Colour is the mark's (`data-mark`) and the fill is the ramp step
 // (`data-cov`); the words are the registry's. Nothing on this grid is carried by colour alone.
 import { useRef } from "react";
+import { inWords } from "@/core/documents/kinds/boq-draft-law";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { cellRef, type CellGrain, type ResidueCell, type ResidueLevel, type TruncatedSheet } from "@/core/residue/law";
 import { compareCanonical } from "@/core/identity";
 import { BILL_AXIS, axisReadOf } from "./cited-act";
 import { fillCoverageCopy, COVERAGE_COPY } from "./copy";
 import { CauseGlyph, type GlyphReading } from "./glyphs";
-import { MARK_OF, rampStep, rowShare, sharePublished, type Mark } from "./heat";
+import { MARK_OF, linesDeclared, rampStep, rowShare, shareBorne, sharePublished, type Mark } from "./heat";
 
 /** The density a reader set on the frame. It moves `--row-h`, which is the cell's whole geometry. */
 export type CoverageDensity = "comfortable" | "compact";
@@ -55,25 +56,57 @@ export function causeRead(cell: ResidueCell): string {
   return axisReadOf(cell) === BILL_AXIS ? cell.bill : cell.measurement;
 }
 
-/** The mark one cell wears — the mark of the cause it is READ under (§4.3, I-198). */
-export function markOf(cell: ResidueCell): Mark {
+/** No line kept without quantity — what a reading that carries no such list reads as. */
+const NONE_DECLARED: ReadonlySet<string> = new Set();
+
+/**
+ * Whether a published cell's lines bear LESS than a whole quantity (I-cov-1): some or all of them
+ * were kept PARTIAL_DECLARED, with no figure. The residue reads the cell QUANTITY_BEARING because it
+ * has published lines; this screen does not paint that as measured when the lines say otherwise.
+ */
+export function partlyBorne(cell: ResidueCell, declared: ReadonlySet<string> = NONE_DECLARED): boolean {
+  return causeRead(cell) === "QUANTITY_BEARING" && shareBorne(cell, declared) < 1;
+}
+
+/**
+ * The mark one cell wears — the mark of the cause it is READ under (§4.3, I-198), except that a
+ * published cell whose lines carry no quantity, or carry it only in part, wears the PARTIAL mark: a
+ * row kept with no quantity is not a measured one (L-QTY-02, R-UI-050 — partial, rendered, never
+ * drawn as whole; I-cov-1).
+ */
+export function markOf(cell: ResidueCell, declared: ReadonlySet<string> = NONE_DECLARED): Mark {
+  if (partlyBorne(cell, declared)) return "partial";
   return MARK_OF[causeRead(cell) as GlyphReading];
+}
+
+/** A level as a column header, a cell label and a statement row say it: the stack's label, or the word for none. */
+export function levelWord(label: string): string {
+  return label === "" ? COVERAGE_COPY.takeoff_coverage_level_none : label;
+}
+
+/** A class as the band header says it: the draft BOQ's own rule, `pile_cap` → `Pile cap` (I-cov-2). */
+export function classWord(klass: string): string {
+  return inWords(klass);
 }
 
 /**
  * The whole reading of one cell, in words (Decision § 3): the kind, the class, the level and the
- * cause — never a code (I-195) — with the bill axis and a contradiction appended where they hold.
+ * cause — never a code (I-195) — with the bill axis and a contradiction appended where they hold,
+ * and, on a published cell whose lines carry no quantity, how many of them do not (I-cov-1).
  */
-export function cellLabel(cell: ResidueCell): string {
+export function cellLabel(cell: ResidueCell, declared: ReadonlySet<string> = NONE_DECLARED): string {
   const read = causeRead(cell);
   const cause = read === "QUANTITY_BEARING" ? COVERAGE_COPY.takeoff_coverage_cell_label_measured : (causeWords(read)?.message ?? read);
   const named =
     cell.grain === "KIND"
       ? fillCoverageCopy("takeoff_coverage_cell_label_kind_grain", { kind: cell.kind, cause })
-      : fillCoverageCopy("takeoff_coverage_cell_label", { kind: cell.kind, class: cell.class ?? "", level: cell.levelLabel, cause });
+      : fillCoverageCopy("takeoff_coverage_cell_label", { kind: cell.kind, class: cell.class ?? "", level: levelWord(cell.levelLabel), cause });
+  const partly = partlyBorne(cell, declared)
+    ? ` ${fillCoverageCopy("takeoff_coverage_cell_label_declared", { count: String(linesDeclared(cell, declared)), total: String(cell.lineIds.length) })}`
+    : "";
   const held = cell.bill === "NOT_IN_THIS_BILL" ? ` ${COVERAGE_COPY.takeoff_coverage_cell_label_held}` : "";
   const beaten = cell.contradicted ? ` ${COVERAGE_COPY.takeoff_coverage_cell_label_contradicted}` : "";
-  return `${named}${held}${beaten}`;
+  return `${named}${partly}${held}${beaten}`;
 }
 
 /**
@@ -99,10 +132,30 @@ function columnsOf(cells: readonly ResidueCell[], levels: readonly ResidueLevel[
     );
     bands.push({ klass, span: levelIds.length });
     // A level the stack does not name — the two channels that sight a placement on a sheet answer
-    // none — is a column all the same, and the cell's own label is what says so in words.
-    for (const levelId of levelIds) columns.push({ klass, levelId, label: labelOf.get(levelId ?? "") ?? "" });
+    // none — is a column all the same, and its header SAYS so in words rather than standing blank
+    // (I-cov-3): a blank header under a class band reads as a broken grid.
+    for (const levelId of levelIds) columns.push({ klass, levelId, label: levelWord(labelOf.get(levelId ?? "") ?? "") });
   }
   return { columns, bands };
+}
+
+/**
+ * The track list the matrix is laid on (I-cov-2). Every column is `var(--row-h)` square — §3.5's
+ * cell — unless its class's band is too narrow to name the class: a band one level wide over a
+ * 28 px column clipped `pile_cap` to `pile`, beside a `pile` band, so two columns read alike. A band
+ * then widens its columns, evenly, to fit its name: the name's length in `ch` of the header's own
+ * face plus the band's inline padding, over the band's span. It rides as a custom property like the
+ * column count it replaces, so the component still states no pixel (ARCH-01).
+ */
+function tracksOf(columns: readonly Column[], bands: readonly Band[]): string {
+  const spanOf = new Map(bands.map((band) => [band.klass, band.span]));
+  return columns
+    .map((column) => {
+      const span = spanOf.get(column.klass) ?? 1;
+      const named = classWord(column.klass).length;
+      return `max(var(--row-h), calc((${named}ch + 2 * var(--space-2)) / ${span}))`;
+    })
+    .join(" ");
 }
 
 /** One row of the grid: a kind, at one grain, and every cell it bears at that grain. */
@@ -132,13 +185,15 @@ export type CoverageGridProps = {
   readonly density: CoverageDensity;
   readonly selected: string | null;
   readonly onSelect: (address: string) => void;
+  /** The published lines kept with no quantity (PARTIAL_DECLARED), by id — what makes a cell partly borne (I-cov-1). */
+  readonly declared?: ReadonlySet<string>;
 };
 
 /**
  * The grid itself: two sticky header rows, one sticky kind column, and one cell per cell of the
  * residue. The box scrolls; the page never does (§7 C10).
  */
-export function CoverageGrid({ cells, levels, truncated, density, selected, onSelect }: CoverageGridProps) {
+export function CoverageGrid({ cells, levels, truncated, density, selected, onSelect, declared = NONE_DECLARED }: CoverageGridProps) {
   const { columns, bands } = columnsOf(cells, levels);
   const rows = rowsOf(cells);
 
@@ -180,7 +235,10 @@ export function CoverageGrid({ cells, levels, truncated, density, selected, onSe
   // Floored at one: `repeat(0, …)` is invalid, and an invalid track list would take the whole grid
   // template down with it. A reading that bears only kind-grain rows — nothing sighted yet, which is
   // the `partial` state's own shape — then draws one empty track that its spanning row fills (I-196).
-  const track = { "--cx-coverage-columns": String(Math.max(columns.length, 1)) } as React.CSSProperties;
+  const track = {
+    "--cx-coverage-columns": String(Math.max(columns.length, 1)),
+    ...(columns.length === 0 ? {} : { "--cx-coverage-tracks": tracksOf(columns, bands) }),
+  } as React.CSSProperties;
 
   return (
     <div
@@ -200,9 +258,11 @@ export function CoverageGrid({ cells, levels, truncated, density, selected, onSe
           <div className="cx-coverage-corner" role="columnheader">
             {COVERAGE_COPY.takeoff_coverage_kind_column}
           </div>
+          {/* I-cov-2: the class in words, in a band wide enough to name it; the stored value stays on
+              `data-class`, and the text is its own box so an ellipsis can reach it. */}
           {bands.map((band) => (
             <div key={band.klass} className="cx-coverage-class" role="columnheader" data-class={band.klass} style={{ gridColumn: `span ${band.span}` }}>
-              {band.klass}
+              <span className="cx-coverage-class-name">{classWord(band.klass)}</span>
             </div>
           ))}
         </div>
@@ -215,7 +275,7 @@ export function CoverageGrid({ cells, levels, truncated, density, selected, onSe
               role="columnheader"
               data-class={column.klass}
               data-level={column.levelId ?? ""}
-              aria-label={fillCoverageCopy("takeoff_coverage_column_label", { class: column.klass, level: column.label })}
+              aria-label={fillCoverageCopy("takeoff_coverage_column_label", { class: classWord(column.klass), level: column.label })}
             >
               {column.label}
             </div>
@@ -225,7 +285,7 @@ export function CoverageGrid({ cells, levels, truncated, density, selected, onSe
 
       <div className="cx-coverage-body-rows" role="rowgroup">
         {rows.map((row, at) => {
-          const heat = rowShare(row.cells);
+          const heat = rowShare(row.cells, declared);
           return (
             <div key={row.key} className="cx-coverage-row" data-testid="coverage-kind-row" role="row" data-kind={row.kind}>
               <div
@@ -265,17 +325,20 @@ export function CoverageGrid({ cells, levels, truncated, density, selected, onSe
                     data-code={read}
                     // §4.3: a mark is a glyph AND a pattern AND a colour. The stylesheet reads this
                     // one attribute for the last two, and spells no colour of its own.
-                    data-mark={markOf(cell)}
-                    // …and the fill is the share published, on the ramp's own five steps.
-                    data-cov={rampStep(sharePublished(cell, truncated))}
+                    data-mark={markOf(cell, declared)}
+                    // …and the fill is the share published, on the ramp's own five steps — the share
+                    // of its lines that BEAR a quantity, on a published cell (I-cov-1).
+                    data-cov={rampStep(sharePublished(cell, truncated, declared))}
+                    // How many of its published lines were kept with no quantity: 0 on every other cell.
+                    data-declared={linesDeclared(cell, declared)}
                     tabIndex={address === tabStopRef ? 0 : -1}
                     aria-selected={address === selected}
-                    aria-label={cellLabel(cell)}
+                    aria-label={cellLabel(cell, declared)}
                     style={placement}
                     onClick={() => onSelect(address)}
                     onKeyDown={(event) => move(event, cell, at)}
                   >
-                    <CauseGlyph reading={cell.measurement as GlyphReading} read={read === cell.measurement} />
+                    <CauseGlyph reading={cell.measurement as GlyphReading} read={read === cell.measurement} partial={partlyBorne(cell, declared)} />
                     {cell.bill === "NOT_IN_THIS_BILL" ? <CauseGlyph reading="NOT_IN_THIS_BILL" read={read === cell.bill} corner /> : null}
                   </div>
                 );

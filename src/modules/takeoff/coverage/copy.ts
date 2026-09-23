@@ -49,6 +49,9 @@ export const COVERAGE_COPY = Object.freeze({
   takeoff_coverage_column_label: "{class} · {level}",
   takeoff_coverage_kind_share: "{count} of {total} measured",
   takeoff_coverage_level_label: "Level",
+  // A column whose class was sighted on no level of the stack (a foundation filed under a lawful-null
+  // slot, a placement no storey reads) SAYS so rather than standing as a blank header (I-cov-3).
+  takeoff_coverage_level_none: "No level",
   takeoff_coverage_kind_grain_label: "Every class and level",
   takeoff_coverage_cause_heading: "Why this cell reads as it does",
   takeoff_coverage_declared_label: "Declared by act",
@@ -85,6 +88,8 @@ export const COVERAGE_COPY = Object.freeze({
   takeoff_coverage_cell_label: "{kind} on {class}, {level}: {cause}",
   takeoff_coverage_cell_label_kind_grain: "{kind}, every class and level: {cause}",
   takeoff_coverage_cell_label_measured: "Quantity is published for this cell.",
+  // I-cov-1: a published cell whose lines were kept with no quantity is partial, and says how much.
+  takeoff_coverage_cell_label_declared: "{count} of its {total} lines carry no quantity: each names what the drawing did not state.",
   takeoff_coverage_cell_label_held: "Held out of this bill.",
   takeoff_coverage_cell_label_contradicted: "A declaration over this cell is contradicted by published lines.",
   takeoff_coverage_empty_heading: "No campaign is open on this project",

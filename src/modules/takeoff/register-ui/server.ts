@@ -17,7 +17,7 @@ import { standingOf, type ObservationRow, type RegisterScope } from "@/core/regi
 import { proposedLevelStackOf } from "@/modules/takeoff/partition";
 import { refusedSightingsOf, registerObjectsOf, repudiatedObjectsOf } from "@/modules/takeoff/register";
 import { citedKeysOf, sheetOfView, variablesOf } from "@/modules/takeoff/trace";
-import type { RegisterView, ViewAttribute, ViewLevelStack, ViewLine, ViewObject, ViewReading, ViewRefusal } from "./view";
+import type { RegisterView, ViewAttribute, ViewLevelStack, ViewLine, ViewObject, ViewOmission, ViewReading, ViewRefusal } from "./view";
 
 /** Which project's register is being read, in which workspace. */
 export type RegisterViewScope = { readonly tenantId: string; readonly projectId: string };
@@ -132,6 +132,7 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
       quantityBasis: row.quantityBasis,
       selectionBasis: row.selectionBasis,
       coverage: row.coverage,
+      omitted: omissionsOf(row.omitted),
       calibrationKeys: [...row.calibrationKeys],
       engine: row.engine,
       sourceKey: row.viewKey,
@@ -189,6 +190,22 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
   }
 
   return { tenantId: scope.tenantId, projectId: scope.projectId, campaign: { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId }, objects, lines, refusals, levelStacks };
+}
+
+/**
+ * The components a line enumerated as omitted, as the store holds them (`quantity_lines.omitted`, the
+ * offer's `OmittedComponent[]`). The column is `json` of unknown shape at the type level, so each
+ * entry is read for the two strings it carries and an entry carrying neither is not invented into
+ * one (L-QTY-02: what the row declared, and nothing it did not).
+ */
+function omissionsOf(stored: readonly unknown[]): ViewOmission[] {
+  const held: ViewOmission[] = [];
+  for (const entry of stored) {
+    const variable = (entry as { variable?: unknown } | null)?.variable;
+    const code = (entry as { code?: unknown } | null)?.code;
+    if (typeof variable === "string" && typeof code === "string") held.push({ variable, code });
+  }
+  return held;
 }
 
 /** The level a register row stands on, as a reader reads it: the label, never the surrogate's id. */

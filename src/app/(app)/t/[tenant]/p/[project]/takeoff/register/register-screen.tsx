@@ -39,9 +39,13 @@ import { useTakeoffTabsAside } from "../nav";
 import { commitCorroborate, commitInsertLevel, commitRepudiate, previewCorroborate, previewInsertLevel, previewRepudiate, readRegister, requestMeasure, type DoorAnswer } from "./actions";
 import { TESTIDS } from "@/ui/testids";
 
-/** The lane's tabs row, filled by the surface standing in it (Direction §3.2). */
+/**
+ * The lane's tabs row, filled by the surface standing in it (Direction §3.2) — inside the inline
+ * gutter the shipped `ShellToolbar` keeps on Coverage, so the one primary ends where every surface's
+ * controls end rather than 8 px past them (the craft look's Levels finding, the same mount here).
+ */
 function TabsAside({ children }: { children?: ReactNode }) {
-  return useTakeoffTabsAside(children ?? null);
+  return useTakeoffTabsAside(children === undefined || children === null ? null : <span className="cx-register-tabs-aside">{children}</span>);
 }
 
 /** The frame's ONE right column, filled on selection and absent — width 0 — otherwise (R-UI-080). */

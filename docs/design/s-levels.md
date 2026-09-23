@@ -93,6 +93,36 @@ the `cx-levels-*` classes this file rules.
   "order-independent resolver over the whole set revision" is not yet met across drawings — the node
   that makes the resolver revision-wide.
 
+**The craft look (session 7, 2026-09-23; R-UI-080..086, AM-08 — the later law).** Numbered `I-lev-n`
+rather than from the global chain, because several craft implementers amended Decisions that day.
+The look lowered tokensAndGrid to 3: the roll-ups — the figures a quantity surveyor opens this screen
+for — were cut (`26 lines 15.22476 …`, GF's figure gone, the rebar code `Note…`) while ~200 px stood
+empty beside them; the rebar roll-ups wore a red `0%`; ROOF read `Not stated · Storey height
+unstated`; and the rail spent two engine-voice sentences on nothing to act on. Each ruling amends this
+Decision in place (§1, §3, §5 carry the new text).
+
+- **I-lev-1 — the roll-ups take the width, state their figure at display precision, and wear a chip
+  only where a share was measured (I-241 amended; L-QTY-02, L-FMT-02, R-UI-002).** Widths: Level 144 ·
+  Ordinal 64 · Storey height 200 · each roll-up 240 — 888 px with two kinds, inside 1280's 928 with
+  the last column's resize grip clear of the table's own tools (R-UI-012). A COMPLETE roll-up's
+  `QuantityText` keeps the exact sum in `data-value` and states it at the places the catalogue writes
+  the kind to (`placesOf`, the draft BOQ's precision: `15.225`, not `15.22476`). The `CoverageChip`
+  stands only on a COMPLETE roll-up: a PARTIAL_DECLARED one carries no quantity, and a `0%` beside it
+  was a percentage nobody computed — its code, in words, says why.
+- **I-lev-2 — a standing's code is said only where it adds a fact (§6's copy diet).** `Not stated` IS
+  STOREY_HEIGHT_UNSTATED and `Suspended` IS STOREY_HEIGHT_CONTESTED, so the code is not printed beside
+  the standing word that already says it; it stays on the cell's `data-code`. A code any other
+  standing carried would still be printed. This is what lets the standing column give back 88 px.
+- **I-lev-3 — the rail's explanation is its heading's Tooltip (R-UI-081).** `levels_ranges_hint` is
+  the Tooltip of the `Views with no typical range` heading — the register's refusals-hint idiom —
+  and no longer a paragraph under it; the one `levels_ranges_none` line stands.
+- **I-lev-4 — the screen names itself once, clipped (hierarchy; R-UI-012).** One `<h1>`
+  `levels_heading` **Levels**, out of flow and clipped (`cx-levels-title`, the register's
+  `cx-register-title` idiom). The breadcrumb and the current tab already say *Levels* where a reader
+  sees it, so I-240's "no heading over the grid" stands. The screen's half of the tabs row also keeps
+  the `ShellToolbar`'s inline gutter (`cx-levels-tabs-aside`, `--space-2`), so `Insert a level` ends
+  where the other surfaces' controls do.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -138,8 +168,11 @@ never the page (§7 C10).
 (R-UI-082). Ordinal: mono, right-aligned, tabular. Storey height: the standing through `EnumLabel`
 (*Agreed* / *Suspended* / *Not stated*) beside `QuantityText` of `canonicalMetres` with a metre
 `UnitBadge` — nothing where the standing is not AGREED (I-242), and the `code` beside it as an
-`EnumLabel` where one stands. Roll-up: `{count} lines` in mono, then `QuantityText` + `UnitBadge`
-(absent when PARTIAL_DECLARED), then the `CoverageChip` and, where a code stands, its `EnumLabel`.
+`EnumLabel` only where the standing word does not already say it (I-lev-2; always on `data-code`).
+Roll-up: `{count} lines` in mono, then `QuantityText` at the kind's display precision + `UnitBadge`
+(absent when PARTIAL_DECLARED), then the `CoverageChip` on a COMPLETE roll-up only and, where a code
+stands, its `EnumLabel` (I-lev-1). The rail's heading carries `levels_ranges_hint` as its Tooltip
+(I-lev-3), and the screen's one `<h1>` is clipped out of sight (I-lev-4).
 A level bearing no line of that kind renders `—` in both halves and carries `data-lines="0"`.
 No cell wraps; a clipped cell earns the table's own Tooltip (§5 rule 2).
 
@@ -186,7 +219,8 @@ Declared in `takeoff/levels/states.ts` (`LEVELS_STATES`) and appended to
 
 ## 3. Copy, verbatim (`src/ui/strings/levels.ts`, mirrored to the module's `copy.ts`)
 
-`takeoff_nav_levels` **Levels** (existing registry, `takeoff.ts`) · `levels_grid_label` **Level
+`takeoff_nav_levels` **Levels** (existing registry, `takeoff.ts`) · `levels_heading` **Levels**
+(the clipped h1, I-lev-4) · `levels_grid_label` **Level
 stack** · `levels_col_level` **Level** · `levels_col_ordinal` **Ordinal** · `levels_col_standing`
 **Storey height** · `levels_rollup_lines` **{count} lines** · `levels_insert` **Insert a level** ·
 `levels_insert_label_field` **Label** · `levels_insert_ordinal_field` **Ordinal** ·
@@ -252,12 +286,13 @@ through BasisChip and CoverageChip · `--hairline` · `--space-1/2/3/4` · `--ga
 `--weight-body-medium` / `--weight-heading` · `--row-h`, `--control-h`, `--cell-px`, `--cell-py`,
 `--toolbar-h`, `--inspector-w` through the primitives that read them · `--motion-state` /
 `--motion-panel` / `--ease`. Px literals, closed set: the index rail's 240 and its 160/320 bounds,
-the tabs-row current underline's 2, the column widths (Level 180 · Ordinal 80 · Storey height 288 ·
-each roll-up 160), the lg media-query value, and the loading bones' 28/240. Any other literal is a
-defect. The standing column is 288 and not the 200 this table first fixed: a standing says two
-things — the word the height stands at and, where it stands at none, the code a line reports the
-absence under — and 200 cut the second one mid-glyph. 288 holds both, and stops short of the width
-at which the last column's resize grip would stand under the table's own tools (R-UI-012). No copper appears anywhere except the ConsequenceDialog's confirm, which is the primitive's
+the tabs-row current underline's 2, the column widths (Level 144 · Ordinal 64 · Storey height 200 ·
+each roll-up 240, I-lev-1), the lg media-query value, and the loading bones' 28/240. Any other
+literal is a defect. The standing column went 200 → 288 when it said two things — the word and the
+code — and is 200 again since I-lev-2: the code the word already says is no longer printed beside
+it, and the 88 px it held went to the roll-ups, which were cut at 160. With two kinds the columns
+sum to 888, short of the width at which the last column's resize grip would stand under the table's
+own tools at 1280 (R-UI-012). No copper appears anywhere except the ConsequenceDialog's confirm, which is the primitive's
 own — this screen commits nothing itself.
 
 ## 6. Themes

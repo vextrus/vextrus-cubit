@@ -4,7 +4,7 @@
 // This file computes nothing of its own. The arms are L-QTY-05's and live in `@/core/residue`, so
 // M7's certificate reads the same answer through the same functions without ever importing a module
 // (B-17, ARCH-01).
-import { forTenant } from "@/core/db";
+import { and, eq, forTenant, quantityLines } from "@/core/db";
 // The ledger's judgment reader is the seam's own and is reached at its home: the db barrel publishes
 // main's names and the schema tree's, never a name of its own invention (ARCH-02, B-17).
 import { modelJudgmentOf } from "@/core/db/model-outcomes";
@@ -30,7 +30,26 @@ export async function coverageViewOf(scope: CoverageScope): Promise<CoverageView
     cells: residue.cells,
     measurement: measurementStatementOf(residue.cells),
     bill: billStatementOf(residue.cells),
+    declaredLineIds: residue.campaign === null ? [] : await declaredLinesOf(scope.tenantId, residue.campaign.campaignId),
   };
+}
+
+/** The coverage every line carries that bears its quantity (L-QTY-02): anything else declared an omission. */
+const COMPLETE = "COMPLETE";
+
+/**
+ * The campaign's published lines kept with no quantity (s-coverage I-cov-1): read off the lines
+ * themselves, one pass over the campaign, and nothing judged here — a line is PARTIAL_DECLARED
+ * because the gate stored it so, with every omitted component enumerated on it (L-QTY-02).
+ */
+async function declaredLinesOf(tenantId: string, campaignId: string): Promise<string[]> {
+  const rows = await forTenant({ tenantId }).transaction((tx) =>
+    tx
+      .select({ lineId: quantityLines.lineId, coverage: quantityLines.coverage })
+      .from(quantityLines)
+      .where(and(eq(quantityLines.tenantId, tenantId), eq(quantityLines.campaignId, campaignId))),
+  );
+  return rows.filter((row) => row.coverage !== COMPLETE).map((row) => row.lineId);
 }
 
 /**

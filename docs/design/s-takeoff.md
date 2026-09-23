@@ -261,6 +261,60 @@ things. Everything in §0 above stands except where an Interpretation here says 
   it twice authors the stack twice — retiring an offer needs a record of which offer a stack came from
   (a migration) — the same node.
 
+### 0.2 The craft look (session 7, 2026-09-23; R-UI-080..086, AM-08 — the later law)
+
+Numbered `I-reg-n` rather than from the global chain: several craft implementers amended Decisions on
+the same day, and one number meaning two rulings is the defect §0.1 names. The look scored the
+register BELOW the bar (chromeGeometry 2, tokensAndGrid 3) on F-RCC6-BNBC's M3 campaign: 242 of 424
+lines showed a blank Value with no reason, the circular column C7 printed
+`0.53323979985339035022662733` and π to twenty places, `rcc.concrete`, `pile_cap` and `FOUNDATION`
+stood raw on the face of the grid, and the ten columns were 1,428 px in a 1,088 px grid, so Engine
+and the Source Trace were off screen at both viewports. Each ruling below amends this Decision IN
+PLACE (§1, §3, §5 carry the new text); where it contradicts I-25/I-235 as first written, the later
+law (R-UI-082, R-UI-083) is why.
+
+- **I-reg-1 — a line kept with no quantity SAYS why, in its own row (L-QTY-02, R-UI-020, R-UI-002).**
+  L-QTY-02 keeps a PARTIAL_DECLARED line "with every omitted component enumerated on the row", and the
+  store has always held them (`quantity_lines.omitted`: `{variable, code}[]`); the reading now
+  carries them (`ViewLine.omitted`). The Value cell of such a line states the variables the drawing
+  did not state — `takeoff_register_value_omitted` **{variables} unstated** (`L, B, D unstated`) — in
+  muted UI text, never a figure and never a zero, with the codes on `data-omitted`; a line that
+  enumerated none states `takeoff_register_value_unstated` **No figure**. The inspector lists every
+  omission under `takeoff_register_omitted_label` **Left out**, each variable beside the REGISTERED
+  sentence of its code (never the code). The coverage cell wears the `CoverageChip` ONLY on a
+  COMPLETE line: a red `0%` beside a partial line was a percentage nobody computed, and it read as
+  "nothing measured"; the coverage word (`EnumLabel`) still says the coverage. Rejected: a Tooltip per
+  cell (242 Radix roots for a sentence the inspector already says whole).
+- **I-reg-2 — a figure's face is its kind's display precision; the exact value is one selection away
+  (L-QTY-03, L-FMT-02, B-07, R-UI-082).** I-25's "never re-rounded" is kept where it is law — the
+  register and every `data-value` hold the published decimal whole, and the inspector's Value states
+  it whole — and withdrawn from the FACE of a grid cell, where it put 26 decimal places on screen.
+  The row's figure and the sticky footer's totals are stated at the places the catalogue writes the
+  kind to (`placesOf`, `placesForUnit` — the draft BOQ's own precision, so the register and the bill
+  print one line alike), by the bar schedule's text-only half-up `statedAt` handed to `QuantityText`
+  as its `format`; the exact sum stays in `datatable-total`'s `data-value`, where J-000 reads it. The
+  footer's totals stand right-aligned under Value with their unit beside each; more than one unit
+  also carries every total in the cell's Tooltip. A formula's one-line face cuts a constant written
+  to more than six places at six with `…` (`3.141592…`, I-305's π) and the inspector states it whole.
+  Model values that are enums are said in words (R-UI-082): the kind by the draft BOQ's one rule
+  (`inWords`: `rcc.concrete` → `Concrete`) through `EnumLabel` with the stored key in its technical
+  disclosure; a class in the tree, the group row and the filter chips the same way (`Pile cap`); a
+  lawful-null level SLOT (`FOUNDATION`, `UNRESOLVED`) by `humaniseEnum` (`Foundation`), while a
+  stack label (`GF`, `1F`) stays verbatim because it is the drawing's own word. Marks in the tree read
+  in natural order (`P1, P2 … P10`), by a digit-run comparison that asks no locale (L-FMT-01).
+- **I-reg-3 — eight columns that fit, and the evidence before the derivation (R-UI-080, R-UI-083,
+  Direction §5 rule 3's ≤ 8 at 1280, Direction §6).** Columns and widths: `kind` 120 · `value` 116 ·
+  `unit` 56 · `bases` 184 · `coverage` 128 · `source` 168 · `formula` 152 · `variables` 140 = 1,068 px,
+  inside the 1,088 px grid at 1440 with nothing cut; at 1280 (928 px) every column through Source is
+  whole and the grid scrolls inside its own box for the derivation (C10). Calibration and Engine
+  LEAVE the grid for the line inspector, beside the formula they qualify (the engine as an
+  `EnumLabel`, every calibration key as its `IdChip`), which also takes 424 copy targets out of the
+  grid. Source moves ahead of Formula: the Trace is the product's evidence surface and the column a
+  reader must reach without scrolling, while the formula is expanded in the inspector anyway.
+  Rejected: narrowing all ten to fit (Bases and Coverage are a chip and a word, measured, and cannot
+  shrink without cutting the word); rejected: keeping the ten and waiting for the table's
+  `defaultHidden` (§8's IOU — the demo cannot).
+
 ## 1. Layout and hierarchy
 
 `takeoff/layout.tsx` renders `<TakeoffTabs>` around `{children}`: the lane's 40 px-of-content tabs
@@ -353,23 +407,26 @@ value, the one lawful literal in a media query — S-Audit's ruling).
 - **Lines** (I-235) — the I-171 wrapper `data-testid="register-lines"` around the shipped
   `DataTable`, taking the rest of the row. `tableId` `takeoff-register-lines` (the drawer the
   reader's column furniture is remembered in), `getRowId` the `lineId`, `freezeKeyColumn`,
-  `group` by `level|class` labelled `GF · column` with a per-unit subtotal, `totals` the visible
-  set's own sums (`subtotalsByUnit`, the grid's own exact addition — B-07), `rowDataOf` publishing
-  `data-line` and, on the row a pointer took, `data-line-selected` (I-236), `scrollToRowId` the
-  origin (I-182), `aria-label` the screen's own word. Columns in §3.2's order, headers from the copy
-  table, at the widths they are read at: `kind` 148 · `value` 116 (`meta.align: "right"`) · `unit` 64
-  · `bases` 160 · `coverage` 128 · `formula` 180 · `variables` 180 · `calibration` 120 · `engine` 104
-  · `source` 180. The six that hold one scalar — `kind`, `value`, `unit`, `coverage`, `engine`,
-  `source` — carry `enableSorting` with the value they order by: the sort control is also the
-  keyboard way into a virtualised scroll box, which R-UI-012 requires and axe checks. Cells: the kind
-  verbatim in mono; the SI value through `QuantityText` (grouped as the document groups a figure,
-  exact in `data-value`, nothing where the coverage is not COMPLETE — L-QTY-02); the unit through
-  `UnitBadge`; the quantity basis as a `BasisChip` beside the selecting basis as an `EnumLabel`; the
-  coverage as a `CoverageChip` beside its `EnumLabel`; the formula verbatim, one line, ellipsised,
-  with the table's own Tooltip and the inspector's expansion; variables as `name=value unit` pairs
-  read from `bindings`; the calibration keys joined, whole; the engine as an `EnumLabel`; and the
-  cited key as the Trace's own link over its source chips (I-234, and `docs/design/
-  s-takeoff-register.md` I-179–I-182, which rule the cell). A line the reading marks `repudiated` is
+  `group` by `level|class` labelled `Foundation · Pile cap` / `GF · Column` (I-reg-2) with a per-unit
+  subtotal, `totals` the visible set's own sums (`subtotalsByUnit`, the grid's own exact addition —
+  B-07, stated at display precision with the exact sum in `data-value`, I-reg-2), `rowDataOf`
+  publishing `data-line` and, on the row a pointer took, `data-line-selected` (I-236), `scrollToRowId`
+  the origin (I-182), `aria-label` the screen's own word. Columns in I-reg-3's order, headers from the
+  copy table, at the widths they are read at: `kind` 120 · `value` 116 (`meta.align: "right"`) ·
+  `unit` 56 · `bases` 184 · `coverage` 128 · `source` 168 · `formula` 152 · `variables` 140. The five
+  that hold one scalar — `kind`, `value`, `unit`, `coverage`, `source` — carry `enableSorting` with the
+  value they order by: the sort control is also the keyboard way into a virtualised scroll box, which
+  R-UI-012 requires and axe checks. Cells: the kind in words through `EnumLabel` (`Concrete`, the
+  stored key in its disclosure — I-reg-2); the SI value through `QuantityText` at its kind's display
+  precision (grouped as the document groups a figure, exact in `data-value`), and where the coverage
+  is not COMPLETE no figure but the omission said in words (`L, B, D unstated` — L-QTY-02, I-reg-1);
+  the unit through `UnitBadge`; the quantity basis as a `BasisChip` beside the selecting basis as an
+  `EnumLabel`; the coverage as its `EnumLabel`, with a `CoverageChip` beside it only on a COMPLETE
+  line (I-reg-1); the cited key as the Trace's own link over its source chips (I-234, and
+  `docs/design/s-takeoff-register.md` I-179–I-182, which rule the cell); the formula one line,
+  ellipsised, a long constant cut at six places (I-reg-2), with the table's own Tooltip and the
+  inspector's expansion; variables as `name=value unit` pairs read from `bindings`. The calibration
+  keys and the engine are the line inspector's (I-reg-3). A line the reading marks `repudiated` is
   not a row here at all: it is withheld and counted at the rail's foot, and `register-lines-count`
   counts the lines the table may show (I-173). No `meta.editable` anywhere, and no checkbox column.
 - **The grid's own empty cell** — where the campaign is absent, where it has registered nothing, and
@@ -380,9 +437,13 @@ value, the one lawful literal in a media query — S-Audit's ruling).
 **Inspector** (I-231) — the node this screen mounts into the frame's slot, `<div
 data-testid="register-inspector" data-object={objectKey}>` (a `<div>`, not an `<aside>`: the frame's
 slot is already the landmark, and two nested asides would read as two right columns to §7 C3). With
-a ROW selected, `data-line={lineId}` and: the kind as the title; a `<dl>` of `_col_value` →
-`QuantityText` with its `UnitBadge`, `_col_bases` → the chip and the label, `_col_coverage` → the
-chip and the label, `_col_source` → the source chips; then `<h3>` `_col_formula` over the formula
+a ROW selected, `data-line={lineId}` and: the kind in words as the title; a `<dl>` of `_col_value` →
+`QuantityText` with its `UnitBadge` at FULL precision (the one place the exact value is written
+whole, I-reg-2) or the omission said in words, `_col_bases` → the chip and the label,
+`_col_coverage` → the label (and the chip on a COMPLETE line), `takeoff_register_omitted_label` →
+each omitted variable beside its code's registered sentence (only where the line omitted any,
+I-reg-1), `_col_source` → the source chips, `_col_engine` → the engine's `EnumLabel`,
+`_col_calibration` → each key's `IdChip` (I-reg-3); then `<h3>` `_col_formula` over the formula
 whole (the expansion §5 rule 2 owes the ellipsised cell) and a `<dl>` of its variables; then the
 Trace's own `EvidenceLink`; then `<details>` (the platform's own disclosure — there is no shipped one, and its `<summary>` wears
 the reticle from its single home) titled `takeoff_register_object_key_label`, holding
@@ -485,6 +546,8 @@ classes** · `_any_kind` **All kinds** · `_any_level` **All levels** · `_any_b
 **Kind** · `_col_value` **Value** · `_col_unit` **Unit** · `_col_formula` **Formula** ·
 `_col_variables` **Variables** · `_col_bases` **Bases** · `_col_coverage` **Coverage** ·
 `_col_calibration` **Calibration** · `_col_engine` **Engine** · `_col_source` **Source** ·
+`takeoff_register_value_omitted` **{variables} unstated** · `takeoff_register_value_unstated` **No
+figure** · `takeoff_register_omitted_label` **Left out** (I-reg-1) ·
 `takeoff_register_repudiated_note` **A person judged this object to be nothing. Nothing was deleted:
 every reading and every line measured from it stays on record, and its lines are withheld from the
 table.** · `takeoff_register_lines_none` **No line matches
@@ -553,7 +616,12 @@ Voice: calm, concrete, professional; no exclamation marks; no build vocabulary �
 survives only where it names the product's own pinned run, which the caption defines). Object keys,
 source keys, marks, disciplines, classes, kinds, units, bases, coverages, engines, corroboration
 states, act types, level ids, job ids and report ids are model data and render verbatim as data in
-mono, never woven into a sentence (I-25). Registry messages and remedies are never paraphrased.
+mono, never woven into a sentence (I-25). **Amended by I-reg-2 (R-UI-082, the later law):** an
+identifier (object key, source key, level id, job id, report id) still stands whole — in an `IdChip`
+or the Technical disclosure — but an ENUM model value (a kind, a class, a lawful-null level slot,
+a basis, a coverage, an engine) is said in words on the face of the screen with its stored value
+kept in `EnumLabel`'s technical disclosure; marks and stack labels stay verbatim. Registry messages
+and remedies are never paraphrased.
 
 ## 4. Motion (R-UI-004)
 
@@ -584,8 +652,9 @@ through BasisChip, CoverageChip and EvidenceLink · `--hairline` · `--space-1/2
 `--row-h`, `--control-h` and `--toolbar-h` through the primitives that read them (the per-screen
 `[data-density]` override is deleted — density is the root's, §4.2) · `--motion-state` / `--ease`.
 Px literals, closed set: the index rail's 240 and its 160/320 bounds, the filter bar's 36, the tabs
-row's current-underline 2, the origin mark's 2 px inset bar, the ten column widths (`size`s, the
-class their own Decision §1 lists), the md media-query value, and the loading bones' 28/96/128/240.
+row's current-underline 2, the origin mark's 2 px inset bar, the eight column widths (`size`s, the
+class their own Decision §1 lists — 120/116/56/184/128/168/152/140 since I-reg-3), the md
+media-query value, and the loading bones' 28/96/128/240.
 Any other literal is a defect. No copper appears anywhere except on the ConsequenceDialog's confirm,
 which is the primitive's own — the workspace commits nothing itself.
 

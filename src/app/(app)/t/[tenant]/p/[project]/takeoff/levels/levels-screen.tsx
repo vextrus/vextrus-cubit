@@ -37,9 +37,13 @@ import {
   type DoorAnswer,
 } from "./actions";
 
-/** The lane's tabs row, filled by the surface standing in it (Direction §3.2, I-246). */
+/**
+ * The lane's tabs row, filled by the surface standing in it (Direction §3.2, I-246) — inside the
+ * same inline gutter the shipped `ShellToolbar` keeps on the other surfaces, so the one primary ends
+ * where theirs does rather than 8 px past it.
+ */
 function TabsAside({ children }: { children?: ReactNode }) {
-  return useTakeoffTabsAside(children ?? null);
+  return useTakeoffTabsAside(children === undefined || children === null ? null : <span className="cx-levels-tabs-aside">{children}</span>);
 }
 
 /** The frame's ONE right column, filled on selection and absent — width 0 — otherwise (R-UI-080). */

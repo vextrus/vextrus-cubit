@@ -68,8 +68,18 @@ export type ViewBinding = {
 };
 
 /**
+ * One component of the item description a line left out, as the line itself enumerated it: the
+ * method's variable the drawing did not state, and the registered code it is left out under
+ * (L-QTY-02 — "PARTIAL_DECLARED with every omitted component enumerated on the row").
+ */
+export type ViewOmission = {
+  readonly variable: string;
+  readonly code: string;
+};
+
+/**
  * One published quantity line. `value` is null exactly where the coverage is not COMPLETE: a row
- * kept with no quantity carries none, never a zero (L-QTY-02).
+ * kept with no quantity carries none, never a zero (L-QTY-02) — and it SAYS why, from `omitted`.
  */
 export type ViewLine = {
   readonly lineId: string;
@@ -84,6 +94,12 @@ export type ViewLine = {
   readonly quantityBasis: QuantityBasis;
   readonly selectionBasis: QuantityBasis;
   readonly coverage: string;
+  /**
+   * Every component the line left out, in the order the line enumerated them — empty under
+   * COMPLETE. Absent reads as none: a reading composed before the register carried it states no
+   * omission rather than an invented one (s-takeoff I-reg-1).
+   */
+  readonly omitted?: readonly ViewOmission[];
   readonly calibrationKeys: readonly string[];
   readonly engine: string;
   readonly sourceKey: string;

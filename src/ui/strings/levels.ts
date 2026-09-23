@@ -7,6 +7,8 @@
 // because ARCH-01 bars a module from reading `src/ui` and B-17 bars a second spelling of a sentence.
 export const levels = {
   takeoff_nav_levels: "Levels",
+  // The screen's own visually-hidden h1 (s-levels I-lev-4): its name for heading navigation.
+  levels_heading: "Levels",
   levels_grid_label: "Level stack",
   levels_col_level: "Level",
   levels_col_ordinal: "Ordinal",

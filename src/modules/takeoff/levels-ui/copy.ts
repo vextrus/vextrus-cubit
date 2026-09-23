@@ -14,6 +14,7 @@ export type LevelsCopyKey = keyof typeof LEVELS_COPY;
 
 export const LEVELS_COPY = Object.freeze({
   takeoff_nav_levels: "Levels",
+  levels_heading: "Levels",
   levels_grid_label: "Level stack",
   levels_col_level: "Level",
   levels_col_ordinal: "Ordinal",

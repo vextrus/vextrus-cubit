@@ -44,6 +44,9 @@ export type RegisterCopyKey =
   | "takeoff_register_col_calibration"
   | "takeoff_register_col_engine"
   | "takeoff_register_col_source"
+  | "takeoff_register_value_omitted"
+  | "takeoff_register_value_unstated"
+  | "takeoff_register_omitted_label"
   | "takeoff_register_repudiated_note"
   | "takeoff_register_lines_none"
   | "takeoff_register_lines_unmeasured_heading"
@@ -130,6 +133,9 @@ export const REGISTER_COPY: Readonly<Record<RegisterCopyKey, string>> = Object.f
   takeoff_register_col_calibration: "Calibration",
   takeoff_register_col_engine: "Engine",
   takeoff_register_col_source: "Source",
+  takeoff_register_value_omitted: "{variables} unstated",
+  takeoff_register_value_unstated: "No figure",
+  takeoff_register_omitted_label: "Left out",
   takeoff_register_repudiated_note:
     "A person judged this object to be nothing. Nothing was deleted: every reading and every line measured from it stays on record, and its lines are withheld from the table.",
   takeoff_register_lines_none: "No line matches these filters. Every line stays registered — clear a filter to see the rest.",

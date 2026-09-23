@@ -3,7 +3,10 @@
 ## The workspace this cell stands in, as it is built (Design Direction 00 §3.2)
 
 The `source` cell this Decision rules is the grid's last column (`Src` below), and the Trace it
-carries is also the inspector's last line. The workspace around it is the one s-takeoff.md rules and
+carries is also the inspector's last line. **Amended by s-takeoff I-reg-3 (session 7):** the cell is
+now the SIXTH of eight columns, after Coverage and before Formula, at `size` 168 — the evidence a
+reader must reach without scrolling at 1440 and at 1280 — and Calibration and Engine are the line
+inspector's; everything else this Decision rules about the cell stands. The workspace around it is the one s-takeoff.md rules and
 the one Design Direction §3.2 fixes — reproduced here whole, because a Decision that amends a cell
 must open on the composition that cell lives in. Grid first: inside `shell-main` exactly two things
 stand above the lines table, the 36 px filter bar and nothing else, because the tabs row is the
@@ -153,8 +156,9 @@ answer slot, the filter bar, the index rail beside the grid, the grid, its foote
 inspector are exactly as s-takeoff.md §1 rules them — as v22's rebuild rewrote it under Design
 Direction §3.2, whose region table opens this file. Two things change inside the lines table.
 
-**The `source` cell.** Still the last column, still `enableSorting` on `sourceKey` (the sort control
-is also the keyboard way into a virtualised scroll box), still `size` **180**. **Amended by v22:** it
+**The `source` cell.** Still `enableSorting` on `sourceKey` (the sort control is also the keyboard
+way into a virtualised scroll box); since s-takeoff I-reg-3 the sixth column at `size` **168**, not
+the last at 180. **Amended by v22:** it
 no longer wraps — §5 rule 2 says no cell in the one grid wraps, so the cell is one line, clipped with
 an ellipsis, and the shipped table states the whole of it in its own Tooltip when it is in fact
 clipped. The cell renders:

@@ -43,6 +43,11 @@ export const takeoff = {
   takeoff_register_col_calibration: "Calibration",
   takeoff_register_col_engine: "Engine",
   takeoff_register_col_source: "Source",
+  // A line kept with no quantity says why in its own Value cell (L-QTY-02, s-takeoff I-reg-1): the
+  // variables it left out, read off the line, or — where it enumerated none — that no figure stands.
+  takeoff_register_value_omitted: "{variables} unstated",
+  takeoff_register_value_unstated: "No figure",
+  takeoff_register_omitted_label: "Left out",
   takeoff_register_repudiated_note:
     "A person judged this object to be nothing. Nothing was deleted: every reading and every line measured from it stays on record, and its lines are withheld from the table.",
   takeoff_register_lines_none: "No line matches these filters. Every line stays registered — clear a filter to see the rest.",

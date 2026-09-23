@@ -16,12 +16,18 @@
 // all `levelsViewOf`'s answers, rendered as they stand.
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode, type RefObject } from "react";
 import type { AuthorStoreyHeightInput, AuthorTypicalRangeInput, Consequence, InsertLevelStatement, RepudiateLevelInput } from "@/core/acts";
+import { isKind } from "@/core/catalogue/kinds";
+// The places each kind's figure is written to (L-MEA-04's catalogue), read where the draft BOQ reads
+// them, so a roll-up and the bill state one level's concrete at the same precision (I-lev-1).
+import { placesOf } from "@/core/documents/kinds/boq-draft-law";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { formatDate, formatMoney, formatUserFigure, dhakaDateParts } from "@/core/format";
 import { STOREY_HEIGHT_BASES } from "@/core/levels/law";
 import type { QuantityBasis } from "@/core/offers/law";
 import { CANONICAL_UNIT, UNITS, dimensionOf, isUnit } from "@/core/units/canon";
+// A stored decimal stated at a fraction length, half-up on the text (B-07) — the bar schedule's home.
+import { statedAt } from "@/modules/takeoff/bbs-ui/present";
 import { LEVELS_COPY, fillCopy } from "./copy";
 import type { LevelsView, LevelsViewLevel, LevelsViewRange, LevelsViewReading, LevelsViewRollup } from "./view";
 
@@ -239,15 +245,41 @@ const PARTIAL_DECLARED = "PARTIAL_DECLARED";
 const LEVELS_TABLE_ID = "takeoff-level-stack";
 
 /**
- * The column widths §5 fixes, in the closed set the Decision's own token rule admits. Their sum is
- * what the grid is wide, and the table's own tools stand over its right edge: a standing column wide
- * enough to say "Suspended · Storey height contested" without an ellipsis, but not so wide that the
- * last column's resize grip ends under them, where a 24 px target is no longer reachable (R-UI-012).
+ * The column widths §5 fixes, in the closed set the Decision's own token rule admits (I-lev-1). The
+ * roll-ups are the figures a quantity surveyor opens this screen for, so they take the width: `26
+ * lines 15.225 m³ 100%` and `26 lines Note reading contested` whole. The standing says one thing
+ * now — the word, and metres where they agree; a code that only restates the word is not repeated
+ * beside it — so it gives back what it held for a second phrase. With two kinds the grid is 888 px:
+ * inside 1280's 928 with the last column's resize grip clear of the table's own tools (R-UI-012).
  */
-const WIDTH_LEVEL = 180;
-const WIDTH_ORDINAL = 80;
-const WIDTH_STANDING = 288;
-const WIDTH_ROLLUP = 160;
+const WIDTH_LEVEL = 144;
+const WIDTH_ORDINAL = 64;
+const WIDTH_STANDING = 200;
+const WIDTH_ROLLUP = 240;
+
+/**
+ * The code a height's standing already SAYS: `Not stated` is STOREY_HEIGHT_UNSTATED and `Suspended`
+ * is STOREY_HEIGHT_CONTESTED. Printed beside its own standing it read `Not stated · Storey height
+ * unstated` — one fact twice (§6's copy diet, I-lev-2). A code any other standing carried would be a
+ * second fact, and still stands.
+ */
+const CODE_SAID_BY: Readonly<Record<string, string>> = { NONE: "STOREY_HEIGHT_UNSTATED", SUSPENDED: "STOREY_HEIGHT_CONTESTED" };
+
+/**
+ * The figure conventions at one kind's display precision (I-lev-1): the roll-up's exact sum stays in
+ * `data-value` and its face is stated at the places the catalogue writes the kind to — `15.225`, not
+ * `15.22476` clipped at the cell's edge. A kind the catalogue does not hold keeps the exact face.
+ */
+const FIGURES_AT = new Map<string, typeof FIGURES>();
+function figuresOfKind(kind: string): typeof FIGURES {
+  if (!isKind(kind)) return FIGURES;
+  const held = FIGURES_AT.get(kind);
+  if (held !== undefined) return held;
+  const places = placesOf(kind);
+  const made = Object.freeze({ ...FIGURES, figure: (value: string): string => formatUserFigure(statedAt(value, places)) });
+  FIGURES_AT.set(kind, made);
+  return made;
+}
 
 /** How finely a height and an ordinal are stepped where a reader uses the control's own arrows. */
 const HEIGHT_STEP = 0.001;
@@ -724,14 +756,18 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
       accessorFn: (held) => held.standing,
       size: WIDTH_STANDING,
       // I-242: the standing in words, and a figure ONLY where the readings agreed on one.
+      // I-lev-2: the code stays on `data-code` for a machine, and is said aloud only where it adds a
+      // fact the standing word does not already say.
       cell: ({ row }) => (
-        <span className="cx-levels-cell-standing">
+        <span className="cx-levels-cell-standing" data-code={row.original.code ?? ""}>
           <EnumLabel value={row.original.standing} label={standingSaid(row.original.standing)} className="cx-levels-enum" />
           {row.original.standing === AGREED && row.original.canonicalMetres !== null ? (
             <QuantityText value={row.original.canonicalMetres} format={FIGURES} className="cx-levels-figure" />
           ) : null}
           {row.original.standing === AGREED && row.original.canonicalMetres !== null ? <UnitBadge unit={CANONICAL_UNIT.LENGTH} /> : null}
-          {row.original.code === null ? null : <EnumLabel value={row.original.code} className="cx-levels-enum cx-levels-code" />}
+          {row.original.code === null || CODE_SAID_BY[row.original.standing] === row.original.code ? null : (
+            <EnumLabel value={row.original.code} className="cx-levels-enum cx-levels-code" />
+          )}
         </span>
       ),
     },
@@ -810,6 +846,11 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
       <TabsAside>{stack.length === 0 ? null : insertDoor}</TabsAside>
       <InspectorMount>{inspector}</InspectorMount>
 
+      {/* I-lev-4: the screen names itself once, for heading navigation, clipped out of sight — the
+          breadcrumb and the current tab already say `Levels` where a reader can see it (the
+          register's `cx-register-title` idiom; §1's "no heading over the grid" stands). */}
+      <h1 className="cx-levels-title">{LEVELS_COPY.levels_heading}</h1>
+
       {offline ? (
         <p className="cx-levels-offline" role="status">
           {LEVELS_COPY.levels_offline}
@@ -833,8 +874,11 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
         {/* I-240: the campaign's index stands BESIDE the grid, never under it — a view with no range
             is a fact ABOUT the stack rather than a level in it. */}
         <section className="cx-levels-panel cx-levels-ranges" data-testid={testIds.ranges}>
-          <h2 className="cx-levels-panel-heading">{LEVELS_COPY.levels_ranges_heading}</h2>
-          <p className="cx-levels-hint">{LEVELS_COPY.levels_ranges_hint}</p>
+          {/* I-lev-3: the section's explanation is its heading's Tooltip, never a paragraph under it
+              (R-UI-081, §6's copy diet — the register's own refusals-hint idiom). */}
+          <Tooltip content={LEVELS_COPY.levels_ranges_hint}>
+            <h2 className="cx-levels-panel-heading">{LEVELS_COPY.levels_ranges_heading}</h2>
+          </Tooltip>
           {reading.unstatedRanges.length === 0 ? <p className="cx-levels-none-said">{LEVELS_COPY.levels_ranges_none}</p> : null}
           {reading.unstatedRanges.map((range) => (
             <div className="cx-levels-range-row" key={range.viewKey} data-testid={testIds.rangeRow} data-view={range.viewKey} data-code={range.code}>
@@ -1216,12 +1260,15 @@ function Rollup({
   UnitBadge: LevelsChrome["UnitBadge"];
 }) {
   const complete = rollup.coverage !== PARTIAL_DECLARED;
+  // I-lev-1: the figure at its kind's display precision (exact in `data-value`), and a coverage chip
+  // only where a share was in fact measured. A partial roll-up carries no quantity, and the red `0%`
+  // it wore was a percentage nobody computed (R-UI-002): its code, in words, says why instead.
   return (
     <span className="cx-levels-rollup" data-testid={testId} data-kind={rollup.kind} data-lines={rollup.lines} data-coverage={rollup.coverage} data-code={rollup.code ?? ""}>
       <span className="cx-levels-mono">{fillCopy("levels_rollup_lines", { count: formatUserFigure(String(rollup.lines)) })}</span>
-      {complete && rollup.value !== null ? <QuantityText value={rollup.value} format={FIGURES} className="cx-levels-figure" /> : null}
+      {complete && rollup.value !== null ? <QuantityText value={rollup.value} format={figuresOfKind(rollup.kind)} className="cx-levels-figure" /> : null}
       {complete && rollup.value !== null && isUnit(rollup.unit) ? <UnitBadge unit={rollup.unit} /> : null}
-      <CoverageChip value={complete ? 1 : 0} />
+      {complete ? <CoverageChip value={1} /> : null}
       {rollup.code === null ? null : <EnumLabel value={rollup.code} className="cx-levels-enum" />}
     </span>
   );

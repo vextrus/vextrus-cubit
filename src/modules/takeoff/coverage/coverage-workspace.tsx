@@ -13,7 +13,7 @@
 // hands its inspector and its tool row to two injected MOUNTS, and the binding file — the one file
 // allowed to reach both trees — is where the hooks are called. A mount that hands none renders the
 // same nodes in place, which is what keeps this module a whole screen on its own (I-209).
-import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactElement, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactElement, type ReactNode } from "react";
 import type { Consequence } from "@/core/acts";
 // The law module, not the residue's roster: the roster carries the query and its channel readers,
 // which reach the database, and this file runs in the browser (ARCH-01, the `@/core/levels/law`
@@ -25,9 +25,9 @@ import type { RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { axisReadOf, citedActOf } from "./cited-act";
 import { COVERAGE_COPY, countCoverageCopy, fillCoverageCopy } from "./copy";
-import { CoverageGrid, causeRead, causeWords, markOf, type CoverageDensity } from "./grid";
+import { CoverageGrid, causeRead, causeWords, levelWord, markOf, partlyBorne, type CoverageDensity } from "./grid";
 import { LegendGlyph, type GlyphReading } from "./glyphs";
-import { MARK_OF, MARK_TALLY, MARK_WORD, countsByMark } from "./heat";
+import { MARK_OF, MARK_TALLY, MARK_WORD, countsByMark, linesDeclared } from "./heat";
 import type { CoverageCauseProposalView, CoverageView, ProposedCause } from "./view";
 
 export type { CoverageDensity } from "./grid";
@@ -264,6 +264,10 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
   const [previewing, setPreviewing] = useState(true);
 
   const cells = view?.cells ?? [];
+  // I-cov-1: the published lines kept with no quantity, as a set the grid, the tally and the
+  // inspector all read — one reading of "partly borne", never three.
+  const declaredIds = view?.declaredLineIds;
+  const declared = useMemo<ReadonlySet<string>>(() => new Set(declaredIds ?? []), [declaredIds]);
   const held = cells.find((cell) => cellRef(cell) === selected) ?? null;
   // The boundary a model proposed for the cell the inspector stands over, filed under that cell's
   // own address: a proposal read for one cell is never shown beside another (I-297).
@@ -404,6 +408,10 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
         </div>
       </ToolbarMount>
 
+      {/* I-cov-5: the screen names itself once, for heading navigation, clipped out of sight — the
+          breadcrumb and the current tab already say `Coverage` (the register's `cx-register-title`). */}
+      <h1 className="cx-coverage-title">{COVERAGE_COPY.takeoff_coverage_heading}</h1>
+
       {offline ? (
         <p className="cx-coverage-offline" role="status">
           {COVERAGE_COPY.takeoff_coverage_offline}
@@ -459,8 +467,9 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
                 density={density}
                 selected={selected}
                 onSelect={select}
+                declared={declared}
               />
-              <Tally cells={cells} />
+              <Tally cells={cells} declared={declared} />
             </div>
           )}
           {/* I-208: the empty cell stands in the BODY's place; the preview stands beneath it in every
@@ -475,6 +484,7 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
         <InspectorMount>
           <Inspector
             cell={held}
+            declared={declared}
             permitted={permitted}
             offline={offline}
             proposal={proposal}
@@ -602,11 +612,11 @@ function LegendEntry({ reading, Tooltip }: { reading: GlyphReading; Tooltip: Cov
 }
 
 /** §3.5's 28 px footer: the counts by mark, and no sentence — "42 cells · 31 published · 6 absent". */
-function Tally({ cells }: { cells: readonly ResidueCell[] }): ReactElement {
+function Tally({ cells, declared }: { cells: readonly ResidueCell[]; declared: ReadonlySet<string> }): ReactElement {
   return (
     <div className="cx-coverage-tally" aria-label={COVERAGE_COPY.takeoff_coverage_footer_label}>
       <span className="cx-coverage-tally-total">{countCoverageCopy("takeoff_coverage_footer_cells", cells.length)}</span>
-      {countsByMark(cells, markOf).map((tally) => (
+      {countsByMark(cells, (cell) => markOf(cell, declared)).map((tally) => (
         <span className="cx-coverage-tally-mark" key={tally.mark} data-mark={tally.mark}>
           {fillCoverageCopy("takeoff_coverage_footer_tally", { count: String(tally.count), mark: MARK_TALLY[tally.mark] })}
         </span>
@@ -623,6 +633,7 @@ function Tally({ cells }: { cells: readonly ResidueCell[] }): ReactElement {
  */
 function Inspector({
   cell,
+  declared,
   permitted,
   offline,
   proposal,
@@ -636,6 +647,8 @@ function Inspector({
   remedyLabel,
 }: {
   cell: ResidueCell;
+  /** The published lines kept with no quantity — what makes this cell partly borne (I-cov-1). */
+  declared: ReadonlySet<string>;
   permitted: boolean;
   offline: boolean;
   /** The boundary a model proposed for this cell, or `null` — and then the region is ABSENT (I-297). */
@@ -703,19 +716,26 @@ function Inspector({
         ) : (
           <>
             <span className="cx-coverage-value">{cell.class ?? ""}</span>
-            <span className="cx-coverage-value">{cell.levelLabel}</span>
+            <span className="cx-coverage-value">{levelWord(cell.levelLabel)}</span>
           </>
         )}
       </p>
 
       <h3 className="cx-coverage-inspector-heading">{COVERAGE_COPY.takeoff_coverage_cause_heading}</h3>
       <p className="cx-coverage-cause" data-testid="coverage-inspector-cause" data-cause={read} data-code={read} data-act={actId ?? ""}>
-        <span className="cx-coverage-cause-mark" data-mark={markOf(cell)}>
-          <LegendGlyph reading={read as GlyphReading} />
-          {MARK_WORD[markOf(cell)]}
+        <span className="cx-coverage-cause-mark" data-mark={markOf(cell, declared)}>
+          <LegendGlyph reading={read as GlyphReading} partial={partlyBorne(cell, declared)} />
+          {MARK_WORD[markOf(cell, declared)]}
         </span>
         {entry === undefined ? COVERAGE_COPY.takeoff_coverage_cell_label_measured : entry.message}
       </p>
+      {/* I-cov-1: a published cell whose lines carry no quantity says how many, in place — the
+          register names what each one left out, and the remedy link below goes there. */}
+      {partlyBorne(cell, declared) ? (
+        <p className="cx-coverage-declared-lines" data-declared={linesDeclared(cell, declared)}>
+          {fillCoverageCopy("takeoff_coverage_cell_label_declared", { count: String(linesDeclared(cell, declared)), total: String(cell.lineIds.length) })}
+        </p>
+      ) : null}
       {actId === null ? null : (
         <p className="cx-coverage-declared">
           <span className="cx-coverage-label">{COVERAGE_COPY.takeoff_coverage_declared_label}</span>
@@ -905,9 +925,13 @@ function Statement({ axis, title, none, rows }: { axis: string; title: string; n
               data-code={row.cause}
               key={`${row.kind}:${row.class ?? ""}:${row.levelId ?? ""}:${row.cause}`}
             >
-              <span className="cx-coverage-value">{row.kind}</span>
-              <span className="cx-coverage-value">{row.class ?? ""}</span>
-              <span className="cx-coverage-value">{row.levels}</span>
+              {/* I-cov-4: kind · class · level, each named and separated (§3's statement row) — a
+                  kind-grain row names neither class nor level, and a level-less cell says so. */}
+              <span className="cx-coverage-statement-where">
+                <span className="cx-coverage-value">{row.kind}</span>
+                {row.class === null ? null : <span className="cx-coverage-value">{row.class}</span>}
+                {row.class === null ? null : <span className="cx-coverage-value">{levelWord(row.levels)}</span>}
+              </span>
               <span className="cx-coverage-statement-cause">{causeWords(row.cause)?.message ?? ""}</span>
             </li>
           ))}

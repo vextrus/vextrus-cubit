@@ -71,6 +71,26 @@ export function rampStep(share: number): number {
   return Math.min(RAMP_STEPS - 1, Math.floor(share * (RAMP_STEPS - 1)) + 1);
 }
 
+/** No line kept without quantity — what a reading that carries no such list reads as. */
+const NONE_DECLARED: ReadonlySet<string> = new Set();
+
+/**
+ * How much of a cell's published lines BEAR a quantity (s-coverage I-cov-1, amending I-210): its
+ * lines less those kept PARTIAL_DECLARED — a row kept with no quantity carries none (L-QTY-02), so a
+ * cell whose every line is such a row has published lines and no quantity, and its share is 0, not
+ * the 1 a bare "has lines" gave it. A cell with no line ids at all is the residue's own reading and
+ * keeps it.
+ */
+export function shareBorne(cell: ResidueCell, declared: ReadonlySet<string> = NONE_DECLARED): number {
+  if (cell.lineIds.length === 0) return 1;
+  return cell.lineIds.filter((lineId) => !declared.has(lineId)).length / cell.lineIds.length;
+}
+
+/** How many of a cell's published lines were kept with no quantity (L-QTY-02, I-cov-1). */
+export function linesDeclared(cell: ResidueCell, declared: ReadonlySet<string> = NONE_DECLARED): number {
+  return cell.lineIds.filter((lineId) => declared.has(lineId)).length;
+}
+
 /**
  * The share of one cell that is PUBLISHED — the number the ramp paints it at (§4.3).
  *
@@ -79,8 +99,8 @@ export function rampStep(share: number): number {
  * part is published to the share of its own evidence that survived ingestion, which is a fact this
  * reading already carries (`truncated`, risk note 4). Nothing else is invented for it.
  */
-export function sharePublished(cell: ResidueCell, truncated: readonly TruncatedSheet[]): number {
-  if (cell.measurement === "QUANTITY_BEARING") return 1;
+export function sharePublished(cell: ResidueCell, truncated: readonly TruncatedSheet[], declared: ReadonlySet<string> = NONE_DECLARED): number {
+  if (cell.measurement === "QUANTITY_BEARING") return shareBorne(cell, declared);
   if (cell.measurement !== "INGESTION_TRUNCATED") return 0;
   if (cell.sightings.length === 0) return 0;
   const lost = new Set(truncated.map((sheet) => `${sheet.drawingId}:${sheet.layoutName}`));
@@ -89,9 +109,10 @@ export function sharePublished(cell: ResidueCell, truncated: readonly TruncatedS
 }
 
 /** How much of one kind's row is measured: the heat a reader reads the row itself by. */
-export function rowShare(cells: readonly ResidueCell[]): { published: number; total: number; share: number } {
+export function rowShare(cells: readonly ResidueCell[], declared: ReadonlySet<string> = NONE_DECLARED): { published: number; total: number; share: number } {
   const borne = cells.filter((cell) => cell.grain !== "KIND");
-  const published = borne.filter((cell) => cell.measurement === "QUANTITY_BEARING").length;
+  // A cell counts as published only where its lines bear quantity whole (I-cov-1).
+  const published = borne.filter((cell) => cell.measurement === "QUANTITY_BEARING" && shareBorne(cell, declared) >= 1).length;
   return { published, total: borne.length, share: borne.length === 0 ? 0 : published / borne.length };
 }
 

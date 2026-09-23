@@ -191,6 +191,53 @@ all exactly where they stood.
   Rejected: a test id of its own for the region — the registry is closed (§7) and the block is found
   by its heading and by the two attributes the existing `coverage-inspector` now carries.
 
+**The craft look (session 7, 2026-09-23; R-UI-050, R-UI-080..086 — the later law).** Numbered
+`I-cov-n` rather than from the global chain, because several craft implementers amended Decisions
+that day. The look lowered states 5 → 3 and tokensAndGrid 5 → 3 on F-RCC6-BNBC's M3 campaign: pile-cap
+concrete, excavation and blinding and column rebar GF–6F painted solid *Published* at the full ramp
+although every one of their lines was kept PARTIAL_DECLARED with no quantity (the register showed
+them blank and Levels at `0%` in the same run); the `pile_cap` band was clipped to `pile` beside a
+`pile` band; both foundation columns stood under a blank level header; and the certificate ran
+`piling.bored pile` together. Each ruling amends this Decision in place (§1, §3, §5 carry the text).
+
+- **I-cov-1 — a published cell whose lines carry no quantity is PARTIAL, not measured (I-210
+  amended; L-QTY-02, R-UI-050).** The residue reads a cell QUANTITY_BEARING when it has published
+  lines at all (`src/core/residue/residue.ts`, `hasLines`), and I-210 turned that into a share of 1.
+  A line kept PARTIAL_DECLARED bears no quantity, so the reading now carries the campaign's
+  PARTIAL_DECLARED line ids (`CoverageView.declaredLineIds`, read off `quantity_lines` in the
+  module's server), and the share a published cell is painted at is the share of ITS lines that bear
+  one (`shareBorne`, `heat.ts`): a cell whose every line declared an omission is ramp step 0. A cell
+  borne less than whole wears the **partial** mark (`data-mark="partial"`, the partial glyph, the
+  key line's word), states `data-declared` (how many of its lines carry none) and says it in its
+  `aria-label` and in the inspector — `takeoff_coverage_cell_label_declared` **{count} of its {total}
+  lines carry no quantity: each names what the drawing did not state.** — while `data-measurement`
+  and `data-code` still state the residue's own reading, untouched (nothing machine-read is
+  re-labelled). The kind row's heat and the tally count such a cell as partial, not published.
+  **What this screen cannot fix, owner named:** the certificate's measurement statement is the
+  residue's (`measurementStatementOf`), and it still omits these cells as if measured; the preview
+  prints what the certificate will print, so it is NOT amended here — the node that owns
+  `src/core/residue` must count only COMPLETE lines as bearing quantity and enter a
+  PARTIAL_DECLARED cell in the boundary with its omitted components (L-QTY-07), at which point this
+  screen's `declaredLineIds` is redundant and retires.
+- **I-cov-2 — a class band names its class, in words, in a band wide enough to name it (R-UI-082,
+  R-UI-083).** The band says the class by the draft BOQ's own rule (`inWords`: `pile_cap` → `Pile
+  cap`), its stored value on `data-class`, the text its own box so an ellipsis can reach it. The
+  track list rides as `--cx-coverage-tracks` — each column `max(var(--row-h), calc((Nch + 2 ×
+  --space-2) / span))`, N the name's length — so a one-level band widens its column to fit its name
+  and a seven-level band stays square; `--cx-coverage-columns` remains the fallback. Still no pixel
+  in the component (ARCH-01).
+- **I-cov-3 — a column on no level of the stack says so.** A class sighted on no stack level (a
+  foundation filed under the FOUNDATION slot; a placement no storey reads) was a blank level header;
+  it now reads `takeoff_coverage_level_none` **No level**, in the header, the column's `aria-label`,
+  the cell's label and the inspector's fact line. (The register says `Foundation` for the same lines
+  because the register object carries the slot; the residue's sighting carries only a null level —
+  the core owner above can carry the slot, and then this word gives way to it.)
+- **I-cov-4 — a certificate row separates what it names.** kind · class · level, each a mono value
+  with the fact line's `·` separator between them; a kind-grain row names neither class nor level, a
+  level-less cell names `No level`; the values stay verbatim (the document's own words, I-25).
+- **I-cov-5 — the screen names itself once, clipped.** One `<h1>` `takeoff_coverage_heading`
+  **Coverage**, out of flow and clipped (`cx-coverage-title`, the register's `cx-register-title`).
+
 ## 1. Layout and hierarchy
 
 **Nav.** `takeoff/layout.tsx` gains a second `next/link`, `<a data-testid="takeoff-nav-coverage">`
@@ -228,13 +275,15 @@ grid colours the cell that wears it.
 **The matrix** — `<div data-testid="coverage-grid" role="grid" aria-label aria-colcount aria-rowcount
 data-density>`, `flex: 1`, `overflow: auto`, hairline, radius 4. It is the ONE scroll container: the
 box scrolls both ways and the page never does (§7 C10). Every row is
-`grid-template-columns: var(--cx-coverage-kind-w) repeat(var(--cx-coverage-columns), var(--row-h))`,
-`width: max-content`, `min-width: 100%` — the column count is the only number the component states and
-it rides as a custom property, so the stylesheet keeps every measure (ARCH-01).
+`grid-template-columns: var(--cx-coverage-kind-w) var(--cx-coverage-tracks, repeat(var(--cx-coverage-columns), var(--row-h)))`,
+`width: max-content`, `min-width: 100%` — the track list (I-cov-2) and the column count are the only
+things the component states and they ride as custom properties, so the stylesheet keeps every
+measure (ARCH-01).
 
 - Two sticky header rows in one `role="rowgroup"` pinned `top: 0`: the class band
-  (`role="columnheader"`, the class verbatim, spanning its levels) over the level row (the level's
-  `label` verbatim, mono 12, centred, `aria-label` = `takeoff_coverage_column_label` so a reader who
+  (`role="columnheader"`, the class in words, spanning its levels, wide enough to name it — I-cov-2)
+  over the level row (the level's `label` verbatim, or `No level` where the column stands on none —
+  I-cov-3, mono 12, centred, `aria-label` = `takeoff_coverage_column_label` so a reader who
   hears one column hears both axes). The corner cell is `takeoff_coverage_kind_column`, sticky on both.
 - One `<div data-testid="coverage-kind-row" role="row" data-kind>` per kind — kind-grain rows (I-196)
   first, then the borne kinds in `compareCanonical` order — opening with a sticky
@@ -317,8 +366,9 @@ beneath the tally, `max-height: 192px` with its own scroll, `display: none` when
 data-axis>` in this order and never merged — `MEASUREMENT` then `BILL`, each with its own title and
 never a shared cause column (L-QTY-07). Each holds a `<ul>` of `<li
 data-testid="coverage-statement-row" data-kind data-class data-level data-levels data-code>` in
-`compareCanonical` order over (kind, class, level): the three model values verbatim in mono, then the
-registered message as prose, on one `var(--row-h)` line that never wraps. An empty statement renders
+`compareCanonical` order over (kind, class, level): the three model values verbatim in mono,
+separated by `·` and a level-less cell's level said as `No level` (I-cov-4), then the registered
+message as prose, on one `var(--row-h)` line that never wraps. An empty statement renders
 `<p data-testid="coverage-statement-none" data-code="NONE">` with its own sentence. The statements
 print in `var(--font-doc)` at `var(--text-13)` on `--surface-panel` inside a hairline border — this is
 document text previewed as document text. No count appears anywhere in this section (L-QTY-07),
@@ -392,6 +442,8 @@ Declared in `takeoff/coverage/states.ts` (`COVERAGE_STATES`) and appended to
 screen itself is named by the breadcrumb) · `_revision_label` **Pinned revision** · `_grid_label`
 **Kinds by class and level** (the work surface's accessible name) · `_kind_column` **Kind** ·
 `_column_label` **{class} · {level}** · `_kind_share` **{count} of {total} measured** ·
+`_level_none` **No level** (I-cov-3) · `_cell_label_declared` **{count} of its {total} lines carry no
+quantity: each names what the drawing did not state.** (I-cov-1) ·
 `_measured_note` **A filled mark is a cell with published quantity.** · `_legend_heading` **What each
 mark means** (the key line's accessible name).
 

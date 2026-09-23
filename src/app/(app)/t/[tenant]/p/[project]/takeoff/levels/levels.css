@@ -91,6 +91,24 @@
   color: var(--ink-secondary);
 }
 
+/* I-lev-4: the screen's h1, for heading navigation only — out of flow and clipped to nothing (the
+   register's `cx-register-title`), its size stated so the user agent's 2em is never the one read. */
+.cx-levels-title {
+  position: absolute;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  font-size: var(--text-body);
+}
+
+/* The screen's half of the lane's tabs row ends where every other surface's does: inside the same
+   inline gutter the shipped `ShellToolbar` keeps (coverage's "Hide certificate" at 1416, not 1424). */
+.cx-levels-tabs-aside {
+  display: inline-flex;
+  align-items: center;
+  padding-inline-end: var(--space-2);
+}
+
 .cx-levels-hint,
 .cx-levels-none-said {
   font-size: var(--text-caption);
