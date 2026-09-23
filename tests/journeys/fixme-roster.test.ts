@@ -33,7 +33,7 @@ const ROSTER: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   },
   "tests/e2e/journeys/j-000/m3-bar-schedule.spec.ts": {
     "MISSING DOOR: J-000 m3-bar-schedule: the bar schedule is emitted as DRAFT — UNSIGNED and read against the golden, member by member":
-      "no column member's schedule is whole: the campaign's column rebar lines stand PARTIAL_DECLARED with their TIES omitted until the ties slice (R6, D-002) derives them from BNBC 2020 / ACI 318-19 (docs/reference/bnbc-2020/), and the stated LAP 50d (I-308) rides with that synthesis bump behind the FC contest (N1) — the leg compares whole members, NET and LAP, against fixtures/rcc6-bnbc/bbs.golden.json (session 7)",
+      "no column member's schedule is whole: the campaign's column rebar lines stand PARTIAL_DECLARED with their TIES omitted until the ties slice (R6, D-003) derives them from BNBC 2020 / ACI 318-19 (docs/reference/bnbc-2020/), and the stated LAP 50d (I-308, reserved and not yet minted) rides with that synthesis bump behind the FC contest (N1) — the leg compares whole members, NET and LAP, against fixtures/rcc6-bnbc/bbs.golden.json (session 7)",
   },
   // M4's four segments (AM-17), one door-owing file each since session 7 — the owner ruled "M3 breadth
   // first", so M4 stands on named, measured doors and nothing of it is built; each file's header holds

@@ -1,7 +1,7 @@
 /**
  * J-000 SEGMENTS: emit the unpriced BOQ and the BBS as DRAFT UNSIGNED
  *
- * MISSING DOOR: the column TIES are not derived yet — the ties slice (R6, D-002) derives them from BNBC 2020 / ACI 318-19 per the owner's session-7 ruling (the clauses vendored at docs/reference/bnbc-2020/), and until it lands every column's rebar line stands PARTIAL_DECLARED with its ties omitted, so no member's schedule is whole; the lap the drawing states (LAP 50d, I-308) rides with the same synthesis bump behind the FC contest (the pile-scoped f'c note, N1); and the leg compares WHOLE members — NET and LAP of every bar mark — against fixtures/rcc6-bnbc/bbs.golden.json.
+ * MISSING DOOR: the column TIES are not derived yet — the ties slice (R6, D-003) derives them from BNBC 2020 / ACI 318-19 per the owner's session-7 ruling (the clauses vendored at docs/reference/bnbc-2020/), and until it lands every column's rebar line stands PARTIAL_DECLARED with its ties omitted, so no member's schedule is whole; the lap the drawing states (LAP 50d, I-308) rides with the same synthesis bump behind the FC contest (the pile-scoped f'c note, N1); and the leg compares WHOLE members — NET and LAP of every bar mark — against fixtures/rcc6-bnbc/bbs.golden.json.
  *
  * The bar schedule's half of AM-17's emission segment, split out of m3-bill-and-schedules.spec.ts in
  * session 7 so the BOQ's half could run: the draft BOQ is emitted, filed and read as DRAFT — UNSIGNED
