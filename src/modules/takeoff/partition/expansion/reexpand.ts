@@ -42,6 +42,8 @@ export type ReexpandedDrawing = {
   /** Register objects added across those revisions; the ones that already stood; the keys no longer derived. */
   readonly registered: number;
   readonly standing: number;
+  /** Of the standing, the placeholders carried onto the storey the resolver now reads their word as (I-366). */
+  readonly carried: number;
   readonly stale: readonly string[];
 };
 
@@ -77,6 +79,7 @@ export async function reexpandDrawing(scope: ReexpandScope & { readonly drawingI
     revisions: revisions.length,
     registered: passes.reduce((count, pass) => count + pass.registered, 0),
     standing: passes.reduce((count, pass) => count + pass.standing, 0),
+    carried: passes.reduce((count, pass) => count + pass.carried, 0),
     stale: passes.flatMap((pass) => [...pass.stale]),
   };
 }

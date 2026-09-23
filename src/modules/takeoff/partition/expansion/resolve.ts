@@ -22,7 +22,7 @@
 // returned in the key's own order — so the same placements, stack and authored ranges resolve to the
 // same instance keys however they were handed in (L-REG-04, AC-8).
 import { EXPANSION_DEFERRAL_REASONS, type ExpansionDeferralReason } from "@/core/errors";
-import { instanceKey, levelSegment, SIGHTING_STANDINGS, viewKey as viewKeyOf, type LevelRef, type SightingStanding, type ViewRef } from "@/core/identity";
+import { carryLevel, instanceKey, levelSegment, SIGHTING_STANDINGS, viewKey as viewKeyOf, type LevelRef, type SightingStanding, type ViewRef } from "@/core/identity";
 import { bandCovers, bandJudgeable, bandOpen, foundationNeckOf, type BandStatement } from "@/core/offers/contract";
 import { sameStorey } from "../notation";
 import { isFoundationClass, isLevelClass, isVerticalClass, levelWordsOf } from "../placement/law";
@@ -538,4 +538,66 @@ function ownership<T extends OwnedRow>(rows: readonly T[]): { rows: T[]; yields:
  */
 export function ownedRows<T extends OwnedRow>(rows: readonly T[]): T[] {
   return ownership(rows).rows;
+}
+
+/**
+ * One register object standing under a level's placeholder (`@unregistered:<label>`, L-REG-04), as
+ * the carry reads one: its key, the label that key was spelled with — the caption's own word, as the
+ * register wrote it — and the standing it was registered at.
+ */
+export type StandingPlaceholder = {
+  readonly objectKey: string;
+  readonly label: string;
+  readonly standing: SightingStanding;
+};
+
+/** One placeholder a resolution retires: the row it becomes, and the surrogate its key is carried onto. */
+export type PlaceholderCarry = {
+  readonly placeholder: StandingPlaceholder;
+  readonly row: ExpansionRow;
+  readonly levelId: string;
+};
+
+/**
+ * The placeholders these rows RETIRE (Interpretation I-366; L-REG-04's one-hop carry, L-REG-03).
+ *
+ * A single-level plan whose storey the stack does not carry yet registers its members under the
+ * caption's own word (`1ST FLOOR BEAM LAYOUT` → `@unregistered:1ST`), and once the storey stands the
+ * resolver places the same members on it — reading the word by the grammar's storey reading
+ * (`levelLabelled`: `1ST` is `1F`). The placeholder and the resolved row are then ONE sighting under
+ * two keys, and the register must hold it once: the placeholder is carried onto the row, never
+ * stood beside it. Until this, the carry was the level act's alone and compared labels letter by
+ * letter (`dotlessUpper`), so `1ST` against `1F` carried nothing and the rebuild after it registered
+ * the 23 beams of F-RCC6-BNBC's 1F plan a second time (195 beam objects where the stack gives 172).
+ *
+ * Read by the resolver's OWN reading and nothing else: the label is placed on the stack exactly as
+ * the caption's was (`levelLabelled`, ties to the lower ordinal), the key it becomes is the identity
+ * grammar's (`carryLevel`), and a placeholder is retired only onto a row these rows actually hold. So
+ * a member its band or its note keeps off that storey is never carried onto it (L-FRM-02, I-303) — it
+ * keeps its placeholder, and the rebuild reports it stale rather than measuring it where no drawing
+ * put it (L-QTY-04). And never onto a key already standing (`standing`), because two rows of one key
+ * are one identity (L-REG-03); nor where the standings differ, because the carry moves the level and
+ * nothing else about the sighting.
+ *
+ * Pure and order-independent: one row retires at most one placeholder, decided in key order.
+ */
+export function placeholderCarries(
+  rows: readonly ExpansionRow[],
+  placeholders: readonly StandingPlaceholder[],
+  levels: readonly StackedLevel[],
+  standing: ReadonlySet<string> = new Set<string>(),
+): PlaceholderCarry[] {
+  const derived = new Map(rows.map((row) => [row.objectKey, row]));
+  const claimed = new Set<string>();
+  const carries: PlaceholderCarry[] = [];
+  for (const placeholder of [...placeholders].sort((left, right) => byCodePoint(left.objectKey, right.objectKey))) {
+    const level = levelLabelled(levels, placeholder.label);
+    if (level === null) continue;
+    const carried = carryLevel(placeholder.objectKey, { label: placeholder.label, levelId: level.levelId });
+    const row = carried.carried ? derived.get(carried.key) : undefined;
+    if (row === undefined || row.standing !== placeholder.standing || standing.has(row.objectKey) || claimed.has(row.objectKey)) continue;
+    claimed.add(row.objectKey);
+    carries.push({ placeholder, row, levelId: level.levelId });
+  }
+  return carries;
 }

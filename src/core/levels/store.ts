@@ -7,7 +7,7 @@
 // `@/modules/takeoff/register` because the act seam is core and core imports nothing above it
 // (ARCH-01) — what a carry IS stays the identity grammar's (`carryLevel`), and this only moves the
 // three columns that grammar names.
-import { and, asc, eq, isNull, levels, registerObjects, storeyHeightReadings, type TenantTx } from "../db";
+import { and, asc, eq, inArray, isNull, levels, registerAttributes, registerObjects, storeyHeightReadings, type TenantTx } from "../db";
 import { carryLevel, dotlessUpper } from "../identity";
 import { declaredOrdinal, type StoreyHeightBasis } from "./law";
 
@@ -189,6 +189,31 @@ export async function objectsUnderPlaceholders(tx: TenantTx, scope: LevelScope, 
     .where(and(eq(registerObjects.tenantId, scope.tenantId), eq(registerObjects.projectId, scope.projectId), isNull(registerObjects.levelId)))
     .orderBy(asc(registerObjects.objectKey));
   return held.flatMap((row) => (row.levelLabel !== null && wanted.has(dotlessUpper(row.levelLabel)) ? [{ ...row, levelLabel: row.levelLabel }] : []));
+}
+
+/**
+ * The keys, of those named, that a person's attribute reading hangs on inside one pinned revision —
+ * the placeholders a carry CANNOT move (Interpretation I-367).
+ *
+ * An attribute slot names the object by its key (`register_attributes_object_fk`, 0029) and the
+ * ledger it opens is append-only, so moving that key would orphan the reading or be refused by the
+ * store. A caller that carries on its own initiative — the rebuild retiring a placeholder the one
+ * resolver now places (I-366) — asks this first and leaves such a placeholder where it stands, rather
+ * than failing a whole rebuild over one corroborated member (ARCH-03).
+ */
+export async function keysHoldingReadings(tx: TenantTx, scope: LevelScope & { readonly setRevisionId: string }, objectKeys: readonly string[]): Promise<Set<string>> {
+  if (objectKeys.length === 0) return new Set();
+  const held = await tx
+    .select({ objectKey: registerAttributes.objectKey })
+    .from(registerAttributes)
+    .where(
+      and(
+        eq(registerAttributes.tenantId, scope.tenantId),
+        eq(registerAttributes.setRevisionId, scope.setRevisionId),
+        inArray(registerAttributes.objectKey, [...new Set(objectKeys)]),
+      ),
+    );
+  return new Set(held.map((row) => row.objectKey));
 }
 
 /**

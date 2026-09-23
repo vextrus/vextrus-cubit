@@ -128,6 +128,46 @@ the `cx-levels-*` classes this file rules.
   over the golden. It is inserted at ordinal −1 BEFORE the section's stack is confirmed, because an
   insert moves every live level at or above the ordinal it names (L-MEA-07) and GF then keeps its 0. The
   existing ground level (EGL) stays unentered until the owner's R0 ruling.
+- **I-366 — a placeholder the caption's word left is carried onto the storey the one resolver reads
+  that word as, by the rebuild, and never stood beside it (session 7, 2026-09-23; L-REG-04's one-hop
+  carry, L-REG-03, L-CAD-07, B-17).** Measured on J-000's BNBC register after FRM-1/FRM-2: 195 beam
+  objects where the stack gives 172. S-13's `1ST FLOOR BEAM LAYOUT` (`v:LAYOUT_PLAN:DXF_HANDLE:2116`)
+  names its storey in ordinal words, and the set is pinned before any level stands, so its 23 beams
+  register under `@unregistered:1ST`. The section's stack spells that storey `1F`. Two readings of one
+  question — is this label that storey — then disagreed: `INSERT_LEVEL`'s carry
+  (`objectsUnderPlaceholders`, `levelFor`) compares letters (`dotlessUpper`: `1ST` ≠ `1F`) and moved
+  nothing, while the resolver reads `1ST` as `1F` (`sameStorey`) and the rebuild the door runs after the
+  act registered the same 23 on 1F beside them. Columns had no twin only because their plan's caption
+  states no storey (UNRESOLVED, which `AUTHOR_TYPICAL_RANGE` re-keys). **What the product does:** the
+  one register pass both rebuild paths enter (`expansion/store.ts` `registerExpansion` — the partition
+  job and `reexpandProject`) first retires every object standing under `@unregistered:<label>` whose
+  label the resolver's own `levelLabelled` places on a level where the rows it is registering hold that
+  very member (`resolve.ts` `placeholderCarries`, keyed by the identity grammar's `carryLevel`), through
+  the level store's own `carryObjectOntoLevel` — the move `INSERT_LEVEL` makes, one hop, the same row —
+  and only then offers what does not stand. The pass and its census report `carried` (counted among the
+  standing). A second rebuild carries nothing. **Not changed, and the IOU:** `INSERT_LEVEL`'s own carry
+  still compares letters, so its Consequence names only the placeholders it moves itself; the rest move
+  in the re-expansion its door runs right after the commit. The act should ask the one resolver through
+  a port, as `AUTHOR_TYPICAL_RANGE` does since I-309, so that its Consequence names the `1ST` → `1F` carry
+  and the two carries are one — `src/core/acts/insert-level.ts`, the node that owns it. **Rejected:**
+  matching the act's carry by the storey reading inside `core/levels` alone — the act re-matches in
+  `levelFor` by letters and would throw on a `1ST` placeholder, failing the stack's confirmation — and
+  any carry by label alone, which is blind to the band and note cuts (below). Proved over the shipped
+  reading of F-RCC6-BNBC walked through J-000's order of acts
+  (`tests/takeoff/partition/expansion/bnbc-placeholder-carry.test.ts`): the 23 carried, beams ROOF 24 ·
+  1F 23 · 2F..6F 25 each = **172**, the register equal to the resolver's rows over the final state; the
+  same walk without the carry leaves 195; piles (89), caps (26) and columns on byte-identical keys. Beam
+  lines stay PARTIAL (no slab thickness), so nothing billed moves.
+- **I-367 — what the rebuild never carries (session 7, 2026-09-23; L-QTY-04, L-REG-03, ARCH-03).** A
+  placeholder whose member the resolver does NOT stand on the storey its word names — its schedule band
+  or its note cut it off (L-FRM-02, I-303) — keeps its placeholder and is reported stale: carried by
+  label it would be measured where no drawing put it. Nothing is carried onto a key already standing,
+  because one identity is one row, so a register that already holds both rows from before this fix
+  keeps both (the register retracts nothing, 0029 — a person repudiates one). Nothing is carried across
+  a standing, because the carry moves the level and nothing else. And a placeholder a person's
+  attribute reading hangs on is left where it stands (`keysHoldingReadings`,
+  `src/core/levels/store.ts`): the slot names the key (`register_attributes_object_fk`) and its ledger is
+  append-only, so moving it would fail the whole rebuild over one corroborated member.
 
 **The craft look (session 7, 2026-09-23; R-UI-080..086, AM-08 — the later law).** Numbered `I-lev-n`
 rather than from the global chain, because several craft implementers amended Decisions that day.

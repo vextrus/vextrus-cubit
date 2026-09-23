@@ -9,13 +9,15 @@
 //
 // A key already standing for a revision is skipped rather than re-offered: a blind second offer would
 // be refused `DUPLICATE_IDENTITY` and kept as evidence, so a rebuild of an unchanged drawing would
-// manufacture a refusal per member for a drawing nobody re-measured (L-REG-03, L-REG-04).
+// manufacture a refusal per member for a drawing nobody re-measured (L-REG-03, L-REG-04). And a
+// placeholder standing for a row's own member on the row's own storey IS that row (I-366): it is
+// carried onto the row's key, one hop, before anything is offered — never stood beside it.
 import { and, asc, drawingSetRevisions, eq, expansionDeferrals, forTenant, typicalRanges, type TenantTx } from "@/core/db";
-import { liveLevelsOf } from "@/core/levels/store";
+import { carryObjectOntoLevel, keysHoldingReadings, liveLevelsOf } from "@/core/levels/store";
 import { recordOf } from "@/core/sets";
-import { registerObjectsIn, registerObjectsOf, registerSightingsIn, type RegisterScope } from "@/modules/takeoff/register";
+import { registerObjectsIn, registerSightingsIn, type RegisterObjectRow, type RegisterScope } from "@/modules/takeoff/register";
 import { PLACEMENT_DISCIPLINE } from "../placement/law";
-import type { AuthoredRange, ExpansionRow, ResolvedExpansion, StackedLevel } from "./resolve";
+import { placeholderCarries, type AuthoredRange, type ExpansionRow, type PlaceholderCarry, type ResolvedExpansion, type StackedLevel } from "./resolve";
 
 /** One stored deferral, whole — every column the store holds, as it holds it. */
 export type StoredExpansionDeferral = typeof expansionDeferrals.$inferSelect;
@@ -41,8 +43,11 @@ export type ExpansionWrite = {
  * the standing identity itself and nothing deletes one (L-REG-01) — so a rebuild that derives fewer
  * rows than the last one says so, where saying nothing would leave a quantity nobody can see is no
  * longer derived from any drawing.
+ *
+ * `carried` counts the placeholders the pass retired onto a row it derives (I-366). Each is one of
+ * the `standing`: the sighting stood already, under the caption's word, and now stands on its storey.
  */
-export type RegisteredExpansion = { readonly registered: number; readonly standing: number; readonly stale: readonly string[] };
+export type RegisteredExpansion = { readonly registered: number; readonly standing: number; readonly carried: number; readonly stale: readonly string[] };
 
 /**
  * Rewrite one record's expansion deferrals inside the partition's transaction. Cleared first, so a
@@ -145,31 +150,82 @@ export async function revisionsNaming(scope: { tenantId: string; projectId: stri
  * this census is what it said it would do rather than what it did (L-REG-03, L-REG-04).
  */
 export async function expansionCensusOf(scope: RegisterScope, rows: readonly ExpansionRow[]): Promise<RegisteredExpansion> {
-  const objects = await registerObjectsOf(scope);
-  const held = new Set(objects.map((object) => object.objectKey));
-  let registered = 0;
-  let standing = 0;
+  return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
+    const before = await registerObjectsIn(tx, scope);
+    // The carries the pass WILL make, planned by the same reading over the same state — so the census
+    // counts a retired placeholder as the sighting that stood, exactly as the pass then records it.
+    const carries = await carriesIn(tx, scope, before, rows);
+    const objects = afterCarries(before, carries);
+    const held = new Set(objects.map((object) => object.objectKey));
+    let registered = 0;
+    let standing = 0;
 
-  for (const row of rows) {
-    if (held.has(row.objectKey)) standing += 1;
-    else {
-      registered += 1;
-      // Counted once: two rows of one key are one identity, and the pass offers the second no more
-      // than this census counts it twice (L-REG-03).
-      held.add(row.objectKey);
+    for (const row of rows) {
+      if (held.has(row.objectKey)) standing += 1;
+      else {
+        registered += 1;
+        // Counted once: two rows of one key are one identity, and the pass offers the second no more
+        // than this census counts it twice (L-REG-03).
+        held.add(row.objectKey);
+      }
     }
-  }
 
-  return { registered, standing, stale: staleOf(objects, rows) };
+    return { registered, standing, carried: carries.length, stale: staleOf(objects, rows) };
+  });
+}
+
+/**
+ * The placeholders this pass retires onto the rows it derives (I-366), read on the pass's own
+ * transaction: every object of the revision standing under `@unregistered:<label>` — what a placeholder
+ * row IS: no surrogate, a label (L-REG-04) — put to the one resolver's carry over the live stack, less
+ * any a person's attribute reading hangs on (I-367: its key cannot move, and the placeholder is left
+ * standing where it is rather than the rebuild failing over it). Nothing is written here.
+ */
+async function carriesIn(tx: TenantTx, scope: RegisterScope, objects: readonly RegisterObjectRow[], rows: readonly ExpansionRow[]): Promise<PlaceholderCarry[]> {
+  const placeholders = objects.flatMap((object) =>
+    object.levelId === null && object.levelLabel !== null ? [{ objectKey: object.objectKey, label: object.levelLabel, standing: object.standing }] : [],
+  );
+  if (placeholders.length === 0 || rows.length === 0) return [];
+  const stack = await liveStackIn(tx, scope.tenantId, scope.projectId);
+  const carries = placeholderCarries(rows, placeholders, stack, new Set(objects.map((object) => object.objectKey)));
+  if (carries.length === 0) return [];
+  const read = await keysHoldingReadings(tx, scope, carries.map((carry) => carry.placeholder.objectKey));
+  return carries.filter((carry) => !read.has(carry.placeholder.objectKey));
+}
+
+/** The revision's objects as they stand once these carries are made: each retired key is its row's. */
+function afterCarries(objects: readonly RegisterObjectRow[], carries: readonly PlaceholderCarry[]): RegisterObjectRow[] {
+  const onto = new Map(carries.map((carry) => [carry.placeholder.objectKey, carry]));
+  return objects.map((object) => {
+    const carry = onto.get(object.objectKey);
+    return carry === undefined ? object : { ...object, objectKey: carry.row.objectKey, levelId: carry.levelId, levelLabel: null };
+  });
 }
 
 /**
  * Register one revision's worth of resolved rows through the register's own door (L-REG-01). What is
  * already standing is left alone: the key is the identity, so a row that stands IS this sighting, and
  * offering it again would be offering a second measured sighting of one scope (L-REG-03).
+ *
+ * A placeholder of the row's member, under a word the resolver reads as the row's storey, is that
+ * sighting too, and it is carried onto the row FIRST — through the level store's own one-hop carry,
+ * the move `INSERT_LEVEL` makes — so the row is then found standing and nothing is offered beside it
+ * (I-366, L-REG-04). A carry the grammar declines moves nothing, and its row is offered as before.
  */
 export async function registerExpansion(tx: TenantTx, scope: RegisterScope, rows: readonly ExpansionRow[]): Promise<RegisteredExpansion> {
-  const objects = await registerObjectsIn(tx, scope);
+  const before = await registerObjectsIn(tx, scope);
+  const planned = await carriesIn(tx, scope, before, rows);
+  const standingByKey = new Map(before.map((object) => [object.objectKey, object]));
+  const carries: PlaceholderCarry[] = [];
+  for (const carry of planned) {
+    // The placeholder as the register holds it; the carry is the level store's own (the move
+    // `INSERT_LEVEL` makes), keyed off the label the placeholder's key was spelled with (L-REG-02).
+    const object = standingByKey.get(carry.placeholder.objectKey);
+    if (object === undefined) continue;
+    const placeholder = { setRevisionId: scope.setRevisionId, objectKey: object.objectKey, levelLabel: carry.placeholder.label, elementType: object.elementType };
+    if (await carryObjectOntoLevel(tx, { tenantId: scope.tenantId, projectId: scope.projectId }, placeholder, carry.levelId)) carries.push(carry);
+  }
+  const objects = afterCarries(before, carries);
   const held = new Set(objects.map((object) => object.objectKey));
   const offering = rows.filter((row) => !held.has(row.objectKey));
 
@@ -201,7 +257,7 @@ export async function registerExpansion(tx: TenantTx, scope: RegisterScope, rows
   );
 
   const registered = answers.filter((answer) => answer.registered).length;
-  return { registered, standing: rows.length - registered, stale: staleOf(objects, rows) };
+  return { registered, standing: rows.length - registered, carried: carries.length, stale: staleOf(objects, rows) };
 }
 
 /**
