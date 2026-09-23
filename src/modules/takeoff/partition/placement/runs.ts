@@ -82,6 +82,15 @@ const OPENING_WORDS: ReadonlySet<string> = new Set(["OPENING", "OPENINGS", "VOID
  */
 const CANON_OF_HEADER: Readonly<Record<string, Unit>> = Object.freeze({ mm: "mm", m: "m", foot: "ft" });
 
+/**
+ * The length unit one artifact's header states its drawing in, as the canon calls it, or null where
+ * the header names one the canon does not carry. Published because a RING's plan is read in the same
+ * unit a run is (`./outline`, I-333): one map from the header to the canon, read by both (B-17).
+ */
+export function drawnUnitOf(graph: EntityGraph): Unit | null {
+  return CANON_OF_HEADER[graph.insunits.unit ?? ""] ?? null;
+}
+
 /** A point in the drawing's own plane. */
 type Point = readonly [number, number];
 
@@ -157,7 +166,7 @@ type Plan = {
  */
 export function detectRuns(evidence: PlacementEvidence, placed: readonly PlacementRow[]): DetectedRuns {
   const shares = { containmentMerge: shareValue(evidence.shares, "containmentMerge"), nearAnchor: shareValue(evidence.shares, "nearAnchor") };
-  const unit = CANON_OF_HEADER[evidence.graph.insunits.unit ?? ""] ?? null;
+  const unit = drawnUnitOf(evidence.graph);
   const axesByView = axesOf(evidence.grid);
   const ringsByKey = new Map<string, Ring>();
 

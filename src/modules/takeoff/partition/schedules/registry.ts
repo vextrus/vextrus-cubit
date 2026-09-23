@@ -27,6 +27,7 @@ import {
   REBAR_ZONE,
   cellParts,
   dimensionOfHeader,
+  isBarMarkHeader,
   isMarkFamily,
   isMarkHeader,
   isPlacedNumberHeader,
@@ -168,10 +169,20 @@ function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null
   // The mark column is what makes a table a schedule OF something: with none, no row of it names a
   // member, and every cell in it is a dimension or a note (AC-1).
   if (mark === undefined) return [];
+  // A BAR-BENDING schedule is a schedule of BARS (Interpretation I-331): every row is one bar, and the
+  // member its MEMBER column names is the member that bar is cut FOR. Folded here it minted F-RCC6-
+  // BNBC's PC3 and S3 as sectionless families from S-26's sample — a second, emptier statement of a
+  // member type the member schedules make, which the setup then overwrote the first with in table
+  // order. A member type has one statement, its schedule's, so a bar schedule registers none
+  // (R-TO-031, B-17), and the table itself is still reconstructed and stored whole for the bar reader.
+  if (columns.some((column) => isBarMarkHeader(column.header))) return [];
 
   const families: MemberFamily[] = [];
   const minted = new Set<string>();
   const rows = rowsOf(table);
+  // The class every member row of this table names, or null where its rows name more than one — the
+  // one fact the dimension read is scoped by (`dimensionsOf`, I-332).
+  const single = soleClassOf(rows, mark.index);
   // The unbanded section column is the TABLE's, chosen once over all its rows: a column is what it is
   // for every row of the schedule, and choosing it per row would key one table's variants two ways.
   const stated = sectionColumnOf(columns, rows);
@@ -186,7 +197,7 @@ function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null
     // A bare class prefix — `P` over a plan that numbers its piles `P1`…`P89` — names the TYPE of
     // those members, so it is a family too (I-321). Whether it may name any of them is placement's
     // question, asked against the plans; here it is only read.
-    const bare = !isMarkFamily(markCell.text) && classOfPrefix(markCell.text) !== null;
+    const bare = isBarePrefix(markCell.text);
     if (!isMarkFamily(markCell.text) && !bare) continue;
     const family = normaliseMark(markCell.text);
     // One row per mark family: a mark drawn twice in one schedule is one member type, read from the
@@ -197,7 +208,7 @@ function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null
     const zones = zonesOf(columns, row);
     const variants = variantsOf(columns, row, zones, stated, banded, markCell, declared);
     // The row's dimensions are the ROW's, as its rebar columns are: every variant carries them.
-    const dimensions = dimensionsOf(columns, row, family, declared);
+    const dimensions = dimensionsOf(columns, row, family, declared, single);
     const corroboration = bare ? placedNumberOf(columns, row) : undefined;
     families.push({
       scheduleKey: table.scheduleKey,
@@ -220,13 +231,41 @@ function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null
  * Read PER CLASS, never off any column that happens to be headed so, because the same head states
  * different things of different tables: F-RCC6-BNBC's BAR BENDING SCHEDULE heads a column `DIA` over
  * the diameter of a BAR, and the member it files that bar under is a pile cap — whose diameter no
- * method asks for. A foundation's DEPTH is not read yet: its plan must be the outline's before its
- * depth is the schedule's, or F-RCC6-BNBC's pile caps would bill a schedule rectangle as their
- * volume (FND-2), and F-RCC6's FOOTING SCHEDULE would start billing on a fixture byte-frozen at v1.1.
+ * method asks for.
+ *
+ * A pile cap's DEPTH is read (Interpretation I-332): its plan is now the OUTLINE's where one was read
+ * (the foundations rail's `planOf`, I-334), so the depth no longer multiplies a schedule rectangle
+ * the plan does not draw. A footing's is not read yet — F-RCC6's FOOTING SCHEDULE would start billing
+ * its 32 footings on a fixture byte-frozen at v1.1 — and neither is the depth of any class stated in
+ * a schedule whose rows name MORE than one class (`soleClassOf`): the one such schedule either fixture
+ * draws is that same FOOTING SCHEDULE, whose two pile-cap rows would bill 23.328 m³ on the frozen
+ * fixture. That lift is a `baseline:` of its own, named with its proof; nothing here guesses it.
  */
 const DIMENSIONS_READ: Readonly<Partial<Record<ElementType, readonly ScheduleDimension[]>>> = Object.freeze({
   pile: Object.freeze([DIMENSION.dia, DIMENSION.length]),
+  pile_cap: Object.freeze([DIMENSION.depth]),
 });
+
+/**
+ * The one class every member row of a table names, or null where its rows name two classes or none —
+ * read off the mark column, through the one reading of what a family is a family of
+ * (`classOfFamily`, B-17). A dimension is read only from a schedule OF its class (I-332).
+ */
+function soleClassOf(rows: readonly [number, Map<number, ScheduleCell>][], markColumn: number): ElementType | null {
+  const classes = new Set<ElementType>();
+  for (const [, row] of rows) {
+    const cell = row.get(markColumn);
+    if (cell === undefined || (!isMarkFamily(cell.text) && !isBarePrefix(cell.text))) continue;
+    const type = classOfFamily(normaliseMark(cell.text));
+    if (type !== null) classes.add(type);
+  }
+  return classes.size === 1 ? ([...classes][0] as ElementType) : null;
+}
+
+/** Whether a mark cell is exactly a class prefix and no numbered mark (I-321) — the one test of it here. */
+function isBarePrefix(text: string): boolean {
+  return !isMarkFamily(text) && classOfPrefix(text) !== null;
+}
 
 /**
  * The dimensions one row states for its family, in the order its columns stand: each read from the
@@ -234,11 +273,11 @@ const DIMENSIONS_READ: Readonly<Partial<Record<ElementType, readonly ScheduleDim
  * wrote, else the unit its head states, else the unit the drawing declares (I-302) — the same three
  * statements, nearest first, a section's unit is read from (`unitOf`). A cell with no figure, and a
  * figure nobody gave a unit to, is no dimension: the rail keeps its row and names what is missing
- * (L-QTY-02).
+ * (L-QTY-02). Only from a schedule every member row of which is of the family's class (`single`).
  */
-function dimensionsOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>, family: string, declared: DeclaredDimensionUnit | null): MemberDimension[] {
+function dimensionsOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>, family: string, declared: DeclaredDimensionUnit | null, single: ElementType | null): MemberDimension[] {
   const type = classOfFamily(family);
-  const admitted = type === null ? [] : (DIMENSIONS_READ[type] ?? []);
+  const admitted = type === null || type !== single ? [] : (DIMENSIONS_READ[type] ?? []);
   const read: MemberDimension[] = [];
   if (admitted.length === 0) return read;
   for (const column of columns) {

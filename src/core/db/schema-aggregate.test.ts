@@ -24,7 +24,16 @@
  * Modules are loaded by absolute path — the contract this tree's other split proofs use: a module the
  * product does not provide yet fails as an assertion naming the file, never as a resolution error.
  *
- * Re-baselined for ONE ADDED table and nothing else: `memberTypeDimensions` (`member_type_dimensions`,
+ * Re-baselined for ONE ADDED table and nothing else: `placementOutlines` (`placement_outlines`,
+ * db/migrations/0059_placement-outlines.sql), the plan the ring a member was placed by ENCLOSES — one
+ * row per ring-placed placement: its geometry (a rectangle or a polygon), its shoelace area, its
+ * perimeter and a rectangle's own two sides, in the unit the ring was read in and cited to the ring
+ * (Interpretation I-333, L-FRM-02) — so a foundation is measured over the plan the drawing drew and
+ * never over a bounding box. Both rosters gain the one key, in code-point order, and the columns
+ * digest moves with them because the surface it hashes gained a table. Nothing already on either
+ * roster moved; the previous digest was 4ee17c4350f985251ad06254a7050b69db32b33b91623c34b18c46db8c4e0fe4.
+ *
+ * Re-baselined before that for ONE ADDED table and nothing else: `memberTypeDimensions` (`member_type_dimensions`,
  * db/migrations/0058_member-type-dimensions.sql), the dimensions a schedule states for a member
  * type BESIDE its section — one row per (variant, dimension): a pile's diameter and its length, read
  * off the pile schedule's own cells in the unit its head states (Interpretation I-322, AM-06 §2). A
@@ -109,6 +118,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "participants",
   "partitionRebuilds",
   "partitionViews",
+  "placementOutlines",
   "placementRuns",
   "placements",
   "projects",
@@ -192,6 +202,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
   "participantRoles",
   "participants",
   "partitionViews",
+  "placementOutlines",
   "placementRuns",
   "placements",
   "projects",
@@ -302,7 +313,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * table's SQL name or column moved with it; the previous digest was
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "4ee17c4350f985251ad06254a7050b69db32b33b91623c34b18c46db8c4e0fe4";
+const COLUMNS_DIGEST_BEFORE = "b13158317d2befe08cc4b784cf44a3e01940220df9cec2546efc101c49452ed3";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {

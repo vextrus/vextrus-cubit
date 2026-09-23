@@ -15,15 +15,15 @@
 // member it holds that this file omits does not compile either: the roster keeps its one home in the
 // seam, and this module publishes it for the callers that read a zone off a header (ARCH-01).
 import type { RebarZone, ScheduleDimension, SectionUnit } from "@/core/db";
-import { normaliseNotation } from "@/core/entitygraph/notation";
+import { mtextLines, normaliseNotation } from "@/core/entitygraph/notation";
 import { dotlessUpper } from "@/core/identity";
 import { useStoreyEquivalence } from "@/core/offers/contract";
 
-// L-CAD-02's control codes and the diameter's many glyphs are core's (`@/core/entitygraph/notation`):
-// the note grammar behind TRANSCRIBE_SHEET_NOTES reads a drawing's words too and is core, which may
-// not reach a module (ARCH-01). This module re-publishes the one reading rather than keeping a second
-// control-code table (B-17).
-export { normaliseNotation };
+// L-CAD-02's control codes, the MTEXT inline codes and the diameter's many glyphs are core's
+// (`@/core/entitygraph/notation`): the note grammar behind TRANSCRIBE_SHEET_NOTES reads a drawing's
+// words too and is core, which may not reach a module (ARCH-01). This module re-publishes the one
+// reading rather than keeping a second code table (B-17).
+export { mtextLines, normaliseNotation };
 
 /**
  * The four zones a rebar column reads as, each named as the member of the seam's roster it is.
@@ -577,6 +577,41 @@ export function isMarkHeader(text: string): boolean {
   const words = wordsOf(spelled(text));
   if (words.some((word) => NAME_WORDS.has(word))) return true;
   return words.some((word) => QUALIFIED_WORDS.has(word)) && words.some((word) => MEMBER_WORDS.has(word));
+}
+
+/**
+ * What parts two column names of a header written as ONE text: a run of two spaces or more. A single
+ * space joins the words of one name — `BOTTOM MESH` is one column — and the draughtsman who typed a
+ * whole header on one line spaced the columns apart to stand over the cells beneath them
+ * (T-SCHED-NORULES).
+ */
+const COLUMN_GAP = /\s{2,}/;
+
+/**
+ * The column names a header written as one text states, in the order it writes them — `MARK  SIZE
+ * DEPTH  PILES  BOTTOM MESH  TOP MESH` is six — or one name where the text states one. Words only:
+ * WHERE each column stands is not in the text at all (the header's words share one insertion), and is
+ * read off the rows beneath it by the reader that knows where they stand.
+ */
+export function columnNamesOf(text: string): string[] {
+  return text
+    .trim()
+    .split(COLUMN_GAP)
+    .filter((name) => name !== "");
+}
+
+/** The word a bar-bending schedule heads its bars' own marks with, beside `BAR`. */
+const BAR_WORD = "BAR";
+
+/**
+ * Does this head stand over the column of a BAR's marks — `BAR MARK`? A table with such a column is a
+ * bar-bending schedule: every row of it is one bar, and the member it names beside the bar says what
+ * the bar is FOR, never what a member IS — so it registers no member type (R-TO-031, B-17: the member
+ * type has one statement, the member schedule's).
+ */
+export function isBarMarkHeader(text: string): boolean {
+  const words = wordsOf(spelled(text));
+  return words.includes(BAR_WORD) && words.some((word) => NAME_WORDS.has(word));
 }
 
 /** The words that head a column of ties, and the two zones a ties column may be narrowed to. */

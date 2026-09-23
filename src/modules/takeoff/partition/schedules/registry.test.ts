@@ -229,14 +229,58 @@ describe("I-322: the dimensions a schedule states beside a section", () => {
 
   test("dimensions are read for the classes whose methods bind them, and a bar's DIA under a pile cap is none of them", () => {
     // F-RCC6-BNBC's BAR BENDING SCHEDULE files bars under `PC3`: its DIA is a BAR's diameter.
-    const cap = familyOf(tableOf(["MEMBER", "BAR MARK", "DIA", "CUT LENGTH"], [["PC3", "PC3-B1", "16", "2100"]]), "PC3", declaring("mm", NOTES_KEY)).variants[0];
-    expect(cap?.dimensions, "no method of a pile cap binds a diameter, and `CUT LENGTH` is a bar's").toBeUndefined();
+    // TEST_AMENDED (FND-2, I-331): a bar schedule now registers no family at all, which is the whole
+    // of the old claim and more — no dimension of a bar can reach a member type it never mints.
+    const bars = registerMemberTypes([tableOf(["MEMBER", "BAR MARK", "DIA", "CUT LENGTH"], [["PC3", "PC3-B1", "16", "2100"]])], declaring("mm", NOTES_KEY));
+    expect(bars.families, "no method of a pile cap binds a diameter, `CUT LENGTH` is a bar's — and the table names no member type").toEqual([]);
     const footing = familyOf(tableOf(["MARK", "L x B (mm)", "DEPTH (mm)"], [["F1", "1500x1500", "450"]]), "F1").variants[0];
-    expect(footing?.dimensions, "a footing's DEPTH waits for its plan to be the outline's (FND-2): read now, a byte-frozen fixture's footings would start billing").toBeUndefined();
+    expect(footing?.dimensions, "a footing's DEPTH still waits: read now, a byte-frozen fixture's footings would start billing (I-332)").toBeUndefined();
   });
 
   test("a cell that states no figure is no dimension, and the head is read whole", () => {
     const variant = familyOf(tableOf(["MARK", "DIA (mm)", "PILE LENGTH (mm)", "NOS"], [["P", "SEE DETAIL", "21336", "89"]]), "P").variants[0];
     expect(variant?.dimensions, "`SEE DETAIL` is no diameter, and a head naming a length AND something else names neither (L-QTY-01)").toBeUndefined();
+  });
+});
+
+/** F-RCC6-BNBC's S-06 PILE CAP SCHEDULE as the reconstruction answers it (I-330): un-ruled, no NOS. */
+const CAP_HEADERS = ["MARK", "SIZE", "DEPTH", "PILES", "BOTTOM MESH", "TOP MESH"];
+const CAP_ROWS = [
+  ["PC1", "2000x1000", "1295", "2", "16%%C @ 150 B/W", "12%%C @ 200 B/W"],
+  ["PC2", "2100x1750", "1295", "3", "16%%C @ 150 B/W", "12%%C @ 200 B/W"],
+];
+
+describe("I-331: a bar-bending schedule is a schedule of bars, and registers no member type", () => {
+  test("a table with a BAR MARK column mints no family, whatever its MEMBER column names, and says so by name", () => {
+    const bars = tableOf(["MEMBER", "BAR MARK", "SHAPE", "DIA", "CUT LENGTH", "NOS"], [["PC3", "PC3-bx", "21", "16%%C", "2175", "15"], ["S3", "S3-t", "00", "12%%C", "7400", "3"]]);
+    const registered = registerMemberTypes([bars], declaring("mm", NOTES_KEY));
+    expect(registered.families, "PC3 and S3 are what those bars are cut FOR — the member schedules say what they ARE").toEqual([]);
+    expect(registered.deferrals, "the view contributed no member type, by name (R-UI-050)").toEqual([{ viewKey: VIEW_KEY, reason: "SCHEDULE_VIEW_CONTRIBUTED_NOTHING" }]);
+  });
+
+  test("a MEMBER column alone is still a member schedule", () => {
+    expect(familyOf(tableOf(["MEMBER", "SIZE"], [["PC1", "2000x1000"]]), "PC1").variants[0]?.sectionWidth, "no bar mark, no bar schedule").toBe(2000);
+  });
+});
+
+describe("I-332: a pile cap's DEPTH is read — from a schedule OF pile caps", () => {
+  test("each cap row's DEPTH, in the unit the drawing declares, cited to its cell and to the declaration", () => {
+    const families = registerMemberTypes([tableOf(CAP_HEADERS, CAP_ROWS)], declaring("mm", NOTES_KEY)).families;
+    expect(
+      families.map((family) => [family.family, family.variants[0]?.sectionWidth, family.variants[0]?.sectionDepth, family.variants[0]?.dimensions]),
+      "the SIZE is the section; the DEPTH beside it; PILES is no dimension any method binds",
+    ).toEqual([
+      ["PC1", 2000, 1000, [{ dimension: "depth", text: "1295", value: 1295, unit: "mm", sourceKeys: ["r:0:2", NOTES_KEY] }]],
+      ["PC2", 2100, 1750, [{ dimension: "depth", text: "1295", value: 1295, unit: "mm", sourceKeys: ["r:1:2", NOTES_KEY] }]],
+    ]);
+  });
+
+  test("a schedule of footings AND caps (F-RCC6's FOOTING SCHEDULE) states the depth of neither — its lift is a baseline of its own", () => {
+    const mixed = tableOf(["MARK", "L x B (mm)", "DEPTH (mm)", "BARS", "NOS"], [["F1", "1500 x 1500", "450", "T12 @ 150 B/W", "4"], ["PC1", "2400 x 2400", "900", "T16 @ 125 B/W ON 4 PILES", "2"]]);
+    const families = registerMemberTypes([mixed]).families;
+    expect(families.map((family) => [family.family, family.variants[0]?.dimensions]), "no DEPTH reaches either class off a schedule that states two").toEqual([
+      ["F1", undefined],
+      ["PC1", undefined],
+    ]);
   });
 });

@@ -53,8 +53,16 @@ export async function stagesOver(relative: string) {
   const grid = detectGrid({ graph, views: parted.views, assignments: parted.assignments, profile });
   const reconstructed = reconstructSchedules({ graph, views: parted.views, assignments: parted.assignments });
   const registered = registerMemberTypes(reconstructed.tables, profile);
-  const placed = detectPlacements({ graph, views: parted.views, assignments: parted.assignments, grid, shares: SEED_SHARES, families: registered.families });
-  return { reconstructed, registered, placed };
+  const placed = detectPlacements({
+    graph,
+    views: parted.views,
+    assignments: parted.assignments,
+    grid,
+    shares: SEED_SHARES,
+    families: registered.families,
+    declaredUnit: profile?.dimensionUnit ?? null,
+  });
+  return { graph, reconstructed, registered, placed };
 }
 
 /** What the stages answered over one drawing. */

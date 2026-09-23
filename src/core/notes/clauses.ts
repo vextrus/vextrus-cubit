@@ -11,26 +11,8 @@
 //
 // Nothing here opens a store, asks a model or judges a clause. It answers what the sheet says, cut
 // where the sheet cuts it.
-import { normaliseNotation } from "../entitygraph/notation";
+import { mtextLines, normaliseNotation } from "../entitygraph/notation";
 import { NOTE_FIGURE, proposeNotes, type SheetText } from "./grammar";
-
-/** The MTEXT paragraph mark: what a draughtsman ends one clause of a notes block with (T-MTEXT-CODES). */
-const PARAGRAPH = /\\P/g;
-
-/**
- * An MTEXT code that carries a parameter and closes with a semicolon — the font run
- * `\fSwis721 Cn BT|b1|i0|c0|p34;`, the alignment `\A1;`, a height `\H2x;`, a colour `\C1;`. It says
- * how the text is DRAWN and nothing about what it means, so it goes (L-CAD-03: what the text SAYS
- * is kept).
- */
-const PARAMETERISED_CODE = /\\[A-Za-z][^\\;{}]*;/g;
-
-/** The formatting toggles an MTEXT switches underline, overline and strike-through with. */
-const TOGGLES = /\\[LlOoKk]/g;
-
-/** The braces an MTEXT groups a formatted run with, and the non-breaking space it spells `\~`. */
-const GROUPS = /[{}]/g;
-const HARD_SPACE = /\\~/g;
 
 /** A figure as a note writes one — the grammar's own pattern, never a second spelling of it (B-17). */
 const FIGURE = new RegExp(NOTE_FIGURE, "g");
@@ -95,16 +77,11 @@ export type AskedClause = NoteClause & { readonly classifiable: boolean };
 
 /**
  * One text as a reader reads it: the DXF control codes resolved by the one table that resolves them
- * (`normaliseNotation`, B-17), and the MTEXT drawing codes taken away, with `\P` standing as the
- * break between clauses.
+ * (`normaliseNotation`, B-17), and the MTEXT drawing codes taken away by the one reading of them
+ * (`mtextLines`, B-17), with `\P` standing as the break between clauses.
  */
 function plain(text: string): string {
-  return normaliseNotation(text)
-    .replace(PARAGRAPH, "\n")
-    .replace(PARAMETERISED_CODE, "")
-    .replace(TOGGLES, "")
-    .replace(HARD_SPACE, " ")
-    .replace(GROUPS, "");
+  return mtextLines(normaliseNotation(text)).join("\n");
 }
 
 /**

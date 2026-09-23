@@ -186,6 +186,9 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
       grid: held.grid,
       shares,
       families: held.schedules?.registry ?? [],
+      // The unit the drawing's own notes declare, which a ring's plan is read in where the header is
+      // unitless (I-302, I-333): the conventions stage resolved it, and it is handed on, not re-read.
+      declaredUnit: held.conventions?.profile.dimensionUnit ?? null,
     });
     return {
       derived: { ...held, placements },

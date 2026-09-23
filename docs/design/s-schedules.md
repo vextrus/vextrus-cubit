@@ -201,6 +201,46 @@ this file rules. No gallery entry is added (nothing new is invented here).
   ring (whose area would put the BNBC pile concrete over the golden). DEPTH waits for the cap slice
   (reading it now would bill F-RCC6's byte-frozen FOOTING SCHEDULE and BNBC cap rectangles before the
   outline governs); TOP is not a dimension word, because beam schedules head their top bars `TOP`.
+- **I-330 — an MTEXT is read as its lines, and an un-ruled header takes its columns from where the
+  rows stand (session 7, FND-2; T-MTEXT-CODES, L-CAD-03/05/08).** A text carrying an MTEXT inline code
+  is split at `\P` into lines with its codes taken away by the one reader, `mtextLines`
+  (`src/core/entitygraph/notation.ts` — the note clauses read through it too). Each line keeps the
+  block's key and stands 5/3 of its height beneath the line before, the DXF default spacing, because the
+  artifact states no factor. A header that is ONE text naming two or more columns takes its columns from
+  where the rows' texts stand, named in the header's word order. That holds only where the rows (bands of
+  two or more texts, within the 3.5× gap) cluster into exactly as many columns as the header names, and
+  every row has a cell under MARK; otherwise the old reading stands. A single-text band ends the table
+  (BNBC's footer `658`), and S-25's lintel schedule keeps its one-column reading.
+- **I-331 — a bar schedule mints no family, and a family two schedules name binds nothing (session 7,
+  FND-2).** A table with a BAR MARK column is a schedule of bars: its table is stored and it contributes
+  no family (SCHEDULE_VIEW_CONTRIBUTED_NOTHING). A family named by more than one schedule of the same
+  record binds no variant (its members stand MEMBER_TYPE_UNKNOWN), because a silent overwrite would bill
+  whichever schedule was read last. Neither fixture triggers it now.
+- **I-332 — a pile cap's DEPTH is read, only from a schedule whose rows are all one class (session 7,
+  FND-2; AM-06(2)).** F-RCC6's FOOTING SCHEDULE also holds PC1/PC2 rows, and reading their depth there
+  would bill F-RCC6's four caps (23.328 m³, exactly its golden) and move F-RCC6's byte-frozen families
+  digest. Lifting the restriction is a `baseline:` commit and the owner's call. Footing DEPTH stays
+  deferred, as does any dimension in a mixed-class schedule.
+- **I-333 — a mark inside closed rings names the smallest ring its schedule's size fits, and each placed
+  ring's plan is stored (session 7, FND-2; L-CAD-06/07, L-FRM-01/02; migration 0059).** A mark inside
+  closed rings names the smallest ring whose longest side fits its schedule's size at the drawn scale,
+  within the footprint band, and only that ring. A ring that holds no mark and lies wholly inside a named
+  ring belongs to no mark, and no note can mint it. Two marks naming one ring name nothing. The scale for
+  this gate is read over one candidate per mark (the ring nearest each), while the footprint median and
+  the final scale are read over what survives. Reading the median over one candidate per mark as well
+  would place four C4 columns on F-RCC6's ROOF PLAN that it does not place today (233 → 237, measured):
+  recorded, not taken. Nearest-anchor is unchanged everywhere else. Each placed ring's plan is stored in
+  `placement_outlines`: a rectangle (four right angles, any orientation) by its own sides, else a polygon
+  by shoelace, with its perimeter. Units come from the drawing's header, or from the declared unit where
+  the header is unitless and the drawn scale is 1 within 1e-3, citing the declaration. On BNBC that is
+  S-01's `1F3E`.
+- **I-334 — the plan's SHAPE is the drawing's, and its SIZE the schedule's where the two agree (session
+  7, FND-2; I-304, L-QTY-01).** A polygon ring is measured by its own area (MEASURED, on the view's
+  calibration). A rectangle ring binds the schedule's section (TRANSCRIBED) where the section matches the
+  ring's own sides in either order and the same unit, within half a unit of the printed figure;
+  otherwise it binds the ring's own sides. With no ring, the schedule's section stands as before. The
+  plan is never a bounding box, and never the schedule's rectangle for a polygon. Corroboration never
+  defers: a rectangle that disagrees with its schedule is measured by its own sides.
 
 - **I-sch-1 — the craft look of session 7 (2026-09-23): the drawing's words as the drawing shows
   them, a rail that names its sheets, and a registry that reads as rows.** The vision review found

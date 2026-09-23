@@ -21,6 +21,19 @@
 //   · containment/merge — outlines of one mark whose centres stand within `containmentMerge ×
 //     spacing` of each other are one member drawn twice, and yield one placement.
 //
+// Before any of the three, one plan may draw TWO populations — F-RCC6-BNBC's S-06 draws each pile
+// cap's outline and, inside it, the circles of the piles it stands on — and the nearest mark names
+// every ring about it, so the cap's mark names its piles too and the plan's median is theirs. So a
+// mark standing INSIDE closed rings names the innermost of them whose size agrees with the section
+// its own schedule states, at the drawing's scale — and that ring alone; a ring holding no mark and
+// lying inside a ring a mark so names belongs to no mark (Interpretation I-333). Nowhere else does
+// anything move: a mark standing in no ring its schedule agrees with — every column mark of F-RCC6
+// stands inside a slab's ring — anchors by nearness exactly as before. The scale the containment is
+// gated at is read over ONE candidate per mark (the ring each stands nearest), so a population of
+// pile circles cannot answer for the caps they stand under; the median and the scale every section
+// is then judged at are read over what survived, where a mark that named its ring stands for that
+// ring alone.
+//
 // Then the plan's NOTES are read over the same texts its marks were read from (I-303: a plan note
 // that names a mark is evidence about THAT member). Two phases, in this order: a note whose mark has
 // a placed row BINDS to it, and a note whose mark placed nothing MINTS one off the nearest outline no
@@ -41,14 +54,16 @@
 // places the same members forever, which is what makes the stored partition rebuildable (L-REG-04).
 import type { ElementType } from "@/core/catalogue/classes";
 import type { EntityGraph } from "@/core/entitygraph/schema";
+import type { Unit } from "@/core/units/canon";
 import { placementKey, viewKey as viewKeyOf, type ViewRef } from "@/core/identity";
 import type { DetectedGrid, GridAxisRow } from "../grid/detect";
 import { DIMENSION, normaliseMark } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
 import { classOfFamily, classOfMark, classOfPrefix, isFramedClass, memberNoteOf, soleNotesAmong, type MemberNote } from "./law";
-import type { DetectedPlacements, FamilyNamed, PlacementEvidence, PlacementNote, PlacementRow, UngriddedView } from "./rows";
-import { detectRuns } from "./runs";
+import { enclosedAreaOf, outlineReadingOf, ringHolds } from "./outline";
+import type { DetectedPlacements, FamilyNamed, OutlineRow, PlacementEvidence, PlacementNote, PlacementRow, UngriddedView } from "./rows";
+import { detectRuns, drawnUnitOf } from "./runs";
 import { shareValue } from "./shares";
 
 /** A point in the drawing's own plane. */
@@ -60,8 +75,12 @@ type Drawn = EntityGraph["entities"][number];
 /** One mark standing on a plan: what it says, where it stands, and the class it names. */
 type Mark = { readonly key: string; readonly text: string; readonly mark: string; readonly type: ElementType; readonly at: Point };
 
-/** One closed outline of a plan: where its bounding box centres, and how long its longest side is. */
-type Outline = { readonly key: string; readonly centre: Point; readonly longest: number };
+/**
+ * One closed outline of a plan: where its bounding box centres and how long its longest side is —
+ * what the bands judge — and the ring itself with the area it encloses, which is what a mark standing
+ * inside it and the plan the member occupies are read off (I-333).
+ */
+type Outline = { readonly key: string; readonly centre: Point; readonly longest: number; readonly points: readonly Point[]; readonly area: number };
 
 /** An outline the plan's own marks name: the two together, which is what a placement is read from. */
 type Anchored = { readonly outline: Outline; readonly mark: Mark };
@@ -130,18 +149,32 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
   // The scale is the ARTIFACT's, read once over every plan of it: a sheet's plans are drawn to one
   // scale and the drawing states it by drawing its members to the sizes its schedules give them, so
   // a plan whose own candidates are mostly not members still has a scale to be judged at (L-MEA-01).
+  //
+  // Read TWICE (I-333). First over ONE candidate per mark — the ring each mark stands nearest, which is
+  // all a mark says before anything is judged — and that is the scale the containment below is gated
+  // at: read over every ring a mark is nearest to instead, S-06's 89 pile circles answer for the cap
+  // marks about them and the drawing reads at a quarter of its scale. Then over what the containment
+  // left, where a mark that named its ring stands for that ring alone: the scale every stated section
+  // is judged at. Where no mark named a ring by containment the survivors ARE the anchored candidates,
+  // and both the scale and every plan's median are what they always were.
+  const nearest = drawnScaleOf(
+    plans.flatMap((plan) => onePerMark(plan.read.anchored)),
+    stated,
+  );
+  const judged = plans.map((plan) => ({ ...plan, judged: containedOf(plan.read, stated, nearest, plan.pass.shares) }));
   const scale = drawnScaleOf(
-    plans.flatMap((plan) => plan.read.anchored),
+    judged.flatMap((plan) => plan.judged.survivors),
     stated,
   );
   let noted = 0;
   let minted = 0;
-  for (const plan of plans) {
+  for (const plan of judged) {
     // The plan's own members first, then what its notes say about them: the note pass is handed the
     // rows this plan placed, because "the mark placed nothing here" is the fact that tells a binding
     // note from a minting one, and it is a fact about THIS plan (I-303).
-    const placed = rowsFrom(plan.pass, plan.read.anchored, stated, scale);
-    const read = notedRows(plan.pass, plan.read, placed, stated, scale);
+    const median = medianFootprintOf(plan.judged.survivors);
+    const placed = rowsFrom(plan.pass, plan.judged.survivors, median, stated, scale);
+    const read = notedRows(plan.pass, plan.read, placed, { median, claimed: plan.judged.claimed }, stated, scale);
     noted += read.noted;
     minted += read.minted;
     for (const row of read.rows) placements.push(row);
@@ -152,12 +185,159 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
   const rings = new Map(plans.flatMap((plan) => plan.read.outlines).map((outline) => [outline.key, outline]));
   const typed = typedByPrefix(placements, evidence.families, rings, scale);
 
+  // The plan each ring-placed member encloses, read off the ring it was placed by (I-333): what the
+  // measure of a foundation stands on, so a chamfered cap is its shoelace and a turned one its own
+  // sides — never a bounding box, and never the schedule's rectangle (L-FRM-02).
+  const outlines = outlinesOf(typed, rings, outlineUnitOf(evidence, scale));
+
   // The members no closed outline stands for: a beam is drawn as the pair of lines either side of its
   // axis, and it is placed off that pair with the run it measures beside it (`./runs`, L-MEA-09). It
   // runs here, after the outline pass, because the outlines that pass placed are the members that
   // CARRY a beam's ends and the rings a slab must not be read from.
   const framed = detectRuns(evidence, typed);
-  return { views: examined, placements: [...typed, ...framed.placements], ungridded, runs: framed.runs, noted, minted };
+  return { views: examined, placements: [...typed, ...framed.placements], ungridded, runs: framed.runs, outlines, scale, noted, minted };
+}
+
+/** The plan each ring-placed row's ring encloses, in the rows' own order — none where no unit reads. */
+function outlinesOf(rows: readonly PlacementRow[], rings: ReadonlyMap<string, Outline>, unit: OutlineUnit | null): OutlineRow[] {
+  if (unit === null) return [];
+  return rows.flatMap((row) => {
+    const ring = rings.get(row.outlineKey);
+    const reading = ring === undefined ? null : outlineReadingOf(ring.points, unit.unit);
+    return reading === null ? [] : [{ placementKey: row.placementKey, sourceKey: row.outlineKey, unitSourceKey: unit.sourceKey, ...reading }];
+  });
+}
+
+/** The unit a ring's plan is read in, and the declaration it was read off where one answered. */
+type OutlineUnit = { readonly unit: Unit; readonly sourceKey: string | null };
+
+/**
+ * How near one the drawn scale must stand for a unitless drawing's geometry to be read in the unit
+ * its notes declare: a thousandth — a millimetre in a metre, a pure number (L-MEA-01).
+ */
+const DECLARED_SCALE_AGREEMENT = 1e-3;
+
+/**
+ * The unit the rings of this drawing are read in (I-333), or null where none is stated.
+ *
+ * The header's, where it names one the canon carries — the unit a run is read in (`drawnUnitOf`,
+ * B-17). Where the header is UNITLESS — F-RCC6-BNBC's is — the unit the drawing's own notes declare
+ * (I-302: the declaration is the last word on a figure nobody gave a unit to), and only where the
+ * drawing's own members corroborate it: drawn at scale one, a member IS the size its schedule states
+ * in that unit, so a unit of the drawing is a unit of the declaration. A declaration the members do
+ * not bear out reads no plan at all (L-QTY-01: never a guess).
+ */
+function outlineUnitOf(evidence: PlacementEvidence, scale: number | null): OutlineUnit | null {
+  const header = drawnUnitOf(evidence.graph);
+  if (header !== null) return { unit: header, sourceKey: null };
+  const declared = evidence.declaredUnit ?? null;
+  if (declared === null || scale === null || Math.abs(scale - 1) > DECLARED_SCALE_AGREEMENT) return null;
+  return { unit: declared.unit, sourceKey: declared.sourceKey };
+}
+
+/**
+ * What one plan's candidates are once the marks standing INSIDE rings have spoken (I-333): the
+ * candidates the bands then judge, and every ring a mark has a claim on — which no note may mint a
+ * member from.
+ */
+type Contained = { readonly survivors: readonly Anchored[]; readonly claimed: ReadonlySet<string> };
+
+/**
+ * One plan's candidates, with its marks' containment read (Interpretation I-333).
+ *
+ * A mark standing inside closed rings NAMES the innermost of them whose longest side agrees with the
+ * section its own family's schedule states, at the drawing's scale and inside the edition's footprint
+ * band — the same test the stated-section check makes of every candidate (`matchesStatedSection`),
+ * asked of the rings the mark stands in. Three things follow, and nothing else moves:
+ *
+ *   · the ring a mark so names is that mark's, whichever mark stands nearest its centre;
+ *   · a ring holding no mark that lies inside a ring a mark so names belongs to NO mark — it is what
+ *     the member is drawn standing on (a cap's piles, placed by their own plan), and counting it here
+ *     would be the member counted twice (L-REG-03);
+ *   · a mark that names a ring so names that ring ALONE: the centre pile circle a PC4 mark is written
+ *     over is not a second, pile-sized PC4.
+ *
+ * The gate is the SCHEDULE's size, never containment alone: the PC4 and PC5 marks stand on their centre
+ * piles, so the innermost ring is a 500 circle and an ungated rule places three caps a quarter of their
+ * size; and on F-RCC6 25 of the 36 column marks of the TYPICAL FLOOR PLAN stand inside the slab's ring,
+ * which no column's schedule agrees with. A mark whose schedule states no section is not judged at all
+ * and anchors by nearness as it always did — so S-04's pile numbers, standing inside their circles and
+ * inside the unmarked caps around them, place the circles exactly as before (L-QTY-01: never a guess).
+ *
+ * Two marks naming one ring name nothing by it: one ring is one member, and this stage is in no
+ * position to choose between two statements about it.
+ */
+function containedOf(read: PlanRead, stated: ReadonlyMap<string, number>, scale: number | null, shares: PlanPass["shares"]): Contained {
+  const naming = new Map<string, Mark[]>();
+  if (scale !== null) {
+    for (const mark of read.marks) {
+      const said = stated.get(mark.mark);
+      if (said === undefined) continue;
+      const ring = read.outlines
+        .filter((outline) => ringHolds(outline.points, mark.at))
+        .sort(innermostFirst)
+        .find((outline) => withinBand(outline.longest / (said * scale), shares.footprintMin, shares.footprintMax));
+      if (ring !== undefined) naming.set(ring.key, [...(naming.get(ring.key) ?? []), mark]);
+    }
+  }
+  const named = new Map([...naming.entries()].flatMap(([key, marks]) => (marks.length === 1 ? [[key, marks[0] as Mark] as const] : [])));
+  const claimed = new Set(read.anchored.map((held) => held.outline.key));
+  if (named.size === 0) return { survivors: read.anchored, claimed };
+
+  const speaking = new Set([...named.values()].map((mark) => mark.key));
+  const rings = read.outlines.filter((outline) => named.has(outline.key));
+  const nearest = new Map(read.anchored.map((held) => [held.outline.key, held]));
+  const survivors: Anchored[] = [];
+  // In the artifact's own order, as the nearest-anchor reading was: the merge keeps the first of a
+  // group in that order, and a reading that walked the rings another way would keep another (L-REG-04).
+  for (const outline of read.outlines) {
+    const mark = named.get(outline.key);
+    if (mark !== undefined) {
+      claimed.add(outline.key);
+      survivors.push({ outline, mark });
+      continue;
+    }
+    if (!read.marks.some((one) => ringHolds(outline.points, one.at)) && rings.some((ring) => liesInside(outline, ring))) {
+      // Nobody's member, and nobody's to mint one from either: it is what a named member stands on.
+      claimed.add(outline.key);
+      continue;
+    }
+    const held = nearest.get(outline.key);
+    if (held === undefined || speaking.has(held.mark.key)) continue;
+    survivors.push(held);
+  }
+  return { survivors, claimed };
+}
+
+/** Rings by the area they enclose, the smallest first — ties to the lower source key (L-REG-04). */
+function innermostFirst(left: Outline, right: Outline): number {
+  if (left.area !== right.area) return left.area - right.area;
+  return left.key < right.key ? -1 : left.key > right.key ? 1 : 0;
+}
+
+/** Whether one ring lies wholly inside another: every vertex of it inside, and it is not the other. */
+function liesInside(inner: Outline, outer: Outline): boolean {
+  return inner.key !== outer.key && inner.area < outer.area && inner.points.every((point) => ringHolds(outer.points, point));
+}
+
+/**
+ * One candidate per mark: the ring each mark stands NEAREST among the rings it anchors, ties to the
+ * lower source key (L-REG-04). What the scale the containment is gated at is read over (I-333): a mark
+ * counts once there, whatever else it happens to stand nearest to.
+ *
+ * Not what a plan's median or the final scale is read over: those keep the candidates the containment
+ * left, which is every anchored candidate wherever no mark named a ring — F-RCC6's ROOF PLAN, read one
+ * per mark, would judge its four C4 rings by their own size instead of by the plan's roof rings and
+ * place four columns the fixture's byte-frozen reading never placed (measured: 233 placements → 237).
+ */
+function onePerMark(anchored: readonly Anchored[]): Anchored[] {
+  const best = new Map<string, { readonly held: Anchored; readonly distance: number }>();
+  for (const held of anchored) {
+    const distance = distanceBetween(held.mark.at, held.outline.centre);
+    const prior = best.get(held.mark.key);
+    if (prior === undefined || distance < prior.distance || (distance === prior.distance && held.outline.key < prior.held.outline.key)) best.set(held.mark.key, { held, distance });
+  }
+  return [...best.values()].map((one) => one.held);
 }
 
 /**
@@ -289,7 +469,14 @@ type NotedPlan = { readonly rows: readonly PlacementRow[]; readonly noted: numbe
  * position to choose between them, so it takes neither and the mark expands as it always did
  * (L-QTY-01: never a guess).
  */
-function notedRows(pass: PlanPass, read: PlanRead, placed: readonly PlacementRow[], stated: ReadonlyMap<string, number>, scale: number | null): NotedPlan {
+function notedRows(
+  pass: PlanPass,
+  read: PlanRead,
+  placed: readonly PlacementRow[],
+  population: { readonly median: number; readonly claimed: ReadonlySet<string> },
+  stated: ReadonlyMap<string, number>,
+  scale: number | null,
+): NotedPlan {
   const notes = read.standing.flatMap((entity) => noteOf(entity) ?? []);
   if (notes.length === 0) return { rows: placed, noted: 0, minted: 0 };
   const sole = soleNotesAmong(notes.map((seen) => seen.note));
@@ -297,11 +484,13 @@ function notedRows(pass: PlanPass, read: PlanRead, placed: readonly PlacementRow
   const byMark = new Map<string, PlacementRow[]>();
   for (const row of placed) byMark.set(row.mark, [...(byMark.get(row.mark) ?? []), row]);
 
-  // An outline a mark anchors is that mark's, whether or not the bands kept it: minting it from a
-  // note would place a member over geometry another reading already claimed, and a member drawn once
-  // and counted twice is the over-measurement L-REG-03 exists to make unrepresentable.
-  const claimed = new Set(read.anchored.map((held) => held.outline.key));
-  const median = medianFootprintOf(read.anchored);
+  // An outline a mark anchors is that mark's, whether or not the bands kept it — and so is a ring a
+  // named member stands on (I-333): minting it from a note would place a member over geometry another
+  // reading already claimed, and a member drawn once and counted twice is the over-measurement
+  // L-REG-03 exists to make unrepresentable. The median is the plan's own, read by the one reading
+  // the placed members were judged by (B-17).
+  const claimed = new Set(population.claimed);
+  const median = population.median;
 
   const bound = new Map<string, PlacementNote>();
   const minted: PlacementRow[] = [];
@@ -346,9 +535,10 @@ function notedRows(pass: PlanPass, read: PlanRead, placed: readonly PlacementRow
  *   · inside the plan's own footprint band, and inside the band its mark's SCHEDULE states — the two
  *     statements every other candidate of this plan is judged by, asked in the same order.
  *
- * THE MEDIAN AND THE SCALE ARE THE MARK-ANCHORED POPULATION'S, and the minted candidate joins
- * neither: both were closed before this ran, which is exactly what makes minting a member unable to
- * move any figure of any member that stood without it (L-MEA-01, L-QTY-06).
+ * THE MEDIAN AND THE SCALE ARE THE MARK-ANCHORED POPULATION'S — as the containment left it (I-333) —
+ * and the minted candidate joins neither: both were closed before this ran, which is exactly what
+ * makes minting a member unable to move any figure of any member that stood without it (L-MEA-01,
+ * L-QTY-06).
  *
  * A plan whose own candidates state NO median states nothing to judge a stranger's footprint by, and
  * minting there would be placing a member on the strength of one sentence and no corroboration at
@@ -435,8 +625,8 @@ function nearestOutline(at: Point, outlines: readonly Outline[], reach: number):
  * footprint band), and the schedules say what each mark IS (the stated section). A candidate that
  * fails either is not the member that mark names.
  */
-function rowsFrom(pass: PlanPass, anchored: readonly Anchored[], stated: ReadonlyMap<string, number>, scale: number | null): PlacementRow[] {
-  const inBand = withinFootprintBand(anchored, pass.shares.footprintMin, pass.shares.footprintMax);
+function rowsFrom(pass: PlanPass, anchored: readonly Anchored[], median: number, stated: ReadonlyMap<string, number>, scale: number | null): PlacementRow[] {
+  const inBand = withinFootprintBand(anchored, median, pass.shares.footprintMin, pass.shares.footprintMax);
   const said = new Set(
     anchored
       .filter((held) => matchesStatedSection(held.outline.longest, held.mark.mark, stated, scale, pass.shares.footprintMin, pass.shares.footprintMax))
@@ -522,6 +712,8 @@ function outlineOf(entity: Drawn): [Outline] | null {
       key: entity.key,
       centre: [(Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...ys) + Math.min(...ys)) / 2],
       longest: Math.max(width, height),
+      points,
+      area: enclosedAreaOf(points),
     },
   ];
 }
@@ -547,8 +739,7 @@ function nearestMark(outline: Outline, marks: readonly Mark[], reach: number): M
  * the columns of one plan are alike and a room outline or a hatch fragment is not. A plan whose
  * candidates have no size at all is left alone: a band around zero would drop every one of them.
  */
-function withinFootprintBand(anchored: readonly Anchored[], min: number, max: number): Anchored[] {
-  const median = medianFootprintOf(anchored);
+function withinFootprintBand(anchored: readonly Anchored[], median: number, min: number, max: number): Anchored[] {
   if (!(median > 0)) return [...anchored];
   return anchored.filter((held) => withinBand(held.outline.longest / median, min, max));
 }
@@ -557,7 +748,9 @@ function withinFootprintBand(anchored: readonly Anchored[], min: number, max: nu
  * The middle footprint of one plan's MARK-ANCHORED candidates — the size this plan says its own
  * members are. Its one home, because the footprint band and the note's minting are the same question
  * asked of two candidates, and a second reading of "what this plan's members look like" would let a
- * minted member be judged by a population the placed ones were not (B-17, I-303).
+ * minted member be judged by a population the placed ones were not (B-17, I-303). Asked of the
+ * candidates the containment left (I-333), so a plan drawing two populations is judged by the members
+ * its marks name and not by whichever population is the more numerous.
  */
 function medianFootprintOf(anchored: readonly Anchored[]): number {
   return medianOf(anchored.map((held) => held.outline.longest));

@@ -9,7 +9,7 @@
 //
 // Shapes only: nothing here reads an artifact, a store or a clock.
 import type { ElementType } from "@/core/catalogue/classes";
-import type { MemberShape } from "@/core/db";
+import type { MemberShape, SectionUnit } from "@/core/db";
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import type { ViewRef } from "@/core/identity";
 import type { BandStatement } from "@/core/offers/contract";
@@ -17,6 +17,7 @@ import type { QuantityBasis } from "@/core/offers/law";
 import type { Unit } from "@/core/units/canon";
 import type { DetectedGrid } from "../grid/detect";
 import type { PartitionedView } from "../views/assign";
+import type { OutlineReading } from "./outline";
 import type { PlacementShares } from "./shares";
 
 /**
@@ -97,6 +98,23 @@ export type RunRow = {
   readonly sides: readonly [RunReading | null, RunReading | null];
 };
 
+/**
+ * The plan one outline-placed member's RING encloses (I-333): the geometry the ring is, and its area,
+ * perimeter and — for a rectangle — its own two sides, in the unit it was drawn in and on the lattice a
+ * placement is keyed on. Keyed by the placement it was read for, and cited to the ring itself: the
+ * ring is the one entity every figure here was read off (L-CAD-03, L-QTY-03).
+ */
+export type OutlineRow = {
+  readonly placementKey: string;
+  readonly sourceKey: string;
+  /**
+   * The declaration the unit was read off, where the drawing's header named none and its own general
+   * notes did (I-302) — null where the header named it. A figure read in a unit somebody declared is
+   * evidence from that declaration too, and is cited to it (L-QTY-03).
+   */
+  readonly unitSourceKey: string | null;
+} & OutlineReading;
+
 /** What one artifact's run stage read: the members it placed off edge-line pairs, and their runs. */
 export type DetectedRuns = {
   readonly placements: readonly PlacementRow[];
@@ -114,6 +132,20 @@ export type DetectedPlacements = {
    * a column has no clear span between its supports, it IS the support.
    */
   readonly runs?: readonly RunRow[];
+  /**
+   * The plan each member placed off a closed ring encloses (I-333) — one row per such placement, in the
+   * placements' own order. Empty where no ring was placed, and absent from a drawing whose units the
+   * seam could not map: a figure in a unit nobody named is no figure (L-CAD-02). A member placed off
+   * edge lines has none; its run is its reading.
+   */
+  readonly outlines?: readonly OutlineRow[];
+  /**
+   * The drawn scale the stage judged every stated section at — how many drawing units one unit of the
+   * schedules measures, read off the drawing's own members (L-MEA-01) — or null where nothing could be
+   * compared. Carried so a reader of a rebuild can see what the placements were judged at: a stage
+   * whose result is not visible is a stage nobody can audit (R-TO-030).
+   */
+  readonly scale?: number | null;
   /**
    * How many of those placements a plan NOTE names, and how many of them the note itself PLACED
    * (I-303). A reader of a rebuild sees how many members a plan's notes excepted from its typical
@@ -156,4 +188,11 @@ export type PlacementEvidence = {
   readonly shares: PlacementShares;
   /** The families the schedules stage registered for this record (R-TO-031). */
   readonly families: readonly FamilyNamed[];
+  /**
+   * The unit the drawing's own notes DECLARE its dimensions in, where the conventions stage read one
+   * (I-302) — the unit a ring's plan is read in where the header states none (I-333). Optional
+   * because a caller holding no profile still places every member; what it does not get is a plan
+   * for a drawing whose header is unitless.
+   */
+  readonly declaredUnit?: { readonly unit: SectionUnit; readonly sourceKey: string } | null;
 };

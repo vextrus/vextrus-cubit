@@ -190,29 +190,59 @@ export function countOf(read: Read): Measure {
  * The plan a foundation occupies, as the readings it is measured over — or the fact that the plan is
  * one this leaf does not measure over.
  *
- * A schedule's section is the plan where the schedule states one: a foundation's size column IS its
- * plan, transcribed at the cell it was read from (L-QTY-03). Where no schedule states one, the plan
- * is what a reader read off the drawing, and what that reading IS decides the algebra — a rectangle
- * is measured by its sides and a polygon by its shoelace area (L-FRM-02).
+ * THE PLAN STATES THE SHAPE, THE SCHEDULE THE SIZE (Interpretation I-334; I-304 for foundations).
+ * Where the placement stage read the member's RING, the ring governs: a polygon is measured over its
+ * own shoelace area, and a rectangle over its own two sides — never a bounding box, and never a
+ * schedule's rectangle standing in for a plan the drawing drew otherwise. F-RCC6-BNBC's chamfered PC2
+ * encloses 3.2625 m² where its schedule's 2100 × 1750 would say 3.675, and its PC1 turned 45° is
+ * 2000 × 1000 where its box is 2121 × 2121 (L-FRM-02, L-QTY-04: an over-measured figure is never a
+ * disclosure).
+ *
+ * The schedule's section CORROBORATES a rectangle, and where it does the figures bound are the
+ * schedule's own print — the size the ring was drawn to, transcribed at the cell it was read from
+ * (L-QTY-03). Where it does not, or where the schedule states none, the ring's own sides are bound,
+ * as measured. Where no ring was read at all, a schedule's section is the plan, as it always was.
  */
 export type Plan =
   | { readonly shape: "rect"; readonly length: Measure; readonly breadth: Measure }
   | { readonly shape: "poly"; readonly area: Measure }
   | { readonly shape: "none" };
 
-/** The plan one read row states (L-FRM-02). */
+/** The plan one read row states (L-FRM-02, I-334). */
 export function planOf(read: Read): Plan {
   const section = sectionOf(read.variant);
-  if (section !== null) return section;
   const outline = read.placement.outline;
-  if (outline === null) return { shape: "none" };
+  if (outline === null) return section ?? { shape: "none" };
+  // A reading measured off a view stands on that view's affirmed calibration (L-QTY-03).
+  const measured = (reading: Measure): Measure => ({ ...reading, calibration: read.calibration });
+  if (outline.type === PRISM_POLY) return { shape: "poly", area: measured(outline.area) };
   if (outline.type === PRISM_RECT && outline.length !== null && outline.breadth !== null) {
-    return { shape: "rect", length: outline.length, breadth: outline.breadth };
+    if (section !== null && section.shape === "rect" && corroborates(section, outline.length, outline.breadth)) return section;
+    return { shape: "rect", length: measured(outline.length), breadth: measured(outline.breadth) };
   }
-  if (outline.type === PRISM_POLY) return { shape: "poly", area: outline.area };
   // A frustum, a taper or any other read shape is a plan L-FRM-02 measures by another method than
   // the two this leaf lands: it is no plan HERE, and the rails say so by name (scope).
   return { shape: "none" };
+}
+
+/**
+ * Whether a schedule's section states the rectangle a ring was drawn as: the two sides, in either
+ * order, each within half a unit of the place the schedule printed it to — `2000` is a figure in
+ * [1999.5, 2000.5], and a side drawn inside that is the side the schedule describes. Asked only where
+ * the two were written in one unit: a comparison across units would be a conversion, and a rail
+ * converts nothing (L-MEA-08) — so there the ring's own sides stand.
+ */
+function corroborates(section: { readonly length: Measure; readonly breadth: Measure }, length: Measure, breadth: Measure): boolean {
+  if (section.length.unit !== length.unit || section.breadth.unit !== breadth.unit) return false;
+  const stated = [section.length.value, section.breadth.value].map(Number).sort((left, right) => right - left);
+  const drawn = [length.value, breadth.value].map(Number).sort((left, right) => right - left);
+  return stated.every((side, index) => Math.abs(side - (drawn[index] as number)) <= halfUnitOf(String(side)));
+}
+
+/** Half the unit of the last place a figure is printed to: `2000` → 0.5, `12.5` → 0.05. */
+function halfUnitOf(printed: string): number {
+  const places = printed.includes(".") ? (printed.split(".")[1] ?? "").length : 0;
+  return 0.5 * 10 ** -places;
 }
 
 /**

@@ -16,11 +16,11 @@ import { drawingSetRevisions, eq, and, forTenant, type TenantTx } from "@/core/d
 import { levelStackOf } from "@/modules/takeoff/levels";
 import { siteFactsOf, type SiteFact } from "@/modules/takeoff/site-facts";
 import { appliedDetailingValuesOf, type AppliedDetailingValues } from "@/modules/takeoff/notes";
-import type { DetailingSetup, LevelSetup, Measure, MemberVariantSetup, PlacementSetup, RailSetup, ReadingSetup, RunSetup, SiteFactSetup } from "@/core/offers/contract";
+import type { DetailingSetup, LevelSetup, Measure, MemberVariantSetup, OutlineSetup, PlacementSetup, RailSetup, ReadingSetup, RunSetup, SiteFactSetup } from "@/core/offers/contract";
 import { affirmationsOfRecord } from "@/core/scale/store";
 import { viewAddressOf, viewRecordsOf } from "@/core/views";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
-import { memberTypesOf, placementsOf, runsOf, type MemberDimension, type MemberVariant, type SideReading } from "@/modules/takeoff/partition";
+import { memberTypesOf, outlinesOf, placementsOf, runsOf, type MemberDimension, type MemberVariant, type SideReading, type StoredOutline } from "@/modules/takeoff/partition";
 // The notation grammar registers its storey reading with core's band placement at load (`sameStorey`,
 // `useStoreyEquivalence`): the rails place a schedule's band ("3RD & 4TH") on the stack ("3F") through
 // it, and a measure run that never loaded the grammar would place by letters alone. Loaded here, where
@@ -136,6 +136,43 @@ export function dimensionsSetupOf(dimensions: readonly MemberDimension[]): Recor
   return held;
 }
 
+/**
+ * One stored plan as a rail is handed it — the ONE mapping from the placement stage's outline store to
+ * the setup, exported so a proof of what a rail measures reads the same mapping `railSetupOf` does
+ * (B-17). Every figure is MEASURED — read off the ring by the vector engine — carried in the unit it
+ * was read in, and cited to the ring (L-QTY-01, L-QTY-03). The calibration the view stands on is the
+ * rail's to attach, as it is for every other reading measured off a view (L-QTY-03).
+ */
+export function outlineSetupOf(outline: StoredOutline): OutlineSetup {
+  const read = (value: string, unit: string): Measure => ({ value, unit, basis: "MEASURED", source: outline.sourceKey });
+  return {
+    type: outline.geometry,
+    area: read(outline.area, outline.areaUnit),
+    length: outline.length === null ? null : read(outline.length, outline.unit),
+    breadth: outline.breadth === null ? null : read(outline.breadth, outline.unit),
+    perimeter: read(outline.perimeter, outline.unit),
+  };
+}
+
+/**
+ * One record's registered families as the rails are handed them, keyed by family — and a family TWO
+ * schedules of the record name handed as NO variant at all (Interpretation I-331).
+ *
+ * The rails key a member type by its family alone, so two schedules stating one family are two answers
+ * to one question: folding them in table order kept whichever the reader happened to meet last, which
+ * is a disagreement resolved in silence (L-REG-03). It is refused instead — the family binds nothing,
+ * and every rail observes MEMBER_TYPE_UNKNOWN on its members, which is under and says so by name
+ * (L-QTY-01: never a guess). A bar-bending schedule no longer names a family at all (`registerMember
+ * Types`), so neither fixture names one twice; the refusal is the rule for the drawing that does.
+ */
+export function memberFamiliesSetupOf(families: readonly { readonly family: string; readonly variants: readonly MemberVariant[] }[]): Record<string, readonly MemberVariantSetup[]> {
+  const named = new Map<string, number>();
+  for (const family of families) named.set(family.family, (named.get(family.family) ?? 0) + 1);
+  const held: Record<string, readonly MemberVariantSetup[]> = {};
+  for (const family of families) held[family.family] = (named.get(family.family) ?? 0) > 1 ? [] : family.variants.map(memberVariantSetupOf);
+  return held;
+}
+
 /** The drawings the pinned revision names, in the order its manifest addresses them (L-REG-06). */
 async function drawingsOfRevision(tx: TenantTx, scope: RailSetupScope): Promise<string[]> {
   const rows = await tx
@@ -216,7 +253,13 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     if (record === null) continue;
     const viewsScope = { tenantId: scope.tenantId, projectId: scope.projectId, drawingId };
 
+    // The plan each ring-placed member of this drawing encloses, read off the ring by the placement
+    // stage and stored beside it (I-333): a placement with no entry here was placed off edge lines, or
+    // read in a unit nobody stated, and carries no outline — a rail then measures by what its schedule
+    // states, or declares the plan it did not get (L-QTY-02).
+    const outlines = new Map(((await outlinesOf(viewsScope)) ?? []).map((outline) => [outline.placementKey, outline]));
     for (const placement of (await placementsOf(viewsScope)) ?? []) {
+      const outline = outlines.get(placement.placementKey);
       placements[placement.placementKey] = {
         drawingId: placement.drawingId,
         ingestId: placement.ingestId,
@@ -226,10 +269,10 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
         // A count provenances to the entity it was counted off, which is the placement itself
         // (L-QTY-03: "the (drawing, view) read from", and the source entity beside it).
         sourceEntity: placement.placementKey,
-        // A seam, empty until the plan-outline reader lands: no reader has read this placement's
-        // plan, so a foundation is measured by the section its schedule states and a polygon plan
-        // defers by name rather than being given an area nobody read (L-QTY-02, riskNotes).
-        outline: null,
+        // The plan the drawing DREW: the ring's own geometry, area, perimeter and sides, never a
+        // bounding box (I-333, L-FRM-02). What a foundation rail makes of it beside the schedule's
+        // stated size is the rail's (`planOf`, I-334).
+        outline: outline === undefined ? null : outlineSetupOf(outline),
         // What the plan NOTE said about this member, carried across in the store's own two columns
         // and in the store's own spelling — the shape it named, and the sentence that named it
         // (I-303, I-304). Not `null` and not a seam: the columns are written by the placement stage
@@ -252,7 +295,7 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     const registered = await memberTypesOf(viewsScope);
     if (registered !== null) {
       const families: Record<string, readonly MemberVariantSetup[]> = memberTypes[registered.ingestId] ?? {};
-      for (const family of registered.families) families[family.family] = family.variants.map(memberVariantSetupOf);
+      for (const [family, variants] of Object.entries(memberFamiliesSetupOf(registered.families))) families[family] = variants;
       memberTypes[registered.ingestId] = families;
     }
 

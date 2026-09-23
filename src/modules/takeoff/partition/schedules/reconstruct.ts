@@ -27,7 +27,7 @@
 import type { ScheduleDeferralReason } from "@/core/db";
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import { REFUSALS } from "@/core/errors";
-import { CELL_JOIN, isMarkFamily, isMarkHeader, normaliseNotation } from "../notation";
+import { CELL_JOIN, columnNamesOf, isMarkFamily, isMarkHeader, mtextLines, normaliseNotation } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { VIEW_TYPE } from "../views/law";
 
@@ -151,11 +151,39 @@ function textsByView(evidence: ScheduleEvidence): Map<string, Placed[]> {
     // A text with nothing to say, or with nowhere it stands, is in no band and no column.
     if (said.trim() === "" || at === undefined) continue;
     const placed: Placed = { key: entity.key, text: said, x: at[0] ?? 0, y: at[1] ?? 0, height: entity.height ?? 0 };
-    const held = byView.get(viewKey);
-    if (held === undefined) byView.set(viewKey, [placed]);
-    else held.push(placed);
+    const held = byView.get(viewKey) ?? [];
+    held.push(...linesOf(placed));
+    byView.set(viewKey, held);
   }
   return byView;
+}
+
+/**
+ * How far one line of an MTEXT stands beneath the line before it, in multiples of its own character
+ * height: the DXF reference's "default (3-on-5) line spacing", five thirds of the height, which the
+ * artifact states no factor against (L-CAD-05 carries none) — so the default is what was drawn.
+ */
+const MTEXT_LINE_PITCH = 5 / 3;
+
+/** Where an inline code of an MTEXT begins: the backslash every one of them opens with. */
+const INLINE_CODE = /\\/;
+
+/**
+ * The LINES one text stands as (T-MTEXT-CODES). A text carrying an MTEXT inline code is a block of
+ * paragraphs: each is a line of its own, its codes taken away (`mtextLines`, B-17), standing one line
+ * pitch beneath the one before it at the block's own insertion x — so a title and the header a
+ * draughtsman typed into ONE block under it are two bands of the page, as they are two lines of the
+ * sheet, and the header is read where it is drawn (F-RCC6-BNBC S-06's `639`). Every line keeps the
+ * block's key: the cells read off it cite the entity they were read from (L-CAD-03).
+ *
+ * A text carrying no code is one line, itself, exactly as it was placed — no DXF type is asked, only
+ * what the text says (L-CAD-08: the words decide everything). A blank paragraph is no line, and still
+ * moves the next one down.
+ */
+function linesOf(placed: Placed): Placed[] {
+  if (!INLINE_CODE.test(placed.text)) return [placed];
+  const pitch = placed.height * MTEXT_LINE_PITCH;
+  return mtextLines(placed.text).flatMap((line, at) => (line.trim() === "" ? [] : [{ ...placed, text: line, y: placed.y - at * pitch }]));
 }
 
 /**
@@ -211,7 +239,7 @@ function tableUnder(view: PartitionedView, scheduleKey: string, bands: readonly 
   const pitch = pitchBeneath(bands, header);
   if (pitch === null) return null;
 
-  const rows = rowsFrom(bands, header, pitch);
+  const rows = unruledRows(bands, header, pitch) ?? rowsFrom(bands, header, pitch);
   const columns = columnsOf(rows[0] as Band);
   const reach = columnReachOf(columns);
   const read = rowsByMark(rows, columns, reach).map((band, rowIndex) => cellsOf(band, columns, reach, rowIndex));
@@ -388,6 +416,57 @@ function rowsFrom(bands: readonly Band[], header: number, pitch: number): Band[]
     rows.push(bands[index] as Band);
   }
   return rows;
+}
+
+/**
+ * The rows of an UN-RULED table whose header the draughtsman typed as ONE text (T-SCHED-NORULES,
+ * Interpretation I-330) — F-RCC6-BNBC's S-06 PILE CAP SCHEDULE, whose `MARK  SIZE  DEPTH  PILES
+ * BOTTOM MESH  TOP MESH` is one line of one MTEXT standing over six columns of TEXTs — or null where
+ * the table is not one, and the header band's own texts give the columns as they always did.
+ *
+ * Such a header names its columns and says nothing about where they stand: its words share one
+ * insertion. So the columns are read where the ROWS put them — the x's the texts of the rows beneath
+ * align at — and named in the header's own word order. The reading is taken only where the drawing
+ * corroborates it, and otherwise is not taken at all (L-QTY-01: never a guess):
+ *
+ *   · the header band is that one text, and it names two columns or more (`columnNamesOf`);
+ *   · a ROW of such a table states two cells or more — a band of one text aligns with nothing, which
+ *     is what a note beneath the table is (`COUNTS ARE TAKEN FROM THE LAYOUT ABOVE`), so the first
+ *     band of fewer ends the rows, exactly as the 3.5× gap does;
+ *   · the rows' texts stand at exactly as many columns as the header names; and
+ *   · every row states a cell in the column the header names the MARK — a table whose marks stand
+ *     somewhere the header does not put them is a table whose columns this reading has not found
+ *     (F-RCC6-BNBC S-25's lintel schedule, whose rows are block attributes this reader cannot reach,
+ *     keeps the reading it always had).
+ *
+ * What it answers is the header as a band of NAMED texts standing at the columns — one per name, each
+ * citing the header text it was read from — followed by the rows: the table every later step already
+ * reads (`columnsOf`, `rowsByMark`, `cellsOf`).
+ */
+function unruledRows(bands: readonly Band[], header: number, pitch: number): Band[] | null {
+  const head = bands[header] as Band;
+  const said = head.texts.length === 1 ? head.texts[0] : undefined;
+  if (said === undefined) return null;
+  const names = columnNamesOf(said.text);
+  if (names.length < 2) return null;
+  const mark = names.findIndex((name) => isMarkHeader(name));
+  if (mark < 0) return null;
+
+  const body: Band[] = [];
+  for (let index = header + 1; index < bands.length; index += 1) {
+    const band = bands[index] as Band;
+    if ((bands[index - 1] as Band).y - band.y > pitch * ROW_GAP_STOP || band.texts.length < 2) break;
+    body.push(band);
+  }
+  if (body.length === 0) return null;
+
+  const columns = columnsOf({ y: head.y, texts: body.flatMap((band) => band.texts) });
+  if (columns.length !== names.length) return null;
+  const reach = columnReachOf(columns);
+  if (!body.every((band) => band.texts.some((text) => columnNearest(columns, text.x, reach) === mark))) return null;
+
+  const named: Band = { y: head.y, texts: names.map((name, index) => ({ ...said, text: name, x: columns[index] as number })) };
+  return [named, ...body];
 }
 
 /**

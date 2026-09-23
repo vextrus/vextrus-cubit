@@ -167,9 +167,19 @@ describe("I-322: the pile schedule's dimensions, through the store", () => {
         { dimension: "length", text: "21336", value: 21336, unit: "mm", sourceKeys: [LENGTH_CELL] },
       ],
     ]);
-    expect(dimensionRows(stage.tenantId), "exactly those two rows, and no family of any other schedule states a dimension its class is read for").toEqual([
+    // TEST_AMENDED (FND-2, I-332): S-06's PILE CAP SCHEDULE now reads, and a pile cap's DEPTH is read
+    // off it — one row per cap family, in the millimetres S-01 declares, cited to the cell and to the
+    // declaration. What this case still holds is that the pile's two are exactly as FND-1 stored them
+    // and that no OTHER schedule states a dimension its class is read for.
+    const capDepth = (family: string, cell: string): string[] => [family, "SIZE", "depth", "1295", "1295", "mm", `${cell},DXF_HANDLE:1F3E`];
+    expect(dimensionRows(stage.tenantId), "the pile's two rows, the five caps' depths, and nothing else").toEqual([
       ["P", "SECTION", "dia", "500", "500", "mm", DIA_CELL],
       ["P", "SECTION", "length", "21336", "21336", "mm", LENGTH_CELL],
+      capDepth("PC1", "DXF_HANDLE:63C"),
+      capDepth("PC2", "DXF_HANDLE:642"),
+      capDepth("PC3", "DXF_HANDLE:648"),
+      capDepth("PC4", "DXF_HANDLE:64E"),
+      capDepth("PC5", "DXF_HANDLE:654"),
     ]);
   }, BUDGET_MS);
 

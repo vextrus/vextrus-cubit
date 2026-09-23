@@ -184,8 +184,9 @@ describe("I-320: a schedule its sheet titles on the PAPER reads its own model te
   });
 
   test("a paper-titled view whose only mark header has nothing beneath it reads no table, and defers", () => {
-    // F-RCC6-BNBC's PILE CAP SCHEDULE: the real header is inside one MTEXT the header reader cannot
-    // read yet, and the footer beneath the rows reads as one (`… NO NOS COLUMN`) with no band under it.
+    // F-RCC6-BNBC's PILE CAP SCHEDULE with its header MTEXT taken away (the MTEXT is read since FND-2,
+    // I-330, below): the footer beneath the rows reads as a header (`… NO NOS COLUMN`) with no band
+    // under it.
     const footer = text("p:11", "COUNTS ARE TAKEN FROM THE LAYOUT ABOVE THIS OFFICE PRINTS NO NOS COLUMN", 0, -1000, 220);
     const answer = readUnder(PAPER_CAPTION["key"] as string, [PAPER_CAPTION, ...PILE_ROW, footer]);
     expect(answer.tables, "half a table — rows with no header over them — is worse than none (L-QTY-04)").toEqual([]);
@@ -208,5 +209,79 @@ describe("I-320: a schedule its sheet titles on the PAPER reads its own model te
     const answer = readUnder(PAPER_CAPTION["key"] as string, [PAPER_CAPTION, PILE_NOTE, ...PILE_HEADER, ...PILE_ROW], null);
     expect(answer.tables, "no layout says the caption is paper, so nothing anchors the table").toEqual([]);
     expect(answer.deferrals.map((one) => one.reason)).toEqual(["SCHEDULE_NONE_RECONSTRUCTED"]);
+  });
+});
+
+/* ------------------------------------------------------------------ I-330: an MTEXT, and an un-ruled table */
+
+/**
+ * F-RCC6-BNBC's S-06 PILE CAP SCHEDULE, at its own shape: the title and the header typed into ONE
+ * MTEXT (`\L…\l` underlines the title, `\P` breaks the line), the header's names spaced apart over
+ * rows of TEXTs standing at their own x's with no rule between, and a footer MTEXT beneath the rows
+ * whose second line reads like a header (`… NO NOS COLUMN`). Drawn here, never read out of the fixture
+ * (B-19). The MTEXT's own height is 260, so its second line stands 5/3 × 260 beneath its first.
+ */
+function mtext(key: string, said: string, x: number, y: number, height: number): Record<string, unknown> {
+  return { ...text(key, said, x, y, height), type: "MTEXT" };
+}
+const CAP_HEADER = mtext("m:1", "\\LPILE CAP SCHEDULE\\l\\PMARK        SIZE                 DEPTH      PILES", 0, 0, 260);
+const CAP_ROWS = [
+  ["m:2", "PC1", 0, -900],
+  ["m:3", "2000x1000", 2400, -900],
+  ["m:4", "1295", 5600, -900],
+  ["m:5", "2", 7800, -900],
+  ["m:6", "PC2", 0, -1600],
+  ["m:7", "2100x1750", 2400, -1600],
+  ["m:8", "1295", 5600, -1600],
+  ["m:9", "3", 7800, -1600],
+].map(([key, said, x, y]) => text(key as string, said as string, x as number, y as number, 240));
+const CAP_FOOTER = mtext("m:10", "COUNTS ARE TAKEN FROM THE LAYOUT ABOVE\\PTHIS OFFICE PRINTS NO NOS COLUMN", 0, -2600, 220);
+
+describe("I-330: an MTEXT is read as the lines it draws, and an un-ruled table's columns are where its rows stand", () => {
+  test("the title and the header typed into one MTEXT are two lines; the header names the columns the rows stand at", () => {
+    const answer = readUnder(PAPER_CAPTION["key"] as string, [PAPER_CAPTION, CAP_HEADER, ...CAP_ROWS, CAP_FOOTER]);
+    const table = answer.tables[0];
+    expect(answer.deferrals, "the table reads").toEqual([]);
+    expect(table?.columns, "four columns, at the rows' own x's").toEqual([0, 2400, 5600, 7800]);
+    expect(table?.pitch, "the header's line stands one MTEXT pitch (5/3 × 260) under the title, and the first row 900 under the MTEXT").toBeCloseTo(900 - (260 * 5) / 3, 9);
+    expect(
+      table?.cells.map((cell) => `${cell.rowIndex}:${cell.columnIndex}=${cell.text}@${cell.sourceKeys.join(",")}`),
+      "the header's names in its own word order, each citing the MTEXT; the rows verbatim; the title is no row",
+    ).toEqual([
+      "0:0=MARK@m:1",
+      "0:1=SIZE@m:1",
+      "0:2=DEPTH@m:1",
+      "0:3=PILES@m:1",
+      "1:0=PC1@m:2",
+      "1:1=2000x1000@m:3",
+      "1:2=1295@m:4",
+      "1:3=2@m:5",
+      "2:0=PC2@m:6",
+      "2:1=2100x1750@m:7",
+      "2:2=1295@m:8",
+      "2:3=3@m:9",
+    ]);
+  });
+
+  test("the footer beneath the rows is neither a header nor a row: a band of one text aligns with no column", () => {
+    const table = readUnder(PAPER_CAPTION["key"] as string, [PAPER_CAPTION, CAP_HEADER, ...CAP_ROWS, CAP_FOOTER]).tables[0];
+    expect(table?.cells.some((cell) => cell.sourceKeys.includes("m:10")), "no cell cites the footer").toBe(false);
+    expect(table?.unplaced, "and it is no unplaced text of the table's rows either — the table ended above it").toEqual([]);
+  });
+
+  test("a one-text header whose rows put no mark under its MARK keeps the reading it always had (S-25's lintel schedule)", () => {
+    // Four names, and the rows' texts stand at four x's — but the L-rows' marks stand at none the
+    // header's MARK is written over: which column is which is not a thing these rows say.
+    const header = text("l:1", "MARK        SIZE            BARS                   OPENING (mm)", 0, 0, 240);
+    const rows = [text("l:2", "L1", 11400, -900, 240), text("l:3", "OVER 1000 OPENING", 13000, -900, 200), text("l:4", "BW250  BRICK WALL", 0, -2500, 240), text("l:5", "BW250", 7000, -2500, 240)];
+    const table = readUnder(PAPER_CAPTION["key"] as string, [PAPER_CAPTION, header, ...rows]).tables[0];
+    expect(table?.columns, "the header text's own insertion, one column, as before — the rows' marks stand where the header does not put them").toEqual([0]);
+    expect(table?.cells.filter((cell) => cell.rowIndex === 0).map((cell) => cell.text), "and the header is the one text it is").toEqual(["MARK        SIZE            BARS                   OPENING (mm)"]);
+  });
+
+  test("a text with no inline code is read exactly as it was drawn, braces and all", () => {
+    const braced = [text("b:1", "MARK", 0, 700, 240), text("b:2", "SIZE {TYP}", 1400, 700, 240), text("b:3", "C1", 0, 0, 240), text("b:4", "300x450", 1400, 0, 240)];
+    const table = readUnder(PAPER_CAPTION["key"] as string, [PAPER_CAPTION, ...braced]).tables[0];
+    expect(table?.cells.map((cell) => cell.text), "only a text carrying an MTEXT code is cut into lines").toEqual(["MARK", "SIZE {TYP}", "C1", "300x450"]);
   });
 });

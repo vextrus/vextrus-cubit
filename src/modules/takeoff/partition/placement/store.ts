@@ -5,10 +5,10 @@
 // reason the grid's rows are: a placement is a stage of a partition that is REBUILT, so its rows are
 // deleted and re-derived with the views they were read off — a run that fails leaves the placements
 // that stood before it rather than half of a new one (L-REG-04, R-TO-030).
-import { and, asc, eq, forTenant, placementRuns, placements, type TenantTx } from "@/core/db";
+import { and, asc, eq, forTenant, placementOutlines, placementRuns, placements, type TenantTx } from "@/core/db";
 import type { ViewRef } from "@/core/identity";
 import type { QuantityBasis } from "@/core/offers/law";
-import type { DetectedPlacements, PlacementNote, PlacementRow, RunReading } from "./rows";
+import type { DetectedPlacements, OutlineRow, PlacementNote, PlacementRow, RunReading } from "./rows";
 
 
 /** One stored placement, whole — every column the store holds, as it holds it. */
@@ -45,6 +45,7 @@ export type PlacementWrite = {
  */
 export async function rewritePlacementRows(tx: TenantTx, write: PlacementWrite): Promise<void> {
   await tx.delete(placementRuns).where(and(eq(placementRuns.tenantId, write.tenantId), eq(placementRuns.ingestId, write.ingestId)));
+  await tx.delete(placementOutlines).where(and(eq(placementOutlines.tenantId, write.tenantId), eq(placementOutlines.ingestId, write.ingestId)));
   await tx.delete(placements).where(and(eq(placements.tenantId, write.tenantId), eq(placements.ingestId, write.ingestId)));
   const detected = write.placements;
   if (detected === null || detected.placements.length === 0) return;
@@ -76,6 +77,28 @@ export async function rewritePlacementRows(tx: TenantTx, write: PlacementWrite):
       memberFamily: row.memberFamily,
     })),
   );
+
+  // The plans land with the placements their rings were read for, in the same transaction, for the
+  // reason the runs do (I-333, L-REG-04): a plan keyed to a placement the store no longer holds is a
+  // reading of nothing.
+  const outlines = detected.outlines ?? [];
+  if (outlines.length > 0) {
+    await tx.insert(placementOutlines).values(
+      outlines.map((outline) => ({
+        ...stamp,
+        placementKey: outline.placementKey,
+        sourceKey: outline.sourceKey,
+        unitSourceKey: outline.unitSourceKey,
+        geometry: outline.geometry,
+        unit: outline.unit,
+        areaUnit: outline.areaUnit,
+        area: outline.area,
+        perimeter: outline.perimeter,
+        length: outline.length,
+        breadth: outline.breadth,
+      })),
+    );
+  }
 
   // The runs land with the placements they were read for, in the same transaction: a run keyed to a
   // placement the store no longer holds is a reading of nothing (L-REG-04, R-TO-030).
@@ -119,6 +142,34 @@ export async function storedRunsOf(tenantId: string, ingestId: string): Promise<
       readingOf(row.sideAValue, row.sideAUnit, row.sideABasis, row.sideASourceKeys),
       readingOf(row.sideBValue, row.sideBUnit, row.sideBBasis, row.sideBSourceKeys),
     ] as const,
+  }));
+}
+
+/** One stored plan, as the door answers one: the row the placement stage wrote, whole (I-333). */
+export type StoredOutline = OutlineRow;
+
+/**
+ * The plans one record's rings enclose (I-333), in the placement key's own order so two reads answer
+ * the same list (L-REG-05). An empty list is an answer of its own: a drawing that placed nothing off a
+ * ring — or whose unit nobody stated — has no plan to hand a rail (R-UI-050).
+ */
+export async function storedOutlinesOf(tenantId: string, ingestId: string): Promise<StoredOutline[]> {
+  const rows = await forTenant({ tenantId })
+    .select()
+    .from(placementOutlines)
+    .where(and(eq(placementOutlines.tenantId, tenantId), eq(placementOutlines.ingestId, ingestId)))
+    .orderBy(asc(placementOutlines.placementKey));
+  return rows.map((row) => ({
+    placementKey: row.placementKey,
+    sourceKey: row.sourceKey,
+    unitSourceKey: row.unitSourceKey,
+    geometry: row.geometry,
+    unit: row.unit,
+    areaUnit: row.areaUnit,
+    area: row.area,
+    perimeter: row.perimeter,
+    length: row.length,
+    breadth: row.breadth,
   }));
 }
 

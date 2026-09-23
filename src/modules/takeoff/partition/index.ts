@@ -11,7 +11,7 @@ import { storedExpansionDeferralsOf, storedTypicalRangesOf, type StoredExpansion
 import { storedGridOf, type StoredGrid } from "./grid/store";
 import { offeredLevelsOf } from "./levels-proposal/offer";
 import { storedProposedLevelsOf } from "./levels-proposal/store";
-import { storedPlacementsOf, storedRunsOf, type StoredPlacement, type StoredRun } from "./placement/store";
+import { storedOutlinesOf, storedPlacementsOf, storedRunsOf, type StoredOutline, type StoredPlacement, type StoredRun } from "./placement/store";
 import { storedMemberTypesOf, storedSchedulesOf, type StoredMemberTypes, type StoredSchedules } from "./schedules/store";
 import { drawingProjectOf, partitionStandsFor, storedConventionsOf, storedViewsOf, type StoredConventions } from "./store";
 import type { GroupKind, LevelStackGroupKey, ProposedLevel } from "@/core/acts";
@@ -23,7 +23,7 @@ export type { PartitionScope, StoredConventions } from "./store";
 export type { StoredGrid } from "./grid/store";
 export type { GridAxisRow, GridDeferralRow } from "./grid/detect";
 export type { StoredMemberTypes, StoredSchedule, StoredSchedules } from "./schedules/store";
-export type { SideReading, StoredPlacement, StoredRun } from "./placement/store";
+export type { SideReading, StoredOutline, StoredPlacement, StoredRun } from "./placement/store";
 export type { StoredExpansionDeferral, StoredTypicalRange } from "./expansion/store";
 export type { PlacementShares } from "./placement/shares";
 // The closed list an expansion defers under, published where its readers already look — the store's
@@ -141,6 +141,19 @@ export async function placementsOf(scope: ViewsScope): Promise<StoredPlacement[]
 export async function runsOf(scope: ViewsScope): Promise<readonly StoredRun[] | null> {
   const ingestId = await partitionedIngestOf(scope);
   return ingestId === null ? null : storedRunsOf(scope.tenantId, ingestId);
+}
+
+/**
+ * The PLAN each of a drawing's ring-placed members encloses — geometry, shoelace area, perimeter and a
+ * rectangle's own two sides, read off the ring it was placed by (I-333, L-FRM-02) — one row per such
+ * placement, in the placement key's own order. This is the door the measure setup fills a placement's
+ * `outline` from, so a foundation rail measures the plan the drawing drew rather than a box around it.
+ *
+ * Absent for the same three reasons `schedulesOf` is, and in the same way (R-UI-050).
+ */
+export async function outlinesOf(scope: ViewsScope): Promise<readonly StoredOutline[] | null> {
+  const ingestId = await partitionedIngestOf(scope);
+  return ingestId === null ? null : storedOutlinesOf(scope.tenantId, ingestId);
 }
 
 /**

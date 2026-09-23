@@ -10,6 +10,8 @@
 
 import { ELEMENT_TYPES, type ElementType } from "../catalogue/classes";
 import { EXPANSION_DEFERRAL_REASONS, type ExpansionDeferralReason } from "../errors";
+import type { GeometryType } from "../offers/law";
+import { UNITS, dimensionOf, type Unit } from "../units/canon";
 import { acts } from "./schema-acts";
 import { levels } from "./schema-takeoff-levels";
 import { closedList } from "./sql";
@@ -134,6 +136,82 @@ export const placements = pgTable(
 );
 
 /**
+ * The two geometries a placed member's RING is read as (L-FRM-01, I-333): a rectangle measured by its
+ * own two sides, or a polygon measured by its shoelace. Named as members of the offer law's roster
+ * rather than restated beside it, so the geometry a ring was read as and the one a line prints are
+ * one spelling (B-17).
+ */
+export const OUTLINE_GEOMETRIES = ["PRISM_RECT", "PRISM_POLY"] as const satisfies readonly GeometryType[];
+
+/** One geometry a ring is read as, drawn from the closed roster above. */
+export type OutlineGeometry = (typeof OUTLINE_GEOMETRIES)[number];
+
+/** The roster's two members by name, read off the roster itself rather than spelled a second time. */
+const [RECT_OUTLINE, POLY_OUTLINE] = OUTLINE_GEOMETRIES;
+
+/**
+ * L-FRM-02's plan, read off the drawing: what the closed ring one member was placed by ENCLOSES — the
+ * geometry it is, its shoelace area, its perimeter and, for a rectangle, its own two sides — one row
+ * per placement a ring placed (Interpretation I-333).
+ *
+ * It is what a foundation is measured over: F-RCC6-BNBC draws fourteen pile caps chamfered and one
+ * turned 45°, and neither the schedule's rectangle nor a bounding box is the plan the drawing drew
+ * (3.675 m² and 4.5 m² against 3.2625 m² and 2.0 m²). So the ring's own figures are stored beside the
+ * placement, never re-derived by a rail that holds no ring (L-MEA-08: rails share setup, the register
+ * and the documents, and no geometry).
+ *
+ * Every figure is a READING and not a number: the value as it was read on the placement lattice, in
+ * the length unit the ring was drawn in and that unit's square, cited to the ring and — where the
+ * drawing's header named no unit and its notes declared one — to the declaration (L-REG-01, L-QTY-03,
+ * I-302). A rectangle states both sides and a polygon neither: a polygon HAS no length and breadth,
+ * which is exactly why its pit defers (L-FRM-04).
+ *
+ * Rewritten per ingest with the placements it was read off, in the same transaction, so the app role
+ * holds a DELETE here for the reason it holds one on the placements (L-REG-04, R-TO-030).
+ */
+export const placementOutlines = pgTable(
+  "placement_outlines",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    placementKey: text("placement_key").notNull(),
+    sourceKey: text("source_key").notNull(),
+    unitSourceKey: text("unit_source_key"),
+    geometry: text("geometry").$type<OutlineGeometry>().notNull(),
+    unit: text("unit").$type<Unit>().notNull(),
+    areaUnit: text("area_unit").$type<Unit>().notNull(),
+    area: text("area").notNull(),
+    perimeter: text("perimeter").notNull(),
+    length: text("length"),
+    breadth: text("breadth"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One plan per placement of one record: the placement key IS the identity, and a rebuilt partition
+    // replaces the rows of the record it rebuilt rather than standing a second set beside them
+    // (L-REG-04).
+    primaryKey({ name: "placement_outlines_key", columns: [table.tenantId, table.ingestId, table.placementKey] }),
+    // The geometry roster is closed, and so are the canon's units: a plan read as anything else, or in
+    // a unit the canon cannot carry, cannot be written at all, however it reached the insert (B-07).
+    check("placement_outlines_geometry_closed", statement`${table.geometry} in (${statement.raw(closedList(OUTLINE_GEOMETRIES))})`),
+    // A length is carried in a unit of length and an area in a unit of area, each drawn from the
+    // canon's own roster by the dimension it measures (B-07, B-19).
+    check("placement_outlines_unit_closed", statement`${table.unit} in (${statement.raw(closedList(UNITS.filter((unit) => dimensionOf(unit) === "LENGTH")))})`),
+    check("placement_outlines_area_unit_closed", statement`${table.areaUnit} in (${statement.raw(closedList(UNITS.filter((unit) => dimensionOf(unit) === "AREA")))})`),
+    // A rectangle states both of its sides, and a polygon neither: half a rectangle is no plan, and a
+    // polygon given a length and a breadth would be measured as the box it is not (L-FRM-02, L-FRM-04).
+    check(
+      "placement_outlines_sides_by_geometry",
+      statement`(${table.geometry} = ${statement.raw(closedList([RECT_OUTLINE]))} and num_nonnulls(${table.length}, ${table.breadth}) = 2) or (${table.geometry} = ${statement.raw(closedList([POLY_OUTLINE]))} and num_nonnulls(${table.length}, ${table.breadth}) = 0)`,
+    ),
+    // The read the measure setup makes: one drawing's plans.
+    index("placement_outlines_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
  * Why a view's vertical members stand on no level: the sixth stage's own answer, one row per view
  * that deferred, under a code of the register (L-CAD-07, Q-07). Its own table for the reason
  * `grid_deferrals` is its own: a view that expanded over nothing has no row of its own to carry the
@@ -241,6 +319,7 @@ export const typicalRanges = pgTable(
  */
 export const TAKEOFF_PLACEMENTS_TABLES = {
   placements,
+  placementOutlines,
   expansionDeferrals,
   proposedLevels,
   typicalRanges,

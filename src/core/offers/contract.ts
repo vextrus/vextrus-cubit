@@ -159,6 +159,12 @@ export type OutlineSetup = {
   readonly area: Measure;
   readonly length: Measure | null;
   readonly breadth: Measure | null;
+  /**
+   * The length of the ring's own boundary (I-333) — what a foundation's sides are formed along, read
+   * off the ring and never off a bounding box or a schedule's rectangle (L-FRM-03). Absent where the
+   * reader that stated the plan read no ring (a hand-staged plan states an area and no boundary).
+   */
+  readonly perimeter?: Measure;
 };
 
 /**

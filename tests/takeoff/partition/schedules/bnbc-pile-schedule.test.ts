@@ -11,8 +11,8 @@
  *   · The row's mark is the bare prefix `P`, and S-04 numbers its 89 ⌀500 piles `P1`…`P89`. I-321
  *     types each numbered pile `P` — the sole pile row, NOS 89 = the 89 placed, ⌀500 = every ring.
  *   · I-322 reads the diameter and the length in the head's `(mm)`, cited to their cells.
- *   · S-06's PILE CAP SCHEDULE (`202D`) still defers: its header is one MTEXT the header reader
- *     cannot read yet (FND-2), and the footer that does read as a mark header has nothing under it.
+ *   · S-06's PILE CAP SCHEDULE (`202D`) deferred here until FND-2: its header is one MTEXT the header
+ *     reader could not read. FND-2 reads it (I-330), and this file now holds only that it reads.
  *
  * AND WHAT MAY NOT MOVE — pinned as the sha-256 of what the stages answered on the tree before FND-1
  * (HEAD 689b5d76), so a change that moves any of them fails here by name and re-baselines in its own
@@ -20,7 +20,7 @@
  *   · the five tables BNBC read before: 17DF, 18A0 (ROOF BEAM SCHEDULE), 1D2B (LINTEL & SUNSHADE),
  *     1E3D (BAR BENDING SCHEDULE), 9C6 (COLUMN SCHEDULE);
  *   · every family BNBC registered before, and every placement it placed — with only the 89 piles'
- *     `memberFamily` owed a change;
+ *     `memberFamily` owed a change (re-pinned by FND-2 bar the pile caps it re-reads; see below);
  *   · F-RCC6's whole placement-stage output — placements, runs, tables and families — byte for byte
  *     (the session-7 integrator's harness composition, whose digest is the brief's `a3c0c6e0…`).
  */
@@ -46,9 +46,26 @@ const TABLES_BEFORE: Readonly<Record<string, string>> = Object.freeze({
   "DXF_HANDLE:9C6": "5888f25349609245f1b98bfdaa320f2c15165556c315deaf27515bfee10d8436",
 });
 
-/** BNBC's registered families and placements before FND-1, with the piles' family then null. */
-const BNBC_FAMILIES_BEFORE = "199bf88b1440a6aacec00775f7047ee7d9bc374f6c1e0c7a8157641390a1a3f6";
-const BNBC_PLACEMENTS_BEFORE = "2cd2ce7b7b43f6bee2530fd9d687315cd90ad97458f27d69ada44b925cf67d43";
+/**
+ * TEST_AMENDED (FND-2, I-330..I-333): the cap slice changes three things this ratchet pinned, each on
+ * purpose and each accounted for here rather than re-pinned blind.
+ *
+ *   · 202D now READS (I-330): its header is MTEXT 639's second paragraph and its columns the rows'
+ *     own alignment — so the case that held it deferred now holds it read (the rows themselves are
+ *     graded in tests/takeoff/partition/placement/bnbc-pile-caps.test.ts).
+ *   · The families: FND-1's pin (`199bf88b…`, every family bar P, pre-FND-1) held the two sectionless
+ *     families S-26's BAR BENDING SCHEDULE minted, PC3 and S3; a bar schedule now registers none
+ *     (I-331), and 202D registers PC1..PC5. So what may not move is every family bar P and bar the
+ *     cap schedule's, pinned as it stood at e6db2f42 with the bar schedule's two taken away.
+ *   · The placements: S-06 placed one pile cap per pile CIRCLE (89) and now places one per cap
+ *     OUTLINE (26, I-333). So what may not move is every placement that is not a pile cap — the 89
+ *     piles (typed P, FND-1) and the 27 columns — pinned as they stood at e6db2f42.
+ */
+const BNBC_FAMILIES_BAR_P_AND_CAPS_BEFORE = "7927658743d186ded9042d64728a08b3e0a24288f48958eae8eaeb9eb93e85e5";
+const BNBC_PLACEMENTS_BAR_CAPS_BEFORE = "8742a15d0e8e0734cfa65e28d539397e883542d7e5b59d5dd453877a12eb5871";
+
+/** The schedule the pile-cap families are registered from, since FND-2 (S-06's paper caption). */
+const PILE_CAP_SCHEDULE = "DXF_HANDLE:202D";
 
 /** F-RCC6's `{ placements, runs, tables, families }` before FND-1 — the integrator's harness digest. */
 const RCC6_STAGES_BEFORE = "a3c0c6e0f692e49074b9c1276dbc955f248bd5287740c6babc1275c08018a703";
@@ -98,9 +115,10 @@ describe("FND-1 on F-RCC6-BNBC: the pile schedule is read, and the piles are typ
     expect(new Set(piles.map((row) => row.mark)), "and each keeps its own number as its mark — P1 to P89, none twice").toEqual(new Set(Array.from({ length: 89 }, (_unused, at) => `P${at + 1}`)));
   }, BUDGET_MS);
 
-  test("S-06's PILE CAP SCHEDULE still defers — its MTEXT header is FND-2's", async () => {
+  test("S-06's PILE CAP SCHEDULE reads since FND-2 — its MTEXT header is split into its lines (TEST_AMENDED, I-330)", async () => {
     const { reconstructed } = await bnbc();
-    expect(reconstructed.deferrals, "202D reads no table: the footer that reads as a mark header has nothing beneath it").toContainEqual({ viewKey: PILE_CAP_SCHEDULE_VIEW, reason: "SCHEDULE_NONE_RECONSTRUCTED" });
+    expect(reconstructed.deferrals, "202D no longer defers").not.toContainEqual({ viewKey: PILE_CAP_SCHEDULE_VIEW, reason: "SCHEDULE_NONE_RECONSTRUCTED" });
+    expect(reconstructed.tables.map((table) => table.scheduleKey), "it yields its table, keyed by its paper caption").toContain(PILE_CAP_SCHEDULE);
   }, BUDGET_MS);
 });
 
@@ -111,13 +129,16 @@ describe("FND-1 moves nothing it was not asked to", () => {
     expect(now, "each read table's own bytes, before and after").toEqual(TABLES_BEFORE);
   }, BUDGET_MS);
 
-  test("every family and every placement BNBC stood on before stands byte for byte, bar the piles' family", async () => {
+  test("every family and every placement BNBC stood on before stands byte for byte, bar what FND-2 re-read (TEST_AMENDED)", async () => {
     const { registered, placed } = await bnbc();
-    expect(sha(registered.families.filter((family) => family.family !== "P")), "the families registered before, P aside").toBe(BNBC_FAMILIES_BEFORE);
     expect(
-      sha(placed.placements.map((row) => (row.elementType === "pile" ? { ...row, memberFamily: null } : row))),
-      "the placements, key for key and point for point, with only the piles' family owed a change",
-    ).toBe(BNBC_PLACEMENTS_BEFORE);
+      sha(registered.families.filter((family) => family.family !== "P" && family.scheduleKey !== PILE_CAP_SCHEDULE)),
+      "the families registered before, P and the cap schedule's aside — which is FND-1's roster less the two a bar schedule minted",
+    ).toBe(BNBC_FAMILIES_BAR_P_AND_CAPS_BEFORE);
+    expect(
+      sha(placed.placements.filter((row) => row.elementType !== "pile_cap")),
+      "every placement that is not a pile cap — the 89 piles and the 27 columns — key for key and point for point",
+    ).toBe(BNBC_PLACEMENTS_BAR_CAPS_BEFORE);
   }, BUDGET_MS);
 
   test("F-RCC6's whole placement-stage output is byte-identical", async () => {
