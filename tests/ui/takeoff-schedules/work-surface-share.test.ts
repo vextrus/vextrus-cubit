@@ -109,6 +109,7 @@ const CHROME: SchedulesChrome = {
     table: TESTIDS.schedules.table,
     cell: TESTIDS.schedules.cell,
     deferral: TESTIDS.schedules.deferral,
+    quantityCheck: TESTIDS.schedules.quantityCheck,
     registry: TESTIDS.schedules.registry,
     family: TESTIDS.schedules.family,
     variant: TESTIDS.schedules.variant,

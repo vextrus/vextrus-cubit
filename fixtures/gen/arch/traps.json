@@ -33,6 +33,6 @@
     {"id": "T-MARK-SPELLING", "sheet": "A-02", "handle": null,
      "expected": "the plan tags a door D2 (circled, unhyphenated) and the schedule spells it D-2: one mark in two spellings"},
     {"id": "T-WALL-TYPES-CAPTION", "sheet": "A-03", "handle": null,
-     "expected": "the wall-type table is captioned WALL TYPES (no SCHEDULE, LEGEND or PLAN word): at this tranche's HEAD the caption grammar reads it UNTYPED; ARCH-3 teaches the grammar TYPES"}
+     "expected": "the wall-type table is captioned WALL TYPES (no SCHEDULE, LEGEND or PLAN word): a key of types is a schedule, so the caption grammar reads TYPES with no projection word as a SCHEDULE and the table's rows are read (s-schedules I-502)"}
   ]
 }

@@ -10,6 +10,14 @@
     { "input": "COLUMN TYPE", "expect": true },
     { "input": "MAIN BAR", "expect": false },
     { "input": "GF TO 3RD", "expect": false },
-    { "input": "TIES", "expect": false }
+    { "input": "TIES", "expect": false },
+    { "input": "MAIN DOOR", "expect": true },
+    { "input": "WINDOW WITH SUNSHADE", "expect": true },
+    { "input": "VENTILATOR", "expect": true },
+    { "input": "ROOM", "expect": true },
+    { "input": "SIZE (W x H)", "expect": false },
+    { "input": "QUANTITY", "expect": false },
+    { "input": "SL.", "expect": false },
+    { "input": "OPENING (mm)", "expect": false }
   ]
 }

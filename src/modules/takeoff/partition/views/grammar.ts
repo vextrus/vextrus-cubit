@@ -28,6 +28,17 @@ const ESCAPES = ["%%U", "%%O", "%%C", "%%D", "%%P"];
  */
 const MEMBER_WORDS = ["FOOTING", "BEAM", "COLUMN", "SLAB", "PILE", "PILECAP", "RAFT", "WALL", "LINTEL", "PEDESTAL", "PLINTH"];
 
+/**
+ * The word a KEY of types is captioned by — `WALL TYPES`, `DOOR TYPES` — and the words that say a
+ * caption draws something rather than tabulating it (s-schedules I-502). A table of types is a
+ * schedule: a key of marks to what each one is, read row by row like any other (L-CAD-08). A caption
+ * that says TYPES and also names a projection (`UNIT TYPES PLAN`, `WALL TYPES SECTION`) draws those
+ * types, and the rules below it read what it draws. Only the plural: `TYPE` alone captions a unit
+ * type's plan (`TYPE-A FLOOR PLAN`) as often as anything else.
+ */
+const TYPES_WORD = "TYPES";
+const DRAWN_WORDS = ["PLAN", "LAYOUT", "SECTION", "SECTIONS", "ELEVATION", "ELEVATIONS", VIEW_TYPE.DETAIL, "DETAILS"];
+
 /** One rule of the grammar: what it reads a caption as, and what has to be said for it to read. */
 type Rule = { readonly reads: (said: Said) => boolean; readonly type: ViewType };
 
@@ -44,6 +55,9 @@ const GRAMMAR: readonly Rule[] = [
   { reads: (said) => said.words.has("STAIR") && said.words.has("PLAN"), type: VIEW_TYPE.STAIR_PLAN },
   { reads: (said) => said.words.has("STAIR") && said.words.has("SECTION"), type: VIEW_TYPE.STAIR_SECTION },
   { reads: (said) => said.words.has(VIEW_TYPE.SCHEDULE), type: VIEW_TYPE.SCHEDULE },
+  // A key of types is a schedule by what it IS, whatever it is not called (I-502): F-ARCH's
+  // `WALL TYPES` (T-WALL-TYPES-CAPTION) is a table of marks, thicknesses and descriptions.
+  { reads: (said) => said.words.has(TYPES_WORD) && !DRAWN_WORDS.some((word) => said.words.has(word)), type: VIEW_TYPE.SCHEDULE },
   { reads: (said) => said.words.has("LEGEND") || said.words.has("NOTES") || said.words.has("NOTE"), type: VIEW_TYPE.LEGEND_NOTES },
   { reads: (said) => said.words.has(VIEW_TYPE.TITLE), type: VIEW_TYPE.TITLE },
   { reads: (said) => said.words.has(VIEW_TYPE.DETAIL), type: VIEW_TYPE.DETAIL },

@@ -139,3 +139,93 @@ describe("the fixture's own 3,102 drawn strings, read by the product's grammar",
     expect(doubled, "a trap says how a string reads; an allowance says it does not read — never both for the same string").toStrictEqual([]);
   });
 });
+
+/*
+ * F-ARCH's half of the ratchet (session 8, ARCH-3; s-schedules I-505/f): the architect's set
+ * of the same building, 454 drawn strings, read by the same grammar and judged the same three ways.
+ * Its corpus spells a string `text` where F-RCC6-BNBC's spells it `raw`, and its families are an
+ * architect's: a door schedule's cells are MIXED (a type heading, a mark, a size, a finish's words),
+ * so `schedule_cell` may read as the marks and quantities it holds or as nothing — never as a bar, a
+ * spacing or a grade, which no architect's cell states.
+ */
+type ArchEntry = { readonly sheet: string; readonly text: string; readonly family: string; readonly trap?: string; readonly fact?: Record<string, string> };
+
+const archCorpus = read("../../../fixtures/arch/notation.corpus.json") as { strings: readonly ArchEntry[] };
+const archTraps = read("../../../fixtures/arch/traps.json") as { traps: readonly { id: string }[] };
+const archAllowlist = read("./corpus-allow-arch.json") as { readonly frozen: number; readonly strings: readonly Allowance[] };
+
+/** What each of F-ARCH's families asks. A family absent here asks nothing and must read as nothing
+ * (or as a reference): a room label, a caption, a title, a note and a grid bubble state no quantity. */
+const ARCH_ASKS: Readonly<Record<string, readonly NotationKind[]>> = Object.freeze({
+  mark: ["mark"],
+  count: ["count"],
+  level: ["dimension_ft_in", "level_range"],
+  height: ["dimension_ft_in"],
+});
+
+/** The families that MAY read as one of these, or as nothing at all. */
+const ARCH_MAY: Readonly<Record<string, readonly NotationKind[]>> = Object.freeze({
+  schedule_cell: ["mark", "count", "dimension_ft_in", "reference"],
+});
+
+const ARCH_REGISTERED = new Set(archTraps.traps.map((trap) => trap.id));
+
+function archVerdictOf(entry: ArchEntry): { readonly ok: boolean; readonly why: string } {
+  const reading = readNotation(entry.text);
+  const may = ARCH_MAY[entry.family];
+  if (may !== undefined) {
+    if (!reading.ok || may.includes(reading.kind)) return { ok: true, why: "" };
+    return { ok: false, why: `read as ${reading.kind}, which no ${entry.family} states` };
+  }
+  const asks = ARCH_ASKS[entry.family];
+  if (asks === undefined) {
+    if (!reading.ok || reading.kind === "reference") return { ok: true, why: "" };
+    return { ok: false, why: `FALSE READING as ${reading.kind}/${reading.form}: ${JSON.stringify(reading.parsed)}` };
+  }
+  if (!reading.ok) return { ok: false, why: `UNREAD at token ${JSON.stringify(reading.token)}` };
+  if (!asks.includes(reading.kind)) return { ok: false, why: `read as ${reading.kind}, which is not what a ${entry.family} asks` };
+  return { ok: true, why: "" };
+}
+
+const archTally = { read: 0, trap: 0, allowed: 0 };
+const archUnaccounted: string[] = [];
+const archSpent = new Set<string>();
+for (const entry of archCorpus.strings) {
+  const verdict = archVerdictOf(entry);
+  if (verdict.ok) {
+    archTally.read += 1;
+    continue;
+  }
+  if (entry.trap !== undefined && ARCH_REGISTERED.has(entry.trap)) {
+    archTally.trap += 1;
+    continue;
+  }
+  const excuse = archAllowlist.strings.find((one) => one.raw === entry.text && one.family === entry.family);
+  if (excuse !== undefined) {
+    archTally.allowed += 1;
+    archSpent.add(`${excuse.family}\t${excuse.raw}`);
+    continue;
+  }
+  archUnaccounted.push(`${entry.family}\t${entry.sheet}\t${JSON.stringify(entry.text)}\t${verdict.why}`);
+}
+
+describe("F-ARCH's own 454 drawn strings, read by the product's grammar", () => {
+  test("every string reads as its family asks, or is a registered trap, or is an allowance that says why", () => {
+    const numbers = `read=${archTally.read} trap=${archTally.trap} allowed=${archTally.allowed} of ${archCorpus.strings.length}`;
+    expect(archUnaccounted, `a string neither read, nor trapped, nor allowed (${numbers})`).toStrictEqual([]);
+    expect(numbers).toBe("read=435 trap=0 allowed=19 of 454");
+  });
+
+  test("every mark the plans tag and every quantity the schedules print reads — the opening families and the printed count (I-505, I-507)", () => {
+    const asked = archCorpus.strings.filter((entry) => entry.family === "mark" || entry.family === "count");
+    expect(asked.length, "the corpus really draws tags and quantities").toBeGreaterThan(0);
+    expect(asked.filter((entry) => !archVerdictOf(entry).ok).map((entry) => entry.text)).toStrictEqual([]);
+  });
+
+  test("the allowlist is a ratchet: it may shrink and may not grow, and every allowance is spent", () => {
+    expect(archAllowlist.frozen, "the freeze is lowered with the allowance it retires").toBe(archAllowlist.strings.length);
+    const unspent = archAllowlist.strings.filter((one) => !archSpent.has(`${one.family}\t${one.raw}`));
+    expect(unspent, "these strings read now: their allowances belong deleted").toStrictEqual([]);
+    for (const one of archAllowlist.strings) expect(one.why.length, `"${one.raw}" says why it is not read`).toBeGreaterThan(20);
+  });
+});

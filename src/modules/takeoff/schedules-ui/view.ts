@@ -4,6 +4,7 @@
 //
 // Nothing here is a count of members. L-CAD-08 forbids a schedule's rows being read as a quantity, so
 // no field of this value is a number of anything a bill could carry (I-251).
+import type { PrintedQuantityRefusal } from "@/core/errors";
 import type { NoteProposal } from "@/core/notes/grammar";
 import type { NoteContestedCode, NoteKind, NoteStandingName } from "@/core/notes/law";
 import type { NoteReadingRow } from "@/core/notes/store";
@@ -84,6 +85,26 @@ export type VariantView = {
   readonly sectionText: string;
   readonly sourceKeys: readonly string[];
   readonly zones: readonly ZoneView[];
+  /**
+   * What an opening schedule PRINTS for this row over these floors (I-507, I-510): the cell
+   * verbatim — never a count the screen took (I-251) — and, where the reading is declared rather
+   * than read as it stands, the registered code it is declared under. Absent on every other variant.
+   */
+  readonly printed?: PrintedView;
+};
+
+/**
+ * One printed quantity as the screen says it (I-510): the schedule's own cell and the texts it
+ * was read from, the code it is declared under or null, and — where it was checked against a plan —
+ * that plan's tags of the mark, which are the evidence behind a disagreement and never a figure the
+ * screen prints.
+ */
+export type PrintedView = {
+  readonly text: string;
+  readonly sourceKeys: readonly string[];
+  readonly refusal: PrintedQuantityRefusal | null;
+  readonly planKey: string | null;
+  readonly tagKeys: readonly string[];
 };
 
 /** One mark family the sheet's schedules named — its mark as written, and never how many exist. */

@@ -135,8 +135,9 @@ doors two offset leaves, hinged doors a door block (mirrored for the east hands,
 drawn exploded, T-EXPLODED-DOOR). Tags are circled and unhyphenated (D2); the schedules hyphenate
 (D-2, T-MARK-SPELLING), group by type with a serial column, wrap W x H over two lines and write NN NOS.
 One wall face is drawn twice (T-DOUBLE-LINE); the guard room's rear wall stops short (T-UNCLOSED-WALL).
-The wall-type table is captioned WALL TYPES, which the caption grammar reads UNTYPED today
-(T-WALL-TYPES-CAPTION, ARCH-3's to teach).
+The wall-type table is captioned WALL TYPES, a key of types the caption grammar reads as a SCHEDULE
+(T-WALL-TYPES-CAPTION; taught by ARCH-3, s-schedules I-502 — the owner's set draws no wall-type
+table to caption otherwise, so the fixture keeps its caption and the grammar learned the word).
 
 ## Two paths and the checks
 

@@ -1,0 +1,15 @@
+{
+  "parser": "isKeyWordHeader",
+  "why": "s-schedules I-503: a header read as the key column's by a KEY WORD alone — the type an opening sub-table lists, the room a finish schedule is keyed by, the symbol a key names — heads a column only beside another; MARK heads its column wherever it stands. OPENING is not a key word: a structural lintel schedule writes it in a head and in its rows.",
+  "cases": [
+    { "input": "MAIN DOOR", "expect": true },
+    { "input": "WINDOW WITH SUNSHADE", "expect": true },
+    { "input": "LOUVRE", "expect": true },
+    { "input": "ROOM", "expect": true },
+    { "input": "SYMBOL", "expect": true },
+    { "input": "DOOR MARK", "expect": false },
+    { "input": "MARK", "expect": false },
+    { "input": "OPENING (mm)", "expect": false },
+    { "input": "QUANTITY", "expect": false }
+  ]
+}

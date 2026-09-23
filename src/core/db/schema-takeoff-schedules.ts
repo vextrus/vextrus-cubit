@@ -8,7 +8,7 @@
 // Nothing here reaches the seam, the pools or the jobs store: those are built over the schema, so the
 // dependency runs one way and no cycle is representable (ARCH-01, ARCH-02).
 
-import { SCHEDULE_DEFERRAL_REASONS, type ScheduleDeferralReason } from "../errors";
+import { PRINTED_QUANTITY_REFUSAL_CODES, SCHEDULE_DEFERRAL_REASONS, type PrintedQuantityRefusal, type ScheduleDeferralReason } from "../errors";
 import { NOTE_ACCEPTANCES, NOTE_BASIS, NOTE_KINDS, type NoteAcceptance, type NoteKind } from "../notes/law";
 import { acts } from "./schema-acts";
 import { closedList } from "./sql";
@@ -36,8 +36,12 @@ export type RebarZone = (typeof REBAR_ZONES)[number];
  * diameter and its length, a foundation's depth and the level its top stands at. The names are the
  * ones the foundation methods declare their variables under, and the rails bind them by these names
  * (`MemberVariantSetup.dimensions`), so the store closes the roster the rails read (Q-07, B-17).
+ *
+ * An architect's schedules state two more (s-schedules I-506, I-508): the SILL an opening
+ * stands on above its floor, and the THICKNESS a wall type is built to. They are appended, never
+ * inserted, so the four the foundation rails bind keep their places.
  */
-export const SCHEDULE_DIMENSIONS = ["depth", "dia", "length", "top"] as const;
+export const SCHEDULE_DIMENSIONS = ["depth", "dia", "length", "top", "sill", "thickness"] as const;
 
 /** One of the four. */
 export type ScheduleDimension = (typeof SCHEDULE_DIMENSIONS)[number];
@@ -51,6 +55,12 @@ const LEVEL_DIMENSION: ScheduleDimension = "top";
  * register's, and this CHECK is written from it — one vocabulary, two readers (B-17).
  */
 export type { ScheduleDeferralReason };
+
+/** Why a printed quantity is declared rather than simply read (s-schedules I-507): the register's own two, never a third spelling. */
+export type { PrintedQuantityRefusal };
+
+/** The one of them a disagreement with a plan is declared under — the check that it names its plan reads it. */
+const DISAGREES: PrintedQuantityRefusal = "OPENING_QUANTITY_DISAGREES";
 
 /** The entities one row of the stored partition was read from — never none (L-CAD-03). */
 const citedKeys = () => text("source_keys").array().notNull();
@@ -262,6 +272,74 @@ export const rebarZones = pgTable(
 );
 
 /**
+ * The bases an opening schedule states its quantity column on (s-schedules I-507): per floor, read
+ * off a note that says so (`QUANTITY PER FLOOR`) or off a caption naming one floor, where per floor
+ * and per group are one statement. A quantity whose basis nothing states has none, and is compared
+ * with nothing (L-MEA-02). Spelled in the store's lower case, as its zones and dimensions are.
+ */
+export const PRINTED_QUANTITY_BASES = ["per-floor"] as const;
+
+/** One of them. */
+export type PrintedQuantityBasis = (typeof PRINTED_QUANTITY_BASES)[number];
+
+/**
+ * The quantity an opening schedule PRINTS for one of its rows (`08 NOS`), as a cited reading of the
+ * schedule and never as a count of members (L-CAD-08, L-MEA-02; s-schedules I-507). How many of a
+ * mark stand is placement's answer off the plans; this is what the schedule SAYS, kept so the two can
+ * be compared and a disagreement declared rather than resolved in silence.
+ *
+ * Its own table, and not a row of `member_type_dimensions`: the member-type registry states what a
+ * member IS, and a printed quantity filed there would be a count registered as a property of the type
+ * (R-TO-031). One row per variant of an opening family — the floors the schedule's caption states.
+ *
+ * `basis_keys` cite what the basis was read at (the note, or the caption naming one floor);
+ * `plan_key` is the one layout plan of the same floors in the same drawing the check was made
+ * against, and `tag_keys` that plan's tags of this mark — the evidence of the check, never a count
+ * any bill reads. `refusal` is the check's declared outcome: null where the printed quantity and the
+ * plan's tags agree, or where no plan of those floors stands in the drawing to check against (then
+ * `plan_key` is null too); otherwise the registered code it is declared under.
+ *
+ * Rewritten per ingest with the variants it stands beside, in the partition's one transaction, so the
+ * app role holds a DELETE here as it does there (L-REG-04, R-TO-030).
+ */
+export const schedulePrintedQuantities = pgTable(
+  "schedule_printed_quantities",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    scheduleKey: text("schedule_key").notNull(),
+    family: text("family").notNull(),
+    variantKey: text("variant_key").notNull(),
+    text: text("text").notNull(),
+    printed: integer("printed").notNull(),
+    basis: text("basis").$type<PrintedQuantityBasis>(),
+    basisKeys: text("basis_keys").array().notNull(),
+    planKey: text("plan_key"),
+    tagKeys: text("tag_keys").array().notNull(),
+    refusal: text("refusal").$type<PrintedQuantityRefusal>(),
+    sourceKeys: citedKeys(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "schedule_printed_quantities_key", columns: [table.tenantId, table.ingestId, table.scheduleKey, table.family, table.variantKey] }),
+    // A schedule prints how many of a thing it lists; a negative quantity is no reading at all.
+    check("schedule_printed_quantities_printed_whole", statement`${table.printed} >= 0`),
+    check("schedule_printed_quantities_basis_closed", statement`${table.basis} is null or ${table.basis} in (${statement.raw(closedList(PRINTED_QUANTITY_BASES))})`),
+    // A basis is read AT something, and an unstated one cites nothing (L-CAD-03).
+    check("schedule_printed_quantities_basis_cited", statement`(${table.basis} is null) = (cardinality(${table.basisKeys}) = 0)`),
+    // Another area's code stored here would render as this check's, so the CHECK admits the two it
+    // is declared under and nothing else (Q-07).
+    check("schedule_printed_quantities_refusal_closed", statement`${table.refusal} is null or ${table.refusal} in (${statement.raw(closedList(PRINTED_QUANTITY_REFUSAL_CODES))})`),
+    // A disagreement is a disagreement WITH a plan: it is never declared without the plan it was read against.
+    check("schedule_printed_quantities_disagreement_planned", statement`${table.refusal} is distinct from ${statement.raw(closedList([DISAGREES]))} or ${table.planKey} is not null`),
+    check("schedule_printed_quantities_cited", statement`cardinality(${table.sourceKeys}) >= 1`),
+    index("schedule_printed_quantities_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
  * The other answer a SCHEDULE view gives: a view whose bands yielded no table, and one whose table
  * named no member, stand here under a closed reason rather than as a schedule nobody can read
  * (riskNotes (2)). Its own table, because a view that yielded no table has no schedule row to carry
@@ -421,6 +499,7 @@ export const TAKEOFF_SCHEDULES_TABLES = {
   memberTypeDimensions,
   rebarZones,
   scheduleDeferrals,
+  schedulePrintedQuantities,
   notesReadings,
   noteClauseProposals,
 };

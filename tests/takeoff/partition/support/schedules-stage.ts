@@ -285,6 +285,13 @@ export type NotationSeam = {
   isMarkFamily: (text: string) => boolean;
   isMarkHeader: (text: string) => boolean;
   rebarZoneOfHeader: (text: string) => string | null;
+  // An architect's schedules (s-schedules I-503/e/f/g): the key word a key column is headed by,
+  // the dimension a head names, the quantity a cell prints, its basis, and a restated figure.
+  isKeyWordHeader: (text: string) => boolean;
+  dimensionOfHeader: (text: string) => string | null;
+  parsePrintedQuantity: (text: string) => number | null;
+  statesPerFloor: (text: string) => boolean;
+  parseRestatedFigure: (text: string) => { value: number; unit: string | null } | null;
   REBAR_ZONES?: readonly string[];
 };
 
@@ -302,6 +309,11 @@ export const NOTATION_CALLS: readonly string[] = [
   "isMarkFamily",
   "isMarkHeader",
   "rebarZoneOfHeader",
+  "isKeyWordHeader",
+  "dimensionOfHeader",
+  "parsePrintedQuantity",
+  "statesPerFloor",
+  "parseRestatedFigure",
 ];
 
 /* ------------------------------------------------------------------ loading the doors */

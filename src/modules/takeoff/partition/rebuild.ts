@@ -169,7 +169,9 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
     // The conventions stage stands second in the list and this is the fourth, so the drawing's own
     // profile is already resolved when the registry folds the tables: a size pair that states no
     // unit and stands under a head that states none takes the one the drawing DECLARES (I-302).
-    const registered = registerMemberTypes(reconstructed.tables, held.conventions?.profile ?? null);
+    // The views and their texts are handed on too: an opening schedule's printed quantities are
+    // checked against the layout plan of the same floors in the same drawing (s-schedules I-507).
+    const registered = registerMemberTypes(reconstructed.tables, held.conventions?.profile ?? null, { graph: context.graph, views: held.views, assignments: held.assignments });
     // And the member types a set states on its long-section sheets rather than in a schedule — each
     // strip's mark and the section written beside it, banded by the sheet's own title (I-343). They
     // join the registry the tables folded, so placement and the rails read ONE registry (B-17).

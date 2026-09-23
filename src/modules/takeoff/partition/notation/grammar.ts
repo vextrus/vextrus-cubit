@@ -28,7 +28,8 @@ export type NotationKind =
   | "dimension_ft_in"
   | "span_fraction"
   | "reference"
-  | "compound";
+  | "compound"
+  | "count";
 
 /** The form a reading was read by — the id of the row of FORMS that matched (the coverage contract). */
 export type FormId =
@@ -44,7 +45,8 @@ export type FormId =
   | "F-FTIN"
   | "F-SPANFRAC"
   | "F-REF"
-  | "F-COMPOUND";
+  | "F-COMPOUND"
+  | "F-COUNT";
 
 /** The refusal a text nobody can read answers with. Registered in core's closed taxonomy. */
 export const NOTATION_UNREAD = "NOTATION_UNREAD" as const satisfies RefusalCode;
@@ -139,10 +141,23 @@ const MARK_FAMILIES: readonly string[] = Object.freeze([
   "OHWT", "UGWR", "ST", // overhead tank, underground reservoir, stair — parted marks
   "MRR", "SRR", "SOG", "PIT", "RAMP", // the one-of-a-kind members a set names by word
   "FB", // the dotted abbreviation F.B a census habit writes
+  // An architect's openings (s-schedules I-505; F-ARCH, the Edison sets): doors, windows and
+  // ventilators, and the sliding, fire and glass doors a door schedule types apart. `D` was a detail
+  // bubble's series letter while no set this grammar read wrote a door; a door schedule's `D-2` and
+  // the plan's circled `D2` are one door, and the roster is the evidence that decides (T-MARK-SPELLING).
+  "D", "W", "V", "SD", "FD", "GD",
 ]);
 
-/** The marks a set writes as a word, with no number: there is one of each on the building. */
-const MARK_WORDS: readonly string[] = Object.freeze(["FL", "MRR", "SRR", "SOG", "PIT", "RAMP", "LPS", "P"]);
+/** The marks a set writes as a word, with no number: there is one of each on the building. `LD` is
+ * the lift's landing door, one type on every floor (F-ARCH's door schedules). */
+const MARK_WORDS: readonly string[] = Object.freeze(["FL", "MRR", "SRR", "SOG", "PIT", "RAMP", "LPS", "P", "LD"]);
+
+/**
+ * The families of the roster that are OPENINGS — what a door and window schedule lists (s-schedules
+ * I-505). A closed subset of the roster, so a word mark such as `LD` names an opening family
+ * where a schedule of openings writes it, and nowhere names a structural member.
+ */
+const OPENING_FAMILIES: ReadonlySet<string> = new Set(["D", "W", "V", "SD", "FD", "GD", "LD"]);
 
 /** The classes whose members are named by the PART of the structure rather than by a number, and the
  * parts each is drawn in: a water tank's base, top and wall are three members of one mark. */
@@ -186,7 +201,9 @@ const STRESS_UNITS: Readonly<Record<string, number>> = Object.freeze({
   PSI: 0.006894757, KSI: 6.894757, MPA: 1, "N/MM2": 1, "N/MM": 1, "KG/CM2": 0.0980665, KSC: 0.0980665,
 });
 
-const MM_PER_INCH = 25.4;
+/** Millimetres to the inch, exactly (L-MEA-01): the notation's one statement of it, read by the
+ * barrel's restated figures too (B-17). */
+export const MM_PER_INCH = 25.4;
 
 // ---------------------------------------------------------------------------------------------
 // The one normalisation every reader reads through.
@@ -383,6 +400,41 @@ function readMark(said: string): Mark | null {
   const word = MARK_WORD.exec(plain);
   if (word !== null) return { family: String(word[1]), number: null, level: null, variant: null, part: null };
   return null;
+}
+
+/**
+ * Is this text a mark of an OPENING family — a door schedule's `D-2`, the plan's circled `D2`, `SD-1`,
+ * the lift's `LD` (s-schedules I-505)? Read over the roster, never over a shape, so a word mark
+ * names an opening only where the roster says it is one.
+ */
+export function isOpeningMark(text: string): boolean {
+  const mark = readMark(plainly(text));
+  return mark !== null && OPENING_FAMILIES.has(mark.family);
+}
+
+/**
+ * A quantity a schedule PRINTS beside its row: `08 NOS`, `01 NO` — zero-padded the way a Dhaka
+ * architect's door and window schedule writes it (F-ARCH, the Edison sets). The word is required: a
+ * bare `08` is a number some column of the set wrote, and no reader here knows which. What it states
+ * is what the schedule SAYS, and never how many members stand (L-CAD-08, s-schedules I-507).
+ */
+const PRINTED_COUNT = /^(\d+)\s*NOS?$/;
+
+/** A printed quantity: the number the cell states. */
+export type PrintedCount = { readonly n: number };
+
+function readCount(said: string): PrintedCount | null {
+  const match = PRINTED_COUNT.exec(said);
+  return match === null ? null : { n: Number(match[1]) };
+}
+
+/**
+ * The count form (F-COUNT) over a text as a drawing wrote it: the one spelling of `08 NOS`, read by
+ * the table below and by the schedules' quantity column alike, so the ratchet and the registry cannot
+ * read a printed quantity two ways (B-17, s-schedules I-507).
+ */
+export function readPrintedCount(text: string): PrintedCount | null {
+  return readCount(plainly(text));
 }
 
 const SHEET_NUMBER = new RegExp(`^(${alternation(SHEET_SERIES)})-(\\d{2})$`);
@@ -620,6 +672,7 @@ const FORMS: readonly {
   { id: "F-SPANFRAC", kind: "span_fraction", read: (said) => { const one = readSpanFraction(said); return one === null ? null : { parsed: one }; } },
   { id: "F-REF", kind: "reference", read: (said) => { const one = readReference(said); return one === null ? null : { parsed: one }; } },
   { id: "F-LEVEL-RANGE", kind: "level_range", read: (said) => readLevels(said) },
+  { id: "F-COUNT", kind: "count", read: (said) => { const one = readCount(said); return one === null ? null : { parsed: one }; } },
   { id: "F-MARK", kind: "mark", read: (said) => { const one = readMark(said); return one === null ? null : { parsed: one }; } },
 ]);
 
@@ -723,6 +776,20 @@ export const GRAMMAR: readonly GrammarRow[] = Object.freeze([
   { input: "OHWT-B", kind: "mark", parsed: { family: "OHWT", number: null, level: null, variant: null, part: "base" }, source: "a member drawn in parts: the overhead tank's base" },
   { input: "MRR", kind: "mark", parsed: { family: "MRR", number: null, level: null, variant: null, part: null }, source: "the machine room roof — a mark the set writes as a word" },
   { input: "FL", kind: "mark", parsed: { family: "FL", number: null, level: null, variant: null, part: null }, source: "the flat slab panel a slab plan labels by word" },
+  // — an architect's openings (s-schedules I-505) ————————————————————————————————————————
+  { input: "D-2", kind: "mark", parsed: { family: "D", number: 2, level: null, variant: null, part: null }, source: "F-ARCH T-MARK-SPELLING: the door schedule hyphenates the mark" },
+  { input: "D2", kind: "mark", parsed: { family: "D", number: 2, level: null, variant: null, part: null }, source: "F-ARCH T-MARK-SPELLING: the plan's circled tag, unhyphenated — one door, two spellings" },
+  { input: "SD-1", kind: "mark", parsed: { family: "SD", number: 1, level: null, variant: null, part: null }, source: "F-ARCH: the balcony's sliding door" },
+  { input: "FD-1", kind: "mark", parsed: { family: "FD", number: 1, level: null, variant: null, part: null }, source: "F-ARCH: the stair's fire door" },
+  { input: "GD-1", kind: "mark", parsed: { family: "GD", number: 1, level: null, variant: null, part: null }, source: "F-ARCH: the ground floor's glass door" },
+  { input: "W-2", kind: "mark", parsed: { family: "W", number: 2, level: null, variant: null, part: null }, source: "F-ARCH: the window with a sunshade" },
+  { input: "W-01", kind: "mark", parsed: { family: "W", number: 1, level: null, variant: null, part: null }, source: "the Edison sets' zero-padded window mark: W-01 is W1" },
+  { input: "V-2", kind: "mark", parsed: { family: "V", number: 2, level: null, variant: null, part: null }, source: "F-ARCH T-LOUVRE-BELOW-THRESHOLD: the kitchen louvre" },
+  { input: "LD", kind: "mark", parsed: { family: "LD", number: null, level: null, variant: null, part: null }, source: "F-ARCH: the lift's landing door, a mark written as a word" },
+  // — printed quantities (s-schedules I-507; L-CAD-08: a reading, never a member count) ——————
+  { input: "08 NOS", kind: "count", parsed: { n: 8 }, source: "F-ARCH T-OPENING-NOS: the door schedule's zero-padded quantity" },
+  { input: "01 NO", kind: "count", parsed: { n: 1 }, source: "F-ARCH: one of a mark, in the singular" },
+  { input: "10 NOS.", kind: "count", parsed: { n: 10 }, source: "the Edison sets' quantity with the abbreviating dot" },
   { input: "T16", kind: "bar_diameter", parsed: { diameterMm: 16, designation: "T16" }, source: "T-NOT-TY: British T is a BAR here because T is not a mark class on this set's roster — evidence, not table order" },
   { input: "EL +11'-0\"", kind: "dimension_ft_in", parsed: { mm: 3352.8, sign: "+" }, source: "E-fixture §3.5 (`EL +11'-0\"`): the level mark four sets in five write without an `=`" },
   { input: "E.G.L (-1'-6\")", kind: "dimension_ft_in", parsed: { mm: -457.2, sign: "-" }, source: "existing ground level, the figure in brackets" },

@@ -8,8 +8,8 @@
  *   · every sheet is proposed ARCHITECTURAL with the number and title its block states (A-01 … A-04);
  *   · the typical floor plan's sheet opens with a LAYOUT_PLAN view "TYPICAL FLOOR PLAN (1ST TO 6TH)"
  *     and a SCHEDULE view "DOOR & WINDOW SCHEDULE (1ST TO 6TH FLOOR)";
- *   · every view the manifest lists is typed as the manifest expects — WALL TYPES included, which the
- *     caption grammar reads UNTYPED today (T-WALL-TYPES-CAPTION: ARCH-3 teaches it, and flips this).
+ *   · every view the manifest lists is typed as the manifest expects — WALL TYPES included, a key of
+ *     types the caption grammar reads as a SCHEDULE (T-WALL-TYPES-CAPTION; s-schedules I-502).
  */
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";

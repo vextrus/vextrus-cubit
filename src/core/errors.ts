@@ -58,6 +58,7 @@ export type { RefusalSeverity, RefusalSurface } from "./errors/law";
 // from here for the same reason: the seam is not a module's to import (SEAM-TENANT), and a roster its
 // readers cannot reach is a roster they would copy (B-17, Q-07).
 export { SCHEDULE_DEFERRAL_REASONS, type ScheduleDeferralReason } from "./errors/takeoff-schedules";
+export { PRINTED_QUANTITY_REFUSAL_CODES, type PrintedQuantityRefusal } from "./errors/takeoff-schedules";
 export { EXPANSION_DEFERRAL_REASONS, type ExpansionDeferralReason } from "./errors/takeoff-placements";
 export { SCOPE_DECLARATION_CAUSES, type ScopeDeclarationCause } from "./errors/residue";
 

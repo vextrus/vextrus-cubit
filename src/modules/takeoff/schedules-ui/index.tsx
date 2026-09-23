@@ -24,7 +24,18 @@ import { NOTE_KINDS, type NoteKind } from "@/core/notes/law";
 import { isDecimalFigure } from "@/core/projects";
 import { SCHEDULES_COPY, fillCopy } from "./copy";
 import { keptReadingOf } from "./kept";
-import { MODEL_SPACE, type FamilyView, type ProposalView, type ReadingView, type ScheduleTableView, type SchedulesView, type SheetView, type StandingView, type VariantView } from "./view";
+import {
+  MODEL_SPACE,
+  type FamilyView,
+  type PrintedView,
+  type ProposalView,
+  type ReadingView,
+  type ScheduleTableView,
+  type SchedulesView,
+  type SheetView,
+  type StandingView,
+  type VariantView,
+} from "./view";
 
 /* ------------------------------------------------------------------ what the screen is handed */
 
@@ -68,6 +79,8 @@ export interface SchedulesTestIds {
   readonly table: string;
   readonly cell: string;
   readonly deferral: string;
+  /** An opening row whose printed quantity is declared rather than read as it stands (I-510). */
+  readonly quantityCheck: string;
   readonly registry: string;
   readonly family: string;
   readonly variant: string;
@@ -298,6 +311,7 @@ const BARE_FIGURE = /^[0-9][0-9.,\s]*$/;
  * registry either, for the same reason: the table states them in its own column rather than by key.
  */
 const OPEN_THE_SHEET = "Open the sheet";
+const OPEN_THE_PLAN = "Open the plan";
 const OPEN_PARTICIPANTS = "Open the participants screen";
 
 /** The widths §5 admits for the frozen mark column; the rest of a stored table's columns divide evenly. */
@@ -572,7 +586,10 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
    * place, and a sheet is empty only where nothing it holds stands at all — no table, no deferral,
    * no member type, no proposal and no reading (AC-8's reading of R-UI-050).
    */
-  const partial = sheet !== null && (sheet.deferrals.length > 0 || sheet.notes.standings.some((standing) => standing.standing === SUSPENDED));
+  // A declared quantity check is this sheet's own deferred half too (I-510): an opening whose
+  // printed quantity stands against its plan, or on no stated basis, stands beside what is read.
+  const partial =
+    sheet !== null && (sheet.deferrals.length > 0 || declaredChecksOf(sheet).length > 0 || sheet.notes.standings.some((standing) => standing.standing === SUSPENDED));
   const stands =
     sheet !== null && (sheet.schedules.length > 0 || sheet.deferrals.length > 0 || sheet.families.length > 0 || sheet.notes.proposals.length > 0 || sheet.notes.readings.length > 0);
   const derived = !holdsMeasure
@@ -741,6 +758,17 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
               ))}
               {sheet.deferrals.map((deferral) => (
                 <Deferral key={deferral.viewKey} code={deferral.reason} href={traceTo([])} RefusalState={RefusalState} testId={testIds.deferral} />
+              ))}
+              {/* I-510: each opening row whose printed quantity is declared, beneath what was read.
+                  Its evidence selects the schedule's cell and the plan's tags of the mark together. */}
+              {declaredChecksOf(sheet).map((check) => (
+                <QuantityCheck
+                  key={`${check.family}\u0000${check.variantKey}`}
+                  check={check}
+                  href={traceTo([...check.printed.sourceKeys, ...check.printed.tagKeys])}
+                  RefusalState={RefusalState}
+                  testId={testIds.quantityCheck}
+                />
               ))}
             </section>
 
@@ -961,6 +989,43 @@ function Deferral({ code, href, RefusalState, testId }: { code: string; href: st
   return (
     <div className="cx-schedules-deferral" data-testid={testId} data-code={entry.code}>
       <RefusalState refusal={entry} evidence={{ href, label: OPEN_THE_SHEET }} />
+    </div>
+  );
+}
+
+/** One opening row whose printed quantity is declared: which mark, over which floors, and what the schedule printed. */
+type DeclaredCheck = { readonly family: string; readonly markText: string; readonly variantKey: string; readonly printed: PrintedView & { readonly refusal: string } };
+
+/**
+ * The opening rows of this sheet whose printed quantity is DECLARED (I-507/i), in the registry's
+ * own order: the families the schedules named, each variant whose reading stands under a code. The
+ * screen filters what the store holds and counts nothing (I-251).
+ */
+function declaredChecksOf(sheet: SheetView): DeclaredCheck[] {
+  return sheet.families.flatMap((family) =>
+    family.variants.flatMap((variant) => {
+      const printed = variant.printed;
+      if (printed === undefined || printed.refusal === null) return [];
+      return [{ family: family.family, markText: family.markText, variantKey: variant.variantKey, printed: { ...printed, refusal: printed.refusal } }];
+    }),
+  );
+}
+
+/**
+ * One declared quantity check, stated where it belongs and never silently (I-510, R-UI-050): the
+ * mark and the printed cell as the schedule shows them — model data in mono, never woven into the
+ * sentence (I-25/I-26) — then the one RefusalState. Its evidence opens the plan with the cell and the
+ * tags selected where a plan was checked, and the sheet where none was.
+ */
+function QuantityCheck({ check, href, RefusalState, testId }: { check: DeclaredCheck; href: string; RefusalState: SchedulesChrome["RefusalState"]; testId: string }) {
+  const entry = entryOf(check.printed.refusal);
+  if (entry === undefined) return null;
+  return (
+    <div className="cx-schedules-deferral cx-schedules-quantity-check" data-testid={testId} data-family={check.family} data-variant={check.variantKey} data-code={entry.code}>
+      <p className="cx-schedules-quantity-said">
+        <span className="cx-schedules-mono">{drawn(check.markText)}</span> <span className="cx-schedules-mono">{drawn(check.printed.text)}</span>
+      </p>
+      <RefusalState refusal={entry} evidence={{ href, label: check.printed.planKey === null ? OPEN_THE_SHEET : OPEN_THE_PLAN }} />
     </div>
   );
 }

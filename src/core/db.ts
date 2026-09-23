@@ -64,6 +64,7 @@ export {
   memberTypeDimensions,
   rebarZones,
   scheduleDeferrals,
+  schedulePrintedQuantities,
   notesReadings,
   noteClauseProposals,
   placements,
@@ -119,6 +120,8 @@ export type {
   RebarZone,
   ScheduleDimension,
   ScheduleDeferralReason,
+  PrintedQuantityBasis,
+  PrintedQuantityRefusal,
   ExpansionDeferralReason,
 } from "./db/schema";
 export { closePools } from "./db/pools";

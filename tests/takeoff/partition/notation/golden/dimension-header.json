@@ -1,0 +1,16 @@
+{
+  "parser": "dimensionOfHeader",
+  "why": "I-322 and s-schedules I-506/g: the dimension a column head names, read WHOLE — the unit set aside, one word must remain. A sill's own qualifier (HT, HEIGHT, LEVEL) says what a sill is and is read with it; a head naming a member's size AND something else names nothing.",
+  "cases": [
+    { "input": "DIA (mm)", "expect": "dia" },
+    { "input": "LENGTH (mm)", "expect": "length" },
+    { "input": "CUT LENGTH", "expect": null },
+    { "input": "THICKNESS", "expect": "thickness" },
+    { "input": "THK.", "expect": "thickness" },
+    { "input": "SILL", "expect": "sill" },
+    { "input": "SILL HT.", "expect": "sill" },
+    { "input": "SILL HEIGHT (mm)", "expect": "sill" },
+    { "input": "HEIGHT", "expect": null },
+    { "input": "SIZE (W x H)", "expect": null }
+  ]
+}

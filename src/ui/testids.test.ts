@@ -383,6 +383,7 @@ const GOLDEN: readonly string[] = [
   "schedules-notes",
   "schedules-proposal",
   "schedules-proposal-value",
+  "schedules-quantity-check",
   "schedules-reading",
   "schedules-registry",
   "schedules-screen",

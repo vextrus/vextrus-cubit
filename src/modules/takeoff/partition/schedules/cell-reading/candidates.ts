@@ -289,11 +289,14 @@ function attributesOf(kind: NotationKind, parsed: unknown, text: string): CellAt
       return parseSizePair(text) === null ? ["mark"] : ["section"];
     case "compound":
       return compoundAttributes(parsed);
+    // A quantity a schedule prints (`08 NOS`) is what the schedule SAYS of how many, never an
+    // attribute of the member type (L-CAD-08; s-schedules I-507), so `count` states none either.
     case "grade_fc":
     case "grade_fy":
     case "cover":
     case "span_fraction":
     case "reference":
+    case "count":
       return [];
   }
 }

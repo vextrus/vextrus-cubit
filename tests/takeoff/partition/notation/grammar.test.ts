@@ -15,7 +15,9 @@ import {
   readNotation,
   type FormId,
   type GrammarRow,
+  type PrintedCount,
 } from "@/modules/takeoff/partition/notation/grammar";
+import { parsePrintedQuantity, parseWholeNumber } from "@/modules/takeoff/partition/notation";
 
 /** The forms every row of the table was read by — collected once, for the coverage contract. */
 const FORMS_EXERCISED = new Set<FormId>(
@@ -101,5 +103,34 @@ describe("one normalisation, read by every form", () => {
 
   test("the decimal point inside a number survives the abbreviating dots", () => {
     expect(plainly("5.0mm%%C"), "5.0 is five, not fifty").toBe("5.0MMØ");
+  });
+});
+
+describe("a printed quantity is read one way (B-17, s-schedules I-507)", () => {
+  // The schedules' quantity column and the ratchet's F-COUNT once spelled `08 NOS` twice, and the two
+  // spellings already differed on a bare `8`. The column is the grammar's count form, plus the bare
+  // whole number only a quantity head lets stand — never a third reading of its own.
+  const PROBES: readonly string[] = [...new Set([
+    ...GRAMMAR.map((row) => row.input),
+    "08 NOS", "01 NO", "10 NOS.", "08NOS", "8 no.", "08 Nos", "8", "08", " 12 ",
+    "08 NOS PER FLOOR", "NOS", "8 NR", "8 PCS", "4-16%%C", "-", "SEE SCHEDULE", "",
+  ])];
+
+  test.each(PROBES.map((text): [string] => [text]))("%j", (text) => {
+    const read = readNotation(text);
+    const counted = read.ok && read.form === "F-COUNT" ? (read.parsed as PrintedCount).n : null;
+    expect(
+      parsePrintedQuantity(text),
+      `"${text}" reads in a quantity column as the grammar's F-COUNT reads it, or as the bare whole number it is`,
+    ).toBe(counted ?? parseWholeNumber(text));
+  });
+
+  test("the count form needs its word; only the column's head lets a bare number stand", () => {
+    const worded = readNotation("08 NOS");
+    expect(worded.ok && worded.form).toBe("F-COUNT");
+    const bare = readNotation("08");
+    expect(bare.ok && bare.form === "F-COUNT", "a bare 08 is a number some column wrote, not a count the grammar reads").toBe(false);
+    expect(parsePrintedQuantity("08"), "under QTY the column's head says what the 08 counts").toBe(8);
+    expect(parsePrintedQuantity("08 NOS PER FLOOR"), "a cell that also says something else is not read at all").toBeNull();
   });
 });

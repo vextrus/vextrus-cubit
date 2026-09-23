@@ -453,6 +453,7 @@ export const TESTIDS = {
     notes: "schedules-notes",
     proposal: "schedules-proposal",
     proposalValue: "schedules-proposal-value",
+    quantityCheck: "schedules-quantity-check",
     reading: "schedules-reading",
     registry: "schedules-registry",
     screen: "schedules-screen",

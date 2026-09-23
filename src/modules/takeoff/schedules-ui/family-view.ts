@@ -31,6 +31,23 @@ export function bandFaceOf(variant: BandedText): BandFace | null {
 }
 
 /**
+ * The families a sheet's schedules named, ONE PER MARK (s-schedules I-506, I-353). An architect
+ * states a mark's openings in one schedule per floor group — F-ARCH's D2 stands in the ground floor's
+ * door schedule AND the typical floors' — and the store keeps each under the schedule that named it.
+ * The registry pane says the mark once, its bands from the ground up (`GF`, then `1ST TO 6TH`), the
+ * way a column family's bands are said; two rows of `D2` would read as two doors, and would stand
+ * two families under one key. Grouping only: every variant is the store's, and nothing is counted.
+ */
+export function familiesViewOf(families: readonly MemberFamily[]): FamilyView[] {
+  const byMark = new Map<string, MemberFamily>();
+  for (const family of families) {
+    const held = byMark.get(family.family);
+    byMark.set(family.family, held === undefined ? family : { ...held, sourceKeys: [...held.sourceKeys, ...family.sourceKeys], variants: [...held.variants, ...family.variants] });
+  }
+  return [...byMark.values()].map(familyViewOf);
+}
+
+/**
  * One stored mark family, verbatim — its mark as the schedule wrote it, and never a count (I-251).
  * Its variants stand in the order a column schedule is read, from the ground up (I-353): the store
  * keeps them in whatever order its key sorts, which put `3RD & 4TH` before `GF TO 2ND`.
@@ -51,6 +68,19 @@ export function familyViewOf(family: MemberFamily): FamilyView {
       sectionText: variant.sectionText,
       sourceKeys: variant.sourceKeys,
       zones: variant.zones.map((zone) => ({ zone: zone.zone, text: zone.text, sourceKeys: zone.sourceKeys })),
+      // What an opening schedule printed for the row, as the store holds it (I-507/i) — the cell
+      // and its standing, never a number the screen counts.
+      ...(variant.printed === undefined
+        ? {}
+        : {
+            printed: {
+              text: variant.printed.text,
+              sourceKeys: variant.printed.sourceKeys,
+              refusal: variant.printed.refusal,
+              planKey: variant.printed.planKey,
+              tagKeys: variant.printed.tagKeys,
+            },
+          }),
     })),
   };
 }

@@ -1,0 +1,11 @@
+{
+  "parser": "statesPerFloor",
+  "why": "s-schedules I-507: the basis an opening schedule covering several floors must state before its printed quantities are compared with a plan — PER and a storey word, read over the notation's own storey words.",
+  "cases": [
+    { "input": "NOTE: QUANTITY PER FLOOR.", "expect": true },
+    { "input": "10 NOS PER FLR", "expect": true },
+    { "input": "QUANTITY", "expect": false },
+    { "input": "PER SHEET", "expect": false },
+    { "input": "1ST TO 6TH FLOOR", "expect": false }
+  ]
+}

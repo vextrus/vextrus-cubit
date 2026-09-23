@@ -6,8 +6,21 @@
 // with the views they were read off — a run that fails leaves the schedules that stood before it
 // rather than half of a new set (L-REG-04, R-TO-030). That is why this file takes a transaction
 // rather than opening a handle.
-import { and, eq, forTenant, memberTypeDimensions, memberTypeVariants, memberTypes, rebarZones, scheduleCells, scheduleDeferrals, schedules, type TenantTx } from "@/core/db";
-import type { MemberDimension, MemberFamily } from "./registry";
+import {
+  and,
+  eq,
+  forTenant,
+  memberTypeDimensions,
+  memberTypeVariants,
+  memberTypes,
+  rebarZones,
+  scheduleCells,
+  scheduleDeferrals,
+  schedulePrintedQuantities,
+  schedules,
+  type TenantTx,
+} from "@/core/db";
+import type { MemberDimension, MemberFamily, PrintedQuantity } from "./registry";
 import type { ScheduleCell, ScheduleDeferralRow, ScheduleTable } from "./reconstruct";
 
 /** What the schedules stage derived: the views it examined, and what it read in them. */
@@ -50,11 +63,19 @@ export type ScheduleWrite = {
   readonly schedules: DetectedSchedules | null;
 };
 
-/** The seven tables of this stage, as one type — every one of them scoped and rewritten together. */
-type ScheduleTableOf = typeof schedules | typeof scheduleCells | typeof memberTypes | typeof memberTypeVariants | typeof memberTypeDimensions | typeof rebarZones | typeof scheduleDeferrals;
+/** The eight tables of this stage, as one type — every one of them scoped and rewritten together. */
+type ScheduleTableOf =
+  | typeof schedules
+  | typeof scheduleCells
+  | typeof memberTypes
+  | typeof memberTypeVariants
+  | typeof memberTypeDimensions
+  | typeof schedulePrintedQuantities
+  | typeof rebarZones
+  | typeof scheduleDeferrals;
 
 /**
- * Rewrite one record's schedule rows inside the partition's transaction. All seven tables are cleared
+ * Rewrite one record's schedule rows inside the partition's transaction. All eight tables are cleared
  * first, so a rebuild that now reads fewer tables — or a deferral where a table stood — leaves
  * exactly what it derived and nothing of what it replaced.
  */
@@ -64,6 +85,7 @@ export async function rewriteScheduleRows(tx: TenantTx, write: ScheduleWrite): P
   // Cleared beneath first: nothing ever stands for a moment as a variant of a family the store no
   // longer holds.
   await tx.delete(rebarZones).where(ofRecord(rebarZones));
+  await tx.delete(schedulePrintedQuantities).where(ofRecord(schedulePrintedQuantities));
   await tx.delete(memberTypeDimensions).where(ofRecord(memberTypeDimensions));
   await tx.delete(memberTypeVariants).where(ofRecord(memberTypeVariants));
   await tx.delete(memberTypes).where(ofRecord(memberTypes));
@@ -126,6 +148,33 @@ export async function rewriteScheduleRows(tx: TenantTx, write: ScheduleWrite): P
     ),
   );
   if (dimensions.length > 0) await tx.insert(memberTypeDimensions).values(dimensions);
+
+  // What an opening schedule PRINTS for a row, beside the variant it was printed for and in a table
+  // of its own — a cited reading of the schedule, never a count the member-type registry holds
+  // (s-schedules I-507, L-CAD-08).
+  const printed = families.flatMap((family) =>
+    family.variants.flatMap((variant) =>
+      variant.printed === undefined
+        ? []
+        : [
+            {
+              ...stamp,
+              scheduleKey: family.scheduleKey,
+              family: family.family,
+              variantKey: variant.variantKey,
+              text: variant.printed.text,
+              printed: variant.printed.printed,
+              basis: variant.printed.basis,
+              basisKeys: variant.printed.basisKeys,
+              planKey: variant.printed.planKey,
+              tagKeys: variant.printed.tagKeys,
+              refusal: variant.printed.refusal,
+              sourceKeys: variant.printed.sourceKeys,
+            },
+          ],
+    ),
+  );
+  if (printed.length > 0) await tx.insert(schedulePrintedQuantities).values(printed);
 
   const zones = families.flatMap((family) =>
     family.variants.flatMap((variant) =>
@@ -244,6 +293,24 @@ export async function storedMemberTypesIn(tx: TenantTx, tenantId: string, ingest
     .where(and(eq(memberTypeDimensions.tenantId, tenantId), eq(memberTypeDimensions.ingestId, ingestId)))
     .orderBy(memberTypeDimensions.scheduleKey, memberTypeDimensions.family, memberTypeDimensions.variantKey, memberTypeDimensions.dimension);
 
+  const printed = await tx
+    .select({
+      scheduleKey: schedulePrintedQuantities.scheduleKey,
+      family: schedulePrintedQuantities.family,
+      variantKey: schedulePrintedQuantities.variantKey,
+      text: schedulePrintedQuantities.text,
+      printed: schedulePrintedQuantities.printed,
+      basis: schedulePrintedQuantities.basis,
+      basisKeys: schedulePrintedQuantities.basisKeys,
+      planKey: schedulePrintedQuantities.planKey,
+      tagKeys: schedulePrintedQuantities.tagKeys,
+      refusal: schedulePrintedQuantities.refusal,
+      sourceKeys: schedulePrintedQuantities.sourceKeys,
+    })
+    .from(schedulePrintedQuantities)
+    .where(and(eq(schedulePrintedQuantities.tenantId, tenantId), eq(schedulePrintedQuantities.ingestId, ingestId)))
+    .orderBy(schedulePrintedQuantities.scheduleKey, schedulePrintedQuantities.family, schedulePrintedQuantities.variantKey);
+
   const zones = await tx
     .select({
       scheduleKey: rebarZones.scheduleKey,
@@ -272,6 +339,12 @@ export async function storedMemberTypesIn(tx: TenantTx, tenantId: string, ingest
           const stated: MemberDimension[] = dimensions
             .filter((one) => one.scheduleKey === family.scheduleKey && one.family === family.family && one.variantKey === variant.variantKey)
             .map((one) => ({ dimension: one.dimension, text: one.text, value: one.value, unit: one.unit, sourceKeys: one.sourceKeys }));
+          // Absent rather than null where the schedule printed none — the registry's own shape (I-507).
+          const held = printed.find((one) => one.scheduleKey === family.scheduleKey && one.family === family.family && one.variantKey === variant.variantKey);
+          const said: PrintedQuantity | undefined =
+            held === undefined
+              ? undefined
+              : { text: held.text, printed: held.printed, basis: held.basis, basisKeys: held.basisKeys, planKey: held.planKey, tagKeys: held.tagKeys, refusal: held.refusal, sourceKeys: held.sourceKeys };
           return {
             variantKey: variant.variantKey,
             bandText: variant.bandText,
@@ -283,6 +356,7 @@ export async function storedMemberTypesIn(tx: TenantTx, tenantId: string, ingest
             sectionUnit: variant.sectionUnit,
             sourceKeys: variant.sourceKeys,
             ...(stated.length === 0 ? {} : { dimensions: stated }),
+            ...(said === undefined ? {} : { printed: said }),
             zones: zones
               .filter((zone) => zone.scheduleKey === family.scheduleKey && zone.family === family.family && zone.variantKey === variant.variantKey)
               .map((zone) => ({

@@ -18,6 +18,7 @@ import type { RebarZone, ScheduleDimension, SectionUnit } from "@/core/db";
 import { mtextLines, normaliseNotation, notationLines, withoutMtextCodes } from "@/core/entitygraph/notation";
 import { dotlessUpper } from "@/core/identity";
 import { useStoreyEquivalence } from "@/core/offers/contract";
+import { MM_PER_INCH, readPrintedCount } from "./grammar";
 
 // L-CAD-02's control codes, the MTEXT inline codes and the diameter's many glyphs are core's
 // (`@/core/entitygraph/notation`): the note grammar behind TRANSCRIBE_SHEET_NOTES reads a drawing's
@@ -26,6 +27,10 @@ import { useStoreyEquivalence } from "@/core/offers/contract";
 // MTEXT codes are resolved, with its stacked fraction kept (I-458): through `normaliseNotation`,
 // or — where the rest of a cell is handed back with its `%%` codes as written — `withoutMtextCodes`.
 export { mtextLines, normaliseNotation, notationLines, withoutMtextCodes };
+
+// Which marks are OPENINGS is the grammar table's roster (`./grammar`'s MARK_FAMILIES and MARK_WORDS),
+// published through the barrel so the schedules read it by one name (s-schedules I-505, B-17).
+export { isOpeningMark } from "./grammar";
 
 /**
  * The four zones a rebar column reads as, each named as the member of the seam's roster it is.
@@ -46,10 +51,19 @@ export const REBAR_ZONES: readonly RebarZone[] = Object.freeze(Object.values(REB
 const UNIT: Readonly<Record<SectionUnit, SectionUnit>> = Object.freeze({ in: "in", mm: "mm" });
 
 /**
- * The four dimensions a schedule states beside a section, named the same way: a record keyed by the
- * seam's own roster, so the store's CHECK, this grammar and the rails spell one list (B-17).
+ * The dimensions a schedule states beside a section, named the same way: a record keyed by the
+ * seam's own roster, so the store's CHECK, this grammar and the rails spell one list (B-17). The
+ * architect's two — an opening's sill and a wall type's thickness — join the foundations' four
+ * (s-schedules I-506, I-508).
  */
-export const DIMENSION: Readonly<Record<ScheduleDimension, ScheduleDimension>> = Object.freeze({ depth: "depth", dia: "dia", length: "length", top: "top" });
+export const DIMENSION: Readonly<Record<ScheduleDimension, ScheduleDimension>> = Object.freeze({
+  depth: "depth",
+  dia: "dia",
+  length: "length",
+  top: "top",
+  sill: "sill",
+  thickness: "thickness",
+});
 
 /** A section as a drawing writes one: width by depth, in the unit it stated or in none at all. */
 export type SizePair = { readonly width: number; readonly depth: number; readonly unit: SectionUnit | null };
@@ -222,21 +236,75 @@ const DIMENSION_WORDS: readonly (readonly [string, ScheduleDimension])[] = Objec
   ["DIAMETER", DIMENSION.dia],
   ["LENGTH", DIMENSION.length],
   ["DEPTH", DIMENSION.depth],
+  // An architect's schedules (s-schedules I-506, I-508): the sill an opening stands on and
+  // the thickness a wall type is built to, the second in the abbreviation a Dhaka set writes it in.
+  ["SILL", DIMENSION.sill],
+  ["THICKNESS", DIMENSION.thickness],
+  ["THK", DIMENSION.thickness],
 ] as const);
 
 /**
- * The dimension a column head names — `DIA (mm)`, `LENGTH (mm)` — or null where it names none
- * (R-TO-032, AM-06 §2: "pile length comes from the pile schedule").
+ * The words a sill's head may carry beside SILL and still name the sill: its height above the floor,
+ * written three ways (`SILL HT.`, `SILL HEIGHT`, `SILL LEVEL`). Beside any other word they are no
+ * dimension of their own — a `HEIGHT` column of an opening schedule is read by the size pair, never
+ * here.
+ */
+const SILL_QUALIFIERS: ReadonlySet<string> = new Set(["HT", "HEIGHT", "LEVEL", "LVL"]);
+
+/**
+ * The dimension a column head names — `DIA (mm)`, `LENGTH (mm)`, `SILL HT.`, `THICKNESS` — or null
+ * where it names none (R-TO-032, AM-06 §2: "pile length comes from the pile schedule").
  *
  * The head is read WHOLE: once the unit it states is set aside, exactly one word must remain and it
  * must be one of the words above. A bar-bending schedule's `CUT LENGTH` is the length of a BAR, and
  * a head that names a member's length and something else besides is a head this grammar cannot say
- * which of the two it measures — so both answer null, and nothing is read under them.
+ * which of the two it measures — so both answer null, and nothing is read under them. The one
+ * exception is the sill's own qualifier, which says what a sill IS rather than naming anything else.
  */
 export function dimensionOfHeader(header: string): ScheduleDimension | null {
-  const words = wordsOf(spelled(header)).filter((word) => !HEADER_UNITS.some((unit) => unit[0] === word));
+  const stated = wordsOf(spelled(header)).filter((word) => !HEADER_UNITS.some((unit) => unit[0] === word));
+  const words = stated.includes("SILL") ? stated.filter((word) => !SILL_QUALIFIERS.has(word)) : stated;
   const only = words.length === 1 ? words[0] : undefined;
   return DIMENSION_WORDS.find((candidate) => candidate[0] === only)?.[1] ?? null;
+}
+
+/**
+ * A figure a cell states once and then RESTATES in brackets in the other unit — a wall type's
+ * `250 (0'-10")`, the way a Dhaka architect writes a thickness in the metric the mason orders and the
+ * feet-and-inches the drawing is lettered in (s-schedules I-508). Null where the cell is not that
+ * shape, or where the restatement settles no unit.
+ *
+ * The figure before the bracket GOVERNS — it is the statement, and the bracket its conversion rounded
+ * to the draughtsman's precision, so reading the restatement would put a rounded 10" (254 mm) where
+ * the drawing states 250. What the bracket DOES settle is the unit of a bare figure: of the units a
+ * schedule is written in, the one in which that figure rounds to the restatement (to its whole inch,
+ * or its whole millimetre). 250 mm is 9.84" and rounds to 10"; 250" does not — so `250` is 250 mm.
+ * Two units that both fit, or none, settle nothing, and the figure keeps no unit (L-MEA-01: a
+ * number nobody gave a unit to is not an inch). A figure that states its own unit keeps it.
+ */
+export function parseRestatedFigure(text: string): { readonly value: number; readonly unit: SectionUnit | null } | null {
+  const said = RESTATED.exec(normaliseNotation(text));
+  if (said === null) return null;
+  const figure = sideOf(said[1] ?? "");
+  const restated = sideOf(said[2] ?? "");
+  if (figure === null || restated === null) return null;
+  if (figure.unit !== null) return figure;
+  const to = restated.unit;
+  if (to === null) return null;
+  const fits = SECTION_UNIT_ROSTER.filter((unit) => Math.round(inUnit(figure.value, unit, to)) === restated.value);
+  return fits.length === 1 ? { value: figure.value, unit: fits[0] as SectionUnit } : null;
+}
+
+/** A figure, then the same figure again in brackets: `250 (0'-10")`, `125 (5")`. */
+const RESTATED = /^\s*([^()]+?)\s*\(\s*([^()]+?)\s*\)\s*$/;
+
+/** The units a figure may be restated between — the seam's two, named through the record above. */
+const SECTION_UNIT_ROSTER: readonly SectionUnit[] = Object.freeze(Object.values(UNIT));
+
+/** A figure in one unit, said in another. */
+function inUnit(value: number, from: SectionUnit, to: SectionUnit): number {
+  if (from === to) return value;
+  return from === UNIT.mm ? value / MM_PER_INCH : value * MM_PER_INCH;
 }
 
 /**
@@ -584,11 +652,109 @@ const MEMBER_WORDS: ReadonlySet<string> = new Set(["COLUMN", "COLUMNS", "COL", "
 /**
  * Does this header stand over the column of marks? The header band of a table is the first leading
  * band holding a cell this reads (AC-1), so this is what anchors the whole reconstruction.
+ *
+ * An architect's schedule heads that column with what its rows ARE rather than with MARK
+ * (s-schedules I-503): the type an opening sub-table lists, the room a finish schedule is keyed
+ * by, the symbol a key names. Such a header is read here too — and `isKeyWordHeader` says it was read
+ * by that word alone, which the reconstruction needs to tell a column's head from a group's title.
  */
 export function isMarkHeader(text: string): boolean {
+  return isMemberMarkHeader(text) || keyWordOf(text) !== null;
+}
+
+/** The structural reading: a name word outright, or a qualified word beside a member class. */
+function isMemberMarkHeader(text: string): boolean {
   const words = wordsOf(spelled(text));
   if (words.some((word) => NAME_WORDS.has(word))) return true;
   return words.some((word) => QUALIFIED_WORDS.has(word)) && words.some((word) => MEMBER_WORDS.has(word));
+}
+
+/**
+ * The key column's kinds an architect's schedules are written in (s-schedules I-503): the openings
+ * a door and window schedule lists, the rooms a finish schedule is keyed by, and the symbols a key
+ * names. A closed roster, read by the reconstruction and the registry alike (ARCH-01).
+ */
+export const KEY_KINDS = ["opening", "room", "symbol"] as const;
+
+/** One of the three. */
+export type KeyKind = (typeof KEY_KINDS)[number];
+
+/**
+ * The words each kind of key column is headed by. An opening sub-table is headed by the TYPE it lists
+ * — `MAIN DOOR`, `FLUSH DOOR`, `WINDOW`, `WINDOW WITH SUNSHADE`, `VENTILATOR`, `LOUVRE`, `GLASS DOOR`,
+ * the Edison sets' `FIXED GLASS` — so the words are the kinds of opening, never the qualifiers a type
+ * name carries beside them. `OPENING` is not among them: a structural lintel schedule heads a column
+ * `OPENING (mm)` and writes `OVER 1000 OPENING` in its rows, and neither names the openings a row lists.
+ */
+const KEY_WORDS: Readonly<Record<KeyKind, ReadonlySet<string>>> = Object.freeze({
+  opening: new Set(["DOOR", "DOORS", "WINDOW", "WINDOWS", "VENTILATOR", "VENTILATORS", "LOUVRE", "LOUVRES", "LOUVER", "LOUVERS", "GLASS"]),
+  room: new Set(["ROOM", "ROOMS"]),
+  symbol: new Set(["SYMBOL", "SYMBOLS"]),
+});
+
+/** Which kind of key column a header names, where it names one by a key word. */
+function keyWordOf(text: string): KeyKind | null {
+  const words = wordsOf(spelled(text));
+  return KEY_KINDS.find((kind) => words.some((word) => KEY_WORDS[kind].has(word))) ?? null;
+}
+
+/**
+ * Was this header read as the key column's by a KEY WORD alone — `MAIN DOOR`, `ROOM`, `SYMBOL` — and
+ * by no name word of the structural reading? Such a word says what the rows are; it heads a COLUMN
+ * only where the band beside it states another column, because alone on its line the same word titles
+ * a group of sub-tables (`DOOR`, `WINDOW & VENTILATOR`) or the table itself (`ROOM FINISH SCHEDULE`)
+ * (s-schedules I-503). `MARK` heads its column wherever it stands, as it always has.
+ */
+export function isKeyWordHeader(text: string): boolean {
+  return !isMemberMarkHeader(text) && keyWordOf(text) !== null;
+}
+
+/**
+ * The kind of key column a header names, or null where it names none by a key word: `opening` for a
+ * door and window schedule's type head, `room` for a finish schedule's, `symbol` for a key's. A header
+ * naming its column by MARK as well (`DOOR MARK`) still says what its rows are.
+ */
+export function keyKindOfHeader(text: string): KeyKind | null {
+  return keyWordOf(text);
+}
+
+/**
+ * The words an opening schedule heads its quantity column with — `QUANTITY`, `QTY`, `NOS` — read
+ * whole, as a dimension's head is. `NO` alone is not among them: it heads a serial column as often as
+ * a count (s-schedules I-507).
+ */
+const QUANTITY_WORDS: ReadonlySet<string> = new Set(["QUANTITY", "QTY", "NOS"]);
+
+/** Does this head stand over the column an opening schedule prints its quantities in? */
+export function isPrintedQuantityHeader(header: string): boolean {
+  const words = wordsOf(spelled(header));
+  return words.length === 1 && QUANTITY_WORDS.has(words[0] as string);
+}
+
+/**
+ * The quantity one cell of that column PRINTS — `08 NOS`, `01 NO`, `8` — or null where it prints
+ * anything else. A reading of what the schedule SAYS, never a count of members (L-CAD-08): the
+ * zero-padded `08` is eight, and a cell that also says something else is not read at all.
+ *
+ * Two readings, each with its one home (B-17): the grammar's count form, which needs the word, and a
+ * bare whole number, which only a column headed by a quantity word lets stand as a quantity.
+ */
+export function parsePrintedQuantity(text: string): number | null {
+  return readPrintedCount(text)?.n ?? parseWholeNumber(text);
+}
+
+/** The word a note says "each" with, before the storey it counts by: `QUANTITY PER FLOOR`. */
+const PER_WORD = "PER";
+
+/**
+ * Does this text state that a quantity is counted PER FLOOR — `NOTE: QUANTITY PER FLOOR.`,
+ * `NOS PER FLR` — the basis an opening schedule covering several floors must state before its
+ * quantities can be compared with a plan (s-schedules I-507; L-MEA-02)? The storey words are the
+ * grammar's own (`STOREY_WORDS`, B-17).
+ */
+export function statesPerFloor(text: string): boolean {
+  const words = wordsOf(spelled(text));
+  return words.some((word, at) => word === PER_WORD && STOREY_WORDS.has(words[at + 1] ?? ""));
 }
 
 /**

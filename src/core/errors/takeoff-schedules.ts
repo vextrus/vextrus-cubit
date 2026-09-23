@@ -11,7 +11,9 @@ export type TakeoffSchedulesRefusalCode =
   | "SCHEDULE_VIEW_CONTRIBUTED_NOTHING"
   | "NOTE_READING_CONTESTED"
   | "NOTE_SOURCE_NOT_ON_SHEET"
-  | "NOTES_NONE_PROPOSED";
+  | "NOTES_NONE_PROPOSED"
+  | "OPENING_QUANTITY_DISAGREES"
+  | "OPENING_QUANTITY_BASIS_UNSTATED";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const TAKEOFF_SCHEDULES_REFUSALS: RefusalGroup<TakeoffSchedulesRefusalCode> = Object.freeze({
@@ -74,7 +76,39 @@ export const TAKEOFF_SCHEDULES_REFUSALS: RefusalGroup<TakeoffSchedulesRefusalCod
     severity: "info",
     surface: "inline",
   }),
+  // L-MEA-02: the opening schedule is the authority and the plan a declared cross-check. Where the
+  // quantity a schedule prints for a mark and the tags its plan of the same floors carries disagree,
+  // the disagreement is DECLARED, never resolved by taking either side (s-schedules I-507): which
+  // is right is a person's statement, and nothing is measured off this mark until one is made.
+  OPENING_QUANTITY_DISAGREES: Object.freeze({
+    code: "OPENING_QUANTITY_DISAGREES",
+    message: "The schedule prints a different quantity of this opening than its plan tags, so neither figure stands.",
+    remedy: "Open the plan and check its tags for this mark against the schedule's row — a person states which is right, and no quantity is taken from either until then.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // The same law's other half: a quantity column states a number per floor or for the whole group of
+  // floors, and a schedule that says neither — over several floors, or over floors its caption does
+  // not name at all — has stated no quantity anybody can multiply or compare (s-schedules I-507;
+  // the Edison sets' 3RD & 5TH sheet). The message claims no floors the drawing did not state.
+  OPENING_QUANTITY_BASIS_UNSTATED: Object.freeze({
+    code: "OPENING_QUANTITY_BASIS_UNSTATED",
+    message: "This schedule does not say whether its quantities count one floor or every floor it applies to.",
+    remedy: "Read the sheet's notes for the basis of its quantity column — a quantity whose basis is unstated is never multiplied by the floors or compared with the plan.",
+    severity: "warning",
+    surface: "inline",
+  }),
 });
+
+/**
+ * Why a printed quantity is declared rather than read as it stands (s-schedules I-507): the codes
+ * of this register the store's CHECK admits on `schedule_printed_quantities.refusal`. One list, read
+ * by the store and by the registry that declares them (B-17, Q-07).
+ */
+export const PRINTED_QUANTITY_REFUSAL_CODES = ["OPENING_QUANTITY_DISAGREES", "OPENING_QUANTITY_BASIS_UNSTATED"] as const satisfies readonly TakeoffSchedulesRefusalCode[];
+
+/** One of the two. */
+export type PrintedQuantityRefusal = (typeof PRINTED_QUANTITY_REFUSAL_CODES)[number];
 
 /**
  * Why a schedule view defers: the codes of this register a SCHEDULE view stands under when it yielded

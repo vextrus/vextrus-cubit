@@ -15,7 +15,7 @@ import { noteStanding } from "@/core/notes/standing";
 import type { NoteReadingRow } from "@/core/notes/store";
 import { clauseOffersOnDrawing, readingsOnDrawings, sheetLayoutsOf, type NoteClauseOfferWrite } from "@/modules/takeoff/notes";
 import { memberTypesOf, schedulesOf, type ScheduleCell, type StoredSchedule, type ViewsScope } from "@/modules/takeoff/partition";
-import { familyViewOf } from "./family-view";
+import { familiesViewOf } from "./family-view";
 import { MARK_ORDER } from "./order";
 import { MODEL_SPACE, type NotesView, type ProposalView, type ReadingView, type ScheduleTableView, type SchedulesView, type SheetView, type StandingView } from "./view";
 
@@ -91,7 +91,9 @@ async function sheetsOfDrawing(scope: SchedulesViewScope, drawingId: string, rea
     const deferrals = onModel ? (stored?.deferrals ?? []).map((deferral) => ({ viewKey: deferral.viewKey, reason: deferral.reason })) : [];
     // Marks in the order a reader counts them — RB1, RB2 … RB10, never the string order that puts
     // RB10 second (R-UI-084). The order is presentation; what each family says is the store's.
-    const families = onModel ? (types?.families ?? []).map(familyViewOf).sort((left, right) => MARK_ORDER.compare(left.family, right.family)) : [];
+    // One family per mark, however many schedules named it — an architect's door schedules name D2
+    // once per floor group (I-506) — its bands from the ground up (`familiesViewOf`).
+    const families = onModel ? familiesViewOf(types?.families ?? []).sort((left, right) => MARK_ORDER.compare(left.family, right.family)) : [];
     if (schedules.length === 0 && deferrals.length === 0 && layout.texts.length === 0) continue;
     sheets.push({
       drawingId,

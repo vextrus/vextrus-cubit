@@ -442,6 +442,13 @@
       "when": 1790194519409,
       "tag": "0062_manual-measurements",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1790207458441,
+      "tag": "0063_opening-and-finish-schedules",
+      "breakpoints": true
     }
   ]
 }

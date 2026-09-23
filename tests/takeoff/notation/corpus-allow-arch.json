@@ -1,0 +1,76 @@
+{
+ "note": "The notation strings of fixtures/arch/notation.corpus.json the grammar does NOT read as their declared family, each with the reason — F-ARCH's half of the ratchet (s-schedules I-505/f). The same debt and the same ratchet as corpus-allow.json: tests/takeoff/notation/corpus.test.ts freezes `frozen` at the number of entries, an entry nothing uses fails the suite, and a string the fixture registers in traps.json belongs there, never here.",
+ "frozen": 14,
+ "strings": [
+  {
+   "raw": "PLINTH LEVEL (+)0'-0\"",
+   "family": "level",
+   "why": "the architect's level mark writes its sign in brackets, `(+)`, which neither the level-mark form (`EL +11'-0\"`) nor the feet-and-inches form reads — the Edison readerGap 'no level stack is proposed from a real section', owned by the levels proposal (propose.ts's IMPERIAL_ELEVATION), not by the schedules."
+  },
+  {
+   "raw": "LEVEL (+)11'-0\" TO (+)61'-0\"",
+   "family": "level",
+   "why": "a range of two bracket-signed levels: the same `(+)` sign the level-mark form does not read, twice, across a range word — the levels proposal's reading, as `PLINTH LEVEL (+)0'-0\"`."
+  },
+  {
+   "raw": "E.G.L. (-)1'-6\"",
+   "family": "level",
+   "why": "existing ground level with its sign bracketed alone, `(-)`: the grammar reads `E.G.L (-1'-6\")` (the sign inside the figure's bracket) and not a bracket holding the sign only — the levels proposal's reading."
+  },
+  {
+   "raw": "GROUND FLOOR\\PFFL (+)0'-0\"",
+   "family": "level",
+   "why": "a two-line level label (the storey's name, a paragraph break, then `FFL (+)…`): the Edison readerGap 'read the two-line label as one reading', and the bracketed sign — the levels proposal's."
+  },
+  {
+   "raw": "1ST FLOOR\\PFFL (+)11'-0\"",
+   "family": "level",
+   "why": "as `GROUND FLOOR\\PFFL (+)0'-0\"`: a two-line level label with a bracketed sign."
+  },
+  {
+   "raw": "2ND FLOOR\\PFFL (+)21'-0\"",
+   "family": "level",
+   "why": "as `GROUND FLOOR\\PFFL (+)0'-0\"`: a two-line level label with a bracketed sign."
+  },
+  {
+   "raw": "3RD FLOOR\\PFFL (+)31'-0\"",
+   "family": "level",
+   "why": "as `GROUND FLOOR\\PFFL (+)0'-0\"`: a two-line level label with a bracketed sign."
+  },
+  {
+   "raw": "4TH FLOOR\\PFFL (+)41'-0\"",
+   "family": "level",
+   "why": "as `GROUND FLOOR\\PFFL (+)0'-0\"`: a two-line level label with a bracketed sign."
+  },
+  {
+   "raw": "5TH FLOOR\\PFFL (+)51'-0\"",
+   "family": "level",
+   "why": "as `GROUND FLOOR\\PFFL (+)0'-0\"`: a two-line level label with a bracketed sign."
+  },
+  {
+   "raw": "6TH FLOOR\\PFFL (+)61'-0\"",
+   "family": "level",
+   "why": "as `GROUND FLOOR\\PFFL (+)0'-0\"`: a two-line level label with a bracketed sign."
+  },
+  {
+   "raw": "ROOF\\PFFL (+)71'-0\"",
+   "family": "level",
+   "why": "as `GROUND FLOOR\\PFFL (+)0'-0\"`: a two-line level label with a bracketed sign."
+  },
+  {
+   "raw": "CLEAR HT. 10'-7\" (3227.8)",
+   "family": "height",
+   "why": "a clear height written in feet-inches with its exact millimetres restated in brackets — the section's reading of L-MEA-06's stored clear height, owned by the finishes lane's clear-height source, not by the schedules; the feet-inches figure is rounded (10'-7\" is 3225.8), so the bracket is the figure that governs, and nothing here reads it yet."
+  },
+  {
+   "raw": "CLEAR HT. 9'-7\" (2923)",
+   "family": "height",
+   "why": "as `CLEAR HT. 10'-7\" (3227.8)`: a rounded feet-inches clear height with its exact millimetres in brackets."
+  },
+  {
+   "raw": "UNDER SUNKEN TOILET SLABS (1ST TO 5TH): CLEAR HT. 8'-7\" (2623)\\PUNDER 150 THK. SLAB PANELS (GRID 2-3 & 4-5 / B-C): CLEAR HT. 9'-6\" (2898)",
+   "family": "height",
+   "why": "a two-paragraph note stating two clear heights, each scoped to a set of rooms by words: a clause-by-clause reading with scopes, owned by the finishes lane's clear-height source."
+  }
+ ]
+}

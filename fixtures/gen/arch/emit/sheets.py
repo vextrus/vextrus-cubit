@@ -655,7 +655,7 @@ def compose(world: dict[str, Any]) -> list[Sheet]:
     y -= 20.0 + fit(legend, 50)[1]
     _place(a03, "FLOOR TILE LEGEND", legend, 50, (30.0, y), "LEGEND_NOTES")
     y -= 20.0 + fit(types, 50)[1]
-    _place(a03, "WALL TYPES", types, 50, (30.0, y), "UNTYPED")
+    _place(a03, "WALL TYPES", types, 50, (30.0, y), "SCHEDULE")
     sheets.append(a03)
     a04 = Sheet("A-04", "SECTION A-A", "A2", _frame("A-04", "SECTION A-A", "A2"))
     sect = section(world)

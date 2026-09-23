@@ -54,7 +54,7 @@ export async function stagesOver(relative: string) {
   const profile = census === null ? null : resolveConventions(census);
   const grid = detectGrid({ graph, views: parted.views, assignments: parted.assignments, profile });
   const reconstructed = reconstructSchedules({ graph, views: parted.views, assignments: parted.assignments });
-  const tabled = registerMemberTypes(reconstructed.tables, profile);
+  const tabled = registerMemberTypes(reconstructed.tables, profile, { graph, views: parted.views, assignments: parted.assignments });
   // The long-section sheets' member types join the tables' — the rebuild's own composition (I-343).
   const strips = readSectionStrips({ graph, views: parted.views, assignments: parted.assignments }, profile);
   const registered = { families: [...tabled.families, ...strips.families], deferrals: [...tabled.deferrals, ...strips.deferrals] };

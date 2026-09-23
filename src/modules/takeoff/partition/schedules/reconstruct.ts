@@ -27,7 +27,8 @@
 import type { ScheduleDeferralReason } from "@/core/db";
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import { REFUSALS } from "@/core/errors";
-import { CELL_JOIN, columnNamesOf, isMarkFamily, isMarkHeader, mtextLines, normaliseNotation } from "../notation";
+import { CELL_JOIN, columnNamesOf, isKeyWordHeader, isMarkFamily, isMarkHeader, isOpeningMark, mtextLines, normaliseNotation, parseSizePair } from "../notation";
+import { readNotation } from "../notation/grammar";
 import type { PartitionedView } from "../views/assign";
 import { VIEW_TYPE } from "../views/law";
 
@@ -152,7 +153,7 @@ function textsByView(evidence: ScheduleEvidence): Map<string, Placed[]> {
     if (said.trim() === "" || at === undefined) continue;
     const placed: Placed = { key: entity.key, text: said, x: at[0] ?? 0, y: at[1] ?? 0, height: entity.height ?? 0 };
     const held = byView.get(viewKey) ?? [];
-    held.push(...linesOf(placed));
+    held.push(...linesOf(placed, entity.attachment));
     byView.set(viewKey, held);
   }
   return byView;
@@ -179,11 +180,35 @@ const INLINE_CODE = /\\/;
  * A text carrying no code is one line, itself, exactly as it was placed — no DXF type is asked, only
  * what the text says (L-CAD-08: the words decide everything). A blank paragraph is no line, and still
  * moves the next one down.
+ *
+ * The block stands where its ATTACHMENT puts it (s-schedules I-504; L-CAD-05 carries it at v3): a
+ * block attached at its top hangs from its insertion, as every block this reader met before did; one
+ * attached at its middle is centred on it, and one attached at its foot stands on it. An architect's
+ * schedule centres each cell's MTEXT in its cell, so a size wrapped over two lines (`4'-0"` over
+ * `X 7'-0"`) stands half a line pitch either side of the row it belongs to — inside the row's band —
+ * where hanging it from its insertion dropped its second line into a band of its own.
  */
-function linesOf(placed: Placed): Placed[] {
+function linesOf(placed: Placed, attachment: number | undefined): Placed[] {
   if (!INLINE_CODE.test(placed.text)) return [placed];
   const pitch = placed.height * MTEXT_LINE_PITCH;
-  return mtextLines(placed.text).flatMap((line, at) => (line.trim() === "" ? [] : [{ ...placed, text: line, y: placed.y - at * pitch }]));
+  const lines = mtextLines(placed.text);
+  const lift = (lines.length - 1) * pitch * ATTACHMENT_LIFT[rowOfAttachment(attachment)];
+  return lines.flatMap((line, at) => (line.trim() === "" ? [] : [{ ...placed, text: line, y: placed.y + lift - at * pitch }]));
+}
+
+/** An MTEXT's attachment row (DXF group 71, 1–9 read row by row): top, middle or bottom. */
+type AttachmentRow = "top" | "middle" | "bottom";
+
+/** How far a block's first line stands above its insertion, in multiples of the block's own height
+ * below its first line: none for a block hanging from its top, half for a centred one, all of it for
+ * one standing on its foot. */
+const ATTACHMENT_LIFT: Readonly<Record<AttachmentRow, number>> = Object.freeze({ top: 0, middle: 0.5, bottom: 1 });
+
+/** The row an attachment point stands in. A text stating none — a v2 artifact, a plain TEXT — hangs
+ * from its insertion, which is how every block was read before the attachment was carried. */
+function rowOfAttachment(attachment: number | undefined): AttachmentRow {
+  if (attachment === undefined || attachment <= 3) return "top";
+  return attachment <= 6 ? "middle" : "bottom";
 }
 
 /**
@@ -233,7 +258,7 @@ function tableOf(view: PartitionedView, standing: readonly Placed[], onPaper: Re
  * and the rows run down from it until the gap says the table has ended.
  */
 function tableUnder(view: PartitionedView, scheduleKey: string, bands: readonly Band[]): ScheduleTable | null {
-  const header = bands.findIndex((band) => band.texts.some((text) => isMarkHeader(text.text)));
+  const header = bands.findIndex((band) => headsColumns(band));
   if (header < 0) return null;
 
   const pitch = pitchBeneath(bands, header);
@@ -253,6 +278,41 @@ function tableUnder(view: PartitionedView, scheduleKey: string, bands: readonly 
     cells: read.flatMap((one) => one.cells),
     unplaced: read.flatMap((one) => one.unplaced),
   };
+}
+
+/**
+ * Does this band HEAD the table's columns — hold a cell naming the column of marks, and state its
+ * columns (s-schedules I-503)? A band naming the key column by MARK heads it, alone on its line
+ * or not, as it always has. A band whose one text names it by a KEY WORD alone and names one column —
+ * `DOOR`, `WINDOW & VENTILATOR`, `ROOM FINISH SCHEDULE` — titles a group of sub-tables or the table
+ * itself: the same words head the key column only where the band states another column beside them
+ * (`SL. | MAIN DOOR | SIZE (W x H) | QUANTITY`). Taken as the header, such a title read every cell of
+ * the schedule into its one column.
+ */
+function headsColumns(band: Band): boolean {
+  if (!band.texts.some((text) => isMarkHeader(text.text))) return false;
+  const [only] = band.texts;
+  return !(band.texts.length === 1 && only !== undefined && isKeyWordHeader(only.text) && columnNamesOf(only.text).length < 2);
+}
+
+/**
+ * Does this band HEAD something — a table, a sub-table or a group of them? It holds a text naming the
+ * key column, whether or not it states columns beside it (`headsColumns`). Such a band is a row of its
+ * own and never a line of a mark's row (`rowsByMark`): the sub-tables an opening schedule is typed in
+ * each repeat a header half a row above their first mark, and claimed by it they read `FIRE DOOR+FD-1`
+ * as the mark (I-503).
+ */
+function headsSomething(band: Band): boolean {
+  return band.texts.some((text) => isMarkHeader(text.text));
+}
+
+/**
+ * Does this cell name a member of the key column? A mark of the shape a member mark takes (`C1`,
+ * `D-2`), or an OPENING the roster names by word (`LD`, s-schedules I-505). One reading for the
+ * rows a stacked schedule is made of and the families the registry folds (B-17).
+ */
+export function isMarkCell(text: string): boolean {
+  return isMarkFamily(text) || isOpeningMark(text);
 }
 
 /**
@@ -361,12 +421,13 @@ function rowsByMark(rows: readonly Band[], columns: readonly number[], reach: nu
 
   const marked = body.map((band) => {
     const cell = cellsOf(band, columns, reach, 0).cells.find((one) => one.columnIndex === mark.columnIndex);
-    return cell !== undefined && isMarkFamily(cell.text);
+    return cell !== undefined && isMarkCell(cell.text);
   });
   const claim = rowReachOf(body, marked);
   if (claim === null) return [...rows];
 
-  const owners = body.map((band, index) => (marked[index] === true ? index : nearestMark(body, marked, band, claim) ?? index));
+  // A band that heads a sub-table or a group is a row of its own, however near a mark it stands.
+  const owners = body.map((band, index) => (marked[index] === true || headsSomething(band) ? index : nearestMark(body, marked, band, claim) ?? index));
   const held = new Map<number, Placed[]>();
   const order: number[] = [];
   for (const [index, band] of body.entries()) {
@@ -494,13 +555,46 @@ function cellsOf(band: Band, columns: readonly number[], reach: number, rowIndex
   }
   const cells = [...byColumn.entries()]
     .sort((left, right) => left[0] - right[0])
-    .map(([columnIndex, texts]) => ({
-      rowIndex,
-      columnIndex,
-      text: texts.map((one) => one.text).join(CELL_JOIN),
-      sourceKeys: texts.map((one) => one.key),
-    }));
+    .map(([columnIndex, texts]) => {
+      const said = runOn(texts);
+      return { rowIndex, columnIndex, text: said.map((one) => one.text).join(CELL_JOIN), sourceKeys: said.map((one) => one.key) };
+    });
   return { cells, unplaced };
+}
+
+/**
+ * The texts of one cell, with the LINES of one text run on (s-schedules I-504). Two texts in one
+ * cell are two statements, joined by the notation's sign (AC-2); two lines of ONE text are one
+ * statement the draughtsman wrapped to the cell's width — `4'-0"` over `X 7'-0"` is the size
+ * `4'-0" X 7'-0"` — so they are read as the words they are, a space between, and the cell cites the
+ * text once (L-CAD-03).
+ *
+ * Unless its lines are statements of their own, stacked: a structural MTEXT putting `4-20Ø` over
+ * `2-16Ø` in one rebar cell says two groups of bars, exactly as two texts stacked there would, and is
+ * joined by the sign as they are (AC-2) — run on with a space it read as nothing at all. Lines are
+ * STACKED where each one alone is a statement of the notation and together they are not one: a
+ * wrapped size's `X 7'-0"` reads as a length by itself, but run on the lines read as the size, so they
+ * are one statement wrapped; a line of prose (a room's finish) reads as nothing by itself, so its text
+ * was wrapped to the cell.
+ */
+function runOn(texts: readonly Placed[]): { key: string; text: string }[] {
+  const said: { key: string; lines: string[] }[] = [];
+  for (const text of texts) {
+    const last = said[said.length - 1];
+    if (last !== undefined && last.key === text.key) last.lines.push(text.text);
+    else said.push({ key: text.key, lines: [text.text] });
+  }
+  return said.map(({ key, lines }) => ({ key, text: lines.join(stacked(lines) ? CELL_JOIN : " ") }));
+}
+
+/** Are these lines of one text statements stacked, rather than one statement wrapped? */
+function stacked(lines: readonly string[]): boolean {
+  return lines.length > 1 && lines.every(isStatement) && parseSizePair(lines.join(" ")) === null;
+}
+
+/** Does this line say something by itself — a form of the notation, or a section as a pair? */
+function isStatement(line: string): boolean {
+  return readNotation(line).ok || parseSizePair(line) !== null;
 }
 
 /**

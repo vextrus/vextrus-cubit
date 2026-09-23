@@ -251,6 +251,14 @@
   min-height: 0;
 }
 
+/* I-510: a declared quantity check — the mark and the printed cell, then the one RefusalState. */
+.cx-schedules-quantity-said {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-1);
+}
+
 .cx-schedules-table-title {
   display: flex;
   align-items: baseline;

@@ -19,7 +19,7 @@
 //
 // Pure over the tables: no store, no clock, no model (L-REG-04).
 import type { ElementType } from "@/core/catalogue/classes";
-import type { RebarZone, ScheduleDimension, SectionUnit } from "@/core/db";
+import type { PrintedQuantityBasis, PrintedQuantityRefusal, RebarZone, ScheduleDimension, SectionUnit } from "@/core/db";
 import { REFUSALS } from "@/core/errors";
 import type { ConventionProfile, DeclaredDimensionUnit } from "@/core/rulesets/methods/conventions/resolve";
 import {
@@ -30,24 +30,33 @@ import {
   isBarMarkHeader,
   isMarkFamily,
   isMarkHeader,
+  isOpeningMark,
   isPlacedNumberHeader,
+  isPrintedQuantityHeader,
+  keyKindOfHeader,
   normaliseMark,
   normaliseNotation,
   parseFigure,
   parseFloorZone,
+  parsePrintedQuantity,
   parseRebarGroups,
+  parseRestatedFigure,
   parseSizePair,
   parseSpacing,
   parseWholeNumber,
   parseZonedSpacing,
   rebarZoneOfHeader,
+  sameStorey,
   sectionUnitOfHeader,
+  statesPerFloor,
   type FloorBand,
+  type KeyKind,
   type RebarGroup,
   type SizePair,
 } from "../notation";
-import { classOfFamily, classOfPrefix } from "../placement/law";
-import type { ScheduleCell, ScheduleDeferralRow, ScheduleTable } from "./reconstruct";
+import { classOfFamily, classOfPrefix, levelRunsOf, type LevelRun } from "../placement/law";
+import { VIEW_TYPE } from "../views/law";
+import { isMarkCell, type ScheduleCell, type ScheduleDeferralRow, type ScheduleEvidence, type ScheduleTable } from "./reconstruct";
 
 /**
  * The rebar one zone column states for one row: the cell verbatim, and what it reads as.
@@ -100,6 +109,35 @@ export type MemberVariant = {
    * registry of a drawing that states none is the registry it always was.
    */
   readonly dimensions?: MemberDimension[];
+  /**
+   * The quantity an opening schedule PRINTS for this row over these floors (s-schedules I-507):
+   * a cited reading of what the schedule says, kept beside the type it was printed for and never a
+   * count of members (L-CAD-08). Absent on every row of every other schedule.
+   */
+  readonly printed?: PrintedQuantity;
+};
+
+/**
+ * What an opening schedule prints for one of its rows, and how that statement stands against the
+ * drawing (L-MEA-02: the schedule is the authority, the plan a DECLARED cross-check).
+ *
+ * `basis` is what the schedule says the number is counted per — a note stating `PER FLOOR`, or a
+ * caption naming one floor, where per floor and per group are one statement — and `basisKeys` what
+ * it was read at. `planKey` is the one layout plan of the same floors this drawing carries, and
+ * `tagKeys` the tags of this mark it draws: evidence of the check, which bills nothing. `refusal` is
+ * the declared outcome — OPENING_QUANTITY_DISAGREES where the tags are not the printed number,
+ * OPENING_QUANTITY_BASIS_UNSTATED where no basis was stated to compare them on — or null where the
+ * two agree, or where no single plan of these floors stands in the drawing to check against.
+ */
+export type PrintedQuantity = {
+  readonly text: string;
+  readonly printed: number;
+  readonly basis: PrintedQuantityBasis | null;
+  readonly basisKeys: string[];
+  readonly planKey: string | null;
+  readonly tagKeys: string[];
+  readonly refusal: PrintedQuantityRefusal | null;
+  readonly sourceKeys: string[];
 };
 
 /**
@@ -151,16 +189,24 @@ type Column = { readonly index: number; readonly header: string; readonly role: 
  * what such a caller does not get is a unit for a pair nobody wrote one over, which is exactly the
  * reading it is entitled to.
  */
-export function registerMemberTypes(tables: readonly ScheduleTable[], conventions?: ConventionProfile | null): RegisteredMemberTypes {
+export function registerMemberTypes(tables: readonly ScheduleTable[], conventions?: ConventionProfile | null, evidence?: ScheduleEvidence): RegisteredMemberTypes {
   const families: MemberFamily[] = [];
   const deferrals: ScheduleDeferralRow[] = [];
   // The drawing's own declaration, where the conventions stage resolved one. It is handed in rather
   // than read here because the profile is one drawing's reading and this function is pure over the
   // tables — the stage that resolved it is the stage that knows (I-302, L-CAD-08).
   const declared = conventions?.dimensionUnit ?? null;
+  // The layout plans an opening schedule's printed quantities are checked against, where the caller
+  // handed the drawing's views (s-schedules I-507). A caller that handed none checks nothing: its
+  // printed quantities stand read and unchecked, never compared with a plan nobody looked at.
+  const plans = evidence === undefined ? [] : plansOf(evidence);
 
   for (const table of tables) {
-    const minted = familiesOf(table, declared);
+    // A schedule keyed by ROOM is a schedule of rooms (s-schedules I-509): its table is stored
+    // and cited cell by cell, it names no member type, and that is its reading rather than a view
+    // that contributed nothing.
+    if (keyOf(table) === KEY.room) continue;
+    const minted = familiesOf(table, declared, plans);
     if (minted.length === 0) {
       deferrals.push({ viewKey: table.viewKey, reason: REFUSALS.SCHEDULE_VIEW_CONTRIBUTED_NOTHING.code });
       continue;
@@ -171,8 +217,17 @@ export function registerMemberTypes(tables: readonly ScheduleTable[], convention
   return { families, deferrals };
 }
 
+/** The key kinds this registry reads a table by (s-schedules I-503), named off the notation's roster. */
+const KEY: Readonly<Record<KeyKind, KeyKind>> = Object.freeze({ opening: "opening", room: "room", symbol: "symbol" });
+
+/** What a table's key column is headed by: an opening type, a room, a symbol — or null for a member schedule. */
+function keyOf(table: ScheduleTable): KeyKind | null {
+  const mark = columnsOf(table).find((column) => column.role.kind === "mark");
+  return mark === undefined ? null : keyKindOfHeader(mark.header);
+}
+
 /** The families one table names, in the order its rows name them. */
-function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null): MemberFamily[] {
+function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null, plans: readonly PlanMarks[]): MemberFamily[] {
   const columns = columnsOf(table);
   const mark = columns.find((column) => column.role.kind === "mark");
   // The mark column is what makes a table a schedule OF something: with none, no row of it names a
@@ -199,6 +254,12 @@ function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null
   // places and this is the second: over the column (`GF TO 5F` heads the sections carried there) or
   // in a cell of a LEVELS column, one row per mark, written beside that mark's section (R-TO-031).
   const banded = levelsColumnOf(columns, rows, stated);
+  // An opening schedule states its floors a third way: in its CAPTION (s-schedules I-506) —
+  // `DOOR & WINDOW SCHEDULE (1ST TO 6TH FLOOR)` — and every row claims them (L-MEA-02's floor-group
+  // scope). Read by the one home of a caption's level set (`levelRunsOf`, I-409): one run per range
+  // or listed floor the caption states, and each run is a variant of every row.
+  const opening = keyKindOfHeader(mark.header) === KEY.opening || namesOnlyOpenings(rows, mark.index);
+  const runs = opening ? levelRunsOf(table.title) : [];
 
   for (const [rowIndex, row] of rows) {
     const markCell = row.get(mark.index);
@@ -207,7 +268,7 @@ function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null
     // those members, so it is a family too (I-321). Whether it may name any of them is placement's
     // question, asked against the plans; here it is only read.
     const bare = isBarePrefix(markCell.text);
-    if (!isMarkFamily(markCell.text) && !bare) continue;
+    if (!isMarkCell(markCell.text) && !bare) continue;
     const family = normaliseMark(markCell.text);
     // One row per mark family: a mark drawn twice in one schedule is one member type, read from the
     // first row that names it (riskNotes (3)).
@@ -215,9 +276,13 @@ function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null
     minted.add(family);
 
     const zones = zonesOf(columns, row, declared);
-    const variants = variantsOf(columns, row, zones, stated, banded, markCell, declared);
+    const variants =
+      runs.length === 0
+        ? variantsOf(columns, row, zones, stated, banded, markCell, declared)
+        : openingVariantsOf({ runs, title: table.title, scheduleKey: table.scheduleKey, row, zones, stated, markCell, declared });
     // The row's dimensions are the ROW's, as its rebar columns are: every variant carries them.
-    const dimensions = dimensionsOf(columns, row, family, declared, single);
+    const dimensions = dimensionsOf(columns, row, family, declared, single, opening);
+    const printed = opening ? printedOf(columns, row, family, table, runs, plans) : undefined;
     const corroboration = bare ? placedNumberOf(columns, row) : undefined;
     families.push({
       scheduleKey: table.scheduleKey,
@@ -225,12 +290,161 @@ function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null
       markText: markCell.text,
       rowIndex,
       sourceKeys: [...markCell.sourceKeys],
-      variants: dimensions.length === 0 ? variants : variants.map((variant) => ({ ...variant, dimensions: dimensions.map((one) => ({ ...one, sourceKeys: [...one.sourceKeys] })) })),
+      variants: variants.map((variant) => ({
+        ...variant,
+        ...(dimensions.length === 0 ? {} : { dimensions: dimensions.map((one) => ({ ...one, sourceKeys: [...one.sourceKeys] })) }),
+        ...(printed === undefined ? {} : { printed: { ...printed, basisKeys: [...printed.basisKeys], tagKeys: [...printed.tagKeys], sourceKeys: [...printed.sourceKeys] } }),
+      })),
       ...(corroboration === undefined ? {} : { corroboration }),
     });
   }
 
   return families;
+}
+
+/**
+ * Does every row of this table that names a mark name an OPENING (s-schedules I-503, I-505)?
+ * A schedule headed `MARK` over `D-1`, `W-1`… is a schedule of openings all the same, and the floors
+ * its caption states are its rows' (L-MEA-02): read by its header word alone it registered `D1` over
+ * no floors and left its printed quantity unread. One structural mark among the rows and it is not.
+ */
+function namesOnlyOpenings(rows: readonly (readonly [number, ReadonlyMap<number, ScheduleCell>])[], markIndex: number): boolean {
+  const named = rows.flatMap(([, row]) => {
+    const cell = row.get(markIndex);
+    return cell !== undefined && isMarkCell(cell.text) ? [cell.text] : [];
+  });
+  return named.length > 0 && named.every((text) => isOpeningMark(text));
+}
+
+/**
+ * The variants of one row of an opening schedule whose caption states its floors (s-schedules
+ * I-506): one per run of floors the caption states, each carrying the row's size — its SIZE
+ * (W x H) cell read as a pair, first side the width and second the height as the head names them,
+ * wrapped lines run on (I-504) — and citing the caption the floors were read at beside the cell
+ * the size was (L-QTY-03). A row with no size cell still stands for its mark over those floors, citing
+ * its mark cell and the caption (L-QTY-02: the absence is the reading).
+ */
+function openingVariantsOf(read: {
+  runs: readonly LevelRun[];
+  title: string;
+  scheduleKey: string;
+  row: ReadonlyMap<number, ScheduleCell>;
+  zones: readonly MemberZone[];
+  stated: Column | null;
+  markCell: ScheduleCell;
+  declared: DeclaredDimensionUnit | null;
+}): MemberVariant[] {
+  const cell = read.stated === null ? undefined : read.row.get(read.stated.index);
+  const held = new Set<string>();
+  const variants: MemberVariant[] = [];
+  for (const run of read.runs) {
+    const band: FloorBand = { from: run.from, to: run.to };
+    const variantKey = variantKeyOf(band);
+    if (held.has(variantKey)) continue;
+    held.add(variantKey);
+    if (cell === undefined || read.stated === null) {
+      variants.push({
+        variantKey,
+        bandText: read.title,
+        bandFrom: band.from,
+        bandTo: band.to,
+        sectionText: "",
+        sectionWidth: null,
+        sectionDepth: null,
+        sectionUnit: null,
+        sourceKeys: [...read.markCell.sourceKeys, read.scheduleKey],
+        zones: read.zones.map((zone) => ({ ...zone })),
+      });
+      continue;
+    }
+    const sized = variantOf({ variantKey, bandText: read.title, band, cell, zones: read.zones, unitHeader: read.stated.header, declared: read.declared });
+    variants.push({ ...sized, sourceKeys: [...sized.sourceKeys, read.scheduleKey] });
+  }
+  return variants;
+}
+
+/**
+ * One layout plan of the drawing as a printed quantity is checked against it (s-schedules
+ * I-507): the floors its caption states, and the texts it draws that are marks, by the mark each
+ * names in the comparison form — the plan's circled `D2` and the schedule's `D-2` are one mark
+ * (T-MARK-SPELLING).
+ */
+type PlanMarks = { readonly viewKey: string; readonly runs: readonly LevelRun[]; readonly marks: ReadonlyMap<string, readonly string[]> };
+
+/** Every layout plan of the drawing, with the marks it draws. */
+function plansOf(evidence: ScheduleEvidence): PlanMarks[] {
+  const plans = new Map<string, { runs: LevelRun[]; marks: Map<string, string[]> }>();
+  for (const view of evidence.views) {
+    if (view.type !== VIEW_TYPE.LAYOUT_PLAN) continue;
+    plans.set(view.viewKey, { runs: levelRunsOf(view.caption), marks: new Map() });
+  }
+  if (plans.size === 0) return [];
+  for (const entity of evidence.graph.entities) {
+    const viewKey = evidence.assignments.get(entity.key);
+    const plan = viewKey === undefined ? undefined : plans.get(viewKey);
+    const said = entity.text ?? "";
+    if (plan === undefined || said.trim() === "" || !isMarkCell(said)) continue;
+    const mark = normaliseMark(said);
+    const held = plan.marks.get(mark);
+    if (held === undefined) plan.marks.set(mark, [entity.key]);
+    else held.push(entity.key);
+  }
+  return [...plans.entries()].map(([viewKey, plan]) => ({ viewKey, runs: plan.runs, marks: plan.marks }));
+}
+
+/** Do two captions state the same floors — the same runs, in the same order, each end one storey? */
+function sameRuns(left: readonly LevelRun[], right: readonly LevelRun[]): boolean {
+  return left.length === right.length && left.every((run, at) => sameStorey(run.from, (right[at] as LevelRun).from) && sameStorey(run.to, (right[at] as LevelRun).to));
+}
+
+/** The one basis a printed quantity may be read on today (s-schedules I-507). */
+const PER_FLOOR: PrintedQuantityBasis = "per-floor";
+
+/** The two refusals a printed quantity is declared under, named through the register (Q-07). */
+const QUANTITY_DISAGREES: PrintedQuantityRefusal = REFUSALS.OPENING_QUANTITY_DISAGREES.code;
+const QUANTITY_BASIS_UNSTATED: PrintedQuantityRefusal = REFUSALS.OPENING_QUANTITY_BASIS_UNSTATED.code;
+
+/**
+ * What an opening schedule's row PRINTS in its quantity column, as a cited reading, and how it stands
+ * against the drawing (s-schedules I-507; L-MEA-02, L-CAD-08). Absent where the row prints no
+ * quantity the notation reads.
+ *
+ * The basis first: a caption naming ONE floor states it (per floor is per group there), else a text
+ * of the table stating `PER FLOOR` does; a schedule over several floors stating neither has a
+ * quantity nobody may compare or multiply, declared OPENING_QUANTITY_BASIS_UNSTATED. Then the check,
+ * only where exactly one layout plan of the drawing states the same floors: the plan's tags of this
+ * mark against the printed number — equal, and the reading stands; not equal, and the disagreement is
+ * DECLARED under OPENING_QUANTITY_DISAGREES, the tags and the cell cited, and neither side taken. No
+ * plan, or two, and the reading stands unchecked (a placement across the set checks it, ARCH-4).
+ */
+function printedOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>, family: string, table: ScheduleTable, runs: readonly LevelRun[], plans: readonly PlanMarks[]): PrintedQuantity | undefined {
+  const column = columns.find((one) => one.role.kind === "none" && isPrintedQuantityHeader(one.header));
+  const cell = column === undefined ? undefined : row.get(column.index);
+  const printed = cell === undefined ? null : parsePrintedQuantity(cell.text);
+  if (cell === undefined || printed === null) return undefined;
+  const read = { text: cell.text, printed, sourceKeys: [...cell.sourceKeys] };
+
+  const basis = basisOf(table, runs);
+  if (basis === null) return { ...read, basis: null, basisKeys: [], planKey: null, tagKeys: [], refusal: QUANTITY_BASIS_UNSTATED };
+  const matching = plans.filter((plan) => runs.length > 0 && sameRuns(plan.runs, runs));
+  const plan = matching.length === 1 ? matching[0] : undefined;
+  if (plan === undefined) return { ...read, basis: PER_FLOOR, basisKeys: basis, planKey: null, tagKeys: [], refusal: null };
+  const tags = [...(plan.marks.get(family) ?? [])];
+  return { ...read, basis: PER_FLOOR, basisKeys: basis, planKey: plan.viewKey, tagKeys: tags, refusal: tags.length === printed ? null : QUANTITY_DISAGREES };
+}
+
+/**
+ * What a schedule states its quantities PER FLOOR at, or null where it states no basis: the caption,
+ * where it names one floor (per floor and per group are then one statement), or the text of the table
+ * that says `PER FLOOR` — a cell or a text in its rows that reached no column.
+ */
+function basisOf(table: ScheduleTable, runs: readonly LevelRun[]): string[] | null {
+  const [only] = runs;
+  if (runs.length === 1 && only !== undefined && sameStorey(only.from, only.to)) return [table.scheduleKey];
+  const stating = table.cells.find((cell) => statesPerFloor(cell.text));
+  if (stating !== undefined) return [...stating.sourceKeys];
+  const unplaced = table.unplaced.find((text) => statesPerFloor(text.text));
+  return unplaced === undefined ? null : [unplaced.key];
 }
 
 /**
@@ -254,6 +468,18 @@ const DIMENSIONS_READ: Readonly<Partial<Record<ElementType, readonly ScheduleDim
   pile: Object.freeze([DIMENSION.dia, DIMENSION.length]),
   pile_cap: Object.freeze([DIMENSION.depth]),
 });
+
+/**
+ * The dimensions a schedule's own head states about whatever its rows name, whatever class they are
+ * of (s-schedules I-508): a THICKNESS column is the thickness of each row's member — a wall type's
+ * in F-ARCH's WALL TYPES — and no other table heads a column so that means anything else. Read and
+ * stored, and bound by nothing until a method declares a thickness (I-322: a stored reading is not a
+ * billed one).
+ */
+const STATED_BY_TABLE: readonly ScheduleDimension[] = Object.freeze([DIMENSION.thickness]);
+
+/** And what a schedule of OPENINGS states of each row (I-506): the sill it stands on. */
+const STATED_BY_OPENING_TABLE: readonly ScheduleDimension[] = Object.freeze([DIMENSION.sill]);
 
 /**
  * The one class every member row of a table names, or null where its rows name two classes or none —
@@ -284,17 +510,29 @@ function isBarePrefix(text: string): boolean {
  * figure nobody gave a unit to, is no dimension: the rail keeps its row and names what is missing
  * (L-QTY-02). Only from a schedule every member row of which is of the family's class (`single`).
  */
-function dimensionsOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>, family: string, declared: DeclaredDimensionUnit | null, single: ElementType | null): MemberDimension[] {
+function dimensionsOf(
+  columns: readonly Column[],
+  row: ReadonlyMap<number, ScheduleCell>,
+  family: string,
+  declared: DeclaredDimensionUnit | null,
+  single: ElementType | null,
+  opening: boolean,
+): MemberDimension[] {
   const type = classOfFamily(family);
-  const admitted = type === null || type !== single ? [] : (DIMENSIONS_READ[type] ?? []);
+  const byClass = type === null || type !== single ? [] : (DIMENSIONS_READ[type] ?? []);
+  // What the TABLE's own heads state about whatever its rows name (s-schedules I-506/g): a
+  // THICKNESS column states the thickness of each row's member in any schedule, and a SILL column
+  // the sill of an opening in a schedule of openings.
+  const admitted = [...byClass, ...STATED_BY_TABLE, ...(opening ? STATED_BY_OPENING_TABLE : [])];
   const read: MemberDimension[] = [];
-  if (admitted.length === 0) return read;
   for (const column of columns) {
     if (column.role.kind !== "none") continue;
     const dimension = dimensionOfHeader(column.header);
     if (dimension === null || !admitted.includes(dimension) || read.some((one) => one.dimension === dimension)) continue;
     const cell = row.get(column.index);
-    const figure = cell === undefined ? null : parseFigure(cell.text);
+    // A figure restated in brackets in the other unit (`250 (0'-10")`) is read by the figure it
+    // restates, in the unit the restatement settles (I-508); any other cell as a figure.
+    const figure = cell === undefined ? null : (parseFigure(cell.text) ?? parseRestatedFigure(cell.text));
     if (cell === undefined || figure === null || !(figure.value > 0)) continue;
     const measured = unitOf(figure, column.header, declared);
     if (measured.unit === null) continue;

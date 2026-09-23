@@ -4,7 +4,8 @@ Route `/t/{tenant}/p/{project}/takeoff/schedules` — the **fourth** tab of the 
 `src/app/(app)/t/[tenant]/p/[project]/takeoff/schedules/**`, inside the shell frame and behind the
 membership guard. Increment inc-303-schedules-notes-ui. Law: R-TO-034, L-CAD-08, L-ACT-02, L-ACT-03,
 L-QTY-01, AM-03(h), R-UI-002/003/004/005/010/012/020/021/022/030/031/050/060/080/081/082/083/084/
-085/086, S-Schedules, J-032, B-17, B-19, B-20, C-05.
+085/086, S-Schedules, J-032, B-17, B-19, B-20, C-05; and, for an architect's schedules (session 8,
+ARCH-3), L-MEA-02, L-CAD-05, L-CAD-06, L-CAD-07.
 
 Cut from the **grid workspace template** (Direction §3.2) and re-deciding nothing it settled: the
 tabs row is the frame's tool track (I-230), the inspector is the frame's ONE right column and is
@@ -638,6 +639,123 @@ this file rules. No gallery entry is added (nothing new is invented here).
   Reading the mixed number as 4.5 is the note reader's to add with its clause binding (N1), not this
   reading's to guess.
 
+The architect's schedules (session 8, ARCH-3). F-ARCH's door and window, wall-type and room-finish
+schedules read nothing at HEAD: the three SCHEDULE views deferred SCHEDULE_NONE_RECONSTRUCTED and
+WALL TYPES was UNTYPED. The nine readings below make all four tables stand, every cell cited, while
+every stored table, family and deferral of F-RCC6 and F-RCC6-BNBC stays byte-identical (pinned in
+`tests/takeoff/partition/arch-schedules.test.ts`; their placements, fed by those families, measured
+byte-identical too).
+
+- **I-502 — a key of types is a schedule (L-CAD-06, L-CAD-08, T-WALL-TYPES-CAPTION).** F-ARCH
+  captions its wall-type table `WALL TYPES`, with no SCHEDULE, LEGEND or PLAN word, and the caption
+  grammar answered UNTYPED, so the table never reached the reconstructor. Checked against the Edison
+  convention before choosing: the owner's architectural set draws no wall-type table at all (its
+  thicknesses are dimensioned on the plans, `0'-5"`, `0'-10"`), so recaptioning the fixture
+  `WALL TYPE SCHEDULE` would have fitted the drawing to the product. The grammar learns the word
+  instead: a caption saying `TYPES` and naming no projection (PLAN, LAYOUT, SECTION(S),
+  ELEVATION(S), DETAIL(S)) is a SCHEDULE, read after the SCHEDULE word and before LEGEND. Only the
+  plural: `TYPE` alone captions a unit type's plan as often as a table. F-ARCH's manifest now expects
+  SCHEDULE for that view (a `baseline:` commit). Neither structural fixture captions a view TYPES.
+- **I-503 — an architect's schedule heads its key column with what its rows are, and that word
+  heads a column only beside another (L-CAD-08, AC-1).** `isMarkHeader` read MARK, MEMBER,
+  DESIGNATION or a qualified member word, and every real opening schedule failed it: a door and
+  window schedule heads each typed sub-table's mark column with the TYPE it lists (`MAIN DOOR`,
+  `FLUSH DOOR`, `WINDOW WITH SUNSHADE`, `VENTILATOR`, `LOUVRE`, `GLASS DOOR`), a finish schedule its
+  key column `ROOM`, a key `SYMBOL`. Those words — the kinds of opening (DOOR, WINDOW, VENTILATOR,
+  LOUVRE/LOUVER, GLASS), ROOM and SYMBOL, singular or plural — now head the key column. `OPENING` is
+  deliberately not one: F-RCC6-BNBC's lintel schedule writes it in a head and in its rows. Alone on its
+  line the same word titles a group (`DOOR`, `WINDOW & VENTILATOR`) or the table (`ROOM FINISH
+  SCHEDULE`), so a band whose ONE text names the key column by a key word alone and names one column
+  is no header; a band stating another column beside it is (`SL. | MAIN DOOR | SIZE (W x H) |
+  QUANTITY`). A band holding any such head — a sub-table's repeated header, a group's title — is a row
+  of its own and is never claimed as a line of the nearest mark's row (the stacked reading, I-294):
+  claimed, FD-1's row read `FIRE DOOR+FD-1` as its mark. MARK heads its column wherever it stands.
+- **I-504 — an MTEXT stands where its attachment puts it, and the lines of one text in one cell
+  are one statement (T-MTEXT-CODES, L-CAD-05, L-CAD-03).** I-330 hung every MTEXT's lines from its
+  insertion point. An architect centres each cell's MTEXT in its cell (attachment 5), so a size
+  wrapped over two lines — `4'-0"` over `X 7'-0"` — dropped its second line 200 below the row into a
+  band of its own. The lines now stand where the attachment puts the block (EntityGraph v3 carries
+  it): hanging from a top attachment as before, centred on a middle one, standing on a bottom one; a
+  text stating none hangs, as every v2 artifact did. Lines of ONE text that land in one cell are run
+  on with a space and cited once (`4'-0" X 7'-0"`, cited `6AD`); two TEXTS in one cell still join with
+  `+` (AC-2). So do the lines of one text that are STACKED statements — each line alone a statement
+  of the notation and the lines together not one: a structural MTEXT putting `4-20Ø` over `2-16Ø` in
+  one rebar cell reads `4-20Ø+2-16Ø`, both groups, as before (run on it read as nothing), while the
+  wrapped size's `X 7'-0"`, a length alone, runs on because together the lines read as the size, and
+  a line of prose reads as nothing alone and runs on. Both structural fixtures' MTEXT schedule blocks
+  are top-attached and do not move.
+- **I-505 — the openings are marks; their class is placement's (L-CAD-07, T-MARK-SPELLING).** The
+  notation roster gains the opening families D, W, V, SD, FD and GD and the word mark LD (the lift's
+  landing door), as a closed opening subset. `D` stops being read as a detail bubble's series letter:
+  the roster is the evidence, and a door schedule's `D-2` and the plan's circled `D2` are one door. A
+  word mark names an opening only where the roster says so, so `LD` names nothing structural. The
+  registry mints each opening row as a family; D/W/V → the opening CLASS is ARCH-4's (placement), so
+  no opening is placed, measured or billed by this, and no quantity line moves. Zero-padded marks
+  (`W-01`) read as W1 in the grammar table; the registry's comparison form (`normaliseMark`) does not
+  fold them yet — neither fixture writes one, and that function is the MTEXT stripper's this wave.
+- **I-506 — an opening schedule's rows claim the floors its caption states, and carry their size
+  as the section pair (L-MEA-02's floor-group scope, I-409, L-FRM-02).** An opening schedule (its key
+  column headed by an opening type, or headed `MARK` over rows every one of which names an opening —
+  one structural mark among them and the table is a member schedule) states its floors in its caption: `DOOR & WINDOW SCHEDULE (1ST TO
+  6TH FLOOR)`. The caption is read by the one home of a caption's level set (`levelRunsOf`, I-409),
+  and each run is a variant of every row — `1ST-6TH`, `GF-GF` — its band text the title (the Band cell
+  says `1ST TO 6TH`, I-436), the caption cited beside the size cell. A caption stating no floors
+  leaves the row read as before. The size is the SIZE (W x H) cell read as a pair, first side the
+  width and second the height as the head names them (D-1: 48 × 84 in). LD's `900 X 2100` states no
+  unit and nothing on the sheet states one — the drawing's header unit is its geometry's, never a
+  text's — so it stands 900 × 2100 with no unit, and a rail binding it must refuse it by name. A SILL
+  column (`SILL`, `SILL HT.`, `SILL HEIGHT`, `SILL LEVEL`) is read as the `sill` dimension in a
+  schedule of openings; F-ARCH prints none. The ground floor's and the typical floors' schedules both
+  name D2: the family keeps a variant under each schedule, each on its own floors. I-331's "a family
+  two schedules name binds nothing" was written for one member stated twice; placement (ARCH-4) must
+  read an opening family's variants across schedules whose floors do not overlap before it binds one.
+- **I-507 — the printed quantity is a cited reading, and a disagreement with the plan is DECLARED
+  (L-MEA-02, L-CAD-08, T-OPENING-NOS).** An opening schedule's QUANTITY column (`QUANTITY`, `QTY`,
+  `NOS`) prints `08 NOS`. It is read as what the schedule SAYS — never a member count, and never in
+  the member-type registry: `schedule_printed_quantities` holds the cell, the number, its basis and
+  the check, beside the variant it was printed for, and nothing bills it. The basis first: a caption
+  naming one floor states it (per floor and per group are one statement), else a text of the table
+  stating `PER FLOOR` does (`NOTE: QUANTITY PER FLOOR.`, cited); a schedule stating neither — over
+  several floors, or under a caption naming no floors at all — is declared
+  `OPENING_QUANTITY_BASIS_UNSTATED` and compared with nothing, its message claiming no floors the
+  drawing did not state. Then the
+  check — the plan is L-MEA-02's declared cross-check and the schedule the authority: where exactly
+  one layout plan of the same drawing states the same floors, its tags of the mark (in the comparison
+  form, so `D2` meets `D-2`) are set against the printed number. Equal, and the reading stands;
+  unequal, and the row is declared `OPENING_QUANTITY_DISAGREES`, the cell and every tag cited, and
+  neither figure taken — which is right is a person's statement, and nothing is measured off the mark
+  until one is made (the act, and the block on the faces it opens onto, are the opening lane's). No
+  plan of those floors, or two, and the reading stands unchecked with no plan cited. On F-ARCH the
+  typical schedule prints D-2 `08 NOS` against nine D2 tags on the typical plan — declared; every
+  other row of both schedules agrees with its plan.
+- **I-508 — a thickness is read, and a bracketed restatement settles a bare figure's unit
+  (L-MEA-01, I-302).** A THICKNESS (or THK) column states the thickness of each row's member, read in
+  any schedule as the `thickness` dimension — stored, and bound by nothing until a method declares
+  one (I-322). F-ARCH writes `250 (0'-10")`: a figure and its conversion to the lettering's
+  feet-inches. The figure before the bracket GOVERNS — the bracket is rounded, and 10" is 254 mm where
+  the wall is 250 — and the bracket settles its unit: of the schedule's units (in, mm) exactly one
+  makes the figure round to the restatement (250 mm is 9.84" → 10"; 250" is not), so BW250 is
+  250 mm and BW125 125 mm, cited to the cell. Two units fitting, or none, settle nothing: the figure
+  keeps no unit and stores no row. `RCC | SEE STR.` states no thickness and names no family.
+- **I-509 — a ROOM-keyed schedule is a schedule of rooms.** F-ARCH's ROOM FINISH SCHEDULE is
+  reconstructed and stored cell by cell, every cell cited (`ROOM | FLOOR | SKIRTING | WALL | DADO |
+  CEILING`, six room groups; its two notes stand as the table's unplaced texts). It names no member
+  type, and that is its reading rather than a view that contributed nothing: it defers nothing.
+  Which face bears which finish, to what height, is read off these stored cells by the finishes lane
+  when it binds them, never restated beside them (B-17).
+- **I-510 — a declared quantity check stands beneath the tables it was read off (R-UI-050,
+  R-UI-020, I-251).** On the sheet holding an opening schedule, each row whose printed quantity is
+  declared stands beneath the reconstructed tables, after the deferrals: the mark and the printed
+  cell as the schedule shows them, in mono, then the one RefusalState with its registered message and
+  remedy, its evidence **Open the plan** selecting the cell and the plan's tags of that mark in the
+  viewer (**Open the sheet** where no plan was checked). The sheet reads `partial` while one stands.
+  Nothing is counted on the screen: the number is the schedule's own cell, verbatim, and the tags are
+  evidence behind the link, never a figure beside it. In the registry pane a mark two schedules name
+  — D2 in the ground floor's door schedule and in the typical floors' — is said ONCE, its bands from
+  the ground up (`GF`, `1ST TO 6TH`) as a column family's are (I-353(a); `familiesViewOf`): two `D2`
+  rows would read as two door types and stood two families under one key. Grouping only — every
+  variant is the store's; neither structural fixture names a mark twice, so their panes do not move.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 A schedule sheet selected, nothing selected inside it:
@@ -700,7 +818,7 @@ sideways (§7 C10).
 | tabs row (frame's track) | `takeoff-nav-register` · `-coverage` · `-levels` · `takeoff-nav-schedules` (`aria-current="page"` here). No aside: this screen's one primary lives in the notes panel | 100 % × `--toolbar-h` 32 | `--ink-secondary`, `--ink`, `--line-accent`, `--surface-panel` | — |
 | answer slot | one RefusalState from a refused door; the offline banner above it | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--radius-4`, `--hairline` | absent (no box) |
 | sheet rail (`schedules-sheets`) | one `schedules-sheet-row[data-drawing][data-layout]` per sheet of the pinned revision holding a schedule, a deferral or a note text: sheet name in 13 px (min `6ch`, ellipsis) — the model space said **Model space** through `EnumLabel`, its layout name on `data-layout` and the tooltip (I-353) — and what it holds as muted words that yield first (the name `flex: 0 1 auto`, the holdings `flex: 1 1 0`, end-aligned, I-sch-1(b) as amended); the drawing `IdChip` once beside the heading where every sheet is one drawing's, else on each row (I-sch-1) | `flex: 0 0 var(--drawer-w)` 200 (min 160, max 320); rows `--row-h` 28 | `--surface-panel`, `--hairline`, `--ink-muted`, `--text-caption`, `--surface-selected` | the rail is absent only in `empty`; otherwise it always has a row |
-| schedules region (primary) | the one scrolling frame `schedules-grid[data-rows-rendered]` (I-288), holding `schedules-table[data-schedule][data-rows-rendered]`, one per stored schedule, stacked with `--gap-section`; each a DataTable v2 titled by its stored title. Or `schedules-deferral`. Or `schedules-notes` on a notes-only sheet | `flex: 1 1 auto`, min 320; ≥ 55 % of main; rows `--row-h` 28, header 28 sticky, first column frozen | `--surface-app`, `--surface-sunken` (header), `--ink-code`, `--font-mono`, `--cell-px/py`, `--basis-transcribed` through EvidenceLink | never silent: a deferral or `NOTES_NONE_PROPOSED` stands in its place |
+| schedules region (primary) | the one scrolling frame `schedules-grid[data-rows-rendered]` (I-288), holding `schedules-table[data-schedule][data-rows-rendered]`, one per stored schedule, stacked with `--gap-section`; each a DataTable v2 titled by its stored title. Or `schedules-deferral`. Beneath the tables and deferrals, one `schedules-quantity-check[data-family][data-variant][data-code]` per opening row whose printed quantity is declared: its mark and printed cell in mono, then the one RefusalState (I-510). Or `schedules-notes` on a notes-only sheet | `flex: 1 1 auto`, min 320; ≥ 55 % of main; rows `--row-h` 28, header 28 sticky, first column frozen | `--surface-app`, `--surface-sunken` (header), `--ink-code`, `--font-mono`, `--cell-px/py`, `--basis-transcribed` through EvidenceLink | never silent: a deferral or `NOTES_NONE_PROPOSED` stands in its place |
 | registry pane (`schedules-registry`) | ONE grid of named tracks — Mark, Band, Section, one per rebar zone, then the rest — headed once by `schedules_registry_mark` · `_band` · `_section` · `_zone` in a row pinned to the pane's top (I-353); `schedules-family[data-family]` a subgrid whose mark stands in the Mark track of its first row, `schedules-variant[data-variant]` one `--row-h` row each beside it, `schedules-zone[data-zone]` in its zone's own track; nothing wraps, a long cell ellipsises and the Section carries its Tooltip; all text as the drawing shows it (I-sch-1); a Band says its band face — the band as written, or its ends (`1ST`, `2ND TO 6TH`) with the sheet title it was read off in its Tooltip (I-436); an unbanded variant's Band `—`; zones through `EnumLabel` on the mono text's baseline; marks in natural order, bands from the ground up (I-353); no count (I-251) | `flex: 0 0 240` (200 below `lg`); collapses to 28 with the inspector (I-249); scrolls alone | `--surface-panel`, `--surface-sunken`, `--hairline`, `--ink`, `--ink-secondary`, `--ink-muted`, `--font-mono` | the pane stands and states `schedules_registry_none` |
 | notes panel (`schedules-notes`) | the three sections of I-253 and the one `schedules-transcribe`. A proposal row carries `data-proposed-by`; a model's (I-296) leads with `schedules_proposal_proposed_by_model` and a row a model judged the lap's standing on trails with `schedules_proposal_lap_governs` and its probability in mono | inside the schedules region; sections separated by `--gap-section`; rows `--row-h` 28, a model's caption and the governs line `--text-caption` inside the same row | `--surface-app`, `--hairline`, `--ink-code`, `--ink-muted` (`cx-schedules-proposed-by`, `cx-schedules-governs`), `--warn-surface` through RefusalState | one RefusalState, `NOTES_NONE_PROPOSED`, and no act door |
 | inspector (frame's one slot) | `schedules-inspector`: the selection's heading, its source keys as `IdChip`s under `schedules_inspector_sources_label`, its kind / basis / acceptance as `EnumLabel`s, and its one EvidenceLink | `--inspector-w` 320 (280–480) | `--surface-panel`, `--hairline`, basis palette through EvidenceLink | **absent — width 0**, never a sentence |
@@ -743,7 +861,7 @@ that did not understand the address says so instead of painting the ordinary rea
   deferral, no member type, no proposal and no reading, in which case the rail and the sheet's own
   sections stand and say so in place (I-257), and only `data-state` reads `empty`.
 - **Partial** — rendered, never hidden. `data-state="partial"` while the CHOSEN sheet carries a
-  deferral or a standing that reads SUSPENDED: those rows and sections stand where they belong with
+  deferral, a declared quantity check (I-510) or a standing that reads SUSPENDED: those rows and sections stand where they belong with
   their RefusalState, and everything that stands reads as it stands. A sheet whose texts propose
   nothing is not partial by that alone — the notes panel states it under `NOTES_NONE_PROPOSED` and
   the sheet reads as what it otherwise holds (I-257). The J-032 `transcribed` checkpoint is this
@@ -812,6 +930,8 @@ copy rules bind; the code is never rendered as text):
 | `NOTES_NONE_PROPOSED` | info | inline | **No reinforcement figure was read from this sheet's notes.** | **Open the sheet and read the figure from a note that states one — nothing is assumed where a note is silent.** | **Open the sheet** |
 | `NOTE_READING_CONTESTED` | warning | inline | **Two readings of this note disagree, so no figure stands.** | **Read the figure again from the sheet to settle it — a later reading under the same source supersedes the earlier one, and precedence never clears a disagreement.** | **Open the sheet** |
 | `NOTE_SOURCE_NOT_ON_SHEET` | error | inline | **That reading cites text that is not on this sheet.** | **Read the figure again from a note on this sheet — a reading is kept only where its evidence is.** | **Open the sheet** |
+| `OPENING_QUANTITY_DISAGREES` | warning | inline | **The schedule prints a different quantity of this opening than its plan tags, so neither figure stands.** | **Open the plan and check its tags for this mark against the schedule's row — a person states which is right, and no quantity is taken from either until then.** | **Open the plan** |
+| `OPENING_QUANTITY_BASIS_UNSTATED` | warning | inline | **This schedule does not say whether its quantities count one floor or every floor it applies to.** | **Read the sheet's notes for the basis of its quantity column — a quantity whose basis is unstated is never multiplied by the floors or compared with the plan.** | **Open the sheet** |
 
 Voice: calm, concrete, professional; no exclamation marks; no build vocabulary — "seam", "door",
 "rail", "gate", "grammar", "ingest" and every clause id appear nowhere a reader can see. Cell texts,
@@ -893,7 +1013,8 @@ scrolling frame, the primary §1 measures, I-288) · `schedules-table`
 `schedules-notes` · `schedules-standing` (`data-kind`, `data-standing`, `data-code`) ·
 `schedules-reading` (`data-kind`, `data-acceptance`, `data-basis`, `data-source`) ·
 `schedules-proposal` (`data-kind`, `data-proposed-by`: grammar|model — I-296) · `schedules-proposal-value` · `schedules-transcribe`
-(`data-permission`) · `schedules-inspector` · `schedules-empty`; plus
+(`data-permission`) · `schedules-inspector` · `schedules-empty` · `schedules-quantity-check`
+(`data-family`, `data-variant`, `data-code`: a code of `PRINTED_QUANTITY_REFUSAL_CODES` — I-510); plus
 `TESTIDS.takeoff.navSchedules` → `takeoff-nav-schedules` (`aria-current="page"` here) and
 `shell-crumb-page`. Used and never redefined: `evidence-link` (`data-basis="TRANSCRIBED"`),
 `refusal-state` (`data-code`), `refusal-evidence-link`, `datatable-row`, `consequence-dialog`,
@@ -915,7 +1036,17 @@ no `consequence-dialog`
 after a preview refused `ACT_CHANGES_NOTHING` (I-255); no `line` param in any composed viewer
 address.
 
-Suites: `tests/takeoff/notes/**` (the grammar, the act pair, `noteStanding`,
+Suites: `tests/takeoff/partition/arch-schedules.test.ts` (I-502…h over F-ARCH's own drawing,
+read by the shipped CLI: every schedule row of the generator's model read with its cited cells,
+T-OPENING-NOS declared, and the schedules stage of F-RCC6 and F-RCC6-BNBC byte-identical; on
+hand-built tables, a stacked structural MTEXT read by the sign, a MARK-headed schedule of openings,
+and a caption naming no floors declared), `tests/takeoff/partition/notation/grammar.test.ts` (the
+quantity column read as the grammar's count form, one reading),
+`tests/takeoff/partition/schedules/arch-schedule-store.db.test.ts` and
+`db/__tests__/schedule-printed-quantities.migration.test.ts` (the same reading through the store,
+and migration 0062 judged by what it does), `tests/takeoff/notation/corpus.test.ts` (F-ARCH's 454
+strings in the notation ratchet), `tests/ui/takeoff-schedules/quantity-check.test.ts` (I-510: the
+shipped workspace mounted over a declared row), `tests/takeoff/notes/**` (the grammar, the act pair, `noteStanding`,
 `appliedDetailingValuesOf`, the doors each refusing by name, and `copy-mirror.test.ts` failing the
 build if the module's `copy.ts` and `src/ui/strings/schedules.ts` ever differ),
 `db/__tests__/notes-readings.migration.test.ts`, `tests/ui/craft/mechanical.test.ts` over
