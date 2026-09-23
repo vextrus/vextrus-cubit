@@ -49,7 +49,16 @@ import {
 import { classOfFamily, classOfPrefix } from "../placement/law";
 import type { ScheduleCell, ScheduleDeferralRow, ScheduleTable } from "./reconstruct";
 
-/** The rebar one zone column states for one row: the cell verbatim, and what it reads as. */
+/**
+ * The rebar one zone column states for one row: the cell verbatim, and what it reads as.
+ *
+ * `spacingUnit` is read the way a section's unit is (Interpretation I-412, after I-302): the cell's
+ * own mark, else the head of the column the cell stands under, else the unit the drawing declares —
+ * and where the declaration is what answered, `sourceKeys` cites it beside the cell (L-QTY-03). A
+ * zone that states no spacing (the main bars) has no spacing to be the unit of, and takes none. The
+ * two zones of one `@end/mid` pair are one statement and share one unit: a mark on either side is the
+ * pair's, and two sides marked differently leave both zones with none (`pairUnitOf`).
+ */
 export type MemberZone = {
   readonly zone: RebarZone;
   readonly text: string;
@@ -205,7 +214,7 @@ function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null
     if (minted.has(family)) continue;
     minted.add(family);
 
-    const zones = zonesOf(columns, row);
+    const zones = zonesOf(columns, row, declared);
     const variants = variantsOf(columns, row, zones, stated, banded, markCell, declared);
     // The row's dimensions are the ROW's, as its rebar columns are: every variant carries them.
     const dimensions = dimensionsOf(columns, row, family, declared, single);
@@ -338,8 +347,12 @@ function rowsOf(table: ScheduleTable): [number, Map<number, ScheduleCell>][] {
  * The rebar one row states, one entry per zone column that says anything in that row. A zone named
  * by two columns is read from the first of them: the store holds one row per zone of one variant,
  * and a second reading of the same zone would be a competing opinion rather than more of the answer.
+ *
+ * A spacing's unit is read in the three statements a section's is, nearest first (`unitOf`,
+ * I-412): the cell's own mark, else THIS column's head — a `STIRRUPS (mm)` states the unit of the
+ * centres written under it — else the drawing's declaration, cited where it answered.
  */
-function zonesOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>): MemberZone[] {
+function zonesOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>, declared: DeclaredDimensionUnit | null): MemberZone[] {
   const zones: MemberZone[] = [];
   const held = new Set<RebarZone>();
 
@@ -349,14 +362,15 @@ function zonesOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCe
     if (cell === undefined) continue;
     held.add(column.role.zone);
     const spacing = parseSpacing(cell.text);
+    const measured = unitOf(spacing, column.header, declared);
     zones.push({
       zone: column.role.zone,
       text: cell.text,
       bars: parseRebarGroups(cell.text),
       spacing: spacing === null ? null : spacing.spacing,
-      spacingUnit: spacing === null ? null : spacing.unit,
+      spacingUnit: measured.unit,
       spacingBar: spacing === null ? null : spacing.bar,
-      sourceKeys: [...cell.sourceKeys],
+      sourceKeys: [...cell.sourceKeys, ...measured.cited],
     });
   }
 
@@ -448,8 +462,10 @@ function variantsOf(
 }
 
 /**
- * The unit one section — or one dimension beside it (I-322) — is measured in, and what that reading
- * CITES (R-TO-031, I-302).
+ * The unit one section — or one dimension beside it (I-322), or one rebar zone's spacing (I-412) —
+ * is measured in, and what that reading CITES (R-TO-031, I-302). One reading for all three, because a
+ * drawing that says `ALL DIMENSIONS ARE IN MILLIMETRES` says it of the centres its ties are written
+ * at as plainly as of the sides of the column they tie (B-17).
  *
  * Three statements, nearest first. The cell's own mark is the nearest — `12"x24"` is in inches
  * wherever it stands, which is what F-RCC6-BNBC's T-NOT-SIZE-IN turns on and what the drawing's own
@@ -516,19 +532,35 @@ export function sectionOf(text: string): SizePair | null {
  * one variant, and a second reading of the same zone is a competing opinion rather than more of the
  * answer. A cell that states none of them — an ordinary `300 x 450` — answers none, and the row's own
  * rebar columns stand where they always did.
+ *
+ * A spacing's unit is the part's own mark (a two-centre pair's two sides read as one mark, as a
+ * section's are — `pairUnitOf`), else the head of the column the CELL stands under — the
+ * one its section's unit is read under too, because it is one cell under one head — else the drawing's
+ * declaration, cited beside the cell where it answered (I-412, I-302). S-11 writes `10Ø@100/150
+ * (TIES)` under `GF TO 2ND`: no unit in the cell, none over the column, and S-01's `ALL DIMENSIONS ARE
+ * IN MILLIMETRES` is the statement that says what the 100 and the 150 are.
  */
-function zonesInCell(cell: ScheduleCell): MemberZone[] {
+function zonesInCell(cell: ScheduleCell, unitHeader: string, declared: DeclaredDimensionUnit | null): MemberZone[] {
   const zones: MemberZone[] = [];
   const held = new Set<RebarZone>();
   const cited = [...cell.sourceKeys];
+  const spaced = (said: Pick<SizePair, "unit">): { unit: SectionUnit | null; sourceKeys: string[] } => {
+    const measured = unitOf(said, unitHeader, declared);
+    return { unit: measured.unit, sourceKeys: [...cited, ...measured.cited] };
+  };
 
   for (const part of cellParts(cell.text)) {
     const banded = parseZonedSpacing(part);
     if (banded !== null) {
+      // The pair is read as ONE statement before any farther one is asked: `@4/6"` is four inches and
+      // six, never four of whatever the notes declare. A pair that contradicts itself has no unit, and
+      // no head or declaration may settle it for it (`pairUnitOf`).
+      const pair = pairUnitOf(banded);
+      const measured = pair.disagrees ? { unit: null, sourceKeys: [...cited] } : spaced(pair);
       for (const one of banded) {
         if (held.has(one.zone)) continue;
         held.add(one.zone);
-        zones.push({ zone: one.zone, text: part, bars: parseRebarGroups(part), spacing: one.spacing, spacingUnit: one.unit, spacingBar: one.bar, sourceKeys: [...cited] });
+        zones.push({ zone: one.zone, text: part, bars: parseRebarGroups(part), spacing: one.spacing, spacingUnit: measured.unit, spacingBar: one.bar, sourceKeys: [...measured.sourceKeys] });
       }
       continue;
     }
@@ -542,10 +574,31 @@ function zonesInCell(cell: ScheduleCell): MemberZone[] {
     const spacing = parseSpacing(part);
     if (spacing === null || held.has(REBAR_ZONE.ties)) continue;
     held.add(REBAR_ZONE.ties);
-    zones.push({ zone: REBAR_ZONE.ties, text: part, bars: null, spacing: spacing.spacing, spacingUnit: spacing.unit, spacingBar: spacing.bar, sourceKeys: [...cited] });
+    const measured = spaced(spacing);
+    zones.push({ zone: REBAR_ZONE.ties, text: part, bars: null, spacing: spacing.spacing, spacingUnit: measured.unit, spacingBar: spacing.bar, sourceKeys: measured.sourceKeys });
   }
 
   return zones;
+}
+
+/**
+ * The unit a two-centre pair (`10Ø@100/150 (TIES)`) states for BOTH its zones, read the way a
+ * section's pair is (`parseSizePair`, I-302's "a pair that states its own unit keeps it"): one side
+ * stating a unit states it for the pair, and a pair that states none leaves the head and the
+ * declaration to answer (I-412). Read side by side instead, `12"x15"+8-16Ø+10Ø@4/6" (TIES)` under
+ * S-01's millimetres stood its end zone at 4 mm beside a 6 in middle — a factor of twenty-five, with
+ * the note cited as its evidence.
+ *
+ * Two sides stating DIFFERENT units (`@4"/150MM`) state no one unit, and `disagrees` says so: the
+ * cell's own statement contradicts itself, which is not silence, and filling it from a farther
+ * statement would read one side at a unit its own draughtsman overruled. Both zones keep their
+ * figures, no unit and no citation, and the rail omits them by name (L-MEA-01, L-QTY-01).
+ */
+function pairUnitOf(pair: readonly Pick<SizePair, "unit">[]): { unit: SectionUnit | null; disagrees: boolean } {
+  const stated = new Set(pair.map((side) => side.unit).filter((unit): unit is SectionUnit => unit !== null));
+  if (stated.size > 1) return { unit: null, disagrees: true };
+  const [unit] = stated;
+  return { unit: unit ?? null, disagrees: false };
 }
 
 /**
@@ -600,8 +653,9 @@ function variantOf(read: {
   const measured = unitOf(section, read.unitHeader, read.declared);
   // The band's own rebar stands before the row's: a cell that states the ties of ITS band states them
   // for that band, and a rebar column heads the same zone for every band of the row. Where the cell
-  // states a zone the columns also state, the nearer statement is the cell's (R-TO-031).
-  const stated = zonesInCell(cell);
+  // states a zone the columns also state, the nearer statement is the cell's (R-TO-031). Its spacings
+  // are read under the same head and the same declaration the section is (I-412).
+  const stated = zonesInCell(cell, read.unitHeader, read.declared);
   const held = new Set(stated.map((zone) => zone.zone));
   return {
     variantKey,

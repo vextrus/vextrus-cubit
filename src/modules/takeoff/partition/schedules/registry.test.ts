@@ -187,6 +187,106 @@ describe("I-302: the unit a drawing declares is the LAST word on a section that 
   });
 });
 
+describe("I-412: a tie spacing is read in the unit the drawing declares, nearest statement first", () => {
+  /** F-RCC6-BNBC S-11: the ties written inside the band's own cell, no unit in it and none over it. */
+  const STACKED = "400x400+8-16Ø+10Ø@100/150 (TIES)";
+
+  /** What each zone of a variant reads as: its spacing, the unit of it, and what the reading cites. */
+  const spacings = (variant: MemberFamily["variants"][number] | undefined): { zone: string; spacing: number | null; unit: string | null; cites: string[] }[] =>
+    (variant?.zones ?? []).map((zone) => ({ zone: zone.zone, spacing: zone.spacing, unit: zone.spacingUnit, cites: zone.sourceKeys }));
+
+  test("a stacked cell's two tie zones take the declared unit and cite the note beside their cell; the main bars take none", () => {
+    const variant = familyOf(tableOf(["MARK", "GF TO 2ND"], [["C1", STACKED]]), "C1", declaring("mm", NOTES_KEY)).variants[0];
+
+    expect(
+      spacings(variant),
+      "S-01's `ALL DIMENSIONS ARE IN MILLIMETRES` is the one statement that says what the 100 and the 150 are, and a spacing read off S-01 is evidence from S-01 (L-QTY-03); the main bars state no spacing, so no unit is theirs to take and no note is theirs to cite",
+    ).toEqual([
+      { zone: "main", spacing: null, unit: null, cites: ["r:0:1"] },
+      { zone: "ties-end", spacing: 100, unit: "mm", cites: ["r:0:1", NOTES_KEY] },
+      { zone: "ties-mid", spacing: 150, unit: "mm", cites: ["r:0:1", NOTES_KEY] },
+    ]);
+  });
+
+  test("with no declaration the spacing keeps its figure and no unit — never a millimetre nobody said", () => {
+    const variant = familyOf(tableOf(["MARK", "GF TO 2ND"], [["C1", STACKED]]), "C1").variants[0];
+
+    expect(
+      spacings(variant).filter((zone) => zone.spacing !== null),
+      "a number nobody gave a unit to is not a millimetre (L-MEA-01): the rail keeps omitting the ties by name",
+    ).toEqual([
+      { zone: "ties-end", spacing: 100, unit: null, cites: ["r:0:1"] },
+      { zone: "ties-mid", spacing: 150, unit: null, cites: ["r:0:1"] },
+    ]);
+  });
+
+  test("a ties COLUMN with a bare head takes the declaration too, cited — the shape a beam schedule is written in", () => {
+    const variant = familyOf(tableOf(["MARK", "SIZE", "MAIN BARS", "STIRRUPS"], [["B1", "300x450", MAIN, "10Ø@100"]]), "B1", declaring("mm", NOTES_KEY)).variants[0];
+
+    expect(
+      spacings(variant).find((zone) => zone.zone === "ties"),
+      "BNBC's roof beams write `10Ø@100` under a head that states no unit; the 100 is S-01's millimetres like the 300x450 beside it",
+    ).toEqual({ zone: "ties", spacing: 100, unit: "mm", cites: ["r:0:3", NOTES_KEY] });
+  });
+
+  test("a single spacing stacked in a section cell takes the declaration the same way", () => {
+    const variant = familyOf(tableOf(["MARK", "SIZE"], [["B1", "300x450+4-16Ø+10Ø@100"]]), "B1", declaring("mm", NOTES_KEY)).variants[0];
+
+    expect(spacings(variant).find((zone) => zone.zone === "ties"), "one cell, one head, one declaration — the same three statements the section beside it is read in").toEqual({
+      zone: "ties",
+      spacing: 100,
+      unit: "mm",
+      cites: ["r:0:1", NOTES_KEY],
+    });
+  });
+
+  test("a spacing that states its OWN unit keeps it, and cites no note", () => {
+    const inches = familyOf(tableOf(["MARK", "SIZE", "STIRRUPS"], [["B1", "300x450", '10Ø@6"']]), "B1", declaring("mm", NOTES_KEY)).variants[0];
+    const millimetres = familyOf(tableOf(["MARK", "SIZE", "STIRRUPS"], [["B1", "300x450", "10Ø@150 MM"]]), "B1", declaring("in", NOTES_KEY)).variants[0];
+
+    expect(
+      [spacings(inches).find((zone) => zone.zone === "ties"), spacings(millimetres).find((zone) => zone.zone === "ties")],
+      "the cell is the nearest statement: a spacing figured in inches is in inches wherever it stands (`FIGURED DIMENSIONS GOVERN`), and the note took no part in either reading",
+    ).toEqual([
+      { zone: "ties", spacing: 6, unit: "in", cites: ["r:0:2"] },
+      { zone: "ties", spacing: 150, unit: "mm", cites: ["r:0:2"] },
+    ]);
+  });
+
+  test("a ties column HEADED with a unit outranks the declaration, and cites no note", () => {
+    const variant = familyOf(tableOf(["MARK", "SIZE", "STIRRUPS (MM)"], [["B1", "300x450", "10Ø@150"]]), "B1", declaring("in", NOTES_KEY)).variants[0];
+
+    expect(
+      spacings(variant).find((zone) => zone.zone === "ties"),
+      "a schedule states its unit once over the column and writes bare centres under it; the drawing's note is the whole drawing's word, never that column's (R-TO-031)",
+    ).toEqual({ zone: "ties", spacing: 150, unit: "mm", cites: ["r:0:2"] });
+  });
+
+  test("a two-centre pair marked on ONE side states that unit for both its zones, and cites no note", () => {
+    const variant = familyOf(tableOf(["MARK", "GF TO 2ND"], [["C1", '12"x15"+8-16Ø+10Ø@4/6" (TIES)']]), "C1", declaring("mm", NOTES_KEY)).variants[0];
+
+    expect(
+      spacings(variant).filter((zone) => zone.spacing !== null),
+      'a pair that states its own unit keeps it (I-302), one side stating it for the pair as a section\'s does (parseSizePair): the 4 of `@4/6"` is four inches, and read at S-01\'s millimetres it was a twenty-fifth of the end zone, cited to a note that took no part',
+    ).toEqual([
+      { zone: "ties-end", spacing: 4, unit: "in", cites: ["r:0:1"] },
+      { zone: "ties-mid", spacing: 6, unit: "in", cites: ["r:0:1"] },
+    ]);
+  });
+
+  test("a two-centre pair whose sides state DIFFERENT units has no unit — no head and no declaration settles it", () => {
+    const variant = familyOf(tableOf(["MARK", "GF TO 2ND"], [["C1", '400x400+8-16Ø+10Ø@4"/150MM']]), "C1", declaring("mm", NOTES_KEY)).variants[0];
+
+    expect(
+      spacings(variant).filter((zone) => zone.spacing !== null),
+      "a statement that contradicts itself is not silence: filling it from the notes would read one side at a unit its own draughtsman overruled, so both zones keep their figures, no unit and no citation, and the rail omits them by name (L-MEA-01)",
+    ).toEqual([
+      { zone: "ties-end", spacing: 4, unit: null, cites: ["r:0:1"] },
+      { zone: "ties-mid", spacing: 150, unit: null, cites: ["r:0:1"] },
+    ]);
+  });
+});
+
 /* ------------------------------------------------------------------ I-321, I-322: the pile schedule */
 
 /** F-RCC6-BNBC's PILE SCHEDULE at its own words: one row, a bare prefix, a diameter and a length. */

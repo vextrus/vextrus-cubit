@@ -26,6 +26,8 @@
  */
 import { createHash } from "node:crypto";
 import { describe, expect, test } from "vitest";
+import type { DeclaredDimensionUnit } from "@/core/rulesets/methods/conventions/resolve";
+import type { MemberFamily } from "@/modules/takeoff/partition/schedules/registry";
 import { BNBC_DXF, RCC6_DXF, stagesOver, type StagesRead } from "../support/bnbc-stages";
 
 /** The captions the two foundation schedules are titled by, on the sheets' paper (I-290). */
@@ -77,6 +79,37 @@ const PILE_CAP_SCHEDULE = "DXF_HANDLE:202D";
  */
 const STRIP_SHEETS: readonly string[] = Object.freeze(["DXF_HANDLE:218E", "DXF_HANDLE:2173"]);
 const FRAMED: readonly string[] = Object.freeze(["beam", "tie_beam"]);
+
+/**
+ * TEST_AMENDED (R6-U, I-412): a rebar zone's spacing is now read in the unit the drawing declares,
+ * nearest statement first — the cell's own mark, the head of its column, then the declaration, which
+ * the zone then cites beside its cell (the reading I-302 gives a section). Neither drawing writes a
+ * unit in a ties cell or over a ties column, so every tie-type zone of both moves `null` → `mm`, and
+ * nothing else does. What may not move is therefore the families with that ONE reading taken back:
+ * each zone whose last citation is the declaration is returned to the unitless zone citing only its
+ * cell that it stood as before — and the zones taken back are counted by kind, so the reading moved
+ * exactly the zones it was asked to, and any other byte that moves still fails here by name.
+ */
+function declaredSpacingUndone(families: readonly MemberFamily[], declared: DeclaredDimensionUnit): { families: MemberFamily[]; undone: Record<string, number> } {
+  const undone: Record<string, number> = {};
+  const back = families.map((family) => ({
+    ...family,
+    variants: family.variants.map((variant) => ({
+      ...variant,
+      zones: variant.zones.map((zone) => {
+        const cited = zone.sourceKeys[zone.sourceKeys.length - 1];
+        if (zone.spacing === null || cited !== declared.sourceKey || zone.spacingUnit !== declared.unit) return zone;
+        undone[zone.zone] = (undone[zone.zone] ?? 0) + 1;
+        return { ...zone, spacingUnit: null, sourceKeys: zone.sourceKeys.slice(0, -1) };
+      }),
+    })),
+  }));
+  return { families: back, undone };
+}
+
+/** The declarations each drawing states its unit in, as the conventions stage resolves them (I-302). */
+const BNBC_DECLARED: DeclaredDimensionUnit = Object.freeze({ unit: "mm", sourceKey: "DXF_HANDLE:1F3E" });
+const RCC6_DECLARED: DeclaredDimensionUnit = Object.freeze({ unit: "mm", sourceKey: "DXF_HANDLE:671" });
 
 /** F-RCC6's `{ placements, runs, tables, families }` before FND-1 — the integrator's harness digest. */
 const RCC6_STAGES_BEFORE = "a3c0c6e0f692e49074b9c1276dbc955f248bd5287740c6babc1275c08018a703";
@@ -140,10 +173,19 @@ describe("FND-1 moves nothing it was not asked to", () => {
     expect(now, "each read table's own bytes, before and after").toEqual(TABLES_BEFORE);
   }, BUDGET_MS);
 
-  test("every family and every placement BNBC stood on before stands byte for byte, bar what FND-2 re-read (TEST_AMENDED)", async () => {
-    const { registered, placed } = await bnbc();
+  test("every family and every placement BNBC stood on before stands byte for byte, bar what FND-2 re-read and R6-U's spacing unit (TEST_AMENDED)", async () => {
+    const { registered, placed, evidence } = await bnbc();
+    expect(evidence.declaredUnit, "S-01 clause 4 declares millimetres (I-302)").toEqual(BNBC_DECLARED);
+    const pinned = declaredSpacingUndone(
+      registered.families.filter((family) => family.family !== "P" && family.scheduleKey !== PILE_CAP_SCHEDULE && !STRIP_SHEETS.includes(family.scheduleKey)),
+      BNBC_DECLARED,
+    );
     expect(
-      sha(registered.families.filter((family) => family.family !== "P" && family.scheduleKey !== PILE_CAP_SCHEDULE && !STRIP_SHEETS.includes(family.scheduleKey))),
+      pinned.undone,
+      "R6-U moved S-11's 28 end-zone and 28 mid-zone tie spacings and the beam schedules' 51 (17DF's 26, 18A0's 25) into S-01's millimetres, and no other zone (I-412)",
+    ).toEqual({ "ties-end": 28, "ties-mid": 28, ties: 51 });
+    expect(
+      sha(pinned.families),
       "the families registered before, P, the cap schedule's and the long-section sheets' aside — which is FND-1's roster less the two a bar schedule minted",
     ).toBe(BNBC_FAMILIES_BAR_P_AND_CAPS_BEFORE);
     expect(
@@ -152,8 +194,11 @@ describe("FND-1 moves nothing it was not asked to", () => {
     ).toBe(BNBC_PLACEMENTS_BAR_CAPS_BEFORE);
   }, BUDGET_MS);
 
-  test("F-RCC6's whole placement-stage output is byte-identical", async () => {
-    const { reconstructed, registered, placed } = await rcc6();
-    expect(sha({ placements: placed.placements, runs: placed.runs, tables: reconstructed.tables, families: registered.families }), "the byte-frozen corpus reads exactly as it did (AM-01)").toBe(RCC6_STAGES_BEFORE);
+  test("F-RCC6's whole placement-stage output is byte-identical, bar R6-U's spacing unit (TEST_AMENDED)", async () => {
+    const { reconstructed, registered, placed, evidence } = await rcc6();
+    expect(evidence.declaredUnit, "F-RCC6's sheet line `ALL DIMENSIONS IN mm` (I-302)").toEqual(RCC6_DECLARED);
+    const pinned = declaredSpacingUndone(registered.families, RCC6_DECLARED);
+    expect(pinned.undone, "R6-U moved the twelve `T8 @ 150`-shaped tie spacings of its column and beam schedules into millimetres, and no other zone (I-412)").toEqual({ ties: 12 });
+    expect(sha({ placements: placed.placements, runs: placed.runs, tables: reconstructed.tables, families: pinned.families }), "the byte-frozen corpus reads exactly as it did (AM-01)").toBe(RCC6_STAGES_BEFORE);
   }, BUDGET_MS);
 });

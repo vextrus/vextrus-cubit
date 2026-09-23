@@ -102,8 +102,15 @@ function sheet(): { graph: unknown; keys: Map<string, string> } {
   };
 }
 
-/** The one table the sheet reconstructs to, and the registry folded out of it. */
-async function readingOf(): Promise<{ table: ReconstructedTable; families: FamilyRow[]; keys: Map<string, string> }> {
+/**
+ * The unit the drawing's general notes declare, as the conventions stage resolves it (I-302): F-RCC6-
+ * BNBC's S-01 clause 4, `ALL DIMENSIONS ARE IN MILLIMETRES UNLESS FIGURED IN FEET AND INCHES`, on the
+ * notes sheet's paper — never on this schedule's sheet, which is why it is handed in rather than drawn.
+ */
+const DECLARED = { dimensionUnit: { unit: "mm", sourceKey: "DXF_HANDLE:1F3E" } } as const;
+
+/** The one table the sheet reconstructs to, and the registry folded out of it (under a declaration, if one is handed in). */
+async function readingOf(conventions?: typeof DECLARED): Promise<{ table: ReconstructedTable; families: FamilyRow[]; keys: Map<string, string> }> {
   const { graph, keys } = sheet();
   const partitioned = await viewsResultOf(graph);
   const { reconstructSchedules } = await reconstructDoor();
@@ -115,7 +122,7 @@ async function readingOf(): Promise<{ table: ReconstructedTable; families: Famil
   });
   expect(reconstructed.tables.length, "the drawn sheet carries one schedule, anchored on its caption").toBe(1);
   expect(reconstructed.deferrals, "which reconstructed, and therefore defers nothing").toEqual([]);
-  const registered = registerMemberTypes(reconstructed.tables);
+  const registered = registerMemberTypes(reconstructed.tables, conventions);
   expect(registered.deferrals, "and contributed member types, so it defers nothing there either").toEqual([]);
   return { table: reconstructed.tables[0] as ReconstructedTable, families: registered.families, keys };
 }
@@ -226,5 +233,43 @@ describe("R-TO-031: what the registry reads out of a stacked cell", () => {
       variantOf(families.find((family) => family.family === "C2"), "3RD-4TH")?.sourceKeys,
       "and those keys are the three texts of that band's own cell, in the order the page reads them",
     ).toEqual([keys.get("section:C2:1"), keys.get("bars:C2:1"), keys.get("ties:C2:1")]);
+  });
+
+  test("with no declaration handed in, no tie spacing of the sheet has a unit — the numbers are the drawing's, the unit is nobody's", async () => {
+    const { families } = await readingOf();
+
+    const ties = families.flatMap((family) => family.variants.flatMap((variant) => variant.zones.filter((zone) => zone.spacing !== null)));
+    expect(ties.length, "three marks, four bands, an end zone and a mid zone each").toBe(24);
+    expect(new Set(ties.map((zone) => zone.spacingUnit)), "no cell and no band head states a unit (L-MEA-01)").toEqual(new Set([null]));
+  });
+});
+
+describe("I-412: the stacked ties are read in the unit the drawing declares", () => {
+  test("every tie zone of every band stands in the declared millimetres, citing the declaration beside its own cell; the main bars take no unit", async () => {
+    const { families, keys } = await readingOf(DECLARED);
+
+    const zones = families.flatMap((family) => family.variants.flatMap((variant) => variant.zones.map((zone) => ({ family: family.family, variant: variant.variantKey, zone }))));
+    const ties = zones.filter((one) => one.zone.zone === "ties-end" || one.zone.zone === "ties-mid");
+    expect(ties.length, "three marks, four bands, an end zone and a mid zone each").toBe(24);
+    for (const { family, variant, zone } of ties) {
+      expect(zone.spacingUnit, `${family} ${variant} ${zone.zone}: \`${zone.text}\` states no unit in the cell and none over the band, so S-01's is the one said`).toBe("mm");
+      expect(zone.sourceKeys[zone.sourceKeys.length - 1], `${family} ${variant} ${zone.zone} cites the declaration its unit was read off (L-QTY-03)`).toBe(DECLARED.dimensionUnit.sourceKey);
+    }
+    for (const { family, variant, zone } of zones.filter((one) => one.zone.zone === "main")) {
+      expect({ unit: zone.spacingUnit, cites: zone.sourceKeys }, `${family} ${variant}'s main bars state no spacing, so no unit is theirs and no note is cited`).toEqual({
+        unit: null,
+        cites: variantOf(families.find((one) => one.family === family), variant)?.sourceKeys.slice(0, 3),
+      });
+    }
+
+    const gf = variantOf(families.find((family) => family.family === "C1"), "GF-2ND");
+    expect(
+      gf?.zones.map((zone) => ({ zone: zone.zone, spacing: zone.spacing, unit: zone.spacingUnit, cites: zone.sourceKeys })),
+      "C1 over GF TO 2ND: the 100 and the 150 of `10Ø@100/150 (TIES)` are millimetres because S-01 says every dimension is, cited beside the band's own three texts",
+    ).toEqual([
+      { zone: "main", spacing: null, unit: null, cites: [keys.get("section:C1:0"), keys.get("bars:C1:0"), keys.get("ties:C1:0")] },
+      { zone: "ties-end", spacing: 100, unit: "mm", cites: [keys.get("section:C1:0"), keys.get("bars:C1:0"), keys.get("ties:C1:0"), DECLARED.dimensionUnit.sourceKey] },
+      { zone: "ties-mid", spacing: 150, unit: "mm", cites: [keys.get("section:C1:0"), keys.get("bars:C1:0"), keys.get("ties:C1:0"), DECLARED.dimensionUnit.sourceKey] },
+    ]);
   });
 });
