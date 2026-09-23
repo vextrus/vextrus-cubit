@@ -37,6 +37,47 @@
           ]
         },
         {
+          "class": "column",
+          "kind": "rcc.rebar",
+          "description": "Column · Rebar",
+          "unit": "kg",
+          "lines": [
+            {
+              "lineId": "ln-0013",
+              "objectKey": "column/FDN/C1",
+              "level": "FDN",
+              "levelOrdinal": -1,
+              "quantity": null,
+              "unit": "kg",
+              "coverage": "PARTIAL_DECLARED",
+              "quantityBasis": "DERIVED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "OVERRIDE:column",
+              "omitted": [
+                "NOTE_READING_CONTESTED",
+                "REBAR_TIE_ZONE_UNSTATED"
+              ]
+            },
+            {
+              "lineId": "ln-0014",
+              "objectKey": "column/FDN/C2",
+              "level": "FDN",
+              "levelOrdinal": -1,
+              "quantity": null,
+              "unit": "kg",
+              "coverage": "PARTIAL_DECLARED",
+              "quantityBasis": "DERIVED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "OVERRIDE:column",
+              "omitted": [
+                "NOTE_READING_CONTESTED",
+                "REBAR_TIE_ZONE_UNSTATED"
+              ]
+            }
+          ],
+          "subtotals": []
+        },
+        {
           "class": "pile_cap",
           "kind": "rcc.concrete",
           "description": "Pile cap · Concrete",
@@ -99,12 +140,53 @@
               "value": "9.75"
             }
           ]
+        },
+        {
+          "class": "pile_cap",
+          "kind": "pcc.blinding",
+          "description": "Pile cap · Blinding",
+          "unit": "m3",
+          "lines": [
+            {
+              "lineId": "ln-0015",
+              "objectKey": "pile_cap/FDN/PC1",
+              "level": "FDN",
+              "levelOrdinal": -1,
+              "quantity": "0.391",
+              "unit": "m3",
+              "coverage": "COMPLETE",
+              "quantityBasis": "DERIVED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "OVERRIDE:pile_cap"
+            },
+            {
+              "lineId": "ln-0016",
+              "objectKey": "pile_cap/FDN/PC2",
+              "level": "FDN",
+              "levelOrdinal": -1,
+              "quantity": null,
+              "unit": "m3",
+              "coverage": "PARTIAL_DECLARED",
+              "quantityBasis": "DERIVED",
+              "selectionBasis": "TRANSCRIBED",
+              "decidedBy": "OVERRIDE:pile_cap",
+              "omitted": [
+                "BLINDING_PLAN_DEFERRED"
+              ]
+            }
+          ],
+          "subtotals": [
+            {
+              "unit": "m3",
+              "value": "0.391"
+            }
+          ]
         }
       ],
       "subtotals": [
         {
           "unit": "m3",
-          "value": "9.130"
+          "value": "9.521"
         },
         {
           "unit": "m2",
@@ -299,26 +381,24 @@
               "objectKey": "surface/1F/F1",
               "level": "1F",
               "levelOrdinal": 1,
-              "quantity": "24.50",
+              "quantity": null,
               "unit": "m2",
               "coverage": "PARTIAL_DECLARED",
               "quantityBasis": "DERIVED",
               "selectionBasis": "TRANSCRIBED",
-              "decidedBy": "GROUP:finish.paint"
+              "decidedBy": "GROUP:finish.paint",
+              "omitted": [
+                "OPENING_SCHEDULE_ABSENT"
+              ]
             }
           ],
-          "subtotals": [
-            {
-              "unit": "m2",
-              "value": "24.50"
-            }
-          ]
+          "subtotals": []
         }
       ],
       "subtotals": [
         {
           "unit": "m2",
-          "value": "49.00"
+          "value": "24.50"
         }
       ]
     }
@@ -342,5 +422,25 @@
         "reason": "LEVEL_NOT_IN_STACK"
       }
     ]
-  }
+  },
+  "notMeasured": [
+    {
+      "class": null,
+      "kind": "piling.boring",
+      "levels": "",
+      "cause": "NO_BEARER_SIGHTED"
+    },
+    {
+      "class": "slab",
+      "kind": "rcc.concrete",
+      "levels": "GF–2F",
+      "cause": "NOT_ESTABLISHED"
+    },
+    {
+      "class": "stair",
+      "kind": "rcc.concrete",
+      "levels": "GF",
+      "cause": "NOT_IN_PROJECT_SCOPE"
+    }
+  ]
 }
