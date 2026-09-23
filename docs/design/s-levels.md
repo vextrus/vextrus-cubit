@@ -225,6 +225,117 @@ the `cx-levels-*` classes this file rules.
     - `tests/takeoff/coverage/placeholder-lines.test.ts`, through the doors: a bare-caption beam plan and
       a foundation plan, pressed, ranged, pressed again. Every line joins a register object, and beam
       lines are 2 × beam objects.
+- **I-409 — a caption's level words state a SET: a range only where the drawing wrote a range
+  sign, a list where it listed (session 8, W1; L-CAD-07, L-QTY-04, L-QTY-01, B-17).**
+  - **Measured.** The session-8 dissection of the owner's benchmark set found four slab and beam
+    captions that list non-adjacent floors (a caption of the shape `2ND, 4TH & 6TH FLOOR BEAM LAYOUT`).
+    The resolver's `typicalRangeOf` read ANY two level words as a range from the first to the last. The
+    benchmark's probe read one three-storey list as five storeys and one four-storey list as six. A
+    caption of that shape stands its members on 2F..6F, and 3F and 5F carry members nobody drew. That
+    is over-measurement, which the law makes a hard block. Nothing disclosed it.
+  - **The reading.** L-CAD-07 says "typical ranges from captions" and "a stated range whose endpoint the
+    stack lacks refuses `LEVEL_RANGE_ENDPOINT_UNMAPPED`". It never says two level words ARE a range.
+    What a caption states is read by the notation's own band reading (`parseFloorZone`, the one a
+    schedule's `LEVELS` cell gets), put to exactly the text between each pair of adjacent level words:
+    - `TO`, `THRU`, `-` or `~` between them runs a range;
+    - `,`, `&`, `AND` or `+` lists them;
+    - a mix states the union: `GF, 2ND TO 4TH & 6TH` is GF, 2F..4F and 6F;
+    - anything else between them lists them too. So `ROOF BEAM LAYOUT (AT ROOF LEVEL)` is ROOF twice,
+      and never a band.
+    - Two consecutive storeys listed (`3RD & 4TH`) are the band the grammar already reads them as. They
+      are the same storeys either way.
+  - **What the product does.** The one home of a level set is `levelRunsOf`
+    (`partition/placement/law.ts`), beside `levelWordsOf`, and it returns runs in the drawing's order.
+    `captionLevelsOf` (`expansion/resolve.ts`, which replaces `typicalRangeOf`) gives one of three
+    answers: a set of runs, a single storey, or nothing stated. `spanAcross` expands over the union of
+    the runs, each read by ordinal as a range always was. The DRAWN (MEASURED) storey is where the first
+    written run starts, so a one-run set is exactly the range it was.
+  - **A storey the stack cannot carry.** Every run is placed before any is expanded. If one listed
+    storey is missing from the stack, the whole view defers under `LEVEL_RANGE_ENDPOINT_UNMAPPED`, and
+    `from_label`/`to_label` name the ends of the first run the stack cannot carry (`5TH`/`5TH`). For a
+    range those are the two ends the caption stated, as before. Expanding only the storeys the stack
+    does carry would drop the rest with no word said. No new reason, so no migration: the CHECK on
+    `expansion_deferrals.reason` is untouched.
+  - **Unchanged.** Both fixtures' captions read the storeys they read before. The pure J-000 walk (pin,
+    neck, stack, the three authored ranges) over F-RCC6-BNBC, and the same four states over F-RCC6,
+    give byte-identical rows, deferrals and yields before and after. `bnbc-placeholder-carry` still
+    reads 172 beams, 89 piles and 26 caps.
+  - **Known limits, each an UNDER and never an over.**
+    - A range written with a word the grammar does not know between its ends (`1ST FL TO 3RD`) reads as
+      its two ends listed. The storeys between are not measured, and nothing yet says so.
+    - `TOP` written as a member of a list (`2ND & TOP FLOOR`) is not read (I-411 reads it only
+      as the far end of a range), so that storey is not measured.
+    - A long-section sheet's band (`schedules/strips.ts`, `bandOf`) still reads its title from the
+      first level word to the last. A band only cuts what a plan states, so it cannot stand a member on
+      a storey. It can leave uncut a member at a storey between two the sheet listed.
+  - **Proof.** `tests/takeoff/partition/expansion/caption-sets.test.ts`. 11 of the 34 cases it first
+    held are red against the parent commit's reading (the new names shimmed onto its first-to-last
+    reading). The other 23 hold what must not move: every range, the consecutive pair, `TOP` that ends
+    no range, and both fixtures' own captions. The 14 cases the review round added are counted under
+    I-411, which brings the file to 48.
+- **I-410 — level words are read after the codes that only say how a text is drawn are taken
+  away (session 8, W1; L-CAD-02, L-CAD-03, B-17).** Every caption in the benchmark set is an underlined
+  MTEXT group, `{\L…}`, and the underline code glued onto the first word. `{\L3RD & 5TH …}` read
+  `L3RD`, so the caption stated 5TH alone (a storey of UNDER, on the wrong drawn storey).
+  `{\L1ST FLOOR …}` stated nothing. `levelSightingsOf` now reads the text through core's `mtextLines`
+  (the one home of what an MTEXT code is) and `normaliseNotation` (the `%%` codes, `%%U` among them)
+  before it splits words. `levelWordsOf`, `bandStatedIn` and `levelRunsOf` are projections of that one
+  traversal. Neither fixture's captions carry a code, so nothing they read moves. On F-RCC6, one
+  GENERAL NOTES MTEXT (`…\PGF AT +0.000…\PROOF MACHINE ROOM…`) now reads GF and ROOF where the
+  paragraph code used to glue them to `P`. No reader of level words reads that view.
+- **I-411 — a range to `TOP` runs to the storey beneath the stack's roof, or defers naming TOP
+  (session 8, W1; L-CAD-07, L-REG-02, L-QTY-01).** A column plan captioned `1ST TO TOP FLOOR` read as
+  its first storey alone: one storey measured, and the rest dropped with no word said.
+  - **Where `TOP` counts.** It is read only as the far end of a range, where the notation reads a band
+    from a level word to it. Then one of two things must also hold:
+    - a storey word follows it (`1ST-TOP FLOOR`, `3RD FLOOR - TOP FLOOR`), so the drawing has said in
+      words that TOP is a floor;
+    - or the range is written in words (`TO`, `THRU`) and the statement ends at `TOP`: at the end of the
+      text, or before a closing bracket or a sentence mark (`(GF TO TOP)`).
+    `TOP LAYER`, `TOP BARS` and `LIFT TOP` are never a floor. Whether a range is written in words is
+    asked of the notation's own band reading (`writtenInWords` in `placement/law.ts`): the same words
+    with every glyph between them taken away. A word sign survives that and a dash does not, so the
+    range signs keep their one home (B-17).
+  - **Why a list mark and a dash do not count (review of W1, session 8).** The slice first let `,` and
+    `&` end the statement, and let a dash run to a bare `TOP`. The adversarial review probed the
+    resolver over GF..6F and ROOF. Four captions over-measured that the parent commit had read as one
+    storey: `BEAM LAYOUT - 1ST FLOOR - TOP & BOTTOM BARS` and `1ST FLOOR - TOP & BOTTOM BEAM LAYOUT
+    PLAN` gave 1F..6F, `COLUMN LAYOUT PLAN - GF - TOP, BOTTOM DOWELS` gave GF..6F, and `ROOF LEVEL - TOP
+    & BOTTOM` added 6F. The same probe found the same fault with nothing after TOP (`SLAB REINFORCEMENT
+    - 1ST FLOOR - TOP`) and before `;` or `:`. There are two causes:
+    - `TOP & BOTTOM` and `TOP, BOTTOM` are how a reinforcement caption names a member's two faces;
+    - on a caption the dash separates the title's parts as often as it runs a range, and a bare `TOP`
+      after one names a face or a layer.
+    Each of those captions now reads its one storey, as it did before the slice.
+  - **Where the end lands.** The stack's own level of that label, if it has one. Otherwise the highest
+    live level below the stack's ROOF (`runEndOf`), by ordinal, ties to the lower surrogate.
+  - **A stack with no roof defers.** It cannot say which level is the top floor: its highest may be
+    the roof under another name, and standing members there would be a storey of over-measurement. So
+    the view defers under `LEVEL_RANGE_ENDPOINT_UNMAPPED` with `to_label` `TOP`.
+  - **A range to TOP that starts at the roof or above defers.** A range runs UP to the top floor.
+    `ROOF TO TOP FLOOR` names a top floor beneath its own start, so which storeys it means is nobody's
+    reading. The view defers under `LEVEL_RANGE_ENDPOINT_UNMAPPED` (`ROOF`/`TOP`). It never stands the
+    plan's members on the storey below the roof, which the caption never named.
+  - **Known limits, each an UNDER and never an over.**
+    - `1ST TO TOP & ROOF` reads 1ST and ROOF, because a list mark after TOP does not end the range.
+      2F..6F are not measured.
+    - A bare `TOP` after a dash or a tilde (`GF-TOP`, `GF~TOP`) reads its first storey alone, as it did
+      before the slice. A drawing that means the top floor there must write `TOP FLOOR` or `TO TOP`.
+  - **Rejected.**
+    - TOP as the stack's highest level. It would over-measure wherever the roof is spelled otherwise.
+    - TOP as a level word everywhere. It would turn `SLAB TOP BAR (2ND FLOOR)` into a range.
+    - A list mark or a sentence mark after TOP ending a dash range (the slice's first reading). It
+      over-measured the reinforcement idiom by up to six storeys.
+  - **Proof.** `caption-sets.test.ts`, the I-411 block. The review round added 14 cases, and 10
+    of them are red against the slice's first reading (`87a05695`): the review's four captions, four
+    dash-and-bare-TOP captions, `1ST TO TOP & ROOF`, and `ROOF TO TOP FLOOR`. The other four hold what
+    must still read: `(GF TO TOP)`, `1ST THRU TOP`, `1ST-TOP FLOOR` and `3RD FLOOR - TOP FLOOR`. Three
+    deliberate breaks, each reverted, turn cases red:
+    - `,` and `&` put back as closing marks: 1 red;
+    - a dash allowed to run to a bare TOP: 4 red;
+    - a range to TOP allowed to run down: 1 red.
+    All 17 distinct TOP-bearing texts in both fixtures' DXFs read the same runs before and after, and
+    none of them runs to TOP.
 
 **The craft look (session 7, 2026-09-23; R-UI-080..086, AM-08 — the later law).** Numbered `I-lev-n`
 rather than from the global chain, because several craft implementers amended Decisions that day.

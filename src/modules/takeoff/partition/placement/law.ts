@@ -12,7 +12,7 @@ import type { ElementType } from "@/core/catalogue/classes";
 import type { MemberShape } from "@/core/db";
 import type { BandStatement } from "@/core/offers/contract";
 import { DISCIPLINES, type Discipline } from "@/core/sheets/law";
-import { isMarkFamily, normaliseMark, parseDiameter, parseFloorZone } from "../notation";
+import { isMarkFamily, mtextLines, normaliseMark, normaliseNotation, parseDiameter, parseFloorZone, sameStorey } from "../notation";
 
 /** The seven classes a mark names, each written as the member of the catalogue's roster it is. */
 const COLUMN = "column" satisfies ElementType;
@@ -201,17 +201,33 @@ export function isFramedClass(type: ElementType | null): type is ElementType {
   return type !== null && FRAMED_CLASSES.includes(type);
 }
 
-/** What separates the words of a caption or a schedule cell: everything that is not a letter or a digit. */
-const LEVEL_WORDS = /[^A-Za-z0-9]+/;
+/** A word of a caption or a schedule cell: a run of letters and digits. Everything else separates. */
+const LEVEL_WORD = /[A-Za-z0-9]+/g;
+
+/**
+ * The text a drawing's words are read from, with the codes that only say how it is DRAWN taken away
+ * (Interpretation I-410). Two kinds of code go, each read by its one home (B-17):
+ *   · the MTEXT inline codes: the `{\L…}` underline a caption is drawn with, the `\f…;` font run, the
+ *     `\P` paragraph (core's `mtextLines`);
+ *   · the `%%` control codes (`normaliseNotation`).
+ *
+ * Without this, an underlined caption glued its code to its first word. `{\L3RD & 5TH FLOOR …}` read
+ * `L3RD`, which names no level, so the caption stated 5TH alone. `{\L1ST FLOOR …}` stated nothing.
+ */
+function plainWords(said: string): string {
+  return normaliseNotation(mtextLines(said).join(" "));
+}
 
 /**
  * The level words a piece of the drawing's text says, in the order it says them. Each word is put to
  * the notation's own floor-zone reading (B-17: one home) — `1ST`, `GF`, `ROOF` name levels; `TYPICAL`,
- * `FLOOR`, `PLAN` and `TO` name none — so a caption's range is read by the same grammar a schedule's
+ * `FLOOR`, `PLAN` and `TO` name none — so a caption's levels are read by the same grammar a schedule's
  * `LEVELS` cell is, which is what lets the two be compared at all (L-CAD-07).
  *
  * Here rather than beside either reader because both read it: the expansion asks it of a caption, and
- * the placement asks it of a caption and of a schedule band (B-17).
+ * the placement asks it of a caption and of a schedule band (B-17). WHICH storeys a caption's level
+ * words state between them is `levelRunsOf`'s question, below: two level words are a range only where
+ * the drawing wrote one (I-409).
  */
 export function levelWordsOf(said: string): string[] {
   return levelSightingsOf(said).flatMap((sighting) => sighting.level ?? []);
@@ -232,16 +248,138 @@ export type LevelSighting = { readonly word: string; readonly level: string | nu
 
 /** Every word of the text, in order, each with the level it names or null (L-CAD-07). */
 export function levelSightingsOf(said: string): LevelSighting[] {
-  const sightings: LevelSighting[] = [];
-  for (const word of said.split(LEVEL_WORDS)) {
-    if (word === "") continue;
+  return sightedIn(plainWords(said)).map(({ word, level }) => ({ word, level }));
+}
+
+/** One sighting, with where its word stands in the plain text it was read from. */
+type Sighted = LevelSighting & { readonly start: number; readonly end: number };
+
+/** The ONE traversal of a text's words that every level reading here is a projection of (B-17). */
+function sightedIn(plain: string): Sighted[] {
+  return [...plain.matchAll(LEVEL_WORD)].map((match) => {
+    const word = match[0];
     const band = parseFloorZone(word);
-    // A single word reads as a band of one level, or as no level at all; a word that read as a band of
-    // two would be a separator this split already dropped.
+    // A single word reads as a band of one level, or as no level at all. A word that read as a band of
+    // two would hold a separator, and no run of letters and digits holds one.
     const level = band === null || band.from !== band.to ? null : band.from;
-    sightings.push({ word: word.toUpperCase(), level });
-  }
-  return sightings;
+    return { word: word.toUpperCase(), level, start: match.index, end: match.index + word.length };
+  });
+}
+
+/**
+ * One run of storeys a text states. It is a range from one level to another where the drawing wrote
+ * one, or one level alone where the drawing listed it. `to` is `TOP_FLOOR` where a range runs to the
+ * building's top floor, which only the level stack can place.
+ */
+export type LevelRun = { readonly from: string; readonly to: string };
+
+/**
+ * The word a caption runs a range to the building's top floor with: `1ST TO TOP FLOOR`. It is no level
+ * the grammar names, and it is read ONLY as the far end of a range (I-411). Anywhere else a
+ * sheet writes `TOP` it means something else: `(TOP LAYER)`, `TOP BARS`, `LIFT TOP`.
+ */
+export const TOP_FLOOR = "TOP";
+
+/** The storey the top floor stands immediately beneath: the roof, as the grammar spells it (I-411). */
+export const TOP_FLOOR_BENEATH = "ROOF";
+
+/**
+ * What may stand between a bare `TOP` and the word after it for `TOP` still to END the statement: a
+ * closing bracket or a sentence mark. `(1ST TO TOP) COLUMN LAYOUT` ends at the bracket.
+ * `1ST FLOOR TO TOP BARS` does not end, so it runs to no floor.
+ *
+ * A list mark (`,` `&`) does NOT end it. `TOP & BOTTOM` and `TOP, BOTTOM` are how a reinforcement caption
+ * names a member's two faces, and reading the list mark as the end of a range turned
+ * `1ST FLOOR - TOP & BOTTOM BARS` into 1ST..TOP: five storeys of members nobody drew. The cost runs the
+ * safe way. `1ST TO TOP & ROOF` reads 1ST and ROOF, an UNDER on the storeys between, and never an over.
+ */
+const STATEMENT_CLOSE = /[)\].;:]/;
+
+/**
+ * Does the drawing write ONE band from this level word to that end? The question goes to the
+ * notation's own band reading, over exactly the text from the one to the other (B-17): the same
+ * reading a schedule's `LEVELS` cell gets. The answer is yes where a range sign stands between them
+ * (`1ST FLOOR TO 6TH`, `3RD-4TH`, `GF~ROOF`), or where two consecutive storeys are listed, which the
+ * grammar reads as the band they are (`3RD & 4TH`). The answer is no for a list that skips a storey
+ * (`2ND, 4TH`), and no where other words stand between (`ROOF BEAM LAYOUT (AT ROOF`).
+ */
+function bandsTo(plain: string, from: Sighted & { readonly level: string }, to: Sighted, toLevel: string): boolean {
+  const band = parseFloorZone(plain.slice(from.start, to.end));
+  return band !== null && sameStorey(band.from, from.level) && sameStorey(band.to, toLevel);
+}
+
+/**
+ * Is the range from this level word to `TOP` written in WORDS (`1ST FLOOR TO TOP`, `GF THRU TOP`)
+ * rather than with a glyph (`1ST FLOOR - TOP`, `GF~TOP`)? The question goes to the notation's own band
+ * reading, so the range signs keep their one home (B-17). The same words are put to it with every glyph
+ * between them taken away. A word sign survives that and the band still reads. A dash or a tilde does
+ * not survive it, and the band does not read.
+ */
+function writtenInWords(words: readonly Sighted[], fromLevel: string): boolean {
+  const band = parseFloorZone(words.map((sighting) => sighting.word).join(" "));
+  return band !== null && sameStorey(band.from, fromLevel) && sameStorey(band.to, TOP_FLOOR);
+}
+
+/**
+ * Does this level word run a range to the top floor (I-411)? `TOP` must stand where the
+ * notation reads a band from this level to it, the far end of a range sign. Then one of two things:
+ *   · a storey word follows `TOP` (`1ST-TOP FLOOR`, `3RD FLOOR - TOP FLOOR`). The drawing has said in so
+ *     many words that TOP is a floor, and the notation's band reading drops the storey word, so the
+ *     band still ends at TOP;
+ *   · the range is written in words (`TO`, `THRU`), and the statement ends at `TOP`: nothing follows it,
+ *     or a closing mark does.
+ *
+ * A bare `TOP` after a dash or a tilde is no floor, however the statement ends. On a caption the dash
+ * separates the title's parts as often as it runs a range, and a bare `TOP` after one names a face or a
+ * layer: `SLAB REINFORCEMENT - 1ST FLOOR - TOP`, `(1ST FLOOR - TOP)`. Reading it as the top floor would
+ * stand a single storey's members on every storey above it. The cost is an UNDER: `GF-TOP` reads GF
+ * alone, as it did before I-411.
+ */
+function runsToTop(plain: string, sighted: readonly Sighted[], at: number): boolean {
+  const from = sighted[at];
+  if (from === undefined || from.level === null) return false;
+  const start = { ...from, level: from.level };
+  const top = sighted.findIndex((word, index) => index > at && (word.level !== null || word.word === TOP_FLOOR));
+  const word = sighted[top];
+  if (word === undefined || word.level !== null || !bandsTo(plain, start, word, TOP_FLOOR)) return false;
+  const after = sighted[top + 1];
+  if (after !== undefined && bandsTo(plain, start, after, TOP_FLOOR)) return true;
+  return writtenInWords(sighted.slice(at, top + 1), start.level) && (after === undefined || STATEMENT_CLOSE.test(plain.slice(word.end, after.start)));
+}
+
+/**
+ * The storeys a text STATES, as runs in the order the drawing wrote them (Interpretation
+ * I-409; L-CAD-07). This is the one home of a level SET, beside `levelWordsOf`. It is a set
+ * because a sheet captions its floors both ways:
+ *   · a range sign runs a range: `TO`, `THRU`, `-`, `~`;
+ *   · a list sign lists: `,`, `&`, `AND`;
+ *   · a mix states their union: `GF, 2ND TO 4TH & 6TH` is GF, 2ND..4TH and 6TH.
+ *
+ * Two level words with no range sign between them are two listed storeys and never the storeys
+ * between. `2ND, 4TH & 6TH FLOOR BEAM LAYOUT` states three storeys. Reading it first to last would
+ * put the plan's members on 3RD and 5TH as well, where no drawing put them: over-measurement, which
+ * is a hard block. Read as a list, the worst a miswritten range costs is floors of UNDER.
+ *
+ * A text naming no level states no run.
+ */
+export function levelRunsOf(said: string): LevelRun[] {
+  const plain = plainWords(said);
+  const sighted = sightedIn(plain);
+  const levels = sighted.flatMap((word, index) => (word.level === null ? [] : [{ ...word, level: word.level, index }]));
+  const runs: LevelRun[] = [];
+  // Whether the level word in hand already ENDS the range the one before it ran, and so is stated.
+  let ended = false;
+  levels.forEach((here, at) => {
+    const next = levels[at + 1];
+    if (next !== undefined && bandsTo(plain, here, next, next.level)) {
+      runs.push({ from: here.level, to: next.level });
+      ended = true;
+      return;
+    }
+    if (!ended) runs.push({ from: here.level, to: runsToTop(plain, sighted, here.index) ? TOP_FLOOR : here.level });
+    ended = false;
+  });
+  return runs;
 }
 
 /**

@@ -3,10 +3,11 @@
 //
 // "Vertical classes (column, shear wall) expand per level at placement; foundation classes take the
 // lawful-null level basis." What a view's members expand OVER is stated by one of two things, and by
-// nothing else: a range a person authored for the view (`AUTHOR_TYPICAL_RANGE`), or the range its own
-// caption states. A caption that states neither leaves its members in the UNRESOLVED slot and says so
-// (`TYPICAL_RANGE_UNSTATED`); a range whose endpoint the live stack does not carry expands over
-// nothing and says so (`LEVEL_RANGE_ENDPOINT_UNMAPPED`).
+// nothing else: a range a person authored for the view (`AUTHOR_TYPICAL_RANGE`), or the storeys its
+// own caption states — a range where it wrote one, a list where it listed them, and never the storeys
+// between two it listed (I-409). A caption that states neither leaves its members in the
+// UNRESOLVED slot and says so (`TYPICAL_RANGE_UNSTATED`); a statement one of whose storeys the live
+// stack does not carry expands over nothing and says so (`LEVEL_RANGE_ENDPOINT_UNMAPPED`).
 //
 // What a view states is then CUT, twice, and by nothing else: by the band the member's own mark is
 // scheduled under (L-FRM-02), and by the note the plan wrote against that mark (I-303 — a member a
@@ -25,7 +26,7 @@ import { EXPANSION_DEFERRAL_REASONS, type ExpansionDeferralReason } from "@/core
 import { carryLevel, instanceKey, levelSegment, SIGHTING_STANDINGS, viewKey as viewKeyOf, type LevelRef, type SightingStanding, type ViewRef } from "@/core/identity";
 import { bandCovers, bandJudgeable, bandOpen, foundationNeckOf, type BandStatement } from "@/core/offers/contract";
 import { sameStorey } from "../notation";
-import { isFoundationClass, isLevelClass, isVerticalClass, levelWordsOf } from "../placement/law";
+import { isFoundationClass, isLevelClass, isVerticalClass, levelRunsOf, TOP_FLOOR, TOP_FLOOR_BENEATH, type LevelRun } from "../placement/law";
 import type { PlacementRow } from "../placement/rows";
 
 /**
@@ -101,7 +102,10 @@ export type ExpansionRow = {
 export type ExpansionDeferral = {
   readonly viewKey: string;
   readonly reason: ExpansionDeferralReason;
-  /** The two ends the caption STATED, where it stated any — null where it stated none (B-07). */
+  /**
+   * The two ends the caption STATED, where it stated any — null where it stated none (B-07). For a
+   * caption stating a set, the ends of the first run the stack cannot carry (I-409).
+   */
   readonly fromLabel: string | null;
   readonly toLabel: string | null;
 };
@@ -132,27 +136,33 @@ export type ResolvedExpansion = {
 };
 
 /**
- * The range a caption states, as this stage reads one. Three answers and no fourth: two or more level
- * words is a range from the first to the last, exactly one is a single-level plan, and none is a plan
- * that states no level at all — which is what a bare `TYPICAL FLOOR PLAN` is.
+ * The storeys a caption states, as this stage reads them. Three answers and no fourth:
+ *   · a SET: the runs the caption writes, each a range it wrote a range sign across or one storey it
+ *     listed (I-409);
+ *   · a single-level plan: exactly one level word;
+ *   · nothing: no level at all, which is what a bare `TYPICAL FLOOR PLAN` is.
  */
-export type CaptionRange =
-  | { readonly kind: "range"; readonly from: string; readonly to: string }
+export type CaptionLevels =
+  | { readonly kind: "set"; readonly runs: readonly LevelRun[] }
   | { readonly kind: "single"; readonly label: string }
   | { readonly kind: "unstated" };
 
 /**
- * The range a view's caption states (L-CAD-07: "typical ranges from captions"). A caption naming the
- * levels `1ST … 6TH` states the range between them whatever words stand around them, and a caption
- * naming none states nothing — which is the state `AUTHOR_TYPICAL_RANGE` exists to settle.
+ * The storeys a view's caption states (L-CAD-07: "typical ranges from captions"), read by the
+ * placement law's one reading of a level set (`levelRunsOf`, B-17).
+ *
+ * `TYPICAL FLOOR PLAN (1ST TO 6TH)` states the range between its two words. `2ND, 4TH & 6TH FLOOR
+ * BEAM LAYOUT` states those three storeys and none between them. Before I-409, any two level
+ * words were read as a range from the first to the last, so that caption stood its members on 3RD and
+ * 5TH as well: an over-measurement nothing disclosed. A caption naming no level states nothing, which
+ * is the state `AUTHOR_TYPICAL_RANGE` exists to settle.
  */
-export function typicalRangeOf(caption: string): CaptionRange {
-  const words = levelWordsOf(caption);
-  const first = words[0];
-  const last = words[words.length - 1];
-  if (first === undefined || last === undefined) return { kind: "unstated" };
-  if (words.length === 1) return { kind: "single", label: first };
-  return { kind: "range", from: first, to: last };
+export function captionLevelsOf(caption: string): CaptionLevels {
+  const runs = levelRunsOf(caption);
+  const only = runs.length === 1 ? runs[0] : undefined;
+  if (runs.length === 0) return { kind: "unstated" };
+  if (only !== undefined && only.from === only.to) return { kind: "single", label: only.from };
+  return { kind: "set", runs };
 }
 
 /** Code-point order, so one resolution lists one answer one way (L-REG-04, AC-8). */
@@ -175,6 +185,36 @@ function levelSurrogate(levels: readonly StackedLevel[], levelId: string): Stack
   return levels.find((level) => level.levelId === levelId) ?? null;
 }
 
+/**
+ * The live level a run's far end names. It is the stack's own level under that label, as every end is
+ * read. Where a caption ran its range to `TOP` and the stack carries no level of that label, the end is
+ * the building's top floor (I-411): the highest live level standing below the stack's ROOF.
+ *
+ * The roof is the anchor because a floor is what a person stands on, and the roof is where the top
+ * floor's verticals end. A stack that carries no roof cannot say which of its levels is the top floor.
+ * Its highest level may be the roof under another name (`TERRACE`), and a plan's members stood there
+ * would be a storey of over-measurement. So the end is null, and the view defers under
+ * `LEVEL_RANGE_ENDPOINT_UNMAPPED`, naming `TOP` (L-QTY-01: never a guess).
+ *
+ * A range runs UP to the top floor. One that starts at the roof or above it (`ROOF TO TOP FLOOR`) names a
+ * top floor beneath its own start, and which storeys it means is nobody's reading. Its end is null too.
+ * The view defers rather than stand the plan's members on the storey below the roof, a storey the
+ * caption never named.
+ *
+ * The walk is by ordinal, and ties go to the lower surrogate, so one stack answers one way however it
+ * was handed in (AC-8).
+ */
+function runEndOf(levels: readonly StackedLevel[], label: string, from: StackedLevel): StackedLevel | null {
+  const labelled = levelLabelled(levels, label);
+  if (labelled !== null || label !== TOP_FLOOR) return labelled;
+  const roof = levelLabelled(levels, TOP_FLOOR_BENEATH);
+  if (roof === null) return null;
+  const top = levels
+    .filter((level) => level.ordinal < roof.ordinal)
+    .reduce<StackedLevel | null>((held, level) => (held === null || level.ordinal > held.ordinal || (level.ordinal === held.ordinal && byCodePoint(level.levelId, held.levelId) < 0) ? level : held), null);
+  return top === null || top.ordinal < from.ordinal ? null : top;
+}
+
 /** What a view's vertical members expand over, once the authored range and the caption are read. */
 type Span =
   | { readonly kind: "levels"; readonly drawn: StackedLevel; readonly levels: readonly StackedLevel[] }
@@ -187,10 +227,28 @@ type Span =
  * the range runs FROM: a typical plan is drawn once, at the storey its caption starts at (risk note 2).
  */
 function spanBetween(levels: readonly StackedLevel[], from: StackedLevel, to: StackedLevel): Span {
-  const low = Math.min(from.ordinal, to.ordinal);
-  const high = Math.max(from.ordinal, to.ordinal);
-  const within = levels.filter((level) => level.ordinal >= low && level.ordinal <= high);
-  return { kind: "levels", drawn: from, levels: within };
+  return spanAcross(levels, { from, to }, []);
+}
+
+/** One run of a stated set, placed on the live stack: the two levels its ends name. */
+type PlacedRun = { readonly from: StackedLevel; readonly to: StackedLevel };
+
+/**
+ * Every live level standing within ANY run of a stated set, and none outside them all (I-409).
+ * `2ND, 4TH & 6TH` is three runs of one storey each, and the span is those three levels: never the
+ * storeys between, because the caption listed them rather than ran a range across them.
+ *
+ * Each run is read the way `spanBetween` reads a range: by ordinal, inclusive. So a set of one run IS
+ * that range, and a caption that states a range reads exactly as it did. The DRAWN level is where the
+ * FIRST run the caption writes runs from. A plan captioned for several storeys is drawn once, and the
+ * caption opens with the storey it is drawn at (risk note 2).
+ */
+function spanAcross(levels: readonly StackedLevel[], first: PlacedRun, rest: readonly PlacedRun[]): Span {
+  const runs = [first, ...rest];
+  const within = levels.filter((level) =>
+    runs.some((run) => level.ordinal >= Math.min(run.from.ordinal, run.to.ordinal) && level.ordinal <= Math.max(run.from.ordinal, run.to.ordinal)),
+  );
+  return { kind: "levels", drawn: first.from, levels: within };
 }
 
 /** What one view's vertical members expand over: the authored range first, then the caption's own. */
@@ -207,21 +265,29 @@ function spanOf(view: ExpandedView, viewKey: string, evidence: ExpansionEvidence
     return spanBetween(evidence.levels, from, to);
   }
 
-  const stated = typicalRangeOf(view.caption);
+  const stated = captionLevelsOf(view.caption);
   if (stated.kind === "unstated") return { kind: "deferred", reason: TYPICAL_RANGE_UNSTATED, fromLabel: null, toLabel: null };
   if (stated.kind === "single") {
     const only = levelLabelled(evidence.levels, stated.label);
     // A caption naming ONE level nobody has authored is not a deferral: the drawing said which level,
     // and the placeholder carries onto the surrogate the moment somebody authors it (L-REG-04's
-    // one-hop carry). A range is different — an unmapped endpoint leaves nothing to expand over.
+    // one-hop carry). A set is different: an unmapped storey leaves nothing to expand over.
     return only === null ? { kind: "unregistered", label: stated.label } : { kind: "levels", drawn: only, levels: [only] };
   }
-  const from = levelLabelled(evidence.levels, stated.from);
-  const to = levelLabelled(evidence.levels, stated.to);
-  if (from === null || to === null) {
-    return { kind: "deferred", reason: LEVEL_RANGE_ENDPOINT_UNMAPPED, fromLabel: stated.from, toLabel: stated.to };
+  // Every run is placed before any is expanded (I-409). A set with one storey the stack does
+  // not carry has not been read whole. Expanding the rest would stand the plan's members on some of the
+  // storeys it names and on none of the others, with no word said (L-QTY-04). So the view defers under
+  // the law's own reason, naming the ends of the first run the stack cannot carry: for a range, the two
+  // ends the caption stated, as ever.
+  const placed: PlacedRun[] = [];
+  for (const run of stated.runs) {
+    const from = levelLabelled(evidence.levels, run.from);
+    const to = from === null ? null : runEndOf(evidence.levels, run.to, from);
+    if (from === null || to === null) return { kind: "deferred", reason: LEVEL_RANGE_ENDPOINT_UNMAPPED, fromLabel: run.from, toLabel: run.to };
+    placed.push({ from, to });
   }
-  return spanBetween(evidence.levels, from, to);
+  const [first, ...rest] = placed;
+  return first === undefined ? { kind: "deferred", reason: TYPICAL_RANGE_UNSTATED, fromLabel: null, toLabel: null } : spanAcross(evidence.levels, first, rest);
 }
 
 /**
