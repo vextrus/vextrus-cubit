@@ -24,7 +24,7 @@ S4 the armed tools and the gesture grammar · S5 the condition chest · S6 the c
 S7 the measurement book · S8 the legend's manual conditions (in VD-4's legend) · S9 the rest of the
 toolset · S10 assemblies · S11 J-041.
 
-This Decision defines I-370 … I-394 and D-005 (session 8).
+This Decision defines I-370 … I-394, I-497 … I-501 and D-005 (session 8).
 
 ---
 
@@ -208,7 +208,8 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     A, S, F and Escape. It gains the lines this grammar adds, so the ? sheet and ⌘K list them:
     `viewer-condition` (1–9), `viewer-measure-cutout` (X), `viewer-measure-finish` (Enter),
     `viewer-measure-undo` (Backspace), `viewer-measure-point` (Space) and `viewer-measure-confirm`
-    (Mod+Enter), each labelled from `shortcuts.ts` (§4). Owner: S4, S5 for the digits.
+    (Mod+Enter), each labelled from `shortcuts.ts` (§4). Owner: S4 for the cut-out, finish, undo and
+    point lines (landed), S5 for the digits, S6 for Confirm with the card it confirms (I-499).
   - A cut-out ring must lie wholly inside its outer ring and must not overlap another cut-out.
     Otherwise it is not closed, and the status names why (`measure_status_cutout_outside`).
 
@@ -298,7 +299,8 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     Pressing A with no condition picked arms Area under the area condition last used on this mount,
     if there is one. If there is none, focus moves to the chest filtered to area conditions and the
     status reads "Pick a condition to measure with"; nothing arms. A quick measurement with no
-    condition is the Select tool's distance pick, which exists.
+    condition is the Select tool's distance pick, which exists. Where the chest holds no condition
+    of the tool's geometry at all, the tool arms and records nothing (I-497).
   - The chest is per project (S5). A tenant-level chest (R-TO-041, "per tenant and per project") is an
     IOU (§14).
 
@@ -1021,6 +1023,123 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
   - Rejected: routing the typical range's rows through the batch door. A range re-stated over a
     storey the member already stands on would then be kept as a refused sighting, evidence of a
     double count that is not one.
+- **I-497 — With no condition picked, an armed tool measures and records nothing.** I-374 arms a
+  tool only with a condition picked, and with no condition of the tool's geometry in the chest
+  "nothing arms". That reading fits a stocked chest. Read against an empty one, and against every
+  project before S5 lands the chest, it leaves Linear, Area and Count unusable, and the empty chest's
+  teaching state with nothing to teach beside.
+  - So where the chest holds no condition of the tool's geometry, L, A and C arm the tool with no
+    condition. The QS draws, snaps and cuts out; the running figure and the measure cell read the
+    shape live; Enter finishes it into a draft that stays on the sheet. It is a take-off check, the
+    area and run the Select pick cannot give.
+  - Nothing is recorded. No card opens, because a measurement is an offer to the gate under a chosen
+    kind (R-TO-040), and a shape with no condition has none. The measure cell says so after every
+    finish: `measure_status_unrecorded`. Where the chest holds a condition of the geometry, I-374's
+    pick-first order governs unchanged.
+  - The preconditions of RECORDING are said where recording is asked. No open campaign, a sheet
+    outside the pinned set and an unconfirmed discipline (§3's reasons 3–5) are refused by name at the
+    card's preview (§5). The tool row says the preconditions of DRAWING that the viewer already holds:
+    offline (reason 1), MEASURE not held (reason 2, read from the scale door's own
+    `PERMISSION_NOT_HELD`, one answer and no second read), and the unscaled view under the pointer
+    (reason 7). Reasons 3–5 join the tool row when a read of them stands in the route; owner S6,
+    which brings the preview door that reads them. Reason 6 joins with M4P-6: no raster content
+    reaches the viewer before it.
+  - Rejected: tools disabled until a condition exists. The QS could not check a single outline, and
+    the chest's empty state would teach a tool nobody may touch.
+
+- **I-498 — The hatch over an unscaled view is the views overlay's own; an armed tool honours it and
+  says so.** §2.3 asks that every view with no scale of record is hatched while a tool is armed. The
+  views overlay already hatches exactly those views, in the untyped hatch idiom and `--warn`, from the
+  scale door's one answer (I-160).
+  - The measure layer paints no second hatch. Over such a view the cursor is not-allowed, a click
+    places nothing, the reticle's ticks turn `--warn`, and the measure cell reads `data-reason=unscaled`
+    with `measure_view_unscaled`.
+  - A reader who switches the views overlay off takes the hatch away with it; the refusal still
+    stands, in the cursor and in words.
+  - Rejected: a second hatch on the measure canvas. Two layers painting one pattern over one view
+    double its ink where both stand, and two homes for one reading is a copy (B-17).
+
+- **I-499 — The grammar's unwritten cells.** I-372's table leaves some cells open. They are ruled
+  here, each in the direction of never costing the QS work:
+  - Escape while cutting discards the cut-out in progress and returns to the outline as a draft. A
+    stray Escape in a cut-out never costs the outline.
+  - Backspace on an empty cut-out ring returns to the outline. On a finished shape with cut-outs, the
+    last ring closed is the first re-opened: the cut-out before the outline.
+  - A point placed where the ring's last point already stands adds nothing and says
+    `measure_status_repeated`. A Count never counts one symbol twice in one measurement (I-380's
+    coincident point): a count is a set, not a path, so a point where ANY counted point already
+    stands is refused the same way, however many clicks ago that symbol was counted (A, B, A counts
+    two). A Linear or Area path may come back to a point it passed; only a repeat of the last point
+    is nothing.
+  - Rectangle (the M menu): each ring is spanned by two opposite corners, and the second corner
+    finishes it, so there is nothing to Enter. A cut-out drawn in Rectangle is a rectangle too.
+  - An outline that crosses itself or encloses no area is not finished (`measure_status_degenerate`),
+    so the door's `MANUAL_GEOMETRY_DEGENERATE` is said before anybody is asked to confirm.
+  - A free point is the pointer's world point on the 0.1 lattice (I-385), except a coordinate that a
+    constraint (Shift, or Ortho) copied exactly from the last point. That coordinate keeps the last
+    point's own spelling, so an ortho run stays exactly square in the drawing's coordinates.
+  - A press may travel up to 4 px and still place a point (§7). The sheet does not move before the
+    press passes 4 px; past it the press pans, from where it began. The click count is the browser's
+    own click's, so a double-click's second click finishes and places nothing.
+  - The roster spells the space bar `Space`; the one reading of a step (`matchesStep`) reads the space
+    bar's key as that word.
+  - Confirm's roster line (Mod+Enter) joins with the card it confirms (S6). Until then there is
+    nothing for the key to do, and a line of the ? sheet that does nothing would be a false line.
+
+- **I-500 — A rectangle's derived corners are MEASURED only where the drawing has a point exactly
+  there.** The two corners a QS clicks keep their own basis. The other two are derived from them: the
+  x of one and the y of the other.
+  - Each derived corner is asked of the drawing through the snapping region's own resolver. Where an
+    entity's point stands exactly at the corner (a vertex of the lift pit 830, say), the corner is
+    MEASURED and cites that entity. Anywhere else it is ENTERED.
+  - Either way its coordinates are the clicked corners' own exact spellings, never quantised again.
+  - So a rectangle traced over a drawn rectangle is MEASURED throughout, and one drawn over nothing is
+    honestly weaker (I-387). The door re-derives every cited point (I-387), so a client that claimed
+    more is demoted there.
+
+- **I-501 — On a sheet that shows the plan through a viewport, a figure is carried into metres
+  through the one window it stands in, or it stays in the sheet's own units and says why.** L-MEA-05
+  carries a view's figure into metres by its scale of record, and that scale is stated per unit of the
+  space it was read in.
+  - A paper sheet shows model space through its viewports: the viewer projects each model record onto
+    the paper, moved and scaled by the window (`viewer/projection.ts`). So a point placed on such a
+    sheet stands in PAPER coordinates.
+  - Every BNBC sheet is such a sheet. S-08's plan is seen through viewport 2077 at 1:100 (view height
+    34000 over a 340 frame, read from the committed DXF), while its view's scale of record is the
+    DIMENSION_RATIO 0.001 m per MODEL unit (the J-000 project's read-back). That factor on paper
+    coordinates would state 81D at about 0.033 m², ten thousand times under its 328.838 m².
+  - So the calibration door (`viewer-snap/server.ts`) answers two facts beside each view's stored
+    factors, both read in `viewer-snap/sheet-space.ts`: the windows the sheet shows model space
+    through (the viewer's own `windowsOf` over the layout's inventory — each frame on the paper, and
+    the viewport's view height over its frame's height, in the drawing's own spellings), and the space
+    each view's factor is per unit of (`model` for the machine ranks, which are read off the view's
+    model-space members or the header; `unrecorded` for a QS two-point, whose sheet the affirmation
+    does not record). The windows travel with the calibration, not the manifest, so a sheet is known
+    to be paper from the door's answer and never from whichever records have streamed in so far.
+  - One reading, `sheetMeasuring` in `viewer-snap/snap.ts`, answers how a span of the sheet is
+    carried, for the running figure, a Linear run's lettered segments and the snapping region's
+    distance cell alike (B-17). On model space, a view's factor carries the sheet's own coordinates.
+    On paper, where one view's scale of record holds every point and exactly one window's frame holds
+    them too, the factor is carried through that window: a length is multiplied by the window's ratio
+    of model units to sheet units (34000 / 340 = 100 on S-08), an area by its square. The quotient is
+    taken once, in the canon's 40-digit decimal, and the figure rounded once, half-even. On S-08, 81D
+    reads A 328.838 m², and 320.791 m² with the lift pit 830 cut out, as on model space.
+  - Where that does not hold the figure stays in the sheet's own units and says why, each reason by
+    name: `windowed` where the points stand in two windows, or on paper outside every window, or in
+    two overlapping windows (`measure_figure_windowed`); `unrecorded` where the view's factor is a
+    QS two-point (`measure_figure_unrecorded`). The distance cell says the same two reasons
+    (`viewer_status_distance_windowed`, `viewer_status_distance_unrecorded`), and both surfaces name
+    the window they carried a figure through (`data-via`).
+  - What stays owed (§14): the act maps a placed point back to model space through its window before
+    it keys or measures anything (I-378's `model` space; S1/S6). And the scale store does not record
+    the sheet a QS two-point was taken on; on model space such a factor is still applied as it always
+    was, and a two-point taken on a paper sheet is per PAPER unit there (§12).
+  - Rejected: metres from the model factor on paper coordinates — a partial faulty estimate is more
+    harmful than no estimate. Rejected: withholding metres on every paper sheet (this Interpretation's
+    first reading, S4's first pass) — the QS outcome is metres on S-08, and the window that makes them
+    right is a fact the drawing states. Rejected: carrying the windows in the manifest head — the
+    manifest is VIEW-TXT's this wave and its digest covers what a painter draws; the calibration door
+    is where the question "what carries this sheet into metres" is already answered.
 
 ---
 
@@ -1087,8 +1206,13 @@ What Cubit refuses from them:
   - Area draws a polygon or a rectangle (S4), freehand and magic fill (S9).
 - Disabled reasons for the whole group (the tooltip, `title`; §4) cover: no open campaign, the sheet
   outside the pinned set, the discipline unconfirmed, MEASURE not held, and raster content before
-  M4P-6. The pointer and camera groups stay usable.
-- `viewer_tools_measure_absent` ("Measurement tools arrive with S-Measure") retires when S4 lands.
+  M4P-6. The pointer and camera groups stay usable. S4 renders MEASURE not held, read from the scale
+  door's own answer; the rest join as I-497 names.
+- `viewer_tools_measure_absent` ("Measurement tools arrive with S-Measure") retired when S4 landed.
+- The ▾ is a 20 px chevron beside Count (`--space-5`), with "More measure tools" and its key M in its
+  tooltip. Its menu lists Rectangle, Cut out (live only on a finished Area outline) and the S9 tools,
+  each of those disabled with `measure_tool_not_yet` in its `title`.
+- With no condition picked the tools measure and record nothing (I-497).
 
 ### 2.2 The gesture grammar
 
@@ -1130,7 +1254,13 @@ The draft paint:
 
 With a tool armed, every view with no scale of record is hatched (the partition overlay's untyped
 hatch idiom, in `--warn`). Over a hatched view the pointer is `not-allowed`, a click places nothing,
-and the status cell names why.
+and the status cell names why. The hatch is the views overlay's own (I-498).
+
+The reticle: while a tool is armed, four 4 px ticks (`--space-1`, 1 px wide, in `--canvas-measure`
+on a 1 px `--canvas-paper` halo) stand around the live point in a `--space-4` box. The live point is
+where the next click lands: snapped, and constrained where Shift, Ortho or Angle hold. That is not
+always where the hand is, so the reticle shows it. Over an unscaled view the ticks turn `--warn`. The
+reticle draws in over `--motion-reticle`; the OS cursor is `crosshair`.
 
 ### 2.4 The running figure
 
@@ -1143,12 +1273,27 @@ below the live point, clamped inside the stage. It is 12 px mono, on `--surface-
 
 Figures are SI from the view's calibration (componentwise, I-146), rounded half-even to 3 decimals by
 the caller and grouped by `formatUserFigure`. On an uncalibrated view the label shows drawing units
-only, with `measure_figure_uncalibrated`.
+only, with `measure_figure_uncalibrated`. On a paper sheet the figure is carried through the one
+viewport it stands in; across windows, or under a QS two-point factor, it stays in sheet units with
+`measure_figure_windowed` or `measure_figure_unrecorded` (I-501).
 
 The status line gains the **measure cell** (`viewer-status-measure`) after the distance cell:
 `Area · 75 CC blinding under SOG · 5 points · 328.838 m²`. The label and figure repeat for a reader
 who is not looking at the pointer. After Confirm the cell reads `measure_status_recorded` until the
 next point is placed (S6), so the commit is said on the sheet before the sheet's list exists (S7).
+
+With no condition picked (I-497) the cell reads `Area · 5 points · A 328.838 m²`
+(`measure_status_tool`; `measure_status_tool_one` for one point). After a finish it adds
+`measure_status_unrecorded`. It repeats the grammar's refusals, `finish first`, `too few`,
+`degenerate`, `repeated`, the cut-out's and Alt+click's, as a muted note, and it states §3's reason
+where one holds. The cell stands while a tool is armed, and while the tools stand disabled; in Select
+and Pan with the tools usable it is absent, so the readout a reader already knows does not change.
+The cell's figure is the placed shape's. The label's is the live one: the cell does not follow the
+pointer (PB-3).
+
+A Linear run letters each placed segment's length at its midpoint on the canvas, in the distance
+cell's own words (`{metres} m`, or `{distance} drawing units` with no scale of record), 12 px mono on
+a paper halo.
 
 ### 2.5 The card
 
@@ -1342,6 +1487,9 @@ Each renders as `data-reason` on the measure cell: `offline` · `permission` · 
 sentence in each tool's tooltip. Reason 7 disables only the hatched view under the pointer. Offline
 (1) disables nothing: the reader may draw, and only Confirm waits for the connection.
 
+S4 renders reasons 1, 2 and 7. Reasons 3–5 are refused by name at the card's preview until their read
+stands in the route, and reason 6 has no content to meet before M4P-6 (I-497).
+
 ---
 
 ## 4. Copy, verbatim
@@ -1388,6 +1536,29 @@ the sheet until the connection returns.** · `measure_read_failed` **The measure
 read.** · `measure_retry` **Try again** · `measure_status_recorded` **Recorded. Adding to the
 register.** · `measure_card_failed` **This measurement could not be checked, and nothing was
 recorded. Your outline is still on the sheet.**
+
+**The armed tools' figure and the grammar's other notes (measure.ts, S4; I-497, I-499).**
+`measure_figure_windowed` **sheet units: this shape does not stand inside one viewport** (I-501) ·
+`measure_figure_unrecorded` **sheet units: a two-point scale is not carried through a viewport**
+(I-501) · the distance cell's `viewer_status_distance_windowed` **Not inside one viewport** and
+`viewer_status_distance_unrecorded` **Two-point scale not carried through a viewport** (viewer-snap.ts) ·
+`measure_status_tool` **{tool} · {points} points** · `measure_status_tool_one` **{tool} · 1 point** ·
+`measure_status_unrecorded` **Measured, not recorded: no condition is picked.** ·
+`measure_status_too_few` **{tool} needs {count} points before it can be finished.** ·
+`measure_status_degenerate` **This outline encloses nothing: it crosses itself, or its points stand
+in one line.** · `measure_status_repeated` **A point already stands there.** ·
+`measure_figure_length` **L {value} m** · `measure_figure_area` **A {value} m²** ·
+`measure_figure_segment` **+ {value} m** · `measure_figure_count` **N {value}** ·
+`measure_figure_length_units` **L {value}** · `measure_figure_area_units` **A {value}** ·
+`measure_figure_segment_units` **+ {value}** · `measure_point_removed` **Last point removed.** ·
+`measure_shape_reopened` **Open again: add points, or press Enter to close it.** ·
+`measure_cutout_started` **Cutting out: place the cut-out's points inside the outline, then press
+Enter.** · `measure_cutout_finished` **Cut out: {figure} remains.** · `measure_cutout_discarded`
+**Cut-out discarded. The outline stands.** · `measure_canvas_keys` **L, A and C arm Linear, Area and
+Count. Space places a point at the cursor the arrow keys move, Enter finishes, Backspace removes the
+last point, X cuts out and Escape discards.** (the keys line the canvas points at, beside the
+camera's and the snapping region's). A Linear segment's length on the canvas reuses the distance
+cell's `viewer_status_distance_metres` and `viewer_status_distance_units`.
 
 **Shortcut labels (shortcuts.ts, the ? sheet and ⌘K).** `shortcut_viewer_condition` **Pick a condition
 (1 to 9)** · `shortcut_viewer_measure_cutout` **Cut out** · `shortcut_viewer_measure_finish` **Finish
@@ -1537,6 +1708,8 @@ both readers is an IOU for its owner (§14).
 
 Px literals, closed set: 10 px basis glyphs on placed points, 12 px swatches, 12 px figure offset,
 24 px leader threshold, 4 px drag tolerance, the 3 px selection bar, and the card's 320/288/360/440.
+The canvas strokes §2.3 names join it: the 2 px outline and cut-out, the 1 px live segment and
+halos, and the two dashes, 6–4 for a cut-out (the views overlay's own) and 4–3 for the live segment.
 Anything else is a defect.
 
 ## 8. Themes
@@ -1570,13 +1743,18 @@ contiguous `measure` group plus the named existing groups; the integrator merges
   now `aria-pressed`) · `viewer-tool-measure-menu` · `measure-menu-item` (`data-tool`, `disabled` with
   `title`).
 - Stage:
-  - `measure-draft` (`data-tool`, `data-state` = drawing | closed | cutting | draft, `data-points`,
-    `data-basis`);
+  - `measure-draft` (`data-tool`, `data-state` = idle | drawing | closed | cutting | draft,
+    `data-shape` = polygon | rectangle, `data-points`, `data-basis`) — the measure canvas itself,
+    mounted while a tool is armed; the stage wears `data-measure-refusal=unscaled` over an unscaled
+    view (the not-allowed cursor's hook);
   - `measure-point` (`data-index`, `data-ring` = outer | cutout-{n}, `data-basis`, `data-source`,
     `data-key-x`, `data-key-y`);
-  - `measure-live-figure` (`data-value` exact at 3 decimals, `data-unit`, `data-si`).
-- Status: `viewer-status-measure` (`data-tool`, `data-condition`, `data-points`, `data-value`,
-  `data-unit`, `data-reason`).
+  - `measure-live-figure` (`data-value` exact at 3 decimals, `data-unit` = m | m2 | du | du2 |
+    count, `data-si` = calibrated | uncalibrated | windowed | unrecorded, empty for a count,
+    `data-via` = the window a paper figure was carried through, `data-shown`); the distance cell
+    `viewer-status-distance` gains the same `data-si` values and `data-via` (I-501).
+- Status: `viewer-status-measure` (`data-tool`, `data-condition`, empty with no condition picked,
+  `data-points`, `data-value`, `data-unit`, `data-reason`).
 - Card (the ConsequenceDialog's ids stand: `consequence-dialog` with `data-act-type` and a new
   `data-presentation="anchored"`, `consequence-confirm`, `consequence-digest-line`; the arm adds):
   - `consequence-measurement-condition`;
@@ -1698,6 +1876,11 @@ per-Interpretation verdict, so those rows stay OWED, and their objections below 
 | I-394 | leaving the carry out breaks L-REG-06 | the carry is owed and the re-pin must say so; nothing silently drops | OWED | re-pin |
 | I-496 | an append-only store makes a wrong measurement permanent; and (review) a recipe naming an unknown condition reached the store's key and answered with a fault, and a key on the id alone crossed workspaces | nothing is lost: an edit supersedes and strikes, a delete repudiates, and the bill withholds a struck object's lines (I-379, BOQ-1); what stays is the record of what a person did; the act refuses a condition the chest does not hold standing by name, and the key is `(tenant, project, condition)` | OWED | S1 |
 | I-495 | a move of the door every rebuild uses risks a behaviour change | the move is the same SQL in a new home, proved by the register breaker suites unchanged; the two re-homed writers keep their own semantics (no evidence for a re-stated range) | OWED | S1 |
+| I-497 | a tool that measures without recording invites a QS to believe a figure was taken; and it departs from I-374's pick-first | the cell says "Measured, not recorded" after every finish, and no card, act or line exists to mistake for one; pick-first governs wherever the chest can be picked from | OWED | S4, S5 |
+| I-498 | §2.3 says hatched "with a tool armed", whatever the views switch says | one hatch home (I-160); with the hatch switched off the refusal still stands in the cursor and in words | OWED | S4 |
+| I-499 | ruling the table's open cells in code is the grammar growing silently | each cell is written here, and each errs toward keeping the QS's work | OWED | S4 |
+| I-500 | a derived corner nothing was snapped to is a free point and belongs on the lattice | its coordinates are the clicked corners' own, exactly; its basis is asked of the drawing and demoted at the door if it does not reproduce | OWED | S4, S1 |
+| I-501 | a window's ratio applied to a factor read on paper states a figure 10⁴ over; picking "the" window by the frame misreads a shape across two | only machine ranks (read off model-space members) are carried through a window, a two-point is `unrecorded`; a shape must stand inside exactly one frame, and two, none or overlapping frames refuse by name | OWED | S4, S6 |
 
 **D-005 (entered only if the refuter rejects I-388).** Clause: L-FRM-04, "Blinding (CC) count ×
 (L + 2p) × (B + 2p) × t; deferred for polygon plans". Evidence: the SOG on S-08 (POLYLINE 81D) is a
@@ -1747,6 +1930,19 @@ Risks this Decision leaves the orchestrator:
   commit.
 - **The residue's no-join rule** (I-379) is S3's, and S7 offers no Delete or Edit on a hand
   measurement until it stands. S3's and S7's slice texts do not name it yet.
+- **Metres on a paper sheet (I-501).** The snapping region's distance cell multiplied paper
+  coordinates by a view's model-space factor on any sheet that shows its plan through a viewport; on
+  BNBC's 1:100 sheets that stated a length a hundred times short. It now asks `sheetMeasuring` as the
+  running figure does, and reads 16.100 m along 81D's second edge on S-08's paper (jsdom,
+  `measure-screen.test.tsx`), not 0.161. Not yet seen in a browser. J-020 stages MODEL_SPACE sheets
+  only, so no journey covered the paper case before, and none does yet.
+- **The scale store mixes spaces (I-501).** A QS_TWO_POINT affirmation picked on a paper sheet is a
+  factor per PAPER unit: `affirm-scale.ts` checks that the cited keys belong to the named views, and
+  a projected record cites its model entity, but nothing records which sheet the coordinates came
+  from. The viewer now refuses to carry a two-point factor through a window (`unrecorded`), but on
+  model space it applies it as before, and the measure job reads that factor per model unit. The
+  affirmation should record the sheet it was taken on (or map the picks back through their window).
+  Owner: the scale door's (S-Scale), named by the orchestrator.
 - **The spec's "docs lane in pnpm verify" does not exist.** `scripts/lib/lanes.mjs` has no lane over
   `docs/design`, and `test:docs` is the Typst document lane. What stands in its place is this
   Decision's own test in the unit lane, which verify runs:
@@ -1815,6 +2011,19 @@ Risks this Decision leaves the orchestrator:
   Owner: F-RCC6-BNBC's generator.
 - Typed "Less:" rows (ENTERED deductions, PWD practice) beside traced and register-derived ones.
   Owner: S9.
+- §3's reasons 3–5 (no campaign, not pinned, discipline) in the tool row and the measure cell, from a
+  read of them in the route (I-497). Owner: S6.
+- One home for the ring arithmetic (I-385). S4's running figure and its cut-out predicates compute in
+  `viewer-measure/figure.ts` and `viewer-measure/rings.ts`, exactly, in BigInt, while S1's
+  `src/core/manual/law.ts` was being written beside them. The two meet at integration, and whichever
+  is not `law.ts` then calls it. Owner: the integrator, with S1.
+- The door re-checks a cut-out's containment exactly (I-372's rule is S4's on the client, and a client
+  is not trusted, I-387). Owner: S1/S3.
+- The point on paper, mapped back to model space (I-501, I-378). The viewer now carries a figure
+  through its window (the calibration door answers the sheet's windows; `sheetMeasuring` carries a
+  span through the one window it stands in). What an act keys and measures must still be the model
+  point: a point placed on a paper sheet is mapped back through its window before the door re-derives
+  it. Owner: S1/S6. The sheet a QS two-point was taken on is not recorded (§12). Owner: S-Scale.
 - The remaining J-041 tools, assemblies and the sheet PDF. Owners: S9, S10, VD-6 and S11.
 - A view's extent has two readings: the partition overlay's box, read off the viewer's render
   records (a module), and the act's extent, read off the artifact's entity points (I-375). They agree
@@ -1925,3 +2134,28 @@ Risks this Decision leaves the orchestrator:
       The exact kernel now also skips a pair whose boxes share no area.
     - The commit judges a statement once per transaction; the seam's own preview inside the commit
       had judged it twice.
+- 2026-09-24 — S4 (session 8, wave 2): Linear, Area and Count armed on the sheet.
+  - The tool row's measure group arms (L, A, C), with the ▾ and its M menu: Rectangle, Cut out, and
+    the S9 tools disabled with their reason. `viewer_tools_measure_absent` retired.
+  - The gesture grammar is a pure machine (`viewer-measure/gesture.ts`). The pointer places points on
+    the click, which carries the click's count; the keys are matched in `measure-region.tsx` against
+    the roster, which gains finish, undo, cut-out and point.
+  - Shift constrains from the path's last point through the snapping region's own `constrainOrtho`
+    and Angle lock, and a perpendicular drops from the same point (path mode, `use-snap.ts`).
+  - The running figure: a DOM label at the live point, exact in decimal from the view's scale of
+    record, with the measure cell after the distance cell and the reticle at the live point. On
+    S-08, 81D reads A 328.838 m², and 320.791 m² once the lift pit 830 is cut out (I-393's ring).
+  - On a sheet that shows its plan through a viewport (every BNBC sheet: S-08's window 2077 is 1:100)
+    the running figure stays in the sheet's units and says why, because the view's scale of record is
+    per model unit and the client holds paper coordinates (I-501). The per-window scale is owed.
+  - The same day, after an adversarial review: the calibration door answers the sheet's windows and
+    the space each factor is per unit of (`viewer-snap/sheet-space.ts`), and one reading
+    (`sheetMeasuring`) carries a span through the one window it stands in, for the running figure,
+    the lettered segments and the distance cell alike. On S-08's paper 81D reads A 328.838 m² and
+    320.791 m² with the pit cut out, as on model space (jsdom); a shape across windows, or a QS
+    two-point factor, stays in sheet units and names why (I-501 rewritten). The distance cell's
+    hundredfold-short length on paper is fixed with it (§12). A Count now refuses a point where any
+    counted point stands (A, B, A counted three; I-499). A pick taken in Select no longer anchors a
+    shape's first vertex while a tool is armed (path mode).
+  - I-497 … I-501 are recorded, their refuter rows owed. §2.1, §2.3, §2.4, §3, §4, §7, §9, §12 and
+    §14 are amended to what landed.

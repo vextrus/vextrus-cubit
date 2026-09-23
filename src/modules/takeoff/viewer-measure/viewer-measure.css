@@ -1,0 +1,117 @@
+/* S-Measure's armed tools on the sheet (docs/design/s-measure.md § 2.1–2.4, § 6–8): the measure
+   canvas, the running figure's label, the reticle at the live point, the cursor an armed tool wears,
+   and the M menu's button in the tool row.
+
+   Every colour and every duration is a token, so both themes arrive through `--canvas-measure`,
+   `--canvas-paper` and the surface aliases on their own and no `[data-theme]` selector appears here
+   (R-UI-001, § 8). No `prefers-reduced-motion` branch appears either: the durations are zeroed at
+   their source (R-UI-004). Sizes are tokens or § 7's closed px set. */
+
+/* The canvas the draft is painted on: over the sheet and the views overlay, reached by nothing — the
+   pointer belongs to the sheet's canvas under it, where the click is the tool's (I-371). */
+.cx-viewer-measure-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: var(--z-base);
+}
+
+/* An armed tool places points: the cursor says so. Over a view with no scale of record a click places
+   nothing, and the cursor says that too (§ 2.3). */
+.cx-viewer-stage[data-tool="linear"] .cx-viewer-canvas,
+.cx-viewer-stage[data-tool="area"] .cx-viewer-canvas,
+.cx-viewer-stage[data-tool="count"] .cx-viewer-canvas {
+  cursor: crosshair;
+}
+
+.cx-viewer-stage[data-measure-refusal="unscaled"] .cx-viewer-canvas {
+  cursor: not-allowed;
+}
+
+/* The running figure (§ 2.4): 12 px mono on the overlay surface, a hairline and radius 4, placed 12 px
+   right of and below the live point by the region, and never in the pointer's way. */
+.cx-viewer-measure-figure {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  z-index: var(--z-base);
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: var(--surface-overlay);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.cx-viewer-measure-figure[data-shown="false"] {
+  display: none;
+}
+
+.cx-viewer-measure-figure-note {
+  color: var(--ink-muted);
+}
+
+.cx-viewer-measure-figure-note:empty {
+  display: none;
+}
+
+/* The reticle: four ticks around the point the next click places — the snapped, constrained point,
+   which is not always where the hand is. It draws in over the reticle's own token (§ 6). */
+.cx-viewer-measure-reticle {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  z-index: var(--z-base);
+  inline-size: var(--space-4);
+  block-size: var(--space-4);
+  margin-block-start: calc(var(--space-4) / -2);
+  margin-inline-start: calc(var(--space-4) / -2);
+  background:
+    linear-gradient(var(--canvas-measure), var(--canvas-measure)) center top / 1px var(--space-1) no-repeat,
+    linear-gradient(var(--canvas-measure), var(--canvas-measure)) center bottom / 1px var(--space-1) no-repeat,
+    linear-gradient(var(--canvas-measure), var(--canvas-measure)) left center / var(--space-1) 1px no-repeat,
+    linear-gradient(var(--canvas-measure), var(--canvas-measure)) right center / var(--space-1) 1px no-repeat;
+  filter: drop-shadow(0 0 1px var(--canvas-paper));
+  pointer-events: none;
+  transition-property: opacity, scale;
+  transition-duration: var(--motion-reticle);
+  transition-timing-function: var(--ease);
+}
+
+@starting-style {
+  .cx-viewer-measure-reticle {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+
+.cx-viewer-measure-reticle[data-shown="false"] {
+  display: none;
+}
+
+/* Over a view with no scale of record the ticks wear the hatch's own warning colour. */
+.cx-viewer-measure-reticle[data-refusal="unscaled"] {
+  background:
+    linear-gradient(var(--warn), var(--warn)) center top / 1px var(--space-1) no-repeat,
+    linear-gradient(var(--warn), var(--warn)) center bottom / 1px var(--space-1) no-repeat,
+    linear-gradient(var(--warn), var(--warn)) left center / var(--space-1) 1px no-repeat,
+    linear-gradient(var(--warn), var(--warn)) right center / var(--space-1) 1px no-repeat;
+}
+
+/* The M menu's button: the fourth of the measure group, a chevron beside Count rather than a fourth
+   full tool (§ 2.1), at the row's 28 px height. */
+.cx-viewer-toolbar .cx-btn.cx-viewer-measure-menu {
+  inline-size: var(--space-5);
+  padding-inline: 0;
+  justify-content: center;
+}

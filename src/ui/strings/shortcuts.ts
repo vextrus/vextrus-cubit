@@ -24,6 +24,11 @@ export const shortcuts = {
   shortcut_viewer_count: "Count",
   shortcut_viewer_linear: "Linear measure",
   shortcut_viewer_area: "Area measure",
+  // s-measure I-372: the gesture grammar's own keys, listed so the ? sheet and ⌘K name them.
+  shortcut_viewer_measure_finish: "Finish the outline",
+  shortcut_viewer_measure_undo: "Remove the last point",
+  shortcut_viewer_measure_cutout: "Cut out",
+  shortcut_viewer_measure_point: "Place a point at the keyboard cursor",
   shortcut_viewer_snap: "Snapping on or off",
   shortcut_viewer_fit: "Fit the sheet to the view",
   shortcut_viewer_escape: "Leave the current tool",

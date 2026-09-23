@@ -261,6 +261,14 @@ export const TESTIDS = {
     row: "levels-row",
     screen: "levels-screen",
   },
+  // S-Measure (docs/design/s-measure.md § 9): the armed tools' stage and menu (S4). The chest, the
+  // sheet's list and the book join this group with their slices.
+  measure: {
+    draft: "measure-draft",
+    liveFigure: "measure-live-figure",
+    menuItem: "measure-menu-item",
+    point: "measure-point",
+  },
   members: {
     historyEntry: "members-history-entry",
     inviteForm: "members-invite-form",
@@ -679,11 +687,13 @@ export const TESTIDS = {
     snapToggle: "viewer-snap-toggle",
     status: "viewer-status",
     statusDistance: "viewer-status-distance",
+    statusMeasure: "viewer-status-measure",
     statusSelection: "viewer-status-selection",
     statusSnap: "viewer-status-snap",
     toolArea: "viewer-tool-area",
     toolCount: "viewer-tool-count",
     toolLinear: "viewer-tool-linear",
+    toolMeasureMenu: "viewer-tool-measure-menu",
     toolPan: "viewer-tool-pan",
     toolSelect: "viewer-tool-select",
     zoomIn: "viewer-zoom-in",

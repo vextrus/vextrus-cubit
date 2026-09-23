@@ -9,10 +9,19 @@
 // sheet come from the overlay's own door, and each view's factors from the affirmations of record —
 // the 12-place strings, carried whole. A view nobody has affirmed measures nothing (L-MEA-05), and a
 // view whose members stand on no part of this sheet has no box to judge a pick inside.
+//
+// A paper sheet adds one fact the factors cannot carry alone (s-measure I-501): its coordinates are
+// the PAPER's, and a view's machine-read factor is per MODEL unit. So the door answers the windows the
+// sheet shows model space through and the space each view's factor was read in (`./sheet-space`). The
+// client carries a figure into metres through the one window it stands in, or not at all.
+import { artifactAt } from "@/core/entitygraph/artifact";
 import { forTenant, type TenantTx } from "@/core/db";
 import { affirmationsOfRecord } from "@/core/scale/store";
+import { appStorage } from "@/core/storage/app";
+import { ingestRecordOf } from "@/modules/takeoff/ingest/records";
 import { partitionOverlayOfSheet } from "@/modules/takeoff/viewer-partition-overlay/server";
-import type { SnapCalibration, SnapCalibrationView } from "./types";
+import { factorSpaceOf, sheetWindowsOf } from "./sheet-space";
+import type { SnapCalibration, SnapCalibrationView, SnapWindow } from "./types";
 
 /** Which sheet's calibration is being asked for, in whose workspace. */
 export type SnapCalibrationScope = {
@@ -20,6 +29,19 @@ export type SnapCalibrationScope = {
   readonly drawingId: string;
   readonly layoutName: string;
 };
+
+/**
+ * The windows of the sheet as the manifest it was drawn from reads them: the drawing's current record,
+ * the very bytes `renderManifestOf` builds the sheet from (read once per content hash, `artifactAt`).
+ * A record whose bytes cannot be read throws, and the feed's answer is the cell's own "could not be
+ * read" — never a sheet whose windows were silently taken to be none.
+ */
+async function windowsOfSheet(scope: SnapCalibrationScope): Promise<SnapWindow[]> {
+  const record = await ingestRecordOf({ tenantId: scope.tenantId, drawingId: scope.drawingId });
+  if (record === null) return [];
+  const graph = await artifactAt(scope.tenantId, record.artifactSha256, appStorage(), `the calibration of sheet ${scope.layoutName}`);
+  return sheetWindowsOf(graph.layouts.find((layout) => layout.name === scope.layoutName));
+}
 
 /**
  * The scale of record over one sheet, or null where nothing has partitioned the drawing yet.
@@ -32,9 +54,10 @@ export async function snapCalibrationsOfSheet(scope: SnapCalibrationScope): Prom
   const overlay = await partitionOverlayOfSheet(scope);
   if (overlay === null) return null;
 
-  const affirmed = await forTenant({ tenantId: scope.tenantId }).transaction((tx: TenantTx) =>
-    affirmationsOfRecord(tx, { tenantId: scope.tenantId, ingestId: overlay.ingestId }),
-  );
+  const [affirmed, windows] = await Promise.all([
+    forTenant({ tenantId: scope.tenantId }).transaction((tx: TenantTx) => affirmationsOfRecord(tx, { tenantId: scope.tenantId, ingestId: overlay.ingestId })),
+    windowsOfSheet(scope),
+  ]);
 
   const views: SnapCalibrationView[] = [];
   for (const view of overlay.views) {
@@ -42,8 +65,8 @@ export async function snapCalibrationsOfSheet(scope: SnapCalibrationScope): Prom
     // Both facts are required and neither stands for the other: a view with no box on this layout is
     // nowhere a pick can fall, and a view no act names has no factors to carry it into metres.
     if (view.box === null || standing === undefined) continue;
-    views.push({ viewKey: view.viewKey, box: view.box, factorX: standing.factorX, factorY: standing.factorY });
+    views.push({ viewKey: view.viewKey, box: view.box, factorX: standing.factorX, factorY: standing.factorY, space: factorSpaceOf(standing.rank) });
   }
 
-  return { ingestId: overlay.ingestId, views };
+  return { ingestId: overlay.ingestId, views, windows };
 }

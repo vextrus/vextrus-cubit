@@ -70,6 +70,14 @@ export type SnapPick = {
 /** A world box, as the stored partition states one. */
 export type SnapBox = { readonly min: SnapPoint; readonly max: SnapPoint };
 
+/**
+ * The space a view's factors are metres per unit OF (s-measure I-501). A machine rank is read off the
+ * view's own members, which are model-space entities (L-CAD-06), so its factor is per MODEL unit. A
+ * QS's two points are per unit of whichever sheet they were picked on, and the store records no
+ * sheet: `unrecorded`, which no window carries into metres.
+ */
+export type SnapFactorSpace = "model" | "unrecorded";
+
 /** One view of this sheet that a scale of record measures: where it stands, and by how much. */
 export type SnapCalibrationView = {
   readonly viewKey: string;
@@ -77,10 +85,30 @@ export type SnapCalibrationView = {
   /** The stored 12-place factors, carried whole rather than re-derived (B-07, L-MEA-05). */
   readonly factorX: string;
   readonly factorY: string;
+  readonly space: SnapFactorSpace;
+};
+
+/**
+ * One window a paper sheet shows model space through, as the calibration door reads it off the
+ * layout's inventory (the viewer's own `windowsOf`): the frame it fills on the paper, and how many
+ * model units one sheet unit stands for — the viewport's view height over its frame's height, in the
+ * drawing's own spellings, so the quotient is taken once, in decimal, where a figure is made.
+ */
+export type SnapWindow = {
+  readonly via: string;
+  readonly frame: SnapBox;
+  readonly viewHeight: string;
+  readonly frameHeight: string;
 };
 
 /** What the calibration door and `?part=calibration` answer: one reading of one record, onto one sheet. */
 export type SnapCalibration = {
   readonly ingestId: string;
   readonly views: readonly SnapCalibrationView[];
+  /**
+   * The windows this sheet shows model space through — none on model space. Where a sheet has any, its
+   * coordinates are the PAPER's, and a view's model-space factor carries a figure into metres only
+   * through the one window the figure stands in (I-501).
+   */
+  readonly windows: readonly SnapWindow[];
 };

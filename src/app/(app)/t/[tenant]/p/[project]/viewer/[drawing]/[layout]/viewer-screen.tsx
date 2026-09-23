@@ -39,6 +39,7 @@ import { publishViewport } from "./address";
 import { readLineEvidence, readLinesCiting } from "./trace-actions";
 import { useScaleRegion, type ScaleDoors } from "./scale-region";
 import { useSnapRegion } from "./snap-region";
+import { useMeasureRegion } from "./measure-region";
 import { usePartitionRegion } from "./partition-region";
 import { SheetAbsence } from "./viewer-bones";
 import { useViewerSlots, type ViewerTool } from "./viewer-slots";
@@ -141,11 +142,12 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const layers = useLayers({ head: sheet.head });
   failedSink.current = layers.markFailed;
 
-  /** Where the views/grid region files its paint, so every sheet frame paints the overlay again at
-      the camera the sheet was drawn at (I-112, § 4). The region is composed below, off the camera
-      this draw publishes, so the frame reaches it through a ref and not a dependency (PB-3). */
+  /** Where the views/grid region and the measure region file their paint, so every sheet frame paints
+      them again at the camera the sheet was drawn at (I-112, § 4). Both are composed below, off the camera
+      this draw publishes, so the frame reaches them through refs and not dependencies (PB-3). */
   const overlayPaint = useRef<((at: Camera) => void) | null>(null);
-  const draw = useCallback((at: Camera): void => { painterRef.current?.draw(at, layers.stateRef.current); overlayPaint.current?.(at); }, [layers.stateRef]);
+  const measurePaint = useRef<((at: Camera) => void) | null>(null);
+  const draw = useCallback((at: Camera): void => { painterRef.current?.draw(at, layers.stateRef.current); overlayPaint.current?.(at); measurePaint.current?.(at); }, [layers.stateRef]);
   const pulse = useCallback((durationMs: number, colour?: string): void => void painterRef.current?.pulse(durationMs, colour), []);
   // The Trace, both ways (R-UI-022, X-2). A refusal of either read is answered as a status where the sheet's own feed's are (ARCH-03).
   const line = useLineEvidence({ tenantId, projectId, lineId: initialLine, read: readLineEvidence, onRefused: (refusal) => setDenied(refusal === REFUSALS.SIGNED_OUT.code ? 401 : 403) });
@@ -155,28 +157,23 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const held = useSelection({ facts, head: sheet.head, initialSelection, initialViewport, loadedLayers: sheet.loadedLayers, failedCount: layers.failedCount, revision: layers.revision, reveal: trace.reveal, ...(initialLine === null ? {} : { revealReady: line.ready, revealBasis: line.basis }), selectionRef, cameraRef, publish, drawingId, layoutName });
   const cited = useCitedBy({ tenantId, projectId, drawingId, selection: held.selection, read: readLinesCiting, onRefused: (refusal) => setDenied(refusal === REFUSALS.SIGNED_OUT.code ? 401 : 403) });
   const index = useHitTesting({ head: sheet.head, layers: arrived, loadedLayers: sheet.loadedLayers, stateRef: layers.stateRef, statusRef, cameraRef });
-  /** The views/grid region — the partition stored for this sheet, the paint it files above, and the one act
-      door behind them — asked for only once the head is a manifest (R-UI-043). A door that refuses the
-      PARTITION refuses the region, not the sheet: it renders in that panel's body (R-UI-050's partial).
-      It stands ahead of the snapping region because it holds the stored grid the pointer snaps to. */
-  /** The scale region — the second tab of the right inspector, and the one door onto every view's
-      scale (R-TO-020). It is composed AHEAD of the views/grid region because the absence it reads is
-      what that region hatches by: one answer, read once, and no second reading of the scale store
-      (I-160, B-17). It is asked at mount rather than when the tab is opened, so a sheet whose views
-      no act names is hatched before anyone presses anything. */
+  /** The scale region — the inspector's second tab, the one door onto every view's scale (R-TO-020) —
+      composed AHEAD of the views/grid region, which hatches by the absence it reads: one answer, read
+      once, at mount, so an unscaled view is hatched before anyone presses anything (I-160, B-17). The
+      views/grid region — the stored partition, its paint and its one act door — is asked only once the
+      head is a manifest (R-UI-043); a door that refuses the PARTITION refuses that panel, not the sheet. */
   const scale = useScaleRegion({ tenantId, projectId, drawingId, sheetName, enabled: sheet.head?.kind === "manifest", container: screenRoot, supplied: suppliedScale });
   const partition = usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaint, scaleAbsence: scale.absence });
-  /** The snapping region: what the pointer meets on the sheet, the scale of record behind the metres
-      beside a distance, and the key the roster binds here (R-TO-012, R-UI-041). Its `axes` are the
-      stored grid the views/grid region already holds, so the grid store is never read twice (I-149).
-      A door that refuses THIS read refuses the sheet's own session, so it renders where the layer
-      feed's refusal renders — one door, one session (I-150). */
+  /** The snapping region: what the pointer meets, the scale of record behind the metres, and the key the roster binds
+      (R-TO-012, R-UI-041), on the grid the views/grid region already holds (I-149); its door's refusal is the sheet's (I-150). */
   const snapping = useSnapRegion({ feed, enabled: sheet.head?.kind === "manifest", supplied: suppliedCalibration, onDenied: setDenied, layers: arrived, stateRef: layers.stateRef, cameraRef, camera: camera.camera, axes: partition.axes });
   const snap = snapping.snap;
+  /** The measure region (s-measure § 2): the armed tools on the snapping region's live point, over the views the scale door says are scaled. */
+  const measuring = useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, moveCamera: camera.moveCamera, views: partition.views, unscaled: scale.absence, permitted: scale.state !== "denied", paintRef: measurePaint });
 
-  const pointer = usePointer({ head: sheet.head, canvasRef, cameraRef, facts, tool, keysUnder: index.keysUnder, ask: index.ask, openLayers: layers.openLayers, hold: held.hold, toggleKey: held.toggleKey, moveCamera: camera.moveCamera, onHoverWorld: snap.onHover, onLeaveWorld: snap.onLeave, onPick: snap.takePick });
+  const pointer = usePointer({ head: sheet.head, canvasRef, cameraRef, facts, tool, keysUnder: index.keysUnder, ask: index.ask, openLayers: layers.openLayers, hold: held.hold, toggleKey: held.toggleKey, moveCamera: camera.moveCamera, onHoverWorld: snap.onHover, onLeaveWorld: snap.onLeave, onPick: snap.takePick, onMeasureClick: measuring.measure.click, onMeasureAlt: measuring.measure.alt });
   const keyboard = useKeyboard({
-    moveCamera: camera.moveCamera, zoomBy: camera.zoomBy, fitSheet: camera.fitSheet, hold: held.hold, setTool,
+    moveCamera: camera.moveCamera, zoomBy: camera.zoomBy, fitSheet: camera.fitSheet, hold: held.hold, setTool, measureKey: measuring.onKey,
     isSnapKey: snapping.isSnapKey, toggleSnapping: snap.toggleSnapping, takePick: snap.takePick, clearPicks: snap.clearPicks,
   });
   const paint = usePainter({ head: sheet.head, refused: denied !== null, canvasRef, stageRef, statusRef, painterRef, stateRef: layers.stateRef, cameraRef, layers: arrived, facts, loadedLayers: sheet.loadedLayers, drawnLayers: layers.drawnLayers, selection: held.selection, hovered: pointer.hovered });
@@ -188,8 +185,8 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
    * claimed a region, which is a jsdom mount of this screen and the gallery's evidence renderer.
    */
   const slots = useViewerSlots({
-    denied, head: sheet.head, tool, setTool, snap, camera, layersOpen, setLayersOpen, inspectorPinned, setInspectorPinned,
-    sheetName, loadedLayers: sheet.loadedLayers, layers, held, paint, statusRef, initialLine, pointer, line, cited, trace, scale, partition,
+    denied, head: sheet.head, tool, snap, camera, layersOpen, setLayersOpen, inspectorPinned, setInspectorPinned,
+    sheetName, loadedLayers: sheet.loadedLayers, layers, held, paint, statusRef, initialLine, pointer, line, cited, trace, scale, partition, measure: measuring,
   });
 
   // A head that cannot be read at all is the error state and nothing else: it is raised into the
@@ -219,6 +216,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         pointer={pointer}
         tool={tool}
         snap={snap}
+        measure={{ layer: measuring.layer, refusal: measuring.measure.refusal, onKeyUp: measuring.onKeyUp }}
         onKeyDown={keyboard.onKeyDown}
         stageRef={stageRef}
         canvasRef={canvasRef}

@@ -27,7 +27,7 @@ import {
   keyPointOf,
   metresBetween,
   resolveSnap,
-  viewMeasuring,
+  sheetMeasuring,
 } from "./snap";
 import { screenAt } from "@/modules/takeoff/viewer-partition-overlay/scene";
 import { snapScene, type SnapScene } from "./scene";
@@ -60,9 +60,16 @@ export type SnapReadout = {
   readonly dy: number;
   /** The drawing-unit figure, or null while no pick stands (R-UI-041: drawing units always). */
   readonly distance: string | null;
-  readonly si: "calibrated" | "uncalibrated";
+  /**
+   * Whether a scale of record carried the segment into metres, and why not where it did not: no one
+   * view holds both picks, or — on a paper sheet — no one window does, or the view's factor is a QS
+   * two-point whose sheet the store does not record (s-measure I-501; `sheetMeasuring`).
+   */
+  readonly si: "calibrated" | "uncalibrated" | "windowed" | "unrecorded";
   /** The view whose affirmed scale carried the segment into metres, named only when one did. */
   readonly viewKey: string | null;
+  /** The window the segment was carried through, on a paper sheet, named only when one was. */
+  readonly via: string | null;
   readonly metres: string | null;
   /** The calibration could not be read at all — the figure stands and the cell says so (R-UI-050). */
   readonly unread: boolean;
@@ -91,6 +98,12 @@ export type UseSnapOptions = {
   calibrationUnread?: boolean;
 };
 
+/** Where a measure tool hears the live point: the constrained point and what the pointer met, or nulls off the sheet. */
+export type LiveSink = (live: SnapPoint | null, met: SnapResult | null) => void;
+
+/** The modifier keys a hover carries that the snapping region reads: Shift, which constrains a path. */
+export type SnapModifiers = { readonly shift?: boolean };
+
 export type UseSnap = {
   enabled: boolean;
   ortho: boolean;
@@ -108,14 +121,39 @@ export type UseSnap = {
   toggleSnapping: () => void;
   pressOrtho: () => void;
   pressAngle: () => void;
-  /** The pointer moved onto a world point of the sheet. */
-  onHover: (world: SnapPoint) => void;
+  /** The pointer moved onto a world point of the sheet — with Shift held or not, where a path reads it. */
+  onHover: (world: SnapPoint, modifiers?: SnapModifiers) => void;
   /** The pointer left the sheet, so nothing is under it. */
   onLeave: () => void;
   /** A pick taken where the live point stands (I-145). */
   takePick: () => void;
   /** Both picks let go of. */
   clearPicks: () => void;
+  /** The scale of record this region reads, for a measure tool's running figure (I-146, one reading). */
+  calibration: SnapCalibration | null;
+  /**
+   * PATH MODE (s-measure I-372). While a measure tool is armed, the point a segment is constrained
+   * from and a perpendicular is dropped from is the path's last point — or nothing, before the first
+   * point stands — and never pick 1: a pick taken in Select is not a point of the path, and a first
+   * vertex constrained against it would be moved off where the QS clicked. `armed` false gives the
+   * anchor back to the picks. The live point is re-resolved at once where the pointer stands.
+   */
+  setPathAnchor: (anchor: SnapPoint | null, armed: boolean) => void;
+  /** Shift held or let go of with the pointer still: the path's constraint follows the key (I-372). */
+  holdShift: (held: boolean) => void;
+  /**
+   * Where the live point stands right now, what it met there, and the raw cursor it was resolved from
+   * (the keyboard cursor moves the raw point, never the snapped one) — read off the gesture's own ref.
+   */
+  liveNow: () => { readonly point: SnapPoint; readonly met: SnapResult | null; readonly raw: SnapPoint } | null;
+  /** What the drawing offers at a world point, the resolver asked there directly (a rectangle's corner, I-500). */
+  snapAt: (world: SnapPoint) => SnapResult | null;
+  /**
+   * Where a measure tool hears the live point as the pointer moves it. The measure region writes its
+   * listener in; this region calls it off the render loop, because a point following the hand is not
+   * a render (PB-3).
+   */
+  liveSink: RefObject<LiveSink | null>;
 };
 
 /** One number as a data attribute: fixed precision, with the trailing zeros a reader never sees. */
@@ -125,7 +163,7 @@ function figure(value: number, decimals: number): string {
 }
 
 /** What the readout is showing when nothing has been picked yet. */
-const NO_PICKS: SnapReadout = Object.freeze({ picks: 0, dx: 0, dy: 0, distance: null, si: "uncalibrated", viewKey: null, metres: null, unread: false });
+const NO_PICKS: SnapReadout = Object.freeze({ picks: 0, dx: 0, dy: 0, distance: null, si: "uncalibrated", viewKey: null, via: null, metres: null, unread: false });
 
 /** Whether this machine is asking for reduced motion right now (R-UI-004). */
 function readsReducedMotion(): boolean {
@@ -204,6 +242,17 @@ function readSheet(layers: Map<string, RenderLayer>): Sheet {
   return { index: buildSpatialIndex({ layers: held }), records, signature };
 }
 
+/**
+ * What a gesture reads between renders and no render writes: whether a measure tool is armed (path
+ * mode), the path's anchor, Shift, and the raw cursor.
+ */
+type PathHeld = { armed: boolean; anchor: SnapPoint | null; shift: boolean; raw: SnapPoint | null };
+
+/** The point a segment is constrained from and a perpendicular dropped from: the path's in path mode, pick 1's otherwise. */
+function anchorOf(path: PathHeld, picks: readonly SnapPick[]): SnapPoint | null {
+  return path.armed ? path.anchor : (picks[0]?.point ?? null);
+}
+
 export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration = null, calibrationUnread = false }: UseSnapOptions): UseSnap {
   const [enabled, setEnabled] = useState(true);
   const [ortho, setOrtho] = useState(false);
@@ -235,6 +284,10 @@ export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration
     live: carried(live, renderedRef.current.live, heldRef.current.live),
   };
   renderedRef.current = { enabled, ortho, angle, picks, snap, live };
+  /** The path a measure tool is drawing, as the gestures leave it: never rendered, so never carried. */
+  const pathRef = useRef<PathHeld>({ armed: false, anchor: null, shift: false, raw: null });
+  /** Where the measure region hears the live point — read at the call, so a new listener needs no new callback. */
+  const liveSink = useRef<LiveSink | null>(null);
 
   /** The crossings of the stored grid, paired within each view and never across one (I-149). */
   const grid = useMemo<readonly GridIntersection[]>(() => (axes === undefined ? [] : gridIntersectionsOf(axes)), [axes]);
@@ -259,13 +312,19 @@ export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration
    * What the pointer meets at a world point: the sheet narrowed to the records within reach by the
    * viewer's own hit-test, and the six kinds resolved over their geometry and the stored grid.
    */
+  /** The sheet as it stands now, read again only when a layer has arrived since (the signature). */
+  const sheetNow = useCallback((): Sheet | null => {
+    const held = layers?.current ?? null;
+    if (held === null) return null;
+    if (sheetSignature(held) !== sheetRef.current.signature) sheetRef.current = held.size === 0 ? NO_SHEET : readSheet(held);
+    return sheetRef.current;
+  }, [layers]);
+
   const resolveAt = useCallback(
     (world: SnapPoint): SnapResult | null => {
       const at = cameraRef?.current ?? null;
       if (at === null) return null;
-      const held = layers?.current ?? null;
-      if (held === null) return null;
-      if (sheetSignature(held) !== sheetRef.current.signature) sheetRef.current = held.size === 0 ? NO_SHEET : readSheet(held);
+      if (sheetNow() === null) return null;
 
       const tolerance = SNAP_TOLERANCE_PX / at.scale;
       // A layer nobody is looking at is not a point of the drawing: it is not painted, so a snap to
@@ -276,29 +335,37 @@ export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration
       for (const key of hitTest(sheetRef.current.index, [world[0], world[1]], tolerance, unseen)) {
         for (const record of sheetRef.current.records.get(key) ?? []) candidates.push(record);
       }
-      return resolveSnap({ cursor: world, tolerance, candidates, grid: gridRef.current, firstPick: heldRef.current.picks[0]?.point ?? null });
+      // A perpendicular is dropped from the anchor a segment is drawn from: the path's last point while
+      // a measure tool is armed, pick 1 otherwise (I-148, s-measure I-372).
+      return resolveSnap({ cursor: world, tolerance, candidates, grid: gridRef.current, firstPick: anchorOf(pathRef.current, heldRef.current.picks) });
     },
-    [cameraRef, layers, stateRef],
+    [cameraRef, sheetNow, stateRef],
   );
 
   /**
    * Where the live point stands for a raw cursor: the snapped point where something was met, then
-   * constrained against the first pick where a constraint is pressed. With no pick standing there is
-   * no anchor, so both constraints are inert and say nothing false (I-148).
+   * constrained against its anchor where a constraint is pressed. With no anchor standing both
+   * constraints are inert and say nothing false (I-148).
+   *
+   * The anchor is the path's last point while a measure tool draws, and pick 1 otherwise. Shift held
+   * on a path is Ortho without the toggle; with Angle lock pressed it is the lock's 15° steps (I-372:
+   * one angle grammar, in `constrainOrtho` and `constrainAngle`, never a second implementation).
    */
   const liveOf = useCallback((world: SnapPoint, met: SnapResult | null): SnapPoint => {
     const held = heldRef.current;
+    const path = pathRef.current;
     const raw: SnapPoint = met === null ? world : met.point;
-    const anchor = held.picks[0]?.point ?? null;
+    const anchor = anchorOf(path, held.picks);
     if (anchor === null) return raw;
-    if (held.ortho) return constrainOrtho(anchor, raw);
     if (held.angle) return constrainAngle(anchor, raw, ANGLE_STEP_DEG);
+    if (held.ortho || (path.shift && path.armed)) return constrainOrtho(anchor, raw);
     return raw;
   }, []);
 
   const onHover = useCallback(
-    (world: SnapPoint): void => {
+    (world: SnapPoint, modifiers?: SnapModifiers): void => {
       const held = heldRef.current;
+      pathRef.current = { ...pathRef.current, raw: world, ...(modifiers?.shift === undefined ? {} : { shift: modifiers.shift }) };
       const met = held.enabled ? resolveAt(world) : null;
       const at = liveOf(world, met);
       const camera = cameraRef?.current ?? null;
@@ -314,6 +381,9 @@ export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration
       // What a gesture reads is written first and unconditionally: a pick taken at this point stands
       // where the pointer stands, whether or not the readout had anything new to say about it.
       heldRef.current = { ...held, snap: met, live: at };
+      // A measure tool's live point follows the hand off the render loop (PB-3): it hears the point
+      // once the ref holds it, so a point placed from inside the sink is placed where the hand is.
+      liveSink.current?.(at, met);
       const changed =
         (before === null) !== (met === null) ||
         (before !== null && met !== null && (before.kind !== met.kind || before.keyPoint[0] !== met.keyPoint[0] || before.keyPoint[1] !== met.keyPoint[1] || before.sourceKeys.join(" ") !== met.sourceKeys.join(" ")));
@@ -327,9 +397,46 @@ export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration
 
   const onLeave = useCallback((): void => {
     heldRef.current = { ...heldRef.current, snap: null, live: null };
+    pathRef.current = { ...pathRef.current, raw: null };
+    liveSink.current?.(null, null);
     setSnap(null);
     setLive(null);
   }, []);
+
+  /** The live point resolved again where the pointer last stood, after something it depends on moved. */
+  const resolveAgain = useCallback((): void => {
+    const raw = pathRef.current.raw;
+    if (raw !== null) onHover(raw);
+  }, [onHover]);
+
+  const setPathAnchor = useCallback(
+    (anchor: SnapPoint | null, armed: boolean): void => {
+      const path = pathRef.current;
+      const held = path.anchor;
+      const same = held === anchor || (held !== null && anchor !== null && held[0] === anchor[0] && held[1] === anchor[1]);
+      if (same && path.armed === armed) return;
+      pathRef.current = { ...path, armed, anchor };
+      resolveAgain();
+    },
+    [resolveAgain],
+  );
+
+  const holdShift = useCallback(
+    (shift: boolean): void => {
+      if (pathRef.current.shift === shift) return;
+      pathRef.current = { ...pathRef.current, shift };
+      resolveAgain();
+    },
+    [resolveAgain],
+  );
+
+  const liveNow = useCallback((): { point: SnapPoint; met: SnapResult | null; raw: SnapPoint } | null => {
+    const held = heldRef.current;
+    const raw = pathRef.current.raw;
+    return held.live === null || raw === null ? null : { point: held.live, met: held.snap, raw };
+  }, []);
+
+  const snapAt = useCallback((world: SnapPoint): SnapResult | null => (heldRef.current.enabled ? resolveAt(world) : null), [resolveAt]);
 
   const takePick = useCallback((): void => {
     const held = heldRef.current;
@@ -390,15 +497,19 @@ export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration
     // own attribute and tell a reader the mark still on the overlay had been let go of (R-UI-020).
     const to = second?.point ?? live ?? first.point;
 
-    const measuring = second === undefined ? null : viewMeasuring(calibration, first.point, second.point);
+    // The one reading of what carries a span of this sheet into metres — through the one window both
+    // picks stand in, on a paper sheet — shared with a measure tool's running figure (I-501, B-17).
+    const measuring = second === undefined ? null : sheetMeasuring(calibration, first.point, second.point);
+    const measured = measuring?.kind === "measured" ? measuring : null;
     return {
       picks: picks.length,
       dx: Number(figure(to[0] - first.point[0], OFFSET_DECIMALS)),
       dy: Number(figure(to[1] - first.point[1], OFFSET_DECIMALS)),
       distance: distanceBetween(first.point, to).toFixed(UNIT_DECIMALS),
-      si: measuring === null ? "uncalibrated" : "calibrated",
-      viewKey: measuring?.viewKey ?? null,
-      metres: measuring === null || second === undefined ? null : metresBetween(first.point, second.point, measuring),
+      si: measuring === null ? "uncalibrated" : measuring.kind === "measured" ? "calibrated" : measuring.kind,
+      viewKey: measured?.view.viewKey ?? null,
+      via: measured?.through?.via ?? null,
+      metres: measured === null || second === undefined ? null : metresBetween(first.point, second.point, { factorX: measured.view.factorX, factorY: measured.view.factorY, through: measured.through }),
       unread: calibrationUnread,
     };
   }, [calibration, calibrationUnread, live, picks]);
@@ -424,6 +535,12 @@ export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration
       onLeave,
       takePick,
       clearPicks,
+      calibration,
+      setPathAnchor,
+      holdShift,
+      liveNow,
+      snapAt,
+      liveSink,
     }),
     [
       enabled,
@@ -442,6 +559,11 @@ export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration
       onLeave,
       takePick,
       clearPicks,
+      calibration,
+      setPathAnchor,
+      holdShift,
+      liveNow,
+      snapAt,
     ],
   );
 }

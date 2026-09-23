@@ -22,12 +22,13 @@ import type { ViewerHead } from "@/modules/takeoff/viewer";
 import type { UseCamera } from "@/modules/takeoff/viewer/hooks/use-camera";
 import type { UseLayers } from "@/modules/takeoff/viewer/hooks/use-layers";
 import type { UsePainter } from "@/modules/takeoff/viewer/hooks/use-painter";
-import type { UsePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
+import type { PointerTool, UsePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
 import type { UseReveal } from "@/modules/takeoff/viewer/hooks/use-reveal";
 import type { UseSelection } from "@/modules/takeoff/viewer/hooks/use-selection";
 import type { UseSnap } from "@/modules/takeoff/viewer-snap/use-snap";
 import type { LineEvidenceHold } from "@/modules/takeoff/trace/use-trace";
 import type { CitedBlock } from "@/modules/takeoff/viewer-inspector/inspector-panel";
+import type { MeasureRegion } from "./measure-region";
 import type { PartitionRegion } from "./partition-region";
 import type { ScaleRegion } from "./scale-region";
 import { ZOOM_STEP } from "@/modules/takeoff/viewer/hooks/use-camera";
@@ -47,7 +48,6 @@ export interface ViewerSlotsInput {
   denied: number | null;
   head: ViewerHead | null;
   tool: ViewerTool;
-  setTool: (tool: ViewerTool) => void;
   snap: UseSnap;
   camera: UseCamera;
   layersOpen: boolean;
@@ -68,10 +68,15 @@ export interface ViewerSlotsInput {
   trace: UseReveal;
   scale: ScaleRegion;
   partition: PartitionRegion;
+  /** The measure region: its group of the tool row and its cell of the readout (s-measure § 2.1, § 2.4). */
+  measure: MeasureRegion;
 }
 
-/** The pointer's mode: what a drag on the sheet does (§3.1's Select V · Pan H). */
-export type ViewerTool = "select" | "pan";
+/**
+ * The pointer's mode: what a drag or a click on the sheet does — §3.1's Select V · Pan H, and the
+ * measure tools Linear L · Area A · Count C, where a plain click places a point (s-measure I-371).
+ */
+export type ViewerTool = PointerTool;
 
 export interface ViewerSlots {
   toolbar: ReactNode | null;
@@ -85,7 +90,7 @@ export interface ViewerSlots {
 }
 
 export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
-  const { denied, head, tool, setTool, snap, camera, layersOpen, setLayersOpen, inspectorPinned, setInspectorPinned, sheetName, loadedLayers, layers, held, paint, statusRef, initialLine, pointer, line, cited, trace, scale, partition } = input;
+  const { denied, head, tool, snap, camera, layersOpen, setLayersOpen, inspectorPinned, setInspectorPinned, sheetName, loadedLayers, layers, held, paint, statusRef, initialLine, pointer, line, cited, trace, scale, partition, measure } = input;
   const drawable = denied === null && head !== null && head.kind === "manifest";
 
   const toolbar = useMemo(
@@ -93,7 +98,9 @@ export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
         drawable ? (
           <ViewerToolbar
             tool={tool}
-            onTool={setTool}
+            // Select and Pan too are asked of the measure region: no tool changes under a shape in progress (s-measure I-372).
+            onTool={measure.requestTool}
+            measure={measure.tools}
             snapTools={<SnapTools snap={snap} />}
             onFit={camera.fitSheet}
             onZoomIn={() => camera.zoomBy(ZOOM_STEP)}
@@ -104,7 +111,7 @@ export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
             onInspector={() => setInspectorPinned((pinned) => !pinned)}
           />
         ) : null,
-      [drawable, tool, snap, camera.fitSheet, camera.zoomBy, layersOpen, inspectorPinned],
+      [drawable, tool, measure.requestTool, measure.tools, snap, camera.fitSheet, camera.zoomBy, layersOpen, inspectorPinned],
   );
   const framedToolbar = useShellToolbar(toolbar);
   // R-UI-084: the trail's last crumb names the sheet a reader opened (viewer.md's frame:
@@ -127,9 +134,10 @@ export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
           renderer={paint.renderer}
           partial={layers.rows.some((row) => row.failed)}
           snap={snap}
+          measure={measure.status}
         />
       ),
-      [sheetName, camera.camera, head, loadedLayers, layers.state, layers.rows, held.selected.length, paint.firstPaint, paint.renderer, snap],
+      [sheetName, camera.camera, head, loadedLayers, layers.state, layers.rows, held.selected.length, paint.firstPaint, paint.renderer, snap, measure.status],
   );
   const framedStatus = useShellStatus(readout);
 

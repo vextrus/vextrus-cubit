@@ -24,6 +24,8 @@ export const viewerSnap = {
   viewer_status_distance_units: "{distance} drawing units",
   viewer_status_distance_metres: "{metres} m",
   viewer_status_distance_uncalibrated: "No affirmed scale here",
+  viewer_status_distance_windowed: "Not inside one viewport",
+  viewer_status_distance_unrecorded: "Two-point scale not carried through a viewport",
   viewer_status_calibration_unread: "The affirmed scale could not be read; reload the sheet.",
   // R-UI-060: the keyboard way to the same measurement the pointer takes, named beside the sheet.
   viewer_snap_canvas_keys: "S turns snapping on and off, Enter takes a pick where the pointer stands, and Escape lets go of the picks.",

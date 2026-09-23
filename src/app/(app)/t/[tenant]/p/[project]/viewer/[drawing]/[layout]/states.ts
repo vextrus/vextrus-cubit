@@ -14,6 +14,8 @@ export const VIEWER_STATES: Readonly<Record<ShellStateName, ShellStateCell>> = {
   // The scale panel adds a third surface of the same kind and no fourth state: while its door is in
   // flight the tab holds three row-shaped groups of bones under `data-state="loading"`, and the sheet
   // beside it is untouched (s-scale § 2).
+  // S-Measure's armed tools add none either (s-measure § 3): the tool row is local state, operable
+  // once the stage stands, and the measure layer mounts with the tool that is armed.
   loading: { declared: "rendered", by: `${ROUTE}/loading.tsx`, testId: "viewer-loading" },
   // Three truths in the sheet's place, chosen by cause: a drawing nobody has read yet, an address
   // naming a drawing this project does not hold at all, and an address naming a sheet the reading
@@ -46,16 +48,23 @@ export const VIEWER_STATES: Readonly<Record<ShellStateName, ShellStateCell>> = {
   // The Trace is a third of the same kind: a `line` this project does not hold leaves
   // `viewer-inspector-trace` at `data-state="missing"` with the keys that WERE found still selected
   // and still listed — a fact about a stale address, never a refusal (I-88's idiom).
+  // S-Measure's partial is a fourth of the same kind (s-measure § 3): with a tool armed, a view no
+  // affirmation act names keeps its hatch (the views overlay's, I-160) and refuses a click in it —
+  // the cursor is not-allowed and `measure-region.tsx`'s measure cell says why at
+  // `viewer-status-measure[data-reason=unscaled]` — while every scaled view beside it measures.
   partial: { declared: "rendered", by: `${ROUTE}/layers-panel.tsx`, testId: "viewer-layer-row" },
   // The sheet still writes nothing, and reading, picking and judging an observation are wholly local
   // (shell I-20): geometry already in the GPU buffers keeps painting, and no banner is raised over a
   // reader who has lost nothing. What this screen now HAS is one act, so the one thing that cannot be
   // done offline says so where it was pressed: Affirm opens no dialog and the answer slot holds
   // `viewer_scale_offline` as an alert (s-scale § 2).
+  // Measuring by hand is local too (s-measure § 3): offline disables nothing, a QS may draw, and the
+  // armed tool's measure cell says `measure_tools_offline` at `data-reason=offline`; only the card's
+  // Confirm (S6) waits for the connection.
   offline: { declared: "rendered", by: `${ROUTE}/scale-region.tsx`, testId: "viewer-scale-answer" },
   permissionDenied: {
     declared: "delegated",
     to: "src/app/(app)/t/[tenant]/layout.tsx",
-    why: "the workspace guard renders the frameless denial before this route mounts, and redirects an ended session to /sign-in; the layer feed answers the same two registered codes mid-session, rendered by the one RefusalState in the sheet's place. Affirming a scale needs MEASURE on top of membership, and a member without it is not turned away: the scale panel stands at `data-state=\"denied\"` with every row, proposal and readout kept and only the checkboxes, the two-point tool and the affirm footer gone, over the registered PERMISSION_NOT_HELD in its answer slot (s-drawings I-90, s-scale § 2)",
+    why: "the workspace guard renders the frameless denial before this route mounts, and redirects an ended session to /sign-in; the layer feed answers the same two registered codes mid-session, rendered by the one RefusalState in the sheet's place. Affirming a scale needs MEASURE on top of membership, and a member without it is not turned away: the scale panel stands at `data-state=\"denied\"` with every row, proposal and readout kept and only the checkboxes, the two-point tool and the affirm footer gone, over the registered PERMISSION_NOT_HELD in its answer slot (s-drawings I-90, s-scale § 2). The same answer disables the measure tools: Linear, Area, Count and the M menu stand disabled with `measure_tools_permission` in their tooltip and in the measure cell at `data-reason=permission`, and nothing arms (s-measure § 3)",
   },
 };

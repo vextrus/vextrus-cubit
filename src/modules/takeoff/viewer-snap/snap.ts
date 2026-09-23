@@ -8,13 +8,14 @@
 // `quantise`), never through a second rounding of this module's own (B-17).
 import Decimal from "decimal.js";
 import { quantise } from "@/core/identity/keys";
+import { exact } from "@/core/units/canon";
 import { recordKey } from "@/modules/takeoff/viewer/client";
 import type { GridAxisRow } from "@/modules/takeoff/partition";
 import { SNAP_PRIORITY } from "./types";
-import type { GridIntersection, SnapBox, SnapCalibration, SnapCalibrationView, SnapCandidate, SnapInput, SnapKind, SnapPoint, SnapResult } from "./types";
+import type { GridIntersection, SnapBox, SnapCalibration, SnapCalibrationView, SnapCandidate, SnapInput, SnapKind, SnapPoint, SnapResult, SnapWindow } from "./types";
 
 export { SNAP_KINDS, SNAP_PRIORITY } from "./types";
-export type { GridIntersection, SnapCalibration, SnapCalibrationView, SnapCandidate, SnapInput, SnapKind, SnapPick, SnapPoint, SnapResult } from "./types";
+export type { GridIntersection, SnapCalibration, SnapCalibrationView, SnapCandidate, SnapInput, SnapKind, SnapPick, SnapPoint, SnapResult, SnapWindow } from "./types";
 
 /**
  * How far a snap reaches on the READER's screen, in CSS pixels. The screen divides it by the camera's
@@ -277,6 +278,54 @@ export function viewMeasuring(calibration: SnapCalibration | null, a: SnapPoint,
   return holding.every((view) => view === innermost || (areaOf(view.box) > areaOf(innermost.box) && boxWithin(innermost.box, view.box))) ? innermost : null;
 }
 
+/**
+ * How a span of this sheet is carried into metres, or why it is not (R-UI-041, I-146, s-measure
+ * I-501) — the one reading the distance cell, a measure tool's running figure and its lettered
+ * segments all ask (B-17):
+ * - `measured`: one view's scale of record holds both points (`viewMeasuring`) and, on a sheet that
+ *   shows model space through windows, exactly one window's frame holds them too. The view's factor
+ *   is per model unit and the sheet's coordinates are the paper's, so that window's own ratio carries
+ *   the one into the other (`modelUnitsPerSheetUnit`);
+ * - `uncalibrated`: no one view's scale of record holds both;
+ * - `windowed`: the points do not stand inside exactly one window of this paper sheet — two windows
+ *   show model space at two scales, and paper outside every window shows none of it;
+ * - `unrecorded`: the view's factor is a QS two-point, per unit of a sheet the store does not record,
+ *   so no window can say what one of its units is on this paper.
+ * On model space (no windows) a view's factor carries the sheet's own coordinates, as it always has.
+ */
+export type SheetMeasuring =
+  | { readonly kind: "measured"; readonly view: SnapCalibrationView; readonly through: SnapWindow | null }
+  | { readonly kind: "uncalibrated" | "windowed" | "unrecorded"; readonly view: null; readonly through: null };
+
+/** A span this sheet carries into no metres, and the reason. */
+function unmeasured(kind: "uncalibrated" | "windowed" | "unrecorded"): SheetMeasuring {
+  return { kind, view: null, through: null };
+}
+
+/** The reading `SheetMeasuring` names, for two points of the sheet — the two corners of a shape's box, or two picks. */
+export function sheetMeasuring(calibration: SnapCalibration | null, a: SnapPoint, b: SnapPoint): SheetMeasuring {
+  const view = viewMeasuring(calibration, a, b);
+  if (calibration === null || view === null) return unmeasured("uncalibrated");
+  if (calibration.windows.length === 0) return { kind: "measured", view, through: null };
+  const holding = calibration.windows.filter((window) => boxHolds(window.frame, a) && boxHolds(window.frame, b));
+  const through = holding.length === 1 ? holding[0] : undefined;
+  if (through === undefined) return unmeasured("windowed");
+  if (view.space !== "model") return unmeasured("unrecorded");
+  return { kind: "measured", view, through };
+}
+
+/**
+ * How many model units one unit of this sheet stands for: one on model space, and through a window
+ * its view height over its frame's height — 34000 / 340 = 100 on S-08's viewport 2077 at 1:100. The
+ * one quotient is taken in the canon's decimal, from the drawing's own spellings (I-501).
+ */
+export function modelUnitsPerSheetUnit(through: SnapWindow | null | undefined): Decimal {
+  return through === null || through === undefined ? exact(1) : exact(through.viewHeight).dividedBy(exact(through.frameHeight));
+}
+
+/** A view's factors as they carry THIS sheet's coordinates: with the window the view is seen through, where it is. */
+export type SheetFactors = { readonly factorX: string; readonly factorY: string; readonly through?: SnapWindow | null };
+
 /** How much drawing one box covers — the reading "innermost" is decided by. */
 function areaOf(box: SnapBox): number {
   return (box.max[0] - box.min[0]) * (box.max[1] - box.min[1]);
@@ -293,8 +342,19 @@ function boxWithin(inner: SnapBox, outer: SnapBox): boolean {
  * stored 12-place strings. The two factors are never averaged (L-MEA-05, I-146): a mean of an
  * anisotropic pair is a measurement nobody took.
  */
-export function metresBetween(a: SnapPoint, b: SnapPoint, factors: { factorX: string; factorY: string }): string {
-  const acrossX = new Decimal(b[0]).minus(a[0]).times(factors.factorX);
-  const acrossY = new Decimal(b[1]).minus(a[1]).times(factors.factorY);
-  return acrossX.times(acrossX).plus(acrossY.times(acrossY)).sqrt().toFixed(METRE_DECIMALS);
+export function metresBetween(a: SnapPoint, b: SnapPoint, factors: SheetFactors): string {
+  return segmentMetres(a, b, factors).toFixed(METRE_DECIMALS, Decimal.ROUND_HALF_UP);
+}
+
+/**
+ * The same segment's metres, unrounded, in the canon's exact arithmetic — what a measure tool's
+ * running figure sums over a run before it rounds once (s-measure I-385). One home for the
+ * componentwise formula: the readout's figure above is this one, stated to its three places. Seen
+ * through a window, the paper's span is first carried into model units by the window's own ratio
+ * (I-501): the window scales both axes alike, so the ratio multiplies the composed length.
+ */
+export function segmentMetres(a: SnapPoint, b: SnapPoint, factors: SheetFactors): Decimal {
+  const acrossX = exact(String(b[0])).minus(exact(String(a[0]))).times(factors.factorX);
+  const acrossY = exact(String(b[1])).minus(exact(String(a[1]))).times(factors.factorY);
+  return acrossX.times(acrossX).plus(acrossY.times(acrossY)).sqrt().times(modelUnitsPerSheetUnit(factors.through));
 }

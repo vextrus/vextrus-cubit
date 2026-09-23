@@ -17,7 +17,6 @@ export const viewer = {
   viewer_tools_label: "Sheet tools",
   viewer_tools_pointer: "Pointer",
   viewer_tools_measure: "Measure",
-  viewer_tools_measure_absent: "Measurement tools arrive with S-Measure",
   viewer_tools_views: "Views and grid",
   viewer_tools_camera: "Camera",
   viewer_tools_panels: "Panels",
@@ -26,6 +25,8 @@ export const viewer = {
   viewer_tool_linear: "Linear",
   viewer_tool_area: "Area",
   viewer_tool_count: "Count",
+  // s-measure § 2.1: the tool row's fourth measure button, the M menu of the rest of the toolset.
+  viewer_tool_measure_menu: "More measure tools",
   viewer_tool_layers: "Layers panel",
   viewer_tool_inspector: "Inspector",
   viewer_fit: "Fit",

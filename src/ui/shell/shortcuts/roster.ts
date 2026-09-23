@@ -45,6 +45,12 @@ export const SHORTCUTS: readonly Shortcut[] = Object.freeze([
   { id: "viewer-count", scope: "viewer", keys: ["C"], label: "shortcut_viewer_count" },
   { id: "viewer-linear", scope: "viewer", keys: ["L"], label: "shortcut_viewer_linear" },
   { id: "viewer-area", scope: "viewer", keys: ["A"], label: "shortcut_viewer_area" },
+  // The gesture grammar's keys (s-measure I-372), matched by the viewer's measure region against these
+  // lines. ⌘↵ (Confirm) joins with the card it confirms (S6).
+  { id: "viewer-measure-finish", scope: "viewer", keys: ["Enter"], label: "shortcut_viewer_measure_finish" },
+  { id: "viewer-measure-undo", scope: "viewer", keys: ["Backspace"], label: "shortcut_viewer_measure_undo" },
+  { id: "viewer-measure-cutout", scope: "viewer", keys: ["X"], label: "shortcut_viewer_measure_cutout" },
+  { id: "viewer-measure-point", scope: "viewer", keys: ["Space"], label: "shortcut_viewer_measure_point" },
   { id: "viewer-snap", scope: "viewer", keys: ["S"], label: "shortcut_viewer_snap" },
   { id: "viewer-fit", scope: "viewer", keys: ["F"], label: "shortcut_viewer_fit" },
   { id: "viewer-escape", scope: "viewer", keys: ["Escape"], label: "shortcut_viewer_escape" },
@@ -91,6 +97,9 @@ export interface ShortcutKeyEvent {
 /** The prefix that stands for ⌘ on an Apple keyboard and Ctrl everywhere else. */
 const MOD = "Mod";
 
+/** How a roster line spells the space bar, whose `KeyboardEvent.key` is a bare space. */
+const SPACE = "Space";
+
 /**
  * Does this event press this step? The reading has one home, so the handler that arms a binding and
  * the sheet that documents it can never disagree about what a step means (B-17).
@@ -106,7 +115,10 @@ export function matchesStep(event: ShortcutKeyEvent, step: string): boolean {
   const holdsMod = event.metaKey === true || event.ctrlKey === true;
   if (event.altKey === true) return false;
   if (wantsMod !== holdsMod) return false;
-  return event.key.toLowerCase() === key.toLowerCase();
+  // The space bar's `key` is a space character, which a roster line cannot spell legibly: the line
+  // names it `Space`, and this is the one place the two are read as one key.
+  const pressed = event.key === " " ? SPACE : event.key;
+  return pressed.toLowerCase() === key.toLowerCase();
 }
 
 /** The word a keycap draws for one step's part — a key's name is not always what a hand sees. */
@@ -118,6 +130,8 @@ const KEY_WORD: Readonly<Record<string, string>> = Object.freeze({
   arrowright: "→",
   enter: "Enter",
   tab: "Tab",
+  backspace: "⌫",
+  space: "Space",
 });
 
 /** Whether this machine draws ⌘ for the modifier the roster spells `Mod`. */

@@ -60,16 +60,21 @@ const FAR_ENDPOINT: Point = [100, 0];
 /** A point of bare paper: every feature of the staged geometry stands 20 drawing units or more away. */
 const BARE: Point = [70, 40];
 
-/** A calibration of record over the view the whole staged sheet stands in (AC-4's answer shape). */
+/**
+ * A calibration of record over the view the whole staged sheet stands in (AC-4's answer shape): the
+ * staged sheet is model space, so its factors are per unit of its own coordinates and it has no window.
+ */
 const CALIBRATED = {
   ingestId: "ingest-snap-readout",
-  views: [{ viewKey: VIEW_P, box: { min: [...SNAP_EXTENTS.min], max: [...SNAP_EXTENTS.max] }, factorX: "0.012500000000", factorY: "0.025000000000" }],
+  views: [{ viewKey: VIEW_P, box: { min: [...SNAP_EXTENTS.min], max: [...SNAP_EXTENTS.max] }, factorX: "0.012500000000", factorY: "0.025000000000", space: "model" }],
+  windows: [],
 };
 
 /** A calibration of record over a view the picks do NOT stand in — affirmed, but not here. */
 const ELSEWHERE = {
   ingestId: "ingest-snap-readout",
-  views: [{ viewKey: VIEW_Q, box: { min: [500, 500], max: [600, 600] }, factorX: "0.012500000000", factorY: "0.025000000000" }],
+  views: [{ viewKey: VIEW_Q, box: { min: [500, 500], max: [600, 600] }, factorX: "0.012500000000", factorY: "0.025000000000", space: "model" }],
+  windows: [],
 };
 
 afterEach(() => {

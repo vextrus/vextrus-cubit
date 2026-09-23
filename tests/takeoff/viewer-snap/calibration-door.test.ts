@@ -100,7 +100,9 @@ describe("AC-4: the door answers the views of this sheet that a scale of record 
       const box = view.box as { min: [number, number]; max: [number, number] };
       expect(box.min[0] <= box.max[0] && box.min[1] <= box.max[1], "and it is a box, not an inversion").toBe(true);
       expect([view.factorX, view.factorY], "the factors are the stored 12-place strings, carried whole rather than re-derived (B-07)").toEqual([stage.factor, stage.factor]);
+      expect(view.space, "a FILE_UNITS factor is the header's, per MODEL unit (s-measure I-501)").toBe("model");
     }
+    expect(held.windows, "model space shows nothing through a window: its coordinates are the model's own").toEqual([]);
   }, BUDGET_MS);
 
   test("AC-4: a sheet no affirmed view stands on answers a calibration naming no view", async () => {
@@ -111,6 +113,7 @@ describe("AC-4: the door answers the views of this sheet that a scale of record 
       (answered as NonNullable<typeof answered>).views.map((view) => view.viewKey),
       "but the partitioned views' members stand on the model sheet, so none of them has a box on this one — and a view with no box measures nothing here",
     ).toEqual([]);
+    expect((answered as NonNullable<typeof answered>).windows, "and a paper layout that opens no viewport answers no window (I-501)").toEqual([]);
   }, BUDGET_MS);
 
   test("AC-4: a drawing nothing has partitioned answers null", async () => {

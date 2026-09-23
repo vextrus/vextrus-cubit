@@ -1,6 +1,7 @@
 /**
  * The sheet from the keyboard (R-TO-010, Decision § 1): zoom, fit, pan by the arrows, and Escape to
- * let go of what is held. Every key here moves the camera discretely, so each one is a frame and one
+ * let go of what is held. An armed measure tool's keys are the measure region's, asked first
+ * (s-measure § 2.2): this module may not read the roster they are matched against (ARCH-01). Every key here moves the camera discretely, so each one is a frame and one
  * address write — a reader driving the sheet by keyboard shares the link they are looking at.
  */
 import { useCallback } from "react";
@@ -32,19 +33,27 @@ export type UseKeyboardOptions = {
   takePick?: () => void;
   /** The picks let go of, which Escape does before it lets go of the selection (I-145). */
   clearPicks?: () => void;
+  /**
+   * The measure tools' keys (s-measure §2.2), asked FIRST and answered by the region that matches them
+   * against the one roster — this module may not import it (ARCH-01). True means the key was the
+   * region's: the camera's keys below do not also answer it, so while a tool is armed the arrows move
+   * the keyboard cursor rather than the sheet, and Enter finishes a shape rather than taking a pick.
+   */
+  measureKey?: (event: ReactKeyboardEvent<HTMLCanvasElement>) => boolean;
 };
 
 export type UseKeyboard = {
   onKeyDown: (event: ReactKeyboardEvent<HTMLCanvasElement>) => void;
 };
 
-export function useKeyboard({ moveCamera, zoomBy, fitSheet, hold, setTool, isSnapKey, toggleSnapping, takePick, clearPicks }: UseKeyboardOptions): UseKeyboard {
+export function useKeyboard({ moveCamera, zoomBy, fitSheet, hold, setTool, isSnapKey, toggleSnapping, takePick, clearPicks, measureKey }: UseKeyboardOptions): UseKeyboard {
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLCanvasElement>): void => {
       const pan = (dx: number, dy: number): void => {
         event.preventDefault();
         moveCamera?.((held) => panCamera(held, dx, dy), false);
       };
+      if (measureKey?.(event) === true) return;
       // The roster's own reading of its own step, made where the roster lives and asked here (B-17).
       if (isSnapKey?.(event) === true) {
         toggleSnapping?.();
@@ -73,7 +82,7 @@ export function useKeyboard({ moveCamera, zoomBy, fitSheet, hold, setTool, isSna
         hold?.([]);
       }
     },
-    [clearPicks, fitSheet, hold, isSnapKey, moveCamera, setTool, takePick, toggleSnapping, zoomBy],
+    [clearPicks, fitSheet, hold, isSnapKey, measureKey, moveCamera, setTool, takePick, toggleSnapping, zoomBy],
   );
 
   return { onKeyDown };

@@ -150,8 +150,9 @@ export type ViewerClientModule = {
 };
 
 /** The calibration door (increment interfaces: `snapCalibrationsOfSheet`). */
-export type SnapCalibrationView = { viewKey: string; box: { min: Point; max: Point } | null; factorX: string; factorY: string };
-export type SnapCalibration = { ingestId: string; views: readonly SnapCalibrationView[] };
+export type SnapCalibrationView = { viewKey: string; box: { min: Point; max: Point } | null; factorX: string; factorY: string; space: "model" | "unrecorded" };
+export type SnapWindow = { via: string; frame: { min: Point; max: Point }; viewHeight: string; frameHeight: string };
+export type SnapCalibration = { ingestId: string; views: readonly SnapCalibrationView[]; windows: readonly SnapWindow[] };
 export type SnapServerModule = {
   snapCalibrationsOfSheet: (scope: { tenantId: string; drawingId: string; layoutName: string }) => Promise<SnapCalibration | null>;
 };

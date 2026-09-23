@@ -10,8 +10,9 @@
  */
 import type { RefObject } from "react";
 import { formatUserFigure } from "@/core/format";
-import type { UseSnap } from "@/modules/takeoff/viewer-snap/use-snap";
-import { fill, strings } from "@/ui/strings";
+import type { SnapReadout, UseSnap } from "@/modules/takeoff/viewer-snap/use-snap";
+import { fill, strings, type StringKey } from "@/ui/strings";
+import type { MeasureStatus } from "./measure-region";
 import { snapKindCopy } from "./snap-region";
 import { TESTIDS } from "@/ui/testids";
 
@@ -35,7 +36,36 @@ export type StatusLineProps = {
   partial: boolean;
   /** The snapping region's two cells, where there is a sheet to snap on (Decision § 1). */
   snap?: UseSnap;
+  /** The measure cell, where a tool is armed or the tools stand disabled (s-measure § 2.4, § 3). */
+  measure?: MeasureStatus | null;
 };
+
+/**
+ * The measure cell (s-measure § 2.4): the tool, the points placed and what the shape measures, for a
+ * reader who is not looking at the pointer — or, where the tools cannot be used, why (§ 3). Its hooks
+ * are the figure's own data, so a journey reads the value rather than its rendering.
+ */
+function MeasureCell({ measure }: { measure: MeasureStatus }) {
+  return (
+    <span
+      className="cx-viewer-readout-cell"
+      data-testid={TESTIDS.viewer.statusMeasure}
+      aria-live="off"
+      data-tool={measure.tool ?? ""}
+      data-condition=""
+      data-points={String(measure.points)}
+      data-value={measure.figure?.value ?? ""}
+      data-unit={measure.figure?.unit ?? ""}
+      data-reason={measure.reason ?? ""}
+    >
+      <span className="cx-viewer-readout-label">{strings.viewer_status_measure}</span>
+      <span className="cx-viewer-readout-value">
+        {measure.words}
+        {measure.note === null ? null : <span className="cx-viewer-snap-note">{measure.note}</span>}
+      </span>
+    </span>
+  );
+}
 
 /**
  * What the snap cell says the pointer is meeting: the kind's own word and each source key whole, or
@@ -73,14 +103,21 @@ function SnapCell({ snap }: { snap: UseSnap }) {
   );
 }
 
+/** Why the picks carry no metres, one sentence per reason the snapping region names (I-146, s-measure I-501). */
+const DISTANCE_NOTE = Object.freeze({
+  uncalibrated: "viewer_status_distance_uncalibrated",
+  windowed: "viewer_status_distance_windowed",
+  unrecorded: "viewer_status_distance_unrecorded",
+} as const satisfies Readonly<Record<Exclude<SnapReadout["si"], "calibrated">, StringKey>>);
+
 /**
  * The distance between the picks: the drawing's own units always, and metres beside them — never
- * instead of them — once both picks stand inside one view an affirmation of record measures
- * (R-UI-041, I-146). An empty cell would be the silence R-UI-020 forbids, so each absence has its
- * own sentence.
+ * instead of them — once both picks stand inside one view an affirmation of record measures, and on
+ * a paper sheet inside the one window that view is seen through (R-UI-041, I-146, s-measure I-501).
+ * An empty cell would be the silence R-UI-020 forbids, so each absence has its own sentence.
  */
 function DistanceCell({ snap }: { snap: UseSnap }) {
-  const { distance, dx, dy, metres, picks, si, unread, viewKey } = snap.readout;
+  const { distance, dx, dy, metres, picks, si, unread, via, viewKey } = snap.readout;
   return (
     <span
       className="cx-viewer-readout-cell"
@@ -91,12 +128,13 @@ function DistanceCell({ snap }: { snap: UseSnap }) {
       data-dy={String(dy)}
       data-si={si}
       data-view-key={viewKey ?? undefined}
+      data-via={via ?? undefined}
     >
       <span className="cx-viewer-readout-label">{strings.viewer_status_distance}</span>
       <span className="cx-viewer-readout-value">
         {distance === null ? strings.viewer_status_distance_none : fill(strings.viewer_status_distance_units, { distance: formatUserFigure(distance) })}
         {metres === null ? null : <span className="cx-viewer-snap-metres">{fill(strings.viewer_status_distance_metres, { metres: formatUserFigure(metres) })}</span>}
-        {picks === 2 && si === "uncalibrated" ? <span className="cx-viewer-snap-note">{strings.viewer_status_distance_uncalibrated}</span> : null}
+        {picks === 2 && si !== "calibrated" ? <span className="cx-viewer-snap-note">{strings[DISTANCE_NOTE[si]]}</span> : null}
         {/* A calibration the feed could not answer costs the reader metres, never the sheet: the
             drawing-unit figure stands and the cell names the move (R-UI-050's partial). */}
         {unread ? <span className="cx-viewer-snap-note">{strings.viewer_status_calibration_unread}</span> : null}
@@ -119,6 +157,7 @@ export function StatusLine({
   renderer,
   partial,
   snap,
+  measure = null,
 }: StatusLineProps) {
   return (
     <div
@@ -187,6 +226,7 @@ export function StatusLine({
               <DistanceCell snap={snap} />
             </>
           )}
+          {measure === null ? null : <MeasureCell measure={measure} />}
         </>
       ) : null}
       {partial ? <span className="cx-viewer-readout-partial">{strings.viewer_status_partial}</span> : null}

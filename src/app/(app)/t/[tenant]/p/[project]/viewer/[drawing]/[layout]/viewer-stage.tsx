@@ -5,7 +5,7 @@
  * screen's hooks, and it holds no state and runs no effect of its own.
  */
 import { useState } from "react";
-import type { UsePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
+import type { PointerTool, UsePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
 import type { UseSnap } from "@/modules/takeoff/viewer-snap/use-snap";
 import { InspectorPanel, type InspectorChrome, type InspectorPanelProps } from "@/modules/takeoff/viewer-inspector/inspector-panel";
 import { SCALE_COPY } from "@/modules/takeoff/scale-ui/copy";
@@ -62,9 +62,15 @@ export type ViewerStageProps = {
       view of the partition stands, which is how an observation names the view it was taken in. */
   partition: { panel: ReactNode; canvas: ReactNode; views: readonly ScaleViewBox[] };
   pointer: UsePointer;
-  tool?: "select" | "pan";
+  tool?: PointerTool;
   /** The snapping region: its toolbar on the stage and its marks on the overlay stack (I-151). */
   snap: UseSnap;
+  /**
+   * The measure region's layer over the sheet (the draft's canvas, the running figure, the reticle),
+   * why a click where the pointer stands would place nothing, and the key it hears let go of (Shift)
+   * — s-measure § 2.2–2.4.
+   */
+  measure?: { layer: ReactNode; refusal: string | null; onKeyUp: (event: ReactKeyboardEvent<HTMLCanvasElement>) => void };
   onKeyDown: (event: ReactKeyboardEvent<HTMLCanvasElement>) => void;
   /** Whether the layers drawer stands — the `L≡` toggle in the frame's tool row (§3.1). */
   layersOpen: boolean;
@@ -77,7 +83,7 @@ export type ViewerStageProps = {
   renderer: "webgl" | "unavailable";
 };
 
-export function ViewerStage({ panel, partition, pointer, tool = "select", snap, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, layersOpen }: ViewerStageProps) {
+export function ViewerStage({ panel, partition, pointer, tool = "select", snap, measure, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, layersOpen }: ViewerStageProps) {
   return (
     /* Every panel carries a stable id, and the split is remembered once per set of panels standing,
        so a layout stored by another build's group no longer matches this group and is dropped
@@ -97,7 +103,7 @@ export function ViewerStage({ panel, partition, pointer, tool = "select", snap, 
         </>
       ) : null}
       <ResizablePanel id={STAGE_PANEL}>
-        <div className="cx-viewer-stage" ref={stageRef} data-tool={tool}>
+        <div className="cx-viewer-stage" ref={stageRef} data-tool={tool} data-measure-refusal={measure?.refusal ?? undefined}>
           {probed && renderer === "unavailable" ? (
             <div className="cx-viewer-empty">
               <h2 className="cx-viewer-empty-heading">{strings.viewer_no_webgl_heading}</h2>
@@ -108,7 +114,7 @@ export function ViewerStage({ panel, partition, pointer, tool = "select", snap, 
               them this region's own — the keyboard way to a measurement a pointer would take by
               hand (R-UI-060). Each table speaks its own sentence; neither respells the other's. */}
           <p className="cx-viewer-hidden" id="cx-viewer-keys">
-            {`${strings.viewer_canvas_keys} ${strings.viewer_snap_canvas_keys}`}
+            {`${strings.viewer_canvas_keys} ${strings.viewer_snap_canvas_keys} ${strings.measure_canvas_keys}`}
           </p>
           <canvas
             className="cx-viewer-canvas cx-reticle"
@@ -126,9 +132,13 @@ export function ViewerStage({ panel, partition, pointer, tool = "select", snap, 
             onPointerUp={pointer.onPointerUp}
             onPointerCancel={pointer.onPointerUp}
             onPointerLeave={pointer.clearHover}
+            // An armed measure tool places its point on the click, which carries the click's count (I-372).
+            onClick={pointer.onClick}
             onKeyDown={onKeyDown}
+            onKeyUp={measure?.onKeyUp}
           />
           {partition.canvas}
+          {measure?.layer}
           {/* The rectangle follows the pointer untweened and is written straight onto the element:
               sixty renders a second of the panel and the readout is what a marquee must not cost
               (PB-3). Its geometry is pointer data, not a style — the look is the stylesheet's. */}

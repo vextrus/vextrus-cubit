@@ -1,7 +1,7 @@
 /**
  * J-000 SEGMENTS: measure a manual condition
  *
- * MISSING DOOR: S-Measure's Design Decision now stands (docs/design/s-measure.md, C-13), and nothing it rules is built: the product has no manual measurement act, no identity rule for a register row that carries no mark, no method over POLYLINE or POLYGON geometry and no condition to measure under — the viewer's Linear, Area and Count tools stand disabled, "Measurement tools arrive with S-Measure".
+ * MISSING DOOR: S-Measure's Design Decision stands (docs/design/s-measure.md, C-13) and the viewer's Linear, Area and Count tools are armed — they draw, snap, cut out and read their figure live — but nothing they draw can be recorded: the product has no manual measurement act, no identity rule for a register row that carries no mark, no method over POLYLINE or POLYGON geometry and no condition to measure under (s-measure I-497).
  *
  * The second of AM-17's four M4 segments — AM-09 §3's "a manual condition measured" — declared before
  * the milestone lands. This file claimed all four segments until session 7 split the leg one file per
@@ -29,11 +29,16 @@
  *    (src/core/offers/law.ts:57) and the RASTER engine (:63), and no method under
  *    src/core/rulesets/methods/ names any of them; no condition or assembly store exists; and the gate
  *    refuses an offer for an object nothing registered (src/core/gate/evaluate.ts:280).
- * 5. The tools are disabled on purpose. viewer-toolbar.tsx:58-62
- *    (src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/) renders Linear L, Area A and
- *    Count C disabled over src/ui/strings/viewer.ts:20; their ids stand (src/ui/testids.ts:679-681).
- *    What already exists is the pick: a SnapResult carries the source keys it was met on
- *    (src/modules/takeoff/viewer-snap/types.ts:44-49), which is what R-TO-040's act must cite.
+ * 5. The tools — landed (session 8, S4). Linear L, Area A and Count C arm in the tool row; the
+ *    gesture grammar is src/modules/takeoff/viewer-measure/gesture.ts, wired by the route's
+ *    measure-region.tsx. S-08 is a paper sheet (its plan seen through viewport 2077 at 1:100), and the
+ *    running figure is carried into metres through that window (s-measure I-501). Proven in jsdom
+ *    only (tests/takeoff/viewer-measure/measure-screen.test.tsx): over 81D and 830 projected through
+ *    2077 and the view's DIMENSION_RATIO 0.001 m per model unit, 81D reads A 328.838 m² and 320.791 m²
+ *    with the pit cut out. Not yet walked in the running product. Each placed point keeps the source
+ *    keys its snap was met on, which is what R-TO-040's act must cite, but it stands in PAPER
+ *    coordinates, which the act must map back through its window (I-378); with no condition picked a
+ *    finished shape is a draft and nothing is recorded, because no card and no act stand yet (I-497).
  *
  * THE LAW THAT FORCES IT. C-13 (cubit.bible.xml:800): "A screen with no Design Decision is not ready
  * to build". R-TO-040 (:475): every measurement is an act with geometry citing the entities snapped
