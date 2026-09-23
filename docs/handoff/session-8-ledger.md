@@ -95,3 +95,41 @@ ARCHITECTURAL by law (`src/core/catalogue/maps.ts:40`), so they are drawn in the
 SAME building (F-ARCH, which the project uploads beside the structural set) from one authored wall
 layout, and F-RCC6-BNBC's BRICKWORK and LINTEL cells are reconciled with that drawing. Everything else
 the 75 cells lack is drawn in F-RCC6-BNBC itself, appended so that no existing handle moves.
+
+## Wave 1, a power cut, and the recovery
+
+- **Wave 1 launched** (`wf_c9f20248-789`, base `ed29abf0`): 20 slices in worktrees (VD-1, FRM3-A,
+  ARCH-1, S0, ASK-0, SCALE-1, BOQ-1, DLG-1, C1, C2, C3, C5, C6a, C7, H1, RANGE-LIST, R6-U, R6b-1,
+  JEV-1, REG-FILT), each implement → refuter review → fix; the R0-0 refuter alongside. The R0 design
+  (`wf_41dfbc28-79c`) launched after the owner's round.
+- **A POWER CUT on the owner's side** stopped all three workflows mid-flight. After the restart:
+  `git fsck --full --no-dangling` clean, HEAD `95269c4b` intact, tree clean; Postgres came back on
+  5544 (the session hook ran before it did). Wave 1's journal held 9 finished results (C1, C2, C3, C6a,
+  C7, H1, BOQ-1, R6-U, the R0-0 refuter); every review stage was cut off. The 20 worktrees survived:
+  ASK-0 had committed its Decision without returning; SCALE-1 had one commit plus 11 dirty files;
+  VD-1, FRM3-A, S0, DLG-1, C5, RANGE-LIST, R6b-1, JEV-1 and REG-FILT held partial uncommitted work;
+  ARCH-1's worktree held nothing.
+- **Recovery, not a blind resume.** A resume re-runs every interrupted agent from scratch in a NEW
+  worktree (and a changed prompt re-runs everything after it), so wave 1 continues through
+  `wf_81525490-bcd` (`.private/work/session-8/wave-recover.js`): the 8 finished slices go straight to
+  review → fix; the 11 interrupted ones continue IN their own worktrees from the partial work (commits
+  and dirt judged first); ARCH-1 starts fresh in its empty worktree. Walk-0 (`wf_6136da1c-396`) and the
+  R0 design (`wf_41dfbc28-79c`) resumed from their journals with their exact scripts. The demo was
+  restarted for walk-0's last walk (same project `3085638e`, same proved sign-in).
+- **R0-0 refuter verdicts** (finished before the cut; `.private/work/session-8/w1/R0-0.refute.json`):
+  - CONFIRMED: pile heads sit 75.6 mm inside every cap and are billed twice — **the COMPLETE cap concrete
+    128.781 m³ is +1.321 m³ over** (L-MEA-09: pile > cap). Pile concrete is right (the pile owns the head).
+  - CONFIRMED (magnitude corrected): the lift pit is a recess inside PC5 — **+3.352 m³** by the drawing's
+    own pit section (not 4.989); the golden also double-counts the pit walls and slab. Cap concrete is
+    therefore **over by 4.67–6.31 m³ in total — a hard block standing in the product today.**
+  - CONFIRMED: COMPLETE cap blinding 4.692 m³ is +0.703 m³ over (piles pass through it) — needs an
+    Interpretation that L-MEA-09 governs L-FRM-04's formula.
+  - REFUTED: "482.826 kg of cap side bars stated nowhere" — S-26 states PC3's (98.570 kg); only 384.256
+    kg is unstated. UNCLEAR: the 2-inch cap cover (the drawing contradicts itself: S-01's note vs S-26's
+    cutting at 75) — an Interpretation.
+  - CONFIRMED: the SOG is drawn (81D, closed, 328.838 m²); the drawn blinding outline 824-827 is the
+    bounding box + 75 (billing it literally would over-measure); golden.py:434's manhole fallback is
+    wrong for the pit and the ramp.
+  - GC-2's 3F–ROOF removal (554.960 kg) holds under both readings of S-12.
+  - **Consequence:** FND-OWN (pile heads, the pit recess, blinding through piles) moves to the head of
+    wave 2 — it removes a standing over-measurement from the demo's own figures.
