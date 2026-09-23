@@ -9,16 +9,19 @@
 // it read anything. Only a caption the grammar was silent on is put to a model, through core's own
 // question (`@/core/view-captions`) and the model seam behind it — and what comes back stands BESIDE
 // the view as a proposal, never in it (L-AI-02). A model that refuses is not a partition that failed:
-// the view stands untyped, the refusal is recorded on the job, and the run ends succeeded.
+// the view stands untyped, the refusal is recorded on the job, and the run ends succeeded. A model
+// that answers "none of these" has proposed no class, and this rebuild is the caller L-AI-02 leaves
+// that decision to: it excludes the answer — the view stands untyped with nothing proposed beside
+// it, the call stands in the ledger as the proposal it was, and the job says so (I-408).
 import { REFUSALS } from "@/core/errors";
 import { artifactAt } from "@/core/entitygraph/artifact";
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import { refusal, refusalCodeOf } from "@/core/faults/refusal-marker";
 import type { JobPayloads, JobProgress } from "@/core/jobs";
-import { sourceKeyResolver, type ModelCallContext } from "@/core/model";
+import { sourceKeyResolver, type ModelCallContext, type Proposal } from "@/core/model";
 import { resolve as resolveConventions } from "@/core/rulesets/methods/conventions/resolve";
 import type { Storage } from "@/core/storage";
-import { proposeViewType } from "@/core/view-captions";
+import { proposeViewType, type ViewTypeProposal } from "@/core/view-captions";
 import type { ViewRecord } from "@/core/views";
 import { ingestRecords, type IngestRecord } from "@/modules/takeoff/ingest";
 import { censusOf } from "./conventions/census";
@@ -55,6 +58,13 @@ const STEP_STORED = "stored";
 
 /** The step a run records where a model would not classify a caption the grammar could not read. */
 const STEP_PROPOSAL_REFUSED = "caption-proposal-refused";
+
+/**
+ * The step a run records where a model answered that a caption names no class, and the rebuild
+ * excluded the answer: an operator reading the job sees which view was asked and which ledger call
+ * said "none of these", rather than a view that seems never to have been asked (I-408).
+ */
+const STEP_PROPOSAL_NO_CLASS = "caption-proposal-no-class";
 
 /**
  * How a silent caption is classified, as a seam a caller may hand in (B-23). The default is the
@@ -275,6 +285,23 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
 const CLASSIFIABLE: readonly ViewType[] = VIEW_TYPES.filter((type) => type !== VIEW_TYPE.UNTYPED && type !== VIEW_TYPE.UNASSIGNED);
 
 /**
+ * The class the caption question offers as its "none of these": the view-caption arm tells Jev to
+ * choose the untyped member where a caption names no class a reader could tell. An answer of it is
+ * a proposal of no class, not a malformed answer (I-408) — and this rebuild EXCLUDES it, because
+ * proposing UNTYPED for a view the grammar already left untyped adds nothing a person could confirm.
+ * UNASSIGNED is no such answer: it is what a view with no caption is, and a caption was asked about,
+ * so an answer of it stays refused as no reading of the caption at all.
+ */
+const NO_CLASS: ViewType = VIEW_TYPE.UNTYPED;
+
+/**
+ * How this rebuild reads a caption answer — the classes it accepts as a proposal and the one that
+ * answers "none of these" — published so the corpus's own replay proof reads the recorded answers
+ * under exactly the contract the job asks them under (B-17: one home, no copy in a test).
+ */
+export const CAPTION_CLASSES: { readonly classifiable: readonly ViewType[]; readonly noClass: ViewType } = Object.freeze({ classifiable: CLASSIFIABLE, noClass: NO_CLASS });
+
+/**
  * One record's partition, rebuilt (R-TO-030). Idempotent on the record it names: the rewrite deletes
  * and re-inserts that record's rows, and every key is derived from the artifact rather than minted,
  * so a second run over the same artifact leaves the same rows (L-REG-04, SEAM-JOBS).
@@ -301,8 +328,8 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
 
   const proposals = await proposalsFor(derived.views, {
     ctx: { tenantId, projectId, actor: payload.requestedBy, requestId: progress.jobId },
-    graph,
-    record,
+    artifactSha256: record.artifactSha256,
+    citable: graph.entities.map((entity) => entity.key),
     progress,
     captions: deps.captions ?? PRODUCTION_CAPTIONS,
     held: await storedViewsOf(tenantId, ingestId),
@@ -330,8 +357,10 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
 /** What the proposal pass is run with: whom the call is attributed to, and what it may cite. */
 type ProposalPass = {
   readonly ctx: ModelCallContext;
-  readonly graph: EntityGraph;
-  readonly record: IngestRecord;
+  /** The digest of the artifact a citation resolves against (L-AI-02). */
+  readonly artifactSha256: string;
+  /** Every entity key that artifact holds — what an answer may cite. */
+  readonly citable: readonly string[];
   readonly progress: JobProgress;
   readonly captions: ViewCaptionSeam;
   /** The partition that stands for this record now, so a question already answered is not re-asked. */
@@ -342,10 +371,13 @@ type ProposalPass = {
  * What a model proposes for the views the grammar could not read — and nothing for the views it
  * could: a caption that was classified asks no model, because L-AI-03 puts the grammar first and a
  * call made anyway would spend a tenant's money on an answer nobody would use (L-AI-01).
+ *
+ * Published beside `runPartitionJob` so the caller's decision on an answer — a class stands beside
+ * the view, a "none of these" is excluded and said on the job, a refusal is said on the job — is
+ * proved without a store (`proposals.test.ts`); the job is its one production caller.
  */
-async function proposalsFor(views: readonly PartitionedView[], pass: ProposalPass): Promise<Map<string, ViewProposal>> {
+export async function proposalsFor(views: readonly PartitionedView[], pass: ProposalPass): Promise<Map<string, ViewProposal>> {
   const proposals = new Map<string, ViewProposal>();
-  const citable = pass.graph.entities.map((entity) => entity.key);
   const held = new Map(pass.held.filter((view) => view.proposed !== null).map((view) => [view.viewKey, view.proposed]));
 
   // Which captions are asked is the one selection the corpus recorder asks too (`./views/asked-captions`).
@@ -359,18 +391,15 @@ async function proposalsFor(views: readonly PartitionedView[], pass: ProposalPas
       proposals.set(view.viewKey, { viewKey: view.viewKey, type: standing.type, callId: standing.callId });
       continue;
     }
-    let proposed: ViewProposal | null = null;
+    let proposal: Proposal<ViewTypeProposal<ViewType>> | null = null;
     try {
-      const proposal = await pass.captions.proposeViewType(pass.ctx, {
+      proposal = await pass.captions.proposeViewType(pass.ctx, {
         caption: view.caption,
         anchorKey: view.anchorKey,
         classifiable: CLASSIFIABLE,
-        artifact: sourceKeyResolver(pass.record.artifactSha256, citable),
+        noClass: NO_CLASS,
+        artifact: sourceKeyResolver(pass.artifactSha256, pass.citable),
       });
-      // The question offered the classifiable set and the seam answers out of it, so what comes
-      // back is a member of the vocabulary already: an answer outside it never decodes, and this
-      // path never sees one to re-judge (L-AI-02).
-      proposed = { viewKey: view.viewKey, type: proposal.payload.type, callId: proposal.callId };
     } catch (failure) {
       const code = refusalCodeOf(failure);
       // A model that would not answer is an answer about the model, not about the drawing: anything
@@ -378,7 +407,18 @@ async function proposalsFor(views: readonly PartitionedView[], pass: ProposalPas
       if (code === null) throw failure;
       await pass.progress.step(STEP_PROPOSAL_REFUSED, { refusal: code, view_key: view.viewKey });
     }
-    if (proposed !== null) proposals.set(view.viewKey, proposed);
+    if (proposal === null) continue;
+    // The question offered the classifiable set and the seam answers out of it, so what comes back
+    // is a member of the vocabulary already — or the question's own "none of these": an answer
+    // outside both never decodes, and this path never sees one to re-judge (L-AI-02).
+    const type = proposal.payload.type;
+    if (type === null) {
+      // No class, and the exclusion is this caller's decision (L-AI-02): nothing stands beside the
+      // view, which stays what the grammar honestly read it as — untyped (L-CAD-06, I-408).
+      await pass.progress.step(STEP_PROPOSAL_NO_CLASS, { view_key: view.viewKey, call_id: proposal.callId });
+      continue;
+    }
+    proposals.set(view.viewKey, { viewKey: view.viewKey, type, callId: proposal.callId });
   }
   return proposals;
 }

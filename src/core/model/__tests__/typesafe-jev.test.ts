@@ -272,7 +272,7 @@ describe("how Jev's choices are spelled on the wire", () => {
   test("a caption's class is proposed citing the caption's own entity, and a class outside the caller's set is refused", async () => {
     const request = viewCaptionRequest("SECTION 1-1 THROUGH ROOF BEAM", "DXF_HANDLE:201");
     const artifact = sourceKeyResolver("digest-2", ["DXF_HANDLE:201"]);
-    const decode = readViewTypeProposal([LAYOUT_PLAN, MEMBER_SECTION, DETAIL] as const);
+    const decode = readViewTypeProposal([LAYOUT_PLAN, MEMBER_SECTION, DETAIL] as const, UNTYPED);
 
     const good = await wireOf(jev(answers({ view_type: MEMBER_SECTION })).port, request);
     const resolution = resolveProposal({ payload: good.payload, sources: good.sources }, { artifact, decode });
@@ -282,6 +282,18 @@ describe("how Jev's choices are spelled on the wire", () => {
     const outside = await wireOf(jev(answers({ view_type: TITLE })).port, request);
     const refused = resolveProposal({ payload: outside.payload, sources: outside.sources }, { artifact, decode });
     expect(!refused.ok && refused.code).toBe("MALFORMED");
+  });
+
+  test("Jev's instructed 'none of these' is a cited proposal of no class, never a malformed answer (I-408)", async () => {
+    const request = viewCaptionRequest("XQZ 77", "DXF_HANDLE:202");
+    const artifact = sourceKeyResolver("digest-3", ["DXF_HANDLE:202"]);
+    const decode = readViewTypeProposal([LAYOUT_PLAN, MEMBER_SECTION, DETAIL] as const, UNTYPED);
+
+    const none = await wireOf(jev(answers({ view_type: UNTYPED })).port, request);
+    const resolution = resolveProposal({ payload: none.payload, sources: none.sources }, { artifact, decode });
+    expect(resolution.ok, "the arm's own no-match choice is read back, not refused").toBe(true);
+    expect(resolution.ok && resolution.payload, "as a proposal of NO class — the caller decides what that becomes (L-AI-02)").toEqual({ type: null });
+    expect(resolution.ok && resolution.sources, "and it still rests on the caption it was asked about").toEqual(["DXF_HANDLE:202"]);
   });
 
   test("a usage that is not a count fails as the ledger's derivation fails", async () => {
