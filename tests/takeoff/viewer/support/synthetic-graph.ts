@@ -9,7 +9,10 @@
  * from the seed, so two calls with the same options are byte-identical — which is what makes
  * `manifestDigest` comparable across builds and what makes the journey's staged sheet reproducible.
  *
- * The shape is EntityGraph v2 exactly as `src/core/entitygraph/schema.ts` mirrors it (L-CAD-05); the
+ * The shape is EntityGraph v3 exactly as `src/core/entitygraph/schema.ts` mirrors it (L-CAD-05) —
+ * the version the extractor writes, because the J-011 stage hands this sheet to the ingest door as
+ * the extractor's output, and that door takes nothing older (I-415). Its texts are written square
+ * and left on their baselines, and its layer table names every layer, on, thawed and plotted. The
  * suites parse what this emits through that schema rather than trusting this file, so a graph that
  * drifted from the mirror fails as a fixture defect and never as the product's.
  *
@@ -98,7 +101,7 @@ export function syntheticKey(index: number): string {
 }
 
 /**
- * A deterministic EntityGraph v2 of the size asked for.
+ * A deterministic EntityGraph v3 of the size asked for.
  *
  * Layers are round-robin, and what a record *is* — text or geometry, at which height, of which
  * type — is decided by its position within its own layer's turn (`within`), never by its position
@@ -134,8 +137,8 @@ export function syntheticEntityGraph(options: SyntheticOptions): EntityGraph {
     if (type === TEXT_TYPE) {
       const height = SYNTHETIC_TEXT_HEIGHTS[(Math.floor(within / TEXT_EVERY) * HEIGHT_STRIDE) % SYNTHETIC_TEXT_HEIGHTS.length] ?? 1;
       // The anchor: text carries a single point so the sheet can place it, and the world height the
-      // extractor read (L-CAD-05: "text carries world height").
-      entities.push({ ...base, text: `N${index}`, height, points: [[x, y]] });
+      // extractor read (L-CAD-05: "text carries world height"); written square, left on its baseline.
+      entities.push({ ...base, text: `N${index}`, height, points: [[x, y]], rotation: 0, halign: 0, valign: 0 });
       continue;
     }
 
@@ -156,7 +159,7 @@ export function syntheticEntityGraph(options: SyntheticOptions): EntityGraph {
   }
 
   return {
-    entitygraph_version: 2,
+    entitygraph_version: 3,
     ingest: {
       scheme: "DXF_HANDLE",
       tool: "synthetic-graph",
@@ -164,6 +167,7 @@ export function syntheticEntityGraph(options: SyntheticOptions): EntityGraph {
       parameter_set_hash: createHash("sha256").update(`${count}:${layers}:${options.seed ?? 20260904}`).digest("hex"),
     },
     insunits: { code: 4, unit: "mm", unmapped: false },
+    layers: names.map((name) => ({ name, on: true, frozen: false, plot: true })),
     layouts: [
       {
         name: SYNTHETIC_LAYOUT,

@@ -89,11 +89,36 @@ CONVERSION_UNKNOWN_ENT: Final = "CONVERSION_UNKNOWN_ENT"
 #: are held for the duration of the open and counted here instead of leaking beside the answer.
 READER_WARNED: Final = "READER_WARNED"
 
+#: A text states an alignment it cannot have: a single-line text's group 72 outside 0-5 or its
+#: vertical alignment (TEXT group 73, attribute group 74) outside 0-3, an MTEXT group 71 outside 1-9,
+#: or an alignment point that is not finite. v3 restates the alignment (I-415) and applies none
+#: of it, so the drawing is not refused over it: the code is read as the value ezdxf's own attribute
+#: validator restores (left, baseline, top left) and the point as the insert (ezdxf's reading of an
+#: unstated one), and the detail says which tag, how it was read, and how many times.
+TEXT_ALIGNMENT_UNREADABLE: Final = "TEXT_ALIGNMENT_UNREADABLE"
+
+#: A text's stated direction names none on the drawing plane: a non-finite group 50 or
+#: text_direction, a zero-length direction, or a baseline standing edge-on to the plane. Read as 0
+#: (DXF's default angle), named with how many.
+TEXT_ROTATION_UNREADABLE: Final = "TEXT_ROTATION_UNREADABLE"
+
+#: A text's extrusion is not a finite direction, so its own coordinate frame is no frame: the text
+#: is read in the world's (DXF's default extrusion, +Z), which is where v2 read every text.
+TEXT_EXTRUSION_UNREADABLE: Final = "TEXT_EXTRUSION_UNREADABLE"
+
+#: A block definition holds a record the extractor cannot read (a non-finite coordinate, a curve
+#: that will not flatten, a nested reference placed nowhere), so no content digest can be stated
+#: for it or for any block that nests it (I-416). Its paint is the explode's business, which
+#: refuses the drawing where it reaches the record; a definition the explode never reaches — past
+#: the depth cap — costs the drawing nothing but its digest, and the detail names which and why.
+BLOCK_DEFINITION_UNREADABLE: Final = "BLOCK_DEFINITION_UNREADABLE"
+
 #: Every note code, closed and sorted — the table a test reads rather than a list it re-spells.
 NOTE_CODES: Final[tuple[str, ...]] = tuple(
     sorted(
         (
             AUDIT_REPAIRED,
+            BLOCK_DEFINITION_UNREADABLE,
             CONVERSION_SHORTFALL,
             CONVERSION_UNKNOWN_ENT,
             CURVE_TOLERANCE_NOT_IN_MM,
@@ -106,6 +131,9 @@ NOTE_CODES: Final[tuple[str, ...]] = tuple(
             REJOINED_WRAPPED_TEXT,
             RESYNCED_TAG_STREAM,
             SHX_FONT_UNRESOLVED,
+            TEXT_ALIGNMENT_UNREADABLE,
+            TEXT_EXTRUSION_UNREADABLE,
+            TEXT_ROTATION_UNREADABLE,
             WIPEOUT,
             XREF_BOUND,
             XREF_UNRESOLVED,

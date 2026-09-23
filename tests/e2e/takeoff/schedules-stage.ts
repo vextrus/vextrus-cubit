@@ -35,6 +35,7 @@ import { SHELL, ShellPage } from "../pages/shell.page";
 import { UploadPage } from "../pages/upload.page";
 import { heldAttribute } from "../support/retrying-read";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { writtenAtV3 } from "../../cad/support/entitygraph-versions";
 
 /** The names the two seams read their stand-ins from (SEAM-CAD). */
 const CAD_COMMAND_VAR = "CUBIT_CAD_COMMAND";
@@ -247,8 +248,8 @@ function buildSchedulesArtifact(): { json: string } {
   entities.push({ key: next(), type: "LINE", space: BARREN_LAYOUT, layer: "TITLEBLOCK", colour: CHANNELS, points: [[297, 0], [297, 210]] });
   entities.push({ key: next(), type: "LINE", space: BARREN_LAYOUT, layer: "TITLEBLOCK", colour: CHANNELS, points: [[0, 0], [0, 210]] });
 
-  const graph = {
-    entitygraph_version: 2,
+  const graph = writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-journey", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
@@ -261,7 +262,7 @@ function buildSchedulesArtifact(): { json: string } {
     derived: [],
     block_attributes: [],
     counters: [],
-  };
+  });
   return { json: JSON.stringify(graph) };
 }
 

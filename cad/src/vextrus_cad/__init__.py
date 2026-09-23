@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from .ingest import ENTITYGRAPH_VERSION, SCHEME, IngestError, ingest_dxf
+from .ingest import ENTITYGRAPH_FLOOR, ENTITYGRAPH_VERSION, SCHEME, IngestError, ingest_dxf
 from .model import EntityGraph, EntityGraphError, parse_entity_graph
 from .serialise import dumps, write_artifact
 
 __all__ = [
+    "ENTITYGRAPH_FLOOR",
     "ENTITYGRAPH_VERSION",
     "SCHEME",
     "EntityGraph",

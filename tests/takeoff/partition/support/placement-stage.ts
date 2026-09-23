@@ -60,6 +60,7 @@ import { joinWorkspace, stagePerson, stageSheets } from "../../support/sheets-st
 import { identitySeam, field, type IdentitySeam, type StoreRow } from "../../register/support/register-stage";
 import { TYPICAL_RANGE_READING_MODULE, insertion, performAct, previewOf, storeRows, tableStands, type ActorCtx, type ConsequenceLike, type ProposedLevel } from "../../levels/support/levels-stage";
 import { pinning, setsSeam, actsSeam } from "../../sets/support/sets-stage";
+import { writtenAtV3 } from "../../../cad/support/entitygraph-versions";
 
 export {
   MODEL_SPACE,
@@ -448,7 +449,7 @@ const SCHEDULE_PITCH = 500;
 export type PlacementArtifactOptions = { levelMarks?: readonly { text: string; label: string; elevation: number }[] };
 
 /**
- * An EntityGraph v2 drawn to whichever of the six scenarios is asked for. Every ordinal is minted
+ * An EntityGraph v3 drawn to whichever of the six scenarios is asked for. Every ordinal is minted
  * from `salt`, so two artifacts built here are two different drawings.
  *
  * Every plan is drawn on ONE grid — three letter axes along x and three numeral axes along y, S
@@ -681,8 +682,8 @@ export function buildPlacementArtifact(scenario: PlacementScenario, salt: number
   const modelPoints = originals.filter((record) => record.space === MODEL_SPACE).flatMap((record) => record.points ?? []);
   const xs = modelPoints.map((point) => point[0] ?? 0);
   const ys = modelPoints.map((point) => point[1] ?? 0);
-  const graph: Record<string, JsonValue> = {
-    entitygraph_version: 2,
+  const graph: Record<string, JsonValue> = writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-acceptance", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
@@ -694,7 +695,7 @@ export function buildPlacementArtifact(scenario: PlacementScenario, salt: number
     derived: [],
     block_attributes: [],
     counters: [],
-  };
+  });
 
   return {
     scenario,

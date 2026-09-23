@@ -42,6 +42,7 @@ import {
   type StepRecord,
 } from "./partition-stage";
 import { stageDrawing, stubCli, withCadCommand } from "../../support/ingest-stage";
+import { writtenAtV3 } from "../../../cad/support/entitygraph-versions";
 
 export { MODEL_SPACE, PAPER_SPACE };
 
@@ -99,6 +100,11 @@ const TYPE_TEXT = "TEXT";
 const TYPE_LINE = "LINE";
 const TYPE_RING = "LWPOLYLINE";
 const TYPE_INSTANCE = "INSERT";
+
+/** The blocks this stage's instances name: a bubble, a picture of one, and the key plan. */
+const BLOCK_BUBBLE = "GRID_BUBBLE";
+const BLOCK_PAINTED_BUBBLE = "BUBBLE_PICTURE";
+const BLOCK_KEY_PLAN = "KEY_PLAN";
 const TYPE_CIRCLE = "CIRCLE";
 
 /** The tags a block-drawn bubble says its label in. Two of them, because a tag is a name and names
@@ -179,8 +185,15 @@ export async function gridDoor(): Promise<GridDoor> {
 /** A colour every built entity carries: channels, never a spelled colour (the artifact's own shape). */
 const CHANNELS = { rgb: [0, 0, 0] as [number, number, number], source: "bylayer" };
 
+/**
+ * A block reference's identity as EntityGraph v3 states it (I-416): the block it names and where
+ * it places it. The stage draws a block's paint, never its definition, so it states no content digest
+ * — null, the artifact's word for a definition it does not hold.
+ */
+export type Placed = { name: string; definition_sha256: null; at: [number, number]; rotation: number; scale: [number, number]; mirrored: boolean };
+
 /** One drawn record of the built artifact, in the shape the mirror validates (L-CAD-05). */
-export type Drawn = { key: string; type: string; space: string; layer: string; text?: string; height?: number; points?: number[][]; closed?: boolean };
+export type Drawn = { key: string; type: string; space: string; layer: string; text?: string; height?: number; points?: number[][]; closed?: boolean; block?: Placed };
 
 /** One piece of derived paint: what an original DREW, carried by the original it came out of (L-CAD-03). */
 export type Painted = { src: string; type: string; space: string; layer: string; text?: string; height?: number; points?: number[][]; closed?: boolean };
@@ -298,7 +311,7 @@ export type BuiltGridArtifact = {
 };
 
 /**
- * An EntityGraph v2 whose model space carries a `TYPICAL FLOOR PLAN` cluster and a `COLUMN SCHEDULE`
+ * An EntityGraph v3 whose model space carries a `TYPICAL FLOOR PLAN` cluster and a `COLUMN SCHEDULE`
  * cluster, drawn to whichever of the five scenarios is asked for. Every ordinal is minted from
  * `salt`, so two artifacts built here are two different drawings — and two artifacts built with the
  * SAME salt carry the same source keys, which is what lets a renamed drawing be compared row for row
@@ -346,11 +359,13 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
   /**
    * An instance: an original carrying no geometry of its own, because what a block draws is its
    * PAINT and what it says is its ATTRIBUTES (L-CAD-03 — and the measured shape of a real
-   * block-drawn drawing, where no instance carries a point).
+   * block-drawn drawing, where no instance carries a point). What it DOES carry is which block it
+   * names and where it puts it (v3), placed square at unit scale, the way this stage draws them all.
    */
-  const instance = (layer: string, space: string = MODEL_SPACE): string => {
+  const instance = (layer: string, block: string, at: readonly [number, number], space: string = MODEL_SPACE): string => {
     const key = next();
-    originals.push({ key, type: TYPE_INSTANCE, space, layer: on(layer) });
+    const placed: Placed = { name: block, definition_sha256: null, at: [at[0], at[1]], rotation: 0, scale: [1, 1], mirrored: false };
+    originals.push({ key, type: TYPE_INSTANCE, space, layer: on(layer), block: placed });
     return key;
   };
 
@@ -366,7 +381,7 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
 
   /** A bubble drawn as ONE block: its ring is paint, its label is an attribute row, both its own. */
   const blockBubble = (spec: BubbleSpec, tag: string): string => {
-    const key = instance(LAYER_BUBBLES);
+    const key = instance(LAYER_BUBBLES, BLOCK_BUBBLE, spec.centre);
     paintRing(key, spec.centre, spec.radius, LAYER_BUBBLES);
     attributes.push({ src: key, tag, text: spec.text, height: LABEL_HEIGHT });
     return key;
@@ -445,7 +460,7 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
     // An instance that PAINTS its own label: one round ring about one bare letter, and not one
     // attribute row — a picture of a bubble, standing in the middle of the plan it would otherwise
     // georeference. What tells it from a bubble is where its label came from, and nothing else.
-    blocks.paintedLabel = instance(LAYER_BUBBLES);
+    blocks.paintedLabel = instance(LAYER_BUBBLES, BLOCK_PAINTED_BUBBLE, [40, -50]);
     paintRing(blocks.paintedLabel, [40, -50], RADIUS, LAYER_BUBBLES);
     paintText(blocks.paintedLabel, "F", [40, -50], LAYER_LABELS);
 
@@ -464,7 +479,7 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
     // A KEY PLAN on that sheet: ONE instance painting a miniature of the building's grid — eleven
     // small rings, each about a bare label the block PAINTS, and not one attribute row between them.
     // A perfectly formed grid signature, drawn as a picture, on a layout nobody partitions.
-    const keyPlan = instance(LAYER_BUBBLES, PAPER_SPACE);
+    const keyPlan = instance(LAYER_BUBBLES, BLOCK_KEY_PLAN, KEY_PLAN_AT, PAPER_SPACE);
     blocks.keyPlan = keyPlan;
     KEY_PLAN_LABELS.forEach((said, index) => {
       const centre: [number, number] = normalisedLabelOf(said)?.family === FAMILY_LETTER ? [KEY_PLAN_AT[0] + index * KEY_PLAN_PITCH, KEY_PLAN_AT[1]] : [KEY_PLAN_AT[0] - KEY_PLAN_PITCH, KEY_PLAN_AT[1] - index * KEY_PLAN_PITCH];
@@ -473,8 +488,8 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
     });
   }
 
-  const graph: Record<string, JsonValue> = {
-    entitygraph_version: 2,
+  const graph: Record<string, JsonValue> = writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-acceptance", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
@@ -486,7 +501,7 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
     derived: derived.map((record) => ({ ...record, colour: CHANNELS })) as unknown as JsonValue,
     block_attributes: attributes as unknown as JsonValue,
     counters: [],
-  };
+  });
 
   const layers = [...new Set(originals.filter((record) => record.space === MODEL_SPACE).map((record) => record.layer))].sort((left, right) =>
     left < right ? -1 : left > right ? 1 : 0,

@@ -49,6 +49,7 @@ import {
   type StepRecord,
 } from "../../partition/support/partition-stage";
 import { stageDrawing, stubCli, withCadCommand } from "../../support/ingest-stage";
+import { writtenAtV3 } from "../../../cad/support/entitygraph-versions";
 
 export { MODEL_SPACE, PAPER_SPACE, PRINCIPAL, actorOf, byCodePoint, closeStage, grantRole, openSheetsStage, productModule, sql, stagePerson, storageOf, viewAssignmentRows };
 export type { ActorCtx, Person, StagedDrawing, StepRecord };
@@ -395,7 +396,7 @@ const CLUSTER_BUBBLES: readonly { text: string; at: [number, number]; family: "l
 ];
 
 /**
- * An EntityGraph v2 built to one of the four scenarios: model space carries captioned clusters of
+ * An EntityGraph v3 built to one of the four scenarios: model space carries captioned clusters of
  * grid bubbles and grid lines, and — where the scenario asks for them — DIMENSION originals with no
  * points of their own whose paint arrives as derived records naming them as `src` (riskNotes (3)).
  *
@@ -530,8 +531,8 @@ export function buildScaleArtifact(scenario: ScaleScenario, salt: number): Built
   entities.push({ key: next(), type: TYPE_TEXT, space: PAPER_SPACE, layer: "TITLEBLOCK", colour: CHANNELS as unknown as JsonValue, text: "S-101 GENERAL ARRANGEMENT", height: 3, points: [[5, 5]] as unknown as JsonValue });
 
   const insunits = INSUNITS[scenario];
-  const graph: Record<string, JsonValue> = {
-    entitygraph_version: 2,
+  const graph: Record<string, JsonValue> = writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-acceptance", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { ...insunits } as unknown as JsonValue,
     layouts: [
@@ -543,7 +544,7 @@ export function buildScaleArtifact(scenario: ScaleScenario, salt: number): Built
     derived: derived as unknown as JsonValue,
     block_attributes: [],
     counters: [],
-  };
+  });
 
   return { scenario, json: JSON.stringify(graph), graph, insunits, clusters, noteKey };
 }

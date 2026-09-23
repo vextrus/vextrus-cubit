@@ -32,6 +32,7 @@ import {
 } from "../support/partition-stage";
 import { censusDoor, viewsResultOf } from "../support/conventions-stage";
 import { stageDrawing, stubCli, withCadCommand } from "../../support/ingest-stage";
+import { writtenAtV3 } from "../../../cad/support/entitygraph-versions";
 
 /** How long a staged case may take: a database provisioned, a drawing ingested, a partition run. */
 const BUDGET_MS = 600_000;
@@ -44,8 +45,8 @@ function paperOnlyArtifact(): Record<string, unknown> {
     { key: "DXF_HANDLE:A1", type: "TEXT", space: "Layout1", layer: "TITLEBLOCK", text: "S-101 GENERAL ARRANGEMENT", height: 3, points: [[5, 5]] },
     { key: "DXF_HANDLE:A2", type: "LINE", space: "Layout1", layer: "TITLEBLOCK", points: [[0, 0], [297, 210]] },
   ];
-  return {
-    entitygraph_version: 2,
+  return writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-acceptance", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [{ name: "Layout1", kind: "paper", bbox: { min: [0, 0], max: [297, 210] }, strays_rejected: 0 }],
@@ -54,7 +55,7 @@ function paperOnlyArtifact(): Record<string, unknown> {
     derived: [],
     block_attributes: [],
     counters: [],
-  };
+  });
 }
 
 interface Staged {

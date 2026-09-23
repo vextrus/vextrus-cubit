@@ -53,6 +53,7 @@ import {
   TRANSCRIBE_SHEET_NOTES,
   type SheetText,
 } from "./bnbc-notes";
+import { writtenAtV3 } from "../../../cad/support/entitygraph-versions";
 
 export { closeStage, codeOf, field, grantRole, joinWorkspace, productModule, rejection, rowsOf, sql, unique };
 export type { Person, StoreRow };
@@ -251,7 +252,7 @@ const NOTE_HEIGHT = 2.5;
 export const NOTES_LINE_KEY = "DXF_HANDLE:1F3D";
 
 /**
- * An EntityGraph v2 whose model space carries a general-notes block: one caption, and beneath it one
+ * An EntityGraph v3 whose model space carries a general-notes block: one caption, and beneath it one
  * TEXT entity per sentence, each standing at the source key the acceptance names it by. The keys are
  * the artifact's own, which is what makes a reading's `sourceKey` a key of this sheet.
  */
@@ -275,8 +276,8 @@ export function buildNotesArtifact(texts: readonly SheetText[] = BNBC_SHEET_TEXT
   entities.push({ key: NOTES_LINE_KEY, type: "LINE", space: MODEL_SPACE, layer: "NOTES", colour: CHANNELS, points: [[-2, -2], [60, -2]] });
   entities.push({ key: "DXF_HANDLE:1F3B", type: "TEXT", space: PAPER_SPACE, layer: "TITLEBLOCK", colour: CHANNELS, text: "S-01 GENERAL NOTES", height: 3, points: [[5, 5]] });
 
-  const graph = {
-    entitygraph_version: 2,
+  const graph = writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-acceptance", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
@@ -288,7 +289,7 @@ export function buildNotesArtifact(texts: readonly SheetText[] = BNBC_SHEET_TEXT
     derived: [],
     block_attributes: [],
     counters: [],
-  };
+  });
   return { json: JSON.stringify(graph), captionKey };
 }
 
@@ -333,8 +334,8 @@ export function buildWorkspaceArtifact(texts: readonly SheetText[] = BNBC_SHEET_
   texts.forEach((one, index) => write(NOTES_LAYOUT, "NOTES", one.text, [10, 200 - index * 8], 3, one.sourceKey));
   entities.push({ key: next(), type: "LINE", space: NOTES_LAYOUT, layer: "TITLEBLOCK", colour: CHANNELS, points: [[0, 0], [297, 210]] });
 
-  const graph = {
-    entitygraph_version: 2,
+  const graph = writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-acceptance", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
@@ -346,7 +347,7 @@ export function buildWorkspaceArtifact(texts: readonly SheetText[] = BNBC_SHEET_
     derived: [],
     block_attributes: [],
     counters: [],
-  };
+  });
   return { json: JSON.stringify(graph) };
 }
 

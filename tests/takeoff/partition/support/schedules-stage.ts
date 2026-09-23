@@ -43,6 +43,7 @@ import {
   type StepRecord,
 } from "./partition-stage";
 import { stageDrawing, stubCli, withCadCommand } from "../../support/ingest-stage";
+import { writtenAtV3 } from "../../../cad/support/entitygraph-versions";
 
 export { MODEL_SPACE, PAPER_SPACE };
 
@@ -511,7 +512,7 @@ export type BuiltScheduleArtifact = {
 };
 
 /**
- * An EntityGraph v2 whose model space carries a gridless `COLUMN SCHEDULE` beside a
+ * An EntityGraph v3 whose model space carries a gridless `COLUMN SCHEDULE` beside a
  * `TYPICAL FLOOR PLAN`, drawn to whichever of the five scenarios is asked for. Every ordinal is
  * minted from `salt`, so two artifacts built here are two different drawings.
  */
@@ -557,8 +558,8 @@ export function buildScheduleArtifact(scenario: ScheduleScenario, salt: number):
   originals.push({ key: next(), type: TYPE_TEXT, space: PAPER_SPACE, layer: "TITLEBLOCK", text: "S-101 GENERAL ARRANGEMENT", height: 3, points: [[5, 5]] });
   originals.push({ key: next(), type: TYPE_LINE, space: PAPER_SPACE, layer: "TITLEBLOCK", points: [[0, 0], [297, 210]] });
 
-  const graph: Record<string, JsonValue> = {
-    entitygraph_version: 2,
+  const graph: Record<string, JsonValue> = writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-acceptance", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
@@ -570,7 +571,7 @@ export function buildScheduleArtifact(scenario: ScheduleScenario, salt: number):
     derived: [],
     block_attributes: [],
     counters: [],
-  };
+  });
 
   return { scenario, json: JSON.stringify(graph), graph, originals, captionKey, planCaptionKey, bands, pitch };
 }

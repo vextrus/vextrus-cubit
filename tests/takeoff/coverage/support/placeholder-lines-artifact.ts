@@ -15,7 +15,11 @@
  *   · a foundation plan whose four footings stand in the FOUNDATION slot, as the placement stage's own
  *     FOUNDATION scenario draws them;
  *   · a footing schedule naming them, so each footing has a member type to be measured by.
+ *
+ * It reaches the ingest door as a stand-in extractor's output, so it is written at EntityGraph v3
+ * (`writtenAtV3`, itself pure: the version rules' one runner-free home).
  */
+import { writtenAtV3 } from "../../../cad/support/entitygraph-versions";
 
 /** The grid spacing every plan is drawn on: S, the minimum grid spacing of each plan. */
 const S = 4000;
@@ -217,8 +221,8 @@ export function buildPlaceholderLinesArtifact(salt: number): PlaceholderLinesArt
   const modelPoints = originals.filter((record) => record.space === MODEL_SPACE).flatMap((record) => record.points ?? []);
   const xs = modelPoints.map((point) => point[0] ?? 0);
   const ys = modelPoints.map((point) => point[1] ?? 0);
-  const graph = {
-    entitygraph_version: 2,
+  const graph = writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-acceptance", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
@@ -230,7 +234,7 @@ export function buildPlaceholderLinesArtifact(salt: number): PlaceholderLinesArt
     derived: [],
     block_attributes: [],
     counters: [],
-  };
+  });
 
   return { json: JSON.stringify(graph), beams: BEAMS.length, footings: FOOTINGS.length };
 }

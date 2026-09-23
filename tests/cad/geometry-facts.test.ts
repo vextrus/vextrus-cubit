@@ -21,9 +21,11 @@ import {
   dxfRecordsByHandle,
   FLATTEN_CAP_TRIP_DXF,
   FLATTEN_POINT_CAP,
+  dxfPairs,
   fixtureDxfPath,
   handleOfKey,
   type JsonValue,
+  normaliseHandle,
   pointsOf,
   readCommittedArtifact,
   records,
@@ -78,6 +80,47 @@ function colourOf(entity: Record<string, JsonValue>, what: string): { channels: 
     asNumber(c, `${what}.colour channel ${i}`),
   );
   return { channels, source: asString(colour["source"], `${what}.colour.source`) };
+}
+
+/**
+ * Every handle-bearing record in a committed DXF's ENTITIES and BLOCKS sections, with every group
+ * code it states — the independent read the v3 facts below are bound to. First value per code, as
+ * the colour reads take them: a record's own groups come before any of its subclass repeats.
+ */
+function dxfGroupsByHandle(text: string): Map<string, { type: string; groups: Map<number, string> }> {
+  const pairs = dxfPairs(text);
+  const table = new Map<string, { type: string; groups: Map<number, string> }>();
+  let section: string | null = null;
+  for (let i = 0; i < pairs.length; i += 1) {
+    const head = pairs[i]!;
+    if (head.code !== 0) continue;
+    if (head.value === "SECTION") {
+      const next = pairs[i + 1];
+      section = next !== undefined && next.code === 2 ? next.value : null;
+      continue;
+    }
+    if (section !== "ENTITIES" && section !== "BLOCKS") continue;
+    const groups = new Map<number, string>();
+    for (let j = i + 1; j < pairs.length && pairs[j]!.code !== 0; j += 1) {
+      const { code, value } = pairs[j]!;
+      if (!groups.has(code)) groups.set(code, value);
+    }
+    const handle = groups.get(5);
+    if (handle !== undefined) table.set(normaliseHandle(handle), { type: head.value, groups });
+  }
+  return table;
+}
+
+/** A group's number, or the DXF default the drawing leaves it at when it states none. */
+function groupNumber(groups: Map<number, string>, code: number, fallback: number): number {
+  const stated = groups.get(code);
+  return stated === undefined ? fallback : Number(stated);
+}
+
+/** An angle in counter-clockwise degrees, normalised to [0, 360) as the artifact spells one. */
+function turn(degrees: number): number {
+  const turned = Math.round((((degrees % 360) + 360) % 360) * 1e9) / 1e9;
+  return turned >= 360 ? 0 : turned;
 }
 
 /** Every colour source present anywhere in an artifact. */
@@ -236,6 +279,88 @@ describe("AC-5: rendering and geometry facts", () => {
 
     expect(graded, "no text entity was graded — the basic fixture must carry one").toBeGreaterThan(0);
     expect(withEscape, "an AutoCAD %%-escape must survive the seam unstripped (L-CAD-01)").toBeGreaterThan(0);
+  });
+
+  it("AC-5 (v3): a text carries the rotation and alignment its own DXF record states", () => {
+    // Bound to the group codes, never read back off the artifact: TEXT states its angle in group 50
+    // and its alignment in 72/73; MTEXT its angle in 50 or, outranking it, its direction in 11/21,
+    // and its attachment point in 71. Every committed drawing is extruded +Z, so the OCS is the world.
+    const graded = { TEXT: 0, MTEXT: 0 };
+    for (const name of committedArtifactNames()) {
+      const table = dxfGroupsByHandle(readFileSync(fixtureDxfPath(name), "utf8"));
+      for (const [i, entity] of records(readCommittedArtifact(name).graph, "entities").entries()) {
+        const what = `${name}.entities[${i}]`;
+        const type = asString(entity["type"], `${what}.type`);
+        if (type !== "TEXT" && type !== "MTEXT") continue;
+        const handle = handleOfKey(asString(entity["key"], `${what}.key`));
+        const stated = handle === null ? undefined : table.get(handle);
+        expect(stated, `${what}: its handle names no record in ${name}.dxf`).toBeDefined();
+        const groups = stated!.groups;
+
+        if (type === "TEXT") {
+          expect(entity["rotation"], `${what}: group 50, counter-clockwise, in [0, 360)`).toBe(turn(groupNumber(groups, 50, 0)));
+          expect(entity["halign"], `${what}: group 72`).toBe(groupNumber(groups, 72, 0));
+          expect(entity["valign"], `${what}: group 73`).toBe(groupNumber(groups, 73, 0));
+        } else {
+          const directed = groups.has(11);
+          const expected = directed ? (Math.atan2(groupNumber(groups, 21, 0), groupNumber(groups, 11, 1)) * 180) / Math.PI : groupNumber(groups, 50, 0);
+          expect(entity["rotation"], `${what}: ${directed ? "the direction in 11/21" : "group 50"}`).toBe(turn(expected));
+          expect(entity["attachment"], `${what}: group 71`).toBe(groupNumber(groups, 71, 1));
+        }
+        graded[type] += 1;
+      }
+    }
+    expect(graded.TEXT, "no TEXT was graded — the basic fixture must carry one").toBeGreaterThan(0);
+    expect(graded.MTEXT, "no MTEXT was graded — the basic fixture must carry one").toBeGreaterThan(0);
+  });
+
+  it("AC-5 (v3): a block reference carries the block and the placement its own DXF record states", () => {
+    let graded = 0;
+    for (const name of committedArtifactNames()) {
+      const table = dxfGroupsByHandle(readFileSync(fixtureDxfPath(name), "utf8"));
+      for (const [i, entity] of records(readCommittedArtifact(name).graph, "entities").entries()) {
+        if (entity["type"] !== "INSERT") continue;
+        const what = `${name}.entities[${i}]`;
+        const groups = table.get(handleOfKey(asString(entity["key"], `${what}.key`)) ?? "")?.groups;
+        expect(groups, `${what}: its handle names no record in ${name}.dxf`).toBeDefined();
+        const block = asObject(entity["block"], `${what}.block`);
+        const [sx, sy] = [groupNumber(groups!, 41, 1), groupNumber(groups!, 42, 1)];
+        // Canonical: a negative x scale is the block's x axis turned half a turn, mirrored.
+        const rotation = turn(groupNumber(groups!, 50, 0) + (sx < 0 ? 180 : 0));
+        expect(block["name"], `${what}: group 2`).toBe(groups!.get(2));
+        expect(block["at"], `${what}: groups 10/20`).toEqual([groupNumber(groups!, 10, 0), groupNumber(groups!, 20, 0)]);
+        expect(block["rotation"], `${what}: group 50`).toBe(rotation);
+        expect(block["scale"], `${what}: groups 41/42, as lengths`).toEqual([Math.abs(sx), Math.abs(sy)]);
+        expect(block["mirrored"], `${what}: a reference mirrors its block where its scales disagree in sign`).toBe(sx * sy < 0);
+        graded += 1;
+      }
+    }
+    expect(graded, "no block reference was graded — the blocks fixture must carry one").toBeGreaterThan(0);
+  });
+
+  it("AC-5 (v3): the layer table travels as the drawing states it — on, frozen, plotted", () => {
+    // Group 62 negative is a layer switched off; group 70 bit 1 is frozen; group 290 0 is not plotted.
+    let unplotted = 0;
+    for (const name of committedArtifactNames()) {
+      const pairs = dxfPairs(readFileSync(fixtureDxfPath(name), "utf8"));
+      const stated = new Map<string, { on: boolean; frozen: boolean; plot: boolean }>();
+      for (let i = 0; i < pairs.length; i += 1) {
+        if (pairs[i]!.code !== 0 || pairs[i]!.value !== "LAYER") continue;
+        const groups = new Map<number, string>();
+        for (let j = i + 1; j < pairs.length && pairs[j]!.code !== 0; j += 1) if (!groups.has(pairs[j]!.code)) groups.set(pairs[j]!.code, pairs[j]!.value);
+        const layerName = groups.get(2);
+        if (layerName === undefined) continue;
+        stated.set(layerName, { on: groupNumber(groups, 62, 7) >= 0, frozen: (groupNumber(groups, 70, 0) & 1) === 1, plot: groupNumber(groups, 290, 1) !== 0 });
+      }
+      const carried = records(readCommittedArtifact(name).graph, "layers");
+      expect(carried.map((layer) => layer["name"]), `${name}: the layer table, in its own order`).toEqual([...stated.keys()]);
+      for (const layer of carried) {
+        const layerName = asString(layer["name"], `${name}.layers[].name`);
+        expect({ on: layer["on"], frozen: layer["frozen"], plot: layer["plot"] }, `${name}: layer ${layerName}`).toEqual(stated.get(layerName));
+        if (layer["plot"] === false) unplotted += 1;
+      }
+    }
+    expect(unplotted, "Defpoints is never plotted, and every committed drawing carries it").toBeGreaterThan(0);
   });
 
   it("AC-5: a closed polyline carries closed true and its own shoelace area", () => {

@@ -36,8 +36,11 @@ paths:
   the MEMBER (I-303); the plan states a column's SHAPE and the schedule its SIZE (I-304); a circular
   column is PRISM_POLY billed by `rcc.column.circular.concrete@1` (I-305).
 - **Beams**: no beam line reaches COMPLETE before FRM-4 (slab thickness per side, lift-core walls as
-  supports, support faces per storey). The ties need the joint depth, and the vertical beams need FRM-3
-  (TEXT rotation through L-CAD-05, an EntityGraph bump that re-keys the corpora).
+  supports, support faces per storey). The ties need the joint depth, and the vertical beams need FRM-3:
+  EntityGraph v3 carries each text's world rotation and alignment (L-CAD-05, v2 kept as the read
+  floor). The bump re-keys NOTHING — L-CAD-02 scopes a key to ezdxf's version and the parameter-set
+  hash (`cad/src/vextrus_cad/parameters.py`), and the schema version is neither — but a drawing ingested
+  before it reads at v2, with no rotation, until a declared re-ingest (`pipeline.ts`).
 - Rules as data, methods as code: a method is one Expr tree that prints the formula and computes the
   figure; the notation grammar is a table and its corpus a ratchet (may grow, never shrink). Registries
   split per area, assembled by enumeration, each barrel with a duplicate-key test.

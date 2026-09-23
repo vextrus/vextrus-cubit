@@ -51,6 +51,7 @@ import {
   type JobsLike,
 } from "../../support/sheets-stage";
 import { stageDrawing, stubCli, withCadCommand, type StagedDrawing } from "../../support/ingest-stage";
+import { writtenAtV3 } from "../../../cad/support/entitygraph-versions";
 
 export {
   REPO_ROOT,
@@ -339,7 +340,7 @@ function handle(ordinal: number): string {
 }
 
 /**
- * An EntityGraph v2 whose MODEL SPACE really carries what a partition partitions: caption texts at
+ * An EntityGraph v3 whose MODEL SPACE really carries what a partition partitions: caption texts at
  * caption height, small label texts beside them, drawn lines clustered around each caption, one line
  * standing on its own far from every caption, one paper layout carrying entities of its own, and one
  * record of exploded paint.
@@ -406,8 +407,8 @@ export function buildArtifact(captions: readonly CaptionSpec[], salt: number, fr
   const derivedSource = entities.find((entity) => entity["space"] === MODEL_SPACE && entity["type"] === "LINE")?.["key"] as string;
   const derived = [{ src: derivedSource, type: "LWPOLYLINE", space: MODEL_SPACE, layer: "GRID", colour: CHANNELS, points: [[0, 0], [1, 0]] as unknown as JsonValue }];
 
-  const graph: Record<string, JsonValue> = {
-    entitygraph_version: 2,
+  const graph: Record<string, JsonValue> = writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-acceptance", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
@@ -419,7 +420,7 @@ export function buildArtifact(captions: readonly CaptionSpec[], salt: number, fr
     derived: derived as unknown as JsonValue,
     block_attributes: [],
     counters: [],
-  };
+  });
 
   return {
     json: JSON.stringify(graph),

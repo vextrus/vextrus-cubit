@@ -47,6 +47,7 @@ import {
   type StagedDrawing,
 } from "../../partition/support/partition-stage";
 import { stageDrawing, stubCli, withCadCommand } from "../../support/ingest-stage";
+import { writtenAtV3 } from "../../../cad/support/entitygraph-versions";
 
 export { MODEL_SPACE, PAPER_SPACE, productModule, sql };
 
@@ -317,7 +318,7 @@ function ringPoints(centre: readonly [number, number], radius: number, vertices:
 }
 
 /**
- * An EntityGraph v2 whose model space carries what this increment paints: a layout plan with lawful
+ * An EntityGraph v3 whose model space carries what this increment paints: a layout plan with lawful
  * grid bubbles, a second layout plan with none (a georeference that defers), a schedule, and three
  * captions the grammar cannot read (each of which a recorded answer proposes a class for). Every
  * ordinal is minted from `salt`, so two artifacts built here are two different drawings.
@@ -375,8 +376,8 @@ export function buildOverlayArtifact(salt: number): BuiltOverlayArtifact {
   originals.push({ key: next(), type: TYPE_TEXT, space: PAPER_SPACE, layer: "TITLEBLOCK", text: "S-101 GENERAL ARRANGEMENT", height: 3, points: [[5, 5]] });
   originals.push({ key: next(), type: TYPE_LINE, space: PAPER_SPACE, layer: "TITLEBLOCK", points: [[0, 0], [297, 210]] });
 
-  const graph: Record<string, JsonValue> = {
-    entitygraph_version: 2,
+  const graph: Record<string, JsonValue> = writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-acceptance", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
@@ -388,7 +389,7 @@ export function buildOverlayArtifact(salt: number): BuiltOverlayArtifact {
     derived: [],
     block_attributes: [],
     counters: [],
-  };
+  });
 
   return { json: JSON.stringify(graph), graph, originals, anchorOf };
 }

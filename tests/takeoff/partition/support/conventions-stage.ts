@@ -44,6 +44,7 @@ import {
   type StepRecord,
 } from "./partition-stage";
 import { stageDrawing, stubCli, withCadCommand } from "../../support/ingest-stage";
+import { writtenAtV3 } from "../../../cad/support/entitygraph-versions";
 
 export { MODEL_SPACE, PAPER_SPACE };
 
@@ -290,7 +291,7 @@ export type ConventionArtifactSpec = {
 };
 
 /**
- * An EntityGraph v2 whose model space carries each entity kind on a layer of its own: open lines on
+ * An EntityGraph v3 whose model space carries each entity kind on a layer of its own: open lines on
  * `GRID` and `AXES`, closed rings on `WALLS`, dimensions on `DIMS`, view captions on `CAPTIONS`,
  * small labels on `LABELS` and notes on `NOTES`.
  *
@@ -357,8 +358,8 @@ export function buildConventionArtifact(spec: ConventionArtifactSpec): BuiltConv
     },
   ];
 
-  const graph: Record<string, JsonValue> = {
-    entitygraph_version: 2,
+  const graph: Record<string, JsonValue> = writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-acceptance", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
@@ -370,7 +371,7 @@ export function buildConventionArtifact(spec: ConventionArtifactSpec): BuiltConv
     derived: derived.map((record) => ({ ...record, colour: CHANNELS })) as unknown as JsonValue,
     block_attributes: [],
     counters: [],
-  };
+  });
 
   return { json: JSON.stringify(graph), graph, originals, captions, layers: layerCensusOf(originals) };
 }

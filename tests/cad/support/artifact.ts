@@ -81,6 +81,9 @@ export function fixtureArtifactPath(name: string): string {
   return join(FIXTURE_DIR, `${name}.entitygraph.json`);
 }
 
+// The version rules a test speaks (v3 and the v2 floor) have one home, loadable from every lane.
+export { asStoredV2, V3_ATTRIBUTE_FIELDS, V3_RECORD_FIELDS, V3_TOP_LEVEL_KEYS, writtenAtV3 } from "./entitygraph-versions";
+
 /** The committed artifact for `name`, as both raw text and parsed value. */
 export function readCommittedArtifact(name: string): { text: string; graph: Record<string, JsonValue> } {
   const path = fixtureArtifactPath(name);

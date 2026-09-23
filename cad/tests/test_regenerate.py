@@ -3,8 +3,12 @@
 A source key is scoped to (file bytes, extractor identity), so the same bytes read by the same
 pinned extractor must mint the same key multiset — and, through the pinned serialisation, the very
 same file. That is what makes a committed artifact evidence rather than a snapshot: if this suite
-reds, either the drawing changed or the extractor's identity did, and the second is a declared
-re-ingest.
+reds, the drawing changed, the extractor's identity did, or the EntityGraph version did.
+
+The three are not alike. A new identity (ezdxf's version, the parameter-set hash) re-scopes every key
+and is a declared re-ingest. A new version (v2 to v3, I-415) adds facts to the records the same
+keys already name and re-keys nothing, so its re-take moves the committed files and no key in them —
+and it goes in a `baseline:` commit of its own, like any regenerated fixture.
 """
 
 from __future__ import annotations

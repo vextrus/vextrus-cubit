@@ -19,6 +19,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { asStoredV2 } from "../cad/support/artifact";
 import {
   CAD_COMMAND_VAR,
   cadFixture,
@@ -166,6 +167,29 @@ describe("AC-2 — one invocation, judged by its artifact", () => {
     const noisy = stubCli({ artifact: JSON.stringify(good), stderr: "warnings are not failures\n", exitCode: 3 });
     const taken = await withCadCommand(noisy.command, async () => await ingestDrawing(bytes, "dxf", { tempDir: tempDir("noisy") }));
     expect(taken.ok, "an artifact that parses is an ingest even when the process exited non-zero — the artifact is the judgement").toBe(true);
+  });
+
+  test("EntityGraph v3: a stale cad install writing the v2 floor is stopped at the door by name, and nothing is taken", async () => {
+    // The mirror reads v2 because an artifact STORED before v3 must keep reading; a FRESH v2 is a
+    // cad install older than this checkout, and an ingest taken from it would store a drawing with
+    // every turned mark and block identity missing and nothing to say so (I-415). The drawing
+    // was never judged, so this is not the sheet's refusal (whose remedy tells the operator to
+    // export it again) but an outage of ours, named (ARCH-03).
+    const { ingestDrawing } = await seam();
+    const stored = asStoredV2(committedArtifact("basic"));
+    const { entityGraphSchema } = await productModule<GraphSchema>(ENTITYGRAPH_MODULE);
+    expect(() => entityGraphSchema.parse(stored), "the stand-in's output is a lawful v2 artifact — the stored-read path admits it").not.toThrow();
+
+    const stale = stubCli({ artifact: JSON.stringify(stored), stderr: "", exitCode: 0 });
+    const attempt = withCadCommand(stale.command, async () => await ingestDrawing(cadFixture("basic"), "dxf", { tempDir: tempDir("stale-install") }));
+
+    await expect(attempt, "the door names the stale install and both versions").rejects.toThrow(/cad extractor is stale: it wrote EntityGraph v2, and this product ingests v3/);
+    expect(stale.calls(), "the stand-in really was the thing that ran").toBe(1);
+
+    // The current version through the same stand-in is taken, so what stopped the run was the version.
+    const current = stubCli({ artifact: JSON.stringify(committedArtifact("basic")), stderr: "", exitCode: 0 });
+    const taken = await withCadCommand(current.command, async () => await ingestDrawing(cadFixture("basic"), "dxf", { tempDir: tempDir("current-install") }));
+    expect(taken.ok, "a v3 artifact from the same stand-in is an ingest").toBe(true);
   });
 
   test("AC-2: a refusal's detail carries the tail of what the CLI said on stderr", async () => {

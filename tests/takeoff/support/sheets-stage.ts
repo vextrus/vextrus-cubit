@@ -272,7 +272,7 @@ export function actorOf(person: Person): ActorCtx {
 let extracted: Promise<string> | undefined;
 
 /**
- * `fixtures/rcc6/rcc6.dxf` as EntityGraph v2, produced by the product's own `cad/` CLI.
+ * `fixtures/rcc6/rcc6.dxf` as EntityGraph v3, produced by the product's own `cad/` CLI.
  *
  * Run once per file and memoised: the sheets a card is made of, the title-block text a proposal is
  * read from and the counters a fidelity fact reports are all facts OF THIS CORPUS, and the only

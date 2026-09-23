@@ -6,10 +6,13 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { artifactAt, forgetArtifacts } from "../../src/core/entitygraph/artifact";
 import type { EntityGraph } from "../../src/core/entitygraph/schema";
+import type { Storage } from "../../src/core/storage";
 import {
   asArray,
   asObject,
+  asStoredV2,
   committedArtifactNames,
   type JsonValue,
   NAMED_FIXTURES,
@@ -17,11 +20,12 @@ import {
   REPO_ROOT,
   requireCadPackage,
   runInCadProject,
+  writtenAtV3,
 } from "./support/artifact";
 
 const SCHEMA_MODULE = join(REPO_ROOT, "src", "core", "entitygraph", "schema.ts");
 
-/** The closed top-level key set the test contract states. */
+/** The closed top-level key set of a v3 artifact: v2's nine and the layer table v3 adds. */
 const TOP_LEVEL_KEYS = [
   "block_attributes",
   "counters",
@@ -31,12 +35,40 @@ const TOP_LEVEL_KEYS = [
   "entitygraph_version",
   "ingest",
   "insunits",
+  "layers",
   "layouts",
 ];
 
 interface SchemaModule {
   readonly ENTITYGRAPH_VERSION: unknown;
-  readonly entityGraphSchema: { parse(value: unknown): unknown };
+  readonly ENTITYGRAPH_FLOOR: unknown;
+  readonly entityGraphSchema: { parse(value: unknown): unknown; safeParse(value: unknown): { success: boolean; error?: { message: string } } };
+}
+
+/** The first record of `kind` whose fields match, from a document the test owns. */
+function firstRecord(graph: Record<string, JsonValue>, kind: string, where: Record<string, JsonValue>): Record<string, JsonValue> {
+  const found = asArray(graph[kind], kind)
+    .map((record, i) => asObject(record, `${kind}[${i}]`))
+    .find((record) => Object.entries(where).every(([key, value]) => record[key] === value));
+  expect(found, `no ${kind} record where ${JSON.stringify(where)}`).toBeDefined();
+  return found!;
+}
+
+/** Why the Zod mirror refused a document, or null when it parsed. */
+function refusal(schema: SchemaModule["entityGraphSchema"], graph: unknown): string | null {
+  const parsed = schema.safeParse(graph);
+  return parsed.success ? null : (parsed.error?.message ?? "refused");
+}
+
+/** A storage port that answers one artifact's bytes at any address — the stored-read path's input. */
+function storageHolding(graph: Record<string, JsonValue>): Storage {
+  const bytes = new TextEncoder().encode(JSON.stringify(graph));
+  return {
+    put: async () => {
+      throw new Error("this stand-in is read-only");
+    },
+    get: async () => bytes,
+  } as unknown as Storage;
 }
 
 async function schemaModule(): Promise<SchemaModule> {
@@ -56,15 +88,17 @@ export type EntityGraphMirrorsTheArtifact = Assert<
   | "entities"
   | "derived"
   | "block_attributes"
-  | "counters" extends keyof EntityGraph
+  | "counters"
+  | "layers" extends keyof EntityGraph
     ? true
     : false
 >;
 
 describe("AC-2: both sides parse the committed fixtures", () => {
-  it("AC-2: the mirror exports ENTITYGRAPH_VERSION 2 and a Zod entityGraphSchema", async () => {
+  it("AC-2: the mirror exports ENTITYGRAPH_VERSION 3, the v2 floor, and a Zod entityGraphSchema", async () => {
     const mod = await schemaModule();
-    expect(mod.ENTITYGRAPH_VERSION, "ENTITYGRAPH_VERSION must be the v2 floor").toBe(2);
+    expect(mod.ENTITYGRAPH_VERSION, "ENTITYGRAPH_VERSION is the version the extractor writes").toBe(3);
+    expect(mod.ENTITYGRAPH_FLOOR, "ENTITYGRAPH_FLOOR is L-CAD-05's v2 floor").toBe(2);
     expect(typeof mod.entityGraphSchema.parse, "entityGraphSchema must expose Zod's parse").toBe("function");
   });
 
@@ -128,4 +162,147 @@ describe("AC-2: both sides parse the committed fixtures", () => {
     const run = runInCadProject(["pytest", "cad/tests/test_mirror.py", "-q"]);
     expect(run.status, `pytest cad/tests/test_mirror.py exited ${run.status}\n${run.stdout}\n${run.stderr}`).toBe(0);
   }, 600_000);
+});
+
+describe("EntityGraph v3: two versions, two doors (L-CAD-05, I-415)", () => {
+  it("a stored v2 artifact still reads — through the mirror and through the stored-read path", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    for (const name of committedArtifactNames()) {
+      const stored = asStoredV2(readCommittedArtifact(name).graph);
+      expect(refusal(entityGraphSchema, stored), `${name} at the v2 floor must still parse`).toBeNull();
+    }
+
+    // The path a drawing ingested before v3 is read by (sheets, the partition rebuild, the viewer).
+    forgetArtifacts();
+    const stored = asStoredV2(readCommittedArtifact(NAMED_FIXTURES[0]).graph);
+    const graph = await artifactAt("00000000-0000-4000-8000-000000000001", "c".repeat(64), storageHolding(stored), "a v2 ingest");
+    expect(graph.entitygraph_version, "the stored v2 artifact is answered as the v2 it is").toBe(2);
+    expect(graph.layers, "and carries none of v3's facts").toBeUndefined();
+    forgetArtifacts();
+  });
+
+  it("a version beside the two it admits is refused", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    const { graph } = readCommittedArtifact(NAMED_FIXTURES[0]);
+    expect(refusal(entityGraphSchema, { ...graph, entitygraph_version: 4 }), "v4 is not a version this tree reads").not.toBeNull();
+    expect(refusal(entityGraphSchema, { ...asStoredV2(graph), entitygraph_version: 1 }), "v1 is below the floor").not.toBeNull();
+  });
+
+  it("a v2 artifact spelling one of v3's facts is two dialects in one file, and refused", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    const stored = asStoredV2(readCommittedArtifact(NAMED_FIXTURES[0]).graph);
+    expect(refusal(entityGraphSchema, { ...stored, layers: [] })).toMatch(/v2 artifact never carries layers/);
+
+    const turned = structuredClone(stored);
+    firstRecord(turned, "entities", { type: "TEXT" })["rotation"] = 90;
+    expect(refusal(entityGraphSchema, turned)).toMatch(/which a v2 artifact never carries/);
+  });
+
+  it("v3 requires its facts wherever they apply", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    const basic = readCommittedArtifact("basic").graph;
+    const blocks = readCommittedArtifact("blocks").graph;
+
+    const cases: { what: string; graph: Record<string, JsonValue>; says: RegExp }[] = [];
+    const without = (source: Record<string, JsonValue>, kind: string, where: Record<string, JsonValue>, field: string): Record<string, JsonValue> => {
+      const graph = structuredClone(source);
+      delete firstRecord(graph, kind, where)[field];
+      return graph;
+    };
+    cases.push({ what: "a TEXT without its rotation", graph: without(basic, "entities", { type: "TEXT" }, "rotation"), says: /missing rotation/ });
+    cases.push({ what: "a TEXT without its halign", graph: without(basic, "entities", { type: "TEXT" }, "halign"), says: /missing halign or valign/ });
+    cases.push({ what: "an MTEXT without its attachment", graph: without(basic, "entities", { type: "MTEXT" }, "attachment"), says: /missing attachment/ });
+    cases.push({ what: "a block reference without its identity", graph: without(blocks, "entities", { type: "INSERT" }, "block"), says: /missing block/ });
+    cases.push({ what: "an attribute without its valign", graph: without(blocks, "block_attributes", { tag: "ROOM" }, "valign"), says: /missing valign/ });
+    const layerless = structuredClone(basic);
+    delete layerless["layers"];
+    cases.push({ what: "an artifact without its layer table", graph: layerless, says: /missing layers/ });
+
+    for (const { what, graph, says } of cases) {
+      expect(refusal(entityGraphSchema, graph), `${what} is a broken v3 artifact, not an old one`).toMatch(says);
+    }
+  });
+
+  it("v3's facts are admitted only where they apply, and only in range", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    const basic = readCommittedArtifact("basic").graph;
+    const cases: { what: string; type: string; field: string; value: JsonValue; says: RegExp }[] = [
+      { what: "a rotation of a whole turn", type: "TEXT", field: "rotation", value: 360, says: /rotation/ },
+      { what: "a clockwise rotation", type: "TEXT", field: "rotation", value: -90, says: /rotation/ },
+      { what: "halign past FIT", type: "TEXT", field: "halign", value: 6, says: /halign/ },
+      { what: "an attachment on a TEXT", type: "TEXT", field: "attachment", value: 1, says: /only an MTEXT states/ },
+      { what: "halign on an MTEXT", type: "MTEXT", field: "halign", value: 0, says: /as its attachment/ },
+      { what: "an alignment point on a left-baseline text", type: "TEXT", field: "align_point", value: [0, 0], says: /aligned left on its baseline/ },
+      { what: "a rotation on a LINE", type: "LINE", field: "rotation", value: 0, says: /only a text carries/ },
+      { what: "an override on a LINE", type: "LINE", field: "override", value: "14'-2\"", says: /only a dimension states/ },
+    ];
+    for (const { what, type, field, value, says } of cases) {
+      const graph = structuredClone(basic);
+      firstRecord(graph, "entities", { type })[field] = value;
+      expect(refusal(entityGraphSchema, graph), `${what} must not parse`).toMatch(says);
+    }
+
+    const aligned = structuredClone(basic);
+    const text = firstRecord(aligned, "entities", { type: "TEXT" });
+    text["halign"] = 1;
+    text["valign"] = 2;
+    expect(refusal(entityGraphSchema, aligned), "a text aligned off its baseline carries the point that places it").toMatch(/missing align_point/);
+    text["align_point"] = [1, 2];
+    expect(refusal(entityGraphSchema, aligned), "and parses once it does").toBeNull();
+  });
+
+  it("the layer table restates a name the drawing spells empty, as a drawn record's layer is admitted", async () => {
+    // A restated fact never refuses a drawing v2 took (I-415): v2 admitted `layer: ""` on a record,
+    // so the row stating that layer's visibility is admitted too. cad/tests/test_unreadable_facts.py
+    // holds the Python mirror and the extractor to the same.
+    const { entityGraphSchema } = await schemaModule();
+    const graph = structuredClone(readCommittedArtifact("basic").graph);
+    graph["layers"] = [...asArray(graph["layers"], "layers"), { name: "", on: true, frozen: false, plot: true }];
+    expect(refusal(entityGraphSchema, graph), "an empty layer name parses").toBeNull();
+    graph["layers"] = [...asArray(graph["layers"], "layers"), { name: 0, on: true, frozen: false, plot: true }];
+    expect(refusal(entityGraphSchema, graph), "a name is still a string").not.toBeNull();
+  });
+
+  it("a block identity is closed, canonical and complete", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    const blocks = readCommittedArtifact("blocks").graph;
+    const cases: { what: string; patch: Record<string, JsonValue>; drop?: string }[] = [
+      { what: "a negative scale (a mirror is `mirrored`)", patch: { scale: [-1, 1] } },
+      { what: "a rotation of a whole turn", patch: { rotation: 360 } },
+      { what: "an uppercase digest", patch: { definition_sha256: "A".repeat(64) } },
+      { what: "a key outside the closed set", patch: { via: "x" } },
+      { what: "no mirrored flag", patch: {}, drop: "mirrored" },
+    ];
+    for (const { what, patch, drop } of cases) {
+      const graph = structuredClone(blocks);
+      const reference = firstRecord(graph, "entities", { type: "INSERT" });
+      const block = { ...asObject(reference["block"], "block"), ...patch };
+      if (drop !== undefined) delete block[drop];
+      reference["block"] = block;
+      expect(refusal(entityGraphSchema, graph), `${what} must not parse`).not.toBeNull();
+    }
+  });
+
+  it("a stand-in's drawing is what the door takes only once it is written at v3, and a block reference must state what it names", async () => {
+    // The unit, database and journey stages stand in for the extractor at the ingest door, which
+    // takes v3 alone; they author their drawings through writtenAtV3 (tests/cad/support). A stage's
+    // own v2-shaped drawing is the stored-v2 form of a committed artifact.
+    const { entityGraphSchema } = await schemaModule();
+    const authored = asStoredV2(readCommittedArtifact("basic").graph);
+    expect(refusal(entityGraphSchema, { ...authored, entitygraph_version: 3 }), "the number alone is not v3: its facts are missing").toMatch(/missing/);
+
+    const written = writtenAtV3(authored);
+    expect(refusal(entityGraphSchema, written), "written at v3, the stage's drawing parses as the extractor's would").toBeNull();
+    const drawnOn = [...new Set(["entities", "derived"].flatMap((kind) => asArray(written[kind], kind).map((record) => asObject(record, kind)["layer"])))];
+    expect(asArray(written["layers"], "layers"), "every layer drawn on is in the table, on, thawed and plotted, in the order first drawn").toEqual(
+      drawnOn.map((name) => ({ name, on: true, frozen: false, plot: true })),
+    );
+
+    const turned = structuredClone(authored);
+    firstRecord(turned, "entities", { type: "TEXT" })["rotation"] = 90;
+    expect(firstRecord(writtenAtV3(turned), "entities", { type: "TEXT" })["rotation"], "a fact the stage states is kept as stated").toBe(90);
+
+    const referenced = asStoredV2(readCommittedArtifact("blocks").graph);
+    expect(() => writtenAtV3(referenced), "no block identity is invented for a stage").toThrow(/block reference that states no block/);
+  });
 });

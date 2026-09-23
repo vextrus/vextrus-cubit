@@ -12,7 +12,7 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { entityGraphSchema, type EntityGraph } from "@/core/entitygraph/schema";
+import { ENTITYGRAPH_VERSION, entityGraphSchema, type EntityGraph } from "@/core/entitygraph/schema";
 import { envValue } from "@/core/env";
 import { REFUSALS } from "@/core/errors";
 import type { IngestFormat } from "./request";
@@ -146,7 +146,29 @@ export async function ingestDrawing(bytes: Uint8Array, format: IngestFormat, opt
   // is not geometry this product can read, whichever version of it was written.
   const parsed = entityGraphSchema.safeParse(document);
   if (!parsed.success) return refused("the extractor wrote no EntityGraph this product can read", run);
+  // The mirror reads the v2 floor, because an artifact STORED before v3 must keep reading. A FRESH
+  // one at the floor is another matter: the extractor this checkout ships writes v3, so a v2 here
+  // is a stale cad install, and an ingest taken from it would store a drawing with every turned
+  // mark and block identity missing and nothing to say so (I-415). That is an outage of ours,
+  // not the sheet's fault — the drawing was never judged — so it travels as a failure naming the
+  // install, the way a killed run does, rather than as a refusal telling the operator to export
+  // their drawing again (ARCH-03, B-21).
+  if (parsed.data.entitygraph_version !== ENTITYGRAPH_VERSION) {
+    throw new Error(staleExtractor(parsed.data.entitygraph_version));
+  }
   return { ok: true, graph: parsed.data, artifact };
+}
+
+/**
+ * What a stale cad install is told, by name: which version the extractor wrote, which this product
+ * ingests, and where the remedy lies.
+ */
+function staleExtractor(written: number): string {
+  return (
+    `the cad extractor is stale: it wrote EntityGraph v${String(written)}, and this product ingests v${String(ENTITYGRAPH_VERSION)} ` +
+    `(re-sync the install with \`uv sync --project cad\`, or point ${CAD_COMMAND_VAR} at the current extractor); ` +
+    `the drawing itself was not judged, and nothing was stored`
+  );
 }
 
 /**

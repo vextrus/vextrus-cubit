@@ -13,8 +13,9 @@
  * The `viewer-partition-plan` artifact is authored here rather than imported from
  * `tests/takeoff/viewer-partition-overlay/support/overlay-stage.ts`: that file is the Verifier's,
  * and it opens with `import { expect } from "vitest"` — a unit lane's `expect` has no runner to bind
- * to inside the journey process. The shape it builds is the seam's own EntityGraph v2, which the
- * product's Zod mirror is the single judge of.
+ * to inside the journey process. The shape it builds is the seam's own EntityGraph v3 — the version
+ * the ingest door takes from an extractor — written through the runner-free `writtenAtV3`, and the
+ * product's Zod mirror is the single judge of it.
  *
  * Two orderings matter, as they do for every stage of this lane: `DATABASE_URL` is pointed at the
  * journeys' database and the storage root is left exactly as the served product resolves it BEFORE
@@ -35,6 +36,7 @@ import { UploadPage } from "../pages/upload.page";
 import { newestMail } from "../support/outbox";
 import { e2eDatabaseUrl } from "../support/scratch-db";
 import { heldAttribute } from "../support/retrying-read";
+import { writtenAtV3 } from "../../cad/support/entitygraph-versions";
 
 /** The journeys' own database, stated before a product module opens a pool. */
 process.env["DATABASE_URL"] = e2eDatabaseUrl();
@@ -192,8 +194,8 @@ function buildPartitionPlan(): BuiltArtifact {
   entities.push({ key: next(), type: TYPE_TEXT, space: PAPER_SPACE, layer: "TITLEBLOCK", colour: CHANNELS, text: "S-101 GENERAL ARRANGEMENT", height: 3, points: [[5, 5]] });
   entities.push({ key: next(), type: TYPE_LINE, space: PAPER_SPACE, layer: "TITLEBLOCK", colour: CHANNELS, points: [[0, 0], [297, 210]] });
 
-  const graph = {
-    entitygraph_version: 2,
+  const graph = writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-journey", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
@@ -205,7 +207,7 @@ function buildPartitionPlan(): BuiltArtifact {
     derived: [],
     block_attributes: [],
     counters: [],
-  };
+  });
 
   return { json: JSON.stringify(graph), anchorOf };
 }

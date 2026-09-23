@@ -1,16 +1,34 @@
-"""DXF → EntityGraph v2, in one shot (L-CAD-01 … L-CAD-05).
+"""DXF → EntityGraph v3, in one shot (L-CAD-01 … L-CAD-05).
 
 The extractor reads original entities only. INSERTs explode to world coordinates for rendering,
 under a depth cap and a derived-entity budget whose trips are counted; that paint is kept apart in
 `derived`, each piece naming the instance that painted it. Block attributes collect separately.
 Nothing here reads meaning: no schedule, no view law, no notation — those are TypeScript stages
 over the artifact this writes.
+
+v3 (I-415) restates what v2 left behind of how a drawing is WRITTEN, as facts the entity itself
+states and nothing derived from them: every text's world rotation and alignment, every block
+reference's identity and placement, the layer table's visibility, and a dimension's override text.
+It mints no key: L-CAD-02 scopes a key to ezdxf's version and the parameter-set hash, neither of
+which the bump touches, so the same drawing keeps the same key multiset. It moves one v2 fact, on
+purpose: a single-line text's anchor is taken from the text's own coordinate frame into the world,
+so a text a mirrored block paints stands where the world sees it rather than across the y axis.
+
+A fact v3 only restates never refuses a drawing v2 took. Where a text states its alignment or its
+direction unreadably — a code outside its closed range, a non-finite angle or point, an extrusion
+that is no direction — it is read as DXF's default and the reading is named in the report (L-CAD-04);
+a block definition whose content cannot be read carries no digest, and says why. A block
+reference's placement is not only restated: the explode applies it to paint, so one placed nowhere
+is refused under a name that says so.
 """
 
 from __future__ import annotations
 
+import hashlib
 import io
+import json
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
@@ -18,13 +36,18 @@ from typing import Any, Final
 import ezdxf
 import ezdxf.recover
 from ezdxf.lldxf.const import VSF_NON_RECTANGULAR_CLIPPING
+from ezdxf.math import NULLVEC, OCS, Z_AXIS, Vec3
 
 from . import colours, geometry, report, units
 from .parameters import DERIVED_ENTITY_BUDGET, EXPLODE_DEPTH_CAP, parameter_set_hash
 from .resync import resync_tag_stream
 
-#: The version floor this extractor writes and both mirrors demand (L-CAD-05).
-ENTITYGRAPH_VERSION: Final = 2
+#: The version this extractor writes, and the only one the ingest door takes from it (L-CAD-05).
+ENTITYGRAPH_VERSION: Final = 3
+
+#: The oldest version both mirrors still admit on READ: an artifact stored before v3 keeps reading,
+#: carrying none of v3's facts (L-CAD-05, "v2 as the floor").
+ENTITYGRAPH_FLOOR: Final = 2
 
 #: The source-key scheme ezdxf mints, and the tool identity that scopes those keys (L-CAD-02).
 SCHEME: Final = "DXF_HANDLE"
@@ -56,6 +79,265 @@ _ANCHOR_ATTRIBUTES: Final = ("insert", "location")
 #: How near a full turn an elliptical parameter range must come to count as closed.
 _FULL_TURN_EPSILON: Final = 1e-9
 
+#: The single-line text types: their `insert` and `align_point` stand in the entity's own OCS, their
+#: alignment is the (halign, valign) pair of groups 72/73, and their angle is group 50 in that OCS.
+#: MTEXT is the other text type: its `insert` is a world point and its alignment one attachment point.
+_SINGLE_LINE_TEXT: Final = frozenset({"TEXT", "ATTRIB", "ATTDEF"})
+
+#: The halign values (group 72) that stretch a text between its two points, so the baseline runs from
+#: `insert` to `align_point` whatever group 50 says: ALIGNED and FIT, as ezdxf's renderer reads them.
+_STRETCHED_HALIGN: Final = frozenset({3, 5})
+
+#: The closed ranges of the alignment codes a text states — a single-line text's horizontal (group
+#: 72) and vertical alignment (group 73 on a TEXT, 74 on an attribute), and an MTEXT's attachment
+#: point (group 71) — as DXF defines them and ezdxf's attribute validators hold them. One home in
+#: Python: the mirror (`model.py`) reads these, and the Zod mirror states the same ranges.
+HALIGN_CODES: Final = range(0, 6)
+VALIGN_CODES: Final = range(0, 4)
+ATTACHMENT_CODES: Final = range(1, 10)
+
+#: What a text that states no alignment, or one outside its range, is read as: left on the baseline,
+#: and an MTEXT attached top left — the defaults ezdxf's validators restore.
+_DEFAULT_HALIGN: Final = 0
+_DEFAULT_VALIGN: Final = 0
+_DEFAULT_ATTACHMENT: Final = 1
+
+#: How short a direction's shadow on the drawing plane may fall, against the direction's own length,
+#: before it names no direction there: a baseline standing edge-on to the plane casts a shadow of
+#: rounding noise, and the angle of noise is no angle.
+_EDGE_ON: Final = 1e-9
+
+#: What reading a drawing's statement can raise where the statement is malformed: ezdxf's own
+#: refusals, the extractor's (a non-finite coordinate is a ValueError), and arithmetic on a
+#: degenerate shape. The ingest refuses a drawing on the first two where its paint depends on them.
+_UNREADABLE: Final = (ezdxf.DXFError, ValueError, ArithmeticError)
+
+#: Told each statement a text makes that is read as DXF's default rather than as stated: the note
+#: code it is reported under, and what was read how (L-CAD-04).
+_Read = Callable[[str, str], None]
+
+
+def _finite(vector: Any) -> bool:
+    return all(math.isfinite(float(component)) for component in (vector.x, vector.y, vector.z))
+
+
+def _turn(degrees: float) -> float:
+    """An angle as the artifact spells it: counter-clockwise degrees in [0, 360), quantised."""
+    turned = geometry.quantise(float(degrees) % 360.0)
+    # A hair below a whole turn quantises onto 360, which is the same direction as 0.
+    return 0.0 if turned >= 360.0 else turned
+
+
+def _heading(vector: Any) -> float | None:
+    """The world angle of a direction vector's projection onto the drawing plane, in [0, 360) — or
+    None where the vector names no direction there: not finite, of no length, or standing edge-on to
+    the plane, so that its shadow on it is rounding noise and its angle the angle of noise."""
+    if not _finite(vector):
+        return None
+    shadow = math.hypot(float(vector.x), float(vector.y))
+    if shadow == 0 or shadow <= _EDGE_ON * float(vector.magnitude):
+        return None
+    return _turn(math.degrees(math.atan2(float(vector.y), float(vector.x))))
+
+
+def _pair(point: Any) -> list[float]:
+    return [geometry.quantise(float(point.x)), geometry.quantise(float(point.y))]
+
+
+def _frame(entity: Any) -> tuple[Any, bool]:
+    """The entity's own coordinate frame (its OCS), and whether its extrusion could be read at all.
+
+    An extrusion that is not a finite, non-zero direction frames nothing — ezdxf would build its axes
+    out of NaN — so the entity is read in the world's frame instead: DXF's default extrusion, and the
+    frame v2 read every text in.
+    """
+    extrusion = Vec3(entity.dxf.get("extrusion", Z_AXIS))
+    if _finite(extrusion) and not extrusion.is_null:
+        return entity.ocs(), True
+    return OCS(), False
+
+
+def _angled(degrees: Any, frame: Any) -> Any | None:
+    """The world direction a stated angle names in a frame, or None where the angle is not finite."""
+    angle = float(degrees)
+    return frame.to_wcs(Vec3.from_deg_angle(angle)) if math.isfinite(angle) else None
+
+
+def _rotation(direction: Any | None, what: str, read: _Read) -> float:
+    """A text's world rotation from the direction its statement names, or 0 where it names none."""
+    heading = None if direction is None else _heading(direction)
+    if heading is None:
+        read(report.TEXT_ROTATION_UNREADABLE, f"{what} names no direction on the drawing plane, read as 0")
+        return 0.0
+    return heading
+
+
+def _code(stated: Any, codes: range, default: int, what: str, read: _Read) -> int:
+    """An alignment code as the drawing states it, or DXF's default where it states one outside its
+    closed range — the value ezdxf's own attribute validator restores."""
+    code = int(stated)
+    if code in codes:
+        return code
+    read(
+        report.TEXT_ALIGNMENT_UNREADABLE,
+        f"{what} outside {codes.start}-{codes.stop - 1}, read as {default}",
+    )
+    return default
+
+
+def _group(entity: Any, attribute: str) -> str:
+    """A statement as the file spells it — the type and the DXF group code ezdxf reads it from — so a
+    note names the tag an operator would find in the file (valign is group 73 on a TEXT and 74 on an
+    attribute)."""
+    return f"{entity.dxftype()} group {entity.DXFATTRIBS.get(attribute).code}"
+
+
+def _text_facts(entity: Any, dxftype: str, read: _Read) -> dict[str, Any]:
+    """How a text is written: its world rotation and its alignment, as the entity states them.
+
+    The rotation is the WORLD angle of the text's baseline, counter-clockwise and normalised
+    (I-415). A single-line text states its angle in its own OCS (group 50), so the baseline's
+    direction is taken through that OCS into the world: a text inside a mirrored block reference comes
+    out of the explode with its extrusion flipped, and its group 50 alone would read the mirror image.
+    An ALIGNED or FIT text runs from its insert to its alignment point whatever group 50 says, and is
+    read that way. MTEXT reads as `get_rotation()` does, which honours `text_direction` — a world
+    vector that outranks group 50 wherever a writer states both — and a group-50-only MTEXT goes
+    through its OCS like a TEXT does.
+
+    Alignment is restated raw: `halign`/`valign` (groups 72 and 73, 74 on an attribute) for a
+    single-line text, and the `attachment` point (group 71, 1-9) for MTEXT. A single-line text
+    aligned anywhere but left on the baseline is placed by its alignment point, not its insert (the
+    insert is a derived point a writer may or may not have recomputed), so that point travels too as
+    `align_point`, in world coordinates. The record's own anchor (`points`) stays the insert it
+    always was.
+
+    None of this is applied, so none of it may refuse the drawing (I-415): a statement that
+    cannot be read — an alignment code outside its closed range, a non-finite angle, direction or
+    alignment point, a direction edge-on to the drawing plane, an extrusion that is no direction — is
+    read as DXF's default and handed to `read`, which names it in the report.
+    """
+    frame, framed = _frame(entity)
+    if not framed:
+        read(report.TEXT_EXTRUSION_UNREADABLE, f"{dxftype} extrusion is no direction, read as +Z")
+    if dxftype == "MTEXT":
+        attachment = _code(
+            entity.dxf.get("attachment_point", _DEFAULT_ATTACHMENT),
+            ATTACHMENT_CODES,
+            _DEFAULT_ATTACHMENT,
+            _group(entity, "attachment_point"),
+            read,
+        )
+        if entity.dxf.hasattr("text_direction"):
+            # What get_rotation() reads: a world vector, so no frame stands between it and the world.
+            rotation = _rotation(Vec3(entity.dxf.text_direction), "MTEXT text_direction", read)
+        else:
+            direction = _angled(entity.dxf.get("rotation", 0.0), frame)
+            rotation = _rotation(direction, "MTEXT group 50", read)
+        return {"rotation": rotation, "attachment": attachment}
+
+    stated_halign = entity.dxf.get("halign", _DEFAULT_HALIGN)
+    stated_valign = entity.dxf.get("valign", _DEFAULT_VALIGN)
+    halign = _code(stated_halign, HALIGN_CODES, _DEFAULT_HALIGN, _group(entity, "halign"), read)
+    valign = _code(stated_valign, VALIGN_CODES, _DEFAULT_VALIGN, _group(entity, "valign"), read)
+    aligned = (halign, valign) != (_DEFAULT_HALIGN, _DEFAULT_VALIGN)
+    insert = Vec3(entity.dxf.insert)
+    # ezdxf's own reading: an alignment point the entity does not state is its insert.
+    align_point = Vec3(entity.dxf.get("align_point", insert))
+    if aligned and not _finite(align_point):
+        read(report.TEXT_ALIGNMENT_UNREADABLE, f"{dxftype} alignment point not finite, read as its insert")
+        align_point = insert
+    if halign in _STRETCHED_HALIGN and not insert.isclose(align_point):
+        baseline = frame.to_wcs(align_point - insert)
+        rotation = _rotation(baseline, f"{dxftype} baseline (insert to alignment point)", read)
+    else:
+        rotation = _rotation(_angled(entity.dxf.get("rotation", 0.0), frame), f"{dxftype} group 50", read)
+    facts: dict[str, Any] = {"rotation": rotation, "halign": halign, "valign": valign}
+    if aligned:
+        facts["align_point"] = _pair(frame.to_wcs(align_point))
+    return facts
+
+
+def _placed(insert: Any, which: str) -> None:
+    """Refuse a block reference that places its block nowhere, naming what it states (L-CAD-04).
+
+    Unlike a text's facts, a placement is not only restated: the explode applies it to the block's
+    paint. A reference that states no finite insert point, rotation, scale or extrusion places its
+    block nowhere — v2 could not finish exploding one (its walk ran unbounded) — so it is refused
+    under a name that says what it states, rather than as a coordinate it never had. `which` is how
+    the refusal names the reference: its handle, or the original a nested one was painted by.
+    """
+    stated = {
+        "insert point": _finite(Vec3(insert.dxf.get("insert", NULLVEC))),
+        "rotation": math.isfinite(float(insert.dxf.get("rotation", 0.0))),
+        "x scale": math.isfinite(float(insert.dxf.get("xscale", 1.0))),
+        "y scale": math.isfinite(float(insert.dxf.get("yscale", 1.0))),
+        "extrusion": _frame(insert)[1],
+    }
+    unplaced = [name for name, readable in stated.items() if not readable]
+    if unplaced:
+        raise ValueError(
+            f"block reference {which} (block {insert.dxf.name}) states no finite "
+            f"{' and no finite '.join(unplaced)}, so where it places its block cannot be read"
+        )
+
+
+def _placement(insert: Any) -> dict[str, Any]:
+    """Where a block reference puts its block, in one canonical spelling (I-416).
+
+    The world transform a reference applies, decomposed as the world sees it: the point the block's
+    base lands on (`at`), the world angle the block's own x axis turns to (`rotation`, CCW, [0, 360)),
+    the length each block axis is scaled to (`scale`, both positive), and whether the reference
+    mirrors the block (`mirrored`: the world image of the block's y axis is on the right of its x
+    axis). A DXF can spell one placement several ways — x scale -1 is y scale -1 turned half a turn,
+    and a flipped extrusion is a mirror too — and this is the one spelling of all of them, so two
+    references that place a block alike carry the same record. An x axis the reference scales to
+    nothing, or stands edge-on to the drawing plane, turns no way on it, and is spelled 0. A
+    reference placed nowhere is refused (`_placed`).
+    """
+    _placed(insert, str(insert.dxf.get("handle", "?")))
+    matrix = insert.matrix44()
+    x_axis = matrix.transform_direction(Vec3(1, 0, 0))
+    y_axis = matrix.transform_direction(Vec3(0, 1, 0))
+    rotation = _heading(x_axis)
+    return {
+        "at": _pair(insert.ocs().to_wcs(Vec3(insert.dxf.insert))),
+        "rotation": 0.0 if rotation is None else rotation,
+        "scale": [
+            geometry.quantise(math.hypot(x_axis.x, x_axis.y)),
+            geometry.quantise(math.hypot(y_axis.x, y_axis.y)),
+        ],
+        "mirrored": (x_axis.x * y_axis.y - x_axis.y * y_axis.x) < 0,
+    }
+
+
+def _layer_records(doc: Any) -> list[dict[str, Any]]:
+    """The layer table's visibility, in the drawing's own table order (I-417).
+
+    Restated, never applied: whether a layer is switched on, frozen, and plotted is a fact of the
+    drawing a reader may need — a frozen layer of stale paint is not the sheet — but deciding what an
+    off or frozen layer means for extents, the partition or a measurement is a stage over the
+    artifact, not this extractor's business (L-CAD-01).
+    """
+    return [
+        {
+            "name": str(layer.dxf.name),
+            "on": bool(layer.is_on()),
+            "frozen": bool(layer.is_frozen()),
+            "plot": bool(int(layer.dxf.get("plot", 1))),
+        }
+        for layer in doc.layers
+    ]
+
+
+def _dimension_override(entity: Any) -> str | None:
+    """A dimension's own text (group 1) where it states one, raw (L-CAD-01).
+
+    Empty and a bare `<>` both mean "the measurement", which the dimension's derived paint already
+    carries; anything else is text the designer wrote, and until now it existed only as that paint.
+    """
+    stated = str(entity.dxf.get("text", "") or "")
+    return None if stated in {"", "<>"} else stated
+
 
 class IngestError(Exception):
     """A drawing this extractor refuses: loud failure, nothing written (L-CAD-04).
@@ -71,6 +353,30 @@ class IngestError(Exception):
         super().__init__(f"{code}: {message}")
         self.code = code
         self.message = message
+
+
+@dataclass
+class _Readings:
+    """The statements this run read as DXF's default rather than as the drawing states them, counted
+    per note code and per statement, and said once each when the run ends (L-CAD-04: a default read
+    in silence is a silent loss). A reading counts once per record it lands in — a block's own text is
+    read for its definition's digest and again for each reference that paints it.
+    """
+
+    counts: dict[tuple[str, str], int] = field(default_factory=dict)
+
+    def default(self, code: str, what: str) -> None:
+        self.counts[(code, what)] = self.counts.get((code, what), 0) + 1
+
+    def write(self, notes: report.Report) -> None:
+        """One note per code: how many readings in all, and each statement with its own count."""
+        said: dict[str, list[str]] = {}
+        totals: dict[str, int] = {}
+        for (code, what), count in sorted(self.counts.items()):
+            said.setdefault(code, []).append(f"{what}: {count}")
+            totals[code] = totals.get(code, 0) + count
+        for code, statements in said.items():
+            notes.add(code, "; ".join(statements), totals[code])
 
 
 @dataclass
@@ -225,7 +531,15 @@ def _text_of(entity: Any, dxftype: str) -> tuple[str, float] | None:
 
 
 def _anchor(entity: Any) -> tuple[float, float] | None:
-    """An entity's own location, for spaces whose extents nothing else would place it in."""
+    """An entity's own location in the world, for spaces whose extents nothing else would place it in.
+
+    A single-line text's insert stands in its own OCS, so it is taken into the world first
+    (I-415): the text of a mirrored block reference comes out of the explode with its extrusion
+    flipped, and its raw insert would place it on the far side of the drawing's y axis. For the usual
+    extrusion the OCS is the world and the point is the one it always was. An MTEXT's insert and a
+    POINT's location are world points already. A text whose extrusion is no direction is read in
+    the world's frame, where v2 read it.
+    """
     for name in _ANCHOR_ATTRIBUTES:
         try:
             anchor = entity.dxf.get(name, None)
@@ -233,6 +547,9 @@ def _anchor(entity: Any) -> tuple[float, float] | None:
             # The name is not part of this type's namespace at all, which is not the same as unset.
             continue
         if anchor is not None:
+            if entity.dxftype() in _SINGLE_LINE_TEXT:
+                # The frame `_text_facts` read the same text in, which named an unreadable one.
+                anchor = _frame(entity)[0].to_wcs(Vec3(anchor))
             return (geometry.quantise(anchor.x), geometry.quantise(anchor.y))
     return None
 
@@ -243,12 +560,182 @@ class _Extractor:
     def __init__(self, doc: Any, notes: report.Report | None = None) -> None:
         notes = report.Report() if notes is None else notes
         self._doc = doc
+        self._notes = notes
+        #: The statements read as DXF's default rather than as stated, said once each at the end.
+        self._readings = _Readings()
+        #: The definitions left with no digest because a record in them, or in a definition they
+        #: nest, cannot be read (BLOCK_DEFINITION_UNREADABLE).
+        self._unreadable: set[str] = set()
         self._layers = colours.LayerColours.of(doc)
         #: How finely a curve of THIS drawing is described, in this drawing's units — derived from
         #: `$INSUNITS` so the accuracy is the same length on every file (L-MEA-01).
         self._tolerance = report.flatten_tolerance(int(doc.header.get("$INSUNITS", 0)), notes)
         #: How much of the pinned derived-entity budget this invocation has spent walking (L-CAD-03).
         self._expanded = 0
+        #: Each block definition read so far: its digest (None where it has none) and its nesting
+        #: height, read once per invocation however many references name it.
+        self._definitions: dict[str, tuple[str | None, float]] = {}
+
+    def definition(self, name: str) -> tuple[str | None, float]:
+        """A block definition's content digest and its nesting height.
+
+        The digest is the block's identity as learn-and-count needs it (I-416): the same symbol
+        keeps the same digest under any name, at any placement, in any drawing. So it is a sha256 over
+        the definition's CONTENT — each record's type, its geometry flattened in block coordinates and
+        measured from the block's base point, its text, height, rotation and alignment, and a nested
+        reference's own digest and placement — and over nothing a writer varies without changing the
+        symbol: no handle, no block name, no colour, no layer and no linetype, the exclusions L-CAD-02
+        already makes of a content digest. The records are hashed as a sorted multiset, so the order
+        a writer happened to emit them in is not part of the symbol either. An attribute definition
+        is no record of it: it is a slot each reference fills (its values travel as the reference's
+        `block_attributes`), and the explode leaves it out of the paint for the same reason.
+
+        A definition has no digest (None) where the drawing does not hold it, where it reaches a block
+        cycle (its height is then unbounded), or where it nests deeper than the explode depth cap —
+        the same line past which its paint is not drawn either (L-CAD-03). Nor where it holds a record
+        the digest cannot read, or nests a definition that does: a symbol part of which cannot be read
+        has no identity to state, and the report names which record and why
+        (BLOCK_DEFINITION_UNREADABLE). That is never a refusal here — the walk reads definitions the
+        explode may never reach, past the depth cap, which v2 never read at all — while a record the
+        explode does reach refuses the drawing there, exactly as it did before v3.
+
+        The walk is iterative and post-order, and every definition it meets is read exactly once and
+        kept: a block tree that branches at every level is as many reads as it has definitions, never
+        as many as it has paths (the breaker in tests/cad/ingest-bounds-breaker.test.ts), however deep
+        it nests and whichever reference asks first. A reference reached again while its own
+        definition is still on the walk closes a cycle, and every definition that reaches one has no
+        digest — which is a fact of the drawing, so it is kept like any other answer.
+        """
+        if name in self._definitions:
+            return self._definitions[name]
+
+        #: The walk: each open definition and the names it references that are still to be read.
+        walk: list[tuple[str, Any, list[str]]] = []
+        open_names: set[str] = set()
+
+        def enter(block_name: str) -> None:
+            block = self._doc.blocks.get(block_name)
+            if block is None:
+                self._definitions[block_name] = (None, 0)
+                return
+            nested = [str(entity.dxf.name) for entity in block if entity.dxftype() == "INSERT"]
+            walk.append((block_name, block, nested))
+            open_names.add(block_name)
+
+        enter(name)
+        while walk:
+            current, block, pending = walk[-1]
+            while pending and (pending[-1] in self._definitions or pending[-1] in open_names):
+                pending.pop()
+            if pending:
+                enter(pending.pop())
+                continue
+            walk.pop()
+            open_names.discard(current)
+            self._definitions[current] = self._read_definition(current, block, open_names)
+        return self._definitions.get(name, (None, 0))
+
+    def _read_definition(self, name: str, block: Any, open_names: set[str]) -> tuple[str | None, float]:
+        """One definition's digest and height, every definition it references already read — or
+        still open on the walk, which is a cycle.
+
+        A record the digest cannot read leaves the definition without one, named once here; a nested
+        definition left without one for that reason passes it on silently, the first note having said
+        so. The height is counted either way, so the depth cap reads the definition as it would have.
+        """
+        base = Vec3(block.block.dxf.base_point)
+        items: list[str] = []
+        height: float = 1
+        unreadable: str | None = None
+        nests_unreadable = False
+        for entity in block:
+            height = max(height, 1 + self._nested_height(entity, open_names))
+            if entity.dxftype() == "INSERT" and str(entity.dxf.name) in self._unreadable:
+                nests_unreadable = True
+            try:
+                item = self._definition_item(entity, base, open_names)
+            except _UNREADABLE as error:
+                if unreadable is None:
+                    unreadable = f"{entity.dxftype()} {entity.dxf.get('handle', '?')}: {error}"
+                continue
+            if item is not None:
+                items.append(json.dumps(item, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+        if height > EXPLODE_DEPTH_CAP:
+            return None, height
+        if unreadable is not None:
+            self._notes.add(
+                report.BLOCK_DEFINITION_UNREADABLE,
+                f"block {name}: {unreadable}; it and every block that nests it carry no digest",
+            )
+        if unreadable is not None or nests_unreadable:
+            self._unreadable.add(name)
+            return None, height
+        return hashlib.sha256("\n".join(sorted(items)).encode("utf-8")).hexdigest(), height
+
+    def _nested_height(self, entity: Any, open_names: set[str]) -> float:
+        """The nesting height a record adds to its definition: none for drawn content, and for a
+        nested reference the height of the definition it names — unbounded where that definition is
+        still open on the walk, because the reference closes a cycle."""
+        if entity.dxftype() != "INSERT":
+            return 0
+        nested_name = str(entity.dxf.name)
+        if nested_name in open_names or nested_name not in self._definitions:
+            return math.inf
+        return self._definitions[nested_name][1]
+
+    def _definition_item(self, entity: Any, base: Vec3, open_names: set[str]) -> dict[str, Any] | None:
+        """One record of a block definition as its digest reads it, measured from the base point."""
+        dxftype = entity.dxftype()
+        if dxftype in _NOT_CONTENT:
+            return None
+
+        def local(x: float, y: float) -> list[float]:
+            return [geometry.quantise(x - base.x), geometry.quantise(y - base.y)]
+
+        if dxftype == "INSERT":
+            nested_name = str(entity.dxf.name)
+            # A reference into a definition still open on the walk closes a cycle, and names none.
+            closes_cycle = nested_name in open_names or nested_name not in self._definitions
+            nested = None if closes_cycle else self._definitions[nested_name][0]
+            placement = _placement(entity)
+            placement["at"] = local(*placement["at"])
+            return {"type": dxftype, "definition": nested, **placement}
+
+        item: dict[str, Any] = {"type": dxftype}
+        flattened = geometry.flatten(entity, self._tolerance)
+        if flattened is not None:
+            item["points"] = [local(x, y) for x, y in flattened[0]]
+        closed = _closed_flag(entity, dxftype)
+        if closed is not None:
+            item["closed"] = closed
+        text = _text_of(entity, dxftype)
+        if text is not None:
+            item["text"], item["height"] = text
+            item.update(_text_facts(entity, dxftype, self._read_for_digest))
+            if "align_point" in item:
+                item["align_point"] = local(*item["align_point"])
+        if "points" not in item:
+            anchor = _anchor(entity)
+            if anchor is not None:
+                item["anchor"] = local(*anchor)
+        return item
+
+    def _read_for_digest(self, code: str, what: str) -> None:
+        """A block's own text read as a default for its definition's digest — counted apart from
+        the records its references paint, which read the same text again, once each."""
+        self._readings.default(code, f"{what}, in a block definition")
+
+    def finish(self) -> None:
+        """Say what the run read as a default, once the whole drawing has been read."""
+        self._readings.write(self._notes)
+
+    def block_record(self, insert: Any) -> dict[str, Any]:
+        """A block reference's identity: the block it names, that block's content digest, and where
+        and how it places it (I-416). Restated from the reference; the paint stays in `derived`.
+        """
+        name = str(insert.dxf.name)
+        digest, _height = self.definition(name)
+        return {"name": name, "definition_sha256": digest, **_placement(insert)}
 
     def entity_record(
         self,
@@ -293,6 +780,7 @@ class _Extractor:
         text = _text_of(entity, dxftype)
         if text is not None:
             record["text"], record["height"] = text
+            record.update(_text_facts(entity, dxftype, self._readings.default))
             if points is None:
                 # A text has no path for ezdxf to build, so nothing above places it — and a text
                 # nothing places is a text no stage over the artifact can read as standing anywhere.
@@ -303,6 +791,11 @@ class _Extractor:
                 if anchor is not None:
                     points = [anchor]
                     record["points"] = [[anchor[0], anchor[1]]]
+
+        if dxftype == "DIMENSION":
+            override = _dimension_override(entity)
+            if override is not None:
+                record["override"] = override
 
         box = geometry.bounds(points) if points else None
         if box is None:
@@ -315,11 +808,24 @@ class _Extractor:
 
     def collect_attributes(self, insert: Any, key: str, space: _Space) -> None:
         for attrib in getattr(insert, "attribs", ()):
-            text = _text_of(attrib, attrib.dxftype())
+            dxftype = attrib.dxftype()
+            text = _text_of(attrib, dxftype)
             if text is None:
                 continue
+            facts = _text_facts(attrib, dxftype, self._readings.default)
             space.attributes.append(
-                {"src": key, "tag": str(attrib.dxf.tag), "text": text[0], "height": text[1]}
+                {
+                    "src": key,
+                    "tag": str(attrib.dxf.tag),
+                    "text": text[0],
+                    "height": text[1],
+                    # An attribute carries no anchor of its own in the artifact, so its alignment
+                    # point would be a point with nothing to be read against: how it is turned and
+                    # aligned travels, where it stands does not (I-415).
+                    "rotation": facts["rotation"],
+                    "halign": facts["halign"],
+                    "valign": facts["valign"],
+                }
             )
 
     def explode(
@@ -356,6 +862,8 @@ class _Extractor:
                     # geometry is: the counters and `block_attributes` say the same thing about it.
                     space.counters.lose(dxftype)
                     continue
+                # Refused before its walk, which would otherwise run unbounded (as v2's did).
+                _placed(virtual, f"nested in {key}")
                 self.collect_attributes(virtual, key, space)
                 self.explode(virtual, key, space, inherited, depth + 1)
                 continue
@@ -381,6 +889,8 @@ class _Extractor:
                 continue
             key = source_key(str(handle))
             record["key"] = key
+            if entity.dxftype() == "INSERT":
+                record["block"] = self.block_record(entity)
             space.entities.append(record)
 
             if entity.dxftype() in _PAINTS_DERIVED:
@@ -441,6 +951,7 @@ def ingest_document(
             dropped.append(layout_name)
             continue
         spaces.append(space)
+    extractor.finish()
 
     layouts: list[dict[str, Any]] = []
     for space in spaces:
@@ -480,6 +991,7 @@ def ingest_document(
             "tool_version": ezdxf.__version__,
         },
         "insunits": units.report(int(doc.header.get("$INSUNITS", 0))),
+        "layers": _layer_records(doc),
         "layouts": layouts,
     }
 
@@ -580,7 +1092,7 @@ def ingest_dxf(
     notes: report.Report | None = None,
     conversion_losses: dict[str, dict[str, int]] | None = None,
 ) -> dict[str, Any]:
-    """Read a DXF file and return its EntityGraph v2 artifact, or refuse the drawing by name.
+    """Read a DXF file and return its EntityGraph v3 artifact, or refuse the drawing by name.
 
     `notes` is the caller's report: what the open repaired and what the drawing carries that no
     geometry in the artifact stands for is written into it. A caller that passes none is asking only

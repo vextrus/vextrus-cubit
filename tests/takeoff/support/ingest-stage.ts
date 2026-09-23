@@ -135,7 +135,7 @@ export type UploadSeam = {
   }>;
 };
 
-/** The Zod mirror of EntityGraph v2 (L-CAD-05), which both sides of the seam parse. */
+/** The Zod mirror of EntityGraph — v3, and the v2 floor a stored artifact reads at (L-CAD-05) — which both sides of the seam parse. */
 export type GraphSchema = { entityGraphSchema: { parse: (value: unknown) => unknown; safeParse: (value: unknown) => { success: boolean; error?: unknown } } };
 
 export type { JobEvent, Person };
