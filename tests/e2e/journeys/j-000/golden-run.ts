@@ -352,8 +352,14 @@ async function pinASetOverTheDrawing(page: Page, tenantId: string, projectId: st
 
   const row = page.getByTestId("set-drawing").first();
   await expect(row, "the uploaded drawing is offered to the set").toBeVisible({ timeout: 60_000 });
+  // The set page arrived by the create act's own navigation: its row is VISIBLE from the server's
+  // paint before the toggle is live, so the step waits for the screen to stop arriving before it
+  // clicks, and gives the write — a server round trip and a revalidation — a reading's budget rather
+  // than the 5 s default. The session-7 gate's J-000 read "false" 14 times over 5 s here, under the
+  // load of the lanes before it, on a walk every other run that day passed.
+  await settled(page);
   await row.getByTestId("set-member-toggle").click();
-  await expect(row, "a toggle writes the draft at once (I-96)").toHaveAttribute("data-member", "true");
+  await expect(row, "a toggle writes the draft at once (I-96)").toHaveAttribute("data-member", "true", { timeout: 60_000 });
 
   await page.getByTestId("set-pin").click();
   const dialog = page.getByTestId("consequence-dialog");
