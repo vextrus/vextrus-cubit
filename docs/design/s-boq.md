@@ -83,7 +83,9 @@ entry is added.
   (L-FMT-01). A section that mixes kinds therefore never quietly loses a digit.
 - **I-276 — Resources and Assumptions/Exclusions are not written.** Their sources are the resource
   outputs (M6) and the certificate (M7), and neither exists; an empty sheet under either name would be
-  a claim this product cannot support (A-BOQ-XLSX, AM-05). They arrive with their sources.
+  a claim this product cannot support (A-BOQ-XLSX, AM-05). They arrive with their sources. (Amended
+  by I-451: a **Not measured** sheet — the measurement statement, not either of these — follows
+  Quantities wherever the draft left anything out.)
 
 ### 0.2 The item description (the Jev programme's logic-point 5)
 
@@ -188,6 +190,80 @@ entry is added.
   (`src/ui/primitives/data`); twenty-six numbered items for one description — a member per line,
   where a bill states one item per description with its total — is a bill-shape question for the
   owner (numbering and emission, I-269), not this screen's.
+
+### 0.4 BOQ-1 — the draft stops lying by zero and by repudiation (session 8, 2026-09-23)
+
+Walk-0's QS read of the issued BNBC draft (26 pp.) found it printing `Column · Rebar 0.000 kg`,
+`Beam · Concrete 0.000 m3` and section feet of `0.000 kg` / `0.00 m2` over groups that measured
+nothing; 592 of its 1,131 items blank with no reason; nothing on paper saying what the draft leaves
+out; and the m4-measure map's critic found every bill reader still reading the lines of objects a
+person had struck. Three Interpretations rule it; the item shape (a member per line, I-355) is the
+owner's pending question and is untouched.
+
+- **I-449 — a struck object bills nothing: every bill reader reads past its lines, and nothing is
+  deleted.** I-173 withholds a repudiated object's lines from the register's table "so nothing is
+  priced off an object the register itself says is nothing", and `repudiate.ts` keeps them in the
+  store (L-ACT-01). The draft did not honour it: `linesOfCampaign` read every line of the campaign,
+  and `bbsOf` every bar row. Now `boqViewOf` asks the register's own reader (`repudiatedObjectsOf`,
+  the campaign's revision) which objects stand struck and reads past their lines, so the screen, the
+  PDF and the workbook — all three read this one reading — list none of them; and `bbsOf` asks
+  `repudiatedObjectsIn` for each revision its rows were measured under, in the transaction it reads
+  the rows in, so no schedule, total or cutting list carries a struck member's bars. Deleting a
+  measurement (REPUDIATE) removes it from the draft and the schedule; the lines and bar rows stand in
+  the store untouched. A campaign whose every line is struck reads as the empty draft. Rejected: a
+  `not exists` join in each reader's SQL (a second answer to "which objects stand struck" beside the
+  register's, B-17) and deleting the rows (L-ACT-01).
+- **I-450 — where nothing was measured the draft says so and why, and never prints a zero.** A
+  sum over no figure is not a quantity anybody measured: `Column · Rebar 0.000 kg` reads as "no steel
+  in the columns" (L-QTY-04, R-UI-020). So:
+  (a) *The emission states no figure over nothing.* A group none of whose lines states a figure
+  carries NO subtotal, and a section's foot states no unit none of its lines states a figure in —
+  where each wrote `0.000` before. A line with no figure carries the registered codes it gave for
+  what it could not measure (`omitted`, each once, in its order; L-QTY-02) — the payload's one new
+  line key, optional and absent on a line that states a figure. This revises I-boq-1(b)'s "the
+  document's payload is untouched": the PDF must now say why, so the codes it says it from travel
+  in the payload, and `BoqView.omissions` is the same computation read once in `boqViewOf`.
+  (b) *The page says `Not measured`, and why, in words.* The Quantity cell of a line with no figure,
+  of a group with none and of a foot over a unit with none reads **Not measured**, in the quiet ink.
+  The line's reasons stand on its own row, in the quiet ink, in parentheses after its description —
+  the registry's codes said in words by `inWords`' rule (`SLAB_THICKNESS_UNSTATED` → *slab thickness
+  unstated*), each once, joined by `; `. They stand beside the description rather than inside the
+  Quantity cell because the 28 mm figure column wrapped `Not measured — note reading contested;
+  rebar tie zone unstated` over three lines, and the render was looked at: the wide column holds a
+  line's reasons on one line. The registry's own sentence for each reason stands once, in the
+  closing block (I-451).
+  (c) *A partly measured group prints its figure qualified.* Under its description, on the row that
+  carries its figure: `(12 of 26 measured; 14 not measured — blinding plan deferred)`; a group of
+  which no line states one reads `(None of 208 measured — note reading contested; rebar tie zone
+  unstated)` beside `Not measured`. Counts go through the format seam. These counts are about a
+  group's own lines on the draft's face, not the coverage statement's enumeration, which AM-05(1)
+  scopes L-QTY-07's "no cardinalities" to.
+  (d) *Words are content, not marks.* L-QTY-07's "the bill's face carries no per-row marks" is read
+  as barring symbols, flags and footnote marks a reader must decode elsewhere; words that state
+  what a row holds are the row's content. Whether a group or foot states a figure is read off its
+  LINES, so a payload that still carried a `0.000` subtotal over nothing prints the words too.
+  (e) *The workbook says the same.* The section sheets' and the Quantities sheet's Quantity cell of
+  a line with no figure holds `Not measured — <reasons in words>` (a text cell in a number column,
+  which a SUMIF reads past); a section foot over a unit with no figure holds `Not measured` rather
+  than a SUMIF that comes to zero. Every Amount keeps its live formula (I-274).
+- **I-451 — the draft closes on what it did not measure.** A buyer's QS handed piles, caps and
+  columns assumes that is the structure; the draft carried half the RCC concrete and none of the
+  slabs, walls, stairs or rebar, and said only `Coverage INCOMPLETE`. L-QTY-04 makes known scope
+  not measured a DECLARED exclusion, so the draft now carries the residue's measurement statement
+  (`measurementStatementOf`, the rows the Coverage screen and — at M7 — the certificate read) as the
+  payload's `notMeasured`, and closes on **Not measured in this draft**: first **Scope no line was
+  published for** — Description (class · kind in words, the kind alone for a kind no class bears),
+  Levels (the statement's collapsed run) and Why (the cause in the registry's own sentence) — then
+  **Why a line states no figure**: each reason a line above gives, once, in words beside the
+  registry's sentence. The block is absent where both are empty. The workbook carries the same as a
+  **Not measured** sheet after Quantities (Part · Description · Levels · Why), written only where the
+  draft left anything out. This is not the certificate AM-05(2) keeps off a draft and it claims none:
+  it names no instrument, actor, concentration, sample or signature, is not titled or bound as one,
+  prints no count and no money, and is suppressed when empty — it is L-QTY-04's declared exclusions
+  surfaced on the paper that leaves the office. The bill-boundary statement (a kind a person held out
+  of this draft) is not printed yet (§8). It amends I-276: Resources and Assumptions/Exclusions are
+  still not written; the **Not measured** sheet is neither. If the owner reads the block as claiming
+  a certificate, that is the owner's call on AM-05(2), and the block comes off in one commit.
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -360,7 +436,13 @@ ids render only through `IdChip`; classes, kinds, bases and reasons render as wo
 `MEASURE` inside the denial line is the product's law, quoted as the seam quotes it. The rendered
 PDF's own words are the document kind's, held to AM-05: **DRAFT — UNSIGNED** on every page, the
 taxonomy version, the section labels, `Measured-scope subtotal`, and no surveyor, credential or
-certificate anywhere.
+certificate anywhere. Where no figure stands (I-450, I-451, `boq-draft-law.ts`):
+`NOT_MEASURED` **Not measured** · a line's reasons **(<code in words>; …)** · a group's qualifier
+**(<m> of <n> measured; <n−m> not measured — <reasons>)** or **(None of <n> measured — <reasons>)** ·
+`NOT_MEASURED_HEADING` **Not measured in this draft** · `NOT_MEASURED_SCOPE_HEADING` **Scope no line
+was published for** · `LINE_REASONS_HEADING` **Why a line states no figure** · the block's column
+heads **Description**, **Levels**, **Why**, **Reason**, **What it means** · the workbook's
+**Not measured** sheet and its Quantity cell **Not measured — <reasons in words>**.
 
 ## 4. Motion (R-UI-004)
 
@@ -466,7 +548,11 @@ no `boq-jobs` at rest; no wrapping cell; no uuid or digest as a text node outsid
 
 Suites and evidence. Unit: `tests/takeoff/boq/taxonomy.test.ts`, `…/numbering.test.ts`,
 `…/workspace-identity-cells.test.tsx` (I-355: the workspace mounted over a draft the product's own
-emission composes, and the sheet's slot and mark rules read),
+emission composes, and the sheet's slot and mark rules read), `…/not-measured.test.ts` (I-450/c:
+the emission, the presenter and the workbook over a reading of rebar measured nowhere, blinding
+measured for one cap of two and the statement), the database lane's
+`…/repudiated-withheld.db.test.ts` (I-449: a struck column leaves no draft line and no bar row,
+and its line stays in the store),
 `tests/takeoff/boq/support/**` and the quantities export's own `tests/takeoff/boq-xlsx/**` — the
 workbook composed over the F-RCC6-BNBC roster and read back with exceljs, and the aside that presses
 the door — with `tests/takeoff/boq-xlsx/export-door.db.test.ts` on the database lane (no duration is
@@ -497,3 +583,16 @@ Re-baselined under B-20 in its own `baseline:`-subject commit naming the fifth t
 - **The certificate, the signature and the closing of the draft path.** AM-05 keeps the draft lawful
   only while unsigned; the moment a signature exists this path closes for that campaign. Owner: M7.
 - **Rebar and BBS lines in the draft.** Not until the rebar kind is in `KINDS`. Owner: inc-309.
+- **The screen's own `Not measured` foot (BOQ-1's residue).** The section foot on this screen reads
+  `payload.subtotals`, which since I-450 states no unit nothing was measured in — so the screen's
+  `0.000 kg` foot is gone, but the screen does not yet print a **Not measured** foot row for that unit
+  as the PDF does (`boq_quantity_unmeasured` is the word; `boq-subtotal` would carry no
+  `data-quantity`). Owner: the next S-BOQ craft slice (`workspace.tsx` was outside BOQ-1's files).
+- **The bill-boundary statement on the draft.** A kind a person held out of this draft
+  (`NOT_IN_THIS_BILL`, `billStatementOf`) is not yet printed in the closing block (I-451); its
+  registry sentence names the reserved word, so it needs its own draft wording. Owner: M4 BOQ leaf.
+- **A struck object in the residue and the schedule's PARTIAL flag.** The residue still counts a
+  struck object's lines as bearing its cell, so a cell whose only lines are struck is neither in the
+  draft nor in its statement; and `bbsViewOf`'s PARTIAL flag still reads a struck member's rebar line.
+  Both over-disclose or under-state nothing priced, and both belong to their own owners (the residue,
+  `src/core/residue`; S-BBS, `bbs-ui/server.ts`). Owner: S7 of the M4 map (edit and delete by acts).

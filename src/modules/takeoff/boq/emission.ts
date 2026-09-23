@@ -49,6 +49,23 @@ export type BoqReadingLine = {
   readonly quantityBasis: string;
   readonly selectionBasis: string;
   readonly coverage: string;
+  /**
+   * The registered codes the line gave for what it could not measure, in the order it gave them
+   * (L-QTY-02). Read only where the line states no figure: it is why the page says `Not measured`,
+   * and a page that said it without the why would be silent where R-UI-020 forbids silence.
+   */
+  readonly omitted?: readonly string[];
+};
+
+/**
+ * One row of what the campaign did not measure, as the residue's measurement statement prints it —
+ * a kind, on a class or none, over a run of levels, under a registered cause (L-QTY-07, I-451).
+ */
+export type BoqNotMeasured = {
+  readonly class: string | null;
+  readonly kind: string;
+  readonly levels: string;
+  readonly cause: string;
 };
 
 /** One reading of one campaign: the stack it stands on and every line it published. */
@@ -66,6 +83,13 @@ export type BoqReading = {
    * emission has always written stands, and the emission asks nobody anything.
    */
   readonly descriptions?: GroupDescriptions;
+  /**
+   * The measurement statement — what this campaign published no line for, and why — as the residue
+   * computed it (I-451). The draft carries it whole, so the paper that leaves the office says what
+   * it leaves out; absent reads as nothing stated, which is the reading a caller without a residue
+   * has.
+   */
+  readonly notMeasured?: readonly BoqNotMeasured[];
 };
 
 /** One line on its way into a section, with what the resolver said about it kept beside it. */
@@ -87,17 +111,23 @@ function sumAt(values: readonly string[], places: number): string {
   return values.reduce((carried, value) => carried.plus(exact(value)), exact("0")).toFixed(places, Decimal.ROUND_HALF_EVEN);
 }
 
-/** One foot per unit, in the order the units first appear, over the lines that state a figure. */
+/** The figures a run of lines states — a line that declared what it could not measure states none. */
+function figuresOf(lines: readonly BoqDraftLine[]): string[] {
+  return lines.map((line) => line.quantity).filter((quantity): quantity is string => quantity !== null);
+}
+
+/**
+ * One foot per unit, in the order the units first appear, over the lines that state a figure — and
+ * NO foot for a unit no line states a figure in. The sum of nothing is not a zero anybody measured:
+ * `Measured-scope subtotal 0.000 kg` read as "no steel", and the page now says `Not measured` for
+ * that unit instead (L-QTY-04, I-450).
+ */
 function subtotalsOf(groups: readonly BoqDraftGroup[]): { unit: string; value: string }[] {
   const units: string[] = [];
   for (const group of groups) if (!units.includes(group.unit)) units.push(group.unit);
-  return units.map((unit) => {
-    const places = placesForUnit(groups, unit);
-    const figures = groups
-      .filter((group) => group.unit === unit)
-      .flatMap((group) => group.lines.map((line) => line.quantity))
-      .filter((quantity): quantity is string => quantity !== null);
-    return { unit, value: sumAt(figures, places) };
+  return units.flatMap((unit) => {
+    const figures = figuresOf(groups.filter((group) => group.unit === unit).flatMap((group) => group.lines));
+    return figures.length === 0 ? [] : [{ unit, value: sumAt(figures, placesForUnit(groups, unit)) }];
   });
 }
 
@@ -133,6 +163,8 @@ export function boqDraftPayloadOf(reading: BoqReading): BoqDraftPayload {
         quantityBasis: line.quantityBasis,
         selectionBasis: line.selectionBasis,
         decidedBy: `${resolution.decidedBy.row}:${resolution.decidedBy.key}`,
+        // …and says why, by the codes it gave: the page writes them as words (I-450).
+        ...omittedOf(line),
       },
     };
   });
@@ -163,7 +195,21 @@ export function boqDraftPayloadOf(reading: BoqReading): BoqDraftPayload {
     coverage: complete ? COMPLETE : INCOMPLETE,
     sections,
     unclassified: { label: UNCLASSIFIED_LABEL, lines: unclassified },
+    // What the campaign published no line for, carried whole — a draft that measured half the
+    // structure and said nothing about the other half would be the partial faulty estimate this
+    // product is built against (L-QTY-04, L-QTY-07, I-451).
+    notMeasured: (reading.notMeasured ?? []).map((row) => ({ class: row.class, kind: row.kind, levels: row.levels, cause: row.cause })),
   };
+}
+
+/**
+ * The codes a line with no figure gave, once each, as the payload carries them — or nothing, on a
+ * line that states a figure or gave no code (the schema asks for at least one where the key stands).
+ */
+function omittedOf(line: BoqReadingLine): { omitted?: string[] } {
+  if (line.value !== null) return {};
+  const codes = [...new Set(line.omitted ?? [])];
+  return codes.length === 0 ? {} : { omitted: codes };
 }
 
 /**
@@ -195,7 +241,9 @@ function groupsOf(held: readonly Placed[], descriptions: GroupDescriptions | und
       description: descriptions?.get(groupKeyOf(first.class, first.kind))?.text ?? descriptionOf(first.class, first.kind),
       unit,
       lines,
-      subtotals: [{ unit, value: sumAt(lines.map((line) => line.quantity).filter((quantity): quantity is string => quantity !== null), placesOf(first.kind)) }],
+      // A group none of whose lines states a figure carries NO subtotal: the sum of nothing is not a
+      // zero anybody measured, and the page says `Not measured` for it instead (I-450).
+      subtotals: figuresOf(lines).length === 0 ? [] : [{ unit, value: sumAt(figuresOf(lines), placesOf(first.kind)) }],
     };
     return group;
   });

@@ -13,8 +13,25 @@
 //
 // THE RESERVED WORD APPEARS NOWHERE A READER LOOKS (AM-05, I-265, I-273). A-BOQ-XLSX's "bill sheets"
 // are SECTION sheets, named by the section's ordinal among L-BD-08's six and its own label.
-import type { BoqDraftGroup, BoqDraftLine, BoqDraftPayload, BoqDraftSection } from "@/core/documents/kinds/boq-draft";
-import { BOQ_DRAFT_TITLE, BOQ_SECTIONS, DRAFT_BANNER, MEASURED_SCOPE_SUBTOTAL, descriptionOf, placesOf } from "@/core/documents/kinds/boq-draft-law";
+//
+// WHERE NO FIGURE STANDS, THE CELL SAYS SO (I-450). A line that declared what it could not measure
+// reads `Not measured — <its reasons in words>` in its Quantity cell — the words the PDF prints, from
+// the one spelling of them — and a foot over a unit nothing was measured in reads `Not measured`,
+// never the zero a SUMIF over no figure comes to. What the draft published no line for stands on its
+// own `Not measured` sheet, the PDF's closing block as rows (I-451).
+import { lineReasonsOf, notMeasuredScopeOf, type BoqDraftGroup, type BoqDraftLine, type BoqDraftPayload, type BoqDraftSection } from "@/core/documents/kinds/boq-draft";
+import {
+  BOQ_DRAFT_TITLE,
+  BOQ_SECTIONS,
+  DRAFT_BANNER,
+  LINE_REASONS_HEADING,
+  MEASURED_SCOPE_SUBTOTAL,
+  NOT_MEASURED,
+  NOT_MEASURED_SCOPE_HEADING,
+  descriptionOf,
+  notMeasuredWords,
+  placesOf,
+} from "@/core/documents/kinds/boq-draft-law";
 import type { ExportCell, ExportColumn, SheetSpec, WorkbookSpec } from "@/core/exports";
 import type { BoqView } from "@/modules/takeoff/boq/view";
 import { UNCLASSIFIED_LABEL } from "@/modules/takeoff/boq/taxonomy";
@@ -42,8 +59,11 @@ export type BoqExportReading = {
   readonly evidence: readonly LineEvidence[];
 };
 
-/** The two sheets every workbook carries whatever the campaign published (A-BOQ-XLSX). */
-export const BOQ_XLSX_SHEETS = Object.freeze({ summary: "Summary", quantities: "Quantities" });
+/**
+ * The two sheets every workbook carries whatever the campaign published (A-BOQ-XLSX), and the one it
+ * carries where the draft left anything out (I-451).
+ */
+export const BOQ_XLSX_SHEETS = Object.freeze({ summary: "Summary", quantities: "Quantities", notMeasured: NOT_MEASURED });
 
 /** The word a sheet cell states where the register holds nothing under that head. */
 const NOTHING_HELD = "";
@@ -131,6 +151,15 @@ function linesOf(section: BoqDraftSection): { readonly group: BoqDraftGroup; rea
   return section.groups.flatMap((group) => group.lines.map((line) => ({ group, line })));
 }
 
+/**
+ * What a line's Quantity cell holds: the figure the payload settled, or — where the line states none
+ * — the words that say so and why, which the PDF prints in the same cell (I-450). A number column
+ * holding words is written as the text it is; a SUMIF over the column reads past it.
+ */
+function quantityCellOf(line: BoqDraftLine): string {
+  return line.quantity ?? notMeasuredWords(line.omitted ?? []);
+}
+
 /** How a line reads across: what it is, and — where the stack knows — which storey it stands on. */
 function descriptionOfLine(description: string, level: string): string {
   return level === NOTHING_HELD ? description : `${description} — ${level}`;
@@ -160,20 +189,27 @@ function sectionSheetOf(section: BoqDraftSection, items: ReadonlyMap<string, str
     codeOf(group),
     descriptionOfLine(group.description, line.level),
     line.unit,
-    line.quantity,
+    quantityCellOf(line),
     null,
     { formula: amountFormula(FIRST_LINE_ROW + index) },
   ]);
 
-  const feet: ExportCell[][] = section.subtotals.map((subtotal) => [
-    null,
-    null,
-    MEASURED_SCOPE_SUBTOTAL,
-    subtotal.unit,
-    { formula: `SUMIF(D${FIRST_LINE_ROW}:D${lastLine},"${subtotal.unit}",E${FIRST_LINE_ROW}:E${lastLine})`, result: subtotal.value },
-    null,
-    { formula: `SUMIF(D${FIRST_LINE_ROW}:D${lastLine},"${subtotal.unit}",G${FIRST_LINE_ROW}:G${lastLine})` },
-  ]);
+  // One foot per unit the section's groups stand in. A unit no line states a figure in reads
+  // `Not measured` — never the SUMIF, which would come to a zero nobody measured (I-450).
+  const units = [...new Set(section.groups.map((group) => group.unit))];
+  const feet: ExportCell[][] = units.map((unit) => {
+    const subtotal = section.subtotals.find((held) => held.unit === unit);
+    const measured = section.groups.some((group) => group.unit === unit && group.lines.some((line) => line.quantity !== null));
+    return [
+      null,
+      null,
+      MEASURED_SCOPE_SUBTOTAL,
+      unit,
+      measured && subtotal !== undefined ? { formula: `SUMIF(D${FIRST_LINE_ROW}:D${lastLine},"${unit}",E${FIRST_LINE_ROW}:E${lastLine})`, result: subtotal.value } : NOT_MEASURED,
+      null,
+      { formula: `SUMIF(D${FIRST_LINE_ROW}:D${lastLine},"${unit}",G${FIRST_LINE_ROW}:G${lastLine})` },
+    ];
+  });
 
   return {
     name: sectionSheetName(section.bill, section.label),
@@ -256,7 +292,7 @@ export function boqQuantitiesSheetOf(reading: BoqExportReading): SheetSpec {
       cells.kind,
       cells.description,
       line.level,
-      line.quantity,
+      quantityCellOf(line),
       line.unit,
       line.quantityBasis,
       line.selectionBasis,
@@ -302,19 +338,50 @@ export function boqQuantitiesSheetOf(reading: BoqExportReading): SheetSpec {
   return { name: BOQ_XLSX_SHEETS.quantities, columns: quantitiesColumns(places), rows: [...placed, ...unplaced], freezeHeader: FREEZE_HEADER };
 }
 
+/* ---------------------------------------------------------------------------- the not measured */
+
+/** The `Not measured` sheet's four columns: which part of the statement, what, over which levels, why. */
+const NOT_MEASURED_COLUMNS: readonly ExportColumn[] = [
+  { key: "part", header: "Part", kind: "text" },
+  { key: "description", header: "Description", kind: "text" },
+  { key: "levels", header: "Levels", kind: "text" },
+  { key: "why", header: "Why", kind: "text" },
+];
+
+/**
+ * What the draft leaves out, as a sheet (I-451): the PDF's closing block, row for row — the scope
+ * no line was published for, then each reason a line states no figure beside the registry's own
+ * sentence for it — under one header, so a reader can filter it like any other sheet. `null` where the
+ * draft left nothing out: a sheet of that name with nothing on it would be a claim with no content.
+ */
+export function boqNotMeasuredSheetOf(payload: BoqDraftPayload): SheetSpec | null {
+  const scope = notMeasuredScopeOf(payload).map((row): ExportCell[] => [NOT_MEASURED_SCOPE_HEADING, row.about, row.levels, row.why]);
+  const reasons = lineReasonsOf(payload).map((row): ExportCell[] => [LINE_REASONS_HEADING, row.reason, NOTHING_HELD, row.meaning]);
+  if (scope.length + reasons.length === 0) return null;
+  return { name: BOQ_XLSX_SHEETS.notMeasured, columns: NOT_MEASURED_COLUMNS, rows: [...scope, ...reasons], freezeHeader: FREEZE_HEADER };
+}
+
 /* ----------------------------------------------------------------------------- the workbook */
 
 /**
  * The whole A-BOQ-XLSX workbook of one draft: the Summary, one sheet per section the draft emitted,
- * and the Quantities behind them.
+ * the Quantities behind them, and — where the draft left anything out — the `Not measured` sheet
+ * that says what (I-451).
  *
  * Resources and Assumptions/Exclusions are NOT written. Their sources are the resource outputs and
  * the certificate, and neither exists yet; an empty sheet under either name would be a claim this
- * product cannot support (A-BOQ-XLSX, AM-05, I-276).
+ * product cannot support (A-BOQ-XLSX, AM-05, I-276). The `Not measured` sheet is neither: it states
+ * the measurement boundary the residue computes, signs nothing and assumes nothing.
  */
 export function boqWorkbookSpecOf(reading: BoqExportReading): WorkbookSpec {
   const { payload, items } = reading.view;
+  const notMeasured = boqNotMeasuredSheetOf(payload);
   return {
-    sheets: [summarySheetOf(reading), ...payload.sections.map((section) => sectionSheetOf(section, items)), boqQuantitiesSheetOf(reading)],
+    sheets: [
+      summarySheetOf(reading),
+      ...payload.sections.map((section) => sectionSheetOf(section, items)),
+      boqQuantitiesSheetOf(reading),
+      ...(notMeasured === null ? [] : [notMeasured]),
+    ],
   };
 }

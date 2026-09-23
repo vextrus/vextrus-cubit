@@ -9,10 +9,16 @@
 // A DECLARATION OVER A CELL REMOVES NO LINE. Published lines take precedence over a declaration made
 // about the same cell (s-coverage I-192), so the draft lists what the gate published and the coverage
 // statement states what is still missing beside it — never one editing the other.
+//
+// A REPUDIATION DOES. A person who struck an object judged it to be nothing (R-TO-051); the lines
+// measured off it stay on record (L-ACT-01) and are withheld from every bill reader, so nothing is
+// priced off an object the register itself says is nothing (I-173, I-449). The draft asks the
+// register's own reader which objects stand struck in the campaign's revision and reads past their
+// lines — the screen, the PDF and the workbook alike, because all three read this one reading.
 import { and, asc, desc, eq, forTenant, inArray, ingests, projects, quantityLines } from "@/core/db";
 import type { ModelCallContext } from "@/core/model";
 import { measurementStatementOf, residueOf } from "@/core/residue";
-import { registerObjectsOf } from "@/modules/takeoff/register";
+import { registerObjectsOf, repudiatedObjectsOf } from "@/modules/takeoff/register";
 import { describeGroups, groupAsksOf, type GroupDescriptions } from "./descriptions";
 import type { BoqDescriptionPort } from "./description-question";
 import { boqDraftPayloadOf, type BoqReadingLine } from "./emission";
@@ -53,25 +59,29 @@ export async function boqViewOf(scope: BoqScope, asking?: BoqAsking): Promise<Bo
   const campaign = residue.campaign;
   if (campaign === null) return { campaignId: null, setRevisionId: null, ...NOTHING_DRAFTED };
 
+  const registerScope = { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId };
   const [lines, project, registered] = await Promise.all([
-    linesOfCampaign(scope.tenantId, campaign.campaignId),
+    billableLinesOf(registerScope, campaign.campaignId),
     projectNameOf(scope),
-    registerObjectsOf({ tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId }),
+    registerObjectsOf(registerScope),
   ]);
   if (lines.length === 0) {
     return { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, ...NOTHING_DRAFTED };
   }
 
-  // Whether the coverage statement is EMPTY, asked of the one arm that answers it (L-QTY-05,
-  // L-QTY-07): a class sighted that no rail measured leaves a row here, and that row is why each
-  // section may state only what it measured (L-QTY-04). The bill-boundary statement is a decision
-  // rather than a gap and is not read into this answer.
-  const coverageComplete = measurementStatementOf(residue.cells).length === 0;
+  // The coverage statement, asked of the one arm that answers it (L-QTY-05, L-QTY-07): a class
+  // sighted that no rail measured leaves a row here, and that row is why each section may state only
+  // what it measured (L-QTY-04). The draft now CARRIES it — what it leaves out, stated where it
+  // closes (I-451) — and its being empty is what a complete coverage means. The bill-boundary
+  // statement is a decision rather than a gap and is not read into either answer.
+  const statement = measurementStatementOf(residue.cells);
+  const coverageComplete = statement.length === 0;
 
   // The descriptions, where a caller asked for them (L-BD-01, I-298). A group the closed catalogue
   // holds one description for is never asked; a refusal leaves the plain description standing and
   // the draft reads on, because abstention is the caller's (L-AI-02).
   const descriptions = await descriptionsOf(scope, lines, residue.input, asking);
+  const omissions = omissionsOf(lines);
 
   const payload = boqDraftPayloadOf({
     project,
@@ -90,10 +100,12 @@ export async function boqViewOf(scope: BoqScope, asking?: BoqAsking): Promise<Bo
         quantityBasis: row.quantityBasis,
         selectionBasis: row.selectionBasis,
         coverage: row.coverage,
+        omitted: omissions.get(row.lineId) ?? [],
       }),
     ),
     coverageComplete,
     descriptions,
+    notMeasured: statement.map((row) => ({ class: row.class, kind: row.kind, levels: row.levels, cause: row.cause })),
   });
 
   return {
@@ -107,7 +119,7 @@ export async function boqViewOf(scope: BoqScope, asking?: BoqAsking): Promise<Bo
     items: numberItems(payload.sections),
     descriptions,
     lineFacts: lineFactsOf(lines, registered),
-    omissions: omissionsOf(lines),
+    omissions,
   };
 }
 
@@ -201,6 +213,19 @@ async function artifactDigestsOf(tenantId: string, drawingIds: readonly string[]
  */
 function levelIdOf(lines: readonly { readonly lineId: string; readonly levelId: string }[], lineId: string): string | null {
   return lines.find((line) => line.lineId === lineId)?.levelId ?? null;
+}
+
+/**
+ * Every line one campaign published that a bill may read, in the order they were published: all of
+ * them, less the lines of each object a person has struck in the campaign's revision (I-173,
+ * I-449). The struck lines stand in the store untouched — L-ACT-01 deletes nothing — and are read
+ * past here, by the register's own answer to which objects stand struck, never by a second one.
+ */
+async function billableLinesOf(scope: { readonly tenantId: string; readonly projectId: string; readonly setRevisionId: string }, campaignId: string) {
+  const [published, struck] = await Promise.all([linesOfCampaign(scope.tenantId, campaignId), repudiatedObjectsOf(scope)]);
+  if (struck.length === 0) return published;
+  const withheld = new Set(struck.map((row) => row.objectKey));
+  return published.filter((line) => !withheld.has(line.objectKey));
 }
 
 /** Every line one campaign published, in the order they were published (L-QTY-03). */

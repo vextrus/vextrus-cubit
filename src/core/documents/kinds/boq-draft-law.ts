@@ -11,6 +11,7 @@
 import { WORK_ITEM_CATALOGUE } from "../../catalogue/catalogue";
 import { ELEMENT_TYPES } from "../../catalogue/classes";
 import { KINDS } from "../../catalogue/kinds";
+import { formatUserFigure } from "../../format";
 import { compareCanonical } from "../../identity";
 
 /** What this kind is asked for by, and the key the barrel files it under. */
@@ -33,6 +34,60 @@ export const DRAFT_BANNER = "DRAFT — UNSIGNED";
 
 /** The one label a section's foot may carry while coverage is incomplete (L-QTY-04, L-QTY-07). */
 export const MEASURED_SCOPE_SUBTOTAL = "Measured-scope subtotal";
+
+/* ------------------------------------------------- where no figure stands, the words say so */
+
+/**
+ * What a document says where no figure stands — a line that declared what it could not measure, a
+ * group none of whose lines states one, a foot over a unit nothing was measured in. A zero there
+ * would be a quantity nobody measured: `Column · Rebar 0.000 kg` reads as "no steel in the columns"
+ * (L-QTY-04, R-UI-020, I-450).
+ */
+export const NOT_MEASURED = "Not measured";
+
+/** The heading of the block a draft closes with: what it leaves out, stated (L-QTY-07, I-451). */
+export const NOT_MEASURED_HEADING = "Not measured in this draft";
+
+/** The first part of that block: the kinds, classes and levels no line was published for. */
+export const NOT_MEASURED_SCOPE_HEADING = "Scope no line was published for";
+
+/** The second part: each reason a line states no figure, once, in the registry's own sentence. */
+export const LINE_REASONS_HEADING = "Why a line states no figure";
+
+/**
+ * A line's omitted codes as the page says them: each once, in the order the line states them, as
+ * words — the same rule `inWords` reads every key by, so `SLAB_THICKNESS_UNSTATED` is `slab thickness
+ * unstated` wherever a draft prints it. The registry's full sentence for each stands once, in the
+ * closing block, rather than on every line (L-QTY-02, I-450).
+ */
+export function reasonsInWords(codes: readonly string[]): string {
+  return [...new Set(codes)].map((code) => inWords(code).toLowerCase()).join("; ");
+}
+
+/** What the Quantity cell of a line with no figure says: `Not measured — <its reasons in words>`. */
+export function notMeasuredWords(codes: readonly string[]): string {
+  const reasons = reasonsInWords(codes);
+  return reasons === "" ? NOT_MEASURED : `${NOT_MEASURED} — ${reasons}`;
+}
+
+/** A count as a page writes it — through the one format seam, like every other number (L-FMT-01). */
+function counted(value: number): string {
+  return formatUserFigure(String(value));
+}
+
+/**
+ * What a group's figure is qualified by where not every line of it states one (I-450): how many
+ * of its lines were measured, how many were not and why — `12 of 26 measured; 14 not measured —
+ * blinding plan deferred`, or `None of 208 measured — …` where no line was. Empty where every line
+ * states a figure: an unqualified figure is then the whole of the group.
+ */
+export function groupQualifier(measured: number, held: number, codes: readonly string[]): string {
+  if (measured >= held) return "";
+  const reasons = reasonsInWords(codes);
+  const why = reasons === "" ? "" : ` — ${reasons}`;
+  if (measured === 0) return `None of ${counted(held)} measured${why}`;
+  return `${counted(measured)} of ${counted(held)} measured; ${counted(held - measured)} not measured${why}`;
+}
 
 /* ------------------------------------------------------------ AM-14 §2's item number, derived */
 

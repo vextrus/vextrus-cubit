@@ -34,10 +34,26 @@ const ctx = { requestId: "ac-4-request", actor: "acceptance" };
 const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 
 /** One line of a payload section, as the kind's schema holds it. */
-type Line = { lineId: string; quantity: string | null; reason?: string };
-type Group = { class: string; kind: string; lines: Line[] };
-type Section = { bill: string; label: string; groups: Group[] };
-type Payload = { taxonomyVersion: string; coverage: string; sections: Section[]; unclassified: { label: string; lines: (Line & { reason: string })[] } };
+type Line = { lineId: string; quantity: string | null; reason?: string; omitted?: string[] };
+type Group = { class: string; kind: string; description: string; unit: string; lines: Line[]; subtotals: { unit: string; value: string }[] };
+type Section = { bill: string; label: string; groups: Group[]; subtotals: { unit: string; value: string }[] };
+type NotMeasuredRow = { class: string | null; kind: string; levels: string; cause: string };
+type Payload = {
+  taxonomyVersion: string;
+  coverage: string;
+  sections: Section[];
+  unclassified: { label: string; lines: (Line & { reason: string })[] };
+  notMeasured?: NotMeasuredRow[];
+};
+
+/** The registry's own entries, as the product publishes them (`src/core/errors.ts`). */
+async function registeredMessages(): Promise<Record<string, { message: string }>> {
+  const module_ = (await import(inTree("src/core/errors.ts"))) as { REFUSALS?: Record<string, { message: string }> };
+  return module_.REFUSALS ?? {};
+}
+
+/** A registered code as a page says it — `SLAB_THICKNESS_UNSTATED` → `slab thickness unstated`. */
+const codeInWords = (code: string): string => code.replace(/_/gu, " ").toLowerCase();
 
 /** A committed fixture of this lane, read as JSON. */
 function fixture(relative: string): Payload {
@@ -191,6 +207,77 @@ describe("AC-4: the unpriced draft renders as a draft, byte for byte", () => {
 
     const spelled = JSON.stringify(payload);
     expect(/"item(Number)?"\s*:/u.test(spelled), "and no line of the committed payload carries a number of its own: item numbers are stored nowhere (AM-14 §2)").toBe(false);
+  });
+
+  it("I-450: where nothing was measured the draft says so and why — never a zero", async () => {
+    const { renderDocument } = await documentsIndex();
+    const payload = fixture(PAYLOAD);
+    const groups = payload.sections.flatMap((section) => section.groups);
+    const unmeasured = (group: Group): Line[] => group.lines.filter((line) => line.quantity === null);
+
+    // A golden only proves what its payload exercises: a group none of whose lines states a figure,
+    // a group only some of whose lines do, and a section with a unit nothing was measured in.
+    const none = groups.filter((group) => unmeasured(group).length === group.lines.length);
+    const some = groups.filter((group) => unmeasured(group).length > 0 && unmeasured(group).length < group.lines.length);
+    expect(none.length, `${PAYLOAD} holds a group none of whose lines states a figure, so its row is graded`).toBeGreaterThanOrEqual(1);
+    expect(some.length, `${PAYLOAD} holds a partly measured group, so its qualified figure is graded`).toBeGreaterThanOrEqual(1);
+    const unitNobodyMeasured = payload.sections.some((section) => section.groups.some((group) => !section.subtotals.some((held) => held.unit === group.unit)));
+    expect(unitNobodyMeasured, `${PAYLOAD} holds a section with a unit no line of it states a figure in, so its foot is graded`).toBe(true);
+
+    const whole = squashed(pages((await renderDocument("boq-draft", payload, ctx)).pdf).join(" "));
+
+    // A zero is a figure: `Column · Rebar 0.000 kg` reads as "no steel in the columns" (L-QTY-04).
+    expect(whole, "no figure on the page is a zero — a sum of nothing is not a quantity anybody measured").not.toMatch(/(^|\s)0\.0+(\s|$)/u);
+
+    const notMeasured = (whole.match(/Not measured(?! in this draft)/gu) ?? []).length;
+    const lines = groups.flatMap(unmeasured).length + payload.unclassified.lines.filter((line) => line.quantity === null).length;
+    expect(notMeasured, `every line, group and foot with no figure says "Not measured" — ${lines} line(s) and ${none.length} group(s) at least`).toBeGreaterThanOrEqual(lines + none.length + 1);
+
+    for (const group of groups) {
+      for (const line of unmeasured(group)) {
+        expect(line.omitted?.length ?? 0, `${line.lineId} states no figure and names what it could not measure (L-QTY-02)`).toBeGreaterThan(0);
+        for (const code of line.omitted ?? []) {
+          expect(whole, `${line.lineId}'s reason ${code} is said in words on the page, never as a code`).toContain(codeInWords(code));
+          expect(whole, `and the code itself is not printed (R-UI-082)`).not.toContain(code);
+        }
+      }
+    }
+    for (const group of some) {
+      const measured = group.lines.length - unmeasured(group).length;
+      expect(whole, `${group.description}'s figure is qualified by how many of its lines it covers`).toContain(`${measured} of ${group.lines.length} measured; ${unmeasured(group).length} not measured`);
+    }
+    for (const group of none) {
+      expect(whole, `${group.description} says none of its lines was measured`).toContain(`None of ${group.lines.length} measured`);
+    }
+  });
+
+  it("I-451: the draft closes on what it did not measure, in the registry's own words", async () => {
+    const { renderDocument } = await documentsIndex();
+    const payload = fixture(PAYLOAD);
+    const rows = payload.notMeasured ?? [];
+    expect(rows.length, `${PAYLOAD} carries the measurement statement, so the closing block is rendered and graded`).toBeGreaterThanOrEqual(1);
+    expect(
+      rows.some((row) => row.class === null),
+      `${PAYLOAD} carries a kind no class bears, so a row that names no class is graded`,
+    ).toBe(true);
+
+    const whole = squashed(pages((await renderDocument("boq-draft", payload, ctx)).pdf).join(" "));
+    const registry = await registeredMessages();
+    const closing = whole.slice(whole.indexOf("Not measured in this draft"));
+    expect(whole.indexOf("Not measured in this draft"), "the draft closes on a block that says what it leaves out").toBeGreaterThan(0);
+
+    for (const row of rows) {
+      const message = registry[row.cause]?.message;
+      expect(message, `${row.cause} is a registered cause, with a sentence of its own`).toBeTruthy();
+      expect(closing, `the ${row.class ?? "(no class)"} × ${row.kind} row states why, in the registry's own sentence`).toContain(squashed(message as string));
+      if (row.levels !== "") expect(closing, `and over which levels: ${row.levels}`).toContain(row.levels);
+    }
+    const codes = new Set(payload.sections.flatMap((section) => section.groups.flatMap((group) => group.lines.flatMap((line) => (line.quantity === null ? (line.omitted ?? []) : [])))));
+    for (const code of codes) {
+      const message = registry[code]?.message;
+      expect(message, `${code} is a registered omission, with a sentence of its own`).toBeTruthy();
+      expect(closing, `each reason a line gives is explained once, in the registry's own sentence: ${code}`).toContain(squashed(message as string));
+    }
   });
 
   it("AC-4: a draft is never called a bill, and carries no surveyor, credential, certificate or total", async () => {

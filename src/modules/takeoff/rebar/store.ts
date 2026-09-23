@@ -12,6 +12,7 @@ import { and, barRows, eq, forTenant } from "@/core/db";
 import { writeInBatches } from "@/core/db/batch";
 import { compareCanonical } from "@/core/identity";
 import { liveLevelsOf } from "@/core/levels/store";
+import { repudiatedObjectsIn } from "@/core/register/store";
 import { isShapeCode, type ShapeCode } from "@/core/rulesets/methods/rebar/bs8666";
 import { cuttingStockOf, stockSplitOf, type CuttingStockAnswer } from "@/core/rulesets/methods/rebar/stock";
 import { BAR_ROLES } from "@/core/rulesets/methods/rebar/synthesis";
@@ -180,13 +181,23 @@ export async function bbsOf(scope: BbsScope): Promise<BbsDocument> {
   // The rows, and the project's live level stack beside them in the SAME transaction — the stack is
   // read for the one question of what order the members stand in, bottom to top (I-354), and a stack
   // read in a second transaction could order one bill by a stack it was never measured against.
+  //
+  // A member a person has STRUCK is read past (I-173, I-449): its bar rows stay in the store as
+  // the measurement left them (L-ACT-01) and no schedule, total or cutting list reads them, because
+  // nothing is cut for an object the register itself says is nothing. Which objects stand struck is
+  // the register's own answer, asked of each revision the rows were measured under, in this
+  // transaction — never a second reckoning beside it.
   const { stored, stack } = await forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
     const held = await tx
       .select()
       .from(barRows)
       .where(and(eq(barRows.tenantId, scope.tenantId), eq(barRows.campaignId, scope.campaignId)));
+    const struck = new Set<string>();
+    for (const setRevisionId of new Set(held.map((row) => row.setRevisionId))) {
+      for (const row of await repudiatedObjectsIn(tx, { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId })) struck.add(row.objectKey);
+    }
     const live = await liveLevelsOf(tx, { tenantId: scope.tenantId, projectId: scope.projectId });
-    return { stored: held, stack: live };
+    return { stored: held.filter((row) => !struck.has(row.objectKey)), stack: live };
   });
   const rows: BarRow[] = stored.map((row) => ({
     barKey: row.barKey,
