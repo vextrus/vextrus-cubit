@@ -21,6 +21,10 @@
   },
   {
     "class": "column",
+    "kind": "rcc.formwork"
+  },
+  {
+    "class": "column",
     "kind": "rcc.rebar"
   },
   {
@@ -34,6 +38,10 @@
   {
     "class": "footing",
     "kind": "rcc.concrete"
+  },
+  {
+    "class": "footing",
+    "kind": "rcc.formwork"
   },
   {
     "class": "footing",
@@ -81,7 +89,19 @@
   },
   {
     "class": "pile_cap",
+    "kind": "rcc.formwork"
+  },
+  {
+    "class": "pile_cap",
     "kind": "rcc.rebar"
+  },
+  {
+    "class": "shear_wall",
+    "kind": "rcc.concrete"
+  },
+  {
+    "class": "shear_wall",
+    "kind": "rcc.formwork"
   },
   {
     "class": "shear_wall",
@@ -89,7 +109,27 @@
   },
   {
     "class": "slab",
+    "kind": "pcc.blinding"
+  },
+  {
+    "class": "slab",
+    "kind": "rcc.concrete"
+  },
+  {
+    "class": "slab",
+    "kind": "rcc.formwork"
+  },
+  {
+    "class": "slab",
     "kind": "rcc.rebar"
+  },
+  {
+    "class": "stair",
+    "kind": "rcc.concrete"
+  },
+  {
+    "class": "stair",
+    "kind": "rcc.formwork"
   },
   {
     "class": "stair",
