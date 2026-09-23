@@ -56,3 +56,18 @@ export function withDriftLock<T>(fn: () => T): T {
     releaseDriftLock();
   }
 }
+
+/**
+ * The same hold around an async load: a suite that IMPORTS the seam or the schema barrel
+ * (`src/core/db.ts`, `db/schema.ts`) reads the very files drift-lane-breaker mutates. Unlocked, the
+ * import can transform `db/schema.ts` mid-sabotage ("this is not typescript {{{") and red a build that
+ * never touched it — session 7 met it in projects-schema.migration under the lane's four workers.
+ */
+export async function withDriftLockAsync<T>(fn: () => Promise<T>): Promise<T> {
+  acquireDriftLock();
+  try {
+    return await fn();
+  } finally {
+    releaseDriftLock();
+  }
+}

@@ -26,6 +26,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { enumerateTenantScopedTables, provisionScratchDb, type ScratchDb } from "./harness";
 import { BOOTSTRAP_URL, GUC_SYSTEM_REASON, GUC_TENANT, ROLE_APP, TENANT_COLUMN } from "./support/fixtures";
 import { isTrue, lit, run } from "./support/live-sql";
+import { withDriftLockAsync } from "./support/drift-lock";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..");
 
@@ -108,9 +109,14 @@ async function columns(table: string): Promise<Map<string, { type: string; nulla
 
 describe("AC-3: the stored partition's tables are declared once, migrated, and scoped", () => {
   it("AC-3: src/core/db.ts declares each table once, db/schema/takeoff-views.ts re-exports it, the drift barrel reaches it, and SEAM_SCHEMA carries it", async () => {
-    const core = await productModule<Record<string, unknown>>(DB_MODULE);
-    const area = await productModule<Record<string, unknown>>(SCHEMA_AREA);
-    const barrel = await productModule<Record<string, unknown>>(SCHEMA_BARREL);
+    // The seam and the barrel are the files drift-lane-breaker mutates: load them under its lock.
+    const [core, area, barrel] = await withDriftLockAsync(() =>
+      Promise.all([
+        productModule<Record<string, unknown>>(DB_MODULE),
+        productModule<Record<string, unknown>>(SCHEMA_AREA),
+        productModule<Record<string, unknown>>(SCHEMA_BARREL),
+      ]),
+    );
     const surface = core["SEAM_SCHEMA"] as Record<string, unknown> | undefined;
     expect(surface, `${DB_MODULE} exports SEAM_SCHEMA`).toBeTruthy();
 

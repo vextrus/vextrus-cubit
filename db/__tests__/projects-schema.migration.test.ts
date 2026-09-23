@@ -18,6 +18,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { enumerateTenantScopedTables, provisionScratchDb, type ScratchDb } from "./harness";
 import { BOOTSTRAP_URL, GUC_TENANT } from "./support/fixtures";
 import { isTrue, lit, run } from "./support/live-sql";
+import { withDriftLockAsync } from "./support/drift-lock";
 
 /* ------------------------------------------------------------------ *
  * The names this suite asserts against. Every one is a literal the increment states in public — the
@@ -165,11 +166,17 @@ describe("AC-1: the projects table is declared, re-exported and migrated", () =>
   });
 
   it("AC-1: src/core/db.ts exports the table and the schema tree the drift lane reads re-exports it", async () => {
-    const core = await productModule<Record<string, unknown>>(DB_MODULE);
+    // The seam and the barrel are the files drift-lane-breaker mutates: load them under its lock.
+    const [core, area, barrel] = await withDriftLockAsync(() =>
+      Promise.all([
+        productModule<Record<string, unknown>>(DB_MODULE),
+        productModule<Record<string, unknown>>(SCHEMA_PROJECTS),
+        productModule<Record<string, unknown>>(SCHEMA_BARREL),
+      ]),
+    );
     const table = core[PROJECTS_TABLE];
     expect(table, `${DB_MODULE} must export \`${PROJECTS_TABLE}\` — every cubit table has one home (SEAM-TENANT, ARCH-02)`).toBeTruthy();
 
-    const area = await productModule<Record<string, unknown>>(SCHEMA_PROJECTS);
     expect(
       area[PROJECTS_TABLE],
       `${SCHEMA_PROJECTS} must NAMED-re-export the same table object src/core/db.ts declares — a second declaration is a second home`,
@@ -177,7 +184,6 @@ describe("AC-1: the projects table is declared, re-exported and migrated", () =>
 
     // The drift lane generates only from db/schema.ts: a table missing from THAT reachable set makes
     // drizzle-kit write a DROP migration, whatever db/schema/projects.ts says.
-    const barrel = await productModule<Record<string, unknown>>(SCHEMA_BARREL);
     expect(
       barrel[PROJECTS_TABLE],
       `${SCHEMA_BARREL} must reach the table (through db/schema/index.ts) — the drift lane generates from this barrel and from nothing else`,

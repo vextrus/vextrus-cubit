@@ -17,6 +17,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { enumerateTenantScopedTables, provisionScratchDb, type ScratchDb } from "./harness";
 import { BOOTSTRAP_URL, GUC_TENANT, ROLE_APP, TENANT_COLUMN } from "./support/fixtures";
 import { isTrue, lit, run } from "./support/live-sql";
+import { withDriftLockAsync } from "./support/drift-lock";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..");
 
@@ -111,9 +112,14 @@ describe("the upload seam's tables are declared, re-exported and migrated", () =
   });
 
   it("src/core/db.ts declares each table once, and the schema tree the drift lane reads re-exports it", async () => {
-    const core = await productModule<Record<string, unknown>>(DB_MODULE);
-    const area = await productModule<Record<string, unknown>>(SCHEMA_DRAWINGS);
-    const barrel = await productModule<Record<string, unknown>>(SCHEMA_BARREL);
+    // The seam and the barrel are the files drift-lane-breaker mutates: load them under its lock.
+    const [core, area, barrel] = await withDriftLockAsync(() =>
+      Promise.all([
+        productModule<Record<string, unknown>>(DB_MODULE),
+        productModule<Record<string, unknown>>(SCHEMA_DRAWINGS),
+        productModule<Record<string, unknown>>(SCHEMA_BARREL),
+      ]),
+    );
 
     for (const table of TABLES) {
       const declared = core[table];
