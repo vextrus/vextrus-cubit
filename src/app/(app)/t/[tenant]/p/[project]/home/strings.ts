@@ -46,7 +46,7 @@ export const projectHomeStrings = {
   project_home_ai_ledger: "Open the model ledger",
 
   project_home_activity_heading: "Recent activity",
-  project_home_activity_hint: "The five newest acts on this project, newest first.",
+  project_home_activity_hint: "The newest acts on this project, newest first.",
   project_home_activity_empty:
     "No acts have been recorded on this project yet. Add drawings above; every act appears here the moment it is committed.",
   project_home_activity_all: "All activity",

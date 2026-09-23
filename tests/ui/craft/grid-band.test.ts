@@ -58,10 +58,14 @@ describe("a work-surface grid fills its band", () => {
   });
 });
 
-describe("S-Project (I-147 as amended): the two tables stand as tall as their rows", () => {
+describe("S-Project (I-369): the activity table is the work surface, and the roster stands as tall as its rows", () => {
   const css = sheet("src/app/(app)/t/[tenant]/p/[project]/home/project-home.css");
 
-  test("the activity region — at most RECENT_ACTIVITY_LIMIT rows — neither grows into main nor gives up height", () => {
+  test("the activity region, holding its table, takes the room main leaves and scrolls its RECENT_ACTIVITY_LIMIT rows inside itself", () => {
+    expect(declaredValue(css, ".cx-project-region:nth-of-type(1):has(> .cx-project-table)", "flex")).toBe("1 1 0");
+  });
+
+  test("an activity region holding the empty state stands as tall as it is, so the roster never sits detached at the foot", () => {
     expect(declaredValue(css, ".cx-project-region:nth-of-type(1)", "flex")).toBe("none");
   });
 

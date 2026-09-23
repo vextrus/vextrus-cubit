@@ -57,7 +57,7 @@ section sits over a sentence.
 | area tabs | the seven areas as links over one hairline; an area with no screen is `aria-disabled`, focusable, and says its condition in a `Tooltip` | 100 % × 32 | — | — | one 32 × min(1080, 100 %) bone |
 | stat tiles | four `Stat` — sheets · campaigns · AI cost so far (figure + `USD` badge) · participants | 4 × 1fr × `--stat-h` 64 | a tile with no figure states `—`: AI at zero calls, participants when the roster refused | — | bones |
 | the one line (foot) | the screen's single helper line, last in main: model calls · outcomes · the ledger link — or, at zero calls, `project_home_ai_none` and the ledger link | 100 % × 20 | at zero calls it IS the empty statement (R-UI-020) | — | — |
-| activity (primary) | `DataTable`: Act (`EnumLabel`) · Who · When (`RelativeTime`) · Subject (`IdChip`), newest first, capped at `RECENT_ACTIVITY_LIMIT` | as tall as its rows (≤ 5), never grown into main and never shrunk (I-147 as amended); rows `--row-h` 28; Subject takes the band's remainder | `EmptyState` — `state_empty_project_home_heading` over `project_home_activity_empty` | delegated to the root boundary | grid skeleton rows |
+| activity (primary) | `DataTable`: Act (`EnumLabel`) · Who · When (`RelativeTime`) · Subject (`IdChip`), newest first, capped at `RECENT_ACTIVITY_LIMIT` (20) | the room main leaves, its rows scrolling inside the table (I-369); rows `--row-h` 28; Subject takes the band's remainder | `EmptyState` — `state_empty_project_home_heading` over `project_home_activity_empty` | delegated to the root boundary | grid skeleton rows |
 | participants | `DataTable`: Member · Role (`EnumLabel`) | directly under activity; as tall as its rows, the one region that may give up height (scrolling inside its table); rows 28; Role takes the band's remainder | the roster always holds a principal (R-SPINE-011) | — | bones |
 | — refused | the roster's `RefusalState` in the table's own place (I-129): message, remedy, evidence | in place | — | PERMISSION_NOT_HELD | — |
 
@@ -217,6 +217,29 @@ section sits over a sentence.
   `j000-legs-mudgiibpj27y@cubit.t…`, the part of an address that tells two people apart being the
   part that was cut, beside ~750 px of unused Subject track (230 + 280 + 130 + 400 = 1,040 still
   fits the 1,184 of 1280).
+- **I-369 — the activity table is the work surface: it takes the room main leaves, and twenty acts
+  fill it (session 7's close, 2026-09-23; amends I-132's cap and I-147 as wave 3 amended it; §1, §7 C1,
+  AM-08's work surface).**
+  - **Measured.** The craft walk re-run on the session's final tree read S-Project at total 4.5 / min 1
+    at all four captures: `workSurface` 1, "datatable 20% of shell-main (≥55% → 5)". It was the one
+    screen of eighteen below the bar. Wave 3 (`2796da06`) had made the activity table as tall as its
+    five rows, to stop it drawing 200–300 px of empty grid body. That cured the look, cost the work
+    surface, and landed without a re-walk.
+  - **The reading.** The mechanical criterion stands (a person may only lower it), and so does the
+    look: an empty grid band is not a work surface either. Five rows cannot be both. The Bible names
+    only "recent activity" (R-SPINE-013), so five was this Decision's own number.
+  - **What the screen does.** The activity region takes the room main leaves (`flex: 1 1 0`), and its
+    table scrolls its rows inside itself. `RECENT_ACTIVITY_LIMIT` is 20: about sixteen 28 px rows fill
+    that room at 1440×900, fewer at 1280×800, so twenty fill it at both. A project with fewer acts
+    shows fewer rows. With no act at all, the region holds its empty state and stands as tall as it is
+    (`flex: none` unless it `:has(> .cx-project-table)`), so the roster never sits detached at the foot
+    of the frame. The roster stays as tall as its rows and is still the one region that may give up
+    height, so the foot line never leaves the frame. The whole log stays one link away ("All
+    activity").
+  - **Amended with it.** `tests/ui/project-home/activity.test.ts` (the cap is 20),
+    `tests/ui/craft/grid-band.test.ts` (the region's `flex` is `1 1 0`), and
+    `tests/e2e/project-home.spec.ts`, which transcribed the cap as `5` and now reads it from
+    `home/areas.ts` (B-19). The unrendered hint copy loses its "five".
 - **I-148 — the screen states one helper line and no section explanations.** §7 C7 counts `<p>`
   elements in main outside an empty or refusal state; this screen renders exactly one, the AI
   line. `project_home_activity_hint`, `project_home_participants_hint` and
@@ -416,7 +439,7 @@ drawing sets** · `project_home_action_participants` **Manage participants** ·
 **model calls** · `project_home_ai_outcomes` **{proposed} proposals, {refused} refused** ·
 `project_home_ai_none` **No model calls yet** (§8's own words for this line, I-145)
 · `project_home_ai_ledger` **Open the model ledger** · `project_home_activity_heading` **Recent
-activity** · `project_home_activity_hint` **The five newest acts on this project, newest first.** ·
+activity** · `project_home_activity_hint` **The newest acts on this project, newest first.** ·
 `project_home_activity_empty` **No acts have been recorded on this project yet. Add drawings above;
 every act appears here the moment it is committed.** · `project_home_activity_all` **All activity**
 · `project_home_participants_heading` **Participants** · `project_home_participants_hint` **Who

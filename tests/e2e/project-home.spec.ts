@@ -24,6 +24,8 @@ import { ShellPage, SHELL } from "./pages/shell.page";
 import { checkpoint } from "./support/checkpoint";
 import { newestMail } from "./support/outbox";
 import { appears, everyRow, heldAttribute, steadyCount, steadyText } from "./support/retrying-read";
+// The screen's cap, read from its one home rather than transcribed (I-132, B-19).
+import { RECENT_ACTIVITY_LIMIT } from "../../src/app/(app)/t/[tenant]/p/[project]/home/areas";
 
 const EMAIL = "j010-project-home@cubit.test";
 const PASSWORD = "project-home-journey-password";
@@ -33,8 +35,6 @@ const CLIENT = "Keraniganj Holdings";
 const DISTRICT = "Dhaka";
 const GFA_M2 = "1250.50";
 
-/** The five newest acts is the screen's cap (S-Project's Decision I-132), stated once here too. */
-const RECENT_ACTIVITY_LIMIT = 5;
 
 /** The areas that have a screen today, and the address each one leads to (test contract). */
 const LIVE_AREAS: readonly (readonly [string, (tenantId: string, projectId: string) => string])[] = [
@@ -188,11 +188,11 @@ test.describe("J-010 — the project home", () => {
     await expect(project.aiSpend, "and never in taka: converting the ledger is out of scope").not.toContainText("৳");
     await expect(project.aiLedger, "the ledger itself is one link away").toHaveAttribute("href", S_PROJECT.audit(tenantId, projectId));
 
-    /* --- recent activity: the newest five, or the reason there are none --- */
+    /* --- recent activity: the newest acts up to the screen's cap, or the reason there are none --- */
     // The same shape: a project with no act recorded shows none of these rows and says why instead,
     // so zero is an answer — but only once the region says it rendered (P4b §3).
     const rows = await steadyCount(project.activityRows, "the recent-activity rows", { min: 0 });
-    expect(rows, "the region shows at most the five newest acts").toBeLessThanOrEqual(RECENT_ACTIVITY_LIMIT);
+    expect(rows, "the region shows at most the screen's cap of newest acts (I-132, I-369)").toBeLessThanOrEqual(RECENT_ACTIVITY_LIMIT);
     await expect(project.activityEmpty, rows === 0 ? "with no act recorded the region says why" : "with acts listed there is no empty line").toHaveCount(rows === 0 ? 1 : 0);
     await expect(project.activityAll, "and the whole log is one link away").toHaveAttribute("href", S_PROJECT.audit(tenantId, projectId));
 

@@ -33,11 +33,11 @@ afterEach(() => {
 });
 
 describe("AC-4 — recent activity", () => {
-  test("AC-4: the newest five are five — the cap is the screen's own number, and one more act does not pass it", async () => {
+  test("AC-4: the newest acts are capped at the screen's own number, and one more act does not pass it", async () => {
     const { RECENT_ACTIVITY_LIMIT: limit } = await areasModule();
     // The screen's number, as S-Project's Decision fixes it (I-132) and AC-4 names it. Every count
     // below is derived from this one reading of it, so the cap is stated once and asserted once.
-    expect(limit, "S-Project shows the five newest acts (AC-4, I-132)").toBe(5);
+    expect(limit, "S-Project shows the twenty newest acts, enough to fill its work surface (AC-4, I-132 as I-369 amends it)").toBe(20);
 
     const answered = acts(limit + 1);
     const root = mountHome(await projectHome(), homeData({ recentActs: answered }));

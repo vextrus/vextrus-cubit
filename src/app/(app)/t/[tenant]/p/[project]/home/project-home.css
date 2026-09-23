@@ -233,14 +233,19 @@
   min-block-size: 0;
 }
 
-/* I-147 as amended (session 7, wave 3): the two tables stand as tall as their rows, stacked, with the
-   one line right under them. The activity table holds at most RECENT_ACTIVITY_LIMIT rows, so it was
-   never going to fill main: grown to it, it drew 200–300 px of empty grid body between its five rows
-   and the roster, which then sat stuck to the foot of the frame. It gives up no height (`none`); the
-   roster is the one region that may, scrolling inside its own table past the height main leaves, so
-   the foot line is never pushed out of the frame. */
+/* I-369 (amends I-147 as wave 3 amended it): the activity table IS the work surface, so when the
+   region holds its table it takes the room main leaves (`1 1 0`) and scrolls its rows inside itself.
+   It is filled with rows, not with grid body: RECENT_ACTIVITY_LIMIT is twenty, which is what that room
+   holds. Wave 3 had it stand as tall as five rows, which drew no empty band but made the work surface
+   a fifth of main. A project with no act shows its empty state, which stands as tall as it is, so the
+   roster never sits detached at the foot of the frame. The roster stays as tall as its rows and is
+   still the one region that may give up height, so the foot line is never pushed out of the frame. */
 .cx-project-region:nth-of-type(1) {
   flex: none;
+}
+
+.cx-project-region:nth-of-type(1):has(> .cx-project-table) {
+  flex: 1 1 0;
 }
 
 .cx-project-region-head {

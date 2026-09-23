@@ -81,8 +81,11 @@ export const QUICK_ACTIONS: readonly ProjectQuickAction[] = Object.freeze([
 ]);
 
 /**
- * How many of the newest acts the home lists before handing the reader the whole log (I-132). The
- * number is this screen's, and it is stated once: the page renders by it and the acceptance reads it
- * from here rather than transcribing a five (B-19).
+ * How many of the newest acts the home lists before handing the reader the whole log (I-132, as I-369
+ * amends it). The number is this screen's, and it is stated once: the page renders by it and the
+ * acceptance reads it from here rather than transcribing it (B-19). It is twenty because the activity
+ * table IS the work surface (§1, §7 C1). About sixteen 28 px rows fill the room main leaves at
+ * 1440×900, and twenty fill it at both viewports; the table scrolls the rest inside itself. Five filled
+ * a fifth of main and scored the work surface 1.
  */
-export const RECENT_ACTIVITY_LIMIT = 5;
+export const RECENT_ACTIVITY_LIMIT = 20;
