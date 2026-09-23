@@ -56,10 +56,18 @@ const processScope = globalThis as typeof globalThis & { [HELD_KEY]?: AppStorage
 
 const scope: AppStorageScope = (processScope[HELD_KEY] ??= {});
 
-/** Where objects and staging copies are laid down: the machine's answer, or the default beside it. */
+/**
+ * Where objects and staging copies are laid down: the machine's answer, or the default beside it.
+ *
+ * The default is a RUNTIME address, never a build input, so the bundler is told not to trace it
+ * (the `documents/tree.ts` precedent). Traced, `join(process.cwd(), "storage")` was a file pattern
+ * over every object a run had laid down — 22,737 of them in session 7 — and one new object made
+ * the next `next build` compile cold: verify's build lane went from 5.0 s to 8.2 s after a single
+ * file was added, and to 10.2 s after a journey, which put verify at 62.55 s against V-VERIFY's 60.
+ */
 export function storageRoot(): string {
   const stated = envValue(ROOT_VAR);
-  return stated === undefined ? join(process.cwd(), "storage") : stated;
+  return stated === undefined ? join(/* turbopackIgnore: true */ process.cwd(), "storage") : stated;
 }
 
 /**
