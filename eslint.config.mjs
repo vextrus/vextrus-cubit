@@ -31,7 +31,9 @@ const SOURCE = ["src/**/*.ts", "src/**/*.tsx", "db/**/*.ts"];
 
 export default [
   {
-    ignores: ["node_modules/**", ".next*/**", "dist/**", "coverage/**", "tests/lint-fixtures/**", "test-results/**", "playwright-report/**", ".claude/**"],
+    // `.scratch/` and `.private/` are ignored working space (.gitignore): a session's throwaway script
+    // or an unzipped trace there is never the tree's source, and must never turn the lint lane red.
+    ignores: ["node_modules/**", ".next*/**", "dist/**", "coverage/**", "tests/lint-fixtures/**", "test-results/**", "playwright-report/**", ".claude/**", ".scratch/**", ".private/**", ".vitest/**"],
   },
   {
     // A directive that turns a rule off cannot be written in this tree, so it cannot be honoured
