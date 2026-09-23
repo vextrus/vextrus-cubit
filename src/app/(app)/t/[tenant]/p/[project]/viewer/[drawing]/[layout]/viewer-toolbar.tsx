@@ -17,10 +17,19 @@
  *
  * The snapping toggles are NOT re-implemented here: they are the snapping region's own controls
  * (`snap-region.tsx`, B-17), handed up so the row can place them in the group §3.1 gives them.
+ *
+ * The groups stand inside the shell's own `ShellToolbar`: the row's `role="toolbar"`, its name
+ * ("Sheet tools") and its chrome — the 32 px, the hairline under it and the 28 px icon-button pin.
+ * Mounted bare into the frame's slot, as they were until session 8, the row had no name for a
+ * reader, its icon buttons were 28 px only because compact density happens to make `--control-h`
+ * 28, and the craft instrument, which finds the row by its test id, never measured it. What is the
+ * viewer's own — the panel pair at the row's end, the text toggles at the row's 28 px — is ruled
+ * under `cx-viewer-toolbar` in `viewer.css`, so the shared row, and every other screen's tools in
+ * it, stand exactly as they were (I-430).
  */
 import { IconArea, IconCount, IconFit, IconInspector, IconLayers, IconLinear, IconPan, IconSelect, IconZoomIn, IconZoomOut } from "@/ui/icons";
 import { IconButton } from "@/ui/primitives/core";
-import { ShellToolbarGroup } from "@/ui/shell";
+import { ShellToolbar, ShellToolbarGroup } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import type { ReactNode } from "react";
 import { TESTIDS } from "@/ui/testids";
@@ -47,7 +56,7 @@ export type ViewerToolbarProps = {
 
 export function ViewerToolbar({ tool, onTool, snapTools, views, onFit, onZoomIn, onZoomOut, layersOpen, onLayers, inspectorPinned, onInspector }: ViewerToolbarProps) {
   return (
-    <>
+    <ShellToolbar label={strings.viewer_tools_label} className="cx-viewer-toolbar">
       <ShellToolbarGroup label={strings.viewer_tools_pointer}>
         <IconButton icon={<IconSelect />} label={strings.viewer_tool_select} kbd="V" pressed={tool === "select"} data-testid={TESTIDS.viewer.toolSelect} onClick={() => onTool("select")} />
         <IconButton icon={<IconPan />} label={strings.viewer_tool_pan} kbd="H" pressed={tool === "pan"} data-testid={TESTIDS.viewer.toolPan} onClick={() => onTool("pan")} />
@@ -67,11 +76,12 @@ export function ViewerToolbar({ tool, onTool, snapTools, views, onFit, onZoomIn,
         <IconButton icon={<IconZoomIn />} label={strings.viewer_zoom_in} kbd="+" data-testid={TESTIDS.viewer.zoomIn} onClick={onZoomIn} />
         <IconButton icon={<IconZoomOut />} label={strings.viewer_zoom_out} kbd="−" data-testid={TESTIDS.viewer.zoomOut} onClick={onZoomOut} />
       </ShellToolbarGroup>
-      {/* The two panel toggles are right-aligned by the row's own last group (§3.1's `L≡ V≡`). */}
+      {/* The two panel toggles stand at the row's end (§3.1's "right-aligned L≡ V≡"): `viewer.css`
+          pushes the row's LAST group there, so this group stays last whatever joins the row. */}
       <ShellToolbarGroup label={strings.viewer_tools_panels}>
         <IconButton icon={<IconLayers />} label={strings.viewer_tool_layers} pressed={layersOpen} data-testid={TESTIDS.viewer.layersToggle} onClick={onLayers} />
         <IconButton icon={<IconInspector />} label={strings.viewer_tool_inspector} pressed={inspectorPinned} data-testid={TESTIDS.viewer.inspectorPin} onClick={onInspector} />
       </ShellToolbarGroup>
-    </>
+    </ShellToolbar>
   );
 }

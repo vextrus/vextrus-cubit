@@ -27,18 +27,30 @@ import { TESTIDS } from "@/ui/testids";
 const INSPECTOR_CHROME: InspectorChrome = { BasisChip, EvidenceLink };
 
 /**
- * The panel's share of the width, and the band a reader may drag it to (Decision § 1: the drawer is
- * 200 px, min 160, max 320). Shares of the work area beside the 48 px rail: at 1440 that is 1392 px,
- * so 14 % ≈ 195, 11.5 % = 160 and 23 % ≈ 320 — the canvas keeps its ≥ 70 % (R-UI-080), where the old
- * 22 / 14 / 40 opened the drawer at 304 px and let it take 40 % of the sheet. Spelled with the `%`:
- * react-resizable-panels v4 reads a bare number as pixels.
+ * The drawer's width, and the band a reader may drag it to: the Decision's 200 px, min 160, max 320
+ * (§ 1's frame table), which are the root's `--drawer-w`, `--drawer-w-min` and `--drawer-w-max`
+ * (`src/ui/theme/globals.css`). Those tokens are the one home; the split cannot read a `var()`, so the
+ * three are spelled here once, with their unit, and the unit lane holds them equal to the tokens
+ * (tests/ui/craft/viewer-readout.test.ts).
+ *
+ * I-432: in pixels, where they were shares of the work area (14 / 11.5 / 23 %) sized at 1440 — 195 px
+ * there, but 172 at 1280, where every axis family ellipsised to "Numer…" and a view row's badge and
+ * key broke onto two lines. The drawer also HOLDS its pixels as the work area changes
+ * (`preserve-pixel-size`): pinning the inspector takes its 320 px from the canvas, not a share of
+ * them from the drawer. v4 reads a bare number as pixels and a unitless string as a share, so each is
+ * spelled with its unit.
  */
-const PANEL_SIZE = "14%";
-const PANEL_MIN = "11.5%";
-const PANEL_MAX = "23%";
+export const DRAWER_SIZE = Object.freeze({ default: "200px", min: "160px", max: "320px" });
 
-/** The split's panels as each state of the `L≡` toggle mounts them, in DOM order (I-84). */
-const LAYERS_PANEL = "viewer-layers-panel";
+/**
+ * The split's panels as each state of the `L≡` toggle mounts them, in DOM order (I-84). The drawer's
+ * id changed with its unit (I-432): the split is remembered per set of panel ids, and until this
+ * slice the remembered group stored the layout a sheet OPENED at as well as one a reader dragged, so
+ * every browser that had opened a sheet held the old 14 % — which, under the old id, would have been
+ * applied over the 200 px. The group now stores only a reader's own drag or arrow key
+ * (`ResizablePanelGroup`), so what the drawer opens at is 200 px until a reader moves it.
+ */
+const LAYERS_PANEL = "viewer-layers-drawer";
 const STAGE_PANEL = "viewer-stage-panel";
 const PANELS_WITH_LAYERS = [LAYERS_PANEL, STAGE_PANEL];
 const PANELS_STAGE_ONLY = [STAGE_PANEL];
@@ -75,7 +87,7 @@ export function ViewerStage({ panel, partition, pointer, tool = "select", snap, 
           degree of freedom at the price of a control that can crush either list to nothing. */}
       {layersOpen ? (
         <>
-          <ResizablePanel id={LAYERS_PANEL} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
+          <ResizablePanel id={LAYERS_PANEL} defaultSize={DRAWER_SIZE.default} minSize={DRAWER_SIZE.min} maxSize={DRAWER_SIZE.max} groupResizeBehavior="preserve-pixel-size">
             <div className="cx-viewer-left-stack">
               <LayersPanel {...panel} />
               {partition.panel}

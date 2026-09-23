@@ -9,7 +9,8 @@
  * spelled `"30%"` — typecheck accepts either, and a number would silently change the geometry.
  *
  * Remembered sizes are the viewer's concern (R-UI-005): a group persists only when its caller names
- * the key (`autoSaveId`), and nothing here chooses one.
+ * the key (`autoSaveId`), and nothing here chooses one. What is remembered is what a reader did — a
+ * drag or an arrow key on the handle — never a layout the library settled on by itself (I-432).
  */
 import { Group, Panel, Separator, useDefaultLayout, type GroupProps, type LayoutStorage, type PanelProps, type SeparatorProps } from "react-resizable-panels";
 import { cx } from "../core/class-names";
@@ -53,9 +54,19 @@ export function ResizablePanelGroup({ autoSaveId, panelIds, className, ...rest }
   return autoSaveId === undefined ? <Group {...props} /> : <RememberedGroup {...props} autoSaveId={autoSaveId} panelIds={panelIds} />;
 }
 
-/** A group with a key: its hook runs only where a caller asked for a remembered split. */
+/**
+ * A group with a key: its hook runs only where a caller asked for a remembered split.
+ *
+ * I-432: it stores only a layout a reader's own gesture made (`onlySaveAfterUserInteractions`). By
+ * default the hook stores EVERY layout the group commits, the library's own included: the first
+ * layout of each mount, a window resize, and the shares a pixel-sized panel is re-given when a
+ * sibling beside the group opens or closes. The next mount prefers a stored share over the panels'
+ * own defaults, so the viewer's 200 px drawer came back at whatever share the inspector had last left
+ * it (260 px at 1440, 230 at 1280, never dragged). A double-click's return to the default is the
+ * library's imperative resize, not a gesture it counts, so it is not stored either.
+ */
 function RememberedGroup({ autoSaveId, panelIds, ...rest }: GroupProps & { autoSaveId: string; panelIds: string[] | undefined }) {
-  const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: autoSaveId, panelIds, storage: BROWSER_STORAGE });
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: autoSaveId, panelIds, storage: BROWSER_STORAGE, onlySaveAfterUserInteractions: true });
   return <Group {...rest} defaultLayout={defaultLayout} onLayoutChanged={onLayoutChanged} />;
 }
 

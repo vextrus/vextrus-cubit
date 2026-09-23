@@ -699,6 +699,33 @@
   min-width: 0;
 }
 
+/* --------------------------------------------------------------------------------- the tool row */
+
+/* I-430: the row is the shell's own `ShellToolbar` (its 32 px, its hairline, its 28 px icon-button
+   pin, `src/ui/shell/shell.css`), named "Sheet tools" and marked `cx-viewer-toolbar` by
+   `viewer-toolbar.tsx`. The two things §3.1 asks of THIS row and of no other are ruled here, under
+   that class, so Coverage's row and the gallery's stand exactly as they were. */
+
+/* §3.1's "right-aligned L≡ V≡": the row's last group — the panel pair, which the palette keeps last —
+   takes the free width before it, so the pair stands at the row's end. Its hairline seam goes with
+   it: the seam is each group's own inline-start edge, so it parts the pair from the free width
+   rather than trailing the camera group into it. */
+.cx-viewer-toolbar > .cx-shell-toolbar-group:last-child {
+  margin-inline-start: auto;
+}
+
+/* The row's text toggles — Snap, Ortho and Angle lock, the snapping region's own core Buttons (B-17)
+   — stand at the row's 28 px in both densities, as the icon buttons beside them do: §1's tool row is
+   32 px whatever `--control-h` is, and a 32 px control in a 32 px bar leaves the bar no room. Their
+   words are set at the row's 13 px rather than the Button's 14, with 8 px of inline padding rather
+   than its 12: at the Button's own measures they read larger and heavier than the tools around them
+   (session 7's re-look). */
+.cx-viewer-toolbar .cx-btn {
+  height: calc(var(--toolbar-h) - var(--space-1));
+  padding-inline: var(--space-2);
+  font-size: var(--text-13);
+}
+
 /* ---------------------------------------------------------------------------------- the readout */
 
 .cx-viewer-readout {
@@ -715,7 +742,14 @@
   padding-inline: var(--space-4);
   background: var(--surface-panel);
   border-block-start: var(--hairline);
+  /* The mono face and tabular, slashed figures are what make the line an instrument (R-UI-030,
+     Decision § 1 "Status line"): every glyph one advance wide, so a figure that changes under the
+     eye keeps its width and the cells after it stand still. v22 U2 (2cad2aaa) dropped both while it
+     moved the line into the frame's track, and the scale read in the interface face from then until
+     session 8 — each zoom step that changed a digit's width moved every cell after it. */
+  font-family: var(--font-mono);
   font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums slashed-zero;
   color: var(--ink-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -752,8 +786,31 @@
   color: var(--ink-muted);
 }
 
+/* A value the line has no room for ends in an ellipsis inside its own cell rather than being cut
+   mid-glyph at the cell's edge (§3.1: "overflow: hidden, ellipsis"). The cell is a flex box, so its
+   own `text-overflow` never reached the words: the value is the box that holds them. The label keeps
+   its width — a figure with no name beside it says nothing. */
 .cx-viewer-readout-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--ink-secondary);
+}
+
+/* The scale, the figure a reader watches while zooming (I-431). Mono keeps its width still while
+   the digits change; what it cannot keep still is a digit GAINED — a camera fitted near one pixel a
+   unit gains one the first time the reader zooms past ten — and a cell that grows by it moves every
+   cell after it. So the cell takes a measure of its own rather than its content's: its reading at
+   two whole digits, counted in the face's own advance — "Scale" (5) and "99.999 px per drawing unit"
+   (26), 31 advances and the gap between them. The count follows the copy: the unit lane recounts it
+   from the string table. Past two digits the cell still stands still, and it is the unit's last
+   words that give way behind the ellipsis, never the figure, which leads the value. Where the line
+   has no room (1280 with the inspector pinned leaves it 912 px) the measure is a basis, not a floor:
+   the cell gives way towards its 96 px like every other, rather than pushing the last cells off the
+   line's end. It is the first cell after the sheet's name because the readout lists them in that
+   order (`status-line.tsx`); the same lane mounts the line to hold that true. */
+.cx-viewer-readout-sheet + .cx-viewer-readout-cell {
+  flex-basis: calc(31ch + var(--space-1));
 }
 
 .cx-viewer-readout-partial {
