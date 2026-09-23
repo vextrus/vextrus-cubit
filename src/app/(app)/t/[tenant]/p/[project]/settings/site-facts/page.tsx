@@ -13,6 +13,7 @@ import { editionStatedFactsOf, siteFactsOf } from "@/modules/takeoff/site-facts-
 // client reference — a `metadata.title` built from one renders no <title> at all (AM-09: a document
 // states what it is).
 import { siteFactsStrings } from "@/modules/takeoff/site-facts-ui/strings";
+import { siteFactParameterLabels } from "./parameter-labels";
 import { SiteFactsScreen } from "./site-facts-screen";
 import { participantsRoute } from "../participants/route-address";
 import { rulesetRoute } from "../../home/areas";
@@ -37,6 +38,9 @@ export default async function ProjectSiteFacts({ params }: { params: Promise<{ t
       projectId={project}
       standing={standing}
       editionStated={editionStated}
+      // A fact the edition may state is named as the Rule set screen names its parameter (I-438):
+      // built here, beside the read of the pin, because the pairing's home is the rail.
+      parameterLabels={siteFactParameterLabels()}
       mayAuthor={door.authorized}
       rulesetHref={rulesetRoute(tenantId, project)}
       participantsHref={participantsRoute(tenantId, project)}

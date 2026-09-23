@@ -1,8 +1,9 @@
 /* S-Settings · Site facts § 1 and § 5: the panel's own rules, in semantic aliases and density tokens
    only. No [data-theme] selector stands here — every difference between the themes arrives through
    the token values (R-UI-001, § 6) — and no reduced-motion branch, because every duration is a token
-   zeroed at source (§ 4). The px literals are § 5's closed set: the column measures 260 / 180 / 140 /
-   120 and the two max-inline-size measures 880 and 420. */
+   zeroed at source (§ 4). The px literals are § 5's closed set: the column measures 220 / 180 / 108 /
+   140 / 120, the two max-inline-size measures 880 and 420, and the 1 of the row's own hairline that
+   the door yields (I-439). */
 
 .cx-site-facts {
   display: flex;
@@ -58,12 +59,22 @@
   table-layout: fixed;
 }
 
+/* I-440: the Fact column holds the name alone now — the longest, "Earthwork working allowance",
+   with room to spare at either density — and gives the 40 px it no longer spends on a chip to the
+   Basis column, so the Source note keeps its measure at 1280. */
 .cx-site-facts-col-fact {
-  inline-size: 260px;
+  inline-size: 220px;
 }
 
 .cx-site-facts-col-value {
   inline-size: 180px;
+}
+
+/* I-440: the basis chip's own slot — the wider of the two chips this table can hold (the ENTERED
+   chip, glyph and word) and the cell's padding at the comfortable density, so a chip is never
+   clipped and never moves a name. */
+.cx-site-facts-col-basis {
+  inline-size: 108px;
 }
 
 .cx-site-facts-col-act {
@@ -125,14 +136,9 @@
   color: var(--ink);
 }
 
-.cx-site-facts-fact-inner {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-inline-size: 0;
-}
-
+/* The row's header is the name and nothing else (I-440), so every name starts at the column's edge. */
 .cx-site-facts-fact-label {
+  display: block;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -147,9 +153,10 @@ td.cx-site-facts-numeric {
   text-align: end;
 }
 
-/* The seam between a right-aligned figure and the start-aligned note beside it (R-UI-085): with one
-   cell's padding on each side the two absent dashes read as one "— —", so the figure column keeps a
-   wider trailing gutter. Named with the row and head rules it outranks, for the reason above. */
+/* The seam between a right-aligned figure and the start-aligned cell beside it (R-UI-085) — the Basis
+   since I-440: with one cell's padding on each side the two absent dashes read as one "— —", so the
+   figure column keeps a wider trailing gutter. Named with the row and head rules it outranks, for the
+   reason above. */
 .cx-site-facts-line > td.cx-site-facts-numeric,
 .cx-site-facts-head th.cx-site-facts-numeric {
   padding-inline-end: calc(var(--cell-px) + var(--space-4));
@@ -162,8 +169,8 @@ td.cx-site-facts-numeric {
 }
 
 /* I-327: a figure the pinned edition states rather than a person entered — the same reading, in the
-   secondary ink, beside the DERIVED glyph on its fact (R-UI-002: the glyph carries the basis, the ink
-   only recedes). The source cell names where it is read from as a place to go and read it. */
+   secondary ink, beside the DERIVED chip in its Basis cell (R-UI-002: the glyph carries the basis, the
+   ink only recedes; I-440). The source cell names where it is read from as a place to go and read it. */
 .cx-site-facts-value-derived {
   color: var(--ink-secondary);
 }
@@ -191,8 +198,25 @@ td.cx-site-facts-numeric {
   color: var(--ink-muted);
 }
 
-.cx-site-facts-door {
+/* I-439: the door holds the row at 28. The cell is `--row-h` tall INCLUDING its hairline, so a
+   28 px button in it drew every fact row at a 29 px pitch while the header, which holds no control,
+   stood at 28 (I-273, R-UI-083). The door's cell drops its block padding and the button yields the
+   row's hairline — never taller than a control, never taller than the row can hold — which is the
+   height the DataTable's in-cell controls already stand at (`.cx-table-cell[data-control]`).
+   Named with the row rule it outranks: a bare class loses to a class plus an element (the Value
+   column's note, above), which is also why the door's `text-align: end` never painted before.
+   The cell does not clip: the focus reticle's ticks stand 4 px outside the door (R-UI-012), and a
+   door this close to its cell's edge — 0 px compact, 1.5 px comfortable — would have them cut off
+   by the row rule's `overflow: hidden`. The door's word is short and its column fixed, so nothing
+   else in the cell can spill. */
+.cx-site-facts-line > td.cx-site-facts-door {
+  padding-block: 0;
+  overflow: visible;
   text-align: end;
+}
+
+.cx-site-facts-door .cx-site-facts-enter {
+  block-size: min(var(--control-h), calc(var(--row-h) - 1px));
 }
 
 .cx-site-facts-enter[aria-disabled="true"] {
@@ -210,7 +234,7 @@ td.cx-site-facts-numeric {
 /* The measure the deferral is read at is the row's, not the card's: the box this screen owns spans
    the row, and the one refusal card inside it keeps every rule it has from its own stylesheet
    (R-UI-020 — the card's rules have one home, and no screen re-declares them). I-327 withdraws the
-   880 cap: at 880 the register's message broke onto a second line inside the table (R-UI-084), and
+   880 cap: at 880 the register's message broke onto a second line inside the table (R-UI-083), and
    a message as wide as the row it explains is still one line a reader takes in. */
 .cx-site-facts-deferral {
   inline-size: 100%;

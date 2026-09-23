@@ -21,7 +21,7 @@ import { SITE_FACT_DEFERRALS, statedByEdition } from "./deferrals";
 // read of the pin (the page), so nothing of the rail travels to the browser with this panel.
 import type { EditionStatedFact, EditionStatedFacts } from "./edition";
 import type { SiteFactsScreenState } from "./states";
-import { factLabel, fillSiteFacts, siteFactsStrings, unitLabel, SITE_FACT_UNITS, SITE_FACT_UNIT_DEFAULT } from "./strings";
+import { factLabel, fillSiteFacts, siteFactsStrings, unitLabel, SITE_FACT_UNITS, SITE_FACT_UNIT_DEFAULT, type SiteFactParameterLabels } from "./strings";
 
 import "./site-facts.css";
 
@@ -29,7 +29,16 @@ import "./site-facts.css";
 // R-UI-050's matrix — one import for the screen that mounts it and for the suites that judge it.
 export { SITE_FACT_DEFERRALS, statedByEdition } from "./deferrals";
 export type { EditionStatedFact, EditionStatedFacts } from "./edition";
-export { factLabel, siteFactsStrings, unitLabel, SITE_FACT_UNITS, SITE_FACT_UNIT_DEFAULT, type SiteFactsStringKey } from "./strings";
+export {
+  factLabel,
+  siteFactsStrings,
+  unitLabel,
+  SITE_FACT_UNITS,
+  SITE_FACT_UNIT_DEFAULT,
+  type SiteFactParameterLabels,
+  type SiteFactsStringKey,
+  type SiteOnlyFact,
+} from "./strings";
 export { SITE_FACTS_SCREEN_STATES, SITE_FACTS_STATES, SITE_FACTS_STATE_NAMES, type SiteFactsScreenState, type SiteFactsStateCell, type SiteFactsStateName } from "./states";
 
 /** The act this panel performs (L-ACT-02's pair), spelled once. */
@@ -54,8 +63,8 @@ const DERIVED = "DERIVED";
 /** What `data-basis` says of a fact nobody has entered and no edition states — an absence (I-275). */
 const ABSENT = "ABSENT";
 
-/** The table's five columns, which is what a sub-row spans (§ 1.1). */
-const COLUMNS = 5;
+/** The table's six columns, which is what a sub-row spans (§ 1.1; the Basis column is I-440's). */
+const COLUMNS = 6;
 
 /** Where a refusal is resolved — the one evidence shape the refusal pattern rules. */
 type Evidence = { href: string; label: string };
@@ -175,6 +184,13 @@ export interface SiteFactsPanelProps {
    * rail and is not deferred; the site overrides it by entering it (L-MEA-06, I-327).
    */
   readonly editionStated: EditionStatedFacts;
+  /**
+   * What the settings area calls the edition parameter each of those facts stands in for —
+   * `parameterLabel(EDITION_PARAMETER_OF[fact])`, built where the pin is read (I-438). A fact the
+   * pinned edition may state is named here exactly as the Rule set screen names it, on its row, in
+   * its form's field names and in the status sentence; ARCH-01 bars this module from that one home.
+   */
+  readonly parameterLabels: SiteFactParameterLabels;
   /** Whether this reader holds AUTHOR_PROJECT_FACT; a reader without it still sees the whole panel. */
   readonly mayAuthor: boolean;
   readonly preview: (statement: SiteFactStatement) => Promise<SiteFactPreviewAnswer>;
@@ -229,8 +245,21 @@ const UNIT_OPTIONS: readonly { value: string; label: string }[] = Object.freeze(
   SITE_FACT_UNITS.map((unit) => Object.freeze({ value: unit, label: unitLabel(unit) })),
 );
 
-export function SiteFactsPanel({ projectId, standing, editionStated, mayAuthor, preview, commit, rulesetHref, participantsHref, chrome }: SiteFactsPanelProps): ReactNode {
+export function SiteFactsPanel({
+  projectId,
+  standing,
+  editionStated,
+  parameterLabels,
+  mayAuthor,
+  preview,
+  commit,
+  rulesetHref,
+  participantsHref,
+  chrome,
+}: SiteFactsPanelProps): ReactNode {
   const { testIds, SettingsHeader, RefusalState, ConsequenceDialog, Button, NumberInput, Select, Input, IdChip, BasisChip } = handedDown(chrome);
+  /** One fact's name, wherever the panel says it (I-438): the row, the form's fields, the status line. */
+  const nameOf = (fact: SiteFact): string => factLabel(fact, parameterLabels);
 
   /** The fact whose form is open — one at a time, and one act per fact (I-281). */
   const [openFact, setOpenFact] = useState<SiteFact | null>(null);
@@ -319,12 +348,24 @@ export function SiteFactsPanel({ projectId, standing, editionStated, mayAuthor, 
     try {
       const answered = await preview(stated());
       if (!answered.previewed) throw refused(answered.refusal);
-      return { consequence: answered.consequence, consequenceDigest: answered.consequenceDigest };
+      // I-438: the seam names the subject by the fact it moves — the id, and the whole of what the
+      // digest binds. The dialog is where a person decides, so it names the fact by the one name the
+      // row, the form and the status line use; the label is attached here, at the layer that holds
+      // the names, and the digest, which is blind to a label (core/acts/consequence.ts), travels
+      // untouched — the participants screen's idiom.
+      const named = {
+        ...answered.consequence,
+        subjects: answered.consequence.subjects.map((subject) => {
+          const fact = SITE_FACTS.find((candidate) => candidate === subject.subjectId);
+          return { ...subject, subjectLabel: fact === undefined ? subject.subjectId : factLabel(fact, parameterLabels) };
+        }),
+      };
+      return { consequence: named, consequenceDigest: answered.consequenceDigest };
     } finally {
       // § 2 Busy: the screen is busy exactly while the entry is being checked, however it is answered.
       setPending(false);
     }
-  }, [preview, refused, stated]);
+  }, [parameterLabels, preview, refused, stated]);
 
   const dialogCommit = useCallback(
     async ({ consequenceDigest }: { consequenceDigest: string }) => {
@@ -380,7 +421,11 @@ export function SiteFactsPanel({ projectId, standing, editionStated, mayAuthor, 
         <SettingsHeader title={siteFactsStrings.site_facts_heading} titleId={headingId} about={[siteFactsStrings.site_facts_caption]} />
 
         {/* § 1: the screen's one helper line — what L-MEA-06's silence costs, in one sentence, and
-            only while something below is actually deferred (I-327). */}
+            only while something below is actually deferred (I-327). I-441: it is the ONE statement
+            of that consequence this screen writes, and it stays on the face (L-MEA-06: "consequence
+            stated plainly on the face"); what a deferral card beneath says is the register's own
+            message, rendered verbatim, and is the register's to diet — never this panel's to
+            respell or to hide (R-UI-020, B-17). */}
         <p className="cx-site-facts-face" data-testid={testIds.face}>
           {deferring > 0 ? siteFactsStrings.site_facts_face : siteFactsStrings.site_facts_face_complete}
         </p>
@@ -392,6 +437,7 @@ export function SiteFactsPanel({ projectId, standing, editionStated, mayAuthor, 
             <colgroup>
               <col className="cx-site-facts-col-fact" />
               <col className="cx-site-facts-col-value" />
+              <col className="cx-site-facts-col-basis" />
               <col className="cx-site-facts-col-source" />
               <col className="cx-site-facts-col-act" />
               <col className="cx-site-facts-col-door" />
@@ -402,6 +448,7 @@ export function SiteFactsPanel({ projectId, standing, editionStated, mayAuthor, 
                 <th scope="col" className="cx-site-facts-numeric">
                   {siteFactsStrings.site_facts_column_value}
                 </th>
+                <th scope="col">{siteFactsStrings.site_facts_column_basis}</th>
                 <th scope="col">{siteFactsStrings.site_facts_column_source}</th>
                 <th scope="col">{siteFactsStrings.site_facts_column_act}</th>
                 {/* The door's column is headed by nothing a reader needs to read; the buttons in it
@@ -425,11 +472,11 @@ export function SiteFactsPanel({ projectId, standing, editionStated, mayAuthor, 
                 data-basis={held !== undefined ? ENTERED : edition !== undefined ? DERIVED : ABSENT}
               >
                 <tr className="cx-site-facts-line">
+                  {/* I-440: the row's header is the fact's name and nothing else, so every name
+                      starts at the column's edge whatever the row rests on — the chip that stood in
+                      front of it pushed an entered or derived name 80 px off its neighbours'. */}
                   <th scope="row" className="cx-site-facts-fact">
-                    <span className="cx-site-facts-fact-inner">
-                      {held !== undefined ? <BasisChip basis={ENTERED} /> : edition !== undefined ? <BasisChip basis={DERIVED} /> : null}
-                      <span className="cx-site-facts-fact-label">{factLabel(fact)}</span>
-                    </span>
+                    <span className="cx-site-facts-fact-label">{nameOf(fact)}</span>
                   </th>
                   <td className="cx-site-facts-numeric">
                     {held !== undefined ? (
@@ -444,6 +491,19 @@ export function SiteFactsPanel({ projectId, standing, editionStated, mayAuthor, 
                       <span className="cx-site-facts-value cx-site-facts-value-derived" data-testid={testIds.rowValue}>
                         {reading(edition.value, edition.unit)}
                       </span>
+                    ) : (
+                      <span className="cx-site-facts-absent">{siteFactsStrings.site_facts_absent_value}</span>
+                    )}
+                  </td>
+                  {/* I-440: what the figure rests on, in its own column after the figure — the
+                      register's order (value, then basis, then source). R-UI-002's chip for a fact a
+                      person entered or the pinned edition states; an absent fact has no basis at all
+                      (I-275) and its cell says the absence the way every other cell of its row does. */}
+                  <td className="cx-site-facts-basis">
+                    {held !== undefined ? (
+                      <BasisChip basis={ENTERED} />
+                    ) : edition !== undefined ? (
+                      <BasisChip basis={DERIVED} />
                     ) : (
                       <span className="cx-site-facts-absent">{siteFactsStrings.site_facts_absent_value}</span>
                     )}
@@ -528,14 +588,14 @@ export function SiteFactsPanel({ projectId, standing, editionStated, mayAuthor, 
                         <NumberInput
                           className="cx-site-facts-field-value"
                           data-testid={testIds.value}
-                          aria-label={fillSiteFacts(siteFactsStrings.site_facts_value_label, { fact: factLabel(fact) })}
+                          aria-label={fillSiteFacts(siteFactsStrings.site_facts_value_label, { fact: nameOf(fact) })}
                           value={valueAsWritten}
                           onChange={setValueAsWritten}
                         />
                         <Select
                           className="cx-site-facts-field-unit"
                           data-testid={testIds.unit}
-                          aria-label={fillSiteFacts(siteFactsStrings.site_facts_unit_label, { fact: factLabel(fact) })}
+                          aria-label={fillSiteFacts(siteFactsStrings.site_facts_unit_label, { fact: nameOf(fact) })}
                           options={UNIT_OPTIONS}
                           value={unitAsWritten}
                           onChange={setUnitAsWritten}
@@ -543,7 +603,7 @@ export function SiteFactsPanel({ projectId, standing, editionStated, mayAuthor, 
                         <Input
                           className="cx-site-facts-field-source"
                           data-testid={testIds.sourceNote}
-                          aria-label={fillSiteFacts(siteFactsStrings.site_facts_source_label, { fact: factLabel(fact) })}
+                          aria-label={fillSiteFacts(siteFactsStrings.site_facts_source_label, { fact: nameOf(fact) })}
                           placeholder={siteFactsStrings.site_facts_source_placeholder}
                           value={sourceNote}
                           onChange={(event) => setSourceNote(event.target.value)}
@@ -576,7 +636,7 @@ export function SiteFactsPanel({ projectId, standing, editionStated, mayAuthor, 
             ? siteFactsStrings.site_facts_status_pending
             : entered === null
               ? null
-              : fillSiteFacts(siteFactsStrings.site_facts_status_done, { fact: factLabel(entered.fact), value: entered.reading })}
+              : fillSiteFacts(siteFactsStrings.site_facts_status_done, { fact: nameOf(entered.fact), value: entered.reading })}
         </p>
       </section>
 

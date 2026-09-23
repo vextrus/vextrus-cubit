@@ -1,36 +1,39 @@
 # Design Decision — S-Settings · Site facts (`/t/{tenant}/p/{project}/settings/site-facts`)
 
 ```
-┌R─┬─────────────────┬──────────────────────────────────────────────────────────────────┐
-│▲ │ ws › Trace Survey ▾ › Settings › Site facts                      ⌘K ⟳ ✉ ◉          │  topbar 40
-│  ├─────────────────┼──────────────────────────────────────────────────────────────────┤
-│▦ │ Project settings│ Site facts ⓘ                                                     │  header 40
-│▤ │  Rule set       │ Earthwork is unpriceable from drawings alone until the deferred   │  face 28
-│⚙ │  Participants   │ site facts below are entered.                             y=48   │
-│  │ ▌Site facts   ◂ │ ┌──────────────────────┬───────────┬──────────────┬────────┬───┐ │
-│  │  Author edition │ │ Fact                 │     Value │ Source note  │ Entered│   │ │  28 sticky y=92
-│  │                 │ │ Existing ground level│       —   │ —            │ —      │Ent│ │  28  y=120
-│  │                 │ │ ┌──────────────────────────────────────────────────────────┐ │ │
-│  │                 │ │ │ No existing ground level has been entered for this…      │ │ │  deferral
-│  │                 │ │ │ Enter the site's existing ground level with the note…    │ │ │  sub-row,
-│  │                 │ │ │ Enter this site fact  (opens this row's entry form)      │ │ │  the row's
-│  │                 │ │ └──────────────────────────────────────────────────────────┘ │ │  measure
-│  │                 │ │ Water table level    │       —   │ —            │ —      │Ent│ │
-│  │                 │ │ ┌ No water table level has been entered for this project…  ┐ │ │
-│  │                 │ │ ƒ Working allowance  │  1.5 ft   │ Stated by the pinned r…│ — │Ent│ │  DERIVED
-│  │                 │ │ ƒ Depth extra        │  0.5 ft   │ Stated by the pinned r…│ — │Ent│ │  (I-327:
-│  │                 │ │ ƒ Blinding projection│    3 in   │ Stated by the pinned r…│ — │Ent│ │  no false
-│  │                 │ │ ƒ Blinding thickness │    3 in   │ Stated by the pinned r…│ — │Ent│ │  deferral)
-│  │                 │ └──────────────────────────────────────────────────────────────┘ │
-│  │       160       │                       1184 wide                                  │
-└──┴─────────────────┴──────────────────────────────────────────────────────────────────┘
+┌R─┬─────────────────┬────────────────────────────────────────────────────────────────────────────────────────┐
+│▲ │ ws › Trace Survey ▾ › Settings › Site facts                                            ⌘K ⟳ ✉ ◉          │  topbar 40
+│  ├─────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+│▦ │ Project settings│ Site facts ⓘ                                                                           │  header 40
+│▤ │  Rule set       │ Earthwork is unpriceable from drawings alone until the deferred site facts             │  face 28 — the one
+│⚙ │  Participants   │ below are entered.                                                              y=48   │  statement (I-441)
+│  │ ▌Site facts   ◂ │ ┌────────────────────────────┬──────────┬───────────┬─────────────┬────────┬─────────┐ │
+│  │  Author edition │ │ Fact                       │  Value   │ Basis     │ Source note │ Entered│         │ │  28 sticky y=92
+│  │                 │ │ Existing ground level      │      —   │ —         │ —           │ —      │    Enter│ │  28  y=120 (I-439:
+│  │                 │ │ ┌────────────────────────────────────────────────────────────────────────────────┐ │ │  every row 28)
+│  │                 │ │ │ No existing ground level has been entered for this project, so earthwork…      │ │ │  deferral
+│  │                 │ │ │ Enter the site's existing ground level with the note it was read from, …       │ │ │  sub-row,
+│  │                 │ │ │ Enter this site fact  (opens this row's entry form)                            │ │ │  the row's
+│  │                 │ │ └────────────────────────────────────────────────────────────────────────────────┘ │ │  measure
+│  │                 │ │ Water table level          │      —   │ —         │ —           │ —      │    Enter│ │
+│  │                 │ │ ┌ No water table level has been entered for this project, so earthwork…          ┐ │ │
+│  │                 │ │ Earthwork working allowance│ 1.5 ft   │ ƒ Derived │ Stated by t…│ —      │    Enter│ │  DERIVED (I-327);
+│  │                 │ │ Earthwork extra depth      │ 0.5 ft   │ ƒ Derived │ Stated by t…│ —      │    Enter│ │  names: the Rule
+│  │                 │ │ Blinding projection        │   3 in   │ ƒ Derived │ Stated by t…│ —      │    Enter│ │  set's (I-438);
+│  │                 │ │ Blinding thickness         │   3 in   │ ƒ Derived │ Stated by t…│ —      │    Enter│ │  chip: Basis (I-440)
+│  │                 │ └────────────────────────────────────────────────────────────────────────────────────┘ │
+│  │       160       │                      1184 wide                                                         │
+└──┴─────────────────┴────────────────────────────────────────────────────────────────────────────────────────┘
 
 (Amended 2026-09-23, I-327: over the SAMPLE pin a fresh project defers the ground level and the water
 table only — the four earthwork lengths read the pinned edition's figures under DERIVED, which is
 what the earthwork rail reads for them — and all six rows stand above the fold at both viewports.)
+(Amended session 8, I-438/b/c: the four facts the pin may state are named exactly as the Rule set
+screen names their parameters; the basis chip stands in its own column after the figure, so every
+name starts at the column's edge; every row stands at 28; the door stands at the row's trailing edge.)
 
 GROUND_LEVEL entered (the `fact-entered` leg) — the deferral is gone from that row alone:
- │ ✎ Existing ground level │    -1.2 m │ Survey sheet S-01 │ 8e8d2f ⎘ │ Restate │   data-basis="ENTERED"
+ │ Existing ground level │    -1.2 m │ ✎ Entered │ Survey sheet S-01 │ 8e8d2f ⎘ │  Restate │   data-basis="ENTERED"
 
 The entry form, open under the row it belongs to (the deferral still standing above it):
  │ ┌ [  -1.2  ] m │ Metre (m) ▾ │ [ Survey sheet S-01              ] │ Cancel ● Enter this fact ┐ │
@@ -64,7 +67,9 @@ JSX carries no string literal beyond test ids and fixed attribute values.
   (R-UI-020). It unmounts when the act commits and the row re-reads as ENTERED.
 - **I-275 — ABSENT is not a basis.** *(Amended by I-327: `data-basis` carries `ABSENT`, `ENTERED`
   or `DERIVED` — the last for a fact nobody entered that the pinned edition states, wearing the
-  DERIVED glyph ƒ.)* `data-basis` carries `ABSENT` or `ENTERED` — the two readings
+  DERIVED glyph ƒ. Amended by I-440: the chip stands in the Basis column, not at the name's leading
+  edge; an ABSENT row's Basis cell says its absence with the row's dash.)* `data-basis` carries
+  `ABSENT` or `ENTERED` — the two readings
   the ledger can answer. The `BasisChip` (ENTERED, ✎, R-UI-002) renders only on an entered row; an
   absent row wears no chip and no grey stand-in, because a fact nobody entered has no basis at all.
 - **I-276 — the value cell is the reading as written.** `{valueAsWritten} {unitAsWritten}`, one
@@ -126,14 +131,93 @@ JSX carries no string literal beyond test ids and fixed attribute values.
   still `Enter` — entering overrides it); else ABSENT with its named deferral. The face line counts
   what actually defers: `site_facts_face` while anything does, `site_facts_face_complete` when
   nothing does. The deferral card spans the row rather than an 880 box, so the register's message
-  stands on one line at 1440 (R-UI-084). "Enter this site fact", the evidence of the two on-screen
+  stands on one line at 1440 (R-UI-083, the grid law; cited R-UI-084 until session 8). "Enter this site fact", the evidence of the two on-screen
   deferrals, opens that row's entry form — the same door as the row's `Enter` — instead of jumping to
   a fragment already in view (R-UI-020: a refusal's evidence leads onward); for a reader without
   `AUTHOR_PROJECT_FACT` it stays a plain link and the standing refusal says why. Rejected: showing the
   edition's figure under ABSENT (a basis the row does not have), and leaving the deferral with an
   amended message (a refusal about a figure the rail reads is still not true). Unit proof:
   `tests/takeoff/site-facts-ui/edition-stated.test.tsx` over the SAMPLE edition; J-305 is amended to
-  derive each row's expected basis from the pin (TEST_AMENDED, in the spec).
+  derive each row's expected basis from the pin (TEST_AMENDED, in the spec). *(The ƒ chip "on the
+  fact" stands in the Basis column since I-440.)*
+- **I-438 — a fact the pinned edition may state is named as the Rule set screen names its
+  parameter (session 8, C7; s-settings-ruleset-author I-268, B-17).** Session 7's re-look found the
+  same pinned figures under two names one nav row apart: the Rule set screen read "Earthwork working
+  allowance 1.5 ft" and "Earthwork extra depth 0.5 ft", and this screen's DERIVED rows — each beside a
+  "Stated by the pinned rule set" link to that screen — read "Working allowance" and "Depth extra"; a
+  reader who followed the link could not find a row by the name they left, and "Depth extra" was the
+  key's word order rather than English. The four facts `EDITION_PARAMETER_OF` pairs with a parameter
+  ARE edition parameters, and a parameter has one name in the settings area — `parameterLabel(key)`,
+  I-268's one home. Ruling: the route builds, on the server beside the read of the pin,
+  `parameterLabel(EDITION_PARAMETER_OF[fact])` for each such fact
+  (`settings/site-facts/parameter-labels.ts`) and hands the map to the panel as `parameterLabels`
+  through the screen; `factLabel(fact, parameterLabels)` names the fact on its row, in its form's
+  three field names, in the status sentence and in the ConsequenceDialog the Enter opens — the seam
+  names its one subject by the fact's id, the whole of what the digest binds, and the panel's preview
+  adapter attaches the name as the subject's `subjectLabel` (presentation the digest is blind to,
+  the participants screen's idiom), so the reader never confirms a dialog headed
+  `WORKING_ALLOWANCE`. The module's own table keeps words only for the two
+  facts no rule set states (the ground level and the water table, Q-07); the four
+  `site_facts_fact_*` keys for the edition's lengths are retired, blinding projection and thickness
+  with them, though their words happened to agree — two tables that agree are still two homes. It is
+  built on the server because the pairing's home, the rail, reaches the store's schema through the
+  offer contract, and a value import of it into the client screen would carry the rail into the
+  browser (the panel's type-only import of the edition map exists to prevent exactly that); ARCH-01
+  bars the panel from the app's table, so the words arrive as data. Types keep it total both ways:
+  `SiteFactParameterLabels` is keyed by the rail's `DerivableSiteFact` and the module's table by the
+  rest of the roster, so a seventh fact is a compile error until it is named in one home or the other
+  (B-19). Rejected: copying the Rule set's words into this table (the second spelling this ruling
+  removes), and importing the rail into the client screen. Unit proof:
+  `tests/takeoff/site-facts-ui/one-name.test.tsx`.
+- **I-439 — the door yields the row's hairline, so every row stands at 28 (I-273, R-UI-083).** The
+  re-look measured every fact row at a 29 px pitch while the sticky header stood at 28: a row cell is
+  `--row-h` tall including its hairline, and the door's ghost Button is a control at `--control-h`,
+  which at the compact density is also 28. Ruling: the door's cell spends no block padding, and the
+  door stands at `min(var(--control-h), calc(var(--row-h) - 1px))` — never taller than a control,
+  never taller than the row can hold beside its 1 px hairline, and at least 24 at both densities
+  (27 compact, 32 comfortable) so it stays a target SC 2.5.8 admits. That is the height the
+  DataTable's in-cell controls already stand at. The cell rule is named with the row rule it
+  outranks, which is also why the door now stands at the row's trailing edge: the old
+  `.cx-site-facts-door { text-align: end }` lost to `.cx-site-facts-line > td`'s `start`, the same
+  class-versus-class-plus-element fault the Value column's alignment once had. The door's cell does
+  not clip (`overflow: visible`): with no block padding the door stands 0 px (compact) and 1.5 px
+  (comfortable) inside its cell, and the focus reticle's ticks stand 4 px outside it (R-UI-012), so
+  the row rule's `overflow: hidden` cut the corner ticks down to stubs; the door's word is short and
+  its column fixed, so nothing else in the cell can spill. The first row's top ticks still pass under
+  the sticky header, and a door row at the table's foot loses its bottom ticks to the table's own
+  scroller — the vertical arms stay visible in both. Unit proof:
+  `tests/takeoff/site-facts-ui/row-pitch.test.ts`, which does the row's arithmetic with each
+  density's tokens and reads the reticle's outset off its single home.
+- **I-440 — the basis has its own column, after the figure (amends I-275's "leading edge" and
+  §1.1).** The chip stood in front of the name inside the row's header, so an ENTERED or DERIVED
+  name began ~80 px right of an ABSENT one and the key column read as a ragged edge (session 7's
+  ledger IOU). Ruling: a **Basis** column of 108 between Value and Source note — the register's own
+  order, value then basis then source — holds `BasisChip` ENTERED ✎ or DERIVED ƒ; the row's header
+  is the fact's name and nothing else, so every name starts at the column's edge. An ABSENT row's
+  Basis cell holds `site_facts_absent_value`, the dash every other cell of that row already says its
+  absence with — no chip and no grey stand-in, so I-275 holds. The Fact column gives 40 px of its
+  260 to the new column (220 holds "Earthwork working allowance" with room at either density), so
+  the Source note keeps its measure at 1280. The rowheader's accessible name is now the name alone.
+  Rejected: a fixed empty slot in front of every name (an indent with nothing in it on ABSENT rows,
+  and the name column still spent on a chip), and a chip after the name (it moves with the name's
+  length, which is the ragged edge again). Unit proof: `one-name.test.tsx` and `row-pitch.test.ts`.
+- **I-441 — the face is the one statement of the consequence this screen writes (L-MEA-06).**
+  Session 7's re-look lowered `copyDiet` because a fresh project read the consequence three times:
+  the face line, then the ground level's deferral ("…so earthwork is structurally unpriceable from
+  drawings alone until SITE facts are entered") and the water table's ("…so earthwork below it is
+  unpriceable from drawings alone"). L-MEA-06 binds the FACE — "Consequence stated plainly on the
+  face" — not the refusal's message, so the face line stays, in one sentence, only while something
+  defers (I-327), and it is the only string of this panel's own that says it. The two cards are the
+  register's messages rendered verbatim by the one `RefusalState` (R-UI-020, B-17); this screen may
+  neither respell nor hide them. Their restatement is therefore the register's to diet, and the copy
+  diet completes there (the session-8 map's L3): with the face keeping the statement, the product
+  never stops stating the consequence on the face, so rewording `GROUND_LEVEL_UNSTATED`'s message
+  departs from no clause — the reading the map's critic gave L3, which records it in the register's
+  own home.
+  Rejected: withdrawing the face line while the ground level's card happens to quote the clause (the
+  face would fall silent the day the register is reworded), and a screen-local deferral block with
+  shorter words (the second refusal spelling B-17 forbids). Guarded by
+  `tests/takeoff/site-facts-ui/deferrals.test.ts`.
 
 ## 1. Regions (1440×900; the content pane is 1184 × 812, per the sub-navigation Decision)
 
@@ -141,7 +225,7 @@ JSX carries no string literal beyond test ids and fixed attribute values.
 |---|---|---|---|---|
 | section nav | the project's four settings areas, `Site facts` current (`aria-current="page"`) | `--drawer-w-min` 160 × 100 % | the sub-navigation Decision's | — (its own Decision) |
 | header | `<h1 id>` `site_facts_heading` at `--text-20` `--weight-heading`, then the `(i)` — a ghost Popover trigger one `--control-h` square holding `site_facts_caption`. No subtitle | 100 % × 40 | `--ink`, `--text-20`, `--weight-heading`, `--control-h` | — |
-| face | `site-facts-face`, one `<p>` — the screen's one helper line (R-UI-081), stating L-MEA-06's consequence while any fact defers (`site_facts_face`) and that nothing defers when nothing does (`site_facts_face_complete`, I-327) | 100 % × 28, `--space-2` above; `max-inline-size` 880 | `--ink-muted`, `--text-13`, `--space-2` | — |
+| face | `site-facts-face`, one `<p>` — the screen's one helper line (R-UI-081), stating L-MEA-06's consequence while any fact defers (`site_facts_face`) and that nothing defers when nothing does (`site_facts_face_complete`, I-327); the one statement of the consequence this screen writes (I-441) | 100 % × 28, `--space-2` above; `max-inline-size` 880 | `--ink-muted`, `--text-13`, `--space-2` | — |
 | table (primary) | `site-facts-table`, the grid law's own table (I-273: a `<tbody>` per fact, not DataTable v2 — that primitive renders a row's refusal as a SIBLING of the row, and this screen's contract requires the deferral INSIDE the fact's row element), sticky 28 px header, frozen Fact column, one `site-facts-row` per fact in `SITE_FACTS` order (§1.1) | 1184 wide × **as tall as its rows** and never taller than the height the screen has left (the pane less the header and face: ≤ 720 at 1440×900) — *amended in place (session 7, wave 3), the settings area's own ruling (s-settings-ruleset-author I-326): grown to the pane, the hairline frame stood as an empty bordered well of ~200 px at 1440 (~100 at 1280) under six rows and two deferral cards, one nav row from the screen that withdrew that well; the column's bound itself is corrected by s-settings-ruleset I-349 (no tool row; `shell-main`'s padding)*; `--gap-section` 16 above; past the bound it scrolls inside itself, never the page | `--row-h` 28, `--cell-px`, `--cell-py`, `--text-13`, `--font-mono`, `--ink`, `--ink-muted`, `--ink-code`, `--line` | never — the roster is six (I-278) |
 | deferral sub-row | `site-facts-row-deferral`, one `RefusalState` (inline surface), on every ABSENT row — nobody entered the fact and the pin does not state it (I-327) | cell spans the table; the card spans the row (I-327 withdraws the 880 cap, under which the register's message wrapped inside the table); padding-block `--space-2` | RefusalState's own | absent on an ENTERED or DERIVED row |
 | entry sub-row | the row's form: `site-facts-value` · `site-facts-unit` · `site-facts-source-note` · Cancel · `site-facts-submit` | cell spans the table; row-flex, gap `--space-3`, controls `--control-h` 28, submit `--control-h-lg` 32 | `--surface-sunken`, `--space-2/3`, `--control-h`, `--control-h-lg`, `--accent` (the primitive's) | mounted only while open (I-281) |
@@ -158,16 +242,24 @@ in the fold at both viewports. Exactly one primary per region; no second right c
 
 ### 1.1 The table's columns
 
-- **Fact** — 260, the frozen key column, the row's `rowheader`: the human label (§3), `--text-13`,
-  one line, ellipsis, the grid's tooltip on truncation; on an ENTERED row the `BasisChip` for
-  `ENTERED` stands at the leading edge (I-275), on a DERIVED row the `BasisChip` for `DERIVED`
-  (ƒ, I-327).
+- **Fact** — 220 (260 until I-440), the frozen key column, the row's `rowheader`: the fact's name
+  and nothing else, `--text-13`, one line, ellipsis, the grid's tooltip on truncation. The name is
+  `factLabel(fact, parameterLabels)` (I-438): for a fact the pinned edition may state, the settings
+  area's `parameterLabel` of its parameter, handed in by the route — the Rule set screen's own words;
+  for the ground level and the water table, this screen's §3 words.
 - **Value** — 180, right-aligned: `site-facts-row-value`, exactly `{valueAsWritten} {unitAsWritten}`
   in mono (I-276); on a DERIVED row the pin's own `{value} {unit}`, verbatim as the edition stores
   it, in `--ink-secondary` (I-327). On an ABSENT row the cell holds `site_facts_absent_value` and no
   testid. The column keeps a `--cell-px` + `--space-4` trailing gutter, so its right-aligned dash
-  and the start-aligned note beside it read as two cells, never as one "— —" (R-UI-085).
-- **Source note** — flex (≥ 360): `site-facts-row-source`, the note verbatim, `--text-13`, one line,
+  and the start-aligned cell beside it read as two cells, never as one "— —" (R-UI-085).
+- **Basis** — 108 (I-440): on an ENTERED row the `BasisChip` for `ENTERED` (✎, I-275), on a
+  DERIVED row the `BasisChip` for `DERIVED` (ƒ, I-327); on an ABSENT row `site_facts_absent_value` —
+  no chip, because an absent fact has no basis at all. 108 holds the wider chip, "✎ Entered", with
+  the cell's padding at either density.
+- **Source note** — flex, the remainder: about 400 at 1440 and about 250 at 1280 once the five fixed
+  columns (768) are drawn — the "≥ 360" this bullet once promised had not held at 1280 since the
+  first edition (about 300 there), and the DERIVED link and a short survey reference read whole in
+  either (I-440): `site-facts-row-source`, the note verbatim, `--text-13`, one line,
   ellipsis + tooltip. DERIVED: `site_facts_edition_source` as a link to the Rule set screen, no
   testid (I-327). ABSENT: `site_facts_absent_value`, no testid.
 - **Entered by** — 140: `site-facts-row-act`, the act id through `IdChip` (short form, copy, full in
@@ -175,7 +267,10 @@ in the fold at both viewports. Exactly one primary per region; no second right c
   `site_facts_absent_value` — no act entered the fact.
 - **Act** — 120, trailing: the row's ghost core Button `site-facts-enter`, label `site_facts_enter`
   on an ABSENT or DERIVED row (entering a stated fact overrides the pin, L-MEA-06) and
-  `site_facts_restate` on an ENTERED one.
+  `site_facts_restate` on an ENTERED one, standing at the row's trailing edge. Its cell spends no
+  block padding and the door stands at `min(--control-h, --row-h − 1px)` — it yields the row's
+  hairline, so the row keeps its 28 — and the cell does not clip, so the door's focus reticle draws
+  whole (I-439).
 
 ## 2. The states, cell by cell
 
@@ -237,15 +332,20 @@ pinned rule set.** (I-327 — the face when nothing defers) ·
 `site_facts_caption` **A site fact is a reading no drawing carries. Each one is entered as its own
 act, with the note it was read from, and is restated by entering it again.** ·
 `site_facts_column_fact` **Fact** · `site_facts_column_value` **Value** ·
+`site_facts_column_basis` **Basis** (I-440) ·
 `site_facts_column_source` **Source note** · `site_facts_column_act` **Entered by** ·
 `site_facts_absent_value` **—** · `site_facts_row_value` **{value} {unit}** (the entered reading as
 one cell: the figure as it was written and the unit it was written in) ·
 `site_facts_edition_source` **Stated by the pinned rule set** (I-327 — the Source note of a DERIVED
 row) ·
 `site_facts_fact_ground_level` **Existing ground level** · `site_facts_fact_water_table` **Water
-table level** · `site_facts_fact_working_allowance` **Working allowance** ·
-`site_facts_fact_depth_extra` **Depth extra** · `site_facts_fact_blinding_projection` **Blinding
-projection** · `site_facts_fact_blinding_thickness` **Blinding thickness** ·
+table level** — the two facts no rule set states, and the only fact names this table holds
+(I-438). The four the pinned edition may state are named by the settings area's
+`parameterLabel(EDITION_PARAMETER_OF[fact])`, the Rule set screen's own words, handed in by the
+route: today **Earthwork working allowance** · **Earthwork extra depth** · **Blinding projection** ·
+**Blinding thickness** (`settings/ruleset/strings.ts`, not spelled here). Retired by I-438:
+`site_facts_fact_working_allowance` "Working allowance", `site_facts_fact_depth_extra` "Depth
+extra", `site_facts_fact_blinding_projection` and `site_facts_fact_blinding_thickness` ·
 `site_facts_enter` **Enter** · `site_facts_restate` **Restate** ·
 `site_facts_value_label` **Value for {fact}** · `site_facts_unit_label` **Unit for {fact}** ·
 `site_facts_source_label` **Source note for {fact}** ·
@@ -299,10 +399,11 @@ here is a `cubit/no-primitive-token` failure): `--surface-app` · `--surface-pan
 primitive's own) · `--row-h` · `--control-h` · `--control-h-lg` · `--cell-px` / `--cell-py` ·
 `--drawer-w-min` · `--gap-section` · `--space-2/3/4` · `--text-12/13/20` · `--font-mono` /
 `--font-ui` · `--weight-heading` / `--weight-body-medium` · `--radius-4` · `--motion-state` /
-`--ease`. Px literals, closed set: the column measures 260 / 180 / 140 / 120, the two
+`--ease`. Px literals, closed set: the column measures 220 / 180 / 108 / 140 / 120 (I-440: the
+Fact column's 260 became 220 and the Basis column's 108), the two
 `max-inline-size` measures 880 (the face) and 420 (the refusal slot; the deferral card's 880 is
-withdrawn by I-327), and the loading bones 24 × 240, 16 × 420, 28 × 1088,
-72 × 880. Any other literal is a defect. Copper appears exactly once on this screen — the dialog's
+withdrawn by I-327), the 1 of the row's own hairline the door yields (`--row-h − 1px`, I-439), and
+the loading bones 24 × 240, 16 × 420, 28 × 1088, 72 × 880. Any other literal is a defect. Copper appears exactly once on this screen — the dialog's
 confirm — and the basis amber arrives only through `BasisChip`.
 
 ## 6. Themes
@@ -351,7 +452,11 @@ Proof: J-305 (`tests/e2e/site-facts.spec.ts`, page object
 `s-settings-site-facts/panel-absent`, `panel-absent-light` and `fact-entered`; axe serious/critical
 = 0 at each; baselines under `tests/e2e/baselines/design-dark/s-settings-site-facts/` with the
 `-light` suffix for the light twin (I-D). Unit: `tests/takeoff/site-facts-ui/**` over the roster,
-the deferral map and `SITE_FACTS_STATES`. Baselines this screen moves, in their own `baseline:`
+the deferral map and `SITE_FACTS_STATES`; `one-name.test.tsx` (I-438, I-440: each name is the Rule
+set screen's, on the row, in the form's field names, in the consequence dialog and in the status
+sentence; the chip under
+Basis) and `row-pitch.test.ts` (I-439, I-440: the door's arithmetic at both densities, the
+columns' measures). Baselines this screen moves, in their own `baseline:`
 commit (B-20): `tests/e2e/baselines/design-dark/s-settings-ruleset-author/*.png`, because the nav
 row's ink moves from disabled to link.
 
@@ -412,3 +517,19 @@ Two conflicts in the closed surface, recorded rather than spelled around:
   `GROUND_LEVEL_UNSTATED` message, "…structurally unpriceable … until SITE facts are entered") is
   the register's to reword under a Deviation and is not this screen's to spell a second way. The
   three `s-settings-site-facts` pictures move and are the gate's to re-take.
+- 2026-09-23 — session 8, C7 (session 7's re-look: one parameter under two names beside the Rule
+  set screen, every row at a 29 px pitch, the basis chip moving names 80 px, and `copyDiet` lowered
+  5 → 4 for the consequence said three times): I-438 — the four facts the pinned edition may state
+  are named as the Rule set screen names their parameters ("Earthwork working allowance",
+  "Earthwork extra depth", …), built by the route on the server with `parameterLabel` and handed to
+  the panel as `parameterLabels`; the names reach the row, the form's three field names and the
+  status sentence and the consequence dialog's subject, and the module's four `site_facts_fact_*`
+  keys for them are retired. I-439 — the
+  door yields the row's hairline, so every row stands at 28, the door stands at the row's
+  trailing edge as its stylesheet always said, and its cell does not clip the focus reticle. I-440 — a Basis column (108) after Value holds the
+  chip, the Fact column (220) holds the name alone. I-441 — the face stays the one statement of
+  L-MEA-06's consequence this screen writes; the restatement inside the deferral cards is the
+  register's message and completes its diet there (the map's L3); because the face keeps the
+  statement, that rewording departs from no clause. §0's grid-law citation reads R-UI-083 (it cited
+  the breadcrumb law, R-UI-084). The three `s-settings-site-facts` pictures move and are the gate's
+  to re-take.

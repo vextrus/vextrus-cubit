@@ -15,6 +15,7 @@ import { REFUSALS } from "../../../src/core/errors";
 import { SITE_FACTS } from "../../../src/core/site-facts/law";
 import { SITE_FACT_DEFERRALS, statedByEdition } from "../../../src/modules/takeoff/site-facts-ui/deferrals";
 import { SITE_FACTS_STATES, SITE_FACTS_STATE_NAMES } from "../../../src/modules/takeoff/site-facts-ui/states";
+import { siteFactsStrings } from "../../../src/modules/takeoff/site-facts-ui/strings";
 
 describe("the site facts panel's deferrals (AM-06 §1, I-B)", () => {
   test("every fact of the roster defers under a code the closed register holds", () => {
@@ -35,6 +36,21 @@ describe("the site facts panel's deferrals (AM-06 §1, I-B)", () => {
     }
     expect(statedByEdition("GROUND_LEVEL"), "a ground level is read on site and nowhere else").toBe(false);
     expect(statedByEdition("WATER_TABLE"), "and so is a water table").toBe(false);
+  });
+});
+
+describe("the consequence of a deferral is stated once, on the face (L-MEA-06, I-441)", () => {
+  test("of the panel's own copy, only the face line says what an absent site fact costs", () => {
+    // L-MEA-06: "Consequence stated plainly on the face: earthwork is structurally unpriceable from
+    // drawings alone until SITE facts are entered." The face line is that statement, and the ONE this
+    // panel writes. A deferral card beneath it renders the register's own message verbatim (R-UI-020,
+    // B-17) — so the register may diet the restatement its GROUND_LEVEL_UNSTATED message carries
+    // without the product ever falling silent on the face. This guards the half the panel owns.
+    const stating = Object.entries(siteFactsStrings)
+      .filter(([, text]) => /unpriceable/i.test(text))
+      .map(([key]) => key);
+    expect(stating, "one statement of the consequence in the panel's own words, and it is the face's").toEqual(["site_facts_face"]);
+    expect(siteFactsStrings.site_facts_face, "plainly: what is unpriceable, from what, and until when").toMatch(/^Earthwork is unpriceable from drawings alone until .+ entered\.$/);
   });
 });
 

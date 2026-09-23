@@ -22,7 +22,8 @@ import { expect } from "vitest";
 import type { Consequence } from "../../../../src/core/acts";
 import type { RefusalCode } from "../../../../src/core/errors";
 import type { SiteFact, StandingSiteFact } from "../../../../src/core/site-facts/law";
-import { SiteFactsPanel, type EditionStatedFacts, type SiteFactsChrome } from "../../../../src/modules/takeoff/site-facts-ui";
+import { SiteFactsPanel, type EditionStatedFacts, type SiteFactParameterLabels, type SiteFactsChrome } from "../../../../src/modules/takeoff/site-facts-ui";
+import { siteFactParameterLabels } from "../../../../src/app/(app)/t/[tenant]/p/[project]/settings/site-facts/parameter-labels";
 import { SettingsHeader } from "../../../../src/app/(app)/t/[tenant]/settings/settings-pane";
 import { ConsequenceDialog } from "../../../../src/ui/patterns/consequence-dialog";
 import { RefusalState } from "../../../../src/ui/patterns/refusal-state";
@@ -45,7 +46,7 @@ export type StagedPreviewAnswer = { previewed: true; consequence: Consequence; c
 export type StagedCommitAnswer = { committed: true; actId: string } | { committed: false; refusal: RefusalCode };
 
 /**
- * Everything the panel is mounted with — the ten props the screen itself passes
+ * Everything the panel is mounted with — the eleven props the screen itself passes
  * (`settings/site-facts/site-facts-screen.tsx`), the chrome seam among them. A prop the panel needs
  * that is absent here is a plan defect; the list grows with the screen's own arity, never against it
  * (B-19, B-20: an increment that changes the law owns the acceptance the old law froze).
@@ -61,6 +62,12 @@ export interface StagedSiteFactsPanel {
    * absent fact deferred, as a project with no statement in its edition would read.
    */
   readonly editionStated: EditionStatedFacts;
+  /**
+   * What the settings area calls the parameter each edition-stated fact stands in for (the Decision's
+   * I-438) — the screen's eleventh prop. The default is the route's own map, built exactly as the
+   * page builds it, so a case that says nothing about names mounts the panel a reader gets.
+   */
+  readonly parameterLabels: SiteFactParameterLabels;
   /** Whether this reader holds AUTHOR_PROJECT_FACT; a reader without it still sees the whole panel. */
   readonly mayAuthor: boolean;
   readonly preview: (statement: StagedSiteFactStatement) => Promise<StagedPreviewAnswer>;
@@ -134,6 +141,7 @@ export function mountSiteFactsPanel(staged: Partial<StagedSiteFactsPanel> = {}):
     projectId: STAGED_PROJECT,
     standing: {},
     editionStated: {},
+    parameterLabels: siteFactParameterLabels(),
     mayAuthor: true,
     preview: () => Promise.reject(new Error("this mount states no preview door")),
     commit: () => Promise.reject(new Error("this mount states no commit door")),

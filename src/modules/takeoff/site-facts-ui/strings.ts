@@ -8,6 +8,10 @@
 // such; no clause id and no enum spelling appears in a sentence a reader can see.
 import type { SiteFact } from "@/core/site-facts/law";
 import { dimensionOf, UNITS, type Unit } from "@/core/units/canon";
+// Type-only, like the panel's own import of the edition map: the pairing's VALUE carries the rail —
+// and through it the store's schema — so it is read on the server, where the route builds the words
+// this panel is handed (I-438). A type travels to nobody's browser.
+import type { DerivableSiteFact } from "@/modules/takeoff/rails/foundations/read";
 
 export const siteFactsStrings = {
   site_facts_heading: "Site facts",
@@ -20,6 +24,8 @@ export const siteFactsStrings = {
 
   site_facts_column_fact: "Fact",
   site_facts_column_value: "Value",
+  /** I-440: the basis a figure rests on has its own column, after the figure (the register's order). */
+  site_facts_column_basis: "Basis",
   site_facts_column_source: "Source note",
   site_facts_column_act: "Entered by",
 
@@ -30,12 +36,11 @@ export const siteFactsStrings = {
   /** Where a fact nobody entered is read from instead: the pinned edition (L-MEA-06, I-327). */
   site_facts_edition_source: "Stated by the pinned rule set",
 
+  // I-438: only the two facts no rule set states are named here. The four the pinned edition may
+  // state are its parameters, and a parameter has one name in the settings area — `parameterLabel`,
+  // s-settings-ruleset-author I-268 — which the route hands this panel (see `factLabel` below).
   site_facts_fact_ground_level: "Existing ground level",
   site_facts_fact_water_table: "Water table level",
-  site_facts_fact_working_allowance: "Working allowance",
-  site_facts_fact_depth_extra: "Depth extra",
-  site_facts_fact_blinding_projection: "Blinding projection",
-  site_facts_fact_blinding_thickness: "Blinding thickness",
 
   site_facts_enter: "Enter",
   site_facts_restate: "Restate",
@@ -64,22 +69,41 @@ export const siteFactsStrings = {
 /** One key of this screen's table — the union the compiler refuses a missing key with. */
 export type SiteFactsStringKey = keyof typeof siteFactsStrings;
 
+/** A fact no rule-set edition states — a reading about THIS ground, and nowhere else (Q-07). */
+export type SiteOnlyFact = Exclude<SiteFact, DerivableSiteFact>;
+
 /**
- * The words each fact is read by, total over the closed roster: a fact without a label is a compile
- * error rather than a row headed by its enum spelling (B-19, § 3).
+ * The words the settings area names each edition parameter by, keyed by the site fact it stands in
+ * for: `parameterLabel(EDITION_PARAMETER_OF[fact])`, built by the route that mounts this panel
+ * (I-438). ARCH-01 bars this module from the app's table, so the words arrive as data; the type is
+ * total over the facts an edition may state, so a fifth such fact is a compile error at the route
+ * until it is named there too (B-19).
  */
-const FACT_LABEL: Readonly<Record<SiteFact, string>> = Object.freeze({
+export type SiteFactParameterLabels = Readonly<Record<DerivableSiteFact, string>>;
+
+/**
+ * The words this screen alone names a fact by: the ones no rule set states. Total over them, so a
+ * seventh site fact that is not an edition parameter is a compile error here rather than a row
+ * headed by its enum spelling (B-19, § 3).
+ */
+const SITE_ONLY_LABEL: Readonly<Record<SiteOnlyFact, string>> = Object.freeze({
   GROUND_LEVEL: siteFactsStrings.site_facts_fact_ground_level,
   WATER_TABLE: siteFactsStrings.site_facts_fact_water_table,
-  WORKING_ALLOWANCE: siteFactsStrings.site_facts_fact_working_allowance,
-  DEPTH_EXTRA: siteFactsStrings.site_facts_fact_depth_extra,
-  BLINDING_PROJECTION: siteFactsStrings.site_facts_fact_blinding_projection,
-  BLINDING_THICKNESS: siteFactsStrings.site_facts_fact_blinding_thickness,
 });
 
-/** What one fact is called on the screen and in the sentence a status line speaks. */
-export function factLabel(fact: SiteFact): string {
-  return FACT_LABEL[fact];
+/** Whether this screen names the fact itself — the ones no edition states — or the rule set does. */
+function isSiteOnly(fact: SiteFact): fact is SiteOnlyFact {
+  return Object.hasOwn(SITE_ONLY_LABEL, fact);
+}
+
+/**
+ * What one fact is called on the screen — its row, the fields of its form and the sentence the
+ * status line speaks. A fact the pinned edition may state is one of its parameters and is called
+ * what the Rule set screen calls that parameter, one nav row away (I-438, I-268, B-17): a reader who
+ * follows "Stated by the pinned rule set" finds the row by the name they left.
+ */
+export function factLabel(fact: SiteFact, parameterLabels: SiteFactParameterLabels): string {
+  return isSiteOnly(fact) ? SITE_ONLY_LABEL[fact] : parameterLabels[fact];
 }
 
 /**

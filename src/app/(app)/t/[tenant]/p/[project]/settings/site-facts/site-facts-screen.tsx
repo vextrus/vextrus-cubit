@@ -7,7 +7,7 @@
 // It also declares the screen's crumb, which is the frame's slot and therefore a client hook
 // (R-UI-084): the page above it is the server component that does the reading.
 import type { SiteFact, StandingSiteFact } from "@/core/site-facts/law";
-import { SiteFactsPanel, type EditionStatedFacts, type SiteFactsChrome } from "@/modules/takeoff/site-facts-ui";
+import { SiteFactsPanel, type EditionStatedFacts, type SiteFactParameterLabels, type SiteFactsChrome } from "@/modules/takeoff/site-facts-ui";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { BasisChip, Button, IdChip, Input, NumberInput, Select } from "@/ui/primitives/core";
@@ -56,12 +56,19 @@ export interface SiteFactsScreenProps {
   readonly standing: Readonly<Partial<Record<SiteFact, StandingSiteFact>>>;
   /** What the pinned edition states of the facts nobody entered (the Decision's I-327). */
   readonly editionStated: EditionStatedFacts;
+  /**
+   * What the settings area calls the parameter each of those facts stands in for —
+   * `parameterLabel(EDITION_PARAMETER_OF[fact])`, built by the page on the server
+   * (`./parameter-labels.ts`, the Decision's I-438) and handed on to the panel untouched, so one
+   * parameter reads one way on this screen and on the Rule set screen (s-settings-ruleset-author I-268).
+   */
+  readonly parameterLabels: SiteFactParameterLabels;
   readonly mayAuthor: boolean;
   readonly rulesetHref: string;
   readonly participantsHref: string;
 }
 
-export function SiteFactsScreen({ tenantId, projectId, standing, editionStated, mayAuthor, rulesetHref, participantsHref }: SiteFactsScreenProps) {
+export function SiteFactsScreen({ tenantId, projectId, standing, editionStated, parameterLabels, mayAuthor, rulesetHref, participantsHref }: SiteFactsScreenProps) {
   // R-UI-084: the screen declares its own crumb through the frame's slot, in the one home the area's
   // words live in — the nav row and the page crumb wear the same word (B-17).
   useShellPage(PROJECT_SETTINGS_PAGES["site-facts"]);
@@ -72,6 +79,7 @@ export function SiteFactsScreen({ tenantId, projectId, standing, editionStated, 
       projectId={projectId}
       standing={standing}
       editionStated={editionStated}
+      parameterLabels={parameterLabels}
       mayAuthor={mayAuthor}
       rulesetHref={rulesetHref}
       participantsHref={participantsHref}
