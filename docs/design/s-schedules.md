@@ -1044,7 +1044,7 @@ and a caption naming no floors declared), `tests/takeoff/partition/notation/gram
 quantity column read as the grammar's count form, one reading),
 `tests/takeoff/partition/schedules/arch-schedule-store.db.test.ts` and
 `db/__tests__/schedule-printed-quantities.migration.test.ts` (the same reading through the store,
-and migration 0062 judged by what it does), `tests/takeoff/notation/corpus.test.ts` (F-ARCH's 454
+and migration 0063 judged by what it does), `tests/takeoff/notation/corpus.test.ts` (F-ARCH's 454
 strings in the notation ratchet), `tests/ui/takeoff-schedules/quantity-check.test.ts` (I-510: the
 shipped workspace mounted over a declared row), `tests/takeoff/notes/**` (the grammar, the act pair, `noteStanding`,
 `appliedDetailingValuesOf`, the doors each refusing by name, and `copy-mirror.test.ts` failing the

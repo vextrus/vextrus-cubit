@@ -1,5 +1,5 @@
 /**
- * 0062 — `schedule_printed_quantities`, the quantity an opening schedule PRINTS for one of its rows,
+ * 0063 — `schedule_printed_quantities`, the quantity an opening schedule PRINTS for one of its rows,
  * as a cited reading and never a count of members; and `member_type_dimensions`' closed roster
  * re-stated with an opening's sill and a wall type's thickness (s-schedules I-506/f/g; L-MEA-02,
  * L-CAD-08, SEAM-TENANT, V-DB).
@@ -19,7 +19,7 @@ import { provisionScratchDb, type ScratchDb } from "./harness";
 import { BOOTSTRAP_URL, GUC_SYSTEM_REASON, ROLE_APP, TENANT_COLUMN } from "./support/fixtures";
 import { lit, psql, run, withSession } from "./support/live-sql";
 
-/** The table 0062 lands, and the table it is compared against. */
+/** The table 0063 lands, and the table it is compared against. */
 const TABLE = "schedule_printed_quantities";
 const PEER = "member_type_variants";
 const DIMENSIONS = "member_type_dimensions";
@@ -148,7 +148,7 @@ async function dimension(name: string): Promise<ReturnType<typeof psql>> {
   return psql(bootstrapUrl, withSession({ [GUC_SYSTEM_REASON]: REASON }, `insert into "${DIMENSIONS}" (${columns.map((column) => `"${column}"`).join(", ")}) values (${values.join(", ")});`));
 }
 
-describe("0062: the printed quantities are migrated, scoped and rewritable", () => {
+describe("0063: the printed quantities are migrated, scoped and rewritable", () => {
   it("the product's own migration lane lands the table, with what a schedule prints and the check it stands under", async () => {
     expect(await columnsOf(TABLE), `public.${TABLE} says whose it is, which drawing, ingest, schedule, family and variant it was printed for, and what was read there (I-507)`).toEqual([...COLUMNS].sort());
   });

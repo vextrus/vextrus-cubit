@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
  * DB LANE — F-ARCH's schedules through the partition's own store (session 8, ARCH-3; s-schedules
- * I-506/f/g/h), live, against a scratch database the committed migrations built (0062 among them).
+ * I-506/f/g/h), live, against a scratch database the committed migrations built (0063 among them).
  *
  * The drawing is read by the shipped `cad/` CLI and the partition's pure stages
  * (`../support/arch-stages`); what they derived is written by `rewriteScheduleRows` — the very call the
