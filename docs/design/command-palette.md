@@ -76,6 +76,99 @@ Skeleton, Tooltip, the one RefusalState — plus the `cx-palette-*` classes rule
   row heights govern tables and rows of data; the palette's options stand at `var(--row-comfortable)`
   in both modes, and the preference is not copied into a second, unreachable home (B-17).
 
+**Amended by SRCH-1 (session 8: R-SPINE-052's first cut — "⌘K finds sheet text and register marks,
+and opens the viewer on them"; walk-0's "C2 finds nothing").** Law read with R-SPINE-050/052, R-TO-016,
+L-CAD-02/03/05, L-CAD-07, L-ACT-03, I-179, I-421, I-142. The index is
+`src/modules/takeoff/sheets/text-index.ts`; the door `src/server/spine/search.ts`.
+
+- **I-473 — R-SPINE-052's "full-text" is a match on whole words, case-insensitively, in order.**
+  A text's WORDS are its whole runs of letters and digits, upper-cased (`wordsOf`, the one spelling
+  the index and a query share); a query matches where all of its words stand in order and next to
+  each other inside one paragraph. No stemming, no prefix, no substring: F-RCC6-BNBC says `C3` as a
+  substring in far more texts than it says it as a word, and the first of them are `PC3` — a pile cap
+  answered for a column is the partial faulty answer the law forbids. The price is that a word is
+  found once it is typed whole ("COLU" finds no text; the names still answer as they always did).
+  Punctuation is no word, so `f'c = 3500 psi` is found by `3500 psi` and `50d` by `50d`.
+- **I-474 — what "sheet text" is, and the key each is found under.** Every text a sheet shows as
+  words: an original TEXT or MTEXT under its own key; a block ATTRIBUTE under its block reference's
+  key (an attribute is no entity of its own, L-CAD-03 — this is how S-23's title block, whose sheet
+  title is an attribute, is found); and derived text a block reference or a dimension painted, under
+  the key of the original that painted it — the key the viewer holds that paint by. An MTEXT is read
+  as its paragraphs with its codes stripped (`mtextLines`, core's one home of an MTEXT code) and every
+  `%%` code resolved (`normaliseNotation`); spacing reads as one space. What one key says twice — a
+  title block paints `DATE` twice — is ONE entry. An attribute DEFINITION is not indexed: it is the
+  template a reference fills, not what the sheet says. Over F-RCC6-BNBC that is 4,292 texts, and
+  "LIFT CORE" answers eleven: the ten TEXT entities the session-8 map counted, and S-23's title-block
+  attribute. Each text stands on the sheet core's one resolver names (`sheetOfKey`, VD-1): the paper
+  sheet it was drawn on, else the one sheet whose windows frame it (the seven model-space "LIFT CORE"
+  labels land on S-13, S-14, S-15 ×2, S-19, S-20 and S-21), else model space. A block reference drawn
+  in MODEL space carries no points of its own, so core stands it on model space until core places a
+  reference by its paint — its text is found there, and opens there (owed, §8). A KEY IS FOUND ONCE:
+  a key is what a find opens, and one key may say several different things — a title block's
+  reference paints `SHEET TITLE`, `SHEET NO.` and `JOB NO.` under its one key — so a query answers
+  each key once (`findInIndex`), by the text that says exactly what was asked, else the first drawn.
+  Answering each text would list rows that read alike and open the same selection: over F-RCC6-BNBC,
+  "SHEET" found 57 texts under 30 keys, and "NO" and "REV" likewise. (A paragraph ordinal in the row
+  key would have kept the twins apart, and still listed two ways to one place.)
+- **I-475 — two finds, `mark` and `text`, each opening the viewer ON what it names.** Inside a
+  project the navigate group gains the register's marks and the sheets' texts beside the names. A
+  `mark` find is a mark the register holds that IS what was typed, compared as the drawing's marks
+  are (`dotlessUpper`, L-CAD-07: `c-2` is `C2`, and `C2` is never `C21`), over the campaign the
+  register renders (the project's latest), without the rows a person struck (I-173); one find per
+  mark, class and sheet, counting the rows standing on that sheet and selecting every member's
+  outline and mark there — placed by the Trace's own reading (`traceCitations` over the revision's
+  pinned record, I-421), never a second one. Only the drawings that place in the named rows' views
+  are read for that (`drawingsPlacingIn`): a placement key begins with its view's key (L-REG-04), so
+  no other drawing can hold one, and reading every drawing of a large set would re-read and re-validate
+  graphs past the four `artifactAt` keeps each time a mark is typed, retiring the ones the viewer and
+  the Trace hold. A `text` find is one indexed key (I-474), labelled with what it
+  says — as much of a long paragraph as one row shows, around the words asked for, marked with an
+  ellipsis where it was cut. Both open `selectionAddress` on the sheet core named, with no camera, so
+  the viewer selects and flies (s-viewer-inspector I-85): a model-space key standing on a paper sheet
+  is held there through its window, which J-000's register leg already walks on S-10. A find no sheet
+  shows leads where it can be read — a mark to the register, a text to the drawings. The second line
+  is composed in the app layer from §3's copy and the format seam — the class through `humaniseEnum`,
+  the count through `formatUserFigure`, the sheet by its NUMBER (I-179), "Model space" in words —
+  never a sentence of the server's. A row's key names where it leads (kind, project, drawing, set,
+  layout, and a find's source key), and the host keeps ONE row per key (`rowsOfHits`), the first hit
+  standing for it: the pattern names an option by its key (`optionId`, `aria-activedescendant`), and
+  two rows keyed alike would be one option twice — React drops one, the arrows cannot pass the pair,
+  and axe reads a duplicate id. The door already answers a text once per key; the host holds the rule
+  for every answer.
+- **I-476 — the project is named by the address and judged by the one guard; a person not on
+  it is refused BY NAME beside the names.** `shell-frame.tsx`'s one reading of the pathname
+  (`projectOf`) is handed to the host, which asks `spine.search` with `{ tenantId, query, projectId }`.
+  The door judges the workspace as before (a stranger is refused `WORKSPACE_PERMISSION_NOT_HELD`,
+  thrown), then the project as a participant's read (`authorize({ participation: true })`, the
+  question every project read asks). A workspace member who is not on the project — or who names a
+  project their workspace does not hold — is answered the workspace's names with
+  `refusal: PERMISSION_NOT_HELD` BESIDE them, and nothing of the project is read: the names are theirs
+  to read, so refusing them too would take away what the palette always answered; the palette renders
+  the registered card under the rows (I-142's partial state). I-142's reachable codes therefore gain
+  `PERMISSION_NOT_HELD`, whose card the pattern already renders from the ui-side register with the
+  workspace home as its evidence (§2's rule for every code that names nowhere better). The order is the names, then marks,
+  then texts, all inside `SEARCH_LIMIT` (20): a project's name is painted into every title block of
+  its drawings, so words ranked first would bury the project a person asked for under its own sheets.
+  Texts rank a text that says exactly what was asked first, then the project's drawings in order,
+  each drawing's sheets in its inventory's order with model space last, then the order they were
+  drawn in.
+- **I-477 — the input says what it searches.** Inside a project the placeholder reads
+  `command_palette_placeholder_project`; at a workspace address it reads the names as before. The
+  provider already takes `projectId` (§1); it now publishes WHETHER it stands inside one
+  (`withinProject`), and nothing else of it.
+- **I-478 — the index is kept apart from the graphs, and the sheet leg reads no artifact.** An
+  index is kept per (tenant, content hash), 32 of them, the least recently asked retiring first, and
+  built once from the validated graph (`textIndexAt`, beside `artifactAt`'s four graphs). Measured over
+  the Edison set's five artifacts (structural, electrical, plumbing and the two minimal sets; 562 MB
+  of JSON, 17,772 texts): the first search reads and validates all five in 3.3 s, every search after
+  it answers in under a millisecond with no artifact read, and the five indexes hold 11 MB where the
+  four kept graphs hold 926 MB. The same walk through the artifact cache alone costs 3.1–3.5 s on EVERY
+  search, because five drawings cycle through four slots — which is what the sheet leg paid through
+  `sheetIndexOf` (each artifact read twice, plus every raster row). The sheet leg now reads each
+  drawing's sheet names off its stored record (`layoutNamesOf`, core's one reading of the record's
+  inventory), which answers the same cards in the same order and reads no artifact — proven live
+  card for card against `sheetIndexOf` (`tests/spine/search-text.test.ts`).
+
 **Recorded Objection (ownership).** The roster's `label: StringKey` and AC-3's `strings[entry.label]`
 require the copy in §3 to reach the one table, so this increment must also own
 `src/ui/strings/command-palette.ts`, `src/ui/strings/shortcuts.ts` and the two import-and-spread
@@ -112,7 +205,8 @@ beside the class (shell §1). No `aria-label`: the visible word *Search* is the 
   cx-palette-input"`, `role="combobox"`, `aria-expanded="true"`, `aria-controls` the list's id,
   `aria-activedescendant` the active option's id (absent when no option is active),
   `aria-autocomplete="list"`, `autocomplete="off"`, `aria-label={command_palette_input_label}`,
-  placeholder `command_palette_placeholder`. Full width, autofocused on open (AC-1).
+  placeholder `command_palette_placeholder` — `command_palette_placeholder_project` while the
+  palette stands inside a project (I-477). Full width, autofocused on open (AC-1).
 - **Offline notice** — only when offline (§2): `<p role="status" class="cx-palette-notice">`, the
   house notice chrome (`var(--info-surface)` fill, `var(--hairline)` re-keyed
   `border-color: var(--info)`, `var(--radius-4)`, padding `var(--space-3)` `var(--space-4)`,
@@ -140,11 +234,12 @@ aria-selected aria-disabled class="cx-palette-item">`, a four-column grid (`auto
 auto`), gap `var(--space-3)`, padding-inline `var(--space-3)`, min-block-size
 `var(--row-comfortable)` (I-144), radius `var(--radius-4)`. Ids are
 `cx-palette-option-{group}-{key}` with every character outside `[A-Za-z0-9_-]` folded to `-`.
-Columns: the **kind** word verbatim (the enum value — `project`, `drawing`, `sheet`, `set`, `area`,
-`action`, `shortcut`), 10 px `var(--font-mono)`, letter-spacing 0.12em, `var(--graphite-600)`,
+Columns: the **kind** word verbatim (the enum value — `project`, `drawing`, `sheet`, `set`, `mark`,
+`text`, `area`, `action`, `shortcut`), 10 px `var(--font-mono)`, letter-spacing 0.12em, `var(--graphite-600)`,
 min-inline-size `var(--space-12)`, read as part of the option's name, never `aria-hidden`; the
 **label** `var(--text-13)` `var(--graphite-900)`, single line, ellipsis; the **meta** (a hit's
-project or drawing, ellipsised) `var(--text-12)` `var(--graphite-600)` — replaced by
+project or drawing, ellipsised; a find's second line, composed per I-475:
+`command_palette_meta_mark` / `_mark_unplaced` / `command_palette_meta_text`) `var(--text-12)` `var(--graphite-600)` — replaced by
 `<span data-testid="command-palette-item-reason">` on an unavailable row; and, on shortcut rows only,
 a `<kbd class="cx-kbd">` holding `chordOf(entry)`. Active (`aria-selected="true"`): fill
 `var(--beam-100)`, label `var(--graphite-900)` at `var(--weight-heading)`. Unavailable: label
@@ -160,8 +255,11 @@ options are never tab stops.
 handler, the chord buffer and recents, and takes `{ tenantId, projectId, search, navigate, children }`.
 Addresses and transport are the app layer's: `PaletteHost`
 (`src/app/(app)/t/[tenant]/palette/palette-host.tsx`, mounted by `shell-frame.tsx`) calls
-`spine.search`, maps each hit's kind through `projectHomeRoute` · `drawingsRoute` · `viewerSheetRoute`
-· `setRoute` imported from their route-address homes, and hands `navigate`. The global handler reads
+`spine.search` with the project the address stands inside (I-476), maps each hit's kind through
+`projectHomeRoute` · `drawingsRoute` · `viewerSheetRoute` · `setRoute` — and a find through the
+Trace's `selectionAddress`, else `registerRoute` or `drawingsRoute` (I-475) — imported from their
+route-address homes, keys each find's row by its own source key so a sheet's many texts are many
+rows, and hands `navigate`. The global handler reads
 `SHORTCUTS` and only `SHORTCUTS` (`docs/design/shortcut-sheet.md` §1): `Mod+K` and Escape are honoured
 inside text fields, every other entry is ignored while one has focus; a `go` step opens its address
 when the roster's target resolves, and otherwise opens the palette with that area's row active and its
@@ -225,10 +323,17 @@ yet.** · `command_palette_reason_scope_viewer` **This key works in the viewer.*
 `command_palette_reason_scope_table` **This key works in a table.** ·
 `command_palette_reason_already_open` **This is the palette you are in.**
 
+SRCH-1 (I-475, I-477): `command_palette_placeholder_project` **Search projects, drawings,
+sheets, sets, marks and sheet text** · `command_palette_meta_text` **{sheet} · {drawing}** · `command_palette_meta_mark`
+**{class} · {count} in the register · {sheet}** · `command_palette_meta_mark_unplaced` **{class} ·
+{count} in the register** · `command_palette_model_space` **Model space** · `command_palette_elision`
+**…**
+
 Shortcut labels and scope words are `src/ui/strings/shortcuts.ts`, fixed in
 `docs/design/shortcut-sheet.md` §3 — one table, one home, so a key reads identically in the palette
 and in the sheet. Hit labels (project, drawing, sheet and set names) are the workspace's own data and
-are rendered as they stand. Voice: calm, concrete, professional; every reason says what is true and
+are rendered as they stand; so is a find's — the mark as the register holds it, the text as the sheet
+says it — cut only where one row cannot hold it, and marked there with `command_palette_elision`. Voice: calm, concrete, professional; every reason says what is true and
 where the thing lives, never "coming soon", never an exclamation mark, and never *pattern*, *route*,
 *query*, *increment* or any other build word.
 
@@ -268,8 +373,10 @@ themes.
 ## 7. Test hooks (closed contract, C-05)
 
 Routes: none new to the router — the palette stands over every `/t/{tenant}/**` address; the one new
-address is the procedure `spine.search` (GET `/api/trpc/spine.search`, input `{ tenantId, query }`,
-answering `{ hits }` over the kinds `project`, `drawing`, `sheet`, `set`). Test ids, exactly these
+address is the procedure `spine.search` (GET `/api/trpc/spine.search`, input `{ tenantId, query,
+projectId? }`, answering `{ hits, refusal? }` over the kinds `project`, `drawing`, `sheet`, `set`, and
+— with a project named — `mark` and `text`, whose hits also carry `sourceKey`, `selection`,
+`sheetLabel` and their find's own facts, I-475/d). Test ids, exactly these
 ten, on the elements ruled in §1–§2: `shell-command-palette` · `command-palette` ·
 `command-palette-input` · `command-palette-list` · `command-palette-group` · `command-palette-item` ·
 `command-palette-item-reason` · `command-palette-empty` · `command-palette-loading` ·
@@ -312,3 +419,34 @@ box is unchanged; `j-001-auth/accept.png` is `/accept-invitation`, which is not 
 so wears no frame; and `gallery-shell-*.png` is a capture of the `gallery-shell` header alone — the
 gallery's `h1` and caption — while the entries the palette adds render in the barrel sections beneath
 it. A new gallery entry never moves those two pictures, and the increment does not make it appear to.
+
+SRCH-1's proofs: `tests/takeoff/sheets/text-index.test.ts` (the index over F-RCC6-BNBC read by the
+shipped CLI — LIFT CORE's eleven, C3 never PC3, MTEXT codes stripped, one entry per block paint, and a
+cache that reads six drawings once where `artifactAt` alone re-validates), `tests/spine/search-text.test.ts`
+(the door, live: C2's mark and its text on the plan sheet; `PERMISSION_NOT_HELD` by name beside the
+names for a workspace member not on the project; `WORKSPACE_PERMISSION_NOT_HELD` for a stranger),
+`tests/ui/command-palette/find-rows.test.ts` (the rows, their second lines, their addresses, the
+refusal beside them), and a second J-021 test in `tests/e2e/palette.spec.ts` on the register leg's
+stage: ⌘K C2 lists one `mark` and one `text`, a click on the mark opens the viewer with the member's
+outline and mark selected, a click on the text with the text alone. Checkpoint
+**j-021-palette-finds**, axe only — no picture, because the rows carry the run's own identifiers.
+
+## 8. Owed scope (R-SPINE-052 is not closed by SRCH-1)
+
+- **Item descriptions and notes.** R-SPINE-052 searches "sheet text …, item descriptions, notes".
+  Only sheet text and the register's marks are searched; a BOQ item's description and a person's
+  note (the register's comments, a disposition's reason) are not. Owner: SRCH's successors — each a
+  kind of its own in `SEARCH_KINDS`, read through its screen's one reader.
+- **A block reference in model space, placed by its paint.** Core stands an entity by its points,
+  and a block reference carries none, so a model-space reference's text (a grid bubble's letter, a
+  level mark's attribute) opens on model space rather than on the plan sheet framing it (I-474).
+  Owner: core's sheet resolver (`src/core/sheets/frames.ts`), for every reader at once.
+- **A stacked fraction in an MTEXT.** `mtextLines` strips `\S1/2;` whole, so `3'-6\S1/2;"` reads
+  `3'-6"` — the fraction is lost to search and to every other reader of an MTEXT. Owner: core's
+  notation (`src/core/entitygraph/notation.ts`); a fix there moves the schedule reader's corpus too.
+- **A capped answer that says so.** Twenty hits are answered at most and the list does not say more
+  were found; a common word ("COLUMN") finds far more. Owner: this Decision's next increment — a
+  status line for a cut answer (§3) and the find bar (SRCH-2) for the rest.
+- **Text a PDF or a scan carries** (R-TO-016's OCR'd text) waits on the PDF and raster lanes, whose
+  keys the viewer cannot select yet; **a find bar within one sheet** (R-TO-016) is SRCH-2, over this
+  same index.

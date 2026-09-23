@@ -21,7 +21,7 @@ import {
 } from "../../core/acts";
 import { roleHistory } from "../../modules/spine/participants";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
-import { authorizeOrThrow } from "../authorize";
+import { authorize, authorizeOrThrow } from "../authorize";
 import { authRouter } from "../auth/router";
 import { signedOut } from "../auth/refusals";
 import { searchWorkspace, type SearchAnswer } from "../spine/search";
@@ -59,6 +59,14 @@ const SEARCH_DOOR = "spine.search";
 function text(input: unknown, name: string, door: string): string {
   const value = bagOf(input)[name];
   if (typeof value !== "string") throw new Error(`${door}: "${name}" is required and must be a string`);
+  return value;
+}
+
+/** An optional string field of a caller's bag: absent or null names nothing, and anything else must be a string. */
+function optionalText(input: unknown, name: string, door: string): string | null {
+  const value = bagOf(input)[name];
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") throw new Error(`${door}: "${name}" must be a string when it is given`);
   return value;
 }
 
@@ -168,15 +176,30 @@ export const spineRouter = router({
    *
    * The workspace is named by the caller and therefore judged before anything is read: membership
    * is what admits the request, through the one resolution every workspace-scoped door uses (B-17).
+   * A project named beside it (R-SPINE-052's first cut: its register marks and sheet text) is judged
+   * by the same guard as a participant's read, and a caller not on it is answered PERMISSION_NOT_HELD
+   * beside the workspace's names rather than instead of them (command-palette I-476).
    */
   search: signedInProcedure
-    .input((raw: unknown) => ({ tenantId: text(raw, "tenantId", SEARCH_DOOR), query: text(raw, "query", SEARCH_DOOR) }))
+    .input((raw: unknown) => ({
+      tenantId: text(raw, "tenantId", SEARCH_DOOR),
+      query: text(raw, "query", SEARCH_DOOR),
+      projectId: optionalText(raw, "projectId", SEARCH_DOOR),
+    }))
     .query(async ({ ctx, input }): Promise<SearchAnswer> => {
       // The one guard, here too (B-17): a workspace named on the wire is a value the caller wrote,
       // and the same file that answers every other door decides whether this session is in it. The
       // code is unchanged — a door that names no project keeps R-SPINE-004's own.
       await authorizeOrThrow({ userId: ctx.session.userId, tenantId: input.tenantId });
-      return searchWorkspace({ tenantId: input.tenantId, query: input.query });
+      if (input.projectId === null) return searchWorkspace({ tenantId: input.tenantId, query: input.query });
+      // A project named too is a second question of the same guard: its register and its sheets are
+      // a participant's reading (L-ACT-03), so they are searched only for a person ON the project. A
+      // person who is not is refused BY NAME beside the workspace's own names, which they may read —
+      // the palette's partial state (command-palette I-142, I-476) — and nothing of the project
+      // is read for them.
+      const onProject = await authorize({ userId: ctx.session.userId, tenantId: input.tenantId, projectId: input.projectId, participation: true });
+      if (!onProject.authorized) return { ...(await searchWorkspace({ tenantId: input.tenantId, query: input.query })), refusal: onProject.refusal };
+      return searchWorkspace({ tenantId: input.tenantId, query: input.query, projectId: input.projectId });
     }),
 
   auth: authRouter,

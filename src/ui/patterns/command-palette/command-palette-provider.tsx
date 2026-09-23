@@ -31,6 +31,11 @@ export interface CommandPaletteValue {
   readonly refusal: PaletteRefusal | null;
   readonly fault: PaletteFault | null;
   readonly offline: boolean;
+  /**
+   * Whether the palette stands inside a project, whose register marks and sheet text the seam then
+   * searches too — so the input can say what it searches (I-477).
+   */
+  readonly withinProject: boolean;
   openPalette: () => void;
   closePalette: () => void;
   togglePalette: () => void;
@@ -80,9 +85,10 @@ function faultIdOf(thrown: unknown): string {
 }
 
 // `projectId` is part of the provider's stated props (Decision §1) and is read by the app layer
-// that builds the rows and resolves a go-to's target; nothing inside the pattern reads it, so it is
-// not destructured here.
-export function CommandPaletteProvider({ tenantId, rows = [], search, navigate, goRow, children }: CommandPaletteProviderProps) {
+// that builds the rows, resolves a go-to's target and asks the seam about the project; inside the
+// pattern only WHETHER there is one is read — it decides what the input says it searches.
+export function CommandPaletteProvider({ tenantId, projectId, rows = [], search, navigate, goRow, children }: CommandPaletteProviderProps) {
+  const withinProject = projectId !== null && projectId !== undefined;
   const [open, setOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -386,6 +392,7 @@ export function CommandPaletteProvider({ tenantId, rows = [], search, navigate, 
       refusal,
       fault,
       offline,
+      withinProject,
       openPalette,
       closePalette,
       togglePalette,
@@ -417,6 +424,7 @@ export function CommandPaletteProvider({ tenantId, rows = [], search, navigate, 
       refusal,
       fault,
       offline,
+      withinProject,
       openPalette,
       closePalette,
       togglePalette,

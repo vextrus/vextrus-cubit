@@ -144,12 +144,15 @@ export const WORKSPACE = { tenantId: TENANT, name: "Ashuganj Holdings" };
 
 /* ------------------------------------------------------------------- the seam's envelope, typed */
 
-/** The four kinds `SEARCH_KINDS` closes over today (AC-2). */
-export type SearchKind = "project" | "drawing" | "sheet" | "set";
+/**
+ * The kinds `SEARCH_KINDS` closes over: the four names (AC-2), and the two finds a project search
+ * answers beside them (SRCH-1, I-475) — a register mark and a sheet's text.
+ */
+export type SearchKind = "project" | "drawing" | "sheet" | "set" | "mark" | "text";
 
 /**
  * One answered row. A hit always names the project it belongs to, because every address the palette
- * builds from one is inside a project; the other three ids are carried by the kinds that need them.
+ * builds from one is inside a project; the other ids are carried by the kinds that need them.
  */
 export interface SearchHit {
   readonly kind: SearchKind;
@@ -161,6 +164,17 @@ export interface SearchHit {
   readonly layoutName?: string | null;
   /** The row's second line — its project or drawing (Decision §1). */
   readonly meta?: string | null;
+  /** A find's own key, which keeps its row apart from its sheet's other finds (SRCH-1). */
+  readonly sourceKey?: string | null;
+  /** What a find opens the viewer on, selected (SRCH-1). */
+  readonly selection?: readonly string[] | null;
+  /** How a find's sheet is named: its number, or null for model space (SRCH-1). */
+  readonly sheetLabel?: string | null;
+  readonly drawingName?: string | null;
+  readonly clippedStart?: boolean;
+  readonly clippedEnd?: boolean;
+  readonly elementType?: string | null;
+  readonly count?: number | null;
 }
 
 /**
@@ -176,6 +190,8 @@ export interface SearchAnswer {
 export interface SearchRequest {
   readonly tenantId: string;
   readonly query: string;
+  /** The project the palette stands inside, whose finds are searched too (SRCH-1), or null. */
+  readonly projectId?: string | null;
 }
 
 export type SearchFn = (request: SearchRequest) => Promise<SearchAnswer>;
@@ -200,6 +216,8 @@ export interface SearchProbe {
   readonly search: SearchFn;
   /** Every query the host asked for, in order. */
   readonly queries: string[];
+  /** Every request the host made, whole and in order — what it said beside the query (SRCH-1). */
+  readonly requests: unknown[];
   /** Answer every call from now on with this, at once. */
   answers(answer: SearchAnswer): void;
   /** Hold every call from now on open, so the pending state can be judged. */
@@ -210,13 +228,16 @@ export interface SearchProbe {
 
 export function searchProbe(initial: SearchAnswer = { hits: [] }): SearchProbe {
   const queries: string[] = [];
+  const requests: unknown[] = [];
   let answer: SearchAnswer = initial;
   let holding = false;
   let waiting: ((given: SearchAnswer) => void)[] = [];
   const probe: SearchProbe = {
     queries,
+    requests,
     search: (request: SearchRequest) => {
       queries.push(queryOf(request));
+      requests.push(request);
       if (!holding) return Promise.resolve(answer);
       return new Promise<SearchAnswer>((settle) => {
         waiting.push(settle);
@@ -286,6 +307,11 @@ export function hrefOf(routes: RouteBuilders, tenantId: string, hit: SearchHit):
       return routes.viewerSheetRoute(tenantId, hit.projectId, hit.drawingId ?? "", hit.layoutName ?? "");
     case "set":
       return routes.setRoute(tenantId, hit.projectId, hit.setId ?? "");
+    case "mark":
+    case "text":
+      // A find's address is the Trace's (`selectionAddress`) — read in `find-rows.test.ts` from its
+      // own home, never from here: this stage serves the held-out lane too, and names the four.
+      throw new Error(`a ${hit.kind} find's address is selectionAddress's, which find-rows.test.ts reads from its home`);
   }
 }
 

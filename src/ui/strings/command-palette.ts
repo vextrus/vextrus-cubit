@@ -33,6 +33,14 @@ export const commandPalette = {
   command_palette_reason_scope_viewer: "This key works in the viewer.",
   command_palette_reason_scope_table: "This key works in a table.",
   command_palette_reason_already_open: "This is the palette you are in.",
+  // R-SPINE-052's first cut (docs/design/command-palette.md §3, I-473…f): inside a project the
+  // palette also finds the marks its register holds and the words its sheets show.
+  command_palette_placeholder_project: "Search projects, drawings, sheets, sets, marks and sheet text",
+  command_palette_meta_text: "{sheet} · {drawing}",
+  command_palette_meta_mark: "{class} · {count} in the register · {sheet}",
+  command_palette_meta_mark_unplaced: "{class} · {count} in the register",
+  command_palette_model_space: "Model space",
+  command_palette_elision: "…",
 } as const;
 
 // R-SPINE-060's per-module convention is that a table file's DESIGNATED export is the one named for

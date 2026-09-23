@@ -101,6 +101,8 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "j-021-column-slice/cited": 0,
   "j-021-column-slice/traced": 0,
   "j-021-palette-open": 0,
+  // SRCH-1: the palette listing a project's finds (a register mark and its sheet text), seeded at 0.
+  "j-021-palette-finds": 0,
   "j-021-shortcut-sheet": 0,
   "j-021/partition-confirm-open": 0,
   "j-021/partition-confirmed": 0,
