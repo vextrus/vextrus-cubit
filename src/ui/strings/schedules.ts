@@ -16,6 +16,7 @@ export const schedules = {
   schedules_registry_heading: "Member types",
   schedules_registry_mark: "Mark",
   schedules_registry_band: "Band",
+  schedules_registry_band_span: "{from} TO {to}",
   schedules_registry_section: "Section",
   schedules_registry_zone: "Zone",
   schedules_registry_none: "No mark family was named by this sheet's schedules.",

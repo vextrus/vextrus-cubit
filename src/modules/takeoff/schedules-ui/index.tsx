@@ -21,9 +21,10 @@ import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { formatUserFigure } from "@/core/format";
 import type { NoteProposal } from "@/core/notes/grammar";
 import { NOTE_KINDS, type NoteKind } from "@/core/notes/law";
+import { isDecimalFigure } from "@/core/projects";
 import { SCHEDULES_COPY, fillCopy } from "./copy";
 import { keptReadingOf } from "./kept";
-import { MODEL_SPACE, type FamilyView, type ProposalView, type ReadingView, type ScheduleTableView, type SchedulesView, type SheetView, type StandingView } from "./view";
+import { MODEL_SPACE, type FamilyView, type ProposalView, type ReadingView, type ScheduleTableView, type SchedulesView, type SheetView, type StandingView, type VariantView } from "./view";
 
 /* ------------------------------------------------------------------ what the screen is handed */
 
@@ -45,7 +46,7 @@ type BandColumn = {
   enableSorting?: boolean;
   size?: number;
   cell: (context: BandCell) => ReactNode;
-  /** A column every stored cell of which is a bare figure reads right-aligned (R-UI-084, I-sch-1). */
+  /** A column every stored cell of which is a bare figure reads right-aligned (R-UI-083, I-sch-1). */
   meta?: { align?: "right" };
 };
 
@@ -243,7 +244,52 @@ function drawn(text: string): string {
   return normaliseNotation(text);
 }
 
-/** A stored cell that is a bare figure — digits and their separators, nothing else (R-UI-084). */
+/**
+ * What a variant's Band cell says (I-436, I-sch-1(c)). A variant whose schedule states no band of
+ * floors says its band is absent. A band the notation read in the stored text itself is that text,
+ * verbatim; a band read off a longer text — a strip sheet's title — is said by its two ends in the
+ * grammar's own words, joined by the one sentence the string table rules (`1ST`, `2ND TO 6TH`). A
+ * variant the store was not asked the face of says its band text, as it always did.
+ */
+function bandSaid(variant: VariantView): string {
+  if (variant.bandText === "" || variant.banded === false || variant.bandFace === null) return DASH;
+  const face = variant.bandFace;
+  if (face === undefined) return drawn(variant.bandText);
+  if ("written" in face) return drawn(face.written);
+  return face.from === face.to ? drawn(face.from) : fillCopy("schedules_registry_band_span", { from: drawn(face.from), to: drawn(face.to) });
+}
+
+/**
+ * The stored text a variant's band was read AT, where the cell says something shorter — a strip
+ * sheet's title behind `2ND TO 6TH` — as the drawing shows it; null where the cell says the stored
+ * text itself, or nothing (I-436).
+ */
+function bandReadOff(variant: VariantView): string | null {
+  const face = variant.bandFace;
+  return face === undefined || face === null || "written" in face || variant.banded === false ? null : drawn(variant.bandText);
+}
+
+/**
+ * What a committed reading says: its figure, once, through the format seam, and the unit it was
+ * written in (§1's reading row, "canonical + unit"; I-437). The value as written is the drawing's
+ * own words and already carries the unit (`500 MPa`, `50d`), so printing it beside the unit said the
+ * unit twice (`500 MPa MPa`); it stays in the store and on the proposal row's *As written* trace.
+ */
+function readingSaid(reading: Pick<ReadingView, "canonical" | "unitAsWritten">): string {
+  return `${figureSaid(reading.canonical)} ${reading.unitAsWritten}`.trim();
+}
+
+/**
+ * A reading's canonical figure through the format seam. The seam refuses what is not a decimal
+ * (L-FMT-02), and a value that states no figure canonicalises to its own words (`canonicalFigure`):
+ * those are said as the reader wrote them, judged by the product's one decimal grammar before the
+ * seam is asked, rather than a refused format taking the screen down.
+ */
+function figureSaid(canonical: string): string {
+  return isDecimalFigure(canonical) ? formatUserFigure(canonical) : canonical;
+}
+
+/** A stored cell that is a bare figure — digits and their separators, nothing else (R-UI-083). */
 const BARE_FIGURE = /^[0-9][0-9.,\s]*$/;
 
 /**
@@ -494,9 +540,7 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
     return (
       <div className="cx-schedules-inspector" data-testid={testIds.inspector} data-kind={held.kind}>
         <h2 className="cx-schedules-inspector-title">{SCHEDULES_COPY.schedules_inspector_reading_heading}</h2>
-        <p className="cx-schedules-mono">
-          {held.valueAsWritten} {held.unitAsWritten}
-        </p>
+        <p className="cx-schedules-mono">{readingSaid(held)}</p>
         <Sources label={SCHEDULES_COPY.schedules_inspector_sources_label} sourceKeys={[held.sourceKey]} IdChip={IdChip} />
         <EnumLabel value={held.kind} label={KIND_SAID[held.kind]} className="cx-schedules-enum" />
         <EnumLabel value={held.basis} className="cx-schedules-enum" />
@@ -984,7 +1028,7 @@ function ScheduleGrid({
     enableSorting: false,
     ...(at === 0 ? { size: widthOfMarkColumn(table) } : {}),
     // A column of bare figures — a SPAN, a count the schedule states — reads down its right edge, as
-    // every column of figures on this product does (R-UI-084). The first column is the frozen mark.
+    // every column of figures on this product does (R-UI-083). The first column is the frozen mark.
     ...(at > 0 && figuresOnly(table, columnIndex) ? { meta: { align: "right" as const } } : {}),
     cell: ({ row }: BandCell) => cellAt(row.original, columnIndex),
   }));
@@ -1039,7 +1083,7 @@ function widthOfMarkColumn(table: ScheduleTableView): number {
   return Math.min(WIDTH_MARK_MAX, Math.max(WIDTH_MARK_MIN, widest * MONO_CHAR_PX));
 }
 
-/** Whether every stored data cell of one column that says anything is a bare figure (R-UI-084). */
+/** Whether every stored data cell of one column that says anything is a bare figure (R-UI-083). */
 function figuresOnly(table: ScheduleTableView, columnIndex: number): boolean {
   const said = table.rows.flatMap((row) => row.cells.filter((cell) => cell.columnIndex === columnIndex && cell.text.trim() !== "").map((cell) => cell.text.trim()));
   return said.length > 0 && said.every((text) => BARE_FIGURE.test(text));
@@ -1081,8 +1125,11 @@ function Family({
       {family.variants.map((variant) => {
         // A Band is a band of FLOORS (§1). A schedule that states none — a beam schedule — gave the
         // variant its section column's HEADER as its band text, and printing `SIZE` under Band says a
-        // band the drawing never drew; such a variant says its band is absent (I-sch-1).
-        const band = variant.bandText === "" || variant.banded === false ? DASH : drawn(variant.bandText);
+        // band the drawing never drew; such a variant says its band is absent (I-sch-1). A strip
+        // family's band was read off its sheet's TITLE, and the cell says the band, not the title; the
+        // title stands in the cell's Tooltip, as the drawing shows it (I-436).
+        const band = bandSaid(variant);
+        const readOff = bandReadOff(variant);
         const section = variant.sectionText === "" ? DASH : drawn(variant.sectionText);
         return (
           <div className="cx-schedules-variant" key={variant.variantKey} data-testid={testIds.variant} data-variant={variant.variantKey}>
@@ -1091,10 +1138,16 @@ function Family({
                 the band that the schedule never wrote there, and its digits stand as figures nobody
                 measured (I-251, L-CAD-08). The key rides `data-variant`, which is where a suite
                 addresses it and where no reader mistakes it for the drawing's own text. */}
-            <span className="cx-schedules-registry-cell cx-schedules-mono cx-schedules-at-band">{band}</span>{" "}
+            {readOff === null ? (
+              <span className="cx-schedules-registry-cell cx-schedules-mono cx-schedules-at-band">{band}</span>
+            ) : (
+              <Tooltip content={readOff}>
+                <span className="cx-schedules-registry-cell cx-schedules-mono cx-schedules-at-band">{band}</span>
+              </Tooltip>
+            )}{" "}
             {/* The one track that gives way: a section written with its bars in one cell is the longest
                 thing on the row, so it ellipsises and the whole of it stands in its Tooltip (§1's cell
-                rule — no wrap, ellipsis plus tooltip, R-UI-084). */}
+                rule — no wrap, ellipsis plus tooltip, R-UI-083). */}
             <Tooltip content={section}>
               <span className="cx-schedules-registry-cell cx-schedules-mono cx-schedules-at-section">{section}</span>
             </Tooltip>{" "}
@@ -1190,9 +1243,7 @@ function Reading({
       }}
     >
       <EnumLabel value={reading.kind} label={KIND_SAID[reading.kind]} className="cx-schedules-enum" />
-      <span className="cx-schedules-mono">
-        {reading.valueAsWritten} {reading.unitAsWritten}
-      </span>
+      <span className="cx-schedules-mono">{readingSaid(reading)}</span>
       <EnumLabel
         value={reading.acceptance}
         label={reading.acceptance === ACCEPTED ? SCHEDULES_COPY.schedules_reading_accepted : SCHEDULES_COPY.schedules_reading_edited}

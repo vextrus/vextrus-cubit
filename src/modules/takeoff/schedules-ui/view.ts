@@ -53,6 +53,19 @@ export type ZoneView = {
   readonly sourceKeys: readonly string[];
 };
 
+/**
+ * What the registry's Band cell says for one banded variant (I-436).
+ *
+ * `written` where the stored band text IS a band of floors the notation reads (`parseFloorZone`):
+ * a column schedule's `GF TO 2ND`, `3RD & 4TH`, `ROOF-SRR` — said verbatim, as the schedule wrote it.
+ *
+ * `from`/`to` where the store banded the variant off a longer text that is not itself a band — a
+ * long-section strip sheet's whole title, `TYPICAL FLOOR BEAM LONG SECTIONS (2ND TO 6TH FLOOR)`
+ * (I-343) — and the cell says the band's two ends as the grammar spelled them when it read that
+ * title. The stored text is kept byte for byte and stands a hover away (L-CAD-08).
+ */
+export type BandFace = { readonly written: string } | { readonly from: string; readonly to: string };
+
 /** One variant of a mark family: the band of floors it stands over, and the section carried there. */
 export type VariantView = {
   readonly variantKey: string;
@@ -63,6 +76,11 @@ export type VariantView = {
    * screen says the band is absent there (I-sch-1). Absent where the store was not asked.
    */
   readonly banded?: boolean;
+  /**
+   * How the Band cell says this variant's floors (I-436): null where it is unbanded, absent where
+   * the store was not asked — the cell then says the band text, as it always did.
+   */
+  readonly bandFace?: BandFace | null;
   readonly sectionText: string;
   readonly sourceKeys: readonly string[];
   readonly zones: readonly ZoneView[];

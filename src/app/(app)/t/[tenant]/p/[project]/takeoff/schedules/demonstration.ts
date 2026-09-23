@@ -58,8 +58,29 @@ const COLUMN_SCHEDULE = {
   ],
 } as const;
 
-/** The member types those columns named — the mark family, its band, and the zones beneath it. */
+/**
+ * The member types those columns named — the mark family, its band, and the zones beneath it — and a
+ * long-section strip family beside them, banded by its sheet's title, which is how the product hands
+ * the screen a beam read off strips (I-343): the band a column schedule wrote is said as written,
+ * the band read off a title is said by its ends (I-436).
+ */
 const MEMBER_TYPES = [
+  {
+    family: "B1",
+    markText: "B1",
+    sourceKeys: ["demo:mark-b1"],
+    variants: [
+      {
+        variantKey: "2ND-6TH",
+        bandText: "BEAM LONG SECTIONS (2ND TO 6TH FLOOR) — DEMONSTRATION",
+        banded: true,
+        bandFace: { from: "2ND", to: "6TH" },
+        sectionText: "300x600",
+        sourceKeys: ["demo:strip-b1"],
+        zones: [],
+      },
+    ],
+  },
   {
     family: "C",
     markText: "C1",
@@ -68,6 +89,8 @@ const MEMBER_TYPES = [
       {
         variantKey: "GF-3RD",
         bandText: "GF TO 3RD",
+        banded: true,
+        bandFace: { written: "GF TO 3RD" },
         sectionText: "300x450",
         sourceKeys: ["demo:band-gf-3rd"],
         zones: [
@@ -95,7 +118,12 @@ const PROPOSAL = {
   governs: "0.94",
 };
 
-/** The notes the demonstrated sheet's own words state, with one reading committed against them. */
+/**
+ * The notes the demonstrated sheet's own words state, with one reading committed against them — in
+ * the shape the grammar keeps a reading accepted as proposed: the value as written is the note's own
+ * words and carries its unit (`500 MPa`), the unit stands beside it, and the canonical is the figure
+ * alone. The row says the canonical and the unit once (I-437); it printed `500 MPa MPa` here.
+ */
 const READING = {
   readingKey: "demo-reading-fy",
   drawingId: DRAWING_ID,

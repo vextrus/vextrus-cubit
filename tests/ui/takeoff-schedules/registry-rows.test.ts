@@ -2,7 +2,11 @@
 /**
  * I-353 (b)(c) — the member-type registry reads as a registry: ONE grid headed once, every variant
  * one row whose cells stand under their column's name, and the rail says the model space in words
- * (docs/design/s-schedules.md §0 I-353, §1's registry region; R-UI-082, R-UI-084).
+ * (docs/design/s-schedules.md §0 I-353, §1's registry region; R-UI-082, R-UI-083).
+ *
+ * I-436, I-437 and I-sch-1(b) as amended — a strip family's Band says its floors (`1ST`,
+ * `2ND TO 6TH`) and never its sheet's title; a committed reading says its unit once; and the rail's
+ * name keeps its width while what the sheet holds yields first.
  *
  * What the vision re-look found: `Band`, `Section` and `Zone` printed on every row, a variant row
  * that wrapped onto a second line at 1280, and the rail's first sheet named `model`. The structure is
@@ -15,12 +19,12 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Fragment, createElement, type ReactNode } from "react";
 import { afterEach, describe, expect, test } from "vitest";
 import { SchedulesWorkspace, type SchedulesAddresses, type SchedulesChrome, type SchedulesDoors } from "@/modules/takeoff/schedules-ui";
 import { SCHEDULES_COPY } from "@/modules/takeoff/schedules-ui/copy";
-import type { FamilyView, SchedulesView, SheetView } from "@/modules/takeoff/schedules-ui/view";
+import type { BandFace, FamilyView, ReadingView, SchedulesView, SheetView } from "@/modules/takeoff/schedules-ui/view";
 import { MODEL_SPACE } from "@/modules/takeoff/schedules-ui/view";
 import { REBAR_ZONES } from "@/core/db/schema-takeoff-schedules";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
@@ -226,7 +230,7 @@ describe("I-353: the sheet stated in the geometry — one row, fixed tracks, not
   test("no rule of the registry wraps, and a cell that is too long ellipsises", () => {
     for (const selector of [".cx-schedules-registry-grid", ".cx-schedules-registry-head", ".cx-schedules-family", ".cx-schedules-variant", ".cx-schedules-zone"]) {
       const wraps = (ruleBody(SHEET, selector) ?? []).filter((decl) => decl.prop === "flex-wrap" && decl.value !== "nowrap");
-      expect(wraps, `${selector} states no wrap (R-UI-084)`).toEqual([]);
+      expect(wraps, `${selector} states no wrap (R-UI-083)`).toEqual([]);
     }
     expect(declaredValue(SHEET, ".cx-schedules-registry-cell", "white-space")).toBe("nowrap");
     expect(declaredValue(SHEET, ".cx-schedules-registry-cell", "text-overflow")).toBe("ellipsis");
@@ -262,5 +266,208 @@ describe("I-353: the rail says the model space in words", () => {
     const root = mount({ ...reading, sheets: [unasked] });
     const name = all(root, TESTIDS.schedules.sheetRow)[0]?.querySelector(".cx-schedules-sheet-name") as Element;
     expect(said(name)).toBe(MODEL_SPACE);
+  });
+});
+
+/* ------------------------------------------------------- I-436: a Band says floors, not a title */
+
+/** The two strip sheets' titles F-RCC6-BNBC stores as its strip families' band text (I-343). */
+const FIRST_FLOOR_TITLE = "1ST FLOOR BEAM LONG SECTIONS - TOP, BOTTOM AND EXTRA BARS";
+const TYPICAL_TITLE = "TYPICAL FLOOR BEAM LONG SECTIONS (2ND TO 6TH FLOOR)";
+
+/** One family of one variant, handed the band text the store holds and the face the reading gave it. */
+function aBandedFamily(mark: string, bandText: string, bandFace: BandFace | null): FamilyView {
+  return {
+    family: mark,
+    markText: mark,
+    sourceKeys: [`DXF_HANDLE:${mark}`],
+    variants: [{ variantKey: `${mark}:0`, bandText, banded: bandFace !== null, bandFace, sectionText: "300x600", sourceKeys: [`DXF_HANDLE:${mark}:0`], zones: [] }],
+  };
+}
+
+/** The model space holding a strip family of each sheet, a column family and a beam schedule's family. */
+function aStripReading(): SchedulesView {
+  const reading = aReading();
+  const model: SheetView = {
+    ...(reading.sheets[0] as SheetView),
+    families: [
+      aBandedFamily("1B1", FIRST_FLOOR_TITLE, { from: "1ST", to: "1ST" }),
+      aBandedFamily("B1", TYPICAL_TITLE, { from: "2ND", to: "6TH" }),
+      aBandedFamily("C1", "GF TO 2ND", { written: "GF TO 2ND" }),
+      aBandedFamily("RB1", "SIZE", null),
+    ],
+  };
+  return { ...reading, sheets: [model] };
+}
+
+/** The Band cell of one family's first variant row. */
+function bandCellOf(root: HTMLElement, family: string): HTMLElement {
+  const row = root.querySelector<HTMLElement>(`${testIdSelector(TESTIDS.schedules.family)}[data-family="${family}"] ${testIdSelector(TESTIDS.schedules.variant)}`);
+  return row?.querySelector<HTMLElement>(".cx-schedules-at-band") as HTMLElement;
+}
+
+describe("I-436: a strip family's Band says the floors its sheet names, never the sheet's title", () => {
+  test("the first floor's strips say 1ST and the typical floors' say 2ND TO 6TH, in the string table's own words", () => {
+    const root = mount(aStripReading());
+    expect(said(bandCellOf(root, "1B1")), "one floor is said once").toBe("1ST");
+    expect(said(bandCellOf(root, "B1"))).toBe(SCHEDULES_COPY.schedules_registry_band_span.replace("{from}", "2ND").replace("{to}", "6TH"));
+    expect(said(bandCellOf(root, "B1")), "which reads as the drawing's own convention").toBe("2ND TO 6TH");
+    for (const family of ["1B1", "B1"]) {
+      const row = root.querySelector(`${testIdSelector(TESTIDS.schedules.family)}[data-family="${family}"]`) as Element;
+      expect(said(row), `the ${family} row says no word of its sheet's title`).not.toMatch(/LONG SECTIONS/);
+    }
+  });
+
+  test("a band the schedule wrote as a band is said verbatim, and a beam schedule's header is no band", () => {
+    const root = mount(aStripReading());
+    expect(said(bandCellOf(root, "C1"))).toBe("GF TO 2ND");
+    expect(said(bandCellOf(root, "RB1")), "a Band is a band of floors (I-sch-1(c))").toBe("—");
+  });
+
+  test("the title the band was read at stands a hover — or a focus — away, as the drawing shows it", async () => {
+    const root = mount(aStripReading());
+    const typical = bandCellOf(root, "B1");
+    expect(typical.hasAttribute("data-state"), "the composed band is the shipped Tooltip's trigger").toBe(true);
+    fireEvent.focus(typical);
+    const hint = await screen.findByTestId(TESTIDS.tooltip.content);
+    expect(hint.textContent, "and the tooltip says the stored text whole").toContain(TYPICAL_TITLE);
+    fireEvent.blur(typical);
+    expect(bandCellOf(root, "C1").hasAttribute("data-state"), "a band said as written needs no second telling").toBe(false);
+  });
+});
+
+/* ------------------------------------------------- I-437: a committed reading says its unit once */
+
+/** A reading the transcribe act keeps as proposed: the grammar's value as written carries its unit. */
+const FY_READING: ReadingView = {
+  readingKey: "reading-fy",
+  drawingId: DRAWING,
+  layoutName: "S-01 GENERAL NOTES",
+  kind: "FY",
+  actorId: "7c2f0b3c-5555-4555-8555-555555555555",
+  sourceKey: "DXF_HANDLE:1F3F",
+  valueAsWritten: "500 MPa",
+  unitAsWritten: "MPa",
+  canonical: "500",
+  basis: "TRANSCRIBED",
+  acceptance: "ACCEPTED",
+  actId: "7c2f0b3c-6666-4666-8666-666666666666",
+  superseded: false,
+};
+
+describe("I-437: a committed reading says its figure once and its unit once", () => {
+  test("the reading row and the inspector say 500 MPa, never 500 MPa MPa", () => {
+    const reading = aReading();
+    const notes: SheetView = { ...(reading.sheets[1] as SheetView), layoutName: FY_READING.layoutName, notes: { proposals: [], readings: [FY_READING], standings: [] } };
+    const root = mount({ ...reading, sheets: [notes] });
+    const row = all(root, TESTIDS.schedules.reading)[0] as HTMLElement;
+    const figure = row.querySelector(".cx-schedules-mono") as Element;
+    expect(said(figure), "canonical + unit (§1's reading row)").toBe("500 MPa");
+
+    fireEvent.click(row);
+    const inspector = document.querySelector(testIdSelector(TESTIDS.schedules.inspector)) as HTMLElement;
+    expect(inspector, "choosing the reading opens its inspector").not.toBeNull();
+    expect(said(inspector.querySelector(".cx-schedules-mono") as Element)).toBe("500 MPa");
+  });
+
+  test("a figure the reader kept in the box is said through the format seam, with the unit it was written in", () => {
+    const reading = aReading();
+    const edited: ReadingView = { ...FY_READING, kind: "HOOK_MIN", valueAsWritten: "1250", unitAsWritten: "mm", canonical: "1250", acceptance: "EDITED" };
+    const notes: SheetView = { ...(reading.sheets[1] as SheetView), layoutName: FY_READING.layoutName, notes: { proposals: [], readings: [edited], standings: [] } };
+    const root = mount({ ...reading, sheets: [notes] });
+    const row = all(root, TESTIDS.schedules.reading)[0] as HTMLElement;
+    expect(said(row.querySelector(".cx-schedules-mono") as Element)).toBe("1,250 mm");
+  });
+
+  test("a value that stated no figure canonicalises to its own words, and is said as written rather than refused by the format seam", () => {
+    const reading = aReading();
+    const wordy: ReadingView = { ...FY_READING, kind: "LAP", valueAsWritten: "AS PER CODE", unitAsWritten: "d", canonical: "AS PER CODE", acceptance: "EDITED" };
+    const notes: SheetView = { ...(reading.sheets[1] as SheetView), layoutName: FY_READING.layoutName, notes: { proposals: [], readings: [wordy], standings: [] } };
+    const root = mount({ ...reading, sheets: [notes] });
+    const row = all(root, TESTIDS.schedules.reading)[0] as HTMLElement;
+    expect(said(row.querySelector(".cx-schedules-mono") as Element)).toBe("AS PER CODE d");
+  });
+});
+
+/* ---------------------------------------- I-sch-1(b) as amended: the name keeps its width first */
+
+/** One flex item as the rail row lays it out: its declared `flex`, what its content asks, its floor. */
+type FlexItem = { readonly flex: string; readonly content: number; readonly min: number };
+
+/**
+ * One line of a flex row, no wrap, resolved as CSS Flexbox's "resolve the flexible lengths" does:
+ * each item's base size is its basis (`auto` is its content), free space is shared out by grow
+ * factors or taken back by shrink factor × base size, and an item held at its min-width is frozen
+ * while the rest are resolved again. jsdom lays nothing out, so the rule is read off the sheet and
+ * resolved here — the browser's own paint is the product-review walk's to look at.
+ */
+function laidOut(container: number, gap: number, items: readonly FlexItem[]): number[] {
+  const parsed = items.map((item) => {
+    const [grow = "0", shrink = "1", basis = "auto"] = item.flex.trim().split(/\s+/);
+    const base = basis === "auto" ? item.content : Number.parseFloat(basis);
+    return { grow: Number(grow), shrink: Number(shrink), base, min: item.min };
+  });
+  const inner = container - gap * (items.length - 1);
+  const growing = parsed.reduce((sum, item) => sum + Math.max(item.base, item.min), 0) < inner;
+  const size = parsed.map((item) => item.base);
+  const frozen = parsed.map((item) => (growing ? item.grow === 0 : item.shrink === 0));
+  for (;;) {
+    const open = parsed.map((_, at) => at).filter((at) => !frozen[at]);
+    if (open.length === 0) break;
+    const free = inner - parsed.reduce((sum, item, at) => sum + (frozen[at] ? (size[at] as number) : item.base), 0);
+    const weight = (at: number): number => (growing ? (parsed[at]?.grow ?? 0) : (parsed[at]?.shrink ?? 0) * (parsed[at]?.base ?? 0));
+    const total = open.reduce((sum, at) => sum + weight(at), 0);
+    for (const at of open) size[at] = (parsed[at]?.base ?? 0) + (total === 0 ? 0 : (free * weight(at)) / total);
+    const held = open.filter((at) => (size[at] as number) < (parsed[at]?.min ?? 0));
+    if (held.length === 0) break;
+    for (const at of held) {
+      size[at] = parsed[at]?.min ?? 0;
+      frozen[at] = true;
+    }
+  }
+  return size;
+}
+
+/** A glyph of the rail's caption face, reckoned; the rule is proved over widths, not over a font. */
+const CH = 7;
+
+/** A length the sheet states for a rail item's floor, in the reckoned px. */
+function floorOf(selector: string): number {
+  const value = declaredValue(SHEET, selector, "min-width") ?? "0";
+  return value.endsWith("ch") ? Number.parseFloat(value) * CH : Number.parseFloat(value);
+}
+
+/** The name and the holdings of one rail row, laid out in the control that chooses the sheet. */
+function railRow(control: number, name: string, holds: string): { name: number; holds: number } {
+  const [nameWidth = 0, holdsWidth = 0] = laidOut(control, CH, [
+    { flex: declaredValue(SHEET, ".cx-schedules-sheet-name", "flex") ?? "", content: name.length * CH, min: floorOf(".cx-schedules-sheet-name") },
+    { flex: declaredValue(SHEET, ".cx-schedules-sheet-holds", "flex") ?? "", content: holds.length * CH, min: floorOf(".cx-schedules-sheet-holds") },
+  ]);
+  return { name: nameWidth, holds: holdsWidth };
+}
+
+/** The control's width in the 200 px rail, reckoned: what the rail and the row pad leave of it. */
+const CONTROL = 24 * CH;
+
+describe("I-sch-1(b) as amended: the sheet's name gives way last, and what it holds yields first", () => {
+  test("the chosen model row keeps Model space whole beside Schedule · Notes · Deferred", () => {
+    const row = railRow(CONTROL, "Model space", "Schedule · Notes · Deferred");
+    expect(row.name, "the name keeps the width its words ask for").toBe("Model space".length * CH);
+    expect(row.holds, "and the holdings take what is left, ellipsised").toBe(CONTROL - CH - "Model space".length * CH);
+  });
+
+  test("a name longer than the row takes the row, down to its sheet number, and the holdings yield to nothing", () => {
+    const long = railRow(CONTROL, "S-01 GENERAL NOTES (1 OF 2) — SHEET ONE", "Notes");
+    expect(long.holds, "the holdings yield their width first").toBe(0);
+    expect(long.name, "and the name ellipsises in what the row has").toBe(CONTROL - CH);
+    const narrow = railRow(4 * CH, "S-01 GENERAL NOTES (1 OF 2)", "Notes");
+    expect(narrow.name, "never below its sheet number (6ch)").toBe(6 * CH);
+  });
+
+  test("a short name beside short holdings leaves the holdings their words, at the row's end", () => {
+    const row = railRow(CONTROL, "S-11", "Notes");
+    expect(row.name).toBe("S-11".length * CH);
+    expect(row.holds, "the holdings take the leftover rather than a share of the name").toBeGreaterThanOrEqual("Notes".length * CH);
+    expect(declaredValue(SHEET, ".cx-schedules-sheet-holds", "text-align"), "and stand at the row's end").toBe("end");
   });
 });

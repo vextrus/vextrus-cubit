@@ -163,9 +163,15 @@
 
 /* The sheet's name is what a reader chooses by, so it gives way LAST: what the sheet holds yields
    its width first, down to nothing, and the name keeps at least its sheet number (I-sch-1, §1's
-   "no wrap, ellipsis plus tooltip"). Neither may paint over the other. */
+   "no wrap, ellipsis plus tooltip"). Neither may paint over the other.
+
+   The name never grows and asks for its own width (`0 1 auto`); the holdings ask for NONE
+   (`1 1 0`) and take only what the name leaves. Shrink is weighted by basis, so while both asked
+   for their content — the name `1 1 auto`, the holdings `0 4 auto` — a long holdings string still
+   took its share out of the name: the chosen row read `Model sp…` beside `Schedule · Notes ·
+   Deferred` (I-sch-1(b) as amended, §5). */
 .cx-schedules-sheet-name {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 6ch;
   overflow: hidden;
   white-space: nowrap;
@@ -180,13 +186,15 @@
   color: inherit;
 }
 
+/* The holdings take the leftover and stand at the row's end; where they overflow they are
+   start-aligned and ellipsise at the end, as every overflowing line of text is. */
 .cx-schedules-sheet-holds {
-  flex: 0 4 auto;
+  flex: 1 1 0;
   min-width: 0;
-  margin-left: auto;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  text-align: end;
   color: var(--ink-muted);
 }
 
@@ -393,7 +401,7 @@
    the mark, the band, the section, then one track per rebar zone in the store's own order, so a zone
    stands under the same zone on every row. Every row is one `--row-h` line and nothing on it wraps —
    the section is the one track that gives way, ellipsised with its whole text in a Tooltip (§1's cell
-   rule, R-UI-084). A track with nothing in it is `auto` and holds no cell, so it takes no width at
+   rule, R-UI-083). A track with nothing in it is `auto` and holds no cell, so it takes no width at
    all; the space between tracks is each cell's own inline end rather than a column gap, which an
    empty track would otherwise still pay. Every track takes what its widest cell needs and the zones
    stand right after the section, where the eye reads on; what is left over stands at the END of the

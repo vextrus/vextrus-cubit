@@ -14,9 +14,10 @@ import { NOTE_KINDS, type NoteKind } from "@/core/notes/law";
 import { noteStanding } from "@/core/notes/standing";
 import type { NoteReadingRow } from "@/core/notes/store";
 import { clauseOffersOnDrawing, readingsOnDrawings, sheetLayoutsOf, type NoteClauseOfferWrite } from "@/modules/takeoff/notes";
-import { memberTypesOf, schedulesOf, type MemberFamily, type ScheduleCell, type StoredSchedule, type ViewsScope } from "@/modules/takeoff/partition";
-import { MARK_ORDER, variantsInStoreyOrder } from "./order";
-import { MODEL_SPACE, type FamilyView, type NotesView, type ProposalView, type ReadingView, type ScheduleTableView, type SchedulesView, type SheetView, type StandingView } from "./view";
+import { memberTypesOf, schedulesOf, type ScheduleCell, type StoredSchedule, type ViewsScope } from "@/modules/takeoff/partition";
+import { familyViewOf } from "./family-view";
+import { MARK_ORDER } from "./order";
+import { MODEL_SPACE, type NotesView, type ProposalView, type ReadingView, type ScheduleTableView, type SchedulesView, type SheetView, type StandingView } from "./view";
 
 /** Which project's sheets are being read, in which workspace. */
 export type SchedulesViewScope = { readonly tenantId: string; readonly projectId: string };
@@ -90,7 +91,7 @@ async function sheetsOfDrawing(scope: SchedulesViewScope, drawingId: string, rea
     const deferrals = onModel ? (stored?.deferrals ?? []).map((deferral) => ({ viewKey: deferral.viewKey, reason: deferral.reason })) : [];
     // Marks in the order a reader counts them — RB1, RB2 … RB10, never the string order that puts
     // RB10 second (R-UI-084). The order is presentation; what each family says is the store's.
-    const families = onModel ? (types?.families ?? []).map(familyOf).sort((left, right) => MARK_ORDER.compare(left.family, right.family)) : [];
+    const families = onModel ? (types?.families ?? []).map(familyViewOf).sort((left, right) => MARK_ORDER.compare(left.family, right.family)) : [];
     if (schedules.length === 0 && deferrals.length === 0 && layout.texts.length === 0) continue;
     sheets.push({
       drawingId,
@@ -137,27 +138,6 @@ function tableOf(stored: StoredSchedule): ScheduleTableView {
     title: stored.title,
     header: ordered[0],
     rows: ordered.slice(1),
-  };
-}
-
-/**
- * One stored mark family, verbatim — its mark as the schedule wrote it, and never a count (I-251).
- * Its variants stand in the order a column schedule is read, from the ground up (I-353): the store
- * keeps them in whatever order its key sorts, which put `3RD & 4TH` before `GF TO 2ND`.
- */
-function familyOf(family: MemberFamily): FamilyView {
-  return {
-    family: family.family,
-    markText: family.markText,
-    sourceKeys: family.sourceKeys,
-    variants: variantsInStoreyOrder(family.variants).map((variant) => ({
-      variantKey: variant.variantKey,
-      bandText: variant.bandText,
-      banded: variant.bandFrom !== null,
-      sectionText: variant.sectionText,
-      sourceKeys: variant.sourceKeys,
-      zones: variant.zones.map((zone) => ({ zone: zone.zone, text: zone.text, sourceKeys: zone.sourceKeys })),
-    })),
   };
 }
 
