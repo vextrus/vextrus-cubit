@@ -127,10 +127,22 @@ export type NotesView = {
   readonly standings: readonly StandingView[];
 };
 
+/**
+ * The extractor's word for a drawing's MODEL space (L-CAD-05, L-CAD-06): the one space views are cut
+ * out of, so the schedules and their deferrals stand there. Its layout NAME is the DXF's own
+ * (`model`), which is no sheet's title — the rail says the space in words instead (I-353).
+ */
+export const MODEL_SPACE = "model";
+
 /** One sheet of the pinned revision, with everything this screen renders of it (I-248). */
 export type SheetView = {
   readonly drawingId: string;
   readonly layoutName: string;
+  /**
+   * The extractor's own word for the space this sheet is — `model`, or a paper layout's (L-CAD-05).
+   * Absent where the store was not asked; the rail then says the layout's name, as it always did.
+   */
+  readonly kind?: string;
   readonly schedules: readonly ScheduleTableView[];
   readonly deferrals: readonly ScheduleDeferralView[];
   readonly families: readonly FamilyView[];

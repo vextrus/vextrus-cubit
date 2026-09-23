@@ -15,13 +15,11 @@ import { noteStanding } from "@/core/notes/standing";
 import type { NoteReadingRow } from "@/core/notes/store";
 import { clauseOffersOnDrawing, readingsOnDrawings, sheetLayoutsOf, type NoteClauseOfferWrite } from "@/modules/takeoff/notes";
 import { memberTypesOf, schedulesOf, type MemberFamily, type ScheduleCell, type StoredSchedule, type ViewsScope } from "@/modules/takeoff/partition";
-import type { FamilyView, NotesView, ProposalView, ReadingView, ScheduleTableView, SchedulesView, SheetView, StandingView } from "./view";
+import { MARK_ORDER, variantsInStoreyOrder } from "./order";
+import { MODEL_SPACE, type FamilyView, type NotesView, type ProposalView, type ReadingView, type ScheduleTableView, type SchedulesView, type SheetView, type StandingView } from "./view";
 
 /** Which project's sheets are being read, in which workspace. */
 export type SchedulesViewScope = { readonly tenantId: string; readonly projectId: string };
-
-/** The space a drawing's views are cut out of — schedules and their deferrals stand there (L-CAD-06). */
-const MODEL_SPACE = "model";
 
 /** The revision a project's takeoff stands on today, and the drawings it named (L-REG-06, L-REG-07). */
 type PinnedRevision = { readonly setRevisionId: string; readonly drawingIds: readonly string[] };
@@ -97,6 +95,7 @@ async function sheetsOfDrawing(scope: SchedulesViewScope, drawingId: string, rea
     sheets.push({
       drawingId,
       layoutName: layout.layoutName,
+      kind: layout.kind,
       schedules,
       deferrals,
       families,
@@ -109,27 +108,6 @@ async function sheetsOfDrawing(scope: SchedulesViewScope, drawingId: string, rea
   }
   return sheets;
 }
-
-/**
- * The natural order of marks: a run of digits in a mark compares as the number it is, every other
- * run as text — RB2 before RB10. Written out on the text rather than through a collator, because the
- * format seam is this tree's one caller of `Intl` (LAW-FMT) and a mark is not a figure to format.
- */
-const MARK_ORDER = Object.freeze({
-  compare(left: string, right: string): number {
-    const runs = (mark: string): string[] => mark.match(/\d+|\D+/g) ?? [];
-    const one = runs(left);
-    const other = runs(right);
-    for (let at = 0; at < Math.min(one.length, other.length); at += 1) {
-      const a = one[at] as string;
-      const b = other[at] as string;
-      const numeric = /^\d/.test(a) && /^\d/.test(b);
-      const order = numeric ? Number(a) - Number(b) || a.length - b.length : a < b ? -1 : a > b ? 1 : 0;
-      if (order !== 0) return order;
-    }
-    return one.length - other.length;
-  },
-});
 
 /**
  * One stored schedule as a table of bands (I-250). The rows are the store's own row indices in
@@ -162,13 +140,17 @@ function tableOf(stored: StoredSchedule): ScheduleTableView {
   };
 }
 
-/** One stored mark family, verbatim — its mark as the schedule wrote it, and never a count (I-251). */
+/**
+ * One stored mark family, verbatim — its mark as the schedule wrote it, and never a count (I-251).
+ * Its variants stand in the order a column schedule is read, from the ground up (I-353): the store
+ * keeps them in whatever order its key sorts, which put `3RD & 4TH` before `GF TO 2ND`.
+ */
 function familyOf(family: MemberFamily): FamilyView {
   return {
     family: family.family,
     markText: family.markText,
     sourceKeys: family.sourceKeys,
-    variants: family.variants.map((variant) => ({
+    variants: variantsInStoreyOrder(family.variants).map((variant) => ({
       variantKey: variant.variantKey,
       bandText: variant.bandText,
       banded: variant.bandFrom !== null,

@@ -7,6 +7,18 @@ import type { BbsDocument } from "@/modules/takeoff/rebar";
 
 export type { BbsDocument };
 
+/**
+ * One thing the partly declared lines left out, as they state it (L-QTY-02): the registered code the
+ * absence is declared under, and the COMPONENTS of the line it was declared for — the line's own
+ * variable names (`net`, `lap`, `ties`), each once, in the order the lines first state them. The
+ * screen says the components in words before the registry's message, so a reader learns WHAT is
+ * missing before why (I-354).
+ */
+export type BbsOmission = {
+  readonly code: string;
+  readonly components: readonly string[];
+};
+
 /** The whole reading one bar-schedule screen paints (test contract: `bbsViewOf`). */
 export type BbsView = {
   /** The project's open campaign, or `null` where none is pinned (R-UI-050's empty). */
@@ -19,9 +31,10 @@ export type BbsView = {
   readonly partial: boolean;
   /**
    * The registered codes those partly declared lines state for what they left out — each once, in
-   * the order the lines first state it (L-QTY-02). The screen says them as the registry's own
-   * messages beside the partial line, so a total a reader reads is never taken for the whole of the
-   * column steel. Absent, or empty, where nothing was left out.
+   * the order the lines first state it, with the components it was stated for (L-QTY-02, I-354). The
+   * screen says each as the component in words, the registry's own message and where it is settled,
+   * beside the partial line, so a total a reader reads is never taken for the whole of the column
+   * steel. Absent, or empty, where nothing was left out.
    */
-  readonly omitted?: readonly string[];
+  readonly omitted?: readonly BbsOmission[];
 };

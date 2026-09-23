@@ -7,11 +7,16 @@
 //
 // Every figure the document totals is summed from the UNROUNDED row figures and rounded nowhere: a
 // figure is rounded once, where it is printed (L-QTY-05, B-07).
+import { ELEMENT_TYPES } from "@/core/catalogue/classes";
 import { and, barRows, eq, forTenant } from "@/core/db";
 import { writeInBatches } from "@/core/db/batch";
+import { compareCanonical } from "@/core/identity";
+import { liveLevelsOf } from "@/core/levels/store";
 import { isShapeCode, type ShapeCode } from "@/core/rulesets/methods/rebar/bs8666";
 import { cuttingStockOf, stockSplitOf, type CuttingStockAnswer } from "@/core/rulesets/methods/rebar/stock";
+import { BAR_ROLES } from "@/core/rulesets/methods/rebar/synthesis";
 import { exact } from "@/core/units/canon";
+import { MARK_ORDER } from "@/modules/takeoff/schedules-ui/order";
 import type { BarRow } from "./bars";
 import { REBAR_EDITION } from "./bars";
 
@@ -60,6 +65,60 @@ function asShape(value: string): ShapeCode {
 
 /** The one rounded surface BS 8666 admits: up to the next 25 mm, and nowhere else (AM-01). */
 const ROUNDING_MM = 25;
+
+/** One level of the live stack, as the reading order asks it: what it is called, where it stands. */
+type StackedLabel = { readonly label: string; readonly ordinal: number };
+
+/** Where a closed roster puts a value; a value the roster does not hold stands after all of it. */
+function rosterAt(roster: readonly string[], value: string): number {
+  const at = roster.indexOf(value);
+  return at < 0 ? roster.length : at;
+}
+
+/**
+ * The order a bar schedule is READ in (I-354; s-bbs §1's wireframe, GF first; L-REG-04 — the one
+ * order a bill is read in): member by member from the bottom of the building up, and bar by bar
+ * inside each member. Presentation, and only that — no figure moves, and every row stays the row it
+ * was.
+ *
+ *   1. Where the member stands. A member on NO level of the stack — its register object stands in a
+ *      lawful-null slot, which for a member the rail bills is the foundation's (a bar row states no
+ *      slot, and an UNRESOLVED one is not told apart without reading the key, which this never
+ *      does) — comes first, below every storey; then the levels by the live stack's own ORDINAL,
+ *      which is physical (L-MEA-07) — never by label, where `GF` sorts after `5F`; then a label the
+ *      live stack no longer holds (an unregistered placeholder's), in natural order, last.
+ *   2. What it is — its class in the catalogue's own roster order (`ELEMENT_TYPES`).
+ *   3. Its mark, in natural order: C2 before C10 (`MARK_ORDER`, the lane's one spelling of it).
+ *   4. Which member of that mark — its object key, which is where the member is placed; the key is
+ *      compared whole and never read apart (L-REG-02).
+ *   5. Inside the member: the bar's role in BS 8666's own roster order (`BAR_ROLES` — main bars before
+ *      ties), then its diameter as the number it is, then its bar mark in natural order, and last its
+ *      key, so the order is total and two readings of one bill are one document.
+ */
+export function readingOrder(stack: readonly StackedLabel[]): (one: BarRow, other: BarRow) => number {
+  const ordinalOf = new Map(stack.map((level) => [level.label, level.ordinal]));
+  const standing = (level: string | null): readonly [number, number] => {
+    if (level === null) return [0, 0];
+    const ordinal = ordinalOf.get(level);
+    return ordinal === undefined ? [2, 0] : [1, ordinal];
+  };
+  return (one, other) => {
+    const [oneBand, oneOrdinal] = standing(one.level);
+    const [otherBand, otherOrdinal] = standing(other.level);
+    return (
+      oneBand - otherBand ||
+      oneOrdinal - otherOrdinal ||
+      MARK_ORDER.compare(one.level ?? "", other.level ?? "") ||
+      rosterAt(ELEMENT_TYPES, one.class) - rosterAt(ELEMENT_TYPES, other.class) ||
+      MARK_ORDER.compare(one.mark, other.mark) ||
+      compareCanonical(one.objectKey, other.objectKey) ||
+      rosterAt(BAR_ROLES, one.role) - rosterAt(BAR_ROLES, other.role) ||
+      one.diameterMm - other.diameterMm ||
+      MARK_ORDER.compare(one.barMark, other.barMark) ||
+      compareCanonical(one.barKey, other.barKey)
+    );
+  };
+}
 
 /**
  * Replace a campaign's bill of bars with the rows just synthesised.
@@ -118,12 +177,17 @@ export async function writeBarRows(scope: BarRowScope, rows: readonly BarRow[]):
  * packing over the rounded piece lengths — this file packs nothing itself.
  */
 export async function bbsOf(scope: BbsScope): Promise<BbsDocument> {
-  const stored = await forTenant({ tenantId: scope.tenantId }).transaction((tx) =>
-    tx
+  // The rows, and the project's live level stack beside them in the SAME transaction — the stack is
+  // read for the one question of what order the members stand in, bottom to top (I-354), and a stack
+  // read in a second transaction could order one bill by a stack it was never measured against.
+  const { stored, stack } = await forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
+    const held = await tx
       .select()
       .from(barRows)
-      .where(and(eq(barRows.tenantId, scope.tenantId), eq(barRows.campaignId, scope.campaignId))),
-  );
+      .where(and(eq(barRows.tenantId, scope.tenantId), eq(barRows.campaignId, scope.campaignId)));
+    const live = await liveLevelsOf(tx, { tenantId: scope.tenantId, projectId: scope.projectId });
+    return { stored: held, stack: live };
+  });
   const rows: BarRow[] = stored.map((row) => ({
     barKey: row.barKey,
     objectKey: row.objectKey,
@@ -153,10 +217,11 @@ export async function bbsOf(scope: BbsScope): Promise<BbsDocument> {
     editionDigest: row.editionDigest,
     semantic: row.semantic,
   }));
-  // The order a bill is read in is the bill's own: the member, then the role, then the bar's key —
-  // the store has no insertion order to hand back, and a document that shuffled would not be the
-  // same document twice (L-REG-04).
-  rows.sort((one, other) => (one.barKey < other.barKey ? -1 : one.barKey > other.barKey ? 1 : 0));
+  // The order a bill is read in is the bill's own, and it is TOTAL — the store has no insertion order
+  // to hand back, and a document that shuffled would not be the same document twice (L-REG-04). It
+  // was the bar's key alone, which is an opaque key: its members came out 5F, 2F, 1F, 3F, GF … and a
+  // reader could not find a column's bars (I-354). It is now the order a bar schedule is read in.
+  rows.sort(readingOrder(stack));
 
   const perDiameterKg: Record<string, string> = {};
   const perMarkKg: Record<string, string> = {};

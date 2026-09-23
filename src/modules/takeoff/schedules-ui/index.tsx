@@ -23,7 +23,7 @@ import type { NoteProposal } from "@/core/notes/grammar";
 import { NOTE_KINDS, type NoteKind } from "@/core/notes/law";
 import { SCHEDULES_COPY, fillCopy } from "./copy";
 import { keptReadingOf } from "./kept";
-import type { FamilyView, ProposalView, ReadingView, ScheduleTableView, SchedulesView, SheetView, StandingView } from "./view";
+import { MODEL_SPACE, type FamilyView, type ProposalView, type ReadingView, type ScheduleTableView, type SchedulesView, type SheetView, type StandingView } from "./view";
 
 /* ------------------------------------------------------------------ what the screen is handed */
 
@@ -229,6 +229,9 @@ const STANDING_SAID: Readonly<Record<string, string>> = Object.freeze({ AGREED: 
  * says only words its own value holds, so a zone row still says nothing the store did not (I-251).
  */
 const ZONE_SAID: Readonly<Record<string, string>> = Object.freeze({ main: "Main", ties: "Ties", "ties-end": "End ties", "ties-mid": "Mid ties" });
+
+/** The model space in words, under the same rule — §3's vocabulary, the raw kind beside it (I-353). */
+const MODEL_SPACE_SAID = "Model space";
 
 /**
  * A drawing's own words as the drawing SHOWS them (I-sch-1): the DXF control codes a TEXT carries —
@@ -645,8 +648,12 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
                 }}
               >
                 <button type="button" className="cx-schedules-sheet-choose cx-reticle">
+                  {/* A paper sheet is named by its own title. The MODEL space's layout name is the
+                      DXF's word for the space (`model`), which names no sheet a reader ever opened, so
+                      it is said in words through `EnumLabel` — the space's own value beside it under
+                      `data-technical`, the name still on `data-layout` and the tooltip (I-353). */}
                   <span className="cx-schedules-sheet-name" title={held.layoutName}>
-                    {held.layoutName}
+                    {held.kind === MODEL_SPACE ? <EnumLabel value={MODEL_SPACE} label={MODEL_SPACE_SAID} className="cx-schedules-sheet-space" /> : held.layoutName}
                   </span>
                   <span className="cx-schedules-sheet-holds">{holdsSaid(held)}</span>
                 </button>
@@ -768,10 +775,38 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
               data-empty={sheet.families.length === 0 ? "true" : undefined}
             >
               <h2 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_registry_heading}</h2>{" "}
-              {sheet.families.length === 0 ? <p className="cx-schedules-none-said">{SCHEDULES_COPY.schedules_registry_none}</p> : null}
-              {sheet.families.map((family) => (
-                <Family key={family.family} family={family} testIds={testIds} href={(sourceKeys) => traceTo(sourceKeys)} EvidenceLink={EvidenceLink} EnumLabel={EnumLabel} />
-              ))}
+              {sheet.families.length === 0 ? (
+                <p className="cx-schedules-none-said">{SCHEDULES_COPY.schedules_registry_none}</p>
+              ) : (
+                // I-353: ONE grid of fixed tracks — Mark, Band, Section, then a track per rebar zone —
+                // headed once, so every variant is one `--row-h` row whose cells stand under their
+                // column's name, and the words `Band`, `Section` and `Zone` are said once rather than
+                // on every row. A family is a subgrid over every track: its mark stands in the first
+                // and its variants run down the rest, one row each.
+                <div className="cx-schedules-registry-grid">
+                  <p className="cx-schedules-registry-head">
+                    <span className="cx-schedules-registry-heading cx-schedules-at-mark">{SCHEDULES_COPY.schedules_registry_mark}</span>{" "}
+                    <span className="cx-schedules-registry-heading cx-schedules-at-band">{SCHEDULES_COPY.schedules_registry_band}</span>{" "}
+                    <span className="cx-schedules-registry-heading cx-schedules-at-section">{SCHEDULES_COPY.schedules_registry_section}</span>{" "}
+                    {/* Only over zones that stand: a heading over four empty tracks would hold them
+                        open at its own width for nothing beneath it. */}
+                    {sheet.families.some((family) => family.variants.some((variant) => variant.zones.length > 0)) ? (
+                      <span className="cx-schedules-registry-heading cx-schedules-at-zones">{SCHEDULES_COPY.schedules_registry_zone}</span>
+                    ) : null}
+                  </p>
+                  {sheet.families.map((family) => (
+                    <Family
+                      key={family.family}
+                      family={family}
+                      testIds={testIds}
+                      href={(sourceKeys) => traceTo(sourceKeys)}
+                      EvidenceLink={EvidenceLink}
+                      EnumLabel={EnumLabel}
+                      Tooltip={Tooltip}
+                    />
+                  ))}
+                </div>
+              )}
             </section>
           </div>
         </div>
@@ -1017,59 +1052,66 @@ function Family({
   href,
   EvidenceLink,
   EnumLabel,
+  Tooltip,
 }: {
   family: FamilyView;
   testIds: SchedulesTestIds;
   href: (sourceKeys: readonly string[]) => string;
   EvidenceLink: SchedulesChrome["EvidenceLink"];
   EnumLabel: SchedulesChrome["EnumLabel"];
+  Tooltip: SchedulesChrome["Tooltip"];
 }) {
   return (
     <div className="cx-schedules-family" data-testid={testIds.family} data-family={family.family}>
       {/* The trace is labelled with the MARK the registry filed this family under — the same word
           `data-family` carries, and the word every variant and zone beneath it is spoken of by. The
           mark cell's own spelling stands beside it, verbatim, because the registry states what the
-          schedule wrote and never only what it normalises to (I-251, L-CAD-08). */}
+          schedule wrote and never only what it normalises to (I-251, L-CAD-08). It stands in the
+          Mark track of the family's first row; the variants run down the tracks beside it (I-353). */}
       {/* The `{" "}` between two inline pieces is a WORD BREAK and not layout: two spans set side by
           side read as one run of text to anything that takes the text rather than the picture — a
-          screen reader, a copy, a translation — and `Mark C1` must not become `MarkC1` (R-UI-060).
-          The gaps a reader SEES are §5's tokens, and these are beneath them. */}
-      <p className="cx-schedules-family-mark">
-        <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_mark}</span>{" "}
+          screen reader, a copy, a translation — and `C1 350x350` must not become `C1350x350`
+          (R-UI-060). The gaps a reader SEES are the grid's tracks, and these are beneath them. */}
+      <p className="cx-schedules-family-mark cx-schedules-at-mark">
         <EvidenceLink href={href(family.sourceKeys)} basis={TRANSCRIBED} label={family.family} />{" "}
         {/* Only where the mark CELL spelled it differently: where the two agree there is one word to
             say, and a row that said it twice would be saying the schedule wrote it twice. */}
         {family.markText === family.family ? null : <span className="cx-schedules-mono">{drawn(family.markText)}</span>}{" "}
       </p>
-      {family.variants.map((variant) => (
-        <div className="cx-schedules-variant" key={variant.variantKey} data-testid={testIds.variant} data-variant={variant.variantKey}>
-          <p className="cx-schedules-variant-band">
-            {/* A Band is a band of FLOORS (§1). A schedule that states none — a beam schedule — gave
-                the variant its section column's HEADER as its band text, and printing `Band SIZE`
-                says a band the drawing never drew; such a variant says its band is absent (I-sch-1). */}
-            <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_band}</span>{" "}
-            <span className="cx-schedules-mono">{variant.bandText === "" || variant.banded === false ? DASH : drawn(variant.bandText)}</span>{" "}
-            <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_section}</span>{" "}
-            <span className="cx-schedules-mono">{variant.sectionText === "" ? DASH : drawn(variant.sectionText)}</span>{" "}
+      {family.variants.map((variant) => {
+        // A Band is a band of FLOORS (§1). A schedule that states none — a beam schedule — gave the
+        // variant its section column's HEADER as its band text, and printing `SIZE` under Band says a
+        // band the drawing never drew; such a variant says its band is absent (I-sch-1).
+        const band = variant.bandText === "" || variant.banded === false ? DASH : drawn(variant.bandText);
+        const section = variant.sectionText === "" ? DASH : drawn(variant.sectionText);
+        return (
+          <div className="cx-schedules-variant" key={variant.variantKey} data-testid={testIds.variant} data-variant={variant.variantKey}>
             {/* The variant's KEY is not said at all. It is the store's own surrogate for the band —
                 `4TH-ROOF` where the drawing wrote `4TH TO ROOF` — so printing it puts a word beside
                 the band that the schedule never wrote there, and its digits stand as figures nobody
                 measured (I-251, L-CAD-08). The key rides `data-variant`, which is where a suite
                 addresses it and where no reader mistakes it for the drawing's own text. */}
-          </p>
-          {variant.zones.map((zone) => (
-            // The zone is an enum, so it is said in WORDS through `EnumLabel` with the store's own
-            // value beside it under `data-technical` (R-UI-082, I-sch-1); the words are only words its
-            // value holds, so the row still says nothing the schedule did not (I-251). The value is on
-            // `data-zone` either way, which is where a suite matches it.
-            <p className="cx-schedules-zone" key={zone.zone} data-testid={testIds.zone} data-zone={zone.zone}>
-              <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_zone}</span>{" "}
-              <EnumLabel value={zone.zone} label={ZONE_SAID[zone.zone] ?? zone.zone} className="cx-schedules-enum" />{" "}
-              <span className="cx-schedules-mono">{drawn(zone.text)}</span>{" "}
-            </p>
-          ))}
-        </div>
-      ))}
+            <span className="cx-schedules-registry-cell cx-schedules-mono cx-schedules-at-band">{band}</span>{" "}
+            {/* The one track that gives way: a section written with its bars in one cell is the longest
+                thing on the row, so it ellipsises and the whole of it stands in its Tooltip (§1's cell
+                rule — no wrap, ellipsis plus tooltip, R-UI-084). */}
+            <Tooltip content={section}>
+              <span className="cx-schedules-registry-cell cx-schedules-mono cx-schedules-at-section">{section}</span>
+            </Tooltip>{" "}
+            {variant.zones.map((zone) => (
+              // The zone is an enum, so it is said in WORDS through `EnumLabel` with the store's own
+              // value beside it under `data-technical` (R-UI-082, I-sch-1); the words are only words its
+              // value holds, so the row still says nothing the schedule did not (I-251). The value is
+              // on `data-zone` either way, which is where a suite matches it — and where the grid
+              // finds the zone's own track, so a zone stands under the same zone on every row (I-353).
+              <p className="cx-schedules-zone" key={zone.zone} data-testid={testIds.zone} data-zone={zone.zone}>
+                <EnumLabel value={zone.zone} label={ZONE_SAID[zone.zone] ?? zone.zone} className="cx-schedules-enum" />{" "}
+                <span className="cx-schedules-mono cx-schedules-zone-text">{drawn(zone.text)}</span>{" "}
+              </p>
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

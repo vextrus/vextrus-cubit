@@ -7,7 +7,7 @@
 import { and, asc, eq, forTenant, quantityLines } from "@/core/db";
 import { residueOf } from "@/core/residue";
 import { bbsOf } from "@/modules/takeoff/rebar";
-import type { BbsView } from "./view";
+import type { BbsOmission, BbsView } from "./view";
 
 /** Which project's schedule is being read, in which workspace (SEAM-TENANT). */
 export type BbsScope = { readonly tenantId: string; readonly projectId: string };
@@ -45,13 +45,14 @@ export async function bbsViewOf(scope: BbsScope): Promise<BbsView> {
 /**
  * Whether any `rcc.rebar` line of this campaign stands PARTLY DECLARED — a tie zone nobody
  * transcribed, say (L-QTY-02, REBAR_TIE_ZONE_UNSTATED) — and the registered codes those lines state
- * for what they left out, each once, in the order the lines first state it.
+ * for what they left out, each once, in the order the lines first state it, with the components of
+ * the line each was stated for (I-354).
  *
  * It is READ from the published lines rather than defaulted: a flag hard-coded false would draw a
  * whole schedule over a campaign whose bars are only part of the story, and the reader would never
  * learn what is missing from the figures in front of them (Decision §2).
  */
-async function partlyDeclared(tenantId: string, campaignId: string): Promise<{ partial: boolean; omitted: string[] }> {
+async function partlyDeclared(tenantId: string, campaignId: string): Promise<{ partial: boolean; omitted: BbsOmission[] }> {
   const lines = await forTenant({ tenantId }).transaction((tx) =>
     tx
       .select({ coverage: quantityLines.coverage, omitted: quantityLines.omitted })
@@ -60,17 +61,26 @@ async function partlyDeclared(tenantId: string, campaignId: string): Promise<{ p
       .orderBy(asc(quantityLines.publishedAt), asc(quantityLines.lineId)),
   );
   const partly = lines.filter((line) => line.coverage === PARTIAL_DECLARED);
-  const omitted: string[] = [];
+  const byCode = new Map<string, string[]>();
   for (const line of partly) {
-    for (const code of omittedCodesOf(line.omitted)) if (!omitted.includes(code)) omitted.push(code);
+    for (const { code, variable } of omittedComponentsOf(line.omitted)) {
+      const held = byCode.get(code) ?? [];
+      if (!byCode.has(code)) byCode.set(code, held);
+      if (variable !== null && !held.includes(variable)) held.push(variable);
+    }
   }
-  return { partial: partly.length > 0, omitted };
+  return { partial: partly.length > 0, omitted: [...byCode.entries()].map(([code, components]) => ({ code, components })) };
 }
 
-/** The registered codes one line's `omitted` states, read off the store's own shape (L-QTY-02). */
-function omittedCodesOf(omitted: readonly unknown[]): string[] {
+/**
+ * What one line's `omitted` states, read off the store's own shape (L-QTY-02): each component's
+ * registered code, and the line variable it was declared for where the line names one.
+ */
+function omittedComponentsOf(omitted: readonly unknown[]): { code: string; variable: string | null }[] {
   return omitted.flatMap((component) => {
-    const code = (component as { code?: unknown } | null)?.code;
-    return typeof code === "string" && code !== "" ? [code] : [];
+    const held = component as { code?: unknown; variable?: unknown } | null;
+    const code = held?.code;
+    const variable = held?.variable;
+    return typeof code === "string" && code !== "" ? [{ code, variable: typeof variable === "string" && variable !== "" ? variable : null }] : [];
   });
 }

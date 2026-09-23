@@ -163,6 +163,31 @@ entry is added.
   Owed elsewhere and recorded, not done here: the group row's `(20)` and a group that holds no figure
   opening collapsed are the DataTable primitive's (`src/ui/primitives/data`), and the tabs' own
   `nowrap` is the lane's `takeoff.css`.
+- **I-355 — the taxonomy is named by its edition, a lawful-null level is a word, and a member's mark
+  is muted (session 7, 2026-09-23; the vision re-look of the M3 project).** The re-look put the
+  screen at the bar (tokensAndGrid and identifierExposure looked 4); three of its findings are ruled
+  here against R-UI-082/085 and I-boq-1, and the Decision is amended in place to match:
+  (a) *The taxonomy chip says its edition.* `IdChip` shows the first seven characters of an opaque
+  value, and `bill-taxonomy/2026-09-16` became `bill-ta` — neither a usable id nor a word; at 1280,
+  where the chips' captions stand visually hidden (I-boq-1(a)), the aside showed two opaque chips.
+  A taxonomy version is a family and an edition date, and the EDITION is what tells one taxonomy from
+  the next, so the chip's short form is the part after the family's last `/` (`2026-09-16`, §1's
+  `taxonomy 2026-09-16`); the whole version stays the chip's `data-value`, its tooltip and its copy,
+  and a version written without a family keeps the chip's own short form. The chip is three mono
+  characters wider; the re-look's 1280 capture leaves about 150 px of the tabs track free beside the
+  aside, so it still holds one line (I-boq-1(a)) — the gate's own picture is what proves it.
+  (b) *A slot is a word.* The `Foundation` slot reused `.cx-boq-level`, which sets the level label's
+  mono face, so an enum said in words stood in the figure face (R-UI-085). The slot now stands under
+  its own class, `cx-boq-slot`, in `EnumLabel`'s own face and size, taking only the level column's
+  muted ink; a level LABEL is model data and keeps the mono.
+  (c) *The mark is muted.* I-boq-1(c) rules the member's mark "mono, muted", and the sheet set it in
+  `--ink-code` — the description's own weight, so `PC1` competed with `Pile cap · Concrete`. It is now
+  `--ink-muted`, still mono.
+  Recorded, not done here (wave-3's held rows): the group row's subtotal drawn at the far end of one
+  spanning cell rather than in the Quantity and Unit cells is the DataTable primitive's
+  (`src/ui/primitives/data`); twenty-six numbered items for one description — a member per line,
+  where a bill states one item per description with its total — is a bill-shape question for the
+  owner (numbering and emission, I-269), not this screen's.
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -203,7 +228,7 @@ its own viewport with the Item column frozen; the page never scrolls sideways (�
 
 | Region | What it holds | Width / height rule | Tokens | State when empty |
 |---|---|---|---|---|
-| tabs row (frame's track) | `takeoff-nav-register` · `-coverage` · `-levels` · `-schedules` · `takeoff-nav-boq` (`aria-current="page"` here); in `useTakeoffTabsAside`: `boq-revision` and `boq-taxonomy-version` as `IdChip`s, `boq-draft` as the standing word, the ONE primary `boq-export`, then the two secondary channels `boq-export-xlsx` and `boq-export-csv` and, after a press answers, the `boq-export-link` anchor | 100 % × `--toolbar-h` 32; each control at `--control-h`, the link too; one line at its own width, nothing wrapping — below 1536 the channels' noun, below 1440 the chips' captions stand visually hidden and stay in the accessible names (I-boq-1) | `--ink-secondary`, `--ink`, `--ink-muted`, `--line-accent`, `--surface-panel`, `--surface-hover`, `--accent` through Button and through the link | the aside carries the tabs alone while no campaign is pinned; neither the primary nor the two channels render, and the link stands only after a press |
+| tabs row (frame's track) | `takeoff-nav-register` · `-coverage` · `-levels` · `-schedules` · `takeoff-nav-boq` (`aria-current="page"` here); in `useTakeoffTabsAside`: `boq-revision` and `boq-taxonomy-version` as `IdChip`s — the taxonomy's short form its edition, `2026-09-16`, the whole version its value (I-355) — `boq-draft` as the standing word, the ONE primary `boq-export`, then the two secondary channels `boq-export-xlsx` and `boq-export-csv` and, after a press answers, the `boq-export-link` anchor | 100 % × `--toolbar-h` 32; each control at `--control-h`, the link too; one line at its own width, nothing wrapping — below 1536 the channels' noun, below 1440 the chips' captions stand visually hidden and stay in the accessible names (I-boq-1) | `--ink-secondary`, `--ink`, `--ink-muted`, `--line-accent`, `--surface-panel`, `--surface-hover`, `--accent` through Button and through the link | the aside carries the tabs alone while no campaign is pinned; neither the primary nor the two channels render, and the link stands only after a press |
 | answer slot (`boq-answer`) | one RefusalState from a refused door; the offline banner above it; the denial pair | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--state-warn(-surface)` through RefusalState, `--radius-4`, `--hairline` | absent (no box) |
 | status line | the ONE helper line, `<p role="status">`, `boq_coverage_incomplete` or `boq_coverage_complete` | 100 % × 28 | `--ink-muted`, `--text-body` | absent with the grid |
 | job strip (`boq-jobs`) | the shipped `JobTimeline` for the render job, present only while a run is watched; `boq-render-draft` is its step; `boq-document-link` follows a success | 100 % × the pattern's own, between the status line and the grid | the pattern's own | absent — never an empty box |
@@ -218,7 +243,7 @@ its own viewport with the Item column frozen; the page never scrolls sideways (�
 |---|---|---|---|
 | 1 | `boq_col_item` | 96, **frozen**, `meta.align: 'right'` | the S.G.I string in `--font-mono` tabular; on an unclassified row, the reason in words (I-267) |
 | 2 | `boq_col_description` | remainder, min 320 | the class and the kind as words through two `EnumLabel`s joined by ` · `, then the member's mark from the register in mono, muted (I-boq-1); raw keys on `data-class` / `data-kind`; `data-description-basis` on the row and mirrored on this cell — `INTERPRETED` where the group's description was chosen from the work-item catalogue, `DEFAULTED` where the plain one stands (I-298). The chosen sentence itself reads on the `datatable-group-row` above the lines, which is where a bill states a group's description |
-| 3 | `boq_col_level` | 120 | the level label verbatim; on a line standing on no level, the register's lawful-null slot through `EnumLabel` (I-boq-1); `data-level` and `data-ordinal` on the row |
+| 3 | `boq_col_level` | 120 | the level label verbatim, mono and muted; on a line standing on no level, the register's lawful-null slot through `EnumLabel` in the interface's face, muted (I-boq-1, I-355); `data-level` and `data-ordinal` on the row |
 | 4 | `boq_col_quantity` | 140, `meta.align: 'right'` | the rounded figure, `--font-mono` tabular slashed-zero, lakh/crore grouped (I-271); on a line that states none, `boq_quantity_unmeasured` muted with the registry's messages for its omitted codes as its Tooltip (I-boq-1) |
 | 5 | `boq_col_unit` | 80 | one `unit-badge` |
 | 6 | `boq_col_basis` | 240 — the PAIR at its longest (`Measured` beside `Transcribed`) reads in full, because §6 promises a glyph and a word | exactly two `basis-chip`s — the quantity basis then the selection basis, in that order |
@@ -440,6 +465,8 @@ COMPLETE line — one `coverage-chip` (a PARTIAL_DECLARED line states its covera
 no `boq-jobs` at rest; no wrapping cell; no uuid or digest as a text node outside an `IdChip`.
 
 Suites and evidence. Unit: `tests/takeoff/boq/taxonomy.test.ts`, `…/numbering.test.ts`,
+`…/workspace-identity-cells.test.tsx` (I-355: the workspace mounted over a draft the product's own
+emission composes, and the sheet's slot and mark rules read),
 `tests/takeoff/boq/support/**` and the quantities export's own `tests/takeoff/boq-xlsx/**` — the
 workbook composed over the F-RCC6-BNBC roster and read back with exceljs, and the aside that presses
 the door — with `tests/takeoff/boq-xlsx/export-door.db.test.ts` on the database lane (no duration is

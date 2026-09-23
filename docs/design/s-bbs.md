@@ -132,6 +132,62 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   The `(i)` trigger is the shipped Popover's ghost trigger around the shipped info glyph, square at
   `--control-h`, rather than a bare letter.
 
+- **I-354 — the schedule reads from the ground up, a partial schedule says WHAT it leaves out and
+  where that is settled, and only figures are mono (session 7, 2026-09-23; the vision re-look of the
+  M3 project).** The re-look put the screen at the bar by score and not fit to show (themes and
+  states looked 4); three of its findings are ruled here, two are recorded for their owners, and the
+  Decision is amended in place to match:
+  (a) *The one order a bill is read in.* `bbsOf` sorted its rows by the bar's KEY, which is opaque, so
+  F-RCC6-BNBC's members came out 5F, 2F, 1F, 3F, GF, 6F, 4F … and a reader could not find a column's
+  bars. The door now answers in the order a bar schedule is read (`readingOrder`,
+  `src/modules/takeoff/rebar/store.ts`), reading the project's LIVE level stack in the same
+  transaction as the rows for that one question: a member on no level of the stack (its register
+  object in a lawful-null slot — the foundation's; a bar row states no slot, so an UNRESOLVED one
+  stands there too rather than have its key read apart) first; then the levels by the stack's ORDINAL, which is
+  physical (L-MEA-07) — never by label, where `GF` sorts after `5F` and `10F` before `2F`; then a label
+  the stack no longer holds, last; within a level the class in the catalogue's roster order
+  (`ELEMENT_TYPES`), the mark in natural order (`MARK_ORDER`, the lane's one spelling, s-schedules
+  I-353 — C2 before C10), then the member's own object key, compared whole and never read apart
+  (L-REG-02); inside a member the role in BS 8666's roster order (`BAR_ROLES` — main bars before
+  ties), the diameter as the number it is, the bar mark in natural order, and last the bar key, so the
+  order is total and two reads of one bill are one document (L-REG-04). No figure moves and no row is
+  added or taken away: `present.ts` groups `document.rows` by member in the order the document names
+  them, exactly as before, and the member group rows now fall in storey order because the door's do.
+  The export's payload is `document.rows` in the same order, so an issued schedule reads the same
+  way; the committed V-DOCS golden (`tests/docs/bbs/{payload.json,golden.pdf}`) is a fixture payload
+  read in the golden's own file order and does not move.
+  (b) *What is left out, why, and where it is settled.* The `bbs_partial_omitted` list printed the
+  registry's messages bare: `Two readings of this note disagree, so no figure stands.` is why no LAP
+  row stands anywhere on the schedule and never said "laps", and neither line said where a reader
+  acts (R-UI-020). `BbsView.omitted` now carries, for each code, the COMPONENTS of the line it was
+  declared for — the rail's own variable names (`net`, `lap`, `ties`), each once, read by `bbsViewOf`
+  off the same published `omitted` entries it already read the codes from. Each line now leads with
+  those components in words through `EnumLabel` (**Bars**, **Laps**, **Ties**; the raw name under
+  `data-technical`, never printed — I-bbs-9(d)'s rule stands), then the registry's message verbatim,
+  then a link to where the omission is settled with the registry's remedy as its Tooltip: the
+  Schedules screen for `NOTE_READING_CONTESTED`, `REBAR_TIE_ZONE_UNSTATED`, `REBAR_SCHEDULE_UNREAD` and
+  `DETAILING_ROW_NOT_IN_EDITION` (the sheets' schedules and notes are read there), the Levels screen
+  for `REBAR_STOREY_RUN_UNSTATED`; a code this table does not place is said without a link rather
+  than sent somewhere it is not settled. The link goes to the screen, not a sheet: the published line
+  names no sheet, and a sheet guessed here would be a trace nobody recorded (R-UI-022).
+  (c) *Only the figures are mono.* The stock readout set its words in mono (`Stock bar 12,000 mm ·
+  rounded 25 mm`) beside `Pinned revision` in the interface's face. The words and units now stand in
+  the interface's face and only the two figures in the figure face, tabular (R-UI-085).
+  Recorded, not done here — each needs another owner: (d) *one group per mark and level, with its
+  number of members* — identical members of one mark on one floor are listed separately, so half the
+  grid is group rows and eight bars stand above the fold at 1440, where BS 8666 states a mark once
+  with its No. of members. Counting members and multiplying their masses is a figure, so it is the
+  DOOR's (I-bbs-2): `bbsOf` would group members of one (level, class, mark) whose bar sets are
+  identical into one entry with a member count and exact, unrounded mass products; the payload and
+  its template would state the count; this grid would add a `No. of members` column and one group
+  row per (level, mark); and J-032's "one group row per member" read (`data-member` = `objectKey`)
+  would be amended with it. That changes the bill's shape, which is the owner's call (the rebar
+  door, `src/modules/takeoff/rebar/**`, and the document kind). (e) *a placement label on each
+  member row* — members of one mark and floor still read `5F · Column · C1` alike, told apart only by
+  order; a grid intersection (`B-3`) is the partition's reading of the member's placement against the
+  drawing's axes and would ride a bar row from the rebar rail (`bars.ts`, a `bar_rows` column and a
+  migration) — the rail's, the partition's and `db/**`'s, all held elsewhere.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -174,11 +230,11 @@ frozen; the page never scrolls sideways (§7 C10).
 
 | Region | What it holds | Width / height rule | Tokens | State when empty |
 |---|---|---|---|---|
-| tabs row (frame's track) | the five shipped entries then `takeoff-nav-bbs` (`aria-current="page"` here); in `useTakeoffTabsAside`: `bbs-revision` (IdChip, `data-value` the whole `setRevisionId`), `bbs-stock` (`data-stock-mm`, `data-rounding-mm`) and the ONE primary `bbs-export` (I-bbs-8), present only for a permitted reader with bars to render | 100 % × `--toolbar-h` 32; the primary at `--control-h` | `--surface-panel`, `--ink`, `--ink-secondary`, `--ink-muted`, `--line-accent`, `--font-mono`, `--accent` through the Button | the aside carries the tabs alone while no campaign is pinned; the primary is absent, never disabled, while nothing is scheduled |
+| tabs row (frame's track) | the five shipped entries then `takeoff-nav-bbs` (`aria-current="page"` here); in `useTakeoffTabsAside`: `bbs-revision` (IdChip, `data-value` the whole `setRevisionId`), `bbs-stock` (`data-stock-mm`, `data-rounding-mm`; its words in the interface's face and only its two figures in mono, I-354) and the ONE primary `bbs-export` (I-bbs-8), present only for a permitted reader with bars to render | 100 % × `--toolbar-h` 32; the primary at `--control-h` | `--surface-panel`, `--ink`, `--ink-secondary`, `--ink-muted`, `--line-accent`, `--font-mono`, `--accent` through the Button | the aside carries the tabs alone while no campaign is pinned; the primary is absent, never disabled, while nothing is scheduled |
 | answer slot (`bbs-answer`) | one RefusalState from a refused or denied door (`REQUEST_MALFORMED`, `PERMISSION_NOT_HELD`, `BBS_NO_CAMPAIGN`); the offline banner above it; and, beneath them, the status line — everything this screen ANSWERS about its own reading stands in the one polite live region | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--state-warn(-surface)` through RefusalState, `--radius-4`, `--hairline` | absent (no box) |
 | job strip (`bbs-jobs`) | the shipped `JobTimeline` for the render job, present only while a run is watched; `bbs-document-link` follows a success (I-bbs-8) | 100 % × the pattern's own, between the answer slot and the grid | the pattern's own; `--accent` as the link's text | absent — never an empty box |
-| status line | the ONE helper line, `<p role="status">` inside the answer slot: `bbs_partial` or `bbs_complete`; in `partial`, beneath it, `bbs_partial_omitted` and one list line per code the partly declared lines left out, in the registry's own message (I-bbs-9) | 100 % × 28, plus one caption line per code | `--ink-muted`, `--ink-secondary`, `--text-body`, `--text-caption` | absent with the grid |
-| grid (primary) | `bbs-grid` (DataTable v2, `tableId` `s-bbs-bars`, `aria-label` `bbs_grid_label`, `data-rows-rendered`): one `bbs-member` group row per distinct `objectKey` in `document.rows` order, then its `bbs-row` (NET) rows each optionally followed by one `bbs-lap` | `flex: 1 1 auto`; ≥ 55 % of main; header and rows at `--row-h` (28 compact / 36 comfortable, revalued at the ROOT by `[data-density]`, never here); first column frozen; no wrapping cell | `--surface-app`, `--surface-sunken` (sticky header, group rows), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline` | not rendered at all: `bbs-empty` stands in its place |
+| status line | the ONE helper line, `<p role="status">` inside the answer slot: `bbs_partial` or `bbs_complete`; in `partial`, beneath it, `bbs_partial_omitted` and one list line per code the partly declared lines left out: the line's components in words through `EnumLabel`, the registry's own message, and a link to where it is settled with the registry's remedy as its Tooltip (I-bbs-9, I-354) | 100 % × 28, plus one caption line per code | `--ink`, `--ink-muted`, `--ink-secondary`, `--ink-link`, `--weight-body-medium`, `--text-body`, `--text-caption` | absent with the grid |
+| grid (primary) | `bbs-grid` (DataTable v2, `tableId` `s-bbs-bars`, `aria-label` `bbs_grid_label`, `data-rows-rendered`): one `bbs-member` group row per distinct `objectKey` in `document.rows` order — the door's reading order, from the ground up (I-354) — then its `bbs-row` (NET) rows each optionally followed by one `bbs-lap` | `flex: 1 1 auto`; ≥ 55 % of main; header and rows at `--row-h` (28 compact / 36 comfortable, revalued at the ROOT by `[data-density]`, never here); first column frozen; no wrapping cell | `--surface-app`, `--surface-sunken` (sticky header, group rows), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline` | not rendered at all: `bbs-empty` stands in its place |
 | summary (`bbs-summary`) | the heading, its `(i)` popover, and a 5-column table: one `bbs-summary-row` per key of `perDiameterKg` in ascending numeric diameter, closed by the sticky total row carrying `grandTotalKg`; `data-kg` on the region is that grand total | 100 % × 28 heading + 28 header + rows + 28 total, **max 224**, body scrolls inside | `--surface-sunken` (header and total row), `--ink`, `--ink-code`, `--font-mono`, `--hairline` | absent with the grid |
 | empty (in the grid's place) | the shipped `EmptyState` `bbs-empty`: heading, one sentence, one action to `…/takeoff/register` | max-width 520, centred in the grid's box | `--ink`, `--ink-muted`, `--accent` through Button | this IS the empty state |
 | error (in the grid's place) | `error-state`: heading, one sentence, `error-state-report` (the fault id through IdChip under the primitive's own report label), `error-state-retry` | 100 % × auto, max-width 520 | `--ink`, `--ink-muted`, `--hairline`, `--radius-4` | — |
@@ -281,6 +337,17 @@ issued schedule** · the job pattern's word for the render kind, `job_step_bbs-r
 bar schedule** · and, on S-Documents, the one kind label `documents_kind_bbs` **Bar schedule**
 (s-documents I-260; the draft's `documents_kind_boq_draft` precedent).
 
+The components of a rebar line render as words through `EnumLabel` on the omitted list, the raw
+name beside each under `data-technical` (I-354): net **Bars** · lap **Laps** · ties **Ties**. Each
+omitted line's link says where its code is settled, in words stated here in their own column rather
+than by key (s-schedules' `Open the sheet` precedent):
+
+| code | settled on | link |
+|---|---|---|
+| `NOTE_READING_CONTESTED`, `REBAR_TIE_ZONE_UNSTATED`, `REBAR_SCHEDULE_UNREAD`, `DETAILING_ROW_NOT_IN_EDITION` | `…/takeoff/schedules` | **Open the schedules** |
+| `REBAR_STOREY_RUN_UNSTATED` | `…/takeoff/levels` | **Open the levels** |
+| any other code | — | no link: the line says its message and nothing more |
+
 Registry entries this door adds to `src/core/errors/rebar.ts` (refusal-state §3's copy rules bind;
 the code is never rendered as text):
 
@@ -315,7 +382,8 @@ reduced-motion branch.
 Only the semantic alias group and the density/layout tokens (Direction §4.1, §4.2); a `--graphite-*`
 or `--beam-*` reference outside `tokens.ts` is a lint failure (R-UI-086). This screen spends:
 `--surface-app` · `--surface-panel` · `--surface-sunken` · `--surface-hover` · `--ink` ·
-`--ink-secondary` · `--ink-muted` · `--ink-code` · `--line` · `--line-accent` · `--hairline` ·
+`--ink-secondary` · `--ink-muted` · `--ink-code` · `--ink-link` (the omitted list's links, I-354) ·
+`--line` · `--line-accent` · `--hairline` ·
 `--accent` (only through the empty state's Button) · `--state-info(-surface)` and
 `--state-warn(-surface)` reached only through RefusalState · `--space-1/2/3/4` · `--gap-section` ·
 `--radius-2/4` · `--text-body` · `--text-caption` · `--text-12` · `--font-ui` · `--font-mono` ·
@@ -385,7 +453,10 @@ stands; no `bbs-summary` while the grid does not render; no wrapping cell; no uu
 `setRevisionId` as a text node outside an IdChip.
 
 Evidence. Unit: `tests/takeoff/bbs-ui/present.test.ts` over all 4,127 rows of `bbs.golden.json`
-through `goldenBbsDocument()` — never a frozen list, and no duration asserted (AM-10 §3). Docs:
+through `goldenBbsDocument()` — never a frozen list, and no duration asserted (AM-10 §3);
+`tests/takeoff/bbs-ui/reading-order.test.ts` (I-354(a), the door's comparator over keys the product's
+own grammar mints) and `tests/takeoff/bbs-ui/partial-omitted.test.tsx` (I-354(b)(c), the workspace
+mounted over the real refusal registry, and the sheet's stock rules read). Docs:
 `tests/docs/bbs/{payload.json,golden.pdf,render.test.ts}` under `pnpm test:docs` (AM-18). Journey
 `tests/e2e/journeys/j-032-schedules-notes.spec.ts`, every title carrying **J-032**, staged by
 `tests/e2e/takeoff/bbs-stage.ts` over `signInAsSeededTenant`; page object
@@ -411,3 +482,10 @@ tab as the proof.
   rebar leaf.
 - **Members beyond columns and shear walls.** `READ_CLASSES` reads two classes, so beams and slabs
   schedule no bars yet and their members never group here. Owner: inc-309's successors.
+- **A mark stated once with its number of members** (I-354(d)). Identical members of one mark on one
+  floor group at the DOOR — `bbsOf` answering a member count and exact mass products — then the
+  payload, a `No. of members` column here, and J-032's one-group-per-member read with it. Owner: the
+  rebar door and the document kind; a bill-shape change, so the owner's call.
+- **A placement label on each member row** (I-354(e)). The grid intersection a member stands at,
+  read by the partition against the drawing's axes and carried on a bar row. Owner: the rebar rail
+  (`bars.ts`), `db/**` (a `bar_rows` column) and the partition's placement reader.

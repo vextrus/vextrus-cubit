@@ -43,6 +43,9 @@ const DEMONSTRATED_REFUSAL = REFUSALS.REQUEST_MALFORMED.code;
 /** What the partial cell's lines leave out: a tie zone the schedule states no length for. */
 const TIE_ZONE_UNSTATED = REFUSALS.REBAR_TIE_ZONE_UNSTATED.code;
 
+/** The component of a rebar line that absence is declared for — the rail's own variable name. */
+const TIES = "ties";
+
 /** One bar of the demonstrated bill, in the shape the one door answers one (L-REG-04). */
 function bar(
   mark: string,
@@ -147,8 +150,15 @@ const DOCUMENT: BbsDocument = {
 /** The reading the demonstration stands on, whole or with nothing scheduled at all. */
 function reading(scheduled: boolean, partial: boolean): BbsView {
   if (!scheduled) return { campaignId: null, setRevisionId: null, document: null, partial: false };
-  // A partly declared reading states what it left out, exactly as the lines of one do (L-QTY-02).
-  return { campaignId: CAMPAIGN_ID, setRevisionId: REVISION_ID, document: DOCUMENT, partial, omitted: partial ? [TIE_ZONE_UNSTATED] : [] };
+  // A partly declared reading states what it left out, and for which component of the line, exactly
+  // as the lines of one do (L-QTY-02, I-354): the rebar rail declares an unread tie zone under `ties`.
+  return {
+    campaignId: CAMPAIGN_ID,
+    setRevisionId: REVISION_ID,
+    document: DOCUMENT,
+    partial,
+    omitted: partial ? [{ code: TIE_ZONE_UNSTATED, components: [TIES] }] : [],
+  };
 }
 
 /**

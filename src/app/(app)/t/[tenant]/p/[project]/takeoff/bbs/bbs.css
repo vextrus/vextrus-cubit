@@ -45,9 +45,15 @@
   font-size: var(--text-caption);
 }
 
+/* The readout's words are the interface's, in its face; only its two figures are model data, set in
+   the figure face (R-UI-085, I-354). */
 .cx-bbs-stock {
-  font-family: var(--font-mono);
   white-space: nowrap;
+}
+
+.cx-bbs-stock-figure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .cx-bbs-bone-chip {
@@ -131,6 +137,38 @@
   list-style: none;
 }
 
+/* One omission: WHAT is missing, in words and in the reading ink so it leads the line; then why, in
+   the registry's words; then where it is settled (I-354, R-UI-020). */
+.cx-bbs-omitted-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-2);
+}
+
+.cx-bbs-omitted-what {
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--ink);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-bbs-omitted-line .cx-bbs-omitted-component {
+  font-size: var(--text-caption);
+  font-weight: inherit;
+  color: inherit;
+}
+
+.cx-bbs-omitted-separator {
+  color: var(--ink-muted);
+}
+
+/* The place a reader acts, in the link ink the alias layer keeps readable on the ground in both
+   themes (the draft's document link, one screen over). */
+.cx-bbs-omitted-where {
+  color: var(--ink-link);
+}
+
 /* --- the grid: ONE table, each member's group row then its bars, under one sticky band (§1) --- */
 
 .cx-bbs-grid {
@@ -154,12 +192,12 @@
    carries no figure (I-bbs-2): the key cell lets them show past its edge rather than cut a level, a
    class and a mark to the width a bar mark needs. */
 .cx-bbs-grid .cx-table-row[data-member] {
-  background-color: var(--surface-sunken);
+  background-color: var(--surface-band);
   font-weight: var(--weight-body-medium);
 }
 
 .cx-bbs-grid .cx-table-row[data-member] > .cx-table-cell {
-  background-color: var(--surface-sunken);
+  background-color: var(--surface-band);
 }
 
 .cx-bbs-grid .cx-table-row[data-member] > .cx-table-cell:first-child,
@@ -304,7 +342,7 @@
 
 .cx-bbs-summary-head,
 .cx-bbs-summary-total {
-  background: var(--surface-sunken);
+  background: var(--surface-band);
 }
 
 .cx-bbs-summary-total > span:first-child {

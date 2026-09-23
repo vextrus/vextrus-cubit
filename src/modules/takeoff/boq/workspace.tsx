@@ -68,7 +68,7 @@ type BoqColumn = {
   /** The width the column is READ at (§5 rule 3), never the primitive's 150. */
   size?: number;
   cell: (context: BoqCell) => ReactNode;
-  meta?: { align?: "right" };
+  meta?: { align?: "right"; groupSubtotal?: "value" | "unit" };
 };
 
 /** One step of the render job, as the shipped timeline reads one (job-timeline I-113). */
@@ -156,6 +156,7 @@ export interface BoqChrome {
       of: (row: BoqRow) => { key: string; label: string } | null;
       valueOf?: (row: BoqRow) => string | null;
       unitOf?: (row: BoqRow) => string;
+      showCount?: boolean;
     };
     rowDataOf?: (row: BoqRow, rowId: string) => Readonly<Record<string, string>>;
     rowTestId?: string;
@@ -255,6 +256,21 @@ const UNSIGNED = "UNSIGNED";
 /** The two kinds the quantities travel as, as this screen states them on its own controls. */
 const XLSX = "xlsx";
 const CSV = "csv";
+
+/** What parts a taxonomy version's family from its edition: `bill-taxonomy/2026-09-16`. */
+const VERSION_EDITION = "/";
+
+/**
+ * The short form a taxonomy version is SHOWN by: its edition — what follows the family's `/` — which
+ * is the part that tells one taxonomy from the next (I-355). A version written without a family has
+ * no better short form than the chip's own, so it is left to the chip. The whole value is never
+ * rewritten: it stays the chip's `data-value`, tooltip and copy (R-UI-082).
+ */
+function editionOf(version: string): string | undefined {
+  const at = version.lastIndexOf(VERSION_EDITION);
+  const edition = at < 0 ? "" : version.slice(at + VERSION_EDITION.length);
+  return edition === "" ? undefined : edition;
+}
 
 // The addresses this screen links. ARCH-01 bars a module from the app layer where a route builder
 // lives, so they are spelled here for this screen and nowhere else in it (Decision §7).
@@ -534,6 +550,9 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
       of: (row: BoqRow) => ({ key: `${row.class}:${row.kind}`, label: row.description }),
       valueOf: (row: BoqRow) => row.quantity,
       unitOf: (row: BoqRow) => row.unit,
+      // s-boq §1: a group row carries "no parenthesised count"; its sum stands in the Quantity and
+      // Unit cells the columns below mark (primitives-data I-356).
+      showCount: false,
     }),
     [],
   );
@@ -565,7 +584,11 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
             <span className="cx-boq-aside-label">{BOQ_COPY.boq_revision_label}</span>
             <IdChip className="cx-boq-revision" data-testid={ids.revision} value={view.setRevisionId ?? ""} />
             <span className="cx-boq-aside-label">{BOQ_COPY.boq_taxonomy_label}</span>
-            <IdChip className="cx-boq-taxonomy" data-testid={ids.taxonomyVersion} value={view.taxonomyVersion} />
+            {/* The taxonomy's version is a family and an edition date (`bill-taxonomy/2026-09-16`); its
+                first seven characters (`bill-ta`) are neither, so the chip says the EDITION, which is
+                what tells two taxonomies apart — the whole value stays its `data-value`, its tooltip
+                and its copy (R-UI-082, §1's `taxonomy 2026-09-16`, I-355). */}
+            <IdChip className="cx-boq-taxonomy" data-testid={ids.taxonomyVersion} value={view.taxonomyVersion} short={editionOf(view.taxonomyVersion)} />
             <span className="cx-boq-standing" data-testid={ids.draft} data-state={UNSIGNED}>
               {BOQ_COPY.boq_draft_standing}
             </span>
@@ -894,18 +917,20 @@ function boqColumns(
       accessorFn: (row) => (row.level !== "" ? row.level : (row.slot ?? "")),
       // The level label verbatim; where the line stands on no level of the stack, the lawful-null
       // slot the register placed its member in, as words — never an empty cell (I-boq-1, R-UI-020).
+      // The label is model data and reads in mono; the slot is an enum said in WORDS, so it keeps
+      // the interface's face — only its muted ink is the level column's (R-UI-085, I-355).
       cell: ({ row }) =>
         row.original.level !== "" || row.original.slot === null ? (
           <span className="cx-boq-level">{row.original.level}</span>
         ) : (
-          <EnumLabel value={row.original.slot} className="cx-boq-level cx-boq-enum" />
+          <EnumLabel value={row.original.slot} className="cx-boq-slot cx-boq-enum" />
         ),
     },
     {
       id: "quantity",
       header: BOQ_COPY.boq_col_quantity,
       size: 140,
-      meta: { align: "right" },
+      meta: { align: "right", groupSubtotal: "value" },
       accessorFn: (row) => row.quantity ?? "",
       // I-271: the figure a reader reads is the figure the document prints — already rounded at the
       // kind's own precision by the emission, grouped as the document groups one (L-FMT-01). A line
@@ -922,6 +947,7 @@ function boqColumns(
       id: "unit",
       header: BOQ_COPY.boq_col_unit,
       size: 80,
+      meta: { groupSubtotal: "unit" },
       accessorFn: (row) => row.unit,
       cell: ({ row }) => <UnitBadge unit={row.original.unit} />,
     },

@@ -173,6 +173,13 @@
   font-weight: var(--weight-body-medium);
 }
 
+/* The model space's name in words (I-353) is the name's own face, size and ink — the primitive's body
+   size would stand one row taller than the sheet titles beneath it. */
+.cx-schedules-sheet-name .cx-schedules-sheet-space {
+  font: inherit;
+  color: inherit;
+}
+
 .cx-schedules-sheet-holds {
   flex: 0 4 auto;
   min-width: 0;
@@ -382,40 +389,153 @@
   flex-basis: auto;
 }
 
-/* A family reads as ROWS of Mark · Band · Section · Zone (§1's registry drawing), not as a paragraph
-   of three stacked lines: the mark, then its variant's band and section, then each zone, run along
-   one row at `--row-h` and wrap only where the pane is too narrow for them (I-sch-1). A family with
-   more than one variant gives each variant a row of its own, indented under its mark. */
-.cx-schedules-family {
-  display: flex;
-  flex-wrap: wrap;
+/* The registry is ONE grid of fixed tracks, headed once (§1's `Mark │ Band │ Section │ Zone`, I-353):
+   the mark, the band, the section, then one track per rebar zone in the store's own order, so a zone
+   stands under the same zone on every row. Every row is one `--row-h` line and nothing on it wraps —
+   the section is the one track that gives way, ellipsised with its whole text in a Tooltip (§1's cell
+   rule, R-UI-084). A track with nothing in it is `auto` and holds no cell, so it takes no width at
+   all; the space between tracks is each cell's own inline end rather than a column gap, which an
+   empty track would otherwise still pay. Every track takes what its widest cell needs and the zones
+   stand right after the section, where the eye reads on; what is left over stands at the END of the
+   row (`rest`), never as a gulf between a section and its bars. */
+.cx-schedules-registry-grid {
+  display: grid;
+  grid-template-columns:
+    [mark] minmax(4ch, max-content)
+    [band] minmax(6ch, max-content)
+    [section] minmax(12ch, max-content)
+    [main] auto
+    [ties] auto
+    [ties-end] auto
+    [ties-mid] auto
+    [rest] minmax(0, 1fr)
+    [end];
+  align-content: start;
+  font-size: var(--text-caption);
+}
+
+/* The heading row: the column names, said once, muted, above the rows they name — and pinned to the
+   top of the pane while its rows scroll beneath it, on the pane's own fill. */
+.cx-schedules-registry-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-column: mark / end;
+  grid-template-columns: subgrid;
   align-items: center;
-  column-gap: var(--space-4);
-  padding: 0;
+  min-height: var(--row-h);
+  margin: 0;
+  border-bottom: var(--hairline);
+  background: var(--surface-panel);
+}
+
+.cx-schedules-registry-heading {
+  padding-inline-end: var(--space-4);
+  overflow: hidden;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Where each piece stands. The zone heading names the zone tracks together, which every zone cell
+   beneath it then says in words of its own. */
+.cx-schedules-at-mark {
+  grid-column: mark / span 1;
+}
+
+.cx-schedules-at-band {
+  grid-column: band / span 1;
+}
+
+.cx-schedules-at-section {
+  grid-column: section / span 1;
+}
+
+.cx-schedules-at-zones {
+  grid-column: main / rest;
+}
+
+/* A family is a subgrid over every track: its mark in the Mark track of its first row, its variants
+   one row each down the tracks beside it — so a family of four bands is four rows, not five. */
+.cx-schedules-family {
+  display: grid;
+  grid-column: mark / end;
+  grid-template-columns: subgrid;
+  align-items: start;
   border-bottom: var(--hairline);
 }
 
-.cx-schedules-variant {
+/* The mark is a `--row-h` box centred like the variant row beside it, so the two read on one line
+   and every row of the family keeps the same pitch. */
+.cx-schedules-family-mark {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  column-gap: var(--space-4);
-}
-
-.cx-schedules-family:has(> .cx-schedules-variant ~ .cx-schedules-variant) > .cx-schedules-variant {
-  flex-basis: 100%;
-  padding-left: var(--space-3);
-}
-
-.cx-schedules-family-mark,
-.cx-schedules-variant-band,
-.cx-schedules-zone {
-  display: flex;
+  grid-row: 1;
   align-items: center;
   gap: var(--space-2);
-  margin: 0;
+  min-width: 0;
   min-height: var(--row-h);
+  margin: 0;
+  padding-inline-end: var(--space-4);
   white-space: nowrap;
+}
+
+/* One variant, one row: every cell centred in the row's `--row-h`, and inside a zone cell the sans
+   zone word and the mono figure beside it share one baseline (I-353) — a baseline-aligned ROW would
+   sit its cells at the top of the row instead. */
+.cx-schedules-variant {
+  display: grid;
+  grid-column: band / end;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-height: var(--row-h);
+}
+
+.cx-schedules-registry-cell {
+  min-width: 0;
+  padding-inline-end: var(--space-4);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cx-schedules-zone {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding-inline-end: var(--space-4);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.cx-schedules-zone[data-zone="main"] {
+  grid-column: main / span 1;
+}
+
+.cx-schedules-zone[data-zone="ties"] {
+  grid-column: ties / span 1;
+}
+
+.cx-schedules-zone[data-zone="ties-end"] {
+  grid-column: ties-end / span 1;
+}
+
+.cx-schedules-zone[data-zone="ties-mid"] {
+  grid-column: ties-mid / span 1;
+}
+
+/* The zone's word is a label beside a figure, at the caption size the row is set in — the primitive's
+   body size stood it a pixel taller than the mono beside it. */
+.cx-schedules-zone .cx-schedules-enum {
+  font-size: var(--text-caption);
+  color: var(--ink-secondary);
+}
+
+.cx-schedules-zone-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cx-schedules-none-said {

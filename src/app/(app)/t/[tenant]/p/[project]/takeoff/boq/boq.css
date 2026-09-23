@@ -203,7 +203,7 @@
 .cx-boq-foot {
   display: flex;
   flex-direction: column;
-  background: var(--surface-sunken);
+  background: var(--surface-band);
   border-top: var(--hairline);
 }
 
@@ -259,11 +259,18 @@
   font-family: var(--font-mono);
 }
 
-/* The member's mark after its description: model data, so mono, and muted so the description still
-   leads the cell (I-boq-1). */
+/* A line on no level of the stack says its lawful-null slot in WORDS (`Foundation`), so it keeps the
+   interface's face and size — the primitive's own — and takes only the level column's muted ink
+   (R-UI-085, I-355). */
+.cx-boq-slot.cx-boq-enum {
+  color: var(--ink-muted);
+}
+
+/* The member's mark after its description: model data, so mono, and MUTED so the description still
+   leads the cell — `--ink-code` stood it at the description's own weight (I-boq-1(c), I-355). */
 .cx-boq-mark {
   margin-left: var(--space-2);
-  color: var(--ink-code);
+  color: var(--ink-muted);
   font-family: var(--font-mono);
 }
 

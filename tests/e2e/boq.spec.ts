@@ -91,9 +91,19 @@ test.describe("J-033 — the unpriced draft BOQ, by section", () => {
 
       const shown = (await steadyText(chip.locator(".cx-id-chip-value"), `${what}'s shown form`)).trim();
       expect(shown.length, `${what} shows something`).toBeGreaterThan(0);
-      expect(value.startsWith(shown), `${what} SHORTENS what it shows (${shown}) from the value it carries (${value}) — a chip that relabels an id is not this primitive`).toBe(true);
+      // TEST_AMENDED (session 7, s-boq I-355): the shown form is a PART of the value, not always its
+      // leading characters. IdChip's `short` is the primitive's own seam for a caller that knows a
+      // better short form, and the taxonomy's is its edition — `bill-taxonomy/2026-09-16` shows
+      // `2026-09-16`, where the leading seven (`bill-ta`) were neither a usable id nor a word. What
+      // the assertion guards is unchanged: a chip that RELABELS an id shows text the value does not
+      // hold, and still fails here.
+      expect(value.includes(shown), `${what} SHORTENS what it shows (${shown}) from the value it carries (${value}) — a chip that relabels an id is not this primitive`).toBe(true);
     }
     expect(await heldAttribute(boq.taxonomyVersion, "data-value"), "the taxonomy chip carries the version the resolver stamped").toBe(TAXONOMY_VERSION);
+    expect(
+      TAXONOMY_VERSION.endsWith(`/${(await steadyText(boq.taxonomyVersion.locator(".cx-id-chip-value"), "the taxonomy's shown form")).trim()}`),
+      "and SHOWS its edition — the part after the family's slash that tells one taxonomy from the next (s-boq I-355)",
+    ).toBe(true);
     expect(await heldAttribute(boq.revision, "data-value"), "and the revision chip carries the campaign's own pinned revision").toBe(staged.setRevisionId);
 
     /* --- the sections: in L-BD-08's order, one per section that holds a line --- */

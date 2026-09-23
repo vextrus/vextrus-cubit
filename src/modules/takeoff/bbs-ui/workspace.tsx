@@ -230,6 +230,35 @@ const NOTHING = "—";
 const registerHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/register`;
 const participantsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/participants`;
 const documentsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/documents`;
+const schedulesHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/schedules`;
+const levelsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/levels`;
+
+/**
+ * The components of a rebar line in words (I-354): the rail's own variable names, said as §3's
+ * vocabulary through `EnumLabel`, the raw name beside each under `data-technical`. Only words each
+ * value holds — `net` is the bars themselves, lap excluded (AM-03(a)).
+ */
+const COMPONENT_SAID: Readonly<Record<string, string>> = Object.freeze({ net: "Bars", lap: "Laps", ties: "Ties" });
+
+/**
+ * Where each omission a partly declared line states is SETTLED, and the words its link says (I-354,
+ * R-UI-020: what, why, and where to act). A disagreement over a note, a schedule nothing read, a tie
+ * zone the schedule leaves unstated and a lap the edition cannot derive are all settled on the
+ * Schedules screen, where the sheets' schedules and notes are read; a storey with no height is
+ * settled on the level stack. A code this table does not name is said without a link rather than
+ * sent somewhere it is not settled.
+ */
+const SETTLED_ON: Readonly<Record<string, "schedules" | "levels">> = Object.freeze({
+  NOTE_READING_CONTESTED: "schedules",
+  REBAR_SCHEDULE_UNREAD: "schedules",
+  REBAR_TIE_ZONE_UNSTATED: "schedules",
+  DETAILING_ROW_NOT_IN_EDITION: "schedules",
+  REBAR_STOREY_RUN_UNSTATED: "levels",
+});
+
+/** The words each place's link says — §3's vocabulary, stated in its table and not keyed. */
+const OPEN_THE_SCHEDULES = "Open the schedules";
+const OPEN_THE_LEVELS = "Open the levels";
 
 /** A node rendered where it stands, for a caller that hands no slot mount (I-209). */
 function InPlace({ children }: { children: ReactNode }): ReactNode {
@@ -371,10 +400,11 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
   /** The registered entries the partly declared lines name for what they left out, in their order. */
   const refusalOf = doors.refusalOf;
   const omissions = useMemo(
-    () => (view?.omitted ?? []).flatMap((code) => {
-      const entry = refusalOf?.(code);
-      return entry === undefined ? [] : [entry];
-    }),
+    () =>
+      (view?.omitted ?? []).flatMap((omission) => {
+        const entry = refusalOf?.(omission.code);
+        return entry === undefined ? [] : [{ entry, components: omission.components, settledOn: SETTLED_ON[omission.code] ?? null }];
+      }),
     [refusalOf, view?.omitted],
   );
   // I-bbs-1: a reader without MEASURE is denied the whole screen, so the door stands for a permitted
@@ -452,8 +482,12 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
               data-rounding-mm={String(document_.roundingMm)}
             >
               {/* Both figures carry the unit they are in: a bare `25` beside a `12,000` reads as a
-                  count of something rather than as the millimetre tolerance it is (§1, L-FMT-01). */}
-              {`${BBS_COPY.bbs_stock_label} ${formatUserFigure(document_.stockMm)} ${BBS_COPY.bbs_unit_mm} · ${BBS_COPY.bbs_stock_rounding_label} ${String(document_.roundingMm)} ${BBS_COPY.bbs_unit_mm}`}
+                  count of something rather than as the millimetre tolerance it is (§1, L-FMT-01).
+                  The words are the interface's and stand in its face beside `Pinned revision`; only
+                  the two FIGURES are model data, and only they are set in mono (R-UI-085, I-354). */}
+              {BBS_COPY.bbs_stock_label} <span className="cx-bbs-stock-figure">{formatUserFigure(document_.stockMm)}</span> {BBS_COPY.bbs_unit_mm}
+              {" · "}
+              {BBS_COPY.bbs_stock_rounding_label} <span className="cx-bbs-stock-figure">{String(document_.roundingMm)}</span> {BBS_COPY.bbs_unit_mm}
             </span>
           </>
         )}
@@ -516,13 +550,33 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
         {/* What the partly declared lines left out, each in the registry's own words and each once:
             a total beneath a schedule that holds no tie and no lap would otherwise read as the whole
             of the steel (L-QTY-02, L-QTY-07, R-UI-020). */}
+        {/* Each line says WHAT is missing first — the line's components in words — then the
+            registry's own message for why, then where it is settled, with the registry's remedy a
+            hover or a focus away (I-354, R-UI-020). */}
         {drawsGrid && state === "partial" && omissions.length > 0 ? (
           <div className="cx-bbs-omitted">
             <span className="cx-bbs-omitted-label">{BBS_COPY.bbs_partial_omitted}</span>
             <ul className="cx-bbs-omitted-list">
-              {omissions.map((entry) => (
+              {omissions.map(({ entry, components, settledOn }) => (
                 <li key={entry.code} className="cx-bbs-omitted-line">
-                  {entry.message}
+                  {components.length === 0 ? null : (
+                    <span className="cx-bbs-omitted-what">
+                      {components.map((component, at) => (
+                        <span key={component}>
+                          {at === 0 ? null : <span className="cx-bbs-omitted-separator">{" · "}</span>}
+                          <EnumLabel value={component} label={COMPONENT_SAID[component] ?? component} className="cx-bbs-omitted-component" />
+                        </span>
+                      ))}
+                    </span>
+                  )}{" "}
+                  <span className="cx-bbs-omitted-why">{entry.message}</span>{" "}
+                  {settledOn === null ? null : (
+                    <Tooltip content={entry.remedy}>
+                      <a className="cx-bbs-omitted-where" href={settledOn === "levels" ? levelsHref(tenantId, projectId) : schedulesHref(tenantId, projectId)}>
+                        {settledOn === "levels" ? OPEN_THE_LEVELS : OPEN_THE_SCHEDULES}
+                      </a>
+                    </Tooltip>
+                  )}
                 </li>
               ))}
             </ul>
