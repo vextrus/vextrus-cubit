@@ -9,7 +9,11 @@ lands under fixtures/rcc6-bnbc/ (failure writes nothing). Wave A's selfcheck.run
   6. the sanity tally re-read with ezdxf before writing equals the tally taken while placing,
      per (space, type), and the DWG expected census = tally − named losses (tally);
   8. two in-process builds are byte-identical except the DWG; every trap resolves to a live
-     handle (determinism, traps).
+     handle (determinism, traps);
+  9. R0's register (W-19, W-19a): against the set as Rev B issued it (git blob ids), every Rev B
+     record keeps its handle, type and layer, the records rewritten are exactly
+     `revc.CORRECTED`, everything added sits above Rev B's seed, every trap keeps its handle and
+     every Rev B view its pinned window (revision).
 
 `run(sheets, dxf_paths, ...)` is called by __main__ with everything in a scratch directory.
 """
@@ -20,9 +24,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from . import facts, fit, notation, tally, traps, wall
+from . import facts, fit, notation, revision, tally, traps, wall
 
-__all__ = ["facts", "fit", "notation", "run", "tally", "traps", "wall"]
+__all__ = ["facts", "fit", "notation", "revision", "run", "tally", "traps", "wall"]
 
 
 def run(
@@ -40,6 +44,7 @@ def run(
     report["wall"] = wall.check(sheets, written, traps_doc)
     report["tally"] = tally.check(scratch, written)
     report["traps"] = traps.check(scratch, traps_doc, written)
+    report["revision"] = revision.check(sheets, written, traps_doc)
     return report
 
 
