@@ -100,6 +100,13 @@ function part(value: string, what: string): string {
 const LATTICE_PARTS = 10;
 
 /**
+ * One step of that lattice, in drawing units, as the exact decimal a distance is compared with — read
+ * off the lattice itself, so a reader that allows a point one step of slack allows the step a key is
+ * quantised on and never a second spelling of it (B-17).
+ */
+export const LATTICE_STEP: string = new Decimal(1).div(LATTICE_PARTS).toFixed();
+
+/**
  * A world coordinate on the 0.1-drawing-unit lattice, as the fixed one-decimal string a key carries
  * (L-REG-04). Rounded half away from zero on `n × 10`, so a coordinate exactly between two lattice
  * points lands on the same one whichever side of zero it stands.

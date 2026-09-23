@@ -257,6 +257,17 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
   - The running figure on the canvas is the client's display of the same exact arithmetic (I-385).
     The card's figure is the gate's and it governs. Where the two ever differ at display precision,
     the card's stands and the running figure is gone.
+  - **What the digest binds, as S1 built it** (`ConsequenceMeasurement`, `src/core/acts/consequence.ts`):
+    the recipe as applied (its readings as the act judged them), the level, the drawing, the sheet
+    and its space, the partition's and the register's view keys, the calibration key with its two
+    factors, the drawn and figure units, the traced geometry with each point's basis and cited keys,
+    the exact geometry figure (the gross and each cut-out with its role), the geometry's basis, the
+    count of demoted points, the key the new row succeeds (`supersedes`) and the measurement an edit
+    strikes (`replaces`). Until the offer builder stands (S3), the figure a QS confirms is the
+    geometry's own; the per-kind quantity `judgeOffer` answers joins the same payload, and so the
+    same digest, when S3 lands. An act with no MEASUREMENT arm digests exactly as before.
+  - The pattern renders the arm's subjects as it renders every subject list until S6's card lands:
+    the new object (none → REGISTERED) and, for an edit, its predecessor (REGISTERED → REPUDIATED).
   - Owner: S1 for the arm and the digest, S6 for the presentation. The sentence in
     `consequence-dialog.md` rides integration (§13).
   - Rejected: a bespoke card with its own confirm. That would be a second act pattern (B-17), and it
@@ -317,6 +328,20 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     `space` (I-378) keeps their rows apart, and the overlap guard (I-380) and the cross-view rule
     (I-381) treat the two pages as two views. Otherwise one scope drawn on both pages would pass
     both: the guard never compares two spaces, and the cross-view rule would see one view.
+  - **How the act proves the view (S1).** The statement names the drawing revision, the sheet (its
+    layout name, which is the space its points are in) and the partition's own key for the view.
+    - A snapped point stands on the entities it cites. Each must be assigned to the named view by the
+      stored partition (`view_assignments`) and drawn in the named space; one assigned elsewhere
+      refuses `MANUAL_RING_OFF_VIEW`.
+    - A free point, or a snapped one the act demotes (I-387), stands in the named view only inside
+      the extent that view's own assigned entities draw on that space, widened by one lattice step.
+      So a wholly free ring is placed by the view the statement names, proved by that extent, rather
+      than by searching for the innermost box: the reader names the view it measured on, and the act
+      checks the claim.
+    - A paper layout's entities are in no view (the partition partitions model space), so a point on
+      one is off every view.
+    - The register view key is the one grammar's (`viewKey`): `viewAddressOf`'s spelling for an
+      anchored view, the `FILE:` spelling for the anchorless one.
   - The scale of an anchorless view is affirmed by SCALE-1's two-point path, which needs no machine
     proposal.
   - Rejected: requiring a human view-type act first. That act is not built, and it would put a
@@ -349,6 +374,13 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     the `UNRESOLVED` slot, which I-368 bars from lines.
   - Rejected: `@unregistered:<label>` for hand measurements. A person measuring names a level the
     stack holds or authors one first (INSERT_LEVEL).
+  - **As the act applies it (S1).** A foundation class stands in the `FOUNDATION` slot whatever was
+    stated: the slot the placement stands a drawn one in, so a hand footing and the machine's meet in
+    one cell (I-382) and cannot be counted twice across two spellings of one level. The card shows it
+    before the QS confirms, and the digest binds it. Any other class stands on a live level of the
+    stack; none, the `UNRESOLVED` slot, a level the stack no longer holds, and the `FOUNDATION` slot
+    are each `MANUAL_LEVEL_UNSTATED`. L-CAD-07's foundation roster moved into core for this
+    (`src/core/catalogue/level-basis.ts`); the placement law re-exports it, so it has one home.
 
 - **I-378 — The markless key (L-REG-02, L-REG-04).** A hand measurement has no drawn mark, but the
   store binds `object_key = placement_key ‖ level segment` (`register_objects_level_stated_once`), and a
@@ -436,6 +468,12 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     scope.
   - Keys stay a pure function of the act log (L-REG-04), and "delete then re-trace works" (S1's
     proof).
+  - **As the act applies it (S1).** An edit names the measurement it replaces (`replaces`). That
+    measurement must stand in the revision: one already struck or replaced refuses
+    `MANUAL_PREDECESSOR_NOT_STANDING`, and an edit that states the same recipe, geometry, level,
+    view and space as its predecessor is `ACT_CHANGES_NOTHING`. The row's stored `supersedes` is the
+    key its own key succeeds: the predecessor for an edit, and the struck key a re-trace re-derives.
+    The act strikes only `replaces`, because what a re-trace succeeds is already struck.
   - Rejected: appending an attribute observation to the same object. That is the right shape for a
     machine-read attribute (R-TO-051), but within a campaign it cannot move a published line, so the
     QS would edit and see nothing change.
@@ -548,6 +586,15 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     point up to 15 mm and can enlarge a ring, which is over-measurement.
   - The geometry arithmetic has one home, `src/core/manual/law.ts` (S1). The running figure (S4), the
     offer builder (S3) and the book (S7) all call it.
+  - **As the act applies it (S1, amended on review): a snapped point is stored as the drawing's point,
+    never as the client's.** Where the drawing itself determines a point among what the point cites
+    (a vertex of a cited entity, the midpoint of one of its segments, or the crossing of two cited
+    grid axes), and that point stands within the snap reach of the stated one (I-387), the stored
+    point is that one, spelled as the drawing spells it: a viewer's midpoint of (0.1, 0.2)–(0.2, 0.4)
+    arrives as (0.15000000000000002, 0.30000000000000004) and is stored as (0.15, 0.3). A nearest
+    point, a perpendicular foot or a crossing of two entities away from their vertices has no drawn
+    coordinate of its own. It keeps its stated spelling, and it stands within the snap reach of every
+    entity it cites (`src/core/manual/snaps.ts`).
 
 - **I-386 — Hand readings carry the view's declared unit. The gate multiplies no factor today, and
   L-MEA-05's gap is recorded.** L-MEA-05 says "the gate multiplies, not the rail". The tree's gate
@@ -563,6 +610,22 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
       its unit.
   - The canvas's running figure still shows metres from the calibration (I-146), so the QS sees the
     number the gate would need to multiply to reach.
+  - **As the act applies it (S1): the unit is read off the affirmed calibration, not off the
+    declared-unit resolver.** The act is core, and the declared-unit resolver (I-295, I-302) lives in
+    the partition module, which core may not import (ARCH-01). What the act can read is the view's
+    scale of record, which a person affirmed (L-MEA-05). A view is drawn full size in unit U when
+    both of its factors equal U's metres per unit within the edition's verification tolerance
+    (`drawnUnitOf`, `src/core/manual/units.ts`). The unit the hand reading carries is that U, which
+    must be a canon length unit the gate converts (mm, m, ft, in). Anything else refuses
+    `MANUAL_UNIT_NOT_CONVERTIBLE`: 1:100, centimetres, points, pixels, or two axes in two units.
+    - This is the second bullet above, with the declared unit replaced by the unit the affirmed
+      factors are. On every fixture the two agree: BNBC declares millimetres on S-01, and S-08 is
+      affirmed at 0.001.
+    - Where they could disagree (a note declaring millimetres over a view the QS affirmed at the
+      foot's 0.3048 by two points), the affirmation governs. It is the act that says what one drawing
+      unit measures, and the declaration speaks for the dimension texts.
+    - An area is carried in the square of the drawn unit (mm², m², sft). An inch drawing carries no
+      area the canon holds, so an area on one refuses too.
   - The gap is the gate's (§14, owner: the m4-pdf-sheet area). A vector PDF page (points) cannot
     publish a hand line until the gate multiplies. A raster page waits on that and on M4P-6 too
     (I-387). So the M4 exit's text-less sheet in J-041 is a full-size vector DXF drawn in
@@ -588,9 +651,38 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
   - **The door re-derives a snapped point's basis; it never takes the client's word.** A point
     claims MEASURED only where the server, reading the cited entities from the stored EntityGraph,
     reproduces it: an endpoint, midpoint, intersection or grid crossing exactly, a nearest or
-    perpendicular point on the entity within one lattice step. A point that does not reproduce is
+    perpendicular point on the entity within one lattice step (amended in S1 on review: within one
+    micrometre of real length, never a lattice step; see below). A point that does not reproduce is
     demoted to ENTERED (a free point), never refused, and the card shows the demoted basis. A tampered
     or buggy client can therefore make a figure weaker, never stronger than the drawing supports.
+  - **As the act applies it (S1): the re-derivation is the act's, not the transport's.** A guard
+    that only a transport runs is a second door to one write (B-17). So the act's own preview reads
+    the stored EntityGraph (`artifactAt`), the partition's assignments and the grid on its
+    transaction (`src/core/manual/snaps.ts`).
+    - A point is MEASURED when it stands within the **snap reach** of every entity it cites (an
+      original and the paint that names it), and of every grid axis of the named view it cites. An
+      endpoint, a midpoint, an intersection, a nearest or a perpendicular point, and a grid crossing
+      all do, so the snap kind is not stated and not trusted. It is stored as the drawing's own point
+      where the drawing determines one there (I-385).
+    - **The snap reach is one micrometre of real length** (`SNAP_REACH_METRES`, carried into the
+      view's drawn unit by `snapReachOf`, `src/core/manual/units.ts`): 0.001 on a millimetre drawing,
+      0.000001 on a metre one, about 0.0000033 on a foot one. That is float noise for a viewer
+      computing on the drawing's own doubles, which is all a lawful viewer is (`viewer-snap/snap.ts`
+      snaps on the records' own world points). Pushing every point of a 100 m perimeter outward by
+      the whole reach adds 0.0001 m², below anything a bill prints.
+    - **Amended on review, from "within one lattice step".** The original reading allowed a nearest or
+      perpendicular point one lattice step, 0.1 drawing units. That is 100 mm on a metre drawing and
+      about 30 mm on a foot one, which I-380 itself calls over-measurement. The review measured it: a
+      10 m × 10 m slab drawn in metres as four LINEs, each corner pushed 0.07 units outward while citing
+      its two lines, came back MEASURED at 102.8196 m² against the drawing's 100. That broke the
+      guarantee above and the law (over-measurement is a hard block). The same push is now demoted
+      (`tests/takeoff/manual/manual-law.test.ts`, "a metre drawing, corners pushed outward"). On a
+      millimetre drawing such as BNBC the old slack was 0.1 mm, which is why no fixture caught it.
+    - A point that does not reproduce, or that cites a key the drawing does not hold, is demoted: it
+      becomes a free point on the lattice, ENTERED, citing nothing. The card counts the demoted
+      points.
+    - A recipe reading that claims TRANSCRIBED from a note the drawing does not hold is demoted to
+      ENTERED the same way.
   - While drawing, each placed point wears its basis as R-UI-002 spells it everywhere a basis
     appears: the basis glyph in the basis colour, 10 px, centred on the point, on a 1 px
     `--canvas-paper` halo. MEASURED is ◆ in `--basis-measured`, ENTERED ✎ in `--basis-entered`,
@@ -883,6 +975,53 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     REPIN_DRAWING_SET (§14). Until then the re-pin act's consequence must say that hand measurements
     do not carry.
 
+- **I-496 — A hand measurement is stored beside its register row, append-only; a condition is
+  retired, never deleted (L-ACT-01, R-TO-041).** Migration 0062 lands two tables.
+  - `manual_measurements` holds one row per register object, keyed by the object's own key inside
+    its revision and bound to that row by a foreign key: the act that recorded it, the drawing,
+    sheet and views it was traced on, the recipe as applied, the level (a surrogate, or the
+    `FOUNDATION` slot, stated exactly once), the traced geometry exactly as the act judged it, the
+    exact figure, the drawn and figure units, the calibration key, and what it supersedes. The app
+    role reads and adds; a trigger refuses every rewrite and removal, the owner's included, as it
+    does on the register's ledger of readings.
+  - `conditions` holds a project's named recipes: the name (one standing condition per name), the
+    geometry, class, kinds with their rule ids, the readings, the colour (one of the element
+    palette's eight members, by name) and the hatch (one of six). The app role may edit one and
+    retire it, and never delete it, because a measurement cites the condition it was applied from.
+  - The manual-origin fact S3's rail filter keys on (I-384) is a row in `manual_measurements`: a
+    register object with one is a hand measurement's. It is never read off the mark's prefix.
+  - **The citation of a condition is bound to the project, in the act and in the store (amended on
+    review).** A recipe that names a condition is judged against the chest first. The act reads the
+    condition by workspace, project and id on its own transaction, and refuses
+    `MANUAL_CONDITION_NOT_STANDING` where the chest holds none (another project's, another workspace's,
+    or none at all) or holds it retired. Without that read the store's key answered an unknown
+    condition with SQLSTATE 23503, which reached the wire as a fault. The store's key is now
+    composite, `(tenant_id, project_id, condition_id)` against `conditions_scoped_key`: a foreign key
+    is checked past row-level security, and a key on the id alone would let a row cite another
+    workspace's condition. A null id cites nothing and is checked against nothing. That the recipe
+    as stated agrees with the condition it names is still the chest's to prove (S5); the act checks
+    that the condition stands.
+
+- **I-495 — Every write to the register's objects has one home, the register store (L-REG-01, B-17,
+  ARCH-01).** A hand measurement "registers through the register's door, never through a writer of
+  its own" (the J-000 header's third door). The act that records one is core, and core imports
+  nothing above it, so the door comes down to where the act can reach it.
+  - The batch sighting write (`registerSightingsIn`: the store's own key as the double-count guard,
+    a refused sighting kept whole as evidence) moves from `src/modules/takeoff/register/index.ts`
+    into `src/core/register/store.ts`, beside the observation ledger and the repudiation writer that
+    already stood there. The module re-exports it, and every caller above core (the rebuild, the
+    stages) keeps its import. The move is diff-neutral: the same SQL, the same answers, the register
+    breaker suites unchanged.
+  - The two core writers that wrote `register_objects` directly are re-homed as named writers of
+    the store. `rekeyObjectIn` is L-REG-04's one hop, which a level carry (`levels/store.ts`) and a
+    typical range (`author-typical-range.ts`) both take: the key, the surrogate, the cleared slot
+    and label, and the standing where the caller moves it. `registerBesideIn` stands up the rows a
+    typical range places a member on beside its placeholder, where a key already standing is the
+    same sighting and writes nothing.
+  - Rejected: routing the typical range's rows through the batch door. A range re-stated over a
+    storey the member already stands on would then be kept as a refused sighting, evidence of a
+    double count that is not one.
+
 ---
 
 ## 1. What a QS brings from Bluebeam, PlanSwift, On-Screen Takeoff and CostX
@@ -1152,7 +1291,11 @@ centred (the book is not the canvas), for the superseding act or REPUDIATE.
 These are written by their slices through `serverCall`/`routeHandler`, each with a live-database
 refusal test (CLAUDE.md, Architecture):
 - `takeoffManual.preview`, `takeoffManual.commit` and `takeoffManual.sheetMeasurements`
-  (`src/server/routers/takeoff-manual.ts`, S1, S3, S6);
+  (`src/server/routers/takeoff-manual.ts`, S1, S3, S6). S1's two take `{ input }` and
+  `{ input, consequenceDigest }`, where `input` is `{ projectId, drawingId, layoutName, viewKey,
+  recipe, level, geometry, replaces }` and each point is `{ x, y, cites }`, the world point and the
+  source keys it was snapped on. Both authorise with MEASURE and bind the drawing to the project
+  (R-SPINE-004). The commit answers `{ actId, objectKey }`;
 - `takeoffConditions.list`, `.author` and `.retire` (`takeoff-conditions.ts`, S5);
 - `takeoffManual.book` and the XLSX export (S7).
 
@@ -1329,12 +1472,14 @@ on `inline` (the chest's popover); `MEASUREMENTS_NO_CAMPAIGN` is `info` on `inli
 | `MANUAL_KIND_NOT_THIS_DISCIPLINE` | This kind is measured off another discipline's drawings, so it cannot be measured on this sheet. | Measure it on a sheet of the discipline that states it. | the Drawings screen, filtered to that discipline |
 | `MANUAL_VIEW_DRAWS_NO_SCOPE` | Schedules, notes and title blocks draw nothing that can be measured. | Measure on a plan, section or detail of the scope. | — (the view is under the pointer) |
 | `MANUAL_RING_OFF_VIEW` | The outline's points stand in more than one view, or in none, so it has no single view to be measured on. | Keep every point inside one view of the sheet. | — |
-| `MANUAL_GEOMETRY_DEGENERATE` | The outline encloses nothing measurable: it crosses itself, or has too few distinct points. | Redraw it with points that enclose the scope once. | — |
+| `MANUAL_GEOMETRY_DEGENERATE` | The outline encloses nothing measurable: it crosses itself, has too few distinct points, or a cut-out stands outside it or over another cut-out. | Redraw it with points that enclose the scope once, and cut-outs inside it. | — |
 | `MANUAL_LEVEL_UNSTATED` | This measurement stands on no level, and a quantity with no level cannot be billed by floor. | Pick the level on the card, or add the level to the stack first. | the level stack |
 | `MANUAL_UNIT_NOT_CONVERTIBLE` | This view is not drawn full size in a length unit the bill converts yet, so a hand figure here would be billed at the wrong size. | Measure on a sheet drawn full size in millimetres, metres or feet. | the view's Scale tab |
 | `MANUAL_OVERLAP` | This outline overlaps a measurement already standing under this class and kind on this level. | Trim the outline to the ground the other does not cover, or edit the other. | the other measurement, selected |
 | `MANUAL_CELL_OTHER_VIEW` | This class and kind on this level is already measured by hand on another view, and the two cannot be shown to cover different ground. | Measure this class and kind on this level on one sheet only. | the other view's measurement |
 | `MANUAL_CELL_MACHINE_MEASURED` | The product already measures this class and kind on this level, so a hand measurement there would count the same scope twice. | Measure a class, kind or level the product does not, or repudiate its objects here first. | the register, filtered to the cell |
+| `MANUAL_PREDECESSOR_NOT_STANDING` | The measurement this edit replaces no longer stands: it was deleted or already replaced. | Open the measurement that stands now and edit that one. | the measurement that stands now |
+| `MANUAL_CONDITION_NOT_STANDING` (S1, on review) | The condition this measurement applies is not in this project's chest: it was retired, or it belongs to another project. | Pick a condition that stands in this project's chest, then measure. | the condition chest |
 | `MANUAL_JUNCTION_UNPROVEN` | The register holds columns or walls on this level that this sheet cannot place, so the outline may hold them without deducting them. | Measure on a sheet whose grid ties to the columns' sheet. | the register's columns and walls on the level |
 | `CELL_MEASURED_BY_HAND` (gate, `errors/gate.ts`) | A quantity surveyor measured this class and kind on this level by hand, so the product's own reading was not published. | Keep the hand measurements, or delete them to let the product's reading publish on the next run. | the measurement book, filtered to the cell |
 | `CONDITION_NAME_TAKEN` (S5) | Another condition in this project already has this name. | Choose a name that tells the two apart. | the other condition |
@@ -1344,7 +1489,14 @@ on `inline` (the chest's popover); `MEASUREMENTS_NO_CAMPAIGN` is `info` on `inli
 Reused, unchanged:
 - `VIEW_SCALE_UNAFFIRMED`, `DUPLICATE_IDENTITY`, `METHOD_NOT_IN_EDITION`, `CONSEQUENCES_NOT_CARRIED`,
   `ACT_CHANGES_NOTHING` and `PERMISSION_NOT_HELD`;
-- `REQUEST_MALFORMED` for a malformed statement at the door.
+- `PARTITION_NOT_AVAILABLE` for a drawing with no ingest record, or a view its partition does not
+  hold, and `READING_NOT_NUMERIC` for a recipe reading that states no number;
+- `REQUEST_MALFORMED` for a malformed statement at the door. A recipe whose class does not bear one
+  of its kinds is malformed there, because the chest refuses such a condition at authoring (S5,
+  `CONDITION_KIND_NOT_BORNE`), and so is a trace whose geometry is not the recipe's.
+
+S1 registers every `MANUAL_*` code above except `MANUAL_JUNCTION_UNPROVEN`, thirteen in all. S3
+registers that one with the junction channel that raises it (I-389).
 
 `VIEW_SCALE_UNAFFIRMED`'s registered message speaks of "members". The unscaled view is said before
 the first click (§3), so a hand measurer meets that message only from a stale view. Re-wording it for
@@ -1536,7 +1688,7 @@ per-Interpretation verdict, so those rows stay OWED, and their objections below 
 | I-384 | "a rail per kind" is broken by a manual arm | the arm is inside the kind's one rail, composed at one home | OWED | S3 |
 | I-385 | exact figures from float-sourced coordinates are false precision | the coordinate's own decimal spelling is the drawing's fact; the key alone quantises | OWED | S1, S3 |
 | I-386 | refusing where the factor ≠ the unit blocks every PDF sheet | yes, until the gate multiplies (L-MEA-05); publishing a wrong-size figure is worse | OWED | S1 |
-| I-387 | L-QTY-01 and R-TO-040 disagree on a free point on a scan; and a MEASURED claim rests on the client | weakest-wins makes it INTERPRETED under both; the door re-derives every snapped point from the cited entity and demotes what it cannot reproduce | OWED | S1 |
+| I-387 | L-QTY-01 and R-TO-040 disagree on a free point on a scan; and a MEASURED claim rests on the client; and (review) one lattice step of reach let a metre drawing's corners, each pushed 70 mm outward, come back MEASURED at 102.8196 m² against 100 | weakest-wins makes it INTERPRETED under both; the door re-derives every snapped point from the cited entity and demotes what it cannot reproduce, within one micrometre of real length (never a lattice step), and stores the drawing's own point where the drawing determines one (I-385) | OWED | S1 |
 | I-388 | L-FRM-04 defers polygon blinding outright; and (review) S-08's drawn blinding rectangle bills blinding outside the slab at the chamfer | it defers projecting a polygon plan, and a traced outline projects nothing; a drawn blinding outline counts only where it follows its member, and where it does not, the member's own outline is traced (under by at most p) | OWED | S2 |
 | I-389 | a derived deduction from another sheet is "undrawn" on this one; a traced cut-out treated as an opening under-deducts a small column; and (review) "26 columns" counts the porch column outside the ring, and "members at that level" names the wrong storey | it is drawn on S-10 and in the register, and the fail-closed arm covers what cannot be placed; a cut-out carries a role; members are the storey whose top is the slab's level, each clipped to the ring's net region (25 on BNBC, 17 of them straddling its edge) | OWED | S3, S4, S6 |
 | I-390 | a one-line disclosure is still a disclosure of possible under-coverage | under-coverage is the lawful direction; over is blocked by k, l, m, t | OWED | S6 |
@@ -1544,6 +1696,8 @@ per-Interpretation verdict, so those rows stay OWED, and their objections below 
 | I-392 | F-SCAN may intend a pure scan | R-TO-003 names mixed pages; the text-less case is J-041's | OWED | M4P-5 |
 | I-393 | the item fails "no undrawn deduction"; and (review) the rectangle 824–827 over-measures by 0.79 m³, the yardstick's 5.957 m² was misread, Q(3) rested on a false premise, and the fallback's gate cell went unsaid | S-08 alone does fail it; only I-389 reaches the columns, and the leg waits for it; the ring is now 81D, the figures are re-read and tested against the fixture, Q(3) is answered by the drawing, the golden's two double deductions are R0 items, and the fallback is named a gate cell | OWED | S6 |
 | I-394 | leaving the carry out breaks L-REG-06 | the carry is owed and the re-pin must say so; nothing silently drops | OWED | re-pin |
+| I-496 | an append-only store makes a wrong measurement permanent; and (review) a recipe naming an unknown condition reached the store's key and answered with a fault, and a key on the id alone crossed workspaces | nothing is lost: an edit supersedes and strikes, a delete repudiates, and the bill withholds a struck object's lines (I-379, BOQ-1); what stays is the record of what a person did; the act refuses a condition the chest does not hold standing by name, and the key is `(tenant, project, condition)` | OWED | S1 |
+| I-495 | a move of the door every rebuild uses risks a behaviour change | the move is the same SQL in a new home, proved by the register breaker suites unchanged; the two re-homed writers keep their own semantics (no evidence for a re-stated range) | OWED | S1 |
 
 **D-005 (entered only if the refuter rejects I-388).** Clause: L-FRM-04, "Blinding (CC) count ×
 (L + 2p) × (B + 2p) × t; deferred for polygon plans". Evidence: the SOG on S-08 (POLYLINE 81D) is a
@@ -1662,6 +1816,13 @@ Risks this Decision leaves the orchestrator:
 - Typed "Less:" rows (ENTERED deductions, PWD practice) beside traced and register-derived ones.
   Owner: S9.
 - The remaining J-041 tools, assemblies and the sheet PDF. Owners: S9, S10, VD-6 and S11.
+- A view's extent has two readings: the partition overlay's box, read off the viewer's render
+  records (a module), and the act's extent, read off the artifact's entity points (I-375). They agree
+  on model space. One home for the box, in core, is owed. Owner: VD-4, or the slice that next touches
+  the overlay.
+- The placement outline's square-unit map (`partition/placement/outline.ts`) and the manual law's
+  (`src/core/manual/law.ts`, mm → mm², m → m², ft → sft) are two spellings of one fact. The outline
+  should read core's. Owner: the partition's next slice.
 
 ## Changelog
 
@@ -1729,3 +1890,38 @@ Risks this Decision leaves the orchestrator:
     lane, in place of the docs lane the spec names, which does not exist.
 
   The refuter's per-Interpretation verdicts and both critics' reads are still owed (§11, §12).
+
+- 2026-09-24 — S1 (session 8, wave 2): the act, the markless key and the store, built.
+  - `RECORD_MANUAL_MEASUREMENT` under MEASURE, behind `takeoffManual.preview` and `.commit`
+    (§2.11). The MEASUREMENT arm's payload is bound by the digest (I-373, amended to say what S1
+    binds).
+  - The law, the key, the guards and the point judgement are in `src/core/manual/` (`law.ts`,
+    `identity.ts`, `overlap.ts`, `snaps.ts`, `units.ts`, `exact.ts`, `store.ts`).
+  - The register's batch sighting write came down into `src/core/register/store.ts`, and the two
+    core writers of `register_objects` were re-homed there (I-495).
+  - `manual_measurements` and `conditions` (migration 0062, I-496).
+  - Amended from what the code taught:
+    - I-375 (how the act proves the view);
+    - I-377 (a foundation class stands in `FOUNDATION` whatever was stated, and the roster moved
+      into core);
+    - I-379 (`replaces` and `supersedes`, and the new `MANUAL_PREDECESSOR_NOT_STANDING`);
+    - I-386 (the unit read off the affirmed calibration);
+    - I-387 (the re-derivation is the act's own, within one lattice step of each cited entity);
+    - §5 (the degenerate message names cut-outs; S1's codes; an unborne kind is malformed at the
+      door).
+  - The J-000 stub's MISSING DOOR now names only what is still owed: a method, a rail arm, a
+    chest and the tools.
+  - Amended on the adversarial review:
+    - I-387: the snap reach is one micrometre of real length through the drawn unit, not one
+      lattice step. The review showed a metre drawing's pushed corners MEASURED 2.8 % over.
+    - I-385: a snapped point is stored as the drawing's own vertex, midpoint or grid crossing
+      wherever one stands within that reach.
+    - I-496: a condition the chest does not hold standing is refused by name
+      (`MANUAL_CONDITION_NOT_STANDING`), and the store's key on it is `(tenant, project,
+      condition)`. Migration 0062 was regenerated; it was never landed.
+    - A statement is bounded at 1 000 points over every ring and 50 cut-outs (`MANUAL_BOUNDS`,
+      the manual law), where it had been 5 000 points a ring and 500 cut-outs. Measured: two
+      1 000-point outlines take about a second to compare exactly, and two 5 000-point ones about six.
+      The exact kernel now also skips a pair whose boxes share no area.
+    - The commit judges a statement once per transaction; the seam's own preview inside the commit
+      had judged it twice.

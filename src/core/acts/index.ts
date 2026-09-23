@@ -18,6 +18,7 @@ import { declareNotInProjectScope, type DeclareNotInProjectScopeInput } from "./
 import { holdOutOfBill, type HoldOutOfBillInput } from "./hold-out-of-bill";
 import { insertLevel, type InsertLevelInput } from "./insert-level";
 import { pinDrawingSet, type PinDrawingSetInput } from "./pin-drawing-set";
+import { recordManualMeasurement, type RecordManualMeasurementInput } from "./record-manual-measurement";
 import { repudiate, type RepudiateInput } from "./repudiate";
 import { repudiateLevel, type RepudiateLevelInput } from "./repudiate-level";
 import { transcribeSheetNotes, type TranscribeSheetNotesInput } from "./transcribe-sheet-notes";
@@ -34,6 +35,7 @@ export {
   type Consequence,
   type ConsequenceEffects,
   type ConsequenceLineGroup,
+  type ConsequenceMeasurement,
   type ConsequenceRendering,
   type ConsequenceStanding,
   type ConsequenceSubject,
@@ -81,6 +83,7 @@ export { holdOutOfBill, type HoldOutOfBillInput } from "./hold-out-of-bill";
 export { declareNotInProjectScope, type DeclareNotInProjectScopeInput } from "./declare-not-in-project-scope";
 export { authorRulesetEdition, type AuthorRulesetEditionInput } from "./author-ruleset-edition";
 export { authorSiteFact, earthworkLinesRederiving, type AuthorSiteFactInput } from "./author-site-fact";
+export { recordManualMeasurement, type RecordManualMeasurementInput } from "./record-manual-measurement";
 
 /** Everything a caller may ask the seam to do: one member per act type the enum declares. */
 export type ActInput =
@@ -99,7 +102,8 @@ export type ActInput =
   | HoldOutOfBillInput
   | DeclareNotInProjectScopeInput
   | AuthorRulesetEditionInput
-  | AuthorSiteFactInput;
+  | AuthorSiteFactInput
+  | RecordManualMeasurementInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -123,6 +127,7 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
   DECLARE_NOT_IN_PROJECT_SCOPE: declareNotInProjectScope,
   AUTHOR_RULESET_EDITION: authorRulesetEdition,
   AUTHOR_SITE_FACT: authorSiteFact,
+  RECORD_MANUAL_MEASUREMENT: recordManualMeasurement,
 });
 
 /**
@@ -190,6 +195,8 @@ function renderingFor(input: ActInput): BoundRendering {
     case "AUTHOR_RULESET_EDITION":
       return bind(ACT_MAP[input.type], input);
     case "AUTHOR_SITE_FACT":
+      return bind(ACT_MAP[input.type], input);
+    case "RECORD_MANUAL_MEASUREMENT":
       return bind(ACT_MAP[input.type], input);
     default:
       return unrendered(input);

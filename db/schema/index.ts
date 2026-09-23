@@ -32,3 +32,4 @@ export * from "./masonry";
 export * from "./rebar";
 export * from "./docs";
 export * from "./boq";
+export * from "./manual";

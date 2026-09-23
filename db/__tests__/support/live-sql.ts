@@ -503,6 +503,17 @@ function spanningRows(url: string, table: TableRef, chosen: Map<string, string>)
       .filter((name) => (nullable.get(name) ?? false) && !chosen.has(name))
       .flatMap((name) => closedValues(url, table, name).map((value) => [name, lit(value)] as const));
     const composed = check.columns.filter((name) => (chosen.get(name) ?? "").startsWith("'"));
+    // A constraint that only asks the row to STATE one of its nullable columns (`num_nonnulls(…) = 1`
+    // over two ways of saying one fact) composes nothing: each stated value alone is a row it describes.
+    if (composed.length === 0) {
+      for (const [name, value] of stated) {
+        const overrides = new Map([[name, value]]);
+        const spelling = JSON.stringify([...overrides]);
+        if (seen.has(spelling)) continue;
+        seen.add(spelling);
+        rows.push(overrides);
+      }
+    }
     for (const [name, value] of stated) {
       for (const target of composed) {
         for (const other of composed) {

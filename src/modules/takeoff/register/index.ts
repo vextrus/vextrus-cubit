@@ -16,28 +16,31 @@
 //     a reading, a refusal or an attribute slot; the store holds no privilege that would let it.
 //   · L-REG-03: "disagreement is declared, never resolved silently" — a standing is DERIVED from the
 //     readings at read time, so no column anywhere holds a "current value" to overwrite.
-import { and, asc, drawingSetRevisions, eq, forTenant, inArray, refusedSightings, registerObjects, type TenantTx } from "@/core/db";
-import { REFUSALS } from "@/core/errors";
-import { DISCIPLINES, type Discipline } from "@/core/sheets/law";
-import { SIGHTING_STANDINGS, instanceKey, levelFormOf, placementKey, semanticDigest, viewKey, type LevelRef, type SightingStanding, type ViewRef } from "@/core/identity";
+import { and, asc, eq, forTenant, refusedSightings, registerObjects, type TenantTx } from "@/core/db";
 import {
   appendObservationIn,
   attributeStandingIn,
-  drawnFrom,
   observationsIn,
+  registerSightingIn,
   repudiatedObjectsIn,
   type AppendedObservation,
   type ObservationInput,
   type ObservationRow,
+  type RefusedSightingRow,
   type RegisterObjectRow,
+  type RegisteredSighting,
   type RepudiatedObjectRow,
   type RegisterScope,
+  type Sighting,
   type StandingOfAttribute,
 } from "@/core/register/store";
 
 // The tx-taking forms are the store's, and an act commits through them inside the transaction its
 // act row is written in (L-ACT-01). They are published here because the register's door is where a
-// caller meets the register (ARCH-02) — re-exported, never re-implemented (B-17).
+// caller meets the register (ARCH-02) — re-exported, never re-implemented (B-17). The batch sighting
+// write stands there too (I-495): a core act registers a hand measurement through it, and core may
+// not reach this module (ARCH-01), so the door's one implementation is the store's and this is its
+// address for every caller above core.
 export {
   ATTRIBUTE_STANDINGS,
   appendObservationIn,
@@ -45,243 +48,29 @@ export {
   isRepudiatedIn,
   observationsIn,
   registerObjectIn,
+  registerSightingIn,
+  registerSightingsIn,
   repudiateObjectIn,
   type AppendedObservation,
   type AttributeStanding,
   type ObservationInput,
   type ObservationRow,
+  type RefusedSightingRow,
   type RegisterObjectRow,
   type RegisterScope,
+  type RegisteredSighting,
   type RepudiatedObjectRow,
+  type Sighting,
   type StandingOfAttribute,
 } from "@/core/register/store";
 
 /**
- * One measured sighting, as the door is given one: what it is, where it stands, and what it says
- * about itself. The content is opaque here — the door digests it into the row's semantic and never
- * reads a field of it (L-REG-04: the semantic invalidates; it never keys).
- */
-export type Sighting = {
-  readonly discipline: string;
-  readonly elementType: string;
-  readonly mark: string;
-  readonly view: ViewRef;
-  readonly x: number;
-  readonly y: number;
-  readonly level: LevelRef;
-  readonly standing: string;
-  // No bars: a bar row is a later leaf, and a field this door took and dropped would read as a store
-  // that kept them. What a caller's bars are is asked of `barKey` when that leaf lands.
-  readonly content: unknown;
-};
-
-/**
- * What a sighting at the door answered: the object it stands on, or why it was not registered.
- *
- * A refusal also says whether the second sighting said anything NEW about the scope
- * (`semanticUnchanged`): a rebuild that derived the same column again and a genuine second drawing
- * of it saying something else are both refused as double counts, and only one of them is a
- * disagreement somebody must look at (L-REG-03). The refusal itself is unchanged either way — the
- * answer is richer, not different.
- */
-export type RegisteredSighting =
-  | { readonly registered: true; readonly objectKey: string }
-  | { readonly registered: false; readonly refusal: typeof DUPLICATE_IDENTITY; readonly objectKey: string; readonly semanticUnchanged: boolean };
-
-/** One refused sighting, whole — the evidence a refusal was kept as. */
-export type RefusedSightingRow = typeof refusedSightings.$inferSelect;
-
-/** The code this door answers with, read off the closed taxonomy rather than spelled beside it (Q-07). */
-const DUPLICATE_IDENTITY = REFUSALS.DUPLICATE_IDENTITY.code;
-
-/** The identity a sighting derives, and the columns that identity is spelled across. */
-function identityOf(sighting: Sighting): { objectKey: string; viewKey: string; placementKey: string } {
-  const placement = { view: sighting.view, mark: sighting.mark, x: sighting.x, y: sighting.y };
-  return {
-    objectKey: instanceKey({ placement, level: sighting.level }),
-    viewKey: viewKey(sighting.view),
-    placementKey: placementKey(placement),
-  };
-}
-
-/**
- * The level a sighting stands on, as the three columns that hold it. A level's label, ordinal and
- * height are never part of an identity (L-REG-02); the one label the store keeps is the placeholder's,
- * which is there to be carried onto a surrogate when somebody authors the level (L-REG-04).
- */
-function levelColumns(level: LevelRef): { levelId: string | null; levelSlot: string | null; levelLabel: string | null } {
-  // The form is asked of the identity grammar's own reading (`levelFormOf`), which validates the
-  // slot: the columns and the key derived from one level are two renderings of ONE discrimination,
-  // and a slot the key grammar refuses is refused here too, before any row is written (B-17).
-  switch (levelFormOf(level)) {
-    case "surrogate":
-      return { levelId: (level as { readonly levelId: string }).levelId, levelSlot: null, levelLabel: null };
-    case "slot":
-      return { levelId: null, levelSlot: (level as { readonly slot: string }).slot, levelLabel: null };
-    case "unregistered":
-      return { levelId: null, levelSlot: null, levelLabel: (level as { readonly unregistered: string }).unregistered };
-  }
-}
-
-/**
- * The scope a call names, proved against the store rather than taken on the caller's word.
- *
- * A register object cites the set revision it was sighted in and the project it belongs to (L-REG-02,
- * L-REG-03), and the store's foreign key to `drawing_set_revisions` is on the revision id alone — so
- * nothing but this read stops a scope whose three parts do not belong together: another workspace's
- * revision written under this tenant, or this workspace's other project stamped on scope that is not
- * its. The read runs inside the tenant transaction, so a revision of another workspace is not there
- * to be found at all (SEAM-TENANT).
- */
-async function proveScope(tx: TenantTx, scope: RegisterScope): Promise<void> {
-  const found = await tx
-    .select({ projectId: drawingSetRevisions.projectId })
-    .from(drawingSetRevisions)
-    .where(and(eq(drawingSetRevisions.tenantId, scope.tenantId), eq(drawingSetRevisions.setRevisionId, scope.setRevisionId)))
-    .limit(1);
-  const revision = found[0];
-  if (revision === undefined) {
-    throw new Error(`no pinned set revision ${scope.setRevisionId} stands in this workspace, so a sighting scoped to it is a sighting of nothing (L-REG-03, SEAM-TENANT)`);
-  }
-  if (revision.projectId !== scope.projectId) {
-    throw new Error(`set revision ${scope.setRevisionId} belongs to another project than ${scope.projectId}, and a register object's project is part of what it IS (L-REG-02)`);
-  }
-}
-
-/**
- * Register a measured sighting, or refuse it as a double count (L-REG-03).
- *
- * The guard is the store's key and not a read this function remembers to make: the insert is offered
- * and the store keeps the first one, so two walkers sighting the same column at the same moment leave
- * one register object and one piece of evidence rather than two rows of quantity. The refused sighting
- * is kept whole in a table no foreign key reaches — refused is not discarded, it is evidence.
+ * Register a measured sighting, or refuse it as a double count (L-REG-03), in a transaction of its
+ * own. The door itself — the store's key, the refusal kept as evidence — is the store's
+ * (`registerSightingsIn`); this is the form a caller holding no transaction enters it by.
  */
 export async function registerSighting(scope: RegisterScope, sighting: Sighting): Promise<RegisteredSighting> {
   return forTenant({ tenantId: scope.tenantId }).transaction((tx) => registerSightingIn(tx, scope, sighting));
-}
-
-/**
- * The same door, entered inside a transaction the caller already holds (L-ACT-01's tx-taking form).
- *
- * A rebuild registers what it derived in ITS OWN transaction: the register rows and the partition
- * they were derived from stand or fall together, so a rebuild whose later stage throws leaves no
- * register row behind to be re-derived against (L-REG-04, ARCH-03).
- */
-export async function registerSightingIn(tx: TenantTx, scope: RegisterScope, sighting: Sighting): Promise<RegisteredSighting> {
-  // One sighting is a batch of one: the write, the store's own key and the refusal evidence have ONE
-  // implementation, and a caller offering one row is the same caller offering a hundred (B-17).
-  const answered = await registerSightingsIn(tx, scope, [sighting]);
-  const answer = answered[0];
-  if (answer === undefined) throw new Error(`the register answered nothing about a sighting it was handed, which is no answer at all (L-REG-03)`);
-  return answer;
-}
-
-/**
- * The same door, entered ONCE for a whole batch of one revision's sightings (L-REG-03).
- *
- * A rebuild derives every instance of a drawing at once, and offering them one at a time is one scope
- * proof and one round trip per member of the building. The batch is proved once, offered as one
- * insert the store's own key decides, and the answers come back in the order the rows were handed
- * over — each row still registered or refused on its own identity, exactly as the single-sighting
- * door answers it.
- */
-export async function registerSightingsIn(tx: TenantTx, scope: RegisterScope, sightings: readonly Sighting[]): Promise<RegisteredSighting[]> {
-  if (sightings.length === 0) return [];
-  await proveScope(tx, scope);
-
-  const read = sightings.map((sighting) => ({
-    sighting,
-    identity: identityOf(sighting),
-    semantic: semanticDigest(sighting.content),
-    discipline: drawnFrom(DISCIPLINES, sighting.discipline, "discipline") as Discipline,
-    standing: drawnFrom(SIGHTING_STANDINGS, sighting.standing, "sighting standing") as SightingStanding,
-  }));
-
-  // One identity is offered once however many times the batch derives it: a second row of one key in
-  // one statement is the same double count the store's key refuses, and it is answered as one here
-  // rather than sent to the store to be refused by (L-REG-03).
-  const offeredAt = new Map<string, number>();
-  read.forEach((row, at) => {
-    if (!offeredAt.has(row.identity.objectKey)) offeredAt.set(row.identity.objectKey, at);
-  });
-  const offered = [...offeredAt.values()].map((at) => read[at] as (typeof read)[number]);
-
-  const written = await tx
-    .insert(registerObjects)
-    .values(
-      offered.map((row) => ({
-        tenantId: scope.tenantId,
-        setRevisionId: scope.setRevisionId,
-        objectKey: row.identity.objectKey,
-        projectId: scope.projectId,
-        discipline: row.discipline,
-        elementType: row.sighting.elementType,
-        mark: row.sighting.mark,
-        viewKey: row.identity.viewKey,
-        placementKey: row.identity.placementKey,
-        ...levelColumns(row.sighting.level),
-        standing: row.standing,
-        semantic: row.semantic,
-      })),
-    )
-    .onConflictDoNothing()
-    .returning({ objectKey: registerObjects.objectKey });
-  const wrote = new Set(written.map((row) => row.objectKey));
-
-  // What each refusal is about is read from the rows that STAND, inside this same transaction — the
-  // ones this insert just wrote among them, so a key the batch derived twice recognises itself.
-  const refused = read.filter((row, at) => !(wrote.has(row.identity.objectKey) && offeredAt.get(row.identity.objectKey) === at));
-  const standing = new Map(
-    refused.length === 0
-      ? []
-      : (
-          await tx
-            .select()
-            .from(registerObjects)
-            .where(
-              and(
-                eq(registerObjects.tenantId, scope.tenantId),
-                eq(registerObjects.setRevisionId, scope.setRevisionId),
-                inArray(registerObjects.objectKey, [...new Set(refused.map((row) => row.identity.objectKey))]),
-              ),
-            )
-        ).map((object) => [object.objectKey, object] as const),
-  );
-  for (const row of refused) {
-    if (standing.get(row.identity.objectKey) === undefined) {
-      throw new Error(`the register refused ${row.identity.objectKey} as already standing, yet no register object stands at it — the store's own key and this read disagree (L-REG-03)`);
-    }
-  }
-  if (refused.length > 0) {
-    await tx.insert(refusedSightings).values(
-      refused.map((row) => ({
-        tenantId: scope.tenantId,
-        setRevisionId: scope.setRevisionId,
-        projectId: scope.projectId,
-        objectKey: row.identity.objectKey,
-        refusal: DUPLICATE_IDENTITY,
-        discipline: row.discipline,
-        elementType: row.sighting.elementType,
-        mark: row.sighting.mark,
-        viewKey: row.identity.viewKey,
-        placementKey: row.identity.placementKey,
-        semantic: row.semantic,
-        sighting: row.sighting,
-      })),
-    );
-  }
-
-  const refusedAt = new Set(refused.map((row) => read.indexOf(row)));
-  return read.map((row, at) =>
-    refusedAt.has(at)
-      ? {
-          registered: false,
-          refusal: DUPLICATE_IDENTITY,
-          objectKey: row.identity.objectKey,
-          semanticUnchanged: standing.get(row.identity.objectKey)?.semantic === row.semantic,
-        }
-      : { registered: true, objectKey: row.identity.objectKey },
-  );
 }
 
 /** Every register object of one pinned set revision, inside a transaction the caller already holds. */

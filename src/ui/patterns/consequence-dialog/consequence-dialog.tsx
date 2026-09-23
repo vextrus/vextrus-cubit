@@ -110,6 +110,7 @@ const ACT_WORDS: { readonly [T in ActType]: string } = {
   DECLARE_NOT_IN_PROJECT_SCOPE: strings.consequence_dialog_act_declare_not_in_project_scope,
   AUTHOR_RULESET_EDITION: strings.consequence_dialog_act_author_ruleset_edition,
   AUTHOR_SITE_FACT: strings.consequence_dialog_act_author_site_fact,
+  RECORD_MANUAL_MEASUREMENT: strings.consequence_dialog_act_record_manual_measurement,
 };
 
 /**
@@ -404,7 +405,10 @@ export function ConsequenceSummary({ consequence, digest }: ConsequenceSummaryPr
 function ConsequenceSubjects({ consequence }: { consequence: Consequence }): ReactNode {
   const arm: ConsequenceRendering = consequence.rendering;
   switch (arm) {
+    // A hand measurement's subjects are the register row it adds and, on an edit, the one it strikes
+    // (s-measure I-373); the card at the closing point renders the arm's payload around them.
     case "SUBJECTS":
+    case "MEASUREMENT":
       return (
         <ul className="cx-consequence-subjects">
           {consequence.subjects.map((subject) => (

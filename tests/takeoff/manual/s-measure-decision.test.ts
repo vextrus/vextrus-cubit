@@ -34,7 +34,7 @@ const MODEL = "fixtures/rcc6-bnbc/model.json";
 const GOLDEN = "fixtures/rcc6-bnbc/takeoff.golden.json";
 
 /** An Interpretation's id, as a token before integration or as a number after it. */
-const INTERPRETATION = "I-(?:S0-[a-z]|[0-9]{3})";
+const INTERPRETATION = "I-(?:S[0-9]+-[a-z]|[0-9]{3})";
 
 /** R-UI-050's seven, in the clause's order. */
 const R_UI_050_STATES = ["loading", "empty", "error", "refusal", "partial", "offline", "permission-denied"];

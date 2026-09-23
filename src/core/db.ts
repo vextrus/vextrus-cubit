@@ -94,6 +94,8 @@ export {
   scopeDeclarations,
   barRows,
   documents,
+  conditions,
+  manualMeasurements,
   SEAM_SCHEMA,
 } from "./db/schema";
 export { isAcceptedFormat } from "./db/schema";

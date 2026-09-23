@@ -91,6 +91,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "bears",
   "calibrations",
   "campaigns",
+  "conditions",
   "conventionProfiles",
   "documents",
   "drawingSetMembers",
@@ -104,6 +105,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "ingests",
   "invitations",
   "levels",
+  "manualMeasurements",
   "memberTypeDimensions",
   "memberTypeVariants",
   "memberTypes",
@@ -177,6 +179,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
   "bears",
   "calibrations",
   "campaigns",
+  "conditions",
   "conventionProfiles",
   "documents",
   "drawingSetMembers",
@@ -191,6 +194,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
   "invitations",
   "isAcceptedFormat",
   "levels",
+  "manualMeasurements",
   "memberTypeDimensions",
   "memberTypeVariants",
   "memberTypes",
@@ -242,6 +246,15 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
 /**
  * The sha-256 over each key, its SQL table name and its column names in code-point order — the shape
  * half of the same baseline. Re-baselined with TABLES_BEFORE, and never on its own.
+ *
+ * Re-baselined for TWO ADDED tables and nothing else, the MANUAL area's (./schema-manual.ts,
+ * db/migrations/0062_manual-measurements.sql, session 8 S1): `conditions`, a project's named recipes a
+ * QS measures with (R-TO-041, I-374), and `manualMeasurements` (`manual_measurements`), what one
+ * RECORD_MANUAL_MEASUREMENT act recorded against the register row it stands at — the recipe as
+ * applied, the exact traced geometry with each point's basis, the view, the scale and the figure
+ * (R-TO-040, I-378, I-385, I-387). Both rosters gain the two keys, in code-point order, and the columns
+ * digest moves with them because the surface it hashes gained two tables. Nothing already on either
+ * roster moved; the previous digest was b13158317d2befe08cc4b784cf44a3e01940220df9cec2546efc101c49452ed3.
  *
  * Re-baselined for FIVE ADDED COLUMNS on one standing table and NO table at all — `placements`
  * (./schema-takeoff-placements.ts) gains `note_key`, `note_text`, `note_from_label`, `note_to_label`
@@ -313,7 +326,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * table's SQL name or column moved with it; the previous digest was
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "b13158317d2befe08cc4b784cf44a3e01940220df9cec2546efc101c49452ed3";
+const COLUMNS_DIGEST_BEFORE = "924641ab4c940a753c3dff37a6708f4934d9d37280ee1b54686ccc62c96a2167";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {

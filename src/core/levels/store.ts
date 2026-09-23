@@ -3,12 +3,13 @@
 //
 // Written by the act seam alone (SEAM-ACT), inside the transaction that writes the act row
 // (L-ACT-01), and read on the caller's transaction so a Consequence is judged against the state its
-// write lands in (L-ACT-02). The register objects are reached here rather than through
+// write lands in (L-ACT-02). The register objects are read here rather than through
 // `@/modules/takeoff/register` because the act seam is core and core imports nothing above it
-// (ARCH-01) — what a carry IS stays the identity grammar's (`carryLevel`), and this only moves the
-// three columns that grammar names.
+// (ARCH-01), and they are WRITTEN through the register store's one writer (`rekeyObjectIn`, I-495) —
+// what a carry IS stays the identity grammar's (`carryLevel`).
 import { and, asc, eq, inArray, isNull, levels, registerAttributes, registerObjects, storeyHeightReadings, type TenantTx } from "../db";
 import { carryLevel, dotlessUpper } from "../identity";
+import { rekeyObjectIn } from "../register/store";
 import { declaredOrdinal, type StoreyHeightBasis } from "./law";
 
 /** Which project's levels are being read, in whose workspace — a level is project-scoped (L-MEA-07). */
@@ -228,15 +229,8 @@ export async function keysHoldingReadings(tx: TenantTx, scope: LevelScope & { re
 export async function carryObjectOntoLevel(tx: TenantTx, scope: LevelScope, object: PlaceholderObject, levelId: string): Promise<boolean> {
   const carried = carryLevel(object.objectKey, { label: object.levelLabel, levelId });
   if (!carried.carried) return false;
-  await tx
-    .update(registerObjects)
-    .set({ objectKey: carried.key, levelId, levelLabel: null })
-    .where(
-      and(
-        eq(registerObjects.tenantId, scope.tenantId),
-        eq(registerObjects.setRevisionId, object.setRevisionId),
-        eq(registerObjects.objectKey, object.objectKey),
-      ),
-    );
+  // The row moves through the register's one writer (I-495): the store names the columns a re-key
+  // moves, and this names only what the key becomes.
+  await rekeyObjectIn(tx, { tenantId: scope.tenantId, setRevisionId: object.setRevisionId, objectKey: object.objectKey }, { objectKey: carried.key, levelId });
   return true;
 }

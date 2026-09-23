@@ -14,6 +14,7 @@ export { OBSERVATION_BASES, SIGHTING_STANDINGS } from "./law";
 export type { ObservationBasis, SightingStanding } from "./law";
 export {
   CITED_KEY_SCHEMES,
+  LATTICE_STEP,
   LEVEL_MARKER,
   LEVEL_SLOTS,
   UNREGISTERED_PREFIX,

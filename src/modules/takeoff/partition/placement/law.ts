@@ -9,6 +9,7 @@
 // Pure and storeless: the same mark reads the same class forever, which is what lets a stored
 // partition be rebuilt onto identical rows (L-REG-04).
 import type { ElementType } from "@/core/catalogue/classes";
+import { FOUNDATION_CLASSES } from "@/core/catalogue/level-basis";
 import type { MemberShape } from "@/core/db";
 import type { BandStatement } from "@/core/offers/contract";
 import { DISCIPLINES, type Discipline } from "@/core/sheets/law";
@@ -80,9 +81,11 @@ export const VERTICAL_CLASSES: readonly ElementType[] = Object.freeze([COLUMN, S
 /**
  * L-CAD-07's foundation classes — "foundation classes take the lawful-null level basis". A footing
  * stands under the building rather than on a storey of it, so it takes the FOUNDATION slot whatever
- * the caption says (L-REG-04).
+ * the caption says (L-REG-04). The roster's home is core (`@/core/catalogue/level-basis`), because the
+ * manual measurement act must stand a hand footing in the same slot the placement stands a drawn one
+ * (s-measure I-377); it is published here for every reader of the placement law (B-17).
  */
-export const FOUNDATION_CLASSES: readonly ElementType[] = Object.freeze([FOOTING, PILE_CAP, PILE, TIE_BEAM]);
+export { FOUNDATION_CLASSES };
 
 /**
  * The classes that stand ON a level, and therefore expand over the levels their view states: L-CAD-07's

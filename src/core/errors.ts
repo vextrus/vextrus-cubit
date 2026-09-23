@@ -33,6 +33,7 @@ import { GATE_REFUSALS, type GateRefusalCode } from "./errors/gate";
 import { IDENTITY_REFUSALS, type IdentityRefusalCode } from "./errors/identity";
 import { INVITATIONS_REFUSALS, type InvitationsRefusalCode } from "./errors/invitations";
 import type { RefusalSeverity, RefusalSurface } from "./errors/law";
+import { MANUAL_REFUSALS, type ManualRefusalCode } from "./errors/manual";
 import { MASONRY_REFUSALS, type MasonryRefusalCode } from "./errors/masonry";
 import { REBAR_REFUSALS, type RebarRefusalCode } from "./errors/rebar";
 import { REGISTER_REFUSALS, type RegisterRefusalCode } from "./errors/register";
@@ -94,7 +95,8 @@ export type RefusalCode =
   | RulesetsRefusalCode
   | ExportsRefusalCode
   | CoverageRefusalCode
-  | AskRefusalCode;
+  | AskRefusalCode
+  | ManualRefusalCode;
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -146,6 +148,7 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
   ...EXPORTS_REFUSALS,
   ...COVERAGE_REFUSALS,
   ...ASK_REFUSALS,
+  ...MANUAL_REFUSALS,
 });
 
 /**

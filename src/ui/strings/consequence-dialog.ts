@@ -37,6 +37,7 @@ export const consequenceDialog = {
   consequence_dialog_act_declare_not_in_project_scope: "Declare out of project scope",
   consequence_dialog_act_author_ruleset_edition: "Author a ruleset edition",
   consequence_dialog_act_author_site_fact: "Record a site fact",
+  consequence_dialog_act_record_manual_measurement: "Record a hand measurement",
 
   // I-445: a standing, before and after, in the words the level stack says it in.
   consequence_dialog_standing_agreed: "Agreed",

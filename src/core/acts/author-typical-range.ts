@@ -25,8 +25,9 @@
 // standing and be refused `DUPLICATE_IDENTITY` (L-REG-03) — the register would fill with evidence of a
 // person answering a question the machine asked (risk note 3).
 //
-// The register rows are reached here rather than through `@/modules/takeoff/register` for the reason
-// `../levels/store` reaches them: the act seam is core and core imports nothing above it (ARCH-01).
+// The register rows are read here rather than through `@/modules/takeoff/register` for the reason
+// `../levels/store` reads them: the act seam is core and core imports nothing above it (ARCH-01). They
+// are written through the register store's one writer (`rekeyObjectIn`, `registerBesideIn`, I-495).
 // Nothing is re-derived on the way — every key is the one the resolver derived through the identity
 // grammar, and every other column of a minted row is the placeholder's own, copied across (B-17).
 import { and, asc, eq, registerObjects, typicalRanges, type TenantTx } from "../db";
@@ -35,6 +36,7 @@ import type { RefusalCode } from "../errors";
 import { refusal } from "../faults/refusal-marker";
 import { SIGHTING_STANDINGS, type SightingStanding } from "../identity";
 import { liveLevelsOf, type LevelRow, type LevelScope } from "../levels/store";
+import { registerBesideIn, rekeyObjectIn } from "../register/store";
 import { typicalRangeReading, type TypicalRangeRow } from "../levels/typical-range-reading";
 import type { Discipline } from "../sheets/law";
 import type { Consequence, ConsequenceSubject } from "./consequence";
@@ -230,16 +232,11 @@ export const authorTypicalRange: ActRendering<AuthorTypicalRangeInput> = {
       // surrogate and the lawful-null slot is cleared — the row is the same sighting all along
       // (L-REG-04, and the same shape as the level store's own carry).
       try {
-        await tx
-          .update(registerObjects)
-          .set({ objectKey: carried.objectKey, levelId: carried.levelId, levelSlot: null, levelLabel: null, standing: carried.standing })
-          .where(
-            and(
-              eq(registerObjects.tenantId, ctx.tenantId),
-              eq(registerObjects.setRevisionId, placeholder.setRevisionId),
-              eq(registerObjects.objectKey, placeholder.objectKey),
-            ),
-          );
+        await rekeyObjectIn(
+          tx,
+          { tenantId: ctx.tenantId, setRevisionId: placeholder.setRevisionId, objectKey: placeholder.objectKey },
+          { objectKey: carried.objectKey, levelId: carried.levelId, standing: carried.standing },
+        );
       } catch (failure) {
         // The key this hop moves to can already be standing — another sighting of the same physical
         // scope under this revision, registered before this range was authored. The register's own
@@ -254,28 +251,14 @@ export const authorTypicalRange: ActRendering<AuthorTypicalRangeInput> = {
 
       const minted = rows.filter((row) => row.objectKey !== carried.objectKey);
       if (minted.length === 0) continue;
-      await tx
-        .insert(registerObjects)
-        .values(
-          minted.map((row) => ({
-            tenantId: ctx.tenantId,
-            setRevisionId: placeholder.setRevisionId,
-            objectKey: row.objectKey,
-            projectId: placeholder.projectId,
-            discipline: placeholder.discipline,
-            elementType: placeholder.elementType,
-            mark: placeholder.mark,
-            viewKey: placeholder.viewKey,
-            placementKey: placeholder.placementKey,
-            levelId: row.levelId,
-            standing: row.standing,
-            semantic: placeholder.semantic,
-          })),
-        )
-        // A key already standing IS this sighting (L-REG-04), so a range re-stated over a level the
-        // member already stands on writes nothing rather than offering a second sighting of one
-        // scope, which the register would rightly keep as evidence of over-measurement (L-REG-03).
-        .onConflictDoNothing();
+      // A key already standing IS this sighting (L-REG-04), so a range re-stated over a level the
+      // member already stands on writes nothing rather than offering a second sighting of one
+      // scope — the store's writer beside a placeholder says so (`registerBesideIn`, I-495).
+      await registerBesideIn(
+        tx,
+        { ...placeholder, tenantId: ctx.tenantId },
+        minted.map((row) => ({ objectKey: row.objectKey, levelId: row.levelId, standing: row.standing })),
+      );
     }
 
     // What the person stated, kept so a rebuild resolves the same range the act did (L-CAD-07): the

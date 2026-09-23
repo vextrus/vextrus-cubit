@@ -2,6 +2,8 @@
 // type's preview computes one of these, and every commit carries the digest of the one it was shown.
 // A digest that is not the one the current state produces is `CONSEQUENCES_NOT_CARRIED`.
 import { createHash } from "node:crypto";
+import type { GeometryFigure, HandLevel, MeasuredGeometry, Recipe } from "../manual/law";
+import type { QuantityBasis } from "../offers/law";
 import type { ActType } from "./law";
 
 /**
@@ -62,7 +64,42 @@ export type ConsequenceStanding = {
  * says something a different shape — L-ACT-02's offered groups, say — adds its arm here and its
  * rendering there, or fails to compile.
  */
-export type ConsequenceRendering = "SUBJECTS";
+export type ConsequenceRendering = "SUBJECTS" | "MEASUREMENT";
+
+/**
+ * The MEASUREMENT arm's payload (I-373): what a hand measurement would record, whole — the recipe as
+ * applied, where it was traced and at what scale, the geometry as the act judged each point of it,
+ * and the exact figure that geometry measures. The card renders it; the digest BINDS it, so the
+ * recipe and the figure a QS confirmed are what the act records, and a different figure between
+ * preview and the write is a different consequence (R-UI-021, I-44).
+ *
+ * The per-kind quantity the gate's own `judgeOffer` would publish joins this payload when the manual
+ * offer builder stands (I-384): until then the figure a person confirms is the geometry's own.
+ */
+export type ConsequenceMeasurement = {
+  readonly objectKey: string;
+  /** The object key the new row's key succeeds (I-379), or null for a first measurement. */
+  readonly supersedes: string | null;
+  /** The standing measurement this act strikes, where it edits one (I-379). */
+  readonly replaces: string | null;
+  readonly recipe: Recipe;
+  readonly level: HandLevel;
+  readonly drawingId: string;
+  readonly layoutName: string;
+  readonly partitionViewKey: string;
+  readonly viewKey: string;
+  readonly calibrationKey: string;
+  readonly factorX: string;
+  readonly factorY: string;
+  readonly drawnUnit: string;
+  readonly figureUnit: string;
+  readonly traced: MeasuredGeometry;
+  readonly figure: GeometryFigure;
+  /** The geometry's own basis: the weakest over its points (I-387). */
+  readonly basis: QuantityBasis;
+  /** How many snapped points the act could not reproduce on the drawing, and so counted as placed by hand. */
+  readonly demoted: number;
+};
 
 /**
  * What an act would do BEYOND its subjects: the derived state that follows from moving them
@@ -115,6 +152,8 @@ export type Consequence = {
   readonly subjects: readonly ConsequenceSubject[];
   /** The derived consequences an act previews, where its kind has any (R-TO-020); absent for the rest. */
   readonly effects?: ConsequenceEffects;
+  /** The MEASUREMENT arm's payload, present exactly where the rendering is that arm (I-373). */
+  readonly measurement?: ConsequenceMeasurement;
 };
 
 /**
@@ -139,7 +178,9 @@ export function consequenceDigest(consequence: Consequence): string {
  * digests as it always has — `canonical` writes nothing for an absent field.
  *
  * A subject's standing is bound for the reason its own field states (I-445); a subject whose act
- * reads no standing carries no field and digests exactly as before. The effects are bound as their
+ * reads no standing carries no field and digests exactly as before. A hand measurement's payload is
+ * bound whole (I-373): the recipe and the figure the person read are what they confirmed, and an act
+ * with no such arm carries no field and digests exactly as before. The effects are bound as their
  * two id lists and nothing more: the lines' grouping is the seam's presentation of those same ids
  * (I-446), and a commit recomputes the ids, not the words a surface counted them in.
  */
@@ -152,6 +193,7 @@ function judged(consequence: Consequence): unknown {
     rendering: consequence.rendering,
     subjects: consequence.subjects.map((subject) => ({ subjectId: subject.subjectId, before: subject.before, after: subject.after, standing: subject.standing })),
     effects: effects === undefined ? undefined : { linesRederiving: effects.linesRederiving, signaturesVoiding: effects.signaturesVoiding },
+    measurement: consequence.measurement,
   };
 }
 

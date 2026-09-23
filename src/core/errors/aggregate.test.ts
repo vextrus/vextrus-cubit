@@ -124,6 +124,20 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "LINTEL_SOURCE_ABSENT",
   "MALFORMED",
   "MANIFEST_NOT_RENDERABLE",
+  "MANUAL_CELL_MACHINE_MEASURED",
+  "MANUAL_CELL_OTHER_VIEW",
+  "MANUAL_CONDITION_NOT_STANDING",
+  "MANUAL_DISCIPLINE_UNCONFIRMED",
+  "MANUAL_GEOMETRY_DEGENERATE",
+  "MANUAL_KIND_NOT_THIS_DISCIPLINE",
+  "MANUAL_LEVEL_UNSTATED",
+  "MANUAL_NO_CAMPAIGN",
+  "MANUAL_OVERLAP",
+  "MANUAL_PREDECESSOR_NOT_STANDING",
+  "MANUAL_RING_OFF_VIEW",
+  "MANUAL_SHEET_NOT_PINNED",
+  "MANUAL_UNIT_NOT_CONVERTIBLE",
+  "MANUAL_VIEW_DRAWS_NO_SCOPE",
   "MEMBER_HAS_ACTS",
   "MEMBER_TYPE_UNKNOWN",
   "METHOD_IMPLEMENTATION_MISSING",
@@ -396,7 +410,9 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * ASK_JUDGEMENT_NOT_OFFERED; S-Ask §3) landing on top of the COVERAGE area's; no existing entry moved.
  * The previous digest was 75c3d764ed51804275e7182655ae185af75cc678bba5db5647c710bc83303ca5.
  */
-const ENTRIES_DIGEST_BEFORE = "39c2cfe82cf6a363fca3e621bdf1c8cc9d8eae26eb54785d98a7351546bfef26";
+/* Re-baselined at integration (session 8) for S1's ADDED entries; no existing entry moved. Previous: 39c2cfe82cf6a363fca3e621bdf1c8cc9d8eae26eb54785d98a7351546bfef26. */
+/* Re-baselined at integration (session 8) for S1's ADDED entries; no existing entry moved. Previous: a3adece169f19c74c1dba733a1785ee1661cd918bf0df5aef7e430934e3fecae. */
+const ENTRIES_DIGEST_BEFORE = "2c9643fb4676e0430f3a5371adc31560f43f6883b24f2e7d28bced756b344146";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

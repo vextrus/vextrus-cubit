@@ -31,6 +31,10 @@ export const ACT_TYPES = [
   // what the machine would derive, so it is an act type of its own; the permission it moves is the
   // project-fact one L-ACT-03 already cuts, and no new permission is minted for it.
   "AUTHOR_SITE_FACT",
+  // R-TO-040: "every measurement is an act with geometry citing the entities snapped to" — one act
+  // per completed hand measurement, which registers its row and records the recipe it applied
+  // (docs/design/s-measure.md, I-373, I-378).
+  "RECORD_MANUAL_MEASUREMENT",
 ] as const;
 
 /** One act type, drawn from the enum above. */
@@ -119,6 +123,8 @@ export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.free
   // AM-04, verbatim: AUTHOR_RULE_SET "carrying the act type AUTHOR_RULESET_EDITION". The amendment
   // replaces the staged reading that moved this act under ADMINISTER_PROJECT.
   AUTHOR_RULESET_EDITION: "AUTHOR_RULE_SET",
+  // L-ACT-03 cuts MEASURE on exactly this: "MEASURE (… manual measurement acts …)".
+  RECORD_MANUAL_MEASUREMENT: "MEASURE",
 });
 
 /**

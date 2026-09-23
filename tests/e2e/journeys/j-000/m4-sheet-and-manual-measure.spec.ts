@@ -16,14 +16,15 @@
  *    state and the law readings the doors below need (I-370 … I-394). viewer.md reserves the tool
  *    row (docs/design/viewer.md:27) and its IOU names the tools' owner (viewer.md:2370-2371); both
  *    cite s-measure.md at the wave's integration, so one row never has two spellings.
- * 2. No act. ACT_TYPES (src/core/acts/law.ts:11-34) holds no manual measurement act, though L-ACT-03
- *    cuts "manual measurement acts" under MEASURE (cubit.bible.xml:210); a new member needs its
- *    L-ACT-02 rendering pair and its permission.
- * 3. No identity. L-REG-02's key is (project, discipline, level, element type, mark, ordinal)
- *    (cubit.bible.xml:185) and a traced wall carries no mark; L-REG-03's double-count guard (:186)
- *    then meets a manual brick wall on 1F and the machine's own sighting of that wall once masonry
- *    publishes. The rule is ruled before the first row lands, and the row registers through the
- *    register's door (src/modules/takeoff/register/index.ts:210), never through a writer of its own.
+ * 2. The act — landed (session 8, S1). RECORD_MANUAL_MEASUREMENT under MEASURE
+ *    (src/core/acts/record-manual-measurement.ts; L-ACT-03, cubit.bible.xml:210), behind the
+ *    takeoffManual.preview/commit doors (src/server/routers/takeoff-manual.ts); an edit supersedes and
+ *    strikes its predecessor, a delete is REPUDIATE (s-measure.md I-379).
+ * 3. The identity — landed (session 8, S1). A hand row's mark is `~m.` and sixteen hex of its
+ *    content (src/core/manual/identity.ts, s-measure.md I-378), and it registers through the
+ *    register's one door, now in core (src/core/register/store.ts `registerSightingsIn`, I-495);
+ *    the double-count guards between hand measurements and against the machine's cells stand at the
+ *    act's preview (I-380 … I-382).
  * 4. No method, no condition. The offer law admits POLYLINE, POLYGON and POINT_SET geometry
  *    (src/core/offers/law.ts:57) and the RASTER engine (:63), and no method under
  *    src/core/rulesets/methods/ names any of them; no condition or assembly store exists; and the gate
@@ -56,7 +57,7 @@
 import { test } from "@playwright/test";
 
 test.describe("J-000 — Golden Path: M4's manual condition (AM-09 §3, AM-17), owed", () => {
-  test.fixme("MISSING DOOR: J-000 m4-sheet-and-manual-measure: nothing S-Measure's Design Decision rules is built — there is no manual measurement act, no identity rule for a row with no mark and no method over POLYLINE or POLYGON geometry, and the viewer's Linear, Area and Count tools stand disabled", () => {
+  test.fixme("MISSING DOOR: J-000 m4-sheet-and-manual-measure: a hand measurement is recorded as an act with a markless register row (S1), and nothing yet turns one into a line — no method over POLYLINE or POLYGON geometry, no manual arm of a rail, no condition chest, and the viewer's Linear, Area and Count tools stand disabled", () => {
     // AM-09 §3, AM-17: the walk lands with its doors; until then the leg is declared, collected and impossible to forget.
   });
 });
