@@ -45,6 +45,7 @@ import {
   type StagedCampaign,
   type StoreRow,
 } from "../../rails/support/column-rail-stage";
+import { writtenAtV3 } from "../../../cad/support/entitygraph-versions";
 import { measureSeam, type MeasureSeam } from "../../gate/support/gate-stage";
 import { INGEST_JOB_MODULE, INGEST_MODULE, UPLOADS_MODULE, stubCli, tempDir, withCadCommand } from "../../support/ingest-stage";
 import { PRINCIPAL, actorOf, grantRole, joinWorkspace, rejection, stagePerson, unique, type ActorCtx, type Person } from "../../support/sheets-stage";
@@ -301,8 +302,10 @@ function drawnArtifact(): { json: string; keys: { caption: string; sectionCell: 
     clipped: false,
   });
   const paper = { min: [0, 0], max: [297, 210] };
-  const graph = {
-    entitygraph_version: 2,
+  // Written as the current extractor writes (EntityGraph v3): the ingest door refuses an older
+  // artifact as a stale extractor's before it judges the drawing (FRM3-A, I-415).
+  const graph = writtenAtV3({
+    entitygraph_version: 3,
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-register-ui-stage", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
@@ -317,7 +320,7 @@ function drawnArtifact(): { json: string; keys: { caption: string; sectionCell: 
     derived: [],
     block_attributes: [],
     counters: [],
-  };
+  });
   return { json: JSON.stringify(graph), keys: { caption, sectionCell, levelNote, members } };
 }
 
