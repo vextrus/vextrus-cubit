@@ -1,0 +1,1796 @@
+{
+  "block_attributes": [],
+  "counters": [
+    {
+      "collapsed": {
+        "LWPOLYLINE": 2,
+        "TEXT": 1
+      },
+      "explode_losses": {},
+      "explode_truncated": false,
+      "flatten_capped": {},
+      "space": "Page 1"
+    },
+    {
+      "collapsed": {},
+      "explode_losses": {},
+      "explode_truncated": false,
+      "flatten_capped": {},
+      "space": "Page 2"
+    }
+  ],
+  "derived": [
+    {
+      "area": 100.0,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "S-GRID",
+      "points": [
+        [
+          515.0,
+          75.0
+        ],
+        [
+          525.0,
+          75.0
+        ],
+        [
+          525.0,
+          85.0
+        ],
+        [
+          515.0,
+          85.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:AB20D35ECF037D87D1F266DD7A7696738D348B2DC5F20832E9E7223D1ADB30AA",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "S-GRID",
+      "points": [
+        [
+          515.0,
+          75.0
+        ],
+        [
+          525.0,
+          85.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:AB20D35ECF037D87D1F266DD7A7696738D348B2DC5F20832E9E7223D1ADB30AA",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          204,
+          204,
+          204
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 3.0,
+      "layer": "S-GRID",
+      "points": [
+        [
+          518.0,
+          73.0
+        ]
+      ],
+      "rotation": 0.0,
+      "space": "Page 1",
+      "src": "PDF_OBJECT:AB20D35ECF037D87D1F266DD7A7696738D348B2DC5F20832E9E7223D1ADB30AA",
+      "text": "C1",
+      "type": "TEXT",
+      "valign": 0
+    },
+    {
+      "area": 100.0,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          95.0,
+          245.0
+        ],
+        [
+          105.0,
+          245.0
+        ],
+        [
+          105.0,
+          255.0
+        ],
+        [
+          95.0,
+          255.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:97C9BB0FB130C4EB317342B37B9BE36053212C945BB55936151EF99A3BC9E2A6",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          95.0,
+          245.0
+        ],
+        [
+          105.0,
+          255.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:97C9BB0FB130C4EB317342B37B9BE36053212C945BB55936151EF99A3BC9E2A6",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          204,
+          204,
+          204
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 3.0,
+      "layer": "0",
+      "points": [
+        [
+          98.0,
+          243.0
+        ]
+      ],
+      "rotation": 0.0,
+      "space": "Page 1",
+      "src": "PDF_OBJECT:97C9BB0FB130C4EB317342B37B9BE36053212C945BB55936151EF99A3BC9E2A6",
+      "text": "C1",
+      "type": "TEXT",
+      "valign": 0
+    },
+    {
+      "area": 100.0,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          145.0,
+          245.0
+        ],
+        [
+          145.0,
+          255.0
+        ],
+        [
+          135.0,
+          255.0
+        ],
+        [
+          135.0,
+          245.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:D872C31010C254926F89459E91E027B071D33A5A2EB9D6B6A00FAC6C276E39F3",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          145.0,
+          245.0
+        ],
+        [
+          135.0,
+          255.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:D872C31010C254926F89459E91E027B071D33A5A2EB9D6B6A00FAC6C276E39F3",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          204,
+          204,
+          204
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 3.0,
+      "layer": "0",
+      "points": [
+        [
+          147.0,
+          248.0
+        ]
+      ],
+      "rotation": 90.0,
+      "space": "Page 1",
+      "src": "PDF_OBJECT:D872C31010C254926F89459E91E027B071D33A5A2EB9D6B6A00FAC6C276E39F3",
+      "text": "C1",
+      "type": "TEXT",
+      "valign": 0
+    },
+    {
+      "area": 400.0,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          170.0,
+          240.0
+        ],
+        [
+          190.0,
+          240.0
+        ],
+        [
+          190.0,
+          260.0
+        ],
+        [
+          170.0,
+          260.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:E85C77B3917A3BF236741A224A61A819D5BB2905E84996CC55ACC386BF06E584",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          170.0,
+          240.0
+        ],
+        [
+          190.0,
+          260.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:E85C77B3917A3BF236741A224A61A819D5BB2905E84996CC55ACC386BF06E584",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          204,
+          204,
+          204
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 6.0,
+      "layer": "0",
+      "points": [
+        [
+          176.0,
+          236.0
+        ]
+      ],
+      "rotation": 0.0,
+      "space": "Page 1",
+      "src": "PDF_OBJECT:E85C77B3917A3BF236741A224A61A819D5BB2905E84996CC55ACC386BF06E584",
+      "text": "C1",
+      "type": "TEXT",
+      "valign": 0
+    },
+    {
+      "area": 100.0,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          225.0,
+          245.0
+        ],
+        [
+          215.0,
+          245.0
+        ],
+        [
+          215.0,
+          255.0
+        ],
+        [
+          225.0,
+          255.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:ABE7D46A644B9BB32CE36382BEDCE06B7C7E56728EA64CC40E27CD94F9F212D5",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          225.0,
+          245.0
+        ],
+        [
+          215.0,
+          255.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:ABE7D46A644B9BB32CE36382BEDCE06B7C7E56728EA64CC40E27CD94F9F212D5",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          204,
+          204,
+          204
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 3.0,
+      "layer": "0",
+      "points": [
+        [
+          222.0,
+          243.0
+        ]
+      ],
+      "rotation": 180.0,
+      "space": "Page 1",
+      "src": "PDF_OBJECT:ABE7D46A644B9BB32CE36382BEDCE06B7C7E56728EA64CC40E27CD94F9F212D5",
+      "text": "C1",
+      "type": "TEXT",
+      "valign": 0
+    },
+    {
+      "area": 100.0,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          387.0,
+          195.0
+        ],
+        [
+          397.0,
+          195.0
+        ],
+        [
+          397.0,
+          205.0
+        ],
+        [
+          387.0,
+          205.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:69A28845AEA953C48C6EA3BD5AC27818F8090CBCD3AD92EF7702E377B0DDA265",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          387.0,
+          195.0
+        ],
+        [
+          397.0,
+          205.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:69A28845AEA953C48C6EA3BD5AC27818F8090CBCD3AD92EF7702E377B0DDA265",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          204,
+          204,
+          204
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 3.0,
+      "layer": "0",
+      "points": [
+        [
+          390.0,
+          193.0
+        ]
+      ],
+      "rotation": 0.0,
+      "space": "Page 1",
+      "src": "PDF_OBJECT:69A28845AEA953C48C6EA3BD5AC27818F8090CBCD3AD92EF7702E377B0DDA265",
+      "text": "C1",
+      "type": "TEXT",
+      "valign": 0
+    },
+    {
+      "area": 100.0,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          403.0,
+          195.0
+        ],
+        [
+          413.0,
+          195.0
+        ],
+        [
+          413.0,
+          205.0
+        ],
+        [
+          403.0,
+          205.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:69A28845AEA953C48C6EA3BD5AC27818F8090CBCD3AD92EF7702E377B0DDA265",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          403.0,
+          195.0
+        ],
+        [
+          413.0,
+          205.0
+        ]
+      ],
+      "space": "Page 1",
+      "src": "PDF_OBJECT:69A28845AEA953C48C6EA3BD5AC27818F8090CBCD3AD92EF7702E377B0DDA265",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          204,
+          204,
+          204
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 3.0,
+      "layer": "0",
+      "points": [
+        [
+          406.0,
+          193.0
+        ]
+      ],
+      "rotation": 0.0,
+      "space": "Page 1",
+      "src": "PDF_OBJECT:69A28845AEA953C48C6EA3BD5AC27818F8090CBCD3AD92EF7702E377B0DDA265",
+      "text": "C1",
+      "type": "TEXT",
+      "valign": 0
+    },
+    {
+      "area": 100.0,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          145.0,
+          325.0
+        ],
+        [
+          145.0,
+          315.0
+        ],
+        [
+          155.0,
+          315.0
+        ],
+        [
+          155.0,
+          325.0
+        ]
+      ],
+      "space": "Page 2",
+      "src": "PDF_OBJECT:A3BE505528BD7E8BD34084AB5D1ADD176F15B48FBEBCF2430761351100A02BB0",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "layer": "0",
+      "points": [
+        [
+          145.0,
+          325.0
+        ],
+        [
+          155.0,
+          315.0
+        ]
+      ],
+      "space": "Page 2",
+      "src": "PDF_OBJECT:A3BE505528BD7E8BD34084AB5D1ADD176F15B48FBEBCF2430761351100A02BB0",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 3.0,
+      "layer": "0",
+      "points": [
+        [
+          143.0,
+          322.0
+        ]
+      ],
+      "rotation": 270.0,
+      "space": "Page 2",
+      "src": "PDF_OBJECT:A3BE505528BD7E8BD34084AB5D1ADD176F15B48FBEBCF2430761351100A02BB0",
+      "text": "C1",
+      "type": "TEXT",
+      "valign": 0
+    }
+  ],
+  "dropped_layouts": [],
+  "entities": [
+    {
+      "area": 230000.0,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:9B26C36016E77065F4C2E7F733D1A2421DF47BEF2FD35711734C684D2DAED208",
+      "layer": "0",
+      "points": [
+        [
+          10.0,
+          10.0
+        ],
+        [
+          585.0,
+          10.0
+        ],
+        [
+          585.0,
+          410.0
+        ],
+        [
+          10.0,
+          410.0
+        ]
+      ],
+      "space": "Page 1",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 9.0,
+      "key": "PDF_OBJECT:D9CCA9E303F694193320B9AE49D6988E71206D530216C75F9648BA6AF724BFB3",
+      "layer": "0",
+      "points": [
+        [
+          400.0,
+          20.0
+        ]
+      ],
+      "rotation": 0.0,
+      "space": "Page 1",
+      "text": "F-01 FORMS FIXTURE",
+      "type": "TEXT",
+      "valign": 0
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 5.0,
+      "key": "PDF_OBJECT:62DCCCBDF427D7F053C6C021629B21F3539370D5E2195E46C64F565846116B12",
+      "layer": "0",
+      "points": [
+        [
+          20.0,
+          380.0
+        ]
+      ],
+      "rotation": 0.0,
+      "space": "Page 1",
+      "text": "GRID NOTES",
+      "type": "TEXT",
+      "valign": 0
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 6.0,
+      "key": "PDF_OBJECT:96BDBBD360CA5AD7BC4258EA6C8ECC8E17955D0A64D209BCA30DF8AD33950CDB",
+      "layer": "0",
+      "points": [
+        [
+          100.0,
+          150.0
+        ]
+      ],
+      "rotation": 0.0,
+      "space": "Page 1",
+      "text": "SCALED",
+      "type": "TEXT",
+      "valign": 0
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 5.0,
+      "key": "PDF_OBJECT:310E7CA52E8486FCD3DE6512D541A1D876C9BF060BD3FD1613EBA8AD4AEE51AA",
+      "layer": "0",
+      "points": [
+        [
+          30.0,
+          200.0
+        ]
+      ],
+      "rotation": 90.0,
+      "space": "Page 1",
+      "text": "VERTICAL",
+      "type": "TEXT",
+      "valign": 0
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 4.0,
+      "key": "PDF_OBJECT:64CD8055AC01E201B9C4C494BE6346D872E850F2DC0B28D694841D93C3AFF9BE",
+      "layer": "0",
+      "points": [
+        [
+          20.0,
+          360.0
+        ]
+      ],
+      "rotation": 0.0,
+      "space": "Page 1",
+      "text": "DUP",
+      "type": "TEXT",
+      "valign": 0
+    },
+    {
+      "area": 313.888921732,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:46D7B17B82946A25AF8744F13DBDDAA724519D0FDFDCD6648B6D1590D2648BE1",
+      "layer": "0",
+      "points": [
+        [
+          190.0,
+          310.0
+        ],
+        [
+          190.862837559,
+          309.963294112
+        ],
+        [
+          191.70529359,
+          309.855177572
+        ],
+        [
+          192.524366366,
+          309.678652065
+        ],
+        [
+          193.317054162,
+          309.436719277
+        ],
+        [
+          194.080355253,
+          309.132380894
+        ],
+        [
+          194.811267911,
+          308.768638601
+        ],
+        [
+          195.506790413,
+          308.348494084
+        ],
+        [
+          196.163921031,
+          307.874949029
+        ],
+        [
+          196.77965804,
+          307.351005122
+        ],
+        [
+          197.350999716,
+          306.779664047
+        ],
+        [
+          197.874944331,
+          306.163927491
+        ],
+        [
+          198.34849016,
+          305.50679714
+        ],
+        [
+          198.768635477,
+          304.811274679
+        ],
+        [
+          199.132378558,
+          304.080361793
+        ],
+        [
+          199.436717675,
+          303.317060169
+        ],
+        [
+          199.678651104,
+          302.524371492
+        ],
+        [
+          199.855177118,
+          301.705297448
+        ],
+        [
+          199.963293992,
+          300.862839722
+        ],
+        [
+          200.0,
+          300.0
+        ],
+        [
+          199.963293992,
+          299.137160278
+        ],
+        [
+          199.855177118,
+          298.294702552
+        ],
+        [
+          199.678651104,
+          297.475628508
+        ],
+        [
+          199.436717675,
+          296.682939831
+        ],
+        [
+          199.132378558,
+          295.919638207
+        ],
+        [
+          198.768635477,
+          295.188725321
+        ],
+        [
+          198.34849016,
+          294.49320286
+        ],
+        [
+          197.874944331,
+          293.836072509
+        ],
+        [
+          197.350999716,
+          293.220335953
+        ],
+        [
+          196.77965804,
+          292.648994878
+        ],
+        [
+          196.163921031,
+          292.125050971
+        ],
+        [
+          195.506790413,
+          291.651505916
+        ],
+        [
+          194.811267911,
+          291.231361399
+        ],
+        [
+          194.080355253,
+          290.867619106
+        ],
+        [
+          193.317054162,
+          290.563280723
+        ],
+        [
+          192.524366366,
+          290.321347935
+        ],
+        [
+          191.70529359,
+          290.144822428
+        ],
+        [
+          190.862837559,
+          290.036705888
+        ],
+        [
+          190.0,
+          290.0
+        ],
+        [
+          189.137162441,
+          290.036705888
+        ],
+        [
+          188.29470641,
+          290.144822428
+        ],
+        [
+          187.475633634,
+          290.321347935
+        ],
+        [
+          186.682945838,
+          290.563280723
+        ],
+        [
+          185.919644747,
+          290.867619106
+        ],
+        [
+          185.188732089,
+          291.231361399
+        ],
+        [
+          184.493209587,
+          291.651505916
+        ],
+        [
+          183.836078969,
+          292.125050971
+        ],
+        [
+          183.22034196,
+          292.648994878
+        ],
+        [
+          182.649000284,
+          293.220335953
+        ],
+        [
+          182.125055669,
+          293.836072509
+        ],
+        [
+          181.65150984,
+          294.49320286
+        ],
+        [
+          181.231364523,
+          295.188725321
+        ],
+        [
+          180.867621442,
+          295.919638207
+        ],
+        [
+          180.563282325,
+          296.682939831
+        ],
+        [
+          180.321348896,
+          297.475628508
+        ],
+        [
+          180.144822882,
+          298.294702552
+        ],
+        [
+          180.036706008,
+          299.137160278
+        ],
+        [
+          180.0,
+          300.0
+        ],
+        [
+          180.036706008,
+          300.862839722
+        ],
+        [
+          180.144822882,
+          301.705297448
+        ],
+        [
+          180.321348896,
+          302.524371492
+        ],
+        [
+          180.563282325,
+          303.317060169
+        ],
+        [
+          180.867621442,
+          304.080361793
+        ],
+        [
+          181.231364523,
+          304.811274679
+        ],
+        [
+          181.65150984,
+          305.50679714
+        ],
+        [
+          182.125055669,
+          306.163927491
+        ],
+        [
+          182.649000284,
+          306.779664047
+        ],
+        [
+          183.22034196,
+          307.351005122
+        ],
+        [
+          183.836078969,
+          307.874949029
+        ],
+        [
+          184.493209587,
+          308.348494084
+        ],
+        [
+          185.188732089,
+          308.768638601
+        ],
+        [
+          185.919644747,
+          309.132380894
+        ],
+        [
+          186.682945838,
+          309.436719277
+        ],
+        [
+          187.475633634,
+          309.678652065
+        ],
+        [
+          188.29470641,
+          309.855177572
+        ],
+        [
+          189.137162441,
+          309.963294112
+        ]
+      ],
+      "space": "Page 1",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:0822C42ADA0F2F82EC4688B79B5C4644F7BC41E8994B5387D610E55E4EA4619C",
+      "layer": "0",
+      "points": [
+        [
+          100.0,
+          100.0
+        ],
+        [
+          110.0,
+          100.0
+        ]
+      ],
+      "space": "Page 1",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:89E7622ACC8265C121014426A443B82A42D0E1E9C22A139CBECB24E74878C185",
+      "layer": "0",
+      "points": [
+        [
+          120.0,
+          100.0
+        ],
+        [
+          130.0,
+          100.0
+        ]
+      ],
+      "space": "Page 1",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:866FA5F9E61DDF0D28EC4DF048B731BC9B619F881321E27D0ECF2032D5167826",
+      "layer": "0",
+      "points": [
+        [
+          140.0,
+          100.0
+        ],
+        [
+          150.0,
+          100.0
+        ]
+      ],
+      "space": "Page 1",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "area": 2000.0,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          153,
+          153,
+          153
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:EE66EB0301932D1F44F80C957D52CDE1D045F4048714022DD12FACC8E2E6FEBD",
+      "layer": "0",
+      "points": [
+        [
+          300.0,
+          100.0
+        ],
+        [
+          350.0,
+          100.0
+        ],
+        [
+          350.0,
+          140.0
+        ],
+        [
+          300.0,
+          140.0
+        ]
+      ],
+      "space": "Page 1",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "area": 400.0,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          153,
+          153,
+          153
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:C660C285112F49CFC673B5DDF335A82B5E36789DE9702A4804CDE994EEF5D901",
+      "layer": "0",
+      "points": [
+        [
+          310.0,
+          110.0
+        ],
+        [
+          330.0,
+          110.0
+        ],
+        [
+          330.0,
+          130.0
+        ],
+        [
+          310.0,
+          130.0
+        ]
+      ],
+      "space": "Page 1",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "area": 400.0,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          204,
+          204,
+          204
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:7132148CDCD35BAEBC27AB0933A08A233524C524BD998C7BAAD4D1E0526F1793",
+      "layer": "0",
+      "points": [
+        [
+          480.0,
+          100.0
+        ],
+        [
+          500.0,
+          100.0
+        ],
+        [
+          500.0,
+          120.0
+        ],
+        [
+          480.0,
+          120.0
+        ]
+      ],
+      "space": "Page 1",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:625BE270EC377E22580EE48E975DD8F8E6C65C293E44E1618CFE055074FBB71B",
+      "layer": "0",
+      "points": [
+        [
+          250.0,
+          250.0
+        ],
+        [
+          280.0,
+          250.0
+        ]
+      ],
+      "space": "Page 1",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:AEC5287FD8322BF3DD080708C648292FBA989FDA3186F483EBEFAB2507D7190A",
+      "layer": "0",
+      "points": [
+        [
+          400.0,
+          300.0
+        ],
+        [
+          420.0,
+          300.0
+        ]
+      ],
+      "space": "Page 1",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          128,
+          128,
+          128
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:50AA29F947161091F3E3AA14F13FD95F9DCDDE85DCEFE94E97319FB2892595E6",
+      "layer": "S-GRID",
+      "points": [
+        [
+          50.0,
+          50.0
+        ],
+        [
+          550.0,
+          50.0
+        ]
+      ],
+      "space": "Page 1",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          128,
+          128,
+          128
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:5205773845D0B7A56629990472A896B8F43894727A18CEBAAFCC8C6F726279E0",
+      "layer": "S-GRID",
+      "points": [
+        [
+          50.0,
+          60.0
+        ],
+        [
+          550.0,
+          60.0
+        ]
+      ],
+      "space": "Page 1",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "block": {
+        "at": [
+          520.0,
+          80.0
+        ],
+        "definition_sha256": "e8f273720e75935fc7c69beb1bb6120abfd1be839ad3c3acca1bf153d9c21dce",
+        "mirrored": false,
+        "name": "XOBJECT-E8F273720E75",
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ]
+      },
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "byblock"
+      },
+      "key": "PDF_OBJECT:AB20D35ECF037D87D1F266DD7A7696738D348B2DC5F20832E9E7223D1ADB30AA",
+      "layer": "S-GRID",
+      "space": "Page 1",
+      "type": "INSERT"
+    },
+    {
+      "block": {
+        "at": [
+          100.0,
+          250.0
+        ],
+        "definition_sha256": "e8f273720e75935fc7c69beb1bb6120abfd1be839ad3c3acca1bf153d9c21dce",
+        "mirrored": false,
+        "name": "XOBJECT-E8F273720E75",
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ]
+      },
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "byblock"
+      },
+      "key": "PDF_OBJECT:97C9BB0FB130C4EB317342B37B9BE36053212C945BB55936151EF99A3BC9E2A6",
+      "layer": "0",
+      "space": "Page 1",
+      "type": "INSERT"
+    },
+    {
+      "block": {
+        "at": [
+          140.0,
+          250.0
+        ],
+        "definition_sha256": "e8f273720e75935fc7c69beb1bb6120abfd1be839ad3c3acca1bf153d9c21dce",
+        "mirrored": false,
+        "name": "XOBJECT-E8F273720E75",
+        "rotation": 90.0,
+        "scale": [
+          1.0,
+          1.0
+        ]
+      },
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "byblock"
+      },
+      "key": "PDF_OBJECT:D872C31010C254926F89459E91E027B071D33A5A2EB9D6B6A00FAC6C276E39F3",
+      "layer": "0",
+      "space": "Page 1",
+      "type": "INSERT"
+    },
+    {
+      "block": {
+        "at": [
+          180.0,
+          250.0
+        ],
+        "definition_sha256": "e8f273720e75935fc7c69beb1bb6120abfd1be839ad3c3acca1bf153d9c21dce",
+        "mirrored": false,
+        "name": "XOBJECT-E8F273720E75",
+        "rotation": 0.0,
+        "scale": [
+          2.0,
+          2.0
+        ]
+      },
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "byblock"
+      },
+      "key": "PDF_OBJECT:E85C77B3917A3BF236741A224A61A819D5BB2905E84996CC55ACC386BF06E584",
+      "layer": "0",
+      "space": "Page 1",
+      "type": "INSERT"
+    },
+    {
+      "block": {
+        "at": [
+          220.0,
+          250.0
+        ],
+        "definition_sha256": "e8f273720e75935fc7c69beb1bb6120abfd1be839ad3c3acca1bf153d9c21dce",
+        "mirrored": true,
+        "name": "XOBJECT-E8F273720E75",
+        "rotation": 180.0,
+        "scale": [
+          1.0,
+          1.0
+        ]
+      },
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "byblock"
+      },
+      "key": "PDF_OBJECT:ABE7D46A644B9BB32CE36382BEDCE06B7C7E56728EA64CC40E27CD94F9F212D5",
+      "layer": "0",
+      "space": "Page 1",
+      "type": "INSERT"
+    },
+    {
+      "block": {
+        "at": [
+          400.0,
+          200.0
+        ],
+        "definition_sha256": "5b7736d439008caadbdefae6f4e8ddb0d1cc08163b643a0e0f29cd24e3b62b01",
+        "mirrored": false,
+        "name": "XOBJECT-5B7736D43900",
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ]
+      },
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "byblock"
+      },
+      "key": "PDF_OBJECT:69A28845AEA953C48C6EA3BD5AC27818F8090CBCD3AD92EF7702E377B0DDA265",
+      "layer": "0",
+      "space": "Page 1",
+      "type": "INSERT"
+    },
+    {
+      "closed": true,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:F5EB808F54BC6AE07773232C9201171A32A563680AE8100824564C2AA0712826",
+      "layer": "0",
+      "points": [
+        [
+          450.0,
+          330.0
+        ],
+        [
+          490.0,
+          330.0
+        ],
+        [
+          490.0,
+          360.0
+        ],
+        [
+          450.0,
+          360.0
+        ]
+      ],
+      "space": "Page 1",
+      "type": "IMAGE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "halign": 0,
+      "height": 9.0,
+      "key": "PDF_OBJECT:ACF6797272259076BB733ED3D4F64C47B5D19DFD7871A3EA2E549124A91F5BFE",
+      "layer": "0",
+      "points": [
+        [
+          20.0,
+          170.0
+        ]
+      ],
+      "rotation": 270.0,
+      "space": "Page 2",
+      "text": "F-02 ROTATED PAGE",
+      "type": "TEXT",
+      "valign": 0
+    },
+    {
+      "closed": false,
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "truecolor"
+      },
+      "key": "PDF_OBJECT:B767660AC146AA83493478A1A996F9FC7849689D36753B49FC364975EED03C57",
+      "layer": "0",
+      "points": [
+        [
+          40.0,
+          400.0
+        ],
+        [
+          40.0,
+          40.0
+        ]
+      ],
+      "space": "Page 2",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "block": {
+        "at": [
+          150.0,
+          320.0
+        ],
+        "definition_sha256": "e8f273720e75935fc7c69beb1bb6120abfd1be839ad3c3acca1bf153d9c21dce",
+        "mirrored": false,
+        "name": "XOBJECT-E8F273720E75",
+        "rotation": 270.0,
+        "scale": [
+          1.0,
+          1.0
+        ]
+      },
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          0
+        ],
+        "source": "byblock"
+      },
+      "key": "PDF_OBJECT:A3BE505528BD7E8BD34084AB5D1ADD176F15B48FBEBCF2430761351100A02BB0",
+      "layer": "0",
+      "space": "Page 2",
+      "type": "INSERT"
+    }
+  ],
+  "entitygraph_version": 3,
+  "ingest": {
+    "parameter_set_hash": "e6f7033bd80ab85f3c5eeaeb828de2f799fa77447f4d279da9150333847305af",
+    "scheme": "PDF_OBJECT",
+    "tool": "pypdfium2",
+    "tool_version": "5.13.0"
+  },
+  "insunits": {
+    "code": 0,
+    "unit": "unitless",
+    "unmapped": false
+  },
+  "layers": [
+    {
+      "frozen": false,
+      "name": "0",
+      "on": true,
+      "plot": true
+    },
+    {
+      "frozen": false,
+      "name": "S-GRID",
+      "on": true,
+      "plot": true
+    }
+  ],
+  "layouts": [
+    {
+      "bbox": {
+        "max": [
+          585.0,
+          410.0
+        ],
+        "min": [
+          10.0,
+          10.0
+        ]
+      },
+      "kind": "paper",
+      "name": "Page 1",
+      "strays_rejected": 0,
+      "viewports": []
+    },
+    {
+      "bbox": {
+        "max": [
+          155.0,
+          400.0
+        ],
+        "min": [
+          20.0,
+          40.0
+        ]
+      },
+      "kind": "paper",
+      "name": "Page 2",
+      "strays_rejected": 0,
+      "viewports": []
+    }
+  ]
+}
