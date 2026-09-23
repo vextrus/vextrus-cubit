@@ -16,6 +16,12 @@ import {
 } from "../foundations/concrete";
 import { EXCAVATION_FORMULA, EXCAVATION_METHOD } from "../foundations/earthwork";
 import foundationsShard from "../foundations/foundations.methods.json" with { type: "json" };
+import {
+  FOUNDATION_FORMWORK_POLY_FORMULA,
+  FOUNDATION_FORMWORK_POLY_METHOD,
+  FOUNDATION_FORMWORK_RECT_FORMULA,
+  FOUNDATION_FORMWORK_RECT_METHOD,
+} from "../foundations/formwork";
 import { PILE_COUNT_FORMULA, PILE_COUNT_METHOD, PILE_LENGTH_FORMULA, PILE_LENGTH_METHOD } from "../foundations/piling";
 import { methodKey, type MethodArea } from "./area";
 
@@ -30,5 +36,7 @@ export const FOUNDATIONS_METHODS: MethodArea = Object.freeze({
     [methodKey(PILE_LENGTH_METHOD)]: PILE_LENGTH_FORMULA,
     [methodKey(EXCAVATION_METHOD)]: EXCAVATION_FORMULA,
     [methodKey(BLINDING_METHOD)]: BLINDING_FORMULA,
+    [methodKey(FOUNDATION_FORMWORK_RECT_METHOD)]: FOUNDATION_FORMWORK_RECT_FORMULA,
+    [methodKey(FOUNDATION_FORMWORK_POLY_METHOD)]: FOUNDATION_FORMWORK_POLY_FORMULA,
   }),
 });

@@ -9,6 +9,8 @@
 // This area's CONCRETE reader is not keyed here. `rcc.concrete` is one kind measured by one rail
 // (L-MEA-08), and a footing's concrete is that same kind as a column's (L-MEA-04's `bears`) — so the
 // reader is composed into the frame's own roster line, where the kind already stands (riskNotes (1)).
+// Its FORMWORK reader is composed there too, for the same reason: `rcc.formwork` is a beam's kind and
+// a cap's alike, and the frame's roster line already answers it (I-337).
 
 import { blindingRail, excavationRail, pileCountRail, pileLengthRail } from "./foundations/index";
 import type { RailRoster } from "./law";

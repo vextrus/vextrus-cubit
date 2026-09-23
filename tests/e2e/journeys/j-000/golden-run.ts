@@ -532,6 +532,24 @@ export const BNBC_HEIGHT_UNIT = "m";
 export const BNBC_HEIGHT_BASIS = "TRANSCRIBED";
 
 /**
+ * THE FOUNDATION NECK, AS A PERSON ENTERS IT (I-339). Every ground-storey column of F-RCC6-BNBC rises
+ * from the top of its cap, 2'-0" beneath GF, and no text or attribute of the drawing states that storey
+ * — S-25's section marks GF and nothing below it, and the only statement of the depth is geometry: the
+ * foot of the section's column lines (`1D59`, drawn from 609.6 below GF). So a person inserts `FDN`
+ * beneath GF through J-031's door and ENTERS its height, 0.6096 m, citing that line — and the one
+ * resolver stands every ground-storey vertical on it too (I-338). Entered at the exact 2'-0": the
+ * −0.610 a metric print would round it to stands the neck's concrete over the golden.
+ *
+ * Inserted BEFORE the section's stack is confirmed, at ordinal −1: an insert moves every live level at
+ * or above the ordinal it names (L-MEA-07), so the neck inserted first leaves GF at 0 and every storey
+ * where the section's own proposal puts it.
+ */
+export const BNBC_NECK = Object.freeze({ label: "FDN", ordinal: -1, height: "0.6096", basis: "ENTERED", sourceKey: "DXF_HANDLE:1D59", metres: "0.6096" });
+
+/** How many levels the transcribed stack holds: the section's eight, and the neck beneath them. */
+export const BNBC_STACK_SIZE = BNBC_LEVELS.length + 1;
+
+/**
  * THE TYPICAL RANGES A PERSON AUTHORS (L-CAD-07). A plan whose caption states no level stands for a
  * range of floors it must be told: the typical beam layout is titled "(2ND TO 6TH FLOOR)" on its
  * sheet, the typical slab plan stands beside it for the same floors, and the one column layout plan
@@ -614,7 +632,7 @@ async function standsTranscribedAt(page: Page, tenantId: string, projectId: stri
   const levels = new SLevelsPage(page);
   await levels.open(tenantId, projectId);
   const rows = await everyRow(levels.rows, "the stack's levels", { min: 0 }).catch(() => []);
-  if (rows.length === BNBC_LEVELS.length) return true;
+  if (rows.length === BNBC_STACK_SIZE) return true;
   process.stdout.write(`J-000 golden run: transcribing the M3 campaign again — the stack of project ${projectId} holds ${rows.length} level(s)\n`);
   return false;
 }
@@ -714,10 +732,21 @@ async function affirmScalesOnEverySheet(page: Page, tenantId: string, projectId:
   }
 }
 
-/** The stack the section proposes, confirmed whole; or the same labels inserted by hand where nothing is offered. */
+/**
+ * The stack the section proposes, confirmed whole; or the same labels inserted by hand where nothing is
+ * offered — beneath them the foundation neck a person enters by hand, which the drawing states nowhere
+ * (I-339).
+ */
 async function transcribeStack(page: Page, tenantId: string, projectId: string): Promise<void> {
   const takeoff = new STakeoffPage(page);
   const levels = new SLevelsPage(page);
+
+  /* --- the neck beneath GF, through J-031's door, FIRST: an insert moves what stands at or above it --- */
+  await levels.open(tenantId, projectId);
+  await levels.proposeLevel(BNBC_NECK.label, BNBC_NECK.ordinal);
+  await expect(levels.dialog, "inserting a level by hand is an act, previewed in the one dialog").toHaveAttribute("data-act-type", "INSERT_LEVEL");
+  await levels.confirmAct();
+  await expect(levels.rowAtOrdinal(BNBC_NECK.ordinal), `${BNBC_NECK.label} stands at ordinal ${BNBC_NECK.ordinal}, beneath where GF will stand`).toContainText(BNBC_NECK.label);
 
   await takeoff.open(tenantId, projectId);
   const offer = takeoff.levelStack.getByTestId(TESTIDS.offered.groupConfirm).first();
@@ -735,7 +764,8 @@ async function transcribeStack(page: Page, tenantId: string, projectId: string):
   }
 
   await levels.open(tenantId, projectId);
-  await expect(levels.rows, "the eight levels of the section stand in the stack").toHaveCount(BNBC_LEVELS.length);
+  await expect(levels.rows, "the eight levels of the section stand in the stack, and the neck beneath them").toHaveCount(BNBC_STACK_SIZE);
+  await expect(levels.rowAtOrdinal(BNBC_NECK.ordinal), `${BNBC_NECK.label} still stands at ordinal ${BNBC_NECK.ordinal}: nothing was inserted beneath it`).toContainText(BNBC_NECK.label);
   for (const [ordinal, label] of BNBC_LEVELS.entries()) {
     await expect(levels.rowAtOrdinal(ordinal), `${label} stands at ordinal ${ordinal}`).toContainText(label);
   }
@@ -756,6 +786,19 @@ async function transcribeStack(page: Page, tenantId: string, projectId: string):
     // already carries in feet and inches, and the two agree at the places `+3.353` is printed to (D-001).
     await expect(row, `${storey.label} reads ${storey.height} ${BNBC_HEIGHT_UNIT} off the section, and stands agreed`).toHaveAttribute("data-standing", "AGREED");
   }
+
+  /* --- the neck's height, ENTERED: no mark states it, and the reading cites the geometry that does (I-339) --- */
+  const neck = levels.rowAtOrdinal(BNBC_NECK.ordinal);
+  await neck.click();
+  await expect(levels.inspector, `${BNBC_NECK.label} fills the shell's one inspector`).toBeVisible();
+  await levels.inspector.getByTestId(TESTIDS.levels.heightValue).fill(BNBC_NECK.height);
+  await levels.chooseIn(levels.inspector.getByTestId(TESTIDS.levels.heightUnit), BNBC_HEIGHT_UNIT);
+  await levels.chooseIn(levels.inspector.getByTestId(TESTIDS.levels.heightBasis), BNBC_NECK.basis);
+  await levels.inspector.getByTestId(TESTIDS.levels.heightSource).fill(BNBC_NECK.sourceKey);
+  await levels.authorHeight.click();
+  await expect(levels.dialog, "entering a height is an act, previewed in the one dialog").toHaveAttribute("data-act-type", "AUTHOR_STOREY_HEIGHT");
+  await levels.confirmAct();
+  await expect(neck, `${BNBC_NECK.label} stands at the ${BNBC_NECK.height} ${BNBC_HEIGHT_UNIT} entered off the column line's foot, agreed`).toHaveAttribute("data-standing", "AGREED");
 }
 
 /**

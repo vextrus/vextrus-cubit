@@ -9,7 +9,7 @@
 import type { Kind } from "@/core/catalogue/kinds";
 import type { Rail } from "@/core/offers/contract";
 import { columnConcreteRail } from "../columns";
-import { foundationConcreteRail } from "../foundations/index";
+import { foundationConcreteRail, foundationFormworkRail } from "../foundations/index";
 import { composeRails } from "../law";
 import { lintelRail } from "./lintel";
 import { runMemberRail } from "./run-member";
@@ -63,5 +63,11 @@ export const lintelFormworkRail: Rail = lintelRail({ ruleId: FRAME_RULE_IDS.lint
  */
 export const frameConcreteRail: Rail = composeRails(columnConcreteRail, beamConcreteRail, tieBeamConcreteRail, lintelConcreteRail, foundationConcreteRail);
 
-/** Every class that bears `rcc.formwork` in this area. */
-export const frameFormworkRail: Rail = composeRails(beamFormworkRail, tieBeamFormworkRail, lintelFormworkRail);
+/**
+ * Every class that bears `rcc.formwork` and is measured here: this area's three first, and the
+ * FOUNDATIONS shard's footing and pile cap after them — their side faces, L-FRM-03's `perimeter ×
+ * depth` (I-337). The same join as the concrete line above, for the same reason: one kind, one rail,
+ * and each reader reads only the rows of its own classes, so each row is offered once. The beam's
+ * three offers stand first and unchanged.
+ */
+export const frameFormworkRail: Rail = composeRails(beamFormworkRail, tieBeamFormworkRail, lintelFormworkRail, foundationFormworkRail);

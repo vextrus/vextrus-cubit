@@ -88,6 +88,9 @@ export const PILING_BORING = "piling.boring";
 export const EARTHWORK_EXCAVATION = "earthwork.excavation";
 export const PCC_BLINDING = "pcc.blinding";
 
+/** The kind this leaf's formwork reader joins, composed into the frame's roster line (I-337). */
+export const RCC_FORMWORK = "rcc.formwork";
+
 /** The four kinds the FOUNDATIONS roster keys, each by the rail the interfaces name (AC-1). */
 export const FOUNDATIONS_ROSTER_LINES: Readonly<Record<string, string>> = Object.freeze({
   [PILING_BORED]: "pileCountRail",
@@ -101,7 +104,10 @@ export const FOOTING = "footing";
 export const PILE_CAP = "pile_cap";
 export const PILE = "pile";
 
-/** The seven rule ids, as `src/modules/takeoff/rails/foundations/index.ts` publishes them. */
+/**
+ * The nine rule ids, as `src/modules/takeoff/rails/foundations/index.ts` publishes them: the seven this
+ * leaf landed, and L-FRM-03's two side formworks FND-3 appended after them (I-337).
+ */
 export const FOUNDATION_PRISM_RECT_RULE_ID = "rcc.foundation.prism_rect";
 export const FOUNDATION_PRISM_POLY_RULE_ID = "rcc.foundation.prism_poly";
 export const PILE_CONCRETE_RULE_ID = "rcc.pile.concrete";
@@ -109,11 +115,13 @@ export const PILE_COUNT_RULE_ID = "piling.bored.count";
 export const PILE_LENGTH_RULE_ID = "piling.bored.length";
 export const EXCAVATION_RULE_ID = "earthwork.pit_rect";
 export const BLINDING_RULE_ID = "pcc.blinding_rect";
+export const FOUNDATION_FORMWORK_RECT_RULE_ID = "rcc.foundation.formwork_rect";
+export const FOUNDATION_FORMWORK_POLY_RULE_ID = "rcc.foundation.formwork_poly";
 
 /** One (rule id, version) pair, as an edition cites one and the registry enumerates one. */
 export type MethodPairShape = { ruleId: string; version: string };
 
-/** The version every method of this shard lands at, and the seven pairs it records (AC-2). */
+/** The version every method of this shard lands at, and the nine pairs it records (AC-2, I-337). */
 export const FOUNDATIONS_VERSION = "1";
 export const FOUNDATIONS_RULE_IDS: readonly string[] = Object.freeze([
   FOUNDATION_PRISM_RECT_RULE_ID,
@@ -123,6 +131,8 @@ export const FOUNDATIONS_RULE_IDS: readonly string[] = Object.freeze([
   PILE_LENGTH_RULE_ID,
   EXCAVATION_RULE_ID,
   BLINDING_RULE_ID,
+  FOUNDATION_FORMWORK_RECT_RULE_ID,
+  FOUNDATION_FORMWORK_POLY_RULE_ID,
 ]);
 export const FOUNDATIONS_PAIRS: readonly MethodPairShape[] = Object.freeze(
   FOUNDATIONS_RULE_IDS.map((ruleId) => Object.freeze({ ruleId, version: FOUNDATIONS_VERSION })),
@@ -193,9 +203,10 @@ export const PIECES = "pcs";
 /**
  * How the golden spells this leaf's kinds and classes (test contract). The kinds are this leaf's
  * slice of the ONE correspondence (`PRODUCT_TO_GOLDEN_KIND`, the golden's own support), so the key
- * set is still exactly these five and no spelling of a golden kind stands here.
+ * set is exactly these six — the five this leaf landed and the formwork FND-3's side reader joined
+ * (I-337) — and no spelling of a golden kind stands here.
  */
-export const GOLDEN_KIND: Readonly<Record<string, string>> = goldenKindsOf([RCC_CONCRETE, PILING_BORED, PILING_BORING, EARTHWORK_EXCAVATION, PCC_BLINDING]);
+export const GOLDEN_KIND: Readonly<Record<string, string>> = goldenKindsOf([RCC_CONCRETE, PILING_BORED, PILING_BORING, EARTHWORK_EXCAVATION, PCC_BLINDING, RCC_FORMWORK]);
 export const GOLDEN_CLASS: Readonly<Record<string, string>> = Object.freeze({ [FOOTING]: "FOOTING", [PILE_CAP]: "PILE_CAP", [PILE]: "PILE" });
 export const GOLDEN_LEVEL: Readonly<Record<string, string>> = Object.freeze({ [FOOTING]: "FDN", [PILE_CAP]: "FDN", [PILE]: "PILE" });
 
@@ -256,7 +267,7 @@ export type RailObservationShape = { class: string; kind: string; code: string; 
 export type RailBatchShape = { offers: readonly OfferShape[]; observations: readonly RailObservationShape[] };
 
 /** The plan outline a placement carries, where a reader read one (interfaces: `OutlineSetup`). */
-export type OutlineSetup = { type: string; area: MeasureShape; length: MeasureShape | null; breadth: MeasureShape | null };
+export type OutlineSetup = { type: string; area: MeasureShape; length: MeasureShape | null; breadth: MeasureShape | null; perimeter?: MeasureShape };
 
 /** One placement of the read-only setup (interfaces: `PlacementSetup`, widened with `outline`). */
 export type PlacementSetup = {
@@ -527,9 +538,19 @@ export function variant(options: {
   };
 }
 
-/** One plan outline, as a reader of the plan answers one (interfaces: `OutlineSetup`). */
-export function outline(options: { type: string; area: MeasureShape; length?: MeasureShape | null; breadth?: MeasureShape | null }): OutlineSetup {
-  return { type: options.type, area: options.area, length: options.length ?? null, breadth: options.breadth ?? null };
+/**
+ * One plan outline, as a reader of the plan answers one (interfaces: `OutlineSetup`). The ring's
+ * perimeter is carried only where a case states one — a hand-staged plan states an area and no
+ * boundary, which is the absence I-337's polygon formwork names.
+ */
+export function outline(options: { type: string; area: MeasureShape; length?: MeasureShape | null; breadth?: MeasureShape | null; perimeter?: MeasureShape }): OutlineSetup {
+  return {
+    type: options.type,
+    area: options.area,
+    length: options.length ?? null,
+    breadth: options.breadth ?? null,
+    ...(options.perimeter === undefined ? {} : { perimeter: options.perimeter }),
+  };
 }
 
 /** One placement of the setup, with the outline a plan reader read where it read one. */

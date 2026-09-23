@@ -14,14 +14,18 @@
 // range its own note states). Both are intersections of the view's span, so neither can place a
 // member on a storey the plan does not reach and their order is not a question.
 //
+// And one CONTINUATION, made after both cuts and of verticals alone: a vertical whose lowest storey
+// is the ground storey stands on the foundation neck beneath it too, where a person has entered one
+// (I-338) — the member continued down to what it stands on, DERIVED, never a storey the plan drew.
+//
 // Pure and order-independent: nothing here reads a store, a clock or a model, and both answers are
 // returned in the key's own order — so the same placements, stack and authored ranges resolve to the
 // same instance keys however they were handed in (L-REG-04, AC-8).
 import { EXPANSION_DEFERRAL_REASONS, type ExpansionDeferralReason } from "@/core/errors";
 import { instanceKey, levelSegment, SIGHTING_STANDINGS, viewKey as viewKeyOf, type LevelRef, type SightingStanding, type ViewRef } from "@/core/identity";
-import { bandCovers, bandJudgeable, bandOpen, type BandStatement } from "@/core/offers/contract";
+import { bandCovers, bandJudgeable, bandOpen, foundationNeckOf, type BandStatement } from "@/core/offers/contract";
 import { sameStorey } from "../notation";
-import { isFoundationClass, isLevelClass, levelWordsOf } from "../placement/law";
+import { isFoundationClass, isLevelClass, isVerticalClass, levelWordsOf } from "../placement/law";
 import type { PlacementRow } from "../placement/rows";
 
 /**
@@ -331,7 +335,34 @@ function levelRows(placement: PlacementRow, span: Span, evidence: ExpansionEvide
   // storey that drawing is of. One rule, and it answers the same thing for both where they agree —
   // a note stating no range leaves exactly the drawn level, whose lowest is itself.
   const drawn = (placement.note ?? null) === null ? span.drawn : lowestOf(levels);
-  return levels.map((level) => rowOn(placement, { levelId: level.levelId }, level.levelId === drawn?.levelId ? MEASURED : DERIVED));
+  const rows = levels.map((level) => rowOn(placement, { levelId: level.levelId }, level.levelId === drawn?.levelId ? MEASURED : DERIVED));
+  const neck = neckBeneath(placement, levels, evidence.levels);
+  return neck === null ? rows : [...rows, rowOn(placement, { levelId: neck.levelId }, DERIVED)];
+}
+
+/**
+ * The foundation neck a VERTICAL member continues down to, or null where it continues to none
+ * (Interpretation I-338, L-MEA-01: "vertical members measure full storey height floor-to-floor").
+ *
+ * A column does not start at the ground floor. It rises from the top of what the building stands on,
+ * and a person who enters that storey beneath GF — F-RCC6-BNBC's `FDN`, 2'-0" to the foot of S-25's
+ * column lines — has stated where every ground-storey vertical begins. So a vertical whose LOWEST
+ * storey, after every cut its view, its schedule band and its note made, is the ground storey stands
+ * on the neck beneath it too, DERIVED: nothing drew it there, it is the ground-storey member continued
+ * (risk note (2)). The neck is `foundationNeckOf`'s — the level named as the foundation standing
+ * immediately below the level named as the ground storey — so a stack with no such level, which is
+ * every stack a person has not told of one (F-RCC6's among them), moves nothing.
+ *
+ * Only ever the storey BENEATH the member's own lowest, and only where that is GF: a member whose own
+ * note starts it higher (F-RCC6-BNBC's C5, `STARTS AT 1F`) has no neck, and one whose note binds it
+ * to GF alone (the porch C7) keeps its neck, because the note says which storeys of the PLAN it stands
+ * on and the neck is no storey of the plan. A beam is not a vertical and is never continued.
+ */
+function neckBeneath(placement: PlacementRow, levels: readonly StackedLevel[], stack: readonly StackedLevel[]): StackedLevel | null {
+  if (!isVerticalClass(placement.elementType)) return null;
+  const neck = foundationNeckOf(stack);
+  if (neck === null || levels.some((level) => level.levelId === neck.neck.levelId)) return null;
+  return lowestOf(levels)?.levelId === neck.ground.levelId ? neck.neck : null;
 }
 
 /** One instance row, keyed by the grammar and by nothing this file spells itself (L-REG-04, B-17). */

@@ -265,6 +265,41 @@ export function placedBy(levels: readonly { readonly label: string; readonly ord
   return (label) => (levels.find((one) => one.label === label) ?? levels.find((one) => heldStorey.same?.(one.label, label) === true))?.ordinal;
 }
 
+/** The two storeys the foundation neck is read between, as a stack's labels name them (I-338). */
+const GROUND_STOREY = "GF";
+const FOUNDATION_STOREY = "FDN";
+
+/** Does this level's label name that storey — itself, else by the registered storey reading? */
+function namesStorey(level: { readonly label: string }, storey: string): boolean {
+  return level.label === storey || heldStorey.same?.(level.label, storey) === true;
+}
+
+/**
+ * The FOUNDATION NECK of a stack, and the ground storey it stands beneath — or null where the stack
+ * holds no such pair (Interpretation I-338, T-NOT-RANGE-GF3).
+ *
+ * A vertical member does not start at the ground floor: it rises from the top of what the building
+ * stands on, and the length between that and the ground storey is its NECK. No drawing of F-RCC6-BNBC
+ * states that storey as a level — a person enters it, beneath GF, as `FDN` — and once they have, the
+ * neck is exactly the level labelled as the foundation that stands IMMEDIATELY below the level
+ * labelled as the ground storey, nothing of the live stack between them. Both are read by the label
+ * a person gave the level (the registered storey reading, so `FOUNDATION` names what `FDN` does) and
+ * bounded by ordinal: a basement between them is a storey of its own, and then there is no neck.
+ *
+ * One home for the fact, asked by the expansion (which storeys a member stands on) and by the
+ * variant a schedule gives it there (which section it has): two readings of where the neck is would
+ * register a member the section reader cannot size, or size one nothing registered (B-17).
+ */
+export function foundationNeckOf<T extends { readonly label: string; readonly ordinal: number }>(levels: readonly T[]): { readonly neck: T; readonly ground: T } | null {
+  // Ties to the lower ordinal, then the label, so one stack answers one way however it arrived (L-REG-04).
+  const byFoot = [...levels].sort((left, right) => left.ordinal - right.ordinal || (left.label < right.label ? -1 : left.label > right.label ? 1 : 0));
+  const ground = byFoot.find((level) => level.label === GROUND_STOREY) ?? byFoot.find((level) => namesStorey(level, GROUND_STOREY));
+  if (ground === undefined) return null;
+  const beneath = byFoot.filter((level) => level.ordinal < ground.ordinal);
+  const nearest = beneath[beneath.length - 1];
+  return nearest !== undefined && namesStorey(nearest, FOUNDATION_STOREY) ? { neck: nearest, ground } : null;
+}
+
 /** A band with neither end stated: the schedule named no range, so it selects nothing (L-FRM-02). */
 export function bandOpen(band: BandStatement): boolean {
   return band.from === null && band.to === null;
@@ -315,6 +350,13 @@ export function bandCovers(band: BandStatement, ordinal: number, place: BandPlac
  * stands rather than which row to take. A family stating several is genuinely ambiguous off the
  * stack, and defers rather than having one picked for it (L-QTY-01: never a guess).
  *
+ * The foundation NECK is the one level a band covers without naming it (I-338, T-NOT-RANGE-GF3: "the
+ * FDN neck belongs to band GF TO 2ND"). A schedule bands a column from the storey its members first
+ * stand on — `GF TO 2ND` — and the neck beneath GF is those same members continued down to what they
+ * stand on, not a storey of their own: so where no row states the neck, it takes the section of the
+ * row covering the ground storey above it. Asked only after every stated band and the unbanded row,
+ * so a schedule that DOES state the foundation is what is read for it.
+ *
  * Nothing is computed here and nothing converted: a section is SELECTED, and what it reads is
  * carried on untouched.
  */
@@ -326,12 +368,17 @@ export function variantCovering(
   const unbanded = variants.find((variant) => bandOpen(bandOf(variant)));
   if (level === undefined) return unbanded ?? (variants.length === 1 ? variants[0] : undefined);
   const place = placedBy(levels);
+  const banded = variants.filter((variant) => !bandOpen(bandOf(variant)));
+  const covering = (ordinal: number): MemberVariantSetup | undefined => banded.find((variant) => bandCovers(bandOf(variant), ordinal, place));
   // A row that states a BAND covering this level is what the schedule says about it; the unbanded row
   // covers every level and is therefore what is left when no band covers. Asked of the banded rows
   // first, because an unbanded row standing earlier in the schedule would otherwise win by the order
   // the drawing happened to be written in — a reading of the store's order, not of the drawing
   // (L-FRM-02, L-REG-04).
-  return variants.filter((variant) => !bandOpen(bandOf(variant))).find((variant) => bandCovers(bandOf(variant), level.ordinal, place)) ?? unbanded;
+  const stated = covering(level.ordinal) ?? unbanded;
+  if (stated !== undefined) return stated;
+  const neck = foundationNeckOf(levels);
+  return neck !== null && neck.neck.ordinal === level.ordinal ? covering(neck.ground.ordinal) : undefined;
 }
 
 /** The band a member-type variant states, in the spelling the one reading of a band is asked in. */

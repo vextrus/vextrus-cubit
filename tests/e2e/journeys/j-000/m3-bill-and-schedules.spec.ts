@@ -77,10 +77,17 @@ const COMPLETE = "COMPLETE";
 const FOUNDATION_LEVEL: Readonly<Record<string, string>> = Object.freeze({ pile: "PILE" });
 const FOUNDATION_DEFAULT = "FDN";
 
-/** The column concrete the golden holds on members the product does not place: the stubs below GF, and the two columns on the roof. */
+/**
+ * The column concrete the golden holds on members the product does not place: the two columns on the
+ * roof. TEST_AMENDED (session 7, LEV-1, I-338): the necks below GF are measured now — FDN is a level
+ * the walk inserts and the resolver stands every GF vertical on — so the FDN cell is COMPARED, in band,
+ * where it used to be declared by name.
+ */
 const COLUMN = "column";
 const RCC_CONCRETE = "rcc.concrete";
-const UNPLACED_COLUMN_LEVELS: readonly string[] = Object.freeze([FOUNDATION_DEFAULT, "ROOF"]);
+const UNPLACED_COLUMN_LEVELS: readonly string[] = Object.freeze(["ROOF"]);
+/** The column levels the product now measures that the golden also figures: the foundation neck (I-338). */
+const NECK_COLUMN_LEVELS: readonly string[] = Object.freeze([FOUNDATION_DEFAULT]);
 
 /** How long a render of the M3 campaign's documents may take to be filed. */
 const RENDER_BUDGET_MS = 600_000;
@@ -292,6 +299,13 @@ test.describe.serial("J-000 — Golden Path: M3's documents on F-RCC6-BNBC", () 
     );
     expect(roster.compared.length, "the campaign published at least one COMPLETE cell the golden also holds — a comparison over nothing proves nothing").toBeGreaterThan(0);
     expect(roster.unknown, "the product states no COMPLETE figure over a cell the golden holds no row for — that would be an over-measurement, never a disclosure (L-QTY-04)").toEqual([]);
+    for (const level of NECK_COLUMN_LEVELS) {
+      const key = cellKey({ class: COLUMN.toUpperCase(), kind: goldenKindOf(RCC_CONCRETE), level });
+      expect(
+        roster.compared.map((cell) => cell.key),
+        `${key} is compared: the neck is measured COMPLETE and the golden figures it (I-338)`,
+      ).toContain(key);
+    }
     for (const level of UNPLACED_COLUMN_LEVELS) {
       const key = cellKey({ class: COLUMN.toUpperCase(), kind: goldenKindOf(RCC_CONCRETE), level });
       expect(roster.declared, `${key} is a golden cell the campaign declares rather than figures`).toContain(key);

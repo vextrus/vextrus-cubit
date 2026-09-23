@@ -235,6 +235,57 @@ describe("I-334: the rail binds the ring's plan, and the cap concrete stands ins
   }, BUDGET_MS);
 });
 
+/** The golden's cap formwork cell (L-QTY-06), in its own spelling: `sum(perimeter · depth) [sides only]`. */
+const CAP_FORMWORK_CELL = { class: "PILE_CAP", kind: "FORMWORK", level: "FDN" } as const;
+
+describe("I-337: each cap is formed along its own ring's sides, and the cap formwork stands inside the golden's band", () => {
+  test("26 cap formwork offers, all COMPLETE: PC2 along its ring's P, every rectangle along 2 × (L + B) of the sides its concrete binds", async () => {
+    const offers = capOffersOver(await bnbc(), CAP_KINDS.formwork);
+    expect(offers.length, "one per cap").toBe(26);
+    expect(offers.filter(({ offer }) => offer.coverage !== "COMPLETE").map(({ offer }) => offer.omitted), "every one COMPLETE — the ring and the depth are both read").toEqual([]);
+    const polygons = offers.filter(({ offer }) => offer.ruleId === "rcc.foundation.formwork_poly");
+    expect(polygons.map(({ row }) => row.memberFamily), "the 14 PC2, and only they, are formed along a ring").toEqual(Array.from({ length: 14 }, () => "PC2"));
+    for (const { offer, row } of polygons) {
+      const ring = offer.bindings["P"];
+      expect([ring?.unit, ring?.basis, ring?.source], "P is the ring's own boundary, measured and cited to the ring").toEqual(["mm", "MEASURED", row.outlineKey]);
+      expect(Math.abs(Number(ring?.value) - 6960.1075), "a PC2 ring runs 6960.1 mm — its schedule's 2100 × 1750 would say 7700, which is over").toBeLessThanOrEqual(0.05);
+      expect([offer.bindings["L"], offer.bindings["B"]], "and no schedule rectangle stands beside it").toEqual([undefined, undefined]);
+    }
+    const rectangles = offers.filter(({ offer }) => offer.ruleId === "rcc.foundation.formwork_rect");
+    expect(rectangles.map(({ row }) => row.memberFamily).sort(), "the twelve rectangles").toEqual(["PC1", "PC1", "PC1", "PC1", "PC3", "PC3", "PC3", "PC3", "PC3", "PC4", "PC4", "PC5"]);
+    const turned = rectangles.find(({ row }) => row.outlineKey === TURNED_PC1)?.offer;
+    expect([turned?.bindings["L"]?.value, turned?.bindings["B"]?.value, turned?.bindings["L"]?.basis], "the turned PC1 along the schedule's own 2000 × 1000 its sides corroborate — never its 2121 box").toEqual([
+      "2000",
+      "1000",
+      "TRANSCRIBED",
+    ]);
+    expect(
+      offers.every(({ offer }) => offer.bindings["D"]?.value === "1295" && Object.keys(offer.bindings).every((name) => ["count", "L", "B", "P", "D"].includes(name))),
+      "D is the schedule's 1295 on every cap, and no soffit and no top is bound on any (L-FRM-03)",
+    ).toBe(true);
+  }, BUDGET_MS);
+
+  test("Σ sides × depth over the 26 caps is inside PILE_CAP × FORMWORK × FDN's band — three per cent under at most, never over", async () => {
+    const offers = capOffersOver(await bnbc(), CAP_KINDS.formwork);
+    const squareMetres = offers.reduce((sum, { offer }) => sum + sidesOf(offer), 0);
+    const rows = goldenCellRows(FIXTURE, CAP_FORMWORK_CELL);
+    const golden = rows.reduce((sum, row) => sum + Number(row.quantity), 0);
+    const allowance = Number(goldenCellAllowance(FIXTURE, CAP_FORMWORK_CELL));
+    expect(rows.length, "the golden states the cell").toBeGreaterThan(0);
+    expect(squareMetres, `${squareMetres.toFixed(6)} m² is not over ${golden} + ${allowance}`).toBeLessThanOrEqual(golden + allowance);
+    expect(squareMetres, `${squareMetres.toFixed(6)} m² is no more than three per cent under ${golden}`).toBeGreaterThanOrEqual(golden * 0.97 - allowance);
+    expect(squareMetres, "196.2414 m of side × 1.295 m — the golden's 1.2954 m depth, printed 1295 by the schedule, is the whole of the −0.031 %").toBeCloseTo(254.1326, 3);
+  }, BUDGET_MS);
+});
+
+/** One offer's side area in m² — L-FRM-03's arithmetic done here, independently of the product's methods. */
+function sidesOf(offer: Offer): number {
+  const metres = (reading: Measure | undefined): number => Number(reading?.value) * (reading?.unit === "mm" ? 1e-3 : 1);
+  const depth = metres(offer.bindings["D"]);
+  if (offer.bindings["P"] !== undefined) return metres(offer.bindings["P"]) * depth;
+  return 2 * (metres(offer.bindings["L"]) + metres(offer.bindings["B"])) * depth;
+}
+
 /** One offer's figure in m³ — the arithmetic of L-FRM-02 done here, independently of the product's methods. */
 function volumeOf(offer: Offer): number {
   const metres = (reading: Measure | undefined, power: number): number => Number(reading?.value) * (reading?.unit === "mm2" || reading?.unit === "mm" ? 10 ** (-3 * power) : 1);

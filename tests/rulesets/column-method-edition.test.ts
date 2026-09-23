@@ -190,7 +190,7 @@ describe("AC-6: the column method is enumerated, implemented and cited", () => {
     ).toBe("0.4771293842639498480911125");
   });
 
-  test("AC-6: the platform seed is IS1200_IN @ 2027.03 and cites every method the shards enumerate", async () => {
+  test("AC-6: the platform seed is IS1200_IN at its head version and cites every method the shards enumerate", async () => {
     const registry = await methodsRegistry();
     const seed = await productModule<SeedModule>(SEED_MODULE);
 
@@ -202,7 +202,10 @@ describe("AC-6: the column method is enumerated, implemented and cited", () => {
     // Re-baselined by the circular column: its one method is minted at the next version beside the
     // standing 2027.02 rather than over it — an edition is immutable, so a leaf that lands a method
     // lands a version with it, and ONE method owes a version exactly as twelve did (L-MEA-01, B-20).
-    expect(SEED_VERSION, "and the version it is re-minted at is the one this increment lands").toBe("2027.03");
+    // Re-baselined again by the foundation formwork (FND-3, I-337), whose two pairs are minted at
+    // 2027.04 beside the 2027.03 this leaf minted — the circular pair is cited by the new head exactly
+    // as it was by its own, which the arrayContaining below still grades.
+    expect(SEED_VERSION, "and the version it is re-minted at is the head the latest leaf lands").toBe("2027.04");
 
     expect(
       [...seed.SEED_EDITION_CONTENT.methods],

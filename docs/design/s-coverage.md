@@ -238,6 +238,23 @@ them blank and Levels at `0%` in the same run); the `pile_cap` band was clipped 
 - **I-cov-5 — the screen names itself once, clipped.** One `<h1>` `takeoff_coverage_heading`
   **Coverage**, out of flow and clipped (`cx-coverage-title`, the register's `cx-register-title`).
 
+- **I-336 — the relation says what a class lawfully holds, not what a rail publishes today (session 7,
+  BEARS-1; L-MEA-04, R-TO-032, L-FRM-03/04, L-QTY-02/05, L-REG-07; migration 0060).** Ten rows join
+  `bears` in one edit of `src/core/catalogue/bears.ts`: pile cap, footing and column × `rcc.formwork`;
+  slab, shear wall and stair × `rcc.concrete` and `rcc.formwork`; slab × `pcc.blinding`. Read as the
+  rebar leaf read `rcc.rebar` — a class bears what R-TO-032 forms or casts and L-FRM-03/04 states a
+  figure for, whether or not a reader of it has landed. Six of the ten were already PUBLISHED: the slab
+  area's rails measure a plate, a shear wall and a stair for both kinds while the relation denied them,
+  so this grid drew no cell for a slab's concrete the register held lines for. The other four declare:
+  until a rail lands, a sighted class's cell reads `NOT_ESTABLISHED` — the disclosure (L-QTY-05) — and
+  nothing is billed; FND-3 lands the pile cap's and the footing's. The four WALL pairs F-RCC6-BNBC's
+  golden states (concrete, formwork, rebar, excavation) wait for a WALL class: no row names a class the
+  closed roster lacks. The rows are batched so the catalogue digest a campaign snapshots moves ONCE:
+  every campaign opened before 0060 reads stale on `catalogue` once (freshness blocks signing only,
+  never measuring), and a campaign opened after it snapshots the new relation. Cost: the grid of any
+  project sighting a column gains a `rcc.formwork` row of `NOT_ESTABLISHED` cells until the column
+  formwork rail lands, so J-022's three pictures and J-000's coverage tallies move by that row.
+
 ## 1. Layout and hierarchy
 
 **Nav.** `takeoff/layout.tsx` gains a second `next/link`, `<a data-testid="takeoff-nav-coverage">`

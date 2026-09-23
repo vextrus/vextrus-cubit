@@ -99,6 +99,26 @@ const REBAR_BEARS: readonly { class: string; kind: string }[] = Object.freeze([
   { class: "lintel", kind: "rcc.rebar" },
 ]);
 
+/**
+ * And what the RECONCILIATION appends after those (BEARS-1, I-336): ten rows, no kind. Each class
+ * below is formed or cast by R-TO-032 and L-FRM-03/04 states its figure — a cap's, a footing's and a
+ * column's formwork; a slab's, a shear wall's and a stair's concrete and formwork, which the slab
+ * area's rails already publish; and the blinding under a slab on the ground. Re-baselined here for the
+ * same reason as the rosters above: a derivation cannot catch a row a later edit dropped.
+ */
+const RECONCILED_BEARS: readonly { class: string; kind: string }[] = Object.freeze([
+  { class: "pile_cap", kind: RCC_FORMWORK },
+  { class: "footing", kind: RCC_FORMWORK },
+  { class: COLUMN_CLASS, kind: RCC_FORMWORK },
+  { class: "slab", kind: RCC_CONCRETE },
+  { class: "slab", kind: RCC_FORMWORK },
+  { class: "shear_wall", kind: RCC_CONCRETE },
+  { class: "shear_wall", kind: RCC_FORMWORK },
+  { class: "stair", kind: RCC_CONCRETE },
+  { class: "stair", kind: RCC_FORMWORK },
+  { class: "slab", kind: "pcc.blinding" },
+]);
+
 /** Every kind the product measures, frame first, in the order the closed roster names them. */
 const MEASURED_KINDS: readonly string[] = Object.freeze([...FRAME_KINDS, ...FOUNDATIONS_KINDS, ...MASONRY_KINDS, ...REBAR_KINDS]);
 
@@ -154,6 +174,7 @@ describe("AC-1: rcc.formwork is a kind the product measures", () => {
       ...FOUNDATIONS_BEARS,
       ...MASONRY_BEARS,
       ...REBAR_BEARS,
+      ...RECONCILED_BEARS,
     ];
     expect(
       bears.BEARS.map((row) => ({ class: row.class, kind: row.kind })),
@@ -163,6 +184,38 @@ describe("AC-1: rcc.formwork is a kind the product measures", () => {
     for (const className of [BEAM_CLASS, TIE_BEAM_CLASS, LINTEL_CLASS]) {
       expect(bears.UNBORNE, `${className} bears a kind now, so it is no longer a class nothing measures`).not.toContain(className);
     }
+  });
+
+  test("BEARS-1: over the cast classes and the three kinds they are cast, formed and blinded in, the relation holds exactly its sixteen cells", async () => {
+    const bears = await productModule<{ BEARS: readonly { class: string; kind: string }[] }>(BEARS_MODULE);
+    const classes = ["pile", "pile_cap", "footing", COLUMN_CLASS, "slab", "shear_wall", "stair"];
+    const kinds = [RCC_CONCRETE, RCC_FORMWORK, "pcc.blinding"];
+    const grid = bears.BEARS.filter((row) => classes.includes(row.class) && kinds.includes(row.kind))
+      .map((row) => `${row.class}|${row.kind}`)
+      .sort();
+    // Scoped to this GRID rather than to a class-wide sweep, as every leaf's grid is (B-19, B-20): the
+    // five cells left empty are empty by RULE — a pile is bored, never formed or blinded, and a column,
+    // a shear wall and a stair stand on what is below them rather than on a blinding of their own.
+    expect(grid, "the reconciliation's cells, and the foundations' and the frame's before it (I-336)").toEqual(
+      [
+        `${COLUMN_CLASS}|${RCC_CONCRETE}`,
+        `${COLUMN_CLASS}|${RCC_FORMWORK}`,
+        `footing|pcc.blinding`,
+        `footing|${RCC_CONCRETE}`,
+        `footing|${RCC_FORMWORK}`,
+        `pile_cap|pcc.blinding`,
+        `pile_cap|${RCC_CONCRETE}`,
+        `pile_cap|${RCC_FORMWORK}`,
+        `pile|${RCC_CONCRETE}`,
+        `shear_wall|${RCC_CONCRETE}`,
+        `shear_wall|${RCC_FORMWORK}`,
+        `slab|pcc.blinding`,
+        `slab|${RCC_CONCRETE}`,
+        `slab|${RCC_FORMWORK}`,
+        `stair|${RCC_CONCRETE}`,
+        `stair|${RCC_FORMWORK}`,
+      ].sort(),
+    );
   });
 
   test("AC-1: the roster the measure job runs answers exactly the two kinds", async () => {

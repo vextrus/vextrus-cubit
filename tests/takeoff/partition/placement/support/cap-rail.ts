@@ -14,13 +14,20 @@ import { memberFamiliesSetupOf, outlineSetupOf } from "@/modules/takeoff/measure
 import type { PlacementRow } from "@/modules/takeoff/partition/placement/rows";
 // The area's DOOR (`foundations/index.ts`), named whole: `rails/foundations.ts` beside it is the
 // area's roster, which keys the rails by kind and publishes no rail by name.
-import { blindingRail, foundationConcreteRail } from "@/modules/takeoff/rails/foundations/index";
+import { blindingRail, foundationConcreteRail, foundationFormworkRail } from "@/modules/takeoff/rails/foundations/index";
 import type { StagesRead } from "../../support/bnbc-stages";
 
 export type { Measure } from "@/core/offers/contract";
 
-/** The two kinds a cap's plan decides, and the rail each is measured by (L-MEA-08). */
-export const CAP_KINDS = Object.freeze({ concrete: "rcc.concrete", blinding: "pcc.blinding" } as const);
+/** The three kinds a cap's plan decides, and the rail each is measured by (L-MEA-08, I-337). */
+export const CAP_KINDS = Object.freeze({ concrete: "rcc.concrete", blinding: "pcc.blinding", formwork: "rcc.formwork" } as const);
+
+/** Each kind's own reader — the area's door, never the kind's composition, so nothing else is asked. */
+const RAIL_OF = Object.freeze({
+  [CAP_KINDS.concrete]: foundationConcreteRail,
+  [CAP_KINDS.blinding]: blindingRail,
+  [CAP_KINDS.formwork]: foundationFormworkRail,
+});
 type CapKind = (typeof CAP_KINDS)[keyof typeof CAP_KINDS];
 
 /** The surrogate record, revision, campaign and calibration the rows are read under. */
@@ -74,7 +81,7 @@ export function capOffersOver(read: StagesRead, kind: CapKind): CapOffer[] {
   const objects = caps.map(
     (row) => ({ objectKey: `object|${row.placementKey}`, placementKey: row.placementKey, elementType: row.elementType, standing: "MEASURED", setRevisionId: SET_REVISION_ID }) as unknown as RegisterObjectRow,
   );
-  const rail = kind === CAP_KINDS.concrete ? foundationConcreteRail : blindingRail;
+  const rail = RAIL_OF[kind];
   const batch = rail({ campaignId: CAMPAIGN_ID, setRevisionId: SET_REVISION_ID, kind, objects, setup });
   const rowOf = new Map(caps.map((row) => [`object|${row.placementKey}`, row]));
   return batch.offers.map((offer) => ({ offer, row: rowOf.get(offer.register.objectKey) as PlacementRow }));

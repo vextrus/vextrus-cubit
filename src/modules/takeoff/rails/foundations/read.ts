@@ -202,10 +202,15 @@ export function countOf(read: Read): Measure {
  * schedule's own print — the size the ring was drawn to, transcribed at the cell it was read from
  * (L-QTY-03). Where it does not, or where the schedule states none, the ring's own sides are bound,
  * as measured. Where no ring was read at all, a schedule's section is the plan, as it always was.
+ *
+ * A polygon carries the length of its own boundary beside its area where the reader of the ring read
+ * one (I-337): what its sides are formed along (L-FRM-03), measured off the same ring on the same
+ * calibration, and never a schedule's rectangle standing in for it. A rectangle needs none — its sides
+ * ARE its boundary, and the formwork over it is `2 × (L + B)` of the very sides its concrete binds.
  */
 export type Plan =
   | { readonly shape: "rect"; readonly length: Measure; readonly breadth: Measure }
-  | { readonly shape: "poly"; readonly area: Measure }
+  | { readonly shape: "poly"; readonly area: Measure; readonly perimeter: Measure | null }
   | { readonly shape: "none" };
 
 /** The plan one read row states (L-FRM-02, I-334). */
@@ -215,7 +220,7 @@ export function planOf(read: Read): Plan {
   if (outline === null) return section ?? { shape: "none" };
   // A reading measured off a view stands on that view's affirmed calibration (L-QTY-03).
   const measured = (reading: Measure): Measure => ({ ...reading, calibration: read.calibration });
-  if (outline.type === PRISM_POLY) return { shape: "poly", area: measured(outline.area) };
+  if (outline.type === PRISM_POLY) return { shape: "poly", area: measured(outline.area), perimeter: outline.perimeter === undefined ? null : measured(outline.perimeter) };
   if (outline.type === PRISM_RECT && outline.length !== null && outline.breadth !== null) {
     if (section !== null && section.shape === "rect" && corroborates(section, outline.length, outline.breadth)) return section;
     return { shape: "rect", length: measured(outline.length), breadth: measured(outline.breadth) };

@@ -338,6 +338,28 @@ this file rules. No gallery entry is added (nothing new is invented here).
   B13/1B11 +250, and RB12/14/17/18 +50 with RB13 +200. EB1a (and 1EB1a) is cut at no end, because the
   cantilevers carrying it are unplaced (FRM-3): +250. No figure is published from them today. They must
   be cut before a slab thickness makes any beam line COMPLETE.
+- **I-337 — a foundation is formed along its SIDES only, over the one plan its concrete is measured
+  over (session 7, FND-3; L-FRM-03, I-334, L-QTY-02/03/04; edition IS1200_IN @ 2027.04, migration
+  0061).** L-FRM-03 states the figure twice — "Foundation `count × 2(L+B) × depth`" and "Polygonal
+  foundation/cap: side faces only, `perimeter × depth`" — so there are two methods, the formwork twins
+  of the two prisms: `rcc.foundation.formwork_rect@1` = `count × 2 × (L + B) × D` and
+  `rcc.foundation.formwork_poly@1` = `count × P × D`, in a new method file so no standing pair's
+  closure moves. One reader, `foundationFormworkRail` (footing and pile cap; a pile is bored, not
+  formed), is composed into the frame's `rcc.formwork` line after the beam, tie beam and lintel. It picks
+  the rule by `planOf` — the plan the concrete binds — so the two kinds never disagree about a plan: a
+  rectangle binds the very L and B its concrete binds (the schedule's print where the ring corroborates
+  it, else the ring's sides), and a polygon binds `P`, its ring's own boundary as `placement_outlines`
+  stores it, MEASURED on the view's calibration and cited to the ring. The schedule's rectangle never
+  stands for a polygon: a chamfered PC2 runs 6960.1 mm where 2100 × 1750 would say 7700 (+10.6 % on that
+  cap, over). Neither method declares a variable a soffit or a top could be bound through. A polygon
+  whose boundary was not read (a hand-staged plan) omits `P`, and a plan nobody stated omits `L` and `B`,
+  under `FOUNDATION_PLAN_UNSTATED`; an unscheduled depth omits `D` under `FOUNDATION_DEPTH_UNSTATED` — so
+  F-RCC6's footings and caps, whose mixed FOOTING SCHEDULE states no depth (I-332), publish formwork
+  rows PARTIAL_DECLARED and bill nothing, exactly as their concrete does. On F-RCC6-BNBC the 26 caps
+  publish COMPLETE: 12 rectangles along 98.8 m and 14 PC2 along 97.4414 m, Σ 196.2414 m × 1.295 m =
+  **254.132613 m²** against the golden's 254.211 (−0.031 %, the golden's 1295.4 mm depth printed 1295 by
+  the schedule), inside [246.584, 254.2115]. BNBC places no footing (its F1 is the unmarked ring 638), so
+  no footing formwork is published there.
 
 - **I-sch-1 — the craft look of session 7 (2026-09-23): the drawing's words as the drawing shows
   them, a rail that names its sheets, and a registry that reads as rows.** The vision review found

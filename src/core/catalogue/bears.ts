@@ -58,6 +58,25 @@ export const BEARS: readonly BearsRow[] = Object.freeze([
   Object.freeze({ class: "shear_wall", kind: "rcc.rebar" }),
   Object.freeze({ class: "stair", kind: "rcc.rebar" }),
   Object.freeze({ class: "lintel", kind: "rcc.rebar" }),
+  // The reconciliation (BEARS-1, I-336): what these classes lawfully hold that the relation did not
+  // yet say, reconciled once so the catalogue digest moves once (L-REG-07). R-TO-032 forms and casts
+  // every one of them and L-FRM-03 states each contact area — a foundation's and a cap's sides, a
+  // vertical's four faces per storey — and L-FRM-04 lays a blinding under a slab cast on the ground
+  // as surely as under a footing. The slab area's rails already measure a plate, a shear wall and a
+  // stair for both kinds, so those six pairs are the relation catching up with what is published; a
+  // pair no rail measures yet DECLARES — a borne pair nothing publishes stands in the residue as
+  // NOT_ESTABLISHED, which is the disclosure, and is never billed (L-QTY-02, L-QTY-05). The four WALL
+  // pairs a golden states wait for the WALL class: no row names a class the closed roster lacks.
+  Object.freeze({ class: "pile_cap", kind: "rcc.formwork" }),
+  Object.freeze({ class: "footing", kind: "rcc.formwork" }),
+  Object.freeze({ class: "column", kind: "rcc.formwork" }),
+  Object.freeze({ class: "slab", kind: "rcc.concrete" }),
+  Object.freeze({ class: "slab", kind: "rcc.formwork" }),
+  Object.freeze({ class: "shear_wall", kind: "rcc.concrete" }),
+  Object.freeze({ class: "shear_wall", kind: "rcc.formwork" }),
+  Object.freeze({ class: "stair", kind: "rcc.concrete" }),
+  Object.freeze({ class: "stair", kind: "rcc.formwork" }),
+  Object.freeze({ class: "slab", kind: "pcc.blinding" }),
 ] as const);
 
 /** The classes that bear at least one kind, as a set — read off the relation itself. */

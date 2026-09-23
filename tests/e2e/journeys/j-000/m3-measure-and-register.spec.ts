@@ -21,10 +21,14 @@
  * own rule (I-305). Session 7 closed the typical-range act's third spelling of the expansion
  * (929a37c2), so the register carries the members the doors give: 182 column concrete lines, 26 on
  * each of GF..6F, every one COMPLETE — against a golden that prints 90.834 m³ over those seven cells
- * (90.833288 m³ unrounded in model.json).
+ * (90.833288 m³ unrounded in model.json). With the neck a person enters beneath GF (I-339), the
+ * resolver stands every ground-storey column on it too (I-338): 26 more, DERIVED and COMPLETE, sized by
+ * the `GF TO 2ND` band — 208 lines in all.
  *
  * WHAT IS COMPARED, AND AT WHAT PRECISION (L-QTY-06, L-QTY-07, AM-01). A numeric assertion names its
- * roster: the COLUMN × RCC_CONCRETE cell of every storey `golden-run.ts` stacks (BNBC_STOREYS, GF..6F),
+ * roster: the COLUMN × RCC_CONCRETE cell of every storey `golden-run.ts` stacks (BNBC_NECK and
+ * BNBC_STOREYS, FDN..6F — the neck a person entered beneath GF, which every ground-storey column
+ * continues down to, I-338/I-339: 26 members, 3.0596 m³ against the golden's 3.060),
  * read on the register itself — the class, kind and level filters narrowed as a reader narrows them,
  * the count line and the sticky footer's exact total read back (s-takeoff.md §5 rule 1: B-07's exact
  * sum of the lines the filters keep, whole in the figure's `data-value`). Both expected figures are the
@@ -43,7 +47,9 @@
  * for the same reason: S-06 places its 26 caps by the outline each mark stands in (I-333) and its
  * PILE CAP SCHEDULE types and sizes them (I-330..I-332), so the count is the golden's 26 members and the
  * figure is each ring's own plan times the schedule's DEPTH (I-334) — the schedule's rectangle for a
- * chamfered PC2 would stand 5.8 % over. The band is read HERE, at register precision, and nowhere else: a document states each line
+ * chamfered PC2 would stand 5.8 % over. And on the PILE_CAP formwork cell beside it: the same 26 caps,
+ * each formed along its SIDES only — a PC2 along its ring's own 6.96 m, a rectangle along `2 × (L + B)`
+ * of the sides its concrete binds — times the same depth (I-337, L-FRM-03). The band is read HERE, at register precision, and nowhere else: a document states each line
  * rounded once to its kind's places, so a document's sum is a different figure from the register's,
  * and m3-bill-and-schedules.spec.ts proves the documents faithful to these totals rather than banding
  * them a second time.
@@ -64,7 +70,7 @@ import { checkpoint } from "../../support/checkpoint";
 import { heldAttribute, steadyCount, steadyText } from "../../support/retrying-read";
 import { settled } from "../../support/settled";
 import { TESTIDS } from "../../../../src/ui/testids";
-import { BNBC_STOREYS, bnbcMeasured, releaseGoldenWorker } from "./golden-run";
+import { BNBC_NECK, BNBC_STOREYS, bnbcMeasured, releaseGoldenWorker } from "./golden-run";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -86,12 +92,16 @@ const PILE_KINDS: readonly string[] = Object.freeze(["piling.bored", "piling.bor
 const EVERY_LEVEL = "";
 
 /**
- * The pile cap, and the one kind its plan and its depth now publish whole (I-330..I-334): the concrete
- * cast. A cap stands in the FOUNDATION slot as a pile does, so it is read over every level too; its pit
- * and its blinding wait on the site's ground level and the polygon caps' plans (L-FRM-04) and are not
- * banded here.
+ * The pile cap, and the two kinds its plan and its depth now publish whole: the concrete cast
+ * (I-330..I-334) and the formwork its SIDES are cast against (I-337, L-FRM-03 — the ring's own
+ * boundary for a chamfered PC2, `2 × (L + B)` of the sides its concrete binds for a rectangle, never a
+ * soffit or a top). A cap stands in the FOUNDATION slot as a pile does, so it is read over every level
+ * too; its pit and its blinding wait on the site's ground level and the polygon caps' plans (L-FRM-04)
+ * and are not banded here.
  */
 const PILE_CAP = "pile_cap";
+const RCC_FORMWORK = "rcc.formwork";
+const PILE_CAP_KINDS: readonly string[] = Object.freeze([RCC_CONCRETE, RCC_FORMWORK]);
 
 /** L-QTY-06's floor: three per cent under the golden, and nothing over it. */
 const UNDER_TOLERANCE = "0.97";
@@ -154,7 +164,9 @@ test.describe.serial("J-000 — Golden Path: M3's measure on F-RCC6-BNBC", () =>
     await takeoff.narrow("class", COLUMN);
     await takeoff.narrow("kind", RCC_CONCRETE);
     const readings: StoreyReading[] = [];
-    for (const { label } of BNBC_STOREYS) {
+    // The neck first, as the stack stands it: every ground-storey column continued down to the cap
+    // beneath GF (I-338) — 26, the porch C7 among them and the floating C5 not.
+    for (const label of [BNBC_NECK.label, ...BNBC_STOREYS.map((storey) => storey.label)]) {
       const cell = { class: COLUMN.toUpperCase(), kind: goldenKindOf(RCC_CONCRETE), level: label };
       const owed = goldenCellRows(FIXTURE, cell);
       await takeoff.narrow("level", label);
@@ -258,48 +270,61 @@ test.describe.serial("J-000 — Golden Path: M3's measure on F-RCC6-BNBC", () =>
       ).toBe(true);
     }
 
-    /* --- the pile caps, placed by their outlines and measured over them (I-330..I-334) --- */
+    /* --- the pile caps, placed by their outlines and measured over them (I-330..I-334, I-337) --- */
     // S-06 places its 26 caps by the outline each mark stands in — never one per pile circle — and the
     // cap concrete is the ring's own plan (a chamfered PC2's shoelace, a turned PC1's own sides) times
-    // the schedule's DEPTH. Read at the register's precision exactly as the piles are.
+    // the schedule's DEPTH; its formwork is that same plan's SIDES times the same depth (a PC2's ring
+    // runs 6.96 m where its schedule's rectangle would say 7.7). Read per kind at the register's
+    // precision exactly as the piles are, against the golden's own PILE_CAP cells.
     await takeoff.narrow("class", PILE_CAP);
-    await takeoff.narrow("kind", RCC_CONCRETE);
-    const capRows = goldenRows(FIXTURE).filter((row) => row.class === PILE_CAP.toUpperCase() && row.kind === goldenKindOf(RCC_CONCRETE));
-    const capLevels = [...new Set(capRows.map((row) => row.level))];
-    expect(capLevels.length, `${FIXTURE}'s golden states ${PILE_CAP} × ${RCC_CONCRETE} in one cell — it states it at ${JSON.stringify(capLevels)}`).toBe(1);
-    const capCell = { class: PILE_CAP.toUpperCase(), kind: goldenKindOf(RCC_CONCRETE), level: capLevels[0] as string };
-    const capKept = await takeoff.kept(`${PILE_CAP} × ${RCC_CONCRETE}`);
-    const caps: StoreyReading = {
-      level: `${RCC_CONCRETE} @ ${capCell.level}`,
-      goldenRows: capRows.length,
-      members: new Set(capRows.flatMap((row) => row.members ?? [])).size,
-      unit: capRows[0]?.unit ?? "",
-      golden: capRows.reduce((sum, row) => sum.plus(row.quantity), new Exact(0)),
-      allowance: new Exact(goldenCellAllowance(FIXTURE, capCell)),
-      shown: capKept.shown,
-      statedUnit: capKept.unit,
-      total: capKept.total,
-    };
+    const caps: StoreyReading[] = [];
+    for (const kind of PILE_CAP_KINDS) {
+      const capRows = goldenRows(FIXTURE).filter((row) => row.class === PILE_CAP.toUpperCase() && row.kind === goldenKindOf(kind));
+      const capLevels = [...new Set(capRows.map((row) => row.level))];
+      expect(capLevels.length, `${FIXTURE}'s golden states ${PILE_CAP} × ${kind} in one cell — it states it at ${JSON.stringify(capLevels)}`).toBe(1);
+      const capCell = { class: PILE_CAP.toUpperCase(), kind: goldenKindOf(kind), level: capLevels[0] as string };
+      await takeoff.narrow("kind", kind);
+      const capKept = await takeoff.kept(`${PILE_CAP} × ${kind}`);
+      caps.push({
+        level: `${kind} @ ${capCell.level}`,
+        goldenRows: capRows.length,
+        members: new Set(capRows.flatMap((row) => row.members ?? [])).size,
+        unit: capRows[0]?.unit ?? "",
+        golden: capRows.reduce((sum, row) => sum.plus(row.quantity), new Exact(0)),
+        allowance: new Exact(goldenCellAllowance(FIXTURE, capCell)),
+        shown: capKept.shown,
+        statedUnit: capKept.unit,
+        total: capKept.total,
+      });
+    }
     await attach(
       testInfo,
       "m3-register-band-pile-caps",
-      `${PILE_CAP} × ${caps.level}: ${caps.shown} (${caps.members}) · ${caps.total ?? "no footer"} ${caps.statedUnit ?? ""} · ${caps.golden.toString()} ± ${caps.allowance.toString()} ${caps.unit}${
-        caps.total === null ? "" : ` · ${new Exact(caps.total).div(caps.golden).minus(1).times(100).toFixed(3)} %`
-      }`,
+      [
+        `${PILE_CAP}, per kind over every level — register lines (golden members) · register total · golden ± allowance`,
+        ...caps.map(
+          (reading) =>
+            `${reading.level}: ${reading.shown} (${reading.members}) · ${reading.total ?? "no footer"} ${reading.statedUnit ?? ""} · ${reading.golden.toString()} ± ${reading.allowance.toString()} ${reading.unit}${
+              reading.total === null ? "" : ` · ${new Exact(reading.total).div(reading.golden).minus(1).times(100).toFixed(3)} %`
+            }`,
+        ),
+      ].join("\n"),
     );
-    const capsSaid = `${PILE_CAP} × ${caps.level}`;
-    expect(caps.goldenRows, `${FIXTURE}'s golden carries ${capsSaid} — a band over no row is no band (L-QTY-06)`).toBeGreaterThan(0);
-    expect(caps.shown, `${capsSaid}: the register keeps one line per cap the golden lists — one per cap OUTLINE, never one per pile circle (I-333)`).toBe(caps.members);
-    expect(caps.statedUnit, `${capsSaid}: the footer states the unit the golden is written in`).toBe(caps.unit);
-    const capFigure = new Exact(caps.total ?? "0");
-    expect(
-      capFigure.lte(caps.golden.plus(caps.allowance)),
-      `${capsSaid}: the register's ${capFigure.toString()} is not over the golden's ${caps.golden.toString()} widened by its printed half-unit ${caps.allowance.toString()} — a PC2 is its shoelace, never the schedule's rectangle, and a turned PC1 its own sides, never its box (I-334, L-QTY-04)`,
-    ).toBe(true);
-    expect(
-      capFigure.gte(caps.golden.times(UNDER_TOLERANCE).minus(caps.allowance)),
-      `${capsSaid}: the register's ${capFigure.toString()} is no more than three per cent under the golden's ${caps.golden.toString()} (L-QTY-06)`,
-    ).toBe(true);
+    for (const reading of caps) {
+      const capsSaid = `${PILE_CAP} × ${reading.level}`;
+      expect(reading.goldenRows, `${FIXTURE}'s golden carries ${capsSaid} — a band over no row is no band (L-QTY-06)`).toBeGreaterThan(0);
+      expect(reading.shown, `${capsSaid}: the register keeps one line per cap the golden lists — one per cap OUTLINE, never one per pile circle (I-333)`).toBe(reading.members);
+      expect(reading.statedUnit, `${capsSaid}: the footer states the unit the golden is written in`).toBe(reading.unit);
+      const capFigure = new Exact(reading.total ?? "0");
+      expect(
+        capFigure.lte(reading.golden.plus(reading.allowance)),
+        `${capsSaid}: the register's ${capFigure.toString()} is not over the golden's ${reading.golden.toString()} widened by its printed half-unit ${reading.allowance.toString()} — a PC2 is its shoelace and its own ring, never the schedule's rectangle, and a turned PC1 its own sides, never its box (I-334, I-337, L-QTY-04)`,
+      ).toBe(true);
+      expect(
+        capFigure.gte(reading.golden.times(UNDER_TOLERANCE).minus(reading.allowance)),
+        `${capsSaid}: the register's ${capFigure.toString()} is no more than three per cent under the golden's ${reading.golden.toString()} (L-QTY-06)`,
+      ).toBe(true);
+    }
 
     /* --- the coverage grid: what the campaign did and did not establish, said in cells (L-QTY-05) --- */
     await coverage.openThroughNav();

@@ -11,8 +11,9 @@
  * campaign and a second worker of the lane walks it on its own project.
  *
  * What is judged is what a customer reads afterwards: the eight levels standing agreed at the
- * heights the section states, and the lap, the grade and the hook figures recorded as proposed on
- * the two sheets that state them.
+ * heights the section states, the foundation neck beneath GF standing agreed at the 2'-0" a person
+ * entered off the column line's foot (I-339 — no text of the drawing states it), and the lap, the
+ * grade and the hook figures recorded as proposed on the two sheets that state them.
  */
 import { expect, test } from "@playwright/test";
 import { SLevelsPage } from "../../pages/s-levels.page";
@@ -20,7 +21,7 @@ import { SSchedulesPage } from "../../pages/s-schedules.page";
 import { STakeoffPage } from "../../pages/s-takeoff.page";
 import { checkpoint } from "../../support/checkpoint";
 import { settled } from "../../support/settled";
-import { BNBC_GF_IMPERIAL_SOURCE, BNBC_LEVELS, BNBC_NOTES_SHEETS, BNBC_STOREYS, bnbcTranscribed, releaseGoldenWorker } from "./golden-run";
+import { BNBC_GF_IMPERIAL_SOURCE, BNBC_NECK, BNBC_NOTES_SHEETS, BNBC_STACK_SIZE, BNBC_STOREYS, bnbcTranscribed, releaseGoldenWorker } from "./golden-run";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -48,7 +49,11 @@ test.describe.serial("J-000 — Golden Path: M3's first leg on F-RCC6-BNBC", () 
     await takeoff.open(run.tenantId, run.bnbc.projectId);
     await levels.openThroughNav();
     await settled(page);
-    await expect(levels.rows, "the eight levels S-25's building section states stand in the stack").toHaveCount(BNBC_LEVELS.length);
+    await expect(levels.rows, "the eight levels S-25's building section states stand in the stack, and the neck a person entered beneath them").toHaveCount(BNBC_STACK_SIZE);
+    const neck = levels.rowAtOrdinal(BNBC_NECK.ordinal);
+    await expect(neck, `${BNBC_NECK.label} stands at ordinal ${BNBC_NECK.ordinal}, beneath GF`).toContainText(BNBC_NECK.label);
+    await expect(neck, `${BNBC_NECK.label}'s height is agreed — one reading, the one a person entered`).toHaveAttribute("data-standing", AGREED);
+    await expect(neck, `and stands at ${BNBC_NECK.metres} m, 2'-0" from the caps' tops to GF (I-339)`).toHaveAttribute("data-metres", BNBC_NECK.metres);
     for (const [ordinal, storey] of BNBC_STOREYS.entries()) {
       const row = levels.rowAtOrdinal(ordinal);
       await expect(row, `${storey.label} stands at ordinal ${ordinal}`).toContainText(storey.label);
@@ -65,6 +70,13 @@ test.describe.serial("J-000 — Golden Path: M3's first leg on F-RCC6-BNBC", () 
     await expect(levels.readings, `${gf.label} carries two readings — the section's metric print and its imperial design`).toHaveCount(2);
     await expect(levels.readingFrom(gf.sourceKey), `the metric reading cites ${gf.sourceKey} and is worth ${gf.height} m`).toHaveAttribute("data-metres", gf.height);
     await expect(levels.readingFrom(BNBC_GF_IMPERIAL_SOURCE), `the imperial reading cites ${BNBC_GF_IMPERIAL_SOURCE} and is worth ${gf.metres} m`).toHaveAttribute("data-metres", gf.metres);
+
+    /* --- the neck, which no mark states: ONE reading, ENTERED, citing the geometry that does (I-339) --- */
+    await levels.rowAtOrdinal(BNBC_NECK.ordinal).click();
+    await expect(levels.inspector, `${BNBC_NECK.label} fills the shell's one inspector`).toBeVisible();
+    await expect(levels.readings, `${BNBC_NECK.label} carries the one reading a person entered`).toHaveCount(1);
+    await expect(levels.reading(BNBC_NECK.basis), `on the ${BNBC_NECK.basis} basis — nothing on the drawing prints it`).toHaveCount(1);
+    await expect(levels.readingFrom(BNBC_NECK.sourceKey), `citing the column line's foot ${BNBC_NECK.sourceKey}, and worth ${BNBC_NECK.metres} m`).toHaveAttribute("data-metres", BNBC_NECK.metres);
 
     /* --- the notes, on the two sheets that state them (J-032) --- */
     await schedules.openThroughNav();

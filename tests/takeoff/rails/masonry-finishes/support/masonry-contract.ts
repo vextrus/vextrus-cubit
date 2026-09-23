@@ -23,6 +23,7 @@ import { join } from "node:path";
 import { expect } from "vitest";
 import { goldenKindsOf, goldenRows as goldenRowsOf, printingAllowanceOf, type GoldenRow } from "../../../../golden/support/golden-fixture";
 import { REPO_ROOT, productModule } from "../../../../server/support/wire";
+import { SEED_NAME, SEED_VERSION } from "../../../../rulesets/support/editions";
 
 export { REPO_ROOT, productModule };
 export { goldenDocument, goldenRows, type GoldenRow } from "../../../../golden/support/golden-fixture";
@@ -122,13 +123,14 @@ export const MASONRY_RULE_IDS: readonly string[] = Object.freeze([BRICK_WALL_VOL
 export const MASONRY_PAIRS: readonly MethodPairShape[] = Object.freeze(MASONRY_RULE_IDS.map((ruleId) => Object.freeze({ ruleId, version: MASONRY_VERSION })));
 
 /**
- * The identity the platform seed stands at (AC-2, interfaces) — re-baselined by each leaf that mints
- * a head beside it: an edition is immutable, so a later shard is cited by a NEW version and the seed
- * names that one (L-MEA-01, B-20). What the cases below grade is that this area's three pairs are
- * cited by the edition the seed names, whichever version that has become.
+ * The identity the platform seed stands at (AC-2, interfaces), read off the seed's one spelling in
+ * `tests/rulesets/support/editions.ts`: an edition is immutable, so a later shard is cited by a NEW
+ * version and the seed names that one (L-MEA-01, B-20), and a copy of it here was one more place for
+ * it to go stale (B-17). What the cases below grade is that this area's three pairs are cited by the
+ * edition the seed names, whichever version that has become.
  */
-export const SEED_EDITION_NAME = "IS1200_IN";
-export const SEED_EDITION_VERSION = "2027.03";
+export const SEED_EDITION_NAME = SEED_NAME;
+export const SEED_EDITION_VERSION = SEED_VERSION;
 
 /** The nine codes of the masonry shard, by name (AC-4, interfaces). */
 export const OPENING_SCHEDULE_ABSENT = "OPENING_SCHEDULE_ABSENT";

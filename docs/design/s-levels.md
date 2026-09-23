@@ -92,6 +92,42 @@ the `cx-levels-*` classes this file rules.
   one drawing of a multi-file set draws and another's typical plan derives stands twice, and L-CAD-07's
   "order-independent resolver over the whole set revision" is not yet met across drawings — the node
   that makes the resolver revision-wide.
+- **I-338 — a vertical continues down to the foundation neck beneath GF, sized by the band that covers
+  GF (session 7, LEV-1; L-MEA-01, L-CAD-07, L-FRM-02, T-NOT-RANGE-GF3).** L-MEA-01 measures verticals
+  floor-to-floor, and a column rises from the top of its cap, not from the ground floor. So where the
+  live stack holds a level named as the foundation IMMEDIATELY beneath the level named as the ground
+  storey (`foundationNeckOf`, `src/core/offers/contract.ts`: the label a person gave it, read by the
+  grammar's storey reading, bounded by ordinal — a basement between them is a storey of its own and
+  there is then no neck), the one resolver stands every VERTICAL whose lowest storey, after its view's
+  range, its schedule band and its note have cut it, is GF on that neck too — DERIVED, since nothing
+  drew it there (`resolve.ts` `neckBeneath`). Only verticals (a beam spans, it is never continued), and
+  only a member whose own lowest is GF: F-RCC6-BNBC's C5 (`STARTS AT 1F`) has no neck — one given to it
+  is over — and the porch C7, bound to GF alone by its note, keeps its own, because a note says which
+  storeys of the PLAN a member stands on and the neck is no storey of the plan. The neck is not a join to
+  a placed cap: C7 stands on the unmarked footing ring 638 and the turned PC1 5FB is under C6, so "stands
+  on a placed cap" would drop C7's neck (2.9627 m³, −3.18 %, out of band — session 7's breadth map). The section there is the
+  schedule's: `variantCovering` reads a stated band, then an unbanded row, and only then the neck, which
+  takes the row covering the ground storey above it — T-NOT-RANGE-GF3's "the FDN neck belongs to band GF
+  TO 2ND" — so a schedule that does band the foundation is what is read for it. Both halves read the
+  neck from the one helper (B-17). A stack nobody entered a neck in moves nothing: F-RCC6's stacks
+  (J-000's M2 legs, the SAMPLE seed) carry none, so its byte-frozen outputs and the M2 column rows stand,
+  and its v1.1 convention of leaving the neck out stays true of it. Not taken, and why: an authored range
+  FDN..6F would drop C7 (its note binds it to the drawn level, which would then be FDN); extending GF's
+  columns instead puts GF 18.2 % over (the breadth map's measurement). Measured over the shipped cad CLI's reading of F-RCC6-BNBC
+  (`tests/takeoff/partition/placement/bnbc-foundation-neck.test.ts`): 26 neck lines, all COMPLETE,
+  (4.86 m² of rectangles + π/4 · 0.45²) × 0.6096 m = **3.059609 m³** against the golden's 3.060
+  (−0.013 %), inside [2.9677, 3.0605]; GF..6F unchanged line for line.
+- **I-339 — the neck's storey is ENTERED, 0.6096 m, citing the foot of the section's column lines
+  (session 7, LEV-1; L-MEA-07, L-QTY-01/03).** No text or attribute of F-RCC6-BNBC states the storey
+  between the caps' top and GF (measured: S-25's section marks GF EL +0.000 and nothing below it), so the
+  section's proposed stack carries no FDN, and a person inserts it beneath GF through J-031's own door
+  and ENTERS its height: 0.6096 m (2'-0"), basis ENTERED, citing `DXF_HANDLE:1D59` — the Column-layer line
+  of S-25 whose foot stands 609.6 below GF, the only statement of that depth the drawing makes. A height
+  that cites nothing binds no `H` (`STOREY_HEIGHT_UNCITED`), so the citation is what lets the neck be
+  measured. Entered at the exact 2'-0": the `−0.610` a metric print would round it to gives 3.0616 m³,
+  over the golden. It is inserted at ordinal −1 BEFORE the section's stack is confirmed, because an
+  insert moves every live level at or above the ordinal it names (L-MEA-07) and GF then keeps its 0. The
+  existing ground level (EGL) stays unentered until the owner's R0 ruling.
 
 **The craft look (session 7, 2026-09-23; R-UI-080..086, AM-08 — the later law).** Numbered `I-lev-n`
 rather than from the global chain, because several craft implementers amended Decisions that day.

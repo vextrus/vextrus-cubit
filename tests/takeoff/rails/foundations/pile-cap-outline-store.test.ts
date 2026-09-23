@@ -33,6 +33,7 @@ import {
   INGEST_ID,
   PILE_CAP,
   RCC_CONCRETE,
+  RCC_FORMWORK,
   UNDER_TOLERANCE,
   canon,
   closeStage,
@@ -44,6 +45,7 @@ import {
   productModule,
   publishedByCell,
   railBatchOf,
+  railsRoster,
   stageFoundationsCampaign,
   type CellReading,
   type FoundationsStage,
@@ -68,6 +70,10 @@ const DECLARATION = "DXF_HANDLE:1F3E";
 const PRISM_POLY_RULE = "rcc.foundation.prism_poly";
 const PRISM_RECT_RULE = "rcc.foundation.prism_rect";
 
+/** And the rules its side formwork is measured by (L-FRM-03, I-337). */
+const FORMWORK_POLY_RULE = "rcc.foundation.formwork_poly";
+const FORMWORK_RECT_RULE = "rcc.foundation.formwork_rect";
+
 type StoredOutline = { placementKey: string; sourceKey: string; unitSourceKey: string | null; geometry: string; unit: string; areaUnit: string; area: string; perimeter: string; length: string | null; breadth: string | null };
 type StoredFamily = { scheduleKey: string; family: string; variants: { variantKey: string; dimensions?: { dimension: string; value: number; unit: string }[] }[] } & Record<string, unknown>;
 type PlacementStore = {
@@ -90,6 +96,8 @@ let outlines: StoredOutline[];
 let families: StoredFamily[];
 let batch: RailBatchShape;
 let verdict: VerdictShape;
+let formwork: RailBatchShape;
+let formworkVerdict: VerdictShape;
 let cells: Map<string, CellReading>;
 
 /** The drawing read, the partition stored and read back, the campaign measured — once, awaited by every case. */
@@ -131,6 +139,14 @@ const staged = (): Promise<void> =>
 
     batch = await railBatchOf(stage);
     verdict = await evaluate(stage, batch);
+    // The formwork the same caps are cast against, measured by the roster's ONE `rcc.formwork` rail —
+    // the frame's readers and this area's composed (I-337) — and published by the same gate beside it.
+    const rails = await railsRoster();
+    formwork = rails[RCC_FORMWORK]?.({ campaignId: stage.campaignId, setRevisionId: stage.setRevisionId, kind: RCC_FORMWORK, objects: stage.objects, setup: stage.setup }) ?? {
+      offers: [],
+      observations: [],
+    };
+    formworkVerdict = await evaluate(stage, formwork);
     cells = await publishedByCell(stage.tenantId, stage.campaignId);
   })());
 
@@ -219,5 +235,34 @@ describe("I-334: the caps are measured over their own plans, COMPLETE, inside L-
     expect(golden.printed.mul(exact(UNDER_TOLERANCE)).sub(golden.halfUlp).lte(held.sum), `${held.sum.toString()} m³ is no more than three per cent under ${golden.said}`).toBe(true);
     expect(held.sum.lte(golden.printed.add(golden.halfUlp)), `${held.sum.toString()} m³ is not over ${golden.said} — an over-measured figure is never a disclosure (L-QTY-04)`).toBe(true);
     expect(held.sum.eq(exact("99.445").mul(exact("1.295"))), `and it is 99.445 m² × 1.295 m exactly (${held.sum.toString()})`).toBe(true);
+  }, BUDGET_MS);
+});
+
+describe("I-337: the caps are formed along their own sides, COMPLETE, inside L-QTY-06's band", () => {
+  test("pile_cap × rcc.formwork: 26 COMPLETE lines — the 14 PC2 along their ring's P, the 12 rectangles along 2 × (L + B)", async () => {
+    await staged();
+    expect(formworkVerdict.refused, `every formwork offer published (the gate refused ${JSON.stringify(formworkVerdict.refusals)})`).toBe(0);
+    expect(formwork.offers.every((offer) => offer.class === PILE_CAP), "the one formwork rail offered the caps and nothing else it was not handed").toBe(true);
+    const held = cells.get(`${PILE_CAP}|${RCC_FORMWORK}`);
+    expect(held?.lines, "one line per cap").toBe(26);
+    expect(held?.partial, `every one COMPLETE (${JSON.stringify(held?.partialCodes)})`).toBe(0);
+    const polygons = linesUnderRule(stage.tenantId, stage.campaignId, FORMWORK_POLY_RULE);
+    expect(polygons.length, "the 14 PC2").toBe(14);
+    for (const line of polygons) {
+      const bindings = (line as Record<string, unknown>)["bindings"] as Record<string, { value?: string; unit?: string; basis?: string } | undefined>;
+      expect([bindings["P"]?.value, bindings["P"]?.unit, bindings["P"]?.basis], "P is the ring's own boundary, measured — never the schedule's 7700").toEqual(["6960.1", "mm", "MEASURED"]);
+      expect(Object.keys(bindings).sort(), "and nothing names a soffit, a top or a rectangle beside it (L-FRM-03)").toEqual(["D", "P", "count"]);
+    }
+    expect(linesUnderRule(stage.tenantId, stage.campaignId, FORMWORK_RECT_RULE).length, "and the twelve rectangles by their sides").toBe(12);
+  }, BUDGET_MS);
+
+  test("PILE_CAP × FORMWORK × FDN stands inside the golden's band — three per cent under at most, never over", async () => {
+    await staged();
+    const { exact } = await canon();
+    const held = cells.get(`${PILE_CAP}|${RCC_FORMWORK}`) as CellReading;
+    const golden = goldenFigure(goldenCell(BNBC_FIXTURE, { class: PILE_CAP, kind: RCC_FORMWORK }), exact as (value: string) => ReturnType<typeof exact>);
+    expect(golden.printed.mul(exact(UNDER_TOLERANCE)).sub(golden.halfUlp).lte(held.sum), `${held.sum.toString()} m² is no more than three per cent under ${golden.said}`).toBe(true);
+    expect(held.sum.lte(golden.printed.add(golden.halfUlp)), `${held.sum.toString()} m² is not over ${golden.said} — an over-measured figure is never a disclosure (L-QTY-04)`).toBe(true);
+    expect(held.sum.eq(exact("196.2414").mul(exact("1.295"))), `and it is 196.2414 m of side × 1.295 m exactly (${held.sum.toString()})`).toBe(true);
   }, BUDGET_MS);
 });

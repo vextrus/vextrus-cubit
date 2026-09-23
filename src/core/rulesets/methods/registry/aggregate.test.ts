@@ -35,7 +35,14 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
 /**
  * Every pair the shards recorded before AM-11 moved a line, keyed `<ruleId>@<version>` (L-MEA-01).
  *
- * Re-baselined by the CIRCULAR COLUMN for ONE ADDED pair and nothing else — L-FRM-02's other prism,
+ * Re-baselined by the FOUNDATION FORMWORK (FND-3, I-337) for TWO ADDED pairs and nothing else —
+ * L-FRM-03's side faces of a footing or a pile cap, `rcc.foundation.formwork_rect@1` over a rectangle
+ * and `rcc.foundation.formwork_poly@1` over any other plan, recorded in
+ * `../foundations/foundations.methods.json` and cited by the platform edition `IS1200_IN @ 2027.04`.
+ * The roster grew by those two keys — thirty-seven pairs to thirty-nine — and no pair standing before
+ * them moved (B-19, B-20).
+ *
+ * Re-baselined before that by the CIRCULAR COLUMN for ONE ADDED pair and nothing else — L-FRM-02's other prism,
  * `rcc.column.circular.concrete@1`, the quarter of π d² a column of circular section holds over a
  * storey, recorded in `../columns/columns.methods.json` beside the rectangular pair it stands next
  * to and cited by the platform edition `IS1200_IN @ 2027.03`. The roster grew by that one key —
@@ -86,6 +93,8 @@ const PAIRS_BEFORE: readonly string[] = Object.freeze([
   "rcc.beam.formwork@1",
   "rcc.column.circular.concrete@1",
   "rcc.column.concrete@1",
+  "rcc.foundation.formwork_poly@1",
+  "rcc.foundation.formwork_rect@1",
   "rcc.foundation.prism_poly@1",
   "rcc.foundation.prism_rect@1",
   "rcc.lintel.concrete@1",

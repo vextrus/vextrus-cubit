@@ -1,10 +1,11 @@
 /**
- * AC-2 (first half) — the seven foundation methods, in force (R-TO-032, L-MEA-01, L-FRM-02,
- * L-FRM-04, L-QTY-03).
+ * AC-2 (first half) — the nine foundation methods, in force (R-TO-032, L-MEA-01, L-FRM-02,
+ * L-FRM-03, L-FRM-04, L-QTY-03): the seven this leaf landed, and the two side formworks FND-3
+ * appended after them (I-337).
  *
  * A method is the sentence a figure is audited by: the variables it declares, the one tree its
  * template is printed from and its figure computed by, and the shard that records the pair an
- * edition cites. This grades the seven through the registry the gate resolves them by — never by
+ * edition cites. This grades the nine through the registry the gate resolves them by — never by
  * reading the modules that implement them — and grades their arithmetic against L-FRM-02's and
  * L-FRM-04's own statements of it, computed in the canon rather than transcribed.
  *
@@ -21,6 +22,8 @@ import {
   EARTHWORK_EXCAVATION,
   EXCAVATION_RULE_ID,
   FOUNDATIONS_PAIRS,
+  FOUNDATION_FORMWORK_POLY_RULE_ID,
+  FOUNDATION_FORMWORK_RECT_RULE_ID,
   FOUNDATIONS_SHARD,
   FOUNDATIONS_VERSION,
   FOUNDATION_PRISM_POLY_RULE_ID,
@@ -32,6 +35,7 @@ import {
   PILING_BORED,
   PILING_BORING,
   RCC_CONCRETE,
+  RCC_FORMWORK,
   REPO_ROOT,
   SEED_MODULE,
   canon,
@@ -123,6 +127,27 @@ const DECLARED: readonly { ruleId: string; kind: string; dimension: string; vari
     ],
   },
   {
+    ruleId: FOUNDATION_FORMWORK_RECT_RULE_ID,
+    kind: RCC_FORMWORK,
+    dimension: AREA,
+    variables: [
+      { name: "count", dimension: COUNT },
+      { name: "L", dimension: LENGTH },
+      { name: "B", dimension: LENGTH },
+      { name: "D", dimension: LENGTH },
+    ],
+  },
+  {
+    ruleId: FOUNDATION_FORMWORK_POLY_RULE_ID,
+    kind: RCC_FORMWORK,
+    dimension: AREA,
+    variables: [
+      { name: "count", dimension: COUNT },
+      { name: "P", dimension: LENGTH },
+      { name: "D", dimension: LENGTH },
+    ],
+  },
+  {
     ruleId: BLINDING_RULE_ID,
     kind: PCC_BLINDING,
     dimension: VOLUME,
@@ -147,6 +172,7 @@ const BOUND: Readonly<Record<string, string>> = Object.freeze({
   B: "1.2",
   D: "0.45",
   A: "2.35",
+  P: "6.9601",
   d: "0.5",
   length: "21.336",
   a: "0.4572",
@@ -177,6 +203,13 @@ function owed(ruleId: string, exact: (value: string) => DecimalLike): DecimalLik
     // count × A × D — the shoelace plan, times its depth (L-FRM-02's PRISM_POLY).
     case FOUNDATION_PRISM_POLY_RULE_ID:
       return v("count").mul(v("A")).mul(v("D"));
+    // count × 2 × (L + B) × D — a rectangular foundation's four sides, never its soffit or its top
+    // (L-FRM-03).
+    case FOUNDATION_FORMWORK_RECT_RULE_ID:
+      return v("count").mul(two).mul(v("L").add(v("B"))).mul(v("D"));
+    // count × P × D — a polygonal cap's side faces, along its own boundary (L-FRM-03).
+    case FOUNDATION_FORMWORK_POLY_RULE_ID:
+      return v("count").mul(v("P")).mul(v("D"));
     // N = count — a bored pile is counted, never measured (R-TO-032).
     case PILE_COUNT_RULE_ID:
       return v("count");
@@ -215,11 +248,11 @@ function shard(): Shard {
   return JSON.parse(readFileSync(abs, "utf8")) as Shard;
 }
 
-describe("AC-2: the seven foundation methods are in force", () => {
-  test("AC-2: the shard records exactly the seven pairs, and the registry enumerates every one", async () => {
+describe("AC-2: the nine foundation methods are in force", () => {
+  test("AC-2: the shard records exactly the nine pairs, and the registry enumerates every one", async () => {
     const recorded = shard();
     const owedKeys = FOUNDATIONS_PAIRS.map((pair) => `${pair.ruleId}@${pair.version}`).sort();
-    expect(Object.keys(recorded.methods ?? {}).sort(), `${FOUNDATIONS_SHARD} records exactly this shard's seven pairs, keyed \`<ruleId>@<version>\` (L-MEA-01)`).toEqual(owedKeys);
+    expect(Object.keys(recorded.methods ?? {}).sort(), `${FOUNDATIONS_SHARD} records exactly this shard's nine pairs, keyed \`<ruleId>@<version>\` (L-MEA-01)`).toEqual(owedKeys);
     for (const [key, row] of Object.entries(recorded.methods ?? {})) {
       expect(`${String(row.ruleId)}@${String(row.version)}`, `${key} restates the pair its key names`).toBe(key);
       expect(typeof row.module, `${key} names the module that computes it`).toBe("string");
