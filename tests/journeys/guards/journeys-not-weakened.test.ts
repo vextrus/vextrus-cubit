@@ -155,6 +155,21 @@ function isRegeneratedBaseline(path: string): boolean {
  * number in the two trap registries, and nothing authored. Eight literal paths, no pattern over
  * `fixtures/rcc6-bnbc/**`: the goldens, cells, PDFs and rasters stay strays if a baseline commit
  * ever carries them without a declaration of their own.
+ *
+ * The R0 paths are that declaration, and R0-BASE's (session 8). The owner ruled R0 "Regenerate and
+ * draw all": the F-RCC6-BNBC golden moves to follow its drawing and its law, and the drawing is
+ * corrected and completed, so the whole corpus re-mints once — the goldens, the cells, the model,
+ * the site facts, the notation corpus, the sanity counts, the three PDFs and the 24 rasters, beside
+ * the eight paths above. The R0 design (§9) names the test data that pins the corpus's content and
+ * must move atomically with it: the notation allowance and its tally
+ * (`tests/takeoff/notation/corpus-allow.json`, `corpus.test.ts`), the S-01 note-clause count
+ * (`tests/takeoff/notes/clauses.test.ts`) and the BBS render's payload and golden PDF
+ * (`tests/docs/bbs/`), whose rows lead with the pile caps the cap-cover correction moves. Its
+ * criterion: the corpus "regenerates byte-identical" from the committed generator and the revision
+ * register holds (check 9, `cad/tests/rcc6_bnbc/test_rcc6_bnbc_revision.py`) — the proof a
+ * `baseline:` subject names. One literal path per file, as the fifth-to-eighth note requires: no
+ * pattern over `fixtures/rcc6-bnbc/**`, `raster/**` or `tests/**`; the images, the xref target and
+ * every undeclared file are still strays.
  */
 const DECLARED_REBASELINED: readonly string[] = [
   // Retired on 2026-09-21 with the hotfix that wrote it (the J-000 byte-freeze); its two re-takes
@@ -168,6 +183,46 @@ const DECLARED_REBASELINED: readonly string[] = [
   "fixtures/rcc6-bnbc/rcc6-bnbc.model.dwg",
   "fixtures/rcc6-bnbc/rcc6-bnbc.model.dxf",
   "fixtures/rcc6-bnbc/traps.json",
+  // R0-BASE (session 8): the rest of the F-RCC6-BNBC corpus and the test data that pins its content.
+  "fixtures/rcc6-bnbc/takeoff.golden.json",
+  "fixtures/rcc6-bnbc/bbs.golden.json",
+  "fixtures/rcc6-bnbc/cells.json",
+  "fixtures/rcc6-bnbc/model.json",
+  "fixtures/rcc6-bnbc/site.json",
+  "fixtures/rcc6-bnbc/notation.corpus.json",
+  "fixtures/rcc6-bnbc/sanity.json",
+  "fixtures/rcc6-bnbc/rcc6-bnbc.pdf",
+  "fixtures/rcc6-bnbc/rcc6-bnbc.shx.pdf",
+  "fixtures/rcc6-bnbc/rcc6-bnbc.r2.pdf",
+  "fixtures/rcc6-bnbc/raster/r1/s-01.png",
+  "fixtures/rcc6-bnbc/raster/r1/s-10.png",
+  "fixtures/rcc6-bnbc/raster/r1/s-11.png",
+  "fixtures/rcc6-bnbc/raster/r1/s-17.png",
+  "fixtures/rcc6-bnbc/raster/r1/s-20.png",
+  "fixtures/rcc6-bnbc/raster/r1/s-26.png",
+  "fixtures/rcc6-bnbc/raster/r2/s-01.jpg",
+  "fixtures/rcc6-bnbc/raster/r2/s-10.jpg",
+  "fixtures/rcc6-bnbc/raster/r2/s-11.jpg",
+  "fixtures/rcc6-bnbc/raster/r2/s-17.jpg",
+  "fixtures/rcc6-bnbc/raster/r2/s-20.jpg",
+  "fixtures/rcc6-bnbc/raster/r2/s-26.jpg",
+  "fixtures/rcc6-bnbc/raster/r3/s-01.jpg",
+  "fixtures/rcc6-bnbc/raster/r3/s-10.jpg",
+  "fixtures/rcc6-bnbc/raster/r3/s-11.jpg",
+  "fixtures/rcc6-bnbc/raster/r3/s-17.jpg",
+  "fixtures/rcc6-bnbc/raster/r3/s-20.jpg",
+  "fixtures/rcc6-bnbc/raster/r3/s-26.jpg",
+  "fixtures/rcc6-bnbc/raster/r4/s-01.jpg",
+  "fixtures/rcc6-bnbc/raster/r4/s-10.jpg",
+  "fixtures/rcc6-bnbc/raster/r4/s-11.jpg",
+  "fixtures/rcc6-bnbc/raster/r4/s-17.jpg",
+  "fixtures/rcc6-bnbc/raster/r4/s-20.jpg",
+  "fixtures/rcc6-bnbc/raster/r4/s-26.jpg",
+  "tests/takeoff/notation/corpus-allow.json",
+  "tests/takeoff/notation/corpus.test.ts",
+  "tests/takeoff/notes/clauses.test.ts",
+  "tests/docs/bbs/payload.json",
+  "tests/docs/bbs/golden.pdf",
   "tests/rulesets/support/editions.ts",
   "db/__tests__/ruleset-editions.migration.test.ts",
   "src/core/errors/aggregate.test.ts",
