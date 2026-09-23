@@ -405,8 +405,7 @@ Walk 0 read J-000's BNBC stack as a quantity surveyor does and blocked the demo 
 FOUNDATION slot, on no row of the stack — a green `100%` over the neck's 3 m³ at the foundation of a
 frame whose foundation holds about 500. The three kinds overflowed the grid at both widths (1,128 px of
 columns in a 1,092 px grid at 1440 and 1,012 at 1280, Rebar cut to `Note rea` with no ellipsis), and a
-height previewed with an empty Source key went straight to the dialog. Ids are slice tokens the
-integrator renumbers.
+height previewed with an empty Source key went straight to the dialog.
 
 - **I-433 — every line the campaign published stands on exactly one row; a row that is no level
   says so (I-241 amended; L-QTY-02, L-REG-04, L-REG-02).** The reading laid a line on a level by its

@@ -1,8 +1,8 @@
 # F-ARCH — decisions (tranche 1)
 
 The architect's set of the Bashundhara G+6 that F-RCC6-BNBC engineers. Each decision here is the
-fixture's own (A-nn); where one reads a clause of the Bible it also carries an Interpretation token
-(I-458), which the session's integrator renumbers into the ledger. Conventions are learned from
+fixture's own (A-nn); where one reads a clause of the Bible it also carries its Interpretation
+(I-452 … I-457, session 8). Conventions are learned from
 real Dhaka architectural sets (`.private/work/session-8/edison/farch-spec.md`); nothing of any real
 set — geometry, text, names or numbers — is carried.
 
