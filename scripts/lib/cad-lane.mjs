@@ -189,17 +189,38 @@ export function regenerationInputsDigest(root, git, readFile) {
   if (indexed.status !== 0) return null;
   const working = run(["status", "--porcelain", "--untracked-files=all", "--", ...inputs]);
   if (working.status !== 0) return null;
-  const hash = createHash("sha256");
-  hash.update("index\n");
-  hash.update(indexed.stdout);
-  // Every path the working tree carries beyond the index is hashed by its bytes NOW, so a mid-edit
-  // gate digests the edit, and a file deleted from the tree digests as absent.
-  for (const name of porcelainPaths(working.stdout).sort()) {
-    const bytes = read(join(root, name));
-    hash.update(`\nworking ${name} `);
-    hash.update(bytes === null ? "(absent)" : bytes);
+  // Content-addressed (session 8): each input is its path and the git blob id of the bytes the
+  // regeneration would read. A tracked file the working tree leaves alone is the index's blob; every
+  // path the working tree carries beyond the index is the blob id of its bytes NOW, or not there at all.
+  // So a mid-edit gate digests the edit, a deleted file digests as the tree without it, and committing exactly the bytes
+  // a green regeneration proved digests the same as before the commit — the commit alone never buys
+  // a second ~80 s recomputation.
+  /** @type {Map<string, string>} */
+  const blobs = new Map();
+  for (const line of indexed.stdout.split("\n")) {
+    const tab = line.indexOf("\t");
+    if (tab < 0) continue;
+    const blob = line.slice(0, tab).split(" ")[1];
+    if (blob !== undefined) blobs.set(line.slice(tab + 1), blob);
   }
+  for (const name of porcelainPaths(working.stdout)) {
+    const bytes = read(join(root, name));
+    if (bytes === null) blobs.delete(name);
+    else blobs.set(name, gitBlobId(bytes));
+  }
+  const hash = createHash("sha256");
+  hash.update("inputs by blob\n");
+  for (const name of [...blobs.keys()].sort()) hash.update(`${name} ${blobs.get(name)}\n`);
   return hash.digest("hex");
+}
+
+/**
+ * The id git gives these bytes as a blob (`git hash-object`): sha1 over `blob <length>\0` and the bytes.
+ * @param {Buffer} bytes
+ * @returns {string}
+ */
+export function gitBlobId(bytes) {
+  return createHash("sha1").update(`blob ${bytes.length}\0`).update(bytes).digest("hex");
 }
 
 /** @typedef {{digest: string, provedAt: string}} RegenerationProof */

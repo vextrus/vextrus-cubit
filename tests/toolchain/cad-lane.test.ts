@@ -19,6 +19,7 @@ import {
   CAD_WORKERS,
   cadPytestArgv,
   changedPaths,
+  gitBlobId,
   readRegenerationProof,
   recordRegenerationProof,
   regenerationInputsDigest,
@@ -161,6 +162,24 @@ describe("a green regeneration's proof buys the skip a second time — and only 
       expect(regenerationInputsDigest(root, otherBlob), "an index blob moved").not.toBe(one);
       rmSync(join(root, "fixtures/gen/x.py"));
       expect(regenerationInputsDigest(root, git), "a file deleted from the tree is not the file that was there").not.toBe(one);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("the digest is content-addressed: committing exactly the proved bytes digests the same as before the commit", () => {
+    const root = mkdtempSync(join(tmpdir(), "cad-lane-commit-"));
+    try {
+      mkdirSync(join(root, "fixtures/gen"), { recursive: true });
+      writeFileSync(join(root, "fixtures/gen/x.py"), "edited");
+      const before = fakeGit({ ...moved, index: [...index, "100644 cccccccccccccccccccccccccccccccccccccccc 0\tfixtures/gen/x.py"], working: ["fixtures/gen/x.py"] });
+      const edited = regenerationInputsDigest(root, before);
+      const committedBlob = gitBlobId(Buffer.from("edited"));
+      const after = fakeGit({ ...moved, index: [...index, `100644 ${committedBlob} 0\tfixtures/gen/x.py`] });
+      expect(regenerationInputsDigest(root, after), "the commit moved no byte the regeneration reads").toBe(edited);
+      const untracked = fakeGit({ ...moved, index, working: ["fixtures/gen/x.py"] });
+      expect(regenerationInputsDigest(root, untracked), "an untracked file then added digests the same too").toBe(edited);
+      expect(committedBlob, "git's own blob id of the bytes (printf edited | git hash-object --stdin)").toBe("deb1bc2c60dc0eed5edb7e42cea94c7cb03c0050");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
