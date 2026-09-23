@@ -188,6 +188,66 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   drawing's axes and would ride a bar row from the rebar rail (`bars.ts`, a `bar_rows` column and a
   migration) — the rail's, the partition's and `db/**`'s, all held elsewhere.
 
+- **I-413 — a column's top joint is read as a LOWER BOUND off the framing the partition placed,
+  never as the joint (session 8, 2026-09-23; R6b-1, the owner's ruling A′ on the ties).** BNBC 2020
+  §6.4.9.2 carries the column's ties through the joint "for a depth not less than that of the deepest
+  connection", and no schedule states that depth. The store already holds the association:
+  a beam's run is cut clear at the faces of the members carrying its ends and cites each one's outline,
+  stored whole as `placement_runs.clear_source_keys` (`supportedSpan`). So the joint seam
+  (`src/modules/takeoff/measure/joints.ts`, pure, no migration) reads a column at level L's top joint off
+  the framing members (beam, tie beam) registered on the NEXT level up the stack by ordinal (L-MEA-07),
+  never by label, whose run's WHOLE citation list names the column placement's `outline_key`. It is
+  never the first atom only: `RunSetup.clear.source` is a run's own edge line and never names a column.
+  And a run's citations are local to its drawing: a run cites the keys of the one artifact its plans
+  were read from (`detectRuns`), and an outline key is a bare DXF handle, unique inside one drawing and
+  nowhere else. So a framing member frames a column only where both were placed off the same record
+  (`ingestId`), and a member the setup holds no placement for names no drawing and frames nothing. The
+  adversarial review of R6b-1 found this: a probe with two ingests sharing the handle `DXF_HANDLE:984`
+  read a foreign 900 girder where 450 was true, which would put the bound OVER the joint. Stored data
+  already carries such collisions: in the two-drawing project 0e76f5a5, 240 run citations of each
+  drawing equal the other's column outline keys. The two drawings are copies of each other, so no
+  over-read has happened yet. The check keeps each drawing's own 240 there and drops the other's 240,
+  and it loses no match on J-000's project: all 119 of fe67f2bc's citation hits are same-record.
+  Each member's depth is its schedule's section depth at the framing's own level, through core's
+  `variantCovering` and never through the frame rail's `sectionOf` (L-MEA-08). It is carried as written
+  (TRANSCRIBED, cited to the cell) beside the canon's millimetres, and the deepest is compared on the
+  millimetres. A member whose depth refuses is listed with the frame rail's own code for the same absence
+  and leaves the bound standing. The standing is **BOUNDED** (D_lo, the deepest read) and never
+  RESOLVED: the store holds the members the partition PLACED, not every member the drawing frames a joint
+  with. TG1, the axis-y beams and CB1–4 wait on FRM-3; EB2 and PB wait on D13. The true depth is
+  therefore at least D_lo and nothing says it is no more. RESOLVED waits on a framing census (after
+  FRM-3), and "no framing seen" is never that census. Proved on F-RCC6-BNBC against an oracle derived
+  from `fixtures/rcc6-bnbc/model.json` (the model's own `storey` and `supports`). No bound is ever over
+  the model's deepest member. B3 at GF reads 450 under TG1's 900, less and said so. Staging the placed
+  subset reproduces session 8's stored read-back: 24 bounded at GF and 25 at each of 1F–6F, C1/C2 600,
+  C3–C5 450, every column 400 under the roof, A1 at GF bounded by 1B1 at 600. Recall is bounded too:
+  a column is matched only where a beam's run cites the very placement its register row points at.
+  `faceAt` prefers the supports the beam's own plan drew, so on a drawing whose framing plans draw and
+  place their own column outlines the runs cite those outlines, and the joints read UNREAD FRAMING. That
+  is under and never over. R6b may widen the match to the grid address inside one drawing. The depth
+  read repeats the frame rail's `sectionOf` step for step: the family, its variants, `variantCovering`,
+  the first cell, the unit. That is a second copy of one reading (B-17). R6b retires it by moving one
+  `sectionAt` into `core/offers/contract` for both to call. Until then there is one difference: a joint's
+  depth does not refuse where only the width is unstated. Rejected: RESOLVED on what was placed (N(D)
+  is not monotonic, so a joint read too shallow can over-count ties); the frame rail's `sectionOf`
+  (rails share only setup); widening `RunSetup` here (R6b binds the seam into the setup, and
+  `contract.ts`/`setup.ts` have one writer in sequence).
+- **I-414 — an unread joint names what was not read, for what is true of the drawing, and never
+  says the joint is unframed (session 8, 2026-09-23; L-QTY-04).** A joint with no bound stands UNREAD
+  and names what was not read in one word (`unread`). These are the seam's own words and not refusal
+  codes: the rail that binds the joint registers the code it omits under (R6b), and a
+  SCREAMING_SNAKE word would be a code Q-07 does not hold. **LEVEL**: the stack holds no level above
+  the column's. The roof stubs C4 at C2/D2 are framed on the stair-room roof, which is no level until
+  LEV-2 (the model frames them at 375). That reading is proved on the model-staged register only. The
+  product's register holds no roof stub today: fe67f2bc reads 208 columns, FDN to 6F, 26 a storey. So in
+  the product, LEVEL answers only for a column topping the stack or standing on no live level.
+  **OUTLINE**: no outline is held for the column, so no run can be found citing it. **FRAMING**: the
+  level above stands and nothing placed on it off the column's own drawing cites the column. The
+  FDN necks are framed by grade beams carried on the caps; C6 is framed only by the slanted EB2/REB2;
+  C7 by the porch beams. **DEPTH**: members cite the column and none of their depths could be read,
+  each listed with its code. Rejected: "absent", "none" or "unframed". Each would state a fact about the
+  building that nobody read, and a later reader would take it for a free-standing post.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
