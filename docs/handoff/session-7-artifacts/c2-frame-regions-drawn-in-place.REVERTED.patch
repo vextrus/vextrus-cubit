@@ -1,0 +1,898 @@
+diff --git a/docs/design/s-takeoff.md b/docs/design/s-takeoff.md
+index baec6270..10821054 100644
+--- a/docs/design/s-takeoff.md
++++ b/docs/design/s-takeoff.md
+@@ -123,13 +123,18 @@ things. Everything in §0 above stands except where an Interpretation here says
+   area tabs, the pinned revision and the one primary in a single row above the filter bar. A row
+   drawn inside `shell-main` would be height taken from the work surface — and `shell-main` carries
+   24 px of padding besides, which would put the grid's first row 128 px below the top of main and
+-  break §3.2's own hard rule (§7 C2). The lane therefore mounts the row into the frame's second
++  break §3.2's own hard rule (§7 C2). The lane therefore draws the row into the frame's second
+   track (`useShellToolbar`, `src/ui/shell/slots.tsx`), where it is 32 px of chrome above main rather
+   than 40 px of the grid's own field, and the grid's first row sits 88 px down at both viewports.
+   The row is the LANE's (`takeoff/nav.tsx`, drawn above every takeoff surface) and its right-hand
+   half is the SURFACE's, so the row publishes a slot of its own — `useTakeoffTabsAside` — in exactly
+-  the shape the frame's three slots settled: the register mounts the revision chip and the Measure
+-  door into it, and a surface that mounts nothing leaves it empty rather than absent-looking.
++  the shape the frame's three slots take: the register draws the revision chip and the Measure door
++  into it, and a surface that draws nothing leaves it empty rather than absent-looking.
++  **Amended (I-312):** both are DRAWN IN PLACE, never handed over. The lane renders what
++  `useShellToolbar` answers — its row portalled into the frame's track — and each surface renders
++  what `useTakeoffTabsAside` answers — its half portalled into the row's own host (`ef3bb0b5`). A
++  lane or a surface standing twice while it hydrates therefore cannot take its own row, chip or door
++  away by leaving once.
+   Rejected: passing the revision down as a prop, which a layout three levels above the screen cannot
+   receive; rejected: a second tabs row per surface, which is tabs of tabs (§1).
+ - **I-231 — the inspector is the frame's ONE right column, and it is ABSENT until something is
+@@ -141,8 +146,10 @@ things. Everything in §0 above stands except where an Interpretation here says
+   states the line, and an OBJECT chosen in the tree states the object and carries this screen's two
+   act doors. The last thing selected wins, because a right column showing two subjects at once is
+   two inspectors. A module may not call `useInspector` (ARCH-01), so the mount is chrome like every
+-  renderer (I-170), and what it is handed is memoised on what it shows — a slot is state in the
+-  frame, and a node with a new identity every render would set it on every render.
++  renderer (I-170): it renders what the hook answers, the detail DRAWN into the frame's one column
++  in place (I-312), and with two mounts of the register standing exactly one of them draws, so the
++  column still states one subject. What it is handed is memoised on what it shows — a node with a
++  new identity every render would redraw the column on every render.
+ - **I-232 — the five filters are chips, and the bar is one line.** I-172's ruling stands in
+   substance — the filters are the SCREEN's, they narrow the tree and the lines together, and they
+   filter the rows before the table is handed its `data` — and its native `<select>` is withdrawn:
+diff --git a/docs/design/shell.md b/docs/design/shell.md
+index ba7d2742..75d64d76 100644
+--- a/docs/design/shell.md
++++ b/docs/design/shell.md
+@@ -101,6 +101,35 @@ primitives (core Button/Input/Skeleton, overlay DropdownMenu, the one RefusalSta
+   `shell_workspace_unnamed`; anything else shows exactly as it stands.
+   Sign-up still takes its `tenantName` as presented (R-SPINE-002 is another node's door), so the
+   guard is reachable and is not dead code.
++- **I-312 — a screen DRAWS its part of the frame in place; it never hands the frame a node
++  (session 7, 2026-09-23; R-UI-080, R-UI-030, Design Direction 00 §1, §3.1).** The frame's 32 px
++  tool track, 24 px readout track and ONE inspector column are regions a screen fills from inside
++  its own tree: the frame renders each region's element — `cx-shell-toolbar-slot`,
++  `cx-shell-status-slot` (`display: contents`, so the readout stays the body's grid item in track 4),
++  the column's `cx-shell-inspector-body` — and the screen RENDERS what `useShellToolbar`,
++  `useShellStatus` and `useInspector` answer: its node portalled into that element, standing in the
++  same commit as the screen and gone with it (`src/ui/shell/drawn-region.tsx`). A region is never
++  one value the frame holds, set by a screen's effect on mount and cleared on its cleanup: a screen
++  can stand twice (hydration stands the register twice for about a hundred milliseconds), and with
++  two mounts standing the first one leaving empties such a value while the second still stands —
++  the mechanism that took the register's Measure door (`ef3bb0b5`), which took all three frame
++  regions the same way until this Interpretation. The law of ONE of each holds with two mounts
++  standing: the frame keeps a roll of the mounts standing with something to draw, each under a token
++  of its own, so a mount leaving takes only itself off; the newest standing mount draws, and the next
++  one draws the moment it leaves. The frame reads the roll for what only the frame decides — the tool
++  track opens (`[data-toolbar]`), its own readout stands aside, the column exists (absent — width 0
++  — with nothing selected) — and never holds a node. Which of two mounts of one screen draws is the
++  only thing their order decides; whether a region stands never depends on it. With no frame (a
++  jsdom mount, the gallery's evidence renderer) each hook answers the node itself and the screen
++  places it where it stands. Proof: `tests/ui/shell/frame-regions-drawn-in-place.test.tsx` — two
++  mounts, the first leaves, the second's tool row, readout and inspector stand; one of each with two
++  standing; a selection draws the column and clearing it takes the column away. **Not yet drawn in
++  place, owner named:** the page crumb (`useShellPage`) is still handed over and carries the same
++  defect — it is a string the `Breadcrumb` primitive lays out (`label: string`), so drawing it needs
++  the primitive to render a host for the page crumb's text; the node that next opens the Breadcrumb
++  primitive. Rejected: a registry of handed-over NODES keyed by mount — session 5's run 9 carried one
++  for the tabs row and the Measure door was still lost, so the node stays the screen's to draw and
++  only presence is on the frame's roll.
+ 
+ ## 1. Layout and hierarchy
+ 
+@@ -224,7 +253,11 @@ with an entry in its own Decision and a test in the primitives suite covering th
+ appears as the one lawful literal). Context-sensitive detail arrives with the screens that
+ select things; in M0 it holds one line, `shell_inspector_empty`, `var(--text-13)`
+ `var(--graphite-600)`. Below lg it is absent, so `shell-main` breathes at 200 % zoom
+-(R-UI-060).
++(R-UI-060). **Amended (Design Direction 00 §1, §9.1 item 3; I-312):** the inspector is the
++frame's ONE slot, not an exported component, and the placeholder aside is deleted:
++`ShellInspectorSlot` renders the column only while a screen draws a detail into it — absent,
++width 0, otherwise — at the Direction's 320 px (280–480, the person's width remembered), and the
++screen draws that detail into the column's body in place through `useInspector` (I-312).
+ 
+ **Projects home** (`/t/{t}`): `<h1>` `shell_projects_heading`, `var(--text-20)`
+ `var(--weight-heading)`, margin 0. Below, `var(--space-5)`, the empty state
+diff --git a/src/app/(app)/t/[tenant]/p/[project]/takeoff/coverage/coverage-screen.tsx b/src/app/(app)/t/[tenant]/p/[project]/takeoff/coverage/coverage-screen.tsx
+index ce25bcd3..ffa98a5e 100644
+--- a/src/app/(app)/t/[tenant]/p/[project]/takeoff/coverage/coverage-screen.tsx
++++ b/src/app/(app)/t/[tenant]/p/[project]/takeoff/coverage/coverage-screen.tsx
+@@ -36,23 +36,23 @@ import {
+ } from "./actions";
+ 
+ /**
+- * The shell's ONE right column, filled with what the module wrote (§3.1, R-UI-080). It renders
+- * nothing where it stands: the nodes go to the frame's region, and with nothing selected the
+- * workspace mounts none of this at all, so the column is absent rather than empty.
++ * The shell's ONE right column, filled with what the module wrote (§3.1, R-UI-080). The nodes are
++ * DRAWN into the frame's region in place and this mount renders what the hook answers (I-312); with
++ * nothing selected the workspace mounts none of this at all, so the column is absent rather than
++ * empty.
+  */
+ function InspectorMount({ children }: { children: ReactNode }) {
+-  useInspector(children);
+-  return null;
++  return useInspector(children);
+ }
+ 
+ /**
+  * The same, for the tool row — mounted in THE LANE'S OWN ROW, not straight into the frame's slot.
+  *
+- * The frame publishes ONE toolbar slot and the last writer holds it (`src/ui/shell/slots.tsx`).
+- * The takeoff lane mounts its 40 px tabs row there (`../nav`), and this screen mounted its tools
+- * over the top of it: arriving on coverage through the nav, the surface's effect ran after the
+- * layout's and the tabs row vanished — the reader lost the way back to the Register and the entry
+- * for where they stood lost its `aria-current` (J-022 read exactly that).
++ * The frame publishes ONE toolbar track and one mount draws it (`src/ui/shell/slots.tsx`). The
++ * takeoff lane draws its tabs row there (`../nav`), and this screen once mounted its tools over the
++ * top of it: arriving on coverage through the nav, the surface's effect ran after the layout's and
++ * the tabs row vanished — the reader lost the way back to the Register and the entry for where they
++ * stood lost its `aria-current` (J-022 read exactly that).
+  *
+  * Direction §3.2's template draws one row for this lane — "Register · Coverage … + right: the
+  * pinned revision and the one primary" — and s-coverage.md § 7 lists `takeoff-nav` and
+diff --git a/src/app/(app)/t/[tenant]/p/[project]/takeoff/levels/levels-screen.tsx b/src/app/(app)/t/[tenant]/p/[project]/takeoff/levels/levels-screen.tsx
+index 2e84bbc5..416e2909 100644
+--- a/src/app/(app)/t/[tenant]/p/[project]/takeoff/levels/levels-screen.tsx
++++ b/src/app/(app)/t/[tenant]/p/[project]/takeoff/levels/levels-screen.tsx
+@@ -42,10 +42,12 @@ function TabsAside({ children }: { children?: ReactNode }) {
+   return useTakeoffTabsAside(children ?? null);
+ }
+ 
+-/** The frame's ONE right column, filled on selection and absent — width 0 — otherwise (R-UI-080). */
++/**
++ * The frame's ONE right column, filled on selection and absent — width 0 — otherwise (R-UI-080).
++ * The detail is DRAWN into the column in place and the mount renders what the hook answers (I-312).
++ */
+ function InspectorMount({ children }: { children?: ReactNode }) {
+-  useInspector(children ?? null);
+-  return null;
++  return useInspector(children ?? null);
+ }
+ 
+ /** The shipped renderers, bound once: what a reader sees is what every suite of this screen mounts. */
+diff --git a/src/app/(app)/t/[tenant]/p/[project]/takeoff/nav.tsx b/src/app/(app)/t/[tenant]/p/[project]/takeoff/nav.tsx
+index 5bd52645..cb52f0c0 100644
+--- a/src/app/(app)/t/[tenant]/p/[project]/takeoff/nav.tsx
++++ b/src/app/(app)/t/[tenant]/p/[project]/takeoff/nav.tsx
+@@ -20,9 +20,10 @@
+ // WHY THE RIGHT-HAND SIDE IS A SLOT. The row is the LANE's (it is drawn above every takeoff surface,
+ // by the lane's layout), and the pinned revision and the Measure door are the REGISTER's — a fact
+ // and an act that belong to one surface. A screen three levels below a layout cannot hand it a prop,
+-// so the row publishes a slot and the screen mounts into it, which is the shape the frame's own three
+-// slots already settled (`src/ui/shell/slots.tsx`). A surface that mounts nothing leaves the right
+-// side empty and the row is still one row: nothing is drawn to state an absence (R-UI-080).
++// so the row publishes a slot and the screen draws into it in place, which is the shape the frame's
++// own three regions take too (`src/ui/shell/drawn-region.tsx`, I-312). A surface that draws nothing
++// leaves the right side empty and the row is still one row: nothing is drawn to state an absence
++// (R-UI-080).
+ import Link from "next/link";
+ import { usePathname } from "next/navigation";
+ import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+@@ -67,9 +68,9 @@ export function TakeoffTabs({ entries, children }: { entries: readonly TakeoffNa
+   // rendered before the row is drawn portals in the moment the host exists, and never before.
+   const [host, setHost] = useState<HTMLElement | null>(null);
+ 
+-  // Memoised on what it shows: mounting a slot is state in the frame, so a row with a new identity
+-  // every render would re-render the frame on every render of the surface inside it. The right half
+-  // is an empty host the surfaces draw into, so nothing a surface shows re-makes the row.
++  // Memoised on what it shows: a row with a new identity every render would redraw the frame's track
++  // on every render of the surface inside it. The right half is an empty host the surfaces draw
++  // into, so nothing a surface shows re-makes the row.
+   const row = useMemo(
+     () => (
+       <div className="cx-takeoff-tabs">
+@@ -91,7 +92,14 @@ export function TakeoffTabs({ entries, children }: { entries: readonly TakeoffNa
+     ),
+     [entries, here],
+   );
+-  useShellToolbar(row);
++  // The row is DRAWN into the frame's tool track, in place, like the half the surfaces draw into it
++  // (I-312) — so the lane standing twice while it hydrates cannot take its own row away.
++  const drawn = useShellToolbar(row);
+ 
+-  return <TabsHostContext.Provider value={host}>{children}</TabsHostContext.Provider>;
++  return (
++    <>
++      {drawn}
++      <TabsHostContext.Provider value={host}>{children}</TabsHostContext.Provider>
++    </>
++  );
+ }
+diff --git a/src/app/(app)/t/[tenant]/p/[project]/takeoff/register/register-screen.tsx b/src/app/(app)/t/[tenant]/p/[project]/takeoff/register/register-screen.tsx
+index 9bf2f439..6bcdbe79 100644
+--- a/src/app/(app)/t/[tenant]/p/[project]/takeoff/register/register-screen.tsx
++++ b/src/app/(app)/t/[tenant]/p/[project]/takeoff/register/register-screen.tsx
+@@ -44,10 +44,12 @@ function TabsAside({ children }: { children?: ReactNode }) {
+   return useTakeoffTabsAside(children ?? null);
+ }
+ 
+-/** The frame's ONE right column, filled on selection and absent — width 0 — otherwise (R-UI-080). */
++/**
++ * The frame's ONE right column, filled on selection and absent — width 0 — otherwise (R-UI-080).
++ * The detail is DRAWN into the column in place and the mount renders what the hook answers (I-312).
++ */
+ function InspectorMount({ children }: { children?: ReactNode }) {
+-  useInspector(children ?? null);
+-  return null;
++  return useInspector(children ?? null);
+ }
+ 
+ /** The shipped renderers, bound once (I-170): what a test mounts is what this route renders. */
+diff --git a/src/app/(app)/t/[tenant]/p/[project]/takeoff/schedules/schedules-screen.tsx b/src/app/(app)/t/[tenant]/p/[project]/takeoff/schedules/schedules-screen.tsx
+index a7e2d90f..5c828fd7 100644
+--- a/src/app/(app)/t/[tenant]/p/[project]/takeoff/schedules/schedules-screen.tsx
++++ b/src/app/(app)/t/[tenant]/p/[project]/takeoff/schedules/schedules-screen.tsx
+@@ -32,10 +32,12 @@ function TabsAside({ children }: { children?: ReactNode }) {
+   return useTakeoffTabsAside(children ?? null);
+ }
+ 
+-/** The frame's ONE right column, filled on selection and absent — width 0 — otherwise (R-UI-080). */
++/**
++ * The frame's ONE right column, filled on selection and absent — width 0 — otherwise (R-UI-080).
++ * The detail is DRAWN into the column in place and the mount renders what the hook answers (I-312).
++ */
+ function InspectorMount({ children }: { children?: ReactNode }) {
+-  useInspector(children ?? null);
+-  return null;
++  return useInspector(children ?? null);
+ }
+ 
+ /** The shipped renderers, bound once: what a reader sees is what every suite of this screen mounts. */
+diff --git a/src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/viewer-screen.tsx b/src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/viewer-screen.tsx
+index 9c3db3c8..46246050 100644
+--- a/src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/viewer-screen.tsx
++++ b/src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/viewer-screen.tsx
+@@ -184,8 +184,8 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
+   /**
+    * THE FRAME'S THREE SLOTS (Direction §1, §3.1; R-UI-080). The tool row, the readout and the ONE
+    * inspector are the shell's regions and this screen fills them — one hook of its own, like every
+-   * other effect the sheet runs (`./viewer-slots.tsx`). It answers what to render where no frame
+-   * claimed a region, which is a jsdom mount of this screen and the gallery's evidence renderer.
++   * other effect the sheet runs (`./viewer-slots.tsx`). It answers what to render: each region drawn
++   * into the frame, or — with no frame, a jsdom mount or the gallery's evidence renderer — in place.
+    */
+   const slots = useViewerSlots({
+     denied, head: sheet.head, tool, setTool, snap, camera, layersOpen, setLayersOpen, inspectorPinned, setInspectorPinned,
+@@ -234,13 +234,13 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
+       {/* The sheet names itself once, as the house style has every screen do: heading navigation
+           lands on the sheet a reader opened rather than nowhere (R-UI-050's siblings, axe). */}
+       <h1 className="cx-viewer-hidden">{fill(strings.viewer_canvas_label, { layout: sheetName })}</h1>
+-      {/* The frame's tool row and readout are the frame's WHERE THERE IS A FRAME. Mounted without
+-          one — a jsdom mount of this screen, the gallery's evidence renderer — the two regions stand
+-          here, where they would stand anyway, rather than vanishing into a no-op (`slots.tsx`). */}
+-      {slots.framedToolbar ? null : slots.toolbar}
++      {/* The frame's tool row, readout and inspector are DRAWN into the frame's regions from here
++          (I-312). Mounted without a frame — a jsdom mount of this screen, the gallery's evidence
++          renderer — the three stand here instead, rather than vanishing into a no-op (`slots.tsx`). */}
++      {slots.toolbar}
+       <div className="cx-viewer-work">{workArea()}</div>
+-      {slots.framedStatus ? null : slots.readout}
+-      {slots.framedInspector ? null : slots.inspector}
++      {slots.readout}
++      {slots.inspector}
+       {partition.dialog}
+       {scale.dialog}
+     </div>
+diff --git a/src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/viewer-slots.tsx b/src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/viewer-slots.tsx
+index e1ef75ed..d824d05f 100644
+--- a/src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/viewer-slots.tsx
++++ b/src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/viewer-slots.tsx
+@@ -14,8 +14,13 @@
+  * content is exactly the kind of thing that cap exists to keep out of it. The cap found this; it was
+  * not a guess.
+  *
+- * Each slot is memoised on what it actually shows: a slot re-set on every render would re-render the
+- * frame sixty times a second while a camera settles, which is the one thing PB-3 forbids.
++ * Each region is DRAWN in place, not handed over (I-312): the hooks answer the node drawn into the
++ * frame's region — or, with no frame, the node itself — and the screen renders what they answer, so
++ * the viewer standing twice while it hydrates cannot take its own tool row, readout or inspector
++ * away by leaving once.
++ *
++ * Each node is memoised on what it actually shows: a node remade on every render would redraw the
++ * frame's regions sixty times a second while a camera settles, which is the one thing PB-3 forbids.
+  */
+ import { useMemo, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from "react";
+ import type { ViewerHead } from "@/modules/takeoff/viewer";
+@@ -73,15 +78,16 @@ export interface ViewerSlotsInput {
+ /** The pointer's mode: what a drag on the sheet does (§3.1's Select V · Pan H). */
+ export type ViewerTool = "select" | "pan";
+ 
++/**
++ * What the screen RENDERS for each of the frame's three regions: the node drawn into the frame's
++ * region where there is a frame, the node itself where there is none (a jsdom mount of this screen,
++ * the gallery's evidence renderer) — never both, and never a decision the screen has to make.
++ */
+ export interface ViewerSlots {
+-  toolbar: ReactNode | null;
++  toolbar: ReactNode;
+   readout: ReactNode;
+-  /** Did a frame take the region? `false` means the screen renders it where it stands. */
+-  framedToolbar: boolean;
+-  framedStatus: boolean;
+-  /** The selected thing's detail, and whether the frame's one slot took it. */
+-  inspector: ReactNode | null;
+-  framedInspector: boolean;
++  /** The selected thing's detail, in the frame's one slot or where the screen stands. */
++  inspector: ReactNode;
+ }
+ 
+ export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
+@@ -106,7 +112,7 @@ export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
+         ) : null,
+       [drawable, tool, snap, camera.fitSheet, camera.zoomBy, layersOpen, inspectorPinned],
+   );
+-  const framedToolbar = useShellToolbar(toolbar);
++  const drawnToolbar = useShellToolbar(toolbar);
+   // R-UI-084: the trail's last crumb names the sheet a reader opened (viewer.md's frame:
+   // `ws › Riverside Tower ▾ › Drawings › A-101 Foundation Plan`) — the layout's own name, as data.
+   useShellPage(input.sheetName);
+@@ -131,7 +137,7 @@ export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
+       ),
+       [sheetName, camera.camera, head, loadedLayers, layers.state, layers.rows, held.selected.length, paint.firstPaint, paint.renderer, snap],
+   );
+-  const framedStatus = useShellStatus(readout);
++  const drawnReadout = useShellStatus(readout);
+ 
+   // §3.1: "appears on selection… absent — width 0, not a placeholder sentence — when nothing is
+   // selected". The pin is the one lawful way to hold it open at rest, because the scale tab is a
+@@ -149,8 +155,7 @@ export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
+         ) : null,
+       [drawable, selected, pointer.hovered, held.selected, held.missing, held.selection, held.hold, line.block, cited, trace, scale, snap, partition.views],
+   );
+-  const framedInspector = useInspector(inspector);
+-
++  const drawnInspector = useInspector(inspector);
+ 
+-  return { toolbar, readout, framedToolbar, framedStatus, inspector, framedInspector };
++  return { toolbar: drawnToolbar, readout: drawnReadout, inspector: drawnInspector };
+ }
+diff --git a/src/ui/shell/app-shell.tsx b/src/ui/shell/app-shell.tsx
+index 4e655fb3..4ef3b83a 100644
+--- a/src/ui/shell/app-shell.tsx
++++ b/src/ui/shell/app-shell.tsx
+@@ -10,7 +10,7 @@ import type { Density } from "../../core/prefs";
+ import { InspectorProvider, ShellInspectorSlot } from "./inspector";
+ import { ScreenStateProvider, useScreenState } from "./screen-state";
+ import { ShellRail } from "./shell-rail";
+-import { ShellSlotsProvider, useShellSlots } from "./slots";
++import { ShellSlotsProvider, ShellStatusTrack, ShellToolbarTrack, useShellSlots } from "./slots";
+ import { ShellTopBar } from "./shell-top-bar";
+ import { StatusBar, type StatusBarProps } from "./status-bar";
+ import type { ProjectArea, ShellArea, ShellProject, ShellWorkspace } from "./routes";
+@@ -67,21 +67,18 @@ function ShellMain({ children }: { children: ReactNode }) {
+ }
+ 
+ /**
+- * The three tracks under the top bar, read from inside the providers so that a screen's mounted
+- * tool row and readout reach them (`slots.tsx`). The toolbar track is zero high with nothing in it —
+- * a region holding nothing is absent, not a placeholder (R-UI-080), and the height it would have
+- * taken belongs to the work surface (Direction §1).
++ * The three tracks under the top bar, rendered inside the providers: the tool track and the readout
++ * track are the elements a screen draws its tool row and its readout INTO (`slots.tsx`, I-312), and
++ * each holds the frame's own where no screen draws one. The toolbar track is zero high with nothing
++ * in it — a region holding nothing is absent, not a placeholder (R-UI-080), and the height it would
++ * have taken belongs to the work surface (Direction §1).
+  */
+ function ShellTracks({ toolbar, status, children }: { toolbar: ReactNode | undefined; status: StatusBarProps | undefined; children: ReactNode }) {
+-  const mounted = useShellSlots();
+-  const tools = mounted.toolbar ?? toolbar ?? null;
+   return (
+     <>
+-      <div className="cx-shell-toolbar-slot" data-testid={TESTIDS.shell.toolbarSlot}>
+-        {tools}
+-      </div>
++      <ShellToolbarTrack fallback={toolbar} />
+       <ShellMain>{children}</ShellMain>
+-      {mounted.status ?? <StatusBar {...status} />}
++      <ShellStatusTrack fallback={<StatusBar {...status} />} />
+     </>
+   );
+ }
+@@ -100,8 +97,10 @@ function ShellBar(props: Omit<Parameters<typeof ShellTopBar>[0], "page"> & { pag
+ }
+ 
+ function ShellBody({ toolbar, children }: { toolbar: ReactNode | undefined; children: ReactNode }) {
++  // Whether a screen draws a tool row is all the frame knows of it (I-312): the row itself is drawn
++  // into the track by the screen, never handed to the frame.
+   const mounted = useShellSlots();
+-  const hasTools = (mounted.toolbar ?? toolbar ?? null) !== null;
++  const hasTools = mounted.toolbar || (toolbar ?? null) !== null;
+   return (
+     <div className="cx-shell-body" data-toolbar={hasTools ? "true" : "false"}>
+       {children}
+diff --git a/src/ui/shell/index.ts b/src/ui/shell/index.ts
+index 94ccd4ef..c58de773 100644
+--- a/src/ui/shell/index.ts
++++ b/src/ui/shell/index.ts
+@@ -20,8 +20,9 @@ export { useInspector, useInspectorSlot, inspectorWidthWithin, storedInspectorWi
+ // declares its state through the hook rather than by mounting a second publication of it.
+ export { SCREEN_ROOT_DEFAULT, SCREEN_ROOT_STATES, useDeclareScreenState, useScreenState } from "./screen-state";
+ export { STATUS_CELLS, StatusBar } from "./status-bar";
+-// The other two slots the frame publishes, mounted exactly as the inspector is (`slots.tsx`): the
+-// provider stays unexported for the same reason, so a second tool row cannot be mounted anywhere.
++// The other two slots the frame publishes, drawn into exactly as the inspector is (`slots.tsx`,
++// `drawn-region.tsx`, I-312): the provider and the two tracks stay unexported for the same reason, so
++// a second tool row or readout cannot be mounted anywhere.
+ export { useShellPage, useShellStatus, useShellToolbar } from "./slots";
+ export { ShellToolbar, ShellToolbarGroup } from "./shell-toolbar";
+ export { HOVER_HOLD_MS, ShellRail } from "./shell-rail";
+diff --git a/src/ui/shell/inspector.tsx b/src/ui/shell/inspector.tsx
+index e4cb9e18..e0de7ceb 100644
+--- a/src/ui/shell/inspector.tsx
++++ b/src/ui/shell/inspector.tsx
+@@ -14,9 +14,16 @@
+  * sitting at, and the same account may want 280 on a laptop and 480 at a desk. A browser that
+  * refuses storage still resizes — the setting simply does not outlive the tab, and there is nothing
+  * to tell anybody.
++ *
++ * The screen DRAWS its detail into the slot, in place (`drawn-region.tsx`, I-312): the frame renders
++ * the column and its body, and the screen renders a portal into that body as part of its own tree.
++ * With two mounts of one screen standing — hydration stands a screen twice — exactly one of them
++ * draws, so the column states one subject; and the first leaving never takes away what the second
++ * still draws, because a mount leaving takes only itself off the frame's roll.
+  */
+ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+ import { strings } from "../strings";
++import { useDrawInto, useDrawnRegion, type DrawnRegion } from "./drawn-region";
+ import { TESTIDS } from "@/ui/testids";
+ 
+ /** The Direction's own three numbers (§4.2), read once here so nothing restates them in JS. */
+@@ -42,9 +49,8 @@ export function storedInspectorWidth(read: (key: string) => string | null): numb
+ }
+ 
+ interface InspectorSlot {
+-  /** What the selected thing's detail is, or null when nothing is selected. */
+-  readonly content: ReactNode | null;
+-  readonly setContent: (content: ReactNode | null) => void;
++  /** The region a screen draws the selected thing's detail into (`drawn-region.tsx`). */
++  readonly region: DrawnRegion;
+   readonly width: number;
+   readonly setWidth: (px: number) => void;
+ }
+@@ -53,11 +59,11 @@ const InspectorContext = createContext<InspectorSlot | null>(null);
+ 
+ /**
+  * The slot's own state, published once by the frame. A screen mounted outside the frame — the
+- * gallery's evidence renderer is one — finds no provider and `useInspector` answers a no-op, so a
+- * component is never made to know whether it is inside the shell.
++ * gallery's evidence renderer is one — finds no provider and `useInspector` answers the detail
++ * itself, so a component is never made to know whether it is inside the shell.
+  */
+ export function InspectorProvider({ children }: { children: ReactNode }) {
+-  const [content, setContent] = useState<ReactNode | null>(null);
++  const region = useDrawnRegion();
+   const [width, setStateWidth] = useState<number>(INSPECTOR_WIDTH);
+ 
+   // Read after mount, never during render: the server renders the default, and a width read from
+@@ -81,37 +87,36 @@ export function InspectorProvider({ children }: { children: ReactNode }) {
+     }
+   }, []);
+ 
+-  const slot = useMemo<InspectorSlot>(() => ({ content, setContent, width, setWidth }), [content, width, setWidth]);
++  const slot = useMemo<InspectorSlot>(() => ({ region, width, setWidth }), [region, width, setWidth]);
+   return <InspectorContext.Provider value={slot}>{children}</InspectorContext.Provider>;
+ }
+ 
+ /**
+- * What a screen mounts its inspector through: hand it the detail of what is selected, or null. The
+- * slot renders exactly what it is given and nothing of its own — the shell owns the region, the
+- * screen owns the words (Direction §3.1).
++ * What a screen fills its inspector through: hand it the detail of what is selected, or null, and
++ * RENDER what comes back. The slot draws exactly what it is given and nothing of its own — the shell
++ * owns the region, the screen owns the words (Direction §3.1).
++ *
++ * Inside the frame the answer is the detail drawn into the frame's one column (or nothing, while the
++ * column is arriving or another standing mount of the screen is the one drawing it); the column is
++ * gone the moment the screen leaves or hands `null`, because an inspector outliving the selection it
++ * describes would be a right column belonging to a screen nobody is on. Outside a frame — a jsdom
++ * mount of a screen, the gallery's evidence renderer — the answer is the detail itself and it is the
++ * SCREEN's to place, because R-UI-080 is a law about the frame's columns and a screen with no frame
++ * has no columns to break.
+  */
+-export function useInspector(content: ReactNode | null): boolean {
+-  const slot = useContext(InspectorContext);
+-  const set = slot?.setContent;
+-  useEffect(() => {
+-    if (set === undefined) return;
+-    set(content);
+-    // Leaving the screen empties the slot: an inspector outliving the selection it describes would
+-    // be a right column belonging to a screen nobody is on.
+-    return () => set(null);
+-  }, [set, content]);
+-  // Whether a frame took it. Outside one — a jsdom mount of a screen, the gallery's evidence
+-  // renderer — the answer is `false` and the detail is the SCREEN's to place, because R-UI-080 is a
+-  // law about the frame's columns and a screen with no frame has no columns to break. A screen that
+-  // ignores this answer behaves exactly as it did before it existed.
+-  return set !== undefined;
++export function useInspector(content: ReactNode | null): ReactNode {
++  return useDrawInto(useContext(InspectorContext)?.region ?? null, content);
+ }
+ 
+-/** The slot as the frame reads it: what to render, and how wide. Absent means no column at all. */
+-export function useInspectorSlot(): { content: ReactNode | null; width: number; setWidth: (px: number) => void } {
++/**
++ * The slot as the frame reads it: whether a screen is drawing a detail into it, how wide it is, and
++ * the ref the column's body wears — the element the detail is drawn into. Not present means no
++ * column at all.
++ */
++export function useInspectorSlot(): { present: boolean; width: number; setWidth: (px: number) => void; host: (element: HTMLElement | null) => void } {
+   const slot = useContext(InspectorContext);
+-  if (slot === null) return { content: null, width: INSPECTOR_WIDTH, setWidth: () => undefined };
+-  return { content: slot.content, width: slot.width, setWidth: slot.setWidth };
++  if (slot === null) return { present: false, width: INSPECTOR_WIDTH, setWidth: () => undefined, host: () => undefined };
++  return { present: slot.region.drawer !== null, width: slot.width, setWidth: slot.setWidth, host: slot.region.setHost };
+ }
+ 
+ /** How far one press of an arrow key moves the seam — the 4-pt grid, which every width sits on. */
+@@ -119,10 +124,11 @@ const KEY_STEP = 4;
+ 
+ /**
+  * The slot itself. It renders NOTHING when nothing is selected: no aside, no sentence, no column —
+- * the grid's inspector track collapses to zero and the main field takes the width (R-UI-080).
++ * the grid's inspector track collapses to zero and the main field takes the width (R-UI-080). With a
++ * selection it renders the column and an empty body, and the screen draws its detail into that body.
+  */
+ export function ShellInspectorSlot() {
+-  const { content, width, setWidth } = useInspectorSlot();
++  const { present, width, setWidth, host } = useInspectorSlot();
+   const aside = useRef<HTMLElement | null>(null);
+   const [dragging, setDragging] = useState(false);
+ 
+@@ -147,7 +153,7 @@ export function ShellInspectorSlot() {
+     };
+   }, [dragging, setWidth]);
+ 
+-  if (content === null) return null;
++  if (!present) return null;
+ 
+   return (
+     <aside
+@@ -181,7 +187,7 @@ export function ShellInspectorSlot() {
+           event.preventDefault();
+         }}
+       />
+-      <div className="cx-shell-inspector-body">{content}</div>
++      <div className="cx-shell-inspector-body" ref={host} />
+     </aside>
+   );
+ }
+diff --git a/src/ui/shell/shell.css b/src/ui/shell/shell.css
+index b1bf8622..2eb0b2d6 100644
+--- a/src/ui/shell/shell.css
++++ b/src/ui/shell/shell.css
+@@ -364,6 +364,16 @@
+   overflow: auto;
+ }
+ 
++/* The element a screen's readout is drawn INTO (I-312; `ShellStatusTrack`, `slots.tsx`). It generates
++   no box of its own, so the readout standing in it — the frame's, or the one a screen draws — is the
++   body's grid item and takes track 4 by its own `grid-row` below. This is not the `display: none` the
++   tool track's note forbids: nothing is taken out of the box tree; the one box the track holds is the
++   readout's, and it names its own track. A host that drew a box would be a fifth grid item naming no
++   track, and auto-placement would stand it — and the readout — in an implicit row below the frame. */
++.cx-shell-status-slot {
++  display: contents;
++}
++
+ /* --- the 24 px readout (Direction §1, §3.1) ---------------------------------------------
+    One line of mono cells with fixed minimum measures, hidden overflow and an ellipsis. It never
+    wraps: `nowrap` on the line and on every cell, and no cell may grow tall enough to push the
+diff --git a/src/ui/shell/slots.tsx b/src/ui/shell/slots.tsx
+index d973ab0c..36eb1a04 100644
+--- a/src/ui/shell/slots.tsx
++++ b/src/ui/shell/slots.tsx
+@@ -5,8 +5,11 @@
+  * `AppShell` is rendered by the route's server layout and every screen is its `children`, so a
+  * screen cannot hand the frame a prop: props travel down, and the tools belong to the screen that
+  * is three levels below the frame that draws them. The inspector settled this shape already
+- * (`inspector.tsx`) — the frame publishes a slot, the screen mounts through a hook — and these are
+- * the same slot twice more, so the frame has ONE way of being filled rather than three.
++ * (`inspector.tsx`) — the frame publishes a region, the screen fills it through a hook — and these
++ * are the same region twice more, filled the ONE way the frame is filled (`drawn-region.tsx`): the
++ * screen draws its node into the element the frame renders for the region, in place, and renders
++ * what the hook answers (I-312). Nothing is handed over, so a screen that stands twice while it
++ * hydrates cannot take its own tool row away by leaving once.
+  *
+  * Why a slot at all, and not a region each screen draws for itself: the tool row and the readout
+  * are CHROME. Their height is the grid's (`--toolbar-h`, `--status-h`) and the work-surface law is
+@@ -15,85 +18,81 @@
+  * kept while the canvas shrank — which is exactly the fault §8 scores the viewer 1 on C1 for.
+  *
+  * The prop on `AppShell` stays what it was: a frame mounted without a screen (the gallery's
+- * evidence renderer) still states a readout, and a screen that mounts through the hook overrides it
+- * for as long as that screen is on. Leaving the screen puts the frame's own back.
++ * evidence renderer) still states a readout, and a screen that draws one stands in its place for as
++ * long as that screen is on. Leaving the screen puts the frame's own back.
+  *
+- * BOTH HOOKS ANSWER WHETHER THE FRAME TOOK THE REGION, and that answer is the whole of their
+- * contract with a screen rendered outside one. A screen mounted without the frame — a jsdom test of
+- * the viewer, the gallery's evidence renderer — handed its readout to a no-op and lost it: the
+- * region simply did not exist, and the first thing that noticed was an assertion looking for a
+- * readout that a person would also have looked for and not found. `useInspector` may answer nothing
+- * because an inspector with no frame has nowhere to be; a READOUT and a TOOL ROW are the screen's own
+- * content and always have somewhere to be, which is where they stand when no frame claims them.
++ * BOTH HOOKS ANSWER WHAT THE SCREEN RENDERS, and a screen rendered outside a frame is answered its
++ * own node. A screen mounted without the frame — a jsdom test of the viewer, the gallery's evidence
++ * renderer — has no region to draw into, and a readout handed to nothing is a readout a person would
++ * look for and not find. A READOUT and a TOOL ROW are the screen's own content and always have
++ * somewhere to be, which is where they stand when no frame claims them.
+  */
+ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
++import { useDrawInto, useDrawnRegion, type DrawnRegion } from "./drawn-region";
++import { TESTIDS } from "@/ui/testids";
+ 
+-interface SlotsValue {
+-  readonly toolbar: ReactNode | null;
+-  readonly status: ReactNode | null;
++interface PageValue {
+   readonly page: string | null;
+ }
+ 
+-interface SlotsDispatch {
+-  readonly setToolbar: (node: ReactNode | null) => void;
+-  readonly setStatus: (node: ReactNode | null) => void;
++interface PageDispatch {
+   readonly setPage: (name: string | null) => void;
+ }
+ 
+-const SlotsValueContext = createContext<SlotsValue>({ toolbar: null, status: null, page: null });
+-const SlotsDispatchContext = createContext<SlotsDispatch | null>(null);
++const PageValueContext = createContext<PageValue>({ page: null });
++const PageDispatchContext = createContext<PageDispatch | null>(null);
++const ToolbarRegionContext = createContext<DrawnRegion | null>(null);
++const StatusRegionContext = createContext<DrawnRegion | null>(null);
+ 
+ export function ShellSlotsProvider({ children }: { children: ReactNode }) {
+-  const [toolbar, setToolbar] = useState<ReactNode | null>(null);
+-  const [status, setStatus] = useState<ReactNode | null>(null);
++  const toolbar = useDrawnRegion();
++  const status = useDrawnRegion();
+   const [page, setPage] = useState<string | null>(null);
+-  const value = useMemo<SlotsValue>(() => ({ toolbar, status, page }), [toolbar, status, page]);
+-  const dispatch = useMemo<SlotsDispatch>(() => ({ setToolbar, setStatus, setPage }), []);
++  const value = useMemo<PageValue>(() => ({ page }), [page]);
++  const dispatch = useMemo<PageDispatch>(() => ({ setPage }), []);
+   return (
+-    <SlotsDispatchContext.Provider value={dispatch}>
+-      <SlotsValueContext.Provider value={value}>{children}</SlotsValueContext.Provider>
+-    </SlotsDispatchContext.Provider>
++    <ToolbarRegionContext.Provider value={toolbar}>
++      <StatusRegionContext.Provider value={status}>
++        <PageDispatchContext.Provider value={dispatch}>
++          <PageValueContext.Provider value={value}>{children}</PageValueContext.Provider>
++        </PageDispatchContext.Provider>
++      </StatusRegionContext.Provider>
++    </ToolbarRegionContext.Provider>
+   );
+ }
+ 
+ /**
+- * What a screen mounts its tool row through. Hand it the groups; hand it `null` and the track
+- * collapses to zero rather than standing as an empty strip — the inspector's own law (R-UI-080).
+- * A screen rendered outside the frame finds no provider and this is a no-op, so no component is
+- * ever made to know whether it is inside the shell.
++ * What a screen draws its tool row through: hand it the groups and RENDER what comes back. Hand it
++ * `null` and nothing is drawn, and the track collapses to zero rather than standing as an empty
++ * strip — the inspector's own law (R-UI-080). A screen rendered outside the frame is answered its
++ * own tool row, so no component is ever made to know whether it is inside the shell.
+  */
+-export function useShellToolbar(toolbar: ReactNode | null): boolean {
+-  const set = useContext(SlotsDispatchContext)?.setToolbar;
+-  useEffect(() => {
+-    if (set === undefined) return;
+-    set(toolbar);
+-    return () => set(null);
+-  }, [set, toolbar]);
+-  return set !== undefined;
++export function useShellToolbar(toolbar: ReactNode | null): ReactNode {
++  return useDrawInto(useContext(ToolbarRegionContext), toolbar);
+ }
+ 
+ /**
+- * The same, for the readout: the screen owns the cells, the frame owns the line (§3.1).
+- * Answers whether a frame took it; `false` means the screen renders it where it stands.
++ * The same, for the readout: the screen owns the cells, the frame owns the line (§3.1). Render what
++ * comes back — the readout drawn into the frame's 24 px track, or, with no frame, the readout itself.
+  */
+-export function useShellStatus(status: ReactNode | null): boolean {
+-  const set = useContext(SlotsDispatchContext)?.setStatus;
+-  useEffect(() => {
+-    if (set === undefined) return;
+-    set(status);
+-    return () => set(null);
+-  }, [set, status]);
+-  return set !== undefined;
++export function useShellStatus(status: ReactNode | null): ReactNode {
++  return useDrawInto(useContext(StatusRegionContext), status);
+ }
+ 
+ /**
+  * The same again, for the crumb R-UI-084 makes every screen declare: "the breadcrumb always names
+  * workspace, project, area and page". The frame draws the trail above every area and a screen is its
+- * `children`, so the page a reader is on reaches the top bar the way its tool row and its readout
+- * already do — through the slot, rather than by the frame guessing at the address (B-17).
++ * `children`, so the page a reader is on reaches the top bar through the frame rather than by the
++ * frame guessing at the address (B-17).
++ *
++ * THE CRUMB IS HANDED OVER — set on mount, null on cleanup — and so carries the defect I-312 names
++ * for the frame's regions: two mounts standing and the first leaving empties the crumb. It is not
++ * drawn in place because the crumb is a STRING the trail's `Breadcrumb` primitive lays out among its
++ * own crumbs (`label: string`), not a node a screen can draw; drawing it needs a crumb whose text is
++ * a region the primitive renders a host for.
+  */
+ export function useShellPage(page: string | null): boolean {
+-  const set = useContext(SlotsDispatchContext)?.setPage;
++  const set = useContext(PageDispatchContext)?.setPage;
+   useEffect(() => {
+     if (set === undefined) return;
+     set(page);
+@@ -102,7 +101,44 @@ export function useShellPage(page: string | null): boolean {
+   return set !== undefined;
+ }
+ 
+-/** The slots as the frame reads them. Absent provider = all empty, which is the frame's default. */
+-export function useShellSlots(): { toolbar: ReactNode | null; status: ReactNode | null; page: string | null } {
+-  return useContext(SlotsValueContext);
++/**
++ * The slots as the frame reads them: the page a screen declared, and whether a screen is drawing a
++ * tool row or a readout — which is all the frame may know of either (I-312). Absent provider = all
++ * empty, which is the frame's default.
++ */
++export function useShellSlots(): { page: string | null; toolbar: boolean; status: boolean } {
++  const { page } = useContext(PageValueContext);
++  const toolbar = useContext(ToolbarRegionContext)?.drawer ?? null;
++  const status = useContext(StatusRegionContext)?.drawer ?? null;
++  return { page, toolbar: toolbar !== null, status: status !== null };
++}
++
++/**
++ * The frame's 32 px tool track: the element a screen's tool row is drawn into. With no screen
++ * drawing one it holds the frame's own (the `toolbar` prop), and with neither it holds nothing and
++ * the body zeroes the track (`[data-toolbar="false"]`). Rendered by `AppShell`; a suite that stands
++ * a lane without the whole frame renders this same track rather than a copy of it.
++ */
++export function ShellToolbarTrack({ fallback }: { fallback?: ReactNode }) {
++  const region = useContext(ToolbarRegionContext);
++  return (
++    <div className="cx-shell-toolbar-slot" data-testid={TESTIDS.shell.toolbarSlot} ref={region?.setHost}>
++      {(region?.drawer ?? null) === null ? (fallback ?? null) : null}
++    </div>
++  );
++}
++
++/**
++ * The frame's 24 px readout track: the element a screen's readout is drawn into, standing the
++ * frame's own readout (`fallback`) whenever no screen draws one. The element generates no box of its
++ * own (`.cx-shell-status-slot`, `display: contents`), so the readout inside it — the frame's or the
++ * screen's — is the body's grid item, in the track its own `grid-row` names.
++ */
++export function ShellStatusTrack({ fallback }: { fallback: ReactNode }) {
++  const region = useContext(StatusRegionContext);
++  return (
++    <div className="cx-shell-status-slot" ref={region?.setHost}>
++      {(region?.drawer ?? null) === null ? fallback : null}
++    </div>
++  );
+ }
+diff --git a/tests/takeoff/levels-ui/support/levels-ui-view.ts b/tests/takeoff/levels-ui/support/levels-ui-view.ts
+index fed0fd0a..40016f82 100644
+--- a/tests/takeoff/levels-ui/support/levels-ui-view.ts
++++ b/tests/takeoff/levels-ui/support/levels-ui-view.ts
+@@ -535,17 +535,19 @@ async function inLane(workspace: ReactNode, projectId: string): Promise<ReactNod
+   type LaneLayout = (o: { children: ReactNode; params: Promise<{ tenant: string; project: string }> }) => Promise<ReactNode>;
+   const layout = await productModule<{ default?: LaneLayout }>(TAKEOFF_LAYOUT_MODULE);
+   const drawLane = stagedFunction<LaneLayout>(layout.default, `${TAKEOFF_LAYOUT_MODULE} is the lane's layout — the one home of the tabs row (Direction §3.2)`);
++  // THE ROW IS DRAWN INTO THE FRAME'S TRACK IN PLACE (I-312), not handed to the frame as a value, so
++  // the stage stands the frame's own track element — the one `AppShell` renders — and the lane draws
++  // its row into it. A stage that read a value the frame no longer holds would be a second spelling
++  // of the frame's contract, exactly the kind session 6 found beside `useTakeoffTabsAside` (I-246).
+   const slots = await productModule<{
+     ShellSlotsProvider?: FunctionComponent<{ children?: ReactNode }>;
+-    useShellSlots?: () => { toolbar: ReactNode | null };
++    ShellToolbarTrack?: FunctionComponent;
+   }>(SHELL_SLOTS_MODULE);
+   const Provider = stagedFunction<FunctionComponent<{ children?: ReactNode }>>(
+     slots.ShellSlotsProvider,
+-    `${SHELL_SLOTS_MODULE} publishes the frame's tool-track slot the lane's row mounts into`,
++    `${SHELL_SLOTS_MODULE} publishes the frame's tool-track slot the lane's row is drawn into`,
+   );
+-  const read = stagedFunction<() => { toolbar: ReactNode | null }>(slots.useShellSlots, `${SHELL_SLOTS_MODULE} publishes the tool track's own reader`);
+-
+-  const ToolTrack: FunctionComponent = () => createElement("div", { className: "stage-tool-track" }, read().toolbar);
++  const ToolTrack = stagedFunction<FunctionComponent>(slots.ShellToolbarTrack, `${SHELL_SLOTS_MODULE} publishes the frame's own tool track (I-312)`);
+   const lane = await drawLane({ children: workspace, params: Promise.resolve({ tenant: TENANT, project: projectId }) });
+   return createElement(
+     Provider,
+diff --git a/tests/ui/shell/frame-rows.test.ts b/tests/ui/shell/frame-rows.test.ts
+index 851c3e75..d9cf0c55 100644
+--- a/tests/ui/shell/frame-rows.test.ts
++++ b/tests/ui/shell/frame-rows.test.ts
+@@ -47,6 +47,14 @@ describe("the shell body's four tracks", () => {
+     expect(new Set(claimed).size).toBe(BANDS.length);
+   });
+ 
++  test("the readout's host generates no box of its own, so the readout drawn into it is the grid item of track 4 (I-312)", () => {
++    // A screen DRAWS its readout into `.cx-shell-status-slot` (slots.tsx). Were the host a box, it
++    // would be the body's fifth grid item, naming no track: auto-placement would stand it in an
++    // implicit row below the frame and the readout with it.
++    expect(declaredValue(SHELL, ".cx-shell-status-slot", "display"), "the host is `display: contents`").toBe("contents");
++    expect(declaredValue(SHELL, ".cx-shell-status-slot", "grid-row"), "and claims no track of its own — the readout's `grid-row` does").toBeNull();
++  });
++
+   test("no region of the frame is ever removed from the grid", () => {
+     const css = withoutComments(SHELL);
+     for (const { selector, what } of BANDS) {
+diff --git a/tests/ui/takeoff-register/tabs-aside-registry.test.tsx b/tests/ui/takeoff-register/tabs-aside-registry.test.tsx
+index 793b1d93..8a2b86ea 100644
+--- a/tests/ui/takeoff-register/tabs-aside-registry.test.tsx
++++ b/tests/ui/takeoff-register/tabs-aside-registry.test.tsx
+@@ -8,23 +8,25 @@
+  * what a surface draws stands while the surface stands and is gone with it (R-UI-080: nothing is
+  * drawn to state an absence).
+  *
+- * Proved through the frame's own toolbar slot, which is where the row is mounted (Direction §3.1).
++ * Proved through the frame's own tool track, which is where the row is drawn (Direction §3.1) — and
++ * the row is drawn there in place too, by the lane (I-312), so the track this stage stands is the
++ * frame's own element (`ShellToolbarTrack`), never a reader of a value the frame was handed.
+  */
+ import { act, cleanup, render, screen } from "@testing-library/react";
+ import { useState } from "react";
+ import { afterEach, describe, expect, test, vi } from "vitest";
+ 
+ afterEach(cleanup);
+-import { ShellSlotsProvider, useShellSlots } from "@/ui/shell/slots";
++import { ShellSlotsProvider, ShellToolbarTrack } from "@/ui/shell/slots";
+ import { TakeoffTabs, useTakeoffTabsAside } from "@/app/(app)/t/[tenant]/p/[project]/takeoff/nav";
++import { TESTIDS } from "@/ui/testids";
+ 
+ vi.mock("next/navigation", () => ({ usePathname: () => "/t/x/p/y/takeoff/register" }));
+ vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
+ 
+-/** Where the frame draws the toolbar it was handed. */
++/** Where the frame draws the tool row: the frame's own track. */
+ function Toolbar() {
+-  const { toolbar } = useShellSlots();
+-  return <div data-testid="frame-toolbar">{toolbar}</div>;
++  return <ShellToolbarTrack />;
+ }
+ 
+ /** One surface's half of the row. */
+@@ -46,7 +48,7 @@ function Stage({ first, second }: { first: boolean; second: boolean }) {
+ }
+ 
+ function asideText(): string {
+-  return screen.getByTestId("frame-toolbar").textContent?.trim() ?? "";
++  return screen.getByTestId(TESTIDS.shell.toolbarSlot).textContent?.trim() ?? "";
+ }
+ 
+ describe("the takeoff tabs aside is a registry of live mounts", () => {
+@@ -93,4 +95,31 @@ describe("the takeoff tabs aside is a registry of live mounts", () => {
+     act(() => screen.getByTestId("bump").click());
+     expect(asideText()).toBe("press 2");
+   });
++
++  test("the LANE standing twice and the first leaving: the second lane's row, with its surface's half, still stands (I-312)", () => {
++    // The row itself is drawn into the frame's track in place now, not handed over — so when the lane
++    // that drew it leaves, the lane still standing draws its own row, its host, and its surface's half.
++    function Lanes({ first, second }: { first: boolean; second: boolean }) {
++      return (
++        <ShellSlotsProvider>
++          <Toolbar />
++          {first ? (
++            <TakeoffTabs entries={[]}>
++              <Surface says="first lane says Measure" />
++            </TakeoffTabs>
++          ) : null}
++          {second ? (
++            <TakeoffTabs entries={[]}>
++              <Surface says="second lane says Measure" />
++            </TakeoffTabs>
++          ) : null}
++        </ShellSlotsProvider>
++      );
++    }
++    const view = render(<Lanes first={true} second={true} />);
++    expect(screen.getAllByTestId(TESTIDS.takeoff.nav), "one tabs row in the track while both lanes stand").toHaveLength(1);
++    view.rerender(<Lanes first={false} second={true} />);
++    expect(screen.getAllByTestId(TESTIDS.takeoff.nav), "the row still stands").toHaveLength(1);
++    expect(asideText(), "and the half the standing lane's surface draws is in it").toBe("second lane says Measure");
++  });
+ });

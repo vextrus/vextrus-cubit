@@ -128,47 +128,98 @@ your prompt. The engine rewrites the lessons block after merges; nothing here is
   (the Verifier's), the toolchain scripts and CI unless owned. A debt sweep's worklist is
   `mcp__builder__debt_rows`; fix each row where it lives, test beside it.
 
-## Standing facts from sessions 5 and 6 (the owner asked for them here; the handoffs hold the proofs)
-- The M3 door stands on F-RCC6-BNBC: a viewport's title captions its model-space region (I-290),
-  block bubbles georeference (I-292), `EL` marks propose the stack (I-293), the stacked schedule
-  reads (I-294), a feet-and-inches dimension scales a unitless header (I-295), a band written in
-  ordinal words covers the stack's floor labels (`sameStorey`), and the unit a drawing DECLARES is
-  the last word on a unitless section (I-302). Session 6 added: a plan note naming a mark is evidence
-  about the MEMBER (I-303 — read only where its remainder states a shape or a `STARTS`-bounded range;
-  C7 → GF alone, C5 minted on 1F..6F), the plan states a column's SHAPE and the schedule its SIZE
-  (I-304), and a circular column is PRISM_POLY billed by `rcc.column.circular.concrete@1` (I-305;
-  edition IS1200_IN @ 2027.03, migration 0056).
-- **The register still ignores the notes, and the cause is named**: `src/core/acts/author-typical-range.ts`
-  is a THIRD spelling of the expansion — it reads `placements` raw, re-does the band cut, never reads
-  a note, and registers objects that are never retracted. So the journey measures 189 column lines /
-  94.196 m³ where the doors give 182 / 90.83. `m3-bill-and-schedules` stays fixme until that lands AND
-  its leg does: the BBS test moves to its own file (blocked by the rebar schedule reader,
-  `REBAR_SCHEDULE_UNREAD`), and the band admits the document's own rounding, `(n + 1) × ½ulp`, because
-  the XLSX states each line to 3 dp and the golden rounds each cell once.
-- `stack` and `mark` are two namespaces that both spell `C<n>` (mark C7 = stack C7X, mark C5 = stack
-  B4). Two spellings of one fact are the defect to look for first: session 6 found six (a test stage
-  calling the tabs-row hook for an effect it no longer has, `MEMBER_SHAPES`, `SEED_VERSION` in four
-  places, the typical-range act, the Noul-confidence contract, the model ledger's rates). A reader
-  that answers nothing over a drawing it should read: diff the keys.
-- A screen fills the lane's tabs row by a portal in place (`useTakeoffTabsAside` answers a node the
-  surface RENDERS); the frame's own slots still hand over by effect and are the next defect of that
-  class. Hydration stands the register twice for ~100 ms; nothing may depend on mount order.
-- Read the run's own database after a journey (`cubit_e2e`, `set cubit.system_reason` first), never
-  while the db lane runs, and SCOPE every query to the project — the database holds every earlier
-  run. A killed run keeps no trace (`CUBIT_E2E_TRACE=on`); the M3 staging caps every action at a
-  minute (`capActions`). The run file records no password: `j000-legs-<stamp>@cubit.test` signs in
-  with `golden-path-legs-<stamp>`. `pnpm probe signin …` takes no `--`.
-- Jev: a Noul states a probability and NO confidence; a call's confidence is the minimum over the
-  answers that state one (`7689a117`). The corpus (240 fixtures) stores the judgment the seam DERIVED,
-  not the provider's body, so no change to how an answer is read is provable against it and the
-  recorded schedule-cell line reads 0.01–0.18 until re-recorded. The model ledger's rates
-  (`model-ledger.types.ts`: $15/$75, $3/$15) are the product's own — AS-05 names ids, not rates — and
-  are wrong against the published $5/$25 and $2/$10.
-- A fan-out is a heavy lane while the gate's e2e or perf lanes run (PERF-011's instrument is coarsened
-  to 0.1 ms with a half-tick tolerance). A fast green is read with `--reporter=verbose` before it is
-  trusted. The served product binds 127.0.0.1; from Windows under WSL2 NAT it needs a relay on the WSL
-  address (`socat TCP-LISTEN:3211,bind=<wsl-ip>,fork,reuseaddr TCP:127.0.0.1:3211`) or mirrored
-  networking. The builder MCP tools have been absent in every interactive session: lanes run by shell.
+## Standing facts from sessions 5 to 7 (the owner asked for them here; the handoffs hold the proofs)
+- The M3 door stands on F-RCC6-BNBC. Sessions 5 and 6 established:
+  - a viewport's title captions its model-space region (I-290);
+  - block bubbles georeference (I-292);
+  - `EL` marks propose the stack (I-293);
+  - the stacked schedule reads (I-294);
+  - a feet-and-inches dimension scales a unitless header (I-295);
+  - a band written in ordinal words covers the stack's floor labels (`sameStorey`);
+  - the unit a drawing DECLARES is the last word on a unitless section (I-302);
+  - a plan note naming a mark is evidence about the MEMBER (I-303 — read only where its remainder
+    states a shape or a `STARTS`-bounded range);
+  - the plan states a column's SHAPE and the schedule its SIZE (I-304);
+  - a circular column is PRISM_POLY billed by `rcc.column.circular.concrete@1` (I-305).
+- **The register reads the notes through the ONE resolver** (session 7, `929a37c2`). The
+  typical-range act's third spelling is gone.
+- **J-000's read-back of the BNBC project at session 7's close** is the ground a session starts from;
+  a run that reads anything else moved it:
+  - column concrete: 208 COMPLETE lines, 93.892896 m³ (FDN 3.0596 plus GF..6F);
+  - piles: 89 / 372.848929 m³;
+  - caps: 26 / 128.781275 m³, with formwork 254.132613 m²;
+  - beams: 172 register objects (one per placement per storey) and 344 lines, every one PARTIAL;
+  - no quantity line without its register object: I-368 (`2846dcc7`) refuses a member in the
+    UNRESOLVED slot. BNBC campaigns measured between `788c1e8a` (FRM-1/2, when beams were first
+    placed) and `2846dcc7` keep 50 orphan beam lines (F31's 25 beams × concrete and formwork).
+  That is 13 golden cells compared COMPLETE: 595.523 of 1,186.893 m³ of RCC concrete.
+- **Beams and the bar schedule:**
+  - No beam line may reach COMPLETE before FRM-4: slab thickness per side, lift-core walls as
+    supports, support faces per storey.
+  - `m3-bar-schedule` is the one M3 fixme. The ties need the joint depth, and the vertical beams need
+    FRM-3: TEXT rotation through L-CAD-05, an EntityGraph bump that re-keys the corpora.
+- **The golden against the drawing:** about 78 cells are unreachable from the drawing as drawn, and
+  about 15 disagree with it. That reconciliation (R0) is the owner's to rule, not a session's.
+- **`stack` and `mark` are two namespaces that both spell `C<n>`** (mark C7 = stack C7X, mark C5 =
+  stack B4). Two spellings of one fact are the defect to look for first. A reader that answers nothing
+  over a drawing it should read: diff the keys.
+- **The frame's slots are owner-held claims** (`src/ui/shell/slots.tsx`):
+  - a screen claims in the layout effect of the commit that mounts it and updates passively;
+  - only the owner withdraws its claim;
+  - the tabs row is a portal.
+  Hydration stands a screen twice for ~100 ms, so nothing may depend on mount order.
+- **A control the server painted is not live until the client hydrates, and `settled()` does not
+  read hydration.** After a full load (`page.goto`, `window.location.assign`), a click waits for a fact
+  only the client renders, such as the page crumb a screen claims (`c94b9dc7`). A lost click reads as a
+  write that never reached the store.
+- **A runtime path the bundler can see is a build input.** `join(process.cwd(), "storage")` made every
+  object a journey laid down turn `next build` cold (`36d16d6e`). Annotate a runtime path
+  `/* turbopackIgnore: true */`, and read the build's own warnings.
+- **Reading a journey's run back:**
+  - Read the run's own database after a journey (`cubit_e2e`, `set cubit.system_reason` first), never
+    while the db lane runs.
+  - SCOPE every query to the project: the database holds every earlier run.
+  - A killed run keeps no trace (`CUBIT_E2E_TRACE=on`); the M3 staging caps every action at a minute
+    (`capActions`).
+  - The run file records no password: `j000-legs-<stamp>@cubit.test` signs in with
+    `golden-path-legs-<stamp>`.
+  - `pnpm probe signin …` takes no `--`.
+- **Jev:**
+  - A Noul states a probability and NO confidence. A call's confidence is the minimum over the answers
+    that state one (`7689a117`).
+  - The corpus (241 fixtures) was re-recorded LIVE with the provider's own bodies (`e78849a5`).
+  - Jev is pinned `jev-latest` at its published rate (D-002).
+  - The ledger's Claude rates are $5/$25 and $2/$10.
+- **The machine:**
+  - WSL2 runs mirrored networking: Windows reaches a WSL `127.0.0.1:<port>` directly, and
+    `netsh interface portproxy show all` must stay EMPTY. vextrus-builder's NAT-era scheduled task
+    "WSL localhost sync" re-adds rules on 3210, 3211 and 47390 at logon; it is Disabled.
+  - The previous run's TIME_WAIT holds a port on the Windows side for ~20 s, so wait until
+    `portState(3211)` reads free before a served lane.
+  - `pnpm demo` serves the measured project on 3213 (`docs/demo.md`), never beside a journey or the
+    gate.
+  - A fan-out is a heavy lane while the gate's e2e or perf lanes run.
+  - A fast green is read with `--reporter=verbose` before it is trusted.
+- **The harness:**
+  - Its `grep` is ugrep with `-I`: a file holding a NUL byte is silently skipped, so keep sources
+    free of raw control bytes, and `command grep` when a search says "no match" where it should not.
+  - `git apply --3way` STAGES what it applies: unstage before an explicit-path commit.
+  - Worktree agents cannot run e2e (Turbopack refuses the symlinked `node_modules`), and they share
+    the one Postgres.
+  - A test that mutates tracked source holds only the readers that take its lock (`withDriftLock`,
+    `withDriftLockAsync`): the five drift-lane migration suites (a6b971cc) and the acceptance build
+    (`21e0e6d5`). Every other suite imports the schema unlocked. So drift-lane-breaker, the one suite
+    that rewrites tracked source, runs ALONE after the db batch (`8a950e58`,
+    `scripts/lib/db-passes.mjs`), and no suite can load inside its window.
+  - The builder MCP tools have been absent in every interactive session: lanes run by shell.
+- **Durability:**
+  - Commit, then `sync`. A power cut emptied the newest commit's loose objects, which ext4 had not
+    flushed. It was rebuilt byte-exact from the index, the worktree and `COMMIT_EDITMSG`.
+  - `/tmp`, the scratchpad, does not survive a reboot: draft what must survive in the repo.
+- **verify reads ~53–57 s warm against 60:** cad ~50 (the wall), unit ~46, lint ~39, and build ~3
+  since `ffdfdb1a`. Before it, the mail outbox and the fixture root were build inputs and the build read
+  5–6 s after any journey. The first verify after a reboot reads its caches cold (66.4 s). The unit lane leaves the cad and lint
+  verdicts to the lanes beside it (`LANE_ENV.unit`).
 
 ## Compact instructions
 When this session's context is compacted, the summary must carry, verbatim where it can: the

@@ -1,0 +1,67 @@
+export const meta = {
+  name: 'm3-breadth-map',
+  description: 'Map, per structural class family of F-RCC6-BNBC, what the drawing states, what the product reads, the doors missing and the golden at stake; an integrator ranks the M3-breadth programme',
+  phases: [
+    { title: 'Map', detail: 'one read-only mapper per class family' },
+    { title: 'Rank', detail: 'one max-effort integrator ranks by golden value, honest reach and dependency' },
+  ],
+}
+
+const PROJECT = 'bb987812-28ed-42bb-8356-91a3bfe6c22e'
+const SCRATCH = '/tmp/claude-1000/-home-riz-vextrus-cubit/bbdf46f0-385d-4fc3-97d1-873757ce4017/scratchpad/breadth'
+
+const CONTEXT = [
+  "SESSION 7, vextrus-cubit (/home/riz/vextrus-cubit, branch dev-lane-and-jev; HEAD 2f09d906 plus uncommitted slices in the working tree — do not rely on uncommitted files). CLAUDE.md is the law.",
+  "THE OWNER'S RULING: 'M3 breadth first' — M3's exit (AM-01) is 'the whole structural bill of F-RCC6-BNBC within band' (L-QTY-06: 3 % under, 0 % over per (class, kind, level), the golden's printed half-unit the only slack). Today the product path compares 7 of 193 golden cells (column concrete GF..6F = 90.834 of 1186.893 m3 of golden RCC concrete). The J-000 run's store (cubit_e2e, project " + PROJECT + ") holds placements: column 27 (7 marks), pile 89 (89 marks P1..P89), pile_cap 89 (5 marks — one per pile CIRCLE, where model.json has 26 caps; e.g. PC3 at handle 5CD sits on CIRCLEs 5CE..5D1 r=250 while the cap outline LWPOLYLINE 5CC is unused). Read schedules (member_types): 17DF, 18A0, 1E3D, 9C6 only — the PILE SCHEDULE (200A, S-05) and the PILE CAP SCHEDULE (MTEXT 639, S-06) are NOT read. rail_observations: MEMBER_TYPE_UNKNOWN 474, REBAR_STOREY_RUN_UNSTATED 189, REBAR_SCHEDULE_UNREAD 27, SECTION_BAND_UNCOVERED 27, LINTEL_SOURCE_ABSENT 2. 14 of the golden's 41 class x kind pairs are not borne in src/core/catalogue/bears.ts although rails exist (SLABS_RAILS measures slab, shear_wall, stair concrete and formwork). The green BNBC db-lane bands (foundations, slab-wall-stair, masonry, rebar AC-8) STAGE their objects and readings from fixtures/rcc6-bnbc/model.json: they prove rail arithmetic, NOT the product's reading of the drawing. The level stack is GF..6F + ROOF (8 levels) from the section's EL marks; there is no FDN level (the golden has COLUMN|RCC_CONCRETE|FDN 3.060 — the neck from pile-cap top to GF — and |ROOF 0.617). The J-000 walk authors typical ranges: COLUMN LAYOUT PLAN GF..6F, TYPICAL FLOOR BEAM LAYOUT 2F..6F, TYPICAL SLAB REINFORCEMENT PLAN 2F..6F (tests/e2e/journeys/j-000/golden-run.ts:529-533).",
+  "The golden: fixtures/rcc6-bnbc/takeoff.golden.json via tests/golden/support/golden-fixture.ts goldenRows('rcc6-bnbc') (379 rows, 193 cells); traps: fixtures/rcc6-bnbc/traps.json; the drawing: fixtures/rcc6-bnbc/rcc6-bnbc.dxf (27 sheets S-00..S-26 in paper space with viewports; session 5 made viewport captions and block bubbles readable). The partition: src/modules/takeoff/partition/** (views, grid, placement/detect.ts, schedules/**, levels-proposal/**, expansion/**, notation grammar). Rails: src/modules/takeoff/rails/** and the slab/wall/stair, foundations, masonry rails; the gate src/core/gate/**; bears: src/core/catalogue/bears.ts.",
+].join('\n')
+
+const BOUNDARY = "READ-ONLY: never edit the repository; scratch files only under " + SCRATCH + "/<family>/. Do not run pnpm test:db, e2e, gate, verify, probe, dev, next build (other agents hold the db lane). You may read/grep; run node --import tsx or python (uv run --project cad python ...; do NOT use --group fixtures) over committed fixtures and pure modules (e.g. run the product's partition over the cad CLI's EntityGraph of the BNBC DXF in scratch, as earlier agents did); pnpm vitest run <unit files>; read-only psql on cubit_e2e scoped to project_id = '" + PROJECT + "' (set cubit.system_reason first). LOOK at the drawing where you claim something about what is drawn (render the region or use fixtures/rcc6-bnbc/images|raster). Measure against the ARTIFACT, never the generator's intent (fixtures/gen/** says what was meant, not what was drawn). Every claim with file:line or command+output, marked measured/read/inferred."
+
+const FAMILY = {
+  type: 'object',
+  properties: {
+    family: { type: 'string' },
+    drawingStates: { type: 'string', description: 'What the sheets actually carry for this family: views, captions, marks, outlines, schedules, notes, with handles.' },
+    productReadsToday: { type: 'string', description: 'What the product reads today, stage by stage, with the store read back where it applies.' },
+    doors: { type: 'array', items: { type: 'object', properties: { door: { type: 'string' }, what: { type: 'string' }, size: { type: 'string', enum: ['S', 'M', 'L', 'XL'] }, law: { type: 'string' }, dependsOn: { type: 'array', items: { type: 'string' } } }, required: ['door', 'what', 'size'] } },
+    goldenAtStake: { type: 'string', description: 'The golden cells this family would put in band, with their figures (m3/m2/kg), and which kinds are not borne today.' },
+    overMeasureRisks: { type: 'array', items: { type: 'string' } },
+    traps: { type: 'array', items: { type: 'string' } },
+    report: { type: 'string' },
+  },
+  required: ['family', 'drawingStates', 'productReadsToday', 'doors', 'goldenAtStake', 'report'],
+}
+
+const FAMILIES = [
+  { key: 'foundations', prompt: 'FAMILY: foundations — bored piles, pile caps (2- to 6-pile, rect and polygon), grade/tie beams, and the column FDN neck. Explain exactly why 89 pile_cap placements stand where the drawing has 26 caps (read placement/detect.ts: which outline a cap mark binds, why a CIRCLE wins over the cap LWPOLYLINE) and why piles carry 89 marks; what the PILE SCHEDULE (200A) and PILE CAP SCHEDULE (MTEXT 639) say and why the schedules reconstructor misses them (MTEXT? layout?); what AM-06(2) says of pile length; how the product would place caps by their outline and piles by type mark; how the FDN neck would be measured (an FDN level? a stub?). This family is FIRST in the owner\'s order and is visible in the demo\'s register.' },
+  { key: 'beams', prompt: 'FAMILY: beams (floor beams T/L, roof beams R/RB, edge beams EB, TG1 transfer girder, grade beams GB if not in foundations). Where are beams drawn (TYPICAL FLOOR BEAM LAYOUT (2ND TO 6TH FLOOR) on S-14 with T-NOT-RANGE, the GF/1F beam layouts, roof), how are they marked, where are their schedules (17DF, 18A0 read), what long-section strips exist, and what the product needs to PLACE a beam (a line member between supports — L-MEA-09: clear between support faces below the soffit). Does any beam placement exist in the product for F-RCC6 (it measures F-RCC6 beams in the db lane — find how F-RCC6 beams are placed and whether BNBC\'s drawing shape differs)? What blocks BNBC beams today, door by door.' },
+  { key: 'slabs', prompt: 'FAMILY: slabs (typical slab, roof slab, GF slab if any, lift/stair openings, TYPICAL SLAB REINFORCEMENT PLAN). How slabs are drawn and stated (thickness notes, outlines, openings), what the product needs to measure slab concrete/formwork (AREA_THICK, L-MEA-09: outline to edge-beam outer face less column and wall plan areas less openings), whether F-RCC6 slabs are measured and how, and what blocks BNBC. Include the "SLAB REINFORCEMENT PLAN classifies DETAIL" finding from session 5 and the bears gap (slab bears rcc.rebar only).' },
+  { key: 'walls-core-stairs', prompt: 'FAMILY: shear walls and the lift core (SW1 marks, S-23 "SW1 L=2563" notes), and stairs (flights, landings, waist; T-RISER-ROUNDED; AM-06(3) complex stairs). What is drawn, what the product reads (AM-06(4): shear wall = plan outline length x thickness extruded floor-to-floor), what blocks BNBC, and the bears gap.' },
+  { key: 'masonry-lintels-roofworks', prompt: 'FAMILY: brick walls 250/125 at 1F-6F, lintels from the S-25 lintel schedule (T-SCHED-ATTRIB, an ATTRIB-block schedule; LINTEL_SOURCE_ABSENT stands twice), parapet, overhead tank, underground reservoir, septic tank, ramp, and the ROOF columns (golden COLUMN|RCC_CONCRETE|ROOF 0.617 — the ROOF-SRR band). AM-07 keeps masonry and lintels at M3. What is drawn, what the product reads, what blocks BNBC.' },
+]
+
+phase('Map')
+const maps = await parallel(FAMILIES.map((f) => () =>
+  agent(CONTEXT + "\n\n" + BOUNDARY + "\n\n" + f.prompt + "\n\nReturn the golden cells at stake with figures, the doors in dependency order with sizes, and the over-measurement risks (an over-measured figure is a hard block, never a disclosure).", { label: 'map:' + f.key, phase: 'Map', schema: FAMILY, effort: 'high' }).then((m) => (m ? { ...m, key: f.key } : null)),
+))
+const got = maps.filter(Boolean)
+if (got.length < FAMILIES.length) log('families that returned nothing: ' + FAMILIES.map((f) => f.key).filter((k) => !got.some((m) => m.key === k)).join(', '))
+
+phase('Rank')
+const RANK = {
+  type: 'object',
+  properties: {
+    programme: { type: 'array', items: { type: 'object', properties: { slice: { type: 'string' }, what: { type: 'string' }, goldenGained: { type: 'string' }, size: { type: 'string' }, dependsOn: { type: 'array', items: { type: 'string' } }, definitionOfDone: { type: 'string' }, risks: { type: 'array', items: { type: 'string' } } }, required: ['slice', 'what', 'goldenGained', 'size', 'definitionOfDone'] } },
+    sharedDoors: { type: 'array', items: { type: 'string' }, description: 'Doors several families need (e.g. an FDN level, bears/rails reconciliation with its digest baseline, schedule reconstructor gaps, line-member placement).' },
+    refuted: { type: 'array', items: { type: 'string' }, description: 'Mapper claims you checked and found wrong or unproven.' },
+    honestReach: { type: 'string', description: 'What one session can land after the M3 legs, gate, craft and demo — in golden m3 and cells — and what the handoff must say is still open.' },
+    report: { type: 'string' },
+  },
+  required: ['programme', 'sharedDoors', 'refuted', 'honestReach', 'report'],
+}
+const rank = await agent(
+  CONTEXT + "\n\n" + BOUNDARY + "\n\nYOU ARE THE INTEGRATOR (max effort). Check the load-bearing claims of these family maps against the tree yourself (above all: why 89 pile caps; what places a beam; the bears/rails disagreement and its catalogue-digest consequence), then rank the M3-breadth programme: slices in dependency order, each with the golden it puts in band, its size, its definition of done (a product-path proof read back from the store, never a model.json-staged band alone) and its over-measurement risks. Foundations first per the owner unless the evidence says a shared door must precede it.\n\nTHE FAMILY MAPS:\n" + JSON.stringify(got),
+  { label: 'rank:m3-breadth', phase: 'Rank', schema: RANK, effort: 'max' },
+)
+return { maps: got, rank }

@@ -1,0 +1,96 @@
+export const meta = {
+  name: 'handoff-fact-check-2',
+  description: 'Second pass: check every claim in the sections of the session-7 close written or rewritten after the first fact-check, then adversarially confirm each correction',
+  phases: [
+    { title: 'Check', detail: 'one checker per document section: every hash, number, path and count against git, the files and the gate logs' },
+    { title: 'Confirm', detail: 'each claimed error is re-checked by an independent skeptic before it may change a document' },
+    { title: 'Critic', detail: 'what a close owes that the documents do not say' },
+  ],
+}
+
+// READ-ONLY. No agent edits a file, runs a lane, serves the product or opens a database session that
+// writes. The orchestrator applies the confirmed corrections itself.
+const REPO = '/home/riz/vextrus-cubit'
+const SOURCES = [
+  `git in ${REPO}: \`git log --format='%h %s' 8cf9f11f..HEAD\`, \`git show --stat <hash>\`, \`git show <hash>:<path>\`, \`git log -1 --format=%B <hash>\` (commit messages carry each slice's proof lines)`,
+  `the ledger ${REPO}/docs/handoff/session-7-ledger.md (a timeline; later entries supersede earlier ones)`,
+  `the gate logs in ${REPO}/node_modules/.cache/cubit/gate/ (gate8-full.txt is the CLOSING gate, on 7d4b69e8; gate7-full.txt on 8a950e58; gate6-full.txt on 2846dcc7, db red; gate5-full.txt on 36d16d6e; gate4-summary.txt the first after the reboot); other proofs in ${REPO}/node_modules/.cache/cubit/ (craft-final2/verdicts.txt the final craft walk; relook-final.json the final re-look; demo-final.txt and demo-final-walk/ the final demo; factcheck.json the first fact-check; drafts/ the three drafts)`,
+  `the session's prompt ${REPO}/docs/handoff/session-7-prompt.md and session 6's handoff ${REPO}/docs/handoff/session-6.md (the shape a handoff takes)`,
+  `the tree itself (files, tests, migrations under db/migrations or the drizzle folder)`,
+].join('\n- ')
+
+const SECTIONS = [
+  { key: "h7-cond", doc: "docs/handoff/session-7.md", part: "§0 (the finish line, conditions 1 to 5) and §1" },
+  { key: "h7-fixed", doc: "docs/handoff/session-7.md", part: "§2 (every entry) and §3 up to, not including, the subsection \"The law\"" },
+  { key: "h7-law", doc: "docs/handoff/session-7.md", part: "ONLY the subsection \"### The law — Interpretations and Deviations of session 7\"" },
+  { key: "h7-4-5", doc: "docs/handoff/session-7.md", part: "§4 (the craft table) and §5 (the gate verbatim and the list of every gate)" },
+  { key: "h7-6-7", doc: "docs/handoff/session-7.md", part: "§6 and §7 up to, not including, \"### Standing, the owner's\"" },
+  { key: "h7-owner", doc: "docs/handoff/session-7.md", part: "ONLY the subsections \"### Standing, the owner's\" and \"### Carried from session 6, and the ledger's own debts\"" },
+  { key: "h7-8-9", doc: "docs/handoff/session-7.md", part: "§8 and §9" },
+  { key: "p8", doc: "docs/handoff/session-8-prompt.md", part: "the whole prompt" },
+  { key: "claude", doc: "CLAUDE.md", part: "ONLY the section \"## Standing facts from sessions 5 to 7\"" },
+  { key: "ledger-close", doc: "docs/handoff/session-7-ledger.md", part: "ONLY the entries from the heading \"### Gate 4 on\" to the end of the file" },
+]
+
+const CLAIMS = {
+  type: 'object',
+  properties: {
+    checked: { type: 'integer', description: 'how many distinct factual claims were checked' },
+    findings: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          quote: { type: 'string', description: 'the claim, quoted verbatim from the document' },
+          verdict: { type: 'string', enum: ['WRONG', 'UNSUPPORTED'] },
+          evidence: { type: 'string', description: 'the command run and what it printed, or the file and line read' },
+          correction: { type: 'string', description: 'the text that would be true, or "remove" if nothing true can be said' },
+        },
+        required: ['quote', 'verdict', 'evidence', 'correction'],
+      },
+    },
+  },
+  required: ['checked', 'findings'],
+}
+
+const VERDICT = {
+  type: 'object',
+  properties: {
+    upheld: { type: 'boolean', description: 'true only if your own independent check shows the document is wrong or unsupported' },
+    evidence: { type: 'string' },
+    correction: { type: 'string' },
+  },
+  required: ['upheld', 'evidence', 'correction'],
+}
+
+const results = await pipeline(
+  SECTIONS,
+  (s) => agent(
+    `You are fact-checking a closing document of a software session. READ-ONLY: never edit, create or delete a file, never run pnpm/npm lanes, a server or a write to any database.\n\n` +
+    `Document: ${REPO}/${s.doc} — check ${s.part}.\n\n` +
+    `Extract EVERY checkable factual claim: commit hashes and what they did, counts (tests, files, lines, objects, cells), figures (m³, m², seconds, bytes), file paths, identifiers (I-ids, D-ids, migration numbers, workflow run ids), and statements about what a lane printed. Check each against the sources:\n- ${SOURCES}\n\n` +
+    `Report ONLY claims that are WRONG (a source contradicts them) or UNSUPPORTED (no source you can reach states them). Quote each verbatim. A claim a source confirms is not reported. Prose judgments ("what paid most") are not claims. Rounding that matches the source to its stated precision is not an error. Be exact: cite the command and its output for every finding.`,
+    { label: `check:${s.key}`, phase: 'Check', schema: CLAIMS },
+  ),
+  (found, s) => parallel((found?.findings ?? []).map((f, i) => () =>
+    agent(
+      `An earlier checker says this claim in ${REPO}/${s.doc} is ${f.verdict}:\n\n"${f.quote}"\n\nIts evidence: ${f.evidence}\nIts correction: ${f.correction}\n\n` +
+      `Check it YOURSELF from the sources, independently, and try to show the document is RIGHT after all. READ-ONLY. Sources:\n- ${SOURCES}\n\n` +
+      `upheld=true only if your own check shows the claim is wrong or unsupported; then give the exact true text. If the document is right, or the checker misread a source, upheld=false.`,
+      { label: `confirm:${s.key}#${i}`, phase: 'Confirm', schema: VERDICT },
+    ).then((v) => ({ doc: s.doc, ...f, confirm: v })),
+  )).then((vs) => ({ section: s.key, checked: found?.checked ?? 0, verdicts: vs.filter(Boolean) })),
+)
+
+phase('Critic')
+const critic = await agent(
+  `READ-ONLY. Read ${REPO}/docs/handoff/session-7-prompt.md (its finish line and "How you finish"), ${REPO}/docs/handoff/session-6.md (the shape), then ${REPO}/docs/handoff/session-7.md and ${REPO}/docs/handoff/session-8-prompt.md. ` +
+  `List what the close OWES and does not say: a finish-line condition not stated exactly, a section session 6's shape has that this lacks, a number quoted without its source, a plan stated as a fact, an owner question not carried. Each item: what is missing and where it belongs. Nothing else.`,
+  { label: 'critic', phase: 'Critic', schema: { type: 'object', properties: { missing: { type: 'array', items: { type: 'object', properties: { what: { type: 'string' }, where: { type: 'string' } }, required: ['what', 'where'] } } }, required: ['missing'] } },
+)
+
+const flat = results.filter(Boolean)
+const upheld = flat.flatMap((r) => r.verdicts.filter((v) => v.confirm?.upheld))
+const overturned = flat.flatMap((r) => r.verdicts.filter((v) => v.confirm && !v.confirm.upheld))
+log(`${flat.reduce((n, r) => n + r.checked, 0)} claims checked; ${upheld.length} corrections upheld, ${overturned.length} overturned`)
+return { upheld, overturned: overturned.map((v) => ({ doc: v.doc, quote: v.quote, why: v.confirm.evidence })), missing: critic?.missing ?? [] }

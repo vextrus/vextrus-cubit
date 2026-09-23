@@ -1,0 +1,425 @@
+{
+ "looks": [
+  {
+   "routes": [
+    {
+     "route": "/t/50a8be2c",
+     "verdict": "at the bar",
+     "lowered": [],
+     "defects": [
+      {
+       "what": "The row's ⋯ menu button sits 28 px left of the header's column-chooser ⋯. Header ⋯ is at x≈1402 and row ⋯ at x≈1374 at 1440; at 1280 they are at x≈1242 and x≈1214. Both are inside the same 56 px column, but two identical glyphs stacked 28 px apart still look misaligned. Wave 3 fixed the ~360 px gap; this is what is left of it.",
+       "where": "all four captures (dark and light, 1440x900 and 1280x800), right edge of the projects table",
+       "law": "s-home I-140 as amended in wave 3: 'the row's ⋯ stands under the header's, reading as one column'",
+       "severity": "polish",
+       "fix": "Push the row trigger to the trailing edge of its 56 px cell so it sits under the header's chooser, e.g. `margin-inline-start: auto`, or `justify-content: flex-end` on that cell, in /home/riz/vextrus-cubit/src/app/(app)/t/[tenant]/home/home.css (.cx-home-row-menu, line ~196)."
+      }
+     ]
+    },
+    {
+     "route": "/t/50a8be2c/p/1a78eafd",
+     "verdict": "at the bar",
+     "lowered": [],
+     "defects": [
+      {
+       "what": "The activity table's scroll window cuts off partway through a row and has no bottom rule or scroll cue. At 1440 about 70% of the 16th row ('Pin drawing set') shows. The 17th act ('Confirm discipline') is hidden, and nothing tells the reader that the table scrolls. At 1280 a ~4 px sliver of the 13th row shows under 'GF', including a stub of the frozen-column rule. The 'Participants' heading then starts only 4 px (the region gap, --space-1) below the cut-off row, so the two tables run together. I-369 did what it said (twenty acts fill the room); this is only how the region ends.",
+       "where": "dark and light, 1440x900 (y≈722–755) and 1280x800 (y≈637–655): the seam between Recent activity and Participants",
+       "law": "s-project I-369 / I-147 (two distinct regions, each a 24 px head over its table); R-UI-084 (clipping must be signalled, never silent)",
+       "severity": "polish",
+       "fix": "In /home/riz/vextrus-cubit/src/app/(app)/t/[tenant]/p/[project]/home/project-home.css, close the activity region with a hairline (`border-block-end: var(--hairline)` on .cx-project-region:nth-of-type(1)) and give the Participants region a --space-3 top margin so it reads as a separate region. Optionally add a bottom scroll shadow to the table viewport so the hidden rows are signalled."
+      }
+     ]
+    },
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/audit",
+     "verdict": "at the bar",
+     "lowered": [],
+     "defects": [
+      {
+       "what": "At 1280 the 'Affirm scale' row's cited evidence loses its fold count. The row shows 'TYPICAL SLAB REINFORC…', '1ST FLOOR SLAB REINFO…', then a third chip squeezed to 'R…' plus its copy icon, and the '+7' that 1440 shows is clipped off the cell entirely. That hides 7 of the 10 subjects with no sign they exist. Cause: subject-chips.css lets only the tail chip shrink, and only down to `min-inline-size: calc(var(--space-6) * 2)`, which is 48 px. Two uncapped chips at the 24ch cap plus their copy targets, the 48 px tail floor, the count and the gaps come to more than the 484 px cell. The container's `overflow: hidden` then clips the count, which never shrinks but is last in line. The file's own comment says 'two chips and the count always stand whole' at 484 px, and that is false for this row. The 'R…' chip also says nothing.",
+       "where": "dark and light 1280x800, Act log, Cited evidence column, 'Affirm scale' row (y≈676); 'Insert level' at y≈620 also squeezes its third chip to 'Proposed …' but keeps its +5",
+       "law": "s-audit I-347 ('The count never shrinks'; 'ellipsis plus a count, never silent loss'); R-UI-084",
+       "severity": "demo-visible",
+       "fix": "In /home/riz/vextrus-cubit/src/app/(app)/t/[tenant]/p/[project]/audit/subject-chips.tsx and subject-chips.css: put the chips in an inner `overflow: hidden; min-inline-size: 0; flex: 0 1 auto` box, and make the `+k` button a `flex: none` sibling outside it, so the count can never be clipped. When the tail chip cannot show more than a glyph, fold it into the count (render +k+1) rather than draw 'R…'. Alternatively let every shown chip shrink (`flex: 0 1 auto`) instead of only the tail. The same component serves S-Project's Subject column (544 px at 1280, so it fits there today)."
+      },
+      {
+       "what": "The Act type and Actor filters draw narrower than the column they sit in. `.cx-audit-select { min-width: 180px }` lands on the Select's inline-flex wrapper (`.cx-select`), not its trigger, and the trigger is sized to its content: 'All act types' ≈112 px and 'All actors' ≈95 px. The visible gaps between filters are therefore ~80 px and ~97 px instead of the row's 12 px (--space-3). The filter row looks ragged, and the trigger will grow when a longer act type such as 'Transcribe sheet notes' is chosen.",
+       "where": "dark and light, 1440x900 and 1280x800, filter row (y≈187–229)",
+       "law": "s-audit §1 ('.cx-audit-select adds min-width 180 px'); Direction 00 grid rhythm (--space-3 between filters)",
+       "severity": "polish",
+       "fix": "In /home/riz/vextrus-cubit/src/app/(app)/t/[tenant]/p/[project]/audit/audit.css, set the width on the trigger: `.cx-audit-select > .cx-select-trigger { flex: 1 1 auto; min-inline-size: 180px; }`, or give the wrapper `display: flex` so the trigger stretches."
+      },
+      {
+       "what": "The Actor column truncates every row to 'j000-legs-mudw5e1talb7@cubit.…'. S-Project's Who column shows the same address whole, because I-147 widened it from 220 to 280 for exactly this. Here Actor stays at 220 while Cited evidence has 300–500 px of empty track on 12 of 17 rows. The same person reads two ways on two adjacent screens.",
+       "where": "dark and light, 1440x900 and 1280x800, Actor column (x≈300–510)",
+       "law": "s-project I-147 as amended (the address is the actor's label and should not be cut beside an unused band); B-17 (one fact, one spelling across screens)",
+       "severity": "polish",
+       "fix": "Widen the Actor column from 220 to 280 in /home/riz/vextrus-cubit/src/app/(app)/t/[tenant]/p/[project]/audit/act-log-explorer.tsx (column `size: 220`, line ~71). Cited evidence keeps its 420 floor: 220+280+120+140+420 = 1,180 fits the 1,184 px grid at 1280."
+      },
+      {
+       "what": "The Design Decision is out of date with the screen it governs. I-31 and §1 still rule native `<select class=\"cx-input\">` filters, but the code ships the Select primitive, and CLAUDE.md makes native selects unlawful. §1 still describes an `<ol>` list of meta/consequence/evidence lines with verbatim mono act types. §1 says 'no crumb names this screen' and records an IOU for visible navigation, but the breadcrumb reads 'Project > Audit' and S-Project's Activity tab and 'All activity' link now reach the route. §5 and §6 name --graphite-* tokens, which audit.css (correctly) no longer uses. Where §1 conflicts with I-38 and the code, the text was never amended in place.",
+       "where": "docs/design/s-audit.md (I-31, §1 filter row and list, §5, §6); not visible on screen",
+       "law": "CLAUDE.md Frontend/Law: 'A screen is implemented against its Design Decision … a second spelling of the same document is a defect'; cubit/no-primitive-token",
+       "severity": "polish",
+       "fix": "Amend /home/riz/vextrus-cubit/docs/design/s-audit.md in place: I-31 → the shipped Select; the §1 list prose → a pointer to I-38's grid; the I-30 crumb line and the navigation IOU → paid; the §5 and §6 token lists → the alias layer. Code unchanged."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "routes": [
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/drawings",
+     "verdict": "at the bar by score but not demo-ready",
+     "lowered": [],
+     "defects": [
+      {
+       "what": "The first card in the fold, top-left at both viewports, is the drawing's MODEL SPACE. It is titled 'COLUMN SCHEDULE' and reads 'No sheet number'. S-11 is also titled COLUMN SCHEDULE, so two cards carry that title. Its thumbnail is a 7x6 scatter of coloured dots (the whole model shrunk to 256 px), not a schedule. The count line '28 of 28 sheets' also counts this card as a sheet, although the set has 27 numbered sheets. The first thing a QS reads on the index names another sheet, has no number, and shows nothing they would recognise. I-364 set out to fix exactly this ('a QS could not tell one sheet from another in the fold') and kept 'COLUMN SCHEDULE' for model space only because nothing else was proposed.",
+       "where": "dark+light, 1440x900 and 1280x800: the grid's first card (row 1, column 1) and the header count line",
+       "law": "R-TO-004 / s-drawings I-364 (a card is named by the sheet line its title block writes, never by words that belong to something else); CLAUDE.md: two spellings of one fact are the defect to look for first; R-UI-084",
+       "severity": "demo-visible",
+       "fix": "Name the model layout by what it is, not by its tallest text. Wherever the proposal is built for a layout of kind 'model' (src/core/sheets/grammar.ts, or cardFacts in src/modules/takeoff/sheets/index.ts), return no proposed title. src/app/(app)/t/[tenant]/p/[project]/drawings/sheet-card.tsx then renders a new drawings_model_space string (e.g. 'Model space') and shows the layout kind in place of 'No sheet number'. Also push model cards after the paper sheets in sheetIndexOf (src/modules/takeoff/sheets/index.ts), so S-00 opens the fold. Record both as a new Interpretation amending I-364 and add the string to §3."
+      },
+      {
+       "what": "The thumbnail of S-01 GENERAL NOTES (1 OF 2), in the first row, is a blank white rectangle with only the title-block strip. S-02 shows a single table and no notes. The renderer draws no text, so a sheet made only of notes plots as empty paper. On the dark theme it is the brightest object in the fold and says nothing, which is the white-slab complaint I-359 point 2 answered for model-space sheets but not for text-only sheets.",
+       "where": "dark+light, 1440x900 and 1280x800: the thumbnails of row 1, cards 3 and 4",
+       "law": "s-drawings I-87 / I-359 point 2 (a thumbnail is a picture of the sheet as it plots), R-SPINE-022",
+       "severity": "polish",
+       "fix": "In src/modules/takeoff/thumbnails/raster.ts, draw TEXT/MTEXT as greyed bars (lines standing in for text) wherever the artifact states an insertion point, height and extent. That is geometry the artifact states, not a guess at glyphs. A notes sheet then plots as grey lines of text, as its plot would. Record the change as an amendment to the renderer's 'text is not drawn' header."
+      }
+     ]
+    },
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/drawings/sets",
+     "verdict": "at the bar",
+     "lowered": [],
+     "defects": []
+    },
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/drawings/sets/7e1128a5",
+     "verdict": "at the bar",
+     "lowered": [],
+     "defects": [
+      {
+       "what": "The 'In this set' cell shows 'In set' and 'Remove' side by side at the left of the well: 'In set' at x≈776, 'Remove' ending at x≈861, in a 768–928 well. The Decision puts them 'at the well's two ends', with one ghost control filling the well. The cause is that the DataTable control-well rule `.cx-table-cell[data-control] > * { inline-size: 100% }` sizes the cell's `span.cx-table-cell-text` wrapper, not the Button inside it. The button shrinks to its content, the `justify-content: space-between` in sets.css has no width to spread across, and a strip of plain cell (about 60 px) is left to the button's right. That strip is the 'partially obscured' target the control-well ruling exists to prevent. axe did not flag it at this size.",
+       "where": "dark+light, 1440x900 and 1280x800: the members grid, 'In this set' column, row rcc6-bnbc.dxf",
+       "law": "s-drawings-sets §1 'In this set' (I-360 point 4: state and verb at the well's two ends, one control that fills the well); src/ui/primitives/data/data.css control-well ruling (R-UI-012, SC 2.5.8)",
+       "severity": "polish",
+       "fix": "In src/ui/primitives/data/data.css, extend the control-well rule to the control itself: `.cx-table-cell[data-control] > .cx-table-cell-text > * { inline-size: 100%; block-size: 100%; }`. The text span is already full size, so its child should be too. The alternative is `.cx-btn.cx-set-member-toggle { inline-size: 100%; }` in sets.css, but the data.css fix also repairs every other screen's control well (members.css's comment assumes the same rule). The picture moving is the gate's to re-take."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "routes": [
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/viewer/050227ee/S-10 COLUMN LAYOUT PLAN",
+     "verdict": "at the bar",
+     "lowered": [],
+     "defects": [
+      {
+       "what": "The viewer's tool groups are mounted into the frame's toolbar slot bare. ViewerToolbar returns a fragment of ShellToolbarGroups and is never wrapped in ShellToolbar. So the row has no role=\"toolbar\" and no accessible name: the string viewer_tools_label \"Sheet tools\" is defined but used nowhere. It also has none of the .cx-shell-toolbar chrome: no 32 px height rule, no inline padding, no hairline under the row, and no `.cx-shell-toolbar .cx-icon-btn` 28 px pin. The icon buttons are 28 px only because compact density happens to make --control-h 28. The same gap makes the craft instrument blind here: craftReading.toolbar and .status are null and toolbarButtons is [], so chromeGeometry scored 5 on \"toolbar absent, status absent\" and never measured this route's row. The picture does show a 32 px row and a 24 px readout, so no lowering.",
+       "where": "both themes, both viewports: the tool row, y 40-72",
+       "law": "viewer.md v22 frame table (toolbar row: 100 % x --toolbar-h 32 with 28 px IconButtons, mounted through useShellToolbar); shell-toolbar.tsx's own contract (role=toolbar with the screen's label); Direction §1",
+       "severity": "polish",
+       "fix": "In src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/viewer-toolbar.tsx, return <ShellToolbar label={strings.viewer_tools_label}>…</ShellToolbar> around the groups. Separately, have scripts/probe/lib/craft.mjs fall back to shell-toolbar-slot and viewer-status when shell.toolbar or shell.status are absent, so chromeGeometry can no longer pass without measuring."
+      },
+      {
+       "what": "The readout is not mono. Commit 2cad2aaa (v22 U2) removed font-family: var(--font-mono) and tabular-nums slashed-zero from .cx-viewer-readout, while the comment above the rule still quotes \"one line of mono cells\". The captures show 'Scale 1.289 px per drawing unit', 'Entities 296 of 296' and the rest in the proportional UI face. The scale value is wider than the 96 px cell minimum, so each zoom step that changes a digit's width moves every cell after it. The shell's own StatusBar sets its values in cx-mono, so the viewer is the one screen whose readout is not an instrument.",
+       "where": "both themes, both viewports: the 24 px status readout",
+       "law": "viewer.md Part 1 §1 Status line (var(--font-mono) var(--text-12) tabular-nums slashed-zero); v22 frame table 'mono readout, fixed-min-width cells'; Direction §3.1 and R-UI-030",
+       "severity": "demo-visible",
+       "fix": "In src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/viewer.css, restore on .cx-viewer-readout: font-family: var(--font-mono); font-variant-numeric: tabular-nums slashed-zero (or give the value spans the shell's cx-mono class)."
+      },
+      {
+       "what": "The panel toggles (layers drawer and inspector pin) are not right-aligned. They sit directly after the camera group, at x ≈ 679-711 at 1440, with about 700 px of empty row to their right. The code comment says the last group right-aligns them, but no rule does: .cx-shell-toolbar-group has no margin-inline-start: auto anywhere.",
+       "where": "both themes, both viewports: the right end of the tool row",
+       "law": "viewer.md v22 frame table, toolbar purpose: '… Fit F · + · − ǀ right-aligned L≡ V≡'",
+       "severity": "polish",
+       "fix": "Add an end-aligned group variant, e.g. ShellToolbarGroup align=\"end\" → .cx-shell-toolbar-group[data-align=end] { margin-inline-start: auto } in src/ui/shell/shell-toolbar.tsx and src/ui/shell/shell.css, and use it for the viewer_tools_panels group in viewer-toolbar.tsx."
+      },
+      {
+       "what": "The layers drawer is a percentage of the work area, so it is 179 px at 1280, not 200. The effects are visible: every axis row's family ellipsises to 'Numer…', and the view row's line one (the 'Layout plan' badge plus the 20B6 IdChip) wraps onto two lines. At 1440 the same content sits on one line.",
+       "where": "both themes, 1280x800: the layers drawer, 'Views and grid' view row and axis rows",
+       "law": "viewer.md v22 frame table (layers drawer 200, min 160, max 320); Part 3 §1 View rows, line one = badge then IdChip",
+       "severity": "polish",
+       "fix": "In src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/viewer-stage.tsx, set the ResizablePanel's size in px (PANEL_SIZE = 14 % is about 172 px at 1232), or derive the percentage from the group's measured width so it opens at 200. Also make .cx-viewer-partition-line (viewer-partition.css) nowrap on line one."
+      },
+      {
+       "what": "The Snap / Ortho / Angle lock toggles are core .cx-btn text buttons at var(--text-14) and --control-h. In the tool row they read noticeably larger and heavier than the 13 px chrome around them. No toolbar rule pins their height: under comfortable density --control-h is 32, so they would stand 32 px in a 32 px track with no room for the bar.",
+       "where": "both themes, both viewports: the snapping group of the tool row",
+       "law": "Direction §1 / viewer.md frame table (the row's controls stand at 28 px in both densities, 'the row less one step of the 4-pt grid')",
+       "severity": "polish",
+       "fix": "Add `.cx-shell-toolbar .cx-btn { height: calc(var(--toolbar-h) - var(--space-1)); font-size: var(--text-13); }` to src/ui/shell/shell.css. This needs the ShellToolbar wrapper from the first defect, or scope it in src/modules/takeoff/viewer-snap/viewer-snap.css."
+      }
+     ]
+    },
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/documents",
+     "verdict": "at the bar",
+     "lowered": [],
+     "defects": [
+      {
+       "what": "This screen is excellent and matches its Decision exactly. The column widths measure Kind 200 (frozen, hairline seam), Version 96, Issued by 240 (the person's address shown whole), Digest 128 (IdChip plus copy), Acts cited taking the remainder (400 px at 1440, 240 at 1280), Superseded by 160 ('Current' in muted ink) and Document 120 ('Open PDF' ghost). The grid header sits 60 px below main at both viewports. The count '1 document' is set in mono, and the copy is verbatim. The one discrepancy is in the Decision text, not the product: s-documents.md §1's wireframe ('ws › Sattva Court ▾ › Projects › Documents') and its region table ('under workspace › project › Projects') spell the third crumb 'Projects'. The product and routes.ts' PROJECT_AREAS rule it 'Project', as the picture shows.",
+       "where": "docs, the s-documents.md §1 wireframe and top-bar row (the product is correct in all four captures)",
+       "law": "CLAUDE.md Frontend: 'a second spelling of the same document is a defect'; R-UI-084 as amended by shell-top-bar I-121",
+       "severity": "polish",
+       "fix": "Amend docs/design/s-documents.md §1 (wireframe and region table) to read 'ws › <project> ▾ › Project › Documents'. No code change."
+      }
+     ]
+    },
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/settings/participants",
+     "verdict": "at the bar",
+     "lowered": [],
+     "defects": [
+      {
+       "what": "In Role history the Member cell truncates the only member's address to 'j000-legs-mudw5e1talb7@…'. At 1440 about 88 px of the grid stands empty to the right of Recorded; the four fixed columns (104+136+192+128) sum to 560 against a 648 px grid. The same address is shown whole in the roster directly above.",
+       "where": "both themes, 1440x900 (and at 1280, where the grid is exactly 560): Role history, Member column",
+       "law": "R-UI-083 (truncation is for a cell that has no room, not one beside empty track); the s-documents I-348 precedent of the text column taking the remainder",
+       "severity": "polish",
+       "fix": "In src/app/(app)/t/[tenant]/p/[project]/settings/participants/participants-section.tsx (the history columns) or participants.css, give Member the remainder with 192 as its floor, and record it as an I-328 amendment in docs/design/s-settings-participants.md §1."
+      },
+      {
+       "what": "The Role legend is centred vertically across the two lines of role chips: 'Role' sits at y≈704, between the rows at 688 and 720. The Member and Direction labels sit level with their chips, so the three-line form's label column breaks at the one field that wraps.",
+       "where": "both themes, both viewports: the Assign a role form, Role field",
+       "law": "s-settings-participants.md §1 Assign a role (each fieldset a --control-h line, legend in column 1; whole chips wrap to a new line)",
+       "severity": "polish",
+       "fix": "In src/app/(app)/t/[tenant]/p/[project]/settings/participants/participants.css, give the floated legend align-self: start with a line-height or min-height of --control-h, so it sits on the first chip row."
+      },
+      {
+       "what": "This follows the Decision (I-328 as amended at integration) and is flagged because it is the screen's most visible weakness. The roster is one 28 px row inside a bordered frame about 400 px tall (y 157-586 at 1440), so the upper half of the screen is an empty outlined box. I-328's own sentence says 'a padded grid is not a work surface'. The computed workSurface of 3 already reflects this, and the picture does not justify a lower score.",
+       "where": "both themes, both viewports: Current roles",
+       "law": "s-settings-participants.md I-328 (as amended at integration) against its own ruling that a padded grid is not a work surface; AM-08 C1",
+       "severity": "polish",
+       "fix": "Amend the Decision rather than the CSS. For example, draw the roster's frame only around its rows plus the grid's empty-band fill, and let the role history take the height instead. Or place the roster and history side by side with the act beneath. Either way the box keeps the frame's height without an empty outline."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "routes": [
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/takeoff/register",
+     "verdict": "at the bar by score but not demo-ready",
+     "lowered": [
+      {
+       "criterion": "tokensAndGrid",
+       "computed": 5,
+       "lookedScore": 4,
+       "why": "All four captures show the same thing. At 1440, the Bases cell cuts off its own word on two of every three rows ('Transcribed' chip, then 'Transcri…'), which breaks I-reg-3's claim that 184 px holds a chip and a word uncut. The Source cell cuts off its last part on every row at both viewports ('Model · P1 · Layou…'). The eye reads two ellipses down every row of the first screen."
+      }
+     ],
+     "defects": [
+      {
+       "what": "The first part of the Source chip is the CAD layout name 'Model' on every line, not the sheet the line stands on. The part that does vary (the view class, 'Layout plan') is the part cut off. The evidence column never names a drawing, even though the drawings list and the viewer now take sheet titles from the title block.",
+       "where": "dark+light, 1440x900 and 1280x800; Source column, every row",
+       "law": "s-takeoff-register I-179/I-234 (the chip states 'the sheet the line stands on', e.g. S-101); Direction §6 (people see labels, not machine names)",
+       "severity": "demo-visible",
+       "fix": "In src/modules/takeoff/register-ui/server.ts, carry a sheet label per drawing (the sheet number the title-block reader in src/core/sheets gives the drawings screen) on ViewLine. In sourceChips (src/modules/takeoff/register-ui/index.tsx:593), use it in place of layoutName when the layout is model space. Keep layoutName for traceAddress."
+      },
+      {
+       "what": "The Bases cell repeats one word: a 'Transcribed' BasisChip followed by 'Transcribed' in secondary ink, clipped to 'Transcri…'. On the Boring and Concrete rows (178 of the 267 pile lines) the cell says one fact twice and loses the second copy to an ellipsis.",
+       "where": "dark+light, 1440x900 and 1280x800; Bases column",
+       "law": "I-reg-3 (Bases measured so the word is not cut); the copy diet that I-lev-2 applies ('a code is said only where it adds a fact')",
+       "severity": "demo-visible",
+       "fix": "In the bases cell of src/modules/takeoff/register-ui/index.tsx, render the selecting-basis EnumLabel (cx-register-selecting) only when it differs from the quantity basis, and keep it on data-*. Or widen bases 184→200 and take the 16 px from formula (152→136)."
+      },
+      {
+       "what": "The index rail's sections below the tree ('N objects repudiated…', 'Deferred and refused', 'Level stacks') sit under a tree where treeOf opens every discipline, level and class by default. The 89 piles alone run past P20 at the fold, and pile caps, columns and beams follow, so the R-UI-020 refusal rows are several thousand pixels down the rail's single scroll. None of them appears in any of the four captures.",
+       "where": "dark+light, both viewports; index rail (x 72–312)",
+       "law": "s-takeoff I-233 ('nothing is hidden'; the struck count, the refusals and the offers stand in the rail); R-UI-020 (a sighting that produced no line says why, in place)",
+       "severity": "demo-visible",
+       "fix": "In treeOf (src/modules/takeoff/register-ui/index.tsx:479), push only discipline and level ids to `expanded` so classes open on demand. Or put the struck count and the 'Deferred and refused' heading with its count above the tree."
+      },
+      {
+       "what": "The rail heading 'Objects by discipline, level and class' wraps to two lines in the 240 px rail. It is the only wrapped heading on the screen.",
+       "where": "dark+light, both viewports; rail heading",
+       "law": "Direction §5 rule 2 / CLAUDE.md frontend (no wrapping, ellipsis plus tooltip)",
+       "severity": "polish",
+       "fix": "Give .cx-register-panel-heading in register.css nowrap plus an ellipsis, or shorten the label through the strings owner (src/ui/strings/takeoff.ts)."
+      },
+      {
+       "what": "The Measure button's hint reads 'Lines appear as each rail publishes them.' The empty-state bodies also say 'runs the rails' and 'the rails register'. 'Rail' is build vocabulary, and the Decision's own copy table spells it against the Decision's own voice rule.",
+       "where": "tooltip on 'Measure this campaign'; empty states",
+       "law": "s-takeoff §3 voice ('rail' appears nowhere a reader can see)",
+       "severity": "polish",
+       "fix": "Re-word takeoff_register_measure_hint, _lines_unmeasured_body and _empty_campaign_body in src/ui/strings/takeoff.ts and the mirrored src/modules/takeoff/register-ui/copy.ts, and amend the copy table in the Decision."
+      }
+     ]
+    },
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/takeoff/coverage",
+     "verdict": "at the bar",
+     "lowered": [],
+     "defects": [
+      {
+       "what": "The certificate's statement rows are indented about 40 px from their own title ('Paint' at x≈125 under 'Statement of the measurement boundary' at x≈85). The browser's default <ul> padding was never reset, so the document preview has a margin that is not on the spacing scale.",
+       "where": "dark+light, both viewports; certificate preview",
+       "law": "s-coverage §5 (the closed px set; spacing only from --space-*); R-UI-086",
+       "severity": "polish",
+       "fix": "Add `margin: 0; padding: 0; list-style: none` to .cx-coverage-statement-rows in src/app/(app)/t/[tenant]/p/[project]/takeoff/coverage/coverage.css."
+      },
+      {
+       "what": "At 1440 the matrix box keeps about 145 px of empty field below the Rebar row and about 258 px to the right of the Pile cap band, while the certificate below it shows only four rows before its own scroll.",
+       "where": "dark+light 1440x900; coverage-grid and certificate",
+       "law": "Direction §3.5 / R-UI-080 (the primary takes the room it needs, not more)",
+       "severity": "polish",
+       "fix": "Let the coverage-grid box size to its content up to flex:1 (e.g. flex: 0 1 auto with a min-height) so the leftover height goes to the certificate. The change is in coverage.css."
+      }
+     ]
+    },
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/takeoff/levels",
+     "verdict": "at the bar by score but not demo-ready",
+     "lowered": [
+      {
+       "criterion": "tokensAndGrid",
+       "computed": 5,
+       "lookedScore": 4,
+       "why": "The Rebar roll-up is cut by the grid's edge on eight of nine rows: '26 lines Note reading conteste' at 1440 and '26 lines Note rea' at 1280, with no ellipsis. The table's '⋯' tools sit over the Rebar header. The previous look lowered this same criterion for cut roll-ups."
+      }
+     ],
+     "defects": [
+      {
+       "what": "The M3 stack has three kinds (Concrete, Formwork, Rebar). At the fixed widths the columns total 144+64+200+3×240 = 1,128 px, against a grid of 1,092 at 1440 and 1,012 at 1280. The last roll-up runs past the table's box, so its code is cut mid-word with no ellipsis and no tooltip, and the last column's resize grip sits under the table tools. That is the collision I-lev-1's 888 px budget was written to avoid, and that budget assumed two kinds.",
+       "where": "dark+light, 1440x900 and 1280x800; Rebar column (x ≥ 1212 / 1132)",
+       "law": "s-levels I-lev-1 (roll-ups whole; grip clear of the table tools, R-UI-012); §1 'no cell wraps; a clipped cell earns the table's own Tooltip'",
+       "severity": "demo-visible",
+       "fix": "In src/modules/takeoff/levels-ui/index.tsx (WIDTH_* at :256–259), derive the roll-up width from kinds.length and the space left after Level, Ordinal and Storey height. For example, Storey height 200→152 (its widest face, 'Agreed 3.048 m', needs about 120) and roll-ups (grid − 344 − tools) / kinds, so the inline EnumLabel code ellipsises inside its cell and the table's Tooltip states it. Update the px set in §5 of the Decision."
+      },
+      {
+       "what": "At 1280 (rail at its 160 minimum) the rail heading 'Views with no typical range' wraps to two lines.",
+       "where": "dark+light 1280x800; levels-ranges rail heading",
+       "law": "Direction §5 rule 2 (no wrapping; ellipsis plus the Tooltip it already carries)",
+       "severity": "polish",
+       "fix": "Give the rail heading nowrap plus an ellipsis in src/app/(app)/t/[tenant]/p/[project]/takeoff/levels/levels.css. levels_ranges_hint is already its Tooltip."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "routes": [
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/takeoff/schedules",
+     "verdict": "at the bar by score but not demo-ready",
+     "lowered": [
+      {
+       "criterion": "tokensAndGrid",
+       "computed": 5,
+       "lookedScore": 4,
+       "why": "All four captures show the same thing. In the Member types grid, the Band track fills every visible row (1B1–1B6) with the ellipsised sheet title '1ST FLOOR BEAM LONG SEC…' rather than a band of floors, so about 180 px of the track goes on text that gets cut off. In the sheet rail, the chosen row's name is cut to 'Model sp…' while its muted holdings 'Schedule · Note…' take the wider share. Both break the layout rules the Decision sets for these two regions (I-sch-1(b)/(c), I-353(b)/(c)). The score is still >= 4 with min 4."
+      }
+     ],
+     "defects": [
+      {
+       "what": "The registry's Band column prints the whole sheet title for every family read from a long-section strip. Every 1B row says '1ST FLOOR BEAM LONG SEC…', and the typical-floor B rows presumably show the S-17 title the same way. A floor band ('1ST', or '2ND TO 6TH') should appear instead. The cause: strips.ts sheetBandOf stores `said.text` / `view.caption` (the full title sentence) as bandText, and index.tsx:1085 prints bandText whenever `banded` is true.",
+       "where": "dark+light, 1440x900 and 1280x800; Member types pane, Band column (x≈394–580)",
+       "law": "I-sch-1(c) 'a Band is a band of floors (VariantView.banded, read off the registry's bandFrom)'; I-343 (the band runs from the first to the last level word, and the title is only where it is read); R-UI-082",
+       "severity": "demo-visible",
+       "fix": "src/modules/takeoff/schedules-ui/index.tsx:1085. Where a variant is banded but its bandText is not a band cell (a strip family), print the band from bandFrom/bandTo in the grammar's own spelling, and keep the title in the tooltip/data-technical. Alternatively, in src/modules/takeoff/partition/schedules/strips.ts:193–195, store only the band phrase the title states, not the whole title. That moves stored BNBC registry text, but F-RCC6 has no strip labels, so its digest does not move."
+      },
+      {
+       "what": "In the sheet rail the sheet name gives way at the same time as its holdings, not after them. The selected row reads 'Model sp…' beside a wider 'Schedule · Note…', and S-01 reads 'S-01 GENERAL NOTES (1 …' beside 'N…'. The name is `flex: 1 1 auto` and the holdings are `flex: 0 4 auto`, but flex shrink is weighted by basis, so the long holdings string still leaves the name short.",
+       "where": "dark+light, both viewports; sheet rail, selected row and S-01",
+       "law": "I-sch-1(b) 'A row's holdings yield their width first and ellipsise; the name keeps at least its sheet number'; I-353(c) (Model space said in words); §1 rail row",
+       "severity": "demo-visible",
+       "fix": "src/app/(app)/t/[tenant]/p/[project]/takeoff/schedules/schedules.css:167 and :183. Set .cx-schedules-sheet-name to `flex: 0 1 auto` (keeping min-width 6ch) and .cx-schedules-sheet-holds to `flex: 1 1 0; min-width: 0`. The holdings then get only the space the name leaves over and truncate to nothing first."
+      },
+      {
+       "what": "The stored schedule's six columns end at about x=1090 (1440) and are sized to content, leaving a ~300 px empty band before the table's ⋯ menu. §5 says the DataTable 'divides the rest evenly' after the frozen mark column.",
+       "where": "dark+light 1440x900 (smaller at 1280); ROOF BEAM SCHEDULE table, right third",
+       "law": "s-schedules §5 column-width rule ('sizes the frozen mark column … and divides the rest evenly')",
+       "severity": "polish",
+       "fix": "The column sizing that SchedulesWorkspace hands the DataTable, in src/modules/takeoff/schedules-ui/index.tsx. Share the leftover width across the non-frozen columns rather than leaving it after the last column."
+      }
+     ]
+    },
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/takeoff/boq",
+     "verdict": "at the bar",
+     "lowered": [],
+     "defects": [
+      {
+       "what": "Description is fixed at 320 px, not taking the remaining width. At 1440 the leftover (~230 px) sits after the right-aligned Coverage column as an empty band before ⋯, while the description plus mark ends at ~315 px. Nothing truncates, so this is only a matter of rhythm. Otherwise the screen is excellent. The status line is verbatim. '1 Substructure' is an h2. The group row puts its subtotal 3.063 and m3 in the Quantity and Unit cells with no count. Each line reads 'Column · Concrete' plus a muted mono mark, the Level is mono and muted, and quantities are right-aligned to 3 dp. Each line has two basis chips with glyph and word and a 100% coverage chip. At 1280 the tabs row holds one line, with the captions visually hidden and the taxonomy chip showing its edition. No inspector, no second column.",
+       "where": "dark+light, 1440x900 mainly; grid, right of the Coverage column",
+       "law": "s-boq §1 columns table: boq_col_description 'remainder, min 320'",
+       "severity": "polish",
+       "fix": "src/modules/takeoff/boq/workspace.tsx:891. Give the description column the grid's remainder (min 320) the way s-bbs sizes Dimensions (a measured width on the 4 px grid), so the slack goes into Description and not past Coverage."
+      }
+     ]
+    },
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/takeoff/bbs",
+     "verdict": "at the bar",
+     "lowered": [],
+     "defects": [
+      {
+       "what": "The Dimensions cell ('A 609.6') is set in the interface face at --ink-secondary. Every other figure in the row (cutting 609.6, rounded 625, IS 609.6, bars, mass) is mono tabular at --ink. The same 609.6 therefore shows in two faces and two inks on one row. Otherwise the screen is at its Decision. The one grid runs in storey order under FDN bands on --surface-band. Role is a word, the shape code is mono, masses are at 3 dp (7.700 = 1.579 kg/m × 0.6096 × 8, correct), and the rounded 625 is the only rounded surface. The omissions name Laps/Ties with the registry message and an 'Open the schedules' link. The summary widths and lakh grouping match, and the total carries 'Measured scope only' in the Stock bars cell. The repeated per-member bands are the recorded identical-members item.",
+       "where": "dark+light, both viewports; grid, Dimensions column",
+       "law": "I-354(c) 'only the figures are mono' (figures ARE in the figure face); s-bbs §1 'every figure right-aligned tabular mono'; R-UI-085",
+       "severity": "polish",
+       "fix": "src/app/(app)/t/[tenant]/p/[project]/takeoff/bbs/bbs.css:270 (.cx-bbs-dims). Set the leg figures in --font-mono with tabular-nums slashed-zero at --ink, keeping the leg letters in the interface face. Or have dimensionsOf in src/modules/takeoff/bbs-ui/workspace.tsx:945 wrap each figure in .cx-bbs-figure."
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "routes": [
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/settings/ruleset",
+     "verdict": "at the bar",
+     "lowered": [],
+     "defects": [
+      {
+       "what": "The Parameters grid's frame runs the full pane (1166 px at 1440, 1006 at 1280), but its three columns add up to only 576 px. The Unit column, ruled at 96, is drawn about 690 px wide, so each unit badge sits beside its figure with a large empty band to its right. The Lineage grid does the same with its Content digest column (ruled 160, drawn about 760). The Decision's wireframe draws both frames ending just after their last column. Author edition's Unit column (96, drawn about 380) is the same case, less visibly.",
+       "where": "both themes, 1440x900 and 1280x800; the Parameters and Lineage grids, right half of the content pane",
+       "law": "docs/design/s-settings-ruleset.md §1 column widths (Parameter 320 / Value 160 / Unit 96; Scope 120 / Edition 280 / Content digest 160) against the wireframe, which draws each frame ending at its last column",
+       "severity": "polish",
+       "fix": "Either bound the two grid frames to their columns in src/app/(app)/t/[tenant]/p/[project]/settings/ruleset/ruleset.css (e.g. `inline-size: fit-content; max-inline-size: 100%` on the ruleset-parameter-table and ruleset-lineage containers), or amend the Decision to name the flex column. The DataTable (src/ui/primitives/data/data-table.tsx, `width: 100%` in data.css) gives the leftover width to its last column, and no Decision rules that."
+      }
+     ]
+    },
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/settings/ruleset-author",
+     "verdict": "at the bar",
+     "lowered": [],
+     "defects": []
+    },
+    {
+     "route": "/t/50a8be2c/p/1a78eafd/settings/site-facts",
+     "verdict": "at the bar",
+     "lowered": [
+      {
+       "criterion": "copyDiet",
+       "computed": 5,
+       "lookedScore": 4,
+       "why": "All four captures state one consequence three times above the grid. The face line says 'Earthwork is unpriceable from drawings alone until the deferred site facts below are entered.' Directly under it, the two deferral cards say '…so earthwork is structurally unpriceable from drawings alone…' and '…so earthwork below it is unpriceable from drawings alone.' That is five sentences of prose over a six-row table, and one of them only restates the two cards beneath it. The mechanical reading counts no multi-line paragraph, so it misses this."
+      }
+     ],
+     "defects": [
+      {
+       "what": "The same pinned parameters carry two names on neighbouring screens. The Rule set screen lists 'Earthwork working allowance 1.5 ft' and 'Earthwork extra depth 0.5 ft'. The Site facts DERIVED rows show those same figures as 'Working allowance 1.5 ft' and 'Depth extra 0.5 ft', each with a 'Stated by the pinned rule set' link to the Rule set screen. A reader who follows the link cannot find a row named 'Depth extra', and 'Depth extra' is the key's word order rather than English.",
+       "where": "both themes, both viewports; Fact column, DERIVED rows 1–2 (y≈495, 524)",
+       "law": "CLAUDE.md: two spellings of one fact are the defect to look for first. s-settings-ruleset-author I-268: parameter labels have one home, the settings area's `parameterLabel(key)`. The Site facts Decision spells its own labels in §3, so its copy table and I-268 disagree.",
+       "severity": "demo-visible",
+       "fix": "The site-facts route (src/app/(app)/t/[tenant]/p/[project]/settings/site-facts/site-facts-screen.tsx) should hand the panel, for each edition-stated fact, the label from `parameterLabel(EDITION_PARAMETER_OF[fact])` (settings/strings.ts). The panel lives under src/modules, and ARCH-01 bars it from importing that home itself. Then retire `site_facts_fact_working_allowance` / `site_facts_fact_depth_extra` in src/modules/takeoff/site-facts-ui/strings.ts. If Blinding projection and Blinding thickness also move to the shared home, all four come from one place. Amend docs/design/s-settings-site-facts.md §3 in the same commit."
+      },
+      {
+       "what": "Every fact row is drawn at a 29 px pitch (192→221, 481→510→539→568→597), not 28. The computed rowHeight reads it as 'median row 29px' and scores 4. The extra pixel comes from the door cell: the ghost 'Enter' Button plus the cell's block padding and bottom hairline exceed `--row-h`. The sticky header, which holds no control, is 28.",
+       "where": "both themes, both viewports; every fact row of site-facts-table",
+       "law": "s-settings-site-facts I-273 ('no <tr> is ever taller than 28'), the CLAUDE.md shell grid law (compact 28 px rows), R-UI-083",
+       "severity": "polish",
+       "fix": "In src/modules/takeoff/site-facts-ui/site-facts.css, give `.cx-site-facts-door` (and `.cx-site-facts-fact` where the BasisChip sits) `padding-block: 0`, and make the door fit inside `--row-h` less the hairline, e.g. the Button's compact size or `block-size: calc(var(--row-h) - 1px)`. The rows' 28 then holds, and the rubric reads 28."
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
