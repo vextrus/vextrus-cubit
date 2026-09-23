@@ -17,7 +17,7 @@ from typing import Any
 from .. import blocks as _blocks
 from .. import plan
 from ..scene import Block, Sheet, dim_text
-from . import beams, cols, details, found, front, slabs
+from . import beams, cols, details, found, front, revc, slabs
 from .common import Ctx
 
 #: One composer per sheet number, in the roster's own order.
@@ -40,9 +40,15 @@ def blocks() -> list[Block]:
 
 
 def compose(world: dict[str, Any]) -> list[Sheet]:
-    """The 26 sheets, in `plan.SHEETS` order, each checked for its own traps and marks."""
+    """The 26 sheets, in `plan.SHEETS` order, each checked for its own traps and marks.
+
+    Rev B first, exactly as issued — its composers read a `Ctx` fenced of the members Rev C draws
+    first — then Rev C's pass appends to the composed sheets (`revc.apply`, W-19). The checks read
+    the whole model over the whole set."""
+    issued = Ctx(world, fence=revc.DRAWN_IN_C)
+    sheets = [COMPOSERS[number](issued) for number in plan.sheet_numbers()]
     ctx = Ctx(world)
-    sheets = [COMPOSERS[number](ctx) for number in plan.sheet_numbers()]
+    sheets = revc.apply(ctx, sheets)
     _author_dim_text(sheets)
     _check_traps(ctx, sheets)
     _check_marks(ctx, sheets)

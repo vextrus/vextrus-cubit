@@ -15,10 +15,17 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
 Point = tuple[float, float]
+
+#: R0 (W-19): the revision the append pass draws. The set was issued as Rev B (untagged); an item
+#: (`Scene.revision`), a view (`View.rev`) or a sheet (`Sheet.new_in`) tagged with this revision is
+#: created by the DXF writers after every Rev B record, so no Rev B handle moves.
+APPENDED = "C"
 
 #: The notation families a drawn string may declare (E-fixture §3.5, §3.10-2). `plain` is prose
 #: and is never parsed; everything else must satisfy `validate.notation.parses(family, text)` or be
@@ -47,6 +54,19 @@ class Scene:
     """Authored primitives in local millimetres."""
 
     items: list[dict[str, Any]] = field(default_factory=list)
+    #: R0 (W-19): the revision the items added from now on belong to — None is Rev B, as issued.
+    #: Set it through `revision()`; the writers place a tagged item in its revision's append pass.
+    rev: str | None = None
+
+    @contextmanager
+    def revision(self, rev: str) -> Iterator[Scene]:
+        """Draw in a later revision: every item added inside the block carries `rev`, so the DXF
+        writers create it after every Rev B entity and no Rev B handle moves (W-19)."""
+        before, self.rev = self.rev, rev
+        try:
+            yield self
+        finally:
+            self.rev = before
 
     # -- geometry -----------------------------------------------------------------------------
 
@@ -275,13 +295,19 @@ class Scene:
 
     def _add(self, kind: str, **fields: Any) -> dict:
         item = {"kind": kind, **fields}
+        if self.rev is not None:
+            item["rev"] = self.rev
         self.items.append(item)
         return item
 
     def extend(self, other: Scene, offset: Point = (0.0, 0.0)) -> None:
-        """Copy another scene's items in, translated (used to nest a detail inside a frame)."""
+        """Copy another scene's items in, translated (used to nest a detail inside a frame). Inside
+        `revision()` the copies belong to that revision, whatever the source scene was."""
         for item in other.items:
-            self.items.append(translate(item, offset))
+            copy = translate(item, offset)
+            if self.rev is not None:
+                copy["rev"] = self.rev
+            self.items.append(copy)
 
     def strings(self) -> list[dict[str, Any]]:
         """Every text-bearing item: TEXT, MTEXT, DIMENSION overrides, MLEADER, INSERT attribs."""
@@ -478,6 +504,9 @@ class View:
     world_origin: Point = (0.0, 0.0)
     model_offset: Point = (0.0, 0.0)
     unit: str = "ftin"  # the dimension habit of this view
+    #: R0 (W-19): the revision this view was first drawn in — None is Rev B. A later view is
+    #: added by `emit/sheets/revc.py`, framed on its own scene, placed in the append pass.
+    rev: str | None = None
 
 
 @dataclass
@@ -491,7 +520,10 @@ class Sheet:
     views: list[View]
     paper: Scene
     scales: str = ""  # the title block's SCALE cell, e.g. "1:100, 1:20"
-    revision: str = "B"
+    revision: str = "B"  # the revision the title strip PRINTS (R0 prints no revision marks)
+    #: R0 (W-19): the revision this sheet was first issued in — None is Rev B. A later sheet is
+    #: placed whole in the append pass, its layout and frame after every Rev B sheet's.
+    new_in: str | None = None
 
     @property
     def slug(self) -> str:

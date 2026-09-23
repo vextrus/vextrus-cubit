@@ -17,9 +17,24 @@ from ... import golden, selfcheck
 from ... import model as M
 from .. import blocks as B
 from .. import plan
-from ..scene import PAPER_MM, Scene, Sheet, View, ft_in
+from ..scene import PAPER_MM, Point, Scene, Sheet, View, ft_in
 
 HERE = Path(__file__).resolve().parents[2]
+
+#: R0 (W-19a): every Rev B view's window as issued — `"<sheet>#<index>"` (the view's place among its
+#: sheet's views) → its title and the scene point at the window's lower-left. A Rev B view is framed
+#: on its pin, never on its scene's extents, so an in-place correction that moves a scene's extents
+#: moves no VIEWPORT and no frames record. Minted once, at R0-G0, from the unmodified composers, and
+#: never re-minted; `validate/revision.py` re-centres every view no correction touched on its pin.
+REVB_WINDOWS_FILE = Path(__file__).with_name("revb_windows.json")
+
+
+def load_revb_windows(path: Path = REVB_WINDOWS_FILE) -> dict[str, tuple[str, Point]]:
+    windows = json.loads(path.read_text(encoding="utf-8"))["windows"]
+    return {key: (w["title"], (float(w["origin"][0]), float(w["origin"][1]))) for key, w in windows.items()}
+
+
+REVB_WINDOWS: dict[str, tuple[str, Point]] = load_revb_windows()
 
 #: How far a view sits from the window edge, and how tall a caption band is.
 MARGIN = 14.0
@@ -40,11 +55,18 @@ def authored(value: Any) -> dict[str, Any]:
 
 
 class Ctx:
-    """One index over `model.build()` plus the registered traps — the only source a sheet reads."""
+    """One index over `model.build()` plus the registered traps — the only source a sheet reads.
 
-    def __init__(self, world: dict[str, Any]) -> None:
+    `fence` (R0, W-19): member ids a Rev B composer must never see — the members Rev C draws first
+    (`revc.DRAWN_IN_C`). Every member-derived index leaves them out, so each model-driven loop of a
+    Rev B composer draws exactly what Rev B drew; the Rev C pass reads an unfenced Ctx."""
+
+    def __init__(self, world: dict[str, Any], *, fence: frozenset[str] = frozenset()) -> None:
         self.world = world
-        self.members = world["members"]
+        unknown = sorted(fence - {m["id"] for m in world["members"]})
+        assert not unknown, f"the Rev C fence names members the model does not build: {unknown}"
+        self.fence = fence
+        self.members = [m for m in world["members"] if m["id"] not in fence]
         self.by_id = {m["id"]: m for m in self.members}
         self.by_class: dict[str, list[dict[str, Any]]] = {}
         self.by_mark: dict[str, list[dict[str, Any]]] = {}
@@ -131,18 +153,51 @@ class Paper:
         unit: str = "ftin",
         caption: str | None = None,
     ) -> View:
-        """Frame a 1:1 scene into a window on the paper, centred on the scene's own extents."""
-        x0, y0, x1, y1 = scene.bbox()
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-        origin = (cx - size[0] * scale / 2, cy - size[1] * scale / 2)
-        v = View(title, scene, scale, at, size, origin, (0.0, 0.0), unit)
-        self.views.append(v)
-        text = caption if caption is not None else f"{title}  SCALE 1:{scale}"
-        self.caption(text, (at[0], at[1] - 6.0), 4.0)
-        return v
+        """Frame a 1:1 scene into a window on the paper: the window Rev B issued it in (W-19a).
+
+        Rev B centred each window on its scene's extents; the pin is that window, so a view keeps
+        it whatever a later correction does to its scene. A view with no pin is not a Rev B view,
+        and a Rev B composer draws nothing else: a later view is `revc.add_view`'s."""
+        key = f"{self.number}#{len(self.views)}"
+        pin = REVB_WINDOWS.get(key)
+        assert pin is not None, (
+            f"{key} {title!r}: no Rev B window is pinned for this view — a view a later revision "
+            "draws is added by emit/sheets/revc.py, framed on its own scene (W-19a)"
+        )
+        assert pin[0] == title, f"{key}: the pinned window is {pin[0]!r}'s, not {title!r}'s (W-19a)"
+        return frame_view(self.scene, self.views, title, scene, scale, at, size, pin[1], unit, caption)
 
     def sheet(self) -> Sheet:
         return Sheet(self.number, self.title, self.size, self.views, self.scene, self.scales, "B")
+
+
+def centred_origin(scene: Scene, scale: int, size: tuple[float, float]) -> Point:
+    """The window centred on a scene's own extents: the scene point at its lower-left."""
+    x0, y0, x1, y1 = scene.bbox()
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    return (cx - size[0] * scale / 2, cy - size[1] * scale / 2)
+
+
+def frame_view(
+    paper: Scene,
+    views: list[View],
+    title: str,
+    scene: Scene,
+    scale: int,
+    at: tuple[float, float],
+    size: tuple[float, float],
+    origin: Point,
+    unit: str,
+    caption: str | None,
+    rev: str | None = None,
+) -> View:
+    """One view on a sheet at `origin`, with its caption under the window (every view, every
+    revision: the caption convention has one home)."""
+    v = View(title, scene, scale, at, size, origin, (0.0, 0.0), unit, rev)
+    views.append(v)
+    text = caption if caption is not None else f"{title}  SCALE 1:{scale}"
+    paper.text(text, (at[0], at[1] - 6.0), 4.0, "S-SHEET")
+    return v
 
 
 def new_paper(ctx: Ctx, number: str) -> Paper:

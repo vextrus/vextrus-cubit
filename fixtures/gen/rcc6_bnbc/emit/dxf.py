@@ -19,6 +19,15 @@ counted at all. `validate.tally.reread()` of the written file must equal it, pai
 Determinism (FOUNDER'S LAW 4): no clock, every iteration sorted, ezdxf's fixed test meta data, the
 CLASSES section registered in sorted order, and handles assigned by creation order — two builds of
 the same sheets are byte-identical.
+
+Revisions (R0, W-19): the set was issued as Rev B, and the product's recordings, the trap registry
+and the notation corpus key on its handles. Handles are minted in creation order, so one entity
+created early moves every later one. Each writer therefore builds Rev B exactly as it was issued —
+its layers, blocks, entities, layouts and viewports, down to deleting `Layout1` and the records a
+save mints — and only then runs the append pass for `APPENDED`: the layers and blocks Rev B did not
+have, every item tagged with the revision (`Scene.revision`), every view (`View.rev`) and sheet
+(`Sheet.new_in`) first drawn in it. A Rev B record keeps its handle; an in-place value correction
+keeps its handle with a new body, and `validate/revision.py` holds the changed set to the register.
 """
 
 from __future__ import annotations
@@ -35,7 +44,7 @@ from ezdxf.render.mleader import ConnectionSide
 
 from ..validate import notation as _notation
 from . import plan
-from .scene import PAPER_MM, Block, Scene, Sheet, View, scale_item, translate
+from .scene import APPENDED, PAPER_MM, Block, Scene, Sheet, View, scale_item, translate
 
 #: The DXF release both files are written in. R2004 round-trips LibreDWG's dimension blocks; R2000
 #: does not (fixtures/gen/rcc6.py's finding, kept).
@@ -63,6 +72,27 @@ MALFORMED_LINE: int | None = None
 MODEL_TRAP_HANDLES: dict[str, str] = {}
 
 NOT_CONTENT = frozenset({"ATTRIB", "ATTDEF", "SEQEND", "VERTEX", "VIEWPORT"})
+
+#: `Placer.place(rev=EVERY)`: every item of the scene, whatever its tag — a view or a sheet first
+#: drawn in the appended revision belongs to it whole.
+EVERY = "*"
+
+#: The layers Rev B was issued with (`plan.LAYERS` keys). A layer the plan gains later is created
+#: in the append pass, so no table record, and nothing after it, changes handle (W-19). A Rev B
+#: layer never retires: its handle is evidence the corpus carries.
+REV_B_LAYERS = frozenset({
+    "Defpoints", "S-ARROW", "S-BEAM", "S-BEAMH", "S-COLR", "S-COLS", "S-DIMI", "S-DIMS", "S-FDN",
+    "S-GRID", "S-GRIDC", "S-GRIDT", "S-HATCH", "S-IMAGE", "S-LINE", "S-OLD", "S-REV", "S-ROD",
+    "S-ROD2", "S-SHEET", "S-SLAB", "S-STIR", "S-TEXT", "S-TEXT2", "S-TITLE", "S-WALL", "X-DOOR",
+    "X-WALL", "X-WIN",
+})
+
+#: The blocks Rev B was issued with (`blocks.library()` names). A block the library gains later is
+#: defined in the append pass, wherever it stands in the library's order (W-19).
+REV_B_BLOCKS = frozenset({
+    "TITLE_BLOCK", "NORTH_ARROW", "KEY_PLAN", "COL_TAG", "GRID_BUBBLE", "SECTION_MARK", "SCALE_BAR",
+    "LEVEL_MARK", "PC3_BAR", "PC3_CAGE", "PC3_DETAIL", "LINTEL_ROW", "ARCH-PLAN",
+})
 
 
 # ---------------------------------------------------------------------------------------------
@@ -221,9 +251,20 @@ class Placer:
 
     # -- placing a whole scene -----------------------------------------------------------------
 
-    def place(self, layout: Any, scene: Scene, space: str | None, offset: tuple[float, float] = (0.0, 0.0)) -> None:
+    def place(
+        self,
+        layout: Any,
+        scene: Scene,
+        space: str | None,
+        offset: tuple[float, float] = (0.0, 0.0),
+        rev: str | None = None,
+    ) -> None:
+        """Place one revision's items of a scene: Rev B's (untagged) by default, the appended
+        revision's (`rev=APPENDED`), or all of them (`rev=EVERY`, a view or sheet new in it)."""
         counter = self.tally.setdefault(space, Counter()) if space else None
         for item in scene.items:
+            if rev != EVERY and item.get("rev") != rev:
+                continue
             if self.skip is not None and self.skip(item):
                 continue
             placed = translate(item, offset) if offset != (0.0, 0.0) else item
@@ -275,12 +316,7 @@ def new_document() -> Any:
     doc.header["$INSUNITS"] = 0
     doc.header["$LUNITS"] = 4
     doc.header["$MEASUREMENT"] = 1
-    for key in sorted(plan.LAYERS):
-        name, colour = plan.LAYERS[key]
-        if name not in doc.layers:
-            doc.layers.add(name, color=colour)
-    for name in plan.FROZEN_LAYERS:
-        doc.layers.get(name).freeze()
+    _add_layers(doc, [key for key in sorted(plan.LAYERS) if key in REV_B_LAYERS])
     # ezdxf's setup ships CENTER and DASHED but not HIDDEN (the office's own beam-below linetype)
     if "HIDDEN" not in doc.linetypes:
         doc.linetypes.add("HIDDEN", pattern=[6.35, 3.175, -3.175],
@@ -290,6 +326,18 @@ def new_document() -> Any:
     if TITLE_FONT not in doc.styles:
         doc.styles.add(TITLE_FONT, font="swiss.ttf")
     return doc
+
+
+def _add_layers(doc: Any, keys: list[str]) -> None:
+    """The office layers named by `keys` (in the order given), frozen where the plan freezes them."""
+    for key in keys:
+        name, colour = plan.LAYERS[key]
+        if name not in doc.layers:
+            doc.layers.add(name, color=colour)
+    names = {plan.LAYERS[key][0] for key in keys}
+    for name in plan.FROZEN_LAYERS:
+        if name in names:
+            doc.layers.get(name).freeze()
 
 
 def _finish(doc: Any) -> None:
@@ -316,14 +364,54 @@ def _keep_main_viewport(layout: Any) -> None:
     assert layout.main_viewport() is not None, f"{layout.name}: page_setup planted no main viewport"
 
 
+def revision_of(sheet: Sheet, view: View) -> str | None:
+    """The revision a view was first drawn in — its sheet's, where the sheet itself is new."""
+    rev = sheet.new_in or view.rev
+    assert rev in (None, APPENDED), f"{sheet.number} {view.title!r}: no revision {rev!r} to draw in"
+    return rev
+
+
 def assign_model_offsets(sheets: list[Sheet]) -> None:
-    """Every view gets its own 200 m square of model space, in sheet then view order."""
+    """Every view gets its own 200 m square of model space, in sheet then view order — Rev B's views
+    first, each on the square it was issued on, then the appended revision's after them (W-19)."""
     index = 0
+    for rev in (None, APPENDED):
+        for sheet in sheets:
+            for view in sheet.views:
+                if revision_of(sheet, view) != rev:
+                    continue
+                view.model_offset = ((index % MODEL_COLUMNS) * MODEL_PITCH,
+                                     -(index // MODEL_COLUMNS) * MODEL_PITCH)
+                index += 1
+
+
+def _close_issue(doc: Any, placer: Placer, blocks: list[Block]) -> None:
+    """End Rev B exactly as its save ended it, then open the appended revision (W-19).
+
+    A save commits pending changes, registers the sorted CLASSES (`_finish`) and lets `update_all`
+    mint its own records (two APPIDs and the ezdxf DICTIONARYVAR) — after every entity it holds. So
+    those run here, before anything the appended revision draws, and mint what they always minted;
+    the save that follows finds nothing left to mint. Then the layers and blocks Rev B did not have."""
+    doc.commit_pending_changes()
+    _finish(doc)
+    doc.update_all()
+    _add_layers(doc, [key for key in sorted(plan.LAYERS) if key not in REV_B_LAYERS])
+    for block in blocks:
+        if block.name not in REV_B_BLOCKS:
+            placer.block(block)
+
+
+def _assert_every_item_placed(handles: dict[int, str], sheets: list[Sheet], name: str) -> None:
+    """Every authored item of every sheet was drawn: a tagged item no pass placed would be on the
+    PDF and missing from the DXF, which no handle check could see (W-19)."""
+    lost = []
     for sheet in sheets:
-        for view in sheet.views:
-            view.model_offset = ((index % MODEL_COLUMNS) * MODEL_PITCH,
-                                 -(index // MODEL_COLUMNS) * MODEL_PITCH)
-            index += 1
+        for scene in [sheet.paper, *[view.scene for view in sheet.views]]:
+            for item in scene.items:
+                assert item.get("rev") in (None, APPENDED), (sheet.number, item["kind"], item.get("rev"))
+                if id(item) not in handles:
+                    lost.append((sheet.number, item["kind"], item.get("rev")))
+    assert not lost, f"{name}: authored items no pass placed: {lost[:12]} ({len(lost)} in all)"
 
 
 # ---------------------------------------------------------------------------------------------
@@ -341,7 +429,7 @@ def write_paper(
     skip: Any = None,
 ) -> tuple[Path, dict[str, dict[str, int]]]:
     """The drawing as the office issues it: the views in model space, one layout per sheet, one
-    VIEWPORT per view at its own exact scale."""
+    VIEWPORT per view at its own exact scale — Rev B as issued, then the append pass (W-19)."""
     scratch = Path(scratch)
     scratch.mkdir(parents=True, exist_ok=True)
     _write_images(images, scratch)
@@ -349,32 +437,63 @@ def write_paper(
     placer = Placer(doc, images)
     placer.skip = skip
     for block in blocks:
-        placer.block(block)
+        if block.name in REV_B_BLOCKS:
+            placer.block(block)
     assign_model_offsets(sheets)
+    issued = [sheet for sheet in sheets if sheet.new_in is None]
 
     msp = doc.modelspace()
-    for sheet in sheets:
+    for sheet in issued:
         for view in sheet.views:
-            placer.place(msp, view.scene, "model", view.model_offset)
+            if view.rev is None:
+                placer.place(msp, view.scene, "model", view.model_offset)
 
-    for sheet in sheets:
+    for sheet in issued:
         layout = doc.layouts.new(sheet.layout_name)
         layout.page_setup(size=PAPER_MM[sheet.size], margins=(0, 0, 0, 0), units="mm")
         _keep_main_viewport(layout)
         placer.place(layout, sheet.paper, sheet.layout_name)
         for view in sheet.views:
-            _viewport(layout, view, skip=skip)
+            if view.rev is None:
+                _viewport(layout, view, skip=skip)
     doc.layouts.delete("Layout1")
+    _append_paper(doc, placer, sheets, blocks, skip=skip)
     _finish(doc)
     path = scratch / name
     doc.saveas(path)
     if skip is None:
+        _assert_every_item_placed(placer.handles, sheets, name)
         # A reduced write (the DWG source) is not the drawing the traps and the corpus are taken
         # from, so it never replaces the handle record of the real one.
         global LAST_HANDLES, LAST_TRAP_HANDLES
         LAST_HANDLES = placer.handles
         LAST_TRAP_HANDLES = placer.traps
     return path, placer.counts()
+
+
+def _append_paper(
+    doc: Any, placer: Placer, sheets: list[Sheet], blocks: list[Block], *, skip: Any = None
+) -> None:
+    """The appended revision in the paper set: what it adds to Rev B's views and sheets, its own
+    views (each on its own model square, `assign_model_offsets`) and its own sheets, whole."""
+    _close_issue(doc, placer, blocks)
+    msp = doc.modelspace()
+    for sheet in sheets:
+        for view in sheet.views:
+            whole = revision_of(sheet, view) == APPENDED
+            placer.place(msp, view.scene, "model", view.model_offset, rev=EVERY if whole else APPENDED)
+    for sheet in sheets:
+        if sheet.new_in == APPENDED:
+            layout = doc.layouts.new(sheet.layout_name)
+            layout.page_setup(size=PAPER_MM[sheet.size], margins=(0, 0, 0, 0), units="mm")
+            _keep_main_viewport(layout)
+            placer.place(layout, sheet.paper, sheet.layout_name, rev=EVERY)
+        else:
+            layout = doc.layouts.get(sheet.layout_name)
+            placer.place(layout, sheet.paper, sheet.layout_name, rev=APPENDED)
+        for view in sheet.views:
+            if revision_of(sheet, view) == APPENDED:
+                _viewport(layout, view, skip=skip)
 
 
 def _viewport(layout: Any, view: View, *, skip: Any = None) -> None:
@@ -414,28 +533,15 @@ def write_model_frames(
     placer = Placer(doc, images)
     placer.skip = skip
     for block in blocks:
-        placer.block(block)
+        if block.name in REV_B_BLOCKS:
+            placer.block(block)
     msp = doc.modelspace()
     k = float(plan.FRAME_SCALE)
     frames: dict[str, tuple[float, float]] = {}
-    for index, sheet in enumerate(sheets):
-        w, h = PAPER_MM[sheet.size]
-        fx = (index % MODEL_COLUMNS) * (w * k + 10_000.0)
-        fy = -(index // MODEL_COLUMNS) * (h * k + 10_000.0)
-        frames[sheet.number] = (fx, fy)
-        frame = Scene()
-        frame.items = [scale_item(item, k) for item in sheet.paper.items]
-        placer.place(msp, frame, "model", (fx, fy))
-        _carry_handles(placer, sheet.paper.items, frame.items)
-        for view in sheet.views:
-            inside = Scene()
-            factor = k / view.scale
-            inside.items = [_frame_item(item, factor, view.scale) for item in view.scene.items]
-            wx, wy = view.world_origin
-            offset = (fx + (view.paper_at[0] * k) - wx * factor,
-                      fy + (view.paper_at[1] * k) - wy * factor)
-            placer.place(msp, inside, "model", offset)
-            _carry_handles(placer, view.scene.items, inside.items)
+    issued = [sheet for sheet in sheets if sheet.new_in is None]
+    for index, sheet in enumerate(issued):
+        frames[sheet.number] = _frame_origin(index, sheet, k)
+        _plant(placer, msp, sheet, frames[sheet.number], k, None)
     layout = doc.layouts.new("SHEET")
     layout.page_setup(size=PAPER_MM[sheets[0].size], margins=(0, 0, 0, 0), units="mm")
     _keep_main_viewport(layout)
@@ -450,21 +556,63 @@ def write_model_frames(
     layout.add_viewport(center=(w / 2, h / 2), size=(w - 20.0, h - 20.0),
                         view_center_point=(fx + w * k / 2, fy + h * k / 2), view_height=h * k)
     doc.layouts.delete("Layout1")
+    # The appended revision (W-19): its new sheets take the frame squares after Rev B's.
+    _close_issue(doc, placer, blocks)
+    index = len(issued)
+    for sheet in sheets:
+        if sheet.new_in == APPENDED:
+            frames[sheet.number] = _frame_origin(index, sheet, k)
+            index += 1
+        _plant(placer, msp, sheet, frames[sheet.number], k, APPENDED)
     _finish(doc)
     path = scratch / name
     doc.saveas(path)
     if skip is None:
+        _assert_every_item_placed(placer.handles, sheets, name)
         global MODEL_HANDLES, MODEL_TRAP_HANDLES
         MODEL_HANDLES = placer.handles
         MODEL_TRAP_HANDLES = placer.traps
     return path, placer.counts()
 
 
+def _frame_origin(index: int, sheet: Sheet, k: float) -> tuple[float, float]:
+    """The lower-left of the index-th sheet's frame in model space."""
+    w, h = PAPER_MM[sheet.size]
+    return ((index % MODEL_COLUMNS) * (w * k + 10_000.0), -(index // MODEL_COLUMNS) * (h * k + 10_000.0))
+
+
+def _plant(placer: Placer, msp: Any, sheet: Sheet, origin: tuple[float, float], k: float,
+           rev: str | None) -> None:
+    """One sheet's frame and the views inside it, for one pass: Rev B's (`rev=None`), or what the
+    appended revision draws on it (its items on Rev B's scenes, its own views, a sheet new in it)."""
+    fx, fy = origin
+    whole_sheet = rev is not None and sheet.new_in == rev
+    frame = Scene()
+    frame.items = [scale_item(item, k) for item in sheet.paper.items]
+    placer.place(msp, frame, "model", (fx, fy), rev=EVERY if whole_sheet else rev)
+    _carry_handles(placer, sheet.paper.items, frame.items)
+    for view in sheet.views:
+        drawn_in = revision_of(sheet, view)
+        if rev is None and drawn_in is not None:
+            continue
+        inside = Scene()
+        factor = k / view.scale
+        inside.items = [_frame_item(item, factor, view.scale) for item in view.scene.items]
+        wx, wy = view.world_origin
+        offset = (fx + (view.paper_at[0] * k) - wx * factor,
+                  fy + (view.paper_at[1] * k) - wy * factor)
+        whole_view = rev is not None and drawn_in == rev
+        placer.place(msp, inside, "model", offset, rev=EVERY if whole_view else rev)
+        _carry_handles(placer, view.scene.items, inside.items)
+
+
 def _carry_handles(placer: Placer, sources: list[dict[str, Any]], copies: list[dict[str, Any]]) -> None:
     """A frame is drawn from copies of the sheet's own items; the handle each copy got belongs to
-    the item it was copied from, so a trap or a corpus row can still find it."""
+    the item it was copied from, so a trap or a corpus row can still find it. The copy's own entry
+    goes once carried: a copy dies with its scene and a later copy may be given its id — and in the
+    appended pass most copies are never placed, so a stale entry would be read as theirs (W-19)."""
     for source, copy in zip(sources, copies, strict=True):
-        handle = placer.handles.get(id(copy))
+        handle = placer.handles.pop(id(copy), None)
         if handle is not None:
             placer.handles[id(source)] = handle
 
@@ -617,6 +765,16 @@ def fill_trap_handles(
     evidence where there is one (the frames caption), else `null` beside a header variable, a
     file or a line number (F2-7). Written back to `fixtures/gen/rcc6_bnbc/traps.json` (W-06)."""
     del tally
+    resolve_trap_handles(traps_doc, sheets)
+    path = Path(__file__).resolve().parents[1] / "traps.json"
+    path.write_text(json.dumps(traps_doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    del paper_dxf_path
+    return traps_doc
+
+
+def resolve_trap_handles(traps_doc: dict[str, Any], sheets: list[Sheet]) -> dict[str, Any]:
+    """`fill_trap_handles` without the write: every trap's live handle, from the last writing of
+    the paper and frames sets, into `traps_doc` in place (R0's register check reads it too)."""
     anchors: dict[str, dict[str, Any]] = {}
     for sheet in sheets:
         for item in sheet.paper.items:
@@ -646,9 +804,6 @@ def fill_trap_handles(
             unresolved.append(trap["id"])
         trap["handle"] = handle
     assert not unresolved, f"traps with no live entity: {unresolved}"
-    path = Path(__file__).resolve().parents[1] / "traps.json"
-    path.write_text(json.dumps(traps_doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    del paper_dxf_path
     return traps_doc
 
 
