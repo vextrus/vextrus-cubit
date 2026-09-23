@@ -7,7 +7,7 @@
 // It also declares the screen's crumb, which is the frame's slot and therefore a client hook
 // (R-UI-084): the page above it is the server component that does the reading.
 import type { SiteFact, StandingSiteFact } from "@/core/site-facts/law";
-import { SiteFactsPanel, type EditionStatedFacts, type SiteFactParameterLabels, type SiteFactsChrome } from "@/modules/takeoff/site-facts-ui";
+import { SiteFactsPanel, type EditionStatedFacts, type SiteFactEntrants, type SiteFactParameterLabels, type SiteFactsChrome } from "@/modules/takeoff/site-facts-ui";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { BasisChip, Button, IdChip, Input, NumberInput, Select } from "@/ui/primitives/core";
@@ -64,11 +64,16 @@ export interface SiteFactsScreenProps {
    */
   readonly parameterLabels: SiteFactParameterLabels;
   readonly mayAuthor: boolean;
+  /**
+   * Who entered each standing fact, by the project roster's names — built by the page from the act
+   * log's actors and the roster's one guarded read (the Decision's I-527) and handed on untouched.
+   */
+  readonly enteredBy: SiteFactEntrants;
   readonly rulesetHref: string;
   readonly participantsHref: string;
 }
 
-export function SiteFactsScreen({ tenantId, projectId, standing, editionStated, parameterLabels, mayAuthor, rulesetHref, participantsHref }: SiteFactsScreenProps) {
+export function SiteFactsScreen({ tenantId, projectId, standing, editionStated, parameterLabels, mayAuthor, enteredBy, rulesetHref, participantsHref }: SiteFactsScreenProps) {
   // R-UI-084: the screen declares its own crumb through the frame's slot, in the one home the area's
   // words live in — the nav row and the page crumb wear the same word (B-17).
   useShellPage(PROJECT_SETTINGS_PAGES["site-facts"]);
@@ -81,6 +86,7 @@ export function SiteFactsScreen({ tenantId, projectId, standing, editionStated, 
       editionStated={editionStated}
       parameterLabels={parameterLabels}
       mayAuthor={mayAuthor}
+      enteredBy={enteredBy}
       rulesetHref={rulesetHref}
       participantsHref={participantsHref}
       preview={previewSiteFactAction}

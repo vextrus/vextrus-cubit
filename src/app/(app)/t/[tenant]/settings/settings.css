@@ -9,13 +9,22 @@
 
 /* The pane fills `shell-main`: the nav's seam runs the whole height of the field, and the content
    column is what the screen's own primary stretches inside. A settings screen whose table sat in
-   the top eighth of the field would be a work surface nobody could see (C1). */
+   the top eighth of the field would be a work surface nobody could see (C1).
+
+   I-522: the field is `shell-main`'s whole box, not its content box. Main pads every screen by
+   `--space-6`, and inside that band the nav's rule stopped 24 px under the top bar and 24 px over
+   the readout — a seam that floated in the frame instead of dividing it. The template takes the
+   band back — a negative block margin of exactly main's padding — and pads its own two columns by
+   the same token, so the rule meets the top bar and the readout while every column keeps the
+   inset it had (and every screen's height bound, s-settings-ruleset I-349, still subtracts the
+   same padding twice). */
 .cx-settings {
   display: grid;
   grid-template-columns: var(--drawer-w-min) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: stretch;
-  min-height: 100%;
+  margin-block: calc(var(--space-6) * -1);
+  min-height: calc(100% + var(--space-6) * 2);
 }
 
 /* --- the section nav (160 px, a vertical list of 28 px rows) --- */
@@ -23,6 +32,7 @@
 .cx-settings-nav {
   position: sticky;
   top: 0;
+  padding-block: var(--space-6);
   padding-inline-end: var(--space-2);
   border-inline-end: var(--hairline);
 }
@@ -86,7 +96,16 @@
   gap: var(--gap-section);
   min-width: 0;
   min-height: 0;
+  padding-block: var(--space-6);
 }
+
+/* I-523: a grid in this template ends at its last column. The DataTable draws its rows the width of
+   the pane, so a grid whose columns sum short of it ran its frame, its header and its hover band on
+   past the last column over empty track — while the one column that holds prose truncated beside
+   that track (R-UI-083: truncation is for a cell with no room). Each screen names its text column,
+   whose `size` is then its floor and which takes the width the fixed columns leave — the s-documents
+   I-348 rule. A cell carries no column name, so the screen addresses it by position; a column a
+   reader hides or pins only moves which cell takes the share. */
 
 /* A region that IS the screen's work surface takes the height the pane has left: the grid inside it
    fills from the top and keeps its sticky header, so a screen with three rows looks like the same

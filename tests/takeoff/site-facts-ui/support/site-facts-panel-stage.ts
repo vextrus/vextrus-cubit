@@ -22,7 +22,7 @@ import { expect } from "vitest";
 import type { Consequence } from "../../../../src/core/acts";
 import type { RefusalCode } from "../../../../src/core/errors";
 import type { SiteFact, StandingSiteFact } from "../../../../src/core/site-facts/law";
-import { SiteFactsPanel, type EditionStatedFacts, type SiteFactParameterLabels, type SiteFactsChrome } from "../../../../src/modules/takeoff/site-facts-ui";
+import { SiteFactsPanel, type EditionStatedFacts, type SiteFactEntrants, type SiteFactParameterLabels, type SiteFactsChrome } from "../../../../src/modules/takeoff/site-facts-ui";
 import { siteFactParameterLabels } from "../../../../src/app/(app)/t/[tenant]/p/[project]/settings/site-facts/parameter-labels";
 import { SettingsHeader } from "../../../../src/app/(app)/t/[tenant]/settings/settings-pane";
 import { ConsequenceDialog } from "../../../../src/ui/patterns/consequence-dialog";
@@ -70,6 +70,11 @@ export interface StagedSiteFactsPanel {
   readonly parameterLabels: SiteFactParameterLabels;
   /** Whether this reader holds AUTHOR_PROJECT_FACT; a reader without it still sees the whole panel. */
   readonly mayAuthor: boolean;
+  /**
+   * Who entered each standing fact, by the roster's names (the Decision's I-527). Optional, as it is
+   * on the panel: a case that says nothing about people mounts a panel that names nobody.
+   */
+  readonly enteredBy?: SiteFactEntrants;
   readonly preview: (statement: StagedSiteFactStatement) => Promise<StagedPreviewAnswer>;
   readonly commit: (carried: StagedSiteFactStatement & { consequenceDigest: string }) => Promise<StagedCommitAnswer>;
   /** Where a deferral's evidence leads for the facts the pinned edition may also state (I-B). */

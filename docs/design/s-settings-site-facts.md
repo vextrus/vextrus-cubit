@@ -28,12 +28,13 @@
 (Amended 2026-09-23, I-327: over the SAMPLE pin a fresh project defers the ground level and the water
 table only — the four earthwork lengths read the pinned edition's figures under DERIVED, which is
 what the earthwork rail reads for them — and all six rows stand above the fold at both viewports.)
-(Amended session 8, I-438/b/c: the four facts the pin may state are named exactly as the Rule set
+(Amended session 8, I-438–I-440: the four facts the pin may state are named exactly as the Rule set
 screen names their parameters; the basis chip stands in its own column after the figure, so every
-name starts at the column's edge; every row stands at 28; the door stands at the row's trailing edge.)
+name starts at the column's edge; every row stands at 28; the door stands at the row's trailing edge.
+Amended again, I-527: Entered by names the person who entered the fact, not the act's id.)
 
 GROUND_LEVEL entered (the `fact-entered` leg) — the deferral is gone from that row alone:
- │ Existing ground level │    -1.2 m │ ✎ Entered │ Survey sheet S-01 │ 8e8d2f ⎘ │  Restate │   data-basis="ENTERED"
+ │ Existing ground level │    -1.2 m │ ✎ Entered │ Survey sheet S-01 │ rahim.ud… │  Restate │   data-basis="ENTERED"
 
 The entry form, open under the row it belongs to (the deferral still standing above it):
  │ ┌ [  -1.2  ] m │ Metre (m) ▾ │ [ Survey sheet S-01              ] │ Cancel ● Enter this fact ┐ │
@@ -218,6 +219,33 @@ JSX carries no string literal beyond test ids and fixed attribute values.
   face would fall silent the day the register is reworded), and a screen-local deferral block with
   shorter words (the second refusal spelling B-17 forbids). Guarded by
   `tests/takeoff/site-facts-ui/deferrals.test.ts`.
+- **I-527 — Entered by names a person (session 8, C8; R-UI-082, participants I-51, s-documents
+  I-348's "the issuer is a person").** Gate 2's `fact-entered` capture showed the column headed
+  **Entered by** over an identifier chip (`1a42c54`) — the act's id, where the reader looks for who
+  entered the ground level. An id there answers "which act", a question nobody on this screen asked;
+  S-Audit, S-Project and Documents already name people by the project's roster. Ruling: the cell names
+  the PERSON who performed the act the entry cites. Who performed an act is the act log's own column
+  (`acts.actor_id`, written once by the one act seam — a ledger row names its act and nothing else,
+  so nothing is copied onto the ledger): `siteFactActorsOf` (`site-facts-ui/server.ts`) reads it for
+  the standing entries' acts, on the tenant's own handle and bounded to the project. What the person
+  is CALLED is the roster's: the page reads it once through the participants module's own guarded
+  door (`rosterOf` → `peopleOf`, `../../roster.ts` — the S-Audit, S-Project and Documents read), and
+  `siteFactEntrants` (`settings/site-facts/entrants.ts`) hands the panel `enteredBy` — act id →
+  label for the acts the roster names, and the reader's own label. The cell is then the label in the
+  UI face at `--ink-secondary` (a name, not an identifier: no mono, no chip), one line, the whole name
+  on its tooltip past the column's 140, still `site-facts-row-act` with the act's id whole on
+  `data-value` — so the row still names the act that entered it (AM-06 §1, L-ACT-01) and the id is
+  body text nowhere (R-UI-082). An act THIS panel carried names the reader, who performed it, until a
+  read names it. Where the roster names nobody for the act — a reader it refused, an account with no
+  address, someone who has left — the cell is the act's `IdChip` as before: an identity a reader can
+  copy and follow to the record, never a guessed name. Rejected: the actor's user id as the fallback
+  chip (an id either way, and the act's id is what the row already carries and S-Audit is keyed by),
+  and a wider column (at 1280 the Source note's 240 is what keeps "Stated by the pinned rule set"
+  whole). Unit proof: `tests/takeoff/site-facts-ui/entered-by.test.tsx` (the cell, mounted with the
+  shipped renderers, and `siteFactEntrants`); live proof: `site-fact-actors.live.test.ts` (two
+  entries by two people name two people; bounded to the project and the workspace). J-305 now reads
+  the cell as the worker's own address (TEST_AMENDED) and masks it in `fact-entered.png`, as the top
+  bar's address is masked.
 
 ## 1. Regions (1440×900; the content pane is 1184 × 812, per the sub-navigation Decision)
 
@@ -262,8 +290,11 @@ in the fold at both viewports. Exactly one primary per region; no second right c
   either (I-440): `site-facts-row-source`, the note verbatim, `--text-13`, one line,
   ellipsis + tooltip. DERIVED: `site_facts_edition_source` as a link to the Rule set screen, no
   testid (I-327). ABSENT: `site_facts_absent_value`, no testid.
-- **Entered by** — 140: `site-facts-row-act`, the act id through `IdChip` (short form, copy, full in
-  the tooltip) — the 36-char id is body text nowhere (R-UI-082). ABSENT and DERIVED:
+- **Entered by** — 140: `site-facts-row-act`, the person who performed the entry's act, by the
+  project roster's name for them (I-527) — `cx-site-facts-person`, the UI face at `--ink-secondary`,
+  one line, ellipsis, the whole name on the tooltip, the act's id whole on `data-value`; where the
+  roster names nobody for that act, the act id through `IdChip` (short form, copy, full in the
+  tooltip). Either way the 36-char id is body text nowhere (R-UI-082). ABSENT and DERIVED:
   `site_facts_absent_value` — no act entered the fact.
 - **Act** — 120, trailing: the row's ghost core Button `site-facts-enter`, label `site_facts_enter`
   on an ABSENT or DERIVED row (entering a stated fact overrides the pin, L-MEA-06) and
@@ -394,7 +425,8 @@ the reticle draw live in their single homes. Every duration is a token zeroed at
 Semantic aliases and density/layout tokens only (Direction §4; a `--graphite-*`/`--beam-*` reference
 here is a `cubit/no-primitive-token` failure): `--surface-app` · `--surface-panel` ·
 `--surface-sunken` (the entry sub-row) · `--ink` / `--ink-muted` / `--ink-code`
-· `--ink-secondary` (a DERIVED figure, I-327) · `--ink-link` (the DERIVED source link) ·
+· `--ink-secondary` (a DERIVED figure, I-327; the person who entered a fact, I-527) · `--ink-link`
+(the DERIVED source link) ·
 `--ink-disabled` (the shut door) · `--line` through `--hairline` · `--accent` (the submit, the
 primitive's own) · `--row-h` · `--control-h` · `--control-h-lg` · `--cell-px` / `--cell-py` ·
 `--drawer-w-min` · `--gap-section` · `--space-2/3/4` · `--text-12/13/20` · `--font-mono` /
@@ -533,3 +565,11 @@ Two conflicts in the closed surface, recorded rather than spelled around:
   statement, that rewording departs from no clause. §0's grid-law citation reads R-UI-083 (it cited
   the breadcrumb law, R-UI-084). The three `s-settings-site-facts` pictures move and are the gate's
   to re-take.
+- Session 8, C8 (gate 2's `fact-entered` capture: "Entered by" over an id chip): I-527. The Entered
+  by cell names the person who performed the entry's act, by the project roster's name for them, with
+  the act's id still whole on `data-value` and the act's IdChip standing only where the roster names
+  nobody; `siteFactActorsOf` reads the act log's actor, `siteFactEntrants` names it, and the panel
+  takes `enteredBy`. The note under the wireframe cited "I-438/b/c", a renumbering's leftover — it
+  reads I-438–I-440. J-305 reads the cell as the worker's address and masks it in its picture
+  (TEST_AMENDED); `s-settings-site-facts/fact-entered` moves and is the gate's to re-take, and the
+  settings template's seam (s-settings I-522) moves all three of this screen's pictures.

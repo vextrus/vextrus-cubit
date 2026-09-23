@@ -26,11 +26,16 @@
        160                                   the content pane
 ```
 
+(Amended session 8, I-522/I-523: the nav's rule runs from the top bar to the readout, and every
+grid in the template ends at its last column — here Role history and the invitee's address take the
+width their fixed columns leave, so the `⋯` and Resend · Withdraw close their rows at the frame's
+edge; the invite door never shrinks below its label.)
+
 | Region | Purpose | Size | Empty | Error | Loading |
 |---|---|---|---|---|---|
-| section nav | the workspace's settings areas; Members is `settings-members-link` and carries `aria-current` | 160 × 100 % (`--drawer-w-min`), rows `--control-h` | — (an area with no screen is shown disabled with its reason in a tooltip) | — | — |
+| section nav | the workspace's settings areas; Members is `settings-members-link` and carries `aria-current` | 160 × the field's whole height (`--drawer-w-min`; its rule meets the top bar and the readout, I-522), rows `--control-h` | — (an area with no screen is shown disabled with its reason in a tooltip) | — | — |
 | header | the title, the `(i)` that holds the caption, the search | 100 % × 40 | — | — | — |
-| roster (primary) | who belongs, the role each holds, the record, the count of projects, the row menu | flex × `--row-h` rows | impossible — seeing the roster needs membership, so it always holds the reader | the root boundary (`src/app/error.tsx`) | `loading.tsx` bones at the row height |
+| roster (primary) | who belongs, the role each holds, the record, the count of projects, the row menu | flex × `--row-h` rows; Role history takes the width the fixed columns leave (I-523) | impossible — seeing the roster needs membership, so it always holds the reader | the root boundary (`src/app/error.tsx`) | `loading.tsx` bones at the row height |
 | row refusal | `RefusalState` in the refused row's own member cell (§5 rule 8's partial row: ⚠ on the row, the answer beneath it) | row × auto | — | — | — |
 | row menu | the `⋯`, holding the screen's single danger item | `--control-h` square | — | — | — |
 | roster foot | the search's honest none, the live status line, the roster's `(i)` | 100 % × `--control-h` | "No member of this workspace matches that." | — | — |
@@ -161,6 +166,39 @@ test ids and fixed attribute values.
   movement, its project id on `data-project` and never as body text — so what the module
   answered is on the screen, one line per row, given back whole by the grid's own
   truncation tooltip (§5 rule 2).
+- **I-522 — the settings frame's seam runs the field's whole height (session 8, C8; Direction
+  §3.6, R-UI-030's 1 px hairline).** `shell-main` pads every screen by `--space-6`, and the template
+  stood inside that band: the nav's `border-inline-end` began 24 px under the top bar and ended 24 px
+  over the readout, a rule floating in the frame rather than dividing it (session 7's recorded
+  "settings frame's seam"). Ruling: the template takes the band back — `.cx-settings` carries a
+  negative block margin of exactly main's padding and is at least main's whole box tall — and pads
+  its two columns, the nav and the content, by the same token, so the rule meets the top bar and the
+  readout while every column keeps the inset it had. Because the content pane's own padding IS main's
+  padding by construction, every settings screen's height bound (s-settings-ruleset I-349) still
+  subtracts the right band twice; `tests/ui/project-settings/settings-field-bound.test.ts` reads both.
+  Rejected: zeroing main's padding for settings routes (the shell's geometry, one home, and every
+  other screen's inset would read two ways), and a pseudo-element rule drawn past the nav's box (a
+  second spelling of the seam).
+- **I-523 — a grid in the settings template ends at its last column (session 8, C8; R-UI-083, the
+  s-documents I-348 rule).** The shipped DataTable draws its rows the width of the pane. A grid whose
+  columns summed short of it ran its frame, its header and its hover band on past the last column
+  over empty track — the Rule set's Unit column, ruled at 96, stood ~690 px wide — while its one column
+  of prose truncated beside that track: this roster's Role history ("No role movements on this
+  workspace's pr…" beside ~280 px of nothing at 1440). Ruling: each settings grid names its column of
+  prose, whose `size` is then its floor and which takes the width the fixed columns leave; the
+  figures, the codes and the row's controls close the row at the frame's edge. Here: **Role history**
+  in the roster, the **Email address** in the invitations table. The Rule set, Author edition and
+  Participants Decisions name theirs. A cell carries no column name, so each sheet addresses its
+  column by position, and a column a reader hides or pins only moves which cell takes the share (the
+  s-documents precedent). The same finding covers a section line's controls: the invitation form is
+  sized to its content, and a flex container reads an item's content size from its width, not from
+  its flex basis — with the 240 stated as a basis alone, gate 2's J-002 capture shows the field at
+  ~200 px and the door at ~105, below its own label, so "Send invitation" broke onto a second line
+  out of its 28 px box (the roster's search, likewise, stands ~183 wide). The field and the roster's search state their 240 as a width (each may still shrink
+  where a line has no room), and the invite door never shrinks below its label. Rejected: bounding
+  each frame to its columns (`fit-content`) — at 1440 the Rule set's parameters grid would stand 578
+  of 1,168 px wide, about a quarter of `shell-main`, and the rubric's `workSurface` would read 1.
+  Guarded by `tests/ui/project-settings/settings-frame.test.ts`.
 
 ## 1. Layout and hierarchy
 
@@ -182,7 +220,10 @@ hover `--surface-hover`; the row for the area a reader is standing in carries
 a screen is a `next/link` (Members is `settings-members-link`, I-199; Books is the shell's own
 `books` area); an area with none — Rule set, Taxonomy, Tax — is a `<span aria-disabled>` in a
 `Tooltip` saying `settings_nav_unbuilt`, so it is neither hidden nor broken (§3.3's "disabled
-with a tooltip instead of inline text"). The content pane is a column, gap `--gap-section`.
+with a tooltip instead of inline text"). The content pane is a column, gap `--gap-section`. The
+pane takes `shell-main`'s block padding back (margin-block `calc(var(--space-6) * -1)`, min-height
+`calc(100% + var(--space-6) * 2)`) and the nav and the content each pad by `--space-6` instead, so
+the nav's hairline runs from the top bar to the readout (I-522).
 
 **The header** (40 px, one per screen): `<h1>` `members_heading` at `var(--text-20)`
 `var(--weight-heading)`, then the `(i)` — a ghost `PopoverTrigger` one `--control-h` square
@@ -212,7 +253,8 @@ exactly `membersOf`'s order (the store's own, never re-sorted, never localeCompa
   `<span data-testid="members-row-role" data-technical>`; and the secondary confirm
   (`members-role-submit`, label `members_role_submit`, `aria-label`
   `members_role_submit_label` filled with the row's member) exactly when I-201 says it stands.
-- **Role history** (260) — `<ol data-testid="members-role-history">`, always rendered, one
+- **Role history** (260, the remainder: it takes the width the other four leave, I-523) —
+  `<ol data-testid="members-role-history">`, always rendered, one
   `<li data-testid="members-history-entry" data-project data-direction data-role>` per
   movement in the module's own order: the direction and the role as words, then
   `members_history_by` filled with the actor's label (I-58; `members_member_unnamed` when
@@ -255,10 +297,10 @@ the invite form.
 
 **Invite form** — `<form data-testid="members-invite-form" aria-labelledby={the heading}>`,
 flex, gap `var(--space-2)`: the core Input `data-testid="invitations-email"` (`type="email"`,
-`--control-h`, 240 px, named AND hinted by `invitations_email_label`, which is the same
-wording the pending table heads its first column with — one home for the words, B-17) and the
-screen's ONE primary, a core primary Button `data-testid="invitations-submit"` labelled
-`invitations_submit`. It is the only primary on this screen and the only copper on it; the
+`--control-h`, 240 px stated as its width — I-523 — named AND hinted by `invitations_email_label`,
+which is the same wording the pending table heads its first column with — one home for the words,
+B-17) and the screen's ONE primary, a core primary Button `data-testid="invitations-submit"`
+labelled `invitations_submit`, which never shrinks below its label (I-523). It is the only primary on this screen and the only copper on it; the
 roster's controls are secondary and ghost, and the single danger style is I-202's menu item.
 No control in this panel ever takes core's loading state: that state swallows the button's own
 activation, and a press swallowed here is an attempt the server's allowance never counts — the
@@ -276,7 +318,8 @@ settled by the invitation id — never re-sorted, never localeCompare: the offer
 the one the reader is looking for), carrying `data-testid="invitations-row"` and
 `data-invitation`, three columns:
 
-- **Email address** (320, the frozen key column) — the invitee's address read back through the
+- **Email address** (320, the frozen key column and the remainder: it takes the width the role and
+  the row's acts leave, I-523) — the invitee's address read back through the
   fold's one home (I-58; `invitations_invitee_unnamed` when the key carries none), 13 px
   `--weight-body-medium`, one line, ellipsis.
 - **Role** (140) — the offered role through `EnumLabel`: a person reads "Member", and the

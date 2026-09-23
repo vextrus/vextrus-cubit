@@ -19,7 +19,7 @@
 │  │             │ Role history  3  (i)                                         │  section 28
 │  │             │ ┌──────────┬────────────┬──────────────┬──────────────────┐  │
 │  │             │ │ Direction│ Role       │ Member       │ Recorded         │  │  28 px rows
-│  │             │ │ Grant    │ Principal  │ j003p-…      │ on 12 Sep 2026   │  │
+│  │             │ │ Grant    │ Principal  │ j003p-…@cubi…│ 12 Sep 2026 by … │  │
 │  │             │ └──────────┴────────────┴──────────────┴──────────────────┘  │
 └──┴─────────────┴──────────────────────────────────────────────────────────────┘
        160                              the content pane
@@ -29,15 +29,18 @@
 set, Participants, Site facts, Author edition, the order the settings surfaces contract pins — the
 roster is sized to its rows, and the role and direction chips read in words. Amended again at
 integration: the roster takes the height the act and the record leave, and those two stand side by
-side beneath it — see I-328.)
+side beneath it — see I-328. Amended session 8, I-524: the roster's outline is drawn round its
+header and rows and ends at the last of them, the region under it unframed; each field's label
+stands on its first chip line; the record's Member takes the width its share leaves, and Recorded
+leads with the day.)
 
 | Region | Purpose | Size | Empty | Error | Loading |
 |---|---|---|---|---|---|
 | section nav | the project's settings areas; Participants carries `aria-current` | 160 × 100 % (`--drawer-w-min`), rows `--control-h` | — (an area with no screen is shown disabled with its reason in a tooltip) | — | — |
 | header | the title and the `(i)` that holds the caption | 100 % × 40 | — | — | — |
-| current roles (primary) | who holds which role, in force now | 100 % × the height the act and the record leave, inside a box the frame's height (I-214's fill, restored at integration by I-328 as amended); `--row-h` rows, scrolling inside its own frame | impossible — a project holds at least one PRINCIPAL at every moment | the root boundary (`src/app/error.tsx`) | `loading.tsx` bones at the row height |
+| current roles (primary) | who holds which role, in force now | 100 % × the height the act and the record leave, inside a box the frame's height (I-214's fill, restored at integration by I-328 as amended); `--row-h` rows; the hairline outline hugs the header and the rows and ends at the last of them, scrolling inside itself past the region's height (I-524) | impossible — a project holds at least one PRINCIPAL at every moment | the root boundary (`src/app/error.tsx`) | `loading.tsx` bones at the row height |
 | assign form | the one act: three single-selection chip groups, the answer slot, the one primary | 7/16 of the pane × auto, beside the role history; controls `--control-h` | — | the judged line, then `RefusalState` in the slot; once the dialog holds focus, the dialog's own slot | the submit's loading state |
-| role history | every grant and withdrawal, oldest first, with who recorded it and when | 9/16 of the pane, beside the form × `--row-h` rows sized to them up to six, then scrolling inside its own frame | impossible — the creating grant is always on the record | the root boundary | bones at the row height |
+| role history | every grant and withdrawal, oldest first, with when and by whom it was recorded | 9/16 of the pane, beside the form × `--row-h` rows sized to them up to six, then scrolling inside its own frame; the Member takes the width the share leaves (I-524) | impossible — the creating grant is always on the record | the root boundary | bones at the row height |
 | permission-denied | the header, and one `RefusalState` saying why nothing else stands | 100 % × auto | — | — | — |
 
 Built on Design Direction 00 §3.6's Settings template, whose geometry outranks this file where the
@@ -181,6 +184,40 @@ no string literal beyond test ids and fixed attribute values.
   act and the record leave. That is I-214's rule, and the act can no longer be pushed below the fold,
   because the box is the frame's height, not the page's. The record is sized to its rows up to six,
   past which it scrolls inside its own frame.
+- **I-524 — the roster's outline ends at its last row; the form's labels stand on their first line;
+  the record is read by when (session 8, C8; R-UI-081/083, AM-08; amends I-328).** Session 7's final
+  re-look found three things on this screen, and gate 2's capture confirmed them.
+  (1) I-328 as amended draws the roster as the rubric's work surface, the height the act and the
+  record leave, and put the hairline round that whole region: one member's row stood over ~250 px of
+  empty outlined box at 1440, the screen's most visible weakness — against I-328's own sentence that
+  a padded grid is not a work surface, and against the settings area's rule that a frame is as tall
+  as its rows (s-settings-ruleset-author I-326, the Site facts table). Ruling: the REGION keeps the
+  fill — the grid the rubric measures still stands the region's height, so `workSurface` and
+  `aboveTheFold` do not move — but the OUTLINE is the grid's scroll box, as tall as its header and
+  rows up to the region's height (past which it scrolls inside itself, the header sticky), and the
+  space under it is the region's, unframed, as it is under the workspace's roster (s-settings §1).
+  The outline closes on its last row with one hairline: that row's own gives way to the frame's.
+  (2) The fieldset's legend was centred in its row, so the Role label sat midway between the two
+  lines its chips wrap onto and the label column broke at the one field that wraps. The legend now
+  stands at the start of its row in a line box one chip (`--control-h`) tall, level with the first
+  chip in every field, wrapped or not.
+  (3) In the record the Member column truncated the only member's address at 192 beside ~88 px of
+  empty track (R-UI-083: truncation is for a cell with no room), and the Recorded cell — "by
+  {address} on {day}" in 128 px — gave the DAY to the ellipsis on every row a person recorded
+  ("by j003p-muefq5r…"). The Member now takes the width the record's share leaves past its three
+  fixed columns (192 its floor; s-settings I-523), and `spine_participants_history_by` reads
+  **{date} by {actor}**: a ledger is read by when, the day always stands, and the address past the
+  measure is what the grid's truncation tooltip gives back. The creating grant still reads its day
+  alone (L-ACT-03's bootstrap names no performer). The screen's height bound is also said the one
+  way the other settings screens say it (s-settings-ruleset I-349): the frame renders no tool row and
+  the band above and below is the pane's own padding — the old `--toolbar-h` and `--gap-section`
+  terms left the box 16 px short of the field. Rejected: roster and record side by side with the act
+  beneath (the relook's other suggestion) — each grid would take half the width, the larger about a
+  fifth of `shell-main`, and the work surface would fall below the bar; and ruled empty rows drawn
+  under the roster (a blank line reads as a record that is not there). Unit proof:
+  `tests/ui/project-settings/participants-record.test.tsx` (the Recorded cell, mounted) and
+  `settings-frame.test.ts` / `settings-field-bound.test.ts` (the outline, the label, the Member's
+  share and the bound, read from the stylesheet).
 
 ## 1. Layout and hierarchy
 
@@ -230,7 +267,8 @@ A section line: `<h2>` `spine_participants_assign_heading` with the `(i)` holdin
 `<form data-testid="participants-assign-form">`, fieldsets stacked at gap `var(--space-2)`,
 each one a `--control-h` line of `minmax(0, 160px) 1fr` — the legend (floated, so it is a grid
 item and not the fieldset's rendered legend, I-328) in `var(--text-13)` `var(--ink-muted)` in the
-first column, a chip row at gap `var(--space-1)` in the second — whole chips wrap to a new line
+first column, start-aligned in a line box `--control-h` tall so it stands on the field's first chip
+line (I-524), a chip row at gap `var(--space-1)` in the second — whole chips wrap to a new line
 when a workspace has more members than the row holds; a chip's own label never wraps — so the
 three fields read as three lines of a compact form rather than three stacked blocks (I-48):
 
@@ -290,10 +328,13 @@ oldest first, newest last (I-52), one 28 px row per movement carrying
 - **Direction** (104; 140 before I-328 as amended) — `GRANT` or `WITHDRAW` through `EnumLabel` (I-211). The direction carries
   its meaning in the word, never in colour (Q-11): no semantic tint distinguishes a withdrawal.
 - **Role** (136; 180 before) — the role through `EnumLabel`, `--weight-body-medium`.
-- **Member** (192; 280 before) — the subject's label, one line, ellipsis, whole on the grid's tooltip.
+- **Member** (192 its floor, the remainder: it takes the width the record's share leaves past the
+  three fixed columns, I-524; 280 before I-328) — the subject's label, one line, ellipsis, whole on
+  the grid's tooltip.
 - **Recorded** (128; 240 before, headed `participants_col_recorded`) — `spine_participants_history_by` with
-  the acting member's label and the day through `src/core/format`'s date seam (DD MMM YYYY, the
-  s-home I-37 class), `tabular-nums slashed-zero`. A grant a project's creation installed was
+  the day through `src/core/format`'s date seam (DD MMM YYYY, the s-home I-37 class) FIRST and the
+  acting member's label after it (I-524: the day always stands; an address past the measure is the
+  grid's tooltip's), `tabular-nums slashed-zero`. A grant a project's creation installed was
   performed by nobody — L-ACT-03 makes the creating PRINCIPAL a bootstrap rather than an act — so
   the cell says when it happened and stops; "by an unnamed member" would name a performer that
   does not exist, which is worse than saying less (B-21).
@@ -350,7 +391,7 @@ change would do…** · `spine_participants_assign_committed` **Recorded. The ch
 record below.** · `spine_participants_history_heading` **Role history** ·
 `spine_participants_history_hint` **Every grant and withdrawal on this project, oldest
 first. Withdrawn roles stay on the record — nothing here is edited or deleted.** ·
-`spine_participants_history_by` **by {actor} on {date}** (both slots are data) ·
+`spine_participants_history_by` **{date} by {actor}** (both slots are data; the day leads, I-524) ·
 `spine_participants_member_unnamed` **Unnamed member** ·
 `spine_participants_denied_permission` **Seeing who holds which role needs participation on
 this project or ownership of the workspace; the permission your account is missing is
@@ -389,8 +430,10 @@ reduced motion; no bounce anywhere.
 Semantic aliases only (§4's rule 3 — no `--graphite-*`/`--beam-*` reference outside the token
 source): `--ink` / `--ink-secondary` / `--ink-muted` · `--state-danger(-surface)` (the judged
 line's own chrome) · `--line` through `--hairline` · the density and layout tokens the screen is
-drawn at — `--row-h`, `--control-h`, `--gap-section`, `--drawer-w-min` (the assign form's label
-column, which is the nav's measure and therefore the same column of the page) · `--space-1/2/3`
+drawn at — `--row-h`, `--control-h` (also the label's line box, I-524), `--gap-section`,
+`--drawer-w-min` (the assign form's label column, which is the nav's measure and therefore the same
+column of the page) · the screen's height bound, `--topbar-h`, `--status-h` and `--space-6`
+(s-settings-ruleset I-349's chain, I-524) · `--space-1/2/3`
 · `--radius-4` · `--text-12/13` · `--font-mono` · `--weight-body-medium` · `--motion-state` /
 `--ease`. Px literals: NONE — every measure on this screen is a token or a grid column's own
 width. `tests/ui/craft/mechanical.test.ts` scores this file for both.
@@ -456,3 +499,10 @@ the wrapper's input snapshot.
   participants pictures (J-003's `j-003-role-granted` and `j-003-last-principal-protected`
   checkpoints, and any gallery capture of this route) move and are the gate's to re-take; the
   open-dialog baseline is the dialog's own and does not move.
+- Session 8 (C8, the settings frame): I-524. The roster's region keeps the fill while its outline
+  hugs the header and rows and closes on the last row; each field's label stands on its first chip
+  line; the record's Member takes the width its share leaves and `spine_participants_history_by`
+  reads "{date} by {actor}"; the height bound is I-349's chain. The settings template's seam meets the
+  top bar and the readout (s-settings I-522). No committed picture shows this screen (its J-003
+  checkpoints are axe-only, and the open-dialog baseline is the dialog's own); the gate's walk and
+  the craft table are its proof in the running product.

@@ -21,15 +21,33 @@
   gap: var(--space-2);
 }
 
+/* s-settings I-523: the section line's trailing form is sized to its content, and a flex container
+   reads an item's content size from its width, not from its basis. With the 240 stated as a basis
+   alone both controls stood short of it (gate 2's J-002 capture): the field at ~200 and the one
+   primary at ~105, below its own label, which broke onto a second line out of its 28 px box. The
+   field states its measure as its width (it may still shrink where the line has no room); the door
+   never shrinks, so its label is one line at every width. */
 .cx-invitations-email {
-  flex: 0 1 240px;
+  flex: 0 1 auto;
+  inline-size: 240px;
   min-width: 0;
+}
+
+.cx-invitations-form > .cx-btn {
+  flex: none;
+  white-space: nowrap;
 }
 
 .cx-invitations-pending {
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+/* s-settings I-523: the frame ends at its last column — the invitee's address takes the width the
+   role and the row's two acts leave, so Resend and Withdraw close the row at the frame's edge. */
+.cx-invitations-table .cx-table-row > .cx-table-cell:first-child {
+  flex-grow: 1;
 }
 
 .cx-invitations-invitee {

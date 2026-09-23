@@ -88,7 +88,10 @@ export class SSiteFactsPage {
     return this.row(fact).getByTestId(TESTIDS.siteFacts.rowSource);
   }
 
-  /** The act that entered the fact, as an IdChip (short form; the id itself on `data-value`). */
+  /**
+   * Who entered the fact (I-527): the person's name as the project roster names them, the act's id
+   * whole on `data-value` — or the act's IdChip where the roster names nobody for it.
+   */
   rowAct(fact: string): Locator {
     return this.row(fact).getByTestId(TESTIDS.siteFacts.rowAct);
   }

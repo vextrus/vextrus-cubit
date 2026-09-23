@@ -229,7 +229,7 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
         </div>
         <div
           ref={lineageRegion}
-          className="cx-ruleset-table"
+          className="cx-ruleset-table cx-ruleset-table-lineage"
           data-testid={TESTIDS.ruleset.lineage}
           data-rendered-region={TESTIDS.ruleset.lineage}
           data-rows-rendered={lineageDrawn}

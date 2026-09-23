@@ -12,6 +12,15 @@
  *
  * Geometry is not observable under jsdom, so the proof reads the stylesheets the screens are drawn by,
  * through the craft rubric's own reader (`tests/support/stylesheet.ts`, B-17).
+ *
+ * s-settings-participants I-524: the fourth settings screen with a column bound — Participants,
+ * whose roster takes the height the act and the record leave, so its bound is a `block-size` rather
+ * than a ceiling — still said it the old way (tool row and section gap: 16 px short). It is bounded
+ * by the same chain now, and this roster names it, so a fifth spelling fails here.
+ *
+ * s-settings I-522: the band the bound subtracts twice is no longer `shell-main`'s padding as such —
+ * the settings template takes that band back into its own two columns — so the term is proven to be
+ * the template's own padding, which is main's padding by construction.
  */
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -24,12 +33,20 @@ const REPO_ROOT = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 // this lane can take is the declaration the browser is handed, read by the rubric's own reader.
 const sheet = (path: string): string => readFileSync(join(REPO_ROOT, path), "utf8");
 
-/** The three settings screens this area owns a column bound for, by the root each bounds. */
+/**
+ * The four settings screens this area owns a column bound for, by the root each bounds and the
+ * property it bounds it with: a ceiling where the column is as tall as its content, a height where
+ * a region inside it takes what the others leave (Participants' roster, I-328 as amended).
+ */
 const BOUNDED = [
-  { path: "src/app/(app)/t/[tenant]/p/[project]/settings/ruleset/ruleset.css", root: ".cx-ruleset" },
-  { path: "src/app/(app)/t/[tenant]/p/[project]/settings/ruleset-author/ruleset-author.css", root: ".cx-ruleset-author" },
-  { path: "src/modules/takeoff/site-facts-ui/site-facts.css", root: ".cx-site-facts" },
+  { path: "src/app/(app)/t/[tenant]/p/[project]/settings/ruleset/ruleset.css", root: ".cx-ruleset", prop: "max-block-size" },
+  { path: "src/app/(app)/t/[tenant]/p/[project]/settings/ruleset-author/ruleset-author.css", root: ".cx-ruleset-author", prop: "max-block-size" },
+  { path: "src/modules/takeoff/site-facts-ui/site-facts.css", root: ".cx-site-facts", prop: "max-block-size" },
+  { path: "src/app/(app)/t/[tenant]/p/[project]/settings/participants/participants.css", root: ".cx-participants", prop: "block-size" },
 ] as const;
+
+/** The settings template's sheet: the pane every one of those columns stands in (s-settings I-198). */
+const TEMPLATE = "src/app/(app)/t/[tenant]/settings/settings.css";
 
 /** `shell-main`'s padding, which is the space above and below every screen's column. */
 const MAIN_PADDING = declaredValue(sheet("src/ui/shell/shell.css"), ".cx-shell-main", "padding");
@@ -39,8 +56,15 @@ describe("I-349: the settings column is bounded to the field the frame leaves it
     expect(MAIN_PADDING, "shell.css states the field's padding as one token").toBe("var(--space-6)");
   });
 
-  test.each(BOUNDED)("$root: viewport − top bar − readout − main's padding twice, and no tool row", ({ path, root }) => {
-    const bound = declaredValue(sheet(path), root, "max-block-size");
+  test("s-settings I-522: the template pads its columns by main's own token, so the term is unchanged", () => {
+    const css = sheet(TEMPLATE);
+    for (const column of [".cx-settings-nav", ".cx-settings-content"]) {
+      expect(declaredValue(css, column, "padding-block"), `${column} insets its column by the band the frame took back`).toBe(MAIN_PADDING);
+    }
+  });
+
+  test.each(BOUNDED)("$root: viewport − top bar − readout − main's padding twice, and no tool row", ({ path, root, prop }) => {
+    const bound = declaredValue(sheet(path), root, prop);
     expect(bound, `${root} bounds its column (the grid is the region that gives up height)`).not.toBeNull();
     const said = (bound ?? "").replace(/\s+/g, " ");
     expect(said, "the frame renders no tool row, so its track is zero and takes nothing").not.toContain("--toolbar-h");
@@ -48,8 +72,9 @@ describe("I-349: the settings column is bounded to the field the frame leaves it
     expect(said).toBe(`calc(100dvh - var(--topbar-h) - var(--status-h) - ${MAIN_PADDING ?? ""} * 2)`);
   });
 
-  test("the three screens say the bound one way — a fourth spelling would be the drift this fixed", () => {
-    const bounds = BOUNDED.map(({ path, root }) => declaredValue(sheet(path), root, "max-block-size"));
+  test("the four screens say the bound one way — a fifth spelling would be the drift this fixed", () => {
+    const bounds = BOUNDED.map(({ path, root, prop }) => declaredValue(sheet(path), root, prop));
+    expect(bounds.every((bound) => bound !== null), "every screen on the roster states its bound").toBe(true);
     expect(new Set(bounds).size).toBe(1);
   });
 });

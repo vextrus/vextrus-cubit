@@ -15,7 +15,7 @@ export const participants = {
   spine_participants_assign_committed: "Recorded. The change is on the record below.",
   spine_participants_history_heading: "Role history",
   spine_participants_history_hint: "Every grant and withdrawal on this project, oldest first. Withdrawn roles stay on the record — nothing here is edited or deleted.",
-  spine_participants_history_by: "by {actor} on {date}",
+  spine_participants_history_by: "{date} by {actor}",
   spine_participants_member_unnamed: "Unnamed member",
   spine_participants_denied_permission: "Seeing who holds which role needs participation on this project or ownership of the workspace; the permission your account is missing is ADMINISTER_PROJECT.",
   spine_participants_denied_holder: "The project's participants and the workspace's owners and admins can see it.",

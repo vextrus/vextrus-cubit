@@ -7,19 +7,19 @@
 │  │▌Rule set  ◂ │ Rule set  (i)                                                │  header 40
 │  │Participants │ Project  IS1200_IN @ 2026.08   Content digest [a3f9c2d]⧉ (i) │  ONE line
 │  │Site facts   │ Parameters                                                   │  section 28
-│  │Author edit. │ ┌────────────────────────────┬──────────┬────────┐           │
-│  │             │ │ Parameter                  │    Value │ Unit   │           │  28 px rows
-│  │             │ │ Opening deduction minimum  │      0.1 │ m2     │           │  (primary:
-│  │             │ │ Member end no-deduct max…  │      500 │ cm2    │           │   scrolls in
-│  │             │ │ … 17 rows, the view's order …                  │           │   its frame)
-│  │             │ └────────────────────────────┴──────────┴────────┘           │
+│  │Author edit. │ ┌─────────────────────────────────────┬──────────┬────────┐  │
+│  │             │ │ Parameter                           │    Value │ Unit   │  │  28 px rows
+│  │             │ │ Opening deduction minimum           │      0.1 │ m2     │  │  (primary:
+│  │             │ │ Member end no-deduct maximum        │      500 │ cm2    │  │   scrolls in
+│  │             │ │ … 17 rows, the view's order …                           │  │   its frame)
+│  │             │ └─────────────────────────────────────┴──────────┴────────┘  │
 │  │             │ Lineage  (i)                                                 │  section 28
-│  │             │ ┌──────────┬────────────────────────┬──────────────┐         │
-│  │             │ │ Scope    │ Edition                │ Content diges│         │  28 px rows
-│  │             │ │ Platform │ IS1200_IN @ 2026.08    │ [a3f9c2d]⧉   │         │
-│  │             │ │ Workspace│ IS1200_IN @ 2026.08    │ [a3f9c2d]⧉   │         │
-│  │             │ │ Project  │ IS1200_IN @ 2026.08    │ [a3f9c2d]⧉   │         │
-│  │             │ └──────────┴────────────────────────┴──────────────┘         │
+│  │             │ ┌──────────┬─────────────────────────────────┬──────────────┐ │
+│  │             │ │ Scope    │ Edition                         │ Content diges│ │  28 px rows
+│  │             │ │ Platform │ IS1200_IN @ 2026.08             │ [a3f9c2d]⧉   │ │
+│  │             │ │ Workspace│ IS1200_IN @ 2026.08             │ [a3f9c2d]⧉   │ │
+│  │             │ │ Project  │ IS1200_IN @ 2026.08             │ [a3f9c2d]⧉   │ │
+│  │             │ └──────────┴─────────────────────────────────┴──────────────┘ │
 └──┴─────────────┴──────────────────────────────────────────────────────────────┘
        160                              the content pane
 ```
@@ -27,14 +27,17 @@
 (Amended 2026-09-23, I-325: the nav shows the four project areas in the roster's own order — the
 order AC-3 of the settings surfaces contract pins — the scopes read in words, the (i) follows the
 digest it explains, and the primary stands first under the pin with the lineage beneath it.)
+(Amended session 8, I-525: both frames run to the pane's edge and end at their last column — the
+Parameter and the Edition take the width their fixed columns leave, so the unit and the digest close
+their rows at the frame's edge; the nav's rule meets the top bar and the readout, s-settings I-522.)
 
 | Region | Purpose | Size | Empty | Error | Loading |
 |---|---|---|---|---|---|
 | section nav | the project's settings areas; Rule set carries `aria-current` | 160 × 100 % (`--drawer-w-min`), rows `--control-h` | — (an area with no screen is shown disabled with its reason in a tooltip) | — | — |
 | header | the title and the `(i)` that holds the caption | 100 % × 40 | — | — | — |
 | pinned edition | ONE line: the scope in words (EnumLabel), the edition L-MEA-01 spells, the content digest as an IdChip, then the `(i)` | 100 % × `--row-h` | the whole screen is the unpinned notice instead (I-28) | the root boundary (`src/app/error.tsx`) | `loading.tsx` bone at the row height |
-| parameters (primary) | every value a measurement on this project reads — first under the pin (I-325) | flex × `--row-h` rows; takes the height the pane leaves — the field less `shell-main`'s padding, no tool row (I-349) — and scrolls inside its own hairline frame, never cut by the status bar | never — an edition with no parameter is not an edition | the root boundary | bones at the row height |
-| lineage | the chain the pin was forked along, platform → tenant → project, as a 3-row grid, under the primary | 100 % × 3 × `--row-h` | never — a pinned edition always has a chain, and its own step is in it | the root boundary | three bones at the row height |
+| parameters (primary) | every value a measurement on this project reads — first under the pin (I-325) | 100 % × `--row-h` rows, the Parameter taking the width Value and Unit leave (I-525); takes the height the pane leaves — the field less `shell-main`'s padding, no tool row (I-349) — and scrolls inside its own hairline frame, never cut by the status bar | never — an edition with no parameter is not an edition | the root boundary | bones at the row height |
+| lineage | the chain the pin was forked along, platform → tenant → project, as a 3-row grid, under the primary | 100 % × 3 × `--row-h`; the Edition takes the width Scope and the digest leave (I-525) | never — a pinned edition always has a chain, and its own step is in it | the root boundary | three bones at the row height |
 | unpinned (the empty state) | `ShellEmptyState`: why there is nothing, and the one way onward | centred in the pane | this IS the empty leg | — | — |
 
 Built on Design Direction 00 §3.6's Settings template, whose geometry outranks this file where the
@@ -184,6 +187,25 @@ M3, inc-304).
   and `ruleset-lineage` each wear `data-rendered-region` under their own id and `data-rows-rendered`
   mirrored off the shipped table's own count (`rows-drawn.ts`, the settings area's one mirror — the
   Author edition screen's inline copy of it is retired). The craft walk read `regions=0 rows=-` here.
+- **I-525 — each grid's frame ends at its last column; the prose column takes the rest (session 8,
+  C8; s-settings I-523, R-UI-083).** Session 7's re-look found both frames running the full pane
+  while their columns summed far short of it: the Parameters grid's three columns are 576 px in a
+  1,166 px frame at 1440 (1,006 at 1280), so the Unit column, ruled at 96, was drawn ~690 px wide
+  and each unit badge stood beside its figure over a long empty band; the Lineage's digest column,
+  ruled at 160, was drawn ~760. The wireframe drew each frame ending at its last column, and nothing
+  ruled which column the DataTable's leftover width went to. Ruling (the settings template's rule,
+  s-settings I-523): the frames keep the pane's width — the primary is the rubric's work surface,
+  and bounded to its columns (578 of 1,168 px) it would stand at about a quarter of `shell-main`,
+  `workSurface` 1 — and the **Parameter** column takes the width Value and Unit leave, as the
+  **Edition** takes what Scope and the digest leave; each column's ruled width is its floor. So the
+  figure, its unit and the digest close their rows at the frame's edge, where the header's `⋯`
+  stands, and no header runs on past the last column. The row's hover band and hairline carry the
+  eye from a name to its figure across the width. The frame closes on its last row: that row's own
+  hairline gives way to the frame's, so the bottom edge is one hairline, not two, when the grid is
+  scrolled to its end. The chain's region carries `cx-ruleset-table-lineage` so its remainder rule
+  cannot reach the parameters. Rejected: `fit-content` frames (the work-surface cost above), and the
+  Value column as the remainder (the same reach from name to figure, with the figure no longer
+  beside its unit's column edge). Guarded by `tests/ui/project-settings/settings-frame.test.ts`.
 
 ## 1. Layout and hierarchy
 
@@ -237,7 +259,8 @@ A section line with `<h2>` `ruleset_parameters_heading`, then one `DataTable` (t
 per parameter in exactly the view's order, each carrying `data-testid="ruleset-parameter-row"` and
 `data-param={key}`, three columns (I-207) —
 
-- **Parameter** (320, the frozen key column, so the grid names the row by it — `rowheader`,
+- **Parameter** (320 its floor, the remainder — it takes the width Value and Unit leave, I-525;
+  the frozen key column, so the grid names the row by it — `rowheader`,
   which is what `<th scope="row">` was in the raw markup this screen used to write) — the human
   label from §3's table (keyed `ruleset_param_{key}`; an unknown key falls back to the key
   itself, because the screen never hides a parameter it has no wording for).
@@ -255,7 +278,8 @@ three columns —
 
 - **Scope** (120, the frozen key column) — the step's own scope through EnumLabel, muted:
   "Platform", "Workspace", "Project" (I-325), the stored value on the row's `data-scope`.
-- **Edition** (280) — that step's `name @ version`, mono.
+- **Edition** (280 its floor, the remainder — it takes the width Scope and the digest leave,
+  I-525) — that step's `name @ version`, mono.
 - **Content digest** (160, headed by `ruleset_digest_label`) — that step's digest as an IdChip
   (I-209). At M0 all three read identically — that sameness is the verbatim-fork fact this
   section exists to show, and the day an authored re-pin diverges a step (M3) the difference is
@@ -427,3 +451,10 @@ consumers land, per R-UI-011.
   on a divider — on this screen, Author edition and Site facts alike; both grid regions publish
   `data-rendered-region` and the table's own `data-rows-rendered`. The four `s-settings-ruleset`
   pictures move and are the gate's to re-take.
+- Session 8 (C8, the settings frame): I-525. Both grids run to the pane's edge and end at their
+  last column — the Parameter and the Edition take the width their fixed columns leave, each column's
+  ruled width its floor — and the parameters frame closes on its last row with one hairline. The
+  settings template's seam (s-settings I-522) meets the top bar and the readout, and the bound's
+  `--space-6` is now the template's own column padding, main's by construction. J-003's rule-set
+  checkpoint parks the pointer off the grid before its capture, so no hovered row is ever half of
+  the picture. `j-003/ruleset-pin-visible` moves and is the gate's to re-take.

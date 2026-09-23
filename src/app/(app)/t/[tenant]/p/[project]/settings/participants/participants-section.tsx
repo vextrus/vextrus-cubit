@@ -137,6 +137,9 @@ const HISTORY_COLUMNS: DataTableColumnDef<ParticipantsHistoryRow>[] = [
     // A grant a project's creation installed was performed by nobody — L-ACT-03 makes the creating
     // PRINCIPAL a bootstrap rather than an act — so the cell says when it happened and stops. "By an
     // unnamed member" would name a performer that does not exist, which is worse than saying less.
+    // I-524: the day LEADS the cell. A ledger is read by when, and in 128 px "by {address} on
+    // {day}" gave the day to the ellipsis on every row a person recorded; now the address past the
+    // measure is what the cell's own tooltip gives back, and the day always stands.
     cell: ({ row }) => (
       <span className="cx-participants-history-by">
         {row.original.actor === null

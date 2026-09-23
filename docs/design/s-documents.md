@@ -81,7 +81,7 @@ screen is a reader: it issues nothing, so no copper, no ConsequenceDialog and no
 
 ```
 ┌R─┬──────────────────────────────────────────────────────────────────────────────┐
-│▲ │ ws › Sattva Court ▾ › Projects › Documents                     ⌘K ⟳ ✉ ◉ │ top bar 40
+│▲ │ ws › Sattva Court ▾ › Project › Documents                      ⌘K ⟳ ✉ ◉ │ top bar 40
 │  ├──────────────────────────────────────────────────────────────────────────────┤
 │▦ │ Documents                                                       2 documents   │ header 32
 │▤ ├────────┬────────┬───────────┬──────────┬──────────┬─────────────┬────────────┤
@@ -106,7 +106,7 @@ page never scrolls sideways (§7 C10).
 
 | Region | What it holds | Width / height rule | Tokens | State when empty |
 |---|---|---|---|---|
-| top bar + rail | the shell's; `shell-crumb-page` reads **Documents** under workspace › project › Projects, declared by `useShellPage(strings.documents_title)` and `routes.ts` | `--rail-w` 48 · `--topbar-h` 40 | the shell's | — |
+| top bar + rail | the shell's; `shell-crumb-page` reads **Documents** under workspace › project › Project (the project's Home area, whose word `routes.ts` rules; spelled Projects here until session 8), declared by `useShellPage(strings.documents_title)` and `routes.ts` | `--rail-w` 48 · `--topbar-h` 40 | the shell's | — |
 | header track | `<h1>` `documents_title` at `--text-20`/`--weight-heading`, and at its right the `<span role="status">` count readout `documents_count` in `--font-mono` `--text-caption`, tabular | 100 % × 32; `margin-bottom: var(--space-1)` | `--ink`, `--ink-muted`, `--font-mono` | the count reads **0 documents** and the heading stands |
 | grid (primary) | `documents-grid`: DataTable v2 over the listing, `tableId` `s-documents`, `data-rows-rendered` = `String(rows.length)`, rows `documents-row`, seven columns (below), no sort, no filter row, no group rows, no selection | `flex: 1 1 auto`, 100 % × remainder; ≥ 55 % of main; rows `--row-h` 28, header 28 sticky, first column frozen | `--surface-app`, `--surface-sunken` (header), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline` | not rendered at all: `documents-empty` stands in its place |
 | empty (in the grid's place) | the shipped `EmptyState` `documents-empty`: heading, one sentence, one action to the takeoff register | max-width 520, centred in the grid's box — the sentence is a paragraph at the measure the fault block stands at, never a line the width of the work column | `--ink`, `--ink-muted`, `--accent` through Button | this IS the empty state |
@@ -338,3 +338,9 @@ and the re-take of every picture the fourth button moves
   `data-rendered-region`. §0, §1, §5, §7 and §8 carry the amendment. J-030's Issued-by assertion
   message is amended (TEST_AMENDED — the id is still on `data-value`); the `s-documents/list`
   pictures move and are the gate's to re-take.
+- **Session 8 (C8, the settings frame's pass).** The Decision's own text is corrected, not the
+  product: §1's wireframe and its top-bar row spelled the third crumb **Projects**, while the product
+  — `routes.ts`' `projectAreaOf`, which answers the project's Home area for a segment it does not
+  name, labelled `shell_project_area_home` — has always rendered **Project**, as session 7's final
+  re-look read it in the unmasked captures (the committed `s-documents` pictures mask the top bar).
+  The Decision now reads what the screen draws. No code and no picture moves.

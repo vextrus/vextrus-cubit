@@ -137,7 +137,7 @@ test.describe("J-305 — the project's site facts: six deferrals, and the act th
     const SITE_FACT_DEFERRALS = await deferrals();
 
     /* --- this worker's seeded identity, and a project of its own to enter a fact on --- */
-    await signInAsSeededTenant(page, testInfo.parallelIndex);
+    const session = await signInAsSeededTenant(page, testInfo.parallelIndex);
     await shell.open(SHELL.home);
     await shell.workspaceDoor.click();
     await page.waitForURL(/\/t\/[0-9a-f-]{36}$/);
@@ -276,15 +276,16 @@ test.describe("J-305 — the project's site facts: six deferrals, and the act th
 
     const actId = (await heldAttribute(facts.rowAct(WALKED.fact), "data-value")) ?? "";
     expect(actId.length, "the row names the act that entered the fact (AM-06 §1)").toBe(36);
-    // The chip is the SHIPPED primitive and not a span that looks like one: IdChip's own root class
-    // and its short-form child are what it renders, and a hand-rolled element carries neither. The
-    // class is read here as the primitive's identity, never as styling (the Direction's rule).
-    await expect(facts.rowAct(WALKED.fact), "an id renders through IdChip (src/ui/primitives/core/id-chip.tsx)").toHaveClass(/cx-id-chip/);
-    await expect(facts.rowAct(WALKED.fact).locator(".cx-id-chip-value"), "…with the primitive's own short-form element inside it").toHaveCount(1);
-
-    const chip = await steadyText(facts.rowAct(WALKED.fact), "the act chip");
-    expect(chip, "an id renders through IdChip in its short form — the 36-char id is body text nowhere (R-UI-082)").not.toContain(actId);
-    expect(await steadyText(facts.table, "the site facts table"), "…and appears nowhere in the table as body text either").not.toContain(actId);
+    // s-settings-site-facts I-527 (TEST_AMENDED — this cell was the act's IdChip): "Entered by" is a
+    // PERSON, the one who performed the act, as the project's roster names them (s-documents I-348).
+    // This walk's person is the worker's own seeded account, which created the project and so stands on
+    // its roster; the act's id stays whole on the cell's `data-value`, read above.
+    const entrant = await steadyText(facts.rowAct(WALKED.fact), "the person who entered the fact");
+    expect(entrant, "the row names who entered the fact, by the roster's name for them").toBe(session.tenant.email);
+    // The class is read as the primitive's identity, never as styling (the Direction's rule): a person
+    // the roster names is not drawn as an identifier.
+    await expect(facts.rowAct(WALKED.fact), "a person is not an identifier chip").not.toHaveClass(/cx-id-chip/);
+    expect(await steadyText(facts.table, "the site facts table"), "the act's 36-char id is body text nowhere in the table (R-UI-082)").not.toContain(actId);
 
     for (const fact of SITE_FACTS.filter((held) => held !== WALKED.fact)) {
       expect(await heldAttribute(facts.row(fact), "data-basis"), `${fact} was not entered, so it still stands where it stood`).toBe(freshBasis(fact));
@@ -292,7 +293,9 @@ test.describe("J-305 — the project's site facts: six deferrals, and the act th
     }
 
     await checkpoint(page, testInfo, "s-settings-site-facts/fact-entered");
-    await expect(page).toHaveScreenshot(["s-settings-site-facts", "fact-entered.png"], { mask: facts.masks(), animations: "disabled" });
+    // The Entered-by cell names this worker's own account, which differs per worker as the top bar's
+    // address does — so it is masked like the frame's, and asserted above rather than pictured (I-527).
+    await expect(page).toHaveScreenshot(["s-settings-site-facts", "fact-entered.png"], { mask: [...facts.masks(), facts.rowAct(WALKED.fact)], animations: "disabled" });
   });
 
   /**

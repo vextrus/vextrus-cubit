@@ -110,6 +110,20 @@
   min-block-size: 0;
 }
 
+/* I-526 (s-settings I-523): the frame ends at its last column. The Parameter column takes the
+   width the three figure columns leave, so the unit closes the row at the frame's edge — the Rule
+   set screen's parameters grid, one nav row away, is drawn by the same rule (B-17: one list, one
+   shape). */
+.cx-ruleset-author-table .cx-table-row > .cx-table-cell:first-child {
+  flex-grow: 1;
+}
+
+/* A frame as tall as its rows closes on its last row: that row's hairline beside the frame's drew the
+   bottom 2 px against the 1 px of the three edges it closes. */
+.cx-ruleset-author-table .cx-table-rowgroup:last-child > .cx-table-row {
+  border-bottom-width: 0;
+}
+
 .cx-ruleset-author-param {
   display: block;
   overflow: hidden;

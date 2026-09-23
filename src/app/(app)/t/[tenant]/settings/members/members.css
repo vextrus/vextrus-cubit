@@ -14,8 +14,13 @@
   flex: 1 0 auto;
 }
 
+/* The 240 is the field's WIDTH, not only its flex basis (s-settings I-523): the header's trailing
+   group is sized to its content, and a flex container reads an item's content size from its width
+   and not from its basis — so a basis alone left the field at the input's own ~183 px. It may
+   still shrink where the header has no room. */
 .cx-members-search {
-  flex: 0 1 240px;
+  flex: 0 1 auto;
+  inline-size: 240px;
   min-width: 0;
 }
 
@@ -37,6 +42,14 @@
 .cx-members-table {
   display: flex;
   flex-direction: column;
+}
+
+/* s-settings I-523: the frame ends at its last column. Role history — the roster's one column of
+   prose, and the one that truncated ("No role movements on this workspace's pr…") beside ~280 px of
+   empty track at 1440 — is the third cell and takes the width the fixed columns leave; the count and
+   the row's menu close the row at the frame's edge. */
+.cx-members-table .cx-table-row > .cx-table-cell:nth-child(3) {
+  flex-grow: 1;
 }
 
 .cx-members-table .cx-table-cell {

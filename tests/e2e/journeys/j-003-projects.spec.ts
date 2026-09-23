@@ -18,6 +18,7 @@ import { checkpoint } from "../support/checkpoint";
 import { emulateTheme, restoreLaneTheme } from "../support/lane-theme";
 import { newestMail } from "../support/outbox";
 import { appears, heldAttribute, steadyText } from "../support/retrying-read";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j003-${RUN}@cubit.test`;
@@ -123,6 +124,16 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     await expect(digest, "…and carries the digest that edition was forked with").toBeVisible();
     await expect(identity, "the edition identity is not an empty line").not.toBeEmpty();
     await expect(digest, "the digest is not an empty line").not.toBeEmpty();
+
+    // The row menu's item was pressed where a parameter row now stands, so the pointer that pressed
+    // it rested on that row and the capture pictured its hover band (session 7's recorded IOU). It is
+    // parked over the top bar's open middle — a place the frame paints nothing that answers a
+    // pointer, and outside the rail, whose hover-hold would open it — so no hover that depends on
+    // where a hand happened to rest is ever half of this picture (the J-000 m1 precedent).
+    const bar = await shell.topBar.boundingBox();
+    expect(bar, "the frame's top bar stands").not.toBeNull();
+    await page.mouse.move((bar?.x ?? 0) + (bar?.width ?? 0) / 2, (bar?.y ?? 0) + (bar?.height ?? 0) / 2);
+    await expect(page.locator(`${testIdSelector(TESTIDS.ruleset.parameterRow)}:hover`), "no parameter row is under the pointer when the frame is taken").toHaveCount(0);
 
     await checkpoint(page, testInfo, "j-003/ruleset-pin-visible");
 

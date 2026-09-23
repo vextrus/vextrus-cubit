@@ -192,6 +192,17 @@ td.cx-site-facts-numeric {
   color: var(--ink);
 }
 
+/* I-527: the person who entered the fact, in the UI face — a name, not an identifier, so it wears
+   neither the mono face nor a chip — one line, the whole name on the tooltip past the column's 140
+   (R-UI-083). Secondary ink: the row's reading and its source note lead, and who entered them follows. */
+.cx-site-facts-person {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-secondary);
+}
+
 /* I-275: an absent fact wears no basis and no figure — the em dash says the absence in the cell, and
    the row's own deferral says what the absence costs. */
 .cx-site-facts-absent {

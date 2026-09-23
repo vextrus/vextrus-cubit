@@ -149,6 +149,17 @@ one ConsequenceDialog — plus the `cx-ruleset-author-*` classes this file rules
   `--weight-body-medium` beside the glyph, so a change is marked by ink AND mark, as §1.1 says. The
   column's bound is the Rule set screen's, corrected there (s-settings-ruleset I-349: no tool row,
   `shell-main`'s padding).
+- **I-526 — the diff grid ends at its last column, as the Rule set's parameters grid does
+  (session 8, C8; s-settings I-523, s-settings-ruleset I-525, B-17).** The four columns sum to
+  876 px in a 1,168 px frame at 1440 (1,008 at 1280), so the Unit column, ruled at 96, was drawn
+  ~380 px wide and the frame's header ran on past the last column — the case session 7's re-look
+  named beside the Rule set's, "less visibly". The two screens draw one list of parameters one nav
+  row apart, and a second shape for the same list is the drift B-17 forbids. Ruling: the
+  **Parameter** column takes the width the three figure columns leave (360 its floor), so the unit
+  closes each row at the frame's edge; and the frame, as tall as its rows (I-326), closes on its
+  last row with one hairline — that row's own hairline gives way to the frame's, where the two had
+  drawn the bottom edge 2 px thick against the 1 px of the other three. Guarded by
+  `tests/ui/project-settings/settings-frame.test.ts`.
 - **I-271 — an area key is not a test id.** `settings-area` is registered, and it is the one id every
   nav row carries; the area keys themselves (`ruleset`, `participants`, `site-facts`,
   `ruleset-author`) stay unregistered and are read off `data-area`. Registering `ruleset-author` and
@@ -185,7 +196,8 @@ screen is selectable).
 
 ### 1.1 The diff grid's columns
 
-- **Parameter** — 360, the frozen key column, the row's `rowheader`: `parameterLabel(key)` (I-268),
+- **Parameter** — 360 its floor, the remainder: it takes the width the three figure columns leave
+  (I-526); the frozen key column, the row's `rowheader`: `parameterLabel(key)` (I-268),
   `--text-13`, one line, ellipsis, the grid's tooltip on truncation.
 - **Pinned value** — 180, right-aligned: `QuantityText` over the pin's decimal — grouping is the
   figure seam's, precision is the edition's — mono, `tabular-nums slashed-zero`. Read-only, and on
@@ -442,3 +454,7 @@ Two gaps in the registry, recorded rather than spelled around:
   mirror is the settings area's one (`../ruleset/rows-drawn.ts`) rather than an inline copy — the
   `ruleset-author-diff` contract is unchanged. The four J-304 pictures move and are the gate's to
   re-take.
+- Session 8 (C8, the settings frame): I-526. The Parameter column takes the width the figure
+  columns leave, so the frame ends at its last column as the Rule set's parameters grid does, and the
+  frame closes on its last row with one hairline; the settings template's seam meets the top bar and
+  the readout (s-settings I-522). The four J-304 pictures move and are the gate's to re-take.

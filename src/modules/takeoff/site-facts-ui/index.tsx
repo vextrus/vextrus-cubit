@@ -172,6 +172,23 @@ export type SiteFactPreviewAnswer = { previewed: true; consequence: Consequence;
 /** What a commit answered: the act it wrote, or the refusal that stopped it. */
 export type SiteFactCommitAnswer = { committed: true; actId: string } | { committed: false; refusal: RefusalCode };
 
+/**
+ * Who entered the facts this panel shows, as the project's roster names them (I-527). `byAct` names
+ * the person behind each standing entry's act — the act log's actor, labelled by the roster the page
+ * may read (participants I-51, s-documents I-348) — for the acts the roster names at all. `reader`
+ * is the signed-in reader's own label: an act this panel carried was performed by the reader, so its
+ * row names them before a read has caught up with it. A person the roster does not name — a reader
+ * it refused, an account with no address, someone who has left — is named by nobody here, and the
+ * cell shows the recorded act through the one IdChip instead (R-UI-082).
+ */
+export interface SiteFactEntrants {
+  readonly byAct: Readonly<Record<string, string>>;
+  readonly reader: string | null;
+}
+
+/** Nobody named: every Entered-by cell is the act's chip. One object, so a mount without names is stable. */
+const NO_ENTRANTS: SiteFactEntrants = Object.freeze({ byAct: Object.freeze({}), reader: null });
+
 export interface SiteFactsPanelProps {
   /** The workspace this project's ledger belongs to — the scope both doors are answered in. */
   readonly tenantId: string;
@@ -193,6 +210,11 @@ export interface SiteFactsPanelProps {
   readonly parameterLabels: SiteFactParameterLabels;
   /** Whether this reader holds AUTHOR_PROJECT_FACT; a reader without it still sees the whole panel. */
   readonly mayAuthor: boolean;
+  /**
+   * Who entered each standing fact, by the roster's names (I-527). Optional: a mount that hands in
+   * none names nobody, and every Entered-by cell is the act's IdChip.
+   */
+  readonly enteredBy?: SiteFactEntrants;
   readonly preview: (statement: SiteFactStatement) => Promise<SiteFactPreviewAnswer>;
   readonly commit: (carried: SiteFactStatement & { consequenceDigest: string }) => Promise<SiteFactCommitAnswer>;
   /** Where a deferral's evidence leads for the facts the pinned edition may also state (I-B). */
@@ -240,6 +262,20 @@ function reading(valueAsWritten: string, unitAsWritten: string): string {
   return fillSiteFacts(siteFactsStrings.site_facts_row_value, { value: valueAsWritten, unit: unitAsWritten });
 }
 
+/**
+ * The Entered-by cell (I-527): the person who entered the fact, by the roster's name, carrying the
+ * act's id whole on `data-value` — or, where the roster names nobody for that act, the act itself
+ * through the one IdChip (R-UI-082). Either way the cell is `site-facts-row-act` and names the act.
+ */
+function EnteredBy({ entrant, actId, testId, IdChip }: { entrant: string | null; actId: string; testId: string; IdChip: SiteFactsChrome["IdChip"] }): ReactNode {
+  if (entrant === null) return <IdChip value={actId} data-testid={testId} />;
+  return (
+    <span className="cx-site-facts-person" data-testid={testId} data-value={actId} title={entrant}>
+      {entrant}
+    </span>
+  );
+}
+
 /** The units the form offers, in the canon's own order, with the words they are read by (§ 3). */
 const UNIT_OPTIONS: readonly { value: string; label: string }[] = Object.freeze(
   SITE_FACT_UNITS.map((unit) => Object.freeze({ value: unit, label: unitLabel(unit) })),
@@ -251,6 +287,7 @@ export function SiteFactsPanel({
   editionStated,
   parameterLabels,
   mayAuthor,
+  enteredBy = NO_ENTRANTS,
   preview,
   commit,
   rulesetHref,
@@ -399,6 +436,14 @@ export function SiteFactsPanel({
     [carried, standing, editionStated],
   );
 
+  /**
+   * The person who entered a fact (I-527): the roster's name for the act's actor, or — for an act
+   * THIS panel carried, which the reader performed — the reader's own name while no read has named it
+   * yet. Null where the roster names nobody for it: the cell then shows the recorded act's chip.
+   */
+  const entrantOf = (fact: SiteFact, actId: string): string | null =>
+    enteredBy.byAct[actId] ?? (carried[fact]?.actId === actId ? enteredBy.reader : null);
+
   /** The facts that actually defer — entered by nobody and stated by no edition — which the face counts. */
   const deferring = rows.filter((row) => row.held === undefined && row.edition === undefined).length;
 
@@ -523,11 +568,16 @@ export function SiteFactsPanel({
                       <span className="cx-site-facts-absent">{siteFactsStrings.site_facts_absent_value}</span>
                     )}
                   </td>
+                  {/* I-527: "Entered by" names a PERSON — the one who performed the act the entry
+                      cites, as the project's roster names them — in the UI face, one line, the whole
+                      name on the tooltip, the act's id still whole on `data-value`. Where the roster
+                      names nobody for it, the recorded act stands through the one IdChip, as before:
+                      an identity a reader can copy and follow to the record (R-UI-082). */}
                   <td>
                     {held === undefined ? (
                       <span className="cx-site-facts-absent">{siteFactsStrings.site_facts_absent_value}</span>
                     ) : (
-                      <IdChip value={held.actId} data-testid={testIds.rowAct} />
+                      <EnteredBy entrant={entrantOf(fact, held.actId)} actId={held.actId} testId={testIds.rowAct} IdChip={IdChip} />
                     )}
                   </td>
                   <td className="cx-site-facts-door">

@@ -100,6 +100,24 @@
   min-block-size: 0;
 }
 
+/* I-525 (s-settings I-523, the template's rule): each grid's frame ends at its last column. The
+   Parameter column — the parameters grid's first — takes the width Value and Unit leave, so the
+   unit stands at the frame's edge rather than 600 px of header running on past it; in the chain the
+   Edition, its second column, does the same and the digest closes the row. */
+.cx-ruleset-table-primary .cx-table-row > .cx-table-cell:first-child {
+  flex-grow: 1;
+}
+
+.cx-ruleset-table-lineage .cx-table-row > .cx-table-cell:nth-child(2) {
+  flex-grow: 1;
+}
+
+/* The frame's edge is the last row's: scrolled to its end, that row's hairline stood on the frame's
+   and drew the bottom twice as thick as the three edges it closes (the participants roster's rule). */
+.cx-ruleset-table-primary .cx-table-rowgroup:last-child > .cx-table-row {
+  border-bottom-width: 0;
+}
+
 .cx-ruleset-param {
   overflow: hidden;
   white-space: nowrap;
