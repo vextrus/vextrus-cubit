@@ -73,7 +73,8 @@ class Ctx:
         for m in self.members:
             self.by_class.setdefault(m["class"], []).append(m)
             self.by_mark.setdefault(m["mark"], []).append(m)
-        self.bars = world["bars"]
+        # a fenced member's bars are member-derived too: a loop over every bar sees none of them
+        self.bars = [b for b in world["bars"] if b["member"] not in fence]
         self.marks = {m["mark"] for m in self.members}
         self.traps = json.loads((HERE / "traps.json").read_text(encoding="utf-8"))
         self.trap = {t["id"]: t for t in self.traps["traps"]}

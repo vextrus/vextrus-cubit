@@ -447,13 +447,18 @@ def test_a_view_without_a_pin_is_refused() -> None:
 
 def test_the_fence_hides_a_member_rev_c_draws_first_from_every_rev_b_index() -> None:
     world = M.build()
-    member = next(m for m in world["members"] if m["class"] == "BEAM")
+    with_bars = {bar["member"] for bar in world["bars"]}
+    member = next(m for m in world["members"] if m["class"] == "BEAM" and m["id"] in with_bars)
     fenced = common.Ctx(world, fence=frozenset({member["id"]}))
     whole = common.Ctx(world)
     assert member["id"] in whole.by_id and member["id"] not in fenced.by_id
     assert member not in fenced.at(member["class"], member["level"])
     assert member not in fenced.by_class[member["class"]]
     assert member not in fenced.by_mark.get(member["mark"], [])
+    # its bars are member-derived too: a loop over every bar sees none of them, and nothing else goes
+    own = [bar for bar in whole.bars if bar["member"] == member["id"]]
+    assert own and not [bar for bar in fenced.bars if bar["member"] == member["id"]]
+    assert len(fenced.bars) == len(whole.bars) - len(own) and whole.bars == world["bars"]
     with pytest.raises(AssertionError, match="the Rev C fence names members the model does not build"):
         common.Ctx(world, fence=frozenset({"NO-SUCH@MEMBER"}))
     common.Ctx(world, fence=revc.DRAWN_IN_C)  # the register's own fence names real members

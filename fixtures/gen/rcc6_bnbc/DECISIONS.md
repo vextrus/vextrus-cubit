@@ -332,7 +332,8 @@ and blocks Rev B did not have (a plan or library entry outside the Rev B rosters
 every item drawn inside `Scene.revision("C")`, every view `revc.add_view` adds (`View.rev`; its model
 square after Rev B's, `assign_model_offsets`) and every sheet first issued in C (`Sheet.new_in`; its
 layout and frame after Rev B's). Rev B's composers read a `Ctx` fenced of the members Rev C draws first
-(`revc.DRAWN_IN_C`); `emit/sheets/revc.py` appends after every Rev B sheet is composed and never calls
+(`revc.DRAWN_IN_C`) — every member index and the bars, which are member-derived too (a loop over
+`ctx.bars` sees none of a fenced member's); `emit/sheets/revc.py` appends after every Rev B sheet is composed and never calls
 a Rev B composer. A value correction is made in place — same type, layer and position in its scene, so
 the same handle with a new body — and registered in `revc.CORRECTED` per file with its correction's
 id. Check 9 (`validate/revision.py`, run by `validate.run` and by
