@@ -1,16 +1,22 @@
 {
   "block_attributes": [
     {
+      "halign": 0,
       "height": 1.2,
+      "rotation": 0.0,
       "src": "DXF_HANDLE:6D",
       "tag": "ROOM",
-      "text": "STAIR CORE"
+      "text": "STAIR CORE",
+      "valign": 0
     },
     {
+      "halign": 0,
       "height": 1.2,
+      "rotation": 0.0,
       "src": "DXF_HANDLE:6D",
       "tag": "LEVEL",
-      "text": "L%%P3"
+      "text": "L%%P3",
+      "valign": 0
     }
   ],
   "counters": [
@@ -246,6 +252,20 @@
   ],
   "entities": [
     {
+      "block": {
+        "at": [
+          10.0,
+          10.0
+        ],
+        "definition_sha256": null,
+        "mirrored": false,
+        "name": "NEST_00",
+        "rotation": 0.0,
+        "scale": [
+          1.0,
+          1.0
+        ]
+      },
       "colour": {
         "rgb": [
           0,
@@ -292,6 +312,7 @@
         ],
         "source": "bylayer"
       },
+      "halign": 0,
       "height": 2.0,
       "key": "DXF_HANDLE:72",
       "layer": "BLOCKS",
@@ -301,12 +322,14 @@
           2.0
         ]
       ],
+      "rotation": 0.0,
       "space": "model",
       "text": "GRID A",
-      "type": "TEXT"
+      "type": "TEXT",
+      "valign": 0
     }
   ],
-  "entitygraph_version": 2,
+  "entitygraph_version": 3,
   "ingest": {
     "parameter_set_hash": "68744a7590470ed7cd0f569f463639b3bba8217de316ca007af5b75f48076322",
     "scheme": "DXF_HANDLE",
@@ -318,6 +341,26 @@
     "unit": "foot",
     "unmapped": false
   },
+  "layers": [
+    {
+      "frozen": false,
+      "name": "0",
+      "on": true,
+      "plot": true
+    },
+    {
+      "frozen": false,
+      "name": "Defpoints",
+      "on": true,
+      "plot": false
+    },
+    {
+      "frozen": false,
+      "name": "BLOCKS",
+      "on": true,
+      "plot": true
+    }
+  ],
   "layouts": [
     {
       "bbox": {

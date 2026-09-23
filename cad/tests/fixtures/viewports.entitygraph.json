@@ -2184,6 +2184,7 @@
         ],
         "source": "bylayer"
       },
+      "halign": 0,
       "height": 250.0,
       "key": "DXF_HANDLE:92",
       "layer": "S-TEXT",
@@ -2193,9 +2194,11 @@
           1700.0
         ]
       ],
+      "rotation": 0.0,
       "space": "model",
       "text": "C1 400x400",
-      "type": "TEXT"
+      "type": "TEXT",
+      "valign": 0
     },
     {
       "colour": {
@@ -2264,6 +2267,7 @@
         ],
         "source": "bylayer"
       },
+      "halign": 0,
       "height": 250.0,
       "key": "DXF_HANDLE:95",
       "layer": "S-TEXT",
@@ -2273,9 +2277,11 @@
           6000.0
         ]
       ],
+      "rotation": 0.0,
       "space": "model",
       "text": "REGION B",
-      "type": "TEXT"
+      "type": "TEXT",
+      "valign": 0
     },
     {
       "area": 471254.0,
@@ -2320,6 +2326,7 @@
         ],
         "source": "bylayer"
       },
+      "halign": 0,
       "height": 5.0,
       "key": "DXF_HANDLE:9C",
       "layer": "S-SHEET",
@@ -2329,12 +2336,14 @@
           20.0
         ]
       ],
+      "rotation": 0.0,
       "space": "SHEET",
       "text": "SHEET S-01  1:50",
-      "type": "TEXT"
+      "type": "TEXT",
+      "valign": 0
     }
   ],
-  "entitygraph_version": 2,
+  "entitygraph_version": 3,
   "ingest": {
     "parameter_set_hash": "68744a7590470ed7cd0f569f463639b3bba8217de316ca007af5b75f48076322",
     "scheme": "DXF_HANDLE",
@@ -2346,6 +2355,44 @@
     "unit": "mm",
     "unmapped": false
   },
+  "layers": [
+    {
+      "frozen": false,
+      "name": "0",
+      "on": true,
+      "plot": true
+    },
+    {
+      "frozen": false,
+      "name": "Defpoints",
+      "on": true,
+      "plot": false
+    },
+    {
+      "frozen": false,
+      "name": "S-COL",
+      "on": true,
+      "plot": true
+    },
+    {
+      "frozen": false,
+      "name": "S-BEAM",
+      "on": true,
+      "plot": true
+    },
+    {
+      "frozen": false,
+      "name": "S-TEXT",
+      "on": true,
+      "plot": true
+    },
+    {
+      "frozen": false,
+      "name": "S-SHEET",
+      "on": true,
+      "plot": true
+    }
+  ],
   "layouts": [
     {
       "bbox": {

@@ -1286,6 +1286,7 @@
         ],
         "source": "bylayer"
       },
+      "halign": 0,
       "height": 8.0,
       "key": "DXF_HANDLE:68",
       "layer": "PLAN",
@@ -1295,12 +1296,14 @@
           400.0
         ]
       ],
+      "rotation": 0.0,
       "space": "SHEET A1",
       "text": "SHEET A1 %%C",
-      "type": "TEXT"
+      "type": "TEXT",
+      "valign": 0
     }
   ],
-  "entitygraph_version": 2,
+  "entitygraph_version": 3,
   "ingest": {
     "parameter_set_hash": "68744a7590470ed7cd0f569f463639b3bba8217de316ca007af5b75f48076322",
     "scheme": "DXF_HANDLE",
@@ -1312,6 +1315,26 @@
     "unit": "mm",
     "unmapped": false
   },
+  "layers": [
+    {
+      "frozen": false,
+      "name": "0",
+      "on": true,
+      "plot": true
+    },
+    {
+      "frozen": false,
+      "name": "Defpoints",
+      "on": true,
+      "plot": false
+    },
+    {
+      "frozen": false,
+      "name": "PLAN",
+      "on": true,
+      "plot": true
+    }
+  ],
   "layouts": [
     {
       "bbox": {

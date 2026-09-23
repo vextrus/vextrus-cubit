@@ -3607,6 +3607,7 @@
         ],
         "source": "explicit"
       },
+      "halign": 0,
       "height": 2.5,
       "key": "DXF_HANDLE:38",
       "layer": "0",
@@ -3616,11 +3617,14 @@
           42.0
         ]
       ],
+      "rotation": 0.0,
       "space": "model",
       "text": "%%C50 BAR %%D45 %%P0.5",
-      "type": "TEXT"
+      "type": "TEXT",
+      "valign": 0
     },
     {
+      "attachment": 1,
       "colour": {
         "rgb": [
           255,
@@ -3638,12 +3642,13 @@
           46.0
         ]
       ],
+      "rotation": 0.0,
       "space": "model",
       "text": "SLAB %%C12 @150 c/c",
       "type": "MTEXT"
     }
   ],
-  "entitygraph_version": 2,
+  "entitygraph_version": 3,
   "ingest": {
     "parameter_set_hash": "68744a7590470ed7cd0f569f463639b3bba8217de316ca007af5b75f48076322",
     "scheme": "DXF_HANDLE",
@@ -3655,6 +3660,32 @@
     "unit": "inch",
     "unmapped": false
   },
+  "layers": [
+    {
+      "frozen": false,
+      "name": "0",
+      "on": true,
+      "plot": true
+    },
+    {
+      "frozen": false,
+      "name": "Defpoints",
+      "on": true,
+      "plot": false
+    },
+    {
+      "frozen": false,
+      "name": "WALLS",
+      "on": true,
+      "plot": true
+    },
+    {
+      "frozen": false,
+      "name": "GRID",
+      "on": true,
+      "plot": true
+    }
+  ],
   "layouts": [
     {
       "bbox": {
