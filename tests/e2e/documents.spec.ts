@@ -130,7 +130,11 @@ test.describe("J-030 — the project's issued documents", () => {
       /* --- every opaque value through the one chip: whole in the data, short on screen --- */
       await expect(documents.digest(row), "the document's digest is a chip").toHaveCount(1);
       await expect(documents.digest(row), "carrying the whole 64-hex address in the data").toHaveAttribute("data-value", issue.sha256);
-      await expect(documents.issuedBy(row), "the person who issued it is a chip").toHaveCount(1);
+      // TEST_AMENDED (s-documents I-348): the issuer is named by the project's roster where it names
+      // them, and is the chip of the recorded id only where it does not — so the element is "the
+      // person", not always "a chip". What is asserted is unchanged: one issuer per row, and the id
+      // the store recorded whole on its `data-value`.
+      await expect(documents.issuedBy(row), "the person who issued it is stated once").toHaveCount(1);
       await expect(documents.issuedBy(row), "carrying their whole id").toHaveAttribute("data-value", staged.issuedBy);
       expect(
         await everyAttribute(documents.acts(row), "data-value", `the acts issue ${issue.version} cites`),

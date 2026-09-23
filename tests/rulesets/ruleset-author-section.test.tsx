@@ -126,6 +126,27 @@ describe("rendered: the pin, the whole diff, and the figures the reader states (
     ]);
   });
 
+  test("I-326 as amended: Authored value is a column of figures — its head right-aligned, the mark BEFORE the field", () => {
+    // The craft re-look: the head stood start-aligned over figures right-aligned in a field at the
+    // column's start, 116 px of blank between each figure and its unit; and a mark after the field
+    // would move a changed row's figure off the right edge every other row shares.
+    mount();
+    const heads = within(screen.getByTestId(TESTIDS.rulesetAuthor.diff)).getAllByRole("columnheader");
+    const authoredHead = heads.find((head) => head.textContent === rulesetAuthorStrings.ruleset_author_col_authored);
+    const pinnedHead = heads.find((head) => head.textContent === rulesetAuthorStrings.ruleset_author_col_pinned);
+    expect(authoredHead?.getAttribute("data-align"), "the authored head stands over its figures' right edge").toBe("right");
+    expect(authoredHead?.getAttribute("data-align"), "by the same rule as the pinned head beside it").toBe(pinnedHead?.getAttribute("data-align"));
+
+    fireEvent.change(fieldOf("openingDeductionMinM2"), { target: { value: "0.25" } });
+    const field = fieldOf("openingDeductionMinM2");
+    const cell = field.closest('[role="gridcell"]') as HTMLElement;
+    expect(cell.getAttribute("data-align"), "the field's cell is right-aligned").toBe("right");
+    const mark = within(cell).getByTestId(TESTIDS.basis.chip);
+    expect(mark.getAttribute("data-basis"), "a changed row wears the ENTERED mark").toBe("ENTERED");
+    expect(mark.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING, "the mark stands before the field, so the field keeps the column's edge").toBeTruthy();
+    expect(within(diffRows()[1] as HTMLElement).queryAllByTestId(TESTIDS.basis.chip), "an untouched row wears no mark").toHaveLength(0);
+  });
+
   test("a field emptied again states nothing: the pinned figure stands and the row is unmarked", () => {
     mount();
     fireEvent.change(fieldOf("openingDeductionMinM2"), { target: { value: "0.25" } });

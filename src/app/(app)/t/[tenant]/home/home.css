@@ -80,6 +80,17 @@
   min-block-size: 0;
 }
 
+/* I-140 as amended (session 7, wave 3): the columns fill the band. §1's seven widths sum to 1,006 px
+   against a grid of 1,344 at 1440 and 1,184 at 1280, and the header ran on over the empty quarter to
+   the table's own `⋯` — two identical glyphs, 360 px apart, doing different things, the row's one
+   floating mid-table. The three text columns (Name, Client, District) share the remainder, each from
+   its own width and never below it, so the figure, the ramp and the date keep the measures §1 rules
+   and the row's `⋯` — the last column — stands under the header's. Addressed by position because a
+   cell carries no column name; a column a reader hides or pins only moves the share. */
+.cx-home-table .cx-table-row > .cx-table-cell:nth-child(-n + 3) {
+  flex-grow: 1;
+}
+
 /* One row's first cell: the door, the code and the archived flag, on one line that never wraps. */
 .cx-home-name {
   display: inline-flex;

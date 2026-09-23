@@ -12,8 +12,10 @@
   /* The height the frame leaves this screen, said in the shell's own row tokens: the settings pane is
      a grid of auto rows, so nothing above this box is definite and a flex child would floor at its
      content and push the table past the status bar. Stated here, the table is the one region that
-     may lose height, and it takes the loss by scrolling inside itself (§ 1, C10). */
-  max-block-size: calc(100dvh - var(--topbar-h) - var(--toolbar-h) - var(--status-h) - var(--gap-section) * 2);
+     may lose height, and it takes the loss by scrolling inside itself (§ 1, C10). The field is the
+     viewport less the top bar, the readout and `shell-main`'s padding above and below
+     (s-settings-ruleset I-349): the settings frame renders no tool row, so no `--toolbar-h`. */
+  max-block-size: calc(100dvh - var(--topbar-h) - var(--status-h) - var(--space-6) * 2);
 }
 
 .cx-site-facts-section {
@@ -33,10 +35,13 @@
   font-size: var(--text-13);
 }
 
-/* § 1: the table is the primary and takes the height the screen has left; the rows past it are
-   reached by scrolling THE TABLE, never the page (§ 7 C10). */
+/* § 1 as amended (session 7, wave 3; s-settings-ruleset-author I-326's ruling for the settings area):
+   the table is the primary, as tall as its rows and never taller than the height the screen has left
+   — the rows past that are reached by scrolling THE TABLE, never the page (§ 7 C10). Grown to the
+   pane, its hairline frame stood as an empty bordered well of 100–200 px under the last row, one nav
+   row from the Author edition screen that withdrew exactly that well. */
 .cx-site-facts-table {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-block-size: 0;
   margin-block-start: var(--gap-section);
   overflow: auto;

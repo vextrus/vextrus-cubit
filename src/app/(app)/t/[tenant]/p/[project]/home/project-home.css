@@ -233,9 +233,14 @@
   min-block-size: 0;
 }
 
-/* The activity table is the screen's primary region, so it is the one that takes the room left. */
+/* I-147 as amended (session 7, wave 3): the two tables stand as tall as their rows, stacked, with the
+   one line right under them. The activity table holds at most RECENT_ACTIVITY_LIMIT rows, so it was
+   never going to fill main: grown to it, it drew 200–300 px of empty grid body between its five rows
+   and the roster, which then sat stuck to the foot of the frame. It gives up no height (`none`); the
+   roster is the one region that may, scrolling inside its own table past the height main leaves, so
+   the foot line is never pushed out of the frame. */
 .cx-project-region:nth-of-type(1) {
-  flex: 1 1 auto;
+  flex: none;
 }
 
 .cx-project-region-head {
@@ -265,6 +270,14 @@
 .cx-project-table > * {
   flex: 1 1 auto;
   min-block-size: 0;
+}
+
+/* I-147 as amended: each table's last column takes the width the columns before it leave — Subject
+   on the activity table, Role on the roster — so no header runs on over an empty band and the chips
+   have the room the band was holding. Addressed by position because a cell carries no column name; a
+   column a reader hides only moves which cell is last, and each keeps its own width as its floor. */
+.cx-project-table .cx-table-row > .cx-table-cell:last-child {
+  flex-grow: 1;
 }
 
 /* One line, ellipsised: a member's address and an actor's label are as long as they are. */

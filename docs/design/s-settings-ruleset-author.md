@@ -20,7 +20,7 @@
 └──┴─────────────────┴──────────────────────────────────────────────────────────────────┘
 
 One value authored (the `value-changed` checkpoint) — the row alone is marked, nothing else moves:
-   │ Opening deduction minimum     │       0.1 │[  0.25  ]✎│ m2   │   data-changed="true"
+   │ Opening deduction minimum     │       0.1 │✎[   0.25]│ m2   │   data-changed="true"
                                      muted        --ink
 
 Committed (the `edition-minted` leg) — the status line speaks, the way onward stands beside it:
@@ -134,6 +134,21 @@ one ConsequenceDialog — plus the `cx-ruleset-author-*` classes this file rules
   past the height the screen has left), so the act row follows the last row instead of standing
   under a 100 px empty well. The authored fields take the core input surface the version field
   does: grey `--surface-sunken` fields read as disabled in light (R-UI-086).
+  *Amended in place (session 7, wave 3, the craft re-look; R-UI-085, §1.1's "what was true recedes
+  behind what will be"):* **one right edge means the column's, and one reading means one size.**
+  The re-look found the `Authored value` head start-aligned over figures right-aligned inside a
+  `14ch` field that stood at the column's START — ~116 px of blank between each figure and its unit,
+  while `Pinned value` beside it is right-aligned over its figures, two rules for two numeric heads.
+  The column is `meta.align: 'right'` now and the field is flush with its right edge, the head over
+  the figures and next to the unit. The ENTERED glyph therefore stands BEFORE the field on a changed
+  row: after it, the mark would move a changed row's figure off the edge every other row shares. And
+  every authored figure had read larger and brighter than the pinned one on rows nothing had
+  changed — the core Input's 14 px `--ink` beside the grid's 13 px `--ink-code` — so `0.1 | 0.1`
+  read as two weights and the column looked emphasised before anyone typed. An untouched field now
+  reads at the grid's own 13 px `--ink-code`; a changed row's field takes `--ink` at
+  `--weight-body-medium` beside the glyph, so a change is marked by ink AND mark, as §1.1 says. The
+  column's bound is the Rule set screen's, corrected there (s-settings-ruleset I-349: no tool row,
+  `shell-main`'s padding).
 - **I-271 — an area key is not a test id.** `settings-area` is registered, and it is the one id every
   nav row carries; the area keys themselves (`ruleset`, `participants`, `site-facts`,
   `ruleset-author`) stay unregistered and are read off `data-area`. Registering `ruleset-author` and
@@ -175,15 +190,18 @@ screen is selectable).
 - **Pinned value** — 180, right-aligned: `QuantityText` over the pin's decimal — grouping is the
   figure seam's, precision is the edition's — mono, `tabular-nums slashed-zero`. Read-only, and on
   a changed row it goes `--ink-muted`: what was true recedes behind what will be.
-- **Authored value** — 240: the shipped `NumberInput` `ruleset-author-value`, `--control-h`, one
-  `14ch` measure on every row so the column's figures share one right edge (I-326, R-UI-085),
+- **Authored value** — 240, right-aligned (I-326 as amended — the head over the figures, as the
+  Pinned value's is): the shipped `NumberInput` `ruleset-author-value`, `--control-h`, one
+  `14ch` measure on every row, flush with the column's right edge, so the column's figures share one
+  right edge (I-326, R-UI-085) and read at the grid's `--text-13` in `--ink-code` while untouched,
   decimal-only, pre-filled with the pinned decimal, its blur display the same grouped reading as
   the column beside it (the primitive's own lakh/crore-on-blur rule, R-UI-010 — one home for the
   figure seam), `aria-label` `ruleset_author_value_label` filled with the row's parameter label,
   and no unit suffix — the Unit column says the unit, once (I-265 as amended by I-326), and the
   field takes the core input surface. On a changed row the field's ink is `--ink` at
-  `--weight-body-medium` and the shipped `BasisChip` for `ENTERED` (✎, R-UI-002) stands at the
-  cell's trailing edge — Direction §5 rule 7's edited-cell glyph, so the mark survives greyscale.
+  `--weight-body-medium` and the shipped `BasisChip` for `ENTERED` (✎, R-UI-002) stands BEFORE the
+  field, so the field never leaves the column's edge (I-326 as amended) — Direction §5 rule 7's
+  edited-cell glyph, so the mark survives greyscale.
 - **Unit** — 96: the shipped `UnitBadge` over the pin's unit string, muted.
 
 Each row carries `data-param` (the pin's key), `data-unit`, `data-before` (the pinned decimal,
@@ -417,3 +435,10 @@ Two gaps in the registry, recorded rather than spelled around:
   `tests/ui/project-settings/settings-surfaces-contract.test.tsx` read the whole digest where the
   chip keeps it (`data-value`), as the Rule set screen's AC-4 already does; `data-digest` is
   unchanged. The four J-304 pictures move and are the gate's to re-take.
+- 2026-09-23 — session 7, wave 3 (the craft re-look): I-326 amended in place. `Authored value` is
+  right-aligned, its field flush with the column's edge and the ENTERED glyph before it; an untouched
+  field reads at the grid's 13 px `--ink-code`, a changed one at `--ink` medium. The column's bound
+  loses the tool row the frame never renders (s-settings-ruleset I-349), and the diff's row-count
+  mirror is the settings area's one (`../ruleset/rows-drawn.ts`) rather than an inline copy — the
+  `ruleset-author-diff` contract is unchanged. The four J-304 pictures move and are the gate's to
+  re-take.

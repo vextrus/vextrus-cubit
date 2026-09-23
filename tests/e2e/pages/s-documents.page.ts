@@ -121,6 +121,8 @@ export class SDocumentsPage {
   /** What the frame paints differently on every run, masked for the design pictures (Decision §7). */
   masks(): Locator[] {
     // Every identifier on this screen is a chip (Decision §1), and every one is the staged run's own.
-    return [...shellMasks(this.page), ...idChipMasks(this.page)];
+    // The issuer is a person's name since I-348 — the seeded user's address, which carries the worker
+    // it signed in on (`tenant-w<N>@…`), so it is the run's own too and is masked like a chip.
+    return [...shellMasks(this.page), ...idChipMasks(this.page), this.page.getByTestId(idOf("issuedBy"))];
   }
 }

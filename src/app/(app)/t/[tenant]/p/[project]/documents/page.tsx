@@ -11,6 +11,7 @@ import { appStorage } from "@/core/storage/app";
 import { authorizePage } from "@/server/authorize-page";
 import { strings } from "@/ui/strings";
 import { uiInstrumentArmed } from "@/app/theme-resolver";
+import { peopleOf, rosterOf } from "../roster";
 import { demonstrationOf, type Demonstration } from "./demonstration";
 import { DocumentsScreen, type DocumentsRowView } from "./documents-screen";
 import { DOCUMENT_LINK_TTL_SECONDS } from "./links";
@@ -76,5 +77,11 @@ export default async function ProjectDocuments({
     reportId = reportFault({ requestId: crypto.randomUUID(), actor: userId, route: ROUTE, cause }).faultId;
   }
 
-  return <DocumentsScreen rows={rows} tenantId={tenantId} projectId={project} reportId={reportId} />;
+  // I-348: an issuer is a person, named by the project's roster — the one read S-Audit and S-Project
+  // name people by, through the participants module's own guarded door (B-17). A roster that refuses
+  // this reader names nobody, and every issuer is then the id the store recorded; the list itself is
+  // never withheld for it. Asked only where there are rows to name anyone on.
+  const people = rows === null || rows.length === 0 ? {} : peopleOf(await rosterOf({ tenantId, userId, actorKind: "human" }, project));
+
+  return <DocumentsScreen rows={rows} tenantId={tenantId} projectId={project} reportId={reportId} people={people} />;
 }

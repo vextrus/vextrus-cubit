@@ -120,13 +120,21 @@
   color: var(--ink-muted);
 }
 
-/* The cited subjects (I-38): at most three chips and a `+k`, on one line of the cell, clipped with an
-   ellipsis should a name still run past it — never cut mid-glyph (R-UI-084). The chips' own layout
-   is the shared `.cx-subject-chips` (subject-chips.css). */
+/* The cited subjects (I-38, I-347): at most three chips and a `+k`, on one line of the cell. A name
+   that does not fit ends in an ellipsis inside its own chip — never cut mid-glyph (R-UI-084) — which
+   is the shared `.cx-subject-chips` layout's to do (subject-chips.css); this box only keeps the row
+   inside its cell. */
 .cx-audit-act-evidence {
   max-inline-size: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+/* I-347: Cited evidence is the log's last column and takes the width the four before it leave. At
+   420 it stopped 230 px short of a header that runs to the grid's edge, while the third chip of a row
+   was cut against it; the width is the column's own and never less than 420. Addressed by position
+   because a cell carries no column name — a column a reader hides only moves which cell is last. */
+.cx-audit-acts .cx-table-row > .cx-table-cell:last-child {
+  flex-grow: 1;
 }
 
 /* --- the empty answer, in the list's place (I-33) ------------------------------------------- */

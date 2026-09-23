@@ -214,6 +214,25 @@ describe("AC-4: the root states what it draws (Decision I-209, §2)", () => {
     expect(rootState(unpinned), "the no-pin answer is the screen's empty state, and says so (I-28)").toBe("empty");
   });
 
+  test("I-349: each grid region publishes the RENDERED contract — its own id, and the count its table drew", async () => {
+    // The craft re-look: the walk read `regions=0 rows=-` here while Site facts and Author edition
+    // each published theirs; a retrying read of this screen fell back to agreeing readings.
+    const view = await seededPinnedView();
+    const container = await mount(view);
+    for (const [testid, rows] of [
+      [TESTID_PARAMETER_TABLE, all(container, TESTID_PARAMETER_ROW).length],
+      [TESTID_LINEAGE, all(container, TESTID_LINEAGE_STEP).length],
+    ] as const) {
+      const region = one(container, testid);
+      expect(region.getAttribute("data-rendered-region"), `${testid} says it is a rendered region, under its own id`).toBe(testid);
+      const table = region.querySelector("[data-rows-rendered]:not([data-rendered-region])");
+      expect(table, `${testid} holds the shipped table, which publishes the rows it drew`).toBeTruthy();
+      expect(region.getAttribute("data-rows-rendered"), `${testid} repeats the table's own count, never a second reckoning`).toBe(table?.getAttribute("data-rows-rendered"));
+      expect(region.getAttribute("data-rows-rendered"), `and that count is the rows a reader sees: ${String(rows)}`).toBe(String(rows));
+    }
+    expect(all(container, TESTID_PARAMETER_ROW).length, "one row per parameter of the pin").toBe(Object.keys(view.parameters).length);
+  });
+
   test("AC-4: a scope reads in words through EnumLabel — `tenant` is \"Workspace\" — and keeps its stored value", async () => {
     const view = await seededPinnedView();
     const container = await mount(view);

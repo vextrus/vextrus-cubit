@@ -14,17 +14,22 @@
 import { cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
 import {
+  DOCUMENTS_SCREEN_MODULE,
+  ISSUER,
   aDocumentRow,
   all,
   attribute,
   cellsOf,
   copy,
+  documentsId,
   documentsProps,
   documentsScreen,
   documentsStrings,
   enumLabelShape,
   humaniseEnum,
+  idChipShape,
   mountDocuments,
+  productModule,
   one,
   rowsOf,
   text,
@@ -142,6 +147,50 @@ describe("AC-1 — the list, as the screen draws it", () => {
       expect(bare.length, `one cell of the row states version ${row.version} as the bare integer — no prefix, no "v" (Decision §1)`).toBe(1);
       expect(cells.indexOf(bare[0] as HTMLElement), "and it is not the frozen kind cell").toBeGreaterThan(0);
     });
+  });
+
+  test("I-348: the root states itself — `data-screen-root` beside its `data-state` — and the grid is a rendered region", async () => {
+    // The craft re-look: the walk read `state=none regions=0` here, so `settled()` never waited on it.
+    const screen = await documentsScreen();
+    const root = mountDocuments(screen, documentsProps());
+    expect(root.hasAttribute("data-screen-root"), "the screen root says it is one (the I-213 class)").toBe(true);
+    expect(attribute(root, "data-state")).toBe("ready");
+    const grid = one(root, "grid");
+    expect(attribute(grid, "data-rendered-region"), "the grid says it is the region a read waits on, under its own id").toBe(documentsId("grid"));
+  });
+
+  test("I-348: the issuer is a person, named by the project's roster, with the recorded id kept whole", async () => {
+    const screen = await documentsScreen();
+    const label = "rafiq@cubit.test";
+    const root = mountDocuments(screen, documentsProps({ people: { [ISSUER]: label } }));
+    for (const row of rowsOf(root)) {
+      const issuer = row.querySelector(`[data-testid="${documentsId("issuedBy")}"]`) as HTMLElement | null;
+      expect(issuer, "each row states who issued it").not.toBeNull();
+      expect(visibleText(issuer as HTMLElement), "by the name the roster knows them by (R-UI-082)").toBe(label);
+      expect(attribute(issuer as HTMLElement, "data-value"), "and the id the store recorded stays whole in the data").toBe(ISSUER);
+      expect(issuer?.querySelector("[data-testid]"), "no chip of a hash stands for a person the roster names").toBeNull();
+    }
+  });
+
+  test("I-348: an issuer the roster does not name is the recorded id, through the one chip", async () => {
+    const screen = await documentsScreen();
+    const root = mountDocuments(screen, documentsProps({ people: {} }));
+    const chipShape = await idChipShape(ISSUER, documentsId("issuedBy"));
+    for (const row of rowsOf(root)) {
+      const issuer = row.querySelector(`[data-testid="${documentsId("issuedBy")}"]`) as HTMLElement;
+      expect(attribute(issuer, "data-value"), "the whole id in the chip's data").toBe(ISSUER);
+      expect(chipShape.classes.every((name) => issuer.classList.contains(name)), `the shipped IdChip's own element (it wears ${JSON.stringify(chipShape.classes)})`).toBe(true);
+    }
+  });
+
+  test("I-348: the seven columns fit the grid at 1280, so the row's one door is never cut", async () => {
+    // The craft re-look: at 1280 the widths summed to 1,316 against a 1,184 grid, and `Open PDF`
+    // showed as "Op". 1280 − the 48 rail − main's 24 + 24 padding is the grid's band; a vertical
+    // scrollbar may take up to 16 of it.
+    const module = await productModule<{ DOCUMENTS_COLUMNS?: readonly { size?: number }[] }>(DOCUMENTS_SCREEN_MODULE);
+    const sizes = (module.DOCUMENTS_COLUMNS ?? []).map((column) => column.size ?? 0);
+    expect(sizes.length, "§1's seven columns").toBe(7);
+    expect(sizes.reduce((sum, size) => sum + size, 0)).toBeLessThanOrEqual(1280 - 48 - 24 * 2 - 16);
   });
 
   test("AC-1: a single issue nobody has superseded is one row saying so", async () => {

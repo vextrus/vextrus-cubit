@@ -319,6 +319,8 @@ export interface DocumentsProps {
   tenantId: string;
   projectId: string;
   reportId: string | null;
+  /** Account id → the roster's label for the person (s-documents I-348); absent names nobody. */
+  people?: Readonly<Record<string, string>>;
 }
 
 /** The props of a plain reading of the staged list, with anything the caller wants otherwise. */

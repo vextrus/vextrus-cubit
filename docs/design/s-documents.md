@@ -49,6 +49,33 @@ screen is a reader: it issues nothing, so no copper, no ConsequenceDialog and no
   with `DOCUMENT_LINK_TTL_SECONDS` 900; a link followed after that is refused by
   `/api/documents/{id}` with its registered code. This screen's remedy for it is the list itself —
   the matrix's refusal cell carries `DOCUMENT_URL_EXPIRED` with this route as its evidence link.
+- **I-348 — the issuer is a person, the row's door fits at 1280, and the root states itself
+  (session 7, wave 3, the craft re-look; R-UI-081/082/083, B-17; pays §8's first IOU).** Three
+  findings on the M3 project:
+  - **Issued by read as a hash** (`95568e6 ⎘`) on the one screen where a QS still met one for a
+    person: S-Audit and S-Project name people by the project's roster (s-audit I-38 as amended,
+    s-project I-146), and §8 named this IOU's owner as "the node that owns a project-people read" —
+    that read has landed (`../roster.ts`). The page asks it once, through the participants module's
+    own guarded door (`rosterOf` → `peopleOf`, the S-Project read), only where there are rows to
+    name anyone on, and hands the screen `people` (account id → label). The cell is the label in
+    the UI face (`cx-documents-person`), one line with the cell's own ellipsis and tooltip, still
+    carrying `documents-issued-by` with the whole recorded id on its `data-value`; a person the
+    roster does not name — a reader it refused, an account with no address, someone who has left —
+    is still the IdChip of the recorded id. A refused roster withholds nothing else: the list stands.
+  - **`Open PDF` was cut to "Op" at 1280.** §1's widths summed to 1,316 against the 1,184 of the
+    grid, while Issued by and Digest each held a ~90 px chip in 200 px of track; the grid scrolled
+    sideways past its one door (R-UI-081). The widths are re-ruled to sum to 1,160 — inside 1,184
+    with room for a vertical scrollbar — so no column scrolls out at either viewport: Kind 200,
+    Version 96, Issued by 240 (a workspace address whole), Digest 128 (the 7-character chip and its
+    copy target), Acts cited 216 as the floor of §1's remainder, Superseded by 160, Document 120 (the
+    ghost `Open PDF` and the header's chooser beside its label). Acts cited was always §1's
+    "remainder"; it now takes it (`documents.css`, the fifth cell in the roster's order — s-home
+    I-140 as amended, the same reading of the band), so no header runs on over an empty band past
+    the door at 1440.
+  - **The root never said it was one.** `cx-documents` carried `data-state` without
+    `data-screen-root`, so `settled()` and the craft walk read `state=none`; it carries both now, in
+    `loading.tsx` too (`loading`), and the grid wears `data-rendered-region` beside the
+    `data-rows-rendered` it always mirrored — the I-213 class, and CLAUDE.md's rendered read contract.
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -59,8 +86,8 @@ screen is a reader: it issues nothing, so no copper, no ConsequenceDialog and no
 │▦ │ Documents                                                       2 documents   │ header 32
 │▤ ├────────┬────────┬───────────┬──────────┬──────────┬─────────────┬────────────┤
 │⚙ │ Kind   │ Version│ Issued by │ Digest   │Acts cited│Superseded by│ Document   │ header 28
-│  │ Proof  │      2 │ 7c1e4a2 ⎘ │ 9f3b81c ⎘│ 4a0d2e1 ⎘│ Current     │ Open PDF   │ rows 28
-│  │ Proof  │      1 │ 7c1e4a2 ⎘ │ 21bd7f0 ⎘│ e77c903 ⎘│ 3d92f5a ⎘   │ Open PDF   │
+│  │ Proof  │      2 │ rafiq@cu… │ 9f3b81c ⎘│ 4a0d2e1 ⎘│ Current     │ Open PDF   │ rows 28
+│  │ Proof  │      1 │ rafiq@cu… │ 21bd7f0 ⎘│ e77c903 ⎘│ 3d92f5a ⎘   │ Open PDF   │
 │  │        │        │           │          │          │             │            │
 │  │        │  28 px rows · 13 px · frozen Kind · sticky header · no wrapping cell │
 │  │        │                                                                      │
@@ -73,8 +100,9 @@ Above the fold: the grid's header stands 24 (the frame's own padding on `shell-m
 **60 px** below the top of main and its first row at 88 px, at 1440×900 and at 1280×800 alike —
 inside §7 C2's 120. Work-surface share: the grid is 1344 × 720 of main's 1392 × 804 = **86 %**; at
 1280×800, 1184 × 620 of 1232 × 704 = **85 %**. Twenty-five rows are visible without scrolling. The
-grid scrolls inside its own viewport, horizontally at 1280 with the Kind column frozen; the page
-never scrolls sideways (§7 C10).
+grid scrolls inside its own viewport; at the seven widths below (1,160, I-348) it scrolls sideways
+at neither viewport, and past them — a reader who widens a column — with the Kind column frozen; the
+page never scrolls sideways (§7 C10).
 
 | Region | What it holds | Width / height rule | Tokens | State when empty |
 |---|---|---|---|---|
@@ -91,11 +119,11 @@ never scrolls sideways (§7 C10).
 |---|---|---|---|
 | 1 | `documents_col_kind` | 200, **frozen** | `EnumLabel` over the kind, label `documents_kind_<kind>` else `humaniseEnum` (I-260); raw key on the row's `data-kind` |
 | 2 | `documents_col_version` | 96, `meta.align: 'right'` | the bare integer, `--font-mono` tabular slashed-zero |
-| 3 | `documents_col_issued_by` | 200 | `IdChip` `documents-issued-by`, `data-value` the whole uuid |
-| 4 | `documents_col_digest` | 200 | `IdChip` `documents-digest`, `data-value` the whole 64-hex sha256 |
-| 5 | `documents_col_acts` | remainder, min 240 | up to two `IdChip`s `documents-act`, then `documents_acts_more`; `documents_no_acts` where none (I-262) |
-| 6 | `documents_col_superseded` | 220 | `documents-superseded-by`: an `IdChip` of the superseding id, or `documents_current` in `--ink-muted` (I-261) |
-| 7 | `documents_col_document` | 160 | `documents-open`: an `<a href={row.href}>` wearing `cx-btn cx-reticle` `data-variant="ghost"`, text `documents_open`, `aria-label` `documents_open_label` filled with kind and version |
+| 3 | `documents_col_issued_by` | 240 (I-348) | the issuer's label as the project's roster names them, `cx-documents-person` carrying `documents-issued-by` and `data-value` the whole uuid — or, where the roster names nobody for it, the `IdChip` `documents-issued-by`, `data-value` the whole uuid (I-348) |
+| 4 | `documents_col_digest` | 128 (I-348) | `IdChip` `documents-digest`, `data-value` the whole 64-hex sha256 |
+| 5 | `documents_col_acts` | remainder, min 216 (I-348) | up to two `IdChip`s `documents-act`, then `documents_acts_more`; `documents_no_acts` where none (I-262) |
+| 6 | `documents_col_superseded` | 160 (I-348) | `documents-superseded-by`: an `IdChip` of the superseding id, or `documents_current` in `--ink-muted` (I-261) |
+| 7 | `documents_col_document` | 120 (I-348) | `documents-open`: an `<a href={row.href}>` wearing `cx-btn cx-reticle` `data-variant="ghost"`, text `documents_open`, `aria-label` `documents_open_label` filled with kind and version |
 
 Each row carries `data-document` (the row id), `data-kind`, `data-version` and `data-superseded`
 (`"true"`/`"false"`), all from the listing verbatim, through the DataTable's `rowDataOf`.
@@ -198,8 +226,8 @@ This screen spends: `--surface-app` · `--surface-panel` · `--surface-sunken` �
 `--weight-body-medium` / `--weight-heading` · `--motion-state` / `--motion-reticle` / `--ease`; and,
 read by the primitives rather than stated here, `--row-h`, `--cell-px`, `--cell-py`, `--control-h`.
 Px literals, closed set: the header track's 32, the 520 measure the error block and the empty state
-both stand at, the seven column widths (200/96/200/200/240/220/160) and the loading leg's eight
-bones. Any other literal is a defect.
+both stand at, the seven column widths (200/96/240/128/216/160/120, I-348) and the loading leg's
+eight bones. Any other literal is a defect.
 No basis colour, no semantic tint and **no copper anywhere**: listing a document is never an act.
 
 ## 6. Themes
@@ -221,10 +249,13 @@ Routes: `/t/{tenantId}/p/{projectId}/documents` (`documentsRoute`, the one spell
 `/api/documents/{id}?tenant={tenantId}&expires={digits}&signature={hex}` (each row's minted link,
 `DOCUMENT_LINK_TTL_SECONDS` 900), `/t/{tenantId}/p/{projectId}` (S-Project, whose fourth quick action
 reaches this screen — R-UI-031), `/t/{tenantId}/p/{projectId}/takeoff` (the empty state's action).
-Procedures: none. Reads: `listDocuments(tx, projectId)` and `documentDownloadUrl(storage, row, opts)`.
+Procedures: none. Reads: `listDocuments(tx, projectId)` and `documentDownloadUrl(storage, row, opts)`;
+and, where there are rows, the project's roster through `rosterOf` → `peopleOf` (`../roster.ts`,
+the participants module's guarded door — I-348).
 
 Test ids, exactly the registry's spellings, on the elements ruled in §1: `documents-screen`
-(`data-state`: loading|empty|error|ready) · `documents-grid` (`data-rows-rendered`) ·
+(`data-screen-root`, and `data-state`: loading|empty|error|ready — I-348) · `documents-grid`
+(`data-rendered-region` under its own id, and `data-rows-rendered` — I-348) ·
 `documents-row` (`data-document`, `data-kind`, `data-version`, `data-superseded`) ·
 `documents-issued-by` · `documents-digest` · `documents-act` · `documents-superseded-by` ·
 `documents-open` · `documents-empty` · `documents-error` · `documents-report-id` ·
@@ -254,7 +285,9 @@ in-process by `tests/e2e/documents/documents-stage.ts` (`stageDocuments`, `stage
 `shell-user` and `shell-tenant-switcher` — every other text on the screen is staged and fixed. Bare
 jsdom acceptance (`tests/ui/documents/**`) mounts `DocumentsScreen({ rows, tenantId, projectId,
 reportId: null })` over injected listings for order, the four row attributes, the kind label, the
-bare version integer, both Superseded-by arms, the act cap and the empty and error branches.
+bare version integer, both Superseded-by arms, the act cap and the empty and error branches — and,
+with `people`, both Issued-by arms, the root's `data-screen-root`, the grid's rendered region and the
+seven widths inside 1280's grid (I-348).
 
 Owed by AC-2 and made by the Builder, not by this file: the fourth `QUICK_ACTIONS` entry
 `{ key: "documents", label: "project_home_action_documents", route: documentsRoute }`, the
@@ -266,9 +299,9 @@ and the re-take of every picture the fourth button moves
 
 ## 8. Recorded IOUs (owner named, never a comment in `src/`)
 
-- **Issued-by reads as a uuid.** Resolving an issuer to a display name is a second read (a users
-  join), out of scope by name; the chip is whole and copyable meanwhile. Owner: the node that owns a
-  project-people read.
+- ~~**Issued-by reads as a uuid.**~~ *Paid (session 7, wave 3, I-348):* the project-people read
+  landed (`../roster.ts`, s-audit I-38 as amended), and the issuer reads by the roster's label; the
+  chip stands only where the roster names nobody.
 - **No issue date on the row.** `DocumentListing` states none (I-259). Owner: whoever next widens the
   listing; the column is `documents_col_issued`, a `RelativeTime` cell at 130, when it exists.
 - **Issuing from this screen.** No act door, no render, no BOQ or BBS kind. Owners: inc-311a
@@ -298,3 +331,10 @@ and the re-take of every picture the fourth button moves
   that asked it to would answer the reviewer with the crash boundary instead of a cell. What the row
   then carries is a link of the seam's shape that the download door refuses, as it refuses any link
   it did not sign.
+- **Session 7, wave 3 (the craft re-look): I-348.** Issued by names the issuer by the project's
+  roster (§8's first IOU paid), the IdChip standing only where the roster names nobody; the seven
+  widths are re-ruled to 200/96/240/128/216/160/120 so the row's door stands whole at 1280, with Acts
+  cited taking §1's remainder; the root carries `data-screen-root` (in `loading.tsx` too) and the grid
+  `data-rendered-region`. §0, §1, §5, §7 and §8 carry the amendment. J-030's Issued-by assertion
+  message is amended (TEST_AMENDED — the id is still on `data-value`); the `s-documents/list`
+  pictures move and are the gate's to re-take.

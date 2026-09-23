@@ -166,6 +166,17 @@ no section heading over a sentence.
   the pin still makes L-REG-07 visible one press away (R-UI-031). A lifecycle refusal renders
   UNDER ITS OWN ROW through the grid's `renderRefusal` — §5 rule 8's refused-row state — and the
   row is never hidden.
+  *Amended in place (session 7, wave 3, the craft re-look; R-UI-080/084, Direction §5 rule 3):* "the
+  table's last column" is the last column of the GRID, under the header's trailing edge. §1's seven
+  widths sum to 1,006 px against a grid of 1,344 at 1440×900 and 1,184 at 1280×800, and the header
+  — the DataTable's, with its column chooser's `⋯` at the far end — ran on over the empty quarter:
+  two identical glyphs doing different things, the row's floating mid-table ~360 px from the
+  header's. The three text columns (Name, Client, District) now share the band's remainder, each
+  from its §1 width and never below it (`home.css`, the cells in the roster's first three places),
+  so the sheets figure, the ramp and the date keep their measures and the row's `⋯` stands under the
+  header's, reading as one column. A reader who hides or pins a column only moves which cells take
+  the share; a resize still sets a column's floor. §1's District width is corrected to the 150 the
+  screen has always drawn (the table said 140).
 - **I-141 — the teaching state is the shipped `EmptyState`.** *Amends the zero-project branch of
   §1.* It was the shell's own `ShellEmptyState`, which draws the same three things without the
   glyph and outside the primitive set every other empty region now uses (Direction 00 §1's empty
@@ -240,11 +251,14 @@ archived shown and never hidden. The row is
 `data-testid="s-home-project-card" data-project={projectId} data-archived={"true"|"false"}`, and
 column state (sort, width, visibility, pinning) is remembered per reader per table.
 
+Sizes are floors: Name, Client and District share whatever the grid's band leaves past the seven
+(I-140 as amended), so the row's `⋯` is always the grid's last column, under the header's own.
+
 | # | Column | Size | Cell |
 |---|---|---|---|
-| 1 | `home_field_name` (sortable) | 260 | the name as a `next/link` `s-home-project-open` to `/t/{t}/p/{project}` (I-131), one line, ellipsis, 1 px `var(--accent)` underline at 2 px offset, `cx-reticle`; a visually-hidden pause; the code in mono `var(--text-caption)` `var(--ink-muted)` when one is stored; `<span data-testid="s-home-project-status" data-status>` holding the archived `Badge` (`s-home-project-archived-badge`) and nothing at all when the project is active (I-35) |
-| 2 | `home_field_client` | 180 | the stored text, or `—` (`cx-home-absent`) |
-| 3 | `home_field_district` | 140 | the stored text, or `—` |
+| 1 | `home_field_name` (sortable) | 260 + share | the name as a `next/link` `s-home-project-open` to `/t/{t}/p/{project}` (I-131), one line, ellipsis, 1 px `var(--accent)` underline at 2 px offset, `cx-reticle`; a visually-hidden pause; the code in mono `var(--text-caption)` `var(--ink-muted)` when one is stored; `<span data-testid="s-home-project-status" data-status>` holding the archived `Badge` (`s-home-project-archived-badge`) and nothing at all when the project is active (I-35) |
+| 2 | `home_field_client` | 180 + share | the stored text, or `—` (`cx-home-absent`) |
+| 3 | `home_field_district` | 150 + share | the stored text, or `—` |
 | 4 | `home_stat_sheets` (sortable, right) | 90 | the count in mono tabular through the seam |
 | 5 | `takeoff_register_col_coverage` | 140 | §4.3's ramp bar (`cx-home-ramp`, `data-step` 0–4 over `--cov-0…4` from S-Coverage's `rampStep`, `aria-hidden`) beside the shipped `CoverageChip`'s percentage of the share the coverage door reads — or `—` where no campaign exists or none bears a cell yet (I-142 as amended) |
 | 6 | `home_col_last_act` (sortable) | 130 | `RelativeTime` `s-home-project-last-activity`, bound to `FIGURES` (I-139): "2 h ago" inside a day, the document date beyond it — and the document date wherever no clock is installed, which is what keeps a capture photographable twice (I-37 is amended: the cell is the primitive's, and the reading is relative where a present is known) |

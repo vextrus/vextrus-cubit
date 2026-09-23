@@ -4,7 +4,7 @@
 //
 // Digests and subject keys are model data: they stay whole as data and are never woven into a
 // sentence here (I-25). An act type is read in words through EnumLabel, and a subject by what its
-// key names (I-38) — the two words a subject chip may need are this table's.
+// key names (I-38, I-347) — the words a subject chip may need are this table's.
 export const auditStrings = {
   audit_heading: "Audit",
   audit_caption: "Every act committed on this project, with its consequence and the evidence it cited.",
@@ -24,6 +24,8 @@ export const auditStrings = {
   audit_evidence_label: "Cited evidence",
 
   audit_subject_proposed_level: "Proposed level {n}",
+  audit_subject_model_space: "Model space",
+  audit_subject_repeated: "{name} ×{count}",
   audit_subject_more: "+{count}",
 
   audit_empty_none_heading: "No acts recorded yet",

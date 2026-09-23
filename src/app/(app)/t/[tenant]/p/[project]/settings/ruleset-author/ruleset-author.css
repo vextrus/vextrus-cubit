@@ -15,8 +15,10 @@
   /* The height the frame leaves this screen, said in the shell's OWN row tokens: the settings pane
      is a grid of auto rows, so nothing above this box is definite and a flex child would floor at
      its content and push the act row past the status bar. Stated here, the chain has something to
-     shrink against and the grid — the only region that may lose height — takes the loss. */
-  max-block-size: calc(100dvh - var(--topbar-h) - var(--toolbar-h) - var(--status-h) - var(--gap-section) * 2);
+     shrink against and the grid — the only region that may lose height — takes the loss. The field
+     is the viewport less the top bar, the readout and `shell-main`'s padding above and below
+     (s-settings-ruleset I-349): the settings frame renders no tool row, so no `--toolbar-h`. */
+  max-block-size: calc(100dvh - var(--topbar-h) - var(--status-h) - var(--space-6) * 2);
 }
 
 .cx-ruleset-author-section {
@@ -128,18 +130,26 @@
 }
 
 /* R-UI-085: one column of figures, one right edge. Every field is the same measure — stated in `ch`,
-   because what it holds is a count of CHARACTERS of a decimal — and the ENTERED glyph follows it on a
-   changed row without moving it. The unit is the Unit column's alone (I-265 as amended). */
+   because what it holds is a count of CHARACTERS of a decimal — and it is flush with the column's
+   right edge, under a head that is right-aligned over it as the Pinned value's head is (I-326 as
+   amended). The ENTERED glyph stands BEFORE the field on a changed row, so it moves no figure off that
+   edge. The unit is the Unit column's alone (I-265 as amended). */
 .cx-ruleset-author-field {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-2);
   inline-size: 100%;
   min-inline-size: 0;
 }
 
 /* The field takes the core input surface, as the version field beside the door does (R-UI-086):
-   an editable field on a grey well read as disabled in light. */
+   an editable field on a grey well read as disabled in light. Its figure reads at the grid's own
+   size and ink — the pinned figure's 13 px `--ink-code` — so an untouched row reads `0.1 | 0.1` as one
+   figure twice, not as two weights; the core Input's 14 px `--ink` would emphasise every authored
+   figure before anyone typed (I-326 as amended). The size and the ink are said inside the field's own
+   cell, so they outrank the core Input's single-class rules whatever order the sheets arrive in; a
+   disabled field keeps the primitive's own disabled ink. */
 .cx-ruleset-author-input {
   flex: none;
   inline-size: 14ch;
@@ -148,7 +158,17 @@
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
-[data-changed="true"] .cx-ruleset-author-input {
+.cx-ruleset-author-field .cx-ruleset-author-input {
+  font-size: var(--text-13);
+}
+
+.cx-ruleset-author-field .cx-ruleset-author-input:not(:disabled) {
+  color: var(--ink-code);
+}
+
+/* What was true recedes behind what will be (§ 1.1): on a changed row the authored figure takes the
+   full ink at the medium weight, beside the ENTERED glyph — the change is marked by ink AND mark. */
+[data-changed="true"] .cx-ruleset-author-field .cx-ruleset-author-input:not(:disabled) {
   color: var(--ink);
   font-weight: var(--weight-body-medium);
 }

@@ -14,6 +14,37 @@
   white-space: nowrap;
 }
 
+/* s-audit I-347: a name that does not fit is ellipsised INSIDE its chip's measure, never cut mid-glyph
+   by the cell's edge. The chip's measure is the IdChip's own box (`.cx-id-chip-value`), which is a
+   flex box and so has no line to end in an ellipsis: inside these chips alone it is a block whose one
+   line is the chip's height. A name is capped at 24 characters, so two chips and the count always
+   stand whole in the narrowest cell the rubric reads (S-Audit's Cited evidence at 1280, 484 px); the
+   last chip shown is the one that gives up width when the cell is short, down to its copy target and
+   a glyph or two. The copy target itself never shrinks. */
+.cx-subject-chip {
+  flex: none;
+  min-inline-size: 0;
+}
+
+.cx-subject-chip-tail {
+  flex: 0 1 auto;
+  min-inline-size: calc(var(--space-6) * 2);
+}
+
+.cx-subject-chip .cx-id-chip-value {
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: 24ch;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: var(--space-5);
+}
+
+.cx-subject-chip .cx-id-chip-copy {
+  flex: none;
+}
+
 /* The count of the subjects the row folds away. Their names are on its tooltip, and it is a tab stop
    so the keyboard reaches them as the pointer does (R-UI-012). It never shrinks: the count is the
    part of the cell that says something was folded, so it is the last thing a narrow cell may lose. */

@@ -26,14 +26,20 @@ import "./documents.css";
 /** The identity this grid's column furniture is remembered under (DataTable's `tableId`). */
 export const DOCUMENTS_TABLE_ID = "s-documents";
 
-/** §1's column widths, the closed set of px literals this screen spends. */
+/**
+ * §1's column widths, the closed set of px literals this screen spends (I-348). They sum to 1,160 —
+ * inside the 1,184 of the grid at 1280 with room for a scrollbar — so the row's one door stands
+ * whole at both viewports; at 200 each, Issued by and Digest held a 90 px chip in 200 px of track
+ * while `Open PDF` was cut to "Op". Acts cited is the remainder: its width is its floor, and it takes
+ * what the grid's band leaves (documents.css).
+ */
 const WIDTH_KIND = 200;
 const WIDTH_VERSION = 96;
-const WIDTH_ISSUED_BY = 200;
-const WIDTH_DIGEST = 200;
-const WIDTH_ACTS = 240;
-const WIDTH_SUPERSEDED = 220;
-const WIDTH_DOCUMENT = 160;
+const WIDTH_ISSUED_BY = 240;
+const WIDTH_DIGEST = 128;
+const WIDTH_ACTS = 216;
+const WIDTH_SUPERSEDED = 160;
+const WIDTH_DOCUMENT = 120;
 
 /** I-262: a cell never wraps, so the acts are chipped to this many and the rest are counted. */
 const ACTS_SHOWN = 2;
@@ -58,7 +64,16 @@ export interface DocumentsScreenProps {
   readonly projectId: string;
   /** The fault the read left behind, quoted beside the retry where there was one (B-21). */
   readonly reportId: string | null;
+  /**
+   * Account id → the label the project's roster names the person by (I-348), as the page read it
+   * through the roster's own guarded door. A person it does not name — a reader it refused, an
+   * account with no address, someone who has left — is shown by the id the store recorded.
+   */
+  readonly people?: Readonly<Record<string, string>>;
 }
+
+/** Nobody named: every issuer is shown by the id the store recorded. One object, so the columns' memo holds. */
+const NO_PEOPLE: Readonly<Record<string, string>> = Object.freeze({});
 
 /**
  * The words a kind is read by (I-260): the string table's own line for it where this screen has
@@ -128,8 +143,35 @@ function ActsCited({ actIds }: { actIds: readonly string[] }): ReactNode {
   );
 }
 
-/** §1's seven columns, left to right. Declared beside the screen so the loading leg draws the same. */
-export const DOCUMENTS_COLUMNS: ColumnDef<DocumentsRowView, unknown>[] = [
+/**
+ * I-348's Issued-by cell: the person, by the label the project's roster names them by, with the id
+ * the store recorded kept whole on `data-value` — or, where the roster names nobody for it, that id
+ * through the one chip (R-UI-082). A person is a name on this screen as on S-Audit and S-Project.
+ */
+function IssuedBy({ issuedBy, people }: { issuedBy: string; people: Readonly<Record<string, string>> }): ReactNode {
+  const label = people[issuedBy];
+  if (label === undefined) return <IdChip value={issuedBy} data-testid={TESTIDS.documents.issuedBy} />;
+  return (
+    <span className="cx-documents-person" data-testid={TESTIDS.documents.issuedBy} data-value={issuedBy}>
+      {label}
+    </span>
+  );
+}
+
+/**
+ * §1's seven columns, left to right, over the names the roster knows the issuers by. Declared beside
+ * the screen so the loading leg draws the same (`DOCUMENTS_COLUMNS`, which names nobody).
+ */
+export function documentsColumns(people: Readonly<Record<string, string>>): ColumnDef<DocumentsRowView, unknown>[] {
+  return DOCUMENT_COLUMN_ROSTER.map((column) =>
+    column.id === ISSUED_BY_COLUMN ? { ...column, cell: ({ row }) => <IssuedBy issuedBy={row.original.issuedBy} people={people} /> } : column,
+  );
+}
+
+/** The Issued-by column's id, which is the one column whose cell reads the roster. */
+const ISSUED_BY_COLUMN = "issuedBy";
+
+const DOCUMENT_COLUMN_ROSTER: ColumnDef<DocumentsRowView, unknown>[] = [
   {
     id: "kind",
     header: strings.documents_col_kind,
@@ -148,11 +190,11 @@ export const DOCUMENTS_COLUMNS: ColumnDef<DocumentsRowView, unknown>[] = [
     cell: ({ row }) => <span className="cx-documents-version">{row.original.version}</span>,
   },
   {
-    id: "issuedBy",
+    id: ISSUED_BY_COLUMN,
     header: strings.documents_col_issued_by,
     accessorFn: (row) => row.issuedBy,
     size: WIDTH_ISSUED_BY,
-    cell: ({ row }) => <IdChip value={row.original.issuedBy} data-testid={TESTIDS.documents.issuedBy} />,
+    cell: ({ row }) => <IssuedBy issuedBy={row.original.issuedBy} people={NO_PEOPLE} />,
   },
   {
     id: "digest",
@@ -207,13 +249,19 @@ export const DOCUMENTS_COLUMNS: ColumnDef<DocumentsRowView, unknown>[] = [
   },
 ];
 
-export function DocumentsScreen({ rows, tenantId, projectId, reportId }: DocumentsScreenProps): ReactNode {
+/** The seven columns naming nobody — the loading leg's, which has no roster and no rows to name. */
+export const DOCUMENTS_COLUMNS: ColumnDef<DocumentsRowView, unknown>[] = DOCUMENT_COLUMN_ROSTER;
+
+export function DocumentsScreen({ rows, tenantId, projectId, reportId, people = NO_PEOPLE }: DocumentsScreenProps): ReactNode {
   // R-UI-084: the page a reader is on reaches the frame's crumb slot from the screen that is it.
   useShellPage(strings.documents_title);
 
   const gridRegion = useRef<HTMLDivElement | null>(null);
   const listed = useMemo(() => (rows === null ? [] : [...rows]), [rows]);
   const rowsDrawn = useRowsDrawn(gridRegion, listed.length);
+  // Stable per roster: a table handed new column objects on every render re-reads its remembered
+  // furniture from scratch (DataTable §5 rule 3).
+  const columns = useMemo(() => (people === NO_PEOPLE ? DOCUMENTS_COLUMNS : documentsColumns(people)), [people]);
 
   // §2's order, first holding wins: the read that failed left a report id behind, and it is the
   // fault that decides the state — the rows are null in that case because there are none to draw,
@@ -221,7 +269,9 @@ export function DocumentsScreen({ rows, tenantId, projectId, reportId }: Documen
   const state: DocumentsState = reportId !== null ? "error" : listed.length === 0 ? "empty" : "ready";
 
   return (
-    <div className="cx-documents" data-testid={TESTIDS.documents.screen} data-state={state}>
+    // I-348: the root states itself — `data-screen-root` beside the `data-state` it always carried —
+    // so `settled()` and a retrying read wait on this screen as on every other (the I-213 class).
+    <div className="cx-documents" data-testid={TESTIDS.documents.screen} data-screen-root="" data-state={state}>
       <header className="cx-documents-header">
         <h1 className="cx-documents-heading">{strings.documents_title}</h1>
         {/* The count is what the list HOLDS, so it stands wherever there is a list to count — and
@@ -266,10 +316,17 @@ export function DocumentsScreen({ rows, tenantId, projectId, reportId }: Documen
           </Link>
         </EmptyState>
       ) : (
-        <div className="cx-documents-grid" ref={gridRegion} data-testid={TESTIDS.documents.grid} data-rows-rendered={rowsDrawn}>
+        <div
+          className="cx-documents-grid"
+          ref={gridRegion}
+          data-testid={TESTIDS.documents.grid}
+          // I-348: the region says it is the rendered contract, and the count is the table's own.
+          data-rendered-region={TESTIDS.documents.grid}
+          data-rows-rendered={rowsDrawn}
+        >
           <DataTable
             tableId={DOCUMENTS_TABLE_ID}
-            columns={DOCUMENTS_COLUMNS}
+            columns={columns}
             data={listed}
             getRowId={(row) => row.id}
             // R-UI-083's own default, stated as the density REGION the primitive provides for it

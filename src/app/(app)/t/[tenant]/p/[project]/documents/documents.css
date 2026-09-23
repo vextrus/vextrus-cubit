@@ -64,6 +64,20 @@
   flex-direction: column;
 }
 
+/* I-348: Acts cited is §1's remainder column — its `size` is its floor, and it takes the width the
+   six fixed columns leave, so the header never runs on over an empty band past the row's door. It is
+   the fifth cell in the roster's order; a cell carries no column name, so it is addressed by position,
+   and a column a reader hides or pins only moves which cell takes the share. */
+.cx-documents-grid .cx-table-row > .cx-table-cell:nth-child(5) {
+  flex-grow: 1;
+}
+
+/* I-348: the issuer, named by the project's roster — a person's label in the UI face, one line, the
+   cell's own ellipsis and tooltip when an address outruns it. The id stays on `data-value`. */
+.cx-documents-person {
+  color: var(--ink);
+}
+
 .cx-documents-version {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums slashed-zero;

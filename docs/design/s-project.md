@@ -57,8 +57,8 @@ section sits over a sentence.
 | area tabs | the seven areas as links over one hairline; an area with no screen is `aria-disabled`, focusable, and says its condition in a `Tooltip` | 100 % × 32 | — | — | one 32 × min(1080, 100 %) bone |
 | stat tiles | four `Stat` — sheets · campaigns · AI cost so far (figure + `USD` badge) · participants | 4 × 1fr × `--stat-h` 64 | a tile with no figure states `—`: AI at zero calls, participants when the roster refused | — | bones |
 | the one line (foot) | the screen's single helper line, last in main: model calls · outcomes · the ledger link — or, at zero calls, `project_home_ai_none` and the ledger link | 100 % × 20 | at zero calls it IS the empty statement (R-UI-020) | — | — |
-| activity (primary) | `DataTable`: Act (`EnumLabel`) · Who · When (`RelativeTime`) · Subject (`IdChip`), newest first, capped at `RECENT_ACTIVITY_LIMIT` | flex; rows `--row-h` 28 | `EmptyState` — `state_empty_project_home_heading` over `project_home_activity_empty` | delegated to the root boundary | grid skeleton rows |
-| participants | `DataTable`: Member · Role (`EnumLabel`) | rows 28 | the roster always holds a principal (R-SPINE-011) | — | bones |
+| activity (primary) | `DataTable`: Act (`EnumLabel`) · Who · When (`RelativeTime`) · Subject (`IdChip`), newest first, capped at `RECENT_ACTIVITY_LIMIT` | as tall as its rows (≤ 5), never grown into main and never shrunk (I-147 as amended); rows `--row-h` 28; Subject takes the band's remainder | `EmptyState` — `state_empty_project_home_heading` over `project_home_activity_empty` | delegated to the root boundary | grid skeleton rows |
+| participants | `DataTable`: Member · Role (`EnumLabel`) | directly under activity; as tall as its rows, the one region that may give up height (scrolling inside its table); rows 28; Role takes the band's remainder | the roster always holds a principal (R-SPINE-011) | — | bones |
 | — refused | the roster's `RefusalState` in the table's own place (I-129): message, remedy, evidence | in place | — | PERMISSION_NOT_HELD | — |
 
 ## 0. Interpretations (recorded per the Law section of CLAUDE.md)
@@ -184,6 +184,13 @@ section sits over a sentence.
   key and whose measure is what the key names (`C1 · GF`, `LAP · S-02`, a level's label, a view's
   caption), at most three and a `+k` whose tooltip lists the rest. The column widens to 400 so
   three names and the count fit at 1280.
+  *Amended in place (session 7, wave 3; s-audit I-347):* the first Recent-activity row read
+  `C1 · C1 · C1 +24` — AUTHOR_TYPICAL_RANGE's placeholders stand at the unresolved level slot and
+  each reads by its mark alone. The one presenter now folds subjects that read the same into one
+  chip with a count (`C1 ×9`), the folded keys kept in the DOM; reads a view cited in the
+  partition's own spelling by its caption and model space as "Model space"; and ellipsises the last
+  chip inside its own measure rather than letting the cell cut a glyph. This screen changes nothing
+  of its own for it: `SubjectChips` is shared, which is why one fix repairs both screens (B-17).
 - **I-147 — recent activity and the roster are 28 px tables, not lists of rows.** *Amends the
   activity and participants clauses of §1.* §3.3 asks for "Recent activity as a 28 px table (act,
   who, when, subject) — not a card with a sentence", and the same is true of a roster of members
@@ -196,6 +203,20 @@ section sits over a sentence.
   which is what keeps a capture photographable twice (this amends s-home I-37's "never a relative
   one": the primitive is deterministic by construction, so the objection the old reading rested on
   no longer holds).
+  *Amended in place (session 7, wave 3, the craft re-look; R-UI-080/084, AM-08's work surface):*
+  **the two tables stand as tall as their rows, and each fills its band.** The activity region
+  flex-grew to fill main, but it holds at most `RECENT_ACTIVITY_LIMIT` rows: its five rows ended at
+  y ≈ 441 and Participants was pushed to y ≈ 755 at 1440×900 (≈ 655 at 1280×800) — 200–300 px of
+  empty grid body between the regions, the roster and the one line stuck to the foot of the frame
+  as if detached. The activity region now takes its rows' height and gives up none (`flex: none`);
+  the roster follows it directly and is the one region that may give up height, scrolling inside
+  its own table past what main leaves, so the foot line follows the roster and is never pushed out
+  of the frame; main's own tail below the line stays empty. Across, each table's LAST column
+  (Subject; Role) takes the width the columns before it leave, its §1 size a floor (s-home I-140 as
+  amended, the same reading of the band) — and Who widens 220 → 280: every row read
+  `j000-legs-mudgiibpj27y@cubit.t…`, the part of an address that tells two people apart being the
+  part that was cut, beside ~750 px of unused Subject track (230 + 280 + 130 + 400 = 1,040 still
+  fits the 1,184 of 1280).
 - **I-148 — the screen states one helper line and no section explanations.** §7 C7 counts `<p>`
   elements in main outside an empty or refusal state; this screen renders exactly one, the AI
   line. `project_home_activity_hint`, `project_home_participants_hint` and
@@ -298,9 +319,9 @@ shipped `DataTable` (`tableId` `s-project-activity`, `aria-labelledby` the headi
 | Column | Size | Cell |
 |---|---|---|
 | `project_home_col_act` | 230 | `EnumLabel` over `actType` — "Assign participant role", with the raw value in the primitive's technical disclosure (I-146) |
-| `project_home_col_who` | 220 | the actor's label as the roster names them, `cx-project-member-label`, one line, ellipsis — or the recorded id's IdChip where the roster cannot name them (I-146 as amended) |
+| `project_home_col_who` | 280 (I-147 as amended) | the actor's label as the roster names them, `cx-project-member-label`, one line, ellipsis — or the recorded id's IdChip where the roster cannot name them (I-146 as amended) |
 | `project_home_col_when` | 130 | `RelativeTime` `cx-project-activity-when`, bound to the screen's `FIGURES` (I-147) |
-| `project_home_col_subject` | 400 | `SubjectChips` — at most three IdChips reading what each subject's key names, then `+k` (I-146 as amended, s-audit I-38) |
+| `project_home_col_subject` | 400 + the band's remainder (I-147 as amended) | `SubjectChips` — at most three IdChips reading what each subject's key names, subjects that read the same folded into one chip with a count, then `+k` (I-146 as amended, s-audit I-38, I-347) |
 
 With no act, in the table's place the shipped `EmptyState`
 `data-testid="project-home-activity-empty"`: heading `state_empty_project_home_heading` (four

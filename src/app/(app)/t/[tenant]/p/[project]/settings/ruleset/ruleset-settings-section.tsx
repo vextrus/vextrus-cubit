@@ -24,6 +24,7 @@ import "./ruleset.css";
 
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
+import { useMemo, useRef } from "react";
 import { formatUserFigure } from "@/core/format";
 import type { EditionLineageStep, EditionParameter, ProjectRulesetView } from "@/core/rulesets/editions";
 import { EnumLabel, IdChip, UnitBadge } from "@/ui/primitives/core";
@@ -31,6 +32,7 @@ import { DataTable } from "@/ui/primitives/data";
 import { ShellEmptyState, shellHref, useShellPage } from "@/ui/shell";
 import { PROJECT_SETTINGS_PAGES } from "@/ui/shell/routes";
 import { SettingsAbout, SettingsHeader } from "@/app/(app)/t/[tenant]/settings/settings-pane";
+import { useRowsDrawn } from "./rows-drawn";
 import { rulesetParameterLabel, rulesetScopeLabel, rulesetStrings } from "./strings";
 import { TESTIDS } from "@/ui/testids";
 
@@ -64,6 +66,9 @@ interface ParameterRow extends EditionParameter {
 
 const parameterRows = (parameters: Readonly<Record<string, EditionParameter>>): ParameterRow[] =>
   Object.entries(parameters).map(([key, parameter]) => ({ key, ...parameter }));
+
+/** The chain of a view with no pin: nothing was forked, so there is no step to draw. */
+const NO_LINEAGE: readonly EditionLineageStep[] = Object.freeze([]);
 
 const PARAMETER_COLUMNS: ColumnDef<ParameterRow, unknown>[] = [
   {
@@ -140,6 +145,16 @@ function Digest({ value, testId }: { value: string; testId?: string }) {
 export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
   // The page crumb (R-UI-084): the same word the section nav's row and the header wear (B-17).
   useShellPage(PROJECT_SETTINGS_PAGES.ruleset);
+  // I-349: each grid region publishes the RENDERED contract a retrying read waits on — the region's
+  // own id on `data-rendered-region`, and on `data-rows-rendered` the count the table itself says it
+  // drew, mirrored off the table's attribute rather than counted a second way (the Author edition
+  // screen's § 7 pair). Asked before the no-pin branch: a hook is never behind a condition.
+  const parameters = useMemo(() => (view.pinned ? parameterRows(view.parameters) : []), [view]);
+  const lineage = view.pinned ? view.lineage : NO_LINEAGE;
+  const parameterRegion = useRef<HTMLDivElement | null>(null);
+  const lineageRegion = useRef<HTMLDivElement | null>(null);
+  const parametersDrawn = useRowsDrawn(parameterRegion, parameters.length);
+  const lineageDrawn = useRowsDrawn(lineageRegion, lineage.length);
   if (!view.pinned) {
     return (
       // The no-pin answer is this screen's EMPTY state (§2, I-28), and the root says so where a read
@@ -187,12 +202,18 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
             {rulesetStrings.ruleset_parameters_heading}
           </h2>
         </div>
-        <div className="cx-ruleset-table cx-ruleset-table-primary" data-testid={TESTIDS.ruleset.parameterTable}>
+        <div
+          ref={parameterRegion}
+          className="cx-ruleset-table cx-ruleset-table-primary"
+          data-testid={TESTIDS.ruleset.parameterTable}
+          data-rendered-region={TESTIDS.ruleset.parameterTable}
+          data-rows-rendered={parametersDrawn}
+        >
           <DataTable
             tableId={PARAMETER_TABLE_ID}
             aria-labelledby={PARAMETERS_HEADING_ID}
             columns={PARAMETER_COLUMNS}
-            data={parameterRows(view.parameters)}
+            data={parameters}
             getRowId={(row) => row.key}
             rowTestId={TESTIDS.ruleset.parameterRow}
             rowDataOf={(row) => ({ "data-param": row.key })}
@@ -207,12 +228,18 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
           </h2>
           <SettingsAbout body={rulesetStrings.ruleset_lineage_hint} label={rulesetStrings.ruleset_lineage_heading} />
         </div>
-        <div className="cx-ruleset-table" data-testid={TESTIDS.ruleset.lineage}>
+        <div
+          ref={lineageRegion}
+          className="cx-ruleset-table"
+          data-testid={TESTIDS.ruleset.lineage}
+          data-rendered-region={TESTIDS.ruleset.lineage}
+          data-rows-rendered={lineageDrawn}
+        >
           <DataTable
             tableId={LINEAGE_TABLE_ID}
             aria-labelledby={LINEAGE_HEADING_ID}
             columns={LINEAGE_COLUMNS}
-            data={[...view.lineage]}
+            data={[...lineage]}
             getRowId={(step) => `${step.scope}-${step.name}-${step.version}`}
             rowTestId={TESTIDS.ruleset.lineageStep}
             rowDataOf={(step) => ({ "data-scope": step.scope })}

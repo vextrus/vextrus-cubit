@@ -13,6 +13,10 @@
  * A row shows at most `cap` chips and then a `+k` that lists the rest on its tooltip — ellipsis plus a
  * count, never silent loss (R-UI-084). The rest stay in the DOM as `data-value`s, so every subject an
  * act cites is still on the page for a suite, an export and the clipboard.
+ *
+ * s-audit I-347: subjects that READ the same are one chip with a count ("C1 ×9"), not three chips of
+ * one word a reader cannot tell apart. The chip's value is the first key it stands for; the others it
+ * folds stay in the DOM beside it as hidden `data-value`s, exactly as the `+k`'s do.
  */
 import "./subject-chips.css";
 
@@ -73,17 +77,14 @@ export function presentSubject(subject: string, names: SubjectNames): string | u
     case "proposed":
       return fill(auditStrings.audit_subject_proposed_level, { n: formatUserFigure(String(parsed.index + 1)) });
     case "sheet":
-      return sheetWord(parsed.layoutName);
+      // Model space carries no sheet number, and its layout's own name is the artifact's word for
+      // it, not a reader's: it reads as the space it is (s-audit I-347, R-UI-083).
+      return parsed.modelSpace ? auditStrings.audit_subject_model_space : sheetWord(parsed.layoutName);
     case "id":
       return names.levels[parsed.id] ?? names.drawings[parsed.id] ?? names.people[parsed.id];
     case "opaque":
       return undefined;
   }
-}
-
-/** The words a subject is read by on screen: its presented name, or the chip's short form. */
-export function subjectWords(subject: string, names: SubjectNames): string {
-  return presentSubject(subject, names) ?? shortForm(subject);
 }
 
 /**
@@ -99,6 +100,39 @@ export function subjectAnswers(subject: string, names: SubjectNames, typed: stri
   return presented.toLocaleLowerCase() === asked || presented.split(BETWEEN).some((fact) => fact.toLocaleLowerCase() === asked);
 }
 
+/** The subjects that read as one name, in the order the act cited the first of them. */
+export interface SubjectGroup {
+  /** What the group's chip reads before its count: the presented name, or the key's short form. */
+  readonly words: string;
+  /** The presented name, or undefined where the key names nothing and the chip keeps its short form. */
+  readonly presented: string | undefined;
+  /** Every key that reads as `words`, the first of them the chip's own value. */
+  readonly subjects: readonly [string, ...string[]];
+}
+
+/**
+ * The cited subjects gathered by the words a person reads them by (s-audit I-347): three placements
+ * of mark C1 at a level nobody has resolved are one fact to a reader, "C1 ×3", not three chips of one
+ * word. The order is the act's own — each group stands where its first key was cited.
+ */
+export function groupSubjects(subjects: readonly string[], names: SubjectNames): readonly SubjectGroup[] {
+  const groups = new Map<string, { presented: string | undefined; subjects: [string, ...string[]] }>();
+  for (const subject of subjects) {
+    // The words a subject is read by on screen: its presented name, or the chip's own short form.
+    const presented = presentSubject(subject, names);
+    const words = presented ?? shortForm(subject);
+    const held = groups.get(words);
+    if (held === undefined) groups.set(words, { presented, subjects: [subject] });
+    else held.subjects.push(subject);
+  }
+  return [...groups].map(([words, group]) => ({ words, presented: group.presented, subjects: group.subjects }));
+}
+
+/** A group as a person reads it: its name, and how many subjects it stands for where that is more than one. */
+function groupWords(group: SubjectGroup): string {
+  return group.subjects.length === 1 ? group.words : fill(auditStrings.audit_subject_repeated, { name: group.words, count: formatUserFigure(String(group.subjects.length)) });
+}
+
 export interface SubjectChipsProps {
   readonly subjects: readonly string[];
   readonly names: SubjectNames;
@@ -108,22 +142,36 @@ export interface SubjectChipsProps {
 }
 
 export function SubjectChips({ subjects, names, cap = SUBJECT_CAP, className, "data-testid": testId }: SubjectChipsProps) {
-  const shown = subjects.slice(0, cap);
-  const rest = subjects.slice(cap);
+  const groups = groupSubjects(subjects, names);
+  const shown = groups.slice(0, cap);
+  const rest = groups.slice(cap);
+  /** The `+k` counts SUBJECTS, as `data-count` does — the groups past the cap may each fold several. */
+  const folded = rest.reduce((held, group) => held + group.subjects.length, 0);
   return (
     <span className={className === undefined ? "cx-subject-chips" : `cx-subject-chips ${className}`} data-testid={testId} data-count={subjects.length}>
-      {shown.map((subject, at) => (
-        <IdChip key={`${String(at)}:${subject}`} value={subject} short={presentSubject(subject, names)} />
-      ))}
+      {shown.map((group, at) => {
+        const [first, ...alike] = group.subjects;
+        return [
+          <IdChip
+            key={`${String(at)}:${first}`}
+            // The last chip shown is the one that gives up width first when the cell is short, and
+            // ellipsises inside its own measure (subject-chips.css) — never cut mid-glyph.
+            className={at === shown.length - 1 ? "cx-subject-chip cx-subject-chip-tail" : "cx-subject-chip"}
+            value={first}
+            short={alike.length === 0 ? group.presented : groupWords(group)}
+          />,
+          // The keys the chip folds are cited all the same: whole in the DOM, for a suite, an export
+          // and the clipboard, exactly as the `+k`'s are (R-UI-082).
+          ...alike.map((subject, index) => <span key={`${String(at)}:${String(index)}:${subject}`} hidden data-value={subject} />),
+        ];
+      })}
       {rest.length === 0 ? null : (
         // The tooltip's own trigger idiom: a button that opens nothing but the hint, so the keyboard
         // reaches the folded names exactly as the pointer does (R-UI-012).
-        <Tooltip content={rest.map((subject) => subjectWords(subject, names)).join(", ")}>
+        <Tooltip content={rest.map(groupWords).join(", ")}>
           <button type="button" className="cx-subject-chips-more">
-            {fill(auditStrings.audit_subject_more, { count: formatUserFigure(String(rest.length)) })}
-            {rest.map((subject, at) => (
-              <span key={`${String(at)}:${subject}`} hidden data-value={subject} />
-            ))}
+            {fill(auditStrings.audit_subject_more, { count: formatUserFigure(String(folded)) })}
+            {rest.flatMap((group, at) => group.subjects.map((subject, index) => <span key={`${String(at)}:${String(index)}:${subject}`} hidden data-value={subject} />))}
           </button>
         </Tooltip>
       )}

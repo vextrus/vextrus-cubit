@@ -379,7 +379,9 @@ function RecentActivity({ tenantId, projectId, acts, names }: { tenantId: string
     {
       id: "who",
       header: copy.project_home_col_who,
-      size: 220,
+      // I-147 as amended: an address is what tells two people apart, and its tail — the part that
+      // differs — is what 220 cut off; 280 holds a workspace address whole at both viewports.
+      size: 280,
       // The actor's label is the roster's (I-146); an actor the roster cannot name is named by the
       // account id the log recorded, through the IdChip (I-149).
       cell: ({ row }) =>
@@ -394,6 +396,8 @@ function RecentActivity({ tenantId, projectId, acts, names }: { tenantId: string
     {
       id: "subject",
       header: copy.project_home_col_subject,
+      // I-146 as amended: 400 is the column's floor, and it takes the width the three before it
+      // leave (project-home.css) — the last column of the table.
       size: 400,
       // I-146 as amended: a subject is an IdChip whose measure is what its key names — S-Audit's
       // one presenter — at most three and a `+k`; whole in the DOM, one press from the clipboard

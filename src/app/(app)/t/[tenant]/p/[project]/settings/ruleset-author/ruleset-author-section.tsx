@@ -11,7 +11,7 @@
 // `data-changed` and does no more; the door is the only door, and it previews before it commits.
 import "./ruleset-author.css";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { dhakaDateParts, formatDate, formatMoney, formatUserFigure } from "@/core/format";
@@ -19,6 +19,7 @@ import type { CommitAnswer, PreviewAnswer } from "./actions";
 // The words a parameter is named by are the settings area's one table (I-268) — a plain function,
 // read here rather than handed across the server/client boundary, which no function may cross.
 import { parameterLabel, scopeLabel } from "../strings";
+import { useRowsDrawn } from "../ruleset/rows-drawn";
 import type { RulesetAuthorScreenState } from "./states";
 import type { EditionIdentity, EditionParameter } from "@/core/rulesets/editions";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
@@ -42,9 +43,6 @@ const AUTHOR_RULE_SET = "AUTHOR_RULE_SET";
 
 /** The identity each reader's column furniture is remembered under (§5 rule 3). */
 const DIFF_TABLE_ID = "ruleset-author-diff";
-
-/** The attribute the grid states its drawn rows in, and the region mirrors from it (§5 rule 9). */
-const ROWS_DRAWN = "data-rows-rendered";
 
 /**
  * The document's figure conventions, handed to the primitives that render one: SEAM-FORMAT itself,
@@ -198,11 +196,19 @@ export function RulesetAuthorSection({
         id: "authored",
         header: rulesetAuthorStrings.ruleset_author_col_authored,
         size: 240,
+        // I-326 as amended (session 7, wave 3): a column of figures, so its head stands over the
+        // figures' right edge as the Pinned value's does, and the field is flush with that edge —
+        // not at the column's start with 116 px of blank between each figure and its unit.
+        meta: { align: "right" },
         // I-265 as amended: the unit is said once, by the Unit column beside this one — a suffix in the
         // field said it a second time ("0.1 m2 m2") and made every field a different width. Each field
         // is one measure, so every figure in the column shares one right edge (R-UI-085).
         cell: ({ row }) => (
           <span className="cx-ruleset-author-field">
+            {/* Direction §5 rule 7's edited-cell glyph, so the mark survives greyscale (R-UI-002). It
+                stands BEFORE the field: the field is flush with the column's right edge, and a mark
+                after it would move a changed row's figure off the edge every other row shares. */}
+            {row.original.changed ? <BasisChip basis={ENTERED} /> : null}
             <NumberInput
               className="cx-ruleset-author-input"
               // R-UI-010's lakh/crore reading on blur, through the one figure seam the column beside
@@ -214,8 +220,6 @@ export function RulesetAuthorSection({
               value={row.original.after}
               onChange={(next) => setValues((held) => ({ ...held, [row.original.key]: next }))}
             />
-            {/* Direction §5 rule 7's edited-cell glyph: the mark survives greyscale (R-UI-002). */}
-            {row.original.changed ? <BasisChip basis={ENTERED} /> : null}
           </span>
         ),
       },
@@ -232,18 +236,10 @@ export function RulesetAuthorSection({
   // § 7 + B-17: the region's count is the count the TABLE drew, mirrored off the table's own
   // attribute rather than counted a second way here. DataTable windows past 200 rows, and two
   // numbers under one attribute in one subtree would contradict each other the moment it does —
-  // the ancestor being the one a read climbing out of the grid stops at first.
+  // the ancestor being the one a read climbing out of the grid stops at first. The mirror is the
+  // settings area's one (`../ruleset/rows-drawn`, s-settings-ruleset I-349), not a copy of it here.
   const tableRef = useRef<HTMLDivElement | null>(null);
-  const [rowsDrawn, setRowsDrawn] = useState<string | null>(null);
-  useEffect(() => {
-    const drawn = tableRef.current?.querySelector<HTMLElement>(`[${ROWS_DRAWN}]`) ?? null;
-    if (drawn === null) return;
-    const mirror = (): void => setRowsDrawn(drawn.getAttribute(ROWS_DRAWN));
-    mirror();
-    const watch = new MutationObserver(mirror);
-    watch.observe(drawn, { attributes: true, attributeFilter: [ROWS_DRAWN] });
-    return () => watch.disconnect();
-  });
+  const rowsDrawn = useRowsDrawn(tableRef, rows.length);
 
   if (parent === null) {
     return (
@@ -307,7 +303,7 @@ export function RulesetAuthorSection({
           className="cx-ruleset-author-table"
           data-testid={TESTIDS.rulesetAuthor.diff}
           data-rendered-region={TESTIDS.rulesetAuthor.diff}
-          data-rows-rendered={rowsDrawn ?? String(rows.length)}
+          data-rows-rendered={rowsDrawn}
         >
           <DataTable
             tableId={DIFF_TABLE_ID}

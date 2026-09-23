@@ -126,6 +126,45 @@ ConsequenceDialog appears anywhere on it.
     tab stop whose tooltip lists their names and which keeps each folded key in the DOM as a
     hidden `data-value` — ellipsis plus a count, never silent loss (R-UI-084). The cell clips with
     an ellipsis, never mid-glyph.
+- **I-347 — the presenter reads what the log actually cites, and a row never shows one name twice
+  (session 7, wave 3, the craft re-look; R-UI-082/083/084, B-17; amends I-38 as amended, and S-Project's
+  I-146 through the shared `SubjectChips`).** The re-look found four rows of the M3 project's log
+  that I-38's presenter did not read:
+  - **A view in the partition's own spelling.** AFFIRM_SCALE and CONFIRM_VIEW_TYPE cite a view by
+    the key the partition writes (`partitionViewKey`: `<CLASS>:<anchor source key>`, e.g.
+    `DETAIL:DXF_HANDLE:2266`), not by L-REG-04's `v:`-prefixed identity key — which is the same key
+    under the prefix (`viewAddressOf`). The parse knew only `v:`, so Affirm scale read
+    `DETAIL:` `DETAIL:` `LAYOUT_` +7, and `subjects.ts` said in its own comment that those acts cite
+    `v:` — a second spelling of one fact. `parseSubject` now reads both spellings as one view whose
+    `viewKey` is the PARTITION's (the key `partition_views` holds its caption under), recognised by
+    shape — a SCREAMING class, then a SCREAMING source-key scheme and its id — as the `v:` key always
+    was, because the vocabulary's one home is a module this client-side parse may not reach
+    (ARCH-01). `names.views` is keyed the same way, so the caption read by `getAuditSurfaces` now
+    names the `v:` spelling too (it had asked the store by a key the store never holds). A bare
+    source key (`DXF_HANDLE:2A0`) is not a view and stays opaque.
+  - **Model space.** A CONFIRM_DISCIPLINE sheet key whose layout is the artifact's name for model
+    space (`model`, `vextrus_cad.ingest.MODEL_SPACE`) carries no sheet number; it reads
+    `audit_subject_model_space` **Model space**, not the lower-case layout name beside `S-03`.
+  - **One name, many subjects.** AUTHOR_TYPICAL_RANGE cites a placeholder per placement, at the
+    unresolved level slot, so each reads by its mark alone and the row read `C1 · C1 · C1 +24` —
+    three chips a reader cannot tell apart, which read as a rendering bug (on S-Project's Recent
+    activity too). Subjects that READ the same are grouped, in the order each name is first cited,
+    into ONE chip reading `audit_subject_repeated` **{name} ×{count}** (`C1 ×9`). The chip's value —
+    its tooltip and its copy — is the first key it stands for; every other key it folds stays in the
+    DOM beside it as a hidden `data-value`, as the `+k`'s do. The cap of three counts NAMES; the `+k`
+    counts the SUBJECTS past it (as `data-count` does) and its tooltip lists the names with their
+    counts.
+  - **A chip cut mid-glyph.** `text-overflow` on the evidence box did nothing to a row of inline-flex
+    chips: Insert level read `Proposed level 1 · Proposed level 2 · Proposed le` with no ellipsis.
+    Inside these chips alone the IdChip's measure is a one-line block that ends in an ellipsis
+    (`subject-chips.css`); a name is capped at 24 characters so two chips and the count stand whole
+    in the narrowest cell the rubric reads (this column at 1280, 484 px); and the LAST chip shown
+    (`cx-subject-chip-tail`) is the one that gives up width when a cell is short, down to its copy
+    target and a glyph or two. The count never shrinks.
+  - **Cited evidence takes the band.** At 420 the column stopped ~230 px short of a header that runs
+    to the grid's edge while its third chip was cut; it is the log's last column and now takes the
+    width the four before it leave (`audit.css`), 420 being its floor (s-home I-140 as amended, the
+    same reading of the band).
 - **I-36 — the log is a list, not a DataTable and not a fixed-height table.** *Amended by I-38.* No sort, no
   column operations, no inline edit, no virtualisation (pagination is out of scope by name),
   and the contract's filters are external controls, not column filters — DataTable would be
@@ -310,7 +349,9 @@ consequence and the evidence it cited.** · `audit_acts_heading` **Act log** ·
 `audit_filter_any_actor` **All actors** · `audit_count` **{shown} of {total} acts** ·
 `audit_col_type` **Act type** · `audit_col_actor` **Actor** · `audit_col_occurred` **Occurred** ·
 `audit_consequence_label` **Consequence** · `audit_evidence_label` **Cited evidence** ·
-`audit_subject_proposed_level` **Proposed level {n}** · `audit_subject_more` **+{count}** ·
+`audit_subject_proposed_level` **Proposed level {n}** · `audit_subject_model_space` **Model
+space** (I-347) · `audit_subject_repeated` **{name} ×{count}** (I-347) · `audit_subject_more`
+**+{count}** ·
 `audit_empty_none_heading` **No acts recorded yet** · `audit_empty_none_body` **Acts are
 recorded here the moment they are committed anywhere in this project — there is nothing to
 set up.** · `audit_empty_filtered_heading` **No acts match these filters** ·

@@ -16,7 +16,9 @@ const BONES = 8;
 
 export default function ProjectDocumentsLoading() {
   return (
-    <div className="cx-documents" data-testid={TESTIDS.documents.screen} data-state="loading">
+    // I-348: the waiting leg is the same screen root, saying it is still arriving — so `settled()`
+    // holds on it rather than reading a screen that has not answered yet.
+    <div className="cx-documents" data-testid={TESTIDS.documents.screen} data-screen-root="" data-state="loading">
       <header className="cx-documents-header">
         <h1 className="cx-documents-heading">{strings.documents_title}</h1>
       </header>

@@ -68,6 +68,19 @@ describe("AC-4 — recent activity", () => {
     });
   });
 
+  test("I-147 as amended: Who holds an address whole at 280, and Subject — the last column — starts at 400", async () => {
+    // The craft re-look: every Who cell read "j000-legs-mudgiibpj27y@cubit.t…" at 220 — the part that
+    // tells two people apart is the part that was cut — beside ~750 px of unused Subject track.
+    const root = mountHome(await projectHome(), homeData({ recentActs: acts(1) }));
+    const activity = one(root, "project-home-activity");
+    const heads = [...activity.querySelectorAll('[role="columnheader"]')] as HTMLElement[];
+    const strings = await homeStrings();
+    const widthOf = (label: string | undefined): string | undefined => heads.find((head) => text(head) === label)?.style.width;
+    expect(widthOf(copy(strings, "project_home_col_who")), "an actor's address stands whole").toBe("280px");
+    expect(widthOf(copy(strings, "project_home_col_subject")), "the Subject column's floor; it takes the band's remainder").toBe("400px");
+    expect(text(heads.at(-1) ?? activity), "Subject is the table's last column, the one that takes the remainder").toBe(copy(strings, "project_home_col_subject"));
+  });
+
   test("AC-4: with no act recorded the region says why, and holds no row", async () => {
     const strings = await homeStrings();
     const root = mountHome(await projectHome(), homeData({ recentActs: [] }));

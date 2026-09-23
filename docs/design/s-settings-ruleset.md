@@ -33,7 +33,7 @@ digest it explains, and the primary stands first under the pin with the lineage 
 | section nav | the project's settings areas; Rule set carries `aria-current` | 160 × 100 % (`--drawer-w-min`), rows `--control-h` | — (an area with no screen is shown disabled with its reason in a tooltip) | — | — |
 | header | the title and the `(i)` that holds the caption | 100 % × 40 | — | — | — |
 | pinned edition | ONE line: the scope in words (EnumLabel), the edition L-MEA-01 spells, the content digest as an IdChip, then the `(i)` | 100 % × `--row-h` | the whole screen is the unpinned notice instead (I-28) | the root boundary (`src/app/error.tsx`) | `loading.tsx` bone at the row height |
-| parameters (primary) | every value a measurement on this project reads — first under the pin (I-325) | flex × `--row-h` rows; takes the height the pane leaves and scrolls inside its own hairline frame, never cut by the status bar | never — an edition with no parameter is not an edition | the root boundary | bones at the row height |
+| parameters (primary) | every value a measurement on this project reads — first under the pin (I-325) | flex × `--row-h` rows; takes the height the pane leaves — the field less `shell-main`'s padding, no tool row (I-349) — and scrolls inside its own hairline frame, never cut by the status bar | never — an edition with no parameter is not an edition | the root boundary | bones at the row height |
 | lineage | the chain the pin was forked along, platform → tenant → project, as a 3-row grid, under the primary | 100 % × 3 × `--row-h` | never — a pinned edition always has a chain, and its own step is in it | the root boundary | three bones at the row height |
 | unpinned (the empty state) | `ShellEmptyState`: why there is nothing, and the one way onward | centred in the pane | this IS the empty leg | — | — |
 
@@ -163,6 +163,27 @@ M3, inc-304).
   at 1280×800. The `(i)` follows the digest it explains instead of standing alone at the far edge.
   The digest is the shipped IdChip drawn by its own rules: the `8ch` clip this screen's sheet still
   laid over the chip (I-206) cut its copy target off, and is withdrawn.
+- **I-349 — the column's bound is the field the frame leaves, and each grid states that it rendered
+  (session 7, wave 3, the craft re-look; R-UI-080/081, AM-09's rendered read contract; corrects
+  I-325's bound, and the Author edition and Site facts screens' identical one).** At 1440×900 the
+  Parameters grid showed 16 of its 17 rows with the frame's bottom edge exactly on row 16's divider
+  — nothing said a row was scrolled away — while ~40 px stood empty under the Lineage; at 1280×800
+  it showed 12½. The cause was I-325's bound, `100dvh − --topbar-h − --toolbar-h − --status-h −
+  2 × --gap-section`: the settings frame renders no tool row (the shell zeroes that track,
+  `[data-toolbar="false"]`), and the space above and below the column is `shell-main`'s own padding
+  (`--space-6`), not the density's section gap (16 at compact). The bound is now `100dvh −
+  --topbar-h − --status-h − 2 × --space-6` — the field the pane actually has — on all three settings
+  screens that bound their column (`ruleset.css`, `ruleset-author.css`, `site-facts.css`), said one
+  way. What it returns is 16 px at compact density, not a whole row: seventeen rows want 18 px more
+  than a 1440×900 pane holds under this screen's header, pin, two section heads and the Lineage, so
+  the grid now ends partway through its seventeenth row — the conventional sign that a grid scrolls,
+  where a frame edge on a divider read as a finished list. (A column bound by the pane's own grid row,
+  rather than by re-deriving the chrome, is the settings template's to state: `settings.css` is not
+  this screen's.) And the screen's two grid regions publish the RENDERED contract a retrying read
+  waits on, as the Author edition's diff and the Site facts table already did: `ruleset-parameter-table`
+  and `ruleset-lineage` each wear `data-rendered-region` under their own id and `data-rows-rendered`
+  mirrored off the shipped table's own count (`rows-drawn.ts`, the settings area's one mirror — the
+  Author edition screen's inline copy of it is retired). The craft walk read `regions=0 rows=-` here.
 
 ## 1. Layout and hierarchy
 
@@ -378,7 +399,9 @@ parameter's label cell (what `<th scope="row">` was before the grid); `data-tech
 digest elements; `aria-current` on the nav's current row; the `<h1>`/`<h2>` hierarchy per §1;
 the unpinned action's `href` `/t/{tenantId}`; `data-screen-root` with `data-state` on
 `cx-ruleset` — `ready` for a pinned view, `empty` for the no-pin answer (I-325, asserted by the
-AC-4 suite); each scope's EnumLabel `data-value` (the stored scope).
+AC-4 suite); each scope's EnumLabel `data-value` (the stored scope); `data-rendered-region` (the
+region's own id) and `data-rows-rendered` (the count the shipped table says it drew) on
+`ruleset-parameter-table` and on `ruleset-lineage` (I-349, asserted by the AC-4 suite).
 
 Acceptance (AC-4) mounts `RulesetSettingsSection` under jsdom with @testing-library/react
 over two fixtures in `tests/rulesets/**`: a pinned view built from the exported seed content
@@ -398,3 +421,9 @@ consumers land, per R-UI-011.
   withdrawn; the three row ids read `TESTIDS` instead of literals; the wireframe's nav shows the
   four areas in the roster's own order. The four `s-settings-ruleset` pictures move and are the
   gate's to re-take.
+- 2026-09-23 — session 7, wave 3 (the craft re-look): I-349. The column's bound drops the tool row
+  the settings frame does not render and subtracts `shell-main`'s padding rather than the density's
+  section gap — 16 px returned at compact, the grid ending partway through its next row instead of
+  on a divider — on this screen, Author edition and Site facts alike; both grid regions publish
+  `data-rendered-region` and the table's own `data-rows-rendered`. The four `s-settings-ruleset`
+  pictures move and are the gate's to re-take.
