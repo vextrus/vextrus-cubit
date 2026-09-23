@@ -1,0 +1,47 @@
+{
+ "fixture": "F-ARCH",
+ "generator": "fixtures/gen/arch/",
+ "counted_as": "every entity of every layout but ATTRIB/ATTDEF/SEQEND/VERTEX/VIEWPORT, as placed",
+ "drawn": {
+  "arch.dxf": {
+   "A-01 GROUND FLOOR PLAN": {
+    "INSERT": 1,
+    "LINE": 3,
+    "LWPOLYLINE": 1,
+    "MTEXT": 3,
+    "TEXT": 15
+   },
+   "A-02 TYPICAL FLOOR PLAN (1ST TO 6TH)": {
+    "INSERT": 1,
+    "LINE": 3,
+    "LWPOLYLINE": 1,
+    "MTEXT": 3,
+    "TEXT": 15
+   },
+   "A-03 ROOM FINISH SCHEDULE AND WALL TYPES": {
+    "LINE": 3,
+    "LWPOLYLINE": 1,
+    "MTEXT": 3,
+    "TEXT": 16
+   },
+   "A-04 SECTION A-A": {
+    "LINE": 3,
+    "LWPOLYLINE": 1,
+    "MTEXT": 3,
+    "TEXT": 14
+   },
+   "model": {
+    "ARC": 3,
+    "CIRCLE": 97,
+    "DIMENSION": 18,
+    "HATCH": 61,
+    "INSERT": 25,
+    "LEADER": 1,
+    "LINE": 857,
+    "LWPOLYLINE": 81,
+    "MTEXT": 267,
+    "TEXT": 115
+   }
+  }
+ }
+}
