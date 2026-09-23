@@ -23,11 +23,23 @@ import { repudiateLevel, type RepudiateLevelInput } from "./repudiate-level";
 import { transcribeSheetNotes, type TranscribeSheetNotesInput } from "./transcribe-sheet-notes";
 import { consequenceDigest, movesNothing, type Consequence } from "./consequence";
 import { ACT_TYPES, type ActType } from "./law";
+import { lineGroupsOf } from "./line-groups";
 import { requirePermission } from "./participation";
 import { actChangesNothing, actorNotHuman, consequencesNotCarried } from "./refusals";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
-export { consequenceDigest, movesNothing, type Consequence, type ConsequenceEffects, type ConsequenceRendering, type ConsequenceSubject } from "./consequence";
+export {
+  consequenceDigest,
+  movesNothing,
+  type Consequence,
+  type ConsequenceEffects,
+  type ConsequenceLineGroup,
+  type ConsequenceRendering,
+  type ConsequenceStanding,
+  type ConsequenceSubject,
+  type StandingOfSubject,
+} from "./consequence";
+export { groupLines, type GroupableLine } from "./line-groups";
 export {
   ACT_PERMISSION,
   ACT_TYPES,
@@ -62,7 +74,7 @@ export {
 export { repudiateLevel, type RepudiateLevelInput } from "./repudiate-level";
 export { corroborate, type CorroborateInput } from "./corroborate";
 export { repudiate, type RepudiateInput } from "./repudiate";
-export { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-storey-height";
+export { authorStoreyHeight, storeyHeightMoved, type AuthorStoreyHeightInput } from "./author-storey-height";
 export { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typical-range";
 export { transcribeSheetNotes, type ProposedNoteReading, type TranscribeSheetNotesInput } from "./transcribe-sheet-notes";
 export { holdOutOfBill, type HoldOutOfBillInput } from "./hold-out-of-bill";
@@ -206,8 +218,22 @@ export async function preview(ctx: ActorCtx, input: ActInput): Promise<Consequen
   const rendering = renderingFor(input);
   return forTenant(ctx).transaction(async (tx) => {
     await requirePermission(tx, ctx, actType, input.projectId);
-    return rendering.preview(ctx, tx);
+    return counted(tx, ctx, await rendering.preview(ctx, tx));
   });
+}
+
+/**
+ * The preview as a person reads it (I-446): where the act's effects name lines, the same lines
+ * counted by class, kind and level, read in the transaction that named them — once, here, for every
+ * act that has effects, so no act spells its own counting (B-17). The ids stay exactly as the act
+ * named them and are what the digest binds; the groups are their reading and bind nothing, which is
+ * why the commit, which recomputes only what it binds, need not count them again.
+ */
+async function counted(tx: TenantTx, ctx: ActorCtx, consequence: Consequence): Promise<Consequence> {
+  const effects = consequence.effects;
+  if (effects === undefined || effects.linesRederiving.length === 0) return consequence;
+  const lineGroups = await lineGroupsOf(tx, { tenantId: ctx.tenantId, projectId: consequence.projectId }, effects.linesRederiving);
+  return { ...consequence, effects: { ...effects, lineGroups } };
 }
 
 /**

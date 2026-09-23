@@ -1,6 +1,6 @@
-// R-SPINE-060: the ConsequenceDialog pattern's own table. Pattern chrome only, and act-agnostic —
-// every act-specific word arrives in the Consequence's own data or as the act-type identifier, so
-// one dialog serves every act without a second table per act (B-17). Copy fixed verbatim by
+// R-SPINE-060: the ConsequenceDialog pattern's own table. Pattern chrome, plus the one name each act
+// is read by: every other act-specific word still arrives in the Consequence's own data, so one
+// dialog serves every act without a second table per act (B-17). Copy fixed verbatim by
 // docs/design/consequence-dialog.md § 3.
 export const consequenceDialog = {
   consequence_dialog_title: "What this act changes",
@@ -13,11 +13,56 @@ export const consequenceDialog = {
   // I-161: what an act's kind derives, shown only when the seam sent it. Both parts of the Decision
   // place these three here, with the dialog's own chrome, and the Decision is the law (§ 3).
   consequence_dialog_effects_heading: "What follows from this",
-  consequence_dialog_effects_lines: "Lines that re-derive",
+  consequence_dialog_effects_lines: "Lines that re-measure",
   consequence_dialog_effects_signatures: "Signatures that void",
   consequence_dialog_confirm: "Confirm",
   consequence_dialog_cancel: "Cancel",
   consequence_dialog_close: "Close",
+
+  // I-444: the overline says which act this is in the words its door uses, never the enum. The
+  // enum stays on the wrapper's `data-act-type` and inside the Details disclosure (R-UI-082).
+  consequence_dialog_act_assign_participant_role: "Change a participant's role",
+  consequence_dialog_act_confirm_discipline: "Confirm disciplines",
+  consequence_dialog_act_confirm_view_type: "Confirm view types",
+  consequence_dialog_act_pin_drawing_set: "Pin a drawing set",
+  consequence_dialog_act_affirm_scale: "Affirm a scale",
+  consequence_dialog_act_insert_level: "Insert levels",
+  consequence_dialog_act_repudiate_level: "Remove a level",
+  consequence_dialog_act_author_storey_height: "Record a storey height",
+  consequence_dialog_act_author_typical_range: "State a typical floor range",
+  consequence_dialog_act_transcribe_sheet_notes: "Record a sheet's notes",
+  consequence_dialog_act_corroborate: "Record a reading",
+  consequence_dialog_act_repudiate: "Strike an object",
+  consequence_dialog_act_hold_out_of_bill: "Hold out of this bill",
+  consequence_dialog_act_declare_not_in_project_scope: "Declare out of project scope",
+  consequence_dialog_act_author_ruleset_edition: "Author a ruleset edition",
+  consequence_dialog_act_author_site_fact: "Record a site fact",
+
+  // I-445: a standing, before and after, in the words the level stack says it in.
+  consequence_dialog_standing_agreed: "Agreed",
+  consequence_dialog_standing_suspended: "Suspended",
+  consequence_dialog_standing_none: "Not stated",
+  consequence_dialog_standing_readings: "{count} readings",
+  consequence_dialog_standing_readings_one: "1 reading",
+  consequence_dialog_standing_disagree: "{count} readings do not agree",
+  consequence_dialog_standing_unread: "No reading yet",
+  consequence_dialog_standing_recorded: "This reading",
+
+  // I-446: the lines that move, counted by class, kind and level.
+  consequence_dialog_lines: "{count} lines",
+  consequence_dialog_lines_one: "1 line",
+  consequence_dialog_lines_total: "{count} lines in all",
+  consequence_dialog_signatures: "{count} signatures",
+  consequence_dialog_signatures_one: "1 signature",
+  consequence_dialog_level_foundation: "Foundation",
+  consequence_dialog_level_unresolved: "Level not resolved",
+  consequence_dialog_level_none: "No level",
+
+  // I-447: what a person does not need in order to decide, one press away.
+  consequence_dialog_details: "Details",
+  consequence_dialog_details_act: "Act",
+  consequence_dialog_details_lines: "Line ids",
+  consequence_dialog_details_signatures: "Signature ids",
 } as const;
 
 // R-SPINE-060's per-module convention is that a table file's DESIGNATED export is the one named for

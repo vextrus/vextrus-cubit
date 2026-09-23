@@ -14,14 +14,31 @@
  * therefore arrives as a rejection already carrying its registered entry and its evidence — the
  * consumer's wrapper does the lookup — and is rendered by the one RefusalState, with no chrome of
  * this component's own (Decision I-40).
+ *
+ * What the consequence says is `ConsequenceSummary`'s to render (I-447, the second half of this
+ * file): the dialog is its frame — the act named in words, the title, the currency hint, the stale
+ * notice, the refusal slot and the two buttons — so a surface that previews an act inline reads the
+ * same consequence the same way.
  */
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import type { Consequence, ConsequenceRendering, ConsequenceSubject } from "@/core/acts";
+import { Fragment, useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import type {
+  ActType,
+  Consequence,
+  ConsequenceLineGroup,
+  ConsequenceRendering,
+  ConsequenceStanding,
+  ConsequenceSubject,
+  StandingOfSubject,
+} from "@/core/acts";
 import type { RefusalCode, RefusalEntry } from "@/core/errors";
-import { Button, Skeleton } from "../../primitives/core";
+import type { LevelSlot } from "@/core/identity";
+import type { StoreyHeightStandingName } from "@/core/levels";
+import { Button, Skeleton, UnitBadge } from "../../primitives/core";
+import { humaniseEnum } from "../../primitives/core/enum-label";
+import { useFigureContext } from "../../primitives/core/figures";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "../../primitives/overlay";
 import { RefusalState } from "../refusal-state";
-import { strings } from "../../strings";
+import { fill, strings } from "../../strings";
 
 import "./consequence-dialog.css";
 import { TESTIDS } from "@/ui/testids";
@@ -45,7 +62,10 @@ interface RefusedAnswer {
 
 export interface ConsequenceDialogProps {
   open: boolean;
-  /** The act type, verbatim: a machine identifier the dialog shows and never translates. */
+  /**
+   * The act type, verbatim: the machine identifier the wrapper publishes on `data-act-type` and the
+   * Details disclosure states. What a person reads is the act's name in words (I-444).
+   */
   actType: string;
   preview: () => Promise<ConsequencePreview>;
   commit: (carried: { consequenceDigest: string }) => Promise<CommittedAct>;
@@ -67,6 +87,38 @@ export interface ConsequenceDialogProps {
  * comparison that quietly stops matching (B-17).
  */
 const STALE: RefusalCode = "CONSEQUENCES_NOT_CARRIED";
+
+/**
+ * I-444: every act's name in words, the name its own door already uses. Keyed by the act-type
+ * enum itself and by nothing wider, so an act added to L-ACT-02's map without a name here is a
+ * compile error rather than an enum shown to a person (R-UI-082).
+ */
+const ACT_WORDS: { readonly [T in ActType]: string } = {
+  ASSIGN_PARTICIPANT_ROLE: strings.consequence_dialog_act_assign_participant_role,
+  CONFIRM_DISCIPLINE: strings.consequence_dialog_act_confirm_discipline,
+  CONFIRM_VIEW_TYPE: strings.consequence_dialog_act_confirm_view_type,
+  PIN_DRAWING_SET: strings.consequence_dialog_act_pin_drawing_set,
+  AFFIRM_SCALE: strings.consequence_dialog_act_affirm_scale,
+  INSERT_LEVEL: strings.consequence_dialog_act_insert_level,
+  REPUDIATE_LEVEL: strings.consequence_dialog_act_repudiate_level,
+  AUTHOR_STOREY_HEIGHT: strings.consequence_dialog_act_author_storey_height,
+  AUTHOR_TYPICAL_RANGE: strings.consequence_dialog_act_author_typical_range,
+  TRANSCRIBE_SHEET_NOTES: strings.consequence_dialog_act_transcribe_sheet_notes,
+  CORROBORATE: strings.consequence_dialog_act_corroborate,
+  REPUDIATE: strings.consequence_dialog_act_repudiate,
+  HOLD_OUT_OF_BILL: strings.consequence_dialog_act_hold_out_of_bill,
+  DECLARE_NOT_IN_PROJECT_SCOPE: strings.consequence_dialog_act_declare_not_in_project_scope,
+  AUTHOR_RULESET_EDITION: strings.consequence_dialog_act_author_ruleset_edition,
+  AUTHOR_SITE_FACT: strings.consequence_dialog_act_author_site_fact,
+};
+
+/**
+ * The act as a person reads it. The prop is a string, so a value the enum does not hold — which no
+ * shipped consumer passes — is still said in words by the one mechanical rule, never shown raw.
+ */
+function actWords(actType: string): string {
+  return (ACT_WORDS as Readonly<Record<string, string>>)[actType] ?? humaniseEnum(actType);
+}
 
 /** The bones that keep the layout while a preview is in flight (Decision § 1). */
 const SUBJECT_BONES = [
@@ -119,6 +171,10 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
   // Which opening a preview belongs to. An answer for an opening the person has already left must
   // not paint over the one they are looking at now.
   const opening = useRef(0);
+  // What held focus when the dialog opened — the door that raised the act. The primitive returns
+  // focus to its own trigger, and this dialog is opened by a consumer's door rather than one, so
+  // without this a close dropped focus onto the document body (R-UI-060, I-448).
+  const opener = useRef<HTMLElement | null>(null);
 
   const runPreview = useCallback(async (): Promise<void> => {
     opening.current += 1;
@@ -191,17 +247,32 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
         // outside the dialog is ever reached — and where the card somehow holds no control at all,
         // the default stands rather than leaving focus on the document.
         onOpenAutoFocus={(event) => {
+          // Read before anything moves it: at this moment focus is still on the door that opened us.
+          const held = typeof document === "undefined" ? null : document.activeElement;
+          opener.current = held instanceof HTMLElement && held !== document.body ? held : null;
           const first = (event.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>(FIRST_CONTROL);
           if (first === null || first === undefined) return;
           event.preventDefault();
           first.focus();
         }}
+        // Focus goes back to the door that raised the act (R-UI-060, I-448) — but only where it
+        // has nowhere else to be. A consumer that placed focus deliberately once the act landed (on
+        // the row it just wrote, say) keeps it, and a door the act's own commit took away is no
+        // longer in the document, so focus stays where the primitive leaves it.
+        onCloseAutoFocus={(event) => {
+          const door = opener.current;
+          opener.current = null;
+          if (door === null || !door.isConnected) return;
+          const current = document.activeElement;
+          const placed = current !== null && current !== document.body && current.isConnected;
+          if (placed) return;
+          event.preventDefault();
+          door.focus();
+        }}
       >
         <div className="cx-consequence" data-testid={TESTIDS.consequence.dialog} data-act-type={actType} aria-busy={pending || undefined}>
-          {/* The enum value verbatim: a machine identifier, and the title is what names the dialog. */}
-          <p className="cx-consequence-acttype" aria-hidden="true">
-            {actType}
-          </p>
+          {/* The act in the words its door uses (I-444); the enum stays on data-act-type and in Details. */}
+          <p className="cx-consequence-acttype">{actWords(actType)}</p>
           <DialogTitle>{strings.consequence_dialog_title}</DialogTitle>
           <p className="cx-consequence-hint" id={hintId}>
             {strings.consequence_dialog_hint}
@@ -221,14 +292,7 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
               {pending ? <Skeleton style={DIGEST_BONE} /> : null}
             </div>
           ) : (
-            <>
-              <ConsequenceBody consequence={shown.consequence} />
-              <ConsequenceEffects effects={shown.consequence.effects} />
-              <p className="cx-consequence-digest">
-                <span className="cx-consequence-digest-label">{strings.consequence_dialog_digest_label}</span>
-                <span data-testid={TESTIDS.consequence.digestLine}>{shown.digest}</span>
-              </p>
-            </>
+            <ConsequenceSummary consequence={shown.consequence} digest={shown.digest} />
           )}
 
           {answer === null ? null : <RefusalState refusal={answer.refusal} evidence={answer.evidence} />}
@@ -260,14 +324,84 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
   );
 }
 
+/* ------------------------------------------------------------------ the consequence itself */
+
+/*
+ * The typed consequence, as a quantity surveyor reads it (Decision § 1, I-445/c/d): what each
+ * subject stands at before and after, the lines that move counted by class, kind and level, and —
+ * one press away, never as body text — the identifiers and the digest a machine compares (R-UI-082).
+ *
+ * It is the dialog's body, published on its own so a surface that previews an act inline rather than
+ * in a modal (S-Measure's card is the first) reads a consequence in exactly this form and adds none
+ * of its own (B-17). It renders what the seam computed and decides nothing: every word an act needs
+ * arrives in the Consequence, and every figure through the injected conventions.
+ */
+
+export interface ConsequenceSummaryProps {
+  /** The Consequence the server computed. */
+  consequence: Consequence;
+  /** The digest that binds it — shown whole inside the Details disclosure, never as body text. */
+  digest: string;
+}
+
+/**
+ * The standings a level's height is judged in (L-MEA-07's roster), and the words each is read by.
+ * Keyed by the roster's own name type, so a standing added there without words here is a compile
+ * error rather than an enum shown to a person (R-UI-082, as ACT_WORDS is).
+ */
+const STANDING_WORDS: { readonly [S in StoreyHeightStandingName]: string } = {
+  AGREED: strings.consequence_dialog_standing_agreed,
+  SUSPENDED: strings.consequence_dialog_standing_suspended,
+  NONE: strings.consequence_dialog_standing_none,
+};
+
+/** The one standing whose readings disagree — the only one whose count is said as a disagreement. */
+const SUSPENDED: StoreyHeightStandingName = "SUSPENDED";
+
+/** The lawful-null level slots (L-REG-04), in the words a level column says them in — total over the roster. */
+const SLOT_WORDS: { readonly [S in LevelSlot]: string } = {
+  FOUNDATION: strings.consequence_dialog_level_foundation,
+  UNRESOLVED: strings.consequence_dialog_level_unresolved,
+};
+
+/** A value's words off one of the tables above; a value no roster holds is said by EnumLabel's rule, never raw. */
+function wordsFor(table: Readonly<Record<string, string>>, value: string): string {
+  return table[value] ?? humaniseEnum(value);
+}
+
+/** A count said with its noun, one and many, grouped by the document's conventions. */
+function counted(count: number, one: string, many: string, figure: (value: string) => string): string {
+  return count === 1 ? one : fill(many, { count: figure(String(count)) });
+}
+
+/**
+ * The document's figure conventions where the frame installed them, else the exact decimal. The
+ * pattern formats nothing itself (ARCH-01): a figure with no conventions around it is shown as the
+ * exact string it arrived as, the DataTable subtotal's own rule, and never re-grouped here.
+ */
+function useFigure(): (value: string) => string {
+  const conventions = useFigureContext();
+  return conventions === null ? (value) => value : (value) => conventions.figure(value);
+}
+
+export function ConsequenceSummary({ consequence, digest }: ConsequenceSummaryProps): ReactNode {
+  return (
+    <>
+      <ConsequenceSubjects consequence={consequence} />
+      <ConsequenceEffects effects={consequence.effects} />
+      <ConsequenceDetails actType={consequence.actType} digest={digest} />
+    </>
+  );
+}
+
 /**
  * I-45: the consequence rendering is a total map. L-ACT-02 makes an act type without a rendering a
- * compile error, and this component is where acts render — so the body is an exhaustive switch over
- * the Consequence's closed rendering arms, each named by the Consequence itself and never defaulted
- * here. An arm added to `ConsequenceRendering` (L-ACT-02's offered groups, R-UI-023) owes its case
- * below, or `unrendered` fails to compile.
+ * compile error, and this component is where acts render — so the subjects render by an exhaustive
+ * switch over the Consequence's closed rendering arms, each named by the Consequence itself and never
+ * defaulted here. An arm added to `ConsequenceRendering` (L-ACT-02's offered groups, R-UI-023) owes
+ * its case below, or `unrendered` fails to compile.
  */
-function ConsequenceBody({ consequence }: { consequence: Consequence }) {
+function ConsequenceSubjects({ consequence }: { consequence: Consequence }): ReactNode {
   const arm: ConsequenceRendering = consequence.rendering;
   switch (arm) {
     case "SUBJECTS":
@@ -292,71 +426,228 @@ function unrendered(arm: never): never {
 }
 
 /**
- * I-161: the effect slots mount exactly when the seam sends them. `Consequence.effects` is optional
- * in core, so a preview that carries no `effects` field — which is every act shipped before the
- * affirmation — mounts neither slot and no heading, and no earlier acceptance or picture of this
- * dialog moves (B-20). The presence of the field is the switch, never a prop and never the act type:
- * what an act's kind derives is the seam's answer, not this component's guess (R-TO-020).
+ * One fact the act judges, rendered as the transition it is: what the subject holds now under one
+ * label, what it would hold under the other. Where the act's kind judges a STANDING — a storey
+ * height agreed or suspended over its readings — the columns say the standing and the figure the
+ * act records stands under them (I-445); otherwise they list what the subject holds, verbatim.
+ *
+ * The heading is the label the answering layer resolved for the subject, and the id it carries when
+ * none was — the id is what the act moves and is always true.
  */
-function ConsequenceEffects({ effects }: { effects: Consequence["effects"] }) {
+function SubjectRow({ subject }: { subject: ConsequenceSubject }): ReactNode {
+  const standing = subject.standing;
+  return (
+    <li
+      className="cx-consequence-subject"
+      data-testid={TESTIDS.consequence.subjectRow}
+      data-subject={subject.subjectId}
+      data-standing-before={standing?.before.standing}
+      data-standing-after={standing?.after.standing}
+    >
+      <p className="cx-consequence-subject-label">{subject.subjectLabel ?? subject.subjectId}</p>
+      <div className="cx-consequence-roles">
+        <div className="cx-consequence-column">
+          <span className="cx-consequence-column-label">{strings.consequence_dialog_before_label}</span>
+          {standing === undefined ? <RoleList roles={subject.before} variant="before" /> : <Standing held={standing.before} variant="before" />}
+        </div>
+        <div className="cx-consequence-column">
+          <span className="cx-consequence-column-label">{strings.consequence_dialog_after_label}</span>
+          {standing === undefined ? <RoleList roles={subject.after} variant="after" /> : <Standing held={standing.after} variant="after" />}
+        </div>
+      </div>
+      {standing === undefined ? null : <Recorded standing={standing} />}
+    </li>
+  );
+}
+
+/** What the subject holds, verbatim, or prose standing for absence — never a fake role name. */
+function RoleList({ roles, variant }: { roles: readonly string[]; variant: "before" | "after" }): ReactNode {
+  if (roles.length === 0) return <span className="cx-consequence-none">{strings.consequence_dialog_none}</span>;
+  return (
+    <span className="cx-consequence-role-list" data-column={variant}>
+      {roles.join(" ")}
+    </span>
+  );
+}
+
+/**
+ * One standing in words: its name, the figure and unit it stands at where it stands at one, and the
+ * readings behind it — "Agreed 3.3528 m · 2 readings", "Suspended · 3 readings do not agree". The
+ * figure is the exact metres the standing holds, never a rounded face: what a person confirms is
+ * the value the stack will carry (L-QTY-03).
+ */
+function Standing({ held, variant }: { held: StandingOfSubject; variant: "before" | "after" }): ReactNode {
+  const figure = useFigure();
+  const readings =
+    held.readings === 0
+      ? strings.consequence_dialog_standing_unread
+      : held.standing === SUSPENDED
+        ? fill(strings.consequence_dialog_standing_disagree, { count: figure(String(held.readings)) })
+        : counted(held.readings, strings.consequence_dialog_standing_readings_one, strings.consequence_dialog_standing_readings, figure);
+  return (
+    <span className="cx-consequence-standing" data-column={variant} data-standing={held.standing} data-value={held.value ?? ""}>
+      <span className="cx-consequence-standing-state">
+        <span className="cx-consequence-standing-word">{wordsFor(STANDING_WORDS, held.standing)}</span>
+        {held.value === null ? null : (
+          <span className="cx-consequence-figure">
+            {figure(held.value)}
+            <UnitBadge unit={held.unit} />
+          </span>
+        )}
+      </span>
+      <span className="cx-consequence-standing-readings">{readings}</span>
+    </span>
+  );
+}
+
+/** The figure the act records, under the columns it moves: the one number the person typed or read. */
+function Recorded({ standing }: { standing: ConsequenceStanding }): ReactNode {
+  const figure = useFigure();
+  return (
+    <p className="cx-consequence-recorded" data-value={standing.recorded.value}>
+      <span className="cx-consequence-column-label">{strings.consequence_dialog_standing_recorded}</span>
+      <span className="cx-consequence-figure">
+        {figure(standing.recorded.value)}
+        <UnitBadge unit={standing.recorded.unit} />
+      </span>
+    </p>
+  );
+}
+
+/**
+ * I-161: the effect slots mount exactly when the seam sends them. A preview that carries no
+ * `effects` field mounts neither slot and no heading: what an act's kind derives is the seam's
+ * answer, not this component's guess (R-TO-020).
+ *
+ * I-446: each slot says what moves the way a reader counts it — the lines by class, kind and
+ * level, the signatures by count — and keeps the identifiers themselves inside the slot, one press
+ * away, whole and selectable (R-UI-082): a reader can still carry an id to the register.
+ */
+function ConsequenceEffects({ effects }: { effects: Consequence["effects"] }): ReactNode {
+  const figure = useFigure();
   if (effects === undefined) return null;
   return (
     <section className="cx-consequence-effects-block">
       <h3 className="cx-consequence-effects-heading">{strings.consequence_dialog_effects_heading}</h3>
       <dl className="cx-consequence-effects">
         <dt className="cx-consequence-effects-label">{strings.consequence_dialog_effects_lines}</dt>
-        <dd className="cx-consequence-effects-value" data-testid={TESTIDS.consequence.effectLines}>
-          <EffectList named={effects.linesRederiving} />
+        <dd className="cx-consequence-effects-value" data-testid={TESTIDS.consequence.effectLines} data-count={effects.linesRederiving.length}>
+          {effects.linesRederiving.length === 0 ? (
+            <span className="cx-consequence-none">{strings.consequence_dialog_none}</span>
+          ) : (
+            <>
+              {effects.lineGroups === undefined ? (
+                <span className="cx-consequence-count">
+                  {counted(effects.linesRederiving.length, strings.consequence_dialog_lines_one, strings.consequence_dialog_lines, figure)}
+                </span>
+              ) : (
+                <LineGroups groups={effects.lineGroups} total={effects.linesRederiving.length} figure={figure} />
+              )}
+              <IdList summary={strings.consequence_dialog_details_lines} ids={effects.linesRederiving} />
+            </>
+          )}
         </dd>
         <dt className="cx-consequence-effects-label">{strings.consequence_dialog_effects_signatures}</dt>
-        <dd className="cx-consequence-effects-value" data-testid={TESTIDS.consequence.effectSignatures}>
-          <EffectList named={effects.signaturesVoiding} />
+        <dd className="cx-consequence-effects-value" data-testid={TESTIDS.consequence.effectSignatures} data-count={effects.signaturesVoiding.length}>
+          {effects.signaturesVoiding.length === 0 ? (
+            <span className="cx-consequence-none">{strings.consequence_dialog_none}</span>
+          ) : (
+            <>
+              <span className="cx-consequence-count">
+                {counted(effects.signaturesVoiding.length, strings.consequence_dialog_signatures_one, strings.consequence_dialog_signatures, figure)}
+              </span>
+              <IdList summary={strings.consequence_dialog_details_signatures} ids={effects.signaturesVoiding} />
+            </>
+          )}
         </dd>
       </dl>
     </section>
   );
 }
 
-/** The identifiers an effect names, whole and selectable — or the one word an empty slot is said
-    with, because a slot that stands silent says nothing about what would follow (R-UI-020). */
-function EffectList({ named }: { named: readonly string[] }) {
-  if (named.length === 0) return <span className="cx-consequence-none">{strings.consequence_dialog_none}</span>;
-  return <span className="cx-consequence-effect-list">{named.join(" ")}</span>;
+/** Where a group's objects stand, in the words a level column says it: a label, a slot, or none. */
+function levelWords(group: ConsequenceLineGroup): string {
+  if (group.levelSlot !== null && group.levelLabel === null) return wordsFor(SLOT_WORDS, group.levelSlot);
+  return group.levelLabel ?? strings.consequence_dialog_level_none;
 }
 
 /**
- * One fact the act judges, rendered as the transition it is: what the subject holds now under one
- * label, what they would hold under the other. A role list would say what is true without saying
- * what changes, which is the half R-UI-021 asks for.
- *
- * The heading is the label the answering layer resolved for the subject, and the id it carries when
- * none was — the id is what the act moves and is always true, but the one surface where a person
- * decides has to name the person in the words the rest of the screen named them by.
+ * The lines, one row per (class, kind, level) in the order the seam counted them — up the building,
+ * then the bill's own order — with the count right-aligned in the figure face, and the total beneath
+ * them where there is more than one row to add up.
  */
-function SubjectRow({ subject }: { subject: ConsequenceSubject }) {
+function LineGroups({ groups, total, figure }: { groups: readonly ConsequenceLineGroup[]; total: number; figure: (value: string) => string }): ReactNode {
   return (
-    <li className="cx-consequence-subject" data-testid={TESTIDS.consequence.subjectRow} data-subject={subject.subjectId}>
-      <p className="cx-consequence-subject-label">{subject.subjectLabel ?? subject.subjectId}</p>
-      <div className="cx-consequence-roles">
-        <div className="cx-consequence-column">
-          <span className="cx-consequence-column-label">{strings.consequence_dialog_before_label}</span>
-          <RoleList roles={subject.before} variant="before" />
-        </div>
-        <div className="cx-consequence-column">
-          <span className="cx-consequence-column-label">{strings.consequence_dialog_after_label}</span>
-          <RoleList roles={subject.after} variant="after" />
-        </div>
-      </div>
-    </li>
+    <ul className="cx-consequence-groups">
+      {groups.map((group) => (
+        <li
+          key={`${group.elementClass}|${group.kind}|${group.levelSlot ?? ""}|${group.levelLabel ?? ""}`}
+          className="cx-consequence-group"
+          data-testid={TESTIDS.consequence.effectGroup}
+          data-class={group.elementClass}
+          data-kind={group.kind}
+          data-level={group.levelLabel ?? group.levelSlot ?? ""}
+          data-count={group.count}
+        >
+          <span className="cx-consequence-group-what">{group.description}</span>
+          <span className="cx-consequence-group-where">{levelWords(group)}</span>
+          <span className="cx-consequence-group-count">{counted(group.count, strings.consequence_dialog_lines_one, strings.consequence_dialog_lines, figure)}</span>
+        </li>
+      ))}
+      {groups.length > 1 ? (
+        <li className="cx-consequence-group cx-consequence-group-total">
+          <span className="cx-consequence-group-count">{fill(strings.consequence_dialog_lines_total, { count: figure(String(total)) })}</span>
+        </li>
+      ) : null}
+    </ul>
   );
 }
 
-/** The role enum values verbatim, or prose standing for absence — never a fake role name. */
-function RoleList({ roles, variant }: { roles: readonly string[]; variant: "before" | "after" }) {
-  if (roles.length === 0) return <span className="cx-consequence-none">{strings.consequence_dialog_none}</span>;
+/**
+ * The identifiers a slot names, whole and selectable, behind the disclosure R-UI-082 names. Each id
+ * is one unbreakable run, so an opened list reads one id at a time rather than wrapping a UUID at its
+ * hyphens; the runs are space-separated, so the slot's text is still exactly the ids, space-joined.
+ */
+function IdList({ summary, ids }: { summary: string; ids: readonly string[] }): ReactNode {
   return (
-    <span className="cx-consequence-role-list" data-column={variant}>
-      {roles.join(" ")}
-    </span>
+    <details className="cx-consequence-ids">
+      <summary className="cx-consequence-disclosure cx-reticle">{summary}</summary>
+      <span className="cx-consequence-effect-list" data-technical="">
+        {ids.map((id, at) => (
+          <Fragment key={`${at}:${id}`}>
+            {at === 0 ? null : " "}
+            <span className="cx-consequence-id">{id}</span>
+          </Fragment>
+        ))}
+      </span>
+    </details>
+  );
+}
+
+/**
+ * I-447: the act's own code and the digest the confirm carries — what a machine compares and a
+ * person does not need in order to decide — stand in one data-technical disclosure (R-UI-082),
+ * whole and selectable. The digest line keeps its id and holds exactly the digest (I-43), so the
+ * confirm's `data-digest` and this line can still be compared character for character.
+ */
+function ConsequenceDetails({ actType, digest }: { actType: string; digest: string }): ReactNode {
+  return (
+    <details className="cx-consequence-details">
+      <summary className="cx-consequence-disclosure cx-reticle" data-testid={TESTIDS.consequence.details}>
+        {strings.consequence_dialog_details}
+      </summary>
+      <dl className="cx-consequence-technical">
+        <dt className="cx-consequence-effects-label">{strings.consequence_dialog_details_act}</dt>
+        <dd className="cx-consequence-technical-value" data-technical="">
+          {actType}
+        </dd>
+        <dt className="cx-consequence-effects-label">{strings.consequence_dialog_digest_label}</dt>
+        <dd className="cx-consequence-technical-value cx-consequence-digest">
+          <span data-testid={TESTIDS.consequence.digestLine} data-technical="">
+            {digest}
+          </span>
+        </dd>
+      </dl>
+    </details>
   );
 }

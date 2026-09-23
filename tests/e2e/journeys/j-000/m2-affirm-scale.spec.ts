@@ -59,7 +59,9 @@ test.describe.serial("J-000 — Golden Path: a scale of record for the sheet", (
     await expect(scale.dialog, "affirming a scale is an act, and an act is previewed in the one ConsequenceDialog").toBeVisible();
     await expect(scale.dialog, "and the dialog names the act it is about to commit").toHaveAttribute("data-act-type", "AFFIRM_SCALE");
     await expect(scale.subjectRows, "the preview names what it would change").not.toHaveCount(0);
-    await expect(scale.digestLine, "and the digest the commit is bound to").toBeVisible();
+    // I-447: the digest is never body text (R-UI-082); it stands one press away, in Details.
+    await scale.details.click();
+    await expect(scale.digestLine, "and the digest the commit is bound to, read whole in Details").toBeVisible();
     await scale.confirm.click();
 
     await expect(scale.dialog, "the committed act closes the dialog").toHaveCount(0, { timeout: 60_000 });

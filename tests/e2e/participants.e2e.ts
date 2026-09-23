@@ -71,6 +71,7 @@ const ID = Object.freeze({
   dialog: "consequence-dialog",
   subjectRow: "consequence-subject-row",
   digestLine: "consequence-digest-line",
+  details: "consequence-details",
   confirm: "consequence-confirm",
 } as const);
 
@@ -265,7 +266,9 @@ test.describe("J-003 — participants: the roles a project holds, moved by act",
     await expect(dialog, "submitting the form previews the act and opens the one act pattern (R-UI-021)").toBeVisible();
     await expect(dialog, "the dialog names the act it is confirming").toHaveAttribute("data-act-type", ACT_TYPE);
     const digestLine = page.getByTestId(ID.digestLine);
-    await expect(digestLine, "the digest line is visible BEFORE the confirm — a commit never stands without one").toBeVisible();
+    // I-447: the digest is never body text (R-UI-082); it stands one press away, in Details.
+    await page.getByTestId(ID.details).click();
+    await expect(digestLine, "the digest line is visible BEFORE the confirm, once Details is opened — a commit never stands without one").toBeVisible();
     expect(await steadyText(digestLine, "the Consequence digest line"), "and it carries the digest the server computed, not an empty line").not.toBe("");
     await expect(page.getByTestId(ID.subjectRow), "the dialog renders the subjects the Consequence names").not.toHaveCount(0);
     await expect(page.getByTestId(ID.subjectRow).first(), `the consequence is the one the form asked for: ${MEASURER}`).toContainText(MEASURER);

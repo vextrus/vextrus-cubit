@@ -10,9 +10,21 @@
 // DEFAULTED is barred here, and at the store's own CHECK: a height nobody read is unstated, and the
 // act says so by name rather than recording a number the machine invented (L-MEA-07).
 import type { TenantTx } from "../db";
-import { carryToMetres, isStoreyHeightBasis, readingKey, storeyHeightStanding, storeyHeightUnstated, STOREY_HEIGHT_BASES, type CarriedReading, type StoreyHeightBasis } from "../levels";
+import {
+  CANONICAL_LENGTH,
+  carryToMetres,
+  isStoreyHeightBasis,
+  readingKey,
+  storeyHeightStanding,
+  storeyHeightUnstated,
+  STOREY_HEIGHT_BASES,
+  type CarriedReading,
+  type ReadingOfHeight,
+  type StoreyHeightBasis,
+  type StoreyHeightStanding,
+} from "../levels";
 import { liveLevelsOf, readingsOfLevel, writeReadings, type LevelRow, type LevelScope } from "../levels/store";
-import type { Consequence } from "./consequence";
+import type { Consequence, ConsequenceStanding, StandingOfSubject } from "./consequence";
 import { linesRederivingOn } from "./level-effects";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
@@ -31,14 +43,38 @@ export type AuthorStoreyHeightInput = {
   readonly unitAsWritten: string;
 };
 
-/** What the act would do: the key it reads under, what that key said before, and what it says now. */
+/**
+ * What the act would do: the key it reads under, what that key said before, what it says now, and
+ * how the level's height stands before and after the reading lands.
+ */
 type Derived = {
   readonly level: LevelRow;
   readonly basis: StoreyHeightBasis;
   readonly readingKey: string;
   readonly carried: CarriedReading;
   readonly before: readonly string[];
+  readonly standing: ConsequenceStanding;
 };
+
+/** One standing as a consequence states it: its name, its metres, the metre, and its current readings. */
+function stated(standing: StoreyHeightStanding): StandingOfSubject {
+  return { standing: standing.standing, value: standing.canonicalMetres, unit: CANONICAL_LENGTH, readings: standing.current.length };
+}
+
+/**
+ * How one reading moves a level's height (I-445): the standing over the readings the level holds
+ * now, and the standing over those same readings with this one appended — judged by the one
+ * `storeyHeightStanding`, so the dialog says exactly what the stack will say once it lands (B-17).
+ * A reading under a key that already stands supersedes it, so a re-affirmation can settle a
+ * suspension and the count of readings need not grow (L-MEA-07).
+ */
+export function storeyHeightMoved(readings: readonly ReadingOfHeight[], added: ReadingOfHeight): ConsequenceStanding {
+  return {
+    before: stated(storeyHeightStanding(readings)),
+    after: stated(storeyHeightStanding([...readings, added])),
+    recorded: { value: added.canonicalMetres, unit: CANONICAL_LENGTH },
+  };
+}
 
 /**
  * The act, judged against the state this transaction read — or nothing, where there is no live level
@@ -67,10 +103,26 @@ async function derive(ctx: ActorCtx, input: AuthorStoreyHeightInput, tx: TenantT
   // What this key said before: the reading standing under it today, where this actor has read the
   // level this way before. A re-affirmation of the very same metres moves nothing, and the seam says
   // so rather than appending a row that changes no answer (L-ACT-01).
-  const standing = storeyHeightStanding(await readingsOfLevel(tx, scope, level.levelId));
+  const readings = await readingsOfLevel(tx, scope, level.levelId);
+  const standing = storeyHeightStanding(readings);
   const held = standing.current.find((reading) => reading.readingKey === key);
+  const added: ReadingOfHeight = {
+    readingKey: key,
+    canonicalMetres: carried.canonicalMetres,
+    basis: input.basis,
+    sourceKey: input.sourceKey,
+    valueAsWritten: carried.valueAsWritten,
+    unitAsWritten: carried.unitAsWritten,
+  };
 
-  return { level, basis: input.basis, readingKey: key, carried, before: held === undefined ? [] : [held.canonicalMetres] };
+  return {
+    level,
+    basis: input.basis,
+    readingKey: key,
+    carried,
+    before: held === undefined ? [] : [held.canonicalMetres],
+    standing: storeyHeightMoved(readings, added),
+  };
 }
 
 export const authorStoreyHeight: ActRendering<AuthorStoreyHeightInput> = {
@@ -90,6 +142,7 @@ export const authorStoreyHeight: ActRendering<AuthorStoreyHeightInput> = {
                 subjectLabel: derived.level.label,
                 before: derived.before,
                 after: [derived.carried.canonicalMetres],
+                standing: derived.standing,
               },
             ],
       // The lines standing on the level whose height was read: a contested or re-affirmed height

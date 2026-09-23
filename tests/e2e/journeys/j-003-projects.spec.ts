@@ -347,7 +347,12 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     await participants.submit("Preview this change").click();
 
     await expect(participants.dialog, "the act pattern opens on the consequence the seam computed").toBeVisible();
-    await expect(participants.digestLine, "…with the digest line standing before the confirm").toBeVisible();
+    // I-447: the digest is never body text (R-UI-082); it stands one press away, in Details.
+    await expect(participants.digestLine, "…with the digest line standing before the confirm, inside Details").toHaveCount(1);
+    await participants.details.click();
+    await expect(participants.digestLine, "…read whole once Details is opened").toBeVisible();
+    await participants.details.click();
+    await expect(participants.digestLine, "…and folded away again, so the picture is the dialog as a person first meets it").toBeHidden();
     await expect(participants.subjectRows, "…and one row per subject the Consequence names").toHaveCount(1);
     await expect(participants.confirm, "…and the act-variant confirm that carries the digest").toBeVisible();
 

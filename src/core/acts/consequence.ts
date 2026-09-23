@@ -22,6 +22,38 @@ export type ConsequenceSubject = {
   readonly subjectLabel?: string;
   readonly before: readonly string[];
   readonly after: readonly string[];
+  /**
+   * How the subject STANDS before and after the act, where the act's kind judges a standing over
+   * competing readings — a storey height AGREED, SUSPENDED or unstated (L-MEA-07, R-TO-051). `before`
+   * and `after` above say what the act's own key holds, which is what the act writes; this says what
+   * the person is actually deciding: whether GF stays agreed at 3.3528 m or suspends because a third
+   * reading disagrees. Only an act whose kind reads a standing fills it (I-445).
+   *
+   * Unlike the label it is BOUND by the digest: it is derived from every reading of the subject, so
+   * a reading another person adds between preview and commit changes what this act does to the
+   * standing without changing its own key's before and after — and the person confirmed the
+   * standing they were shown, so that state is a different consequence (L-ACT-02, I-44).
+   */
+  readonly standing?: ConsequenceStanding;
+};
+
+/**
+ * One standing, as a reader weighs it: its name off the roster that judges it, the figure it stands
+ * at where it stands at one, the unit that figure is in, and how many current readings it is judged
+ * over. The figure is a decimal string at the precision it is carried at (B-07, L-QTY-03).
+ */
+export type StandingOfSubject = {
+  readonly standing: string;
+  readonly value: string | null;
+  readonly unit: string;
+  readonly readings: number;
+};
+
+/** The standing a subject holds now, the one it would hold, and the figure the act records to move it. */
+export type ConsequenceStanding = {
+  readonly before: StandingOfSubject;
+  readonly after: StandingOfSubject;
+  readonly recorded: { readonly value: string; readonly unit: string };
 };
 
 /**
@@ -42,6 +74,31 @@ export type ConsequenceRendering = "SUBJECTS";
 export type ConsequenceEffects = {
   readonly linesRederiving: readonly string[];
   readonly signaturesVoiding: readonly string[];
+  /**
+   * The same lines as a quantity surveyor counts them: by class, kind and the level their objects
+   * stand on — "Column · Concrete, GF, 26 lines" rather than 26 identifiers (R-UI-021's "counts of
+   * rows affected", R-UI-082). Presentation, filled by the act seam's preview from the ids above and
+   * the register they were measured off (I-446), and digest-blind exactly as a subject's label
+   * is: the ids are what the person confirms, and a line's class and kind never change under its
+   * id. Absent where nothing grouped them — a reader then states the count of the ids.
+   */
+  readonly lineGroups?: readonly ConsequenceLineGroup[];
+};
+
+/**
+ * One group of the lines an act would re-derive. `description` is what the bill calls the (class,
+ * kind) pair (`descriptionOf`: "Column · Concrete"); the level is the label of the level the objects
+ * stand on or the placeholder they stand under, and the slot is the lawful-null slot they stand in
+ * (L-REG-04) — both null where the register states neither. `count` is how many of the effect's ids
+ * the group holds, so the groups' counts sum to the ids' length.
+ */
+export type ConsequenceLineGroup = {
+  readonly elementClass: string;
+  readonly kind: string;
+  readonly description: string;
+  readonly levelLabel: string | null;
+  readonly levelSlot: string | null;
+  readonly count: number;
 };
 
 /** What an act would do, computed by the committing code path from the state it read (L-ACT-02). */
@@ -80,15 +137,21 @@ export function consequenceDigest(consequence: Consequence): string {
  * which lines would re-derive and which signatures would void (R-TO-020), and a state in which a
  * different set would move is a different consequence. An act whose kind carries no effects
  * digests as it always has — `canonical` writes nothing for an absent field.
+ *
+ * A subject's standing is bound for the reason its own field states (I-445); a subject whose act
+ * reads no standing carries no field and digests exactly as before. The effects are bound as their
+ * two id lists and nothing more: the lines' grouping is the seam's presentation of those same ids
+ * (I-446), and a commit recomputes the ids, not the words a surface counted them in.
  */
 function judged(consequence: Consequence): unknown {
+  const effects = consequence.effects;
   return {
     actType: consequence.actType,
     tenantId: consequence.tenantId,
     projectId: consequence.projectId,
     rendering: consequence.rendering,
-    subjects: consequence.subjects.map((subject) => ({ subjectId: subject.subjectId, before: subject.before, after: subject.after })),
-    effects: consequence.effects,
+    subjects: consequence.subjects.map((subject) => ({ subjectId: subject.subjectId, before: subject.before, after: subject.after, standing: subject.standing })),
+    effects: effects === undefined ? undefined : { linesRederiving: effects.linesRederiving, signaturesVoiding: effects.signaturesVoiding },
   };
 }
 

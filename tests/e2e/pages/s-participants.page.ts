@@ -97,6 +97,11 @@ export class SParticipantsPage {
     return this.page.getByTestId(TESTIDS.consequence.digestLine);
   }
 
+  /** The Details disclosure's summary: the digest stands behind it, one press away (I-447). */
+  get details(): Locator {
+    return this.page.getByTestId(TESTIDS.consequence.details);
+  }
+
   get confirm(): Locator {
     return this.page.getByTestId(TESTIDS.consequence.confirm);
   }

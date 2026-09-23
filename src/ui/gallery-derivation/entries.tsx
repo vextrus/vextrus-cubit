@@ -16,7 +16,7 @@ import type { DataTableColumnDef } from "../primitives/data";
 import type { Consequence } from "../../core/acts";
 import type { RefusalEntry, RefusalSeverity, RefusalSurface } from "../../core/errors";
 import { CommandPalette, CommandPaletteProvider, ShortcutSheet } from "../patterns/command-palette";
-import { ConsequenceDialog } from "../patterns/consequence-dialog";
+import { ConsequenceDialog, ConsequenceSummary } from "../patterns/consequence-dialog";
 import { Dropzone, type DropzoneItem } from "../patterns/dropzone";
 import { EvidenceLink } from "../patterns/evidence-link";
 import { JobTimeline, JobsProvider, TrackedJobTimeline, type JobsFormat, type TimelineStep } from "../patterns/job-timeline";
@@ -753,6 +753,92 @@ const consequenceDialogSample = (): ReactNode => (
   </>
 );
 
+/*
+ * The consequence's own form (I-447), shown in the states a reader meets it in — the samples the
+ * Decision's § 7 authors. Unlike the dialog it frames, it is not an overlay, so every state stands
+ * open on the page: a storey height that would suspend, the re-affirmation that settles it, a role
+ * granted, and an affirmation whose effects are a stated nothing.
+ */
+
+/** Fifty-two sample line ids — the walk's GF case, 26 concrete and 26 formwork lines. Authored data. */
+const SAMPLE_LINE_IDS: readonly string[] = Array.from({ length: 52 }, (_, at) => `00000000-0000-4000-8000-${String(at + 1).padStart(12, "0")}`);
+
+const SAMPLE_GF_GROUPS = [
+  { elementClass: "column", kind: "rcc.concrete", description: "Column · Concrete", levelLabel: "GF", levelSlot: null, count: 26 },
+  { elementClass: "column", kind: "rcc.formwork", description: "Column · Formwork", levelLabel: "GF", levelSlot: null, count: 26 },
+] as const;
+
+const SAMPLE_HEIGHT_KEY = "00000000-0000-4000-8000-0000000000f0:ENTERED";
+
+/** GF agreed at 3.3528 m over two readings; a third, entered at 3.2 m, would suspend it. */
+const SAMPLE_SUSPENDING: Consequence = {
+  actType: "AUTHOR_STOREY_HEIGHT",
+  tenantId: SAMPLE_CONSEQUENCE.tenantId,
+  projectId: SAMPLE_CONSEQUENCE.projectId,
+  rendering: "SUBJECTS",
+  subjects: [
+    {
+      subjectId: SAMPLE_HEIGHT_KEY,
+      subjectLabel: "GF",
+      before: [],
+      after: ["3.2"],
+      standing: {
+        before: { standing: "AGREED", value: "3.3528", unit: "m", readings: 2 },
+        after: { standing: "SUSPENDED", value: null, unit: "m", readings: 3 },
+        recorded: { value: "3.2", unit: "m" },
+      },
+    },
+  ],
+  effects: { linesRederiving: SAMPLE_LINE_IDS, signaturesVoiding: [], lineGroups: SAMPLE_GF_GROUPS },
+};
+
+/** The same reader reads GF again at 3.3528 m: the re-affirmation that clears the suspension. */
+const SAMPLE_SETTLING: Consequence = {
+  ...SAMPLE_SUSPENDING,
+  subjects: [
+    {
+      subjectId: SAMPLE_HEIGHT_KEY,
+      subjectLabel: "GF",
+      before: ["3.2"],
+      after: ["3.3528"],
+      standing: {
+        before: { standing: "SUSPENDED", value: null, unit: "m", readings: 3 },
+        after: { standing: "AGREED", value: "3.3528", unit: "m", readings: 3 },
+        recorded: { value: "3.3528", unit: "m" },
+      },
+    },
+  ],
+};
+
+/** The first reading of 1F, a level no line stands on yet: both slots a stated nothing (I-162, I-165). */
+const SAMPLE_FIRST_READING: Consequence = {
+  actType: "AUTHOR_STOREY_HEIGHT",
+  tenantId: SAMPLE_CONSEQUENCE.tenantId,
+  projectId: SAMPLE_CONSEQUENCE.projectId,
+  rendering: "SUBJECTS",
+  subjects: [
+    {
+      subjectId: "00000000-0000-4000-8000-0000000000f1:ENTERED",
+      subjectLabel: "1F",
+      before: [],
+      after: ["3.048"],
+      standing: {
+        before: { standing: "NONE", value: null, unit: "m", readings: 0 },
+        after: { standing: "AGREED", value: "3.048", unit: "m", readings: 1 },
+        recorded: { value: "3.048", unit: "m" },
+      },
+    },
+  ],
+  effects: { linesRederiving: [], signaturesVoiding: [] },
+};
+
+const consequenceSummaryStates: readonly GalleryState[] = [
+  { name: "suspends", render: () => figured(<ConsequenceSummary consequence={SAMPLE_SUSPENDING} digest={SAMPLE_DIGEST} />) },
+  { name: "settles", render: () => figured(<ConsequenceSummary consequence={SAMPLE_SETTLING} digest={SAMPLE_DIGEST} />) },
+  { name: "first-reading", render: () => figured(<ConsequenceSummary consequence={SAMPLE_FIRST_READING} digest={SAMPLE_DIGEST} />) },
+  { name: "roles", render: () => figured(<ConsequenceSummary consequence={SAMPLE_CONSEQUENCE} digest={SAMPLE_DIGEST} />) },
+];
+
 const REFUSAL_SEVERITIES: readonly RefusalSeverity[] = ["error", "warning", "info"];
 const REFUSAL_SURFACES: readonly RefusalSurface[] = ["inline", "dialog", "banner"];
 
@@ -960,6 +1046,7 @@ export const galleryEntries: GalleryEntries = {
   "patterns/command-palette/CommandPaletteProvider": { states: composed(() => paletteSample(null)) },
   "patterns/command-palette/ShortcutSheet": { states: closed(() => paletteSample(<ShortcutSheet />)) },
   "patterns/consequence-dialog/ConsequenceDialog": { states: closed(consequenceDialogSample) },
+  "patterns/consequence-dialog/ConsequenceSummary": { states: consequenceSummaryStates },
   "patterns/dropzone/Dropzone": { states: dropzoneStates },
   "patterns/evidence-link/EvidenceLink": { states: evidenceLinkStates },
   "patterns/job-timeline/JobTimeline": { states: jobTimelineStates },

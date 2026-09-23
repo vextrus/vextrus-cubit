@@ -107,8 +107,11 @@ export const TESTIDS = {
   },
   consequence: {
     confirm: "consequence-confirm",
+    // DLG-1 (I-446/d): the Details disclosure's summary, and one row of the counted lines.
+    details: "consequence-details",
     dialog: "consequence-dialog",
     digestLine: "consequence-digest-line",
+    effectGroup: "consequence-effect-group",
     effectLines: "consequence-effect-lines",
     effectSignatures: "consequence-effect-signatures",
     staleNotice: "consequence-stale-notice",

@@ -19,6 +19,21 @@ Design Decision, as this file's own preamble always required. **Drift recorded f
 - *Focus on open.* The dialog focuses its container, so a reticle is drawn around the whole body
   (F-uiux §1 #5). The direction (`00-direction.md` §1) rules: focus the first control.
 
+**Amended by DLG-1 (session 8, walk-0 BLOCKS_DEMO — "the ConsequenceDialog speaks QS").** The walk
+opened a storey-height preview on the BNBC project and read: an eyebrow `AUTHOR_STOREY_HEIGHT`,
+**Before** `none` although GF stood agreed at 3.3528 m, **After** `3.2` with no unit and no word that
+GF would suspend, then 52 raw line ids and a 64-hex digest that pushed Confirm ~1,400 px down. The
+QS could not tell what the act would do. This amendment makes the dialog say it: the act in the words
+its door uses (I-444); each subject's standing before and after, with figure, unit and readings
+(I-445); the lines that move counted by class, kind and level, the ids one press away (I-446);
+the act's code and the digest in one Details disclosure (I-447); focus back on the door that
+opened it (I-448). The body is published on its own as `ConsequenceSummary`, which is what
+S-Measure's inline card reuses, and it has its own gallery states (R-UI-011). Where this amendment
+and an older line of this file disagree, this amendment rules, and the older line says so in place.
+The new behaviour's proof is the pattern's jsdom suites (`consequence-dialog.test.ts`,
+`consequence-effects.test.tsx`), the pure seam suite `src/core/acts/__tests__/consequence-words.test.ts`
+and the live suite `tests/takeoff/levels-ui/consequence-words.test.ts`.
+
 
 Not a routed screen: the single preview → confirm pattern `ConsequenceDialog` in
 `src/ui/patterns/consequence-dialog` — the one home (B-17) every act flow opens, first
@@ -36,10 +51,12 @@ RefusalState — plus the `cx-consequence-*` classes this file rules. Barrel `in
 `ConsequenceDialog`; props exactly `open`, `actType`, `preview()`, `commit({
 consequenceDigest })`, `onOpenChange`, `onCommitted`, and — added by inc-205-scale-ui, optional,
 defaulting to the document's body, so every act that shipped before it passes six and renders the
-DOM it always rendered — `container` (I-167). Stylesheet `consequence-dialog.css`.
+DOM it always rendered — `container` (I-167). Since DLG-1 the barrel also exports
+`ConsequenceSummary` (props exactly `consequence`, `digest`), the dialog's body on its own
+(I-447). Stylesheet `consequence-dialog.css`.
 Strings `src/ui/strings/consequence-dialog.ts` (keys `consequence_dialog_…`, registry
-append): pattern chrome only, act-agnostic — every act-specific word arrives in the
-Consequence's own data or as the act-type identifier.
+append): pattern chrome, plus one name per act type (I-444) and the words a standing, a count
+and a level are said in — every other act-specific word arrives in the Consequence's own data.
 
 ## 0. Interpretations (recorded per the Law section of CLAUDE.md)
 
@@ -64,11 +81,15 @@ Consequence's own data or as the act-type identifier.
   10 px mono and R-UI-003 allows tiny overlines (10 px mono, tracking 0.12–0.14em) as the
   one uppercase exception. No `--text-10` token exists and none is minted: the two 10 px
   values and the 0.12em tracking are px/em literals of core I-1's mandated class.
+  *Amended by I-444/d:* the overline is words now, set in the UI face without tracking, and the
+  digest stands in the Details disclosure in the 12 px mono the shipped CSS already used; the
+  0.12em literal is retired from `consequence-dialog.css`.
 - **I-43 — the digest renders whole, and the testid holds exactly it.** A digest exists to
   be compared (s-settings-ruleset I-26): the value renders in full, wrapping
   (`overflow-wrap: anywhere`), `user-select: all`. Its label sits outside the testid element,
   so `consequence-digest-line`'s text is character-for-character the `consequenceDigest` the
-  preview answered — AC-5 compares it exactly.
+  preview answered — AC-5 compares it exactly. *Unchanged by I-447*, which moves where the
+  line stands (inside Details), not what it holds.
 - **I-44 — a stale digest is answered by re-render, never by a refusal card.** R-UI-021 says
   it itself: "a stale digest re-renders the dialog with what changed." A commit rejection
   whose `refusal.code` is `CONSEQUENCES_NOT_CARRIED` (compared against the registry's code
@@ -122,6 +143,88 @@ Consequence's own data or as the act-type identifier.
   is a rule nobody can see from the call site; and rejected: dropping the portal for everyone, which
   would put every act's DOM at the mercy of whatever ancestor a later screen wraps it in.
 
+- **I-444 — the act is named in the words its door uses; its enum is on no face.** R-UI-082 says
+  enum values render as human labels outside a data-technical disclosure, and the walk read
+  `AUTHOR_STOREY_HEIGHT` as the first word of the one surface where a person decides. The overline
+  is now the act's name — **Record a storey height**, **Affirm a scale**, **Change a participant's
+  role** — from one table keyed by the act-type enum itself (`{ [T in ActType]: string }`), so an
+  act added to L-ACT-02's map without a name is a compile error rather than an enum on screen. Each
+  name is the one the act's own door or screen already uses (the register's **Record a reading**,
+  the coverage screen's **Hold out of this bill**); `REPUDIATE_LEVEL` reads **Remove a level**, the
+  walk's word, while the stored enum keeps "repudiate". The enum stays where machines read it: on
+  the wrapper's `data-act-type` and in Details (I-447). A string no enum member holds — which no
+  consumer passes — is said by EnumLabel's one mechanical rule, never raw. The overline is no longer
+  `aria-hidden`: it is words now, and it tells a screen-reader user which act the generic title is
+  about. Rejected: retitling the dialog per act — the title stays the pattern's one sentence, **What
+  this act changes**, and the overline above it names the act, as the spec for this slice rules.
+- **I-445 — a subject that stands over competing readings says how it stands, before and
+  after.** `ConsequenceSubject.standing` (core, optional) carries, for an act whose kind judges a
+  standing, the standing before, the standing after, and the figure the act records: each standing
+  is its name off the roster that judges it, the figure it stands at (a decimal string, or null),
+  the unit, and the count of current readings. `AUTHOR_STOREY_HEIGHT` is the first act to fill it,
+  computed by the same `storeyHeightStanding` the stack is read with — over the level's readings,
+  and over those readings with this one appended — so the dialog says exactly what the stack will
+  say once the act lands (B-17; the live suite proves it against the stack). The row renders
+  **Agreed** `3.3528` `m` / **2 readings** under **Before**, **Suspended** / **3 readings do not
+  agree** under **After**, and **This reading** `3.2` `m` beneath both; a first reading reads **Not
+  stated** / **No reading yet** before. The figure is the exact metres the standing carries — the
+  inspector's rule (I-352 keeps the grid's face at three places; the consequence is what a person
+  confirms, so it is never rounded) — through the frame's figure conventions, with the unit as a
+  UnitBadge. The field is BOUND by the digest, unlike `subjectLabel`: a reading another person adds
+  between preview and commit changes what this act does to the standing without changing its own
+  key's before and after, and the person confirmed the standing they were shown (I-44 then
+  re-renders it). A subject with no standing digests exactly as before, so no stored act's digest
+  moves. Subjects of other acts keep their before/after lists verbatim (their own presentation is
+  their act's to add, the same way). Rejected: rewriting `before`/`after` as standings — they are
+  what the act writes and what `movesNothing` judges, and a third agreeing reading would then have
+  "changed nothing".
+- **I-446 — the lines that move are counted as a quantity surveyor counts them; the ids stand
+  one press away.** R-UI-021 asks for "counts of rows affected", and R-UI-082 bars UUIDs as body
+  text. `ConsequenceEffects.lineGroups` (core, optional) counts `linesRederiving` by class, kind and
+  the level the measured object stands on — the bill's own description (`Column · Concrete`), the
+  level's label or lawful-null slot, and a count — ordered up the building (the foundation slot,
+  then levels by ordinal, then what stands on no resolved level) and then in the bill's
+  class-then-kind roster order. It is filled ONCE, by the act seam's `preview` in
+  `src/core/acts/index.ts`, for every act whose effects name lines, in the transaction that named
+  them — no act spells its own counting. It is digest-blind: the ids are what the person confirms
+  and what the commit recomputes; a line's class and kind never change under its id. The lines slot
+  renders one row per group — **Column · Concrete** · **GF** · **26 lines** — with **52 lines in
+  all** beneath when there is more than one row; a consequence whose effects were not grouped says
+  the ids' count alone (**2 lines**); signatures are counted the same way. Each slot keeps its ids
+  inside itself, in a closed disclosure (**Line ids**, **Signature ids**), whole, space-separated
+  and selectable — each id one unbreakable run, so an opened list reads an id a line rather than a
+  UUID broken at its hyphens — so a reader can still carry an id to the register, and the slot's
+  text still holds the seam's ids, space-joined (J-031 reads them there). A level slot and a
+  standing are said in words off tables keyed by their core rosters' own name types (`LevelSlot`,
+  `StoreyHeightStandingName`), as the act names are (I-444): a slot or standing added without
+  words is a compile error. An empty slot still reads **none** (I-162).
+  *Supersedes I-164* ("the ids are the count"): an enumerated set is traceable, but 52 of them in
+  front of Confirm is the wall the walk found, and the Bible asked for counts. **Not built, and
+  owed:** each group row was to link to the register filtered to it; the register takes no filter
+  in its address today (its filters are screen state, and the register's screen is VD-1's and
+  REG-FILT's this wave), so a row carries `data-class`, `data-kind`, `data-level` and `data-count`
+  for the door that will link it, and no link that would land on the wrong set.
+- **I-447 — what a machine compares stands in one Details disclosure; the body is published for
+  inline reuse.** R-UI-021's "confirm … carries the digest, shown as the digest line" is read with
+  R-UI-082 (AM-08, the later clause): a 64-hex digest is never body text, and the Bible names a
+  data-technical disclosure as where machine values live. The dialog's last block is a closed
+  `<details>` whose summary reads **Details** (`consequence-details`); inside, **Act** with the enum
+  and **Consequence digest** with `consequence-digest-line` — whole, wrapping, select-all, exactly
+  the digest (I-43), `data-technical`. The confirm still carries the digest on `data-digest`, so
+  the two can still be compared character for character. `ConsequenceSummary` is the body — subject
+  rows, effect slots, Details — as its own export, so a surface that previews an act inline
+  (S-Measure's card is the first) reads a consequence in exactly this form and adds none of its own
+  (B-17); the dialog frames it. It is not an overlay, so its gallery entry stands open in four
+  states (§ 7). Journeys that asserted the digest line visible now open Details first and assert it
+  visible there (J-003, the participants walk, J-000's affirm-scale leg) — the same claim, after
+  the one press the law now puts in front of it.
+- **I-448 — closing returns focus to the door that opened the dialog.** The primitive returns
+  focus to its own trigger, and this dialog is opened by a consumer's door rather than a
+  `DialogTrigger`, so a close dropped focus onto the body (walk-0; R-UI-060). The dialog notes what
+  held focus when it opened and gives it back on close — unless the door is gone from the document,
+  or something else already holds focus (a consumer that deliberately focused the row its act
+  wrote keeps it).
+
 ## 1. Layout and hierarchy
 
 Files: `consequence-dialog.tsx`, barrel `index.ts`, `consequence-dialog.css`. The shipped
@@ -132,34 +235,63 @@ a pre-focused Enter would commit by accident. Inside `DialogContent`, one wrappe
 
 ```
 <div data-testid="consequence-dialog" data-act-type={actType} class="cx-consequence">
-  <p class="cx-consequence-acttype" aria-hidden="true">{actType}</p>
+  <p class="cx-consequence-acttype">{the act in words}</p>          — I-444
   <DialogTitle>…</DialogTitle>
   <p class="cx-consequence-hint">…</p>
   [stale notice]                      — only after a stale commit (I-44)
-  <ul class="cx-consequence-subjects">  — or skeletons while preview is pending
-    <li data-testid="consequence-subject-row" data-subject={key}>
+  ── ConsequenceSummary ──            — or skeletons while preview is pending (I-447)
+  <ul class="cx-consequence-subjects">
+    <li data-testid="consequence-subject-row" data-subject={key}
+        [data-standing-before data-standing-after]>                 — I-445
       <p class="cx-consequence-subject-label">{subject label}</p>
-      <div class="cx-consequence-roles">  Before | After columns
+      <div class="cx-consequence-roles">  Before | After columns — a standing, or the lists verbatim
+      [<p class="cx-consequence-recorded">This reading {figure}{unit}</p>]
     </li>…
   </ul>
   [effects]                           — only when the preview carries `effects` (I-161)
     <h3 class="cx-consequence-effects-heading">…</h3>
     <dl class="cx-consequence-effects">
-      <dt>…</dt><dd data-testid="consequence-effect-lines">…</dd>
-      <dt>…</dt><dd data-testid="consequence-effect-signatures">…</dd>
+      <dt>…</dt><dd data-testid="consequence-effect-lines">        — I-446
+        <ul class="cx-consequence-groups">
+          <li data-testid="consequence-effect-group" data-class data-kind data-level data-count>
+            {description} · {level} · {n lines}
+          </li>… [<li>{N lines in all}</li>]
+        </ul> | {n lines} | none
+        [<details><summary>Line ids</summary><span data-technical>{ids}</span></details>]
+      </dd>
+      <dt>…</dt><dd data-testid="consequence-effect-signatures">{n signatures} [ids disclosure] | none</dd>
     </dl>
-  <p class="cx-consequence-digest">
-    <span class="cx-consequence-digest-label">…</span>
-    <span data-testid="consequence-digest-line">{consequenceDigest}</span>
-  </p>
+  <details class="cx-consequence-details">                           — I-447
+    <summary data-testid="consequence-details">Details</summary>
+    <dl>  Act {actType}  ·  Consequence digest
+          <span data-testid="consequence-digest-line">{consequenceDigest}</span>  </dl>
+  </details>
+  ── end ConsequenceSummary ──
   [refusal slot]                      — exactly one RefusalState when refused (I-40)
   <footer>  Cancel · Confirm  </footer>
 </div>
 ```
 
-- **Act-type overline** — the `actType` enum value verbatim (a machine identifier, the
-  s-settings-ruleset I-25 class): 10 px `var(--font-mono)`, letter-spacing 0.12em (I-42),
-  `var(--graphite-600)`. `aria-hidden` — the title, not the identifier, names the dialog.
+- **Act overline** (I-444) — the act's name in words from the one table keyed by the act-type
+  enum, `var(--font-ui)` `var(--text-12)` `var(--weight-body-medium)` `var(--ink-muted)`, sentence
+  case, no tracking; readable by assistive technology. The enum stays on `data-act-type` and in
+  Details.
+- **Standing** (I-445) — where a subject carries `standing`, each column is the standing's word
+  (`var(--text-13)`; **After** in `var(--weight-body-medium)` `var(--ink)`, **Before** in
+  `var(--ink-muted)` — what will be true dominates) with the figure in the mono tabular face and its
+  UnitBadge, and beneath it the readings line (`var(--text-12)` `var(--ink-muted)`). **This
+  reading** with the recorded figure and unit stands under both columns, `var(--space-2)` above.
+- **Counted lines** (I-446) — a three-column grid (`minmax(0, 1fr) auto auto`, gap
+  `var(--space-1)` `var(--space-3)`), each row a subgrid: description `var(--ink)`, level
+  `var(--ink-muted)`, count mono tabular right-aligned; the total row spans all three over a
+  hairline, `var(--ink-muted)`. The ids' disclosure follows, its summary `var(--text-12)`
+  `var(--ink-muted)` with the reticle, the ids once opened in 12 px mono `var(--ink-secondary)`,
+  select-all, each id an inline-block run (`cx-consequence-id`, `max-inline-size: 100%`) that wraps
+  between ids and only inside one wider than the line.
+- **Details** (I-447) — `var(--space-3)` above the footer's content; a closed `<details>`, its
+  summary as the ids' summaries are; inside, a two-column `<dl>` (`auto 1fr`, gap `var(--space-2)`
+  `var(--space-4)`) whose values are 12 px mono `var(--ink-secondary)`, tabular, wrapping,
+  select-all.
 - **Title** — `consequence_dialog_title` in the primitive's title style (`var(--text-16)`
   `var(--weight-heading)` `var(--graphite-900)`); hint `consequence_dialog_hint` below it,
   `var(--text-12)` `var(--graphite-600)`.
@@ -190,8 +322,8 @@ a pre-focused Enter would commit by accident. Inside `DialogContent`, one wrappe
   dash. The label sits outside the testid element, so each `<dd>`'s text is exactly the value
   the seam sent or that one word. The slots stand with the consequence: they unmount with it
   while a preview is pending, refused or superseded, and re-render with the fresh one.
-- **Digest line** — `var(--space-3)` above, label `consequence_dialog_digest_label`
-  (`var(--text-12)` `var(--graphite-600)`) then the digest per I-42/I-43: 10 px
+- **Digest line** — *since I-447, inside Details*: label `consequence_dialog_digest_label`
+  (`var(--text-12)` `var(--graphite-600)`) in the `<dt>`, then the digest per I-43:
   `var(--font-mono)` `tabular-nums slashed-zero` `var(--graphite-700)`, whole, wrapping,
   select-all.
 - **Stale notice** — `<div data-testid="consequence-stale-notice" role="alert">`, the house
@@ -220,9 +352,9 @@ replaced by Skeletons keeping layout — two 16 × min(360 px, 100 %) bones and 
 core's loading state (`aria-busy`, no spinner); cancel and close stay enabled — closing does
 not abort the request, and a commit that resolves after close still invokes `onCommitted`
 so the consumer's surfaces refresh. **Committed:** the dialog invokes
-`onCommitted({ actId })` then `onOpenChange(false)`; focus returns to the trigger (the
-primitive's own behaviour). Escape and the scrim close per the primitive — a discarded
-preview commits nothing.
+`onCommitted({ actId })` then `onOpenChange(false)`; focus returns to the door that opened the
+dialog (I-448 — the primitive's own return reaches only a `DialogTrigger`, which no consumer
+uses). Escape and the scrim close per the primitive — a discarded preview commits nothing.
 
 ## 2. Component states (the R-UI-050 matrix, ruled)
 
@@ -246,12 +378,35 @@ from the project as it stands. Confirming commits exactly what is shown and noth
 digest** · `consequence_dialog_stale` **The project changed while you were deciding, so
 nothing was committed. What is shown below was recomputed just now, and confirming carries
 the new digest.** · `consequence_dialog_effects_heading` **What follows from this** ·
-`consequence_dialog_effects_lines` **Lines that re-derive** ·
+`consequence_dialog_effects_lines` **Lines that re-measure** (DLG-1: was *Lines that re-derive* —
+"re-derive" is the law's word, "re-measure" the QS's) ·
 `consequence_dialog_effects_signatures` **Signatures that void** ·
 `consequence_dialog_confirm` **Confirm** · `consequence_dialog_cancel`
 **Cancel** · `consequence_dialog_close` **Close**. Voice: calm, concrete, no exclamation
 marks; "act", "consequence" and "digest" are the product's own user-facing law, not build
 vocabulary. Refusal message and remedy are registry-owned and render as registered (I-40).
+
+Added by DLG-1. The act names (I-444), one per act type:
+`consequence_dialog_act_assign_participant_role` **Change a participant's role** ·
+`…_confirm_discipline` **Confirm disciplines** · `…_confirm_view_type` **Confirm view types** ·
+`…_pin_drawing_set` **Pin a drawing set** · `…_affirm_scale` **Affirm a scale** ·
+`…_insert_level` **Insert levels** · `…_repudiate_level` **Remove a level** ·
+`…_author_storey_height` **Record a storey height** · `…_author_typical_range` **State a typical
+floor range** · `…_transcribe_sheet_notes` **Record a sheet's notes** · `…_corroborate` **Record a
+reading** · `…_repudiate` **Strike an object** · `…_hold_out_of_bill` **Hold out of this bill** ·
+`…_declare_not_in_project_scope` **Declare out of project scope** · `…_author_ruleset_edition`
+**Author a ruleset edition** · `…_author_site_fact` **Record a site fact**. The standing
+(I-445): `consequence_dialog_standing_agreed` **Agreed** · `…_suspended` **Suspended** ·
+`…_none` **Not stated** · `…_readings` **{count} readings** · `…_readings_one` **1 reading** ·
+`…_disagree` **{count} readings do not agree** · `…_unread` **No reading yet** · `…_recorded`
+**This reading**. The counts (I-446): `consequence_dialog_lines` **{count} lines** ·
+`…_lines_one` **1 line** · `…_lines_total` **{count} lines in all** · `…_signatures` **{count}
+signatures** · `…_signatures_one` **1 signature** · `consequence_dialog_level_foundation`
+**Foundation** · `…_level_unresolved` **Level not resolved** · `…_level_none` **No level**.
+Details (I-447): `consequence_dialog_details` **Details** · `…_details_act` **Act** ·
+`…_details_lines` **Line ids** · `…_details_signatures` **Signature ids**. Every count renders
+through the frame's figure conventions (SEAM-FORMAT, injected); with none mounted, the exact
+decimal is shown, the DataTable subtotal's own rule.
 
 ## 4. Motion (R-UI-004)
 
@@ -282,14 +437,37 @@ once, on the confirm — the one place the law reserves it.
 
 ## 7. Test hooks (closed contract, C-05)
 
-Routes: none. Test ids, exactly these seven, on the elements ruled in §1:
+Routes: none. Test ids, exactly these nine, on the elements ruled in §1:
 `consequence-dialog` (the wrapper, `data-act-type`) · `consequence-subject-row` (each
-`<li>`, `data-subject`) · `consequence-effect-lines` and `consequence-effect-signatures`
-(the two `<dd>`s, each carrying exactly the value or `none`, I-162 — added by
-inc-205-scale-ui) · `consequence-digest-line` (the digest text, exactly, I-43) ·
-`consequence-confirm` (the act Button, `data-digest`) · `consequence-stale-notice`. No
+`<li>`, `data-subject`, and since DLG-1 `data-standing-before`/`-after` where the subject carries
+a standing) · `consequence-effect-lines` and `consequence-effect-signatures`
+(the two `<dd>`s — added by inc-205-scale-ui; since I-446 each says its count or `none` on its
+face and keeps its ids in its own closed disclosure) · `consequence-effect-group` (each counted
+row, `data-class`, `data-kind`, `data-level`, `data-count` — DLG-1) · `consequence-details` (the
+Details summary — DLG-1) · `consequence-digest-line` (the digest text, exactly, I-43, inside
+Details) · `consequence-confirm` (the act Button, `data-digest`) · `consequence-stale-notice`. No
 others are added; the dialog card itself is the primitive's `dialog-content`, and the
 refusal slot is found by RefusalState's own ids inside `consequence-dialog`.
+
+DLG-1's acceptance (jsdom): the overline says the act's name and no face of the dialog holds the
+enum, which stays on `data-act-type` and in Details (I-444); a storey-height subject reads its
+standing before and after with figure, unit and readings, and the recorded figure with its unit,
+every figure through the injected conventions (I-445); grouped lines render one
+`consequence-effect-group` per group with description, level words and count, a total under more
+than one, and no id on the slot's face while every id stands whole in its disclosure (I-446);
+the digest line sits in a closed disclosure that one press on `consequence-details` opens, and
+the confirm's `data-digest` still equals it (I-447); closing returns focus to the opening door
+(I-448). The seam's half is `src/core/acts/__tests__/consequence-words.test.ts` (pure: the
+standing moves, the grouping and its order, what the digest binds and that a consequence without
+a standing digests as before) and `tests/takeoff/levels-ui/consequence-words.test.ts` (live: the
+groups add up to the bound ids, the previewed standing is the stack's before and after the commit,
+and the counted preview's digest commits). Gallery (R-UI-011): `ConsequenceSummary` stands open in
+four states — `suspends` (GF agreed at 3.3528 m over two readings, a third entered at 3.2 m;
+Column · Concrete GF 26 and Column · Formwork GF 26 of 52 sample line ids), `settles` (the same
+key re-read at 3.3528 m), `first-reading` (1F not stated → agreed at 3.048 m, both effect slots
+**none**), `roles` (the participants sample below). Baselines: `consequence-dialog-open.png`
+(J-003) MOVES — the overline is words, the digest is behind Details — and is re-taken by the gate
+(`pnpm e2e:retake`, a `baseline:` commit), never by hand.
 
 Behavioural hooks without new ids: `aria-busy` on the wrapper while pending and on the
 confirm while committing; `data-variant="act"` and the `act-dot` on the confirm;
@@ -320,6 +498,14 @@ per-run texts.
 ---
 
 <!-- PART 2 — merged verbatim from docs/design/consequencedialog.md (the effect slots) -->
+
+> **DLG-1 note (session 8).** Part 2 stands as the effect slots' history. Where it rules a slot's
+> VALUE — "the ids the slot names rendered whole and space-separated" (I-164, § 1 *Values*, § 7's
+> "each slot's text exactly those ids") — I-446 now rules instead: the slot says its count, by
+> class, kind and level for lines, and keeps the ids whole in its own closed disclosure. The
+> `AFFIRM_SCALE` paint's overline is **Affirm a scale**, not the enum (I-444), and its digest
+> stands in Details (I-447). Everything else below — placement, heading, lifetime, states,
+> motion, tokens, themes — is unchanged.
 
 # Design Decision — ConsequenceDialog: the effect slots
 

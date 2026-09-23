@@ -26,11 +26,13 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import * as React from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test } from "vitest";
 import type { ConsequenceDialog as ConsequenceDialogComponent } from "./index";
 import { galleryBarrels, galleryEntries, missingEntries } from "../../gallery-derivation";
+import { FigureProvider, type FigureFormat } from "../../primitives/core";
+import { fill, strings } from "../../strings";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..", "..", "..");
 
@@ -45,6 +47,7 @@ const TESTIDS = {
   subjectRow: "consequence-subject-row",
   digestLine: "consequence-digest-line",
   confirm: "consequence-confirm",
+  details: "consequence-details",
 } as const;
 
 /** The act this increment renders, and the roles its Consequence moves. */
@@ -260,5 +263,145 @@ describe("AC-5: the dialog renders the consequence it was handed, and commits ex
     expect(Object.keys(galleryEntries), "the catalogue holds an entry for the pattern the increment ships").toContain(`${BARREL_ID}/${EXPORT_NAME}`);
     expect(missingEntries(), "a component export without a gallery entry fails this test — the completeness surface is derived (R-UI-011, B-19)").toEqual([]);
     expect(UNDECLARED_PROPS, "the prop set is the six the increment declares and nothing more").toEqual([]);
+  });
+});
+
+/* ------------------------------------------------------------------ DLG-1: the dialog speaks QS */
+
+/** The act the walk found speaking its enum: a third storey-height reading on GF. */
+const HEIGHT_ACT = "AUTHOR_STOREY_HEIGHT";
+
+/**
+ * GF agreed at 3.3528 m over two readings, and a third, entered at 3.2 m, that would suspend it —
+ * the walk's own case (walk-0, levels). Authored here, so every word asserted below is derived from
+ * THIS data rather than frozen.
+ */
+const HEIGHT_CONSEQUENCE = {
+  actType: HEIGHT_ACT,
+  tenantId: "tenant-sample",
+  projectId: "project-sample",
+  rendering: "SUBJECTS",
+  subjects: [
+    {
+      subjectId: "level-gf:user:ENTERED:",
+      subjectLabel: "GF",
+      before: [],
+      after: ["3.2"],
+      standing: {
+        before: { standing: "AGREED", value: "3.3528", unit: "m", readings: 2 },
+        after: { standing: "SUSPENDED", value: null, unit: "m", readings: 3 },
+        recorded: { value: "3.2", unit: "m" },
+      },
+    },
+  ],
+  effects: { linesRederiving: ["line-1", "line-2"], signaturesVoiding: [] },
+} as const;
+
+/**
+ * The frame's conventions, marked, so a figure that reached the screen without passing through the
+ * document's own seam would show as the bare decimal it arrived as.
+ */
+const MARKED: FigureFormat = { figure: (value) => `‹${value}›`, money: (amount) => amount, date: () => "" };
+
+/** What a surface shows on its face: its text with every CLOSED disclosure inside it taken out. */
+function faceOf(node: HTMLElement): string {
+  const face = node.cloneNode(true) as HTMLElement;
+  for (const disclosure of Array.from(face.querySelectorAll("details"))) {
+    if (!(disclosure as HTMLDetailsElement).open) disclosure.remove();
+  }
+  return face.textContent ?? "";
+}
+
+/** The storey-height dialog's props, for one opening or another. */
+function heightProps(open: boolean): DialogProps {
+  return {
+    open,
+    actType: HEIGHT_ACT,
+    preview: () => Promise.resolve({ consequence: HEIGHT_CONSEQUENCE, consequenceDigest: DIGEST }),
+    commit: () => Promise.resolve({ actId: "act-sample" }),
+    onOpenChange: () => undefined,
+    onCommitted: () => undefined,
+  };
+}
+
+/** The dialog inside the frame's conventions, as a screen mounts it. */
+function framed(Dialog: React.ComponentType<DialogProps>, open: boolean): React.ReactElement {
+  return React.createElement(FigureProvider, { format: MARKED }, React.createElement(Dialog, heightProps(open)));
+}
+
+/** The dialog open over the storey-height consequence, its consequence rendered. */
+async function openOverHeight(): Promise<HTMLElement> {
+  const Dialog = await consequenceDialog();
+  render(framed(Dialog, true));
+  await screen.findByTestId(TESTIDS.confirm);
+  return screen.getByTestId(TESTIDS.dialog);
+}
+
+describe("DLG-1: the ConsequenceDialog speaks a quantity surveyor's words", () => {
+  test("I-444: the act is named in the words its door uses, and its enum is on no face of the dialog", async () => {
+    const dialog = await openOverHeight();
+    const face = faceOf(dialog);
+    expect(face, "the act as a person reads it (R-UI-082)").toContain(strings.consequence_dialog_act_author_storey_height);
+    expect(face, `the enum ${HEIGHT_ACT} is not body text (walk-0: the eyebrow read AUTHOR_STOREY_HEIGHT)`).not.toContain(HEIGHT_ACT);
+    expect(dialog.getAttribute("data-act-type"), "the wrapper still publishes the enum for a machine (Decision §7)").toBe(HEIGHT_ACT);
+    expect(dialog.textContent ?? "", "and the Details disclosure still states it, whole").toContain(HEIGHT_ACT);
+  });
+
+  test("I-445: before and after say the STANDING, with the figure, its unit and the readings behind it", async () => {
+    const dialog = await openOverHeight();
+    const row = within(dialog).getByTestId(TESTIDS.subjectRow);
+    expect(row.getAttribute("data-standing-before"), "the row publishes the standing it holds now").toBe("AGREED");
+    expect(row.getAttribute("data-standing-after"), "and the one it would hold").toBe("SUSPENDED");
+
+    const { before, after } = columnsOf(row.textContent ?? "");
+    expect(before, "before: the level is agreed…").toContain(strings.consequence_dialog_standing_agreed);
+    expect(before, "…at its exact metres and in its unit, through the document's conventions (walk-0: 'Before: none')").toContain("‹3.3528›m");
+    expect(before, "…over two readings").toContain(fill(strings.consequence_dialog_standing_readings, { count: "‹2›" }));
+    expect(after, "after: a third reading that disagrees suspends it").toContain(strings.consequence_dialog_standing_suspended);
+    expect(after, "and says why, in a count").toContain(fill(strings.consequence_dialog_standing_disagree, { count: "‹3›" }));
+    expect(row.textContent ?? "", "the figure the act records stands under the columns, with its unit (walk-0: 'After: 3.2', no unit)").toContain(
+      `${strings.consequence_dialog_standing_recorded}‹3.2›m`,
+    );
+  });
+
+  test("I-447: the digest stands behind a closed Details disclosure, whole, and the confirm still carries it", async () => {
+    const dialog = await openOverHeight();
+    const line = within(dialog).getByTestId(TESTIDS.digestLine);
+    expect(line.textContent, "the digest line still holds exactly the digest (I-43)").toBe(DIGEST);
+    const disclosure = line.closest("details");
+    expect(disclosure, "the digest line stands inside a disclosure (R-UI-082: a 64-hex digest is never body text)").not.toBeNull();
+    expect((disclosure as HTMLDetailsElement).open, "closed until a person asks for it").toBe(false);
+    expect(faceOf(dialog), "so the face of the dialog holds no digest").not.toContain(DIGEST);
+    expect(within(dialog).getByTestId(TESTIDS.confirm).getAttribute("data-digest"), "the confirm carries it regardless (R-UI-021)").toBe(DIGEST);
+
+    await activator().click(within(dialog).getByTestId(TESTIDS.details));
+    expect((disclosure as HTMLDetailsElement).open, "one press on Details opens it").toBe(true);
+    expect(faceOf(dialog), "and the digest is then read whole").toContain(DIGEST);
+  });
+
+  test("I-448: closing the dialog returns focus to the door that opened it", async () => {
+    const Dialog = await consequenceDialog();
+    const door = document.createElement("button");
+    door.textContent = "Preview this height";
+    document.body.append(door);
+    door.focus();
+
+    const shown = render(framed(Dialog, true));
+    await screen.findByTestId(TESTIDS.confirm);
+    expect(document.activeElement, "while open, focus is inside the dialog").not.toBe(door);
+
+    act(() => {
+      shown.rerender(framed(Dialog, false));
+    });
+    await waitFor(() => {
+      expect(document.activeElement, "on close, focus is back on the door (walk-0: it fell to BODY; R-UI-060)").toBe(door);
+    });
+    door.remove();
+  });
+
+  test("I-447: the consequence's own form is catalogued in the states a reader meets it in (R-UI-011)", () => {
+    const entry = galleryEntries[`${BARREL_ID}/ConsequenceSummary`];
+    expect(entry, "the inline form S-Measure's card reuses has its own gallery entry").toBeDefined();
+    expect((entry?.states ?? []).map((state) => state.name), "open on the page, in each state the Decision's § 7 samples").toEqual(["suspends", "settles", "first-reading", "roles"]);
   });
 });
