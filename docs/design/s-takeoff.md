@@ -31,7 +31,7 @@ inspector is the frame's one right column.
 
 | Region | Purpose | Size | Empty | Error | Loading |
 |---|---|---|---|---|---|
-| tabs row (frame's tool track) | Register · Coverage area tabs + right: pinned revision `IdChip` + the ONE primary (Measure) | 100 % × `--toolbar-h` 32, **above `shell-main`** | the revision pair is absent with no campaign; the primary stands | — | — |
+| tabs row (frame's tool track) | the lane's seven area tabs (I-407) + right: on this surface, the pinned revision `IdChip` + the ONE primary (Measure) | 100 % × `--toolbar-h` 32, **above `shell-main`** | the revision pair is absent with no campaign; the primary stands | — | — |
 | filter bar | five chips, each `Label · Value ▾` (Combobox), then the live count | 100 % × 36 | a chip whose column produced nothing offers its all-option alone | — | five 28 px chip bones |
 | index rail | the object tree (discipline › level › class › object), the struck count, every sighting that produced no line, and the level-stack offers | 240 (min 160, max 320), scrolls on its own | the tree is empty and the two sections state their own zero | `RefusalState` per sighting | one rail bone |
 | grid (primary) | the shipped `DataTable`: 28 px rows, sticky header, frozen Kind, group rows with per-unit subtotals, sticky totals footer | flex; ≥ 60 % of `shell-main` at both viewports | `EmptyState` in the grid's own place — no campaign, nothing registered, or nothing matching the filters | the read's fault is the screen's error cell (`register-empty`, with the report id and the retry) | the header is real, the body is bones |
@@ -367,13 +367,45 @@ own id from the central allocation (I-350), because the `I-reg-n` run belongs to
   `Foundation · Pile cap`, `GF · Column`, `1F · Column` …; within a group one member's lines stand
   together, `Bored · Boring · Concrete`. A reader's own column sort still overrides it.
 
+### 0.4 The seventh tab (session 8, S-Ask — I-230 amended in its roster, not its rule)
+
+The token below is a placeholder the integrator renumbers from the global chain (next free I-370).
+
+- **I-407 — the row holds the lane's seven surfaces, and the seventh is Ask.** I-230 ruled the row
+  when it held two entries; it has since grown one surface at a time, each surface's own Decision
+  adding its entry (s-levels, s-schedules, s-boq, s-bbs), while §1 here still named two. It is now
+  stated whole, in the order a quantity surveyor works a takeoff: **Register · Coverage · Levels ·
+  Schedules · Draft BOQ · Bar schedule · Ask** — each label from its surface's own string table, each
+  address from its surface's own route builder (B-17), the rule of the row (the frame's track, the
+  surface's right half through `useTakeoffTabsAside`) unchanged. Ask stands last because it reads what
+  every surface before it states — the register, the levels, the schedules, the sheets — and answers
+  nothing they do not hold; it is also reached by question from ⌘K (s-ask I-402), so its place in
+  the row is the way back to a conversation, not its only door. **Its label is a verb on a tab**
+  (Direction §6: "Verbs on buttons, nouns on tabs."), and that is read, not waived: `Ask` is the
+  screen's own name (S-Ask; X-7's "Ask the drawings"), and the nouns that would stand in its place
+  tell a quantity surveyor the wrong thing — "Queries" and "Questions" are the query sheet a QS sends
+  the designer about an unclear drawing, which this screen is not. On Ask the right half holds the
+  pinned revision alone (`ask-revision`): the screen's one primary, **Ask**, belongs to its question
+  field in main, because a primary a row away from the words it sends is a door separated from its
+  input. The row must stay one row at 1280: by estimate the seven labels take about 590 px with their
+  padding and the widest right half the lane draws (S-BBS's revision, stock readout and export) about
+  590 more, which leaves the row inside `shell-main`'s 1,232 with little to spare; the ASK-1b walk
+  measures it at both viewports on S-BBS (§7 C10), and a row that does not fit is recorded against
+  that surface's right half (s-bbs.md), never cured by cutting a tab. The new entry moves every
+  takeoff-lane picture, which the gate re-takes in one `baseline:` commit naming the seventh tab
+  (s-ask §6). Rejected: Ask as a panel over every surface (s-ask I-402 — a second right column or
+  an overlay on the work surface); rejected: Ask first in the row (the register is the lane's landing
+  surface and its redirect target, §1).
+
 ## 1. Layout and hierarchy
 
 `takeoff/layout.tsx` renders `<TakeoffTabs>` around `{children}`: the lane's 40 px-of-content tabs
 row, mounted into the frame's 32 px tool track (I-230), and the surface itself below it in
 `shell-main`. The row is `<div class="cx-takeoff-tabs">` holding `<nav data-testid="takeoff-nav"
-aria-label={takeoff_nav_label}>` — one `next/link` per surface, today `takeoff-nav-register` and
-`takeoff-nav-coverage`, each 13 px `var(--weight-body-medium)` `--ink-secondary`, `cx-reticle`, the
+aria-label={takeoff_nav_label}>` — one `next/link` per surface, seven in I-407's order:
+`takeoff-nav-register`, `takeoff-nav-coverage`, `takeoff-nav-levels`, `takeoff-nav-schedules`,
+`takeoff-nav-boq`, `takeoff-nav-bbs` and `takeoff-nav-ask`, each label its surface's own table's and
+each address its own route builder's, each 13 px `var(--weight-body-medium)` `--ink-secondary`, `cx-reticle`, the
 entry for the address in the browser carrying `aria-current="page"`, `--ink` and a 2 px
 `--line-accent` underline (the Tabs idiom in a nav of links, s-project I-125) — and, right-aligned,
 `cx-takeoff-tabs-aside`, which is what the surface standing in the row has mounted. The register
@@ -741,7 +773,9 @@ ruled in §1: `takeoff-nav` · `takeoff-nav-register` · `register-workspace` (`
 (`data-count`) · `register-refusal` (`data-code`, `data-object`, `data-kind`) · `register-answer` ·
 `register-empty` · `register-retry` · `register-level-stack` · `register-measure` ·
 `register-timeline`, and the two masking ids §7's picture paragraph names (`register-campaign`,
-`register-refusal-object`). `project-tab`, `offered-groups`, `offered-group`, `offered-group-count`,
+`register-refusal-object`). `project-tab`, the row's six other entries (`takeoff-nav-coverage`,
+`-levels`, `-schedules`, `-boq`, `-bbs` and, since I-407, `-ask`, each its own surface's
+Decision's), `offered-groups`, `offered-group`, `offered-group-count`,
 `offered-group-confirm`, `refusal-state`, `refusal-message`, `refusal-remedy`,
 `refusal-evidence-link`, `job-timeline`, `job-timeline-step`, `consequence-dialog`, `tree`,
 `tree-item`, `datatable`, `datatable-row`, `datatable-cell`, `datatable-total` (the sticky footer's

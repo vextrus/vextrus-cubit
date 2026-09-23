@@ -51,8 +51,8 @@ const ROSTER: Readonly<Record<string, Readonly<Record<string, string>>>> = {
       "F-ARCH exists nowhere (fixtures/rcc6-bnbc/arch-plan.dxf: 25 entities, no room, label or schedule; the golden has no plaster, paint or room row); src models no room and closes its kinds on no floor or ceiling finish (catalogue/kinds.ts:12-26); the finishes rail gets walls: {} and surfaces: {} (measure/setup.ts:278-279) — M4 (R-TO-036/037, J-042): XL, its own increment",
   },
   "tests/e2e/journeys/j-000/m4-ask-the-drawings.spec.ts": {
-    "MISSING DOOR: J-000 m4-ask-the-drawings: S-Ask has no Design Decision (C-13), the ai router holds no procedure, Jev answers closed questions only so an ask needs a closed-question design over the register, and verify replays recorded answers nobody has recorded (L-AI-01)":
-      "no docs/design/s-ask.md (C-13); the ai router is router({}) (server/routers/ai.ts:5); MODEL_QUESTIONS holds no ask question and Jev generates no text (model/questions.ts:11-28, model/typesafe.ts:3); a question with no recorded answer refuses FIXTURE_MISSING (model/fixture.ts:23) and only the owner records (scripts/model-corpus.ts:2-4) — M4 (R-AI-003, J-043): M to L once recorded",
+    "MISSING DOOR: J-000 m4-ask-the-drawings: S-Ask is decided (docs/design/s-ask.md, C-13) and not built — the ai router holds no procedure, no grammar reads a question and no query over the register answers one":
+      "the ai router is router({}) (server/routers/ai.ts:5); src/modules/takeoff/ask, its query registry and the ASK_* codes do not exist; docs/design/s-ask.md (§6) walks this leg on grammar-routed questions only, so it waits on no recorded model answer — M4 (R-AI-003, J-043): ASK-1a and ASK-1b, then ASK-3 deletes this fixme",
   },
 };
 
