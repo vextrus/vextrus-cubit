@@ -19,6 +19,7 @@
 
 import { ACTS_REFUSALS, type ActsRefusalCode } from "./errors/acts";
 import { AI_REFUSALS, type AiRefusalCode } from "./errors/ai";
+import { ASK_REFUSALS, type AskRefusalCode } from "./errors/ask";
 import { BOQ_REFUSALS, type BoqRefusalCode } from "./errors/boq";
 import { COVERAGE_REFUSALS, type CoverageRefusalCode } from "./errors/coverage";
 import { DOCS_REFUSALS, type DocsRefusalCode } from "./errors/docs";
@@ -92,7 +93,8 @@ export type RefusalCode =
   | SlabsRefusalCode
   | RulesetsRefusalCode
   | ExportsRefusalCode
-  | CoverageRefusalCode;
+  | CoverageRefusalCode
+  | AskRefusalCode;
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -143,6 +145,7 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
   ...RULESETS_REFUSALS,
   ...EXPORTS_REFUSALS,
   ...COVERAGE_REFUSALS,
+  ...ASK_REFUSALS,
 });
 
 /**

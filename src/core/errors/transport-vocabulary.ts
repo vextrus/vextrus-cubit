@@ -343,4 +343,16 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     vocabulary: "L-MEA-05 scale observations",
     codes: Object.freeze(["DIMENSION_OVERRIDE"]),
   }),
+  Object.freeze({
+    // S-Ask's intent roster (docs/design/s-ask.md §1.2): what a question put to the drawings is read
+    // as — the query that answers it. Five bear an underscore, so Q-07's register would read them as
+    // refusal codes nobody registered — but an intent is a READING, carried on the answer and said to
+    // a person in words (`ask_intent_*`); a question nobody can answer is refused with the registered
+    // `ASK_*` codes beside them, never with one of these names. Their home is
+    // `src/modules/takeoff/ask/law.ts` (`ASK_INTENTS`), written down here rather than imported because
+    // core may not import a module (ARCH-01, the view-type precedent above); the unit lane holds the
+    // two spellings equal (tests/ai/ask/registry.test.ts).
+    vocabulary: "S-Ask intents (R-AI-003)",
+    codes: Object.freeze(["COUNT", "MARKS", "QUANTITY", "MEASURED_SO_FAR", "WHY_NOT_MEASURED", "MEMBER_TYPE", "NOTE", "LEVEL_HEIGHT", "SHEET_LIST"]),
+  }),
 ]);

@@ -25,7 +25,7 @@ import { inWords, placesOf } from "@/core/documents/kinds/boq-draft-law";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { formatDate, formatMoney, formatUserFigure, dhakaDateParts } from "@/core/format";
-import { STOREY_HEIGHT_BASES } from "@/core/levels/law";
+import { HEIGHT_PLACES, STOREY_HEIGHT_BASES } from "@/core/levels/law";
 import type { QuantityBasis } from "@/core/offers/law";
 import { CANONICAL_UNIT, UNITS, dimensionOf, isUnit } from "@/core/units/canon";
 // A stored decimal stated at a fraction length, half-up on the text (B-07) — the bar schedule's home.
@@ -346,14 +346,10 @@ function figuresOfKind(kind: string): typeof FIGURES {
 const HEIGHT_STEP = 0.001;
 const ORDINAL_STEP = 1;
 
-/**
- * The places a storey height's face is stated to in the grid (I-352): the millimetre, the step the
- * height form itself takes (`HEIGHT_STEP`), so every AGREED height reads at one precision —
- * `3.353` beside `3.048`, never `3.3528` beside `3.048`. The exact metres stay on the row's
- * `data-metres`, on the figure's `data-value`, and whole in the inspector (L-QTY-03, as I-reg-2
- * keeps a register figure).
- */
-const HEIGHT_PLACES = 3;
+// The places a storey height's face is stated to in the grid (I-352) are `HEIGHT_PLACES`, the
+// millimetre — the step the height form itself takes (`HEIGHT_STEP`). Its home is `@/core/levels/law`,
+// because S-Ask states the same height at the same places (s-ask I-398, B-17). The exact metres stay
+// on the row's `data-metres`, on the figure's `data-value`, and whole in the inspector (L-QTY-03).
 
 /** SEAM-FORMAT, as the figure primitives take it (§5 rule 5's lakh/crore), handed down from core. */
 const FIGURES = Object.freeze({

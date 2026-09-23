@@ -334,7 +334,7 @@ async function observationsOfRevision(scope: RegisterScope): Promise<Observation
 }
 
 /** The drawings the pinned revision names, as the pin recorded them (L-REG-06). */
-async function manifestOfRevision(tenantId: string, setRevisionId: string): Promise<{ drawingId: string; name: string }[]> {
+export async function manifestOfRevision(tenantId: string, setRevisionId: string): Promise<{ drawingId: string; name: string }[]> {
   const held = await forTenant({ tenantId }).transaction((tx) =>
     tx
       .select({ manifest: drawingSetRevisions.manifest })

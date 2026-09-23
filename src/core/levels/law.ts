@@ -34,6 +34,15 @@ export const STOREY_HEIGHT_STANDINGS = ["AGREED", "SUSPENDED", "NONE"] as const;
 export type StoreyHeightStandingName = (typeof STOREY_HEIGHT_STANDINGS)[number];
 
 /**
+ * The places a storey height's face is stated to wherever a reader meets one (s-levels I-352 (b)):
+ * the millimetre, the step the levels grid's height form takes, so every AGREED height reads at one
+ * precision — `3.353` beside `3.048`, never `3.3528` beside `3.048`. The exact metres stay on the
+ * figure's `data-value`. One home, read by the levels grid and by S-Ask's storey-height answer
+ * (s-ask I-398), so the two faces of one height never differ (B-17).
+ */
+export const HEIGHT_PLACES = 3;
+
+/**
  * The registered code a standing that carries no height is reported under (L-QTY-02 names both by
  * name: "a row kept with no quantity — `STOREY_HEIGHT_UNSTATED`, `STOREY_HEIGHT_CONTESTED`"). One
  * home for the pairing: the standing derived here and the component a quantity line enumerates as

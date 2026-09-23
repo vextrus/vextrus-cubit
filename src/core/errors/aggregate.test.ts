@@ -59,6 +59,11 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "ACCOUNT_ALREADY_EXISTS",
   "ACTOR_NOT_HUMAN",
   "ACT_CHANGES_NOTHING",
+  "ASK_ESTIMATE_NOT_BUILT",
+  "ASK_JUDGEMENT_NOT_OFFERED",
+  "ASK_NOT_MEASURED",
+  "ASK_NOT_UNDERSTOOD",
+  "ASK_SUBJECT_UNKNOWN",
   "BBS_NO_BAR_ROW",
   "BBS_NO_CAMPAIGN",
   "BLINDING_PLAN_DEFERRED",
@@ -385,7 +390,13 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * second run — and still no entry older than the slice moved; the slice's first digest was
  * 1b2427efeeebf2613d4a3354e988fd42fdb53952dffc9bc3af9fe29de0bb9f3d.
  */
-const ENTRIES_DIGEST_BEFORE = "75c3d764ed51804275e7182655ae185af75cc678bba5db5647c710bc83303ca5";
+/*
+ * Re-baselined at integration (session 8, wave 2) for the ASK area's five ADDED entries
+ * (ASK_NOT_UNDERSTOOD, ASK_SUBJECT_UNKNOWN, ASK_NOT_MEASURED, ASK_ESTIMATE_NOT_BUILT,
+ * ASK_JUDGEMENT_NOT_OFFERED; S-Ask §3) landing on top of the COVERAGE area's; no existing entry moved.
+ * The previous digest was 75c3d764ed51804275e7182655ae185af75cc678bba5db5647c710bc83303ca5.
+ */
+const ENTRIES_DIGEST_BEFORE = "39c2cfe82cf6a363fca3e621bdf1c8cc9d8eae26eb54785d98a7351546bfef26";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

@@ -201,6 +201,13 @@ const DECLARED_REBASELINED: readonly string[] = [
   "tests/docs/boq-draft/payload.json",
   "tests/docs/bbs/golden.pdf",
   "tests/docs/bbs/payload.json",
+  // S-Ask's read-back (session 8, ASK-1a; docs/design/s-ask.md I-493): one F-RCC6-BNBC J-000
+  // project's newest campaign, taken READ ONLY off cubit_e2e, that the ask engine's unit tests read
+  // every figure off. It was minted in its own `baseline:` commit together with the one statement that
+  // takes it, so the document and what reproduces it were reviewed as one; a re-take when M3's register
+  // moves (FRM-3, FRM-4, R0) moves the document, in a `baseline:` commit naming the tests it feeds.
+  "tests/ai/ask/fixtures/bnbc-readback.json",
+  "tests/ai/ask/fixtures/bnbc-readback.sql",
 ];
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {

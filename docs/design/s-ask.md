@@ -244,6 +244,97 @@ answer ships.
   is a model call attributed to the project and counted on its home (R-AI-005); the grammar-routed
   ones are not model calls and cost nothing.
 
+### 0.1 The engine's readings (ASK-1a)
+
+The facts' contract between the engine and the screen is `src/modules/takeoff/ask/law.ts`: an
+answer is `ANSWERED` (its reading, who routed it, whether it followed the previous answer, and the
+facts — the statement, what it leaves out, one place per (drawing, layout), the records it rests on,
+where it was read from), `CLARIFY` (at most two readings, each a level's with its gloss) or `REFUSED`
+(one of §3's five codes, the reading where one was made, and what the project holds beneath
+`ASK_SUBJECT_UNKNOWN`). Every figure is `{ value, unit, kind, places, at }` — the exact decimal, the
+places the screen states it at, and where its evidence stands (I-404). The engine reads these, each
+the most defensible reading of a question this Decision leaves open:
+
+- **I-486 — a quantity asked of a class and no kind is read as the one kind that class's lines
+  are of; where they are of two or more, the person chooses between the two holding the most lines;
+  a kind asked of no class is that kind measured so far across the classes.** "How much for the
+  caps?" on F-RCC6-BNBC holds five kinds of cap line, and no one of them is what was asked. Rejected:
+  answering every kind of the class in one statement (that is §1.2's measured-so-far shape, and its
+  "not a total" framing misreads a one-class question); rejected: the kind with the most lines, chosen
+  silently.
+- **I-487 — a count counts every registered object of the class, mark and level that no person
+  struck, whatever its sighting standing; a typical plan is read off the register itself.** Where the
+  counted objects' placements are registered on two or more levels, they are one member drawn once:
+  the facts name the view keys they were placed on, the levels that plan stands for (from the ground
+  up) and how many members it draws — F-RCC6-BNBC's six C3 on 5F are the six marks of view `20B6`,
+  standing for FDN to 6F. Rejected: reading the typical plan off the partition's typical ranges, a
+  second resolution of what the register already records (B-17).
+- **I-488 — what an answer leaves out is counted in LINES per code, and an object is "registered
+  with no line" only of a kind its class bears.** A PARTIAL line omitting two variables under one code
+  is one line under it (F-RCC6-BNBC's beam formwork omits `t_left` and `t_right`, both
+  `SLAB_THICKNESS_UNSTATED`: 172 lines, not 344); a column holds no blinding because the catalogue
+  measures none on it (`BEARS`), not because it was left out.
+- **I-489 — a question naming a subject kind and no subject answers every subject of that kind.**
+  "What do the general notes state?" answers every note kind the notes state, grouped by kind; a
+  storey-height question naming no level answers every level of the stack; a member-type question
+  reads every schedule row holding the mark as a whole token in any cell, so a remark row
+  (`C2 GF TO 2ND:`) is the schedule's word about C2 too, and a mark no row names is
+  `ASK_SUBJECT_UNKNOWN`, listing the marks the schedules' first column states.
+- **I-490 — the sheets in the set are the pinned revision's paper sheets as the sheet index names
+  them** — the title block's number and title, the confirmed discipline where one is confirmed, else
+  the proposed; a drawing with no paper layout lists its model space.
+- **I-491 — a storey-height reading names no drawing, so its cited entity is read on the first
+  drawing of the pinned revision that holds the key, in the manifest's order.** A `DXF_HANDLE` is
+  unique within a drawing and never across two; a note reading and a schedule cell carry their
+  drawing and are read there.
+- **I-492 — the grammar's own tie-breaks beside §1.2's.** `strength`, `grade`, `psi` or `MPa`
+  beside a concrete word is `f'c`, beside a steel word `fy`, and alone a clarify between the two;
+  class words are read before a strength, so "grade beams" are tie beams; "which / what / list …
+  sheets" is the sheet list whatever words stand between; a kind asked by mark is a quantity broken
+  down by mark; with no campaign open every register intent refuses `ASK_NOT_MEASURED` by name.
+- **I-493 — the engine's unit tests read F-RCC6-BNBC's figures off a read-back committed as a
+  test fixture, never off constants.** `tests/ai/ask/fixtures/bnbc-readback.json` is one J-000
+  project's newest campaign taken READ ONLY off `cubit_e2e` by the `.sql` beside it, with the words of
+  every entity a reading cites read off the DXF J-000 ingests; each test derives its expectation from
+  the document and holds the proof's faces beside it (6, 93.893 m³, 4 / 14 / 5 / 2 / 1, 4.692 m³), so
+  a register move reads as a moved figure. The fixture is re-taken in its own `baseline:` commit when
+  M3's register moves (FRM-3, FRM-4, R0). Rejected: the db lane for these (every assertion would stage
+  a measured campaign the J-000 journey already stages).
+- **I-494 — every subject a question names is read, and none is passed over: a second subject in
+  one slot is a second question, a label shaped like the stack's that the stack does not hold is
+  unknown, and a question leaving more open than one clarify holds is not understood.** I-396's "every
+  slot resolved to one subject the project holds" is read slot by slot, and a word the grammar reads
+  as a subject is never dropped for the rest of the question to be answered without it:
+  - a word in the stack's own notation — `9F`, `10fl`, `9 f`, and `B2` where the stack spells its
+    basements so — that the stack does not hold is `ASK_SUBJECT_UNKNOWN` with the held labels, as
+    I-400 rules for an alias; `RF` is the roof; `level 0` counted above the ground floor is the ground
+    floor, and counted with the ground floor as level 1 the level below it;
+  - two marks, two levels, two classes, two kinds, two note kinds or two disciplines in a slot the
+    intent's reading keeps are §1.2's compound question: a clarify of the two readings, the first
+    taking the first of each doubled slot and the second the second, so "C3 on 5F and C4 on 6F" pairs
+    as said; a mark named once goes with the class that bears it ("C3 columns and pile caps"); measured
+    so far over two named classes is each class's quantity; a bare number joined by `and` / `or`, or
+    listed beside a counted level, is a level of that count ("floors 5 and 6", "floors 1, 2, 3")
+    unless it completes a held mark (`c 3`);
+    a mark-shaped word the register does not hold is `ASK_SUBJECT_UNKNOWN` beside a mark it holds as
+    much as alone;
+  - a range of levels (`GF to 6F`), three subjects in one slot, a compound one of whose readings is
+    itself a choice (`level 5` counted two ways, a class of several kinds with none named), and two
+    choices at once (two marks and a level counted two ways; two intents and a second subject) are
+    `ASK_NOT_UNDERSTOOD` — at most two readings are offered, and a question needing more is never
+    answered for one part of it;
+  - `length`, `area` and `volume` — and `rft`, `sft`, `cft` — name the unit a class's kind is measured
+    in where the question names no kind: "pile length" is the boring in metres, never the concrete;
+    where one kind of the class is measured in that unit it is the reading (stated in the Understood
+    row), where two, the person chooses between them, and where none, `ASK_NOT_MEASURED`.
+  F-RCC6-BNBC's "What is the column concrete on 9F?" answered 93.893 m³, the whole building, and "What
+  is the concrete for columns and pile caps?" answered 595.523 m³ measured so far, the piles' 372.849
+  folded in: both silent widenings, now refused and a clarify. Rejected: a named-classes filter on
+  measured so far (a second reading shape where the compound already exists); rejected: answering a
+  range as a by-level breakdown (its total would be the building's, not the range's); rejected:
+  collapsing a one-option `level N` clarify into a reading (I-400 puts the count to the person with
+  **None of these** beside it, and one held count is still a count the person did not state).
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
