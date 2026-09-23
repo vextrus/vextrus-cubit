@@ -13,12 +13,11 @@
  * it HAS (not of the rows the window happens to hold), `aria-rowindex` still counts every row the
  * reader can reach, and a row asked for by id is drawn wherever the window stands.
  */
-import type { ColumnDef } from "@tanstack/react-table";
 import { act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test } from "vitest";
 import { FigureProvider, type FigureFormat } from "../../core/figures";
-import { DataTable, ROW_HEIGHT_PX, VIRTUALISE_ABOVE_ROWS, subtotalsByUnit } from "../data-table";
+import { DataTable, ROW_HEIGHT_PX, VIRTUALISE_ABOVE_ROWS, subtotalsByUnit, type DataTableColumnDef } from "../data-table";
 import { TESTIDS, testIdSelector } from "@/ui/testids";
 import { allTestId, byTestId, mount, rowIdOf, scrollViewport, textOf, unmountAll, VIEWPORT_HEIGHT_PX, type Line } from "./support";
 
@@ -26,7 +25,7 @@ afterEach(() => {
   unmountAll();
 });
 
-const columns: ColumnDef<Line, unknown>[] = [
+const columns: DataTableColumnDef<Line>[] = [
   { id: "item", accessorKey: "item", header: "Item", size: 160 },
   { id: "qty", accessorKey: "qty", header: "Qty", size: 96, meta: { align: "right" } },
   { id: "unit", accessorKey: "unit", header: "Unit", size: 64 },
@@ -189,9 +188,9 @@ describe("§5 rules 4 + 9: a grouped list past 200 rows is a window", () => {
     const data = groupedLines(424);
     // The register's width: ten columns (kind · value · unit · bases · coverage · formula · variables
     // · calibration · engine · source, s-takeoff I-235), each a plain cell here.
-    const wide: ColumnDef<Line, unknown>[] = [
+    const wide: DataTableColumnDef<Line>[] = [
       ...columns,
-      ...["bases", "coverage", "formula", "variables", "calibration", "engine", "source"].map<ColumnDef<Line, unknown>>((id) => ({
+      ...["bases", "coverage", "formula", "variables", "calibration", "engine", "source"].map<DataTableColumnDef<Line>>((id) => ({
         id,
         header: id,
         accessorFn: (row) => `${id} of ${row.item}`,

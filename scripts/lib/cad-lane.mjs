@@ -110,9 +110,17 @@ export function changedPaths(root, git) {
  * @returns {string[]}
  */
 export function cadPytestArgv(decision) {
-  if (decision.regenerate) return ["pytest", "cad"];
-  return ["pytest", "cad", ...FIXTURE_REGENERATION_TESTS.map((test) => `--ignore=${test}`)];
+  if (decision.regenerate) return ["pytest", "cad", ...CAD_WORKERS];
+  return ["pytest", "cad", ...FIXTURE_REGENERATION_TESTS.map((test) => `--ignore=${test}`), ...CAD_WORKERS];
 }
+
+/**
+ * The suite runs across six pytest-xdist workers (V-VERIFY). Serially it was the verify chain's wall
+ * — 33.8 s alone, ~50 s beside the unit lane — and one test (the reference structural drawing's
+ * conversion, 18.2 s) is its floor; six workers took it to ~24 s on a 24-core box without starving
+ * the lanes beside it.
+ */
+export const CAD_WORKERS = Object.freeze(["-n", "6"]);
 
 /**
  * THE PROOF A GREEN REGENERATION LEAVES (V-VERIFY, 2026-09-21).

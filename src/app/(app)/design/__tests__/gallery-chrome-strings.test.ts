@@ -16,6 +16,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, test } from "vitest";
 import { galleryChrome } from "@/ui/gallery-derivation/chrome";
 import { strings } from "@/ui/strings";
+import { installGalleryDomStubs } from "../../../../../tests/ui/s-design/support/gallery-contract";
 import DesignGalleryPage from "../page";
 
 afterEach(() => {
@@ -28,6 +29,9 @@ test("the gallery's chrome reads the registry, rather than authoring copy beside
 });
 
 test("the page shows the registered sentences", () => {
+  // The page mounts every gallery sample, and the resizable one (react-resizable-panels v4) builds a
+  // ResizeObserver as it mounts, which jsdom does not ship: the gallery's own stubs answer it.
+  installGalleryDomStubs();
   render(createElement(DesignGalleryPage));
 
   const shell = screen.getByTestId("gallery-shell");

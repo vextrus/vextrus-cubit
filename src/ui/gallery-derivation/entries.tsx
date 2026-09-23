@@ -11,8 +11,8 @@
  * I-16). Overlays render closed, their triggers reachable, because a page of open modals hides
  * every other entry from assistive technology (Decision I-15).
  */
-import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
+import type { DataTableColumnDef } from "../primitives/data";
 import type { Consequence } from "../../core/acts";
 import type { RefusalEntry, RefusalSeverity, RefusalSurface } from "../../core/errors";
 import { CommandPalette, CommandPaletteProvider, ShortcutSheet } from "../patterns/command-palette";
@@ -600,10 +600,10 @@ const scrollAreaSample = (): ReactNode => (
  */
 const resizableSample = (): ReactNode => (
   <div className="cx-gallery-resizable">
-    <ResizablePanelGroup direction="horizontal">
-      <ResizablePanel defaultSize={30}>{copy.resizable.list}</ResizablePanel>
+    <ResizablePanelGroup orientation="horizontal">
+      <ResizablePanel defaultSize="30%">{copy.resizable.list}</ResizablePanel>
       <ResizableHandle aria-label={copy.resizable.handle} />
-      <ResizablePanel defaultSize={70}>{copy.resizable.viewer}</ResizablePanel>
+      <ResizablePanel defaultSize="70%">{copy.resizable.viewer}</ResizablePanel>
     </ResizablePanelGroup>
   </div>
 );
@@ -626,7 +626,7 @@ interface SampleRow {
  * shows a person a gap where the column's own control belongs. Filtering the whole sample register
  * is also the truer demonstration: the filter row is the table's, not one column's.
  */
-const TABLE_COLUMNS: ColumnDef<SampleRow, unknown>[] = [
+const TABLE_COLUMNS: DataTableColumnDef<SampleRow>[] = [
   { id: "item", accessorKey: "item", header: "Item", meta: { filterable: true } },
   { id: "element", accessorKey: "element", header: "Element", meta: { filterable: true } },
   {

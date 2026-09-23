@@ -20,9 +20,11 @@ export type { ScrollAreaProps } from "./scroll-area";
 export type { ResizableHandleProps, ResizablePanelGroupProps, ResizablePanelProps } from "./resizable";
 export type {
   DataTableCellCommit,
+  DataTableColumnDef,
   DataTableColumnMeta,
   DataTableColumnPinning,
   DataTableDensity,
+  DataTableFeatures,
   DataTableGroup,
   DataTableGroupKey,
   DataTableProps,

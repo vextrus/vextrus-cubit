@@ -195,9 +195,10 @@
   background-color: var(--line-heavy);
 }
 
-/* A drag in progress, not a keystroke: react-resizable-panels sets this attribute to "keyboard"
-   while the handle merely holds focus, and the focus reticle is what says so (R-UI-012). */
-.cx-resizable-handle[data-resize-handle-active="pointer"] .cx-resizable-line {
+/* A drag in progress, not a keystroke: react-resizable-panels sets `data-separator` on every handle
+   ("inactive", "hover", "focus", "disabled") and reads "active" only while a pointer drags it; a
+   handle that merely holds focus reads "focus", and the focus reticle is what says so (R-UI-012). */
+.cx-resizable-handle[data-separator="active"] .cx-resizable-line {
   width: 2px;
   background-color: var(--accent);
 }

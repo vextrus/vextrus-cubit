@@ -12,11 +12,10 @@
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { ColumnDef } from "@tanstack/react-table";
 import userEvent from "@testing-library/user-event";
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
-import { DataTable, addDecimal, type DataTableColumnMeta } from "../data-table";
+import { DataTable, addDecimal, type DataTableColumnDef, type DataTableColumnMeta } from "../data-table";
 import { CLIPPED, LINES, allTestId, byTestId, mount, rowIdOf, textOf, unmountAll, type Line } from "./support";
 import { TESTIDS } from "@/ui/testids";
 
@@ -36,7 +35,7 @@ function block(selector: string): string {
 const WIDTH = { item: 160, level: 80, qty: 96, unit: 64 } as const;
 
 /** The fixture's four columns; `value` and `unit` say which carry the group's sum (I-356). */
-function columnsWith(marks: { value?: keyof typeof WIDTH; unit?: keyof typeof WIDTH } = {}): ColumnDef<Line, unknown>[] {
+function columnsWith(marks: { value?: keyof typeof WIDTH; unit?: keyof typeof WIDTH } = {}): DataTableColumnDef<Line>[] {
   const meta = (id: keyof typeof WIDTH, own: DataTableColumnMeta = {}): DataTableColumnMeta => ({
     ...own,
     ...(marks.value === id ? { groupSubtotal: "value" as const } : {}),
@@ -60,7 +59,7 @@ const byClass = {
 /** Grouped by level: GF holds m3 AND m2, the two never added (L-QTY-04). */
 const byLevel = { ...byClass, of: (row: Line) => ({ key: row.level, label: row.level }) };
 
-const table = (columns: ColumnDef<Line, unknown>[], props: Record<string, unknown> = {}) => (
+const table = (columns: DataTableColumnDef<Line>[], props: Record<string, unknown> = {}) => (
   <DataTable tableId="test-group-columns" columns={columns} data={[...LINES]} getRowId={rowIdOf} storage={null} {...props} />
 );
 
@@ -154,7 +153,7 @@ describe("I-356: a group's sum stands in the column it sums", () => {
 
   test("a figure column that is the first column has no room for words before it, and keeps the spanning cell", () => {
     const [item, level, qty, unit] = columnsWith({ value: "qty", unit: "unit" });
-    mount(table([qty, item, level, unit] as ColumnDef<Line, unknown>[], { group: byClass }));
+    mount(table([qty, item, level, unit] as DataTableColumnDef<Line>[], { group: byClass }));
     expect(cellsOf(groupRow("column")).length, "the words always have a cell to stand in").toBe(1);
   });
 

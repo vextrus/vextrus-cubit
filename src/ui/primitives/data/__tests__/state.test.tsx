@@ -7,11 +7,10 @@
  * product writes rather than on a mock's call log, and the corrupt-payload fallback is asserted by
  * putting a corrupt payload where the product will look.
  */
-import type { ColumnDef } from "@tanstack/react-table";
 import { act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { DataTable, addDecimal, subtotalsByUnit } from "../data-table";
+import { DataTable, addDecimal, subtotalsByUnit, type DataTableColumnDef } from "../data-table";
 import { DATA_TABLE_STATE_VERSION, dataTableStorageKey, readColumnState } from "../table-state";
 import {
   LINES,
@@ -29,7 +28,7 @@ afterEach(() => {
   unmountAll();
 });
 
-const columns: ColumnDef<Line, unknown>[] = [
+const columns: DataTableColumnDef<Line>[] = [
   { id: "item", accessorKey: "item", header: "Item", size: 160 },
   { id: "qty", accessorKey: "qty", header: "Qty", size: 96, meta: { align: "right" }, enableSorting: true },
   { id: "unit", accessorKey: "unit", header: "Unit", size: 64 },

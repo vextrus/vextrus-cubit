@@ -8,12 +8,11 @@
 // (the acceptance's own claim, tests/ui/documents).
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
 import { EmptyState, EnumLabel, IdChip } from "@/ui/primitives/core";
 // `humaniseEnum` is the one rule EnumLabel says an unlabelled value by, read from its own home
 // rather than restated beside the kinds it labels (B-17, I-260).
 import { humaniseEnum } from "@/ui/primitives/core/enum-label";
-import { DataTable } from "@/ui/primitives/data";
+import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { useShellPage } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
 import { TESTIDS } from "@/ui/testids";
@@ -162,7 +161,7 @@ function IssuedBy({ issuedBy, people }: { issuedBy: string; people: Readonly<Rec
  * §1's seven columns, left to right, over the names the roster knows the issuers by. Declared beside
  * the screen so the loading leg draws the same (`DOCUMENTS_COLUMNS`, which names nobody).
  */
-export function documentsColumns(people: Readonly<Record<string, string>>): ColumnDef<DocumentsRowView, unknown>[] {
+export function documentsColumns(people: Readonly<Record<string, string>>): DataTableColumnDef<DocumentsRowView>[] {
   return DOCUMENT_COLUMN_ROSTER.map((column) =>
     column.id === ISSUED_BY_COLUMN ? { ...column, cell: ({ row }) => <IssuedBy issuedBy={row.original.issuedBy} people={people} /> } : column,
   );
@@ -171,7 +170,7 @@ export function documentsColumns(people: Readonly<Record<string, string>>): Colu
 /** The Issued-by column's id, which is the one column whose cell reads the roster. */
 const ISSUED_BY_COLUMN = "issuedBy";
 
-const DOCUMENT_COLUMN_ROSTER: ColumnDef<DocumentsRowView, unknown>[] = [
+const DOCUMENT_COLUMN_ROSTER: DataTableColumnDef<DocumentsRowView>[] = [
   {
     id: "kind",
     header: strings.documents_col_kind,
@@ -250,7 +249,7 @@ const DOCUMENT_COLUMN_ROSTER: ColumnDef<DocumentsRowView, unknown>[] = [
 ];
 
 /** The seven columns naming nobody — the loading leg's, which has no roster and no rows to name. */
-export const DOCUMENTS_COLUMNS: ColumnDef<DocumentsRowView, unknown>[] = DOCUMENT_COLUMN_ROSTER;
+export const DOCUMENTS_COLUMNS: DataTableColumnDef<DocumentsRowView>[] = DOCUMENT_COLUMN_ROSTER;
 
 export function DocumentsScreen({ rows, tenantId, projectId, reportId, people = NO_PEOPLE }: DocumentsScreenProps): ReactNode {
   // R-UI-084: the page a reader is on reaches the frame's crumb slot from the screen that is it.

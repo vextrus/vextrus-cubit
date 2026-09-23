@@ -9,7 +9,7 @@ here is a lane: the gate's verdicts are the lanes' own.
 ```
 pnpm probe:server                # build-if-stale, serve on the journeys' port, start the worker; exits when ready
 pnpm probe:server -- --stop      # stop both
-pnpm probe signin <email> <password> [--out cookies.json]      # no `--`: pnpm 10 forwards it as the mode
+pnpm probe signin <email> <password> [--out cookies.json]      # no `--`: pnpm forwards it as the mode
 pnpm probe walk [--cookies f] [--themes dark,light] [--viewports 1440x900,1280x800] \
                 [--kind grid|canvas] [--shot] [--json] [--out dir] <route> [<route> …]
 pnpm probe run <script.mjs> [--cookies f] [--shot] [--out dir]

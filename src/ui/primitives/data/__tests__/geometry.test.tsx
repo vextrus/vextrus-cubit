@@ -11,9 +11,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { act, waitFor } from "@testing-library/react";
-import type { ColumnDef } from "@tanstack/react-table";
 import { afterEach, describe, expect, test } from "vitest";
-import { DataTable, ROW_HEIGHT_PX, VIRTUALISE_ABOVE_ROWS } from "../data-table";
+import { DataTable, ROW_HEIGHT_PX, VIRTUALISE_ABOVE_ROWS, type DataTableColumnDef } from "../data-table";
 import {
   CLIPPED,
   LINES,
@@ -42,7 +41,7 @@ function block(selector: string): string {
   return RULES.slice(RULES.indexOf("{", at) + 1, RULES.indexOf("}", at));
 }
 
-const columns: ColumnDef<Line, unknown>[] = [
+const columns: DataTableColumnDef<Line>[] = [
   { id: "item", accessorKey: "item", header: "Item", size: 160 },
   { id: "level", accessorKey: "level", header: "Level", size: 80 },
   { id: "qty", accessorKey: "qty", header: "Qty", size: 96, meta: { align: "right" }, enableSorting: true },

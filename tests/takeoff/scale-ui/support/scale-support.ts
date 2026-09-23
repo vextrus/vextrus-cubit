@@ -32,6 +32,7 @@ import {
   type SnapMount,
 } from "../../viewer-snap/support/snap-support";
 import { LAYOUT_PLAN, SCHEDULE, type Box, type Overlay, type OverlayView } from "../../viewer-partition-overlay/support/overlay-stage";
+import { installInertResizeObserver } from "../../viewer/support/viewer-support";
 
 export { productModule, repoRoot, SNAP_EXTENTS, SNAP_KEYS, STAGE_PX, VIEW_P, VIEW_Q };
 export type { Point, SnapMount };
@@ -453,6 +454,7 @@ export function unmountScale(): void {
 export async function mountScaleScreen(o: { scale: SuppliedScale; overlay?: Overlay | null; calibration?: unknown }): Promise<ScaleMount> {
   stubMatchMedia();
   stubPointerCapture();
+  installInertResizeObserver();
   serve(o.overlay ?? null);
 
   const original = Element.prototype.getBoundingClientRect;

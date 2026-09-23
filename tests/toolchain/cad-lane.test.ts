@@ -16,6 +16,7 @@ import {
   REGENERATION_PROOF_PATH,
   REGENERATION_SKIPPED_LINE,
   cadLane,
+  CAD_WORKERS,
   cadPytestArgv,
   changedPaths,
   readRegenerationProof,
@@ -111,13 +112,13 @@ describe("a git that cannot answer never buys a skip", () => {
 describe("what the lane then runs, and what it says about it", () => {
   test("a moved fixture: the whole suite, deselecting nothing", () => {
     const lane = cadLane("/nowhere", fakeGit({ committed: ["cad/src/vextrus_cad/report.py"] }));
-    expect(lane.argv).toEqual(["pytest", "cad"]);
+    expect(lane.argv).toEqual(["pytest", "cad", ...CAD_WORKERS]);
     expect(lane.note).toBeNull();
   });
 
   test("nothing moved: the same suite, with the regeneration deselected and said out loud", () => {
     const lane = cadLane("/nowhere", fakeGit({ committed: ["src/app/page.tsx"], working: ["docs/x.md"] }));
-    expect(lane.argv).toEqual(["pytest", "cad", ...FIXTURE_REGENERATION_TESTS.map((test) => `--ignore=${test}`)]);
+    expect(lane.argv).toEqual(["pytest", "cad", ...FIXTURE_REGENERATION_TESTS.map((test) => `--ignore=${test}`), ...CAD_WORKERS]);
     expect(lane.note).toBe(REGENERATION_SKIPPED_LINE);
     // The paths are the ones the LANE is invoked with (from the checkout), not pytest's rootdir
     // node ids — a `--deselect` spelled the other way deselects nothing and says nothing about it.
@@ -126,7 +127,7 @@ describe("what the lane then runs, and what it says about it", () => {
 
   test("the suite itself is never narrowed — everything that reads committed bytes still runs", () => {
     expect(cadPytestArgv({ regenerate: false })[1]).toBe("cad");
-    expect(cadPytestArgv({ regenerate: true })).toEqual(["pytest", "cad"]);
+    expect(cadPytestArgv({ regenerate: true })).toEqual(["pytest", "cad", ...CAD_WORKERS]);
   });
 });
 
@@ -169,7 +170,7 @@ describe("a green regeneration's proof buys the skip a second time — and only 
     expect(regenerationInputsDigest("/nowhere", fakeGit({ ...moved, fails: "ls-files" }))).toBeNull();
     const lane = cadLane("/nowhere", fakeGit({ ...moved, fails: "ls-files" }), { readProof: neverRead });
     expect(lane.regenerate).toBe(true);
-    expect(lane.argv).toEqual(["pytest", "cad"]);
+    expect(lane.argv).toEqual(["pytest", "cad", ...CAD_WORKERS]);
     expect(lane.digest).toBeNull();
   });
 
@@ -194,7 +195,7 @@ describe("a green regeneration's proof buys the skip a second time — and only 
     for (const readProof of [() => null, () => ({ digest: "0".repeat(64), provedAt: "2026-09-21T10:00:00.000Z" })]) {
       const lane = cadLane("/nowhere", git, { readProof });
       expect(lane.regenerate).toBe(true);
-      expect(lane.argv).toEqual(["pytest", "cad"]);
+      expect(lane.argv).toEqual(["pytest", "cad", ...CAD_WORKERS]);
       expect(lane.note).toBeNull();
       expect(lane.digest).toBe(digest);
     }

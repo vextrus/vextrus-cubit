@@ -16,13 +16,12 @@
 // that arrives once the dialog holds focus is the dialog's.
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import type { ColumnDef } from "@tanstack/react-table";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button, IdChip } from "@/ui/primitives/core";
-import { DataTable } from "@/ui/primitives/data";
+import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { ShellEmptyState, useShellPage } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
 import type { DrawingLineage, DrawingSetView, SetRevision } from "@/modules/takeoff/sets";
@@ -83,8 +82,8 @@ function rowDataOf(row: MemberRow): Readonly<Record<string, string>> {
  * (the cell clips and the shipped tooltip says the rest); the toggle is a control well, and the
  * column is built only where the reader may pin (I-101) — a door that can only refuse is theatre.
  */
-function memberColumns(canPin: boolean, onToggle: (drawingId: string) => void): ColumnDef<MemberRow, unknown>[] {
-  const columns: ColumnDef<MemberRow, unknown>[] = [
+function memberColumns(canPin: boolean, onToggle: (drawingId: string) => void): DataTableColumnDef<MemberRow>[] {
+  const columns: DataTableColumnDef<MemberRow>[] = [
     {
       id: "drawing",
       header: sets.sets_col_drawing,

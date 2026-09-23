@@ -135,6 +135,26 @@ export type GraphSchemaModule = { entityGraphSchema: { safeParse: (value: unknow
 export const viewerSeam = (): Promise<ViewerSeam> => productModule<ViewerSeam>(VIEWER_MODULE);
 export const viewerClient = (): Promise<ViewerClient> => productModule<ViewerClient>(VIEWER_CLIENT_MODULE);
 
+/* ------------------------------------------------------------------ the jsdom a sheet mounts in */
+
+/**
+ * The one ResizeObserver a jsdom mount of the stage is handed. The split the stage stands in
+ * (react-resizable-panels v4) constructs one from the document's window as it mounts, and jsdom ships
+ * none; this one never reports, so nothing a mount did without an observer changes — the camera's own
+ * (`use-camera.ts`) waits for a size that jsdom never lays out, exactly as it did when there was none.
+ * Every suite that mounts `ViewerScreen` over a manifest calls it; idempotent, and a stub a suite
+ * installed of its own is left standing.
+ */
+export function installInertResizeObserver(): void {
+  const scope = globalThis as { ResizeObserver?: unknown };
+  if (typeof scope.ResizeObserver !== "undefined") return;
+  scope.ResizeObserver = class InertResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  };
+}
+
 /* ------------------------------------------------------------------ the corpus and its derivations */
 
 /** Every committed artifact of the declared corpus, by name — read from the directory, never listed. */

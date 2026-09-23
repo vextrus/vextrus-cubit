@@ -16,7 +16,7 @@ import { Component, type ReactNode } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { syntheticEntityGraph } from "./support/synthetic-graph";
-import { VIEWER_SCREEN_MODULE, productModule, viewerSeam, type RenderManifest } from "./support/viewer-support";
+import { VIEWER_SCREEN_MODULE, installInertResizeObserver, productModule, viewerSeam, type RenderManifest } from "./support/viewer-support";
 
 /** The seam the screen's module graph reaches; no scope is ever asked for, but the pool is built. */
 process.env["DATABASE_URL"] ??= "postgresql://cubit_app:cubit_app@127.0.0.1:5544/postgres";
@@ -33,6 +33,7 @@ let ViewerScreen: ScreenModule["ViewerScreen"];
 let prepared: Promise<void> | undefined;
 function prepare(): Promise<void> {
   prepared ??= (async () => {
+    installInertResizeObserver();
     const graph = syntheticEntityGraph(SHEET);
     const { buildRenderManifest } = await viewerSeam();
     manifest = buildRenderManifest(graph, graph.layouts[0]?.name as string) as RenderManifest;

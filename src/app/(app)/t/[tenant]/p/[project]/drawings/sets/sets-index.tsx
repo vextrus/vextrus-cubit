@@ -14,12 +14,11 @@
 // a test renders one component (the SheetIndex precedent).
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import type { ColumnDef } from "@tanstack/react-table";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button, IdChip, Input } from "@/ui/primitives/core";
-import { DataTable } from "@/ui/primitives/data";
+import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { ShellEmptyState, useShellPage } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import type { DrawingSetSummary } from "@/modules/takeoff/sets";
@@ -69,7 +68,7 @@ function rowDataOf(set: DrawingSetSummary): Readonly<Record<string, string>> {
  * formatter; the pin fingerprint keeps the element the contract names, with its `data-digest` and
  * its chip inside it (I-99, I-107).
  */
-function setsColumns(tenantId: string, projectId: string): ColumnDef<DrawingSetSummary, unknown>[] {
+function setsColumns(tenantId: string, projectId: string): DataTableColumnDef<DrawingSetSummary>[] {
   return [
     {
       id: "name",

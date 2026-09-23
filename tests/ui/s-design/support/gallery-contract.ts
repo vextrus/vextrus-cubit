@@ -248,7 +248,9 @@ export function installGalleryDomStubs(): void {
         this.callback = callback;
       }
       observe(target: Element): void {
-        this.callback([{ target, contentRect: target.getBoundingClientRect() }], this);
+        const box = target.getBoundingClientRect();
+        // react-resizable-panels v4 reads a panel's size from `borderBoxSize[0]`, as a browser reports it.
+        this.callback([{ target, contentRect: box, borderBoxSize: [{ inlineSize: box.width, blockSize: box.height }] }], this);
       }
       unobserve(): void {}
       disconnect(): void {}

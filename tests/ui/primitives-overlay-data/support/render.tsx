@@ -56,8 +56,11 @@ export function installDomStubs(): void {
     class ResizeObserverStub {
       constructor(private readonly callback: (entries: unknown[], observer: unknown) => void) {}
       observe(target: Element): void {
+        const box = target.getBoundingClientRect();
+        // react-resizable-panels v4 reads a panel's size from `borderBoxSize[0]`, as a browser
+        // reports it; the entry carries both shapes a reader may ask for.
         this.callback(
-          [{ target, contentRect: target.getBoundingClientRect() }],
+          [{ target, contentRect: box, borderBoxSize: [{ inlineSize: box.width, blockSize: box.height }] }],
           this as unknown as ResizeObserver,
         );
       }

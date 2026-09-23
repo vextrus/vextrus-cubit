@@ -12,7 +12,6 @@
  * themselves are never re-ordered.
  */
 import { useMemo, useRef, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
 
 import { dhakaDateParts, formatDate, formatUserFigure } from "@/core/format";
 import type { AuditAct } from "@/modules/spine/audit";
@@ -20,7 +19,7 @@ import { NO_SUBJECT_NAMES, isSurrogate, type SubjectNames } from "@/modules/spin
 import { Button, EnumLabel, IdChip, Input, Select, type SelectOption } from "@/ui/primitives/core";
 import { humaniseEnum } from "@/ui/primitives/core/enum-label";
 import { shortForm } from "@/ui/primitives/core/id-chip";
-import { DataTable } from "@/ui/primitives/data";
+import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { useShellPage } from "@/ui/shell";
 import { fill } from "@/ui/strings";
 import { auditStrings } from "./strings";
@@ -55,7 +54,7 @@ function actorWords(actorLabel: string): string {
 }
 
 /** The log's columns, over the names the cited subjects are known by. */
-function columnsOf(names: SubjectNames): ColumnDef<AuditAct, unknown>[] {
+function columnsOf(names: SubjectNames): DataTableColumnDef<AuditAct>[] {
   return [
     {
       id: "type",

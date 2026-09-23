@@ -25,22 +25,32 @@
  * shipped Skeleton: a table that re-implements a shipped primitive is the copy B-17 forbids.
  */
 import {
+  columnFilteringFeature,
+  columnPinningFeature,
+  columnResizingFeature,
+  columnSizingFeature,
+  columnVisibilityFeature,
+  createFilteredRowModel,
+  createSortedRowModel,
+  filterFns,
   flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  useReactTable,
+  rowSortingFeature,
+  sortFns,
+  tableFeatures,
+  useTable,
   type Cell,
+  type CellData,
   type Column,
   type ColumnDef,
   type ColumnFiltersState,
   type ColumnPinningState,
   type ColumnSizingState,
+  type ColumnVisibilityState,
   type Header,
   type Row,
   type RowData,
   type SortingState,
-  type VisibilityState,
+  type TableFeatures,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -112,11 +122,14 @@ export interface DataTableColumnMeta {
 }
 
 /**
- * TanStack parameterises `ColumnMeta` by the row type and the cell-value type of the column it
- * describes, and a merged declaration has to repeat that parameter list exactly. None of the facts
- * above depends on either type, so the two are carried in type position and contribute no member.
+ * TanStack parameterises `ColumnMeta` by the table's feature set, the row type and the cell-value
+ * type of the column it describes, and a merged declaration has to repeat that parameter list
+ * exactly. None of the facts above depends on any of them, so the three are carried in type
+ * position and contribute no member.
  */
-type ColumnTypesCarried<TData extends RowData, TValue> = { readonly [K in never]: (row: TData) => TValue };
+type ColumnTypesCarried<TFeatures extends TableFeatures, TData extends RowData, TValue> = {
+  readonly [K in never]: (features: TFeatures, row: TData) => TValue;
+};
 
 /**
  * The table's column meta IS TanStack's `ColumnMeta` (B-17): the library ships an empty interface
@@ -124,8 +137,31 @@ type ColumnTypesCarried<TData extends RowData, TValue> = { readonly [K in never]
  * error at every call site, and leaves no shape for a caller to cast past.
  */
 declare module "@tanstack/react-table" {
-  interface ColumnMeta<TData extends RowData, TValue> extends DataTableColumnMeta, ColumnTypesCarried<TData, TValue> {}
+  interface ColumnMeta<in out TFeatures extends TableFeatures, in out TData extends RowData, TValue extends CellData = CellData>
+    extends DataTableColumnMeta,
+      ColumnTypesCarried<TFeatures, TData, TValue> {}
 }
+
+/**
+ * The one feature set every DataTable registers (R-UI-010). TanStack v9 bundles nothing that is not
+ * named here, and a row model resolves a column's filter and sort by name through the `filterFns`
+ * and `sortFns` registries: without them a filter field matches nothing and says nothing.
+ */
+const DATA_TABLE_FEATURES = tableFeatures({
+  columnFilteringFeature,
+  columnPinningFeature,
+  columnSizingFeature,
+  columnResizingFeature,
+  columnVisibilityFeature,
+  rowSortingFeature,
+  filteredRowModel: createFilteredRowModel(),
+  sortedRowModel: createSortedRowModel(),
+  filterFns,
+  sortFns,
+});
+export type DataTableFeatures = typeof DATA_TABLE_FEATURES;
+/** One column of a DataTable, as a consumer declares it. */
+export type DataTableColumnDef<TRow extends RowData> = ColumnDef<DataTableFeatures, TRow, unknown>;
 
 export interface DataTableColumnPinning {
   left?: string[];
@@ -187,14 +223,14 @@ export interface DataTableCellCommit {
   readonly act: boolean;
 }
 
-export interface DataTableProps<TRow> {
+export interface DataTableProps<TRow extends RowData> {
   /**
    * The identity the reader's furniture is remembered under — `cubit.datatable.v1:<tableId>`
    * (see table-state.ts). Required, because a table that persists column state under no name would
    * share one drawer with every other table on the screen.
    */
   tableId: string;
-  columns: ColumnDef<TRow, unknown>[];
+  columns: DataTableColumnDef<TRow>[];
   data: TRow[];
   getRowId: (row: TRow, index: number) => string;
   /**
@@ -350,7 +386,7 @@ export function subtotalsByUnit<TRow>(
 
 /* ------------------------------------------------------------------ the body's flat item list */
 
-type BodyItem<TRow> =
+type BodyItem<TRow extends RowData> =
   | {
       kind: "group";
       id: string;
@@ -360,7 +396,7 @@ type BodyItem<TRow> =
       /** The subtotals are the table's own exact sums (and so go through the figure seam), not the consumer's written ones. */
       summed: boolean;
     }
-  | { kind: "row"; id: string; row: Row<TRow>; dataIndex: number };
+  | { kind: "row"; id: string; row: Row<DataTableFeatures, TRow>; dataIndex: number };
 
 /**
  * The rows to draw, in document order, with a group header before each run of them. The group's
@@ -370,17 +406,17 @@ type BodyItem<TRow> =
  * `itemAt` maps a data row's index (the cursor's coordinate) to its item's index (the window's), so
  * the keyboard and `scrollToRowId` travel through a grouped list by the same arithmetic as a flat one.
  */
-function bodyItemsOf<TRow>(
-  rows: readonly Row<TRow>[],
+function bodyItemsOf<TRow extends RowData>(
+  rows: readonly Row<DataTableFeatures, TRow>[],
   group: DataTableGroup<TRow> | undefined,
   collapsed: ReadonlySet<string>,
-): { items: BodyItem<TRow>[]; dataRows: Row<TRow>[]; itemAt: number[] } {
+): { items: BodyItem<TRow>[]; dataRows: Row<DataTableFeatures, TRow>[]; itemAt: number[] } {
   if (group === undefined) {
     const items = rows.map<BodyItem<TRow>>((row, index) => ({ kind: "row", id: row.id, row, dataIndex: index }));
     return { items, dataRows: [...rows], itemAt: rows.map((_row, index) => index) };
   }
   const order: DataTableGroupKey[] = [];
-  const members = new Map<string, Row<TRow>[]>();
+  const members = new Map<string, Row<DataTableFeatures, TRow>[]>();
   for (const row of rows) {
     const key = group.of(row.original) ?? { key: "", label: "" };
     const held = members.get(key.key);
@@ -392,7 +428,7 @@ function bodyItemsOf<TRow>(
     }
   }
   const items: BodyItem<TRow>[] = [];
-  const dataRows: Row<TRow>[] = [];
+  const dataRows: Row<DataTableFeatures, TRow>[] = [];
   const itemAt: number[] = [];
   for (const key of order) {
     const held = members.get(key.key) ?? [];
@@ -417,7 +453,7 @@ function bodyItemsOf<TRow>(
 
 /* ------------------------------------------------------------------------------- the table */
 
-export function DataTable<TRow>({
+export function DataTable<TRow extends RowData>({
   tableId,
   columns,
   data,
@@ -480,7 +516,7 @@ export function DataTable<TRow>({
 
   // Sorting and filtering are per-column opt-ins: a column earns its sort control from
   // `enableSorting` and its filter field from `meta.filterable`, never by default.
-  const tableColumns = useMemo<ColumnDef<TRow, unknown>[]>(
+  const tableColumns = useMemo<DataTableColumnDef<TRow>[]>(
     () =>
       columns.map((column) => ({
         ...column,
@@ -490,24 +526,29 @@ export function DataTable<TRow>({
     [columns],
   );
 
-  /** §5 rule 3: the key column is the first one, frozen, unless the caller pinned its own set. */
+  /**
+   * §5 rule 3: the key column is the first one, frozen, unless the caller pinned its own set. The
+   * prop and the remembered furniture stay physical (`left`/`right`); TanStack v9's regions are
+   * logical (`start`/`end`), so they are translated here and `pinnedSideOf` turns them back for the DOM.
+   */
   const firstColumnId = columns[0]?.id ?? "";
   const pinning = useMemo<ColumnPinningState>(() => {
     const left = [...(columnPinning?.left ?? []), ...furniture.pinned.left];
     if (freezeKeyColumn && firstColumnId !== "" && !left.includes(firstColumnId)) left.unshift(firstColumnId);
     const right = [...(columnPinning?.right ?? []), ...furniture.pinned.right].filter((id) => !left.includes(id));
-    return { left, right };
+    return { start: left, end: right };
   }, [columnPinning, furniture.pinned, freezeKeyColumn, firstColumnId]);
 
   const sorting = useMemo<SortingState>(() => furniture.sorting.map((entry) => ({ ...entry })), [furniture.sorting]);
   const columnSizing = useMemo<ColumnSizingState>(() => ({ ...furniture.sizes }), [furniture.sizes]);
-  const columnVisibility = useMemo<VisibilityState>(
+  const columnVisibility = useMemo<ColumnVisibilityState>(
     () => Object.fromEntries(furniture.hidden.map((id) => [id, false])),
     [furniture.hidden],
   );
   const collapsed = useMemo(() => new Set(furniture.collapsed), [furniture.collapsed]);
 
-  const table = useReactTable<TRow>({
+  const table = useTable({
+    features: DATA_TABLE_FEATURES,
     data,
     columns: tableColumns,
     getRowId,
@@ -527,9 +568,6 @@ export function DataTable<TRow>({
     enableColumnResizing: true,
     columnResizeMode: "onChange",
     defaultColumn: { size: DEFAULT_COLUMN_WIDTH_PX, minSize: MIN_COLUMN_WIDTH_PX },
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
   });
 
   const rows = table.getRowModel().rows;
@@ -546,9 +584,9 @@ export function DataTable<TRow>({
    * group row's cells) would stand a pinned column's cell under a different header.
    */
   const rowColumns = [
-    ...table.getLeftVisibleLeafColumns(),
+    ...table.getStartVisibleLeafColumns(),
     ...table.getCenterVisibleLeafColumns(),
-    ...table.getRightVisibleLeafColumns(),
+    ...table.getEndVisibleLeafColumns(),
   ];
   /** Where a group row writes its sums (I-356): the marked figure column, and its unit column. */
   const subtotalAt = rowColumns.findIndex((column) => metaOf(column).groupSubtotal === "value");
@@ -918,7 +956,7 @@ export function DataTable<TRow>({
                     role="gridcell"
                     aria-colindex={index + 1}
                     data-align={metaOf(column).align}
-                    data-pinned={column.getIsPinned() || undefined}
+                    data-pinned={pinnedSideOf(column)}
                     style={cellStyle(column)}
                   >
                     {totals?.[column.id] ?? null}
@@ -962,8 +1000,8 @@ export function DataTable<TRow>({
                 type="button"
                 className="cx-table-chooser-pin cx-reticle"
                 data-testid={`datatable-pin-${column.id}`}
-                aria-pressed={column.getIsPinned() === "left"}
-                onClick={() => togglePin(column.id, column.getIsPinned() !== "left")}
+                aria-pressed={column.getIsPinned() === "start"}
+                onClick={() => togglePin(column.id, column.getIsPinned() !== "start")}
               >
                 {PIN_GLYPH}
               </button>
@@ -996,12 +1034,18 @@ function controlsIn(cell: HTMLElement): HTMLElement[] {
 }
 
 /** The sticky offset a pinned column sits at, and the width every cell of it shares. */
-function cellStyle<TRow>(column: Header<TRow, unknown>["column"]): CSSProperties {
+function cellStyle<TRow extends RowData>(column: Column<DataTableFeatures, TRow, unknown>): CSSProperties {
   const pinned = column.getIsPinned();
   const width = `${column.getSize()}px`;
-  if (pinned === "left") return { width, left: `${column.getStart("left")}px` };
-  if (pinned === "right") return { width, right: `${column.getAfter("right")}px` };
+  if (pinned === "start") return { width, left: `${column.getStart("start")}px` };
+  if (pinned === "end") return { width, right: `${column.getAfter("end")}px` };
   return { width };
+}
+
+/** The closed contract's `data-pinned` stays physical ("left" | "right", primitives-data.md) over v9's logical regions. */
+function pinnedSideOf<TRow extends RowData>(column: Column<DataTableFeatures, TRow, unknown>): "left" | "right" | undefined {
+  const pinned = column.getIsPinned();
+  return pinned === "start" ? "left" : pinned === "end" ? "right" : undefined;
 }
 
 const ariaSortOf = (direction: false | "asc" | "desc"): "ascending" | "descending" | "none" => {
@@ -1010,12 +1054,12 @@ const ariaSortOf = (direction: false | "asc" | "desc"): "ascending" | "descendin
   return "none";
 };
 
-interface HeaderCellProps<TRow> {
-  header: Header<TRow, unknown>;
+interface HeaderCellProps<TRow extends RowData> {
+  header: Header<DataTableFeatures, TRow, unknown>;
   colIndex: number;
 }
 
-function HeaderCell<TRow>({ header, colIndex }: HeaderCellProps<TRow>) {
+function HeaderCell<TRow extends RowData>({ header, colIndex }: HeaderCellProps<TRow>) {
   const { column } = header;
   const meta = metaOf(column);
   const sortable = column.getCanSort();
@@ -1040,7 +1084,7 @@ function HeaderCell<TRow>({ header, colIndex }: HeaderCellProps<TRow>) {
       aria-sort={sortable ? ariaSortOf(direction) : undefined}
       aria-colindex={colIndex}
       data-align={meta.align}
-      data-pinned={column.getIsPinned() || undefined}
+      data-pinned={pinnedSideOf(column)}
       style={cellStyle(column)}
     >
       {sortable ? (
@@ -1075,7 +1119,7 @@ function HeaderCell<TRow>({ header, colIndex }: HeaderCellProps<TRow>) {
   );
 }
 
-function FilterCell<TRow>({ header, colIndex }: { header: Header<TRow, unknown>; colIndex: number }) {
+function FilterCell<TRow extends RowData>({ header, colIndex }: { header: Header<DataTableFeatures, TRow, unknown>; colIndex: number }) {
   const { column } = header;
   const value = column.getFilterValue();
 
@@ -1084,7 +1128,7 @@ function FilterCell<TRow>({ header, colIndex }: { header: Header<TRow, unknown>;
       className="cx-table-cell cx-table-filtercell"
       role="columnheader"
       aria-colindex={colIndex}
-      data-pinned={column.getIsPinned() || undefined}
+      data-pinned={pinnedSideOf(column)}
       style={cellStyle(column)}
     >
       {column.getCanFilter() ? (
@@ -1148,11 +1192,11 @@ function GroupToggle({ id, label, count, collapsed, onToggle }: GroupToggleProps
   return clipped ? <Tooltip content={label}>{button}</Tooltip> : button;
 }
 
-interface GroupRowProps<TRow> {
+interface GroupRowProps<TRow extends RowData> {
   item: Extract<BodyItem<TRow>, { kind: "group" }>;
   rowIndex: number;
   /** The visible columns in the order a row draws its cells (pinned left, centre, pinned right). */
-  columns: readonly Column<TRow, unknown>[];
+  columns: readonly Column<DataTableFeatures, TRow, unknown>[];
   /** The column the group's sums stand under (`meta.groupSubtotal: "value"`), or −1 (I-356). */
   subtotalAt: number;
   /** The column the sums' units stand under (`meta.groupSubtotal: "unit"`), or −1 (I-356). */
@@ -1179,7 +1223,7 @@ interface GroupRowProps<TRow> {
  * the column above it and reads as one only when it stands under it. A grid that marks none keeps
  * the one spanning cell with the sums at its far end.
  */
-function GroupRow<TRow>({ item, rowIndex, columns, subtotalAt, unitAt, collapsed, showCount, figure, onToggle }: GroupRowProps<TRow>) {
+function GroupRow<TRow extends RowData>({ item, rowIndex, columns, subtotalAt, unitAt, collapsed, showCount, figure, onToggle }: GroupRowProps<TRow>) {
   const toggle = <GroupToggle id={item.id} label={item.label} count={showCount ? item.count : null} collapsed={collapsed} onToggle={onToggle} />;
   const written = (subtotal: DataTableSubtotal): string => (figure === undefined ? subtotal.value : figure(subtotal.value, subtotal.unit));
 
@@ -1241,7 +1285,7 @@ function GroupRow<TRow>({ item, rowIndex, columns, subtotalAt, unitAt, collapsed
             role="gridcell"
             aria-colindex={at + 1}
             data-align={metaOf(column).align}
-            data-pinned={column.getIsPinned() || undefined}
+            data-pinned={pinnedSideOf(column)}
             style={cellStyle(column)}
           >
             {at === subtotalAt ? (
@@ -1269,8 +1313,8 @@ function GroupRow<TRow>({ item, rowIndex, columns, subtotalAt, unitAt, collapsed
   );
 }
 
-interface BodyCellProps<TRow> {
-  cell: Cell<TRow, unknown>;
+interface BodyCellProps<TRow extends RowData> {
+  cell: Cell<DataTableFeatures, TRow, unknown>;
   rowId: string;
   tableId: string;
   colIndex: number;
@@ -1287,7 +1331,7 @@ interface BodyCellProps<TRow> {
   onCellCommit?: (commit: DataTableCellCommit) => void;
 }
 
-function BodyCell<TRow>({
+function BodyCell<TRow extends RowData>({
   cell,
   rowId,
   tableId,
@@ -1462,7 +1506,7 @@ function BodyCell<TRow>({
       data-cursor={isCursor ? "true" : undefined}
       data-align={meta.align}
       data-control={meta.control ? "true" : undefined}
-      data-pinned={column.getIsPinned() || undefined}
+      data-pinned={pinnedSideOf(column)}
       data-basis={entered ? "ENTERED" : undefined}
       data-editable={editable ? "true" : undefined}
       data-stale={stale === undefined ? undefined : "true"}

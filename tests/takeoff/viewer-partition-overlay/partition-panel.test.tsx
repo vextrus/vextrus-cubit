@@ -30,6 +30,7 @@ import {
   overlayFixture,
   productModule,
 } from "./support/overlay-stage";
+import { installInertResizeObserver } from "../viewer/support/viewer-support";
 
 /**
  * The viewer seam reads a record before it builds, so its module graph reaches the store. Nothing
@@ -51,6 +52,7 @@ let ViewerScreen: (props: Record<string, unknown>) => unknown;
 let messageOf: (code: string) => string;
 
 beforeAll(async () => {
+  installInertResizeObserver();
   const artifact = buildOverlayArtifact(5);
   const seam = await productModule<{ buildRenderManifest: (graph: unknown, layoutName: string) => Manifest }>(VIEWER_MODULE);
   manifest = seam.buildRenderManifest(artifact.graph, MODEL_SPACE);

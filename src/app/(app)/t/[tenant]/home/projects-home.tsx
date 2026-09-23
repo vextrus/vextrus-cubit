@@ -19,7 +19,6 @@
 // exactly as the frame hands `JobsFormat` to the job pattern.
 import "./home.css";
 
-import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { refusalOf, type RefusalCode } from "@/core/errors";
@@ -30,7 +29,7 @@ import type { Project } from "@/modules/spine/projects";
 import { rampStep } from "@/modules/takeoff/coverage/heat";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Badge, Button, CoverageChip, EmptyState, Input, MoneyText, RelativeTime, Stat } from "@/ui/primitives/core";
-import { DataTable } from "@/ui/primitives/data";
+import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { Sheet, SheetContent } from "@/ui/primitives/overlay";
 import { shellHref } from "@/ui/shell";
 import { strings } from "@/ui/strings";
@@ -120,7 +119,7 @@ export function ProjectsHome({ tenantId, projects, coverage = NO_COVERAGE }: Pro
   const editing = target?.project ?? null;
   const shown = useMemo(() => projects.filter((project) => matches(project, query)), [projects, query]);
 
-  const columns = useMemo<ColumnDef<Project, unknown>[]>(
+  const columns = useMemo<DataTableColumnDef<Project>[]>(
     () => [
       {
         id: "name",

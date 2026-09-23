@@ -71,7 +71,9 @@ export const LANE_NOTES = Object.freeze(/** @type {Record<string, string>} */ (C
  */
 export const LANE_COMMANDS = Object.freeze({
   typegen: [["node", "node_modules/next/dist/bin/next", "typegen"]],
-  types: [["node", "node_modules/typescript/bin/tsc", "--noEmit"]],
+  // TypeScript 7, the native compiler (D-004). `typescript` itself is the TypeScript 6 API alias that
+  // typescript-eslint and Next's type check read; it ships only `tsc6`.
+  types: [["node", "node_modules/@typescript/native/bin/tsc", "--noEmit"]],
   lint: [["node", "node_modules/eslint/bin/eslint.js", "."]],
   // Capped deliberately: the unit lane would take the whole box by default, and it no longer has
   // the box to itself — six other lanes gate beside it (runChainInWaves), and the engine may be

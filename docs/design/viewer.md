@@ -136,8 +136,10 @@ IOU in §8 with its owning clause. A grey box promising a panel is a lie about w
   frame: a viewer that eases its own zoom fights the hand on the trackpad.
 - **I-84 — the split remembers itself locally until the prefs seam takes it.** R-UI-005 binds
   resizable panels with remembered sizes to the viewer. The shipped `ResizablePanelGroup` persists
-  through `autoSaveId="cubit-viewer-split"`; `src/server/**` and the prefs seam are another node's,
-  so a per-user stored size is a recorded IOU (§8), not a silently skipped clause.
+  through `autoSaveId="cubit-viewer-split"` with the `panelIds` the `L≡` toggle leaves standing
+  (react-resizable-panels v4's `useDefaultLayout`, one stored layout per set of panels, which also
+  reads the layout v2 stored under the bare key); `src/server/**` and the prefs seam are another
+  node's, so a per-user stored size is a recorded IOU (§8), not a silently skipped clause.
 
 **Amended by session 7 (craft slice CR-B — the viewer opens on the sheet a customer asked for):**
 
@@ -296,8 +298,8 @@ layer (R-UI-043).
 
 ```
 <div class="cx-viewer" data-testid="viewer-screen">          ← bleeds shell-main (I-78)
-  <ResizablePanelGroup direction="horizontal" autoSaveId="cubit-viewer-split">
-    <ResizablePanel defaultSize={22} minSize={14} maxSize={40}>  ← <section data-testid="viewer-layers">
+  <ResizablePanelGroup orientation="horizontal" autoSaveId="cubit-viewer-split" panelIds={…}>
+    <ResizablePanel defaultSize="14%" minSize="11.5%" maxSize="23%">  ← <section data-testid="viewer-layers">
     <ResizableHandle />                                          ← shipped separator, keyboard-driven
     <ResizablePanel>                                             ← the stage: canvas + zoom controls
   </ResizablePanelGroup>
@@ -720,22 +722,23 @@ Decision), with the two Interpretations the scale tab owes this region:
 
 The stage still dominates; the inspector recedes exactly as the layers panel does — same fill, same
 header geometry, same hairline seam — so the sheet reads as framed rather than flanked by two
-different panels. The group becomes three panels:
+different panels. The group became three panels here; U2 took the third out of the split again (the
+inspector is the frame's one slot, §3.1), so it stands as two — spelled for react-resizable-panels
+v4, where a size is a `%` share (a bare number is pixels) and panels order by their DOM position:
 
 ```
-<ResizablePanelGroup direction="horizontal" autoSaveId="cubit-viewer-split">
-  <ResizablePanel id="viewer-layers-panel"    order={1} defaultSize={22} minSize={14} maxSize={40}>
+<ResizablePanelGroup orientation="horizontal" autoSaveId="cubit-viewer-split" panelIds={…}>
+  <ResizablePanel id="viewer-layers-panel" defaultSize="14%" minSize="11.5%" maxSize="23%">
   <ResizableHandle />
-  <ResizablePanel id="viewer-stage-panel"     order={2}>
-  <ResizableHandle />
-  <ResizablePanel id="viewer-inspector-panel" order={3} defaultSize={22} minSize={14} maxSize={40}>
+  <ResizablePanel id="viewer-stage-panel">
 </ResizablePanelGroup>
 ```
 
-The `autoSaveId` is unchanged (I-84's IOU stands): every panel carries a stable `id` and `order`, so
-a layout stored by inc-110's two-panel build no longer matches this group and is dropped rather than
-misapplied — a remembered size is a convenience, and misapplying one would hand a reader a 4 %
-canvas on first open.
+The `autoSaveId` is unchanged (I-84's IOU stands): every panel carries a stable `id`, and a layout is
+stored once per set of `panelIds` standing, so a layout stored by a group of other panels no longer
+matches this one and is dropped rather than misapplied — a remembered size is a convenience, and
+misapplying one would hand a reader a 4 % canvas on first open. The handle steps 5 % per arrow key
+and a double-click returns the drawer to its 14 % (library behaviour, primitives-data Decision).
 
 **The panel** — `<aside class="cx-viewer-inspector" data-testid="viewer-inspector"
 aria-labelledby="cx-viewer-inspector-title" data-state="idle|hover|selected" data-count={n}>`: fill

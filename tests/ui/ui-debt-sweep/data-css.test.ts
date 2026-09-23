@@ -13,7 +13,8 @@ import { cssRules, declarationParts, rulesFor } from "./support/sources";
 
 const DATA_CSS = "src/ui/primitives/data/data.css";
 const FILTER_ROW = ".cx-table-filters";
-const ACTIVE_HANDLE_LINE = '.cx-resizable-handle[data-resize-handle-active="pointer"] .cx-resizable-line';
+/* react-resizable-panels v4 spells the drag as `data-separator="active"`; focus reads "focus". */
+const ACTIVE_HANDLE_LINE = '.cx-resizable-handle[data-separator="active"] .cx-resizable-line';
 
 const stylesheet = (): string => sourceOf(DATA_CSS, "AC-6 judges the data primitives' stylesheet");
 
@@ -31,8 +32,8 @@ describe("AC-6b: the dragging style is scoped to a pointer drag", () => {
   test("AC-6b: no rule selects the resize handle's active state without naming which one", () => {
     const bare = cssRules(stylesheet())
       .map((rule) => rule.selector)
-      .filter((selector) => /\[data-resize-handle-active\]/.test(selector));
-    expect(bare, "keyboard focus sets the same attribute, so an unqualified selector paints the drag style on a keystroke").toEqual([]);
+      .filter((selector) => /\[data-separator\]/.test(selector));
+    expect(bare, "every handle carries the attribute, focused or not, so an unqualified selector paints the drag style on a keystroke").toEqual([]);
   });
 
   test("AC-6b: the active line is painted for a pointer drag", () => {

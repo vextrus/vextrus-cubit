@@ -9,7 +9,6 @@
 // before the dialog opens is this screen's answer, in its own slot; a refusal that arrives once the
 // dialog holds focus is the dialog's, in its own.
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
 // The law itself, not the seam's barrel: L-ACT-03's roles are a value that touches no database
 // (src/core/acts/law.ts), and a client component reaching through the barrel would drag the driver
 // into the browser bundle.
@@ -19,7 +18,7 @@ import { formatDate } from "@/core/format";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button, Chip, EnumLabel } from "@/ui/primitives/core";
-import { DataTable } from "@/ui/primitives/data";
+import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { shellHref, useShellPage } from "@/ui/shell";
 import { PROJECT_SETTINGS_PAGES } from "@/ui/shell/routes";
 import { fill, strings, type StringKey } from "@/ui/strings";
@@ -88,7 +87,7 @@ const ROSTER_TABLE_ID = "participants-roster";
 const HISTORY_TABLE_ID = "participants-history";
 
 /** Who holds which role, in force now (I-52): the member, then every role they hold. */
-const ROSTER_COLUMNS: ColumnDef<ParticipantsRosterRow, unknown>[] = [
+const ROSTER_COLUMNS: DataTableColumnDef<ParticipantsRosterRow>[] = [
   {
     id: "member",
     header: strings.spine_participants_field_member,
@@ -112,7 +111,7 @@ const ROSTER_COLUMNS: ColumnDef<ParticipantsRosterRow, unknown>[] = [
 ];
 
 /** The record: what moved, whose it was, and when — oldest first, in the module's own order. */
-const HISTORY_COLUMNS: ColumnDef<ParticipantsHistoryRow, unknown>[] = [
+const HISTORY_COLUMNS: DataTableColumnDef<ParticipantsHistoryRow>[] = [
   {
     id: "direction",
     header: strings.spine_participants_field_direction,

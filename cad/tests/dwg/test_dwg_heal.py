@@ -33,11 +33,12 @@ from vextrus_cad.resync import resync_tag_stream
 LIBREDWG_COLUMN = 255
 
 #: A real structural working drawing kept beside the product rather than in it — a consultant's
-#: sheet set, not a fixture. When it is on this machine the lane is proven against it; when it is
+#: sheet set, not a fixture, held in the checkout's ignored .private/reference/ (L-CAD-09: it never
+#: enters the repository). When it is on this machine the lane is proven against it; when it is
 #: not, the minted breaker below stands for it.
 REFERENCE_DRAWING = (
-    Path.home()
-    / "vextrus-builder/docs/design/reference/Structural Working Drawing_Edison Lavinia_Final.dwg"
+    Path(__file__).resolve().parents[3]
+    / ".private/reference/edison/Structural Working Drawing_Edison Lavinia_Final.dwg"
 )
 
 

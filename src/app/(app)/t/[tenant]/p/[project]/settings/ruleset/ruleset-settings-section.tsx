@@ -22,13 +22,12 @@
 // rules if the route that happens to render it today is what carries them.
 import "./ruleset.css";
 
-import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { useMemo, useRef } from "react";
 import { formatUserFigure } from "@/core/format";
 import type { EditionLineageStep, EditionParameter, ProjectRulesetView } from "@/core/rulesets/editions";
 import { EnumLabel, IdChip, UnitBadge } from "@/ui/primitives/core";
-import { DataTable } from "@/ui/primitives/data";
+import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { ShellEmptyState, shellHref, useShellPage } from "@/ui/shell";
 import { PROJECT_SETTINGS_PAGES } from "@/ui/shell/routes";
 import { SettingsAbout, SettingsHeader } from "@/app/(app)/t/[tenant]/settings/settings-pane";
@@ -70,7 +69,7 @@ const parameterRows = (parameters: Readonly<Record<string, EditionParameter>>): 
 /** The chain of a view with no pin: nothing was forked, so there is no step to draw. */
 const NO_LINEAGE: readonly EditionLineageStep[] = Object.freeze([]);
 
-const PARAMETER_COLUMNS: ColumnDef<ParameterRow, unknown>[] = [
+const PARAMETER_COLUMNS: DataTableColumnDef<ParameterRow>[] = [
   {
     id: "parameter",
     header: rulesetStrings.ruleset_col_parameter,
@@ -98,7 +97,7 @@ const PARAMETER_COLUMNS: ColumnDef<ParameterRow, unknown>[] = [
 ];
 
 /** The chain as the grid takes a row: the step itself, keyed by the scope it was forked at. */
-const LINEAGE_COLUMNS: ColumnDef<EditionLineageStep, unknown>[] = [
+const LINEAGE_COLUMNS: DataTableColumnDef<EditionLineageStep>[] = [
   {
     id: "scope",
     header: rulesetStrings.ruleset_lineage_col_scope,

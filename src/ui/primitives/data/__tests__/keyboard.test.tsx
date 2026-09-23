@@ -6,11 +6,10 @@
  * Every gesture begins on the keyboard, and every expectation is read semantically — the roving
  * tabindex, the roles, the editor's accessible name, the seam's arguments — never by counting nodes.
  */
-import type { ColumnDef } from "@tanstack/react-table";
 import { act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { DataTable } from "../data-table";
+import { DataTable, type DataTableColumnDef } from "../data-table";
 import { LINES, allTestId, byTestId, mount, rowIdOf, textOf, unmountAll, type Line } from "./support";
 
 afterEach(() => {
@@ -18,7 +17,7 @@ afterEach(() => {
 });
 
 /** The act law, as a fixture: the entered quantity may be edited, the measured value may not. */
-const columns: ColumnDef<Line, unknown>[] = [
+const columns: DataTableColumnDef<Line>[] = [
   { id: "item", accessorKey: "item", header: "Item", size: 160 },
   { id: "qty", accessorKey: "qty", header: "Qty", size: 96, meta: { align: "right", editable: true, act: true } },
   { id: "unit", accessorKey: "unit", header: "Unit", size: 64 },

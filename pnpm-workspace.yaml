@@ -1,0 +1,30 @@
+# pnpm 11 reads its settings here, not from package.json or .npmrc (C-06: the toolchain is pinned
+# and its behaviour stated). This is one package, not a workspace; the file carries settings only.
+
+# Dependency build scripts stay off unless named: esbuild's postinstall only fetches a binary that
+# its optional platform package already ships (pnpm 10 ignored it the same way).
+allowBuilds:
+  esbuild: false
+
+# A `pnpm <script>` never installs behind the caller's back; `pnpm install` is an act of its own.
+verifyDepsBeforeRun: false
+
+overrides:
+  # The TypeScript 6 compiler behind the `typescript` alias (@typescript/typescript6), pinned here
+  # rather than left to the lockfile: typescript-eslint, Next's type check and five of the tree's
+  # own readers use its API, and TypeScript 7 ships none (D-004).
+  "@typescript/old": "npm:typescript@6.0.3"
+
+# pnpm 11 holds back a release younger than a day. next 16.3.6 is a security release (GHSA-vcvr-r3jv-pc5j,
+# after 16.3.3's two critical RCEs) and was hours old when it was pinned; pnpm wrote these exclusions.
+minimumReleaseAgeExclude:
+  - '@next/env@16.3.6'
+  - '@next/swc-darwin-arm64@16.3.6'
+  - '@next/swc-darwin-x64@16.3.6'
+  - '@next/swc-linux-arm64-gnu@16.3.6'
+  - '@next/swc-linux-arm64-musl@16.3.6'
+  - '@next/swc-linux-x64-gnu@16.3.6'
+  - '@next/swc-linux-x64-musl@16.3.6'
+  - '@next/swc-win32-arm64-msvc@16.3.6'
+  - '@next/swc-win32-x64-msvc@16.3.6'
+  - next@16.3.6

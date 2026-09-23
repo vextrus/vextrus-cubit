@@ -9,11 +9,10 @@
  * nothing here writes a raw identifier as body text. Copy is the screen's own (`strings.ts`, I-24);
  * the question name and the model id are model data and render verbatim in mono (I-25).
  */
-import type { ColumnDef } from "@tanstack/react-table";
 import { formatUserFigure } from "@/core/format";
 import type { CalibrationLine } from "@/core/model-calibration";
 import { EnumLabel, IdChip } from "@/ui/primitives/core";
-import { DataTable } from "@/ui/primitives/data";
+import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { fill } from "@/ui/strings";
 import { TESTIDS } from "@/ui/testids";
 import { auditStrings } from "./strings";
@@ -51,7 +50,7 @@ function OutcomeCell({ row }: { row: AuditLedgerRow }) {
   return <span className="cx-audit-ledger-awaiting">{auditStrings.audit_ledger_outcome_awaiting}</span>;
 }
 
-const COLUMNS: ColumnDef<AuditLedgerRow, unknown>[] = [
+const COLUMNS: DataTableColumnDef<AuditLedgerRow>[] = [
   { id: "call", header: auditStrings.audit_ledger_col_call, size: 120, cell: ({ row }) => <IdChip value={row.original.callId} /> },
   {
     id: "question",

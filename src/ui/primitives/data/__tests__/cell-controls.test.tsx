@@ -9,7 +9,6 @@
  * Escape hands the cursor back to the cell, and Enter and Space belong to the control. Outside a
  * grid the same controls keep their own stops.
  */
-import type { ColumnDef } from "@tanstack/react-table";
 import { act, render, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test, vi } from "vitest";
@@ -17,7 +16,7 @@ import { IdChip } from "../../core/id-chip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../overlay/dropdown-menu";
 import { EvidenceLink } from "@/ui/patterns/evidence-link";
 import { TESTIDS } from "@/ui/testids";
-import { DataTable } from "../data-table";
+import { DataTable, type DataTableColumnDef } from "../data-table";
 import { LINES, allTestId, byTestId, mount, rowIdOf, unmountAll, type Line } from "./support";
 
 afterEach(() => {
@@ -26,7 +25,7 @@ afterEach(() => {
 
 const DIGEST = "a32187c9d1e04b7f8a6c5e3d2b1f0a9e";
 
-const columns: ColumnDef<Line, unknown>[] = [
+const columns: DataTableColumnDef<Line>[] = [
   { id: "item", accessorKey: "item", header: "Item", size: 160 },
   { id: "digest", header: "Calibration", size: 160, cell: () => <IdChip value={DIGEST} /> },
   { id: "source", header: "Source", size: 200, cell: ({ row }) => <EvidenceLink href={`/design#${row.original.id}`} basis="MEASURED" label={`DXF_HANDLE:${row.original.id}`} /> },
@@ -127,7 +126,7 @@ describe("§5 rule 6: the controls a cell holds are reached through the cell", (
     // A Radix menu's content is portalled out of the cell, but its React events still bubble through
     // the cell. The menu answers (and prevents) its own keys; the grid must not answer them twice.
     const user = userEvent.setup();
-    const menuColumns: ColumnDef<Line, unknown>[] = [
+    const menuColumns: DataTableColumnDef<Line>[] = [
       { id: "item", accessorKey: "item", header: "Item", size: 160 },
       {
         id: "menu",

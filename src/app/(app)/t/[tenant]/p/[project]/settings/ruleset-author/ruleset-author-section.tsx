@@ -12,7 +12,6 @@
 import "./ruleset-author.css";
 
 import { useCallback, useId, useMemo, useRef, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { dhakaDateParts, formatDate, formatMoney, formatUserFigure } from "@/core/format";
 import type { CommitAnswer, PreviewAnswer } from "./actions";
@@ -25,7 +24,7 @@ import type { EditionIdentity, EditionParameter } from "@/core/rulesets/editions
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { BasisChip, Button, EnumLabel, IdChip, Input, NumberInput, QuantityText, UnitBadge } from "@/ui/primitives/core";
-import { DataTable } from "@/ui/primitives/data";
+import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { ShellEmptyState, useShellPage } from "@/ui/shell";
 // The one spelling of each settings area's word (R-UI-084, B-17): the refusal's evidence link is
 // named by the screen it travels to, never by the screen the reader is already standing on.
@@ -173,7 +172,7 @@ export function RulesetAuthorSection({
     setDialogOpen(true);
   };
 
-  const columns = useMemo<ColumnDef<ParameterDiffRow, unknown>[]>(
+  const columns = useMemo<DataTableColumnDef<ParameterDiffRow>[]>(
     () => [
       {
         id: "parameter",

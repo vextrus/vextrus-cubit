@@ -23,7 +23,6 @@
 // GF"), never a uuid or a key prefix as body text (§6, §7 C6).
 import "./project-home.css";
 
-import type { ColumnDef } from "@tanstack/react-table";
 import Decimal from "decimal.js";
 import Link from "next/link";
 import { refusalOf, type RefusalCode } from "@/core/errors";
@@ -34,7 +33,7 @@ import { NO_SUBJECT_NAMES, isSurrogate, type SubjectNames } from "@/modules/spin
 import type { Project } from "@/modules/spine/projects";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Badge, EmptyState, EnumLabel, IdChip, RelativeTime, Stat, Tooltip, UnitBadge, type FigureFormat } from "@/ui/primitives/core";
-import { DataTable } from "@/ui/primitives/data";
+import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { fill, strings } from "@/ui/strings";
 import { SubjectChips } from "../audit/subject-chips";
 import { participantsRoute } from "../settings/participants/route-address";
@@ -367,7 +366,7 @@ function AiLine({ tenantId, projectId, spend }: { tenantId: string; projectId: s
 function RecentActivity({ tenantId, projectId, acts, names }: { tenantId: string; projectId: string; acts: readonly AuditAct[]; names: SubjectNames }) {
   const shown = acts.slice(0, RECENT_ACTIVITY_LIMIT);
 
-  const columns: ColumnDef<AuditAct, unknown>[] = [
+  const columns: DataTableColumnDef<AuditAct>[] = [
     {
       id: "act",
       header: copy.project_home_col_act,
@@ -449,7 +448,7 @@ function RecentActivity({ tenantId, projectId, acts, names }: { tenantId: string
  * and nothing else on the page is withheld.
  */
 function Participants({ tenantId, projectId, participants }: { tenantId: string; projectId: string; participants: ProjectHomeRoster }) {
-  const columns: ColumnDef<ProjectHomeParticipant, unknown>[] = [
+  const columns: DataTableColumnDef<ProjectHomeParticipant>[] = [
     {
       id: "member",
       header: strings.spine_participants_field_member,

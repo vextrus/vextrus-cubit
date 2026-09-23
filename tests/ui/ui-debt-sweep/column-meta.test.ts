@@ -10,15 +10,19 @@
 import type { ColumnMeta } from "@tanstack/react-table";
 import { describe, expect, test } from "vitest";
 import { codeOf } from "../../../src/core/__tests__/support/read-source";
+import type { DataTableFeatures } from "../../../src/ui/primitives/data";
 import type { Assignable, Expect, Not } from "./support/type-assertions";
 
 const ENTRIES_MODULE = "src/ui/gallery-derivation/entries.tsx";
 
+/** The augmented meta as a DataTable column sees it: TanStack v9 keys it by the table's feature set first. */
+type SampleColumnMeta = ColumnMeta<DataTableFeatures, Record<string, unknown>>;
+
 /** The meta the sample's numeric column carries: alignment, filtering and inline editing. */
-export type SampleColumnMetaIsAccepted = Expect<Assignable<{ align: "right"; filterable: true; editable: true }, ColumnMeta<unknown, unknown>>>;
+export type SampleColumnMetaIsAccepted = Expect<Assignable<{ align: "right"; filterable: true; editable: true }, SampleColumnMeta>>;
 
 /** A column fact the table does not define is a compile error, which is what the cast was hiding. */
-export type UnknownColumnMetaIsRefused = Expect<Not<Assignable<{ align: "left" }, ColumnMeta<unknown, unknown>>>>;
+export type UnknownColumnMetaIsRefused = Expect<Not<Assignable<{ align: "left" }, SampleColumnMeta>>>;
 
 describe("AC-2d: the sample column definitions are checked, not cast", () => {
   test("AC-2d: entries.tsx casts neither its column definitions nor its meta", () => {

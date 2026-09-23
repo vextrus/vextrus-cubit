@@ -19,6 +19,7 @@ import {
   FORMAT_MODULE,
   MANIFEST_NOT_RENDERABLE,
   VIEWER_SCREEN_MODULE,
+  installInertResizeObserver,
   productModule,
   viewerSeam,
   type ErrorsModule,
@@ -92,6 +93,7 @@ function totalEntities(): number {
 let prepared: Promise<void> | undefined;
 function prepare(): Promise<void> {
   prepared ??= (async () => {
+    installInertResizeObserver();
     const graph = syntheticEntityGraph(SHEET);
     const { buildRenderManifest } = await viewerSeam();
     manifest = buildRenderManifest(graph, graph.layouts[0]?.name as string) as RenderManifest;

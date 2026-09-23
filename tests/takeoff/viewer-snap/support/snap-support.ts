@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
 import { expect } from "vitest";
+import { installInertResizeObserver } from "../../viewer/support/viewer-support";
 
 /* ------------------------------------------------------------------ the homes the spec names */
 
@@ -469,6 +470,7 @@ export async function mountSnapScreen(o: { reduced?: boolean; calibration?: unkn
   const reduced = o.reduced ?? false;
   stubMatchMedia(reduced);
   stubPointerCapture();
+  installInertResizeObserver();
 
   const original = Element.prototype.getBoundingClientRect;
   Element.prototype.getBoundingClientRect = stubbedBox;

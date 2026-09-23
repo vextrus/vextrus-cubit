@@ -32,11 +32,13 @@ const META = `${MIGRATIONS}/meta`;
 const JOURNAL = `${META}/_journal.json`;
 const SCHEMA = "db/schema.ts";
 
+// A declaration, not a const arrow: TypeScript 7 narrows after a call to a `never` function only
+// when the function is declared.
 /** @param {string} msg @returns {never} */
-const fail = (msg) => {
+function fail(msg) {
   process.stdout.write(`db:regenerate-migration FAIL — ${msg}\n`);
   process.exit(1);
-};
+}
 /** @param {string[]} a */
 const git = (a) => execFileSync("git", a, { cwd: ROOT, encoding: "utf8" });
 /** @param {string} f @returns {number | null} */

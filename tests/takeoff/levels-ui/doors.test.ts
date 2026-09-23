@@ -54,7 +54,7 @@ function viewLevel(row: Record<string, unknown>): { levelId: string; ordinal: nu
   return {
     levelId: String(field(row, "levelId", "level_id")),
     ordinal: Number(field(row, "ordinal", "ordinal")),
-    rollups: ((field(row, "rollups", "rollups") ?? []) as Record<string, unknown>[]) ?? [],
+    rollups: (field(row, "rollups", "rollups") ?? []) as Record<string, unknown>[],
   };
 }
 

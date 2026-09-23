@@ -17,7 +17,6 @@
 // component a browser renders with the settlement of its choice (the RulesetSettingsSection
 // precedent).
 import { useId, useMemo, useRef, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { formatDate } from "@/core/format";
 import { IconMoreHorizontal } from "@/ui/icons";
@@ -26,7 +25,7 @@ import { Button, Input, Select } from "@/ui/primitives/core";
 // The humanising rule, from the primitive that owns it (B-17): a screen that title-cased a role
 // itself would be a second opinion about how `OWNER` is said out loud.
 import { humaniseEnum } from "@/ui/primitives/core/enum-label";
-import { DataTable } from "@/ui/primitives/data";
+import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/ui/primitives/overlay";
 import { shellHref } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
@@ -132,7 +131,7 @@ export function MembersSection({
     return rows.filter((row) => `${row.label ?? membersStrings.members_member_unnamed} ${row.role} ${humaniseEnum(row.role)}`.toLowerCase().includes(asked));
   }, [rows, query]);
 
-  const columns = useMemo<ColumnDef<MembersRow, unknown>[]>(
+  const columns = useMemo<DataTableColumnDef<MembersRow>[]>(
     () => [
       {
         id: "member",

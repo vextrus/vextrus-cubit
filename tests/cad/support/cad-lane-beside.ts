@@ -10,6 +10,7 @@
 // but the fixture regenerations the lane owns — and leaves the verdict to the lane, whose red fails
 // the chain. Run on its own (`pnpm test`), the suite still runs the lane itself.
 import { expect } from "vitest";
+import { CAD_WORKERS } from "../../../scripts/lib/cad-lane.mjs";
 import { LANE_COMMANDS } from "../../../scripts/verify.mjs";
 
 /** Verify's unit lane is told the cad lane runs beside it in the same chain. */
@@ -24,6 +25,8 @@ export function expectCadLaneBeside(criterion: string): void {
   expect(lane?.[0], `${criterion}: verify's cad lane lints the cad package first`).toEqual(["ruff", "check", "cad"]);
   const pytest = lane?.[1] ?? [];
   expect(pytest.slice(0, 2), `${criterion}: and then runs pytest over the whole cad tree`).toEqual(["pytest", "cad"]);
-  const setAside = pytest.slice(2).filter((argument) => !REGENERATION_SET_ASIDE.test(argument));
+  // The worker count spreads the same collection over processes; it sets nothing aside.
+  const withoutWorkers = pytest.slice(2).join(" ").replace(CAD_WORKERS.join(" "), "").split(" ").filter((argument) => argument !== "");
+  const setAside = withoutWorkers.filter((argument) => !REGENERATION_SET_ASIDE.test(argument));
   expect(setAside, `${criterion}: setting aside nothing but the fixture regenerations the lane owns`).toEqual([]);
 }

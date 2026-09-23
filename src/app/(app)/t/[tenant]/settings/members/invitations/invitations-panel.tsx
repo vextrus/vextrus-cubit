@@ -12,11 +12,10 @@
 // renderer (I-57, R-UI-020). The pending list is never silent: a workspace nobody has invited says
 // so, in one line where the rows would be.
 import { useId, useMemo, useRef, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button, EnumLabel, Input } from "@/ui/primitives/core";
-import { DataTable } from "@/ui/primitives/data";
+import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { fill } from "@/ui/strings";
 import { SettingsAbout } from "../../settings-pane";
 import { inviteMemberAction, resendInvitationAction, revokeInvitationAction, type InvitationsAnswer } from "./actions";
@@ -101,7 +100,7 @@ export function InvitationsPanel({
     queue.current = queue.current.then(send, send);
   };
 
-  const columns = useMemo<ColumnDef<InvitationsRow, unknown>[]>(
+  const columns = useMemo<DataTableColumnDef<InvitationsRow>[]>(
     () => [
       {
         id: "invitee",

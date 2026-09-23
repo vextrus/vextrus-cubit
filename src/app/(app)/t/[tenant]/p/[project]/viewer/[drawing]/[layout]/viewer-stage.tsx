@@ -30,11 +30,18 @@ const INSPECTOR_CHROME: InspectorChrome = { BasisChip, EvidenceLink };
  * The panel's share of the width, and the band a reader may drag it to (Decision § 1: the drawer is
  * 200 px, min 160, max 320). Shares of the work area beside the 48 px rail: at 1440 that is 1392 px,
  * so 14 % ≈ 195, 11.5 % = 160 and 23 % ≈ 320 — the canvas keeps its ≥ 70 % (R-UI-080), where the old
- * 22 / 14 / 40 opened the drawer at 304 px and let it take 40 % of the sheet.
+ * 22 / 14 / 40 opened the drawer at 304 px and let it take 40 % of the sheet. Spelled with the `%`:
+ * react-resizable-panels v4 reads a bare number as pixels.
  */
-const PANEL_SIZE = 14;
-const PANEL_MIN = 11.5;
-const PANEL_MAX = 23;
+const PANEL_SIZE = "14%";
+const PANEL_MIN = "11.5%";
+const PANEL_MAX = "23%";
+
+/** The split's panels as each state of the `L≡` toggle mounts them, in DOM order (I-84). */
+const LAYERS_PANEL = "viewer-layers-panel";
+const STAGE_PANEL = "viewer-stage-panel";
+const PANELS_WITH_LAYERS = [LAYERS_PANEL, STAGE_PANEL];
+const PANELS_STAGE_ONLY = [STAGE_PANEL];
 
 export type ViewerStageProps = {
   panel: LayersPanelProps;
@@ -60,14 +67,15 @@ export type ViewerStageProps = {
 
 export function ViewerStage({ panel, partition, pointer, tool = "select", snap, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, layersOpen }: ViewerStageProps) {
   return (
-    /* Every panel carries a stable id and order, so a layout stored by another build's group no
-       longer matches this group and is dropped rather than misapplied (Decision § 1). */
-    <ResizablePanelGroup direction="horizontal" autoSaveId="cubit-viewer-split">
+    /* Every panel carries a stable id, and the split is remembered once per set of panels standing,
+       so a layout stored by another build's group no longer matches this group and is dropped
+       rather than misapplied (Decision § 1). The panels' order is their DOM order. */
+    <ResizablePanelGroup orientation="horizontal" autoSaveId="cubit-viewer-split" panelIds={layersOpen ? PANELS_WITH_LAYERS : PANELS_STAGE_ONLY}>
       {/* I-110: one column of two lists rather than a second split — a nested handle would buy one
           degree of freedom at the price of a control that can crush either list to nothing. */}
       {layersOpen ? (
         <>
-          <ResizablePanel id="viewer-layers-panel" order={1} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
+          <ResizablePanel id={LAYERS_PANEL} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
             <div className="cx-viewer-left-stack">
               <LayersPanel {...panel} />
               {partition.panel}
@@ -76,7 +84,7 @@ export function ViewerStage({ panel, partition, pointer, tool = "select", snap, 
           <ResizableHandle />
         </>
       ) : null}
-      <ResizablePanel id="viewer-stage-panel" order={2}>
+      <ResizablePanel id={STAGE_PANEL}>
         <div className="cx-viewer-stage" ref={stageRef} data-tool={tool}>
           {probed && renderer === "unavailable" ? (
             <div className="cx-viewer-empty">

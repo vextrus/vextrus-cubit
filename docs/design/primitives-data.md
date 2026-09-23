@@ -263,14 +263,23 @@ track fill; thumb fill `var(--graphite-300)`, radius `var(--radius-4)`, hover
 `var(--graphite-400)`. Bars fade in on hover/scroll and out after 600 ms, opacity over
 `var(--motion-state)` `var(--ease)`.
 
-### Resizable panels (`cx-resizable`, react-resizable-panels)
+### Resizable panels (`cx-resizable`, react-resizable-panels v4: `Group` / `Panel` / `Separator`)
 Handle (`cx-resizable-handle`, `role="separator"` with `aria-valuenow`, `cx-reticle`): an
 8 px hit strip (I-1) carrying a centred 1 px line in `var(--graphite-200)`; hover: line
-`var(--graphite-400)`; dragging (`[data-resize-handle-active]`): line 2 px in
+`var(--graphite-400)`; dragging (`[data-separator="active"]` — the library reads `"focus"`, not
+`"active"`, while the handle merely holds focus, and the reticle is what says so): line 2 px in
 `var(--beam-500)`. Line colour/width transition over `var(--motion-state)` `var(--ease)`;
 the panels themselves move with the pointer, untweened. Arrow keys resize from the
-keyboard (library behaviour). Remembered sizes are not wired here (they bind to the
-viewer, M1, per R-UI-005).
+keyboard in the library's fixed 5 % steps (Home/End to the panel's bounds), and a double-click
+on the handle returns the panel to its default size — library behaviour, not overridden.
+Sizes are shares spelled with their unit (`"30%"`): v4 reads a bare number as pixels. The
+library writes the handle's `aria-valuemin/max/now` from the measured layout, over anything
+passed, and spells `data-testid` with the separator's own id — so the wrapper sets
+`resizable-handle` on the element as it mounts (not through `id`: a page may hold several
+splits). A panel's class sits on the library's inner box, whose inline `overflow: auto` the
+wrapper restates as `overflow: hidden`. Remembered sizes are not chosen here: a caller asks
+for them by naming the key (`autoSaveId`, with the `panelIds` it mounts), which binds them to
+the viewer, M1, per R-UI-005.
 
 ### DataTable (`cx-table`, TanStack Table + TanStack Virtual)
 Root: `role="table"`, `aria-rowcount` = every row the user can reach — the header rows (the

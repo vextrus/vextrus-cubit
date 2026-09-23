@@ -129,9 +129,10 @@ export const SCROLL_LINE_COUNT = 40;
 export const scrollLines = (): string[] =>
   Array.from({ length: SCROLL_LINE_COUNT }, (_, i) => `Sheet ${i + 1} of ${SCROLL_LINE_COUNT}`);
 
+/** Shares of the group, spelled with their unit: react-resizable-panels v4 reads a bare number as pixels. */
 export const RESIZABLE_PANELS = [
-  { id: "sheet-list", label: "Sheet list", size: 30 },
-  { id: "viewer", label: "Viewer", size: 70 },
+  { id: "sheet-list", label: "Sheet list", size: "30%" },
+  { id: "viewer", label: "Viewer", size: "70%" },
 ] as const;
 
 export interface TableRow {
@@ -530,10 +531,10 @@ export const ROSTER: readonly RosterCase[] = [
       dt(
         b,
         "ResizablePanelGroup",
-        { direction: "horizontal" },
-        dt(b, "ResizablePanel", { id: RESIZABLE_PANELS[0].id, order: 1, defaultSize: RESIZABLE_PANELS[0].size }, RESIZABLE_PANELS[0].label),
+        { orientation: "horizontal" },
+        dt(b, "ResizablePanel", { id: RESIZABLE_PANELS[0].id, defaultSize: RESIZABLE_PANELS[0].size }, RESIZABLE_PANELS[0].label),
         dt(b, "ResizableHandle", { "aria-label": COPY.resizableHandleLabel }),
-        dt(b, "ResizablePanel", { id: RESIZABLE_PANELS[1].id, order: 2, defaultSize: RESIZABLE_PANELS[1].size }, RESIZABLE_PANELS[1].label),
+        dt(b, "ResizablePanel", { id: RESIZABLE_PANELS[1].id, defaultSize: RESIZABLE_PANELS[1].size }, RESIZABLE_PANELS[1].label),
       ),
   },
   {
