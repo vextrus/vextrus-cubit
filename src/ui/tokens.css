@@ -132,6 +132,7 @@
   --surface-raised: var(--graphite-0);
   --surface-overlay: var(--graphite-0);
   --surface-sunken: var(--graphite-100);
+  --surface-band: var(--graphite-100);
   --surface-hover: var(--graphite-200);
   --surface-overlay-hover: var(--graphite-300);
   --surface-active: var(--graphite-300);
@@ -310,6 +311,7 @@
   --surface-raised: var(--graphite-100);
   --surface-overlay: var(--graphite-150);
   --surface-sunken: var(--graphite-0);
+  --surface-band: var(--graphite-150);
   --surface-hover: var(--graphite-200);
   --surface-overlay-hover: var(--graphite-300);
   --surface-active: var(--graphite-300);

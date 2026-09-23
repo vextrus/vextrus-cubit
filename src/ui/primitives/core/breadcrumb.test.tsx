@@ -7,6 +7,8 @@
  * a crumb the shell derives arrives at a reader as a real place. The primitive itself decides
  * nothing about what a place is called, which is why the data comes from the module that does.
  */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test } from "vitest";
@@ -105,5 +107,66 @@ describe("Breadcrumb", () => {
   test("a consumer's class joins the primitive's", () => {
     render(<Breadcrumb crumbs={crumbs()} className="cx-shell-crumbs" />);
     expect(screen.getByTestId("breadcrumb").className.split(" ")).toEqual(["cx-breadcrumb", "cx-shell-crumbs"]);
+  });
+});
+
+/** A stylesheet with its prose removed: a comment is not a selector. */
+const rulesOf = (file: string): string => readFileSync(resolve(process.cwd(), file), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+
+/** Every rule in `css` as `[selector, declarations]`, flat (the breadcrumb's rules sit in no @-block). */
+const ruleBlocks = (css: string): [string, string][] =>
+  [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((match) => [(match[1] ?? "").trim(), match[2] ?? ""]);
+
+const declarationsOf = (css: string, selector: string): string => {
+  const hit = ruleBlocks(css).find(([held]) => held === selector);
+  expect(hit, `the stylesheet declares a \`${selector}\` rule`).toBeDefined();
+  return (hit as [string, string])[1];
+};
+
+describe("I-358: the page crumb names the page in full, and reads as the page", () => {
+  const CORE = rulesOf("src/ui/primitives/core/core.css");
+  const PAGE_LABEL = '.cx-breadcrumb-item[aria-current="page"] > .cx-breadcrumb-label';
+
+  test("an ancestor's words keep the drawer cap; the page's words lift it", () => {
+    expect(declarationsOf(CORE, ".cx-breadcrumb-label"), "an ancestor is capped at a drawer's measure").toContain(
+      "max-width: calc(var(--drawer-w) - var(--space-8));",
+    );
+    const page = declarationsOf(CORE, PAGE_LABEL);
+    expect(page, "the page crumb takes the trail's free width — the cap clipped a set's own name with 440 px standing empty").toContain(
+      "max-width: none;",
+    );
+    expect(page, "and reads in the primary ink, as shell.md's top bar rules").toContain("color: var(--ink);");
+    expect(page, "at the body-medium weight").toContain("font-weight: var(--weight-body-medium);");
+  });
+
+  test("when the trail runs out of room the ancestors yield first, and the page still ellipsises last", () => {
+    expect(declarationsOf(CORE, ".cx-breadcrumb-item"), "an ancestor gives up its width four times as readily").toContain("flex: 0 4 auto;");
+    expect(declarationsOf(CORE, '.cx-breadcrumb-item[aria-current="page"]'), "the page crumb shrinks only at the weight of its own width").toContain(
+      "flex-shrink: 1;",
+    );
+  });
+
+  test("every rule that styles the claim selects an element that carries it — no rule is dead", () => {
+    // The rule that stood here from U1b named `aria-current` on the LABEL; the claim is the `<li>`'s,
+    // so the page crumb was drawn exactly like the links above it and nothing said so.
+    const { container } = render(<Breadcrumb crumbs={crumbs()} />);
+    const claims = ruleBlocks(CORE)
+      .flatMap(([selector]) => selector.split(","))
+      .map((selector) => selector.trim())
+      .filter((selector) => selector.includes("cx-breadcrumb") && selector.includes("aria-current"));
+    expect(claims.length, "the stylesheet styles the page crumb at all").toBeGreaterThan(0);
+    for (const selector of claims) {
+      expect(container.querySelector(selector.replace(/:[a-z-]+(\([^)]*\))?/g, "")), `\`${selector}\` selects the page crumb`).not.toBeNull();
+    }
+    const label = container.querySelector<HTMLElement>(PAGE_LABEL);
+    expect(label?.textContent, "and the element it selects is the page's own name").toBe(PAGE);
+  });
+
+  test("the top bar hands the trail exactly its free width, so the end cluster never breaks onto a second line", () => {
+    const shell = declarationsOf(rulesOf("src/ui/shell/shell.css"), ".cx-shell-breadcrumb");
+    expect(shell, "a basis of zero that grows: the trail takes what the cluster leaves, never the cluster's own width").toContain(
+      "flex: 1 1 0%;",
+    );
+    expect(shell, "and clips what does not fit rather than widening the bar").toContain("min-width: 0;");
   });
 });

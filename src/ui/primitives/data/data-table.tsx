@@ -31,6 +31,7 @@ import {
   getSortedRowModel,
   useReactTable,
   type Cell,
+  type Column,
   type ColumnDef,
   type ColumnFiltersState,
   type ColumnPinningState,
@@ -60,6 +61,7 @@ import { GridCellScope } from "../core/grid-cell";
 import { Input } from "../core/input";
 import { Skeleton } from "../core/skeleton";
 import { Tooltip } from "../core/tooltip";
+import { UnitBadge } from "../core/unit-badge";
 import {
   EMPTY_COLUMN_STATE,
   defaultStorage,
@@ -99,6 +101,14 @@ export interface DataTableColumnMeta {
    * `onCellCommit` with `act: true` so the screen can open the one ConsequenceDialog over it.
    */
   act?: boolean;
+  /**
+   * Where a group row writes the group's own sum (§5 rule 4, I-356): `"value"` under this column's
+   * figures, `"unit"` under this column's units. A group sum is the sum OF a column, so it stands in
+   * that column — a figure pushed to the far end of one spanning cell reads as a stray number, not
+   * as the total of the figures above it. A grid that marks no visible `"value"` column (or marks
+   * its first) keeps the one spanning cell with the sums at its end.
+   */
+  groupSubtotal?: "value" | "unit";
 }
 
 /**
@@ -529,6 +539,20 @@ export function DataTable<TRow>({
   const subtotalFigures = group?.format ?? treeFigures;
   const leafColumns = table.getAllLeafColumns();
   const visibleColumns = table.getVisibleLeafColumns();
+  /**
+   * The visible columns in the order a ROW draws its cells — pinned left, centre, pinned right — which
+   * is the order the header groups and `row.getVisibleCells()` already use. `getVisibleLeafColumns()`
+   * is the declared order and ignores pinning, so a band drawn from it (the footer, a bone row, a
+   * group row's cells) would stand a pinned column's cell under a different header.
+   */
+  const rowColumns = [
+    ...table.getLeftVisibleLeafColumns(),
+    ...table.getCenterVisibleLeafColumns(),
+    ...table.getRightVisibleLeafColumns(),
+  ];
+  /** Where a group row writes its sums (I-356): the marked figure column, and its unit column. */
+  const subtotalAt = rowColumns.findIndex((column) => metaOf(column).groupSubtotal === "value");
+  const unitAt = rowColumns.findIndex((column) => metaOf(column).groupSubtotal === "unit");
 
   /* ------------------------------------------------------------- the geometry (§5 rule 1, 9) */
 
@@ -716,7 +740,7 @@ export function DataTable<TRow>({
   // Every row the user can reach, header rows included: the filter row is one of them, and after a
   // filter the reachable body rows are the surviving ones, not the whole data prop (R-UI-012).
   const headerRowCount = headerGroups.length * (filterable ? 2 : 1);
-  const footerCells = totals === undefined ? null : visibleColumns;
+  const footerCells = totals === undefined ? null : rowColumns;
   const drawnRowCount = loading ? loadingRows : placed.length;
 
   /* -------------------------------------------------------------- the column chooser (§5 rule 3) */
@@ -801,7 +825,7 @@ export function DataTable<TRow>({
                     role="row"
                     aria-rowindex={headerRowCount + index + 1}
                   >
-                    {visibleColumns.map((column, colIndex) => (
+                    {rowColumns.map((column, colIndex) => (
                       <div
                         key={column.id}
                         className="cx-table-cell"
@@ -825,7 +849,9 @@ export function DataTable<TRow>({
                         <GroupRow
                           item={item}
                           rowIndex={rowIndex}
-                          colSpan={visibleColumns.length}
+                          columns={rowColumns}
+                          subtotalAt={subtotalAt}
+                          unitAt={unitAt}
                           collapsed={collapsed.has(item.id)}
                           showCount={group?.showCount !== false}
                           figure={item.summed ? subtotalFigures?.figure : undefined}
@@ -1073,10 +1099,64 @@ function FilterCell<TRow>({ header, colIndex }: { header: Header<TRow, unknown>;
   );
 }
 
+interface GroupToggleProps {
+  id: string;
+  label: string;
+  /** The `(n)` to state, or null where the group says `showCount: false`. */
+  count: number | null;
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+/**
+ * A group's fold control: the chevron, the group's words and its count. The words ellipsise inside
+ * their cell like any cell's text, and a label that is ACTUALLY clipped carries its whole text on the
+ * shipped Tooltip, on hover and on focus (§5 rule 2) — a group whose words end at the figure column
+ * (I-356) is the likelier to be clipped. The label is measured through a callback ref, so the node
+ * the Tooltip's remount puts in its place is the one observed next.
+ */
+function GroupToggle({ id, label, count, collapsed, onToggle }: GroupToggleProps) {
+  const [labelNode, setLabelNode] = useState<HTMLSpanElement | null>(null);
+  const [clipped, setClipped] = useState(false);
+  useEffect(() => {
+    if (labelNode === null) return;
+    const measure = (): void => setClipped(labelNode.scrollWidth > labelNode.clientWidth);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(labelNode);
+    return () => observer.disconnect();
+  }, [labelNode, label]);
+
+  const button = (
+    <button
+      type="button"
+      className="cx-table-group-toggle cx-reticle"
+      data-testid={`datatable-group-toggle-${id}`}
+      aria-expanded={!collapsed}
+      onClick={onToggle}
+    >
+      <span className="cx-table-group-chevron" aria-hidden="true">
+        {collapsed ? COLLAPSED_GLYPH : EXPANDED_GLYPH}
+      </span>
+      <span className="cx-table-group-label" ref={setLabelNode}>
+        {label}
+      </span>
+      {count === null ? null : <span className="cx-table-group-count">{`(${count})`}</span>}
+    </button>
+  );
+  return clipped ? <Tooltip content={label}>{button}</Tooltip> : button;
+}
+
 interface GroupRowProps<TRow> {
   item: Extract<BodyItem<TRow>, { kind: "group" }>;
   rowIndex: number;
-  colSpan: number;
+  /** The visible columns in the order a row draws its cells (pinned left, centre, pinned right). */
+  columns: readonly Column<TRow, unknown>[];
+  /** The column the group's sums stand under (`meta.groupSubtotal: "value"`), or −1 (I-356). */
+  subtotalAt: number;
+  /** The column the sums' units stand under (`meta.groupSubtotal: "unit"`), or −1 (I-356). */
+  unitAt: number;
   collapsed: boolean;
   /** `(4)` after the label — §5 rule 4's default; a screen whose Decision says no count says false. */
   showCount: boolean;
@@ -1086,14 +1166,55 @@ interface GroupRowProps<TRow> {
 }
 
 /**
- * §5 rule 4: `▾ GF · column (4)` on the sunken surface, with the subtotals of what it holds.
+ * §5 rule 4: `▾ GF · column (4)` on the grid's band (I-357), with the subtotals of what it holds.
  *
  * A sum the table made is a figure like any in the column above it, so it is written through the
  * same seam (lakh/crore, L-FMT-01) and carries its exact decimal on `data-value` — the element a
  * suite and a copy read, never the rendering (B-07). With no seam the exact decimal is shown as
  * summed: a primitive may not carry a second grouping of its own (figures.tsx).
+ *
+ * WHERE the sum stands (I-356). A grid that marks its figure column (`meta.groupSubtotal`) gets the
+ * sum IN that column — right-aligned in the figures' own cell, its unit a UnitBadge in the unit
+ * column, the group's words spanning the columns before it — because a group sum is the total of
+ * the column above it and reads as one only when it stands under it. A grid that marks none keeps
+ * the one spanning cell with the sums at its far end.
  */
-function GroupRow<TRow>({ item, rowIndex, colSpan, collapsed, showCount, figure, onToggle }: GroupRowProps<TRow>) {
+function GroupRow<TRow>({ item, rowIndex, columns, subtotalAt, unitAt, collapsed, showCount, figure, onToggle }: GroupRowProps<TRow>) {
+  const toggle = <GroupToggle id={item.id} label={item.label} count={showCount ? item.count : null} collapsed={collapsed} onToggle={onToggle} />;
+  const written = (subtotal: DataTableSubtotal): string => (figure === undefined ? subtotal.value : figure(subtotal.value, subtotal.unit));
+
+  // The words need at least one column to stand in, so a figure column that is the FIRST column
+  // (or no marked column at all) keeps the spanning cell.
+  if (subtotalAt <= 0) {
+    return (
+      <div
+        className="cx-table-row cx-table-group"
+        data-testid={TESTIDS.datatable.groupRow}
+        data-group={item.id}
+        role="row"
+        aria-rowindex={rowIndex}
+      >
+        <div className="cx-table-cell cx-table-groupcell" role="gridcell" aria-colindex={1} aria-colspan={columns.length}>
+          {toggle}
+          <span className="cx-table-group-subtotals" data-testid={TESTIDS.datatable.groupSubtotal}>
+            {item.subtotals.map((subtotal) => (
+              <span className="cx-table-group-subtotal" key={subtotal.unit} data-unit={subtotal.unit}>
+                <span className="cx-table-number" data-value={subtotal.value}>
+                  {written(subtotal)}
+                </span>
+                <span className="cx-table-unit">{subtotal.unit}</span>
+              </span>
+            ))}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // A unit column that stands AFTER the figures takes the units; anywhere else (or nowhere) each
+  // figure keeps its own unit beside it — a sum is never shown without the unit it is in.
+  const unitsApart = unitAt > subtotalAt;
+  const spanned = columns.slice(0, subtotalAt).reduce((width, column) => width + column.getSize(), 0);
   return (
     <div
       className="cx-table-row cx-table-group"
@@ -1102,31 +1223,48 @@ function GroupRow<TRow>({ item, rowIndex, colSpan, collapsed, showCount, figure,
       role="row"
       aria-rowindex={rowIndex}
     >
-      <div className="cx-table-cell cx-table-groupcell" role="gridcell" aria-colindex={1} aria-colspan={colSpan}>
-        <button
-          type="button"
-          className="cx-table-group-toggle cx-reticle"
-          data-testid={`datatable-group-toggle-${item.id}`}
-          aria-expanded={!collapsed}
-          onClick={onToggle}
-        >
-          <span className="cx-table-group-chevron" aria-hidden="true">
-            {collapsed ? COLLAPSED_GLYPH : EXPANDED_GLYPH}
-          </span>
-          <span className="cx-table-group-label">{item.label}</span>
-          {showCount ? <span className="cx-table-group-count">{`(${item.count})`}</span> : null}
-        </button>
-        <span className="cx-table-group-subtotals" data-testid={TESTIDS.datatable.groupSubtotal}>
-          {item.subtotals.map((subtotal) => (
-            <span className="cx-table-group-subtotal" key={subtotal.unit}>
-              <span className="cx-table-number" data-value={subtotal.value}>
-                {figure === undefined ? subtotal.value : figure(subtotal.value, subtotal.unit)}
-              </span>
-              <span className="cx-table-unit">{subtotal.unit}</span>
-            </span>
-          ))}
-        </span>
+      <div
+        className="cx-table-cell cx-table-grouphead"
+        role="gridcell"
+        aria-colindex={1}
+        aria-colspan={subtotalAt}
+        style={{ width: `${spanned}px` }}
+      >
+        {toggle}
       </div>
+      {columns.slice(subtotalAt).map((column, offset) => {
+        const at = subtotalAt + offset;
+        return (
+          <div
+            key={column.id}
+            className="cx-table-cell"
+            role="gridcell"
+            aria-colindex={at + 1}
+            data-align={metaOf(column).align}
+            data-pinned={column.getIsPinned() || undefined}
+            style={cellStyle(column)}
+          >
+            {at === subtotalAt ? (
+              <span className="cx-table-group-subtotals" data-testid={TESTIDS.datatable.groupSubtotal}>
+                {item.subtotals.map((subtotal) => (
+                  <span className="cx-table-group-subtotal" key={subtotal.unit} data-unit={subtotal.unit}>
+                    <span className="cx-table-number" data-value={subtotal.value}>
+                      {written(subtotal)}
+                    </span>
+                    {unitsApart ? null : <UnitBadge unit={subtotal.unit} />}
+                  </span>
+                ))}
+              </span>
+            ) : at === unitAt ? (
+              <span className="cx-table-group-units">
+                {item.subtotals.map((subtotal) => (
+                  <UnitBadge key={subtotal.unit} unit={subtotal.unit} />
+                ))}
+              </span>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }

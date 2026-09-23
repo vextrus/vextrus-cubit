@@ -273,6 +273,16 @@ const semanticAlias: Group = {
     // itself — the ramp has nothing below it, and a well showing the ground through a panel is the
     // depth model rather than a collision. Light is untouched, so no light baseline moves for it.
     ["--surface-sunken", "var(--graphite-100)", "var(--graphite-0)"],
+    // A BAND across a grid that stands on the app ground: a group row, a total row, a summary
+    // table's header and total (primitives-data I-357). It cannot be `--surface-sunken`, and the
+    // 2026-09-23 craft look is why: sunken is a well cut into a PANEL, which in dark is the app
+    // ground itself — so every group row, total row and summary band drawn on sunken over the app
+    // ground painted the ground it stood on, and the BOQ's and the BBS's group rows had no fill in
+    // the default theme. A band is told apart from the FIELD, not from a panel. Light keeps the
+    // value sunken painted (1.10:1 from the ground), so no light band moves; dark takes the first
+    // step whose separation from the ground is at least light's — graphite-50 measures 1.04:1 and
+    // graphite-100 1.06:1, graphite-150 1.16:1 — and still carries a caption at 4.67:1.
+    ["--surface-band", "var(--graphite-100)", "var(--graphite-150)"],
     // Hover and active had to move with them. Hover was graphite-100 in both themes — the same value
     // the overlay painted — so every menu, combobox popover, dropdown and breadcrumb menu in the
     // product gave 1.00:1 of feedback in dark and 1.06:1 in light. It now measures 1.34:1 against the

@@ -251,12 +251,13 @@
 }
 
 /* §5 rule 1: the footer is sticky only when there are totals to keep — there is no element here
-   at all otherwise. */
+   at all otherwise. It is a BAND (I-357): the grid's total row stands on the band a group row does,
+   so a reader tells the totals from the last line by the fill as well as by the rule above them. */
 .cx-table-footer {
   position: sticky;
   bottom: 0;
   z-index: calc(var(--z-sticky) + 1);
-  background-color: var(--surface-app);
+  background-color: var(--surface-band);
   border-top: var(--hairline);
 }
 
@@ -370,6 +371,14 @@
   z-index: calc(var(--z-sticky) + 2);
 }
 
+/* A frozen cell of a BAND paints the band, not the field: at the field's colour the total row's and
+   a group row's frozen cells read as a hole cut in the band (I-357). A hovered group row still takes
+   the hover below, which is written later and selects more. */
+.cx-table-footer .cx-table-cell[data-pinned],
+.cx-table-group .cx-table-cell[data-pinned] {
+  background-color: var(--surface-band);
+}
+
 /* §5 rule 8's four row states. Every one of them is a surface or an ink alias, never a new
    colour, and a refused row is SHOWN — the mark and the note say so. */
 .cx-table-row[data-selected="true"] {
@@ -417,16 +426,32 @@
   height: var(--text-body);
 }
 
-/* §5 rule 4: the group row, on the sunken surface at 500 weight, with its subtotals per unit. */
+/* §5 rule 4: the group row, on the grid's band at 500 weight, with its subtotals per unit. The band
+   and not `--surface-sunken`: sunken is a well cut into a panel, which in dark is the app ground this
+   grid stands on, and the row had no fill in the default theme (I-357). */
 .cx-table-group {
-  background-color: var(--surface-sunken);
+  background-color: var(--surface-band);
   font-weight: var(--weight-body-medium);
 }
 
+/* A grid that names no figure column for its sums: one cell, the words at its start and the sums
+   at its end. */
 .cx-table-groupcell {
   justify-content: space-between;
   flex: 1;
   width: 100%;
+}
+
+/* A grid that does (I-356): the words span the columns before the figure column, and the sum and
+   its unit stand in their own columns' cells. */
+.cx-table-grouphead {
+  justify-content: flex-start;
+}
+
+.cx-table-group-units {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .cx-table-group-toggle {

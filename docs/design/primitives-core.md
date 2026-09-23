@@ -30,6 +30,29 @@ estimate (M6). No route, no gallery here; the `/design` gallery leaf screenshots
   ruled in its own Decision (evidence-link §1) on this same reading. Rejected: a `::before` hit
   area (axe measures the element's box, never a pseudo-element); a 2 px padding ring the hover fill
   does not paint (off the 4-pt grid, C8); a taller row (§5 rule 1 fixes it).
+- **I-358 — the page crumb names the page in full, and reads as the page (session 7, craft wave 3;
+  R-UI-084, shell.md's top bar, s-drawings-sets I-324).** The Breadcrumb primitive
+  (`src/ui/primitives/core/breadcrumb.tsx`, `core.css` §Breadcrumb) is ruled here, beside the core
+  set it ships in. Evidence, the 2026-09-23 re-look: the set browser's page crumb — the set's own
+  name, which I-324 made the page crumb — read `Golden Path Set (F-RCC6-BN…` with about 440 px of
+  the top bar free at 1440 × 900 and 280 px at 1280 × 800, because every label, the page's
+  included, was capped at `calc(var(--drawer-w) - var(--space-8))`, 168 px. And the page crumb was
+  drawn exactly like the links above it: the rule meant to set it in `--ink` at the body-medium
+  weight (shell.md) selected `.cx-breadcrumb-label[aria-current]`, but the claim is the `<li>`'s, so
+  it had selected nothing since U1b moved the style out of the shell. Ruling: (a) an ANCESTOR's
+  words keep the drawer cap, so one long workspace or project name cannot take the trail from the
+  page; (b) the crumb that IS the page (`li[aria-current="page"]`) lifts it (`max-width: none`) and
+  reads in `--ink` at `--weight-body-medium`; (c) when the trail runs out of room the ancestors
+  yield first — `flex: 0 4 auto` on a crumb, `flex-shrink: 1` on the page's — and every label still
+  ellipsises inside its own crumb, never wrapping (the list stays `nowrap`); (d) the trail's box in
+  the top bar (`.cx-shell-breadcrumb`) is `flex: 1 1 0%`: it takes exactly the width the bar's end
+  cluster leaves, so a long page name can never squeeze ⌘K, the jobs tray and the user menu — inline
+  controls that would break onto a second line of a 40 px bar. A rule that styles the page crumb
+  must select an element that carries the claim; `breadcrumb.test.tsx` renders the trail and
+  proves every such selector matches. What it costs: every screen's page crumb now reads in the
+  primary ink at 500, as shell.md always said, so every top bar in the baselines moves by that
+  weight. Rejected: capping the page crumb at a wider constant (it clips again at the next long
+  set, sheet or edition name; the bar's free width is the only honest measure).
 
 ## 1. Shared anatomy
 

@@ -177,6 +177,27 @@ describe("the semantic alias layer", () => {
     }
   });
 
+  test("I-357: a grid's band is told apart from the FIELD it stands on, in both themes", () => {
+    // The defect this replaces (2026-09-23 craft look): group rows, total rows and summary bands
+    // were drawn on `--surface-sunken`, which in dark IS the app ground (a well cut into a panel), so
+    // in the default theme the BOQ's and the BBS's group rows had no fill at all.
+    const light = contrast(resolveValue(lightTokens, "--surface-band"), resolveValue(lightTokens, "--surface-app"));
+    expect(
+      resolveValue(lightTokens, "--surface-band"),
+      "light keeps the value the bands were already painted in, so no light band moves",
+    ).toBe(resolveValue(lightTokens, "--surface-sunken"));
+    for (const [theme, table] of [["light", lightTokens], ["dark", darkTokens]] as const) {
+      const band = resolveValue(table, "--surface-band");
+      const measured = contrast(band, resolveValue(table, "--surface-app"));
+      expect(
+        measured,
+        `${theme}: a band measures ${measured.toFixed(3)}:1 against the app ground — it must read at least as the light band does (${light.toFixed(3)}:1)`,
+      ).toBeGreaterThanOrEqual(light);
+      expect(band, `${theme}: a hovered band row must still change`).not.toBe(resolveValue(table, "--surface-hover"));
+      expect(band, `${theme}: a band is not the selected row's fill`).not.toBe(resolveValue(table, "--surface-selected"));
+    }
+  });
+
   test("§4.1 + SC 1.4.11: a surface that floats above the app ground has an edge a reader can see", () => {
     // A card, a menu, a popover and a dialog are each a `--surface-raised`/`--surface-overlay` fill
     // on the app ground. Their fills are one ramp step apart at most — the ramp has no more room at

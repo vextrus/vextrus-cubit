@@ -294,8 +294,12 @@
 }
 
 /* The trail's own box, carrying the frame's id; the `<nav>`, the list and the crumbs are the
-   Breadcrumb primitive's (B-17) and are styled by it. */
+   Breadcrumb primitive's (B-17) and are styled by it. It takes EXACTLY the bar's free width — a
+   basis of zero that grows — so the end cluster keeps its own width whatever the trail holds (its
+   ⌘K, jobs and user controls are inline and would break onto a second line of a 40 px bar if a long
+   page name squeezed them), and the page crumb can use every pixel the cluster leaves (I-358). */
 .cx-shell-breadcrumb {
+  flex: 1 1 0%;
   min-width: 0;
   overflow: hidden;
 }

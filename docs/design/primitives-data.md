@@ -89,6 +89,57 @@ I-1 (geometry constants in px) and I-2 (no `transparent` keyword) remain in forc
   (d) `group.format.figure` is handed the sum's unit as its second argument, so a screen that
   states each unit at its own places writes its group sums as it writes its footer — J-000 read
   the register's `20.7950000 m3` through the frame's provider alone.
+- **I-356 — a group's sum stands in the column it sums (session 7, craft wave 3; §5 rules 4 and 5,
+  s-boq §1, R-UI-084).** Evidence, the 2026-09-23 re-look of the BOQ: the group row drew
+  `128.782 m3` at the right end of ONE cell spanning the grid, past the Coverage column, so it read
+  as a stray figure rather than as the sum of the Quantity column above it, and its unit was plain
+  text beside lines whose units wear a UnitBadge; s-boq §1 asks for "the group's per-unit subtotal
+  in the Quantity and Unit cells", which one spanning cell cannot give. Ruling: a column may say
+  where a group row writes the group's own sum — `meta.groupSubtotal: "value"` on the figure column,
+  `"unit"` on the unit column. Where a visible column says `"value"` and it is not the first column,
+  the group row is drawn per column: the toggle (chevron, words, `(n)` unless `showCount: false`) in
+  one cell spanning every column before the figure column (`aria-colspan`, their summed width); the
+  sums in the figure column's own cell (its width, its `data-align`, its `data-pinned` — a frozen
+  figure column keeps its sum frozen with it) carrying the one `datatable-group-subtotal`; each sum's
+  unit as the shipped `UnitBadge` in the unit column's cell when that column stands after the
+  figures, else beside its own figure — a sum is never shown without its unit; every other column an
+  empty cell, so the row's cells tile `aria-colindex` 1…n exactly once. A group holding several units
+  writes every sum, figures under the figures and badges under the units, in one order (L-QTY-04: two
+  units are two sums). A grid that marks no figure column — the register's multi-unit level groups
+  among them — or hides it from the chooser, keeps the one spanning cell with the sums at its end,
+  exactly as before. Each sum states `data-unit` beside the exact `data-value` (I-316). The bands a
+  row draws — the footer, the loading bones and the group row — take their cells in the order a row
+  does (pinned left, centre, pinned right), which is the header's: they had followed the declared
+  order, so a column pinned from the chooser stood its total under another column's header. What it
+  costs: a consumer states its figure and unit columns (the BOQ's `quantity` and `unit`, owed by its
+  workspace); a group's words now end at the figure column, so a very long group description
+  ellipsises at the columns before it rather than running the whole row — and so a group's words
+  that are ACTUALLY clipped now carry their whole text on the shipped Tooltip, on hover and on focus
+  of the fold control, in both layouts (§5 rule 2; measured as a body cell's text is). Rejected:
+  inferring the column by comparing each accessor with `valueOf` (a guess that silently re-lays
+  another screen's group rows); rendering the unit through the consumer's own unit cell (a cell
+  renders a ROW, and a group sum is not one).
+- **I-357 — a grid's bands stand on `--surface-band`, and the header stays on the field (session 7,
+  craft wave 3; §5 rule 4, Direction §4.1, R-UI-085).** Evidence, the 2026-09-23 re-look, default dark
+  theme: the BOQ's and the BBS's group rows, and the BBS summary's header and total row, had no fill,
+  because they were drawn on `--surface-sunken`, and sunken is a well cut into a PANEL — which in dark
+  (B-20) is graphite-0, the app ground these grids stand on. Ruling: a new alias,
+  `--surface-band` (`src/ui/tokens.ts`, the `semantic-alias` group): light graphite-100, the value
+  sunken already painted there (1.10:1 from the ground), so no light band moves; dark graphite-150,
+  the first step whose separation from the ground is at least light's (graphite-50 measures
+  1.04:1, graphite-100 1.06:1, graphite-150 1.16:1), carrying `--ink`, `--ink-secondary`,
+  `--ink-code`, a caption in `--ink-muted` (4.67:1) and the reticle (3.41:1) —
+  `src/ui/contrast.test.ts` and `src/ui/semantic-alias.test.ts` hold the numbers. The DataTable's
+  group rows, its total row (`.cx-table-footer`) and the frozen cells of both paint the band; a
+  hovered group row still takes `--surface-hover`. The sticky HEADER stays on the field
+  (`--surface-app`, §3 below): every grouped grid in the product opens with a group row directly
+  under its header, and two bands stacked read as one double-height header with the first group
+  lost in it; the header is told apart by its caption ink and its hairline. `--surface-sunken`
+  keeps its meaning — wells, disabled fields, a hover on a control — and no band may be drawn on it.
+  What it costs: every DataTable group row moves in the dark baselines, and the register's total row
+  moves in both themes (light graphite-0 → 100); a screen that draws its own band on sunken (the
+  BBS's member rows and summary, the BOQ's section foot) must read the band too, owed by those
+  screens' stylesheets.
 
 ## 1. Shared anatomy
 
@@ -230,8 +281,8 @@ prop (`"comfortable"` default | `"compact"`). Scroll container `cx-table-viewpor
 (`overflow: auto`) holds a sticky header and the virtualiser's total-size element with
 absolutely positioned rows — a plain scroll div, not ScrollArea (the virtualiser owns the
 measurements).
-- **Header** (sticky top 0, `z-index: var(--z-sticky)`, fill `var(--graphite-0)`,
-  border-bottom `var(--hairline)`): cells `role="columnheader"`, `var(--text-12)`
+- **Header** (sticky top 0, `z-index: var(--z-sticky)`, fill `var(--surface-app)` — the field,
+  never a band, I-357 — border-bottom `var(--hairline)`): cells `role="columnheader"`, `var(--text-12)`
   `var(--weight-body-medium)` `var(--graphite-600)`, padding-inline `var(--space-3)`. A
   sortable column wraps its label in a ghost sort button (`cx-reticle`) cycling the
   header's `aria-sort` ascending → descending → none; while sorted the label reads
@@ -246,17 +297,24 @@ measurements).
   `var(--row-compact)` by `[data-density]` (R-UI-005), border-bottom `var(--hairline)`,
   hover fill `var(--graphite-50)`. Past 200 body rows — group headers counted — the body is a
   window (I-315).
-- **Group rows** (§5 rule 4, `datatable-group-row`): the label, the `(n)` unless the group says
-  `showCount: false`, and one subtotal per unit written through the figure seam with its exact
-  decimal on `data-value` (I-316).
+- **Group rows** (§5 rule 4, `datatable-group-row`) on `var(--surface-band)` at the body-medium
+  weight (I-357): the label, the `(n)` unless the group says `showCount: false`, and one subtotal
+  per unit written through the figure seam with its exact decimal on `data-value` and its unit on
+  `data-unit` (I-316). Where a column says `meta.groupSubtotal: "value"` the sums stand in that
+  column's cell and their units, as UnitBadges, in the `"unit"` column's, the words spanning the
+  columns before them; otherwise one spanning cell carries the sums at its end (I-356).
+- **Footer** (the total row, sticky bottom 0, present only with `totals`): fill
+  `var(--surface-band)`, its frozen cells too (I-357); its cells in the row's own column order —
+  pinned left, centre, pinned right — as the header's are (I-356).
 - **Controls in a cell**: out of the Tab order, reached with Enter or F2 and walked with Tab
   (I-314).
 - **Cells** (`role="cell"`): padding-inline `var(--space-3)` (compact: `var(--space-2)`),
   `var(--text-13)` `var(--graphite-900)`. `meta.align: 'right'` → `data-align="right"`,
   right-aligned, `var(--font-mono)` tabular-nums slashed-zero (numerals, R-UI-005/003).
 - **Pinning**: cells of a pinned column carry `data-pinned="left"|"right"`, `position:
-  sticky` at the computed offset, opaque fill `var(--graphite-0)` (row hover fill wins on
-  hover), and a `var(--hairline)` seam on the inner edge.
+  sticky` at the computed offset, opaque fill `var(--surface-app)` — `var(--surface-band)` in a
+  group row and the footer (I-357) — (row hover fill wins on hover), and a `var(--hairline)` seam
+  on the inner edge.
 - **Inline edit** (`meta.editable` + `onCellEdit`): the cell's value renders inside a
   full-cell ghost button (`cx-reticle`); Enter/Space or double-click swaps it for the core
   Input (I-5), value prefilled, `aria-label` = the column header as text (a render-function
@@ -336,7 +394,8 @@ Routes: none. Test ids, exactly these, on the elements ruled above: `dialog-cont
 `datatable-cell` · `datatable-cell-editor` · `datatable-filter-{columnId}` (e.g.
 `datatable-filter-item`) · `tree` · `tree-item` · `scrollarea-viewport` ·
 `resizable-handle`. Behavioural hooks without new ids: `data-side` on sheet-content;
-`data-density` on datatable; `data-align`/`data-pinned` on cells; `aria-sort` on column
+`data-density` on datatable; `data-align`/`data-pinned` on cells; `data-value`/`data-unit` on
+each group sum (I-316, I-356); `aria-sort` on column
 headers; `role="dialog"`/`aria-modal`, `role="menu"`/`role="menuitem"`,
 `role="tree"`/`role="treeitem"` with `aria-expanded`/`aria-selected`; Radix `data-state`;
 `aria-valuenow` on the separator; `cx-reticle` on every focusable element. Suites run

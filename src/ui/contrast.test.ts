@@ -94,6 +94,13 @@ const PAIRINGS: readonly Pairing[] = [
   ...(["--surface-app", "--surface-sunken"] as const).map(
     (ground): Pairing => ({ ground, ink: "--ink-code", kind: "text", promise: "a mono value in a table" }),
   ),
+  // A grid's BAND — the group row, the total row, a summary table's header and total (I-357) —
+  // carries the grid's own inks: the group's words, its figures, a header caption, a unit badge, and
+  // the reticle on the group's toggle.
+  ...(["--ink", "--ink-secondary", "--ink-muted", "--ink-code"] as const).map(
+    (ink): Pairing => ({ ground: "--surface-band", ink, kind: "text", promise: "a grid band's words and figures" }),
+  ),
+  { ground: "--surface-band", ink: "--line-focus", kind: "ui", promise: "the focus reticle on a band's toggle (R-UI-012)" },
   ...(["--surface-app", "--surface-panel", "--surface-selected"] as const).map(
     (ground): Pairing => ({ ground, ink: "--ink-link", kind: "text", promise: "a link, and the active tool's label" }),
   ),
