@@ -72,7 +72,13 @@
 /* --- the 36 px filter bar (§3.2) --- */
 
 /* One line, never two: the chips are `Label · Value ▾` controls at `--control-h`, the count sits at
-   the far end, and a bar that wrapped would be a second row of chrome above the grid. */
+   the far end, and a bar that wrapped would be a second row of chrome above the grid. The one line is
+   held by the flex row's own `nowrap` and by chips that give their value's width back (the value
+   ellipsises, `min-width: 0`) — never by clipping the bar.
+   `overflow` is VISIBLE (s-takeoff I-442): a chip's options are a popover that stands BELOW the
+   36 px bar, over the grid, so a bar that clipped cut every option off, and a bar that clipped was a
+   scroll box, so the filter field the open chip focuses scrolled the bar until the field was all it
+   showed — a click on `Class · All classes` read as an empty `Filter…` box (walk-0, session 8). */
 .cx-register-filters {
   display: flex;
   flex: none;
@@ -80,7 +86,7 @@
   gap: var(--space-2);
   height: 36px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .cx-register-filter {

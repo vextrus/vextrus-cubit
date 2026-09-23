@@ -149,6 +149,9 @@ things. Everything in §0 above stands except where an Interpretation here says 
   §1's "no native `select`" and §3.2's "filters are chips (`Class · All ▾`) not labelled dropdown
   rows" replace the S-Audit I-31 idiom with the shipped `Combobox` in its `chip` skin. The label
   rides inside the control, so five narrowings and the count fit one 36 px row at 1280.
+  *Amended session 8 (I-442):* the one line is held by the flex row and by chips that give
+  their value's width back, never by clipping the bar — a clipping bar cut off every option a chip
+  opened.
 - **I-233 — the campaign's index stands BESIDE the grid, never under it.** The tree, the struck
   count, the sightings that produced no line and the level-stack offers were four full-width blocks
   stacked down the page; every one of them was height the grid paid for, and the refusals and the
@@ -369,8 +372,6 @@ own id from the central allocation (I-350), because the `I-reg-n` run belongs to
 
 ### 0.4 The seventh tab (session 8, S-Ask — I-230 amended in its roster, not its rule)
 
-The token below is a placeholder the integrator renumbers from the global chain (next free I-370).
-
 - **I-407 — the row holds the lane's seven surfaces, and the seventh is Ask.** I-230 ruled the row
   when it held two entries; it has since grown one surface at a time, each surface's own Decision
   adding its entry (s-levels, s-schedules, s-boq, s-bbs), while §1 here still named two. It is now
@@ -396,6 +397,53 @@ The token below is a placeholder the integrator renumbers from the global chain 
   (s-ask §6). Rejected: Ask as a panel over every surface (s-ask I-402 — a second right column or
   an overlay on the work surface); rejected: Ask first in the row (the register is the lane's landing
   surface and its redirect target, §1).
+
+### 0.5 The filter chips open (session 8, wave 1; walk-0's BLOCKS_DEMO on register-trace)
+
+walk-0 walked the served register as a QS narrowing 1,131 lines to "the pile caps" and could not:
+a click on any chip swapped the whole bar for one empty `Filter…` field and showed no option. The
+listbox was in the DOM (the Kind chip held 8 options, at y = 132–160), `elementFromPoint` there
+returned the grid, and only a reader who typed blind, pressed ↓ and Enter could filter
+(`.private/work/session-8/walk0/walk-register-trace.json`, screenshots 02, 03, 23).
+
+- **I-442 — the bar a chip stands in clips nothing; the chip's options stand over the grid
+  (I-232 amended, §1's filter bar amended).** The cause was one declaration, I-232's reading of the
+  bar as `height: 36px; overflow: hidden`. The Combobox's popover is positioned against the chip's
+  own box and stands below it, so a 36 px box that clipped cut every option off; and a clipping box
+  is a scroll box, so focusing the popover's field (which opening does) scrolled the bar 37 px until
+  the field was all it showed — the "empty Filter… box" walk-0 saw. Ruling: `.cx-register-filters`
+  is `overflow: visible`; the bar stays one 36 px line by the flex row's own `nowrap` and by chips
+  that give their value's width back (`.cx-register-filter { min-width: 0 }`, the value ellipsised
+  by the primitive), and no box of this screen between a chip and `shell-main` clips. The popover
+  stands on `--z-overlay` (200), above every layer the grid stacks (its sticky header, footer and
+  frozen column top out at `--z-sticky` + 3), so an option over the header row is still the option.
+  Evidence, from a static page of the bar's markup over the tree's own stylesheets in the product's
+  Chromium at 1440 × 900 dark and 1280 × 800 light (the served product is the integrator's walk):
+  with `hidden`, the bar's `scrollTop` read 37, every option hit-tested to the register or the index
+  rail and no chip hit-tested at all; with `visible`, every option and all five chips hit-test to
+  themselves, the bar reads `scrollTop` 0 and `shell-main` gains no sideways scroll. Rejected: portalling the popover (the Select keeps its list inline for the same reason —
+  the surfaces a control stands in own their stacking — and a portal would put a second positioning
+  scheme beside it to escape a clip this screen itself declared); rejected: `overflow-x: clip` beside
+  a visible block axis (it would cut any popover that runs past the bar's end, and nothing bounds a
+  popover's width to the bar).
+- **I-443 — the keyboard reaches every chip and a closed list leaves the reader where they
+  were (the Combobox, applied here; B-17: one control, one idea).** Opening a chip moves focus into
+  its filter field, and closing it used to take that field out of the document with focus inside
+  it, which drops a reader at the top of the page: the next Tab went to the document's first stop,
+  not the next chip. Four facts, all the primitive's: an option taken (pointer or Enter) and Esc hand
+  focus back to the chip; focus that leaves the control closes the list behind it — Tab is the
+  browser's own step from the field (its last stop) to the next chip, Shift+Tab lands on the chip
+  itself — as the Select's Tab already did, so no list stands over the grid behind a reader who has
+  moved on, while a press inside the popover (an option, its padding, the no-matches line) is
+  cancelled at `pointerdown` so focus never leaves the field under the reader's own pointer (checked
+  in the product's Chromium: a cancelled `pointerdown` keeps focus, an uncancelled press on plain
+  content blurs onto nothing); a press anywhere else closes the list as Esc does, query and all, so the next opening
+  starts whole (it reopened on the last query); and the cursor ↑ ↓ move is asked into the list's view
+  (`scrollIntoView({ block: "nearest" })`, which moves only the list — measured: 56 px for the
+  eleventh level at 1280 × 800, `shell-main` 0), because the list shows nine rows and a building's
+  levels run past them, and `aria-activedescendant` scrolls nothing. The list is `tabindex="-1"`: a
+  browser makes a scrolling box a Tab stop of its own, and a stop between the field and the next
+  chip that no key can take an option from is a stop in the way.
 
 ## 1. Layout and hierarchy
 
@@ -445,8 +493,9 @@ the run succeeds (`onRunSucceeded`), which is the screen's cue to read the regis
 register had drawn a `queued` step of its own and never followed the job: J-000's column-lines leg
 read `data-status="queued"` for 240 s over a run the worker had completed at +2 s.
 
-**Filter bar** (I-232) — `<div class="cx-register-filters">`: one row, `height: 36px`, `overflow:
-hidden`, never wrapping. Five shipped `Combobox`es in the `chip` skin, in this order, each labelled
+**Filter bar** (I-232, I-442) — `<div class="cx-register-filters">`: one row, `height: 36px`,
+never wrapping, `overflow: visible` — a chip's options stand below the bar, over the grid, and a bar
+that clipped cut them off. Five shipped `Combobox`es in the `chip` skin, in this order, each labelled
 by its own word and placeheld by its all-option: `register-filter-class`, `register-filter-kind`,
 `register-filter-level`, `register-filter-basis`, `register-filter-coverage`. Options derive from the
 rows the view holds (the basis chip from the roster's own order, narrowed to what the campaign
@@ -816,14 +865,23 @@ since v22, the two mounts bound to stand-ins that render in place, because there
 jsdom: what a suite reads under `register-workspace` is the node the route hands the frame).
 `inspector-slot.test.ts` holds the rebuild's own properties to account: no right column at rest, a
 row taken with the pointer stating its line, an object stating its doors, one column for one subject,
-and a job strip that exists only while a run is watched (I-230–I-236),
+and a job strip that exists only while a run is watched (I-230–I-236), `filter-chips.test.ts` holds
+I-442/b (the stylesheet half: no box between a chip and main clips, the popover outranks every
+layer the grid stacks; the DOM half: a click opens a chip's options in its own box and takes one, the
+keyboard alone walks the bar, Tab closes a list behind the reader — the Combobox's own suite holds
+the primitive's four facts),
 `tests/takeoff/register-ui/**` (the reading, the doors and the two acts through
 `stageRegisterCampaign()`), and `tests/takeoff/register-ui/copy-mirror.test.ts`, which fails the
 build if the module's `copy.ts` and `src/ui/strings/takeoff.ts` ever differ (the viewer-inspector
 §8 precedent; its IOU — a copy home both layers may read — is re-recorded here unpaid). Journey:
 `tests/e2e/register.spec.ts`, titles carrying J-021, page object
-`tests/e2e/pages/s-takeoff.page.ts`; checkpoints `s-takeoff/register` and `s-takeoff/measure-queued`,
-axe serious/critical = 0 at each, never widened, `masks()` over the shell breadcrumb, `shell-user`,
+`tests/e2e/pages/s-takeoff.page.ts`; `tests/e2e/journeys/j-021-column-slice.spec.ts` opens the class
+chip, asks the page what stands where the option and every chip PAINT (`elementFromPoint`, no
+scrolling — Playwright's own click scrolls a clipped box until its target shows, which is how every
+narrowing journey stayed green over walk-0's defect), presses the option with the mouse where it
+stands, and walks Tab, Enter and Esc to the next chip (I-442/b; no id is added — the options
+are found by role and the `data-value` the Combobox publishes); checkpoints `s-takeoff/register` and
+`s-takeoff/measure-queued`, axe serious/critical = 0 at each, never widened, `masks()` over the shell breadcrumb, `shell-user`,
 `shell-tenant-switcher` (the staged workspace's own name), `register-timeline` (which masks nothing
 while no run is watched), `register-campaign` (the pinned revision, now the short form its `IdChip`
 shows) and `register-refusal-object` (the object key repeated on each refusal row). The inspector's

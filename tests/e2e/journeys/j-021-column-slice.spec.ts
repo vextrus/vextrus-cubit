@@ -25,13 +25,28 @@
  */
 import { expect, test } from "@playwright/test";
 import { checkpoint } from "../support/checkpoint";
-import { STakeoffPage } from "../pages/s-takeoff.page";
+import { STakeoffPage, type RegisterFilter } from "../pages/s-takeoff.page";
 import { SViewerTracePage } from "../pages/s-viewer-trace.page";
 import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
-import { stageRegister, type StagedMember } from "../takeoff/register-stage";
+import { CLASS_COLUMN, stageRegister, type StagedMember } from "../takeoff/register-stage";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
-import { heldAttribute } from "../support/retrying-read";
+import { heldAttribute, steadyText } from "../support/retrying-read";
 import { afterSettled } from "../support/settled";
+
+/** The register's five filter chips, in the bar's order (s-takeoff §7). */
+const FILTERS: readonly RegisterFilter[] = ["class", "kind", "level", "basis", "coverage"];
+
+/**
+ * What the page puts at this element's own centre, run IN the page: `itself` when the element (or a
+ * node inside it) is what a pointer pressed there would press, else the thing that stands there
+ * instead. A clipped option answers with the grid under it — which is what walk-0 found.
+ */
+function standsWhereItPaints(node: Element): string {
+  const box = node.getBoundingClientRect();
+  const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+  if (hit !== null && node.contains(hit)) return "itself";
+  return hit === null ? "nothing" : `${hit.tagName.toLowerCase()}.${[...hit.classList].join(".")}`;
+}
 
 test.use({
   viewport: { width: 1440, height: 900 },
@@ -124,6 +139,45 @@ test.describe("J-021 — the column slice: a line traced to its entities, back t
       await afterSettled(takeoff.originLink, () => takeoff.originLink.evaluate((node) => node === document.activeElement)),
       "the focus reticle stands on it, so a reader arrives where they left (I-182)",
     ).toBe(true);
+
+    /* --- the filter bar: a chip opens its options over the grid, and the pointer takes one (s-takeoff I-442/b) --- */
+    // walk-0 (session 8): a click on a chip showed one empty filter field where the bar had been, and
+    // no option — the 36 px bar clipped the popover — while every journey that narrowed stayed green,
+    // because Playwright's own click scrolls a clipped box until its target shows. So the option is
+    // asked what stands where it PAINTS, and pressed there by the mouse, as a hand presses it. The rows
+    // stand (the origin read above is a client-only fact), so the chips are live.
+    const classChip = takeoff.filter("class");
+    await classChip.click();
+    await expect(classChip, "the class chip opens").toHaveAttribute("aria-expanded", "true");
+    const column = takeoff.root.locator(`[role="option"][data-value="${CLASS_COLUMN}"]`);
+    await expect(column, "offering the class the staged lines stand in").toHaveCount(1);
+    await expect
+      .poll(() => column.evaluate(standsWhereItPaints), { message: "the option is what a pointer finds where it paints — not the grid under a clipped bar" })
+      .toBe("itself");
+    for (const name of FILTERS) {
+      await expect
+        .poll(() => takeoff.filter(name).evaluate(standsWhereItPaints), { message: `the ${name} chip still stands where it paints while one is open — the bar did not scroll it away` })
+        .toBe("itself");
+    }
+    const said = (await steadyText(column, "the class option's words")).trim();
+    const box = await afterSettled(column, () => column.boundingBox());
+    expect(box, "the option has a box to press").not.toBeNull();
+    const at = box as { x: number; y: number; width: number; height: number };
+    await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+    await expect(classChip, "the chip takes the option the pointer pressed").toHaveAttribute("data-chosen", "true");
+    await expect.poll(async () => (await classChip.getAttribute("aria-label"))?.endsWith(` ${said}`) ?? false, { message: `and reads it (${said})` }).toBe(true);
+    await expect(takeoff.root.getByRole("listbox"), "the list closed behind the choice").toHaveCount(0);
+    await expect(classChip, "leaving the reader on the chip rather than at the top of the page").toBeFocused();
+    await expect(takeoff.evidenceLink(staged.line.lineId), "and the column line this journey followed is one the filter keeps").toHaveCount(1);
+
+    // The keyboard reaches the next chip from there: Tab steps to it, Enter opens it, Esc closes it onto itself.
+    await page.keyboard.press("Tab");
+    await expect(takeoff.filter("kind"), "Tab steps to the kind chip").toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(takeoff.filter("kind"), "Enter opens it").toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Escape");
+    await expect(takeoff.root.getByRole("listbox"), "Esc closes it").toHaveCount(0);
+    await expect(takeoff.filter("kind"), "onto the chip itself").toBeFocused();
 
     /* --- the other direction: hold those entities, read what cites them (X-2) --- */
     // The section every staged column takes was read at ONE entity, and each column is a member of
