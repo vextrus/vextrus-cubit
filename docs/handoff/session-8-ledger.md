@@ -229,3 +229,24 @@ the 75 cells lack is drawn in F-RCC6-BNBC itself, appended so that no existing h
 - **Relaunched:** the R0 chain (`wf_ac8b4004-f31`) continuing IN its worktree (R0-G0 had 4 commits:
   the Rev C append pass, pinned Rev B windows, the revision register and its blob-pinned test, the
   declared re-baselines), then G1, G2; wave 2 (`wf_dc4bf718-221`) from `9ebdf29a`, 18 slices.
+
+## Wave 2 returned; the owner's second pause
+
+- **The owner** (mid-wave): "after wave 2 completion don't start wave 3a without my approval as we're
+  reaching token limit soon … pause your work whenever R0 and wave 2 are done and wait for my approval
+  when token limit reset."
+- **Wave 2 finished** (`wf_dc4bf718-221`: 52 agents, 17.24 M subagent tokens, 131 min), NOT yet
+  integrated. Per slice (final status after the fix round; worktrees `.claude/worktrees/wf_dc4bf718-221-N`;
+  full results `.private/work/session-8/w2/result.json`, summary `w2/status.txt`):
+  - DONE after a fix: FRM3-B, C4', RES-1, HONEST-SCOPE, SRCH-1, ASK-1a, S1, S2, S4, ARCH-2, ARCH-3,
+    M4P-1, BOQ-SHAPE, REAL-1. DONE, PASS on first review: C8, L4.
+  - PARTIAL: **FND-OWN** — the pile-cap junctions are read (every cap holds exactly its schedule's pile
+    count; all 89 piles once), seven new owned method pairs, cap blinding net of piles (12 COMPLETE,
+    3.989 m³ against 4.692); but the pile-head height and PC5's recess have no reader yet, so cap
+    concrete publishes 26 PARTIAL lines naming `PILE_HEAD_UNSTATED` instead of over-measuring — the
+    +1.321 m³ is no longer published. With the head at 75.6 mm and the recess staged, the projected
+    figures are 122.475 m³ (R0 golden 122.500) and 262.689 m² (262.773), in band. It needs OPEN-3's
+    edition to cite the new pairs (without it the gate refuses them `METHOD_NOT_IN_EDITION` and J-000's
+    cap leg goes red) — **FND-OWN integrates only together with OPEN-3 and R0-BASE.**
+  - PARTIAL: **VIEW-TXT** (19 commits) — details read at integration.
+- **The R0 chain** (`wf_ac8b4004-f31`) is still running (6 agents started, 5 finished).
