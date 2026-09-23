@@ -94,46 +94,50 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry, onSel
               </Button>
             ) : null}
 
-            {/* Both controls carry the layer they act on: a sheet of N layers otherwise presents 2N
-                buttons named alike, which no screen reader can tell apart (A-11Y). */}
-            <button
-              type="button"
-              aria-pressed={row.isolated}
-              className="cx-viewer-layer-control cx-reticle"
-              data-testid={TESTIDS.viewer.layerIsolate}
-              aria-label={fill(strings.viewer_layer_isolate_label, {
-                layer: row.name,
-              })}
-              onClick={() => onIsolate(row.name)}
-            >
-              {strings.viewer_layer_isolate}
-            </button>
-            <button
-              type="button"
-              aria-pressed={row.locked}
-              className="cx-viewer-layer-control cx-reticle"
-              data-testid={TESTIDS.viewer.layerLock}
-              aria-label={fill(strings.viewer_layer_lock_label, {
-                layer: row.name,
-              })}
-              onClick={() => onLock(row.name, !row.locked)}
-            >
-              {strings.viewer_layer_lock}
-            </button>
-            {/* A layer that is not drawn, or is locked out of the hit-test, has nothing a reader can
-                see to select — and a selection nobody can see is a copyable list of ghosts (I-87). */}
-            <button
-              type="button"
-              className="cx-viewer-layer-control cx-reticle"
-              data-testid={TESTIDS.viewer.layerSelect}
-              disabled={!row.drawn || row.locked}
-              aria-label={fill(strings.viewer_layer_select_label, {
-                layer: row.name,
-              })}
-              onClick={() => onSelectLayer(row.name)}
-            >
-              {strings.viewer_layer_select}
-            </button>
+            {/* I-361: the controls stand over the row's end, out of its flow, so the name keeps the
+                width between the switch and the count; the row's hover and the keyboard inside it
+                reveal them. Each carries the layer it acts on: a sheet of N layers otherwise presents
+                3N buttons named alike, which no screen reader can tell apart (A-11Y). */}
+            <span className="cx-viewer-layer-controls">
+              <button
+                type="button"
+                aria-pressed={row.isolated}
+                className="cx-viewer-layer-control cx-reticle"
+                data-testid={TESTIDS.viewer.layerIsolate}
+                aria-label={fill(strings.viewer_layer_isolate_label, {
+                  layer: row.name,
+                })}
+                onClick={() => onIsolate(row.name)}
+              >
+                <span className="cx-viewer-layer-control-label">{strings.viewer_layer_isolate}</span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={row.locked}
+                className="cx-viewer-layer-control cx-reticle"
+                data-testid={TESTIDS.viewer.layerLock}
+                aria-label={fill(strings.viewer_layer_lock_label, {
+                  layer: row.name,
+                })}
+                onClick={() => onLock(row.name, !row.locked)}
+              >
+                <span className="cx-viewer-layer-control-label">{strings.viewer_layer_lock}</span>
+              </button>
+              {/* A layer that is not drawn, or is locked out of the hit-test, has nothing a reader can
+                  see to select — and a selection nobody can see is a copyable list of ghosts (I-87). */}
+              <button
+                type="button"
+                className="cx-viewer-layer-control cx-reticle"
+                data-testid={TESTIDS.viewer.layerSelect}
+                disabled={!row.drawn || row.locked}
+                aria-label={fill(strings.viewer_layer_select_label, {
+                  layer: row.name,
+                })}
+                onClick={() => onSelectLayer(row.name)}
+              >
+                <span className="cx-viewer-layer-control-label">{strings.viewer_layer_select}</span>
+              </button>
+            </span>
           </li>
         ))}
       </ol>

@@ -223,6 +223,66 @@ IOU in §8 with its owning clause. A grey box promising a panel is a lie about w
   — 37 % of the stage's pixels moved, most by 1/255 and up to 34/255 where forty notes overlap — and
   a sheet at rest is drawn the same, bit for bit, or it is not the same sheet (I-345 (1)).
 
+**Amended by session 7 (craft wave 4 — a vision re-look of S-10 COLUMN LAYOUT PLAN, F-RCC6-BNBC, at
+1440 × 900 and 1280 × 800):**
+
+- **I-361 — a layer row is its switch, its name and its count; the three controls stand over its end,
+  out of its flow.** §1 put Isolate, Lock and Select in the row's flow at `opacity: 0`. Transparent,
+  they still took their width — ~130 px of a drawer that is 200 px at 1440 and 170 at 1280 — and the
+  name, `flex: 1; min-width: 0`, was the item that gave: it was ZERO wide on every row, so the list
+  read "21, 65, 5, 1, 31 …" — entity counts, eleven of them, and no layer by name (S-BEAM, S-COL,
+  S-TEXT2 …). A reader could not tell which layer they were hiding. Ruling, in `layers-panel.tsx` and
+  `viewer.css`: (1) the three controls are one group, `.cx-viewer-layer-controls`, positioned against
+  the row (`position: relative`) from the switch's end to the row's end (`inset-inline: calc(
+  var(--space-1) + var(--space-6)) 0` — the row's start inset plus the switch's box, so it can never
+  stand over the switch), packing the controls against the end; the group is transparent to the
+  pointer and each control is an opaque box on the panel's fill, the row's full height. At rest the
+  group is transparent and takes NO width, so between the switch and the count the row is the name's.
+  (2) The name keeps a floor, `min-width: 8ch`, and ellipsises past it — never zero wide (R-UI-083).
+  (3) The row's hover and the keyboard inside it (`data-active`, as before) reveal the group: the
+  controls then stand over the row's end — its count and the tail of its name, which reads up to the
+  first of them — and, in a drawer too narrow for all three at their natural width (the split's
+  11.5 % minimum is 142 px at 1280), they give way together, each LABEL behind an ellipsis (the
+  control's own box never clips: the focus reticle draws 4 px outside it), never over the switch and
+  never out of the row. The controls are never `display: none` and never `visibility: hidden`: always in
+  the DOM and in the tab order, in the order they always had, so the keyboard walk is unchanged and a
+  keyboard reader focusing one always sees it (R-UI-012). (4) A pressed state is the ROW's at rest:
+  the pressed control is no longer visible on its own at rest (standing where the group packs it, it
+  would cover the name of the very row the reader is working with), so an isolated layer's row wears
+  the pressed paint the Isolate control wears — the
+  `--accent-subtle` fill with its name at `--weight-heading` — and every row the isolation stopped
+  drawing (`data-drawn="false"`) reads muted; a locked row reads muted as before, told from a hidden
+  one by its swatch (filled, not hollow). Revealed, the pressed control says it in the pressed paint.
+  (5) The switch is a 24 px target (`--space-6` square) around its 10 px swatch, WCAG 2.5.8's minimum
+  and the tool row's floor, and the row's start is inset `--space-1` so the swatch still lines up
+  under the heading. What it costs: while revealed, the controls cover the row's count and the tail of
+  its name — at 1440's 200 px drawer the name's first four characters stay beside them, at 1280's
+  170 px none do (measured in Spline Sans on a static render of these rules); the switch's accessible
+  name and the count's `aria-label` still say both, and both return when the pointer or the keyboard
+  leaves the row.
+  Rejected: `display: none` until revealed (a focused control would be removed from under the keyboard
+  as focus moves inside the row — the reveal is the row's posture, set on focus and cleared on blur),
+  keeping the controls in the flow and flooring the name (the row overflows: 24 + 58 + 16 + 130 px
+  and the gaps do not fit 170), and icon buttons (no lock or isolate glyph ships in `src/ui/icons`;
+  that is the icon set's increment, not this one).
+- **I-362 — the frame is shell-main's PADDING box, and every edge is one seam.** I-78 bled shell-main's
+  padding away with `margin: calc(var(--space-6) * -1)` but kept `height: 100%` — shell-main's
+  CONTENT box, which is its padding box less `--space-6` above and below. The margin lifted the frame
+  by one padding and the percentage stopped it short by two: the canvas and the drawer ended at y 828
+  of 876 at 1440 × 900 (728 of 776 at 1280 × 800), over a 48 px band of bare `--surface-app` above the
+  readout, and C1 (work surface) read 69 % and 67 % where the Direction's arithmetic gives 74 % (§8's
+  Session-7 IOU named it). Ruling, in `viewer.css`: `.cx-viewer` states `height: calc(100% +
+  var(--space-6) * 2)` — the content box and the two paddings the margin bleeds, one token spelled
+  once on each side — and the route's own bones (`loading.tsx`, which wears `.cx-viewer` too) take the
+  frame's height rather than a content-box `100%` of their own. The canvas is then 1190 × 804 at
+  1440 × 900 (73.8 %) and 1052 × 704 at 1280 × 800 (72.3 %). And one seam per edge (Direction's
+  hairline seams): the left column drew `border-inline-end: var(--hairline)` beside the split's
+  handle, which draws its own 1 px line 4 px further on — two rules at the drawer's edge (x 241 and
+  245 at 1440). The handle is the seam wherever the drawer stands, so the column draws none. The fit
+  answers the taller stage (I-317): S-10 opens at 1.289 px per unit at 1440 and 1.128 at 1280 where
+  it opened at 1.212 and 1.051. Nothing of the painter moved (I-345 (1) stands: the same sheet at the
+  same camera is drawn the same, bit for bit); what moved is the size of the stage it is drawn in.
+
 ## 1. Layout and hierarchy
 
 Files in the route directory: `page.tsx` (thin server component — reads the four segments and `v`,
@@ -251,18 +311,25 @@ as its siblings do: a visually hidden `<h1>` carrying `viewer_canvas_label` open
 heading navigation lands on the sheet a reader opened; the panel's **Layers** is the `<h2>` under
 it. Nothing of the sheet is drawn as a heading — a canvas has no text to promote.
 
-**Layers panel** (`cx-viewer-layers`, fill `var(--graphite-50)`, border-inline-end `var(--hairline)`,
-column flex, `min-width: 0`). Header row: `<h2>` `viewer_layers_heading` — `var(--text-13)`
+**Layers panel** (`cx-viewer-layers`, fill `var(--graphite-50)`, column flex, `min-width: 0`; no
+inline-end border of its own — the split's handle draws the drawer's one seam, I-362). Header row:
+`<h2>` `viewer_layers_heading` — `var(--text-13)`
 `var(--weight-heading)` `var(--graphite-900)`, padding `var(--space-2)` `var(--space-3)`,
 border-bottom `var(--hairline)`. Then `<ol>` (list-style none, margin 0, padding 0,
 `overflow-y: auto`), one `<li data-testid="viewer-layer-row" data-layer data-visible data-drawn
 data-locked data-isolated data-failed>` per manifest layer, in the manifest's own order. Row height
 `var(--row-comfortable)`, and `var(--row-compact)` under `[data-density="compact"]` on `shell-root`
-(R-UI-005); border-bottom `var(--hairline)`; padding-inline `var(--space-2)`; flex, `align-items:
-center`, `gap: var(--space-2)`. Contents in order:
+(R-UI-005); border-bottom `var(--hairline)`; padding-inline `var(--space-1)` at the start and
+`var(--space-2)` at the end (I-361); flex, `align-items: center`, `gap: var(--space-2)`,
+`position: relative` — the controls' group is positioned against it. In the flow the row is three
+things — switch, name, count (and a failed row's Retry) — and nothing else takes its width (I-361).
+An isolated row wears the pressed paint at rest (fill `var(--accent-subtle)`, name at
+`var(--weight-heading)`); a row not drawn (`data-drawn="false"`: hidden, or left out by an isolation)
+reads its name muted. Contents in order:
 
 - **Visibility switch** — `<button role="switch" aria-checked={visible} data-testid=
-  "viewer-layer-visible" class="cx-reticle" aria-label={fill(viewer_layer_visible_label, {layer})}>`
+  "viewer-layer-visible" class="cx-reticle" aria-label={fill(viewer_layer_visible_label, {layer})}>`,
+  a `var(--space-6)` (24 px) square target centring the swatch (I-361, WCAG 2.5.8),
   holding the swatch as its whole visible content: `<span data-testid="viewer-layer-swatch"
   aria-hidden="true" style={{ background, borderColor }}>` — 10 px square, radius `var(--radius-2)`,
   both style values `rgb(r g b)` from the layer's manifest colour (never a token, never a literal:
@@ -270,8 +337,8 @@ center`, `gap: var(--space-2)`. Contents in order:
   kept — filled versus hollow is the second, non-colour channel, so visibility survives greyscale
   (R-UI-002's discipline).
 - **Name** — the layer name verbatim (I-25), `var(--font-mono)` `var(--text-12)`
-  `var(--graphite-900)`, `flex: 1`, `min-width: 0`, ellipsised; `var(--graphite-600)` while hidden
-  or locked.
+  `var(--graphite-900)`, `flex: 1 1 auto`, `min-width: 8ch` (never zero wide — I-361, R-UI-083),
+  ellipsised past it; `var(--graphite-600)` while hidden, locked or left undrawn by an isolation.
 - **Count** — `<span data-testid="viewer-layer-count">`, `formatUserFigure(String(entityCount))`,
   `var(--font-mono)` `var(--text-12)` `var(--graphite-700)` `tabular-nums slashed-zero`,
   right-aligned (R-UI-005), with `aria-label={fill(viewer_layer_count_label, {count, layer})}` so
@@ -282,10 +349,16 @@ center`, `gap: var(--space-2)`. Contents in order:
   `var(--text-12)`, labels `viewer_layer_isolate` / `viewer_layer_lock`, test ids
   `viewer-layer-isolate` / `viewer-layer-lock`, each carrying the layer it acts on as its accessible
   name — `viewer_layer_isolate_label` / `viewer_layer_lock_label` — because a sheet of N layers
-  otherwise presents 2N buttons announced alike. At rest on an untouched row they sit at
-  `opacity: 0`; the row's `:hover` and `:focus-within` and any pressed state bring them to 1 — they
-  are always in the DOM and always tab-reachable, so a keyboard reader focusing one always sees it
-  (R-UI-012). Pressed paint is the selection idiom: fill `var(--beam-100)`, text
+  otherwise presents 2N buttons announced alike. With **Select** (I-87) they stand in one group,
+  `<span class="cx-viewer-layer-controls">`, positioned from the switch's end to the row's end and
+  packed against the end, OUT of the row's flow (I-361); each control is an opaque box on the panel's
+  fill the row's full height, its label a `cx-viewer-layer-control-label` that ellipsises where the
+  drawer is too narrow for all three. At rest the group is at `opacity: 0` and takes no width, so the
+  name owns the row; the row's `:hover` and the keyboard inside it (`data-active`) bring it to 1,
+  standing over the row's count and the tail of its name, never over the switch. They
+  are always in the DOM and always tab-reachable, in this order, so a keyboard reader focusing one
+  always sees it (R-UI-012). A pressed state is said at rest by the row (above), and by the pressed
+  control once revealed (I-361 (4)). Pressed paint is the selection idiom: fill `var(--beam-100)`, text
   `var(--graphite-900)` at `var(--weight-heading)`. Isolating a layer draws only it and leaves every
   other layer's own `data-visible` untouched (`data-drawn="false"`); pressing the isolated row's
   Isolate again clears isolation. Lock leaves the layer drawn and takes it out of the hit-test index
@@ -465,7 +538,10 @@ in the painter or the worker · `--danger` / `--danger-surface` through RefusalS
 `--z-base`. Entity colour is artifact data as `rgb(r g b)` in an inline style. Px literals, closed
 set (core I-1's class): the 10 px swatch, the 1 px extents frame, the 420 px empty-state measure,
 the 48 px keyboard pan step, the ×2 device-pixel cap, and the loading bones (16 × 96 and the row
-heights). Any other literal is a defect.
+heights). Any other literal is a defect. One character measure, stated as such because a name is
+read in characters: the layer name's `8ch` floor (I-361). The switch's 24 px target is
+`var(--space-6)`, the isolated row's fill `var(--accent-subtle)` (the `--beam-100` alias), and the
+frame's height `calc(100% + var(--space-6) * 2)` — the same token its margin bleeds (I-362).
 
 ## 6. Themes
 
@@ -541,12 +617,26 @@ re-fits the screen and leaves that `v` one fit behind (a reload opens the same c
 box's scale). The cure is the address module's: publish `s` with NO `v` while the camera is the
 fit — `publishViewport(win, path, at | null, selection)` deleting `v` for `null`, and `useCamera`
 answering whether it is fitted — owner: the route's `address.ts` / `viewer-screen.tsx` (B-17, the
-one writer). The frame's own geometry law this screen is graded on — the drawer at its Decision's
-200 px (min 160, max 320) rather than `viewer-stage.tsx`'s 22 % / 14 % / 40 %, and `.cx-viewer`'s
-bleed growing its height by the `--space-6` it moves up (the 48 px band under the canvas) — owner:
-the route's `viewer-stage.tsx` and `viewer.css`, outside the module this slice holds. The layers
-panel's swatch reading I-79's one rule — `isCanvasInk(row.rgb) ? "var(--canvas-ink)" :
-cssColour(row.rgb)` for both its fill and its border — owner: the route's `layers-panel.tsx`.
+one writer). **Struck** (the drawer paid by `viewer-stage.tsx`'s 14 / 11.5 / 23 shares of the work
+area; the bleed paid by I-362): the frame's own geometry law this screen is graded on — the drawer at
+its Decision's 200 px (min 160, max 320) rather than `viewer-stage.tsx`'s 22 % / 14 % / 40 %, and
+`.cx-viewer`'s bleed growing its height by the `--space-6` it moves up (the 48 px band under the
+canvas). **Struck** (paid; `layers-panel.tsx` reads it): the layers panel's swatch reading I-79's one
+rule — `isCanvasInk(row.rgb) ? "var(--canvas-ink)" : cssColour(row.rgb)` for both its fill and its
+border.
+
+**Session 7, craft wave 4.** Two spellings of the readout's scale cell: the v22 frame's wireframe
+draws it as the DRAWING's scale (`1:100 ✓`, the Scale panel's calibrated answer), while §1 and §3
+fill `viewer_status_scale` **Scale** with the camera's zoom (`viewer_status_scale_value` **{scale} px
+per drawing unit** — S-10 reads "Scale 1.212 px per drawing unit", which a QS reads as a drawing
+scale). The cure is one reading of the cell — the zoom labelled as a zoom, or the calibrated scale in
+the Scale cell with the zoom beside it — and it is a copy change: owner, the string table
+`src/ui/strings/viewer.ts` with `status-line.tsx` and this Decision in the same commit (the craft wave
+that held the route held no copy home). Recorded, and NOT an IOU: sub-legible text drawn as greeked
+bars so a fitted sheet's marks keep their places (S-10 opens with an empty title block and no column
+marks). R-UI-040 rules that level of detail HIDES text below legibility and §1 that it is "never
+faked as a smudge"; a painter change would also move a sheet at rest, which I-345 (1) forbids.
+Reopening it is a Deviation against R-UI-040's clause, with the painter's own at-rest proof.
 
 
 ---
@@ -1194,6 +1284,54 @@ of s-viewer.md §8's first IOU in the commit that lands it (B-20); the toolbar h
   off-sheet views after the on-sheet ones in one open list (53 rows still stand between the reader
   and the offer), and dropping them (R-UI-050: a partial answer is shown, not hidden).
 
+**Amended by session 7 (craft wave 4 — a vision re-look of S-10 at 1440 × 900 and 1280 × 800):**
+
+- **I-363 — a grid axis is read as the drawing office writes one: its position on L-REG-04's lattice,
+  its bubble lettered wherever the ring can hold a legible label, and the view's words never under
+  it.** Three readings of §1, each measured on S-10 COLUMN LAYOUT PLAN:
+  (1) *The axis row.* §1 printed "the position through `formatUserFigure`" — the stored double whole.
+  The grid stage stores the ring's centre as its arithmetic left it, so S-10's rows read
+  `12,00,000.000000001`, `12,04,572.0000000014`, `12,08,839.2000000004`, `12,11,582.399999999`: binary
+  noise, lakh-grouped, each wrapping under a family that read as the store's key `numeral`. Now the
+  position is STATED at 0.1 drawing unit — the lattice L-REG-04 quantises every world coordinate a
+  placement key carries onto, spelled by the one `quantise` (`src/core/identity/keys.ts`, which the
+  snapping region already states its keys by) — and grouped by the figure seam: `12,00,000.0`,
+  `12,04,572.0`, `12,08,839.2`, `12,11,582.4`; the exact double rides whole on the row's new
+  `data-position`, spelled positionally (no exponent). The family is an enum and is said through the
+  one EnumLabel ("Numeral", "Letter"; R-UI-082), the stored spelling on `data-family` and in
+  EnumLabel's disclosure. The row is one line that never wraps: label, family, then the position
+  right-aligned at the row's end; where the drawer is narrow the family word gives way first, behind
+  an ellipsis, never the figure. The hidden sentence says the stated figure too. Rejected: the stored
+  double rounded by `toFixed` (a float's own rounding, where `quantise` decides on the decimal
+  spelling, half away from zero — one lattice, one rule), and printing the SPACING from the previous
+  axis (4,572.0 / 4,267.2 / 2,743.2 — what a QS checks against the plan's dimension string): it is the
+  better figure, but it needs a sentence of its own in the copy table ("{spacing} from {previous}"),
+  which this craft wave did not hold — recorded in §8.
+  (2) *The bubble's lettering.* §1 dropped the label "when the ring falls below 6 px on screen", and
+  `paint.ts` measured that on the ring's RADIUS — which calls a 12 px ring illegible. S-10's rings are
+  5.0006 paper units: at the 1440 fit (1.212) a radius of 6.06 px was lettered, at the 1280 fit
+  (1.051) 5.26 px was not, and a reader on a 1280 laptop met eleven empty rings and could not name an
+  axis. Now the floor is the SHEET's own — `LEGIBLE_TEXT_PX`, the height R-UI-040's level of detail
+  hides a text below (`src/modules/takeoff/viewer/client.ts`, one home) — measured on what the label
+  must fit in, the ring's DIAMETER: the label is lettered at the `--text-12` value where the ring is
+  at least that across, and otherwise at the largest size the diameter holds whose width runs across
+  no more than 0.8 of it; only a ring too small to hold `LEGIBLE_TEXT_PX` is left unlettered, and it
+  still draws. At 1440 nothing changes (the rings are 12.1 px and more across: `--text-12`, as ever);
+  at 1280 every S-10 bubble is lettered (10.5 px before I-362, 11.3 after). Rejected: lettering a tiny
+  ring BESIDE itself at the floor (at a whole-sheet fit that is dozens of labels piled on a grid a
+  few pixels wide — the level of detail exists for exactly that), and a floor of the old 6 px on the
+  diameter (a second spelling of the sheet's legibility floor).
+  (3) *The view's chip.* §1 set the type chip at the outline's top-left, INSIDE the box, and painted
+  the axes after it; a layout plan draws its first axis exactly there, so axis 1's bubble and centre
+  line were painted through the words ("Layout(1)plan" at 1440, "Layou* plan" at 1280). Now the chip
+  stands ON the corner from outside — its foot is the rectangle's top edge — and the chips are painted
+  last, after every axis: outside the box nothing of the view lies under it, and the axes' overrun
+  past the box (4 %, §5) is all it can meet, which it covers rather than being crossed by. Where the
+  box's top is the canvas's own (no room above), the chip stands inside the corner as before. The
+  grid still reads over the views it georeferences — the outlines are painted first. Rejected:
+  painting the chip last but inside the corner (it would hide axis 1's bubble, trading one lost
+  label for another).
+
 **Amended by inc-205-scale-ui** (R-TO-021, B-20), with the one hatch this overlay now paints for a
 second reason, ruled by s-scale I-160 and recorded here in the overlay's own terms:
 
@@ -1605,12 +1743,17 @@ Min-height `var(--row-comfortable)` re-keyed `var(--row-compact)` under an ances
   (I-111 as amended). No row holds a paragraph (R-UI-081).
 
 **Axis rows** — one `<li data-testid="viewer-partition-axis" data-view-key data-family data-axis
-data-label>` per stored axis in bubble-key order, same row geometry, one line: the label verbatim in
-`var(--font-mono)` `var(--text-12)` `var(--graphite-900)`, then the family verbatim
-(`var(--graphite-600)`), then the position through `formatUserFigure`
-(`var(--graphite-700)` `tabular-nums slashed-zero`, right-aligned). The line carries a visually
-hidden `viewer_partition_axis_reading` filled with label, family and position, so three bare tokens
-are never announced naked.
+data-label data-position>` per stored axis in bubble-key order, same row geometry, ONE line that never
+wraps (`cx-viewer-partition-axis-line`, I-363): the label verbatim in
+`var(--font-mono)` `var(--text-12)` `var(--graphite-900)`, then the family through the one EnumLabel
+("Numeral", `var(--graphite-600)`; the stored spelling on `data-family` and in the disclosure — I-363,
+R-UI-082; with no EnumLabel handed in, the stored spelling), taking the room left and ellipsised
+before anything else gives, then the position STATED on L-REG-04's 0.1-drawing-unit lattice
+(`quantise`) through `formatUserFigure` — `12,00,000.0`, never the stored double's noise
+(`var(--graphite-700)` `tabular-nums slashed-zero`, right-aligned at the row's end); the exact double
+rides whole on `data-position`. The line carries a visually
+hidden `viewer_partition_axis_reading` filled with label, family and the stated position, so three
+bare tokens are never announced naked.
 
 **Deferral rows** — one `<li data-testid="viewer-partition-grid-deferral" data-view-key
 data-reason>` per stored deferral: the view key in mono, then `REFUSALS[reason].message` — the
@@ -1642,17 +1785,20 @@ no toast.
 **Overlay** — `<canvas data-testid="viewer-partition-canvas" aria-hidden="true">` in the stage, per
 I-112. Paint per frame, in order: for each outline, the rect (typed — 1 px `[6, 4]` dash in
 `--canvas-ink`; hatched — 1 px solid `--warn` plus the 45° `--canvas-ink` hatch pattern at 8 px
-pitch, both from the resolved palette, I-115/I-116), then its type in words (`OverlayOutline.label`,
-the screen's `humaniseEnum` looked up per type — I-114 as amended; the stored spelling where none was
-handed in) at the rect's top-left in
-a `--canvas-paper` chip with a 1 px `--canvas-ink` hairline, mono at the `--text-12` value, dropped
-entirely below that height (s-viewer's LOD, never drawn smaller); then for each axis whose view
+pitch, both from the resolved palette, I-115/I-116); then for each axis whose view
 stands on a box of this sheet (an axis of a view on another sheet is not drawn — I-318) the centre
 line `[12, 3, 2, 3]` in `--canvas-ink` at its position on this sheet (through its ring's centre where
 the sheet shows the ring, else the stored position — I-318), spanning the owning view's box extended
 4 % at both ends, then its bubble — a `--canvas-paper` disc with a 1 px
-`--canvas-ink` ring at the stored centre and radius, the label centred in mono, the label dropped
-when the ring falls below 6 px on screen (the ring still draws: the georeference is the fact).
+`--canvas-ink` ring at the stored centre and radius, the label centred in mono at the `--text-12`
+value where the ring's DIAMETER is at least that, else at the largest size the diameter holds whose
+width runs across no more than 0.8 of it, and dropped only below the sheet's own `LEGIBLE_TEXT_PX`
+(I-363; the ring still draws: the georeference is the fact); then, last, each outline's type in words
+(`OverlayOutline.label`, the screen's `humaniseEnum` looked up per type — I-114 as amended; the stored
+spelling where none was handed in) in a `--canvas-paper` chip with a 1 px `--canvas-ink` hairline,
+mono at the `--text-12` value, standing ON the rect's top-left corner from outside — its foot the
+rect's top edge, or inside the corner where the rect's top is the canvas's own (I-363) — and dropped
+entirely where the rect is smaller than that height (s-viewer's LOD, never drawn smaller).
 `overlayScene(overlay, toggles, camera)` is pure and canvas-free: `views: false` answers no outlines,
 `grid: false` no axes. After the first frame the canvas publishes `data-outlines`, `data-hatched`,
 `data-axes`, `data-bubbles`, rewritten only when a count changes.
@@ -1760,9 +1906,12 @@ computed style and handed to `drawOverlayScene` (I-115) · `--hairline` · `--sp
 `--weight-heading` · `--leading-ui` · `--row-comfortable` / `--row-compact` · `--motion-state` /
 `--ease` · `--z-base`. Px literals, closed set (core I-1's mandated class): the 10 px switch swatch,
 the 1 px overlay strokes, the dash arrays `[6, 4]` and `[12, 3, 2, 3]`, the 8 px hatch pitch, the
-6 px bubble legibility floor, the ×2 device-pixel cap and the loading bones (12 × 180). Two ratios,
-stated as such because no token measures drawing units: an axis spans its view's box extended 4 % at
-each end, and the panel's `max-block-size` is 55 % of the left column. Any other literal is a defect.
+×2 device-pixel cap and the loading bones (12 × 180). The bubble's legibility floor is no literal of
+this region's: it is the sheet's own `LEGIBLE_TEXT_PX`, read from `viewer/client.ts` and measured on
+the ring's diameter (I-363 — the former "6 px" here was the same number, measured on the radius).
+Three ratios, stated as such because no token measures drawing units: an axis spans its view's box
+extended 4 % at each end, a bubble's label runs across no more than 0.8 of its ring's diameter
+(I-363), and the panel's `max-block-size` is 55 % of the left column. Any other literal is a defect.
 No copper appears on the panel — it lives only on the ConsequenceDialog's confirm, where its own
 Decision puts it — and no basis colour appears at all: a view type is not an R-UI-002 basis
 (s-drawings I-83's class).
@@ -1787,7 +1936,8 @@ Routes: the feed gains `/api/viewer/{drawing}/{layout}?tenant={tenantId}&part=pa
 `viewer-partition-grid-toggle` · `viewer-partition-view` (`data-view-key`, `data-type`,
 `data-untyped`, `data-reason`, `data-on-sheet`, `data-proposed`, `data-confirmed`) ·
 `viewer-partition-view-badge` · `viewer-partition-view-reason` · `viewer-partition-axis`
-(`data-view-key`, `data-family`, `data-axis`, `data-label`) · `viewer-partition-grid-deferral`
+(`data-view-key`, `data-family`, `data-axis`, `data-label`, and since I-363 `data-position` — the
+stored double whole, beside the lattice figure the row states) · `viewer-partition-grid-deferral`
 (`data-view-key`, `data-reason`) · `viewer-partition-canvas` (`data-outlines`, `data-hatched`,
 `data-axes`, `data-bubbles`) · `viewer-partition-groups` · `viewer-partition-retry`. No others are
 added; the mounted patterns keep their own ids (`offered-groups`, `offered-group` — now with
@@ -1809,7 +1959,11 @@ mount of `PartitionPanel` over injected data for the seven states. Session 7 add
 suites that import no staging support: `overlay-sheet.test.ts` (I-318 over S-10's own shapes — no
 axis of an off-sheet view, the on-sheet axes through their rings, nothing drawn off the paper, the
 chip's words) and `panel-sheet.test.tsx` (I-319's order and fold, the badge through the real
-EnumLabel, the reason in the real Tooltip and in no paragraph, the one-line group label). Journey
+EnumLabel, the reason in the real Tooltip and in no paragraph, the one-line group label); craft wave 4
+adds `overlay-craft.test.tsx` (I-363 at both viewports' stages: every S-10 bubble lettered at a
+legible size its ring holds, an unlettered ring below the floor, the chip standing on the box's top
+edge and painted after every axis — judged on a recording 2D context — and the axis rows' lattice
+figures, `data-position`, EnumLabel family and one line). Journey
 `tests/e2e/viewer-partition.spec.ts` (title tagged **J-021**, staged by `stagePartitionedSheet`) at
 `j-021/partition-open`, `j-021/partition-toggled`, `j-021/partition-confirm-open`,
 `j-021/partition-confirmed`, axe serious/critical = 0 at each, never widened, with the keyboard walk
@@ -1833,6 +1987,10 @@ still drawn at its model position until this is paid, and the snapping region, w
 stored axes, snaps a paper sheet's grid crossings at model positions — owner: the same leaf, with
 S-Viewer's snapping). The copy mirror I-113 stands on: the cure is a copy home both `src/ui` and
 `src/modules` may read — owner: the node that owns the ARCH-01 import matrix and `src/ui/strings`.
+An axis row's SPACING from the previous axis of its family (S-10: 4,572.0 · 4,267.2 · 2,743.2 ·
+4,267.2 — the figures a QS checks against the plan's dimension string, where the lattice position
+of I-363 is a model coordinate they never read) — owner: the copy home, which must say it in a
+sentence of its own (`viewer_partition_axis_spacing` and its reading), with this panel's `AxisRow`.
 
 **Session 7 — the region's composition owes three slots.** I-111 and I-114 as amended are written
 into the module (`PartitionPanel` takes `EnumLabel`, `humaniseEnum` and `Tooltip` beside `IdChip`;

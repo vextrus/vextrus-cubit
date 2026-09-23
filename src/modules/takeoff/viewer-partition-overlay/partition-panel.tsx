@@ -26,6 +26,7 @@
  */
 import { REFUSALS, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
+import { quantise } from "@/core/identity/keys";
 import { VIEW_TYPE } from "@/modules/takeoff/partition/views/law";
 import { PARTITION_COPY, fillCopy } from "./copy";
 import type { OverlayToggles, PartitionOverlay, PartitionOverlayAxis, PartitionOverlayView } from "./types";
@@ -92,14 +93,13 @@ function ViewKey({ viewKey, IdChip }: { viewKey: string; IdChip?: ComponentType<
 }
 
 /**
- * A stored measurement as a decimal string the figure seam accepts (R-SPINE-010, L-FMT-02).
+ * A stored measurement as a decimal string, whole — the value an attribute a machine reads carries.
  *
  * `String(value)` is the shortest text that round-trips a double, but for a magnitude near zero or
- * very large it is written with an exponent — `1.2e-17` — and an exponent is not a decimal: the seam
- * refuses it rather than guessing, and a row rendering one would take the whole screen down. A grid
+ * very large it is written with an exponent — `1.2e-17` — and an exponent is not a decimal. A grid
  * position derived from a ring's own geometry lands there whenever an axis stands at the origin, so
- * the exponent is written out positionally here. Nothing is rounded, padded or dropped: the value
- * the store holds is the value the panel shows, spelled the way a decimal is spelled.
+ * the exponent is written out positionally here. Nothing is rounded, padded or dropped: this is the
+ * EXACT value, and it rides on the row's `data-position` beside the figure the row states (I-363).
  */
 function decimalOf(value: number): string {
   const written = String(value);
@@ -210,8 +210,19 @@ function ViewRow({ view, IdChip, EnumLabel, humaniseEnum, Tooltip }: { view: Par
   );
 }
 
-/** One georeferenced axis, read as three bare tokens beside one another and spoken as a sentence. */
-function AxisRow({ axis }: { axis: PartitionOverlayAxis }) {
+/**
+ * One georeferenced axis, read as three tokens on one line and spoken as a sentence.
+ *
+ * I-363: the position is STATED on L-REG-04's lattice — a world coordinate at 0.1 drawing unit, the
+ * one-decimal string `quantise` spells for every placement key — and grouped by the figure seam.
+ * The stored double is the ring's centre as the reading computed it, and printed whole it carried
+ * the binary noise of that arithmetic onto the screen: S-10's axes read `12,00,000.000000001`,
+ * `12,11,582.399999999`, each wrapping to a second line. The exact value is kept on `data-position`.
+ * The family is an enum and is said through the one EnumLabel ("Numeral"); the stored spelling stays
+ * on `data-family` and in EnumLabel's technical disclosure (R-UI-082).
+ */
+function AxisRow({ axis, EnumLabel }: { axis: PartitionOverlayAxis } & RowChrome) {
+  const position = formatUserFigure(quantise(axis.position));
   return (
     <li
       className="cx-viewer-partition-row"
@@ -220,14 +231,15 @@ function AxisRow({ axis }: { axis: PartitionOverlayAxis }) {
       data-family={axis.family}
       data-axis={axis.axis}
       data-label={axis.label}
+      data-position={decimalOf(axis.position)}
     >
-      <span className="cx-viewer-hidden">
-        {fillCopy("viewer_partition_axis_reading", { label: axis.label, family: axis.family, position: formatUserFigure(decimalOf(axis.position)) })}
-      </span>
-      <span className="cx-viewer-partition-line" aria-hidden="true">
+      <span className="cx-viewer-hidden">{fillCopy("viewer_partition_axis_reading", { label: axis.label, family: axis.family, position })}</span>
+      <span className="cx-viewer-partition-line cx-viewer-partition-axis-line" aria-hidden="true">
         <span className="cx-viewer-partition-axis-label">{axis.label}</span>
-        <span className="cx-viewer-partition-note">{axis.family}</span>
-        <span className="cx-viewer-partition-figure">{formatUserFigure(decimalOf(axis.position))}</span>
+        <span className="cx-viewer-partition-note cx-viewer-partition-family">
+          {EnumLabel === undefined ? axis.family : <EnumLabel value={axis.family} className="cx-viewer-partition-family-word" />}
+        </span>
+        <span className="cx-viewer-partition-figure">{position}</span>
       </span>
     </li>
   );
@@ -296,7 +308,7 @@ function SheetLists({ rows, chrome }: { rows: SheetRows; chrome: RowChrome }) {
       {rows.axes.length === 0 ? null : (
         <ol className="cx-viewer-partition-list" aria-label={PARTITION_COPY.viewer_partition_grid_list_label}>
           {rows.axes.map((axis) => (
-            <AxisRow key={axis.bubbleKey} axis={axis} />
+            <AxisRow key={axis.bubbleKey} axis={axis} {...chrome} />
           ))}
         </ol>
       )}

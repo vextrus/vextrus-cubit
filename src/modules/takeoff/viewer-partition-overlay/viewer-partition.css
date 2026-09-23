@@ -192,9 +192,37 @@
 }
 
 .cx-viewer-partition-axis-label {
+  flex: none;
   font-family: var(--font-mono);
   font-size: var(--text-12);
   color: var(--ink);
+}
+
+/* I-363: an axis row is ONE line — label, family, position — and never wraps: the position stands
+   right-aligned at the row's end and the family word gives way first, behind an ellipsis, so the
+   figure a reader checks is never the token that is cut (R-UI-083). */
+.cx-viewer-partition-axis-line {
+  flex-wrap: nowrap;
+}
+
+.cx-viewer-partition-family {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* EnumLabel sets itself at the body size and in the ink; in this row it is the note it stands in. */
+.cx-viewer-partition-family .cx-viewer-partition-family-word {
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+.cx-viewer-partition-axis-line > .cx-viewer-partition-figure {
+  flex: none;
+  margin-inline-start: auto;
+  text-align: end;
 }
 
 .cx-viewer-partition-note {

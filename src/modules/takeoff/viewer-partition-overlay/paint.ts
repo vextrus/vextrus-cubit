@@ -9,6 +9,7 @@
 // drawing office's centre line. In greyscale — and for a reader who cannot separate warn from ink —
 // the three still read apart. No colour is spelled here: every one arrives resolved from a token by
 // the screen (I-115).
+import { LEGIBLE_TEXT_PX } from "@/modules/takeoff/viewer/client";
 import type { OverlayDrawnAxis, OverlayOutline, OverlayPalette, OverlayScene } from "./types";
 
 /** Every stroke of the overlay is one hairline: the sheet's ink, not a second weight (Decision § 5). */
@@ -21,9 +22,14 @@ const AXIS_DASH: readonly number[] = [12, 3, 2, 3];
 /** The hatch a view the grammar could not read wears: 45°, at this pitch, in the sheet's own ink. */
 const HATCH_PITCH_PX = 8;
 
-/** Padding inside the type chip, and the smallest ring that is still worth lettering (Decision § 1). */
+/** Padding inside the type chip (Decision § 1). */
 const CHIP_PAD_PX = 3;
-const BUBBLE_LABEL_FLOOR_PX = 6;
+
+/**
+ * How much of a ring's diameter a bubble's lettering may run across (I-363's second ratio): the rest
+ * is the ring's own clearance, so a label never touches the line it stands inside.
+ */
+const BUBBLE_LABEL_SPAN = 0.8;
 
 /** What one solid line costs to set up — every stroke states its own dash rather than inheriting one. */
 function strokeStyle(context: CanvasRenderingContext2D, colour: string, dash: readonly number[]): void {
@@ -55,7 +61,7 @@ function hatch(context: CanvasRenderingContext2D, rect: OverlayOutline["rect"], 
   context.restore();
 }
 
-/** One view's outline, and the type it wears at its top-left, in a reader's words (R-UI-082). */
+/** One view's outline: the rectangle, dashed or hatched by what the view is. */
 function outline(context: CanvasRenderingContext2D, drawn: OverlayOutline, palette: OverlayPalette): void {
   context.save();
   // One hatch, one home (I-160): a view the machine could not type and a view no affirmation act
@@ -69,7 +75,19 @@ function outline(context: CanvasRenderingContext2D, drawn: OverlayOutline, palet
     context.strokeRect(drawn.rect.x, drawn.rect.y, drawn.rect.width, drawn.rect.height);
   }
   context.restore();
+}
 
+/**
+ * The type a view wears, in a reader's words (R-UI-082), on a chip standing ON the outline's top-left
+ * corner from OUTSIDE the box: its foot is the rectangle's top edge (I-363).
+ *
+ * Inside the corner it stood where a layout plan draws its first axis: on S-10 the chip sat over axis
+ * 1's bubble and centre line, and the bubble — painted after it — cut the words to "Layout(1)plan".
+ * Outside the box nothing of the view lies under it; the axes' overrun past the box is all it can
+ * meet, and it is painted after them, so the words are never crossed. Where there is no room above
+ * the box — its top at the canvas's own top — the chip stands inside the corner as it did.
+ */
+function outlineChip(context: CanvasRenderingContext2D, drawn: OverlayOutline, palette: OverlayPalette): void {
   // The sheet's own level of detail: a badge is never drawn smaller than it can be read, so a view
   // shrunk past its own type spelling loses the chip rather than showing an illegible one.
   if (drawn.rect.height < palette.typeSizePx || drawn.rect.width < palette.typeSizePx) return;
@@ -79,13 +97,36 @@ function outline(context: CanvasRenderingContext2D, drawn: OverlayOutline, palet
   context.textBaseline = "top";
   const width = context.measureText(drawn.label).width + CHIP_PAD_PX * 2;
   const height = palette.typeSizePx + CHIP_PAD_PX * 2;
+  const above = drawn.rect.y - height;
+  const top = above >= 0 ? above : drawn.rect.y;
   context.fillStyle = palette.paper;
-  context.fillRect(drawn.rect.x, drawn.rect.y, width, height);
+  context.fillRect(drawn.rect.x, top, width, height);
   strokeStyle(context, palette.ink, []);
-  context.strokeRect(drawn.rect.x, drawn.rect.y, width, height);
+  context.strokeRect(drawn.rect.x, top, width, height);
   context.fillStyle = palette.label;
-  context.fillText(drawn.label, drawn.rect.x + CHIP_PAD_PX, drawn.rect.y + CHIP_PAD_PX);
+  context.fillText(drawn.label, drawn.rect.x + CHIP_PAD_PX, top + CHIP_PAD_PX);
   context.restore();
+}
+
+/**
+ * The size a bubble's label is lettered at, or null where the ring cannot hold a legible one (I-363).
+ *
+ * The floor is the SHEET's own — `LEGIBLE_TEXT_PX`, the height below which R-UI-040's level of detail
+ * hides a text — measured on what a label has to fit in: the ring's DIAMETER. The rule it replaces
+ * dropped the label whenever the ring's RADIUS fell under 6 px, which is a 12 px ring called
+ * illegible: at 1280 × 800 S-10's rings stand 10.5 px across at the fitted scale and every one of its
+ * eleven bubbles was an empty ring, while the same rings at 1440 × 900 (12.1 px) were lettered. The
+ * label is the `--text-12` value where the ring has room for it, and otherwise the largest size whose
+ * height the diameter holds and whose width runs across no more than `BUBBLE_LABEL_SPAN` of it.
+ */
+function bubbleLabelSize(context: CanvasRenderingContext2D, label: string, radius: number, palette: OverlayPalette): number | null {
+  const diameter = radius * 2;
+  const tall = Math.min(palette.labelSizePx, diameter);
+  context.font = `${tall}px ${palette.mono}`;
+  const wide = context.measureText(label).width;
+  const span = diameter * BUBBLE_LABEL_SPAN;
+  const size = wide > span && wide > 0 ? tall * (span / wide) : tall;
+  return size >= LEGIBLE_TEXT_PX ? size : null;
 }
 
 /** One axis's centre line, and the bubble at the ring it was read off. */
@@ -111,10 +152,14 @@ function axis(context: CanvasRenderingContext2D, drawn: OverlayDrawnAxis, palett
   context.restore();
 
   // The ring still draws below the floor: the georeference is the fact, and only its lettering is
-  // dropped when there is no room to read it (Decision § 1).
-  if (bubble.radius < BUBBLE_LABEL_FLOOR_PX) return;
+  // dropped when the ring has no room for a legible one (Decision § 1, I-363).
   context.save();
-  context.font = `${palette.labelSizePx}px ${palette.mono}`;
+  const size = bubbleLabelSize(context, drawn.label, bubble.radius, palette);
+  if (size === null) {
+    context.restore();
+    return;
+  }
+  context.font = `${size}px ${palette.mono}`;
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.fillStyle = palette.label;
@@ -123,8 +168,10 @@ function axis(context: CanvasRenderingContext2D, drawn: OverlayDrawnAxis, palett
 }
 
 /**
- * One frame of the overlay: the canvas cleared, then every outline, then every axis. The order is
- * the Decision's — the grid reads over the views it georeferences, never under them.
+ * One frame of the overlay: the canvas cleared, then every outline, then every axis, then every
+ * outline's type chip. The order is the Decision's — the grid reads over the views it georeferences,
+ * never under them, and a view's words read over the axes' overrun beside it, never crossed by it
+ * (I-363: the chip stands outside the box, where no bubble is).
  *
  * The viewport is the CSS-pixel box the scene was mapped into; where a caller does not state one the
  * context's own canvas answers it. A scene whose switches are both off clears and draws nothing,
@@ -140,4 +187,5 @@ export function drawOverlayScene(
   context.clearRect(0, 0, box.width, box.height);
   for (const drawn of scene.outlines) outline(context, drawn, palette);
   for (const drawn of scene.axes) axis(context, drawn, palette);
+  for (const drawn of scene.outlines) outlineChip(context, drawn, palette);
 }
