@@ -2135,11 +2135,11 @@ AcDbSymbolTableRecord
 100
 AcDbLayerTableRecord
   2
-A-COLS
+A-ANNO-NOTE
  70
 0
  62
-1
+7
   6
 Continuous
 370
@@ -2157,7 +2157,7 @@ AcDbSymbolTableRecord
 100
 AcDbLayerTableRecord
   2
-A-COLS-HATCH
+A-COLS
  70
 0
  62
@@ -2179,6 +2179,28 @@ AcDbSymbolTableRecord
 100
 AcDbLayerTableRecord
   2
+A-COLS-HATCH
+ 70
+0
+ 62
+1
+  6
+Continuous
+370
+-3
+390
+13
+  0
+LAYER
+  5
+8D
+330
+1
+100
+AcDbSymbolTableRecord
+100
+AcDbLayerTableRecord
+  2
 A-DOOR
  70
 0
@@ -2193,7 +2215,7 @@ Continuous
   0
 LAYER
   5
-8D
+8E
 330
 1
 100
@@ -2215,7 +2237,7 @@ Continuous
   0
 LAYER
   5
-8E
+8F
 330
 1
 100
@@ -2237,7 +2259,7 @@ Continuous
   0
 LAYER
   5
-8F
+90
 330
 1
 100
@@ -2259,7 +2281,7 @@ Continuous
   0
 LAYER
   5
-90
+91
 330
 1
 100
@@ -2281,7 +2303,7 @@ Continuous
   0
 LAYER
   5
-91
+92
 330
 1
 100
@@ -2303,7 +2325,7 @@ Continuous
   0
 LAYER
   5
-92
+93
 330
 1
 100
@@ -2325,7 +2347,7 @@ Continuous
   0
 LAYER
   5
-93
+94
 330
 1
 100
@@ -2347,7 +2369,7 @@ Continuous
   0
 LAYER
   5
-94
+95
 330
 1
 100
@@ -2369,7 +2391,7 @@ Continuous
   0
 LAYER
   5
-95
+96
 330
 1
 100
@@ -2391,7 +2413,7 @@ Continuous
   0
 LAYER
   5
-96
+97
 330
 1
 100
@@ -2413,7 +2435,7 @@ Continuous
   0
 LAYER
   5
-97
+98
 330
 1
 100
@@ -2435,7 +2457,7 @@ Continuous
   0
 LAYER
   5
-98
+99
 330
 1
 100
@@ -2457,7 +2479,7 @@ Continuous
   0
 LAYER
   5
-99
+9A
 330
 1
 100
@@ -2479,7 +2501,7 @@ Continuous
   0
 LAYER
   5
-9A
+9B
 330
 1
 100
@@ -2501,7 +2523,7 @@ Continuous
   0
 LAYER
   5
-9B
+9C
 330
 1
 100
@@ -2514,28 +2536,6 @@ A-TAG
 0
  62
 2
-  6
-Continuous
-370
--3
-390
-13
-  0
-LAYER
-  5
-9C
-330
-1
-100
-AcDbSymbolTableRecord
-100
-AcDbLayerTableRecord
-  2
-A-TEXT
- 70
-0
- 62
-7
   6
 Continuous
 370
@@ -2619,7 +2619,7 @@ AcDbSymbolTableRecord
 100
 AcDbLayerTableRecord
   2
-DIMENTION
+DIMENSON
  70
 0
  62
@@ -8131,7 +8131,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -8157,7 +8157,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -8231,7 +8231,7 @@ MTEXT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbMText
  10
@@ -8397,7 +8397,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -8423,7 +8423,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -8497,7 +8497,7 @@ MTEXT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbMText
  10
@@ -8663,7 +8663,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -8689,7 +8689,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -8763,7 +8763,7 @@ MTEXT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbMText
  10
@@ -8929,7 +8929,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -8955,7 +8955,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -9029,7 +9029,7 @@ MTEXT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbMText
  10
@@ -10395,7 +10395,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -10421,7 +10421,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -10495,7 +10495,7 @@ MTEXT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbMText
  10
@@ -10661,7 +10661,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -10687,7 +10687,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -10761,7 +10761,7 @@ MTEXT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbMText
  10
@@ -10927,7 +10927,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -10953,7 +10953,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -11027,7 +11027,7 @@ MTEXT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbMText
  10
@@ -11193,7 +11193,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -11219,7 +11219,7 @@ INSERT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbBlockReference
   2
@@ -11293,7 +11293,7 @@ MTEXT
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbMText
  10
@@ -16465,7 +16465,7 @@ DIMENSION
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbDimension
   2
@@ -16561,7 +16561,7 @@ DIMENSION
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbDimension
   2
@@ -16657,7 +16657,7 @@ DIMENSION
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbDimension
   2
@@ -16753,7 +16753,7 @@ DIMENSION
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbDimension
   2
@@ -23979,7 +23979,7 @@ LINE
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbLine
  10
@@ -24003,7 +24003,7 @@ LINE
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbLine
  10
@@ -24027,7 +24027,7 @@ LWPOLYLINE
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbPolyline
  90
@@ -24059,7 +24059,7 @@ LINE
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbLine
  10
@@ -24083,7 +24083,7 @@ TEXT
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbText
  10
@@ -29035,7 +29035,7 @@ DIMENSION
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbDimension
   2
@@ -29131,7 +29131,7 @@ DIMENSION
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbDimension
   2
@@ -29227,7 +29227,7 @@ DIMENSION
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbDimension
   2
@@ -29323,7 +29323,7 @@ DIMENSION
 100
 AcDbEntity
   8
-DIMENTION
+DIMENSON
 100
 AcDbDimension
   2
@@ -48185,7 +48185,7 @@ LINE
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbLine
  10
@@ -48209,7 +48209,7 @@ LINE
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbLine
  10
@@ -48233,7 +48233,7 @@ LINE
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbLine
  10
@@ -48257,7 +48257,7 @@ LINE
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbLine
  10
@@ -48281,7 +48281,7 @@ LINE
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbLine
  10
@@ -48305,7 +48305,7 @@ LINE
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbLine
  10
@@ -56433,7 +56433,7 @@ MTEXT
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbMText
  10
@@ -56457,7 +56457,7 @@ MTEXT
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbMText
  10
@@ -56545,7 +56545,7 @@ MTEXT
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbMText
  10
@@ -56633,7 +56633,7 @@ MTEXT
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbMText
  10
@@ -56721,7 +56721,7 @@ MTEXT
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbMText
  10
@@ -56809,7 +56809,7 @@ MTEXT
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbMText
  10
@@ -56897,7 +56897,7 @@ MTEXT
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbMText
  10
@@ -56985,7 +56985,7 @@ MTEXT
 100
 AcDbEntity
   8
-A-TEXT
+A-ANNO-NOTE
 100
 AcDbMText
  10
