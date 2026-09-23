@@ -26,7 +26,7 @@
  * because an inspector with no frame has nowhere to be; a READOUT and a TOOL ROW are the screen's own
  * content and always have somewhere to be, which is where they stand when no frame claims them.
  */
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 
 interface SlotsValue {
   readonly toolbar: ReactNode | null;
@@ -34,26 +34,85 @@ interface SlotsValue {
   readonly page: string | null;
 }
 
+/**
+ * ONE SCREEN'S HOLD ON A SLOT. A slot is not a variable two screens write in turn: hydration stands
+ * a screen twice for ~100 ms (session 6), and the first copy's cleanup — `set(null)` — erased what
+ * the second had just put there, so the register opened with no tabs row and no crumb whenever the
+ * copies unmounted in that order (session 7: J-000's m2 leg, the craft look's "Register crumb
+ * missing"). Comparing values cannot tell the two copies apart — both write the same crumb — so each
+ * hook instance holds a claim of its OWN: the latest claim still standing is what the frame shows,
+ * a claim that changes keeps its place, and a cleanup withdraws only its own.
+ */
+type Claim<T> = { readonly owner: object; readonly value: T };
+
 interface SlotsDispatch {
-  readonly setToolbar: (node: ReactNode | null) => void;
-  readonly setStatus: (node: ReactNode | null) => void;
-  readonly setPage: (name: string | null) => void;
+  readonly toolbar: Dispatch<SetStateAction<readonly Claim<ReactNode | null>[]>>;
+  readonly status: Dispatch<SetStateAction<readonly Claim<ReactNode | null>[]>>;
+  readonly page: Dispatch<SetStateAction<readonly Claim<string | null>[]>>;
 }
 
 const SlotsValueContext = createContext<SlotsValue>({ toolbar: null, status: null, page: null });
 const SlotsDispatchContext = createContext<SlotsDispatch | null>(null);
 
+/** The claim that stands: the latest one still held, or nothing. */
+function standing<T>(claims: readonly Claim<T>[]): T | null {
+  return claims.length === 0 ? null : (claims[claims.length - 1] as Claim<T>).value;
+}
+
+/**
+ * Hold `value` for `owner`: a new claim goes on top, a held one is replaced where it stands, and a
+ * claim that already holds exactly this value leaves the slots as they are (no render for nothing).
+ */
+function claimed<T>(claims: readonly Claim<T>[], owner: object, value: T): readonly Claim<T>[] {
+  const at = claims.findIndex((claim) => claim.owner === owner);
+  if (at === -1) return [...claims, { owner, value }];
+  if ((claims[at] as Claim<T>).value === value) return claims;
+  return claims.map((claim, index) => (index === at ? { owner, value } : claim));
+}
+
+/** Withdraw `owner`'s claim and nobody else's. */
+function withdrawn<T>(claims: readonly Claim<T>[], owner: object): readonly Claim<T>[] {
+  return claims.some((claim) => claim.owner === owner) ? claims.filter((claim) => claim.owner !== owner) : claims;
+}
+
 export function ShellSlotsProvider({ children }: { children: ReactNode }) {
-  const [toolbar, setToolbar] = useState<ReactNode | null>(null);
-  const [status, setStatus] = useState<ReactNode | null>(null);
-  const [page, setPage] = useState<string | null>(null);
-  const value = useMemo<SlotsValue>(() => ({ toolbar, status, page }), [toolbar, status, page]);
-  const dispatch = useMemo<SlotsDispatch>(() => ({ setToolbar, setStatus, setPage }), []);
+  const [toolbar, setToolbar] = useState<readonly Claim<ReactNode | null>[]>([]);
+  const [status, setStatus] = useState<readonly Claim<ReactNode | null>[]>([]);
+  const [page, setPage] = useState<readonly Claim<string | null>[]>([]);
+  const value = useMemo<SlotsValue>(() => ({ toolbar: standing(toolbar), status: standing(status), page: standing(page) }), [toolbar, status, page]);
+  const dispatch = useMemo<SlotsDispatch>(() => ({ toolbar: setToolbar, status: setStatus, page: setPage }), []);
   return (
     <SlotsDispatchContext.Provider value={dispatch}>
       <SlotsValueContext.Provider value={value}>{children}</SlotsValueContext.Provider>
     </SlotsDispatchContext.Provider>
   );
+}
+
+/**
+ * One hook instance's claim on one slot, held for as long as it is mounted.
+ *
+ * The FIRST claim is made in a layout effect, once: the frame takes a screen's chrome in the commit
+ * that mounts the screen, in a lane of its own. As a passive effect it was batched with the screen's
+ * own post-mount updates (a grid restoring its remembered columns), and under a slow CPU that batch
+ * was parked and never committed — the probe at 6× CPU reopened a 1,162-line register whose claims
+ * were made at 0.9 s and 1.5 s and whose frame still had no tabs row and no crumb at 25 s, which is
+ * what J-000's m2 leg met under the lane's four workers. What the claim holds AFTER that is updated
+ * in a passive effect, as it always was: a screen whose chrome moves with every frame (the viewer's
+ * readout) must not re-render the frame synchronously on each one — every claim made in layout did,
+ * and the viewer looped until React gave up (session 7, the first run of this change).
+ */
+function useClaim<T>(set: Dispatch<SetStateAction<readonly Claim<T>[]>> | undefined, value: T): void {
+  const [owner] = useState<object>(() => ({}));
+  const [atMount] = useState(() => ({ value }));
+  useLayoutEffect(() => {
+    if (set === undefined) return;
+    set((claims) => claimed(claims, owner, atMount.value));
+    return () => set((claims) => withdrawn(claims, owner));
+  }, [set, owner, atMount]);
+  useEffect(() => {
+    if (set === undefined) return;
+    set((claims) => claimed(claims, owner, value));
+  }, [set, owner, value]);
 }
 
 /**
@@ -63,12 +122,8 @@ export function ShellSlotsProvider({ children }: { children: ReactNode }) {
  * ever made to know whether it is inside the shell.
  */
 export function useShellToolbar(toolbar: ReactNode | null): boolean {
-  const set = useContext(SlotsDispatchContext)?.setToolbar;
-  useEffect(() => {
-    if (set === undefined) return;
-    set(toolbar);
-    return () => set(null);
-  }, [set, toolbar]);
+  const set = useContext(SlotsDispatchContext)?.toolbar;
+  useClaim(set, toolbar);
   return set !== undefined;
 }
 
@@ -77,12 +132,8 @@ export function useShellToolbar(toolbar: ReactNode | null): boolean {
  * Answers whether a frame took it; `false` means the screen renders it where it stands.
  */
 export function useShellStatus(status: ReactNode | null): boolean {
-  const set = useContext(SlotsDispatchContext)?.setStatus;
-  useEffect(() => {
-    if (set === undefined) return;
-    set(status);
-    return () => set(null);
-  }, [set, status]);
+  const set = useContext(SlotsDispatchContext)?.status;
+  useClaim(set, status);
   return set !== undefined;
 }
 
@@ -93,12 +144,8 @@ export function useShellStatus(status: ReactNode | null): boolean {
  * already do — through the slot, rather than by the frame guessing at the address (B-17).
  */
 export function useShellPage(page: string | null): boolean {
-  const set = useContext(SlotsDispatchContext)?.setPage;
-  useEffect(() => {
-    if (set === undefined) return;
-    set(page);
-    return () => set(null);
-  }, [set, page]);
+  const set = useContext(SlotsDispatchContext)?.page;
+  useClaim(set, page);
   return set !== undefined;
 }
 
