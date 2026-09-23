@@ -133,3 +133,15 @@ the 75 cells lack is drawn in F-RCC6-BNBC itself, appended so that no existing h
   - GC-2's 3F–ROOF removal (554.960 kg) holds under both readings of S-12.
   - **Consequence:** FND-OWN (pile heads, the pit recess, blinding through piles) moves to the head of
     wave 2 — it removes a standing over-measurement from the demo's own figures.
+- **Walk-0 complete** (`wf_6136da1c-396`, 7 agents; the bill+docs walk and the ranking ran after the
+  resume): **22 BLOCKS_DEMO · 56 FRICTION · 21 POLISH** (`.private/work/session-8/walk0/ranked.md`).
+  Verdict: "No. A QS cannot run the demo flow unaided today." Fresh upload stops at scale (0 proposals on
+  a DWG upload; the two-point door can never open); Measure then publishes 0 lines naming no reason; on
+  the demo project every Trace lands on "no sheet by that name" and the sheet side says "No published
+  line cites this selection"; filters cannot open; sheets open illegible with `%%C` painted literally;
+  the bill and BBS print `0.000 kg`, UUID headers and raw register keys, never say what they leave out,
+  and the BBS overprints its figures; the FC contest from the pile note; the levels FDN row leaves out
+  piles and caps; the schedules all stack under "Model sp…". Each is mapped to a slice (VD-1, SCALE-1,
+  MEASURE-REFUSE, VIEW-TXT, REG-FILT, BOQ-1, COV-ALL, N1, C5, C6b, DLG-1, BBS-DOC, BOQ-SHAPE,
+  BOQ-DESC, FND-OWN); N1, C6b and the new BBS-DOC move up into wave 2.
+- Demo stopped after walk-0 so the worktree agents' db lane can run.
