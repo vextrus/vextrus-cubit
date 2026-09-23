@@ -7,7 +7,7 @@
 // door beside a standing PERMISSION_NOT_HELD — never by hiding the screen.
 import { authorize } from "@/server/authorize";
 import { authorizePage } from "@/server/authorize-page";
-import { siteFactsOf } from "@/modules/takeoff/site-facts-ui/server";
+import { editionStatedFactsOf, siteFactsOf } from "@/modules/takeoff/site-facts-ui/server";
 // The copy is taken from the table itself rather than through the module's barrel: the barrel is a
 // client module (it publishes the panel), and a value imported from one into a server file is a
 // client reference — a `metadata.title` built from one renders no <title> at all (AM-09: a document
@@ -22,8 +22,12 @@ export const metadata = { title: siteFactsStrings.site_facts_heading };
 export default async function ProjectSiteFacts({ params }: { params: Promise<{ tenant: string; project: string }> }) {
   const { tenant, project } = await params;
   const { tenantId, userId } = await authorizePage({ tenant, project });
-  const [standing, door] = await Promise.all([
+  // The pin is read beside the ledger: a fact the pinned edition states is what the earthwork rail
+  // reads where nobody entered it, so the panel shows that figure rather than a deferral the rail
+  // never makes (L-MEA-06, the Decision's I-327).
+  const [standing, editionStated, door] = await Promise.all([
     siteFactsOf({ tenantId, projectId: project }),
+    editionStatedFactsOf({ tenantId, projectId: project }),
     authorize({ userId, projectId: project, permission: "AUTHOR_PROJECT_FACT", actType: "AUTHOR_SITE_FACT" }),
   ]);
 
@@ -32,6 +36,7 @@ export default async function ProjectSiteFacts({ params }: { params: Promise<{ t
       tenantId={tenantId}
       projectId={project}
       standing={standing}
+      editionStated={editionStated}
       mayAuthor={door.authorized}
       rulesetHref={rulesetRoute(tenantId, project)}
       participantsHref={participantsRoute(tenantId, project)}

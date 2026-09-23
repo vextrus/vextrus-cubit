@@ -197,6 +197,40 @@ describe("AC-4: a pinned view renders identity, digest, lineage and the paramete
   });
 });
 
+describe("AC-4: the root states what it draws (Decision I-209, §2)", () => {
+  /** The screen root a read of the rendered contract takes `data-state` from. */
+  function rootState(container: HTMLElement): string | null {
+    const roots = [...container.querySelectorAll("[data-screen-root]")];
+    expect(roots.length, "exactly one element is the screen root (I-209)").toBe(1);
+    return roots[0]?.getAttribute("data-state") ?? null;
+  }
+
+  test("AC-4: a pinned view is `ready`, and the no-pin answer is `empty` — never the other way round", async () => {
+    const pinned = await mount(await seededPinnedView());
+    expect(rootState(pinned), "a pinned view draws the pin, the parameters and the chain: the screen is ready").toBe("ready");
+    (await rtl()).cleanup();
+
+    const unpinned = await mount(unpinnedView("1f0d4f42-2b0a-4d0f-9d2f-5a2b6c1e8a90"));
+    expect(rootState(unpinned), "the no-pin answer is the screen's empty state, and says so (I-28)").toBe("empty");
+  });
+
+  test("AC-4: a scope reads in words through EnumLabel — `tenant` is \"Workspace\" — and keeps its stored value", async () => {
+    const view = await seededPinnedView();
+    const container = await mount(view);
+    const said: Record<string, string | null | undefined> = {};
+    for (const step of all(container, TESTID_LINEAGE_STEP)) {
+      const scope = step.getAttribute("data-scope") ?? "";
+      const label = step.querySelector(`[data-value="${scope}"]`);
+      expect(label, `the ${scope} step's scope renders through EnumLabel, its stored value on data-value (R-UI-083)`).toBeTruthy();
+      // EnumLabel's first child is the words a person reads; the stored value is its technical channel.
+      said[scope] = label?.childNodes[0]?.textContent;
+    }
+    expect(said["tenant"], "the product's word for a tenant is \"Workspace\" (s-auth I-11)").toBe("Workspace");
+    const identityScope = one(container, TESTID_IDENTITY).querySelector(`[data-value="${view.identity.scope}"]`);
+    expect(identityScope, "the pin line's scope renders through EnumLabel too").toBeTruthy();
+  });
+});
+
 describe("AC-4: a view reporting no pin renders an honest absence notice", () => {
   test("AC-4: the no-pin shape renders ruleset-unpinned and nothing that pretends to be a pin", async () => {
     const tenantId = "1f0d4f42-2b0a-4d0f-9d2f-5a2b6c1e8a90";

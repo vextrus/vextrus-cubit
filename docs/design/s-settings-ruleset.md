@@ -4,33 +4,37 @@
 ┌R─┬─────────────┬──────────────────────────────────────────────────────────────┐
 │  │ ws › Trace Survey ▾ › Settings › Rule set                 ⌘K ⟳ ✉ ◉         │
 │  ├─────────────┼──────────────────────────────────────────────────────────────┤
-│  │Participants │ Rule set  (i)                                                │  header 40
-│  │Rule set   ◂ │ Pinned edition  (i)                                          │  section 28
-│  │Taxonomy     │ project  IS1200_IN @ 2026.08   Content digest  a3f9c2d…      │  ONE line
-│  │Tax          │ Lineage  (i)                                                 │  section 28
+│  │▌Rule set  ◂ │ Rule set  (i)                                                │  header 40
+│  │Participants │ Project  IS1200_IN @ 2026.08   Content digest [a3f9c2d]⧉ (i) │  ONE line
+│  │Site facts   │ Parameters                                                   │  section 28
+│  │Author edit. │ ┌────────────────────────────┬──────────┬────────┐           │
+│  │             │ │ Parameter                  │    Value │ Unit   │           │  28 px rows
+│  │             │ │ Opening deduction minimum  │      0.1 │ m2     │           │  (primary:
+│  │             │ │ Member end no-deduct max…  │      500 │ cm2    │           │   scrolls in
+│  │             │ │ … 17 rows, the view's order …                  │           │   its frame)
+│  │             │ └────────────────────────────┴──────────┴────────┘           │
+│  │             │ Lineage  (i)                                                 │  section 28
 │  │             │ ┌──────────┬────────────────────────┬──────────────┐         │
 │  │             │ │ Scope    │ Edition                │ Content diges│         │  28 px rows
-│  │             │ │ platform │ IS1200_IN @ 2026.08    │ a3f9c2d…     │         │
-│  │             │ │ tenant   │ IS1200_IN @ 2026.08    │ a3f9c2d…     │         │
-│  │             │ │ project  │ IS1200_IN @ 2026.08    │ a3f9c2d…     │         │
+│  │             │ │ Platform │ IS1200_IN @ 2026.08    │ [a3f9c2d]⧉   │         │
+│  │             │ │ Workspace│ IS1200_IN @ 2026.08    │ [a3f9c2d]⧉   │         │
+│  │             │ │ Project  │ IS1200_IN @ 2026.08    │ [a3f9c2d]⧉   │         │
 │  │             │ └──────────┴────────────────────────┴──────────────┘         │
-│  │             │ Parameters                                                   │  section 28
-│  │             │ ┌────────────────────────────┬──────────┬────────┐           │
-│  │             │ │ Parameter                  │    Value │ Unit   │           │  28 px rows
-│  │             │ │ Opening deduction minimum  │      0.1 │ m2     │           │
-│  │             │ │ Member end no-deduct max…  │      500 │ cm2    │           │
-│  │             │ └────────────────────────────┴──────────┴────────┘           │
 └──┴─────────────┴──────────────────────────────────────────────────────────────┘
        160                              the content pane
 ```
+
+(Amended 2026-09-23, I-325: the nav shows the four project areas in the roster's own order — the
+order AC-3 of the settings surfaces contract pins — the scopes read in words, the (i) follows the
+digest it explains, and the primary stands first under the pin with the lineage beneath it.)
 
 | Region | Purpose | Size | Empty | Error | Loading |
 |---|---|---|---|---|---|
 | section nav | the project's settings areas; Rule set carries `aria-current` | 160 × 100 % (`--drawer-w-min`), rows `--control-h` | — (an area with no screen is shown disabled with its reason in a tooltip) | — | — |
 | header | the title and the `(i)` that holds the caption | 100 % × 40 | — | — | — |
-| pinned edition | ONE line: the scope, the edition L-MEA-01 spells, and the content digest as a chip | 100 % × `--row-h` | the whole screen is the unpinned notice instead (I-28) | the root boundary (`src/app/error.tsx`) | `loading.tsx` bone at the row height |
-| lineage | the chain the pin was forked along, platform → tenant → project, as a 3-row grid | 100 % × 3 × `--row-h` | never — a pinned edition always has a chain, and its own step is in it | the root boundary | three bones at the row height |
-| parameters (primary) | every value a measurement on this project reads | flex × `--row-h` rows | never — an edition with no parameter is not an edition | the root boundary | bones at the row height |
+| pinned edition | ONE line: the scope in words (EnumLabel), the edition L-MEA-01 spells, the content digest as an IdChip, then the `(i)` | 100 % × `--row-h` | the whole screen is the unpinned notice instead (I-28) | the root boundary (`src/app/error.tsx`) | `loading.tsx` bone at the row height |
+| parameters (primary) | every value a measurement on this project reads — first under the pin (I-325) | flex × `--row-h` rows; takes the height the pane leaves and scrolls inside its own hairline frame, never cut by the status bar | never — an edition with no parameter is not an edition | the root boundary | bones at the row height |
+| lineage | the chain the pin was forked along, platform → tenant → project, as a 3-row grid, under the primary | 100 % × 3 × `--row-h` | never — a pinned edition always has a chain, and its own step is in it | the root boundary | three bones at the row height |
 | unpinned (the empty state) | `ShellEmptyState`: why there is nothing, and the one way onward | centred in the pane | this IS the empty leg | — | — |
 
 Built on Design Direction 00 §3.6's Settings template, whose geometry outranks this file where the
@@ -58,6 +62,9 @@ M3, inc-304).
   into the `src/ui/strings` barrel is owed by the node that owns it (recorded IOU, never a
   comment in src — Q-17).
 - **I-25 — scope, name, version and parameter keys are model data, rendered verbatim.**
+  *(Amended by I-325 for the SCOPE: a scope is an enum and reads in words through EnumLabel —
+  "Platform", "Workspace", "Project" — with the stored value in the label's technical channel and
+  on `data-scope`. Name and version stay verbatim mono; the paragraph below stands for them.)*
   Identity is `(scope, name, version)` and the closed key set is the contract; `tenant`,
   `IS1200_IN`, `2026.08` and `openingDeductionMinM2` are source keys, so they render in
   `var(--font-mono)` exactly as stored (the BasisChip precedent: the enum value, never
@@ -141,6 +148,21 @@ M3, inc-304).
   sentences are not deleted — they are law, and they are one press away from the heading
   they explain.
 - **I-209 — the screen states itself on its root, and every identifier renders through the IdChip (session 4, AM-08 Part 2's rubric read as CLAUDE.md reads it).** The edition's digest and each lineage step's digest are IdChips (`cx-ruleset-digest` now the chip's class); `ruleset-edition-digest` stays the chip's own id. The root carries `data-screen-root` and a `data-state` a reader of the DOM can take after `settled()` — `ready`, `empty`, or the screen's own word — which is the rubric's twelfth criterion and was unstated here. An identifier a person meets on this screen (an account id, a content digest, a source key) is an IdChip: the chip measure on screen, the whole value in `data-value`, on the tooltip and on the clipboard, never a raw uuid, hex digest or handle in body text (R-UI-082). Where an earlier Interpretation of this file ruled a digest rendered whole in the document, this one amends it: the whole value is the chip's DATA and the copy it hands over, and the document shows the measure.
+- **I-325 — the root states the truth, the scope reads in words, and the primary stands first (session 7 craft pass, R-UI-050/081/083/085, AM-08).**
+  The look of 2026-09-23 lowered `states` 5 → 2: the root said `data-state="unpinned"` over a
+  pinned screen and `"ready"` over the no-pin notice — inverted. The pinned view is `ready` and the
+  no-pin answer is `empty` (§2's own word), and the AC-4 suite now asserts both so they cannot
+  flip back. A scope is an enum, so it renders through EnumLabel under this screen's words
+  (`ruleset_scope_*`: Platform · Workspace · Project) — `tenant` on screen contradicted the product's
+  own "workspace" (s-auth I-11); the stored value stays on `data-scope` and in the label's technical
+  channel, where every suite reads it. The Parameters grid — the primary — moves to directly under
+  the pin line and the Lineage beneath it: three rows that repeat one digest had taken the fold
+  above the values every measurement reads. The screen's column is bounded to the height the frame
+  leaves (the Author edition screen's chain, B-17) and the primary is the region that gives up
+  height, scrolling inside its own hairline frame rather than being cut mid-row by the status bar
+  at 1280×800. The `(i)` follows the digest it explains instead of standing alone at the far edge.
+  The digest is the shipped IdChip drawn by its own rules: the `8ch` clip this screen's sheet still
+  laid over the chip (I-206) cut its copy target off, and is withdrawn.
 
 ## 1. Layout and hierarchy
 
@@ -172,39 +194,26 @@ true of a screen that spends a heading line on naming what the line under the ti
 The screen is called "Rule set" and the first thing under it IS the pin, so the section is named
 for a screen reader (`aria-label` `ruleset_edition_heading`) and shows ONE line
 (`<p class="cx-ruleset-pin">`, `--row-h` tall, flex, gap `var(--space-2)`), with the `(i)`
-holding `ruleset_edition_hint` at its trailing edge:
+holding `ruleset_edition_hint` right after the digest it explains (I-325 — no longer pushed to the
+pane's far edge):
 
 - `<span data-testid="ruleset-edition-identity">` — the scope in `<span data-scope={scope}>`
-  (`var(--font-mono)` `var(--text-12)` `var(--ink-muted)`), then the name, a ` @ ` joiner and
-  the version as one mono run (`IS1200_IN @ 2026.08`, L-MEA-01's own spelling),
-  `var(--text-13)` `var(--weight-body-medium)` `var(--ink-code)`. All three identity fields are
-  visible text (AC-4), and the digest is NOT inside this element: identity and digest are two
-  fields and neither substitutes for the other (L-MEA-01).
-- `ruleset_digest_label` as a muted 12 px word, then
-  `<span data-testid="ruleset-edition-digest" data-technical>` — the digest, whole in the
-  document and drawn at the chip measure per I-206.
+  through EnumLabel under `ruleset_scope_{scope}` (the UI face, `var(--text-12)`
+  `var(--ink-muted)`; I-325), then the name, a ` @ ` joiner and the version as one mono run
+  (`IS1200_IN @ 2026.08`, L-MEA-01's own spelling), `var(--text-13)` `var(--weight-body-medium)`
+  `var(--ink-code)`. All three identity fields are in the element's text (AC-4 — the stored scope
+  in EnumLabel's technical channel), and the digest is NOT inside this element: identity and
+  digest are two fields and neither substitutes for the other (L-MEA-01).
+- `ruleset_digest_label` as a muted 12 px word, then the IdChip `ruleset-edition-digest` — the
+  short form on screen, the whole digest in `data-value`, on the tooltip and the clipboard (I-209),
+  drawn by the chip's own rules only.
 
-### Lineage (`<section aria-labelledby>`)
-
-A section line with `<h2>` `ruleset_lineage_heading` and the `(i)` holding
-`ruleset_lineage_hint`, then one `DataTable` (table id `ruleset-lineage`) inside
-`<div data-testid="ruleset-lineage">`: exactly the steps the view answers, platform → tenant →
-project, one 28 px row each carrying `data-testid="ruleset-lineage-step"` and `data-scope`,
-three columns —
-
-- **Scope** (120, the frozen key column) — the step's own scope, mono, muted: model data,
-  rendered verbatim (I-25).
-- **Edition** (280) — that step's `name @ version`, mono.
-- **Content digest** (160, headed by `ruleset_digest_label`) — that step's digest, as I-206
-  draws one. At M0 all three read identically — that sameness is the verbatim-fork fact this
-  section exists to show, and the day an authored re-pin diverges a step (M3) the difference is
-  visible here without a redesign.
-
-### Parameters (`<section aria-labelledby>`)
+### Parameters (`<section aria-labelledby>`) — the primary, first under the pin (I-325)
 
 A section line with `<h2>` `ruleset_parameters_heading`, then one `DataTable` (table id
-`ruleset-parameters`) inside `<div data-testid="ruleset-parameter-table">`: one 28 px row per
-parameter in exactly the view's order, each carrying `data-testid="ruleset-parameter-row"` and
+`ruleset-parameters`) inside `<div data-testid="ruleset-parameter-table">` — a hairline,
+`--radius-4` frame that takes the height the pane leaves and scrolls inside itself: one 28 px row
+per parameter in exactly the view's order, each carrying `data-testid="ruleset-parameter-row"` and
 `data-param={key}`, three columns (I-207) —
 
 - **Parameter** (320, the frozen key column, so the grid names the row by it — `rowheader`,
@@ -214,6 +223,22 @@ parameter in exactly the view's order, each carrying `data-testid="ruleset-param
 - **Value** (160, right-aligned) — `formatUserFigure(value)`, mono, `tabular-nums
   slashed-zero`: grouping is the seam's and precision is the edition's (I-27, L-FMT-02).
 - **Unit** (96) — the shipped UnitBadge over the view's unit string (I-27).
+
+### Lineage (`<section aria-labelledby>`) — under the primary (I-325)
+
+A section line with `<h2>` `ruleset_lineage_heading` and the `(i)` holding
+`ruleset_lineage_hint`, then one `DataTable` (table id `ruleset-lineage`) inside
+`<div data-testid="ruleset-lineage">`: exactly the steps the view answers, platform → tenant →
+project, one 28 px row each carrying `data-testid="ruleset-lineage-step"` and `data-scope`,
+three columns —
+
+- **Scope** (120, the frozen key column) — the step's own scope through EnumLabel, muted:
+  "Platform", "Workspace", "Project" (I-325), the stored value on the row's `data-scope`.
+- **Edition** (280) — that step's `name @ version`, mono.
+- **Content digest** (160, headed by `ruleset_digest_label`) — that step's digest as an IdChip
+  (I-209). At M0 all three read identically — that sameness is the verbatim-fork fact this
+  section exists to show, and the day an authored re-pin diverges a step (M3) the difference is
+  visible here without a redesign.
 
 Nothing on this screen is interactive beyond the two disclosures, the grid's own column
 furniture and the one link the empty state carries: the screen is read-only, and authoring is
@@ -268,6 +293,8 @@ Every measurement on this project reads exactly these values.** · `ruleset_edit
 **Pinned edition** · `ruleset_edition_hint` **The identity names this edition; the digest
 fingerprints its exact content. Two editions with one digest hold identical values.** ·
 `ruleset_identity_label` **Identity** · `ruleset_digest_label` **Content digest** ·
+`ruleset_scope_platform` **Platform** · `ruleset_scope_tenant` **Workspace** ·
+`ruleset_scope_project` **Project** (I-325: the words a scope is read by) ·
 `ruleset_lineage_heading` **Lineage** · `ruleset_lineage_hint` **The chain this pin was
 forked along, platform first. A verbatim fork carries its parent's digest unchanged.** ·
 `ruleset_lineage_col_scope` **Scope** · `ruleset_lineage_col_edition` **Edition** ·
@@ -319,10 +346,11 @@ Semantic aliases only (§4's rule 3 — no `--graphite-*`/`--beam-*` reference o
 source): `--ink` / `--ink-muted` / `--ink-code` · `--line` through `--hairline` · the density
 and layout tokens the screen is drawn at — `--row-h`, `--control-h`, `--gap-section`,
 `--drawer-w-min` · `--space-1/2` · `--text-12/13/14/20` · `--font-mono` ·
-`--weight-body-medium` / `--weight-heading` · `--motion-state` / `--ease`. Px literals: NONE.
-The digest's measure is `8ch` because what it fixes is a count of CHARACTERS of a fingerprint
-(I-206), and every other measure on this screen is a token or a grid column's own width.
-`tests/ui/craft/mechanical.test.ts` scores this file for both.
+`--weight-body-medium` / `--weight-heading` · `--radius-4` (the primary's frame) · the shell's
+`--topbar-h` / `--toolbar-h` / `--status-h` (the height the frame leaves, I-325) ·
+`--motion-state` / `--ease`. Px literals: NONE, and no `ch` measure either — the digest is the
+IdChip's own (I-325 withdraws I-206's `8ch`); every measure on this screen is a token or a grid
+column's own width. `tests/ui/craft/mechanical.test.ts` scores this file for both.
 
 ## 6. Themes
 
@@ -338,7 +366,7 @@ no copper appears anywhere on this screen — it carries no act.
 
 Route: `/t/{tenantId}/p/{projectId}/settings/ruleset`. Test ids, exactly the seven of the
 contract — the same closed roster, on the elements §1 now rules: `ruleset-edition-identity` ·
-`ruleset-edition-digest` (the chip, whole in the document per I-206) · `ruleset-lineage` (the
+`ruleset-edition-digest` (the IdChip, its whole value in `data-value` per I-209) · `ruleset-lineage` (the
 grid's container) · `ruleset-lineage-step` (each grid row, three for a pinned view) ·
 `ruleset-parameter-table` (the grid's container) · `ruleset-parameter-row` (each grid row,
 `data-param={key}`) · `ruleset-unpinned` (the wrapper; ShellEmptyState's own ids nest inside).
@@ -348,7 +376,9 @@ Behavioural hooks without new ids: `data-scope` on the identity's scope span and
 lineage row, asserting the platform → tenant → project order; `role="rowheader"` on each
 parameter's label cell (what `<th scope="row">` was before the grid); `data-technical` on both
 digest elements; `aria-current` on the nav's current row; the `<h1>`/`<h2>` hierarchy per §1;
-the unpinned action's `href` `/t/{tenantId}`.
+the unpinned action's `href` `/t/{tenantId}`; `data-screen-root` with `data-state` on
+`cx-ruleset` — `ready` for a pinned view, `empty` for the no-pin answer (I-325, asserted by the
+AC-4 suite); each scope's EnumLabel `data-value` (the stored scope).
 
 Acceptance (AC-4) mounts `RulesetSettingsSection` under jsdom with @testing-library/react
 over two fixtures in `tests/rulesets/**`: a pinned view built from the exported seed content
@@ -357,3 +387,14 @@ three-step lineage sharing that digest; and the no-pin shape, asserting the abse
 and that no pinned-view id renders beside it. No new journey ships (the J-000/J-001 roster
 is frozen); painted facts are graded by the design gallery's baselines when this screen's
 consumers land, per R-UI-011.
+
+## Changelog
+
+- 2026-09-23 — session 7 craft pass (the look lowered `states` 5 → 2): I-325. The root states
+  `ready` over a pinned view and `empty` over the no-pin answer (it had the two inverted); a scope
+  reads in words through EnumLabel (Platform · Workspace · Project, `ruleset_scope_*`); the
+  Parameters grid stands first under the pin, framed and bounded to the height the frame leaves,
+  with the Lineage beneath it; the `(i)` follows the digest; the `8ch` clip over the IdChip is
+  withdrawn; the three row ids read `TESTIDS` instead of literals; the wireframe's nav shows the
+  four areas in the roster's own order. The four `s-settings-ruleset` pictures move and are the
+  gate's to re-take.

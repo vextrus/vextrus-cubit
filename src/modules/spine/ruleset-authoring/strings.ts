@@ -13,6 +13,8 @@ export const rulesetAuthorStrings = {
   ruleset_author_parent_label: "Forked from",
   ruleset_author_digest_label: "Content digest",
   ruleset_author_version_label: "Version",
+  /** The slot is data — the next version after the pinned one, an example and never a value (§3). */
+  ruleset_author_version_placeholder: "e.g. {version}",
 
   ruleset_author_col_parameter: "Parameter",
   ruleset_author_col_pinned: "Pinned value",

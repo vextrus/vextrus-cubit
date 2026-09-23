@@ -85,7 +85,7 @@ export const DIAMETER = "diameter";
 /**
  * The names the schedules state a foundation's readings under, beyond its section (interfaces) —
  * NAMED as members of the store's closed roster rather than restated beside it, so the dimension
- * the schedule reader stores and the one a rail binds are one name (I-315, B-17).
+ * the schedule reader stores and the one a rail binds are one name (I-322, B-17).
  */
 export const DEPTH = "depth" satisfies ScheduleDimension;
 export const DIA = "dia" satisfies ScheduleDimension;
@@ -97,6 +97,22 @@ export const WORKING_ALLOWANCE_PARAMETER = "earthworkWorkingAllowance";
 export const DEPTH_EXTRA_PARAMETER = "earthworkDepthExtra";
 export const BLINDING_PROJECTION_PARAMETER = "blindingProjection";
 export const BLINDING_THICKNESS_PARAMETER = "blindingThickness";
+
+/**
+ * The same roster by the SITE fact each parameter stands in for — the one pairing, read by
+ * `enteredOrDerived` for the rails and by the site-facts panel to say which facts the pinned edition
+ * already states (I-327). The ground level and the water table are facts about THIS ground that no
+ * clause of a rule set states, so they have no entry (Q-07).
+ */
+export const EDITION_PARAMETER_OF = Object.freeze({
+  WORKING_ALLOWANCE: WORKING_ALLOWANCE_PARAMETER,
+  DEPTH_EXTRA: DEPTH_EXTRA_PARAMETER,
+  BLINDING_PROJECTION: BLINDING_PROJECTION_PARAMETER,
+  BLINDING_THICKNESS: BLINDING_THICKNESS_PARAMETER,
+} as const satisfies Partial<Record<SiteFact, string>>);
+
+/** A site fact the pinned edition may state in place of an entry. */
+export type DerivableSiteFact = keyof typeof EDITION_PARAMETER_OF;
 
 /** What a rail found for one row before it read anything off the drawing. */
 export type Read = {
@@ -228,9 +244,10 @@ export function dimensionOf(read: Read, name: string): Measure | undefined {
  * entered reading cites the act that entered it and a derived one cites the edition and the parameter
  * by name, so either way a reader can go back to what the figure stood on (L-QTY-01, L-QTY-03).
  */
-export function enteredOrDerived(setup: RailSetup, fact: SiteFact, parameterKey: string): Measure | undefined {
+export function enteredOrDerived(setup: RailSetup, fact: DerivableSiteFact): Measure | undefined {
   const entered = setup.siteFacts[fact];
   if (entered !== undefined) return { value: entered.value, unit: entered.unit, basis: "ENTERED", source: `act:${entered.actId}` };
+  const parameterKey = EDITION_PARAMETER_OF[fact];
   const stated = setup.edition.parameters[parameterKey];
   if (stated === undefined) return undefined;
   return { value: stated.value, unit: stated.unit, basis: "DERIVED", source: `edition:${setup.edition.digest}#${parameterKey}` };

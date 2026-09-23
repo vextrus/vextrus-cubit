@@ -14,26 +14,22 @@
   flex-direction: column;
   gap: var(--gap-section);
   min-width: 0;
-  /* I-214: the roster is the primary region and fills the work surface; the form and the history
-     follow beneath it and the page scrolls to them. */
-  height: 100%;
-  min-height: 0;
 }
 
+/* I-214 as amended (session 7): the roster is sized to its rows — header and rows, and never deeper
+   than ten rows, past which it scrolls inside its own frame. A one-row roster in a sixteen-row frame
+   was a blank page that pushed the screen's one act and the whole record below the fold (R-UI-081);
+   the list, the form and the history now stand on one screen, as the wireframe draws them. */
 .cx-participants-table {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
-  /* The roster's frame is sixteen rows deep whatever the roster holds (I-214): a grid is a frame the
-     rows scroll inside, and a two-member project reads as the same surface a forty-member one does.
-     Sixteen, not more: at 1440x900 the screen with a granted role on the history and the last-PRINCIPAL
-     refusal standing must stay under twice the viewport, the cap every capture is held to. */
-  min-height: calc(var(--row-h) * 16);
+  max-height: calc(var(--row-h) * 11);
 }
 
 .cx-participants-table > * {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
 }
 
@@ -112,13 +108,20 @@
   padding: 0;
 }
 
+/* A fieldset's RENDERED legend is never a grid item — it sits on the fieldset's border and the grid
+   lays out the rest, which put the choices into the 160 px label column. A floated legend is not the
+   rendered legend (HTML's fieldset rendering), so it joins the grid as its first item and the float
+   itself is ignored there; the two columns are then named outright. */
 .cx-participants-field-label {
+  float: inline-start;
+  grid-column: 1;
   padding: 0;
   font-size: var(--text-13);
   color: var(--ink-muted);
 }
 
 .cx-participants-choices {
+  grid-column: 2;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -126,10 +129,21 @@
   min-width: 0;
 }
 
-/* An enum chip is the model's own word where the act's taxonomy is what a person is choosing from
-   (I-47): the closed roster reads in the mono face so a choice and a record read alike. */
-.cx-participants-enum {
-  font-family: var(--font-mono);
+/* One chip, one line (R-UI-084): a label never wraps inside its pill. A member's address past the
+   chip's measure ends in an ellipsis and is whole on the chip's tooltip; a role or a direction reads
+   in words through EnumLabel at the chip's own type, not the label's body size (I-211 as amended). */
+.cx-participants-choices > .cx-chip {
+  max-inline-size: 100%;
+}
+
+.cx-participants-choices .cx-participants-choice {
+  overflow: hidden;
+  max-inline-size: calc(var(--drawer-w-min) * 2);
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cx-participants-alert {

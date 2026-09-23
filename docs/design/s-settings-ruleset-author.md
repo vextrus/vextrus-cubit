@@ -5,7 +5,7 @@
 │▲ │ ws › Trace Survey ▾ › Settings › Author edition                  ⌘K ⟳ ✉ ◉          │  topbar 40
 │  ├─────────────────┼──────────────────────────────────────────────────────────────────┤
 │▦ │ Project settings│ Author edition ⓘ                                                 │  header 40
-│▤ │  Rule set       │ Forked from  project IS1200_IN @ 2026.08  a3f9c2d…  Version [   ] │  28  y=96
+│▤ │  Rule set       │ Forked from  Project IS1200_IN @ 2026.08  Content digest [a3f9c2d]⧉│  28  y=96
 │⚙ │  Participants   │ ┌───────────────────────────────┬───────────┬───────────┬──────┐ │
 │  │  Site facts   ⓘ │ │ Parameter                     │Pinned val.│Authored v.│ Unit │ │  28 sticky
 │  │ ▌Author edit. ◂ │ │ Opening deduction minimum     │       0.1 │[   0.1   ]│ m2   │ │  28  y=152
@@ -13,8 +13,8 @@
 │  │                 │ │ Embedded duct no-deduct max…  │       100 │[   100   ]│ cm2  │ │
 │  │                 │ │ Finish opening deduction min. │       0.1 │[   0.1   ]│ m2   │ │
 │  │                 │ │ … 17 rows, the pin's own order, frozen Parameter column …     │ │
-│  │                 │ └───────────────────────────────┴───────────┴───────────┴──────┘ │
-│  │                 │                                            ● Author this edition │  28
+│  │                 │ └───────────────────────────────┴───────────┴───────────┴──────┘ │  (shrinks to
+│  │                 │              Version [ e.g. 2026.09 ]      ● Author this edition │  28 its rows)
 │  │                 │                                                                  │  status 20
 │  │       160       │                       ~1184 wide                                 │
 └──┴─────────────────┴──────────────────────────────────────────────────────────────────┘
@@ -35,16 +35,20 @@ L-ACT-02, L-ACT-03, AM-04, AM-11, R-UI-001/003/004/005/010/012/020/021/050/060/0
 C-05, Q-11. Direction `00-direction.md` §3.6 rules the geometry and outranks this file where the
 two disagree. Conventions of the earlier Decisions bind: `cx-` classes, tokens-only colour and
 motion, `cx-reticle` from its single home, no `[data-theme]` selector in authored CSS, model
-values verbatim in mono (s-settings-ruleset I-25), digests whole in the document (I-26/I-206).
+values verbatim in mono (s-settings-ruleset I-25; a scope is an enum and reads in words, I-325),
+digests whole in the chip's data (I-26/I-206 as I-209 and I-326 read them).
 Chrome is shipped primitives only — core Button, Input, NumberInput, Skeleton, Tooltip, Popover,
-BasisChip, UnitBadge, QuantityText, EmptyState; data DataTable v2; the one RefusalState and the
+BasisChip, UnitBadge, QuantityText, EmptyState, IdChip, EnumLabel; data DataTable v2; the one RefusalState and the
 one ConsequenceDialog — plus the `cx-ruleset-author-*` classes this file rules. Copy lives in
 `src/modules/spine/ruleset-authoring/strings.ts`, export `rulesetAuthorStrings`, keys
 `ruleset_author_…`; JSX carries no string literal beyond test ids and fixed attribute values.
 
 ## 0. Interpretations (numbering continues the highest recorded, I-261)
 
-- **I-262 — the parent is one line, and it is the pin.** The screen opens on what is being forked,
+- **I-262 — the parent is one line, and it is the pin.** *(Amended by I-326: the scope reads in
+  words through EnumLabel; the digest is the shipped IdChip — the Rule set screen's own spelling of
+  the same fingerprint, I-209 — its whole value in `data-value` and still on `data-digest`; the
+  `8ch` measure and the version field leave this line.)* The screen opens on what is being forked,
   not on a form: `ruleset-author-parent` is a single `--control-h` line holding the label, the
   scope in `data-scope`, `name @ version` as one mono run, and the parent's content digest — whole
   in the document, `user-select: all`, drawn at the `8ch` chip measure under `data-technical`
@@ -63,8 +67,9 @@ one ConsequenceDialog — plus the `cx-ruleset-author-*` classes this file rules
   has typed. A diff that hides what did not move cannot be read against the screen beside it and
   cannot be checked for the thing a reader actually fears: a value moved by accident. Changed rows
   are marked, never filtered, never floated to the top.
-- **I-265 — units, keys and methods are the pin's and are never authored.** The authored input
-  carries the pin's unit as its suffix and the row's `data-unit`; there is no unit control, no key
+- **I-265 — units, keys and methods are the pin's and are never authored.** *(Amended by I-326:
+  the unit is said ONCE, by the Unit column — the input's suffix is withdrawn.)* The authored row
+  carries the pin's unit in its Unit column and on the row's `data-unit`; there is no unit control, no key
   column (s-settings-ruleset I-207 — the key is `data-param`, not body text), and nothing on this
   screen states a method. `AuthorRulesetEditionInput` carries `values` only, so a verbatim fork —
   every field left as pinned — is a lawful submission that MINTS: what it moves is the identity (a
@@ -110,6 +115,25 @@ one ConsequenceDialog — plus the `cx-ruleset-author-*` classes this file rules
   (`settings/areas.ts`) takes its labels from it and the screen declares its crumb with the same
   string through `useShellPage`, so the row a reader clicks and the crumb they land on cannot drift
   apart (R-UI-084).
+- **I-326 — one spelling per fact, one right edge per column, and the version beside its door
+  (session 7 craft pass, R-UI-021/082/083/085/086, B-17).** The look of 2026-09-23 found every row
+  reading "0.1 m2 m2": the NumberInput's suffix and the Unit column each said the unit, a second
+  spelling of one fact, and the suffix's varying width left the authored figures on five different
+  right edges. The suffix is withdrawn; the Unit column says the unit, and every authored field is
+  one `14ch` measure (a count of characters of a decimal), so the column's numerals share one right
+  edge with the ENTERED glyph following it on a changed row. The parent's digest had been raw 8-char
+  mono text beside a Rule set screen that draws the same fingerprint as a 7-char IdChip: it is the
+  IdChip now (the owed variant I-262 waited on is moot — I-209 settled that the whole value is the
+  chip's data), inside `ruleset-author-parent`, which keeps `data-digest`. The parent's scope reads
+  in words through EnumLabel under the settings area's one table (`scopeLabel`, the Rule set
+  screen's `ruleset_scope_*`), and the label words are no longer drawn in mono. The version field
+  moves from the identity line's far end to the act row, beside the door that needs it, and offers
+  the next version after the pin as its placeholder (`ruleset_author_version_placeholder`, from
+  `suggestedVersion`) — an example, never a value: the field stays empty and nothing is submitted a
+  person did not type. The grid shrinks to its rows (still bounded, still scrolling inside itself
+  past the height the screen has left), so the act row follows the last row instead of standing
+  under a 100 px empty well. The authored fields take the core input surface the version field
+  does: grey `--surface-sunken` fields read as disabled in light (R-UI-086).
 - **I-271 — an area key is not a test id.** `settings-area` is registered, and it is the one id every
   nav row carries; the area keys themselves (`ruleset`, `participants`, `site-facts`,
   `ruleset-author`) stay unregistered and are read off `data-area`. Registering `ruleset-author` and
@@ -130,15 +154,16 @@ one ConsequenceDialog — plus the `cx-ruleset-author-*` classes this file rules
 |---|---|---|---|---|
 | section nav | the project's four settings areas, `Author edition` current | `--drawer-w-min` 160 × 100 %, rows `--control-h` | the sub-navigation Decision's | — (its own Decision) |
 | header | `<h1>` `ruleset_author_heading` at `--text-20` `--weight-heading`, then the `(i)` — a ghost Popover trigger one `--control-h` square holding `ruleset_author_caption` and `ruleset_author_version_hint`. No subtitle anywhere | 100 % × 40 | `--ink`, `--text-20`, `--weight-heading`, `--control-h` | — |
-| identity line | `ruleset-author-parent` (I-262) at the leading edge; at the trailing edge the version label and `ruleset-author-version`, a core Input, `--control-h`, 160 measure, `inputMode="text"`, `aria-label` `ruleset_author_version_label` | 100 % × `--control-h`; `--gap-section` above | `--ink-muted` (label, scope), `--ink-code` (identity, digest), `--font-mono`, `--text-12/13`, `--space-2/3` | the unpinned state replaces the whole pane |
-| diff grid (primary) | `ruleset-author-diff`, one DataTable (table id `ruleset-author-diff`), sticky 28 px header, frozen Parameter column, one `ruleset-author-diff-row` per pinned parameter in the pin's order (§1.1) | flex × `--row-h` 28 rows; `--gap-section` above; **1184 × 640 = 63 % of `shell-main`** at 1440×900, 1024 × 540 = **59 %** at 1280×800 | `--row-h`, `--cell-px`, `--cell-py`, `--text-13`, `--font-mono`, `--ink`, `--ink-muted`, `--line` | never — an edition with no parameter is not an edition |
+| identity line | `ruleset-author-parent` (I-262, I-326): the label, the scope through EnumLabel, `name @ version` in mono, the digest label and the digest as an IdChip | 100 % × `--control-h`; `--gap-section` above | `--ink-muted` (labels, scope), `--ink-code` (identity), `--font-mono` (identity only), `--text-12/13`, `--space-2/3` | the unpinned state replaces the whole pane |
+| diff grid (primary) | `ruleset-author-diff`, one DataTable (table id `ruleset-author-diff`), sticky 28 px header, frozen Parameter column, one `ruleset-author-diff-row` per pinned parameter in the pin's order (§1.1) | `--row-h` 28 rows; `--gap-section` above; as tall as its rows and never taller than the height the screen has left (I-326 — seventeen rows at 1440×900 stand whole with no empty well under them; past the bound it scrolls inside itself) | `--row-h`, `--cell-px`, `--cell-py`, `--text-13`, `--font-mono`, `--ink`, `--ink-muted`, `--line` | never — an edition with no parameter is not an edition |
 | refusal slot | `ruleset-author-refusal`, exactly one RefusalState, `max-inline-size` 420 (the s-settings row-refusal measure), mounted only while a refusal stands | 100 % × auto, `--space-3` above | RefusalState's own | absent |
-| act row | the screen's ONE primary at the trailing edge: core Button `ruleset-author-submit`, label `ruleset_author_submit` | 100 % × `--control-h-lg` 32; `--space-4` above | `--accent` (the primitive's), `--control-h-lg` | — |
+| act row | the status line at the leading edge; at the trailing edge the version label and `ruleset-author-version` (a core Input, `--control-h`, 160 measure, `inputMode="text"`, `aria-label` `ruleset_author_version_label`, placeholder `ruleset_author_version_placeholder` over the next version after the pin — I-326), then the screen's ONE primary: core Button `ruleset-author-submit`, label `ruleset_author_submit` | 100 % × `--control-h-lg` 32; `--space-4` above; follows the grid's last row | `--accent` (the primitive's), `--control-h`, `--control-h-lg`, `--ink-muted` (placeholder, the Input's own) | — |
 | status line | `<p role="status" aria-live="polite">` at the leading edge of the act row: pending, then done; after a commit the `ruleset-author-see-ruleset` link stands beside it | 100 % × `--text-13` min-height | `--ink-muted`, `--text-12`, `--ink-link` (the link) | empty string, height kept |
 | unpinned | `ruleset-unpinned` wrapping one `EmptyState`: glyph, heading, one sentence, one action | centred in the pane | EmptyState's own | this IS the empty leg |
 
 Above the fold: the first diff row stands at **y = 152 px** below the top of `shell-main` at both
-viewports — 24 pane padding, 40 header, 16, 28 identity line, 16, 28 sticky grid header — inside
+viewports — 24 pane padding, 40 header, 16, 28 identity line, 16, 28 sticky grid header (I-326
+moves the version field out of the identity line and leaves its height as it was) — inside
 R-UI-081's 240 and inside the rubric's 120…240 band. Nothing on the page scrolls sideways; the grid
 scrolls inside itself. Exactly one primary, no second right column, no inspector (nothing on this
 screen is selectable).
@@ -150,11 +175,13 @@ screen is selectable).
 - **Pinned value** — 180, right-aligned: `QuantityText` over the pin's decimal — grouping is the
   figure seam's, precision is the edition's — mono, `tabular-nums slashed-zero`. Read-only, and on
   a changed row it goes `--ink-muted`: what was true recedes behind what will be.
-- **Authored value** — 220: the shipped `NumberInput` `ruleset-author-value`, `--control-h`,
+- **Authored value** — 240: the shipped `NumberInput` `ruleset-author-value`, `--control-h`, one
+  `14ch` measure on every row so the column's figures share one right edge (I-326, R-UI-085),
   decimal-only, pre-filled with the pinned decimal, its blur display the same grouped reading as
   the column beside it (the primitive's own lakh/crore-on-blur rule, R-UI-010 — one home for the
   figure seam), `aria-label` `ruleset_author_value_label` filled with the row's parameter label,
-  the pin's unit as the muted suffix (I-265). On a changed row the field's ink is `--ink` at
+  and no unit suffix — the Unit column says the unit, once (I-265 as amended by I-326), and the
+  field takes the core input surface. On a changed row the field's ink is `--ink` at
   `--weight-body-medium` and the shipped `BasisChip` for `ENTERED` (✎, R-UI-002) stands at the
   cell's trailing edge — Direction §5 rule 7's edited-cell glyph, so the mark survives greyscale.
 - **Unit** — 96: the shipped `UnitBadge` over the pin's unit string, muted.
@@ -224,6 +251,8 @@ be one this project has not used.** ·
 `ruleset_author_parent_label` **Forked from** ·
 `ruleset_author_digest_label` **Content digest** ·
 `ruleset_author_version_label` **Version** ·
+`ruleset_author_version_placeholder` **e.g. {version}** (the slot is data — the next version after
+the pin's, from `suggestedVersion`; an example and never a value, I-326) ·
 `ruleset_author_col_parameter` **Parameter** ·
 `ruleset_author_col_pinned` **Pinned value** ·
 `ruleset_author_col_authored` **Authored value** ·
@@ -263,25 +292,26 @@ reordering. Every duration is a token zeroed at source under `prefers-reduced-mo
 
 Semantic aliases and density/layout tokens only (Direction §4 rule 3; a `--graphite-*`/`--beam-*`
 reference here is a `cubit/no-primitive-token` failure): `--ink` / `--ink-muted` / `--ink-code` /
-`--ink-disabled` / `--ink-link` · `--surface-app` / `--surface-sunken` (the fields) /
-`--surface-hover` · `--line` through `--hairline` · `--line-focus` (the reticle's stroke) ·
+`--ink-disabled` / `--ink-link` · `--surface-app` (every field, the core Input's own surface —
+I-326) / `--surface-hover` · `--line` through `--hairline` · `--line-focus` (the reticle's stroke) ·
 `--accent` (the one primary, the primitive's own) · `--row-h` · `--control-h` / `--control-h-lg` ·
 `--cell-px` / `--cell-py` · `--drawer-w-min` · `--gap-section` · `--space-2/3/4/6` ·
 `--text-12/13/20` · `--font-mono` · `--weight-body-medium` / `--weight-heading` · `--radius-4` ·
 `--motion-state` / `--ease`. The ENTERED glyph's colour is BasisChip's own basis token (R-UI-002,
 exempt as itself semantic); the act copper appears exactly once, on the ConsequenceDialog's
 confirm, and nowhere on this screen. Px literals, closed set: the 40 px header, the 160 version
-measure, the refusal's 420, the digest's `8ch` chip measure (I-206), and the grid's four column
-widths 360/180/220/96 — every one a multiple of 4. Any other literal is a defect and
+measure, the refusal's 420, and the grid's four column widths 360/180/240/96 — every one a multiple
+of 4; one `ch` measure, the authored field's `14ch` (a count of characters of a decimal, I-326). The
+digest's `8ch` is withdrawn: the IdChip draws itself. Any other literal is a defect and
 `tests/ui/craft/mechanical.test.ts` scores this file for it.
 
 ## 6. Themes
 
 Dark is the default this screen is first seen in and light is complete; every difference arrives
 through token values (R-UI-001) and `ruleset-author.css` contains no `[data-theme]` selector. What
-differs is only the graphite flip behind the aliases: the fields sit on `--surface-sunken`, which
-is the darker well in dark and the lighter one in light, and the grid's hairlines read as seams in
-both. Contrast facts held in both themes: every ink alias used on the app surface ≥ 4.5:1,
+differs is only the graphite flip behind the aliases: every field — the seventeen authored values
+and the version — sits on the core Input's own surface (I-326; a grey `--surface-sunken` well read
+as disabled in light), and the grid's hairlines read as seams in both. Contrast facts held in both themes: every ink alias used on the app surface ≥ 4.5:1,
 `--ink-link` ≥ 4.5:1, the muted pinned value on a changed row ≥ 4.5:1 (recession is ink weight, not
 a drop below the floor), the disabled door's label ≥ 3:1, act-600 on act-surface inside the dialog
 ≥ 4.5:1. Nothing means anything by colour alone: a changed row is marked by `data-changed`, by the
@@ -378,3 +408,12 @@ Two gaps in the registry, recorded rather than spelled around:
   capture's mask moves from the top bar's two chips to the top bar itself first, because a crumb and
   a user chip as wide as this run's own names push everything laid out between them a few pixels
   along, and one baseline met 27,332 / 27,402 / 27,462 px from three runs of one tree (AM-09 (4)).
+- 2026-09-23 — session 7 craft pass: I-326. The unit is said once (the Unit column; the field's
+  suffix is withdrawn) and every authored field is one `14ch` measure in a 240 column, so the
+  figures share one right edge; the parent's digest is the IdChip the Rule set screen draws it with
+  and its scope reads in words; the version field stands in the act row beside the door, with the
+  next version as its placeholder; the grid shrinks to its rows; the fields take the core input
+  surface. `tests/rulesets/ruleset-author-section.test.tsx` and the AC-3 limb of
+  `tests/ui/project-settings/settings-surfaces-contract.test.tsx` read the whole digest where the
+  chip keeps it (`data-value`), as the Rule set screen's AC-4 already does; `data-digest` is
+  unchanged. The four J-304 pictures move and are the gate's to re-take.

@@ -11,7 +11,10 @@ import { dimensionOf, UNITS, type Unit } from "@/core/units/canon";
 
 export const siteFactsStrings = {
   site_facts_heading: "Site facts",
-  site_facts_face: "Earthwork is unpriceable from drawings alone until these site facts are entered.",
+  // I-327: the face states what the panel below it actually defers — the facts nobody entered and the
+  // pinned edition does not state — and when nothing defers, it says that instead.
+  site_facts_face: "Earthwork is unpriceable from drawings alone until the deferred site facts below are entered.",
+  site_facts_face_complete: "Every site fact earthwork reads is entered here or stated by the pinned rule set.",
   site_facts_caption:
     "A site fact is a reading no drawing carries. Each one is entered as its own act, with the note it was read from, and is restated by entering it again.",
 
@@ -24,6 +27,8 @@ export const siteFactsStrings = {
   site_facts_absent_value: "—",
   /** The slots are data — the reading as it was written and the unit it was written in (§ 3). */
   site_facts_row_value: "{value} {unit}",
+  /** Where a fact nobody entered is read from instead: the pinned edition (L-MEA-06, I-327). */
+  site_facts_edition_source: "Stated by the pinned rule set",
 
   site_facts_fact_ground_level: "Existing ground level",
   site_facts_fact_water_table: "Water table level",

@@ -2,8 +2,9 @@
 // beyond test ids and fixed attribute values. The keys read `ruleset_…`, under the same discipline
 // as the tables in `src/ui/strings/*` (Design Decision I-24).
 //
-// "Workspace" rather than "tenant" in prose (s-auth I-11); `tenant` appears only as data on the
-// screen — the scope of an edition — which is model vocabulary and renders verbatim (I-25).
+// "Workspace" rather than "tenant" everywhere a person reads (s-auth I-11). A scope is an enum and
+// renders through EnumLabel under the words below; the stored value (`tenant`) travels in the
+// primitive's technical channel and on `data-scope`, never as body text (R-UI-083, I-25 as amended).
 export const rulesetStrings = {
   ruleset_heading: "Rule set",
   ruleset_caption: "Pinned when the project was created. Every measurement on this project reads exactly these values.",
@@ -12,6 +13,12 @@ export const rulesetStrings = {
   ruleset_edition_hint: "The identity names this edition; the digest fingerprints its exact content. Two editions with one digest hold identical values.",
   ruleset_identity_label: "Identity",
   ruleset_digest_label: "Content digest",
+
+  // The words each edition scope is read by (R-UI-083): `tenant` is "Workspace", the product's own
+  // word for it everywhere else (s-auth I-11).
+  ruleset_scope_platform: "Platform",
+  ruleset_scope_tenant: "Workspace",
+  ruleset_scope_project: "Project",
 
   ruleset_lineage_heading: "Lineage",
   // The chain's own columns: a step names the scope it was forked at, the edition it is, and the
@@ -62,4 +69,16 @@ export const rulesetParameterLabels: Readonly<Record<string, string>> = {
 /** The label a parameter is shown under, or the key itself when the table has no wording for it. */
 export function rulesetParameterLabel(key: string): string {
   return rulesetParameterLabels[`ruleset_param_${key}`] ?? key;
+}
+
+/** The words each scope is read by. A scope with no words here reads as itself: nothing is hidden. */
+const SCOPE_LABELS: Readonly<Record<string, string>> = {
+  platform: rulesetStrings.ruleset_scope_platform,
+  tenant: rulesetStrings.ruleset_scope_tenant,
+  project: rulesetStrings.ruleset_scope_project,
+};
+
+/** The label an edition's scope is shown under, through EnumLabel beside the stored value (R-UI-083). */
+export function rulesetScopeLabel(scope: string): string {
+  return SCOPE_LABELS[scope] ?? scope;
 }

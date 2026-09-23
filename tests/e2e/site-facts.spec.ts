@@ -18,7 +18,9 @@ import { REFUSALS } from "../../src/core/errors";
 // The barrel does not re-export the default (SEAM-PREFS keeps the roster beside the store's own
 // column), so the value is read from the file that declares it — never spelled "comfortable" here.
 import { DEFAULT_DENSITY } from "../../src/core/prefs/density";
+import { SEED_EDITION_CONTENT } from "../../src/core/rulesets/seed";
 import { SITE_FACTS } from "../../src/core/site-facts/law";
+import { editionStatedFacts } from "../../src/modules/takeoff/site-facts-ui/edition";
 import { dimensionOf, UNITS } from "../../src/core/units/canon";
 import { PROJECT_SETTINGS_AREA_NAMES, PROJECT_SETTINGS_PAGES } from "../../src/ui/shell/routes";
 import { SHomePage } from "./pages/s-home.page";
@@ -41,12 +43,26 @@ test.use({ viewport: { width: 1440, height: 900 } });
 /** The act this panel performs, as the one dialog publishes it (`data-act-type`). */
 const ACT_TYPE = "AUTHOR_SITE_FACT";
 
-/** The screen's one helper line, verbatim (`site_facts_face`, the Decision § 3). */
-const FACE = "Earthwork is unpriceable from drawings alone until these site facts are entered.";
+/** The screen's one helper line, verbatim (`site_facts_face`, the Decision § 3, amended by I-327). */
+const FACE = "Earthwork is unpriceable from drawings alone until the deferred site facts below are entered.";
 
-/** What a row says about where its figure came from (§ 1.1): entered by a person, or not yet stated. */
+/**
+ * What a row says about where its figure came from (§ 1.1, I-327): entered by a person, stated by the
+ * pinned edition — the DERIVED figure the earthwork rail reads where nobody entered one — or neither.
+ */
 const ABSENT = "ABSENT";
 const ENTERED = "ENTERED";
+const DERIVED = "DERIVED";
+
+/**
+ * What a fresh project's pin states of the site facts. A project pins the head edition when it is
+ * created (L-REG-07), and this walk's project is created by it, so the pin is the seed — read through
+ * the panel's own reading of an edition, which is the rail's pairing of fact and parameter (I-327).
+ */
+const PIN_STATES = editionStatedFacts(SEED_EDITION_CONTENT.parameters);
+
+/** The basis a fact nobody entered stands at on a fresh project: the pin's statement, or nothing. */
+const freshBasis = (fact: (typeof SITE_FACTS)[number]): string => (PIN_STATES[fact] === undefined ? ABSENT : DERIVED);
 
 /** The fact this walk enters, and the reading and note it is entered with. */
 const WALKED = { fact: "GROUND_LEVEL", value: "-1.2", unit: "m", note: "Survey sheet S-01" } as const;
@@ -157,7 +173,7 @@ test.describe("J-305 — the project's site facts: six deferrals, and the act th
     await expect(page).toHaveURL(`${origin}${S_SITE_FACTS.route(tenantId, projectId)}`);
     await settled(page);
 
-    expect(await heldAttribute(facts.screen, "data-state"), "a fresh project's panel is answered, not empty: six facts, each with its deferral (§ 2)").toBe("ready");
+    expect(await heldAttribute(facts.screen, "data-state"), "a fresh project's panel is answered, not empty: six facts, each stated by the pin or deferred by name (§ 2, I-327)").toBe("ready");
     await expect(facts.crumbPage, "the trail names the page a reader landed on (R-UI-084)").toHaveText(PROJECT_SETTINGS_PAGES[SITE_FACTS_AREA]);
     await expectNavCurrent(facts, SITE_FACTS_AREA);
     expect(await steadyText(facts.face, "the screen's one helper line"), "the face states L-MEA-06's consequence in one line").toBe(FACE);
@@ -178,10 +194,22 @@ test.describe("J-305 — the project's site facts: six deferrals, and the act th
       SITE_FACTS.map(deferralFor),
     );
 
-    expect(await everyAttribute(facts.rows, "data-basis", "the rows' bases", { min: 1 }), "nothing has been entered, so nothing is ENTERED").toEqual(
-      SITE_FACTS.map(() => ABSENT),
+    // TEST_AMENDED (session 7 craft pass, the Decision's I-327). This walk asserted all six facts
+    // ABSENT and deferred. Four of those deferrals were false: the pin states the working allowance,
+    // the depth extra and the blinding's projection and thickness, and the earthwork rail binds them
+    // from it under DERIVED (`enteredOrDerived`) — it defers nothing for them. A fact is deferred
+    // exactly where the rail defers it; one the pin states reads the pin's figure, never a default.
+    expect(await everyAttribute(facts.rows, "data-basis", "the rows' bases", { min: 1 }), "nothing has been entered, so a fact stands where the pin leaves it").toEqual(
+      SITE_FACTS.map(freshBasis),
     );
+    expect(SITE_FACTS.filter((fact) => freshBasis(fact) === ABSENT).length, "a fresh project still defers what no rule set can state").toBeGreaterThan(0);
     for (const fact of SITE_FACTS) {
+      const stated = PIN_STATES[fact];
+      if (stated !== undefined) {
+        await expect(facts.rowDeferral(fact), `${fact} is stated by the pin, so the rail defers nothing for it (I-327)`).toHaveCount(0);
+        expect(await steadyText(facts.rowValue(fact), `${fact}'s figure`), `${fact} reads the pin's own figure, in its unit (L-MEA-06)`).toBe(`${stated.value} ${stated.unit}`);
+        continue;
+      }
       const code = deferralFor(fact);
       expect(REFUSALS[code as keyof typeof REFUSALS], `${fact} defers under a code the closed register holds (${code})`).toBeDefined();
       await expect(facts.rowDeferral(fact), `${fact} is deferred in place, in its own row`).toBeVisible();
@@ -259,8 +287,8 @@ test.describe("J-305 — the project's site facts: six deferrals, and the act th
     expect(await steadyText(facts.table, "the site facts table"), "…and appears nowhere in the table as body text either").not.toContain(actId);
 
     for (const fact of SITE_FACTS.filter((held) => held !== WALKED.fact)) {
-      expect(await heldAttribute(facts.row(fact), "data-basis"), `${fact} was not entered, so it still stands where it stood`).toBe(ABSENT);
-      await expect(facts.rowDeferral(fact), `${fact} keeps its deferral: one act enters one fact`).toHaveCount(1);
+      expect(await heldAttribute(facts.row(fact), "data-basis"), `${fact} was not entered, so it still stands where it stood`).toBe(freshBasis(fact));
+      await expect(facts.rowDeferral(fact), `${fact} keeps what it had: one act enters one fact`).toHaveCount(freshBasis(fact) === ABSENT ? 1 : 0);
     }
 
     await checkpoint(page, testInfo, "s-settings-site-facts/fact-entered");

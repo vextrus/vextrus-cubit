@@ -5,3 +5,4 @@ export { authoredValues, diffParameters, sameFigure } from "./diff";
 export type { ParameterDiffRow } from "./diff";
 export { rulesetAuthorStrings } from "./strings";
 export type { RulesetAuthorStringKey } from "./strings";
+export { suggestedVersion } from "./version";

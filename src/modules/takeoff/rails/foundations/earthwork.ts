@@ -15,15 +15,11 @@ import type { Kind } from "@/core/catalogue/kinds";
 import type { GeometryType, Measure, Offer, OmittedComponent, Rail, RailInput, RailObservation, RailSetup } from "@/core/offers/contract";
 import type { RefusalCode } from "@/core/errors";
 import {
-  BLINDING_PROJECTION_PARAMETER,
-  BLINDING_THICKNESS_PARAMETER,
   DEPTH,
-  DEPTH_EXTRA_PARAMETER,
   PRISM_POLY,
   PRISM_RECT,
   SPREAD,
   TOP,
-  WORKING_ALLOWANCE_PARAMETER,
   countOf,
   dimensionOf,
   enteredOnly,
@@ -151,9 +147,9 @@ export const excavationRail: Rail = (input: RailInput) =>
     const plan = planOf(read);
     sidesOf(plan, "EARTHWORK_PLAN_DEFERRED", bindings, omitted);
 
-    bind(ALLOWANCE, enteredOrDerived(setup, "WORKING_ALLOWANCE", WORKING_ALLOWANCE_PARAMETER), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
-    bind(DEPTH_EXTRA, enteredOrDerived(setup, "DEPTH_EXTRA", DEPTH_EXTRA_PARAMETER), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
-    bind(THICKNESS, enteredOrDerived(setup, "BLINDING_THICKNESS", BLINDING_THICKNESS_PARAMETER), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
+    bind(ALLOWANCE, enteredOrDerived(setup, "WORKING_ALLOWANCE"), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
+    bind(DEPTH_EXTRA, enteredOrDerived(setup, "DEPTH_EXTRA"), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
+    bind(THICKNESS, enteredOrDerived(setup, "BLINDING_THICKNESS"), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
     bind(GROUND_LEVEL, enteredOnly(setup, "GROUND_LEVEL"), bindings, omitted, "GROUND_LEVEL_UNSTATED");
     bind(FOUNDING_LEVEL, dimensionOf(read, TOP), bindings, omitted, "FOUNDING_LEVEL_UNSTATED");
     bind(D, dimensionOf(read, DEPTH), bindings, omitted, "FOUNDATION_DEPTH_UNSTATED");
@@ -175,8 +171,8 @@ export const blindingRail: Rail = (input: RailInput) =>
     const plan = planOf(read);
     sidesOf(plan, "BLINDING_PLAN_DEFERRED", bindings, omitted);
 
-    bind(PROJECTION, enteredOrDerived(setup, "BLINDING_PROJECTION", BLINDING_PROJECTION_PARAMETER), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
-    bind(THICKNESS, enteredOrDerived(setup, "BLINDING_THICKNESS", BLINDING_THICKNESS_PARAMETER), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
+    bind(PROJECTION, enteredOrDerived(setup, "BLINDING_PROJECTION"), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
+    bind(THICKNESS, enteredOrDerived(setup, "BLINDING_THICKNESS"), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
 
     return offerOf(read, PCC_BLINDING, BLINDING_RULE_ID, geometryOf(plan), bindings, omitted);
   });

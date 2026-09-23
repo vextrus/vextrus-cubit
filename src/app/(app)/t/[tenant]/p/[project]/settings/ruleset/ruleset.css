@@ -1,18 +1,23 @@
 /* The project rule-set settings surface (docs/design/s-settings-ruleset.md §1, §5; Design Direction
-   00 §3.6): the pinned edition as one line, the chain as a 3-row grid, the parameters as the grid
-   this screen has always been judged by. Colour, spacing, type and motion are tokens only — no
-   literal value and no [data-theme] selector, so both themes are the same rules read against
-   different token values (R-UI-001).
+   00 §3.6): the pinned edition as one line, the parameters as the grid this screen has always been
+   judged by, then the chain as a 3-row grid (I-325). Colour, spacing, type and motion are tokens
+   only — no literal value and no [data-theme] selector, so both themes are the same rules read
+   against different token values (R-UI-001).
 
-   The px literals are a closed set: none. The digest's measure is stated in `ch`, because what it
-   fixes is a count of CHARACTERS of a fingerprint — the chip shows as many as tell two of them
-   apart, which is what the shipped IdChip shows too. */
+   The px literals are a closed set: none. */
 
 .cx-ruleset {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: var(--gap-section);
   min-width: 0;
+  min-block-size: 0;
+  /* I-325: the height the frame leaves this screen, said in the shell's own row tokens (the Author
+     edition screen's chain, B-17): the settings pane is a grid of auto rows, so nothing above this
+     box is definite. Stated here, the parameter grid is the one region that may lose height, and it
+     takes the loss by scrolling inside its own frame rather than being cut by the status bar. */
+  max-block-size: calc(100dvh - var(--topbar-h) - var(--toolbar-h) - var(--status-h) - var(--gap-section) * 2);
 }
 
 /* --- the pinned edition, on one line (§3.6) --- */
@@ -34,11 +39,14 @@
   min-width: 0;
 }
 
-/* A scope is the model's own word, so it reads as data: mono, muted, never title-cased into prose. */
-.cx-ruleset-scope {
-  font-family: var(--font-mono);
+/* A scope is an enum a person reads in words (R-UI-083, I-325): "Workspace" in the UI face, muted;
+   the stored value rides in EnumLabel's technical channel and on `data-scope`. The label's own rule
+   sets the body size and ink, so this one names the element inside the scope to take them back. */
+.cx-ruleset-scope,
+.cx-ruleset-scope > .cx-enum-label {
   font-size: var(--text-12);
   color: var(--ink-muted);
+  white-space: nowrap;
 }
 
 .cx-ruleset-edition {
@@ -49,31 +57,14 @@
   white-space: nowrap;
 }
 
-.cx-ruleset-pin .cx-settings-about {
-  margin-inline-start: auto;
-}
-
 .cx-ruleset-digest-label {
   font-size: var(--text-12);
   color: var(--ink-muted);
 }
 
-/* The fingerprint: whole in the document and as many characters as tell two of them apart on the
-   screen. It selects as ONE thing, so the value a reader copies is the value the digest IS — a
-   truncated digest compares nothing (I-26, L-MEA-01). */
-.cx-ruleset-digest {
-  display: inline-block;
-  max-width: 8ch;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  vertical-align: bottom;
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--ink-code);
-  user-select: all;
-}
+/* The fingerprint is the shipped IdChip, drawn entirely by its own rules (I-209): the short form on
+   screen, the whole value in `data-value`, the tooltip and the copy target. This sheet sets no rule
+   of the chip's — an `8ch` clip here once cut its copy button off. */
 
 /* --- the two grids --- */
 
@@ -81,6 +72,28 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+/* I-325: the primary takes the height the pane has left and refuses to grow past it — without
+   `min-block-size: 0` a flex child floors at its content and the status bar cuts the grid mid-row.
+   The frame is the shipped table's own box; given a bounded flex parent its viewport carries the
+   overflow, which is the only way the sticky header and the frozen column keep their meaning. */
+.cx-ruleset-primary {
+  flex: 0 1 auto;
+  min-block-size: 0;
+}
+
+.cx-ruleset-table-primary {
+  flex: 0 1 auto;
+  min-block-size: 0;
+  overflow: hidden;
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+}
+
+.cx-ruleset-table-primary > .cx-table-frame {
+  flex: 1 1 auto;
+  min-block-size: 0;
 }
 
 .cx-ruleset-param {

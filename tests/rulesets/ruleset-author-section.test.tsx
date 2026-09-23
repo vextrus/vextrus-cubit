@@ -89,8 +89,13 @@ describe("rendered: the pin, the whole diff, and the figures the reader states (
     const parent = screen.getByTestId(TESTIDS.rulesetAuthor.parent);
     expect(parent.getAttribute("data-digest")).toBe(STAGED_PIN.digest);
     expect(parent.textContent).toContain(`${STAGED_PIN.identity.name} @ ${STAGED_PIN.identity.version}`);
-    // I-26's rule, kept here too: a truncated digest compares nothing.
-    expect(parent.textContent).toContain(STAGED_PIN.digest);
+    // I-26's rule, kept here too: a truncated digest compares nothing. The digest is the IdChip the
+    // Rule set screen draws it with (I-262 as amended, I-209): the whole value is the chip's DATA —
+    // `data-value`, the tooltip and the clipboard — beside the identity, inside the parent line.
+    const chips = [...parent.querySelectorAll("[data-value]")].map((chip) => chip.getAttribute("data-value"));
+    expect(chips, "the parent's digest is an IdChip whose whole value is the digest").toContain(STAGED_PIN.digest);
+    // The scope reads in words through EnumLabel, its stored value in the label's technical channel.
+    expect(parent.querySelector(`[data-scope="${STAGED_PIN.identity.scope}"] [data-value="${STAGED_PIN.identity.scope}"]`)).toBeTruthy();
     expect(parent.textContent).toContain(STAGED_PIN.identity.scope);
   });
 

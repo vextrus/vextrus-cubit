@@ -17,6 +17,9 @@ import { refusalOf, type RefusalCode, type RefusalEntry } from "@/core/errors";
 import { SITE_FACTS, type SiteFact, type StandingSiteFact } from "@/core/site-facts/law";
 import type { Unit } from "@/core/units/canon";
 import { SITE_FACT_DEFERRALS, statedByEdition } from "./deferrals";
+// Type-only: the map itself reads the rail's parameter keys and is computed on the server, beside the
+// read of the pin (the page), so nothing of the rail travels to the browser with this panel.
+import type { EditionStatedFact, EditionStatedFacts } from "./edition";
 import type { SiteFactsScreenState } from "./states";
 import { factLabel, fillSiteFacts, siteFactsStrings, unitLabel, SITE_FACT_UNITS, SITE_FACT_UNIT_DEFAULT } from "./strings";
 
@@ -25,6 +28,7 @@ import "./site-facts.css";
 // The module's door: the panel below, its copy, the deferral map it renders an absence through and
 // R-UI-050's matrix — one import for the screen that mounts it and for the suites that judge it.
 export { SITE_FACT_DEFERRALS, statedByEdition } from "./deferrals";
+export type { EditionStatedFact, EditionStatedFacts } from "./edition";
 export { factLabel, siteFactsStrings, unitLabel, SITE_FACT_UNITS, SITE_FACT_UNIT_DEFAULT, type SiteFactsStringKey } from "./strings";
 export { SITE_FACTS_SCREEN_STATES, SITE_FACTS_STATES, SITE_FACTS_STATE_NAMES, type SiteFactsScreenState, type SiteFactsStateCell, type SiteFactsStateName } from "./states";
 
@@ -40,7 +44,14 @@ const PERMISSION_NOT_HELD = "PERMISSION_NOT_HELD";
 /** R-UI-002's glyph for a figure a person entered, which is what every entered site fact is. */
 const ENTERED = "ENTERED";
 
-/** What `data-basis` says of a fact nobody has entered — not a basis, an absence (I-275). */
+/**
+ * R-UI-002's basis for a fact nobody entered that the pinned edition states: the earthwork rail binds
+ * the edition's parameter under DERIVED (`enteredOrDerived`), and the row says what the rail reads —
+ * never a deferral the rail does not make (I-327).
+ */
+const DERIVED = "DERIVED";
+
+/** What `data-basis` says of a fact nobody has entered and no edition states — an absence (I-275). */
 const ABSENT = "ABSENT";
 
 /** The table's five columns, which is what a sub-row spans (§ 1.1). */
@@ -130,8 +141,11 @@ export interface SiteFactsChrome {
   }>;
   /** R-UI-082: an identifier renders through IdChip, in its short form, and never as body text. */
   readonly IdChip: ComponentType<{ value: string; className?: string; "data-testid"?: string }>;
-  /** R-UI-002's glyph and word. Only ENTERED is ever rendered here: absence is no basis (I-275). */
-  readonly BasisChip: ComponentType<{ basis: typeof ENTERED }>;
+  /**
+   * R-UI-002's glyph and word: ENTERED on a fact a person entered, DERIVED on one the pinned edition
+   * states (I-327). Absence is no basis and wears no chip (I-275).
+   */
+  readonly BasisChip: ComponentType<{ basis: typeof ENTERED | typeof DERIVED }>;
 }
 
 /** What the panel states at either door, for one fact of one project. */
@@ -155,6 +169,12 @@ export interface SiteFactsPanelProps {
   readonly projectId: string;
   /** What each fact stands at — `standingSiteFacts`' answer, with an absent key per absent fact. */
   readonly standing: Readonly<Partial<Record<SiteFact, StandingSiteFact>>>;
+  /**
+   * What the project's pinned edition states of the facts nobody entered — `editionStatedFacts` over
+   * the pin's parameters, computed where the pin is read. A fact the edition states is read by the
+   * rail and is not deferred; the site overrides it by entering it (L-MEA-06, I-327).
+   */
+  readonly editionStated: EditionStatedFacts;
   /** Whether this reader holds AUTHOR_PROJECT_FACT; a reader without it still sees the whole panel. */
   readonly mayAuthor: boolean;
   readonly preview: (statement: SiteFactStatement) => Promise<SiteFactPreviewAnswer>;
@@ -209,7 +229,7 @@ const UNIT_OPTIONS: readonly { value: string; label: string }[] = Object.freeze(
   SITE_FACT_UNITS.map((unit) => Object.freeze({ value: unit, label: unitLabel(unit) })),
 );
 
-export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit, rulesetHref, participantsHref, chrome }: SiteFactsPanelProps): ReactNode {
+export function SiteFactsPanel({ projectId, standing, editionStated, mayAuthor, preview, commit, rulesetHref, participantsHref, chrome }: SiteFactsPanelProps): ReactNode {
   const { testIds, SettingsHeader, RefusalState, ConsequenceDialog, Button, NumberInput, Select, Input, IdChip, BasisChip } = handedDown(chrome);
 
   /** The fact whose form is open — one at a time, and one act per fact (I-281). */
@@ -324,23 +344,45 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
    * — the one that act entered. A read naming the same act is the same entry said better, so it wins.
    */
   const rows = useMemo(
-    (): readonly { fact: SiteFact; held: EnteredFact | undefined }[] =>
+    (): readonly { fact: SiteFact; held: EnteredFact | undefined; edition: EditionStatedFact | undefined }[] =>
       SITE_FACTS.map((fact) => {
         const read = standing[fact];
         const written = carried[fact];
-        return { fact, held: read !== undefined && (written === undefined || read.actId === written.actId) ? read : written };
+        return {
+          fact,
+          held: read !== undefined && (written === undefined || read.actId === written.actId) ? read : written,
+          // What the rail reads where nobody entered the fact: the pinned edition's statement (I-327).
+          edition: editionStated[fact],
+        };
       }),
-    [carried, standing],
+    [carried, standing, editionStated],
   );
+
+  /** The facts that actually defer — entered by nobody and stated by no edition — which the face counts. */
+  const deferring = rows.filter((row) => row.held === undefined && row.edition === undefined).length;
+
+  /**
+   * The deferral's evidence, taken as the row's own door where it leads to this screen's own row: a
+   * link to the row just above it would move nothing, so the press opens that row's entry form — the
+   * same door as its Enter button (R-UI-020: a refusal's evidence leads onward). A reader who may not
+   * enter a fact keeps the plain link, and its standing refusal says why.
+   */
+  const onDeferralEvidence = (fact: SiteFact) => (event: { target: EventTarget | null; preventDefault: () => void }): void => {
+    const link = event.target instanceof Element ? event.target.closest("a") : null;
+    if (link === null || link.getAttribute("href") !== rowHref(fact) || !mayAuthor) return;
+    event.preventDefault();
+    openOn(fact);
+  };
 
   return (
     <div className="cx-site-facts" data-testid={testIds.screen} data-screen-root="" data-state={state}>
       <section className="cx-site-facts-section" data-testid={testIds.section} data-rendered-region={testIds.section} data-state={state} aria-labelledby={headingId}>
         <SettingsHeader title={siteFactsStrings.site_facts_heading} titleId={headingId} about={[siteFactsStrings.site_facts_caption]} />
 
-        {/* § 1: the screen's one helper line — what L-MEA-06's silence costs, in one sentence. */}
+        {/* § 1: the screen's one helper line — what L-MEA-06's silence costs, in one sentence, and
+            only while something below is actually deferred (I-327). */}
         <p className="cx-site-facts-face" data-testid={testIds.face}>
-          {siteFactsStrings.site_facts_face}
+          {deferring > 0 ? siteFactsStrings.site_facts_face : siteFactsStrings.site_facts_face_complete}
         </p>
 
         {/* § 7: the region a read waits on, and the count that says the table finished rendering.
@@ -373,40 +415,52 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
             {/* I-273: one element per fact carries `data-fact` and `data-basis`, and every `<tr>`
                 inside it keeps the grid's own row height — a deferred fact shows its refusal in
                 place (R-UI-020) without a row that is taller than the law allows (R-UI-083). */}
-            {rows.map(({ fact, held }) => (
+            {rows.map(({ fact, held, edition }) => (
               <tbody
                 key={fact}
                 className="cx-site-facts-row"
                 id={rowAnchor(fact)}
                 data-testid={testIds.row}
                 data-fact={fact}
-                data-basis={held === undefined ? ABSENT : ENTERED}
+                data-basis={held !== undefined ? ENTERED : edition !== undefined ? DERIVED : ABSENT}
               >
                 <tr className="cx-site-facts-line">
                   <th scope="row" className="cx-site-facts-fact">
                     <span className="cx-site-facts-fact-inner">
-                      {held === undefined ? null : <BasisChip basis={ENTERED} />}
+                      {held !== undefined ? <BasisChip basis={ENTERED} /> : edition !== undefined ? <BasisChip basis={DERIVED} /> : null}
                       <span className="cx-site-facts-fact-label">{factLabel(fact)}</span>
                     </span>
                   </th>
                   <td className="cx-site-facts-numeric">
-                    {held === undefined ? (
-                      <span className="cx-site-facts-absent">{siteFactsStrings.site_facts_absent_value}</span>
-                    ) : (
+                    {held !== undefined ? (
                       // I-276: the reading AS WRITTEN, in the unit it was written in — the canonical
                       // metres the canon made of it are the ledger's, not this screen's (L-QTY-03).
                       <span className="cx-site-facts-value" data-testid={testIds.rowValue}>
                         {reading(held.valueAsWritten, held.unitAsWritten)}
                       </span>
+                    ) : edition !== undefined ? (
+                      // I-327: what the rail reads where nobody entered the fact — the pinned edition's
+                      // own decimal and unit, verbatim as the Rule set screen's store holds them (I-27).
+                      <span className="cx-site-facts-value cx-site-facts-value-derived" data-testid={testIds.rowValue}>
+                        {reading(edition.value, edition.unit)}
+                      </span>
+                    ) : (
+                      <span className="cx-site-facts-absent">{siteFactsStrings.site_facts_absent_value}</span>
                     )}
                   </td>
                   <td>
-                    {held === undefined ? (
-                      <span className="cx-site-facts-absent">{siteFactsStrings.site_facts_absent_value}</span>
-                    ) : (
+                    {held !== undefined ? (
                       <span className="cx-site-facts-source" data-testid={testIds.rowSource} title={held.sourceNote}>
                         {held.sourceNote}
                       </span>
+                    ) : edition !== undefined ? (
+                      // Where the figure comes from, as a place a reader can go and read it (R-UI-020's
+                      // evidence idiom): the Rule set screen, one nav row away.
+                      <a className="cx-site-facts-edition-source cx-reticle" href={rulesetHref}>
+                        {siteFactsStrings.site_facts_edition_source}
+                      </a>
+                    ) : (
+                      <span className="cx-site-facts-absent">{siteFactsStrings.site_facts_absent_value}</span>
                     )}
                   </td>
                   <td>
@@ -447,11 +501,13 @@ export function SiteFactsPanel({ projectId, standing, mayAuthor, preview, commit
                 </tr>
 
                 {/* I-274: the deferral stands while the form is open — a refusal is dismissed by
-                    being resolved, never by being hidden (R-UI-020). */}
-                {held === undefined ? (
+                    being resolved, never by being hidden (R-UI-020). I-327: it stands only where the
+                    rail actually defers — nobody entered the fact AND the pinned edition does not
+                    state it; a deferral over a figure the rail reads is a refusal that is not true. */}
+                {held === undefined && edition === undefined ? (
                   <tr className="cx-site-facts-sub">
                     <td colSpan={COLUMNS} data-testid={testIds.rowDeferral}>
-                      <div className="cx-site-facts-deferral">
+                      <div className="cx-site-facts-deferral" onClickCapture={onDeferralEvidence(fact)}>
                         <RefusalState
                           refusal={refusalOf(SITE_FACT_DEFERRALS[fact])}
                           evidence={

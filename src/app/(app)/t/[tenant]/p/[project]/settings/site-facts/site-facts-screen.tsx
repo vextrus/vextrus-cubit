@@ -7,7 +7,7 @@
 // It also declares the screen's crumb, which is the frame's slot and therefore a client hook
 // (R-UI-084): the page above it is the server component that does the reading.
 import type { SiteFact, StandingSiteFact } from "@/core/site-facts/law";
-import { SiteFactsPanel, type SiteFactsChrome } from "@/modules/takeoff/site-facts-ui";
+import { SiteFactsPanel, type EditionStatedFacts, type SiteFactsChrome } from "@/modules/takeoff/site-facts-ui";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { BasisChip, Button, IdChip, Input, NumberInput, Select } from "@/ui/primitives/core";
@@ -54,12 +54,14 @@ export interface SiteFactsScreenProps {
   readonly tenantId: string;
   readonly projectId: string;
   readonly standing: Readonly<Partial<Record<SiteFact, StandingSiteFact>>>;
+  /** What the pinned edition states of the facts nobody entered (the Decision's I-327). */
+  readonly editionStated: EditionStatedFacts;
   readonly mayAuthor: boolean;
   readonly rulesetHref: string;
   readonly participantsHref: string;
 }
 
-export function SiteFactsScreen({ tenantId, projectId, standing, mayAuthor, rulesetHref, participantsHref }: SiteFactsScreenProps) {
+export function SiteFactsScreen({ tenantId, projectId, standing, editionStated, mayAuthor, rulesetHref, participantsHref }: SiteFactsScreenProps) {
   // R-UI-084: the screen declares its own crumb through the frame's slot, in the one home the area's
   // words live in — the nav row and the page crumb wear the same word (B-17).
   useShellPage(PROJECT_SETTINGS_PAGES["site-facts"]);
@@ -69,6 +71,7 @@ export function SiteFactsScreen({ tenantId, projectId, standing, mayAuthor, rule
       tenantId={tenantId}
       projectId={projectId}
       standing={standing}
+      editionStated={editionStated}
       mayAuthor={mayAuthor}
       rulesetHref={rulesetHref}
       participantsHref={participantsHref}

@@ -176,7 +176,9 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
   // order already holds — is what takes it.
   useEffect(() => {
     if (judged === null) return;
-    const group = formRef.current?.querySelector<HTMLElement>(`[data-testid="participants-assign-${judged === "member" ? "subject" : "role"}"]`);
+    const group = formRef.current?.querySelector<HTMLElement>(
+      `[data-testid="${judged === "member" ? TESTIDS.participants.assignSubject : TESTIDS.participants.assignRole}"]`,
+    );
     group?.querySelector<HTMLElement>("button")?.focus();
   }, [judged, attempt]);
 
@@ -278,7 +280,7 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
             columns={ROSTER_COLUMNS}
             data={[...roster]}
             getRowId={(row) => row.userId}
-            rowTestId="participants-row"
+            rowTestId={TESTIDS.participants.row}
             rowDataOf={(row) => ({ "data-user": row.userId })}
           />
         </div>
@@ -302,27 +304,31 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
           }}
         >
           {/* I-48: no Select ships and a native one could not wear the reticle, so each field is a
-              fieldset of interactive Chips with exactly one pressed. */}
-          <ChipField testId="participants-assign-subject" legend="spine_participants_field_member" alertId={invalidBy("member")}>
+              fieldset of interactive Chips with exactly one pressed. A member's label is one line —
+              ellipsis past the chip's measure, the whole address on the tooltip (R-UI-084). */}
+          <ChipField testId={TESTIDS.participants.assignSubject} legend="spine_participants_field_member" alertId={invalidBy("member")}>
             {subjects.map((member) => (
-              <Chip key={member.userId} selected={subjectUserId === member.userId} onClick={() => setSubjectUserId(member.userId)}>
-                {member.label}
+              <Chip key={member.userId} title={member.label} selected={subjectUserId === member.userId} onClick={() => setSubjectUserId(member.userId)}>
+                <span className="cx-participants-choice">{member.label}</span>
               </Chip>
             ))}
           </ChipField>
 
-          <ChipField testId="participants-assign-role" legend="spine_participants_field_role" alertId={invalidBy("role")}>
+          {/* I-211 as amended: a role and a direction read in words on the chips too — "Bid manager",
+              "Grant" — as they do in the grids above and below, so one screen spells one enum one way
+              (R-UI-083). The stored value the act carries is the label's technical channel. */}
+          <ChipField testId={TESTIDS.participants.assignRole} legend="spine_participants_field_role" alertId={invalidBy("role")}>
             {ROLES.map((offered) => (
-              <Chip key={offered} className="cx-participants-enum" selected={role === offered} onClick={() => setRole(offered)}>
-                {offered}
+              <Chip key={offered} selected={role === offered} onClick={() => setRole(offered)}>
+                <EnumLabel className="cx-participants-choice" value={offered} />
               </Chip>
             ))}
           </ChipField>
 
-          <ChipField testId="participants-assign-direction" legend="spine_participants_field_direction" alertId={undefined}>
+          <ChipField testId={TESTIDS.participants.assignDirection} legend="spine_participants_field_direction" alertId={undefined}>
             {DIRECTIONS.map((offered) => (
-              <Chip key={offered} className="cx-participants-enum" selected={direction === offered} onClick={() => setDirection(offered)}>
-                {offered}
+              <Chip key={offered} selected={direction === offered} onClick={() => setDirection(offered)}>
+                <EnumLabel className="cx-participants-choice" value={offered} />
               </Chip>
             ))}
           </ChipField>
@@ -366,7 +372,7 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
             columns={HISTORY_COLUMNS}
             data={[...history]}
             getRowId={(entry, index) => `${entry.occurredAt}-${entry.direction}-${entry.role}-${entry.subject.userId}-${index}`}
-            rowTestId="participants-history-row"
+            rowTestId={TESTIDS.participants.historyRow}
             rowDataOf={(entry) => ({ "data-direction": entry.direction, "data-role": entry.role })}
           />
         </div>
@@ -398,6 +404,9 @@ function ChipField({ testId, legend, alertId, children }: { testId: string; lege
   return (
     // A group takes `aria-invalid` where a fieldset takes no focus of its own: the judgement is
     // about the choice, so it is stated on the thing that holds the choices.
+    // The legend is floated (participants.css): a floated legend is not the fieldset's RENDERED legend,
+    // so it is laid out as the fieldset's first grid item — the label column — and the choices take
+    // the second column, rather than falling into the label's 160 px beside a legend the grid ignores.
     <fieldset className="cx-participants-field" data-testid={testId} aria-invalid={alertId === undefined ? undefined : true} aria-describedby={alertId}>
       <legend className="cx-participants-field-label">{strings[legend]}</legend>
       <div className="cx-participants-choices">{children}</div>

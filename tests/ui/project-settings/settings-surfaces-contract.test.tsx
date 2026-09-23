@@ -203,7 +203,17 @@ describe("AC-3: the screen J-304 walks keeps its contract, and its stale picture
     // (I-264). The roster is the pin's own keys, so a parameter added to a pin is judged with it.
     const parent = screen.getByTestId(TESTIDS.rulesetAuthor.parent);
     expect(parent.getAttribute("data-digest"), "the pin being forked names the content it is a fingerprint of").toBe(PIN.digest);
-    expect(parent.textContent, "the digest stands unabbreviated in the document beside its identity").toContain(PIN.digest);
+    // TEST_AMENDED (session 7 craft pass, s-settings-ruleset-author I-262 as amended): the parent's
+    // digest is now the shipped IdChip the Rule set screen already draws it with (s-settings-ruleset
+    // I-209), so the two adjacent screens spell one fingerprint one way. What this limb guards is
+    // unchanged — the WHOLE digest stands in the document, beside its identity, inside the parent —
+    // and it is read where the chip keeps the whole value (`data-value`, also its tooltip and its
+    // copy), exactly as the Rule set screen's own acceptance reads its digest. `data-digest` above,
+    // the attribute J-304 reads, is untouched.
+    expect(
+      [...parent.querySelectorAll("[data-value]")].map((chip) => chip.getAttribute("data-value")),
+      "the digest stands unabbreviated in the document beside its identity",
+    ).toContain(PIN.digest);
     expect(parent.textContent, "and the identity it belongs to").toContain(`${PIN.identity.name} @ ${PIN.identity.version}`);
 
     expect(

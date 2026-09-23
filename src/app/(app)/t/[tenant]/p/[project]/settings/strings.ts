@@ -5,7 +5,7 @@
 // The four area labels ARE the crumb page names, so they are read from `routes.ts` — R-UI-084's one
 // home for a screen's crumbs — rather than spelled a second time here (B-17).
 import { PROJECT_SETTINGS_PAGES } from "@/ui/shell/routes";
-import { rulesetParameterLabel } from "./ruleset/strings";
+import { rulesetParameterLabel, rulesetScopeLabel } from "./ruleset/strings";
 
 export const projectSettingsStrings = {
   project_settings_nav_label: "Project settings",
@@ -31,4 +31,13 @@ export const projectSettingsStrings = {
  */
 export function parameterLabel(key: string): string {
   return rulesetParameterLabel(key);
+}
+
+/**
+ * The words an edition's scope is read by, for every screen of this settings area: the Rule set
+ * screen's pin line and lineage and the Author edition screen's parent say one scope one way —
+ * "Workspace", never `tenant` (R-UI-083, s-auth I-11). One table, the rule-set screen's (I-268).
+ */
+export function scopeLabel(scope: string): string {
+  return rulesetScopeLabel(scope);
 }

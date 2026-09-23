@@ -50,31 +50,31 @@
   font-size: var(--text-12);
 }
 
+/* The parent line reads as the Rule set screen's pin line does (B-17): the label and the scope in the
+   UI face, muted; the identity alone in mono; the digest the shipped IdChip, drawn by its own rules
+   (I-262 as amended — no `8ch` clip of this screen's own). */
 .cx-ruleset-author-parent {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.cx-ruleset-author-edition {
   font-family: var(--font-mono);
   color: var(--ink-code);
+  white-space: nowrap;
 }
 
-.cx-ruleset-author-scope {
+/* A scope is an enum a person reads in words (R-UI-083): "Project", never `project`. The label's own
+   rule sets the body size and ink, so this one names the element inside the scope to take them back. */
+.cx-ruleset-author-scope,
+.cx-ruleset-author-scope > .cx-enum-label {
   color: var(--ink-muted);
   font-size: var(--text-12);
-}
-
-/* I-206's exact ruling: the digest is whole in the document and drawn at the chip measure, selectable
-   as one thing — a fingerprint is read by being copied, never by being retyped. */
-.cx-ruleset-author-digest {
-  display: inline-block;
-  inline-size: 8ch;
-  overflow: hidden;
   white-space: nowrap;
-  text-overflow: clip;
-  user-select: all;
-  font-size: var(--text-12);
 }
 
+/* I-326: the version stands in the act row, beside the door that needs it. */
 .cx-ruleset-author-version-field {
   display: inline-flex;
   align-items: center;
@@ -87,16 +87,16 @@
   block-size: var(--control-h);
 }
 
-/* § 1: the grid is the primary and it takes the height the screen has left — 640 at 1440×900 and
-   540 at 1280×800, which is a MEASURE rather than a rule, so it is left to the box to arrive at
-   rather than stated as a figure (§5's closed px set). The rows past it are reached by scrolling
-   THE GRID (§7 C10, "grids may scroll inside their own container"). The frame is the shipped
-   table's own box; given a bounded flex parent its viewport carries the overflow, which is the only
-   way the sticky header and the frozen column keep their meaning. */
+/* § 1: the grid is the primary. It is as tall as its rows and no taller — a frame that ran on past
+   the last row left an empty well between the grid and its door (I-326) — and never taller than the
+   height the screen has left: the rows past that are reached by scrolling THE GRID (§7 C10, "grids
+   may scroll inside their own container"). The frame is the shipped table's own box; given a
+   bounded flex parent its viewport carries the overflow, which is the only way the sticky header and
+   the frozen column keep their meaning. */
 .cx-ruleset-author-table {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-block-size: 0;
   overflow: hidden;
   border: var(--hairline);
@@ -127,16 +127,23 @@
   color: var(--ink-muted);
 }
 
+/* R-UI-085: one column of figures, one right edge. Every field is the same measure — stated in `ch`,
+   because what it holds is a count of CHARACTERS of a decimal — and the ENTERED glyph follows it on a
+   changed row without moving it. The unit is the Unit column's alone (I-265 as amended). */
 .cx-ruleset-author-field {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: var(--space-2);
+  inline-size: 100%;
+  min-inline-size: 0;
 }
 
+/* The field takes the core input surface, as the version field beside the door does (R-UI-086):
+   an editable field on a grey well read as disabled in light. */
 .cx-ruleset-author-input {
-  inline-size: 100%;
+  flex: none;
+  inline-size: 14ch;
   block-size: var(--control-h);
-  background: var(--surface-sunken);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums slashed-zero;
 }
@@ -144,11 +151,6 @@
 [data-changed="true"] .cx-ruleset-author-input {
   color: var(--ink);
   font-weight: var(--weight-body-medium);
-}
-
-.cx-ruleset-author-suffix {
-  color: var(--ink-muted);
-  font-size: var(--text-12);
 }
 
 .cx-ruleset-author-refusal:empty {
@@ -172,7 +174,7 @@
   font-size: var(--text-12);
 }
 
+/* The door follows the version it needs; the field before it takes the row's free space (I-326). */
 .cx-ruleset-author-submit {
-  margin-inline-start: auto;
   block-size: var(--control-h-lg);
 }

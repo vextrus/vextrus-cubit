@@ -7,10 +7,11 @@
 // and the route above it stays the server component that does the reading.
 //
 // R-SPINE-012's settings surface on the v22 settings template (Design Direction 00 §3.6): the pinned
-// edition as ONE line, the chain it was forked along as a 3-row 28 px table, and the parameter table
-// every measurement on the project reads — 28 px rows, the parameter frozen, the figures mono and
-// right-aligned. The four helper sentences this screen used to print are behind the `(i)` on the
-// headings they explain (§6: at most one helper line per screen, and this screen has none).
+// edition as ONE line, then the parameter table every measurement on the project reads — the
+// primary, first under the pin (R-UI-081, I-325) — 28 px rows, the parameter frozen, the figures mono
+// and right-aligned; then the chain it was forked along as a 3-row 28 px table. The four helper
+// sentences this screen used to print are behind the `(i)` on the headings they explain (§6: at most
+// one helper line per screen, and this screen has none).
 //
 // L-MEA-01 keeps identity and digest apart, and this screen shows both — the identity names WHICH
 // rule set is in force, the digest fingerprints exactly what it holds, and neither substitutes for
@@ -25,13 +26,26 @@ import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { formatUserFigure } from "@/core/format";
 import type { EditionLineageStep, EditionParameter, ProjectRulesetView } from "@/core/rulesets/editions";
-import { IdChip, UnitBadge } from "@/ui/primitives/core";
+import { EnumLabel, IdChip, UnitBadge } from "@/ui/primitives/core";
 import { DataTable } from "@/ui/primitives/data";
 import { ShellEmptyState, shellHref, useShellPage } from "@/ui/shell";
 import { PROJECT_SETTINGS_PAGES } from "@/ui/shell/routes";
 import { SettingsAbout, SettingsHeader } from "@/app/(app)/t/[tenant]/settings/settings-pane";
-import { rulesetParameterLabel, rulesetStrings } from "./strings";
+import { rulesetParameterLabel, rulesetScopeLabel, rulesetStrings } from "./strings";
 import { TESTIDS } from "@/ui/testids";
+
+/**
+ * An edition's scope as a person reads it (R-UI-083, I-25 as amended by I-325): "Workspace", never
+ * `tenant`. The stored value stays on `data-scope`, where every suite reads the chain's order, and in
+ * EnumLabel's technical channel.
+ */
+function Scope({ scope }: { scope: string }) {
+  return (
+    <span className="cx-ruleset-scope" data-scope={scope}>
+      <EnumLabel value={scope} label={rulesetScopeLabel(scope)} />
+    </span>
+  );
+}
 
 /**
  * The two grids, by the identity each reader's column furniture is remembered under (§5 rule 3).
@@ -84,7 +98,7 @@ const LINEAGE_COLUMNS: ColumnDef<EditionLineageStep, unknown>[] = [
     id: "scope",
     header: rulesetStrings.ruleset_lineage_col_scope,
     size: 120,
-    cell: ({ row }) => <span className="cx-ruleset-scope">{row.original.scope}</span>,
+    cell: ({ row }) => <Scope scope={row.original.scope} />,
   },
   {
     id: "edition",
@@ -128,7 +142,9 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
   useShellPage(PROJECT_SETTINGS_PAGES.ruleset);
   if (!view.pinned) {
     return (
-      <div className="cx-ruleset" data-screen-root="" data-state="ready">
+      // The no-pin answer is this screen's EMPTY state (§2, I-28), and the root says so where a read
+      // of the rendered contract takes it (I-209).
+      <div className="cx-ruleset" data-screen-root="" data-state="empty">
         <SettingsHeader title={rulesetStrings.ruleset_heading} about={rulesetStrings.ruleset_caption} />
         <div data-testid={TESTIDS.ruleset.unpinned}>
           <ShellEmptyState heading={rulesetStrings.ruleset_unpinned_heading} body={rulesetStrings.ruleset_unpinned_body}>
@@ -143,25 +159,45 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
   }
 
   return (
-    <div className="cx-ruleset" data-screen-root="" data-state="unpinned">
+    // A pinned view is this screen's READY state (§2, I-209): the root states what it draws.
+    <div className="cx-ruleset" data-screen-root="" data-state="ready">
       <SettingsHeader title={rulesetStrings.ruleset_heading} about={rulesetStrings.ruleset_caption} />
 
       {/* ONE line (§3.6), standing at the datum right under the title — §8's "the table starts at
           y ≈ 88" is what this section gives up its own heading for: the screen is named "Rule set"
           and the line under it is the pin. The identity and the digest are two fields on it and
-          neither stands for the other (L-MEA-01). */}
+          neither stands for the other (L-MEA-01). The (i) follows the digest it explains. */}
       <section className="cx-settings-section" aria-label={rulesetStrings.ruleset_edition_heading}>
         <p className="cx-ruleset-pin">
           <span className="cx-ruleset-identity" data-testid={TESTIDS.ruleset.editionIdentity}>
-            <span className="cx-ruleset-scope" data-scope={view.identity.scope}>
-              {view.identity.scope}
-            </span>
+            <Scope scope={view.identity.scope} />
             <span className="cx-ruleset-edition">{editionLabel(view.identity)}</span>
           </span>
           <span className="cx-ruleset-digest-label">{rulesetStrings.ruleset_digest_label}</span>
-          <Digest value={view.digest} testId="ruleset-edition-digest" />
+          <Digest value={view.digest} testId={TESTIDS.ruleset.editionDigest} />
           <SettingsAbout body={rulesetStrings.ruleset_edition_hint} label={rulesetStrings.ruleset_edition_heading} />
         </p>
+      </section>
+
+      {/* I-325: the primary stands first under the pin — the values every measurement reads — and it
+          is the region that takes the height the pane has left, scrolling inside its own frame. */}
+      <section className="cx-settings-section cx-ruleset-primary" aria-labelledby={PARAMETERS_HEADING_ID}>
+        <div className="cx-settings-section-head">
+          <h2 className="cx-settings-section-heading" id={PARAMETERS_HEADING_ID}>
+            {rulesetStrings.ruleset_parameters_heading}
+          </h2>
+        </div>
+        <div className="cx-ruleset-table cx-ruleset-table-primary" data-testid={TESTIDS.ruleset.parameterTable}>
+          <DataTable
+            tableId={PARAMETER_TABLE_ID}
+            aria-labelledby={PARAMETERS_HEADING_ID}
+            columns={PARAMETER_COLUMNS}
+            data={parameterRows(view.parameters)}
+            getRowId={(row) => row.key}
+            rowTestId={TESTIDS.ruleset.parameterRow}
+            rowDataOf={(row) => ({ "data-param": row.key })}
+          />
+        </div>
       </section>
 
       <section className="cx-settings-section" aria-labelledby={LINEAGE_HEADING_ID}>
@@ -178,27 +214,8 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
             columns={LINEAGE_COLUMNS}
             data={[...view.lineage]}
             getRowId={(step) => `${step.scope}-${step.name}-${step.version}`}
-            rowTestId="ruleset-lineage-step"
+            rowTestId={TESTIDS.ruleset.lineageStep}
             rowDataOf={(step) => ({ "data-scope": step.scope })}
-          />
-        </div>
-      </section>
-
-      <section className="cx-settings-section cx-settings-surface" aria-labelledby={PARAMETERS_HEADING_ID}>
-        <div className="cx-settings-section-head">
-          <h2 className="cx-settings-section-heading" id={PARAMETERS_HEADING_ID}>
-            {rulesetStrings.ruleset_parameters_heading}
-          </h2>
-        </div>
-        <div className="cx-ruleset-table cx-settings-surface" data-testid={TESTIDS.ruleset.parameterTable}>
-          <DataTable
-            tableId={PARAMETER_TABLE_ID}
-            aria-labelledby={PARAMETERS_HEADING_ID}
-            columns={PARAMETER_COLUMNS}
-            data={parameterRows(view.parameters)}
-            getRowId={(row) => row.key}
-            rowTestId="ruleset-parameter-row"
-            rowDataOf={(row) => ({ "data-param": row.key })}
           />
         </div>
       </section>

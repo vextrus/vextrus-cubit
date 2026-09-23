@@ -18,12 +18,12 @@ import { dhakaDateParts, formatDate, formatMoney, formatUserFigure } from "@/cor
 import type { CommitAnswer, PreviewAnswer } from "./actions";
 // The words a parameter is named by are the settings area's one table (I-268) — a plain function,
 // read here rather than handed across the server/client boundary, which no function may cross.
-import { parameterLabel } from "../strings";
+import { parameterLabel, scopeLabel } from "../strings";
 import type { RulesetAuthorScreenState } from "./states";
 import type { EditionIdentity, EditionParameter } from "@/core/rulesets/editions";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { BasisChip, Button, Input, NumberInput, QuantityText, UnitBadge } from "@/ui/primitives/core";
+import { BasisChip, Button, EnumLabel, IdChip, Input, NumberInput, QuantityText, UnitBadge } from "@/ui/primitives/core";
 import { DataTable } from "@/ui/primitives/data";
 import { ShellEmptyState, useShellPage } from "@/ui/shell";
 // The one spelling of each settings area's word (R-UI-084, B-17): the refusal's evidence link is
@@ -32,7 +32,7 @@ import { PROJECT_SETTINGS_PAGES } from "@/ui/shell/routes";
 import { fill } from "@/ui/strings";
 import { TESTIDS } from "@/ui/testids";
 import { SettingsHeader } from "@/app/(app)/t/[tenant]/settings/settings-pane";
-import { authoredValues, diffParameters, rulesetAuthorStrings, type ParameterDiffRow } from "@/modules/spine/ruleset-authoring";
+import { authoredValues, diffParameters, rulesetAuthorStrings, suggestedVersion, type ParameterDiffRow } from "@/modules/spine/ruleset-authoring";
 
 /** The act this screen renders (L-ACT-02's pair), spelled once. */
 const ACT_TYPE = "AUTHOR_RULESET_EDITION";
@@ -197,7 +197,10 @@ export function RulesetAuthorSection({
       {
         id: "authored",
         header: rulesetAuthorStrings.ruleset_author_col_authored,
-        size: 220,
+        size: 240,
+        // I-265 as amended: the unit is said once, by the Unit column beside this one — a suffix in the
+        // field said it a second time ("0.1 m2 m2") and made every field a different width. Each field
+        // is one measure, so every figure in the column shares one right edge (R-UI-085).
         cell: ({ row }) => (
           <span className="cx-ruleset-author-field">
             <NumberInput
@@ -211,7 +214,6 @@ export function RulesetAuthorSection({
               value={row.original.after}
               onChange={(next) => setValues((held) => ({ ...held, [row.original.key]: next }))}
             />
-            <span className="cx-ruleset-author-suffix">{row.original.unit}</span>
             {/* Direction §5 rule 7's edited-cell glyph: the mark survives greyscale (R-UI-002). */}
             {row.original.changed ? <BasisChip basis={ENTERED} /> : null}
           </span>
@@ -264,16 +266,20 @@ export function RulesetAuthorSection({
   // on the element that roster's reader targets.
   const state: RulesetAuthorScreenState = pending ? "busy" : refusal !== null ? "refused" : "ready";
 
+  /** The version field's example: the next version after the pin's, where one is obvious (I-326). */
+  const nextVersion = suggestedVersion(parent.identity.version);
+  const versionExample = nextVersion === null ? null : fill(rulesetAuthorStrings.ruleset_author_version_placeholder, { version: nextVersion });
+
   return (
     <div className="cx-ruleset-author" data-testid={TESTIDS.rulesetAuthor.screen} data-screen-root="" data-state={state}>
       <section className="cx-ruleset-author-section" data-testid={TESTIDS.rulesetAuthor.section} aria-labelledby={headingId}>
         <SettingsHeader title={rulesetAuthorStrings.ruleset_author_heading} titleId={headingId} about={ABOUT} />
 
-        {/* I-262: the screen opens on what is being forked — one line, the pin itself, with the
-            parent's content digest whole in the document beside its identity (L-MEA-01), under the
-            word that says what the fingerprint IS. The version a reader states is its own element
-            beside it, never inside that sentence: a paragraph that ran the 64-character digest into
-            the field's label is what a screen reader would read out as one breath (§ 3). */}
+        {/* I-262: the screen opens on what is being forked — one line, the pin itself: the scope in
+            words (R-UI-083), the identity as L-MEA-01 spells it, and the parent's content digest
+            through the IdChip the Rule set screen draws it with (I-209: one fingerprint, one
+            spelling) — the whole value on `data-digest` here and on the chip's `data-value`. The
+            version a reader states is the act's own field and stands with the door (I-326). */}
         <div className="cx-ruleset-author-identity">
           <p className="cx-ruleset-author-pin">
             <span className="cx-ruleset-author-label">{rulesetAuthorStrings.ruleset_author_parent_label}</span>
@@ -284,24 +290,13 @@ export function RulesetAuthorSection({
               data-technical=""
             >
               <span className="cx-ruleset-author-scope" data-scope={parent.identity.scope}>
-                {parent.identity.scope}
+                <EnumLabel value={parent.identity.scope} label={scopeLabel(parent.identity.scope)} />
               </span>
               <span className="cx-ruleset-author-edition">{identityLine(parent.identity)}</span>
               <span className="cx-ruleset-author-label">{rulesetAuthorStrings.ruleset_author_digest_label}</span>
-              <span className="cx-ruleset-author-digest">{parent.digest}</span>
+              <IdChip className="cx-ruleset-author-digest" value={parent.digest} />
             </span>
           </p>
-          <span className="cx-ruleset-author-version-field">
-            <span className="cx-ruleset-author-label">{rulesetAuthorStrings.ruleset_author_version_label}</span>
-            <Input
-              className="cx-ruleset-author-version"
-              data-testid={TESTIDS.rulesetAuthor.version}
-              aria-label={rulesetAuthorStrings.ruleset_author_version_label}
-              inputMode="text"
-              value={version}
-              onChange={(event) => setVersion(event.target.value)}
-            />
-          </span>
         </div>
 
         {/* I-264: the diff is the whole pin, always — changed rows are marked, never filtered. */}
@@ -352,6 +347,21 @@ export function RulesetAuthorSection({
               </a>
             )}
           </p>
+          {/* I-326: the version is what the door needs, so it stands beside the door, with the next
+              version after the pin offered as its example (R-UI-021) — never as a value: the field
+              stays empty until a person types, and nothing is submitted a person did not state. */}
+          <span className="cx-ruleset-author-version-field">
+            <span className="cx-ruleset-author-label">{rulesetAuthorStrings.ruleset_author_version_label}</span>
+            <Input
+              className="cx-ruleset-author-version"
+              data-testid={TESTIDS.rulesetAuthor.version}
+              aria-label={rulesetAuthorStrings.ruleset_author_version_label}
+              inputMode="text"
+              placeholder={versionExample ?? undefined}
+              value={version}
+              onChange={(event) => setVersion(event.target.value)}
+            />
+          </span>
           {/* I-266: the door stands for a reader who cannot walk through it, and the standing
               PERMISSION_NOT_HELD beside it says why — nothing is hidden (R-SPINE-006).
               The shipped Button reports `aria-disabled` for busy and for nothing else, so a door shut

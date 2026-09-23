@@ -142,10 +142,34 @@ td.cx-site-facts-numeric {
   text-align: end;
 }
 
+/* The seam between a right-aligned figure and the start-aligned note beside it (R-UI-085): with one
+   cell's padding on each side the two absent dashes read as one "— —", so the figure column keeps a
+   wider trailing gutter. Named with the row and head rules it outranks, for the reason above. */
+.cx-site-facts-line > td.cx-site-facts-numeric,
+.cx-site-facts-head th.cx-site-facts-numeric {
+  padding-inline-end: calc(var(--cell-px) + var(--space-4));
+}
+
 .cx-site-facts-value {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums slashed-zero;
   color: var(--ink-code);
+}
+
+/* I-327: a figure the pinned edition states rather than a person entered — the same reading, in the
+   secondary ink, beside the DERIVED glyph on its fact (R-UI-002: the glyph carries the basis, the ink
+   only recedes). The source cell names where it is read from as a place to go and read it. */
+.cx-site-facts-value-derived {
+  color: var(--ink-secondary);
+}
+
+.cx-site-facts-edition-source {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-link);
+  text-decoration: underline;
 }
 
 .cx-site-facts-source {
@@ -178,11 +202,13 @@ td.cx-site-facts-numeric {
   border-block-end: var(--hairline);
 }
 
-/* The measure the deferral is read at is the row's, not the card's: the box this screen owns is
-   narrowed, and the one refusal card inside it keeps every rule it has from its own stylesheet
-   (R-UI-020 — the card's rules have one home, and no screen re-declares them). */
+/* The measure the deferral is read at is the row's, not the card's: the box this screen owns spans
+   the row, and the one refusal card inside it keeps every rule it has from its own stylesheet
+   (R-UI-020 — the card's rules have one home, and no screen re-declares them). I-327 withdraws the
+   880 cap: at 880 the register's message broke onto a second line inside the table (R-UI-084), and
+   a message as wide as the row it explains is still one line a reader takes in. */
 .cx-site-facts-deferral {
-  max-inline-size: 880px;
+  inline-size: 100%;
 }
 
 .cx-site-facts-form {

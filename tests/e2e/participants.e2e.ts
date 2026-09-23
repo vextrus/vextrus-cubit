@@ -96,12 +96,17 @@ const PNG_MAGIC = "89504e470d0a1a0a";
 
 const route = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/participants`;
 
-/** One chip of a fieldset, addressed by the text it carries (enum values are content, I-47). */
-function chip(page: Page, fieldset: string, label: string): Locator {
+/**
+ * One enum chip of a fieldset, addressed by the value the act carries. The chip reads in words
+ * through EnumLabel ("Measurer", s-settings-participants I-211 as amended) and keeps the stored value
+ * on the label's `data-value` — the technical channel a walk reads, exactly, rather than the words a
+ * person reads, which are copy.
+ */
+function chip(page: Page, fieldset: string, value: string): Locator {
   return page
     .getByTestId(fieldset)
     .locator("[aria-pressed]")
-    .filter({ hasText: new RegExp(`^\\s*${label}\\s*$`) });
+    .filter({ has: page.locator(`[data-value="${value}"]`) });
 }
 
 /**

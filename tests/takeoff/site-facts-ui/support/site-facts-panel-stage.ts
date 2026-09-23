@@ -22,7 +22,7 @@ import { expect } from "vitest";
 import type { Consequence } from "../../../../src/core/acts";
 import type { RefusalCode } from "../../../../src/core/errors";
 import type { SiteFact, StandingSiteFact } from "../../../../src/core/site-facts/law";
-import { SiteFactsPanel, type SiteFactsChrome } from "../../../../src/modules/takeoff/site-facts-ui";
+import { SiteFactsPanel, type EditionStatedFacts, type SiteFactsChrome } from "../../../../src/modules/takeoff/site-facts-ui";
 import { SettingsHeader } from "../../../../src/app/(app)/t/[tenant]/settings/settings-pane";
 import { ConsequenceDialog } from "../../../../src/ui/patterns/consequence-dialog";
 import { RefusalState } from "../../../../src/ui/patterns/refusal-state";
@@ -45,7 +45,7 @@ export type StagedPreviewAnswer = { previewed: true; consequence: Consequence; c
 export type StagedCommitAnswer = { committed: true; actId: string } | { committed: false; refusal: RefusalCode };
 
 /**
- * Everything the panel is mounted with — the nine props the screen itself passes
+ * Everything the panel is mounted with — the ten props the screen itself passes
  * (`settings/site-facts/site-facts-screen.tsx`), the chrome seam among them. A prop the panel needs
  * that is absent here is a plan defect; the list grows with the screen's own arity, never against it
  * (B-19, B-20: an increment that changes the law owns the acceptance the old law froze).
@@ -55,6 +55,12 @@ export interface StagedSiteFactsPanel {
   readonly projectId: string;
   /** What each fact stands at — `standingSiteFacts`' own answer, with an absent key per absent fact. */
   readonly standing: Readonly<Partial<Record<SiteFact, StandingSiteFact>>>;
+  /**
+   * What the pinned edition states of the facts nobody entered (the Decision's I-327) — the screen's
+   * tenth prop. The default states nothing, so a case that says nothing about the pin mounts every
+   * absent fact deferred, as a project with no statement in its edition would read.
+   */
+  readonly editionStated: EditionStatedFacts;
   /** Whether this reader holds AUTHOR_PROJECT_FACT; a reader without it still sees the whole panel. */
   readonly mayAuthor: boolean;
   readonly preview: (statement: StagedSiteFactStatement) => Promise<StagedPreviewAnswer>;
@@ -127,6 +133,7 @@ export function mountSiteFactsPanel(staged: Partial<StagedSiteFactsPanel> = {}):
     tenantId: STAGED_TENANT,
     projectId: STAGED_PROJECT,
     standing: {},
+    editionStated: {},
     mayAuthor: true,
     preview: () => Promise.reject(new Error("this mount states no preview door")),
     commit: () => Promise.reject(new Error("this mount states no commit door")),

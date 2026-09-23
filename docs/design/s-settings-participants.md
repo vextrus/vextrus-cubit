@@ -4,16 +4,16 @@
 ┌R─┬─────────────┬──────────────────────────────────────────────────────────────┐
 │  │ ws › Trace Survey ▾ › Settings › Participants             ⌘K ⟳ ✉ ◉         │
 │  ├─────────────┼──────────────────────────────────────────────────────────────┤
-│  │Participants◂│ Participants  (i)                                            │  header 40
-│  │Rule set     │ Current roles  2                                             │  section 28
-│  │Taxonomy     │ ┌────────────────────────┬──────────────────────────┐        │
-│  │Tax          │ │ Member                 │ Role                     │        │  28 px rows
-│  │             │ │ j003p-…@cubit.test     │ Principal  Measurer      │        │
-│  │             │ └────────────────────────┴──────────────────────────┘        │
+│  │Rule set     │ Participants  (i)                                            │  header 40
+│  │▌Participants│ Current roles  2                                             │  section 28
+│  │Site facts   │ ┌────────────────────────┬──────────────────────────┐        │
+│  │Author edit. │ │ Member                 │ Role                     │        │  28 px rows,
+│  │             │ │ j003p-…@cubit.test     │ Principal  Measurer      │        │  sized to them
+│  │             │ └────────────────────────┴──────────────────────────┘        │  (≤ 10, I-214)
 │  │             │ Assign a role  (i)                                           │  section 28
-│  │             │ Member    [ j003p-… ] [ other@… ]                            │  chips, 28 px
-│  │             │ Role      [ PRINCIPAL ] [ MEASURER ] [ REVIEWER ]            │
-│  │             │ Direction [ GRANT ] [ WITHDRAW ]                             │
+│  │             │ Member    [ j003p-…@cubit.test ] [ other@… ]                 │  chips, 28 px,
+│  │             │ Role      [ Principal ] [ Measurer ] [ Reviewer ] [ Lead ] … │  one line each
+│  │             │ Direction [ Grant ] [ Withdraw ]                             │
 │  │             │ ‹answer slot: the judged line, or one RefusalState›          │
 │  │             │ ● Preview this change                                        │  one primary
 │  │             │ Role history  3  (i)                                         │  section 28
@@ -25,11 +25,15 @@
        160                              the content pane
 ```
 
+(Amended 2026-09-23, I-328: the nav shows the four project areas in the roster's own order — Rule
+set, Participants, Site facts, Author edition, the order the settings surfaces contract pins — the
+roster is sized to its rows, and the role and direction chips read in words.)
+
 | Region | Purpose | Size | Empty | Error | Loading |
 |---|---|---|---|---|---|
 | section nav | the project's settings areas; Participants carries `aria-current` | 160 × 100 % (`--drawer-w-min`), rows `--control-h` | — (an area with no screen is shown disabled with its reason in a tooltip) | — | — |
 | header | the title and the `(i)` that holds the caption | 100 % × 40 | — | — | — |
-| current roles (primary) | who holds which role, in force now | flex × `--row-h` rows | impossible — a project holds at least one PRINCIPAL at every moment | the root boundary (`src/app/error.tsx`) | `loading.tsx` bones at the row height |
+| current roles (primary) | who holds which role, in force now | `--row-h` rows, sized to them: the header and every row up to ten, then the grid scrolls inside its own frame (I-214 as amended by I-328) | impossible — a project holds at least one PRINCIPAL at every moment | the root boundary (`src/app/error.tsx`) | `loading.tsx` bones at the row height |
 | assign form | the one act: three single-selection chip groups, the answer slot, the one primary | 100 % × auto, controls `--control-h` | — | the judged line, then `RefusalState` in the slot; once the dialog holds focus, the dialog's own slot | the submit's loading state |
 | role history | every grant and withdrawal, oldest first, with who recorded it and when | flex × `--row-h` rows | impossible — the creating grant is always on the record | the root boundary | bones at the row height |
 | permission-denied | the header, and one `RefusalState` saying why nothing else stands | 100 % × auto | — | — | — |
@@ -125,14 +129,19 @@ no string literal beyond test ids and fixed attribute values.
   where the act's own taxonomy, the journeys and the exports read them from (§6, and the rubric's
   C6). The one place the enum's own glyphs stay on screen is the assign form's chips: there a
   person is choosing FROM the closed taxonomy, and I-47's reason — that the word chosen and the
-  word recorded must be the same word — still holds.
+  word recorded must be the same word — still holds. *(Amended by I-328: the chips read in words
+  too. The grid above said "Principal" and the chip under it said `PRINCIPAL` — one enum spelled two
+  ways on one screen, which R-UI-083 forbids; I-47's reason is kept by making the chip's word the
+  SAME word the grid and the history show, "Bid manager" in all three, with the stored value in
+  EnumLabel's technical channel beside it.)*
 - **I-212 — the three helper sentences are behind `(i)` popovers, the denied screen's two
   included.** §6 allows at most one helper line per screen and this screen has none: the caption,
   the assign hint and the history hint are the disclosures on the headings they explain, and on
   the permission-denied branch the two sentences that name the permission and who holds it are
   the header's, leaving the `RefusalState` to be the one answer on the screen.
 - **I-213 — the screen states itself on its root, and every identifier renders through the IdChip (session 4, AM-08 Part 2's rubric read as CLAUDE.md reads it).** `cx-participants` states `ready` — the roster is never empty (a project holds a PRINCIPAL at every moment). The root carries `data-screen-root` and a `data-state` a reader of the DOM can take after `settled()` — `ready`, `empty`, or the screen's own word — which is the rubric's twelfth criterion and was unstated here. An identifier a person meets on this screen (an account id, a content digest, a source key) is an IdChip: the chip measure on screen, the whole value in `data-value`, on the tooltip and on the clipboard, never a raw uuid, hex digest or handle in body text (R-UI-082). Where an earlier Interpretation of this file ruled a digest rendered whole in the document, this one amends it: the whole value is the chip's DATA and the copy it hands over, and the document shows the measure.
-- **I-214 — the roster fills the work surface.** The current-roles grid is the primary region
+- **I-214 — the roster fills the work surface.** *(Superseded in its sizing by I-328: the roster is
+  sized to its rows, at most ten before it scrolls inside its frame.)* The current-roles grid is the primary region
   (§1's table) and takes the height the header leaves — `cx-participants` is a full-height column,
   `cx-participants-table` grows and the grid inside it stretches — so the surface reads as the grid
   it is rather than a two-row table over a page of form; the assign form and the history follow
@@ -141,6 +150,27 @@ no string literal beyond test ids and fixed attribute values.
   one does), and no deeper: at 1440x900, with a granted role on the history and the last-PRINCIPAL
   refusal standing, the screen must stay under twice the viewport — the cap every capture is held to
   (Design Direction 00 §9.3); twenty rows put it at 1812 px on 2026-09-21.
+- **I-328 — the list, the act and the record on one screen (session 7 craft pass, R-UI-081/083/084,
+  AM-08).** The look of 2026-09-23 lowered `aboveTheFold` and `controlHeight` 5 → 3 and found the
+  screen not demo-ready. (1) I-214's sixteen-row frame held a one-row roster over ~400 px of empty
+  grid and pushed the screen's one act and the whole record below the fold — at 1440×900 "Assign a
+  role" started at y 633 and Direction, the door and Role history were not on screen. I-214 bought
+  the rubric's C1 at the cost of the act, and a padded grid is not a work surface. Ruling: the
+  roster is sized to its rows — its header and every row up to ten (`max-height` eleven `--row-h`),
+  past which it scrolls inside its own frame — and the form and the history stand directly under
+  it, as this file's wireframe always drew them. (2) The form's fieldsets were `display: grid`, but
+  a fieldset's rendered legend is never a grid item, so the choices fell into the 160 px label
+  column: the member's address wrapped out of its 28 px pill and the role chips stacked one or two
+  per line. The legend is floated — a floated legend is not the rendered legend, so it joins the
+  grid as its first item — and legend and choices are placed in columns 1 and 2 outright. A chip's
+  label is one line (`white-space: nowrap`), a member's address past twice the nav's measure ends in
+  an ellipsis, and the whole address is the chip's tooltip (`title`). (3) I-211's chip exception is
+  withdrawn (above): role and direction chips render through EnumLabel at the chip's own type, so
+  "Bid manager" reads the same in the chip, the grid and the history. The stored value stays in the
+  label's `data-value`, which is where `tests/e2e/participants.e2e.ts` now addresses a chip — exactly,
+  by the value the act carries, rather than by copy. The three literal row and fieldset ids read
+  `TESTIDS` instead. The screen root carries no registered test id: the contract is closed (§7) and
+  the registry is not this pass's file — recorded, not spelled around.
 
 ## 1. Layout and hierarchy
 
@@ -172,7 +202,8 @@ A section line (`--control-h`): `<h2>` `spine_participants_current_heading` at
 `var(--text-14)` `var(--weight-heading)`, then the count of participants as a mono figure
 beside the words it counts. Then one `DataTable` (table id `participants-roster`) inside
 `<div data-testid="participants-list">`: one 28 px row per participant, in the module's own
-order, carrying `data-testid="participants-row"` and `data-user`, two columns —
+order, carrying `data-testid="participants-row"` and `data-user` — the frame sized to its rows, at
+most ten before it scrolls inside itself (I-328) — two columns —
 
 - **Member** (320, the frozen key column) — the member's label (I-51), 13 px
   `--weight-body-medium`, one line, ellipsis, the grid's tooltip on truncation.
@@ -187,17 +218,20 @@ Nothing in this grid is interactive: a role moves by act, and the act is the for
 A section line: `<h2>` `spine_participants_assign_heading` with the `(i)` holding
 `spine_participants_assign_hint` beside it (I-212). Then
 `<form data-testid="participants-assign-form">`, fieldsets stacked at gap `var(--space-2)`,
-each one a `--control-h` line of `minmax(0, 160px) 1fr` — the legend in `var(--text-13)`
-`var(--ink-muted)` in the first column, a wrapping chip row at gap `var(--space-1)` in the
-second, so the three fields read as three lines of a compact form rather than three stacked
-blocks (I-48):
+each one a `--control-h` line of `minmax(0, 160px) 1fr` — the legend (floated, so it is a grid
+item and not the fieldset's rendered legend, I-328) in `var(--text-13)` `var(--ink-muted)` in the
+first column, a chip row at gap `var(--space-1)` in the second — whole chips wrap to a new line
+when a workspace has more members than the row holds; a chip's own label never wraps — so the
+three fields read as three lines of a compact form rather than three stacked blocks (I-48):
 
 - `participants-assign-subject` (fieldset, legend `spine_participants_field_member`) — one
-  Chip per entry of `assignableSubjects` (the tenant's members), content the member's label.
+  Chip per entry of `assignableSubjects` (the tenant's members), content the member's label on
+  one line, ellipsis past twice `--drawer-w-min`, the whole label on the chip's tooltip (I-328).
 - `participants-assign-role` (fieldset, legend `spine_participants_field_role`) — one Chip
-  per role of the closed enum, in declared order, content the enum value per I-47.
+  per role of the closed enum, in declared order, content the role through EnumLabel ("Bid
+  manager"; I-211 as amended by I-328).
 - `participants-assign-direction` (fieldset, legend `spine_participants_field_direction`) —
-  two Chips, `GRANT` (preselected) and `WITHDRAW`, content verbatim per I-47.
+  two Chips, Grant (preselected) and Withdraw, through EnumLabel (I-328).
 
 Then the **answer slot** `<div data-testid="participants-refusal">` (before the submit, the
 s-auth ordering), then a core primary Button, no testid (the contract is closed; journeys
@@ -399,3 +433,16 @@ acceptance mounts `ParticipantsSection` with injected data and perform: list and
 rendering (order, data attributes, the unnamed-member fallback), the I-48 single-selection
 groups, the local judgement, both settled-refusal renderings, and the dialog handoff with
 the wrapper's input snapshot.
+
+## Changelog
+
+- 2026-09-23 — session 7 craft pass (the look lowered `aboveTheFold` and `controlHeight` 5 → 3):
+  I-328. The roster is sized to its rows (≤ 10, then it scrolls in its frame) and the form and
+  the record stand under it on one screen; the assign form's legend is a grid item, so the chips
+  take the second column on one line each, a long member address ending in an ellipsis with the
+  whole address on its tooltip; role and direction chips read in words through EnumLabel (I-211's
+  chip exception withdrawn); the wireframe's nav shows the four areas in the roster's own order.
+  `tests/e2e/participants.e2e.ts` addresses an enum chip by its EnumLabel `data-value`. The
+  participants pictures (J-003's `j-003-role-granted` and `j-003-last-principal-protected`
+  checkpoints, and any gallery capture of this route) move and are the gate's to re-take; the
+  open-dialog baseline is the dialog's own and does not move.
