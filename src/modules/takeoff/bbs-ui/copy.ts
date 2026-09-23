@@ -22,6 +22,15 @@ export const BBS_COPY = {
   bbs_col_cutting_is: "IS additive (mm)",
   bbs_col_bars: "Bars",
   bbs_col_kg: "Mass (kg)",
+  // A mark is stated once per floor with its number of members (I-534): the group row says the count,
+  // and the Bars cell of a line counted over several members says what one member takes.
+  bbs_members_one: "1 member",
+  bbs_members_many: "{count} members",
+  bbs_bars_each: "{each} in each of {count} members",
+  // The components of a rebar line, in words (I-354): the rail's own `net`, `lap` and `ties`.
+  bbs_component_net: "Bars",
+  bbs_component_lap: "Laps",
+  bbs_component_ties: "Ties",
   bbs_lap_label: "Lap",
   bbs_lap_tooltip: "A lap is scheduled as its own row beside the net bar, never as a percentage of it.",
   bbs_summary_heading: "Cutting stock by diameter",
@@ -55,3 +64,27 @@ export const BBS_COPY = {
   bbs_jobs_heading: "Rendering the schedule",
   bbs_document_link: "Open the issued schedule",
 } as const;
+
+/** One slot of a sentence filled: `{count} members` with `{ count: "8" }` is `8 members`. */
+export function fillCopy(key: keyof typeof BBS_COPY, values: Readonly<Record<string, string>>): string {
+  return BBS_COPY[key].replace(/\{(\w+)\}/gu, (slot, name: string) => values[name] ?? slot);
+}
+
+/**
+ * The components of a rebar line in words, by the rail's own variable name (I-354) — read by the
+ * screen's omitted list and by the issued schedule's, so the two faces say one word for one component
+ * (B-17). `net` is the bars themselves, lap excluded (AM-03(a)).
+ */
+export const BBS_COMPONENT_SAID: Readonly<Record<string, string>> = Object.freeze({
+  net: BBS_COPY.bbs_component_net,
+  lap: BBS_COPY.bbs_component_lap,
+  ties: BBS_COPY.bbs_component_ties,
+});
+
+/**
+ * How many members a line counts, in words: `1 member`, `8 members` (I-534). The figure arrives
+ * already written by the format seam, because a count a reader reads is a number like any other.
+ */
+export function membersSaid(count: number, figure: string): string {
+  return count === 1 ? BBS_COPY.bbs_members_one : fillCopy("bbs_members_many", { count: figure });
+}

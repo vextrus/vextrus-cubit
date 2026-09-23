@@ -52,10 +52,16 @@ const NARROW = { width: 1280, height: 800 } as const;
 const WORK_SURFACE_SHARE = 0.55;
 const FIRST_ROW_WITHIN_PX = 240;
 
-/** One row of the campaign's bill of bars, as the one door answers it (interfaces: `BbsDocument`). */
+/**
+ * One line of the campaign's bill of bars, as the one door answers it (interfaces: `BbsDocument`): a
+ * bar of one mark on one floor, counted over every member whose bars are the same (I-534).
+ */
 type DoorRow = {
   barKey: string;
+  /** The entry the line belongs to — its first member. */
   objectKey: string;
+  /** Every member the line counts, the first one first (I-534). */
+  members: readonly string[];
   barMark: string;
   role: string;
   diameterMm: number;
@@ -293,9 +299,19 @@ test.describe("J-032 — the bar schedule the transcribed notes produce", () => 
       expect(Number(main.kgLap), `${main.barMark}'s lap weighs something — a lap billed at nothing is not a lap billed`).toBeGreaterThan(0);
     }
 
-    /* --- one group row per member, and the cutting stock beneath the grid --- */
-    const members = await everyAttribute(bbs.members, "data-member", "the member group rows", { min: 1 });
-    expect([...members].sort(), "one group row per member the schedule holds bars for, and not one more (I-bbs-2)").toEqual([...new Set(doorRows.map((row) => row.objectKey))].sort());
+    /* --- one group row per ENTRY — each mark once per floor, with its member count — and the
+       cutting stock beneath the grid (TEST_AMENDED session 8, s-bbs I-534: the owner's ruling Q3,
+       BS 8666, states a mark once per floor with its number of members; the read was one group row
+       per member) --- */
+    const members = await everyAttribute(bbs.members, "data-member", "the entries' group rows", { min: 1 });
+    expect([...members].sort(), "one group row per entry the door's lines name, and not one more (I-bbs-2, I-534)").toEqual([...new Set(doorRows.map((row) => row.objectKey))].sort());
+    const counts = await everyAttribute(bbs.members, "data-members", "the entries' member counts", { min: 1 });
+    const countOf = new Map(doorRows.map((row) => [row.objectKey, row.members.length]));
+    expect(counts, "each group row states the number of members the door counted for its entry — carried, never re-counted").toEqual(members.map((member) => String(countOf.get(member))));
+    expect(
+      counts.reduce((total, count) => total + Number(count), 0),
+      "and the entries together count every member the door's lines name, each once (I-534)",
+    ).toBe(new Set(doorRows.flatMap((row) => row.members)).size);
 
     const diameters = Object.keys(document_.perDiameterKg);
     expect(diameters.length, "the door totals the schedule's mass by diameter").toBeGreaterThan(0);

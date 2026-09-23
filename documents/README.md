@@ -1,7 +1,11 @@
 # Documents — the page every issued document is set on
 
 This directory holds the Typst source shared by every document kind: the page frame, the
-`draft-unsigned-banner` macro, the lockup and the quiet watermark. A KIND's own template lives beside
+`draft-unsigned-banner` macro, the lockup and the quiet watermark, and two partials a kind may set in
+its body — `particulars-block` (what a document is about, in words) and `sign-off-block` (blank boxes
+a site completes by hand; the product fills none of them, AM-05). `document-frame` takes `landscape`
+and `footer-note` (shared with the draft BOQ) beside its older parameters; every default is what the frame always did, so a
+kind that passes none of them is set exactly as before (s-bbs I-535). A KIND's own template lives beside
 its kind file in `src/core/documents/kinds/<kind>.typ`; only what every kind shares is here.
 
 Nothing in this directory is compiled in place. `stageRender` (`src/core/documents/typst.ts`) copies

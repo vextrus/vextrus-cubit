@@ -209,6 +209,13 @@
   border-right-color: transparent;
 }
 
+/* The mark's number of members (I-534): the last words of the group row, said in the secondary ink
+   at the body weight so the floor, the class and the mark lead and the count reads as their note. */
+.cx-bbs-member-count {
+  color: var(--ink-secondary);
+  font-weight: var(--weight-body);
+}
+
 /* The loading posture's bone for a line of the summary beneath the grid (§2). */
 .cx-bbs-bone-row {
   width: 100%;

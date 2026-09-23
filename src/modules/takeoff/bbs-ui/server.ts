@@ -4,9 +4,11 @@
 //
 // IT COMPOSES RATHER THAN COMPUTES. `bbsOf` is inc-309's door and the bill is its answer, carried
 // across whole: no figure of this screen's own is added to it, and none is taken away (goal, B-17).
-import { and, asc, eq, forTenant, quantityLines } from "@/core/db";
+import { and, asc, drawingSetRevisions, drawingSets, eq, forTenant, projects, quantityLines } from "@/core/db";
+import { dhakaDateParts } from "@/core/format";
 import { residueOf } from "@/core/residue";
 import { bbsOf } from "@/modules/takeoff/rebar";
+import type { BbsParticulars } from "./emission";
 import type { BbsOmission, BbsView } from "./view";
 
 /** Which project's schedule is being read, in which workspace (SEAM-TENANT). */
@@ -82,5 +84,64 @@ function omittedComponentsOf(omitted: readonly unknown[]): { code: string; varia
     const code = held?.code;
     const variable = held?.variable;
     return typeof code === "string" && code !== "" ? [{ code, variable: typeof variable === "string" && variable !== "" ? variable : null }] : [];
+  });
+}
+
+/** What an issued schedule is ABOUT, read from the project and the pin its campaign measured. */
+export type BbsAbout = {
+  /** The project's own name — what the schedule is a schedule OF. */
+  readonly project: string;
+  /** Everything the particulars block says but the day it was issued, which is the issue's own. */
+  readonly particulars: Omit<BbsParticulars, "issuedOn">;
+};
+
+/** A recorded text, or nothing where the project recorded none — an empty field is not a statement. */
+function recorded(value: string | null): string | null {
+  return value === null || value.trim() === "" ? null : value.trim();
+}
+
+/**
+ * The particulars an issued schedule states in words (s-bbs I-535): the project's name, code, client
+ * and site as the project records them, and the drawing set the campaign's pinned revision belongs to
+ * — its name, WHICH of its pins this is (counted from the first in the store's own write order,
+ * `appendSeq`, never by a random surrogate), and the day it was pinned in the document's zone.
+ *
+ * Read, never composed: a particular the project does not record is answered as nothing, and the page
+ * says so. A pin the store cannot find for a campaign that names it is not a gap in the paper but a
+ * store that contradicts itself, and it is raised as the outage it is (ARCH-03).
+ */
+export async function bbsParticularsOf(scope: BbsScope, setRevisionId: string): Promise<BbsAbout> {
+  return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
+    const [project] = await tx
+      .select({ name: projects.name, code: projects.code, client: projects.client, site: projects.siteAddress })
+      .from(projects)
+      .where(and(eq(projects.tenantId, scope.tenantId), eq(projects.projectId, scope.projectId)))
+      .limit(1);
+    const [pinned] = await tx
+      .select({ setId: drawingSetRevisions.setId, pinnedAt: drawingSetRevisions.createdAt, set: drawingSets.name })
+      .from(drawingSetRevisions)
+      .innerJoin(drawingSets, eq(drawingSets.setId, drawingSetRevisions.setId))
+      .where(and(eq(drawingSetRevisions.tenantId, scope.tenantId), eq(drawingSetRevisions.setRevisionId, setRevisionId)))
+      .limit(1);
+    if (project === undefined || pinned === undefined) {
+      throw new Error(`the schedule's particulars cannot be read: project ${scope.projectId} or its pinned revision ${setRevisionId} is not in the store`);
+    }
+    const pins = await tx
+      .select({ setRevisionId: drawingSetRevisions.setRevisionId })
+      .from(drawingSetRevisions)
+      .where(and(eq(drawingSetRevisions.tenantId, scope.tenantId), eq(drawingSetRevisions.setId, pinned.setId)))
+      .orderBy(asc(drawingSetRevisions.appendSeq));
+    const revision = pins.findIndex((pin) => pin.setRevisionId === setRevisionId) + 1;
+    return {
+      project: project.name,
+      particulars: {
+        code: recorded(project.code),
+        client: recorded(project.client),
+        site: recorded(project.site),
+        drawingSet: pinned.set,
+        revision,
+        pinnedOn: dhakaDateParts(pinned.pinnedAt),
+      },
+    };
   });
 }

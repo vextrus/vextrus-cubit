@@ -15,6 +15,8 @@
  * until the second measures it. This suite opens a live database, so it is the DATABASE lane's
  * (derived from its imports, scripts/lib/pg-suites.mjs); nothing here measures time (AM-10 §3).
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, describe, expect, test } from "vitest";
 import {
   BNBC_MODEL,
@@ -72,8 +74,16 @@ function partlyDeclared(stage: RebarStage): number {
   return linesOf(stage).filter((line) => said(line, "coverage", "coverage") === PARTIAL_DECLARED).length;
 }
 
+/**
+ * What two schedules are compared on: their lines by key, and the totals that close them. Typed by
+ * what it reads, because the door's own answer arrives through the rebar suite's contract shape.
+ */
+type ComparedSchedule = Pick<BbsDocumentShape, "perDiameterKg" | "grandTotalKg" | "stockMm"> & {
+  readonly rows: readonly Pick<BbsDocumentShape["rows"][number], "barKey" | "diameterMm" | "cuttingRawMm" | "bars" | "kg">[];
+};
+
 /** A schedule as two schedules can be compared: its rows by key, and the totals that close it. */
-function shapeOf(document: BbsDocumentShape): string {
+function shapeOf(document: ComparedSchedule): string {
   return JSON.stringify([
     [...document.rows].map((row) => [row.barKey, row.diameterMm, row.cuttingRawMm, row.bars, row.kg]).sort(),
     Object.entries(document.perDiameterKg).sort(),
@@ -154,12 +164,40 @@ describe("AC-2: the view S-BBS is drawn from is the project's own campaign, decl
       const { BBS } = await productModule<{ BBS: string }>("src/core/documents/kinds/bbs.ts");
 
       expect(BBS_RENDER_KIND, "the render runs under the kind the rebar area declares (AM-11)").toBe("bbs-render");
+      // What the page is set from — the presented payload the template reads — is read on its way to
+      // the pinned renderer, which then compiles it as ever (s-bbs I-535).
+      const { compileTypst } = await productModule<{ compileTypst: (staged: { dir: string; main: string; out: string }) => Promise<Uint8Array> }>("src/core/documents/typst.ts");
+      let presented = "";
+      const compile = async (staged: { dir: string; main: string; out: string }): Promise<Uint8Array> => {
+        presented = readFileSync(join(staged.dir, "payload.json"), "utf8");
+        return compileTypst(staged);
+      };
       const steps: string[] = [];
       const issued = await runBbsRenderJob(
         { tenantId: stage.tenantId, projectId: stage.projectId, campaignId: stage.campaignId, requestedBy: stage.actor.userId },
         { jobId: `bbs-render-${stage.campaignId}`, step: async (name) => void steps.push(name) },
-        { storage: appStorage() },
+        { storage: appStorage(), compile } as { storage: unknown },
       );
+
+      // I-535: the page is written in words. The particulars name the project as its own name and the
+      // drawings as the set and the pin the campaign measured — the first pin of this stage's set —
+      // and nothing the template reads is an id: no uuid, no register key, no campaign.
+      const page = JSON.parse(presented) as { particulars: { label: string; value: string }[]; entries: { heading: string; members: string }[] };
+      const particular = (label: string): string => page.particulars.find((one) => one.label === label)?.value ?? "";
+      expect(particular("Project").length, "the particulars name the project").toBeGreaterThan(0);
+      expect(particular("Project"), "by its words, never its id").not.toContain(stage.projectId);
+      expect(particular("Drawings"), "the drawings are the set and which of its pins the campaign read, pinned on a day").toMatch(/, revision 1, pinned \d{2} [A-Z][a-z]{2} \d{4}$/u);
+      expect(particular("Issued"), "the issue states its day as a date (L-FMT-01)").toMatch(/^\d{2} [A-Z][a-z]{2} \d{4}$/u);
+      expect(page.entries.length, "the schedule's entries are headed").toBeGreaterThan(0);
+      expect(presented, "no uuid reaches the page (R-UI-082)").not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu);
+      for (const member of stage.objects.map((object) => String(object["objectKey"] ?? object["object_key"] ?? ""))) {
+        if (member !== "") expect(presented, `and no register key (${member})`).not.toContain(member);
+      }
+      // I-536: this campaign's tie zones state no length, so its lines are partly declared — and the
+      // issued page says so, naming the component in the screen's word for it.
+      const told = JSON.parse(presented) as { partial: boolean; leftOut: { what: string; why: string }[] };
+      expect(told.partial, "a campaign whose rebar lines are partly declared issues a schedule that says it is the measured scope only").toBe(true);
+      expect(told.leftOut.map((one) => one.what).join(" · "), "and names what it leaves out, in words").toContain("Ties");
       expect(steps, "the run reports its three steps in order: the read, the render, the filing (SEAM-JOBS)").toEqual(["bbs:read", "bbs:render", "bbs:file"]);
       expect(issued.version, "the first schedule this project issues is version 1 (R-SPINE-040)").toBe(1);
 

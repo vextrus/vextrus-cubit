@@ -17,7 +17,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { RefusalEntry } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import type { JobKind } from "@/core/jobs/kinds";
-import { BBS_COPY } from "./copy";
+import { BBS_COMPONENT_SAID, BBS_COPY, fillCopy, membersSaid } from "./copy";
 import { BBS_PLACES, bbsRowsOf, bbsSummaryOf, statedAt, type BbsGridRow, type BbsSummaryRow } from "./present";
 import { bbsStateOf, nothingScheduled } from "./states";
 import type { BbsView } from "./view";
@@ -28,8 +28,9 @@ import type { BbsView } from "./view";
 type Evidence = { href: string; label: string };
 
 /**
- * The member a run of bars belongs to, drawn as the grid's own group row (Decision §1): where it
- * stands, what it is and what it is marked — and no figure at all (I-bbs-2).
+ * The mark on its floor a run of bars belongs to, drawn as the grid's own group row (Decision §1):
+ * where it stands, what it is, what it is marked and how many members of it the lines count — and no
+ * mass at all (I-bbs-2, I-534).
  *
  * It is a ROW of the one grid rather than a heading above a table of its own, so the whole schedule
  * reads under ONE sticky column band and one frozen key column, and a reader scrolls bars rather than
@@ -38,10 +39,13 @@ type Evidence = { href: string; label: string };
 export type BbsMemberRow = {
   readonly component: "MEMBER";
   readonly key: string;
+  /** The entry's name: its first member's key (I-534). */
   readonly objectKey: string;
   readonly mark: string;
   readonly class: string;
   readonly level: string | null;
+  /** How many members the entry's lines count — the door's own count, carried (I-534). */
+  readonly members: number;
 };
 
 /** One row of the schedule's grid: a member's group row, a bar, or the lap beneath a bar. */
@@ -235,10 +239,10 @@ const levelsHref = (tenantId: string, projectId: string): string => `/t/${tenant
 
 /**
  * The components of a rebar line in words (I-354): the rail's own variable names, said as §3's
- * vocabulary through `EnumLabel`, the raw name beside each under `data-technical`. Only words each
- * value holds — `net` is the bars themselves, lap excluded (AM-03(a)).
+ * vocabulary through `EnumLabel`, the raw name beside each under `data-technical`. The words are the
+ * copy table's, read by the issued schedule too (`BBS_COMPONENT_SAID`, B-17).
  */
-const COMPONENT_SAID: Readonly<Record<string, string>> = Object.freeze({ net: "Bars", lap: "Laps", ties: "Ties" });
+const COMPONENT_SAID: Readonly<Record<string, string>> = BBS_COMPONENT_SAID;
 
 /**
  * Where each omission a partly declared line states is SETTLED, and the words its link says (I-354,
@@ -266,9 +270,10 @@ function InPlace({ children }: { children: ReactNode }): ReactNode {
 }
 
 /**
- * The grid's rows in the order it draws them: each member's group row, then the bars and laps
- * standing under it, in the presenter's own order — the members in the order the document first
- * names them, the rows inside a member in the document's own (L-REG-04). Nothing is sorted here.
+ * The grid's rows in the order it draws them: each entry's group row — one mark on one floor, with
+ * its number of members (I-534) — then the bars and laps standing under it, in the presenter's own
+ * order: the entries in the order the document first names them, the rows inside an entry in the
+ * document's own (L-REG-04). Nothing is sorted here.
  */
 function tableRowsOf(rows: readonly BbsGridRow[]): BbsTableRow[] {
   const order: string[] = [];
@@ -277,7 +282,15 @@ function tableRowsOf(rows: readonly BbsGridRow[]): BbsTableRow[] {
     const held = byMember.get(row.objectKey);
     if (held === undefined) {
       order.push(row.objectKey);
-      const member: BbsMemberRow = { component: "MEMBER", key: `${row.objectKey}|MEMBER`, objectKey: row.objectKey, mark: row.mark, class: row.class, level: row.level };
+      const member: BbsMemberRow = {
+        component: "MEMBER",
+        key: `${row.objectKey}|MEMBER`,
+        objectKey: row.objectKey,
+        mark: row.mark,
+        class: row.class,
+        level: row.level,
+        members: row.members,
+      };
       byMember.set(row.objectKey, [member, row]);
     } else held.push(row);
   }
@@ -298,6 +311,7 @@ function rowDataOf(ids: BbsTestIds): (row: BbsTableRow) => Record<string, string
       return {
         "data-testid": ids.member,
         "data-member": row.objectKey,
+        "data-members": String(row.members),
         "data-mark": row.mark,
         "data-class": row.class,
         "data-level": row.level ?? "",
@@ -838,6 +852,10 @@ function bbsColumns(chrome: Pick<BbsChrome, "EnumLabel" | "Tooltip">, dimensions
               <EnumLabel value={held.class} className="cx-bbs-enum" />
               <span className="cx-bbs-member-separator">{" · "}</span>
               <span className="cx-bbs-member-mark">{held.mark}</span>
+              <span className="cx-bbs-member-separator">{" · "}</span>
+              {/* BS 8666's "No. of members": the mark is stated once on this floor, and the count
+                  says how many members its lines stand for (I-534). */}
+              <span className="cx-bbs-member-count">{membersSaid(held.members, formatUserFigure(String(held.members)))}</span>
             </span>
           );
         }
@@ -925,7 +943,17 @@ function bbsColumns(chrome: Pick<BbsChrome, "EnumLabel" | "Tooltip">, dimensions
       size: WIDTH.bars,
       meta: { align: "right" },
       accessorFn: barText((row) => row.bars),
-      cell: bar((row) => <span className="cx-bbs-figure">{printed(row.bars)}</span>),
+      // The TOTAL a site cuts. Where the line counts several members, what ONE takes is a hover or a
+      // focus away — BS 8666's "No. in each", which the count on the group row multiplies (I-534).
+      cell: bar((row) =>
+        row.component === "NET" && row.members > 1 ? (
+          <Tooltip content={fillCopy("bbs_bars_each", { each: formatUserFigure(String(row.barsPerUnit)), count: formatUserFigure(String(row.members)) })}>
+            <span className="cx-bbs-figure">{printed(row.bars)}</span>
+          </Tooltip>
+        ) : (
+          <span className="cx-bbs-figure">{printed(row.bars)}</span>
+        ),
+      ),
     },
     {
       id: "kg",

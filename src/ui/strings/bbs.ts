@@ -26,6 +26,15 @@ export const bbs = {
   bbs_col_cutting_is: "IS additive (mm)",
   bbs_col_bars: "Bars",
   bbs_col_kg: "Mass (kg)",
+  // A mark is stated once per floor with its number of members (I-534): the group row says the count,
+  // and the Bars cell of a line counted over several members says what one member takes.
+  bbs_members_one: "1 member",
+  bbs_members_many: "{count} members",
+  bbs_bars_each: "{each} in each of {count} members",
+  // The components of a rebar line, in words (I-354): the rail's own `net`, `lap` and `ties`.
+  bbs_component_net: "Bars",
+  bbs_component_lap: "Laps",
+  bbs_component_ties: "Ties",
   bbs_lap_label: "Lap",
   bbs_lap_tooltip: "A lap is scheduled as its own row beside the net bar, never as a percentage of it.",
   bbs_summary_heading: "Cutting stock by diameter",

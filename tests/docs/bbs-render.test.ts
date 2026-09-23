@@ -4,25 +4,27 @@
  * itself byte-frozen against its committed golden with DRAFT — UNSIGNED on every page
  * (A-BBS-PDF, R-TO-054, SEAM-DOC, V-DOCS, AM-18, AM-03(c)(e), AM-05, L-FRM-05).
  *
+ * I-534, I-535, I-536 (session 8; the owner's ruling Q3, walk-0's BLOCKS_DEMO B17) — the schedule
+ * states each mark ONCE per floor with its number of members, as BS 8666 writes it; it is a document a
+ * site signs: its entries are headed in words (`C2 · Column · 1F`, `8 members`), never a register key
+ * or an enum word; its particulars say whose it is, what drawings it was read from and when; its
+ * columns are as wide as what they hold, so no figure is printed over its neighbour; and what the
+ * measurement left out is said.
+ *
  * What is judged is the ARTEFACT. The lane commits a payload, puts it through the pinned renderer,
  * and reads the bytes and the extracted text back — so what this file grades is the document the
- * product produced, never the template that produced it. "The shape codes are DRAWN" is read from
- * the artefact too — no `/Subtype /Image`, and paths constructed and painted at least once per bar
- * scheduled — and only the last of its three clauses is white-box: a code of the roster that this
- * payload's rows never exercise is reachable nowhere but in the template's own dispatch, and what is
- * read there is that its branch REACHES A DRAWING PRIMITIVE, never that the code is mentioned.
+ * product produced, never the template that produced it. Two clauses are white-box and say so: that
+ * every shape of the roster has a DRAWN branch (a payload cannot exercise a shape its rows do not
+ * carry), and that the schedule's columns are sized by what they hold (the extracted text carries no
+ * glyph positions to measure an overprint by).
  *
- * THE PAYLOAD IS THE GOLDEN ROSTER'S, NEVER A LIST TYPED HERE. Every figure the committed payload
- * carries is proved to be a row of `fixtures/rcc6-bnbc/bbs.golden.json`, read in file order through
- * the fixture support the golden lane publishes — so a payload somebody re-typed, re-rounded or
- * re-ordered fails here rather than being frozen into a golden PDF (AM-01, B-19).
- *
- * It lives FLAT beside the lane's other suites because that is what every reading of
- * `tests/docs/vitest.config.ts`'s globs collects (`*.test.ts` under its own root, as
- * `boq-draft-render.test.ts` records); its FIXTURES stay under `tests/docs/bbs/`, which is this
- * kind's own fixture root (docs/design/s-bbs.md §6). Nothing here measures time
- * (AM-10 §3) — the lane's own restraint is asserted over every file of tests/docs by
- * `tests/docs/boq-draft-render.test.ts`, and this file is one of them.
+ * THE PAYLOAD IS THE PRODUCT'S OWN EMISSION OF THE GOLDEN ROSTER, NEVER A LIST TYPED HERE. The
+ * committed payload must equal what the product's own door and export (`bbsDocumentOf`,
+ * `bbsPayloadOf`) make of the golden's columns and shear walls at FDN, GF and 1F — so a payload
+ * somebody re-typed, re-rounded, re-ordered or re-counted fails here rather than being frozen into a
+ * golden PDF (AM-01, B-19). Nothing here measures time (AM-10 §3) — the lane's own restraint is
+ * asserted over every file of tests/docs by `tests/docs/boq-draft-render.test.ts`, and this file is
+ * one of them.
  */
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
@@ -32,7 +34,7 @@ import { refusalCodeOf } from "../../src/core/faults/refusal-marker";
 import { paintCountOf } from "./support/pdf-paint";
 import { pdfText } from "./support/pdf-text";
 import { inTree, squashed } from "./support/product";
-import { bbsGoldenRows, BBS_FIXTURE, type BbsGoldenRow } from "./support/bbs-golden";
+import { bbsDocumentRows, bbsGoldenPayload, BBS_FIXTURE } from "./support/bbs-golden";
 import { bbsModule, bs8666Module, documentsIndex, figuresModule, kindsLawModule, kindsModule, type DocumentKind } from "./support/seam";
 import { filesUnder, withoutComments } from "./support/tree-source";
 
@@ -58,27 +60,37 @@ const ctx = { requestId: "ac-1-request", actor: "acceptance" };
 
 const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 
-/** One row of the committed payload, by the field names the increment's interfaces give it. */
-type PayloadRow = {
+/** One bar of an entry of the committed payload, by the field names the kind's schema gives it. */
+type PayloadBar = {
   barMark: string;
+  role: string;
   shape: string;
   cuttingRawMm: string;
   cuttingRoundedMm: string;
   cuttingIsAdditiveMm: string;
+  barsPerUnit: number;
   bars: string;
   kgNet: string;
   kgLap: string;
   kg: string;
+  lapMm: string;
   lapsPerBar: number;
 };
 
+/** One entry: a mark on a floor, how many members of it, and the bars each takes (I-534). */
+type PayloadEntry = { level: string | null; class: string; mark: string; members: number; bars: PayloadBar[] };
+
 /** The committed payload, as much of its shape as the criteria name. */
 type Payload = {
-  title?: string;
-  rows: PayloadRow[];
+  title: string;
+  project: string;
+  particulars: { client: string | null; site: string | null; drawingSet: string; revision: number };
+  schedule: PayloadEntry[];
   cuttingStock: Record<string, { stockBars: number; pieces: number; offcutMm: string }>;
   perDiameterKg: Record<string, string>;
   grandTotalKg: string;
+  partial: boolean;
+  leftOut: { components: string[]; reason: string }[];
 };
 
 /** A committed fixture of this lane, read as JSON. */
@@ -110,8 +122,23 @@ function pages(pdf: Uint8Array): string[] {
     .filter((page) => page.trim() !== "");
 }
 
+/** Text with every space taken out: what a page says, whatever gaps the extraction read between runs. */
+const compact = (text: string): string => text.replace(/\s+/gu, "");
+
+/** A key as a page says it — the one sentence-case rule, stated here as the criterion reads it. */
+const said = (key: string): string => {
+  const words = key.replace(/_/gu, " ").toLowerCase();
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+};
+
+/** The heading an entry is owed: its mark, its class and its floor, in words (I-535). */
+const headingOf = (entry: PayloadEntry): string => [entry.mark, said(entry.class), ...(entry.level === null ? [] : [entry.level])].join(" · ");
+
 /** The committed payload, read once and shared by the cases that drive the renderer with it. */
 const payload = (): Payload => fixtureJson<Payload>(PAYLOAD);
+
+/** Every bar of the committed schedule, entry by entry, in the order the page prints them. */
+const barsOf = (input: Payload): PayloadBar[] => input.schedule.flatMap((entry) => entry.bars);
 
 /** The renders, made at most once per process: a Typst compile is the lane's most expensive answer. */
 let rendering: Promise<{ first: { pdf: Uint8Array; sha256: string }; second: { pdf: Uint8Array; sha256: string } }> | undefined;
@@ -140,16 +167,6 @@ function printedForms(figure: (value: string, precision: number) => string, valu
     }
   }
   return forms;
-}
-
-/** The nine fields a payload row and a golden row must agree on, as one comparable tuple. */
-function payloadFacts(row: PayloadRow): string {
-  return JSON.stringify([row.barMark, row.shape, row.cuttingRawMm, row.cuttingRoundedMm, row.cuttingIsAdditiveMm, row.bars, row.kgNet, row.kgLap, row.kg]);
-}
-
-/** The same nine facts, as the golden records them. */
-function goldenFacts(row: BbsGoldenRow): string {
-  return JSON.stringify([row.bar_mark, row.shape, row.cutting_raw_mm, row.cutting_rounded_mm, row.cutting_is_additive_mm, row.bars, row.kg_net, row.kg_lap, row.kg]);
 }
 
 describe("AC-1: the bar bending schedule renders as its own kind, byte for byte", () => {
@@ -200,6 +217,16 @@ describe("AC-1: the bar bending schedule renders as its own kind, byte for byte"
       REFUSALS.DOCUMENT_PAYLOAD_MALFORMED.code,
     );
     expect(calls, "the subprocess is never reached: the payload is read before a directory is staged").toBe(0);
+
+    // A payload that still carries the ids the page used to print is refused too: the schema is
+    // strict, so a campaign id or a register key cannot ride in beside the words (R-UI-082, I-535).
+    const withIds = { ...payload(), campaignId: "rcc6-bnbc-campaign" };
+    const stale = await renderDocument("bbs", withIds, ctx, { compile }).then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
+    expect(refusalCodeOf(stale), "a payload carrying a campaign id is a malformed payload, not a document").toBe(REFUSALS.DOCUMENT_PAYLOAD_MALFORMED.code);
+    expect(calls, "and it too never reaches the renderer").toBe(0);
   });
 
   it("AC-1: the committed payload renders to the same bytes twice and to the committed golden", async () => {
@@ -220,64 +247,169 @@ describe("AC-1: the bar bending schedule renders as its own kind, byte for byte"
     const banners = sheets.filter((page) => squashed(page).includes(BANNER)).length;
     expect(banners, `the banner stands at least once per page — ${sheets.length} page(s), and it was found on ${banners} (AM-05)`).toBeGreaterThanOrEqual(sheets.length);
     expect(squashed(sheets.join(" ")), "and the document says what it is").toContain(BBS_TITLE);
+    const footers = sheets.filter((page) => compact(page).includes(compact(`${payload().project} · ${BBS_TITLE}`))).length;
+    expect(footers, "every page says whose schedule it is part of, so a page separated from the rest still says so (I-535)").toBe(sheets.length);
   });
 
-  it("AC-1: every row prints its mark, its shape and its three lengths, and every lapping row a LAP component line", async () => {
+  it("I-534 · I-535: every entry is headed in words with its number of members, and every bar prints its mark, shape, three lengths, the number in each and the total", async () => {
     const { figure } = await figuresModule();
     const { first } = await rendered();
-    const whole = squashed(pages(first.pdf).join(" "));
+    const whole = compact(pages(first.pdf).join(" "));
     const input = payload();
 
-    expect(input.rows.length, `${PAYLOAD} carries rows to print`).toBeGreaterThan(0);
-    for (const row of input.rows) {
-      expect(whole, `bar mark ${row.barMark} stands in the schedule`).toContain(squashed(row.barMark));
-      expect(whole, `and the shape it is bent to (${row.shape}) stands beside it — a BS 8666 code is the domain's own name (I-bbs-6)`).toContain(squashed(row.shape));
-      expect(whole, `${row.barMark}'s raw cutting length prints as stored, never rounded (L-FRM-05)`).toContain(squashed(figure(row.cuttingRawMm, 3)));
-      expect(whole, `${row.barMark}'s one rounded surface prints beside it (AM-01)`).toContain(squashed(figure(row.cuttingRoundedMm, 0)));
-      expect(whole, `${row.barMark}'s IS-additive figure prints beside them both, and is billed by nothing (AM-03(c))`).toContain(squashed(figure(row.cuttingIsAdditiveMm, 3)));
+    expect(input.schedule.length, `${PAYLOAD} carries entries to print`).toBeGreaterThan(0);
+    const wrong: string[] = [];
+    let cursor = 0;
+    for (const entry of input.schedule) {
+      const heading = compact(headingOf(entry));
+      const at = whole.indexOf(heading, cursor);
+      if (at === -1) {
+        wrong.push(`${headingOf(entry)} is not headed in words where the payload puts it`);
+        continue;
+      }
+      const count = compact(entry.members === 1 ? "1 member" : `${figure(String(entry.members), 0)} members`);
+      if (!whole.slice(at, at + heading.length + 40).includes(count)) wrong.push(`${headingOf(entry)} does not say its ${entry.members} member(s) beside its heading`);
+      cursor = at + heading.length;
+      for (const bar of entry.bars) {
+        const mark = whole.indexOf(compact(bar.barMark), cursor);
+        if (mark === -1) {
+          wrong.push(`${headingOf(entry)}: ${bar.barMark} does not stand beneath its heading`);
+          continue;
+        }
+        cursor = mark;
+        const line = whole.slice(mark, mark + 400);
+        for (const [what, value] of [
+          ["shape", bar.shape],
+          ["raw cutting length", figure(bar.cuttingRawMm, 3)],
+          ["rounded length", figure(bar.cuttingRoundedMm, 0)],
+          ["IS-additive length", figure(bar.cuttingIsAdditiveMm, 3)],
+          ["number in each", figure(String(bar.barsPerUnit), 0)],
+          ["total", figure(bar.bars, 0)],
+          ["net mass", figure(bar.kgNet, 3)],
+        ] as const) {
+          if (!line.includes(compact(value))) wrong.push(`${headingOf(entry)} ${bar.barMark}: its ${what} (${value}) is not on its line`);
+        }
+      }
     }
+    expect(wrong.slice(0, 5), `every entry and every bar stands as the payload states it — ${wrong.length} do not`).toEqual([]);
+  });
 
-    // A LAP LINE BELONGS TO ITS ROW, AND A COLUMN IS NOT A LINE (AM-03(a), L-BD-02, I-bbs-3).
+  it("AC-1: every lapping bar carries its own Lap line with the lap's own mass, and no other bar does", async () => {
+    const { figure } = await figuresModule();
+    const { first } = await rendered();
+    const whole = compact(pages(first.pdf).join(" "));
+    const bars = barsOf(payload());
+
+    // A LAP LINE BELONGS TO ITS BAR, AND A COLUMN IS NOT A LINE (AM-03(a), L-BD-02, I-bbs-3).
     //
-    // The document is cut into one SEGMENT per payload row — from that row's mark to the next row's
-    // — and the rule is read inside the segment: a row that laps carries the token `LAP` with the
-    // lap's OWN mass beside it, and a row that does not laps carries no `LAP` at all. A template
-    // that printed `kg LAP` as a per-row COLUMN heading says LAP on every page, which the count
-    // below refuses; one that printed the lap's mass in a column beside the bar's says LAP in a
-    // segment that has no lap, which the segment rule refuses.
-    const lapping = input.rows.filter((row) => row.lapsPerBar > 0);
-    expect(lapping.length, `${PAYLOAD} reaches a row that laps — see the roster case below`).toBeGreaterThan(0);
-    const said = [...whole.matchAll(/\bLAP\b/gu)].length;
-    expect(said, `the document names a LAP component exactly once per lapping row — ${lapping.length} row(s) lap, and it says LAP ${said} time(s). A column heading repeated on every page is not a component line (AM-03(a))`).toBe(
-      lapping.length,
-    );
+    // The document is cut into one SEGMENT per bar — from that bar's mark to the next bar's — and the
+    // rule is read inside the segment: a bar that laps carries the word `Lap` with the lap's OWN mass
+    // beside it, and a bar that does not lap carries no `Lap` at all. A template that printed a lap as
+    // a per-row COLUMN says Lap on every page, which the count below refuses; one that printed the
+    // lap's mass in a column beside the bar's says Lap in a segment that has no lap.
+    const lapping = bars.filter((bar) => bar.lapsPerBar > 0);
+    expect(lapping.length, `${PAYLOAD} reaches a bar that laps — see the roster case below`).toBeGreaterThan(0);
+    const lapWord = /Lap(?!s)/gu;
+    const saidLap = [...whole.matchAll(lapWord)].length;
+    expect(saidLap, `the document names a Lap line exactly once per lapping bar — ${lapping.length} bar(s) lap, and it says Lap ${saidLap} time(s) (AM-03(a))`).toBe(lapping.length);
 
     const wrong: string[] = [];
     let cursor = 0;
-    for (const [at, row] of input.rows.entries()) {
-      const mark = squashed(row.barMark);
+    for (const [at, bar] of bars.entries()) {
+      const mark = compact(bar.barMark);
       const from = whole.indexOf(mark, cursor);
       if (from === -1) {
-        wrong.push(`row ${at} (${row.barMark}) does not stand in the document in the order the payload puts it`);
+        wrong.push(`bar ${at} (${bar.barMark}) does not stand in the document in the order the payload puts it`);
         continue;
       }
-      const next = input.rows[at + 1];
-      const to = next === undefined ? whole.length : (() => {
-        const found = whole.indexOf(squashed(next.barMark), from + mark.length);
-        return found === -1 ? whole.length : found;
-      })();
-      const segment = whole.slice(from, to);
+      const next = bars[at + 1];
+      const found = next === undefined ? -1 : whole.indexOf(compact(next.barMark), from + mark.length);
+      const segment = whole.slice(from, found === -1 ? whole.length : found);
       cursor = from + mark.length;
 
-      const saysLap = /\bLAP\b/u.test(segment);
-      if (row.lapsPerBar > 0) {
-        if (!saysLap) wrong.push(`${row.barMark} laps ${row.lapsPerBar} time(s) and its own line says no LAP`);
-        else if (!segment.includes(squashed(figure(row.kgLap, 3)))) wrong.push(`${row.barMark}'s LAP line does not carry the lap's own mass (${row.kgLap} kg)`);
+      const saysLap = /Lap(?!s)/u.test(segment);
+      if (bar.lapsPerBar > 0) {
+        if (!saysLap) wrong.push(`${bar.barMark} laps ${bar.lapsPerBar} time(s) and its own line says no Lap`);
+        else if (!segment.includes(compact(figure(bar.kgLap, 3)))) wrong.push(`${bar.barMark}'s Lap line does not carry the lap's own mass (${bar.kgLap} kg)`);
       } else if (saysLap) {
-        wrong.push(`${row.barMark} laps nothing and a LAP stands on its line anyway`);
+        wrong.push(`${bar.barMark} laps nothing and a Lap stands on its line anyway`);
       }
     }
     expect(wrong.slice(0, 5), `each lap stands on its own bar's line, and only there — ${wrong.length} do not`).toEqual([]);
+  });
+
+  it("I-535: the page names its project, client, site and drawings in words, and prints no id, key or enum word", async () => {
+    const { SHAPE_CODES } = await bs8666Module();
+    const { first } = await rendered();
+    const text = squashed(pages(first.pdf).join(" "));
+    const whole = compact(text);
+    const input = payload();
+
+    for (const particular of [input.project, input.particulars.client ?? "", input.particulars.site ?? "", `${input.particulars.drawingSet}, revision ${String(input.particulars.revision)}`]) {
+      expect(whole, `the particulars say "${particular}" (I-535)`).toContain(compact(particular));
+    }
+    expect(text, "a date is written as a date, through the format seam (L-FMT-01: DD MMM YYYY)").toMatch(/\b\d{2} [A-Z][a-z]{2} \d{4}\b/u);
+
+    expect(text, "no uuid stands on the page").not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu);
+    for (const key of ["DXF_HANDLE", "v:LAYOUT_PLAN", "campaign", "Pinned revision"]) expect(text, `no register key or id label (${key}) stands on the page`).not.toContain(key);
+    const members = new Set(bbsDocumentRows().map((row) => row.member));
+    expect([...members].filter((member) => whole.includes(compact(member))), "and no member's register key").toEqual([]);
+
+    // An enum word is a key said as the store holds it: SCREAMING or snake_case. The page's own
+    // capitals are the banner, the BS 8666 shape codes (the domain's own names, I-bbs-6) and the
+    // floors' labels (model data), and nothing else.
+    const allowed = new Set<string>(["DRAFT", "UNSIGNED", ...SHAPE_CODES, ...input.schedule.flatMap((entry) => (entry.level === null ? [] : [entry.level]))]);
+    const shouted = [...new Set([...text.matchAll(/\b[A-Z][A-Z_]{2,}\b/gu)].map((match) => match[0]).filter((word) => !allowed.has(word)))];
+    expect(shouted, "no key is said in capitals — a class, a role or a component is said in words (R-UI-082)").toEqual([]);
+    expect([...text.matchAll(/\b[a-z]+_[a-z_]+\b/gu)].map((match) => match[0]), "and none in snake_case").toEqual([]);
+  });
+
+  it("I-535: every column is as wide as what it holds, and its heading says its unit as written", async () => {
+    const { first } = await rendered();
+    const text = squashed(pages(first.pdf).join(" "));
+    for (const heading of ["Bar mark", "Dia (mm)", "Dimensions (mm)", "Cutting length (mm)", "Rounded (mm)", "IS additive (mm)", "In each", "Total", "Mass (kg)"]) {
+      expect(text, `the column heading "${heading}" stands in its own words, its unit in lower case`).toContain(heading);
+    }
+    expect(text, "no heading is shouted, which is how two of them ran together as one word").not.toMatch(/CUTTING|ROUNDED|\(MM\)/u);
+
+    // white-box: I-535 — "no figure is printed over its neighbour" is a claim about GEOMETRY, and
+    // the text this lane extracts carries no glyph positions. The cause of the overprint walk-0 read
+    // ('3,050' and '3,048.000' as '3,050,048.000') was a figure column FIXED narrower than the figure
+    // it held; so what is read here is the schedule table's own column list — every column is `auto`
+    // (as wide as its widest cell, header or figure) but the one that takes the slack (`1fr`, the
+    // legs), and no column is a fixed length a figure could outgrow.
+    const template = withoutComments(TEMPLATE);
+    const tables = [...template.matchAll(/#table\(\s*columns:\s*\(([^)]*)\)/gu)].map((match) => (match[1] as string).split(",").map((one) => one.trim()).filter((one) => one !== ""));
+    expect(tables.length, `${TEMPLATE} sets its schedule and its cutting stock as tables`).toBeGreaterThanOrEqual(2);
+    for (const columns of tables) {
+      expect(columns.filter((one) => one !== "auto" && one !== "1fr"), `a table's columns are sized by what they hold: ${columns.join(", ")}`).toEqual([]);
+      expect(columns.filter((one) => one === "1fr").length, "and exactly one of them takes the slack").toBe(1);
+    }
+  });
+
+  it("I-536: a schedule over partly declared lines says what it leaves out and that its total is the measured scope only", async () => {
+    const { renderDocument } = await documentsIndex();
+    const { first } = await rendered();
+    const whole = squashed(pages(first.pdf).join(" "));
+    expect(payload().partial, "the golden details every bar, so the committed schedule is whole").toBe(false);
+    expect(whole, "and a whole schedule claims no omission").not.toContain("Left out of this schedule");
+    expect(whole, "and no measured-scope caveat").not.toContain("Measured scope only");
+
+    const reason = REFUSALS.NOTE_READING_CONTESTED.message;
+    const partial = { ...payload(), partial: true, leftOut: [{ components: ["Laps"], reason }] };
+    const said_ = squashed(pages((await renderDocument("bbs", partial, ctx)).pdf).join(" "));
+    expect(said_, "a partly declared schedule closes with what it leaves out").toContain("Left out of this schedule");
+    expect(compact(said_), "naming the component in words and why, in the register's own sentence (R-SPINE-062)").toContain(compact(`Laps ${reason}`));
+    expect(said_, "and its total says it is the measured scope only (L-QTY-02)").toContain("Measured scope only");
+  });
+
+  it("I-535: the sign-off box is ruled paper the site completes by hand — the document fills in nobody", async () => {
+    const { first } = await rendered();
+    const sheets = pages(first.pdf);
+    const last = squashed(sheets[sheets.length - 1] ?? "");
+    for (const role of ["Prepared by", "Checked by"]) expect(last, `the last page carries a "${role}" box`).toContain(role);
+    for (const field of ["Name", "Signature", "Date"]) expect(last, `each with a ${field} line`).toContain(field);
+    expect(last, "and says it names no surveyor and certifies nothing (AM-05)").toContain("it names no surveyor and certifies no quantity");
   });
 
   it("AC-1: the cutting stock prints one line per diameter, with its stock bars, pieces and offcut", async () => {
@@ -297,6 +429,7 @@ describe("AC-1: the bar bending schedule renders as its own kind, byte for byte"
       expect(offcut.length, `the ${diameter} mm offcut (${answer.offcutMm}) is a figure a document can print (L-FMT-02)`).toBeGreaterThan(0);
       expect(offcut.some((form) => whole.includes(form)), `and the ${diameter} mm line states its offcut — one of ${offcut.join(" / ")}`).toBe(true);
     }
+    expect(whole, "closed by the door's own grand total").toContain(figure(payload().grandTotalKg, 3));
   });
 
   it("AC-1: the shape codes are Typst-drawn vectors, and the template dispatches on every BS 8666 code", async () => {
@@ -306,13 +439,13 @@ describe("AC-1: the bar bending schedule renders as its own kind, byte for byte"
     const bytes = Buffer.from(first.pdf).toString("latin1");
     expect(/\/Subtype\s*\/Image/u.test(bytes), "no page of the schedule embeds an image: the shape sketches are drawn by the template (A-BBS-PDF)").toBe(false);
 
-    // SOMETHING WAS DRAWN, AND IT SCALES WITH THE ROWS. A document that prints the code as text and
+    // SOMETHING WAS DRAWN, AND IT SCALES WITH THE BARS. A document that prints the code as text and
     // draws nothing embeds no image either — so the absence of an image proves nothing on its own.
-    // What a sketch per row leaves behind is geometry: a path constructed and then painted, once per
+    // What a sketch per bar leaves behind is geometry: a path constructed and then painted, once per
     // bar at least (A-BBS-PDF: the shape codes are Typst-drawn vector sketches).
     const drawn = paintCountOf(first.pdf);
-    const rows = payload().rows.length;
-    expect(drawn.painted, `the schedule PAINTS at least one path per bar it schedules — ${rows} row(s), and the pages paint ${drawn.painted} (A-BBS-PDF)`).toBeGreaterThanOrEqual(rows);
+    const lines = barsOf(payload()).length;
+    expect(drawn.painted, `the schedule PAINTS at least one path per bar it schedules — ${lines} bar(s), and the pages paint ${drawn.painted} (A-BBS-PDF)`).toBeGreaterThanOrEqual(lines);
     expect(drawn.constructed, `and constructs the paths it paints — ${drawn.constructed} construction operator(s) across the document`).toBeGreaterThanOrEqual(drawn.painted);
 
     expect(existsSync(inTree(TEMPLATE)), `${TEMPLATE} stands beside its kind — the template is a file of this increment, not a tree under documents/templates`).toBe(true);
@@ -344,45 +477,27 @@ describe("AC-1: the bar bending schedule renders as its own kind, byte for byte"
     expect(undrawn, `every code of SHAPE_CODES is answered by a sketch, never by its own letters — ${undrawn.length} draw nothing`).toEqual([]);
   });
 
-  it("AC-1: the committed payload is the golden roster's own rows, in file order", async () => {
+  it("I-534: the committed payload is the product's own schedule of the golden roster, each mark once per floor", async () => {
     const input = payload();
-    const roster = bbsGoldenRows();
-    expect(roster.length, `fixtures/${BBS_FIXTURE}/bbs.golden.json carries the fixture's own bar rows (AM-01)`).toBeGreaterThan(0);
+    expect(bbsDocumentRows().length, `fixtures/${BBS_FIXTURE}/bbs.golden.json carries the columns and shear walls the schedule is drawn from (AM-01)`).toBeGreaterThan(0);
+    expect(input, `${PAYLOAD} is exactly what the product's door and export make of the golden roster — never a list typed, re-rounded, re-ordered or re-counted here`).toEqual(
+      await bbsGoldenPayload(),
+    );
 
-    // Each payload row is a golden row, field for field, and the rows stand in the file's own order:
-    // the assignment below walks the roster forwards and never goes back, so a payload that
-    // re-ordered, re-rounded or re-typed a figure has no ascending assignment at all.
-    let at = 0;
-    for (const [index, row] of input.rows.entries()) {
-      const facts = payloadFacts(row);
-      let found = -1;
-      for (let scan = at; scan < roster.length; scan += 1) {
-        if (goldenFacts(roster[scan] as BbsGoldenRow) === facts) {
-          found = scan;
-          break;
-        }
-      }
-      expect(
-        found,
-        `payload row ${index} (${row.barMark}) is a row of the golden roster, verbatim and in file order — its mark, shape, three cutting lengths, bars and three masses are ${facts}`,
-      ).toBeGreaterThan(-1);
-      at = found + 1;
-    }
-
-    // WHAT THE PAYLOAD MUST REACH. A golden only proves what its payload exercises, and the three
-    // things this kind exists to carry are a lapping row (the LAP component line), a row whose
-    // IS-additive figure DIFFERS from its raw one (the three lengths are three), and a schedule
-    // long enough to be a schedule. The roster's first 120 rows carry no lap at all, so a payload
-    // cut there would grade the LAP line vacuously (B-19); a few rows further on it does.
-    expect(input.rows.length, `${PAYLOAD} carries a schedule's worth of rows`).toBeGreaterThanOrEqual(120);
+    // WHAT THE PAYLOAD MUST REACH. A golden only proves what its payload exercises: a mark standing
+    // many times on one floor (the count is the point), a lapping bar (the Lap line), a bar whose
+    // IS-additive figure DIFFERS from its raw one (the three lengths are three), and a schedule long
+    // enough to run over several pages (the headings repeat, the band stands).
+    const bars = barsOf(input);
+    expect(Math.max(...input.schedule.map((entry) => entry.members)), `${PAYLOAD} states a mark that stands more than once on its floor`).toBeGreaterThan(1);
+    expect(input.schedule.length, `${PAYLOAD} carries a schedule's worth of entries`).toBeGreaterThanOrEqual(20);
+    expect(bars.filter((bar) => bar.lapsPerBar > 0).length, `${PAYLOAD} reaches a bar that LAPS, so the Lap line is graded rather than skipped`).toBeGreaterThanOrEqual(1);
     expect(
-      input.rows.filter((row) => row.lapsPerBar > 0).length,
-      `${PAYLOAD} reaches a row that LAPS, so the LAP component line is graded rather than skipped — take enough of the roster's rows in file order to include one`,
+      bars.filter((bar) => bar.cuttingIsAdditiveMm !== bar.cuttingRawMm).length,
+      `${PAYLOAD} reaches a bar whose IS-additive length differs from its raw one, so the IS↔BS divergence is printed rather than assumed equal (L-FRM-05)`,
     ).toBeGreaterThanOrEqual(1);
-    expect(
-      input.rows.filter((row) => row.cuttingIsAdditiveMm !== row.cuttingRawMm).length,
-      `${PAYLOAD} reaches a row whose IS-additive length differs from its raw one, so the IS↔BS divergence is printed rather than assumed equal (L-FRM-05)`,
-    ).toBeGreaterThanOrEqual(1);
+    const { first } = await rendered();
+    expect(pages(first.pdf).length, "and it runs over more than one page, so the column band and the headings are read where they repeat").toBeGreaterThan(1);
   });
 
   it("AC-1: the schedule joins the lane and moves no document that nobody asked to change", async () => {

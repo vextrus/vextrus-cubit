@@ -20,13 +20,15 @@
 // HTTP names for exactly what happened to it — 410 for one that has aged out, 404 for a document this
 // workspace never issued — and a reader that is not our screen should hear them.
 import { z } from "zod";
-import { forTenant } from "@/core/db";
+import { and, documents, eq, forTenant, projects, type TenantTx } from "@/core/db";
 import { documentUnder, readSignedDocument } from "@/core/documents/store";
 import { REFUSALS } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { dhakaDateParts, formatDate, formatUserFigure } from "@/core/format";
 import { appStorage } from "@/core/storage/app";
 import { authorize } from "@/server/authorize";
 import { json, routeHandler } from "@/server/call";
+import { strings } from "@/ui/strings";
 
 /** A document is served from live storage under a live session; nothing here may be cached or built. */
 export const dynamic = "force-dynamic";
@@ -84,31 +86,50 @@ function statedHere(failure: unknown): keyof typeof STATUS | null {
 }
 
 /**
- * One part of the file's name, reduced to what may stand inside a quoted `filename` parameter.
- *
- * `kind` is a free `text` column, not an enum: every writer reaches it through `storeDocument` with a
- * registry key today, and neither the schema nor this door is what makes that so. A value carrying a
- * quote, a semicolon or CR/LF would end the parameter early and let the rest be read as header, so
- * the door states the alphabet its own header is written in rather than trusting the column's
- * (R-SPINE-040). A registered kind and a uuid pass through unchanged.
+ * What a file is called, in words (s-bbs I-535): the project's name, the kind as S-Documents says it
+ * (`documents_kind_<kind>`, s-documents I-260 — so a draft is never called a bill in a file name,
+ * AM-05), which issue of it this is, and the day it was issued in the document's zone —
+ * `Sattva Court — Bar schedule v1 — 24 Sep 2026.pdf`. Read from the row and its project, never from
+ * the URL. A kind S-Documents has no words for is named by its key, as that screen names it.
  */
-function headerSafe(part: string): string {
-  return part.replace(/[^A-Za-z0-9._-]/gu, "-");
+async function fileNameOf(tx: TenantTx, row: { tenantId: string; id: string; projectId: string; kind: string; version: number }): Promise<string> {
+  const [held] = await tx
+    .select({ project: projects.name, issuedAt: documents.issuedAt })
+    .from(documents)
+    .innerJoin(projects, eq(projects.projectId, documents.projectId))
+    .where(and(eq(documents.tenantId, row.tenantId), eq(documents.id, row.id)))
+    .limit(1);
+  const kind = (strings as Readonly<Record<string, string>>)[`documents_kind_${row.kind.replaceAll("-", "_")}`] ?? row.kind;
+  const issue = `v${formatUserFigure(String(row.version))}`;
+  const parts = held === undefined ? [kind, issue] : [held.project, `${kind} ${issue}`, formatDate(dhakaDateParts(held.issuedAt))];
+  return `${parts.join(" — ")}.pdf`;
 }
 
 /**
- * The document itself. It is named for the kind and the issue it is, and marked private: one
- * workspace's document is its own, and nothing between this door and the person who asked may keep a
- * copy of it.
+ * The `Content-Disposition` a file in words travels under (RFC 6266): the words themselves in the
+ * UTF-8 `filename*` parameter, percent-encoded so nothing in a project's name can end the header early,
+ * and beside it the plain `filename` an older client falls back to, reduced to the alphabet a quoted
+ * parameter may hold — the dash of the words read as a hyphen, anything else outside it as a hyphen.
  */
-function documentAnswer(bytes: Uint8Array, kind: string, id: string): Response {
+function dispositionOf(name: string): string {
+  const plain = name.replace(/[—–]/gu, "-").replace(/[^A-Za-z0-9 ._()-]/gu, "-");
+  const encoded = encodeURIComponent(name).replace(/['()*]/gu, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `attachment; filename="${plain}"; filename*=UTF-8''${encoded}`;
+}
+
+/**
+ * The document itself. It is named for the project, the kind and the issue it is, in words, and
+ * marked private: one workspace's document is its own, and nothing between this door and the person
+ * who asked may keep a copy of it.
+ */
+function documentAnswer(bytes: Uint8Array, name: string): Response {
   // The view is copied into a buffer of its own: a `Response` body is bytes that are not shared, and
   // the stored artefact's view carries no such promise.
   return new Response(new Uint8Array(bytes), {
     status: 200,
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `attachment; filename="${headerSafe(kind)}-${headerSafe(id)}.pdf"`,
+      "content-disposition": dispositionOf(name),
       "cache-control": "private, no-store",
     },
   });
@@ -126,13 +147,16 @@ export const GET = routeHandler({ route: ROUTE, actor: ACTOR, schema: ASKED, sen
 
     // The row first, because the address the signature covers is the row's and not the URL's. An id
     // this workspace holds no document under is an absence — and one only a member can observe.
-    const row = await forTenant({ tenantId: tenant }).transaction(async (tx) => documentUnder(tx, tenant, id));
-    if (row === null) return refusalAnswer("DOCUMENT_NOT_FOUND");
+    const found = await forTenant({ tenantId: tenant }).transaction(async (tx) => {
+      const row = await documentUnder(tx, tenant, id);
+      return row === null ? null : { row, name: await fileNameOf(tx, row) };
+    });
+    if (found === null) return refusalAnswer("DOCUMENT_NOT_FOUND");
 
-    const read = await readSignedDocument(appStorage(), { tenantId: tenant, sha256: row.sha256, expires, signature });
+    const read = await readSignedDocument(appStorage(), { tenantId: tenant, sha256: found.row.sha256, expires, signature });
     if (!read.ok) return refusalAnswer(read.refusal);
 
-    return documentAnswer(read.bytes, row.kind, row.id);
+    return documentAnswer(read.bytes, found.name);
   } catch (failure) {
     const stated = statedHere(failure);
     if (stated !== null) return refusalAnswer(stated);

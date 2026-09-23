@@ -76,6 +76,20 @@ screen is a reader: it issues nothing, so no copper, no ConsequenceDialog and no
     `data-screen-root`, so `settled()` and the craft walk read `state=none`; it carries both now, in
     `loading.tsx` too (`loading`), and the grid wears `data-rendered-region` beside the
     `data-rows-rendered` it always mirrored — the I-213 class, and CLAUDE.md's rendered read contract.
+- **I-537 — the file a reader downloads is named in words (session 8, 2026-09-24; walk-0's B17
+  "files lack human names", R-UI-082, AM-05).** The door named every file `<kind>-<uuid>.pdf`, so a QS
+  who saved three issues saved three hashes. `/api/documents/{id}` now names the file after the row
+  and its project: the project's name, the kind as this screen says it (`documents_kind_<kind>`,
+  I-260), which issue of it this is, and the day it was issued in the document's zone, joined by em
+  dashes. An example is `Sattva Court — Bar schedule v1 — 24 Sep 2026.pdf`. A draft is therefore
+  never called a bill in a file name (AM-05's `Draft BOQ`). The name is read off the row by the
+  door, never off the URL, and the version and the day are written through the format seam. It
+  travels as RFC 6266's `filename*=UTF-8''…`, percent-encoded so nothing in a project's name can end
+  the header early. Beside it stands a plain `filename="…"` reduced to the alphabet a quoted parameter
+  may hold, for an older client. The door still serves an attachment (I-258); whether it opens
+  inline is not ruled here. Proof: `src/app/api/documents/__tests__/route.db.test.ts` (AC-5, amended).
+  Rejected: the kind's key and the row id (the defect itself), and the sha256 (an address, not a
+  name).
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -331,6 +345,8 @@ and the re-take of every picture the fourth button moves
   that asked it to would answer the reviewer with the crash boundary instead of a cell. What the row
   then carries is a link of the seam's shape that the download door refuses, as it refuses any link
   it did not sign.
+- **Session 8, wave 2: I-537.** The download door names the file in words (§0). No pixel of this
+  screen moves; the `Open PDF` link's href is unchanged.
 - **Session 7, wave 3 (the craft re-look): I-348.** Issued by names the issuer by the project's
   roster (§8's first IOU paid), the IdChip standing only where the roster names nobody; the seven
   widths are re-ruled to 200/96/240/128/216/160/120 so the row's door stands whole at 1280, with Acts

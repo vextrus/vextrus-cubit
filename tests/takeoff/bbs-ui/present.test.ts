@@ -131,6 +131,26 @@ describe("AC-3: the bar schedule the screen draws is the door's own answer, row 
     expect(firstFew(doubled), "the fixture's own lapping rows state a net mass distinct from their gross — the roster this rule is read against is a roster where a doubling would show").toEqual([]);
   });
 
+  it("I-534: every row carries the member count and the bars in each that the door stated for its line", async () => {
+    const { bbsRowsOf } = await presentModule();
+    // The golden's own lines each count one member; one of them is restated here as the door states
+    // a mark standing three times on its floor, so a presenter that counted rows, or said nothing,
+    // shows here rather than passing on a roster of ones.
+    const [first, ...rest] = document_.rows as BarRowShape[];
+    expect(first, "the golden roster carries a line to restate").toBeDefined();
+    const counted: BarRowShape = { ...(first as BarRowShape), members: [(first as BarRowShape).objectKey, "member-b", "member-c"] };
+    const rows = bbsRowsOf({ ...document_, rows: [counted, ...rest] });
+
+    const own = rows.filter((row) => row.barKey === counted.barKey);
+    expect(own.length, "the restated line stands on the grid").toBeGreaterThan(0);
+    for (const row of own) {
+      expect(row.members, `${row.barMark} (${row.component}) carries the three members its line counts — the door's count, never re-counted`).toBe(3);
+      expect(row.barsPerUnit, "and what one member takes, as the line stated it").toBe(counted.barsPerUnit);
+    }
+    const wrong = rows.filter((row) => row.barKey !== counted.barKey && row.members !== 1).map((row) => row.barMark);
+    expect(firstFew(wrong), "and every other line of the roster says its own count of one").toEqual([]);
+  });
+
   it("AC-3: the summary is the door's own totals, one row per diameter in ascending numeric order", async () => {
     const { bbsSummaryOf } = await presentModule();
     const summary = bbsSummaryOf(document_);

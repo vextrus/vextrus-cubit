@@ -212,7 +212,16 @@ describe("AC-5: the document download door", () => {
     expect(answer.status).toBe(200);
     expect(answer.headers.get("content-type")).toBe("application/pdf");
     expect(answer.headers.get("cache-control"), "one workspace's document is never cached by anything in between").toBe("private, no-store");
-    expect(answer.headers.get("content-disposition"), "the file is named for the kind and the issue it is").toContain(`${scene.row.kind}-${scene.row.id}.pdf`);
+    // TEST_AMENDED (session 8, s-bbs I-535; walk-0 B17 "files lack human names"): the file is named
+    // in words — the project, the kind as S-Documents says it, the issue and its day — where it was
+    // named `<kind>-<uuid>.pdf`. The day is read off the row by the database's own clock and zone,
+    // never off this process's.
+    const day = sysScalar(`select to_char(issued_at at time zone 'Asia/Dhaka', 'DD Mon YYYY') from documents where id = ${lit(scene.row.id)};`);
+    const words = `Document door acceptance — Proof v1 — ${day}.pdf`;
+    const disposition = answer.headers.get("content-disposition") ?? "";
+    expect(disposition, "the file is named for the project, the kind and the issue it is, in words (RFC 6266's UTF-8 form)").toContain(`filename*=UTF-8''${encodeURIComponent(words)}`);
+    expect(disposition, "with a plain fallback an older client can read").toContain(`filename="Document door acceptance - Proof v1 - ${day}.pdf"`);
+    expect(disposition, "and no id anywhere in it (R-UI-082)").not.toContain(scene.row.id);
     expect(new Uint8Array(await answer.arrayBuffer()), "the body is what storage holds at the row's address, byte for byte").toEqual(scene.bytes);
   });
 

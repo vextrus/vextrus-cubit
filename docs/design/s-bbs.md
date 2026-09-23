@@ -174,7 +174,7 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   rounded 25 mm`) beside `Pinned revision` in the interface's face. The words and units now stand in
   the interface's face and only the two figures in the figure face, tabular (R-UI-085).
   Recorded, not done here — each needs another owner: (d) *one group per mark and level, with its
-  number of members* — identical members of one mark on one floor are listed separately, so half the
+  number of members* (PAID by I-534, session 8, the owner's ruling Q3) — identical members of one mark on one floor are listed separately, so half the
   grid is group rows and eight bars stand above the fold at 1440, where BS 8666 states a mark once
   with its No. of members. Counting members and multiplying their masses is a figure, so it is the
   DOOR's (I-bbs-2): `bbsOf` would group members of one (level, class, mark) whose bar sets are
@@ -248,6 +248,113 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   each listed with its code. Rejected: "absent", "none" or "unframed". Each would state a fact about the
   building that nobody read, and a later reader would take it for a free-standing post.
 
+- **I-534 — a mark is stated once per floor with its number of members, and the door counts them
+  from the members the register placed (session 8, 2026-09-24; the owner's ruling Q3, BS 8666; pays
+  I-354(d)).** A bar schedule states a mark once, with its number of members and the bars in each.
+  This screen listed every member of a mark as its own group, so F-RCC6-BNBC's C2 at 1F stood as eight
+  identical groups over one bar each, and the J-000 campaign's 208 columns made a grid past the
+  DataTable's 200-row virtualisation threshold (`data-table.tsx`), which is what blocked a whole-schedule
+  read. It is ruled here, and the Decision is amended in place to match:
+  (a) *The door counts, and it counts at the member.* `scheduleOf` (`src/modules/takeoff/rebar/
+  store.ts`), which `bbsOf` answers its lines through, puts the members of one (level, class, mark)
+  whose BAR SETS are identical into one entry, and states each bar of that set as one line. A bar set is
+  everything each bar is, is cut to and weighs: its mark, role, diameter and shape, its legs, its three
+  lengths, its split and laps, the count one member takes, its rate and its masses. It is also what the
+  bar was READ from: the schedule cells, the storey height, the detailing notes and the edition. It is
+  never which member the bar belongs to. The evidence is in it because a merged line would cite one
+  reading for bars another stated, and a line cites what it was read from (L-QTY-03). Two readings are
+  therefore two entries of one mark: longer, never wrong. A line's `parentCount` is the members'
+  counts summed (the rail writes one per member, so it is the number of members). Its `bars`, `kgNet`,
+  `kgLap` and `kg` are the members' own stored figures summed exactly, never rounded (L-QTY-05, B-07).
+  Its identity (`barKey`, `objectKey`, `semantic`, the source keys) is its first member's in reading
+  order, and `members` names every member it counts, the first one first, so no member is lost from
+  the record (L-REG-02). A member alone in its entry is its stored rows verbatim. This is computed from
+  the PLACED members one by one, so it infers nothing about a member nobody placed (L-CAD-08).
+  (b) *No total moves.* `perDiameterKg`, `perMarkKg`, the grand total and the cutting stock are still
+  taken off the stored rows, member by member. An exact sum grouped is the same exact sum.
+  (c) *What the stored ground groups to.* In J-000's stored campaign (cubit_e2e, project 5d236653,
+  read back by `db_read`), every one of the 48 (level, mark) pairs of its 208 column members holds one
+  bar set under this identity, so the schedule states 48 entries. Examples: C2 × 8 and C4 × 7 on every
+  storey, C1 × 3 from FDN to 6F. The grid then stands at three rows an entry at most (group, bar,
+  lap), under the 200-row threshold. In the rebar stage of the database suites every staged member
+  reads its own cells (`#<member>.main`), so nothing merges there, and the grouping is graded over the
+  golden roster and synthetic members instead (`tests/takeoff/bbs-ui/schedule-lines.test.ts`).
+  (d) *The screen says the count once, where the entry is named.* The group row is one per ENTRY and
+  reads `1F · Column · C2 · 8 members` (`bbs_members_one`, `bbs_members_many`, the figure through
+  `formatUserFigure`). It carries `data-member` = the entry's first member and `data-members` = the
+  count, still with no mass (I-bbs-2). The Bars cell states the TOTAL a site cuts. On a line counting
+  more than one member, what one member takes is a Tooltip on it (`bbs_bars_each`, BS 8666's "No. in
+  each"). Rejected: the `No. of members` column I-354(d) planned. Ten columns already fill the 1280
+  band to Dimensions' floor (§1: 960 fixed plus a remainder of at least 200 in 1,184), and an eleventh
+  would push Mass off it (R-UI-080). The count is one figure per entry, and the group row is where an
+  entry is named.
+  (e) *J-032 is amended with it.* Its "one group row per member" read is now one group row per entry,
+  and the counts the group rows state sum to the members the door's lines name.
+  Rejected: counting in the presenter (a count is a figure, and a figure is the door's, I-bbs-2);
+  grouping on the bars alone (it merges two readings under one citation); and a grid address on each
+  entry, which is I-354(e)'s, still held by the rail, the partition and `db/**`.
+
+- **I-535 — the issued schedule is a document a site can sign: written in words, sized by what it
+  holds, and set out as BS 8666 sets one out (session 8, 2026-09-24; walk-0's BLOCKS_DEMO B17,
+  A-BBS-PDF, AM-05, R-UI-082, L-FMT-01).** Walk-0 read the 42-page PDF of J-000's campaign. Every member
+  heading printed its raw register key after a lowercase enum (`C1 column FDN v:LAYOUT_PLAN:
+  DXF_HANDLE:…|C1|…@22e5d87d-…`). The header block printed a campaign uuid and a revision uuid. The
+  column heads were shouted (`upper`) and set into fixed widths too narrow for them, so two ran together
+  (`CUTTINGROUNDED`). The Rounded and IS figures overprinted (`3,050` and `3,048.000` read as
+  `3,050,048.000`). The stock bar and its rounding carried no unit. The kind and its template are now
+  re-cut, and the document is amended in place to match:
+  (a) *Entries, not members.* The payload is `schedule`: one entry per mark on a floor, as the door
+  counted it (I-534), each with `members` and its `bars`. Each bar states BS 8666's "No. in each"
+  (`barsPerUnit`) and "Total no." (`bars`). The page heads an entry `C2 · Column · 1F`, with
+  `8 members` beside it. It is a table SUBHEADER (`table.header(level: 2)`): an entry that runs onto
+  the next page is headed there again, and a heading is never left alone at the foot of a page.
+  (b) *Words, never keys.* The payload carries no campaign id, revision id or register key, and the
+  strict schema refuses one. `present()` says a class and a role through the draft's own one rule
+  (`inWords`, `boq-draft-law.ts`: `shear_wall` → `Shear wall`, `MAIN` → `Main`), and a lap line reads
+  `Lap`, not `LAP`. The shape codes stay as codes (I-bbs-6), and the floors' labels are model data.
+  (c) *The particulars, in words.* Beneath the title stand the project (with its code), the client
+  and the site as the project records them, or `Not recorded`. Beside them stand the drawings, the
+  day of issue and what the bars are cut from. The drawings read as the set's own name, WHICH of its
+  pins the campaign measured (counted from the first in the store's write order, `appendSeq`) and the
+  day it was pinned: `Structural drawings, revision 2, pinned 22 Sep 2026`. The cut-from line reads
+  `Stock bars of 12,000 mm; each length rounded once, up to the next 25 mm`. Every day is written by
+  the format seam's `formatDate` from wall-clock parts the job read (`bbsParticularsOf`,
+  `src/modules/takeoff/bbs-ui/server.ts`). The template asks no clock (R-SPINE-040). Every page's
+  footer names `<project> · Bar bending schedule`, so a leaf separated from the rest still says
+  whose it is.
+  (d) *Widths from what the columns hold.* The schedule is ONE table on an A4 leaf turned landscape,
+  its column band repeated on every page. Every column but the legs is `auto`, as wide as its widest
+  cell, header or figure. The legs take the `1fr` slack and are the one cell that may wrap. No figure
+  is ever set into a column narrower than itself. The heads read as written, units in lower case:
+  `Bar mark · Role · Dia (mm) · Shape · Dimensions (mm) · Cutting length (mm) · Rounded (mm) · IS
+  additive (mm) · In each · Total · Mass (kg)`.
+  (e) *A sign-off the site completes by hand.* The last page carries `Prepared by` and `Checked by`
+  boxes, each with Name, Signature and Date lines, and the sentence `Completed by hand. This schedule
+  is a draft: it names no surveyor and certifies no quantity.` The product fills none of it. It names
+  nobody, states no credential and claims no certificate, so AM-05's draft stands. `DRAFT — UNSIGNED`
+  still heads every page.
+  (f) *The shared chrome is the frame's.* `documents/base/frame.typ` gains two partials,
+  `particulars-block` and `sign-off-block`, and two parameters of `document-frame`, `landscape` and
+  `running-title`. All four are additive, and every default is what the frame did before. The draft
+  BOQ's and the proof's goldens are byte-unchanged (V-DOCS), and the draft's front page may call the
+  same partials. The file a reader downloads is named in words too (s-documents I-537).
+  Rejected: a grid address in each heading (`C1 · Column · FDN (grid A/1)`). An entry counts several
+  members, which stand at several intersections, and the intersection is I-354(e)'s placement label,
+  which no bar row carries. Also rejected: fixed column widths re-tuned wider (the next longer figure
+  overprints again); per-entry tables with their own heads (the repetition I-bbs-9(a) removed from
+  the screen); dropping the watermark (the frame's, shared with the draft BOQ; the schedule's figures
+  read through its veil); and filling `Prepared by` with the exporter's name (a person named on a
+  draft is the responsible surveyor AM-05 bars).
+- **I-536 — the issued schedule says what it leaves out, as the screen does (session 8,
+  2026-09-24; L-QTY-02, L-QTY-07, walk-0's "the BBS PDF states no omission at all").** Where any
+  `rcc.rebar` line under the campaign stands partly declared, the payload's `partial` is true and its
+  `leftOut` carries each omitted code once. It carries the components in the copy table's words
+  (`BBS_COMPONENT_SAID`, the same words the screen's `Left out of this schedule:` list says) and the
+  refusal register's own message. The page closes with a `Left out of this schedule` block, and the
+  cutting stock's total carries `Measured scope only` beside it. A code the register does not hold is
+  left off exactly as the screen leaves it off. A whole schedule says neither. Rejected: a caveat on
+  every page (the banner is the one running statement), and the codes themselves (R-UI-082).
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -260,11 +367,11 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
 │  │ Some rebar lines are partly declared, so their bars stand here as they read.  │ 28
 │  ├────────┬──────┬────┬─────┬──────────────┬─────────┬───────┬───────┬────┬─────┤
 │  │Bar mark│ Role │Shp │ Dia │ Dimensions   │ Cutting │Rounded│IS add.│Bars│Mass │ sticky
-│  │ ▾ GF · Column · C1                                                           │ group
+│  │ ▾ GF · Column · C1 · 3 members                                               │ group
 │  │ C1v    │ Main │ 00 │  20 │ A 3 450      │ 3450.000│   3450│3450.00│  6 │ 51.0│ 28 NET
 │  │ ↳ Lap  │  —   │ —  │  20 │ Lap 1 000 mm │    —    │   —   │   —   │  6 │ 14.8│ 28 LAP
 │  │ C1t    │ Tie  │ 51 │   8 │ A 300 · B 450│ 1638.400│   1650│1672.00│ 42 │  4.1│
-│  │ ▾ GF · Column · C2                                                           │
+│  │ ▾ GF · Column · C2 · 8 members                                               │
 │  │ C2v    │ Main │ 00 │  16 │ A 3 450      │ 3450.000│   3450│3450.00│  8 │ 43.6│
 │  │ ↳ Lap  │  —   │ —  │  16 │ Lap  800 mm  │    —    │   —   │   —   │  8 │ 10.1│
 │  │        rows at `--row-h` · 13 px · frozen Bar mark · scrolls inside the grid  │
@@ -294,7 +401,7 @@ frozen; the page never scrolls sideways (§7 C10).
 | answer slot (`bbs-answer`) | one RefusalState from a refused or denied door (`REQUEST_MALFORMED`, `PERMISSION_NOT_HELD`, `BBS_NO_CAMPAIGN`); the offline banner above it; and, beneath them, the status line — everything this screen ANSWERS about its own reading stands in the one polite live region | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--state-warn(-surface)` through RefusalState, `--radius-4`, `--hairline` | absent (no box) |
 | job strip (`bbs-jobs`) | the shipped `JobTimeline` for the render job, present only while a run is watched; `bbs-document-link` follows a success (I-bbs-8) | 100 % × the pattern's own, between the answer slot and the grid | the pattern's own; `--accent` as the link's text | absent — never an empty box |
 | status line | the ONE helper line, `<p role="status">` inside the answer slot: `bbs_partial` or `bbs_complete`; in `partial`, beneath it, `bbs_partial_omitted` and one list line per code the partly declared lines left out: the line's components in words through `EnumLabel`, the registry's own message, and a link to where it is settled with the registry's remedy as its Tooltip (I-bbs-9, I-354) | 100 % × 28, plus one caption line per code | `--ink`, `--ink-muted`, `--ink-secondary`, `--ink-link`, `--weight-body-medium`, `--text-body`, `--text-caption` | absent with the grid |
-| grid (primary) | `bbs-grid` (DataTable v2, `tableId` `s-bbs-bars`, `aria-label` `bbs_grid_label`, `data-rows-rendered`): one `bbs-member` group row per distinct `objectKey` in `document.rows` order — the door's reading order, from the ground up (I-354) — then its `bbs-row` (NET) rows each optionally followed by one `bbs-lap` | `flex: 1 1 auto`; ≥ 55 % of main; header and rows at `--row-h` (28 compact / 36 comfortable, revalued at the ROOT by `[data-density]`, never here); first column frozen; no wrapping cell | `--surface-app`, `--surface-sunken` (sticky header, group rows), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline` | not rendered at all: `bbs-empty` stands in its place |
+| grid (primary) | `bbs-grid` (DataTable v2, `tableId` `s-bbs-bars`, `aria-label` `bbs_grid_label`, `data-rows-rendered`): one `bbs-member` group row per ENTRY — one mark on one floor, named by its first member's `objectKey` and stating its number of members (I-534) — in `document.rows` order, the door's reading order from the ground up (I-354), then its `bbs-row` (NET) rows each optionally followed by one `bbs-lap` | `flex: 1 1 auto`; ≥ 55 % of main; header and rows at `--row-h` (28 compact / 36 comfortable, revalued at the ROOT by `[data-density]`, never here); first column frozen; no wrapping cell | `--surface-app`, `--surface-sunken` (sticky header, group rows), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline` | not rendered at all: `bbs-empty` stands in its place |
 | summary (`bbs-summary`) | the heading, its `(i)` popover, and a 5-column table: one `bbs-summary-row` per key of `perDiameterKg` in ascending numeric diameter, closed by the sticky total row carrying `grandTotalKg`; `data-kg` on the region is that grand total | 100 % × 28 heading + 28 header + rows + 28 total, **max 224**, body scrolls inside | `--surface-sunken` (header and total row), `--ink`, `--ink-code`, `--font-mono`, `--hairline` | absent with the grid |
 | empty (in the grid's place) | the shipped `EmptyState` `bbs-empty`: heading, one sentence, one action to `…/takeoff/register` | max-width 520, centred in the grid's box | `--ink`, `--ink-muted`, `--accent` through Button | this IS the empty state |
 | error (in the grid's place) | `error-state`: heading, one sentence, `error-state-report` (the fault id through IdChip under the primitive's own report label), `error-state-retry` | 100 % × auto, max-width 520 | `--ink`, `--ink-muted`, `--hairline`, `--radius-4` | — |
@@ -313,13 +420,15 @@ lakh/crore grouping through `formatUserFigure`:
 | 6 | `bbs_col_cutting_raw` | 160, right | `cuttingRawMm` as stored, never re-rounded (I-bbs-4) |
 | 7 | `bbs_col_cutting_rounded` | 104, right | `cuttingRoundedMm` |
 | 8 | `bbs_col_cutting_is` | 136, right | `cuttingIsAdditiveMm` |
-| 9 | `bbs_col_bars` | 72, right | `bars`; on a LAP row, `lapsPerBar` |
+| 9 | `bbs_col_bars` | 72, right | `bars` — the total over the entry's members; on a line counting more than one member, `bbs_bars_each` as its Tooltip (I-534); on a LAP row, `lapsPerBar` |
 | 10 | `bbs_col_kg` | 112, right | `kg` (= `kgNet`, which never includes its lap); on a LAP row, `kgLap`; printed at `BBS_PLACES.mass` through `statedAt` (I-bbs-9) |
 
-A `bbs-member` group row is a row of the one grid and reads `GF · Column · C1` — the level label, the
-class through `EnumLabel`, the member mark in mono — from its frozen key cell across the row's empty
-cells, on `--surface-sunken` at the body-medium weight, carrying `data-member`, `data-mark`,
-`data-class`, `data-level` and no figure at all (I-bbs-2, I-bbs-9). Summary columns:
+A `bbs-member` group row is a row of the one grid and reads `GF · Column · C1 · 3 members` — the level
+label, the class through `EnumLabel`, the member mark in mono, and the entry's number of members in
+the secondary ink at the body weight (`bbs_members_one` / `bbs_members_many`, I-534) — from its frozen
+key cell across the row's empty cells, on `--surface-sunken` at the body-medium weight, carrying
+`data-member` (the entry's first member), `data-members`, `data-mark`, `data-class`, `data-level` and
+no mass at all (I-bbs-2, I-bbs-9). Summary columns:
 `bbs_summary_col_diameter` 112 frozen · `bbs_summary_col_kg` 160 right · `bbs_summary_col_stock_bars`
 128 right · `bbs_summary_col_pieces` 112 right · `bbs_summary_col_offcut` 160 right; every mass at
 `BBS_PLACES.mass`; the total row reads `bbs_summary_total` with the figure in the Mass column and,
@@ -372,6 +481,10 @@ through `./demonstration`, exactly as `takeoff/boq/demonstration.ts` does.
 `bbs_col_shape` **Shape** · `bbs_col_diameter` **Diameter (mm)** · `bbs_col_dims` **Dimensions** ·
 `bbs_col_cutting_raw` **Cutting length (mm)** · `bbs_col_cutting_rounded` **Rounded (mm)** ·
 `bbs_col_cutting_is` **IS additive (mm)** · `bbs_col_bars` **Bars** · `bbs_col_kg` **Mass (kg)** ·
+`bbs_members_one` **1 member** · `bbs_members_many` **{count} members** · `bbs_bars_each` **{each} in
+each of {count} members** (I-534) · `bbs_component_net` **Bars** · `bbs_component_lap` **Laps** ·
+`bbs_component_ties` **Ties** (the components of a rebar line in words, I-354; read by the issued
+schedule's left-out list too, I-536) ·
 `bbs_lap_label` **Lap** · `bbs_lap_tooltip` **A lap is scheduled as its own row beside the net bar,
 never as a percentage of it.** · `bbs_summary_heading` **Cutting stock by diameter** ·
 `bbs_stock_note_label` **About cutting stock** (the `(i)` trigger's accessible name) · `bbs_stock_note`
@@ -422,9 +535,12 @@ masses are model data and render verbatim in mono; the campaign id and the set r
 through `IdChip`; roles and classes render as words through `EnumLabel` with the raw key on the row's
 attributes; shape codes render inside `data-technical` (I-bbs-6). `MEASURE` inside the denial line is
 the product's law, quoted as the seam quotes it. The rendered PDF's own words are the document kind's,
-held to AM-05: **DRAFT — UNSIGNED** on every page, `BBS_TITLE` **Bar bending schedule**, a `LAP` line
-beneath every row that laps, one cutting-stock line per diameter, and no surveyor, credential or
-certificate anywhere.
+held to AM-05: **DRAFT — UNSIGNED** on every page, `BBS_TITLE` **Bar bending schedule**, the
+particulars in words, each entry headed `C2 · Column · 1F` with its `8 members`, a **Lap** line
+beneath every bar that laps, one cutting-stock line per diameter, **Measured scope only** and **Left
+out of this schedule** where the lines are partly declared, a blank **Prepared by** / **Checked by**
+box the site completes by hand, and no surveyor, credential, certificate, id, key or enum word
+anywhere (I-535, I-536).
 
 ## 4. Motion (R-UI-004)
 
@@ -484,8 +600,9 @@ Reads: `bbsViewOf`, `bbsOf` (inc-309's door — read, never re-implemented), `bb
 Test ids, exactly the registry's spellings, on the elements ruled in §1: `bbs-screen` (`data-state` ∈
 `BBS_STATES`, `data-campaign`, `data-rows`) · `bbs-answer` · `bbs-revision` (an IdChip, `data-value`
 the whole `setRevisionId`) · `bbs-stock` (`data-stock-mm`, `data-rounding-mm`) · `bbs-grid`
-(`data-rows-rendered`) · `bbs-member` (`data-member` = `objectKey`, `data-mark`, `data-class`,
-`data-level`) · `bbs-row` (`data-bar-key`, `data-bar-mark`, `data-role`, `data-diameter`,
+(`data-rows-rendered`) · `bbs-member` (`data-member` = the entry's first member's `objectKey`,
+`data-members` = the number of members the entry counts, `data-mark`, `data-class`, `data-level`;
+I-534) · `bbs-row` (`data-bar-key`, `data-bar-mark`, `data-role`, `data-diameter`,
 `data-shape`, `data-dims` = JSON of `dimsMm`, `data-cutting-raw`, `data-cutting-rounded`,
 `data-cutting-is`, `data-pieces`, `data-bars`, `data-lap-mm`, `data-laps`, `data-kg`,
 `data-component="NET"`) · `bbs-lap` (`data-bar-key`, `data-component="LAP"`, `data-lap-mm`,
@@ -512,12 +629,21 @@ no `bbs-lap` without a `bbs-row` of the same `data-bar-key` above it; no `bbs-gr
 stands; no `bbs-summary` while the grid does not render; no wrapping cell; no uuid, digest or
 `setRevisionId` as a text node outside an IdChip.
 
-Evidence. Unit: `tests/takeoff/bbs-ui/present.test.ts` over all 4,127 rows of `bbs.golden.json`
+Evidence. Unit: `tests/takeoff/bbs-ui/schedule-lines.test.ts` (I-534: the door's `scheduleOf`
+over the whole golden roster and the cases it cannot reach), `tests/takeoff/bbs-ui/member-count.test.tsx`
+(I-534 (d): the group row's count and the in-each Tooltip, the workspace mounted over the door's own
+grouping), `tests/takeoff/bbs-ui/copy-mirror.test.ts` (the module's copy is the registry's);
+`tests/takeoff/bbs-ui/present.test.ts` over all 4,127 rows of `bbs.golden.json`
 through `goldenBbsDocument()` — never a frozen list, and no duration asserted (AM-10 §3);
 `tests/takeoff/bbs-ui/reading-order.test.ts` (I-354(a), the door's comparator over keys the product's
 own grammar mints) and `tests/takeoff/bbs-ui/partial-omitted.test.tsx` (I-354(b)(c), the workspace
-mounted over the real refusal registry, and the sheet's stock rules read). Docs:
-`tests/docs/bbs/{payload.json,golden.pdf,render.test.ts}` under `pnpm test:docs` (AM-18). Journey
+mounted over the real refusal registry, and the sheet's stock rules read). Live:
+`tests/takeoff/bbs-ui/view.db.test.ts`'s issue case reads the presented page on its way to the renderer
+(I-535: particulars in words, no uuid or register key; I-536: the partly declared campaign's
+`Ties` left out). Docs: `tests/docs/bbs/{payload.json,golden.pdf}` and `tests/docs/bbs-render.test.ts`
+under `pnpm test:docs` (AM-18). The committed payload is the product's own emission of the golden's
+columns and shear walls at FDN, GF and 1F (`tests/docs/support/bbs-golden.ts`: `bbsDocumentOf`, then
+`bbsPayloadOf`), 24 entries over 51 bars on 6 landscape pages. Journey
 `tests/e2e/journeys/j-032-schedules-notes.spec.ts`, every title carrying **J-032**, staged by
 `tests/e2e/takeoff/bbs-stage.ts` over `signInAsSeededTenant`; page object
 `tests/e2e/pages/s-bbs.page.ts`; checkpoints **s-bbs/schedule** (dark), **s-bbs/schedule-light** and
@@ -542,10 +668,9 @@ tab as the proof.
   rebar leaf.
 - **Members beyond columns and shear walls.** `READ_CLASSES` reads two classes, so beams and slabs
   schedule no bars yet and their members never group here. Owner: inc-309's successors.
-- **A mark stated once with its number of members** (I-354(d)). Identical members of one mark on one
-  floor group at the DOOR — `bbsOf` answering a member count and exact mass products — then the
-  payload, a `No. of members` column here, and J-032's one-group-per-member read with it. Owner: the
-  rebar door and the document kind; a bill-shape change, so the owner's call.
+- **A mark stated once with its number of members** (I-354(d)). *(PAID by I-534, session 8, on the
+  owner's ruling Q3: `scheduleOf` at the door, the count on the group row, the issued schedule's
+  entries, and J-032's per-entry read.)*
 - **A placement label on each member row** (I-354(e)). The grid intersection a member stands at,
   read by the partition against the drawing's axes and carried on a bar row. Owner: the rebar rail
   (`bars.ts`), `db/**` (a `bar_rows` column) and the partition's placement reader.

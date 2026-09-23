@@ -20,11 +20,11 @@ import { storeDocument, type DocumentStoreDeps } from "@/core/documents/store";
 import { forTenant } from "@/core/db";
 import { REFUSALS } from "@/core/errors";
 import { refusal } from "@/core/faults/refusal-marker";
+import { dhakaDateParts } from "@/core/format";
 import type { JobPayloads, JobProgress } from "@/core/jobs";
-import { projectNameOf } from "../boq/server";
 import { BILL_TAXONOMY } from "../boq/taxonomy";
 import { bbsPayloadOf } from "./emission";
-import { bbsViewOf } from "./server";
+import { bbsParticularsOf, bbsViewOf } from "./server";
 
 /**
  * The kind and the key, re-published beside the run that uses them. They are DECLARED in the barrel
@@ -67,12 +67,21 @@ export async function runBbsRenderJob(payload: JobPayloads["bbs-render"], progre
     });
   }
 
-  // SEAM-DOC: the one path to the renderer, given the very document the screen read (I-bbs-2).
+  // SEAM-DOC: the one path to the renderer, given the very document the screen read (I-bbs-2), and
+  // the particulars the page states in words — the project's, the pin's, and today, the day this
+  // issue is made, in the document's zone (s-bbs I-535). The reading's own partial flag and what it
+  // left out cross with it, so the page says what the screen says it leaves out (I-536).
   await progress.step(STEP_RENDER, { rows: view.document.rows.length });
-  const project = await projectNameOf(scope);
+  const about = await bbsParticularsOf(scope, view.setRevisionId ?? "");
   const rendered = await renderDocument(
     BBS,
-    bbsPayloadOf(view.document, { title: BBS_TITLE, project, setRevisionId: view.setRevisionId ?? "" }),
+    bbsPayloadOf(view.document, {
+      title: BBS_TITLE,
+      project: about.project,
+      particulars: { ...about.particulars, issuedOn: dhakaDateParts(new Date()) },
+      partial: view.partial,
+      omitted: view.omitted ?? [],
+    }),
     { requestId: progress.jobId, actor: payload.requestedBy },
     deps,
   );

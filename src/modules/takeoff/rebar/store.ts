@@ -37,7 +37,24 @@ export type BbsScope = {
 };
 
 /**
- * One campaign's bill of bars as a reader reads it: every row, the totals by diameter and by mark,
+ * One line of the schedule as BS 8666 states it (the owner's ruling Q3, I-534): one bar of one mark
+ * on one floor, counted over EVERY member of that mark there whose bars are the same bars.
+ *
+ * It is a bar row read at the member count the store never wrote: `parentCount` is how many members
+ * take the bar, and `bars`, `kgNet`, `kgLap` and `kg` are the members' own stored figures SUMMED
+ * exactly — never rounded, and never multiplied from a figure somebody rounded (L-QTY-05, B-07). The
+ * row's identity (`barKey`, `objectKey`, `semantic`, the source keys) is its first member's, in the
+ * order a schedule is read; `members` names every member it counts, that one first, so no member a
+ * line stands for is lost from the record (L-REG-02). A member alone in its entry is its stored row
+ * carried verbatim, with `members` naming it.
+ */
+export type BbsLine = BarRow & {
+  /** Every member whose identical bars this line counts, in reading order — `objectKey` is the first. */
+  readonly members: readonly string[];
+};
+
+/**
+ * One campaign's bill of bars as a reader reads it: every line, the totals by diameter and by mark,
  * and what the cutting stock comes to for each diameter.
  *
  * The stock bar and the rounding are stated ON the document because a schedule that does not say
@@ -47,7 +64,8 @@ export type BbsDocument = {
   readonly campaignId: string;
   readonly stockMm: string;
   readonly roundingMm: number;
-  readonly rows: readonly BarRow[];
+  /** The schedule's lines: each mark stated once per floor with its number of members (I-534). */
+  readonly rows: readonly BbsLine[];
   readonly perDiameterKg: Readonly<Record<string, string>>;
   readonly perMarkKg: Readonly<Record<string, string>>;
   readonly cuttingStock: Readonly<Record<string, CuttingStockAnswer>>;
@@ -119,6 +137,115 @@ export function readingOrder(stack: readonly StackedLabel[]): (one: BarRow, othe
       compareCanonical(one.barKey, other.barKey)
     );
   };
+}
+
+/**
+ * What makes two members' bars ONE line of a schedule (I-534): everything each bar IS — its mark,
+ * role, diameter and shape, its legs, its three lengths, how it is split and lapped, how many one
+ * member takes, the rate it is billed at and what it weighs — and what it was READ from: the
+ * schedule cells and the storey height it was synthesised off, the detailing notes and the edition.
+ *
+ * Never which member it belongs to, and never where that member stands: that is what the grouping
+ * counts. The evidence is in it on purpose. Two members that read the same bars off DIFFERENT cells
+ * are stated as two entries of one mark rather than one — a schedule that states a mark twice is
+ * longer than it needs to be; one that merged two readings would cite one of them for bars the other
+ * stated, and a line cites what it was read from or it is no line (L-QTY-03).
+ *
+ * The bars are compared in the member's own reading order (`readingOrder` step 5), which is total,
+ * so two members holding one bar set present it in one order.
+ */
+function barSetOf(bars: readonly BarRow[]): string {
+  return JSON.stringify(
+    bars.map((bar) => [
+      bar.barMark,
+      bar.role,
+      bar.diameterMm,
+      bar.shape,
+      Object.entries(bar.dimsMm).sort(([one], [other]) => compareCanonical(one, other)),
+      bar.cuttingRawMm,
+      bar.cuttingRoundedMm,
+      bar.cuttingIsAdditiveMm,
+      bar.piecesPerBar,
+      bar.lapMm,
+      bar.lapsPerBar,
+      bar.barsPerUnit,
+      bar.parentCount,
+      bar.bars,
+      bar.kgPerMetre,
+      bar.kgNet,
+      bar.kgLap,
+      bar.kg,
+      bar.sourceKeys,
+      bar.detailingSourceKeys,
+      bar.editionDigest,
+    ]),
+  );
+}
+
+/**
+ * The schedule's lines, from the bill's rows in the order a bar schedule is read (I-534, the owner's
+ * ruling Q3: "the BBS states each mark once per floor with its member count", BS 8666).
+ *
+ * The members of one (level, class, mark) whose bar sets are identical (`barSetOf`) become ONE entry,
+ * and each bar of that set one line counted over all of them. The rows are grouped, never re-read: a
+ * member's bars are the rows the rail stored for it, and a line's figures are those rows' own figures
+ * summed exactly — the count, the bars and the three masses (L-QTY-05, B-07). This is computed from
+ * PLACED members, one by one, so it counts what the register holds and infers nothing about members
+ * nobody placed (L-CAD-08).
+ *
+ * Pure, and it sorts nothing: an entry stands where its first member stood, and its lines in that
+ * member's own order. So two reads of one bill are one schedule (L-REG-04), and a member that stands
+ * alone in its entry is its stored rows exactly as stored — the one change a reader meets is a count.
+ */
+export function scheduleOf(rows: readonly BarRow[]): BbsLine[] {
+  const order: string[] = [];
+  const barsOf = new Map<string, BarRow[]>();
+  for (const row of rows) {
+    const held = barsOf.get(row.objectKey);
+    if (held === undefined) {
+      order.push(row.objectKey);
+      barsOf.set(row.objectKey, [row]);
+    } else held.push(row);
+  }
+
+  const entries = new Map<string, { readonly members: string[]; readonly sets: (readonly BarRow[])[] }>();
+  for (const objectKey of order) {
+    const bars = barsOf.get(objectKey) ?? [];
+    const first = bars[0];
+    if (first === undefined) continue;
+    // The member's own standing — where it stands, what it is, what it is marked — then its bars. A
+    // level is compared as the label the row stores, which is the one the reading order read it by.
+    const key = JSON.stringify([first.level, first.class, first.mark, barSetOf(bars)]);
+    const entry = entries.get(key);
+    if (entry === undefined) entries.set(key, { members: [objectKey], sets: [bars] });
+    else {
+      entry.members.push(objectKey);
+      entry.sets.push(bars);
+    }
+  }
+
+  const lines: BbsLine[] = [];
+  for (const { members, sets } of entries.values()) {
+    const head = sets[0] ?? [];
+    head.forEach((bar, at) => {
+      if (sets.length === 1) {
+        lines.push({ ...bar, members: [...members] });
+        return;
+      }
+      const each = sets.map((set) => set[at] ?? bar);
+      const summed = (read: (row: BarRow) => string): string => each.reduce((total, row) => total.add(exact(read(row))), exact(0)).toString();
+      lines.push({
+        ...bar,
+        members: [...members],
+        parentCount: summed((row) => row.parentCount),
+        bars: summed((row) => row.bars),
+        kgNet: summed((row) => row.kgNet),
+        kgLap: summed((row) => row.kgLap),
+        kg: summed((row) => row.kg),
+      });
+    });
+  }
+  return lines;
 }
 
 /**
@@ -233,7 +360,21 @@ export async function bbsOf(scope: BbsScope): Promise<BbsDocument> {
   // was the bar's key alone, which is an opaque key: its members came out 5F, 2F, 1F, 3F, GF … and a
   // reader could not find a column's bars (I-354). It is now the order a bar schedule is read in.
   rows.sort(readingOrder(stack));
+  return bbsDocumentOf(scope.campaignId, rows);
+}
 
+/**
+ * The bill of bars a reader reads, from the bill's stored rows in the order a schedule is read: its
+ * lines (each mark once per floor, `scheduleOf`), the totals by diameter and by mark, the grand total,
+ * and what the cutting stock comes to per diameter (R-TO-054, AM-03(e)).
+ *
+ * Pure: `bbsOf` answers through it with the rows it read, and a document lane builds the schedule it
+ * prints from a fixture's rows through the same function, so the two can never total one bill two
+ * ways (B-17). The totals and the cutting stock are taken off the STORED rows, member by member, and
+ * the lines are those same rows counted per floor (I-534): an exact sum grouped is the same exact
+ * sum, so no total moves because the schedule states a mark once.
+ */
+export function bbsDocumentOf(campaignId: string, rows: readonly BarRow[]): BbsDocument {
   const perDiameterKg: Record<string, string> = {};
   const perMarkKg: Record<string, string> = {};
   let grand = exact(0);
@@ -257,13 +398,13 @@ export async function bbsOf(scope: BbsScope): Promise<BbsDocument> {
     };
   });
   return {
-    campaignId: scope.campaignId,
-    stockMm: String(REBAR_EDITION.STOCK_BAR_MM),
+    campaignId,
+    stockMm,
     roundingMm: ROUNDING_MM,
-    rows,
+    rows: scheduleOf(rows),
     perDiameterKg,
     perMarkKg,
-    cuttingStock: cuttingStockOf(pieces, String(REBAR_EDITION.STOCK_BAR_MM)),
+    cuttingStock: cuttingStockOf(pieces, stockMm),
     grandTotalKg: grand.toString(),
   };
 }

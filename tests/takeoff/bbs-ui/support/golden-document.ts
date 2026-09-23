@@ -47,6 +47,8 @@ export type BarRowShape = {
   readonly kgNet: string;
   readonly kgLap: string;
   readonly kg: string;
+  /** Every member the line counts, its first member first (interfaces: `BbsLine.members`, I-534). */
+  readonly members: readonly string[];
 };
 
 /** The campaign's bill of bars, as the one door answers it (interfaces: `BbsDocument`). */
@@ -68,6 +70,10 @@ export type BbsGridRowShape = {
   readonly mark: string;
   readonly class: string;
   readonly level: string | null;
+  /** How many members the line counts (I-534). */
+  readonly members: number;
+  /** How many of the bar one member takes (BS 8666's "No. in each"). */
+  readonly barsPerUnit: number;
   readonly component: "NET" | "LAP";
   readonly barKey: string;
   readonly barMark: string;
@@ -144,7 +150,9 @@ export const routeAddressModule = (): Promise<RouteAddressModule> =>
 /**
  * The golden schedule as a `BbsDocument`: every row renamed field for field, the totals and the
  * cutting-stock result copied across, and the content-derived bar key spelled as L-REG-04 spells one
- * (`<member>|<role>|<diameter>|<index>`).
+ * (`<member>|<role>|<diameter>|<index>`). Each golden row is one member's line — `members` names that
+ * member alone — which is a lawful answer of the door wherever no two members' bars were read off the
+ * same cells; the door's counting of members is graded over the same roster in `schedule-lines.test.ts`.
  */
 export function goldenBbsDocument(fixtureId: string = BBS_FIXTURE): BbsDocumentShape {
   const golden: BbsGoldenDocument = bbsGoldenDocument(fixtureId);
@@ -175,6 +183,7 @@ export function goldenBbsDocument(fixtureId: string = BBS_FIXTURE): BbsDocumentS
       kgNet: row.kg_net,
       kgLap: row.kg_lap,
       kg: row.kg,
+      members: [row.member],
     })),
     perDiameterKg: golden.per_diameter_kg,
     perMarkKg: golden.per_mark_kg,

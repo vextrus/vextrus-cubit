@@ -1,5 +1,6 @@
-// The `bbs` kind's document: a campaign's bill of bars, by member and bar mark, with the shape each
-// bar is bent to DRAWN beside its code (R-TO-054, A-BBS-PDF, AM-01, AM-03, AM-05).
+// The `bbs` kind's document: a campaign's bill of bars, each mark stated once per floor with its
+// number of members, the shape each bar is bent to DRAWN beside its code (R-TO-054, A-BBS-PDF, AM-01,
+// AM-03, AM-05; s-bbs I-534, I-535, I-536).
 //
 // THE SKETCHES ARE DRAWN, NEVER IMAGED. Every BS 8666 shape this tree details in is answered by a
 // few strokes of the page's own ink — no raster, no SVG, no library file: a schedule is read at a
@@ -7,20 +8,27 @@
 // code means. The dispatch below holds one branch per code of `SHAPE_CODES`, and the code itself is
 // printed beside its sketch because a BS 8666 code is the domain's own name for the shape (I-bbs-6).
 //
+// ONE TABLE, READ ACROSS, ITS WIDTHS TAKEN FROM WHAT IT HOLDS (I-535). The whole schedule is one
+// table on a landscape leaf, its column band repeated at the head of every page, each entry a
+// subheader across it. Every column but the legs is `auto` — as wide as the widest thing it holds,
+// header or figure — so no figure is ever set into a column narrower than itself and printed over its
+// neighbour; the legs take what is left. Headers are set as written, units in lower case.
+//
 // WHAT IT DOES NOT SAY. Nothing here is signed, so the frame prints `DRAFT — UNSIGNED` on every leaf
-// and the document names no surveyor, no credential and no certificate (AM-05). It states no figure
-// it was not given: every number arrives already written by `src/core/documents/figures.ts` at this
-// kind's stated precision, and this template computes and re-formats nothing (L-FMT-02, L-FMT-03).
-#import "/base/frame.typ": document-frame, figure-cell, head-cell, id-cell, ink, mono-face, quiet, rule
+// and the document names no surveyor, no credential and no certificate (AM-05); the sign-off box is
+// ruled paper for the site's own hand. It prints no id, key or enum word (R-UI-082), and it states no
+// figure it was not given: every number and every word arrives already written by the kind's
+// presenter, and this template computes and re-formats nothing (L-FMT-02, L-FMT-03).
+#import "/base/frame.typ": document-frame, id-cell, ink, mono-face, particulars-block, quiet, rule, sign-off-block
 
 #let payload = json("payload.json")
 
-// The schedule is read ACROSS: what the bar is, how it is cut, how many of it, what it weighs. The
-// dimensions column takes the slack because a leg list is the only cell whose length is not known.
-#let columns = (17mm, 12mm, 19mm, 10mm, 1fr, 18mm, 14mm, 16mm, 9mm, 16mm)
-
 // The ink a sketch is drawn in: the page's own, like every other colour here — a kind spells none.
 #let wire = 0.6pt + ink
+
+/// A column heading, as written: a schedule's headers carry their units in the case the units are
+/// spelled in, so `(mm)` is never shouted as `(MM)` (L-FMT-01).
+#let head(value) = text(size: 7.5pt, weight: "semibold", fill: quiet)[#value]
 
 /// The shape, drawn. One branch per code of `SHAPE_CODES` (`src/core/rulesets/methods/rebar/
 /// bs8666.ts`): a straight bar, a bar with one bend, a staple with two, a closed link, a spiral, and
@@ -77,106 +85,137 @@
   ]
 }
 
-/// A member's heading: where it stands, what it is, and what it is marked — the group every bar
-/// beneath it belongs to (R-TO-054).
-#let member-heading(member) = block(width: 100%, inset: (x: 2mm, y: 1.6mm))[
-  #text(size: 9.5pt, weight: "semibold", fill: ink)[#member.mark]
-  #h(3mm)
-  #text(size: 8.5pt, fill: quiet)[#member.class]
-  #h(3mm)
-  #text(size: 8.5pt, fill: quiet)[#member.level]
-  #h(3mm)
-  #text(size: 8pt, font: mono-face, fill: quiet)[#member.objectKey]
-  #v(1mm)
-  #line(length: 100%, stroke: 0.6pt + rule)
-]
+/// A figure, in the schedule's size: mono, right-aligned, tabular — and never broken across a line.
+#let fig(value) = align(right, box(text(font: mono-face, size: 8.5pt)[#value]))
 
-/// One line of the schedule: a bar, or the LAP component standing beneath the bar it belongs to.
+/// The number of columns the schedule is read across; an entry's heading spans all of them.
+#let across = 11
+
+/// An entry's heading: its mark, its class and its floor, in words, with its number of members beside
+/// — the group every line beneath it belongs to (R-TO-054, I-534). It is a SUBHEADER of the one table:
+/// the column band stands over every entry, an entry that runs onto the next page is headed there
+/// again, and a heading is never left alone at the foot of a page with its lines overleaf.
+#let entry-heading(entry) = table.header(
+  level: 2,
+  table.cell(colspan: across, inset: (x: 1.4mm, top: 2.6mm, bottom: 1.2mm))[
+    #grid(
+      columns: (1fr, auto),
+      align: (left + bottom, right + bottom),
+      text(size: 9.5pt, weight: "semibold", fill: ink)[#entry.heading],
+      text(size: 8.5pt, fill: quiet)[#entry.members],
+    )
+  ],
+  table.hline(stroke: 0.4pt + rule),
+)
+
+/// One line of the schedule: a bar, or the `Lap` line standing beneath the bar it belongs to.
 ///
-/// A lap's own line states the component by name and carries the lap's OWN mass (AM-03(a)): it is
+/// A lap's own line names the component in words and carries the lap's OWN mass (AM-03(a)): it is
 /// never a percentage of the bar above it and never a column of that bar's row, which is what lets a
 /// reader read net-of-laps and gross-of-laps off the same page (L-BD-02).
 #let schedule-row(line) = (
-  id-cell(if line.component == "LAP" { "LAP" } else { line.barMark }),
+  if line.component == "LAP" { text(size: 8.5pt, fill: quiet)[Lap] } else { id-cell(line.barMark) },
   text(size: 8.5pt, fill: quiet)[#line.role],
+  fig(line.diameter),
   shape-cell(line.shape),
-  figure-cell(line.diameter),
-  text(size: 8.5pt)[#line.dimensions.join(",  ")],
-  figure-cell(line.cuttingRaw),
-  figure-cell(line.cuttingRounded),
-  figure-cell(line.cuttingIs),
-  figure-cell(line.bars),
-  figure-cell(line.kg),
+  text(size: 8.5pt)[#line.dimensions],
+  fig(line.cuttingRaw),
+  fig(line.cuttingRounded),
+  fig(line.cuttingIs),
+  fig(line.each),
+  fig(line.total),
+  fig(line.kg),
 )
 
 #document-frame(
   title: payload.title,
   subtitle: payload.project,
-  facts: (
-    (label: "Campaign", value: payload.campaignId),
-    (label: "Pinned revision", value: payload.setRevisionId),
-    (label: "Stock bar", value: payload.stockMm),
-    (label: "Rounded to", value: payload.roundingMm),
-  ),
   draft-every-page: true,
+  landscape: true,
+  footer-note: payload.runningTitle,
 )[
-  #for member in payload.members [
-    #member-heading(member)
-    #table(
-      columns: columns,
-      align: (left, left, center, right, left, right, right, right, right, right),
-      stroke: none,
-      inset: (x: 1.6mm, y: 1.2mm),
-      row-gutter: 0pt,
-      table.header(
-        head-cell("Bar mark"),
-        head-cell("Role"),
-        head-cell("Shape"),
-        head-cell("Dia"),
-        head-cell("Dimensions"),
-        head-cell("Cutting"),
-        head-cell("Rounded"),
-        head-cell("IS add."),
-        head-cell("Bars"),
-        head-cell("Mass"),
-      ),
+  #particulars-block(payload.particulars)
+  #v(5mm)
+
+  #table(
+    columns: (auto, auto, auto, auto, 1fr, auto, auto, auto, auto, auto, auto),
+    align: (left + horizon, left + horizon, right + horizon, center + horizon, left + horizon, right + horizon, right + horizon, right + horizon, right + horizon, right + horizon, right + horizon),
+    stroke: none,
+    inset: (x: 1.4mm, y: 1.1mm),
+    row-gutter: 0pt,
+    table.header(
+      head[Bar mark],
+      head[Role],
+      head[Dia (mm)],
+      head[Shape],
+      head[Dimensions (mm)],
+      head[Cutting length (mm)],
+      head[Rounded (mm)],
+      head[IS additive (mm)],
+      head[In each],
+      head[Total],
+      head[Mass (kg)],
       table.hline(stroke: 0.6pt + rule),
-      ..member.lines.map(line => schedule-row(line)).flatten(),
-    )
-    #v(3mm)
-  ]
+    ),
+    ..payload.entries
+      .map(entry => (entry-heading(entry), ..entry.lines.map(line => schedule-row(line)).flatten()))
+      .flatten(),
+  )
+  #v(4mm)
 
   // The cutting stock: what a site cuts from a stock bar, per diameter. INFORMATIONAL — it is not a
   // quantity anybody is billed for, and the sentence beneath it says so (AM-03(e)).
-  #block(width: 100%, inset: (x: 2mm, y: 1.8mm))[
-    #text(size: 10.5pt, weight: "semibold", fill: ink)[Cutting stock by diameter]
-    #v(1.2mm)
-    #line(length: 100%, stroke: 0.6pt + rule)
+  #block(breakable: false)[
+    #block(width: 100%, inset: (x: 1.4mm, y: 1.8mm))[
+      #text(size: 10.5pt, weight: "semibold", fill: ink)[Cutting stock by diameter]
+      #v(1.2mm)
+      #line(length: 100%, stroke: 0.6pt + rule)
+    ]
+    #table(
+      columns: (auto, auto, auto, auto, auto, 1fr),
+      align: (right, right, right, right, right, left),
+      stroke: none,
+      inset: (x: 2mm, y: 1.4mm),
+      row-gutter: 0pt,
+      table.header(head[Dia (mm)], head[Mass (kg)], head[Stock bars], head[Pieces], head[Offcut (mm)], []),
+      table.hline(stroke: 0.6pt + rule),
+      ..payload.stock
+        .map(one => (fig(one.diameter), fig(one.kg), fig(one.stockBars), fig(one.pieces), fig(one.offcut), []))
+        .flatten(),
+      table.hline(stroke: 0.6pt + rule),
+      text(size: 9pt, weight: "semibold", fill: ink)[Total mass],
+      fig(payload.grandTotalKg),
+      table.cell(colspan: 4, align: left + horizon)[#if payload.partial { text(size: 8.5pt, fill: quiet)[Measured scope only] }],
+    )
+    #v(2mm)
+    #text(size: 8.5pt, fill: quiet)[Stock bars, pieces and offcut describe what a site cuts from a stock bar. They are informational and are never billed.]
   ]
-  #table(
-    columns: (20mm, 30mm, 26mm, 22mm, 1fr),
-    align: (right, right, right, right, right),
-    stroke: none,
-    inset: (x: 2mm, y: 1.4mm),
-    row-gutter: 0pt,
-    table.header(
-      head-cell("Diameter"),
-      head-cell("Mass"),
-      head-cell("Stock bars"),
-      head-cell("Pieces"),
-      head-cell("Offcut"),
-    ),
-    table.hline(stroke: 0.6pt + rule),
-    ..payload.stock
-      .map(one => (figure-cell(one.diameter), figure-cell(one.kg), figure-cell(one.stockBars), figure-cell(one.pieces), figure-cell(one.offcut)))
-      .flatten(),
-    table.hline(stroke: 0.6pt + rule),
-    text(size: 9pt, weight: "semibold", fill: ink)[Total mass],
-    figure-cell(payload.grandTotalKg),
-    [],
-    [],
-    [],
+
+  // WHAT IS LEFT OUT, SAID (L-QTY-02, I-536): a schedule over partly declared lines names the
+  // components it does not state and why, in the screen's own words, so its total is never taken for
+  // the whole of the steel.
+  #if payload.leftOut.len() > 0 [
+    #v(4mm)
+    #block(breakable: false)[
+      #text(size: 10.5pt, weight: "semibold", fill: ink)[Left out of this schedule]
+      #v(1.2mm)
+      #line(length: 100%, stroke: 0.6pt + rule)
+      #v(1.2mm)
+      #for one in payload.leftOut [
+        #grid(
+          columns: (32mm, 1fr),
+          column-gutter: 3mm,
+          text(size: 9pt, weight: "semibold", fill: ink)[#one.what],
+          text(size: 9pt, fill: ink)[#one.why],
+        )
+        #v(1.2mm)
+      ]
+    ]
+  ]
+
+  #v(6mm)
+  #sign-off-block(
+    ("Prepared by", "Checked by"),
+    note: "Completed by hand. This schedule is a draft: it names no surveyor and certifies no quantity.",
   )
-  #v(2mm)
-  #text(size: 8.5pt, fill: quiet)[Stock bars, pieces and offcut describe what a site cuts from a stock bar. They are informational and are never billed.]
 ]

@@ -18,7 +18,7 @@ import { CANONICAL_UNIT } from "@/core/units/canon";
 import { massesOf, readMembers, REBAR_RULE_ID, RCC_REBAR, type MemberRead } from "./bars";
 
 export { barRowKeyOf, barRowsOf, readMembers, REBAR_RULE_ID, type BarRow } from "./bars";
-export { bbsOf, writeBarRows, type BbsDocument, type BarRowScope, type BbsScope } from "./store";
+export { bbsDocumentOf, bbsOf, scheduleOf, writeBarRows, type BbsDocument, type BbsLine, type BarRowScope, type BbsScope } from "./store";
 
 /**
  * The geometry a member's reinforcement is read off. A bar is a SET of points on the member's plan —

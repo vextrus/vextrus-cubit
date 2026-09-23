@@ -6,8 +6,10 @@
 // the same derivation — rather than a stand-in drawn beside it.
 //
 // The schedule it stands on is a READING, stated here as data: `bbsOf` answers a campaign, and a
-// demonstration has none, so the bill below is a small one written out — three bars of two columns,
-// one of them lapping — exactly as the draft BOQ's demonstration writes out its published lines. It
+// demonstration has none, so the bill below is a small one written out — three bars of two marks,
+// two of them lapping, and C2 standing twice on the floor with the same bars, so its line counts two
+// members as the door states a mark once per floor (I-534) — exactly as the draft BOQ's
+// demonstration writes out its published lines. It
 // goes through the SAME presenter the screen draws every schedule with, so what a reviewer sees is
 // the product's own arrangement of it and never a picture of one (B-17).
 import { REFUSALS } from "@/core/errors";
@@ -55,11 +57,13 @@ function bar(
   shape: string,
   dimsMm: Record<string, string>,
   cutting: { raw: string; rounded: string; is: string },
-  count: { barsPerUnit: number; bars: string },
+  count: { barsPerUnit: number; parentCount: string; bars: string },
   lap: { lapMm: string; lapsPerBar: number },
   mass: { kgPerMetre: string; kgNet: string; kgLap: string; kg: string },
 ) {
   const objectKey = `column/GF/${mark}`;
+  // Every member the line counts, the first its own: a line counted over two members names both.
+  const members = Array.from({ length: Number(count.parentCount) }, (_, at) => (at === 0 ? objectKey : `${objectKey}/${String(at + 1)}`));
   return {
     barKey: `${objectKey}|${role}|${String(diameterMm)}|0`,
     objectKey,
@@ -78,7 +82,7 @@ function bar(
     lapMm: lap.lapMm,
     lapsPerBar: lap.lapsPerBar,
     barsPerUnit: count.barsPerUnit,
-    parentCount: "1",
+    parentCount: count.parentCount,
     bars: count.bars,
     kgPerMetre: mass.kgPerMetre,
     kgNet: mass.kgNet,
@@ -88,10 +92,11 @@ function bar(
     detailingSourceKeys: ["S-01:t:7"],
     editionDigest: "demonstration",
     semantic: "demonstration",
+    members,
   };
 }
 
-/** The bill a whole schedule is read off: two columns, three bars, two of them lapping at 50 × d. */
+/** The bill a whole schedule is read off: two marks, three bars, two of them lapping at 50 × d. */
 const BARS = [
   bar(
     "C1",
@@ -101,7 +106,7 @@ const BARS = [
     "00",
     { A: "3450.000" },
     { raw: "3450.000", rounded: "3450", is: "3450.000" },
-    { barsPerUnit: 6, bars: "6" },
+    { barsPerUnit: 6, parentCount: "1", bars: "6" },
     { lapMm: "1000", lapsPerBar: 1 },
     { kgPerMetre: "2.466", kgNet: "51.046", kgLap: "14.796", kg: "65.842" },
   ),
@@ -113,7 +118,7 @@ const BARS = [
     "51",
     { A: "300.000", B: "450.000" },
     { raw: "1638.400", rounded: "1650", is: "1672.000" },
-    { barsPerUnit: 42, bars: "42" },
+    { barsPerUnit: 42, parentCount: "1", bars: "42" },
     { lapMm: "0", lapsPerBar: 0 },
     { kgPerMetre: "0.395", kgNet: "27.181", kgLap: "0.000", kg: "27.181" },
   ),
@@ -125,9 +130,9 @@ const BARS = [
     "00",
     { A: "3450.000" },
     { raw: "3450.000", rounded: "3450", is: "3450.000" },
-    { barsPerUnit: 8, bars: "8" },
+    { barsPerUnit: 8, parentCount: "2", bars: "16" },
     { lapMm: "800", lapsPerBar: 1 },
-    { kgPerMetre: "1.578", kgNet: "43.553", kgLap: "10.099", kg: "53.652" },
+    { kgPerMetre: "1.578", kgNet: "87.106", kgLap: "20.198", kg: "107.304" },
   ),
 ];
 
@@ -137,14 +142,14 @@ const DOCUMENT: BbsDocument = {
   stockMm: "12000",
   roundingMm: 25,
   rows: BARS,
-  perDiameterKg: { "8": "27.181", "16": "53.652", "20": "65.842" },
-  perMarkKg: { "C1-v": "65.842", "C1-t": "27.181", "C2-v": "53.652" },
+  perDiameterKg: { "8": "27.181", "16": "107.304", "20": "65.842" },
+  perMarkKg: { "C1-v": "65.842", "C1-t": "27.181", "C2-v": "107.304" },
   cuttingStock: {
     "8": { stockBars: 6, pieces: 42, offcutMm: "2700", method: "first-fit-decreasing" },
-    "16": { stockBars: 3, pieces: 8, offcutMm: "8400", method: "first-fit-decreasing" },
+    "16": { stockBars: 6, pieces: 16, offcutMm: "16800", method: "first-fit-decreasing" },
     "20": { stockBars: 2, pieces: 6, offcutMm: "3300", method: "first-fit-decreasing" },
   },
-  grandTotalKg: "146.675",
+  grandTotalKg: "200.327",
 };
 
 /** The reading the demonstration stands on, whole or with nothing scheduled at all. */

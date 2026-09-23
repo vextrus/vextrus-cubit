@@ -5,7 +5,10 @@
 // no total is re-derived. A screen that re-summed would print a figure nobody measured, and the
 // third decimal of a campaign's grand total is exactly where that would show (B-17, L-QTY-05).
 //
-// What it DOES is two arrangements the domain itself states:
+// What it DOES is three arrangements the domain itself states:
+//   - a mark is stated once per floor with its number of members (BS 8666, the owner's ruling Q3):
+//     the door already counted the members (I-534), and every row carries that count so the group
+//     row can say it — the count is the door's figure, carried, never re-counted here;
 //   - a lap is its own row beside the net bar, never a column and never a percentage of it — so a
 //     bar that laps yields two rows, and a reader can read net-of-laps and gross-of-laps off the
 //     same grid (AM-03(a), L-BD-02, I-bbs-3);
@@ -80,10 +83,15 @@ export type BbsComponent = "NET" | "LAP";
 export type BbsGridRow = {
   /** This row's own identity in the grid — one bar yields at most two, so the component is in it. */
   readonly key: string;
+  /** The entry the line belongs to: its first member's key, which names the group row (I-534). */
   readonly objectKey: string;
   readonly mark: string;
   readonly class: string;
   readonly level: string | null;
+  /** How many members of the mark on this floor the line counts — the door's own count (I-534). */
+  readonly members: number;
+  /** How many of the bar ONE member takes; `bars` is that times `members` (BS 8666's "in each"). */
+  readonly barsPerUnit: number;
   readonly component: BbsComponent;
   readonly barKey: string;
   readonly barMark: string;
@@ -126,10 +134,10 @@ const NOTHING_PACKED = Object.freeze({ stockBars: 0, pieces: 0, offcutMm: "0" })
 const NO_CUTTING_LENGTH = "";
 
 /**
- * The stored rows in the order the grid draws them: `document.rows`, gathered under the member each
- * belongs to. The members keep the order the document first names them in, and the rows inside a
- * member keep the document's own order — this sorts nothing, because the door already answered in
- * the one order a bill is read in (L-REG-04).
+ * The door's lines in the order the grid draws them: `document.rows`, gathered under the entry each
+ * belongs to — the mark on its floor, named by its first member (I-534). The entries keep the order
+ * the document first names them in, and the lines inside an entry keep the document's own order —
+ * this sorts nothing, because the door already answered in the one order a bill is read in (L-REG-04).
  */
 function groupedByMember(document: BbsDocument): BbsDocument["rows"][number][] {
   const byMember = new Map<string, BbsDocument["rows"][number][]>();
@@ -142,13 +150,13 @@ function groupedByMember(document: BbsDocument): BbsDocument["rows"][number][] {
 }
 
 /**
- * The grid's rows: one NET row per stored bar row, and — immediately beneath it, and only where the
- * bar in fact laps — one LAP row carrying that lap's own mass (AM-03(a), L-BD-02).
+ * The grid's rows: one NET row per line the door answered, and — immediately beneath it, and only
+ * where the bar in fact laps — one LAP row carrying that lap's own mass (AM-03(a), L-BD-02).
  */
 export function bbsRowsOf(document: BbsDocument): readonly BbsGridRow[] {
   const rows: BbsGridRow[] = [];
   for (const bar of groupedByMember(document)) {
-    const member = { objectKey: bar.objectKey, mark: bar.mark, class: bar.class as string, level: bar.level };
+    const member = { objectKey: bar.objectKey, mark: bar.mark, class: bar.class as string, level: bar.level, members: bar.members.length, barsPerUnit: bar.barsPerUnit };
     rows.push({
       ...member,
       key: `${bar.barKey}|NET`,

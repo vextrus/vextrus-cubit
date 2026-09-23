@@ -93,22 +93,65 @@
     .flatten(),
 )
 
+/// What a document is ABOUT, in words: the project, the client, the drawings it was read from, the
+/// day it was issued — label and value pairs set under the title in the body face, because every value
+/// here is a sentence a reader reads and not an identifier they copy (R-UI-082: no id, key or enum
+/// word stands on a page). Two pairs to a row, so a block of six stays three lines deep.
+#let particulars-block(particulars) = grid(
+  columns: (auto, 1fr, auto, 1fr),
+  column-gutter: 4mm,
+  row-gutter: 1.8mm,
+  ..particulars
+    .map(pair => (text(size: 8.5pt, fill: quiet)[#pair.label], text(size: 9pt, fill: ink)[#pair.value]))
+    .flatten(),
+)
+
+/// The sign-off a site completes BY HAND: one ruled box per role, each with a line for the name, the
+/// signature and the date. The product fills none of it — it names nobody, states no credential and
+/// certifies nothing (AM-05) — so the box is paper for the people who check the schedule, and the
+/// sentence the caller hands in says so beneath it.
+#let sign-off-block(roles, note: "") = block(breakable: false, width: 100%)[
+  #grid(
+    columns: roles.map(_ => 1fr),
+    column-gutter: 6mm,
+    ..roles.map(role => block(width: 100%, inset: (x: 3mm, y: 2.5mm), stroke: 0.5pt + rule, radius: 1mm)[
+      #text(size: 8.5pt, weight: "semibold", fill: ink)[#role]
+      #v(2mm)
+      #for field in ("Name", "Signature", "Date") [
+        #grid(
+          columns: (18mm, 1fr),
+          align: (left + bottom, left + bottom),
+          text(size: 8pt, fill: quiet)[#field],
+          line(length: 100%, stroke: 0.5pt + rule),
+        )
+        #v(3.5mm)
+      ]
+    ]),
+  )
+  #if note != "" [
+    #v(1.5mm)
+    #text(size: 8pt, fill: quiet)[#note]
+  ]
+]
+
 /// The page frame. `title`, `subtitle` and `facts` are DATA the caller read out of its payload — they
 /// are set as content, never spliced into markup, because nothing in this product builds a template
 /// out of a payload (L-FMT-03).
 ///
-/// The optional parameters are the draft BOQ's and default to what every document already did:
-/// `facts` adds the "stated under" block below the title, and `draft-every-page` moves the unsigned
-/// banner from the first page's flow into the running header, where it stands on every leaf.
-/// `footer-note` puts what the paper IS in the running footer in place of the product's name — the
-/// project, the document and the day it was issued, so a page read on its own still says what it is a
-/// page of — and `watermarked: false` leaves the page's background bare where every figure on it must
-/// read against clean paper (s-boq I-530). A document that passes none of them is set exactly
-/// as it was before they existed.
-#let document-frame(title: "", subtitle: "", facts: (), draft-every-page: false, footer-note: "", watermarked: true, body) = {
+/// The optional parameters default to what every document already did, so a document that passes
+/// none of them is set exactly as it was before they existed. `facts` adds the "stated under" block
+/// below the title, and `draft-every-page` moves the unsigned banner from the first page's flow into
+/// the running header, where it stands on every leaf (the draft BOQ's two). `footer-note` puts what the
+/// paper IS in the running footer in place of the product's name — the project, the document and the
+/// day it was issued — so a page read on its own still says what it is a page of (s-boq I-530; the bar
+/// schedule's too, s-bbs I-535). `landscape` turns the A4 leaf on its side for a schedule read across
+/// a dozen columns (the bar schedule's), and `watermarked: false` leaves the page's background bare
+/// where every figure on it must read against clean paper (s-boq I-530).
+#let document-frame(title: "", subtitle: "", facts: (), draft-every-page: false, landscape: false, footer-note: "", watermarked: true, body) = {
   set document(title: title, author: "Vextrus Cubit")
   set page(
     paper: "a4",
+    flipped: landscape,
     fill: page-fill,
     // The running banner stands in the top margin, so a page that carries one is given the room for
     // it: a header drawn into a 22 mm margin would print over the first row of the body.
