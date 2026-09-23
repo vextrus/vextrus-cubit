@@ -49,11 +49,31 @@ weights summing to 12, the score the minimum across captures; ≥ 4.0 with none 
 `--kind canvas` grades a sheet's canvas as the work surface. The per-route JSON (`--json`, or the
 `<route>.<theme>.<w>x<h>.json` beside each capture) carries every criterion's score and its reason.
 
+The frame's two slots are measured where a screen mounted them (`lib/frame.mjs`, session 8's H1).
+The tool row is `shell-toolbar` where a screen mounted the frame's toolbar. Otherwise it is the
+frame's `shell-toolbar-slot`, but only while the slot holds an element and stands above zero
+height: the viewer's bare tool groups and the takeoff lane's tab row are measured there. The
+readout is `shell-status`, or `viewer-status` where the viewer's readout replaced it. A screen with
+no tools keeps its score ("toolbar absent"). The row's buttons are read from the row that is
+measured; in the bare slot, only the buttons of its tool groups (`role="group"`) count, so the tab
+row's IdChip and primary action are not graded as tools.
+
+A slot's height is the frame's TRACK, not the row's measure: the body's grid gives the tool row
+`--toolbar-h` and the readout `--status-h`, and the slot and the frame's toolbar clip what they
+hold, so a row that wrapped or spilled inside the track still reads 32. Whether the row fits is
+read from its content: the measured element's `scrollHeight`/`scrollWidth` against its
+`clientHeight`/`clientWidth` (one pixel of slack). A row whose content runs past its box on either
+axis costs the tool row's point (`toolbar clipped (shell-toolbar-slot) 45>32 high`). A label that
+ellipsises inside its own box spills nothing into the row and is no finding. The reason says which
+figure is which: `rail 48, toolbar track 32 (shell-toolbar-slot) and its row fits, status track 24
+(viewer-status)`. The readout is graded on its track alone; the viewer's readout clips and
+ellipsises by design (viewer.css), so its content's extent is not a finding.
+
 Test ids are read from `src/ui/testids.ts` through `lib/testids.mjs` — the harness spells none.
 The readers that run inside the page (`probe.mjs`, `server.mjs`, `lib/{axe,craft,settled}.mjs`
 and the three picture tools) are excluded from the node type program in `tsconfig.json`: their
-DOM code is the browser's; `lib/png.mjs`, `lib/testids.mjs` and `lib/rail.mjs`, which the lanes
-import, are typed.
+DOM code is the browser's; `lib/png.mjs`, `lib/testids.mjs`, `lib/rail.mjs` and `lib/frame.mjs`,
+which the lanes import, are typed.
 `craft-walk.sh` walks every screen of a measured J-000 project with the run's own cookies (a
 `pnpm e2e --journeys J-000` leaves `test-results/j-000-golden-run.dark.w<N>.json`; pick one with
 `"measured": true`). Which project it walks is the third argument or `PROBE_PROJECT`: with neither

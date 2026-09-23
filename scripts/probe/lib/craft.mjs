@@ -1,3 +1,4 @@
+import { chromeGeometry, frameSlots } from "./frame.mjs";
 import { idOf } from "./testids.mjs";
 // THE NUMERIC CRAFT RUBRIC (AM-08 Part 2), the mechanical half: twelve criteria 0–5, weights summing
 // to 12, read from the DOM after settled(). A human may only LOWER a computed score.
@@ -27,7 +28,9 @@ const IDS = Object.freeze({
   homeGrid: idOf("sHome.grid"),
   rail: idOf("shell.rail"),
   toolbar: idOf("shell.toolbar"),
+  toolbarSlot: idOf("shell.toolbarSlot"),
   status: idOf("shell.status"),
+  viewerStatus: idOf("viewer.status"),
   topbar: idOf("shell.topbar"),
   inspector: idOf("shell.inspector"),
   idChip: idOf("idChip.root"),
@@ -39,8 +42,15 @@ const IDS = Object.freeze({
   viewerScreen: idOf("viewer.screen"),
 });
 
+/**
+ * Read the page, then settle which of the frame's slots the rubric measures (`lib/frame.mjs`): the
+ * page answers every candidate box, and the choice between them is made once, in node, where it is
+ * tested (tests/toolchain/probe-frame-slots.test.ts). `toolbar` and `status` are the boxes MEASURED,
+ * `frame` names them, `frame.toolbar.extent` says whether the row's content fits its box, and
+ * `controls.toolbarButtons` are the buttons of the measured row.
+ */
 export async function readCraft(page, options = {}) {
-  return await page.evaluate(({ opts, ids }) => {
+  const reading = await page.evaluate(({ opts, ids }) => {
     const q = (selector, root = globalThis.document) => root.querySelector(selector);
     const qa = (selector, root = globalThis.document) => [...root.querySelectorAll(selector)];
     const rect = (element) => {
@@ -76,8 +86,26 @@ export async function readCraft(page, options = {}) {
     }
 
     const rail = rect(q(`[data-testid="${ids.rail}"]`));
-    const toolbar = rect(q(`[data-testid="${ids.toolbar}"]`));
-    const status = rect(q(`[data-testid="${ids.status}"]`));
+    // The frame's two slots, every candidate: which of them is measured is `lib/frame.mjs`'s rule.
+    // The frame's toolbar is a tool row by construction, so every button in it is a tool; the bare
+    // slot also carries the takeoff tab row, whose pinned-revision IdChip and one primary action the
+    // Direction puts there (§3.2) and which are not tools — so the slot's tools are the buttons of its
+    // tool groups (`ShellToolbarGroup`'s `role="group"`), the same primitive the viewer mounts.
+    // A row's box is the frame's track (its height is `--toolbar-h`, and both the slot and the
+    // frame's toolbar clip what they hold), so whether the row FITS is read from its content: how far
+    // that runs against the box, on both axes — a wrapped label or a spilled aside shows only here.
+    const heightsIn = (element, selector) => (element === null ? [] : [...new Set(qa(selector, element).map((b) => Math.round(rect(b).height)))]);
+    const extentOf = (element) => ({ scrollWidth: element.scrollWidth, scrollHeight: element.scrollHeight, clientWidth: element.clientWidth, clientHeight: element.clientHeight });
+    const toolbarElement = q(`[data-testid="${ids.toolbar}"]`);
+    const slotElement = q(`[data-testid="${ids.toolbarSlot}"]`);
+    const slots = {
+      toolbar: toolbarElement === null ? null : { ...rect(toolbarElement), extent: extentOf(toolbarElement) },
+      toolbarButtons: heightsIn(toolbarElement, "button"),
+      toolbarSlot: slotElement === null ? null : { ...rect(slotElement), children: slotElement.childElementCount, extent: extentOf(slotElement) },
+      slotButtons: heightsIn(slotElement, '[role="group"] button'),
+      status: rect(q(`[data-testid="${ids.status}"]`)),
+      viewerStatus: rect(q(`[data-testid="${ids.viewerStatus}"]`)),
+    };
     const topbar = rect(q(`[data-testid="${ids.topbar}"]`));
     const inspector = rect(q(`[data-testid="${ids.inspector}"]`));
 
@@ -95,12 +123,12 @@ export async function readCraft(page, options = {}) {
       focused: active === null || active === globalThis.document.body || active === globalThis.document.documentElement ? null : nameOf(active),
     };
 
-    // Controls in the toolbar and in main: their heights, and any native select / date input.
+    // Controls in main: their heights, and any native select / date input. The tool row's buttons
+    // are the slots' (above), read from whichever row the rubric measures.
     const controls = qa("button, [role=button], input, select, textarea", main).filter((element) => rect(element)?.height > 0);
     const heights = controls.map((element) => Math.round(rect(element).height));
     const nativeSelects = qa("select", globalThis.document).length;
     const dateInputs = qa('input[type="date"]', globalThis.document).length;
-    const toolbarButtons = qa("button", q(`[data-testid="${ids.toolbar}"]`) ?? globalThis.document.createElement("div")).map((b) => Math.round(rect(b).height));
 
     // Rows: the grid's rows, by median height; wrapping cells.
     const rows = qa(`[data-testid="${ids.datatableRow}"], tr, [role="row"], [data-testid$="-row"]`, main).filter((element) => rect(element)?.height > 0 && !element.closest("thead"));
@@ -177,8 +205,8 @@ export async function readCraft(page, options = {}) {
       viewport: { width: vw, height: vh },
       main: mainRect,
       primary,
-      rail, toolbar, status, topbar, inspector, chrome,
-      controls: { count: controls.length, heights: [...new Set(heights)].sort((a, b) => a - b), toolbarButtons: [...new Set(toolbarButtons)], nativeSelects, dateInputs },
+      rail, slots, topbar, inspector, chrome,
+      controls: { count: controls.length, heights: [...new Set(heights)].sort((a, b) => a - b), nativeSelects, dateInputs },
       rows: { count: rows.length, median: medianRow, distinct: [...new Set(rowHeights)], wrappingCells },
       exposed,
       paragraphs,
@@ -189,6 +217,14 @@ export async function readCraft(page, options = {}) {
       opts,
     };
   }, { opts: options, ids: IDS });
+  const frame = frameSlots(reading.slots);
+  return {
+    ...reading,
+    frame,
+    toolbar: frame.toolbar?.box ?? null,
+    status: frame.status?.box ?? null,
+    controls: { ...reading.controls, toolbarButtons: frame.toolbar?.buttons ?? [] },
+  };
 }
 
 const clamp = (n) => Math.max(0, Math.min(5, n));
@@ -215,18 +251,8 @@ export function scoreCraft(reading, axeByTheme = {}, kind = "grid") {
     const offset = Math.round(r.primary.box.y - r.main.y);
     out.aboveTheFold = { score: clamp(offset <= 240 ? 5 : offset <= 300 ? 4 : offset <= 400 ? 3 : offset <= 500 ? 2 : 1), why: `primary starts ${offset}px below main top (≤240 → 5)` };
   }
-  // 3 chrome geometry
-  {
-    let score = 5;
-    const why = [];
-    if (!r.rail || r.rail.width > 56) { score -= 2; why.push(`rail ${r.rail ? Math.round(r.rail.width) : "absent"}`); }
-    if (!r.toolbar) { why.push("toolbar absent"); }
-    else if (Math.round(r.toolbar.height) !== 32) { score -= 1; why.push(`toolbar ${Math.round(r.toolbar.height)}`); }
-    if (!r.status) { why.push("status absent"); }
-    else if (Math.round(r.status.height) !== 24) { score -= 1; why.push(`status ${Math.round(r.status.height)}`); }
-    if (r.topbar && Math.round(r.topbar.height) > 40) { score -= 1; why.push(`topbar ${Math.round(r.topbar.height)}`); }
-    out.chromeGeometry = { score: clamp(score), why: why.length ? why.join(", ") : `rail ${Math.round(r.rail?.width ?? 0)} toolbar ${Math.round(r.toolbar?.height ?? 0)} status ${Math.round(r.status?.height ?? 0)}` };
-  }
+  // 3 chrome geometry: the rail, the top bar, and the frame's two slots as `lib/frame.mjs` rules them
+  out.chromeGeometry = chromeGeometry({ rail: r.rail ?? null, topbar: r.topbar ?? null, frame: r.frame });
   // 4 control height and kind
   {
     let score = 5;
