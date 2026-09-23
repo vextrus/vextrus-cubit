@@ -203,8 +203,13 @@
 
 /* A section's explanation, carried as its accessible description and clipped from sight (I-324):
    out of flow, so it pays no room in the track (the register's hiding idiom, no px spelled). */
+/* Read, never drawn — and never measured either: `clip-path` hides the paint but keeps the box, and a
+   one-line sentence 970 px long stood from the side column's edge past the viewport, so the page
+   scrolled sideways at 1280 (craft table, session 7: noHorizontalScroll 0). The box is one pixel. */
 .cx-set-described {
   position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
   margin: 0;
   overflow: hidden;
   clip-path: inset(50%);

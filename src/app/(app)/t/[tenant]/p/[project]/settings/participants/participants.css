@@ -14,6 +14,53 @@
   flex-direction: column;
   gap: var(--gap-section);
   min-width: 0;
+  /* The height the frame leaves this screen, in the shell's own row tokens — the rule set's chain
+     (I-325), because the settings pane is a grid of auto rows and nothing above this box is definite.
+     With it, the role history can take what the roster and the form leave (I-328 as amended). */
+  block-size: calc(100dvh - var(--topbar-h) - var(--toolbar-h) - var(--status-h) - var(--gap-section) * 2);
+  min-block-size: 0;
+}
+
+/* I-328 as amended at integration (session 7): the roster IS the work surface again (I-214's rule),
+   now inside a box of definite height. Sized to its rows, a one-member roster and a one-grant history
+   left the grids 6 % of the work surface (craft table: workSurface 1); handing the fill to the
+   history made the primary start 443 px down (aboveTheFold 2). The roster takes the height the act
+   and the record leave; the act stays in view because the box is the frame's height, not the page's;
+   the record is sized to its rows up to six, then scrolls inside its own frame. */
+.cx-participants-roster-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-block-size: calc(var(--row-h) * 4);
+}
+
+.cx-participants-table.cx-participants-table-record {
+  max-height: calc(var(--row-h) * 7);
+}
+
+/* The act and the record, side by side under the roster, 7 : 9 of the pane's width, each section
+   keeping its own heading and frame. The form's chips wrap inside their share, and the record's four
+   columns (104 · 136 · 192 · 128) stand whole in theirs at 1280, with a long member's address ending
+   in an ellipsis and whole on its tooltip (R-UI-084). Neither ever widens the page. */
+.cx-participants-below {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 9fr);
+  align-items: start;
+  gap: var(--gap-section);
+  min-width: 0;
+}
+
+.cx-participants-table.cx-participants-table-fill {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  max-height: none;
+  overflow: hidden;
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+}
+
+.cx-participants-table.cx-participants-table-fill > * {
+  flex: 1 1 auto;
 }
 
 /* I-214 as amended (session 7): the roster is sized to its rows — header and rows, and never deeper

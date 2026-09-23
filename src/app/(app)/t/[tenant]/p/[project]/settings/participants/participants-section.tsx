@@ -116,25 +116,25 @@ const HISTORY_COLUMNS: ColumnDef<ParticipantsHistoryRow, unknown>[] = [
   {
     id: "direction",
     header: strings.spine_participants_field_direction,
-    size: 140,
+    size: 104,
     cell: ({ row }) => <EnumLabel className="cx-participants-direction" value={row.original.direction} />,
   },
   {
     id: "role",
     header: strings.spine_participants_field_role,
-    size: 180,
+    size: 136,
     cell: ({ row }) => <EnumLabel className="cx-participants-history-role" value={row.original.role} />,
   },
   {
     id: "subject",
     header: strings.spine_participants_field_member,
-    size: 280,
+    size: 192,
     cell: ({ row }) => <span className="cx-participants-history-subject">{row.original.subject.label}</span>,
   },
   {
     id: "recorded",
     header: participantsScreenStrings.participants_col_recorded,
-    size: 240,
+    size: 128,
     // A grant a project's creation installed was performed by nobody — L-ACT-03 makes the creating
     // PRINCIPAL a bootstrap rather than an act — so the cell says when it happened and stops. "By an
     // unnamed member" would name a performer that does not exist, which is worse than saying less.
@@ -265,7 +265,7 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
     <div className="cx-participants" data-screen-root="" data-state="ready">
       <SettingsHeader title={strings.spine_participants_heading} about={strings.spine_participants_caption} />
 
-      <section className="cx-settings-section" aria-labelledby={headingIds.current}>
+      <section className="cx-settings-section cx-participants-roster-section" aria-labelledby={headingIds.current}>
         <div className="cx-settings-section-head">
           <h2 className="cx-settings-section-heading" id={headingIds.current}>
             {strings.spine_participants_current_heading}
@@ -273,7 +273,7 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
           <span className="cx-settings-count">{roster.length}</span>
         </div>
         {/* §3.6: the screen's primary region is a 28 px grid, and the roles in force are it. */}
-        <div className="cx-participants-table" data-testid={TESTIDS.participants.list}>
+        <div className="cx-participants-table cx-participants-table-fill" data-testid={TESTIDS.participants.list}>
           <DataTable
             tableId={ROSTER_TABLE_ID}
             aria-labelledby={headingIds.current}
@@ -286,97 +286,101 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
         </div>
       </section>
 
-      <section className="cx-settings-section" aria-labelledby={headingIds.assign}>
-        <div className="cx-settings-section-head">
-          <h2 className="cx-settings-section-heading" id={headingIds.assign}>
-            {strings.spine_participants_assign_heading}
-          </h2>
-          {/* §6: what a preview does is one press away, not a sentence standing under a heading. */}
-          <SettingsAbout body={strings.spine_participants_assign_hint} label={strings.spine_participants_assign_heading} />
-        </div>
-        <form
-          className="cx-participants-form"
-          data-testid={TESTIDS.participants.assignForm}
-          ref={formRef}
-          onSubmit={(event) => {
-            event.preventDefault();
-            void submit();
-          }}
-        >
-          {/* I-48: no Select ships and a native one could not wear the reticle, so each field is a
-              fieldset of interactive Chips with exactly one pressed. A member's label is one line —
-              ellipsis past the chip's measure, the whole address on the tooltip (R-UI-084). */}
-          <ChipField testId={TESTIDS.participants.assignSubject} legend="spine_participants_field_member" alertId={invalidBy("member")}>
-            {subjects.map((member) => (
-              <Chip key={member.userId} title={member.label} selected={subjectUserId === member.userId} onClick={() => setSubjectUserId(member.userId)}>
-                <span className="cx-participants-choice">{member.label}</span>
-              </Chip>
-            ))}
-          </ChipField>
-
-          {/* I-211 as amended: a role and a direction read in words on the chips too — "Bid manager",
-              "Grant" — as they do in the grids above and below, so one screen spells one enum one way
-              (R-UI-083). The stored value the act carries is the label's technical channel. */}
-          <ChipField testId={TESTIDS.participants.assignRole} legend="spine_participants_field_role" alertId={invalidBy("role")}>
-            {ROLES.map((offered) => (
-              <Chip key={offered} selected={role === offered} onClick={() => setRole(offered)}>
-                <EnumLabel className="cx-participants-choice" value={offered} />
-              </Chip>
-            ))}
-          </ChipField>
-
-          <ChipField testId={TESTIDS.participants.assignDirection} legend="spine_participants_field_direction" alertId={undefined}>
-            {DIRECTIONS.map((offered) => (
-              <Chip key={offered} selected={direction === offered} onClick={() => setDirection(offered)}>
-                <EnumLabel className="cx-participants-choice" value={offered} />
-              </Chip>
-            ))}
-          </ChipField>
-
-          {/* The answer slot, before the submit: exactly one of the judged sentence and a settled
-              refusal stands in it, and in flight neither does. */}
-          <div data-testid={TESTIDS.participants.refusal}>
-            {judged !== null && !pending ? (
-              <p className="cx-participants-alert" role="alert" id={alertId}>
-                {strings.spine_participants_assign_refusal}
-              </p>
-            ) : null}
-            {refusal !== null && !pending ? <RefusalState refusal={refusalOf(refusal)} evidence={evidenceFor(refusal)} /> : null}
+      {/* The act and the record stand side by side under the roster (I-328 as amended): stacked, they took
+          the height the roster needs to be the work surface at 1280 × 800. */}
+      <div className="cx-participants-below">
+        <section className="cx-settings-section" aria-labelledby={headingIds.assign}>
+          <div className="cx-settings-section-head">
+            <h2 className="cx-settings-section-heading" id={headingIds.assign}>
+              {strings.spine_participants_assign_heading}
+            </h2>
+            {/* §6: what a preview does is one press away, not a sentence standing under a heading. */}
+            <SettingsAbout body={strings.spine_participants_assign_hint} label={strings.spine_participants_assign_heading} />
           </div>
+          <form
+            className="cx-participants-form"
+            data-testid={TESTIDS.participants.assignForm}
+            ref={formRef}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submit();
+            }}
+          >
+            {/* I-48: no Select ships and a native one could not wear the reticle, so each field is a
+                fieldset of interactive Chips with exactly one pressed. A member's label is one line —
+                ellipsis past the chip's measure, the whole address on the tooltip (R-UI-084). */}
+            <ChipField testId={TESTIDS.participants.assignSubject} legend="spine_participants_field_member" alertId={invalidBy("member")}>
+              {subjects.map((member) => (
+                <Chip key={member.userId} title={member.label} selected={subjectUserId === member.userId} onClick={() => setSubjectUserId(member.userId)}>
+                  <span className="cx-participants-choice">{member.label}</span>
+                </Chip>
+              ))}
+            </ChipField>
 
-          <Button type="submit" className="cx-participants-submit" loading={pending}>
-            {strings.spine_participants_assign_submit}
-          </Button>
+            {/* I-211 as amended: a role and a direction read in words on the chips too — "Bid manager",
+                "Grant" — as they do in the grids above and below, so one screen spells one enum one way
+                (R-UI-083). The stored value the act carries is the label's technical channel. */}
+            <ChipField testId={TESTIDS.participants.assignRole} legend="spine_participants_field_role" alertId={invalidBy("role")}>
+              {ROLES.map((offered) => (
+                <Chip key={offered} selected={role === offered} onClick={() => setRole(offered)}>
+                  <EnumLabel className="cx-participants-choice" value={offered} />
+                </Chip>
+              ))}
+            </ChipField>
 
-          {/* The two states a round trip has beyond its answer: in flight, and written. Both are
-              announced rather than only drawn — the act is irreversible, and the confirmation is
-              what a reader who cannot see the record grow has instead (R-UI-050, R-UI-012). */}
-          <p className="cx-participants-status" role="status" aria-live="polite">
-            {pending ? strings.spine_participants_assign_pending : committed ? strings.spine_participants_assign_committed : ""}
-          </p>
-        </form>
-      </section>
+            <ChipField testId={TESTIDS.participants.assignDirection} legend="spine_participants_field_direction" alertId={undefined}>
+              {DIRECTIONS.map((offered) => (
+                <Chip key={offered} selected={direction === offered} onClick={() => setDirection(offered)}>
+                  <EnumLabel className="cx-participants-choice" value={offered} />
+                </Chip>
+              ))}
+            </ChipField>
 
-      <section className="cx-settings-section" aria-labelledby={headingIds.history}>
-        <div className="cx-settings-section-head">
-          <h2 className="cx-settings-section-heading" id={headingIds.history}>
-            {strings.spine_participants_history_heading}
-          </h2>
-          <span className="cx-settings-count">{history.length}</span>
-          <SettingsAbout body={strings.spine_participants_history_hint} label={strings.spine_participants_history_heading} />
-        </div>
-        <div className="cx-participants-table" data-testid={TESTIDS.participants.history}>
-          <DataTable
-            tableId={HISTORY_TABLE_ID}
-            aria-labelledby={headingIds.history}
-            columns={HISTORY_COLUMNS}
-            data={[...history]}
-            getRowId={(entry, index) => `${entry.occurredAt}-${entry.direction}-${entry.role}-${entry.subject.userId}-${index}`}
-            rowTestId={TESTIDS.participants.historyRow}
-            rowDataOf={(entry) => ({ "data-direction": entry.direction, "data-role": entry.role })}
-          />
-        </div>
-      </section>
+            {/* The answer slot, before the submit: exactly one of the judged sentence and a settled
+                refusal stands in it, and in flight neither does. */}
+            <div data-testid={TESTIDS.participants.refusal}>
+              {judged !== null && !pending ? (
+                <p className="cx-participants-alert" role="alert" id={alertId}>
+                  {strings.spine_participants_assign_refusal}
+                </p>
+              ) : null}
+              {refusal !== null && !pending ? <RefusalState refusal={refusalOf(refusal)} evidence={evidenceFor(refusal)} /> : null}
+            </div>
+
+            <Button type="submit" className="cx-participants-submit" loading={pending}>
+              {strings.spine_participants_assign_submit}
+            </Button>
+
+            {/* The two states a round trip has beyond its answer: in flight, and written. Both are
+                announced rather than only drawn — the act is irreversible, and the confirmation is
+                what a reader who cannot see the record grow has instead (R-UI-050, R-UI-012). */}
+            <p className="cx-participants-status" role="status" aria-live="polite">
+              {pending ? strings.spine_participants_assign_pending : committed ? strings.spine_participants_assign_committed : ""}
+            </p>
+          </form>
+        </section>
+
+        <section className="cx-settings-section" aria-labelledby={headingIds.history}>
+          <div className="cx-settings-section-head">
+            <h2 className="cx-settings-section-heading" id={headingIds.history}>
+              {strings.spine_participants_history_heading}
+            </h2>
+            <span className="cx-settings-count">{history.length}</span>
+            <SettingsAbout body={strings.spine_participants_history_hint} label={strings.spine_participants_history_heading} />
+          </div>
+          <div className="cx-participants-table cx-participants-table-record" data-testid={TESTIDS.participants.history}>
+            <DataTable
+              tableId={HISTORY_TABLE_ID}
+              aria-labelledby={headingIds.history}
+              columns={HISTORY_COLUMNS}
+              data={[...history]}
+              getRowId={(entry, index) => `${entry.occurredAt}-${entry.direction}-${entry.role}-${entry.subject.userId}-${index}`}
+              rowTestId={TESTIDS.participants.historyRow}
+              rowDataOf={(entry) => ({ "data-direction": entry.direction, "data-role": entry.role })}
+            />
+          </div>
+        </section>
+      </div>
 
       <ConsequenceDialog
         open={dialogOpen}

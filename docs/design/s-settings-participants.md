@@ -27,15 +27,17 @@
 
 (Amended 2026-09-23, I-328: the nav shows the four project areas in the roster's own order — Rule
 set, Participants, Site facts, Author edition, the order the settings surfaces contract pins — the
-roster is sized to its rows, and the role and direction chips read in words.)
+roster is sized to its rows, and the role and direction chips read in words. Amended again at
+integration: the roster takes the height the act and the record leave, and those two stand side by
+side beneath it — see I-328.)
 
 | Region | Purpose | Size | Empty | Error | Loading |
 |---|---|---|---|---|---|
 | section nav | the project's settings areas; Participants carries `aria-current` | 160 × 100 % (`--drawer-w-min`), rows `--control-h` | — (an area with no screen is shown disabled with its reason in a tooltip) | — | — |
 | header | the title and the `(i)` that holds the caption | 100 % × 40 | — | — | — |
-| current roles (primary) | who holds which role, in force now | `--row-h` rows, sized to them: the header and every row up to ten, then the grid scrolls inside its own frame (I-214 as amended by I-328) | impossible — a project holds at least one PRINCIPAL at every moment | the root boundary (`src/app/error.tsx`) | `loading.tsx` bones at the row height |
-| assign form | the one act: three single-selection chip groups, the answer slot, the one primary | 100 % × auto, controls `--control-h` | — | the judged line, then `RefusalState` in the slot; once the dialog holds focus, the dialog's own slot | the submit's loading state |
-| role history | every grant and withdrawal, oldest first, with who recorded it and when | flex × `--row-h` rows | impossible — the creating grant is always on the record | the root boundary | bones at the row height |
+| current roles (primary) | who holds which role, in force now | 100 % × the height the act and the record leave, inside a box the frame's height (I-214's fill, restored at integration by I-328 as amended); `--row-h` rows, scrolling inside its own frame | impossible — a project holds at least one PRINCIPAL at every moment | the root boundary (`src/app/error.tsx`) | `loading.tsx` bones at the row height |
+| assign form | the one act: three single-selection chip groups, the answer slot, the one primary | 7/16 of the pane × auto, beside the role history; controls `--control-h` | — | the judged line, then `RefusalState` in the slot; once the dialog holds focus, the dialog's own slot | the submit's loading state |
+| role history | every grant and withdrawal, oldest first, with who recorded it and when | 9/16 of the pane, beside the form × `--row-h` rows sized to them up to six, then scrolling inside its own frame | impossible — the creating grant is always on the record | the root boundary | bones at the row height |
 | permission-denied | the header, and one `RefusalState` saying why nothing else stands | 100 % × auto | — | — | — |
 
 Built on Design Direction 00 §3.6's Settings template, whose geometry outranks this file where the
@@ -171,6 +173,14 @@ no string literal beyond test ids and fixed attribute values.
   by the value the act carries, rather than by copy. The three literal row and fieldset ids read
   `TESTIDS` instead. The screen root carries no registered test id: the contract is closed (§7) and
   the registry is not this pass's file — recorded, not spelled around.
+  *Amended at integration (session 7):* sized to their rows, a one-member roster and a one-grant
+  history left the grids 6 % of the work surface, and the craft table's `workSurface` read 1 at
+  both viewports and both themes, below the bar. Handing the fill to the history instead made the
+  primary start 443 px down (aboveTheFold 2). Ruling: the screen's box is the height the frame
+  leaves (the rule set's I-325 chain), and inside it the ROSTER — the primary — takes the height the
+  act and the record leave. That is I-214's rule, and the act can no longer be pushed below the fold,
+  because the box is the frame's height, not the page's. The record is sized to its rows up to six,
+  past which it scrolls inside its own frame.
 
 ## 1. Layout and hierarchy
 
@@ -277,11 +287,11 @@ figure, and the `(i)` holding `spine_participants_history_hint`. Then one `DataT
 oldest first, newest last (I-52), one 28 px row per movement carrying
 `data-testid="participants-history-row"`, `data-direction` and `data-role`, four columns —
 
-- **Direction** (140) — `GRANT` or `WITHDRAW` through `EnumLabel` (I-211). The direction carries
+- **Direction** (104; 140 before I-328 as amended) — `GRANT` or `WITHDRAW` through `EnumLabel` (I-211). The direction carries
   its meaning in the word, never in colour (Q-11): no semantic tint distinguishes a withdrawal.
-- **Role** (180) — the role through `EnumLabel`, `--weight-body-medium`.
-- **Member** (280) — the subject's label, one line, ellipsis.
-- **Recorded** (240, headed `participants_col_recorded`) — `spine_participants_history_by` with
+- **Role** (136; 180 before) — the role through `EnumLabel`, `--weight-body-medium`.
+- **Member** (192; 280 before) — the subject's label, one line, ellipsis, whole on the grid's tooltip.
+- **Recorded** (128; 240 before, headed `participants_col_recorded`) — `spine_participants_history_by` with
   the acting member's label and the day through `src/core/format`'s date seam (DD MMM YYYY, the
   s-home I-37 class), `tabular-nums slashed-zero`. A grant a project's creation installed was
   performed by nobody — L-ACT-03 makes the creating PRINCIPAL a bootstrap rather than an act — so
