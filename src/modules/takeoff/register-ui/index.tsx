@@ -59,13 +59,19 @@ type LineCell = { readonly row: { readonly original: ViewLine } };
  */
 type LineColumn = {
   id: string;
-  header: string;
+  /** The column's word, or — where the word carries a hint — the word composed with its Tooltip. */
+  header: string | (() => ReactNode);
   accessorFn?: (line: ViewLine) => string;
   enableSorting?: boolean;
   /** The width the column is READ at (§5 rule 3's sane defaults), never the primitive's 150. */
   size?: number;
   cell: (context: LineCell) => ReactNode;
-  meta?: { align?: "right" };
+  /**
+   * `label` is the column's words where its header is composed (I-472): the table names a column in
+   * places no rendered header reaches — its drawer, its resize handle — and a composed header without
+   * one is named there by its id.
+   */
+  meta?: { align?: "right"; label?: string };
 };
 
 /** One group header of the lines table — `▾ GF · column (4)` (§5 rule 4). */
@@ -238,6 +244,12 @@ export interface RegisterChrome {
   readonly subtotalsByUnit: (rows: readonly ViewLine[], valueOf: (row: ViewLine) => string | null, unitOf: (row: ViewLine) => string) => readonly Subtotal[];
   /** `ASSIGN_ROLE` → `Assign role`, in the one home EnumLabel humanises by (B-17). */
   readonly humaniseEnum: (value: string) => string;
+  /**
+   * Whether the keyboard stands where a key is text (a field) — the shell's shortcut roster's one
+   * reading of it (B-17), handed down because a module may not import `src/ui` (ARCH-01). An Escape
+   * typed there is the field's, never the page's (I-470).
+   */
+  readonly isTextField: (target: EventTarget | null) => boolean;
   /**
    * THE TWO MOUNTS (Direction §1, §3.1, §3.2). A hook belongs to the layer that may call it: the
    * lane's tabs row and the frame's ONE inspector are both filled through hooks in `src/ui`/`src/app`,
@@ -455,6 +467,31 @@ function rowDataOf(line: ViewLine, selectedLineId: string | null): Readonly<Reco
   return published;
 }
 
+/**
+ * Whether a line's selecting basis is said beside its chip (I-466): only where it differs from the
+ * basis the figure rests on. Where the two agree the chip already says the one word, and a second
+ * copy of it beside the first said nothing new — the copy diet's rule that a word is said only where
+ * it adds a fact. The one reading of the rule, for the cell and the inspector alike (B-17).
+ */
+function selectionSaid(line: ViewLine): boolean {
+  return line.selectionBasis !== line.quantityBasis;
+}
+
+/**
+ * A label whose explanation is its Tooltip (§6's "(i) popover on the section header"): the word on
+ * the face, the sentence one hover or one focus away. The trigger takes focus, because a hint only a
+ * pointer can reach is not a hint (R-UI-012); the reticle comes with the shipped Tooltip.
+ */
+function HintedLabel({ Tooltip, label, hint }: { readonly Tooltip: RegisterChrome["Tooltip"]; readonly label: string; readonly hint: string }): ReactNode {
+  return (
+    <Tooltip content={hint}>
+      <span className="cx-register-hinted" tabIndex={0}>
+        {label}
+      </span>
+    </Tooltip>
+  );
+}
+
 /** A line's bindings as one line of cell text: `name=value unit`, in binding order (I-25). */
 function variablesOf(line: ViewLine): string {
   return Object.entries(line.variables)
@@ -475,16 +512,36 @@ function codeOf(thrown: unknown): string | null {
   return cause === undefined ? null : refusalCodeOf(cause);
 }
 
-/** The tree, nested as the hierarchy is: discipline → level → class → object (R-TO-050). */
+/** What the tree's id of an object's own node begins with; the rest is the object key. */
+const OBJECT_NODE = "o:";
+
+/** The id of the tree's node for one object — the node a reader chooses it by. */
+function objectNodeOf(objectKey: string): string {
+  return `${OBJECT_NODE}${objectKey}`;
+}
+
+/** The id of the tree's node for the class an object stands in, under its discipline and level. */
+function classNodeOf(object: Pick<ViewObject, "discipline" | "level" | "class">): string {
+  return `d:${object.discipline}|l:${object.level}|c:${object.class}`;
+}
+
+/**
+ * The tree, nested as the hierarchy is: discipline → level → class → object (R-TO-050), and the
+ * branches it stands open at rest — every discipline and every level, never a class (§1, I-467).
+ * A class opened at rest put every member of the campaign in the rail: 495 items on F-RCC6-BNBC,
+ * about 14,000 px of marks above "Deferred and refused" and the level-stack offers (walk-0). The
+ * levels are the index a reader scans; a class opens when the reader opens it, or when the line a
+ * Trace returns to stands in it (the workspace adds that one, below).
+ */
 function treeOf(objects: readonly ViewObject[], humanise: (value: string) => string): { items: TreeNode[]; expanded: string[] } {
   const items: TreeNode[] = [];
   const expanded: string[] = [];
-  const at = (list: TreeNode[], id: string, label: string): TreeNode => {
+  const at = (list: TreeNode[], id: string, label: string, open: boolean): TreeNode => {
     const held = list.find((node) => node.id === id);
     if (held !== undefined) return held;
     const made: TreeNode = { id, label, children: [] };
     list.push(made);
-    expanded.push(id);
+    if (open) expanded.push(id);
     return made;
   };
   for (const object of objects) {
@@ -493,17 +550,17 @@ function treeOf(objects: readonly ViewObject[], humanise: (value: string) => str
     // EnumLabel does, handed in rather than written again (B-17).
     // A level is the drawing's own label and stands verbatim; a lawful-null slot and a class are
     // model enums and are said in words, the class by the same rule the draft BOQ says it by (I-reg-2).
-    const discipline = at(items, `d:${object.discipline}`, humanise(object.discipline));
-    const level = at(discipline.children as TreeNode[], `d:${object.discipline}|l:${object.level}`, levelSaid(object.level, humanise));
-    const cls = at(level.children as TreeNode[], `d:${object.discipline}|l:${object.level}|c:${object.class}`, inWords(object.class));
-    (cls.children as TreeNode[]).push({ id: `o:${object.objectKey}`, label: object.mark });
+    const discipline = at(items, `d:${object.discipline}`, humanise(object.discipline), true);
+    const level = at(discipline.children as TreeNode[], `d:${object.discipline}|l:${object.level}`, levelSaid(object.level, humanise), true);
+    const cls = at(level.children as TreeNode[], classNodeOf(object), inWords(object.class), false);
+    (cls.children as TreeNode[]).push({ id: objectNodeOf(object.objectKey), label: object.mark });
   }
   // The objects of a class in the order a reader reads marks — P1, P2 … P10 — not the order they
   // were registered in, which read P10 … P19, P1, P20 (R-UI-083).
   const sortObjects = (nodes: TreeNode[]): void => {
     for (const node of nodes) {
       const children = node.children ?? [];
-      if (children.every((child) => child.id.startsWith("o:"))) children.sort((left, right) => markOrder(left.label, right.label));
+      if (children.every((child) => child.id.startsWith(OBJECT_NODE))) children.sort((left, right) => markOrder(left.label, right.label));
       else sortObjects(children);
     }
   };
@@ -634,6 +691,7 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
     Input,
     subtotalsByUnit,
     humaniseEnum,
+    isTextField,
     TabsAside,
     InspectorMount,
   } = chrome;
@@ -648,6 +706,64 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
   const [draft, setDraft] = useState<Draft | null>(null);
   /** What a door left that no registry entry stands for: held here, raised in render (ARCH-03, B-21). */
   const [fault, setFault] = useState<unknown>(null);
+
+  /**
+   * Escape lets go of what is selected (I-470; walk-0: "Escape does not deselect"): the line or the
+   * object, and with it the frame's inspector, which is absent with nothing selected (I-231). The key
+   * is the page's, so it is heard on the document — the inspector stands in the frame's slot, outside
+   * this screen's tree — and only while something is selected and no act dialog is open. A key a
+   * control already answered is that control's (a chip's list, a cell handing its cursor back, a
+   * Radix layer — each prevents the default), and a key typed into a field is the field's.
+   */
+  const selecting = selectedLineId !== null || selectedKey !== null;
+  const dialogOpen = pending !== null;
+  const letGo = useCallback((): void => {
+    setSelectedLineId(null);
+    setSelectedKey(null);
+  }, []);
+  /** The inspector's own node, the index's tree and the lines grid — where a reader's place can stand. */
+  const inspectorRef = useRef<HTMLDivElement | null>(null);
+  const treeRef = useRef<HTMLDivElement | null>(null);
+  const linesRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * Where the reader's place is put back when an Escape pressed INSIDE the inspector lets go (I-471):
+   * letting go takes the inspector away, and the control that held focus with it, which left the
+   * reader on the document body answering no key — the defect `holdOrigin` exists to prevent (I-182).
+   * The place is where the selection was taken: the selected line's row, on the grid's cursor cell if
+   * it stands in that row and on its first cell otherwise, or the selected object's item in the tree.
+   * A row the grid has scrolled out of its window, or an object whose class the reader has since
+   * closed, is not drawn; then it is the stop that region keeps in the Tab order (the grid's cursor
+   * cell, the tree's roving item). Read from what the page draws — the `data-line` this screen
+   * publishes on a row, the tree's node id, and each widget's ARIA roles — never from a primitive's
+   * state. Null where neither region draws one, and then focus is left where it is.
+   */
+  const placeOfSelection = useCallback((): HTMLElement | null => {
+    const cellStop = '[role="gridcell"][tabindex="0"], [role="rowheader"][tabindex="0"]';
+    if (selectedLineId !== null) {
+      const lines = linesRef.current;
+      const row = lines?.querySelector<HTMLElement>(`[role="row"][data-line="${CSS.escape(selectedLineId)}"]`) ?? null;
+      return (
+        row?.querySelector<HTMLElement>(cellStop) ?? row?.querySelector<HTMLElement>('[role="gridcell"], [role="rowheader"]') ?? lines?.querySelector<HTMLElement>(cellStop) ?? null
+      );
+    }
+    if (selectedKey !== null) {
+      const tree = treeRef.current;
+      return tree?.querySelector<HTMLElement>(`[data-tree-id="${CSS.escape(objectNodeOf(selectedKey))}"]`) ?? tree?.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]') ?? null;
+    }
+    return null;
+  }, [selectedKey, selectedLineId]);
+  useEffect(() => {
+    if (!selecting || dialogOpen) return undefined;
+    const onEscape = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape" || event.defaultPrevented || isTextField(event.target)) return;
+      // The place is taken BEFORE the selection goes, while the control that held focus still stands:
+      // the inspector unmounts on the render letting go causes, and a focus it took with it is lost.
+      if (event.target instanceof Node && inspectorRef.current?.contains(event.target) === true) placeOfSelection()?.focus();
+      letGo();
+    };
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [dialogOpen, isTextField, letGo, placeOfSelection, selecting]);
 
   const evidence = useMemo<Evidence>(
     () => ({ href: drawingsHref(view.tenantId, view.projectId), label: REGISTER_COPY.takeoff_register_evidence }),
@@ -678,6 +794,28 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
    */
   const originAt = originRowIndexOf(lines, originLine);
   const originRow = originAt === null ? undefined : lines[originAt];
+  /**
+   * The class the origin line's object stands in (I-467): the one class the tree opens at rest,
+   * so a reader who followed a Trace and came Back finds the member among its class's marks rather
+   * than under a closed branch. Null where no origin is named or its object is not in the register.
+   */
+  const originClass = useMemo<string | null>(() => {
+    if (originLine === null) return null;
+    const line = view.lines.find((held) => held.lineId === originLine);
+    const object = line === undefined ? undefined : view.objects.find((held) => held.objectKey === line.objectKey);
+    return object === undefined ? null : classNodeOf(object);
+  }, [originLine, view.lines, view.objects]);
+  /**
+   * What the tree stands open at: its levels, and the origin's class. The shipped Tree is seeded
+   * once, at mount (`defaultExpandedIds`), and the origin is read in an effect after the first paint
+   * (I-182) — so the tree is keyed on the origin's class and mounts again, once, when the address
+   * names one. The primitive itself is not touched; what a reader opened before that is nothing,
+   * because the address is read before a reader can press anything.
+   */
+  const treeOpen = useMemo(
+    () => (originClass === null || tree.expanded.includes(originClass) ? tree.expanded : [...tree.expanded, originClass]),
+    [originClass, tree.expanded],
+  );
   /** The anchor that row's cell renders, so the reticle can be put back where the reader left it. */
   const originRef = useRef<HTMLAnchorElement | null>(null);
   /** The address already restored from — the reticle is taken at most once per address (I-182). */
@@ -864,8 +1002,9 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
 
   // §3.2's order as I-reg-3 amends it: what a thing is, how much of it, in what, on what basis, how
   // covered, WHERE IT WAS READ — the evidence — and only then how it was worked out. Eight columns
-  // that fit the grid at 1440 (1,068 of 1,088 px) and keep the evidence on screen at 1280; the
-  // calibration keys and the engine are stated in the inspector, beside the formula they qualify.
+  // that fit the grid at 1440 (1,064 of 1,088 px; I-reg-3 wrote 1,068, a mis-addition) and keep the
+  // evidence on screen at 1280 (812 of 928 px through Source, I-468); the calibration keys and the
+  // engine are stated in the inspector, beside the formula they qualify.
   const columns: LineColumn[] = [
     {
       id: "kind",
@@ -907,7 +1046,13 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
     },
     {
       id: "bases",
-      header: REGISTER_COPY.takeoff_register_col_bases,
+      // The header names the two halves of the pair, which only words can do (I-466, paying §8's
+      // "The Bases pair names neither half"): the word is the column's, and the hint is its Tooltip,
+      // on a trigger the keyboard reaches as the pointer does (R-UI-012).
+      header: () => <HintedLabel Tooltip={Tooltip} label={REGISTER_COPY.takeoff_register_col_bases} hint={REGISTER_COPY.takeoff_register_bases_hint} />,
+      // The composed header's words, for the places the table names a column that no rendered header
+      // reaches — the column drawer and the resize handle — which named it `bases` without them (I-472).
+      meta: { label: REGISTER_COPY.takeoff_register_col_bases },
       // 184, not 160: the cell is a chip AND the selecting basis in words, and at 160 the longest
       // registered word was sliced mid-letter in both committed stills ("Defa…" with no ellipsis to
       // say so). The width is the content's: chip 94 + gap 4 + the longest selection basis + the
@@ -920,10 +1065,14 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
       // word the table's own ellipsis ends it and the table's own Tooltip states it whole; and the
       // selecting basis reads a step quieter than the chip, as the qualifier of the basis that
       // determines the figure rather than a second peer of it.
+      // I-466: the pair is said once where its halves agree — a pile read as TRANSCRIBED and
+      // selected as TRANSCRIBED read "Transcribed Transcribed" (the chip, then the word again), the
+      // second clipped at 184 px (the re-look's D5). The chip alone says it then; both stored values
+      // stand on the cell.
       cell: ({ row }) => (
-        <span className="cx-register-bases">
+        <span className="cx-register-bases" data-quantity-basis={row.original.quantityBasis} data-selection-basis={row.original.selectionBasis}>
           <BasisChip basis={row.original.quantityBasis} />
-          <EnumLabel value={row.original.selectionBasis} className="cx-register-enum cx-register-selecting" />
+          {selectionSaid(row.original) ? <EnumLabel value={row.original.selectionBasis} className="cx-register-enum cx-register-selecting" /> : null}
         </span>
       ),
     },
@@ -949,7 +1098,12 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
       header: REGISTER_COPY.takeoff_register_col_source,
       accessorFn: (line) => line.sourceKey,
       enableSorting: true,
-      size: 168,
+      // I-468: the width `S-10 · C1 · Layout plan` is read at, measured in the product's Chromium —
+      // the link 177 px (Spline Sans Mono at 12 px, the basis glyph and its gap), 191 px with a
+      // four-character mark (`S-13 · 1B12 · Layout plan`), and the compact cell's 16 px of padding —
+      // so the chip a reader reads is whole, where at 168 it ended `S-10 · C1 · Layou…`. The 40 px are
+      // the derivation's, which the inspector states whole: the eight still sum to 1,064.
+      size: 208,
       // I-179 as §6 amends it: a number's evidence is the key it was read at, so the key IS the
       // affordance and the cell's whole content is the link — but a person reads `S-101 · C1 · #1F`,
       // not a scheme and a handle. The key itself stays whole in the address the link carries and in
@@ -994,7 +1148,7 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
     {
       id: "formula",
       header: REGISTER_COPY.takeoff_register_col_formula,
-      size: 152,
+      size: 132,
       // §5 rule 2: never a taller row. The cell is one line, a long constant cut at six places
       // (I-reg-2); the table's own Tooltip states the face when it is clipped, and the inspector
       // expands the formula WHOLE beside the variables it was read with.
@@ -1003,7 +1157,7 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
     {
       id: "variables",
       header: REGISTER_COPY.takeoff_register_col_variables,
-      size: 140,
+      size: 120,
       cell: ({ row }) => <span className="cx-register-cell-mono">{variablesOf(row.original)}</span>,
     },
   ];
@@ -1071,7 +1225,7 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
     if (selectedLine !== null) {
       const mark = marks.get(selectedLine.objectKey) ?? null;
       return (
-        <div className="cx-register-inspector" data-testid={chrome.testIds.inspector} data-object={selectedLine.objectKey} data-line={selectedLine.lineId}>
+        <div ref={inspectorRef} className="cx-register-inspector" data-testid={chrome.testIds.inspector} data-object={selectedLine.objectKey} data-line={selectedLine.lineId}>
           <p className="cx-register-inspector-title">
             <EnumLabel value={selectedLine.kind} label={inWords(selectedLine.kind)} />
           </p>
@@ -1086,10 +1240,12 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
                 <QuantityText value={selectedLine.value} unit={selectedLine.unit} format={FIGURES} />
               )}
             </dd>
-            <dt>{REGISTER_COPY.takeoff_register_col_bases}</dt>
-            <dd data-basis={selectedLine.quantityBasis}>
+            <dt>
+              <HintedLabel Tooltip={Tooltip} label={REGISTER_COPY.takeoff_register_col_bases} hint={REGISTER_COPY.takeoff_register_bases_hint} />
+            </dt>
+            <dd data-basis={selectedLine.quantityBasis} data-selection-basis={selectedLine.selectionBasis}>
               <BasisChip basis={selectedLine.quantityBasis} />
-              <EnumLabel value={selectedLine.selectionBasis} className="cx-register-enum cx-register-selecting" />
+              {selectionSaid(selectedLine) ? <EnumLabel value={selectedLine.selectionBasis} className="cx-register-enum cx-register-selecting" /> : null}
             </dd>
             <dt>{REGISTER_COPY.takeoff_register_col_coverage}</dt>
             <dd>
@@ -1173,7 +1329,7 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
     }
     if (selected === null) return null;
     return (
-      <div className="cx-register-inspector" data-testid={chrome.testIds.inspector} data-object={selected.objectKey}>
+      <div ref={inspectorRef} className="cx-register-inspector" data-testid={chrome.testIds.inspector} data-object={selected.objectKey}>
         <p className="cx-register-inspector-title">{selected.mark}</p>
         <dl className="cx-register-facts">
           <dt>{REGISTER_COPY.takeoff_register_basis_label}</dt>
@@ -1492,15 +1648,29 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
           <h2 className="cx-register-panel-heading">{REGISTER_COPY.takeoff_register_tree_label}</h2>
           {/* I-171: the shipped Tree fixes its own id after the spread, so the screen's id rides a
               `display: contents` wrapper that adds no box and no line of layout. */}
-          <div className="cx-register-mount cx-register-tree" data-testid="register-tree">
+          {/* I-470: the shipped Tree answers every key on its own rows and lets none of them past it
+              (a nested row's key would otherwise move every ancestor), so the page never hears an
+              Escape pressed in the tree. The tree takes no Escape of its own, so the wrapper hears
+              it on the way in and lets go of the selection there. */}
+          <div
+            ref={treeRef}
+            className="cx-register-mount cx-register-tree"
+            data-testid="register-tree"
+            onKeyDownCapture={(event) => {
+              // The same Escape as the document's: a layer that answered it first (an open Radix
+              // Tooltip dismisses on the document's capture, ahead of this one) keeps it.
+              if (event.key === "Escape" && !event.defaultPrevented && !dialogOpen) letGo();
+            }}
+          >
             <Tree
+              key={originClass ?? ""}
               items={tree.items}
-              defaultExpandedIds={tree.expanded}
+              defaultExpandedIds={treeOpen}
               aria-label={REGISTER_COPY.takeoff_register_tree_label}
               onSelect={(id) => {
-                if (!id.startsWith("o:")) return;
+                if (!id.startsWith(OBJECT_NODE)) return;
                 setSelectedLineId(null);
-                setSelectedKey(id.slice(2));
+                setSelectedKey(id.slice(OBJECT_NODE.length));
               }}
             />
           </div>
@@ -1603,7 +1773,7 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
         {/* The keyboard path into a row is the grid's own (Space takes a row, ⇧ extends the range),
             so this handler adds a pointer to it rather than a second way to do one thing: it reads
             the row a click landed on off the `data-line` the screen itself published (§5 rule 10). */}
-        <div className="cx-register-mount cx-register-lines" data-testid="register-lines" onClick={(event) => takeRowAt(event.target)}>
+        <div ref={linesRef} className="cx-register-mount cx-register-lines" data-testid="register-lines" onClick={(event) => takeRowAt(event.target)}>
           {nothingRegistered ? (
             <EmptyState
               data-testid={chrome.testIds.empty}

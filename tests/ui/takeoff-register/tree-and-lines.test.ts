@@ -20,6 +20,7 @@ import {
   REGISTER_MARKS,
   all,
   cellsOf,
+  closedTreeItems,
   copy,
   enumWords,
   kinds,
@@ -28,12 +29,15 @@ import {
   mountRegister,
   offerRosters,
   one,
+  openTree,
+  originAddressOf,
   registerFixture,
   sightingStandings,
   takeoffStrings,
   text,
   treeItem,
   treeItems,
+  linesFixture,
   type RegisterViewLike,
   type ViewLine,
 } from "./support/fixtures";
@@ -133,6 +137,9 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
   test("AC-2: the tree nests discipline → level → class → object, the level verbatim and the class in words", async () => {
     const view: RegisterViewLike = await corpus();
     const root = await mountRegister(view);
+    // TEST_AMENDED (C4', s-takeoff I-467): a class stands closed at rest, so the reader opens it
+    // before its objects are read — the nesting asserted below is the whole tree, opened.
+    await openTree(root);
 
     const tree = one(root, "register-tree");
     expect(tree.querySelector('[role="tree"]'), "`register-tree` names the shipped Tree's own root, one element deeper (I-171)").not.toBeNull();
@@ -158,6 +165,8 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
     const rosters = await offerRosters();
     const root = await mountRegister(view);
     const user = userEvent.setup();
+    // TEST_AMENDED (C4', s-takeoff I-467): the objects stand under a class the reader opens first.
+    await openTree(root);
 
     // Every object of the corpus, not the first alone: the three stand at different bases and
     // different roles, so an inspector that spelled one object's standing states another's wrongly.
@@ -260,6 +269,10 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
       const bases = cellUnder(row, "takeoff_register_col_bases");
       expect(bases, "the quantity basis stands as R-UI-002's chip").toContain(line.quantityBasis);
       expect(bases, "and the selecting basis beside it, whose SCREAMING form the label keeps").toContain(line.selectionBasis);
+      // I-466: both stored halves ride the cell whether or not the second is said on its face.
+      const pair = row.querySelector(".cx-register-bases");
+      expect(pair?.getAttribute("data-quantity-basis"), "the basis the figure rests on, on the cell").toBe(line.quantityBasis);
+      expect(pair?.getAttribute("data-selection-basis"), "and the basis the item was selected on, beside it").toBe(line.selectionBasis);
       expect(cellUnder(row, "takeoff_register_col_coverage"), "the coverage states its own word").toContain(line.coverage);
       // A line kept with no quantity SAYS so in its Value cell rather than standing blank (I-reg-1).
       if (line.value === null) expect(cellUnder(row, "takeoff_register_col_value").length, "a line with no figure says why in its Value cell").toBeGreaterThan(0);
@@ -286,6 +299,8 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
   test("AC-2: every sentence a ready register states is a line of the screen's own string table", async () => {
     const view = await corpus();
     const root = await mountRegister(view);
+    // TEST_AMENDED (C4', s-takeoff I-467): the object is chosen from its class, opened first.
+    await openTree(root);
     // The inspector's own words are read with something selected, because the frame's one right
     // column is ABSENT until then (R-UI-080, Direction §3.1) — an idle sentence standing in it is
     // exactly the placeholder v22 removed.
@@ -296,5 +311,64 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
       expect(said, `the screen states \`${key}\` from src/ui/strings/takeoff.ts rather than a sentence written beside it (B-17)`).toContain(copy(await strings(), key));
     }
     expect(all(root, "register-lines-count").length, "and the count line is mounted from first paint (Decision §1)").toBe(1);
+  });
+});
+
+/**
+ * s-takeoff I-467 — the tree stands open at its levels, and a class opens on demand.
+ *
+ * §1 rules "every discipline and level expanded by default"; the tree opened every CLASS besides, so
+ * on F-RCC6-BNBC the rail carried 495 items — every member of the campaign — and the struck count,
+ * "Deferred and refused" and the level-stack offers stood about 14,000 px below them (walk-0). A
+ * class opens when the reader opens it, and the one class that opens by itself is the class of the
+ * line a Trace returns to (`?line=`), so Back lands among that member's marks.
+ */
+describe("I-467 — the tree at rest, and the class a Trace returns to", () => {
+  /** The node a tree states for one discipline, level or class, by the id the tree gives it. */
+  function node(root: HTMLElement, id: string): HTMLElement {
+    const found = treeItems(root).filter((item) => item.getAttribute("data-tree-id") === id);
+    expect(found.length, `the tree states exactly one node \`${id}\``).toBe(1);
+    return found[0] as HTMLElement;
+  }
+
+  test("I-467: every discipline and level stands open, every class stands closed, and no object is drawn until its class is opened", async () => {
+    const view = linesFixture(8);
+    const root = await mountRegister(view);
+
+    const disciplines = new Set(view.objects.map((object) => object.discipline));
+    const levels = new Set(view.objects.map((object) => `${object.discipline}|${object.level}`));
+    const classes = new Set(view.objects.map((object) => `${object.discipline}|${object.level}|${object.class}`));
+    expect(classes.size, "the fixture spreads its objects over more than one class, so a class opened by accident shows").toBeGreaterThan(1);
+
+    for (const discipline of disciplines) expect(node(root, `d:${discipline}`).getAttribute("aria-expanded"), `the discipline ${discipline} stands open`).toBe("true");
+    for (const held of levels) {
+      const [discipline, level] = held.split("|");
+      expect(node(root, `d:${discipline}|l:${level}`).getAttribute("aria-expanded"), `the level ${level} stands open`).toBe("true");
+    }
+    expect(closedTreeItems(root).length, "and every class stands closed").toBe(classes.size);
+    expect(treeItems(root).length, "so the rail states its disciplines, levels and classes, and no object").toBe(disciplines.size + levels.size + classes.size);
+
+    await openTree(root);
+    expect(treeItems(root).length, "a reader who opens the classes finds every object under them").toBe(disciplines.size + levels.size + classes.size + view.objects.length);
+  });
+
+  test("I-467: the class of the line a Trace returns to stands open, and only that class", async () => {
+    const view = linesFixture(8);
+    const origin = view.lines.find((line) => line.class !== view.lines[0]?.class) as ViewLine;
+    const object = view.objects.find((held) => held.objectKey === origin.objectKey) as { discipline: string; level: string; class: string; mark: string };
+    const originClass = `d:${object.discipline}|l:${object.level}|c:${object.class}`;
+
+    const before = window.location.href;
+    window.history.replaceState(null, "", originAddressOf(origin.lineId));
+    try {
+      const root = await mountRegister(view);
+      expect(node(root, originClass).getAttribute("aria-expanded"), `the class the origin line ${origin.lineId} stands in opens by itself`).toBe("true");
+      expect(treeItem(root, object.mark).closest('[role="treeitem"]'), "and the origin's member is drawn in the rail").not.toBeNull();
+      const others = treeItems(root).filter((item) => /\|c:/u.test(item.getAttribute("data-tree-id") ?? "") && item.getAttribute("data-tree-id") !== originClass);
+      expect(others.length, "the fixture holds classes besides the origin's").toBeGreaterThan(0);
+      for (const other of others) expect(other.getAttribute("aria-expanded"), `${other.getAttribute("data-tree-id")} stays closed`).toBe("false");
+    } finally {
+      window.history.replaceState(null, "", before);
+    }
   });
 });

@@ -33,7 +33,9 @@ import { DataTable, Tree } from "@/ui/primitives/data";
 // The exact per-unit addition the grid's own group subtotals are taken with (B-07): the register's
 // sticky footer adds the same way, in the same home, or the two would disagree about a total.
 import { subtotalsByUnit } from "@/ui/primitives/data/data-table";
-import { useInspector, useShellPage } from "@/ui/shell";
+// `isTextField` is the shortcut roster's one reading of "the keyboard stands in a field", handed to
+// the workspace so its Escape leaves a field's key to the field without a second spelling (B-17).
+import { isTextField, useInspector, useShellPage } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import { useTakeoffTabsAside } from "../nav";
 import { commitCorroborate, commitInsertLevel, commitRepudiate, previewCorroborate, previewInsertLevel, previewRepudiate, readRegister, requestMeasure, type DoorAnswer } from "./actions";
@@ -87,6 +89,7 @@ const CHROME: RegisterChrome = {
   Input,
   subtotalsByUnit,
   humaniseEnum,
+  isTextField,
   TabsAside,
   InspectorMount,
 };

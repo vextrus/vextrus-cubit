@@ -299,7 +299,12 @@ measurements).
   column's header aligns right over its figures but stays in the header's own face
   (`var(--font-ui)`, no tabular numerals) — only the figures beneath it are mono. When any
   column has `meta.filterable`, a second header row renders the core Input (I-5) per
-  filterable column, `aria-label` = `Filter` + the column header; typing narrows rows. The
+  filterable column, `aria-label` = `Filter` + the column header; typing narrows rows. A header
+  that is a render function or an element (a word inside its Tooltip trigger) states no text, so
+  the column states its words as `meta.label`, and every place the table names a column without
+  rendering its header — the column drawer's label, the resize handle's name, the filter's and the
+  editor's `aria-label` — reads a string header first, then `meta.label`, and the column id only
+  where a composed header states neither (s-takeoff I-472: the register's drawer listed `bases`). The
   filter row is exempt from the density row heights — core's control height stands at either
   density (I-5), so the row sizes to its Input with `var(--space-1)` block padding.
 - **Rows** (`role="row"`, `aria-rowindex`): height `var(--row-comfortable)` /
@@ -327,7 +332,8 @@ measurements).
 - **Inline edit** (`meta.editable` + `onCellEdit`): the cell's value renders inside a
   full-cell ghost button (`cx-reticle`); Enter/Space or double-click swaps it for the core
   Input (I-5), value prefilled, `aria-label` = the column header as text (a render-function
-  or element header names nothing, so the column id stands in), focused on mount. Enter or
+  or element header names nothing, so its `meta.label` stands in, and the column id where it
+  states none — I-472), focused on mount. Enter or
   blur commits — one `onCellEdit(rowId, columnId, value)` call; Escape cancels; either way
   focus returns to the cell button. Whichever gesture ends the edit settles it: the blur that
   follows from unmounting the editor never commits a second time, nor turns a cancel into a

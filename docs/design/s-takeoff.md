@@ -33,7 +33,7 @@ inspector is the frame's one right column.
 |---|---|---|---|---|---|
 | tabs row (frame's tool track) | the lane's seven area tabs (I-407) + right: on this surface, the pinned revision `IdChip` + the ONE primary (Measure) | 100 % × `--toolbar-h` 32, **above `shell-main`** | the revision pair is absent with no campaign; the primary stands | — | — |
 | filter bar | five chips, each `Label · Value ▾` (Combobox), then the live count | 100 % × 36 | a chip whose column produced nothing offers its all-option alone | — | five 28 px chip bones |
-| index rail | the object tree (discipline › level › class › object), the struck count, every sighting that produced no line, and the level-stack offers | 240 (min 160, max 320), scrolls on its own | the tree is empty and the two sections state their own zero | `RefusalState` per sighting | one rail bone |
+| index rail | the object tree (discipline › level › class › object — levels open, classes closed at rest, I-467), the struck count, every sighting that produced no line, and the level-stack offers | 240 (min 160, max 320), scrolls on its own | the tree is empty and the two sections state their own zero | `RefusalState` per sighting | one rail bone |
 | grid (primary) | the shipped `DataTable`: 28 px rows, sticky header, frozen Kind, group rows with per-unit subtotals, sticky totals footer | flex; ≥ 60 % of `shell-main` at both viewports | `EmptyState` in the grid's own place — no campaign, nothing registered, or nothing matching the filters | the read's fault is the screen's error cell (`register-empty`, with the report id and the retry) | the header is real, the body is bones |
 | footer | the visible set's totals, exactly and per unit (B-07) — every unit's total on the face, starting under Value and running on across the footer's empty cells where they outgrow it (I-350) | 100 % × 28, sticky | no footer cell where the set adds to nothing | — | — |
 | job strip | the shipped `TrackedJobTimeline` — the pattern's timeline over the runs this screen started, FOLLOWED through the frame's jobs register — **present only while a run is being watched** (R-UI-080) | 100 % × the pattern's own | absent — never an empty "Measure runs" block | the step carries its own refusal | the pattern's own |
@@ -317,6 +317,8 @@ law (R-UI-082, R-UI-083) is why.
   Rejected: narrowing all ten to fit (Bases and Coverage are a chip and a word, measured, and cannot
   shrink without cutting the word); rejected: keeping the ten and waiting for the table's
   `defaultHidden` (§8's IOU — the demo cannot).
+  *Amended session 8 (I-468):* `source` 208 · `formula` 132 · `variables` 120, measured for the
+  chip VD-1 names (`S-10 · C1 · Layout plan`); the eight add to 1,064, as the widths above always did.
 
 ### 0.3 The re-look (session 7, wave 3, 2026-09-23; R-UI-082, R-UI-083, B-07)
 
@@ -352,6 +354,8 @@ own id from the central allocation (I-350), because the `I-reg-n` run belongs to
   `--ink-secondary`, in the cell and in the inspector's Bases row: the chip is the basis the figure
   rests on, the word the basis the object was selected on, and the quieter ink says which is the
   qualifier. (Naming the two in words needs a copy key the module's mirror cannot add alone — §8.)
+  *Amended session 8 (I-466):* the word stands only where it differs from the chip's, and the Bases
+  header's Tooltip names the two halves.
   (c) *The Source link is placed in its cell* (s-takeoff-register §1 amended): the link is a flex
   item no wider than the cell (`min-width: 0`), its label `overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap` on a `--space-6` line box (the target's own height, so the clip never takes the
@@ -445,6 +449,117 @@ returned the grid, and only a reader who typed blind, pressed ↓ and Enter coul
   browser makes a scrolling box a Tab stop of its own, and a stop between the field and the next
   chip that no key can take an option from is a stop in the way.
 
+### 0.6 The register after the Trace (session 8, wave 2; the re-look's D5 and D6, and the rail)
+
+VD-1 made the Source chip name the sheet a line stands on (`S-10 · C1 · Layout plan`) and its link
+open that sheet. Four things the re-look and walk-0 found on the same screen remained: a pile's
+Bases cell said "Transcribed" twice; the tree opened every class, so the rail was the whole campaign
+(495 items on F-RCC6-BNBC) and everything below the tree stood about 14,000 px down; the rail's
+heading wrapped and its copy said "rail"; and the Source column cut the chip VD-1 had just named.
+
+- **I-466 — the basis is said once where the pair agrees, and the Bases header names the pair
+  (I-350 (b) amended; pays §8's "The Bases pair names neither half").** A bored pile is read as
+  TRANSCRIBED and selected as TRANSCRIBED, and its cell read `▣ Transcribed Transcribed`, the second
+  word clipped at 184 px. The selecting basis is said beside the chip **only where it differs** from
+  the basis the figure rests on — a word is said where it adds a fact (the copy diet of I-lev-2) — and
+  both stored values stand on the cell whatever its face says (`cx-register-bases` carries
+  `data-quantity-basis` and `data-selection-basis`; the inspector's Bases row the same two, beside its
+  `data-basis`). One function reads the rule for the cell and the inspector alike. Where the two
+  differ — most lines, whose selecting attributes default: `▣ Transcribed Defaulted` — the pair stands
+  as I-350 laid it out, the word the quieter qualifier. The Bases header, and the inspector's Bases
+  label, now say which half is which: each is the column's word as a focusable Tooltip trigger
+  (`cx-register-hinted`, the reticle from the Tooltip's own home) whose content is
+  `takeoff_register_bases_hint`. The width stays 184: the differing pair still needs it. Rejected:
+  dropping the selecting basis from the grid (it is the rate's evidence — "a wrong selecting attribute
+  is the right number at the wrong rate", `gate/evaluate.ts`); rejected: `Figure · Selected` labels
+  inside every cell (two more words on 1,131 rows to say what one header says once).
+- **I-467 — the tree stands open at its levels; a class opens on demand, and the class a Trace
+  returns to opens by itself.** §1 already ruled "every discipline and level expanded by default"; the
+  code opened every class besides, which departed from it, and on a measured campaign that put every
+  member of the building in the rail ahead of the struck count, "Deferred and refused" and the level
+  stacks (walk-0: about 14,000 px of marks). The tree now seeds its open set with its disciplines and
+  levels only. The one class opened at rest is the class of the origin line — the `?line=` a Trace's
+  Back returns with (I-180, I-182) — so the reader who went to the drawing lands among that member's
+  marks. The shipped Tree is uncontrolled and reads `defaultExpandedIds` once, and the origin is read
+  in an effect after the first paint (I-182's hydration rule), so the tree is keyed on the origin's
+  class and mounts once more when the address names one; the primitive is not touched. Rejected:
+  opening a class when one of its objects is selected elsewhere (the Tree takes no open set from
+  outside after mount — a change to the shared primitive, recorded in §8); rejected: moving the
+  refusals and offers above the tree (the index is the rail's first section, and the zero counts
+  below it are now a short scroll away rather than a campaign away).
+- **I-468 — the Source column is 208 px, measured (I-reg-3's widths amended).** In the product's
+  Chromium, the Trace link reads 177 px for `S-10 · C1 · Layout plan` (Spline Sans Mono at 12 px, the
+  basis glyph at 13 px and its 4 px gap) and 191 px with a four-character mark (`S-13 · 1B12 · Layout
+  plan`, `S-101 · C12 · Layout plan`); with the compact cell's 16 px of padding the column wants 207,
+  and it is 208 on the 4 px grid. At 168 the chip ended `S-10 · C1 · Layou…`. The 40 px come from the
+  two columns the inspector states whole — `formula` 152 → 132 and `variables` 140 → 120 — so the eight
+  still sum to **1,064** (I-reg-3 wrote 1,068; its own eight widths add to 1,064), inside the 1,088 px
+  grid at 1440, and at 1280 everything through Source is 812 of the grid's 928. A longer chip — model
+  space said in words (`Model space · C1 · Layout plan`, 226 px) or a `Long section strip` view — still
+  ends in I-350 (c)'s ellipsis and stands whole in the link's name and the inspector's Source row. At
+  the comfortable density (12 px padding) a four-character mark's chip loses its last few pixels; the
+  product's default is compact. Rejected: narrowing Bases (the differing pair needs its 184).
+- **I-469 — a rail heading is one line, and "rail" leaves the copy.** `takeoff_register_tree_label`
+  read **Objects by discipline, level and class**, 221 px at 13 px in a 214 px heading box, and wrapped;
+  **Level stacks read from the drawings** measured 217 and wrapped too. They read **Objects** and
+  **Proposed level stacks** (48 and 132 px; 51 and 142 at 14 px), the tree names itself by the same
+  word, and `.cx-register-panel-heading` holds one line by rule — `nowrap`, ended in an ellipsis where
+  a heading would ever outgrow the rail — so a platform scrollbar in the rail clips a word rather than
+  adding a line of chrome. A clipped box has no automatic minimum height, so the heading is also
+  `flex: none`: without it the rail's scrolling column squeezed **Objects** to 17 px, its top half cut
+  (seen in the product's Chromium over a static render of a 94-line register). The level-stack offer
+  is laid out for the rail as well: the pattern sets a group as one row — sentence, count, door — and
+  in 214 px that stood the sentence one word to a line and the door's label on three (walk-0's
+  "Level / stack / proposed / from …"); in the rail the three stand one under another, each at its
+  own width, the door never a full-width bar (`.cx-register-level-stack .cx-offered-group`, one
+  `minmax(0, 1fr)` column, `justify-items: start`). The count and the door do not fit one line
+  (about 70 and 150 px), so they do not share one. §3's voice already bars "rail" from what a reader
+  sees; three sentences said it (the Measure hint and the two empty states of a campaign with no
+  lines), and they now say what the reader gets: lines measured, quantities read, objects read from
+  the drawings.
+- **I-470 — Escape lets go of the selection, and the inspector with it (I-231 applied to the
+  keyboard).** walk-0: "the line inspector has no close control and Escape does not deselect; only
+  clicking the row again does". The frame's column is absent with nothing selected, so letting go of
+  the selection is closing the inspector: Escape clears the selected line or object from anywhere on
+  the page — heard on the document, because the inspector stands in the frame's slot outside this
+  screen's tree, and on its way into the tree, because the shipped Tree lets no key on its rows past
+  it — while something is selected and no act dialog is open. An Escape a control already answered
+  stays that control's (a chip closing its list, a cell handing its cursor back, a Radix layer — each
+  prevents the default), and one typed into a field stays the field's, so a reading half-written is
+  never dropped with its object. A row the grid itself took with Space keeps the grid's own paint
+  until the grid is told (§8's "A row taken with the pointer" — the same primitive's debt). A visible
+  close control is the frame's slot's, not this screen's (§8). *Amended in the review of C4' (session 8):* "a field"
+  is the shell's one reading of it — `isTextField` from the shortcut roster
+  (`src/ui/shell/shortcuts/roster.ts`), handed down as chrome (`RegisterChrome.isTextField`) — never a
+  second list of tags in this module (B-17); and the tree's Escape defers to a layer that answered the
+  key first, as the document's does.
+- **I-471 — an Escape pressed inside the inspector puts the reader back where the selection was
+  taken.** Letting go takes the inspector away, and with it the control that held focus: the review
+  found the reader left on the document body answering no key — the defect I-182 names for the
+  Trace's Back — where before I-470 the same Escape did nothing. So when the Escape's target stands
+  in the inspector, focus moves BEFORE the selection goes (the inspector unmounts on the render
+  letting go causes): to the selected line's row — the grid's cursor cell if it stands in that row,
+  its first cell otherwise — or to the selected object's item in the tree. A row the grid has windowed
+  away, or an object whose class the reader has since closed, is not drawn; then focus goes to the
+  stop that region keeps in the Tab order (the grid's cursor cell, the tree's roving item). All of it
+  is read from what the page draws — the `data-line` this screen publishes on its rows, the tree's
+  node id (`objectNodeOf`, the one spelling of `o:<objectKey>`), the widgets' ARIA roles — never from
+  a primitive's state. An Escape from the grid or the tree needs nothing: the element holding focus
+  stays. An Escape on the frame's own seam (the slot's resize separator) is the slot's to answer —
+  recorded in §8 beside its close control. Rejected: remembering `document.activeElement` at the
+  moment of selection (a click on a row's Source link or a cell control would put focus back on a
+  control the reader never meant to return to, and a virtualised row's node is not the node it was).
+- **I-472 — a composed header is named by its column's words (pays §8's "A composed header names
+  its column by its id").** I-466 made the Bases header a word inside its Tooltip trigger, and the
+  shipped table named a non-string header by its id in the three places no rendered header reaches —
+  the column drawer (`⋯`) listed `bases` in lower case beside `Kind` and `Value`, the resize handle
+  was `Resize bases` — a code in front of a reader on the demo screen (R-UI-082). The table's column
+  meta takes `label` (`DataTableColumnMeta.label`, `docs/design/primitives-data.md`), which its
+  `headerText` reads after a string header and before the id; the Bases column states
+  `takeoff_register_col_bases` there, so the drawer, the handle and any filter say **Bases**. The
+  primitive's change is additive — a column that states no label, or whose header is a string, reads
+  as it did.
+
 ## 1. Layout and hierarchy
 
 `takeoff/layout.tsx` renders `<TakeoffTabs>` around `{children}`: the lane's 40 px-of-content tabs
@@ -509,9 +624,11 @@ mounted from first paint. That count line is the ONE helper line this screen spe
 value, the one lawful literal in a media query — S-Audit's ruling).
 
 - **Index rail** (I-233) — `<section class="cx-register-panel cx-register-index">`, `flex: 0 0 240px`
-  (min 160, max 320), scrolling on its own. `<h2>` `takeoff_register_tree_label`, then the I-171
+  (min 160, max 320), scrolling on its own. `<h2>` `takeoff_register_tree_label`, one line (every rail
+  heading is `nowrap`, ended in an ellipsis — I-469), then the I-171
   wrapper `data-testid="register-tree"` around the shipped `Tree`: items nested discipline → level →
-  class → object, every discipline and level expanded by default, the discipline said in words and
+  class → object, every discipline and level expanded by default and **every class closed**, save the
+  class of the origin line a Trace returned with, which opens (I-467); the discipline said in words and
   the level, class and mark verbatim (`GF`, `column`, `C1`), **no default selection** (I-231).
   `onSelect` of an object node fills the inspector and clears any selected row; a branch node selects
   and expands and changes nothing else. Under it `<div data-testid="register-repudiated-count">`
@@ -548,15 +665,18 @@ value, the one lawful literal in a media query — S-Audit's ruling).
   publishing `data-line` and, on the row a pointer took, `data-line-selected` (I-236), `scrollToRowId`
   the origin (I-182), `aria-label` the screen's own word. Columns in I-reg-3's order, headers from the
   copy table, at the widths they are read at: `kind` 120 · `value` 116 (`meta.align: "right"`) ·
-  `unit` 56 · `bases` 184 · `coverage` 128 · `source` 168 · `formula` 152 · `variables` 140. The five
+  `unit` 56 · `bases` 184 · `coverage` 128 · `source` 208 · `formula` 132 · `variables` 120 (I-468). The five
   that hold one scalar — `kind`, `value`, `unit`, `coverage`, `source` — carry `enableSorting` with the
   value they order by: the sort control is also the keyboard way into a virtualised scroll box, which
   R-UI-012 requires and axe checks. Cells: the kind in words through `EnumLabel` (`Concrete`, the
   stored key in its disclosure — I-reg-2); the SI value through `QuantityText` at its kind's display
   precision (grouped as the document groups a figure, exact in `data-value`), and where the coverage
   is not COMPLETE no figure but the omission said in words (`L, B, D unstated` — L-QTY-02, I-reg-1);
-  the unit through `UnitBadge`; the quantity basis as a `BasisChip` beside the selecting basis as an
-  `EnumLabel` in `--ink-secondary`; the coverage as its `EnumLabel`, with a `CoverageChip` beside it
+  the unit through `UnitBadge`; the quantity basis as a `BasisChip`, and beside it the selecting basis
+  as an `EnumLabel` in `--ink-secondary` **only where it differs**, both stored values on the cell's
+  `data-quantity-basis` / `data-selection-basis` (I-466) — the Bases header its word as a Tooltip
+  trigger over `takeoff_register_bases_hint`, and `meta.label` the same word, so the column drawer and
+  the resize handle name it (I-472); the coverage as its `EnumLabel`, with a `CoverageChip` beside it
   only on a COMPLETE line (I-reg-1) — both pairs the line's inline text, so the table's ellipsis ends
   the word and its Tooltip states the cell (I-350 (b)); the cited key as the Trace's own link over its
   source chips, placed no wider than the cell with its label ellipsised (I-234, I-350 (c), and
@@ -571,12 +691,13 @@ value, the one lawful literal in a media query — S-Audit's ruling).
   rail beside it is untouched (§3.2's region table). The first two carry `data-testid="register-empty"`
   and, with no campaign, the one action.
 
-**Inspector** (I-231) — the node this screen mounts into the frame's slot, `<div
+**Inspector** (I-231; Escape lets go of what it states, I-470, and from inside it puts the reader back on the row or the tree item the selection was taken from, I-471) — the node this screen mounts into the frame's slot, `<div
 data-testid="register-inspector" data-object={objectKey}>` (a `<div>`, not an `<aside>`: the frame's
 slot is already the landmark, and two nested asides would read as two right columns to §7 C3). With
 a ROW selected, `data-line={lineId}` and: the kind in words as the title; a `<dl>` of `_col_value` →
 `QuantityText` with its `UnitBadge` at FULL precision (the one place the exact value is written
-whole, I-reg-2) or the omission said in words, `_col_bases` → the chip and the label,
+whole, I-reg-2) or the omission said in words, `_col_bases` (its word the same Tooltip trigger as
+the grid's header) → the chip, and the label only where it differs (I-466),
 `_col_coverage` → the label (and the chip on a COMPLETE line), `takeoff_register_omitted_label` →
 each omitted variable beside its code's registered sentence (only where the line omitted any,
 I-reg-1), `_col_source` → the source chips, `_col_engine` → the engine's `EnumLabel`,
@@ -671,18 +792,20 @@ and the redirect as the reason — a route that renders nothing has no state of 
 registered, the quantity lines measured from it, and what each one rests on.** ·
 `takeoff_register_campaign_label` **Pinned revision** · `takeoff_register_measure` **Measure this
 campaign** · `takeoff_register_measure_hint` **Queues a measure run over the pinned revision. Lines
-appear as each rail publishes them.** · `takeoff_register_timeline_heading` **Measure runs** ·
+appear here as they are measured.** (I-469) · `takeoff_register_timeline_heading` **Measure runs** ·
 `takeoff_register_filter_class` **Class** · `takeoff_register_filter_kind` **Kind** ·
 `takeoff_register_filter_level` **Level** · `takeoff_register_filter_basis` **Basis** ·
 `takeoff_register_filter_coverage` **Coverage** · `takeoff_register_filter_any_class` **All
 classes** · `_any_kind` **All kinds** · `_any_level` **All levels** · `_any_basis` **All bases** ·
 `_any_coverage` **All coverages** · `takeoff_register_lines_count` **{shown} of {total} lines** ·
-`takeoff_register_tree_label` **Objects by discipline, level and class** ·
+`takeoff_register_tree_label` **Objects** (I-469) ·
 `takeoff_register_repudiated_count` **{count} objects repudiated, {lines} lines withheld** ·
 `takeoff_register_col_kind`
 **Kind** · `_col_value` **Value** · `_col_unit` **Unit** · `_col_formula` **Formula** ·
 `_col_variables` **Variables** · `_col_bases` **Bases** · `_col_coverage` **Coverage** ·
 `_col_calibration` **Calibration** · `_col_engine` **Engine** · `_col_source` **Source** ·
+`takeoff_register_bases_hint` **The chip is the basis of the figure. A word beside it is the basis of
+the specification that selects the bill item, shown only where the two differ.** (I-466) ·
 `takeoff_register_value_omitted` **{variables} unstated** · `takeoff_register_value_unstated` **No
 figure** · `takeoff_register_omitted_label` **Left out** (I-reg-1) ·
 `takeoff_register_repudiated_note` **A person judged this object to be nothing. Nothing was deleted:
@@ -691,8 +814,8 @@ table.** · `takeoff_register_lines_none` **No line matches
 these filters. Every line stays registered — clear a filter to see the rest.** ·
 `takeoff_register_lines_unmeasured_heading` **Not measured yet.** ·
 `takeoff_register_lines_unmeasured_body` **The objects are registered and no measure run has
-published a line over them. Measure this campaign runs the rails; each line stands here with its
-trace as it is published.** ·
+published a line over them yet. Measure this campaign reads their quantities; each line stands here
+with its trace as it is published.** (I-469) ·
 `takeoff_register_object_key_label` **Object key** · `takeoff_register_basis_label` **Basis** ·
 `takeoff_register_role_label` **Role** · `takeoff_register_corroboration_label` **Corroboration** ·
 `takeoff_register_source_label` **Read from** · `takeoff_register_attributes_label` **Attributes** ·
@@ -717,7 +840,7 @@ Nothing is corroborated until you record a reading or strike the object.** (I-29
 **These sightings produced no line. Each says why, and where to resolve it.** ·
 `takeoff_register_refusal_object_label` **Object** · `takeoff_register_refusal_kind_label` **Kind** ·
 `takeoff_register_evidence` **Open the source drawings** ·
-`takeoff_register_level_stack_heading` **Level stacks read from the drawings** ·
+`takeoff_register_level_stack_heading` **Proposed level stacks** (I-469) ·
 `takeoff_register_level_stack_hint` **Confirming inserts every level in the offer as one act.
 Nothing is chosen row by row.** · `takeoff_register_level_stack_label` **Level stack proposed from
 {drawing}** · `takeoff_register_level_stack_count` **{count} levels** ·
@@ -725,8 +848,8 @@ Nothing is chosen row by row.** · `takeoff_register_level_stack_label` **Level 
 `takeoff_register_empty_body` **A register fills once a drawing set revision is pinned. Pin one, and
 every sighting it produces appears here.** · `takeoff_register_empty_action` **Browse drawing
 sets** · `takeoff_register_empty_campaign_heading` **This campaign has registered nothing yet** ·
-`takeoff_register_empty_campaign_body` **Queue a measure run above, and every object the rails
-register appears here as they publish.** · `takeoff_register_error_heading` **The register could not
+`takeoff_register_empty_campaign_body` **Queue a measure run above, and every object it reads from
+the drawings appears here.** (I-469) · `takeoff_register_error_heading` **The register could not
 be read** · `takeoff_register_error_body` **Nothing was changed. Try again, and quote the report id
 if it keeps happening.** · `takeoff_register_report_label` **Report id** ·
 `takeoff_register_retry` **Try again** · `takeoff_register_offline` **You are offline. The register
@@ -791,7 +914,7 @@ through BasisChip, CoverageChip and EvidenceLink · `--hairline` · `--space-1/2
 `[data-density]` override is deleted — density is the root's, §4.2) · `--motion-state` / `--ease`.
 Px literals, closed set: the index rail's 240 and its 160/320 bounds, the filter bar's 36, the tabs
 row's current-underline 2, the origin mark's 2 px inset bar, the eight column widths (`size`s, the
-class their own Decision §1 lists — 120/116/56/184/128/168/152/140 since I-reg-3), the md
+class their own Decision §1 lists — 120/116/56/184/128/208/132/120 since I-468), the md
 media-query value, and the loading bones' 28/96/128/240.
 Any other literal is a defect. No copper appears anywhere except on the ConsequenceDialog's confirm,
 which is the primitive's own — the workspace commits nothing itself.
@@ -865,7 +988,16 @@ since v22, the two mounts bound to stand-ins that render in place, because there
 jsdom: what a suite reads under `register-workspace` is the node the route hands the frame).
 `inspector-slot.test.ts` holds the rebuild's own properties to account: no right column at rest, a
 row taken with the pointer stating its line, an object stating its doors, one column for one subject,
-and a job strip that exists only while a run is watched (I-230–I-236), `filter-chips.test.ts` holds
+and a job strip that exists only while a run is watched (I-230–I-236), and Escape letting go of a
+line and of an object while a field's Escape stays the field's and a layer's stays the layer's, in
+the tree as on the page (I-470), and an Escape from inside the inspector landing the reader on the
+line's row, on the object's tree item, or — the item no longer drawn — on the tree's own stop, never
+on the body (I-471); `craft-footer-and-cells.test.ts` holds I-466, I-468, I-469 and I-472 (one
+basis word where the pair agrees, the Bases hint opened from the keyboard, the drawer and the resize
+handle reading `Bases`, the eight widths, the one-line rail heading and no `rail` in the copy), and
+the primitive's own half of I-472 is `src/ui/primitives/data/__tests__/header-label.test.tsx`; `tree-and-lines.test.ts` holds I-467 (levels open and classes closed at rest,
+the origin's class open by itself), and every suite that chooses an object opens its class first,
+through the stage's `openTree`, as a reader does; `filter-chips.test.ts` holds
 I-442/b (the stylesheet half: no box between a chip and main clips, the popover outranks every
 layer the grid stacks; the DOM half: a click opens a chip's options in its own box and takes one, the
 keyboard alone walks the bar, Tab closes a list behind the reader — the Combobox's own suite holds
@@ -874,7 +1006,8 @@ the primitive's four facts),
 `stageRegisterCampaign()`), and `tests/takeoff/register-ui/copy-mirror.test.ts`, which fails the
 build if the module's `copy.ts` and `src/ui/strings/takeoff.ts` ever differ (the viewer-inspector
 §8 precedent; its IOU — a copy home both layers may read — is re-recorded here unpaid). Journey:
-`tests/e2e/register.spec.ts`, titles carrying J-021, page object
+`tests/e2e/register.spec.ts`, titles carrying J-021 (it opens the column class before it reads the
+marks, and asserts the class stood closed — I-467), page object
 `tests/e2e/pages/s-takeoff.page.ts`; `tests/e2e/journeys/j-021-column-slice.spec.ts` opens the class
 chip, asks the page what stands where the option and every chip PAINT (`elementFromPoint`, no
 scrolling — Playwright's own click scrolls a clipped box until its target shows, which is how every
@@ -942,11 +1075,9 @@ Opened by the v22 rebuild, each with the node that owns the fix:
 
 Opened by I-350, each with the node that owns the fix:
 
-- **The Bases pair names neither half.** The chip is the quantity basis and the word the selecting
-  basis; I-350 makes the word the quieter of the two, but only words say which is which. Owner: the
-  node that owns `src/ui/strings` — a `takeoff_register_bases_hint` (e.g. **The chip is the basis the
-  figure rests on; the word beside it, the basis the object was selected on.**) given to the Bases
-  header as its Tooltip, mirrored into this module's `copy.ts` in the same commit.
+- ~~**The Bases pair names neither half.**~~ **Paid by I-466** (session 8): `takeoff_register_bases_hint`
+  is the Bases header's Tooltip, and the inspector's Bases label's, mirrored into this module's
+  `copy.ts` in the same commit.
 - **A spanning footer cell.** I-350 (a) reaches into `.cx-table-footercell` so the totals can run on
   past the Value cell; the group row already spans. Owner: the node that owns
   `src/ui/primitives/data` — a spanning form of `totals`, after which the rule retires.
@@ -961,3 +1092,50 @@ Opened by I-350, each with the node that owns the fix:
   `src/core/catalogue` and `src/core/documents/kinds/boq-draft-law.ts` — a display name per kind in
   the catalogue (`Bored piles`, `Pile boring`), read by `inWords`, so the register, the bill, the
   levels roll-ups and the coverage grid all move together. Never a screen-local special case.
+
+Opened by I-466, I-467, I-470 and I-471 (session 8), each with the node that owns the fix:
+
+- ~~**A composed header names its column by its id.**~~ **Paid by I-472** (session 8, the review of
+  C4'): `DataTableColumnMeta.label`, read by `headerText`; the Bases column states its word, and the
+  drawer and the resize handle read `Bases`.
+- **A class that opens from outside the tree.** The shipped Tree seeds its open set once, at mount,
+  and takes no open set after it, so a class cannot open when a row of one of its objects is selected
+  in the grid, and the origin's class is opened by mounting the tree again once the address is read
+  (I-467). Owner: the node that owns `src/ui/primitives/data` — an `expandedIds` the Tree honours
+  after mount (controlled, or a reveal of one node), after which the key comes off.
+- **The offer's own narrow layout.** The register lays the pattern's group out in rows from its own
+  stylesheet (I-469), reaching the pattern's `.cx-offered-group` as I-350 (a) reaches the table's
+  footer cell. Owner: the node that owns `src/ui/patterns/offered-group` — a layout for a narrow
+  container (a container query), after which the register's rule retires.
+- **The tree keeps its own selection after Escape.** The shipped Tree holds its selection itself
+  (`defaultSelectedId`, read once) and takes none from outside, so after Escape lets go of an object
+  the item still says `aria-selected="true"` and wears the selected fill while the inspector is gone
+  (seen in a jsdom probe in the review of C4'). Owner: the node that owns `src/ui/primitives/data` — a
+  `selectedId` the Tree honours after mount, the same change as the open set above; after it the
+  register hands the Tree `selectedKey` and the two agree.
+- **The column drawer takes no Escape.** With the table's `⋯` drawer open and a line selected, an
+  Escape from outside the drawer lets go of the line (I-470) and leaves the drawer standing, because
+  the drawer answers no key of its own; with focus on one of its checkboxes the Escape is a field's
+  and nothing happens. Owner: the node that owns `src/ui/primitives/data` — the drawer closes on
+  Escape, prevents its default, and puts focus back on `⋯`, after which I-470 defers to it as it does
+  to every layer.
+- **The register's Escape is not on the ? sheet.** `SHORTCUTS` (`src/ui/shell/shortcuts/roster.ts`) is
+  the one home of every R-UI-032 binding and the ? sheet lists only what it holds; I-470's Escape is
+  armed by the screen and listed nowhere. Owner: the node that owns `src/ui/shell` — a `table`-scoped
+  line (`Escape`, "Let go of the selection") with its label in `src/ui/strings/shortcuts.ts`, which
+  moves the ? sheet's picture and is re-taken with it; not added here, because the sheet's picture is
+  another journey's and no wave-2 slice owns the roster.
+- **A close control on the inspector.** Escape lets go (I-470), but a pointer reader still closes
+  the column only by clicking the row again. The column is the frame's slot and every screen fills it,
+  so the control is the slot's — one `×` in its header that clears the claim and tells the screen —
+  never a button each screen draws for itself (B-17). The same node owes where focus goes when the
+  slot empties while its own seam (the resize separator) holds it: an Escape there lets go (I-470),
+  and the seam leaves with the column, so the reader lands on the body — the screen can put back only
+  a focus that stood in its own node (I-471). Owner: the node that owns `src/ui/shell`
+  (`inspector.tsx`).
+- **Focus that scrolls out of view, and "Open the register" unfiltered** (walk-0's FRICTION).
+  Collapsing a group from its header leaves focus on a toggle the virtualiser scrolls away, and ↓
+  scrolls rather than moving the row cursor — owner: the node that owns `src/ui/primitives/data`. The
+  coverage cell's "Open the register" opens all lines; the register takes no class, level or kind from
+  its address yet, so the link and the reading of it land together — owner: the coverage slice that
+  re-cuts the cell inspector (COV-ALL), with this screen's address reading in the same change.

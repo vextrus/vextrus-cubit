@@ -40,8 +40,19 @@ test.describe("J-021 — the register workspace", () => {
     await expect(takeoff.navRegister, "the entry for the address in the browser says so (I-125)").toHaveAttribute("aria-current", "page");
 
     /* --- the tree: discipline → level → class → object --- */
-    for (const label of [DISCIPLINE, LEVEL_LABEL, CLASS_COLUMN, ...MARKS]) {
+    // TEST_AMENDED (C4', s-takeoff I-467): the tree stands open at its disciplines and levels and
+    // closed at its classes, so the marks were in the rail at rest only because every class opened
+    // with them — 495 items on F-RCC6-BNBC, above everything else the rail holds. The reader opens
+    // the class, as a person does, and then reads its marks.
+    for (const label of [DISCIPLINE, LEVEL_LABEL, CLASS_COLUMN]) {
       await expect(takeoff.treeItem(label), `the tree states \`${label}\``).toBeVisible();
+    }
+    const columns = takeoff.treeItem(CLASS_COLUMN);
+    await expect(columns, "a class stands closed at rest (I-467)").toHaveAttribute("aria-expanded", "false");
+    await columns.click();
+    await expect(columns, "and opens when the reader presses it").toHaveAttribute("aria-expanded", "true");
+    for (const mark of MARKS) {
+      await expect(takeoff.treeItem(mark), `the opened class states \`${mark}\``).toBeVisible();
     }
 
     /* --- the inspector, filled from the object the reader chose --- */

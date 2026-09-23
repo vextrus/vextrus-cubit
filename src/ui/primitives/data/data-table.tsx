@@ -89,6 +89,14 @@ export interface DataTableColumnMeta {
   align?: "right";
   filterable?: boolean;
   /**
+   * The column's words where its header is COMPOSED — a render function or an element, such as a
+   * word inside its Tooltip trigger. The table names a column in places no rendered header reaches:
+   * the column drawer's label, the resize handle's name, the filter's and the cell editor's. A string
+   * header is its own words and needs none; a composed header that states none is named there by its
+   * id, which puts a code in front of a reader (R-UI-082, s-takeoff I-472).
+   */
+  label?: string;
+  /**
    * A CONTROL WELL: this column's cell holds one control and nothing else, so the control IS the
    * cell — it fills it edge to edge instead of floating inside it with the cell's padding around it.
    *
@@ -308,14 +316,15 @@ const MIN_COLUMN_WIDTH_PX = 48;
 const metaOf = (column: { columnDef: { meta?: DataTableColumnMeta } }): DataTableColumnMeta => column.columnDef.meta ?? {};
 
 /**
- * A column header as text, for the accessible names the filter, the editor and the resize handle
- * owe (R-UI-012). A header may be a render function or an element, and neither stringifies into
- * anything a screen reader can use — the column id is the honest fallback.
+ * A column header as text, for the column drawer and the accessible names the filter, the editor and
+ * the resize handle owe (R-UI-012). A header may be a render function or an element, and neither
+ * stringifies into anything a screen reader can use — so a composed header's words are the ones its
+ * column states (`meta.label`), and the column id is the last fallback, for a column that states none.
  */
-function headerText(column: { id: string; columnDef: { header?: unknown } }): string {
+function headerText(column: { id: string; columnDef: { header?: unknown; meta?: DataTableColumnMeta } }): string {
   const label = column.columnDef.header;
   if (typeof label === "string") return label;
-  return column.id;
+  return column.columnDef.meta?.label ?? column.id;
 }
 
 /**

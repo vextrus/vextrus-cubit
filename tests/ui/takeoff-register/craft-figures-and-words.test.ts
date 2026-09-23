@@ -17,7 +17,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test } from "vitest";
 import { inWords } from "../../../src/core/documents/kinds/boq-draft-law";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
-import { aLine, aView, anObject, all, cellsOf, lineRows, mountRegister, objectKeyOf, one, text, treeItem, treeItems, type ViewLine } from "./support/fixtures";
+import { aLine, aView, anObject, all, cellsOf, lineRows, mountRegister, objectKeyOf, one, openTree, text, treeItem, treeItems, type ViewLine } from "./support/fixtures";
 
 afterEach(() => {
   cleanup();
@@ -105,6 +105,9 @@ describe("the register states every figure it has, and says why of every figure 
         lines: marks.map((mark) => pileCapLine(mark)),
       }),
     );
+    // TEST_AMENDED (C4', s-takeoff I-467): the class stands closed at rest; the marks are read in
+    // the order the reader meets them once it is opened.
+    await openTree(root);
     const labels = treeItems(root).map((item) => (item.textContent ?? "").split("\n")[0]?.trim() ?? "");
     const objectLabels = labels.filter((label) => marks.includes(label));
     expect(objectLabels, "P1, P2 … P10 — never P10 before P1").toEqual(["P1", "P2", "P10", "P19", "P20"]);

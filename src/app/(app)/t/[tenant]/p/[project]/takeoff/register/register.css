@@ -164,12 +164,26 @@
   border-radius: var(--radius-8);
 }
 
+/* A rail heading is one line (I-469): the words are short enough to stand whole in the 214 px the
+   240 px rail leaves inside its padding, less a scrollbar where the platform draws one — `Objects`
+   48, `Deferred and refused` 127, `Proposed level stacks` 132 at 13 px (142 at 14), measured in the
+   product's Chromium — and a heading that ever outgrows it ends in an ellipsis rather than wrapping
+   into a second line of chrome. `Objects by discipline, level and class` measured 221 px and
+   `Level stacks read from the drawings` 217, and both wrapped.
+   `flex: none`, because the clip the ellipsis needs makes a flex item shrinkable to nothing: a box
+   whose `overflow` is not visible has no automatic minimum height, and the rail — a column flex
+   that scrolls because its content outgrows it — squeezed `Objects` to 17 px, its top half cut
+   (seen in the product's Chromium over a 94-line register, session 8). */
 .cx-register-panel-heading {
+  flex: none;
   padding: var(--space-2) var(--space-3);
   border-block-end: var(--hairline);
   font-size: var(--text-body);
   font-weight: var(--weight-heading);
   color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The tree stands at its own height inside the rail's one scroll box (above): a second scroll box
@@ -230,6 +244,23 @@
 .cx-register-refusal-label {
   font-size: var(--text-caption);
   color: var(--ink-muted);
+}
+
+/* The level-stack offer, laid out for the rail (I-469). The pattern sets a group as one row — the
+   sentence, the count and the door side by side — and in the 214 px the rail leaves that put the
+   sentence one word to a line and the door's label on three ("Level / stack / proposed / from …",
+   walk-0). In the rail the three stand one under another, each at its own width — the sentence, the
+   count, then the door, which is never stretched into a full-width bar. The count and the door do not
+   fit one 214 px line (about 70 and 150 px with the gap between), so the count does not share it.
+   The pattern's own narrow layout is its owner's to give (Decision §8); this rule retires with it. */
+.cx-register-level-stack .cx-offered-group {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  row-gap: var(--space-2);
+}
+
+.cx-register-level-stack .cx-offered-count {
+  text-align: start;
 }
 
 /* --- the inspector, in the frame's one right column (R-UI-080) --- */

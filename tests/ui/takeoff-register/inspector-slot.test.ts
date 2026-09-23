@@ -20,6 +20,7 @@ import {
   lineRows,
   mountRegister,
   one,
+  openTree,
   registerFixture,
   takeoffStrings,
   text,
@@ -80,6 +81,8 @@ describe("the frame's one right column, filled on selection and absent otherwise
     const root = await mountRegister(view);
     const said = await strings();
     const object = view.objects[0] as { objectKey: string; mark: string };
+    // TEST_AMENDED (C4', s-takeoff I-467): the object is chosen from its class, opened first.
+    await openTree(root);
 
     const item = treeItems(root).find((held) => text(held).startsWith(object.mark));
     await userEvent.setup().click(item as HTMLElement);
@@ -100,6 +103,8 @@ describe("the frame's one right column, filled on selection and absent otherwise
 
     const row = lineRows(root).find((held) => held.getAttribute("data-line") === line.lineId) as HTMLElement;
     await user.click(row.querySelectorAll('[role="gridcell"], [role="rowheader"]')[0] as HTMLElement);
+    // TEST_AMENDED (C4', s-takeoff I-467): the reader opens the object's class, then chooses it.
+    await openTree(root);
     await user.click(treeItems(root).find((held) => text(held).startsWith(object.mark)) as HTMLElement);
 
     const inspector = one(root, "register-inspector");
@@ -121,5 +126,157 @@ describe("the job strip stands only while a run does (R-UI-080, §8's first fix)
 
     expect(all(root, "register-timeline").length, "the run the door answered is shown where it was started (R-UI-024)").toBe(1);
     expect(text(one(root, "register-timeline")), "under the pattern's own heading").toContain(copy(said, "takeoff_register_timeline_heading"));
+  });
+});
+
+/**
+ * s-takeoff I-470 — Escape lets go (walk-0's FRICTION: "Escape does not deselect", "the inspector has
+ * no close"). With nothing selected the frame's column is absent (I-231), so letting go of the
+ * selection IS closing the inspector — from the keyboard, wherever focus stands on the page, except
+ * where a field or a control answered the key first.
+ */
+describe("I-470: Escape lets go of the selection, and the column goes with it", () => {
+  test("Escape lets go of a line taken in the grid and of an object chosen in the tree", async () => {
+    const view = registerFixture();
+    const root = await mountRegister(view);
+    const user = userEvent.setup();
+    const line = view.lines[0] as ViewLine;
+
+    const row = lineRows(root).find((held) => held.getAttribute("data-line") === line.lineId) as HTMLElement;
+    await user.click(row.querySelectorAll('[role="gridcell"], [role="rowheader"]')[0] as HTMLElement);
+    expect(all(root, "register-inspector").length, "the line stands in the column").toBe(1);
+    await user.keyboard("{Escape}");
+    expect(all(root, "register-inspector").length, "and Escape takes the column away, width 0 again (R-UI-080)").toBe(0);
+    expect(row.getAttribute("data-line-selected"), "the row no longer says it is the taken one").toBeNull();
+
+    await openTree(root);
+    const object = view.objects[0] as { mark: string };
+    await user.click(treeItems(root).find((held) => text(held).startsWith(object.mark)) as HTMLElement);
+    expect(all(root, "register-inspector").length, "an object chosen in the tree stands in the column").toBe(1);
+    await user.keyboard("{Escape}");
+    expect(all(root, "register-inspector").length, "and Escape lets it go too").toBe(0);
+  });
+
+  /**
+   * s-takeoff I-471 — letting go from inside the inspector takes the inspector away, and the control
+   * that held focus with it. The reader is put back where the selection was taken, never left on the
+   * document body answering no key (the defect I-182 names).
+   */
+  // A plain control of the inspector's own — the Technical disclosure's summary, or a door — and not
+  // one wearing a hint: focus opens a hint, and the first Escape is the hint's, which it closes.
+  const technicalOf = (root: HTMLElement): HTMLElement => {
+    const summary = one(root, "register-technical");
+    expect(one(root, "register-inspector").contains(summary), "the Technical disclosure stands in the inspector").toBe(true);
+    return summary;
+  };
+  const doorIn = async (root: HTMLElement, key: string): Promise<HTMLElement> => {
+    const said = copy(await strings(), key);
+    const door = [...one(root, "register-inspector").querySelectorAll<HTMLElement>("button")].find((button) => text(button) === said);
+    expect(door, `the inspector carries the \`${key}\` door`).toBeDefined();
+    return door as HTMLElement;
+  };
+
+  test("I-471: an Escape pressed inside a line's inspector puts the reader back on that line's row", async () => {
+    const view = registerFixture();
+    const root = await mountRegister(view);
+    const user = userEvent.setup();
+    const line = view.lines[1] as ViewLine;
+
+    const row = lineRows(root).find((held) => held.getAttribute("data-line") === line.lineId) as HTMLElement;
+    await user.click(row.querySelectorAll('[role="gridcell"], [role="rowheader"]')[0] as HTMLElement);
+    technicalOf(root).focus();
+    expect(one(root, "register-inspector").contains(document.activeElement), "the reader stands inside the inspector").toBe(true);
+
+    await user.keyboard("{Escape}");
+    expect(all(root, "register-inspector").length, "Escape let go").toBe(0);
+    expect(document.activeElement, "and the reader is not left on the document body").not.toBe(document.body);
+    expect(document.activeElement?.closest('[role="row"]')?.getAttribute("data-line"), "they stand on the row of the line they had chosen").toBe(line.lineId);
+    expect(document.activeElement?.getAttribute("role"), "on one of its cells, the grid's own focus stop").toMatch(/^(gridcell|rowheader)$/u);
+  });
+
+  test("I-471: an Escape pressed inside an object's inspector puts the reader back on its item in the tree", async () => {
+    const view = registerFixture();
+    const root = await mountRegister(view);
+    const user = userEvent.setup();
+    const object = view.objects[0] as { mark: string };
+
+    await openTree(root);
+    const item = treeItems(root).find((held) => text(held).startsWith(object.mark)) as HTMLElement;
+    await user.click(item);
+    (await doorIn(root, "takeoff_register_repudiate")).focus();
+
+    await user.keyboard("{Escape}");
+    expect(all(root, "register-inspector").length, "Escape let go").toBe(0);
+    expect(document.activeElement, "the reader is not left on the document body").not.toBe(document.body);
+    expect(document.activeElement, "they stand on the object they had chosen").toBe(item);
+  });
+
+  test("I-471: where the chosen object is no longer drawn, the reader is put on the tree's own stop", async () => {
+    const view = registerFixture();
+    const root = await mountRegister(view);
+    const user = userEvent.setup();
+    const object = view.objects[0] as { mark: string };
+
+    await openTree(root);
+    const item = treeItems(root).find((held) => text(held).startsWith(object.mark)) as HTMLElement;
+    await user.click(item);
+    // The reader closes the object's class again: its item leaves the tree, the object stays chosen.
+    const classItem = item.parentElement?.closest<HTMLElement>('[role="treeitem"]') as HTMLElement;
+    await user.click(classItem);
+    expect(item.isConnected, "the object's item is no longer drawn").toBe(false);
+    (await doorIn(root, "takeoff_register_repudiate")).focus();
+
+    await user.keyboard("{Escape}");
+    expect(all(root, "register-inspector").length, "Escape let go").toBe(0);
+    expect(document.activeElement, "the reader is not left on the document body").not.toBe(document.body);
+    expect(document.activeElement?.getAttribute("role"), "they stand in the tree").toBe("treeitem");
+    expect(document.activeElement?.getAttribute("tabindex"), "on the item it keeps in the Tab order").toBe("0");
+  });
+
+  test("an Escape a layer answered first stays the layer's, in the tree as on the page", async () => {
+    const view = registerFixture();
+    const root = await mountRegister(view);
+    const user = userEvent.setup();
+    const object = view.objects[0] as { mark: string };
+    // A layer that dismisses on Escape (a Radix Tooltip or menu) hears it on the document's capture,
+    // ahead of every handler of the page, and prevents its default when it answers it.
+    const layer = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") event.preventDefault();
+    };
+
+    await openTree(root);
+    const item = treeItems(root).find((held) => text(held).startsWith(object.mark)) as HTMLElement;
+    await user.click(item);
+    document.addEventListener("keydown", layer, { capture: true });
+    try {
+      await user.keyboard("{Escape}");
+      expect(all(root, "register-inspector").length, "the layer's Escape does not also let go of the object chosen in the tree").toBe(1);
+      technicalOf(root).focus();
+      await user.keyboard("{Escape}");
+      expect(all(root, "register-inspector").length, "nor from inside the inspector").toBe(1);
+    } finally {
+      document.removeEventListener("keydown", layer, { capture: true });
+    }
+    await user.keyboard("{Escape}");
+    expect(all(root, "register-inspector").length, "with no layer standing, the same Escape lets go").toBe(0);
+  });
+
+  test("an Escape typed into a field is the field's: the reading being written keeps its object", async () => {
+    const view = registerFixture();
+    const root = await mountRegister(view);
+    const user = userEvent.setup();
+    const said = await strings();
+
+    await openTree(root);
+    const object = view.objects[0] as { mark: string };
+    await user.click(treeItems(root).find((held) => text(held).startsWith(object.mark)) as HTMLElement);
+    const attribute = all(root, "register-attribute")[0] as HTMLElement;
+    const door = [...attribute.querySelectorAll("button")].find((button) => text(button) === copy(said, "takeoff_register_corroborate")) as HTMLElement;
+    await user.click(door);
+    const field = attribute.querySelector("input") as HTMLInputElement;
+    await user.click(field);
+    await user.keyboard("300{Escape}");
+    expect(all(root, "register-inspector").length, "the object the reader is writing a reading for stays chosen").toBe(1);
+    expect(field.value, "and what they typed stands").toBe("300");
   });
 });

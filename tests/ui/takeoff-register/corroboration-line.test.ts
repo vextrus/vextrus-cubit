@@ -17,6 +17,7 @@ import {
   copy,
   mountRegister,
   one,
+  openTree,
   refusalsFixture,
   registerFixture,
   stagedDoors,
@@ -39,6 +40,8 @@ function line(root: HTMLElement): HTMLElement | null {
 
 /** Choose one object in the tree, which is what opens the inspector over it. */
 async function choose(root: HTMLElement, mark: string): Promise<void> {
+  // TEST_AMENDED (C4', s-takeoff I-467): a class stands closed at rest, so the reader opens it first.
+  await openTree(root);
   const item = treeItems(root).find((held) => text(held).startsWith(mark));
   await userEvent.setup().click(item as HTMLElement);
 }

@@ -44,6 +44,7 @@ export type RegisterCopyKey =
   | "takeoff_register_col_calibration"
   | "takeoff_register_col_engine"
   | "takeoff_register_col_source"
+  | "takeoff_register_bases_hint"
   | "takeoff_register_source_model_space"
   | "takeoff_register_value_omitted"
   | "takeoff_register_value_unstated"
@@ -106,7 +107,7 @@ export const REGISTER_COPY: Readonly<Record<RegisterCopyKey, string>> = Object.f
   takeoff_register_caption: "Every object this campaign registered, the quantity lines measured from it, and what each one rests on.",
   takeoff_register_campaign_label: "Pinned revision",
   takeoff_register_measure: "Measure this campaign",
-  takeoff_register_measure_hint: "Queues a measure run over the pinned revision. Lines appear as each rail publishes them.",
+  takeoff_register_measure_hint: "Queues a measure run over the pinned revision. Lines appear here as they are measured.",
   takeoff_register_timeline_heading: "Measure runs",
 
   takeoff_register_filter_class: "Class",
@@ -121,7 +122,7 @@ export const REGISTER_COPY: Readonly<Record<RegisterCopyKey, string>> = Object.f
   takeoff_register_filter_any_coverage: "All coverages",
   takeoff_register_lines_count: "{shown} of {total} lines",
 
-  takeoff_register_tree_label: "Objects by discipline, level and class",
+  takeoff_register_tree_label: "Objects",
   takeoff_register_repudiated_count: "{count} objects repudiated, {lines} lines withheld",
 
   takeoff_register_col_kind: "Kind",
@@ -134,6 +135,7 @@ export const REGISTER_COPY: Readonly<Record<RegisterCopyKey, string>> = Object.f
   takeoff_register_col_calibration: "Calibration",
   takeoff_register_col_engine: "Engine",
   takeoff_register_col_source: "Source",
+  takeoff_register_bases_hint: "The chip is the basis of the figure. A word beside it is the basis of the specification that selects the bill item, shown only where the two differ.",
   takeoff_register_source_model_space: "Model space",
   takeoff_register_value_omitted: "{variables} unstated",
   takeoff_register_value_unstated: "No figure",
@@ -142,7 +144,7 @@ export const REGISTER_COPY: Readonly<Record<RegisterCopyKey, string>> = Object.f
     "A person judged this object to be nothing. Nothing was deleted: every reading and every line measured from it stays on record, and its lines are withheld from the table.",
   takeoff_register_lines_none: "No line matches these filters. Every line stays registered — clear a filter to see the rest.",
   takeoff_register_lines_unmeasured_heading: "Not measured yet.",
-  takeoff_register_lines_unmeasured_body: "The objects are registered and no measure run has published a line over them. Measure this campaign runs the rails; each line stands here with its trace as it is published.",
+  takeoff_register_lines_unmeasured_body: "The objects are registered and no measure run has published a line over them yet. Measure this campaign reads their quantities; each line stands here with its trace as it is published.",
 
   takeoff_register_object_key_label: "Object key",
   takeoff_register_basis_label: "Basis",
@@ -177,7 +179,7 @@ export const REGISTER_COPY: Readonly<Record<RegisterCopyKey, string>> = Object.f
   takeoff_register_refusal_kind_label: "Kind",
   takeoff_register_evidence: "Open the source drawings",
 
-  takeoff_register_level_stack_heading: "Level stacks read from the drawings",
+  takeoff_register_level_stack_heading: "Proposed level stacks",
   takeoff_register_level_stack_hint: "Confirming inserts every level in the offer as one act. Nothing is chosen row by row.",
   takeoff_register_level_stack_label: "Level stack proposed from {drawing}",
   takeoff_register_level_stack_count: "{count} levels",
@@ -186,7 +188,7 @@ export const REGISTER_COPY: Readonly<Record<RegisterCopyKey, string>> = Object.f
   takeoff_register_empty_body: "A register fills once a drawing set revision is pinned. Pin one, and every sighting it produces appears here.",
   takeoff_register_empty_action: "Browse drawing sets",
   takeoff_register_empty_campaign_heading: "This campaign has registered nothing yet",
-  takeoff_register_empty_campaign_body: "Queue a measure run above, and every object the rails register appears here as they publish.",
+  takeoff_register_empty_campaign_body: "Queue a measure run above, and every object it reads from the drawings appears here.",
 
   takeoff_register_error_heading: "The register could not be read",
   takeoff_register_error_body: "Nothing was changed. Try again, and quote the report id if it keeps happening.",

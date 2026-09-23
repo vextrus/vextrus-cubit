@@ -76,6 +76,9 @@ export const CHROME_BARRELS: readonly string[] = [
   // string label), and the exact per-unit addition the grid's own subtotals are taken with (B-07).
   "src/ui/primitives/core/enum-label.tsx",
   "src/ui/primitives/data/data-table.tsx",
+  // C4' (I-470): the shortcut roster's one reading of "the keyboard stands in a field", by which the
+  // register leaves an Escape typed there to the field.
+  "src/ui/shell/shortcuts/roster.ts",
 ];
 
 /** The renderers and rules the workspace is handed (Decision I-170, as v22's §3.2 rebuild widens it). */
@@ -101,6 +104,7 @@ export const CHROME_NAMES: readonly string[] = [
   "Input",
   "subtotalsByUnit",
   "humaniseEnum",
+  "isTextField",
 ];
 
 /**
@@ -899,6 +903,25 @@ export function cellsOf(row: HTMLElement): string[] {
 export function treeItems(root: HTMLElement): HTMLElement[] {
   const tree = one(root, "register-tree");
   return [...tree.querySelectorAll('[role="treeitem"]')] as HTMLElement[];
+}
+
+/** The treeitems that stand closed — a branch with children the reader has not opened. */
+export function closedTreeItems(root: HTMLElement): HTMLElement[] {
+  return treeItems(root).filter((item) => item.getAttribute("aria-expanded") === "false");
+}
+
+/**
+ * Open every closed branch of the tree the way a reader does: by pressing it. The tree stands open
+ * at its disciplines and levels and closed at its classes (s-takeoff I-467), so a suite that reads
+ * or chooses an object opens its class first, exactly as a person must. Each press is the shipped
+ * Tree's own click; a branch that stayed shut under it fails here rather than looping.
+ */
+export async function openTree(root: HTMLElement): Promise<void> {
+  const user = userEvent.setup();
+  for (let pressed = 0; closedTreeItems(root).length > 0; pressed += 1) {
+    expect(pressed, "every closed branch opens when it is pressed — one press each").toBeLessThan(treeItems(root).length);
+    await user.click(closedTreeItems(root)[0] as HTMLElement);
+  }
 }
 
 /** The one treeitem whose label reads exactly this, asserted to be exactly one. */
