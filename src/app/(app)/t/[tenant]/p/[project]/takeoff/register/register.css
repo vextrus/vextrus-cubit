@@ -385,34 +385,60 @@
   color: var(--ink-code);
 }
 
+/* A composed cell — a chip and a word — is the line's INLINE text, never a box of its own (I-350).
+   The table ellipsises and measures `.cx-table-cell-text` and nothing else (§5 rule 2): an
+   `inline-flex` pair was one atomic box to it, and the first atomic box on a line is clipped, never
+   ellipsised — so "Transcribed" read `Transcribe` on every row, with no mark to say it was cut, while
+   this sheet claimed the word ellipsised. Inline, the chip keeps its size (a truncated chip is
+   unreadable rather than shortened), the word after it is what the table's ellipsis ends, and the
+   table's own Tooltip states the whole cell — the levels grid's rule, for the same reason. */
 .cx-register-bases,
-.cx-register-coverage,
+.cx-register-coverage {
+  display: inline;
+  white-space: nowrap;
+}
+
+/* The step between the chip and the word, as a margin because an inline pair has no flex line to
+   gap, and the middle the chip sits on beside the word it stands with. */
+.cx-register-bases > *,
+.cx-register-coverage > * {
+  vertical-align: middle;
+}
+
+.cx-register-bases > * + *,
+.cx-register-coverage > * + * {
+  margin-inline-start: var(--space-1);
+}
+
+/* The selecting basis qualifies the chip beside it: the chip is the basis the figure rests on, and
+   the word is the basis the object was selected on, so it reads a step quieter (I-350). Scoped
+   under the two places the pair stands, so the EnumLabel's own ink is overruled here and nowhere
+   else. */
+.cx-register-bases > .cx-register-selecting,
+.cx-register-facts .cx-register-selecting {
+  color: var(--ink-secondary);
+}
+
+/* The footer's totals, every one of them on the face (I-350, I-reg-2): each figure with its unit
+   beside it, one step apart, in the order the units first appear — the group row's own statement of
+   its subtotals. The box never shrinks, so no total is ever cut to fit. */
 .cx-register-totals {
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: var(--space-1);
-  min-width: 0;
+  gap: var(--space-3);
   white-space: nowrap;
-  /* A composed cell is a chip and a word, and neither is `.cx-table-cell-text`, so the table's own
-     ellipsis never reached them: "Defaulted" and "Complete" were sliced mid-word by the cell's
-     `overflow: hidden` in both committed register stills. The word shrinks and ellipsises; the chip
-     keeps its size, because a truncated chip is unreadable rather than merely shortened. */
-  overflow: hidden;
 }
 
-.cx-register-bases > :last-child,
-.cx-register-coverage > :last-child {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* The footer's totals stand under the column they total — right-aligned, the unit beside each
-   figure — and the box holding them never outgrows the cell: it is the cell's width, flush right,
-   so a figure is never pushed past the unit that says what it is (I-235, I-reg-2). */
-.cx-register-totals {
-  justify-content: flex-end;
-  max-width: 100%;
+/* The one footer cell that holds them: right-aligned under Value while the list fits it, and —
+   where it does not, as three units never fit 116 px — `safe` alignment starts the list under Value
+   and lets it run on across the footer's own empty cells to its right. The table's flush-right
+   alignment put the overflow on the START side instead, under the frozen Kind cell, so the leading
+   units were the ones lost and the whole register read as its last unit's total. Nothing else in
+   the footer is touched: the neighbouring cells it runs over state nothing and paint no fill. */
+.cx-register-lines .cx-table-footercell:has(> .cx-register-totals) {
+  justify-content: safe flex-end;
+  overflow: visible;
 }
 
 /* A line kept with no quantity says why in the Value cell (L-QTY-02, I-reg-1): muted words in the UI
@@ -457,11 +483,33 @@
 }
 
 /* A cell that IS the link selects by following rather than by dragging: select-all here would fight
-   the anchor a reader is meant to activate (I-179). */
+   the anchor a reader is meant to activate (I-179).
+
+   The link is PLACED in its cell, never re-styled (I-350, s-takeoff-register §1): the cell is a line
+   the link may not outgrow, so the link is a box no wider than the cell and its label is the part
+   that gives way, ending in an ellipsis. As an `inline-flex` box sized to its content the whole link
+   overran the cell and was sliced at the cell's edge — `Model · P27 · Layou`, no mark to say it was
+   cut. The glyph, the rule, the ink and the 24 px target are the pattern's and are untouched; the
+   label's line box is the target's own height, so the clip never takes the underline beneath it. The
+   chips stand whole in the link's accessible name, on `data-key`'s key and in the line inspector's
+   Source row, one selection away. */
 .cx-register-trace {
-  display: inline-flex;
+  display: flex;
+  align-items: center;
   min-width: 0;
   user-select: auto;
+}
+
+.cx-register-trace > .cx-evidence-link {
+  min-width: 0;
+}
+
+.cx-register-trace .cx-evidence-link-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: var(--space-6);
 }
 
 /* The row a Trace was followed from, as the rail marks what is chosen: a 2 px inset beam bar over a

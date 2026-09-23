@@ -17,6 +17,7 @@ import { standingOf, type ObservationRow, type RegisterScope } from "@/core/regi
 import { proposedLevelStackOf } from "@/modules/takeoff/partition";
 import { refusedSightingsOf, registerObjectsOf, repudiatedObjectsOf } from "@/modules/takeoff/register";
 import { citedKeysOf, sheetOfView, variablesOf } from "@/modules/takeoff/trace";
+import { levelRank, readingOrder, type LineRank } from "./order";
 import type { RegisterView, ViewAttribute, ViewLevelStack, ViewLine, ViewObject, ViewOmission, ViewReading, ViewRefusal } from "./view";
 
 /** Which project's register is being read, in which workspace. */
@@ -94,6 +95,7 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
 
   const struck = new Set(repudiatedRows.map((row) => row.objectKey));
   const levelLabels = new Map(levelRows.map((level) => [level.levelId, level.label]));
+  const levelOrdinals = new Map(levelRows.map((level) => [level.levelId, level.ordinal]));
 
   // Every input is already keyed by object key, so the composition below is keyed too: R-TO-050 asks
   // this table to hold 50 000 lines, and a scan per line over the objects (or per object over the
@@ -116,8 +118,25 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
     layoutByDrawing.set(drawingId, await sheetOfView(scope, drawingId));
   }
 
-  /* --- the lines, each marked with whether a person has struck the object it was measured off --- */
-  const lines: ViewLine[] = published.map((row) => {
+  /* --- the lines, each marked with whether a person has struck the object it was measured off, in
+     the order a register is READ (s-takeoff I-350): level, class, mark in natural order, kind. The
+     store's own order is `published_at, line_id`, and one campaign publishes at one instant, so it
+     was the order of the line ids — one pile's count, concrete and boring scattered across its
+     group while the tree beside it listed P1 … P89. Ranked once per line, then sorted. --- */
+  const ranked = published.map((row) => {
+    const object = objectByKey.get(row.objectKey);
+    const rank: LineRank = {
+      rank: levelRank(object, levelOrdinals),
+      level: levelOf(object, levelLabels),
+      class: row.class,
+      mark: object?.mark ?? "",
+      kind: row.kind,
+      lineId: row.lineId,
+    };
+    return { row, rank };
+  });
+  ranked.sort((left, right) => readingOrder(left.rank, right.rank));
+  const lines: ViewLine[] = ranked.map(({ row }) => {
     const variables = variablesOf(row.bindings);
     return {
       lineId: row.lineId,

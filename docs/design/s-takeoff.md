@@ -35,7 +35,7 @@ inspector is the frame's one right column.
 | filter bar | five chips, each `Label · Value ▾` (Combobox), then the live count | 100 % × 36 | a chip whose column produced nothing offers its all-option alone | — | five 28 px chip bones |
 | index rail | the object tree (discipline › level › class › object), the struck count, every sighting that produced no line, and the level-stack offers | 240 (min 160, max 320), scrolls on its own | the tree is empty and the two sections state their own zero | `RefusalState` per sighting | one rail bone |
 | grid (primary) | the shipped `DataTable`: 28 px rows, sticky header, frozen Kind, group rows with per-unit subtotals, sticky totals footer | flex; ≥ 60 % of `shell-main` at both viewports | `EmptyState` in the grid's own place — no campaign, nothing registered, or nothing matching the filters | the read's fault is the screen's error cell (`register-empty`, with the report id and the retry) | the header is real, the body is bones |
-| footer | the visible set's totals, exactly and per unit (B-07) | 100 % × 28, sticky | no footer cell where the set adds to nothing | — | — |
+| footer | the visible set's totals, exactly and per unit (B-07) — every unit's total on the face, starting under Value and running on across the footer's empty cells where they outgrow it (I-350) | 100 % × 28, sticky | no footer cell where the set adds to nothing | — | — |
 | job strip | the shipped `TrackedJobTimeline` — the pattern's timeline over the runs this screen started, FOLLOWED through the frame's jobs register — **present only while a run is being watched** (R-UI-080) | 100 % × the pattern's own | absent — never an empty "Measure runs" block | the step carries its own refusal | the pattern's own |
 | inspector (frame's one slot) | the selected LINE (kind, value, bases, coverage, source chips, the formula expanded with its live variables, the Trace, the Technical disclosure) or the selected OBJECT (basis, role, corroboration, Technical, Repudiate, the attributes and their two doors) | `--inspector-w` 320 (280–480) | **absent — width 0**, never a sentence saying nothing is selected | `RefusalState` in the answer slot | — |
 
@@ -315,6 +315,58 @@ law (R-UI-082, R-UI-083) is why.
   shrink without cutting the word); rejected: keeping the ten and waiting for the table's
   `defaultHidden` (§8's IOU — the demo cannot).
 
+### 0.3 The re-look (session 7, wave 3, 2026-09-23; R-UI-082, R-UI-083, B-07)
+
+A vision re-look of the M3 campaign found the register at the bar by score and not demo-ready. Its
+own id from the central allocation (I-350), because the `I-reg-n` run belongs to the look above.
+
+- **I-350 — the register reads as a quantity surveyor reads it: every total on the face, every clip
+  marked, every member's lines together (R-UI-083, §5 rules 1–2, I-reg-2 amended in part).**
+  (a) *The footer states every total.* The sticky footer's one Value cell held `89 pcs · 372.849 m³
+  · 1,898.904 m` in 116 px, flush right, so the list overflowed on the START side, under the frozen
+  Kind cell: the face said `1,898.904 m` and a sliver of a badge — the whole 709-line register read
+  as its boring length — and the other totals lived only in a Tooltip. The totals are now one
+  unshrinking list (`cx-register-totals`, `data-units` the count) in the order the units first
+  appear, one `--space-3` apart, each `QuantityText` with its unit, and the one footer cell holding
+  them (`.cx-table-footercell:has(> .cx-register-totals)`, reached through the screen's own
+  `register-lines` wrapper) is `justify-content: safe flex-end; overflow: visible`: right-aligned
+  under Value while the list fits, and otherwise started under Value and run on across the footer's
+  empty cells to its right, so the first unit is never the one lost. The Tooltip is withdrawn — a
+  total a reader has to hover for is one the footer did not state. `datatable-total`'s
+  `QuantityText` keeps the exact sum in `data-value` with its `UnitBadge` inside it, so the J-000 leg
+  reads what it read. Rejected: one total per trailing column (a column the reader hides would take a
+  total with it); rejected: flex-start with an end ellipsis (still hides every unit but the first).
+  What this cannot fix, owner named: the DataTable's footer has no spanning cell, so a consumer that
+  needs one reaches into `.cx-table-footercell` — the primitive's owner (`src/ui/primitives/data`)
+  may give `totals` a spanning form, as the group row already has, and this rule then retires.
+  (b) *A composed cell is inline text.* `cx-register-bases` and `cx-register-coverage` were
+  `inline-flex` boxes sized to their content: to the table's `.cx-table-cell-text` that is one atomic
+  box, and the first atomic box on a line is clipped, never ellipsised, so every row read
+  `Transcribe` with no mark to say so. They are now `display: inline` (the chip and the word are the
+  line's inline text, `--space-1` apart by margin, `vertical-align: middle`), so the table's own
+  ellipsis ends the word and the table's own Tooltip states the cell whole — the levels grid's rule,
+  for the same reason. The selecting basis carries `cx-register-selecting` and reads in
+  `--ink-secondary`, in the cell and in the inspector's Bases row: the chip is the basis the figure
+  rests on, the word the basis the object was selected on, and the quieter ink says which is the
+  qualifier. (Naming the two in words needs a copy key the module's mirror cannot add alone — §8.)
+  (c) *The Source link is placed in its cell* (s-takeoff-register §1 amended): the link is a flex
+  item no wider than the cell (`min-width: 0`), its label `overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap` on a `--space-6` line box (the target's own height, so the clip never takes the
+  underline); the glyph, the rule, the ink and the 24 px target stay the pattern's. It read `Model ·
+  P27 · Layou`, sliced. The table's Tooltip no longer fires on this cell (nothing overflows the cell's
+  text box any more); the chips stand whole in the link's accessible name, beside the key on its
+  `data-key`, and in the line inspector's Source row one selection away.
+  (d) *The lines are in reading order.* The reading (`registerViewOf`) sorted by `published_at,
+  line_id`, and one campaign publishes at one instant, so the order was the line ids': P27 Bored, P50
+  Concrete, P4 Boring … across a 267-line group while the tree listed P1 … P89. It now sorts by
+  `readingOrder` (`register-ui/order.ts`, pure): the level — the FOUNDATION slot below the stack, a
+  stack level at its ordinal, anything the stack does not place after it — then the level's label,
+  the class, the mark by the tree's own digit-run order (`markOrder`, moved into the same file so the
+  tree and the grid read marks by one function), the kind, and the line id last so the order is
+  total. The groups follow (the table groups in first-appearance order): `Foundation · Pile`,
+  `Foundation · Pile cap`, `GF · Column`, `1F · Column` …; within a group one member's lines stand
+  together, `Bored · Boring · Concrete`. A reader's own column sort still overrides it.
+
 ## 1. Layout and hierarchy
 
 `takeoff/layout.tsx` renders `<TakeoffTabs>` around `{children}`: the lane's 40 px-of-content tabs
@@ -409,7 +461,9 @@ value, the one lawful literal in a media query — S-Audit's ruling).
   reader's column furniture is remembered in), `getRowId` the `lineId`, `freezeKeyColumn`,
   `group` by `level|class` labelled `Foundation · Pile cap` / `GF · Column` (I-reg-2) with a per-unit
   subtotal, `totals` the visible set's own sums (`subtotalsByUnit`, the grid's own exact addition —
-  B-07, stated at display precision with the exact sum in `data-value`, I-reg-2), `rowDataOf`
+  B-07, stated at display precision with the exact sum in `data-value`, I-reg-2), every unit's total on
+  the footer's face in one unshrinking `cx-register-totals` list, never behind a Tooltip (I-350 (a)),
+  the rows in the reading's own order — level, class, mark in natural order, kind (I-350 (d)) — `rowDataOf`
   publishing `data-line` and, on the row a pointer took, `data-line-selected` (I-236), `scrollToRowId`
   the origin (I-182), `aria-label` the screen's own word. Columns in I-reg-3's order, headers from the
   copy table, at the widths they are read at: `kind` 120 · `value` 116 (`meta.align: "right"`) ·
@@ -421,8 +475,10 @@ value, the one lawful literal in a media query — S-Audit's ruling).
   precision (grouped as the document groups a figure, exact in `data-value`), and where the coverage
   is not COMPLETE no figure but the omission said in words (`L, B, D unstated` — L-QTY-02, I-reg-1);
   the unit through `UnitBadge`; the quantity basis as a `BasisChip` beside the selecting basis as an
-  `EnumLabel`; the coverage as its `EnumLabel`, with a `CoverageChip` beside it only on a COMPLETE
-  line (I-reg-1); the cited key as the Trace's own link over its source chips (I-234, and
+  `EnumLabel` in `--ink-secondary`; the coverage as its `EnumLabel`, with a `CoverageChip` beside it
+  only on a COMPLETE line (I-reg-1) — both pairs the line's inline text, so the table's ellipsis ends
+  the word and its Tooltip states the cell (I-350 (b)); the cited key as the Trace's own link over its
+  source chips, placed no wider than the cell with its label ellipsised (I-234, I-350 (c), and
   `docs/design/s-takeoff-register.md` I-179–I-182, which rule the cell); the formula one line,
   ellipsised, a long constant cut at six places (I-reg-2), with the table's own Tooltip and the
   inspector's expansion; variables as `name=value unit` pairs read from `bindings`. The calibration
@@ -647,7 +703,8 @@ reference outside `tokens.ts` is a lint failure since U1 (Direction §4). This s
 `--ink-secondary` / `--ink-muted` / `--ink-code` · `--line-accent` · `--accent-subtle` ·
 `--state-info` / `--state-info-surface` · the basis palette and the coverage bands, reached only
 through BasisChip, CoverageChip and EvidenceLink · `--hairline` · `--space-1/2/3/4` ·
-`--gap-section` · `--radius-2/4/8` · `--text-body` / `--text-caption` / `--text-20` ·
+`--gap-section` · `--space-6` (the Source label's line box, the link's own 24 px target — I-350) ·
+`--radius-2/4/8` · `--text-body` / `--text-caption` / `--text-20` ·
 `--font-ui` / `--font-mono` · `--leading-ui` · `--weight-body-medium` / `--weight-heading` ·
 `--row-h`, `--control-h` and `--toolbar-h` through the primitives that read them (the per-screen
 `[data-density]` override is deleted — density is the root's, §4.2) · `--motion-state` / `--ease`.
@@ -790,3 +847,25 @@ Opened by the v22 rebuild, each with the node that owns the fix:
   the `format` prop disappears from every call site.
 - **A copy home both layers may read**, so `src/modules/takeoff/register-ui/copy.ts` need not mirror
   `src/ui/strings/takeoff.ts` — re-recorded unpaid (the viewer-inspector §8 precedent).
+
+Opened by I-350, each with the node that owns the fix:
+
+- **The Bases pair names neither half.** The chip is the quantity basis and the word the selecting
+  basis; I-350 makes the word the quieter of the two, but only words say which is which. Owner: the
+  node that owns `src/ui/strings` — a `takeoff_register_bases_hint` (e.g. **The chip is the basis the
+  figure rests on; the word beside it, the basis the object was selected on.**) given to the Bases
+  header as its Tooltip, mirrored into this module's `copy.ts` in the same commit.
+- **A spanning footer cell.** I-350 (a) reaches into `.cx-table-footercell` so the totals can run on
+  past the Value cell; the group row already spans. Owner: the node that owns
+  `src/ui/primitives/data` — a spanning form of `totals`, after which the rule retires.
+- **A clipped cell's Tooltip says the disclosure too.** The table states a clipped cell's
+  `textContent`, which includes every `EnumLabel`'s hidden raw value (`TranscribedTRANSCRIBED`).
+  Owner: the same node — read the cell's text without `[data-technical]`.
+- **A clipped Source label is one selection from whole.** I-350 (c) ellipsises the link's label
+  inside the cell, where the table's Tooltip cannot reach it. Owner: the node that owns
+  `src/ui/patterns/evidence-link` — a link inside a grid cell that states its label on hover.
+- **`Bored` beside `Boring`.** The pile's count and its bore read as two near-homonyms because
+  `inWords` drops the chapter from `piling.bored` / `piling.boring`. Owner: the node that owns
+  `src/core/catalogue` and `src/core/documents/kinds/boq-draft-law.ts` — a display name per kind in
+  the catalogue (`Bored piles`, `Pile boring`), read by `inWords`, so the register, the bill, the
+  levels roll-ups and the coverage grid all move together. Never a screen-local special case.

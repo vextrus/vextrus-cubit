@@ -359,8 +359,14 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * by that one key — 133 codes to 134 — and not one existing entry's code, message, remedy, severity
  * or surface moved with it; the previous digest was
  * 8b354f8274b172db57a7c1be48380d4842aebe3668255da5ec0bfbf6e92a5b9a.
+ *
+ * Session 7, craft wave 3 (s-coverage I-351): two MESSAGES re-worded — NO_BEARER_SIGHTED and
+ * CELL_NOT_IN_RESIDUE no longer say "residue" to a reader, because the certificate prints the first
+ * to a client and the Decision's voice rule bars the build word. 134 codes; no code, remedy, severity
+ * or surface moved. The previous digest was
+ * e6f4075f1a8e9002def558598483e4824f0fda22704bef6ee28ef6c2302d88ff.
  */
-const ENTRIES_DIGEST_BEFORE = "e6f4075f1a8e9002def558598483e4824f0fda22704bef6ee28ef6c2302d88ff";
+const ENTRIES_DIGEST_BEFORE = "17c9c5297eda5371cbd4f133c113c98b8e15eb8024203d4abd9da1ff025ac927";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

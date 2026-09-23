@@ -18,8 +18,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, 
 import type { AuthorStoreyHeightInput, AuthorTypicalRangeInput, Consequence, InsertLevelStatement, RepudiateLevelInput } from "@/core/acts";
 import { isKind } from "@/core/catalogue/kinds";
 // The places each kind's figure is written to (L-MEA-04's catalogue), read where the draft BOQ reads
-// them, so a roll-up and the bill state one level's concrete at the same precision (I-lev-1).
-import { placesOf } from "@/core/documents/kinds/boq-draft-law";
+// them, so a roll-up and the bill state one level's concrete at the same precision (I-lev-1) — and
+// the one rule a page says a kind by, so a roll-up column and the register say it alike (I-352).
+import { inWords, placesOf } from "@/core/documents/kinds/boq-draft-law";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { formatDate, formatMoney, formatUserFigure, dhakaDateParts } from "@/core/format";
@@ -270,20 +271,31 @@ const CODE_SAID_BY: Readonly<Record<string, string>> = { NONE: "STOREY_HEIGHT_UN
  * `data-value` and its face is stated at the places the catalogue writes the kind to — `15.225`, not
  * `15.22476` clipped at the cell's edge. A kind the catalogue does not hold keeps the exact face.
  */
-const FIGURES_AT = new Map<string, typeof FIGURES>();
-function figuresOfKind(kind: string): typeof FIGURES {
-  if (!isKind(kind)) return FIGURES;
-  const held = FIGURES_AT.get(kind);
+const FIGURES_AT = new Map<number, typeof FIGURES>();
+function figuresAt(places: number): typeof FIGURES {
+  const held = FIGURES_AT.get(places);
   if (held !== undefined) return held;
-  const places = placesOf(kind);
   const made = Object.freeze({ ...FIGURES, figure: (value: string): string => formatUserFigure(statedAt(value, places)) });
-  FIGURES_AT.set(kind, made);
+  FIGURES_AT.set(places, made);
   return made;
+}
+
+function figuresOfKind(kind: string): typeof FIGURES {
+  return isKind(kind) ? figuresAt(placesOf(kind)) : FIGURES;
 }
 
 /** How finely a height and an ordinal are stepped where a reader uses the control's own arrows. */
 const HEIGHT_STEP = 0.001;
 const ORDINAL_STEP = 1;
+
+/**
+ * The places a storey height's face is stated to in the grid (I-352): the millimetre, the step the
+ * height form itself takes (`HEIGHT_STEP`), so every AGREED height reads at one precision —
+ * `3.353` beside `3.048`, never `3.3528` beside `3.048`. The exact metres stay on the row's
+ * `data-metres`, on the figure's `data-value`, and whole in the inspector (L-QTY-03, as I-reg-2
+ * keeps a register figure).
+ */
+const HEIGHT_PLACES = 3;
 
 /** SEAM-FORMAT, as the figure primitives take it (§5 rule 5's lakh/crore), handed down from core. */
 const FIGURES = Object.freeze({
@@ -762,7 +774,7 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
         <span className="cx-levels-cell-standing" data-code={row.original.code ?? ""}>
           <EnumLabel value={row.original.standing} label={standingSaid(row.original.standing)} className="cx-levels-enum" />
           {row.original.standing === AGREED && row.original.canonicalMetres !== null ? (
-            <QuantityText value={row.original.canonicalMetres} format={FIGURES} className="cx-levels-figure" />
+            <QuantityText value={row.original.canonicalMetres} format={figuresAt(HEIGHT_PLACES)} className="cx-levels-figure cx-levels-height" />
           ) : null}
           {row.original.standing === AGREED && row.original.canonicalMetres !== null ? <UnitBadge unit={CANONICAL_UNIT.LENGTH} /> : null}
           {row.original.code === null || CODE_SAID_BY[row.original.standing] === row.original.code ? null : (
@@ -773,7 +785,10 @@ export function LevelsWorkspace({ view, permitted, offline, state, level, report
     },
     ...kinds.map((kind) => ({
       id: `rollup:${kind}`,
-      header: kind,
+      // I-352: the kind in words, by the draft BOQ's one rule (`rcc.concrete` → `Concrete`) — the word
+      // the register's Kind column says the same kind by. The stored key stays on the column's id and
+      // on every roll-up's `data-kind`, where a reader of the machine finds it.
+      header: inWords(kind),
       size: WIDTH_ROLLUP,
       // I-241: the cell states the STORED lines of that kind on that level, exactly as the reading
       // answered them. A level bearing no line of this kind bears no roll-up to state.
@@ -1265,7 +1280,10 @@ function Rollup({
   // it wore was a percentage nobody computed (R-UI-002): its code, in words, says why instead.
   return (
     <span className="cx-levels-rollup" data-testid={testId} data-kind={rollup.kind} data-lines={rollup.lines} data-coverage={rollup.coverage} data-code={rollup.code ?? ""}>
-      <span className="cx-levels-mono">
+      {/* I-352: the count and the figure each stand in a slot of their own width, right-aligned, so a
+          column of roll-ups reads down its figures — `16.828` over `9.761` on the decimal, the unit
+          and the chip in one column beside them — and never as a ragged run of text. */}
+      <span className="cx-levels-mono cx-levels-count">
         {rollup.lines === 1 ? LEVELS_COPY.levels_rollup_lines_one : fillCopy("levels_rollup_lines", { count: formatUserFigure(String(rollup.lines)) })}
       </span>
       {complete && rollup.value !== null ? <QuantityText value={rollup.value} format={figuresOfKind(rollup.kind)} className="cx-levels-figure" /> : null}

@@ -25,7 +25,7 @@ import type { RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { axisReadOf, citedActOf } from "./cited-act";
 import { COVERAGE_COPY, countCoverageCopy, fillCoverageCopy } from "./copy";
-import { CoverageGrid, causeRead, causeWords, levelWord, markOf, partlyBorne, type CoverageDensity } from "./grid";
+import { CoverageGrid, causeRead, causeWords, classWord, kindWord, levelWord, markOf, partlyBorne, type CoverageDensity } from "./grid";
 import { LegendGlyph, type GlyphReading } from "./glyphs";
 import { MARK_OF, MARK_TALLY, MARK_WORD, countsByMark, linesDeclared } from "./heat";
 import type { CoverageCauseProposalView, CoverageView, ProposedCause } from "./view";
@@ -74,8 +74,11 @@ export interface CoverageChrome {
   }>;
   /** R-UI-082: an opaque identifier as a person can use it — short, whole, copyable. */
   readonly IdChip: ComponentType<{ value: string; className?: string }>;
-  /** §6: a model value said in words, with the SCREAMING form left inside `[data-technical]`. */
-  readonly EnumLabel: ComponentType<{ value: string; className?: string }>;
+  /**
+   * §6: a model value said in words, with the SCREAMING form left inside `[data-technical]` — and, for
+   * a kind, the words the draft BOQ's rule says it by, handed in as its `label` (I-351).
+   */
+  readonly EnumLabel: ComponentType<{ value: string; label?: string; className?: string }>;
   /** The key line's one-sentence meaning, on hover and on focus (§3.5). */
   readonly Tooltip: ComponentType<{ content: ReactNode; children: ReactNode }>;
   /** R-UI-050's empty cell: glyph, title, one sentence, one primary. */
@@ -468,6 +471,7 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
                 selected={selected}
                 onSelect={select}
                 declared={declared}
+                EnumLabel={EnumLabel}
               />
               <Tally cells={cells} declared={declared} />
             </div>
@@ -707,15 +711,16 @@ function Inspector({
       data-proposed-cause={proposal?.cause ?? ""}
       data-proposed-call={proposal?.callId ?? ""}
     >
-      {/* Where the cell stands, as ONE fact line: kind · class · level (§3.5). */}
+      {/* Where the cell stands, as ONE fact line: kind · class · level (§3.5) — the kind and the class
+          in the words the grid's headers say them by, the level the stack's own label (I-351). */}
       <p className="cx-coverage-where">
-        <span className="cx-coverage-value">{cell.kind}</span>
+        <EnumLabel value={cell.kind} label={kindWord(cell.kind)} className="cx-coverage-value cx-coverage-word" />
         {grain ? (
           // I-196: a kind-grain row spans the whole extent, so it says so in place of a class and a level.
           <span className="cx-coverage-grain">{COVERAGE_COPY.takeoff_coverage_kind_grain_label}</span>
         ) : (
           <>
-            <span className="cx-coverage-value">{cell.class ?? ""}</span>
+            <span className="cx-coverage-value cx-coverage-word">{cell.class === null ? "" : classWord(cell.class)}</span>
             <span className="cx-coverage-value">{levelWord(cell.levelLabel)}</span>
           </>
         )}
@@ -926,10 +931,13 @@ function Statement({ axis, title, none, rows }: { axis: string; title: string; n
               key={`${row.kind}:${row.class ?? ""}:${row.levelId ?? ""}:${row.cause}`}
             >
               {/* I-cov-4: kind · class · level, each named and separated (§3's statement row) — a
-                  kind-grain row names neither class nor level, and a level-less cell says so. */}
+                  kind-grain row names neither class nor level, and a level-less cell says so.
+                  I-351: the kind and the class in words, by the rule the draft BOQ prints them by
+                  (`Concrete`, `Pile cap`) — a certificate is a document a client reads, and its keys
+                  stay on the row's `data-kind` and `data-class`; the level is the stack's own label. */}
               <span className="cx-coverage-statement-where">
-                <span className="cx-coverage-value">{row.kind}</span>
-                {row.class === null ? null : <span className="cx-coverage-value">{row.class}</span>}
+                <span className="cx-coverage-value cx-coverage-word">{kindWord(row.kind)}</span>
+                {row.class === null ? null : <span className="cx-coverage-value cx-coverage-word">{classWord(row.class)}</span>}
                 {row.class === null ? null : <span className="cx-coverage-value">{levelWord(row.levels)}</span>}
               </span>
               <span className="cx-coverage-statement-cause">{causeWords(row.cause)?.message ?? ""}</span>
@@ -978,11 +986,11 @@ function FallbackIdChip({ value, className }: { value: string; className?: strin
   );
 }
 
-/** The model value verbatim, where no EnumLabel was handed over (I-25). */
-function FallbackEnumLabel({ value, className }: { value: string; className?: string }) {
+/** The words a caller authored, else the model value verbatim, where no EnumLabel was handed over (I-25, I-351). */
+function FallbackEnumLabel({ value, label, className }: { value: string; label?: string; className?: string }) {
   return (
     <span className={className} data-value={value}>
-      {value}
+      {label ?? value}
     </span>
   );
 }

@@ -196,6 +196,30 @@
   margin-inline-end: 0;
 }
 
+/* THE FIGURES READ DOWN THEIR COLUMN (I-352, R-UI-083's "numerals right-aligned, tabular"). An
+   inline cell sets each part after the one before it, so a shorter figure pulled everything after it
+   left — `9.761` under `16.828` off the decimal, its unit and its chip a step left on 5F and 6F. Each
+   part that is a number stands in a slot of its own width, measured in its own face's `ch`, and is
+   right-aligned inside it: the count (`26 lines`), the roll-up's figure (`999.999` with a character
+   to spare — the 240 px column holds both slots, the unit and the chip at either density) and the
+   storey height (up to `99.999`, the millimetre I-352 states it to). A figure wider than its slot
+   widens it — a slot is a floor, never a clip — and the cell's ellipsis and Tooltip stand as before. */
+.cx-levels-count {
+  display: inline-block;
+  min-inline-size: 8ch;
+  text-align: end;
+}
+
+.cx-levels-rollup > .cx-levels-figure {
+  min-inline-size: 8ch;
+  justify-content: flex-end;
+}
+
+.cx-levels-cell-standing > .cx-levels-height {
+  min-inline-size: 6ch;
+  justify-content: flex-end;
+}
+
 .cx-levels-label {
   font-weight: var(--weight-body-medium);
   color: var(--ink);

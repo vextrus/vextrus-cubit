@@ -36,6 +36,7 @@ import { statedAt } from "@/modules/takeoff/bbs-ui/present";
 import { LINE_PARAM, originAddress, traceAddress } from "@/modules/takeoff/trace/address";
 import { basisOf } from "./basis";
 import { REGISTER_COPY, fillCopy } from "./copy";
+import { markOrder } from "./order";
 import { originRowIndexOf } from "./origin";
 import type { RegisterView, ViewAttribute, ViewLine, ViewObject, ViewReading } from "./view";
 
@@ -441,32 +442,6 @@ function omittedCodes(line: ViewLine): string[] {
 function omissionSaid(line: ViewLine): string {
   const variables = omittedVariables(line);
   return variables.length === 0 ? REGISTER_COPY.takeoff_register_value_unstated : fillCopy("takeoff_register_value_omitted", { variables: variables.join(", ") });
-}
-
-/**
- * Marks in the order a quantity surveyor reads them — `P2` before `P10`, `C1` before `C1A` (R-UI-083).
- * A run of digits orders by its value and every other run by its code points, so no locale is asked
- * (the platform's collator is SEAM-FORMAT's alone, L-FMT-01) and the order is the same everywhere.
- */
-const RUNS = /\d+|\D+/gu;
-function markOrder(left: string, right: string): number {
-  const a = left.match(RUNS) ?? [];
-  const b = right.match(RUNS) ?? [];
-  for (let at = 0; at < Math.min(a.length, b.length); at += 1) {
-    const x = a[at] as string;
-    const y = b[at] as string;
-    if (x === y) continue;
-    const digits = /^\d/u.test(x) && /^\d/u.test(y);
-    if (digits) {
-      const bare = (run: string): string => run.replace(/^0+(?=\d)/u, "");
-      const [p, q] = [bare(x), bare(y)];
-      if (p.length !== q.length) return p.length - q.length;
-      if (p !== q) return p < q ? -1 : 1;
-      continue;
-    }
-    return x < y ? -1 : 1;
-  }
-  return a.length - b.length || (left < right ? -1 : left > right ? 1 : 0);
 }
 
 /**
@@ -937,10 +912,14 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
       // I-25's pair, said the way each half is said: the basis that determines the figure wears
       // R-UI-002's chip — the glyph and the palette travel with it — and the selecting basis is a
       // model value in words, with its SCREAMING form kept inside the label's own disclosure (§6).
+      // I-350: the pair is laid out as the line's inline text, so when the column cannot hold the
+      // word the table's own ellipsis ends it and the table's own Tooltip states it whole; and the
+      // selecting basis reads a step quieter than the chip, as the qualifier of the basis that
+      // determines the figure rather than a second peer of it.
       cell: ({ row }) => (
         <span className="cx-register-bases">
           <BasisChip basis={row.original.quantityBasis} />
-          <EnumLabel value={row.original.selectionBasis} className="cx-register-enum" />
+          <EnumLabel value={row.original.selectionBasis} className="cx-register-enum cx-register-selecting" />
         </span>
       ),
     },
@@ -1046,21 +1025,26 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
   /**
    * §5 rule 1's sticky footer: what the visible set adds up to, exactly and per unit (B-07). The sum
    * is the table's own exact addition and stands whole in each figure's `data-value` — the J-000 leg
-   * reads it there — while the face states it at the widest places of the kinds adding into it, right
-   * under the column it totals, with its unit beside it (I-reg-2). More than one unit cannot share
-   * one 116 px cell legibly, so the cell then carries every total in its Tooltip as well.
+   * reads it there — while the face states it at the widest places of the kinds adding into it, under
+   * the column it totals, with its unit beside it (I-reg-2). EVERY total stands on the face, in the
+   * order the units first appear, as the group row states its subtotals (I-350): right-aligned under
+   * Value while the list fits the cell, and — when it does not, as `89 pcs · 372.849 m³ · 1,898.904
+   * m` cannot in 116 px — starting under Value and running on across the footer's empty cells, so
+   * the first unit is never the one lost. The Tooltip that once held the rest is gone: a total a
+   * reader has to hover for is a total the footer did not state.
    */
   const totals = useMemo(() => {
     const subtotals = subtotalsByUnit(lines, (line) => line.value, (line) => line.unit);
-    const said = (
-      <span className="cx-register-totals">
-        {subtotals.map((subtotal) => (
-          <QuantityText key={subtotal.unit} value={subtotal.value} unit={subtotal.unit} format={figuresAt(placesOfTotal(lines, subtotal.unit))} />
-        ))}
-      </span>
-    );
-    return { value: subtotals.length > 1 ? <Tooltip content={said}>{said}</Tooltip> : said };
-  }, [QuantityText, Tooltip, lines, subtotalsByUnit]);
+    return {
+      value: (
+        <span className="cx-register-totals" data-units={String(subtotals.length)}>
+          {subtotals.map((subtotal) => (
+            <QuantityText key={subtotal.unit} value={subtotal.value} unit={subtotal.unit} format={figuresAt(placesOfTotal(lines, subtotal.unit))} />
+          ))}
+        </span>
+      ),
+    };
+  }, [QuantityText, lines, subtotalsByUnit]);
 
   /* ----------------------------------------------------------- the shell's ONE inspector (§3.2) */
 
@@ -1101,7 +1085,7 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
             <dt>{REGISTER_COPY.takeoff_register_col_bases}</dt>
             <dd data-basis={selectedLine.quantityBasis}>
               <BasisChip basis={selectedLine.quantityBasis} />
-              <EnumLabel value={selectedLine.selectionBasis} className="cx-register-enum" />
+              <EnumLabel value={selectedLine.selectionBasis} className="cx-register-enum cx-register-selecting" />
             </dd>
             <dt>{REGISTER_COPY.takeoff_register_col_coverage}</dt>
             <dd>

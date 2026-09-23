@@ -40,7 +40,7 @@ frame's own tool track and the inspector is the frame's one right column.
 | filter bar | five chips, each `Label · Value ▾` (Combobox), then the live count | 100 % × 36 | a chip whose column produced nothing offers its all-option alone | — | five 28 px chip bones |
 | index rail | the object tree (discipline › level › class › object), the struck count, every sighting that produced no line, and the level-stack offers | 240 (min 160, max 320), scrolls on its own | the tree is empty and the two sections state their own zero | `RefusalState` per sighting | one rail bone |
 | grid (primary) | the shipped `DataTable`: 28 px rows, sticky header, frozen Kind, group rows with per-unit subtotals, sticky totals footer | flex; ≥ 60 % of `shell-main` at both viewports | `EmptyState` in the grid's own place — no campaign, nothing registered, or nothing matching the filters | the read's fault is the screen's error cell (`register-empty`, with the report id and the retry) | the header is real, the body is bones |
-| footer | the visible set's totals, exactly and per unit (B-07) | 100 % × 28, sticky | no footer cell where the set adds to nothing | — | — |
+| footer | the visible set's totals, exactly and per unit (B-07) — every unit's total on the face, starting under Value and running on across the footer's empty cells where they outgrow it (s-takeoff I-350) | 100 % × 28, sticky | no footer cell where the set adds to nothing | — | — |
 | job strip | the shipped `JobTimeline`, **present only while a run is being watched** (R-UI-080) | 100 % × the pattern's own | absent — never an empty "Measure runs" block | the step carries its own refusal | the pattern's own |
 | inspector (frame's one slot) | the selected LINE (kind, value, bases, coverage, source chips, the formula expanded with its live variables, the Trace, the Technical disclosure) or the selected OBJECT (basis, role, corroboration, Technical, Repudiate, the attributes and their two doors) | `--inspector-w` 320 (280–480) | **absent — width 0**, never a sentence saying nothing is selected | `RefusalState` in the answer slot | — |
 
@@ -63,7 +63,9 @@ SUSPENDED shows as such · I-175 the acts are doors on the object). Files touche
 `src/app/(app)/t/[tenant]/p/[project]/takeoff/register/{register-screen.tsx,page.tsx,
 route-address.ts,actions.ts,register.css}`. Law: R-UI-022, R-TO-011, X-2, J-021, R-UI-002/003/004/
 005/012/030/031/050/060, B-17, B-19, B-20, C-05, ARCH-01, Q-11. The link itself is ruled by
-`docs/design/evidence-link.md` (I-176–I-178) and is never re-implemented or re-styled here (B-17).
+`docs/design/evidence-link.md` (I-176–I-178) and is never re-implemented or re-styled here (B-17) —
+it is only PLACED in its cell, no wider than the cell with its label ellipsised (s-takeoff I-350 (c),
+§1 below).
 
 ## 0. Interpretations (numbering continues evidence-link.md's I-178)
 
@@ -161,7 +163,20 @@ way into a virtualised scroll box); since s-takeoff I-reg-3 the sixth column at 
 the last at 180. **Amended by v22:** it
 no longer wraps — §5 rule 2 says no cell in the one grid wraps, so the cell is one line, clipped with
 an ellipsis, and the shipped table states the whole of it in its own Tooltip when it is in fact
-clipped. The cell renders:
+clipped. **Amended by s-takeoff I-350 (c) (session 7's re-look):** the link is one atomic box to the
+table's text box, and the first atomic box on a line is clipped, never ellipsised — so the cell read
+`Model · P27 · Layou` with no mark and the ellipsis this paragraph promised never drew. The link is
+now PLACED in its cell: `.cx-register-trace` is a flex line, the link a flex item no wider than the
+cell (`min-width: 0`), and its label (`.cx-evidence-link-label`) `overflow: hidden; text-overflow:
+ellipsis; white-space: nowrap` on a `--space-6` line box, the link's own 24 px target, so the clip
+never takes the underline. That is the whole of it — the glyph, the rule, the basis ink, the type and
+the target are the pattern's, restated nowhere (B-17), and the viewer's cited line places the same
+link in its grid the same way (`.cx-viewer-cited-line .cx-evidence-link`). Because the ellipsis is
+now inside the link, the table's Tooltip no longer fires on this cell: the chips stand whole in the
+link's accessible name, beside the key on `data-key`, and in the line inspector's Source row, one
+selection away (evidence-link I-26: never ellipsised behind something a reader cannot open). A
+hover statement of the label is recorded in s-takeoff §8 against the pattern's owner. The cell
+renders:
 
 ```
 <span class="cx-register-source cx-register-trace">
@@ -284,7 +299,8 @@ is a token zeroed at source, so `register.css` still carries no `prefers-reduced
 ## 5. Tokens
 
 Added to s-takeoff.md §5's set, and nothing else: `--beam-100` and `--beam-500` (the origin mark),
-`--radius-2`, and the seven basis colours reached only through `EvidenceLink` — never named in
+`--radius-2`, `--space-6` (the placed label's line box, s-takeoff I-350 (c)), and the seven basis
+colours reached only through `EvidenceLink` — never named in
 `register.css`, which spells no basis and no hex. Px literals, added to that file's closed set: the
 column's 180 (a `size`, the class its nine siblings already belong to) and the mark's 2 px inset bar.
 The `rowHeight` used to restore the origin is read from `--row-comfortable` / `--row-compact` at

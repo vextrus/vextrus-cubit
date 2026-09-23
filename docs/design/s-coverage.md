@@ -235,6 +235,8 @@ them blank and Levels at `0%` in the same run); the `pile_cap` band was clipped 
 - **I-cov-4 — a certificate row separates what it names.** kind · class · level, each a mono value
   with the fact line's `·` separator between them; a kind-grain row names neither class nor level, a
   level-less cell names `No level`; the values stay verbatim (the document's own words, I-25).
+  **Amended by I-351:** the kind and the class are said in words, as the draft BOQ prints them; the
+  level stays the stack's own label.
 - **I-cov-5 — the screen names itself once, clipped.** One `<h1>` `takeoff_coverage_heading`
   **Coverage**, out of flow and clipped (`cx-coverage-title`, the register's `cx-register-title`).
 
@@ -254,6 +256,47 @@ them blank and Levels at `0%` in the same run); the `pile_cap` band was clipped 
   never measuring), and a campaign opened after it snapshots the new relation. Cost: the grid of any
   project sighting a column gains a `rcc.formwork` row of `NOT_ESTABLISHED` cells until the column
   formwork rail lands, so J-022's three pictures and J-000's coverage tallies move by that row.
+**The re-look (session 7, wave 3, 2026-09-23; R-UI-082, R-UI-083, R-SPINE-062).** A vision re-look of
+the M3 campaign found the grid at the bar by score and not demo-ready: the kinds stood as raw keys
+(`finish.paint`, `piling.bored`, `rcc.rebar`) in the row headers and the certificate while the
+register, the bill and I-cov-2's class bands said the same kinds in words — two spellings of one fact
+in one lane; the `No level` header over the one-level Pile band was cut on both sides (`Jo leve`);
+the certificate printed "…so the residue holds no cell for it." four times to a client; and nine
+28 px cells filled a third of a 1,344 px box. Its id is the central allocation's (I-351), because
+the `I-cov-n` run belongs to the look above. It amends this Decision in place (§1, §3, §5 carry it).
+
+- **I-351 — one kind, one spelling; every header read in full; no build word in a sentence; a cell
+  as large as the box allows (I-25/I-cov-4 withdrawn for kinds and classes; R-UI-082, R-UI-083).**
+  (a) *Kinds and classes in words, everywhere a reader meets them.* The row header says its kind
+  through the shipped `EnumLabel`, its words by the draft BOQ's one rule (`kindWord` = `inWords`:
+  `rcc.concrete` → `Concrete`, `piling.bored` → `Bored`), the key on the row's `data-kind` and inside
+  the label's technical disclosure, in the UI face; the row header's and the cell's accessible names
+  say the kind and the class in the same words (`Concrete on Pile cap, No level: …`); the inspector's
+  fact line says the kind through `EnumLabel` and the class in words, the level still the stack's own
+  label in mono; and the certificate's row says kind · class in words in the document's own face —
+  a certificate is a document a client reads, and the draft BOQ, the other document, prints kinds and
+  classes by the same rule — its keys on the row's `data-kind` and `data-class`, which is where
+  J-022 reads them. I-25's "kinds verbatim in mono" is withdrawn for kinds and classes here as
+  s-takeoff I-reg-2 withdrew it for the register; identifiers (act ids, source keys, report ids) still
+  stand whole. (b) *Every header is measured.* `tracksOf` measured a column only by its class word
+  over the band's span; it now takes each column's width as the largest of the cell (below), the
+  class word shared over the span, and the column's OWN level header (`calc(Nch + 2 × --space-2)`),
+  so `No level` over a one-level band is read whole; the level label rides its own box
+  (`cx-coverage-level-name`) so an ellipsis can reach it should a face ever outrun its `ch`.
+  (c) *The certificate says no build word.* NO_BEARER_SIGHTED's message was "…so the residue holds no
+  cell for it." and CELL_NOT_IN_RESIDUE's "This campaign's residue holds no cell…" — §3's own voice
+  rule bars "residue" wherever a reader can see, and the certificate prints the first to a client.
+  The registry, the one home (R-SPINE-062), now says "…so no cell stands for it." and "This
+  campaign's coverage holds no cell at that address…"; the grid, the inspector and the certificate
+  follow it and no screen re-words it. The codes are unchanged. (d) *The cell grows with the box.*
+  A column is `--cx-coverage-cell` at least: the box's share per column (`100cqi` of the grid, a
+  query container, less the kind column, over `--cx-coverage-columns`) clamped between `--row-h`
+  and `--row-h + --space-5` (48 px compact, 56 comfortable). The share is a length of the BOX, so
+  every row resolves the same track list whatever its content; a small matrix reads at a glance, and
+  a wide one keeps the 28 px cell and scrolls inside its box exactly as before. The cell's height,
+  the mark's size (half the row) and the hatches are unchanged. Rejected: `1fr` tracks — each row is
+  its own grid, and content-sized `fr` would let a header row and a body row resolve different
+  columns; rejected: raising the row height — density is the root's (R-UI-005).
 
 ## 1. Layout and hierarchy
 
@@ -291,25 +334,32 @@ grid colours the cell that wears it.
 
 **The matrix** — `<div data-testid="coverage-grid" role="grid" aria-label aria-colcount aria-rowcount
 data-density>`, `flex: 1`, `overflow: auto`, hairline, radius 4. It is the ONE scroll container: the
-box scrolls both ways and the page never does (§7 C10). Every row is
-`grid-template-columns: var(--cx-coverage-kind-w) var(--cx-coverage-tracks, repeat(var(--cx-coverage-columns), var(--row-h)))`,
-`width: max-content`, `min-width: 100%` — the track list (I-cov-2) and the column count are the only
-things the component states and they ride as custom properties, so the stylesheet keeps every
-measure (ARCH-01).
+box scrolls both ways and the page never does (§7 C10). The box is an inline-size query container
+(`container-type: inline-size`, I-351). Every row is
+`grid-template-columns: var(--cx-coverage-kind-w) var(--cx-coverage-tracks, repeat(var(--cx-coverage-columns), var(--cx-coverage-cell)))`,
+`width: max-content`, `min-width: 100%`, where `--cx-coverage-cell` is `clamp(var(--row-h), calc((100cqi
+- var(--cx-coverage-kind-w)) / var(--cx-coverage-columns)), calc(var(--row-h) + var(--space-5)))` —
+the box's share per column, never under the row height and never over 48 px compact (I-351). The track
+list (I-cov-2, I-351: each column the largest of the cell, its class word over the band's span, and
+its own level header) and the column count are the only things the component states and they ride as
+custom properties, so the stylesheet keeps every measure (ARCH-01).
 
 - Two sticky header rows in one `role="rowgroup"` pinned `top: 0`: the class band
   (`role="columnheader"`, the class in words, spanning its levels, wide enough to name it — I-cov-2)
   over the level row (the level's `label` verbatim, or `No level` where the column stands on none —
-  I-cov-3, mono 12, centred, `aria-label` = `takeoff_coverage_column_label` so a reader who
+  I-cov-3, mono 12, centred, in its own `cx-coverage-level-name` box in a column sized to read it —
+  I-351 — `aria-label` = `takeoff_coverage_column_label` so a reader who
   hears one column hears both axes). The corner cell is `takeoff_coverage_kind_column`, sticky on both.
 - One `<div data-testid="coverage-kind-row" role="row" data-kind>` per kind — kind-grain rows (I-196)
   first, then the borne kinds in `compareCanonical` order — opening with a sticky
-  `role="rowheader"` kind cell: a 4 px ramp bar (`data-cov`, I-210) beside the kind verbatim in mono
-  12, ellipsised, `aria-label` naming the row's share measured. The name is text on the panel and is
-  never tinted: text keeps its contrast (R-UI-002).
+  `role="rowheader"` kind cell in the UI face: a 4 px ramp bar (`data-cov`, I-210) beside the kind in
+  words through the shipped `EnumLabel` (`Concrete`, the key in its disclosure and on `data-kind` —
+  I-351), ellipsised, `aria-label` the kind in the same words and the row's share measured. The name
+  is text on the panel and is never tinted: text keeps its contrast (R-UI-002).
 - Each cell is `<div data-testid="coverage-cell" role="gridcell" class="cx-coverage-cell cx-reticle"
   data-kind data-class data-level data-grain data-measurement data-bill data-contradicted data-code
-  data-mark data-cov tabindex={active ? 0 : -1} aria-selected aria-label>`, `var(--row-h)` square,
+  data-mark data-cov tabindex={active ? 0 : -1} aria-selected aria-label>`, `var(--row-h)` high and its
+  column's width — `var(--row-h)` square where the matrix is wide, up to 48 px wide where it has room (I-351),
   seamed by hairlines, filled from the ramp by `data-cov` and patterned by `data-mark` on its own
   `::after` (I-211). A kind-grain row's one cell spans `2 / -1`. The centred glyph is the measurement
   reading at half the cell; when the cell is held out of the bill a second glyph stands at a quarter
@@ -345,7 +395,8 @@ this reading, in the marks' own order, with the marks nothing wears left out —
 data-cell="{kind}:{class}:{levelId}" data-kind data-class data-level data-proposed-cause
 data-proposed-call>` (the last two empty where nothing was proposed, I-297), mounted through `useInspector`
 and rendered ONLY while a cell is selected, so with no selection the column is absent at width 0
-(R-UI-080, §7 C3). In order: one fact line, kind · class · level verbatim in mono (a kind-grain row
+(R-UI-080, §7 C3). In order: one fact line, kind · class · level — the kind through `EnumLabel` and
+the class in words, in the UI face, the level the stack's label in mono (I-351) (a kind-grain row
 reads `takeoff_coverage_kind_grain_label` in place of class and level); `<h3>`
 `takeoff_coverage_cause_heading` over `<p data-testid="coverage-inspector-cause" data-code data-cause
 data-act>` — the mark and its word, then the registered message (I-191); the act as an `IdChip` under
@@ -383,8 +434,10 @@ beneath the tally, `max-height: 192px` with its own scroll, `display: none` when
 data-axis>` in this order and never merged — `MEASUREMENT` then `BILL`, each with its own title and
 never a shared cause column (L-QTY-07). Each holds a `<ul>` of `<li
 data-testid="coverage-statement-row" data-kind data-class data-level data-levels data-code>` in
-`compareCanonical` order over (kind, class, level): the three model values verbatim in mono,
-separated by `·` and a level-less cell's level said as `No level` (I-cov-4), then the registered
+`compareCanonical` order over (kind, class, level): the kind and the class in words in the document's
+own face (`Bored · Pile`, I-351 — the keys stay on `data-kind` / `data-class`) and the level the
+stack's own label in mono, separated by `·` and a level-less cell's level said as `No level`
+(I-cov-4), then the registered
 message as prose, on one `var(--row-h)` line that never wraps. An empty statement renders
 `<p data-testid="coverage-statement-none" data-code="NONE">` with its own sentence. The statements
 print in `var(--font-doc)` at `var(--text-13)` on `--surface-panel` inside a hairline border — this is
@@ -443,15 +496,21 @@ Declared in `takeoff/coverage/states.ts` (`COVERAGE_STATES`) and appended to
 - **NOT_IN_PROJECT_SCOPE** · info · **A person declared this kind out of the project scope on this
   class and level.** · **Measure this kind to bring it back: published lines take precedence, and the
   declaration is then shown as contradicted.**
-- **NO_BEARER_SIGHTED** · warning · **No class sighted in this campaign bears this kind, so the
-  residue holds no cell for it.** · **Pin a revision whose drawings show a class that bears this kind,
-  then measure the campaign.**
+- **NO_BEARER_SIGHTED** · warning · **No class sighted in this campaign bears this kind, so no cell
+  stands for it.** (I-351 — "residue" is a build word) · **Pin a revision whose drawings show a class
+  that bears this kind, then measure the campaign.**
 - **KIND_NOT_YET_SEEDED** · info · **This work item is in the catalogue, but no class has been recorded
   as bearing it.** · **Record the class that bears this work item in the ruleset, then measure the
   campaign.**
 - **NOT_IN_THIS_BILL** · info · **A person held this kind out of this bill on this class and level.** ·
   **Measure this kind to bring it back into the bill: published lines take precedence, and the hold is
   then shown as contradicted.**
+
+And the boundary refusal either door may be answered with, through the one RefusalState (R-TO-052):
+**CELL_NOT_IN_RESIDUE** · error · **This campaign's coverage holds no cell at that address, so there is
+nothing to declare about it.** (I-351 — the message no longer says "residue"; the code is unchanged) ·
+**Open the coverage grid and choose a cell it shows: a class this campaign sighted, on a level of the
+project's stack.**
 
 ### 3.2 The screen (`src/modules/takeoff/coverage/copy.ts`, keys `takeoff_coverage_*`)
 
@@ -527,16 +586,20 @@ sentences explaining sections that now say what they are), `_inspector_idle_head
 (an absent column is the idle state, R-UI-080), `_kind_label` / `_class_label` (the fact line is three
 model values, not three labelled fields) and `_drawing_label` (I-213).
 
-The cell's accessible name is `_cell_label` (or `_cell_label_kind_grain`) filled with the kind, class
-and level verbatim and `{cause}` filled with the registered message, or with `_cell_label_measured`;
+The cell's accessible name is `_cell_label` (or `_cell_label_kind_grain`) filled with the kind and
+the class in words and the level verbatim (I-351) and `{cause}` filled with the registered message, or with `_cell_label_measured`;
 `_cell_label_held` and `_cell_label_contradicted` are appended, in that order, where they hold — so
 the name says the kind, the class, the level and the cause in words, and never a code (AC-5, I-195).
 Voice: calm, concrete, professional; no exclamation marks; no build vocabulary — "rail" survives only
 where the product already names its own publishers (s-takeoff §3), and "seam", "ingest", "manifest",
-"residue" and every clause id appear nowhere a reader can see. Kinds, classes, levels, channels,
-drawings, views, source keys, act ids, permission names and report ids are model data, rendered
-verbatim in mono, never woven into a sentence (I-25). Registry messages and remedies are never
-paraphrased.
+"residue" and every clause id appear nowhere a reader can see — the registry's own messages included,
+which is why I-351 re-worded two of them at their one home. Levels, drawings, views, source keys, act
+ids, permission names and report ids are model data, rendered verbatim in mono, never woven into a
+sentence (I-25); channels and reasons are enums said through `EnumLabel`; and **kinds and classes are
+said in words by the draft BOQ's rule** — the row header, the cell's name, the inspector's fact line
+and the certificate's row alike, the stored key kept on `data-kind` / `data-class` and in the label's
+disclosure (I-351, R-UI-082: one kind, one spelling across the lane). Registry messages and remedies
+are never paraphrased.
 
 ## 4. Motion (R-UI-004)
 
@@ -556,8 +619,10 @@ Surfaces and ink: `--surface-app`/`--surface-panel` · `--ink`/`--ink-secondary`
 ramp: `--cov-0/1/2/3/4` (§4.3, I-210). The mark colours: `--state-danger` · `--state-warn` ·
 `--danger` · `--info`/`--info-surface` (the offline notice). The hatches: `--pattern-none`/
 `--pattern-solid`/`--pattern-dots`/`--pattern-hatch`/`--pattern-cross` and `--pattern-pitch` (§4.3,
-I-211). Geometry: `--space-1/2/3/4` · `--radius-4/8` · `--text-12/13` · `--row-h` (the cell's side and
-every row on this screen, R-UI-005) · `--toolbar-h` · `--icon-md` · `--z-sticky` · `--font-ui`/
+I-211). Geometry: `--space-1/2/3/4` · `--space-5` (the cell's growth past the row height, I-351) ·
+`--radius-4/8` · `--text-12/13` · `--row-h` (the cell's height and least width, and every row on this
+screen, R-UI-005) · `--cx-coverage-cell` (the stylesheet's own clamp of the box's share per column,
+`cqi` of the grid's query container — I-351) · `--toolbar-h` · `--icon-md` · `--z-sticky` · `--font-ui`/
 `--font-mono`/`--font-doc` · `--leading-ui` · `--weight-body-medium`/`--weight-heading` ·
 `--motion-state`/`--ease`.
 
@@ -684,3 +749,10 @@ one committed state. **Every asked cell outside the corpus writes a FIXTURE_MISS
 on S-Audit's `coverage-cause` line as a refusal before a person has judged anything — the same noise
 session 4 saw on `view-caption`; owner: the handoff, which must quote it so the next reader does not
 read it as a model that abstains.
+
+Opened by I-351. **The partial hatch reads as noise at a 28 px cell** — `--pattern-dots` at
+`--pattern-pitch` is the token's geometry, and a stylesheet that re-drew it for one screen would be a
+second hatch (B-17); the wider cell I-351 allows softens it where the matrix has room. Owner: the node
+that owns `src/ui/tokens.ts` — a pitch that reads as a mark at `--row-h`. **`Bored` beside `Boring`**
+in the row headers — owner and fix recorded in s-takeoff §8 (a display name per kind in the
+catalogue, read by `inWords`, so every face moves together).

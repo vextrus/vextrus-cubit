@@ -18,7 +18,7 @@
 // in the stylesheet beside this file; a module may not reach the token table (ARCH-01), so this file
 // states no size at all. Colour is the mark's (`data-mark`) and the fill is the ramp step
 // (`data-cov`); the words are the registry's. Nothing on this grid is carried by colour alone.
-import { useRef } from "react";
+import { useRef, type ComponentType } from "react";
 import { inWords } from "@/core/documents/kinds/boq-draft-law";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { cellRef, type CellGrain, type ResidueCell, type ResidueLevel, type TruncatedSheet } from "@/core/residue/law";
@@ -90,6 +90,19 @@ export function classWord(klass: string): string {
 }
 
 /**
+ * A kind as every face of this screen says it — the row header, the cell's name, the inspector's
+ * fact line and the certificate's row: the draft BOQ's own rule, `rcc.concrete` → `Concrete`, the
+ * rule the register and the bill say the same kind by (I-351, R-UI-082). The stored key stays on
+ * `data-kind` and inside the label's technical disclosure.
+ */
+export function kindWord(kind: string): string {
+  return inWords(kind);
+}
+
+/** The EnumLabel this grid is handed by the workspace, which holds the one fallback for it (I-170, I-351). */
+export type KindLabel = ComponentType<{ value: string; label?: string; className?: string }>;
+
+/**
  * The whole reading of one cell, in words (Decision § 3): the kind, the class, the level and the
  * cause — never a code (I-195) — with the bill axis and a contradiction appended where they hold,
  * and, on a published cell whose lines carry no quantity, how many of them do not (I-cov-1).
@@ -97,10 +110,11 @@ export function classWord(klass: string): string {
 export function cellLabel(cell: ResidueCell, declared: ReadonlySet<string> = NONE_DECLARED): string {
   const read = causeRead(cell);
   const cause = read === "QUANTITY_BEARING" ? COVERAGE_COPY.takeoff_coverage_cell_label_measured : (causeWords(read)?.message ?? read);
+  // I-351: the name a screen reader hears says the kind and the class in the words the headers show.
   const named =
     cell.grain === "KIND"
-      ? fillCoverageCopy("takeoff_coverage_cell_label_kind_grain", { kind: cell.kind, cause })
-      : fillCoverageCopy("takeoff_coverage_cell_label", { kind: cell.kind, class: cell.class ?? "", level: levelWord(cell.levelLabel), cause });
+      ? fillCoverageCopy("takeoff_coverage_cell_label_kind_grain", { kind: kindWord(cell.kind), cause })
+      : fillCoverageCopy("takeoff_coverage_cell_label", { kind: kindWord(cell.kind), class: cell.class === null ? "" : classWord(cell.class), level: levelWord(cell.levelLabel), cause });
   const partly = partlyBorne(cell, declared)
     ? ` ${fillCoverageCopy("takeoff_coverage_cell_label_declared", { count: String(linesDeclared(cell, declared)), total: String(cell.lineIds.length) })}`
     : "";
@@ -140,12 +154,15 @@ function columnsOf(cells: readonly ResidueCell[], levels: readonly ResidueLevel[
 }
 
 /**
- * The track list the matrix is laid on (I-cov-2). Every column is `var(--row-h)` square — §3.5's
- * cell — unless its class's band is too narrow to name the class: a band one level wide over a
- * 28 px column clipped `pile_cap` to `pile`, beside a `pile` band, so two columns read alike. A band
- * then widens its columns, evenly, to fit its name: the name's length in `ch` of the header's own
- * face plus the band's inline padding, over the band's span. It rides as a custom property like the
- * column count it replaces, so the component still states no pixel (ARCH-01).
+ * The track list the matrix is laid on (I-cov-2, I-351). Every column is the grid's cell — at least
+ * `var(--row-h)`, §3.5's cell, and wider when the matrix has the room (`--cx-coverage-cell`, the
+ * stylesheet's) — unless a header above it is too wide to be read in it. Two headers stand over a
+ * column and BOTH are measured: its class's band, whose name is shared evenly over the band's span (a
+ * band one level wide over a 28 px column clipped `pile_cap` to `pile`), and its OWN level header
+ * (`No level` over a one-level Pile band was cut on both sides, `Jo leve`, because only the class
+ * word was ever measured). Each is its length in `ch` plus the header's inline padding. It rides as a
+ * custom property like the column count it replaces, so the component still states no pixel
+ * (ARCH-01); `ch` is the row's UI face, whose advance is at least the level header's mono 12.
  */
 function tracksOf(columns: readonly Column[], bands: readonly Band[]): string {
   const spanOf = new Map(bands.map((band) => [band.klass, band.span]));
@@ -153,7 +170,8 @@ function tracksOf(columns: readonly Column[], bands: readonly Band[]): string {
     .map((column) => {
       const span = spanOf.get(column.klass) ?? 1;
       const named = classWord(column.klass).length;
-      return `max(var(--row-h), calc((${named}ch + 2 * var(--space-2)) / ${span}))`;
+      const levelled = column.label.length;
+      return `max(var(--cx-coverage-cell), calc((${named}ch + 2 * var(--space-2)) / ${span}), calc(${levelled}ch + 2 * var(--space-2)))`;
     })
     .join(" ");
 }
@@ -187,13 +205,15 @@ export type CoverageGridProps = {
   readonly onSelect: (address: string) => void;
   /** The published lines kept with no quantity (PARTIAL_DECLARED), by id — what makes a cell partly borne (I-cov-1). */
   readonly declared?: ReadonlySet<string>;
+  /** The shipped EnumLabel (or the workspace's house markup), which says each row's kind in words (I-351). */
+  readonly EnumLabel: KindLabel;
 };
 
 /**
  * The grid itself: two sticky header rows, one sticky kind column, and one cell per cell of the
  * residue. The box scrolls; the page never does (§7 C10).
  */
-export function CoverageGrid({ cells, levels, truncated, density, selected, onSelect, declared = NONE_DECLARED }: CoverageGridProps) {
+export function CoverageGrid({ cells, levels, truncated, density, selected, onSelect, declared = NONE_DECLARED, EnumLabel }: CoverageGridProps) {
   const { columns, bands } = columnsOf(cells, levels);
   const rows = rowsOf(cells);
 
@@ -277,7 +297,9 @@ export function CoverageGrid({ cells, levels, truncated, density, selected, onSe
               data-level={column.levelId ?? ""}
               aria-label={fillCoverageCopy("takeoff_coverage_column_label", { class: classWord(column.klass), level: column.label })}
             >
-              {column.label}
+              {/* The label is its own box so an ellipsis can reach it: the header is a centring flex
+                  box, and its bare text was an anonymous item no `text-overflow` ever touched (I-351). */}
+              <span className="cx-coverage-level-name">{column.label}</span>
             </div>
           ))}
         </div>
@@ -292,9 +314,11 @@ export function CoverageGrid({ cells, levels, truncated, density, selected, onSe
                 className="cx-coverage-kind"
                 role="rowheader"
                 data-cov={rampStep(heat.share)}
-                aria-label={`${row.kind} ${fillCoverageCopy("takeoff_coverage_kind_share", { count: String(heat.published), total: String(heat.total) })}`}
+                aria-label={`${kindWord(row.kind)} ${fillCoverageCopy("takeoff_coverage_kind_share", { count: String(heat.published), total: String(heat.total) })}`}
               >
-                <span className="cx-coverage-kind-name">{row.kind}</span>
+                {/* I-351: the kind in words, as the register, the bill and the class bands above say
+                    one — the stored key stays on the row's `data-kind` and in the label's disclosure. */}
+                <EnumLabel value={row.kind} label={kindWord(row.kind)} className="cx-coverage-kind-name" />
               </div>
               {row.cells.map((cell) => {
                 const address = cellRef(cell);

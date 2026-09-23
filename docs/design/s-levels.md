@@ -159,6 +159,36 @@ Decision in place (§1, §3, §5 carry the new text).
   the `ShellToolbar`'s inline gutter (`cx-levels-tabs-aside`, `--space-2`), so `Insert a level` ends
   where the other surfaces' controls do.
 
+**The re-look (session 7, wave 3, 2026-09-23; R-UI-082, R-UI-083, L-FMT-02).** A vision re-look of
+the M3 campaign found the grid at the bar by score and not demo-ready: the roll-up columns were headed
+`rcc.concrete` and `rcc.rebar` while the register's Kind column said `Concrete`; GF's height read
+`Agreed 3.3528 m` over `Agreed 3.048 m` on 1F–6F (four places against three, the exact figure on the
+face); and the roll-up figures flowed on after `26 lines`, so `16.828`, `15.225` and `9.761` stood off
+the decimal and the m³ badges and 100 % chips stepped left on 5F and 6F. Its id is the central
+allocation's (I-352), because the `I-lev-n` run belongs to the look above; it amends §1, §3 and §5 in
+place.
+
+- **I-352 — a roll-up column says its kind in words, and every figure in the grid reads down its
+  column at one precision (I-241/I-242 amended in their face only; R-UI-082, R-UI-083, L-QTY-03).**
+  (a) *Kinds in words.* A roll-up column's header is its kind by the draft BOQ's one rule
+  (`inWords`: `rcc.concrete` → `Concrete`, `rcc.rebar` → `Rebar`) — the word the register's Kind
+  column says the same kind by; the key stays on the column's id (`rollup:rcc.concrete`) and on every
+  roll-up's `data-kind`, which is where J-031 reads it. (b) *The storey height at the millimetre.* An
+  AGREED height's face is stated to three places (`HEIGHT_PLACES`, the step the height form itself
+  takes), half-up on the text by the bar schedule's `statedAt`: GF's 11-foot storey reads `3.353`,
+  never `3.3528`, beside `3.048`. The exact metres stay on the row's `data-metres`, on the figure's
+  `data-value`, and whole in the inspector's height and every reading row — the register's I-reg-2
+  rule, one selection away. (c) *Slots, not a run of text.* The cells stay inline (§1's rule — the
+  table's ellipsis and Tooltip reach inline text only), and each number stands in a slot of its own
+  width, right-aligned, measured in its own face's `ch`: the count (`cx-levels-count`, 8 ch, `26
+  lines`), the roll-up's figure (8 ch, `999.999` with a character to spare — the two slots, the unit
+  and the chip fit I-lev-1's 240 px column at either density) and the storey height (6 ch, up to
+  `99.999`), each `QuantityText` flush right in its slot. A figure wider than its slot widens it — a
+  slot is a floor, never a clip. So `16.828` stands over `9.761` on the decimal and the unit badge
+  and the chip beside them form one column. Rejected: an `inline-grid` roll-up — one atomic box to the
+  table's text box, clipped and never ellipsised, the fault s-takeoff I-350 (b) removed from the
+  register.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -167,7 +197,7 @@ Decision in place (§1, §3, §5 carry the new text).
 │  ├────────────────────────────────────────────────────────────────┤ GF      │
 │▦ │ Register · Coverage · Levels                   ● Insert a level │ ordinal 0│
 │▤ ├──────────┬─────────────────────────────────────────────────────┤ SUSPENDED│
-│⚙ │ Views    │ Level ▸│Ordinal│ Storey height │rcc.concrete│formwork│ ──────── │
+│⚙ │ Views    │ Level ▸│Ordinal│ Storey height │ Concrete   │Formwork│ ──────── │
 │  │ with no  │ GF     │    0  │ Suspended  —  │ 4 · ◐ part │ 2 · ● 1│ Height   │
 │  │ typical  │ MEZZ   │    1  │ Agreed 3.048  │ — · —      │ — · —  │ readings │
 │  │ range    │ L1     │    2  │ Unstated   —  │ 6 · ● 2.43 │ 3 · ● 1│ ▣ 3048mm │
@@ -202,10 +232,13 @@ never the page (§7 C10).
 
 **Grid cells.** Level: the label in 13 px `--weight-body-medium` beside its `levelId` as an `IdChip`
 (R-UI-082). Ordinal: mono, right-aligned, tabular. Storey height: the standing through `EnumLabel`
-(*Agreed* / *Suspended* / *Not stated*) beside `QuantityText` of `canonicalMetres` with a metre
+(*Agreed* / *Suspended* / *Not stated*) beside `QuantityText` of `canonicalMetres` stated to the
+millimetre, flush right in a 6 ch slot, exact in `data-value` (I-352), with a metre
 `UnitBadge` — nothing where the standing is not AGREED (I-242), and the `code` beside it as an
 `EnumLabel` only where the standing word does not already say it (I-lev-2; always on `data-code`).
-Roll-up: `{count} lines` in mono, then `QuantityText` at the kind's display precision + `UnitBadge`
+Roll-up column: headed by its kind in words (`Concrete`, I-352), the key on the column id and each
+roll-up's `data-kind`. Roll-up: `{count} lines` in mono, right-aligned in an 8 ch slot, then
+`QuantityText` at the kind's display precision, flush right in an 8 ch slot (I-352), + `UnitBadge`
 (absent when PARTIAL_DECLARED), then the `CoverageChip` on a COMPLETE roll-up only and, where a code
 stands, its `EnumLabel` (I-lev-1). The rail's heading carries `levels_ranges_hint` as its Tooltip
 (I-lev-3), and the screen's one `<h1>` is clipped out of sight (I-lev-4).
@@ -293,8 +326,10 @@ height needs the AUTHOR_PROJECT_FACT permission on this project.** · `levels_de
 
 Voice: calm, concrete, professional; no exclamation marks; no build vocabulary — "seam", "door",
 "rail", "gate", "ingest" and every clause id appear nowhere a reader can see. Level ids, source
-keys, values as written, units, ordinals, kinds and report ids are model data and render verbatim in
-mono or through `IdChip`, never woven into a sentence (I-25/I-26). Standings, codes, bases,
+keys, values as written, units, ordinals and report ids are model data and render verbatim in
+mono or through `IdChip`, never woven into a sentence (I-25/I-26). A kind heading a roll-up column is
+said in words by the draft BOQ's rule, its key on the column id and the roll-up's `data-kind` (I-352,
+R-UI-082 — the register says the same kind the same way). Standings, codes, bases,
 coverages and act types render as words through `EnumLabel`, the raw value under `data-technical`.
 Registry messages and remedies are never paraphrased. The permission names inside the three denial
 lines are the product's own law, quoted as the seam quotes them.
@@ -324,7 +359,8 @@ through BasisChip and CoverageChip · `--hairline` · `--space-1/2/3/4` · `--ga
 `--motion-panel` / `--ease`. Px literals, closed set: the index rail's 240 and its 160/320 bounds,
 the tabs-row current underline's 2, the column widths (Level 144 · Ordinal 64 · Storey height 200 ·
 each roll-up 240, I-lev-1), the lg media-query value, and the loading bones' 28/240. Any other
-literal is a defect. The standing column went 200 → 288 when it said two things — the word and the
+literal is a defect. The figure slots (I-352) are no px at all: 8, 8 and 6 `ch` of the face each
+number is set in, so a density that revalues `--text-body` revalues the slot with it. The standing column went 200 → 288 when it said two things — the word and the
 code — and is 200 again since I-lev-2: the code the word already says is no longer printed beside
 it, and the 88 px it held went to the roll-ups, which were cut at 160. With two kinds the columns
 sum to 888, short of the width at which the last column's resize grip would stand under the table's

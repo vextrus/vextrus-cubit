@@ -45,7 +45,7 @@ export const RESIDUE_REFUSALS: RefusalGroup<ResidueRefusalCode> = Object.freeze(
   }),
   NO_BEARER_SIGHTED: Object.freeze({
     code: "NO_BEARER_SIGHTED",
-    message: "No class sighted in this campaign bears this kind, so the residue holds no cell for it.",
+    message: "No class sighted in this campaign bears this kind, so no cell stands for it.",
     remedy: "Pin a revision whose drawings show a class that bears this kind, then measure the campaign.",
     severity: "warning",
     surface: "inline",
@@ -71,7 +71,7 @@ export const RESIDUE_REFUSALS: RefusalGroup<ResidueRefusalCode> = Object.freeze(
   // the grid, where every address that exists is on screen (L-QTY-05, L-ACT-01).
   CELL_NOT_IN_RESIDUE: Object.freeze({
     code: "CELL_NOT_IN_RESIDUE",
-    message: "This campaign's residue holds no cell at that address, so there is nothing to declare about it.",
+    message: "This campaign's coverage holds no cell at that address, so there is nothing to declare about it.",
     remedy: "Open the coverage grid and choose a cell it shows: a class this campaign sighted, on a level of the project's stack.",
     severity: "error",
     surface: "inline",

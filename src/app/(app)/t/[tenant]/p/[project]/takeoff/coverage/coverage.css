@@ -192,15 +192,30 @@
   border: var(--hairline);
   border-radius: var(--radius-4);
   background: var(--surface-app);
+  /* The box is the measure the cells grow into (I-351): its width is the column's it stands in,
+     never its content's, so it can be asked how much room the matrix has. */
+  container-type: inline-size;
+
+  /* THE CELL (I-351). §3.5's cell is `var(--row-h)` — and a matrix of nine 28 px cells stood in a
+     third of a 1,344 px box, 7 px marks a reader had to hunt for, 1,000 px of empty panel beside
+     them. A cell now takes its share of the box the kind column leaves, never less than
+     `var(--row-h)` and never more than `--row-h` plus `--space-5` (48 px compact, 56 comfortable) —
+     so a small matrix is read at a glance and a wide one keeps the 28 px cell and scrolls inside its
+     box as before. The share is of the BOX (`cqi`, resolved in each row against this container), a
+     length, so every row resolves the same track list whatever its own content.
+     It is declared HERE, on the element that carries the component's `--cx-coverage-tracks`,
+     because a custom property's `var()`s are resolved where it is declared: declared on the rows, the
+     track list would reference a property its own element does not hold and fall to the fallback. */
+  --cx-coverage-cell: clamp(var(--row-h), calc((100cqi - var(--cx-coverage-kind-w)) / var(--cx-coverage-columns)), calc(var(--row-h) + var(--space-5)));
 }
 
 /* Every row is the same track set: the frozen kind column, then one column per (class · level). The
    count is the only number the component states, and it rides as a custom property (ARCH-01). */
 .cx-coverage-row {
   display: grid;
-  /* I-cov-2: the component hands the whole track list where a class band must widen its columns to
-     name its class, each track still `var(--row-h)` at least; the count-only form stands otherwise. */
-  grid-template-columns: var(--cx-coverage-kind-w) var(--cx-coverage-tracks, repeat(var(--cx-coverage-columns), var(--row-h)));
+  /* I-cov-2, I-351: the component hands the whole track list, each column the cell at least and wider
+     where a header above it must be read; the count-only form stands where it hands none. */
+  grid-template-columns: var(--cx-coverage-kind-w) var(--cx-coverage-tracks, repeat(var(--cx-coverage-columns), var(--cx-coverage-cell)));
   width: max-content;
   min-width: 100%;
 }
@@ -248,6 +263,16 @@
   color: var(--ink-muted);
 }
 
+/* The level's label is its own box, the band name's idiom (I-351): the column is sized to read it,
+   and should a face ever run wider than its `ch`, the label ends in an ellipsis rather than being cut
+   on both sides by a centring box whose bare text no `text-overflow` could reach. */
+.cx-coverage-level-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cx-coverage-corner,
 .cx-coverage-kind {
   position: sticky;
@@ -266,13 +291,15 @@
 
 /* --- the kind column: the name, and the row's own heat as a 4 px bar --- */
 
+/* The kind is said in words (I-351), so the header is the UI face: the EnumLabel inside states its
+   own type, and a key in mono here would be the second spelling of a kind the register says in words. */
 .cx-coverage-kind {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   height: var(--row-h);
   padding-inline: var(--space-2);
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
   font-size: var(--text-12);
   color: var(--ink);
 }
@@ -495,6 +522,19 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   color: var(--ink);
+}
+
+/* A part said in WORDS — a kind or a class (I-351) — is prose, not a key: the UI face in the
+   inspector's fact line, and in the certificate the document's own face and size, inherited. */
+.cx-coverage-value.cx-coverage-word {
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  color: var(--ink);
+}
+
+.cx-coverage-statement-where .cx-coverage-value.cx-coverage-word {
+  font-family: inherit;
+  font-size: inherit;
 }
 
 .cx-coverage-grain {
