@@ -193,6 +193,14 @@ const DECLARED_REBASELINED: readonly string[] = [
   "fixtures/arch/sanity.json",
   "fixtures/arch/takeoff.golden.json",
   "fixtures/arch/traps.json",
+  // V-DOCS (session 8): the draft BOQ's and the bar schedule's document goldens — the payload the seam
+  // emits and the PDF the pinned renderer makes of it, re-taken in their own `baseline:` commits naming
+  // `pnpm test:docs` (which renders each byte-identical twice and to its golden), as the proof
+  // document's golden above already is. A lawful change to a document moves them; nothing else may.
+  "tests/docs/boq-draft/golden.pdf",
+  "tests/docs/boq-draft/payload.json",
+  "tests/docs/bbs/golden.pdf",
+  "tests/docs/bbs/payload.json",
 ];
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {
