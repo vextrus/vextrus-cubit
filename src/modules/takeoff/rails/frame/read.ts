@@ -112,9 +112,30 @@ export type Section =
   | { readonly ok: false; readonly code: FrameRailCode; readonly sourceEntity: string | undefined };
 
 /**
+ * Whether a register row stands under an `@unregistered:<label>` placeholder: a storey WORD the
+ * register has not yet taken onto a level of the stack (L-REG-04). Read off the row's own level
+ * column, the one its key is spelled from (`register_objects_level_stated_once`), and never off the
+ * key's letters — the reading the gate makes of the UNRESOLVED slot (I-368, B-17).
+ */
+function standsOnPlaceholder(row: RegisterObjectRow): boolean {
+  return row.levelLabel !== null;
+}
+
+/**
  * The section the schedules state for one row's mark, as the two readings a prism's plan is bound by.
  * A section read without the unit it was written in cannot be carried into metres by anybody, and a
  * rail does not guess one — it reports (`SECTION_UNIT_UNSTATED`).
+ *
+ * A row standing under a placeholder is REPORTED and never sized (I-461). `variantCovering`'s
+ * level-less arm is the FOUNDATION slot's: a member standing beneath every storey, which no band
+ * ranges over, so a family's one row is its section there. A placeholder is not that. Its word names
+ * a storey a band DOES range over, so the arm would bind a section its schedule states for other
+ * floors — S-13's `LB1`, under `@unregistered:1ST`, took S-17's one row, which bands it `2ND TO 6TH`
+ * (L-FRM-02: a level no band covers defers). And a line on it would stand on a key the one-hop carry
+ * moves, or beside the storey's own row where a person's reading holds the placeholder where it is
+ * (I-367, I-368). A band is a range over the stack's levels, and a placeholder stands on none of them
+ * until it is carried, so no band covers the level it stands on: `SECTION_BAND_UNCOVERED`, a rail
+ * observation that stands exactly as long as the key does (the residue drops it once the key moves).
  *
  * The source is the first schedule cell the variant was read from: a section is read at one cell, and
  * provenance is to the cell rather than to the row that collected it (L-QTY-03).
@@ -123,6 +144,7 @@ export function sectionOf(row: RegisterObjectRow, placement: PlacementSetup, set
   const family = placement.memberFamily;
   const variants = family === null ? undefined : setup.memberTypes[placement.ingestId]?.[family];
   if (variants === undefined || variants.length === 0) return { ok: false, code: MEMBER_TYPE_UNKNOWN, sourceEntity: placement.sourceEntity };
+  if (standsOnPlaceholder(row)) return { ok: false, code: SECTION_BAND_UNCOVERED, sourceEntity: placement.sourceEntity };
   const level = setup.levels.find((one) => one.levelId === row.levelId);
   const variant = variantCovering(variants, level, setup.levels);
   if (variant === undefined) return { ok: false, code: SECTION_BAND_UNCOVERED, sourceEntity: placement.sourceEntity };

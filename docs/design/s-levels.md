@@ -157,7 +157,11 @@ the `cx-levels-*` classes this file rules.
   (`tests/takeoff/partition/expansion/bnbc-placeholder-carry.test.ts`): the 23 carried, beams ROOF 24 ·
   1F 23 · 2F..6F 25 each = **172**, the register equal to the resolver's rows over the final state; the
   same walk without the carry leaves 195; piles (89), caps (26) and columns on byte-identical keys. Beam
-  lines stay PARTIAL (no slab thickness), so nothing billed moves.
+  lines stay PARTIAL (no slab thickness), so nothing billed moves. *Session 8 (FRM-3, I-460):* the
+  beam layouts now place the beams they letter up the sheet as well, and the same walk carries 49 of the
+  50 S-13 placeholders. Beams read ROOF 46 · 1F 49 · 2F..6F 52 each = 355, plus S-13's `LB1`, which I-367
+  leaves under `@unregistered:1ST` (its band is S-17's `2ND TO 6TH`), for **356**. Without the carry the
+  walk leaves 405.
 - **I-367 — what the rebuild never carries (session 7, 2026-09-23; L-QTY-04, L-REG-03, ARCH-03).** A
   placeholder whose member the resolver does NOT stand on the storey its word names — its schedule band
   or its note cut it off (L-FRM-02, I-303) — keeps its placeholder and is reported stale: carried by
@@ -204,16 +208,20 @@ the `cx-levels-*` classes this file rules.
       puts on no level of the stated range. For that row the code's message ("does not say which floors
       it is typical of") under-states what happened, because a range was stated.
   - **Not changed, and owed.**
-    - **An `@unregistered:<label>` placeholder still publishes.** L-REG-04's one-hop carry
-      (`INSERT_LEVEL`'s, and the rebuild's own, I-366) moves those keys the same way, so a line
-      published on one before its level is authored would orphan in the same manner. J-000 never
-      measures one: the rebuild carries them before the first press.
-    - Refusing them is not lawful yet. A placeholder I-367 leaves standing may never be carried, and
-      the refusal would leave an under-measure that nothing a person reads names: no line, no queue
-      item, no observation. That breaks L-QTY-04's "declared exclusion + queue item". The arm is owed
-      a durable disclosure first — the rails observing placeholders rather than offering them, or the
-      gate recording the refusal as a rail observation, which `observationsOf` already retires once
-      the key moves.
+    - **An `@unregistered:<label>` placeholder still publishes** from every rail but the beam and
+      tie-beam rails. L-REG-04's one-hop carry (`INSERT_LEVEL`'s, and the rebuild's own, I-366) moves
+      those keys the same way, so a line published on one before its level is authored would orphan in
+      the same manner. J-000 never measures one. The rebuild carries them before the first press. The one it
+      never carries since FRM-3 (I-460, `s-schedules.md`) is S-13's `LB1`, banded `2ND TO 6TH` by
+      S-17 alone (I-367), and the beam rails report it rather than size it (I-461, below). So
+      `placeholder_lines` stays 0.
+    - Refusing them AT THE GATE is not lawful yet. A placeholder I-367 leaves standing may never be
+      carried, and the refusal would leave an under-measure that nothing a person reads names: no line,
+      no queue item, no observation. That breaks L-QTY-04's "declared exclusion + queue item". The arm
+      is owed a durable disclosure first — the rails observing placeholders rather than offering them
+      (the beam and tie-beam rails do since I-461; the column, lintel, foundation and slab rails do
+      not yet), or the gate recording the refusal as a rail observation, which `observationsOf` already
+      retires once the key moves.
     - The readers still read lines by campaign. A campaign measured before this fix keeps its orphans
       (append-only), and only a fresh campaign has none. Re-pressing such a campaign now answers the
       offer `refused` where the store still holds a line under the key, which is harmless.
@@ -225,6 +233,63 @@ the `cx-levels-*` classes this file rules.
     - `tests/takeoff/coverage/placeholder-lines.test.ts`, through the doors: a bare-caption beam plan and
       a foundation plan, pressed, ranged, pressed again. Every line joins a register object, and beam
       lines are 2 × beam objects.
+- **I-461 — a beam or tie-beam rail reports a member standing under a placeholder and never sizes it
+  (session 8, W2; L-FRM-02, L-REG-02, L-REG-04, L-QTY-04, L-MEA-08, I-367, I-368).**
+  - **Measured.** FRM-3 (I-460, `s-schedules.md`) placed S-13's `LB1`. S-16 details no LB1 and
+    S-17 bands it `2ND TO 6TH`, so the resolver stands it on no level and its `@unregistered:1ST`
+    placeholder from the pin is never carried (I-367).
+    - The frame rail's `sectionOf` found no level for the row and asked `variantCovering`'s level-less
+      arm, which was written for the FOUNDATION slot and answers a family's one row. It bound S-17's
+      250 × 375 on a member whose word is 1ST.
+    - A J-000 Measure would have published two PARTIAL lines on a key no level carries, each binding a
+      section the drawing states for other floors, and `placeholder_lines` would have read 2 where
+      I-368 holds it at 0.
+    - The walked BNBC register reproduces it against the rail as it stood: the beam concrete rail
+      offers the placeholder (`bnbc-placeholder-carry.test.ts`).
+  - **The reading.** L-FRM-02: "a level no band covers defers".
+    - The level-less arm is the FOUNDATION slot's. That member stands beneath every storey, which no
+      band ranges over, so the family's one row is its section there.
+    - A placeholder is not that. Its word names a storey that a band does range over, and a band is a
+      range over the stack's levels. A placeholder stands on none of those levels until it is carried
+      (L-REG-02: a level is a surrogate, and a label is not one). So no band covers the level it stands
+      on, whatever its schedule bands, and the rail says so under the area's own code.
+  - **What the product does.** `sectionOf` (`src/modules/takeoff/rails/frame/read.ts`) reads the row's
+    own `level_label`: the column its key is spelled from, just as the gate reads `level_slot` for
+    I-368.
+    - Once the family is found, and before any band is asked, a row standing under a placeholder is
+      reported `SECTION_BAND_UNCOVERED` on its own key. The rail offers nothing for it.
+    - The residue lists the observation while the key stands, and drops it once a carry moves the key
+      (`observationsOf`).
+    - This pays I-368's owed arm for the four run rails (beam and tie beam, concrete and formwork),
+      through the path I-368 names. Nothing else moves: the FOUNDATION slot keeps its arm, the
+      UNRESOLVED slot keeps its offer for the gate to refuse, and a row on a level is sized by the band
+      covering it.
+  - **The cost.**
+    - Before its level is authored, a beam under a placeholder is reported, not measured. A family
+      with one row used to publish a line for it, which the carry would then orphan. What is lost is a
+      line I-368 already reads as unlawful to keep.
+    - A person's attribute reading can hold a placeholder in place (I-367), or a register from before
+      I-366 can hold one beside its storey's own row. Either placeholder may stand under a word whose
+      storey a band covers. The code's remedy ("extend the bands") then understates, because the
+      member is measured on its storey's own row. Offering the placeholder too would count that member
+      twice, so it stays unsized.
+    - The column, foundation and slab rails keep the level-less arm for a placeholder, and the lintel
+      rail, which reads no band, still offers on one. J-000's one placeholder is a beam, so none of them
+      reads one there. The one home of this reading is
+      `variantCovering` (`src/core/offers/contract.ts`), and moving it there is owed (that file was
+      FND-OWN's in this wave).
+  - **Proof.**
+    - `tests/takeoff/rails/frame-placeholder.test.ts` covers these cases:
+      - A placeholder whose one row is banded is reported by each of the four run rails.
+      - A placeholder whose row is unbanded is reported.
+      - A row on a level its band covers is sized.
+      - A row on a level its band misses defers.
+      - A row in the FOUNDATION slot is sized.
+      - A row in the UNRESOLVED slot is offered, for the gate to refuse.
+    - The first two fail against the rail as it stood.
+    - `bnbc-placeholder-carry.test.ts` measures the walked BNBC register with both beam rails. Nothing
+      is offered on a placeholder, LB1's placeholder is reported once per rail, and the typical plan's
+      LB1 is sized on 2F..6F and on no other floor. This case also fails against the rail as it stood.
 - **I-409 — a caption's level words state a SET: a range only where the drawing wrote a range
   sign, a list where it listed (session 8, W1; L-CAD-07, L-QTY-04, L-QTY-01, B-17).**
   - **Measured.** The session-8 dissection of the owner's benchmark set found four slab and beam

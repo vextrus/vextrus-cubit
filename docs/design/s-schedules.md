@@ -318,26 +318,88 @@ this file rules. No gallery entry is added (nothing new is invented here).
   all of these hold:
   (a) its gap equals the width (`b`) its naming mark's family states, at the drawn scale, within half the
   printed unit;
-  (b) the naming mark is the one `markedIn` would choose, from the labels that stand on no drawn pair — a
-  mark standing between a pair's edge lines is that pair's own lettering (a vertical beam's, written on
-  its axis and turned along it) and names no other pair;
+  (b) the naming mark is the pair's own lettering where it has one — a mark turned to run along the one
+  pair it stands on (I-460, below) — and otherwise the one `markedIn` would choose, from the labels
+  that stand on no drawn pair. A mark standing between a pair's edge lines names no OTHER pair, however
+  it is written; where a pair's own lettering and the label beside it disagree, nothing names it;
   (c) the mark stands nearer this pair than any other drawn pair it stands beside;
   (d) the pair runs along an axis of the plane. A slanted pair is measured by its projection and probed
   square to the wrong direction; S-13's `PB4`/`PB5` then read no slab either side and published COMPLETE
   concrete 15 % over the golden's own figure. A slanted pair waits for D13.
   The mark that admitted the pair is the one that names it. On BNBC at the edition's own band this places
-  72 beams: S-14 25, S-13 23, S-15 24. Each is typed by its own family and stands on the golden model's
-  member of its mark. None is named by a neighbour. The vertical beams (lettered on their axes), TG1
-  (lettered inside its own pair), the cantilevers, LB1 and the slanted members stay unplaced: under,
-  never over. No beam layout states a slab thickness, and no run reads both of its sides, so every beam
-  line is PARTIAL_DECLARED (SLAB_THICKNESS_UNSTATED) and none is COMPLETE. F-RCC6's pairs are all inside
-  the band; its stage digest `a3c0c6e0…` is byte-identical.
-  *Recorded for FRM-4:* 17 of the 72 clears are OVER the golden model's because a support the plan draws
-  is not yet a placed member. The lift core's walls are unplaced (WLS-1), so a beam framing into the core
-  is cut at the crossing beam's half-width instead: B12/B14/B17/B18 and their 1F twins are +125,
-  B13/1B11 +250, and RB12/14/17/18 +50 with RB13 +200. EB1a (and 1EB1a) is cut at no end, because the
-  cantilevers carrying it are unplaced (FRM-3): +250. No figure is published from them today. They must
-  be cut before a slab thickness makes any beam line COMPLETE.
+  148 beams (session 8, FRM-3; 72 before it): S-14 52, S-13 50, S-15 46 — the 25, 23 and 24 their
+  labels beside them name, and the 27, 27 and 22 lettered turned on their own axes (I-460). Each is
+  typed by its own family and stands on the golden model's member of its mark. None is named by a
+  neighbour. TG1 (lettered at 0° inside its own pair and turned across it) and the slanted members stay
+  unplaced: under, never over. No beam layout states a slab thickness, and no run reads both of its
+  sides, so every beam line is PARTIAL_DECLARED (SLAB_THICKNESS_UNSTATED) and none is COMPLETE. F-RCC6's
+  pairs are all inside the band and its texts all at 0°; its stage digest `a3c0c6e0…` is byte-identical.
+  *Recorded for FRM-4 (re-graded over all 148 runs, session 8,
+  `tests/takeoff/partition/placement/bnbc-beam-sections.test.ts`):* no clear is OVER the golden model's.
+  The 17 this list held OVER while only 72 were placed — B12/B14/B17/B18 and their 1F twins +125,
+  B13/1B11 +250, RB12/14/17/18 +50 and RB13 +200, cut past the lift core; EB1 and 1EB1 +250, cut at no
+  end — are each cut now at the face of the vertical beam or cantilever FRM-3 placed across its end: the
+  twelve on S-14 and S-13 at the golden's own figure, the five roof runs under it. 43 are UNDER, each owed
+  to FRM-4 before a slab thickness makes any beam line COMPLETE:
+  - CB1/CB2 and 1CB1/1CB2, −125 each. EB1 is cut at the cantilevers' faces and each cantilever at EB1's,
+    so the corner between them has no owning member (L-MEA-09: exactly one). The golden runs the
+    cantilever to its tip and EB1 between the cantilevers' faces; FRM-4 gives the corner to one of them.
+  - B34/B37 and 1B32, −125: cut at the crossing beam's face where the golden cuts at the lift core's wall,
+    which is not yet a placed support (WLS-1).
+  - 1B34 −25 and 1B35 −150: they end on TG1, which stays unplaced, and are cut at the B4 column's face.
+  - 34 roof runs, −50 to −275: cut at the faces of the columns S-10 draws, where the golden cuts at the
+    roof storey's own (support faces per storey).
+- **I-460 — a mark turned to run along the one drawn pair it stands on names that pair (session 8,
+  FRM-3; L-CAD-05 read through I-415, L-CAD-03, L-MEA-09, L-QTY-04, L-QTY-06, T-TEXT-ROTATED).** A
+  structural plan letters a beam running up the sheet ON its axis, turned to run along it. v2 stated no
+  rotation, so I-344(b) set every mark standing on a pair aside, and every such beam went unplaced: on
+  BNBC, 77 of them. L-CAD-05 asks the artifact to carry the drawing's rendering and geometry facts, and v3
+  states each text's world rotation (I-415). The placement stage reads it for one question only: is a
+  mark standing on a pair that pair's own lettering? It is (`ownLettering`, `placement/runs.ts`) where
+  three things hold:
+  (a) it stands on exactly ONE drawn pair — the band's or a stated width's. A mark standing where two
+  pairs cross, or on two readings of one pair of lines, letters neither;
+  (b) its baseline runs ALONG that pair: carried the member's own length from where it stands, it stays
+  within half the member's width of the axis;
+  (c) it is TURNED — not written the way the sheet reads. Judged the same way: carried the member's
+  length, the baseline leaves a line drawn across the sheet by more than half the member's width.
+  Both tolerances are the member's own geometry (L-MEA-01); nothing spells an angle.
+  (c) is what makes this a reading and not a guess. A mark at 0° on exactly one pair across the sheet,
+  running along it, is written the way every label on the sheet is, wherever it falls. F-RCC6's trimmer
+  lettering `40B` stands exactly so on a pair that is NOT its own, so a rotation-blind rule would name
+  that pair `B5`. S-13's `TG1` is lettered `D74` in that same geometry on its OWN 400 pair, and `D75`
+  turned ACROSS it. The drawing gives no way to tell `D74` from `40B`, so both name nothing: TG1 stays
+  unplaced, under.
+  The pair's own lettering is the naming mark of I-344(b), and every other fence stands. The pair's gap
+  must be its mark's stated width (I-344(a)), and it must run square to the plane (I-344(d)). Two
+  different marks lettering one pair, or its lettering against a label beside it that names another
+  member, are two readings, so nothing names it (L-QTY-04). A mark on a pair names no other pair, so `LB1` and `B31` on
+  S-14 are each named by their own. That holds whichever pairing drew the pair it stands on: a mark on
+  one of the band's pairs is no label beside a stated-width pair either. This is read only inside the
+  stated-width pairing (`statedPairsIn`), so the band's own members — F-RCC6's byte-frozen reading — are
+  untouched. "The way the sheet reads" is model x, which holds for every plan of both fixtures; a plan
+  drawn turned in model space behind a twisted viewport would need its twist subtracted first, and
+  nothing reads that twist yet.
+  - **What an artifact at the v2 floor reads.** It states no rotation, and no mark is turned: the
+    drawing places exactly what it placed. A drawing stored before v3 keeps reading at v2 until a
+    declared re-ingest (`pipeline.ts`), so an existing project gains its vertical beams only then.
+  - **On F-RCC6-BNBC.** 76 of the 77 are placed: S-14 +27 (B25–B46, CB1–4, LB1), S-13 +27 (1B23–1B44,
+    1CB1–4, LB1), S-15 +22 (RB25–RB46). The 77th, `SB-R3`, stands on the stair-roof view, which the
+    grid stage did not georeference, so nothing there is paired. Walked through J-000's order of acts
+    (`tests/takeoff/partition/expansion/bnbc-placeholder-carry.test.ts`), the register holds 1F 49,
+    2F–6F 52 each and ROOF 46 = 355 beam objects on the stack. It also holds one placeholder: S-13's LB1,
+    under `@unregistered:1ST` from the pin. S-16 details no LB1 and S-17 bands it `2ND TO 6TH`, so the
+    resolver stands it on no level of the stack (L-FRM-02), and the rebuild does not carry it (I-367).
+    That makes 356 objects. The beam rails report the placeholder and never size it (I-461,
+    `s-levels.md`): `variantCovering`'s level-less arm would have handed it S-17's one row, banded off
+    its storey. So a J-000 campaign publishes no line on its key, and the read-back's
+    `placeholder_lines` stays 0. The Measure run records one `SECTION_BAND_UNCOVERED` observation on it
+    for each beam kind. That is read from the code and the walked register; J-000's read-back is its
+    proof.
+  - **What moves.** Each new member is a face a run ending on it is cut at, so the 17 clears I-344 held
+    OVER are no longer over (its FRM-4 list, re-graded above). Every beam line is still PARTIAL, so no
+    billed figure moves. The joint seam (`measure/joints.ts`, I-413) reads placed framing, so its lower
+    bound now sees the vertical beams, the cantilevers and LB1. TG1 stays unread, as do its two GF joints.
 - **I-337 — a foundation is formed along its SIDES only, over the one plan its concrete is measured
   over (session 7, FND-3; L-FRM-03, I-334, L-QTY-02/03/04; edition IS1200_IN @ 2027.04, migration
   0061).** L-FRM-03 states the figure twice — "Foundation `count × 2(L+B) × depth`" and "Polygonal

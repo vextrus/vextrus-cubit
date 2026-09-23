@@ -21,6 +21,10 @@
  * bnbc-beam-sections.test.ts). The runs this door governs are read by asking the SAME stage the same
  * question with only the pairing share widened, which is the one share a run's pairing reads.
  *
+ * FRM-3 (I-460) places the beams lettered turned on their own axes, and a placed member is the
+ * crossing face a run ending on it is cut at: graded here on S-14's B12 and EB1, whose clears were
+ * OVER the golden's while the members carrying their ends went unnamed.
+ *
  * AND WHAT MAY NOT MOVE — F-RCC6's whole stage output (`a3c0c6e0…`) and BNBC's piles, columns and caps,
  * pinned in tests/takeoff/partition/schedules/bnbc-pile-schedule.test.ts and bnbc-pile-caps.test.ts.
  */
@@ -130,6 +134,32 @@ describe("FRM-1 under a pairing band wide enough to read the runs it governs", (
         sourceKeys: [...expected.edges, ...carriers, DECLARATION],
       });
     }
+  }, BUDGET_MS);
+
+  test("FRM-3 (I-460): at the edition's own band, a beam placed off its turned mark is the face the runs ending on it are cut at — S-14's B12 at B34, EB1 between CB1 and CB2", async () => {
+    // Before the vertical beams were placed, B12 ran on past the core's line to 4042.2 and EB1 was cut
+    // at no end, 4267.2 — both OVER the golden's (I-344's FRM-4 list). The crossing members were drawn;
+    // the placement stage could not name them until the artifact stated which way a mark is written.
+    const { placed } = await bnbc();
+    const runs = new Map((placed.runs ?? []).map((run) => [run.placementKey, run]));
+    const on = (mark: string): PlacementRow => {
+      const rows = placed.placements.filter((row) => row.viewKey === TYPICAL_BEAMS && row.mark === mark);
+      expect(rows.length, `S-14 places ${mark} once`).toBe(1);
+      return rows[0] as PlacementRow;
+    };
+    const c2 = placed.placements.find((row) => row.viewKey === COLUMN_PLAN && row.elementType === "column" && row.gridLetter === "C" && row.gridNumeral === "2");
+    expect(runs.get(on("B12").placementKey)?.clear, "B12: from C2's face (S-10) to B34's near edge — the golden's 3917.2").toEqual({
+      value: "3917.2",
+      unit: "mm",
+      basis: "MEASURED",
+      sourceKeys: ["DXF_HANDLE:E88", "DXF_HANDLE:E89", c2?.outlineKey, on("B34").outlineKey, DECLARATION],
+    });
+    expect(runs.get(on("EB1").placementKey)?.clear, "EB1: between the faces of the two cantilevers carrying it — the golden's 4017.2").toEqual({
+      value: "4017.2",
+      unit: "mm",
+      basis: "MEASURED",
+      sourceKeys: ["DXF_HANDLE:EE8", "DXF_HANDLE:EE9", on("CB1").outlineKey, on("CB2").outlineKey, DECLARATION],
+    });
   }, BUDGET_MS);
 
   test("widening the pairing band moves no member the outlines place — the columns carrying those runs are the edition band's own", async () => {

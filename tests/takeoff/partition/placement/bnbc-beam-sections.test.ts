@@ -15,6 +15,12 @@
  *     mark's schedule states, named by the label it stands nearest; a mark standing ON a pair names no
  *     other one; a slanted pair waits for its own run. What that places is graded against the golden
  *     model's own roster, member for member: the right mark, where the model puts it.
+ *   · I-460 — the beams running up the sheet are lettered ON their own axes, turned along them
+ *     (T-TEXT-ROTATED). EntityGraph v3 states each text's world rotation (I-415), and a mark turned to
+ *     run along the one pair it stands on names that pair: S-14 +27 (B25–B46, CB1–4, LB1), S-13 +27
+ *     (1B23–1B44, 1CB1–4, LB1), S-15 +22 (RB25–RB46). TG1, lettered `D74` at 0° inside its own pair
+ *     and `D75` turned across it, stays unplaced. Every clear is graded against the golden model's own
+ *     clear: none is over, and each under is recorded for FRM-4 (I-344's list, re-graded).
  *   · No beam line can be COMPLETE: no beam layout states a slab thickness, and a run binds `t` only
  *     where both of its sides read one (SLAB_THICKNESS_UNSTATED) — every line stands PARTIAL_DECLARED.
  *
@@ -38,12 +44,48 @@ const FIRST_FLOOR_TITLE = "DXF_HANDLE:13F7";
 /** S-01's general note: "ALL DIMENSIONS ARE IN MILLIMETRES …" (I-302). */
 const DECLARATION = "DXF_HANDLE:1F3E";
 
-/** The three beam layouts, the level each is drawn for, and the golden model's level of it. */
+/**
+ * The three beam layouts, the level each is drawn for, the golden model's level of it, how many beams
+ * it places — and how many of those its labels BESIDE them name (I-344), the rest being named by the
+ * turned mark each stands on (I-460).
+ *
+ * TEST_AMENDED (FRM-3, I-460): 25, 23 and 24 before EntityGraph v3 stated a text's rotation —
+ * exactly the beside-named counts below, which do not move.
+ */
 const LAYOUTS = Object.freeze([
-  { view: "F31", level: "2F", placed: 25 },
-  { view: "2116", level: "1F", placed: 23 },
-  { view: "10C1", level: "ROOF", placed: 24 },
+  { view: "F31", level: "2F", placed: 52, beside: 25 },
+  { view: "2116", level: "1F", placed: 50, beside: 23 },
+  { view: "10C1", level: "ROOF", placed: 46, beside: 24 },
 ] as const);
+
+/** The members each layout letters on their own axes, turned along them — the golden's vertical beams, cantilevers and landing beam. */
+const numberedFrom = (prefix: string, from: number, to: number): string[] => Array.from({ length: to - from + 1 }, (_unused, at) => `${prefix}${from + at}`);
+const TURNED: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  F31: [...numberedFrom("B", 25, 46), ...numberedFrom("CB", 1, 4), "LB1"],
+  "2116": [...numberedFrom("1B", 23, 44), ...numberedFrom("1CB", 1, 4), "LB1"],
+  "10C1": numberedFrom("RB", 25, 46),
+});
+
+/**
+ * What each placed beam's clear reads against the golden model's own, where it is not the golden's
+ * figure — every one UNDER, and each owed to FRM-4 (I-344's list, re-graded over all 148 runs):
+ *   · CB1/CB2 and their 1F twins, −125: each is cut at EB1's face where EB1 is cut at theirs, so the
+ *     corner between them has no owning member (L-MEA-09) — the golden runs the cantilever to its tip.
+ *   · B34/B37 and 1B32, −125: cut at the face of the beam crossing their end where the golden cuts at
+ *     the lift core's wall, which is not yet a placed support (WLS-1).
+ *   · 1B34 −25 and 1B35 −150: they end on TG1, which stays unplaced, and are cut at the B4 column's face.
+ *   · The roof's runs, −50 to −275: cut at the faces of the columns S-10 draws, where the golden cuts at
+ *     the roof storey's own (support faces per storey).
+ */
+const UNDER: Readonly<Record<string, Readonly<Record<string, number>>>> = Object.freeze({
+  F31: { B34: -125, B37: -125, CB1: -125, CB2: -125 },
+  "2116": { "1B32": -125, "1B34": -25, "1B35": -150, "1CB1": -125, "1CB2": -125 },
+  "10C1": {
+    RB1: -100, RB5: -100, RB6: -200, RB7: -100, RB8: -50, RB9: -50, RB10: -200, RB11: -200, RB12: -75, RB13: -50, RB14: -75, RB15: -200,
+    RB16: -200, RB17: -75, RB18: -75, RB19: -200, RB24: -100, RB25: -100, RB29: -275, RB30: -150, RB31: -150, RB32: -275, RB33: -275,
+    RB34: -200, RB35: -225, RB36: -200, RB37: -125, RB38: -225, RB39: -275, RB40: -150, RB41: -150, RB42: -275, RB43: -100, RB46: -100,
+  },
+});
 
 /** The marks each strip sheet labels — the golden model's typical-floor and first-floor rosters. */
 const numbered = (prefix: string, count: number): string[] => Array.from({ length: count }, (_unused, at) => `${prefix}${at + 1}`);
@@ -51,7 +93,7 @@ const TYPICAL_MARKS = [...numbered("B", 46), ...numbered("CB", 4), "EB1", "EB2",
 const FIRST_FLOOR_MARKS = [...numbered("1B", 44), ...numbered("1CB", 4), "1EB1", "1EB2", "PB4", "PB5", "TG1"];
 
 /** One member of the golden model (`fixtures/rcc6-bnbc/model.json`, the generator's own, AM-01). */
-type ModelMember = { readonly id: string; readonly class: string; readonly mark: string; readonly level: string; readonly p0: readonly string[]; readonly p1: readonly string[] };
+type ModelMember = { readonly id: string; readonly class: string; readonly mark: string; readonly level: string; readonly p0: readonly string[]; readonly p1: readonly string[]; readonly clear: string };
 const MODEL = JSON.parse(readFileSync(join(process.cwd(), "fixtures", "rcc6-bnbc", "model.json"), "utf8")) as { members: ModelMember[] };
 
 let bnbcRead: Promise<StagesRead> | undefined;
@@ -136,11 +178,12 @@ describe("I-343: the long-section sheets state their beams' sections", () => {
 });
 
 describe("I-344: a pair wider than the band is a member where its gap is its mark's stated width", () => {
-  test.each(LAYOUTS)("$view ($level) places $placed beams, each typed by its own mark's family", async ({ view, placed }) => {
+  test.each(LAYOUTS)("$view ($level) places $placed beams, each typed by its own mark's family", async ({ view, placed, beside }) => {
     const read = await bnbc();
     const beams = beamsOn(read, view);
-    expect(beams.length, `${view} places the beams whose labels stand beside them`).toBe(placed);
+    expect(beams.length, `${view} places the beams whose labels stand beside them, and the beams lettered turned on their own axes`).toBe(placed);
     expect(beams.filter((row) => row.memberFamily !== row.mark).map((row) => row.mark), "every one typed by its own mark's family").toEqual([]);
+    expect(beams.filter((row) => !TURNED[view]?.includes(row.mark)).length, "the beside-named beams I-344 placed, unmoved").toBe(beside);
   }, BUDGET_MS);
 
   test.each(LAYOUTS)("$view ($level): every beam stands where the golden model puts the member of its mark — none named by a neighbour's", async ({ view, level }) => {
@@ -165,7 +208,7 @@ describe("I-344: a pair wider than the band is a member where its gap is its mar
     expect(disagreeing, "the gap between a placed pair's edge lines is its family's b").toEqual([]);
   }, BUDGET_MS);
 
-  test("what is NOT placed, and why: the slanted members, and the two S-14 lettered on their own axes", async () => {
+  test("what is NOT placed, and why: the slanted members, and TG1 — lettered at 0° inside its own pair and turned across it", async () => {
     const read = await bnbc();
     const marks = (view: string): string[] => beamsOn(read, view).map((row) => row.mark);
     // A slanted pair waits for its run to be read along its own direction (D13): measured along its
@@ -174,9 +217,27 @@ describe("I-344: a pair wider than the band is a member where its gap is its mar
     expect(marks("2116").filter((mark) => ["PB4", "PB5", "1EB2"].includes(mark)), "S-13's porch beams and its 45° edge beam").toEqual([]);
     expect(marks("F31").filter((mark) => mark === "EB2"), "S-14's 45° edge beam").toEqual([]);
     expect(marks("10C1").filter((mark) => mark === "REB2"), "S-15's 45° roof-edge beam").toEqual([]);
+    // TG1 is lettered twice on S-13, both ON its own 400 pair: `D74` at 0° — written the way the sheet
+    // reads, which is how F-RCC6's `40B` stands on a pair that is NOT its own — and `D75` turned across
+    // it. Neither is a mark running along the pair it stands on, so neither names it (I-460).
+    const onS13 = (key: string): boolean => read.evidence.assignments.get(key) === "LAYOUT_PLAN:DXF_HANDLE:2116";
+    const lettering = read.graph.entities.filter((entity) => entity.text === "TG1" && onS13(entity.key)).map((entity) => `${entity.key}@${entity.rotation}`);
+    expect(lettering.sort(), "S-13 letters TG1 at 0° and at 90°").toEqual(["DXF_HANDLE:D74@0", "DXF_HANDLE:D75@90"]);
+    expect(marks("2116").filter((mark) => mark === "TG1"), "S-13's transfer girder").toEqual([]);
+  }, BUDGET_MS);
+
+  test("I-460: every beam lettered turned on its own axis is placed, named by that mark — and S-14's LB1 and B31 each by its own", async () => {
+    const read = await bnbc();
+    const rotationOf = new Map(read.graph.entities.map((entity) => [entity.key, entity.rotation]));
+    for (const { view } of LAYOUTS) {
+      const turned = beamsOn(read, view).filter((row) => rotationOf.get(row.markKey) !== 0);
+      expect(turned.map((row) => row.mark).sort(), `${view}: the members it letters turned`).toEqual([...(TURNED[view] ?? [])].sort());
+      expect(new Set(turned.map((row) => rotationOf.get(row.markKey))), `${view}: each by a mark turned up the sheet`).toEqual(new Set([90]));
+    }
     // T-TEXT-ROTATED: LB1 and B31 each lettered ON their own axis, 1219 apart — each named the other
-    // (250 × 375 billed 250 × 450, and back) until a mark on a pair named no other pair.
-    expect(marks("F31").filter((mark) => ["LB1", "B31"].includes(mark)), "S-14's landing beam and B31").toEqual([]);
+    // (250 × 375 billed 250 × 450, and back) while a mark on a pair was read as a label beside another.
+    const named = Object.fromEntries(beamsOn(read, "F31").filter((row) => ["LB1", "B31"].includes(row.mark)).map((row) => [row.mark, row.markKey]));
+    expect(named, "each named by the mark standing on its own pair").toEqual({ B31: "DXF_HANDLE:F12", LB1: "DXF_HANDLE:F2F" });
   }, BUDGET_MS);
 });
 
@@ -193,6 +254,42 @@ describe("the runs the new members measure", () => {
     expect(clears.flatMap((clear) => clear?.sourceKeys ?? []).filter((key) => cells.has(key)), "and no schedule cell — a SPAN is centre to centre").toEqual([]);
     const rb1 = beamsOn(read, "10C1").find((row) => row.mark === "RB1");
     expect(runs.get(rb1?.placementKey ?? "")?.clear?.value, "RB1: 4572 c/c on the roof schedule, 4222 between S-10's column faces").toBe("4222.0");
+  }, BUDGET_MS);
+
+  test("every clear graded against the golden model's own: none OVER, and every UNDER the one FRM-4 is recorded to cut (I-344's list, re-graded)", async () => {
+    const read = await bnbc();
+    const runs = new Map((read.placed.runs ?? []).map((run) => [run.placementKey, run]));
+    for (const { view, level } of LAYOUTS) {
+      const frame = modelFrameOf(read, view);
+      const graded: Record<string, number> = {};
+      for (const row of beamsOn(read, view)) {
+        const member = modelMemberAt(level, row.mark, frame(row));
+        const clear = runs.get(row.placementKey)?.clear?.value;
+        if (member === undefined || clear === undefined) throw new Error(`${view} ${row.mark} stands on no model member, or reads no clear`);
+        const off = Math.round((Number(clear) - Number(member.clear)) * 10) / 10;
+        if (off !== 0) graded[row.mark] = off;
+      }
+      expect(Object.entries(graded).filter(([, off]) => off > 0), `${view}: no clear over the golden's — L-QTY-06 never allows it`).toEqual([]);
+      expect(graded, `${view}: each under, by how much`).toEqual(UNDER[view]);
+    }
+  }, BUDGET_MS);
+
+  test("the x-beams FRM-3's members now carry: the 17 clears I-344 recorded OVER are cut at the new members' faces", async () => {
+    const read = await bnbc();
+    const runs = new Map((read.placed.runs ?? []).map((run) => [run.placementKey, run]));
+    const clearOf = (view: string, mark: string): string | undefined => runs.get(beamsOn(read, view).find((row) => row.mark === mark)?.placementKey ?? "")?.clear?.value;
+    const recorded: readonly (readonly [string, string])[] = [
+      ...["B12", "B13", "B14", "B17", "B18", "EB1"].map((mark) => ["F31", mark] as const),
+      ...["1B10", "1B11", "1B12", "1B15", "1B16", "1EB1"].map((mark) => ["2116", mark] as const),
+      ...["RB12", "RB13", "RB14", "RB17", "RB18"].map((mark) => ["10C1", mark] as const),
+    ];
+    // Before: B12's kind read 4042.2 (+125), B13's 2743.2 (+250), EB1 4267.2 (+250, cut at no end),
+    // the roof's RB12 kind 4042.2 (+50) and RB13 2743.2 (+200) — each OVER the golden's.
+    expect(recorded.map(([view, mark]) => `${mark} ${clearOf(view, mark)}`), "each at the golden's own figure, or under it").toEqual([
+      "B12 3917.2", "B13 2493.2", "B14 3917.2", "B17 3917.2", "B18 3917.2", "EB1 4017.2",
+      "1B10 3917.2", "1B11 2493.2", "1B12 3917.2", "1B15 3917.2", "1B16 3917.2", "1EB1 4017.2",
+      "RB12 3917.2", "RB13 2493.2", "RB14 3917.2", "RB17 3917.2", "RB18 3917.2",
+    ]);
   }, BUDGET_MS);
 
   test("no beam line can be COMPLETE: every run leaves at least one side unread, so no slab thickness is ever bound", async () => {

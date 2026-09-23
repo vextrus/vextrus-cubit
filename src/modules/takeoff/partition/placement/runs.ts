@@ -108,8 +108,12 @@ type Edge = { readonly key: string; readonly layer: string; readonly from: Point
 /** One closed outline of a plan: the ring, its bounding box and its area. */
 type Ring = { readonly key: string; readonly min: Point; readonly max: Point; readonly area: number };
 
-/** One text of a plan, where it stands. */
-type Said = { readonly key: string; readonly text: string; readonly at: Point };
+/**
+ * One text of a plan, where it stands, and which way it is written: the world angle of its baseline,
+ * counter-clockwise in degrees, as the artifact states it (I-415) — null where the artifact is an
+ * older one that states no angle, which this stage never reads as 0 (L-QTY-04).
+ */
+type Said = { readonly key: string; readonly text: string; readonly at: Point; readonly turn: number | null };
 
 /** A member drawn as two edge lines: the axis between them, and how far apart they were drawn. */
 type Axis = {
@@ -207,7 +211,7 @@ export function detectRuns(evidence: PlacementEvidence, placed: readonly Placeme
     const taken = new Set(banded.flatMap((member) => member.keys));
     const stated = statedPairsIn(
       edges.filter((edge) => !taken.has(edge.key)),
-      { apart, reach, marks: said.filter((one) => isFramedClass(classOfMark(one.text))) },
+      { apart, reach, marks: said.filter((one) => isFramedClass(classOfMark(one.text))), banded },
       widths,
     );
     const members = [...banded, ...stated.map((one) => one.member)];
@@ -309,7 +313,7 @@ function saidOf(entity: Drawn): [Said] | null {
   const text = entity.text ?? "";
   const at = (entity.points ?? [])[0];
   if (text === "" || at === undefined) return null;
-  return [{ key: entity.key, text, at: [at[0] ?? 0, at[1] ?? 0] }];
+  return [{ key: entity.key, text, at: [at[0] ?? 0, at[1] ?? 0], turn: entity.rotation ?? null }];
 }
 
 /**
@@ -473,13 +477,18 @@ function halfUnitOf(value: number): number {
  *
  * Two fences more, and both are here rather than beside the band's own pairing, because the band's
  * members are F-RCC6's byte-frozen reading and these are the members only a stated width admits:
- *   · A mark standing ON a drawn pair — between its two edge lines, within its stretch — is that
- *     pair's own lettering, and names no OTHER pair. A set that letters a beam running up the sheet
- *     writes its mark on the axis, turned along it (T-TEXT-ROTATED), and the artifact carries no
- *     rotation to tell such a mark from a label standing beside: so it names nothing here, rather than
- *     the next beam over. Measured on S-14 without it: `LB1` (250 × 375) and `B31` (250 × 450) stand
- *     1219 apart, each on its own axis, and each named the OTHER — the same width, so the width could
- *     not tell (L-CAD-03: a reading names the atom it was read from).
+ *   · A mark standing ON a drawn pair — between its two edge lines, within its stretch — names no
+ *     OTHER pair. Measured on S-14 without it: `LB1` (250 × 375) and `B31` (250 × 450) stand 1219
+ *     apart, each on its own axis, and each named the OTHER — the same width, so the width could not
+ *     tell (L-CAD-03: a reading names the atom it was read from). Whether it names the pair it stands
+ *     on is the drawing's to say, and it says so by how the mark is WRITTEN (I-460, reading I-415's
+ *     world rotation): a set that letters a beam running up the sheet writes its mark on the beam's
+ *     axis, turned to run along it (T-TEXT-ROTATED), and such a mark — turned, standing on exactly one
+ *     drawn pair and running along it — is that pair's own lettering and names it (`ownLettering`). A
+ *     mark written the way the sheet reads is not: F-RCC6's trimmer lettering `40B` stands at 0° on
+ *     exactly one pair that is not its own and runs along it, which is what every label written across
+ *     the sheet does wherever it happens to fall. An artifact that states no rotation (v2) letters no
+ *     pair this way at all, and reads exactly as it did.
  *   · The mark names the pair it stands NEAREST, and no other: of every drawn pair it stands beside and
  *     within reach of, this one. A label is written beside the member it names, and a pair it merely
  *     reaches — S-14's `LB1`, 914 off `B12`'s label and 1399 from its centre, where `B12`'s own pair
@@ -492,7 +501,7 @@ function halfUnitOf(value: number): number {
  */
 function statedPairsIn(
   edges: readonly Edge[],
-  near: { readonly apart: number; readonly reach: number; readonly marks: readonly Said[] },
+  near: { readonly apart: number; readonly reach: number; readonly marks: readonly Said[]; readonly banded: readonly Axis[] },
   widths: ReadonlyMap<string, readonly StatedWidth[]>,
 ): { readonly member: Axis; readonly mark: Said }[] {
   const stated = [...widths.values()].flat();
@@ -514,7 +523,12 @@ function statedPairsIn(
   }
   candidates.sort((left, right) => left.gap - right.gap || (left.left.key < right.left.key ? -1 : left.left.key > right.left.key ? 1 : 0));
 
-  const lettering = near.marks.filter((mark) => !candidates.some((candidate) => standsOn(mark, candidate.member)));
+  // A mark standing on a pair is never a label standing BESIDE another (the first fence), whichever
+  // way it is written and whichever pairing drew the pair it stands on — the band's own members are
+  // drawn pairs too; a turned one running along the one pair it stands on letters that pair.
+  const drawn = [...near.banded, ...candidates.map((candidate) => candidate.member)];
+  const lettering = near.marks.filter((mark) => !drawn.some((member) => standsOn(mark, member)));
+  const own = ownLettering(drawn, near.marks);
   // The drawn pair each label stands nearest, among the pairs it stands beside and within reach of.
   const nearestTo = new Map<string, Axis>();
   for (const mark of lettering) {
@@ -532,8 +546,9 @@ function statedPairsIn(
   for (const candidate of candidates) {
     if (taken.has(candidate.left.key) || taken.has(candidate.right.key)) continue;
     if (!squareToThePlane(candidate.left, tolerance)) continue;
-    const mark = markNaming(candidate.member, lettering, near.reach);
-    if (mark === null || nearestTo.get(mark.key) !== candidate.member) continue;
+    const beside = markNaming(candidate.member, lettering, near.reach);
+    const mark = namingOf(own.get(candidate.member) ?? [], beside !== null && nearestTo.get(beside.key) === candidate.member ? beside : null);
+    if (mark === null) continue;
     const named = widths.get(normaliseMark(mark.text));
     if (named === undefined || !named.some((width) => Math.abs(candidate.gap - width.value) <= width.halfUnit)) continue;
     taken.add(candidate.left.key);
@@ -541,6 +556,64 @@ function statedPairsIn(
     members.push({ member: candidate.member, mark });
   }
   return members;
+}
+
+/**
+ * The marks each drawn pair is LETTERED by (I-460): a mark turned to run along the one pair it
+ * stands on, which is how a set letters a beam running up the sheet (T-TEXT-ROTATED). A mark standing
+ * on two pairs — where they cross, or where two readings of one pair of lines overlap — letters
+ * neither: the drawing did not say which (L-QTY-04).
+ */
+function ownLettering(members: readonly Axis[], marks: readonly Said[]): ReadonlyMap<Axis, readonly Said[]> {
+  const lettered = new Map<Axis, Said[]>();
+  for (const mark of marks) {
+    const on = members.filter((member) => standsOn(mark, member));
+    const [only] = on;
+    if (on.length !== 1 || only === undefined || !runsTurnedAlong(mark, only)) continue;
+    lettered.set(only, [...(lettered.get(only) ?? []), mark]);
+  }
+  return lettered;
+}
+
+/**
+ * Is this mark written TURNED along this member — its baseline running along the member's axis, and
+ * not the way the sheet reads (along x)? Both are asked the one way the member itself sets: carry the
+ * baseline the member's own length, and see whether it stays within half the member's width of the
+ * axis, and whether it leaves a line drawn along x by more than that. A 90° mark on a pair running up
+ * the sheet answers yes; a 0° mark on a pair running across answers no — it is written the way every
+ * label on the sheet is, wherever it falls (F-RCC6's `40B`); a 90° mark across a pair answers no
+ * (S-13's `TG1` lettering `D75`). An artifact stating no rotation answers no, always.
+ *
+ * "The way the sheet reads" is model x. That holds for every plan of both fixtures, each drawn in
+ * model space square to the sheet; a plan drawn turned in model space and shown through a
+ * twisted viewport would read its across-the-sheet labels as turned, and bring F-RCC6's `40B` risk
+ * back. No fixture draws one and this stage reads no viewport's twist, so the assumption is recorded
+ * rather than proved: the day such a plan is partitioned, its twist is subtracted here first
+ * (I-460).
+ */
+function runsTurnedAlong(mark: Said, member: Axis): boolean {
+  if (mark.turn === null) return false;
+  const radians = (mark.turn * Math.PI) / 180;
+  const baseline: Point = [Math.cos(radians), Math.sin(radians)];
+  const run: Point = [member.to[0] - member.from[0], member.to[1] - member.from[1]];
+  const half = member.width / 2;
+  const offAxis = Math.abs(baseline[0] * run[1] - baseline[1] * run[0]);
+  const offSheet = Math.hypot(run[0], run[1]) * Math.abs(baseline[1]);
+  return offAxis <= half && offSheet > half;
+}
+
+/**
+ * The one mark that names a pair: its own lettering, or the label beside it that stands nearest it.
+ * Where they name two different members — two turned marks on one pair, or a pair's own lettering and
+ * a label beside it that disagrees — nothing names it: the drawing stated two readings and this stage
+ * does not choose between them (L-QTY-04). Where they agree, the pair's own lettering is the atom
+ * named, the lowest source key of it where it was lettered twice (L-REG-04).
+ */
+function namingOf(lettered: readonly Said[], beside: Said | null): Said | null {
+  const answers = new Set([...lettered, ...(beside === null ? [] : [beside])].map((mark) => normaliseMark(mark.text)));
+  if (answers.size !== 1) return null;
+  const [first] = [...lettered].sort((left, right) => (left.key < right.key ? -1 : left.key > right.key ? 1 : 0));
+  return first ?? beside;
 }
 
 /**
