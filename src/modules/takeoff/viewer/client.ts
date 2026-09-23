@@ -195,6 +195,90 @@ export function legibleTexts(layer: RenderLayer, camera: Camera): RenderRecord[]
   return layer.records.filter((record) => record.text !== undefined && isTextLegible(record.height ?? 0, camera.scale));
 }
 
+/**
+ * Where legibility begins in a run of finite world heights sorted ascending: the index of the first
+ * one `isTextLegible` admits at this scale, or the run's length where none is. The LOD cut is this
+ * index — everything from it up is drawn — so a search rather than a walk: a sheet with fifty
+ * thousand notes mostly too small to read is asked it every frame (R-UI-040, PB-3).
+ */
+export function legibleFrom(heights: readonly number[], scale: number): number {
+  let low = 0;
+  let high = heights.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (isTextLegible(heights[middle] ?? 0, scale)) high = middle;
+    else low = middle + 1;
+  }
+  return low;
+}
+
+/* ------------------------------------------------------------ the settled frame (I-345, I-346) */
+
+/**
+ * Decision § 4's settle: how long a camera must hold still before its gesture is over. The address
+ * is written then (R-UI-031), and the sheet is drawn in full then (I-345) — one settle, so the two
+ * never disagree about when the reader stopped.
+ */
+export const GESTURE_SETTLE_MS = 150;
+
+/**
+ * The most a settled frame is ever stretched or shrunk to stand for a camera in motion. Past it the
+ * sheet is drawn in full again and that frame is the one the motion goes on from, so a sheet in
+ * motion is never softer than a resample of a full frame by a quarter (I-345).
+ */
+export const SETTLED_RESAMPLE_MAX = 1.25;
+
+/**
+ * How far past each edge of the view a settled frame is drawn, as a fraction of the view on that
+ * axis: the room a pan has to travel, and a zoom out to its resample limit, before geometry the frame
+ * does not hold would come into view (I-345).
+ */
+export const SETTLED_MARGIN = 0.25;
+
+/** A box in drawing units, `[minX, minY, maxX, maxY]`. */
+export type WorldBox = readonly [number, number, number, number];
+
+/** The world box a camera sees. */
+export function viewBoxOf(camera: Camera): WorldBox {
+  const halfWidth = camera.viewport.width / 2 / camera.scale;
+  const halfHeight = camera.viewport.height / 2 / camera.scale;
+  return [camera.centre[0] - halfWidth, camera.centre[1] - halfHeight, camera.centre[0] + halfWidth, camera.centre[1] + halfHeight];
+}
+
+/** A full frame kept to stand for a moving camera: the camera it was drawn at, and the world it holds. */
+export type SettledFrame = {
+  readonly at: Camera;
+  readonly holds: WorldBox;
+};
+
+/**
+ * Whether a settled frame may stand for this camera while it moves (I-345). It may only where moving
+ * and scaling its pixels puts in front of the reader exactly the geometry and the lettering a full
+ * frame at this camera would draw — resampled, never fewer:
+ *
+ * - the view is the same size, so the frame is the same picture of the same stage;
+ * - the scale is within `SETTLED_RESAMPLE_MAX` of the frame's, either way;
+ * - every drawn layer's LOD cut is where it was: no text has become legible that the frame left
+ *   out, and none has gone below legibility that the frame put in (`heights`, one ascending run per
+ *   drawn layer);
+ * - whatever the sheet holds inside the view lies inside what the frame holds (`content`, the world
+ *   box of every drawn layer and the extents frame, or null where nothing is drawn). Past the
+ *   frame's edge is paper only where the sheet itself has nothing.
+ */
+export function settledFrameServes(frame: SettledFrame, camera: Camera, content: WorldBox | null, heights: readonly (readonly number[])[]): boolean {
+  if (frame.at.viewport.width !== camera.viewport.width || frame.at.viewport.height !== camera.viewport.height) return false;
+  const ratio = camera.scale / frame.at.scale;
+  if (!(ratio <= SETTLED_RESAMPLE_MAX && ratio >= 1 / SETTLED_RESAMPLE_MAX)) return false;
+  for (const run of heights) if (legibleFrom(run, camera.scale) !== legibleFrom(run, frame.at.scale)) return false;
+  if (content === null) return true;
+  const view = viewBoxOf(camera);
+  const seen: WorldBox = [Math.max(view[0], content[0]), Math.max(view[1], content[1]), Math.min(view[2], content[2]), Math.min(view[3], content[3])];
+  // Nothing of the sheet is in view: the paper alone is the whole of a full frame too.
+  if (seen[0] > seen[2] || seen[1] > seen[3]) return true;
+  const [minX, minY, maxX, maxY] = frame.holds;
+  return seen[0] >= minX && seen[1] >= minY && seen[2] <= maxX && seen[3] <= maxY;
+}
+
 /* --------------------------------------------------------------------------- the spatial index */
 
 /** One indexed record: what it is called, which layer holds it, its world box and its geometry. */

@@ -169,6 +169,60 @@ IOU in §8 with its owning clause. A grey box promising a panel is a lie about w
   address module writes `v` beside every `s`; a resize after it re-fits the screen and leaves that
   `v` one fit behind.
 
+**Amended by session 7 (PB-3 at the size a reader sees — PERF-011):**
+
+- **I-345 — a sheet in motion is drawn from its settled frame; a sheet at rest is drawn in full.**
+  I-317 made the sheet open fitted to its real stage (1080 × 756 at 1440 × 900), and PERF-011 turned
+  red at a 53.9 ms median: until then it had measured its frames on a 55 px speck, so PB-3 had never
+  been met at the size a reader sees. Measured on a harness that bundles this painter, launches the
+  lane's software GL (`--use-angle=swiftshader`) and runs PERF-011's own sheet, stage and gesture
+  script (median 49.4–51.9 ms, reproducing the red): a full frame costs ~48 ms — the lines 11.3
+  (3.5 vertex and clip, 7.5 raster), the lettering 39 (≈20 texture sampling, 15.5 raster, 2.5
+  blending), the clear 0.4. At the fitted scale ~3,000 notes of the three drawn layers are 10–108 px
+  tall and overdraw the stage ~43 times; none is below `LEGIBLE_TEXT_PX`, none is outside the view,
+  nothing is uploaded per frame, and a frame with both passes switched off costs 0.4 ms — LOD,
+  culling, allocation and upload were not the cause, the fill of legible lettering is. No change
+  that keeps the picture at rest bit for bit (I-346) brings a full frame under ~43 ms on software
+  GL. Ruling, in `painter.ts`, with the rule itself in
+  `client.ts` (`settledFrameServes`): (1) AT REST — the camera has not moved for the settle,
+  `GESTURE_SETTLE_MS` (150 ms, the one settle: the address is written on it too, `ADDRESS_SETTLE_MS`)
+  — the sheet is drawn in full, straight onto the screen, by the same code that drew every frame
+  before; 0 of 816,480 pixels differ from the previous build's frame at four cameras (fitted, a
+  wheel notch in, a pan, 6× deep). (2) IN MOTION — a camera whose centre or scale changed within
+  the settle over the same stage — the painter lays down its SETTLED FRAME: a full frame of the
+  sheet drawn into a texture `SETTLED_MARGIN` (25 %) of the view wider on every side, placed as one
+  quad through the same camera. It is laid down only where it puts in front of the reader exactly
+  the geometry and the lettering a full frame would, resampled and never fewer: the same stage; a
+  scale within `SETTLED_RESAMPLE_MAX` (1.25) of the frame's, either way; every drawn layer's LOD cut
+  where it was, so no note appears or vanishes late; and whatever the drawn layers and the extents
+  frame hold inside the view lies inside what the frame holds, so past its edge is paper only where
+  the sheet has nothing. Where any of those fails, the frame is taken again, in full, at this camera,
+  in this frame. The marks — hover, selection, pulse — are drawn live over it, every frame. (3) THE
+  FRAME A GESTURE ENDS ON is a full one: the loop's tail (400 ms) outlives the settle; and a sheet at
+  rest whose full frame is already on screen is not drawn again, which is § 4's "a still sheet costs
+  zero frames" made true of the tail as well. What it costs: while the camera moves the sheet is a
+  resample of a full frame — softer by at most a quarter, a 1 px line blurred across a pixel at a
+  fractional pan — and it is sharp again 150 ms after the hand stops; taking the frame costs one full
+  frame over 2.25 × the area (52 ms under SwiftShader against a full frame's 44), at the first frame
+  of a gesture after the sheet changed and each time a pan outruns the margin, a zoom a quarter, or
+  a zoom a legibility threshold; the texture holds 2.25 × the backing store (7.3 MB at 1080 × 756,
+  four times that at the × 2 cap), and a context that cannot keep one draws every frame in full.
+  Measured after: a frame in motion 1.7 ms (p95 1.9) under SwiftShader, and the scripted gesture
+  reads median 16.7 / p95 16.9–17.1 ms — the display's own cadence — alone and with four runs at
+  once. PERF-011 is unchanged: its budgets, gesture script, entity count, stage and fit are what
+  they were. Rejected: dropping or boxing lettering in motion (it hides what is there), a coarser
+  LOD at the fitted scale (the notes are legible), and fitting to a smaller stage (the red was the
+  proof working).
+- **I-346 — the glyph atlas is an alpha texture, and a glyph is still its whole cell.** The atlas is a
+  mask — the colour a note is painted in is the record's own — and the glyph shader samples its
+  alpha and nothing else, so it is uploaded as `ALPHA` rather than `RGBA`: the same value in every
+  texel at a quarter of the bytes, measured bit-identical at rest and 4–6 ms off a full frame under
+  SwiftShader (48.0 → 43.6 ms median, same run). Measured and NOT taken: cutting each glyph quad to
+  its cell's ink box (bearing samples zero alpha, so in exact arithmetic it paints the same pixels)
+  halves a full frame to ~23 ms, but a smaller triangle interpolates its texels with other rounding
+  — 37 % of the stage's pixels moved, most by 1/255 and up to 34/255 where forty notes overlap — and
+  a sheet at rest is drawn the same, bit for bit, or it is not the same sheet (I-345 (1)).
+
 ## 1. Layout and hierarchy
 
 Files in the route directory: `page.tsx` (thin server component — reads the four segments and `v`,
@@ -389,6 +443,9 @@ opacity reveal, swatch fill, button and switch colour. The resize handle follows
 transition. The reticle draws in its single home; Skeleton pulses in its own. Every duration is a
 token zeroed at source under reduced motion, and the painter's own loop is input-driven — it renders
 on camera change and on layer arrival, never on an idle timer, so a still sheet costs zero frames.
+While the camera moves the sheet is its settled frame, moved and scaled with the camera, and it is
+drawn in full again once the camera has held still for the settle (I-345) — nothing tweens: every
+frame stands at the camera the hand put it at.
 
 ## 5. Tokens
 
@@ -442,7 +499,8 @@ their primitives. No other id is added.
 Behavioural hooks without new ids: on `viewer-status` — `data-rendered-region` with `data-state` `pending` until the first paint and `settled` after (the rendered contract of `tests/e2e/support/settled.ts`, I-189), `data-first-paint`, `data-renderer`
 (`webgl` | `unavailable`), `data-loaded-layers`, `data-total-layers`, `data-entity-count`,
 `data-drawn-entities`, `data-scale`, `data-frame-median-ms`, `data-frame-p95-ms` (the painter's rAF
-ledger over the last 120 frames, written each frame) and `data-hit-ms` / `data-hit-keys` (the last
+ledger over the last 120 frames, written each frame it paints — in a gesture, frames laid from the
+settled frame, I-345) and `data-hit-ms` / `data-hit-keys` (the last
 answer the index in its worker gave: its round trip against PB-3's 16 ms, and how many keys lay
 under the point — written the same way, so asking costs no render); on each row — `data-layer`, `data-visible`,
 `data-drawn`, `data-locked`, `data-isolated`, `data-failed`; `role="switch"` + `aria-checked` on the

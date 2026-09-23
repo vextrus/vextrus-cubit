@@ -23,8 +23,8 @@
  *    ingest.py:30), the ingests CHECK (src/core/db/schema-takeoff-ingest.ts:23,59 — a migration), and
  *    the inspector (src/modules/takeoff/viewer-inspector/selection.ts:22, inspector-panel.tsx:24).
  *    The EntityGraph's unit map names no PostScript point and no pixel (schema.ts:43), and the
- *    painter's one texture is its glyph atlas (src/modules/takeoff/viewer/painter.ts:296-324), so a
- *    scanned page cannot even be shown to be traced.
+ *    painter samples no image but its glyph atlas (src/modules/takeoff/viewer/painter.ts:354-385) and
+ *    its own settled frame (I-345), so a scanned page cannot even be shown to be traced.
  * 3. Corroboration unlocks nothing. The gate queues every INTERPRETED offer as
  *    INTERPRETED_UNCORROBORATED and reads no corroboration first (src/core/gate/evaluate.ts:245-260;
  *    the one queue cause, src/core/gate/law.ts:16). A register row cannot stand INTERPRETED at all:

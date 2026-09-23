@@ -19,12 +19,15 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { cameraFromViewport, fitCamera, parseViewport, zoomCameraAt } from "../client";
+import { GESTURE_SETTLE_MS, cameraFromViewport, fitCamera, parseViewport, zoomCameraAt } from "../client";
 import type { Camera, ViewerHead } from "../types";
 import { useHandedRef } from "./use-handed-ref";
 
-/** How long after the last gesture event the address is rewritten (Decision § 4's settle). */
-export const ADDRESS_SETTLE_MS = 150;
+/**
+ * How long after the last gesture event the address is rewritten (Decision § 4's settle). The
+ * settle has one home, beside the camera: the painter draws the sheet in full on the same one (I-345).
+ */
+export const ADDRESS_SETTLE_MS = GESTURE_SETTLE_MS;
 
 /** How far one press of a zoom control moves the camera. */
 export const ZOOM_STEP = 1.25;

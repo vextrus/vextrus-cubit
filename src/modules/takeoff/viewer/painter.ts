@@ -7,7 +7,17 @@
 // here (R-UI-001). Entity colour is the artifact's own, with one ruling applied and applied only
 // here — a record resolved to near-white or near-black is CAD colour 7 and paints in the canvas ink,
 // so it is legible on both papers (Decision I-79).
-import { isCanvasInk, isTextLegible, recordBox } from "./client";
+import {
+  GESTURE_SETTLE_MS,
+  SETTLED_MARGIN,
+  isCanvasInk,
+  legibleFrom,
+  recordBox,
+  settledFrameServes,
+  viewBoxOf,
+  type SettledFrame,
+  type WorldBox,
+} from "./client";
 // The two notation readings have one home, beside each other and reachable from a unit lane (B-17).
 import { alphaOf, unitChannelsOf } from "./colour-notation";
 import type { Camera, RenderLayer, RenderRecord } from "./types";
@@ -80,9 +90,10 @@ const CONTINUOUS_GAP_MS = 100;
  * How long a gesture is still in flight after its last event. A pan or a zoom arrives as a stream of
  * events, and the frames between them are the frames PB-3 is about — so the loop keeps drawing for
  * this long after the last one and then stops. A sheet nobody is touching costs no frames at all
- * (Decision § 4: the loop is input-driven, never an idle timer).
+ * (Decision § 4: the loop is input-driven, never an idle timer). It outlasts the settle, so the frame
+ * a gesture ends on is always drawn in full before the loop lets go (I-345).
  */
-const GESTURE_TAIL_MS = 400;
+export const GESTURE_TAIL_MS = 400;
 
 /** The backing store never exceeds twice the layout size — the cap that holds the budget on HiDPI. */
 const MAX_DEVICE_PIXEL_RATIO = 2;
@@ -191,6 +202,36 @@ void main() {
 }`;
 
 /**
+ * The settled frame, laid back down under a camera in motion (I-345): one quad at the world box the
+ * frame holds, through the same camera as the sheet, sampling the frame's own pixels. The texel is
+ * carried at the highest precision the device offers, because a frame is thousands of texels wide.
+ */
+const SETTLED_VERTEX_SHADER = `
+attribute vec2 a_position;
+attribute vec2 a_texel;
+uniform vec2 u_centre;
+uniform float u_scale;
+uniform vec2 u_viewport;
+varying vec2 v_texel;
+void main() {
+  vec2 offset = (a_position - u_centre) * u_scale;
+  gl_Position = vec4(offset.x / (u_viewport.x * 0.5), offset.y / (u_viewport.y * 0.5), 0.0, 1.0);
+  v_texel = a_texel;
+}`;
+
+const SETTLED_FRAGMENT_SHADER = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform sampler2D u_atlas;
+varying vec2 v_texel;
+void main() {
+  gl_FragColor = vec4(texture2D(u_atlas, v_texel).rgb, 1.0);
+}`;
+
+/**
  * A mark drawn above the sheet — what is held, and what is under the pointer. It carries its own
  * positions and its own flat colour, so painting it is two draw calls over buffers no layer batch
  * shares (PB-3).
@@ -236,6 +277,30 @@ type Batch = {
   glyphRuns: ColourRun[];
   /** Whether any run paints in the ink — a layer with none of them survives a theme change as is. */
   usesInk: boolean;
+  /** The world box of everything the layer paints, lines and lettering, or null where it paints nothing (I-345). */
+  box: WorldBox | null;
+};
+
+/**
+ * The frame a moving camera is drawn from (I-345): a full frame of the sheet, drawn past the view's
+ * edges into a texture of its own, with what it was drawn over — so a frame that no longer shows the
+ * sheet as it stands is never laid down.
+ */
+type Settled = {
+  texture: WebGLTexture;
+  framebuffer: WebGLFramebuffer;
+  /** The quad it is laid down as: the world box it holds, and the texels at its corners. */
+  quad: WebGLBuffer | null;
+  texels: WebGLBuffer | null;
+  /** The texture's size, in device pixels. */
+  width: number;
+  height: number;
+  /** The camera and the world box of the frame it holds, or null before one is drawn. */
+  frame: SettledFrame | null;
+  /** The sheet it holds: the scene's revision, the layers drawn, and the backing store it was cut for. */
+  scene: number;
+  drawn: string;
+  store: string;
 };
 
 
@@ -309,7 +374,9 @@ function atlasTexture(gl: WebGLRenderingContext, face: string): WebGLTexture | n
   const texture = gl.createTexture();
   if (texture === null) return null;
   gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sheet);
+  // The mask as alpha alone, because alpha is all the glyph shader samples: a quarter of the bytes
+  // a texel costs to fetch and filter, and the very same value in each (I-346).
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, gl.ALPHA, gl.UNSIGNED_BYTE, sheet);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -333,6 +400,12 @@ function cellOf(character: string): {
   };
 }
 
+/** A box grown to take in one more box, or that box where there was none yet. */
+function joinBox(held: WorldBox | null, minX: number, minY: number, maxX: number, maxY: number): WorldBox {
+  if (held === null) return [minX, minY, maxX, maxY];
+  return [Math.min(held[0], minX), Math.min(held[1], minY), Math.max(held[2], maxX), Math.max(held[3], maxY)];
+}
+
 /**
  * The sheet's painter, or null where this browser offers no WebGL context. A null is a capability
  * and not a refusal: nothing was asked of the reader and no registered code applies (I-82).
@@ -351,10 +424,27 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   const lineProgram = programOf(gl, LINE_VERTEX_SHADER, LINE_FRAGMENT_SHADER);
   const glyphProgram = programOf(gl, GLYPH_VERTEX_SHADER, GLYPH_FRAGMENT_SHADER);
   if (lineProgram === null || glyphProgram === null) return null;
+  // A context that will not compile the settled frame's program draws every frame in full — slower
+  // in motion, never different (I-345).
+  const settledProgram = programOf(gl, SETTLED_VERTEX_SHADER, SETTLED_FRAGMENT_SHADER);
 
   let palette = tokens;
   let atlas = atlasTexture(gl, palette.mono);
   const batches = new Map<string, Batch>();
+
+  /**
+   * The sheet's revision: every change to what a full frame would draw — a layer arriving, the
+   * extents, the palette, the atlas — moves it, and a settled frame of an older revision is never
+   * laid down again (I-345). The marks have their own, because they are drawn live over every frame.
+   */
+  let scene = 0;
+  let marks = 0;
+  /** When the camera last moved — the settle is counted from here, never from a hover or a mark. */
+  let movedAt = Number.NEGATIVE_INFINITY;
+  /** The settled frame, once one has been asked for; `false` where this context cannot keep one. */
+  let settled: Settled | null | false = settledProgram === null ? false : null;
+  /** What is on screen now, so a sheet at rest is not drawn again for nothing (Decision § 4). */
+  let shown: { camera: Camera; scene: number; drawn: string; marks: number; struck: number; store: string; full: boolean } | null = null;
   let frame: Chunk | null = null;
   let frameBuffer: WebGLBuffer | null = null;
   let frameColours: WebGLBuffer | null = null;
@@ -367,7 +457,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   let scheduled = 0;
   let lastFrameAt = 0;
   let lastAskedAt = 0;
-  let pending: { camera: Camera; drawn: Set<string> } | null = null;
+  let pending: { camera: Camera; drawn: Set<string>; key: string } | null = null;
   let listener: (() => void) | null = null;
 
   /** What is held and what is under the pointer, as records and as the buffers they paint from. */
@@ -418,6 +508,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   });
   const lineSlots = slots(lineProgram);
   const glyphSlots = slots(glyphProgram);
+  const settledSlots = settledProgram === null ? null : slots(settledProgram);
 
   /** Bind an attribute to the buffer that feeds it. */
   const attribute = (at: number, buffer: WebGLBuffer | null, size: number): void => {
@@ -445,13 +536,6 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     const height = Math.max(Math.round(canvas.clientHeight * ratio), 1);
     if (canvas.width !== width) canvas.width = width;
     if (canvas.height !== height) canvas.height = height;
-  };
-
-  /** The world box a camera can see, in drawing units. */
-  const viewBox = (camera: Camera): [number, number, number, number] => {
-    const halfWidth = camera.viewport.width / 2 / camera.scale;
-    const halfHeight = camera.viewport.height / 2 / camera.scale;
-    return [camera.centre[0] - halfWidth, camera.centre[1] - halfHeight, camera.centre[0] + halfWidth, camera.centre[1] + halfHeight];
   };
 
   /** The offsets the mark pass draws at, and the step counts they were built for. */
@@ -523,11 +607,13 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   const remarkSelection = (): void => {
     releaseMark(selectionMark);
     selectionMark = markOf(selected, palette.selection);
+    marks += 1;
   };
 
   const remarkHover = (): void => {
     releaseMark(hoverMark);
     hoverMark = markOf(hovered === null ? [] : [hovered], palette.hover);
+    marks += 1;
   };
 
   /**
@@ -578,18 +664,18 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     return 1 - Math.max(gone, 0);
   };
 
-  const render = (): void => {
-    const request = pending;
-    if (request === null) return;
-    resize();
+  /**
+   * The sheet in full at a camera, into whatever framebuffer is bound over whatever viewport is set:
+   * the paper, the extents frame, every drawn layer's lines inside the view, and the lettering the
+   * LOD admits. The screen's frame at rest and the settled frame are both this, and nothing else.
+   */
+  const drawSheet = (camera: Camera, drawn: ReadonlySet<string>): void => {
     const paper = unitChannelsOf(palette.paper);
-    gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(paper[0], paper[1], paper[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.disable(gl.DEPTH_TEST);
 
-    const camera = request.camera;
-    const box = viewBox(camera);
+    const box = viewBoxOf(camera);
 
     gl.useProgram(lineProgram);
     camera3(lineSlots, camera);
@@ -604,7 +690,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       gl.drawArrays(gl.LINES, 0, frame.count);
     }
     for (const [name, batch] of batches) {
-      if (!request.drawn.has(name) || batch.chunks.length === 0) continue;
+      if (!drawn.has(name) || batch.chunks.length === 0) continue;
       attribute(lineSlots.position, batch.lineBuffer, 2);
       attribute(lineSlots.colour, batch.lineColours, 3);
       for (const chunk of batch.chunks) {
@@ -624,10 +710,8 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       gl.bindTexture(gl.TEXTURE_2D, atlas);
       gl.uniform1i(glyphSlots.atlas, 0);
       for (const [name, batch] of batches) {
-        if (!request.drawn.has(name) || batch.glyphVertices === 0) continue;
-        let at = 0;
-        while (at < batch.heights.length && !isTextLegible(batch.heights[at] ?? 0, request.camera.scale)) at += 1;
-        const start = batch.starts[at] ?? batch.glyphVertices;
+        if (!drawn.has(name) || batch.glyphVertices === 0) continue;
+        const start = batch.starts[legibleFrom(batch.heights, camera.scale)] ?? batch.glyphVertices;
         if (start >= batch.glyphVertices) continue;
         attribute(glyphSlots.position, batch.glyphBuffer, 2);
         attribute(glyphSlots.texel, batch.glyphTexels, 2);
@@ -635,6 +719,183 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
         gl.drawArrays(gl.TRIANGLES, start, batch.glyphVertices - start);
       }
       gl.disable(gl.BLEND);
+    }
+  };
+
+  /** Whether two cameras are the same camera, value for value. */
+  const sameCamera = (one: Camera, other: Camera): boolean =>
+    one.scale === other.scale &&
+    one.centre[0] === other.centre[0] &&
+    one.centre[1] === other.centre[1] &&
+    one.viewport.width === other.viewport.width &&
+    one.viewport.height === other.viewport.height;
+
+  /** Everything the drawn layers and the extents frame can paint, as one world box (I-345). */
+  const contentOf = (drawn: ReadonlySet<string>): WorldBox | null => {
+    let box: WorldBox | null = frame === null ? null : frame.box;
+    for (const [name, batch] of batches) {
+      if (!drawn.has(name) || batch.box === null) continue;
+      box = joinBox(box, batch.box[0], batch.box[1], batch.box[2], batch.box[3]);
+    }
+    return box;
+  };
+
+  /** The LOD ladder of every drawn layer that letters anything (I-345). */
+  const laddersOf = (drawn: ReadonlySet<string>): number[][] => {
+    const ladders: number[][] = [];
+    for (const [name, batch] of batches) if (drawn.has(name) && batch.glyphVertices > 0) ladders.push(batch.heights);
+    return ladders;
+  };
+
+  /** The largest texture a settled frame may be drawn into, on either side. */
+  const settledLimit = ((): number => {
+    const texture = Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)) || 0;
+    const viewport = gl.getParameter(gl.MAX_VIEWPORT_DIMS) as ArrayLike<number> | null;
+    return Math.min(texture, viewport?.[0] ?? 0, viewport?.[1] ?? 0);
+  })();
+
+  /** The settled frame's texture, framebuffer and buffers, let go of. */
+  const releaseSettled = (): void => {
+    if (settled === null || settled === false) return;
+    gl.deleteFramebuffer(settled.framebuffer);
+    gl.deleteTexture(settled.texture);
+    if (settled.quad !== null) gl.deleteBuffer(settled.quad);
+    if (settled.texels !== null) gl.deleteBuffer(settled.texels);
+    settled = null;
+  };
+
+  /** The settled frame's texture, framebuffer and quad, made once; `false` where the context refuses. */
+  const settledStore = (width: number, height: number): Settled | false => {
+    if (settled === false) return false;
+    let held = settled;
+    if (held === null) {
+      const texture = gl.createTexture();
+      const framebuffer = gl.createFramebuffer();
+      if (texture === null || framebuffer === null) return (settled = false);
+      held = { texture, framebuffer, quad: bufferOf(new Float32Array(12)), texels: bufferOf(new Float32Array([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1])), width: 0, height: 0, frame: null, scene: -1, drawn: "", store: "" };
+      settled = held;
+    }
+    if (held.width !== width || held.height !== height) {
+      gl.bindTexture(gl.TEXTURE_2D, held.texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, held.framebuffer);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, held.texture, 0);
+      const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      if (!complete) {
+        releaseSettled();
+        return (settled = false);
+      }
+      held.width = width;
+      held.height = height;
+      held.frame = null;
+    }
+    return held;
+  };
+
+  /**
+   * Draw the sheet in full into the settled frame at this camera: the same centre and scale, over a
+   * box `SETTLED_MARGIN` of the view wider on every side, in whole device pixels so the view sits
+   * in it exactly (I-345). False where no frame can be kept — the caller then draws in full.
+   */
+  const takeSettled = (request: { camera: Camera; drawn: Set<string>; key: string }, store: string): Settled | false => {
+    const camera = request.camera;
+    const marginX = Math.round(canvas.width * SETTLED_MARGIN);
+    const marginY = Math.round(canvas.height * SETTLED_MARGIN);
+    const width = canvas.width + marginX * 2;
+    const height = canvas.height + marginY * 2;
+    if (width > settledLimit || height > settledLimit) return false;
+    const held = settledStore(width, height);
+    if (held === false) return false;
+    // The camera states its viewport in layout pixels and the store is in device pixels: the frame's
+    // viewport is its own size in the camera's units, so a world unit is the same pixels in both.
+    const layoutPerDeviceX = Math.max(camera.viewport.width, 1) / canvas.width;
+    const layoutPerDeviceY = Math.max(camera.viewport.height, 1) / canvas.height;
+    const at: Camera = { centre: camera.centre, scale: camera.scale, viewport: { width: width * layoutPerDeviceX, height: height * layoutPerDeviceY } };
+    gl.bindFramebuffer(gl.FRAMEBUFFER, held.framebuffer);
+    gl.viewport(0, 0, width, height);
+    drawSheet(at, request.drawn);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    const holds = viewBoxOf(at);
+    refill(held.quad, new Float32Array([holds[0], holds[1], holds[2], holds[1], holds[2], holds[3], holds[0], holds[1], holds[2], holds[3], holds[0], holds[3]]));
+    held.frame = { at: camera, holds };
+    held.scene = scene;
+    held.drawn = request.key;
+    held.store = store;
+    return held;
+  };
+
+  /**
+   * A frame in motion (I-345): the settled frame laid down under this camera — moved and scaled, never
+   * redrawn — where it still shows the sheet exactly as a full frame would, else a new settled frame
+   * taken here first. False where this context keeps none, and the caller draws in full.
+   */
+  const laySettled = (request: { camera: Camera; drawn: Set<string>; key: string }, store: string): boolean => {
+    if (settledProgram === null || settledSlots === null) return false;
+    const camera = request.camera;
+    const current =
+      settled !== null &&
+      settled !== false &&
+      settled.frame !== null &&
+      settled.scene === scene &&
+      settled.drawn === request.key &&
+      settled.store === store &&
+      settledFrameServes(settled.frame, camera, contentOf(request.drawn), laddersOf(request.drawn));
+    const held = current ? (settled as Settled) : takeSettled(request, store);
+    if (held === false) return false;
+
+    const paper = unitChannelsOf(palette.paper);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(paper[0], paper[1], paper[2], 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.disable(gl.DEPTH_TEST);
+    gl.useProgram(settledProgram);
+    camera3(settledSlots, camera);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, held.texture);
+    gl.uniform1i(settledSlots.atlas, 0);
+    attribute(settledSlots.position, held.quad, 2);
+    attribute(settledSlots.texel, held.texels, 2);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    return true;
+  };
+
+  const render = (): void => {
+    const request = pending;
+    if (request === null) return;
+    resize();
+    const store = `${canvas.width}x${canvas.height}`;
+    const camera = request.camera;
+    // In motion until the camera has held still for the settle (Decision § 4, I-345).
+    const moving = performance.now() - movedAt < GESTURE_SETTLE_MS;
+    // A sheet at rest whose full frame is already on screen — this camera, this sheet, these marks,
+    // no pulse in flight — is not drawn again: the canvas keeps what it shows, and a still sheet
+    // costs no frames (Decision § 4).
+    if (
+      !moving &&
+      pulseMs <= 0 &&
+      shown !== null &&
+      shown.full &&
+      shown.struck === 0 &&
+      shown.scene === scene &&
+      shown.drawn === request.key &&
+      shown.marks === marks &&
+      shown.store === store &&
+      sameCamera(shown.camera, camera)
+    )
+      return;
+
+    // In motion, the settled frame stands for the sheet; at rest — and wherever no frame can be kept
+    // — the sheet is drawn in full, straight onto the screen, exactly as it always was (I-345).
+    const full = !(moving && laySettled(request, store));
+    if (full) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      drawSheet(camera, request.drawn);
     }
 
     // What is under the pointer, then what is held, above the sheet and above its text: a selection
@@ -657,6 +918,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       if (ledger.length > LEDGER_FRAMES) ledger.shift();
     }
     lastFrameAt = now;
+    shown = { camera, scene, drawn: request.key, marks, struck, store, full };
     listener?.();
   };
 
@@ -741,6 +1003,8 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       if (positions.length / 2 - chunkStart >= CHUNK_VERTICES) closeChunk();
     }
     closeChunk();
+    let box: WorldBox | null = null;
+    for (const chunk of chunks) box = joinBox(box, chunk.box[0], chunk.box[1], chunk.box[2], chunk.box[3]);
 
     // Text is tessellated in world units at its own height, so a quad is camera-independent and
     // level-of-detail is a range of one buffer rather than a rebuild (R-UI-040).
@@ -761,6 +1025,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       const letters = [...(record.text ?? "")];
       glyphRuns.push({ rgb: recordColour(record), vertices: letters.length * 6 });
       const advance = height * GLYPH_ADVANCE;
+      if (letters.length > 0) box = joinBox(box, originX, originY, originX + letters.length * advance, originY + height);
       letters.forEach((character, index) => {
         const cell = cellOf(character);
         const left = originX + index * advance;
@@ -800,7 +1065,9 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       lineRuns,
       glyphRuns,
       usesInk: lineRuns.some((run) => run.rgb === null) || glyphRuns.some((run) => run.rgb === null),
+      box,
     });
+    scene += 1;
   };
 
   const frameExtents = (
@@ -813,6 +1080,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     releaseFrame();
     if (extents === null) {
       frame = null;
+      scene += 1;
       return;
     }
     const [minX, minY] = extents.min;
@@ -822,6 +1090,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     frameBuffer = bufferOf(new Float32Array(outline));
     frameColours = bufferOf(new Float32Array(Array.from({ length: 8 }, () => [red, green, blue]).flat()));
     frame = { start: 0, count: 8, box: [minX, minY, maxX, maxY] };
+    scene += 1;
   };
 
   return {
@@ -832,6 +1101,9 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     setPalette: (next) => {
       const was = palette;
       palette = next;
+      // Every colour and the face are what a full frame is drawn in: a settled frame of the old
+      // palette is never laid down again (I-345).
+      scene += 1;
       if (next.mono !== was.mono) {
         if (atlas !== null) gl.deleteTexture(atlas);
         atlas = atlasTexture(gl, palette.mono);
@@ -880,16 +1152,24 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     },
 
     draw: (camera, state) => {
-      pending = {
-        camera,
-        drawn: new Set(
-          state
-            .layerRows()
-            .filter((row) => row.drawn)
-            .map((row) => row.name),
-        ),
-      };
-      lastAskedAt = performance.now();
+      const drawn = state
+        .layerRows()
+        .filter((row) => row.drawn)
+        .map((row) => row.name);
+      const asked = performance.now();
+      // A move is the centre or the scale changing over the same stage — a pan, a zoom, a fit, a
+      // travel. A stage that changed size is not a gesture, and a hover or a mark is not a move
+      // (I-345).
+      const held = pending?.camera;
+      if (
+        held !== undefined &&
+        held.viewport.width === camera.viewport.width &&
+        held.viewport.height === camera.viewport.height &&
+        (held.scale !== camera.scale || held.centre[0] !== camera.centre[0] || held.centre[1] !== camera.centre[1])
+      )
+        movedAt = asked;
+      pending = { camera, drawn: new Set(drawn), key: drawn.join("\n") };
+      lastAskedAt = asked;
       if (scheduled === 0) scheduled = requestAnimationFrame(tick);
     },
 
@@ -919,6 +1199,8 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       releaseFrame();
       frame = null;
       framed = null;
+      releaseSettled();
+      shown = null;
       if (atlas !== null) gl.deleteTexture(atlas);
       atlas = null;
     },
