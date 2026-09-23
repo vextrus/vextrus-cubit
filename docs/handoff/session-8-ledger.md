@@ -172,3 +172,47 @@ the 75 cells lack is drawn in F-RCC6-BNBC itself, appended so that no existing h
     R0-G3 (masonry one home, after ARCH-1) → R0-REC (model recordings, live Jev) → R0-BASE (baseline:,
     with FND-OWN) ∥ R0-DOCS; then the readers (WLS-1, F1-1, TANK-1, STAIR-RB, SLAB-RB, PILE-RB, CAP-RB,
     TIE-1, LNT-1, SLB-1).
+
+## Wave 1 integrated; gate 1; the owner's pause
+
+- **Wave 1 recovery finished** (`wf_81525490-bcd`: 43 agents, 9.01 M subagent tokens): 20 slices,
+  8 reviews PASS on first read, 11 fixed after FIX_REQUIRED. ARCH-1 (F-ARCH) PASS.
+- **Integrated** (`.private/work/session-8/integrate2.py`: a slice's commits cherry-picked together,
+  placeholders renumbered once in letter order, one commit per slice plus its `baseline:` commits):
+  S0 `e2c6e4df` (I-370…I-394, D-005) · ASK-0 `fd20a143` (I-395…I-407) · H1 `d7abe245` · JEV-1
+  `e76a3089` (I-408) · RANGE-LIST `55205658` (I-409…I-411) · R6-U `6175439d` (I-412) · R6b-1
+  `ac91ae3e` (I-413, I-414) · FRM3-A `b8eeae02` + baseline `1815db21` (I-415…I-417) · SCALE-1
+  `507e939a` (I-418…I-420) · VD-1 `bf608729` (I-421…I-426; one hand merge with SCALE-1 in the partition
+  stage) · C1 `b4401c7b` (I-427, I-428) · C2 `b885fb95` (I-429) · C3 `e1ebc279` (I-430…I-432) · C5
+  `21b10716` (I-433…I-435) · C6a `55f81325` (I-436, I-437) · C7 `56fcea51` (I-438…I-441) · REG-FILT
+  `6ee88c9e` (I-442, I-443; hand merges in s-takeoff.md §0.5 and J-021) · DLG-1 `a7f5f786`
+  (I-444…I-448) · BOQ-1 `7a166b93` + baseline `b447e98a` (I-449…I-451) · ARCH-1 `635d3888` + three
+  baselines (I-452…I-457). The first per-commit renumbering attempt conflicted on its own placeholders
+  and allocated out of letter order; S0 was re-integrated by amend before anything built on it.
+- **Gate 1** (after the integration): `GATE summary — verify: green 53.96s · checkup: green 0.80s ·
+  golden: green 11.04s · db: RED exit=1 94.84s · e2e: RED exit=1 133.60s · e2e-j000: green 229.19s ·
+  perf: green 19.72s` — `GATE wall-time 543.18s exit 1`. Causes, each fixed:
+  - verify (before the gate): AC-3 "a baseline: commit carries baselines and nothing else" — the draft
+    BOQ's V-DOCS goldens were never declared re-baselines → `374e5d03`.
+  - db, 23 tests in 5 files: the register workspace's stand-in extractor still wrote EntityGraph v2,
+    which the ingest door now refuses as a stale extractor's → `227a8cfe` (5/5 files, 32/32 green).
+    **And a harness hazard:** the owner's `~/.claude/settings.json` symlinked `cad/.venv` into every
+    worktree, so each worktree's `uv run` re-installed the SHARED editable `vextrus-cad` from its own
+    source — the R0 chain (based before FRM3-A) kept putting a v2 extractor under the main checkout.
+    Removed `cad/.venv` from `worktree.symlinkDirectories` (backup
+    `.private/work/session-8/user-settings.backup.json`); worktrees now build their own env from uv's
+    cache; the running R0 worktree was given its own.
+  - e2e, 11: five journeys on `stageRegister` looked for a `v:`-prefixed key in `partition_views`
+    (VD-1's stage, written where no journey runs) → `8e9595d3`; J-003's dialog mask painted over the
+    footer's buttons once the digest folded into Details → `cb3936e6`; eight pictures moved lawfully,
+    each looked at (DLG-1's words, VD-1's title-block sheet number and member Trace, C1, C6a's
+    "MPa MPa" fix, C7's names, C3's drawer) → `baseline: e82c627d`.
+  - Noted for VD-2: the Trace block shows a raw placement key as the count's source and says
+    "1 lines cite this selection". POLISH: the schedules rail clips "Schedule · Def…".
+- **Gate 2** started on `e82c627d` (log `.private/work/session-8/gate-2.log`).
+- **Wave 2 launched** (`wf_456f194d-b7f`, 18 slices from `e82c627d`: FND-OWN, FRM3-B, VIEW-TXT, C4',
+  RES-1, HONEST-SCOPE, SRCH-1, ASK-1a, S1, S2, S4, ARCH-2, ARCH-3, M4P-1, C8, BOQ-SHAPE, L4 (+BBS-DOC),
+  REAL-1) — then **STOPPED minutes later at the owner's word ("pause for 30 minute as limit will reset
+  and continue")**, together with the R0 chain (`wf_9c4650fd-ab3`, R0-G0 in its worktree
+  `.claude/worktrees/wf_9c4650fd-ab3-1`). Both resume by the recovery pattern (continue in the
+  worktrees), not a blind resume.
