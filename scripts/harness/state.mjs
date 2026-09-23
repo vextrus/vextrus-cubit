@@ -24,7 +24,7 @@ const head = read("git", ["log", "-1", "--format=%h %s"]) ?? "?";
 const status = (read("git", ["status", "--porcelain"]) ?? "").split("\n").filter((line) => line !== "");
 const tracked = status.filter((line) => !line.startsWith("??"));
 lines.push(`git: ${branch} @ ${head.length > 110 ? `${head.slice(0, 107)}...` : head}`);
-lines.push(`tree: ${tracked.length === 0 ? "clean" : `${tracked.length} tracked change(s)`} · ${status.length - tracked.length} untracked (the owner's .agents/ .idea/ .junie/ AGENTS.md cov.html are never committed)`);
+lines.push(`tree: ${tracked.length === 0 ? "clean" : `${tracked.length} tracked change(s)`} · ${status.length - tracked.length} untracked`);
 
 const served = [];
 for (const [name, port] of Object.entries(PORTS)) {
