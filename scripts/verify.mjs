@@ -105,7 +105,19 @@ export const LANE_COMMANDS = Object.freeze({
  * twice (next.config.ts holds the flag's one reading).
  * @type {Readonly<Record<string, Record<string, string>>>}
  */
-export const LANE_ENV = Object.freeze({ build: { CUBIT_BUILD_SKIP_TYPECHECK: "1" } });
+export const LANE_ENV = Object.freeze({
+  build: { CUBIT_BUILD_SKIP_TYPECHECK: "1" },
+  // The unit lane runs in the same wave as the cad lane (planWaves), and two of its suites —
+  // tests/cad/dwg/dwg-lane (AC-6) and tests/cad/licence (AC-7) — assert that verify's cad lane is
+  // green by RUNNING it, ruff and the whole pytest collection, ~35 s each. Inside this chain that
+  // was the cad lane three times over one tree, and the two extra runs were the unit lane's wall
+  // (verify 70.5 s against V-VERIFY's 60 at session 7's gate). Told that the cad lane stands
+  // beside them, those suites prove its COMMAND is exactly theirs and leave its verdict to it:
+  // the chain still fails red if the cad lane does. Run on their own (`pnpm test`), they run it.
+  // The same holds for the lint lane: tests/lint/import-depth's "`eslint src` is clean" linted the
+  // whole of src/ a second time beside `eslint .` over the same config.
+  unit: { CUBIT_CAD_LANE_BESIDE: "1", CUBIT_LINT_LANE_BESIDE: "1" },
+});
 
 /**
  * @typedef {{id: string, status: "armed" | "stub", probe: string}} Lane

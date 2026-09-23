@@ -11,6 +11,7 @@ import { spawnSync } from "node:child_process";
 import { basename, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import { cadPytestArgv } from "../../../scripts/lib/cad-lane.mjs";
+import { CAD_LANE_BESIDE, expectCadLaneBeside } from "../support/cad-lane-beside";
 import {
   CAD_TEST_DIR,
   committedDwgFixtures,
@@ -103,6 +104,12 @@ describe("AC-6: the cad lane with the DWG suite in it", () => {
 
   it("AC-6: verify's cad lane — ruff check cad, then pytest cad — is green with the DWG suite in it", () => {
     requireDwgLane();
+    // Inside verify the cad lane runs beside this suite (tests/cad/support/cad-lane-beside.ts): the
+    // collection case above proves the DWG suite is in it, and the lane's own verdict is its green.
+    if (CAD_LANE_BESIDE) {
+      expectCadLaneBeside("AC-6");
+      return;
+    }
     const lint = runInCadProject(["ruff", "check", "cad"]);
     expect(lint.status, `ruff check cad exited ${lint.status}\n${lint.stdout}\n${lint.stderr}`).toBe(0);
     expectPytestGreen(runPytest([...CAD_SUITE, "-q"]), "AC-6", 1);

@@ -9,6 +9,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import { cadPytestArgv } from "../../scripts/lib/cad-lane.mjs";
+import { CAD_LANE_BESIDE, expectCadLaneBeside } from "./support/cad-lane-beside";
 import { REPO_ROOT, requireCadPackage, runInCadProject } from "./support/artifact";
 import {
   declaredPythonRequirements,
@@ -94,6 +95,12 @@ describe("AC-7: the AGPL PDF-library ban", () => {
 
   it("AC-7: verify's cad lane — ruff check cad, then pytest cad — is green", () => {
     requireCadPackage();
+    // Inside verify the cad lane runs beside this suite (tests/cad/support/cad-lane-beside.ts): its
+    // collection holds the licence suite, and the lane's own verdict is its green.
+    if (CAD_LANE_BESIDE) {
+      expectCadLaneBeside("AC-7");
+      return;
+    }
     const lint = runInCadProject(["ruff", "check", "cad"]);
     expect(lint.status, `ruff check cad exited ${lint.status}\n${lint.stdout}\n${lint.stderr}`).toBe(0);
     // The lane's own command (scripts/lib/cad-lane.mjs), without the fixture regeneration: that

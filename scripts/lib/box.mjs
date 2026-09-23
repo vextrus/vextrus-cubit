@@ -78,8 +78,18 @@ export function waveParallelism(lanes, box = {}) {
  * twenty. Twelve is the knee — past it the curve is flat, because the lane's floor is now its own
  * slowest FILE (tests/takeoff/ingest/extractor-process.test.ts, 30 s), and the six lanes gating
  * beside it want cores too.
+ *
+ * AND MOVED AGAIN (session 7, 2026-09-23). The lane grew to 562 files and ~500 s of work (the M3
+ * doors' suites over the cad CLI among them), and the gate read `LANE unit 61.35s` / `verify
+ * wall-time 70.52s` against V-VERIFY's 60. Once the two in-lane cad runs and the second `eslint
+ * src` were left to the lanes beside them (scripts/verify.mjs LANE_ENV) it read unit 54.2 s /
+ * verify 59.1 s at twelve (cad 50.3, build 4.8) — worker-bound again, the tail a file of the
+ * lane's own. At sixteen, the gate's whole budget less the six siblings on this 24-thread box: unit
+ * 48.8 s, verify 58.8 s green (cad 53.5, build 5.1). The chain's wall is now the CAD lane, and the
+ * unit lane stands ~5 s under it instead of being it: sixteen buys the lane room to grow, not a
+ * faster verify. The next second off V-VERIFY is the cad lane's (ruff + the whole pytest cad).
  */
-export const UNIT_LANE_KNEE = 12;
+export const UNIT_LANE_KNEE = 16;
 export const DB_LANE_KNEE = 8;
 
 /**

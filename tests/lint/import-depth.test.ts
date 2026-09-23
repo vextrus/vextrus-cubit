@@ -17,6 +17,7 @@ import { createRequire } from "node:module";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, test } from "vitest";
+import { LANE_COMMANDS } from "../../scripts/verify.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const requireFromRoot = createRequire(join(REPO_ROOT, "noop.cjs"));
@@ -272,6 +273,14 @@ describe("AC-3: the tree obeys the rule and every lane resolves the alias", () =
       // The silence below only means something if the rule is armed over src/ — a rule that does not
       // exist reports nothing on every tree there is.
       expect(sourceBlock()?.rules?.[RULE_ID], `${RULE_ID} is not armed, so a clean src/ proves nothing`).toBe("error");
+      // Inside verify the lint lane runs `eslint .` over this same config beside this suite
+      // (scripts/verify.mjs LANE_ENV), and an error anywhere under src/ is its red: the rule is
+      // proved ARMED here and the tree clean there, rather than src/ linted twice in one chain.
+      if (process.env["CUBIT_LINT_LANE_BESIDE"] === "1") {
+        const lint = LANE_COMMANDS["lint"]?.[0] ?? [];
+        expect(lint.slice(-1), "verify's lint lane lints the whole tree, src/ within it").toEqual(["."]);
+        return;
+      }
       const results = await linter.lintFiles([join(REPO_ROOT, "src")]);
       expect(results.length, "linting src/ read no files at all").toBeGreaterThan(0);
       const climbs = results.flatMap((result) =>
