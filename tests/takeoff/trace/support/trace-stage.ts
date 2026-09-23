@@ -32,7 +32,10 @@ export interface LineEvidence {
   unit: string;
   drawingId: string | null;
   layoutName: string | null;
-  sourceKeys: string[];
+  /** What the Trace selects and flies to: the member's outline and mark on `layoutName` (VD-1). */
+  traceKeys: string[];
+  /** The sheet each cited key stands on, by the key as cited — null for one on no sheet (VD-1). */
+  sourceSheets: Record<string, string | null>;
   formula: string;
   variables: Record<string, Binding>;
   quantityBasis: string;
@@ -69,9 +72,27 @@ export async function traceSeam(): Promise<TraceSeam> {
  * own `traceAddress`/`originAddress` are what these are asserted AGAINST, so one wrong spelling
  * cannot agree with itself into a pass (B-12: every literal below is public).
  */
-export function traceAddressSpelling(tenantId: string, projectId: string, line: { drawingId: string; layoutName: string; sourceKeys: readonly string[]; lineId: string }, lineParam: string): string {
-  const keys = line.sourceKeys.map((key) => encodeURIComponent(key)).join(",");
+export function traceAddressSpelling(tenantId: string, projectId: string, line: { drawingId: string; layoutName: string; traceKeys: readonly string[]; lineId: string }, lineParam: string): string {
+  // Lossless (walk-0, I-423): each key's own `%` and `,` are escaped before the keys are joined, so
+  // a placement key's `x,y` is one key on the far side, never two.
+  const keys = [...new Set(line.traceKeys)].map((key) => encodeURIComponent(escapedKey(key))).join(",");
   return `/t/${tenantId}/p/${projectId}/viewer/${line.drawingId}/${encodeURIComponent(line.layoutName)}?s=${keys}&${lineParam}=${encodeURIComponent(line.lineId)}`;
+}
+
+/** One key as the contract spells it inside the joined `s` value: `%` as `%25`, `,` as `%2C`. */
+export function escapedKey(key: string): string {
+  return key.split("%").join("%25").split(",").join("%2C");
+}
+
+/**
+ * The `s` value read back as the contract states it: split at the separator, each segment unescaped.
+ * The inverse of `escapedKey` over a joined value, spelled here rather than borrowed from the product.
+ */
+export function selectionKeysSpelling(value: string): string[] {
+  return value
+    .split(",")
+    .filter((segment) => segment !== "")
+    .map((segment) => segment.replace(/%2C/giu, ",").replace(/%25/gu, "%"));
 }
 
 export function originAddressSpelling(tenantId: string, projectId: string, lineId: string | null, lineParam: string): string {

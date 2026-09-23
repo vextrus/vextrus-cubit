@@ -682,6 +682,11 @@ References to these four are cited as *s-viewer-inspector I-85…I-88*.)
   L-CAD-03 names (`DXF_HANDLE:HEX`); a derived record resolves to its `src` instance key, so a block
   instance selects, lists and copies as one key however many pieces it paints. Rejected: selecting
   per drawn record, which would put synthesised paint nobody can name into a copyable list.
+  **Amended by VD-1 (I-423):** an atom is a source key of ANY scheme L-CAD-02 closes — a DXF
+  handle (still held to its hexadecimal shape), a PDF object, a raster trace — read by the one
+  grammar (`parseSourceKey`), because a Trace into a sheet a PDF lane read would otherwise refuse
+  every key it named as malformed; the inspector's handle cell reads the key part of any scheme the
+  same way.
 - **I-87 — the rectangle crosses, and only over what can be seen.** Any entity whose box intersects
   the rectangle is taken; the direction-dependent window/crossing idiom is rejected as undiscoverable
   from the one sentence the panel shows. The rectangle and the layer **Select** answer from the
@@ -967,7 +972,11 @@ Routes: the four query forms of
 layer&index={n}`. `s` is the selection as comma-joined source keys in selection order, absent at
 count 0, written by `history.replaceState` exactly as `v` is (never `pushState`, so Back leaves the
 sheet); duplicates collapse to their first occurrence; `v` is written before `s` so the address has
-one stable spelling.
+one stable spelling. **Amended by VD-1 (I-423):** the value is lossless — each key's own `%` is
+written `%25` and its own `,` `%2C` before the keys are joined, and read back in that order's inverse
+(`serialiseSelection` / `splitSelection`, and `selectionQueryValue` for a link composed outside the
+viewer), so a key that carries a comma is one key on the far side. A DXF handle carries neither
+character, so every address written before the escape reads exactly as it did.
 
 Test ids added, exactly the contract's: `viewer-inspector` (`data-state`, `data-count`) ·
 `viewer-inspector-hover` (`data-key`) · `viewer-inspector-hover-type` · `-layer` · `-handle` ·
@@ -1002,13 +1011,15 @@ letters); the marquee here is Shift+drag only and no tool mode ships. The Trace'
 live variables ship, and the queue item, the certificate cell and the BOQ line stay unpaid — owner:
 those surfaces' own leaves.
 
-**A `layout` column on partition views.** No store ties a partition view to a layout today, so
-`sheetOfView(scope, drawingId)` in `src/modules/takeoff/trace` answers the single `layoutName` a
-confirmation recorded for that drawing in `sheetDisciplines`, and `"Model"` where none or several
-are — which is where a reading with no paper layout was in fact taken. A Trace address is therefore
-only as precise as the ingest's record. The cure is a layout carried on the view itself — owner: the
-node that owns `src/modules/takeoff/partition` and its store; no migration is made here, and nothing
-in `src/` promises one (Q-17). Per-entity keyboard selection, Ctrl/⌘+C on the focused canvas,
+**A `layout` column on partition views — PAID by VD-1, without one.** The Trace once answered the
+single `layoutName` a confirmation recorded for the drawing in `sheetDisciplines`, else a hard-coded
+`"Model"` that no artifact holds (the extractor spells model space `model`), so every line of a
+28-sheet drawing was addressed at a sheet the viewer refuses (walk-0, BLOCKS_DEMO). The sheet is now
+READ, per key, off the record the line's pinned revision measured (I-421, I-422): where the key
+was drawn, and which sheet's window frames it (L-CAD-05) — core's one reading,
+`src/core/sheets/frames.ts` (`sheetOfKey`, `traceCitations`), the same one the sheet index counts its
+views by. Nothing is stored and no migration is made; a view carrying its layout would only be a
+second home for what the artifact already says. Per-entity keyboard selection, Ctrl/⌘+C on the focused canvas,
 zoom-to-selection as a letter, rotate and the minimap — owner: the toolbar leaf. The canvas key list
 `viewer_canvas_keys` names neither Escape nor the marquee — owner: the same leaf, which owns
 `src/ui/strings/viewer.ts` and R-UI-032's shortcut sheet. A per-user remembered inspector width
@@ -1067,6 +1078,55 @@ R-UI-004, R-UI-050, ARCH-01, ARCH-03, B-17, B-19, C-05. The link itself is ruled
   with a remedy (ARCH-03, R-UI-020) — because a reader who cannot read this project cannot read the
   drawing under it either. Rejected: a fourth cell spelling a code inside the inspector, which would
   be a second home for a refusal's words.
+
+**Amended by VD-1 (the Trace lands on the member).** Walk-0 found the Trace missing on every real
+line: the rails cite a view key, a placement key, a member's `#bars` and an edition's `edition:`
+clauses, where the Trace had been built and proved on staged lines citing raw handles; the viewer
+refused every key that was not `DXF_HANDLE:hex`; the sheet fell back to a `Model` no artifact holds;
+and a column held on S-10 answered "No published line cites this selection". Four Interpretations
+rule the repair (tokens, renumbered at integration):
+
+- **I-421 — a line's Trace selects its MEMBER, on the member's sheet; its other citations are
+  answered their own sheets.** Every key a line cites is read by the grammar that minted it
+  (`readCitedKey`, the identity core's inverse of L-REG-04): a PLACEMENT key, and a bar set cited as
+  `<instanceKey>#bars`, name the member, which resolves to the outline and the mark its placement row
+  was read off (L-CAD-03); a SOURCE key is its own entity; a VIEW key names the region the line was
+  read in — it decides the sheet and is never flown to; an `edition:` clause and an `act:` stand on
+  no sheet at all. The Trace opens the view's sheet where that sheet shows every key of the member
+  (a column opens on the layout plan that placed it, S-10, however many other sheets frame the same
+  model region), else the sheet the outline itself stands on, and selects exactly the member's keys
+  that stand there — so the "Not on this sheet" cell of a real line is empty. That selection travels
+  as `traceKeys` (`LineEvidence`, the register's `ViewLine`), and `traceAddress` carries it in `s`.
+  It is kept apart from `sourceKeys`, which still lists every key the line cites
+  (s-takeoff-register.md I-426). What the line read on
+  ANOTHER sheet — a column's section in S-11's schedule, its storey height on S-25's section — is not
+  selected here (it would only fill the missing cell) and is answered its own sheet instead
+  (`LineEvidence.sourceSheets`), for the Trace block to link to (VD-2). A line whose member no
+  placement resolves opens on its view's sheet and flies to what it cites there; a line whose record
+  cannot be read names no sheet and is offered no Trace (I-181). The other direction (X-2) meets a
+  held selection through the same join: a line is cited by the member's outline and mark and by every
+  entity its bindings name, so holding C2's outline on S-10 lists every line measured off C2. What
+  the member IS is the placement stage's reading: another piece of ink drawn for it (a second ring,
+  a beam's other edge) is not the member, and holding it answers nothing — measured less, and said
+  so. Model space is named by the artifact's own layout kind, never by a constant. Rejected: carrying
+  every cited key into `s` (walk-0's dead end — two of a column line's three entities stand on other
+  sheets); a second caption-text resolver (it fails the two beam views BNBC captions in model space).
+- **I-422 — a line is traced over the record its pinned revision measured.** The record is the
+  ingest of the very bytes the pin recorded (L-REG-06's manifest names each drawing's revision by its
+  sha256), the newest such where one file was read twice — never the drawing's CURRENT record, which
+  a later upload moves while the lines stand where they were read. It is read once per drawing of a
+  register, never once per line (R-TO-050's 50 000 lines), through the one artifact door, which
+  answers once per content hash.
+- **I-423 — the `s` value is lossless, and every registered scheme is a key.** See I-86's and
+  § 7's amendments: a placement key's `x,y` reached the viewer as two keys (walk-0); the keys are now
+  escaped before they are joined, and a key of any scheme L-CAD-02 closes is an atom. The Cited-by
+  read holds the keys it asks for whole too.
+- **I-424 — windows of ONE sheet say which sheet (amends I-291's last case).** A model entity two
+  windows of the same sheet frame — a plan and its enlarged detail — stands on that sheet; only
+  windows of two DIFFERENT sheets leave the record silent, and the entity on the model sheet. The
+  sheet index, the register's Source chip and the Trace all read this one rule (`sheetOfKey`); BNBC's
+  and F-RCC6's counts are unchanged by it (every BNBC region view already stood on one paper sheet;
+  F-RCC6 opens no window).
 
 ### 9.2 Anatomy
 
@@ -1148,7 +1208,14 @@ already publishes. Doors: `takeoff.lineEvidence` / `takeoff.linesCiting` on the 
 scale already is. Suites: `tests/takeoff/viewer-inspector/**`, `tests/takeoff/trace/**`,
 `tests/takeoff/viewer/hooks/use-reveal.test.tsx`; journey
 `tests/e2e/journeys/j-021-column-slice.spec.ts` at `j-021-column-slice/traced` and `/cited`, axe
-serious/critical = 0 at each, never widened.
+serious/critical = 0 at each, never widened. **Amended by VD-1:** the resolver is proved pure over
+F-RCC6-BNBC itself (`tests/takeoff/sheets/sheet-of-key.test.ts`: the six views to S-10, S-15, S-14,
+S-13, S-04 and S-06, every placement to its own outline and mark, `#bars`, `edition:` and `act:`),
+the doors over a campaign staged in production's key shapes (`tests/takeoff/trace/doors.test.ts`),
+and a REAL line in the browser: J-000's `m3-measure-and-register` leg follows a column concrete
+line's link to S-10 (`data-flyto-flight` ≥ 1, no missing key, the S-10 crumb) and holds that column's
+outline to find the line among its citers, at checkpoint `j-000/bnbc-traced`. J-021's stage now
+cites production's shapes on a sheet spelled `model`, so its `traced.png` and `cited.png` move.
 
 
 ---
@@ -1412,7 +1479,10 @@ second reason, ruled by s-scale I-160 and recorded here in the overlay's own ter
   and a view whose anchor two windows show all stand on the model sheet, because in the last case the
   record does not say which sheet it is drawn on and neither should the product (R-UI-050). Measured:
   all 53 of BNBC's region views stand on paper sheets and only UNASSIGNED remains on the model sheet;
-  F-RCC6's views stay on the model sheet, since it opens no window.
+  F-RCC6's views stay on the model sheet, since it opens no window. **Amended by VD-1 (I-424):**
+  "two windows" means windows of two DIFFERENT sheets — two windows of one sheet still say which
+  sheet — and the reading is now core's one home for any key, `sheetOfKey` in
+  `src/core/sheets/frames.ts`, which the register and the Trace read too.
 - **I-292 — a bubble a drawing draws as ONE block is read structurally, and a block instance is
   counted as what it drew (L-CAD-03, L-CAD-07).** F-RCC6-BNBC draws every bubble as a GRID_BUBBLE
   INSERT on layer "Grid Circle": the original carries no points, its ring is derived paint (closed,

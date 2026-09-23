@@ -17,11 +17,9 @@
 import { useEffect, useState, type ComponentType } from "react";
 import { formatUserFigure } from "@/core/format";
 import type { QuantityBasis } from "@/core/offers/law";
+import { parseSourceKey } from "@/core/sources";
 import type { IndexBox } from "../viewer/client";
 import { INSPECTOR_COPY, TRACE_COPY, fillCopy, fillTrace } from "./copy";
-
-/** The scheme a source key of a DXF reading carries; the handle is what follows it (L-CAD-03). */
-const SCHEME = "DXF_HANDLE:";
 
 /** The element the panel's heading names it by. */
 const TITLE_ID = "cx-viewer-inspector-title";
@@ -55,7 +53,7 @@ export type TraceEvidence = {
   readonly unit: string;
   readonly drawingId: string | null;
   readonly layoutName: string | null;
-  readonly sourceKeys: readonly string[];
+  readonly traceKeys: readonly string[];
   readonly formula: string;
   readonly variables: Readonly<Record<string, TraceVariable>>;
   readonly quantityBasis: QuantityBasis;
@@ -127,9 +125,14 @@ function bboxAttribute(box: IndexBox): string {
   return [box.min[0], box.min[1], box.max[0], box.max[1]].join(",");
 }
 
-/** The handle alone: what follows the scheme in a source key, or the key itself under another one. */
+/**
+ * The handle alone: what follows the scheme in a source key of ANY registered scheme — a DXF handle,
+ * a PDF object, a raster trace (L-CAD-02) — or the key itself where it is of none, never taken apart
+ * on a guess (I-234).
+ */
 function handleOf(key: string): string {
-  return key.startsWith(SCHEME) ? key.slice(SCHEME.length) : key;
+  const parsed = parseSourceKey(key);
+  return parsed === null ? key : parsed.slice(parsed.indexOf(":") + 1);
 }
 
 export function InspectorPanel({ hover, selection, missing, chrome, trace, cited, onCopy, onReveal, onClear }: InspectorPanelProps) {

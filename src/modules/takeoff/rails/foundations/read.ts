@@ -12,6 +12,7 @@ import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { ScheduleDimension } from "@/core/db";
 import type { RefusalCode } from "@/core/errors";
+import { actSourceOf, editionSourceOf } from "@/core/identity";
 import { variantCovering } from "@/core/offers/contract";
 import type { Measure, MemberVariantSetup, PlacementSetup, RailObservation, RailSetup, RegisterObjectRow } from "@/core/offers/contract";
 import type { SiteFact } from "@/core/site-facts/law";
@@ -281,11 +282,11 @@ export function dimensionOf(read: Read, name: string): Measure | undefined {
  */
 export function enteredOrDerived(setup: RailSetup, fact: DerivableSiteFact): Measure | undefined {
   const entered = setup.siteFacts[fact];
-  if (entered !== undefined) return { value: entered.value, unit: entered.unit, basis: "ENTERED", source: `act:${entered.actId}` };
+  if (entered !== undefined) return { value: entered.value, unit: entered.unit, basis: "ENTERED", source: actSourceOf(entered.actId) };
   const parameterKey = EDITION_PARAMETER_OF[fact];
   const stated = setup.edition.parameters[parameterKey];
   if (stated === undefined) return undefined;
-  return { value: stated.value, unit: stated.unit, basis: "DERIVED", source: `edition:${setup.edition.digest}#${parameterKey}` };
+  return { value: stated.value, unit: stated.unit, basis: "DERIVED", source: editionSourceOf(setup.edition.digest, parameterKey) };
 }
 
 /**
@@ -295,5 +296,5 @@ export function enteredOrDerived(setup: RailSetup, fact: DerivableSiteFact): Mea
  */
 export function enteredOnly(setup: RailSetup, fact: SiteFact): Measure | undefined {
   const entered = setup.siteFacts[fact];
-  return entered === undefined ? undefined : { value: entered.value, unit: entered.unit, basis: "ENTERED", source: `act:${entered.actId}` };
+  return entered === undefined ? undefined : { value: entered.value, unit: entered.unit, basis: "ENTERED", source: actSourceOf(entered.actId) };
 }

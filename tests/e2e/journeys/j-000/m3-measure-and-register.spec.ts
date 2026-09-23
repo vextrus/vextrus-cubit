@@ -59,6 +59,14 @@
  * `shown === members` by name before its volume is read — the ceiling G + a catches the same excess
  * wherever the count happened to agree.
  *
+ * THE TRACE, BOTH WAYS, ON A REAL LINE (VD-1, R-UI-022, X-2). Before VD-1 no lane followed a
+ * rail-published line's link, and walk-0 found every one of them opening a sheet called `Model` the
+ * drawing does not hold, and a column held on S-10 answering "No published line cites this
+ * selection". So this leg follows the first column concrete line the register shows: the link opens
+ * S-10 — the column layout plan whose window frames the column — flies to the column's outline and
+ * mark with nothing left over, and the Trace block reads the line; then the column's outline, held on
+ * its own, lists that line among the lines that cite it (I-421).
+ *
  * Nothing here measures time (AM-10 §3).
  */
 import Decimal from "decimal.js";
@@ -66,6 +74,9 @@ import { expect, test, type TestInfo } from "@playwright/test";
 import { goldenCellAllowance, goldenCellRows, goldenKindOf, goldenRows } from "../../../golden/support/golden-fixture";
 import { NOT_ESTABLISHED, QUANTITY_BEARING, SCoveragePage } from "../../pages/s-coverage.page";
 import { STakeoffPage } from "../../pages/s-takeoff.page";
+import { SViewerTracePage } from "../../pages/s-viewer-trace.page";
+import { ShellPage } from "../../pages/shell.page";
+import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../../viewer/s-viewer.page";
 import { checkpoint } from "../../support/checkpoint";
 import { heldAttribute, steadyCount, steadyText } from "../../support/retrying-read";
 import { settled } from "../../support/settled";
@@ -121,6 +132,14 @@ type StoreyReading = {
   readonly statedUnit: string | null;
   readonly total: string | null;
 };
+
+/** The sheet a viewer address opens: `/t/{tenant}/p/{project}/viewer/{drawing}/{layout}`. */
+function sheetOf(address: string): { drawingId: string; layoutName: string } {
+  const path = new URL(address).pathname.split("/");
+  const at = path.indexOf("viewer");
+  expect(at, `${address} is a viewer address`).toBeGreaterThan(0);
+  return { drawingId: path[at + 1] ?? "", layoutName: decodeURIComponent(path[at + 2] ?? "") };
+}
 
 /** A reading of the register, attached to the run so the handoff can quote it. */
 async function attach(testInfo: TestInfo, name: string, body: string): Promise<void> {
@@ -214,6 +233,40 @@ test.describe.serial("J-000 — Golden Path: M3's measure on F-RCC6-BNBC", () =>
         `${said}: the register's ${figure.toString()} is no more than three per cent under the golden's ${reading.golden.toString()} (floor ${floor.toString()}, L-QTY-06)`,
       ).toBe(true);
     }
+
+    /* --- the Trace, followed from a real column concrete line, and back from the column (VD-1) --- */
+    // The first column concrete line of the storey the loop left narrowed, followed as a reader does.
+    const viewer = new SViewerPage(page);
+    const trace = new SViewerTracePage(page);
+    const shell = new ShellPage(page);
+    const tracedLine = await takeoff.firstTracedLine();
+    await takeoff.followTrace(tracedLine);
+    await expect(viewer.status, "the sheet the Trace opened paints").toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
+    await trace.settled();
+    await expect(viewer.screen, "and the camera flew to what the Trace selects (R-UI-022's fly-to)").toHaveAttribute("data-flyto-flight", /^[1-9]\d*$/);
+    await expect(shell.crumb("page"), "the sheet is S-10, the column layout plan the column stands on — never a model space called `Model`").toContainText("S-10");
+    const column = trace.addressKeys();
+    expect(column.length, `the Trace selects the column itself: its outline and its mark (I-421) — it named ${JSON.stringify(column)}`).toBe(2);
+    expect([...(await trace.selectedKeys())].sort(), "both stand on S-10, so both are held").toEqual([...column].sort());
+    await expect(viewer.missingKeys, "and nothing the address named is missing from the sheet").toHaveCount(0);
+    await expect(trace.trace, "the Trace block reads the line that was followed").toHaveAttribute("data-line", tracedLine);
+    await expect(trace.trace, "on a reading that answered").toHaveAttribute("data-state", "ready");
+    await settled(page);
+    await checkpoint(page, testInfo, "j-000/bnbc-traced");
+
+    // X-2 from the drawing: the column's outline, held on its own, is cited by the line measured off it.
+    const traced = sheetOf(page.url());
+    await page.goto(S_VIEWER.selecting(run.tenantId, run.bnbc.projectId, traced.drawingId, traced.layoutName, [column[0] as string]));
+    await expect(viewer.status, "S-10 paints with the outline held").toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
+    await expect(trace.entities, "the column's outline is what is held").toHaveCount(1);
+    await expect(trace.cited, "and the selection tab answers what cites it").toHaveAttribute("data-state", "ready");
+    expect(await trace.citedLineIds(), "the column concrete line the Trace came from is among the lines measured off this column (X-2)").toContain(tracedLine);
+    await attach(testInfo, "m3-trace", `line=${tracedLine}
+sheet=${traced.layoutName}
+selected=${column.join(",")}`);
+
+    // Back to the register, which the piles are read on.
+    await takeoff.open(run.tenantId, run.bnbc.projectId);
 
     /* --- the piles, typed by their own schedule and sized by it, per kind (I-320..I-322, AM-06 §2) --- */
     // S-05's PILE SCHEDULE types every numbered pile of S-04 by its bare `P` row and states the

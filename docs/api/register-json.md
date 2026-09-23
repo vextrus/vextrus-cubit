@@ -127,8 +127,21 @@ on (`L-QTY-03`).
 | `lines[].sourceKey` | string | The source key the line was measured at. |
 | `lines[].repudiated` | boolean | Whether a person has struck the object this line was measured from. A repudiated line is published and marked, never deleted. |
 | `lines[].drawingId` | string or null | The sheet the line's evidence stands on; `null` where the reading resolves none. |
-| `lines[].layoutName` | string or null | The layout within that sheet; `null` where the reading resolves none. |
-| `lines[].sourceKeys` | array of string | Every source key the line cites — the selection its trace address carries. |
+| `lines[].layoutName` | string or null | The layout of that drawing the line's evidence stands on. For a line measured off a placed member it is the sheet that shows the member; for any other line it is the sheet of the view the line was read in. It is resolved for each line over the drawing record the campaign's pinned revision measured, and spelled as that record's layout inventory spells it, model space included (I-421, I-422). `null` where that record cannot be read. |
+| `lines[].sourceKeys` | array of string | Every source key the line cites: `lines[].sourceKey` first, then each `lines[].variables.<name>.source` in binding order, each key once. Calibration keys are not among them. |
+
+`lines[].sourceKeys` names what the line **cites**. It is not what the product's Trace selects when a
+person follows the line to its drawing. For a line measured off a placed member (a column, a pile, a
+cap), the Trace selects the member's outline and its mark. The line cites neither of those: it cites
+the placement, the schedule cell and the level note it read. That selection belongs to the screen and
+version 1.0 does not publish it. An earlier text of this row also called the cited keys "the selection
+its trace address carries", which was true only while the screen selected what a line cites. The
+keys this field carries have not changed (I-426).
+
+`lines[].layoutName` has always meant the layout the line's evidence stands on. It used to be resolved
+once per drawing, and a drawing recorded under no layout, or under more than one, reported `Model`,
+a name no layout of the drawing need carry. It is now resolved once per line. The value is more
+accurate, and the meaning is the same, so neither change moves the version.
 
 ## `lines[].variables.<name>`
 

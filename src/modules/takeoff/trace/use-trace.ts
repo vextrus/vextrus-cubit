@@ -116,11 +116,13 @@ export function useCitedBy({ tenantId, projectId, drawingId, selection, read, on
   const refused = useRef(onRefused);
   refused.current = onRefused;
   // The effect turns on WHICH keys are held, not on the identity of the array a render happened to
-  // build, so a re-render that holds the same keys reads nothing again.
-  const heldKeys = selection.join(",");
+  // build, so a re-render that holds the same keys reads nothing again. Spelled losslessly: a key of
+  // any registered scheme may carry a comma (`PDF_OBJECT:12,0`), and a held key cut in two would ask
+  // for two entities nobody holds (walk-0, I-423).
+  const heldKeys = JSON.stringify(selection);
 
   useEffect(() => {
-    const keys = heldKeys === "" ? [] : heldKeys.split(",");
+    const keys = JSON.parse(heldKeys) as string[];
     // Nothing held is nothing to be cited by: the block is absent rather than empty, because the
     // panel's own empty state is what teaches a reader with no selection (R-UI-050).
     if (keys.length === 0) {

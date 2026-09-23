@@ -1,11 +1,19 @@
-// A multi-layout record's views belong to the sheets they were drawn on (R-TO-021, L-CAD-05).
+// A multi-layout record's views belong to the sheets they were drawn on (R-TO-021, L-CAD-05). Which
+// sheet a KEY stands on is core's one reading (`sheetOfKey`); a view stands where its caption anchor
+// does, so the view's cases are asked of it by the view's anchor.
 import { describe, expect, it } from "vitest";
-import { NO_FRAMES, sheetOfView, viewsOnSheet, type RecordFrames } from "./sheet-views";
+import { NO_FRAMES, sheetOfKey, type RecordFrames } from "@/core/sheets/frames";
+import { viewsOnSheet } from "./sheet-views";
 import type { ScaleStateView } from "./scale-state";
 
 /** One view of the record, as the scale door answers one. */
 function view(viewKey: string, anchorKey: string | null): ScaleStateView {
   return { viewKey, anchorKey, affirmed: null };
+}
+
+/** The sheet one view stands on: its caption anchor's. */
+function sheetOfView(held: ScaleStateView, spaces: ReadonlyMap<string, string>, sheets: readonly { layoutName: string; kind: string }[], frames: RecordFrames): string | null {
+  return sheetOfKey(held.anchorKey, spaces, sheets, frames);
 }
 
 const SHEETS = [
@@ -47,7 +55,7 @@ const FRAMED_BY_102 = view("v:PLAN:m:e:1", "m:e:1");
 const FRAMED_BY_103 = view("v:SECTION:m:e:2", "m:e:2");
 const FRAMED_BY_NOBODY = view("v:PLAN:m:e:3", "m:e:3");
 
-describe("sheetOfView", () => {
+describe("sheetOfKey, asked by a view's anchor", () => {
   it("names the sheet the view's caption was drawn on", () => {
     expect(sheetOfView(ON_102, SPACES, SHEETS, NO_FRAMES), "the plan captioned on S-102 stands on S-102").toBe("S-102");
     expect(sheetOfView(ON_103, SPACES, SHEETS, NO_FRAMES), "and the section captioned on S-103 stands on S-103").toBe("S-103");
@@ -66,12 +74,20 @@ describe("sheetOfView", () => {
     expect(sheetOfView(FRAMED_BY_102, SPACES, SHEETS, NO_FRAMES), "a record whose frames nobody read is read as before — the model sheet").toBe("Model");
   });
 
-  it("leaves a view on the model sheet where two windows show its caption", () => {
+  it("leaves a view on the model sheet where windows of two sheets show its caption", () => {
     const overlapping: RecordFrames = {
       windows: [...FRAMES.windows, { layoutName: "S-103", model: [0, 0, 100, 100] }],
       standing: FRAMES.standing,
     };
     expect(sheetOfView(FRAMED_BY_102, SPACES, SHEETS, overlapping), "two sheets show the same caption, so the record does not say which one the view is drawn on").toBe("Model");
+  });
+
+  it("keeps a view on its sheet where two windows of that ONE sheet show its caption", () => {
+    const twice: RecordFrames = {
+      windows: [...FRAMES.windows, { layoutName: "S-102", model: [25, 25, 75, 75] }],
+      standing: FRAMES.standing,
+    };
+    expect(sheetOfView(FRAMED_BY_102, SPACES, SHEETS, twice), "an enlarged detail window on S-102 still shows it on S-102 — one sheet says which sheet").toBe("S-102");
   });
 
   it("keeps a PAPER anchor on its own sheet whatever the windows frame", () => {

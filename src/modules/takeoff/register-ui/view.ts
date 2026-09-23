@@ -108,8 +108,24 @@ export type ViewLine = {
   /** The sheet the line's evidence stands on, or null where the reading resolves none (I-181). */
   readonly drawingId: string | null;
   readonly layoutName: string | null;
-  /** The keys the line cites — `citedKeysOf` — which is the selection its Trace address carries. */
+  /**
+   * How a reader names that sheet (I-179 as I-425 applies it): the number its title block states
+   * (`S-10`), else the layout's own name — and null for model space, which the chip says in words,
+   * or where no sheet resolves at all (`layoutName` null).
+   */
+  readonly sheetLabel: string | null;
+  /**
+   * Every key the line cites — its `sourceKey`, then each binding's `source`, each once (`citedKeysOf`).
+   * The register JSON export publishes it as `lines[].sourceKeys` under that meaning, which version
+   * 1.0 promises integrations (docs/api/register-json.md, I-426): never the Trace's selection below.
+   */
   readonly sourceKeys: readonly string[];
+  /**
+   * What the line's Trace selects and flies to, every key standing on `layoutName`: the member's
+   * outline and mark where its placement resolves (I-421) — keys the line itself does not cite.
+   * The selection the Source chip's address carries; a screen's reading, not an export's.
+   */
+  readonly traceKeys: readonly string[];
 };
 
 /** One sighting that produced no line: a queue item's cause or a refused sighting's refusal. */

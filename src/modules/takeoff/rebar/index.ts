@@ -11,6 +11,7 @@
 // L-QTY-03 gives one line one figure — the detail is the stored bar rows, read back through
 // `bbsOf` (riskNotes (1), L-REG-04).
 import type { Kind } from "@/core/catalogue/kinds";
+import { barsSourceOf } from "@/core/identity";
 import type { Measure, Offer, OmittedComponent, Rail, RailInput, RailObservation } from "@/core/offers/contract";
 import type { QuantityBasis } from "@/core/offers/law";
 import { CANONICAL_UNIT } from "@/core/units/canon";
@@ -33,7 +34,8 @@ const FY = "fy";
 function offerOf(read: MemberRead): Offer {
   const basis = read.row.standing;
   const masses = massesOf(read);
-  const source = `${read.row.objectKey}#bars`;
+  // The member's bar set, cited under the grammar the Trace reads it back by (`barsSourceOf`, B-17).
+  const source = barsSourceOf(read.row.objectKey);
   // The lap's own basis is how the LAP was known: a drawing that states `LAP 50d` was transcribed,
   // and one that states nothing leaves the edition's Class B clause — citable, therefore DERIVED and
   // never defaulted (L-MEA-06). The net is derived from the schedule's bar group either way.

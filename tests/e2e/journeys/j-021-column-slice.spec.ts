@@ -14,46 +14,24 @@
  * WebGL in CI: headless Chromium paints through SwiftShader, asked for by name below exactly as the
  * viewer journeys ask (playwright.config.ts is locked).
  *
- * Nothing is transcribed. The keys the staged lines cite are read off the SERVED layer feed, so the
- * Trace lands on entities the sheet in fact holds (risk note 1, j-020's idiom); the address followed
- * is the one the register's own link carries; the formula, the variable names and the values
+ * Nothing is transcribed. Since VD-1 the staged lines cite what a real rail's lines cite — a view
+ * anchored at the plan's caption, the member's placement, and the entities its section and storey
+ * height were read at — and each member stands in the store naming the outline and the mark it was
+ * read off (`../takeoff/register-stage.ts`). So the Trace this journey follows is the one a real line
+ * gets: it opens the sheet the member stands on (model space here, spelled as the artifact spells it)
+ * and selects the MEMBER, not the keys the line happens to cite (I-421). The address followed is
+ * the one the register's own link carries; the formula, the variable names, the values and the keys
  * asserted in the inspector are the ones the staged line itself was published with (B-19).
  */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { checkpoint } from "../support/checkpoint";
 import { STakeoffPage } from "../pages/s-takeoff.page";
 import { SViewerTracePage } from "../pages/s-viewer-trace.page";
 import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
-import { CITE_KEYS, stageRegister } from "../takeoff/register-stage";
+import { stageRegister, type StagedMember } from "../takeoff/register-stage";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import { heldAttribute } from "../support/retrying-read";
 import { afterSettled } from "../support/settled";
-
-/** A source key of the served sheet's own grammar (L-CAD-03). */
-const HANDLE = /^DXF_HANDLE:[0-9A-F]+$/;
-
-/** How many layers of the feed are walked looking for them before the stage gives up. */
-const LAYERS = 32;
-
-/**
- * The handles the served sheet in fact holds, read off the layer feed exactly as J-011 and J-000
- * read theirs. A Trace citing keys the sheet does not hold would land in I-88's "Not on this sheet"
- * cell with no fly-to, which is not the moment this journey exists to walk.
- */
-async function handlesOf(page: Page, sheet: { tenantId: string; drawingId: string; layoutName: string }, count: number): Promise<string[]> {
-  const held: string[] = [];
-  for (let index = 0; index < LAYERS && held.length < count; index += 1) {
-    const answer = await page.request.get(`/api/viewer/${sheet.drawingId}/${encodeURIComponent(sheet.layoutName)}?tenant=${sheet.tenantId}&part=layer&index=${index}`);
-    if (!answer.ok()) break;
-    const body = (await answer.json()) as { records?: { key?: string }[] };
-    for (const record of body.records ?? []) {
-      const key = record.key ?? "";
-      if (HANDLE.test(key) && !held.includes(key)) held.push(key);
-    }
-  }
-  expect(held.length, `the served sheet holds at least ${count} keyed entities for the staged lines to cite`).toBeGreaterThanOrEqual(count);
-  return held.slice(0, count);
-}
 
 test.use({
   viewport: { width: 1440, height: 900 },
@@ -67,14 +45,12 @@ test.describe("J-021 — the column slice: a line traced to its entities, back t
     const trace = new SViewerTracePage(page);
     const viewer = new SViewerPage(page);
 
-    /* --- the stage: the column slice, citing keys the served sheet in fact holds --- */
-    const staged = await stageRegister(page, { label: "j021", cite: (sheet) => handlesOf(page, sheet, CITE_KEYS) });
-    for (const key of [...Object.values(staged.cited), ...Object.values(staged.placementSources)]) {
-      expect(key, "every staged citation — the shared ones and each placement's own — is a key of the sheet's own grammar (risk note 1)").toMatch(HANDLE);
-    }
-    expect(new Set(Object.values(staged.placementSources)).size, "and no two placements were read at the same entity, so the lines they publish can be told apart").toBe(
-      Object.keys(staged.placementSources).length,
-    );
+    /* --- the stage: the column slice, in production's key shapes (VD-1) --- */
+    const staged = await stageRegister(page, { label: "j021" });
+    // The member the followed line was measured off: the placement its count cites (B-19).
+    const member = Object.values(staged.members).find((held) => Object.values(staged.line.variables).some((binding) => binding.source === held.placementKey));
+    expect(member, `the followed line cites the placement of one staged member: ${JSON.stringify(staged.line.variables)}`).toBeTruthy();
+    const { outlineKey, markKey } = member as StagedMember;
 
     /* --- the register: every published line offers a Trace from the key it was read at --- */
     await takeoff.open(staged.tenantId, staged.projectId);
@@ -96,16 +72,18 @@ test.describe("J-021 — the column slice: a line traced to its entities, back t
     await expect(viewer.status, "the sheet paints").toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
     await trace.settled();
 
+    // TEST_AMENDED (VD-1, I-421): the Trace selects the MEMBER — the outline and the mark its
+    // placement row names — where it once carried every key the line cites. As strict as before: the
+    // address names exactly those two, and the sheet holds exactly those two.
     const asked = trace.addressKeys();
-    expect(asked.length, "the address carries the keys the line cites").toBeGreaterThan(0);
+    expect(asked, "the address names the member the line was measured off: its outline, then its mark").toEqual([outlineKey, markKey]);
+    expect(asked, "which is the selection the register's own reading composed").toEqual(staged.line.traceKeys);
     expect(trace.addressLine(), "and the row the reader came from").toBe(staged.line.lineId);
-    const own = asked.filter((key) => Object.values(staged.placementSources).includes(key));
-    expect(own.length, "one of them the key this placement alone was read at, which is what tells its line from its siblings' (AC-2)").toBe(1);
-    expect(asked, "and one they all share, which is what gathers them when the sheet is asked the other way (X-2)").toContain(staged.cited.section);
 
     const held = await trace.selectedKeys();
-    expect(held.length, "the cited entities the sheet holds are selected (I-88: what was found stays selected)").toBeGreaterThan(0);
-    for (const key of held) expect(asked, `${key} is one of the keys the address named`).toContain(key);
+    expect([...held].sort(), "both stand on the sheet the Trace opened, so both are selected and flown to (I-88: what was found stays selected)").toEqual([...asked].sort());
+    await expect(viewer.missingKeys, "and nothing the address named is missing from this sheet").toHaveCount(0);
+    await expect(viewer.screen, "the camera flew to them").toHaveAttribute("data-flyto-flight", /^[1-9]\d*$/);
 
     const basis = await trace.traceBasis();
     expect(basis, "the screen publishes the basis the Trace is held in, which is the colour the pulse was struck in (AC-4)").toBeTruthy();
@@ -122,7 +100,9 @@ test.describe("J-021 — the column slice: a line traced to its entities, back t
       const row = await trace.variable(name);
       expect(row.value, `${name}: the value it was read as`).toBe(binding.value);
       expect(row.unit, `${name}: in the unit it was written in`).toBe(binding.unit);
-      expect(row.source, `${name}: at a key of the sheet's own grammar`).toMatch(HANDLE);
+      // TEST_AMENDED (VD-1): the count is cited at the member's placement, as a real line's is; every
+      // variable states the very key it was published with.
+      expect(row.source, `${name}: at the key the line was published with`).toBe(binding.source);
     }
     await expect(trace.origin, "and a way back to the row it was traced from").toHaveAttribute("href", new RegExp(`takeoff/register\\?line=${staged.line.lineId}$`));
 
@@ -146,10 +126,10 @@ test.describe("J-021 — the column slice: a line traced to its entities, back t
     ).toBe(true);
 
     /* --- the other direction: hold those entities, read what cites them (X-2) --- */
-    // The section every staged column takes was read at ONE entity, and each column's geometry at an
-    // entity of its own — so holding this one asks for the lines that cite it, which is all three,
-    // rather than for whatever the sheet published (X-2).
-    await page.goto(S_VIEWER.selecting(staged.tenantId, staged.projectId, staged.drawingId, staged.layoutName, [staged.cited.section]));
+    // The section every staged column takes was read at ONE entity, and each column is a member of
+    // its own — so holding this one asks for the lines that cite it, which is all three, rather than
+    // for whatever the sheet published (X-2).
+    await page.goto(S_VIEWER.selecting(staged.tenantId, staged.projectId, staged.drawingId, staged.layoutName, [staged.shared.section]));
     await expect(viewer.status, "the sheet paints again").toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
     await expect(trace.entities, "the entity every staged column's section was read at is held").toHaveCount(1);
 
@@ -174,14 +154,17 @@ test.describe("J-021 — the column slice: a line traced to its entities, back t
     await page.waitForURL(new RegExp(`takeoff/register\\?line=${staged.line.lineId}$`));
     await expect(takeoff.originLink, "which lands on the register at that row, marked").toHaveAttribute("data-line", staged.line.lineId);
 
-    /* --- and the answer is THOSE entities', not the sheet's: one column's own entity, one line --- */
-    await page.goto(S_VIEWER.selecting(staged.tenantId, staged.projectId, staged.drawingId, staged.layoutName, [own[0] as string]));
+    /* --- and the answer is THOSE entities', not the sheet's: one column's own outline, one line --- */
+    // Walk-0 (BLOCKS_DEMO): holding a column's OUTLINE on the sheet answered "No published line cites
+    // this selection", because a line cites its placement and never the outline. The door now meets
+    // the selection through the register's own join (I-421).
+    await page.goto(S_VIEWER.selecting(staged.tenantId, staged.projectId, staged.drawingId, staged.layoutName, [outlineKey]));
     await expect(viewer.status, "the sheet paints once more").toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
-    await expect(trace.entities, "and this time one column's own entity is what is held").toHaveCount(1);
+    await expect(trace.entities, "and this time one column's own outline is what is held").toHaveCount(1);
     await expect(trace.cited, "the block answers for what is held now").toHaveAttribute("data-state", "ready");
     expect(
       await trace.citedLineIds(),
-      "holding the entity this column alone was read at lists its line and withholds its siblings' — the lines that cite THOSE entities (X-2)",
+      "holding the outline of the column this line was measured off lists its line and withholds its siblings' — the lines that cite THOSE entities (X-2)",
     ).toEqual([staged.line.lineId]);
   });
 });

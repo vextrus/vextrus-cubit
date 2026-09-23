@@ -13,7 +13,8 @@ import { everyRow, heldAttribute } from "../support/retrying-read";
 export const S_VIEWER_TRACE = Object.freeze({
   at: (tenantId: string, projectId: string, drawingId: string, layoutName: string, keys: readonly string[], lineId: string): string => {
     const query = new URLSearchParams();
-    query.set("s", keys.join(","));
+    // Each key's own `%` and `,` escaped before the keys are joined (I-423), as the Trace spells it.
+    query.set("s", keys.map((key) => key.split("%").join("%25").split(",").join("%2C")).join(","));
     query.set("line", lineId);
     return `/t/${tenantId}/p/${projectId}/viewer/${encodeURIComponent(drawingId)}/${encodeURIComponent(layoutName)}?${query.toString()}`;
   },
@@ -77,10 +78,18 @@ export class SViewerTracePage {
     return keys;
   }
 
-  /** The selection the address carries, in the order the address carries it. */
+  /**
+   * The selection the address carries, in the order the address carries it — read losslessly, as the
+   * test contract spells the value (s-viewer-inspector I-423): split at the separator, then each
+   * key's own `,` and `%` unescaped, so a key that carries a comma comes back whole.
+   */
   addressKeys(): string[] {
     const stated = new URL(this.page.url()).searchParams.get("s");
-    return stated === null || stated === "" ? [] : stated.split(",");
+    if (stated === null || stated === "") return [];
+    return stated
+      .split(",")
+      .filter((segment) => segment !== "")
+      .map((segment) => segment.replace(/%2C/giu, ",").replace(/%25/gu, "%"));
   }
 
   /** The line the address named as the Trace's origin. */

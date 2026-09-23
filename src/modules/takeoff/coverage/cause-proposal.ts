@@ -14,7 +14,7 @@ import { MODEL_QUESTIONS, canonicalJson, parseSourceKey, propose } from "@/core/
 import type { DecodeResult, ModelCallContext, ModelRequest, Proposal, SourceKey, SourceKeyResolver } from "@/core/model";
 import { JEV_MODEL, type ModelId } from "@/core/model-ledger.types";
 import { SCOPE_DECLARATION_CAUSES, type ScopeDeclarationCause } from "@/core/errors";
-import { compareCanonical } from "@/core/identity";
+import { compareCanonical, viewRefOf } from "@/core/identity";
 // The law module, never the residue's roster: the roster carries the query, which reaches the
 // database, and this file is read by a script that opens none (ARCH-01, the workspace's precedent).
 import { IN_BILL, type MeasurementCause, type ResidueCell } from "@/core/residue/law";
@@ -40,14 +40,6 @@ const PROPOSAL_FIELD = "cause";
  * residue's boundary module reaches the store and this file may not.
  */
 const NOT_ESTABLISHED = "NOT_ESTABLISHED" as const satisfies MeasurementCause;
-
-/**
- * The prefix a view key opens with, and the separator its fields are joined by (L-REG-04). A view
- * key is `v:{class}:{anchorSourceKey}` and a placement key is that key followed by more fields, so
- * the caption anchor a cell may cite is recoverable from either — see `anchorSourceKeyOf`.
- */
-const VIEW_PREFIX = "v:";
-const FIELD = "|";
 
 /**
  * The confidence a proposed cause must carry before a person is shown it. Below it the door answers
@@ -140,14 +132,12 @@ function contentOf(state: CoverageCauseState): JsonValue {
  *
  * A key whose anchor is not a source key answers null, and the cell is then never asked about:
  * nothing citable, no question, no ledger row.
+ *
+ * The grammar's inverse is the identity core's (`viewRefOf`), the one the Trace reads a key with
+ * too: two readers splitting one grammar their own ways are two grammars (B-17).
  */
 export function anchorSourceKeyOf(sourceKey: string): SourceKey | null {
-  const view = sourceKey.split(FIELD)[0] ?? "";
-  if (!view.startsWith(VIEW_PREFIX)) return null;
-  const rest = view.slice(VIEW_PREFIX.length);
-  const cut = rest.indexOf(":");
-  if (cut < 0) return null;
-  return parseSourceKey(rest.slice(cut + 1));
+  return viewRefOf(sourceKey)?.captionAnchorSourceKey ?? null;
 }
 
 /**

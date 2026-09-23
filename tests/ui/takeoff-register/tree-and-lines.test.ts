@@ -277,7 +277,8 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
       // was read for, and the extractor's handle. A key of no known grammar is not abbreviated into
       // one: it stands whole (I-26).
       const source = cellUnder(row, "takeoff_register_col_source");
-      expect(source, "the sheet the line was read on").toContain(line.layoutName ?? "");
+      // TEST_AMENDED (VD-1, I-425): the sheet a line was read on is named by its number (I-179).
+      expect(source, "the sheet the line was read on, by its number").toContain(line.sheetLabel ?? "");
       expect(source, "and the key itself, whole, where its grammar names no handle").toContain(line.sourceKey);
     }
   });

@@ -7,7 +7,8 @@
  */
 import { randomUUID } from "node:crypto";
 import { describe, expect, test } from "vitest";
-import { citedKeysSpelling, originAddressSpelling, traceAddressSpelling, traceSeam } from "./support/trace-stage";
+import { parseSelection, splitSelection } from "../../../src/modules/takeoff/viewer-inspector/selection";
+import { citedKeysSpelling, originAddressSpelling, selectionKeysSpelling, traceAddressSpelling, traceSeam } from "./support/trace-stage";
 
 /** One published line, as the register's reading answers one — the shape the address is composed from. */
 function aLine(over: Record<string, unknown> = {}): Record<string, unknown> {
@@ -33,7 +34,10 @@ function aLine(over: Record<string, unknown> = {}): Record<string, unknown> {
     calibrationKeys: ["S-101:PLAN:scale"],
     ...over,
   };
-  return { ...line, sourceKeys: over["sourceKeys"] ?? citedKeysSpelling(line as never) };
+  // The register carries two lists (I-426): every key the line cites, and what its Trace selects.
+  // A line stated with no selection of its own selects what it cites.
+  const cited = citedKeysSpelling(line as never);
+  return { ...line, sourceKeys: over["sourceKeys"] ?? cited, traceKeys: over["traceKeys"] ?? cited };
 }
 
 const TENANT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -56,6 +60,68 @@ describe("AC-2: the addresses", () => {
       expect(/[?&]v=/.test(said), "no `v` parameter — its absence is what makes the viewer fly (I-85)").toBe(false);
       expect(said.startsWith(`/t/${TENANT}/p/${PROJECT}/viewer/`), "the address is the viewer's, under this tenant and project").toBe(true);
     }
+  });
+
+  /*
+   * Walk-0 (BLOCKS_DEMO): a pile's placement key `…|P1|599250.0,0.0` reached the viewer as TWO keys,
+   * `…|P1|599250.0` and `0.0`, because the address joined keys with the very comma a placement key
+   * carries between its coordinates. Every key form a rail publishes is round-tripped here, through
+   * the browser's own reading of the query (`URL`), back to the keys the line named (I-423).
+   */
+  test("VD-1: the selection is lossless — every key form a rail cites comes back whole", async () => {
+    const { traceAddress } = await traceSeam();
+    const published = [
+      "v:LAYOUT_PLAN:DXF_HANDLE:1FEB|P1|599250.0,0.0",
+      "v:LAYOUT_PLAN:DXF_HANDLE:20B6|C3|1200000.0,-395123.2@34f04e73-687a-4006-8fa5-12f7352f0ed9#bars",
+      "v:LAYOUT_PLAN:DXF_HANDLE:20B6",
+      "edition:b43500d12e5ec01b68d2139aa35089d385323c616f2979aaabd3df91d8c61a35#blinding",
+      "act:3d02536e-637f-406d-801a-ff047d121a5a",
+      "DXF_HANDLE:99C",
+      "PDF_OBJECT:12,0",
+      "a key with 100% and a comma, both",
+    ];
+    const said = traceAddress(TENANT, PROJECT, aLine({ traceKeys: published }));
+    const value = new URL(said, "http://cubit.test").searchParams.get("s") ?? "";
+
+    expect(splitSelection(value), "the viewer reads back exactly the keys the address was composed from, in order, each whole").toEqual(published);
+    expect(selectionKeysSpelling(value), "and so does the contract's own reading of the value").toEqual(published);
+    expect(splitSelection(value).length, "a placement key's `x,y` is one key, not two (walk-0)").toBe(published.length);
+
+    const parsed = parseSelection(value);
+    expect(parsed.keys, "the entities it names are the source keys of EVERY registered scheme, not only DXF handles").toEqual(["DXF_HANDLE:99C", "PDF_OBJECT:12,0"]);
+    expect(parsed.malformed, "and what names no entity is reported whole, never cut at a comma").toEqual(published.filter((key) => !key.startsWith("DXF_HANDLE:") && !key.startsWith("PDF_OBJECT:")));
+  });
+
+  /*
+   * The register's reading carries what a line CITES (`sourceKeys`, the JSON export's 1.0 field) and
+   * what its Trace SELECTS (`traceKeys`) apart, because for a line measured off a placement they share
+   * no key (I-421, I-426). The address is composed from the selection alone; a line that states
+   * none is addressed at the keys it cites, read off its own key and bindings — never off a
+   * `sourceKeys` list, whose meaning is the export's.
+   */
+  test("VD-1: the address carries the Trace's selection, never the list of cited keys", async () => {
+    const { traceAddress, LINE_PARAM } = await traceSeam();
+    const member = ["DXF_HANDLE:98B", "DXF_HANDLE:9A5"];
+    const placed = aLine({ traceKeys: member });
+    const said = traceAddress(TENANT, PROJECT, placed);
+
+    expect(said, "the address the contract spells over the selection").toBe(traceAddressSpelling(TENANT, PROJECT, placed as never, LINE_PARAM));
+    expect(splitSelection(new URL(said, "http://cubit.test").searchParams.get("s") ?? ""), "exactly the member, none of the keys the line cites").toEqual(member);
+
+    const unselected = aLine({ sourceKeys: ["DXF_HANDLE:DEAD"] });
+    delete unselected["traceKeys"];
+    const fallback = traceAddress(TENANT, PROJECT, unselected);
+    expect(
+      splitSelection(new URL(fallback, "http://cubit.test").searchParams.get("s") ?? ""),
+      "a line that states no selection is addressed at what it cites — its key, then each binding — whatever list rides beside it",
+    ).toEqual(citedKeysSpelling(unselected as never));
+  });
+
+  test("VD-1: a selection of handles reads exactly as it always did", () => {
+    expect(parseSelection("DXF_HANDLE:1A, DXF_HANDLE:2B,,DXF_HANDLE:1A"), "handles carry neither escape, so an address written before the escape still reads").toEqual({
+      keys: ["DXF_HANDLE:1A", "DXF_HANDLE:2B"],
+      malformed: [],
+    });
   });
 
   test("AC-2: `originAddress` spells the register route, with the origin line and without it", async () => {

@@ -51,8 +51,13 @@ const DRAWING_BYTES = "0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF\n";
 /** A marker no two runs collide on. */
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 
-/** The spaces the built artifact carries, spelled as the ingest seam spells them. */
-export const MODEL_SPACE = "Model";
+/**
+ * The spaces the built artifact carries, spelled as the ingest seam spells them — model space as the
+ * `cad/` extractor names it (`vextrus_cad.ingest.MODEL_SPACE`, `model`). The stage once spelled it
+ * `Model`, which is why the Trace's hard-coded `Model` fallback passed here and missed on every real
+ * drawing (walk-0, VD-1): a stage in production's shapes is one a production defect cannot hide in.
+ */
+export const MODEL_SPACE = "model";
 const PAPER_SPACE = "SHEET-1";
 
 /** The text heights a caption and a grid label are drawn at (L-CAD-06/07's evidence). */
@@ -126,8 +131,31 @@ type Drawn = {
   closed?: boolean;
 };
 
+/**
+ * The members a register stage asks the plan to draw (VD-1): each column's outline and its mark, in
+ * the plan nobody bubbled, and the two rules of the schedule the register's readings cite. Keys only —
+ * the placement rows that tie a member to them are the register stage's to write.
+ */
+export type DrawnMembers = {
+  /** The caption anchoring the plan the members are drawn in — the view a sighting names. */
+  viewAnchor: string;
+  /** Each mark's outline (a closed ring) and mark (its text), and where the member stands. */
+  byMark: Readonly<Record<string, { outlineKey: string; markKey: string; at: readonly [number, number] }>>;
+  /** The schedule's two rules: where a member's section is read, and where its storey height is. */
+  sectionRule: string;
+  heightRule: string;
+};
+
 /** What the built artifact carries, so a journey derives its expectations from it (B-19). */
-type BuiltArtifact = { json: string; anchorOf: ReadonlyMap<string, string> };
+type BuiltArtifact = { json: string; anchorOf: ReadonlyMap<string, string>; members: DrawnMembers | null };
+
+/** The layers the members are drawn on — census data, never read by a placement (L-CAD-07). */
+const LAYER_COLUMNS = "COLUMNS";
+const LAYER_MARKS = "COLUMN-MARKS";
+
+/** A member's half-width, and how far apart the members stand along the plan. */
+const MEMBER_HALF = 2;
+const MEMBER_PITCH = 15;
 
 /**
  * The header the built artifact states: millimetres (`insunits` code 4), which gives every view the
@@ -160,17 +188,24 @@ function ringPoints(centre: readonly [number, number], radius: number, vertices:
  * bubbles, a schedule (a view no grid may be read off), a second layout plan nobody bubbled (the
  * georeference that defers), and three captions the grammar cannot read — plus a paper layout,
  * which L-CAD-06 does not partition at all.
+ *
+ * Asked for `members`, it draws them too (VD-1): one closed outline and one mark per member, in the
+ * plan nobody bubbled — a plan with no georeference places nothing (L-CAD-07), so no member drawn
+ * here is ever placed by the partition behind the stage's back, and the register stage writes the
+ * placement rows itself. They are drawn LAST, so every handle a stage that asks for none reads is
+ * the handle it always read.
  */
-function buildPartitionPlan(header: StagedHeader): BuiltArtifact {
+function buildPartitionPlan(header: StagedHeader, members: readonly string[] = []): BuiltArtifact {
   let ordinal = 0;
   const next = (): string => handle((ordinal += 1));
   const entities: Drawn[] = [];
   const anchorOf = new Map<string, string>();
 
-  const caption = (text: string, at: readonly [number, number]): void => {
+  const caption = (text: string, at: readonly [number, number]): string => {
     const key = next();
     if (!anchorOf.has(text)) anchorOf.set(text, key);
     entities.push({ key, type: TYPE_TEXT, space: MODEL_SPACE, layer: LAYER_CAPTIONS, colour: CHANNELS, text, height: CAPTION_HEIGHT, points: [[at[0], at[1]]] });
+    return key;
   };
 
   const bubble = (spec: { text: string; centre: readonly [number, number] }): void => {
@@ -178,8 +213,10 @@ function buildPartitionPlan(header: StagedHeader): BuiltArtifact {
     entities.push({ key: next(), type: TYPE_TEXT, space: MODEL_SPACE, layer: LAYER_LABELS, colour: CHANNELS, text: spec.text, height: LABEL_HEIGHT, points: [[spec.centre[0], spec.centre[1]]] });
   };
 
-  const line = (from: readonly [number, number], to: readonly [number, number]): void => {
-    entities.push({ key: next(), type: TYPE_LINE, space: MODEL_SPACE, layer: LAYER_LINES, colour: CHANNELS, points: [[from[0], from[1]], [to[0], to[1]]] });
+  const line = (from: readonly [number, number], to: readonly [number, number]): string => {
+    const key = next();
+    entities.push({ key, type: TYPE_LINE, space: MODEL_SPACE, layer: LAYER_LINES, colour: CHANNELS, points: [[from[0], from[1]], [to[0], to[1]]] });
+    return key;
   };
 
   caption(CAPTION_PLAN, PLAN_AT);
@@ -189,10 +226,9 @@ function buildPartitionPlan(header: StagedHeader): BuiltArtifact {
   line([0, -35], [0, -5]);
 
   caption(CAPTION_SCHEDULE, SCHEDULE_AT);
-  line([595, -5], [640, -5]);
-  line([595, -15], [640, -15]);
+  const scheduleRules = [line([595, -5], [640, -5]), line([595, -15], [640, -15])] as const;
 
-  caption(CAPTION_PLAN, BARE_PLAN_AT);
+  const bareAnchor = caption(CAPTION_PLAN, BARE_PLAN_AT);
   line([1195, -5], [1250, -5]);
   line([1195, -15], [1250, -15]);
   line([1210, -25], [1210, -3]);
@@ -206,6 +242,19 @@ function buildPartitionPlan(header: StagedHeader): BuiltArtifact {
 
   entities.push({ key: next(), type: TYPE_TEXT, space: PAPER_SPACE, layer: "TITLEBLOCK", colour: CHANNELS, text: "S-101 GENERAL ARRANGEMENT", height: 3, points: [[5, 5]] });
   entities.push({ key: next(), type: TYPE_LINE, space: PAPER_SPACE, layer: "TITLEBLOCK", colour: CHANNELS, points: [[0, 0], [297, 210]] });
+
+  // The members, last: each a small closed square under the bare plan's rules, its mark beside it.
+  const byMark: Record<string, { outlineKey: string; markKey: string; at: readonly [number, number] }> = {};
+  members.forEach((mark, at) => {
+    const centre: readonly [number, number] = [BARE_PLAN_AT[0] + at * MEMBER_PITCH, BARE_PLAN_AT[1] - 30];
+    const outlineKey = next();
+    const [cx, cy] = centre;
+    const ring = [[cx - MEMBER_HALF, cy - MEMBER_HALF], [cx + MEMBER_HALF, cy - MEMBER_HALF], [cx + MEMBER_HALF, cy + MEMBER_HALF], [cx - MEMBER_HALF, cy + MEMBER_HALF]];
+    entities.push({ key: outlineKey, type: TYPE_RING, space: MODEL_SPACE, layer: LAYER_COLUMNS, colour: CHANNELS, closed: true, points: ring });
+    const markKey = next();
+    entities.push({ key: markKey, type: TYPE_TEXT, space: MODEL_SPACE, layer: LAYER_MARKS, colour: CHANNELS, text: mark, height: LABEL_HEIGHT, points: [[cx + MEMBER_HALF + 1, cy + MEMBER_HALF + 1]] });
+    byMark[mark] = { outlineKey, markKey, at: centre };
+  });
 
   const graph = writtenAtV3({
     entitygraph_version: 3,
@@ -222,7 +271,9 @@ function buildPartitionPlan(header: StagedHeader): BuiltArtifact {
     counters: [],
   });
 
-  return { json: JSON.stringify(graph), anchorOf };
+  const drawn: DrawnMembers | null =
+    members.length === 0 ? null : { viewAnchor: bareAnchor, byMark, sectionRule: scheduleRules[0], heightRule: scheduleRules[1] };
+  return { json: JSON.stringify(graph), anchorOf, members: drawn };
 }
 
 /** Import a product module by repo-relative path, saying which file is missing when one is. */
@@ -303,6 +354,8 @@ export type StagedPartitionedSheet = {
   ingestId: string;
   views: StoredView[];
   axes: StoredAxis[];
+  /** The members drawn at a register stage's asking (VD-1), or null where none were asked for. */
+  members: DrawnMembers | null;
 };
 
 /** Every `partition_views` row of one ingest, in view-key order — the store's own word (B-19). */
@@ -354,7 +407,7 @@ export function confirmationsOf(tenantId: string, ingestId: string): { viewKey: 
  * answer minted for each caption the grammar could not read, filed under the request the product
  * itself composes for that caption on that anchor (L-AI-01: nothing here knows how one is built).
  */
-export async function stagePartitionedSheet(page: Page, options: { label?: string; header?: StagedHeader } = {}): Promise<StagedPartitionedSheet> {
+export async function stagePartitionedSheet(page: Page, options: { label?: string; header?: StagedHeader; members?: readonly string[] } = {}): Promise<StagedPartitionedSheet> {
   const auth = new SAuthPage(page);
   const shell = new ShellPage(page);
   const home = new SHomePage(page);
@@ -412,7 +465,7 @@ export async function stagePartitionedSheet(page: Page, options: { label?: strin
   const drawingId = uploads.onlyDrawing(last).drawingId;
 
   /* --- the reading of it: the shipped ingest job, with the plan artifact standing in for cad/ --- */
-  const artifact = buildPartitionPlan(options.header ?? "mm");
+  const artifact = buildPartitionPlan(options.header ?? "mm", options.members);
   const storage = (await productModule<{ uploadStorage: () => unknown }>("src/modules/spine/uploads/index.ts")).uploadStorage();
   const ingestJob = await productModule<{ runIngestJob: (payload: unknown, progress: unknown, deps: { storage: unknown }) => Promise<void> }>(
     "src/modules/takeoff/ingest/job.ts",
@@ -470,5 +523,5 @@ export async function stagePartitionedSheet(page: Page, options: { label?: strin
   expect(views.length, "the partition job stored the views of this reading").toBeGreaterThan(0);
   expect(axes.length, "and the grid it could lawfully read off the bubbled plan").toBeGreaterThan(0);
 
-  return { tenantId, projectId, drawingId, layoutName: MODEL_SPACE, ingestId, views, axes };
+  return { tenantId, projectId, drawingId, layoutName: MODEL_SPACE, ingestId, views, axes, members: artifact.members };
 }

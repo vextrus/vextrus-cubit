@@ -150,6 +150,35 @@ it is only PLACED in its cell, no wider than the cell with its label ellipsised 
   already is one; rejected: shortening the view key by hand into `v:…:424`, which is the invented
   shape I-26 refuses; rejected: keeping the key as the anchor's accessible name, because the name is
   the label and a name that differs from what is read is what I-179's own last sentence forbids.
+- **I-425 — the chip names the sheet by its NUMBER, and the link opens that sheet at the member
+  (I-179 as viewer.md's I-421 applies it; s-takeoff.md I-234's "the source cell states the sheet
+  the line stands on" is read the same way).** Walk-0 found every chip reading `Model · P1 · Layou…`
+  and every link opening a sheet called `Model` that the drawing does not hold — the sheet was
+  resolved once per DRAWING and fell back to a constant, and F-RCC6-BNBC's lines stand on S-04, S-06,
+  S-10 and S-13..S-15 of one file. The sheet is now resolved per LINE, by the Trace's own reading
+  (`tracedLineOf` over the record the pin measured, I-422), so the chip and the link cannot
+  disagree: the chip's first part is the number the sheet's title block states (`S-10`), never the
+  layout's whole title the 168 px column cut short; a line that stands on model space (a view no
+  sheet's window frames) says **Model space** in words rather than printing the extractor's name for
+  it (R-UI-082); and the link opens the very layout the chip names — `…/viewer/{drawing}/S-10%20COLUMN
+  %20LAYOUT%20PLAN?s={outline},{mark}&line=…` — selecting the member the line was measured off, not
+  every key it cites. A line whose record cannot be read names no sheet and keeps its chips as plain
+  text (I-181, unchanged). Rejected: resolving the label in this screen's server beside the Trace's
+  resolver (a second answer to one question, B-17); the layout's title in the chip (the relook saw it
+  truncate to `Layou`).
+- **I-426 — what a line CITES and what its Trace SELECTS are two readings under two names.**
+  `ViewLine.sourceKeys` stays every key the line cites (`citedKeysOf`), and `ViewLine.traceKeys` (with
+  `LineEvidence.traceKeys` in the Trace) is what the Trace selects. The register JSON export mirrors
+  `ViewLine` field for field and has published `lines[].sourceKeys` since 1.0 as "every source key the
+  line cites" (docs/api/register-json.md). Under I-421 the Trace selects a placed member's outline
+  and mark, which the line cites nowhere. If that selection were carried as `sourceKeys`, the export
+  would change a field's meaning under an unchanged name. Its own versioning rule makes that a
+  breaking 2.0, and integrations would get it without notice. So the export publishes the same keys
+  it always did, the selection stays a screen reading that 1.0 does not publish, and the API page
+  says so. Rejected: redefining the export's `sourceKeys` as the selection (the breaking change
+  above); computing the cited keys a second time inside the export (the export adds nothing and
+  rewrites nothing, AC-1); publishing `traceKeys` as an additive 1.1 field (integrations have no
+  viewer to select in, so nobody has asked for it).
 
 ## 1. Layout and hierarchy — what moves
 
@@ -215,7 +244,15 @@ in the `href` and in the inspector's Technical disclosure.
 (the ingest's recorded sheet, `sheetOfView`) and `sourceKeys` — the line's own `sourceKey` followed
 by each binding's `source` in binding order, duplicates collapsed to their first occurrence,
 calibration keys excluded, which is `citedKeysOf`. `sourceKey` stays the visible label; `sourceKeys`
-is the selection the address carries.
+is the selection the address carries. **Amended by VD-1:** `layoutName` is the sheet the Trace opens
+for THIS line (`tracedLineOf`, viewer.md I-421) over the record its pinned revision measured, read
+once per drawing; `sheetLabel` beside it is how a reader names that sheet — its title block's number,
+or null for model space, which the chip says in words; and `traceKeys` is what the Trace selects
+there — the member's outline and mark where its placement resolves — never the whole list of cited
+keys, two of which a column line reads on other sheets. It is the selection the address carries
+(`traceAddress` reads it, and falls back to `citedKeysOf` for a line that states none). `sourceKeys`
+keeps its meaning, every key the line cites (`citedKeysOf`), because the register JSON export
+publishes it under that meaning (I-426).
 
 **The origin mark.** `register.css` styles the cell, never the pattern:
 `.cx-register-source [data-origin="true"]` takes `background: var(--beam-100)`, `box-shadow: inset
@@ -273,7 +310,10 @@ cell by cell:
 
 ## 3. Copy, verbatim
 
-No new visible sentence enters this screen. The cell's words are model data — the sheet, the mark and
+One visible word enters this screen, by I-425: `takeoff_register_source_model_space` **Model space**,
+the chip's first part for a line that stands on no numbered sheet (`src/ui/strings/takeoff.ts`,
+mirrored in `register-ui/copy.ts` under `tests/takeoff/register-ui/copy-mirror.test.ts`). Otherwise
+no new sentence enters this screen. The cell's words are model data — the sheet, the mark and
 the handle, each verbatim, in mono (I-25, I-26), the whole key one disclosure away — and the column
 keeps `takeoff_register_col_source` **Source** as its header, which is what names the link for a reader and for a screen reader. The one string the
 cell shows beyond data is the pattern's own, on hover: `evidence_link_title` **Trace to the sheet**
@@ -351,9 +391,13 @@ every text node of the workspace; `tests/takeoff/trace/**` for `traceAddress`, `
 `citedKeysOf` and the two doors.
 Journey: `tests/e2e/journeys/j-021-column-slice.spec.ts` through
 `tests/e2e/pages/s-takeoff.page.ts` and `tests/e2e/pages/s-viewer-trace.page.ts`, staged by
-`tests/e2e/takeoff/register-stage.ts` with `stageRegister(page, { cite })` citing real
-`DXF_HANDLE:` keys read off the layer feed (j-020's idiom), so the Trace lands on entities the
-served sheet in fact holds. Checkpoints `j-021-column-slice/traced` and `/cited`, axe
+`tests/e2e/takeoff/register-stage.ts`. **Amended by VD-1:** the stage cites production's key shapes
+— a view anchored at the drawn plan's caption, each member's placement key for its count, the
+schedule's entities for its section and height — and writes each member's placement row naming the
+outline and the mark the plan draws, on a sheet spelled `model` as the extractor spells it; the
+`cite` option and its layer-feed handles are gone, and J-021 asserts the Trace selects exactly the
+member and that holding its outline lists its line alone. J-000's `m3-measure-and-register` follows a
+real BNBC column line to S-10 (checkpoint `j-000/bnbc-traced`). Checkpoints `j-021-column-slice/traced` and `/cited`, axe
 serious/critical = 0 at each, never widened; `masks()` keeps s-takeoff.md §7's per-run texts, which
 v22 narrows to the ones still painted (`register-campaign`, `register-refusal-object`,
 `register-timeline`, the shell breadcrumb, `shell-user`, `shell-tenant-switcher`) — the inspector's
@@ -371,7 +415,8 @@ announces a scroll it made itself — the screen names the row and the table ans
 (B-17). An origin that survives a reload beyond
 the `?line=` address, and pushState history for the register — deliberately absent: the address is
 the state. A `layout` column on partition views, so a line names its sheet without `sheetOfView`
-falling back to the ingest's single recorded layout — owner: recorded in s-viewer-inspector.md §8,
-no migration here. Column pin, resize and sort persistence are **paid** by DataTable v2's own
+falling back to the ingest's single recorded layout — **paid by VD-1 without one**: the sheet is read
+per line off the pinned record's frames (viewer.md Part 2 §8). The queue items' Trace (R-TO-011's
+"queue item") stays unpaid — owner: VD-3. Column pin, resize and sort persistence are **paid** by DataTable v2's own
 per-user furniture (`cubit.datatable.v1:takeoff-register-lines`); the index rail's remembered width
 is not — owner: the prefs seam's node, unchanged. The inspector's width IS remembered, by the frame.

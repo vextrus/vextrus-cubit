@@ -15,6 +15,7 @@
 // which stands in for a level nobody has authored yet and is carried onto its surrogate exactly once
 // (`carryLevel`).
 import Decimal from "decimal.js";
+import { parseSourceKey, type SourceKey } from "../sources";
 import { exact } from "../units/canon";
 
 /**
@@ -121,9 +122,12 @@ export function quantise(n: number): string {
   return `${sign}${Math.floor(tenths / LATTICE_PARTS)}.${tenths % LATTICE_PARTS}`;
 }
 
+/** What every view key opens with (L-REG-04: `v:{class}:{anchorSourceKey}`), spelled once. */
+const VIEW_PREFIX = "v:";
+
 /** L-REG-04's view key: the class of the view and the caption anchor its source key names. */
 export function viewKey(v: ViewRef): string {
-  return `v:${part(v.viewClass, "view class")}:${part(v.captionAnchorSourceKey, "caption-anchor source key")}`;
+  return `${VIEW_PREFIX}${part(v.viewClass, "view class")}:${part(v.captionAnchorSourceKey, "caption-anchor source key")}`;
 }
 
 /** L-REG-04's placement key: the view, the mark, and the point quantised onto the lattice. */
@@ -198,4 +202,129 @@ export function carryLevel(key: string, level: { readonly label: string; readonl
   const placeholder = levelSegment({ unregistered: level.label });
   if (!key.endsWith(placeholder)) return { carried: false, key };
   return { carried: true, key: `${key.slice(0, key.length - placeholder.length)}${levelSegment({ levelId: level.levelId })}` };
+}
+
+/* ---------------------------------------------------------------------- the grammar, read back */
+
+/**
+ * The suffix a member's reinforcement is cited under: a rebar line's `net`, `lap` and `ties` are read
+ * off the member's bar schedule as a whole, so the key they cite is the member's own instance key
+ * with this suffix (`<objectKey>#bars`). Spelled here, beside the grammar it extends, so the rail that
+ * mints it and the Trace that reads it back hold one spelling (B-17).
+ */
+const BARS_SUFFIX = "#bars";
+
+/** What a figure an EDITION states is cited under: `edition:<digest>#<parameter>` (L-MEA-01). */
+const EDITION_PREFIX = "edition:";
+
+/** What a figure a PERSON entered is cited under: the act that entered it, `act:<actId>` (L-ACT-01). */
+const ACT_PREFIX = "act:";
+
+// The three spellings below are CITATIONS a rail writes, not identities a row is keyed by: they are
+// spelled exactly as the rails always spelled them, and what a rail hands in is the rail's to judge.
+
+/** The key a member's reinforcement is cited at: the member's own key, whole, then `#bars`. */
+export function barsSourceOf(memberKey: string): string {
+  return `${memberKey}${BARS_SUFFIX}`;
+}
+
+/** The key a figure the edition states is cited at: its content digest and the parameter's name. */
+export function editionSourceOf(digest: string, parameter: string): string {
+  return `${EDITION_PREFIX}${digest}#${parameter}`;
+}
+
+/** The key a figure a person entered is cited at: the act that entered it. */
+export function actSourceOf(actId: string): string {
+  return `${ACT_PREFIX}${actId}`;
+}
+
+/**
+ * The two fixed-point coordinates a placement key ends in — `quantise`'s own spelling, `-?N.D`, twice
+ * and comma-joined — read at the START of what follows the mark, so whatever a longer key appends
+ * (an instance's level segment, a bar set's suffix) is left where it stands.
+ */
+const PLACED_AT = /^(-?\d+\.\d),(-?\d+\.\d)/u;
+
+/**
+ * The view a key was derived from, read back (L-REG-04's grammar, inverted): the class and the caption
+ * anchor of a view key, or of the view key every placement, instance and bar-set key OPENS with. Null
+ * for anything else — and for a view key whose anchor is not a source key of the closed schemes
+ * (L-CAD-02), because a caption nobody can cite is no anchor a reader could be sent to.
+ *
+ * The one reading of the grammar's inverse (B-17): the Trace, the register's Source chip and the
+ * coverage cause question all ask here rather than each splitting a key its own way.
+ */
+export function viewRefOf(key: string): { readonly viewClass: string; readonly captionAnchorSourceKey: SourceKey } | null {
+  if (!key.startsWith(VIEW_PREFIX)) return null;
+  const view = key.split(FIELD)[0] ?? "";
+  const rest = view.slice(VIEW_PREFIX.length);
+  const cut = rest.indexOf(":");
+  if (cut <= 0) return null;
+  const anchor = parseSourceKey(rest.slice(cut + 1));
+  return anchor === null ? null : { viewClass: rest.slice(0, cut), captionAnchorSourceKey: anchor };
+}
+
+/**
+ * The placement key a cited key names, or null where it names none: a placement key itself, the
+ * instance key of a member placed there (its level segment dropped — the member is one entity on the
+ * plan whatever storeys it stands on), and a bar set cited as `<instanceKey>#bars` (L-REG-04). The
+ * view it opens with must read back (`viewRefOf`), the mark must be there, and the coordinates must be
+ * the lattice's own spelling: a key that fails any of the three is not taken apart on a guess.
+ */
+export function placementKeyOf(key: string): string | null {
+  if (viewRefOf(key) === null) return null;
+  const first = key.indexOf(FIELD);
+  if (first < 0) return null;
+  const second = key.indexOf(FIELD, first + 1);
+  if (second < 0 || second === first + 1) return null;
+  const tail = key.slice(second + FIELD.length);
+  const placed = PLACED_AT.exec(tail);
+  if (placed === null) return null;
+  const rest = tail.slice(placed[0].length);
+  // Nothing may follow the point but an instance's level segment and, after it, a bar set's suffix.
+  const unsuffixed = rest.endsWith(BARS_SUFFIX) ? rest.slice(0, rest.length - BARS_SUFFIX.length) : rest;
+  if (unsuffixed !== "" && !unsuffixed.startsWith(LEVEL_MARKER)) return null;
+  return key.slice(0, second + FIELD.length + placed[0].length);
+}
+
+/**
+ * The closed roster of what a key a line cites can be (L-QTY-03's source, read back):
+ * - `view`      — a view key: the view it was read in, which is a region and never an entity;
+ * - `placement` — a placement or instance key: the member itself, as the plan placed it;
+ * - `bars`      — a member's bar set, `<instanceKey>#bars`: the member again, through its schedule;
+ * - `source`    — a source key of the closed schemes (L-CAD-02): one entity of the drawing;
+ * - `edition`   — a figure the method edition states: a clause, on no sheet;
+ * - `act`       — a figure a person entered: an act, on no sheet;
+ * - `unread`    — none of these: a key of no grammar, stated whole and never taken apart (I-234).
+ */
+export const CITED_KEY_SCHEMES = ["view", "placement", "bars", "source", "edition", "act", "unread"] as const;
+
+/** One scheme of the roster above. */
+export type CitedKeyScheme = (typeof CITED_KEY_SCHEMES)[number];
+
+/** A cited key, read: which scheme it is, and — for the two that name a member — the placement. */
+export type CitedKey =
+  | { readonly scheme: "view"; readonly key: string; readonly anchor: SourceKey }
+  | { readonly scheme: "placement" | "bars"; readonly key: string; readonly placementKey: string; readonly anchor: SourceKey }
+  | { readonly scheme: "source"; readonly key: SourceKey }
+  | { readonly scheme: "edition" | "act" | "unread"; readonly key: string };
+
+/**
+ * One cited key, read by the grammar that minted it. The order of the questions is the grammar's: a
+ * bar set is a placement key's extension and a placement key a view key's, so the longest reading is
+ * asked first and a key is never read as less than it is.
+ */
+export function readCitedKey(key: string): CitedKey {
+  const view = viewRefOf(key);
+  if (view !== null) {
+    const placed = placementKeyOf(key);
+    if (placed !== null) return { scheme: key.endsWith(BARS_SUFFIX) ? "bars" : "placement", key, placementKey: placed, anchor: view.captionAnchorSourceKey };
+    // A key that opens with a view and carries more fields, none of which read, is no view key.
+    return key.includes(FIELD) ? { scheme: "unread", key } : { scheme: "view", key, anchor: view.captionAnchorSourceKey };
+  }
+  const source = parseSourceKey(key);
+  if (source !== null) return { scheme: "source", key: source };
+  if (key.startsWith(EDITION_PREFIX) && key.length > EDITION_PREFIX.length) return { scheme: "edition", key };
+  if (key.startsWith(ACT_PREFIX) && key.length > ACT_PREFIX.length) return { scheme: "act", key };
+  return { scheme: "unread", key };
 }

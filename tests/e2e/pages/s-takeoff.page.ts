@@ -198,6 +198,29 @@ export class STakeoffPage {
     return this.lines.locator(`${testIdSelector(TESTIDS.evidence.link)}[data-line="${lineId}"]`);
   }
 
+  /**
+   * Follow one line's Trace as a reader does (VD-1): press the Source cell's link and land on the
+   * sheet it opens. Answers the address that was followed, read off the link itself — the one the
+   * register composed, never one a journey spells.
+   */
+  async followTrace(lineId: string): Promise<string> {
+    const link = this.evidenceLink(lineId);
+    await expect(link, `the line ${lineId} offers a Trace from its Source cell (R-UI-022)`).toBeVisible();
+    const href = (await heldAttribute(link, "href")) ?? "";
+    expect(href, "the Trace names the sheet it opens and what it selects there").toContain("/viewer/");
+    await link.click();
+    await this.page.waitForURL(/\/viewer\//);
+    return href;
+  }
+
+  /** The line the first Trace the table shows stands for — the row a reader's eye lands on first. */
+  async firstTracedLine(): Promise<string> {
+    await expect(this.evidenceLinks.first(), "the lines table offers a Trace from the rows it shows").toBeVisible();
+    const lineId = await heldAttribute(this.evidenceLinks.first(), "data-line");
+    expect(lineId, "and each Trace names the line it stands for").toBeTruthy();
+    return lineId as string;
+  }
+
   /** The one link marked as the row the reader traced from (Decision I-182). */
   get originLink(): Locator {
     return this.lines.locator(`${testIdSelector(TESTIDS.evidence.link)}[data-origin="true"]`);

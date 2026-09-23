@@ -80,6 +80,8 @@ function lineOf(line: ViewLine): RegisterJsonLine {
     repudiated: line.repudiated,
     drawingId: line.drawingId,
     layoutName: line.layoutName,
+    // Every key the line cites — 1.0's meaning, kept (I-426). What the Trace selects (`traceKeys`)
+    // and how the chip names the sheet (`sheetLabel`) are the screen's readings, unpublished in 1.0.
     sourceKeys: [...line.sourceKeys],
   };
 }

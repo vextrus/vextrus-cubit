@@ -79,7 +79,9 @@ describe("R-UI-082/I-287: the register exposes no identifier as body text", () =
     expect(HANDLE.test(label), `the label states no extractor handle — it read "${label}" (R-UI-082)`).toBe(false);
     expect(label.includes("v:"), "and no version key either").toBe(false);
     expect(label, "what it states instead is the view's class, in words").toContain(VIEW_CLASS_IN_WORDS);
-    expect(label, "beside the sheet the line stands on").toContain(view.lines[0]?.layoutName as string);
+    // TEST_AMENDED (VD-1, I-425): the sheet is named by its NUMBER, never the layout's whole title.
+    expect(label, "beside the sheet the line stands on, by its number").toContain(view.lines[0]?.sheetLabel as string);
+    expect(label, "and never the layout's whole title, which the Source column cut short").not.toContain(view.lines[0]?.layoutName as string);
     expect(label, "and the mark it was measured for").toContain("B1");
 
     expect(anchor.getAttribute("data-key"), "the whole key is on the element that IS the evidence — one hover or one click away (I-287)").toBe(viewKeyOf("424"));

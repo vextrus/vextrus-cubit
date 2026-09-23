@@ -12,13 +12,14 @@
 // projected through its rectangular frame — the boundary's own geometry is paint of the sheet and
 // is drawn as such, so the frame is the one reading the artifact carries.
 import type { EntityGraph } from "@/core/entitygraph/schema";
+// Which windows a sheet looks through, and the piece of model space each one frames, are core's one
+// reading (`@/core/sheets/windows`): the sheet index, the register and the Trace ask what a sheet
+// SHOWS through them (`@/core/sheets/frames`), and this projection paints what it shows through the
+// very same windows (B-17).
+import { modelBoxOf, projectable, type Box, type ViewportRecord } from "@/core/sheets/windows";
 import type { RenderRecord } from "./types";
 
-/** One viewport record of a layout inventory, as the schema spells it. */
-export type ViewportRecord = NonNullable<EntityGraph["layouts"][number]["viewports"]>[number];
-
-/** An axis-aligned box: `[minX, minY, maxX, maxY]`. */
-export type Box = readonly [number, number, number, number];
+export { projectable, type Box, type ViewportRecord };
 
 /**
  * One projectable window: the piece of model space it looks at (`model`), the frame it fills on the
@@ -33,31 +34,14 @@ export type Window = {
   readonly viewCentre: readonly [number, number];
 };
 
-/** Whether a viewport is one this pass projects through: switched on, untwisted, with a frame. */
-export function projectable(viewport: ViewportRecord): boolean {
-  return (
-    viewport.on &&
-    viewport.twist === 0 &&
-    viewport.view_height > 0 &&
-    viewport.size[0] > 0 &&
-    viewport.size[1] > 0 &&
-    Number.isFinite(viewport.size[0]) &&
-    Number.isFinite(viewport.size[1]) &&
-    Number.isFinite(viewport.view_height)
-  );
-}
-
 /** The window a projectable viewport opens: its model box, its paper frame and the map between. */
 export function windowOf(viewport: ViewportRecord): Window {
   const scale = viewport.size[1] / viewport.view_height;
-  const halfWidth = viewport.size[0] / scale / 2;
-  const halfHeight = viewport.view_height / 2;
-  const [vx, vy] = viewport.view_centre;
   const [cx, cy] = viewport.centre;
   return {
     via: viewport.handle,
     scale,
-    model: [vx - halfWidth, vy - halfHeight, vx + halfWidth, vy + halfHeight],
+    model: modelBoxOf(viewport),
     paper: [cx - viewport.size[0] / 2, cy - viewport.size[1] / 2, cx + viewport.size[0] / 2, cy + viewport.size[1] / 2],
     centre: viewport.centre,
     viewCentre: viewport.view_centre,

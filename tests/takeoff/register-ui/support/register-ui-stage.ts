@@ -27,6 +27,7 @@ import {
   COLUMN_C1,
   COLUMN_CLASS,
   COLUMN_CONCRETE_PAIR,
+  MEMBER_FAMILY,
   QUANTITY_LINES_TABLE,
   QUEUE_ITEMS_TABLE,
   RCC_CONCRETE,
@@ -45,8 +46,15 @@ import {
   type StoreRow,
 } from "../../rails/support/column-rail-stage";
 import { measureSeam, type MeasureSeam } from "../../gate/support/gate-stage";
+import { INGEST_JOB_MODULE, INGEST_MODULE, UPLOADS_MODULE, stubCli, tempDir, withCadCommand } from "../../support/ingest-stage";
 import { PRINCIPAL, actorOf, grantRole, joinWorkspace, rejection, stagePerson, unique, type ActorCtx, type Person } from "../../support/sheets-stage";
 import { sql } from "../../../spine/uploads/support/upload-stage";
+import { TENANT_COLUMN } from "../../../../db/__tests__/support/fixtures";
+import { ident, lit } from "../../../../db/__tests__/support/live-sql";
+
+/** The partition's placement store and the tenant seam, which the drawn plan's members are written through. */
+const PLACEMENT_STORE_MODULE = "src/modules/takeoff/partition/placement/store.ts";
+const DB_SEAM_MODULE = "src/core/db.ts";
 
 export { COLUMN_CLASS, QUANTITY_LINES_TABLE, QUEUE_ITEMS_TABLE, RCC_CONCRETE, actorOf, closeStage, field, gateSeam, measureSeam, productModule, rejection, rowsOfCampaign, sql, stagePerson, storeRows, unique };
 export type { ActorCtx, MeasureSeam, Person, StagedCampaign, StoreRow };
@@ -201,7 +209,202 @@ export type StagedRegisterCampaign = StagedCampaign & {
   refusedObjectKey: string;
   /** The object whose only standing is a queue item (AC-4). */
   queuedObjectKey: string;
+  /** The drawing the lines were measured on, as its pinned record reads (VD-1: production's shapes). */
+  drawn: DrawnPlan;
 };
+
+/* ------------------------------------------------------- the drawing the lines were read on (VD-1) */
+
+/**
+ * The drawing a staged campaign's lines are measured on, recorded the way production records one
+ * (VD-1, walk-0): an ingest of the very bytes the pin recorded, whose artifact draws a column layout
+ * plan in MODEL space — its caption, each column's outline and mark — framed by one paper sheet's
+ * window, a schedule cell framed by another sheet's, and a level note no window frames. The rails'
+ * lines then cite what real lines cite: a view key anchored at the caption, a placement key per
+ * member, and the entities each variable was read at. The placements are written by the partition's
+ * own store call (`rewritePlacementRows`, the pile-cap store test's precedent), each with the outline
+ * and the mark it was read off.
+ */
+export type DrawnPlan = {
+  readonly drawingId: string;
+  readonly ingestId: string;
+  /** The view the members were placed in: `LAYOUT_PLAN`, anchored at the caption's own handle. */
+  readonly view: { readonly viewClass: string; readonly captionAnchorSourceKey: string };
+  /** The paper sheet whose window frames the plan — where a member's Trace opens. */
+  readonly planSheet: string;
+  /** The paper sheet whose window frames the schedule cell the section was read at. */
+  readonly scheduleSheet: string;
+  /** Model space, as the artifact's own inventory spells it. */
+  readonly modelSheet: string;
+  /** The schedule cell every member's section was read at, and the level note its height was read at. */
+  readonly sectionCell: string;
+  readonly levelNote: string;
+  /** Each staged mark's outline and mark entities, by mark. */
+  readonly members: Readonly<Record<string, { readonly outlineKey: string; readonly markKey: string }>>;
+};
+
+/** The marks the campaign registers, in the order it registers them. */
+const STAGED_MARKS: readonly string[] = ["C1", "C2", "C3"];
+
+/** Where each staged column stands in the drawing's world — the register's own sighting coordinates. */
+function columnAt(at: number): readonly [number, number] {
+  return [1000 + at * 100, (COLUMN_C1 as unknown as { y: number }).y];
+}
+
+/** The spaces and sheets the built artifact carries, spelled as the ingest seam spells them. */
+const MODEL_SHEET = "model";
+const PLAN_SHEET = "S-101 COLUMN LAYOUT PLAN";
+const SCHEDULE_SHEET = "S-102 COLUMN SCHEDULE";
+
+/** A source key of the DXF-handle scheme, from an ordinal (L-CAD-02). */
+function handleKey(ordinal: number): string {
+  return `DXF_HANDLE:${ordinal.toString(16).toUpperCase()}`;
+}
+
+/**
+ * The artifact the stood-in extractor answers: EntityGraph v2, validated by the product's own mirror
+ * at ingest. Returned with the handles it minted, so every expectation is read off it (B-19).
+ */
+function drawnArtifact(): { json: string; keys: { caption: string; sectionCell: string; levelNote: string; members: Record<string, { outlineKey: string; markKey: string }> } } {
+  let ordinal = 0;
+  const next = (): string => handleKey((ordinal += 1));
+  const colour = { rgb: [0, 0, 0], source: "bylayer" };
+  const entities: Record<string, unknown>[] = [];
+
+  const caption = next();
+  entities.push({ key: caption, type: "TEXT", space: MODEL_SHEET, layer: "CAPTIONS", colour, text: "COLUMN LAYOUT PLAN", height: 5, points: [[1000, 150]] });
+  const members: Record<string, { outlineKey: string; markKey: string }> = {};
+  STAGED_MARKS.forEach((mark, at) => {
+    const [x, y] = columnAt(at);
+    const outlineKey = next();
+    entities.push({ key: outlineKey, type: "LWPOLYLINE", space: MODEL_SHEET, layer: "COLUMNS", colour, closed: true, points: [[x - 15, y - 20], [x + 15, y - 20], [x + 15, y + 20], [x - 15, y + 20]] });
+    const markKey = next();
+    entities.push({ key: markKey, type: "TEXT", space: MODEL_SHEET, layer: "MARKS", colour, text: mark, height: 2, points: [[x, y + 25]] });
+    members[mark] = { outlineKey, markKey };
+  });
+  const sectionCell = next();
+  entities.push({ key: sectionCell, type: "TEXT", space: MODEL_SHEET, layer: "SCHEDULE", colour, text: "300x450", height: 2, points: [[5000, 5000]] });
+  const levelNote = next();
+  entities.push({ key: levelNote, type: "TEXT", space: MODEL_SHEET, layer: "LEVELS", colour, text: "EL +3.000", height: 2, points: [[9000, 9000]] });
+  entities.push({ key: next(), type: "TEXT", space: PLAN_SHEET, layer: "TITLEBLOCK", colour, text: PLAN_SHEET, height: 3, points: [[10, 10]] });
+  entities.push({ key: next(), type: "TEXT", space: SCHEDULE_SHEET, layer: "TITLEBLOCK", colour, text: SCHEDULE_SHEET, height: 3, points: [[10, 10]] });
+
+  // Each window at 1:2 — `size[1] / view_height` — so a 200 × 125 frame looks at 400 × 250 of model.
+  const window = (handle: string, viewCentre: readonly [number, number]) => ({
+    handle,
+    on: true,
+    centre: [148.5, 105],
+    size: [200, 125],
+    view_centre: [viewCentre[0], viewCentre[1]],
+    view_height: 250,
+    twist: 0,
+    clipped: false,
+  });
+  const paper = { min: [0, 0], max: [297, 210] };
+  const graph = {
+    entitygraph_version: 2,
+    ingest: { scheme: "DXF_HANDLE", tool: "cubit-register-ui-stage", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
+    insunits: { code: 4, unit: "mm", unmapped: false },
+    layouts: [
+      { name: MODEL_SHEET, kind: "model", bbox: { min: [900, 100], max: [9100, 9100] }, strays_rejected: 0, viewports: [] },
+      // The plan's window frames x 900..1300, y 100..350: the caption and every column, and nothing else.
+      { name: PLAN_SHEET, kind: "paper", bbox: paper, strays_rejected: 0, viewports: [window("A1", [1100, 225])] },
+      // The schedule's window frames the section cell alone; the level note stands in no window.
+      { name: SCHEDULE_SHEET, kind: "paper", bbox: paper, strays_rejected: 0, viewports: [window("A2", [5000, 5000])] },
+    ],
+    dropped_layouts: [],
+    entities,
+    derived: [],
+    block_attributes: [],
+    counters: [],
+  };
+  return { json: JSON.stringify(graph), keys: { caption, sectionCell, levelNote, members } };
+}
+
+/** The ingest door and job, as this stage drives them (the sheets stage's own shapes). */
+type IngestDoor = { ingestRecordOf: (scope: { tenantId: string; drawingId: string }) => Promise<{ ingestId: string } | null> };
+type IngestJobDoor = { runIngestJob: (payload: unknown, progress: unknown, deps: { storage: unknown }) => Promise<void> };
+type UploadsDoor = { uploadStorage: () => unknown };
+type PlacementStore = { rewritePlacementRows: (tx: unknown, write: Record<string, unknown>) => Promise<void> };
+type DbSeam = { forTenant: (ctx: { tenantId: string }) => { transaction: (work: (tx: unknown) => Promise<unknown>) => Promise<unknown> } };
+
+/** The drawing the pinned revision names first, and the bytes it recorded (L-REG-06). */
+function pinnedDrawingOf(tenantId: string, setRevisionId: string): string {
+  const held = sql(
+    `select manifest::text from drawing_set_revisions where ${ident(TENANT_COLUMN)} = ${lit(tenantId)}::uuid and set_revision_id = ${lit(setRevisionId)}::uuid;`,
+  );
+  const manifest = JSON.parse(held[0]?.[0] ?? "[]") as { drawingId: string }[];
+  expect(manifest.length, `the pinned revision ${setRevisionId} names the drawings the set holds`).toBeGreaterThan(0);
+  return (manifest[0] as { drawingId: string }).drawingId;
+}
+
+/** Record the pinned drawing's reading: the shipped ingest job, over the built artifact. */
+async function stageDrawnRecord(staged: StagedCampaign, label: string): Promise<{ drawingId: string; ingestId: string; keys: ReturnType<typeof drawnArtifact>["keys"] }> {
+  const drawingId = pinnedDrawingOf(staged.tenantId, staged.setRevisionId);
+  const artifact = drawnArtifact();
+  const stub = stubCli({ artifact: artifact.json, stderr: "", exitCode: 0 });
+  const job = await productModule<IngestJobDoor>(INGEST_JOB_MODULE);
+  const storage = (await productModule<UploadsDoor>(UPLOADS_MODULE)).uploadStorage();
+  await withCadCommand(stub.command, async () => {
+    await job.runIngestJob(
+      { tenantId: staged.tenantId, drawingId, requestedBy: staged.person.userId, declared: null },
+      { jobId: randomUUID(), tempDir: tempDir(`ingest-${label}`), step: async () => undefined },
+      { storage },
+    );
+  });
+  const record = await (await productModule<IngestDoor>(INGEST_MODULE)).ingestRecordOf({ tenantId: staged.tenantId, drawingId });
+  expect(record, `staging ${label}'s drawing left an ingest record — the lines are read on a recorded reading`).not.toBeNull();
+  return { drawingId, ingestId: (record as { ingestId: string }).ingestId, keys: artifact.keys };
+}
+
+/** Write the members the plan placed, through the partition's own store call, one per register row. */
+async function placeMembers(staged: StagedCampaign, drawn: { drawingId: string; ingestId: string }, rows: readonly Record<string, unknown>[], members: Record<string, { outlineKey: string; markKey: string }>): Promise<void> {
+  const store = await productModule<PlacementStore>(PLACEMENT_STORE_MODULE);
+  const seam = await productModule<DbSeam>(DB_SEAM_MODULE);
+  const placed = rows.map((row) => {
+    const mark = String(field(row, "mark", "mark"));
+    const member = members[mark];
+    expect(member, `the drawn plan carries an outline and a mark for ${mark}`).toBeDefined();
+    const [x, y] = columnAt(STAGED_MARKS.indexOf(mark));
+    return {
+      placementKey: String(field(row, "placementKey", "placement_key")),
+      viewKey: String(field(row, "viewKey", "view_key")),
+      mark,
+      markText: mark,
+      elementType: COLUMN_CLASS,
+      x,
+      y,
+      gridLetter: null,
+      gridNumeral: null,
+      outlineKey: (member as { outlineKey: string }).outlineKey,
+      markKey: (member as { markKey: string }).markKey,
+      memberFamily: MEMBER_FAMILY,
+    };
+  });
+  await seam.forTenant({ tenantId: staged.tenantId }).transaction(async (tx) =>
+    store.rewritePlacementRows(tx, {
+      tenantId: staged.tenantId,
+      projectId: staged.projectId,
+      drawingId: drawn.drawingId,
+      ingestId: drawn.ingestId,
+      placements: { views: 1, placements: placed, ungridded: [], runs: [], outlines: [] },
+    }),
+  );
+}
+
+/**
+ * The rails' setup, read against the drawn record rather than surrogates: each placement on the
+ * pinned drawing's ingest, the section read at the schedule cell, the storey height at the level
+ * note — so what the published lines cite is what the artifact holds (B-19).
+ */
+function drawnSetup(setup: ReturnType<typeof setupForRows>, drawn: { drawingId: string; ingestId: string; keys: ReturnType<typeof drawnArtifact>["keys"] }) {
+  const placements = Object.fromEntries(Object.entries(setup.placements).map(([key, placement]) => [key, { ...placement, drawingId: drawn.drawingId, ingestId: drawn.ingestId }]));
+  const families = Object.values(setup.memberTypes)[0] ?? {};
+  const memberTypes = { [drawn.ingestId]: Object.fromEntries(Object.entries(families).map(([family, variants]) => [family, variants.map((one) => ({ ...one, sourceKeys: [drawn.keys.sectionCell] }))])) };
+  const levels = setup.levels.map((level) => ({ ...level, height: { ...level.height, sourceKey: level.height.sourceKey === null ? null : drawn.keys.levelNote } }));
+  const calibrations = { [drawn.ingestId]: Object.values(setup.calibrations)[0] ?? {} };
+  return { placements, memberTypes, levels, calibrations };
+}
 
 /** The scope the register's door is called in. */
 export function registerScopeOf(staged: StagedRegisterCampaign): { tenantId: string; projectId: string; setRevisionId: string } {
@@ -222,9 +425,14 @@ export async function stageRegisterCampaign(label: string = "register"): Promise
   const rail = await columnRailDoor();
   const gate = await gateSeam();
 
-  /* --- the objects: three columns of one mark family, sighted at the register's door --- */
-  const marks = ["C1", "C2", "C3"];
-  const sightings = marks.map((mark, at) => ({ ...COLUMN_C1, elementType: COLUMN_CLASS, label: `${label}-${mark}`, mark, x: 1000 + at * 100 }));
+  /* --- the drawing the pin recorded, read as production reads one (VD-1): its ingest, its artifact --- */
+  const record = await stageDrawnRecord(staged, label);
+  const view = { viewClass: "LAYOUT_PLAN", captionAnchorSourceKey: record.keys.caption };
+
+  /* --- the objects: three columns of one mark family, sighted at the register's door, in the view
+     the drawn plan's caption anchors (a view key production spells: `v:LAYOUT_PLAN:DXF_HANDLE:…`) --- */
+  const marks = [...STAGED_MARKS];
+  const sightings = marks.map((mark, at) => ({ ...COLUMN_C1, elementType: COLUMN_CLASS, label: `${label}-${mark}`, mark, view, x: columnAt(at)[0], y: columnAt(at)[1] }));
   for (const sighting of sightings) {
     const answer = await register.registerSighting(staged.registerScope, sighting);
     expect(field(answer, "registered", "registered"), `the sighting of ${String(sighting["mark"])} registered: ${JSON.stringify(answer)}`).toBe(true);
@@ -241,8 +449,13 @@ export async function stageRegisterCampaign(label: string = "register"): Promise
   expect(String(field(duplicate, "refusal", "refusal")), `a second sighting of one identity is refused ${DUPLICATE_IDENTITY}: ${JSON.stringify(duplicate)}`).toBe(DUPLICATE_IDENTITY);
   const refusedObjectKey = String(field(duplicate, "objectKey", "object_key"));
 
-  /* --- the lines: the rail's offers, published by the gate; the last one INTERPRETED --- */
-  const setup = setupForRows(rows);
+  /* --- the members the plan placed, each with the outline and the mark it was read off --- */
+  await placeMembers(staged, record, rows, record.keys.members);
+
+  /* --- the lines: the rail's offers, published by the gate; the last one INTERPRETED. Each cites
+     what a real line cites: its placement key for the count, the schedule cell for the section, the
+     level note for the height (setup.ts:271's `sourceEntity`, VD-1) --- */
+  const setup = drawnSetup(setupForRows(rows), record);
   const offered = rail.columnConcreteRail(
     railInput({
       campaignId: staged.campaignId,
@@ -282,7 +495,18 @@ export async function stageRegisterCampaign(label: string = "register"): Promise
   });
   expect(field(appended, "appended", "appended"), `the transcribed reading of ${SIZE} was appended: ${JSON.stringify(appended)}`).toBe(true);
 
-  return { ...staged, objectKeys, sourceKeys, refusedObjectKey, queuedObjectKey };
+  const drawn: DrawnPlan = {
+    drawingId: record.drawingId,
+    ingestId: record.ingestId,
+    view,
+    planSheet: PLAN_SHEET,
+    scheduleSheet: SCHEDULE_SHEET,
+    modelSheet: MODEL_SHEET,
+    sectionCell: record.keys.sectionCell,
+    levelNote: record.keys.levelNote,
+    members: record.keys.members,
+  };
+  return { ...staged, objectKeys, sourceKeys, refusedObjectKey, queuedObjectKey, drawn };
 }
 
 /**

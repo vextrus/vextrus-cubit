@@ -11,6 +11,14 @@
  * terminus of "partition → placements → member types → column concrete lines", and the partial cell
  * means "some rows refused" only where unrefused rows stand beside them (R-UI-050).
  *
+ * PRODUCTION'S SHAPES (VD-1, walk-0). The lines cite what a real rail's lines cite: a view key
+ * anchored at the plan's own caption (`v:LAYOUT_PLAN:DXF_HANDLE:…`), the member's PLACEMENT key for
+ * its count (`measure/setup.ts`'s `sourceEntity`), and the entities its section and storey height
+ * were read at. Each member stands in the store as a placement row naming the outline and the mark
+ * it was read off — drawn by the partition stage at this stage's asking — so the Trace resolves the
+ * member exactly as it does on F-RCC6-BNBC. (Before VD-1 the lines cited raw handles off the layer
+ * feed on a sheet spelled `Model`, which is why the Trace passed here and missed on every real line.)
+ *
  * Every step is a shipped seam, driven in-process under the journey lane's database exactly as the
  * partition stage drives its own: no table is written by hand and no id is invented.
  *
@@ -21,7 +29,7 @@ import { randomUUID } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, type Page } from "@playwright/test";
-import { stagePartitionedSheet } from "../viewer/viewer-partition-stage";
+import { stagePartitionedSheet, type DrawnMembers } from "../viewer/viewer-partition-stage";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import { afterSettled } from "../support/settled";
 
@@ -33,6 +41,10 @@ async function productModule<T>(relative: string): Promise<T> {
   const specifier: string = join(REPO_ROOT, relative);
   return (await import(specifier)) as T;
 }
+
+/** The partition's placement store and the tenant seam the members' rows are written through. */
+const PLACEMENT_STORE_MODULE = "src/modules/takeoff/partition/placement/store.ts";
+const DB_SEAM_MODULE = "src/core/db.ts";
 
 /** The discipline, level, class and marks the register leg reads (AC-1's checkpoint). */
 export const DISCIPLINE = "STRUCTURAL";
@@ -51,25 +63,14 @@ export const INTERPRETED_MARK = "C4";
 export const STAGED_MARKS: readonly string[] = [...MARKS, INTERPRETED_MARK];
 
 /**
- * The key ONE PLACEMENT is read at in its own right, defaulted — one per staged mark, DERIVED from
- * the mark rather than transcribed, declared here once and imported wherever it is asserted (B-19).
- *
- * A staged line therefore cites both a key that is its own and keys its siblings share (the view it
- * was read in, the section of its family, its storey height), which is what lets an ask SEPARATE
- * them: over a corpus where every line cited the same keys, "the lines whose keys meet the ask" and
- * "every published line of this drawing" are the same list, and neither the withholding leg nor the
- * de-duplication leg of `linesCiting` is exercised at all. Over a corpus of per-placement keys
- * alone, no ask ever answers more than one line and de-duplication is equally unproved. The union
- * proves both.
+ * The synthetic key ONE PLACEMENT is read at in its own right, derived from the mark — the shape
+ * `./levels-stage` still stages its own readings in (a key of the register's grammar on no sheet the
+ * viewer serves). The register stage below no longer cites it: since VD-1 its lines cite the member's
+ * PLACEMENT, whose row names the outline and the mark the drawn plan carries, as production's do.
  */
 export function placementSourceOf(mark: string): string {
   return `S-101:e:${mark}`;
 }
-
-/** That rule as a map, over every mark this stage registers — the fixture surface's own home. */
-export const PLACEMENT_SOURCES: Readonly<Record<string, string>> = Object.freeze(
-  Object.fromEntries(STAGED_MARKS.map((mark) => [mark, placementSourceOf(mark)])),
-);
 
 /**
  * The two codes the register's refusal rows carry — the queue item's cause and the register's own
@@ -87,8 +88,14 @@ export type StagedLine = {
   lineId: string;
   objectKey: string;
   formula: string;
-  variables: Record<string, { value: string; unit: string }>;
+  /** Each variable as the line was published with it — the reading, its unit and the key it cites. */
+  variables: Record<string, { value: string; unit: string; source: string }>;
+  /** What the line's Trace selects: its member's outline and mark (I-421), as the register reads it. */
+  traceKeys: string[];
 };
+
+/** One staged member: the outline and the mark it was read off, and the placement that names both. */
+export type StagedMember = { outlineKey: string; markKey: string; placementKey: string };
 
 /** What the leg is driven against. */
 export type StagedRegister = {
@@ -97,10 +104,10 @@ export type StagedRegister = {
   /** The sheet the staged columns were read on — where a Trace from one of their lines lands. */
   drawingId: string;
   layoutName: string;
-  /** Where this run's lines cite their evidence: synthetic by default, real handles under `cite`. */
-  cited: CitedSources;
-  /** The key each placement is read at in its own right, by mark (`PLACEMENT_SOURCES`). */
-  placementSources: Readonly<Record<string, string>>;
+  /** The members, by mark: what a line's Trace selects, and what holding one on the sheet asks about. */
+  members: Readonly<Record<string, StagedMember>>;
+  /** The two entities every staged line's readings share: the section's and the storey height's. */
+  shared: { section: string; height: string };
   campaignId: string;
   setRevisionId: string;
   objectKeys: string[];
@@ -154,10 +161,22 @@ type GateSeam = {
 /** The reading the workspace itself renders — used here to READ BACK what the gate wrote (B-19). */
 type RegisterUiSeam = {
   registerViewOf: (scope: { tenantId: string; projectId: string }) => Promise<{
-    lines: { lineId: string; objectKey: string; kind: string; formula: string; sourceKeys: string[]; variables: Record<string, { value: string; unit: string }> }[];
+    lines: {
+      lineId: string;
+      objectKey: string;
+      kind: string;
+      formula: string;
+      layoutName: string | null;
+      traceKeys: string[];
+      variables: Record<string, { value: string; unit: string; source: string }>;
+    }[];
     refusals: { code: string; objectKey: string; kind: string | null }[];
   }>;
 };
+
+/** The partition's own store call, and the tenant seam it is written through. */
+type PlacementStore = { rewritePlacementRows: (tx: unknown, write: Record<string, unknown>) => Promise<void> };
+type DbSeam = { forTenant: (ctx: { tenantId: string }) => { transaction: (work: (tx: unknown) => Promise<unknown>) => Promise<unknown> } };
 
 /** The user the browser is signed in as, read from the session the partition stage established. */
 async function userIdOf(page: Page): Promise<string> {
@@ -168,10 +187,9 @@ async function userIdOf(page: Page): Promise<string> {
 }
 
 /**
- * Where a staged line's evidence is cited. The defaults are synthetic keys the served sheet does not
- * hold, which is all `tests/e2e/register.spec.ts` ever needed; J-021 hands in REAL `DXF_HANDLE:` keys
- * read off the layer feed (j-020's idiom, risk note 1), so a Trace from one of these lines lands on
- * entities the sheet in fact holds rather than in I-88's "Not on this sheet" cell.
+ * Where a SYNTHETIC staged line's evidence is cited — the shape `./levels-stage` still stages its own
+ * readings in, on keys of the register's grammar that no sheet the viewer serves holds. The register
+ * stage below cites the drawn plan's own entities instead (VD-1).
  */
 export type CitedSources = {
   /** What the sighting was read at — the entity the register's own content stands on. */
@@ -185,54 +203,38 @@ export type CitedSources = {
 /** The synthetic defaults: keys of the register's own grammar, on no sheet the viewer serves. */
 export const SYNTHETIC_SOURCES: CitedSources = Object.freeze({ evidence: "S-101:e:41", section: "S-101:e:7", height: "S-101:e:3" });
 
-/**
- * How many keys a caller's `cite` list is read for: the three shared ones above, then one per staged
- * mark — the key that placement alone was read at. Derived from both rosters rather than counted by
- * hand, so a mark added to the stage asks the sheet for one more entity (B-19).
- */
-export const CITE_KEYS: number = Object.keys(SYNTHETIC_SOURCES).length + STAGED_MARKS.length;
+/** The view the members were sighted in: the partition's own view of the plan they are drawn in. */
+type SightedView = { viewKey: string; viewClass: string; captionAnchorSourceKey: string };
 
 /**
- * What a caller's `cite` list means, position by position, defaulted where it is short. It arrives
- * as a callback because the keys are read off the SERVED SHEET, which only exists once the stage
- * below has built it — the journey asks the layer feed, and hands back what the sheet in fact holds.
+ * The partition's stored view of the plan the members are drawn in, read off the store rather than
+ * spelled (B-19): its key is `v:{class}:{anchor}` (L-REG-04), so a sighting in it mints the very view
+ * key a real rail's line cites, anchored at the plan's own caption.
  */
-export type CiteKeys = (sheet: { tenantId: string; drawingId: string; layoutName: string; ingestId: string }) => Promise<readonly string[]>;
-
-/** The shared keys and the per-placement ones, as this run cites them. */
-type StagedCitations = { cited: CitedSources; placementSources: Readonly<Record<string, string>> };
-
-function citationsFrom(cite: readonly string[] | undefined): StagedCitations {
-  const keys = cite ?? [];
-  const shared = Object.keys(SYNTHETIC_SOURCES).length;
-  const cited: CitedSources =
-    keys.length === 0
-      ? SYNTHETIC_SOURCES
-      : { evidence: keys[0] as string, section: (keys[1] ?? keys[0]) as string, height: (keys[2] ?? keys[0]) as string };
-  return {
-    cited,
-    placementSources: Object.freeze(
-      Object.fromEntries(STAGED_MARKS.map((mark, at) => [mark, keys[shared + at] ?? (PLACEMENT_SOURCES[mark] as string)])),
-    ),
-  };
+function viewOfPlan(views: readonly { viewKey: string }[], anchor: string): SightedView {
+  const suffix = `:${anchor}`;
+  const held = views.find((view) => view.viewKey.startsWith("v:") && view.viewKey.endsWith(suffix));
+  expect(held, `the partition stored a view anchored at the plan's caption ${anchor}: ${JSON.stringify(views.map((view) => view.viewKey))}`).toBeTruthy();
+  const viewKey = (held as { viewKey: string }).viewKey;
+  return { viewKey, viewClass: viewKey.slice("v:".length, viewKey.length - suffix.length), captionAnchorSourceKey: anchor };
 }
 
-/** One column sighting, as the register's door is given one (the door's own `Sighting`). */
-function sightingOf(mark: string, at: number, levelId: string, cited: CitedSources): Record<string, unknown> {
+/** One column sighting, as the register's door is given one (the door's own `Sighting`): at the member. */
+function sightingOf(mark: string, levelId: string, view: SightedView, member: { outlineKey: string; at: readonly [number, number] }): Record<string, unknown> {
   return {
     discipline: DISCIPLINE,
     elementType: CLASS_COLUMN,
     mark,
-    view: { viewClass: "PLAN", captionAnchorSourceKey: "S-101:t:12" },
-    x: 1000 + at * 100,
-    y: 250,
+    view: { viewClass: view.viewClass, captionAnchorSourceKey: view.captionAnchorSourceKey },
+    x: member.at[0],
+    y: member.at[1],
     level: { levelId },
     standing: "MEASURED",
     content: {
-      evidence: [cited.evidence],
+      evidence: [member.outlineKey],
       attributes: { concrete_grade: "C30/37" },
       geometry: { outline: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }], span: { length: "300.0", breadth: "300.0" } },
-      source: { sheet: "S-101", anchor: "S-101:t:12" },
+      source: { sheet: "S-101", anchor: view.captionAnchorSourceKey },
     },
   };
 }
@@ -246,10 +248,11 @@ const CALIBRATION_KEY = "S-101:PLAN:scale";
  * drawing and its ingest, one section for the family they share, the level they stand on with its
  * storey height AGREED, and the affirmed calibration of the view they were sighted in.
  *
- * Each placement's GEOMETRY is read at a key of its own (`placementSourceOf`), while the section it
- * takes and the storey height it stands at are read at keys its siblings share — so a published
- * line's cited keys compose to {its own key, the view, the section, the height} and the staged lines
- * differ in exactly one coordinate. That is what a `linesCiting` ask needs in order to separate them.
+ * As production's setup does (`measure/setup.ts`: `sourceEntity: placement.placementKey`), each
+ * placement's count is cited at the PLACEMENT itself — the member, which the Trace resolves to the
+ * outline and the mark its row names — while the section and the storey height are read at entities
+ * its siblings share. So each published line names one member of its own and two entities it shares,
+ * which is what a `linesCiting` ask needs in order to separate them (withhold) and to gather them.
  *
  * The ids are the ones this run staged — a rail is handed data, so nothing here is invented that the
  * journey does not already hold.
@@ -257,21 +260,20 @@ const CALIBRATION_KEY = "S-101:PLAN:scale";
 function setupFor(
   rows: readonly Record<string, unknown>[],
   ids: { drawingId: string; ingestId: string; levelId: string },
-  cited: CitedSources,
-  placementSources: Readonly<Record<string, string>>,
+  shared: { section: string; height: string },
 ): Record<string, unknown> {
   const placements: Record<string, Record<string, unknown>> = {};
   const views: Record<string, string> = {};
   for (const row of rows) {
-    const mark = String(row["mark"]);
     const viewKey = String(row["viewKey"]);
-    placements[String(row["placementKey"])] = {
+    const placementKey = String(row["placementKey"]);
+    placements[placementKey] = {
       drawingId: ids.drawingId,
       ingestId: ids.ingestId,
       viewKey,
       memberFamily: MEMBER_FAMILY,
       engine: "VECTOR",
-      sourceEntity: placementSources[mark] ?? placementSourceOf(mark),
+      sourceEntity: placementKey,
     };
     views[viewKey] = CALIBRATION_KEY;
   }
@@ -280,14 +282,63 @@ function setupFor(
     memberTypes: {
       [ids.ingestId]: {
         [MEMBER_FAMILY]: [
-          { variantKey: MEMBER_FAMILY, bandFrom: null, bandTo: null, sectionText: "300x450", sectionWidth: 300, sectionDepth: 450, sectionUnit: "mm", sourceKeys: [cited.section] },
+          { variantKey: MEMBER_FAMILY, bandFrom: null, bandTo: null, sectionText: "300x450", sectionWidth: 300, sectionDepth: 450, sectionUnit: "mm", sourceKeys: [shared.section] },
         ],
       },
     },
-    levels: [{ levelId: ids.levelId, label: LEVEL_LABEL, ordinal: 0, height: { standing: "AGREED", value: "3", unit: "M", basis: "TRANSCRIBED", sourceKey: cited.height } }],
+    levels: [{ levelId: ids.levelId, label: LEVEL_LABEL, ordinal: 0, height: { standing: "AGREED", value: "3", unit: "M", basis: "TRANSCRIBED", sourceKey: shared.height } }],
     calibrations: { [ids.ingestId]: views },
     grades: {},
   };
+}
+
+/**
+ * The members the plan placed, written through the partition's own store call (the pile-cap store
+ * test's precedent, and `tests/takeoff/register-ui/support/register-ui-stage.ts`'s): one row per
+ * register row, keyed by the placement key the register minted, naming the outline and the mark the
+ * drawn plan carries for that mark. The plan they are drawn in has no georeference, so the partition
+ * placed nothing there itself (L-CAD-07) and this is the one writer of these rows.
+ */
+async function placeMembers(
+  sheet: { tenantId: string; projectId: string; drawingId: string; ingestId: string },
+  rows: readonly Record<string, unknown>[],
+  drawn: DrawnMembers,
+): Promise<Record<string, StagedMember>> {
+  const store = await productModule<PlacementStore>(PLACEMENT_STORE_MODULE);
+  const seam = await productModule<DbSeam>(DB_SEAM_MODULE);
+  const members: Record<string, StagedMember> = {};
+  const placed = rows.map((row) => {
+    const mark = String(row["mark"]);
+    const member = drawn.byMark[mark];
+    expect(member, `the drawn plan carries an outline and a mark for ${mark}`).toBeTruthy();
+    const { outlineKey, markKey, at } = member as DrawnMembers["byMark"][string];
+    const placementKey = String(row["placementKey"]);
+    members[mark] = { outlineKey, markKey, placementKey };
+    return {
+      placementKey,
+      viewKey: String(row["viewKey"]),
+      mark,
+      markText: mark,
+      elementType: CLASS_COLUMN,
+      x: at[0],
+      y: at[1],
+      gridLetter: null,
+      gridNumeral: null,
+      outlineKey,
+      markKey,
+      memberFamily: MEMBER_FAMILY,
+    };
+  });
+  await seam.forTenant({ tenantId: sheet.tenantId }).transaction(async (tx) =>
+    store.rewritePlacementRows(tx, {
+      tenantId: sheet.tenantId,
+      projectId: sheet.projectId,
+      drawingId: sheet.drawingId,
+      ingestId: sheet.ingestId,
+      placements: { views: 1, placements: placed, ungridded: [], runs: [], outlines: [] },
+    }),
+  );
+  return members;
 }
 
 /**
@@ -305,10 +356,14 @@ function interpretedOffer(offer: OfferShape): OfferShape {
  * measured into published `rcc.concrete` lines, one deferred as a queue item — with one sighting
  * refused as a double count: the shape J-021's register leg reads.
  */
-export async function stageRegister(page: Page, options: { label?: string; cite?: CiteKeys } = {}): Promise<StagedRegister> {
+export async function stageRegister(page: Page, options: { label?: string } = {}): Promise<StagedRegister> {
   const label = options.label ?? "register";
-  const sheet = await stagePartitionedSheet(page, { label });
-  const { cited, placementSources } = citationsFrom(options.cite === undefined ? undefined : [...(await options.cite(sheet))]);
+  // The plan the columns stand in is drawn with them: an outline and a mark per staged mark (VD-1).
+  const sheet = await stagePartitionedSheet(page, { label, members: STAGED_MARKS });
+  expect(sheet.members, "the partitioned sheet drew the members this register stands on").not.toBeNull();
+  const drawn = sheet.members as DrawnMembers;
+  const planView = viewOfPlan(sheet.views, drawn.viewAnchor);
+  const shared = { section: drawn.sectionRule, height: drawn.heightRule };
   const userId = await userIdOf(page);
   const actor: ActorCtx = { tenantId: sheet.tenantId, userId, actorKind: "human" };
   const scope = { tenantId: sheet.tenantId, projectId: sheet.projectId };
@@ -344,7 +399,7 @@ export async function stageRegister(page: Page, options: { label?: string; cite?
   /* --- the objects: the three the leg reads, and the fourth whose offer is INTERPRETED --- */
   const register = await productModule<RegisterSeam>("src/modules/takeoff/register/index.ts");
   const registerScope = { tenantId: sheet.tenantId, projectId: sheet.projectId, setRevisionId };
-  const sightings = STAGED_MARKS.map((mark, at) => sightingOf(mark, at, levelId, cited));
+  const sightings = STAGED_MARKS.map((mark) => sightingOf(mark, levelId, planView, drawn.byMark[mark] as DrawnMembers["byMark"][string]));
   for (const sighting of sightings) {
     const answer = await register.registerSighting(registerScope, sighting);
     expect(answer["registered"], `the sighting of ${String(sighting["mark"])} registered: ${JSON.stringify(answer)}`).toBe(true);
@@ -357,6 +412,9 @@ export async function stageRegister(page: Page, options: { label?: string; cite?
   expect(interpretedRow, `the column ${INTERPRETED_MARK} stands in the register: ${JSON.stringify(rows.map((row) => row["mark"]))}`).toBeTruthy();
   const queuedObjectKey = String((interpretedRow as Record<string, unknown>)["objectKey"]);
 
+  /* --- the members the plan placed, each with the outline and the mark it was read off --- */
+  const members = await placeMembers(sheet, rows, drawn);
+
   /* --- the lines: the rail's offers, published by the gate, the last of them deferred --- */
   const rail = await productModule<RailSeam>("src/modules/takeoff/rails/columns/index.ts");
   const gate = await productModule<GateSeam>("src/core/gate/index.ts");
@@ -365,7 +423,7 @@ export async function stageRegister(page: Page, options: { label?: string; cite?
     setRevisionId,
     kind: RCC_CONCRETE,
     objects: rows,
-    setup: setupFor(rows, { drawingId: sheet.drawingId, ingestId: sheet.ingestId, levelId }, cited, placementSources),
+    setup: setupFor(rows, { drawingId: sheet.drawingId, ingestId: sheet.ingestId, levelId }, shared),
   }).offers;
   expect(offered.length, `the rail offers each staged column once: ${offered.length}`).toBe(sightings.length);
 
@@ -401,22 +459,26 @@ export async function stageRegister(page: Page, options: { label?: string; cite?
 
   /*
    * And the staged lines must be SEPARABLE, which is what makes the Trace's other direction an
-   * answer rather than a list of the sheet: each published line cites a key no sibling cites (so an
-   * ask can withhold the others) and a key its siblings share (so an ask can gather them all, each
-   * once). Read off what the reading in fact answered, so a stage that stopped discriminating fails
-   * here rather than standing a checkpoint on a predicate nothing exercised.
+   * answer rather than a list of the sheet: each published line's Trace selects a member no sibling's
+   * does (so holding it withholds the others) and every line reads its section at one shared entity
+   * (so holding that gathers them all, each once). Read off what the reading in fact answered — the
+   * register's own `traceKeys` and bindings — so a stage that stopped discriminating fails here
+   * rather than standing a checkpoint on a predicate nothing exercised.
    */
   expect(published.length, `the staged campaign publishes a line per measured mark, so an ask has lines to tell apart: ${JSON.stringify(published.map((row) => row.objectKey))}`).toBeGreaterThan(1);
+  const memberOf = new Map(Object.values(members).map((member) => [member.placementKey, member]));
   for (const held of published) {
-    const siblings = published.filter((row) => row.lineId !== held.lineId).flatMap((row) => row.sourceKeys);
+    const counted = Object.values(held.variables).map((binding) => binding.source).find((key) => memberOf.has(key));
+    expect(counted, `${held.objectKey} cites the placement it was measured off, as a real line does: ${JSON.stringify(held.variables)}`).toBeTruthy();
+    const member = memberOf.get(counted as string) as StagedMember;
+    expect(held.layoutName, `${held.objectKey}'s Trace opens the sheet the member stands on, spelled as the artifact spells it`).toBe(sheet.layoutName);
+    expect(held.traceKeys, `${held.objectKey}'s Trace selects exactly its member's outline and mark`).toEqual([member.outlineKey, member.markKey]);
+    const siblings = published.filter((row) => row.lineId !== held.lineId).flatMap((row) => row.traceKeys);
+    expect(held.traceKeys.filter((key) => siblings.includes(key)), `and no sibling's Trace selects the same member: ${JSON.stringify(held.traceKeys)}`).toEqual([]);
     expect(
-      held.sourceKeys.filter((key) => !siblings.includes(key)),
-      `${held.objectKey} cites a key no other staged line cites: ${JSON.stringify(held.sourceKeys)}`,
-    ).not.toEqual([]);
-    expect(
-      held.sourceKeys.filter((key) => siblings.includes(key)),
-      `and a key its siblings cite too: ${JSON.stringify(held.sourceKeys)}`,
-    ).not.toEqual([]);
+      Object.values(held.variables).map((binding) => binding.source),
+      `and its section was read at the one entity every staged line shares: ${JSON.stringify(held.variables)}`,
+    ).toContain(shared.section);
   }
 
   const deferred = view.refusals.filter((refusal) => refusal.code === INTERPRETED_UNCORROBORATED);
@@ -437,8 +499,8 @@ export async function stageRegister(page: Page, options: { label?: string; cite?
     objectKeys,
     queuedObjectKey,
     refusedObjectKey,
-    cited,
-    placementSources,
+    members,
+    shared,
     line,
   };
 }

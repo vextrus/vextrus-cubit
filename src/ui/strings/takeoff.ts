@@ -43,6 +43,10 @@ export const takeoff = {
   takeoff_register_col_calibration: "Calibration",
   takeoff_register_col_engine: "Engine",
   takeoff_register_col_source: "Source",
+  // VD-1 (I-425): the Source chip names the sheet a line stands on by its number; a line read in
+  // model space that no sheet's window shows stands on no numbered sheet, and says so in words rather
+  // than printing the extractor's name for the space (I-179, R-UI-082).
+  takeoff_register_source_model_space: "Model space",
   // A line kept with no quantity says why in its own Value cell (L-QTY-02, s-takeoff I-reg-1): the
   // variables it left out, read off the line, or — where it enumerated none — that no figure stands.
   takeoff_register_value_omitted: "{variables} unstated",

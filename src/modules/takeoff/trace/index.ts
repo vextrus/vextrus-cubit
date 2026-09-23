@@ -7,6 +7,12 @@
 // address and the viewer composes the register's — a rule each of them would otherwise hold a copy
 // of (B-17).
 //
+// WHICH SHEET a line stands on, and WHAT on it the Trace selects, is core's one pure reading
+// (`@/core/sheets/frames`, `traceCitations`, I-421). What this file adds is only the read of the
+// record that reading is asked over: the ingest the line's pinned revision measured, its artifact,
+// and the outline and mark each of its placements was read off — read once per drawing of a
+// campaign, never once per line (R-TO-050's 50 000 lines).
+//
 // Nothing here judges. A lineId this project does not hold is a fact and answers `null`; a key
 // nobody cites answers the empty list. No refusal code is invented for either (I-88's idiom).
 //
@@ -14,19 +20,16 @@
 // here, so this barrel stays the one home the test contract names while a browser component may
 // reach the spelling without carrying the store into its bundle (ARCH-01's spirit, B-17).
 import { campaignsOf } from "@/core/campaigns";
-import { and, asc, eq, forTenant, isUuid, quantityLines, sheetDisciplines } from "@/core/db";
-import { citedKeysOf, type LineBinding, type LineEvidence } from "./address";
+import { and, asc, desc, drawingSetRevisions, eq, forTenant, ingests, isUuid, quantityLines } from "@/core/db";
+import { artifactAt } from "@/core/entitygraph/artifact";
+import { sheetLabelOf, standingOfGraph, traceCitations, type MemberKeys, type RecordStanding, type TracedCitations } from "@/core/sheets/frames";
+import { appStorage } from "@/core/storage/app";
+import { storedPlacementsOf } from "@/modules/takeoff/partition/placement/store";
 import { repudiatedObjectsOf } from "@/modules/takeoff/register";
+import { citedKeysOf, type LineBinding, type LineEvidence } from "./address";
 
 export { LINE_PARAM, citedKeysOf, originAddress, selectionAddress, traceAddress } from "./address";
 export type { AddressableLine, AddressableSelection, LineBinding, LineEvidence } from "./address";
-
-/**
- * The layout a sheet is addressed at where the ingest recorded no single one for it. No store ties a
- * partition view to a layout today, so the resolution is: the one layout a confirmation recorded for
- * this drawing, else model space (recorded as an IOU in docs/design/s-viewer-inspector.md § 8).
- */
-const MODEL_SPACE = "Model";
 
 /** Which project's lines are being traced, in which workspace — the register's own scope. */
 export type TraceScope = {
@@ -40,24 +43,79 @@ export type CitingAsk = {
   readonly sourceKeys: readonly string[];
 };
 
-/* --------------------------------------------------------------------------------- the doors */
+/* ------------------------------------------------------------- the record a line was read on */
 
 /**
- * The layout a drawing's evidence is addressed at. One confirmation recorded for the drawing names
- * its sheet; anything else — none recorded, or several — is model space, which is where a reading
- * with no paper layout was in fact taken.
+ * One drawing of a pinned revision, as the Trace reads it: where its keys stand, and how a reader
+ * names each of its sheets. Null where the revision's drawing has no record the Trace can read.
  */
-export async function sheetOfView(scope: TraceScope, drawingId: string): Promise<string> {
-  if (!isUuid(drawingId)) return MODEL_SPACE;
-  const rows = await forTenant({ tenantId: scope.tenantId }).transaction((tx) =>
-    tx
-      .select({ layoutName: sheetDisciplines.layoutName })
-      .from(sheetDisciplines)
-      .where(and(eq(sheetDisciplines.tenantId, scope.tenantId), eq(sheetDisciplines.projectId, scope.projectId), eq(sheetDisciplines.drawingId, drawingId))),
-  );
-  const recorded = [...new Set(rows.map((row) => row.layoutName))];
-  return recorded.length === 1 ? (recorded[0] as string) : MODEL_SPACE;
+export type PinnedRecord = {
+  readonly standing: RecordStanding;
+  /** How a reader names one of this record's sheets: its number, or null for model space. */
+  readonly labelOf: (layoutName: string) => string | null;
+};
+
+/**
+ * The record each named drawing of one pinned revision was measured on: the ingest of the very bytes
+ * the pin recorded (L-REG-06: the manifest names each drawing's revision by its sha256), the newest
+ * such where one file was read twice — never the drawing's CURRENT record, which a later upload moves
+ * while the lines stand where they were read (I-422).
+ *
+ * A drawing the revision does not name, or whose pinned bytes nobody read, is absent from the answer:
+ * its lines name no sheet and are offered no Trace, which is honest rather than a guess (I-181).
+ */
+export async function pinnedRecordsOf(scope: TraceScope, setRevisionId: string, drawingIds: readonly string[]): Promise<Map<string, PinnedRecord>> {
+  const held = new Map<string, PinnedRecord>();
+  const wanted = [...new Set(drawingIds)].filter((drawingId) => isUuid(drawingId));
+  if (wanted.length === 0 || !isUuid(setRevisionId)) return held;
+
+  const read = await forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
+    const revision = await tx
+      .select({ manifest: drawingSetRevisions.manifest })
+      .from(drawingSetRevisions)
+      .where(and(eq(drawingSetRevisions.tenantId, scope.tenantId), eq(drawingSetRevisions.setRevisionId, setRevisionId)))
+      .limit(1);
+    const pinned = new Map((revision[0]?.manifest ?? []).map((member) => [member.drawingId, member.sha256]));
+    const records: { drawingId: string; ingestId: string; artifactSha256: string }[] = [];
+    for (const drawingId of wanted) {
+      const sha256 = pinned.get(drawingId);
+      if (sha256 === undefined) continue;
+      const rows = await tx
+        .select({ ingestId: ingests.ingestId, artifactSha256: ingests.artifactSha256 })
+        .from(ingests)
+        .where(and(eq(ingests.drawingId, drawingId), eq(ingests.sha256, sha256)))
+        .orderBy(desc(ingests.createdAt), desc(ingests.ingestId))
+        .limit(1);
+      const row = rows[0];
+      if (row !== undefined) records.push({ drawingId, ...row });
+    }
+    return records;
+  });
+
+  const storage = appStorage();
+  for (const record of read) {
+    const graph = await artifactAt(scope.tenantId, record.artifactSha256, storage, `ingest ${record.ingestId}`);
+    const members = new Map<string, MemberKeys>();
+    for (const placement of await storedPlacementsOf(scope.tenantId, record.ingestId)) {
+      members.set(placement.placementKey, { outlineKey: placement.outlineKey, markKey: placement.markKey });
+    }
+    held.set(record.drawingId, { standing: standingOfGraph(graph, members), labelOf: (layoutName) => sheetLabelOf(graph, layoutName) });
+  }
+  return held;
 }
+
+/**
+ * What the Trace makes of one stored line, over the record it was read on: the sheet it opens, what
+ * it selects there, every entity it cites, and the sheet each cited key stands on (I-421). The one
+ * composition the register, the Trace block and the other direction all read (B-17).
+ */
+export function tracedLineOf(row: { readonly viewKey: string; readonly bindings: Record<string, unknown> }, record: PinnedRecord | null | undefined): TracedCitations {
+  // The same keys `citedKeysOf` reads, in its order: the view the line was read in, then each binding.
+  const sources = Object.values(variablesOf(row.bindings)).map((binding) => binding.source);
+  return traceCitations({ viewKey: row.viewKey, sources }, record?.standing ?? null);
+}
+
+/* --------------------------------------------------------------------------------- the doors */
 
 /**
  * One line's whole evidence, or nothing. A lineId nobody published, one of another project, one of
@@ -75,12 +133,19 @@ export async function lineEvidence(scope: TraceScope, lineId: string): Promise<L
   );
   const row = rows[0];
   if (row === undefined) return null;
-  return evidenceOf(row, await sheetOfView(scope, row.drawingId));
+  const records = await pinnedRecordsOf(scope, row.setRevisionId, [row.drawingId]);
+  return evidenceOf(row, tracedLineOf(row, records.get(row.drawingId)));
 }
 
 /**
- * The other direction of X-2: every published line of that sheet whose cited keys meet the held
+ * The other direction of X-2: every published line of that sheet whose cited ENTITIES meet the held
  * selection, each line once however many of its keys match, in the order the store published them.
+ *
+ * A held selection is entities of the drawing — a column's outline, a schedule cell — and a line
+ * cites its member by its placement, so a line is met through the register's own join: its placement
+ * resolved to the outline and the mark it was read off, beside every source key its bindings name
+ * (I-421). Selecting C2's outline on S-10 therefore lists every line measured off C2, at every
+ * storey its placement stands on.
  *
  * A line measured off an object a person has struck is not answered: it is withheld from the
  * register's own table too, and a way back to a row nobody can see is no way back (I-173).
@@ -113,8 +178,14 @@ export async function linesCiting(scope: TraceScope, ask: CitingAsk): Promise<Li
   if (rows.length === 0) return [];
 
   const asked = new Set(ask.sourceKeys);
-  const layoutName = await sheetOfView(scope, ask.drawingId);
-  const held = rows.map((row) => evidenceOf(row, layoutName)).filter((line) => line.sourceKeys.some((key) => asked.has(key)));
+  const records = await pinnedRecordsOf(scope, rendered.setRevisionId, [ask.drawingId]);
+  const record = records.get(ask.drawingId);
+  const held: LineEvidence[] = [];
+  for (const row of rows) {
+    const traced = tracedLineOf(row, record);
+    const cited = citedKeysOf({ sourceKey: row.viewKey, variables: variablesOf(row.bindings) });
+    if (traced.entities.some((key) => asked.has(key)) || cited.some((key) => asked.has(key))) held.push(evidenceOf(row, traced));
+  }
   if (held.length === 0) return [];
 
   const struck = await struckObjects(scope, [...new Set(rows.map((row) => row.setRevisionId))]);
@@ -149,7 +220,7 @@ export function variablesOf(bindings: Record<string, unknown>): Record<string, L
 }
 
 /** One stored line as the Trace answers it — the register's own reading of it, plus its sheet. */
-function evidenceOf(row: typeof quantityLines.$inferSelect, layoutName: string): LineEvidence {
+function evidenceOf(row: typeof quantityLines.$inferSelect, traced: TracedCitations): LineEvidence {
   const variables = variablesOf(row.bindings);
   return {
     lineId: row.lineId,
@@ -158,8 +229,9 @@ function evidenceOf(row: typeof quantityLines.$inferSelect, layoutName: string):
     value: row.value,
     unit: row.unit,
     drawingId: row.drawingId,
-    layoutName,
-    sourceKeys: citedKeysOf({ sourceKey: row.viewKey, variables }),
+    layoutName: traced.layoutName,
+    traceKeys: traced.flyTo,
+    sourceSheets: traced.sheets,
     formula: row.formula,
     variables,
     quantityBasis: row.quantityBasis,

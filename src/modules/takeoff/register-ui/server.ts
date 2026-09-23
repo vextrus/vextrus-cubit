@@ -16,7 +16,7 @@ import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
 import { standingOf, type ObservationRow, type RegisterScope } from "@/core/register/store";
 import { proposedLevelStackOf } from "@/modules/takeoff/partition";
 import { refusedSightingsOf, registerObjectsOf, repudiatedObjectsOf } from "@/modules/takeoff/register";
-import { citedKeysOf, sheetOfView, variablesOf } from "@/modules/takeoff/trace";
+import { citedKeysOf, pinnedRecordsOf, tracedLineOf, variablesOf } from "@/modules/takeoff/trace";
 import { levelRank, readingOrder, type LineRank } from "./order";
 import type { RegisterView, ViewAttribute, ViewLevelStack, ViewLine, ViewObject, ViewOmission, ViewReading, ViewRefusal } from "./view";
 
@@ -110,13 +110,12 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
     else held.push(row);
   }
 
-  /* --- the sheet each line's evidence stands on: one resolution per drawing, never one per row
-     (R-TO-050 asks this table to hold 50 000 lines, and a lookup per line would price the page in
-     as many round trips). --- */
-  const layoutByDrawing = new Map<string, string>();
-  for (const drawingId of new Set(published.map((row) => row.drawingId))) {
-    layoutByDrawing.set(drawingId, await sheetOfView(scope, drawingId));
-  }
+  /* --- the sheet each line stands on, and what its Trace selects there: the record each drawing
+     of the pinned revision was measured on is read ONCE (R-TO-050 asks this table to hold 50 000
+     lines, and a read per line would price the page in as many round trips), and each line is then
+     resolved against it by the Trace's own pure reading — per VIEW and per MEMBER, never one sheet
+     per drawing: F-RCC6-BNBC's lines stand on S-04, S-06, S-10 and S-13..15 of one file (I-421). */
+  const records = await pinnedRecordsOf(scope, campaign.setRevisionId, published.map((row) => row.drawingId));
 
   /* --- the lines, each marked with whether a person has struck the object it was measured off, in
      the order a register is READ (s-takeoff I-350): level, class, mark in natural order, kind. The
@@ -138,6 +137,8 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
   ranked.sort((left, right) => readingOrder(left.rank, right.rank));
   const lines: ViewLine[] = ranked.map(({ row }) => {
     const variables = variablesOf(row.bindings);
+    const record = records.get(row.drawingId);
+    const traced = tracedLineOf(row, record);
     return {
       lineId: row.lineId,
       objectKey: row.objectKey,
@@ -156,10 +157,16 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
       engine: row.engine,
       sourceKey: row.viewKey,
       repudiated: struck.has(row.objectKey),
-      // The Trace's own two readings: where the evidence stands, and which entities it cites.
+      // The Trace's own readings: the sheet the line stands on, how a reader names it (its number —
+      // I-179 — or null for model space, which the chip says in words), and what the Trace selects.
       drawingId: row.drawingId,
-      layoutName: layoutByDrawing.get(row.drawingId) ?? null,
+      layoutName: traced.layoutName,
+      sheetLabel: traced.layoutName === null || record === undefined ? null : record.labelOf(traced.layoutName),
+      // Two lists, never one: every key the line CITES — what the JSON export has always published
+      // as `sourceKeys` (I-426) — and what its Trace SELECTS, the member's outline and mark, which
+      // the line does not cite at all (I-421).
       sourceKeys: citedKeysOf({ sourceKey: row.viewKey, variables }),
+      traceKeys: traced.flyTo,
     };
   });
 

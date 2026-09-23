@@ -133,16 +133,24 @@ export const setsRoute = (tenantId: string = TENANT, projectId: string = PROJECT
  */
 export const LAYOUT = "S-101 Plan";
 
+/**
+ * How a reader names that sheet — its number, which is what the Source chip leads with (I-179 as
+ * I-425 applies it), never the layout's whole title.
+ */
+export const SHEET_LABEL = "S-101";
+
 /** The query parameter the register's own address carries an origin under (test contract). */
 export const LINE_PARAM = "line";
 
 /**
  * The two addresses the Trace spells, written here as the test contract states them — independently
  * of the product's `traceAddress`/`originAddress`, so a wrong spelling in the one home cannot agree
- * with itself into a pass (B-12: every literal these need is public).
+ * with itself into a pass (B-12: every literal these need is public). The selection is lossless
+ * (I-423): each key's own `%` and `,` are escaped before the keys are joined.
  */
-export function traceAddressOf(line: { drawingId: string | null; layoutName: string | null; sourceKeys: readonly string[]; lineId: string }, tenantId: string = TENANT, projectId: string = PROJECT): string {
-  const keys = line.sourceKeys.map((key) => encodeURIComponent(key)).join(",");
+export function traceAddressOf(line: { drawingId: string | null; layoutName: string | null; traceKeys: readonly string[]; lineId: string }, tenantId: string = TENANT, projectId: string = PROJECT): string {
+  const escaped = (key: string): string => key.split("%").join("%25").split(",").join("%2C");
+  const keys = [...new Set(line.traceKeys)].map((key) => encodeURIComponent(escaped(key))).join(",");
   return `/t/${tenantId}/p/${projectId}/viewer/${line.drawingId as string}/${encodeURIComponent(line.layoutName as string)}?s=${keys}&${LINE_PARAM}=${encodeURIComponent(line.lineId)}`;
 }
 
@@ -259,8 +267,12 @@ export interface ViewLine {
   /** The sheet the line's evidence stands on, or null where the reading resolves none (I-181). */
   drawingId: string | null;
   layoutName: string | null;
-  /** The keys the line cites — `citedKeys(line)` — which is the selection its Trace address carries. */
+  /** How a reader names that sheet: its number, or null for model space (I-425). */
+  sheetLabel: string | null;
+  /** Every key the line cites — `citedKeys(line)` — as the JSON export publishes it (I-426). */
   sourceKeys: string[];
+  /** What the line's Trace selects — the selection its Trace address carries (I-421). */
+  traceKeys: string[];
 }
 
 /** One sighting that produced no line: a queue item or a refused sighting (test contract). */
@@ -382,12 +394,16 @@ export function aLine(over: Partial<ViewLine> = {}): ViewLine {
     repudiated: false,
     drawingId: DRAWING,
     layoutName: LAYOUT,
+    sheetLabel: SHEET_LABEL,
     sourceKeys: [],
+    traceKeys: [],
     ...over,
   };
   // The cited keys are a reading OF the line, so they are computed after the caller's overrides —
-  // a line given another key or other bindings cites what it in fact carries (B-19).
-  return { ...line, sourceKeys: over.sourceKeys ?? citedKeys(line) };
+  // a line given another key or other bindings cites what it in fact carries (B-19). A line stated
+  // with no selection of its own selects what it cites, as a line whose member resolves no placement
+  // does (I-421); a suite that needs the two apart states `traceKeys`.
+  return { ...line, sourceKeys: over.sourceKeys ?? citedKeys(line), traceKeys: over.traceKeys ?? citedKeys(line) };
 }
 
 /** The whole view, with every region answering and any region the caller wants otherwise. */

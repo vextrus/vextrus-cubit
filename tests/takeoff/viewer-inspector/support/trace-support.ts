@@ -46,7 +46,8 @@ export interface TraceEvidence {
   unit: string;
   drawingId: string | null;
   layoutName: string | null;
-  sourceKeys: string[];
+  /** What the Trace selects and flies to (I-421) — named apart from the keys a line cites. */
+  traceKeys: string[];
   formula: string;
   variables: Record<string, TraceVariable>;
   quantityBasis: string;
@@ -181,7 +182,7 @@ export function anEvidence(over: Partial<TraceEvidence> = {}): TraceEvidence {
     unit: "m3",
     drawingId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
     layoutName: "S-101 Plan",
-    sourceKeys: [sourceKey, keyOf(0x2b7), keyOf(0x3c9)],
+    traceKeys: [sourceKey, keyOf(0x2b7), keyOf(0x3c9)],
     formula: "length × breadth × height",
     variables,
     quantityBasis: "MEASURED",

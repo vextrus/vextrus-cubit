@@ -18,6 +18,7 @@ import {
   all,
   anObject,
   cleanup,
+  copy,
   linesFixture,
   mountRegister,
   objectKeyOf,
@@ -25,6 +26,7 @@ import {
   originAddressOf,
   registerFixture,
   sourceKeyOf,
+  takeoffStrings,
   text,
   traceAddressOf,
   userEvent,
@@ -61,7 +63,10 @@ describe("AC-3: the source cell is the link", () => {
       // keeps it whole in the label too — the reading of a VIEW key is identifier-exposure.test.ts's.
       expect(anchor.getAttribute("data-key"), `${line.lineId}: the cited key is whole on the anchor (I-287)`).toBe(line.sourceKey);
       expect(text(anchor), `${line.lineId}: a key of no known grammar stands whole in the chips (I-26, I-234)`).toContain(line.sourceKey);
-      expect(text(anchor), `${line.lineId}: and the sheet the line stands on opens the label`).toContain(line.layoutName as string);
+      // TEST_AMENDED (VD-1, I-425): the sheet opens the label by its NUMBER (I-179), and the layout
+      // it is — the whole title the Source column cut short — is where the href goes, not the face.
+      expect(text(anchor), `${line.lineId}: and the sheet the line stands on opens the label, by its number`).toContain(`${line.sheetLabel as string} · `);
+      expect(text(anchor), `${line.lineId}: never by the layout's whole title`).not.toContain(line.layoutName as string);
       expect(anchor.getAttribute("href"), `${line.lineId}: the href is the Trace address the contract spells`).toBe(traceAddressOf(line));
 
       const href = anchor.getAttribute("href") ?? "";
@@ -156,6 +161,61 @@ describe("AC-3: a link is offered only where there is somewhere to go", () => {
     for (const line of [sheetless, defaulted]) {
       expect(table, `${line.lineId} keeps its key, rendered and not hidden (R-UI-050's partial cell)`).toContain(line.sourceKey);
     }
+  });
+
+  /*
+   * VD-1 (walk-0, BLOCKS_DEMO): every register Trace landed on a sheet named `Model` that the drawing
+   * does not hold, and the chip read "Model · P1 · Layou…". The chip now names the sheet a line
+   * stands on by its number and its link opens that very layout; a line read in model space that no
+   * sheet's window shows says so in words, and its link opens model space by the artifact's own name.
+   */
+  test("VD-1: the chip names the sheet's number and the link opens the layout it names", async () => {
+    const column = aLine({ lineId: "line-s10", objectKey: objectKeyOf("C1"), sourceKey: sourceKeyOf("C1"), layoutName: "S-10 COLUMN LAYOUT PLAN", sheetLabel: "S-10" });
+    const root = await mountRegister(aView({ objects: [anObject({ mark: "C1" })], lines: [column] }));
+    const anchor = linkOf(root, column.lineId);
+
+    expect(text(anchor), "the chip leads with the sheet's number").toContain("S-10 · C1");
+    expect(text(anchor), "and never the layout's whole title").not.toContain("COLUMN LAYOUT PLAN");
+    expect(anchor.getAttribute("href"), "while the link opens the layout the number stands for").toBe(traceAddressOf(column));
+    expect(anchor.getAttribute("href"), "spelled as that layout is spelled").toContain(`/${encodeURIComponent("S-10 COLUMN LAYOUT PLAN")}?`);
+  });
+
+  test("VD-1: a line on model space says so in words, and opens model space by the artifact's own name", async () => {
+    const strings = await takeoffStrings();
+    const modelSpace = aLine({ lineId: "line-model", objectKey: objectKeyOf("C1"), sourceKey: sourceKeyOf("C1"), layoutName: "model", sheetLabel: null });
+    const root = await mountRegister(aView({ objects: [anObject({ mark: "C1" })], lines: [modelSpace] }));
+    const anchor = linkOf(root, modelSpace.lineId);
+
+    expect(text(anchor), "the chip says model space in words (I-179, R-UI-082)").toContain(`${copy(strings, "takeoff_register_source_model_space")} · C1`);
+    expect(anchor.getAttribute("href"), "and the link opens the layout the artifact names — `model`, never `Model`").toContain("/model?");
+  });
+
+  test("VD-1: what the Trace selects is addressed losslessly — a key's comma is not a separator", async () => {
+    const placed = aLine({ lineId: "line-comma", objectKey: objectKeyOf("C1"), sourceKey: sourceKeyOf("C1"), traceKeys: ["PDF_OBJECT:12,0", "DXF_HANDLE:99C"] });
+    const root = await mountRegister(aView({ objects: [anObject({ mark: "C1" })], lines: [placed] }));
+    const href = linkOf(root, placed.lineId).getAttribute("href") ?? "";
+
+    expect(href, "the address the contract spells, each key escaped before it is joined (I-423)").toBe(traceAddressOf(placed));
+    expect(new URL(href, "http://cubit.test").searchParams.get("s")?.split(",").length, "two keys, two segments — never three").toBe(2);
+  });
+
+  /*
+   * A line measured off a placement CITES the placement, the schedule cell and the level note, and
+   * its Trace SELECTS the member's outline and mark, which it cites nowhere. The reading carries the
+   * two apart (`sourceKeys`, `traceKeys`) because the register JSON export publishes the first under
+   * its 1.0 meaning (I-426); the link must carry the second, and nothing of the first.
+   */
+  test("VD-1: the link carries what the Trace selects, never the keys the line cites", async () => {
+    const member = ["DXF_HANDLE:98B", "DXF_HANDLE:9A5"];
+    const placed = aLine({ lineId: "line-member", objectKey: objectKeyOf("C4"), sourceKey: sourceKeyOf("C4"), traceKeys: member });
+    expect(placed.sourceKeys.some((key) => member.includes(key)), "the staged line cites none of its member's keys, so the two lists are told apart").toBe(false);
+    const root = await mountRegister(aView({ objects: [anObject({ mark: "C4" })], lines: [placed] }));
+    const href = linkOf(root, placed.lineId).getAttribute("href") ?? "";
+
+    expect(href, "the address is the Trace's selection, as the contract spells it").toBe(traceAddressOf(placed));
+    const selected = (new URL(href, "http://cubit.test").searchParams.get("s") ?? "").split(",");
+    expect(selected, "exactly the member's outline and mark").toEqual(member);
+    expect(selected.filter((key) => placed.sourceKeys.includes(key)), "and no key the line merely cites").toEqual([]);
   });
 
   test("AC-3: the cell spreads over the table it is given, one link per row, at any size", async () => {

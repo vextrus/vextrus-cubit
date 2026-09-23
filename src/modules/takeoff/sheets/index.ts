@@ -13,13 +13,12 @@ import { artifactAt } from "@/core/entitygraph/artifact";
 import { judgeAnisotropy } from "@/core/scale";
 import { affirmationsOfRecord } from "@/core/scale/store";
 import { scaleTolerancesOf } from "@/core/scale/tolerances";
+import { framesOfGraph, spacesOfGraph } from "@/core/sheets/frames";
 import { appStorage } from "@/core/storage/app";
-import type { Storage as AppStorage } from "@/core/storage";
 import { viewRecordsOf } from "@/core/views";
-import { projectable, windowOf } from "../viewer/projection";
 import { sheetRastersOf } from "../thumbnails";
 import { scaleStateOf, type ScaleStateView } from "./scale-state";
-import { viewsOnSheet, type RecordFrames } from "./sheet-views";
+import { viewsOnSheet } from "./sheet-views";
 
 export type { OfferedGroupKey } from "@/core/acts";
 export { scaleStateOf, type ScaleStateView, type SheetScaleState } from "./scale-state";
@@ -95,11 +94,13 @@ export async function sheetIndexOf(scope: SheetIndexScope): Promise<SheetCard[]>
     const held = byRecord.get(drawing.record.ingestId) ?? [];
     // Which sheet each of those views stands on. A record is one drawing file and may carry several
     // paper layouts, and a view is drawn in exactly one of them: counting every view of the record on
-    // every sheet of it tells a reader of S-102 how many views S-103 holds (R-TO-021, L-CAD-05).
-    const spaces = await spacesOfRecord(scope.tenantId, drawing.record, storage);
-    // And which sheet's WINDOW shows it: a view captioned in model space stands on the sheet that
-    // frames it, not on the model sheet the draughtsman kept it in (L-CAD-05).
-    const frames = await framesOfRecord(scope.tenantId, drawing.record, storage);
+    // every sheet of it tells a reader of S-102 how many views S-103 holds (R-TO-021, L-CAD-05). The
+    // artifact is read through the one door, which answers once per content hash — the sheets were
+    // read from the same bytes a moment ago — and where each entity was drawn, and which sheet's
+    // WINDOW shows a view captioned in model space, are core's one reading of it (B-17).
+    const graph = await artifactAt(scope.tenantId, drawing.record.artifactSha256, storage, `ingest ${drawing.record.ingestId}`);
+    const spaces = spacesOfGraph(graph);
+    const frames = framesOfGraph(graph);
 
     for (const sheet of sheets) {
       const views = viewsOnSheet(held, sheet, spaces, sheets, frames);
@@ -125,42 +126,6 @@ export async function sheetIndexOf(scope: SheetIndexScope): Promise<SheetCard[]>
   }
   return cards;
 }
-
-/**
- * Where every entity of a record was drawn, by its own key: the artifact's `space`, which is the
- * layout name a sheet of the index carries (L-CAD-05).
- *
- * Read through the one artifact door, which answers once per content hash however many readers ask
- * — the sheets themselves were read from the same bytes a moment ago (B-17).
- */
-async function spacesOfRecord(tenantId: string, record: { ingestId: string; artifactSha256: string }, storage: AppStorage): Promise<Map<string, string>> {
-  const graph = await artifactAt(tenantId, record.artifactSha256, storage, `ingest ${record.ingestId}`);
-  return new Map(graph.entities.map((entity) => [entity.key, entity.space]));
-}
-
-/**
- * The frames a record's paper layouts open onto model space, and where each model-space entity
- * stands: what tells a view captioned IN model space which sheet actually shows it (L-CAD-05).
- *
- * The windows are the shipped projection's reading of a VIEWPORT (`windowOf`), never a second one
- * (B-17). Read through the same artifact door, which answers once per content hash.
- */
-async function framesOfRecord(tenantId: string, record: { ingestId: string; artifactSha256: string }, storage: AppStorage): Promise<RecordFrames> {
-  const graph = await artifactAt(tenantId, record.artifactSha256, storage, `ingest ${record.ingestId}`);
-  const modelSpace = graph.layouts.find((layout) => layout.kind === "model")?.name;
-  const windows = graph.layouts.flatMap((layout) =>
-    layout.kind === "model" ? [] : (layout.viewports ?? []).filter(projectable).map((viewport) => ({ layoutName: layout.name, model: windowOf(viewport).model })),
-  );
-  const standing = new Map<string, readonly [number, number]>();
-  for (const entity of graph.entities) {
-    const points = entity.points ?? [];
-    if (entity.space !== modelSpace || points.length === 0) continue;
-    const summed = points.reduce<[number, number]>((held, point) => [held[0] + point[0], held[1] + point[1]], [0, 0]);
-    standing.set(entity.key, [summed[0] / points.length, summed[1] / points.length]);
-  }
-  return { windows, standing };
-}
-
 
 /**
  * The views of each named ingest record, as a scale state is derived from them: the view rows the

@@ -11,6 +11,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { RefusalCode } from "@/core/errors";
+import { editionSourceOf } from "@/core/identity";
 import { bandCovers, bandJudgeable, placedBy } from "@/core/offers/contract";
 import type {
   DeductionCandidate,
@@ -157,7 +158,7 @@ export function carried(reading: ReadingSetup): Measure {
 export function thresholdOf(setup: RailSetup, parameterKey: string): Record<string, Measure> {
   const stated = setup.edition.parameters[parameterKey];
   if (stated === undefined) return {};
-  return { [THRESHOLD]: { value: stated.value, unit: stated.unit, basis: "DERIVED", source: `edition:${setup.edition.digest}#${parameterKey}` } };
+  return { [THRESHOLD]: { value: stated.value, unit: stated.unit, basis: "DERIVED", source: editionSourceOf(setup.edition.digest, parameterKey) } };
 }
 
 /** What one face's opening schedule comes to: the candidates it states, or why it states none. */

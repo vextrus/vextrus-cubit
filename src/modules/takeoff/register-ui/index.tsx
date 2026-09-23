@@ -25,7 +25,7 @@ import { inWords, placesForUnit, placesOf } from "@/core/documents/kinds/boq-dra
 import type { RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { formatDate, formatMoney, formatUserFigure, dhakaDateParts } from "@/core/format";
-import { isLevelSlot } from "@/core/identity";
+import { isLevelSlot, readCitedKey, viewRefOf } from "@/core/identity";
 import type { JobKind } from "@/core/jobs/kinds";
 import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
 import type { CorroborationReading } from "@/core/outline-corroboration/law";
@@ -553,21 +553,14 @@ function keepsObject(object: ViewObject, filters: Filters): boolean {
   return true;
 }
 
-/** What a view key opens with (L-REG-04: `v:{view class}:{caption-anchor source key}`). */
-const VIEW_PREFIX = "v:";
-
 /**
  * The class of a view, where the key IS a view key, and null where it is anything else. The reading
- * is the grammar's own and nothing looser: the prefix, a non-empty class, and a remainder
- * `parseSourceKey` accepts as a caption anchor (L-CAD-02). A key that fails any of the three is not
- * a view key and is never taken apart on a guess (I-234, I-287).
+ * is the grammar's own inverse (`readCitedKey`, the identity core's) and nothing looser: the prefix,
+ * a non-empty class, and a caption anchor `parseSourceKey` accepts (L-CAD-02). A key that fails any
+ * of the three is not a view key and is never taken apart on a guess (I-234, I-287).
  */
 function viewClassOf(key: string): string | null {
-  if (!key.startsWith(VIEW_PREFIX)) return null;
-  const rest = key.slice(VIEW_PREFIX.length);
-  const at = rest.indexOf(":");
-  if (at <= 0) return null;
-  return parseSourceKey(rest.slice(at + 1)) === null ? null : rest.slice(0, at);
+  return readCitedKey(key).scheme === "view" ? (viewRefOf(key)?.viewClass ?? null) : null;
 }
 
 /**
@@ -586,12 +579,23 @@ function sourceWord(key: string, humanise: (value: string) => string): string {
 }
 
 /**
- * A cited key as §6 writes one: `S-101 · C1 · Layout plan` — the sheet it stands on, the mark it was
+ * How the chip names the sheet a line stands on (I-179 as I-425 applies it): the sheet's NUMBER as
+ * its title block states it — `S-10`, never the layout's whole title, which the Source column cut
+ * short — and "Model space" in words for a line whose view no sheet's window shows. A line that
+ * resolved no sheet at all names none.
+ */
+function sheetWord(line: ViewLine): string | null {
+  if (line.layoutName === null) return null;
+  return line.sheetLabel ?? REGISTER_COPY.takeoff_register_source_model_space;
+}
+
+/**
+ * A cited key as §6 writes one: `S-10 · C1 · Layout plan` — the sheet it stands on, the mark it was
  * read for, and the word its key reads as (`sourceWord`). It composes no address and shortens no
  * datum: what it drops from the face of the screen is carried whole on the element beside it.
  */
 function sourceChips(line: ViewLine, mark: string | null, humanise: (value: string) => string): string {
-  return [line.layoutName, mark, sourceWord(line.sourceKey, humanise)].filter((part): part is string => part !== null && part !== "").join(CHIP_SEPARATOR);
+  return [sheetWord(line), mark, sourceWord(line.sourceKey, humanise)].filter((part): part is string => part !== null && part !== "").join(CHIP_SEPARATOR);
 }
 
 /* --------------------------------------------------------------------------- the workspace */
