@@ -8,6 +8,16 @@
 // agreement by coincidence (Q-07, R-SPINE-062).
 import type { RefusalCode } from "../errors";
 
+/** A member the drawings show that no class of the roster is (a tank, a parapet): drawn, named, and never measured (I-481). */
+export type UnclassedDeclaration = {
+  readonly drawingId: string;
+  readonly address: string;
+  /** The drawing's own words it was read from, verbatim. */
+  readonly caption: string;
+  /** The word of the caption that names it, lower case, as the table spells it. */
+  readonly word: string;
+};
+
 /**
  * The three channels sighting is a union of EXISTS over (L-QTY-05): register rows of the class, the
  * stored partition's placements and member-type families, and view membership from the layout
@@ -31,6 +41,20 @@ export type Sighting = {
   readonly drawingId: string;
   readonly layoutName: string;
   readonly sourceKey: string;
+  /**
+   * Whether this sighting is the drawing's own DECLARATION of the class — a view's caption or a
+   * schedule's title names it (s-coverage I-479) — rather than a member the register or
+   * the partition placed. Absent reads as false: every channel reader that places a member answers
+   * without it.
+   */
+  readonly declared?: boolean;
+  /** The drawing's words a declaration was read from, verbatim; absent on a placed member's sighting. */
+  readonly caption?: string;
+  /**
+   * The lawful-null slot a register row stands in where it names no level (`FOUNDATION`), as the
+   * register holds it — so a column on no storey of the stack can say WHERE it stands (I-482).
+   */
+  readonly levelSlot?: string | null;
 };
 
 /**
@@ -97,6 +121,14 @@ export type ResidueObservation = {
   readonly levelId: string | null;
   readonly rail: string;
   readonly reason: string;
+  /** The code the rail reported under, as it spelled it — a registered one wherever the rail's roster is. */
+  readonly code?: string;
+  /** The member the report is about, or null where it is about the reading rather than a member. */
+  readonly objectKey?: string | null;
+  /** What the report sends a reader to look at: the view, the schedule cell or the member it names. */
+  readonly source?: string | null;
+  /** The caption of the view that source is, where it is a view of the pinned manifest. */
+  readonly view?: string | null;
 };
 
 /** One in-force declaration a person made over a cell, as the residue reads one (L-ACT-01). */
@@ -117,6 +149,12 @@ export type ResidueLine = {
   readonly class: string;
   readonly levelId: string;
   readonly lineId: string;
+  /** The member the line was measured off (L-QTY-03). */
+  readonly objectKey?: string;
+  /** COMPLETE, or PARTIAL_DECLARED with what it left out enumerated beside it (L-QTY-02). */
+  readonly coverage?: string;
+  /** The components a PARTIAL_DECLARED line left out, each with the registered code it was left out under. */
+  readonly omitted?: readonly { readonly variable: string; readonly code: string }[];
 };
 
 /** One level of the project's stack, as the grid's columns are ordered by (L-MEA-07). */
@@ -146,6 +184,13 @@ export type ResidueInput = {
   readonly declarations: readonly ResidueDeclaration[];
   readonly truncated: readonly TruncatedSheet[];
   readonly observations: readonly ResidueObservation[];
+  /**
+   * Whether any measure run has been carried over the campaign — a line or a rail's report stands
+   * for it. Absent, it is read off the lines and the reports this input already holds.
+   */
+  readonly measured?: boolean;
+  /** The members the drawings show that no class of the roster is — drawn, named, never measured (I-481). */
+  readonly unclassed?: readonly UnclassedDeclaration[];
 };
 
 /**
@@ -178,7 +223,59 @@ export type ResidueCell = {
   readonly measurementActId: string | null;
   /** The act a bill-axis declaration was made by, where one stands. */
   readonly billActId: string | null;
+  /**
+   * Why a NOT_ESTABLISHED cell stands unmeasured when nobody declared why (s-coverage
+   * I-480): the code a rail reported most for it, or the reason the campaign itself answers
+   * (`COVERAGE_REASONS`). Evidence beside the cause and never the cause (L-QTY-05); `null` on every
+   * other reading. Absent reads as null.
+   */
+  readonly reason?: string | null;
+  /** The captions of the views the reason names, where it names views — each once, in canonical order. */
+  readonly reasonViews?: readonly string[];
+  /**
+   * Where a level-less cell's members stand (I-482): the lawful-null slot a register row
+   * names (`FOUNDATION`), `UNPLACED` where the drawings declare the class and nothing was placed, or
+   * null — on a levelled cell always null.
+   */
+  readonly levelSlot?: string | null;
+  /**
+   * What a published cell's lines left out, where any was kept PARTIAL_DECLARED with no quantity
+   * (L-QTY-02, s-coverage I-cov-1): how many lines, over how many members, and the codes they left
+   * their components out under, most lines first. `null` where every line is COMPLETE.
+   */
+  readonly partial?: PartialDeclaration | null;
 };
+
+/**
+ * Where a class with no member placed stands: nowhere yet. Not a register slot — no row stands in it
+ * — but the one other thing a level-less column can truthfully say about itself (I-482).
+ */
+export const UNPLACED = "UNPLACED" as const;
+
+/** One omission a cell's partial lines share: the code, the variables it was stated for, and on how many lines. */
+export type PartialOmission = { readonly code: string; readonly variables: readonly string[]; readonly lines: number };
+
+/** What a partly measured cell's lines declared they left out (L-QTY-02). */
+export type PartialDeclaration = {
+  readonly lines: number;
+  readonly members: number;
+  readonly omitted: readonly PartialOmission[];
+};
+
+/**
+ * The reasons the residue reads off the campaign itself for an unmeasured cell no rail reported on
+ * (s-coverage I-480), in the order they are asked: never measured; declared by the
+ * drawings and never placed; read elsewhere and not here; not read at all.
+ */
+export const COVERAGE_REASONS = [
+  "COVERAGE_NOT_MEASURED_YET",
+  "COVERAGE_CLASS_NOT_PLACED",
+  "COVERAGE_MEMBERS_NOT_REACHED",
+  "COVERAGE_KIND_NOT_READ",
+] as const satisfies readonly RefusalCode[];
+
+/** One campaign-read reason, drawn from the closed roster above. */
+export type CoverageReason = (typeof COVERAGE_REASONS)[number];
 
 /**
  * One row of a boundary statement: the cell or cells it stands over, and the cause they stand under.
@@ -197,6 +294,28 @@ export type StatementRow = {
   readonly levels: string;
   readonly grain: CellGrain;
   readonly cause: ResidueCause;
+  /** Why the run stands unmeasured, where the cells behind it carry a reason (I-480). */
+  readonly reason?: string | null;
+  /** The captions of the views that reason names, each once. */
+  readonly views?: readonly string[];
+  /** The lawful-null slot the line's cells stand in, where they name no level. */
+  readonly levelSlot?: string | null;
+};
+
+/**
+ * One row of the measurement statement for cells published only in part (s-coverage I-483):
+ * the cell or the run of levels, and the codes its lines left their components out under — no count,
+ * because a certificate enumerates and never counts (L-QTY-07).
+ */
+export type PartialStatementRow = {
+  readonly kind: string;
+  readonly class: string | null;
+  readonly levelId: string | null;
+  readonly levelLabel: string;
+  readonly levels: string;
+  readonly levelSlot: string | null;
+  /** The codes the lines left components out under, most lines first, each once. */
+  readonly omitted: readonly string[];
 };
 
 /** The separator a cell's address is spelled with — `{kind}:{class}:{levelId}` (Decision § 7). */

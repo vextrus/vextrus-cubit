@@ -33,12 +33,13 @@ import { parseSourceKey } from "@/core/sources";
 // A stored decimal STATED at a fraction length, half-up on the text — never a float, never a re-sum
 // (B-07, L-FMT-02). The bar schedule's own home for it; this screen states a figure the same way.
 import { statedAt } from "@/modules/takeoff/bbs-ui/present";
-import { LINE_PARAM, originAddress, traceAddress } from "@/modules/takeoff/trace/address";
+import { LINE_PARAM, originAddress, selectionAddress, traceAddress } from "@/modules/takeoff/trace/address";
 import { basisOf } from "./basis";
 import { REGISTER_COPY, fillCopy } from "./copy";
+import { narrowingOf, narrows } from "./narrowing";
 import { markOrder } from "./order";
 import { originRowIndexOf } from "./origin";
-import type { RegisterView, ViewAttribute, ViewLine, ViewObject, ViewReading } from "./view";
+import type { RegisterView, ViewAttribute, ViewDeferral, ViewLine, ViewObject, ViewReading } from "./view";
 
 /* ------------------------------------------------------------------ what the screen is handed */
 
@@ -316,11 +317,12 @@ export interface RegisterWorkspaceProps {
 
 /* --------------------------------------------------------------------------- the addresses */
 
-// The three addresses this screen links. ARCH-01 bars a module from the app layer where a route
-// builder lives, so they are spelled here for this screen and nowhere else in it (Decision § 7).
+// The addresses this screen links. ARCH-01 bars a module from the app layer where a route builder
+// lives, so they are spelled here for this screen and nowhere else in it (Decision § 7).
 const drawingsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/drawings`;
 const setsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/drawings/sets`;
 const participantsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/participants`;
+const levelsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/levels`;
 
 /** The code the screen's own denial renders, off the registry the caller looks it up in. */
 const PERMISSION_NOT_HELD = "PERMISSION_NOT_HELD";
@@ -655,6 +657,31 @@ function sourceChips(line: ViewLine, mark: string | null, humanise: (value: stri
   return [sheetWord(line), mark, sourceWord(line.sourceKey, humanise)].filter((part): part is string => part !== null && part !== "").join(CHIP_SEPARATOR);
 }
 
+/**
+ * What a run's deferral names, in the words a QS knows it by (s-coverage I-484): a view by
+ * its caption, whole — `1ST FLOOR BEAM LAYOUT` and `1ST FLOOR SLAB REINFORCEMENT PLAN` are two views,
+ * and a chip cut at seven characters read both as `1ST FLO` — and a view no caption anchors by its
+ * class in words and the sheet it stands on; a storey by its own label.
+ */
+function deferralName(deferral: ViewDeferral, about: string, humanise: (value: string) => string): string {
+  if (deferral.subject === "STOREY" || deferral.name !== "") return deferral.name;
+  return [sourceWord(about, humanise), deferral.sheet?.layoutName ?? ""].filter((part) => part !== "").join(CHIP_SEPARATOR);
+}
+
+/**
+ * Where a deferral is fixed (R-UI-020, I-484): a view's scale is affirmed in the scale panel
+ * of the sheet it stands on, so the door opens that sheet flown to the view's caption — the drawings
+ * where the manifest names no sheet for it — and a storey's height is stated in the level stack.
+ */
+function deferralDoor(deferral: ViewDeferral, tenantId: string, projectId: string, drawings: Evidence): Evidence {
+  if (deferral.subject === "STOREY") return { href: levelsHref(tenantId, projectId), label: REGISTER_COPY.takeoff_register_deferral_open_levels };
+  if (deferral.sheet === null) return drawings;
+  return {
+    href: selectionAddress(tenantId, projectId, { drawingId: deferral.sheet.drawingId, layoutName: deferral.sheet.layoutName, sourceKeys: [deferral.sheet.sourceKey] }),
+    label: REGISTER_COPY.takeoff_register_deferral_open_sheet,
+  };
+}
+
 /* --------------------------------------------------------------------------- the workspace */
 
 /** What a door answered that the screen shows in place: one registered refusal, or nothing. */
@@ -822,9 +849,15 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
   const restoredRef = useRef<string | null>(null);
 
   // The address is the state, and it is read in the browser: a server render knows no `?line=`, and
-  // reading it in an effect is what keeps the first paint the same on both sides (I-182).
+  // reading it in an effect is what keeps the first paint the same on both sides (I-182). The same
+  // address may name the narrowings a link opened the register at — a coverage cell's class, kind and
+  // level (s-coverage I-484) — and they are the chips' own values, so the reader sees what
+  // narrowed the register and clears it as they would any other chip.
   useEffect(() => {
-    setOriginLine(new URLSearchParams(window.location.search).get(LINE_PARAM));
+    const search = window.location.search;
+    setOriginLine(new URLSearchParams(search).get(LINE_PARAM));
+    const narrowed = narrowingOf(search);
+    if (narrows(narrowed)) setFilters((held) => ({ ...held, ...narrowed }));
   }, []);
 
   /**
@@ -1710,23 +1743,35 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
                   data-object={refusal.objectKey}
                   data-kind={refusal.kind ?? undefined}
                 >
-                  <div className="cx-register-refusal-fact">
-                    <span className="cx-register-refusal-label">{REGISTER_COPY.takeoff_register_refusal_object_label}</span>
-                    {/* R-UI-082, I-287: a sighting's object key is a PLACEMENT key — a view key, a
-                        mark and a point — and a placement key is an identifier, not body text. It
-                        renders through the shipped IdChip, whole in `data-value` and in the chip's
-                        own tooltip, one press from the clipboard, and short on the face of the rail:
-                        the mark where this rail knows one, the leading characters where it does not
-                        (B-17 — the shortening is the chip's, never this screen's). */}
-                    <IdChip value={refusal.objectKey} short={marks.get(refusal.objectKey)} data-testid={chrome.testIds.refusalObject} />
-                  </div>
+                  {refusal.deferral === undefined ? (
+                    <div className="cx-register-refusal-fact">
+                      <span className="cx-register-refusal-label">{REGISTER_COPY.takeoff_register_refusal_object_label}</span>
+                      {/* R-UI-082, I-287: a sighting's object key is a PLACEMENT key — a view key, a
+                          mark and a point — and a placement key is an identifier, not body text. It
+                          renders through the shipped IdChip, whole in `data-value` and in the chip's
+                          own tooltip, one press from the clipboard, and short on the face of the rail:
+                          the mark where this rail knows one, the leading characters where it does not
+                          (B-17 — the shortening is the chip's, never this screen's). */}
+                      <IdChip value={refusal.objectKey} short={marks.get(refusal.objectKey)} data-testid={chrome.testIds.refusalObject} />
+                    </div>
+                  ) : (
+                    // I-484: a run's deferral is about a VIEW or a STOREY, not an object, and
+                    // what it names is words a QS reads — the caption or the label, whole — never an
+                    // identifier cut short on the face of the rail.
+                    <div className="cx-register-refusal-fact" data-deferral={refusal.deferral.subject}>
+                      <span className="cx-register-refusal-label">
+                        {refusal.deferral.subject === "VIEW" ? REGISTER_COPY.takeoff_register_refusal_view_label : REGISTER_COPY.takeoff_register_refusal_storey_label}
+                      </span>
+                      <span className="cx-register-refusal-name">{deferralName(refusal.deferral, refusal.objectKey, humaniseEnum)}</span>
+                    </div>
+                  )}
                   {refusal.kind === null ? null : (
                     <div className="cx-register-refusal-fact">
                       <span className="cx-register-refusal-label">{REGISTER_COPY.takeoff_register_refusal_kind_label}</span>
                       <EnumLabel value={refusal.kind} label={inWords(refusal.kind)} className="cx-register-enum" />
                     </div>
                   )}
-                  <RefusalState refusal={entry} evidence={evidence} />
+                  <RefusalState refusal={entry} evidence={refusal.deferral === undefined ? evidence : deferralDoor(refusal.deferral, view.tenantId, view.projectId, evidence)} />
                 </div>
               );
             })}

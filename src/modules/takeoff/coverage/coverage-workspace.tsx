@@ -18,14 +18,34 @@ import type { Consequence } from "@/core/acts";
 // The law module, not the residue's roster: the roster carries the query and its channel readers,
 // which reach the database, and this file runs in the browser (ARCH-01, the `@/core/levels/law`
 // precedent). Everything a rendering needs — the closed cause set and the cell's address — is law.
-import { RESIDUE_CAUSES, cellRef, type ResidueCell, type StatementRow } from "@/core/residue/law";
-import type { RefusalEntry } from "@/core/errors";
+import { RESIDUE_CAUSES, UNPLACED, cellRef, type PartialStatementRow, type ResidueCell, type StatementRow } from "@/core/residue/law";
+import type { UnclassedStatementRow } from "@/core/residue/statement";
+import { REFUSALS, type RefusalEntry } from "@/core/errors";
+import { reasonsInWords } from "@/core/documents/kinds/boq-draft-law";
 // The marker's one reader (ARCH-02): whether a rejection carries a registered code is not a
 // judgement this screen makes for itself, and a second reading of it would be a second home (B-17).
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
+// The viewer's address at the entities something cites, spelled once by the Trace (B-17): a module
+// may not reach the app layer's route builders, and this one carries no database (ARCH-01).
+import { narrowingQuery } from "@/modules/takeoff/register-ui/narrowing";
+import { selectionAddress } from "@/modules/takeoff/trace/address";
 import { axisReadOf, citedActOf } from "./cited-act";
-import { COVERAGE_COPY, countCoverageCopy, fillCoverageCopy } from "./copy";
-import { CoverageGrid, causeRead, causeWords, classWord, kindWord, levelWord, markOf, partlyBorne, type CoverageDensity } from "./grid";
+import { COVERAGE_COPY, countCoverageCopy, countWords, fillCoverageCopy } from "./copy";
+import {
+  CoverageGrid,
+  VOID_MARK,
+  causeRead,
+  causeSentence,
+  causeWords,
+  classWord,
+  kindWord,
+  levelWord,
+  markOf,
+  partialSummary,
+  partlyBorne,
+  remedyEntry,
+  type CoverageDensity,
+} from "./grid";
 import { LegendGlyph, type GlyphReading } from "./glyphs";
 import { MARK_OF, MARK_TALLY, MARK_WORD, countsByMark, linesDeclared } from "./heat";
 import type { CoverageCauseProposalView, CoverageView, ProposedCause } from "./view";
@@ -155,7 +175,49 @@ export interface CoverageWorkspaceProps {
 // The addresses this screen links. ARCH-01 bars a module from the app layer where a route builder
 // lives, so they are spelled here for this screen and nowhere else in it (Decision § 7).
 const setsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/drawings/sets`;
+const drawingsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/drawings`;
 const registerHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/register`;
+
+/**
+ * The register, narrowed to one cell's class, kind and level (I-484): what "Open the
+ * register" from a cell promises is that cell's lines and objects, never all of them. The query is
+ * the register's own (`narrowingQuery`, which the register reads back into its filter chips), and the
+ * values are the ones it filters by — the stored class and kind, the level as the register labels it
+ * (its label, or the slot a foundation stands in). A class nothing placed stands on no level at all.
+ */
+export function registerCellHref(tenantId: string, projectId: string, cell: Pick<ResidueCell, "kind" | "class" | "levelLabel" | "levelSlot">): string {
+  const level = cell.levelLabel !== "" ? cell.levelLabel : (cell.levelSlot ?? "");
+  const query = narrowingQuery({ class: cell.class ?? "", kind: cell.kind, level: level === UNPLACED ? "" : level });
+  return `${registerHref(tenantId, projectId)}?${query}`;
+}
+
+/** The two reasons whose fix is made on a sheet rather than in the register (I-484). */
+const CLASS_NOT_PLACED = REFUSALS.COVERAGE_CLASS_NOT_PLACED.code;
+const VIEW_SCALE_UNAFFIRMED = REFUSALS.VIEW_SCALE_UNAFFIRMED.code;
+
+/**
+ * Where a cell's one remedy button goes — the place its fix is made (R-UI-020, I-484): the
+ * rule set for a kind no class bears; the sheet that shows a class nothing placed, flown to its
+ * caption; the drawings, where a view's scale is affirmed; and for everything else the register,
+ * narrowed to the cell.
+ */
+export function remedyDoorOf(cell: ResidueCell, tenantId: string, projectId: string): { href: string; label: string } {
+  const read = causeRead(cell);
+  if (read === KIND_NOT_YET_SEEDED) return { href: rulesetHref(tenantId, projectId), label: COVERAGE_COPY.takeoff_coverage_remedy_ruleset };
+  if (read === NOT_ESTABLISHED && cell.reason === CLASS_NOT_PLACED) {
+    const shown = cell.sightings.find((sighting) => sighting.declared === true && sighting.layoutName !== "");
+    return shown === undefined
+      ? { href: drawingsHref(tenantId, projectId), label: COVERAGE_COPY.takeoff_coverage_remedy_drawings }
+      : {
+          href: selectionAddress(tenantId, projectId, { drawingId: shown.drawingId, layoutName: shown.layoutName, sourceKeys: [shown.sourceKey] }),
+          label: COVERAGE_COPY.takeoff_coverage_remedy_sheet,
+        };
+  }
+  if (read === NOT_ESTABLISHED && cell.reason === VIEW_SCALE_UNAFFIRMED) {
+    return { href: drawingsHref(tenantId, projectId), label: COVERAGE_COPY.takeoff_coverage_remedy_drawings };
+  }
+  return { href: registerCellHref(tenantId, projectId, cell), label: COVERAGE_COPY.takeoff_coverage_empty_campaign_action };
+}
 const participantsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/participants`;
 const rulesetHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/ruleset`;
 
@@ -170,6 +232,8 @@ const DECLARE_NOT_IN_PROJECT_SCOPE = "DECLARE_NOT_IN_PROJECT_SCOPE" as const;
 const QUANTITY_BEARING = "QUANTITY_BEARING";
 /** The one cause whose remedy names a place this product holds — the ruleset (I-191). */
 const KIND_NOT_YET_SEEDED = "KIND_NOT_YET_SEEDED";
+/** The writerless fall-through every campaign-read reason stands beside (L-QTY-05, I-480). */
+const NOT_ESTABLISHED = "NOT_ESTABLISHED";
 /** The bill cause the hold writes, and the door a proposal of it names (I-297). */
 const NOT_IN_THIS_BILL = "NOT_IN_THIS_BILL";
 
@@ -479,7 +543,14 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
           {/* I-208: the empty cell stands in the BODY's place; the preview stands beneath it in every
               state that has a reading, because a boundary nothing stands outside is still a statement
               a certificate makes (L-QTY-07, Decision §1–§2). */}
-          <CertificatePreviewSection measurement={view.measurement} bill={view.bill} pinned={view.campaignId !== null} open={previewing} />
+          <CertificatePreviewSection
+            measurement={view.measurement}
+            partial={view.partial ?? []}
+            unclassed={view.unclassed ?? []}
+            bill={view.bill}
+            pinned={view.campaignId !== null}
+            open={previewing}
+          />
         </>
       )}
 
@@ -498,10 +569,8 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
             onCarryProposed={() => setDoor(proposal?.cause === NOT_IN_THIS_BILL ? HOLD_OUT_OF_BILL : DECLARE_NOT_IN_PROJECT_SCOPE)}
             onHoldOut={() => setDoor(HOLD_OUT_OF_BILL)}
             onDeclareOutOfScope={() => setDoor(DECLARE_NOT_IN_PROJECT_SCOPE)}
-            remedyHref={causeRead(held) === KIND_NOT_YET_SEEDED ? rulesetHref(tenantId, projectId) : registerHref(tenantId, projectId)}
-            remedyLabel={
-              causeRead(held) === KIND_NOT_YET_SEEDED ? COVERAGE_COPY.takeoff_coverage_remedy_ruleset : COVERAGE_COPY.takeoff_coverage_empty_campaign_action
-            }
+            remedyHref={remedyDoorOf(held, tenantId, projectId).href}
+            remedyLabel={remedyDoorOf(held, tenantId, projectId).label}
           />
         </InspectorMount>
       )}
@@ -542,6 +611,30 @@ function inputOf(view: CoverageView, cell: ResidueCell, proposal: ProposedCause 
   };
 }
 
+/**
+ * The one line the sightings fold behind (I-484): how many, and the sheets they stand on,
+ * each once — "23 sightings on S-13" — or that they name no sheet.
+ */
+function sightingsSummary(count: number, sightings: ResidueCell["sightings"]): string {
+  const sheets = [...new Set(sightings.map((seen) => seen.layoutName).filter((name) => name !== ""))];
+  return countCoverageCopy("takeoff_coverage_sightings_summary", count, { sheets: sheets.length === 0 ? COVERAGE_COPY.takeoff_coverage_sightings_nowhere : sheets.join(" · ") });
+}
+
+/** One report the measure run made about a cell, said once with how many members it was said of. */
+type Report = { readonly rail: string; readonly kind: string; readonly class: string; readonly reason: string; readonly view: string; readonly count: number };
+
+/** A cell's reports, one per (rail, sentence, view), most said first (I-484). */
+function reportsOf(cell: ResidueCell): Report[] {
+  const held = new Map<string, Report>();
+  for (const observation of cell.observations) {
+    const view = observation.view ?? "";
+    const key = `${observation.rail}\u0000${observation.reason}\u0000${view}`;
+    const seen = held.get(key);
+    held.set(key, { rail: observation.rail, kind: observation.kind, class: observation.class, reason: observation.reason, view, count: (seen?.count ?? 0) + 1 });
+  }
+  return [...held.values()].sort((left, right) => right.count - left.count);
+}
+
 /* ------------------------------------------------------------------------------ the parts */
 
 /** R-UI-050's empty cell: two truths, each saying why, each teaching the one next action. */
@@ -579,6 +672,14 @@ function KeyLine({ Tooltip }: { Tooltip: CoverageChrome["Tooltip"] }) {
       {LEGEND_READINGS.map((reading) => (
         <LegendEntry key={reading} reading={reading} Tooltip={Tooltip} />
       ))}
+      {/* I-485: the position no class bears is keyed too — its own faint dash, its word
+          and its meaning. It is no reading of the law's, so it carries no legend-entry test id. */}
+      <Tooltip content={COVERAGE_COPY.takeoff_coverage_void_meaning}>
+        <span className="cx-coverage-legend-entry cx-coverage-legend-void" data-mark={VOID_MARK} data-meaning={COVERAGE_COPY.takeoff_coverage_void_meaning} role="listitem" tabIndex={0}>
+          <span className="cx-coverage-void-key" aria-hidden="true" />
+          <span className="cx-coverage-legend-name">{COVERAGE_COPY.takeoff_coverage_mark_void}</span>
+        </span>
+      </Tooltip>
     </div>
   );
 }
@@ -594,7 +695,10 @@ function LegendEntry({ reading, Tooltip }: { reading: GlyphReading; Tooltip: Cov
   // The measured reading is refusal-SHAPED and is no refusal (L-QTY-05), so the register holds no
   // words for it and the screen's own sentence names it. Every cause's words are the register's.
   const entry = causeWords(reading);
-  const meaning = entry?.message ?? COVERAGE_COPY.takeoff_coverage_measured_note;
+  // I-195 as amended by I-480: the writerless fall-through's registered sentence says that
+  // nothing explains an absence, and on this screen every such cell now names its reason — so its key
+  // entry says what the mark means here, and the cell says why.
+  const meaning = reading === NOT_ESTABLISHED ? COVERAGE_COPY.takeoff_coverage_absent_meaning : (entry?.message ?? COVERAGE_COPY.takeoff_coverage_measured_note);
   return (
     <Tooltip content={meaning}>
       <span
@@ -669,8 +773,13 @@ function Inspector({
   // I-198: the cell is read under the axis a person moved — the bill's cause where one holds it out
   // of this bill, and the measurement cause everywhere else. One rule, one home (B-17).
   const read = causeRead(cell);
-  const measured = read === QUANTITY_BEARING;
-  const entry = measured ? undefined : causeWords(read);
+  // I-480/e: the sentence this cell is read by — the reason beside a writerless absence,
+  // what a partly published cell's lines left out — and the registry entry its one remedy is read
+  // from. Both from the grid's one home for them, so the inspector and the cell's name agree (B-17).
+  const partial = partlyBorne(cell, declared) ? partialSummary(cell) : null;
+  const sentence = partial ?? causeSentence(cell);
+  const remedy = remedyEntry(cell);
+  const reasonViews = read === NOT_ESTABLISHED ? (cell.reasonViews ?? []) : [];
   const grain = cell.grain === "KIND";
   // The act cited is the act of the axis this cell is read under: the measurement act beside a cell
   // the BILL moved says nothing about why the cell reads as it does (L-QTY-05, B-17).
@@ -721,22 +830,43 @@ function Inspector({
         ) : (
           <>
             <span className="cx-coverage-value cx-coverage-word">{cell.class === null ? "" : classWord(cell.class)}</span>
-            <span className="cx-coverage-value">{levelWord(cell.levelLabel)}</span>
+            <span className="cx-coverage-value">{levelWord(cell.levelLabel, cell.levelSlot ?? null)}</span>
           </>
         )}
       </p>
 
       <h3 className="cx-coverage-inspector-heading">{COVERAGE_COPY.takeoff_coverage_cause_heading}</h3>
-      <p className="cx-coverage-cause" data-testid="coverage-inspector-cause" data-cause={read} data-code={read} data-act={actId ?? ""}>
+      {/* The cause stays on `data-code` (L-QTY-05); the reason read beside a writerless absence rides
+          on `data-reason` and is what the sentence says (I-480). */}
+      <p
+        className="cx-coverage-cause"
+        data-testid="coverage-inspector-cause"
+        data-cause={read}
+        data-code={read}
+        data-reason={read === NOT_ESTABLISHED ? (cell.reason ?? "") : ""}
+        data-act={actId ?? ""}
+      >
         <span className="cx-coverage-cause-mark" data-mark={markOf(cell, declared)}>
           <LegendGlyph reading={read as GlyphReading} partial={partlyBorne(cell, declared)} />
           {MARK_WORD[markOf(cell, declared)]}
         </span>
-        {entry === undefined ? COVERAGE_COPY.takeoff_coverage_cell_label_measured : entry.message}
+        {sentence}
       </p>
-      {/* I-cov-1: a published cell whose lines carry no quantity says how many, in place — the
-          register names what each one left out, and the remedy link below goes there. */}
-      {partlyBorne(cell, declared) ? (
+      {/* The views the reason names, in the drawing's own words: the plan nobody affirmed a scale
+          for, the captions that show a class nothing placed (I-480). */}
+      {reasonViews.length === 0 ? null : (
+        <p className="cx-coverage-reason-views">
+          <span className="cx-coverage-label">{COVERAGE_COPY.takeoff_coverage_reason_views_label}</span>
+          {reasonViews.map((view) => (
+            <span className="cx-coverage-reason-view" key={view}>
+              {view}
+            </span>
+          ))}
+        </p>
+      )}
+      {/* I-cov-1: a published cell whose lines carry no quantity says how many, in place, where the
+          reading carries no declaration to say it in words (I-483 says it above instead). */}
+      {partlyBorne(cell, declared) && partial === null ? (
         <p className="cx-coverage-declared-lines" data-declared={linesDeclared(cell, declared)}>
           {fillCoverageCopy("takeoff_coverage_cell_label_declared", { count: String(linesDeclared(cell, declared)), total: String(cell.lineIds.length) })}
         </p>
@@ -753,7 +883,10 @@ function Inspector({
         really resolved: the rule set for the one cause that names it, the register for every other.
       */}
       <div className="cx-coverage-remedy" data-testid="coverage-inspector-remedy">
-        <p className="cx-coverage-remedy-sentence">{entry?.remedy ?? COVERAGE_COPY.takeoff_coverage_measured_note}</p>
+        {/* The remedy of the reason where one stands beside the cause, of the first omission a
+            partly published cell's lines declared, else of the cause (I-480/e). A cell
+            measured whole has nothing to remedy, and its one button opens its lines. */}
+        {remedy === undefined ? null : <p className="cx-coverage-remedy-sentence">{remedy.remedy}</p>}
         <a className="cx-btn cx-reticle cx-coverage-remedy-link" data-variant="secondary" href={remedyHref}>
           {remedyLabel}
         </a>
@@ -794,6 +927,11 @@ function Inspector({
       {cell.sightings.length === 0 && declarations.length === 0 ? (
         <p className="cx-coverage-none">{COVERAGE_COPY.takeoff_coverage_sightings_none}</p>
       ) : (
+        // I-484: the sightings fold behind one line — how many, on which sheets — because a
+        // cell sighted fifty times filled the inspector with fifty rows of keys above its doors. The
+        // table is whole behind the disclosure, one press away, and every row stays in the DOM.
+        <details className="cx-coverage-sightings-fold">
+          <summary className="cx-coverage-sightings-summary">{sightingsSummary(cell.sightings.length + declarations.length, cell.sightings)}</summary>
         <table className="cx-coverage-sightings" aria-label={COVERAGE_COPY.takeoff_coverage_sightings_heading}>
           <thead>
             <tr>
@@ -834,22 +972,30 @@ function Inspector({
             ))}
           </tbody>
         </table>
+        </details>
       )}
 
       <h3 className="cx-coverage-inspector-heading">{COVERAGE_COPY.takeoff_coverage_observations_heading}</h3>
       {cell.observations.length === 0 ? (
         <p className="cx-coverage-none">{COVERAGE_COPY.takeoff_coverage_observations_none}</p>
       ) : (
-        cell.observations.map((observation) => (
+        // One row per report said, with how many members it was said of (I-484): the rail's
+        // kind and class in words, the registry's sentence, and the view it names where it names one.
+        reportsOf(cell).map((report) => (
           <div
             className="cx-coverage-observation"
             data-testid="coverage-inspector-observation"
-            data-rail={observation.rail}
-            data-reason={observation.reason}
-            key={`${observation.rail}:${observation.reason}`}
+            data-rail={report.rail}
+            data-reason={report.reason}
+            data-count={report.count}
+            key={`${report.rail}:${report.reason}:${report.view}`}
           >
-            <span className="cx-coverage-value">{observation.rail}</span>
-            <EnumLabel value={observation.reason} className="cx-coverage-reason" />
+            <span className="cx-coverage-value cx-coverage-word">
+              {kindWord(report.kind)} · {classWord(report.class)}
+            </span>
+            <span className="cx-coverage-reason">{report.reason}</span>
+            {report.view === "" ? null : <span className="cx-coverage-reason-view">{report.view}</span>}
+            {report.count > 1 ? <span className="cx-coverage-observation-count">{fillCoverageCopy("takeoff_coverage_observation_count", { count: countWords(report.count) })}</span> : null}
           </div>
         ))
       )}
@@ -872,14 +1018,23 @@ function Inspector({
  * The certificate's two boundary statements, previewed as document text (L-QTY-07): measurement
  * first and in full, then bill, never merged and never a shared cause column. No count appears
  * anywhere in this section — a count is not a boundary.
+ *
+ * The measurement statement enumerates three things (I-480/c/e): every cell nothing was
+ * published for, each with the REASON read beside its cause — never "nothing explains"; every cell
+ * published only in part, with what its lines left out; and every member the drawings show that no
+ * class of this product measures. Its "none" sentence stands only where all three are empty.
  */
 export function CertificatePreviewSection({
   measurement,
+  partial = [],
+  unclassed = [],
   bill,
   pinned,
   open,
 }: {
   measurement: readonly StatementRow[];
+  partial?: readonly PartialStatementRow[];
+  unclassed?: readonly UnclassedStatementRow[];
   bill: readonly StatementRow[];
   pinned: boolean;
   open: boolean;
@@ -899,18 +1054,47 @@ export function CertificatePreviewSection({
     // many boundaries the campaign has, which is not something the markup can know.
     <section className="cx-coverage-certificate" data-testid="coverage-certificate-preview" data-open={open ? "true" : "false"} tabIndex={0}>
       <h2 className="cx-coverage-certificate-heading">{COVERAGE_COPY.takeoff_coverage_certificate_heading}</h2>
-      <Statement axis={MEASUREMENT} title={COVERAGE_COPY.takeoff_coverage_statement_measurement_title} none={measurementNone} rows={measurement} />
+      <Statement axis={MEASUREMENT} title={COVERAGE_COPY.takeoff_coverage_statement_measurement_title} none={measurementNone} rows={measurement} partial={partial} unclassed={unclassed} />
       <Statement axis={BILL} title={COVERAGE_COPY.takeoff_coverage_statement_bill_title} none={billNone} rows={bill} />
     </section>
   );
 }
 
+/**
+ * What one statement row says after its coordinates (I-191, I-480): the registry's words
+ * for the reason read beside the cause where the row carries one, else for the cause — and the views
+ * that reason names, in the drawing's own words.
+ */
+function rowSentence(row: StatementRow): string {
+  const said = causeSentence({ measurement: row.cause as ResidueCell["measurement"], bill: IN_BILL, reason: row.reason ?? null });
+  const views = row.views ?? [];
+  return views.length === 0 ? said : `${said} ${COVERAGE_COPY.takeoff_coverage_reason_views_label}: ${views.join("; ")}.`;
+}
+
+/** The bill axis a statement row of the measurement boundary stands in — it was never held out (L-QTY-05). */
+const IN_BILL = "IN_BILL";
+
 /** One statement: an enumeration in the certificate's own order, each row under its own cause. */
-function Statement({ axis, title, none, rows }: { axis: string; title: string; none: string; rows: readonly StatementRow[] }): ReactElement {
+function Statement({
+  axis,
+  title,
+  none,
+  rows,
+  partial = [],
+  unclassed = [],
+}: {
+  axis: string;
+  title: string;
+  none: string;
+  rows: readonly StatementRow[];
+  partial?: readonly PartialStatementRow[];
+  unclassed?: readonly UnclassedStatementRow[];
+}): ReactElement {
+  const empty = rows.length === 0 && partial.length === 0 && unclassed.length === 0;
   return (
     <section className="cx-coverage-statement" data-testid="coverage-statement" data-axis={axis}>
       <h3 className="cx-coverage-statement-title">{title}</h3>
-      {rows.length === 0 ? (
+      {empty ? (
         <p className="cx-coverage-none" data-testid="coverage-statement-none" data-code={NONE}>
           {none}
         </p>
@@ -928,19 +1112,61 @@ function Statement({ axis, title, none, rows }: { axis: string; title: string; n
               // beside it still names the run's first level, the one a reader lands on.
               data-levels={row.levels}
               data-code={row.cause}
-              key={`${row.kind}:${row.class ?? ""}:${row.levelId ?? ""}:${row.cause}`}
+              // The reason read beside a writerless absence (I-480); "" on every other row.
+              data-reason={row.reason ?? ""}
+              key={`${row.kind}:${row.class ?? ""}:${row.levelId ?? ""}:${row.cause}:${row.reason ?? ""}`}
             >
               {/* I-cov-4: kind · class · level, each named and separated (§3's statement row) — a
-                  kind-grain row names neither class nor level, and a level-less cell says so.
-                  I-351: the kind and the class in words, by the rule the draft BOQ prints them by
-                  (`Concrete`, `Pile cap`) — a certificate is a document a client reads, and its keys
-                  stay on the row's `data-kind` and `data-class`; the level is the stack's own label. */}
+                  kind-grain row names neither class nor level, and a level-less cell says where it
+                  stands (I-482). I-351: the kind and the class in words, by the rule the
+                  draft BOQ prints them by (`Concrete`, `Pile cap`) — a certificate is a document a
+                  client reads, and its keys stay on the row's `data-kind` and `data-class`; the level
+                  is the stack's own label. */}
               <span className="cx-coverage-statement-where">
                 <span className="cx-coverage-value cx-coverage-word">{kindWord(row.kind)}</span>
                 {row.class === null ? null : <span className="cx-coverage-value cx-coverage-word">{classWord(row.class)}</span>}
-                {row.class === null ? null : <span className="cx-coverage-value">{levelWord(row.levels)}</span>}
+                {row.class === null ? null : <span className="cx-coverage-value">{levelWord(row.levels, row.levelSlot ?? null)}</span>}
               </span>
-              <span className="cx-coverage-statement-cause">{causeWords(row.cause)?.message ?? ""}</span>
+              <span className="cx-coverage-statement-cause">{rowSentence(row)}</span>
+            </li>
+          ))}
+          {/* I-483: a cell published only in part is enumerated with what its lines left
+              out — in words, never a count — so it never passes as measured. Found by its class, the
+              contract's ids being closed (§7). */}
+          {partial.map((row) => (
+            <li
+              className="cx-coverage-statement-row cx-coverage-statement-partial"
+              data-kind={row.kind}
+              data-class={row.class ?? ""}
+              data-level={row.levelId ?? ""}
+              data-levels={row.levels}
+              data-omitted={row.omitted.join(" ")}
+              key={`partial:${row.kind}:${row.class ?? ""}:${row.levelId ?? ""}`}
+            >
+              <span className="cx-coverage-statement-where">
+                <span className="cx-coverage-value cx-coverage-word">{kindWord(row.kind)}</span>
+                {row.class === null ? null : <span className="cx-coverage-value cx-coverage-word">{classWord(row.class)}</span>}
+                {row.class === null ? null : <span className="cx-coverage-value">{levelWord(row.levels, row.levelSlot)}</span>}
+              </span>
+              <span className="cx-coverage-statement-cause">
+                {COVERAGE_COPY.takeoff_coverage_statement_partial_label}: {reasonsInWords(row.omitted)}.
+              </span>
+            </li>
+          ))}
+          {/* I-481: a member the drawings show that no class measures — a water tank, a
+              parapet — named by its word and the caption that shows it, and the registry's reason. */}
+          {unclassed.map((member) => (
+            <li
+              className="cx-coverage-statement-row cx-coverage-statement-unclassed"
+              data-word={member.word}
+              data-code={member.code}
+              key={`unclassed:${member.word}:${member.drawingId}:${member.caption}`}
+            >
+              <span className="cx-coverage-statement-where">
+                <span className="cx-coverage-value cx-coverage-word">{inWordsOf(member.word)}</span>
+                <span className="cx-coverage-value">{member.caption}</span>
+              </span>
+              <span className="cx-coverage-statement-cause">{causeWords(member.code)?.message ?? ""}</span>
             </li>
           ))}
         </ul>
@@ -948,6 +1174,12 @@ function Statement({ axis, title, none, rows }: { axis: string; title: string; n
     </section>
   );
 }
+
+/** A word of the unclassed table as a row says it — capitalised, as the class words are. */
+function inWordsOf(word: string): string {
+  return `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`;
+}
+
 
 /* ------------------------------------------------------- the house markup, where none is handed */
 

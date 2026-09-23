@@ -7,6 +7,7 @@
 // The causes' own words are NOT here: a cause's message and remedy are the registry's, read from
 // `@/core/errors` wherever they are shown, never paraphrased into a screen's table (R-SPINE-062,
 // I-191). What stands here is only what this screen itself says.
+import { formatUserFigure } from "@/core/format";
 
 /** Every key this screen spells. A key without a sentence, or a sentence without a key, is a hole. */
 export type CoverageCopyKey = keyof typeof COVERAGE_COPY;
@@ -22,7 +23,7 @@ export const COVERAGE_COPY = Object.freeze({
   // registry's whole sentence arrives on hover. Seven words, one per mark (§4.3's table).
   takeoff_coverage_mark_published: "Published",
   takeoff_coverage_mark_partial: "Partial",
-  takeoff_coverage_mark_absent: "Absent",
+  takeoff_coverage_mark_absent: "Not measured",
   takeoff_coverage_mark_out_of_scope: "Out of scope",
   takeoff_coverage_mark_held: "Held",
   takeoff_coverage_mark_no_class: "No class",
@@ -30,7 +31,7 @@ export const COVERAGE_COPY = Object.freeze({
   // The same seven, as the footer tallies them: "31 published", not "31 Published" (§6).
   takeoff_coverage_tally_published: "published",
   takeoff_coverage_tally_partial: "partial",
-  takeoff_coverage_tally_absent: "absent",
+  takeoff_coverage_tally_absent: "not measured",
   takeoff_coverage_tally_out_of_scope: "out of scope",
   takeoff_coverage_tally_held: "held",
   takeoff_coverage_tally_no_class: "no class",
@@ -64,8 +65,28 @@ export const COVERAGE_COPY = Object.freeze({
   takeoff_coverage_sightings_none: "No channel sighted this class on this level.",
   // R-UI-020: a remedy carries a link. One cause names the rule set; every other names the register.
   takeoff_coverage_remedy_ruleset: "Open the rule set",
-  takeoff_coverage_observations_heading: "What the rails observed",
-  takeoff_coverage_observations_none: "Nothing was observed for this cell.",
+  takeoff_coverage_observations_heading: "What the measure run reported",
+  takeoff_coverage_observations_none: "The measure run reported nothing for this cell.",
+  // s-coverage I-480..g (session 8, HONEST-SCOPE): every unmeasured cell says WHY, in the
+  // registry's words for its reason; a partly published cell says what its lines left out; a column on
+  // no storey says where its members stand; a position no class bears is keyed; the doors go where
+  // the fix is made.
+  takeoff_coverage_level_foundation: "Foundation",
+  takeoff_coverage_level_unplaced: "Not placed",
+  takeoff_coverage_absent_meaning: "Nothing was published for this cell. Open it for the reason and what to do.",
+  takeoff_coverage_mark_void: "Not borne",
+  takeoff_coverage_void_meaning: "This class does not bear this kind, so nothing is measured or owed here.",
+  takeoff_coverage_cell_label_void: "{kind} on {class}, {level}: this class does not bear this kind.",
+  takeoff_coverage_reason_views_label: "On the drawings",
+  takeoff_coverage_partial_all: "Declared partial: {members} {things}, {reasons}.",
+  takeoff_coverage_partial_some: "Declared partial: {count} of {total} lines carry no quantity — {members} {things}, {reasons}.",
+  takeoff_coverage_remedy_sheet: "Open the sheet",
+  takeoff_coverage_remedy_drawings: "Open the drawings",
+  takeoff_coverage_sightings_summary_one: "{count} sighting on {sheets}",
+  takeoff_coverage_sightings_summary_other: "{count} sightings on {sheets}",
+  takeoff_coverage_sightings_nowhere: "no sheet named",
+  takeoff_coverage_observation_count: "{count} ×",
+  takeoff_coverage_statement_partial_label: "Declared partial",
   // I-297: a boundary a model proposed, stated as a proposal and never as a reading. The block is
   // absent where nothing was proposed — there is no idle panel and no idle sentence on this screen
   // (§1) — so no key here says "nothing was proposed". The CAUSE's own words stay the registry's:
@@ -127,7 +148,16 @@ export function fillCoverageCopy(key: CoverageCopyKey, values: Readonly<Record<s
  * hoping (§6): a key's singular form is the key with `_one`, its plural the key with `_other`, and
  * the count fills the slot in either.
  */
-export function countCoverageCopy(key: "takeoff_coverage_footer_cells", count: number, values: Readonly<Record<string, string>> = {}): string {
+export function countCoverageCopy(
+  key: "takeoff_coverage_footer_cells" | "takeoff_coverage_sightings_summary",
+  count: number,
+  values: Readonly<Record<string, string>> = {},
+): string {
   const form = (count === 1 ? `${key}_one` : `${key}_other`) as CoverageCopyKey;
-  return fillCoverageCopy(form, { count: String(count), ...values });
+  return fillCoverageCopy(form, { count: countWords(count), ...values });
+}
+
+/** A count as this screen writes it — through the one format seam, lakh grouping and all (L-FMT-01). */
+export function countWords(count: number): string {
+  return formatUserFigure(String(count));
 }

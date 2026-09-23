@@ -117,21 +117,29 @@ describe("AC-6: the grid states every cell of the residue, twice over — a mark
       const label = attr(element, "aria-label");
       expect(label.length, `every cell is named in words: colour and shape alone say nothing to a reader who cannot see them (R-UI-060)`).toBeGreaterThan(0);
       expect(label, `and a code is machine-readable only — the name says the cause in words, never the code: "${label}"`).not.toContain(code);
-      const words = wordsFor(code);
+      // TEST_AMENDED (s-coverage I-480): the writerless fall-through is named by the REASON
+      // the residue reads beside it — the registry's own message for that reason, never a paraphrase —
+      // so no cell's name says that nothing explains its absence. Every other code by its own words.
+      const reason = code === "NOT_ESTABLISHED" ? ((cell as { reason?: string | null }).reason ?? null) : null;
+      const words = wordsFor(reason ?? code);
       if (words !== undefined) {
-        expect(label, `taking the registry's own message for ${code}, never a paraphrase (R-SPINE-062): "${label}"`).toContain(words.message);
+        expect(label, `taking the registry's own message for ${reason ?? code}, never a paraphrase (R-SPINE-062): "${label}"`).toContain(words.message);
       }
+      expect(label, "and never that nothing explains the absence").not.toMatch(/nothing explains/iu);
     }
   }, 120_000);
 
-  test("AC-6: one row per kind, the kind-grain rows first, then the borne kinds in canonical order", async () => {
+  // TEST_AMENDED (s-coverage I-485, amending I-196): the borne kinds lead — what the drawings
+  // carry is what a reader opens the grid for — and a kind no sighted class bears stands at the FOOT,
+  // shown and never hidden.
+  test("AC-6: one row per kind, the borne kinds in canonical order, then the kind-grain rows", async () => {
     await ready();
     const mounted = await mountCoverage({ view });
     const kindsOf = (cells: readonly ResidueCellShape[]): string[] => [...new Set(cells.map((cell) => cell.kind))].sort(canonical);
-    const expected = [...kindsOf(view.cells.filter((cell) => cell.grain === KIND)), ...kindsOf(view.cells.filter((cell) => cell.grain !== KIND))];
+    const expected = [...kindsOf(view.cells.filter((cell) => cell.grain !== KIND)), ...kindsOf(view.cells.filter((cell) => cell.grain === KIND))];
     expect(
       hooks(mounted.root, TESTID.kindRow).map((row) => attr(row, "data-kind")),
-      "a kind that bears no cell stands at the head of the grid, shown and never hidden (R-UI-050, I-196); the rest follow in canonical order",
+      "the borne kinds in canonical order, then a kind that bears no cell at the foot of the grid, shown and never hidden (R-UI-050, I-196 as amended)",
     ).toEqual(expected);
   }, 120_000);
 
@@ -160,7 +168,13 @@ describe("AC-6: the grid states every cell of the residue, twice over — a mark
       const code = attr(entry, "data-code");
       expect(attr(hook(entry, TESTID.glyph), "data-code"), `the key entry for ${code} carries the very mark the grid draws for it`).toBe(code);
       const words = wordsFor(code);
-      if (words !== undefined) {
+      if (code === "NOT_ESTABLISHED") {
+        // TEST_AMENDED (s-coverage I-195 as amended by I-480): the fall-through's registered
+        // sentence says that nothing explains an absence, and every such cell now names its reason —
+        // so its key entry states the screen's own meaning, and never that sentence.
+        const copy = await productModule<{ COVERAGE_COPY: Record<string, string> }>("src/modules/takeoff/coverage/copy.ts");
+        expect(attr(entry, "data-meaning"), "the key line says what the Not measured mark means on this screen").toBe(copy.COVERAGE_COPY["takeoff_coverage_absent_meaning"]);
+      } else if (words !== undefined) {
         expect(attr(entry, "data-meaning"), `and carries the registry's message for ${code} verbatim, which is what its tooltip states (I-195)`).toBe(
           words.message,
         );
@@ -218,10 +232,15 @@ describe("AC-6: the certificate preview prints the two statements, and never a c
           levels: row.levels,
           code: row.cause,
         });
-        const words = wordsFor(row.cause);
+        // TEST_AMENDED (s-coverage I-480): a row beside the writerless fall-through prints
+        // the registry's message for the REASON the core read beside the cause; every other row its
+        // cause's. The cause itself stays on `data-code`, asserted above.
+        const said = (row as { reason?: string | null }).reason ?? row.cause;
+        const words = wordsFor(said);
         if (words !== undefined) {
-          expect(textOf(element), `and prints the registry's message as prose — a certificate states the reason in words: ${row.cause}`).toContain(words.message);
+          expect(textOf(element), `and prints the registry's message as prose — a certificate states the reason in words: ${said}`).toContain(words.message);
         }
+        expect(textOf(element), "and never that nothing explains an absence").not.toMatch(/nothing explains/iu);
       }
     }
   }, 120_000);

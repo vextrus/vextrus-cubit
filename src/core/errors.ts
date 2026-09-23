@@ -20,6 +20,7 @@
 import { ACTS_REFUSALS, type ActsRefusalCode } from "./errors/acts";
 import { AI_REFUSALS, type AiRefusalCode } from "./errors/ai";
 import { BOQ_REFUSALS, type BoqRefusalCode } from "./errors/boq";
+import { COVERAGE_REFUSALS, type CoverageRefusalCode } from "./errors/coverage";
 import { DOCS_REFUSALS, type DocsRefusalCode } from "./errors/docs";
 import { DRAWINGS_REFUSALS, type DrawingsRefusalCode } from "./errors/drawings";
 import { DRAWING_SETS_REFUSALS, type DrawingSetsRefusalCode } from "./errors/drawing-sets";
@@ -90,7 +91,8 @@ export type RefusalCode =
   | RebarRefusalCode
   | SlabsRefusalCode
   | RulesetsRefusalCode
-  | ExportsRefusalCode;
+  | ExportsRefusalCode
+  | CoverageRefusalCode;
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -140,6 +142,7 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
   ...SLABS_REFUSALS,
   ...RULESETS_REFUSALS,
   ...EXPORTS_REFUSALS,
+  ...COVERAGE_REFUSALS,
 });
 
 /**

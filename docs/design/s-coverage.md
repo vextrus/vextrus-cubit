@@ -298,6 +298,120 @@ the `I-cov-n` run belongs to the look above. It amends this Decision in place (�
   its own grid, and content-sized `fr` would let a header row and a body row resolve different
   columns; rejected: raising the row height — density is the root's (R-UI-005).
 
+**Honest scope (session 8, HONEST-SCOPE — MEASURE-REFUSE, COV-ALL and C9a; walk-0 register-trace B11
+and fresh-flow B03, both BLOCKS_DEMO).** Walk-0 found the grid and the certificate knowing only the
+four classes F-RCC6-BNBC's partition placed — Beam, Column, Pile, Pile cap — while the set draws
+sheets for grade beams and a slab on grade, slabs, a stair, a lift core, tanks and lintels; seventeen
+absent cells and the certificate saying "nothing explains the absence"; the register's
+Deferred-and-refused region empty; and, on a fresh unscaled upload, a measure run that answered
+"Done 0 s" with nothing named. "Measure less, completely, and say so." Each ruling amends this
+Decision in place (§1, §3, §5, §7 carry the text).
+
+- **I-479 — the drawings DECLARE what they show, and a declaration is a sighting (L-QTY-05's
+  second and third channels, read at the grain of a caption).** A view's caption and a schedule's
+  title name the members the view is a drawing of: "GRADE BEAM LAYOUT & GF SLAB ON GRADE" is a
+  drawing of tie beams and of a slab whether or not the partition placed a member off it. So the
+  residue reads the pinned manifest's stored views (`partition_views`) and turns each caption into
+  sightings of the classes it names (`src/core/residue/declared.ts`, `channels/declared.ts`) — by a
+  CLOSED word table, first match per word, never a guess: BEAM (a GRADE, TIE or PLINTH beam is a tie
+  beam), COLUMN, PILE (PILE CAP is a pile cap), FOOTING, SLAB, STAIR (a stair ROOF is no flight),
+  LINTEL, a SHEAR, CORE, RETAINING or LIFT wall and a LIFT CORE, PIT or SHAFT (shear wall), BRICK
+  wall and BRICKWORK (brick wall). A title block, a note or a legend talks ABOUT members and declares
+  none; a mark ("PC1 SECTION") names a family, which the table does not read. A schedule's title is
+  sighted through the partition's channel (its member-type families are read off it), every other
+  caption through the layout's; both on no level, `declared: true`, read at the caption's own entity.
+  On F-RCC6-BNBC this puts slab, stair, shear wall (the lift core), tie beam, lintel and footing (the
+  ramp wall's F1) on the grid beside the four placed classes. A declaration is no evidence of why a
+  placed member's cell went unmeasured, so it never enters I-297's question state (the recorded
+  proposals keep their keys), and it is no placement, so it never enters the truncation question
+  either: a schedule on a sheet read in full cannot turn a cell whose every placement stands on a
+  sheet read in part from INGESTION_TRUNCATED into the fall-through. Rejected: a class inferred from a
+  sheet number or a layer name — a guess dressed as a reading; rejected: a fourth channel — the law
+  names three, and a caption IS the layout inventory's own statement of a view's membership.
+- **I-480 — every unmeasured cell names WHY, beside its cause, and nothing says "nothing
+  explains" (L-QTY-05, L-QTY-07, R-SPINE-062).** The cause stays the law's: a cell nothing was
+  published for and no person declared is NOT_ESTABLISHED, the writerless fall-through, and a rail's
+  report stays evidence, never a cause. Beside that cause the residue now reads a REASON
+  (`ResidueCell.reason`, `src/core/residue/reasons.ts`), a registered code, asked in this order: the
+  registered code the rails reported most for the cell (the views it names in their captions,
+  `reasonViews`); `COVERAGE_CLASS_NOT_PLACED` where every sighting is a declaration;
+  `COVERAGE_NOT_MEASURED_YET` where no run was carried over the campaign; `COVERAGE_MEMBERS_NOT_REACHED`
+  where the run read this (class, kind) elsewhere and said nothing here; `COVERAGE_KIND_NOT_READ`
+  where it read the pair nowhere (`src/core/errors/coverage.ts`). A report under a code the register
+  does not hold stays evidence in the inspector and is never a reason. The cell's name, the inspector's
+  cause sentence, its remedy and the certificate's row all say the REASON's registered words
+  (`causeSentence`, `remedyEntry` in `grid.tsx`), the cause stays on `data-code`, and the reason rides
+  on `data-reason`; a bill-statement row stands under the cause a person gave it and carries no
+  reason. I-195 is amended for the one entry the fall-through's registered sentence contradicts: the
+  "Not measured" key's meaning is this screen's own sentence (`_absent_meaning`). The residue's one
+  absence clause now asks PER KIND — a column whose concrete published still owes its reinforcement
+  cell the report that nobody read its schedule; asked by object alone the concrete line swallowed
+  it. The registry's NOT_ESTABLISHED sentence is not re-worded (the draft BOQ's golden prints it by
+  code); the draft's closing page is handed the REASON in its place wherever a row carries one
+  (`boq/server.ts`, s-boq I-451's "the registry's own sentence" — now the reason's), so the draft no
+  longer prints it either.
+- **I-481 — a member the drawings show that no class measures is named, never dropped.** A
+  water tank, a reservoir, a parapet, a sunshade, a ramp, a canopy (a second closed table of words
+  the roster has no class for) is enumerated in the measurement statement by its word and the caption
+  that shows it, under `COVERAGE_MEMBER_UNCLASSED` (`unclassedStatementOf`, carrying the code from
+  core). It has no cell: no class bears a kind it could stand under.
+- **I-482 — a level-less column says where its members stand (amends I-cov-3).** A column
+  on no storey of the stack reads `Foundation` where its register rows stand in the lawful-null
+  FOUNDATION slot (`Sighting.levelSlot`, the register channel's own column), `Not placed` where every
+  sighting is a declaration (the `UNPLACED` reading, `src/core/residue/law.ts`), and `No level` only
+  where neither holds — in the header, the cell's name, the inspector's fact line and the certificate.
+- **I-483 — a partly published cell says what its lines left out, and enters the
+  measurement boundary (pays I-cov-1's IOU in part).** The residue carries each published cell's
+  PARTIAL_DECLARED lines as `partial` — how many lines, over how many members, the codes they left
+  components out under with the variables named, most lines first (`partialOf`). The inspector and the
+  cell's name say it in one sentence — "Declared partial: 23 beams, slab thickness unstated (t)." —
+  where they said "Quantity is published for this cell" beside "23 of its 23 lines carry no
+  quantity". The measurement statement gains its second enumeration, `partialStatementOf`: the cell or
+  run of levels and the codes in words, never a count (L-QTY-07). The residue's axis still reads
+  QUANTITY_BEARING (the law's arm order); the draft BOQ's not-measured page reads only the first
+  enumeration until BOQ-SHAPE reads this one.
+- **I-484 — every gap has one remedy and a door to where it is fixed; a run says what it
+  deferred (MEASURE-REFUSE).** The remedy button goes to the sheet that shows a class nothing placed,
+  flown to its caption (the Trace's `selectionAddress`, `Open the sheet`); to the drawings for a view
+  with no scale of record (`Open the drawings`); to the rule set for a kind no class bears; and for
+  everything else to the register NARROWED to the cell — `?class=&kind=&level=` (`registerCellHref`,
+  the level as the register labels it: its label, or the FOUNDATION slot). The query has one spelling,
+  `register-ui/narrowing.ts`, which the register reads back into its filter chips on mount beside
+  `?line=`, so the chips a link narrowed stand chosen and clear as any other. The Sighted-in table folds behind one line — "23 sightings on
+  S-13" — every row still in the DOM; "What the rails observed" is "What the measure run reported",
+  one row per report with how many members it was said of, the kind and class in words and the view in
+  its caption. A measure run names its deferrals BY NAME in its verdict step (`deferred`): each view
+  its members were placed in that no affirmation names, grouped from the rails' own reports, and each
+  storey its verticals (column, shear wall — L-MEA-09) stand on whose height stands at none
+  (`runDeferralsOf`, `src/core/residue/deferrals.ts`, the levels law's `STOREY_HEIGHT_ABSENCE`). The
+  register's Deferred-and-refused region leads with the same rows once a run has been carried
+  (`reportedAbsencesOf` + `runDeferralsOf` in `register-ui/server.ts`), each under its registered code;
+  the coverage cell of a member in an unscaled view reads VIEW_SCALE_UNAFFIRMED as its reason. A
+  deferral row is no sighting and says so: it is keyed on what it is about (the view's address, the
+  level's id — two views sharing a caption are two rows), labelled `View` or `Storey` rather than
+  `Object`, and names the view by its WHOLE caption and the storey by its label as text — never
+  through the id chip, whose seven-character face read `1ST FLOOR BEAM LAYOUT` and `1ST FLOOR SLAB
+  REINFORCEMENT PLAN` alike as `1ST FLO`; a view no caption anchors reads its class in words and its
+  sheet. Its door goes where the fix is made: a view's to the sheet it stands on, flown to its
+  caption, where the scale panel affirms a scale (`Open the sheet`), or the drawings where the
+  manifest names no sheet; a storey's to the level stack (`Open the levels`). The run's own verdict
+  step carries the same `deferred` list, which no screen shows; the region is where a QS reads it.
+- **I-485 — the grid leads with what the drawings carry (amends I-196, I-195).** Borne kinds
+  first, in canonical order; the kind-grain rows — a kind no sighted class bears — at the FOOT, shown
+  and never hidden. A position a column's class does not bear is KEYED: a faint dash
+  (`.cx-coverage-void`, `data-mark="void"`, a `gridcell` with its own name and no test id, no tab stop,
+  no selection) and an eighth key-line entry, `Not borne`, which is no reading of the law and carries no
+  legend-entry test id. The absent mark reads `Not measured` on the key line and the tally. A row
+  draws its positions in the order its columns stand (`positionsOf`) and a dash is pinned to the
+  row's one line (`grid-row: 1`): a row is a grid on the sparse flow, where a dash drawn after the
+  cells at a column left of them opened a second line and doubled the row.
+- **C9a — the certificate reads flush and shows more rows (amends I-212's cap).** The statement list
+  drops the user agent's list indent and margins; while the certificate is open the work surface
+  sizes to its rows (`flex: 0 1 auto`) but never below the craft rubric's work-surface floor — the
+  matrix at 55 % of main, the key line and the tally on top (AM-08) — and the certificate takes the
+  height the grid does not use (`flex: 1 1 --cx-coverage-doc-h`, at least 192 where main has it);
+  shut, the grid takes main back as it always did.
+
 ## 1. Layout and hierarchy
 
 **Nav.** `takeoff/layout.tsx` gains a second `next/link`, `<a data-testid="takeoff-nav-coverage">`
@@ -329,8 +443,11 @@ to read.
 **The key line (I-195)** — `<div data-testid="coverage-legend" role="list">`, one row `var(--row-h)`
 high on `--surface-panel`, seven `<span data-testid="coverage-legend-entry" data-code data-mark
 data-meaning role="listitem" tabindex="0">`, each the mark at `--icon-md` beside its word, wrapped in
-the shipped `Tooltip` whose content is the registry's sentence. The mark is coloured exactly as the
-grid colours the cell that wears it.
+the shipped `Tooltip` whose content is the registry's sentence (the Not measured entry's the screen's
+own, I-480). The mark is coloured exactly as the grid colours the cell that wears it. An
+eighth entry keys the position no class bears — `<span class="cx-coverage-legend-entry
+cx-coverage-legend-void" data-mark="void" data-meaning role="listitem" tabindex="0">`, its dash and
+`_mark_void`, no legend-entry test id because it is no reading of the law (I-485).
 
 **The matrix** — `<div data-testid="coverage-grid" role="grid" aria-label aria-colcount aria-rowcount
 data-density>`, `flex: 1`, `overflow: auto`, hairline, radius 4. It is the ONE scroll container: the
@@ -350,8 +467,8 @@ custom properties, so the stylesheet keeps every measure (ARCH-01).
   I-cov-3, mono 12, centred, in its own `cx-coverage-level-name` box in a column sized to read it —
   I-351 — `aria-label` = `takeoff_coverage_column_label` so a reader who
   hears one column hears both axes). The corner cell is `takeoff_coverage_kind_column`, sticky on both.
-- One `<div data-testid="coverage-kind-row" role="row" data-kind>` per kind — kind-grain rows (I-196)
-  first, then the borne kinds in `compareCanonical` order — opening with a sticky
+- One `<div data-testid="coverage-kind-row" role="row" data-kind>` per kind — the borne kinds in
+  `compareCanonical` order, then the kind-grain rows (I-196 as amended by I-485) — opening with a sticky
   `role="rowheader"` kind cell in the UI face: a 4 px ramp bar (`data-cov`, I-210) beside the kind in
   words through the shipped `EnumLabel` (`Concrete`, the key in its disclosure and on `data-kind` —
   I-351), ellipsised, `aria-label` the kind in the same words and the row's share measured. The name
@@ -366,6 +483,11 @@ custom properties, so the stylesheet keeps every measure (ARCH-01).
   of the cell in the lower-right corner (I-189). `data-contradicted="true"` draws a 1 px inset danger
   edge, which the aria-label and the inspector also state in words. Selection is a 2 px inset
   `--line-accent`; hover a 1 px inset `--accent`; focus is `cx-reticle`, from its one home (I-190).
+  The cell's `aria-label` names a NOT_ESTABLISHED cell by its reason's registered words and a partly
+  published cell by what its lines left out (I-480/e).
+- A position a column's class does not bear is `<div class="cx-coverage-void" role="gridcell"
+  data-mark="void" aria-label>` — a faint centred dash, the cell's hairlines, `_cell_label_void` as its
+  name, no test id, no tab stop and no selection (I-485).
 
 The glyphs are unchanged and still drawn geometry, never font characters, from one total map over the
 reading union — a reading without a mark is a compile error — on a 16 px viewBox, 1.5 px stroke,
@@ -399,11 +521,19 @@ and rendered ONLY while a cell is selected, so with no selection the column is a
 the class in words, in the UI face, the level the stack's label in mono (I-351) (a kind-grain row
 reads `takeoff_coverage_kind_grain_label` in place of class and level); `<h3>`
 `takeoff_coverage_cause_heading` over `<p data-testid="coverage-inspector-cause" data-code data-cause
-data-act>` — the mark and its word, then the registered message (I-191); the act as an `IdChip` under
+data-reason data-act>` — the mark and its word, then the registered message (I-191): the REASON's
+beside a NOT_ESTABLISHED cause (`data-reason`, I-480), and on a partly published cell the
+`_partial_all` / `_partial_some` sentence of what its lines left out (I-483); where the
+reason names views, `<p class="cx-coverage-reason-views">` — `_reason_views_label` and each caption
+verbatim in mono; the act as an `IdChip` under
 `takeoff_coverage_declared_label` where a declaration is in force (I-213); `<div
-data-testid="coverage-inspector-remedy">`, the registered remedy as ONE sentence and ONE button —
-`takeoff_coverage_remedy_ruleset` to the rule set for `KIND_NOT_YET_SEEDED`, `_empty_campaign_action`
-to the register for every other cause, so a refusal always carries a remedy AND a link (R-UI-020);
+data-testid="coverage-inspector-remedy">`, the registered remedy as ONE sentence and ONE button (the
+reason's remedy, else the first omission's, else the cause's; a cell measured whole has none and its
+button opens its lines) — `takeoff_coverage_remedy_ruleset` to the rule set for `KIND_NOT_YET_SEEDED`,
+`_remedy_sheet` to the sheet that shows a class nothing placed, flown to its caption, `_remedy_drawings`
+to the drawings for a view with no scale of record, `_empty_campaign_action` to the register narrowed
+to the cell (`?class=&kind=&level=`) for every other cause, so a refusal always carries a remedy AND a
+link (R-UI-020, I-484);
 `takeoff_coverage_contradicted_note` on a contradicted cell (I-192). Then, and ONLY where a boundary
 was proposed for this cell (I-297), `<section class="cx-coverage-proposal">` labelled
 `takeoff_coverage_proposed_heading` — that heading as `<h3>`, the proposed cause through `EnumLabel`,
@@ -414,22 +544,27 @@ cause names — `HOLD_OUT_OF_BILL` for `NOT_IN_THIS_BILL`, `DECLARE_NOT_IN_PROJE
 `NOT_IN_PROJECT_SCOPE` — through the same `setDoor` path the two foot buttons use, and carries the
 proposal into the act so the act can judge it. With no proposal the section is ABSENT: no heading, no
 sentence, no button. Then `<h3>`
-`takeoff_coverage_sightings_heading` over a compact table — header row `_channel_label` / `_view_label`
+`takeoff_coverage_sightings_heading` over `<details class="cx-coverage-sightings-fold">`, shut, whose
+`<summary>` is `_sightings_summary_one|other` — how many, on which sheets (I-484) — over a
+compact table — header row `_channel_label` / `_view_label`
 / `_source_label`, then one `<tr data-testid="coverage-inspector-sighting" data-channel data-source>`
 per Sighting: the channel as an `EnumLabel`, the view verbatim, the source key as an `IdChip` (class
 `cx-coverage-source-key`) — with each in-force declaration standing in the same table under channel
 `DECLARATION`, its act as an `IdChip` (class `cx-coverage-act-id`); or
 `takeoff_coverage_sightings_none`. Rows are `var(--row-h)`, nothing wraps, everything ellipsises (§5).
 Then `<h3>` `takeoff_coverage_observations_heading` and one `<div
-data-testid="coverage-inspector-observation" data-rail data-reason>` per rail observation — the rail
-verbatim in mono, the reason as an `EnumLabel` — or `takeoff_coverage_observations_none`. Foot
+data-testid="coverage-inspector-observation" data-rail data-reason data-count>` per report said — the
+rail's kind and class in words, the reason's sentence as prose, the view it names in its caption, and
+`_observation_count` where it was said of more than one member (I-484; the reason is a
+sentence, so I-213's EnumLabel no longer carries it) — or `takeoff_coverage_observations_none`. Foot
 (I-194): core secondary Buttons `<button data-testid="coverage-hold-out">` and `<button
 data-testid="coverage-declare-out-of-scope">`, each opening the shipped ConsequenceDialog at `actType`
 `HOLD_OUT_OF_BILL` / `DECLARE_NOT_IN_PROJECT_SCOPE`, `container` the screen root (I-167). Neither
 commits anything itself. There is no idle panel and no idle sentence: an absent column says it.
 
 **Certificate preview (I-212)** — `<section data-testid="coverage-certificate-preview" data-open>`
-beneath the tally, `max-height: 192px` with its own scroll, `display: none` when shut: `<h2>`
+beneath the tally, at least 192 px and, while open, every height the grid does not use (C9a), with its
+own scroll, `display: none` when shut: `<h2>`
 `takeoff_coverage_certificate_heading`, then exactly two `<section data-testid="coverage-statement"
 data-axis>` in this order and never merged — `MEASUREMENT` then `BILL`, each with its own title and
 never a shared cause column (L-QTY-07). Each holds a `<ul>` of `<li
@@ -437,8 +572,17 @@ data-testid="coverage-statement-row" data-kind data-class data-level data-levels
 `compareCanonical` order over (kind, class, level): the kind and the class in words in the document's
 own face (`Bored · Pile`, I-351 — the keys stay on `data-kind` / `data-class`) and the level the
 stack's own label in mono, separated by `·` and a level-less cell's level said as `No level`
-(I-cov-4), then the registered
-message as prose, on one `var(--row-h)` line that never wraps. An empty statement renders
+(I-cov-4; `Foundation` or `Not placed` where it stands so, I-482), then the registered
+message as prose — the REASON's where the row carries one beside the fall-through, with the views it
+names after `_reason_views_label` (`data-reason` on the row, I-480) — on one `var(--row-h)`
+line that never wraps. The MEASUREMENT statement's list then holds its two further enumerations, found
+by class (the id contract stays closed): `<li class="cx-coverage-statement-row
+cx-coverage-statement-partial" data-kind data-class data-level data-levels data-omitted>` per cell
+or run published only in part — `_statement_partial_label` and the omitted codes in words
+(I-483) — and `<li class="cx-coverage-statement-row cx-coverage-statement-unclassed"
+data-word data-code>` per member no class measures — its word, its caption verbatim in mono, and
+`COVERAGE_MEMBER_UNCLASSED`'s message (I-481). A statement is empty only where all of its
+enumerations are, and then renders
 `<p data-testid="coverage-statement-none" data-code="NONE">` with its own sentence. The statements
 print in `var(--font-doc)` at `var(--text-13)` on `--surface-panel` inside a hairline border — this is
 document text previewed as document text. No count appears anywhere in this section (L-QTY-07),
@@ -469,7 +613,7 @@ Declared in `takeoff/coverage/states.ts` (`COVERAGE_STATES`) and appended to
   markup, where no chrome is injected.
 - **Refusal** — the one RefusalState in `coverage-answer` for a door's rejection, and the dialog's own
   slot for a preview or commit refused while it holds focus. Never a toast, never a local block.
-- **Partial** — the kind-grain rows (I-196), rendered at the head of the grid with their causes. Rows
+- **Partial** — the kind-grain rows (I-196), rendered at the foot of the grid (I-485) with their causes. Rows
   are shown, never dropped. The note that used to stand under the grid heading is gone with the
   heading: each of those rows already states its own cause in its mark, its key word and its
   accessible name, and §6 allows this screen one helper line in main — which it now spends on none.
@@ -512,6 +656,30 @@ nothing to declare about it.** (I-351 — the message no longer says "residue"; 
 **Open the coverage grid and choose a cell it shows: a class this campaign sighted, on a level of the
 project's stack.**
 
+The reasons beside the writerless fall-through, and the unclassed member's (`src/core/errors/coverage.ts`,
+I-480/c):
+- **COVERAGE_NOT_MEASURED_YET** · info · **This campaign has not been measured yet, so nothing has been
+  published for this cell.** · **Measure the campaign from the register, then read each cell for what
+  was published or why it was not.**
+- **COVERAGE_CLASS_NOT_PLACED** · warning · **The drawings show this class, but no member of it has
+  been placed off a layout plan, so there was nothing to measure.** · **Open the sheet that shows it
+  and check what is drawn; the certificate names it as not measured until its members are placed.**
+- **COVERAGE_KIND_NOT_READ** · warning · **The measure run does not read this kind for this class from
+  the drawings yet, so nothing was offered for it.** · **Take it off by hand for now. Where the cell
+  offers them, declare it out of the project scope or hold it out of this bill, so the certificate
+  states the boundary you chose.** (The two doors stand only over a cell on a storey, I-194.)
+- **COVERAGE_MEMBERS_NOT_REACHED** · warning · **The measure run reads this kind for this class, but it
+  published and reported nothing for the members standing here.** · **Open the register for these
+  members: a deferral or a refusal there says why. Where none stands, measure the campaign again, so
+  they are read with the rest.** (The residue reads no queue item and no gate refusal; the register
+  narrowed to the cell does.)
+- **COVERAGE_MEMBER_UNCLASSED** · info · **The drawings show this member, but no class this product
+  measures is it, so nothing of it is measured.** · **Take it off by hand from the sheet that draws it;
+  the certificate names it as not measured.**
+
+A rail's own reported code, where it is the reason, is said in its registered words (VIEW_SCALE_UNAFFIRMED,
+REBAR_SCHEDULE_UNREAD, LINTEL_SOURCE_ABSENT, SECTION_BAND_UNCOVERED, …), never paraphrased here.
+
 ### 3.2 The screen (`src/modules/takeoff/coverage/copy.ts`, keys `takeoff_coverage_*`)
 
 `takeoff_nav_coverage` **Coverage** · `takeoff_coverage_heading` **Coverage** (the document title; the
@@ -524,10 +692,10 @@ quantity: each names what the drawing did not state.** (I-cov-1) ·
 mark means** (the key line's accessible name).
 
 The seven marks, as the key line says them: `_mark_published` **Published** · `_mark_partial`
-**Partial** · `_mark_absent` **Absent** · `_mark_out_of_scope` **Out of scope** · `_mark_held` **Held**
+**Partial** · `_mark_absent` **Not measured** (I-485) · `_mark_out_of_scope` **Out of scope** · `_mark_held` **Held**
 · `_mark_no_class` **No class** · `_mark_catalogue` **Catalogue only**. The same seven as the tally
 counts them, mid-sentence: `_tally_published` **published** · `_tally_partial` **partial** ·
-`_tally_absent` **absent** · `_tally_out_of_scope` **out of scope** · `_tally_held` **held** ·
+`_tally_absent` **not measured** · `_tally_out_of_scope` **out of scope** · `_tally_held` **held** ·
 `_tally_no_class` **no class** · `_tally_catalogue` **catalogue only**. The tally itself:
 `_footer_label` **Counts by mark** · `_footer_cells_one` **{count} cell** · `_footer_cells_other`
 **{count} cells** · `_footer_tally` **{count} {mark}** — the count picks its own form through
@@ -542,9 +710,23 @@ The inspector: `_level_label` **Level** · `_kind_grain_label` **Every class and
 published quantity stands and the declaration is not printed on the certificate.** ·
 `_remedy_ruleset` **Open the rule set** · `_sightings_heading` **Sighted in** · `_channel_label`
 **Channel** · `_view_label` **View** · `_source_label` **Read at** · `_sightings_none` **No channel
-sighted this class on this level.** · `_observations_heading` **What the rails observed** ·
-`_observations_none` **Nothing was observed for this cell.** · `_hold_out` **Hold out of this bill** ·
+sighted this class on this level.** · `_observations_heading` **What the measure run reported** ·
+`_observations_none` **The measure run reported nothing for this cell.** · `_hold_out` **Hold out of this bill** ·
 `_declare_out_of_scope` **Declare out of project scope**.
+
+Honest scope (session 8, I-480..g): `_level_foundation` **Foundation** · `_level_unplaced`
+**Not placed** · `_absent_meaning` **Nothing was published for this cell. Open it for the reason and
+what to do.** (the Not measured key's meaning) · `_mark_void` **Not borne** · `_void_meaning` **This
+class does not bear this kind, so nothing is measured or owed here.** · `_cell_label_void` **{kind} on
+{class}, {level}: this class does not bear this kind.** · `_reason_views_label` **On the drawings** ·
+`_partial_all` **Declared partial: {members} {things}, {reasons}.** · `_partial_some` **Declared
+partial: {count} of {total} lines carry no quantity — {members} {things}, {reasons}.** ({things} is the
+class in words, lower case, an `s` past one; {reasons} each omitted code by the draft BOQ's
+`reasonsInWords`, its variables in brackets) · `_remedy_sheet` **Open the sheet** ·
+`_remedy_drawings` **Open the drawings** · `_sightings_summary_one` **{count} sighting on {sheets}** ·
+`_sightings_summary_other` **{count} sightings on {sheets}** · `_sightings_nowhere` **no sheet named**
+· `_observation_count` **{count} ×** · `_statement_partial_label` **Declared partial**. Every count
+through the format seam (`countWords`, `formatUserFigure`).
 
 The proposed boundary (I-297; the block is absent where nothing was proposed, so no key here says so):
 `_proposed_heading` **A boundary this cell may stand under** · `_proposed_note` **A model read this
@@ -627,7 +809,8 @@ screen, R-UI-005) · `--cx-coverage-cell` (the stylesheet's own clamp of the box
 `--motion-state`/`--ease`.
 
 Px literals, closed set (core I-1's mandated class): the kind column's 200 and the certificate's 192,
-both stated once as custom properties on `.cx-coverage`; the 1 px and 2 px of an inset edge; the
+both stated once as custom properties on `.cx-coverage`; the 1 px and 2 px of an inset edge, and the
+1 px hairline of the Not borne dash (I-485); the
 glyph viewBox's 16 and its 1.5 px stroke, inside the drawn marks. Any other literal is a defect. No
 `[data-theme]` selector, no colour, no primitive ramp position (`--graphite-N`, `--beam-N`) appears in
 `coverage.css`; the mechanical half of §7's C8 reads this file and scores it. No copper appears
@@ -694,7 +877,22 @@ inside `coverage-certificate-preview`; **no `coverage-inspector` at all while no
 cell, on a kind-grain row, on a cell naming no level, or while `data-state="denied"` (I-194); no
 statement row for a cell reading `data-contradicted="true"` (I-192); no `<title>`/tooltip on a cell;
 **no horizontal scroll on `html`, `body` or `shell-main` at 1280×800** — the matrix is the one scroll
-container (§7 C10).
+container (§7 C10). Honest scope (I-480..g), all without new ids: `data-reason` on
+`coverage-inspector-cause` and on `coverage-statement-row` (the reason beside a NOT_ESTABLISHED
+cause, `""` elsewhere); `data-count` on `coverage-inspector-observation`; the classes
+`.cx-coverage-void` (`data-mark="void"`), `.cx-coverage-legend-void`, `.cx-coverage-reason-views`,
+`.cx-coverage-sightings-fold`, `.cx-coverage-statement-partial` (`data-omitted`) and
+`.cx-coverage-statement-unclassed` (`data-word`, `data-code`). Asserted absence: **no face of the
+screen — text node, accessible name or key-line meaning — says "nothing explains"**.
+
+Suites of this session: `tests/residue/{declared-classes,unmeasured-reasons}.test.ts` (the pure
+declared axis over F-RCC6-BNBC's 54 captions, every reason, the statements — outside `coverage/`
+because the refusal register's walk skips a directory of that name, and these name the new codes),
+`tests/takeoff/coverage/honest-scope-screen.test.tsx` (the screen), `tests/takeoff/coverage/declared-axis.test.ts`
+(db: the axis over a stored partition), `tests/takeoff/measure/{run-deferrals,measure-job}.test.ts`
+(the run's named deferrals, pure and over the store, the register's region and the per-kind absence
+clause); J-000's `m2-coverage-grid` asserts F-RCC6-BNBC's slab and stair Not measured under
+`COVERAGE_CLASS_NOT_PLACED`.
 
 Suites: `tests/takeoff/coverage/**` — jsdom mounts of `CoverageWorkspace` over
 `coverageFixture()`/`residueFixture()` with chrome bound to the shipped components (I-170) for the
@@ -756,3 +954,23 @@ second hatch (B-17); the wider cell I-351 allows softens it where the matrix has
 that owns `src/ui/tokens.ts` — a pitch that reads as a mark at `--row-h`. **`Bored` beside `Boring`**
 in the row headers — owner and fix recorded in s-takeoff §8 (a display name per kind in the
 catalogue, read by `inWords`, so every face moves together).
+
+Opened by HONEST-SCOPE (session 8). **The register does not yet read `?class=&kind=&level=`** — the
+door from a cell passes the narrowing the register's own filters use, and the register opens whole
+until it reads its filters from the address (walk-0's register-trace FRICTION); owner: the register's
+node (s-takeoff §1 filter bar). **The register's deferred-and-refused rows of a run's deferrals label a
+view or a storey as "Object"** — the row's `objectKey` is the view's caption (else its address) or the
+storey's label, rendered through the region's shared IdChip; owner: s-takeoff's region (its own label
+for a view and a storey, and a door to the sheet's scale panel and to Levels rather than the region's
+one evidence link). **The draft BOQ's "Not measured in this draft" page reads only the first
+enumeration** — it now says each row's reason, but neither the partial nor the unclassed
+enumeration; owner: BOQ-SHAPE (`partialStatementOf`, `unclassedStatementOf` are core's, ready to read). **A declared sighting names the sheet by the
+manifest's first sheet of its drawing** (`layoutOf`), so "Open the sheet" may open that drawing's first
+sheet rather than the caption's own until the residue's scope reads core's sheet resolver; owner: RES-1
+(`channels/scope.ts`). **A caption's level is not read** — "STAIR PLAN AT GROUND FLOOR" and "1ST FLOOR
+SLAB REINFORCEMENT PLAN" name a storey, and a declared class stands on no level (`Not placed`) until
+the notation grammar's level reading is applied to captions; owner: a later leaf. **Captions are read
+as stored** — MTEXT formatting codes, where a caption carries them, are not stripped here; owner:
+REAL-1's core stripper, which this reader should call once it lands. **The measure run's timeline still
+says "Done"** — the run's deferrals are in its verdict step and in the register's region, and the
+job-timeline pattern shows no step detail; owner: the job-timeline pattern (`src/ui/patterns/job-timeline`).

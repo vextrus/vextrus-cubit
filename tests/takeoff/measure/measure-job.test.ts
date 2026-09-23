@@ -16,10 +16,16 @@
  * Nothing here re-spells a step, a kind or a class: the steps are read from the job module's own
  * roster, the kind from the method the registry maps, and the (class, kind) pair from the catalogue.
  */
+import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, test } from "vitest";
+import { lit } from "../../../db/__tests__/support/live-sql";
 import {
+  COLUMN_C1,
+  GROUND_FLOOR,
+  LEVELS_MODULE,
   MEMBER_VOLUME,
   QUANTITY_LINES_TABLE,
+  RAIL_OBSERVATIONS_TABLE,
   bears,
   bindingsIn,
   closeStage,
@@ -30,8 +36,12 @@ import {
   methodsRegistry,
   offer,
   offersContract,
+  productModule,
   railsRoster,
+  registerSeam,
   rowsOfCampaign,
+  sql,
+  sqlValue,
   stageCampaign,
   storeCounts,
   type OfferShape,
@@ -198,5 +208,235 @@ describe("the measure job: one rail, the real gate, one campaign", () => {
       refused: 0,
     });
     expect(storeCounts(it.tenantId), "and it writes nothing").toEqual(countsAfterFirst);
+  });
+});
+
+/**
+ * MEASURE-REFUSE (walk-0 fresh-flow B03; L-MEA-05 "declared, never silent", L-MEA-07; s-coverage
+ * I-484): on a fresh, unscaled set the run published nothing and answered "Done 0 s" with
+ * nothing deferred. A run over a campaign whose view no affirmation names, and whose ground floor no
+ * one has stated a height for, now NAMES both — in its own verdict, in the store the gate wrote its
+ * reports to, in the register's deferred-and-refused region and in the coverage cell's reason.
+ *
+ * The rail is a stub that reports exactly what every shipped rail reports for a member placed in a
+ * view with no calibration of record — `VIEW_SCALE_UNAFFIRMED`, against the VIEW (the column, frame,
+ * foundation, slab and masonry rails all do so) — so what is judged is the run and its readers, not
+ * a rail's own branch.
+ */
+describe("MEASURE-REFUSE: an unscaled run defers by name, per view and per storey", () => {
+  /** The view the stub's members were placed in, as a rail reports it (its L-REG-04 address). */
+  const UNSCALED_VIEW = "v:LAYOUT_PLAN:DXF_HANDLE:UNSCALED";
+  /** The caption that view is anchored by, as the stored partition holds it, and the anchor's key. */
+  const UNSCALED_CAPTION = "GROUND FLOOR COLUMN LAYOUT PLAN";
+  const UNSCALED_ANCHOR = "DXF_HANDLE:UNSCALED";
+  const SCALE = "VIEW_SCALE_UNAFFIRMED";
+  const HEIGHT_UNSTATED = "STOREY_HEIGHT_UNSTATED";
+
+  type Refused = { campaign: StagedCampaign; steps: Step[]; groundLevelId: string; sheet: { drawingId: string; layoutName: string } };
+
+  let refusing: Promise<Refused> | undefined;
+  const refused = (): Promise<Refused> =>
+    (refusing ??= (async () => {
+      const it = await stageCampaign("measure-refuse", { objects: 2 });
+      // The view the members were placed in, as the pinned drawing's stored partition holds it: its
+      // caption and the caption's own entity, on the manifest's first sheet — what the register names
+      // the deferral by and opens it at.
+      const manifest = (path: string): string =>
+        sqlValue(`select (manifest -> 0 ->> '${path}') from drawing_set_revisions where tenant_id = ${lit(it.tenantId)} and set_revision_id = ${lit(it.setRevisionId)};`);
+      const sheet = { drawingId: manifest("drawingId"), layoutName: manifest("name") };
+      sql(
+        `insert into partition_views (tenant_id, project_id, drawing_id, ingest_id, view_key, type, caption, anchor_key) values (${lit(it.tenantId)}, ${lit(it.projectId)}, ${lit(sheet.drawingId)}, ${lit(randomUUID())}, ${lit(UNSCALED_VIEW)}, 'LAYOUT_PLAN', ${lit(UNSCALED_CAPTION)}, ${lit(UNSCALED_ANCHOR)});`,
+      );
+      // One column standing on the stack's own ground floor, whose height nobody has stated.
+      const levels = await productModule<{ levelsOf: (scope: { tenantId: string; projectId: string }) => Promise<Record<string, unknown>[]> }>(LEVELS_MODULE);
+      const ground = (await levels.levelsOf(it.scope)).find((level) => String(level["label"]) === GROUND_FLOOR);
+      expect(ground, "the staged stack holds its ground floor").toBeTruthy();
+      const groundLevelId = String((ground as Record<string, unknown>)["levelId"]);
+      const register = await registerSeam();
+      // In the roster's own spelling: the register stage's shared sighting predates the closed class
+      // roster, and a storey is owed a height for the verticals the roster names (L-MEA-09).
+      const answer = await register.registerSighting(it.registerScope, {
+        ...COLUMN_C1,
+        elementType: "column",
+        label: "refuse-c-gf",
+        mark: "C77",
+        x: 4000,
+        level: { levelId: groundLevelId },
+      } as typeof COLUMN_C1);
+      expect(field(answer, "registered", "registered"), `the ground-floor column registered: ${JSON.stringify(answer)}`).toBe(true);
+
+      const { kind } = await stub();
+      const gate = await gateSeam();
+      const unscaled = (input: RailInput) => ({
+        offers: [] as OfferShape[],
+        observations: input.objects.map((object) => ({
+          class: "column",
+          kind: input.kind,
+          code: SCALE,
+          objectKey: String(field(object, "objectKey", "object_key")),
+          sourceEntity: UNSCALED_VIEW,
+        })),
+      });
+      const job = await measureJobSeam();
+      const steps: Step[] = [];
+      await job.runMeasureJob(
+        { tenantId: it.tenantId, projectId: it.projectId, campaignId: it.campaignId, requestedBy: it.person.userId },
+        { step: async (name, detail) => void steps.push({ name, detail }) },
+        { rails: { [kind]: unscaled }, gate: gate.evaluateOffers },
+      );
+      return { campaign: it, steps, groundLevelId, sheet };
+    })());
+
+  test("the verdict names the view with no scale of record, the class placed in it, and the storey with no height", async () => {
+    const { steps, groundLevelId } = await refused();
+    const verdict = (steps[steps.length - 1]?.detail ?? {}) as Record<string, unknown>;
+    expect(verdict["published"], "nothing could be measured").toBe(0);
+    expect(verdict["observed"], "and the run says how many reports it made rather than nothing").toBe(3);
+    expect(verdict["deferred"], "BY NAME: the view, and the storey its vertical stands on").toEqual([
+      { code: SCALE, view: UNSCALED_VIEW, caption: null, classes: ["column"], members: 3 },
+      { code: HEIGHT_UNSTATED, levelId: groundLevelId, label: GROUND_FLOOR, classes: ["column"], members: 1 },
+    ]);
+  });
+
+  test("the gate stored each report against the view it names, so every reader after the run can name it too", async () => {
+    const { campaign } = await refused();
+    const reports = rowsOfCampaign(RAIL_OBSERVATIONS_TABLE, campaign.tenantId, campaign.campaignId);
+    expect(reports.map((row) => `${String(field(row, "code", "code"))}@${String(field(row, "sourceEntity", "source_entity"))}`)).toEqual([
+      `${SCALE}@${UNSCALED_VIEW}`,
+      `${SCALE}@${UNSCALED_VIEW}`,
+      `${SCALE}@${UNSCALED_VIEW}`,
+    ]);
+  });
+
+  test("the register's deferred-and-refused region names the view by its caption and the storey by its label, each with where it is fixed", async () => {
+    const { campaign, groundLevelId, sheet } = await refused();
+    const register = await productModule<{
+      registerViewOf: (scope: { tenantId: string; projectId: string }) => Promise<{ refusals: { code: string; objectKey: string; kind: string | null; deferral?: unknown }[] }>;
+    }>("src/modules/takeoff/register-ui/server.ts");
+    const view = await register.registerViewOf(campaign.scope);
+    expect(sheet.layoutName, "the manifest names the sheet the view stands on").not.toBe("");
+    expect(view.refusals.slice(0, 2), "a run's deferrals lead the region, each one row keyed on what it is about, naming what the QS fixes").toEqual([
+      {
+        code: SCALE,
+        objectKey: UNSCALED_VIEW,
+        kind: null,
+        deferral: { subject: "VIEW", name: UNSCALED_CAPTION, sheet: { drawingId: sheet.drawingId, layoutName: sheet.layoutName, sourceKey: UNSCALED_ANCHOR } },
+      },
+      { code: HEIGHT_UNSTATED, objectKey: groundLevelId, kind: null, deferral: { subject: "STOREY", name: GROUND_FLOOR } },
+    ]);
+  });
+
+  test("a member whose concrete published still owes its reinforcement cell the report that says why (the residue asks per kind)", async () => {
+    // One column on the ground floor: the stub publishes its concrete and reports that nobody read
+    // its reinforcement schedule. Asked by object alone, the concrete line swallowed the report and
+    // the rebar cell read as though nothing explained it (s-coverage I-480).
+    const it = await stageCampaign("measure-kinds", { objects: 0 });
+    const levels = await productModule<{ levelsOf: (scope: { tenantId: string; projectId: string }) => Promise<Record<string, unknown>[]> }>(LEVELS_MODULE);
+    const groundLevelId = String(((await levels.levelsOf(it.scope)).find((level) => String(level["label"]) === GROUND_FLOOR) ?? {})["levelId"]);
+    const register = await registerSeam();
+    const answer = await register.registerSighting(it.registerScope, { ...COLUMN_C1, elementType: "column", label: "kinds-c-gf", mark: "C78", x: 4100, level: { levelId: groundLevelId } } as typeof COLUMN_C1);
+    const objectKey = String(field(answer, "objectKey", "object_key"));
+    const contract = await offersContract();
+    const { kind } = await stub();
+    const gate = await gateSeam();
+    const REBAR = "rcc.rebar";
+    const UNREAD = "REBAR_SCHEDULE_UNREAD";
+    const both = (input: RailInput) => ({
+      offers:
+        input.kind === kind
+          ? [
+              offer({
+                objectKey,
+                setRevisionId: input.setRevisionId,
+                kind,
+                class: "column",
+                geometryType: String(contract.GEOMETRY_TYPES[0]),
+                calibration: CALIBRATION,
+                bindings: bindingsIn(READ_IN, READINGS, CALIBRATION),
+              }),
+            ]
+          : [],
+      observations: input.kind === REBAR ? [{ class: "column", kind: REBAR, code: UNREAD, objectKey, sourceEntity: objectKey }] : [],
+    });
+    const job = await measureJobSeam();
+    await job.runMeasureJob(
+      { tenantId: it.tenantId, projectId: it.projectId, campaignId: it.campaignId, requestedBy: it.person.userId },
+      { step: async () => undefined },
+      { rails: { [kind]: both, [REBAR]: both }, gate: gate.evaluateOffers },
+    );
+    const residue = await productModule<{
+      residueOf: (scope: { tenantId: string; projectId: string }) => Promise<{ cells: { kind: string; class: string | null; levelId: string | null; measurement: string; reason?: string | null }[] }>;
+    }>("src/core/residue/index.ts");
+    const cells = (await residue.residueOf(it.scope)).cells.filter((cell) => cell.class === "column" && cell.levelId === groundLevelId);
+    expect(cells.find((cell) => cell.kind === kind)?.measurement, "the concrete published").toBe("QUANTITY_BEARING");
+    expect(cells.find((cell) => cell.kind === REBAR)?.reason, "and the reinforcement cell reads the report made about it").toBe(UNREAD);
+  });
+
+  test("a run that published its columns with the height left out, and reported nothing, still defers the storey by name", async () => {
+    // Scaled, and no height: the column is offered and kept PARTIAL_DECLARED with its storey height
+    // omitted under the levels law's code; no rail reports anything. The run was carried — its line
+    // says so — and the register names the storey it could not measure a height for.
+    const it = await stageCampaign("measure-heights", { objects: 0 });
+    const levels = await productModule<{ levelsOf: (scope: { tenantId: string; projectId: string }) => Promise<Record<string, unknown>[]> }>(LEVELS_MODULE);
+    const groundLevelId = String(((await levels.levelsOf(it.scope)).find((level) => String(level["label"]) === GROUND_FLOOR) ?? {})["levelId"]);
+    const register = await registerSeam();
+    const answer = await register.registerSighting(it.registerScope, { ...COLUMN_C1, elementType: "column", label: "heights-c-gf", mark: "C79", x: 4200, level: { levelId: groundLevelId } } as typeof COLUMN_C1);
+    const objectKey = String(field(answer, "objectKey", "object_key"));
+    const contract = await offersContract();
+    const { kind } = await stub();
+    const gate = await gateSeam();
+    const readings = Object.fromEntries(Object.entries(READINGS).filter(([name]) => name !== "L"));
+    const partial = (input: RailInput) => ({
+      offers: [
+        offer({
+          objectKey,
+          setRevisionId: input.setRevisionId,
+          kind,
+          class: "column",
+          geometryType: String(contract.GEOMETRY_TYPES[0]),
+          calibration: CALIBRATION,
+          bindings: bindingsIn(READ_IN, readings, CALIBRATION),
+          omitted: [{ variable: "L", code: HEIGHT_UNSTATED }],
+          coverage: "PARTIAL_DECLARED",
+        }),
+      ],
+      observations: [] as never[],
+    });
+    const job = await measureJobSeam();
+    const steps: Step[] = [];
+    await job.runMeasureJob(
+      { tenantId: it.tenantId, projectId: it.projectId, campaignId: it.campaignId, requestedBy: it.person.userId },
+      { step: async (name, detail) => void steps.push({ name, detail }) },
+      { rails: { [kind]: partial }, gate: gate.evaluateOffers },
+    );
+    expect(verdictOf(steps), "the partial line published").toEqual({ published: 1, queued: 0, refused: 0 });
+    const reader = await productModule<{
+      registerViewOf: (scope: { tenantId: string; projectId: string }) => Promise<{ refusals: { code: string; objectKey: string; kind: string | null; deferral?: unknown }[] }>;
+    }>("src/modules/takeoff/register-ui/server.ts");
+    expect((await reader.registerViewOf(it.scope)).refusals, "the storey is named though no rail reported a word").toEqual([
+      { code: HEIGHT_UNSTATED, objectKey: groundLevelId, kind: null, deferral: { subject: "STOREY", name: GROUND_FLOOR } },
+    ]);
+
+    // And the draft's closing page says why each unmeasured kind of the column was left out, in the
+    // certificate's words — the reason beside the fall-through, never the fall-through's own sentence.
+    const boq = await productModule<{
+      boqViewOf: (scope: { tenantId: string; projectId: string }) => Promise<{ payload: { notMeasured?: { class: string | null; kind: string; cause: string }[] } | null }>;
+    }>("src/modules/takeoff/boq/server.ts");
+    const left = (await boq.boqViewOf(it.scope)).payload?.notMeasured ?? [];
+    const formwork = left.find((row) => row.class === "column" && row.kind === "rcc.formwork");
+    expect(formwork?.cause, "column formwork: the run reads it for no class yet").toBe("COVERAGE_KIND_NOT_READ");
+    expect(left.map((row) => row.cause), "no row of the draft stands on the fall-through's own sentence").not.toContain("NOT_ESTABLISHED");
+  });
+
+  test("the coverage cell the ground floor's column stands in reads the scale as its reason", async () => {
+    const { campaign, groundLevelId } = await refused();
+    const residue = await productModule<{
+      residueOf: (scope: { tenantId: string; projectId: string }) => Promise<{ cells: { kind: string; class: string | null; levelId: string | null; measurement: string; reason?: string | null }[] }>;
+    }>("src/core/residue/index.ts");
+    const { kind } = await stub();
+    const cells = (await residue.residueOf(campaign.scope)).cells.filter((cell) => cell.kind === kind && cell.class === "column");
+    const ground = cells.find((cell) => cell.levelId === groundLevelId);
+    expect(ground?.measurement, "nothing was published for the ground floor's column").toBe("NOT_ESTABLISHED");
+    expect(ground?.reason, "and the cell says why: no scale of record on the view it was placed in").toBe(SCALE);
   });
 });

@@ -19,12 +19,12 @@
 // states no size at all. Colour is the mark's (`data-mark`) and the fill is the ramp step
 // (`data-cov`); the words are the registry's. Nothing on this grid is carried by colour alone.
 import { useRef, type ComponentType } from "react";
-import { inWords } from "@/core/documents/kinds/boq-draft-law";
+import { inWords, reasonsInWords } from "@/core/documents/kinds/boq-draft-law";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
-import { cellRef, type CellGrain, type ResidueCell, type ResidueLevel, type TruncatedSheet } from "@/core/residue/law";
-import { compareCanonical } from "@/core/identity";
+import { UNPLACED, cellRef, type CellGrain, type ResidueCell, type ResidueLevel, type TruncatedSheet } from "@/core/residue/law";
+import { LEVEL_SLOTS, compareCanonical } from "@/core/identity";
 import { BILL_AXIS, axisReadOf } from "./cited-act";
-import { fillCoverageCopy, COVERAGE_COPY } from "./copy";
+import { countWords, fillCoverageCopy, COVERAGE_COPY } from "./copy";
 import { CauseGlyph, type GlyphReading } from "./glyphs";
 import { MARK_OF, linesDeclared, rampStep, rowShare, shareBorne, sharePublished, type Mark } from "./heat";
 
@@ -52,7 +52,7 @@ export const causeWords = (code: string): RefusalEntry | undefined => (REFUSALS 
  * other cell under its measurement cause. J-022 is this rule walked — the hold changes what the
  * inspector states while the measurement axis goes on saying what it always said (L-QTY-05).
  */
-export function causeRead(cell: ResidueCell): string {
+export function causeRead(cell: Pick<ResidueCell, "measurement" | "bill">): string {
   return axisReadOf(cell) === BILL_AXIS ? cell.bill : cell.measurement;
 }
 
@@ -79,9 +79,72 @@ export function markOf(cell: ResidueCell, declared: ReadonlySet<string> = NONE_D
   return MARK_OF[causeRead(cell) as GlyphReading];
 }
 
-/** A level as a column header, a cell label and a statement row say it: the stack's label, or the word for none. */
-export function levelWord(label: string): string {
-  return label === "" ? COVERAGE_COPY.takeoff_coverage_level_none : label;
+/** The mark a position no class bears wears — keyed on the key line, never a residue cell (I-485). */
+export const VOID_MARK = "void";
+
+/** The lawful-null slot a foundation stands in, read from the register's own roster (L-REG-04). */
+const [FOUNDATION] = LEVEL_SLOTS;
+
+/**
+ * A level as a column header, a cell label and a statement row say it: the stack's label; where the
+ * cell stands on no storey, WHERE it stands — the foundation its members are filed under, or nowhere
+ * yet because nothing was placed (I-482) — and the word for none only where neither holds.
+ */
+export function levelWord(label: string, slot: string | null = null): string {
+  if (label !== "") return label;
+  if (slot === FOUNDATION) return COVERAGE_COPY.takeoff_coverage_level_foundation;
+  if (slot === UNPLACED) return COVERAGE_COPY.takeoff_coverage_level_unplaced;
+  return COVERAGE_COPY.takeoff_coverage_level_none;
+}
+
+/** The unmeasured cause every campaign-read reason stands beside (L-QTY-05's writerless fall-through). */
+const NOT_ESTABLISHED = "NOT_ESTABLISHED";
+
+/**
+ * The sentence a cell is read by (I-191, I-480): the registry's words for the cause it is
+ * READ under — and where that cause is the writerless fall-through, the registry's words for the
+ * REASON read beside it, so no face of this screen says that nothing explains an absence. The cause
+ * itself still stands on `data-code`; the reason is evidence, never a cause (L-QTY-05).
+ */
+export function causeSentence(cell: Pick<ResidueCell, "measurement" | "bill" | "reason">): string {
+  const read = causeRead(cell);
+  if (read === "QUANTITY_BEARING") return COVERAGE_COPY.takeoff_coverage_cell_label_measured;
+  const reason = read === NOT_ESTABLISHED && typeof cell.reason === "string" ? causeWords(cell.reason) : undefined;
+  return (reason ?? causeWords(read))?.message ?? read;
+}
+
+/** The registry entry a cell's remedy is read from: its reason's where one stands beside the cause, else its cause's. */
+export function remedyEntry(cell: Pick<ResidueCell, "measurement" | "bill" | "reason" | "partial">): RefusalEntry | undefined {
+  const read = causeRead(cell);
+  if (read === "QUANTITY_BEARING") {
+    const first = cell.partial?.omitted[0]?.code;
+    return first === undefined ? undefined : causeWords(first);
+  }
+  if (read === NOT_ESTABLISHED && typeof cell.reason === "string") return causeWords(cell.reason) ?? causeWords(read);
+  return causeWords(read);
+}
+
+/** "23 beams", "1 pile cap": a count of members in the class's own words, through the format seam. */
+function membersOf(klass: string, count: number): { members: string; things: string } {
+  const word = classWord(klass).toLowerCase();
+  return { members: countWords(count), things: count === 1 ? word : `${word}s` };
+}
+
+/**
+ * What a partly published cell's lines left out, in one sentence (I-483) — "Declared
+ * partial: 23 beams, slab thickness unstated (t_left, t_right)." — or null where the reading carries
+ * no such declaration. The codes are said by the draft BOQ's one rule for them (`reasonsInWords`).
+ */
+export function partialSummary(cell: Pick<ResidueCell, "class" | "lineIds" | "partial">): string | null {
+  const partial = cell.partial ?? null;
+  if (partial === null || cell.class === null) return null;
+  const reasons = partial.omitted
+    .map((omission) => `${reasonsInWords([omission.code])}${omission.variables.length === 0 ? "" : ` (${omission.variables.join(", ")})`}`)
+    .join("; ");
+  const counted = membersOf(cell.class, partial.members);
+  return partial.lines >= cell.lineIds.length
+    ? fillCoverageCopy("takeoff_coverage_partial_all", { ...counted, reasons })
+    : fillCoverageCopy("takeoff_coverage_partial_some", { count: countWords(partial.lines), total: countWords(cell.lineIds.length), ...counted, reasons });
 }
 
 /** A class as the band header says it: the draft BOQ's own rule, `pile_cap` → `Pile cap` (I-cov-2). */
@@ -108,19 +171,51 @@ export type KindLabel = ComponentType<{ value: string; label?: string; className
  * and, on a published cell whose lines carry no quantity, how many of them do not (I-cov-1).
  */
 export function cellLabel(cell: ResidueCell, declared: ReadonlySet<string> = NONE_DECLARED): string {
-  const read = causeRead(cell);
-  const cause = read === "QUANTITY_BEARING" ? COVERAGE_COPY.takeoff_coverage_cell_label_measured : (causeWords(read)?.message ?? read);
+  // I-483: a partly published cell is named by what its lines left out, never first as a
+  // cell "with published quantity" whose next sentence says none of it carries a figure.
+  const summary = partlyBorne(cell, declared) ? partialSummary(cell) : null;
+  const cause = summary ?? causeSentence(cell);
   // I-351: the name a screen reader hears says the kind and the class in the words the headers show.
   const named =
     cell.grain === "KIND"
       ? fillCoverageCopy("takeoff_coverage_cell_label_kind_grain", { kind: kindWord(cell.kind), cause })
-      : fillCoverageCopy("takeoff_coverage_cell_label", { kind: kindWord(cell.kind), class: cell.class === null ? "" : classWord(cell.class), level: levelWord(cell.levelLabel), cause });
-  const partly = partlyBorne(cell, declared)
-    ? ` ${fillCoverageCopy("takeoff_coverage_cell_label_declared", { count: String(linesDeclared(cell, declared)), total: String(cell.lineIds.length) })}`
-    : "";
+      : fillCoverageCopy("takeoff_coverage_cell_label", {
+          kind: kindWord(cell.kind),
+          class: cell.class === null ? "" : classWord(cell.class),
+          level: levelWord(cell.levelLabel, cell.levelSlot ?? null),
+          cause,
+        });
+  const partly =
+    partlyBorne(cell, declared) && summary === null
+      ? ` ${fillCoverageCopy("takeoff_coverage_cell_label_declared", { count: countWords(linesDeclared(cell, declared)), total: countWords(cell.lineIds.length) })}`
+      : "";
   const held = cell.bill === "NOT_IN_THIS_BILL" ? ` ${COVERAGE_COPY.takeoff_coverage_cell_label_held}` : "";
   const beaten = cell.contradicted ? ` ${COVERAGE_COPY.takeoff_coverage_cell_label_contradicted}` : "";
   return `${named}${partly}${held}${beaten}`;
+}
+
+/** One position of a kind row: a residue cell at its column (-1: none the header holds), or a keyed dash. */
+type Position = { readonly cell: ResidueCell; readonly at: number } | { readonly column: Column; readonly at: number };
+
+/**
+ * A kind row's positions in the order its columns stand (I-485): at each column the cell
+ * the residue holds there or, where the column's class does not bear the row's kind, the keyed dash;
+ * then any cell whose column the header does not hold, which the flow places. The ORDER is the
+ * layout's, not a nicety: a row is a CSS grid on the sparse flow, and an item whose column stands
+ * left of the one before it opens a second line — a dash drawn after the cells fell under them and
+ * doubled the row. A kind-grain row spans the matrix with its one cell and keys no position.
+ */
+function positionsOf(cells: readonly ResidueCell[], columns: readonly Column[]): Position[] {
+  const placed = cells.map((cell) => ({ cell, at: columns.findIndex((held) => held.klass === cell.class && held.levelId === cell.levelId) }));
+  if (cells.some((cell) => cell.grain === "KIND")) return placed;
+  const positions: Position[] = [];
+  columns.forEach((column, at) => {
+    const here = placed.filter((one) => one.at === at);
+    if (here.length === 0) positions.push({ column, at });
+    else positions.push(...here);
+  });
+  positions.push(...placed.filter((one) => one.at < 0));
+  return positions;
 }
 
 /**
@@ -131,11 +226,16 @@ function columnsOf(cells: readonly ResidueCell[], levels: readonly ResidueLevel[
   const ordinalOf = new Map(levels.map((level) => [level.levelId, level.ordinal]));
   const labelOf = new Map(levels.map((level) => [level.levelId, level.label]));
   const byClass = new Map<string, (string | null)[]>();
+  // Where a level-less column's members stand, read off its own cells (I-482): every cell
+  // of one (class, level) was resolved over the same sightings, so the first one says it for all.
+  const slotOf = new Map<string, string | null>();
   for (const cell of cells) {
     if (cell.grain !== "CELL" || cell.class === null) continue;
     const held = byClass.get(cell.class);
     if (held === undefined) byClass.set(cell.class, [cell.levelId]);
     else if (!held.includes(cell.levelId)) held.push(cell.levelId);
+    const column = `${cell.class}\u0000${cell.levelId ?? ""}`;
+    if (!slotOf.has(column)) slotOf.set(column, cell.levelSlot ?? null);
   }
 
   const columns: Column[] = [];
@@ -148,7 +248,9 @@ function columnsOf(cells: readonly ResidueCell[], levels: readonly ResidueLevel[
     // A level the stack does not name — the two channels that sight a placement on a sheet answer
     // none — is a column all the same, and its header SAYS so in words rather than standing blank
     // (I-cov-3): a blank header under a class band reads as a broken grid.
-    for (const levelId of levelIds) columns.push({ klass, levelId, label: levelWord(labelOf.get(levelId ?? "") ?? "") });
+    for (const levelId of levelIds) {
+      columns.push({ klass, levelId, label: levelWord(labelOf.get(levelId ?? "") ?? "", slotOf.get(`${klass}\u0000${levelId ?? ""}`) ?? null) });
+    }
   }
   return { columns, bands };
 }
@@ -180,10 +282,11 @@ function tracksOf(columns: readonly Column[], bands: readonly Band[]): string {
 type Row = { readonly key: string; readonly kind: string; readonly cells: readonly ResidueCell[] };
 
 /**
- * The grid's rows, in reading order (I-196, Decision § 1): the KIND-grain rows first — a kind that
- * bears no cell is shown at the head of the grid rather than dropped from it — then the borne kinds,
- * each group in canonical order. The grain is part of a row's identity, so a kind that stands at both
- * grains gets a row at each rather than one row quietly holding two different claims.
+ * The grid's rows, in reading order (I-196 as amended by I-485, Decision § 1): the borne
+ * kinds first, in canonical order — what the drawings carry is what a reader opens this screen for —
+ * then the KIND-grain rows, a kind no sighted class bears shown at the FOOT of the grid rather than
+ * dropped from it. The grain is part of a row's identity, so a kind that stands at both grains gets a
+ * row at each rather than one row quietly holding two different claims.
  */
 function rowsOf(cells: readonly ResidueCell[]): Row[] {
   const group = (grain: CellGrain): Row[] => {
@@ -192,7 +295,7 @@ function rowsOf(cells: readonly ResidueCell[]): Row[] {
       .sort(compareCanonical)
       .map((kind) => ({ key: `${grain}:${kind}`, kind, cells: borne.filter((cell) => cell.kind === kind) }));
   };
-  return [...group("KIND"), ...group("CELL")];
+  return [...group("CELL"), ...group("KIND")];
 }
 
 export type CoverageGridProps = {
@@ -320,14 +423,33 @@ export function CoverageGrid({ cells, levels, truncated, density, selected, onSe
                     one — the stored key stays on the row's `data-kind` and in the label's disclosure. */}
                 <EnumLabel value={row.kind} label={kindWord(row.kind)} className="cx-coverage-kind-name" />
               </div>
-              {row.cells.map((cell) => {
+              {positionsOf(row.cells, columns).map((position) => {
+                // I-485: a position no class bears is KEYED, never a hole that reads as the
+                // background — a faint dash the key line names "Not borne". It is no residue cell: no
+                // test id, no tab stop, no selection, nothing a door could stand over (L-MEA-04).
+                if (!("cell" in position)) {
+                  return (
+                    <div
+                      key={`void:${position.column.klass}:${position.column.levelId ?? ""}`}
+                      className="cx-coverage-void"
+                      role="gridcell"
+                      data-mark={VOID_MARK}
+                      aria-label={fillCoverageCopy("takeoff_coverage_cell_label_void", {
+                        kind: kindWord(row.kind),
+                        class: classWord(position.column.klass),
+                        level: position.column.label,
+                      })}
+                      style={{ gridColumn: String(position.at + 2) }}
+                    />
+                  );
+                }
+                const { cell } = position;
                 const address = cellRef(cell);
                 const read = causeRead(cell);
-                const column = columns.findIndex((held) => held.klass === cell.class && held.levelId === cell.levelId);
                 // A kind-grain row names no class and no level, so its one cell spans the matrix
                 // (I-196); a cell whose column the header does not hold is placed by the flow.
                 const placement =
-                  cell.grain === "KIND" ? { gridColumn: "2 / -1" } : column < 0 ? undefined : { gridColumn: String(column + 2) };
+                  cell.grain === "KIND" ? { gridColumn: "2 / -1" } : position.at < 0 ? undefined : { gridColumn: String(position.at + 2) };
                 return (
                   <div
                     key={address}

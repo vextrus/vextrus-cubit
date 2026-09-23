@@ -11,7 +11,8 @@
 // no figure is re-derived.
 import { and, asc, drawingSetRevisions, eq, forTenant, quantityLines, queueItems, registerObservations } from "@/core/db";
 import { campaignsOf } from "@/core/campaigns";
-import { levelsOf } from "@/modules/takeoff/levels";
+import { reportedAbsencesOf, runDeferralsOf, type PlacedManifestView, type RunDeferral } from "@/core/residue";
+import { levelStackOf, levelsOf } from "@/modules/takeoff/levels";
 import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
 import { standingOf, type ObservationRow, type RegisterScope } from "@/core/register/store";
 import { proposedLevelStackOf } from "@/modules/takeoff/partition";
@@ -82,7 +83,7 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
   }
 
   const registerScope: RegisterScope = { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId };
-  const [objectRows, repudiatedRows, refusedRows, published, deferred, observations, levelRows, manifest] = await Promise.all([
+  const [objectRows, repudiatedRows, refusedRows, published, deferred, observations, levelRows, manifest, reported, stack] = await Promise.all([
     registerObjectsOf(registerScope),
     repudiatedObjectsOf(registerScope),
     refusedSightingsOf(registerScope),
@@ -91,6 +92,8 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
     observationsOfRevision(registerScope),
     levelsOf(scope),
     manifestOfRevision(scope.tenantId, campaign.setRevisionId),
+    reportedAbsencesOf(scope, campaign),
+    levelStackOf(scope),
   ]);
 
   const struck = new Set(repudiatedRows.map((row) => row.objectKey));
@@ -197,6 +200,18 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
 
   /* --- what produced no line: a deferral says its cause, a refusal says its code (R-UI-020) --- */
   const refusals: ViewRefusal[] = [
+    // What a measure run could not measure for want of what is set up first, BY NAME and first — each
+    // view no affirmation names, each storey whose height stands at none (MEASURE-REFUSE, s-coverage
+    // I-484). Only once a run has been carried over the campaign: before one, nothing was
+    // deferred, and the register's empty state says so.
+    ...(reported.measured
+      ? runDeferralsOf({
+          observations: reported.observations.map((row) => ({ class: row.class, code: row.code ?? "", objectKey: row.objectKey ?? null, sourceEntity: row.source ?? null, view: row.view ?? null })),
+          levels: stack.map((level) => ({ levelId: level.levelId, label: level.label, ordinal: level.ordinal, standing: level.height.standing })),
+          objects: objectRows.filter((row) => !struck.has(row.objectKey)).map((row) => ({ objectKey: row.objectKey, levelId: row.levelId, elementType: row.elementType })),
+          lines: published.map((row) => ({ objectKey: row.objectKey, omitted: omissionsOf(row.omitted).map((omission) => omission.code) })),
+        }).map((deferral) => deferralRow(deferral, reported.views))
+      : []),
     ...deferred.map((item): ViewRefusal => ({ code: item.cause, objectKey: item.objectKey, kind: item.kind })),
     ...refusedRows.map((row): ViewRefusal => ({ code: row.refusal, objectKey: row.objectKey, kind: null })),
   ];
@@ -216,6 +231,26 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
   }
 
   return { tenantId: scope.tenantId, projectId: scope.projectId, campaign: { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId }, objects, lines, refusals, levelStacks };
+}
+
+/**
+ * One run deferral as the deferred-and-refused region states a row (I-484): its registered
+ * code; what it is about, whole and unique — the view's address, the storey's level id — so no two
+ * rows share a key; and what it names in the words a QS knows it by, with where it is fixed — the
+ * view's caption and the sheet it stands on, flown to the caption; the storey's own label. A
+ * deferral is about a view or a storey and never one kind, so it names none.
+ */
+function deferralRow(deferral: RunDeferral, views: readonly PlacedManifestView[]): ViewRefusal {
+  if ("view" in deferral) {
+    const placed = views.find((view) => view.address === deferral.view);
+    const sheet =
+      placed === undefined || placed.layoutName === ""
+        ? null
+        : { drawingId: placed.drawingId, layoutName: placed.layoutName, sourceKey: placed.anchorKey ?? placed.address };
+    const caption = deferral.caption ?? (placed?.caption === undefined || placed.caption === "" ? null : placed.caption);
+    return { code: deferral.code, objectKey: deferral.view, kind: null, deferral: { subject: "VIEW", name: caption ?? "", sheet } };
+  }
+  return { code: deferral.code, objectKey: deferral.levelId, kind: null, deferral: { subject: "STOREY", name: deferral.label } };
 }
 
 /**

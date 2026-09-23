@@ -33,6 +33,7 @@ export async function registerSightings(tx: TenantTx, scope: SightingScope): Pro
     .selectDistinct({
       class: registerObjects.elementType,
       levelId: registerObjects.levelId,
+      levelSlot: registerObjects.levelSlot,
       drawingId: placements.drawingId,
       sourceKey: registerObjects.placementKey,
     })
@@ -52,6 +53,9 @@ export async function registerSightings(tx: TenantTx, scope: SightingScope): Pro
     .map((row) => ({
       class: row.class,
       levelId: row.levelId,
+      // The lawful-null slot a row with no level stands in (`FOUNDATION`), so the cell it bears can
+      // say where it stands rather than that it stands nowhere (s-coverage I-482).
+      levelSlot: row.levelSlot,
       channel: REGISTER,
       drawingId: row.drawingId ?? "",
       layoutName: row.drawingId === null ? "" : layoutOf(scope, row.drawingId),

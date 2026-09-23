@@ -92,6 +92,12 @@ export const takeoff = {
   takeoff_register_refusals_hint: "These sightings produced no line. Each says why, and where to resolve it.",
   takeoff_register_refusal_object_label: "Object",
   takeoff_register_refusal_kind_label: "Kind",
+  // s-coverage I-484: what a measure run deferred names the view or the storey itself, and
+  // its door goes where the fix is made — the sheet the view stands on, or the level stack.
+  takeoff_register_refusal_view_label: "View",
+  takeoff_register_refusal_storey_label: "Storey",
+  takeoff_register_deferral_open_sheet: "Open the sheet",
+  takeoff_register_deferral_open_levels: "Open the levels",
   takeoff_register_evidence: "Open the source drawings",
 
   takeoff_register_level_stack_heading: "Proposed level stacks",

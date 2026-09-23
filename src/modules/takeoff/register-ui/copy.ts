@@ -80,6 +80,10 @@ export type RegisterCopyKey =
   | "takeoff_register_refusals_hint"
   | "takeoff_register_refusal_object_label"
   | "takeoff_register_refusal_kind_label"
+  | "takeoff_register_refusal_view_label"
+  | "takeoff_register_refusal_storey_label"
+  | "takeoff_register_deferral_open_sheet"
+  | "takeoff_register_deferral_open_levels"
   | "takeoff_register_evidence"
   | "takeoff_register_level_stack_heading"
   | "takeoff_register_level_stack_hint"
@@ -177,6 +181,10 @@ export const REGISTER_COPY: Readonly<Record<RegisterCopyKey, string>> = Object.f
   takeoff_register_refusals_hint: "These sightings produced no line. Each says why, and where to resolve it.",
   takeoff_register_refusal_object_label: "Object",
   takeoff_register_refusal_kind_label: "Kind",
+  takeoff_register_refusal_view_label: "View",
+  takeoff_register_refusal_storey_label: "Storey",
+  takeoff_register_deferral_open_sheet: "Open the sheet",
+  takeoff_register_deferral_open_levels: "Open the levels",
   takeoff_register_evidence: "Open the source drawings",
 
   takeoff_register_level_stack_heading: "Proposed level stacks",

@@ -14,7 +14,8 @@ import { REFUSALS } from "@/core/errors";
 import { refusal } from "@/core/faults/refusal-marker";
 import type { JobPayloads, JobProgress } from "@/core/jobs";
 import type { Kind } from "@/core/catalogue/kinds";
-import type { GateEvaluate, Offer, Rail, RailObservation } from "@/core/offers/contract";
+import type { GateEvaluate, LevelSetup, Offer, Rail, RailObservation, RegisterObjectRow } from "@/core/offers/contract";
+import { runDeferralsOf, type RunDeferral } from "@/core/residue/deferrals";
 import { barRowsOf, REBAR_KIND, writeBarRows } from "@/modules/takeoff/rebar";
 import { registerObjectsOf } from "@/modules/takeoff/register";
 import { railSetupOf } from "./setup";
@@ -64,6 +65,10 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
   const roster = Object.entries(deps.rails) as readonly [Kind, Rail][];
   const offers: Offer[] = [];
   const observations: RailObservation[] = [];
+  // What the run was handed, kept for its own report: the members it read, and the stack they
+  // stand on — what its deferrals are named against (I-484).
+  let registered: readonly RegisterObjectRow[] = [];
+  let stack: readonly LevelSetup[] = [];
   // The bill of bars behind the reinforcement lines: the line carries the member's MASS, and the
   // per-diameter detail is stored content-keyed beside it (L-REG-04, riskNotes (1)). It is written
   // BEFORE the gate, because the rows are what the line's figure was taken from — a line published
@@ -72,10 +77,12 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
   if (roster.length > 0) {
     const registerScope = { tenantId: payload.tenantId, projectId: payload.projectId, setRevisionId: campaign.setRevisionId };
     const objects = await registerObjectsOf(registerScope);
+    registered = objects;
     // Read once for the whole roster: rails share their setup, so two rails over one campaign cannot
     // disagree about what the drawings said (L-MEA-08). The setup is read against the edition THIS
     // campaign was opened under, so a DERIVED reading cites what the campaign measures by (L-REG-07).
     const setup = await railSetupOf({ ...registerScope, editionId: campaign.editionId });
+    stack = setup.levels;
     const common = { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, objects, setup };
     for (const [kind, rail] of roster) {
       const batch = rail({ ...common, kind });
@@ -99,5 +106,42 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
   // refused object would be a residue — which is L-QTY-05's, read from the stores the gate wrote.
   const byCode: Record<string, number> = {};
   for (const answer of verdict.refusals) byCode[answer.code] = (byCode[answer.code] ?? 0) + 1;
-  await progress.step(STEP_VERDICT, { campaignId: campaign.campaignId, published: verdict.published, queued: verdict.queued, refused: verdict.refused, refusals: byCode });
+  // Never an answer of silence (L-MEA-05's "declared, never silent", s-coverage I-484): what
+  // the run could not measure for want of what is set up before measuring, BY NAME — each view the
+  // members were placed in that no affirmation names, and each storey they stand on whose height
+  // stands at none — read off the rails' own reports and the stack's own standing, judged by nobody
+  // here. The same reading names them in the register's deferred-and-refused region.
+  const deferred: RunDeferral[] = deferralsOf(observations, offers, stack, registered);
+  await progress.step(STEP_VERDICT, {
+    campaignId: campaign.campaignId,
+    published: verdict.published,
+    queued: verdict.queued,
+    refused: verdict.refused,
+    refusals: byCode,
+    registered: registered.length,
+    observed: observations.length,
+    deferred,
+  });
+}
+
+/** The run's deferrals by name, over what it was handed and what its rails reported (I-484). */
+function deferralsOf(
+  observations: readonly RailObservation[],
+  offers: readonly Offer[],
+  stack: readonly LevelSetup[],
+  objects: readonly RegisterObjectRow[],
+): RunDeferral[] {
+  return runDeferralsOf({
+    // What the run offered each member, with what each offer left out — a storey whose verticals it
+    // offered WITH a height was not deferred for want of one.
+    lines: offers.map((offer) => ({ objectKey: offer.register.objectKey, omitted: offer.omitted.map((omission) => omission.code) })),
+    observations: observations.map((observation) => ({
+      class: observation.class,
+      code: observation.code,
+      objectKey: observation.objectKey ?? null,
+      sourceEntity: observation.sourceEntity ?? null,
+    })),
+    levels: stack.map((level) => ({ levelId: level.levelId, label: level.label, ordinal: level.ordinal, standing: level.height.standing })),
+    objects: objects.map((object) => ({ objectKey: object.objectKey, levelId: object.levelId, elementType: object.elementType })),
+  });
 }

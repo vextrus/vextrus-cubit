@@ -131,9 +131,26 @@ export type ViewLine = {
 /** One sighting that produced no line: a queue item's cause or a refused sighting's refusal. */
 export type ViewRefusal = {
   readonly code: string;
+  /** What the row is about, whole: a sighting's placement key, a view's address, a storey's level id. */
   readonly objectKey: string;
   readonly kind: string | null;
+  /** Where the row is a measure run's deferral, what it names and where it is fixed; absent otherwise. */
+  readonly deferral?: ViewDeferral;
 };
+
+/**
+ * What a measure run deferred for want of what is set up before measuring (s-coverage
+ * I-484), in the words a QS knows it by: a view with no scale of record, by its caption —
+ * empty where no caption anchors it — and the sheet it stands on, flown to the caption, where the
+ * manifest names one; or a storey whose height stands at none, by its label.
+ */
+export type ViewDeferral =
+  | {
+      readonly subject: "VIEW";
+      readonly name: string;
+      readonly sheet: { readonly drawingId: string; readonly layoutName: string; readonly sourceKey: string } | null;
+    }
+  | { readonly subject: "STOREY"; readonly name: string };
 
 /**
  * One level stack the machine proposes, keyed on the fact judged (R-UI-023, L-ACT-02). The key and

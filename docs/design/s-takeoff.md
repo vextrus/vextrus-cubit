@@ -87,7 +87,10 @@ job pattern's timeline over the runs the screen started; `JobTimeline` until 202
   S-Audit I-31 idiom, above the body, filtering the rows before the table is handed its `data` —
   so `register-lines-count` reads what the virtualiser was given. Options derive from the rows the
   view holds, plus one all-option each; a filter offering values the campaign cannot produce offers
-  only emptiness.
+  only emptiness. Class, kind and level may also arrive on the screen's own address —
+  `?class=&kind=&level=`, the coverage cell's "Open the register" (s-coverage I-484) —
+  and are read in the browser beside `?line=` straight into the chips, so a narrowed register
+  says what narrowed it and is cleared like any other chip (one spelling, `register-ui/narrowing.ts`).
 - **I-173 — a repudiated object keeps its place in the tree and its lines leave the table.**
   REPUDIATE says a person judges the object to be nothing, not that the machine never read it
   (L-ACT-01: nothing is deleted, and the register still answers with the object). The object stays a
@@ -839,6 +842,10 @@ Nothing is corroborated until you record a reading or strike the object.** (I-29
 `takeoff_register_refusals_heading` **Deferred and refused** · `takeoff_register_refusals_hint`
 **These sightings produced no line. Each says why, and where to resolve it.** ·
 `takeoff_register_refusal_object_label` **Object** · `takeoff_register_refusal_kind_label` **Kind** ·
+`takeoff_register_refusal_view_label` **View** · `takeoff_register_refusal_storey_label` **Storey** ·
+`takeoff_register_deferral_open_sheet` **Open the sheet** · `takeoff_register_deferral_open_levels`
+**Open the levels** (a measure run's deferral, named whole and opened where it is fixed — s-coverage
+I-484) ·
 `takeoff_register_evidence` **Open the source drawings** ·
 `takeoff_register_level_stack_heading` **Proposed level stacks** (I-469) ·
 `takeoff_register_level_stack_hint` **Confirming inserts every level in the offer as one act.

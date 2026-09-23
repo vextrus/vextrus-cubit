@@ -263,6 +263,14 @@
   text-align: start;
 }
 
+/* I-484: a deferral names a view by its caption and a storey by its label — the drawing's
+   own words, whole. The rail is narrow, so a long caption wraps rather than being cut. */
+.cx-register-refusal-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+
 /* --- the inspector, in the frame's one right column (R-UI-080) --- */
 
 .cx-register-inspector {

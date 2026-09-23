@@ -11,7 +11,7 @@ import { modelJudgmentOf } from "@/core/db/model-outcomes";
 import { SCOPE_DECLARATION_CAUSES } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { sourceKeyResolver } from "@/core/model";
-import { billStatementOf, cellRef, measurementStatementOf, parseCellRef, residueOf } from "@/core/residue";
+import { billStatementOf, cellRef, measurementStatementOf, parseCellRef, partialStatementOf, residueOf, unclassedStatementOf } from "@/core/residue";
 import { coverageCauseStateOf, proposeCoverageCause, standsAboveFloor, type CoverageCausePort } from "./cause-proposal";
 import type { CertificatePreview, CoverageCauseProposalView, CoverageCellView, CoverageView } from "./view";
 
@@ -30,6 +30,9 @@ export async function coverageViewOf(scope: CoverageScope): Promise<CoverageView
     cells: residue.cells,
     measurement: measurementStatementOf(residue.cells),
     bill: billStatementOf(residue.cells),
+    // The measurement boundary's other two enumerations (I-481/e), off the same residue.
+    partial: partialStatementOf(residue.cells),
+    unclassed: unclassedStatementOf(residue.input.unclassed ?? []),
     declaredLineIds: residue.campaign === null ? [] : await declaredLinesOf(scope.tenantId, residue.campaign.campaignId),
   };
 }
@@ -67,7 +70,12 @@ export async function coverageCellOf(scope: CoverageScope, address: string): Pro
 /** The certificate's two boundary statements, as they will print (L-QTY-07). */
 export async function certificatePreviewOf(scope: CoverageScope): Promise<CertificatePreview> {
   const residue = await residueOf(scope);
-  return { measurement: measurementStatementOf(residue.cells), bill: billStatementOf(residue.cells) };
+  return {
+    measurement: measurementStatementOf(residue.cells),
+    bill: billStatementOf(residue.cells),
+    partial: partialStatementOf(residue.cells),
+    unclassed: unclassedStatementOf(residue.input.unclassed ?? []),
+  };
 }
 
 /** Who is asking, for the ledger row every model call writes (L-AI-01). */

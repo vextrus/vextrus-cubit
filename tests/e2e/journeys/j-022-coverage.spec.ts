@@ -96,6 +96,11 @@ test.describe("J-022 — the coverage grid", () => {
     await unmeasured.click();
     await expect(coverage.inspector, "the cell a reader chose fills the inspector").toBeVisible();
     await expect(coverage.inspectorCause, "which states the cause the cell is read under").toHaveAttribute("data-code", NOT_ESTABLISHED);
+    await expect(coverage.inspectorCause, "and the registered reason beside it — never that nothing explains the absence (s-coverage I-480)").toHaveAttribute(
+      "data-reason",
+      /^[A-Z][A-Z0-9_]+$/u,
+    );
+    await expect(coverage.inspectorCause, "said in words").not.toContainText(/nothing explains/iu);
     await expect(coverage.inspectorRemedy, "and the remedy that resolves it — every cause a remedy (X-3)").not.toBeEmpty();
     await expect(
       page.locator(`${testIdSelector(TESTIDS.coverage.inspectorSighting)}[data-channel="${REGISTER}"]`),
@@ -130,6 +135,7 @@ test.describe("J-022 — the coverage grid", () => {
 
     /* --- the certificate preview: the bill statement names that cell, and nothing else (AC-8) --- */
     await expect(coverage.statement("MEASUREMENT"), "the measurement boundary prints first and in full (L-QTY-07)").toBeVisible();
+    await expect(coverage.statement("MEASUREMENT"), "and every row of it says why, never that nothing explains (I-480)").not.toContainText(/nothing explains/iu);
     const bill = coverage.statementRows("BILL");
     await expect(bill, "and the bill boundary names exactly what a person held out of it: one cell").toHaveCount(1);
     await expect(bill.first(), `the kind held out`).toHaveAttribute("data-kind", KIND);

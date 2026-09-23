@@ -186,7 +186,10 @@ export function coverageCauseStateOf(cell: ResidueCell): CoverageCauseState | nu
   return {
     cell: { kind: cell.kind, class: cell.class ?? "", level: cell.levelLabel, ordinal: cell.levelOrdinal },
     key,
-    sightings: cell.sightings.map((sighting) => ({ channel: sighting.channel, layout: sighting.layoutName })),
+    // The members the campaign PLACED and saw — never a caption's declaration of the class (s-coverage
+    // I-479): the question is why a placed member's cell was not measured, and what the
+    // drawings declare is the same for every cell of the class, so it would only re-key every state.
+    sightings: cell.sightings.filter((sighting) => sighting.declared !== true).map((sighting) => ({ channel: sighting.channel, layout: sighting.layoutName })),
     observations: cell.observations.map((observation) => ({ rail: observation.rail, reason: observation.reason })),
   };
 }

@@ -15,6 +15,7 @@ import {
   forTenant,
   inArray,
   ingests,
+  partitionViews,
   quantityLines,
   railObservations,
   registerObjects,
@@ -31,10 +32,14 @@ import { WORK_ITEM_CATALOGUE } from "../catalogue/catalogue";
 import { compareCanonical } from "../identity";
 import { levelsOf } from "../levels/store";
 import { REFUSALS } from "../errors";
+import { viewAddressOf } from "../views";
+import { declaredSightings } from "./channels/declared";
 import { layoutSightings } from "./channels/layout";
 import { partitionSightings } from "./channels/partition";
 import { registerSightings } from "./channels/register";
-import type { ManifestSheet, SightingScope } from "./channels/scope";
+import { layoutOf, type ManifestSheet, type SightingScope } from "./channels/scope";
+import { unclassedDeclarationsOf, type ManifestView } from "./declared";
+import { cellReasonOf, partialOf, slotOf } from "./reasons";
 import {
   IN_BILL,
   QUANTITY_BEARING,
@@ -144,9 +149,16 @@ function billOf(hasLines: boolean, held: ResidueDeclaration | null): BillReading
   return IN_BILL;
 }
 
-/** Whether every sighting of a cell stands on a sheet that was read only in part (risk note 4). */
+/**
+ * Whether every sighting of a cell stands on a sheet that was read only in part (risk note 4). A
+ * caption's declaration is no placement (I-479): it says a class is drawn, never where a
+ * member stands, so it is left out of the question — as the cause proposal leaves it out of its state
+ * — and a caption on a sheet read in full cannot turn a cell whose every placement stands on a sheet
+ * read in part from INGESTION_TRUNCATED into the writerless fall-through.
+ */
 function attributedToTruncation(sightings: readonly Sighting[], truncatedDrawings: ReadonlySet<string>): boolean {
-  return sightings.length > 0 && sightings.every((sighting) => truncatedDrawings.has(sighting.drawingId));
+  const placed = sightings.filter((sighting) => sighting.declared !== true);
+  return placed.length > 0 && placed.every((sighting) => truncatedDrawings.has(sighting.drawingId));
 }
 
 /**
@@ -188,6 +200,11 @@ export function resolveResidue(input: ResidueInput): ResidueCell[] {
   const borneBySighted = new Set(sightedClasses.flatMap((klass) => kindsByClass.get(klass) ?? []));
   const borneAnywhere = new Set(input.bears.map((row) => row.kind));
 
+  // What the campaign itself answers about an absence nobody declared (I-480): whether any
+  // run was carried over it, and which (class, kind) pairs a run published or reported anything for.
+  const measured = input.measured ?? (input.lines.length > 0 || input.observations.length > 0);
+  const pairsRead = new Set([...input.lines, ...input.observations].map((row) => `${row.kind}\u0000${row.class}`));
+
   /* --- the kind grains: a kind that cannot be celled out is a row, never a silence (I-196) --- */
   const kindRows: ResidueCell[] = [];
   for (const kind of [...input.workItems].sort(compareCanonical)) {
@@ -208,6 +225,19 @@ export function resolveResidue(input: ResidueInput): ResidueCell[] {
         const scoped = declared(declarations, NOT_IN_PROJECT_SCOPE);
         const boundary = declared(declarations, NOT_IN_THIS_BILL);
         const hasLines = lines.length > 0;
+        const measurement = measurementOf(hasLines, scoped, attributedToTruncation(held, truncatedDrawings));
+        // A null level is lawful only twice, and the reading makes sure of it (`observationsOf`): an
+        // observation about the reading rather than an object, and an object in a lawful-null slot.
+        // Both are about the class wherever it stands, exactly as a level-less sighting is (`held`).
+        const observations = (observationsByKindClass.get(`${kind}\u0000${klass}`) ?? []).filter(
+          (observation) => observation.levelId === null || observation.levelId === levelId,
+        );
+        // I-480: the writerless fall-through carries the evidence of WHY beside it — never
+        // in place of the cause, which stays L-QTY-05's (a rail's report is evidence, never a cause).
+        const why =
+          measurement === NOT_ESTABLISHED
+            ? cellReasonOf({ kind, class: klass, sightings: held, observations, measured, pairRead: pairsRead.has(`${kind}\u0000${klass}`) })
+            : null;
         cells.push({
           kind,
           class: klass,
@@ -215,21 +245,22 @@ export function resolveResidue(input: ResidueInput): ResidueCell[] {
           levelLabel: levelId === null ? "" : (levelById.get(levelId)?.label ?? ""),
           levelOrdinal: levelId === null ? null : (levelById.get(levelId)?.ordinal ?? null),
           grain: CELL,
-          measurement: measurementOf(hasLines, scoped, attributedToTruncation(held, truncatedDrawings)),
+          measurement,
           bill: billOf(hasLines, boundary),
           // I-192: a declaration the published lines deny is beaten on its own axis, marked, and
           // omitted from the statements — the row stays and nothing is withdrawn.
           contradicted: hasLines && (scoped !== null || boundary !== null),
           lineIds: lines.map((line) => line.lineId),
           sightings: held,
-          // A null level is lawful only twice, and the reading makes sure of it (`observationsOf`): an
-          // observation about the reading rather than an object, and an object in a lawful-null slot.
-          // Both are about the class wherever it stands, exactly as a level-less sighting is (`held`).
-          observations: (observationsByKindClass.get(`${kind}\u0000${klass}`) ?? []).filter(
-            (observation) => observation.levelId === null || observation.levelId === levelId,
-          ),
+          observations,
           measurementActId: scoped?.actId ?? null,
           billActId: boundary?.actId ?? null,
+          reason: why?.reason ?? null,
+          reasonViews: why?.views ?? [],
+          levelSlot: slotOf(levelId, held),
+          // I-483: a published cell whose lines left components out says which, so the
+          // statement can enumerate it rather than let it pass as measured (L-QTY-02, L-QTY-07).
+          partial: hasLines ? partialOf(lines) : null,
         });
       }
     }
@@ -263,6 +294,10 @@ function kindGrain(kind: string, cause: typeof NO_BEARER_SIGHTED | typeof KIND_N
     observations: [],
     measurementActId: null,
     billActId: null,
+    reason: null,
+    reasonViews: [],
+    levelSlot: null,
+    partial: null,
   };
 }
 
@@ -309,6 +344,35 @@ export async function residueCellsIn(
   return resolveResidue(await readingIn(tx, scope, campaign));
 }
 
+/** A view of the pinned manifest, with the sheet a reader opens to see it (`layoutOf`, empty where none). */
+export type PlacedManifestView = ManifestView & { readonly layoutName: string };
+
+/**
+ * What the rails reported about what one campaign did NOT publish, and whether any run was carried
+ * over it at all — the residue's own reading of the reports (the one absence clause, `observationsOf`),
+ * without the rest of the residue (I-484). The register's deferred-and-refused region names
+ * a run's deferrals from exactly these, so it can never name a view whose members have since
+ * published, nor stay silent about one whose members never did. The manifest's views ride with them,
+ * each with its sheet, so a deferred view is named by its caption and opened where it stands.
+ */
+export async function reportedAbsencesOf(
+  scope: { readonly tenantId: string; readonly projectId: string },
+  campaign: { readonly campaignId: string; readonly setRevisionId: string },
+): Promise<{ readonly measured: boolean; readonly observations: readonly ResidueObservation[]; readonly views: readonly PlacedManifestView[] }> {
+  return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
+    const sheets = await manifestOf(tx, scope.tenantId, campaign.setRevisionId);
+    const sighting: SightingScope = { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId, sheets };
+    const views = await manifestViewsOf(tx, sighting);
+    const captions = new Map(views.map((view) => [view.address, view.caption]));
+    const [observations, reported, published] = await Promise.all([
+      observationsOf(tx, scope.tenantId, campaign.campaignId, campaign.setRevisionId, captions),
+      anyReportOf(tx, scope.tenantId, campaign.campaignId),
+      anyLineOf(tx, scope.tenantId, campaign.campaignId),
+    ]);
+    return { measured: reported || published, observations, views: views.map((view) => ({ ...view, layoutName: layoutOf(sighting, view.drawingId) })) };
+  });
+}
+
 /** Everything one campaign's cells are resolved from, composed through the three channels. */
 async function readingIn(
   tx: TenantTx,
@@ -317,9 +381,15 @@ async function readingIn(
 ): Promise<ResidueInput> {
   const sheets = await manifestOf(tx, scope.tenantId, campaign.setRevisionId);
   const sighting: SightingScope = { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId, sheets };
+  // The manifest's views, read once: what their captions declare (I-479), and the caption
+  // a rail's report about a view is said by (I-480).
+  const views = await manifestViewsOf(tx, sighting);
+  const captions = new Map(views.map((view) => [view.address, view.caption]));
 
-  // The union of EXISTS L-QTY-05 states: three readers, each saying what it saw, laid side by side.
-  const [fromRegister, fromPartition, fromLayout, levelRows, lines, declarations, truncated, observations] = await Promise.all([
+  // The union of EXISTS L-QTY-05 states: three readers, each saying what it saw, laid side by side —
+  // the partition's and the layout's read at the grain of what they placed, and at the grain of what
+  // the drawing's own captions declare.
+  const [fromRegister, fromPartition, fromLayout, levelRows, lines, declarations, truncated, observations, reported] = await Promise.all([
     registerSightings(tx, sighting),
     partitionSightings(tx, sighting),
     layoutSightings(tx, sighting),
@@ -327,7 +397,8 @@ async function readingIn(
     publishedLinesOf(tx, scope.tenantId, campaign.campaignId, campaign.setRevisionId),
     declarationsOf(tx, scope.tenantId, campaign.campaignId),
     truncatedSheetsOf(tx, scope.tenantId, sheets),
-    observationsOf(tx, scope.tenantId, campaign.campaignId, campaign.setRevisionId),
+    observationsOf(tx, scope.tenantId, campaign.campaignId, campaign.setRevisionId, captions),
+    anyReportOf(tx, scope.tenantId, campaign.campaignId),
   ]);
 
   const levels: ResidueLevel[] = levelRows.map((level) => ({ levelId: level.levelId, ordinal: level.ordinal, label: level.label }));
@@ -335,12 +406,58 @@ async function readingIn(
     bears: BEARS.map((row) => ({ class: row.class, kind: row.kind })),
     workItems: Object.keys(WORK_ITEM_CATALOGUE),
     levels,
-    sightings: [...fromRegister, ...fromPartition, ...fromLayout],
+    sightings: [...fromRegister, ...fromPartition, ...fromLayout, ...declaredSightings(sighting, views)],
     lines,
     declarations,
     truncated,
     observations,
+    measured: lines.length > 0 || reported,
+    unclassed: unclassedDeclarationsOf(views),
   };
+}
+
+/**
+ * Every view of the pinned manifest's drawings, addressed as a placement, an offer and a rail's
+ * report name one (L-REG-04, `viewAddressOf`). A view whose address cannot be derived keeps the
+ * partition's own key — it is still a view a caption stands for.
+ */
+async function manifestViewsOf(tx: TenantTx, scope: SightingScope): Promise<ManifestView[]> {
+  const drawingIds = scope.sheets.map((sheet) => sheet.drawingId);
+  if (drawingIds.length === 0) return [];
+  const rows = await tx
+    .select({ drawingId: partitionViews.drawingId, viewKey: partitionViews.viewKey, type: partitionViews.type, caption: partitionViews.caption, anchorKey: partitionViews.anchorKey })
+    .from(partitionViews)
+    .where(and(eq(partitionViews.tenantId, scope.tenantId), eq(partitionViews.projectId, scope.projectId), inArray(partitionViews.drawingId, drawingIds)));
+  return rows.map((row) => ({ drawingId: row.drawingId, address: addressOf(row), type: row.type, caption: row.caption, anchorKey: row.anchorKey }));
+}
+
+/** A stored view's L-REG-04 address, or its own key where the address cannot be derived from it. */
+function addressOf(row: { viewKey: string; type: string; anchorKey: string | null }): string {
+  try {
+    return viewAddressOf({ viewKey: row.viewKey, type: row.type as Parameters<typeof viewAddressOf>[0]["type"], anchorKey: row.anchorKey });
+  } catch {
+    return row.viewKey;
+  }
+}
+
+/** Whether the gate has published any line for this campaign — a run was carried over it. */
+async function anyLineOf(tx: TenantTx, tenantId: string, campaignId: string): Promise<boolean> {
+  const held = await tx
+    .select({ lineId: quantityLines.lineId })
+    .from(quantityLines)
+    .where(and(eq(quantityLines.tenantId, tenantId), eq(quantityLines.campaignId, campaignId)))
+    .limit(1);
+  return held.length > 0;
+}
+
+/** Whether a rail has reported anything at all for this campaign — a run was carried over it. */
+async function anyReportOf(tx: TenantTx, tenantId: string, campaignId: string): Promise<boolean> {
+  const held = await tx
+    .select({ observationId: railObservations.observationId })
+    .from(railObservations)
+    .where(and(eq(railObservations.tenantId, tenantId), eq(railObservations.campaignId, campaignId)))
+    .limit(1);
+  return held.length > 0;
 }
 
 /** The drawings the pinned revision names, as the pin recorded them (L-REG-06). */
@@ -360,7 +477,15 @@ async function manifestOf(tx: TenantTx, tenantId: string, setRevisionId: string)
  */
 async function publishedLinesOf(tx: TenantTx, tenantId: string, campaignId: string, setRevisionId: string) {
   const rows = await tx
-    .select({ kind: quantityLines.kind, class: quantityLines.class, levelId: registerObjects.levelId, lineId: quantityLines.lineId })
+    .select({
+      kind: quantityLines.kind,
+      class: quantityLines.class,
+      levelId: registerObjects.levelId,
+      lineId: quantityLines.lineId,
+      objectKey: quantityLines.objectKey,
+      coverage: quantityLines.coverage,
+      omitted: quantityLines.omitted,
+    })
     .from(quantityLines)
     .innerJoin(
       registerObjects,
@@ -371,7 +496,30 @@ async function publishedLinesOf(tx: TenantTx, tenantId: string, campaignId: stri
       ),
     )
     .where(and(eq(quantityLines.tenantId, tenantId), eq(quantityLines.campaignId, campaignId)));
-  return rows.map((row) => ({ kind: row.kind, class: row.class, levelId: row.levelId ?? "", lineId: row.lineId }));
+  return rows.map((row) => ({
+    kind: row.kind,
+    class: row.class,
+    levelId: row.levelId ?? "",
+    lineId: row.lineId,
+    objectKey: row.objectKey,
+    coverage: row.coverage,
+    omitted: omissionsOf(row.omitted),
+  }));
+}
+
+/**
+ * The components a line enumerated as omitted, as the store holds them (`quantity_lines.omitted`).
+ * The column is `json` of unknown shape at the type level, so each entry is read for the two strings
+ * it carries and an entry carrying neither is not invented into one (L-QTY-02).
+ */
+function omissionsOf(stored: readonly unknown[]): { variable: string; code: string }[] {
+  const held: { variable: string; code: string }[] = [];
+  for (const entry of stored) {
+    const variable = (entry as { variable?: unknown } | null)?.variable;
+    const code = (entry as { code?: unknown } | null)?.code;
+    if (typeof variable === "string" && typeof code === "string") held.push({ variable, code });
+  }
+  return held;
 }
 
 /** Every declaration a person made over a cell of this campaign, with whether its act resolves. */
@@ -431,10 +579,13 @@ function countersOf(facts: Readonly<Record<string, unknown>>): { space: string; 
  * What the rails observed about what this campaign did NOT publish — the tree's one spelling of an
  * absence, and the reason it lives here rather than in a channel (L-QTY-05).
  *
- * An observation standing beside a published line is not residue evidence: the reading it explains
- * ended in a quantity. So the query asks the store for the observations whose object the campaign
- * published nothing for, which is a question about rows that are not there and can only be asked one
- * way. Every other file in this tree says what it SAW.
+ * An observation standing beside a published line OF ITS OWN KIND is not residue evidence: the
+ * reading it explains ended in a quantity. So the query asks the store for the observations whose
+ * object the campaign published nothing of that kind for, which is a question about rows that are not
+ * there and can only be asked one way. Every other file in this tree says what it SAW. The kind is
+ * part of the question (I-480): a column whose concrete published and whose reinforcement
+ * schedule nobody read still owes its rebar cell the report that says so — asked by object alone,
+ * the concrete line swallowed it and the cell read as though nothing explained it.
  *
  * And an observation whose object the revision's register NO LONGER CARRIES is not residue either. A
  * register key moves exactly once (L-REG-04): `AUTHOR_TYPICAL_RANGE` carries an `@UNRESOLVED`
@@ -446,13 +597,20 @@ function countersOf(facts: Readonly<Record<string, unknown>>): { space: string; 
  * lawful and distinct from that miss: an observation about the reading rather than an object (no
  * key at all), and an object standing in a lawful-null slot (a key that joins, to no level).
  */
-async function observationsOf(tx: TenantTx, tenantId: string, campaignId: string, setRevisionId: string): Promise<ResidueObservation[]> {
+async function observationsOf(
+  tx: TenantTx,
+  tenantId: string,
+  campaignId: string,
+  setRevisionId: string,
+  captions: ReadonlyMap<string, string>,
+): Promise<ResidueObservation[]> {
   const rows = await tx
     .select({
       class: railObservations.class,
       kind: railObservations.kind,
       code: railObservations.code,
       observed: railObservations.objectKey,
+      source: railObservations.sourceEntity,
       standing: registerObjects.objectKey,
       levelId: registerObjects.levelId,
     })
@@ -469,7 +627,7 @@ async function observationsOf(tx: TenantTx, tenantId: string, campaignId: string
       and(
         eq(railObservations.tenantId, tenantId),
         eq(railObservations.campaignId, campaignId),
-        statement`not exists (select 1 from ${quantityLines} where ${quantityLines.tenantId} = ${railObservations.tenantId} and ${quantityLines.campaignId} = ${railObservations.campaignId} and ${quantityLines.objectKey} = ${railObservations.objectKey})`,
+        statement`not exists (select 1 from ${quantityLines} where ${quantityLines.tenantId} = ${railObservations.tenantId} and ${quantityLines.campaignId} = ${railObservations.campaignId} and ${quantityLines.objectKey} = ${railObservations.objectKey} and ${quantityLines.kind} = ${railObservations.kind})`,
       ),
     );
 
@@ -481,6 +639,12 @@ async function observationsOf(tx: TenantTx, tenantId: string, campaignId: string
       levelId: row.levelId,
       rail: `${row.class}/${row.kind}`,
       reason: reasonOf(row.code),
+      code: row.code,
+      objectKey: row.observed,
+      source: row.source,
+      // What a report about a VIEW sends a reader to, said in the drawing's own words (I-480):
+      // a view nobody affirmed a scale for is "COLUMN LAYOUT PLAN", never its address.
+      view: row.source === null ? null : (captions.get(row.source) ?? null),
     }));
 }
 

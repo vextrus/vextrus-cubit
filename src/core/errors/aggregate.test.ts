@@ -72,6 +72,11 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "COMPLEX_STAIR_GEOMETRY",
   "CONSEQUENCES_NOT_CARRIED",
   "CONVENTION_ROLE_UNRESOLVED",
+  "COVERAGE_CLASS_NOT_PLACED",
+  "COVERAGE_KIND_NOT_READ",
+  "COVERAGE_MEMBERS_NOT_REACHED",
+  "COVERAGE_MEMBER_UNCLASSED",
+  "COVERAGE_NOT_MEASURED_YET",
   "CREDENTIALS_NOT_VALID",
   "DETAILING_ROW_NOT_IN_EDITION",
   "DIGEST_MISMATCH",
@@ -365,8 +370,22 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * to a client and the Decision's voice rule bars the build word. 134 codes; no code, remedy, severity
  * or surface moved. The previous digest was
  * e6f4075f1a8e9002def558598483e4824f0fda22704bef6ee28ef6c2302d88ff.
+ *
+ * Session 8, HONEST-SCOPE (s-coverage I-480/c): FIVE ADDED entries and nothing else, all of
+ * them ./coverage.ts's — the reasons the residue reads off a campaign for a cell nothing was published
+ * for and no person declared, so no coverage face says that nothing explains an absence:
+ * `COVERAGE_NOT_MEASURED_YET`, `COVERAGE_CLASS_NOT_PLACED`, `COVERAGE_KIND_NOT_READ` and
+ * `COVERAGE_MEMBERS_NOT_REACHED`; and `COVERAGE_MEMBER_UNCLASSED`, which a member the drawings show
+ * that no class measures is named under. The roster grew by those five keys — 134 codes to 139 — and
+ * not one existing entry's code, message, remedy, severity or surface moved with them; the previous
+ * digest was 17c9c5297eda5371cbd4f133c113c98b8e15eb8024203d4abd9da1ff025ac927. Re-taken once inside
+ * the same slice, after its review: two of those five remedies were reworded before they ever landed
+ * — `COVERAGE_KIND_NOT_READ` promises the boundary doors only where a cell offers them (I-194), and
+ * `COVERAGE_MEMBERS_NOT_REACHED` sends the reader to the register's deferrals and refusals before a
+ * second run — and still no entry older than the slice moved; the slice's first digest was
+ * 1b2427efeeebf2613d4a3354e988fd42fdb53952dffc9bc3af9fe29de0bb9f3d.
  */
-const ENTRIES_DIGEST_BEFORE = "17c9c5297eda5371cbd4f133c113c98b8e15eb8024203d4abd9da1ff025ac927";
+const ENTRIES_DIGEST_BEFORE = "75c3d764ed51804275e7182655ae185af75cc678bba5db5647c710bc83303ca5";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

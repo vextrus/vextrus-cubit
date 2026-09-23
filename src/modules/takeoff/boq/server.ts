@@ -105,7 +105,10 @@ export async function boqViewOf(scope: BoqScope, asking?: BoqAsking): Promise<Bo
     ),
     coverageComplete,
     descriptions,
-    notMeasured: statement.map((row) => ({ class: row.class, kind: row.kind, levels: row.levels, cause: row.cause })),
+    // What the draft leaves out says WHY in the certificate's own words (s-coverage I-480):
+    // the registered reason read beside the writerless fall-through where the row carries one — so
+    // the draft never prints that nothing explains an absence — and the row's cause everywhere else.
+    notMeasured: statement.map((row) => ({ class: row.class, kind: row.kind, levels: row.levels, cause: row.reason ?? row.cause })),
   });
 
   return {

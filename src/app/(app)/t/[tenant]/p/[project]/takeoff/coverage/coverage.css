@@ -789,3 +789,112 @@
   flex-direction: column;
   gap: var(--space-2);
 }
+
+/* --- session 8, HONEST-SCOPE (s-coverage I-480..g, C9a) --- */
+
+/* C9a: the certificate reads flush under its title — the statement list drops the user agent's list
+   indent and margins — and while it is open the work surface sizes to its rows, so the certificate
+   takes the height the grid does not use and shows more of the boundary. The work surface never
+   falls below the share the craft rubric's work-surface floor asks of the matrix (the grid ≥ 55 % of
+   main, AM-08 — the key line and the tally ride on top of it), and the certificate never below its
+   192. Shut, the grid takes the height back, as it always did (§1, I-212). */
+.cx-coverage-statement-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-coverage:has(.cx-coverage-certificate[data-open="true"]) .cx-coverage-work {
+  flex: 0 1 auto;
+  min-height: calc(55% + 2 * var(--row-h) + 2 * var(--space-2));
+}
+
+.cx-coverage-certificate[data-open="true"] {
+  flex: 1 1 var(--cx-coverage-doc-h);
+  min-height: min(var(--cx-coverage-doc-h), 100%);
+  max-height: none;
+}
+
+/* I-485: a position no class bears is keyed — a faint dash on the ground, never a cell. */
+/* A dash stands on its row's one line, whatever the order it is drawn in: the row is a grid on the
+   sparse flow, where an item placed left of the one before it opens a second line under the cells
+   (the grid draws its positions in column order as well — `positionsOf`). */
+.cx-coverage-void {
+  grid-row: 1;
+  height: var(--row-h);
+  border-inline-end: var(--hairline);
+  border-block-end: var(--hairline);
+  color: var(--ink-disabled);
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: calc(var(--row-h) / 3) 1px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.cx-coverage-void-key {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  flex: none;
+  color: var(--ink-disabled);
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: calc(var(--icon-md) / 2) 1px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* I-480: the views a reason names, in the drawing's own words, verbatim (I-25). */
+.cx-coverage-reason-views {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  font-size: var(--text-12);
+}
+
+.cx-coverage-reason-view {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--ink-secondary);
+}
+
+.cx-coverage-cause,
+.cx-coverage-remedy-sentence,
+.cx-coverage-none {
+  margin: 0;
+}
+
+/* I-484: the sightings fold behind one line; the table is one press away. */
+.cx-coverage-sightings-fold {
+  min-width: 0;
+}
+
+/* The summary keeps its list-item display, so the disclosure's own marker says it opens. */
+.cx-coverage-sightings-summary {
+  min-height: var(--row-h);
+  line-height: var(--row-h);
+  font-size: var(--text-12);
+  color: var(--ink-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A report is a sentence, so it takes the column's width and wraps, one report per block. */
+.cx-coverage-observation {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.cx-coverage-observation-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--ink-muted);
+}
+
+/* The measurement statement's other two enumerations read as its rows do (I-481/e). */
+.cx-coverage-statement-unclassed .cx-coverage-statement-where .cx-coverage-value:not(.cx-coverage-word) {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+}

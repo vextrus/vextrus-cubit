@@ -119,6 +119,11 @@ describe("which cell is asked about at all — code's decision, never the model'
     expect(coverageCauseStateOf(cell())).toEqual(STATE);
   });
 
+  test("a caption's declaration of the class never enters the state, so no recorded question is re-keyed by it (s-coverage I-479)", () => {
+    const declared = sighting({ levelId: null, channel: "LAYOUT", sourceKey: "DXF_HANDLE:C0L", declared: true, caption: "COLUMN SCHEDULE" });
+    expect(coverageCauseStateOf(cell({ sightings: [sighting(), declared] })), "the same state, and so the same request hash, as the cell without it").toEqual(STATE);
+  });
+
   test("every other cell is not: a reading already explained, a grain nobody may declare over, a boundary already drawn", () => {
     expect(asksACause(cell({ measurement: "QUANTITY_BEARING" })), "a measured cell explains itself").toBe(false);
     expect(asksACause(cell({ measurement: "INGESTION_TRUNCATED" })), "the machine's own causes win before the fall-through ever stands").toBe(false);
