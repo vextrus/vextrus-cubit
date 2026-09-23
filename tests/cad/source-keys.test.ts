@@ -7,11 +7,14 @@
 // nested INSERTs — is required to have some.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import {
+  allCommittedArtifactNames,
   asArray,
   asObject,
   asString,
   committedArtifactNames,
+  committedPdfArtifactNames,
   dxfRecordsByHandle,
   fixtureDxfPath,
   handleOfKey,
@@ -22,6 +25,9 @@ import {
 
 const SOURCE_KEY = /^DXF_HANDLE:[0-9A-F]+$/;
 const PARAMETER_SET_HASH = /^[0-9a-fA-F]{64}$/;
+
+/** A vector PDF's key: the whole sha256 of its object's canonical string, never a prefix (L-CAD-02). */
+const PDF_KEY = /^PDF_OBJECT:[0-9A-F]{64}$/;
 
 describe("AC-3: source keys and extractor identity", () => {
   it("AC-3: every original entity carries a unique DXF_HANDLE key", () => {
@@ -104,7 +110,9 @@ describe("AC-3: source keys and extractor identity", () => {
   it("AC-3: every derived entity names an original in entities[], and no derived entity sits there", () => {
     const withDerived: string[] = [];
 
-    for (const name of committedArtifactNames()) {
+    // Every lane's artifact: a PDF's Form XObject explodes to derived paint exactly as a DXF's block
+    // reference does (L-CAD-03).
+    for (const name of allCommittedArtifactNames()) {
       const { graph } = readCommittedArtifact(name);
       const originals = records(graph, "entities");
       const keys = new Set(originals.map((e, i) => asString(e["key"], `${name}.entities[${i}].key`)));
@@ -124,8 +132,10 @@ describe("AC-3: source keys and extractor identity", () => {
     }
 
     // The contract defines the blocks fixture as the one with nested INSERTs and ATTRIBs, so the
-    // rule above cannot be satisfied vacuously by a corpus with no explosion in it.
+    // rule above cannot be satisfied vacuously by a corpus with no explosion in it — nor, for the PDF
+    // lane, by a forms fixture whose Form XObjects painted nothing.
     expect(withDerived, `no committed fixture produced derived paint — ${NAMED_FIXTURES[1]} must`).toContain(NAMED_FIXTURES[1]);
+    expect(withDerived, "the PDF lane's forms fixture explodes its Form XObjects").toContain(PDF_FIXTURE);
   });
 
   it("AC-3: block attributes are collected separately and also name an original", () => {
@@ -138,6 +148,64 @@ describe("AC-3: source keys and extractor identity", () => {
       for (const [i, attribute] of attributes.entries()) {
         expect(keys.has(asString(attribute["src"], `${name}.block_attributes[${i}].src`))).toBe(true);
         expect(asString(attribute["tag"], `${name}.block_attributes[${i}].tag`).length).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+/** The vector-PDF lane's own fixture (cad/tests/fixtures/gen_forms_pdf.py writes it). */
+const PDF_FIXTURE = "forms";
+
+describe("AC-3 for the vector-PDF lane (R-TO-002, M4P-1): content digests, one identity per scheme", () => {
+  it("every PDF original carries a unique PDF_OBJECT key that is a whole sha256", () => {
+    const names = committedPdfArtifactNames();
+    expect(names, "the PDF corpus holds the lane's forms fixture").toContain(PDF_FIXTURE);
+    for (const name of names) {
+      const keys = records(readCommittedArtifact(name).graph, "entities").map((e, i) => asString(e["key"], `${name}.entities[${i}].key`));
+      expect(keys.filter((key) => !PDF_KEY.test(key)), `${name}: keys must be PDF_OBJECT:<64 UPPERCASE HEX>`).toEqual([]);
+      expect(new Set(keys).size, `${name}: source keys are not unique`).toBe(keys.length);
+    }
+  });
+
+  it("a key is the digest of page index, object type and page-space geometry at 0.001 pt — never a counter", () => {
+    // Recomputed here from the canonical string L-CAD-02 spells, not read from the extractor: the page
+    // border of forms.pdf, a 575 x 400 pt rectangle at (10, 10) on page index 0.
+    const border = "0|path|M 10.000,10.000 L 585.000,10.000 L 585.000,410.000 L 10.000,410.000 L 10.000,10.000 Z";
+    const key = `PDF_OBJECT:${createHash("sha256").update(border, "utf8").digest("hex").toUpperCase()}`;
+    const entity = records(readCommittedArtifact(PDF_FIXTURE).graph, "entities").find((e) => e["key"] === key);
+    expect(entity, `forms.pdf's border is keyed ${key}`).toBeDefined();
+    expect(entity?.["points"], "and it is the border").toEqual([[10, 10], [585, 10], [585, 410], [10, 410]]);
+  });
+
+  it("the ingest record pins pypdfium2's identity under PDF_OBJECT, with a parameter set the DXF lane does not share", () => {
+    const dxfHashes = new Set(committedArtifactNames().map((name) => asString(asObject(readCommittedArtifact(name).graph["ingest"], "ingest")["parameter_set_hash"], "hash")));
+    for (const name of committedPdfArtifactNames()) {
+      const ingest = asObject(readCommittedArtifact(name).graph["ingest"], `${name}.ingest`);
+      expect(ingest["scheme"], `${name}: the scheme rides the ingest record`).toBe("PDF_OBJECT");
+      expect(ingest["tool"], `${name}: a PDF is read by pypdfium2 (L-CAD-04)`).toBe("pypdfium2");
+      const hash = asString(ingest["parameter_set_hash"], `${name}.ingest.parameter_set_hash`);
+      expect(hash).toMatch(PARAMETER_SET_HASH);
+      expect(dxfHashes.has(hash), `${name}: L-CAD-02 pins version + parameter-set hash PER SCHEME, so the lanes share none`).toBe(false);
+    }
+  });
+
+  it("a page's collapses are counted per type on its counters row", () => {
+    const counters = records(readCommittedArtifact(PDF_FIXTURE).graph, "counters");
+    expect(counters.map((row) => [row["space"], row["collapsed"]])).toEqual([
+      ["Page 1", { LWPOLYLINE: 2, TEXT: 1 }],
+      ["Page 2", {}],
+    ]);
+  });
+
+  it("a page's unread images are counted per kind on its counters row, and a DXF space carries no such row key (I-521)", () => {
+    const counters = records(readCommittedArtifact(PDF_FIXTURE).graph, "counters");
+    expect(counters.map((row) => [row["space"], row["unread"]])).toEqual([
+      ["Page 1", { IMAGE: 1 }],
+      ["Page 2", {}],
+    ]);
+    for (const name of committedArtifactNames()) {
+      for (const row of records(readCommittedArtifact(name).graph, "counters")) {
+        expect("unread" in row, `${name}: a DXF space reads no pixels and carries no unread tally`).toBe(false);
       }
     }
   });

@@ -301,6 +301,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "ezdxf" },
+    { name = "pypdfium2" },
 ]
 
 [package.dev-dependencies]
@@ -311,12 +312,14 @@ dev = [
 ]
 fixtures = [
     { name = "pillow" },
-    { name = "pypdfium2" },
     { name = "reportlab" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "ezdxf", specifier = "==1.4.4" }]
+requires-dist = [
+    { name = "ezdxf", specifier = "==1.4.4" },
+    { name = "pypdfium2", specifier = "==5.13.0" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -326,6 +329,5 @@ dev = [
 ]
 fixtures = [
     { name = "pillow", specifier = "==12.3.0" },
-    { name = "pypdfium2", specifier = "==5.13.0" },
     { name = "reportlab", specifier = "==4.4.9" },
 ]

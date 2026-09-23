@@ -22,7 +22,15 @@
 // This module validates; it reads no meaning. Schedule reconstruction, view law, grid, placement,
 // convention profiles and notation parsing are stages over the parsed artifact (L-CAD-01), and
 // none of them belongs in the shape.
+//
+// The scheme rides per key, never per drawing (L-CAD-02). An artifact's keys may be of any scheme of
+// the closed set — a DXF's handles, a PDF's content digests, a vectoriser's — and the ingest record
+// pins one extractor identity PER SCHEME its keys are of: the scheme of the extractor that read the
+// file, and, beside a PDF's, the vectoriser's (`trace`) where a page also mints traced keys (I-518).
+// A key whose scheme the record pins no identity for is a key nobody can say who minted, and both
+// mirrors refuse it.
 import { z } from "zod";
+import { isDigestScheme, isWholeDigest, SOURCE_SCHEMES, type SourceScheme } from "../sources";
 
 /** The version the extractor writes, and the only one the ingest door takes from it (L-CAD-05). */
 export const ENTITYGRAPH_VERSION = 3;
@@ -31,19 +39,42 @@ export const ENTITYGRAPH_VERSION = 3;
 export const ENTITYGRAPH_FLOOR = 2;
 
 /**
- * The closed source-key scheme a DXF ingest mints (L-CAD-02). Exported because the store's ingest
- * record closes its own scheme column on what an extractor can mint, and one list read by both is
- * the only way the two cannot drift (B-17).
+ * The scheme the DXF lane mints (L-CAD-02): ezdxf reading a DXF's — or a converted DWG's — own
+ * handles. The lane a seeded drawing is ingested by, which is what its callers spell it for.
  */
-export const INGEST_SCHEME = "DXF_HANDLE";
-
-const SCHEME = INGEST_SCHEME;
+export const INGEST_SCHEME = "DXF_HANDLE" satisfies SourceScheme;
 
 /**
- * A source key: the scheme, then the file's own handle in uppercase hex (L-CAD-02). The scheme
- * rides the key rather than the drawing, so it is spelled per key here as it is in the artifact.
+ * Every scheme an artifact's ingest record may name as the scheme of the extractor that read the
+ * file — L-CAD-02's closed set, whole: ezdxf over DXF and DWG, pdfium over a vector PDF (R-TO-002),
+ * the vectoriser over a scan (R-TO-003). Exported because the store's ingest record closes its own
+ * scheme column on exactly this list, and one list read by both is the only way the two cannot
+ * drift (B-17).
  */
-const SOURCE_KEY = new RegExp(`^${SCHEME}:[0-9A-F]+$`);
+export const INGESTED_SCHEMES = SOURCE_SCHEMES;
+
+/**
+ * The one scheme a vectoriser's identity (`ingest.trace`) may ride beside: a vector PDF whose pages
+ * also mint traced keys, R-TO-003's mixed page (I-518). Exported because the store's ingest record
+ * closes its trace columns on exactly this scheme, and one constant read by both is the only way the
+ * artifact's rule and the CHECK cannot drift (B-17).
+ */
+export const TRACED_BESIDE = "PDF_OBJECT" satisfies SourceScheme;
+
+/** The scheme a vectoriser's keys are minted under (L-CAD-02). */
+const RASTER_TRACE = "RASTER_TRACE" satisfies SourceScheme;
+
+/**
+ * A source key: a scheme of the closed set, then the extractor's key in uppercase hex — the file's
+ * own handle for DXF_HANDLE, a content digest for the other two (L-CAD-02). The scheme rides the key
+ * rather than the drawing, so it is spelled per key here as it is in the artifact.
+ */
+const SOURCE_KEY = new RegExp(`^(?:${SOURCE_SCHEMES.join("|")}):[0-9A-F]+$`);
+
+/** The scheme half of a well-formed key. */
+function schemeOf(key: string): string {
+  return key.slice(0, key.indexOf(":"));
+}
 
 /** The extractor identity half that pins the parameter set: a sha256 digest. */
 const PARAMETER_SET_HASH = /^[0-9a-f]{64}$/i;
@@ -57,7 +88,12 @@ const UNITS = ["unitless", "inch", "foot", "mm", "cm", "m"] as const;
 /** Model space or a named paper layout — the two kinds of space an entity can sit in. */
 const LAYOUT_KINDS = ["model", "paper"] as const;
 
-const sourceKey = z.string().regex(SOURCE_KEY);
+const sourceKey = z
+  .string()
+  .regex(SOURCE_KEY)
+  .refine((key) => !isDigestScheme(schemeOf(key)) || isWholeDigest(key.slice(key.indexOf(":") + 1)), {
+    error: "a digest scheme's key is a whole sha256 (L-CAD-02)",
+  });
 
 /** A colour channel as the artifact carries it: an integer, never a spelled colour. */
 const channel = z.number().int().min(0).max(255);
@@ -272,12 +308,22 @@ function versionIssues(graph: {
   return issues;
 }
 
-/** The extractor identity a key is scoped to, pinned per ingest record (L-CAD-02). */
-const ingestSchema = z.strictObject({
-  scheme: z.literal(SCHEME),
+/** One extractor's identity: its tool, the tool's version and its parameter-set hash (L-CAD-02). */
+const identityFields = {
   tool: z.string().min(1),
   tool_version: z.string().min(1),
   parameter_set_hash: z.string().regex(PARAMETER_SET_HASH),
+};
+
+/**
+ * The extractor identities a record's keys are scoped to, one per scheme (L-CAD-02): the extractor
+ * that read the file and the scheme it mints, and — only beside a PDF's, where a page also carries a
+ * pasted scan — the vectoriser that traced it (`trace`, I-518).
+ */
+const ingestSchema = z.strictObject({
+  scheme: z.enum(INGESTED_SCHEMES),
+  ...identityFields,
+  trace: z.strictObject(identityFields).optional(),
 });
 
 /**
@@ -345,6 +391,19 @@ const counterSchema = z.strictObject({
   explode_losses: counts,
   flatten_capped: counts,
   conversion_losses: counts.optional(),
+  /**
+   * How many originals of each type collapsed onto an earlier one with the same content digest
+   * (L-CAD-02: "the collapse is counted per page and type"). Only a digest scheme's objects can
+   * collide, so a DXF space carries no key and a PDF page always does, empty where nothing collapsed.
+   */
+  collapsed: counts.optional(),
+  /**
+   * How many objects of each kind the page carries whose content the lane reads no geometry from —
+   * an embedded image's pixels (`IMAGE`), a smooth shading's colour (`SHADING`) — so a card can say
+   * its page holds a picture nobody read (I-521). A PDF page's tally, as `collapsed` is: a DXF
+   * space carries no key, a PDF page always does, empty where it carries nothing unread.
+   */
+  unread: counts.optional(),
 });
 
 /**
@@ -369,6 +428,13 @@ export const entityGraphSchema = z
   .superRefine((graph, ctx) => {
     for (const issue of versionIssues(graph)) ctx.addIssue({ code: "custom", path: [...issue.path], message: issue.message });
 
+    // A vectoriser's identity rides only beside a PDF's: a page that carries a pasted scan mints both
+    // schemes (R-TO-003), and no other lane mints two.
+    if (graph.ingest.trace !== undefined && graph.ingest.scheme !== TRACED_BESIDE) {
+      ctx.addIssue({ code: "custom", path: ["ingest", "trace"], message: `a vectoriser's identity rides only beside ${TRACED_BESIDE} (a mixed page)` });
+    }
+    const pinned = new Set<string>([graph.ingest.scheme, ...(graph.ingest.trace === undefined ? [] : [RASTER_TRACE])]);
+
     const minted = new Set<string>();
     graph.entities.forEach((entity, index) => {
       if (minted.has(entity.key)) {
@@ -376,6 +442,14 @@ export const entityGraphSchema = z
           code: "custom",
           path: ["entities", index, "key"],
           message: `${entity.key} is minted twice (L-CAD-02)`,
+        });
+      }
+      // A key is scoped to the identity of the extractor that minted it (L-CAD-02).
+      if (!pinned.has(schemeOf(entity.key))) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["entities", index, "key"],
+          message: `${entity.key} is of a scheme the ingest record pins no identity for (L-CAD-02)`,
         });
       }
       minted.add(entity.key);

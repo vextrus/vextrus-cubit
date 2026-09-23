@@ -1,0 +1,117 @@
+// M4P-1 — a vector PDF becomes sheets (R-TO-002, L-CAD-02, R-TO-004).
+//
+// F-RCC6-BNBC's vector set is put through the cad CLI exactly as the ingest seam spawns it, and the
+// artifact is then read by the product's own stages: the Zod mirror, core's sheet reading (the
+// title-block grammar, the scale state, the fidelity facts, the schemes a sheet's keys are of) and
+// the viewer's render manifest. What a QS sees on the drawings screen — each page a card with its
+// number and title, one that opens in the viewer — is read here from the same functions the screen
+// calls, over the same bytes a real upload would hand them.
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { forgetArtifacts } from "../../src/core/entitygraph/artifact";
+import { entityGraphSchema, type EntityGraph } from "../../src/core/entitygraph/schema";
+import { sheetsOfRecord, type SheetFacts } from "../../src/core/sheets";
+import type { Storage } from "../../src/core/storage";
+import { factsOf } from "../../src/modules/takeoff/ingest/facts";
+import { buildRenderManifest } from "../../src/modules/takeoff/viewer/manifest";
+import { REPO_ROOT, requireCadPackage, runIngest } from "./support/artifact";
+
+const BNBC = join(REPO_ROOT, "fixtures", "rcc6-bnbc");
+
+/** The generator's own roster of the set: its sheets in page order, each with its number and title. */
+type RosterSheet = { readonly number: string; readonly title: string };
+
+/** A tenant and a content hash no other suite reads, so the artifact cache answers this graph alone. */
+const TENANT = "00000000-0000-4000-8000-00000000f401";
+const ARTIFACT_SHA = "f".repeat(63) + "1";
+
+let dir = "";
+let graph: EntityGraph;
+let bytes: Uint8Array;
+let sheets: SheetFacts[];
+let roster: readonly RosterSheet[];
+
+/** A storage port that answers the one artifact this suite ingested, at any address. */
+function storageHolding(held: Uint8Array): Storage {
+  return {
+    put: async () => {
+      throw new Error("this stand-in is read-only");
+    },
+    get: async () => held,
+  } as unknown as Storage;
+}
+
+beforeAll(async () => {
+  requireCadPackage();
+  dir = mkdtempSync(join(tmpdir(), "cubit-pdf-sheets-"));
+  const out = join(dir, "rcc6-bnbc.entitygraph.json");
+  const run = runIngest(join(BNBC, "rcc6-bnbc.pdf"), out);
+  expect(run.status, `vextrus-cad ingest rcc6-bnbc.pdf exited ${String(run.status)}\n${run.stderr}`).toBe(0);
+  bytes = new Uint8Array(readFileSync(out));
+  graph = entityGraphSchema.parse(JSON.parse(new TextDecoder().decode(bytes)));
+  roster = (JSON.parse(readFileSync(join(BNBC, "manifest.json"), "utf8")) as { sheets: RosterSheet[] }).sheets;
+
+  forgetArtifacts();
+  const record = { ingestId: "00000000-0000-4000-8000-00000000f402", drawingId: "00000000-0000-4000-8000-00000000f403", artifactSha256: ARTIFACT_SHA, extractor: { scheme: graph.ingest.scheme }, facts: factsOf(graph) };
+  sheets = await sheetsOfRecord(TENANT, record, storageHolding(bytes));
+}, 240_000);
+
+afterAll(() => {
+  forgetArtifacts();
+  if (dir !== "") rmSync(dir, { recursive: true, force: true });
+});
+
+describe("M4P-1: a vector PDF set is ingested page by page", () => {
+  it("the artifact is a PDF lane's: pypdfium2 under PDF_OBJECT, every key a whole sha256, no world unit claimed", () => {
+    expect(graph.ingest.scheme).toBe("PDF_OBJECT");
+    expect(graph.ingest.tool).toBe("pypdfium2");
+    expect(graph.entities.every((entity) => /^PDF_OBJECT:[0-9A-F]{64}$/.test(entity.key))).toBe(true);
+    expect(graph.insunits, "page space states no drawing unit, so a scale is a QS's to affirm (I-513)").toEqual({ code: 0, unit: "unitless", unmapped: false });
+  });
+
+  it("each page is a sheet, in page order, and its title block proposes the number and title its roster states", () => {
+    expect(sheets.map((sheet) => sheet.layoutName)).toEqual(roster.map((_sheet, index) => `Page ${String(index + 1)}`));
+    for (const [index, sheet] of sheets.entries()) {
+      const owed = roster[index];
+      expect(sheet.kind, `${sheet.layoutName} is paper`).toBe("paper");
+      expect(sheet.proposal.basis, `${sheet.layoutName} is read by the grammar`).toBe("GRAMMAR");
+      expect(sheet.proposal.number, `${sheet.layoutName} proposes the number printed in its title block`).toBe(owed?.number);
+      expect(owed?.title.startsWith(sheet.proposal.title) ?? false, `${sheet.layoutName} proposes "${sheet.proposal.title}", the head of "${owed?.title ?? ""}"`).toBe(true);
+    }
+    const s10 = sheets[10];
+    expect({ number: s10?.proposal.number, title: s10?.proposal.title, discipline: s10?.proposal.discipline }).toEqual({ number: "S-10", title: "COLUMN LAYOUT PLAN", discipline: "STRUCTURAL" });
+  });
+
+  it("each sheet reads its schemes from its own keys, stands unaffirmed rather than unplaceable, and names its collapses", () => {
+    for (const sheet of sheets) {
+      expect(sheet.schemes, `${sheet.layoutName}'s keys are PDF objects (I-519)`).toEqual(["PDF_OBJECT"]);
+      expect(sheet.scaleState, `${sheet.layoutName} has extents and states no world unit: its scale waits on a QS, it is not unplaceable`).toBe("unaffirmed");
+      const counted = graph.counters.find((counter) => counter.space === sheet.layoutName)?.collapsed ?? {};
+      expect(sheet.facts.collapsed, `${sheet.layoutName} carries its collapses as a fidelity fact (I-520)`).toBe(Object.values(counted).reduce((sum, count) => sum + count, 0));
+    }
+    expect(sheets.some((sheet) => (sheet.facts.collapsed as number) > 0), "the set collapses duplicated strokes somewhere, so the fact is not vacuous").toBe(true);
+  });
+
+  it("a page carrying a picture says so on its card: the logo on page 1, the pasted hook-detail scan on page 4 (I-521)", () => {
+    const unread = Object.fromEntries(sheets.map((sheet) => [sheet.layoutName, sheet.facts.unread]));
+    const carrying = Object.entries(unread).filter(([, count]) => count !== 0);
+    expect(carrying, "exactly the two pages the generator pastes an image onto name one image nobody read").toEqual([
+      ["Page 1", 1],
+      ["Page 4", 1],
+    ]);
+    const images = graph.entities.filter((entity) => entity.type === "IMAGE");
+    expect(images.map((image) => image.space).sort(), "each is still listed at its placement").toEqual(["Page 1", "Page 4"]);
+    expect(images.every((image) => image.closed === false), "and its frame is open, so no outline reader takes it for a member (I-521)").toBe(true);
+  });
+
+  it("a page opens in the viewer: its render manifest holds its lines and texts under their PDF keys", () => {
+    const manifest = buildRenderManifest(graph, "Page 11");
+    const records = manifest.layers.flatMap((layer) => layer.records);
+    expect(records.length, "the page paints").toBeGreaterThan(100);
+    expect(records.every((record) => record.key?.startsWith("PDF_OBJECT:") === true)).toBe(true);
+    expect(records.some((record) => record.text === "S-10 COLUMN LAYOUT PLAN"), "the title block's line is painted where the grammar read it").toBe(true);
+    expect(manifest.extents, "the page frames a box the viewer can fit").not.toBeNull();
+  });
+});

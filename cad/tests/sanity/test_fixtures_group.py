@@ -101,6 +101,16 @@ def test_fixtures_group_is_declared_apart_from_the_app() -> None:
     assert "reportlab" in fixtures_only_distributions()
 
 
+def test_the_pdf_reader_ships_with_the_app() -> None:
+    """R-TO-002: the vector-PDF lane reads through pypdfium2 (L-CAD-04), so the reader is a shipped
+    dependency pinned exactly — its version scopes every PDF_OBJECT key (L-CAD-02) — and never a
+    distribution only the fixtures group provides, which a clean machine would not have."""
+    manifest = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    shipped = manifest["project"].get("dependencies", [])
+    assert "pypdfium2==5.13.0" in shipped, f"the shipped dependencies pin no pypdfium2 exactly: {shipped}"
+    assert "pypdfium2" not in fixtures_only_distributions()
+
+
 def test_the_app_package_has_modules_to_scan() -> None:
     assert PACKAGE.is_dir(), f"{PACKAGE} is missing — the leak scan below would grade nothing"
     assert list(PACKAGE.rglob("*.py")), f"{PACKAGE} holds no module, so the leak scan would grade nothing"

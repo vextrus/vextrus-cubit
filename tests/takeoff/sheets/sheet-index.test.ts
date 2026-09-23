@@ -118,7 +118,10 @@ describe("AC-1: one card per sheet of the current record", () => {
 
     for (const card of stage.cards) {
       expect(card.format, `the card for ${card.layoutName} carries the format the drawing is stored under`).toBe(RCC6_FORMAT);
-      expect(card.scheme, `the card for ${card.layoutName} carries the scheme the record's own extractor identity states (R-TO-001)`).toBe(stage.record.extractor.scheme);
+      // I-519: the schemes are read off the sheet's own keys, never stamped from the record — on a
+      // DXF every original is the file's handle, so its sheets read the one scheme its record pins.
+      const keyed = [...new Set(((stage.graph.entities ?? []) as { key: string; space: string }[]).filter((entity) => entity.space === card.layoutName).map((entity) => entity.key.slice(0, entity.key.indexOf(":"))))];
+      expect(card.schemes, `the card for ${card.layoutName} carries the schemes its own keys are of (L-CAD-02)`).toEqual(keyed.length > 0 ? keyed : [stage.record.extractor.scheme]);
       expect(card.viewCount, "views are not classified by this increment, and a count nobody derived is never invented (L-CAD-06 is M2's)").toBeNull();
 
       const layout = stage.graph.layouts.find((entry) => entry.name === card.layoutName);

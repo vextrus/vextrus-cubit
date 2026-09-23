@@ -94,7 +94,7 @@ export type SheetCard = {
   layoutName: string;
   kind: string;
   format: string;
-  scheme: string;
+  schemes: readonly string[];
   thumbnail: { url: string; width: number; height: number } | null;
   proposal: SheetProposal;
   confirmed: { discipline: string; actId: string } | null;

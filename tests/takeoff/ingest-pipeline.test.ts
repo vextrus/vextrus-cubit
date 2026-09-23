@@ -435,11 +435,12 @@ describe("AC-6 — a sheet nothing can be taken from is refused, loudly and empt
     async () => {
       const stage = await staged();
 
-      // A format the CLI has no lane for: PDF and raster are other nodes' ground (out of scope).
-      const pdf = await stageDrawing(stage.person, stage.projectId, corpusBytes(join("fixtures", "rcc6", "rcc6.pdf")), { name: unique("sheet.pdf"), format: "pdf" });
-      const refusedFormat = await stage.ingest.requestIngest({ tenantId: stage.person.tenantId, drawingId: pdf.drawingId, requestedBy: stage.person.userId });
-      expect(refusedFormat, "a drawing whose format is neither dxf nor dwg is refused by name").toStrictEqual({ refusal: SHEET_NOT_INGESTABLE });
-      await expectNothingQueued(stage, pdf.drawingId, "the refused format");
+      // A format the CLI has no lane for: a scan waits on the vectoriser (R-TO-003), so a raster is
+      // refused by name at the door — a vector PDF is read since M4P-1 (R-TO-002).
+      const scan = await stageDrawing(stage.person, stage.projectId, corpusBytes(join("fixtures", "rcc6-bnbc", "images", "hook-detail-scan.png")), { name: unique("sheet.png"), format: "png" });
+      const refusedFormat = await stage.ingest.requestIngest({ tenantId: stage.person.tenantId, drawingId: scan.drawingId, requestedBy: stage.person.userId });
+      expect(refusedFormat, "a drawing whose format is none of dxf, dwg and pdf is refused by name").toStrictEqual({ refusal: SHEET_NOT_INGESTABLE });
+      await expectNothingQueued(stage, scan.drawingId, "the refused format");
 
       // A drawing of somebody else's workspace: not visible in this scope, so not this scope's to run.
       const stranger = await enrol("stranger");
@@ -450,6 +451,63 @@ describe("AC-6 — a sheet nothing can be taken from is refused, loudly and empt
         refusal: WORKSPACE_PERMISSION_NOT_HELD,
       });
       await expectNothingQueued(stage, theirs.drawingId, "the drawing of another workspace");
+    },
+    CASE_BUDGET_MS,
+  );
+});
+
+describe("M4P-1 — a PDF through the one door (R-TO-002, R-TO-003, I-518, I-521)", () => {
+  test(
+    "M4P-1: a vector PDF is admitted at the door, and its record pins pdfium's identity under PDF_OBJECT, with no vectoriser's beside it",
+    async () => {
+      const stage = await staged();
+      const bytes = corpusBytes(join("cad", "tests", "fixtures", "forms.pdf"));
+      const drawing = await stageDrawing(stage.person, stage.projectId, bytes, { name: unique("forms.pdf"), format: "pdf" });
+
+      const { jobId, events } = await ingestAndWait(stage, drawing);
+      expect(endingOf(events)?.status, `the PDF's ingest ended: ${JSON.stringify(endingOf(events))}`.slice(0, 600)).toBe("succeeded");
+
+      const record = await stage.ingest.ingestRecordOf({ tenantId: stage.person.tenantId, drawingId: drawing.drawingId });
+      expect(record, "a PDF that was read leaves its record").not.toBeNull();
+      const held = record as IngestRecord & { trace: unknown };
+      expect(held.jobId).toBe(jobId);
+      const { document } = await storedArtifact(stage, held);
+      const identity = document["ingest"] as Record<string, string>;
+      expect(held.extractor, "the record pins the identity the artifact carries, field for field (L-CAD-02)").toStrictEqual({
+        scheme: "PDF_OBJECT",
+        tool: "pypdfium2",
+        toolVersion: identity["tool_version"],
+        parameterSetHash: identity["parameter_set_hash"],
+      });
+      expect(held.trace, "no page of it minted a traced key, so no vectoriser's identity rides beside pdfium's (I-518)").toBeNull();
+      expect(
+        held.facts.counters.map((counter) => [counter.space, (counter as { unread?: unknown }).unread]),
+        "and its facts carry each page's unread images, which the card reads (I-521)",
+      ).toEqual([
+        ["Page 1", { IMAGE: 1 }],
+        ["Page 2", {}],
+      ]);
+      expect(held.facts, "the record's facts are factsOf(graph), whole").toStrictEqual(stage.ingest.factsOf(stage.graph.entityGraphSchema.parse(document)));
+    },
+    CASE_BUDGET_MS,
+  );
+
+  test(
+    "M4P-1: a scanned PDF is stored, taken to the extractor, and refused by name — no record, no artifact, nothing that looks read",
+    async () => {
+      const stage = await staged();
+      const bytes = corpusBytes(join("fixtures", "rcc6", "rcc6.raster.pdf"));
+      const drawing = await stageDrawing(stage.person, stage.projectId, bytes, { name: unique("scan.pdf"), format: "pdf" });
+      const scope = { tenantId: stage.person.tenantId, drawingId: drawing.drawingId };
+      const before = filesUnder(stage.root);
+
+      const { events } = await ingestAndWait(stage, drawing);
+      const ending = endingOf(events);
+      expect(ending?.status, `a scan is an answer, not a fault: ${JSON.stringify(ending)}`.slice(0, 600)).toBe("refused");
+      expect(ending?.refusalCode, "answered with the registered code").toBe(SHEET_NOT_INGESTABLE);
+      expect(ending?.faultId, "and it is no fault (B-21)").toBeNull();
+      expect(await stage.ingest.ingestRecordOf(scope), "a refused scan leaves no record, so no card claims it was read").toBeNull();
+      expect(filesUnder(stage.root), "and nothing new in the store").toEqual(before);
     },
     CASE_BUDGET_MS,
   );

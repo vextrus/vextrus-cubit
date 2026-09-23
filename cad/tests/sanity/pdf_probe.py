@@ -1,11 +1,11 @@
 """Facts about a PDF, read through pypdfium2 (L-CAD-04's permissive PDF reader). Not a test.
 
-Run under the `fixtures` dependency group — `uv run --project cad --group fixtures python
-cad/tests/sanity/pdf_probe.py <file.pdf>` — and it prints one JSON document: per page, the text
-pypdfium2 extracts, how many page objects it holds and how many of those are images, paths (drawn
-geometry) and text objects. The test that needs these facts spawns this script rather than
-importing pypdfium2, so the pytest process itself never depends on a group the shipped project
-does not.
+`uv run --project cad --group fixtures python cad/tests/sanity/pdf_probe.py <file.pdf>` prints one
+JSON document: per page, the text pypdfium2 extracts, how many page objects it holds and how many of
+those are images, paths (drawn geometry), text objects and Form XObjects. The corpus sanity suites
+spawn it beside the generator that wrote the PDF, under the group the generator runs in. pypdfium2
+itself ships with the extractor since the vector-PDF lane landed (R-TO-002), so `cad/tests/test_pdf.py`
+reads the same facts in-process; this probe is the generator's side of the same reading.
 """
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ def pdf_facts(path: Path) -> dict[str, Any]:
                 "images": sum(1 for item in objects if item.type == pdfium_c.FPDF_PAGEOBJ_IMAGE),
                 "paths": sum(1 for item in objects if item.type == pdfium_c.FPDF_PAGEOBJ_PATH),
                 "texts": sum(1 for item in objects if item.type == pdfium_c.FPDF_PAGEOBJ_TEXT),
+                "forms": sum(1 for item in objects if item.type == pdfium_c.FPDF_PAGEOBJ_FORM),
             }
         )
     return {"pages": pages}

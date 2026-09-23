@@ -108,6 +108,11 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "j-021/partition-confirmed": 0,
   "j-021/partition-open": 0,
   "j-021/partition-toggled": 0,
+  // J-040's step 1 (M4P-1): a PDF page's card on S-Drawings, and the page open in the viewer. Zero is
+  // the strictest reading and the only honest one before a run: both are screens of shipped
+  // primitives that J-010 and J-011 already hold at zero, over a PDF's sheets instead of a DXF's.
+  "j-040/pdf-sheet-card": 0,
+  "j-040/pdf-sheet-open": 0,
   "j004-shell-dark": 0,
   "j004-shell-deeplink": 0,
   "j004-shell-light": 0,

@@ -67,7 +67,7 @@ const card: SheetCardData = {
   layoutName: "Sheet 1",
   kind: "paper",
   format: "DWG",
-  scheme: "DXF_HANDLE",
+  schemes: ["DXF_HANDLE"],
   thumbnail: null,
   proposal: { number: "A-101", title: "Ground floor plan", discipline: STANDS_AS, basis: "title block", cited: [] },
   confirmed: null,

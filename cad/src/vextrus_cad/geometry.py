@@ -62,17 +62,21 @@ def flatten(entity: Any, tolerance: float = FLATTEN_TOLERANCE) -> tuple[list[Poi
     if total <= FLATTEN_POINT_CAP:
         return [(quantise(v.x), quantise(v.y)) for v in path.flattening(tolerance)], False
 
-    # `total - 1` over `cap - 1` steps lands on 0 and on the last vertex, and every index between
-    # them once: the sample is the cap's worth, spread over the whole curve.
-    kept = {
-        round(step * (total - 1) / (FLATTEN_POINT_CAP - 1)) for step in range(FLATTEN_POINT_CAP)
-    }
+    kept = capped_indices(total)
     points = [
         (quantise(vertex.x), quantise(vertex.y))
         for index, vertex in enumerate(path.flattening(tolerance))
         if index in kept
     ]
     return points, True
+
+
+def capped_indices(total: int) -> set[int]:
+    """Which of a flattening's `total` vertices survive the point cap: `total - 1` over `cap - 1`
+    steps lands on 0 and on the last vertex, and every index between them once — the sample is the
+    cap's worth, spread over the whole curve. One rule for every lane that flattens (the DXF curves
+    above, the PDF Béziers in `pdf.py`)."""
+    return {round(step * (total - 1) / (FLATTEN_POINT_CAP - 1)) for step in range(FLATTEN_POINT_CAP)}
 
 
 def drop_closing_vertex(points: list[Point]) -> list[Point]:

@@ -11,6 +11,8 @@ import hashlib
 import json
 from typing import Final
 
+from .keys import QUANTUM
+
 #: How deep INSERT explosion recurses before it refuses and says so (L-CAD-03).
 EXPLODE_DEPTH_CAP: Final = 8
 
@@ -56,5 +58,51 @@ PARAMETER_SET: Final[dict[str, float | int]] = {
 
 def parameter_set_hash() -> str:
     """The 64-hex identity of the pinned parameter set, half of what scopes every source key."""
-    canonical = json.dumps(PARAMETER_SET, sort_keys=True, separators=(",", ":"))
+    return _hash(PARAMETER_SET)
+
+
+# ---- the vector-PDF lane's own parameter set (R-TO-002) -------------------------------------------
+#
+# L-CAD-02 pins "version + parameter-set hash PER SCHEME", so a PDF_OBJECT key is scoped to these
+# values and never to the DXF set above: the two lanes read different files at different
+# resolutions, and moving one lane's parameter must re-key that lane's corpora and nobody else's.
+# The DXF hash above is unmoved by this set's existence — the committed DXF artifacts spell it.
+
+#: How finely a PDF Bézier is flattened, as a length ON THE PAGE: 0.01 pt (about 0.0035 mm of
+#: paper), ten times the grid a key is digested on. Page space is paper, never the world (the
+#: insunits Interpretation in `units.py`), so the tolerance is stated in the page's own unit.
+PDF_FLATTEN_TOLERANCE_PT: Final = 0.01
+
+#: The grid a PDF object's page-space geometry is quantised to before it is digested (L-CAD-02) —
+#: read from the grid `keys.quantum` really rounds on, never re-spelled, so the identity this set
+#: hashes and the rounding the keys are minted at cannot drift apart (B-17).
+PDF_KEY_QUANTUM_PT: Final = float(QUANTUM)
+
+#: The canonical string's own version: how a page object is spelled for its digest. Changing the
+#: spelling — a field added, the multi-subpath mapping moved — re-keys every PDF, so it is part of
+#: the identity like any other parameter.
+PDF_CANONICAL: Final = "pdf-object/1"
+
+PDF_PARAMETER_SET: Final[dict[str, float | int | str]] = {
+    "canonical": PDF_CANONICAL,
+    "coordinate_precision": COORDINATE_PRECISION,
+    "derived_entity_budget": DERIVED_ENTITY_BUDGET,
+    "explode_depth_cap": EXPLODE_DEPTH_CAP,
+    "flatten_point_cap": FLATTEN_POINT_CAP,
+    "flatten_tolerance_pt": PDF_FLATTEN_TOLERANCE_PT,
+    "key_quantum_pt": PDF_KEY_QUANTUM_PT,
+    "stray_lower_percentile": STRAY_LOWER_PERCENTILE,
+    "stray_upper_percentile": STRAY_UPPER_PERCENTILE,
+    "stray_window_margin": STRAY_WINDOW_MARGIN,
+}
+
+
+def pdf_parameter_set_hash() -> str:
+    """The 64-hex identity of the PDF lane's pinned parameter set — half of what scopes every
+    PDF_OBJECT key; pypdfium2's version is the other half."""
+    return _hash(PDF_PARAMETER_SET)
+
+
+def _hash(parameters: dict[str, float | int | str]) -> str:
+    canonical = json.dumps(parameters, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

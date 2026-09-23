@@ -77,8 +77,9 @@ Dropzone; the one OfferedGroups; the one ConsequenceDialog; the one RefusalState
   assembled: a group of one is still a typed key with server-resolved membership, and no
   multi-select exists anywhere on the screen. A confirmed sheet renders no chooser.
 - **I-85 — every fidelity fact renders, zeros included** *(amended by I-323: inside a disclosure whose summary counts the notable ones)*. A fact suppressed at zero would
-  make "no badge" mean both "nothing was lost" and "this build forgot the fact". All five
-  `FIDELITY_FACTS` names render on every card; a non-zero or true fact adds
+  make "no badge" mean both "nothing was lost" and "this build forgot the fact". All
+  `FIDELITY_FACTS` names (seven, by I-520 and I-521) render on every card; a non-zero or true
+  fact adds
   `data-notable="true"` and a warn border — a second channel behind the number, which is the
   primary one (refusal-state I-9). No danger colour: a truncation is a fact, not a failure.
 - **I-86 — the group sentence is composed here; the module answers a name.**
@@ -397,6 +398,140 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   - `j-010-sheet-card.png` moves. `drawings.cards.first()` is now F-RCC6's FOUNDATION PLAN sheet,
     where it was its model space; the gate re-takes it.
 
+- **I-511 — a vector PDF is read page by page, and a page is a paper sheet (session 8, M4P-1;
+  R-TO-002, L-CAD-01..05, R-TO-004).** The ingest door takes `pdf` beside `dxf` and `dwg`
+  (`ingest/request.ts`); `png`, `jpg` and `tiff` are still stored and refused by name at the door
+  until the vectoriser lands (R-TO-003), and so, in the job, is a PDF that draws no path or text on
+  any page (I-521). `cad/` reads the file through pypdfium2 — now a shipped
+  dependency pinned exactly, its version half of every PDF key's scope — and writes one EntityGraph v3
+  (`cad/src/vextrus_cad/pdf.py`). Each page is one **paper** layout named `Page 1`, `Page 2` … — its
+  place in the file, the address the viewer opens it at. Its number and title are the grammar's to
+  read, exactly as a DXF paper sheet's are (I-364): F-RCC6-BNBC's vector set gives 27 cards, and
+  `Page 11` proposes **S-10 · COLUMN LAYOUT PLAN**, STRUCTURAL, from its own numbered title line
+  (`tests/cad/pdf-sheets.test.ts` reads all 27 against the generator's roster). What each page object
+  becomes:
+  1. **A path is one LWPOLYLINE per subpath**, each keyed by its own digest. A path of three dashes is
+     three entities; a ring with a hole is two closed rings, each with its shoelace area. Taken over
+     "one entity with rings" because the EntityGraph's vocabulary is one ring per record — every reader
+     of it (the viewer, the partition, the outline readers) already speaks that, and a multi-ring
+     record would be a second dialect. Béziers are spelled whole in the key's canonical string and
+     flattened for the record by Wang's formula at 0.01 pt of paper (`PDF_FLATTEN_TOLERANCE_PT`).
+     Changing this mapping re-keys every PDF, so it is part of the PDF parameter set
+     (`PDF_CANONICAL = "pdf-object/1"`) and moving it is a declared re-ingest.
+  2. **Page space is the page as it is shown.** Coordinates are PostScript points measured from the
+     crop box's lower-left corner, with the page's `/Rotate` applied, so a sheet stored turned reads
+     upright and its texts carry the turn a reader sees. L-CAD-02's "page-space geometry" is read as
+     this frame.
+- **I-512 — a PDF key is a content digest over L-CAD-02's canonical string (L-CAD-02).**
+  `PDF_OBJECT:` then the whole sha256, uppercase, over `page index | object type | geometry` —
+  `path|M x,y L x,y C … Z`, `text|anchor|height|string`, `image|four corners`,
+  `form|placement|definition digest` — every coordinate rounded half-even to 0.001 pt at fixed
+  precision (`cad/src/vextrus_cad/keys.py`). Colour, width, dash, fill and font take no part. The whole
+  digest, never a prefix: a truncated one collides where the drawing does not. Two objects of one
+  page with one digest are one entity; the second collapses and is counted per page and type on the
+  page's counters row (`collapsed`) and named on the extractor's stream (`OBJECTS_COLLAPSED`).
+  F-RCC6-BNBC's set collapses 261 duplicated strokes over 27 pages; every one of its 5,458 paths,
+  4,336 texts and 2 images is an entity or a named collapse (`cad/tests/test_pdf.py`).
+- **I-513 — a PDF reports no world unit, and that is this extractor's reading, not the file's.** A
+  PDF has no `$INSUNITS`. Its points are paper, and a length on paper is no length in the building
+  until a scale says how many of one make the other. The artifact reports the vocabulary's word for
+  "no world unit stated" — code 0, `unitless`, mapped (`units.page_space()`) — which leaves the
+  drawing-unit rung of the scale ladder empty. The card therefore reads **No scale of record**
+  (`unaffirmed`), never "unplaceable": the page has extents, and its scale is a QS's to affirm by two
+  cited points once the page is partitioned (M4P-2).
+- **I-514 — a text's height is its matrix's, and its words are the text layer's own.** The height
+  is the font size times the length of the object matrix's y axis in page space — never the font size
+  alone, which is text space (S-10's title reads 3.2 and stands 9.07 pt, 3.2 mm of paper). The anchor
+  is the baseline origin (left, baseline: halign 0, valign 0); the rotation the matrix's x axis. The
+  string is the characters pdfium's text layer assigns to that object, leaving out every character
+  the layer generated between objects, so a text says what its object says. Where the layer drops a
+  text that repeats an earlier one over itself (a doubled stroke for bold), the object takes that
+  earlier text's words, so a true repeat collapses by its digest; one the layer carries no character
+  of is taken with no words and named (`TEXT_NOT_DECODED`).
+- **I-515 — an image is listed, never measured.** An embedded image is an IMAGE original at its
+  placement: its four corners as a frame with no `area`, drawn in the canvas ink, and named on
+  the extractor's stream (`EMBEDDED_IMAGE`). The frame is written open, its first corner restated at
+  its end so it draws whole (amended by I-521); its key is the four corners. None of its pixels is geometry until the raster lane
+  traces them (R-TO-003). A smooth shading paints colour and no line: counted, named
+  (`SHADING_NOT_TAKEN`), not taken. Clipping paths are not applied — the artifact carries what the
+  page holds, as a DXF's wipeout is (the `WIPEOUT` precedent).
+- **I-516 — a Form XObject is a block reference.** It is an INSERT original keyed by its placement
+  and content, carrying a v3 `block` identity: `definition_sha256` over the sorted multiset of its
+  children's canonical strings in the form's own space (so one symbol keeps one digest wherever it is
+  placed, I-416), the name `XOBJECT-` and the digest's first twelve characters (a form has no name a
+  reader could print), and its placement as a DXF reference's is spelled (origin, x-axis angle, axis
+  lengths, `mirrored`). Its paint explodes to page space into `derived`, every piece carrying `src`,
+  under the same depth cap and derived-entity budget as a DXF's, every trip counted (L-CAD-03). The
+  INSERT states no colour of its own (`byblock`); each piece states its object's own RGB as
+  `truecolor`, the colour the PDF states for it.
+- **I-517 — an optional-content group is the layer.** An object marked into a group stands on the
+  group's name; paint inside a form stands on its own group or the form's. An object outside every
+  group stands on `0`, CAD's default layer. The v3 layer table restates every such layer as on, thawed
+  and plotted: pdfium exposes no reading of a file's optional-content configuration, and a plotted set
+  shows every group it carries — a file that ships a group hidden by default is restated as shown,
+  which is listed for its owner, not solved here.
+- **I-518 — the ingest record pins one extractor identity per scheme (L-CAD-02: "version +
+  parameter-set hash per scheme").** The artifact's `ingest` names the extractor that read the file and
+  the scheme it mints (`DXF_HANDLE` ezdxf, `PDF_OBJECT` pypdfium2, `RASTER_TRACE` the vectoriser), with
+  a parameter set of that lane's own — the PDF set hashes apart from the DXF set, which is unmoved.
+  Beside a PDF's, and only there, an optional `trace` pins the vectoriser's identity for pages that also
+  mint `RASTER_TRACE` keys (R-TO-003's mixed page, M4P-3 writes it). Both mirrors refuse a key of a
+  scheme the record pins no identity for, a digest key that is not a whole sha256, and a `trace` beside
+  anything but a PDF. The store follows (migration `ingest-schemes`): `ingests_extractor_scheme_closed`
+  admits the closed set and no other spelling, and `trace_tool` / `trace_tool_version` /
+  `trace_parameter_set_hash` are whole or absent and ride only beside `PDF_OBJECT`
+  (`ingests_trace_identity_whole`).
+- **I-519 — a card shows the schemes its own keys are of (amends §1 Badges and I-323's
+  one scheme badge).** The scheme rides per key, never per drawing, so the card's scheme badges are
+  read from the sheet's own originals' keys, one `sheet-card-scheme` badge per scheme in the law's
+  order, each carrying `data-scheme`; a sheet holding no original reads as its record's extractor's
+  scheme. A DXF card keeps its one **CAD vector** badge; a PDF page reads **PDF vector**; a page
+  carrying a pasted scan will read both **PDF vector** and **Traced raster** once M4P-3 lands. A cited
+  key's chip (I-96) shows a content digest by IdChip's own short form — its leading seven characters —
+  where it shows a handle whole: a 64-character digest is wider than the card, and the whole key stays
+  in the chip's tooltip, its copy and its `data-value` (amends I-96's "the key's own tail as the
+  measure" for digest schemes only; a DXF card renders as before).
+- **I-520 — collapses are a fidelity fact, counted and never flagged (amends I-85's roster and
+  its notability).** `FIDELITY_FACTS` gains `collapsed` after `flatten_capped`: a page's objects that
+  collapsed onto an identical earlier one, read **Duplicates collapsed** (`drawings_fact_collapsed`).
+  It is the one fact in `UNFLAGGED_FACTS` (`src/core/sheets/law.ts`): its count renders, and it never
+  sets `data-notable` or adds to the summary's count, because a duplicate collapsed onto its twin is
+  one object read once — nothing was lost, and flagging it put "1 notable" on every one of
+  F-RCC6-BNBC's 27 cards (261 collapses), teaching a reader to ignore the flag the next fact needs
+  them to see. A DXF sheet, keyed by handles that never collide, reports it at zero.
+- **I-521 — what a PDF carries and the lane does not read is named, on the page and at the door
+  (session 8, M4P-1 review; R-TO-001, R-TO-003, L-CAD-04, "measure less, completely, and say so").**
+  1. **A page counts what it did not read.** Each PDF page's counters row carries `unread`, a
+     per-kind tally of the objects it holds whose content is never read as geometry — `IMAGE` (an
+     embedded picture's pixels) and `SHADING` (a smooth shading's colour) — as `collapsed` is carried:
+     both mirrors admit it, a DXF space carries no key, and the record's facts keep it
+     (`ingest/facts.ts`). `FIDELITY_FACTS` gains `unread` after `collapsed`, read **Images and
+     shadings not read** (`drawings_fact_unread`), notable when above zero. F-RCC6-BNBC's vector set
+     names it on Page 1 (the title block's logo) and Page 4 (S-03's pasted hook-detail scan) and
+     nowhere else (`tests/cad/pdf-sheets.test.ts`). Seven facts now render on every card.
+  2. **A scanned PDF is refused by name.** A PDF none of whose pages draws a path or a text — every
+     page a picture — is a scan, and nothing on it is the vector lane's: stored as sheets it would be
+     27 cards labelled **PDF vector** that read nothing and said nothing. `cad/` refuses it
+     `PDF_RASTER_ONLY`, naming its pages and images, and the job ends `SHEET_NOT_INGESTABLE` carrying
+     that line; a PDF with nothing drawn at all is refused `PDF_NO_DRAWING`. No record is written, so
+     no card claims the file was read. The judgement is the whole file's: one drawn page makes it a
+     vector set, and its picture pages are sheets whose `unread` fact is notable. The raster lane
+     (R-TO-003, M4P-3) replaces the refusal with a trace.
+  3. **An image's frame is open.** Its record is written `closed: false`, the first corner restated at
+     its end so the frame still draws whole. Every outline reader of the partition takes a member's
+     section from a closed record, whatever its type; a picture's edge is no member's, and once PDF
+     pages are partitioned (M4P-2) an open frame is one no reader can take for one. The key (the four
+     corners) is unmoved.
+
+  Not closed here, and owed: a scan with an OCR text layer carries invisible text objects, so it is a
+  vector set by this rule and its words are drawn as text; text inside a Form XObject reaches the
+  viewer as derived paint only, so a title block a plotter wraps in a form is not read by the grammar.
+
+  What M4P-1 costs: a PDF page is not partitioned yet (the partition cuts model space only), so its
+  card reads **No views drawn on this sheet** once the record's partition answers, and no scale can be
+  affirmed on it until M4P-2. Its thumbnail draws its vector paint, an image as its frame. The artifact
+  of F-RCC6-BNBC's 27 pages is 5.5 MB and reads in under a second.
+
 ## 1. Layout and hierarchy
 
 Files in the route directory: `page.tsx` (thin server component: reads the two segments,
@@ -549,12 +684,13 @@ card names itself as a region because its last child is a door every card labels
   `drawings_number_none` in `var(--font-ui)` `var(--graphite-600)` when null — prose for
   absence, never a dash (the consequence-dialog `none` precedent). A model-space card renders no
   number slot at all: no set numbers model space, so there is no absence to state (I-429 point 2).
-- **Badges** — on the number's line (I-323), gap `var(--space-2)`: the shipped Badge twice,
-  `data-testid="sheet-card-format"` and `"sheet-card-scheme"`, each holding an `EnumLabel` over the
-  stored value — the format read upper-cased (`DXF`), the scheme read by `drawings_scheme_*`
-  (`CAD vector`) — the stored value in its technical disclosure; each carrying `aria-label`
-  `drawings_format_label` / `drawings_scheme_label` filled with those words so its kind is spoken.
-  *Amends the verbatim-mono reading of I-25 for these two enums (R-UI-082).*
+- **Badges** — on the number's line (I-323), gap `var(--space-2)`: the shipped Badge,
+  `data-testid="sheet-card-format"`, then one `"sheet-card-scheme"` Badge per scheme the sheet's own
+  keys are of, in the law's order, each carrying `data-scheme` (I-519), each holding an
+  `EnumLabel` over the stored value — the format read upper-cased (`DXF`, `PDF`), the scheme read by
+  `drawings_scheme_*` (`CAD vector`, `PDF vector`) — the stored value in its technical disclosure; each
+  carrying `aria-label` `drawings_format_label` / `drawings_scheme_label` filled with those words so its
+  kind is spoken. *Amends the verbatim-mono reading of I-25 for these two enums (R-UI-082).*
 - **Discipline cell** — `<p data-testid="sheet-card-discipline" data-basis="GRAMMAR|NONE|
   CONFIRMED">`: the effective discipline through `EnumLabel` in `drawings_discipline_*`'s words,
   `var(--text-13)` body weight `var(--ink)` (I-323), then beside it the basis sentence
@@ -699,7 +835,9 @@ or no drawing units** · `drawings_views_unclassified` **Views not classified ye
 I-323) · `drawings_fact_strays_rejected` **Strays
 rejected** · `drawings_fact_explode_truncated` **Explode truncated** ·
 `drawings_fact_explode_losses` **Explode losses** · `drawings_fact_flatten_capped` **Flatten
-capped** · `drawings_fact_dropped_layouts` **Dropped layouts** · `drawings_fact_yes` **yes**
+capped** · `drawings_fact_collapsed` **Duplicates collapsed** (I-520) ·
+`drawings_fact_unread` **Images and shadings not read** (I-521) ·
+`drawings_fact_dropped_layouts` **Dropped layouts** · `drawings_fact_yes` **yes**
 · `drawings_fact_no` **no** · `drawings_confirm_legend` **Discipline to confirm** ·
 `drawings_sheet_confirm` **Preview this confirmation** · `drawings_confirm_pending` **Working
 out what this confirmation would do…** · `drawings_confirm_committed` **Recorded. Those
@@ -780,7 +918,8 @@ Routes introduced: `/t/{tenantId}/p/{projectId}/drawings`; the timeline addresse
 Test ids, exactly the contract's, on the elements ruled in §1: `sheet-index` · `sheet-card`
 (`data-sheet`, `data-discipline`, `data-confirmed`) · `sheet-card-thumbnail`
 (`data-pending`) · `sheet-card-title` · `sheet-card-number` · `sheet-card-format` ·
-`sheet-card-scheme` · `sheet-card-scale` (`data-scale`) · `sheet-card-views` ·
+`sheet-card-scheme` (`data-scheme`; one per scheme the sheet's keys are of, I-519) ·
+`sheet-card-scale` (`data-scale`) · `sheet-card-views` ·
 `sheet-card-discipline` (`data-basis`) · `sheet-card-open` (inc-111-viewer-inspector) ·
 `sheet-fact` (`data-fact`, `data-value`,
 `data-notable`) · `sheet-discipline-option` (`data-value`) · `sheet-confirm` ·
@@ -817,7 +956,13 @@ and not the upload's. By I-429 point 3 the first card is F-RCC6's first paper sh
 no longer its model space. By I-359 point 5 the first card stands as tall as its row, so the picture moves
 wherever a neighbour in the first row is taller than it; that re-take is the gate's (never
 `--update-snapshots`), and the masks hold because a `data-said` views line keeps its box. jsdom acceptance mounts `SheetIndex`
-with injected cards, groups and perform: the card anatomy and its data-attributes, all five
-facts including zeros, the three empty causes, search and filter per I-94, the chooser's
+with injected cards, groups and perform: the card anatomy and its data-attributes, every
+fact including zeros (seven, by I-520 and I-521), the three empty causes, search and filter per I-94, the chooser's
 single selection, both settled-refusal renderings, and the dialog handoff carrying exactly
 the pressed group's key. `pnpm e2e --journey J-000` still exits 0.
+
+Journey J-040 (`tests/e2e/journeys/j-040-pdf-and-scan.spec.ts`, M4P-1's step 1): F-RCC6-BNBC's vector
+set is uploaded through the Dropzone; the job timeline reaches `done`; the index holds 27 PDF cards,
+every one reading **PDF vector**; the card for `Page 11` proposes **S-10** / **COLUMN LAYOUT PLAN**;
+its `sheet-card-open` door opens the viewer on that page, whose stage paints. Later M4P slices add
+their steps to the same file, each passing (J-040 holds no fixme).

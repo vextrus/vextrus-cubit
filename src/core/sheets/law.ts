@@ -36,14 +36,25 @@ export type ProposalBasis = (typeof PROPOSAL_BASES)[number];
 
 /**
  * R-TO-001's fidelity counters, as the names a card shows them under. The roster is the set of
- * counters an ingest record carries — the per-layout stray count, the three per-space counters and
- * the record-level dropped layouts — so a card names every loss the extractor reported and no fact
- * the record does not hold.
+ * counters an ingest record carries — the per-layout stray count, the per-space counters and the
+ * record-level dropped layouts — so a card names every loss the extractor reported and no fact the
+ * record does not hold. Two are a PDF page's, and a DXF sheet reports each as none:
+ * `collapsed` — how many of its objects collapsed onto an earlier one with the same content digest
+ * (L-CAD-02, I-520); `unread` — how many images and shadings it carries whose content was never
+ * read as geometry (I-521), the pasted scan a vector page holds.
  */
-export const FIDELITY_FACTS = ["strays_rejected", "explode_truncated", "explode_losses", "flatten_capped", "dropped_layouts"] as const;
+export const FIDELITY_FACTS = ["strays_rejected", "explode_truncated", "explode_losses", "flatten_capped", "collapsed", "unread", "dropped_layouts"] as const;
 
 /** One fidelity fact's name, drawn from the roster above. */
 export type FidelityFact = (typeof FIDELITY_FACTS)[number];
+
+/**
+ * The facts a card counts and never flags as notable, because what they count lost nothing
+ * (I-520): a duplicate collapsed onto its identical twin is one object read once — flagging it put
+ * "1 notable" on nearly every sheet of a vector set and taught a reader to ignore the flag that
+ * `unread` needs them to see.
+ */
+export const UNFLAGGED_FACTS = ["collapsed"] as const satisfies readonly FidelityFact[];
 
 /** What the title-block grammar proposes for one sheet, with the entities it read it from. */
 export type SheetProposal = {

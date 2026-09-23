@@ -119,6 +119,26 @@ TEXT_EXTRUSION_UNREADABLE: Final = "TEXT_EXTRUSION_UNREADABLE"
 #: the depth cap — costs the drawing nothing but its digest, and the detail names which and why.
 BLOCK_DEFINITION_UNREADABLE: Final = "BLOCK_DEFINITION_UNREADABLE"
 
+#: A PDF page carries an embedded image. The lane lists it — an IMAGE record at its placement,
+#: keyed like any page object — and takes none of its pixels as geometry: they are a picture until
+#: the raster lane traces them (R-TO-003), and a picture is never measured (I-515). Counted per
+#: page on the artifact's counters (`unread`), so the page's card says so too (I-521).
+EMBEDDED_IMAGE: Final = "EMBEDDED_IMAGE"
+
+#: Two page objects of one page resolved to the same content digest — the same type, the same
+#: geometry at 0.001 pt, and for a text the same string and height — so they are one source key and
+#: one entity, and the second is collapsed onto the first (L-CAD-02). Counted per page and type on
+#: the artifact's counters; the detail names each page's tally.
+OBJECTS_COLLAPSED: Final = "OBJECTS_COLLAPSED"
+
+#: A PDF smooth shading paints colour across a region and draws no line: nothing of it is geometry,
+#: so it is counted and named rather than turned into any.
+SHADING_NOT_TAKEN: Final = "SHADING_NOT_TAKEN"
+
+#: A PDF text object pdfium's text layer carries no character of, and no earlier text it repeats:
+#: taken at its anchor and height with an empty string, and named, since its words were not read.
+TEXT_NOT_DECODED: Final = "TEXT_NOT_DECODED"
+
 #: Every note code, closed and sorted — the table a test reads rather than a list it re-spells.
 NOTE_CODES: Final[tuple[str, ...]] = tuple(
     sorted(
@@ -129,17 +149,21 @@ NOTE_CODES: Final[tuple[str, ...]] = tuple(
             CONVERSION_UNKNOWN_ENT,
             CURVE_TOLERANCE_NOT_IN_MM,
             DREW_DIMENSION_PICTURES,
+            EMBEDDED_IMAGE,
             EMBEDDED_OBJECT,
             IMAGE_REFERENCE,
             MULTILEADER_NOT_EXPLODED,
+            OBJECTS_COLLAPSED,
             OLE2FRAME,
             PROXY_ENTITY,
             READER_WARNED,
             REJOINED_WRAPPED_TEXT,
             RESYNCED_TAG_STREAM,
+            SHADING_NOT_TAKEN,
             SHX_FONT_UNRESOLVED,
             TEXT_ALIGNMENT_UNREADABLE,
             TEXT_EXTRUSION_UNREADABLE,
+            TEXT_NOT_DECODED,
             TEXT_ROTATION_UNREADABLE,
             WIPEOUT,
             XREF_BOUND,
@@ -162,9 +186,38 @@ HANDLES_NOT_UNIQUE: Final = "HANDLES_NOT_UNIQUE"
 #: The bytes could not be read off the file system at all — an outage, not a drawing's fault.
 SOURCE_NOT_READABLE: Final = "SOURCE_NOT_READABLE"
 
+#: The bytes are not a PDF pdfium can open — damaged, truncated, or locked behind a password nobody
+#: gave. The detail carries pdfium's own reason (L-CAD-04).
+PDF_UNREADABLE: Final = "PDF_UNREADABLE"
+
+#: A PDF that opened and could not be read through: a page object whose geometry leaves the finite
+#: world, or a page pdfium could not load.
+PDF_UNEXTRACTABLE: Final = "PDF_UNEXTRACTABLE"
+
+#: A PDF none of whose pages draws a path or a text, and at least one of which holds an image — a
+#: scanned set. The vector lane reads no pixel, so nothing on it is this lane's to take: it waits on
+#: the raster lane (R-TO-003), and is refused by name rather than stored as sheets that look read and
+#: say nothing (I-521). The detail counts the pages and the images.
+PDF_RASTER_ONLY: Final = "PDF_RASTER_ONLY"
+
+#: A PDF whose pages carry no path, no text and no image at all — nothing drawn to take, and no sheet
+#: to show for it (I-521).
+PDF_NO_DRAWING: Final = "PDF_NO_DRAWING"
+
 #: Every refusal code, closed and sorted.
 REFUSAL_CODES: Final[tuple[str, ...]] = tuple(
-    sorted((DXF_UNEXTRACTABLE, DXF_UNREADABLE, HANDLES_NOT_UNIQUE, SOURCE_NOT_READABLE))
+    sorted(
+        (
+            DXF_UNEXTRACTABLE,
+            DXF_UNREADABLE,
+            HANDLES_NOT_UNIQUE,
+            PDF_NO_DRAWING,
+            PDF_RASTER_ONLY,
+            PDF_UNEXTRACTABLE,
+            PDF_UNREADABLE,
+            SOURCE_NOT_READABLE,
+        )
+    )
 )
 
 #: What every note line on stderr begins with, so a reader can find them among whatever else the

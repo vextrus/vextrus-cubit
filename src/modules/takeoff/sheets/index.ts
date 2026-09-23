@@ -34,7 +34,8 @@ export type SheetCard = {
   readonly layoutName: string;
   readonly kind: "model" | "paper";
   readonly format: string;
-  readonly scheme: string;
+  /** The schemes the sheet's own keys are of, in the law's order (L-CAD-02, I-519). */
+  readonly schemes: readonly string[];
   readonly thumbnail: { readonly url: string; readonly width: number; readonly height: number } | null;
   readonly proposal: SheetProposal;
   readonly confirmed: { readonly discipline: Discipline; readonly actId: string } | null;
@@ -213,14 +214,14 @@ function confirmationsBySheet(confirmations: readonly SheetConfirmation[]): Map<
 }
 
 /** What a card carries straight off the core reading, unchanged. */
-function cardFacts(sheet: SheetFacts): Pick<SheetCard, "sheetId" | "drawingId" | "ingestId" | "layoutName" | "kind" | "scheme" | "proposal" | "scaleState" | "facts"> {
+function cardFacts(sheet: SheetFacts): Pick<SheetCard, "sheetId" | "drawingId" | "ingestId" | "layoutName" | "kind" | "schemes" | "proposal" | "scaleState" | "facts"> {
   return {
     sheetId: sheet.sheetId,
     drawingId: sheet.drawingId,
     ingestId: sheet.ingestId,
     layoutName: sheet.layoutName,
     kind: sheet.kind,
-    scheme: sheet.scheme,
+    schemes: sheet.schemes,
     proposal: sheet.proposal,
     scaleState: sheet.scaleState,
     facts: sheet.facts,

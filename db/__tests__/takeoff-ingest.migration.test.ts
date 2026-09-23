@@ -53,6 +53,19 @@ const COMMITTED_ARTIFACT = join(REPO_ROOT, "cad", "tests", "fixtures", "basic.en
 /** A scheme no extractor in any lane could mint — how "the list is closed" is told from "the list is text". */
 const NOT_A_SCHEME = "SCHEME_NOTHING_MINTS";
 
+/**
+ * Near-spellings of the schemes the widened list admits (M4P-1): a closed list is one of exact
+ * words, so a record naming a scheme in another case, with another separator or pluralised names
+ * none of them.
+ */
+const OTHER_SPELLINGS = ["pdf_object", "PDF-OBJECT", "PDF_OBJECTS", "Raster_Trace", "RASTER TRACE", "DXF_HANDLES", ""];
+
+/** The vectoriser's identity a PDF record may pin beside its own (I-518): all three, or none. */
+const TRACE_COLUMNS = ["trace_tool", "trace_tool_version", "trace_parameter_set_hash"] as const;
+
+/** The scheme a vectoriser's identity may ride beside — a PDF page carrying a pasted scan. */
+const TRACED_BESIDE = "PDF_OBJECT";
+
 /** The reason a system-scoped statement of this suite is made under — attributable, like any other. */
 const REASON = "test: grade the ingest record's posture";
 
@@ -127,10 +140,11 @@ async function indexes(): Promise<Map<string, string>> {
 }
 
 /** One row this suite writes for itself, under a fresh job id, to see whether it holds still. */
-function insertRow(stage: Stage, jobId: string, scheme: string = SCHEME): string {
-  return `insert into ${ident(TABLE)} (${ident(TENANT_COLUMN)}, drawing_id, sha256, job_id, artifact_sha256, extractor_scheme, extractor_tool, extractor_tool_version, extractor_parameter_set_hash, facts)
+function insertRow(stage: Stage, jobId: string, scheme: string = SCHEME, trace: readonly (string | null)[] = [null, null, null]): string {
+  const traced = trace.map((value) => (value === null ? "null" : lit(value))).join(", ");
+  return `insert into ${ident(TABLE)} (${ident(TENANT_COLUMN)}, drawing_id, sha256, job_id, artifact_sha256, extractor_scheme, extractor_tool, extractor_tool_version, extractor_parameter_set_hash, ${TRACE_COLUMNS.join(", ")}, facts)
             values (${lit(stage.tenantId)}::uuid, ${lit(stage.drawingId)}::uuid, ${lit("b".repeat(64))}, ${lit(jobId)}, ${lit("c".repeat(64))},
-                    ${lit(scheme)}, 'ezdxf', '0.0.0', ${lit("d".repeat(64))}, '{"insunits":null}'::json);`;
+                    ${lit(scheme)}, 'ezdxf', '0.0.0', ${lit("d".repeat(64))}, ${traced}, '{"insunits":null}'::json);`;
 }
 
 /**
@@ -243,6 +257,15 @@ describe("AC-1 — the ingest record is declared once, migrated, and holds still
     }
     expect(held.get("supersedes_ingest_id")?.type, "a superseded record is named by its id").toBe("uuid");
     expect(held.get("declared_reason")?.type, "a declared reason is text a person wrote").toBe("text");
+
+    // The identity is pinned PER SCHEME (L-CAD-02, I-518): a vectoriser's beside a PDF's, which a
+    // record that minted no traced key has nothing to say about.
+    for (const traced of TRACE_COLUMNS) {
+      const column = held.get(traced);
+      expect(column, `public.${TABLE}.${traced} is owed by M4P-1's per-scheme identity`).toBeTruthy();
+      expect(column?.type, `public.${TABLE}.${traced} is text`).toBe("text");
+      expect(column?.nullable, `public.${TABLE}.${traced} is empty where the pages minted no traced key`).toBe(true);
+    }
   });
 
   it("AC-1: a record points at a drawing that exists, and the only closed list is the extractor scheme", async () => {
@@ -257,15 +280,17 @@ describe("AC-1 — the ingest record is declared once, migrated, and holds still
       `public.${TABLE} must point at public.${DRAWINGS} by drawing_id — a record of an ingest of nothing is not a record`,
     ).toBe(true);
 
-    const checks = run(
-      bootstrapUrl,
-      `select conname, pg_get_constraintdef(oid) from pg_constraint where conrelid = ${lit(`public.${TABLE}`)}::regclass and contype = 'c';`,
+    const checks = new Map(
+      run(
+        bootstrapUrl,
+        `select conname, pg_get_constraintdef(oid) from pg_constraint where conrelid = ${lit(`public.${TABLE}`)}::regclass and contype = 'c';`,
+      ).map((row) => [row[0] ?? "", row[1] ?? ""]),
     );
     expect(
-      checks.length,
-      `public.${TABLE} carries exactly one CHECK — the closed extractor scheme. It carries ${checks.length}: ${checks.map((row) => row[0]).join(", ")}. Whether a declared reason and a superseded id go together is judged at the seam, where a refusal can be answered.`,
-    ).toBe(1);
-    const definition = checks[0]?.[1] ?? "";
+      [...checks.keys()].sort(),
+      `public.${TABLE} carries exactly two CHECKs — the closed extractor scheme, and the per-scheme identity whole or absent (I-518). Whether a declared reason and a superseded id go together is judged at the seam, where a refusal can be answered.`,
+    ).toEqual(["ingests_extractor_scheme_closed", "ingests_trace_identity_whole"]);
+    const definition = checks.get("ingests_extractor_scheme_closed") ?? "";
     expect(definition, "the CHECK closes `extractor_scheme`").toContain("extractor_scheme");
 
     // WHICH schemes the list holds is not written down here. The rule is that the table admits
@@ -275,7 +300,10 @@ describe("AC-1 — the ingest record is declared once, migrated, and holds still
     // mirror) widens both sides of this comparison together.
     const stage = await staged();
     const { universe, wired } = await schemeLanes();
-    for (const scheme of [...universe, NOT_A_SCHEME]) {
+    // M4P-1: the vector-PDF lane mints PDF_OBJECT and the raster lane's vocabulary RASTER_TRACE, so the
+    // mirror admits L-CAD-02's closed set whole — and the table admits exactly that, no spelling of it.
+    expect(wired, "the mirror admits every scheme L-CAD-02 names as an artifact's own").toEqual(universe);
+    for (const scheme of [...universe, NOT_A_SCHEME, ...OTHER_SPELLINGS]) {
       const attempt = psql(stage.bootstrapUrl, withSession({ [GUC_SYSTEM_REASON]: REASON }, insertRow(stage, `scheme-${randomUUID()}`, scheme)));
       if (wired.includes(scheme)) {
         expect(attempt.ok, `'${scheme}' is a scheme the product mints, so a record may name it:\n${attempt.stderr.slice(-600)}`).toBe(true);
@@ -283,6 +311,31 @@ describe("AC-1 — the ingest record is declared once, migrated, and holds still
       }
       expect(attempt.ok, `nothing mints '${scheme}' today, so no record may claim it did (the CHECK stands: ${definition})`).toBe(false);
       expect(attempt.sqlstate, `and it is the closed list that refused '${scheme}', not something else about the row`).toBe("23514");
+    }
+  });
+
+  it("M4P-1: a vectoriser's identity is whole or absent, and rides only beside a PDF's (I-518)", async () => {
+    const stage = await staged();
+    const whole = ["opencv-lsd", "4.13.0", "e".repeat(64)] as const;
+    const attempts: [string, string, readonly (string | null)[], boolean][] = [
+      ["a PDF record with the vectoriser's whole identity beside it", TRACED_BESIDE, whole, true],
+      ["a PDF record with none", TRACED_BESIDE, [null, null, null], true],
+      ["a DXF record with none", SCHEME, [null, null, null], true],
+      ["a PDF record naming the vectoriser's tool and nothing else", TRACED_BESIDE, [whole[0], null, null], false],
+      ["a PDF record naming the vectoriser with no parameter-set hash", TRACED_BESIDE, [whole[0], whole[1], null], false],
+      ["a PDF record naming a version and nothing else", TRACED_BESIDE, [null, whole[1], null], false],
+      ["a DXF record with a vectoriser's identity beside it", SCHEME, whole, false],
+      ["a scan's record with a second vectoriser identity", "RASTER_TRACE", whole, false],
+    ];
+    for (const [what, scheme, trace, admitted] of attempts) {
+      const attempt = psql(stage.bootstrapUrl, withSession({ [GUC_SYSTEM_REASON]: REASON }, insertRow(stage, `trace-${randomUUID()}`, scheme, trace)));
+      if (admitted) {
+        expect(attempt.ok, `${what} is a record L-CAD-02 allows:\n${attempt.stderr.slice(-600)}`).toBe(true);
+        continue;
+      }
+      expect(attempt.ok, `${what} pins half an identity, or one beside the wrong scheme — refused`).toBe(false);
+      expect(attempt.sqlstate, `and it is the identity CHECK that refused ${what}`).toBe("23514");
+      expect(attempt.stderr, `the refusal names the constraint for ${what}`).toContain("ingests_trace_identity_whole");
     }
   });
 

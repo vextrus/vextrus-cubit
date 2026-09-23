@@ -1,7 +1,9 @@
 """`vextrus-cad` — the one-shot extraction command (L-CAD-01).
 
 One drawing revision in, one EntityGraph artifact out, then the process ends: stateless, a temp
-directory per invocation, loud failures (L-CAD-04). `ingest` is the only subcommand.
+directory per invocation, loud failures (L-CAD-04). `ingest` is the only subcommand, and the file's
+own bytes decide its lane: a DWG converts through LibreDWG and reads as DXF, a PDF reads through
+pdfium (R-TO-002), and anything else is read as DXF — or refused by name as one.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from . import report
 from .dwg import DwgError, convert_dwg, losses_by_space
 from .ingest import IngestError, ingest_dxf
 from .model import EntityGraphError, parse_entity_graph
+from .pdf import ingest_pdf
 from .serialise import write_artifact
 
 #: Nothing was written, and the drawing was named on stderr.
@@ -29,7 +32,9 @@ def _parser() -> argparse.ArgumentParser:
         description="Turn a drawing file into one EntityGraph artifact, and stop.",
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
-    ingest = subcommands.add_parser("ingest", help="ingest a DXF or DWG file into an EntityGraph artifact")
+    ingest = subcommands.add_parser(
+        "ingest", help="ingest a DXF, DWG or PDF file into an EntityGraph artifact"
+    )
     ingest.add_argument("input", help="the drawing to read")
     ingest.add_argument("--out", required=True, help="where to write the EntityGraph artifact")
     return parser
@@ -42,6 +47,23 @@ def _is_dwg(path: Path) -> bool:
         with path.open("rb") as stream:
             magic = stream.read(6)
             return magic.startswith(b"AC")
+    except OSError:
+        return False
+
+
+#: A PDF's header, which the format allows anywhere in the file's first kilobyte (ISO 32000-1 7.5.2).
+_PDF_MAGIC = b"%PDF-"
+_PDF_HEADER_WINDOW = 1024
+
+
+def _is_pdf(path: Path) -> bool:
+    """A PDF is known by its header, never by its name alone: a `.pdf` that is not one is refused by
+    pdfium under its own name (PDF_UNREADABLE), and a PDF uploaded under another name still reads."""
+    if path.suffix.lower() == ".pdf":
+        return True
+    try:
+        with path.open("rb") as stream:
+            return _PDF_MAGIC in stream.read(_PDF_HEADER_WINDOW)
     except OSError:
         return False
 
@@ -90,6 +112,8 @@ def _ingest(source: str, destination: str) -> int:
                 artifact = ingest_dxf(
                     conversion.dxf_path, notes, losses_by_space(conversion.refused)
                 )
+        elif _is_pdf(source_path):
+            artifact = ingest_pdf(source_path, notes)
         else:
             artifact = ingest_dxf(source_path, notes)
         # The artifact is the whole hand-off across the seam (L-CAD-05), so the extractor reads its

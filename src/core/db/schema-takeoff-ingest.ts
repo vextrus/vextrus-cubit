@@ -8,7 +8,7 @@
 // Nothing here reaches the seam, the pools or the jobs store: those are built over the schema, so the
 // dependency runs one way and no cycle is representable (ARCH-01, ARCH-02).
 
-import { INGEST_SCHEME } from "../entitygraph/schema";
+import { INGESTED_SCHEMES, TRACED_BESIDE } from "../entitygraph/schema";
 import type { SourceScheme } from "../model";
 import { drawings } from "./schema-drawings";
 import { closedList } from "./sql";
@@ -16,16 +16,23 @@ import { sql as statement } from "drizzle-orm";
 import { check, index, json, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 /**
- * The schemes an extractor is wired to mint today, out of L-CAD-02's closed universe. The column
- * below closes on this list, so a record can only ever name geometry something really took — a lane
- * landing later widens the list where its mirror admits the scheme, not here (B-19).
+ * The schemes an ingest record may name as its extractor's, read from the one list the EntityGraph
+ * mirror admits as an artifact's own `ingest.scheme` — L-CAD-02's closed set, whole (R-TO-002 reads a
+ * vector PDF under PDF_OBJECT, R-TO-003 a scan under RASTER_TRACE). The column below closes on it, so
+ * a record can only ever name a scheme some artifact could have pinned, and never a spelling of one
+ * (B-19).
  */
-const INGESTED_SCHEMES = [INGEST_SCHEME] as const satisfies readonly SourceScheme[];
+const SCHEMES_CLOSED = INGESTED_SCHEMES satisfies readonly SourceScheme[];
 
 /**
  * R-TO-001's ingest record: which extractor, at which version and parameter set, took which
  * geometry out of which bytes, and what it counted while doing it (L-CAD-02 pins the identity a
  * source key is scoped to).
+ *
+ * The identity is pinned PER SCHEME (L-CAD-02: "version + parameter-set hash per scheme", I-518).
+ * `extractor_*` is the extractor that read the file and the scheme it minted; `trace_*` is the
+ * vectoriser's, present only where the same pages also minted RASTER_TRACE keys beside PDF_OBJECT
+ * ones (R-TO-003's mixed page) — all three or none, and only beside a PDF's, which the CHECK holds.
  *
  * It is evidence, so it is append-only and a re-ingest never replaces one: a declared re-ingest
  * writes a new row naming the row it supersedes and the reason it was asked for, and a first ingest
@@ -50,13 +57,21 @@ export const ingests = pgTable(
     extractorTool: text("extractor_tool").notNull(),
     extractorToolVersion: text("extractor_tool_version").notNull(),
     extractorParameterSetHash: text("extractor_parameter_set_hash").notNull(),
+    traceTool: text("trace_tool"),
+    traceToolVersion: text("trace_tool_version"),
+    traceParameterSetHash: text("trace_parameter_set_hash"),
     facts: json("facts").$type<Readonly<Record<string, unknown>>>().notNull(),
     supersedesIngestId: uuid("supersedes_ingest_id"),
     declaredReason: text("declared_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    check("ingests_extractor_scheme_closed", statement`${table.extractorScheme} in (${statement.raw(closedList(INGESTED_SCHEMES))})`),
+    check("ingests_extractor_scheme_closed", statement`${table.extractorScheme} in (${statement.raw(closedList(SCHEMES_CLOSED))})`),
+    // A second identity is a whole identity or none, and it rides only beside a PDF's (I-518).
+    check(
+      "ingests_trace_identity_whole",
+      statement`(${table.traceTool} is null and ${table.traceToolVersion} is null and ${table.traceParameterSetHash} is null) or (${table.traceTool} is not null and ${table.traceToolVersion} is not null and ${table.traceParameterSetHash} is not null and ${table.extractorScheme} = ${statement.raw(closedList([TRACED_BESIDE]))})`,
+    ),
     // One job writes one record, however many times its attempt runs (SEAM-JOBS' idempotence).
     uniqueIndex("ingests_job_once").on(table.tenantId, table.jobId),
     // The read every ingest history makes: one drawing's records, newest first.

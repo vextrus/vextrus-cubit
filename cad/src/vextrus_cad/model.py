@@ -17,20 +17,25 @@ import re
 from dataclasses import dataclass
 from typing import Any, Final
 
+from . import keys
 from .ingest import (
     ATTACHMENT_CODES,
     ENTITYGRAPH_FLOOR,
     ENTITYGRAPH_VERSION,
     HALIGN_CODES,
-    SCHEME,
     VALIGN_CODES,
 )
 from .units import INSUNITS
 
-#: A source key: the closed scheme, then the file's own handle in uppercase hex (L-CAD-02).
-#: `\Z` rather than `$`, so a trailing newline is no more admissible here than it is to the Zod
+#: A source key: a scheme of L-CAD-02's closed set, then the extractor's key in uppercase hex — the
+#: file's own handle for DXF_HANDLE, a whole sha256 for the two digest schemes (`keys.py`). `\Z`
+#: rather than `$` there, so a trailing newline is no more admissible here than it is to the Zod
 #: mirror's `$` — the two sides are one shape, not two tolerances (L-CAD-05).
-SOURCE_KEY: Final = re.compile(rf"^{SCHEME}:[0-9A-F]+\Z")
+SOURCE_KEY: Final = keys.SOURCE_KEY
+
+#: The identity of the vectoriser that minted a record's RASTER_TRACE keys beside its PDF_OBJECT
+#: ones — a mixed page mints both (L-CAD-02: "version + parameter-set hash per scheme", I-518).
+_TRACE_KEYS: Final = frozenset({"tool", "tool_version", "parameter_set_hash"})
 
 PARAMETER_SET_HASH: Final = re.compile(r"^[0-9a-f]{64}\Z", re.IGNORECASE)
 
@@ -307,7 +312,9 @@ def _entity_fields(record: dict[str, Any], where: str, version: int, *, original
 def _source_key(value: Any, where: str) -> str:
     key = _string(value, where)
     if SOURCE_KEY.match(key) is None:
-        _fail(where, f"{key!r} is not a {SCHEME} source key")
+        _fail(where, f"{key!r} is not a source key of {', '.join(keys.SCHEMES)}")
+    if keys.scheme_of(key) in keys.DIGEST_SCHEMES and keys.DIGEST.match(key.split(":", 1)[1]) is None:
+        _fail(where, f"{key!r} is a digest scheme's key, which is a whole sha256 (L-CAD-02)")
     return key
 
 
@@ -326,16 +333,35 @@ def _derived(value: Any, where: str, keys: set[str], version: int) -> None:
         _fail(f"{where}.src", "names no original entity (L-CAD-03)")
 
 
-def _ingest_record(value: Any) -> None:
-    record = _object(value, "ingest")
-    _closed_keys(record, frozenset({"scheme", "tool", "tool_version", "parameter_set_hash"}), "ingest")
-    if _string(record.get("scheme"), "ingest.scheme") != SCHEME:
-        _fail("ingest.scheme", f"a DXF ingest mints {SCHEME} keys")
-    _string(record.get("tool"), "ingest.tool", non_empty=True)
-    _string(record.get("tool_version"), "ingest.tool_version", non_empty=True)
-    digest = _string(record.get("parameter_set_hash"), "ingest.parameter_set_hash")
+def _identity(record: dict[str, Any], where: str) -> None:
+    """One extractor's identity: its tool, the tool's version, and its parameter-set hash."""
+    _string(record.get("tool"), f"{where}.tool", non_empty=True)
+    _string(record.get("tool_version"), f"{where}.tool_version", non_empty=True)
+    digest = _string(record.get("parameter_set_hash"), f"{where}.parameter_set_hash")
     if PARAMETER_SET_HASH.match(digest) is None:
-        _fail("ingest.parameter_set_hash", "must be 64 hex characters")
+        _fail(f"{where}.parameter_set_hash", "must be 64 hex characters")
+
+
+def _ingest_record(value: Any) -> frozenset[str]:
+    """The ingest record, and the schemes it pins an identity for (L-CAD-02): the scheme of the
+    extractor that read the file, and RASTER_TRACE where a vectoriser's identity rides beside a
+    PDF's (I-518)."""
+    record = _object(value, "ingest")
+    _closed_keys(
+        record, frozenset({"scheme", "tool", "tool_version", "parameter_set_hash", "trace"}), "ingest"
+    )
+    scheme = _string(record.get("scheme"), "ingest.scheme")
+    if scheme not in keys.SCHEMES:
+        _fail("ingest.scheme", f"{scheme!r} is outside L-CAD-02's closed set")
+    _identity(record, "ingest")
+    if "trace" not in record:
+        return frozenset({scheme})
+    if scheme != keys.PDF_OBJECT:
+        _fail("ingest.trace", f"a vectoriser's identity rides only beside {keys.PDF_OBJECT} (a mixed page)")
+    trace = _object(record["trace"], "ingest.trace")
+    _closed_keys(trace, _TRACE_KEYS, "ingest.trace")
+    _identity(trace, "ingest.trace")
+    return frozenset({scheme, keys.RASTER_TRACE})
 
 
 def _insunits(value: Any) -> None:
@@ -421,7 +447,15 @@ def _counter(value: Any, where: str) -> None:
     _closed_keys(
         record,
         frozenset(
-            {"space", "explode_truncated", "explode_losses", "flatten_capped", "conversion_losses"}
+            {
+                "space",
+                "explode_truncated",
+                "explode_losses",
+                "flatten_capped",
+                "conversion_losses",
+                "collapsed",
+                "unread",
+            }
         ),
         where,
     )
@@ -433,6 +467,14 @@ def _counter(value: Any, where: str) -> None:
     # a conversion that reconciled cleanly lost nothing to carry (L-CAD-04, R-TO-001).
     if "conversion_losses" in record:
         _counts(record["conversion_losses"], f"{where}.conversion_losses")
+    # Optional likewise: only a digest scheme's objects can collide, so only a PDF page carries it
+    # (L-CAD-02: "the collapse is counted per page and type").
+    if "collapsed" in record:
+        _counts(record["collapsed"], f"{where}.collapsed")
+    # Optional likewise: what a page carries and the lane reads no geometry from — an image's pixels,
+    # a shading's colour — is a PDF page's tally, so only a PDF page carries it (I-521).
+    if "unread" in record:
+        _counts(record["unread"], f"{where}.unread")
 
 
 def _block_attribute(value: Any, where: str, keys: set[str], version: int) -> None:
@@ -491,7 +533,7 @@ def parse_entity_graph(value: Any) -> EntityGraph:
         for index, layer in enumerate(_array(document["layers"], "layers")):
             _layer(layer, f"layers[{index}]")
 
-    _ingest_record(document["ingest"])
+    pinned = _ingest_record(document["ingest"])
     _insunits(document["insunits"])
 
     for index, layout in enumerate(_array(document["layouts"], "layouts")):
@@ -499,17 +541,21 @@ def parse_entity_graph(value: Any) -> EntityGraph:
     for index, name in enumerate(_array(document["dropped_layouts"], "dropped_layouts")):
         _string(name, f"dropped_layouts[{index}]", non_empty=True)
 
-    keys: set[str] = set()
+    minted: set[str] = set()
     for index, entity in enumerate(_array(document["entities"], "entities")):
         key = _entity(entity, f"entities[{index}]", version)
-        if key in keys:
+        if key in minted:
             _fail(f"entities[{index}].key", f"{key} is minted twice (L-CAD-02)")
-        keys.add(key)
+        # A key is scoped to the identity of the extractor that minted it, so a key of a scheme the
+        # ingest record pins no identity for is a key nothing can say who minted (L-CAD-02).
+        if keys.scheme_of(key) not in pinned:
+            _fail(f"entities[{index}].key", f"{key} is of a scheme the ingest record pins no identity for")
+        minted.add(key)
 
     for index, record in enumerate(_array(document["derived"], "derived")):
-        _derived(record, f"derived[{index}]", keys, version)
+        _derived(record, f"derived[{index}]", minted, version)
     for index, record in enumerate(_array(document["block_attributes"], "block_attributes")):
-        _block_attribute(record, f"block_attributes[{index}]", keys, version)
+        _block_attribute(record, f"block_attributes[{index}]", minted, version)
     for index, record in enumerate(_array(document["counters"], "counters")):
         _counter(record, f"counters[{index}]")
 

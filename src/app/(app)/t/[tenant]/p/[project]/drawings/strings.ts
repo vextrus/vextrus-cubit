@@ -58,6 +58,10 @@ export const drawings = {
   drawings_fact_explode_truncated: "Explode truncated",
   drawings_fact_explode_losses: "Explode losses",
   drawings_fact_flatten_capped: "Flatten capped",
+  // I-520: a PDF page's objects that collapsed onto an identical earlier one (L-CAD-02).
+  drawings_fact_collapsed: "Duplicates collapsed",
+  // I-521: a PDF page's images and shadings, carried and never read as geometry (R-TO-003).
+  drawings_fact_unread: "Images and shadings not read",
   drawings_fact_dropped_layouts: "Dropped layouts",
   // I-323: the facts stand in a disclosure whose summary counts the notable ones.
   drawings_facts_summary: "Fidelity facts",

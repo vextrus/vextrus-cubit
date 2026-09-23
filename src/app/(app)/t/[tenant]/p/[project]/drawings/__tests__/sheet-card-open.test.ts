@@ -38,7 +38,7 @@ function card(sheetId: string, drawingId: string, layoutName: string, kind: Shee
     layoutName,
     kind,
     format: "dxf",
-    scheme: "DXF_HANDLE",
+    schemes: ["DXF_HANDLE"],
     thumbnail: null,
     proposal: { number: "S-101", title: `Title of ${layoutName}`, discipline: DISCIPLINES[0], basis: "GRAMMAR", cited: [] },
     confirmed: null,

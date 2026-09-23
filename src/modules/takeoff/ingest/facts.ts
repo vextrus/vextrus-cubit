@@ -9,12 +9,20 @@ import type { EntityGraph } from "@/core/entitygraph/schema";
 /** One layout as the record names it: the space, its kind, and the strays kept out of its extents. */
 export type IngestLayoutFact = { name: string; kind: string; strays_rejected: number };
 
-/** One space's counters: whether exploding was cut short, and what it and flattening cost (L-CAD-05). */
+/**
+ * One space's counters: whether exploding was cut short, and what it and flattening cost (L-CAD-05)
+ * — and, on a page whose keys are content digests, how many originals of each type collapsed onto
+ * an earlier one with the same digest (L-CAD-02), and how many objects of each kind it carries whose
+ * content was never read as geometry (I-521). A DXF space carries neither: its handles never
+ * collide, and a count of zero would claim a digest that was never taken.
+ */
 export type IngestCounterFact = {
   space: string;
   explode_truncated: boolean;
   explode_losses: Record<string, number>;
   flatten_capped: Record<string, number>;
+  collapsed?: Record<string, number>;
+  unread?: Record<string, number>;
 };
 
 /** Everything a record pins about what was taken and what was lost taking it (R-TO-001). */
@@ -36,6 +44,8 @@ export function factsOf(graph: EntityGraph): IngestFacts {
       explode_truncated: counter.explode_truncated,
       explode_losses: { ...counter.explode_losses },
       flatten_capped: { ...counter.flatten_capped },
+      ...(counter.collapsed === undefined ? {} : { collapsed: { ...counter.collapsed } }),
+      ...(counter.unread === undefined ? {} : { unread: { ...counter.unread } }),
     })),
   };
 }

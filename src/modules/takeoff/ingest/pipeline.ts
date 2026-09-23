@@ -78,6 +78,12 @@ export async function runIngestJob(payload: JobPayloads["ingest"], progress: Job
       toolVersion: identity.tool_version,
       parameterSetHash: identity.parameter_set_hash,
     },
+    // L-CAD-02 pins an identity per scheme: the vectoriser's rides beside a PDF's where its pages
+    // also minted traced keys (I-518), and is absent everywhere else.
+    trace:
+      identity.trace === undefined
+        ? null
+        : { tool: identity.trace.tool, toolVersion: identity.trace.tool_version, parameterSetHash: identity.trace.parameter_set_hash },
     facts: factsOf(outcome.graph),
     supersedes: payload.declared?.supersedes ?? null,
     declaredReason: payload.declared?.reason ?? null,

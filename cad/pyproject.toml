@@ -5,8 +5,10 @@ description = "Format-to-EntityGraph extraction for Vextrus Cubit (L-CAD-01)."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 # Pinned exactly: the extractor's identity is part of every source key's scope (L-CAD-02), and the
-# committed artifacts regenerate byte-for-byte only against the version that minted them.
-dependencies = ["ezdxf==1.4.4"]
+# committed artifacts regenerate byte-for-byte only against the version that minted them. ezdxf reads
+# DXF (DXF_HANDLE keys); pypdfium2 reads vector PDF (PDF_OBJECT keys, L-CAD-04's permissive reader) —
+# moving either re-keys the corpora it minted and is a declared re-ingest, never a routine bump.
+dependencies = ["ezdxf==1.4.4", "pypdfium2==5.13.0"]
 
 [project.scripts]
 vextrus-cad = "vextrus_cad.cli:main"
@@ -20,7 +22,8 @@ dev = [
 # Fixture generation only (D-04: reportlab is acceptable in fixtures generation, never in the app).
 # `uv run --group fixtures` leaves these resident in the shared .venv, so a stray import would pass
 # locally; cad/tests/sanity/test_fixtures_group.py scans src/vextrus_cad for one on every run.
-fixtures = ["reportlab==4.4.9", "pillow==12.3.0", "pypdfium2==5.13.0"]
+# pypdfium2 left this group for the shipped dependencies when the PDF lane landed (R-TO-002).
+fixtures = ["reportlab==4.4.9", "pillow==12.3.0"]
 
 [build-system]
 requires = ["hatchling"]

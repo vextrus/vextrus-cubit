@@ -60,12 +60,8 @@ export function runIngest(input: string, out: string): SpawnOutcome {
   return runInCadProject(["vextrus-cad", "ingest", input, "--out", out]);
 }
 
-/**
- * The committed artifact roster, read from the corpus rather than frozen here: every
- * `<name>.entitygraph.json` in the fixture directory is a committed artifact owed a `<name>.dxf`
- * beside it. A later increment that adds a pair is covered without touching this file.
- */
-export function committedArtifactNames(): string[] {
+/** Every committed artifact's name, whichever lane took it, read from the corpus. */
+export function allCommittedArtifactNames(): string[] {
   expect(existsSync(FIXTURE_DIR), `${FIXTURE_DIR} is missing — the committed fixture corpus does not exist yet`).toBe(true);
   return readdirSync(FIXTURE_DIR)
     .filter((f) => f.endsWith(".entitygraph.json"))
@@ -73,8 +69,28 @@ export function committedArtifactNames(): string[] {
     .sort();
 }
 
+/**
+ * The committed DXF roster, read from the corpus rather than frozen here: every
+ * `<name>.entitygraph.json` in the fixture directory with a `<name>.dxf` beside it. A later increment
+ * that adds a pair is covered without touching this file. The vector-PDF lane's artifacts stand beside
+ * a `<name>.pdf` instead (`committedPdfArtifactNames`), and every artifact is owed exactly one of the
+ * two (`cad/tests/test_regenerate.py` holds the corpus to that).
+ */
+export function committedArtifactNames(): string[] {
+  return allCommittedArtifactNames().filter((name) => existsSync(fixtureDxfPath(name)));
+}
+
+/** The committed vector-PDF roster (R-TO-002): every artifact with a `<name>.pdf` beside it. */
+export function committedPdfArtifactNames(): string[] {
+  return allCommittedArtifactNames().filter((name) => existsSync(fixturePdfPath(name)));
+}
+
 export function fixtureDxfPath(name: string): string {
   return join(FIXTURE_DIR, `${name}.dxf`);
+}
+
+export function fixturePdfPath(name: string): string {
+  return join(FIXTURE_DIR, `${name}.pdf`);
 }
 
 export function fixtureArtifactPath(name: string): string {

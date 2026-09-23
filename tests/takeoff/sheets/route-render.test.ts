@@ -155,7 +155,12 @@ describe("AC-4: the drawings route renders the index server-side", () => {
         model ? stage.words.drawings_model_space : card.proposal.title,
       );
       expect(one(element, "sheet-card-format", sheet).textContent, `the card for ${sheet} shows the format the drawing is stored as, verbatim (I-25: data renders as data)`).toContain(card.format);
-      expect(one(element, "sheet-card-scheme", sheet).textContent, `the card for ${sheet} shows the extractor scheme the record states, verbatim (R-TO-001)`).toContain(card.scheme);
+      // I-519: one scheme badge per scheme the sheet's own keys are of, in the law's order.
+      const schemeBadges = all(element, "sheet-card-scheme");
+      expect(schemeBadges.map((badge) => badge.getAttribute("data-scheme")), `the card for ${sheet} shows a badge for each scheme its keys are of (L-CAD-02)`).toEqual([...card.schemes]);
+      for (const [index, scheme] of card.schemes.entries()) {
+        expect(schemeBadges[index]?.textContent, `the card for ${sheet} carries the ${scheme} value, verbatim, in its badge's disclosure (R-TO-001)`).toContain(scheme);
+      }
       expect(one(element, "sheet-card-scale", sheet).getAttribute("data-scale"), `the card for ${sheet} publishes the scale state the module derived (R-TO-004)`).toBe(card.scaleState);
       expect(one(element, "sheet-card-views", sheet).getAttribute("data-views"), `the card for ${sheet} publishes the view count it holds — empty while no view has been classified, never a count invented`).toBe(card.viewCount === null ? "" : String(card.viewCount));
       if (model) {

@@ -38,7 +38,7 @@ import ezdxf.recover
 from ezdxf.lldxf.const import VSF_NON_RECTANGULAR_CLIPPING
 from ezdxf.math import NULLVEC, OCS, Z_AXIS, Vec3
 
-from . import colours, geometry, report, units
+from . import colours, geometry, keys, report, units
 from .parameters import DERIVED_ENTITY_BUDGET, EXPLODE_DEPTH_CAP, parameter_set_hash
 from .resync import resync_tag_stream
 
@@ -50,7 +50,7 @@ ENTITYGRAPH_VERSION: Final = 3
 ENTITYGRAPH_FLOOR: Final = 2
 
 #: The source-key scheme ezdxf mints, and the tool identity that scopes those keys (L-CAD-02).
-SCHEME: Final = "DXF_HANDLE"
+SCHEME: Final = keys.DXF_HANDLE
 TOOL: Final = "ezdxf"
 
 #: ezdxf's name for the model layout; the artifact's marker for it is the lowercase word.
@@ -386,6 +386,15 @@ class _Counters:
     explode_truncated: bool = False
     explode_losses: dict[str, int] = field(default_factory=dict)
     flatten_capped: dict[str, int] = field(default_factory=dict)
+    #: How many originals of each type collapsed onto an earlier one with the same content digest
+    #: (L-CAD-02) — a digest scheme's counter, so None on a DXF space, whose handles never collide,
+    #: and a map (empty where nothing collapsed) on a PDF page, where every key is a digest.
+    collapsed: dict[str, int] | None = None
+    #: How many objects of each kind the page carries whose content this lane does not read as
+    #: geometry — an embedded image's pixels, a smooth shading's colour (I-521). A PDF page's
+    #: counter, like `collapsed`: None on a DXF space, a map (empty where nothing went unread) on a
+    #: page, so a card can say a page holds a picture nobody read.
+    unread: dict[str, int] | None = None
 
     def lose(self, dxftype: str) -> None:
         self.explode_truncated = True
@@ -393,6 +402,16 @@ class _Counters:
 
     def cap(self, dxftype: str) -> None:
         self.flatten_capped[dxftype] = self.flatten_capped.get(dxftype, 0) + 1
+
+    def collapse(self, dxftype: str) -> None:
+        held = {} if self.collapsed is None else self.collapsed
+        held[dxftype] = held.get(dxftype, 0) + 1
+        self.collapsed = held
+
+    def leave_unread(self, kind: str) -> None:
+        held = {} if self.unread is None else self.unread
+        held[kind] = held.get(kind, 0) + 1
+        self.unread = held
 
     def record(self, space: str, conversion_losses: dict[str, int] | None = None) -> dict[str, Any]:
         """This space's counters, with what the conversion lost on it where a conversion lost any.
@@ -410,6 +429,10 @@ class _Counters:
         }
         if conversion_losses:
             record["conversion_losses"] = dict(sorted(conversion_losses.items()))
+        if self.collapsed is not None:
+            record["collapsed"] = dict(sorted(self.collapsed.items()))
+        if self.unread is not None:
+            record["unread"] = dict(sorted(self.unread.items()))
         return record
 
 

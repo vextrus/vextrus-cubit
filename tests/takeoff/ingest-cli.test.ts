@@ -145,6 +145,41 @@ describe("AC-2 — one invocation, judged by its artifact", () => {
     CLI_BUDGET_MS,
   );
 
+  test(
+    "M4P-1: a vector PDF crosses the seam as an EntityGraph under PDF_OBJECT, its unread image named on its page (R-TO-002, I-521)",
+    async () => {
+      const { ingestDrawing } = await seam();
+      const { entityGraphSchema } = await productModule<GraphSchema>(ENTITYGRAPH_MODULE);
+      const outcome = await withCadCommand(undefined, async () => await ingestDrawing(corpusBytes(join("cad", "tests", "fixtures", "forms.pdf")), "pdf", { tempDir: tempDir("cli-pdf") }));
+
+      expect(outcome.ok, `forms.pdf answered: ${JSON.stringify(outcome)}`.slice(0, 600)).toBe(true);
+      if (!outcome.ok) return;
+      expect(outcome.graph).toStrictEqual(entityGraphSchema.parse(JSON.parse(new TextDecoder().decode(outcome.artifact))));
+      const ingest = outcome.graph["ingest"] as Record<string, unknown>;
+      expect([ingest["scheme"], ingest["tool"], ingest["trace"]], "pdfium read it, and no vectoriser did").toEqual(["PDF_OBJECT", "pypdfium2", undefined]);
+      const counters = outcome.graph["counters"] as { space: string; unread?: Record<string, number> }[];
+      expect(counters.map((row) => [row.space, row.unread]), "page 1's image is carried and named, never read").toEqual([
+        ["Page 1", { IMAGE: 1 }],
+        ["Page 2", {}],
+      ]);
+    },
+    CLI_BUDGET_MS,
+  );
+
+  test(
+    "M4P-1: a scanned PDF — every page a picture — is refused SHEET_NOT_INGESTABLE, naming PDF_RASTER_ONLY (I-521)",
+    async () => {
+      const { ingestDrawing } = await seam();
+      const outcome = await withCadCommand(undefined, async () => await ingestDrawing(corpusBytes(join("fixtures", "rcc6", "rcc6.raster.pdf")), "pdf", { tempDir: tempDir("cli-scan") }));
+
+      expect(outcome.ok, "eight pages of pixels and no path or text: nothing the vector lane reads, so nothing is stored").toBe(false);
+      if (outcome.ok) return;
+      expect(outcome.refusal).toBe(SHEET_NOT_INGESTABLE);
+      expect(outcome.detail, "the operator reads the extractor's own name for it, and what it counted").toContain("PDF_RASTER_ONLY: 8 page(s) holding 8 image(s) and no path or text");
+    },
+    CLI_BUDGET_MS,
+  );
+
   test("AC-2: the judgement is the artifact, never the exit status", async () => {
     const { ingestDrawing } = await seam();
     const bytes = cadFixture("basic");

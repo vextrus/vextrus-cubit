@@ -14,6 +14,27 @@ export type SourceScheme = (typeof SOURCE_SCHEMES)[number];
 /** A source key as an original entity carries it: a closed scheme, one colon, the extractor's key. */
 export type SourceKey = `${SourceScheme}:${string}`;
 
+/**
+ * The schemes whose key is a content digest rather than a handle the file states — pdfium's over a
+ * PDF page object, the vectoriser's over a traced primitive (L-CAD-02). Their key half is a whole
+ * sha256, uppercase: the EntityGraph mirror refuses anything shorter, and a card shows it by its short
+ * form rather than whole (I-519). One home for both readings (B-17).
+ */
+export const DIGEST_SCHEMES = ["PDF_OBJECT", "RASTER_TRACE"] as const satisfies readonly SourceScheme[];
+
+/** A digest scheme's own half: the whole sha256, uppercase — never a prefix of one (L-CAD-02). */
+const WHOLE_DIGEST = /^[0-9A-F]{64}$/;
+
+/** True iff the key half is a whole content digest, as a digest scheme's key must be. */
+export function isWholeDigest(key: string): boolean {
+  return WHOLE_DIGEST.test(key);
+}
+
+/** True iff the scheme is one whose keys are content digests (L-CAD-02). */
+export function isDigestScheme(scheme: string): boolean {
+  return (DIGEST_SCHEMES as readonly string[]).includes(scheme);
+}
+
 /** The membership question a proposal's citations are resolved against, and the artifact it answers for. */
 export type SourceKeyResolver = {
   readonly artifactDigest: string;

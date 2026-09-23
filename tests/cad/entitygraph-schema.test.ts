@@ -14,6 +14,7 @@ import {
   asObject,
   asStoredV2,
   committedArtifactNames,
+  committedPdfArtifactNames,
   type JsonValue,
   NAMED_FIXTURES,
   readCommittedArtifact,
@@ -106,8 +107,9 @@ describe("AC-2: both sides parse the committed fixtures", () => {
     const { entityGraphSchema } = await schemaModule();
     const names = committedArtifactNames();
     for (const named of NAMED_FIXTURES) expect(names).toContain(named);
+    expect(committedPdfArtifactNames(), "the vector-PDF lane's own fixture is committed beside them").toContain("forms");
 
-    for (const name of names) {
+    for (const name of [...names, ...committedPdfArtifactNames()]) {
       const { graph } = readCommittedArtifact(name);
       expect(Object.keys(graph).sort(), `${name}.entitygraph.json spells keys outside the closed set`).toEqual(TOP_LEVEL_KEYS);
       expect(() => entityGraphSchema.parse(graph), `${name}.entitygraph.json failed the Zod mirror`).not.toThrow();
@@ -304,5 +306,78 @@ describe("EntityGraph v3: two versions, two doors (L-CAD-05, I-415)", () => {
 
     const referenced = asStoredV2(readCommittedArtifact("blocks").graph);
     expect(() => writtenAtV3(referenced), "no block identity is invented for a stage").toThrow(/block reference that states no block/);
+  });
+});
+
+describe("M4P-1: the scheme rides per key, and the ingest record pins one identity per scheme (L-CAD-02)", () => {
+  /** A committed PDF artifact with its geometry taken away, so only the rule under test decides. */
+  function keyless(): Record<string, JsonValue> {
+    return { ...readCommittedArtifact("forms").graph, entities: [], derived: [], block_attributes: [] };
+  }
+
+  /** The forms fixture's first original, re-keyed. */
+  function keyed(key: string): Record<string, JsonValue> {
+    const first = asObject(asArray(readCommittedArtifact("forms").graph["entities"], "entities")[0], "entities[0]");
+    return { ...first, key };
+  }
+
+  const TRACE = { tool: "vectoriser", tool_version: "1", parameter_set_hash: "0".repeat(64) };
+  const RASTER_KEY = `RASTER_TRACE:${"A".repeat(64)}`;
+
+  it("admits every scheme of the closed set as the ingest record's, and refuses any other spelling", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    const graph = keyless();
+    const ingest = asObject(graph["ingest"], "ingest");
+    for (const scheme of ["DXF_HANDLE", "PDF_OBJECT", "RASTER_TRACE"]) {
+      expect(refusal(entityGraphSchema, { ...graph, ingest: { ...ingest, scheme } }), `${scheme} is a scheme an extractor mints`).toBeNull();
+    }
+    for (const scheme of ["pdf_object", "PDF_OBJECTS", "SCHEME_NOTHING_MINTS"]) {
+      expect(refusal(entityGraphSchema, { ...graph, ingest: { ...ingest, scheme } }), `${scheme} is no scheme`).not.toBeNull();
+    }
+  });
+
+  it("refuses a key of a scheme the ingest record pins no identity for", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    const graph = keyless();
+    expect(refusal(entityGraphSchema, { ...graph, entities: [keyed(RASTER_KEY)] }), "a traced key with no vectoriser identity").toMatch(/pins no identity/);
+    expect(refusal(entityGraphSchema, { ...graph, entities: [keyed("DXF_HANDLE:1F")] }), "a handle in a PDF's record").toMatch(/pins no identity/);
+    const traced = { ...graph, ingest: { ...asObject(graph["ingest"], "ingest"), trace: TRACE }, entities: [keyed(RASTER_KEY)] };
+    expect(refusal(entityGraphSchema, traced), "a traced key beside a PDF's, the vectoriser's identity pinned (a mixed page)").toBeNull();
+  });
+
+  it("admits a vectoriser's identity only beside a PDF's, and only whole", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    const graph = keyless();
+    const ingest = asObject(graph["ingest"], "ingest");
+    for (const scheme of ["DXF_HANDLE", "RASTER_TRACE"]) {
+      expect(refusal(entityGraphSchema, { ...graph, ingest: { ...ingest, scheme, trace: TRACE } }), `a vectoriser's identity beside ${scheme}`).toMatch(/rides only beside PDF_OBJECT/);
+    }
+    const partial = { tool: TRACE.tool, tool_version: TRACE.tool_version };
+    expect(refusal(entityGraphSchema, { ...graph, ingest: { ...ingest, trace: partial } }), "half an identity").not.toBeNull();
+    expect(refusal(entityGraphSchema, { ...graph, ingest: { ...ingest, trace: { ...TRACE, dpi: 300 } } }), "an identity outside its closed keys").not.toBeNull();
+  });
+
+  it("refuses a digest scheme's key that is not a whole sha256", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    expect(refusal(entityGraphSchema, { ...keyless(), entities: [keyed("PDF_OBJECT:9B26C360")] }), "a truncated digest collides where the drawing does not").toMatch(/whole sha256/);
+  });
+
+  it("admits a page's collapse tally on its counters row, and refuses one that is not a tally", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    const graph = structuredClone(readCommittedArtifact("forms").graph);
+    const row = asObject(asArray(graph["counters"], "counters")[0], "counters[0]");
+    expect(row["collapsed"], "the fixture collapses on page 1").toEqual({ LWPOLYLINE: 2, TEXT: 1 });
+    row["collapsed"] = { TEXT: -1 };
+    expect(refusal(entityGraphSchema, graph), "a collapse count below zero").not.toBeNull();
+  });
+
+  it("admits a page's unread tally on its counters row, and refuses one that is not a tally (I-521)", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    const graph = structuredClone(readCommittedArtifact("forms").graph);
+    expect(refusal(entityGraphSchema, graph), "the committed fixture parses").toBeNull();
+    const row = asObject(asArray(graph["counters"], "counters")[0], "counters[0]");
+    expect(row["unread"], "the fixture's page 1 carries one image").toEqual({ IMAGE: 1 });
+    row["unread"] = { IMAGE: 0.5 };
+    expect(refusal(entityGraphSchema, graph), "a fractional count").not.toBeNull();
   });
 });

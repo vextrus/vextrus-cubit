@@ -8,6 +8,7 @@
 import { and, desc, drawings, eq, forTenant, inArray, ingests, isUuid, sheetDisciplines, type TenantTx } from "../db";
 import { artifactAt } from "@/core/entitygraph/artifact";
 import type { EntityGraph } from "../entitygraph/schema";
+import { SOURCE_SCHEMES } from "../sources";
 import type { Storage } from "../storage";
 import { readTitleBlock } from "./grammar";
 import { DISCIPLINES, FIDELITY_FACTS, sheetIdOf, type Discipline, type FidelityFact, type ScaleState, type SheetProposal } from "./law";
@@ -58,7 +59,12 @@ export type SheetFacts = {
   readonly drawingId: string;
   readonly layoutName: string;
   readonly kind: "model" | "paper";
-  readonly scheme: string;
+  /**
+   * The source-key schemes this sheet's own originals are keyed under, in the law's order — read from
+   * the artifact's keys, never stamped from the record, because the scheme rides per key and one page
+   * may carry two (L-CAD-02, I-519). A sheet holding no original reads as its record's extractor's.
+   */
+  readonly schemes: readonly string[];
   readonly proposal: SheetProposal;
   readonly scaleState: ScaleState;
   readonly facts: Readonly<Record<FidelityFact, number | boolean>>;
@@ -78,7 +84,7 @@ type RecordedFacts = {
   insunits?: { unit?: string | null } | null;
   dropped_layouts?: readonly string[];
   layouts?: readonly { name?: unknown; kind?: unknown; strays_rejected?: unknown }[];
-  counters?: readonly { space?: unknown; explode_truncated?: unknown; explode_losses?: unknown; flatten_capped?: unknown }[];
+  counters?: readonly { space?: unknown; explode_truncated?: unknown; explode_losses?: unknown; flatten_capped?: unknown; collapsed?: unknown; unread?: unknown }[];
 };
 
 /** Is this string one of the disciplines the closed enum holds? */
@@ -155,6 +161,7 @@ export async function sheetsOfRecord(tenantId: string, record: SheetSourceRecord
 
   const graph = await artifactOf(tenantId, record, storage);
   const placeable = (facts.insunits ?? null)?.unit ?? null;
+  const keyedUnder = schemesBySpace(graph);
 
   return layouts.map((layout) => {
     const layoutName = layoutNameOf(layout);
@@ -165,7 +172,7 @@ export async function sheetsOfRecord(tenantId: string, record: SheetSourceRecord
       drawingId: record.drawingId,
       layoutName,
       kind: sheetKind(layout.kind, layoutName),
-      scheme: record.extractor.scheme,
+      schemes: keyedUnder.get(layoutName) ?? [record.extractor.scheme],
       proposal: readTitleBlock(graph, layoutName),
       // R-TO-004's scale state, derived and no further: a sheet whose extents or whose drawing unit
       // the extractor could not state cannot be placed at any scale, and one that can is simply not
@@ -236,11 +243,28 @@ function fidelityFactsOf(facts: RecordedFacts, layoutName: string): Record<Fidel
     explode_truncated: counter?.explode_truncated === true,
     explode_losses: totalOf(counter?.explode_losses),
     flatten_capped: totalOf(counter?.flatten_capped),
+    collapsed: totalOf(counter?.collapsed),
+    unread: totalOf(counter?.unread),
     dropped_layouts: (facts.dropped_layouts ?? []).length,
   };
   // The roster is what a card carries, whole: a fact suppressed at zero would make an absent badge
   // mean both "nothing was lost" and "this build forgot the fact" (R-TO-001).
   return Object.fromEntries(FIDELITY_FACTS.map((name) => [name, reported[name]])) as Record<FidelityFact, number | boolean>;
+}
+
+/**
+ * Each space's schemes, read off its originals' keys in one pass and ordered as the law lists them
+ * (L-CAD-02: the scheme rides per key, never per drawing). A space no original stands in has no entry.
+ */
+function schemesBySpace(graph: EntityGraph): ReadonlyMap<string, readonly string[]> {
+  const held = new Map<string, Set<string>>();
+  for (const entity of graph.entities) {
+    const scheme = entity.key.slice(0, entity.key.indexOf(":"));
+    const own = held.get(entity.space);
+    if (own === undefined) held.set(entity.space, new Set([scheme]));
+    else own.add(scheme);
+  }
+  return new Map([...held].map(([space, schemes]) => [space, SOURCE_SCHEMES.filter((scheme) => schemes.has(scheme))]));
 }
 
 /** A counter the record states, or none where it states none. */

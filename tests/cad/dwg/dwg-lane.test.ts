@@ -2,7 +2,8 @@
 //
 // The DWG lane arrives beside the DXF corpus, not inside it: cad/tests/corpus.py, test_regenerate.py,
 // test_cli.py and tests/cad/support/artifact.ts all read cad/tests/fixtures/ as a roster where every
-// `<name>.entitygraph.json` owes a `<name>.dxf`, and a stray file there breaks all four. The freeze
+// `<name>.entitygraph.json` owes one drawing — a `<name>.dxf`, or since M4P-1 a `<name>.pdf` written
+// by its `gen_<name>_pdf.py` — and a stray file there breaks all four. The freeze
 // below is stated as that roster's own rule plus "the working tree is clean there" — deliberately
 // NOT as a git diff against a base, because a later increment legitimately re-baselines the corpus
 // when census shortfalls enter the EntityGraph counters, and an extent assertion would red it.
@@ -43,14 +44,23 @@ describe("AC-6: the cad lane with the DWG suite in it", () => {
     expect(existsSync(DXF_CORPUS_DIR), `${DXF_CORPUS_DIR} is missing`).toBe(true);
     const names = readdirSync(DXF_CORPUS_DIR).sort();
 
-    // The roster rule the merged suites depend on, read off the directory rather than frozen.
+    // The roster rule the merged suites depend on, read off the directory rather than frozen. Every
+    // artifact owes exactly one drawing beside it: a `.dxf`, or — the vector-PDF lane's (M4P-1) — a
+    // `.pdf`, written by the one generator script that stands beside the PDFs (`gen_<name>_pdf.py`).
     const artifacts = names.filter((n) => n.endsWith(ARTIFACT_SUFFIX)).map((n) => n.slice(0, -ARTIFACT_SUFFIX.length));
     expect(artifacts.length, "the DXF corpus holds no committed artifact at all").toBeGreaterThan(0);
     for (const name of artifacts) {
-      expect(names, `${name}${ARTIFACT_SUFFIX} has no ${name}.dxf beside it`).toContain(`${name}.dxf`);
+      const drawings = [`${name}.dxf`, `${name}.pdf`].filter((drawing) => names.includes(drawing));
+      expect(drawings.length, `${name}${ARTIFACT_SUFFIX} stands beside exactly one drawing, a .dxf or a .pdf: ${drawings.join(", ") || "none"}`).toBe(1);
     }
-    const foreign = names.filter((n) => !n.endsWith(".dxf") && !n.endsWith(ARTIFACT_SUFFIX));
-    expect(foreign, "a file that is neither a DXF nor its artifact entered the DXF corpus").toEqual([]);
+    for (const pdf of names.filter((n) => n.endsWith(".pdf"))) {
+      const name = pdf.slice(0, -".pdf".length);
+      expect(names, `${pdf} has no artifact beside it`).toContain(`${name}${ARTIFACT_SUFFIX}`);
+      expect(names, `${pdf} has no generator beside it — a committed PDF fixture is written by its script`).toContain(`gen_${name}_pdf.py`);
+    }
+    const generators = new Set(names.filter((n) => n.endsWith(".pdf")).map((n) => `gen_${n.slice(0, -".pdf".length)}_pdf.py`));
+    const foreign = names.filter((n) => !n.endsWith(".dxf") && !n.endsWith(".pdf") && !n.endsWith(ARTIFACT_SUFFIX) && !generators.has(n));
+    expect(foreign, "a file that is neither a drawing, its artifact nor a PDF fixture's generator entered the corpus").toEqual([]);
     expect(
       names.filter((n) => n.toLowerCase().endsWith(".dwg")),
       "a DWG entered cad/tests/fixtures — the DWG lane's fixtures live in cad/tests/dwg/fixtures",

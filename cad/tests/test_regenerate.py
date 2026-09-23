@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from corpus import artifact_names, artifact_path, drawing_path
+from corpus import all_artifact_names, artifact_names, artifact_path, drawing_path, sources_of
 from vextrus_cad import dumps, ingest_dxf
 
 NAMES = artifact_names()
@@ -23,8 +23,9 @@ NAMES = artifact_names()
 
 def test_the_corpus_pairs_every_artifact_with_a_drawing() -> None:
     assert NAMES, "no committed artifact was found beside the DXF corpus"
-    missing = [name for name in NAMES if not drawing_path(name).is_file()]
-    assert missing == [], f"committed artifacts with no drawing beside them: {missing}"
+    unpaired = {name: [path.name for path in sources_of(name)] for name in all_artifact_names()}
+    unpaired = {name: sources for name, sources in unpaired.items() if len(sources) != 1}
+    assert unpaired == {}, f"committed artifacts not beside exactly one drawing: {unpaired}"
 
 
 @pytest.mark.parametrize("name", NAMES)

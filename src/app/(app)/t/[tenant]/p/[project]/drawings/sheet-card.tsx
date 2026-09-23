@@ -11,10 +11,12 @@
 // (src/core/sheets/law.ts), and a client component reaching through the barrel would drag the driver
 // into the browser bundle.
 import { useId, useState } from "react";
-import { DISCIPLINES, FIDELITY_FACTS, type Discipline, type FidelityFact } from "@/core/sheets/law";
+import { DISCIPLINES, FIDELITY_FACTS, UNFLAGGED_FACTS, type Discipline, type FidelityFact } from "@/core/sheets/law";
 import { formatUserFigure } from "@/core/format";
+import { isDigestScheme, isWholeDigest } from "@/core/sources";
 import { Badge, Button, Chip, EnumLabel, IdChip } from "@/ui/primitives/core";
 import { humaniseEnum } from "@/ui/primitives/core/enum-label";
+import { shortForm } from "@/ui/primitives/core/id-chip";
 import { fill } from "@/ui/strings";
 import type { ReactNode } from "react";
 import { viewerSheetRoute } from "../viewer/[drawing]/[layout]/route-address";
@@ -44,10 +46,17 @@ export const DISCIPLINE_WORDS: Readonly<Record<Discipline, string>> = {
   OTHER: drawings.drawings_discipline_other,
 };
 
-/** The measure a cited `scheme:key` shows on its chip: the key, because the scheme is every citation's. */
+/**
+ * The measure a cited `scheme:key` shows on its chip: the key, because the scheme is every
+ * citation's. A handle is short and shown whole; a content digest is 64 characters no card holds, so
+ * it shows IdChip's own short form — its leading characters — with the whole key in the tooltip, the
+ * copy and `data-value` (I-519).
+ */
 function citedMeasure(key: string): string | undefined {
   const colon = key.indexOf(":");
-  return colon > 0 && colon < key.length - 1 ? key.slice(colon + 1) : undefined;
+  if (colon <= 0 || colon === key.length - 1) return undefined;
+  const own = key.slice(colon + 1);
+  return isDigestScheme(key.slice(0, colon)) && isWholeDigest(own) ? shortForm(own) : own;
 }
 
 export interface SheetCardData {
@@ -61,7 +70,11 @@ export interface SheetCardData {
    */
   readonly kind: "model" | "paper";
   readonly format: string;
-  readonly scheme: string;
+  /**
+   * The source-key schemes the sheet's own keys are of, in the law's order — one badge each, since a
+   * page that carries a pasted scan mints two (L-CAD-02, I-519).
+   */
+  readonly schemes: readonly string[];
   readonly thumbnail: { readonly url: string; readonly width: number; readonly height: number } | null;
   readonly proposal: { readonly number: string | null; readonly title: string; readonly discipline: Discipline; readonly basis: string; readonly cited: readonly string[] };
   readonly confirmed: { readonly discipline: Discipline; readonly actId: string } | null;
@@ -108,6 +121,8 @@ const FACT_WORDS: Readonly<Record<FidelityFact, string>> = {
   explode_truncated: drawings.drawings_fact_explode_truncated,
   explode_losses: drawings.drawings_fact_explode_losses,
   flatten_capped: drawings.drawings_fact_flatten_capped,
+  collapsed: drawings.drawings_fact_collapsed,
+  unread: drawings.drawings_fact_unread,
   dropped_layouts: drawings.drawings_fact_dropped_layouts,
 };
 
@@ -181,9 +196,11 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
         <Badge data-testid={TESTIDS.sheet.cardFormat} aria-label={fill(drawings.drawings_format_label, { value: card.format.toUpperCase() })}>
           <EnumLabel value={card.format} label={card.format.toUpperCase()} />
         </Badge>
-        <Badge data-testid={TESTIDS.sheet.cardScheme} aria-label={fill(drawings.drawings_scheme_label, { value: schemeWords(card.scheme) })}>
-          <EnumLabel value={card.scheme} label={schemeWords(card.scheme)} />
-        </Badge>
+        {card.schemes.map((scheme) => (
+          <Badge key={scheme} data-testid={TESTIDS.sheet.cardScheme} data-scheme={scheme} aria-label={fill(drawings.drawings_scheme_label, { value: schemeWords(scheme) })}>
+            <EnumLabel value={scheme} label={schemeWords(scheme)} />
+          </Badge>
+        ))}
       </div>
 
       <p className="cx-drawings-discipline" data-testid={TESTIDS.sheet.cardDiscipline} data-basis={basis}>
@@ -240,10 +257,10 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
         </p>
       </div>
 
-      {/* I-85 as amended by I-323: every fact still renders, zeros included, as a list of five named
-          figures (R-TO-001) — inside a disclosure whose summary says how many are notable, so a card
-          whose extraction lost nothing reads as one line instead of three rows of zeros, and a card
-          that lost something says so before it is opened. */}
+      {/* I-85 as amended by I-323: every fact still renders, zeros included, as a list of named
+          figures (R-TO-001; seven, by I-520 and I-521) — inside a disclosure whose summary says
+          how many are notable, so a card whose extraction lost nothing reads as one line instead of
+          rows of zeros, and a card that lost something says so before it is opened. */}
       <details className="cx-drawings-facts">
         <summary className="cx-drawings-facts-summary cx-reticle" data-notable={notableCount(card) > 0 ? "true" : "false"}>
           <span className="cx-drawings-facts-label">{drawings.drawings_facts_summary}</span>
@@ -255,7 +272,7 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
           {FIDELITY_FACTS.map((name) => {
             const value = card.facts[name] ?? 0;
             return (
-              <span className="cx-drawings-fact" role="listitem" data-testid={TESTIDS.sheet.fact} data-fact={name} data-value={String(value)} data-notable={isNotable(value) ? "true" : "false"} key={name}>
+              <span className="cx-drawings-fact" role="listitem" data-testid={TESTIDS.sheet.fact} data-fact={name} data-value={String(value)} data-notable={isNotable(name, value) ? "true" : "false"} key={name}>
                 <span className="cx-drawings-fact-label">{FACT_WORDS[name]}</span>
                 <span className="cx-drawings-fact-value">{factValue(value)}</span>
               </span>
@@ -336,14 +353,19 @@ function factValue(value: number | boolean): string {
   return formatUserFigure(String(value));
 }
 
-/** Whether a fact reports a loss: a true flag, or a count above zero (I-85). */
-function isNotable(value: number | boolean): boolean {
+/**
+ * Whether a fact reports a loss: a true flag, or a count above zero (I-85) — unless the fact is one
+ * the law counts and never flags, because what it counts lost nothing (I-520: a duplicate collapsed
+ * onto its twin is one object read once, and flagging it put "1 notable" on every sheet of a set).
+ */
+function isNotable(name: FidelityFact, value: number | boolean): boolean {
+  if ((UNFLAGGED_FACTS as readonly FidelityFact[]).includes(name)) return false;
   return typeof value === "boolean" ? value : value > 0;
 }
 
 /** How many of the roster's facts report a loss on this card — the facts summary's figure. */
 function notableCount(card: SheetCardData): number {
-  return FIDELITY_FACTS.filter((name) => isNotable(card.facts[name] ?? 0)).length;
+  return FIDELITY_FACTS.filter((name) => isNotable(name, card.facts[name] ?? 0)).length;
 }
 
 /** The words a source scheme is read by, or the mechanical reading of one the table does not name. */

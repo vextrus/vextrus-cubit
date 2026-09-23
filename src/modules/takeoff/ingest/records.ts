@@ -13,6 +13,12 @@ export type IngestScope = { tenantId: string; drawingId: string };
 /** The extractor identity a record pins (L-CAD-02): who took the geometry, at which parameters. */
 export type IngestIdentity = { scheme: SourceScheme; tool: string; toolVersion: string; parameterSetHash: string };
 
+/**
+ * The vectoriser's identity where the same pages also minted RASTER_TRACE keys beside a PDF's own —
+ * the second identity L-CAD-02 pins "per scheme" (I-518). Null wherever no traced key was minted.
+ */
+export type TraceIdentity = { tool: string; toolVersion: string; parameterSetHash: string };
+
 /** One ingest, whole, as a caller reads it back. */
 export type IngestRecord = {
   ingestId: string;
@@ -21,6 +27,7 @@ export type IngestRecord = {
   jobId: string;
   artifactSha256: string;
   extractor: IngestIdentity;
+  trace: TraceIdentity | null;
   facts: IngestFacts;
   supersedes: string | null;
   declaredReason: string | null;
@@ -35,6 +42,7 @@ export type IngestEntry = {
   jobId: string;
   artifactSha256: string;
   extractor: IngestIdentity;
+  trace: TraceIdentity | null;
   facts: IngestFacts;
   supersedes: string | null;
   declaredReason: string | null;
@@ -57,11 +65,18 @@ function record(row: IngestRow): IngestRecord {
       toolVersion: row.extractorToolVersion,
       parameterSetHash: row.extractorParameterSetHash,
     },
+    trace: traceOf(row),
     facts: row.facts as IngestFacts,
     supersedes: row.supersedesIngestId,
     declaredReason: row.declaredReason,
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+/** The vectoriser's identity a row pins, or null — the CHECK holds the three columns whole or absent. */
+function traceOf(row: IngestRow): TraceIdentity | null {
+  if (row.traceTool === null || row.traceToolVersion === null || row.traceParameterSetHash === null) return null;
+  return { tool: row.traceTool, toolVersion: row.traceToolVersion, parameterSetHash: row.traceParameterSetHash };
 }
 
 /**
@@ -124,6 +139,9 @@ export async function writeIngestRecord(entry: IngestEntry): Promise<void> {
       extractorTool: entry.extractor.tool,
       extractorToolVersion: entry.extractor.toolVersion,
       extractorParameterSetHash: entry.extractor.parameterSetHash,
+      traceTool: entry.trace?.tool ?? null,
+      traceToolVersion: entry.trace?.toolVersion ?? null,
+      traceParameterSetHash: entry.trace?.parameterSetHash ?? null,
       facts: entry.facts,
       supersedesIngestId: entry.supersedes,
       declaredReason: entry.declaredReason,
