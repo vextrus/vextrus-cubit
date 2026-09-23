@@ -21,6 +21,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { withDriftLock } from "../../db/__tests__/support/drift-lock";
 import { buildIsCurrent } from "../../scripts/lib/build-currency.mjs";
 import { writeBuildStamp } from "../../scripts/lib/build-stamp.mjs";
 
@@ -100,10 +101,21 @@ function acquire(lock: string, waitMs: number): void {
   }
 }
 
-/** The real build step: `next build` into the acceptance dist directory, the product's own compile. */
+/**
+ * The real build step: `next build` into the acceptance dist directory, the product's own compile.
+ *
+ * It compiles UNDER THE DRIFT LOCK (db/__tests__/support/drift-lock.ts). drift-lane-breaker proves
+ * the schema-drift lane by rewriting tracked source in place: it renames `tenants.name` in
+ * `src/core/db/schema-tenants.ts`, which is valid TypeScript, then restores it. A compile that read
+ * the seam inside that window succeeded, and it served a product that queried `tenants.title`. Every
+ * page answered 500. Session 7 saw it once in the whole db lane (sheets/route-render, "expected 500 to
+ * be 200" three times, green alone). It was reproduced exactly by renaming the column only while this
+ * build held its lock. The stamp is taken at the build's start, so the breaker's restore always made
+ * the next asker rebuild. Only the suite served from the window went red.
+ */
 function nextBuild(root: string, env: NodeJS.ProcessEnv): number {
   const next = join(root, "node_modules", ".bin", "next");
-  const result = spawnSync(next, ["build"], { cwd: root, env, encoding: "utf8", timeout: 420_000 });
+  const result = withDriftLock(() => spawnSync(next, ["build"], { cwd: root, env, encoding: "utf8", timeout: 420_000 }));
   if (result.status !== 0) {
     const said = `${result.stdout ?? ""}${result.stderr ?? ""}`.slice(-1500);
     process.stderr.write(`acceptance build: next build exited ${String(result.status)}\n${said}\n`);
