@@ -16,6 +16,8 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { journeyWorkers } from "./lib/box.mjs";
+import { attribution, heldPorts } from "./lib/port-probe.mjs";
+import { portFor } from "./lib/ports.mjs";
 import { deriveStage } from "./lib/lanes.mjs";
 import { announce, run, wallTime } from "./lib/report.mjs";
 
@@ -174,6 +176,14 @@ if (isEntryPoint()) {
   const asked = readWorkers(passthrough, process.env);
   if (asked.refusal !== null) {
     process.stdout.write(`FAIL e2e ${asked.refusal}\n`);
+    process.exit(2);
+  }
+  // A demo's worker takes every job on the journeys' database, a journey's measure and ingest among
+  // them (scripts/lib/stage.mjs), so no journey walks while one stands — refused here, where the
+  // lane starts, and not only when the gate is the caller.
+  const demoHeld = await heldPorts([portFor("demo")]);
+  if (demoHeld.length > 0) {
+    process.stdout.write(`REFUSE e2e — the demo holds port ${demoHeld.map((port) => `${port} (${attribution(port)})`).join(", ")} and its worker would take the journeys' jobs; \`pnpm demo --stop\` first.\n`);
     process.exit(2);
   }
 

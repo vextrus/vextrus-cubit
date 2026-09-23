@@ -37,8 +37,8 @@
 //
 // Session 3 ran these seven by hand, one background command at a time, and read each log by hand;
 // the order and the port discipline are the part worth keeping (C-06).
-import { spawn } from "node:child_process";
-import { createWriteStream, mkdirSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { createWriteStream, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { attribution, heldPorts, portState } from "./lib/port-probe.mjs";
@@ -172,8 +172,14 @@ export async function gate(options = {}) {
     summary.push(`${lane.id}: ${code === 0 ? "green" : `RED exit=${code}`} ${seconds}s`);
     if (code !== 0 && first === 0) first = code;
   }
-  write(`GATE summary — ${summary.join(" · ")}\n`);
-  write(`GATE wall-time ${((Date.now() - startedAt) / 1000).toFixed(2)}s exit ${first}\n`);
+  const verdict = `GATE summary — ${summary.join(" · ")}`;
+  const wall = `GATE wall-time ${((Date.now() - startedAt) / 1000).toFixed(2)}s exit ${first}`;
+  write(`${verdict}\n`);
+  write(`${wall}\n`);
+  // The last verdict, kept beside the lane logs it cites, so a session starting later reads what the
+  // gate said rather than re-running it (scripts/harness/state.mjs prints it at session start).
+  const head = spawnSync("git", ["rev-parse", "--short", "HEAD"], { cwd: ROOT, encoding: "utf8" }).stdout?.trim() ?? "?";
+  writeFileSync(join(logDir, "summary.txt"), `${new Date().toISOString()} on ${head}${options.only === undefined ? "" : ` (--only ${options.only})`}\n${verdict}\n${wall}\n`);
   return first;
 }
 
