@@ -107,36 +107,71 @@
   font-size: var(--text-body);
 }
 
-/* --- the grid: one member after another, in the document's own order (§1) --- */
+/* What the partly declared lines left out, beneath the status line and inside the same answer
+   slot: the registry's own sentences, one line each, at the caption size (§1, L-QTY-02). */
+.cx-bbs-omitted {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--ink-secondary);
+  font-size: var(--text-caption);
+}
+
+.cx-bbs-omitted-label {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.cx-bbs-omitted-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* --- the grid: ONE table, each member's group row then its bars, under one sticky band (§1) --- */
 
 .cx-bbs-grid {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: var(--space-2);
   min-height: 0;
-  overflow-y: auto;
 }
 
-.cx-bbs-member-block {
-  display: flex;
-  flex-direction: column;
+/* The one table takes the grid's whole box and scrolls inside its own viewport, so its sticky
+   column band and its frozen Bar mark column hold over every member of the campaign. The band is
+   the primitive's own (`.cx-table-header`, data.css) — this screen adds nothing to it. */
+.cx-bbs-grid > .cx-table-frame {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-/* §1 reads a STICKY column band over the schedule, and the grid — not a member's table — is the
-   scroller. The primitive's header is sticky within its OWN table, so every block keeps its band:
-   the block being read holds its columns at the top of the scroller, and the next block's band
-   takes over as it arrives. Hiding all but the first leaves a campaign of thousands of bars
-   scrolling under ten unlabelled numeric columns, which is the one thing §1 forbids (R-UI-012).
-   The band itself is the primitive's own (`.cx-table-header`, data.css) — this screen adds nothing
-   to it and takes nothing away. */
-
-/* The loading posture's bones: a member's name, and a line of the summary beneath it (§2). */
-.cx-bbs-bone-member {
-  width: 180px;
-  height: var(--row-h);
+/* A member's GROUP ROW (§1): the sunken fill and the 500 weight the primitive's own group rows wear,
+   read off the row's own `data-member` — the attribute the Decision's contract already gives it. Its
+   words stand in the frozen key cell and read on across the empty cells beside it, because the row
+   carries no figure (I-bbs-2): the key cell lets them show past its edge rather than cut a level, a
+   class and a mark to the width a bar mark needs. */
+.cx-bbs-grid .cx-table-row[data-member] {
+  background-color: var(--surface-sunken);
+  font-weight: var(--weight-body-medium);
 }
 
+.cx-bbs-grid .cx-table-row[data-member] > .cx-table-cell {
+  background-color: var(--surface-sunken);
+}
+
+.cx-bbs-grid .cx-table-row[data-member] > .cx-table-cell:first-child,
+.cx-bbs-grid .cx-table-row[data-member] > .cx-table-cell:first-child .cx-table-cell-text {
+  overflow: visible;
+}
+
+.cx-bbs-grid .cx-table-row[data-member] > .cx-table-cell:first-child {
+  border-right-color: transparent;
+}
+
+/* The loading posture's bone for a line of the summary beneath the grid (§2). */
 .cx-bbs-bone-row {
   width: 100%;
   height: var(--row-h);
@@ -157,23 +192,20 @@
 }
 
 .cx-bbs-member {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  min-height: var(--row-h);
-  margin: 0;
-  padding: var(--cell-py) var(--cell-px);
-  background: var(--surface-sunken);
-  border-bottom: var(--hairline);
   color: var(--ink);
-  font-size: var(--text-body);
-  font-weight: var(--weight-body-medium);
   white-space: nowrap;
 }
 
 .cx-bbs-member-level {
   color: var(--ink-muted);
   font-family: var(--font-mono);
+}
+
+.cx-bbs-member-separator {
+  color: var(--ink-muted);
+  white-space: pre;
 }
 
 .cx-bbs-member-mark {
@@ -237,6 +269,15 @@
   font-weight: var(--weight-heading);
 }
 
+/* The `(i)` the heading carries: the shipped Popover's own ghost trigger around the one info glyph,
+   square at the control height so it is a target a pointer can find, and muted like the note it
+   opens (I-bbs-5). */
+.cx-bbs-note {
+  width: var(--control-h);
+  padding: 0;
+  color: var(--ink-muted);
+}
+
 .cx-bbs-summary-table {
   display: flex;
   flex-direction: column;
@@ -270,6 +311,16 @@
   color: var(--ink);
   font-weight: var(--weight-body-medium);
   text-align: left;
+}
+
+/* The total's scope, beside the figure (I-bbs-9): it stands in the first of the three cells the
+   total row leaves empty and reads on across them, muted and left-aligned like a caption. */
+.cx-bbs-summary-total > .cx-bbs-summary-scope {
+  overflow: visible;
+  padding-left: var(--space-4);
+  color: var(--ink-muted);
+  text-align: left;
+  white-space: nowrap;
 }
 
 .cx-bbs-summary-total .cx-bbs-figure {

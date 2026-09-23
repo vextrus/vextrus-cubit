@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { BbsWorkspace, type BbsChrome, type BbsJobStep } from "@/modules/takeoff/bbs-ui/workspace";
 import type { BbsView } from "@/modules/takeoff/bbs-ui/view";
+import { IconInfo } from "@/ui/icons";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { JobTimeline, useTrackedJobs, type TrackedJob } from "@/ui/patterns/job-timeline";
 import { Button, EmptyState, EnumLabel, ErrorState, IdChip, Skeleton, Tooltip } from "@/ui/primitives/core";
@@ -41,8 +42,10 @@ function TabsAside({ children }: { children?: ReactNode }) {
 function StockNote({ label, body }: { label: string; body: string }) {
   return (
     <Popover>
+      {/* The shipped info glyph, not a bare letter: a lone `i` reads as a stray character rather
+          than as a control a reader can open (R-UI-003, I-bbs-5). */}
       <PopoverTrigger className="cx-bbs-note" aria-label={label}>
-        {"i"}
+        <IconInfo size="sm" />
       </PopoverTrigger>
       <PopoverContent aria-label={label}>{body}</PopoverContent>
     </Popover>

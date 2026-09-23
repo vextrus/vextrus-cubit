@@ -151,9 +151,22 @@
   flex: 0 0 auto;
 }
 
+/* The rail's heading, and — where every sheet is a sheet of one drawing — that drawing's one chip
+   beside it (I-sch-1). */
+.cx-schedules-sheets-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--row-h);
+}
+
+/* The sheet's name is what a reader chooses by, so it gives way LAST: what the sheet holds yields
+   its width first, down to nothing, and the name keeps at least its sheet number (I-sch-1, §1's
+   "no wrap, ellipsis plus tooltip"). Neither may paint over the other. */
 .cx-schedules-sheet-name {
   flex: 1 1 auto;
-  min-width: 0;
+  min-width: 6ch;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -161,10 +174,24 @@
 }
 
 .cx-schedules-sheet-holds {
-  flex: 0 0 auto;
+  flex: 0 4 auto;
+  min-width: 0;
   margin-left: auto;
+  overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
   color: var(--ink-muted);
+}
+
+/* R-UI-012: the screen's own name, read and not shown (s-bbs I-289's rule — the body size stated so
+   the clipped heading declares nothing off R-UI-003's scale). */
+.cx-schedules-name {
+  position: absolute;
+  width: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  font-size: var(--text-body);
 }
 
 /* --- the work column: the tables, the notes panel, the registry pane at its foot --- */
@@ -355,31 +382,40 @@
   flex-basis: auto;
 }
 
+/* A family reads as ROWS of Mark · Band · Section · Zone (§1's registry drawing), not as a paragraph
+   of three stacked lines: the mark, then its variant's band and section, then each zone, run along
+   one row at `--row-h` and wrap only where the pane is too narrow for them (I-sch-1). A family with
+   more than one variant gives each variant a row of its own, indented under its mark. */
 .cx-schedules-family {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-1) 0;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-4);
+  padding: 0;
   border-bottom: var(--hairline);
+}
+
+.cx-schedules-variant {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-4);
+}
+
+.cx-schedules-family:has(> .cx-schedules-variant ~ .cx-schedules-variant) > .cx-schedules-variant {
+  flex-basis: 100%;
+  padding-left: var(--space-3);
 }
 
 .cx-schedules-family-mark,
 .cx-schedules-variant-band,
 .cx-schedules-zone {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   margin: 0;
   min-height: var(--row-h);
-}
-
-.cx-schedules-variant {
-  padding-left: var(--space-3);
-}
-
-.cx-schedules-zone {
-  padding-left: var(--space-3);
+  white-space: nowrap;
 }
 
 .cx-schedules-none-said {

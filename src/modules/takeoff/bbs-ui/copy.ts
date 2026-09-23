@@ -34,7 +34,9 @@ export const BBS_COPY = {
   bbs_summary_col_pieces: "Pieces",
   bbs_summary_col_offcut: "Offcut (mm)",
   bbs_summary_total: "Total mass",
+  bbs_summary_total_measured: "Measured scope only",
   bbs_partial: "Some rebar lines are partly declared, so their bars stand here as they read.",
+  bbs_partial_omitted: "Left out of this schedule:",
   bbs_complete: "Every bar of the pinned campaign is scheduled, with laps as their own rows.",
   bbs_empty_heading: "No bars scheduled yet",
   bbs_empty_body:

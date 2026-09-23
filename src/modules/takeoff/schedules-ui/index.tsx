@@ -15,6 +15,7 @@
 // SEAM's — this screen never decides ACCEPTED from EDITED (R-TO-034, AC-2).
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from "react";
 import type { Consequence, TranscribeSheetNotesInput } from "@/core/acts";
+import { normaliseNotation } from "@/core/entitygraph/notation";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { formatUserFigure } from "@/core/format";
@@ -44,6 +45,8 @@ type BandColumn = {
   enableSorting?: boolean;
   size?: number;
   cell: (context: BandCell) => ReactNode;
+  /** A column every stored cell of which is a bare figure reads right-aligned (R-UI-084, I-sch-1). */
+  meta?: { align?: "right" };
 };
 
 /** Where a refusal is resolved — the one evidence shape the refusal pattern rules. */
@@ -222,6 +225,25 @@ const KIND_SAID: Readonly<Record<NoteKind, string>> = Object.freeze({
 const STANDING_SAID: Readonly<Record<string, string>> = Object.freeze({ AGREED: "Agreed", SUSPENDED: "Suspended", NONE: "Not read" });
 
 /**
+ * The four rebar zones in words, under the same rule — §3's vocabulary, the raw zone beside it. Each
+ * says only words its own value holds, so a zone row still says nothing the store did not (I-251).
+ */
+const ZONE_SAID: Readonly<Record<string, string>> = Object.freeze({ main: "Main", ties: "Ties", "ties-end": "End ties", "ties-mid": "Mid ties" });
+
+/**
+ * A drawing's own words as the drawing SHOWS them (I-sch-1): the DXF control codes a TEXT carries —
+ * `%%C` for the diameter sign, `%%D`, `%%P` and the formatting toggles — resolved by the one table
+ * that says what each of them means (`normaliseNotation`, L-CAD-02, B-17). Only what a reader SEES
+ * goes through it; every attribute, key and stored string keeps the text byte for byte.
+ */
+function drawn(text: string): string {
+  return normaliseNotation(text);
+}
+
+/** A stored cell that is a bare figure — digits and their separators, nothing else (R-UI-084). */
+const BARE_FIGURE = /^[0-9][0-9.,\s]*$/;
+
+/**
  * The words §3's refusal table gives each entry's evidence link. They are not keys of the string
  * registry either, for the same reason: the table states them in its own column rather than by key.
  */
@@ -347,6 +369,11 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
   const [fault, setFault] = useState<unknown>(null);
 
   const sheets = reading.sheets;
+  /** The one drawing every sheet of the rail belongs to, where they all belong to one (I-sch-1). */
+  const oneDrawing = useMemo(() => {
+    const drawings = new Set(sheets.map((held) => held.drawingId));
+    return drawings.size === 1 ? ([...drawings][0] ?? null) : null;
+  }, [sheets]);
   /** The sheet the rail has selected — the first one until a reader chooses another (I-248). */
   const sheet = useMemo(() => sheets.find((held) => sameSheet(sheetKey, held)) ?? sheets[0] ?? null, [sheetKey, sheets]);
 
@@ -452,10 +479,10 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
       return (
         <div className="cx-schedules-inspector" data-testid={testIds.inspector} data-schedule={table.scheduleKey}>
           <h2 className="cx-schedules-inspector-title">{SCHEDULES_COPY.schedules_inspector_cell_heading}</h2>
-          <p className="cx-schedules-mono">{cell.text === "" ? DASH : cell.text}</p>
+          <p className="cx-schedules-mono">{cell.text === "" ? DASH : drawn(cell.text)}</p>
           <Sources label={SCHEDULES_COPY.schedules_inspector_sources_label} sourceKeys={cell.sourceKeys} IdChip={IdChip} />
           <EnumLabel value={TRANSCRIBED} className="cx-schedules-enum" />
-          {cell.sourceKeys.length === 0 ? null : <EvidenceLink href={traceTo(cell.sourceKeys)} basis={TRANSCRIBED} label={cell.text} />}
+          {cell.sourceKeys.length === 0 ? null : <EvidenceLink href={traceTo(cell.sourceKeys)} basis={TRANSCRIBED} label={drawn(cell.text)} />}
         </div>
       );
     }
@@ -547,6 +574,10 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
       <TabsAside>{null}</TabsAside>
       <InspectorMount>{inspector}</InspectorMount>
 
+      {/* The screen's own name, read and not shown (R-UI-012, s-bbs I-289's rule): the frame prints
+          it in the crumb, and every panel heading beneath is an h2, so the page has one h1. */}
+      <h1 className="cx-schedules-name">{SCHEDULES_COPY.takeoff_nav_schedules}</h1>
+
       {offline ? (
         <p className="cx-schedules-offline" role="status">
           {SCHEDULES_COPY.schedules_offline}
@@ -581,7 +612,18 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
         <div className="cx-schedules-body">
           {/* I-248: the rail selects a SHEET, and main renders what that sheet holds. */}
           <nav className="cx-schedules-panel cx-schedules-sheets" data-testid={testIds.sheets} aria-label={SCHEDULES_COPY.schedules_sheets_heading}>
-            <h2 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_sheets_heading}</h2>
+            {/* The drawing's chip stands ONCE, beside the heading, where every sheet of the rail is a
+                sheet of one drawing — the same chip on every row said one fact twenty-five times and
+                took the width the sheet names need (R-UI-082, I-sch-1). Across two drawings or more
+                each row carries its own, because then it tells the rows apart. */}
+            <div className="cx-schedules-sheets-head">
+              <h2 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_sheets_heading}</h2>
+              {oneDrawing === null ? null : (
+                <span className="cx-schedules-sheet-id">
+                  <IdChip value={oneDrawing} />
+                </span>
+              )}
+            </div>
             {sheets.map((held) => (
               // The row is the region; the sheet's NAME is the control that chooses it. The drawing's
               // surrogate stands BESIDE that control rather than inside it, because an `IdChip` owns a
@@ -611,9 +653,11 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
                 {/* The chip does not hold its click back: a pointer anywhere in this row chose this
                     row, and copying the drawing's id while choosing the sheet it belongs to is what
                     a reader meant by aiming there (R-UI-031). */}
-                <span className="cx-schedules-sheet-id">
-                  <IdChip value={held.drawingId} />
-                </span>
+                {oneDrawing === null ? (
+                  <span className="cx-schedules-sheet-id">
+                    <IdChip value={held.drawingId} />
+                  </span>
+                ) : null}
               </div>
             ))}
           </nav>
@@ -726,7 +770,7 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
               <h2 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_registry_heading}</h2>{" "}
               {sheet.families.length === 0 ? <p className="cx-schedules-none-said">{SCHEDULES_COPY.schedules_registry_none}</p> : null}
               {sheet.families.map((family) => (
-                <Family key={family.family} family={family} testIds={testIds} href={(sourceKeys) => traceTo(sourceKeys)} EvidenceLink={EvidenceLink} />
+                <Family key={family.family} family={family} testIds={testIds} href={(sourceKeys) => traceTo(sourceKeys)} EvidenceLink={EvidenceLink} EnumLabel={EnumLabel} />
               ))}
             </section>
           </div>
@@ -894,16 +938,19 @@ function ScheduleGrid({
       <span className="cx-schedules-cell" data-testid={testIds.cell} data-row={band.rowIndex} data-column={columnIndex} data-selected={chosen ? "true" : undefined}>
         {/* I-252: a cell whose stored text is empty renders no anchor — a link without a place is
             not withheld chrome, it is an honest absence. */}
-        {cell.text === "" ? <span className="cx-schedules-none">{DASH}</span> : <EvidenceLink href={href(cell.sourceKeys)} basis={TRANSCRIBED} label={cell.text} />}
+        {cell.text === "" ? <span className="cx-schedules-none">{DASH}</span> : <EvidenceLink href={href(cell.sourceKeys)} basis={TRANSCRIBED} label={drawn(cell.text)} />}
       </span>
     );
   };
 
-  const drawn: BandColumn[] = columns.map((columnIndex, at) => ({
+  const shown: BandColumn[] = columns.map((columnIndex, at) => ({
     id: `column:${columnIndex}`,
     header: () => (table.header === undefined ? null : cellAt(table.header, columnIndex)),
     enableSorting: false,
     ...(at === 0 ? { size: widthOfMarkColumn(table) } : {}),
+    // A column of bare figures — a SPAN, a count the schedule states — reads down its right edge, as
+    // every column of figures on this product does (R-UI-084). The first column is the frozen mark.
+    ...(at > 0 && figuresOnly(table, columnIndex) ? { meta: { align: "right" as const } } : {}),
     cell: ({ row }: BandCell) => cellAt(row.original, columnIndex),
   }));
 
@@ -930,16 +977,16 @@ function ScheduleGrid({
       }}
     >
       <p className="cx-schedules-table-title">
-        <span>{table.title}</span>
+        <span>{drawn(table.title)}</span>
         <span className="cx-schedules-table-rows">{fillCopy("schedules_table_rows", { count: formatUserFigure(String(table.rows.length)) })}</span>
       </p>
       <DataTable
         tableId={`takeoff-schedule:${table.scheduleKey}`}
-        columns={drawn}
+        columns={shown}
         data={[...table.rows]}
         getRowId={(row) => String(row.rowIndex)}
         freezeKeyColumn
-        aria-label={table.title}
+        aria-label={drawn(table.title)}
       />
     </div>
   );
@@ -957,17 +1004,25 @@ function widthOfMarkColumn(table: ScheduleTableView): number {
   return Math.min(WIDTH_MARK_MAX, Math.max(WIDTH_MARK_MIN, widest * MONO_CHAR_PX));
 }
 
+/** Whether every stored data cell of one column that says anything is a bare figure (R-UI-084). */
+function figuresOnly(table: ScheduleTableView, columnIndex: number): boolean {
+  const said = table.rows.flatMap((row) => row.cells.filter((cell) => cell.columnIndex === columnIndex && cell.text.trim() !== "").map((cell) => cell.text.trim()));
+  return said.length > 0 && said.every((text) => BARE_FIGURE.test(text));
+}
+
 /** One mark family of the registry: what the schedule said a member IS, and never how many (I-251). */
 function Family({
   family,
   testIds,
   href,
   EvidenceLink,
+  EnumLabel,
 }: {
   family: FamilyView;
   testIds: SchedulesTestIds;
   href: (sourceKeys: readonly string[]) => string;
   EvidenceLink: SchedulesChrome["EvidenceLink"];
+  EnumLabel: SchedulesChrome["EnumLabel"];
 }) {
   return (
     <div className="cx-schedules-family" data-testid={testIds.family} data-family={family.family}>
@@ -984,15 +1039,18 @@ function Family({
         <EvidenceLink href={href(family.sourceKeys)} basis={TRANSCRIBED} label={family.family} />{" "}
         {/* Only where the mark CELL spelled it differently: where the two agree there is one word to
             say, and a row that said it twice would be saying the schedule wrote it twice. */}
-        {family.markText === family.family ? null : <span className="cx-schedules-mono">{family.markText}</span>}{" "}
+        {family.markText === family.family ? null : <span className="cx-schedules-mono">{drawn(family.markText)}</span>}{" "}
       </p>
       {family.variants.map((variant) => (
         <div className="cx-schedules-variant" key={variant.variantKey} data-testid={testIds.variant} data-variant={variant.variantKey}>
           <p className="cx-schedules-variant-band">
+            {/* A Band is a band of FLOORS (§1). A schedule that states none — a beam schedule — gave
+                the variant its section column's HEADER as its band text, and printing `Band SIZE`
+                says a band the drawing never drew; such a variant says its band is absent (I-sch-1). */}
             <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_band}</span>{" "}
-            <span className="cx-schedules-mono">{variant.bandText === "" ? DASH : variant.bandText}</span>{" "}
+            <span className="cx-schedules-mono">{variant.bandText === "" || variant.banded === false ? DASH : drawn(variant.bandText)}</span>{" "}
             <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_section}</span>{" "}
-            <span className="cx-schedules-mono">{variant.sectionText === "" ? DASH : variant.sectionText}</span>{" "}
+            <span className="cx-schedules-mono">{variant.sectionText === "" ? DASH : drawn(variant.sectionText)}</span>{" "}
             {/* The variant's KEY is not said at all. It is the store's own surrogate for the band —
                 `4TH-ROOF` where the drawing wrote `4TH TO ROOF` — so printing it puts a word beside
                 the band that the schedule never wrote there, and its digits stand as figures nobody
@@ -1000,14 +1058,14 @@ function Family({
                 addresses it and where no reader mistakes it for the drawing's own text. */}
           </p>
           {variant.zones.map((zone) => (
-            // The zone is said in the store's own word rather than through `EnumLabel`: this pane
-            // states what the schedule WROTE and nothing it was read as, and the zone is the one enum
-            // on it the partition itself spelled (I-251, L-CAD-08). The value is on `data-zone`
-            // either way, which is where a suite matches it.
+            // The zone is an enum, so it is said in WORDS through `EnumLabel` with the store's own
+            // value beside it under `data-technical` (R-UI-082, I-sch-1); the words are only words its
+            // value holds, so the row still says nothing the schedule did not (I-251). The value is on
+            // `data-zone` either way, which is where a suite matches it.
             <p className="cx-schedules-zone" key={zone.zone} data-testid={testIds.zone} data-zone={zone.zone}>
               <span className="cx-schedules-label">{SCHEDULES_COPY.schedules_registry_zone}</span>{" "}
-              <span className="cx-schedules-mono">{zone.zone}</span>{" "}
-              <span className="cx-schedules-mono">{zone.text}</span>{" "}
+              <EnumLabel value={zone.zone} label={ZONE_SAID[zone.zone] ?? zone.zone} className="cx-schedules-enum" />{" "}
+              <span className="cx-schedules-mono">{drawn(zone.text)}</span>{" "}
             </p>
           ))}
         </div>

@@ -40,6 +40,9 @@ const NOT_A_DECLARED_STATE = REFUSALS.REQUEST_MALFORMED.code;
 /** The code the refused cell demonstrates: a statement this screen's door could not read. */
 const DEMONSTRATED_REFUSAL = REFUSALS.REQUEST_MALFORMED.code;
 
+/** What the partial cell's lines leave out: a tie zone the schedule states no length for. */
+const TIE_ZONE_UNSTATED = REFUSALS.REBAR_TIE_ZONE_UNSTATED.code;
+
 /** One bar of the demonstrated bill, in the shape the one door answers one (L-REG-04). */
 function bar(
   mark: string,
@@ -144,7 +147,8 @@ const DOCUMENT: BbsDocument = {
 /** The reading the demonstration stands on, whole or with nothing scheduled at all. */
 function reading(scheduled: boolean, partial: boolean): BbsView {
   if (!scheduled) return { campaignId: null, setRevisionId: null, document: null, partial: false };
-  return { campaignId: CAMPAIGN_ID, setRevisionId: REVISION_ID, document: DOCUMENT, partial };
+  // A partly declared reading states what it left out, exactly as the lines of one do (L-QTY-02).
+  return { campaignId: CAMPAIGN_ID, setRevisionId: REVISION_ID, document: DOCUMENT, partial, omitted: partial ? [TIE_ZONE_UNSTATED] : [] };
 }
 
 /**

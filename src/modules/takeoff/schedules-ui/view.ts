@@ -57,6 +57,12 @@ export type ZoneView = {
 export type VariantView = {
   readonly variantKey: string;
   readonly bandText: string;
+  /**
+   * Whether the schedule states a band of floors for this variant at all. A schedule that states none
+   * — a beam schedule — files its section column's HEADER as the band text, which is no band; the
+   * screen says the band is absent there (I-sch-1). Absent where the store was not asked.
+   */
+  readonly banded?: boolean;
   readonly sectionText: string;
   readonly sourceKeys: readonly string[];
   readonly zones: readonly ZoneView[];

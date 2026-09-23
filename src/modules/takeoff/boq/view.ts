@@ -39,4 +39,23 @@ export type BoqView = {
    * all, and a screen handed one reads the plain descriptions it always read.
    */
   readonly descriptions?: GroupDescriptions;
+  /**
+   * lineId → what the screen says beside a line so a reader can FIND the member it measures: the
+   * mark the register filed the object under, and — where the line stands on no level of the stack —
+   * the lawful-null slot the register placed it in (`FOUNDATION`). Read off the register, never off
+   * an object key; the document's payload is untouched by it (I-271). Absent where nobody read it.
+   */
+  readonly lineFacts?: ReadonlyMap<string, BoqLineFacts>;
+  /**
+   * lineId → the registered codes a PARTIAL_DECLARED line states for what it could not measure, in
+   * the order it states them (L-QTY-02). A line with no figure says WHY in the registry's own words;
+   * absent where nobody read them.
+   */
+  readonly omissions?: ReadonlyMap<string, readonly string[]>;
+};
+
+/** What the register says about the member one draft line measures (see `BoqView.lineFacts`). */
+export type BoqLineFacts = {
+  readonly mark: string;
+  readonly slot: string | null;
 };

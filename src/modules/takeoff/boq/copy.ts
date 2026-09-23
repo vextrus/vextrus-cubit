@@ -16,8 +16,11 @@ export const BOQ_COPY = {
 
   // The two quantity channels beside the primary (R-TO-070, A-BOQ-XLSX). Each says WHAT it hands over
   // rather than what it runs, and neither calls the unsigned draft by the reserved name (AM-05, I-265).
-  boq_export_xlsx: "Quantities XLSX",
-  boq_export_csv: "Quantities CSV",
+  // One name in two words — the noun, then the artefact's own format — so a narrow tabs row can hide
+  // the noun visually and keep it in the accessible name (Decision §1, I-boq-1).
+  boq_export_quantities: "Quantities",
+  boq_export_format_xlsx: "XLSX",
+  boq_export_format_csv: "CSV",
   boq_export_xlsx_hint: "Download every published line with its bases and formula as a workbook with live formulas.",
   boq_export_csv_hint: "Download the Quantities sheet as CSV.",
   boq_export_link: "Save the file",
@@ -32,6 +35,8 @@ export const BOQ_COPY = {
   boq_col_unit: "Unit",
   boq_col_basis: "Basis",
   boq_col_coverage: "Coverage",
+  boq_quantity_unmeasured: "Not measured",
+  boq_coverage_partial: "Partly declared",
   boq_section_substructure: "Substructure",
   boq_section_superstructure: "Superstructure",
   boq_section_finishes: "Finishes",

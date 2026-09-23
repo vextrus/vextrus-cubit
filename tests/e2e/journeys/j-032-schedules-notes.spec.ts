@@ -19,6 +19,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { formatUserFigure } from "../../../src/core/format";
+import { BBS_PLACES, statedAt } from "../../../src/modules/takeoff/bbs-ui/present";
 import { strings } from "../../../src/ui/strings";
 import { TESTIDS } from "../../../src/ui/testids";
 import { SBbsPage } from "../pages/s-bbs.page";
@@ -262,10 +263,14 @@ test.describe("J-032 — the bar schedule the transcribed notes produce", () => 
 
     const grandTotal = (await heldAttribute(bbs.summary, "data-kg")) as string;
     expect(grandTotal, "the summary region carries the door's own grand total").toBe(document_.grandTotalKg);
+    // TEST_AMENDED (session 7, s-bbs I-bbs-9(c)): a mass is STATED to the gramme, the fraction the
+    // PDF prints it at (`statedAt(kg, BBS_PLACES.mass)`, emission.ts's own call), then grouped by the
+    // one formatter; the stored decimal stays whole on `data-kg`, asserted above.
     const summarySaid = (await steadyText(bbs.summary, "the cutting-stock summary")).replace(/\s+/gu, " ");
-    expect(summarySaid, `the total a reader reads is ${formatUserFigure(grandTotal)} — the stored ${grandTotal} through the one formatter`).toContain(formatUserFigure(grandTotal));
-    if (formatUserFigure(grandTotal) !== grandTotal) {
-      expect(summarySaid, "and the ungrouped decimal is not what the total cell shows").not.toContain(grandTotal);
+    const totalStated = formatUserFigure(statedAt(grandTotal, BBS_PLACES.mass));
+    expect(summarySaid, `the total a reader reads is ${totalStated} — the stored ${grandTotal} stated to the gramme through the one formatter`).toContain(totalStated);
+    if (totalStated !== grandTotal) {
+      expect(summarySaid, "and the stored decimal is not what the total cell shows").not.toContain(grandTotal);
     }
 
     /* --- the lap: its own row, at the multiple the drawing's note states (AM-03(a), L-BD-02) --- */

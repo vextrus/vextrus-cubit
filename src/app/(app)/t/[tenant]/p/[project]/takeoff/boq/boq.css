@@ -11,8 +11,9 @@
  * the tabs row is the frame's tool track (takeoff.css) — and nothing stands beside them: this screen
  * mounts no inspector (R-UI-080).
  *
- * The px literals are the closed set §5 fixes: the status line's 28 and the 520 measure the empty
- * state and the error block stand at. The seven column widths are the table's own (its `size`), and
+ * The px literals are the closed set §5 fixes: the status line's 28, the 520 measure the empty
+ * state and the error block stand at, the two media-query widths the tabs aside compacts below and
+ * the visually-hidden elements' 1 (I-boq-1). The seven column widths are the table's own (its `size`), and
  * the row height is the root's `--row-h`, never this sheet's.
  *
  * Nothing here eases in (§4): every section arrives complete, and the only transitions on this screen
@@ -34,15 +35,48 @@
 
 /* --- the lane's tabs aside: the two chips, the standing word and the one primary (§1) --- */
 
+/* Every piece of the aside keeps ONE line at its own width: a label that wraps inside the 32 px
+   track clips top and bottom, and a control squeezed below its label reads as a broken row
+   (R-UI-080, §1 "each control at --control-h"). */
 .cx-boq-aside {
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.cx-boq-aside > * {
+  flex: none;
 }
 
 .cx-boq-aside-label {
   color: var(--ink-muted);
   font-size: var(--text-caption);
+}
+
+/* The track cannot hold the six tabs and the aside's every word (I-boq-1). Below 1536 the channels'
+   shared noun, and below 1440 the two chips' captions too, stand visually hidden — still read,
+   still each control's accessible name — so the row keeps one line with the identities, the
+   standing word, the primary and both channels in it at both viewports the rubric reads. */
+@media (max-width: 1535px) {
+  .cx-boq-channel-noun {
+    position: absolute;
+    width: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 1439px) {
+  .cx-boq-aside-label {
+    position: absolute;
+    width: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 .cx-boq-standing {
@@ -225,10 +259,41 @@
   font-family: var(--font-mono);
 }
 
+/* The member's mark after its description: model data, so mono, and muted so the description still
+   leads the cell (I-boq-1). */
+.cx-boq-mark {
+  margin-left: var(--space-2);
+  color: var(--ink-code);
+  font-family: var(--font-mono);
+}
+
 .cx-boq-figure {
   color: var(--ink);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* A line that states no figure says so in words, muted, where the figure would stand (I-boq-1). */
+.cx-boq-unmeasured {
+  color: var(--ink-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-caption);
+}
+
+.cx-boq-coverage-partial {
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+}
+
+/* R-UI-012: the screen's own name, read and not shown (I-boq-1, s-bbs I-289's rule — the body size is
+   stated so the clipped heading declares nothing off R-UI-003's scale). */
+.cx-boq-name {
+  position: absolute;
+  width: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  font-size: var(--text-body);
 }
 
 /* --- the teaching and the fault cells, both at the one measure §5 fixes --- */

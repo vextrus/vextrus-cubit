@@ -12,12 +12,13 @@
 import { and, asc, desc, eq, forTenant, inArray, ingests, projects, quantityLines } from "@/core/db";
 import type { ModelCallContext } from "@/core/model";
 import { measurementStatementOf, residueOf } from "@/core/residue";
+import { registerObjectsOf } from "@/modules/takeoff/register";
 import { describeGroups, groupAsksOf, type GroupDescriptions } from "./descriptions";
 import type { BoqDescriptionPort } from "./description-question";
 import { boqDraftPayloadOf, type BoqReadingLine } from "./emission";
 import { numberItems } from "./numbering";
 import { BILL_TAXONOMY } from "./taxonomy";
-import type { BoqView } from "./view";
+import type { BoqLineFacts, BoqView } from "./view";
 
 /** Which project's draft is being read, in which workspace. */
 export type BoqScope = { readonly tenantId: string; readonly projectId: string };
@@ -52,7 +53,11 @@ export async function boqViewOf(scope: BoqScope, asking?: BoqAsking): Promise<Bo
   const campaign = residue.campaign;
   if (campaign === null) return { campaignId: null, setRevisionId: null, ...NOTHING_DRAFTED };
 
-  const [lines, project] = await Promise.all([linesOfCampaign(scope.tenantId, campaign.campaignId), projectNameOf(scope)]);
+  const [lines, project, registered] = await Promise.all([
+    linesOfCampaign(scope.tenantId, campaign.campaignId),
+    projectNameOf(scope),
+    registerObjectsOf({ tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId }),
+  ]);
   if (lines.length === 0) {
     return { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, ...NOTHING_DRAFTED };
   }
@@ -101,7 +106,40 @@ export async function boqViewOf(scope: BoqScope, asking?: BoqAsking): Promise<Bo
     // prints cannot differ, because there is only one derivation of them.
     items: numberItems(payload.sections),
     descriptions,
+    lineFacts: lineFactsOf(lines, registered),
+    omissions: omissionsOf(lines),
   };
+}
+
+/**
+ * What the register says about the member each line measures: its mark, and the lawful-null slot it
+ * stands in where it stands on no level (L-REG-04). A line whose object the register no longer holds
+ * says nothing rather than a guess (B-17).
+ */
+function lineFactsOf(
+  lines: readonly { readonly lineId: string; readonly objectKey: string }[],
+  registered: readonly { readonly objectKey: string; readonly mark: string; readonly levelSlot: string | null }[],
+): ReadonlyMap<string, BoqLineFacts> {
+  const byObject = new Map(registered.map((row) => [row.objectKey, row]));
+  const facts = new Map<string, BoqLineFacts>();
+  for (const line of lines) {
+    const object = byObject.get(line.objectKey);
+    if (object !== undefined) facts.set(line.lineId, { mark: object.mark, slot: object.levelSlot });
+  }
+  return facts;
+}
+
+/** Each partly declared line's omitted codes, as the store holds them (L-QTY-02). */
+function omissionsOf(lines: readonly { readonly lineId: string; readonly omitted: readonly unknown[] }[]): ReadonlyMap<string, readonly string[]> {
+  const omissions = new Map<string, readonly string[]>();
+  for (const line of lines) {
+    const codes = line.omitted.flatMap((component) => {
+      const code = (component as { code?: unknown } | null)?.code;
+      return typeof code === "string" && code !== "" ? [code] : [];
+    });
+    if (codes.length > 0) omissions.set(line.lineId, [...new Set(codes)]);
+  }
+  return omissions;
 }
 
 /**

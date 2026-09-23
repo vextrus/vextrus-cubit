@@ -127,6 +127,10 @@ async function ownSaid(region: Locator, nested: string, what: string): Promise<s
         await region.evaluate((node: Element, selector: string) => {
           const clone = node.cloneNode(true) as Element;
           for (const inside of Array.from(clone.querySelectorAll(selector))) inside.remove();
+          // An enum's stored spelling rides in EnumLabel's technical disclosure, closed and undrawn:
+          // the row keeps it for a suite and an engineer, but it is not what the row SAYS (R-UI-082,
+          // s-schedules I-sch-1(c) — zones read as words). TEST_AMENDED, session 7.
+          for (const technical of Array.from(clone.querySelectorAll("[data-technical]"))) technical.remove();
           return (clone.textContent ?? "").replace(/\s+/g, " ").trim();
         }, nested),
       );

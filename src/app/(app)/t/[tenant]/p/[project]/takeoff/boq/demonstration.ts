@@ -40,6 +40,9 @@ const DEMONSTRATED_REFUSAL = REFUSALS.BOQ_NO_PUBLISHED_LINE.code;
 /** The code a `__state` nobody declared is answered under — the door read a statement it cannot parse. */
 const NOT_A_DECLARED_STATE = REFUSALS.REQUEST_MALFORMED.code;
 
+/** Why the declared line states no figure: the storey its column rises through has no height. */
+const UNSTATED_HEIGHT = REFUSALS.STOREY_HEIGHT_UNSTATED.code;
+
 /** The stack the demonstration's lines stand on: a foundation level under a ground floor. */
 const LEVELS = [
   { levelId: "lvl-fdn", ordinal: -1, label: "FDN" },
@@ -90,6 +93,10 @@ function reading(projectId: string, lines: readonly ReturnType<typeof line>[], c
     coverage: payload.coverage === "COMPLETE" ? "COMPLETE" : "INCOMPLETE",
     payload,
     items: numberItems(payload.sections),
+    // What the register says each member is marked, and why the declared line states no figure —
+    // the readings the screen sets beside the payload, as `boqViewOf` answers them (I-boq-1).
+    lineFacts: new Map(lines.map((held) => [held.lineId, { mark: held.objectKey.split("/").pop() ?? "", slot: null }])),
+    omissions: new Map(lines.filter((held) => held.value === null).map((held) => [held.lineId, [UNSTATED_HEIGHT]])),
   };
 }
 

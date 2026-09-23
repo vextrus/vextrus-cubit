@@ -17,4 +17,11 @@ export type BbsView = {
   readonly document: BbsDocument | null;
   /** Whether any `rcc.rebar` line of the campaign stands PARTLY DECLARED (L-QTY-02, Decision §2). */
   readonly partial: boolean;
+  /**
+   * The registered codes those partly declared lines state for what they left out — each once, in
+   * the order the lines first state it (L-QTY-02). The screen says them as the registry's own
+   * messages beside the partial line, so a total a reader reads is never taken for the whole of the
+   * column steel. Absent, or empty, where nothing was left out.
+   */
+  readonly omitted?: readonly string[];
 };

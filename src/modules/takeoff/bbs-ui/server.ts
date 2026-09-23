@@ -4,7 +4,7 @@
 //
 // IT COMPOSES RATHER THAN COMPUTES. `bbsOf` is inc-309's door and the bill is its answer, carried
 // across whole: no figure of this screen's own is added to it, and none is taken away (goal, B-17).
-import { and, eq, forTenant, quantityLines } from "@/core/db";
+import { and, asc, eq, forTenant, quantityLines } from "@/core/db";
 import { residueOf } from "@/core/residue";
 import { bbsOf } from "@/modules/takeoff/rebar";
 import type { BbsView } from "./view";
@@ -19,7 +19,7 @@ const RCC_REBAR = "rcc.rebar";
 const PARTIAL_DECLARED = "PARTIAL_DECLARED";
 
 /** The reading a project with no campaign answers with (R-UI-050's empty cell). */
-const NOTHING_SCHEDULED: BbsView = { campaignId: null, setRevisionId: null, document: null, partial: false };
+const NOTHING_SCHEDULED: BbsView = { campaignId: null, setRevisionId: null, document: null, partial: false, omitted: [] };
 
 /**
  * The whole reading one bar-schedule screen paints (test contract: `bbsViewOf`).
@@ -34,28 +34,43 @@ export async function bbsViewOf(scope: BbsScope): Promise<BbsView> {
   const campaign = residue.campaign;
   if (campaign === null) return NOTHING_SCHEDULED;
 
-  const [document_, partial] = await Promise.all([
+  const [document_, declared] = await Promise.all([
     bbsOf({ tenantId: scope.tenantId, projectId: scope.projectId, campaignId: campaign.campaignId }),
-    anythingPartlyDeclared(scope.tenantId, campaign.campaignId),
+    partlyDeclared(scope.tenantId, campaign.campaignId),
   ]);
 
-  return { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, document: document_, partial };
+  return { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, document: document_, partial: declared.partial, omitted: declared.omitted };
 }
 
 /**
  * Whether any `rcc.rebar` line of this campaign stands PARTLY DECLARED — a tie zone nobody
- * transcribed, say (L-QTY-02, REBAR_TIE_ZONE_UNSTATED).
+ * transcribed, say (L-QTY-02, REBAR_TIE_ZONE_UNSTATED) — and the registered codes those lines state
+ * for what they left out, each once, in the order the lines first state it.
  *
  * It is READ from the published lines rather than defaulted: a flag hard-coded false would draw a
  * whole schedule over a campaign whose bars are only part of the story, and the reader would never
  * learn what is missing from the figures in front of them (Decision §2).
  */
-async function anythingPartlyDeclared(tenantId: string, campaignId: string): Promise<boolean> {
+async function partlyDeclared(tenantId: string, campaignId: string): Promise<{ partial: boolean; omitted: string[] }> {
   const lines = await forTenant({ tenantId }).transaction((tx) =>
     tx
-      .select({ coverage: quantityLines.coverage })
+      .select({ coverage: quantityLines.coverage, omitted: quantityLines.omitted })
       .from(quantityLines)
-      .where(and(eq(quantityLines.tenantId, tenantId), eq(quantityLines.campaignId, campaignId), eq(quantityLines.kind, RCC_REBAR))),
+      .where(and(eq(quantityLines.tenantId, tenantId), eq(quantityLines.campaignId, campaignId), eq(quantityLines.kind, RCC_REBAR)))
+      .orderBy(asc(quantityLines.publishedAt), asc(quantityLines.lineId)),
   );
-  return lines.some((line) => line.coverage === PARTIAL_DECLARED);
+  const partly = lines.filter((line) => line.coverage === PARTIAL_DECLARED);
+  const omitted: string[] = [];
+  for (const line of partly) {
+    for (const code of omittedCodesOf(line.omitted)) if (!omitted.includes(code)) omitted.push(code);
+  }
+  return { partial: partly.length > 0, omitted };
+}
+
+/** The registered codes one line's `omitted` states, read off the store's own shape (L-QTY-02). */
+function omittedCodesOf(omitted: readonly unknown[]): string[] {
+  return omitted.flatMap((component) => {
+    const code = (component as { code?: unknown } | null)?.code;
+    return typeof code === "string" && code !== "" ? [code] : [];
+  });
 }

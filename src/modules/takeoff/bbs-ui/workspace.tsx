@@ -8,15 +8,17 @@
 //
 // IT COMPUTES NOTHING (I-bbs-2). Every figure is a stored decimal of `bbsOf`'s document: the row
 // carries it verbatim on its `data-*` and the CELL prints it through the one formatter this product
-// groups a figure with (`formatUserFigure`, SEAM-FORMAT). No mass is summed here, no length is
-// rounded here, and the member group row carries no subtotal at all — the domain's totals are per
-// diameter and per mark, and both stand in the summary beneath the grid (B-17).
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+// groups a figure with (`formatUserFigure`, SEAM-FORMAT) — a mass STATED at the fraction length the
+// document prints it at (`statedAt`, the PDF's own call), so the screen and the page read one figure.
+// No mass is summed here, no length is rounded here, and the member group row carries no subtotal at
+// all — the domain's totals are per diameter and per mark, and both stand in the summary beneath the
+// grid (B-17).
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import type { RefusalEntry } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import type { JobKind } from "@/core/jobs/kinds";
 import { BBS_COPY } from "./copy";
-import { bbsRowsOf, bbsSummaryOf, type BbsGridRow, type BbsSummaryRow } from "./present";
+import { BBS_PLACES, bbsRowsOf, bbsSummaryOf, statedAt, type BbsGridRow, type BbsSummaryRow } from "./present";
 import { bbsStateOf, nothingScheduled } from "./states";
 import type { BbsView } from "./view";
 
@@ -25,14 +27,34 @@ import type { BbsView } from "./view";
 /** Where a refusal is resolved — the one evidence shape the refusal pattern rules. */
 type Evidence = { href: string; label: string };
 
+/**
+ * The member a run of bars belongs to, drawn as the grid's own group row (Decision §1): where it
+ * stands, what it is and what it is marked — and no figure at all (I-bbs-2).
+ *
+ * It is a ROW of the one grid rather than a heading above a table of its own, so the whole schedule
+ * reads under ONE sticky column band and one frozen key column, and a reader scrolls bars rather than
+ * repeated headers (R-UI-080, R-UI-084).
+ */
+export type BbsMemberRow = {
+  readonly component: "MEMBER";
+  readonly key: string;
+  readonly objectKey: string;
+  readonly mark: string;
+  readonly class: string;
+  readonly level: string | null;
+};
+
+/** One row of the schedule's grid: a member's group row, a bar, or the lap beneath a bar. */
+export type BbsTableRow = BbsMemberRow | BbsGridRow;
+
 /** One cell of the schedule's grid, as the shipped DataTable hands one its row. */
-type BbsCell = { readonly row: { readonly original: BbsGridRow } };
+type BbsCell = { readonly row: { readonly original: BbsTableRow } };
 
 /** One column of the schedule's grid, as the shipped DataTable takes one. */
 type BbsColumn = {
   id: string;
   header: string;
-  accessorFn?: (row: BbsGridRow) => string;
+  accessorFn?: (row: BbsTableRow) => string;
   /** The width the column is READ at (Decision §1), never the primitive's 150. */
   size?: number;
   cell: (context: BbsCell) => ReactNode;
@@ -107,10 +129,10 @@ export interface BbsChrome {
   readonly DataTable: ComponentType<{
     tableId: string;
     columns: BbsColumn[];
-    data: BbsGridRow[];
-    getRowId: (row: BbsGridRow, index: number) => string;
+    data: BbsTableRow[];
+    getRowId: (row: BbsTableRow, index: number) => string;
     freezeKeyColumn?: boolean;
-    rowDataOf?: (row: BbsGridRow, rowId: string) => Readonly<Record<string, string>>;
+    rowDataOf?: (row: BbsTableRow, rowId: string) => Readonly<Record<string, string>>;
     rowTestId?: string;
     loading?: boolean;
     loadingRows?: number;
@@ -214,38 +236,44 @@ function InPlace({ children }: { children: ReactNode }): ReactNode {
   return <>{children}</>;
 }
 
-/** One member of the schedule: what it is, and the rows standing under it. */
-type BbsMemberBlock = {
-  readonly objectKey: string;
-  readonly mark: string;
-  readonly class: string;
-  readonly level: string | null;
-  readonly rows: BbsGridRow[];
-};
-
-/** The grid's rows gathered under the member each belongs to, in the presenter's own order. */
-function membersOf(rows: readonly BbsGridRow[]): BbsMemberBlock[] {
+/**
+ * The grid's rows in the order it draws them: each member's group row, then the bars and laps
+ * standing under it, in the presenter's own order — the members in the order the document first
+ * names them, the rows inside a member in the document's own (L-REG-04). Nothing is sorted here.
+ */
+function tableRowsOf(rows: readonly BbsGridRow[]): BbsTableRow[] {
   const order: string[] = [];
-  const byMember = new Map<string, BbsMemberBlock>();
+  const byMember = new Map<string, BbsTableRow[]>();
   for (const row of rows) {
     const held = byMember.get(row.objectKey);
     if (held === undefined) {
       order.push(row.objectKey);
-      byMember.set(row.objectKey, { objectKey: row.objectKey, mark: row.mark, class: row.class, level: row.level, rows: [row] });
-    } else held.rows.push(row);
+      const member: BbsMemberRow = { component: "MEMBER", key: `${row.objectKey}|MEMBER`, objectKey: row.objectKey, mark: row.mark, class: row.class, level: row.level };
+      byMember.set(row.objectKey, [member, row]);
+    } else held.push(row);
   }
-  return order.map((objectKey) => byMember.get(objectKey) as BbsMemberBlock);
+  return order.flatMap((objectKey) => byMember.get(objectKey) ?? []);
 }
 
 /**
  * What one row publishes of its own — Decision §6's closed attribute contract, spelled once.
  *
- * The row's own test id travels with it, because ONE table draws TWO components and the primitive's
- * `rowTestId` names one: a NET row is `bbs-row` and the lap beneath it is `bbs-lap`, which is what
- * lets a reader — and a read — tell the bar from the lap without knowing this table's shape.
+ * The row's own test id travels with it, because ONE table draws THREE kinds of row and the
+ * primitive's `rowTestId` names one: a member's group row is `bbs-member`, a NET row is `bbs-row`
+ * and the lap beneath it is `bbs-lap`, which is what lets a reader — and a read — tell the member
+ * from the bar and the bar from the lap without knowing this table's shape.
  */
-function rowDataOf(ids: BbsTestIds): (row: BbsGridRow) => Record<string, string> {
+function rowDataOf(ids: BbsTestIds): (row: BbsTableRow) => Record<string, string> {
   return (row): Record<string, string> => {
+    if (row.component === "MEMBER") {
+      return {
+        "data-testid": ids.member,
+        "data-member": row.objectKey,
+        "data-mark": row.mark,
+        "data-class": row.class,
+        "data-level": row.level ?? "",
+      };
+    }
     if (row.component === "LAP") {
       return {
         "data-testid": ids.lap,
@@ -324,14 +352,31 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
   const denied = state === "denied";
   const document_ = denied ? null : (view?.document ?? null);
 
-  const rows = useMemo(() => (document_ === null ? [] : bbsRowsOf(document_)), [document_]);
-  const members = useMemo(() => membersOf(rows), [rows]);
+  const rows = useMemo(() => (document_ === null ? [] : tableRowsOf(bbsRowsOf(document_))), [document_]);
   const summary = useMemo(() => (document_ === null ? null : bbsSummaryOf(document_)), [document_]);
-  const columns = useMemo(() => bbsColumns({ EnumLabel, Tooltip }), [EnumLabel, Tooltip]);
   const rowData = useMemo(() => rowDataOf(ids), [ids]);
+
+  /**
+   * The width the grid's band is READ at, so the Dimensions column can take what the nine fixed
+   * columns leave (§1 column 5: "remainder, min 200"). Before the box is measured — the server's
+   * paint, a suite without layout — the column stands at its minimum, which fits at every viewport
+   * the rubric reads; measuring only ever widens it.
+   */
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [gridWidth, setGridWidth] = useState<number | null>(null);
+  const columns = useMemo(() => bbsColumns({ EnumLabel, Tooltip }, dimensionsWidthOf(gridWidth)), [EnumLabel, Tooltip, gridWidth]);
 
   const denial = denied ? (doors.refusalOf?.(PERMISSION_NOT_HELD) ?? null) : null;
   const refusal = refused === null ? null : (doors.refusalOf?.(refused) ?? null);
+  /** The registered entries the partly declared lines name for what they left out, in their order. */
+  const refusalOf = doors.refusalOf;
+  const omissions = useMemo(
+    () => (view?.omitted ?? []).flatMap((code) => {
+      const entry = refusalOf?.(code);
+      return entry === undefined ? [] : [entry];
+    }),
+    [refusalOf, view?.omitted],
+  );
   // I-bbs-1: a reader without MEASURE is denied the whole screen, so the door stands for a permitted
   // reader with a schedule to render and for nobody else — never disabled, absent (R-UI-080).
   const permitted = (props.permitted ?? true) && !denied;
@@ -345,16 +390,26 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
   const drawsError = state === "error" || unread;
   const drawsGrid = !drawsError && state !== "loading" && state !== "denied" && !nothingScheduled(view);
 
+  useLayoutEffect(() => {
+    const box = gridRef.current;
+    if (box === null) return;
+    const measure = (): void => setGridWidth(box.clientWidth > 0 ? box.clientWidth : null);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(measure);
+    watch.observe(box);
+    return () => watch.disconnect();
+  }, [drawsGrid]);
+
   /**
    * What the grid ACTUALLY PAINTED, as the shipped table itself states it.
    *
    * A count taken from the model would say `n` however many rows reached the page, which is the
    * assertion the lane forbids (`.count()` on a virtualised table is not an assertion): this reads
-   * each member table's own `data-rows-rendered` — the pair the retrying reads wait on — and sums
-   * them, exactly as the documents screen reads the one table it mounts. The model's count stands
-   * only until the primitive has stated one of its own.
+   * the one table's own `data-rows-rendered` — the pair the retrying reads wait on — exactly as the
+   * documents screen reads the one table it mounts. The model's count stands only until the
+   * primitive has stated one of its own.
    */
-  const gridRef = useRef<HTMLDivElement | null>(null);
   const [painted, setPainted] = useState<number | null>(null);
   useEffect(() => {
     const box = gridRef.current;
@@ -458,6 +513,21 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
             {state === "partial" ? BBS_COPY.bbs_partial : BBS_COPY.bbs_complete}
           </p>
         ) : null}
+        {/* What the partly declared lines left out, each in the registry's own words and each once:
+            a total beneath a schedule that holds no tie and no lap would otherwise read as the whole
+            of the steel (L-QTY-02, L-QTY-07, R-UI-020). */}
+        {drawsGrid && state === "partial" && omissions.length > 0 ? (
+          <div className="cx-bbs-omitted">
+            <span className="cx-bbs-omitted-label">{BBS_COPY.bbs_partial_omitted}</span>
+            <ul className="cx-bbs-omitted-list">
+              {omissions.map((entry) => (
+                <li key={entry.code} className="cx-bbs-omitted-line">
+                  {entry.message}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </div>
 
       {/* The job strip, standing between the answer slot and the grid ONLY while a render this
@@ -475,26 +545,22 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
       )}
 
       {state === "loading" ? (
-        /* §2's loading posture: the schedule's own shape, boned — two member blocks over eight row
-           bones each, and the summary beneath them over three. A header standing alone above blank
-           rows is indistinguishable from a screen that finished and found nothing (R-UI-050). */
+        /* §2's loading posture: the schedule's own shape, boned — the one grid's real header over
+           two members' worth of row bones (a group row and eight bars each), and the summary beneath
+           over three. A header standing alone above blank rows is indistinguishable from a screen
+           that finished and found nothing (R-UI-050). */
         <>
-          <div className="cx-bbs-grid" data-testid={ids.grid} aria-label={BBS_COPY.bbs_grid_label}>
-            {LOADING_MEMBERS.map((bone) => (
-              <section key={bone} className="cx-bbs-member-block">
-                <Skeleton className="cx-bbs-bone-member" />
-                <DataTable
-                  tableId={`s-bbs-loading-${bone}`}
-                  columns={columns}
-                  data={[]}
-                  getRowId={(row) => row.key}
-                  freezeKeyColumn
-                  loading
-                  loadingRows={8}
-                  aria-label={BBS_COPY.bbs_grid_label}
-                />
-              </section>
-            ))}
+          <div className="cx-bbs-grid" data-testid={ids.grid} aria-label={BBS_COPY.bbs_grid_label} ref={gridRef}>
+            <DataTable
+              tableId="s-bbs-bars"
+              columns={columns}
+              data={[]}
+              getRowId={(row) => row.key}
+              freezeKeyColumn
+              loading
+              loadingRows={LOADING_ROWS}
+              aria-label={BBS_COPY.bbs_grid_label}
+            />
           </div>
           <section className="cx-bbs-summary" data-loading="">
             <h2 className="cx-bbs-summary-heading">{BBS_COPY.bbs_summary_heading}</h2>
@@ -540,35 +606,20 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
             data-rows-rendered={String(painted ?? rows.length)}
             ref={gridRef}
           >
-            {members.map((member) => (
-              <section key={member.objectKey} className="cx-bbs-member-block">
-                {/* The member group row: where it stands, what it is, what it is marked — and no
-                    figure at all. A per-member mass would be a second home for a sum nobody stores
-                    (I-bbs-2, B-17). */}
-                <h2
-                  className="cx-bbs-member"
-                  data-testid={ids.member}
-                  data-member={member.objectKey}
-                  data-mark={member.mark}
-                  data-class={member.class}
-                  data-level={member.level ?? ""}
-                >
-                  <span className="cx-bbs-member-level">{member.level ?? ""}</span>
-                  <EnumLabel value={member.class} className="cx-bbs-enum" />
-                  <span className="cx-bbs-member-mark">{member.mark}</span>
-                </h2>
-                <DataTable
-                  tableId={`s-bbs-bars-${member.objectKey}`}
-                  columns={columns}
-                  data={member.rows}
-                  getRowId={(row) => row.key}
-                  freezeKeyColumn
-                  rowDataOf={rowData}
-                  rowTestId={ids.row}
-                  aria-label={`${member.mark} — ${BBS_COPY.bbs_grid_label}`}
-                />
-              </section>
-            ))}
+            {/* ONE grid under one sticky column band (§1): each member's group row — where it
+                stands, what it is, what it is marked, and no figure at all, because a per-member
+                mass would be a second home for a sum nobody stores (I-bbs-2, B-17) — then its bars,
+                each lap beneath its bar. */}
+            <DataTable
+              tableId="s-bbs-bars"
+              columns={columns}
+              data={rows}
+              getRowId={(row) => row.key}
+              freezeKeyColumn
+              rowDataOf={rowData}
+              rowTestId={ids.row}
+              aria-label={BBS_COPY.bbs_grid_label}
+            />
           </div>
 
           {summary === null ? null : (
@@ -589,9 +640,14 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
                 <div className="cx-bbs-summary-total" role="row">
                   <span role="cell">{BBS_COPY.bbs_summary_total}</span>
                   <span className="cx-bbs-figure" role="cell">
-                    {formatUserFigure(summary.grandTotalKg)}
+                    {massOf(summary.grandTotalKg)}
                   </span>
-                  <span role="cell" />
+                  {/* A campaign whose rebar is only partly declared totals only what was scheduled,
+                      and the row says so beside the figure — the L-QTY-07 rule the draft's sections
+                      already keep (I-bbs-9). */}
+                  <span role="cell" className="cx-bbs-summary-scope">
+                    {state === "partial" ? BBS_COPY.bbs_summary_total_measured : null}
+                  </span>
                   <span role="cell" />
                   <span role="cell" />
                 </div>
@@ -604,9 +660,19 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
   );
 }
 
-/** The two member blocks the loading posture bones, and the three lines its summary bones (§2). */
-const LOADING_MEMBERS = Object.freeze(["a", "b"]);
+/** The loading posture's bones (§2): two members' worth of rows — a group row and eight bars each —
+    and three lines of the summary beneath. */
+const LOADING_ROWS = 18;
 const LOADING_SUMMARY_ROWS = Object.freeze(["a", "b", "c"]);
+
+/**
+ * A mass as this schedule STATES it: the stored decimal written at the fraction length the document
+ * prints a mass at (`BBS_PLACES.mass`, the call `emission.ts` makes for the PDF), then grouped by the
+ * one formatter. The attribute beside it keeps the stored decimal (I-bbs-2, B-17).
+ */
+function massOf(kg: string): string {
+  return kg === "" ? NOTHING : formatUserFigure(statedAt(kg, BBS_PLACES.mass));
+}
 
 /** The cutting-stock summary's column band — one spelling, read by the summary and by its bones. */
 function SummaryHead() {
@@ -638,7 +704,7 @@ function SummaryRow({ line, testId }: { line: BbsSummaryRow; testId: string }) {
         {String(line.diameterMm)}
       </span>
       <span className="cx-bbs-figure" role="cell">
-        {formatUserFigure(line.kg)}
+        {massOf(line.kg)}
       </span>
       <span className="cx-bbs-figure" role="cell">
         {formatUserFigure(String(line.stockBars))}
@@ -654,112 +720,168 @@ function SummaryRow({ line, testId }: { line: BbsSummaryRow; testId: string }) {
 }
 
 /**
- * The ten columns, left to right, at the widths Decision §1 reads them at. The first is the frozen
- * key: the bar mark on a bar, and the word `Lap` on the lap beneath it — which is the one place this
- * screen says in words what `data-component` says in machine vocabulary (I-bbs-3, R-UI-082).
+ * The nine columns read at a fixed width, and the least the Dimensions column is read at (§1's
+ * column table). The fixed widths are the headers' own: a right-aligned header is set in the figure
+ * face, and `Cutting length (mm)` in that face does not fit the 128 it was first given — a header
+ * that wraps is the no-wrap law broken in the grid's most-read row (R-UI-084).
  */
-function bbsColumns(chrome: Pick<BbsChrome, "EnumLabel" | "Tooltip">): BbsColumn[] {
+const WIDTH = Object.freeze({ mark: 104, role: 88, shape: 72, diameter: 112, cuttingRaw: 160, cuttingRounded: 104, cuttingIs: 136, bars: 72, kg: 112 });
+const DIMENSIONS_MIN = 200;
+/** What the fixed nine take together. */
+const FIXED_WIDTH = Object.values(WIDTH).reduce((sum, width) => sum + width, 0);
+/**
+ * What the band keeps clear at its trailing edge: the DataTable's `⋯` stands over the header's last
+ * `--row-h` (28 px compact, 36 comfortable), and the last column's 24 px resize target has to stand
+ * clear of it (SC 2.5.8). Filled to within 16 px of the edge, `Mass`'s handle kept 12 px and axe
+ * called it serious (session 7). 40 covers the comfortable ⋯ on the 4 px grid and a vertical scroller.
+ */
+const TRAILING_ALLOWANCE = 40;
+/** Widths stay on the 4 px grid the rest of the screen stands on (§1). */
+const GRID_STEP = 4;
+
+/**
+ * The Dimensions column's width: what the grid's band leaves once the nine fixed columns have their
+ * widths, on the 4 px grid, and never less than its minimum (§1 column 5, "remainder, min 200").
+ */
+function dimensionsWidthOf(gridWidth: number | null): number {
+  if (gridWidth === null) return DIMENSIONS_MIN;
+  const left = gridWidth - FIXED_WIDTH - TRAILING_ALLOWANCE;
+  return Math.max(DIMENSIONS_MIN, Math.floor(left / GRID_STEP) * GRID_STEP);
+}
+
+/**
+ * The ten columns, left to right, at the widths Decision §1 reads them at. The first is the frozen
+ * key: the bar mark on a bar, the word `Lap` on the lap beneath it — which is the one place this
+ * screen says in words what `data-component` says in machine vocabulary (I-bbs-3, R-UI-082) — and,
+ * on a member's group row, where the member stands, what it is and its mark, read across the row.
+ * Every other cell of a group row is empty: the row carries no figure (I-bbs-2).
+ */
+function bbsColumns(chrome: Pick<BbsChrome, "EnumLabel" | "Tooltip">, dimensionsWidth: number): BbsColumn[] {
   const { EnumLabel, Tooltip } = chrome;
-  const lap = (row: BbsGridRow): boolean => row.component === "LAP";
   /** A stored decimal as a reader reads it: grouped lakh/crore, by the one formatter (SEAM-FORMAT). */
   const printed = (value: string): string => (value === "" ? NOTHING : formatUserFigure(value));
+  /** A bar or a lap's own cell; a member's group row states none of them. */
+  const bar = (render: (row: BbsGridRow) => ReactNode) =>
+    ({ row }: BbsCell): ReactNode => (row.original.component === "MEMBER" ? null : render(row.original));
+  const barText = (read: (row: BbsGridRow) => string) => (row: BbsTableRow): string => (row.component === "MEMBER" ? "" : read(row));
   return [
     {
       id: "mark",
       header: BBS_COPY.bbs_col_mark,
-      size: 112,
-      accessorFn: (row) => row.barMark,
-      cell: ({ row }) =>
-        lap(row.original) ? (
+      size: WIDTH.mark,
+      accessorFn: (row) => (row.component === "MEMBER" ? row.mark : row.barMark),
+      cell: ({ row }) => {
+        const held = row.original;
+        if (held.component === "MEMBER") {
+          return (
+            <span className="cx-bbs-member">
+              {held.level === null || held.level === "" ? null : (
+                <>
+                  <span className="cx-bbs-member-level">{held.level}</span>
+                  <span className="cx-bbs-member-separator">{" · "}</span>
+                </>
+              )}
+              <EnumLabel value={held.class} className="cx-bbs-enum" />
+              <span className="cx-bbs-member-separator">{" · "}</span>
+              <span className="cx-bbs-member-mark">{held.mark}</span>
+            </span>
+          );
+        }
+        return held.component === "LAP" ? (
           <Tooltip content={BBS_COPY.bbs_lap_tooltip}>
             <span className="cx-bbs-lap-label">{BBS_COPY.bbs_lap_label}</span>
           </Tooltip>
         ) : (
-          <span className="cx-bbs-mark">{row.original.barMark}</span>
-        ),
+          <span className="cx-bbs-mark">{held.barMark}</span>
+        );
+      },
     },
     {
       id: "role",
       header: BBS_COPY.bbs_col_role,
-      size: 96,
-      accessorFn: (row) => row.role,
-      cell: ({ row }) => (lap(row.original) ? <span className="cx-bbs-nothing">{NOTHING}</span> : <EnumLabel value={row.original.role} className="cx-bbs-enum" />),
+      size: WIDTH.role,
+      accessorFn: barText((row) => row.role),
+      cell: bar((row) => (row.component === "LAP" ? <span className="cx-bbs-nothing">{NOTHING}</span> : <EnumLabel value={row.role} className="cx-bbs-enum" />)),
     },
     {
       id: "shape",
       header: BBS_COPY.bbs_col_shape,
-      size: 72,
-      accessorFn: (row) => row.shape,
+      size: WIDTH.shape,
+      accessorFn: barText((row) => row.shape),
       // A BS 8666 code is the domain's own name for the shape, so it is rendered as the code it is,
       // in the technical face — never as English somebody invented for it (I-bbs-6, R-UI-082).
-      cell: ({ row }) =>
-        lap(row.original) ? (
+      cell: bar((row) =>
+        row.component === "LAP" ? (
           <span className="cx-bbs-nothing">{NOTHING}</span>
         ) : (
           <span className="cx-bbs-shape" data-technical="">
-            {row.original.shape}
+            {row.shape}
           </span>
         ),
+      ),
     },
     {
       id: "diameter",
       header: BBS_COPY.bbs_col_diameter,
-      size: 88,
+      size: WIDTH.diameter,
       meta: { align: "right" },
-      accessorFn: (row) => String(row.diameterMm),
-      cell: ({ row }) => <span className="cx-bbs-figure">{String(row.original.diameterMm)}</span>,
+      accessorFn: barText((row) => String(row.diameterMm)),
+      cell: bar((row) => <span className="cx-bbs-figure">{String(row.diameterMm)}</span>),
     },
     {
       id: "dims",
       header: BBS_COPY.bbs_col_dims,
       // The REMAINDER column (§1's column table: "remainder, min 200"). The nine figure and code
       // columns are read at fixed widths, so what is left of the grid's band belongs to the legs —
-      // the one cell that truncates — rather than standing empty to the right of the last mass.
-      size: 400,
-      accessorFn: (row) => Object.keys(row.dimsMm).join(" "),
-      cell: ({ row }) => <span className="cx-bbs-dims">{dimensionsOf(row.original)}</span>,
+      // the one cell that truncates — rather than standing empty to the right of the last mass, and
+      // never so much that the Mass column is pushed off a 1280 screen.
+      size: dimensionsWidth,
+      accessorFn: barText((row) => Object.keys(row.dimsMm).join(" ")),
+      cell: bar((row) => <span className="cx-bbs-dims">{dimensionsOf(row)}</span>),
     },
     {
       id: "cuttingRaw",
       header: BBS_COPY.bbs_col_cutting_raw,
-      size: 128,
+      size: WIDTH.cuttingRaw,
       meta: { align: "right" },
-      accessorFn: (row) => row.cuttingRawMm,
+      accessorFn: barText((row) => row.cuttingRawMm),
       // As stored, never re-rounded: the raw BS 8666 length is the one figure this product never
       // touches, and what it crosses here is the formatter's grouping alone (L-FRM-05, I-bbs-4).
-      cell: ({ row }) => <span className="cx-bbs-figure">{printed(row.original.cuttingRawMm)}</span>,
+      cell: bar((row) => <span className="cx-bbs-figure">{printed(row.cuttingRawMm)}</span>),
     },
     {
       id: "cuttingRounded",
       header: BBS_COPY.bbs_col_cutting_rounded,
-      size: 104,
+      size: WIDTH.cuttingRounded,
       meta: { align: "right" },
-      accessorFn: (row) => row.cuttingRoundedMm,
-      cell: ({ row }) => <span className="cx-bbs-figure">{printed(row.original.cuttingRoundedMm)}</span>,
+      accessorFn: barText((row) => row.cuttingRoundedMm),
+      cell: bar((row) => <span className="cx-bbs-figure">{printed(row.cuttingRoundedMm)}</span>),
     },
     {
       id: "cuttingIs",
       header: BBS_COPY.bbs_col_cutting_is,
-      size: 112,
+      size: WIDTH.cuttingIs,
       meta: { align: "right" },
-      accessorFn: (row) => row.cuttingIsAdditiveMm,
-      cell: ({ row }) => <span className="cx-bbs-figure">{printed(row.original.cuttingIsAdditiveMm)}</span>,
+      accessorFn: barText((row) => row.cuttingIsAdditiveMm),
+      cell: bar((row) => <span className="cx-bbs-figure">{printed(row.cuttingIsAdditiveMm)}</span>),
     },
     {
       id: "bars",
       header: BBS_COPY.bbs_col_bars,
-      size: 88,
+      size: WIDTH.bars,
       meta: { align: "right" },
-      accessorFn: (row) => row.bars,
-      cell: ({ row }) => <span className="cx-bbs-figure">{printed(row.original.bars)}</span>,
+      accessorFn: barText((row) => row.bars),
+      cell: bar((row) => <span className="cx-bbs-figure">{printed(row.bars)}</span>),
     },
     {
       id: "kg",
       header: BBS_COPY.bbs_col_kg,
-      size: 112,
+      size: WIDTH.kg,
       meta: { align: "right" },
-      accessorFn: (row) => row.kg,
-      cell: ({ row }) => <span className="cx-bbs-figure">{printed(row.original.kg)}</span>,
+      accessorFn: barText((row) => row.kg),
+      // Stated at the gramme the document prints a mass at, so the figure a reader reads here is
+      // the figure the issued schedule prints (I-bbs-2); `data-kg` keeps the stored decimal.
+      cell: bar((row) => <span className="cx-bbs-figure">{massOf(row.kg)}</span>),
     },
   ];
 }

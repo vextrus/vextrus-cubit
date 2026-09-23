@@ -46,7 +46,16 @@ export type BoqRow = BoqDraftLine & {
   readonly item: string | null;
   /** Why the taxonomy could not place this line, in words; `null` on a line it placed (L-BD-08). */
   readonly reason: string | null;
+  /** The mark the register filed this line's member under, so a reader can find it; `null` unread. */
+  readonly mark: string | null;
+  /** The lawful-null slot the member stands in where it stands on no level (`FOUNDATION`), or `null`. */
+  readonly slot: string | null;
+  /** The registered codes this line states for what it could not measure (L-QTY-02); empty if none. */
+  readonly omitted: readonly string[];
 };
+
+/** What the register and the store say about each line beside the payload (see `BoqView`). */
+type LineReadings = Pick<BoqView, "lineFacts" | "omissions">;
 
 /** One cell of a section's grid, as the shipped DataTable hands one its row. */
 type BoqCell = { readonly row: { readonly original: BoqRow } };
@@ -268,7 +277,7 @@ function ExportChannel({
   Tooltip,
   testid,
   kind,
-  label,
+  format,
   hint,
   offline,
   onPress,
@@ -277,11 +286,20 @@ function ExportChannel({
   Tooltip: BoqChrome["Tooltip"];
   testid: string;
   kind: string;
-  label: string;
+  /** The artefact's own word (`XLSX`, `CSV`), which follows the channel's noun. */
+  format: string;
   hint: string;
   offline: boolean;
   onPress: () => void;
 }): ReactNode {
+  // The noun and the format are one name — `Quantities XLSX` — and both stay in the accessible name;
+  // where the tabs row is narrower than the six tabs and the whole aside, the noun alone stands
+  // visually hidden so the row keeps one line (§1, R-UI-080, I-boq-1).
+  const label = (
+    <>
+      <span className="cx-boq-channel-noun">{BOQ_COPY.boq_export_quantities}</span> <span>{format}</span>
+    </>
+  );
   if (offline) {
     return (
       <Tooltip content={BOQ_COPY.boq_offline}>
@@ -316,8 +334,14 @@ function InPlace({ children }: { children: ReactNode }): ReactNode {
 
 /* ------------------------------------------------------------------------------- the reading */
 
+/** What a line's member is found by, and what it left out, off the readings beside the payload. */
+function besideOf(lineId: string, readings: LineReadings): Pick<BoqRow, "mark" | "slot" | "omitted"> {
+  const facts = readings.lineFacts?.get(lineId);
+  return { mark: facts?.mark ?? null, slot: facts?.slot ?? null, omitted: readings.omissions?.get(lineId) ?? [] };
+}
+
 /** Every row of one section, in the payload's own order — which is the order it was numbered in. */
-function rowsOf(section: BoqDraftSection, items: ReadonlyMap<string, string>, descriptions: GroupDescriptions | undefined): BoqRow[] {
+function rowsOf(section: BoqDraftSection, items: ReadonlyMap<string, string>, descriptions: GroupDescriptions | undefined, readings: LineReadings): BoqRow[] {
   return section.groups.flatMap((group) =>
     group.lines.map((line) => ({
       ...line,
@@ -328,12 +352,13 @@ function rowsOf(section: BoqDraftSection, items: ReadonlyMap<string, string>, de
       descriptionBasis: descriptions?.get(groupKeyOf(group.class, group.kind))?.basis ?? DEFAULTED,
       item: items.get(line.lineId) ?? null,
       reason: null,
+      ...besideOf(line.lineId, readings),
     })),
   );
 }
 
 /** Every row the taxonomy could not place, kept and labelled after the six sections (I-266). */
-function unclassifiedRowsOf(payload: BoqDraftPayload): BoqRow[] {
+function unclassifiedRowsOf(payload: BoqDraftPayload, readings: LineReadings): BoqRow[] {
   return payload.unclassified.lines.map((line) => ({
     ...line,
     bill: UNCLASSIFIED,
@@ -343,6 +368,7 @@ function unclassifiedRowsOf(payload: BoqDraftPayload): BoqRow[] {
     descriptionBasis: DEFAULTED,
     item: null,
     reason: line.reason,
+    ...besideOf(line.lineId, readings),
   }));
 }
 
@@ -476,15 +502,31 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
 
   /* --- the sections: one grid each, in BILLS order, then the unclassified block (I-266) --- */
   const sections = useMemo(() => payload?.sections ?? [], [payload]);
-  const unclassified = useMemo(() => (payload === null ? [] : unclassifiedRowsOf(payload)), [payload]);
+  const readings = useMemo<LineReadings>(() => ({ lineFacts: view?.lineFacts, omissions: view?.omissions }), [view?.lineFacts, view?.omissions]);
+  const unclassified = useMemo(() => (payload === null ? [] : unclassifiedRowsOf(payload, readings)), [payload, readings]);
+
+  /**
+   * Why a line states no figure, in the registry's own words — each code it omitted, once (L-QTY-02,
+   * R-UI-020). Read through the one lookup a refusal's words come from; a code the registry does not
+   * hold says nothing rather than itself (R-UI-082).
+   */
+  const refusalOf = doors.refusalOf;
+  const reasonsOf = useCallback(
+    (row: BoqRow): readonly string[] =>
+      row.omitted.flatMap((code) => {
+        const entry = refusalOf?.(code);
+        return entry === undefined ? [] : [entry.message];
+      }),
+    [refusalOf],
+  );
 
   const columns = useMemo(
-    () => boqColumns({ BasisChip, CoverageChip, EnumLabel, UnitBadge }, false),
-    [BasisChip, CoverageChip, EnumLabel, UnitBadge],
+    () => boqColumns({ BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip }, false, reasonsOf),
+    [BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip, reasonsOf],
   );
   const unclassifiedColumns = useMemo(
-    () => boqColumns({ BasisChip, CoverageChip, EnumLabel, UnitBadge }, true),
-    [BasisChip, CoverageChip, EnumLabel, UnitBadge],
+    () => boqColumns({ BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip }, true, reasonsOf),
+    [BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip, reasonsOf],
   );
 
   const group = useMemo(
@@ -554,7 +596,7 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
               Tooltip={Tooltip}
               testid={ids.exportXlsx}
               kind={XLSX}
-              label={BOQ_COPY.boq_export_xlsx}
+              format={BOQ_COPY.boq_export_format_xlsx}
               hint={BOQ_COPY.boq_export_xlsx_hint}
               offline={offline}
               onPress={pressXlsx}
@@ -564,7 +606,7 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
               Tooltip={Tooltip}
               testid={ids.exportCsv}
               kind={CSV}
-              label={BOQ_COPY.boq_export_csv}
+              format={BOQ_COPY.boq_export_format_csv}
               hint={BOQ_COPY.boq_export_csv_hint}
               offline={offline}
               onPress={pressCsv}
@@ -613,6 +655,10 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
       data-taxonomy-version={view?.taxonomyVersion ?? ""}
     >
       <TabsAside>{aside}</TabsAside>
+
+      {/* The screen's own name, read and not shown (I-boq-1, s-bbs I-289's rule): the frame prints it
+          in the crumb, and the section headings beneath are its h2s, so the page has one h1. */}
+      <h1 className="cx-boq-name">{BOQ_COPY.takeoff_nav_boq}</h1>
 
       {offline ? (
         <p className="cx-boq-offline" role="status">
@@ -694,7 +740,7 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
 
           <div className="cx-boq-grid" data-testid={ids.grid} aria-label={BOQ_COPY.boq_grid_label} data-rows-rendered={countOf(payload)}>
             {sections.map((section) => {
-              const rows = rowsOf(section, items, view?.descriptions);
+              const rows = rowsOf(section, items, view?.descriptions, readings);
               // S is the section's ordinal among L-BD-08's SIX, never its position among the sections
               // this campaign happens to fill — the same S the item numbers carry, so a heading and the
               // lines beneath it can never state two different sections (AM-14 §2, I-269).
@@ -797,10 +843,11 @@ function codeOf(thrown: unknown): string | null {
  * `BILLS`, which has no number to show and may not be given one (I-267).
  */
 function boqColumns(
-  chrome: Pick<BoqChrome, "BasisChip" | "CoverageChip" | "EnumLabel" | "UnitBadge">,
+  chrome: Pick<BoqChrome, "BasisChip" | "CoverageChip" | "EnumLabel" | "UnitBadge" | "Tooltip">,
   unplaced: boolean,
+  reasonsOf: (row: BoqRow) => readonly string[],
 ): BoqColumn[] {
-  const { BasisChip, CoverageChip, EnumLabel, UnitBadge } = chrome;
+  const { BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip } = chrome;
   return [
     {
       id: "item",
@@ -829,11 +876,14 @@ function boqColumns(
       // `data-description-basis` says WHERE the group's description came from, on every line under
       // it, so a reader and a suite read one answer off one row (I-298). The words themselves stay
       // the group row's: a line repeats its class and trade, never the sentence above it.
+      // The member's MARK follows, muted and in mono (I-boq-1): twenty lines of one group read the same
+      // words, and the mark is what tells a reader which pile cap an item number points at.
       cell: ({ row }) => (
         <span className="cx-boq-description" data-description-basis={row.original.descriptionBasis}>
           <EnumLabel value={row.original.class} label={inWords(row.original.class)} className="cx-boq-enum" />
           <span className="cx-boq-separator">{" · "}</span>
           <EnumLabel value={row.original.kind} label={inWords(row.original.kind)} className="cx-boq-enum" />
+          {row.original.mark === null || row.original.mark === "" ? null : <span className="cx-boq-mark">{row.original.mark}</span>}
         </span>
       ),
     },
@@ -841,8 +891,15 @@ function boqColumns(
       id: "level",
       header: BOQ_COPY.boq_col_level,
       size: 120,
-      accessorFn: (row) => row.level,
-      cell: ({ row }) => <span className="cx-boq-level">{row.original.level}</span>,
+      accessorFn: (row) => (row.level !== "" ? row.level : (row.slot ?? "")),
+      // The level label verbatim; where the line stands on no level of the stack, the lawful-null
+      // slot the register placed its member in, as words — never an empty cell (I-boq-1, R-UI-020).
+      cell: ({ row }) =>
+        row.original.level !== "" || row.original.slot === null ? (
+          <span className="cx-boq-level">{row.original.level}</span>
+        ) : (
+          <EnumLabel value={row.original.slot} className="cx-boq-level cx-boq-enum" />
+        ),
     },
     {
       id: "quantity",
@@ -851,9 +908,15 @@ function boqColumns(
       meta: { align: "right" },
       accessorFn: (row) => row.quantity ?? "",
       // I-271: the figure a reader reads is the figure the document prints — already rounded at the
-      // kind's own precision by the emission, grouped as the document groups one (L-FMT-01), and
-      // ABSENT where a line declared what it could not measure (L-QTY-02).
-      cell: ({ row }) => (row.original.quantity === null ? null : <span className="cx-boq-figure">{formatUserFigure(row.original.quantity)}</span>),
+      // kind's own precision by the emission, grouped as the document groups one (L-FMT-01). A line
+      // that declared what it could not measure states NO figure, and says so in words, with the
+      // registry's own reasons a hover or a focus away (L-QTY-02, R-UI-020, I-boq-1).
+      cell: ({ row }) => {
+        if (row.original.quantity !== null) return <span className="cx-boq-figure">{formatUserFigure(row.original.quantity)}</span>;
+        const said = <span className="cx-boq-unmeasured">{BOQ_COPY.boq_quantity_unmeasured}</span>;
+        const reasons = reasonsOf(row.original);
+        return reasons.length === 0 ? said : <Tooltip content={reasons.join(" ")}>{said}</Tooltip>;
+      },
     },
     {
       id: "unit",
@@ -884,7 +947,15 @@ function boqColumns(
       size: 112,
       meta: { align: "right" },
       accessorFn: (row) => row.coverage,
-      cell: ({ row }) => <CoverageChip value={row.original.coverage === COMPLETE ? 1 : 0} />,
+      // A COMPLETE line is wholly measured and its chip says 100 %. A partly declared line has no
+      // measured fraction anybody stated, so it wears its standing in WORDS rather than a 0 % the
+      // chip would invent (L-QTY-07, I-271, I-boq-1).
+      cell: ({ row }) =>
+        row.original.coverage === COMPLETE ? (
+          <CoverageChip value={1} />
+        ) : (
+          <EnumLabel value={row.original.coverage} label={BOQ_COPY.boq_coverage_partial} className="cx-boq-coverage-partial" />
+        ),
     },
   ];
 }

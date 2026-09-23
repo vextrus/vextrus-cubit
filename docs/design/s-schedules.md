@@ -202,6 +202,42 @@ this file rules. No gallery entry is added (nothing new is invented here).
   (reading it now would bill F-RCC6's byte-frozen FOOTING SCHEDULE and BNBC cap rectangles before the
   outline governs); TOP is not a dimension word, because beam schedules head their top bars `TOP`.
 
+- **I-sch-1 — the craft look of session 7 (2026-09-23): the drawing's words as the drawing shows
+  them, a rail that names its sheets, and a registry that reads as rows.** The vision review found
+  the screen at the bar by score and not fit to show (identifierExposure 3, tokensAndGrid 3); its
+  findings are ruled here against R-UI-082/084 and the Decision amended in place:
+  (a) *Control codes are resolved where a reader reads.* A DXF text writes the diameter sign as
+  `%%C`, and every bar cell, every zone line and the inspector printed `2-16%%C` — a machine escape
+  in the most-read cells, which a QS reads as corrupt data. What a reader SEES of a cell, a table
+  title, a band, a section, a mark spelling and a zone is now the text with L-CAD-02's control codes
+  resolved by their one table (`normaliseNotation`, `src/core/entitygraph/notation.ts` — `%%C` → Ø,
+  `%%D` → °, `%%P` → ±, the toggles dropped). I-252's "label verbatim" is read as *as the drawing
+  shows it*: the store, every key and every attribute keep the text byte for byte, and no control
+  code table is spelled a second time (B-17).
+  (b) *The rail names its sheets.* The same drawing chip on every one of ~25 rows took the width the
+  names need (`S-0…`) and, on the chosen row, `Schedule · Notes · Deferred` could not shrink and
+  painted over it. Where every sheet of the rail is a sheet of ONE drawing, that drawing's `IdChip`
+  stands once beside the rail's heading; across two or more drawings each row keeps its own. A row's
+  holdings yield their width first and ellipsise; the name keeps at least its sheet number (`6ch`).
+  (c) *The registry reads as rows.* Mark, Band, Section and each Zone run along one `--row-h` row per
+  variant (a family of several variants gives each its own row under its mark), where they stood as
+  three stacked lines and two marks filled the pane. A variant whose schedule states no band of
+  floors (a beam schedule, whose store files the section column's header as the band text) says
+  its Band is `—` rather than `SIZE`: a Band is a band of floors (`VariantView.banded`, read off the
+  registry's `bandFrom`). A zone is said through `EnumLabel` — **Main**, **Ties**, **End ties**,
+  **Mid ties**, only words its own value holds — with the raw zone under `data-technical`, where it
+  was the raw enum in mono. Marks stand in natural order (RB1, RB2 … RB10).
+  (d) *Figures read down their right edge.* A stored column every non-empty data cell of which is a
+  bare figure (`SPAN (mm)`) is right-aligned, header and cells, as every figure column is (R-UI-084);
+  the frozen mark column never is.
+  (e) *One h1.* The page had none. `.cx-schedules-name` is the visually-hidden `<h1>` of s-bbs I-289
+  at `--text-body`, reading `takeoff_nav_schedules`.
+  Owed elsewhere and recorded, not done here: the EvidenceLink's quiet presentation (a glyph and a
+  rule on every one of 100 cells, headers included) is the pattern's (`src/ui/patterns/evidence-link`);
+  the top and bottom main bars missing from a beam variant's zones are the partition registry's
+  (`src/modules/takeoff/partition/schedules/registry.ts`); the status bar's CAD readouts on a
+  non-drawing screen are the frame's.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 A schedule sheet selected, nothing selected inside it:
@@ -263,14 +299,15 @@ sideways (§7 C10).
 |---|---|---|---|---|
 | tabs row (frame's track) | `takeoff-nav-register` · `-coverage` · `-levels` · `takeoff-nav-schedules` (`aria-current="page"` here). No aside: this screen's one primary lives in the notes panel | 100 % × `--toolbar-h` 32 | `--ink-secondary`, `--ink`, `--line-accent`, `--surface-panel` | — |
 | answer slot | one RefusalState from a refused door; the offline banner above it | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--radius-4`, `--hairline` | absent (no box) |
-| sheet rail (`schedules-sheets`) | one `schedules-sheet-row[data-drawing][data-layout]` per sheet of the pinned revision holding a schedule, a deferral or a note text: sheet name in 13 px, drawing `IdChip`, and what it holds as muted words | `flex: 0 0 var(--drawer-w)` 200 (min 160, max 320); rows `--row-h` 28 | `--surface-panel`, `--hairline`, `--ink-muted`, `--text-caption`, `--surface-selected` | the rail is absent only in `empty`; otherwise it always has a row |
+| sheet rail (`schedules-sheets`) | one `schedules-sheet-row[data-drawing][data-layout]` per sheet of the pinned revision holding a schedule, a deferral or a note text: sheet name in 13 px (min `6ch`, ellipsis), and what it holds as muted words that yield first; the drawing `IdChip` once beside the heading where every sheet is one drawing's, else on each row (I-sch-1) | `flex: 0 0 var(--drawer-w)` 200 (min 160, max 320); rows `--row-h` 28 | `--surface-panel`, `--hairline`, `--ink-muted`, `--text-caption`, `--surface-selected` | the rail is absent only in `empty`; otherwise it always has a row |
 | schedules region (primary) | the one scrolling frame `schedules-grid[data-rows-rendered]` (I-288), holding `schedules-table[data-schedule][data-rows-rendered]`, one per stored schedule, stacked with `--gap-section`; each a DataTable v2 titled by its stored title. Or `schedules-deferral`. Or `schedules-notes` on a notes-only sheet | `flex: 1 1 auto`, min 320; ≥ 55 % of main; rows `--row-h` 28, header 28 sticky, first column frozen | `--surface-app`, `--surface-sunken` (header), `--ink-code`, `--font-mono`, `--cell-px/py`, `--basis-transcribed` through EvidenceLink | never silent: a deferral or `NOTES_NONE_PROPOSED` stands in its place |
-| registry pane (`schedules-registry`) | `schedules-family[data-family]` group rows, `schedules-variant[data-variant]` beneath, `schedules-zone[data-zone]` per rebar zone; all text verbatim; no count (I-251) | `flex: 0 0 240` (200 below `lg`); collapses to 28 with the inspector (I-249); scrolls alone | `--surface-panel`, `--surface-sunken`, `--hairline`, `--ink`, `--font-mono` | the pane stands and states `schedules_registry_none` |
+| registry pane (`schedules-registry`) | `schedules-family[data-family]` group rows, `schedules-variant[data-variant]` beneath, `schedules-zone[data-zone]` per rebar zone — Mark, Band, Section and Zones along one `--row-h` row per variant; all text as the drawing shows it (I-sch-1); an unbanded variant's Band `—`; zones through `EnumLabel`; marks in natural order; no count (I-251) | `flex: 0 0 240` (200 below `lg`); collapses to 28 with the inspector (I-249); scrolls alone | `--surface-panel`, `--surface-sunken`, `--hairline`, `--ink`, `--font-mono` | the pane stands and states `schedules_registry_none` |
 | notes panel (`schedules-notes`) | the three sections of I-253 and the one `schedules-transcribe`. A proposal row carries `data-proposed-by`; a model's (I-296) leads with `schedules_proposal_proposed_by_model` and a row a model judged the lap's standing on trails with `schedules_proposal_lap_governs` and its probability in mono | inside the schedules region; sections separated by `--gap-section`; rows `--row-h` 28, a model's caption and the governs line `--text-caption` inside the same row | `--surface-app`, `--hairline`, `--ink-code`, `--ink-muted` (`cx-schedules-proposed-by`, `cx-schedules-governs`), `--warn-surface` through RefusalState | one RefusalState, `NOTES_NONE_PROPOSED`, and no act door |
 | inspector (frame's one slot) | `schedules-inspector`: the selection's heading, its source keys as `IdChip`s under `schedules_inspector_sources_label`, its kind / basis / acceptance as `EnumLabel`s, and its one EvidenceLink | `--inspector-w` 320 (280–480) | `--surface-panel`, `--hairline`, basis palette through EvidenceLink | **absent — width 0**, never a sentence |
 
 **Cells.** Schedule cell: one EvidenceLink, 12 px mono, TRANSCRIBED blue rule and ▣ glyph, label
-verbatim, no wrap, ellipsis plus the table's own Tooltip (§5 rule 2). Standing row: the kind through
+verbatim as the drawing shows it (control codes resolved, I-sch-1), no wrap, ellipsis plus the
+table's own Tooltip (§5 rule 2); a column of bare figures right-aligned. Standing row: the kind through
 `EnumLabel`, the standing through `EnumLabel` (*Agreed* / *Suspended* / *Not read*), the canonical
 right-aligned mono with its unit as a muted `UnitBadge` — empty unless AGREED (I-253). Reading row:
 kind, canonical + unit, the acceptance word, one EvidenceLink on `data-source`; `data-superseded`
@@ -360,7 +397,8 @@ on the participants screen.**
 
 The five note kinds render as words through `EnumLabel` (the vocabulary line `note kinds (R-TO-034)`):
 FY **Reinforcement grade** · FC **Concrete strength** · LAP **Tension lap** · HOOK **Hook extension**
-· HOOK_MIN **Minimum hook length**. The three standings render *Agreed* / *Suspended* / *Not read*;
+· HOOK_MIN **Minimum hook length**. The four rebar zones render as words the same way (I-sch-1):
+main **Main** · ties **Ties** · ties-end **End ties** · ties-mid **Mid ties**. The three standings render *Agreed* / *Suspended* / *Not read*;
 the basis renders *Transcribed* with its ▣ glyph.
 
 Registry entries this increment adds to `src/core/errors/takeoff-schedules.ts` (refusal-state §3's

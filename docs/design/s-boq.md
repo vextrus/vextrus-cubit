@@ -129,6 +129,41 @@ entry is added.
   golden for a mark that belongs beside a reader's cursor, and every page already carries
   DRAFT — UNSIGNED under AM-05).
 
+### 0.3 The craft look of session 7 (2026-09-23)
+
+- **I-boq-1 — the draft a reader meets says which member a line is, why a line has no figure, and
+  fits its tabs row at 1280.** The vision review put this screen below the bar (chromeGeometry 2,
+  states 3); five of its findings are ruled here against R-UI-020/080/082/084 and the Decision is
+  amended in place to match:
+  (a) *The tabs row keeps one line at both viewports.* The six tabs beside the aside's every word do
+  not fit the 1232 px track at 1280 × 800, and every label and all three buttons wrapped and clipped
+  inside the 32 px row (R-UI-080). The aside now holds one line at its own width (`flex: none`,
+  `nowrap`); the two quantity channels are ONE name in two words — `boq_export_quantities` then the
+  format, `boq_export_format_xlsx` / `boq_export_format_csv` — and below 1536 the shared noun stands
+  visually hidden, below 1440 the two chips' captions (`boq_revision_label`, `boq_taxonomy_label`)
+  too. Hidden is not removed: each stays in its control's accessible name, and each chip's whole
+  value stays its tooltip. Rejected: folding the channels into a menu (it moves J-033's and J-000's
+  presses, which click `boq-export-xlsx` by id) and dropping the standing word (AM-05 keeps it).
+  (b) *A line with no figure says so, and why.* A PARTIAL_DECLARED line states no quantity (L-QTY-02),
+  and the screen left the cell blank beside a red `0%`: sixty silent pile-cap lines opened the draft
+  (R-UI-020). Its Quantity cell now reads `boq_quantity_unmeasured` muted, with the registry's own
+  message for every code the line's `omitted` states a hover away (`BoqView.omissions`, read by
+  `boqViewOf` off the published lines — never a code as text). Its Coverage cell reads
+  `boq_coverage_partial` through `EnumLabel`, the raw coverage under `data-technical`: a partly
+  declared line has no measured fraction anybody stated, and a `0%` chip was a figure the screen
+  invented (L-QTY-07, I-271). A COMPLETE line keeps its one `coverage-chip` at 100 %.
+  (c) *A line is findable.* Twenty lines of one group all read `Pile cap · Concrete` over a blank
+  Level, so an item number pointed at nothing a reader could find (L-BD-08). The Description cell now
+  closes with the member's MARK, mono and muted, and a line standing on no level of the stack shows
+  the lawful-null slot its member stands in (`FOUNDATION`) through `EnumLabel` — both read off the
+  register by object key (`BoqView.lineFacts`), never parsed out of a key and never written into the
+  document's payload, whose bytes and golden do not move.
+  (d) *One h1.* The page had none (hierarchy 3). `.cx-boq-name` is the visually-hidden `<h1>` of
+  s-bbs I-289, at `--text-body`, reading `takeoff_nav_boq`; the section headings stay `h2`.
+  Owed elsewhere and recorded, not done here: the group row's `(20)` and a group that holds no figure
+  opening collapsed are the DataTable primitive's (`src/ui/primitives/data`), and the tabs' own
+  `nowrap` is the lane's `takeoff.css`.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -168,7 +203,7 @@ its own viewport with the Item column frozen; the page never scrolls sideways (�
 
 | Region | What it holds | Width / height rule | Tokens | State when empty |
 |---|---|---|---|---|
-| tabs row (frame's track) | `takeoff-nav-register` · `-coverage` · `-levels` · `-schedules` · `takeoff-nav-boq` (`aria-current="page"` here); in `useTakeoffTabsAside`: `boq-revision` and `boq-taxonomy-version` as `IdChip`s, `boq-draft` as the standing word, the ONE primary `boq-export`, then the two secondary channels `boq-export-xlsx` and `boq-export-csv` and, after a press answers, the `boq-export-link` anchor | 100 % × `--toolbar-h` 32; each control at `--control-h`, the link too | `--ink-secondary`, `--ink`, `--ink-muted`, `--line-accent`, `--surface-panel`, `--surface-hover`, `--accent` through Button and through the link | the aside carries the tabs alone while no campaign is pinned; neither the primary nor the two channels render, and the link stands only after a press |
+| tabs row (frame's track) | `takeoff-nav-register` · `-coverage` · `-levels` · `-schedules` · `takeoff-nav-boq` (`aria-current="page"` here); in `useTakeoffTabsAside`: `boq-revision` and `boq-taxonomy-version` as `IdChip`s, `boq-draft` as the standing word, the ONE primary `boq-export`, then the two secondary channels `boq-export-xlsx` and `boq-export-csv` and, after a press answers, the `boq-export-link` anchor | 100 % × `--toolbar-h` 32; each control at `--control-h`, the link too; one line at its own width, nothing wrapping — below 1536 the channels' noun, below 1440 the chips' captions stand visually hidden and stay in the accessible names (I-boq-1) | `--ink-secondary`, `--ink`, `--ink-muted`, `--line-accent`, `--surface-panel`, `--surface-hover`, `--accent` through Button and through the link | the aside carries the tabs alone while no campaign is pinned; neither the primary nor the two channels render, and the link stands only after a press |
 | answer slot (`boq-answer`) | one RefusalState from a refused door; the offline banner above it; the denial pair | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--state-warn(-surface)` through RefusalState, `--radius-4`, `--hairline` | absent (no box) |
 | status line | the ONE helper line, `<p role="status">`, `boq_coverage_incomplete` or `boq_coverage_complete` | 100 % × 28 | `--ink-muted`, `--text-body` | absent with the grid |
 | job strip (`boq-jobs`) | the shipped `JobTimeline` for the render job, present only while a run is watched; `boq-render-draft` is its step; `boq-document-link` follows a success | 100 % × the pattern's own, between the status line and the grid | the pattern's own | absent — never an empty box |
@@ -182,12 +217,12 @@ its own viewport with the Item column frozen; the page never scrolls sideways (�
 | # | Header | Width | Cell |
 |---|---|---|---|
 | 1 | `boq_col_item` | 96, **frozen**, `meta.align: 'right'` | the S.G.I string in `--font-mono` tabular; on an unclassified row, the reason in words (I-267) |
-| 2 | `boq_col_description` | remainder, min 320 | the class and the kind as words through two `EnumLabel`s joined by ` · `; raw keys on `data-class` / `data-kind`; `data-description-basis` on the row and mirrored on this cell — `INTERPRETED` where the group's description was chosen from the work-item catalogue, `DEFAULTED` where the plain one stands (I-298). The chosen sentence itself reads on the `datatable-group-row` above the lines, which is where a bill states a group's description |
-| 3 | `boq_col_level` | 120 | the level label verbatim; `data-level` and `data-ordinal` on the row |
-| 4 | `boq_col_quantity` | 140, `meta.align: 'right'` | the rounded figure, `--font-mono` tabular slashed-zero, lakh/crore grouped (I-271) |
+| 2 | `boq_col_description` | remainder, min 320 | the class and the kind as words through two `EnumLabel`s joined by ` · `, then the member's mark from the register in mono, muted (I-boq-1); raw keys on `data-class` / `data-kind`; `data-description-basis` on the row and mirrored on this cell — `INTERPRETED` where the group's description was chosen from the work-item catalogue, `DEFAULTED` where the plain one stands (I-298). The chosen sentence itself reads on the `datatable-group-row` above the lines, which is where a bill states a group's description |
+| 3 | `boq_col_level` | 120 | the level label verbatim; on a line standing on no level, the register's lawful-null slot through `EnumLabel` (I-boq-1); `data-level` and `data-ordinal` on the row |
+| 4 | `boq_col_quantity` | 140, `meta.align: 'right'` | the rounded figure, `--font-mono` tabular slashed-zero, lakh/crore grouped (I-271); on a line that states none, `boq_quantity_unmeasured` muted with the registry's messages for its omitted codes as its Tooltip (I-boq-1) |
 | 5 | `boq_col_unit` | 80 | one `unit-badge` |
 | 6 | `boq_col_basis` | 240 — the PAIR at its longest (`Measured` beside `Transcribed`) reads in full, because §6 promises a glyph and a word | exactly two `basis-chip`s — the quantity basis then the selection basis, in that order |
-| 7 | `boq_col_coverage` | 112, `meta.align: 'right'` | one `coverage-chip` |
+| 7 | `boq_col_coverage` | 112, `meta.align: 'right'` | one `coverage-chip` on a COMPLETE line; on a PARTIAL_DECLARED line `boq_coverage_partial` through `EnumLabel` and no chip (I-boq-1) |
 
 **One grid per section, not one grid with section rows.** Each section is its own DataTable v2 under
 its own heading, because a reader of a bill reads a section at a time and the lane's own contract
@@ -256,8 +291,10 @@ declares is answered `REQUEST_MALFORMED` through the one RefusalState.
 
 `takeoff_nav_boq` **Draft BOQ** (the fifth tab and `shell-crumb-page`) · `boq_revision_label`
 **Pinned revision** · `boq_taxonomy_label` **Taxonomy** · `boq_draft_standing` **Draft — unsigned** ·
-`boq_export` **Export the draft** · `boq_export_xlsx` **Quantities XLSX** · `boq_export_csv`
-**Quantities CSV** · `boq_export_xlsx_hint` **Download every published line with its bases and formula
+`boq_export` **Export the draft** · the two channels, each ONE name in two words (I-boq-1):
+`boq_export_quantities` **Quantities** then `boq_export_format_xlsx` **XLSX** / `boq_export_format_csv`
+**CSV** · `boq_quantity_unmeasured` **Not measured** · `boq_coverage_partial` **Partly declared** ·
+`boq_export_xlsx_hint` **Download every published line with its bases and formula
 as a workbook with live formulas.** · `boq_export_csv_hint` **Download the Quantities sheet as CSV.** ·
 `boq_export_link` **Save the file** · `boq_coverage_incomplete` **Coverage is incomplete, so each
 section states a measured-scope subtotal over what was measured, and no figure is stated for the
@@ -327,7 +364,9 @@ through `BasisChip` · `--state-danger` / `--state-warn` / `--state-success` rea
 read by the primitives rather than stated here, `--row-h`, `--cell-px`, `--cell-py`, `--control-h`,
 `--toolbar-h`. Px literals, closed set: the status line's 28, the 520 measure the empty state and the
 error block both stand at, the seven column widths (96/320/120/140/80/184/112), the tabs-row current
-underline's 2, and the loading leg's bones (28/96). Any other literal is a defect. **No copper
+underline's 2, the loading leg's bones (28/96), the two media-query widths below which the aside
+hides its channel noun and its chip captions (1535/1439, I-boq-1), and the visually-hidden `h1`'s
+and captions' 1. Any other literal is a defect. **No copper
 anywhere**: a draft commits nothing and signs nothing (I-270).
 
 ## 6. Themes
@@ -396,8 +435,8 @@ reports `aria-disabled` for busy and for nothing else (I-247's precedent, R-UI-0
 `cx-reticle` on every focusable. Asserted absences: no element
 with `data-scope="GRAND"` anywhere (I-268); no inspector and no second right column (R-UI-080); no
 native `select` or `input[type=date]` (R-UI-083); no `data-item` that is not `^[1-9]\d*\.[1-9]\d*\.[1-9]\d*$`
-(a kept line carries none at all — I-267); no NUMBERED `boq-line` carrying other than exactly two `basis-chip`s and one
-`coverage-chip`; no `boq-bill` for a section holding no line; no `boq-grid` while `boq-empty` stands;
+(a kept line carries none at all — I-267); no NUMBERED `boq-line` carrying other than exactly two `basis-chip`s and — on a
+COMPLETE line — one `coverage-chip` (a PARTIAL_DECLARED line states its coverage in words, I-boq-1); no `boq-bill` for a section holding no line; no `boq-grid` while `boq-empty` stands;
 no `boq-jobs` at rest; no wrapping cell; no uuid or digest as a text node outside an `IdChip`.
 
 Suites and evidence. Unit: `tests/takeoff/boq/taxonomy.test.ts`, `…/numbering.test.ts`,

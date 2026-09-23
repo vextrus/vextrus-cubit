@@ -97,6 +97,41 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   as written, L-REG-01); the STOREY_HEIGHT_* codes here (what is missing on this line is a length of
   bar, L-MEA-08).
 
+- **I-bbs-9 — the craft look of session 7 (2026-09-23): one grid, figures as the page prints them,
+  and a partial total that says what it leaves out.** Four findings of the vision review are ruled
+  here, against R-UI-080..086 (AM-08), and the Decision is amended in place to match:
+  (a) *One grid.* The screen had drawn one DataTable per member, each with its own two-line header
+  and an `h2`, so 70 % of the grid's height was repeated headers and six bars stood in view. §1
+  always read ONE `bbs-grid` with `bbs-member` group rows; it is now built so. The member's group row
+  is a ROW of that one table (`rowDataOf` publishes `bbs-member` with `data-member`, `data-mark`,
+  `data-class`, `data-level`), not the primitive's `datatable-group-row`, because the primitive's
+  group row carries neither this screen's id nor its attributes and adds a parenthesised count §1
+  never drew. Its words stand in the frozen key cell and read on across the empty cells of the row;
+  it carries no figure (I-bbs-2).
+  (b) *Widths that fit.* A right-aligned header is set in the figure face by the primitive, and in
+  that face `Diameter (mm)`, `Cutting length (mm)` and `IS additive (mm)` do not fit 88 / 128 / 112,
+  so they wrapped (R-UI-084); and a Dimensions column hard-sized at 400 pushed Bars and Mass off a
+  1280 screen (R-UI-080). The fixed nine are now 104 · 88 · 72 · 112 · 160 · 104 · 136 · 72 · 112
+  (960) and Dimensions takes the measured remainder on the 4 px grid, never under 200 — 208 at
+  1280 × 800, 368 at 1440 × 900.
+  (c) *A mass is printed as the document prints it.* The PDF states every mass at
+  `BBS_PLACES.mass` = 3 through `statedAt` (`emission.ts`); the screen printed the store's full
+  fraction (`2,379.4443648`), two spellings of one figure (B-17). Every Mass cell, every summary mass
+  and the total are now `formatUserFigure(statedAt(kg, BBS_PLACES.mass))` — digits carried half-up on
+  the text, never through a float — and every `data-kg` still carries the stored decimal.
+  (d) *A partial total names what it leaves out.* A partly declared campaign printed `Total mass`
+  over main bars alone, and a reader takes that for the column steel. In `partial` the total row
+  carries `bbs_summary_total_measured` beside the figure, muted, in the first of the three cells the
+  total row otherwise leaves empty (the label cell keeps `bbs_summary_total`: the 112 px Diameter
+  column cannot hold a longer label without wrapping), and beneath the status line, inside the same answer slot,
+  `bbs_partial_omitted` leads the registry's own message for each code the partly declared
+  `rcc.rebar` lines state in `omitted` — each once, in the order the lines first state it
+  (`BbsView.omitted`, read by `bbsViewOf` off the published lines, never defaulted). Rejected: one
+  RefusalState per code (two framed cards eat the grid's height for what is one disclosure), and
+  printing the omitted variable's key (machine vocabulary, R-UI-082).
+  The `(i)` trigger is the shipped Popover's ghost trigger around the shipped info glyph, square at
+  `--control-h`, rather than a bare letter.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -142,7 +177,7 @@ frozen; the page never scrolls sideways (§7 C10).
 | tabs row (frame's track) | the five shipped entries then `takeoff-nav-bbs` (`aria-current="page"` here); in `useTakeoffTabsAside`: `bbs-revision` (IdChip, `data-value` the whole `setRevisionId`), `bbs-stock` (`data-stock-mm`, `data-rounding-mm`) and the ONE primary `bbs-export` (I-bbs-8), present only for a permitted reader with bars to render | 100 % × `--toolbar-h` 32; the primary at `--control-h` | `--surface-panel`, `--ink`, `--ink-secondary`, `--ink-muted`, `--line-accent`, `--font-mono`, `--accent` through the Button | the aside carries the tabs alone while no campaign is pinned; the primary is absent, never disabled, while nothing is scheduled |
 | answer slot (`bbs-answer`) | one RefusalState from a refused or denied door (`REQUEST_MALFORMED`, `PERMISSION_NOT_HELD`, `BBS_NO_CAMPAIGN`); the offline banner above it; and, beneath them, the status line — everything this screen ANSWERS about its own reading stands in the one polite live region | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--state-warn(-surface)` through RefusalState, `--radius-4`, `--hairline` | absent (no box) |
 | job strip (`bbs-jobs`) | the shipped `JobTimeline` for the render job, present only while a run is watched; `bbs-document-link` follows a success (I-bbs-8) | 100 % × the pattern's own, between the answer slot and the grid | the pattern's own; `--accent` as the link's text | absent — never an empty box |
-| status line | the ONE helper line, `<p role="status">` inside the answer slot: `bbs_partial` or `bbs_complete` | 100 % × 28 | `--ink-muted`, `--text-body` | absent with the grid |
+| status line | the ONE helper line, `<p role="status">` inside the answer slot: `bbs_partial` or `bbs_complete`; in `partial`, beneath it, `bbs_partial_omitted` and one list line per code the partly declared lines left out, in the registry's own message (I-bbs-9) | 100 % × 28, plus one caption line per code | `--ink-muted`, `--ink-secondary`, `--text-body`, `--text-caption` | absent with the grid |
 | grid (primary) | `bbs-grid` (DataTable v2, `tableId` `s-bbs-bars`, `aria-label` `bbs_grid_label`, `data-rows-rendered`): one `bbs-member` group row per distinct `objectKey` in `document.rows` order, then its `bbs-row` (NET) rows each optionally followed by one `bbs-lap` | `flex: 1 1 auto`; ≥ 55 % of main; header and rows at `--row-h` (28 compact / 36 comfortable, revalued at the ROOT by `[data-density]`, never here); first column frozen; no wrapping cell | `--surface-app`, `--surface-sunken` (sticky header, group rows), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline` | not rendered at all: `bbs-empty` stands in its place |
 | summary (`bbs-summary`) | the heading, its `(i)` popover, and a 5-column table: one `bbs-summary-row` per key of `perDiameterKg` in ascending numeric diameter, closed by the sticky total row carrying `grandTotalKg`; `data-kg` on the region is that grand total | 100 % × 28 heading + 28 header + rows + 28 total, **max 224**, body scrolls inside | `--surface-sunken` (header and total row), `--ink`, `--ink-code`, `--font-mono`, `--hairline` | absent with the grid |
 | empty (in the grid's place) | the shipped `EmptyState` `bbs-empty`: heading, one sentence, one action to `…/takeoff/register` | max-width 520, centred in the grid's box | `--ink`, `--ink-muted`, `--accent` through Button | this IS the empty state |
@@ -154,23 +189,25 @@ lakh/crore grouping through `formatUserFigure`:
 
 | # | Header key | Width | Cell |
 |---|---|---|---|
-| 1 | `bbs_col_mark` | 112, **frozen** | `barMark` in mono; on a LAP row, `bbs_lap_label` in sans with the `bbs_lap_tooltip` Tooltip |
-| 2 | `bbs_col_role` | 96 | one `EnumLabel` (**Main**, **Tie**); `—` on a LAP row; the raw role on `data-role` |
+| 1 | `bbs_col_mark` | 104, **frozen** | `barMark` in mono; on a LAP row, `bbs_lap_label` in sans with the `bbs_lap_tooltip` Tooltip |
+| 2 | `bbs_col_role` | 88 | one `EnumLabel` (**Main**, **Tie**); `—` on a LAP row; the raw role on `data-role` |
 | 3 | `bbs_col_shape` | 72 | the BS 8666 code inside `data-technical` mono (I-bbs-6); `—` on a LAP row |
-| 4 | `bbs_col_diameter` | 88, right | `diameterMm` |
-| 5 | `bbs_col_dims` | remainder, min 200 | `A 3 450 · B 300` from `dimsMm`, ellipsis + Tooltip; on a LAP row, the lap length in mm |
-| 6 | `bbs_col_cutting_raw` | 128, right | `cuttingRawMm` as stored, never re-rounded (I-bbs-4) |
+| 4 | `bbs_col_diameter` | 112, right | `diameterMm` |
+| 5 | `bbs_col_dims` | remainder (measured, on the 4 px grid), min 200 | `A 3 450 · B 300` from `dimsMm`, ellipsis + Tooltip; on a LAP row, the lap length in mm |
+| 6 | `bbs_col_cutting_raw` | 160, right | `cuttingRawMm` as stored, never re-rounded (I-bbs-4) |
 | 7 | `bbs_col_cutting_rounded` | 104, right | `cuttingRoundedMm` |
-| 8 | `bbs_col_cutting_is` | 112, right | `cuttingIsAdditiveMm` |
-| 9 | `bbs_col_bars` | 88, right | `bars`; on a LAP row, `lapsPerBar` |
-| 10 | `bbs_col_kg` | 112, right | `kg` (= `kgNet`, which never includes its lap); on a LAP row, `kgLap` |
+| 8 | `bbs_col_cutting_is` | 136, right | `cuttingIsAdditiveMm` |
+| 9 | `bbs_col_bars` | 72, right | `bars`; on a LAP row, `lapsPerBar` |
+| 10 | `bbs_col_kg` | 112, right | `kg` (= `kgNet`, which never includes its lap); on a LAP row, `kgLap`; printed at `BBS_PLACES.mass` through `statedAt` (I-bbs-9) |
 
-A `bbs-member` group row spans the table and reads `GF · Column · C1` — the level label, the class
-through `EnumLabel`, the member mark in mono — carrying `data-member`, `data-mark`, `data-class`,
-`data-level` and no figure at all (I-bbs-2). Summary columns: `bbs_summary_col_diameter` 112 frozen ·
-`bbs_summary_col_kg` 160 right · `bbs_summary_col_stock_bars` 128 right · `bbs_summary_col_pieces` 112
-right · `bbs_summary_col_offcut` 160 right; the total row reads `bbs_summary_total` with the figure in
-the Mass column.
+A `bbs-member` group row is a row of the one grid and reads `GF · Column · C1` — the level label, the
+class through `EnumLabel`, the member mark in mono — from its frozen key cell across the row's empty
+cells, on `--surface-sunken` at the body-medium weight, carrying `data-member`, `data-mark`,
+`data-class`, `data-level` and no figure at all (I-bbs-2, I-bbs-9). Summary columns:
+`bbs_summary_col_diameter` 112 frozen · `bbs_summary_col_kg` 160 right · `bbs_summary_col_stock_bars`
+128 right · `bbs_summary_col_pieces` 112 right · `bbs_summary_col_offcut` 160 right; every mass at
+`BBS_PLACES.mass`; the total row reads `bbs_summary_total` with the figure in the Mass column and,
+while the screen stands `partial`, `bbs_summary_total_measured` muted in the Stock bars cell.
 
 ## 2. States (R-UI-050), ruled cell by cell
 
@@ -226,7 +263,9 @@ never as a percentage of it.** · `bbs_summary_heading` **Cutting stock by diame
 are never billed.** · `bbs_summary_col_diameter` **Diameter (mm)** · `bbs_summary_col_kg` **Mass (kg)**
 · `bbs_summary_col_stock_bars` **Stock bars** · `bbs_summary_col_pieces` **Pieces** ·
 `bbs_summary_col_offcut` **Offcut (mm)** · `bbs_summary_total` **Total mass** ·
-`bbs_partial` **Some rebar lines are partly declared, so their bars stand here as they read.**
+`bbs_summary_total_measured` **Measured scope only** (I-bbs-9) ·
+`bbs_partial` **Some rebar lines are partly declared, so their bars stand here as they read.** ·
+`bbs_partial_omitted` **Left out of this schedule:** (I-bbs-9)
 · `bbs_complete` **Every bar of the pinned campaign is scheduled, with laps as their own
 rows.** · `bbs_empty_heading` **No bars scheduled yet** · `bbs_empty_body` **A bar schedule lists every
 bar of the pinned campaign by member and mark, with its shape, its cutting lengths and its mass.
@@ -284,7 +323,8 @@ or `--beam-*` reference outside `tokens.ts` is a lint failure (R-UI-086). This s
 `--motion-reticle` / `--ease`; and, read by the primitives rather than stated here, `--row-h`,
 `--cell-px`, `--cell-py`, `--control-h`, `--toolbar-h`. Px literals, closed set: the status line's and
 the summary heading's 28, the summary's 224 cap, the 520 the empty state and the error block stand at,
-the ten grid column widths (112/96/72/88/200/128/104/112/88/112), the five summary widths
+the nine fixed grid column widths and the remainder's floor (104/88/72/112/200/160/104/136/72/112,
+I-bbs-9), the scroller allowance of 16 the remainder is measured less, the five summary widths
 (112/160/128/112/160), the current-tab underline's 2, and the loading leg's bones (28/96). Any other
 literal is a defect. **Every size on this screen is stated, the hidden one included**: `.cx-bbs-name`,
 the visually-hidden `<h1>`, reads `--text-body` like the prose beside it, so no element is left to

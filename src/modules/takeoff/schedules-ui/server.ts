@@ -90,7 +90,9 @@ async function sheetsOfDrawing(scope: SchedulesViewScope, drawingId: string, rea
     const onModel = layout.layoutName === modelSpace;
     const schedules = onModel ? (stored?.schedules ?? []).map(tableOf) : [];
     const deferrals = onModel ? (stored?.deferrals ?? []).map((deferral) => ({ viewKey: deferral.viewKey, reason: deferral.reason })) : [];
-    const families = onModel ? (types?.families ?? []).map(familyOf) : [];
+    // Marks in the order a reader counts them — RB1, RB2 … RB10, never the string order that puts
+    // RB10 second (R-UI-084). The order is presentation; what each family says is the store's.
+    const families = onModel ? (types?.families ?? []).map(familyOf).sort((left, right) => MARK_ORDER.compare(left.family, right.family)) : [];
     if (schedules.length === 0 && deferrals.length === 0 && layout.texts.length === 0) continue;
     sheets.push({
       drawingId,
@@ -107,6 +109,27 @@ async function sheetsOfDrawing(scope: SchedulesViewScope, drawingId: string, rea
   }
   return sheets;
 }
+
+/**
+ * The natural order of marks: a run of digits in a mark compares as the number it is, every other
+ * run as text — RB2 before RB10. Written out on the text rather than through a collator, because the
+ * format seam is this tree's one caller of `Intl` (LAW-FMT) and a mark is not a figure to format.
+ */
+const MARK_ORDER = Object.freeze({
+  compare(left: string, right: string): number {
+    const runs = (mark: string): string[] => mark.match(/\d+|\D+/g) ?? [];
+    const one = runs(left);
+    const other = runs(right);
+    for (let at = 0; at < Math.min(one.length, other.length); at += 1) {
+      const a = one[at] as string;
+      const b = other[at] as string;
+      const numeric = /^\d/.test(a) && /^\d/.test(b);
+      const order = numeric ? Number(a) - Number(b) || a.length - b.length : a < b ? -1 : a > b ? 1 : 0;
+      if (order !== 0) return order;
+    }
+    return one.length - other.length;
+  },
+});
 
 /**
  * One stored schedule as a table of bands (I-250). The rows are the store's own row indices in
@@ -148,6 +171,7 @@ function familyOf(family: MemberFamily): FamilyView {
     variants: family.variants.map((variant) => ({
       variantKey: variant.variantKey,
       bandText: variant.bandText,
+      banded: variant.bandFrom !== null,
       sectionText: variant.sectionText,
       sourceKeys: variant.sourceKeys,
       zones: variant.zones.map((zone) => ({ zone: zone.zone, text: zone.text, sourceKeys: zone.sourceKeys })),
