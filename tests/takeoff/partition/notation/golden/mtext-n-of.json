@@ -1,0 +1,7 @@
+{
+  "parser": "parseNOf",
+  "why": "I-458: a count cell drawn with an alignment code counts; the rest keeps its %% codes as the drawing wrote them.",
+  "cases": [
+    { "input": "\\A1;2 OF 4-16%%C", "expect": { "n": 2, "rest": "4-16%%C" } }
+  ]
+}

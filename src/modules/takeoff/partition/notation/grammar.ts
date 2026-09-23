@@ -12,6 +12,7 @@
 // reader cannot read is REFUSED by name, never answered null: `NOTATION_UNREAD` carries the token it
 // could not read, because a caller shown the token can act and a caller shown `null` cannot
 // (ARCH-03).
+import { normaliseNotation } from "@/core/entitygraph/notation";
 import type { RefusalCode } from "@/core/errors";
 
 /** The nine questions a cell of a structural set answers. A closed roster (ARCH-01). */
@@ -66,39 +67,14 @@ const MOJIBAKE: readonly (readonly [string, string])[] = Object.freeze([
   ["Â±", "±"], // Â± — ±
 ] as const);
 
-/** DXF's own control codes (L-CAD-02). `%%%` first: it begins with the two characters of the rest. */
-const CONTROL_CODES: readonly (readonly [RegExp, string])[] = Object.freeze([
-  [/%%%/g, "%"],
-  [/%%[Cc]/g, "Ø"],
-  [/%%[Dd]/g, "°"],
-  [/%%[Pp]/g, "±"],
-  [/%%[UuOoKk]/g, ""],
-] as const);
-
-/** Every glyph a draughtsman has typed the diameter sign as, folded to the one sign. */
-const DIAMETER_LOOKALIKES = /[φΦϕøØ⌀∅]/g;
-const DIAMETER = "Ø";
+/** DXF's own control codes, MTEXT's inline codes and the diameter's many glyphs are read by core's one
+ * reading of a drawing's text (`normaliseNotation`, `@/core/entitygraph/notation`) and by no table
+ * here (B-17). A second table said a stacked fraction one way while core said it another, and cut a
+ * paragraph mark with the words after it up to the next semicolon (Interpretation I-458). */
 
 /** The prime and double-prime a font substitutes for the foot and inch marks. */
 const FOOT_LOOKALIKES = /[′’´ʹ]/g;
 const INCH_LOOKALIKES = /[″”ʺ]/g;
-
-/**
- * MTEXT's formatting codes (L-CAD-02). They say how the text is DRAWN and nothing about what it
- * means, so they are stripped before anything is read — except the stacked fraction, which is the
- * one code that carries a number: `\S1/2;` is drawn as ½ and means one half.
- */
-const MTEXT_CODES: readonly (readonly [RegExp, string])[] = Object.freeze([
-  [/\\S([^;]*?)[/^#]([^;]*?);/g, " $1/$2"], // the stacked fraction keeps its number
-  [/\{\\[fF][^;]*;/g, ""], // {\fSwis721 Cn BT|b1|i0|c0|p34;
-  [/\\[fF][^;]*;/g, ""],
-  [/\\[pP][^;]*;/g, ""], // \pxi-…;  paragraph settings
-  [/\\[AaCcHhQqTtWw][^;]*;/g, ""], // \A1;  \C1;  \H0.7x;  \Q15;  \T1;  \W0.8;
-  [/\\[PX]/g, " "], // \P is a line break — two lines of one cell are one cell's words
-  [/\\[LlOoKkNn]/g, ""], // underline, overline, strike toggles
-  [/\\~/g, " "],
-  [/[{}]/g, ""],
-] as const);
 
 /**
  * ASTM A615 bar designations and the nominal diameter each names, in millimetres (L-MEA-01: the
@@ -227,16 +203,16 @@ function settled(value: number): number {
 }
 
 /**
- * One text as the grammar reads it: the mojibake repaired, the MTEXT formatting stripped, the DXF
- * control codes resolved, the diameter lookalikes folded, the marks written plainly, upper-cased,
- * and the abbreviating dots dropped — never the point inside a number (`5.0mm` is five, not fifty).
+ * One text as the grammar reads it: the mojibake repaired, then core's one reading of a drawing's
+ * text (`normaliseNotation`: the MTEXT codes resolved with a stacked fraction kept, the DXF control
+ * codes resolved, the diameter lookalikes folded), the marks written plainly, upper-cased, the lines
+ * of a block run together as one cell's words, and the abbreviating dots dropped — never the point
+ * inside a number (`5.0mm` is five, not fifty).
  */
 export function plainly(text: string): string {
   let said = text;
   for (const [bytes, glyph] of MOJIBAKE) said = said.split(bytes).join(glyph);
-  for (const [code, meaning] of MTEXT_CODES) said = said.replace(code, meaning);
-  for (const [code, meaning] of CONTROL_CODES) said = said.replace(code, meaning);
-  said = said.replace(DIAMETER_LOOKALIKES, DIAMETER).replace(FOOT_LOOKALIKES, "'").replace(INCH_LOOKALIKES, '"');
+  said = normaliseNotation(said).replace(FOOT_LOOKALIKES, "'").replace(INCH_LOOKALIKES, '"');
   return said.toUpperCase().replace(/(?<!\d)\.|\.(?!\d)/g, "").replace(/\s+/g, " ").trim();
 }
 

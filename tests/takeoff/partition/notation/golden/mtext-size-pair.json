@@ -1,0 +1,8 @@
+{
+  "parser": "parseSizePair",
+  "why": "I-458: a section drawn with an alignment code, or a width over a height wrapped onto a second line of one cell, is the pair it states.",
+  "cases": [
+    { "input": "\\A1;12\"X24\"", "expect": { "width": 12, "depth": 24, "unit": "in" } },
+    { "input": "4'-0\"\\PX 7'-0\"", "expect": { "width": 48, "depth": 84, "unit": "in" } }
+  ]
+}

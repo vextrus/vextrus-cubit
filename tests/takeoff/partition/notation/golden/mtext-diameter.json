@@ -1,0 +1,7 @@
+{
+  "parser": "parseDiameter",
+  "why": "I-458: a round section drawn in a height group states its diameter.",
+  "cases": [
+    { "input": "{\\H0.7x;%%C450}", "expect": { "diameter": 450, "unit": null } }
+  ]
+}

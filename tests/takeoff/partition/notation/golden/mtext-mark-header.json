@@ -1,0 +1,9 @@
+{
+  "parser": "isMarkHeader",
+  "why": "I-458: a header drawn underlined in a font group, or wrapped over two lines of one MTEXT, still stands over the column of marks.",
+  "cases": [
+    { "input": "{\\fArial|b1|i0|c0|p34;\\LMARK}", "expect": true },
+    { "input": "COLUMN\\PNO.", "expect": true },
+    { "input": "{\\LREMARKS}", "expect": false }
+  ]
+}

@@ -15,15 +15,17 @@
 // member it holds that this file omits does not compile either: the roster keeps its one home in the
 // seam, and this module publishes it for the callers that read a zone off a header (ARCH-01).
 import type { RebarZone, ScheduleDimension, SectionUnit } from "@/core/db";
-import { mtextLines, normaliseNotation } from "@/core/entitygraph/notation";
+import { mtextLines, normaliseNotation, notationLines, withoutMtextCodes } from "@/core/entitygraph/notation";
 import { dotlessUpper } from "@/core/identity";
 import { useStoreyEquivalence } from "@/core/offers/contract";
 
 // L-CAD-02's control codes, the MTEXT inline codes and the diameter's many glyphs are core's
 // (`@/core/entitygraph/notation`): the note grammar behind TRANSCRIBE_SHEET_NOTES reads a drawing's
 // words too and is core, which may not reach a module (ARCH-01). This module re-publishes the one
-// reading rather than keeping a second code table (B-17).
-export { mtextLines, normaliseNotation };
+// reading rather than keeping a second code table (B-17). The parsers below read a text AFTER its
+// MTEXT codes are resolved, with its stacked fraction kept (I-458): through `normaliseNotation`,
+// or — where the rest of a cell is handed back with its `%%` codes as written — `withoutMtextCodes`.
+export { mtextLines, normaliseNotation, notationLines, withoutMtextCodes };
 
 /**
  * The four zones a rebar column reads as, each named as the member of the seam's roster it is.
@@ -333,8 +335,13 @@ export function parseSpacing(text: string): BarSpacing | null {
   return { bar: bar === undefined ? null : Number(bar), spacing: centres.value, unit: centres.unit };
 }
 
-/** What a cell writes between the centres of the end zones and the centres of the middle. */
-const ZONE_SEPARATOR = "/";
+/**
+ * What a cell writes between the centres of the end zones and the centres of the middle — and never
+ * the bar of a mixed number's fraction: `4 1/2"/6"`, a stacked half inch once its MTEXT code is read
+ * (I-458), is four and a half inches at the ends and six in the middle, never `4 1` and `2"` and
+ * `6"`. A slash after a whole number and a space and a figure is that fraction's bar.
+ */
+const ZONE_SEPARATOR = /(?<!\d\s+\d+)\//;
 
 /** The zone a cell names ITSELF with, written after the centres — `(TIES)`, `(LINKS)`. It is the
  * column's own word standing inside the cell, never a third figure. */
@@ -500,9 +507,11 @@ const COUNT_OF = /^\s*(\d+)\s*(?:NOS?\.?\s*)?(?:OF|X|×)\s*(\S.*?)\s*$/i;
 /**
  * The count a cell states and the rest of it verbatim, or null where the cell states no count. The
  * rest is handed back UNREAD: what it says is a question for whichever parser the column calls for.
+ * Only the MTEXT codes that say how the cell is DRAWN are resolved first — `\A1;2 OF 4-16%%C` counts
+ * two — and the rest keeps its `%%` codes as the drawing wrote them (I-458).
  */
 export function parseNOf(text: string): CountOf | null {
-  const match = COUNT_OF.exec(text);
+  const match = COUNT_OF.exec(withoutMtextCodes(text));
   if (match === null) return null;
   return { n: Number(match[1]), rest: match[2] ?? "" };
 }
@@ -511,6 +520,9 @@ export function parseNOf(text: string): CountOf | null {
  * One member mark as the registry compares one (riskNotes (3)): the drawing's glyphs folded, then
  * put to L-CAD-07's dotless-uppercase comparison form. `C-1`, `c1.` and `C 1` are one family, and a
  * registry that read them as three would offer placement three columns where the drawing drew one.
+ * The glyphs are folded by core's one reading (`normaliseNotation`), which resolves the MTEXT codes
+ * first: a label drawn `{\fSwis721 Cn BT|b0|i0|c0|p34;C-1}` or `\A1;C-1` is the mark C1, where it
+ * once closed up into `{\FSWIS721CNBT|B0|I0|C0|P34;C1}` and named no member (I-458).
  *
  * The comparison form itself is core's (`dotlessUpper`) rather than this file's: the placeholder a
  * level retires is matched by the same rule, and a rule spelled twice is two rules (B-17).

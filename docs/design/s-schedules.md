@@ -489,6 +489,92 @@ this file rules. No gallery entry is added (nothing new is invented here).
   demonstration's datum (`demonstration.ts`) was never wrong — it is the grammar's own shape — and
   now says so; it also stands a strip family beside the column family, so the evidence instrument
   shows both band faces.
+- **I-458 — one MTEXT stripper, in core, keeps a stacked fraction; every reader of a drawing's words
+  reads through it (session 8, REAL-1; L-CAD-02, L-CAD-03, B-17, T-NOT-FTIN-STACK, T-MTEXT-CODES; I-330,
+  I-410).** The codes an MTEXT is drawn with had two homes that disagreed. Core's `mtextLines` deleted a
+  stacked fraction outright, so `3'-6\S1/2;"` read `3'-6"` and a ties cell `10%%C @ 5{\H0.7x;\S1/2;}" c/c`
+  read 5" centres — one tie in eleven the drawing never drew, on every column beneath it. The grammar's
+  own table kept the fraction, but read `\P` as a `\p…;` setting wherever a semicolon stood later and
+  deleted every word between them. `normaliseNotation`, the marks, the band and header readers and the
+  note grammar stripped no MTEXT code at all, so a font-wrapped label `{\fSwis721 Cn BT|b0|i0|c0|p34;C-1}`
+  closed up into one word and named no member — on the dissected real sets, one of the two reasons all
+  222 member labels read as no mark (the other, a size written into the label, is the label reader's
+  own work still to come) — and a paragraph code glued to `fy` or `LAP` hid the word. There is now ONE stripper, `withoutMtextCodes`
+  (`src/core/entitygraph/notation.ts`), read in one pass so an escaped `\\`, `\{`, `\}` is the
+  character itself and never a second code:
+  (a) *A stacked fraction is a number.* `\Sa/b;` and `\Sa#b;` read `a/b`, set a space apart from a
+  figure the reading before them ends in — after any code or brace between them is gone — so
+  `3'-6\S1/2;"` is 3'-6 1/2" = 1079.5 mm and `5{\H0.7x;\S1/2;}"` is 5 1/2"; a fraction standing first
+  (`{\H0.7x;\S5#8;}"`) reads `5/8"`. A tolerance stack `\Sa^b;` (and a raised or lowered figure,
+  `\S2^;`, `\S^2;`) is not a fraction and is never read as one: it reads as its parts a space apart,
+  set apart from a figure before it the same way — `150\S+5^-0;` is `150 +5 -0`, never 150 5, and
+  `kN/m\S2^;` is `kN/m2`, as the sheet shows it. This is the ONE reading of a stack, for what a drawing
+  means and for what it shows (the viewer's display reading, `src/core/entitygraph/text.ts` where it
+  stands, reads its stacks, escapes and breaks here and keeps no table of its own); it amends this
+  interpretation's first reading, which kept the caret (` a^b`) and set every stack apart with a
+  space, because the sheet shows no caret and a leading space before a fraction that stands first
+  is a space nobody drew. No real set dissected so far draws a tolerance stack.
+  (b) *What says how a text is drawn goes; every word it says is kept.* Font (`\f…;`, `\F…;`), height,
+  width, tracking, slant, colour (`\C…;`, `\c…;`), alignment (`\A…;`), paragraph settings (`\p…;`), the
+  underline, overline and strike toggles, and the braces of a formatted group. A parameterised code
+  crosses no backslash, brace or semicolon, so `\LSECTION A-A; SEE S-12` keeps its words. `\P`, `\N`
+  and `\X` are line breaks; `\~` a space.
+  (c) *A text with no backslash carries no code* and is read exactly as drawn, braces and all (I-330).
+  An unclosed or unknown code (`\S1/2` with no semicolon) is kept as drawn: measure less, never a
+  guess. A code point `\U+2212` is the character it names, read in the same pass, so a brace spelled
+  `\U+007b` is a brace and never a group (the ingest's recover mode already decodes these; a raw
+  reader does not); one that names no character (`\U+D800`) is kept as drawn. The `%%` control codes
+  stay `resolveControlCodes`'s, after the stripper — the `%%nnn` character code among them
+  (`%%176` is °, `%%216` Ø), which is a control code and so has its one home there too.
+  (d) *Each text is read once.* A reader that wants a text's lines cuts the one reading at its breaks
+  (`notationLines`); it never strips a stripped text again, where an escaped `\\` before a `P` would
+  become a paragraph break the draughtsman never drew. The note clauses and the level words of I-410
+  read that way.
+  (e) *A mixed number's bar is no zone separator.* A two-zone ties call with a stacked half inch,
+  `10%%C @ 4{\H0.7x;\S1/2;}"/6" c/c`, is 4 1/2" at the ends and 6" in the middle; read at the
+  fraction's slash the cell was three parts and read nothing. A lone stacked fraction as a spacing
+  (`@\S1/2;"`) is still split as a pair: it is the same shape as `@4/6"`, which this grammar reads
+  as two zones, and nothing in the text says which the draughtsman meant.
+  Every reader goes through it: `normaliseNotation` (so `normaliseMark`, the notation barrel's parsers,
+  the levels proposal, the note grammar, and what this screen shows of a cell, a title, a band or a
+  mark), `notationLines` (the note clauses, the level words of I-410), `mtextLines` (the schedule's
+  lines, and what the viewer shows) and the grammar's `plainly`. The grammar's second table of MTEXT
+  codes, control codes and diameter glyphs is deleted, and a source test holds the codes — a `%%`
+  class or character code, a stack, a font code, a break or a code point — to one file. F-RCC6-BNBC's
+  figures do not move: its six coded strings are three notes blocks, the S-06 header and footer
+  (already cut into lines before any reader saw them) and the S-22 flight width — none a mark, a
+  band, a schedule cell or a note figure. A probe of every reader over both fixtures' corpora moved
+  answers on coded strings only: those six (their stripped text and lines; the flight width keeps its
+  half inch), and F-ARCH's 38 coded room, level and opening labels, whose wrapped `W\PX H` opening
+  sizes now read as the pair they state; the amendments in (a), (c), (d) and (e) and I-459's move
+  no answer of any of 31 readers over either fixture's corpus. A stored cell, title or key made from a
+  coded text reads its words rather than its codes on the next re-derivation (L-REG-04).
+- **I-459 — a note is read after its codes; a figure is read in what the note states of it,
+  never from under a fraction's bar (session 8, REAL-1; R-TO-034, L-MEA-01).** The note grammar reads
+  each sentence through `normaliseNotation`, so `\Pfy = 415 MPa` proposes FY and `\PLAP 50d IN TENSION`
+  a lap; the sentence a proposal cites stays verbatim. Reading the codes made three kinds of text
+  readable that the grammar then misread, and each is closed:
+  (a) *A figure never starts under a bar or inside a number.* A stacked fraction reads `a/b`, so no
+  strength or multiple of d is read at a figure that follows a figure and a slash — the lower half of
+  a fraction or a ratio — nor at a digit inside a number: `f'c = 4\S1/2; ksi`, `f'c = 4\S1/12; ksi`
+  and `f'c = \S1/2; ksi` propose nothing, never 2 ksi, and `fy = 415/500 MPa` (two grades) proposes
+  nothing rather than choosing 500 (it did before this slice; no fixture writes it). A figure after a
+  slash that follows a word still reads (`60 ksi/415 MPa`, `50d/40d`).
+  (b) *The lap's clauses.* The paragraph break the stripper leaves is a clause boundary for the lap
+  (`LAP_CLAUSES`), as `\P` was, so a stirrup zone's `2d` on the next paragraph is never a lap. A slash
+  between two figures is no clause boundary — it is a fraction's bar — so `LAP 40\S1/2;d IN TENSION`
+  keeps its `40 1/2d` whole and proposes nothing, never 2d; a slash after a word still cuts
+  (`40d IN COMPRESSION / 50d IN TENSION` reads 50d).
+  (c) *A strength is read in what the note states of it.* FY and FC are read in each paragraph that
+  names them, from the name to where the paragraph names the other strength: `NOTES:\Pf'c = 3,500
+  psi\Pfy = 60,000 psi` proposes fy 60,000 psi, never the 3,500 psi before it, and `(fy=60 ksi,
+  f'c=4.5 ksi)` proposes f'c 4.5 ksi, never 60. AM-03(f)'s preferences (fy in MPa where fy's statement
+  restates it, f'c in psi) hold inside that statement. A paragraph naming fy with no figure of its own
+  proposes no grade. On the dissected real sets this corrects four proposals (one a coded block this
+  slice made readable, three a comma-joined pair the grammar already misread); F-RCC6-BNBC's note
+  proposals are unchanged.
+  Reading the mixed number as 4.5 is the note reader's to add with its clause binding (N1), not this
+  reading's to guess.
 
 ## 1. Layout and hierarchy (1440 × 900)
 

@@ -12,7 +12,7 @@ import type { ElementType } from "@/core/catalogue/classes";
 import type { MemberShape } from "@/core/db";
 import type { BandStatement } from "@/core/offers/contract";
 import { DISCIPLINES, type Discipline } from "@/core/sheets/law";
-import { isMarkFamily, mtextLines, normaliseMark, normaliseNotation, parseDiameter, parseFloorZone, sameStorey } from "../notation";
+import { isMarkFamily, normaliseMark, notationLines, parseDiameter, parseFloorZone, sameStorey } from "../notation";
 
 /** The seven classes a mark names, each written as the member of the catalogue's roster it is. */
 const COLUMN = "column" satisfies ElementType;
@@ -206,16 +206,17 @@ const LEVEL_WORD = /[A-Za-z0-9]+/g;
 
 /**
  * The text a drawing's words are read from, with the codes that only say how it is DRAWN taken away
- * (Interpretation I-410). Two kinds of code go, each read by its one home (B-17):
+ * (Interpretation I-410). Two kinds of code go, both read in one pass by their one home (B-17,
+ * core's `notationLines`), and never a second time (I-458):
  *   · the MTEXT inline codes: the `{\L…}` underline a caption is drawn with, the `\f…;` font run, the
- *     `\P` paragraph (core's `mtextLines`);
- *   · the `%%` control codes (`normaliseNotation`).
+ *     `\P` paragraph, each line of which is joined to the next by a space;
+ *   · the `%%` control codes.
  *
  * Without this, an underlined caption glued its code to its first word. `{\L3RD & 5TH FLOOR …}` read
  * `L3RD`, which names no level, so the caption stated 5TH alone. `{\L1ST FLOOR …}` stated nothing.
  */
 function plainWords(said: string): string {
-  return normaliseNotation(mtextLines(said).join(" "));
+  return notationLines(said).join(" ");
 }
 
 /**

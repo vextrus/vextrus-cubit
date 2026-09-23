@@ -11,7 +11,7 @@
 //
 // Nothing here opens a store, asks a model or judges a clause. It answers what the sheet says, cut
 // where the sheet cuts it.
-import { mtextLines, normaliseNotation } from "../entitygraph/notation";
+import { normaliseNotation, notationLines } from "../entitygraph/notation";
 import { NOTE_FIGURE, proposeNotes, type SheetText } from "./grammar";
 
 /** A figure as a note writes one — the grammar's own pattern, never a second spelling of it (B-17). */
@@ -76,29 +76,29 @@ export type NoteClause = {
 export type AskedClause = NoteClause & { readonly classifiable: boolean };
 
 /**
- * One text as a reader reads it: the DXF control codes resolved by the one table that resolves them
- * (`normaliseNotation`, B-17), and the MTEXT drawing codes taken away by the one reading of them
- * (`mtextLines`, B-17), with `\P` standing as the break between clauses.
- */
-function plain(text: string): string {
-  return mtextLines(normaliseNotation(text)).join("\n");
-}
-
-/**
  * The clauses one text carries, in the drawing's own order. A text with no paragraph mark is one
  * clause — which is what a plain TEXT entity is — and a block of them is as many clauses as the
  * draughtsman wrote paragraphs. A blank paragraph is no clause at all.
+ *
+ * Each clause is the text as the one reading of a drawing's words reads it (`notationLines`, B-17):
+ * the MTEXT drawing codes taken away and the DXF control codes resolved in one pass, with `\P`
+ * standing as the break between clauses — never resolved a second time, so a character the
+ * draughtsman escaped is never read again as a code (I-458).
  */
 export function clausesOf(text: string): string[] {
-  return plain(text)
-    .split("\n")
+  return notationLines(text)
     .map((clause) => clause.trim())
     .filter((clause) => clause !== "");
 }
 
+/** Every figure a text the notation has already read states, in the order it states them. */
+function figuresOfRead(said: string): string[] {
+  return [...said.matchAll(FIGURE)].map((match) => match[0]);
+}
+
 /** Every figure this clause states, as the drawing writes them, in the order it writes them. */
 export function figuresIn(clause: string): string[] {
-  return [...normaliseNotation(clause).matchAll(FIGURE)].map((match) => match[0]);
+  return figuresOfRead(normaliseNotation(clause));
 }
 
 /**
@@ -142,7 +142,7 @@ export function askedClausesOf(texts: readonly SheetText[]): AskedClause[] {
     let ordinal = 0;
     for (const clause of clausesOf(text.text)) {
       ordinal += 1;
-      const figures = figuresIn(clause);
+      const figures = figuresOfRead(clause);
       if (figures.length === 0 || !WORD.test(clause) || wordsIn(clause) < WORDS_OF_A_CLAUSE) continue;
       const classifiable = !readByGrammar.has(text.sourceKey);
       if (!classifiable && !(sheetPrintsLapTable && STATES_LAP.test(clause))) continue;

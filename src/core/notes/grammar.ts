@@ -11,7 +11,9 @@
 // against what was offered (L-ACT-01).
 //
 // The glyphs are resolved by the one reading of a drawing's text (`@/core/entitygraph/notation`),
-// never by a second control-code table (B-17).
+// never by a second control-code table (B-17) — and every sentence is read AFTER its MTEXT codes are
+// resolved, so a paragraph or font code glued to `fy` or `LAP` no longer hides the word from the
+// reader that looks for it (Interpretation I-459).
 import { normaliseNotation } from "../entitygraph/notation";
 import { NOTE_KINDS, type NoteKind } from "./law";
 
@@ -55,8 +57,23 @@ const STATES_FY = /\bf[\s_]?y\b/i;
 /** The concrete strength names itself, however the font drew the prime: `f'c`, `f’c`, `fc`. */
 const STATES_FC = /\bf[\s_]?['’´ʹ]?\s?c\b/i;
 
+/**
+ * Where a figure a reading takes may NOT start (Interpretation I-459; L-MEA-01: measure less,
+ * never a guess):
+ *   · inside a number — after a digit, or after a digit and the point or comma inside it — so a
+ *     reading refused at `12` never starts again at its `2`;
+ *   · after a figure and a slash — the lower half of a fraction or a ratio. A stacked fraction reads
+ *     `a/b` once its MTEXT code is resolved, so `f'c = 4\S1/2; ksi` reads `4 1/2 ksi`, four and a
+ *     half: taking its `2` as the strength, or the `2` of `\S1/2; ksi`, or the `12` of `4\S1/12;`,
+ *     would propose a figure the note never stated. A ratio `415/500 MPa` states two grades, and
+ *     reading the second alone would choose between them.
+ * Nothing is read there instead. A figure after a slash that follows a word — `50d/40d`,
+ * `60 ksi/415 MPa` — is read as before.
+ */
+const FIGURE_STARTS = String.raw`(?<!\d[.,]?)(?<!\d\s*\/\s*)`;
+
 /** A lap is stated as a multiple of the bar diameter: `50d`. The `d` is the unit. */
-const MULTIPLE_OF_D = new RegExp(String.raw`(${FIGURE})\s*d\b`, "i");
+const MULTIPLE_OF_D = new RegExp(String.raw`${FIGURE_STARTS}(${FIGURE})\s*d\b`, "i");
 
 /** The lap a note states for bars in TENSION, which is the one detailing applies (AM-03(f)). */
 const TENSION = /\bTENSION\b/i;
@@ -66,11 +83,16 @@ const STATES_LAP = /\bLAPS?\b/i;
 
 /**
  * The clauses a lap is read within — what a note separates its clauses with (one sentence states the
- * tension lap and the other's), plus an MTEXT paragraph mark and a sentence
- * end — a general-notes block is many clauses in one text, and a lap figure belongs to the clause
- * that names the lap, never to a stirrup clause two paragraphs on.
+ * tension lap and the other's), plus the line break an MTEXT paragraph mark `\P` reads as once its
+ * codes are resolved (`normaliseNotation`), and a sentence end — a general-notes block is many
+ * clauses in one text, and a lap figure belongs to the clause that names the lap, never to a stirrup
+ * clause two paragraphs on.
+ *
+ * A slash between two figures is no clause boundary: it is a fraction's bar (`40 1/2d`) or a ratio's,
+ * and cutting there would hand the figure under the bar to a clause of its own, where nothing is left
+ * to say it was a denominator (I-459). A slash after a word still cuts: `50d/40d`, `TENSION / 40d`.
  */
-const LAP_CLAUSES = /[/;]|\\P|\.(?=\s|$)/;
+const LAP_CLAUSES = /(?<!\d\s*)\/|\/(?!\s*\d)|[;\n]|\.(?=\s|$)/;
 
 /** The stirrup and tie hook this product bills: the 135° bend (AM-03, BS 8666). */
 const HOOK_BEND = "135";
@@ -103,7 +125,7 @@ export function canonicalFigure(valueAsWritten: string): string {
 
 /** The first figure this text states in one of the units named, at or after `from`. */
 function strengthIn(said: string, units: string, from = 0): Found | null {
-  const pattern = new RegExp(String.raw`(${FIGURE})\s*(${units})`, "i");
+  const pattern = new RegExp(String.raw`${FIGURE_STARTS}(${FIGURE})\s*(${units})`, "i");
   const match = pattern.exec(said.slice(from));
   if (match === null || match.index === undefined) return null;
   return { at: from + match.index, valueAsWritten: match[0], canonical: figureOf(match[1] as string), unitAsWritten: match[2] as string };
@@ -116,23 +138,59 @@ function multipleOfD(said: string, from = 0): Found | null {
   return { at: from + match.index, valueAsWritten: match[0], canonical: figureOf(match[1] as string), unitAsWritten: "d" };
 }
 
+/** Either strength's name — where the statement of the other one ends. */
+const NAMES_A_STRENGTH = new RegExp(`${STATES_FY.source}|${STATES_FC.source}`, "i");
+
+/** Where one clause of a note ends once its MTEXT codes are resolved: the paragraph mark's line break. */
+const CLAUSE_BREAK = "\n";
+
+/**
+ * What a note STATES of the strength one name names: in each clause (paragraph) that names it, the
+ * words after the name up to where the clause names the other strength, or ends (I-459). A
+ * notes block states fy and f'c a paragraph apart — `NOTES:\Pf'c = 3,500 psi\Pfy = 60,000 psi` — or a
+ * comma apart — `(fy=60 ksi, f'c=4.5 ksi)` — and one strength's figure is never the other's: read
+ * over the whole text, fy took the 3,500 psi of f'c and f'c took the 60 ksi of fy (L-MEA-01).
+ */
+function statementsOf(said: string, name: RegExp): string[] {
+  const statements: string[] = [];
+  for (const clause of said.split(CLAUSE_BREAK)) {
+    const named = name.exec(clause);
+    if (named === null) continue;
+    const after = clause.slice(named.index + named[0].length);
+    const other = NAMES_A_STRENGTH.exec(after);
+    statements.push(other === null ? after : after.slice(0, other.index));
+  }
+  return statements;
+}
+
+/** The first figure a statement of this strength gives in the first roster of units that finds one. */
+function strengthStated(said: string, name: RegExp, rosters: readonly string[]): Found | null {
+  for (const statement of statementsOf(said, name)) {
+    for (const units of rosters) {
+      const found = strengthIn(statement, units);
+      if (found !== null) return found;
+    }
+  }
+  return null;
+}
+
 /**
  * The grade this note states, or null. AM-03(f) reads the grade in MPa where the note gives one —
  * `fy = 72,500 psi (500 MPa)` states one figure twice and the metric half is the one the detailing
  * rules are written in — and otherwise keeps the figure the drawing wrote, in the unit it wrote it.
+ * Either is read in what the note states of fy, never beside it (`statementsOf`).
  */
 function readFy(said: string): Found | null {
-  if (!STATES_FY.test(said)) return null;
-  return strengthIn(said, String.raw`MPa|N\/mm2|N\/mm²`) ?? strengthIn(said, STRENGTH_UNITS);
+  return strengthStated(said, STATES_FY, [String.raw`MPa|N\/mm2|N\/mm²`, STRENGTH_UNITS]);
 }
 
 /**
  * The concrete strength this note states, or null. AM-03(f) keys f'c in psi, so a note stating both
- * — `f'c = 3500 psi (24 MPa)` — is read at the psi figure; a note stating one unit keeps it.
+ * — `f'c = 3500 psi (24 MPa)` — is read at the psi figure; a note stating one unit keeps it. Either
+ * is read in what the note states of f'c, never beside it (`statementsOf`).
  */
 function readFc(said: string): Found | null {
-  if (!STATES_FC.test(said)) return null;
-  return strengthIn(said, "psi") ?? strengthIn(said, STRENGTH_UNITS);
+  return strengthStated(said, STATES_FC, ["psi", STRENGTH_UNITS]);
 }
 
 /**

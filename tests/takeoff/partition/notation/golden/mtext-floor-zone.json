@@ -1,0 +1,8 @@
+{
+  "parser": "parseFloorZone",
+  "why": "I-458: a band header drawn underlined or aligned is the band it names; the code glued to the first ordinal once hid that storey.",
+  "cases": [
+    { "input": "{\\L3RD & 4TH}", "expect": { "from": "3RD", "to": "4TH" } },
+    { "input": "\\A1;GF TO 2ND", "expect": { "from": "GF", "to": "2ND" } }
+  ]
+}

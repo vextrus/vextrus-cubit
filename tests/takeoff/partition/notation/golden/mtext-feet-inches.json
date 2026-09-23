@@ -1,0 +1,9 @@
+{
+  "parser": "parseFeetInches",
+  "why": "T-NOT-FTIN-STACK on the core path (I-458): the stacked fraction an office types into an MTEXT is the half inch it draws — deleting it under-read every length and over-counted every spacing written that way.",
+  "cases": [
+    { "input": "3'-6\\S1/2;\"", "expect": 42.5 },
+    { "input": "{\\H0.7x;1'-4\\S3/4;\"}", "expect": 16.75 },
+    { "input": "\\A1;2'-0\"", "expect": 24 }
+  ]
+}

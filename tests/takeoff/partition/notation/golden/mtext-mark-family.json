@@ -1,0 +1,10 @@
+{
+  "parser": "isMarkFamily",
+  "why": "I-458: a font-wrapped mark cell names its member, and a font-wrapped word or header still names none.",
+  "cases": [
+    { "input": "{\\fSwis721 Cn BT|b0|i0|c0|p34;C-1}", "expect": true },
+    { "input": "\\A1;GB-2", "expect": true },
+    { "input": "{\\LNOTE}", "expect": false },
+    { "input": "\\A1;MARK", "expect": false }
+  ]
+}
