@@ -9,14 +9,18 @@
       "explode_losses": {},
       "explode_truncated": false,
       "flatten_capped": {},
-      "space": "Page 1"
+      "space": "Page 1",
+      "unread": {
+        "IMAGE": 1
+      }
     },
     {
       "collapsed": {},
       "explode_losses": {},
       "explode_truncated": false,
       "flatten_capped": {},
-      "space": "Page 2"
+      "space": "Page 2",
+      "unread": {}
     }
   ],
   "derived": [
@@ -1622,7 +1626,7 @@
       "type": "INSERT"
     },
     {
-      "closed": true,
+      "closed": false,
       "colour": {
         "rgb": [
           0,
@@ -1649,6 +1653,10 @@
         [
           450.0,
           360.0
+        ],
+        [
+          450.0,
+          330.0
         ]
       ],
       "space": "Page 1",
