@@ -1,320 +1,172 @@
-# Session 8 — M3 complete, and M4 begun (orchestrator edition)
+# Session 8 — Takeoff, demo-ready: finish M3, build M4, judge the product in the browser
 
-You are **Claude Opus 5.5** (`claude-opus-5-5`), the orchestrator of session 8 on `vextrus-cubit`,
-branch `dev-lane-and-jev` (main `8cf9f11f`, never touched). Your workers are Opus 5.5.
+You are the orchestrator of Vextrus Cubit's eighth Claude Code session: Opus 5.5, in the owner's
+Claude Code with this checkout's harness (CLAUDE.md § The harness). The owner — CEO and co-founder — is
+in the loop for the owner's decisions and away for the rest. This brief is the session's contract. CLAUDE.md is
+the law; `docs/handoff/session-7.md` is the ground truth this session starts from; the Bible
+(`docs/specs/cubit.bible.xml`) is the destination, read as the default and departed from by Deviation.
 
-Session 7, the first run end to end on this model, took the product from 7.7 % to 50.2 % of the
-golden's RCC concrete compared COMPLETE on F-RCC6-BNBC. It put all 18 screens at the craft bar, with
-every capture looked at on the final tree. It turned the viewer's performance proof honest and green,
-and it built the demo command. It did not finish M3. Read `docs/handoff/session-7.md` first: §0 the
-arc, §6 what was not done, §7 the ranked backlog, what stands the owner's, and the carried debts.
+## 1. The one goal
 
-`CLAUDE.md` is the product's law and binds you and every agent you spawn. Its standing facts carry
-what sessions 5–7 learned the hard way. Where this prompt and `CLAUDE.md` disagree, `CLAUDE.md` wins.
+**The Takeoff module, finished and demo-ready.** A quantity surveyor sits down with a Bangladeshi
+drawing set and, without help, loads it, organises it, gets it to scale, lets the product take off the
+structure, measures what the machine could not, reads rooms and finishes, asks the drawings questions,
+checks every number against the drawing in one click, and emits a draft BOQ and BBS they would put
+their name to. The owner will demo exactly that. Everything else — Book, Estimate, Assure, Bid — waits.
 
-Abbreviations below:
-- **J-BREADTH** is `~/.claude/projects/-home-riz-vextrus-cubit/bbdf46f0-385d-4fc3-97d1-873757ce4017/subagents/workflows/wf_d6a5de12-0ac/journal.jsonl`.
-- **J-R6** is the same directory with `wf_96743886-20c/journal.jsonl`.
-- **The ledger** is `docs/handoff/session-7-ledger.md`.
+The bar is not "the lanes are green". It is the owner's: *the best software its users have ever
+touched*, doing the job the way a QS in Dhaka does it, with every number traceable and every refusal
+honest. Where the Bible's text and that bar disagree, the bar wins and a Deviation says why.
 
-## 0. The goal, and the finish line
+## 2. The finish line
 
-**Complete M3 against the golden the owner rules, and begin M4, at a quality the owner can
-demonstrate without a caveat.** Done means these conditions, in this order. Each is proved by a lane's
-own line, a figure read from the store, or a picture you looked at.
+Each condition is REACHED only with its evidence; the close states each one plainly.
 
-1. **R0 ruled.** One `AskUserQuestion` round early, carrying the breadth map's per-cell evidence:
-   - ~78 golden cells are not reachable from the drawing as drawn;
-   - ~15 cells disagree with it;
-   - plus the R6 critic's golden corrections GC-1..GC-4 (session-7 handoff §7, "Standing, the owner's").
-   The ledger keeps only the summaries; the per-cell detail survives in J-BREADTH and J-R6 (session-7
-   handoff §6). The choice is a `baseline:` regeneration of F-RCC6-BNBC (not byte-frozen) or
-   Deviations re-scoping AM-01's exit. The ruling decides what "M3 complete" means.
-2. **M3 walks whole.** `pnpm e2e --journeys J-000` is green with `m3-bar-schedule` released: FRM-3
-   places the vertical beams, and the column ties are derived from BNBC 2020's clauses (vendored in
-   `docs/reference/bnbc-2020/`; D-003 is reserved for that ruling).
-3. **The gate stays green, with verify ≤ 60 s.** The closing gate of session 7 (gate 8, on `7d4b69e8`,
-   the final product tree) read `verify wall-time 59.01s`: cad 52.44 s (the wall), unit 47.08, lint
-   40.98, types 8.49, build 6.37.
-   - That build compiled cold on 7d4b69e8's source change. Since `ffdfdb1a` a warm build reads ~3 s
-     whatever the journeys wrote.
-   - The first verify after a reboot read 66.39 s on cold caches, so measure on a warm machine.
-   - **The margin is thin.** The next margin is the cad lane's own: 461 pytest cases in one serial
-     process.
-     - `pytest-xdist` is not installed in `cad/.venv`.
-     - pytest-xdist 3.8.0 and execnet 2.1.2 are already in the local uv cache, and
-       `uv pip install --dry-run --offline` resolves them (checked at session 7's close), so adding
-       them needs no web access.
-     - It still moves a pin, so it is a `toolchain`-tagged increment.
-4. **The craft table stays at the bar and the demo stays real, on the tree the session ends on.**
-   - **The ground:** 18 of 18 on `7d4b69e8`'s tree over BNBC `1a78eafd`. 72 captures, 0 RED, axe
-     0/0/0, every capture looked at (`wf_35743067-b04`): 4 lowerings, 10 demo-visible defects, 25
-     polish (`docs/handoff/session-7-artifacts/relook-final.json`).
-   - **Re-walked when:**
-     - before committing any slice that changes what a screen renders — the routes it touches, both
-       themes, both viewports. Session 7's craft wave 3 landed on its e2e lanes without a re-walk,
-       and S-Project fell to min 1 (7d4b69e8's message);
-     - once on the closing tree, after the closing gate, over that gate's J-000 BNBC project,
-       followed by a re-look workflow over every capture. The commands: `pnpm probe:server`, then
-       `PROBE_SHEET="S-10 COLUMN LAYOUT PLAN" bash scripts/probe/craft-walk.sh <run.json> <out> bnbc`.
-       The perf lane deletes run files, so run J-000 alone for them, or find the project by name
-       (session-7 handoff §8).
-   - **The bar:** every route at ≥ 4.0 with no criterion below 3. A person may only lower a computed
-     criterion. "18 of 18" is today's count: a screen M4 adds joins `craft-walk.sh`'s list in the
-     slice that ships it.
-   - **The demo** runs on the closing tree after the closing gate. `pnpm demo --no-open` serves that
-     gate's newest billed BNBC project, proved as session 7 proved it:
-     - the sign-in is proved against the stored hash;
-     - Windows `curl.exe` gets 307 → `/sign-in`, then 200;
-     - `pnpm probe signin` reads OK;
-     - the register is walked at axe 0/0/0 and looked at, with its line count and totals matched to
-       the store's read-back;
-     - the AI spend is read at the pinned rate.
-     When beam or slab lines turn COMPLETE, the demo's totals move with them: quote the store's
-     figures, not session 7's.
-5. **M4's first door walked**, on the committed tree. "Walked" requires all of these:
-   - The one `test.fixme` in `m4-sheet-and-manual-measure.spec.ts` becomes a running `test` that
-     clicks what a customer clicks and stages nothing, green in `pnpm e2e --journeys J-000`.
-   - Its fixme-roster entry is deleted, and `m4` moves from ANNOUNCED to SHIPPED in
-     `tests/journeys/j-000-roster.test.ts`.
-   - The doors its header names have landed:
-     - `docs/design/s-measure.md` is written first (C-13);
-     - a manual measurement act with its L-ACT-02 pair and its permission;
-     - the identity rule for a row with no mark;
-     - a method pair over POLYLINE/POLYGON in an edition (a migration);
-     - a condition store;
-     - Linear and Area armed;
-     - the measurement list;
-     - a live-database test that `authorize()` refuses a caller without the permission.
-   - The leg asserts a figure against a golden cell named by roster, read back from the run's own
-     store. The header proposes GF SLAB × BLINDING (23.615 m³), but slab on grade sits in the map's
-     unreachable group, so R0 should settle which cell it walks against. That is an inference, not a
-     measurement.
-   - The new screen is at the craft bar (condition 4).
-   - **"Or the doors re-measured"** is the fallback, and it is a restatement, not progress: every
-     file:line in the four m4 headers and their roster reasons is re-read on the closing tree, the
-     stale ones are corrected in one commit, and the handoff says which of the two was reached.
+1. **M3 walks whole.** `m3-bar-schedule` released (no `MISSING DOOR` left in any m3 leg); J-000 green
+   through every M3 segment; the read-back matches the golden within band on every cell the owner's R0
+   ruling keeps in scope, and every cell it keeps out is a named Deviation.
+2. **M4 walks whole.** The four M4 legs (`tests/e2e/journeys/j-000/m4-*.spec.ts`: a PDF sheet ingested
+   and corroborated, a manual condition measured, rooms and finishes taken, a question asked of the
+   drawings) and J-040…J-043 walk green with no `test.fixme`. M4's exit: PB-5 (PDF, raster) met; F-ARCH
+   finishes within band; a QS can measure a sheet with no auto-detection at all.
+3. **The product judged in the browser.** Every Takeoff screen and the whole QS flow walked in the
+   running product (both themes, 1440x900 and 1280x800) by the `product-review` procedure; zero
+   BLOCKS_DEMO defects standing; the FRICTION list worked down and what remains ranked in the handoff;
+   session 7's ten demo-visible defects (`docs/handoff/session-7-artifacts/relook-final.json`) fixed. The
+   craft table stays at the bar on every screen (≥ 4.0, no criterion < 3), its pictures looked at.
+4. **The gate green on the committed tree**, verify ≤ 60 s, every ceiling held.
+5. **A demo the owner can give.** `pnpm demo` serves a project that walks the whole flow; `docs/demo.md`
+   carries a short script a founder follows (what to click, what to say, what each screen proves); the
+   AI spend it shows is true.
+6. **An honest close** (`session-close` skill): handoff, ledger, the next brief, a clean tree, pushed.
 
-## 1. Launch and Phase 0
+## 3. Starting state (verify it; don't trust it)
 
-Launch as session 7 did: `cd ~/vextrus-cubit && claude --effort xhigh`, with the settings of the
-session-7 prompt §1. `worktree.baseRef: "head"` is essential.
+- The session-start hook prints the checkout's state; the gate's last verdict is in
+  `node_modules/.cache/cubit/gate/summary.txt`. The demo is NOT running.
+- What changed after session 7's close — the harness, the toolchain, the cleanup — is
+  `docs/handoff/session-7-harness.md`.
+- **The toolchain moved** (D-004): TypeScript 7 native for the types lane (the whole tree in ~2.5 s) with
+  a TypeScript 6 API alias; pnpm 11; Next 16.3.6 (after three security releases); React 19.3; Vitest 5;
+  TanStack Table 9 behind `DataTableColumnDef`; react-resizable-panels 4 (sizes are `"%"` strings); cad
+  pytest on six workers. pg-boss stays on 10.4.2 (no v10→v12 schema migration exists). Playwright
+  stays on 1.62.1: on 1.63.0 J-011's hover sweep meets nothing under the pointer (bisected to the test
+  runner, not the product; D-004) — a small toolchain item: find why, then move.
+- **The harness is new**: the guard hook, the `cubit` MCP (`db_read`, `jev_ask`, `drawing_inventory`,
+  `drawing_render`), the `chrome-devtools` MCP on the product's own Chromium, four agents, six skills,
+  path-scoped rules. Use them; when one gets in your way, fix it (a `harness:` commit) and say so.
+- **Read-back ground truth** (session 7): column concrete 208 COMPLETE, 93.892896 m³; piles 89 /
+  372.848929 m³; caps 26 / 128.781275 m³, formwork 254.132613 m²; beams 172 objects / 344 lines, all
+  PARTIAL; no orphan lines. 13 golden cells COMPLETE: 595.523 of 1,186.893 m³ of RCC concrete.
+- **The Edison set** is in `.private/reference/edison/` (structural, architectural, plumbing, electrical,
+  general notes): a real firm's real drawings — the best evidence this session has of what a Bangladeshi
+  set really looks like. `ARCHITECTURE.dwg` refused `HANDLES_NOT_UNIQUE` in an earlier session (LibreDWG
+  writes ten LWPOLYLINEs under one handle) and `ELECTRICAL.dwg` crashed the viewer tab under SwiftShader;
+  both are real-world robustness work for M4.
+- **The carried backlog** is `session-7.md` §6–§7: FRM-3, the ties, FRM-4, the M3 breadth, the debts,
+  Jev's live findings "recorded, not built", the unwired Jev passes (`runNoteClausePass`,
+  `understandSheet`). R0's per-cell evidence survives in two workflow journals under
+  `~/.claude/projects/-home-riz-vextrus-cubit/bbdf46f0-385d-4fc3-97d1-873757ce4017/subagents/workflows/`:
+  `wf_d6a5de12-0ac/journal.jsonl` (the breadth map: `goldenAtStake`, `honestReach`) and
+  `wf_96743886-20c/journal.jsonl` (the R6 critic: GC-1…GC-4). If they are gone, re-run workflow `c`
+  (`docs/handoff/workflows/session-7/c-m3-breadth-map-and-rank.js.txt`).
 
-**Phase 0: ground truth before any edit.** Make no product edit until Phase 0's exit condition
-holds.
-- **Verify the harness, and write it in the ledger:** the model, `claude --version`, the settings, the
-  tool list and the skills.
-  - If the demo is still running, run `pnpm demo --stop` before any lane.
-  - Confirm the machine: `netsh.exe interface portproxy show all` is EMPTY, the scheduled task "WSL
-    localhost sync" is Disabled, and 3210, 3211 and 3213 read free (`portState`).
-- **Run `pnpm gate` alone, and read every red to a cause.** Session 7's closing gate ran on
-  `7d4b69e8`. Its final commit added only documents and the D-003 citation fix in two test files.
-- **`pnpm e2e:clean && pnpm e2e --journeys J-000`, then read the BNBC project back** with
-  `docs/handoff/session-7-readback.sql`. Expect:
-  - column concrete 208 COMPLETE lines, 93.892896 m³;
-  - piles 89 / 372.848929 m³;
-  - caps 26 / 128.781275 m³, cap formwork 254.132613 m²;
-  - beams: 172 register objects and 344 lines, every line PARTIAL;
-  - `orphan_lines 0`, `placeholder_lines 0` (the file's last query, I-368's invariant).
-  If you see anything else, the ground moved.
-- **Put R0's evidence in the repo before the round.** Build one table from J-BREADTH, J-R6 and
-  `goldenRows('rcc6-bnbc')`. Its columns: class, kind, level, golden figure, group (reachable,
-  unreachable as drawn, disagrees with the drawing, or GC), and evidence. Commit it under
-  `docs/handoff/`; it is a document, not a product edit.
-- **Allocate ids once, before any fan-out.** The next Interpretation is **I-370**. D-003 is reserved
-  for the ties, so the next free Deviation is D-004. The next migration is **0062**.
-- Read `CLAUDE.md`, `docs/handoff/session-7.md`, the ledger's breadth map and the R6 ties design
-  (ledger "R6 ties design + critic"), and `docs/decisions/deviations.md`.
+## 4. The owner's decisions — ONE AskUserQuestion round in your first hours
 
-**Exit condition:**
-1. The gate's verdicts on HEAD are quoted, with every red read to a cause.
-2. The known state is reproduced by the read-back above, or the moved ground is explained.
-3. R0's per-cell table is committed.
-4. The ranked programme (§2b) is in the ledger, with each door's definition of done and read-back
-   query written there before the door lands.
-5. ONE `AskUserQuestion` round has been asked, carrying every question that is genuinely the owner's:
-   - R0 per cell: regenerate the golden, or record a Deviation;
-   - GC-1..GC-4;
-   - the two R6 readings session 7 left open: one reading of S-12, recorded before GC-2 removes the
-     3F–ROOF cross-tie rows (−554.960 kg), and the joint-spacing reading (265.804 kg);
-   - what comes after R6: the remaining M3 breadth, or M4's first door (the owner ruled "M3 breadth
-     first" for session 7 only).
+Recommendation first in each, the evidence in a line or two; keep working on everything that does not
+depend on the answers.
 
-Then work on your own; the owner is not watching in real time.
+1. **R0, the golden reconciliation**: regenerate F-RCC6-BNBC's golden in a `baseline:` commit (fixing the
+   ~15 disagreeing cells and GC-1…GC-4, and deciding the ~78 unreachable cells by drawing them or
+   dropping them), or Deviations re-scoping AM-01's exit.
+2. **The ties** (D-003, reserved): derive them from BNBC 2020's clauses (vendored in
+   `docs/reference/bnbc-2020/`) under a Deviation, as the owner ruled in session 7 — or hold them
+   DECLARED until the joint depth is read (session 7's R6 ruling, never confirmed with the owner).
+3. **The BOQ's shape**: one item per description with its total (how a bill is written) or one line per
+   member as today (I-269, `docs/design/s-boq.md`).
+4. **A system-two model in the product.** Ask the drawings (R-AI-003), scan reading (R-AI-002) and
+   narrative drafting need generation that Jev's closed questions do not do. A low-effort Claude call with
+   structured output behind `callModel`, fixture-replayed, is Jev's natural partner — it needs the owner's
+   `ANTHROPIC_API_KEY` and a Deviation from the scope fence ("any script that runs Claude"). The
+   alternative is Ask on Jev alone (a closed-question router over register queries).
+5. **The Edison boundary**: conventions only, never content, in a public repository (recommended; the
+   Bible's own reading) — or what the owner has cleared with the drawings' owner.
 
-## 2. What you inherit — measured
+## 5. The programme
 
-- **The tree at session 7's close** (gate 8): unit 565 files / 3,806 tests; db 242 / 1,467 (two
-  passes: the batch, then drift-lane-breaker alone); golden 4 / 16 plus 104 pytest; lint 0 errors /
-  158 warnings; tsc 0; migrations 0000–0061, with `cubit_dev` at head.
-- **Interpretations run to I-369 and Deviations to D-002.** D-003 is reserved for the ties ruling.
-  - I-368 (`docs/design/s-levels.md`) owes an arm: `@unregistered:` placeholders still publish until a
-    refusal there has a durable disclosure.
-  - The law's gaps are listed in the session-7 handoff (§3, "The law"): I-306 was allocated and never
-    minted, I-308 is cited and never defined, I-310 was never minted and is still cited, I-312 lives
-    only in the reverted C2 artifact, and I-329 was skipped.
-  - Allocate ids centrally before you fan out: parallel implementers collided on ids twice in
-    session 7.
-- **FRM-3's shape is measured** (session-7 handoff §7 item 2). Carry TEXT rotation through the
-  L-CAD-05 seam — `cad/src/vextrus_cad/model.py`, the TS mirror `@/core/entitygraph/schema`, and an
-  EntityGraph version bump — so a mark on its axis and turned along it names that member.
-  *Prediction:* a re-ingest re-keys every graph, so the J-000 and Jev caption corpora may move.
-- **FRM-4 needs:**
-  - slab thickness per side (SLB-1 first);
-  - lift-core walls as supports: 17 of 72 clears are over the golden.
-    - The lift-core walls account for 15 of them.
-    - The other 2 (EB1a and 1EB1a, +250) stay uncut until FRM-3 places the cantilevers carrying them
-      (788c1e8a; FRM-2's Interpretation in `docs/design/s-schedules.md`).
-  - support faces per storey;
-  - slanted pairs.
-  **No beam line may reach COMPLETE before those land.** F-RCC6-BNBC campaigns measured from
-  788c1e8a up to 2846dcc7 keep 50 orphan beam lines: S-14's 25 typical beams × concrete and
-  formwork, keyed `…@UNRESOLVED`. A reader that sums by campaign alone must join the register before
-  beam figures are billed (session-7 handoff §7 item 6).
-- **The golden reconciliation** is R0's. The breadth map (`wf_d6a5de12-0ac`) lists its slices as
-  FRM-3 → SLB-1 → FRM-4 → WLS-1/2 → LEV-2 → COL-FW, with R0 in parallel throughout. But it also gives
-  WLS-1 `dependsOn` LEV-2 (SRR), so LEV-2 goes before WLS-1.
-  - FRM-4 depends on FRM-3, SLB-1 and R0's CB-taper ruling.
-  - R6 (the ties) is not in the map. The session-7 handoff §7 ranks it right after FRM-3.
+Phases in order; inside a phase, fan out. Each phase ends with its lanes green and its screens looked at.
 
-## 2b. The programme — ranked, each with its done
+**Phase 0 — the ground truth (largely parallel).**
+- `pnpm gate` on the starting tree — the baseline every later red is measured against.
+- A J-000 run and its read-back (`readback`); then `pnpm demo --no-open` and a first `product-review`
+  walk of the whole flow in the owner's shoes — the defect list you start from. Stop the demo after.
+- An Edison dissection map: `drawing-analyst` agents, one per drawing, each returning its discipline's
+  conventions and where F-RCC6-BNBC and the readers fall short (`edison-drawings` skill).
+- An M4 map: for each M4 requirement (R-TO-002/003/006/013/015–017/036–038/040–044/055,
+  R-SPINE-051/052, R-AI-002/003, R-UI-042, S-Measure, S-Ask, F-ARCH, F-MEP, F-SCAN, A-SHEET-PDF,
+  J-040…J-043, X-7): what exists, what is missing, the smallest sequence of vertical slices that walks
+  it, the risks. The four `MISSING DOOR` headers in `tests/e2e/journeys/j-000/m4-*.spec.ts` name the
+  first doors: no PDF or raster extractor, `DXF_HANDLE` hard-wired in five places, no AGREED exit at the
+  gate; no S-Measure Decision, no manual act, no identity for a row with no mark, no method over
+  POLYLINE/POLYGON; F-ARCH absent and no room model; no S-Ask Decision and no ai procedure.
+- Then the owner's question round (§4).
 
-Session 7's handoff §7 sets the rank, and J-BREADTH adds each slice's dependencies and its definition
-of done. A figure marked *(map)* is the breadth map's estimate on `20067339`, taken before FRM-1/2 and
-the foundations landed; it is a prediction until a read-back confirms it. The map predicts about 100
-cells reachable, 69.4 % of RCC concrete without the ruling and 91.5 % with it.
+**Phase 1 — M3, finished.** FRM-3 (TEXT rotation through L-CAD-05: an EntityGraph version bump that
+re-keys the corpora in its own `baseline:` commit) places the vertical beams and gives the joint depth →
+the ties per the owner's ruling → `m3-bar-schedule` released. FRM-4 (slab thickness per side, lift-core
+walls as supports, support faces per storey) → beams COMPLETE where the drawing supports it. The
+remaining breadth in the map's order (SLB-1, WLS-1/2, LEV-2, COL-FW). R0 as ruled. N1 (class-scoped
+notes) and R2/I-308 (the stated lap) where the bar schedule needs them. Read back after each.
 
-0. **R0, the golden reconciliation.** *Done:* a recorded ruling per cell — either a regenerated golden
-   in a `baseline:` commit naming its proof (cad/tests/rcc6_bnbc selfcheck green, the db-lane BNBC
-   bands re-staged green, the golden lane green), or a Deviation with its cost. A regeneration changes
-   the generator's own model under `fixtures/gen/rcc6_bnbc/` and never copies the product's reading.
-1. **FRM-3: a member named by its own mark.** *Done (map):* F31 places the golden's 57 members, 2116
-   its 58, 10C1 its 48, and F-RCC6 is byte-identical. The re-keyed corpora are re-recorded in their
-   own `baseline:` commit. The cantilevers EB1a and 1EB1a are placed. *Read-back:* beam objects per
-   storey against a count measured on the drawing first; `orphan_lines 0`; every COMPLETE figure
-   unchanged; no beam line COMPLETE yet.
-2. **R6: the column ties, and the release of `m3-bar-schedule`.** D-003 is recorded in
-   `docs/decisions/deviations.md` in the same commit. Ties are derived from BNBC 2020's §8.3.10.5, with
-   the joint depth read from the placed framing. Session 7's rulings stand: no lower bound is ever
-   published COMPLETE; C7 uses formula (iii); single-spacing statements stay
-   `REBAR_TIE_ZONE_UNSTATED`, so F-RCC6 and the SAMPLE seed do not move.
-   - **Rule on the critic's named change 2 before release, and record it.** The leg compares whole
-     members with NET and LAP summed. The critic measured that this hides a 7–13 % tie shortfall and
-     lets a LAP over-measurement hide inside it, and asked for grading per (level, diameter,
-     component).
-   - The bar-schedule preconditions carried in the session-7 handoff §7 land first: N1 (class-scoped
-     notes), R2 (the stated lap, I-308 to be minted), and the edition choosing the synthesis code.
-   - *Read-back:* bar rows per member against `bbs.golden.json`, and J-000 green with no M3 entry left
-     on the fixme roster.
-   - *Prediction:* the designer's 0.00 % over 42 cells was measured against the CORRECTED golden, so
-     it can only hold after R0 rules on GC-1..GC-4.
-3. **SLB-1, then FRM-4.** *SLB-1 done (map):* slab placements per panel, ROOF slab concrete COMPLETE
-   inside its band (38.952 m³), no MRR or SRR ring registered at ROOF; 1F..6F wait for R0.
-   *FRM-4 done (map):* beam lines COMPLETE with per-level sums inside the band, and the bill leg
-   comparing all 14 cells (123.916 m³ and 1,297.601 m²). Before the first beam line goes COMPLETE:
-   - one reader that joins the register, for `register-ui/server.ts` and `boq/server.ts`;
-   - the `plateOf` / soffit check on BNBC, which is still unverified.
-4. **LEV-2 → WLS-1 → WLS-2 → COL-FW.** *(map)* LEV-2: exactly two column rows at ROOF. WLS-1: SW
-   lines COMPLETE inside the band except 3F, which waits for R0, with a Deviation from AM-06(4) in the
-   same commit. WLS-2: stair lines COMPLETE for GF..6F and no ROOF stair. COL-FW: column formwork
-   COMPLETE per level under the reading I-306 was allocated for (L-MEA-09 governs vertical formwork);
-   mint it first.
-5. **M4's first door**, as condition 5 defines it.
-6. **The debts** (session-7 handoff §7 item 6, "Carried from session 6, and the ledger's own debts").
-   Fix each where you touch its file anyway, with its test beside it. Session 8's first craft wave
-   is the final re-look's ten demo-visible defects (`relook-final.json`).
+**Phase 2 — M4, the daily QS toolset** (foundations before screens; a Design Decision before each
+screen, C-13):
+- Fixtures: F-ARCH, F-MEP and F-SCAN by committed generators, synthetic, their goldens authored by the
+  generator's own model — shaped by what the Edison set taught (layering, schedules, labels, dirt).
+- Lanes: the vector-PDF extractor (pypdfium2, `PDF_OBJECT` keys) and the raster lane (a pinned,
+  deterministic classical-CV vectoriser, `RASTER_TRACE`, INTERPRETED with corroboration and the gate's
+  AGREED exit); every place that accepts only `DXF_HANDLE` learns the other schemes.
+- S-Measure: manual tools (count, linear, area, volume, cutout, typical multiplier) with snaps, every
+  measurement an act that offers to the gate; conditions and assemblies; the measurement list; the
+  legend; the viewer's Linear/Area/Count tools enabled.
+- Rooms and finishes (R-TO-036) with openings from schedules and their deductions (L-MEA-02/03),
+  learn-and-count (R-TO-037), MEP runs by size (R-TO-038), split and overlay (R-TO-013), measurement
+  overlays and the sheet PDF (R-TO-015/017), dashboards (R-TO-055); search and comments where the demo
+  wants them.
+- S-Ask (R-AI-003, X-7): answers composed from register queries and sheet text, every number a query
+  result rendered by the formatter, every claim cited — Jev for routing and selection, a system-two call
+  only if the owner rules it in (§4.4). Jev's live findings from session 7 improve the existing arms.
 
-**For every item:** the slice's own lanes before its commit, a read-back where it touches the store, a
-re-walk where it touches a screen, and the closing gate.
+**Phase 3 — the product judged, in waves** (continuously, not only at the end: a screen built in
+Phase 2 is walked the day it lands). Walk the flow in the browser; `ux-critic` agents per area and
+`qs-critic` on every figure and document; `refuter` on each finding before it is fixed; fix in waves
+(foundation defects first; each fix amends its Design Decision); re-walk after each wave.
 
-## 3. The rules session 7 bought (add them to session 3–6's, which still stand)
+**Phase 4 — the demo and the close.** The demo script in `docs/demo.md`; a final gate; the read-back;
+the `session-close` skill.
 
-- **A door is landed when the journey reads it back from the store.** Session 7's read-backs found the
-  1F beams registered twice (195 objects where the stack gives 172), and 50 beam lines keyed on
-  objects the register no longer held (I-368), on trees whose every lane was green.
-- **A score without a look is half a grade, and a look without a re-walk is half again.** The craft
-  table read 18 of 18 and the look still found 34 demo-visible defects. Then a craft wave that fixed a
-  look landed without a re-walk, and cost a screen its work surface (I-369).
-- **An honest proof may go red.** PERF-011 had measured a 55 px speck for sessions. Once the sheet
-  opened at full size, it read 53.9 ms against 16.75. The budget did not move, and the renderer got
-  fixed.
-- **`git apply --3way` STAGES what it applies.** Unstage (`git restore --staged .`) before committing
-  with explicit paths. One commit swept 152 staged files into a toolchain slice this way.
-- **The harness's grep is ugrep with `-I`: a file holding a NUL byte is silently skipped.** Session 7
-  escaped the seven NUL files it found (two more held other control bytes). Keep sources free of raw
-  control bytes. When a search says "no match" somewhere it should not, `command grep` it.
-- **A test that mutates tracked source** (drift-lane-breaker) runs ALONE after the db batch
-  (`8a950e58`, `scripts/lib/db-passes.mjs`).
-  - The drift lock (`withDriftLock` / `withDriftLockAsync`) holds only the readers that take it: five
-    db/__tests__ suites and the acceptance build (`21e0e6d5`).
-  - Every db suite imports the schema in-process, and locking them all would serialise the lane.
-- **Worktree agents cannot run e2e** (Turbopack refuses the symlinked `node_modules`), and their db
-  lanes share one Postgres. Hold their db and e2e lanes for yourself, and never run a db lane beside a
-  served product.
-- **Mirrored networking holds the previous run's port in TIME_WAIT on the Windows side** for up to
-  ~20 s. Wait until `portState(3211)` reads free before the next served lane, or every journey goes
-  red on EADDRINUSE.
-- **A control the server painted is not live until the client hydrates, and `settled()` does not read
-  hydration.** J-000's set toggle was clicked in that window twice under the gate's load, and the store
-  held no member row. After a full load, a click waits for a fact only the client renders.
-- **A runtime path the bundler can see is a build input.** `storage/`, the mail outbox and the
-  recorded-answer fixtures were each a file pattern `next build` traced, so every journey turned the
-  next build cold (36d16d6e, ffdfdb1a). Annotate runtime paths `turbopackIgnore`, and read the
-  build's own warnings: it now builds with none, and
-  `tests/toolchain/runtime-paths-untraced.test.ts` holds it there.
-- **Commit, then `sync`.** A power cut emptied the newest commit's objects, which ext4 had not yet
-  flushed. It was rebuilt byte-exact only because the index, the worktree and `COMMIT_EDITMSG`
-  survived. `/tmp` (the scratchpad) does not survive a reboot, so draft what must survive in the repo
-  or under `node_modules/.cache/cubit/`.
-- **Parallel implementers need disjoint files AND disjoint ids.** Name the files a group owns and the
-  files others hold. Integrate in an order that puts shared primitives first. Make the cross-group
-  edits yourself.
+## 6. How to work
 
-## 4. How you orchestrate
+- **Effort and pace.** Opus 5.5 runs at xhigh here; spend it on the hard parts (the law, the geometry,
+  the design) and move quickly through the mechanical ones. Workflows for fan-out (maps, reviews,
+  independent slices on disjoint files); one writer per file. Subagents inherit Opus 5.5 — give each a
+  tight scope, the law it needs and a structured return.
+- **Turn endings.** The owner has watched sessions end turns while owed work remained: a summary that
+  announces the next step instead of taking it, an offer to continue, a list of decisions none of which
+  blocks the work, a pause because a milestone felt like a good place to report. Don't. Put status notes
+  in the same message as your next tool call and keep going. Stop only when the finish line is reached,
+  when nothing can move without the owner (§4, or an irreversible act), or when what blocks you is
+  deliberately protected. This never overrides confirmation for risky or destructive actions.
+- **Evidence.** Every claim of progress cites a tool result (B-10); a fast green is read with
+  `--reporter=verbose`; a screen is judged from a screenshot you looked at; a figure from a read-back.
+  Verify adversarially before spending a fix and before reporting done.
+- **Durability.** Commit small and often (explicit paths); the hook syncs after each commit. Keep the
+  session ledger (`docs/handoff/session-8-ledger.md`) as you go — runs, rulings, slips, costs — so a
+  compaction or a power cut loses nothing.
+- **The law's ids.** Next free: I-370, D-005 (D-003 reserved for the ties), migration 0062.
 
-Session 7's §5 stands: effort per agent; look at pictures; stop, decide, resume; worktrees for
-parallel unit-lane implementers; workflows saved as `.js.txt`. Add:
-- One read-back query per door, written in the ledger before the door lands.
-- A re-walk of the touched routes before a screen-changing slice lands, and a re-look workflow after
-  every craft wave.
-- The gate run on a quiet machine: nothing spawned while verify's 60 s is being measured, and no
-  fan-out during its e2e or perf lanes.
-- An adversarial review of every product slice a worker writes. Session 7's reviewers blocked an arm
-  that would have been an undisclosed under-measure (I-368).
-- **Skills** (session-7 prompt §5, still in force): `/typesafe:typesafe-ai` before any Jev question;
-  `workflow-authoring` before a workflow; `claude-api` for anything touching Claude's API;
-  `update-config` for settings.
-  - **Jev, by the owner's session-7 ruling:** "use Live Jev most of the time … load the typesafe-ai
-    skill and directly use Jev live by calling my key". The lanes still replay fixtures (L-AI-01); live
-    calls are for recording and development measurement, and the key is never printed or written.
-    Session 7's one live re-record was 241 fixtures for about $0.023 (`e78849a5`).
-  - **The web**, only on the owner's word, as session 7 fetched BNBC 2020. What is vendored carries
-    its URL and sha256.
-- **The owner's levers, which you cannot pull:** `/code-review ultra` at a milestone boundary (billed,
-  user-triggered; the owner's settings carry `"code-review": "off"`, so suggest it and say why it may
-  be unavailable); the R0 ruling; `--effort max` at launch; and clearing
-  session 7's leftover worktrees under `.claude/worktrees/`, which `.claude/**`'s lock keeps from you.
+## 7. Reporting
 
-## 4b. How you report
-
-Before you report progress anywhere — the ledger, a commit, the handoff, a message — audit each claim
-against a tool result from this session: a lane's own line, a figure read from the store, a picture
-looked at. If something is not verified, say so in those words. Session 7's close fact-check
-(`wf_89d8471a-1a1`, 47 agents) found 24 wrong or unsupported claims in its own draft documents.
-
-- **The ledger:** keep `docs/handoff/session-8-ledger.md` from the first hour, as a timeline of every
-  run, its runId, what it proved and what you did with it. It is your memory across compaction. Keep
-  it in the repo: session 7's ledger survived the power cut in the worktree, and its scratch results
-  did not.
-- **Workflows:** save every script that worked under `docs/handoff/workflows/session-8/` as `.js.txt`,
-  name each run's id in the ledger, and write each result where it survives a reboot (the repo, or
-  `node_modules/.cache/cubit/`). A run's journal under `~/.claude/projects/…/subagents/workflows/` is
-  the fallback.
-
-## 5. How you finish
-
-Write `docs/handoff/session-8.md` in session 7's shape, and `docs/handoff/session-9-prompt.md` in
-this one. Run a fact-check workflow over them before committing. Update `CLAUDE.md`'s standing facts
-only for facts a later session must not re-learn. Commit them with the ledger and the workflow
-scripts. Stop with the tree clean, the finish line's conditions stated exactly, and nothing in your
-last message that is a plan rather than a fact.
+Short progress notes as you work: what you did, what you found, what you need. At the close, the
+handoff states each finish-line condition as REACHED or NOT with its evidence, every commit in one line,
+the gate verbatim, the read-back, what is not done and why, the owner's open items, and the true AI
+spend (the product's model ledger plus `node_modules/.cache/cubit/harness/jev-calls.jsonl`).
