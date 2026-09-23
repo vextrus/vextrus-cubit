@@ -10,7 +10,7 @@
  * missing (R-UI-050, Decision I-81).
  */
 import { useState } from "react";
-import { cssColour, type LayerRow } from "@/modules/takeoff/viewer/client";
+import { cssColour, isCanvasInk, type LayerRow } from "@/modules/takeoff/viewer/client";
 import { formatUserFigure } from "@/core/format";
 import { Button } from "@/ui/primitives/core";
 import { fill, strings } from "@/ui/strings";
@@ -65,9 +65,11 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry, onSel
                 className="cx-viewer-layer-swatch"
                 data-testid={TESTIDS.viewer.layerSwatch}
                 aria-hidden="true"
+                // A colour-7 layer is the canvas's own ink (I-79, one home: isCanvasInk), so in the light
+                // theme its swatch is the ink the painter draws it in, never a white square on white.
                 style={{
-                  background: row.visible ? cssColour(row.rgb) : "none",
-                  borderColor: cssColour(row.rgb),
+                  background: row.visible ? (isCanvasInk(row.rgb) ? "var(--canvas-ink)" : cssColour(row.rgb)) : "none",
+                  borderColor: isCanvasInk(row.rgb) ? "var(--canvas-ink)" : cssColour(row.rgb),
                 }}
               />
             </button>

@@ -128,10 +128,11 @@ export const COPY: Readonly<Record<string, string>> = Object.freeze({
   viewer_partition_failed: "The partition could not be read.",
   viewer_partition_retry: "Retry",
   viewer_partition_groups_heading: "Proposed view types",
-  viewer_partition_group_label: "Views of this drawing whose captions the grammar could not read, proposed as {type}",
+  viewer_partition_group_label: "Untyped → {type}",
   viewer_partition_group_count_one: "1 view",
   viewer_partition_group_count_many: "{count} views",
-  viewer_partition_off_sheet: "Not on this sheet",
+  viewer_partition_elsewhere_one: "1 view on another sheet",
+  viewer_partition_elsewhere_many: "{count} views on other sheets",
 });
 
 /* ------------------------------------------------------------------ the shapes the doors answer in */

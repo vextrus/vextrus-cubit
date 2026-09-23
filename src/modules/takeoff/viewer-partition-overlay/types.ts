@@ -41,7 +41,10 @@ export type OverlayToggles = { readonly views: boolean; readonly grid: boolean }
 /** One view's outline, in screen pixels, with what the paint tells apart by line rather than hue. */
 export type OverlayOutline = {
   readonly viewKey: string;
+  /** The stored type spelling, verbatim — what the counts and the hatch are judged by. */
   readonly type: string;
+  /** The words the chip at the outline's corner says: the type as a reader reads it (R-UI-082, I-114). */
+  readonly label: string;
   readonly rect: { readonly x: number; readonly y: number; readonly width: number; readonly height: number };
   /** Set on an `UNTYPED` view alone (R-UI-060: the pattern, never the colour, carries the meaning). */
   readonly hatched: boolean;

@@ -55,7 +55,7 @@ function hatch(context: CanvasRenderingContext2D, rect: OverlayOutline["rect"], 
   context.restore();
 }
 
-/** One view's outline, and the type spelling it wears at its top-left. */
+/** One view's outline, and the type it wears at its top-left, in a reader's words (R-UI-082). */
 function outline(context: CanvasRenderingContext2D, drawn: OverlayOutline, palette: OverlayPalette): void {
   context.save();
   // One hatch, one home (I-160): a view the machine could not type and a view no affirmation act
@@ -77,14 +77,14 @@ function outline(context: CanvasRenderingContext2D, drawn: OverlayOutline, palet
   context.font = `${palette.typeSizePx}px ${palette.mono}`;
   context.textAlign = "left";
   context.textBaseline = "top";
-  const width = context.measureText(drawn.type).width + CHIP_PAD_PX * 2;
+  const width = context.measureText(drawn.label).width + CHIP_PAD_PX * 2;
   const height = palette.typeSizePx + CHIP_PAD_PX * 2;
   context.fillStyle = palette.paper;
   context.fillRect(drawn.rect.x, drawn.rect.y, width, height);
   strokeStyle(context, palette.ink, []);
   context.strokeRect(drawn.rect.x, drawn.rect.y, width, height);
   context.fillStyle = palette.label;
-  context.fillText(drawn.type, drawn.rect.x + CHIP_PAD_PX, drawn.rect.y + CHIP_PAD_PX);
+  context.fillText(drawn.label, drawn.rect.x + CHIP_PAD_PX, drawn.rect.y + CHIP_PAD_PX);
   context.restore();
 }
 

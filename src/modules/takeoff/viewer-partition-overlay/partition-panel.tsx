@@ -16,7 +16,13 @@
  *
  * A stored reason is a fact about a VIEW, never an answer to this reader (I-111): an `UNTYPED` row
  * says the register's own sentence for the code the store holds, and nothing was refused of the
- * person who opened the sheet.
+ * person who opened the sheet. It says it on the hatched badge, not as a paragraph under every row
+ * (R-UI-081, I-111 as amended): ten untyped views were ten copies of one 88-character sentence.
+ *
+ * THIS SHEET FIRST (I-319). A drawing's partition is the drawing's, and a paper sheet shows one or
+ * two of its views: F-RCC6-BNBC's S-10 listed 54 rows, 53 of them "Not on this sheet", and the one
+ * view on it ninth, under the fold. The views, axes and deferrals standing on this sheet are listed
+ * first; what stands on other sheets is folded under one disclosure that says how many.
  */
 import { REFUSALS, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
@@ -56,7 +62,23 @@ export type PartitionPanelProps = {
    * whole key as the value (I-190). Without one — a jsdom mount — the key stands whole in mono.
    */
   IdChip?: ComponentType<{ value: string; short?: string }>;
+  /**
+   * The shipped EnumLabel, handed in the same way (R-UI-082, I-114 as amended): a view's stored type
+   * is an enum, and the badge says it in a reader's words with the stored spelling kept in its
+   * technical disclosure. Without one the badge says the stored spelling itself.
+   */
+  EnumLabel?: ComponentType<{ value: string; label?: string; className?: string }>;
+  /** EnumLabel's one rule for words, for the places a type is said inside a sentence ("Proposed as Detail"). */
+  humaniseEnum?: (value: string) => string;
+  /**
+   * The shipped Tooltip (R-UI-010), where an untyped view's badge says its stored reason on hover and
+   * focus (I-111 as amended). Without one the reason stays with the row for assistive technology alone.
+   */
+  Tooltip?: ComponentType<{ content: ReactNode; children: ReactNode }>;
 };
+
+/** The chrome a row renders through — the screen's, handed down whole. */
+type RowChrome = Pick<PartitionPanelProps, "IdChip" | "EnumLabel" | "humaniseEnum" | "Tooltip">;
 
 /** The measure a view key shows on its chip: its last segment, the anchor's own handle. */
 function keyMeasure(viewKey: string): string | undefined {
@@ -119,11 +141,38 @@ function OverlaySwitch({ testId, label, on, onFlip }: { testId: string; label: s
   );
 }
 
+/**
+ * One view's stored type, as its badge says it. I-114 as amended: the badge is still the STORE's
+ * reading, before and after a confirmation — the grammar's word is never overwritten in front of a
+ * reader — but it is said in a reader's words through the one EnumLabel (R-UI-082), the stored
+ * spelling kept in its technical disclosure and on the row's `data-type`.
+ *
+ * An untyped view's badge is where its stored reason is said (I-111 as amended): on hover and focus,
+ * through the one Tooltip, so the badge is then a button a keyboard reaches — never a paragraph
+ * under the row.
+ */
+function TypeBadge({ view, untyped, reason, EnumLabel, Tooltip }: { view: PartitionOverlayView; untyped: boolean; reason: string | null } & RowChrome) {
+  const badge = (
+    <span className="cx-badge cx-viewer-partition-badge" data-testid="viewer-partition-view-badge" data-untyped={String(untyped)}>
+      {EnumLabel === undefined ? view.type : <EnumLabel value={view.type} className="cx-viewer-partition-type" />}
+    </span>
+  );
+  if (!untyped || reason === null || Tooltip === undefined) return badge;
+  return (
+    <Tooltip content={reason}>
+      <button type="button" className="cx-viewer-partition-badge-trigger cx-reticle">
+        {badge}
+      </button>
+    </Tooltip>
+  );
+}
+
 /** One stored view: its badge, its key, its caption, what it holds, and the reason it carries. */
-function ViewRow({ view, IdChip }: { view: PartitionOverlayView; IdChip?: PartitionPanelProps["IdChip"] }) {
+function ViewRow({ view, IdChip, EnumLabel, humaniseEnum, Tooltip }: { view: PartitionOverlayView } & RowChrome) {
   const untyped = view.type === VIEW_TYPE.UNTYPED;
   const onSheet = view.box !== null;
-  const reason = messageOf(view.reason);
+  const reason = untyped ? messageOf(view.reason) : null;
+  const said = (type: string): string => (humaniseEnum === undefined ? type : humaniseEnum(type));
   return (
     <li
       className="cx-viewer-partition-row"
@@ -137,28 +186,26 @@ function ViewRow({ view, IdChip }: { view: PartitionOverlayView; IdChip?: Partit
       data-confirmed={String(view.confirmed !== null)}
     >
       <span className="cx-viewer-partition-line">
-        {/* I-114: the badge is the store's word, before and after a confirmation — the grammar's
-            reading is never overwritten in front of a reader. */}
-        <span className="cx-badge cx-viewer-partition-badge" data-testid="viewer-partition-view-badge" data-untyped={String(untyped)}>
-          {view.type}
-        </span>
+        <TypeBadge view={view} untyped={untyped} reason={reason} EnumLabel={EnumLabel} Tooltip={Tooltip} />
         <ViewKey viewKey={view.viewKey} IdChip={IdChip} />
       </span>
       {view.caption === "" ? null : <span className="cx-viewer-partition-caption">{view.caption}</span>}
       <span className="cx-viewer-partition-line">
         <span className="cx-viewer-partition-figure">{fillCopy("viewer_partition_entities", { count: formatUserFigure(String(view.entityCount)) })}</span>
-        {onSheet ? null : <span className="cx-viewer-partition-note">{PARTITION_COPY.viewer_partition_off_sheet}</span>}
         {view.confirmed !== null ? (
-          <span className="cx-viewer-partition-note">{fillCopy("viewer_partition_confirmed", { type: view.confirmed.type })}</span>
+          <span className="cx-viewer-partition-note">{fillCopy("viewer_partition_confirmed", { type: said(view.confirmed.type) })}</span>
         ) : view.proposed !== null ? (
-          <span className="cx-viewer-partition-note">{fillCopy("viewer_partition_proposed", { type: view.proposed.type })}</span>
+          <span className="cx-viewer-partition-note">{fillCopy("viewer_partition_proposed", { type: said(view.proposed.type) })}</span>
         ) : null}
       </span>
-      {untyped && reason !== null ? (
-        <p className="cx-viewer-partition-reason" data-testid="viewer-partition-view-reason">
+      {/* The register's sentence stays WITH the row for a reader who cannot hover (I-111): read out
+          after the row's own facts, drawn nowhere — the hatched badge and its tooltip are the sighted
+          reader's channel, and one sentence under every untyped row was R-UI-081's paragraph. */}
+      {reason === null ? null : (
+        <span className="cx-viewer-hidden" data-testid="viewer-partition-view-reason">
           {reason}
-        </p>
-      ) : null}
+        </span>
+      )}
     </li>
   );
 }
@@ -210,10 +257,64 @@ function Body({ children }: { children: ReactNode }) {
   );
 }
 
-export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, faultId, groups, answer, IdChip }: PartitionPanelProps) {
+/** A partition's rows, split by where their view stands: this sheet, or another. */
+type SheetRows = {
+  readonly views: readonly PartitionOverlayView[];
+  readonly axes: readonly PartitionOverlayAxis[];
+  readonly deferrals: readonly GridDeferralRow[];
+};
+
+/**
+ * The partition split into what stands on this sheet and what stands on others (I-319), each half in
+ * the order the store carries it. A view stands here when its members have a box on this sheet; an
+ * axis and a deferral stand wherever their view does. A row naming a view the partition does not
+ * carry stands nowhere this sheet can show, and goes with the others.
+ */
+function bySheet(overlay: PartitionOverlay | null): { here: SheetRows; elsewhere: SheetRows } {
   const views = overlay?.views ?? [];
+  const onSheet = new Set(views.filter((view) => view.box !== null).map((view) => view.viewKey));
+  const here = (viewKey: string): boolean => onSheet.has(viewKey);
   const axes = overlay?.axes ?? [];
   const deferrals = overlay?.deferrals ?? [];
+  return {
+    here: { views: views.filter((view) => here(view.viewKey)), axes: axes.filter((axis) => here(axis.viewKey)), deferrals: deferrals.filter((row) => here(row.viewKey)) },
+    elsewhere: { views: views.filter((view) => !here(view.viewKey)), axes: axes.filter((axis) => !here(axis.viewKey)), deferrals: deferrals.filter((row) => !here(row.viewKey)) },
+  };
+}
+
+/** The three lists of one half of the partition, each omitted where it holds nothing. */
+function SheetLists({ rows, chrome }: { rows: SheetRows; chrome: RowChrome }) {
+  return (
+    <>
+      {rows.views.length === 0 ? null : (
+        <ol className="cx-viewer-partition-list" aria-label={PARTITION_COPY.viewer_partition_views_list_label}>
+          {rows.views.map((view) => (
+            <ViewRow key={view.viewKey} view={view} {...chrome} />
+          ))}
+        </ol>
+      )}
+      {rows.axes.length === 0 ? null : (
+        <ol className="cx-viewer-partition-list" aria-label={PARTITION_COPY.viewer_partition_grid_list_label}>
+          {rows.axes.map((axis) => (
+            <AxisRow key={axis.bubbleKey} axis={axis} />
+          ))}
+        </ol>
+      )}
+      {rows.deferrals.length === 0 ? null : (
+        <ul className="cx-viewer-partition-list" aria-label={PARTITION_COPY.viewer_partition_deferrals_list_label}>
+          {rows.deferrals.map((deferral) => (
+            <DeferralRow key={`${deferral.viewKey}|${deferral.reason}`} deferral={deferral} IdChip={chrome.IdChip} />
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
+export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, faultId, groups, answer, IdChip, EnumLabel, humaniseEnum, Tooltip }: PartitionPanelProps) {
+  const { here, elsewhere } = bySheet(overlay);
+  const chrome: RowChrome = { IdChip, EnumLabel, humaniseEnum, Tooltip };
+  const others = elsewhere.views.length;
 
   return (
     <section
@@ -280,24 +381,17 @@ export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, fau
 
       {state === "ready" ? (
         <Body>
-          <ol className="cx-viewer-partition-list" aria-label={PARTITION_COPY.viewer_partition_views_list_label}>
-            {views.map((view) => (
-              <ViewRow key={view.viewKey} view={view} IdChip={IdChip} />
-            ))}
-          </ol>
-          {axes.length === 0 ? null : (
-            <ol className="cx-viewer-partition-list" aria-label={PARTITION_COPY.viewer_partition_grid_list_label}>
-              {axes.map((axis) => (
-                <AxisRow key={axis.bubbleKey} axis={axis} />
-              ))}
-            </ol>
-          )}
-          {deferrals.length === 0 ? null : (
-            <ul className="cx-viewer-partition-list" aria-label={PARTITION_COPY.viewer_partition_deferrals_list_label}>
-              {deferrals.map((deferral) => (
-                <DeferralRow key={`${deferral.viewKey}|${deferral.reason}`} deferral={deferral} IdChip={IdChip} />
-              ))}
-            </ul>
+          <SheetLists rows={here} chrome={chrome} />
+          {/* I-319: what stands on other sheets is one disclosure, closed, that says how many views it
+              holds — their axes and deferrals travel with them. Where every view stands here (a
+              model-space sheet) there is nothing to fold and no disclosure stands. */}
+          {others === 0 && elsewhere.axes.length === 0 && elsewhere.deferrals.length === 0 ? null : (
+            <details className="cx-viewer-partition-elsewhere" data-count={others}>
+              <summary className="cx-viewer-partition-elsewhere-summary cx-reticle">
+                {others === 1 ? PARTITION_COPY.viewer_partition_elsewhere_one : fillCopy("viewer_partition_elsewhere_many", { count: formatUserFigure(String(others)) })}
+              </summary>
+              <SheetLists rows={elsewhere} chrome={chrome} />
+            </details>
           )}
           <div className="cx-viewer-partition-groups" data-testid="viewer-partition-groups">
             <h3 className="cx-viewer-partition-subheading">{PARTITION_COPY.viewer_partition_groups_heading}</h3>

@@ -114,7 +114,22 @@ export type UseOverlayPaintOptions = {
   toggles: OverlayToggles;
   /** Which views no affirmation act names, by the absence each declares — the scale door's own answer (I-160). */
   scaleAbsence?: ReadonlyMap<string, string>;
+  /**
+   * The one rule a stored type is said in words by — EnumLabel's `humaniseEnum`, handed in by the
+   * screen because this module may not reach `src/ui` (ARCH-01, R-UI-082). Without it the chip on a
+   * view's corner says the stored spelling, as a jsdom mount does.
+   */
+  humaniseEnum?: (value: string) => string;
 };
+
+/**
+ * The word each stored type of this partition is read by, made once per partition and never per
+ * frame: the frame looks a word up, it does not compose one (PB-3).
+ */
+function labelsOf(overlay: PartitionOverlay | null, humanise: ((value: string) => string) | undefined): ReadonlyMap<string, string> | undefined {
+  if (overlay === null || humanise === undefined) return undefined;
+  return new Map(overlay.views.map((view) => [view.type, humanise(view.type)]));
+}
 
 export type UseOverlayPaint = {
   /** Paint this camera now. The screen's own draw callback calls it at every sheet frame (I-112). */
@@ -143,11 +158,12 @@ function paletteOf(element: Element): OverlayPalette {
   };
 }
 
-export function useOverlayPaint({ canvasRef, stageRef, cameraRef, overlay, toggles, scaleAbsence }: UseOverlayPaintOptions): UseOverlayPaint {
+export function useOverlayPaint({ canvasRef, stageRef, cameraRef, overlay, toggles, scaleAbsence, humaniseEnum }: UseOverlayPaintOptions): UseOverlayPaint {
+  const labels = useMemo(() => labelsOf(overlay, humaniseEnum), [humaniseEnum, overlay]);
   // What is painted, read off a ref: sixty frames a second must not depend on a fresh closure, and
   // the paint callback the screen wires into its draw is written once (PB-3).
-  const shown = useRef({ overlay, toggles, scaleAbsence });
-  shown.current = { overlay, toggles, scaleAbsence };
+  const shown = useRef({ overlay, toggles, scaleAbsence, labels });
+  shown.current = { overlay, toggles, scaleAbsence, labels };
 
   const paintOverlay = useCallback(
     (at: Camera): void => {
@@ -167,7 +183,8 @@ export function useOverlayPaint({ canvasRef, stageRef, cameraRef, overlay, toggl
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
 
       const held = shown.current.overlay;
-      const scene = held === null ? { outlines: [], axes: [] } : overlayScene(held, shown.current.toggles, { ...at, viewport: { width, height } }, shown.current.scaleAbsence);
+      const scene =
+        held === null ? { outlines: [], axes: [] } : overlayScene(held, shown.current.toggles, { ...at, viewport: { width, height } }, shown.current.scaleAbsence, shown.current.labels);
       drawOverlayScene(context, scene, paletteOf(stage), { width, height });
     },
     [canvasRef, stageRef],
@@ -179,12 +196,12 @@ export function useOverlayPaint({ canvasRef, stageRef, cameraRef, overlay, toggl
     if (at !== null) paintOverlay(at);
   }, [cameraRef, paintOverlay]);
 
-  // A switch flipped, a partition that has just arrived, or a scale affirmed over a view that was
-  // hatched, lands on the next frame: the overlay never tweens, because an outline is data and
+  // A switch flipped, a partition that has just arrived, a scale affirmed over a view that was
+  // hatched, or the words a type is read by, lands on the next frame: the overlay never tweens, because an outline is data and
   // fading it in would read as uncertainty (§ 4, I-160).
   useEffect(() => {
     repaint();
-  }, [overlay, repaint, scaleAbsence, toggles]);
+  }, [labels, overlay, repaint, scaleAbsence, toggles]);
 
   // Decision § 6: the canvas cannot inherit a variable, so the palette is read again whenever the
   // document's theme changes and the same scene is repainted — no refetch, no camera change.

@@ -28,7 +28,8 @@ import type { OverlayToggles, PartitionOverlayView } from "@/modules/takeoff/vie
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { OfferedGroups } from "@/ui/patterns/offered-group";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { IdChip } from "@/ui/primitives/core";
+import { EnumLabel, IdChip, Tooltip } from "@/ui/primitives/core";
+import { humaniseEnum } from "@/ui/primitives/core/enum-label";
 import { strings } from "@/ui/strings";
 import { participantsRoute } from "@/app/(app)/t/[tenant]/p/[project]/settings/participants/route-address";
 import { commitConfirmViewType, previewConfirmViewType, type CommitAnswer, type PreviewAnswer } from "./partition-actions";
@@ -109,7 +110,7 @@ export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, 
    */
   const [toggles, setToggles] = useState<OverlayToggles>(BOTH_ON);
   const partition = usePartitionOverlay({ feed, enabled });
-  const overlay = useOverlayPaint({ canvasRef: overlayRef, stageRef, cameraRef, overlay: partition.overlay, toggles, scaleAbsence });
+  const overlay = useOverlayPaint({ canvasRef: overlayRef, stageRef, cameraRef, overlay: partition.overlay, toggles, scaleAbsence, humaniseEnum });
   // The paint is one stable callback (PB-3), so filing it where the sheet's own draw reads it costs
   // nothing and repeats identically — the overlay lands on the frame the sheet was drawn at (I-112).
   paintRef.current = overlay.paintOverlay;
@@ -125,7 +126,7 @@ export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, 
   }, [camera, partition.overlay, scaleAbsence, toggles]);
 
   /** L-ACT-02's offer, derived from the views the partition carries — never assembled by a reader. */
-  const offered = useMemo(() => (partition.overlay === null ? [] : offeredViewGroups(partition.overlay.views, drawingId)), [drawingId, partition.overlay]);
+  const offered = useMemo(() => (partition.overlay === null ? [] : offeredViewGroups(partition.overlay.views, drawingId, humaniseEnum)), [drawingId, partition.overlay]);
 
   /** The group a dialog is open over, the door's answer, and the notice a press offline leaves. */
   const [confirming, setConfirming] = useState<ViewGroupKey | null>(null);
@@ -212,6 +213,9 @@ export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, 
   const panel = (
     <PartitionPanel
       IdChip={IdChip}
+      EnumLabel={EnumLabel}
+      humaniseEnum={humaniseEnum}
+      Tooltip={Tooltip}
       state={partition.phase}
       overlay={partition.overlay}
       toggles={toggles}

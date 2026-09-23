@@ -7,7 +7,7 @@
 // here (R-UI-001). Entity colour is the artifact's own, with one ruling applied and applied only
 // here — a record resolved to near-white or near-black is CAD colour 7 and paints in the canvas ink,
 // so it is legible on both papers (Decision I-79).
-import { isTextLegible, recordBox } from "./client";
+import { isCanvasInk, isTextLegible, recordBox } from "./client";
 // The two notation readings have one home, beside each other and reachable from a unit lane (B-17).
 import { alphaOf, unitChannelsOf } from "./colour-notation";
 import type { Camera, RenderLayer, RenderRecord } from "./types";
@@ -128,10 +128,6 @@ export const markOffsets = (acrossSteps: number, downSteps: number): readonly (r
   return offsets;
 };
 
-/** A channel is "white" at or above this, and "black" at or below the other — colour 7 (I-79). */
-const NEAR_WHITE = 250;
-const NEAR_BLACK = 5;
-
 /** The atlas: the printable ASCII a drawing's text is lettered from, in a grid of square cells. */
 const ATLAS_FIRST = 32;
 const ATLAS_LAST = 126;
@@ -249,9 +245,7 @@ type Batch = {
  */
 function recordColour(record: RenderRecord): readonly [number, number, number] | null {
   const [red, green, blue] = record.rgb;
-  const white = red >= NEAR_WHITE && green >= NEAR_WHITE && blue >= NEAR_WHITE;
-  const black = red <= NEAR_BLACK && green <= NEAR_BLACK && blue <= NEAR_BLACK;
-  return white || black ? null : [red / 255, green / 255, blue / 255];
+  return isCanvasInk(record.rgb) ? null : [red / 255, green / 255, blue / 255];
 }
 
 /** The runs spread out into the vertex colours a buffer takes, with the ink filled in. */

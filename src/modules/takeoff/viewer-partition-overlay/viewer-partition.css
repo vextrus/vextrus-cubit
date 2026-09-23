@@ -116,18 +116,44 @@
   border-block-end: var(--hairline);
 }
 
+/* A line breaks BETWEEN its facts and never inside one: at the Decision's 200 px drawer a row that
+   holds a count and a proposal ("3 entities", "Proposed as Detail") puts the proposal on a line of
+   its own rather than stranding "entities" under its "3" (session 7's craft window). */
 .cx-viewer-partition-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-2);
+  gap: 0 var(--space-2);
   min-width: 0;
 }
 
-/* I-25: a model value renders verbatim in mono, never woven into a sentence. */
+/* I-25: a stored spelling renders verbatim in mono — which is what the badge says where no EnumLabel
+   was handed in. Where one was (R-UI-082, I-114 as amended), EnumLabel sets its words in the
+   interface face itself and the stored spelling rides in its technical disclosure. */
 .cx-viewer-partition-badge {
   font-family: var(--font-mono);
   font-size: var(--text-12);
   color: var(--ink);
+  white-space: nowrap;
+}
+
+/* EnumLabel sets itself at the body size; inside a badge it takes the badge's own size. */
+.cx-viewer-partition-badge .cx-viewer-partition-type {
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+/* An untyped badge is where its stored reason is said, on hover and focus (I-111 as amended): the
+   button that carries it is the badge's own box, with no chrome of its own. */
+.cx-viewer-partition-badge-trigger {
+  display: inline-flex;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: help;
 }
 
 /* Panel and sheet say the same thing in the same pattern: the row's badge wears the hatch the
@@ -158,6 +184,7 @@
 }
 
 .cx-viewer-partition-figure {
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: var(--text-12);
   color: var(--ink-secondary);
@@ -171,6 +198,7 @@
 }
 
 .cx-viewer-partition-note {
+  white-space: nowrap;
   font-family: var(--font-ui);
   font-size: var(--text-12);
   color: var(--ink-muted);
@@ -181,6 +209,26 @@
   font-size: var(--text-12);
   line-height: var(--leading-ui);
   color: var(--ink-secondary);
+}
+
+/* I-319: the views standing on other sheets, folded under one line that says how many. The summary
+   is a row of the list's own height, so the fold reads as the list's last row rather than a control
+   of its own; the native marker is kept — it is the disclosure's state, drawn by the platform. */
+.cx-viewer-partition-elsewhere {
+  border-block-end: var(--hairline);
+}
+
+.cx-viewer-partition-elsewhere-summary {
+  display: list-item;
+  min-height: var(--row-h);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-12);
+  color: var(--ink-secondary);
+  cursor: pointer;
+}
+
+.cx-viewer-partition-elsewhere[open] > .cx-viewer-partition-elsewhere-summary {
+  border-block-end: var(--hairline);
 }
 
 .cx-viewer-partition-empty,

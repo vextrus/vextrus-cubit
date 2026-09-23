@@ -29,6 +29,7 @@ const MOVE_WORLD = 25;
 type Camera = { centre: [number, number]; scale: number; viewport: { width: number; height: number } };
 type CameraHook = {
   ADDRESS_SETTLE_MS: number;
+  MIN_FIT_STAGE_PX: number;
   useCamera: (options: {
     head: unknown;
     initialViewport: string | null;
@@ -38,31 +39,81 @@ type CameraHook = {
   }) => {
     camera: Camera | null;
     moveCamera: (move: (held: Camera) => Camera, live: boolean) => void;
+    jumpTo: (at: Camera) => void;
+    fitSheet: () => void;
     flushAddress: () => void;
   };
 };
 
 let useCamera: CameraHook["useCamera"];
 let ADDRESS_SETTLE_MS: number;
+let MIN_FIT_STAGE_PX: number;
 let fitCamera: (extents: unknown, viewportPx: { width: number; height: number }) => Camera;
+let cameraFromViewport: (viewport: { x: number; y: number; scale: number }, viewportPx: { width: number; height: number }) => Camera;
+let parseViewport: (value: string) => { x: number; y: number; scale: number } | null;
 let draw: ReturnType<typeof vi.fn>;
 let publish: ReturnType<typeof vi.fn>;
 let stage: HTMLDivElement;
 
-/** The head this sheet is opened from: a manifest with extents, which is all a camera reads of one. */
-const head = {
-  kind: "manifest",
-  cache: "miss",
-  facts: {},
-  manifest: {
-    version: 1,
-    layoutName: "SHEET ONE",
-    extents: EXTENTS,
-    insunits: { code: 0, unit: null, unmapped: true },
-    digest: "sheet-one",
-    layers: [],
-  },
-};
+/** The head a sheet with these extents is opened from: a manifest, which is all a camera reads of one. */
+function headOf(extents: { min: number[]; max: number[] }) {
+  return {
+    kind: "manifest",
+    cache: "miss",
+    facts: {},
+    manifest: {
+      version: 1,
+      layoutName: "SHEET ONE",
+      extents,
+      insunits: { code: 0, unit: null, unmapped: true },
+      digest: "sheet-one",
+      layers: [],
+    },
+  };
+}
+
+/** The head this sheet is opened from. */
+const head = headOf(EXTENTS);
+
+/**
+ * F-RCC6-BNBC's S-10 COLUMN LAYOUT PLAN as the diagnosis measured it (I-317): an A1 paper sheet whose
+ * drawn extents run 10..831 by 10..584, a stage measured at 60 × 788 while the frame's resizable
+ * panels had not laid out, and the 1080 × 756 it stood at 32 ms later. Pressing F there gave 1.2097
+ * pixels per unit; the open gave 0.0674 and wrote it to the address.
+ */
+const S10_EXTENTS = { min: [10, 10], max: [831, 584] };
+const UNLAID_STAGE = { width: 60, height: 788 };
+const LAID_STAGE = { width: 1080, height: 756 };
+const S10_FITTED_SCALE = 1.21;
+
+/** The stage's measured box, stated — jsdom lays nothing out. */
+function measure(box: { width: number; height: number }): void {
+  stage.getBoundingClientRect = () =>
+    ({ width: box.width, height: box.height, x: 0, y: 0, top: 0, left: 0, right: box.width, bottom: box.height, toJSON: () => ({}) }) as DOMRect;
+}
+
+/**
+ * jsdom ships no ResizeObserver, so the one the hook makes is this: it keeps the callback and the
+ * element it watches, and `resize` is the frame laying the stage out — the box changes, then the
+ * observer is told, exactly the order a browser keeps.
+ */
+let observed: { callback: () => void; element: Element }[] = [];
+class StageObserver {
+  constructor(private readonly callback: () => void) {}
+  observe(element: Element): void {
+    observed.push({ callback: this.callback, element });
+  }
+  disconnect(): void {
+    observed = observed.filter((entry) => entry.callback !== this.callback);
+  }
+  unobserve(): void {}
+}
+function resize(box: { width: number; height: number }): void {
+  measure(box);
+  act(() => {
+    for (const entry of observed) if (entry.element === stage) entry.callback();
+  });
+}
 
 /** A move a reader could make: the view travels east, so no moved camera equals the one before it. */
 const eastward = (held: Camera): Camera => ({ ...held, centre: [held.centre[0] + MOVE_WORLD, held.centre[1]] });
@@ -77,12 +128,19 @@ function fitted(): Camera {
  * the split has not written yet fails the test that needed it instead of leaving it reported as one
  * nobody ran.
  */
-async function mount() {
+async function mount(options: { head?: unknown; initialViewport?: string | null } = {}) {
   const module = await productModule<CameraHook>(USE_CAMERA_MODULE);
   useCamera = module.useCamera;
   ADDRESS_SETTLE_MS = module.ADDRESS_SETTLE_MS;
-  ({ fitCamera } = await productModule<{ fitCamera: typeof fitCamera }>(VIEWER_CLIENT_MODULE));
-  return renderHook(() => useCamera({ head, initialViewport: null, stageRef: { current: stage }, draw, publish }));
+  MIN_FIT_STAGE_PX = module.MIN_FIT_STAGE_PX;
+  ({ fitCamera, cameraFromViewport, parseViewport } = await productModule<{
+    fitCamera: typeof fitCamera;
+    cameraFromViewport: typeof cameraFromViewport;
+    parseViewport: typeof parseViewport;
+  }>(VIEWER_CLIENT_MODULE));
+  const opened = options.head ?? head;
+  const asked = options.initialViewport ?? null;
+  return renderHook(() => useCamera({ head: opened, initialViewport: asked, stageRef: { current: stage }, draw, publish }));
 }
 
 /** The last camera a spy was handed. */
@@ -94,8 +152,9 @@ beforeEach(() => {
   stage = document.createElement("div");
   document.body.append(stage);
   // jsdom lays nothing out, so the box the camera is fitted into is stated here.
-  stage.getBoundingClientRect = () =>
-    ({ width: STAGE_WIDTH, height: STAGE_HEIGHT, x: 0, y: 0, top: 0, left: 0, right: STAGE_WIDTH, bottom: STAGE_HEIGHT, toJSON: () => ({}) }) as DOMRect;
+  measure({ width: STAGE_WIDTH, height: STAGE_HEIGHT });
+  observed = [];
+  vi.stubGlobal("ResizeObserver", StageObserver);
 
   draw = vi.fn();
   publish = vi.fn();
@@ -106,6 +165,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   stage.remove();
 });
 
@@ -172,5 +232,98 @@ describe("AC-4: the camera opens fitted and the address settles behind it", () =
       vi.advanceTimersByTime(ADDRESS_SETTLE_MS * 2);
     });
     expect(publish.mock.calls.length, "the settle that was cleared writes nothing after it").toBe(flushed);
+  });
+});
+
+describe("I-317: an address that names no camera is a fitted sheet, and stays one until the reader moves it", () => {
+  test("I-317: the open's own fit is written nowhere — the absence of `v` is how a fitted sheet is spelled", async () => {
+    const { result } = await mount();
+    expect(result.current.camera, "the sheet opens fitted").toEqual(fitted());
+    expect(publish, "and no camera the reader never chose reaches the address").not.toHaveBeenCalled();
+
+    resize({ width: STAGE_WIDTH + 200, height: STAGE_HEIGHT });
+    expect(publish, "nor does the fit a resize takes while the sheet stands at it").not.toHaveBeenCalled();
+  });
+
+  test("I-317: a stage measured before the frame laid it out is fitted again once it is laid out (F-RCC6-BNBC S-10)", async () => {
+    measure(UNLAID_STAGE);
+    const { result } = await mount({ head: headOf(S10_EXTENTS) });
+    expect(UNLAID_STAGE.width, "the stage the open measured is narrower than any a fit settles against").toBeLessThan(MIN_FIT_STAGE_PX);
+    expect(result.current.camera, "the sheet still has a camera to paint and read out while the frame lays out").not.toBeNull();
+
+    resize(LAID_STAGE);
+    expect(result.current.camera, "the laid-out stage is fitted afresh: the whole sheet, not the speck a 60 px fit left").toEqual(fitCamera(S10_EXTENTS, LAID_STAGE));
+    expect(result.current.camera?.scale, "which is the scale pressing F gave on the running sheet").toBeCloseTo(S10_FITTED_SCALE, 2);
+    expect(lastCamera(draw), "and that is the frame drawn").toEqual(fitCamera(S10_EXTENTS, LAID_STAGE));
+    expect(publish, "and none of it was written to the address, so a reload or Back opens fitted again").not.toHaveBeenCalled();
+  });
+
+  test("I-317: a stage that collapses below the floor while fitted keeps the fit it had, and the next laid-out size fits again", async () => {
+    measure(LAID_STAGE);
+    const { result } = await mount({ head: headOf(S10_EXTENTS) });
+    const settled = result.current.camera as Camera;
+
+    resize(UNLAID_STAGE);
+    expect(result.current.camera?.scale, "a box the frame has not laid out never settles a fit").toBe(settled.scale);
+    expect(result.current.camera?.viewport, "though the camera still follows the box it is drawn into").toEqual(UNLAID_STAGE);
+
+    const wider = { width: LAID_STAGE.width + 240, height: LAID_STAGE.height };
+    resize(wider);
+    expect(result.current.camera, "the next laid-out size is fitted afresh").toEqual(fitCamera(S10_EXTENTS, wider));
+  });
+
+  test("I-317: after a pan, a resize keeps the reader's scale and centre, and writes them", async () => {
+    measure(UNLAID_STAGE);
+    const { result } = await mount({ head: headOf(S10_EXTENTS) });
+    resize(LAID_STAGE);
+
+    act(() => {
+      result.current.moveCamera(eastward, false);
+    });
+    const panned = result.current.camera as Camera;
+    expect(publish, "the pan is the reader's, so it is written").toHaveBeenCalledTimes(1);
+
+    const narrower = { width: LAID_STAGE.width - 300, height: LAID_STAGE.height };
+    resize(narrower);
+    expect(result.current.camera?.scale, "the camera is the reader's now: a resize keeps its scale").toBe(panned.scale);
+    expect(result.current.camera?.centre, "and its centre").toEqual(panned.centre);
+    expect(result.current.camera?.viewport, "in the box it is now drawn into").toEqual(narrower);
+    expect(lastCamera(publish), "and the address follows the camera, as it did before I-317").toEqual({ ...panned, viewport: narrower });
+  });
+
+  test("I-317: a jump — a reveal's landing — ends the re-fitting as a gesture does", async () => {
+    const { result } = await mount();
+    const landed = eastward(fitted());
+    act(() => {
+      result.current.jumpTo(landed);
+    });
+    resize({ width: STAGE_WIDTH + 200, height: STAGE_HEIGHT + 100 });
+    expect(result.current.camera?.scale, "the camera a reveal landed at is not fitted away by the next resize").toBe(landed.scale);
+    expect(result.current.camera?.centre, "nor moved").toEqual(landed.centre);
+  });
+
+  test("I-317: Fit is a reader's move — it is written, and a resize after it keeps its scale", async () => {
+    const { result } = await mount();
+    act(() => {
+      result.current.fitSheet();
+    });
+    expect(lastCamera(publish), "the Fit control writes the camera it framed (R-UI-031)").toEqual(fitted());
+
+    resize({ width: STAGE_WIDTH + 200, height: STAGE_HEIGHT });
+    expect(result.current.camera?.scale, "and the camera it framed is the reader's").toBe(fitted().scale);
+  });
+
+  test("R-UI-031 / I-85: an address that names a camera opens at exactly that camera, as it always did, and keeps it across a resize", async () => {
+    const stated = "420.5,297,0.5";
+    const { result } = await mount({ head: headOf(S10_EXTENTS), initialViewport: stated });
+    const asked = parseViewport(stated) as { x: number; y: number; scale: number };
+    const expected = cameraFromViewport(asked, { width: STAGE_WIDTH, height: STAGE_HEIGHT });
+
+    expect(result.current.camera, "the stated camera is the camera the reader gets — never a fit").toEqual(expected);
+    expect(lastCamera(publish), "and it is written back in the seam's own spelling, as before").toEqual(expected);
+
+    resize(LAID_STAGE);
+    expect(result.current.camera?.scale, "a stated camera is never fitted away by a resize").toBe(expected.scale);
+    expect(result.current.camera?.centre, "nor moved").toEqual(expected.centre);
   });
 });

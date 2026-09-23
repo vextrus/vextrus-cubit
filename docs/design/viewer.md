@@ -26,7 +26,7 @@
 | topbar | location, ⌘K, jobs, notifications, user | 100 % × `--topbar-h` 40 | crumb shows the sheet name | — | crumb skeleton 120 px |
 | toolbar (`viewer-toolbar.tsx`, mounted through `useShellToolbar`) | Select V · Pan H ǀ Linear L · Area A · Count C (disabled, "Measurement tools arrive with S-Measure") ǀ Snap S · Ortho · Angle ǀ Fit F · + · − ǀ right-aligned L≡ V≡ | 100 % × `--toolbar-h` 32; 28 px IconButtons | absent (no sheet, no tools) | — | — |
 | layers drawer | layers, then views/grid — one column of collapsible groups; hidden by `L≡` | 200 (min 160, max 320), remembered | "No layers drawn yet" one line | inline RefusalState | 6 skeleton rows |
-| canvas (primary) | the sheet, fitted on open, `--canvas-paper` | flex; ≥ 70 % of viewport | `SheetAbsence` — a sheet nobody has read is an absence that teaches | RefusalState with fidelity facts (R-UI-043) | progressive by layer |
+| canvas (primary) | the sheet, fitted on open — and fitted again to every size its box takes until the reader moves the camera; the open writes no `v` (I-317) — `--canvas-paper` | flex; ≥ 70 % of viewport | `SheetAbsence` — a sheet nobody has read is an absence that teaches | RefusalState with fidelity facts (R-UI-043) | progressive by layer |
 | inspector (the shell's ONE slot, `useInspector`) | Selection · Scale tabs; entity header (type · layer · `#handle` IdChip); Cited-by; Trace formula | `--inspector-w` 320 (280–480) | **absent — width 0**; `V≡` pins it open so the Scale door is reachable at rest | RefusalState in the tab | tab skeleton |
 | status (`status-line.tsx`, mounted through `useShellStatus`) | mono readout, fixed-min-width cells, never wraps | 100 % × `--status-h` 24 | cells show `—` | — | — |
 
@@ -111,6 +111,12 @@ IOU in §8 with its owning clause. A grey box promising a panel is a lie about w
   or all ≤ 5** paints in `var(--canvas-ink)`; every other rgb paints exactly as the artifact
   resolved it. This is the ink token's purpose, it is what a drawing office expects of colour 7,
   and it keeps both themes legible without a second manifest.
+  **Amended session 7 (CR-B):** "in the painter and nowhere else" read as "in one place": the layers
+  panel shows the same layer's colour as a swatch beside the canvas, and with the rule private to the
+  painter the swatch had none to read — in the light theme eight of S-10's thirteen swatches were
+  white on the near-white panel while the canvas drew those layers in ink. The predicate is now
+  `isCanvasInk(rgb)` in `viewer/client.ts`, the painter's only reading of it; the swatch reading it
+  (`var(--canvas-ink)` where it answers true) is owed by the route's `layers-panel.tsx` (§8).
 - **I-80 — the fidelity facts are four named facts with English labels.** `IngestFacts` is a closed
   shape (`insunits`, `layouts`, `dropped_layouts`, `counters`), so the refusal's evidence is four
   labelled rows (§3), not a dump of field names. Numbers inside those rows are model data and render
@@ -132,6 +138,36 @@ IOU in §8 with its owning clause. A grey box promising a panel is a lie about w
   resizable panels with remembered sizes to the viewer. The shipped `ResizablePanelGroup` persists
   through `autoSaveId="cubit-viewer-split"`; `src/server/**` and the prefs seam are another node's,
   so a per-user stored size is a recorded IOU (§8), not a silently skipped clause.
+
+**Amended by session 7 (craft slice CR-B — the viewer opens on the sheet a customer asked for):**
+
+- **I-317 — an address that names no camera is a FITTED sheet, and stays one until the reader moves
+  it; the fit is never written.** Measured on F-RCC6-BNBC's S-10 COLUMN LAYOUT PLAN at 1440 × 900:
+  the open measured the stage at 196 ms, while the frame's `ResizablePanelGroup` had not applied its
+  layout and the stage panel stood at `flex: 1 1 0px` — 60 × 788 px. The fit put the 821 × 574-unit
+  sheet into 60 px (0.0674 px per unit, the sheet a 55 × 38 px speck under its own view chip) and
+  wrote `?v=420.5,297,0.0674` to the address; at 228 ms the stage stood at 1080 × 756, and the
+  `ResizeObserver` copied that size into the camera and kept 0.0674. Pressing F gave 1.2097 and the
+  whole sheet. A reload or Back reopened at the speck, because the address now STATED it. Ruling,
+  in `hooks/use-camera.ts`: (1) an open with no `v` (or a `v` the seam cannot read) arms an
+  *auto-fit*; while it is armed every size the stage takes is fitted again, and the first reader
+  move — a gesture, a zoom control, a key, the Fit control, a reveal's travel or its landing — disarms
+  it for good; (2) a fit is SETTLED only against a stage at least `MIN_FIT_STAGE_PX` (120) on each
+  side — below that the box is one the frame has not laid out, so the open fits it only where no
+  camera is held yet (a sheet always has a camera to paint and to read out), and a resize to it keeps
+  the camera's scale; (3) the auto-fit writes NOTHING to the address. R-UI-031 makes the address the
+  reader's state, and the absence of `v` already means "the whole sheet, fitted to whatever box you
+  have" (§1 and I-85 both read an address with no `v` that way) — so the fitted state has one
+  spelling, the absence, and a copied link or a reload opens fitted in the reader's own box rather
+  than at the pixels one browser measured once. Every camera the reader makes is written exactly as
+  before; an address that NAMES a camera opens at exactly that camera, is written back in the seam's
+  spelling, and keeps its centre and scale across a resize — nothing about a deep link with `v`
+  moved. Rejected: fitting once in a layout effect after the panels settle (the panel group lays out
+  in its own effect, after ours, and a remembered split can move it again), and writing each auto-fit
+  (a camera nobody chose, pinned to a box that is not the next reader's). Known edge, recorded in §8:
+  a selection made while the sheet stands fitted is published with the camera on screen, because the
+  address module writes `v` beside every `s`; a resize after it re-fits the screen and leaves that
+  `v` one fit behind.
 
 ## 1. Layout and hierarchy
 
@@ -215,8 +251,10 @@ in roster order; no other grid is drawn (the grid panel is a later leaf). Text r
 `LEGIBLE_TEXT_PX` at the current scale are not drawn at all (R-UI-040's LOD) — never drawn smaller
 and never faked as a smudge. Pointer: drag pans (`cursor: grab` / `grabbing`), wheel and pinch zoom at the
 cursor. Keyboard: `+`/`=` and `-` zoom about the centre, arrows pan 48 px, `F` fits — the whole set
-this leaf claims (R-UI-032's tool letters belong to the toolbar leaf). Every camera write replaces
-the URL's `v` (`history.replaceState`, so back leaves the sheet rather than unwinding a pan).
+this leaf claims (R-UI-032's tool letters belong to the toolbar leaf). Every camera write the READER
+makes — the Fit control included — replaces the URL's `v` (`history.replaceState`, so back leaves the
+sheet rather than unwinding a pan); the open's own fit, and every re-fit it makes before the reader
+first moves the camera, writes none (I-317).
 
 **Zoom controls** — `<div class="cx-viewer-controls">` absolutely positioned at the stage's
 top-right, inset `var(--space-3)`, column flex `gap: var(--space-2)`, on a `var(--graphite-0)` card:
@@ -438,6 +476,19 @@ tier leaf. A per-user remembered split size — R-UI-005, owner:
 the prefs seam's node (I-84). The shared `cx-readout` class R-UI-030 names — owner: the `src/ui`
 node that ships it. Manifest durability across a server restart — owner: a later leaf, if PB-2 cold
 ever demands more than the content-keyed process memo.
+
+**Session 7 (I-317).** A selection published while the sheet still stands at the open's fit carries
+the camera on screen, because `publishViewport` writes `v` beside every `s`; a resize afterwards
+re-fits the screen and leaves that `v` one fit behind (a reload opens the same centre at the earlier
+box's scale). The cure is the address module's: publish `s` with NO `v` while the camera is the
+fit — `publishViewport(win, path, at | null, selection)` deleting `v` for `null`, and `useCamera`
+answering whether it is fitted — owner: the route's `address.ts` / `viewer-screen.tsx` (B-17, the
+one writer). The frame's own geometry law this screen is graded on — the drawer at its Decision's
+200 px (min 160, max 320) rather than `viewer-stage.tsx`'s 22 % / 14 % / 40 %, and `.cx-viewer`'s
+bleed growing its height by the `--space-6` it moves up (the 48 px band under the canvas) — owner:
+the route's `viewer-stage.tsx` and `viewer.css`, outside the module this slice holds. The layers
+panel's swatch reading I-79's one rule — `isCanvasInk(row.rgb) ? "var(--canvas-ink)" :
+cssColour(row.rgb)` for both its fill and its border — owner: the route's `layers-panel.tsx`.
 
 
 ---
@@ -989,11 +1040,23 @@ of s-viewer.md §8's first IOU in the commit that lands it (B-20); the toolbar h
   at the price of a control that can crush either list to nothing, and it lands a tab stop between
   the layers panel and this one. A remembered vertical size is an IOU (§8), not a silent skip.
 - **I-111 — a stored reason is a fact about a view, never an answer to this reader.** An `UNTYPED`
-  view's `reason` renders as `REFUSALS[reason].message` in the row (AC-3) — the registry's own
-  sentence, never re-spelled in the strings table — and not as a `RefusalState`: nothing was refused
-  of the person who opened the sheet. The one RefusalState is kept for what is refused *of them* —
-  the feed's `SIGNED_OUT` / `WORKSPACE_PERMISSION_NOT_HELD`, and the confirm door's answers.
-  R-UI-020's "an empty list says why it is empty" is paid by the empty sentence (§2).
+  view's `reason` renders as `REFUSALS[reason].message` (AC-3) — the registry's own sentence, never
+  re-spelled in the strings table — and not as a `RefusalState`: nothing was refused of the person
+  who opened the sheet. The one RefusalState is kept for what is refused *of them* — the feed's
+  `SIGNED_OUT` / `WORKSPACE_PERMISSION_NOT_HELD`, and the confirm door's answers. R-UI-020's "an
+  empty list says why it is empty" is paid by the empty sentence (§2).
+  **Amended session 7 (CR-B, R-UI-081 of AM-08):** the sentence is said ON THE HATCHED BADGE, not as
+  a paragraph under the row. F-RCC6-BNBC's S-10 partition holds ten untyped views, and the row
+  anatomy put the same 88-character sentence under each of them — ten wrapping paragraphs in a
+  200 px drawer, the craft rubric's copy-diet 1 on its own. Now: the untyped badge keeps its hatch
+  and the row keeps `data-untyped` and `data-reason`; where the screen hands the panel the one
+  `Tooltip` (R-UI-010), the badge is that tooltip's trigger — a chrome-less `<button>` wearing the
+  reticle — and says the sentence on hover and focus; and the row always carries the sentence as a
+  visually hidden `<span data-testid="viewer-partition-view-reason">`, read out after the row's own
+  facts, so a reader who cannot hover loses nothing and the hook AC-3 reads is unchanged. A typed
+  view's badge is no control. Rejected: stating the sentence once per group or at the section head
+  as visible copy (R-UI-081 puts section explanations in popovers, and the hatch already carries
+  the meaning at rest), and a Popover (a click to read a fact is one click more than it costs).
 - **I-112 — the overlay is a second 2D canvas over the sheet, painted from the sheet's own frame.**
   `viewer-partition-canvas` is `aria-hidden="true"`, absolutely positioned over `viewer-canvas` with
   `pointer-events: none`, backing store `clientWidth/Height × min(devicePixelRatio, 2)` (s-viewer's
@@ -1007,10 +1070,25 @@ of s-viewer.md §8's first IOU in the commit that lands it (B-20); the toolbar h
   `tests/takeoff/viewer-partition-overlay/copy-mirror.test.ts` fails the build if the two ever
   differ (the `viewer-inspector/copy.ts` precedent, whose IOU this inherits and does not pay).
 - **I-114 — the badge is the store's word, before and after a confirmation.** The badge renders the
-  stored `type` spelling verbatim in mono; confirming appends a row line (**Confirmed as {type}**)
+  stored `type` (verbatim in mono until session 7; in a reader's words since, below); confirming
+  appends a row line (**Confirmed as {type}**)
   and sets `data-confirmed="true"`, and never rewrites the badge — L-ACT-01's confirmation is an
   append, and overwriting the grammar's reading in front of a reader would erase what the machine
   saw. A view carrying a proposal reads **Proposed as {type}** the same way.
+  **Amended session 7 (CR-B, R-UI-082 of AM-08, which postdates this clause):** the store's word is
+  SAID in a reader's words. The badges read `LAYOUT_PLAN`, `MEMBER_SECTION`, `LONG_SECTION_STRIP`,
+  `UNTYPED`, the notes "Proposed as DETAIL", and the canvas chip `LAYOUT_PLAN` — raw store tokens,
+  which R-UI-082 forbids on a screen. Now the badge renders through the one `EnumLabel` ("Layout
+  plan", "Member section", "Untyped"), the stored spelling kept in EnumLabel's `data-technical`
+  disclosure and on the row's `data-type`; `{type}` in **Proposed as / Confirmed as**, in the offered
+  group's label and on the overlay's corner chip is `humaniseEnum(type)` — EnumLabel's one rule, never
+  a table of our own. What I-114 protects is untouched: the badge is still the STORE's reading, and a
+  confirmation still appends a line rather than rewriting it. `src/modules` may not import `src/ui`
+  (ARCH-01), so `EnumLabel`, `humaniseEnum` and `Tooltip` reach the panel as slots beside `IdChip`,
+  and `humaniseEnum` reaches `useOverlayPaint` and `offeredViewGroups` as an argument; with none handed
+  in (a bare jsdom mount) the stored spelling stands, in mono, as before. The words are looked up per
+  frame, never composed per frame: `useOverlayPaint` builds the type → words map once per partition
+  (PB-3).
 - **I-115 — every colour the overlay paints is read from a token at the screen.** `drawOverlayScene`
   takes a resolved palette (`ink`, `warn`, `paper`, `label` colour and the two type sizes) read by
   `getComputedStyle` of the stage, exactly as s-viewer hands the painter its `--canvas-*` values. No
@@ -1019,6 +1097,44 @@ of s-viewer.md §8's first IOU in the commit that lands it (B-20); the toolbar h
   `[6, 4]` dash; an `UNTYPED` view outlines solid in `--warn` and fills with the 45° `--canvas-ink`
   hatch; a grid axis is the drawing office's centre line, `[12, 3, 2, 3]`. In greyscale, and for a
   reader who cannot separate warn from ink, the three still read apart (R-UI-060).
+
+**Amended by session 7 (craft slice CR-B; R-UI-080/081/082 of AM-08, measured on F-RCC6-BNBC's S-10):**
+
+- **I-318 — an axis is drawn where THIS sheet shows it, or not at all.** §1 spanned an axis whose
+  view stands on no box of the sheet across "the sheet's extents", and the code across the camera's
+  visible box. On a paper sheet that is wrong twice over: the store's grid is a model-space reading
+  (§8), so the stored position of a view shown on ANOTHER sheet is a model coordinate this paper
+  does not have. S-10's partition holds 54 views, one of them on S-10, and 77 axes, 66 of them of
+  views on other sheets at model positions (0, 4,876.8 … 599,999.99); painted across the visible box
+  they were the dash-dot lines across the whole canvas, and after a fit two stray axes still ran
+  along the sheet's left and bottom edges. Ruling, in `scene.ts`: (1) an axis whose view stands on no
+  box of this sheet is not drawn — its view keeps its rows, folded (I-319), and `data-axes` counts
+  what was drawn; (2) an axis runs through its view's box, as before, at its position ON THIS SHEET:
+  where the sheet shows the axis's ring, that is the ring's centre as the sheet shows it (the stored
+  position was read off that very ring, `grid/detect.ts`, so on model space the two are one number,
+  and on a paper sheet the window's projection of the ring is the only statement of where the axis
+  stands — S-10's axis 1 is stored at 1,200,000 and shown at 175.9); where the sheet shows no ring of
+  it, the stored position stands. Nothing is added to a frame: the rule is one branch per axis, and
+  on S-10 the frame paints 11 axes rather than 77 (PB-3). Rejected: mapping the stored position
+  through the window's model-to-paper transform in the scene (the feed does not carry the transform,
+  and the ring the window projected already is its answer), and hiding every axis on a paper sheet
+  (the on-sheet plan's grid is exactly what the overlay exists to show). Residual, recorded in §8: an
+  axis of an on-sheet view whose ring the paper does not show is still drawn at its model position,
+  off the paper — owner: the grid-for-paper IOU below.
+- **I-319 — this sheet first; the other sheets are one disclosure.** A drawing's partition is the
+  drawing's, and a paper sheet shows one or two of its views: S-10 listed 54 view rows in view-key
+  order, 53 of them "Not on this sheet", the one view on it ninth — half-cut at the drawer's foot at
+  1440 × 900 and out of sight at 1280 × 800 (R-UI-081: what matters stands above the fold). Now the
+  views, axes and deferrals whose view stands on this sheet are listed first, each list in the order
+  the store carries it; everything whose view stands on another sheet — its views, their axes and
+  their deferrals, which travel with them — is one `<details>` (the tree's native disclosure, as the
+  register's technical block uses) closed at open, its `<summary>` saying how many views it holds
+  (`viewer_partition_elsewhere_one` / `_many`), a row of the list's own height. No row says "Not on
+  this sheet" any more: the fold says it once, and the row keeps `data-on-sheet="false"`. On a sheet
+  that shows every view — model space, J-021's staged sheet — nothing is folded and no disclosure
+  stands, so that sheet's rows, stops and walk are exactly what they were. Rejected: sorting the
+  off-sheet views after the on-sheet ones in one open list (53 rows still stand between the reader
+  and the offer), and dropping them (R-UI-050: a partial answer is shown, not hidden).
 
 **Amended by inc-205-scale-ui** (R-TO-021, B-20), with the one hatch this overlay now paints for a
 second reason, ruled by s-scale I-160 and recorded here in the overlay's own terms:
@@ -1373,12 +1489,18 @@ target at j-021/partition-confirmed).
     <button role="switch" data-testid="viewer-partition-views-toggle" aria-checked class="cx-reticle">
     <button role="switch" data-testid="viewer-partition-grid-toggle"  aria-checked class="cx-reticle">
   </div>
-  <ol aria-label={views_list_label}>   <li data-testid="viewer-partition-view">…
+  <ol aria-label={views_list_label}>   <li data-testid="viewer-partition-view">…   ← this sheet's (I-319)
   <ol aria-label={grid_list_label}>    <li data-testid="viewer-partition-axis">…
   <ul aria-label={deferrals_list_label}> <li data-testid="viewer-partition-grid-deferral">…
+  <details class="cx-viewer-partition-elsewhere" data-count>   ← only where a view stands elsewhere
+    <summary class="cx-reticle">{n} views on other sheets</summary>
+    the same three lists, of the views on other sheets
+  </details>
   <div data-testid="viewer-partition-groups">   ← <h3> + the one OfferedGroups, or the denial
 </section>
 ```
+
+Each list is omitted where it holds nothing.
 
 **Header** — grid `1fr auto auto`, gap `var(--space-2)`, padding `var(--space-2)` `var(--space-3)`,
 `border-block-end: var(--hairline)`, fill `var(--graphite-50)` (the panel's own, so rows pass cleanly
@@ -1397,27 +1519,32 @@ section and repaints on the next frame. Both default to `on` at every mount — 
 (§8).
 
 **View rows** — one `<li data-testid="viewer-partition-view" data-view-key data-type data-untyped
-data-reason data-on-sheet data-proposed data-confirmed>` per stored view in view-key order.
+data-reason data-on-sheet data-proposed data-confirmed>` per stored view, this sheet's first and the
+others folded (I-319), each half in the store's own view-key order.
 Min-height `var(--row-comfortable)` re-keyed `var(--row-compact)` under an ancestor
 `[data-density="compact"]` (R-UI-005, the dropzone I-75 mechanism); padding `var(--space-2)`
 `var(--space-3)`; `border-block-end: var(--hairline)`; column flex, gap `var(--space-1)`.
 
 - **Line one** — the shipped Badge, `data-testid="viewer-partition-view-badge"`, holding the stored
-  type spelling verbatim in `var(--font-mono)` `var(--text-12)` `var(--graphite-900)` (I-25); on an
-  `UNTYPED` row the badge wears the sheet's own hatch — a 45° `repeating-linear-gradient` of
-  `var(--graphite-300)` lines over `var(--warn-surface)`, border re-keyed `var(--warn)` — so panel
-  and sheet say the same thing in the same pattern. Then the view key, whole, `user-select: all`,
-  `var(--font-mono)` `var(--text-12)` `var(--graphite-700)` (I-26).
+  type through the one EnumLabel (I-114 as amended: "Layout plan", the stored spelling in its
+  `data-technical` disclosure), `var(--text-12)` `var(--graphite-900)`, one line; with no EnumLabel
+  handed in, the stored spelling verbatim in `var(--font-mono)` (I-25). On an `UNTYPED` row the badge
+  wears the sheet's own hatch — a 45° `repeating-linear-gradient` of `var(--graphite-300)` lines over
+  `var(--warn-surface)`, border re-keyed `var(--warn)` — so panel and sheet say the same thing in the
+  same pattern, and is the trigger of the one Tooltip that says the stored reason (I-111 as amended):
+  a `<button type="button" class="cx-viewer-partition-badge-trigger cx-reticle">` with no chrome of
+  its own. Then the view key through IdChip (I-190).
 - **Line two** — the stored caption verbatim in `var(--font-mono)` `var(--text-12)`
   `var(--graphite-600)`, one line, ellipsised at the panel edge; omitted when the store holds none.
 - **Line three** — `viewer_partition_entities` through `formatUserFigure`, `var(--font-mono)`
-  `var(--text-12)` `var(--graphite-700)` `tabular-nums slashed-zero`; then, at
-  `data-on-sheet="false"`, `viewer_partition_off_sheet` in `var(--font-ui)` `var(--graphite-600)`;
-  then `viewer_partition_proposed` or `viewer_partition_confirmed` filled with the proposed or
-  confirmed spelling (I-114), `var(--text-12)` `var(--graphite-700)`.
-- **Reason** — only at `data-untyped="true"`: `<p data-testid="viewer-partition-view-reason">`
-  carrying `REFUSALS[reason].message` (I-111), `var(--text-12)` `var(--graphite-700)`,
-  `var(--leading-ui)`, wrapping.
+  `var(--text-12)` `var(--graphite-700)` `tabular-nums slashed-zero`; then
+  `viewer_partition_proposed` or `viewer_partition_confirmed` filled with the proposed or confirmed
+  type in words (`humaniseEnum`, I-114 as amended), `var(--text-12)` `var(--graphite-700)`. The
+  former `viewer_partition_off_sheet` note is gone: the fold says it once (I-319).
+- **Reason** — only at `data-untyped="true"`: a visually hidden
+  `<span data-testid="viewer-partition-view-reason">` carrying `REFUSALS[reason].message`, read out
+  after the row's own facts and drawn nowhere; the sighted reader's channel is the badge's tooltip
+  (I-111 as amended). No row holds a paragraph (R-UI-081).
 
 **Axis rows** — one `<li data-testid="viewer-partition-axis" data-view-key data-family data-axis
 data-label>` per stored axis in bubble-key order, same row geometry, one line: the label verbatim in
@@ -1433,8 +1560,11 @@ registry's `GRID_NO_BUBBLE_EVIDENCE` sentence, `var(--text-12)` `var(--graphite-
 
 **Groups** — `<div data-testid="viewer-partition-groups">`: `<h3>` `viewer_partition_groups_heading`
 (`var(--text-12)` `var(--weight-body-medium)` `var(--graphite-900)`, padding `var(--space-2)`
-`var(--space-3)`), then the one `OfferedGroups` holding what `offeredViewGroups(views, drawingId)`
-answered, then the region's **answer slot** (no test id; the contract is closed) holding exactly one
+`var(--space-3)`), then the one `OfferedGroups` holding what `offeredViewGroups(views, drawingId,
+humaniseEnum)` answered — each label one line, `viewer_partition_group_label` **Untyped → {type}**
+with the proposed class in words (the members' count is the pattern's own cell beside it, so the
+label does not say it twice; R-UI-081 — the former sentence was three lines at 200 px, three times) —
+then the region's **answer slot** (no test id; the contract is closed) holding exactly one
 RefusalState or the offline notice. No checkbox, no `[role=checkbox]`, no select-all exists anywhere
 inside `viewer-partition` — that absence is asserted, not intended (offered-group I-77).
 `OfferedGroups` grows one arm for the `PROPOSED_VIEW_TYPE` key, publishing `data-kind`,
@@ -1454,11 +1584,15 @@ no toast.
 **Overlay** — `<canvas data-testid="viewer-partition-canvas" aria-hidden="true">` in the stage, per
 I-112. Paint per frame, in order: for each outline, the rect (typed — 1 px `[6, 4]` dash in
 `--canvas-ink`; hatched — 1 px solid `--warn` plus the 45° `--canvas-ink` hatch pattern at 8 px
-pitch, both from the resolved palette, I-115/I-116), then its type spelling at the rect's top-left in
+pitch, both from the resolved palette, I-115/I-116), then its type in words (`OverlayOutline.label`,
+the screen's `humaniseEnum` looked up per type — I-114 as amended; the stored spelling where none was
+handed in) at the rect's top-left in
 a `--canvas-paper` chip with a 1 px `--canvas-ink` hairline, mono at the `--text-12` value, dropped
-entirely below that height (s-viewer's LOD, never drawn smaller); then for each axis the centre line
-`[12, 3, 2, 3]` in `--canvas-ink` spanning the owning view's box (the sheet's extents when the view
-stands on no box) extended 4 % at both ends, then its bubble — a `--canvas-paper` disc with a 1 px
+entirely below that height (s-viewer's LOD, never drawn smaller); then for each axis whose view
+stands on a box of this sheet (an axis of a view on another sheet is not drawn — I-318) the centre
+line `[12, 3, 2, 3]` in `--canvas-ink` at its position on this sheet (through its ring's centre where
+the sheet shows the ring, else the stored position — I-318), spanning the owning view's box extended
+4 % at both ends, then its bubble — a `--canvas-paper` disc with a 1 px
 `--canvas-ink` ring at the stored centre and radius, the label centred in mono, the label dropped
 when the ring falls below 6 px on screen (the ring still draws: the georeference is the fact).
 `overlayScene(overlay, toggles, camera)` is pure and canvas-free: `views: false` answers no outlines,
@@ -1492,7 +1626,9 @@ rows. `data-state` on the section is the panel's own readout.
   respectively; the act door's refusals render in the groups' answer slot (§1). No screen-local
   refusal block exists (R-UI-020, B-17).
 - **Partial** — two, both rendered. A view whose members stand on no box of this sheet keeps its row
-  with `data-on-sheet="false"` and **Not on this sheet**, and paints no outline — shown, not hidden.
+  with `data-on-sheet="false"`, folded with its axes and deferrals under the one disclosure that says
+  how many views stand on other sheets (I-319), and paints no outline and no axis (I-318) — shown,
+  not hidden.
   A layout plan that georeferenced as deferred has no axes and one deferral row naming
   `GRID_NO_BUBBLE_EVIDENCE`'s sentence; the grid switch stays on and the other views' axes stay
   painted.
@@ -1517,11 +1653,14 @@ rows. `data-state` on the section is the panel's own readout.
 for this drawing yet, so there are no views or grid to show.** · `viewer_partition_failed` **The
 partition could not be read.** · `viewer_partition_retry` **Retry** ·
 `viewer_partition_report_id` **Report id {id}** · `viewer_partition_groups_heading` **Proposed view
-types** · `viewer_partition_group_label` **Views of this drawing whose captions the grammar could not
-read, proposed as {type}** · `viewer_partition_group_count_one` **1 view** ·
-`viewer_partition_group_count_many` **{count} views** · `viewer_partition_off_sheet` **Not on this
-sheet** · `viewer_partition_entities` **{count} entities** · `viewer_partition_proposed` **Proposed
-as {type}** · `viewer_partition_confirmed` **Confirmed as {type}** ·
+types** · `viewer_partition_group_label` **Untyped → {type}** (session 7; was "Views of this drawing
+whose captions the grammar could not read, proposed as {type}") · `viewer_partition_group_count_one`
+**1 view** · `viewer_partition_group_count_many` **{count} views** ·
+`viewer_partition_elsewhere_one` **1 view on another sheet** · `viewer_partition_elsewhere_many`
+**{count} views on other sheets** (session 7, I-319; `viewer_partition_off_sheet` **Not on this
+sheet** is retired with the note it filled) · `viewer_partition_entities` **{count} entities** ·
+`viewer_partition_proposed` **Proposed as {type}** · `viewer_partition_confirmed` **Confirmed as
+{type}** (`{type}` in words since session 7, I-114 as amended) ·
 `viewer_partition_views_list_label` **Views of this drawing** · `viewer_partition_grid_list_label`
 **Grid axes on this drawing** · `viewer_partition_deferrals_list_label` **Layout plans with no grid
 to read** · `viewer_partition_axis_reading` **Grid {label}, {family} family, at {position}** ·
@@ -1538,7 +1677,9 @@ registered (AC-3). No new refusal code and no new act type is minted. Voice: cal
 professional; no exclamation marks; no build vocabulary — "partition" and "view" are the product's
 own user-facing words (R-TO-014, L-CAD-06), while "manifest", "overlay canvas", "scene", "feed" and
 every clause id appear nowhere a reader can see. View keys, captions, type spellings, families,
-labels and positions are model data and render verbatim as data, never woven into a sentence.
+labels and positions are model data and render verbatim as data, never woven into a sentence — a
+view's TYPE excepted since session 7: it is an enum, said in words by EnumLabel's one rule
+(R-UI-082, I-114 as amended), and `{type}` is filled with those words.
 
 ## 4. Motion (R-UI-004)
 
@@ -1606,7 +1747,11 @@ after a toggle and must be identical.
 Suites: `tests/takeoff/viewer-partition-overlay/**` over `server.ts` (AC-1, expectations read from
 the lane database by SQL), `scene.ts` (pure, camera-mapped, toggle-gated, `hatched` exactly on
 `UNTYPED`), `groups.ts`, `paint.ts` (a stub 2D context recording calls), the copy mirror, and a jsdom
-mount of `PartitionPanel` over injected data for the seven states. Journey
+mount of `PartitionPanel` over injected data for the seven states. Session 7 adds two unit-lane
+suites that import no staging support: `overlay-sheet.test.ts` (I-318 over S-10's own shapes — no
+axis of an off-sheet view, the on-sheet axes through their rings, nothing drawn off the paper, the
+chip's words) and `panel-sheet.test.tsx` (I-319's order and fold, the badge through the real
+EnumLabel, the reason in the real Tooltip and in no paragraph, the one-line group label). Journey
 `tests/e2e/viewer-partition.spec.ts` (title tagged **J-021**, staged by `stagePartitionedSheet`) at
 `j-021/partition-open`, `j-021/partition-toggled`, `j-021/partition-confirm-open`,
 `j-021/partition-confirmed`, axe serious/critical = 0 at each, never widened, with the keyboard walk
@@ -1624,9 +1769,21 @@ entities, hit-testing an outline or a bubble, and editing or re-drawing an outli
 — owner: the viewer toolbar leaf (R-UI-042) and the placement leaves of J-021, which own the acts
 that would write. Requesting a partition rebuild from the viewer — owner: S-Drawings, which holds
 `requestPartition` and keeps it. Grid rows for paper layouts — owner: the leaf that teaches the grid
-stage to read them; a model-space-only reading is what the store holds today. The copy mirror I-113
-stands on: the cure is a copy home both `src/ui` and `src/modules` may read — owner: the node that
-owns the ARCH-01 import matrix and `src/ui/strings`.
+stage to read them; a model-space-only reading is what the store holds today (I-318 draws a paper
+sheet's axes through the rings its window shows; an axis whose ring the paper does not show is
+still drawn at its model position until this is paid, and the snapping region, which reads the same
+stored axes, snaps a paper sheet's grid crossings at model positions — owner: the same leaf, with
+S-Viewer's snapping). The copy mirror I-113 stands on: the cure is a copy home both `src/ui` and
+`src/modules` may read — owner: the node that owns the ARCH-01 import matrix and `src/ui/strings`.
+
+**Session 7 — the region's composition owes three slots.** I-111 and I-114 as amended are written
+into the module (`PartitionPanel` takes `EnumLabel`, `humaniseEnum` and `Tooltip` beside `IdChip`;
+`useOverlayPaint` and `offeredViewGroups` take `humaniseEnum`), but the route's
+`partition-region.tsx` — which holds every `src/ui` import the module may not — does not hand them in
+yet, so the screen still shows the stored spellings and no tooltip until it does; owner: the route's
+composition. When it lands, J-021's keyboard walk (`viewer-partition.spec.ts`, AC-5) meets each
+untyped badge as a stop between the switches and the offer, and its badge reads become
+`toContainText` of the stored spelling (EnumLabel's disclosure) rather than `toHaveText`.
 
 
 ---

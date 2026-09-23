@@ -82,12 +82,16 @@ describe("AC-2: the scene is the partition mapped onto the sheet, and nothing el
     }
   });
 
-  test("AC-2: one axis per stored row, drawn through its view at its stored position", async () => {
+  test("AC-2: one axis per stored row whose view stands on this sheet, drawn through its view at its stored position", async () => {
     const scene = await sceneOf(ON);
     const { camera, worldAt } = await sheet();
-    const stored = overlay().axes;
+    // I-318: an axis stands on the sheet its view stands on — the staged grid is read off plan-1,
+    // which stands here, so every stored row is drawn (the off-sheet case is overlay-sheet.test.ts's).
+    const here = new Set(overlay().views.filter((row) => row.box !== null).map((row) => row.viewKey));
+    const stored = overlay().axes.filter((row) => here.has(row.viewKey));
+    expect(stored.length, "the staged grid really stands on this sheet — a scene of no axes grades nothing").toBe(overlay().axes.length);
 
-    expect(scene.axes.length, "one axis of the scene per stored grid row").toBe(stored.length);
+    expect(scene.axes.length, "one axis of the scene per stored grid row standing on this sheet").toBe(stored.length);
     expect(
       scene.axes.map((drawn) => `${drawn.viewKey}|${drawn.family}|${drawn.label}`),
       "each carrying the view it stands in, its family and its label, verbatim",

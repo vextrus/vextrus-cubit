@@ -30,8 +30,13 @@ export type OfferedViewGroup = {
  * A view with no proposal joins none; a view somebody has already confirmed joins none. Where that
  * leaves nothing, the answer is the empty offer, and the panel says so rather than standing a door
  * onto nothing (R-UI-020).
+ *
+ * The label is one line (R-UI-081): the class the members stand in and the class proposed for them,
+ * the second in a reader's words — `humaniseEnum`, EnumLabel's one rule, handed in by the screen
+ * because this module may not reach `src/ui` (ARCH-01, R-UI-082). Without it the stored spelling
+ * stands, as in a mount with no screen around it. The key keeps the stored spelling whole.
  */
-export function offeredViewGroups(views: readonly PartitionOverlayView[], drawingId: string): OfferedViewGroup[] {
+export function offeredViewGroups(views: readonly PartitionOverlayView[], drawingId: string, humaniseEnum?: (value: string) => string): OfferedViewGroup[] {
   const counted = new Map<string, number>();
   for (const view of views) {
     if (view.proposed === null || view.confirmed !== null) continue;
@@ -40,7 +45,7 @@ export function offeredViewGroups(views: readonly PartitionOverlayView[], drawin
 
   return [...counted.entries()].map(([viewType, members]) => ({
     key: { kind: PROPOSED_VIEW_TYPE, drawingId, viewType },
-    label: fillCopy("viewer_partition_group_label", { type: viewType }),
+    label: fillCopy("viewer_partition_group_label", { type: humaniseEnum === undefined ? viewType : humaniseEnum(viewType) }),
     // The pattern never counts and never formats (I-78): the figure goes through SEAM-FORMAT here,
     // and one member says its own sentence rather than "1" filled into the plural one.
     count: members === 1 ? PARTITION_COPY.viewer_partition_group_count_one : fillCopy("viewer_partition_group_count_many", { count: formatUserFigure(String(members)) }),

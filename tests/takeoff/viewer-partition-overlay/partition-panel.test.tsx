@@ -14,6 +14,7 @@
  */
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
+import { humaniseEnum } from "@/ui/primitives/core/enum-label";
 import {
   CAPTION_UNCLASSIFIABLE,
   COPY,
@@ -144,7 +145,7 @@ describe("AC-2: the panel is the stored partition, and the overlay canvas counts
     ).toBe(true);
   });
 
-  test("AC-2: one row per stored view, badged with the stored type spelling", async () => {
+  test("AC-2: one row per stored view, badged with its stored type in words and the stored spelling kept on the label", async () => {
     const overlay = overlayFixture();
     serve(() => answer(200, { overlay }));
     render(<ViewerScreen {...props()} />);
@@ -164,7 +165,11 @@ describe("AC-2: the panel is the stored partition, and the overlay canvas counts
       });
       expect(claims(row, "data-proposed"), `${view.viewKey} claims a proposal exactly where the store holds one`).toBe(view.proposed !== null);
       expect(claims(row, "data-confirmed"), `${view.viewKey} claims a confirmation exactly where one has been made`).toBe(view.confirmed !== null);
-      expect(within(row).getByTestId(TESTID.badge).textContent, `${view.viewKey}'s badge is the stored spelling, verbatim`).toBe(view.type);
+      // I-114 as amended (session 7, R-UI-082): the badge says the type in WORDS through EnumLabel, and
+      // the stored spelling stays on the label's data-value (and its data-technical span), verbatim.
+      const badge = within(row).getByTestId(TESTID.badge);
+      expect(badge.querySelector("[data-value]")?.getAttribute("data-value"), `${view.viewKey}'s badge carries the stored spelling, verbatim`).toBe(view.type);
+      expect(badge.textContent?.startsWith(humaniseEnum(view.type)), `${view.viewKey}'s badge says its type in words`).toBe(true);
     }
   });
 

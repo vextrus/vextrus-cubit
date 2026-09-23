@@ -41,6 +41,24 @@ export function cssColour(rgb: readonly [number, number, number]): string {
   return `${COLOUR_NOTATION}(${rgb[0]} ${rgb[1]} ${rgb[2]})`;
 }
 
+/** A channel is "white" at or above this, and "black" at or below the other — colour 7 (I-79). */
+const NEAR_WHITE = 250;
+const NEAR_BLACK = 5;
+
+/**
+ * Whether a resolved colour is CAD colour 7 — white or black as the reading resolved it — which
+ * paints in `--canvas-ink` rather than as itself, so it is legible on both papers (Decision I-79).
+ * The rule's one home: the painter reads it for every record, and anything else that shows a
+ * drawing's colour beside the canvas — a layer's swatch — reads the same answer, so the two never
+ * disagree about a layer the canvas draws in ink.
+ */
+export function isCanvasInk(rgb: readonly [number, number, number]): boolean {
+  const [red, green, blue] = rgb;
+  const white = red >= NEAR_WHITE && green >= NEAR_WHITE && blue >= NEAR_WHITE;
+  const black = red <= NEAR_BLACK && green <= NEAR_BLACK && blue <= NEAR_BLACK;
+  return white || black;
+}
+
 /* -------------------------------------------------------------------------------- the camera */
 
 /** The scale is kept inside a finite positive band, so a camera always has a figure to publish. */

@@ -23,7 +23,8 @@ export type PartitionCopyKey =
   | "viewer_partition_group_label"
   | "viewer_partition_group_count_one"
   | "viewer_partition_group_count_many"
-  | "viewer_partition_off_sheet"
+  | "viewer_partition_elsewhere_one"
+  | "viewer_partition_elsewhere_many"
   | "viewer_partition_entities"
   | "viewer_partition_proposed"
   | "viewer_partition_confirmed"
@@ -47,10 +48,11 @@ export const PARTITION_COPY: Readonly<Record<PartitionCopyKey, string>> = Object
   viewer_partition_retry: "Retry",
   viewer_partition_report_id: "Report id {id}",
   viewer_partition_groups_heading: "Proposed view types",
-  viewer_partition_group_label: "Views of this drawing whose captions the grammar could not read, proposed as {type}",
+  viewer_partition_group_label: "Untyped → {type}",
   viewer_partition_group_count_one: "1 view",
   viewer_partition_group_count_many: "{count} views",
-  viewer_partition_off_sheet: "Not on this sheet",
+  viewer_partition_elsewhere_one: "1 view on another sheet",
+  viewer_partition_elsewhere_many: "{count} views on other sheets",
   viewer_partition_entities: "{count} entities",
   viewer_partition_proposed: "Proposed as {type}",
   viewer_partition_confirmed: "Confirmed as {type}",

@@ -26,10 +26,15 @@ import { TESTIDS } from "@/ui/testids";
  */
 const INSPECTOR_CHROME: InspectorChrome = { BasisChip, EvidenceLink };
 
-/** The panel's share of the width, and the band a reader may drag it to (Decision § 1). */
-const PANEL_SIZE = 22;
-const PANEL_MIN = 14;
-const PANEL_MAX = 40;
+/**
+ * The panel's share of the width, and the band a reader may drag it to (Decision § 1: the drawer is
+ * 200 px, min 160, max 320). Shares of the work area beside the 48 px rail: at 1440 that is 1392 px,
+ * so 14 % ≈ 195, 11.5 % = 160 and 23 % ≈ 320 — the canvas keeps its ≥ 70 % (R-UI-080), where the old
+ * 22 / 14 / 40 opened the drawer at 304 px and let it take 40 % of the sheet.
+ */
+const PANEL_SIZE = 14;
+const PANEL_MIN = 11.5;
+const PANEL_MAX = 23;
 
 export type ViewerStageProps = {
   panel: LayersPanelProps;

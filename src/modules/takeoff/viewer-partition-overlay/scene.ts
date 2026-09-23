@@ -26,21 +26,26 @@ export function screenAt(camera: Camera, world: readonly [number, number]): [num
   ];
 }
 
-/** The world box the camera is showing right now — what an axis crosses when its view has no box. */
-function visibleBox(camera: Camera): OverlayBox {
-  const halfWidth = camera.viewport.width / 2 / camera.scale;
-  const halfHeight = camera.viewport.height / 2 / camera.scale;
-  return {
-    min: [camera.centre[0] - halfWidth, camera.centre[1] - halfHeight],
-    max: [camera.centre[0] + halfWidth, camera.centre[1] + halfHeight],
-  };
-}
-
 /** One view's box as a screen rectangle: the two corners mapped, then read as an origin and a size. */
 function rectOf(camera: Camera, box: OverlayBox): OverlayOutline["rect"] {
   const [left, bottom] = screenAt(camera, box.min);
   const [right, top] = screenAt(camera, box.max);
   return { x: Math.min(left, right), y: Math.min(top, bottom), width: Math.abs(right - left), height: Math.abs(bottom - top) };
+}
+
+/**
+ * Where an axis stands on THIS sheet, along the world axis it georeferences (Decision I-318).
+ *
+ * The stored position was read off the ring's own centre on the sheet the grid was read from — model
+ * space, the only reading the store holds (§8) — so where this sheet shows that ring, the ring's
+ * centre as this sheet shows it IS the position, in this sheet's own coordinates: on model space the
+ * two are one number, and on a paper sheet that shows the plan through a window the stored figure is
+ * a model coordinate the paper does not have (F-RCC6-BNBC S-10: stored 1,200,000, shown at 175.9).
+ * Where this sheet shows no ring of the axis, the stored position is all there is.
+ */
+function positionOn(axis: PartitionOverlay["axes"][number]): number {
+  if (axis.bubble === null) return axis.position;
+  return axis.axis === "x" ? axis.bubble.centre[0] : axis.bubble.centre[1];
 }
 
 /**
@@ -54,7 +59,8 @@ function segmentOf(camera: Camera, axis: PartitionOverlay["axes"][number], box: 
   const span = box.max[across] - box.min[across];
   const low = box.min[across] - span * AXIS_OVERRUN;
   const high = box.max[across] + span * AXIS_OVERRUN;
-  const at = (value: number): readonly [number, number] => (axis.axis === "x" ? [axis.position, value] : [value, axis.position]);
+  const position = positionOn(axis);
+  const at = (value: number): readonly [number, number] => (axis.axis === "x" ? [position, value] : [value, position]);
   return { from: screenAt(camera, at(low)), to: screenAt(camera, at(high)) };
 }
 
@@ -64,10 +70,22 @@ function segmentOf(camera: Camera, axis: PartitionOverlay["axes"][number], box: 
  * Each switch gates its own paint and nothing else: `views: false` answers no outline and leaves
  * every axis where it was, `grid: false` the other way round. A view standing on no box of this
  * sheet is outlined nowhere — it keeps its row in the panel instead, which is where R-UI-050 puts a
- * partial answer — while an axis is always drawn, because a georeference is a fact about the
- * drawing rather than about what happens to be under the camera.
+ * partial answer — and its axes are drawn nowhere either (I-318): a georeference is a fact about the
+ * sheet its view stands on, and on a paper sheet the stored position of a view shown on another
+ * sheet is a model coordinate this sheet does not have, which painted it as stray centre lines
+ * across the whole canvas (S-10: 66 of its 77 axes).
+ *
+ * `labels` is the word each stored type is read by, handed in by the screen that holds the one rule
+ * for it (R-UI-082); a type it does not name is labelled with its own spelling. It is a lookup, not a
+ * computation: a frame pays one map read per outline, exactly what reading the type cost (PB-3).
  */
-export function overlayScene(overlay: PartitionOverlay, toggles: OverlayToggles, camera: Camera, scaleAbsence?: ReadonlyMap<string, string>): OverlayScene {
+export function overlayScene(
+  overlay: PartitionOverlay,
+  toggles: OverlayToggles,
+  camera: Camera,
+  scaleAbsence?: ReadonlyMap<string, string>,
+  labels?: ReadonlyMap<string, string>,
+): OverlayScene {
   const outlines: OverlayOutline[] = toggles.views
     ? overlay.views.flatMap((view) => {
         if (view.box === null) return [];
@@ -79,6 +97,7 @@ export function overlayScene(overlay: PartitionOverlay, toggles: OverlayToggles,
           {
             viewKey: view.viewKey,
             type: view.type,
+            label: labels?.get(view.type) ?? view.type,
             rect: rectOf(camera, view.box),
             hatched,
             reason: hatched ? view.reason : null,
@@ -90,19 +109,23 @@ export function overlayScene(overlay: PartitionOverlay, toggles: OverlayToggles,
 
   const boxes = new Map(overlay.views.map((view) => [view.viewKey, view.box]));
   const axes: OverlayDrawnAxis[] = toggles.grid
-    ? overlay.axes.map((axis) => {
-        const segment = segmentOf(camera, axis, boxes.get(axis.viewKey) ?? visibleBox(camera));
-        return {
-          viewKey: axis.viewKey,
-          label: axis.label,
-          family: axis.family,
-          from: segment.from,
-          to: segment.to,
-          bubble:
-            axis.bubble === null
-              ? null
-              : { centre: screenAt(camera, axis.bubble.centre), radius: axis.bubble.radius * camera.scale },
-        };
+    ? overlay.axes.flatMap((axis) => {
+        const box = boxes.get(axis.viewKey) ?? null;
+        if (box === null) return [];
+        const segment = segmentOf(camera, axis, box);
+        return [
+          {
+            viewKey: axis.viewKey,
+            label: axis.label,
+            family: axis.family,
+            from: segment.from,
+            to: segment.to,
+            bubble:
+              axis.bubble === null
+                ? null
+                : { centre: screenAt(camera, axis.bubble.centre), radius: axis.bubble.radius * camera.scale },
+          },
+        ];
       })
     : [];
 

@@ -9,6 +9,13 @@
  *
  * Where the camera is written is the screen's decision to carry out, not this hook's to make: the
  * address module is the one home for that (B-17), and `publish` is how it is reached from here.
+ *
+ * AN ADDRESS THAT NAMES NO CAMERA IS A FITTED SHEET, and it stays one (Decision I-317). The fit is
+ * not taken once and kept: the stage is measured before the frame's panels have laid out (60 px wide
+ * on F-RCC6-BNBC's S-10, 32 ms before it stood at 1080), so a fit taken then and held is a sheet
+ * shrunk to a speck. Until the reader moves the camera, every size the stage takes is fitted again;
+ * and nothing about that fit is written to the address, because a camera the reader never chose is
+ * not the reader's state — the absence of `v` already says "fitted", in whatever box the reader has.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
@@ -21,6 +28,19 @@ export const ADDRESS_SETTLE_MS = 150;
 
 /** How far one press of a zoom control moves the camera. */
 export const ZOOM_STEP = 1.25;
+
+/**
+ * The smallest stage, on either side, a fit is SETTLED against (I-317). Below it the box is one the
+ * frame has not laid out yet — a resizable panel still at `flex: 1 1 0px` measures a few dozen
+ * pixels — rather than a canvas anybody reads a sheet in; the narrowest real canvas the frame leaves
+ * (a 1024 px window, the drawer at its widest, the inspector pinned) is well over twice this.
+ */
+export const MIN_FIT_STAGE_PX = 120;
+
+/** Whether a measured stage is one a fit may settle against. */
+function laidOut(box: { width: number; height: number }): boolean {
+  return box.width >= MIN_FIT_STAGE_PX && box.height >= MIN_FIT_STAGE_PX;
+}
 
 export type UseCameraOptions = {
   head: ViewerHead | null;
@@ -59,17 +79,26 @@ export function useCamera({ head, initialViewport, stageRef, cameraRef, draw, pu
   const ownPath = useHandedRef(ownPathname, "");
   /** The settle a gesture's last frame is published on. */
   const settleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Whether the sheet stands at the fit the address asked for by naming no camera (I-317). True from
+   * an open with no `v` until the reader first moves the camera — a gesture, a control, a key, a
+   * reveal — and while it is true every size the stage takes is fitted again and nothing is written.
+   */
+  const autoFit = useRef(false);
 
-  /** Every camera this sheet takes comes through here: one frame now, one address write, once. */
+  /**
+   * Every camera this sheet takes comes through here: one frame now, and — unless the camera is the
+   * open's own fit, which is no reader's state — one address write, once.
+   */
   const apply = useCallback(
-    (at: Camera, live: boolean): void => {
+    (at: Camera, live: boolean, published = true): void => {
       heldRef.current = at;
       draw(at);
       if (settleRef.current !== null) clearTimeout(settleRef.current);
       settleRef.current = null;
       if (!live) {
         setCamera(at);
-        publish(at);
+        if (published) publish(at);
         return;
       }
       settleRef.current = setTimeout(() => {
@@ -83,16 +112,24 @@ export function useCamera({ head, initialViewport, stageRef, cameraRef, draw, pu
     [draw, heldRef, publish],
   );
 
+  // A move is the reader's (or a reveal travelling for them): the sheet stops re-fitting from here on.
   const moveCamera = useCallback(
     (move: (held: Camera) => Camera, live: boolean): void => {
       const held = heldRef.current;
       if (held === null) return;
+      autoFit.current = false;
       apply(move(held), live);
     },
     [apply, heldRef],
   );
 
-  const jumpTo = useCallback((at: Camera): void => apply(at, false), [apply]);
+  const jumpTo = useCallback(
+    (at: Camera): void => {
+      autoFit.current = false;
+      apply(at, false);
+    },
+    [apply],
+  );
 
   /**
    * The gesture's last camera written to the address now rather than when its settle fires. A reader
@@ -118,30 +155,50 @@ export function useCamera({ head, initialViewport, stageRef, cameraRef, draw, pu
     ownPath.current = window.location.pathname;
   }, [ownPath, sheetKey]);
 
-  // An address that names no viewport opens the whole sheet, fitted to the box it is drawn into; one
-  // that names a viewport is the camera the reader gets (R-UI-031).
+  // An address that names no viewport opens the whole sheet, fitted to the box it is drawn into, and
+  // writes nothing — the absence of `v` is how a fitted sheet is spelled (I-317). One that names a
+  // viewport is the camera the reader gets, exactly as it always was (R-UI-031, I-85).
   useEffect(() => {
     if (head?.kind !== "manifest") return;
     const box = stage.current?.getBoundingClientRect();
     const viewportPx = { width: box?.width ?? 0, height: box?.height ?? 0 };
     const asked = initialViewport === null ? null : parseViewport(initialViewport);
-    apply(asked === null ? fitCamera(head.manifest.extents, viewportPx) : cameraFromViewport(asked, viewportPx), false);
-  }, [apply, head, initialViewport, stage]);
+    autoFit.current = asked === null;
+    if (asked !== null) {
+      apply(cameraFromViewport(asked, viewportPx), false);
+      return;
+    }
+    // A stage the frame has not laid out yet is fitted only where there is no camera at all — so a
+    // sheet always has one to paint and read out — and never over a camera already held: the next
+    // size the stage takes is fitted again, and that is the fit that stands.
+    if (heldRef.current === null || laidOut(viewportPx)) apply(fitCamera(head.manifest.extents, viewportPx), false, false);
+  }, [apply, head, heldRef, initialViewport, stage]);
 
   // The camera follows the box it is drawn into, so a resized panel keeps the same sheet in view.
+  // While the sheet stands at the open's own fit, "the same sheet" is the whole sheet: every size a
+  // laid-out stage takes is fitted again, and nothing is written (I-317). Once the reader has moved
+  // the camera it is theirs, and a resize keeps its centre and its scale.
   useEffect(() => {
     const element = stage.current;
     if (element === null || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
-      const box = element.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
+      const box = { width: rect.width, height: rect.height };
+      const held = heldRef.current;
+      if (held === null) return;
+      if (autoFit.current) {
+        if (head?.kind === "manifest" && laidOut(box)) apply(fitCamera(head.manifest.extents, box), false, false);
+        else apply({ ...held, viewport: box }, false, false);
+        return;
+      }
       // Off the camera the gesture holds, never the one React last published: a panel resized while
       // a drag or a wheel is in flight would otherwise write the pre-gesture camera back and throw
       // the pan away.
-      moveCamera((held) => ({ ...held, viewport: { width: box.width, height: box.height } }), false);
+      apply({ ...held, viewport: box }, false);
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [head, moveCamera, stage]);
+  }, [apply, head, heldRef, stage]);
 
   // A reader who leaves inside the settle window carries where they are, not where they started.
   useEffect(() => {
@@ -162,9 +219,12 @@ export function useCamera({ head, initialViewport, stageRef, cameraRef, draw, pu
     [moveCamera],
   );
 
+  // The Fit control is a reader's move like any other: it is written to the address (the camera a
+  // reader framed is the camera their link carries) and it ends the open's own re-fitting.
   const fitSheet = useCallback((): void => {
     if (head?.kind !== "manifest") return;
     const box = stage.current?.getBoundingClientRect();
+    autoFit.current = false;
     apply(fitCamera(head.manifest.extents, { width: box?.width ?? 0, height: box?.height ?? 0 }), false);
   }, [apply, head, stage]);
 

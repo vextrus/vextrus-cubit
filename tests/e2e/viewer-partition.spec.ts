@@ -19,6 +19,7 @@
  */
 import { expect, test } from "@playwright/test";
 import { REFUSALS } from "../../src/core/errors";
+import { humaniseEnum } from "../../src/ui/primitives/core/enum-label";
 import { checkpoint } from "./support/checkpoint";
 import { laneTheme } from "./support/lane-theme";
 import { SViewerPartitionPage } from "./pages/s-viewer-partition.page";
@@ -90,7 +91,11 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
       const row = partition.viewRow(view.viewKey);
       await expect(row, `the store holds a view ${view.viewKey}, so the panel stands one`).toHaveCount(1);
       await expect(row, "wearing the stored type spelling").toHaveAttribute("data-type", view.type);
-      await expect(row.getByTestId("viewer-partition-view-badge"), "and saying it verbatim on the badge (I-114)").toHaveText(view.type);
+      // TEST_AMENDED (session 7, I-114 as amended — R-UI-082): the badge says the type in WORDS through
+      // EnumLabel and keeps the stored spelling, verbatim, on the label's `data-value`.
+      const badge = row.getByTestId(TESTIDS.viewer.partitionViewBadge);
+      await expect(badge.locator("[data-value]"), "and carrying it verbatim on the badge (I-114)").toHaveAttribute("data-value", view.type);
+      await expect(badge, "said in words, never the stored spelling").toHaveText(humaniseEnum(view.type), { useInnerText: true });
       await expect(row, "and saying whether the machine proposed a class for it").toHaveAttribute("data-proposed", String(view.proposedType !== null));
       await expect(row, "and that nothing has been confirmed of it yet").toHaveAttribute("data-confirmed", "false");
     }
@@ -187,8 +192,13 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
     // offered group's confirm; a walk still among chips after two stops for every row the panel could
     // hold has left the panel.
     const CHIP_STOPS: readonly string[] = ["id-chip", "id-chip-copy"];
+    // TEST_AMENDED (session 7, I-111 as amended): an untyped view's hatched badge says its stored
+    // reason on hover AND focus, so the badge is a button a keyboard reaches — one stop, before the
+    // row's key, on each untyped row the panel draws.
+    const BADGE_STOP = "cx-viewer-partition-badge-trigger";
     const mostChipStops = 2 * staged.views.length + 2 * (await steadyCount(partition.deferralRows, "the grid deferrals the panel lists"));
     let chipStops = 0;
+    let badgeStops = 0;
     for (;;) {
       await page.keyboard.press("Tab");
       const stop = await partition.focused();
@@ -196,11 +206,18 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
         expect(stop.classes.split(/\s+/), "the first offered group's confirm wears the reticle a keyboard reader is followed by").toContain(RETICLE);
         break;
       }
+      if (stop.classes.split(/\s+/).includes(BADGE_STOP)) {
+        expect(badgeStops, "an untyped badge is a stop only on an untyped row").toBeLessThan(untyped.length);
+        expect(stop.classes.split(/\s+/), "and the badge's stop wears the reticle").toContain(RETICLE);
+        badgeStops += 1;
+        continue;
+      }
       expect(chipStops, "the stops between the toggles and the offered groups are the rows' chips, two a row, and nothing else").toBeLessThan(mostChipStops);
-      expect(CHIP_STOPS, `a stop between the toggles and the offered groups is a view key's chip — its measure or its copy — never ${JSON.stringify(stop)}`).toContain(stop.ownerTestId);
+      expect(CHIP_STOPS, `a stop between the toggles and the offered groups is a view key's chip — its measure or its copy — or an untyped badge, never ${JSON.stringify(stop)}`).toContain(stop.ownerTestId);
       expect(stop.classes.split(/\s+/), "and the chip's stop wears the reticle (I-190)").toContain(RETICLE);
       chipStops += 1;
     }
+    expect(badgeStops, "the walk passed at least one untyped badge, each saying its reason on focus").toBeGreaterThan(0);
     expect(chipStops, "every stored view's key is a chip of two stops (I-190)").toBeGreaterThanOrEqual(2 * staged.views.length);
     expect(chipStops % 2, "and no chip was passed by half").toBe(0);
     for (let at = 1; at < members.length; at += 1) await reaches("offered-group-confirm");
@@ -272,7 +289,8 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
       const row = partition.viewRow(viewKey);
       await expect(row, "each member's row says a class has been confirmed of it").toHaveAttribute("data-confirmed", "true");
       const stored = staged.views.find((view) => view.viewKey === viewKey);
-      await expect(row.getByTestId("viewer-partition-view-badge"), "while the badge still says what the GRAMMAR read — a confirmation appends, it never overwrites (I-114)").toHaveText(
+      await expect(row.getByTestId(TESTIDS.viewer.partitionViewBadge).locator("[data-value]"), "while the badge still carries what the GRAMMAR read — a confirmation appends, it never overwrites (I-114)").toHaveAttribute(
+        "data-value",
         (stored as { type: string }).type,
       );
     }
