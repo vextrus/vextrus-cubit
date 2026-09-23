@@ -50,7 +50,7 @@ no section heading over a sentence.
 | title row | `h1` 20/600 "Projects", the search over the list, the one primary ("New project") | 100 % × 48 | the search is absent with no projects to filter; the primary stands on both branches | — | — |
 | stat tiles | four `Stat` — projects · sheets · campaigns · estimated value (`MoneyText`, ৳, lakh/crore) | 4 × 1fr × `--stat-h` 64 | absent on the zero-project branch (I-137); a tile with no figure states `—` | — | route `loading.tsx` bones |
 | table (primary) | the one `DataTable`: Name ▸ · Client · District · Sheets · Coverage · Last act · `⋯` | flex; rows `--row-h` 28 | zero projects → `EmptyState` with the SAMPLE offer (R-UI-033); filtered to none → `EmptyState` "No matches" | delegated to the root boundary (`src/app/error.tsx`) | route `loading.tsx` bones; the grid's own skeleton rows when it is handed `loading` |
-| row `⋯` | the project's three doors: Edit · Archive/Restore · View rule set | `--control-h` 28 square | — | the lifecycle refusal renders under its own row (`renderRefusal`) | the trigger reports `aria-busy` |
+| row `⋯` | the project's three doors: Edit · Archive/Restore · View rule set | `--control-h` 28 square, at its cell's trailing edge under the header's `⋯` (I-140 as amended) | — | the lifecycle refusal renders under its own row (`renderRefusal`) | the trigger reports `aria-busy` |
 | form (overlay) | the create/edit `Sheet`, nine fields, one answer slot, a sticky answer-and-doors bar | 480 side sheet | — | `RefusalState` in the answer slot | submit reports loading |
 
 ## 0. Interpretations (recorded per the Law section of CLAUDE.md)
@@ -177,6 +177,17 @@ no section heading over a sentence.
   header's, reading as one column. A reader who hides or pins a column only moves which cells take
   the share; a resize still sets a column's floor. §1's District width is corrected to the 150 the
   screen has always drawn (the table said 140).
+  *Amended in place (session 8, C1; Direction §5 rule 3):* **under the header's `⋯`, not beside
+  it.** Session 7's re-look still found the row's `⋯` 28 px left of the header's, at x ≈ 1374
+  against 1402 at 1440×900, and 1214 against 1242 at 1280×800. The DataTable draws its column
+  chooser at the grid's far edge, and the trigger stood at its 56 px cell's leading edge: two
+  identical glyphs in one column that did not read as one line. The cell's box is the well the
+  trigger stands in (`meta.control`), so that box places it. In `home.css`, the control cell's text
+  box is a flex row, `justify-content: flex-end`, `align-items: center`. The trigger stands at the
+  trailing edge, centred on the row in either density. In compact density the trigger
+  (`--control-h`) and the chooser (`--row-h`) are both 28 px, so their centres coincide: 610
+  against 610 (measured in the product's Chromium on the shipped stylesheets). Proved by
+  `tests/ui/craft/grid-band.test.ts`.
 - **I-141 — the teaching state is the shipped `EmptyState`.** *Amends the zero-project branch of
   §1.* It was the shell's own `ShellEmptyState`, which draws the same three things without the
   glyph and outside the primitive set every other empty region now uses (Direction 00 §1's empty
@@ -262,7 +273,7 @@ Sizes are floors: Name, Client and District share whatever the grid's band leave
 | 4 | `home_stat_sheets` (sortable, right) | 90 | the count in mono tabular through the seam |
 | 5 | `takeoff_register_col_coverage` | 140 | §4.3's ramp bar (`cx-home-ramp`, `data-step` 0–4 over `--cov-0…4` from S-Coverage's `rampStep`, `aria-hidden`) beside the shipped `CoverageChip`'s percentage of the share the coverage door reads — or `—` where no campaign exists or none bears a cell yet (I-142 as amended) |
 | 6 | `home_col_last_act` (sortable) | 130 | `RelativeTime` `s-home-project-last-activity`, bound to `FIGURES` (I-139): "2 h ago" inside a day, the document date beyond it — and the document date wherever no clock is installed, which is what keeps a capture photographable twice (I-37 is amended: the cell is the primitive's, and the reading is relative where a present is known) |
-| 7 | `⋯` | 56 | `ProjectRowMenu` (I-140) |
+| 7 | `⋯` | 56 | `ProjectRowMenu` (I-140), standing at the cell's trailing edge (I-140 as amended, session 8) |
 
 **The row menu** (`project-row.tsx`) — the shipped `DropdownMenuTrigger` (the ghost Button,
 square at `--control-h`, `aria-label` `home_row_actions`, `IconMoreHorizontal`), holding three

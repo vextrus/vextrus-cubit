@@ -3,6 +3,9 @@
    render the chips unstyled. Tokens only; no `[data-theme]` selector — both themes arrive through
    the token values (R-UI-001). */
 
+/* s-audit I-427: the row is two boxes side by side — the chips, which give up width, and the count,
+   which never does. The row itself clips nothing: were the count inside a clipping box, a short cell
+   would cut it off first, because it is last in line (the re-look's `+7` lost at 1280). */
 .cx-subject-chips {
   display: inline-flex;
   flex-wrap: nowrap;
@@ -10,27 +13,41 @@
   gap: var(--space-2);
   min-inline-size: 0;
   max-inline-size: 100%;
-  overflow: hidden;
   white-space: nowrap;
 }
 
-/* s-audit I-347: a name that does not fit is ellipsised INSIDE its chip's measure, never cut mid-glyph
-   by the cell's edge. The chip's measure is the IdChip's own box (`.cx-id-chip-value`), which is a
-   flex box and so has no line to end in an ellipsis: inside these chips alone it is a block whose one
-   line is the chip's height. A name is capped at 24 characters, so two chips and the count always
-   stand whole in the narrowest cell the rubric reads (S-Audit's Cited evidence at 1280, 484 px); the
-   last chip shown is the one that gives up width when the cell is short, down to its copy target and
-   a glyph or two. The copy target itself never shrinks. */
-.cx-subject-chip {
-  flex: none;
-  min-inline-size: 0;
-}
-
-.cx-subject-chip-tail {
+/* The chips shown, and the only box that clips. It is as wide as its chips where the cell has the
+   room, and gives up width to the count where it has not (`min-inline-size: 0`). It is as tall as a
+   pointer target (WCAG 2.2 SC 2.5.8): a chip is 20 px, and its copy button's 24 px target reaches
+   2 px past it above and below, so a 20 px clipping box cut the top and bottom of every copy
+   target it held. */
+.cx-subject-chips-shown {
+  display: inline-flex;
   flex: 0 1 auto;
-  min-inline-size: calc(var(--space-6) * 2);
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  min-block-size: var(--space-6);
+  overflow: hidden;
 }
 
+/* s-audit I-427 (amends I-347): every chip shown gives up width, and they give it up evenly. Each
+   starts from nothing and takes an equal share of the box, never more than its own name needs
+   (`max-inline-size: max-content`): a short name keeps all of it and hands the rest to the long ones.
+   A name that does not fit its share ends in an ellipsis INSIDE its chip's measure, never cut
+   mid-glyph by the cell's edge — so at 1280 three long names read as three names, not two and "R…".
+   A chip's floor is its copy target and a glyph or two; the copy target itself never shrinks. */
+.cx-subject-chip {
+  flex: 1 1 0;
+  min-inline-size: calc(var(--space-6) * 2);
+  max-inline-size: max-content;
+}
+
+/* The chip's measure is the IdChip's own box (`.cx-id-chip-value`), which is a flex box and so has no
+   line to end in an ellipsis: inside these chips alone it is a block whose one line is the chip's
+   height. A name is capped at 24 characters where the cell has room for more, so one long name
+   never takes the row. */
 .cx-subject-chip .cx-id-chip-value {
   display: block;
   min-inline-size: 0;
@@ -46,8 +63,9 @@
 }
 
 /* The count of the subjects the row folds away. Their names are on its tooltip, and it is a tab stop
-   so the keyboard reaches them as the pointer does (R-UI-012). It never shrinks: the count is the
-   part of the cell that says something was folded, so it is the last thing a narrow cell may lose. */
+   so the keyboard reaches them as the pointer does (R-UI-012). It never shrinks, and it stands
+   OUTSIDE the box that clips (s-audit I-427): the count is the part of the cell that says something
+   was folded, so no width the chips need may take it. */
 .cx-subject-chips-more {
   flex: none;
   display: inline-flex;

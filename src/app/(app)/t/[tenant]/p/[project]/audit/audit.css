@@ -1,6 +1,6 @@
 /* S-Audit (R-SPINE-081). Colour, motion and rhythm come from tokens alone — no literal but the
-   closed set of px measures the Design Decision rules: the 1080 px page measure, the 180/240 px
-   filter widths, the 96 px label column and the md breakpoint a media query cannot read a var() in.
+   closed set of px measures the Design Decision rules (§5): the 180/240 px filter widths, the
+   ledger grid's 360 px height and the md breakpoint a media query cannot read a var() in.
    No [data-theme] selector: every light/dark difference arrives through the token values themselves
    (R-UI-001). */
 
@@ -66,13 +66,17 @@
   color: var(--ink-secondary);
 }
 
-/* The platform's own closed choice, wearing the primitive's own chrome (I-31): the select takes
-   `.cx-input` itself rather than restating its declarations, so the border, height, hover, disabled
-   and invalid answers have one home and the screen's selects and its Input cannot drift into two
-   dialects of one control (B-17, ARCH-02). Only the width this row wants lives here, and the user
-   agent's own drop indicator is kept. */
+/* The shipped Select (I-31 as amended; R-UI-083 makes the native control unlawful), wearing the
+   primitive's own chrome — the border, height, hover and disabled answers have one home (B-17). Only
+   the width this row wants lives here. The class lands on the Select's wrapper, whose trigger is sized
+   to its words: at 180 the wrapper stood wide and the trigger inside it did not, so "All actors" drew
+   a 95 px box beside a 97 px hole and the row read ragged (I-428). The trigger fills the floor. */
 .cx-audit-select {
   min-width: 180px;
+}
+
+.cx-audit-select > .cx-select-trigger {
+  flex: 1 1 auto;
 }
 
 /* An act type is read in words now (I-38 as amended for R-UI-083), in the row and in the filter
@@ -120,19 +124,17 @@
   color: var(--ink-muted);
 }
 
-/* The cited subjects (I-38, I-347): at most three chips and a `+k`, on one line of the cell. A name
-   that does not fit ends in an ellipsis inside its own chip — never cut mid-glyph (R-UI-084) — which
-   is the shared `.cx-subject-chips` layout's to do (subject-chips.css); this box only keeps the row
-   inside its cell. */
-.cx-audit-act-evidence {
-  max-inline-size: 100%;
-  overflow: hidden;
-}
+/* The cited subjects (I-38, I-347, I-427) are the shared `.cx-subject-chips` layout's to lay out
+   (subject-chips.css): at most three chips and a `+k`, on one line of the cell, a name that does not
+   fit ending in an ellipsis inside its own chip — never cut mid-glyph (R-UI-083). This sheet adds no
+   box of its own around them: the one it added clipped, and with it clipped the count off the cell.
 
-/* I-347: Cited evidence is the log's last column and takes the width the four before it leave. At
+   I-347: Cited evidence is the log's last column and takes the width the four before it leave. At
    420 it stopped 230 px short of a header that runs to the grid's edge, while the third chip of a row
-   was cut against it; the width is the column's own and never less than 420. Addressed by position
-   because a cell carries no column name — a column a reader hides only moves which cell is last. */
+   was cut against it; the width is the column's own and never less than its floor — 400 since
+   I-428, so the five floors (1,160) leave a classic scrollbar inside 1280's 1,184 px band. Addressed
+   by position because a cell carries no column name — a column a reader hides only moves which cell
+   is last. */
 .cx-audit-acts .cx-table-row > .cx-table-cell:last-child {
   flex-grow: 1;
 }

@@ -198,6 +198,17 @@
   padding-inline: 0;
 }
 
+/* I-140 as amended (session 8): the row's `⋯` stands at the TRAILING edge of its 56 px cell, under
+   the header's own. The DataTable draws its column chooser at the grid's far edge, and the trigger sat
+   at the cell's leading edge, 28 px to its left: two identical glyphs in one column that did not read
+   as one line. The cell's box is the well the trigger stands in, so it is the box that places it —
+   at the end, and centred on the row in either density. */
+.cx-home-table .cx-table-cell[data-control] > .cx-table-cell-text {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 /* --- the project form, one component serving create and edit ---------------------------------- */
 
 .cx-home-form-heading {

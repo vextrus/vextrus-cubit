@@ -10,7 +10,9 @@ CSS. Interpretations I-1–I-30 of the earlier Decisions remain in force ("works
 user-facing word for tenant, s-auth I-11; copy lives in `strings.ts` beside the page,
 s-settings-ruleset I-24; model values render verbatim in mono, I-25; digests render whole,
 I-26; the rail states the area, I-30). Chrome comes only from shipped primitives — the core
-Input, Button and Skeleton — plus the `cx-audit-*` classes this file rules. The screen is a
+Input, Select, Button, Skeleton, IdChip and EnumLabel, and the DataTable (I-31 and I-38 as
+amended) — plus the `cx-audit-*` classes this file rules and the shared `SubjectChips`
+(`subject-chips.css`, I-347, I-427). The screen is a
 reader: the act seam stays the sole writer (L-ACT-01), so no act, no copper, no
 ConsequenceDialog appears anywhere on it.
 
@@ -26,6 +28,11 @@ ConsequenceDialog appears anywhere on it.
   reach. Options derive from the given rows (the distinct `actType`s; the distinct
   `actorId`s labelled by `actorLabel`), plus one all-option each; a filter over values the
   list does not hold would offer choices that can only produce emptiness.
+  *Amended in place (session 8, C1; R-UI-083, the later law, which makes the native control
+  unlawful):* the premise is gone — the core barrel ships `Select` — so both filters are the shipped
+  `Select`, with its own caret and listbox, and no screen chrome restates it. The closed choice is
+  unchanged: the options derive from the rows, one all-option each. `.cx-audit-select` states the
+  180 px floor, and the trigger fills it (I-428).
 - **I-32 — the subject filter compares whole identifiers.** *Amended by I-38 (session 7): a
   person also finds a subject by the name the row shows for it, compared whole.* "Acts whose subjects include
   it" is array membership: an act matches when the trimmed entered value equals one of its
@@ -107,25 +114,27 @@ ConsequenceDialog appears anywhere on it.
     Act-type filter's options are labelled in the same words (their VALUES stay the stored act
     types, so a choice is exact), and the select reads in the UI face whatever is chosen — the
     `cx-audit-select-mono` class is retired.
-  - **Actor** (220) is the label the project's roster names the person by — the page reads the
+  - **Actor** (220; 280 by I-428, the width S-Project's Who draws) is the label the project's
+    roster names the person by — the page reads the
     roster through `projectParticipants`' own guarded door and hands `getAuditSurfaces` its
     `people` (account id → address); an actor the roster cannot name (a refused reader, a person
     no longer attached, a digest-keyed account) is the IdChip of the id the log recorded. The Actor
     filter's options read the same label, or the id's short form.
-  - **Cited evidence** (420) is `SubjectChips` (`subject-chips.tsx`, shared with S-Project): ONE
-    presenter over the key schemes an act records, parsed in `src/modules/spine/audit/subjects.ts`
-    and named from the store by `getAuditSurfaces` (`names`: level labels, drawing names, view
-    captions, the roster). Each subject is still an IdChip whose VALUE is the whole key; its
-    measure is what the key names — a placement `C1 · GF` (mark · level; an unresolved level says
-    nothing), a note reading `LAP · S-02` (kind · sheet number), a storey-height reading its level,
-    a view its caption, a sheet its number, a level INSERT_LEVEL proposed `Proposed level {n}`
-    (`audit_subject_proposed_level`; the key carries the proposal's index and nothing else, so
-    the screen does not guess which minted level it became), and a bare surrogate the level,
-    drawing or person the store names by it. A key the presenter cannot read keeps the chip's own
-    short form. At most three chips show; the rest fold into `+{count}` (`audit_subject_more`), a
-    tab stop whose tooltip lists their names and which keeps each folded key in the DOM as a
-    hidden `data-value` — ellipsis plus a count, never silent loss (R-UI-084). The cell clips with
-    an ellipsis, never mid-glyph.
+  - **Cited evidence** (420; a 400 floor by I-428) is `SubjectChips` (`subject-chips.tsx`, shared
+    with S-Project): ONE presenter over the key schemes an act records, parsed in
+    `src/modules/spine/audit/subjects.ts` and named from the store by `getAuditSurfaces` (`names`:
+    level labels, drawing names, view captions, the roster). Each subject is still an IdChip whose
+    VALUE is the whole key; its measure is what the key names — a placement `C1 · GF` (mark · level;
+    an unresolved level says nothing), a note reading `LAP · S-02` (kind · sheet number), a
+    storey-height reading its level, a view its caption, a sheet its number, a level INSERT_LEVEL
+    proposed `Proposed level {n}` (`audit_subject_proposed_level`; the key carries the proposal's
+    index and nothing else, so the screen does not guess which minted level it became), and a bare
+    surrogate the level, drawing or person the store names by it. A key the presenter cannot read
+    keeps the chip's own short form. At most three chips show; the rest fold into `+{count}`
+    (`audit_subject_more`), a tab stop whose tooltip lists their names and which keeps each folded
+    key in the DOM as a hidden `data-value` — ellipsis plus a count, never silent loss (R-UI-083,
+    the grid law; an earlier text of this line cited R-UI-084, which is the breadcrumb). The cell
+    clips with an ellipsis, never mid-glyph.
 - **I-347 — the presenter reads what the log actually cites, and a row never shows one name twice
   (session 7, wave 3, the craft re-look; R-UI-082/083/084, B-17; amends I-38 as amended, and S-Project's
   I-146 through the shared `SubjectChips`).** The re-look found four rows of the M3 project's log
@@ -157,14 +166,98 @@ ConsequenceDialog appears anywhere on it.
   - **A chip cut mid-glyph.** `text-overflow` on the evidence box did nothing to a row of inline-flex
     chips: Insert level read `Proposed level 1 · Proposed level 2 · Proposed le` with no ellipsis.
     Inside these chips alone the IdChip's measure is a one-line block that ends in an ellipsis
-    (`subject-chips.css`); a name is capped at 24 characters so two chips and the count stand whole
-    in the narrowest cell the rubric reads (this column at 1280, 484 px); and the LAST chip shown
-    (`cx-subject-chip-tail`) is the one that gives up width when a cell is short, down to its copy
-    target and a glyph or two. The count never shrinks.
+    (`subject-chips.css`), and a name is capped at 24 characters. The count never shrinks.
+    *Amended by I-427 (session 8):* this bullet also said that "two chips and the count stand
+    whole in the narrowest cell the rubric reads (this column at 1280, 484 px)", with the LAST chip
+    shown (`cx-subject-chip-tail`) giving up width down to its copy target and a glyph or two. That
+    was false. Measured, two chips at the cap need 410 px before the tail's floor and the count. The
+    count sat last inside a clipping box, so the Affirm-scale row lost its `+7` off the cell, and its
+    tail read "R…". Since I-428 widened Actor, the cell is also 424 px at 1280, not 484. The count
+    now stands outside the box that clips, and every chip shown gives up width evenly (I-427).
   - **Cited evidence takes the band.** At 420 the column stopped ~230 px short of a header that runs
     to the grid's edge while its third chip was cut; it is the log's last column and now takes the
     width the four before it leave (`audit.css`), 420 being its floor (s-home I-140 as amended, the
-    same reading of the band).
+    same reading of the band). *Amended by I-428 (session 8):* the floor is 400.
+- **I-427 — the count stands outside the box that clips, and every chip shown gives up width
+  evenly (session 8, C1; R-UI-083, R-UI-082, B-17; amends I-347's chip-measure bullet, and S-Project's
+  I-146 through the shared `SubjectChips`).**
+  - **Measured.** Session 7's re-look at 1280×800 found the Affirm-scale row reading
+    `TYPICAL SLAB REINFORC…` `1ST FLOOR SLAB REINFO…` `R…` with its `+7` gone. Seven of ten subjects
+    were hidden with no sign they existed. The measure was re-taken in the product's own Chromium,
+    with Spline Sans Mono loaded, on the stylesheets as they stood. A chip at the 24-character cap is
+    201 px: the name 171, the copy target 24, and the gap. The count stood at 482–506 px of the
+    484 px cell. It was clipped twice: by the row's own `overflow: hidden` and by
+    `.cx-audit-act-evidence` around it. At the 424 px cell I-428 leaves, the second chip was cut
+    too.
+  - **What the row does.** The row is two boxes side by side. The first is `.cx-subject-chips-shown`,
+    the chips and the ONLY box that clips (`overflow: hidden`, `min-inline-size: 0`,
+    `flex: 0 1 auto`). The second is the `+k` (`flex: none`), beside that box and never inside it.
+    The row itself clips nothing, and neither does S-Audit's cell: `.cx-audit-act-evidence` is
+    retired. The chips' box is as tall as a pointer target (`min-block-size: var(--space-6)`, WCAG
+    2.2 SC 2.5.8). A chip is 20 px and its copy button's 24 px target reaches 2 px past it above and
+    below. At 20 px the box cut the top and bottom 2 px of every copy target it held: a point there
+    hit the row, not the button (measured with `elementFromPoint`). At 24 px every copy target is
+    whole, and no chip or count moves by a pixel. A row with no `+k` grows from 20 to 24 px inside
+    its 28 px cell, centred as before (measured).
+  - **How the chips share.** Each chip starts from nothing and takes an equal share of the chips'
+    box, never more than its own name needs (`flex: 1 1 0`, `max-inline-size: max-content`). A short
+    name keeps all it needs and hands the rest to the long ones. A name that does not fit its share
+    ends in an ellipsis inside its own measure. A chip's floor is its copy target and a glyph
+    (`calc(var(--space-6) * 2)`, 48 px). The tail class is retired: no chip is singled out to be
+    squeezed.
+  - **At 1280, the narrowest cell the rubric reads (424 px).** The Affirm-scale row reads three
+    chips of 120 px (`TYPICAL SL…`, `1ST FLOOR …`, `ROOF SLAB …`), and `+7` stands whole at
+    392–416 px. A row with two short names and one long one keeps the short ones whole: `C1 · GF`
+    and `Model space` whole, the caption at 154 px. At 1440 (584 px) three captions take 173 px
+    each; on S-Project's Subject at 1280 (544 px), 160 each. A row whose names fit is drawn exactly
+    as before, to the pixel (measured). Those cells are what a headless capture draws, where
+    scrollbars take no width. In a headed window at 1280 whose `shell-main` scrolls, a classic
+    scrollbar takes 15 px (Chromium on Linux) or 17 (on Windows), and the cell is 409 or 407 px. The
+    chips take 115 or 114 px each, `+7` stands whole at 377–401 or 375–399, and the grid does not
+    scroll sideways (measured, I-428).
+  - **The cost, stated.** Names that share a prefix longer than their share read alike at 1280.
+    Insert level's `Proposed level 1`–`3` all read `Proposed l…`, where I-347 drew two whole names
+    and a `Pr…` stub. Each chip's tooltip still holds its whole key, and the `+k`'s holds the rest's
+    names. A fold that measures each row, dropping the last chip into the count where it cannot show
+    a word, would read better there. It was not taken: it needs a ResizeObserver per row, and it
+    makes the `+k`'s text depend on the viewport, a first-paint and e2e risk. A reader who resizes
+    the column below three floors (about 200 px) sees the last chip cut at the box's edge. The count
+    still stands whole.
+  - **Proved by** `tests/ui/s-audit/subject-presenter.test.tsx` (the count is the row's own last
+    child, outside `.cx-subject-chips-shown`; no chip carries a class of its own) and
+    `tests/ui/craft/grid-band.test.ts` (the rules above, the chips' box a target tall, and no
+    clipping rule on the row or on `.cx-audit-act-evidence`). Pictures: S-Audit's explorer and
+    S-Project's home at 1440 are re-taken by the gate.
+- **I-428 — one person, one width, with room for a scrollbar; a filter's trigger fills its floor
+  (session 8, C1; B-17, R-UI-083; amends I-38 as amended, I-347's floor, and §1's filter
+  row).**
+  - **The Actor column.** The re-look read every Actor cell as `j000-legs-mudw5e1talb7@cubit.…` at
+    220 px. S-Project's Who column, widened to 280 by its I-147 for exactly this, showed the same
+    address whole: one person, spelt two ways on two adjacent screens. Actor is now 280
+    (`ACTOR_COLUMN_WIDTH`), the width Who draws. A jsdom test mounts both screens and holds the two
+    widths equal. The width has one home, `ACTOR_COLUMN_WIDTH` in `subject-chips.tsx`, the module
+    both screens already import, and S-Project's Who reads it too.
+  - **The band, with room for a scrollbar.** Cited evidence's floor falls from 420 to 400. The five
+    floors sum to 220 + 280 + 120 + 140 + 400 = 1,160, which is 24 px inside the 1,184 px band at
+    1280 (1280 − the 48 px rail − `shell-main`'s 24 + 24 padding), more than a classic scrollbar.
+    The first text of this Interpretation kept 420, for 1,180: 4 px of slack. That held only where
+    scrollbars take no width, which is every headless capture: Chromium hides them by itself
+    (`tests/e2e/support/capture-geometry.ts`). A headed window at 1280 whose `shell-main` scrolls
+    loses 15 to 17 px to a scrollbar. The log then scrolled sideways by 11 to 13 px, and the `+k` was
+    cut 3 to 5 px at the grid's edge: the defect I-427 fixes, back in the one viewport the QS
+    outcome names (the wave's review, reproduced on the rendered explorer). At 400 nothing scrolls
+    at 1,167 or 1,169 (measured). The column still takes the band's remainder, so its cell is 424 px
+    at 1280 and 584 at 1440 in a headless capture, and 407–409 at 1280 headed (I-427). A jsdom test
+    sums the rendered header widths of the log, and of S-Project's activity table, which shares Who,
+    and holds each sum + 17 ≤ 1,184.
+  - **The filter row.** `.cx-audit-select` lands on the Select's inline-flex wrapper, and the
+    trigger inside it is sized to its words. So the 180 px floor held the wrapper, not the box the
+    eye reads. "All act types" drew about 112 px and "All actors" about 95, which left holes of
+    80–97 px in a row whose rhythm is 12. The trigger now fills the wrapper
+    (`.cx-audit-select > .cx-select-trigger { flex: 1 1 auto }`). Both triggers draw 180, and the
+    row keeps its 12 px gaps (measured). A chosen value longer than the floor, such as an actor's
+    whole address, grows its trigger so that it reads whole (260 px measured), as the column now
+    shows it.
 - **I-36 — the log is a list, not a DataTable and not a fixed-height table.** *Amended by I-38.* No sort, no
   column operations, no inline edit, no virtualisation (pagination is out of scope by name),
   and the contract's filters are external controls, not column filters — DataTable would be
@@ -185,38 +278,37 @@ before any query (the shell's `scopedTenantId` precedent) — the module answers
 `AuditSurfaces` shape with no acts, never a 22P02 driver fault.
 
 The page renders in `shell-main`, one column `cx-audit`: no page measure (I-38 — the act log is the
-screen's primary grid and fills the work surface), column flex, `gap: var(--space-6)`. Rail and breadcrumb are the shell's, per I-30: `areaOf` reads this
-address as Projects, the rail row carries `aria-current="true"`, the Projects crumb links
-back, and no crumb names this screen. Recorded IOU: visible navigation to this route
-(R-UI-031) is owed by the node that owns the shell's project navigation — the increment's
-own scope names the shell entry as another node's — until then the route is journey- and
-URL-reachable, and that debt is recorded here, not silently absorbed.
+screen's primary grid and fills the work surface), column flex, `gap: var(--space-6)`. Rail and
+breadcrumb are the shell's. The rail's Projects row carries `aria-current="true"`. *Amended in place
+(session 8, C1; R-UI-084, the shell's later trail):* the trail reads workspace › project ›
+**Project** (the project's own area crumb, linking to its home) › **Audit** (the page crumb, from
+`useShellPage(audit_heading)`). The IOU this section recorded for visible navigation to the route
+(R-UI-031) is paid: S-Project's Activity tab and its "All activity" link reach it.
 
 Header block (`gap: var(--space-2)`): `<h1>` `audit_heading` — `var(--text-20)`
-`var(--weight-heading)` `var(--graphite-900)`, margin 0 — over the caption `audit_caption`
-in `var(--text-13)` `var(--graphite-600)`.
+`var(--weight-heading)` `var(--ink)`, margin 0 — over the caption `audit_caption`
+in `var(--text-13)` `var(--ink-muted)`.
 
 ### Act log explorer (`<section aria-labelledby>`)
 
-`<h2>` `audit_acts_heading` (`var(--text-16)` `var(--weight-heading)` `var(--graphite-900)`,
+`<h2>` `audit_acts_heading` (`var(--text-16)` `var(--weight-heading)` `var(--ink)`,
 margin 0), then the **filter row**: flex, wrap, `gap: var(--space-3)`, align-items end. Each
 control is label over field, `gap: var(--space-1)`, `<label for…>` `var(--text-13)`
-`var(--weight-body-medium)` `var(--graphite-700)`:
+`var(--weight-body-medium)` `var(--ink-secondary)`:
 
-- **Act type** — `<select data-testid="audit-filter-type" class="cx-input cx-reticle
-  cx-audit-select">` (I-31): the core Input's own chrome — height, fill, border, radius,
-  padding-inline, `var(--text-14)` `var(--graphite-900)`, hover `var(--graphite-400)`,
-  disabled and invalid — is worn by taking `.cx-input` itself, never restated here (B-17);
-  `.cx-audit-select` adds min-width 180 px and nothing else. Focus: the reticle fallback (a
-  replaced element hosts no `::after`). *Amended by I-38 (session 7):* the control reads in
-  the UI face throughout — `.cx-audit-select-mono` is retired, because an act type is read in
-  words now and not as a source key. First option `audit_filter_any_type`, value empty; then
-  the distinct `actType`s of the given rows, code-point order of the value, each labelled by
-  the words its row's `EnumLabel` reads and valued by the stored act type.
-- **Actor** — `<select data-testid="audit-filter-actor">`, same chrome, always in
-  `var(--font-ui)` (an actor label is prose, not a source key). First option
-  `audit_filter_any_actor`; then the distinct actors, option label `actorLabel` (the
-  roster's label, or the recorded id's short form — I-38), option value `actorId`.
+- **Act type** — the shipped `Select` (I-31 as amended), `data-testid="audit-filter-type"`,
+  `className="cx-audit-select"`: the primitive's own chrome (height `--control-h`, border, hover,
+  disabled, the reticle on its trigger, its caret and listbox), never restated here (B-17).
+  `.cx-audit-select` lands on the Select's wrapper and states a min-width of 180 px; the trigger
+  fills it (`.cx-audit-select > .cx-select-trigger { flex: 1 1 auto }`, I-428). The control reads
+  in the UI face throughout (I-38 as amended — `.cx-audit-select-mono` is retired). First option
+  `audit_filter_any_type`, value empty; then the distinct `actType`s of the given rows, code-point
+  order of the value, each labelled by the words its row's `EnumLabel` reads and valued by the
+  stored act type. It is the field the clearing returns focus to (§1, Empty).
+- **Actor** — the shipped `Select`, `data-testid="audit-filter-actor"`, the same class and the same
+  chrome. First option `audit_filter_any_actor`; then the distinct actors, option label
+  `actorLabel` (the roster's label, or the recorded id's short form — I-38), option value
+  `actorId`.
 - **Subject** — the core Input, `data-testid="audit-filter-subject"`, width 240 px,
   labelled `audit_filter_subject_label`, no placeholder (the s-auth ruling). Matching per
   I-32 as amended — a pasted key whole, or a chip's presented name or one whole fact of it —
@@ -224,39 +316,27 @@ control is label over field, `gap: var(--space-1)`, `<label for…>` `var(--text
 - **The count line** — `<p role="status">`, margin 0, `align-self: center`,
   `margin-left: auto`: `audit_count` filled by the string seam's `fill` with `{shown}` and
   `{total}` through `formatUserFigure`, `var(--font-ui)` `var(--text-12)`
-  `var(--graphite-600)` `tabular-nums` — a sentence about the list rather than a value out of
+  `var(--ink-muted)` `tabular-nums` — a sentence about the list rather than a value out of
   the store, so it takes the UI face with the tabular figures every UI number takes
   (C-SPINE-PLATFORM). Mounted from first paint, so a filter
   change is announced without a second live region.
 
-Then `var(--space-3)`, then `<ol data-testid="audit-acts">` — list-style none, margin 0,
-padding 0, border-top `var(--hairline)` — the project's acts newest-first (`occurredAt`
-descending, `actId` descending as the tiebreak so the order is total). Rows that fail the
-conjunction of the three filters are not rendered; clearing a filter restores them. Each
-`<li data-testid="audit-act-row" data-act-type={actType} data-actor-id={actorId}>`:
-padding-block `var(--space-3)`, border-bottom `var(--hairline)`, column flex
-`gap: var(--space-1)`:
+Then `var(--space-3)`, then **the log**: the 28 px grid I-38 rules, and nothing else. *Amended in
+place (session 8, C1):* this paragraph described the act log as an `<ol>` of blocks — a meta line
+with the act type verbatim in mono, a consequence line with the digest whole and wrapping, an
+evidence line of verbatim subjects — which I-38 replaced in session 4 and which the text still
+carried. The log is `<div data-testid="audit-acts" data-rows>` holding the shipped `DataTable`
+(`tableId` `audit-acts`), its columns, cells and widths as I-38 as amended, I-347, I-427 and
+I-428 rule them: Act type 220 · Actor 280 · Occurred 120 · Consequence 140 · Cited evidence 400 (its
+floor) and the band's remainder. The rows are the project's acts newest-first (`occurredAt` descending,
+`actId` descending as the tiebreak so the order is total), each `audit-act-row` carrying
+`data-act-type` and `data-actor-id`. Rows that fail the conjunction of the three filters are not
+rendered; clearing a filter restores them.
 
-- **Meta line** — flex, baseline, `gap: var(--space-3)`: the act type verbatim in
-  `var(--font-mono)` `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`;
-  the `actorLabel` in `var(--text-13)` `var(--graphite-700)`; then, `margin-left: auto`,
-  occurred-at per I-34 in `var(--font-mono)` `var(--text-12)` `var(--graphite-600)`
-  `tabular-nums slashed-zero`.
-- **Consequence line** — flex, baseline, `gap: var(--space-2)`: the label
-  `audit_consequence_label` (`var(--text-12)` `var(--graphite-600)`, min-width 96 px so the
-  two labels column-align) then `<span data-testid="audit-act-consequence">` — the digest
-  whole, wrapping (`overflow-wrap: anywhere`), `user-select: all`, `var(--font-mono)`
-  `var(--text-12)` `var(--graphite-700)` `tabular-nums slashed-zero` (I-26; the M0 stored
-  consequence is its digest, per the increment's recorded Interpretation).
-- **Evidence line** — same grid, label `audit_evidence_label`, then
-  `<span data-testid="audit-act-evidence">`: inline flex, wrap, `gap: var(--space-2)`, one
-  `<span>` per subject verbatim, `var(--font-mono)` `var(--text-12)` `var(--graphite-700)`,
-  `user-select: all` each — the act's cited evidence is its subjects array, shown whole.
-
-**Empty** (I-33): in the `<ol>`'s place, `<div data-testid="audit-acts-empty">` — column
+**Empty** (I-33): in the grid's place, `<div data-testid="audit-acts-empty">` — column
 flex, `gap: var(--space-2)`, padding-block `var(--space-6)`, border-top `var(--hairline)`:
-heading line `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`, body line
-`var(--text-13)` `var(--graphite-600)`. With no acts at all: `audit_empty_none_heading` /
+heading line `var(--text-13)` `var(--weight-body-medium)` `var(--ink)`, body line
+`var(--text-13)` `var(--ink-muted)`. With no acts at all: `audit_empty_none_heading` /
 `audit_empty_none_body`, nothing else. With acts but no match: `audit_empty_filtered_heading`
 / `audit_empty_filtered_body`, then `var(--space-2)` and a core ghost Button, label
 `audit_empty_clear`, `align-self: start`, which resets all three filters in place. Clearing
@@ -270,13 +350,13 @@ optional (R-UI-012).
 Below the explorer: `<div class="cx-audit-panels">`, grid two equal columns,
 `gap: var(--space-4)`, one column below the md breakpoint (`min-width: 960px` — a media
 query cannot consume `var()`, so the token's value is the one lawful literal). Each panel is
-a `<section aria-labelledby>` card: fill `var(--graphite-50)`, border `var(--hairline)`,
+a `<section aria-labelledby>` card: fill `var(--surface-panel)`, border `var(--hairline)`,
 radius `var(--radius-8)`, padding `var(--space-4)`, column flex `gap: var(--space-2)` —
 `data-testid="audit-panel-model-ledger"` / `"audit-panel-jobs"`, each carrying
 `data-armed="true"|"false"` from its live probe (I-35).
 
 - `<h2>` `audit_ledger_heading` / `audit_jobs_heading` — `var(--text-16)`
-  `var(--weight-heading)` `var(--graphite-900)`, margin 0.
+  `var(--weight-heading)` `var(--ink)`, margin 0.
 Armed means the panel can be answered for the reader in front of it: the catalogue holds the
 table AND the tenant handle asking holds `select` on it. The catalogue answers about relations
 a role has no privilege on, so arming on existence alone would let the row count raise a
@@ -284,11 +364,11 @@ permission fault and take the whole screen to the error boundary — and a postu
 fault (I-35).
 
 - **Disarmed** (`data-armed="false"`, the M0 shipped answer): one body line,
-  `audit_ledger_disarmed` / `audit_jobs_disarmed`, `var(--text-13)` `var(--graphite-600)`.
+  `audit_ledger_disarmed` / `audit_jobs_disarmed`, `var(--text-13)` `var(--ink-muted)`.
 - **Armed** (`data-armed="true"`): the row count — `formatUserFigure(String(rowCount))` in
-  `var(--font-mono)` `var(--text-24)` `var(--weight-heading)` `var(--graphite-900)`
+  `var(--font-mono)` `var(--text-24)` `var(--weight-heading)` `var(--ink)`
   `tabular-nums slashed-zero` — over its caption `audit_ledger_count_caption` /
-  `audit_jobs_count_caption` in `var(--text-12)` `var(--graphite-600)`. Job detail is that
+  `audit_jobs_count_caption` in `var(--text-12)` `var(--ink-muted)`. Job detail is that
   increment's surface, not this slice's.
 - **Armed with rows, the model ledger only** (I-37; `data-rows` > 0 on the section, which takes
   `cx-audit-panel-ledger` and spans both columns): after the count and caption, `<div
@@ -391,27 +471,36 @@ duration is a token zeroed at source under reduced motion.
 
 ## 5. Tokens
 
-`--graphite-0/50/100/300/400/600/700/900` · `--hairline` · `--space-1/2/3/4/6/8` ·
-`--radius-4/8` · `--text-12/13/14/16/20/24` · `--font-mono` ·
-`--weight-body-medium/--weight-heading` · `--motion-state/--ease`. Px literals, closed set
-(core I-1's class): the 1080 px page measure, filter min-widths 180/240, the 96 px label
-column, skeleton bones 24/16/32/48/96 × 240/360/200/1080/520, and the md media-query value.
-Any other literal is a defect.
+*Amended in place (session 8, C1; R-UI-086, `cubit/no-primitive-token`):* this list named the
+`--graphite-*` primitives, which a component may not read and `audit.css` does not. The screen
+reads the semantic alias layer and the density and layout tokens only:
+`--ink` · `--ink-secondary` · `--ink-muted` · `--surface-panel` · `--hairline` ·
+`--space-1/2/3/4/6` · `--radius-8` · `--text-12/13/16/20/24` · `--font-mono` ·
+`--weight-body-medium/--weight-heading`, plus what the shipped primitives (Select, Input, Button,
+DataTable, IdChip, EnumLabel, Skeleton) bring from their own homes, `--motion-state`/`--ease`
+among them. The shared chips read `subject-chips.css`'s own tokens. Px literals, closed set (core
+I-1's class): the Select's 180 px floor and the Subject field's 240 (`audit.css`), the ledger
+grid's 360 px max-height, the md media-query value (960), and the skeleton bones
+24/16/32/48/96 × 240/360/200/1080/520 (`loading.tsx`, whose 1080 is the bone's cap, not a page
+measure: I-38 retired that). Any other literal is a defect.
 
 ## 6. Themes
 
 `audit.css` contains no `[data-theme]` selector; every light/dark difference arrives through
-token values (R-UI-001). The panels' graphite-50 cards stand one step off the graphite-0
-field, seamed by hairlines, in both themes (the shell's recorded light-end perceptual note
-applies here too and has the same owner). Contrast holds on founder facts: graphite-600 and
-700 on graphite-0 and graphite-50 ≥ 4.5:1, graphite-900 likewise, in both themes. No basis
-colour, no semantic tint and no copper appears anywhere on this screen.
+token values (R-UI-001). The panels' `--surface-panel` cards stand one step off the
+`--surface-app` field, seamed by hairlines, in both themes (the shell's recorded light-end
+perceptual note applies here too and has the same owner). Contrast holds on founder facts:
+`--ink-muted` and `--ink-secondary` on either surface are ≥ 4.5:1, and `--ink` likewise, in both
+themes. Through the alias layer they are graphite-600, 700 and 900 on graphite-0 and 50
+(`src/ui/semantic-alias.test.ts`). No basis colour, no semantic tint and no copper appears
+anywhere on this screen.
 
 ## 7. Test hooks (closed contract, C-05)
 
 Route introduced: `/t/{tenantId}/p/{projectId}/audit`. Test ids, exactly the fourteen of the
 contract — C-05's ten and the ledger's four (I-37) — on the elements ruled in §1: `audit-acts`
-(the `<ol>`) · `audit-act-row` (each `<li>`, `data-act-type`, `data-actor-id`) ·
+(the grid's own box, `data-rows`; §1 as amended) · `audit-act-row` (each row, `data-act-type`,
+`data-actor-id`) ·
 `audit-act-consequence` · `audit-act-evidence` · `audit-acts-empty` · `audit-filter-type` ·
 `audit-filter-actor` · `audit-filter-subject` · `audit-panel-model-ledger` · `audit-panel-jobs`
 (each `<section>`, `data-armed`; the ledger's also `data-rows`) · `audit-ledger-grid`

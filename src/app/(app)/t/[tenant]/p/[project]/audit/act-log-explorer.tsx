@@ -23,7 +23,7 @@ import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { useShellPage } from "@/ui/shell";
 import { fill } from "@/ui/strings";
 import { auditStrings } from "./strings";
-import { SubjectChips, subjectAnswers } from "./subject-chips";
+import { ACTOR_COLUMN_WIDTH, SubjectChips, subjectAnswers } from "./subject-chips";
 import { TESTIDS } from "@/ui/testids";
 
 const ANY = "";
@@ -67,7 +67,10 @@ function columnsOf(names: SubjectNames): DataTableColumnDef<AuditAct>[] {
     {
       id: "actor",
       header: auditStrings.audit_col_actor,
-      size: 220,
+      // I-428: 280, the width S-Project's Who column gives the same person (s-project I-147 as
+      // amended) — at 220 every address was cut at "@cubit.…" beside an unused band, so one person read
+      // two ways on two adjacent screens (B-17).
+      size: ACTOR_COLUMN_WIDTH,
       cell: ({ row }) =>
         isSurrogate(row.original.actorLabel) ? <IdChip value={row.original.actorLabel} /> : <span className="cx-audit-act-actor">{row.original.actorLabel}</span>,
     },
@@ -81,8 +84,12 @@ function columnsOf(names: SubjectNames): DataTableColumnDef<AuditAct>[] {
     {
       id: "evidence",
       header: auditStrings.audit_evidence_label,
-      size: 420,
-      cell: ({ row }) => <SubjectChips className="cx-audit-act-evidence" data-testid={TESTIDS.audit.actEvidence} names={names} subjects={row.original.subjects} />,
+      // I-428: 400 is the column's FLOOR — it takes the band the four before it leave (audit.css). The
+      // floors sum to 220 + 280 + 120 + 140 + 400 = 1,160, which leaves a classic scrollbar (17 px, a
+      // headed Chromium on Windows; 15 on Linux) inside 1280's 1,184 px band. At 420 they summed to
+      // 1,180, and a window with a scrollbar on shell-main scrolled the log sideways and cut the `+k`.
+      size: 400,
+      cell: ({ row }) => <SubjectChips data-testid={TESTIDS.audit.actEvidence} names={names} subjects={row.original.subjects} />,
     },
   ];
 }

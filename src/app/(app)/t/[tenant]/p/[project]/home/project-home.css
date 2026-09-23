@@ -246,6 +246,15 @@
 
 .cx-project-region:nth-of-type(1):has(> .cx-project-table) {
   flex: 1 1 0;
+  /* I-369 as amended (session 8): the region ends on a rule. Its table scrolls, so its window cuts a
+     row partway, and with no line under it the cut row ran straight into the roster's head. */
+  border-block-end: var(--hairline);
+}
+
+/* The roster is a region of its own, not the activity table's tail: its head stands a 12 px seam
+   below the region above (the 4 px region gap and this 8), not the 4 px that ran the two together. */
+.cx-project-region + .cx-project-region {
+  margin-block-start: var(--space-2);
 }
 
 .cx-project-region-head {

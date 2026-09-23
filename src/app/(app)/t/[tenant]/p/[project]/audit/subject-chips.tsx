@@ -11,8 +11,12 @@
  * person the store names by it. A key the presenter cannot read keeps the chip's own short form.
  *
  * A row shows at most `cap` chips and then a `+k` that lists the rest on its tooltip — ellipsis plus a
- * count, never silent loss (R-UI-084). The rest stay in the DOM as `data-value`s, so every subject an
+ * count, never silent loss (R-UI-083). The rest stay in the DOM as `data-value`s, so every subject an
  * act cites is still on the page for a suite, an export and the clipboard.
+ *
+ * s-audit I-427: the chips shown stand in their own box, the only one that clips, and the `+k`
+ * stands beside it — never inside it — so a short cell takes width from the chips, shared evenly,
+ * and never the count (subject-chips.css).
  *
  * s-audit I-347: subjects that READ the same are one chip with a count ("C1 ×9"), not three chips of
  * one word a reader cannot tell apart. The chip's value is the first key it stands for; the others it
@@ -32,6 +36,14 @@ import { auditStrings } from "./strings";
 
 /** How many subjects a row shows before the rest fold into `+k`. */
 export const SUBJECT_CAP = 3;
+
+/**
+ * The width an act's actor reads at, on both screens that list acts: S-Audit's Actor and S-Project's
+ * Who (s-audit I-428, s-project I-147 as amended). 280 holds a workspace address whole. One person,
+ * one width, one home: it lives beside the presenter both screens already share, so neither screen
+ * spells it for itself (B-17).
+ */
+export const ACTOR_COLUMN_WIDTH = 280;
 
 /** Between two facts of one subject: the pause a reader takes, the separator the facts line uses. */
 const BETWEEN = " · ";
@@ -149,25 +161,23 @@ export function SubjectChips({ subjects, names, cap = SUBJECT_CAP, className, "d
   const folded = rest.reduce((held, group) => held + group.subjects.length, 0);
   return (
     <span className={className === undefined ? "cx-subject-chips" : `cx-subject-chips ${className}`} data-testid={testId} data-count={subjects.length}>
-      {shown.map((group, at) => {
-        const [first, ...alike] = group.subjects;
-        return [
-          <IdChip
-            key={`${String(at)}:${first}`}
-            // The last chip shown is the one that gives up width first when the cell is short, and
-            // ellipsises inside its own measure (subject-chips.css) — never cut mid-glyph.
-            className={at === shown.length - 1 ? "cx-subject-chip cx-subject-chip-tail" : "cx-subject-chip"}
-            value={first}
-            short={alike.length === 0 ? group.presented : groupWords(group)}
-          />,
-          // The keys the chip folds are cited all the same: whole in the DOM, for a suite, an export
-          // and the clipboard, exactly as the `+k`'s are (R-UI-082).
-          ...alike.map((subject, index) => <span key={`${String(at)}:${String(index)}:${subject}`} hidden data-value={subject} />),
-        ];
-      })}
+      {/* The only box that clips (s-audit I-427): its chips give up width evenly when the cell is
+          short, each ellipsising inside its own measure (subject-chips.css) — never cut mid-glyph. */}
+      <span className="cx-subject-chips-shown">
+        {shown.map((group, at) => {
+          const [first, ...alike] = group.subjects;
+          return [
+            <IdChip key={`${String(at)}:${first}`} className="cx-subject-chip" value={first} short={alike.length === 0 ? group.presented : groupWords(group)} />,
+            // The keys the chip folds are cited all the same: whole in the DOM, for a suite, an export
+            // and the clipboard, exactly as the `+k`'s are (R-UI-082).
+            ...alike.map((subject, index) => <span key={`${String(at)}:${String(index)}:${subject}`} hidden data-value={subject} />),
+          ];
+        })}
+      </span>
       {rest.length === 0 ? null : (
         // The tooltip's own trigger idiom: a button that opens nothing but the hint, so the keyboard
-        // reaches the folded names exactly as the pointer does (R-UI-012).
+        // reaches the folded names exactly as the pointer does (R-UI-012). It stands OUTSIDE the box
+        // that clips, so no width the chips need can take it (s-audit I-427).
         <Tooltip content={rest.map(groupWords).join(", ")}>
           <button type="button" className="cx-subject-chips-more">
             {fill(auditStrings.audit_subject_more, { count: formatUserFigure(String(folded)) })}

@@ -4,7 +4,7 @@
  * through ONE presenter shared with S-Project's subject column. The craft look found the evidence
  * column showing whole uuids, DXF handles and coordinates cut mid-glyph, INSERT_LEVEL as seven chips
  * "0 1 2 3 4 5 6", and a 27-column act with no count — identifiers as body text (R-UI-082) and silent
- * loss (R-UI-084).
+ * loss (R-UI-083).
  *
  * The keys below are the schemes the act seam records, spelled as the M3 journey's store holds them.
  */
@@ -13,10 +13,12 @@ import { afterEach, describe, expect, test } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NO_SUBJECT_NAMES, namesAskedBy, parseSubject, type SubjectNames } from "../../../src/modules/spine/audit/subjects";
-import { SUBJECT_CAP, SubjectChips, presentSubject, subjectAnswers } from "../../../src/app/(app)/t/[tenant]/p/[project]/audit/subject-chips";
+import { ACTOR_COLUMN_WIDTH, SUBJECT_CAP, SubjectChips, presentSubject, subjectAnswers } from "../../../src/app/(app)/t/[tenant]/p/[project]/audit/subject-chips";
 import { ActLogExplorer } from "../../../src/app/(app)/t/[tenant]/p/[project]/audit/act-log-explorer";
+import { auditStrings } from "../../../src/app/(app)/t/[tenant]/p/[project]/audit/strings";
 import type { AuditAct } from "../../../src/modules/spine/audit";
 import { TESTIDS } from "../../../src/ui/testids";
+import { acts as stageActs, copy, homeData, homeStrings, mountHome, projectHome } from "../project-home/support/project-home-stage";
 
 /** The chips mounted bare carry the evidence cell's own hook, as S-Audit mounts them. */
 const CHIPS = TESTIDS.audit.actEvidence;
@@ -127,7 +129,7 @@ describe("the chips: at most three, then a count, and nothing lost", () => {
     const chips = screen.getByTestId(CHIPS);
     expect(within(chips).getAllByTestId(TESTIDS.idChip.root), `the row shows ${String(SUBJECT_CAP)} chips`).toHaveLength(SUBJECT_CAP);
     expect(chips.textContent ?? "", "the chips read by mark and level").toContain("C1 · GF");
-    expect(chips.textContent ?? "", "and the rest are counted, never silently dropped (R-UI-084)").toContain("+24");
+    expect(chips.textContent ?? "", "and the rest are counted, never silently dropped (R-UI-083)").toContain("+24");
     const cited = [...chips.querySelectorAll("[data-value]")].map((element) => element.getAttribute("data-value"));
     for (const subject of subjects) expect(cited, "every cited key is still on the page").toContain(subject);
   });
@@ -155,12 +157,34 @@ describe("the chips: at most three, then a count, and nothing lost", () => {
     expect(new Set(cited).size, "each key once — a folded key is not drawn twice").toBe(subjects.length);
   });
 
-  test("I-347: the last chip shown is the one that gives up width, so a short cell ellipsises it and cuts no glyph", () => {
+  test("I-427: every chip shown gives up width alike — none is singled out to be squeezed to a glyph", () => {
+    // The re-look at 1280: the Affirm-scale row's LAST chip, the one I-347 let shrink, read "R…" — a
+    // chip that says nothing — while the two before it kept their whole 24 characters.
     const proposed = Array.from({ length: 7 }, (_, index) => `proposed:${String(index)}`);
     render(createElement(SubjectChips, { subjects: proposed, names: NAMES, "data-testid": CHIPS }));
     const shown = within(screen.getByTestId(CHIPS)).getAllByTestId(TESTIDS.idChip.root);
-    expect(shown.map((chip) => chip.classList.contains("cx-subject-chip-tail")), "only the last chip shown is the tail").toEqual([false, false, true]);
-    expect(shown.every((chip) => chip.classList.contains("cx-subject-chip")), "every chip is measured by the chips' own rules").toBe(true);
+    expect(
+      shown.map((chip) => chip.className),
+      "each chip is measured by the one rule every chip shares",
+    ).toEqual(Array.from({ length: SUBJECT_CAP }, () => "cx-id-chip cx-subject-chip"));
+  });
+
+  test("I-427: the count stands OUTSIDE the one box that clips, so a short cell takes width from the chips and never the count", () => {
+    // The re-look at 1280: the `+7` sat last inside the clipping chip row and was cut off the cell
+    // whole — seven of ten subjects hidden with no sign they existed (s-audit I-347, R-UI-083).
+    const subjects = Array.from({ length: 10 }, (_, at) => `v:LAYOUT_PLAN:DXF_HANDLE:20B6|C${String(at + 1)}|${String(at)}.0,0.0@${GF}`);
+    render(createElement(SubjectChips, { subjects, names: NAMES, "data-testid": CHIPS }));
+    const row = screen.getByTestId(CHIPS);
+    const clipping = row.querySelector(".cx-subject-chips-shown");
+    expect(clipping, "the chips stand in a box of their own").not.toBeNull();
+    expect(clipping?.parentElement, "which is the row's own child").toBe(row);
+    expect(within(clipping as HTMLElement).getAllByTestId(TESTIDS.idChip.root), "every chip shown is inside it").toHaveLength(SUBJECT_CAP);
+
+    const count = row.querySelector(".cx-subject-chips-more");
+    expect(count?.textContent ?? "", "the row counts the seven subjects it folds").toMatch(/^\+7/);
+    expect(count?.closest(".cx-subject-chips-shown"), "the count is not inside the box that clips").toBeNull();
+    expect(count?.parentElement, "it stands beside the chips, a child of the row itself").toBe(row);
+    expect([...row.children].at(-1), "last in the row, after the chips").toBe(count);
   });
 });
 
@@ -206,5 +230,56 @@ describe("the act log reads act types in words and actors by the roster (I-38 as
 
     await user.type(screen.getByTestId(TESTIDS.audit.filterSubject), "LAP");
     expect(screen.getAllByTestId(TESTIDS.audit.actRow).map((row) => row.getAttribute("data-act-type"))).toEqual(["TRANSCRIBE_SHEET_NOTES"]);
+  });
+
+  test("I-428: one person, one width — the Actor column is as wide as S-Project's Who, where an address reads whole", async () => {
+    // The re-look: Actor at 220 cut every row to "j000-legs-mudw5e1talb7@cubit.…" while S-Project's Who,
+    // widened to 280 by its I-147 for exactly this, showed the same address whole (B-17).
+    const columnWidth = (root: HTMLElement, header: string): string | undefined =>
+      ([...root.querySelectorAll('[role="columnheader"]')] as HTMLElement[]).find((head) => (head.textContent ?? "").trim() === header)?.style.width;
+
+    const audit = render(createElement(ActLogExplorer, { acts, names: NAMES }));
+    const actor = columnWidth(audit.container, auditStrings.audit_col_actor);
+    audit.unmount();
+
+    const project = mountHome(await projectHome(), homeData({ recentActs: stageActs(1) }));
+    const who = columnWidth(project, copy(await homeStrings(), "project_home_col_who"));
+
+    expect(who, "S-Project's Who column, as its I-147 widened it").toBe(`${String(ACTOR_COLUMN_WIDTH)}px`);
+    expect(actor, "S-Audit's Actor column is the same width").toBe(who);
+  });
+
+  test("I-428: at 1280 the log's column floors leave a classic scrollbar inside the band, so the grid never scrolls sideways past the count", async () => {
+    // The wave's review: with Actor at 280 and Cited evidence's floor at 420 the floors summed to
+    // 1,180 of 1,184 — 4 px of slack, which held only where scrollbars take no width (every headless
+    // capture). A headed window at 1280 whose shell-main scrolls loses 15–17 px to a classic
+    // scrollbar, and the log scrolled sideways by 11–13 px with its `+k` cut at the grid's edge.
+    // The band is 1280 − the 48 px rail − shell-main's 24 + 24 padding; the widest classic scrollbar
+    // (Chromium on Windows) is 17. S-Project's activity table shares the Who width, so it is held too.
+    const BAND_AT_1280 = 1280 - 48 - 24 * 2;
+    const CLASSIC_SCROLLBAR = 17;
+    /** The widths the header row holding `header` draws its columns at, in px, as the DataTable states them. */
+    const headerWidths = (root: HTMLElement, header: string): number[] => {
+      const heads = [...root.querySelectorAll('[role="columnheader"]')] as HTMLElement[];
+      const row = heads.find((head) => (head.textContent ?? "").trim() === header)?.closest('[role="row"]');
+      expect(row, `a header row holds "${header}"`).toBeTruthy();
+      return ([...(row as Element).querySelectorAll('[role="columnheader"]')] as HTMLElement[]).map((head) => {
+        const width = /^(\d+)px$/.exec(head.style.width)?.[1];
+        expect(width, `every column states its width in px ("${(head.textContent ?? "").trim()}")`).toBeDefined();
+        return Number(width);
+      });
+    };
+    const sum = (widths: readonly number[]): number => widths.reduce((total, width) => total + width, 0);
+
+    const audit = render(createElement(ActLogExplorer, { acts, names: NAMES }));
+    const log = headerWidths(audit.container, auditStrings.audit_col_actor);
+    audit.unmount();
+    expect(log, "the log's five columns").toHaveLength(5);
+    expect(sum(log) + CLASSIC_SCROLLBAR, "the log's floors and a scrollbar fit the band at 1280").toBeLessThanOrEqual(BAND_AT_1280);
+
+    const project = mountHome(await projectHome(), homeData({ recentActs: stageActs(1) }));
+    const activity = headerWidths(project, copy(await homeStrings(), "project_home_col_who"));
+    expect(activity, "S-Project's four activity columns").toHaveLength(4);
+    expect(sum(activity) + CLASSIC_SCROLLBAR, "S-Project's activity floors and a scrollbar fit the band at 1280").toBeLessThanOrEqual(BAND_AT_1280);
   });
 });

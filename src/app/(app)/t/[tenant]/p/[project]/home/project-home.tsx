@@ -35,7 +35,7 @@ import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Badge, EmptyState, EnumLabel, IdChip, RelativeTime, Stat, Tooltip, UnitBadge, type FigureFormat } from "@/ui/primitives/core";
 import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { fill, strings } from "@/ui/strings";
-import { SubjectChips } from "../audit/subject-chips";
+import { ACTOR_COLUMN_WIDTH, SubjectChips } from "../audit/subject-chips";
 import { participantsRoute } from "../settings/participants/route-address";
 import { PROJECT_AREAS, QUICK_ACTIONS, RECENT_ACTIVITY_LIMIT, auditRoute } from "./areas";
 import { projectHomeStrings as copy } from "./strings";
@@ -379,8 +379,10 @@ function RecentActivity({ tenantId, projectId, acts, names }: { tenantId: string
       id: "who",
       header: copy.project_home_col_who,
       // I-147 as amended: an address is what tells two people apart, and its tail — the part that
-      // differs — is what 220 cut off; 280 holds a workspace address whole at both viewports.
-      size: 280,
+      // differs — is what 220 cut off; 280 holds a workspace address whole at both viewports. The
+      // width is S-Audit's Actor's too, so it has one home beside the presenter both share (s-audit
+      // I-428).
+      size: ACTOR_COLUMN_WIDTH,
       // The actor's label is the roster's (I-146); an actor the roster cannot name is named by the
       // account id the log recorded, through the IdChip (I-149).
       cell: ({ row }) =>
