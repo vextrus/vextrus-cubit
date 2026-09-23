@@ -290,6 +290,60 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   the DOM); a confirmed card no longer shows its proposal's evidence; on a very wide screen the header's
   tools stand far from the h1. What it buys: the fold of the M3 project reads as drawn, read sheets.
 
+- **I-364 — a card is named by the line its title block writes the sheet on, and never by the set's
+  own words (session 7; R-TO-004, L-AI-03; amends §3's Title and Number, which state where their words
+  come from).** R-TO-004 proposes a title from the title block, and `src/core/sheets/grammar.ts` read
+  that as the block's TALLEST text. On F-RCC6-BNBC, read by the shipped extractor, that named S-01 and
+  S-02 **DO NOT SCALE** (the stock stamp, Text-1, 5), S-00 **PROPOSED G+6 STORIED RESIDENTIAL
+  BUILDING** (the project's name, Text-1, 6) and S-03…S-26 by their first view caption (`PILE LAYOUT
+  PLAN  SCALE 1:100`, Sheet, 4), and 26 of the 27 paper cards read **No sheet number** — a QS could not
+  tell one sheet from another in the fold. The block writes each sheet as ONE line, `S-01  GENERAL
+  NOTES (1 OF 2)` (Sheet, 3.2), lower than all three. The grammar now reads, in this order:
+  1. **The numbered line.** A text matching `^([A-Z]{1,3}-\d{2,4}[A-Z]?)\s+(.+)$` is taken whole: its
+     first part is the number, the rest the title. Where the layout's own name opens with a number
+     (`S-10 COLUMN LAYOUT PLAN`), only a line stating THAT number is admitted — a cover's drawing index
+     states other sheets' lines, and a caption spelled like a sheet id names another thing; where the
+     name carries none, the tallest such line, ties to artifact order.
+  2. **Else the tallest text**, as before; its number the block's own `S-01` or `SHEET n OF m`, and,
+     where the block states neither, the number the layout's name opens with. The name never supplies
+     a title: a layout name cannot carry `/` or `:`, so `S-24 … UGWR - SEPTIC TANK` is the block's
+     `UGWR / SEPTIC TANK` spelled worse.
+  3. **The set's words name no sheet.** A text EVERY paper layout of the record carries word for word —
+     the project's name, a stock stamp, a revision table — is read by neither step, where the record
+     holds two sheets or more; a sheet carrying nothing else is named by what it carries.
+  4. **`cited` does not move**: every text of the layout, the set's words included — it is the block
+     the proposal was read out of (I-93), and the card's three keys stay the same three.
+  Measured over the artifacts the shipped extractor writes today, the whole proposal compared as JSON
+  against the grammar at `38611671`: F-RCC6 (byte-frozen; `rcc6.dxf` and `rcc6.dwg`) **0 of 9** layouts
+  move — its project line stands on every sheet but was never its tallest; `arch-plan.dxf` and the
+  committed `cad/tests/fixtures` artifacts (basic, blocks, layouts, viewports) move nothing;
+  F-RCC6-BNBC (`.dxf` and `.dwg`) moves **27 of 28** — every paper sheet — and each now proposes
+  exactly the number and title its manifest's roster declares (`fixtures/rcc6-bnbc/manifest.json`);
+  its model space keeps **COLUMN SCHEDULE** and no number. Graded in
+  `tests/takeoff/sheets/title-block-grammar.test.ts`. What it costs: where a layout's name carries no
+  number and the block writes no numbered line of its own, a view caption spelled like a sheet id
+  (`GB-12 LONG SECTION`) would be taken as the sheet — the tallest-line rule is a guess only there; a
+  number supplied by the layout's name cites nothing, because a layout name is no entity; and since a
+  proposal is computed on read and never stored, every project already holding this drawing is
+  retitled on its next read — a confirmation keeps the discipline it was confirmed under.
+- **I-365 — the `S` of `S-01` names the discipline (session 7; L-REG-03, R-TO-004).** On a numbered line
+  the number's own designator — one letter and a hyphen, read through the same S/A/M/E/P/C map as a
+  layer's prefix — decides the proposed discipline before the layer does; then the layer, then the
+  title's words, then `OTHER`, as before. A two-letter prefix (`GA-`, `SK-`, `ST-`) designates nothing
+  and falls through. Why: I-364 moves S-00…S-02's titles off Text-1 (no prefix, no keyword: **OTHER**)
+  onto the Sheet layer, which the layer rule reads as STRUCTURAL only because "Sheet" begins with S —
+  the accident that already made S-03…S-26 STRUCTURAL by their captions. The set's own numbering is
+  the evidence a QS reads; the layer's first letter is not. Measured on F-RCC6-BNBC: **28 STRUCTURAL,
+  0 OTHER** proposals (was 25 and 3), so the drawing offers ONE group (STRUCTURAL, 28 sheets) where it
+  offered two (STRUCTURAL 25, OTHER 3), and on a fresh project the discipline chips count 28 and 0
+  where they counted 25 and 3. J-000's M3 staging confirms every group it is offered, up to
+  `OFFERED_GROUPS_CAP`, and walks one confirmation instead of two; the m1 legs, J-010 and the db lane's sheet suites stand on F-RCC6,
+  where nothing moves. No path reads a confirmed discipline beyond this index and CONFIRM_DISCIPLINE's
+  membership — a placement registers under `PLACEMENT_DISCIPLINE` — so no quantity moves. Listed for its
+  owner, not changed: the layer rule still reads a layer's FIRST LETTER, so a layer named `Symbols` or
+  `Site` proposes STRUCTURAL and `Paper` MEP; the NCS form (`S-…`) would move neither fixture, but it is
+  a change to every other drawing's proposal and was measured against none.
+
 ## 1. Layout and hierarchy
 
 Files in the route directory: `page.tsx` (thin server component: reads the two segments,
@@ -431,8 +485,11 @@ card names itself as a region because its last child is a door every card labels
   proposed title; pending, a `<div data-testid="sheet-card-thumbnail" data-pending="true">`
   centring `drawings_thumbnail_pending`, `var(--text-12)` `var(--graphite-600)`.
 - **Title** — `<h3 data-testid="sheet-card-title">`, `var(--text-13)`
-  `var(--weight-body-medium)` `var(--graphite-900)`, wrapping.
-- **Number** — `<p data-testid="sheet-card-number">`: the number verbatim in
+  `var(--weight-body-medium)` `var(--graphite-900)`, wrapping. The words are the grammar's proposal,
+  read in I-364's order: the block's numbered line, else its tallest text that not every sheet of
+  the drawing carries.
+- **Number** — `<p data-testid="sheet-card-number">`: the number verbatim (I-364: the numbered
+  line's, else the block's `S-01` or `SHEET n OF m`, else the one the layout's name opens with) in
   `var(--font-mono)` `var(--text-12)` `var(--graphite-700)` `tabular-nums slashed-zero`, or
   `drawings_number_none` in `var(--font-ui)` `var(--graphite-600)` when null — prose for
   absence, never a dash (the consequence-dialog `none` precedent).
