@@ -25,6 +25,11 @@ a region as PNG (the structural model space is several sheets side by side — r
 The product's own reading: `uv run --project cad vextrus-cad ingest "<dwg>" --out .private/work/<name>.entitygraph.json`
 (the artifact the partition reads; its stderr notes name what the conversion healed or refused).
 
+A drawing the product REFUSES (a real set was refused `HANDLES_NOT_UNIQUE`) still opens in both tools:
+the result names the refusal in `product_refusal` and reads the drawing analysis-only through ezdxf's
+recover mode — the refusal itself is often what is under study. Each parallel agent keeps its own
+scratch directory (`.private/work/<session>/<agent-key>/`): a shared one lost a helper script mid-run.
+
 **Procedure** (fan it out with `drawing-analyst` agents, one per discipline):
 1. Inventory each drawing; list its sheets and what each holds.
 2. For the structural set, compare with F-RCC6-BNBC sheet by sheet: grids and bubbles, pile and cap

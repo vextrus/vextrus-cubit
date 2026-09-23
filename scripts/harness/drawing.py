@@ -19,18 +19,20 @@ own audited lane, and opened as the product's extractor opens it (L-CAD-04, ARCH
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import logging
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from ezdxf import bbox
+from ezdxf import bbox, recover
 from ezdxf.addons.drawing import Frontend, RenderContext, config, layout, svg
 from ezdxf.math import BoundingBox2d, Vec2
 from vextrus_cad import report
 from vextrus_cad.dwg import convert_dwg
-from vextrus_cad.ingest import read_document
+from vextrus_cad.ingest import IngestError, read_document
 
 TEXT_TYPES = ("TEXT", "MTEXT", "ATTRIB")
 TOP = 60
@@ -57,8 +59,19 @@ def _dxf_for(source: Path, work: Path) -> Path:
 
 
 def _open(dxf: Path):
-    """Opened the way the product's extractor opens a drawing: recover mode, one resync at most."""
-    return read_document(dxf, report.Report())
+    """Opened the way the product's extractor opens a drawing: recover mode, one resync at most.
+
+    A drawing the product REFUSES is still a drawing a session must be able to read — that refusal
+    is often the very thing under study (a real set refused HANDLES_NOT_UNIQUE). So a refusal is
+    reported, never hidden, and the drawing is then opened analysis-only by ezdxf's recover mode.
+    Returns (document, refusal or None). Nothing here is the product's reading (ARCH-02).
+    """
+    try:
+        return read_document(dxf, report.Report()), None
+    except IngestError as error:
+        refusal = str(error) or error.__class__.__name__
+        document, _auditor = recover.readfile(str(dxf))
+        return document, f"the product refuses this drawing ({refusal}); opened analysis-only by ezdxf recover"
 
 
 def _text_of(entity) -> str:
@@ -70,10 +83,11 @@ def _text_of(entity) -> str:
 
 def inventory(source: Path, work: Path) -> dict:
     dxf = _dxf_for(source, work)
-    doc = _open(dxf)
+    doc, refusal = _open(dxf)
     header = doc.header
     report: dict = {
         "file": source.name,
+        "product_refusal": refusal,
         "sha256": _digest(source),
         "dxfversion": doc.dxfversion,
         "insunits": header.get("$INSUNITS"),
@@ -168,7 +182,7 @@ def render(
     source: Path, work: Path, out: Path, layout_name: str, box: str | None, layers: str | None, light: bool
 ) -> dict:
     dxf = _dxf_for(source, work)
-    doc = _open(dxf)
+    doc, refusal = _open(dxf)
     space = doc.modelspace() if layout_name == "Model" else doc.layouts.get(layout_name)
     wanted = {name.strip().upper() for name in layers.split(",")} if layers else None
     window = None
@@ -208,6 +222,7 @@ def render(
         "svg": str(out),
         "layout": layout_name,
         "box": [round(v, 3) for v in (*render_box.extmin, *render_box.extmax)] if render_box else None,
+        "product_refusal": refusal,
     }
 
 
@@ -230,12 +245,14 @@ def main() -> int:
     args = parser.parse_args()
     source = Path(args.input)
     work = Path(args.work)
-    if args.command == "inventory":
-        print(json.dumps(inventory(source, work)))
-    else:
-        print(
-            json.dumps(render(source, work, Path(args.out), args.layout, args.box, args.layers, args.light))
-        )
+    # stdout carries exactly one JSON document: ezdxf's frontend prints its own narration ("skipping
+    # MTEXT ... not enough space") to stdout, which broke the MCP's parse on two real drawings.
+    with contextlib.redirect_stdout(sys.stderr):
+        if args.command == "inventory":
+            result = inventory(source, work)
+        else:
+            result = render(source, work, Path(args.out), args.layout, args.box, args.layers, args.light)
+    print(json.dumps(result))
     return 0
 
 
