@@ -12,6 +12,8 @@ export { callModel, createModelSeam, propose } from "./seam";
 export { PROPOSAL_KIND, resolveProposal } from "./proposal";
 export { SOURCE_SCHEMES, parseSourceKey, sourceKeyResolver } from "./sources";
 export { selectTransport } from "./transport";
+// Where Jev is reached (D-002), published for the session harness's live door (scripts/harness/mcp.mjs).
+export { TYPESAFE_ENDPOINT } from "./typesafe-arms/arm";
 export type { Recording } from "./mint";
 export type { ModelQuestion } from "./questions";
 export type { DecodeResult, Proposal, ProposalContract, ResolutionCode } from "./proposal";

@@ -68,3 +68,17 @@ scripts/probe/out/
 # An orchestrating session's isolated worktrees (git worktree add under .claude/worktrees/): each is
 # a checkout of this tree, never a part of it.
 /.claude/worktrees/
+
+# The owner's private reference material: a real project's professional drawing set (the Edison
+# DWGs, copied from ~/vextrus-builder/docs/design/reference/) and everything derived from it
+# (DXF conversions, renders, inventories). It is an internal benchmark and never enters this
+# public repository (L-CAD-09: competitor-derived drawings never enter; the thesis: "Edison" is
+# never demo content). Sessions read and dissect it in place; `.claude/hooks/guard.mjs` refuses
+# any git add of it, forced or not.
+/.private/
+
+# Vitest 5 writes its json, junit and html reports here by default.
+.vitest/
+
+# An IDE's local project settings (JetBrains); never part of the tree.
+/.idea/
