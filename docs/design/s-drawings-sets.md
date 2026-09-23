@@ -104,7 +104,33 @@ journey- and URL-reachable, and `route-address.ts` (`setsRoute`, `setRoute`) is 
 address; `set-drawings-link` keeps the sheet index one click away from both.
 - **I-107 — the screen states itself on its root, and every identifier renders through the IdChip (session 4, AM-08 Part 2's rubric read as CLAUDE.md reads it).** The index's current-digest cell, the browser's per-revision sha256, the pinned revision's digest (`set-revision-digest`) and each citation's sha256 are IdChips; `set-row-digest` wraps the chip and keeps `data-digest`. Both roots — `cx-sets` and `cx-set` — state `ready`, the index `empty` where it lists no set. The root carries `data-screen-root` and a `data-state` a reader of the DOM can take after `settled()` — `ready`, `empty`, or the screen's own word — which is the rubric's twelfth criterion and was unstated here. An identifier a person meets on this screen (an account id, a content digest, a source key) is an IdChip: the chip measure on screen, the whole value in `data-value`, on the tooltip and on the clipboard, never a raw uuid, hex digest or handle in body text (R-UI-082). Where an earlier Interpretation of this file ruled a digest rendered whole in the document, this one amends it: the whole value is the chip's DATA and the copy it hands over, and the document shows the measure.
 - **I-285 — the sets index is a GRID, and the tracks above it are single rows (session 5, AM-08 Part 2's rubric read as CLAUDE.md's grid law reads it).** A register of sets is a reference surface, and CLAUDE.md rules what a reference surface is: compact 28 px rows, a sticky header, a frozen key column, no wrapping, tabular right-aligned numerals. The `<ul>` this file first ruled was none of those, and it was no candidate the craft rubric measures either — so the screen was graded on a primary work surface it did not have (session 4 read it at 3.58, `workSurface` 0 and `aboveTheFold` 0). The sets therefore stand in the one shipped `DataTable`, inside the region whose id the closed contract already named: `sets-index` moves from the `<ul>` to the frame around the grid, and no test id is added, renamed or retired by this reading (§7 stands word for word). Two consequences follow and are ruled above: the counts and the digest label stop being lines of a card and become COLUMNS — the count-line keys are retired, kept declared, and rendered nowhere — and the header and create tracks become single rows, so the grid starts within 240 px of the top of `shell-main` at 1440x900 and at 1280x800 alike. Nothing is rendered to move a score: a grid is what a list of sets with four facts each was always trying to be, and the rubric only says so.
-- **I-286 — the drawings a set may name are a GRID; the revisions it has been pinned at stay a LIST.** The membership surface is the browser's primary region by I-285's reasoning, one row per lineage, and its frame is `calc(var(--row-h) * 18)` deep whatever the project holds (I-214's precedent), so the surface reads the same for a project with two drawings and one with forty and the region is the primary at both viewports. The per-drawing revisions become one non-wrapping run in a cell of that row — a cell is one line (R-UI-083), and the shipped table clips it with its own tooltip. The membership toggle stands in a control well, and where the reader may not pin the COLUMN is not built at all (I-101): an empty well would still be a column of the grid. The pinned revisions are NOT a grid and are not rebuilt as one: a pinned revision is a citation list nested under a manifest digest (I-98), a nested citation is no row, and the rubric measures the PRIMARY surface — making the secondary region a second grid would put two frames in competition on one screen for no reader's benefit.
+- **I-286 — the drawings a set may name are a GRID; the revisions it has been pinned at stay a LIST** *(its eighteen-row frame and its column widths amended by I-324)*. The membership surface is the browser's primary region by I-285's reasoning, one row per lineage, and its frame is `calc(var(--row-h) * 18)` deep whatever the project holds (I-214's precedent), so the surface reads the same for a project with two drawings and one with forty and the region is the primary at both viewports. The per-drawing revisions become one non-wrapping run in a cell of that row — a cell is one line (R-UI-083), and the shipped table clips it with its own tooltip. The membership toggle stands in a control well, and where the reader may not pin the COLUMN is not built at all (I-101): an empty well would still be a column of the grid. The pinned revisions are NOT a grid and are not rebuilt as one: a pinned revision is a citation list nested under a manifest digest (I-98), a nested citation is no row, and the rubric measures the PRIMARY surface — making the secondary region a second grid would put two frames in competition on one screen for no reader's benefit.
+- **I-324 — the set browser's grid takes the height the column leaves, and the pin and its evidence stand beside it (session 7, amending I-286 and I-106's crumb; R-UI-080, R-UI-081, R-UI-084).**
+  The 2026-09-23 craft look read the browser as "at the bar by score but not demo-ready": I-286's
+  frame, fixed at eighteen rows whatever the project holds, stood about 440 px of empty grid between
+  a one-drawing project's only row and the pin, and at 1280x800 the pinned revisions — the evidence
+  the pin produces — fell below the fold; its `workSurface` score came from padding. Sizing the frame
+  to its rows instead would have failed R-UI-080 (a primary grid of one row is a few percent of
+  `shell-main`, a mechanical score of 1). So the browser takes I-285's treatment and a second column:
+  `cx-set` is a full-height column (`height: 100%`, `min-height: 0`) at the page measure it was ruled
+  at, and under its header track (and the denial banner, where it stands) its body `cx-set-body` is a
+  grid of two columns, `minmax(0, 1fr)` and 280 px, gap `var(--space-6)`. The left is the members
+  section, whose grid region takes every row the column leaves (`flex: 1 1 auto`, at least six rows
+  deep); the right, `cx-set-side`, a column (gap `var(--gap-section)`) that scrolls within itself,
+  holds the pin section, the one `set-empty` where a cause stands, and the pinned revisions. The door
+  and its evidence now stand in the fold beside the grid at both viewports, and the grid is still the
+  primary surface the rubric measures (over half of `shell-main` at both). The members grid's
+  column widths are narrowed to 280/96/320/160 so all four stand inside it beside the side column at
+  1280 as at 1440 — at the old 320/120/420/160 the membership toggle was the column a reader had to
+  scroll sideways to reach. In the side column the pin and revisions hints are no longer a clipped
+  line beside the heading — at 280 px the ellipsis took the whole sentence — but each section's
+  accessible description (`aria-describedby`, the hint clipped from sight): R-UI-081 puts section
+  explanations in popovers and empty states, and the `no-revisions` empty state already says what the
+  pin records. The members hint stays on its track. The breadcrumb's page crumb is the set's own name
+  (`useShellPage(set.name)`), the words its h1 and its tab already carry (I-106): "Drawing sets" named
+  the index, not this page (R-UI-084). A crumb step back to the index is the shell's to give in
+  `routes.ts`; until it does, `sets_sets_link` in the header track is that way back. What it costs:
+  the revisions list is 280 px wide, so a long drawing name wraps inside its citation.
 
 ## 1. Layout and hierarchy
 
@@ -119,7 +145,8 @@ any query (the shell's `scopedTenantId` precedent). Both pages render in `shell-
 column (`cx-sets`, `cx-set`): column flex, gap `var(--gap-section)`. Amended by I-285 and
 I-286: `cx-sets` is a full-height column (`height: 100%`, `min-height: 0`, no page measure) so
 its grid takes what the tracks above it leave; `cx-set` keeps the page measure
-`var(--breakpoint-lg)` it was ruled at. Every section is a head TRACK of one row — its `<h2>`
+`var(--breakpoint-lg)` it was ruled at and is, by I-324, the same full-height column, its body two
+columns — the members grid and a 280 px side column holding the pin and the pinned revisions. Every section is a head TRACK of one row — its `<h2>`
 beside its hint, both clipped rather than wrapped (`cx-sets-track`, gap `var(--space-4)`) —
 over whatever that section holds, with `var(--space-2)` between the two; a stack of headings
 and sentences is what put the work surface below the fold (AM-08 Part 2's C1 and C2).
@@ -195,21 +222,21 @@ the two links, both in the evidence-link idiom: `<a data-testid="set-drawings-li
 `sets_members_heading` beside its hint `sets_members_hint`; then the GRID (I-286).
 `<div data-testid="set-drawings" data-rows-rendered={drawn}>` is the region a retrying read
 waits on — the id the contract already named, now on the frame around the grid rather than on
-a `<ul>` — and its frame is `calc(var(--row-h) * 18)` deep whatever the project holds, so the
-surface reads the same at two drawings and at forty (I-214's precedent). Inside it one
+a `<ul>` — and its frame takes every row the column leaves, at least `calc(var(--row-h) * 6)`
+deep (I-324, amending I-286's eighteen rows whatever the project holds). Inside it one
 `DataTable` (`tableId` `s-drawings-set-members`, `density="compact"`, `getRowId` the drawing
 id, `aria-labelledby` the `<h2>`, `rowTestId` `set-drawing`, `rowDataOf`
 `data-drawing={drawingId}` `data-member="true|false"`
 `data-current-sha256={current.sha256}`), one row per lineage in the module's order, four
 columns (three where the reader may not pin):
 
-- **Drawing** (`sets_col_drawing`, 320 px) — the frozen key column, so it is each row's
+- **Drawing** (`sets_col_drawing`, 280 px, I-324) — the frozen key column, so it is each row's
   `rowheader`: `<span data-testid="set-drawing-name">` the stored presented name verbatim
   (`var(--weight-body-medium)` `var(--ink)`, never wrapping).
-- **Revisions** (`sets_col_revision_count`, 120 px) — `<span
+- **Revisions** (`sets_col_revision_count`, 96 px, I-324) — `<span
   data-testid="set-drawing-revision-count">` the figure through `formatUserFigure`,
   right-aligned and tabular.
-- **Revision history** (`sets_col_revision_history`, 420 px) — one run that never wraps
+- **Revision history** (`sets_col_revision_history`, 320 px, I-324) — one run that never wraps
   (`cx-sets-revision-run`, gap `var(--space-4)`; the cell clips it and the table's own tooltip
   says the rest), holding one `<span data-testid="set-drawing-revision"
   data-revision={revisionId} data-sha256={sha256} data-ordinal={ordinal}
@@ -237,8 +264,9 @@ RefusalState, the code `toggleMember` answered. Every answer slot and status lin
 screens wears the shell's shipped `cx-shell-live`, which takes an empty one out of flow and
 never out of the tree — the rule has one home and is worn, never re-spelled (B-17).
 
-**Pin this set** (`<section aria-labelledby>`) — `<h2>` `sets_pin_heading`, hint
-`sets_pin_hint`, then a core Button `data-testid="set-pin"`, variant `secondary`, label
+**Pin this set** (`<section aria-labelledby aria-describedby>`, in the side column by I-324) —
+`<h2>` `sets_pin_heading`, hint `sets_pin_hint` as the section's description, clipped from sight
+(I-324), then a core Button `data-testid="set-pin"`, variant `secondary`, label
 `sets_pin_submit`, `align-self: start` (the act colour lives on the dialog's confirm alone,
 R-UI-001's scarcity); while the pre-check is in flight it takes core's loading state and
 `<p role="status" aria-live="polite">` reads `sets_pin_pending` — and nothing else, ever: a
@@ -264,8 +292,9 @@ dialog's own mono columns already wrap. On `onCommitted` the dialog closes, focu
 the primitive, the screen refreshes, and the new pinned revision standing at the top of the
 list is the answer.
 
-**Pinned revisions** (`<section aria-labelledby>`) — `<h2>` `sets_revisions_heading`, hint
-`sets_revisions_hint` (I-98), then — where the set has never been pinned, in the list's place —
+**Pinned revisions** (`<section aria-labelledby aria-describedby>`, in the side column by I-324) —
+`<h2>` `sets_revisions_heading`, hint `sets_revisions_hint` (I-98) as the section's description,
+clipped from sight (I-324), then — where the set has never been pinned, in the list's place —
 `<p class="cx-sets-silence">` `sets_revisions_none` (I-104), and otherwise
 `<ol data-testid="set-revisions">` (list-style none, margin
 0, padding 0), one `<li data-testid="set-revision" data-set-revision={setRevisionId}
@@ -421,14 +450,15 @@ motion, so `sets.css` carries no `prefers-reduced-motion` branch.
 ## 5. Tokens
 
 The semantic aliases `--ink`/`--ink-secondary`/`--ink-muted`/`--ink-link` · `--accent` ·
-`--surface-panel` · `--hairline` · `--space-2/3/4` · `--gap-section` · `--radius-8` ·
+`--surface-panel` · `--hairline` · `--space-2/3/4/6` · `--gap-section` · `--radius-8` ·
 `--text-12/13/16/20` · `--font-ui`/`--font-mono` · `--leading-ui` ·
 `--weight-body-medium`/`--weight-heading` · the density tokens `--row-h`, `--control-h` and
 `--cell-px` · `--breakpoint-lg` (the browser's page measure, read as a token) ·
 `--motion-state`/`--ease`. Px literals, closed set (core I-1's mandated class): the 280 px
 name field, the 24 px ordinal column, the two grids' column widths — 320/120/160/220/140 on
-the index and 320/120/420/160 on the browser, which are the tables' own `size` and are spelled
-beside the columns, never in the stylesheet — and the skeleton bones 24/28/32/96 ×
+the index and 280/96/320/160 on the browser (I-324), which are the tables' own `size` and are
+spelled beside the columns, never in the stylesheet — the browser's 280 px side column (I-324) — and
+the skeleton bones 24/28/32/96 ×
 160/280/360/720. Any other literal is a defect. No copper appears on either screen — it lives only on the ConsequenceDialog's
 confirm, where its own Decision puts it — and no basis colour appears at all: a revision is
 not a basis.

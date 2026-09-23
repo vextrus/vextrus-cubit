@@ -4,9 +4,9 @@
 // revisions this set has already been pinned at.
 //
 // I-286: the drawings a set may name are a GRID — the screen's primary work surface, one compact
-// 28 px row per lineage with a frozen name column and a sticky header, eighteen rows deep whatever
-// the project holds. The PINNED revisions stay a list: they are the secondary region, and a
-// citation nested under a card is no grid row (I-98).
+// 28 px row per lineage with a frozen name column and a sticky header, taking the height the column
+// leaves (I-324). The PINNED revisions stay a list: they are the secondary region, standing with the
+// pin in a side column beside the grid, and a citation nested under a card is no grid row (I-98).
 //
 // `toggle`, `preview` and `commit` replace the server actions and nothing else: given them, the
 // screen maps the settlement exactly as it maps the real ones (the SheetIndex precedent).
@@ -40,10 +40,12 @@ const ACT_TYPE = "PIN_DRAWING_SET";
 /** The identity this grid's column furniture is remembered under (DataTable's `tableId`). */
 export const SET_MEMBERS_TABLE_ID = "s-drawings-set-members";
 
-/** §1's column widths, this screen's own closed set of px literals (§5). */
-const WIDTH_DRAWING = 320;
-const WIDTH_REVISION_COUNT = 120;
-const WIDTH_HISTORY = 420;
+/** §1's column widths, this screen's own closed set of px literals (§5). Narrowed by I-324 so the four
+    columns stand inside the grid beside the 280 px side column at 1280 as at 1440 — the membership
+    toggle was the column a reader would have had to scroll sideways to reach. */
+const WIDTH_DRAWING = 280;
+const WIDTH_REVISION_COUNT = 96;
+const WIDTH_HISTORY = 320;
 const WIDTH_MEMBER = 160;
 
 /** Which emptiness the pin region is reporting, in the Decision's own precedence (I-97). */
@@ -175,8 +177,10 @@ export function SetBrowser({
   preview = previewPinAction,
   commit = commitPinAction,
 }: SetBrowserProps) {
-  // R-UI-084: the trail's last crumb is the sets screen's own word, under the project's Drawings area.
-  useShellPage(sets.sets_heading);
+  // R-UI-084: the trail names the PAGE, and this page is one set — so its crumb is the set's own name,
+  // the same words its h1 and its tab carry (I-106, I-324). The sets index stays one link away in the
+  // header track; a crumb step for it is the shell's routes to give (routes.ts), not a second trail here.
+  useShellPage(set.name);
   // The draft as this screen stands: a toggle writes at once and the row moves with it (I-96).
   const [members, setMembers] = useState<readonly string[]>(set.members);
   const [memberRefusal, setMemberRefusal] = useState<RefusalCode | null>(null);
@@ -185,6 +189,7 @@ export function SetBrowser({
   const [dialogOpen, setDialogOpen] = useState(false);
   const gridRegion = useRef<HTMLDivElement | null>(null);
   const headingIds = { members: useId(), pin: useId(), revisions: useId() };
+  const hintIds = { pin: useId(), revisions: useId() };
 
   const evidenceFor = useCallback(
     (code: RefusalCode): Evidence => {
@@ -279,88 +284,102 @@ export function SetBrowser({
         </div>
       )}
 
-      <section className="cx-sets-section cx-set-members" aria-labelledby={headingIds.members}>
-        <div className="cx-sets-track">
-          <h2 className="cx-sets-section-heading" id={headingIds.members}>
-            {sets.sets_members_heading}
-          </h2>
-          <p className="cx-sets-hint">{sets.sets_members_hint}</p>
-        </div>
-        {/* The region a retrying read waits on keeps the id the contract names and repeats the
-            table's own drawn-row count (§7, unchanged — the id moved from a `<ul>` to the frame
-            around the grid, and no test id was added or renamed). */}
-        <div className="cx-set-drawings" ref={gridRegion} data-testid={TESTIDS.set.drawings} data-rows-rendered={rowsDrawn}>
-          <DataTable
-            tableId={SET_MEMBERS_TABLE_ID}
-            aria-labelledby={headingIds.members}
-            columns={columns}
-            data={rows}
-            getRowId={(row) => row.drawingId}
-            density="compact"
-            rowTestId={TESTIDS.set.drawing}
-            rowDataOf={rowDataOf}
-          />
-        </div>
-        {/* R-UI-020: an empty list says why it is empty where it stands. The one `set-empty` element
-            is the pin region's (I-97), so what this list owes is a sentence and not a second one. */}
-        {lineages.length === 0 ? <p className="cx-sets-silence">{sets.sets_members_none}</p> : null}
-        <div className="cx-sets-answer cx-shell-live">
-          {memberRefusal === null ? null : <RefusalState refusal={refusalOf(memberRefusal)} evidence={evidenceFor(memberRefusal)} />}
-        </div>
-      </section>
-
-      {canPin ? (
-        <section className="cx-sets-section" aria-labelledby={headingIds.pin}>
+      {/* I-324: the body is two columns — the members grid, the primary surface, filling the height the
+          column leaves; and beside it the pin and the revisions it has been pinned at, so the door and
+          its evidence stand in the fold beside the grid rather than under an empty frame. */}
+      <div className="cx-set-body">
+        <section className="cx-sets-section cx-set-members" aria-labelledby={headingIds.members}>
           <div className="cx-sets-track">
-            <h2 className="cx-sets-section-heading" id={headingIds.pin}>
-              {sets.sets_pin_heading}
+            <h2 className="cx-sets-section-heading" id={headingIds.members}>
+              {sets.sets_members_heading}
             </h2>
-            <p className="cx-sets-hint">{sets.sets_pin_hint}</p>
+            <p className="cx-sets-hint">{sets.sets_members_hint}</p>
           </div>
-          <Button
-            className="cx-set-pin"
-            data-testid={TESTIDS.set.pin}
-            loading={pending}
-            onClick={() => {
-              void press();
-            }}
-            variant="secondary"
-          >
-            {sets.sets_pin_submit}
-          </Button>
-          <p className="cx-sets-status cx-shell-live" role="status" aria-live="polite">
-            {pending ? sets.sets_pin_pending : null}
-          </p>
+          {/* The region a retrying read waits on keeps the id the contract names and repeats the
+              table's own drawn-row count (§7, unchanged — the id moved from a `<ul>` to the frame
+              around the grid, and no test id was added or renamed). */}
+          <div className="cx-set-drawings" ref={gridRegion} data-testid={TESTIDS.set.drawings} data-rows-rendered={rowsDrawn}>
+            <DataTable
+              tableId={SET_MEMBERS_TABLE_ID}
+              aria-labelledby={headingIds.members}
+              columns={columns}
+              data={rows}
+              getRowId={(row) => row.drawingId}
+              density="compact"
+              rowTestId={TESTIDS.set.drawing}
+              rowDataOf={rowDataOf}
+            />
+          </div>
+          {/* R-UI-020: an empty list says why it is empty where it stands. The one `set-empty` element
+              is the pin region's (I-97), so what this list owes is a sentence and not a second one. */}
+          {lineages.length === 0 ? <p className="cx-sets-silence">{sets.sets_members_none}</p> : null}
           <div className="cx-sets-answer cx-shell-live">
-            {pinRefusal === null || pending ? null : <RefusalState refusal={refusalOf(pinRefusal)} evidence={evidenceFor(pinRefusal)} />}
+            {memberRefusal === null ? null : <RefusalState refusal={refusalOf(memberRefusal)} evidence={evidenceFor(memberRefusal)} />}
           </div>
         </section>
-      ) : null}
 
-      {/* I-97: one `set-empty` on the screen, and it stands in the column rather than inside the pin
-          section — the empty state carries a heading of its own, and a heading about the drawings a
-          set can name is not owned by "Pin this set" (R-UI-050's outline). It stands whether or not
-          this reader may pin: a denial takes the section away, never the answer to why there is
-          nothing here. */}
-      {emptiness}
+        <div className="cx-set-side">
+          {canPin ? (
+            <section className="cx-sets-section" aria-labelledby={headingIds.pin} aria-describedby={hintIds.pin}>
+              {/* I-324: in the side column a section's explanation is its description, not a line
+                  clipped to an ellipsis at 280 px — R-UI-081 puts it in the empty state, which says it
+                  (sets_empty_no_revisions_body), and in the section's accessible description. */}
+              <div className="cx-sets-track">
+                <h2 className="cx-sets-section-heading" id={headingIds.pin}>
+                  {sets.sets_pin_heading}
+                </h2>
+                <p className="cx-set-described" id={hintIds.pin}>
+                  {sets.sets_pin_hint}
+                </p>
+              </div>
+              <Button
+                className="cx-set-pin"
+                data-testid={TESTIDS.set.pin}
+                loading={pending}
+                onClick={() => {
+                  void press();
+                }}
+                variant="secondary"
+              >
+                {sets.sets_pin_submit}
+              </Button>
+              <p className="cx-sets-status cx-shell-live" role="status" aria-live="polite">
+                {pending ? sets.sets_pin_pending : null}
+              </p>
+              <div className="cx-sets-answer cx-shell-live">
+                {pinRefusal === null || pending ? null : <RefusalState refusal={refusalOf(pinRefusal)} evidence={evidenceFor(pinRefusal)} />}
+              </div>
+            </section>
+          ) : null}
 
-      <section className="cx-sets-section" aria-labelledby={headingIds.revisions}>
-        <div className="cx-sets-track">
-          <h2 className="cx-sets-section-heading" id={headingIds.revisions}>
-            {sets.sets_revisions_heading}
-          </h2>
-          <p className="cx-sets-hint">{sets.sets_revisions_hint}</p>
+          {/* I-97: one `set-empty` on the screen, and it stands in the column rather than inside the pin
+              section — the empty state carries a heading of its own, and a heading about the drawings a
+              set can name is not owned by "Pin this set" (R-UI-050's outline). It stands whether or not
+              this reader may pin: a denial takes the section away, never the answer to why there is
+              nothing here. */}
+          {emptiness}
+
+          <section className="cx-sets-section" aria-labelledby={headingIds.revisions} aria-describedby={hintIds.revisions}>
+            <div className="cx-sets-track">
+              <h2 className="cx-sets-section-heading" id={headingIds.revisions}>
+                {sets.sets_revisions_heading}
+              </h2>
+              <p className="cx-set-described" id={hintIds.revisions}>
+                {sets.sets_revisions_hint}
+              </p>
+            </div>
+            {set.revisions.length === 0 ? (
+              <p className="cx-sets-silence">{sets.sets_revisions_none}</p>
+            ) : (
+              <ol className="cx-sets-revisions" data-testid={TESTIDS.set.revisions}>
+                {set.revisions.map((revision) => (
+                  <PinnedRevision key={revision.setRevisionId} revision={revision} />
+                ))}
+              </ol>
+            )}
+          </section>
         </div>
-        {set.revisions.length === 0 ? (
-          <p className="cx-sets-silence">{sets.sets_revisions_none}</p>
-        ) : (
-          <ol className="cx-sets-revisions" data-testid={TESTIDS.set.revisions}>
-            {set.revisions.map((revision) => (
-              <PinnedRevision key={revision.setRevisionId} revision={revision} />
-            ))}
-          </ol>
-        )}
-      </section>
+      </div>
 
       <ConsequenceDialog
         actType={ACT_TYPE}

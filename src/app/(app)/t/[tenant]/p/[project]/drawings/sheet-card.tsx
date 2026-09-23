@@ -4,7 +4,8 @@
 // one door that opens a confirmation.
 //
 // Every value is data and renders as data (I-25): the format, the scheme, the discipline and every
-// cited entity key are the drawing's own words, shown verbatim and never woven into a sentence.
+// cited entity key are the drawing's own words, never woven into a sentence — and a person reads the
+// enums as words, the raw value kept in the technical disclosure (EnumLabel, R-UI-082; I-323).
 //
 // The law itself, not the seam's barrel: the rosters are values that touch no database
 // (src/core/sheets/law.ts), and a client component reaching through the barrel would drag the driver
@@ -12,17 +13,36 @@
 import { useId, useState } from "react";
 import { DISCIPLINES, FIDELITY_FACTS, type Discipline, type FidelityFact } from "@/core/sheets/law";
 import { formatUserFigure } from "@/core/format";
-import { Badge, Button, Chip, IdChip } from "@/ui/primitives/core";
+import { Badge, Button, Chip, EnumLabel, IdChip } from "@/ui/primitives/core";
+import { humaniseEnum } from "@/ui/primitives/core/enum-label";
 import { fill } from "@/ui/strings";
 import type { ReactNode } from "react";
 import { viewerSheetRoute } from "../viewer/[drawing]/[layout]/route-address";
 import { drawings } from "./strings";
 import { TESTIDS } from "@/ui/testids";
 
-/** One card, as the page hands it down — the module's own answer, carried whole. */
-/** §8's cap for this screen: "cited entities capped at 5 + '+N more' — the 280×5404 baseline ends".
-    A card whose height is the length of a list is a card that has no height of its own. */
-const CITED_SHOWN = 5;
+/** §8's cap for this screen, lowered by I-323: three keys, then "+N more". A card whose height is the
+    length of a list has no height of its own, and at 1280 a 258 px card holds the label and three
+    chips in two wrapped lines — five overflowed it, clipped invisibly over the next card (the
+    target-size failure of the 2026-09-23 craft look). */
+const CITED_SHOWN = 3;
+
+/** The words a source scheme is read by (R-UI-082): the enum stays in the technical disclosure. */
+const SCHEME_WORDS: Readonly<Record<string, string>> = {
+  DXF_HANDLE: drawings.drawings_scheme_dxf_handle,
+  PDF_OBJECT: drawings.drawings_scheme_pdf_object,
+  RASTER_TRACE: drawings.drawings_scheme_raster_trace,
+};
+
+/** The words each discipline is read by (R-UI-082) — total over the closed roster, so a discipline the
+    law adds is a compile error here rather than an enum on screen. */
+export const DISCIPLINE_WORDS: Readonly<Record<Discipline, string>> = {
+  STRUCTURAL: drawings.drawings_discipline_structural,
+  ARCHITECTURAL: drawings.drawings_discipline_architectural,
+  MEP: drawings.drawings_discipline_mep,
+  CIVIL: drawings.drawings_discipline_civil,
+  OTHER: drawings.drawings_discipline_other,
+};
 
 /** The measure a cited `scheme:key` shows on its chip: the key, because the scheme is every citation's. */
 function citedMeasure(key: string): string | undefined {
@@ -125,38 +145,39 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
         {card.proposal.title}
       </h3>
 
-      {card.proposal.number === null ? (
-        <p className="cx-drawings-card-none" data-testid={TESTIDS.sheet.cardNumber}>
-          {drawings.drawings_number_none}
-        </p>
-      ) : (
-        <p className="cx-drawings-card-number" data-testid={TESTIDS.sheet.cardNumber}>
-          {card.proposal.number}
-        </p>
-      )}
-
-      <p className="cx-drawings-badges">
-        <Badge className="cx-drawings-enum" data-testid={TESTIDS.sheet.cardFormat} aria-label={fill(drawings.drawings_format_label, { value: card.format })}>
-          {card.format}
+      {/* I-323: the sheet's identity on one line — its number, then what it was read from. The
+          format and scheme are enums a person reads as words (R-UI-082); the stored values stay in
+          the technical disclosure and in the element's text, so a reader matching on them still
+          finds them. */}
+      <div className="cx-drawings-card-meta">
+        {card.proposal.number === null ? (
+          <p className="cx-drawings-card-none" data-testid={TESTIDS.sheet.cardNumber}>
+            {drawings.drawings_number_none}
+          </p>
+        ) : (
+          <p className="cx-drawings-card-number" data-testid={TESTIDS.sheet.cardNumber}>
+            {card.proposal.number}
+          </p>
+        )}
+        <Badge data-testid={TESTIDS.sheet.cardFormat} aria-label={fill(drawings.drawings_format_label, { value: card.format.toUpperCase() })}>
+          <EnumLabel value={card.format} label={card.format.toUpperCase()} />
         </Badge>
-        <Badge className="cx-drawings-enum" data-testid={TESTIDS.sheet.cardScheme} aria-label={fill(drawings.drawings_scheme_label, { value: card.scheme })}>
-          {card.scheme}
+        <Badge data-testid={TESTIDS.sheet.cardScheme} aria-label={fill(drawings.drawings_scheme_label, { value: schemeWords(card.scheme) })}>
+          <EnumLabel value={card.scheme} label={schemeWords(card.scheme)} />
         </Badge>
-      </p>
+      </div>
 
       <p className="cx-drawings-discipline" data-testid={TESTIDS.sheet.cardDiscipline} data-basis={basis}>
-        <span className="cx-drawings-enum">{effective}</span>
+        <EnumLabel className="cx-drawings-discipline-value" value={effective} label={DISCIPLINE_WORDS[effective]} />
         <span className="cx-drawings-basis">{BASIS_WORDS[basis]}</span>
       </p>
 
-      {/* I-93: evidence is shown whole, wrapping and selectable — never truncated behind a count.
-          A box that scrolls is reachable from the keyboard, or its content is reachable by nothing
-          but a pointer (axe `scrollable-region-focusable`, serious — and Q-11 admits no serious
-          finding at a checkpoint). The list took its own scroll when the card stopped spending the
-          page's, so it takes the tab stop and the reticle that go with one; the label it already
-          carries is the name the stop answers to. */}
+      {/* I-323 (amending I-93 and I-96): the cited row WRAPS, and shows CITED_SHOWN keys then says how
+          many more stand — never a row clipped at the card's edge, where the keys it hid were
+          invisible, reachable by nothing and laid over the neighbouring card. The whole list is the
+          viewer inspector's (R-TO-011); the card shows that the proposal has evidence, and how much. */}
       {card.proposal.cited.length === 0 ? null : (
-        <p className="cx-drawings-cited cx-reticle" tabIndex={0} role="group" aria-label={drawings.drawings_cited_label}>
+        <p className="cx-drawings-cited" role="group" aria-label={drawings.drawings_cited_label}>
           <span className="cx-drawings-cited-label">{drawings.drawings_cited_label}</span>
           {/* I-96: a cited key is an identifier and renders through the IdChip — the key's own tail as
               the measure, the whole source key as the value, never a handle as body text (R-UI-082). */}
@@ -164,39 +185,52 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
             <IdChip key={key} short={citedMeasure(key)} value={key} />
           ))}
           {card.proposal.cited.length > CITED_SHOWN ? (
-            <span className="cx-drawings-enum" data-testid={TESTIDS.sheet.cardCitedMore}>
+            <span className="cx-drawings-cited-more" data-testid={TESTIDS.sheet.cardCitedMore}>
               {fill(drawings.drawings_cited_more, { count: formatUserFigure(String(card.proposal.cited.length - CITED_SHOWN)) })}
             </span>
           ) : null}
         </p>
       )}
 
-      <p
-        className="cx-drawings-line"
-        data-testid={TESTIDS.sheet.cardScale}
-        data-scale={card.scaleState}
-        data-unplaceable={card.unplaceableViews === null ? "" : String(card.unplaceableViews)}
-      >
-        {scaleLine(card)}
-      </p>
-      <p className="cx-drawings-line" data-testid={TESTIDS.sheet.cardViews} data-views={card.viewCount === null ? "" : String(card.viewCount)}>
-        {card.viewCount === null ? drawings.drawings_views_unclassified : fill(drawings.drawings_views_count, { count: formatUserFigure(String(card.viewCount)) })}
-      </p>
-
-      {/* I-96: the facts are a list of five figures, not a paragraph — a row of readings a card states,
-          each its own item, never a sentence. */}
-      <div className="cx-drawings-facts" role="list">
-        {FIDELITY_FACTS.map((name) => {
-          const value = card.facts[name] ?? 0;
-          const notable = typeof value === "boolean" ? value : value > 0;
-          return (
-            <span className="cx-drawings-fact" role="listitem" data-testid={TESTIDS.sheet.fact} data-fact={name} data-value={String(value)} data-notable={notable ? "true" : "false"} key={name}>
-              <span className="cx-drawings-fact-label">{FACT_WORDS[name]}</span>
-              <span className="cx-drawings-fact-value">{factValue(value)}</span>
-            </span>
-          );
-        })}
+      {/* The scale and the views are two short readings of one partition, one a line (I-323 point 5
+          as amended): each lands on the job runner's clock, and neither may re-flow the card. */}
+      <div className="cx-drawings-lines">
+        <p
+          className="cx-drawings-line"
+          data-testid={TESTIDS.sheet.cardScale}
+          data-scale={card.scaleState}
+          data-unplaceable={card.unplaceableViews === null ? "" : String(card.unplaceableViews)}
+        >
+          {scaleLine(card)}
+        </p>
+        <p className="cx-drawings-line" data-testid={TESTIDS.sheet.cardViews} data-views={card.viewCount === null ? "" : String(card.viewCount)}>
+          {viewsLine(card.viewCount)}
+        </p>
       </div>
+
+      {/* I-85 as amended by I-323: every fact still renders, zeros included, as a list of five named
+          figures (R-TO-001) — inside a disclosure whose summary says how many are notable, so a card
+          whose extraction lost nothing reads as one line instead of three rows of zeros, and a card
+          that lost something says so before it is opened. */}
+      <details className="cx-drawings-facts">
+        <summary className="cx-drawings-facts-summary cx-reticle" data-notable={notableCount(card) > 0 ? "true" : "false"}>
+          <span className="cx-drawings-facts-label">{drawings.drawings_facts_summary}</span>
+          <span className="cx-drawings-facts-notable">
+            {notableCount(card) === 0 ? drawings.drawings_facts_notable_none : fill(drawings.drawings_facts_notable, { count: formatUserFigure(String(notableCount(card))) })}
+          </span>
+        </summary>
+        <div className="cx-drawings-fact-list" role="list">
+          {FIDELITY_FACTS.map((name) => {
+            const value = card.facts[name] ?? 0;
+            return (
+              <span className="cx-drawings-fact" role="listitem" data-testid={TESTIDS.sheet.fact} data-fact={name} data-value={String(value)} data-notable={isNotable(value) ? "true" : "false"} key={name}>
+                <span className="cx-drawings-fact-label">{FACT_WORDS[name]}</span>
+                <span className="cx-drawings-fact-value">{factValue(value)}</span>
+              </span>
+            );
+          })}
+        </div>
+      </details>
 
       {/* I-84: every discipline is offered with the proposal preselected — a sheet the grammar read
           wrongly must still be confirmable, or it can never be measured. A confirmed card renders no
@@ -207,8 +241,8 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
             <legend className="cx-drawings-field-label">{drawings.drawings_confirm_legend}</legend>
             <span className="cx-drawings-choices">
               {DISCIPLINES.map((offered) => (
-                <Chip className="cx-drawings-enum" key={offered} data-testid={TESTIDS.sheet.disciplineOption} data-value={offered} selected={chosen === offered} onClick={() => setChosen(offered)}>
-                  {offered}
+                <Chip key={offered} data-testid={TESTIDS.sheet.disciplineOption} data-value={offered} selected={chosen === offered} onClick={() => setChosen(offered)}>
+                  <EnumLabel value={offered} label={DISCIPLINE_WORDS[offered]} />
                 </Chip>
               ))}
             </span>
@@ -249,8 +283,29 @@ function scaleLine(card: SheetCardData): string {
   return SCALE_WORDS[card.scaleState] ?? card.scaleState;
 }
 
+/** The views line: the count said in the grammar of its number, or that no partition has answered. */
+function viewsLine(count: number | null): string {
+  if (count === null) return drawings.drawings_views_unclassified;
+  return fill(count === 1 ? drawings.drawings_views_count_one : drawings.drawings_views_count, { count: formatUserFigure(String(count)) });
+}
+
 /** A fact's own value: a count through SEAM-FORMAT, a flag as the two words the table holds. */
 function factValue(value: number | boolean): string {
   if (typeof value === "boolean") return value ? drawings.drawings_fact_yes : drawings.drawings_fact_no;
   return formatUserFigure(String(value));
+}
+
+/** Whether a fact reports a loss: a true flag, or a count above zero (I-85). */
+function isNotable(value: number | boolean): boolean {
+  return typeof value === "boolean" ? value : value > 0;
+}
+
+/** How many of the roster's facts report a loss on this card — the facts summary's figure. */
+function notableCount(card: SheetCardData): number {
+  return FIDELITY_FACTS.filter((name) => isNotable(card.facts[name] ?? 0)).length;
+}
+
+/** The words a source scheme is read by, or the mechanical reading of one the table does not name. */
+function schemeWords(scheme: string): string {
+  return SCHEME_WORDS[scheme] ?? humaniseEnum(scheme);
 }

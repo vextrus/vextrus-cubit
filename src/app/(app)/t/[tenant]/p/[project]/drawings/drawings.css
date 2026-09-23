@@ -28,10 +28,33 @@
   gap: var(--space-4);
 }
 
+/* I-323: the v22 frame's header is ONE row — title, chips with counts, then the search, the count
+   and Add pushed to the row's end. It wraps only where the measure is too narrow for all of it. */
 .cx-drawings-header {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  min-height: var(--space-10);
+}
+
+/* Named for assistive technology and the outline, clipped from sight: the row says what the field
+   and the chips are by what they hold (the register's hiding idiom — out of flow, no px spelled). */
+.cx-drawings-hidden {
+  position: absolute;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  margin: 0;
+  padding: 0;
+  font-size: var(--text-body);
+}
+
+.cx-drawings-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
 }
 
 .cx-drawings-heading {
@@ -91,23 +114,13 @@
 
 /* ------------------------------------------------------------------ the controls */
 
-.cx-drawings-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: var(--space-3);
-  /* The row keeps air under it: a focused field draws its reticle outside its own box, and the line
-     that follows the controls must not be what the reticle lands on (R-UI-012: 4 px outside the box). */
-  padding-block-end: var(--space-2);
-}
-
 .cx-drawings-field {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  align-items: center;
   border: none;
   margin: 0;
   padding: 0;
+  min-width: 0;
 }
 
 .cx-drawings-field-label {
@@ -125,14 +138,26 @@
   gap: var(--space-2);
 }
 
+/* A chip's enum reads in the chip's own voice: the label takes the chip's size and colour (so the
+   selected chip's ink holds), and the count beside it is a tabular figure (§3.4 "Structural 8"). */
+.cx-drawings-choices .cx-enum-label {
+  font-size: inherit;
+  color: inherit;
+}
+
+.cx-drawings-chip-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
 .cx-drawings-search {
   width: 240px;
 }
 
-.cx-drawings-count {
+.cx-drawings-count,
+.cx-drawings-more {
   margin: 0;
-  margin-left: auto;
-  align-self: center;
+  white-space: nowrap;
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
@@ -236,26 +261,33 @@
   color: var(--ink-muted);
 }
 
-.cx-drawings-badges {
+/* I-323: the number, the format and the scheme stand on one line — the sheet's identity, then
+   what it was read from. The badges' enums read in the badge's own voice. */
+.cx-drawings-card-meta {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
-  margin: 0;
 }
 
-/* Machine identifiers render verbatim, in mono, never up-cased or woven into a sentence (I-25). */
-.cx-drawings-enum {
-  font-family: var(--font-mono);
+.cx-drawings-card-meta .cx-enum-label {
+  font-size: inherit;
+  color: inherit;
 }
 
+/* The discipline is a reading, not a second title: body weight, so the sheet's own name is the one
+   thing on the card the eye finds first (the craft look's hierarchy note). */
 .cx-drawings-discipline {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: baseline;
   gap: var(--space-2);
   margin: 0;
-  font-size: var(--text-13);
-  font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
+}
+
+.cx-drawings-discipline-value {
+  font-size: var(--text-13);
   color: var(--ink);
 }
 
@@ -266,34 +298,38 @@
   color: var(--ink-muted);
 }
 
-/* I-93: evidence is shown whole, wrapping, select-all — never truncated behind a count.
-
-   Whole, but not unbounded IN THE PAGE. A confirmed sheet can cite hundreds of handles (371 on one
-   card of the J-010 fixture), and a card that prints them all in flow grew `shell-main` to 7763 px
-   — a screen that photographs as a scroll rather than as a screen, which is the composition fault
-   Design Direction 00 §9.3 names in as many words and caps the evidence stills at 2× the viewport
-   to catch. So the list keeps its own scroll instead of spending the page's: every key is still
-   rendered, still selectable, still reachable by keyboard and by find-in-page, and nothing hides
-   behind a count — which is what I-93 forbids. What is bounded is the BOX, not the evidence. */
+/* I-323 (amending I-93 and I-96): the cited row WRAPS and is never clipped. It holds the label,
+   CITED_SHOWN keys and the count of the rest, so at the narrowest card it is two lines, and no key
+   stands outside the card's own box — the clipped keys of the one-line row were invisible, reachable
+   by nothing, and laid their copy targets over the neighbouring card (axe target-size, serious). */
 .cx-drawings-cited {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
   margin: 0;
-  overflow: hidden;
-  white-space: nowrap;
+  min-width: 0;
   font-size: var(--text-12);
   line-height: var(--leading-ui);
   color: var(--ink-muted);
-  overflow-wrap: anywhere;
-  overflow-y: auto;
-  user-select: all;
 }
 
 .cx-drawings-cited-label {
   font-family: var(--font-ui);
-  user-select: none;
+}
+
+.cx-drawings-cited-more {
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The scale and the views: one line of two readings, wrapping only where the card is too narrow. */
+/* One reading a line (I-323 point 5 as amended): each lands on the job runner's clock, so neither may
+   decide where the other stands — a shared line re-flowed the card as its answers arrived. */
+.cx-drawings-lines {
+  display: flex;
+  flex-direction: column;
 }
 
 .cx-drawings-line {
@@ -304,11 +340,63 @@
   color: var(--ink-secondary);
 }
 
+/* I-85 as amended by I-323: the five facts stand inside a disclosure whose summary counts the
+   notable ones; opened, they are the same row of named figures as before. The summary is a 24 px
+   target (WCAG 2.2 SC 2.5.8) and names a loss by a warn border as well as by its words. */
 .cx-drawings-facts {
+  margin: 0;
+}
+
+.cx-drawings-facts-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-6);
+  padding-inline: var(--space-2);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--ink-secondary);
+}
+
+/* The disclosure's own affordance: the native marker leaves with `list-item`, so the chevron is
+   drawn here from two hairlines, pointing right when shut and down when open. */
+.cx-drawings-facts-summary::-webkit-details-marker {
+  display: none;
+}
+
+.cx-drawings-facts-summary::before {
+  content: "";
+  inline-size: calc(var(--space-1) * 1.5);
+  block-size: calc(var(--space-1) * 1.5);
+  border-right: var(--hairline);
+  border-bottom: var(--hairline);
+  border-color: currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--motion-state) var(--ease);
+}
+
+.cx-drawings-facts[open] > .cx-drawings-facts-summary::before {
+  transform: rotate(45deg);
+}
+
+.cx-drawings-facts-summary[data-notable="true"] {
+  border-color: var(--warn);
+}
+
+.cx-drawings-facts-notable {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cx-drawings-fact-list {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin: 0;
+  margin-top: var(--space-2);
 }
 
 /* I-85: every fact renders, zeros included — a notable one adds a border, behind the number. */

@@ -1,7 +1,8 @@
 // R-SPINE-022's renderer: one sheet of an EntityGraph, drawn to a canvas of a tier's long edge.
 //
 // It draws what the vector lane really carries — the path-shaped geometry of a layout, in the colour
-// the extractor already resolved (L-CAD-05), on white. Text, hatch fills, line weights and colour by
+// the extractor already resolved (L-CAD-05), on white — a colour too light to read on white plotted
+// black, as a plotter prints the default colour. Text, hatch fills, line weights and colour by
 // layer are not drawn: a thumbnail is a picture of where the lines are, and a renderer that guessed
 // at any of the rest would be inventing a fact the artifact did not state.
 //
@@ -15,6 +16,30 @@ export type SheetRaster = { png: Uint8Array; width: number; height: number };
 
 /** The paper a sheet is drawn on. Line work is dark on it, never the other way round. */
 const PAPER = 255;
+
+/**
+ * The lightest channel a line may keep and still read on the paper. A CAD drawing is drawn light on
+ * a dark screen: ACI 7, the default colour most line work stands in, resolves to white (L-CAD-05),
+ * and white on this paper is no line at all — the F-RCC6-BNBC paper layouts rasterised blank. A
+ * plotter prints ACI 7 black on paper, and so does this: a colour whose every channel is at least
+ * this light is drawn in ink. Every other resolved colour stands as the artifact states it.
+ */
+const PAPER_LIGHT = 0xc0;
+
+/** The ink a too-light line is plotted in: the paper-plot convention for the default colour. */
+const INK: readonly [number, number, number] = [0, 0, 0];
+
+/**
+ * The long edge at or under which a stroke is two pixels wide. A thumbnail is shown at about its own
+ * size on a card, and a one-pixel Bresenham line at that tier washes out to nothing once the browser
+ * resamples it; the larger tiers stay one pixel, which is what a viewer background wants.
+ */
+const BOLD_BELOW = 256;
+
+/** The colour one path is drawn in on paper: its own, unless it is too light to be seen there. */
+function onPaper(rgb: readonly [number, number, number]): readonly [number, number, number] {
+  return rgb[0] >= PAPER_LIGHT && rgb[1] >= PAPER_LIGHT && rgb[2] >= PAPER_LIGHT ? INK : rgb;
+}
 
 /** A point of the plane, as the artifact carries one. */
 type Point = readonly [number, number];
@@ -68,11 +93,13 @@ export function renderSheet(graph: EntityGraph, layoutName: string, longEdge: nu
   const column = (x: number): number => clamp(Math.floor((x - bbox.min[0]) * scale), width - 1);
   const row = (y: number): number => clamp(Math.floor((bbox.max[1] - y) * scale), height - 1);
 
+  const pen = longEdge <= BOLD_BELOW ? 2 : 1;
   for (const path of pathsOf(graph, layoutName)) {
     const drawn = path.points.map((point) => [column(point[0]), row(point[1])] as const);
     const ends = path.closed && drawn.length > 2 ? [...drawn, drawn[0] as (typeof drawn)[number]] : drawn;
+    const ink = onPaper(path.rgb);
     for (let index = 1; index < ends.length; index += 1) {
-      line(canvas, width, ends[index - 1] as readonly [number, number], ends[index] as readonly [number, number], path.rgb);
+      line(canvas, width, height, ends[index - 1] as readonly [number, number], ends[index] as readonly [number, number], ink, pen);
     }
   }
 
@@ -84,16 +111,29 @@ function clamp(value: number, last: number): number {
   return value < 0 ? 0 : value > last ? last : value;
 }
 
-/** One pixel, painted. */
-function plot(canvas: Uint8Array, width: number, x: number, y: number, rgb: readonly [number, number, number]): void {
-  const at = (y * width + x) * CHANNELS;
-  canvas[at] = rgb[0];
-  canvas[at + 1] = rgb[1];
-  canvas[at + 2] = rgb[2];
+/** One pen stroke, painted: a square of `pen` pixels from the point towards the canvas's far corner,
+    stopping at the canvas's own edge. */
+function plot(canvas: Uint8Array, width: number, height: number, x: number, y: number, rgb: readonly [number, number, number], pen: number): void {
+  for (let down = 0; down < pen && y + down < height; down += 1) {
+    for (let across = 0; across < pen && x + across < width; across += 1) {
+      const at = ((y + down) * width + (x + across)) * CHANNELS;
+      canvas[at] = rgb[0];
+      canvas[at + 1] = rgb[1];
+      canvas[at + 2] = rgb[2];
+    }
+  }
 }
 
 /** A straight line between two pixels, by Bresenham's — integer arithmetic, and every pixel once. */
-function line(canvas: Uint8Array, width: number, from: readonly [number, number], to: readonly [number, number], rgb: readonly [number, number, number]): void {
+function line(
+  canvas: Uint8Array,
+  width: number,
+  height: number,
+  from: readonly [number, number],
+  to: readonly [number, number],
+  rgb: readonly [number, number, number],
+  pen: number,
+): void {
   let [x, y] = from;
   const [endX, endY] = to;
   const stepX = x < endX ? 1 : -1;
@@ -103,7 +143,7 @@ function line(canvas: Uint8Array, width: number, from: readonly [number, number]
   let error = runX + runY;
 
   for (;;) {
-    plot(canvas, width, x, y, rgb);
+    plot(canvas, width, height, x, y, rgb, pen);
     if (x === endX && y === endY) return;
     const doubled = 2 * error;
     if (doubled >= runY) {

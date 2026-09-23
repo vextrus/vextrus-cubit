@@ -22,9 +22,9 @@
 
 | Region | Purpose | Size | Empty | Error | Loading |
 |---|---|---|---|---|---|
-| header | title, discipline chips with counts, search, Add | 100 % × 40 | chips disabled | — | — |
+| header | title, discipline chips with counts, search, count, Add (I-323: ONE row) | 100 % × 40 | chips at zero, still pressable (a zero chip answers the `no-match` empty) | — | — |
 | job strip (`JobTimeline`) | the run, last `STEPS_SHOWN` = 4 steps | 100 % × 40, **only while a job runs** | absent | RefusalState inline | — |
-| sheet grid (primary) | `SheetCard`: thumbnail + title + badges (discipline `EnumLabel`, revision, scale state, entity count) + cited keys capped at `CITED_SHOWN` = 5 then "+N more" | flex, wrap | Dropzone empty state: "Drop DWG, DXF, PDF, PNG, JPG or TIFF" + Choose files | ErrorState | 8 skeleton cards |
+| sheet grid (primary) | `SheetCard`: thumbnail + title + badges (discipline `EnumLabel`, revision, scale state, entity count) + cited keys capped at `CITED_SHOWN` = 3 then "+N more", wrapping (I-323) | flex, wrap | Dropzone empty state: "Drop DWG, DXF, PDF, PNG, JPG or TIFF" + Choose files | ErrorState | 8 skeleton cards |
 | offered strip | discipline confirmation groups (R-UI-023) | 36 per group, `OFFERED_SHOWN` = 3 then "+N" | absent | — | — |
 
 **What U2 changed, against §8's three fixes for this screen (before: 1.8), and why the height budget
@@ -76,7 +76,7 @@ Dropzone; the one OfferedGroups; the one ConsequenceDialog; the one RefusalState
   confirmation is an append-only row with its own act (L-ACT-01). Bulk stays offered, never
   assembled: a group of one is still a typed key with server-resolved membership, and no
   multi-select exists anywhere on the screen. A confirmed sheet renders no chooser.
-- **I-85 — every fidelity fact renders, zeros included.** A fact suppressed at zero would
+- **I-85 — every fidelity fact renders, zeros included** *(amended by I-323: inside a disclosure whose summary counts the notable ones)*. A fact suppressed at zero would
   make "no badge" mean both "nothing was lost" and "this build forgot the fact". All five
   `FIDELITY_FACTS` names render on every card; a non-zero or true fact adds
   `data-notable="true"` and a warn border — a second channel behind the number, which is the
@@ -122,7 +122,7 @@ Dropzone; the one OfferedGroups; the one ConsequenceDialog; the one RefusalState
   (the S-Audit I-34 class), so a timing is elapsed whole seconds through `formatUserFigure`
   with the unit as copy; recorded IOU, owner `src/core/format`'s node. Cards mount with no
   entrance: sheets fanning out are an answer, and X-1's honesty is the answer arriving.
-- **I-93 — cited entity keys render whole.** `cited` is the evidence for the proposal
+- **I-93 — cited entity keys render whole** *(amended by I-96 and then I-323: three keys, wrapping, then "+N more")*. `cited` is the evidence for the proposal
   (R-TO-004, L-AI-03), and evidence is shown whole, wrapping, select-all (S-Audit I-26),
   never truncated behind a "+3 more". No test id of its own: the contract is closed, and the
   line is found by its class inside `sheet-card`.
@@ -139,7 +139,7 @@ Recorded IOU — visible navigation (R-UI-031), owner: the node owning the shell
 navigation (the S-Audit and participants precedent, unpaid). Until it lands the route is
 journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its one address.
 - **I-95 — the screen states itself on its root, and every identifier renders through the IdChip (session 4, AM-08 Part 2's rubric read as CLAUDE.md reads it).** `cx-drawings` states `empty` with no card and `ready` otherwise; the grid's own `data-rendered-region` contract is unchanged. The root carries `data-screen-root` and a `data-state` a reader of the DOM can take after `settled()` — `ready`, `empty`, or the screen's own word — which is the rubric's twelfth criterion and was unstated here. An identifier a person meets on this screen (an account id, a content digest, a source key) is an IdChip: the chip measure on screen, the whole value in `data-value`, on the tooltip and on the clipboard, never a raw uuid, hex digest or handle in body text (R-UI-082). Where an earlier Interpretation of this file ruled a digest rendered whole in the document, this one amends it: the whole value is the chip's DATA and the copy it hands over, and the document shows the measure.
-- **I-96 — a cited key is an IdChip, and the cited row is one line.** The five cited keys a card
+- **I-96 — a cited key is an IdChip, and the cited row is one line** *(the one line amended by I-323: it wraps, and holds three)*. The five cited keys a card
   shows render through the IdChip — the key's own tail as the measure (`1F43` for
   `DXF_HANDLE:1F43`), the whole source key as the value, the tooltip and the clipboard — never a
   handle as body text (R-UI-082); the row is `nowrap`, clipped, so a card is the height of its facts
@@ -166,6 +166,70 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   picture of the drawn and classified card that `d6e7410f` intended is one of those journeys'
   to take, on a project whose partition has already answered.
 
+- **I-323 — the index answers the 2026-09-23 craft look: one header row, words for enums, a card the
+  height of its readings (session 7, R-UI-080..084 read against this file's older clauses).** The look
+  graded this screen below the bar: axe `target-size` SERIOUS at 1280x800, raw enums on every card,
+  a header of four stacked levels above the grid and a card about 530 px tall. Each finding was a clause
+  of this file doing the harm, so each clause is amended here, in place, and the old reading is kept
+  where a later reader would otherwise meet a contradiction.
+  1. **The header is the v22 frame's ONE row** — h1 `drawings_heading`, the discipline chips with
+     their counts, then at the row's end the search, the count line and an **Add drawings** button
+     (`drawings_upload_heading`, secondary) that scrolls the Add region into view and puts focus on the
+     Dropzone's own file door (I-97 stands: the Dropzone is still the one place a drawing is dropped,
+     and it still follows the grid once a card exists). The search names itself — `aria-label` and placeholder both
+     `drawings_search_label`, the projects-home precedent, so an empty field still says what it is —
+     and the chips keep their `<legend>`, clipped from sight (`cx-drawings-hidden`, out of flow). The Add button renders only once a card exists — with none, the Add region
+     stands first, directly under the header. The `Sheets` h2 stays for the outline and is clipped from
+     sight: a "Sheets" heading under "Drawings" said the same thing twice.
+  2. **Enums read as words (R-UI-082).** Every discipline — the filter chips, the card's discipline
+     cell, the chooser, the no-match sentence and the offered group's sentence — renders through
+     `EnumLabel` with the words `drawings_discipline_*` authors (`MEP` is an initialism the mechanical
+     reading would spell "Mep"); the format badge reads the format upper-cased (`DXF`), the scheme badge
+     reads `drawings_scheme_*` (`CAD vector`, `PDF vector`, `Traced raster`, else the mechanical
+     reading). The stored value stays in the DOM inside EnumLabel's technical disclosure, so the
+     elements' text still carries `dxf` and `DXF_HANDLE` and a suite matching on them still finds them.
+     *Amends I-25 and I-47 for enums on this screen, as I-95 did for identifiers; `data-discipline`,
+     `data-value` and every other hook keep the raw value.* The chip `ALL` reads `drawings_filter_all`
+     **All** with the total beside it; each discipline chip carries its count of sheets at that
+     effective discipline (I-94's reading), a tabular figure through `formatUserFigure`.
+  3. **The cited row wraps and shows three (amends I-93 and I-96).** At 1280 a card is 258 px wide
+     and the one-line row of five keys was 478-500 px: keys four and five were clipped — invisible,
+     reachable by nothing, the I-93 defect of "nothing says they exist" — and their copy targets lay in
+     layout over the neighbouring card, which is the target-size finding. The row now wraps, never
+     scrolls, holds the label, `CITED_SHOWN` = 3 keys and the `sheet-card-cited-more` count of the rest,
+     and takes no tab stop of its own (there is nothing left to scroll to). The whole list is the viewer
+     inspector's (R-TO-011); the card shows that the proposal has evidence and how much.
+  4. **The fidelity facts stand in a disclosure (amends I-85).** All five `sheet-fact` items still
+     render on every card, zeros included, as the same list of named figures R-TO-001 asks the card for
+     — inside `<details class="cx-drawings-facts">` whose `<summary>` reads `drawings_facts_summary`
+     and the count of notable facts (`drawings_facts_notable` / `drawings_facts_notable_none`), with the
+     warn border on the summary when any fact is notable. I-85's worry — that "no badge" would mean both
+     "nothing was lost" and "this build forgot" — is answered by the summary's count, which is never
+     absent. Three rows of zeros on every card were the largest share of its height.
+  5. **One line each for identity and readings.** The number (or `drawings_number_none`), the format
+     badge and the scheme badge stand on one line (`cx-drawings-card-meta`); the scale and views lines
+     stand one above the other (`cx-drawings-lines`, a column) — *amended at integration, session 7*:
+     both are the partition's answers and land on the job runner's clock, and a shared line that wrapped
+     or unwrapped as they landed re-flowed everything beneath it on the card (the disclosure, the
+     discipline chips, the doors) and moved J-010's masked picture from run to run. The discipline
+     is body weight beside its basis sentence, so the title is the one thing the eye finds first.
+  6. **A region with nothing in it is absent (R-UI-080).** The offered strip renders only when a
+     group is offered — the pattern's own none-sentence spent a line saying nothing a reader could act
+     on — and the groups' answer slot and status line wear `cx-shell-live`, leaving the flow while empty.
+  7. **Copy grammar.** `drawings_views_count_one` **{count} view** reads a count of one;
+     `drawings_scale_unplaceable_count` reads **No scale of record on {count} of {total} views**, a
+     sentence true at every count.
+  8. **The thumbnail is a picture of where the lines are (I-87, R-SPINE-022).** Three of four cards
+     showed a white rectangle: the renderer (`src/modules/takeoff/thumbnails/raster.ts`) drew each
+     path in its resolved colour on white paper, and ACI 7 — the default colour most line work stands
+     in — resolves to white. It now plots a colour whose every channel is at least 0xC0 in black ink,
+     as a plotter prints the default colour, and draws a 2 px stroke at the 256 px `thumb` tier, where
+     a 1 px line washed out once the browser resampled it. A paper layout's viewports still show
+     nothing of model space until the renderer draws through them (listed for its owner).
+  What this costs: the card no longer shows every fact's figure without a click, and three cited keys
+  instead of five. What it buys: at 1280x800 the grid starts at about 88 px under main's top and a
+  confirmed card's door stands in the fold.
+
 ## 1. Layout and hierarchy
 
 Files in the route directory: `page.tsx` (thin server component: reads the two segments,
@@ -181,7 +245,10 @@ The page renders in `shell-main`, one column `cx-drawings`: max-width `var(--bre
 column flex, gap `var(--space-6)`. Rail and breadcrumb are the shell's (I-30). Header block
 (`gap: var(--space-2)`): `<h1>` `drawings_heading` — `var(--text-20)`
 `var(--weight-heading)` `var(--graphite-900)`, margin 0 — over `drawings_caption`,
-`var(--text-13)` `var(--graphite-600)`.
+`var(--text-13)` `var(--graphite-600)`. **Amended by I-323:** the header is ONE row (flex, wrap,
+align centre, gap `var(--space-2)` `var(--space-4)`, min-height `var(--space-10)`) holding the h1, the
+discipline fieldset and, pushed to the row's end, the search, the count line and the Add button; the
+caption is not rendered (U2's copy diet).
 
 ### Add drawings (`<section aria-labelledby>`)
 
@@ -251,31 +318,34 @@ when the record lands and thumbnails appear when the rasters do.
 
 ### Sheets (`<section aria-labelledby>`)
 
-`<h2>` `drawings_sheets_heading`, hint `drawings_sheets_hint`. Then, for a reader without
+`<h2>` `drawings_sheets_heading` (clipped from sight by I-323), hint `drawings_sheets_hint` (not
+rendered since U2). Then, for a reader without
 `MEASURE` (I-90): `<p>` `drawings_denied_permission` and `<p>` `drawings_denied_holder`
 (`var(--text-13)` `var(--graphite-700)`, gap `var(--space-2)`) over one banner-surface
 RefusalState from the registered `PERMISSION_NOT_HELD`, evidence `{ href: the project's
 participants route, label: drawings_evidence_participants }`.
 
-**Controls row** — flex, wrap, gap `var(--space-3)`, align-items end, `padding-block-end
-var(--space-2)` so the reticle a focused field draws 4 px outside its box (R-UI-012) never
-meets the line below the row:
+**Controls row** — *moved into the header row by I-323; what follows is its content, with the
+labels clipped from sight.* Formerly flex, wrap, gap `var(--space-3)`, align-items end,
+`padding-block-end var(--space-2)`:
 
-- **Search** — the core Input, `data-testid="sheet-search"`, width 240 px, visible
-  `<label for…>` `drawings_search_label` (`var(--text-13)` `var(--weight-body-medium)`
-  `var(--graphite-700)`), no placeholder (the s-auth ruling); matching per I-94.
-- **Discipline** — a `<fieldset>` (legend `drawings_filter_legend`, styled as the field
+- **Search** — the core Input, `data-testid="sheet-search"`, width 240 px, named by
+  `aria-label` `drawings_search_label` and carrying the same words as its placeholder (I-323,
+  amending the visible `<label for…>` and the s-auth no-placeholder reading for this one-row
+  header; the projects-home search is the precedent); matching per I-94.
+- **Discipline** — a `<fieldset>` (legend `drawings_filter_legend`, clipped from sight by I-323; formerly styled as the field
   label) of shipped interactive Chips (participants I-48), one
   `data-testid="sheet-filter-option"` per option with `data-value`: `ALL` first, label
   `drawings_filter_all`, then the five `DISCIPLINES` in declared order, each rendering its
-  enum value verbatim in `var(--font-mono)` (I-47). Exactly one `aria-pressed="true"`; `ALL`
-  by default.
+  enum through `EnumLabel` in the words `drawings_discipline_*` author, with its count beside it
+  (I-323, amending I-47's verbatim mono). Exactly one `aria-pressed="true"`; `ALL` by default.
 - **Count line** — `<p role="status">`, `margin-left: auto`, `align-self: center`:
   `drawings_sheet_count` filled with `{shown}` and `{total}` through `formatUserFigure`,
   `var(--text-12)` `var(--graphite-600)` `tabular-nums`.
 
 **Offered groups** — hint `drawings_groups_hint` (`var(--text-12)` `var(--graphite-600)`),
-then the one OfferedGroups holding every group `offeredGroupsOf` answered, `label` composed
+then — only when at least one group is offered (I-323) — the one OfferedGroups holding every group
+`offeredGroupsOf` answered, `label` composed
 per I-86 and `count` `drawings_group_count` filled through `formatUserFigure`; its Decision
 rules everything inside it. Directly below, the region's **answer slot**
 `<div class="cx-drawings-answer">` (no test id; the contract is closed): exactly one
@@ -304,25 +374,28 @@ card names itself as a region because its last child is a door every card labels
   `var(--font-mono)` `var(--text-12)` `var(--graphite-700)` `tabular-nums slashed-zero`, or
   `drawings_number_none` in `var(--font-ui)` `var(--graphite-600)` when null — prose for
   absence, never a dash (the consequence-dialog `none` precedent).
-- **Badges** — flex, gap `var(--space-2)`: the shipped Badge twice,
-  `data-testid="sheet-card-format"` and `"sheet-card-scheme"`, content the stored value
-  verbatim in `var(--font-mono)` (`dxf`, `DXF_HANDLE` — the extractor's own words, never
-  up-cased, I-25), each carrying `aria-label` `drawings_format_label` /
-  `drawings_scheme_label` filled with that value so its kind is spoken.
+- **Badges** — on the number's line (I-323), gap `var(--space-2)`: the shipped Badge twice,
+  `data-testid="sheet-card-format"` and `"sheet-card-scheme"`, each holding an `EnumLabel` over the
+  stored value — the format read upper-cased (`DXF`), the scheme read by `drawings_scheme_*`
+  (`CAD vector`) — the stored value in its technical disclosure; each carrying `aria-label`
+  `drawings_format_label` / `drawings_scheme_label` filled with those words so its kind is spoken.
+  *Amends the verbatim-mono reading of I-25 for these two enums (R-UI-082).*
 - **Discipline cell** — `<p data-testid="sheet-card-discipline" data-basis="GRAMMAR|NONE|
-  CONFIRMED">`: the effective discipline verbatim, `var(--font-mono)` `var(--text-13)`
-  `var(--weight-body-medium)` `var(--graphite-900)`, then the basis sentence
+  CONFIRMED">`: the effective discipline through `EnumLabel` in `drawings_discipline_*`'s words,
+  `var(--text-13)` body weight `var(--ink)` (I-323), then beside it the basis sentence
   (`drawings_basis_grammar` / `_none` / `_confirmed`), `var(--text-12)`
   `var(--graphite-600)` (I-83). Under it, when `cited` is non-empty,
-  `<p class="cx-drawings-cited">`: label `drawings_cited_label`, then every key whole,
-  wrapping, `user-select: all`, `var(--font-mono)` `var(--text-12)` `var(--graphite-600)`
-  (I-93).
+  `<p class="cx-drawings-cited">`: label `drawings_cited_label`, then `CITED_SHOWN` = 3 keys as
+  IdChips and `sheet-card-cited-more` for the rest, wrapping, never clipped (I-93, I-96, I-323).
 - **Scale and views** — `<p data-testid="sheet-card-scale" data-scale={state}>` carrying
   `drawings_scale_unaffirmed` / `_affirmed` / `_unplaceable`, and `<p
   data-testid="sheet-card-views" data-views={count ?? ""}>` carrying
   `drawings_views_unclassified` when null, else `drawings_views_count` through
-  `formatUserFigure`. Both `var(--text-12)` `var(--graphite-700)`.
-- **Fidelity facts** — flex, wrap, gap `var(--space-2)`: one `<span data-testid="sheet-fact"
+  `formatUserFigure` (`drawings_views_count_one` at one). Both `var(--text-12)` `var(--graphite-700)`,
+  on one line (`cx-drawings-lines`, I-323).
+- **Fidelity facts** — inside `<details class="cx-drawings-facts">` whose `<summary>` (a 24 px
+  target, chevron drawn from two hairlines) reads `drawings_facts_summary` and the notable count, warn
+  border when any is notable (I-323); the list: flex, wrap, gap `var(--space-2)`: one `<span data-testid="sheet-fact"
   data-fact={name} data-value={String(value)} data-notable="true|false">` per name of
   `FIDELITY_FACTS` in declared order (I-85): fill `var(--graphite-0)`, border
   `var(--hairline)`, radius `var(--radius-4)`, padding-inline `var(--space-2)`; the label
@@ -419,8 +492,8 @@ step and status words, the seconds and the transport-lost sentence) moved to
 `docs/design/job-timeline.md` § 4 (I-107). · `drawings_sheets_heading` **Sheets** · `drawings_sheets_hint`
 **Sheet numbers, titles and disciplines are read from each title block. Confirm a discipline
 from a group the product offers — there is no select-all.** · `drawings_search_label`
-**Search sheets** · `drawings_filter_legend` **Discipline** · `drawings_filter_all` **All
-disciplines** · `drawings_sheet_count` **{shown} of {total} sheets** · `drawings_groups_hint`
+**Search sheets** · `drawings_filter_legend` **Discipline** · `drawings_filter_all` **All** (I-323; was **All
+disciplines**) · `drawings_sheet_count` **{shown} of {total} sheets** · `drawings_groups_hint`
 **Confirmation is offered as groups the product names. A group is confirmed exactly as it is
 named.** · `drawings_group_label_discipline` **{discipline} proposed from the title block on
 {subject}** · `drawings_group_label_sheet` **{discipline} proposed for {subject}** ·
@@ -433,7 +506,15 @@ title block** · `drawings_basis_none` **No title-block text to read** ·
 `drawings_scale_unaffirmed` **Scale not affirmed** · `drawings_scale_affirmed` **Scale
 affirmed** · `drawings_scale_unplaceable` **Scale unplaceable — this layout carries no extent
 or no drawing units** · `drawings_views_unclassified` **Views not classified yet** ·
-`drawings_views_count` **{count} views** · `drawings_fact_strays_rejected` **Strays
+`drawings_views_count` **{count} views** · `drawings_views_count_one` **{count} view** (I-323) ·
+`drawings_scale_unplaceable_count` **No scale of record on {count} of {total} views** (I-323; was
+**{count} of {total} views have no scale of record**) · `drawings_discipline_structural`
+**Structural** · `drawings_discipline_architectural` **Architectural** · `drawings_discipline_mep`
+**MEP** · `drawings_discipline_civil` **Civil** · `drawings_discipline_other` **Other** ·
+`drawings_scheme_dxf_handle` **CAD vector** · `drawings_scheme_pdf_object` **PDF vector** ·
+`drawings_scheme_raster_trace` **Traced raster** · `drawings_facts_summary` **Fidelity facts** ·
+`drawings_facts_notable` **{count} notable** · `drawings_facts_notable_none` **none notable** (all
+I-323) · `drawings_fact_strays_rejected` **Strays
 rejected** · `drawings_fact_explode_truncated` **Explode truncated** ·
 `drawings_fact_explode_losses` **Explode losses** · `drawings_fact_flatten_capped` **Flatten
 capped** · `drawings_fact_dropped_layouts` **Dropped layouts** · `drawings_fact_yes` **yes**
@@ -466,9 +547,9 @@ binding): **GROUP_NOT_OFFERED** · severity error · surface inline · message *
 not one the project offers now, so nothing was confirmed.** · remedy **Reload the sheet index
 and confirm from a group it offers.**
 
-Voice: calm, concrete, professional; no exclamation marks; no build vocabulary in prose. Enum
-values, formats, schemes and entity keys are data and render verbatim as data (I-25's class),
-never woven into sentences.
+Voice: calm, concrete, professional; no exclamation marks; no build vocabulary in prose. Entity
+keys are data and render as IdChips (I-95); enum values, formats and schemes render as words through
+EnumLabel, the stored value in the technical disclosure (I-323, amending I-25's verbatim reading).
 
 ## 4. Motion (R-UI-004)
 
@@ -487,7 +568,9 @@ source under reduced motion, so `drawings.css` carries no `prefers-reduced-motio
 `--warn`/`--warn-surface` · `--danger` · `--hairline` · `--space-2/3/4/6` · `--radius-4/8` ·
 `--text-12/13/16/20` · `--font-ui`/`--font-mono` · `--leading-ui` ·
 `--weight-body-medium`/`--weight-heading` · `--row-comfortable`/`--row-compact` ·
-`--breakpoint-lg` (the page measure, read as a token) · `--motion-state`/`--ease`. Px
+`--breakpoint-lg` (the page measure, read as a token) · `--motion-state`/`--ease` · and, by I-323,
+`--space-1`/`--space-10` (the chip gap, the header row's height) · `--text-body` (the clipped labels'
+declared size). Px
 literals, closed set (core I-1's mandated class): the grid's 280 px column minimum, the
 240 px search field, the 8 px marker and its 1 px connector, the thumbnail's 4 / 3 ratio, and
 the skeleton bones 12/16/24/32/160/220 × 64/240/360/200/720/280. Any other literal is a
@@ -526,7 +609,8 @@ line are found by role and name.
 
 Behavioural hooks without new ids: exactly one `aria-pressed="true"` per chip group;
 `role="status"` on the count, status and transport lines; `aria-live="polite"` on each step's
-status word; a visible `<label for…>` on the search; `cx-reticle` on every chip, button,
+status word; the search's accessible name `drawings_search_label` (its `aria-label` and placeholder
+by I-323, where a visible `<label for…>` stood); `cx-reticle` on every chip, button,
 input and link; `aria-busy` on a door awaiting its pre-check; the absence of
 `sheet-discipline-option` and `sheet-confirm` on a confirmed card and for a reader without
 `MEASURE`; RefusalState's `data-code` inside either answer slot.

@@ -7,13 +7,14 @@
  * THE GEOMETRY, IN ONE PLACE (I-285, I-286). Both screens are columns of single-row tracks over a
  * grid: the header is one row, each section's heading and hint are one row, and the grid takes what
  * they leave. On the index `cx-sets` is a full-height column and the grid is its last track, so the
- * sets fill the work surface; on the browser `cx-set` keeps the page measure it was ruled at and the
- * drawings' frame is eighteen `--row-h` rows deep whatever the project holds, so the same surface
- * reads the same whether a project holds two drawings or forty (I-214's precedent), with the pin
- * section and the pinned revisions following beneath it.
+ * sets fill the work surface; on the browser `cx-set` is the same full-height column at the page
+ * measure it was ruled at, and its body is two columns — the drawings' grid taking the height the
+ * column leaves, and a 280 px side column holding the pin and the pinned revisions beside it (I-324,
+ * amending I-286's eighteen-row frame, whose empty rows pushed the pin below the fold).
  *
- * The px literals are the closed set the Decision § 5 fixes: the 280 px name field and the 24 px
- * ordinal column. The grids' column widths are the tables' own (their `size`), never this sheet's.
+ * The px literals are the closed set the Decision § 5 fixes: the 280 px name field, the 24 px
+ * ordinal column and the browser's 280 px side column (I-324). The grids' column widths are the
+ * tables' own (their `size`), never this sheet's.
  * Any other literal is a defect.
  *
  * Focus is not styled here: every button, input and link wears the reticle from its one home
@@ -169,14 +170,54 @@
   min-height: 0;
 }
 
-/* I-286: the drawings a set may name are the browser's primary region, and its frame is eighteen
-   rows deep whatever the project holds — a project with one drawing reads as the same surface a
-   project with forty does. */
-.cx-set-drawings {
+/* I-324 (amending I-286): the browser is a full-height column like the index, and its body is two
+   columns — the members grid, the primary surface, taking the height the column leaves (I-285's
+   treatment, in place of a frame fixed at eighteen rows whose empty rows pushed the pin and its
+   evidence below the fold), and beside it a 280 px side column holding the pin and the revisions it
+   has been pinned at, scrolling within itself when a set has been pinned many times. */
+.cx-set {
+  height: 100%;
+  min-height: 0;
+}
+
+.cx-set-body {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: var(--space-6);
+  min-height: 0;
+}
+
+.cx-set-members {
+  min-height: 0;
+}
+
+.cx-set-side {
   display: flex;
   flex-direction: column;
+  gap: var(--gap-section);
+  min-height: 0;
   min-width: 0;
-  min-height: calc(var(--row-h) * 18);
+  overflow-y: auto;
+}
+
+/* A section's explanation, carried as its accessible description and clipped from sight (I-324):
+   out of flow, so it pays no room in the track (the register's hiding idiom, no px spelled). */
+.cx-set-described {
+  position: absolute;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  font-size: var(--text-12);
+}
+
+.cx-set-drawings {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: calc(var(--row-h) * 6);
 }
 
 .cx-set-drawings > * {

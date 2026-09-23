@@ -10,7 +10,7 @@
 // I-49's precedent: the screen pre-checks the preview and the dialog opens only on a consequence. A
 // refusal before the dialog opens is this screen's answer, in the pressed door's own slot; a refusal
 // that arrives once the dialog holds focus is the dialog's.
-import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { DISCIPLINES, type Discipline } from "@/core/sheets/law";
 import { refusalOf, type RefusalCode } from "@/core/errors";
@@ -20,7 +20,7 @@ import { Dropzone, uploadFiles, type DropzoneFile, type DropzoneItem } from "@/u
 import { JobTimeline, useTrackedJobs, type TrackedJob } from "@/ui/patterns/job-timeline";
 import { OfferedGroups, type OfferedGroupItem } from "@/ui/patterns/offered-group";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { Button, Chip, Input } from "@/ui/primitives/core";
+import { Button, Chip, EnumLabel, Input } from "@/ui/primitives/core";
 import { fill, strings } from "@/ui/strings";
 import { participantsRoute } from "../settings/participants/route-address";
 import {
@@ -32,7 +32,7 @@ import {
   type PreviewAnswer,
 } from "./actions";
 import { drawingsRoute } from "./route-address";
-import { SheetCard, type SheetCardData } from "./sheet-card";
+import { DISCIPLINE_WORDS, SheetCard, type SheetCardData } from "./sheet-card";
 import { drawings } from "./strings";
 import { TESTIDS } from "@/ui/testids";
 
@@ -119,7 +119,7 @@ export function SheetIndex({
   const [confirming, setConfirming] = useState<GroupKey | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const headingIds = { upload: useId(), sheets: useId() };
-  const searchId = useId();
+  const addRegion = useRef<HTMLElement | null>(null);
 
   // I-89: offline is what the browser says, and what a failed transfer confirms. The Dropzone stays
   // armed — the protocol resumes from the last acknowledged offset — and the act doors do not.
@@ -229,6 +229,14 @@ export function SheetIndex({
     });
   }, [cards, filter, search]);
 
+  /** How many sheets stand at each discipline — the chips' counts (§3.4: "Structural 8 · MEP 1"),
+      over the same effective discipline the filter compares (I-94). */
+  const standing = useMemo(() => {
+    const counted = Object.fromEntries(DISCIPLINES.map((discipline) => [discipline, 0])) as Record<Discipline, number>;
+    for (const card of cards) counted[card.confirmed === null ? card.proposal.discipline : card.confirmed.discipline] += 1;
+    return counted;
+  }, [cards]);
+
   const dialogPreview = useCallback(async () => {
     if (confirming === null) throw new Error("the consequence dialog was opened with no group to preview");
     const answered: PreviewAnswer = await preview({ projectId, group: confirming });
@@ -285,14 +293,14 @@ export function SheetIndex({
   const offered: OfferedGroupItem[] = groups.map((group) => ({
     key: group.key,
     label: fill(group.key.kind === "SHEET" ? drawings.drawings_group_label_sheet : drawings.drawings_group_label_discipline, {
-      discipline: group.key.discipline,
+      discipline: DISCIPLINE_WORDS[group.key.discipline],
       subject: group.label,
     }),
     count: fill(drawings.drawings_group_count, { count: formatUserFigure(String(group.members.length)) }),
   }));
 
   const addDrawings = (
-    <section className="cx-drawings-section" aria-labelledby={headingIds.upload}>
+    <section className="cx-drawings-section" aria-labelledby={headingIds.upload} ref={addRegion}>
       <h2 className="cx-drawings-section-heading" id={headingIds.upload}>
         {drawings.drawings_upload_heading}
       </h2>
@@ -316,10 +324,59 @@ export function SheetIndex({
     </section>
   );
 
+  /** The v22 frame's "↑ Add" (I-97, I-323): the header's door takes the reader to the one Dropzone and
+      puts focus on its own file door — the Add region stays the one place a drawing is dropped. */
+  const toAdd = (): void => {
+    const region = addRegion.current;
+    if (region === null) return;
+    region.scrollIntoView({ block: "start" });
+    region.querySelector<HTMLElement>(`[data-testid="${TESTIDS.dropzone.browse}"]`)?.focus();
+  };
+
   return (
     <div className="cx-drawings" data-screen-root="" data-state={cards.length === 0 ? "empty" : "ready"}>
+      {/* I-323: the v22 frame's header is ONE row — the title, the discipline chips with their
+          counts, the search, the count and Add. The chips keep their legend, clipped from sight, and
+          the search names itself: the row says what they are by what they hold. */}
       <header className="cx-drawings-header">
         <h1 className="cx-drawings-heading">{drawings.drawings_heading}</h1>
+
+        <fieldset className="cx-drawings-field">
+          <legend className="cx-drawings-hidden">{drawings.drawings_filter_legend}</legend>
+          <span className="cx-drawings-choices">
+            <Chip data-testid={TESTIDS.sheet.filterOption} data-value={ALL} selected={filter === ALL} onClick={() => setFilter(ALL)}>
+              {drawings.drawings_filter_all}
+              <span className="cx-drawings-chip-count">{formatUserFigure(String(cards.length))}</span>
+            </Chip>
+            {DISCIPLINES.map((discipline) => (
+              <Chip key={discipline} data-testid={TESTIDS.sheet.filterOption} data-value={discipline} selected={filter === discipline} onClick={() => setFilter(discipline)}>
+                <EnumLabel value={discipline} label={DISCIPLINE_WORDS[discipline]} />
+                <span className="cx-drawings-chip-count">{formatUserFigure(String(standing[discipline]))}</span>
+              </Chip>
+            ))}
+          </span>
+        </fieldset>
+
+        <span className="cx-drawings-tools">
+          {/* The field names itself (the projects-home precedent): its accessible name and its
+              placeholder are the same words, so an empty field still says what it is (I-323). */}
+          <Input
+            className="cx-drawings-search"
+            data-testid={TESTIDS.sheet.search}
+            aria-label={drawings.drawings_search_label}
+            placeholder={drawings.drawings_search_label}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <p className="cx-drawings-count" role="status">
+            {fill(drawings.drawings_sheet_count, { shown: formatUserFigure(String(shown.length)), total: formatUserFigure(String(cards.length)) })}
+          </p>
+          {cards.length === 0 ? null : (
+            <Button variant="secondary" onClick={toAdd}>
+              {drawings.drawings_upload_heading}
+            </Button>
+          )}
+        </span>
       </header>
 
       {/* I-97: with no card the Add region is the screen's teaching frame and stands first; with cards
@@ -343,7 +400,9 @@ export function SheetIndex({
       )}
 
       <section className="cx-drawings-section" aria-labelledby={headingIds.sheets}>
-        <h2 className="cx-drawings-section-heading" id={headingIds.sheets}>
+        {/* The section names itself for the outline; the h1 already says it to the eye, and a
+            "Sheets" heading under "Drawings" said the same thing twice (I-323). */}
+        <h2 className="cx-drawings-hidden" id={headingIds.sheets}>
           {drawings.drawings_sheets_heading}
         </h2>
 
@@ -357,50 +416,29 @@ export function SheetIndex({
           </div>
         )}
 
-        <div className="cx-drawings-controls">
-          <span className="cx-drawings-field">
-            <label className="cx-drawings-field-label" htmlFor={searchId}>
-              {drawings.drawings_search_label}
-            </label>
-            <Input id={searchId} className="cx-drawings-search" data-testid={TESTIDS.sheet.search} value={search} onChange={(event) => setSearch(event.target.value)} />
-          </span>
-
-          <fieldset className="cx-drawings-field">
-            <legend className="cx-drawings-field-label">{drawings.drawings_filter_legend}</legend>
-            <span className="cx-drawings-choices">
-              <Chip data-testid={TESTIDS.sheet.filterOption} data-value={ALL} selected={filter === ALL} onClick={() => setFilter(ALL)}>
-                {drawings.drawings_filter_all}
-              </Chip>
-              {DISCIPLINES.map((discipline) => (
-                <Chip className="cx-drawings-enum" key={discipline} data-testid={TESTIDS.sheet.filterOption} data-value={discipline} selected={filter === discipline} onClick={() => setFilter(discipline)}>
-                  {discipline}
-                </Chip>
-              ))}
-            </span>
-          </fieldset>
-
-          <p className="cx-drawings-count" role="status">
-            {fill(drawings.drawings_sheet_count, { shown: formatUserFigure(String(shown.length)), total: formatUserFigure(String(cards.length)) })}
-          </p>
-        </div>
-
         {/* §3.4: "36 px per group, max 3 then +N". The fan-out that stacked every group down one
             column is the reason this screen was 3 168 px tall and needed a height budget of its own
-            (tests/e2e/support/height-budget.ts) — a strip is a strip at any number of groups. */}
-        <OfferedGroups
-          groups={offered.slice(0, OFFERED_SHOWN)}
-          onConfirm={(key) => {
-            void press(key, { where: "groups" });
-          }}
-        />
+            (tests/e2e/support/height-budget.ts) — a strip is a strip at any number of groups. With
+            no group offered the strip is absent (the region table's "Empty: absent", R-UI-080): the
+            pattern's own none-sentence spent a line and a gap saying nothing a reader could act on. */}
+        {offered.length === 0 ? null : (
+          <OfferedGroups
+            groups={offered.slice(0, OFFERED_SHOWN)}
+            onConfirm={(key) => {
+              void press(key, { where: "groups" });
+            }}
+          />
+        )}
         {offered.length > OFFERED_SHOWN ? (
-          <p className="cx-drawings-count" data-testid={TESTIDS.sheet.offeredMore}>
+          <p className="cx-drawings-more" data-testid={TESTIDS.sheet.offeredMore}>
             {fill(drawings.drawings_group_count, { count: formatUserFigure(String(offered.length - OFFERED_SHOWN)) })}
           </p>
         ) : null}
-        <div className="cx-drawings-answer">{answerFor({ where: "groups" })}</div>
-        <p className="cx-drawings-status" role="status" aria-live="polite">
-          {pending ? drawings.drawings_confirm_pending : committed ? drawings.drawings_confirm_committed : ""}
+        {/* An answer slot and a status line with nothing in them leave the flow (the shell's one
+            live-region idiom), so they pay no gap until they have something to say. */}
+        <div className="cx-drawings-answer cx-shell-live">{answerFor({ where: "groups" })}</div>
+        <p className="cx-drawings-status cx-shell-live" role="status" aria-live="polite">
+          {pending ? drawings.drawings_confirm_pending : committed ? drawings.drawings_confirm_committed : null}
         </p>
 
         {shown.length === 0 ? (
@@ -500,12 +538,14 @@ function Empty({ cause, search, discipline, onClear }: EmptyProps) {
 
 /**
  * The sentence that names the filter in force, in the words the person set it with: the searched
- * text verbatim (it is theirs, not the product's) and the chipped discipline as the enum data it is
- * (I-25). Nothing is filtering when neither stands, and then there is no sentence to write.
+ * text verbatim (it is theirs, not the product's) and the chipped discipline in the words its chip
+ * reads (I-323, amending I-25's enum-as-data reading for this sentence). Nothing is filtering when neither stands, and then there is no sentence to write.
  */
 function namedFilter(search: string, discipline: Discipline | null): string | null {
-  if (search !== "" && discipline !== null) return fill(drawings.drawings_empty_no_match_both, { search, discipline });
+  // The discipline is said as the chip that set it says it (R-UI-082, I-323): in words, not as the enum.
+  const said = discipline === null ? null : DISCIPLINE_WORDS[discipline];
+  if (search !== "" && said !== null) return fill(drawings.drawings_empty_no_match_both, { search, discipline: said });
   if (search !== "") return fill(drawings.drawings_empty_no_match_search, { search });
-  if (discipline !== null) return fill(drawings.drawings_empty_no_match_discipline, { discipline });
+  if (said !== null) return fill(drawings.drawings_empty_no_match_discipline, { discipline: said });
   return null;
 }

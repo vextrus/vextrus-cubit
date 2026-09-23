@@ -24,7 +24,7 @@ import { JobsProvider, type JobsFormat } from "@/ui/patterns/job-timeline";
 import { fill } from "@/ui/strings";
 import { SheetIndex } from "../sheet-index";
 import { drawings } from "../strings";
-import type { SheetCardData } from "../sheet-card";
+import { DISCIPLINE_WORDS, type SheetCardData } from "../sheet-card";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => undefined, replace: () => undefined, refresh: () => undefined, back: () => undefined, prefetch: () => undefined }),
@@ -111,7 +111,8 @@ test("AC-6(b): a no-match emptiness reached by a discipline chip names that disc
 
   const empty = screen.getByTestId("sheets-empty");
   expect(empty.getAttribute("data-cause"), "the index is not empty — nothing answers to this filter").toBe("no-match");
+  // Named as its chip reads it — in words, the enum kept out of the sentence (R-UI-082, I-323).
   expect(empty.textContent, "the emptiness names the filter in force, so it does not read as 'there are no sheets'").toContain(
-    fill(drawings.drawings_empty_no_match_discipline, { discipline: FILTERED_TO }),
+    fill(drawings.drawings_empty_no_match_discipline, { discipline: DISCIPLINE_WORDS[FILTERED_TO] }),
   );
 });
