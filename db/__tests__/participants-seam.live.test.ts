@@ -447,7 +447,7 @@ function textOf(value: unknown, depth = 0): string[] {
 
 /** Does the entry name this person — by the id the store holds, or by the address it reads back? */
 function names(entry: unknown, person: Person): boolean {
-  const text = textOf(entry).join("").toLowerCase();
+  const text = textOf(entry).join("\u0001").toLowerCase();
   return text.includes(person.userId.toLowerCase()) || text.includes(person.email.split("@")[0]?.toLowerCase() ?? person.email.toLowerCase());
 }
 

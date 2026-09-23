@@ -632,7 +632,7 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
               // way. The row hears the click, so choosing a sheet is the whole row's business and the
               // button's own activation, by pointer or by Enter, reaches it by bubbling.
               <div
-                key={`${held.drawingId} ${held.layoutName}`}
+                key={`${held.drawingId}\u0000${held.layoutName}`}
                 className="cx-schedules-sheet-row"
                 data-testid={testIds.sheetRow}
                 data-drawing={held.drawingId}
@@ -730,7 +730,7 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
                       <h3 className="cx-schedules-panel-heading">{SCHEDULES_COPY.schedules_proposals_heading}</h3>
                       {sheet.notes.proposals.map((proposal) => (
                         <Proposal
-                          key={`${proposal.kind} ${proposal.sourceKey}`}
+                          key={`${proposal.kind}\u0000${proposal.sourceKey}`}
                           proposal={proposal}
                           testIds={testIds}
                           href={traceTo([proposal.sourceKey])}

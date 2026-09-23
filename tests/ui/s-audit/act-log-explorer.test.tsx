@@ -333,8 +333,8 @@ describe("AC-2 — filtering is real behaviour over the given rows", () => {
 
     const empty = screen.getByTestId(TESTID.empty);
     const text = (empty.textContent ?? "").replace(/\s+/g, " ");
-    expect(text, "the filtered empty state names the filters as the cause (Decision I-33)").toContain(copy["audit_empty_filtered_heading"] ?? " ");
-    expect(text, "and says every act stays recorded").toContain(copy["audit_empty_filtered_body"] ?? " ");
+    expect(text, "the filtered empty state names the filters as the cause (Decision I-33)").toContain(copy["audit_empty_filtered_heading"] ?? "\u0000");
+    expect(text, "and says every act stays recorded").toContain(copy["audit_empty_filtered_body"] ?? "\u0000");
 
     const clear = screen.getByRole("button", { name: copy["audit_empty_clear"] ?? "" });
     await user.click(clear);
@@ -349,8 +349,8 @@ describe("AC-2 — filtering is real behaviour over the given rows", () => {
     expect(rows().length, "no acts, no rows").toBe(0);
     const empty = screen.getByTestId(TESTID.empty);
     const text = (empty.textContent ?? "").replace(/\s+/g, " ");
-    expect(text, "the no-acts variant teaches that the log fills itself (Decision I-33)").toContain(copy["audit_empty_none_heading"] ?? " ");
-    expect(text, "and that there is nothing to set up").toContain(copy["audit_empty_none_body"] ?? " ");
+    expect(text, "the no-acts variant teaches that the log fills itself (Decision I-33)").toContain(copy["audit_empty_none_heading"] ?? "\u0000");
+    expect(text, "and that there is nothing to set up").toContain(copy["audit_empty_none_body"] ?? "\u0000");
     expect(
       screen.queryByRole("button", { name: copy["audit_empty_clear"] ?? "" }),
       "the no-acts variant carries no action — no action on a reader commits an act (Decision I-33)",

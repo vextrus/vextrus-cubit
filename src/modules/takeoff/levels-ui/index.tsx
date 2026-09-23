@@ -1265,7 +1265,9 @@ function Rollup({
   // it wore was a percentage nobody computed (R-UI-002): its code, in words, says why instead.
   return (
     <span className="cx-levels-rollup" data-testid={testId} data-kind={rollup.kind} data-lines={rollup.lines} data-coverage={rollup.coverage} data-code={rollup.code ?? ""}>
-      <span className="cx-levels-mono">{fillCopy("levels_rollup_lines", { count: formatUserFigure(String(rollup.lines)) })}</span>
+      <span className="cx-levels-mono">
+        {rollup.lines === 1 ? LEVELS_COPY.levels_rollup_lines_one : fillCopy("levels_rollup_lines", { count: formatUserFigure(String(rollup.lines)) })}
+      </span>
       {complete && rollup.value !== null ? <QuantityText value={rollup.value} format={figuresOfKind(rollup.kind)} className="cx-levels-figure" /> : null}
       {complete && rollup.value !== null && isUnit(rollup.unit) ? <UnitBadge unit={rollup.unit} /> : null}
       {complete ? <CoverageChip value={1} /> : null}

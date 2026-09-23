@@ -177,7 +177,7 @@ export function boqDraftPayloadOf(reading: BoqReading): BoqDraftPayload {
 function groupsOf(held: readonly Placed[], descriptions: GroupDescriptions | undefined): BoqDraftGroup[] {
   const pairs = new Map<string, Placed[]>();
   for (const entry of held) {
-    const key = `${entry.class} ${entry.kind}`;
+    const key = `${entry.class}\u0000${entry.kind}`;
     const carried = pairs.get(key);
     if (carried === undefined) pairs.set(key, [entry]);
     else carried.push(entry);

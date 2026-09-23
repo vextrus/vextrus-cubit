@@ -24,8 +24,8 @@ export type CampaignDigests = {
 
 /** Code-point order over the canonical spelling of a pair — a set has no order of its own. */
 function byPair(left: readonly string[], right: readonly string[]): number {
-  const leftKey = left.join("");
-  const rightKey = right.join("");
+  const leftKey = left.join("\u001f");
+  const rightKey = right.join("\u001f");
   return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
 }
 

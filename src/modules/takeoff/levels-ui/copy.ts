@@ -21,6 +21,7 @@ export const LEVELS_COPY = Object.freeze({
   levels_col_standing: "Storey height",
   levels_standing_none: "Not stated",
   levels_rollup_lines: "{count} lines",
+  levels_rollup_lines_one: "1 line",
   levels_insert: "Insert a level",
   levels_insert_label_field: "Label",
   levels_insert_ordinal_field: "Ordinal",

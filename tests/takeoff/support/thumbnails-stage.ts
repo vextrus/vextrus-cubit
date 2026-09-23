@@ -510,7 +510,7 @@ export function inkOf(bytes: Uint8Array, what: string): Ink {
 
 /** The identity of one raster row, for comparing two readings without pinning either's order. */
 export function rasterKey(row: { layoutName: string; tier: string }): string {
-  return `${row.layoutName} ${row.tier}`;
+  return `${row.layoutName}\u0000${row.tier}`;
 }
 
 /** Sorted by code point — `localeCompare` is not available to this tree (L-REG-05). */

@@ -222,7 +222,7 @@ Declared in `takeoff/levels/states.ts` (`LEVELS_STATES`) and appended to
 `takeoff_nav_levels` **Levels** (existing registry, `takeoff.ts`) · `levels_heading` **Levels**
 (the clipped h1, I-lev-4) · `levels_grid_label` **Level
 stack** · `levels_col_level` **Level** · `levels_col_ordinal` **Ordinal** · `levels_col_standing`
-**Storey height** · `levels_rollup_lines` **{count} lines** · `levels_insert` **Insert a level** ·
+**Storey height** · `levels_rollup_lines` **{count} lines** · `levels_rollup_lines_one` **1 line** · `levels_insert` **Insert a level** ·
 `levels_insert_label_field` **Label** · `levels_insert_ordinal_field` **Ordinal** ·
 `levels_insert_hint` **The new level takes this ordinal. Every live level at or above it moves up
 one, and nothing is re-keyed.** · `levels_insert_confirm` **Preview this insert** ·
