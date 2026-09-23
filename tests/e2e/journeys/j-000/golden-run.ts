@@ -352,12 +352,16 @@ async function pinASetOverTheDrawing(page: Page, tenantId: string, projectId: st
 
   const row = page.getByTestId("set-drawing").first();
   await expect(row, "the uploaded drawing is offered to the set").toBeVisible({ timeout: 60_000 });
-  // The set page arrived by the create act's own navigation: its row is VISIBLE from the server's
-  // paint before the toggle is live, so the step waits for the screen to stop arriving before it
-  // clicks, and gives the write — a server round trip and a revalidation — a reading's budget rather
-  // than the 5 s default. The session-7 gate's J-000 read "false" 14 times over 5 s here, under the
-  // load of the lanes before it, on a walk every other run that day passed.
+  // THE ROW IS PAINTED BEFORE IT IS LIVE. The create act stands the browser at the set's address by a
+  // full load (`standAt`, `window.location.assign`), so the row is visible from the SERVER's paint,
+  // and settled() reads fonts, pictures, motion and busy regions — nothing that says the client has
+  // hydrated. A click in that window lands on a button with no handler and is lost: the session-7
+  // gate's J-000 read "false" 123 times over 60 s here twice, and the store held no member row for
+  // the drawing. The page crumb is the screen's own proof it is live — the set browser claims it in
+  // a layout effect (`useShellPage`), and the server's paint of the frame names no page at all — so
+  // the click waits for the crumb to wear the set's name, and the write keeps a reading's budget.
   await settled(page);
+  await expect(new ShellPage(page).crumb("page"), "the set browser is live: it has claimed its page crumb (I-106)").toHaveText(setName, { timeout: 60_000 });
   await row.getByTestId("set-member-toggle").click();
   await expect(row, "a toggle writes the draft at once (I-96)").toHaveAttribute("data-member", "true", { timeout: 60_000 });
 
