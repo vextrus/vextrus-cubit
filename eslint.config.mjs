@@ -31,7 +31,7 @@ const SOURCE = ["src/**/*.ts", "src/**/*.tsx", "db/**/*.ts"];
 
 export default [
   {
-    ignores: ["node_modules/**", ".next*/**", "dist/**", "coverage/**", "tests/lint-fixtures/**", "test-results/**", "playwright-report/**"],
+    ignores: ["node_modules/**", ".next*/**", "dist/**", "coverage/**", "tests/lint-fixtures/**", "test-results/**", "playwright-report/**", ".claude/**"],
   },
   {
     // A directive that turns a rule off cannot be written in this tree, so it cannot be honoured
