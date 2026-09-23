@@ -16,6 +16,10 @@
 // of the same rail over the same revision reports what it found and writes nothing further — which
 // is what makes re-measuring safe rather than a way to double-count (L-QTY-04's over-measurement is
 // a hard block).
+//
+// And a line or a queue item is written only on a key that stays put (Interpretation I-368). Both
+// are append-only and name their object by key alone, so a record written on a key some lawful act
+// later carries elsewhere is left keyed on nothing — beside the line the carried key then publishes.
 import { createHash } from "node:crypto";
 import { canonical } from "../acts/consequence";
 import { isElementType } from "../catalogue/classes";
@@ -24,6 +28,7 @@ import { editionOf, type PinnedEdition } from "../campaigns";
 import { and, campaigns, eq, forTenant, holdStateLock, inArray, isUuid, quantityLines, queueItems, railObservations, registerObjects, type TenantTx } from "../db";
 import { writeInBatches } from "../db/batch";
 import { REFUSALS, type RefusalCode } from "../errors";
+import type { LevelSlot } from "../identity";
 import type { DeductionCandidate, GateRefusal, GateScope, GateVerdict, Measure, Offer, RailBatch, RailObservation } from "../offers/contract";
 import { COVERAGES, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES, weakestBasis, type QuantityBasis } from "../offers/law";
 import type { MethodPair } from "../rulesets/editions/content";
@@ -72,6 +77,37 @@ export type Judgement =
 /** A refusal about this offer, by the registered code it answers with (R-SPINE-062). */
 function refuse(offer: Offer, code: RefusalCode): Judgement {
   return { arm: "refused", refusal: { objectKey: offer.register.objectKey, code } };
+}
+
+/**
+ * Where one object of the register stands vertically, as its own level column states it. A key is
+ * spelled from exactly one level form (`register_objects_level_stated_once`), so the column says what
+ * the key's level segment is and the key's letters are never read a second time (B-17).
+ */
+export type RegisteredLevel = { readonly levelSlot: string | null };
+
+/** The lawful-null slot a bare typical caption leaves its members in (L-REG-04, L-CAD-07). */
+const UNRESOLVED: LevelSlot = "UNRESOLVED";
+
+/**
+ * The registered code an object answers with where it stands in the UNRESOLVED slot, or null
+ * (Interpretation I-368).
+ *
+ * L-CAD-07: "a bare typical caption states no membership and registers UNRESOLVED rows with no line
+ * (`TYPICAL_RANGE_UNSTATED`)". The rows are MEASURED placements the rails can read, and a frame rail
+ * found a section for them through the foundation slot's unbanded variant, so the gate is where the
+ * clause is kept: it is the one writer of lines, and every rail inherits the rule there.
+ * `AUTHOR_TYPICAL_RANGE` then re-keys each row in place onto the level its range puts it on
+ * (L-REG-04), so a line written first would name an object that no longer stands. A reader summing
+ * the campaign counts it beside the line the carried key publishes.
+ *
+ * The FOUNDATION slot is a place a member stands, which nothing carries, so it publishes.
+ * An `@unregistered:<label>` placeholder is carried the same way, but its members can stand
+ * measured where no level the stack holds will ever take them (I-367). Refusing them needs a
+ * durable disclosure first, and I-368 records that as owed rather than refusing them silently.
+ */
+function unsettledLevelCode(level: RegisteredLevel): RefusalCode | null {
+  return level.levelSlot === UNRESOLVED ? REFUSALS.TYPICAL_RANGE_UNSTATED.code : null;
 }
 
 /** Is this spelling a member of the closed roster the contract publishes? */
@@ -218,12 +254,12 @@ function observationKeyOf(observation: RailObservation): string {
  * Judge one offer against the campaign's edition, and answer which arm it lands on.
  *
  * The order is the order a reader would ask the questions in: is this an offer at all, is its rule in
- * force, can the tree compute it, is the object one the register holds, is its geometry corroborated,
- * are its readings carryable, does it stand on a calibration reference, do its deduction candidates
- * stand in channels the method declares. Each answer is final for that offer — nothing is judged
- * twice and nothing falls through.
+ * force, can the tree compute it, is the object one the register holds, does it stand where a record
+ * keyed on it stays keyed, is its geometry corroborated, are its readings carryable, does it stand on
+ * a calibration reference, do its deduction candidates stand in channels the method declares. Each
+ * answer is final for that offer — nothing is judged twice and nothing falls through.
  */
-export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEdition, registered: ReadonlySet<string>): Judgement {
+export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEdition, registered: ReadonlyMap<string, RegisteredLevel>): Judgement {
   if (!toContract(offer, under)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
   const pair = versionInForce(edition, offer.ruleId);
@@ -240,7 +276,14 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
   // register row as a reference" (L-QTY-03), so a key no row of this campaign's own revision holds is
   // a key nothing can be traced through — and a quantity for an object nothing registered would be
   // severed from the object it claims to measure, which is neither a line nor a deferral.
-  if (!registered.has(offer.register.objectKey)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+  const standing = registered.get(offer.register.objectKey);
+  if (standing === undefined) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+
+  // A member a bare typical caption left in the UNRESOLVED slot carries no line until its range is
+  // authored and the row stands on a level (I-368, L-CAD-07, L-REG-04). This is asked ahead of the
+  // deferral arm, so an interpreted outline there leaves no queue item on the key either.
+  const unsettled = unsettledLevelCode(standing);
+  if (unsettled !== null) return refuse(offer, unsettled);
 
   // L-QTY-04: "interpreted geometry uncorroborated → declared exclusion + queue item, never a line".
   // The deferral carries a registered code, because the same taxonomy serves machine refusals and
@@ -457,15 +500,18 @@ function sameClaim(standing: StandingClaim, line: PublishedLine): boolean {
   );
 }
 
-/** The object keys of this batch the register really holds on the campaign's own revision. */
-async function registeredObjects(tx: TenantTx, tenantId: string, setRevisionId: string, offers: readonly Offer[]): Promise<ReadonlySet<string>> {
+/**
+ * The object keys of this batch the register really holds on the campaign's own revision, each with
+ * where it stands — read in the same statement, so what a key is and where it stands are one reading.
+ */
+async function registeredObjects(tx: TenantTx, tenantId: string, setRevisionId: string, offers: readonly Offer[]): Promise<ReadonlyMap<string, RegisteredLevel>> {
   const offered = offeredKeys(offers);
-  if (offered.length === 0) return new Set<string>();
+  if (offered.length === 0) return new Map<string, RegisteredLevel>();
   const held = await tx
-    .select({ objectKey: registerObjects.objectKey })
+    .select({ objectKey: registerObjects.objectKey, levelSlot: registerObjects.levelSlot })
     .from(registerObjects)
     .where(and(eq(registerObjects.tenantId, tenantId), eq(registerObjects.setRevisionId, setRevisionId), inArray(registerObjects.objectKey, offered)));
-  return new Set(held.map((row) => row.objectKey));
+  return new Map(held.map((row) => [row.objectKey, { levelSlot: row.levelSlot }]));
 }
 
 /** The object keys this batch is about, each once — what every read of the stores is bounded by. */

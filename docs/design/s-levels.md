@@ -168,6 +168,63 @@ the `cx-levels-*` classes this file rules.
   attribute reading hangs on is left where it stands (`keysHoldingReadings`,
   `src/core/levels/store.ts`): the slot names the key (`register_attributes_object_fk`) and its ledger is
   append-only, so moving it would fail the whole rebuild over one corroborated member.
+- **I-368 — a member in the UNRESOLVED slot carries no line and no queue item (session 7,
+  2026-09-23; L-CAD-07, L-REG-04, L-QTY-03, L-QTY-04, L-MEA-08, SEAM-GATE).**
+  - **Measured.** Every J-000 BNBC campaign since `788c1e8a` held 50 quantity lines — S-14's 25 beams
+    (`v:LAYOUT_PLAN:DXF_HANDLE:F31`), each for concrete and formwork — on keys ending `@UNRESOLVED`
+    that no register row carries.
+    - The bare `TYPICAL FLOOR BEAM LAYOUT` caption leaves its beams in the UNRESOLVED slot.
+    - The first Measure runs every rail over every register row. The frame rail finds a section for a
+      level-less beam because a strip family states one variant: `variantCovering`'s null-level arm,
+      written for the FOUNDATION slot.
+    - The gate, the one writer of lines, asked only that the key stand in the revision, and published.
+    - `AUTHOR_TYPICAL_RANGE` then re-keys each row in place and never touches `quantity_lines`, which
+      are append-only with no foreign key to the register (0032). The second Measure publishes 250
+      lines on the carried keys, and the 50 stay, keyed on nothing.
+    - Some readers sum a campaign's lines by campaign alone: the register screen, and the draft BOQ with
+      its PDF and XLSX. They would count a typical floor twice the day a beam line carries a value.
+      Today every one of those lines is PARTIAL_DECLARED, with no value.
+  - **The reading.** L-CAD-07 says it outright: "a bare typical caption states no membership and
+    registers UNRESOLVED rows with no line (`TYPICAL_RANGE_UNSTATED`)". So a line on the UNRESOLVED
+    slot is unlawful when it is written, not only when it is orphaned.
+    - L-MEA-08 keeps the refused arm for contract violations. An offer whose register reference names a
+      row L-CAD-07 bars from a line does not meet the rail-gate contract, so refused is the lawful arm.
+    - No queue item is written either: L-QTY-04's item would be keyed on the same key that moves.
+  - **What the product does.** `judgeOffer` (`src/core/gate/evaluate.ts`) reads the register row's
+    own `level_slot` with its key: the column the key is spelled from
+    (`register_objects_level_stated_once`), never the key's letters.
+    - Right after "is the object one the register holds", and BEFORE the interpreted arm, it refuses an
+      object in the UNRESOLVED slot with `TYPICAL_RANGE_UNSTATED`, the Bible's own code.
+    - The FOUNDATION slot, a place a member stands that nothing carries, publishes as before.
+  - **The cost, which is none new.** An UNRESOLVED member was never lawfully measured, and its deferral
+    is already disclosed where a person reads it: the levels screen lists the stored
+    `TYPICAL_RANGE_UNSTATED` expansion deferral.
+    - The refusal itself is counted, by code, in the Measure run's verdict step.
+    - One wording falls short. `AUTHOR_TYPICAL_RANGE` deliberately leaves in the slot a row the resolver
+      puts on no level of the stated range. For that row the code's message ("does not say which floors
+      it is typical of") under-states what happened, because a range was stated.
+  - **Not changed, and owed.**
+    - **An `@unregistered:<label>` placeholder still publishes.** L-REG-04's one-hop carry
+      (`INSERT_LEVEL`'s, and the rebuild's own, I-366) moves those keys the same way, so a line
+      published on one before its level is authored would orphan in the same manner. J-000 never
+      measures one: the rebuild carries them before the first press.
+    - Refusing them is not lawful yet. A placeholder I-367 leaves standing may never be carried, and
+      the refusal would leave an under-measure that nothing a person reads names: no line, no queue
+      item, no observation. That breaks L-QTY-04's "declared exclusion + queue item". The arm is owed
+      a durable disclosure first — the rails observing placeholders rather than offering them, or the
+      gate recording the refusal as a rail observation, which `observationsOf` already retires once
+      the key moves.
+    - The readers still read lines by campaign. A campaign measured before this fix keeps its orphans
+      (append-only), and only a fresh campaign has none. Re-pressing such a campaign now answers the
+      offer `refused` where the store still holds a line under the key, which is harmless.
+    - The rail observations a first press makes about an UNRESOLVED member stay, and the residue drops
+      those whose key the register no longer carries (`observationsOf`).
+  - **Proof.**
+    - `src/core/gate/__tests__/refusal-arms.test.ts` holds the arms, including a held key whose letters
+      spell UNRESOLVED on a row that states a level, which publishes.
+    - `tests/takeoff/coverage/placeholder-lines.test.ts`, through the doors: a bare-caption beam plan and
+      a foundation plan, pressed, ranged, pressed again. Every line joins a register object, and beam
+      lines are 2 × beam objects.
 
 **The craft look (session 7, 2026-09-23; R-UI-080..086, AM-08 — the later law).** Numbered `I-lev-n`
 rather than from the global chain, because several craft implementers amended Decisions that day.

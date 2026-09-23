@@ -26,7 +26,7 @@
  * 4. No method, no condition. The offer law admits POLYLINE, POLYGON and POINT_SET geometry
  *    (src/core/offers/law.ts:57) and the RASTER engine (:63), and no method under
  *    src/core/rulesets/methods/ names any of them; no condition or assembly store exists; and the gate
- *    refuses an offer for an object nothing registered (src/core/gate/evaluate.ts:243).
+ *    refuses an offer for an object nothing registered (src/core/gate/evaluate.ts:280).
  * 5. The tools are disabled on purpose. viewer-toolbar.tsx:58-62
  *    (src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/) renders Linear L, Area A and
  *    Count C disabled over src/ui/strings/viewer.ts:20; their ids stand (src/ui/testids.ts:679-681).

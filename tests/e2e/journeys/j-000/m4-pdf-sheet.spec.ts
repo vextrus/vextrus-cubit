@@ -26,7 +26,7 @@
  *    painter samples no image but its glyph atlas (src/modules/takeoff/viewer/painter.ts:354-385) and
  *    its own settled frame (I-345), so a scanned page cannot even be shown to be traced.
  * 3. Corroboration unlocks nothing. The gate queues every INTERPRETED offer as
- *    INTERPRETED_UNCORROBORATED and reads no corroboration first (src/core/gate/evaluate.ts:245-260;
+ *    INTERPRETED_UNCORROBORATED and reads no corroboration first (src/core/gate/evaluate.ts:288-303;
  *    the one queue cause, src/core/gate/law.ts:16). A register row cannot stand INTERPRETED at all:
  *    SIGHTING_STANDINGS is MEASURED|DERIVED (src/core/identity/law.ts:12), CHECK-closed
  *    (src/core/db/schema-register.ts:87). CORROBORATE is one object, one attribute, one ENTERED

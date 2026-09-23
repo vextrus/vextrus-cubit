@@ -2,10 +2,10 @@
  * The gate's refusal ladder, judged as the pure function it is (SEAM-GATE, L-MEA-08, L-QTY-04, Q-07).
  *
  * Every arm the gate can answer with is decided before anything is written — which version the
- * edition puts in force, whether the tree implements it, whether the register holds the object,
- * whether the geometry was corroborated, whether the readings can be carried and what they stand on
- * — so the ladder is provable without a database, and each registered code this seam answers with is
- * exercised here by name (Q-07's exercise half).
+ * edition puts in force, whether the tree implements it, whether the register holds the object and
+ * where it stands, whether the geometry was corroborated, whether the readings can be carried and
+ * what they stand on — so the ladder is provable without a database, and each registered code this
+ * seam answers with is exercised here by name (Q-07's exercise half).
  *
  * Nothing is transcribed: the method under test is the registry's own, its variables are the ones it
  * declares, the class is one the catalogue bears for its kind, and the threshold is the seed
@@ -15,12 +15,13 @@ import { describe, expect, test } from "vitest";
 import type { PinnedEdition } from "../../campaigns";
 import { BEARS } from "../../catalogue/bears";
 import { REFUSALS } from "../../errors";
+import { instanceKey, type LevelRef } from "../../identity";
 import type { Offer } from "../../offers/contract";
 import { GEOMETRY_TYPES } from "../../offers/law";
 import { MEMBER_VOLUME_METHOD } from "../../rulesets/methods/member/volume";
 import { implementationOf } from "../../rulesets/methods/registry";
 import { SEED_EDITION_CONTENT } from "../../rulesets/seed";
-import { judgeOffer, type MeasuredUnder } from "../evaluate";
+import { judgeOffer, type MeasuredUnder, type RegisteredLevel } from "../evaluate";
 
 /** The campaign the offers below are judged under — a snapshot, not a store read. */
 const UNDER: MeasuredUnder = {
@@ -57,9 +58,25 @@ function bearing(): { class: string; kind: string } {
   return { class: row.class, kind: row.kind };
 }
 
-/** The object this suite offers over, and the register's answer that it holds it (L-QTY-03). */
+/** The object this suite offers over, and the register's answer that it holds it on a level (L-QTY-03). */
 const OBJECT_KEY = "v:PLAN:S-101:t:12|C1|1500.0,250.0@8f1d6c3a-0a5e-4a7b-9c2d-33333333ac09";
-const REGISTERED: ReadonlySet<string> = new Set([OBJECT_KEY]);
+const ON_A_LEVEL: RegisteredLevel = { levelSlot: null };
+const REGISTERED: ReadonlyMap<string, RegisteredLevel> = new Map([[OBJECT_KEY, ON_A_LEVEL]]);
+
+/**
+ * The same placement standing in each of the other three places a register row can stand (L-REG-04),
+ * keyed by the identity grammar and held by the register as its level column states it: the
+ * lawful-null slot nothing carries, the one `AUTHOR_TYPICAL_RANGE` carries, and the placeholder the
+ * one-hop carry moves (I-368).
+ */
+const PLACEMENT = { view: { viewClass: "PLAN", captionAnchorSourceKey: "S-101:t:12" }, mark: "C1", x: 1500, y: 250 };
+function standingAt(level: LevelRef, held: RegisteredLevel): { objectKey: string; registered: ReadonlyMap<string, RegisteredLevel> } {
+  const objectKey = instanceKey({ placement: PLACEMENT, level });
+  return { objectKey, registered: new Map([[objectKey, held]]) };
+}
+const IN_FOUNDATION = standingAt({ slot: "FOUNDATION" }, { levelSlot: "FOUNDATION" });
+const IN_UNRESOLVED = standingAt({ slot: "UNRESOLVED" }, { levelSlot: "UNRESOLVED" });
+const UNDER_PLACEHOLDER = standingAt({ unregistered: "2ND" }, { levelSlot: null });
 
 /** The calibration reference every well-formed offer below stands on (L-QTY-03). */
 const CALIBRATION = "CAL:S-101:grid-A";
@@ -204,5 +221,60 @@ describe("SEAM-GATE: every offer lands on one arm, and a refusal names the regis
     ];
     expect(arms, "measuring is never blocked by a pin that has moved (L-REG-07)").not.toContain(REFUSALS.PIN_STALE.code);
     expect(arms, "and a campaign the gate did hold is never answered as one it does not (ARCH-03)").not.toContain(REFUSALS.CAMPAIGN_NOT_FOUND.code);
+  });
+});
+
+describe("I-368: a member in the UNRESOLVED slot carries no line and no queue item", () => {
+  /** One well-formed offer about the object standing where `at` stands, judged against `at`'s register. */
+  function judgedAt(at: { objectKey: string; registered: ReadonlyMap<string, RegisteredLevel> }, changed: Partial<Offer> = {}) {
+    return judgeOffer(offer({ register: { setRevisionId: UNDER.setRevisionId, objectKey: at.objectKey }, ...changed }), UNDER, EDITION, at.registered);
+  }
+
+  /** The code a judgement refused with, or the arm it landed on instead. */
+  function armOf(judgement: ReturnType<typeof judgeOffer>): string {
+    return judgement.arm === "refused" ? judgement.refusal.code : judgement.arm;
+  }
+
+  const INTERPRETED = { geometry: { type: GEOMETRY_TYPES[0], basis: "INTERPRETED" as const, calibration: CALIBRATION } };
+
+  test("an object in the UNRESOLVED slot is TYPICAL_RANGE_UNSTATED — L-CAD-07's 'UNRESOLVED rows with no line'", () => {
+    expect(
+      armOf(judgedAt(IN_UNRESOLVED)),
+      "a bare typical caption states no membership, and AUTHOR_TYPICAL_RANGE re-keys the row in place — a line on the placeholder would be left keyed on nothing (L-CAD-07, L-REG-04)",
+    ).toBe(REFUSALS.TYPICAL_RANGE_UNSTATED.code);
+  });
+
+  test("an UNRESOLVED member's interpreted outline is refused before the deferral arm — no queue item stands on a key that moves either", () => {
+    expect(armOf(judgedAt(IN_UNRESOLVED, INTERPRETED)), "the UNRESOLVED slot leaves no declared exclusion behind it").toBe(REFUSALS.TYPICAL_RANGE_UNSTATED.code);
+  });
+
+  test("an @unregistered:<label> placeholder still publishes — refusing it needs a durable disclosure first, which I-368 records as owed", () => {
+    expect(
+      armOf(judgedAt(UNDER_PLACEHOLDER)),
+      "a member I-367 leaves on its placeholder may never be carried, so a refusal here would be an under-measure nothing a person reads names (L-QTY-04)",
+    ).toBe("published");
+  });
+
+  test("an object in the FOUNDATION slot publishes, and its interpreted outline still queues — nothing carries that slot", () => {
+    expect(armOf(judgedAt(IN_FOUNDATION)), "a footing stands under the building rather than on a storey of it, and that is where it stays (L-CAD-07)").toBe("published");
+    expect(armOf(judgedAt(IN_FOUNDATION, INTERPRETED)), "its deferral is the ordinary L-QTY-04 arm").toBe("queued");
+  });
+
+  test("the register's own column decides where an object stands, and an object it does not hold is still off the contract", () => {
+    expect(armOf(judgedAt({ objectKey: OBJECT_KEY, registered: REGISTERED })), "an object on a level's surrogate publishes as it always did").toBe("published");
+    expect(
+      armOf(judgedAt({ objectKey: IN_UNRESOLVED.objectKey, registered: new Map([[IN_UNRESOLVED.objectKey, ON_A_LEVEL]]) })),
+      "a key whose letters spell the UNRESOLVED slot, held by a row that states a level, publishes: the column is read, never the key (B-17)",
+    ).toBe("published");
+    expect(
+      armOf(judgedAt({ objectKey: IN_UNRESOLVED.objectKey, registered: REGISTERED })),
+      "a key the register does not hold is severed from what it claims to measure, wherever its letters say it stands (L-QTY-03)",
+    ).toBe(REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+  });
+
+  test("the rule and the contract are asked first — a placeholder is judged by the same ladder up to the register", () => {
+    expect(armOf(judgedAt(IN_UNRESOLVED, { ruleId: "face.area" })), "a rule the edition does not cite is that, wherever the object stands").toBe(
+      REFUSALS.METHOD_NOT_IN_EDITION.code,
+    );
   });
 });
