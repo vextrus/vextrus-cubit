@@ -40,11 +40,15 @@ export const drawings = {
   drawings_basis_confirmed: "Confirmed",
   drawings_cited_label: "Cited entities",
   drawings_cited_more: "+{count} more",
-  drawings_scale_unaffirmed: "Scale not affirmed",
+  // I-359: one spelling of "no scale" on the card — the unaffirmed state and the counted one both say
+  // "no scale of record" (was "Scale not affirmed", a second phrase for the same absence).
+  drawings_scale_unaffirmed: "No scale of record",
   drawings_scale_affirmed: "Scale affirmed",
   drawings_scale_unplaceable: "Scale unplaceable — this layout carries no extent or no drawing units",
   drawings_scale_unplaceable_count: "No scale of record on {count} of {total} views",
   drawings_views_unclassified: "Views not classified yet",
+  // I-359: the record's partition answered and no view stands on this sheet — an answer, not a wait.
+  drawings_views_count_none: "No views drawn on this sheet",
   drawings_views_count: "{count} views",
   drawings_views_count_one: "{count} view",
   drawings_fact_strays_rejected: "Strays rejected",

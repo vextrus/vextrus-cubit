@@ -146,21 +146,26 @@ function memberColumns(canPin: boolean, onToggle: (drawingId: string) => void): 
     {
       id: "member",
       header: sets.sets_col_member,
-      accessorFn: (row) => (row.member ? sets.sets_member_remove : sets.sets_member_add),
+      accessorFn: (row) => (row.member ? sets.sets_member_in : sets.sets_member_out),
       size: WIDTH_MEMBER,
       // A CONTROL WELL: the cell holds one control and nothing else, so the control IS the cell and
       // the pair is one target of the cell's own size (WCAG 2.2 SC 2.5.8, the primitive's `control`).
+      // I-360: the cell STATES its value — "In set" / "Not in set" — and the verb follows it, muted,
+      // inside the one ghost control: a cell whose only word was a verb said the membership by
+      // implication, and a bordered 28 px button in a 28 px row laid its border on the row's hairlines.
       meta: { control: true },
       cell: ({ row }) => (
         <Button
           aria-label={fill(row.original.member ? sets.sets_member_remove_label : sets.sets_member_add_label, { drawing: row.original.name })}
           aria-pressed={row.original.member}
+          className="cx-set-member-toggle"
           data-drawing={row.original.drawingId}
           data-testid={TESTIDS.set.memberToggle}
           onClick={() => onToggle(row.original.drawingId)}
-          variant={row.original.member ? "secondary" : "ghost"}
+          variant="ghost"
         >
-          {row.original.member ? sets.sets_member_remove : sets.sets_member_add}
+          <span className="cx-set-member-state">{row.original.member ? sets.sets_member_in : sets.sets_member_out}</span>
+          <span className="cx-set-member-verb">{row.original.member ? sets.sets_member_remove : sets.sets_member_add}</span>
         </Button>
       ),
     },
@@ -261,14 +266,14 @@ export function SetBrowser({
 
   return (
     <div className="cx-set" data-testid={TESTIDS.set.browser} data-screen-root="" data-state="ready" data-set={set.setId}>
+      {/* I-360: the breadcrumb's "Drawings" crumb is the way to the sheet index, so the header no longer
+          spells it a second time. The way back to the sets index stays here until the shell's
+          `routes.ts` gives the trail its "Drawing sets" step (I-324's IOU, listed for its owner). */}
       <header className="cx-sets-header">
         <h1 className="cx-sets-heading" data-testid={TESTIDS.set.heading}>
           {set.name}
         </h1>
         <p className="cx-sets-caption">{sets.sets_set_caption}</p>
-        <Link className="cx-sets-link cx-reticle" data-testid={TESTIDS.set.drawingsLink} href={drawingsRoute(tenantId, projectId)}>
-          {sets.sets_drawings_link}
-        </Link>
         <Link className="cx-sets-link cx-reticle" href={setsRoute(tenantId, projectId)}>
           {sets.sets_sets_link}
         </Link>
@@ -423,7 +428,9 @@ function Empty({ cause, tenantId, projectId }: { cause: EmptyCause; tenantId: st
     <div data-testid={TESTIDS.set.empty} data-cause={cause}>
       <ShellEmptyState heading={words.heading} body={words.body}>
         {cause === "no-drawings" ? (
-          <Link className="cx-sets-link cx-reticle" href={drawingsRoute(tenantId, projectId)}>
+          // I-360: the browser's one way to the sheet index that is not the breadcrumb carries the
+          // contract's `set-drawings-link` now that the header no longer does.
+          <Link className="cx-sets-link cx-reticle" data-testid={TESTIDS.set.drawingsLink} href={drawingsRoute(tenantId, projectId)}>
             {sets.sets_drawings_link}
           </Link>
         ) : (

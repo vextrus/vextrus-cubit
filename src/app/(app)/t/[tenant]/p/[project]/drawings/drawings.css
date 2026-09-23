@@ -12,11 +12,13 @@
  * painted by `src/ui/patterns/job-timeline/job-timeline.css` (docs/design/job-timeline.md I-107).
  */
 
+/* I-359: no page measure. The column takes `shell-main`'s whole width, so the header's Add stands
+   under the frame's own right edge and the grid's auto-fill columns take the width rather than
+   leaving an uneven gutter on one side (R-UI-080 workspace geometry). */
 .cx-drawings {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  max-width: var(--breakpoint-lg);
 }
 
 /* A section stacks its own parts on the screen's rhythm, one step tighter than the gap between
@@ -193,10 +195,13 @@
 
 /* ------------------------------------------------------------------ the grid and its cards */
 
+/* I-359: the cards of a row stand as tall as the row, and each door sits at its card's foot, so a
+   title that wraps to two lines moves nothing but its own card's space and every door of a row
+   stands on one line (R-UI-083's scannable rhythm). */
 .cx-drawings-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-  align-items: start;
+  align-items: stretch;
   gap: var(--space-4);
 }
 
@@ -214,6 +219,7 @@
    it opens one sheet, not the card (docs/design/s-drawings.md's card anatomy). */
 .cx-drawings-card-open {
   align-self: start;
+  margin-top: auto;
   text-decoration: none;
 }
 
@@ -338,6 +344,13 @@
   font-size: var(--text-12);
   line-height: var(--leading-ui);
   color: var(--ink-secondary);
+}
+
+/* I-359: a line whose fact the line above has already said — the views total the scale line's
+   "{count} of {total} views" states. Out of sight and out of the accessibility tree, and still in
+   the flow: its box stays, so a partition landing mid-read re-flows nothing beneath it. */
+.cx-drawings-line[data-said="true"] {
+  visibility: hidden;
 }
 
 /* I-85 as amended by I-323: the five facts stand inside a disclosure whose summary counts the

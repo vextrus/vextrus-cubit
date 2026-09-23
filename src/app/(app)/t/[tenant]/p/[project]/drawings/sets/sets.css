@@ -7,10 +7,11 @@
  * THE GEOMETRY, IN ONE PLACE (I-285, I-286). Both screens are columns of single-row tracks over a
  * grid: the header is one row, each section's heading and hint are one row, and the grid takes what
  * they leave. On the index `cx-sets` is a full-height column and the grid is its last track, so the
- * sets fill the work surface; on the browser `cx-set` is the same full-height column at the page
- * measure it was ruled at, and its body is two columns — the drawings' grid taking the height the
- * column leaves, and a 280 px side column holding the pin and the pinned revisions beside it (I-324,
- * amending I-286's eighteen-row frame, whose empty rows pushed the pin below the fold).
+ * sets fill the work surface; on the browser `cx-set` is the same full-height column — at
+ * `shell-main`'s whole width since I-360, as the index is — and its body is two columns: the
+ * drawings' grid taking the height the column leaves, and a 280 px side column holding the pin and
+ * the pinned revisions beside it (I-324, amending I-286's eighteen-row frame, whose empty rows
+ * pushed the pin below the fold).
  *
  * The px literals are the closed set the Decision § 5 fixes: the 280 px name field, the 24 px
  * ordinal column and the browser's 280 px side column (I-324). The grids' column widths are the
@@ -35,10 +36,6 @@
 .cx-sets {
   height: 100%;
   min-height: 0;
-}
-
-.cx-set {
-  max-width: var(--breakpoint-lg);
 }
 
 .cx-sets-section {
@@ -271,13 +268,53 @@
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
-/* The row's own door, in its control well: the link IS the cell, so cell and link are one target
-   of the cell's height (WCAG 2.2 SC 2.5.8, the table's `meta.control`). */
-.cx-sets-open {
-  display: inline-flex;
-  align-items: center;
-  height: var(--control-h);
+/* I-360: the set's name IS the row's door (R-UI-083: the key column is the row's door) — the
+   S-Home name-link idiom: the name's own ink and weight, underlined in the accent so it never rides
+   colour alone (R-UI-060), the link colour on hover. It clips with the cell, never wrapping. */
+.cx-sets-row-link {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-sets-row-link:hover,
+.cx-sets-row-link:hover .cx-sets-row-name {
+  color: var(--ink-link);
+}
+
+/* I-360: the "In this set" well states the membership, then the verb. The one ghost control still
+   fills the well (a gridcell is a target of its own, SC 2.5.8), and carries no border to lay on the
+   row's hairlines; the state reads at the grid's body size, the verb after it in the link voice. */
+.cx-btn.cx-set-member-toggle[data-variant] {
+  justify-content: space-between;
   padding-inline: var(--cell-px);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body);
+}
+
+.cx-set-member-toggle > .cx-btn-label {
+  justify-content: space-between;
+  inline-size: 100%;
+}
+
+.cx-set-member-state {
+  color: var(--ink-muted);
+}
+
+.cx-set-member-toggle[aria-pressed="true"] .cx-set-member-state {
+  font-weight: var(--weight-body-medium);
+  color: var(--ink);
+}
+
+.cx-set-member-verb {
+  font-size: var(--text-12);
+  color: var(--ink-link);
+  text-decoration: underline;
 }
 
 .cx-sets-answer,

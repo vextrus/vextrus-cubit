@@ -34,12 +34,12 @@ import { TESTIDS } from "@/ui/testids";
 /** The identity this grid's column furniture is remembered under (DataTable's `tableId`). */
 export const SETS_TABLE_ID = "s-drawings-sets";
 
-/** §1's column widths, this screen's own closed set of px literals (§5). */
+/** §1's column widths, this screen's own closed set of px literals (§5). The Open column's 140 px left
+    with the column (I-360): the set's name is the row's door. */
 const WIDTH_NAME = 320;
 const WIDTH_MEMBERS = 120;
 const WIDTH_REVISIONS = 160;
 const WIDTH_DIGEST = 220;
-const WIDTH_OPEN = 140;
 
 export interface SetsIndexProps {
   tenantId: string;
@@ -62,10 +62,12 @@ function rowDataOf(set: DrawingSetSummary): Readonly<Record<string, string>> {
 }
 
 /**
- * §1's five columns, left to right. The name is the frozen key column; the two counts are tabular
- * figures through the one document formatter; the digest keeps the element the contract names, with
- * its `data-digest` and its chip inside it (I-99, I-107); the door is a control well, so the cell
- * and the link a reader aims at are one target (WCAG 2.2 SC 2.5.8, the S-Documents precedent).
+ * §1's four columns, left to right. The name is the frozen key column AND the row's door (I-360,
+ * R-UI-083: the key column is the row's door) — a `next/link` carrying the contract's `set-open`
+ * around the `set-row-name` it always carried, so navigation is spelled once per row rather than
+ * as a name beside an "Open set" well. The two counts are tabular figures through the one document
+ * formatter; the pin fingerprint keeps the element the contract names, with its `data-digest` and
+ * its chip inside it (I-99, I-107).
  */
 function setsColumns(tenantId: string, projectId: string): ColumnDef<DrawingSetSummary, unknown>[] {
   return [
@@ -75,9 +77,11 @@ function setsColumns(tenantId: string, projectId: string): ColumnDef<DrawingSetS
       accessorFn: (row) => row.name,
       size: WIDTH_NAME,
       cell: ({ row }) => (
-        <span className="cx-sets-row-name" data-testid={TESTIDS.set.rowName}>
-          {row.original.name}
-        </span>
+        <Link className="cx-sets-row-link cx-reticle" data-testid={TESTIDS.set.open} href={setRoute(tenantId, projectId, row.original.setId)}>
+          <span className="cx-sets-row-name" data-testid={TESTIDS.set.rowName}>
+            {row.original.name}
+          </span>
+        </Link>
       ),
     },
     {
@@ -114,17 +118,6 @@ function setsColumns(tenantId: string, projectId: string): ColumnDef<DrawingSetS
           </span>
         ),
     },
-    {
-      id: "open",
-      header: sets.sets_col_open,
-      size: WIDTH_OPEN,
-      meta: { control: true },
-      cell: ({ row }) => (
-        <Link className="cx-sets-link cx-sets-open cx-reticle" data-testid={TESTIDS.set.open} href={setRoute(tenantId, projectId, row.original.setId)}>
-          {sets.sets_open}
-        </Link>
-      ),
-    },
   ];
 }
 
@@ -137,6 +130,7 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
   const nameRef = useRef<HTMLInputElement>(null);
   const gridRegion = useRef<HTMLDivElement | null>(null);
   const headingIds = { create: useId(), list: useId() };
+  const hintIds = { create: useId(), list: useId() };
   const nameId = useId();
 
   const rows = useMemo(() => [...held], [held]);
@@ -170,15 +164,13 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
 
   return (
     <div className="cx-sets" data-screen-root="" data-state={held.length === 0 ? "empty" : "ready"}>
-      {/* I-285: one track, not three — the heading, what the screen is for and the way to the
-          drawings stand on a single row, so the grid beneath them is the first thing a reader's eye
-          lands on. */}
+      {/* I-285: one track, not three — the heading and what the screen is for stand on a single row,
+          so the grid beneath them is the first thing a reader's eye lands on. I-360: the caption is the
+          screen's ONE helper line, and the way to the drawings is the breadcrumb's "Drawings" crumb
+          directly above — a link beside the h1 said the same thing twice. */}
       <header className="cx-sets-header">
         <h1 className="cx-sets-heading">{sets.sets_heading}</h1>
         <p className="cx-sets-caption">{sets.sets_caption}</p>
-        <Link className="cx-sets-link cx-reticle" data-testid={TESTIDS.set.drawingsLink} href={drawingsRoute(tenantId, projectId)}>
-          {sets.sets_drawings_link}
-        </Link>
       </header>
 
       {/* I-101: the whole index stands for a reader without PIN_SET — knowledge is not permission —
@@ -193,12 +185,16 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
       )}
 
       {canPin ? (
-        <section className="cx-sets-section" aria-labelledby={headingIds.create}>
+        <section className="cx-sets-section" aria-labelledby={headingIds.create} aria-describedby={hintIds.create}>
+          {/* I-360 (I-324's idiom): the section's explanation is its accessible description, clipped
+              from sight — Direction §6 allows one helper line a screen, and the caption is it. */}
           <div className="cx-sets-track">
             <h2 className="cx-sets-section-heading" id={headingIds.create}>
               {sets.sets_create_heading}
             </h2>
-            <p className="cx-sets-hint">{sets.sets_create_hint}</p>
+            <p className="cx-set-described" id={hintIds.create}>
+              {sets.sets_create_hint}
+            </p>
           </div>
           <form
             className="cx-sets-form"
@@ -225,12 +221,14 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
         </section>
       ) : null}
 
-      <section className="cx-sets-section cx-sets-listing" aria-labelledby={headingIds.list}>
+      <section className="cx-sets-section cx-sets-listing" aria-labelledby={headingIds.list} aria-describedby={hintIds.list}>
         <div className="cx-sets-track">
           <h2 className="cx-sets-section-heading" id={headingIds.list}>
             {sets.sets_list_heading}
           </h2>
-          <p className="cx-sets-hint">{sets.sets_list_hint}</p>
+          <p className="cx-set-described" id={hintIds.list}>
+            {sets.sets_list_hint}
+          </p>
         </div>
 
         {held.length === 0 ? (
@@ -241,7 +239,9 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
                   {sets.sets_empty_action}
                 </Button>
               ) : (
-                <Link className="cx-sets-link cx-reticle" href={drawingsRoute(tenantId, projectId)}>
+                // I-360: the index's one way to the sheet index that is not the breadcrumb, so it carries
+                // the contract's `set-drawings-link` now that the header no longer does.
+                <Link className="cx-sets-link cx-reticle" data-testid={TESTIDS.set.drawingsLink} href={drawingsRoute(tenantId, projectId)}>
                   {sets.sets_drawings_link}
                 </Link>
               )}

@@ -124,9 +124,12 @@ describe("I-285: the sets index is a grid", () => {
     for (const row of rows) {
       expect(row.getAttribute("role"), "a row of the grid is a row of the grid (R-UI-012)").toBe("row");
       const cells = [...row.querySelectorAll<HTMLElement>(`[data-testid="${TESTIDS.datatable.cell}"]`)];
-      expect(cells.length, "drawn as cells — the name, the two counts, the digest and the door").toBe(5);
+      // TEST_AMENDED (I-360): five cells became four — the Open well is retired and the name is the
+      // row's door, so the door is asserted INSIDE the key cell rather than as a column of its own.
+      expect(cells.length, "drawn as cells — the name (which is the door), the two counts and the pin fingerprint").toBe(4);
       expect(cells[0]?.getAttribute("role"), "the name is the frozen key column, which is the row's header cell (§5 rule 3)").toBe("rowheader");
       expect(cells[0]?.getAttribute("data-pinned"), "and it is pinned left, so it stands still while the row scrolls").toBe("left");
+      expect(cells[0]?.querySelector(`a[data-testid="${TESTIDS.set.open}"]`), "and the key column is the row's door (R-UI-083)").not.toBeNull();
     }
   });
 });

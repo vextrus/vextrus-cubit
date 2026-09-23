@@ -175,8 +175,11 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
       {/* I-323 (amending I-93 and I-96): the cited row WRAPS, and shows CITED_SHOWN keys then says how
           many more stand — never a row clipped at the card's edge, where the keys it hid were
           invisible, reachable by nothing and laid over the neighbouring card. The whole list is the
-          viewer inspector's (R-TO-011); the card shows that the proposal has evidence, and how much. */}
-      {card.proposal.cited.length === 0 ? null : (
+          viewer inspector's (R-TO-011); the card shows that the proposal has evidence, and how much.
+          I-359: only while the proposal is still a proposal — once a person has confirmed the
+          discipline the evidence for the machine's guess decides nothing, and a row of handles under
+          every title read as debug output. */}
+      {card.proposal.cited.length === 0 || card.confirmed !== null ? null : (
         <p className="cx-drawings-cited" role="group" aria-label={drawings.drawings_cited_label}>
           <span className="cx-drawings-cited-label">{drawings.drawings_cited_label}</span>
           {/* I-96: a cited key is an identifier and renders through the IdChip — the key's own tail as
@@ -203,7 +206,17 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
         >
           {scaleLine(card)}
         </p>
-        <p className="cx-drawings-line" data-testid={TESTIDS.sheet.cardViews} data-views={card.viewCount === null ? "" : String(card.viewCount)}>
+        {/* I-359: where the scale line has already said "{count} of {total} views", the views line would
+            say the total a second time. It stays in the tree carrying its count for every reader of
+            `data-views`, and `data-said` takes it from sight and from assistive technology while
+            KEEPING its box — the partition lands on the job runner's clock, and a line that left the
+            flow as it landed would re-flow the card beneath it (I-323 point 5 as amended). */}
+        <p
+          className="cx-drawings-line"
+          data-testid={TESTIDS.sheet.cardViews}
+          data-views={card.viewCount === null ? "" : String(card.viewCount)}
+          data-said={scaleCountsViews(card) ? "true" : undefined}
+        >
           {viewsLine(card.viewCount)}
         </p>
       </div>
@@ -274,7 +287,7 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
  * exactly as they did before this increment (B-20).
  */
 function scaleLine(card: SheetCardData): string {
-  if (card.scaleState === "unplaceable" && card.unplaceableViews !== null && card.viewCount !== null) {
+  if (scaleCountsViews(card)) {
     return fill(drawings.drawings_scale_unplaceable_count, {
       count: formatUserFigure(String(card.unplaceableViews)),
       total: formatUserFigure(String(card.viewCount)),
@@ -283,9 +296,18 @@ function scaleLine(card: SheetCardData): string {
   return SCALE_WORDS[card.scaleState] ?? card.scaleState;
 }
 
-/** The views line: the count said in the grammar of its number, or that no partition has answered. */
+/** Whether the scale line states "{count} of {total} views" — and with it the views line's total (I-359). */
+function scaleCountsViews(card: SheetCardData): boolean {
+  return card.scaleState === "unplaceable" && card.unplaceableViews !== null && card.viewCount !== null;
+}
+
+/**
+ * The views line: the count said in the grammar of its number; that the record's partition answered
+ * and put no view on this sheet (I-359); or that no partition has answered yet.
+ */
 function viewsLine(count: number | null): string {
   if (count === null) return drawings.drawings_views_unclassified;
+  if (count === 0) return drawings.drawings_views_count_none;
   return fill(count === 1 ? drawings.drawings_views_count_one : drawings.drawings_views_count, { count: formatUserFigure(String(count)) });
 }
 

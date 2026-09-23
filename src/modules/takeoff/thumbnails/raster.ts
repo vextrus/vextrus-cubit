@@ -6,9 +6,17 @@
 // layer are not drawn: a thumbnail is a picture of where the lines are, and a renderer that guessed
 // at any of the rest would be inventing a fact the artifact did not state.
 //
+// A paper sheet is its own paint AND what its viewports show of model space, as a plot of it is
+// (I-359). The windows are the viewer's shipped reading of a VIEWPORT (`windowsOf`), and a model path
+// is moved onto the paper and clipped to the frame by the viewer's own `projectRecord` — the same
+// projection the viewer paints a sheet with and the sheet index attributes views by, never a second
+// one (B-17). Without it a sheet whose drawing stands in model space (every F-RCC6-BNBC plan,
+// schedule and section) rasterised as an empty frame and title-block strip.
+//
 // Pure: the same graph and the same tier make the same bytes, so a raster's address is a function of
 // what it is a picture of (R-SPINE-021, content addressing).
 import type { EntityGraph } from "@/core/entitygraph/schema";
+import { projectRecord, unionOfFrames, windowsOf, type Window } from "../viewer/projection";
 import { CHANNELS, encodePng } from "./png";
 
 /** One rendered sheet: the encoded image and the canvas it was drawn on. */
@@ -44,12 +52,46 @@ function onPaper(rgb: readonly [number, number, number]): readonly [number, numb
 /** A point of the plane, as the artifact carries one. */
 type Point = readonly [number, number];
 
+/** One stroke to lay down: a run of points in the sheet's own units, and the colour it resolved to. */
+type Path = { points: Point[]; closed: boolean; rgb: readonly [number, number, number] };
+
+/** The name the artifact gives model space (`vextrus_cad.ingest.MODEL_SPACE`, the manifest's own). */
+const MODEL_SPACE = "model";
+
 /** The geometry of one space: everything the artifact drew there, original or synthesised. */
-function pathsOf(graph: EntityGraph, layoutName: string): { points: Point[]; closed: boolean; rgb: readonly [number, number, number] }[] {
+function pathsOf(graph: EntityGraph, layoutName: string): Path[] {
   const drawn = [...graph.entities, ...graph.derived];
   return drawn
     .filter((record) => record.space === layoutName && (record.points ?? []).length >= 2)
     .map((record) => ({ points: (record.points ?? []) as Point[], closed: record.closed === true, rgb: record.colour.rgb }));
+}
+
+/** The windows a layout opens onto model space — none for model space itself (I-359). */
+function windowsOfSheet(graph: EntityGraph, layoutName: string): Window[] {
+  if (layoutName === MODEL_SPACE) return [];
+  const layout = graph.layouts.find((candidate) => candidate.name === layoutName);
+  return layout?.kind === "paper" ? windowsOf(layout) : [];
+}
+
+/**
+ * The model-space paths a sheet's windows show, on the paper and clipped to each frame, window by
+ * window in the drawing's order (I-359). The same records `pathsOf` would draw in model space, handed
+ * to the viewer's own projection: a path the frame cuts comes back as the open runs of it inside.
+ */
+function projectedPathsOf(graph: EntityGraph, windows: readonly Window[]): Path[] {
+  if (windows.length === 0) return [];
+  const model = pathsOf(graph, MODEL_SPACE);
+  const shown: Path[] = [];
+  for (const window of windows) {
+    model.forEach((path, index) => {
+      // The projection names what it moves; a thumbnail keeps no identity, so the index stands in.
+      for (const piece of projectRecord({ src: String(index), type: "PATH", rgb: path.rgb, points: path.points, closed: path.closed }, window)) {
+        const points = (piece.points ?? []) as Point[];
+        if (points.length >= 2) shown.push({ points, closed: piece.closed === true, rgb: path.rgb });
+      }
+    });
+  }
+  return shown;
 }
 
 /** A whole number of pixels, at least one and never past the tier's own edge. */
@@ -69,11 +111,16 @@ function blank(longEdge: number): SheetRaster {
  * The sheet's longer axis takes the whole long edge and the other stands in the sheet's own
  * proportion to it, so a raster is the shape of the sheet rather than the shape of the tier. A
  * layout the artifact carries no bounding box for — one nothing was drawn in — renders as a blank
- * square of the tier's edge, which is a picture of an empty sheet rather than a missing one.
+ * square of the tier's edge, which is a picture of an empty sheet rather than a missing one; a paper
+ * layout of windows and nothing else is framed by its windows, as the viewer frames it (I-359).
+ *
+ * A paper layout's windows are drawn first and its own paint over them, so the frames and the title
+ * block stand crisp over whatever model space runs up to them.
  */
 export function renderSheet(graph: EntityGraph, layoutName: string, longEdge: number): SheetRaster {
   const layout = graph.layouts.find((candidate) => candidate.name === layoutName);
-  const bbox = layout?.bbox ?? null;
+  const windows = windowsOfSheet(graph, layoutName);
+  const bbox = layout?.bbox ?? unionOfFrames(windows);
   if (bbox === null) return blank(longEdge);
 
   const spanX = bbox.max[0] - bbox.min[0];
@@ -94,7 +141,7 @@ export function renderSheet(graph: EntityGraph, layoutName: string, longEdge: nu
   const row = (y: number): number => clamp(Math.floor((bbox.max[1] - y) * scale), height - 1);
 
   const pen = longEdge <= BOLD_BELOW ? 2 : 1;
-  for (const path of pathsOf(graph, layoutName)) {
+  for (const path of [...projectedPathsOf(graph, windows), ...pathsOf(graph, layoutName)]) {
     const drawn = path.points.map((point) => [column(point[0]), row(point[1])] as const);
     const ends = path.closed && drawn.length > 2 ? [...drawn, drawn[0] as (typeof drawn)[number]] : drawn;
     const ink = onPaper(path.rgb);

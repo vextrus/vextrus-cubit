@@ -16,12 +16,15 @@ export const sets = {
   sets_create_submit: "Create set",
   sets_create_pending: "Creating the set…",
   sets_list_heading: "Sets",
-  sets_list_hint: "Newest set first. The digest fingerprints the revision each set stands pinned at.",
+  // I-360: the section's accessible description now, and said in a surveyor's words — no "digest".
+  sets_list_hint: "Newest set first. A pin fingerprint names the exact revision of every drawing a set was pinned at.",
   // The sets grid's column headers (I-285). A header is the noun the column holds, not a sentence.
   sets_col_name: "Set",
   sets_col_members: "Drawings",
   sets_col_revisions: "Pinned revisions",
-  sets_col_digest: "Current digest",
+  // I-360: ONE name for the value — the index's column and the browser's pinned revision both say it.
+  sets_col_digest: "Pin fingerprint",
+  // Retired by I-360 — the set's name is the row's door, so the Open column is gone. Kept DECLARED.
   sets_col_open: "Open",
   // The set browser's column headers (I-286).
   sets_col_drawing: "Drawing",
@@ -35,6 +38,7 @@ export const sets = {
   sets_row_revisions: "{count} pinned revisions",
   sets_row_digest_label: "Current digest",
   sets_row_digest_none: "Not pinned yet",
+  // Retired by I-360 with the Open column: the set's name is the door. Kept DECLARED; nothing renders it.
   sets_open: "Open set",
   sets_empty_heading: "No sets yet",
   sets_empty_body: "A set names the drawings a campaign measures. Name the first one above, then choose its drawings on the set itself.",
@@ -47,20 +51,25 @@ export const sets = {
   sets_revision_count: "{count} revisions",
   sets_revision_current: "Current",
   sets_revision_superseded: "Superseded",
-  sets_member_add: "Add to set",
-  sets_member_remove: "Remove from set",
+  // I-360: the "In this set" cell states its value, then the verb — the verb is short because the
+  // state beside it already says which set; the aria-labels below keep the whole sentence.
+  sets_member_in: "In set",
+  sets_member_out: "Not in set",
+  sets_member_add: "Add",
+  sets_member_remove: "Remove",
   sets_member_add_label: "Add {drawing} to this set",
   sets_member_remove_label: "Remove {drawing} from this set",
   sets_pin_heading: "Pin this set",
   sets_pin_hint:
-    "Pinning records a set revision: every member with the revision it stands at now, and a digest of that list. What is already pinned never changes.",
+    "Pinning records a set revision: every member with the revision it stands at now, and a fingerprint of that list. What is already pinned never changes.",
   sets_pin_submit: "Preview this pin",
   sets_pin_pending: "Working out what this pin would record…",
   sets_revisions_heading: "Pinned revisions",
   sets_revisions_hint:
     "Newest first. A pinned revision cites every member it held — including a drawing the set no longer names, and the revision a member stood at then — and never changes afterwards.",
   sets_revisions_none: "This set has never been pinned, so it cites nothing yet.",
-  sets_revision_digest_label: "Manifest digest",
+  // I-360: the same value the index's column names, by the same name (was "Manifest digest").
+  sets_revision_digest_label: "Pin fingerprint",
   sets_empty_no_drawings_heading: "No drawings to name yet",
   sets_empty_no_drawings_body:
     "This project holds no drawings, so this set can name none. Add one on the drawings screen; it is listed here as soon as it is stored.",

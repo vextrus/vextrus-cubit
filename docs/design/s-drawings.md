@@ -192,7 +192,8 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
      `data-value` and every other hook keep the raw value.* The chip `ALL` reads `drawings_filter_all`
      **All** with the total beside it; each discipline chip carries its count of sheets at that
      effective discipline (I-94's reading), a tabular figure through `formatUserFigure`.
-  3. **The cited row wraps and shows three (amends I-93 and I-96).** At 1280 a card is 258 px wide
+  3. **The cited row wraps and shows three (amends I-93 and I-96)** *(and stands only on an unconfirmed
+     card, by I-359 point 4)*. At 1280 a card is 258 px wide
      and the one-line row of five keys was 478-500 px: keys four and five were clipped — invisible,
      reachable by nothing, the I-93 defect of "nothing says they exist" — and their copy targets lay in
      layout over the neighbouring card, which is the target-size finding. The row now wraps, never
@@ -218,17 +219,76 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
      on — and the groups' answer slot and status line wear `cx-shell-live`, leaving the flow while empty.
   7. **Copy grammar.** `drawings_views_count_one` **{count} view** reads a count of one;
      `drawings_scale_unplaceable_count` reads **No scale of record on {count} of {total} views**, a
-     sentence true at every count.
+     sentence true at every count. *(I-359 point 3: where that sentence stands, the views line is
+     `data-said` — out of sight, box kept — so the total is said once; a count of zero reads
+     `drawings_views_count_none`.)*
   8. **The thumbnail is a picture of where the lines are (I-87, R-SPINE-022).** Three of four cards
      showed a white rectangle: the renderer (`src/modules/takeoff/thumbnails/raster.ts`) drew each
      path in its resolved colour on white paper, and ACI 7 — the default colour most line work stands
      in — resolves to white. It now plots a colour whose every channel is at least 0xC0 in black ink,
      as a plotter prints the default colour, and draws a 2 px stroke at the 256 px `thumb` tier, where
      a 1 px line washed out once the browser resampled it. A paper layout's viewports still show
-     nothing of model space until the renderer draws through them (listed for its owner).
+     nothing of model space until the renderer draws through them (listed for its owner). *(Paid by
+     I-359 point 2: the renderer draws through them.)*
   What this costs: the card no longer shows every fact's figure without a click, and three cited keys
   instead of five. What it buys: at 1280x800 the grid starts at about 88 px under main's top and a
   confirmed card's door stands in the fold.
+
+- **I-359 — the index answers the 2026-09-23 re-look of the M3 project: a card says WHICH answer its
+  views line is, the thumbnail is a picture of the sheet as it plots, each fact is said once, and the
+  grid keeps one rhythm (session 7; amends I-87, I-323 points 3, 5, 7 and 8, and §1's page column and
+  grid).** The re-look read this screen at the bar by score and not demo-ready on a project whose bill
+  is finished. Each finding was a clause of this file, or a gap it had listed, doing the harm:
+  1. **"Not classified yet" is the RECORD's answer, never the sheet's (R-UI-050, R-UI-020, R-TO-021).**
+     `sheetIndexOf` turned a sheet holding no view into `viewCount: null`, so a cover or notes sheet of
+     a record whose partition had answered printed `drawings_views_unclassified` — a sentence telling
+     the owner's team the drawing was never read. Evidence: `cubit_e2e`, scoped to project
+     `634ff21d`, holds one drawing, one ingest and 54 partition views; read over the F-RCC6-BNBC
+     artifact the extractor writes today, the shipped attribution (`sheetOfView` over
+     `framesOfRecord`) stands 53 of them on S-03…S-26 and the unanchored view on the model sheet, while
+     S-00, S-01 and S-02 open no window and hold none — the three paper cards in the fold. `viewCount`
+     is now null only while the record holds no view row at all, and a sheet none of the record's views
+     stands on counts **0**, read by the new `drawings_views_count_none` **No views drawn on this
+     sheet** (`data-views="0"`). The attribution itself needed no change.
+  2. **The thumbnail shows what the sheet's windows show (pays I-323 point 8's listed gap; I-87,
+     R-SPINE-022).** `renderSheet` drew a paper layout's own paint only, so every sheet whose drawing
+     stands in model space — every BNBC plan, schedule and section — was an empty frame and a
+     title-block strip, and the white slabs were the loudest thing on the dark page while carrying no
+     information. A paper layout now draws, first, the model-space paths each projectable window frames
+     — the viewer's own `windowsOf` and `projectRecord` (B-17: the projection the viewer paints a sheet
+     with and the index attributes views by, never a second one), clipped to the frame — and then its
+     own paint over them, so frames and title blocks stand crisp; a paper layout with no extent of its
+     own but with windows is framed by `unionOfFrames`, as the viewer frames it. Model space opens no
+     windows and its bytes do not move. Cost: all 26 BNBC layouts at the three tiers render in about
+     1.6 s where they took a fraction of that, and a dense schedule seen at 1:100 through a 256 px tier
+     is a dark block, as its plot would be. Rasters are content-addressed and recorded per record, and
+     a record already rendered is not rendered again (`isFullyRendered`): a project ingested before
+     this keeps its empty frames until its record is rendered anew — every journey run ingests afresh.
+  3. **Each fact is said once (Direction §6).** Where the scale line reads
+     `drawings_scale_unplaceable_count` — "{count} of {total} views" — the views line would state the
+     total a second time; it now carries `data-said="true"`, which takes it from sight and from
+     assistive technology by `visibility: hidden` while it KEEPS its box, its text and its `data-views`.
+     Not `hidden` and not absent: the partition lands on the job runner's clock, and a line that left
+     the flow as it landed would re-flow the card beneath it — point 5's integration lesson — and give
+     J-010's masked picture two heights. And the card has one spelling of "no scale":
+     `drawings_scale_unaffirmed` reads **No scale of record** (was **Scale not affirmed**), the words the
+     counted sentence opens with.
+  4. **The cited row stands only while the discipline is a proposal (amends I-323 point 3; Direction
+     §6).** `cited` is the evidence for the machine's proposal (R-TO-004, L-AI-03); on a confirmed card
+     a person's act is the basis and the evidence decides nothing, and two lines of raw handles with
+     copy icons under every title read as debug output. A confirmed card renders no `cx-drawings-cited`
+     row and no `sheet-card-cited-more`; an unconfirmed one keeps I-323's three keys and "+N more". The
+     whole list stays the viewer inspector's (R-TO-011).
+  5. **One rhythm across a row (R-UI-083).** The grid's `align-items` is `stretch` (was `start`) and the
+     door onto the sheet takes `margin-top: auto`, so a title that wraps to two lines moves its own
+     card's slack and nothing else: every door of a row stands on one line.
+  6. **No page measure (R-UI-080).** `cx-drawings` carries no `max-width`: at 1440 the old
+     `var(--breakpoint-lg)` measure left a 24 px gutter on the left and about 88 px on the right, and the
+     header's Add stood 60 px short of the frame's right edge. The auto-fill grid takes the width
+     instead.
+  What this costs: the views total is not visible on a card whose scale line states it (it stays in
+  the DOM); a confirmed card no longer shows its proposal's evidence; on a very wide screen the header's
+  tools stand far from the h1. What it buys: the fold of the M3 project reads as drawn, read sheets.
 
 ## 1. Layout and hierarchy
 
@@ -241,8 +301,9 @@ perform), `sheet-card.tsx`, `job-timeline.tsx`, `actions.ts`, `route-address.ts`
 names no project and is judged before any query (the shell's `scopedTenantId` precedent):
 the module answers an empty index.
 
-The page renders in `shell-main`, one column `cx-drawings`: max-width `var(--breakpoint-lg)`,
-column flex, gap `var(--space-6)`. Rail and breadcrumb are the shell's (I-30). Header block
+The page renders in `shell-main`, one column `cx-drawings`: no page measure (amended by I-359 point
+6 — formerly max-width `var(--breakpoint-lg)`; the column takes `shell-main`'s width), column flex,
+gap `var(--space-6)`. Rail and breadcrumb are the shell's (I-30). Header block
 (`gap: var(--space-2)`): `<h1>` `drawings_heading` — `var(--text-20)`
 `var(--weight-heading)` `var(--graphite-900)`, margin 0 — over `drawings_caption`,
 `var(--text-13)` `var(--graphite-600)`. **Amended by I-323:** the header is ONE row (flex, wrap,
@@ -354,7 +415,8 @@ chrome when a door was pressed offline (I-89).
 
 **The grid** — `<div data-testid="sheet-index">`, `display: grid`,
 `grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr))`, gap
-`var(--space-4)`, `align-items: start`. One `<article data-testid="sheet-card"
+`var(--space-4)`, `align-items: stretch` (I-359 point 5; was `start`), so every card of a row is the
+row's height. One `<article data-testid="sheet-card"
 data-sheet={sheetId} data-discipline={effective} data-confirmed="true|false"
 aria-labelledby={the card's own `sheet-card-title`}>` per card in
 the module's layout-inventory order: fill `var(--graphite-50)`, border `var(--hairline)`,
@@ -384,15 +446,18 @@ card names itself as a region because its last child is a door every card labels
   CONFIRMED">`: the effective discipline through `EnumLabel` in `drawings_discipline_*`'s words,
   `var(--text-13)` body weight `var(--ink)` (I-323), then beside it the basis sentence
   (`drawings_basis_grammar` / `_none` / `_confirmed`), `var(--text-12)`
-  `var(--graphite-600)` (I-83). Under it, when `cited` is non-empty,
-  `<p class="cx-drawings-cited">`: label `drawings_cited_label`, then `CITED_SHOWN` = 3 keys as
+  `var(--graphite-600)` (I-83). Under it, when `cited` is non-empty AND the card is unconfirmed
+  (I-359 point 4), `<p class="cx-drawings-cited">`: label `drawings_cited_label`, then `CITED_SHOWN` = 3 keys as
   IdChips and `sheet-card-cited-more` for the rest, wrapping, never clipped (I-93, I-96, I-323).
 - **Scale and views** — `<p data-testid="sheet-card-scale" data-scale={state}>` carrying
   `drawings_scale_unaffirmed` / `_affirmed` / `_unplaceable`, and `<p
   data-testid="sheet-card-views" data-views={count ?? ""}>` carrying
-  `drawings_views_unclassified` when null, else `drawings_views_count` through
-  `formatUserFigure` (`drawings_views_count_one` at one). Both `var(--text-12)` `var(--graphite-700)`,
-  on one line (`cx-drawings-lines`, I-323).
+  `drawings_views_unclassified` when null — which, by I-359 point 1, means the RECORD holds no view
+  yet — `drawings_views_count_none` at zero, else `drawings_views_count` through
+  `formatUserFigure` (`drawings_views_count_one` at one). Where the scale line reads
+  `drawings_scale_unplaceable_count` the views line carries `data-said="true"` and is
+  `visibility: hidden`, its box kept (I-359 point 3). Both `var(--text-12)` `var(--graphite-700)`,
+  one above the other (`cx-drawings-lines`, I-323 point 5 as amended).
 - **Fidelity facts** — inside `<details class="cx-drawings-facts">` whose `<summary>` (a 24 px
   target, chevron drawn from two hairlines) reads `drawings_facts_summary` and the notable count, warn
   border when any is notable (I-323); the list: flex, wrap, gap `var(--space-2)`: one `<span data-testid="sheet-fact"
@@ -406,7 +471,8 @@ card names itself as a region because its last child is a door every card labels
 - **The door onto the sheet** (added by inc-111-viewer-inspector, paying s-viewer I-77 —
   R-UI-031: a screen reachable only by a typed address is a failing criterion) — the card's
   last child, `<a data-testid="sheet-card-open" class="cx-btn cx-reticle"
-  data-variant="secondary">`: the core secondary Button as a link, `align-self: start`, no
+  data-variant="secondary">`: the core secondary Button as a link, `align-self: start`,
+  `margin-top: auto` so it stands at the card's foot (I-359 point 5), no
   underline, text `drawings_open_sheet`, `href` =
   `/t/{tenant}/p/{project}/viewer/{drawingId}/{encodeURIComponent(layoutName)}` from the
   viewer route's own address module (B-17). A link and not a button: it is navigation, so a
@@ -503,9 +569,11 @@ named.** · `drawings_group_label_discipline` **{discipline} proposed from the t
 `drawings_scheme_label` **Source scheme {value}** · `drawings_basis_grammar` **Read from the
 title block** · `drawings_basis_none` **No title-block text to read** ·
 `drawings_basis_confirmed` **Confirmed** · `drawings_cited_label` **Cited entities** ·
-`drawings_scale_unaffirmed` **Scale not affirmed** · `drawings_scale_affirmed` **Scale
+`drawings_scale_unaffirmed` **No scale of record** (I-359; was **Scale not affirmed**) ·
+`drawings_scale_affirmed` **Scale
 affirmed** · `drawings_scale_unplaceable` **Scale unplaceable — this layout carries no extent
 or no drawing units** · `drawings_views_unclassified` **Views not classified yet** ·
+`drawings_views_count_none` **No views drawn on this sheet** (I-359) ·
 `drawings_views_count` **{count} views** · `drawings_views_count_one` **{count} view** (I-323) ·
 `drawings_scale_unplaceable_count` **No scale of record on {count} of {total} views** (I-323; was
 **{count} of {total} views have no scale of record**) · `drawings_discipline_structural`
@@ -568,7 +636,8 @@ source under reduced motion, so `drawings.css` carries no `prefers-reduced-motio
 `--warn`/`--warn-surface` · `--danger` · `--hairline` · `--space-2/3/4/6` · `--radius-4/8` ·
 `--text-12/13/16/20` · `--font-ui`/`--font-mono` · `--leading-ui` ·
 `--weight-body-medium`/`--weight-heading` · `--row-comfortable`/`--row-compact` ·
-`--breakpoint-lg` (the page measure, read as a token) · `--motion-state`/`--ease` · and, by I-323,
+`--motion-state`/`--ease` (`--breakpoint-lg`, the page measure, is no longer read: I-359 point 6
+retires the measure) · and, by I-323,
 `--space-1`/`--space-10` (the chip gap, the header row's height) · `--text-body` (the clipped labels'
 declared size). Px
 literals, closed set (core I-1's mandated class): the grid's 280 px column minimum, the
@@ -613,7 +682,9 @@ status word; the search's accessible name `drawings_search_label` (its `aria-lab
 by I-323, where a visible `<label for…>` stood); `cx-reticle` on every chip, button,
 input and link; `aria-busy` on a door awaiting its pre-check; the absence of
 `sheet-discipline-option` and `sheet-confirm` on a confirmed card and for a reader without
-`MEASURE`; RefusalState's `data-code` inside either answer slot.
+`MEASURE`; RefusalState's `data-code` inside either answer slot; `data-said="true"` on
+`sheet-card-views` where the scale line has stated its total (I-359 point 3 — the element, its text
+and its `data-views` stay); `sheet-card-cited-more` present only on an unconfirmed card (I-359 point 4).
 
 Journey: `tests/e2e/journeys/j-010-upload.spec.ts` (page object
 `tests/e2e/pages/s-drawings.page.ts`, worker spawned by `tests/e2e/support/worker.ts`),
@@ -626,7 +697,9 @@ already carries the `design/` segment — animations disabled, maxDiffPixelRatio
 `sheet-card-thumbnail`, `sheet-card-scale` and `sheet-card-views` (I-284): the thumbnail's pixels
 are the raster increment's evidence, and a toolchain version moving them must not red this screen's
 picture; the scale and views lines are the partition's answers, which land on the job runner's clock
-and not the upload's. jsdom acceptance mounts `SheetIndex`
+and not the upload's. By I-359 point 5 the first card stands as tall as its row, so the picture moves
+wherever a neighbour in the first row is taller than it; that re-take is the gate's (never
+`--update-snapshots`), and the masks hold because a `data-said` views line keeps its box. jsdom acceptance mounts `SheetIndex`
 with injected cards, groups and perform: the card anatomy and its data-attributes, all five
 facts including zeros, the three empty causes, search and filter per I-94, the chooser's
 single selection, both settled-refusal renderings, and the dialog handoff carrying exactly

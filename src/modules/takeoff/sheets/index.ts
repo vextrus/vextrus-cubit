@@ -42,12 +42,15 @@ export type SheetCard = {
   readonly scaleState: ScaleState;
   /**
    * How many of this sheet's views carry no calibration of record, or an unplaceable one (R-TO-021).
-   * Null where no partition has been read through: the same rule as `viewCount` below.
+   * Null where no view of this sheet was derived — no partition has been read through, or none of
+   * the record's views stands on this sheet (`viewCount` below tells those two apart, I-359).
    */
   readonly unplaceableViews: number | null;
   /**
-   * How many views this sheet holds. Null until L-CAD-06's classification lands: a count nobody
-   * derived is never invented, and "not classified yet" is a different answer from "none".
+   * How many views this sheet holds. Null until L-CAD-06's classification lands for the RECORD: a
+   * count nobody derived is never invented, and "not classified yet" is a different answer from
+   * "none". Zero once the record's partition has answered and none of its views stands on this sheet
+   * — a cover or a notes sheet frames no view, and that is an answer (I-359).
    */
   readonly viewCount: number | null;
   readonly facts: Readonly<Record<FidelityFact, number | boolean>>;
@@ -112,9 +115,11 @@ export async function sheetIndexOf(scope: SheetIndexScope): Promise<SheetCard[]>
         thumbnail: thumb === undefined ? null : { url: thumb.url, width: thumb.width, height: thumb.height },
         confirmed: confirmed.get(sheet.sheetId) ?? null,
         unplaceableViews: derived.unplaceable,
-        // A drawing whose partition nobody has read through holds no view rows, which is exactly
-        // "not classified yet" — a different answer from "none" (R-UI-050).
-        viewCount: views.length === 0 ? null : views.length,
+        // A RECORD whose partition nobody has read through holds no view rows, which is exactly
+        // "not classified yet" — a different answer from "none" (R-UI-050). Once the record holds
+        // views, a sheet none of them stands on holds none: judged by the record, never by the
+        // sheet, or a cover sheet of a finished bill says its drawing was never read (I-359).
+        viewCount: held.length === 0 ? null : views.length,
       });
     }
   }
