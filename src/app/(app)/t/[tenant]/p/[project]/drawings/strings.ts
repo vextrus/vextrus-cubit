@@ -29,6 +29,9 @@ export const drawings = {
   drawings_thumbnail_alt: "Sheet preview of {sheet}",
   drawings_thumbnail_pending: "Preview not drawn yet",
   drawings_number_none: "No sheet number",
+  // I-429: a model-space card's name — its title, its picture's alt, what the search reads and the
+  // confirmation dialog's row — never the tallest text the grammar found in it.
+  drawings_model_space: "Model space",
   drawings_format_label: "File format {value}",
   drawings_scheme_label: "Source scheme {value}",
   // I-323: a source scheme is an enum, read as words (R-UI-082); the stored value is the technical disclosure's.

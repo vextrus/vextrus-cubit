@@ -129,7 +129,8 @@ Dropzone; the one OfferedGroups; the one ConsequenceDialog; the one RefusalState
 - **I-94 — search folds case and matches fragments; the filter reads the effective
   discipline.** A title is prose, so a fragment match is right (unlike S-Audit I-32, where a
   whole identifier was the point): `toLowerCase()`-folded substrings of the two lines the card
-  publishes as its name — the proposed title and the sheet number — and of nothing a reader
+  publishes as its name — the proposed title and the sheet number *(the card's name, by I-429: model
+  space is matched as **Model space**, and states no number)* — and of nothing a reader
   cannot see (the layout name is the sheet id's tail, not a heading, and matching it would
   narrow to cards whose visible words do not hold the text); blank or whitespace-only is no
   filter; no `Intl`, no `localeCompare`. The chips compare the confirmed discipline where a sheet has one and the
@@ -319,7 +320,8 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   committed `cad/tests/fixtures` artifacts (basic, blocks, layouts, viewports) move nothing;
   F-RCC6-BNBC (`.dxf` and `.dwg`) moves **27 of 28** — every paper sheet — and each now proposes
   exactly the number and title its manifest's roster declares (`fixtures/rcc6-bnbc/manifest.json`);
-  its model space keeps **COLUMN SCHEDULE** and no number. Graded in
+  its model space keeps **COLUMN SCHEDULE** and no number *(its proposal does; by I-429 its card is
+  named **Model space**, states no number and stands after the sheets)*. Graded in
   `tests/takeoff/sheets/title-block-grammar.test.ts`. What it costs: where a layout's name carries no
   number and the block writes no numbered line of its own, a view caption spelled like a sheet id
   (`GB-12 LONG SECTION`) would be taken as the sheet — the tallest-line rule is a guess only there; a
@@ -343,6 +345,57 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   owner, not changed: the layer rule still reads a layer's FIRST LETTER, so a layer named `Symbols` or
   `Site` proposes STRUCTURAL and `Paper` MEP; the NCS form (`S-…`) would move neither fixture, but it is
   a change to every other drawing's proposal and was measured against none.
+- **I-429 — model space is said as model space, after its drawing's sheets (session 8; R-TO-004,
+  L-CAD-05, R-UI-080, R-UI-083; amends I-364's model-space sentence, I-94's haystack, §1's card order,
+  Thumbnail, Title and Number, and the Confirming paragraph's subject rows).** Session 7's re-look (D2)
+  found the fold opening on a card titled **COLUMN SCHEDULE** over **No sheet number**. `readTitleBlock`
+  reads every layout, model space included, and model space is the first entry of every DXF and DWG
+  layout inventory (F-RCC6: `Model`, then `FOUNDATION PLAN`…; F-RCC6-BNBC: `Model`, then `S-00`…), so the
+  first card a QS met was a second copy of S-11 (on F-RCC6, of FOUNDATION PLAN). The grammar is right to
+  read model space, whose proposal decides the discipline it is offered and confirmed at. It is wrong
+  only as a name, so the card, not the grammar, now says what the layout is:
+  1. **One name, one home.** `cardName` (`sheet-card.tsx`) names a paper sheet by the title its block
+     proposes and model space by `drawings_model_space` **Model space**. That one name is used four
+     times:
+     - the card's `sheet-card-title`;
+     - the thumbnail's alt (`drawings_thumbnail_alt` filled with it);
+     - what the search matches (I-94: the words the card shows, so "model" finds model space and
+       "column schedule" finds only S-11);
+     - the ConsequenceDialog row. Before the dialog renders, the screen relabels each subject whose
+       sheet it holds with that name, as the participants screen does (I-55). The digest is blind to
+       `subjectLabel` (`src/core/acts/consequence.ts`), so nothing the act binds moves. A subject no
+       card here holds keeps the seam's own label, the proposed title.
+  2. **No number slot.** No set numbers model space, so its card renders no `sheet-card-number`. "No
+     sheet number" stated a lack where nothing is missing (R-UI-080); the meta line holds the two badges.
+  3. **After its drawing's sheets.** The screen stands each drawing's paper cards in the module's
+     inventory order, then that drawing's model space. It is a stable sort in `sheet-index.tsx`, so
+     `sheetIndexOf` and its other readers keep the inventory's order. The order is per drawing, not per
+     index. With two drawings, each model space closes its own run of sheets, which is the one thing
+     that tells two **Model space** cards apart: the card carries no drawing name. On F-RCC6-BNBC the
+     fold opens on **S-00 · COVER, DRAWING INDEX & KEY PLAN** and model space stands last.
+  4. **Counted as the one card it is.** Model space is included in every count wherever it stands:
+     - a discipline chip counts the cards that pressing it leaves standing (I-94);
+     - the count line `{shown} of {total} sheets` counts the index's cards;
+     - each offered group's `{count} sheets` counts the group's membership;
+     - the project home's tally counts the same inventory (`src/modules/spine/projects/read.ts`).
+
+     Counting it apart ("27 sheets and model space") was weighed and not taken, for three reasons. A
+     chip must count what it filters to, so the chip and a paper-only count line would disagree side
+     by side in one row. The home's tally would disagree with this screen. And a longer count line
+     would press on the one-row header (I-323 point 1) at 1280.
+  5. **Nothing else moves.** The proposal (title, number, discipline, basis, cited) is computed and
+     read exactly as before. The offered groups, their membership and the confirmations J-010 and J-000
+     walk are the same. `data-sheet`, `data-discipline` and every other hook keep their values.
+
+  What it costs:
+  - The counts say 28 on a set whose register lists 27 sheets; the 28th is the card named **Model
+    space**, standing last.
+  - The discipline cell of model space still reads `drawings_basis_grammar` (**Read from the title
+    block**), though model space has no block of its own. The basis is one reading for every layout;
+    listed for its owner, not changed.
+  - The thumbnail's alt reads **Sheet preview of Model space**.
+  - `j-010-sheet-card.png` moves. `drawings.cards.first()` is now F-RCC6's FOUNDATION PLAN sheet,
+    where it was its model space; the gate re-takes it.
 
 ## 1. Layout and hierarchy
 
@@ -472,8 +525,9 @@ chrome when a door was pressed offline (I-89).
 `var(--space-4)`, `align-items: stretch` (I-359 point 5; was `start`), so every card of a row is the
 row's height. One `<article data-testid="sheet-card"
 data-sheet={sheetId} data-discipline={effective} data-confirmed="true|false"
-aria-labelledby={the card's own `sheet-card-title`}>` per card in
-the module's layout-inventory order: fill `var(--graphite-50)`, border `var(--hairline)`,
+aria-labelledby={the card's own `sheet-card-title`}>` per card, each drawing's paper sheets in
+the module's layout-inventory order and then that drawing's model space (I-429 point 3; was the
+inventory's order, which opens on model space): fill `var(--graphite-50)`, border `var(--hairline)`,
 radius `var(--radius-8)`, padding `var(--space-3)`, column flex, gap `var(--space-2)`. The
 card names itself as a region because its last child is a door every card labels alike
 (below): N identical labels are otherwise announced with nothing to tell them apart (A-11Y).
@@ -482,17 +536,19 @@ card names itself as a region because its last child is a door every card labels
   `var(--hairline)`, radius `var(--radius-4)`, `object-fit: contain`:
   `<img data-testid="sheet-card-thumbnail" data-pending="false">` with the `thumb` tier url,
   its intrinsic `width`/`height` and `alt` = `drawings_thumbnail_alt` filled with the
-  proposed title; pending, a `<div data-testid="sheet-card-thumbnail" data-pending="true">`
+  card's name (I-429: the proposed title, or **Model space**); pending, a `<div data-testid="sheet-card-thumbnail" data-pending="true">`
   centring `drawings_thumbnail_pending`, `var(--text-12)` `var(--graphite-600)`.
 - **Title** — `<h3 data-testid="sheet-card-title">`, `var(--text-13)`
   `var(--weight-body-medium)` `var(--graphite-900)`, wrapping. The words are the grammar's proposal,
   read in I-364's order: the block's numbered line, else its tallest text that not every sheet of
-  the drawing carries.
+  the drawing carries. On a model-space card (`kind: "model"`) the words are `drawings_model_space`
+  **Model space**, never the grammar's reading of it (I-429 point 1).
 - **Number** — `<p data-testid="sheet-card-number">`: the number verbatim (I-364: the numbered
   line's, else the block's `S-01` or `SHEET n OF m`, else the one the layout's name opens with) in
   `var(--font-mono)` `var(--text-12)` `var(--graphite-700)` `tabular-nums slashed-zero`, or
   `drawings_number_none` in `var(--font-ui)` `var(--graphite-600)` when null — prose for
-  absence, never a dash (the consequence-dialog `none` precedent).
+  absence, never a dash (the consequence-dialog `none` precedent). A model-space card renders no
+  number slot at all: no set numbers model space, so there is no absence to state (I-429 point 2).
 - **Badges** — on the number's line (I-323), gap `var(--space-2)`: the shipped Badge twice,
   `data-testid="sheet-card-format"` and `"sheet-card-scheme"`, each holding an `EnumLabel` over the
   stored value — the format read upper-cased (`DXF`), the scheme read by `drawings_scheme_*`
@@ -563,7 +619,8 @@ drawings_evidence_reload }`, `PERMISSION_NOT_HELD` evidence the participants rou
 `SIGNED_OUT` `{ href: "/sign-in", label: shell_evidence_sign_in }` — and no dialog opens on
 nothing. A consequence opens the one ConsequenceDialog (`actType: "CONFIRM_DISCIPLINE"`,
 injected `preview`/`commit` closing over the group key, rendering through the shipped
-`SUBJECTS` arm: one row per sheet, before `none`, after the discipline). While the pre-check
+`SUBJECTS` arm: one row per sheet, before `none`, after the discipline; each row labelled by the
+name its card wears, model space as **Model space**, the digest untouched (I-429 point 1)). While the pre-check
 is in flight the pressed door takes core's loading state and the status line
 `<p role="status" aria-live="polite">` below the answer slot reads
 `drawings_confirm_pending`. On `onCommitted` the dialog closes, focus returns per the
@@ -622,7 +679,7 @@ named.** · `drawings_group_label_discipline` **{discipline} proposed from the t
 {subject}** · `drawings_group_label_sheet` **{discipline} proposed for {subject}** ·
 `drawings_group_count` **{count} sheets** · `drawings_thumbnail_alt` **Sheet preview of
 {sheet}** · `drawings_thumbnail_pending` **Preview not drawn yet** · `drawings_number_none`
-**No sheet number** · `drawings_format_label` **File format {value}** ·
+**No sheet number** · `drawings_model_space` **Model space** (I-429) · `drawings_format_label` **File format {value}** ·
 `drawings_scheme_label` **Source scheme {value}** · `drawings_basis_grammar` **Read from the
 title block** · `drawings_basis_none` **No title-block text to read** ·
 `drawings_basis_confirmed` **Confirmed** · `drawings_cited_label` **Cited entities** ·
@@ -741,7 +798,9 @@ input and link; `aria-busy` on a door awaiting its pre-check; the absence of
 `sheet-discipline-option` and `sheet-confirm` on a confirmed card and for a reader without
 `MEASURE`; RefusalState's `data-code` inside either answer slot; `data-said="true"` on
 `sheet-card-views` where the scale line has stated its total (I-359 point 3 — the element, its text
-and its `data-views` stay); `sheet-card-cited-more` present only on an unconfirmed card (I-359 point 4).
+and its `data-views` stay); `sheet-card-cited-more` present only on an unconfirmed card (I-359 point 4);
+`sheet-card-number` absent on a model-space card, whose `sheet-card-title` reads `drawings_model_space`
+(I-429 points 1 and 2).
 
 Journey: `tests/e2e/journeys/j-010-upload.spec.ts` (page object
 `tests/e2e/pages/s-drawings.page.ts`, worker spawned by `tests/e2e/support/worker.ts`),
@@ -754,7 +813,8 @@ already carries the `design/` segment — animations disabled, maxDiffPixelRatio
 `sheet-card-thumbnail`, `sheet-card-scale` and `sheet-card-views` (I-284): the thumbnail's pixels
 are the raster increment's evidence, and a toolchain version moving them must not red this screen's
 picture; the scale and views lines are the partition's answers, which land on the job runner's clock
-and not the upload's. By I-359 point 5 the first card stands as tall as its row, so the picture moves
+and not the upload's. By I-429 point 3 the first card is F-RCC6's first paper sheet, FOUNDATION PLAN,
+no longer its model space. By I-359 point 5 the first card stands as tall as its row, so the picture moves
 wherever a neighbour in the first row is taller than it; that re-take is the gate's (never
 `--update-snapshots`), and the masks hold because a `data-said` views line keeps its box. jsdom acceptance mounts `SheetIndex`
 with injected cards, groups and perform: the card anatomy and its data-attributes, all five

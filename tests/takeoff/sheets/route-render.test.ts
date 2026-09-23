@@ -40,6 +40,7 @@ import {
   type Person,
   type SheetCard,
   REPO_ROOT,
+  ROUTE_DIR,
   type SheetsSeam,
 } from "../support/sheets-stage";
 
@@ -60,6 +61,8 @@ const BUDGET_MS = 900_000;
 
 interface Staged {
   core: CoreSheetsSeam;
+  /** The route's own copy, read by key, so this file spells no sentence of its own (R-SPINE-060). */
+  words: Record<string, string>;
   person: Person;
   projectId: string;
   emptyProjectId: string;
@@ -74,6 +77,7 @@ function staged(): Promise<Staged> {
   return (staging ??= (async () => {
     const sheets = await productModule<SheetsSeam>(SHEETS_MODULE);
     const core = await productModule<CoreSheetsSeam>(CORE_SHEETS_MODULE);
+    const { drawings: words } = await productModule<{ drawings: Record<string, string> }>(join(ROUTE_DIR, "strings.ts"));
 
     await openSheetsStage();
     const { person, projectId } = await stagePerson("route");
@@ -86,7 +90,7 @@ function staged(): Promise<Staged> {
     const cards = await sheets.sheetIndexOf({ tenantId: person.tenantId, projectId });
     const groups = await sheets.offeredGroupsOf({ tenantId: person.tenantId, projectId });
     const { origin } = await serveStagedApp();
-    return { core, person, projectId, emptyProjectId, cards, groups, origin };
+    return { core, words, person, projectId, emptyProjectId, cards, groups, origin };
   })());
 }
 
@@ -125,6 +129,12 @@ describe("AC-4: the drawings route renders the index server-side", () => {
     expect(index.length, "the screen renders its one sheet index").toBe(1);
     const cards = all(index[0] as Element, "sheet-card");
     expect(byCodePoint(cards.map((card) => card.getAttribute("data-sheet") ?? "")), "one card per sheet the module answered, named by its sheet id").toEqual(byCodePoint(stage.cards.map((card) => card.sheetId)));
+    // I-429: the module answers the layout inventory's order, which opens on model space; the fold
+    // stands the drawing's sheets in that order and its model space after them (one drawing here).
+    expect(
+      cards.map((card) => card.getAttribute("data-sheet") ?? ""),
+      "the fold opens on the drawing's first sheet and stands its model space after its sheets (I-429)",
+    ).toEqual([...stage.cards.filter((card) => card.kind !== "model"), ...stage.cards.filter((card) => card.kind === "model")].map((card) => card.sheetId));
 
     const byId = new Map(stage.cards.map((card) => [card.sheetId, card]));
     for (const element of cards) {
@@ -138,12 +148,19 @@ describe("AC-4: the drawings route renders the index server-side", () => {
 
       // Every cell the contract names carries the card's own value, not merely the test id: an
       // element tagged and left empty renders nothing a reader can act on (Design Decision §1).
-      expect(one(element, "sheet-card-title", sheet).textContent, `the card for ${sheet} shows the proposed title`).toContain(card.proposal.title);
+      // I-429: model space is named as model space — the tallest text the grammar reads in it is one
+      // of the sheets' own titles — and a paper sheet by the title its block proposes.
+      const model = card.kind === "model";
+      expect(one(element, "sheet-card-title", sheet).textContent, `the card for ${sheet} shows ${model ? "model space's own name" : "the proposed title"}`).toContain(
+        model ? stage.words.drawings_model_space : card.proposal.title,
+      );
       expect(one(element, "sheet-card-format", sheet).textContent, `the card for ${sheet} shows the format the drawing is stored as, verbatim (I-25: data renders as data)`).toContain(card.format);
       expect(one(element, "sheet-card-scheme", sheet).textContent, `the card for ${sheet} shows the extractor scheme the record states, verbatim (R-TO-001)`).toContain(card.scheme);
       expect(one(element, "sheet-card-scale", sheet).getAttribute("data-scale"), `the card for ${sheet} publishes the scale state the module derived (R-TO-004)`).toBe(card.scaleState);
       expect(one(element, "sheet-card-views", sheet).getAttribute("data-views"), `the card for ${sheet} publishes the view count it holds — empty while no view has been classified, never a count invented`).toBe(card.viewCount === null ? "" : String(card.viewCount));
-      if (card.proposal.number !== null) {
+      if (model) {
+        expect(all(element, "sheet-card-number").length, `model space is numbered by no set, so the card for ${sheet} has no number slot (I-429)`).toBe(0);
+      } else if (card.proposal.number !== null) {
         expect(one(element, "sheet-card-number", sheet).textContent, `the card for ${sheet} shows the number the grammar read from its title block`).toContain(card.proposal.number);
       } else {
         one(element, "sheet-card-number", sheet);

@@ -54,6 +54,12 @@ export interface SheetCardData {
   readonly sheetId: string;
   readonly drawingId: string;
   readonly layoutName: string;
+  /**
+   * Which space the layout is (L-CAD-05): the drawing's one model space, or a paper sheet. The
+   * module's card carries it whole; the screen names a model-space card as what it is and stands it
+   * after its drawing's sheets (I-429).
+   */
+  readonly kind: "model" | "paper";
   readonly format: string;
   readonly scheme: string;
   readonly thumbnail: { readonly url: string; readonly width: number; readonly height: number } | null;
@@ -105,6 +111,18 @@ const FACT_WORDS: Readonly<Record<FidelityFact, string>> = {
   dropped_layouts: drawings.drawings_fact_dropped_layouts,
 };
 
+/**
+ * The name a card is known by on this screen — its title, its picture's alt, what the search reads
+ * and how the confirmation dialog lists it (I-429, amending I-364's model-space sentence): a paper
+ * sheet by the title its block proposes, model space as model space. The grammar still reads model
+ * space's tallest text, and its proposal still decides the discipline and the group it is offered in;
+ * only the name moves, because that text is one of the sheets' own titles ("COLUMN SCHEDULE"), and a
+ * card wearing it stood in the fold as a second copy of a sheet.
+ */
+export function cardName(card: Pick<SheetCardData, "kind" | "proposal">): string {
+  return card.kind === "model" ? drawings.drawings_model_space : card.proposal.title;
+}
+
 export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, answer }: SheetCardProps) {
   const effective = card.confirmed === null ? card.proposal.discipline : card.confirmed.discipline;
   const basis = card.confirmed === null ? card.proposal.basis : "CONFIRMED";
@@ -137,20 +155,21 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
           src={card.thumbnail.url}
           width={card.thumbnail.width}
           height={card.thumbnail.height}
-          alt={fill(drawings.drawings_thumbnail_alt, { sheet: card.proposal.title })}
+          alt={fill(drawings.drawings_thumbnail_alt, { sheet: cardName(card) })}
         />
       )}
 
       <h3 className="cx-drawings-card-title" data-testid={TESTIDS.sheet.cardTitle} id={titleId}>
-        {card.proposal.title}
+        {cardName(card)}
       </h3>
 
       {/* I-323: the sheet's identity on one line — its number, then what it was read from. The
           format and scheme are enums a person reads as words (R-UI-082); the stored values stay in
           the technical disclosure and in the element's text, so a reader matching on them still
-          finds them. */}
+          finds them. I-429: model space is numbered by no set, so its card has no number slot —
+          "No sheet number" there stated a lack where nothing is missing (R-UI-080). */}
       <div className="cx-drawings-card-meta">
-        {card.proposal.number === null ? (
+        {card.kind === "model" ? null : card.proposal.number === null ? (
           <p className="cx-drawings-card-none" data-testid={TESTIDS.sheet.cardNumber}>
             {drawings.drawings_number_none}
           </p>

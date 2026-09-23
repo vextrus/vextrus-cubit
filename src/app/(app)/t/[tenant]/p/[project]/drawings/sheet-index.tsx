@@ -32,7 +32,7 @@ import {
   type PreviewAnswer,
 } from "./actions";
 import { drawingsRoute } from "./route-address";
-import { DISCIPLINE_WORDS, SheetCard, type SheetCardData } from "./sheet-card";
+import { DISCIPLINE_WORDS, SheetCard, cardName, type SheetCardData } from "./sheet-card";
 import { drawings } from "./strings";
 import { TESTIDS } from "@/ui/testids";
 
@@ -90,6 +90,21 @@ interface Evidence {
 
 /** Which door was pressed last, so its answer renders in its own slot and nowhere else. */
 type Pressed = { readonly where: "groups" } | { readonly where: "card"; readonly sheetId: string };
+
+/**
+ * I-429: the fold in the order a set is read — each drawing's sheets in its layout inventory's
+ * order, then that drawing's model space. The module answers the inventory's own order, and model
+ * space is the inventory's first layout in every DXF and DWG, so the fold opened on a card that is no
+ * sheet of the set. Per drawing, not per index: with two drawings each model space still closes its
+ * own drawing's run of sheets, which is what tells two "Model space" cards apart. `sort` is stable,
+ * so nothing else moves.
+ */
+function inFoldOrder(cards: readonly SheetCardData[]): SheetCardData[] {
+  const drawingAt = new Map<string, number>();
+  for (const card of cards) if (!drawingAt.has(card.drawingId)) drawingAt.set(card.drawingId, drawingAt.size);
+  const rank = (card: SheetCardData): number => (drawingAt.get(card.drawingId) ?? 0) * 2 + (card.kind === "model" ? 1 : 0);
+  return [...cards].sort((one, other) => rank(one) - rank(other));
+}
 
 export function SheetIndex({
   tenantId,
@@ -216,33 +231,55 @@ export function SheetIndex({
   // frame's jobs tray.
   const { steps, lost } = useTrackedJobs(jobs, { onSucceeded: settled });
 
-  /** I-94: case-folded fragments of the two lines a card publishes as its name — the proposed title
-      and the sheet number; the filter reads the effective discipline, the same value the card
-      publishes as `data-discipline`. */
+  /** The index as the fold stands it: each drawing's sheets, then its model space (I-429). */
+  const ordered = useMemo(() => inFoldOrder(cards), [cards]);
+
+  /** I-94: case-folded fragments of the two lines a card publishes as its name — its title and the
+      sheet number; the filter reads the effective discipline, the same value the card publishes as
+      `data-discipline`. I-429: the title is the card's name, so model space is found by the words
+      its card shows ("model") and never by the tallest text the grammar read in it, which it no
+      longer shows; it states no number. */
   const shown = useMemo(() => {
     const asked = search.trim().toLowerCase();
-    return cards.filter((card) => {
+    return ordered.filter((card) => {
       const effective = card.confirmed === null ? card.proposal.discipline : card.confirmed.discipline;
       if (filter !== ALL && effective !== filter) return false;
       if (asked === "") return true;
-      return [card.proposal.title, card.proposal.number ?? ""].some((value) => value.toLowerCase().includes(asked));
+      return [cardName(card), card.kind === "model" ? "" : (card.proposal.number ?? "")].some((value) => value.toLowerCase().includes(asked));
     });
-  }, [cards, filter, search]);
+  }, [ordered, filter, search]);
 
   /** How many sheets stand at each discipline — the chips' counts (§3.4: "Structural 8 · MEP 1"),
-      over the same effective discipline the filter compares (I-94). */
+      over the same effective discipline the filter compares (I-94). I-429: a chip counts the cards
+      pressing it leaves standing, so model space counts at the discipline it stands at, as the count
+      line, the offered group's count and the project home's tally count it — one card of the index. */
   const standing = useMemo(() => {
     const counted = Object.fromEntries(DISCIPLINES.map((discipline) => [discipline, 0])) as Record<Discipline, number>;
     for (const card of cards) counted[card.confirmed === null ? card.proposal.discipline : card.confirmed.discipline] += 1;
     return counted;
   }, [cards]);
 
+  /** Each held card's name, by the sheet id an act moves (I-429; the participants I-55 precedent). */
+  const names = useMemo(() => new Map(cards.map((card) => [card.sheetId, cardName(card)] as const)), [cards]);
+
   const dialogPreview = useCallback(async () => {
     if (confirming === null) throw new Error("the consequence dialog was opened with no group to preview");
     const answered: PreviewAnswer = await preview({ projectId, group: confirming });
     if (!answered.previewed) throw refused(answered.refusal);
-    return { consequence: answered.consequence, consequenceDigest: answered.consequenceDigest };
-  }, [confirming, preview, projectId, refused]);
+    // The seam names each sheet by its proposed title, which for model space is the tallest text the
+    // grammar read — one of the sheets' own titles, listed beside that sheet. The dialog is where a
+    // person decides, so it lists each subject by the name its card wears; the label is presentation
+    // the digest is blind to (consequence.ts), and the digest travels untouched (I-55). A subject no
+    // card here holds keeps the seam's label.
+    const named = {
+      ...answered.consequence,
+      subjects: answered.consequence.subjects.map((subject) => {
+        const name = names.get(subject.subjectId);
+        return name === undefined ? subject : { ...subject, subjectLabel: name };
+      }),
+    };
+    return { consequence: named, consequenceDigest: answered.consequenceDigest };
+  }, [confirming, names, preview, projectId, refused]);
 
   const dialogCommit = useCallback(
     async ({ consequenceDigest }: { consequenceDigest: string }) => {
@@ -290,6 +327,8 @@ export function SheetIndex({
     return refusal === null || pending ? null : <RefusalState refusal={refusalOf(refusal)} evidence={evidenceFor(refusal)} />;
   };
 
+  // A group's count is its membership, model space included where the grammar proposed it at the
+  // group's discipline: the act confirms it with the rest, and the dialog lists it by name (I-429).
   const offered: OfferedGroupItem[] = groups.map((group) => ({
     key: group.key,
     label: fill(group.key.kind === "SHEET" ? drawings.drawings_group_label_sheet : drawings.drawings_group_label_discipline, {

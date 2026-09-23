@@ -65,6 +65,7 @@ const card: SheetCardData = {
   sheetId: "sheet-1",
   drawingId: "drawing-1",
   layoutName: "Sheet 1",
+  kind: "paper",
   format: "DWG",
   scheme: "DXF_HANDLE",
   thumbnail: null,

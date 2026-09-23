@@ -30,12 +30,13 @@ vi.mock("next/navigation", () => ({
 const TENANT = "3f1c2e10-8a44-4e2b-9f0a-1c2d3e4f5061";
 const PROJECT = "9a7b6c5d-4e3f-4a2b-8c1d-0e9f8a7b6c5d";
 
-/** One card of the index, of a drawing and a layout named by the caller. */
-function card(sheetId: string, drawingId: string, layoutName: string): SheetCardData {
+/** One card of the index, of a drawing and a layout of the space named by the caller. */
+function card(sheetId: string, drawingId: string, layoutName: string, kind: SheetCardData["kind"]): SheetCardData {
   return {
     sheetId,
     drawingId,
     layoutName,
+    kind,
     format: "dxf",
     scheme: "DXF_HANDLE",
     thumbnail: null,
@@ -54,8 +55,8 @@ function card(sheetId: string, drawingId: string, layoutName: string): SheetCard
  * address the viewer answers at.
  */
 const CARDS: SheetCardData[] = [
-  card("ingest-1:FOUNDATION PLAN", "11111111-1111-4111-8111-111111111111", "FOUNDATION PLAN"),
-  card("ingest-1:model", "22222222-2222-4222-8222-222222222222", "model"),
+  card("ingest-1:FOUNDATION PLAN", "11111111-1111-4111-8111-111111111111", "FOUNDATION PLAN", "paper"),
+  card("ingest-1:model", "22222222-2222-4222-8222-222222222222", "model", "model"),
 ];
 
 /** The address the viewer answers a sheet at (the test contract's route). */

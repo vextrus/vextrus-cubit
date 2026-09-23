@@ -10,7 +10,10 @@
  *  3. "no scale" has one spelling on the card;
  *  4. the cited entity keys are evidence for a PROPOSAL, and stand only while the discipline is one;
  *  5. the grid stretches every card of a row and stands each door at its card's foot, and the page
- *     column carries no measure (the stylesheet's own rules, read as text — jsdom lays nothing out).
+ *     column carries no measure (the stylesheet's own rules, read as text — jsdom lays nothing out);
+ *  6. (I-429) model space is named as model space wherever the card is named — its title, its
+ *     picture's alt, the search and the confirmation dialog's row — states no sheet number, and
+ *     stands after its drawing's sheets; every count counts it as the one card it is.
  *
  * The copy is read from the route's own strings table by key, so this file spells no sentence of its
  * own (R-SPINE-060); every card is built here from the facts the case names (B-19).
@@ -21,6 +24,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createElement } from "react";
 import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { DISCIPLINES } from "@/core/sheets/law";
 import { formatUserFigure } from "@/core/format";
@@ -29,7 +33,9 @@ import { fill } from "@/ui/strings";
 import { TESTIDS } from "@/ui/testids";
 import { SheetIndex } from "../sheet-index";
 import { drawings } from "../strings";
+import type { OfferedGroupData, SheetIndexProps } from "../sheet-index";
 import type { SheetCardData } from "../sheet-card";
+import type { PreviewAnswer } from "../actions";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => undefined, replace: () => undefined, refresh: () => undefined, back: () => undefined, prefetch: () => undefined }),
@@ -49,6 +55,7 @@ function card(o: Readings = {}): SheetCardData {
     sheetId: "ingest-1:S-10 COLUMN LAYOUT PLAN",
     drawingId: "11111111-1111-4111-8111-111111111111",
     layoutName: "S-10 COLUMN LAYOUT PLAN",
+    kind: "paper",
     format: "dxf",
     scheme: "DXF_HANDLE",
     thumbnail: null,
@@ -183,5 +190,111 @@ describe("I-359: the grid's rhythm and the page's width, as the stylesheet rules
   test("the door is the card's last child, so the foot is where it stands", () => {
     const element = renderCard(card());
     expect(element.lastElementChild?.getAttribute("data-testid")).toBe(TESTIDS.sheet.cardOpen);
+  });
+});
+
+describe("I-429: model space is said as model space, after its drawing's sheets", () => {
+  const BNBC = "11111111-1111-4111-8111-111111111111";
+  const OTHER_DRAWING = "22222222-2222-4222-8222-222222222222";
+
+  /** A card of `drawing`, at `layoutName`, of the space `kind`, proposing `title` and `number`. */
+  function laid(drawing: string, layoutName: string, kind: SheetCardData["kind"], title: string, number: string | null): SheetCardData {
+    const base = card();
+    return { ...base, sheetId: `ingest-${drawing.slice(0, 1)}:${layoutName}`, drawingId: drawing, layoutName, kind, proposal: { ...base.proposal, title, number } };
+  }
+
+  /** F-RCC6-BNBC as the module answers it: the inventory opens on model space, whose tallest text is
+      one of the sheets' own titles (I-364: "its model space keeps COLUMN SCHEDULE and no number"). */
+  const MODEL = laid(BNBC, "model", "model", "COLUMN SCHEDULE", null);
+  const COVER = laid(BNBC, "S-00 COVER", "paper", "COVER", "S-00");
+  const SCHEDULE = laid(BNBC, "S-11 COLUMN SCHEDULE", "paper", "COLUMN SCHEDULE", "S-11");
+
+  function renderIndex(cards: readonly SheetCardData[], extra: Partial<SheetIndexProps> = {}): HTMLElement {
+    const { container } = render(
+      createElement(
+        JobsProvider,
+        { format: JOBS_FORMAT },
+        createElement(SheetIndex, { tenantId: TENANT, projectId: PROJECT, cards, groups: [], canConfirm: false, awaitingIngest: 0, ...extra }),
+      ),
+    );
+    return container;
+  }
+
+  /** The cards the fold stands, in its order, by the sheet each is a reading of. */
+  const order = (): string[] => screen.getAllByTestId(TESTIDS.sheet.card).map((element) => element.getAttribute("data-sheet") ?? "");
+
+  test("the model-space card is titled 'Model space', never by the tallest text the grammar read in it, and states no sheet number", () => {
+    const element = renderCard(MODEL);
+    const title = within(element).getByTestId(TESTIDS.sheet.cardTitle);
+    expect(text(title)).toBe(copy("drawings_model_space"));
+    expect(text(title), "the grammar's reading of model space is one of the sheets' own titles, and never names this card").not.toContain(MODEL.proposal.title);
+    expect(within(element).queryByTestId(TESTIDS.sheet.cardNumber), "model space is numbered by no set: its card has no number slot, not a stated lack").toBeNull();
+    expect(element.textContent ?? "", "so it never says 'No sheet number'").not.toContain(copy("drawings_number_none"));
+    expect(element.getAttribute("data-discipline"), "the proposal still decides its discipline — only its name moves").toBe(MODEL.proposal.discipline);
+  });
+
+  test("a paper sheet keeps the title and the number its block proposes", () => {
+    const element = renderCard(SCHEDULE);
+    expect(text(within(element).getByTestId(TESTIDS.sheet.cardTitle))).toBe(SCHEDULE.proposal.title);
+    expect(text(within(element).getByTestId(TESTIDS.sheet.cardNumber))).toBe(SCHEDULE.proposal.number);
+  });
+
+  test("the picture's alt names model space as its title does", () => {
+    const element = renderCard({ ...MODEL, thumbnail: { url: "/raster/model.png", width: 256, height: 192 } });
+    expect(within(element).getByTestId(TESTIDS.sheet.cardThumbnail).getAttribute("alt")).toBe(fill(copy("drawings_thumbnail_alt"), { sheet: copy("drawings_model_space") }));
+  });
+
+  test("the fold opens on the drawing's first sheet, and each drawing's model space closes its own run of sheets", () => {
+    const otherModel = laid(OTHER_DRAWING, "model", "model", "GROUND FLOOR PLAN", null);
+    const otherSheet = laid(OTHER_DRAWING, "A-01 GROUND FLOOR PLAN", "paper", "GROUND FLOOR PLAN", "A-01");
+    // The module's order: each drawing's layout inventory, which opens on model space.
+    renderIndex([MODEL, COVER, SCHEDULE, otherModel, otherSheet]);
+    expect(order()).toEqual([COVER.sheetId, SCHEDULE.sheetId, MODEL.sheetId, otherSheet.sheetId, otherModel.sheetId]);
+    expect(text(screen.getAllByTestId(TESTIDS.sheet.cardTitle)[0] as HTMLElement), "the fold opens on the cover").toBe(COVER.proposal.title);
+  });
+
+  test("the search reads the card's own words: 'model' finds model space, and the grammar's title for it finds only the sheet that wears it", async () => {
+    renderIndex([MODEL, COVER, SCHEDULE]);
+    const search = screen.getByTestId(TESTIDS.sheet.search);
+    const user = userEvent.setup();
+    await user.type(search, "column schedule");
+    expect(order(), "model space no longer shows that text, so that text does not find it").toEqual([SCHEDULE.sheetId]);
+    await user.clear(search);
+    await user.type(search, "model");
+    expect(order()).toEqual([MODEL.sheetId]);
+  });
+
+  test("model space counts as the one card it is, on the chips and on the count line alike", () => {
+    const root = renderIndex([MODEL, COVER, SCHEDULE]);
+    const chip = (value: string): string =>
+      text(screen.getAllByTestId(TESTIDS.sheet.filterOption).find((option) => option.getAttribute("data-value") === value)?.querySelector(".cx-drawings-chip-count") as HTMLElement);
+    expect(chip("ALL")).toBe(formatUserFigure("3"));
+    expect(chip(MODEL.proposal.discipline), "a chip counts the cards pressing it leaves standing").toBe(formatUserFigure("3"));
+    expect(text(root.querySelector(".cx-drawings-count") as HTMLElement)).toBe(fill(copy("drawings_sheet_count"), { shown: formatUserFigure("3"), total: formatUserFigure("3") }));
+  });
+
+  test("the confirmation dialog lists model space as 'Model space', not as the sheet whose title the grammar gave it", async () => {
+    const group: OfferedGroupData = { key: { kind: "PROPOSED_DISCIPLINE", drawingId: BNBC, discipline: MODEL.proposal.discipline }, label: "bnbc.dxf", members: [MODEL.sheetId, SCHEDULE.sheetId] };
+    // The seam's own labels: every subject by its proposed title, model space's being the tallest text.
+    const answer: PreviewAnswer = {
+      previewed: true,
+      consequence: {
+        actType: "CONFIRM_DISCIPLINE",
+        tenantId: TENANT,
+        projectId: PROJECT,
+        rendering: "SUBJECTS",
+        subjects: [MODEL, SCHEDULE].map((held) => ({ subjectId: held.sheetId, subjectLabel: held.proposal.title, before: [], after: [held.proposal.discipline] })),
+      },
+      consequenceDigest: "digest-1",
+    };
+    const preview = vi.fn(async () => answer);
+    renderIndex([MODEL, COVER, SCHEDULE], { groups: [group], canConfirm: true, preview });
+
+    await userEvent.setup().click(screen.getByTestId(TESTIDS.offered.groupConfirm));
+    const rows = await screen.findAllByTestId(TESTIDS.consequence.subjectRow);
+    const label = (sheetId: string): string => text(rows.find((row) => row.getAttribute("data-subject") === sheetId)?.querySelector(".cx-consequence-subject-label") as HTMLElement);
+    expect(label(MODEL.sheetId)).toBe(copy("drawings_model_space"));
+    expect(label(SCHEDULE.sheetId), "a paper sheet keeps the title the seam named it by").toBe(SCHEDULE.proposal.title);
+    expect(preview, "the seam is asked with the group's key and nothing else — the label is presentation").toHaveBeenCalledWith({ projectId: PROJECT, group: group.key });
   });
 });
