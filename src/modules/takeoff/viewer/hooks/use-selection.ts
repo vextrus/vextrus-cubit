@@ -12,6 +12,7 @@
  * layer can *fail* rather than arrive, so what has settled is counted from both (I-88).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { displayText } from "@/core/entitygraph/text";
 import type { RefObject } from "react";
 import { parseSelection } from "../../viewer-inspector/selection";
 import type { SelectedEntity } from "../../viewer-inspector/inspector-panel";
@@ -148,10 +149,19 @@ export function useSelection(options: UseSelectionOptions): UseSelection {
     if (at !== null) sink.current.publish?.(at);
   }, [cameraAt, keysHeld, selection]);
 
-  /** One selected key as the inspector lists it — the keys this sheet has not met yet are not rows. */
+  /**
+   * One selected key as the inspector lists it — the keys this sheet has not met yet are not rows. A
+   * text says what it SHOWS, through the one display reading the sheet is lettered by (B08, B-17): a
+   * reader who traced a figure to a note reads the note, never only its type and handle. Only a key
+   * that IS one text says words: a block instance paints what its block holds as one atom (I-86) —
+   * lines and texts, or several texts — and any one of its texts would name the whole by a part.
+   */
   const selected: SelectedEntity[] = selection.flatMap((key) => {
     const fact = held.get(key);
-    return fact === undefined ? [] : [{ key, type: fact.type, layer: fact.layer, box: fact.box }];
+    if (fact === undefined) return [];
+    const lettered = fact.records.length === 1 ? fact.records[0] : undefined;
+    const text = lettered?.text === undefined ? {} : { text: displayText(lettered.text, lettered.type) };
+    return [{ key, type: fact.type, layer: fact.layer, box: fact.box, ...text }];
   });
 
   return { selection, missing, selected, hold, toggleKey };

@@ -7,10 +7,34 @@ import type { EntityGraph } from "@/core/entitygraph/schema";
 import type { IngestFacts } from "../ingest/facts";
 
 /**
+ * Where a text's anchor stands on its lettering (L-CAD-05 v3, Decision I-462): across the run,
+ * at its start, its middle or its end; and up it, on the first line's baseline, at the bottom of its
+ * descenders, halfway between the first line's cap top and the last line's baseline, or at that cap
+ * top. The server resolves it once from the drawing's own facts — a single-line text's `halign` and
+ * `valign`, an MTEXT's attachment point — so the painter lays glyphs and reads no DXF code.
+ */
+export type TextJustify = {
+  readonly x: "left" | "centre" | "right";
+  readonly y: "baseline" | "bottom" | "middle" | "top";
+};
+
+/**
+ * A single-line text the drawing fits between two points (DXF "aligned" and "fit"): the run goes
+ * from the anchor to `to`, turned along them, and its height is either scaled with the run (aligned)
+ * or kept as written (fit).
+ */
+export type TextFit = {
+  readonly to: readonly [number, number];
+  readonly height: "scaled" | "kept";
+};
+
+/**
  * One drawn record, ready to paint: named by the source key it came from (`key`) or by the key of
  * the instance it was painted from (`src`), at the colour L-CAD-05 resolved server-side, with its
  * geometry in world coordinates. Text carries the world height the extractor read and the single
- * point it is set at — the two facts level-of-detail and placement need.
+ * point it is set at — the two facts level-of-detail and placement need — and, from a v3 reading,
+ * how it is turned and where on its lettering that point stands. A text read at v2 carries neither,
+ * and is laid square, left on its baseline, as it always was.
  */
 export type RenderRecord = {
   readonly key?: string;
@@ -28,6 +52,12 @@ export type RenderRecord = {
   readonly text?: string;
   readonly height?: number;
   readonly anchor?: readonly [number, number];
+  /** A text's world rotation, counter-clockwise degrees; absent where it is square. */
+  readonly rotation?: number;
+  /** Where `anchor` stands on the lettering; absent where it is the start of the first baseline. */
+  readonly justify?: TextJustify;
+  /** A single-line text fitted between `anchor` and a second point; absent for every other text. */
+  readonly fit?: TextFit;
 };
 
 /** One layer of a sheet: the swatch a panel row shows, how many records it holds, and them. */

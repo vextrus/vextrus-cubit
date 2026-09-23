@@ -38,7 +38,7 @@ export const SYNTHETIC_EXTENTS: { readonly min: readonly [number, number]; reado
 /**
  * The world heights the text records are drawn at, smallest to largest (AC-5: "heights from 0.1 to
  * 100 drawing units"). A geometric spread is what makes level-of-detail observable: at any one
- * camera some of these are below `LEGIBLE_TEXT_PX` and some above it, and a zoom of 8 always moves
+ * camera some of these are below `LETTERED_TEXT_PX` and some above it, and a zoom of 8 always moves
  * the boundary across several of them.
  */
 export const SYNTHETIC_TEXT_HEIGHTS: readonly number[] = Object.freeze([0.1, 0.25, 0.5, 1, 2.5, 5, 10, 25, 50, 100]);

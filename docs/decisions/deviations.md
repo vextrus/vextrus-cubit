@@ -41,6 +41,7 @@ Each Deviation is one row in the table below, and a section beneath it when the 
 | D-001 | L-MEA-07: storey-height readings — "agreeing readings corroborate, disagreeing readings suspend … equality is on canonical metres" | T-NOT-LEVEL (traps.json, S-25 1D90): "levels in both notations resolve to one level stack"; S-25 states 1F as `1F EL +3.353` (1D4C) and `EL +11'-0"` (1D92), 3352.8 mm apart; model.json GF 3352.8; under equality GF would SUSPEND, and on the metric print alone GF column concrete is 16.828852 m³ against the golden's 16.828 — a hard block | A storey is read once PER NOTATION; two PRINTS (TRANSCRIBED, cited, value and unit as written) in DIFFERENT notations agree when the exact one, rounded half-even to the decimal print's written places, equals it; every pair must agree; the finest reading is carried and the rails bind it | A cross-notation disagreement smaller than the decimal print's half-unit is invisible; where the metric figure was the design, the imperial conversion is carried | the commit that adds this row (see §D-001) |
 | D-002 | AS-05: "Model ids used in production are `claude-opus-5` for reading/proposals and `claude-sonnet-5` for cheap classification" | All eight closed questions are answered only by TypeSafe Jev (the Claude path answers none: `propose` refuses a Messages content array MALFORMED, `src/core/model/proposal.ts:80-89`); all 240 prior fixtures were answered by `jev-1.13.0` yet billed under a Claude id at the tree's wrong Claude rates — 3.572892 USD against 0.01498665 at Jev's documented rate (docs.typesafe.ai/models, read 2026-09-23) | `MODEL_IDS` = claude-opus-5, claude-sonnet-5, **jev-latest**; one `JEV_MODEL` pinned UNCONDITIONALLY by the eight questions (the id is hashed into every request); rates 5/25, 2/10, 0.042/0 USD per MTok; 0057 re-closes the ledger's CHECK; the corpus re-recorded live with provider bodies | The Bible names two ids, the ledger holds three; every request hash moved (240 fixtures retired, 241 recorded); `jev-latest` moves when TypeSafe ships, so answers can change with no change here (the answering version is recorded per call) | the commit that adds this row (see §D-002) |
 | D-004 | The stack element's version pins (`cubit.bible.xml:285-308`; AM-08 PART 1): TypeScript "5.9.3 exact", pnpm "10.x", TanStack Table "8.x", Vitest "4.x" | TypeScript 7 (native) type-checks the tree in 2.3 s against 14.8 s; Next 16.3.1 carried three critical advisories fixed in 16.3.3 and 16.3.6; typescript-eslint refuses TypeScript ≥ 7 | The toolchain moves to its current stable majors, TypeScript 7 beside a TypeScript 6 API alias; pg-boss holds at 10.4.2 and Playwright at 1.62.1 | Two TypeScript compilers read the tree; a Bible reader finds older versions | 18b689ab, 70d67aa7 |
+| D-006 | R-UI-040: "level-of-detail hides text below legibility" | Walk 0 (BLOCKS_DEMO): S-10 opened with no caption, no marks and an empty title block, where `drawing_render` letters them at the same size; measured on the true-size mipmapped glyphs, a capital is read from about 3 px (viewer.md I-463), and S-10's marks stand 2.6 px at fit | A drawing's own text is lettered down to a 2 px cap height (`LETTERED_TEXT_PX`), at its true size, and hidden only below that; nothing is drawn larger than the drawing states, and nothing is drawn as a bar | Text between 2 and 3 px is drawn and not readable; the lettering's fill at rest grows with it; every sheet's at-rest picture moves | the commit that adds this row (see §D-006) |
 
 ## D-001 — a storey stated in two notations is one storey (session 7, 2026-09-23)
 
@@ -179,3 +180,39 @@ versions than the tree runs; this row is the current law until the owner folds i
 **Proof.** The gate on the toolchain commit (every lane, quoted in the extension's handoff notes and in
 `node_modules/.cache/cubit/gate/summary.txt`); `tests/toolchain/cad-lane.test.ts` (six workers).
 
+## D-006 — a drawing's text is lettered from a 2 px cap height (session 8, VIEW-TXT)
+
+**Clause.** R-UI-040 (`docs/specs/cubit.bible.xml:645`): "level-of-detail hides text below legibility".
+
+**Evidence.** Walk 0 (`.private/work/session-8/walk0/walk-drawings-viewer.json`, BLOCKS_DEMO): at the
+fitted camera S-10 COLUMN LAYOUT PLAN showed an empty title block, no `COLUMN LAYOUT PLAN SCALE 1:100`
+caption, no dimension strings and no C1–C7 marks — "an unlabelled grid of red squares" — while the
+product's own DWG lane (`drawing_render`, same layout, same box) letters all of it. Part of that was the
+painter drawing glyphs at 0.56 of their height; the rest is this clause. S-10 is an A1 sheet fitted to
+a 1190 × 804 stage at 1.289 px per unit: its caption stands 5.2 px, its sheet name 4.1, its firm 3.35,
+its column marks 2.6 and its title block labels 1.7–2.3. Measured on the atlas's true-size mipmapped
+glyphs (viewer.md I-463; harness pictures in `.private/work/session-8/view-txt/`), a capital reads
+from about 3 px; at 2.6 px a mark is a word-shaped smudge in its place, and at 1.7 px nothing. Hiding
+everything under legibility leaves the fitted plan without a single mark or note; every PDF and CAD
+viewer a QS uses (and every plot) draws them there.
+
+**What the product does instead.** A drawing's own text — TEXT and MTEXT, on the sheet and seen
+through its windows — is lettered at its true cap height wherever that height is at least
+`LETTERED_TEXT_PX` = 2 px on screen (`src/modules/takeoff/viewer/client.ts`), and is not drawn at all
+below it. Between 2 and 3 px it is drawn and is not readable: it stands in its place as the drawing's
+own glyphs, filtered from the atlas's mipmaps, and a zoom sharpens it rather than making it appear.
+Nothing is ever drawn larger than the drawing states to make it readable at fit, and no text is
+replaced by a bar. The product's OWN lettering (the partition overlay's bubble labels) keeps
+`LEGIBLE_TEXT_PX` = 6 and is dropped, not shrunk, below it.
+
+**Cost.** Text between 2 and 3 px is on the sheet and cannot be read there — the "smudge" viewer.md §1
+had ruled out; the Decision now says so. The lettering's fill at rest grows by the sub-legible text
+(small beside the large notes that carry nearly all of it) and every sheet's picture at rest moves
+once with this build. On PERF-011's synthetic sheet the 2.5-unit rung is lettered at the fitted scale
+(2.64 px) where it was hidden; no rung crosses the floor within the lane's scripted zoom (1.057 to
+1.139 px per unit), so the settled frame stands for the gesture as before (I-345).
+
+**Proof.** `tests/takeoff/viewer/text-rotation.test.ts` ("level of detail (D-006)": S-10's
+2-unit marks lettered at 1.2886 px per unit, a 1.3-unit label not; the mark samples the mipmaps);
+`tests/takeoff/viewer/settled-frame.test.ts` (the LOD cut at `LETTERED_TEXT_PX`); PERF-011 and the
+e2e sweep with every moved viewer picture looked at and re-taken by the gate.

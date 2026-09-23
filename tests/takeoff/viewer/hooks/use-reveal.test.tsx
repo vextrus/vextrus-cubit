@@ -9,7 +9,7 @@
  */
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { revealCamera } from "../../../../src/modules/takeoff/viewer-inspector/flyto";
+import { READING_TEXT_PX, readingScaleOf, revealCamera } from "../../../../src/modules/takeoff/viewer-inspector/flyto";
 import { unionBox } from "../../../../src/modules/takeoff/viewer-inspector/selection";
 import { createSheetFacts, learn } from "../../../../src/modules/takeoff/viewer/hooks/facts";
 import { useReveal } from "../../../../src/modules/takeoff/viewer/hooks/use-reveal";
@@ -132,5 +132,69 @@ describe("AC-4: the pulse is struck in the traced line's basis colour", () => {
     await waitFor(() => expect(result.current.flyto, "the arrival is instant, not absent").toBe("settled"));
 
     expect(pulse.mock.calls[0], "zero duration is the token's answer, not a branch in the hook (Decision §4)").toEqual([0, BASIS_MEASURED]);
+  });
+});
+
+/**
+ * B08 (walk 0) — the Trace from S-01's `3000 psi` reading landed at 596.5 px per drawing unit on an
+ * empty canvas: the note's box was the one point it was set at, and a point is opened to a 1-unit
+ * frame. A text is framed by its lettering, and no closer than its reading size (I-464).
+ */
+describe("B08: a traced note is framed as a note on its sheet, at a size a reader reads", () => {
+  const NOTE_KEY = sourceKey("1F42");
+  const NOTE = { key: NOTE_KEY, type: "TEXT", rgb: [255, 255, 255] as [number, number, number], text: "f'c = 3000 psi (BORED PILES)", height: 3.2, anchor: [16, 208] as [number, number] };
+
+  test("the note lands READING_TEXT_PX tall, whole, with its sheet around it", async () => {
+    learn(facts, layerOf("Text-1", [NOTE]));
+    const { result } = mount();
+
+    act(() => result.current.reveal([NOTE_KEY]));
+    await waitFor(() => expect(result.current.flyto, "the travel settles").toBe("settled"));
+
+    const landed = jumpTo.mock.calls[0]?.[0] as { centre: [number, number]; scale: number };
+    expect(landed.scale * NOTE.height, "its capitals stand at the reading size — not 596 px per unit").toBeCloseTo(READING_TEXT_PX, 9);
+    const box = facts.get(NOTE_KEY)?.box as { min: [number, number]; max: [number, number] };
+    const halfWidth = STAGE_WIDTH / 2 / landed.scale;
+    const halfHeight = STAGE_HEIGHT / 2 / landed.scale;
+    expect(box.min[0], "the whole note is on the stage").toBeGreaterThanOrEqual(landed.centre[0] - halfWidth);
+    expect(box.max[0]).toBeLessThanOrEqual(landed.centre[0] + halfWidth);
+    expect(box.min[1]).toBeGreaterThanOrEqual(landed.centre[1] - halfHeight);
+    expect(box.max[1]).toBeLessThanOrEqual(landed.centre[1] + halfHeight);
+    expect((halfWidth * 2) / (box.max[0] - box.min[0]), "and it is found among its sheet: the stage shows well past it").toBeGreaterThan(2);
+  });
+
+  test("a selection of geometry alone is framed as before — the reading size stops text, nothing else", async () => {
+    const { result } = mount();
+    act(() => result.current.reveal([HELD_KEY]));
+    await waitFor(() => expect(result.current.flyto).toBe("settled"));
+    expect(jumpTo).toHaveBeenCalledWith(landing());
+    expect(readingScaleOf(facts.get(HELD_KEY)?.records ?? []), "a line holds no text to read").toBeNull();
+  });
+
+  /**
+   * The Trace from a member's figure selects the member's outline AND its mark (I-421; J-021 asserts
+   * `[outlineKey, markKey]`), and the mark is a TEXT. S-10's column DXF_HANDLE:984 with its mark C1
+   * is shaped here: a 4-unit column, its 2-unit mark beside it. Were the mark's reading size to stop
+   * the frame, the column would land 24 px wide at 6 px per unit instead of filling the stage.
+   */
+  test("a member traced with its mark is framed by the pair, as ever — the reading size stops words alone", async () => {
+    const COLUMN_KEY = sourceKey("984");
+    const MARK_KEY = sourceKey("99E");
+    const column = { key: COLUMN_KEY, type: "LWPOLYLINE", rgb: [1, 2, 3] as [number, number, number], closed: true, points: [[300, 400], [304, 400], [304, 404], [300, 404]] as [number, number][] };
+    const mark = { key: MARK_KEY, type: "TEXT", rgb: [1, 2, 3] as [number, number, number], text: "C1", height: 2, anchor: [305, 405] as [number, number] };
+    learn(facts, layerOf("COLUMN", [column]));
+    learn(facts, layerOf("Text-1", [mark]));
+    const { result } = mount();
+
+    act(() => result.current.reveal([COLUMN_KEY, MARK_KEY], "MEASURED"));
+    await waitFor(() => expect(result.current.flyto).toBe("settled"));
+
+    const boxes = [facts.get(COLUMN_KEY)?.box, facts.get(MARK_KEY)?.box].filter((box) => box !== undefined);
+    const framed = revealCamera(unionBox(boxes) ?? PAINTED, { width: STAGE_WIDTH, height: STAGE_HEIGHT });
+    expect(jumpTo, "the pair's own frame, with no reading size applied").toHaveBeenCalledWith(framed);
+    const readingScale = READING_TEXT_PX / mark.height;
+    expect(framed.scale, "which stands far closer than the mark's reading size would have let it").toBeGreaterThan(readingScale * 4);
+    expect(readingScaleOf([...(facts.get(COLUMN_KEY)?.records ?? []), ...(facts.get(MARK_KEY)?.records ?? [])]), "geometry among the records: no cap").toBeNull();
+    expect(readingScaleOf(facts.get(MARK_KEY)?.records ?? []), "the mark alone is still a note to read").toBeCloseTo(readingScale, 9);
   });
 });

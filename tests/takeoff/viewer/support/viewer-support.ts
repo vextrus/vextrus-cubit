@@ -105,12 +105,13 @@ export type Viewport = { x: number; y: number; scale: number };
 /** The browser-safe barrel, through the surface the increment publishes. */
 export type ViewerClient = {
   LEGIBLE_TEXT_PX: number;
+  LETTERED_TEXT_PX: number;
   FRAME_BUDGET_MS: number;
   HIT_TEST_BUDGET_MS: number;
   FIRST_PAINT_WARM_MS: number;
   FIRST_PAINT_COLD_MS: number;
-  isTextLegible: (heightWorld: number, scale: number) => boolean;
-  legibleTexts: (layer: RenderLayer, camera: Camera) => RenderRecord[];
+  isTextLettered: (heightWorld: number, scale: number) => boolean;
+  letteredTexts: (layer: RenderLayer, camera: Camera) => RenderRecord[];
   createCamera: (extents: RenderManifest["extents"], viewportPx: { width: number; height: number }) => Camera;
   fitCamera: (extents: RenderManifest["extents"], viewportPx: { width: number; height: number }) => Camera;
   panCamera: (camera: Camera, dxPx: number, dyPx: number) => Camera;

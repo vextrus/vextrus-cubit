@@ -97,3 +97,38 @@ describe("useSelection: the address is read once the sheet has settled", () => {
     expect(reveal, "nor anywhere to fly").not.toHaveBeenCalled();
   });
 });
+
+describe("B08: a selected text's row carries what the sheet shows of it", () => {
+  test("S-10's C7 note is held as the words the sheet letters — %%C resolved — and a line carries none", () => {
+    const NOTE_KEY = sourceKey("9C7");
+    learn(facts, layerOf("WALLS", [{ key: NOTE_KEY, type: "TEXT", rgb: [1, 2, 3], text: "C7 %%C450 PORCH COLUMN", height: 200, anchor: [0, 0] }]));
+    const { result, rerender } = mount([HELD_KEY, NOTE_KEY].join(","));
+    rerender({ loadedLayers: 2, failedCount: 0 });
+
+    const [line, note] = result.current.selected;
+    expect(note?.text, "the note says Ø450, never %%C450").toBe("C7 Ø450 PORCH COLUMN");
+    expect(line?.text, "a line has no words to say").toBeUndefined();
+  });
+
+  test("a block instance that paints a text among its lines is not named by that text", () => {
+    const BLOCK_KEY = sourceKey("20A1");
+    learn(facts, layerOf("WALLS", [
+      { src: BLOCK_KEY, type: "LINE", rgb: [1, 2, 3], points: [[0, 0], [10, 0]] },
+      { src: BLOCK_KEY, type: "TEXT", rgb: [1, 2, 3], text: "MEGHNA STRUCTURAL CONSULTANT", height: 2.6, anchor: [0, 5] },
+    ]));
+    const { result, rerender } = mount(BLOCK_KEY);
+    rerender({ loadedLayers: 2, failedCount: 0 });
+    expect(result.current.selected.map((row) => row.text), "the title block is one atom of lines and words; no one line of it names it").toEqual([undefined]);
+  });
+
+  test("a block instance that paints only texts is not named by the first of them", () => {
+    const BLOCK_KEY = sourceKey("20B2");
+    learn(facts, layerOf("WALLS", [
+      { src: BLOCK_KEY, type: "TEXT", rgb: [1, 2, 3], text: "PROJECT", height: 1.3, anchor: [0, 5] },
+      { src: BLOCK_KEY, type: "TEXT", rgb: [1, 2, 3], text: "DRAWN BY", height: 1.3, anchor: [0, 2] },
+    ]));
+    const { result, rerender } = mount(BLOCK_KEY);
+    rerender({ loadedLayers: 2, failedCount: 0 });
+    expect(result.current.selected.map((row) => row.text), "two labels of one block: neither is the block's name").toEqual([undefined]);
+  });
+});

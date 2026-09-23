@@ -15,7 +15,7 @@
 // SEAM's — this screen never decides ACCEPTED from EDITED (R-TO-034, AC-2).
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from "react";
 import type { Consequence, TranscribeSheetNotesInput } from "@/core/acts";
-import { normaliseNotation } from "@/core/entitygraph/notation";
+import { displayText } from "@/core/entitygraph/text";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { formatUserFigure } from "@/core/format";
@@ -236,12 +236,13 @@ const MODEL_SPACE_SAID = "Model space";
 
 /**
  * A drawing's own words as the drawing SHOWS them (I-sch-1): the DXF control codes a TEXT carries —
- * `%%C` for the diameter sign, `%%D`, `%%P` and the formatting toggles — resolved by the one table
- * that says what each of them means (`normaliseNotation`, L-CAD-02, B-17). Only what a reader SEES
- * goes through it; every attribute, key and stored string keeps the text byte for byte.
+ * `%%C` for the diameter sign, `%%D`, `%%P` and the formatting toggles — resolved by the one reading
+ * of what a text shows, the reading the sheet is lettered by and the viewer's inspector says
+ * (`displayText`, L-CAD-02, B-17, I-465). Only what a reader SEES goes through it; every
+ * attribute, key and stored string keeps the text byte for byte.
  */
 function drawn(text: string): string {
-  return normaliseNotation(text);
+  return displayText(text);
 }
 
 /**

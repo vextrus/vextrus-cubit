@@ -198,12 +198,18 @@ export function projectRecord(record: RenderRecord, window: Window): RenderRecor
 
   if (record.text !== undefined) {
     if (record.anchor === undefined || !inside(window.model, record.anchor)) return [];
+    // A projected window is never twisted (`projectable`), so the map is a move and a uniform scale:
+    // a text keeps its turn and where on its lettering its anchor stands, and a fitted text's second
+    // point goes through the same map as its first (L-CAD-05 v3, Decision I-462).
     return [
       {
         ...open,
         text: record.text,
         anchor: project(window, record.anchor),
         ...(record.height === undefined ? {} : { height: record.height * window.scale }),
+        ...(record.rotation === undefined ? {} : { rotation: record.rotation }),
+        ...(record.justify === undefined ? {} : { justify: record.justify }),
+        ...(record.fit === undefined ? {} : { fit: { to: project(window, record.fit.to), height: record.fit.height } }),
       },
     ];
   }

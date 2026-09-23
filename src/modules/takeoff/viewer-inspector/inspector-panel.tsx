@@ -31,8 +31,12 @@ export type HoverFact = {
   readonly layer: string;
 };
 
-/** One selected entity, as the panel lists and copies it. */
-export type SelectedEntity = HoverFact & { readonly box: IndexBox };
+/**
+ * One selected entity, as the panel lists and copies it. A text carries what it SHOWS — the drawing's
+ * own words with their control codes resolved (`@/core/entitygraph/text`) — so a note a figure was
+ * traced to is read here, not only named by its type and handle (B08, I-465).
+ */
+export type SelectedEntity = HoverFact & { readonly box: IndexBox; readonly text?: string };
 
 /* ------------------------------------------------------ the Trace, both ways (R-UI-022, X-2) */
 
@@ -228,6 +232,8 @@ export function InspectorPanel({ hover, selection, missing, chrome, trace, cited
                   <span className="cx-viewer-inspector-type">{entity.type}</span>
                   <span className="cx-viewer-inspector-layer">{entity.layer}</span>
                 </p>
+                {/* The drawing's own words, verbatim as the sheet shows them (I-25), whole (I-26). */}
+                {entity.text === undefined ? null : <p className="cx-viewer-inspector-text">{entity.text}</p>}
                 <div className="cx-viewer-inspector-key-line">
                   {/* Spoken, never seen: a bare mono string is not announced naked (Decision § 3). */}
                   <span className="cx-viewer-hidden">{INSPECTOR_COPY.viewer_inspector_key}</span>

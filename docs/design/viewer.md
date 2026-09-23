@@ -224,6 +224,9 @@ IOU in §8 with its owning clause. A grey box promising a panel is a lie about w
   halves a full frame to ~23 ms, but a smaller triangle interpolates its texels with other rounding
   — 37 % of the stage's pixels moved, most by 1/255 and up to 34/255 where forty notes overlap — and
   a sheet at rest is drawn the same, bit for bit, or it is not the same sheet (I-345 (1)).
+  **Amended by I-462 (session 8):** the atlas is still an alpha mask, now mipmapped and
+  measured, and a glyph quad is its ink box and a one-pixel rim rather than its whole cell — the
+  lettering changed size and place in the same build, so the at-rest picture moved lawfully and once.
 
 **Amended by session 7 (craft wave 4 — a vision re-look of S-10 COLUMN LAYOUT PLAN, F-RCC6-BNBC, at
 1440 × 900 and 1280 × 800):**
@@ -284,6 +287,86 @@ IOU in §8 with its owning clause. A grey box promising a panel is a lie about w
   answers the taller stage (I-317): S-10 opens at 1.289 px per unit at 1440 and 1.128 at 1280 where
   it opened at 1.212 and 1.051. Nothing of the painter moved (I-345 (1) stands: the same sheet at the
   same camera is drawn the same, bit for bit); what moved is the size of the stage it is drawn in.
+- **I-462 — a text is lettered as the drawing sets it: saying what it shows, turned, aligned,
+  at its true cap height.** (Session 8, VIEW-TXT. L-CAD-05's v3 facts, I-415, read by the sheet.)
+  Walk 0 found every sheet illegible where the drawing is not: glyphs stood about 0.56 of the record's
+  height, squeezed into 0.6-height cells so they read as narrow letters with wide gaps; `%%C`, `%%D`
+  and `%%P` were painted as typed (S-11's every bar call read `8-16%%C`); BNBC's 669 centred texts
+  (487 on their middle, 182 on their baseline) were set by their insert, which ezdxf writes EQUAL to the
+  alignment point, so each sat half a label right of its member (and a middle one half a capital
+  up); every turned mark lay flat;
+  and a text's world box was the one point it was set at, so the Trace to S-01's `3000 psi` note
+  landed at 596.5 px per unit on an empty canvas (B08). Ruling: (1) **Words.** The painter letters
+  what a text SHOWS — core's one display reading (`@/core/entitygraph/text`: `%%c` Ø, `%%d` °, `%%p` ±,
+  `%%%` %, `%%nnn` and `\U+XXXX` as the characters they name; an MTEXT's formatting taken away and its
+  paragraphs, `\X` and `\N` made lines; a stack `\S1/2;` said `1/2`). The artifact and the manifest
+  keep every text verbatim (L-CAD-08); the notation keeps its own reading, which also folds the
+  diameter's lookalikes, and the two share one `%%` table (`resolveControlCodes`, B-17). (2)
+  **Placement**, resolved once by the manifest (`placementOf`) into the anchor, a `justify` of
+  `x` left/centre/right and `y` baseline/bottom/middle/top, and a `fit`: a single-line text left on its
+  baseline is set at its insert; any other is set by its `align_point` (group 72 codes 1/2 across, 73
+  codes 0–3 up; code 4 "middle" is centred both ways); codes 3 "aligned" and 5 "fit" run from the
+  insert to the alignment point, turned along them, the height scaled with the run (aligned) or kept
+  (fit). An MTEXT is set by its attachment point (1–9, row by row from the top left): top is the
+  first line's cap top, middle halfway between the first line's cap top and the last line's baseline,
+  bottom the last line's descenders; its lines stand 5/3 of the height apart (the DXF default, which
+  the artifact states no factor against, `MTEXT_LINE_PITCH`) and each is set across by the
+  attachment's column. The turn is the artifact's world rotation, counter-clockwise degrees. A
+  projected window is never twisted (`projectable`), so the turn and the setting ride through it and a
+  fitted text's second point is projected with its first. A text read at v2 carries none of these and
+  is laid where it always was. (3) **Size.** The record's height is its CAP height. The atlas measures
+  the face it letters in (`--font-mono`, lettered at 40 px in 64 px cells, 16 × 16) — the capital's
+  height, each glyph's advance and ink box — and a glyph is laid at the record's cap height and the
+  face's own advance, one quad over its ink and a one-pixel rim; a space lays none. A painter made
+  before the web face has loaded measures its fallback, so where `document.fonts` says the face is
+  still to load, the lettering is laid again by the face once it arrives, and the sheet redrawn — the
+  same re-letter a change of face makes. **Amends I-346:**
+  a glyph is no longer its whole cell. (4) **The atlas holds** printable ASCII, the replacement
+  character and the signs a structural sheet writes (Ø ° ± × ² ³ · − → ≤ ≥ √ Σ µ φ ½ ¼ ¾ ⌀ ∅ ⌊ ⌋ ⌈ ⌉)
+  from the start; any other character a sheet holds is lettered into a free cell when the sheet
+  arrives (one re-upload); past the 256th cell it is drawn as U+FFFD, never as nothing. It is
+  mipmapped: a glyph drawn at under half its lettered cap height (under 14 px) samples the mipmaps,
+  and every larger one the sheet itself — the large notes carry nearly all the lettering's fill, and
+  plain filtering costs a software rasteriser about two thirds of trilinear. (5) **A text's world
+  box is its lettering** (`./lettering`, `letteredBox`; the index's worker, which measures no face,
+  reads `NOMINAL_FACE`, the product's mono face by its own file's figures — Spline Sans Mono, a
+  capital 1454 of 2000 units, every character 1200 across, 0.825 of a cap, a j's descender 462 — so
+  the box a pick meets is the box the painter letters, where a generic 6/7 ran about 3.9 % past the
+  painted words): a pick on the words hits the text, a
+  marquee crosses it, the selection mark is its outline turned with it, and a fly-to frames it.
+  **The pick's order** (`hitTest`): a record is admitted by its own distance from the pointer
+  (within the 4 px reach) and ranked by it, a text's rank standing a pixel's worth of the reach
+  (`WORDS_BEHIND_REACH`, a quarter of it) behind its distance. So the words under the pointer come
+  first; a line the pointer is actually on — drawn through the lettering, within a pixel — comes
+  before them; a line merely within reach of them, and any text whose words the pointer is only near,
+  come after. Measured on the BNBC manifests at a 1190 × 804 stage, six points inside every text's
+  words at fit and at 2 ×: under the first cut (words at the edge of the reach) a neighbouring note
+  was read on S-01 (10 of 444 at fit), S-10 (10 of 606) and S-11 (98 of 918), and a line up to 4 px
+  away beat the words (36, 39 and 55); under this order both are 0 on S-01, S-10, S-11 and S-13.
+  Measured (harness bundling this painter over the BNBC artifact at the 1440 × 900 stage, pictures in
+  `.private/work/session-8/view-txt/`): S-11 at walk 0's camera reads `8-16Ø` and `10Ø@100/150 (TIES)`
+  at the placement and cap height `drawing_render` draws the same box at, a monospace run about 2 %
+  wider; S-13's turned beam marks (1B24–1B29, LB1) run along their beams; S-10's centred marks stand
+  on their members. Cost: a full frame of PERF-011's synthetic sheet costs about 1.55 × the previous
+  painter's under SwiftShader (interleaved on one page on a loaded machine: fitted 135 against 87 ms
+  median, six times deeper 300 against 186) — true-size glyphs cover about 1.4 × the pixels, and small
+  text samples mipmaps. Frames in motion are still the settled frame (I-345), so PB-3's gesture is
+  carried by the same one-quad frame; PERF-011's verdict is the gate's. Every sheet with text moves at
+  rest: I-345 (1) holds a build against itself, and this build letters differently.
+- **I-463 — legibility, measured: a capital is read from about 3 px tall.** R-UI-040's level of
+  detail hides text "below legibility" and names no size; `LEGIBLE_TEXT_PX` (6) had been measured
+  against glyphs drawn at 0.56 of their height. Measured on the atlas's own mipmapped glyphs at their
+  true size, S-10 fitted at 1.289 px per unit: MEGHNA STRUCTURAL CONSULTANT at 3.35 px reads; the
+  title block's 2.8 px project line reads with effort; the 2.6 px column marks C1–C7 are word-shaped
+  smudges; the 1.7 px labels are nothing. So the drawing's text is LEGIBLE from a 3 px cap height.
+  `LEGIBLE_TEXT_PX` keeps its value and is re-read as the floor for the product's OWN lettering (the
+  partition overlay's bubble labels, I-363), which is set in a face the product chose and is dropped
+  rather than shrunk. The drawing's own text is lettered from `LETTERED_TEXT_PX` = 2 px — below
+  legibility, which is Deviation **D-006** (`docs/decisions/deviations.md`): a fitted sheet shows
+  its marks, notes and title block in their places, as the drawing, every plot of it and the
+  product's own DWG lane do, and a zoom sharpens them rather than making them appear. Nothing is ever
+  drawn LARGER than the drawing states to make it readable at fit: S-10's marks at fit are 2.6 px, and
+  a QS reads them after two or three wheel notches (3.2 px at 1.25 ×).
 
 ## 1. Layout and hierarchy
 
@@ -376,9 +459,12 @@ outline at 2 px offset), inset so it is not clipped by the panel edge. Backing s
 `clientWidth/Height × min(devicePixelRatio, 2)`, resized from a `ResizeObserver`; the cap holds the
 frame budget on HiDPI. The painter clears to `var(--canvas-paper)`, strokes the manifest's extents
 as a 1 px `var(--canvas-grid)` rectangle so a fitted sheet reads as a sheet, then paints the layers
-in roster order; no other grid is drawn (the grid panel is a later leaf). Text records below
-`LEGIBLE_TEXT_PX` at the current scale are not drawn at all (R-UI-040's LOD) — never drawn smaller
-and never faked as a smudge. Pointer: drag pans (`cursor: grab` / `grabbing`), wheel and pinch zoom at the
+in roster order; no other grid is drawn (the grid panel is a later leaf). Text is lettered as the
+drawing sets it — what it shows, turned, aligned, at its true cap height (I-462). Text whose
+cap height at the current scale is under `LETTERED_TEXT_PX` (2 px) is not drawn at all (R-UI-040's
+LOD); from 2 px to the 3 px a capital is read from (I-463) it is drawn at its true size, not
+readable and in its place (D-006); it is never drawn larger than the drawing states, and never
+replaced by a bar. Pointer: drag pans (`cursor: grab` / `grabbing`), wheel and pinch zoom at the
 cursor. Keyboard: `+`/`=` and `-` zoom about the centre, arrows pan 48 px, `F` fits — the whole set
 this leaf claims (R-UI-032's tool letters belong to the toolbar leaf). Every camera write the READER
 makes — the Fit control included — replaces the URL's `v` (`history.replaceState`, so back leaves the
@@ -634,11 +720,47 @@ per drawing unit** — S-10 reads "Scale 1.212 px per drawing unit", which a QS 
 scale). The cure is one reading of the cell — the zoom labelled as a zoom, or the calibrated scale in
 the Scale cell with the zoom beside it — and it is a copy change: owner, the string table
 `src/ui/strings/viewer.ts` with `status-line.tsx` and this Decision in the same commit (the craft wave
-that held the route held no copy home). Recorded, and NOT an IOU: sub-legible text drawn as greeked
+that held the route held no copy home). ~~Recorded, and NOT an IOU: sub-legible text drawn as greeked
 bars so a fitted sheet's marks keep their places (S-10 opens with an empty title block and no column
-marks). R-UI-040 rules that level of detail HIDES text below legibility and §1 that it is "never
-faked as a smudge"; a painter change would also move a sheet at rest, which I-345 (1) forbids.
-Reopening it is a Deviation against R-UI-040's clause, with the painter's own at-rest proof.
+marks).~~ **Reopened and paid by D-006 (session 8, VIEW-TXT):** not as bars — the text itself
+is lettered at its true size from a 2 px cap height (I-462, I-463), so S-10 opens with its
+caption, sheet name and firm legible and its marks and title block in their places.
+
+**Session 8, VIEW-TXT — what the sheet still cannot letter, each owned.** (1) **Block attributes** —
+BNBC's 110 grid-bubble labels (A–E, 1–6), its 5 level marks and every title block's filled values
+(sheet title, sheet number, date, scale, job number, revision) are ATTRIBs, and the artifact carries
+an attribute's text, height, turn and alignment but no point it stands at (`blockAttributeSchema`), so
+the viewer cannot place one without inventing it; the grid bubbles are empty and the title block's
+values blank on every sheet, where `drawing_render` letters them. Owner: the cad lane and the
+EntityGraph mirror (an attribute's insert and alignment point beside its v3 facts, one declared
+re-ingest), then this painter, which letters an attribute as it letters a TEXT. (2) **An MTEXT's
+reference width** (group 41) is not in the artifact, so a paragraph is lettered as one line where the
+drawing wraps it: S-01's long notes run past their column into the title block. Owner: the same
+extractor change (the width beside the attachment), then the lettering, which wraps at it. (3)
+**Complex scripts** — a Bengali title block is lettered glyph by glyph, unshaped (no conjuncts or
+reordered vowel signs). Owner: a later leaf that shapes a line before it is lettered. (4) **What an
+MTEXT code is, said in one place.** `displayLines` cuts a block through the notation's `mtextLines`
+and first says three things it does not: a stack on the line, `\X`/`\N` as breaks, and the escaped
+`\\ \{ \}` as characters. Folding them into `mtextLines` would move what the placement law, the
+schedule reader and the note clauses read (it deletes a stack as a code today; the grammar reads a raw
+stack itself, T-NOT-FTIN-STACK). Owner: the notation's owner, with a J-000 read-back proving the
+register unmoved.
+
+**Session 8, VIEW-TXT — its outcome, re-cut to what the drawing and the artifact allow.** The slice
+was cut as "S-10 opens with its title block, caption and C1–C7 marks readable". Two of its three
+parts cannot be met by the viewer, and neither is met by drawing anything larger than the drawing
+states (I-463). (1) **The marks and notes are lettered in place, readable from about 1.25 ×.**
+S-10 fits at 1.2886 px per unit at 1440 (1.128 at 1280), and its marks are 2 units tall: 2.58 px at
+fit, below the 3 px a capital reads from, so they are drawn true-size and in their places at fit
+(D-006) and read after two or three wheel notches (3.2 px at 1.25 ×). The caption, sheet name
+and firm (3.35 px and more) read at fit. (2) **The title block's filled values move to a follow-on
+slice.** They are block attributes with no point in the artifact (the IOU (1) above); confirmed on
+BNBC's S-10, whose TITLE_BLOCK attributes (SHEETTITLE `COLUMN LAYOUT PLAN`, JOBNO, DATE, SCALE,
+SHEETNO `S-10`, REV `B`) carry text, height, rotation and alignment and no insert. The follow-on is a
+cad-lane and EntityGraph change — an attribute's insert and alignment point in `blockAttributeSchema`
+(`src/core/entitygraph/schema.ts`, owned this wave by M4P-1) and one declared re-ingest — and then
+this painter, which letters an attribute as it letters a TEXT. What S-11 and S-13 were to show (`8-16Ø`;
+a turned mark along its beam) is met.
 
 
 ---
@@ -722,6 +844,33 @@ Decision), with the two Interpretations the scale tab owes this region:
   always, and the empty selection tab teaches its own emptiness as it already does. Rejected: keeping
   the two-panel fallback and hiding the scale tab with it, which would make a reading that depends on
   no drawing unreachable for the readers least able to draw one.
+- **I-464 — a reveal of text lands at the text's reading size, never at its glyph box.** (Session
+  8, VIEW-TXT; walk 0's B08.) A reveal frames the union of what it names, padded (§5); a text's box is
+  now its lettering (I-462 (5)), and fitting a stage to one short note would still set its letters
+  about 25 to 38 px tall (an 800 px stage to the 1190 px one) and hide the sheet it was found on.
+  Where the selection is text alone — every record under every key it names is a text — the reveal
+  zooms no closer than the scale at which the smallest of those texts stands `READING_TEXT_PX` (12 px)
+  tall (`readingScaleOf`, `revealCamera`'s third argument): the Trace from S-01's `3000 psi` reading
+  lands with the note 12 px tall, whole, the notes around it on the stage. A selection that holds any
+  geometry is framed by what it names, with no reading size: the Trace from a member's figure selects
+  the member's outline AND its mark (I-421), and a cap there would move every member Trace — measured
+  on S-10, column DXF_HANDLE:984 with its mark C1 (DXF_HANDLE:99E) at a 1190 × 804 stage lands at
+  66.54 px per unit, the column 266 px wide, where a cap at the mark's reading size would land it at
+  6.00, the column 24 px wide. The one change a member Trace does see is the mark's box, now its
+  lettering rather than its insert (I-462 (5)): the same pair landed at 72.75 px per unit
+  (column 291 px) when the mark's box was its point, so the frame stands about 9 % further out, with
+  the whole mark on it. A note too long for the stage at its reading size is fitted whole (the fit is
+  the smaller scale). This narrows §5's "the frame is the selection's own size" for text alone.
+- **I-465 — a selected text says what it shows.** (Session 8, VIEW-TXT; B08.) A row named only
+  `TEXT Text-1 DXF_HANDLE:1F42` tells a QS which entity was traced, not what the drawing says there.
+  A text's row carries its words as the sheet letters them — the same display reading
+  (`@/core/entitygraph/text`, `displayText`), so `C7 %%C450 PORCH COLUMN` reads `C7 Ø450 PORCH COLUMN`
+  here, on the canvas and in the schedule views alike (B-17). The words are the drawing's own, shown
+  verbatim in mono (I-25) and whole, their lines kept (I-26); the key line below them is unchanged.
+  Only a key that IS one text says words — the one record painted under it is a text. A block
+  instance (a title block, a grid bubble) paints what its block holds as one atom (I-86), lines and
+  texts or several texts, and any one of its texts would name the whole instance by a part of it, so
+  its row stays type, layer and key.
 
 ## 1. Layout and hierarchy
 
@@ -786,8 +935,11 @@ key in selection order; `data-bbox` is `minx,miny,maxx,maxy` in world units. Row
 `var(--space-2)` (`var(--space-1)` under an ancestor `[data-density="compact"]`), min-height
 `var(--row-comfortable)` re-keyed `var(--row-compact)` the same way (R-UI-005),
 `border-bottom: var(--hairline)`, column flex, gap `var(--space-1)`. Line one: type then layer,
-`var(--font-mono)` `var(--text-12)` `var(--graphite-700)`, the layer ellipsised. Line two: flex,
-`align-items: center`, gap `var(--space-2)` —
+`var(--font-mono)` `var(--text-12)` `var(--graphite-700)`, the layer ellipsised. Then, for a text only
+(I-465): `<p class="cx-viewer-inspector-text">` its words as the sheet shows them, verbatim,
+`var(--font-mono)` `var(--text-12)` `var(--ink)`, `white-space: pre-line` (an MTEXT's lines kept),
+`overflow-wrap: anywhere`, never ellipsised; no test id (found by its class and its text). Line two:
+flex, `align-items: center`, gap `var(--space-2)` —
 
 - a visually hidden `<span>` carrying `viewer_inspector_key`, so the line is heard as "Source key
   DXF_HANDLE:1A4" and a bare mono string is never announced naked, then

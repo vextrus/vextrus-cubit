@@ -111,8 +111,8 @@ function outlineChip(context: CanvasRenderingContext2D, drawn: OverlayOutline, p
 /**
  * The size a bubble's label is lettered at, or null where the ring cannot hold a legible one (I-363).
  *
- * The floor is the SHEET's own — `LEGIBLE_TEXT_PX`, the height below which R-UI-040's level of detail
- * hides a text — measured on what a label has to fit in: the ring's DIAMETER. The rule it replaces
+ * The floor is the viewer's own — `LEGIBLE_TEXT_PX`, the size the product never letters a label of its
+ * own below — measured on what a label has to fit in: the ring's DIAMETER. The rule it replaces
  * dropped the label whenever the ring's RADIUS fell under 6 px, which is a 12 px ring called
  * illegible: at 1280 × 800 S-10's rings stand 10.5 px across at the fitted scale and every one of its
  * eleven bubbles was an empty ring, while the same rings at 1440 × 900 (12.1 px) were lettered. The

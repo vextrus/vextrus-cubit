@@ -17,7 +17,7 @@
 import { createHash } from "node:crypto";
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import { projectedRecords, unionOfFrames, windowsOf } from "./projection";
-import type { RenderLayer, RenderManifest, RenderRecord } from "./types";
+import type { RenderLayer, RenderManifest, RenderRecord, TextJustify } from "./types";
 
 /** The name the artifact gives model space (`vextrus_cad.ingest.MODEL_SPACE`). */
 const MODEL_SPACE = "model";
@@ -33,18 +33,76 @@ function identityOf(record: DrawnRecord): { key: string } | { src: string } {
   return "key" in record ? { key: record.key } : { src: record.src };
 }
 
-/** One artifact record as the client paints it. Text keeps its world height and its single anchor. */
+/** The DXF type whose alignment is one attachment point rather than a (halign, valign) pair. */
+const MTEXT = "MTEXT";
+
+/** A single-line text's horizontal alignment codes (DXF group 72) that place it by its alignment point. */
+const HALIGN_ACROSS: Readonly<Record<number, TextJustify["x"]>> = Object.freeze({ 0: "left", 1: "centre", 2: "right" });
+
+/** DXF group 72's two codes that fit a text between its insert and its alignment point. */
+const HALIGN_ALIGNED = 3;
+const HALIGN_MIDDLE = 4;
+const HALIGN_FIT = 5;
+
+/** A single-line text's vertical alignment (DXF group 73): baseline, bottom, middle, top. */
+const VALIGN_UP: readonly TextJustify["y"][] = Object.freeze(["baseline", "bottom", "middle", "top"]);
+
+/** An MTEXT's attachment point (DXF group 71), 1–9 row by row from the top left: its column and its row. */
+const ATTACHMENT_ACROSS: readonly TextJustify["x"][] = Object.freeze(["left", "centre", "right"]);
+const ATTACHMENT_UP: readonly TextJustify["y"][] = Object.freeze(["top", "middle", "bottom"]);
+
+/**
+ * Where a text is set, as the painter lays it (L-CAD-05 v3, Decision I-462): the point, where
+ * on the lettering it stands, and the second point a fitted text runs to. A v3 single-line text that
+ * is not left on its baseline is placed by its `align_point` — the insert a drawing writes beside it
+ * is a by-product the writer computed with its own font, and a file written by ezdxf states it equal
+ * to the alignment point, which is why BNBC's 365 centred marks sat half a label off. A text read at
+ * v2, or one left on its baseline, is set at its insert, exactly as before.
+ */
+function placementOf(record: DrawnRecord): Pick<RenderRecord, "anchor" | "justify" | "fit"> {
+  const insert = record.points?.[0];
+  if (record.type === MTEXT) {
+    // An MTEXT's insert is a corner or a middle of its block, never a baseline — attachment 1 is the
+    // top left. Read at v2 it states none, and is set where it always was.
+    const attachment = record.attachment;
+    if (attachment === undefined) return insert === undefined ? {} : { anchor: insert };
+    const justify: TextJustify = { x: ATTACHMENT_ACROSS[(attachment - 1) % 3] ?? "left", y: ATTACHMENT_UP[Math.floor((attachment - 1) / 3)] ?? "top" };
+    return { ...(insert === undefined ? {} : { anchor: insert }), justify };
+  }
+  const halign = record.halign ?? 0;
+  const valign = record.valign ?? 0;
+  const aligned = record.align_point;
+  if ((halign === 0 && valign === 0) || aligned === undefined) return insert === undefined ? {} : { anchor: insert };
+  if (halign === HALIGN_ALIGNED || halign === HALIGN_FIT) {
+    if (insert === undefined) return { anchor: aligned };
+    return { anchor: insert, fit: { to: aligned, height: halign === HALIGN_ALIGNED ? "scaled" : "kept" } };
+  }
+  const justify: TextJustify =
+    halign === HALIGN_MIDDLE ? { x: "centre", y: "middle" } : { x: HALIGN_ACROSS[halign] ?? "left", y: VALIGN_UP[valign] ?? "baseline" };
+  return { anchor: aligned, justify };
+}
+
+/** A text's turn as the painter takes it: the artifact's own world rotation, left off where it is square. */
+function rotationOf(record: DrawnRecord): Pick<RenderRecord, "rotation"> {
+  return record.rotation === undefined || record.rotation === 0 ? {} : { rotation: record.rotation };
+}
+
+/**
+ * One artifact record as the client paints it. Text keeps its world height, the point it is set at,
+ * how it is turned and where on its lettering that point stands; its words stay verbatim, and what
+ * they SHOW is the one display reading every surface asks (`@/core/entitygraph/text`).
+ */
 function renderRecordOf(record: DrawnRecord): RenderRecord {
   const common = { ...identityOf(record), type: record.type, rgb: record.colour.rgb };
   const closed = "closed" in record && record.closed === true ? { closed: true } : {};
   if (record.text !== undefined) {
-    const anchor = record.points?.[0];
     return {
       ...common,
       ...closed,
       text: record.text,
       ...(record.height === undefined ? {} : { height: record.height }),
-      ...(anchor === undefined ? {} : { anchor }),
+      ...placementOf(record),
+      ...rotationOf(record),
     };
   }
   return { ...common, ...closed, ...(record.points === undefined ? {} : { points: record.points }) };
@@ -77,7 +135,7 @@ function swatchOf(first: RenderRecord, ...rest: readonly RenderRecord[]): readon
 /**
  * Every record of a sheet, in one comparable string per record — what the digest is taken over.
  * It carries exactly what a painter would draw differently if it changed: the identity, the type,
- * the colour, the geometry, the copy and the world height.
+ * the colour, the geometry, the copy, the world height, and how a text is turned and set.
  */
 function digestSubject(manifest: Omit<RenderManifest, "digest">): string {
   const layers = manifest.layers.map((layer) => [
@@ -95,6 +153,9 @@ function digestSubject(manifest: Omit<RenderManifest, "digest">): string {
       record.height ?? null,
       record.anchor ?? null,
       record.via ?? null,
+      record.rotation ?? null,
+      record.justify ?? null,
+      record.fit ?? null,
     ]),
   ]);
   return JSON.stringify([manifest.version, manifest.layoutName, manifest.extents, manifest.insunits, layers]);

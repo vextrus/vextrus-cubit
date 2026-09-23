@@ -7,6 +7,7 @@
 // Nothing here re-derives what the manifest already carries: colours, world heights and extents come
 // from the server's reading (L-CAD-05), and this file decides only what is drawn and what is under
 // the pointer.
+import { NOMINAL_FACE, letter, letteredBox } from "./lettering";
 import type { Camera, RenderLayer, RenderManifest, RenderRecord, ViewerHead, Viewport } from "./types";
 
 /* ------------------------------------------------------------------------------- the budgets */
@@ -23,8 +24,22 @@ export const FIRST_PAINT_WARM_MS = 2000;
 /** PB-2: first paint of the same sheet cold, with the manifest still to build. */
 export const FIRST_PAINT_COLD_MS = 6000;
 
-/** Below this many device-independent pixels a glyph is a smudge, so it is not drawn (R-UI-040). */
+/**
+ * The size, in device-independent pixels, a label the product letters for itself is never set
+ * below — the partition overlay's bubbles: read without effort at it, and dropped rather than
+ * shrunk past it. The drawing's OWN text is the level of detail's, at `LETTERED_TEXT_PX`.
+ */
 export const LEGIBLE_TEXT_PX = 6;
+
+/**
+ * The cap height, in device-independent pixels, below which a drawing's own text is not drawn at
+ * all — R-UI-040's level of detail, as Deviation D-006 draws it. A capital is read from about
+ * 3 px tall (Decision I-463, measured on the atlas's own glyphs); from 2 px to 3 px it is
+ * lettered anyway, at its true size, so a fitted sheet shows its marks, notes and title block in
+ * their places as the drawing and every plot of it does, and a zoom sharpens them rather than
+ * making them appear. Below 2 px a capital is two rows of pixels, and it is not drawn.
+ */
+export const LETTERED_TEXT_PX = 2;
 
 /* ------------------------------------------------------------------- a resolved colour, as shown */
 
@@ -185,28 +200,28 @@ export function cameraFromViewport(viewport: Viewport, viewportPx: { width: numb
 
 /* ---------------------------------------------------------------------- level of detail (LOD) */
 
-/** Whether text of this world height is worth drawing at this scale, in device-independent pixels. */
-export function isTextLegible(heightWorld: number, scale: number): boolean {
-  return Number.isFinite(heightWorld) && Number.isFinite(scale) && heightWorld * scale >= LEGIBLE_TEXT_PX;
+/** Whether text of this world cap height is drawn at this scale — the level of detail's one rule (R-UI-040, D-006). */
+export function isTextLettered(heightWorld: number, scale: number): boolean {
+  return Number.isFinite(heightWorld) && Number.isFinite(scale) && heightWorld * scale >= LETTERED_TEXT_PX;
 }
 
-/** The text of one layer that is legible under this camera — the rest is not drawn at all. */
-export function legibleTexts(layer: RenderLayer, camera: Camera): RenderRecord[] {
-  return layer.records.filter((record) => record.text !== undefined && isTextLegible(record.height ?? 0, camera.scale));
+/** The text of one layer that is drawn under this camera — the rest is not drawn at all. */
+export function letteredTexts(layer: RenderLayer, camera: Camera): RenderRecord[] {
+  return layer.records.filter((record) => record.text !== undefined && isTextLettered(record.height ?? 0, camera.scale));
 }
 
 /**
- * Where legibility begins in a run of finite world heights sorted ascending: the index of the first
- * one `isTextLegible` admits at this scale, or the run's length where none is. The LOD cut is this
+ * Where lettering begins in a run of finite world heights sorted ascending: the index of the first
+ * one `isTextLettered` admits at this scale, or the run's length where none is. The LOD cut is this
  * index — everything from it up is drawn — so a search rather than a walk: a sheet with fifty
- * thousand notes mostly too small to read is asked it every frame (R-UI-040, PB-3).
+ * thousand notes mostly too small to draw is asked it every frame (R-UI-040, PB-3).
  */
-export function legibleFrom(heights: readonly number[], scale: number): number {
+export function letteredFrom(heights: readonly number[], scale: number): number {
   let low = 0;
   let high = heights.length;
   while (low < high) {
     const middle = (low + high) >>> 1;
-    if (isTextLegible(heights[middle] ?? 0, scale)) high = middle;
+    if (isTextLettered(heights[middle] ?? 0, scale)) high = middle;
     else low = middle + 1;
   }
   return low;
@@ -269,7 +284,7 @@ export function settledFrameServes(frame: SettledFrame, camera: Camera, content:
   if (frame.at.viewport.width !== camera.viewport.width || frame.at.viewport.height !== camera.viewport.height) return false;
   const ratio = camera.scale / frame.at.scale;
   if (!(ratio <= SETTLED_RESAMPLE_MAX && ratio >= 1 / SETTLED_RESAMPLE_MAX)) return false;
-  for (const run of heights) if (legibleFrom(run, camera.scale) !== legibleFrom(run, frame.at.scale)) return false;
+  for (const run of heights) if (letteredFrom(run, camera.scale) !== letteredFrom(run, frame.at.scale)) return false;
   if (content === null) return true;
   const view = viewBoxOf(camera);
   const seen: WorldBox = [Math.max(view[0], content[0]), Math.max(view[1], content[1]), Math.min(view[2], content[2]), Math.min(view[3], content[3])];
@@ -311,8 +326,17 @@ export type IndexBox = {
 /** How many entries one leaf holds — a packed R-tree's node size. */
 const NODE_SIZE = 16;
 
-/** The world box of one record: its path's, or the single point text is set at. */
+/**
+ * The world box of one record: its path's, or — for a text — the box its lettering stands in, turned
+ * and set as it is drawn (`./lettering`, I-462), so a hit, a marquee and a fly-to meet the words
+ * a reader sees rather than the one point they were set at. A text with no height to letter at is its
+ * point.
+ */
 function boxOf(record: RenderRecord): [number, number, number, number] | null {
+  if (record.text !== undefined) {
+    const lettered = letteredBox(record);
+    if (lettered !== null) return lettered;
+  }
   const points = record.points ?? (record.anchor === undefined ? undefined : [record.anchor]);
   if (points === undefined || points.length === 0) return null;
   let minX = Number.POSITIVE_INFINITY;
@@ -474,8 +498,38 @@ function distanceToSegment(point: readonly [number, number], from: readonly [num
   return Math.hypot(point[0] - (from[0] + along * spanX), point[1] - (from[1] + along * spanY));
 }
 
-/** How far a world point is from a record's own geometry, not merely from its box. */
+/** Whether a point stands inside a convex outline, walked corner to corner in one turning sense. */
+function insideOutline(outline: readonly (readonly [number, number])[], point: readonly [number, number]): boolean {
+  let sign = 0;
+  for (let at = 0; at < outline.length; at += 1) {
+    const from = outline[at] as readonly [number, number];
+    const to = outline[(at + 1) % outline.length] as readonly [number, number];
+    const cross = (to[0] - from[0]) * (point[1] - from[1]) - (to[1] - from[1]) * (point[0] - from[0]);
+    if (cross === 0) continue;
+    if (sign === 0) sign = Math.sign(cross);
+    else if (Math.sign(cross) !== sign) return false;
+  }
+  return true;
+}
+
+/**
+ * How far a world point is from a record's own geometry, not merely from its box. A text's geometry
+ * is its lettered outline: a point on the words is on the text, and a point beside it is as far as
+ * the outline's nearest edge.
+ */
 function distanceTo(record: RenderRecord, point: readonly [number, number]): number {
+  if (record.text !== undefined) {
+    const lettered = letter(record, NOMINAL_FACE);
+    if (lettered !== null) {
+      if (insideOutline(lettered.outline, point)) return 0;
+      let nearest = Number.POSITIVE_INFINITY;
+      lettered.outline.forEach((corner, at) => {
+        const gap = distanceToSegment(point, corner, lettered.outline[(at + 1) % 4] as readonly [number, number]);
+        if (gap < nearest) nearest = gap;
+      });
+      return nearest;
+    }
+  }
   const points = record.points ?? (record.anchor === undefined ? undefined : [record.anchor]);
   if (points === undefined || points.length === 0) return Number.POSITIVE_INFINITY;
   if (points.length === 1) {
@@ -495,24 +549,39 @@ function distanceTo(record: RenderRecord, point: readonly [number, number]): num
 }
 
 /**
+ * How far behind the geometry a text's words stand in the ranking, as a part of the reach: a quarter
+ * of it, one pixel at the hover's 4 px reach (I-462 (5)). Only a line the pointer is actually
+ * on — one drawn through the lettering, within a pixel — is met before the words under the pointer;
+ * a line merely within reach of them is met after.
+ */
+export const WORDS_BEHIND_REACH = 1 / 4;
+
+/**
  * The keys under a world point, nearest first: the index narrows the sheet to a handful of
  * candidates and their own geometry decides, so a pointer between two lines picks the line it is
  * nearer rather than whichever box it happens to sit in.
+ *
+ * A text's geometry is its lettered outline, so a pointer on its words is at no distance from it
+ * however far from its insert. Its rank is that distance plus a pixel's worth of the reach
+ * (`WORDS_BEHIND_REACH`), and a record is admitted by its own distance alone: the words under the
+ * pointer come before any text the pointer is merely near and any line more than a pixel away, and
+ * after a line drawn through them (I-462 (5)).
  */
 export function hitTest(index: SpatialIndex, worldPoint: [number, number], tolerance: number, lockedLayers: readonly string[] = []): string[] {
   const reach = Math.max(tolerance, 0);
+  const behind = reach * WORDS_BEHIND_REACH;
   // A locked layer is painted and is out of the hit-test (Decision § 1): the index holds the whole
   // sheet, and the posture the reader set decides which of its layers may answer.
   const shut = new Set(lockedLayers);
   const candidates = search(index, [worldPoint[0] - reach, worldPoint[1] - reach, worldPoint[0] + reach, worldPoint[1] + reach]);
   return candidates
     .filter((entry) => !shut.has(entry.layer))
-    .map((entry) => ({
-      id: entry.id,
-      gap: distanceTo(entry.record, worldPoint),
-    }))
+    .map((entry) => {
+      const gap = distanceTo(entry.record, worldPoint);
+      return { id: entry.id, gap, rank: entry.record.text === undefined ? gap : gap + behind };
+    })
     .filter((candidate) => candidate.gap <= reach)
-    .sort((a, b) => a.gap - b.gap)
+    .sort((a, b) => a.rank - b.rank)
     .map((candidate) => candidate.id);
 }
 

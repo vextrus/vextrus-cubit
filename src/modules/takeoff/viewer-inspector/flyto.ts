@@ -6,7 +6,8 @@
 // answer differently (B-17). Nothing here reads a token, a DOM or a clock: the duration is handed in,
 // which is what lets reduced motion be a zero at source rather than a branch in this file.
 import { fitCamera, type IndexBox } from "../viewer/client";
-import type { Camera } from "../viewer/types";
+import { NOMINAL_FACE, letter } from "../viewer/lettering";
+import type { Camera, RenderRecord } from "../viewer/types";
 
 /**
  * How much sheet a reveal leaves around the selection, as a fraction of the box's larger extent — a
@@ -32,11 +33,37 @@ const EASE_EPSILON = 1e-5;
 const EASE_STEPS = 24;
 
 /**
+ * The cap height, in device-independent pixels, a text a reveal lands on is shown at — read without
+ * leaning in, with the sheet around it (Decision I-464). A reveal of a note does not fill the
+ * stage with its letters: it stops here, and the rest of the stage is the note's context.
+ */
+export const READING_TEXT_PX = 12;
+
+/**
+ * The most a reveal may zoom in on these records: where every one of them is text, the scale at which
+ * the smallest stands `READING_TEXT_PX` tall, as it is lettered (`../viewer/lettering`). Null where
+ * any of them is geometry, and nothing stops the fit: a selection that holds a member — the Trace's
+ * own pair, a member's outline and its mark (I-421) — is framed by what it names exactly as it always
+ * was, and only a selection of words alone is a note to be read on its sheet (I-464).
+ */
+export function readingScaleOf(records: readonly RenderRecord[]): number | null {
+  let smallest = Number.POSITIVE_INFINITY;
+  for (const record of records) {
+    if (record.text === undefined) return null;
+    const lettered = letter(record, NOMINAL_FACE);
+    if (lettered !== null && lettered.height < smallest) smallest = lettered.height;
+  }
+  return Number.isFinite(smallest) && smallest > 0 ? READING_TEXT_PX / smallest : null;
+}
+
+/**
  * The camera a reveal leaves: looking at the centre of the box it was given, framed with room around
  * it, at a scale inside the camera's own band. A box with no extent is opened to `MIN_EXTENT` first,
- * so a fit over it answers a real scale rather than an infinity.
+ * so a fit over it answers a real scale rather than an infinity. Where the selection is text alone,
+ * the frame zooms no closer than that text's reading size (`readingScaleOf`): a traced note is framed
+ * as a note on its sheet, never as its own glyph box pressed against the stage (B08).
  */
-export function revealCamera(box: IndexBox, viewportPx: { width: number; height: number }): Camera {
+export function revealCamera(box: IndexBox, viewportPx: { width: number; height: number }, readingScale: number | null = null): Camera {
   const spanX = Math.max(box.max[0] - box.min[0], 0);
   const spanY = Math.max(box.max[1] - box.min[1], 0);
   const largest = Math.max(spanX, spanY);
@@ -44,13 +71,14 @@ export function revealCamera(box: IndexBox, viewportPx: { width: number; height:
   const pad = (largest > 0 ? largest : MIN_EXTENT) * PAD_RATIO;
   const reach = open + pad;
 
-  return fitCamera(
+  const fitted = fitCamera(
     {
       min: [box.min[0] - reach, box.min[1] - reach],
       max: [box.max[0] + reach, box.max[1] + reach],
     },
     viewportPx,
   );
+  return readingScale !== null && readingScale > 0 && fitted.scale > readingScale ? { ...fitted, scale: readingScale } : fitted;
 }
 
 /** One axis of a cubic Bézier with its ends pinned at 0 and 1. */

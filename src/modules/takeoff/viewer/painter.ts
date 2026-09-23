@@ -11,7 +11,7 @@ import {
   GESTURE_SETTLE_MS,
   SETTLED_MARGIN,
   isCanvasInk,
-  legibleFrom,
+  letteredFrom,
   recordBox,
   settledFrameServes,
   viewBoxOf,
@@ -20,6 +20,8 @@ import {
 } from "./client";
 // The two notation readings have one home, beside each other and reachable from a unit lane (B-17).
 import { alphaOf, unitChannelsOf } from "./colour-notation";
+import { displayLines } from "@/core/entitygraph/text";
+import { NOMINAL_FACE, letter, type Face, type GlyphShape } from "./lettering";
 import type { Camera, RenderLayer, RenderRecord } from "./types";
 
 /** The canvas surfaces and the face drawn text is lettered in, as the screen resolved them. */
@@ -139,17 +141,41 @@ export const markOffsets = (acrossSteps: number, downSteps: number): readonly (r
   return offsets;
 };
 
-/** The atlas: the printable ASCII a drawing's text is lettered from, in a grid of square cells. */
-const ATLAS_FIRST = 32;
-const ATLAS_LAST = 126;
+/**
+ * The atlas (Decision I-462): a square sheet of square cells, one glyph lettered in each at one
+ * size and MEASURED as it is lettered — its advance and its ink box — so a glyph quad is laid at the
+ * record's own cap height and the face's own advance, and covers its ink and nothing else. Square and
+ * a power of two on each side, so it carries mipmaps: a note drawn a few pixels tall samples a glyph
+ * filtered to that size rather than four texels of a large one.
+ */
 const ATLAS_COLUMNS = 16;
-const ATLAS_CELL_PX = 32;
+const ATLAS_ROWS = 16;
+const ATLAS_CELL_PX = 64;
 
-/** A monospace cell is this fraction of its height wide — the advance a glyph quad is placed at. */
-const GLYPH_ADVANCE = 0.6;
+/** The size a glyph is lettered at, and where its baseline stands down its cell — room above for accents, below for descenders. */
+const ATLAS_FONT_PX = 40;
+const ATLAS_BASELINE_PX = 46;
 
-/** How much of the cell the letter itself fills, leaving the rest as bearing. */
-const GLYPH_INSET = 0.1;
+/** The pixel of edge kept around a glyph's ink, so its anti-aliased rim is never cut off by its quad. */
+const ATLAS_RIM_PX = 1;
+
+/** The first and last printable ASCII characters, every one lettered before any sheet asks for it. */
+const ASCII_FIRST = 32;
+const ASCII_LAST = 126;
+
+/**
+ * The signs a drawing's control codes and notes spell, lettered beside ASCII from the start: `%%c`,
+ * `%%d` and `%%p` are drawn Ø, ° and ±, and the rest are what a structural note writes (× ² ³ − → ≤ ≥
+ * √ Σ φ ½ ⌊ ⌋ ⌈ ⌉). Any other character a sheet holds is lettered into a free cell when the sheet
+ * arrives; past the last cell it is drawn as the replacement character, never as nothing.
+ */
+const ATLAS_SIGNS = "Ø°±×²³·−→≤≥√Σµφ½¼¾⌀∅⌊⌋⌈⌉";
+
+/** U+FFFD, what a character the full atlas cannot hold is drawn as. */
+const REPLACEMENT = String.fromCharCode(65_533);
+
+/** The cap height, the descent and the advance a face falls back to where a canvas cannot measure it (a stand-in context). */
+const FALLBACK_CAP = 0.7;
 
 /** The camera and the atlas, as the two programs read them. */
 const LINE_VERTEX_SHADER = `
@@ -351,25 +377,109 @@ function programOf(gl: WebGLRenderingContext, vertexSource: string, fragmentSour
   return gl.getProgramParameter(program, gl.LINK_STATUS) === true ? program : null;
 }
 
-/** The glyph sheet, lettered once into a texture: printable ASCII in a grid of square cells. */
-function atlasTexture(gl: WebGLRenderingContext, face: string): WebGLTexture | null {
-  const rows = Math.ceil((ATLAS_LAST - ATLAS_FIRST + 1) / ATLAS_COLUMNS);
+/** One lettered cell: the glyph's measured shape, in cap heights, and its ink box in texture coordinates. */
+type Cell = {
+  readonly shape: GlyphShape;
+  readonly u0: number;
+  readonly v0: number;
+  readonly u1: number;
+  readonly v1: number;
+};
+
+/**
+ * The glyph sheet: a canvas lettered cell by cell and the texture it is uploaded to. Every character
+ * a sheet shows is measured and lettered here once; the face it answers is what the lettering lays
+ * glyphs by, so a quad stands exactly where its ink was lettered.
+ */
+type Atlas = {
+  readonly texture: WebGLTexture;
+  /**
+   * The cap height on screen, in pixels, from which a glyph is drawn from the sheet itself rather
+   * than its mipmaps: half the cap height it is lettered at, where plain filtering still meets every
+   * other texel of the ink.
+   */
+  readonly plainFromPx: number;
+  readonly face: Face;
+  /** Letter whatever of these characters the sheet does not hold yet. */
+  readonly admit: (characters: Iterable<string>) => void;
+  /** Where one character's ink stands in the texture — the replacement character's for one it could not hold. */
+  readonly cellOf: (character: string) => Cell;
+  /** Upload what was lettered since the last flush; true where anything was. */
+  readonly flush: () => boolean;
+};
+
+/** The metrics a canvas measures one glyph by, or null where the context measures nothing. */
+type Measured = { width: number; left: number; right: number; ascent: number; descent: number };
+
+function measure(ink: CanvasRenderingContext2D, character: string): Measured | null {
+  if (typeof ink.measureText !== "function") return null;
+  const metrics = ink.measureText(character);
+  const read = [metrics.width, metrics.actualBoundingBoxLeft, metrics.actualBoundingBoxRight, metrics.actualBoundingBoxAscent, metrics.actualBoundingBoxDescent];
+  if (!read.every((value) => typeof value === "number" && Number.isFinite(value))) return null;
+  return { width: metrics.width, left: metrics.actualBoundingBoxLeft, right: metrics.actualBoundingBoxRight, ascent: metrics.actualBoundingBoxAscent, descent: metrics.actualBoundingBoxDescent };
+}
+
+/** The glyph sheet, lettered with ASCII and the drawing signs and uploaded once, with mipmaps; null where no canvas or texture can be had. */
+function createAtlas(gl: WebGLRenderingContext, faceName: string): Atlas | null {
   const sheet = document.createElement("canvas");
   sheet.width = ATLAS_COLUMNS * ATLAS_CELL_PX;
-  sheet.height = rows * ATLAS_CELL_PX;
+  sheet.height = ATLAS_ROWS * ATLAS_CELL_PX;
   const ink = sheet.getContext("2d");
   if (ink === null) return null;
-  ink.font = `${Math.round(ATLAS_CELL_PX * (1 - GLYPH_INSET * 2))}px ${face}`;
-  ink.textBaseline = "middle";
-  ink.textAlign = "center";
+  ink.font = `${ATLAS_FONT_PX}px ${faceName}`;
+  ink.textBaseline = "alphabetic";
+  ink.textAlign = "left";
+
+  // The face's own capitals are the unit every shape is stated in: a record's height is a cap height.
+  const capPx = measure(ink, "H")?.ascent ?? 0;
+  const cap = capPx > 0 ? capPx : ATLAS_FONT_PX * FALLBACK_CAP;
+  const descenders = ["g", "j", "p", "q", "y"].map((character) => measure(ink, character)?.descent ?? 0);
+  const descent = Math.max(...descenders) > 0 ? Math.max(...descenders) / cap : NOMINAL_FACE.descent;
+
+  const cells = new Map<string, Cell>();
+  const capacity = ATLAS_COLUMNS * ATLAS_ROWS;
+  let dirty = false;
+
   // The sheet is a mask, never a picture: only its alpha is sampled, and the colour a glyph is
   // painted in is the record's own, decided in the shader (R-UI-001 — no colour is spelled here).
-  for (let code = ATLAS_FIRST; code <= ATLAS_LAST; code += 1) {
-    const cell = code - ATLAS_FIRST;
-    const column = cell % ATLAS_COLUMNS;
-    const row = Math.floor(cell / ATLAS_COLUMNS);
-    ink.fillText(String.fromCharCode(code), (column + 0.5) * ATLAS_CELL_PX, (row + 0.5) * ATLAS_CELL_PX);
-  }
+  const letterCell = (character: string): Cell => {
+    const at = cells.size;
+    const left = (at % ATLAS_COLUMNS) * ATLAS_CELL_PX;
+    const top = Math.floor(at / ATLAS_COLUMNS) * ATLAS_CELL_PX;
+    const measured = measure(ink, character);
+    const advancePx = measured?.width ?? NOMINAL_FACE.shapeOf(character).advance * cap;
+    const pen = left + (ATLAS_CELL_PX - advancePx) / 2;
+    const baseline = top + ATLAS_BASELINE_PX;
+    ink.fillText(character, pen, baseline);
+    dirty = true;
+    const nominal = NOMINAL_FACE.shapeOf(character);
+    const inkLeft = measured === null ? pen + nominal.left * cap : pen - measured.left;
+    const inkRight = measured === null ? pen + nominal.right * cap : pen + measured.right;
+    const inkTop = measured === null ? baseline - nominal.ascent * cap : baseline - measured.ascent;
+    const inkBottom = measured === null ? baseline + nominal.descent * cap : baseline + measured.descent;
+    // A character with no ink — a space — is an advance alone, and lays no quad.
+    if (!(inkRight > inkLeft) || !(inkBottom > inkTop)) {
+      return { shape: { advance: advancePx / cap, left: 0, right: 0, ascent: 0, descent: 0 }, u0: 0, v0: 0, u1: 0, v1: 0 };
+    }
+    const x0 = Math.max(left, inkLeft - ATLAS_RIM_PX);
+    const x1 = Math.min(left + ATLAS_CELL_PX, inkRight + ATLAS_RIM_PX);
+    const y0 = Math.max(top, inkTop - ATLAS_RIM_PX);
+    const y1 = Math.min(top + ATLAS_CELL_PX, inkBottom + ATLAS_RIM_PX);
+    return {
+      shape: { advance: advancePx / cap, left: (x0 - pen) / cap, right: (x1 - pen) / cap, ascent: (baseline - y0) / cap, descent: (y1 - baseline) / cap },
+      u0: x0 / sheet.width,
+      v0: y0 / sheet.height,
+      u1: x1 / sheet.width,
+      v1: y1 / sheet.height,
+    };
+  };
+
+  const admitOne = (character: string): void => {
+    if (cells.has(character) || cells.size >= capacity) return;
+    cells.set(character, letterCell(character));
+  };
+  const roster = [...Array.from({ length: ASCII_LAST - ASCII_FIRST + 1 }, (_, at) => String.fromCharCode(ASCII_FIRST + at)), REPLACEMENT, ...ATLAS_SIGNS];
+  for (const character of roster) admitOne(character);
 
   const texture = gl.createTexture();
   if (texture === null) return null;
@@ -377,27 +487,44 @@ function atlasTexture(gl: WebGLRenderingContext, face: string): WebGLTexture | n
   // The mask as alpha alone, because alpha is all the glyph shader samples: a quarter of the bytes
   // a texel costs to fetch and filter, and the very same value in each (I-346).
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, gl.ALPHA, gl.UNSIGNED_BYTE, sheet);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  return texture;
+  dirty = false;
+
+  const replacement = cells.get(REPLACEMENT) as Cell;
+  const cellOf = (character: string): Cell => cells.get(character) ?? replacement;
+  return {
+    texture,
+    plainFromPx: cap / 2,
+    face: { shapeOf: (character) => cellOf(character).shape, descent },
+    admit: (characters) => {
+      for (const character of characters) admitOne(character);
+    },
+    cellOf,
+    flush: () => {
+      if (!dirty) return false;
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.ALPHA, gl.UNSIGNED_BYTE, sheet);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      dirty = false;
+      return true;
+    },
+  };
 }
 
-/** Where one character sits in the atlas, as texture coordinates. */
-function cellOf(character: string): {
-  left: number;
-  top: number;
-  size: [number, number];
-} {
-  const code = character.charCodeAt(0);
-  const cell = code >= ATLAS_FIRST && code <= ATLAS_LAST ? code - ATLAS_FIRST : 0;
-  const rows = Math.ceil((ATLAS_LAST - ATLAS_FIRST + 1) / ATLAS_COLUMNS);
-  return {
-    left: (cell % ATLAS_COLUMNS) / ATLAS_COLUMNS,
-    top: Math.floor(cell / ATLAS_COLUMNS) / rows,
-    size: [1 / ATLAS_COLUMNS, 1 / rows],
-  };
+/** The index of the first height at least this tall in a run sorted ascending, or the run's length. */
+function firstAtLeast(heights: readonly number[], least: number): number {
+  let low = 0;
+  let high = heights.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if ((heights[middle] ?? 0) >= least) high = middle;
+    else low = middle + 1;
+  }
+  return low;
 }
 
 /** A box grown to take in one more box, or that box where there was none yet. */
@@ -429,8 +556,12 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   const settledProgram = programOf(gl, SETTLED_VERTEX_SHADER, SETTLED_FRAGMENT_SHADER);
 
   let palette = tokens;
-  let atlas = atlasTexture(gl, palette.mono);
+  let atlas = createAtlas(gl, palette.mono);
   const batches = new Map<string, Batch>();
+  /** Each layer as it was uploaded — what a change of face lays its lettering again from. */
+  const uploaded = new Map<string, RenderLayer>();
+  /** The face glyphs are laid by: the atlas's measure of the face it lettered, or the nominal one where it has none. */
+  const faceOf = (): Face => atlas?.face ?? NOMINAL_FACE;
 
   /**
    * The sheet's revision: every change to what a full frame would draw — a layer arriving, the
@@ -550,13 +681,21 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   };
 
   /**
-   * The segments of these records, in one flat colour. Text is marked by the box it is set in rather
-   * than by its glyphs: a mark says where a thing is, and a reader reads the thing itself from the
-   * sheet under it.
+   * The segments of these records, in one flat colour. Text is marked by the outline its lettering
+   * stands in — turned with it — rather than by its glyphs: a mark says where a thing is, and a reader
+   * reads the thing itself from the sheet under it.
    */
   const markOf = (records: readonly RenderRecord[], colour: string): Mark | null => {
     const positions: number[] = [];
     for (const record of records) {
+      const lettered = record.text === undefined ? null : letter(record, faceOf());
+      if (lettered !== null) {
+        lettered.outline.forEach((from, at) => {
+          const to = lettered.outline[(at + 1) % lettered.outline.length] as readonly [number, number];
+          positions.push(from[0], from[1], to[0], to[1]);
+        });
+        continue;
+      }
       const box = recordBox(record);
       if (record.points !== undefined && record.points.length >= 2) {
         for (let at = 1; at < record.points.length; at += 1) {
@@ -573,11 +712,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       }
       if (box === null) continue;
       const [minX, minY] = box.min;
-      const [maxX, maxY] = box.max;
-      const width = Math.max(maxX - minX, (record.height ?? 0) * GLYPH_ADVANCE * [...(record.text ?? "")].length);
-      const height = Math.max(maxY - minY, record.height ?? 0);
-      const right = minX + width;
-      const top = minY + height;
+      const [right, top] = box.max;
       positions.push(minX, minY, right, minY, right, minY, right, top, right, top, minX, top, minX, top, minX, minY);
     }
     if (positions.length === 0) return null;
@@ -707,16 +842,28 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, atlas);
+      gl.bindTexture(gl.TEXTURE_2D, atlas.texture);
       gl.uniform1i(glyphSlots.atlas, 0);
+      // Two runs of one buffer, cut by height: text drawn at under half its lettered size samples the
+      // mipmaps, and the rest — the large notes that are nearly all of the lettering's fill — samples
+      // the sheet itself, which a software rasteriser filters at about two thirds of the cost.
+      const plainFrom = atlas.plainFromPx / camera.scale;
       for (const [name, batch] of batches) {
         if (!drawn.has(name) || batch.glyphVertices === 0) continue;
-        const start = batch.starts[legibleFrom(batch.heights, camera.scale)] ?? batch.glyphVertices;
+        const start = batch.starts[letteredFrom(batch.heights, camera.scale)] ?? batch.glyphVertices;
         if (start >= batch.glyphVertices) continue;
+        const plain = Math.max(start, batch.starts[firstAtLeast(batch.heights, plainFrom)] ?? batch.glyphVertices);
         attribute(glyphSlots.position, batch.glyphBuffer, 2);
         attribute(glyphSlots.texel, batch.glyphTexels, 2);
         attribute(glyphSlots.colour, batch.glyphColours, 3);
-        gl.drawArrays(gl.TRIANGLES, start, batch.glyphVertices - start);
+        if (plain > start) {
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+          gl.drawArrays(gl.TRIANGLES, start, plain - start);
+        }
+        if (batch.glyphVertices > plain) {
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.drawArrays(gl.TRIANGLES, plain, batch.glyphVertices - plain);
+        }
       }
       gl.disable(gl.BLEND);
     }
@@ -958,6 +1105,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   };
 
   const uploadLayer = (layer: RenderLayer): void => {
+    uploaded.set(layer.name, layer);
     const ink = unitChannelsOf(palette.ink);
     const positions: number[] = [];
     const lineRuns: ColourRun[] = [];
@@ -1006,48 +1154,49 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     let box: WorldBox | null = null;
     for (const chunk of chunks) box = joinBox(box, chunk.box[0], chunk.box[1], chunk.box[2], chunk.box[3]);
 
-    // Text is tessellated in world units at its own height, so a quad is camera-independent and
-    // level-of-detail is a range of one buffer rather than a rebuild (R-UI-040).
-    const texts = layer.records
-      .filter((record) => record.text !== undefined && record.anchor !== undefined && (record.height ?? 0) > 0)
-      .sort((a, b) => (a.height ?? 0) - (b.height ?? 0));
+    // Text is lettered in world units at its own cap height, turned and set as the drawing states it
+    // (`./lettering`, I-462), so a quad is camera-independent and level-of-detail is a range of
+    // one buffer rather than a rebuild (R-UI-040). What is lettered is what the text SHOWS — its
+    // control codes resolved by the one display reading (`@/core/entitygraph/text`, B-17) — and every
+    // character it shows is in the atlas before a quad is laid from it.
+    const texts = layer.records.filter((record) => record.text !== undefined && record.anchor !== undefined && (record.height ?? 0) > 0);
+    if (atlas !== null) {
+      for (const record of texts) for (const line of displayLines(record.text ?? "", record.type)) atlas.admit(line);
+      atlas.flush();
+    }
+    const face = faceOf();
+    const laid: { height: number; rgb: ColourRun["rgb"]; glyphs: number[]; texels: number[] }[] = [];
+    for (const record of texts) {
+      const quads: number[] = [];
+      const cells: number[] = [];
+      const lettered = letter(record, face, (character, corner) => {
+        // Two triangles, bottom left – bottom right – top right and bottom left – top right – top left,
+        // each corner sampling the same corner of the glyph's ink in the atlas.
+        quads.push(corner[0], corner[1], corner[2], corner[3], corner[4], corner[5], corner[0], corner[1], corner[4], corner[5], corner[6], corner[7]);
+        // What the layer paints is every glyph's own quad — an accent, a bracket or a rim may stand a
+        // hair past the lettering's outline, and the settled frame must hold it (I-345).
+        for (let at = 0; at < 8; at += 2) box = joinBox(box, corner[at] as number, corner[at + 1] as number, corner[at] as number, corner[at + 1] as number);
+        const cell = atlas?.cellOf(character);
+        if (cell === undefined) cells.push(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        else cells.push(cell.u0, cell.v1, cell.u1, cell.v1, cell.u1, cell.v0, cell.u0, cell.v1, cell.u1, cell.v0, cell.u0, cell.v0);
+      });
+      if (lettered === null) continue;
+      for (const [x, y] of lettered.outline) box = joinBox(box, x, y, x, y);
+      laid.push({ height: lettered.height, rgb: recordColour(record), glyphs: quads, texels: cells });
+    }
+    // Sorted by the cap height each is drawn at, so the LOD cut is one index into the buffer.
+    laid.sort((a, b) => a.height - b.height);
     const glyphs: number[] = [];
     const texels: number[] = [];
     const glyphRuns: ColourRun[] = [];
     const heights: number[] = [];
     const starts: number[] = [];
-
-    for (const record of texts) {
-      heights.push(record.height ?? 0);
+    for (const one of laid) {
+      heights.push(one.height);
       starts.push(glyphs.length / 2);
-      const height = record.height ?? 0;
-      const [originX, originY] = record.anchor as readonly [number, number];
-      const letters = [...(record.text ?? "")];
-      glyphRuns.push({ rgb: recordColour(record), vertices: letters.length * 6 });
-      const advance = height * GLYPH_ADVANCE;
-      if (letters.length > 0) box = joinBox(box, originX, originY, originX + letters.length * advance, originY + height);
-      letters.forEach((character, index) => {
-        const cell = cellOf(character);
-        const left = originX + index * advance;
-        const right = left + advance;
-        const top = originY + height;
-        const [cellWidth, cellHeight] = cell.size;
-        glyphs.push(left, originY, right, originY, right, top, left, originY, right, top, left, top);
-        texels.push(
-          cell.left,
-          cell.top + cellHeight,
-          cell.left + cellWidth,
-          cell.top + cellHeight,
-          cell.left + cellWidth,
-          cell.top,
-          cell.left,
-          cell.top + cellHeight,
-          cell.left + cellWidth,
-          cell.top,
-          cell.left,
-          cell.top,
-        );
-      });
+      glyphRuns.push({ rgb: one.rgb, vertices: one.glyphs.length / 2 });
+      for (const value of one.glyphs) glyphs.push(value);
+      for (const value of one.texels) texels.push(value);
     }
 
     const stale = batches.get(layer.name);
@@ -1093,6 +1242,50 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     scene += 1;
   };
 
+  /**
+   * The lettering laid again by the face as it is measured now: a new atlas, every uploaded layer's
+   * glyphs from the records it came with, and both marks, whose outlines are lettered by the face too.
+   */
+  const reletter = (): void => {
+    if (atlas !== null) gl.deleteTexture(atlas.texture);
+    atlas = createAtlas(gl, palette.mono);
+    scene += 1;
+    for (const layer of [...uploaded.values()]) uploadLayer(layer);
+    remarkSelection();
+    remarkHover();
+  };
+
+  let disposed = false;
+
+  /**
+   * The atlas measures the face the document has loaded when it is made, and a web font that has not
+   * arrived yet is measured as its fallback — advances, cap height and glyphs alike, for as long as
+   * the sheet is open. So where the face is still to load, the lettering is laid again once it has,
+   * and a frame is asked for (I-462 (3)). A document that cannot say (no `document.fonts`, a
+   * face spelled so it cannot be checked, a face that never loads) keeps the lettering it measured —
+   * the fallback's, drawn and readable, never a blank sheet.
+   *
+   * The question is asked a microtask on, inside the chain, so a spelling `check` cannot parse is a
+   * rejection here and never a throw through the painter's making; no task runs between, so a face
+   * cannot arrive unseen in the gap.
+   */
+  const whenFaceLoaded = (face: string): void => {
+    const fonts = typeof document === "undefined" ? undefined : (document as Partial<Document>).fonts;
+    if (fonts === undefined || typeof fonts.check !== "function" || typeof fonts.load !== "function") return;
+    const spelled = `${ATLAS_FONT_PX}px ${face}`;
+    void Promise.resolve()
+      .then(() => (fonts.check(spelled) ? null : fonts.load(spelled)))
+      .then(
+        (arrived) => {
+          if (arrived === null || disposed || palette.mono !== face) return;
+          reletter();
+          if (pending !== null && scheduled === 0) scheduled = requestAnimationFrame(tick);
+        },
+        () => undefined,
+      );
+  };
+  whenFaceLoaded(palette.mono);
+
   return {
     upload: uploadLayer,
 
@@ -1105,8 +1298,11 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       // palette is never laid down again (I-345).
       scene += 1;
       if (next.mono !== was.mono) {
-        if (atlas !== null) gl.deleteTexture(atlas);
-        atlas = atlasTexture(gl, palette.mono);
+        // A new face is new glyph shapes: every quad was laid by the old face's measure, so the
+        // lettering is laid again — every layer, from the records it was uploaded with — and again
+        // when the face arrives, where it has not yet.
+        reletter();
+        whenFaceLoaded(next.mono);
       }
       // The ink a record resolved to is written into its vertices at upload, so a sheet lettered for
       // the abandoned theme would stay lettered for it — near-black lines all but invisible on dark
@@ -1183,6 +1379,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     },
 
     dispose: () => {
+      disposed = true;
       if (scheduled !== 0) cancelAnimationFrame(scheduled);
       scheduled = 0;
       listener = null;
@@ -1201,7 +1398,8 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       framed = null;
       releaseSettled();
       shown = null;
-      if (atlas !== null) gl.deleteTexture(atlas);
+      uploaded.clear();
+      if (atlas !== null) gl.deleteTexture(atlas.texture);
       atlas = null;
     },
   };

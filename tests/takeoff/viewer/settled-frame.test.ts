@@ -6,7 +6,7 @@
  * PB-3 was never met at the size a reader sees: at 1080 × 756 under the perf lane's software GL a full
  * frame of the PERF-011 sheet costs ~48 ms, ~39 of them lettering. The rule that holds 60 fps is the
  * one this suite pins: the conditions under which a kept frame may stand for a moving camera
- * (`settledFrameServes`), the LOD cut those conditions compare (`legibleFrom`), and the two clocks —
+ * (`settledFrameServes`), the LOD cut those conditions compare (`letteredFrom`), and the two clocks —
  * the settle the sheet is restored on is the settle the address is written on, and the frame loop
  * outlives it, so the frame a gesture ends on is always a full one.
  *
@@ -16,11 +16,11 @@
 import { describe, expect, test } from "vitest";
 import {
   GESTURE_SETTLE_MS,
-  LEGIBLE_TEXT_PX,
+  LETTERED_TEXT_PX,
   SETTLED_MARGIN,
   SETTLED_RESAMPLE_MAX,
-  isTextLegible,
-  legibleFrom,
+  isTextLettered,
+  letteredFrom,
   panCamera,
   settledFrameServes,
   viewBoxOf,
@@ -48,7 +48,7 @@ function settledAt(camera: Camera): SettledFrame {
 /** The LOD cut the painter drew before this suite: the first height, walking up, that is legible. */
 function walkedCut(heights: readonly number[], scale: number): number {
   let at = 0;
-  while (at < heights.length && !isTextLegible(heights[at] ?? 0, scale)) at += 1;
+  while (at < heights.length && !isTextLettered(heights[at] ?? 0, scale)) at += 1;
   return at;
 }
 
@@ -56,15 +56,15 @@ function walkedCut(heights: readonly number[], scale: number): number {
 const INSIDE: WorldBox = [0, 0, 1000, 700];
 
 describe("I-345: the LOD cut is a search, and it cuts where the walk did", () => {
-  test("I-345: legibleFrom answers the index the painter's old walk answered, for every scale that moves the cut", () => {
+  test("I-345: letteredFrom answers the index the painter's old walk answered, for every scale that moves the cut", () => {
     const ladder = [0.1, 0.25, 0.5, 1, 2.5, 5, 10, 25, 50, 100];
     // Every scale at which some rung crosses the floor, and one either side of it.
-    const scales = ladder.flatMap((height) => [LEGIBLE_TEXT_PX / height, (LEGIBLE_TEXT_PX / height) * 0.999, (LEGIBLE_TEXT_PX / height) * 1.001]);
+    const scales = ladder.flatMap((height) => [LETTERED_TEXT_PX / height, (LETTERED_TEXT_PX / height) * 0.999, (LETTERED_TEXT_PX / height) * 1.001]);
     for (const scale of [...scales, 1e-9, 1e9, Number.NaN, Number.POSITIVE_INFINITY]) {
-      expect(legibleFrom(ladder, scale), `the cut at scale ${scale}`).toBe(walkedCut(ladder, scale));
+      expect(letteredFrom(ladder, scale), `the cut at scale ${scale}`).toBe(walkedCut(ladder, scale));
     }
-    expect(legibleFrom([], 1), "an unlettered layer cuts at nothing").toBe(0);
-    expect(legibleFrom([3, 3, 3, 9, 9], LEGIBLE_TEXT_PX / 9), "a run of equal heights cuts before the first of them").toBe(3);
+    expect(letteredFrom([], 1), "an unlettered layer cuts at nothing").toBe(0);
+    expect(letteredFrom([3, 3, 3, 9, 9], LETTERED_TEXT_PX / 9), "a run of equal heights cuts before the first of them").toBe(3);
   });
 });
 
@@ -109,12 +109,12 @@ describe("I-345: a settled frame stands for a moving camera only where it shows 
   test("I-345: it never stands once a zoom moves any drawn layer's LOD cut — no text appears or vanishes late", () => {
     // A rung that crosses the floor inside the resample limit: legible at the frame's scale, not
     // after a zoom out of a tenth.
-    const crossing = (LEGIBLE_TEXT_PX / AT.scale) * 1.05;
+    const crossing = (LETTERED_TEXT_PX / AT.scale) * 1.05;
     const ladder = [crossing];
     const centre = { x: STAGE.width / 2, y: STAGE.height / 2 };
     const out = zoomCameraAt(AT, 1 / 1.1, centre);
-    expect(isTextLegible(crossing, AT.scale), "the rung is lettered in the frame").toBe(true);
-    expect(isTextLegible(crossing, out.scale), "and would not be lettered after the zoom").toBe(false);
+    expect(isTextLettered(crossing, AT.scale), "the rung is lettered in the frame").toBe(true);
+    expect(isTextLettered(crossing, out.scale), "and would not be lettered after the zoom").toBe(false);
     expect(settledFrameServes(frame, out, INSIDE, []), "the zoom alone is inside the limit").toBe(true);
     expect(settledFrameServes(frame, out, INSIDE, [ladder]), "the cut moved, so a full frame is owed").toBe(false);
     // A layer whose cut does not move lets it stand.

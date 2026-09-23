@@ -8,7 +8,7 @@
  */
 import { useCallback, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { flyTo, revealCamera, type EaseControls } from "../../viewer-inspector/flyto";
+import { flyTo, readingScaleOf, revealCamera, type EaseControls } from "../../viewer-inspector/flyto";
 import { unionBox } from "../../viewer-inspector/selection";
 import { fitCamera, type IndexBox } from "../client";
 import type { Camera, ViewerHead } from "../types";
@@ -107,7 +107,9 @@ export function useReveal({ head, stageRef, facts, cameraRef, moveCamera, jumpTo
 
       const rect = stage.getBoundingClientRect();
       const viewportPx = { width: rect.width, height: rect.height };
-      const to = revealCamera(union, viewportPx);
+      // A selection of text alone is framed at that text's reading size at most; one that holds a
+      // member's geometry is framed by it, as ever (I-464).
+      const to = revealCamera(union, viewportPx, readingScaleOf(keys.flatMap((key) => facts.get(key)?.records ?? [])));
       const from = cameraAt.current ?? fitCamera(head.manifest.extents, viewportPx);
       const { durationMs, ease } = flytoMotion(stage);
       const colour = basisColour(stage, basis);

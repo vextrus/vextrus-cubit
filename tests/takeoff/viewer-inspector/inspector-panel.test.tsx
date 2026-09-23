@@ -190,6 +190,17 @@ describe("AC-1: the panel renders the state it is handed, by the ids and the cop
       expect(within(row).getByTestId("viewer-inspector-key").textContent, `row ${at} shows the source key whole and verbatim (I-26)`).toBe(entity.key);
     }
   });
+
+  test("B08: a selected text says what the sheet shows — the note itself, whole, its lines kept", async () => {
+    await prepare();
+    const note = { key: syntheticKey(13), type: "MTEXT", layer: "Text-1", box: { min: [16, 200], max: [90, 212] }, text: "MATERIALS\nf'c = 3000 psi (BORED PILES)" };
+    render(<InspectorPanel {...props({ selection: [...SELECTED, note] })} />);
+
+    const [first, , noted] = rows();
+    expect(noted?.textContent, "the note's own words stand in its row").toContain("f'c = 3000 psi (BORED PILES)");
+    expect(noted?.querySelector(".cx-viewer-inspector-text")?.textContent, "whole, with the break between its lines").toBe(note.text);
+    expect(first?.querySelector(".cx-viewer-inspector-text"), "a line carries no words, so its row shows none").toBeNull();
+  });
 });
 
 describe("the rendered contract: this panel's `data-state` is what a reader may read once (v22 speed)", () => {
