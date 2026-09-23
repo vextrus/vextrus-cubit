@@ -177,6 +177,10 @@ const DECLARED_REBASELINED: readonly string[] = [
   "db/catalogue/digest.txt",
   "src/modules/takeoff/rails/aggregate.test.ts",
   "tests/docs/proof/golden.pdf",
+  // A-REGISTER-JSON's published schema: its own test (register-json-schema.test.ts, AC-2) re-baselines
+  // it "in its own `baseline:`-subject commit" when the live Zod schema's JSON form moves — as zod 4.6
+  // moved it (db0927e9, D-004).
+  "src/modules/takeoff/export/register-json/__tests__/fixtures/register-json.v1.schema.json",
 ];
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {
