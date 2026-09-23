@@ -212,11 +212,15 @@ type SightedView = { viewKey: string; viewClass: string; captionAnchorSourceKey:
  * key a real rail's line cites, anchored at the plan's own caption.
  */
 function viewOfPlan(views: readonly { viewKey: string }[], anchor: string): SightedView {
+  // `partition_views` stores a view as `{class}:{anchor}`; the register's view key is L-REG-04's
+  // `v:{class}:{anchor}` over the same two parts (src/core/identity/keys.ts viewKey) — so the stored
+  // row is found by its anchor and the register's key is minted from its class, never spelled.
   const suffix = `:${anchor}`;
-  const held = views.find((view) => view.viewKey.startsWith("v:") && view.viewKey.endsWith(suffix));
+  const held = views.find((view) => view.viewKey.endsWith(suffix));
   expect(held, `the partition stored a view anchored at the plan's caption ${anchor}: ${JSON.stringify(views.map((view) => view.viewKey))}`).toBeTruthy();
-  const viewKey = (held as { viewKey: string }).viewKey;
-  return { viewKey, viewClass: viewKey.slice("v:".length, viewKey.length - suffix.length), captionAnchorSourceKey: anchor };
+  const stored = (held as { viewKey: string }).viewKey.replace(/^v:/, "");
+  const viewClass = stored.slice(0, stored.length - suffix.length);
+  return { viewKey: `v:${viewClass}${suffix}`, viewClass, captionAnchorSourceKey: anchor };
 }
 
 /** One column sighting, as the register's door is given one (the door's own `Sighting`): at the member. */
