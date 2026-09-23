@@ -107,7 +107,7 @@ export async function rewriteScheduleRows(tx: TenantTx, write: ScheduleWrite): P
   );
   if (variants.length > 0) await tx.insert(memberTypeVariants).values(variants);
 
-  // What a row states beside its section (I-315). A bare-prefix row's `NOS` cell is NOT among them:
+  // What a row states beside its section (I-322). A bare-prefix row's `NOS` cell is NOT among them:
   // it is corroboration placement read, and a stored count is the question a schedule was never
   // asked (R-TO-031, T-SCHED-NORULES).
   const dimensions = families.flatMap((family) =>
@@ -268,7 +268,7 @@ export async function storedMemberTypesIn(tx: TenantTx, tenantId: string, ingest
       variants: variants
         .filter((variant) => variant.scheduleKey === family.scheduleKey && variant.family === family.family)
         .map((variant) => {
-          // Absent rather than empty where the row stated none — the registry's own shape (I-315).
+          // Absent rather than empty where the row stated none — the registry's own shape (I-322).
           const stated: MemberDimension[] = dimensions
             .filter((one) => one.scheduleKey === family.scheduleKey && one.family === family.family && one.variantKey === variant.variantKey)
             .map((one) => ({ dimension: one.dimension, text: one.text, value: one.value, unit: one.unit, sourceKeys: one.sourceKeys }));

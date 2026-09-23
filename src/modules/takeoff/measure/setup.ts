@@ -102,7 +102,7 @@ export function memberVariantSetupOf(variant: MemberVariant): MemberVariantSetup
     sectionUnit: variant.sectionUnit,
     sourceKeys: variant.sourceKeys,
     // What the family's own schedule states beside its section — a pile's diameter and its length
-    // (I-315, AM-06 §2) — each carried as it was written, in the unit it was written in, and cited
+    // (I-322, AM-06 §2) — each carried as it was written, in the unit it was written in, and cited
     // to the cell it was read at. A dimension no schedule stated is simply absent, and the rail keeps
     // its row and names the reading it did not get (L-QTY-02).
     dimensions: dimensionsSetupOf(variant.dimensions ?? []),
@@ -122,7 +122,7 @@ export function memberVariantSetupOf(variant: MemberVariant): MemberVariantSetup
 
 /**
  * A variant's stored dimensions as a rail binds them, keyed by the name the method declares
- * (I-315). The figure is TRANSCRIBED — read off a schedule cell — and cites the FIRST entity it was
+ * (I-322). The figure is TRANSCRIBED — read off a schedule cell — and cites the FIRST entity it was
  * read from, as every other reading of this setup does (`readingSetupOf`); one that cites nothing
  * is carried as silence, never as a figure nothing answers for (L-QTY-03).
  */

@@ -2,7 +2,7 @@
  * FND-1, through the store: F-RCC6-BNBC's PILE SCHEDULE, read off the drawing, written and read back
  * through the partition's own schedule store, handed to the rails by the measure setup's own mapping,
  * measured by the foundations rails and published by the gate — and reconciled with the golden
- * takeoff per cell (I-313, I-314, I-315; AM-06 §2, R-TO-031, R-TO-032, L-QTY-06).
+ * takeoff per cell (I-320, I-321, I-322; AM-06 §2, R-TO-031, R-TO-032, L-QTY-06).
  *
  * WHAT IS READ AND NOTHING IS STAGED FROM A MODEL: the drawing is read by the shipped `cad/` CLI and
  * the partition's pure stages (`../../partition/support/bnbc-stages`); the registry they fold is
@@ -155,7 +155,7 @@ function dimensionRows(tenantId: string): string[][] {
 
 const BUDGET_MS = 900_000;
 
-describe("I-315: the pile schedule's dimensions, through the store", () => {
+describe("I-322: the pile schedule's dimensions, through the store", () => {
   test("the store holds P from the pile schedule, with its diameter and its length in millimetres, cited to their cells", async () => {
     await staged();
     const family = stored.families.find((one) => one.family === "P");
@@ -181,14 +181,14 @@ describe("I-315: the pile schedule's dimensions, through the store", () => {
 
   test("the setup hands the rails the schedule's own figures, TRANSCRIBED and cited to the cells", async () => {
     await staged();
-    expect(stage.setup.memberTypes[INGEST_ID]?.["P"]?.[0]?.dimensions, "the one mapping `railSetupOf` uses (I-315)").toEqual({
+    expect(stage.setup.memberTypes[INGEST_ID]?.["P"]?.[0]?.dimensions, "the one mapping `railSetupOf` uses (I-322)").toEqual({
       dia: { value: "500", unit: "mm", basis: "TRANSCRIBED", source: DIA_CELL },
       length: { value: "21336", unit: "mm", basis: "TRANSCRIBED", source: LENGTH_CELL },
     });
   }, BUDGET_MS);
 });
 
-describe("I-314: the piles the schedule types are measured COMPLETE, inside L-QTY-06's band", () => {
+describe("I-321: the piles the schedule types are measured COMPLETE, inside L-QTY-06's band", () => {
   test("every pile resolves its type: no pile is MEMBER_TYPE_UNKNOWN, and the gate refused nothing", async () => {
     await staged();
     const unknown = batch.observations.filter((one) => one.class === PILE && one.code === "MEMBER_TYPE_UNKNOWN");
@@ -236,7 +236,7 @@ describe("I-314: the piles the schedule types are measured COMPLETE, inside L-QT
   }, BUDGET_MS);
 });
 
-describe("I-315: the dimensions are rebuilt with the partition", () => {
+describe("I-322: the dimensions are rebuilt with the partition", () => {
   test("a rewrite that reads no schedule leaves no dimension of the one that stood", async () => {
     await staged();
     const store = await productModule<ScheduleStore>(SCHEDULES_STORE_MODULE);

@@ -27,7 +27,7 @@
  * Re-baselined for ONE ADDED table and nothing else: `memberTypeDimensions` (`member_type_dimensions`,
  * db/migrations/0058_member-type-dimensions.sql), the dimensions a schedule states for a member
  * type BESIDE its section — one row per (variant, dimension): a pile's diameter and its length, read
- * off the pile schedule's own cells in the unit its head states (Interpretation I-315, AM-06 §2). A
+ * off the pile schedule's own cells in the unit its head states (Interpretation I-322, AM-06 §2). A
  * schedule's NOS column is not among them: it is corroboration placement reads, and is stored
  * nowhere (R-TO-031). Both rosters gain the one key, in code-point order, and the columns digest
  * moves with them because the surface it hashes gained a table. Nothing already on either roster

@@ -187,13 +187,13 @@ describe("I-302: the unit a drawing declares is the LAST word on a section that 
   });
 });
 
-/* ------------------------------------------------------------------ I-314, I-315: the pile schedule */
+/* ------------------------------------------------------------------ I-321, I-322: the pile schedule */
 
 /** F-RCC6-BNBC's PILE SCHEDULE at its own words: one row, a bare prefix, a diameter and a length. */
 const PILE_HEADERS = ["MARK", "DIA (mm)", "LENGTH (mm)", "MAIN BARS", "SPIRAL", "NOS"];
 const PILE_ROW = ["P", "500", "21336", "4-20%%C + 3-20%%C", "10%%C @ 75/150", "89"];
 
-describe("I-314: a bare class prefix in the mark column is a family", () => {
+describe("I-321: a bare class prefix in the mark column is a family", () => {
   test("`P` mints the family P, with the NOS cell kept beside it as corroboration", () => {
     const family = familyOf(tableOf(PILE_HEADERS, [PILE_ROW]), "P");
     expect(family.markText, "the mark cell verbatim").toBe("P");
@@ -207,7 +207,7 @@ describe("I-314: a bare class prefix in the mark column is a family", () => {
   });
 });
 
-describe("I-315: the dimensions a schedule states beside a section", () => {
+describe("I-322: the dimensions a schedule states beside a section", () => {
   test("a pile's DIA and LENGTH are read in the unit the column head states, each cited to its cell", () => {
     const variant = familyOf(tableOf(PILE_HEADERS, [PILE_ROW]), "P").variants[0];
     expect(variant?.dimensions, "the diameter and the length the pile is bored to (AM-06 §2)").toEqual([

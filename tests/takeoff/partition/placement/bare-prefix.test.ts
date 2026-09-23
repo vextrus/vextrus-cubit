@@ -1,5 +1,5 @@
 /**
- * I-314 AT THE STAGE THAT READS IT: a schedule row whose mark is a BARE CLASS PREFIX — `P` — names the
+ * I-321 AT THE STAGE THAT READS IT: a schedule row whose mark is a BARE CLASS PREFIX — `P` — names the
  * family of every member of that class a plan places under a NUMBER — `P1`, `P2`, … — and only where
  * three things the drawing states agree:
  *
@@ -128,7 +128,7 @@ function pileFamilies(rows: readonly PlacementRow[]): Record<string, string | nu
 
 const UNTYPED = { P1: null, P2: null, P3: null };
 
-describe("I-314: what a bare prefix names", () => {
+describe("I-321: what a bare prefix names", () => {
   test("a bare prefix names a class and never a member; a numbered mark names a member of one", () => {
     expect([classOfPrefix("P"), classOfPrefix("PC"), classOfPrefix("p"), classOfPrefix("S"), classOfPrefix("P1")], "exact, like the map: `S` is nothing, and a number makes a mark, not a prefix").toEqual([
       "pile",
@@ -141,7 +141,7 @@ describe("I-314: what a bare prefix names", () => {
   });
 });
 
-describe("I-314: the bare prefix types the numbered members of its class where the drawing corroborates it", () => {
+describe("I-321: the bare prefix types the numbered members of its class where the drawing corroborates it", () => {
   test("sole row, NOS equal to the plans' piles, diameter equal to every ring: every pile is typed P and keeps its own number", () => {
     const rows = placed(drawn(), [C1, pileRow()]);
     expect(pileFamilies(rows), "the prefix names the TYPE of each numbered pile").toEqual({ P1: "P", P2: "P", P3: "P" });

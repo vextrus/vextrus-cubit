@@ -60,7 +60,7 @@ export type MemberZone = {
 };
 
 /**
- * One dimension a row states BESIDE its section (Interpretation I-315): which of the roster it is,
+ * One dimension a row states BESIDE its section (Interpretation I-322): which of the roster it is,
  * the cell verbatim, the figure that cell reads as, the unit it was written in, and the cells — and,
  * where it answered, the declaration — it was read from (L-QTY-03).
  */
@@ -86,7 +86,7 @@ export type MemberVariant = {
   readonly zones: MemberZone[];
   /**
    * The dimensions the row states beside the section — a pile's diameter and its length — present
-   * only where the row states one its class is read for (I-315). Absent rather than empty, so a
+   * only where the row states one its class is read for (I-322). Absent rather than empty, so a
    * registry of a drawing that states none is the registry it always was.
    */
   readonly dimensions?: MemberDimension[];
@@ -94,7 +94,7 @@ export type MemberVariant = {
 
 /**
  * What a BARE-PREFIX row's `NOS` cell states: the number of its members the row says the plans hold
- * (I-314). CORROBORATION, and nothing else: placement checks the plans against it before the prefix
+ * (I-321). CORROBORATION, and nothing else: placement checks the plans against it before the prefix
  * may name a family for the numbered members it places, and it is never stored and never billed —
  * the count is placement's answer off the layout plans (R-TO-031, T-SCHED-NORULES).
  */
@@ -109,7 +109,7 @@ export type MemberFamily = {
   readonly rowIndex: number;
   readonly sourceKeys: string[];
   readonly variants: MemberVariant[];
-  /** A bare-prefix row's `NOS` cell, where it states one (I-314) — absent on every other family. */
+  /** A bare-prefix row's `NOS` cell, where it states one (I-321) — absent on every other family. */
   readonly corroboration?: PlacedNumber;
 };
 
@@ -184,7 +184,7 @@ function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null
     const markCell = row.get(mark.index);
     if (markCell === undefined) continue;
     // A bare class prefix — `P` over a plan that numbers its piles `P1`…`P89` — names the TYPE of
-    // those members, so it is a family too (I-314). Whether it may name any of them is placement's
+    // those members, so it is a family too (I-321). Whether it may name any of them is placement's
     // question, asked against the plans; here it is only read.
     const bare = !isMarkFamily(markCell.text) && classOfPrefix(markCell.text) !== null;
     if (!isMarkFamily(markCell.text) && !bare) continue;
@@ -214,7 +214,7 @@ function familiesOf(table: ScheduleTable, declared: DeclaredDimensionUnit | null
 }
 
 /**
- * The dimensions a family's class is read for (I-315): the names its methods bind a figure of the
+ * The dimensions a family's class is read for (I-322): the names its methods bind a figure of the
  * schedule by. A pile is bored to a diameter and a length (AM-06 §2), so those two are read for it.
  *
  * Read PER CLASS, never off any column that happens to be headed so, because the same head states
@@ -255,7 +255,7 @@ function dimensionsOf(columns: readonly Column[], row: ReadonlyMap<number, Sched
   return read;
 }
 
-/** The number a bare-prefix row's `NOS` cell states, where it states one (I-314) — corroboration only. */
+/** The number a bare-prefix row's `NOS` cell states, where it states one (I-321) — corroboration only. */
 function placedNumberOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>): PlacedNumber | undefined {
   const column = columns.find((one) => one.role.kind === "none" && isPlacedNumberHeader(one.header));
   const cell = column === undefined ? undefined : row.get(column.index);
@@ -409,7 +409,7 @@ function variantsOf(
 }
 
 /**
- * The unit one section — or one dimension beside it (I-315) — is measured in, and what that reading
+ * The unit one section — or one dimension beside it (I-322) — is measured in, and what that reading
  * CITES (R-TO-031, I-302).
  *
  * Three statements, nearest first. The cell's own mark is the nearest — `12"x24"` is in inches

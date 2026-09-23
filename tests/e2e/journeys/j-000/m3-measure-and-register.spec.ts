@@ -37,7 +37,7 @@
  * pass). The same band is read on the three PILE cells — the piles counted, the length bored, the
  * concrete cast — over every level, because a pile stands in the lawful-null FOUNDATION slot: S-05's
  * PILE SCHEDULE types the 89 numbered piles of S-04 by its bare `P` row and states the diameter and
- * the length the rails bind (I-313, I-314, I-315; AM-06 §2), so the count is the golden's 89 members
+ * the length the rails bind (I-320, I-321, I-322; AM-06 §2), so the count is the golden's 89 members
  * and the concrete is π/4·d² with d the schedule's DIA — the flattened ring's area would stand over
  * the golden, and that is the ceiling's to catch. The band is read HERE, at register precision, and nowhere else: a document states each line
  * rounded once to its kind's places, so a document's sum is a different figure from the register's,
@@ -191,7 +191,7 @@ test.describe.serial("J-000 — Golden Path: M3's measure on F-RCC6-BNBC", () =>
       ).toBe(true);
     }
 
-    /* --- the piles, typed by their own schedule and sized by it, per kind (I-313..I-315, AM-06 §2) --- */
+    /* --- the piles, typed by their own schedule and sized by it, per kind (I-320..I-322, AM-06 §2) --- */
     // S-05's PILE SCHEDULE types every numbered pile of S-04 by its bare `P` row and states the
     // diameter and the length the rails bind; the register keeps one line per pile per kind. Read at
     // the register's precision exactly as the columns are, against the golden's own PILE cells.
@@ -233,7 +233,7 @@ test.describe.serial("J-000 — Golden Path: M3's measure on F-RCC6-BNBC", () =>
     for (const reading of piles) {
       const said = `${PILE} × ${reading.level}`;
       expect(reading.goldenRows, `${FIXTURE}'s golden carries ${said} — a band over no row is no band (L-QTY-06)`).toBeGreaterThan(0);
-      expect(reading.shown, `${said}: the register keeps one line per pile the golden lists — every numbered pile typed by the schedule's \`P\` row (I-314)`).toBe(reading.members);
+      expect(reading.shown, `${said}: the register keeps one line per pile the golden lists — every numbered pile typed by the schedule's \`P\` row (I-321)`).toBe(reading.members);
       expect(reading.statedUnit, `${said}: the footer states the unit the golden is written in`).toBe(reading.unit);
       const figure = new Exact(reading.total ?? "0");
       expect(

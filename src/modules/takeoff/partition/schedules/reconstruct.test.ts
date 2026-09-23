@@ -131,7 +131,7 @@ describe("L-CAD-08: a schedule's texts beyond every column", () => {
   });
 });
 
-/* ------------------------------------------------------------------ I-313: a caption on the paper */
+/* ------------------------------------------------------------------ I-320: a caption on the paper */
 
 /**
  * A sheet that titles a schedule's window on its PAPER, beneath the frame — F-RCC6-BNBC's PILE
@@ -169,7 +169,7 @@ function readUnder(anchor: string, entities: readonly Record<string, unknown>[],
   });
 }
 
-describe("I-313: a schedule its sheet titles on the PAPER reads its own model texts top-down", () => {
+describe("I-320: a schedule its sheet titles on the PAPER reads its own model texts top-down", () => {
   test("the header is the first band naming the column of marks, the note above it is no row, and the paper caption titles the table", () => {
     const answer = readUnder(PAPER_CAPTION["key"] as string, [PAPER_CAPTION, PILE_NOTE, ...PILE_HEADER, ...PILE_ROW]);
     expect(answer.deferrals, "a table was read, so the view does not defer").toEqual([]);

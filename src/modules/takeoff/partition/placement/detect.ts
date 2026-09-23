@@ -148,7 +148,7 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
   }
 
   // What a bare-prefix schedule row names, asked once every plan has placed what it places: the
-  // corroboration is a fact about the whole ARTIFACT's members of that class, never one plan's (I-314).
+  // corroboration is a fact about the whole ARTIFACT's members of that class, never one plan's (I-321).
   const rings = new Map(plans.flatMap((plan) => plan.read.outlines).map((outline) => [outline.key, outline]));
   const typed = typedByPrefix(placements, evidence.families, rings, scale);
 
@@ -161,7 +161,7 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
 }
 
 /**
- * The rows as a BARE-PREFIX family leaves them (Interpretation I-314).
+ * The rows as a BARE-PREFIX family leaves them (Interpretation I-321).
  *
  * F-RCC6-BNBC's PILE SCHEDULE types its piles in one row whose mark is the bare prefix `P`, and the
  * PILE LAYOUT PLAN writes each pile's NUMBER — `P1` to `P89` — at the centre of its ring. The mark

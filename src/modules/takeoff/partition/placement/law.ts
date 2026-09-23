@@ -90,7 +90,7 @@ export function classOfMark(mark: string): ElementType | null {
 /**
  * The class a BARE PREFIX names — `P`, the whole of a schedule's mark cell with no number after it —
  * or null where the text is not exactly one of the prefixes the map above holds (Interpretation
- * I-314).
+ * I-321).
  *
  * F-RCC6-BNBC's PILE SCHEDULE writes one row, `P`, and numbers the piles of its layout plan `P1` to
  * `P89`: the number tells one pile from another and the prefix is the TYPE. A mark reader asking
@@ -105,7 +105,7 @@ export function classOfPrefix(text: string): ElementType | null {
 
 /**
  * The class a registered FAMILY names: the class its mark names where the family is a numbered mark,
- * or the class its prefix names where the schedule wrote the bare prefix (I-314). One reading for
+ * or the class its prefix names where the schedule wrote the bare prefix (I-321). One reading for
  * both, so the registry and the placement ask "what is this family a family of" the same way (B-17).
  */
 export function classOfFamily(family: string): ElementType | null {

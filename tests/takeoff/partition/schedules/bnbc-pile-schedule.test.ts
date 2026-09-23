@@ -7,10 +7,10 @@
  * What the drawing states, and what is graded here:
  *   · S-05's PILE SCHEDULE is titled on the sheet's PAPER beneath its window (`200A`); its one row is
  *     `P | 500 | 21336 | 4-20Ø + 3-20Ø | 10Ø @ 75/150 | 89` under `MARK | DIA (mm) | LENGTH (mm) |
- *     MAIN BARS | SPIRAL | NOS`. I-313 reads it top-down from its own model texts.
- *   · The row's mark is the bare prefix `P`, and S-04 numbers its 89 ⌀500 piles `P1`…`P89`. I-314
+ *     MAIN BARS | SPIRAL | NOS`. I-320 reads it top-down from its own model texts.
+ *   · The row's mark is the bare prefix `P`, and S-04 numbers its 89 ⌀500 piles `P1`…`P89`. I-321
  *     types each numbered pile `P` — the sole pile row, NOS 89 = the 89 placed, ⌀500 = every ring.
- *   · I-315 reads the diameter and the length in the head's `(mm)`, cited to their cells.
+ *   · I-322 reads the diameter and the length in the head's `(mm)`, cited to their cells.
  *   · S-06's PILE CAP SCHEDULE (`202D`) still defers: its header is one MTEXT the header reader
  *     cannot read yet (FND-2), and the footer that does read as a mark header has nothing under it.
  *
@@ -66,7 +66,7 @@ const rcc6 = (): Promise<StagesRead> => (rcc6Read ??= stagesOver(RCC6_DXF));
 const BUDGET_MS = 240_000;
 
 describe("FND-1 on F-RCC6-BNBC: the pile schedule is read, and the piles are typed by it", () => {
-  test("I-313: S-05's paper-titled PILE SCHEDULE reads — its header, and its one row", async () => {
+  test("I-320: S-05's paper-titled PILE SCHEDULE reads — its header, and its one row", async () => {
     const { reconstructed } = await bnbc();
     const table = reconstructed.tables.find((one) => one.scheduleKey === PILE_SCHEDULE);
     expect(table, `the view titled ${PILE_SCHEDULE} yields a table; the deferrals read ${JSON.stringify(reconstructed.deferrals)}`).toBeDefined();
@@ -77,7 +77,7 @@ describe("FND-1 on F-RCC6-BNBC: the pile schedule is read, and the piles are typ
     expect(row(2), "and nothing else").toEqual([]);
   }, BUDGET_MS);
 
-  test("I-314, I-315: the row registers the family P, its diameter and length in millimetres cited to their cells, and its NOS as corroboration", async () => {
+  test("I-321, I-322: the row registers the family P, its diameter and length in millimetres cited to their cells, and its NOS as corroboration", async () => {
     const { registered } = await bnbc();
     const family = registered.families.find((one) => one.family === "P");
     expect(family?.scheduleKey, "the family P, from the pile schedule").toBe(PILE_SCHEDULE);
@@ -90,7 +90,7 @@ describe("FND-1 on F-RCC6-BNBC: the pile schedule is read, and the piles are typ
     expect(family?.corroboration, "the NOS the plans are checked against — read, never billed").toEqual({ placed: 89, text: "89", sourceKeys: [NOS_CELL] });
   }, BUDGET_MS);
 
-  test("I-314: all 89 piles of S-04 are typed P, each keeping its own number", async () => {
+  test("I-321: all 89 piles of S-04 are typed P, each keeping its own number", async () => {
     const { placed } = await bnbc();
     const piles = placed.placements.filter((row) => row.elementType === "pile");
     expect(piles.length, "S-04 places its 89 ⌀500 piles").toBe(89);

@@ -135,11 +135,11 @@ export type FamilyNamed = {
     readonly sectionWidth: number | null;
     readonly sectionDepth: number | null;
     readonly bandText?: string;
-    /** The dimensions the row states beside its section, where it states any (I-315). */
+    /** The dimensions the row states beside its section, where it states any (I-322). */
     readonly dimensions?: readonly { readonly dimension: string; readonly text: string; readonly value: number }[];
   }[];
   /**
-   * What a bare-prefix row's `NOS` cell states (I-314): corroboration a placement checks the plans
+   * What a bare-prefix row's `NOS` cell states (I-321): corroboration a placement checks the plans
    * against, never a count, and never stored — absent on every other family.
    */
   readonly corroboration?: { readonly placed: number };

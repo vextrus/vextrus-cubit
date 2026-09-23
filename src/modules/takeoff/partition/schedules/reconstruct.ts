@@ -13,7 +13,7 @@
 // from the header until a gap over 3.5× the pitch says the table has ended. A caption the sheet wrote
 // on its PAPER, under the window that frames the table, stands in no band of model space at all: the
 // view's own texts are read top-down from the first band naming the column of marks, and the paper
-// caption stays the title (Interpretation I-313).
+// caption stays the title (Interpretation I-320).
 //
 // A band is not always a row. Where a schedule stacks a mark's whole statement — the section, the
 // bars and the ties on three lines of text with the mark written once beside them — the row is
@@ -159,7 +159,7 @@ function textsByView(evidence: ScheduleEvidence): Map<string, Placed[]> {
 }
 
 /**
- * The SCHEDULE views' caption keys that are texts of a PAPER layout (Interpretation I-313): the
+ * The SCHEDULE views' caption keys that are texts of a PAPER layout (Interpretation I-320): the
  * windows a sheet titles on its own paper, beneath the frame, with nothing in model space saying so
  * (L-CAD-05, I-290). Only a schedule's anchors are looked up, so the set is as small as the question.
  */
@@ -181,7 +181,7 @@ function paperCaptionsOf(evidence: ScheduleEvidence): ReadonlySet<string> {
  * it on, no two bands to read a pitch from, or no band naming the column of marks. Half a table —
  * rows with no header to say what their columns mean — is worse than none (L-QTY-04).
  *
- * The caption anchors the table in one of two places (I-313). A caption drawn in MODEL space stands
+ * The caption anchors the table in one of two places (I-320). A caption drawn in MODEL space stands
  * over its table, and the table is what stands beneath it. A caption the sheet wrote on its PAPER,
  * under the window that frames the table, stands in no model-space band at all — the partition
  * assigns no paper text to a view (L-CAD-06) — so it anchors nothing by position: the view's own
