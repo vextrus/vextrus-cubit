@@ -181,6 +181,18 @@ const DECLARED_REBASELINED: readonly string[] = [
   // it "in its own `baseline:`-subject commit" when the live Zod schema's JSON form moves — as zod 4.6
   // moved it (db0927e9, D-004).
   "src/modules/takeoff/export/register-json/__tests__/fixtures/register-json.v1.schema.json",
+  // F-ARCH (session 8, ARCH-1): the corpus `python -m fixtures.gen.arch` writes, every file of it —
+  // minted and re-minted in its own `baseline:` commits naming the proof, as the product's law puts a
+  // regenerated fixture (cad/tests/sanity/test_arch_regenerate.py holds it byte for byte). Eight
+  // literal paths, no pattern over `fixtures/arch/**`: a file the generator does not write stays a stray.
+  "fixtures/arch/arch.dxf",
+  "fixtures/arch/cells.json",
+  "fixtures/arch/manifest.json",
+  "fixtures/arch/model.json",
+  "fixtures/arch/notation.corpus.json",
+  "fixtures/arch/sanity.json",
+  "fixtures/arch/takeoff.golden.json",
+  "fixtures/arch/traps.json",
 ];
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {

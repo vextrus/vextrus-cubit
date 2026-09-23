@@ -18,7 +18,7 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { UNIT_LANE_KNEE, VERIFY_WAVE_SIBLINGS, laneWorkers, waveParallelism } from "./lib/box.mjs";
-import { cadLane, recordRegenerationProof } from "./lib/cad-lane.mjs";
+import { cadLane, recordRegenerationProofs } from "./lib/cad-lane.mjs";
 import { deriveLanes } from "./lib/lanes.mjs";
 import { announce, run, runAsync, wallTime } from "./lib/report.mjs";
 
@@ -29,6 +29,7 @@ export const GOLDEN_PYTEST = Object.freeze([
   "cad/tests/sanity/test_rcc6_golden.py",
   "cad/tests/sanity/test_golden_corpora.py",
   "cad/tests/rcc6_bnbc",
+  "cad/tests/arch",
 ]);
 
 /**
@@ -91,9 +92,9 @@ export const LANE_COMMANDS = Object.freeze({
     ["node", "node_modules/vitest/vitest.mjs", "run", "--config", "tests/golden/vitest.config.ts"],
     ["uv", "run", "--project", "cad", "pytest", "-q", ...GOLDEN_PYTEST],
   ],
-  // The fixture-regeneration tests are the lane's whole wall (~80 s of ~100), and they can only
-  // break when something they read has moved; scripts/lib/cad-lane.mjs asks git whether anything
-  // did, and says so in LANE_NOTES when the answer is no.
+  // The fixture-regeneration tests are the lane's whole wall (BNBC's ~80 s of ~100), and each can
+  // only break when something its own corpus reads has moved; scripts/lib/cad-lane.mjs asks git,
+  // corpus by corpus, and says in LANE_NOTES which it set aside and why.
   cad: [
     ["ruff", "check", "cad"],
     CAD_LANE.argv,
@@ -265,10 +266,10 @@ function isEntryPoint() {
 if (isEntryPoint()) {
   const startedAt = performance.now();
   const code = await runChainInWaves(deriveLanes(ROOT), {
-    // The cad lane's regeneration proof: written on the lane's own green, only where the
+    // The cad lane's regeneration proofs: written on the lane's own green, one per corpus whose
     // regeneration actually RAN over a digested tree (scripts/lib/cad-lane.mjs).
     onGreen: (laneId) => {
-      if (laneId === "cad" && CAD_LANE.regenerate && CAD_LANE.digest !== null) recordRegenerationProof(ROOT, CAD_LANE.digest);
+      if (laneId === "cad" && Object.keys(CAD_LANE.digests).length > 0) recordRegenerationProofs(ROOT, CAD_LANE.digests);
     },
   });
   process.stdout.write(`verify wall-time ${wallTime(startedAt)}\n`);

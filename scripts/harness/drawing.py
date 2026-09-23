@@ -155,9 +155,9 @@ def inventory(source: Path, work: Path) -> dict:
                 view_height = viewport.dxf.get("view_height", 0) or 0
                 viewports.append(
                     {
-                        "center": [round(v, 1) for v in viewport.dxf.center[:2]],
+                        "center": [round(v, 1) for v in list(viewport.dxf.center)[:2]],
                         "size": [round(viewport.dxf.get("width", 0), 1), round(height, 1)],
-                        "view_center": [round(v, 1) for v in viewport.dxf.view_center_point[:2]],
+                        "view_center": [round(v, 1) for v in list(viewport.dxf.view_center_point)[:2]],
                         "scale_paper_per_model": round(height / view_height, 6) if view_height else None,
                     }
                 )

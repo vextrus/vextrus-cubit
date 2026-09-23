@@ -1,7 +1,8 @@
 // The one home for reading a fixture's golden takeoff (ARCH-02). AM-01 put two fixtures in the
-// tree — F-RCC6, frozen at v1.1, and F-RCC6-BNBC, the M3/M4 yardstick — so the reader takes a
-// fixture id, and the default is F-RCC6 so every caller written before there was a choice reads
-// exactly what it always read.
+// tree — F-RCC6, frozen at v1.1, and F-RCC6-BNBC, the M3/M4 yardstick — and session 8 a third,
+// F-ARCH (`goldenRows("arch")`), the architect's set of F-RCC6-BNBC's building, graded at M4. So the
+// reader takes a fixture id, and the default is F-RCC6 so every caller written before there was a
+// choice reads exactly what it always read.
 //
 // It lives here, in the golden lane's own support, rather than inside the column rail's stage: the
 // stage reaches live Postgres through the product modules it drives, and a suite that only wants
@@ -53,6 +54,12 @@ export type GoldenRow = {
   component?: string;
   diameter_mm?: number;
   members?: readonly string[];
+  /** F-ARCH: the room a SURFACE row is measured in (its id in the generator's model). */
+  room?: string;
+  /** F-ARCH: the opening mark an OPENING row counts (as the plan tags it). */
+  mark?: string;
+  /** F-ARCH: what the row's threshold rule retained rather than deducted (L-MEA-02), listed. */
+  retained?: readonly { id: string; quantity: string }[];
 };
 
 /** A golden takeoff as its file records it: the fixture it belongs to, its schema and its rows. */
@@ -94,6 +101,12 @@ export const PRODUCT_TO_GOLDEN_KIND: Readonly<Record<string, string>> = Object.f
   "pcc.blinding": "BLINDING",
   "piling.bored": "PILE_COUNT",
   "piling.boring": "PILE_LENGTH",
+  // The finish kinds F-ARCH's golden bills (session 8). F-ARCH also carries FLOORING, WALL_TILE,
+  // SKIRTING, OPENING_COUNT and OPENING_AREA rows, whose product kinds do not exist yet: the kind
+  // that lands for each (ARCH-2) adds its spelling here, and tests/golden/arch-golden.test.ts
+  // refuses an ARCHITECTURAL kind with no spelling that has rows.
+  "finish.plaster": "PLASTER",
+  "finish.paint": "PAINT",
 });
 
 /**

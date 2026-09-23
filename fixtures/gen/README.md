@@ -99,6 +99,45 @@ photocopy and photograph is JPEG. A variant that will not fit its share walks a 
 first, then dpi, never fewer sheets — and the manifest records what it actually used.
 `cad/tests/rcc6_bnbc/test_rcc6_bnbc_size.py` pins all four caps.
 
+## `arch/` — F-ARCH (the architect's set of the same building, M4)
+
+The Bashundhara G+6's architectural set, tranche 1: the building F-RCC6-BNBC engineers, drawn by its
+(fictional) architect. The structure is F-RCC6-BNBC's and is read from `fixtures.gen.rcc6_bnbc.model`,
+never edited — its grid, levels, columns, lift core, beams, slab panels, sunken toilet panels, ducts
+and S-25's lintels; everything architectural is authored in `arch/model.py`: the brick walls (250
+envelope and party walls, 125 partitions — the one wall layout the building's brickwork is drawn
+from), the openings, the rooms and their finishes, and the schedules. `arch/DECISIONS.md` records
+every convention (A-01 … A-20) and the Interpretation tokens it reads the law by.
+
+```
+uv run --project cad --group fixtures python -m fixtures.gen.arch [--out DIR] [--stage all|golden]
+```
+
+`DIR` defaults to `fixtures/arch`; `--stage golden` writes the golden, the cells and the model alone.
+The run takes ~4 s; any failure writes nothing (the corpus is built in scratch, checked, written a
+second time and compared, and only then moved).
+
+| file | what it is |
+| --- | --- |
+| `arch.dxf` | ezdxf R2004 in millimetres, four paper layouts — A-01 GROUND FLOOR PLAN and A-02 TYPICAL FLOOR PLAN (1ST TO 6TH), each with its door & window schedule; A-03 ROOM FINISH SCHEDULE & WALL TYPES (with the floor tile legend); A-04 SECTION A-A — one VIEWPORT per view, titled on the paper under it |
+| `takeoff.golden.json` | the hand takeoff (schema 2): FLOORING, PLASTER, PAINT, WALL_TILE and SKIRTING per room and face, BRICKWORK per wall type, OPENING_COUNT and OPENING_AREA per mark, per level |
+| `cells.json` | the M4 exit cells, each with the residue a competent product is expected to leave, and what tranche 1 does not carry |
+| `traps.json` | the registered traps, each with the live handle of its own entity in `arch.dxf` |
+| `model.json` | a plain-data dump of `model.build()` |
+| `notation.corpus.json` | every drawn string with its family, sheet and handle |
+| `sanity.json` | the placing-time tally per (space, DXF type) — what the product's ingest must recover |
+| `manifest.json` | the sheets and their views, the sha256 of every output, of every generator module and of the F-RCC6-BNBC model it reads, the selfcheck and validate reports, the size budget, and what tranche 1 does not promise (roof plan, DWG, PDF) |
+
+**The golden's two paths.** `golden.py` goes room by room over authored clear polygons and wall by wall
+over authored end rules; `golden_check.py` re-derives the rooms from the wall centrelines ± t/2 by its
+own planar-face code, allocates every opening by probing either side of its host, and measures
+brickwork by clipping each wall band. It never reads what path 1 authored for it
+(`cad/tests/arch/test_arch_lint.py` poisons those fields), and `selfcheck.py` refuses on any
+disagreement — as it refuses unless every framed floor's 250-wall openings are exactly S-25's L1 / L2 /
+LS1 program read from F-RCC6-BNBC's own build. The regeneration proof is
+`cad/tests/sanity/test_arch_regenerate.py`, which the cad lane runs only when one of F-ARCH's own inputs
+moved (`scripts/lib/cad-lane.mjs`).
+
 ## Rules for a generator here
 
 - writes its corpus under `fixtures/<name>/`, never into `src/**` or `tests/lint-fixtures/**`;

@@ -1,4 +1,4 @@
-"""The golden self-consistency every fixture owes, run over both corpora (AM-01, L-QTY-06).
+"""The golden self-consistency every fixture owes, run over every corpus (AM-01, L-QTY-06).
 
 AM-01 puts two fixtures in the tree — F-RCC6, frozen at v1.1 as the J-000 corpus and the fast
 regression, and F-RCC6-BNBC, the M3/M4 yardstick — and says neither replaces the other. So the
@@ -16,6 +16,12 @@ Every check here is armed by the corpus's own `manifest.json`, never by the pres
 grades (P4a §2): what a manifest promises must be on the tree, and a corpus that does not carry it
 fails by name. Nothing here skips — `cad/tests/conftest.py` reds the session for a skip no
 manifest explains, so the lane's skip count is a number the manifests account for.
+
+F-ARCH (session 8) is the third corpus: the architect's set of F-RCC6-BNBC's building. Its manifest
+declares `discipline: ARCHITECTURAL`, so the schema-2 evidence it owes is the finish, brickwork and
+opening kinds and no bar schedule; a manifest that names no discipline is a structural one, as both
+corpora before it are. The exit matrix each corpus is graded on is the size its own manifest's
+selfcheck states (`cells: "N/N"`) — 36 for F-RCC6-BNBC's M3, 6 for F-ARCH's M4.
 """
 
 from __future__ import annotations
@@ -38,8 +44,26 @@ CELLS_REL = "cells.json"
 BBS_REL = "bbs.golden.json"
 SELFCHECK_REL = "selfcheck.py"
 
-#: The matrix M3's exit is read against (AM-01).
+#: The matrix M3's exit is read against (AM-01) — F-RCC6-BNBC's, stated again by its manifest.
 M3_CELLS = 36
+
+#: The kinds a schema-2 golden owes, by the discipline its manifest declares (structural by default).
+SCHEMA_2_KINDS = {
+    "STRUCTURAL": {"RCC_CONCRETE", "FORMWORK", "REBAR", "PILE_LENGTH", "PILE_COUNT"},
+    "ARCHITECTURAL": {"FLOORING", "PLASTER", "PAINT", "WALL_TILE", "BRICKWORK", "OPENING_COUNT"},
+}
+
+
+def _discipline(corpus) -> str:
+    return str(corpus.manifest().get("discipline", "STRUCTURAL"))
+
+
+def _declared_cells(corpus) -> int:
+    """How many exit cells the corpus's own manifest says its selfcheck fills ("N/N")."""
+    stated = str(corpus.manifest().get("selfcheck", {}).get("cells", ""))
+    filled, _, total = stated.partition("/")
+    assert filled and filled == total, f"fixtures/{corpus.root.name}/manifest.json states cells {stated!r}"
+    return int(total)
 
 
 def _sha256(path: Path) -> str:
@@ -54,13 +78,13 @@ def _key(row: dict[str, Any]) -> tuple[Any, ...]:
     """A row's identity: the ledger key, plus what schema 2 adds to tell two rows of a kind apart."""
     return tuple(
         row.get(field)
-        for field in ("class", "kind", "level", "grade", "component", "diameter_mm", "mark")
+        for field in ("class", "kind", "level", "grade", "component", "diameter_mm", "mark", "room")
     )
 
 
 def test_the_golden_names_its_fixture_and_how_it_was_authored(golden_corpus) -> None:
     golden = _golden(golden_corpus)
-    assert str(golden.get("fixture", "")).startswith("F-RCC6"), "the golden does not name its fixture"
+    assert str(golden.get("fixture", "")).startswith("F-"), "the golden does not name its fixture"
     assert golden.get("provenance") == "HAND_FROM_AUTHORED_SOURCE", (
         "a golden the product's own methods could have derived is not evidence (L-QTY-06)"
     )
@@ -113,9 +137,17 @@ def test_a_schema_2_golden_carries_the_evidence_schema_2_promises(golden_corpus)
         )
         return
     kinds = {row["kind"] for row in golden["rows"]}
-    assert {"RCC_CONCRETE", "FORMWORK", "REBAR", "PILE_LENGTH", "PILE_COUNT"} <= kinds, (
-        f"schema 2 promises the kinds R-TO-035 grades; this golden carries {sorted(kinds)}"
+    discipline = _discipline(golden_corpus)
+    assert SCHEMA_2_KINDS[discipline] <= kinds, (
+        f"schema 2 promises the {discipline} kinds its exit grades; this golden carries {sorted(kinds)}"
     )
+    if discipline == "ARCHITECTURAL":
+        assert not golden_corpus.declares(BBS_REL) and not golden_corpus.path(BBS_REL).is_file(), (
+            f"an architectural corpus carries no bar schedule; fixtures/{name} has {BBS_REL}"
+        )
+        surfaces = [row for row in golden["rows"] if row["class"] == "SURFACE"]
+        assert surfaces and all(row.get("room") for row in surfaces), "every SURFACE row names its room"
+        return
     components = {row.get("component") for row in golden["rows"] if row["kind"] == "REBAR"}
     assert components <= {"NET", "LAP"} and components, (
         f"REBAR rows must be billed as NET and LAP components (AM-03 a); got {sorted(map(str, components))}"
@@ -149,9 +181,12 @@ def test_the_m3_gate_cells_are_all_filled_by_rows(golden_corpus) -> None:
         if not any(all(row.get(k) == v for k, v in entry["cell"].items()) for row in rows)
     ]
     assert empty == [], f"cells the golden leaves empty: {empty}"
-    assert len(cells) == M3_CELLS, (
-        f"the M3 matrix is {M3_CELLS} cells; fixtures/{name}/{CELLS_REL} carries {len(cells)}"
+    declared = _declared_cells(golden_corpus)
+    assert len(cells) == declared, (
+        f"fixtures/{name}/manifest.json states a {declared}-cell exit; {CELLS_REL} carries {len(cells)}"
     )
+    if _discipline(golden_corpus) == "STRUCTURAL" and name == "rcc6-bnbc":
+        assert declared == M3_CELLS, f"the M3 matrix is {M3_CELLS} cells; the manifest states {declared}"
 
 
 def test_the_generator_the_manifest_pins_is_on_the_tree_and_its_paths_agree(golden_corpus) -> None:
@@ -191,7 +226,12 @@ def test_the_generator_the_manifest_pins_is_on_the_tree_and_its_paths_agree(gold
     selfcheck = importlib.import_module(f"fixtures.gen.{package.name}.{SELFCHECK_REL.removesuffix('.py')}")
 
     report = selfcheck.run()
-    assert report["cells"] == f"{M3_CELLS}/{M3_CELLS}", (
-        f"the selfcheck fills {report['cells']} of the M3 cells"
+    declared = _declared_cells(golden_corpus)
+    assert report["cells"] == f"{declared}/{declared}", (
+        f"the selfcheck fills {report['cells']} of the {declared} exit cells"
     )
+    if _discipline(golden_corpus) == "ARCHITECTURAL":
+        assert report["two_path_agreement"] is True, "the selfcheck's two paths disagree"
+        assert report["rows_per_kind"].get("BRICKWORK", 0) > 0, "the selfcheck sees no BRICKWORK rows"
+        return
     assert report["rows_per_kind"]["REBAR"] > 0, "the selfcheck sees no REBAR rows"
