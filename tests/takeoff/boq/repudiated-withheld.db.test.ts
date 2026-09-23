@@ -46,8 +46,9 @@ const REPUDIATE = "REPUDIATE";
 
 /** What the draft is read through (test contract: `boqViewOf`). */
 type DraftLine = { lineId: string; objectKey: string };
+type DraftItem = { key: string; lines: DraftLine[] };
 type DraftView = {
-  payload: { sections: { groups: { lines: DraftLine[] }[] }[]; unclassified: { lines: DraftLine[] } } | null;
+  payload: { sections: { groups: { items: DraftItem[] }[] }[]; unclassified: { lines: DraftLine[] } } | null;
   items: ReadonlyMap<string, string>;
 };
 type BoqServer = { boqViewOf(scope: { tenantId: string; projectId: string }): Promise<DraftView> };
@@ -56,7 +57,13 @@ const boqServer = (): Promise<BoqServer> => productModule<BoqServer>("src/module
 /** Every line a draft lists, placed or kept. */
 function draftLinesOf(view: DraftView): DraftLine[] {
   if (view.payload === null) return [];
-  return [...view.payload.sections.flatMap((section) => section.groups.flatMap((group) => group.lines)), ...view.payload.unclassified.lines];
+  return [...view.payload.sections.flatMap((section) => section.groups.flatMap((group) => group.items.flatMap((item) => item.lines))), ...view.payload.unclassified.lines];
+}
+
+/** Every item a draft states — one description at one band, its members behind it (I-528). */
+function draftItemsOf(view: DraftView): DraftItem[] {
+  if (view.payload === null) return [];
+  return view.payload.sections.flatMap((section) => section.groups.flatMap((group) => group.items));
 }
 
 let ground: Promise<RebarStage> | undefined;
@@ -103,7 +110,9 @@ describe("I-449: a struck object bills nothing, and nothing is deleted", () => {
       const left = draftLinesOf(after);
       expect(left.some((line) => line.objectKey === struck), `the draft lists no line of ${struck}: nothing is priced off an object the register says is nothing (I-173)`).toBe(false);
       expect(left.length, "and every other member's lines stand exactly as they did").toBe(lines.filter((line) => line.objectKey !== struck).length);
-      for (const line of left) expect(after.items.has(line.lineId), `${line.lineId} is numbered on the draft that remains`).toBe(true);
+      // TEST_AMENDED (session 8, BOQ-SHAPE, I-528): a number belongs to an ITEM, and the member
+      // lines behind it are numbered by nothing — so every item left standing is numbered.
+      for (const item of draftItemsOf(after)) expect(after.items.has(item.key), `${item.key} is numbered on the draft that remains`).toBe(true);
 
       const schedule = await bbsThroughDoor(stage);
       expect(schedule.rows.some((row) => row.objectKey === struck), `the bar schedule lists no bar of ${struck}`).toBe(false);

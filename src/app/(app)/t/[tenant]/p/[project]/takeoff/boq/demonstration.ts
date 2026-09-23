@@ -6,7 +6,7 @@
 // the same derivation — rather than a stand-in drawn beside it.
 //
 // The draft it stands on is EMITTED, not transcribed: a demonstration reading goes through
-// `boqDraftPayloadOf` and `numberItems`, so the sections, the subtotals and the item numbers a
+// `boqDraftPayloadOf` and `numberItems`, so the sections, the items and the item numbers a
 // reviewer sees are the product's own answers over a reading and never a picture of them (B-17).
 import { REFUSALS } from "@/core/errors";
 import { boqDraftPayloadOf } from "@/modules/takeoff/boq/emission";
@@ -49,7 +49,7 @@ const LEVELS = [
   { levelId: "lvl-gf", ordinal: 0, label: "GF" },
 ] as const;
 
-/** One published line of the demonstrated campaign. */
+/** One published line of the demonstrated campaign — its member's mark and why it states no figure. */
 function line(lineId: string, objectKey: string, klass: string, kind: string, levelId: string, value: string | null, coverage: string) {
   return {
     lineId,
@@ -62,6 +62,8 @@ function line(lineId: string, objectKey: string, klass: string, kind: string, le
     quantityBasis: "MEASURED",
     selectionBasis: "TRANSCRIBED",
     coverage,
+    mark: objectKey.split("/").pop() ?? "",
+    ...(value === null ? { omitted: [UNSTATED_HEIGHT] } : {}),
   };
 }
 
@@ -93,10 +95,6 @@ function reading(projectId: string, lines: readonly ReturnType<typeof line>[], c
     coverage: payload.coverage === "COMPLETE" ? "COMPLETE" : "INCOMPLETE",
     payload,
     items: numberItems(payload.sections),
-    // What the register says each member is marked, and why the declared line states no figure —
-    // the readings the screen sets beside the payload, as `boqViewOf` answers them (I-boq-1).
-    lineFacts: new Map(lines.map((held) => [held.lineId, { mark: held.objectKey.split("/").pop() ?? "", slot: null }])),
-    omissions: new Map(lines.filter((held) => held.value === null).map((held) => [held.lineId, [UNSTATED_HEIGHT]])),
   };
 }
 

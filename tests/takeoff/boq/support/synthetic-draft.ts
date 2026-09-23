@@ -6,11 +6,13 @@
  * numbering suite reads the same builder at a size a person can check by hand — one payload shape,
  * so a render that copes with the large one is the same document as the small one.
  *
- * Every figure is deterministic and already at its kind's `documentPrecision`, because the document
- * kind's `present()` refuses a quantity that is not (interfaces, `PRECISION_NOT_APPLIED`): this is
- * an INPUT the suites hand over, never an expectation they grade.
+ * The shape is the one the owner ruled (s-boq I-528): the lines of one (section, class, kind)
+ * on one level are ONE item, and the lines stand behind it as its details of measurement. Every
+ * figure is deterministic and already at its kind's `documentPrecision`, because the document kind's
+ * `present()` refuses a quantity that is not (interfaces, `PRECISION_NOT_APPLIED`): this is an INPUT
+ * the suites hand over, never an expectation they grade.
  */
-import { SIX_BILLS, TAXONOMY_VERSION, type PayloadGroupShape, type PayloadLineShape, type PayloadSectionShape, type PayloadShape } from "./draft-shapes";
+import { SIX_BILLS, TAXONOMY_VERSION, type PayloadGroupShape, type PayloadItemShape, type PayloadLineShape, type PayloadSectionShape, type PayloadShape } from "./draft-shapes";
 
 /** One (class, kind) pair a section may carry, with the unit and the precision its kind is written at. */
 type Pair = { class: string; kind: string; unit: string; precision: number; description: string };
@@ -21,14 +23,14 @@ type Pair = { class: string; kind: string; unit: string; precision: number; desc
  * answers a precision for each.
  */
 export const SYNTHETIC_PAIRS: readonly Pair[] = Object.freeze([
-  { class: "column", kind: "rcc.concrete", unit: "m3", precision: 3, description: "Column · Concrete" },
-  { class: "column", kind: "rcc.formwork", unit: "m2", precision: 2, description: "Column · Formwork" },
-  { class: "beam", kind: "rcc.concrete", unit: "m3", precision: 3, description: "Beam · Concrete" },
-  { class: "slab", kind: "rcc.formwork", unit: "m2", precision: 2, description: "Slab · Formwork" },
-  { class: "pile_cap", kind: "rcc.concrete", unit: "m3", precision: 3, description: "Pile cap · Concrete" },
-  { class: "brick_wall", kind: "masonry.brickwork", unit: "m3", precision: 3, description: "Brick wall · Brickwork" },
-  { class: "surface", kind: "finish.plaster", unit: "m2", precision: 2, description: "Surface · Plaster" },
-  { class: "surface", kind: "finish.paint", unit: "m2", precision: 2, description: "Surface · Paint" },
+  { class: "column", kind: "rcc.concrete", unit: "m3", precision: 3, description: "Reinforced cement concrete cast in place — columns" },
+  { class: "column", kind: "rcc.formwork", unit: "m2", precision: 2, description: "Formwork to reinforced cement concrete — columns" },
+  { class: "beam", kind: "rcc.concrete", unit: "m3", precision: 3, description: "Reinforced cement concrete cast in place — beams" },
+  { class: "slab", kind: "rcc.formwork", unit: "m2", precision: 2, description: "Formwork to reinforced cement concrete — slabs" },
+  { class: "pile_cap", kind: "rcc.concrete", unit: "m3", precision: 3, description: "Reinforced cement concrete cast in place — pile caps" },
+  { class: "brick_wall", kind: "masonry.brickwork", unit: "m3", precision: 3, description: "Brickwork in walls — brick walls" },
+  { class: "surface", kind: "finish.plaster", unit: "m2", precision: 2, description: "Plaster to surfaces — surfaces" },
+  { class: "surface", kind: "finish.paint", unit: "m2", precision: 2, description: "Paint to surfaces — surfaces" },
 ]);
 
 /** The level labels the synthetic lines stand on — the stack a mid-rise names, nothing more. */
@@ -41,7 +43,7 @@ function figureAt(seed: number, precision: number): string {
   return precision === 0 ? String(whole) : `${whole}.${String(fraction).padStart(precision, "0")}`;
 }
 
-/** The sum of a group's or a section's figures, at the same precision, as a decimal string. */
+/** The sum of figures already at one precision, at the same precision, as a decimal string. */
 function totalAt(values: readonly string[], precision: number): string {
   const scale = 10 ** precision;
   const sum = values.reduce((carried, value) => carried + Math.round(Number(value) * scale), 0);
@@ -49,7 +51,8 @@ function totalAt(values: readonly string[], precision: number): string {
 }
 
 /**
- * A payload of exactly `lines` lines spread over the six sections and several groups each.
+ * A payload of exactly `lines` member lines spread over the six sections and several groups each,
+ * grouped into items by level.
  *
  * The spread is round-robin over (section × pair), so every section holds a line at any size past
  * the section count and the group ordinals the numbering derives are never all 1.
@@ -82,32 +85,28 @@ export function syntheticDraftPayload(lines: number, o: { project?: string; camp
     SYNTHETIC_PAIRS.forEach((pair, pairIndex) => {
       const held = ((perSection[sectionIndex] as PayloadLineShape[][])[pairIndex] as PayloadLineShape[]) ?? [];
       if (held.length === 0) return;
-      groups.push({
-        class: pair.class,
-        kind: pair.kind,
-        description: pair.description,
-        unit: pair.unit,
-        lines: held,
-        subtotals: [{ unit: pair.unit, value: totalAt(held.map((line) => line.quantity ?? "0"), pair.precision) }],
+      const items: PayloadItemShape[] = SYNTHETIC_LEVELS.flatMap((level, levelIndex) => {
+        const members = held.filter((line) => line.level === level);
+        if (members.length === 0) return [];
+        return [
+          {
+            key: `${bill}|${pair.class}|${pair.kind}|${level}|`,
+            description: pair.description,
+            level,
+            levelOrdinal: levelIndex - 1,
+            quantity: totalAt(members.map((line) => line.quantity ?? "0"), pair.precision),
+            unit: pair.unit,
+            coverage: "COMPLETE",
+            quantityBasis: "MEASURED",
+            selectionBasis: "TRANSCRIBED",
+            lines: members,
+          },
+        ];
       });
+      groups.push({ class: pair.class, kind: pair.kind, description: pair.description, unit: pair.unit, items });
     });
     if (groups.length === 0) return;
-    const units = [...new Set(groups.map((group) => group.unit))];
-    sections.push({
-      bill,
-      label: `${bill.charAt(0)}${bill.slice(1).toLowerCase()}`,
-      groups,
-      subtotals: units.map((unit) => {
-        const precision = (SYNTHETIC_PAIRS.find((pair) => pair.unit === unit) as Pair).precision;
-        return {
-          unit,
-          value: totalAt(
-            groups.filter((group) => group.unit === unit).flatMap((group) => group.lines.map((line) => line.quantity ?? "0")),
-            precision,
-          ),
-        };
-      }),
-    });
+    sections.push({ bill, label: `${bill.charAt(0)}${bill.slice(1).toLowerCase()}`, groups });
   });
 
   return {

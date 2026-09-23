@@ -82,6 +82,7 @@ export const TESTIDS = {
     grid: "boq-grid",
     jobs: "boq-jobs",
     line: "boq-line",
+    notMeasured: "boq-not-measured",
     renderDraft: "boq-render-draft",
     revision: "boq-revision",
     screen: "boq-screen",

@@ -84,9 +84,17 @@ function sectionSheetNameOf(section: PayloadShape["sections"][number]): string {
   return `${law.BOQ_SECTIONS.indexOf(section.bill) + 1} ${section.label}`;
 }
 
-/** The lines one section prints, in the order the payload prints them (groups, then lines). */
-function linesOf(section: PayloadShape["sections"][number]): { group: PayloadShape["sections"][number]["groups"][number]; line: PayloadShape["sections"][number]["groups"][number]["lines"][number] }[] {
-  return section.groups.flatMap((group) => group.lines.map((line) => ({ group, line })));
+/** One section's body rows, in the order the sheet writes them: each group's heading, then its items. */
+type BodyRow =
+  | { readonly heading: PayloadShape["sections"][number]["groups"][number] }
+  | { readonly group: PayloadShape["sections"][number]["groups"][number]; readonly item: PayloadShape["sections"][number]["groups"][number]["items"][number] };
+
+/**
+ * The rows one section's sheet writes (s-boq I-528): a row naming each group's trade, then
+ * one row per ITEM — never one per member line, which stand on the Quantities sheet.
+ */
+function bodyOf(section: PayloadShape["sections"][number]): BodyRow[] {
+  return section.groups.flatMap((group): BodyRow[] => [{ heading: group }, ...group.items.map((item) => ({ group, item }))]);
 }
 
 describe("AC-1: the roster's draft, composed as the A-BOQ-XLSX workbook", () => {
@@ -123,45 +131,72 @@ describe("AC-1: the roster's draft, composed as the A-BOQ-XLSX workbook", () => 
     }
   });
 
-  test("AC-1: every published line stands on its section sheet, numbered S.G.I, unpriced, with a live Amount", async () => {
+  // TEST_AMENDED (session 8, BOQ-SHAPE, s-boq I-528/b): a section sheet reads like a bill — a
+  // row naming each group's trade, then one priced ITEM per description — where it listed every
+  // member line. The member lines stand on the Quantities sheet, each with the item it is summed
+  // into. And no quantity is added across descriptions: the section's feet are gone.
+  test("AC-1: every item stands on its section sheet under its group's heading, numbered S.G.I, unpriced, with a live Amount", async () => {
     await ready();
     const items = reading.view.items;
-    expect(items.size, "the payload numbers the lines it emitted (AM-14 §2)").toBeGreaterThan(0);
+    expect(items.size, "the payload numbers the items it emitted (AM-14 §2)").toBeGreaterThan(0);
 
     let written = 0;
     for (const section of payload.sections) {
       const sheet = sheetNamed(workbook, sectionSheetNameOf(section));
-      const lines = linesOf(section);
+      const body = bodyOf(section);
+      expect(sheet.rowCount, `${sheet.name} writes a heading per group and a row per item, and nothing below them — no foot adds unlike items`).toBe(FIRST_BODY_ROW + body.length - 1);
 
-      lines.forEach(({ line }, index) => {
+      body.forEach((held, index) => {
         const row = FIRST_BODY_ROW + index;
-        const where = `${sheet.name} row ${row} (${line.lineId})`;
-        expect(cellText(sheet, row, ITEM), `${where} carries the item number the draft derived for it — S.G.I, in payload order (AM-14 §2)`).toBe(items.get(line.lineId));
+        if ("heading" in held) {
+          const where = `${sheet.name} row ${row} (the ${held.heading.class} · ${held.heading.kind} heading)`;
+          expect(cellText(sheet, row, ITEM), `${where} names a trade and carries no item number`).toBe("");
+          expect(cellText(sheet, row, QUANTITY), `${where} states no quantity — a group holds unlike descriptions (I-529)`).toBe("");
+          expect(cellFormula(sheet, row, AMOUNT), `${where} carries no Amount of its own`).toBeNull();
+          return;
+        }
+        const { item } = held;
+        const where = `${sheet.name} row ${row} (${item.key})`;
+        expect(cellText(sheet, row, ITEM), `${where} carries the item number the draft derived for it — S.G.I, in payload order (AM-14 §2)`).toBe(items.get(item.key));
 
         // Unpriced: the Rate is EMPTY and the Amount is the formula that stays empty until somebody
-        // prices the line, so no figure nobody stated ever appears in the bill (I-274, B-21).
+        // prices the item, so no figure nobody stated ever appears in the draft (I-274, B-21).
         expect(cellText(sheet, row, RATE), `${where} states no rate — the priced BOQ is M6`).toBe("");
         expect(cellFormula(sheet, row, RATE), `${where}'s Rate is a cell a person types in, never a formula`).toBeNull();
         expect(cellFormula(sheet, row, AMOUNT), `${where}'s Amount is LIVE: Excel computes it from the quantity and the rate beside it (A-BOQ-XLSX)`).toBe(
           `IF(F${row}="","",E${row}*F${row})`,
         );
 
-        if (line.quantity !== null) {
-          expect(Number(cellText(sheet, row, QUANTITY)), `${where} carries the figure the payload already settled, as a NUMBER Excel can total (I-275)`).toBe(
-            Number(line.quantity),
+        if (item.quantity !== null) {
+          expect(Number(cellText(sheet, row, QUANTITY)), `${where} carries the figure the payload already settled — its members' sum rounded once — as a NUMBER Excel can total (I-275)`).toBe(
+            Number(item.quantity),
           );
         }
         written += 1;
       });
-
-      // Below the lines stand the section's own feet, and they are not items: an item number under a
-      // subtotal would be a line nobody measured (AM-14 §2).
-      for (let row = FIRST_BODY_ROW + lines.length; row <= sheet.rowCount; row += 1) {
-        expect(cellText(sheet, row, ITEM), `${sheet.name} row ${row} stands below the section's lines and carries no item number`).toBe("");
-      }
     }
 
-    expect(written, "every numbered line of the draft is written on a section sheet, and nothing else is").toBe(items.size);
+    expect(written, "every numbered item of the draft is written on a section sheet, and nothing else is").toBe(items.size);
+  });
+
+  test("AC-1: every member line stands on the Quantities sheet, carrying the number of the item it is summed into", async () => {
+    await ready();
+    const quantities = sheetNamed(workbook, QUANTITIES_SHEET);
+    const header = rowText(quantities, HEADER_ROW, quantities.columnCount);
+    const [itemAt, lineAt] = [header.indexOf("Item") + 1, header.indexOf("Line") + 1];
+    const carriedTo = new Map<string, string>();
+    for (const section of payload.sections) {
+      for (const group of section.groups) for (const item of group.items) for (const member of item.lines) carriedTo.set(member.lineId, reading.view.items.get(item.key) ?? "");
+    }
+    expect(carriedTo.size, "the draft's items stand on member lines").toBeGreaterThan(0);
+    let read = 0;
+    for (let row = FIRST_BODY_ROW; row <= quantities.rowCount; row += 1) {
+      const lineId = cellText(quantities, row, lineAt);
+      if (!carriedTo.has(lineId)) continue;
+      expect(cellText(quantities, row, itemAt), `${lineId} names the item its figure is summed into (I-528)`).toBe(carriedTo.get(lineId));
+      read += 1;
+    }
+    expect(read, "every member line of every item is on the sheet").toBe(carriedTo.size);
   });
 
   test("AC-1: a column carries one precision — the section's widest, and the document's for money", async () => {
@@ -170,13 +205,14 @@ describe("AC-1: the roster's draft, composed as the A-BOQ-XLSX workbook", () => 
 
     for (const section of payload.sections) {
       const sheet = sheetNamed(workbook, sectionSheetNameOf(section));
-      const lines = linesOf(section);
+      const body = bodyOf(section);
       // One precision per column: the widest any kind standing in this section is written to, so a
       // section that mixes kinds never quietly loses a digit (I-275, L-FMT-02).
       const places = Math.max(...section.groups.map((group) => law.placesOf(group.kind)));
       const quantityFormat = seam.lakhCroreNumberFormat(places);
 
-      lines.forEach((_held, index) => {
+      body.forEach((held, index) => {
+        if ("heading" in held) return;
         const row = FIRST_BODY_ROW + index;
         // Read back through `asRead`: exceljs renders a format code verbatim on the way out
         // (numfmt-xform.js:32) and strips the backslash escapes on the way back in (:40), so the
@@ -198,11 +234,20 @@ describe("AC-1: the roster's draft, composed as the A-BOQ-XLSX workbook", () => 
 
     expect(said, "the summary says what this document is (AM-05: it is the draft BOQ, and never a bill)").toContain(BOQ_DRAFT_TITLE);
     expect(said, "and carries the banner every page of an unsigned working document carries (AM-05 §2)").toContain(DRAFT_BANNER);
-    expect(said, "and the taxonomy the sections were resolved under (L-BD-08)").toContain(`Taxonomy: ${payload.taxonomyVersion}`);
+    // TEST_AMENDED (session 8, BOQ-SHAPE, I-530): the Summary states the project in WORDS —
+    // the taxonomy by its edition's date, never the version id, and no surrogate id anywhere.
+    const edition = /(\d{4})-(\d{2})-(\d{2})$/u.exec(payload.taxonomyVersion);
+    expect(edition, "the taxonomy version carries an edition date").not.toBeNull();
+    const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(edition?.[2]) - 1];
+    expect(said, "and the taxonomy the sections were resolved under, by its edition (L-BD-08)").toContain(`Sections: By the taxonomy of ${edition?.[3]} ${month} ${edition?.[1]}`);
+    for (const text of said) {
+      expect(text, "no surrogate id stands on the Summary (R-UI-082)").not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/u);
+      expect(text, "and no raw coverage enum").not.toMatch(/\bINCOMPLETE\b|\bCOMPLETE\b/u);
+    }
 
     for (const section of payload.sections) {
       const name = sectionSheetNameOf(section);
-      const last = FIRST_BODY_ROW + linesOf(section).length - 1;
+      const last = FIRST_BODY_ROW + bodyOf(section).length - 1;
       const at = said.indexOf(section.label);
       expect(at, `the summary carries a row for ${name}`).toBeGreaterThanOrEqual(0);
       expect(cellFormula(summary, at + 1, SUMMARY_AMOUNT), `${name}'s summary total is a LIVE sum over that sheet's own line rows (A-BOQ-XLSX)`).toBe(

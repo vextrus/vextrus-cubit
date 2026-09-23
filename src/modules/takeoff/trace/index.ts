@@ -53,7 +53,17 @@ export type PinnedRecord = {
   readonly standing: RecordStanding;
   /** How a reader names one of this record's sheets: its number, or null for model space. */
   readonly labelOf: (layoutName: string) => string | null;
+  /**
+   * Where one of this record's placements stands on the plan's own grid: the nearest axis of each
+   * family as the partition filed it on THIS record, a family the grid carries no axis of null in its
+   * place (L-CAD-07). Null where the record holds no such placement. A later upload's partition moves
+   * nothing here: the member stands where it stood when its line was read (I-422).
+   */
+  readonly gridOf: (placementKey: string) => PinnedGrid | null;
 };
+
+/** One placement's grid reading on a pinned record, as the partition stored it. */
+export type PinnedGrid = { readonly letter: string | null; readonly numeral: string | null };
 
 /**
  * The record each named drawing of one pinned revision was measured on: the ingest of the very bytes
@@ -96,10 +106,16 @@ export async function pinnedRecordsOf(scope: TraceScope, setRevisionId: string, 
   for (const record of read) {
     const graph = await artifactAt(scope.tenantId, record.artifactSha256, storage, `ingest ${record.ingestId}`);
     const members = new Map<string, MemberKeys>();
+    const grids = new Map<string, PinnedGrid>();
     for (const placement of await storedPlacementsOf(scope.tenantId, record.ingestId)) {
       members.set(placement.placementKey, { outlineKey: placement.outlineKey, markKey: placement.markKey });
+      grids.set(placement.placementKey, { letter: placement.gridLetter, numeral: placement.gridNumeral });
     }
-    held.set(record.drawingId, { standing: standingOfGraph(graph, members), labelOf: (layoutName) => sheetLabelOf(graph, layoutName) });
+    held.set(record.drawingId, {
+      standing: standingOfGraph(graph, members),
+      labelOf: (layoutName) => sheetLabelOf(graph, layoutName),
+      gridOf: (placementKey) => grids.get(placementKey) ?? null,
+    });
   }
   return held;
 }

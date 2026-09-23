@@ -15,9 +15,11 @@ export const boq = {
   boq_taxonomy_label: "Taxonomy",
   boq_draft_standing: "Draft — unsigned",
   boq_export: "Export the draft",
-  boq_coverage_incomplete: "Coverage is incomplete, so each section states a measured-scope subtotal over what was measured, and no figure is stated for the project.",
-  boq_coverage_complete: "Every section states a measured-scope subtotal over what was measured.",
-  boq_grid_label: "Draft lines by section",
+  // How an item's figure is made, and why no figure is stated for the project (I-268, I-528).
+  boq_coverage_incomplete:
+    "Each item is the register's sum for its description, rounded once. Coverage is incomplete: what this draft does not measure is listed where it closes, and no figure is stated for the project.",
+  boq_coverage_complete: "Each item is the register's sum for its description, rounded once.",
+  boq_grid_label: "Draft items by section",
   boq_col_item: "Item",
   boq_col_description: "Description",
   boq_col_level: "Level",
@@ -37,7 +39,7 @@ export const boq = {
   boq_section_plumbing: "Plumbing",
   boq_section_external: "External",
   boq_section_unclassified: "Unclassified",
-  boq_subtotal_measured: "Measured-scope subtotal",
+  boq_not_measured_heading: "Not measured in this draft",
   boq_provisional_sum: "Provisional sum",
   boq_reason_no_taxonomy_row: "No taxonomy row places this kind.",
   boq_reason_level_not_in_stack: "This line's level is not in the level stack.",
@@ -57,6 +59,13 @@ export const boq = {
   // (`takeoff_register_empty_action`, `takeoff_coverage_empty_action`): a reader who meets the same
   // emptiness on three surfaces of one lane is offered it by one name, leading to one address.
   boq_empty_action: "Browse drawing sets",
+
+  // A campaign is pinned and Measure published nothing: the empty state leads where the reason is —
+  // the register's Deferred and refused list, which names each sheet with no scale of record and
+  // each storey with no height, with a door to each fix (MEASURE-REFUSE, walk-0).
+  boq_empty_unmeasured_heading: "Nothing measured yet",
+  boq_empty_unmeasured_body:
+    "Measure has published no line for the pinned campaign. The takeoff register lists what it deferred and why — a sheet with no scale of record, a storey with no height — and links to each fix.",
 
   // A refused draft is resolved where the lines come from, which is NOT where the empty state sends
   // a reader — so it is its own sentence. One sentence, one destination (R-UI-020's evidence).

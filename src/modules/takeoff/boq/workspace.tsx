@@ -1,7 +1,10 @@
 "use client";
-// S-BOQ's workspace (docs/design/s-boq.md): every published line of the pinned campaign, grouped
-// into L-BD-08's sections, each line numbered S.G.I, each section closed by the one foot incomplete
-// coverage allows — and the project closed by nothing at all (L-QTY-04, L-QTY-07, I-268).
+// S-BOQ's workspace (docs/design/s-boq.md): the pinned campaign's draft as the owner ruled a bill is
+// shaped — L-BD-08's sections, a trade heading per (class · kind) group, one numbered ITEM per
+// description at one level band, each the register's sum of its member lines rounded once — and a
+// closing section that says what the draft does not measure. No quantity is added across
+// descriptions: a group, a section and the project state none (L-QTY-04, L-QTY-07, I-268,
+// I-528, I-529).
 //
 // Presentational and injected (I-170): every piece of shipped chrome arrives as a renderer declared
 // by exactly the props this screen hands it, so a module never reaches the ui layer (ARCH-01) and a
@@ -9,12 +12,12 @@
 // here: the payload is the DOCUMENT's payload and the item numbers are the document's numbering, so
 // what a reader reads and what the PDF prints are one derivation (I-269, I-271).
 //
-// AM-05 and I-265: the words on this screen are SECTION, DRAFT and LINE. The name the law reserves
-// for the signed thing appears in no sentence, no key and no class name here — only in `data-bill`,
-// which is machine vocabulary a reader never meets.
-import { useCallback, useMemo, useState, type ComponentType, type ReactNode } from "react";
-import type { BoqDraftLine, BoqDraftPayload, BoqDraftSection } from "@/core/documents/kinds/boq-draft";
-import { inWords } from "@/core/documents/kinds/boq-draft-law";
+// AM-05 and I-265: the words on this screen are SECTION, DRAFT, ITEM and LINE. The name the law
+// reserves for the signed thing appears in no sentence, no key and no class name here — only in
+// `data-bill`, which is machine vocabulary a reader never meets.
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import type { BoqDraftItem, BoqDraftPayload, BoqDraftSection } from "@/core/documents/kinds/boq-draft";
+import { descriptionOf, groupQualifier, inWords, notMeasuredAbout } from "@/core/documents/kinds/boq-draft-law";
 import type { RefusalEntry } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import type { JobKind } from "@/core/jobs/kinds";
@@ -30,32 +33,52 @@ import type { BoqView } from "./view";
 /** Where a refusal is resolved — the one evidence shape the refusal pattern rules. */
 type Evidence = { href: string; label: string };
 
-/** One row of a section's grid: a payload line with what its group and the numbering said about it. */
-export type BoqRow = BoqDraftLine & {
+/**
+ * One row of a section's grid: an ITEM of the draft — or, in the kept Unclassified block, one line
+ * the taxonomy could not place — with what its group and the numbering said about it.
+ */
+export type BoqRow = {
+  /** The item's key, or the kept line's id: what the grid knows the row by and nothing more. */
+  readonly key: string;
   readonly bill: string;
   readonly class: string;
   readonly kind: string;
+  /** The trade heading the row stands under (`Column · Concrete`), as the group row says it. */
+  readonly heading: string;
+  /** The item's full description — its group's sentence, the member and what selects it. */
   readonly description: string;
   /**
-   * Where this line's description came from (I-298): INTERPRETED where a model chose it from the
-   * work-item catalogue against this group's own attributes, DEFAULTED where the plain description
-   * the draft has always written stands. A reader and a suite ask the same row the same question.
+   * Where this item's sentence came from (I-298): INTERPRETED where a model chose it from the
+   * work-item catalogue against its group's own attributes, DEFAULTED where the catalogue's own
+   * sentence stands. A reader and a suite ask the same row the same question.
    */
   readonly descriptionBasis: DescriptionBasis;
   /** The S.G.I string, or `null` on a row outside `BILLS` — a row with no section has no S (I-267). */
   readonly item: string | null;
-  /** Why the taxonomy could not place this line, in words; `null` on a line it placed (L-BD-08). */
+  /** Why the taxonomy could not place this line, in words; `null` on an item it placed (L-BD-08). */
   readonly reason: string | null;
-  /** The mark the register filed this line's member under, so a reader can find it; `null` unread. */
-  readonly mark: string | null;
-  /** The lawful-null slot the member stands in where it stands on no level (`FOUNDATION`), or `null`. */
+  /** The storey an item is priced at, or the levels its members stand on where it has no band. */
+  readonly level: string;
+  /** The lawful-null slot every member stands in where they stand on no level (`FOUNDATION`). */
   readonly slot: string | null;
-  /** The registered codes this line states for what it could not measure (L-QTY-02); empty if none. */
+  readonly levelOrdinal: number | null;
+  /** The register's sum of the members that state a figure, rounded once — or nothing (L-QTY-02). */
+  readonly quantity: string | null;
+  readonly unit: string;
+  readonly coverage: string;
+  readonly quantityBasis: string;
+  readonly selectionBasis: string;
+  /** Which row of the taxonomy placed the row's lines, as the resolver recorded it (L-BD-08). */
+  readonly decidedBy: string;
+  /** How many member lines stand behind the row — its details of measurement. */
+  readonly members: number;
+  /** How much of the item its figure covers, and why the rest states none (I-450); empty when whole. */
+  readonly qualifier: string;
+  /** The registered codes its members gave for what they could not measure, once each (L-QTY-02). */
   readonly omitted: readonly string[];
+  /** The kept line's own id on an Unclassified row; `null` on an item, which is many lines. */
+  readonly lineId: string | null;
 };
-
-/** What the register and the store say about each line beside the payload (see `BoqView`). */
-type LineReadings = Pick<BoqView, "lineFacts" | "omissions">;
 
 /** One cell of a section's grid, as the shipped DataTable hands one its row. */
 type BoqCell = { readonly row: { readonly original: BoqRow } };
@@ -69,6 +92,14 @@ type BoqColumn = {
   size?: number;
   cell: (context: BoqCell) => ReactNode;
   meta?: { align?: "right"; groupSubtotal?: "value" | "unit" };
+};
+
+/** How a section's grid groups its rows: by the (class · kind) trade heading, stating no figure. */
+type BoqGroup = {
+  of: (row: BoqRow) => { key: string; label: string } | null;
+  valueOf?: (row: BoqRow) => string | null;
+  unitOf?: (row: BoqRow) => string;
+  showCount?: boolean;
 };
 
 /** One step of the render job, as the shipped timeline reads one (job-timeline I-113). */
@@ -109,6 +140,7 @@ export interface BoqTestIds {
   readonly grid: string;
   readonly bill: string;
   readonly line: string;
+  /** Kept in the registry: the section's quantity foot it named is gone (I-529). */
   readonly subtotal: string;
   readonly export: string;
   /** The two quantity channels beside the primary, and the link a press hands back (R-TO-070). */
@@ -121,6 +153,8 @@ export interface BoqTestIds {
   readonly draft: string;
   readonly jobs: string;
   readonly documentLink: string;
+  /** The closing section that says what the draft does not measure (I-451, I-532). */
+  readonly notMeasured?: string;
 }
 
 /** The registry's spellings, as this screen falls back to them when a caller hands none. */
@@ -141,6 +175,7 @@ const DEFAULT_TEST_IDS: BoqTestIds = Object.freeze({
   draft: "boq-draft",
   jobs: "boq-jobs",
   documentLink: "boq-document-link",
+  notMeasured: "boq-not-measured",
 });
 
 /** The shipped renderers the app layer injects (I-170), each declared by the props this screen hands it. */
@@ -152,12 +187,7 @@ export interface BoqChrome {
     data: BoqRow[];
     getRowId: (row: BoqRow, index: number) => string;
     freezeKeyColumn?: boolean;
-    group?: {
-      of: (row: BoqRow) => { key: string; label: string } | null;
-      valueOf?: (row: BoqRow) => string | null;
-      unitOf?: (row: BoqRow) => string;
-      showCount?: boolean;
-    };
+    group?: BoqGroup;
     rowDataOf?: (row: BoqRow, rowId: string) => Readonly<Record<string, string>>;
     rowTestId?: string;
     loading?: boolean;
@@ -244,10 +274,7 @@ const PERMISSION_NOT_HELD = "PERMISSION_NOT_HELD";
 /** The permission the one door on this screen moves (L-ACT-03). */
 const MEASURE = "MEASURE";
 
-/** The foot's scope: what was measured, and never more than that (L-QTY-04). */
-const MEASURED = "MEASURED";
-
-/** What a line says about what it could not measure (L-QTY-02). */
+/** What an item says when every line behind it measured whole (L-QTY-02). */
 const COMPLETE = "COMPLETE";
 
 /** The standing an unsigned draft carries, said once and in words (AM-05). */
@@ -259,6 +286,31 @@ const CSV = "csv";
 
 /** What parts a taxonomy version's family from its edition: `bill-taxonomy/2026-09-16`. */
 const VERSION_EDITION = "/";
+
+/**
+ * The widths the six fixed columns are read at (§1's column table), and the least the Description
+ * column is read at. The Description takes whatever the grid's band leaves (C9's BOQ half: the
+ * description takes the slack), measured the s-bbs way — a band left empty after Coverage was the
+ * craft review's finding, and an item's description is the longest thing on the row.
+ */
+const WIDTH = Object.freeze({ item: 96, level: 120, quantity: 140, unit: 80, basis: 240, coverage: 112 });
+const DESCRIPTION_MIN = 320;
+/** What the fixed six take together. */
+const FIXED_WIDTH = Object.values(WIDTH).reduce((sum, width) => sum + width, 0);
+/**
+ * What the band keeps clear at its trailing edge: the DataTable's `⋯` over the header's last
+ * `--row-h`, the last column's resize target beside it, and a vertical scroller (s-bbs's own 40).
+ */
+const TRAILING_ALLOWANCE = 40;
+/** Widths stay on the 4 px grid the rest of the screen stands on (§1). */
+const GRID_STEP = 4;
+
+/** The Description column's width: what the band leaves once the six fixed columns have theirs. */
+function descriptionWidthOf(gridWidth: number | null): number {
+  if (gridWidth === null) return DESCRIPTION_MIN;
+  const left = gridWidth - FIXED_WIDTH - TRAILING_ALLOWANCE;
+  return Math.max(DESCRIPTION_MIN, Math.floor(left / GRID_STEP) * GRID_STEP);
+}
 
 /**
  * The short form a taxonomy version is SHOWN by: its edition — what follows the family's `/` — which
@@ -350,41 +402,76 @@ function InPlace({ children }: { children: ReactNode }): ReactNode {
 
 /* ------------------------------------------------------------------------------- the reading */
 
-/** What a line's member is found by, and what it left out, off the readings beside the payload. */
-function besideOf(lineId: string, readings: LineReadings): Pick<BoqRow, "mark" | "slot" | "omitted"> {
-  const facts = readings.lineFacts?.get(lineId);
-  return { mark: facts?.mark ?? null, slot: facts?.slot ?? null, omitted: readings.omissions?.get(lineId) ?? [] };
+/** The codes an item's members gave for what they could not measure, once each, in their order. */
+function omittedOfItem(item: BoqDraftItem): string[] {
+  return [...new Set(item.lines.flatMap((line) => (line.quantity === null ? (line.omitted ?? []) : [])))];
 }
 
-/** Every row of one section, in the payload's own order — which is the order it was numbered in. */
-function rowsOf(section: BoqDraftSection, items: ReadonlyMap<string, string>, descriptions: GroupDescriptions | undefined, readings: LineReadings): BoqRow[] {
+/**
+ * Every row of one section: its items, in the payload's own order — which is the order they were
+ * numbered in (I-269). Each item carries its group's heading, so the grid's group row reads the trade
+ * and the row reads the description.
+ */
+function rowsOf(section: BoqDraftSection, items: ReadonlyMap<string, string>, descriptions: GroupDescriptions | undefined): BoqRow[] {
   return section.groups.flatMap((group) =>
-    group.lines.map((line) => ({
-      ...line,
-      bill: section.bill,
-      class: group.class,
-      kind: group.kind,
-      description: group.description,
-      descriptionBasis: descriptions?.get(groupKeyOf(group.class, group.kind))?.basis ?? DEFAULTED,
-      item: items.get(line.lineId) ?? null,
-      reason: null,
-      ...besideOf(line.lineId, readings),
-    })),
+    group.items.map((item) => {
+      const omitted = omittedOfItem(item);
+      const measured = item.lines.filter((line) => line.quantity !== null).length;
+      return {
+        key: item.key,
+        bill: section.bill,
+        class: group.class,
+        kind: group.kind,
+        heading: descriptionOf(group.class, group.kind),
+        description: item.description,
+        descriptionBasis: descriptions?.get(groupKeyOf(group.class, group.kind))?.basis ?? DEFAULTED,
+        item: items.get(item.key) ?? null,
+        reason: null,
+        level: item.level,
+        slot: item.slot ?? null,
+        levelOrdinal: item.levelOrdinal ?? null,
+        quantity: item.quantity,
+        unit: item.unit,
+        coverage: item.coverage,
+        quantityBasis: item.quantityBasis,
+        selectionBasis: item.selectionBasis,
+        decidedBy: item.lines[0]?.decidedBy ?? "",
+        members: item.lines.length,
+        qualifier: groupQualifier(measured, item.lines.length, omitted),
+        omitted,
+        lineId: null,
+      };
+    }),
   );
 }
 
 /** Every row the taxonomy could not place, kept and labelled after the six sections (I-266). */
-function unclassifiedRowsOf(payload: BoqDraftPayload, readings: LineReadings): BoqRow[] {
+function unclassifiedRowsOf(payload: BoqDraftPayload): BoqRow[] {
   return payload.unclassified.lines.map((line) => ({
-    ...line,
+    key: line.lineId,
     bill: UNCLASSIFIED,
-    description: `${line.class} · ${line.kind}`,
+    class: line.class,
+    kind: line.kind,
+    heading: descriptionOf(line.class, line.kind),
     // A line the taxonomy could not place is billed under nothing, so nothing was ever chosen for
     // it: its description is the plain one, and it says so (L-BD-08, I-266).
+    description: descriptionOf(line.class, line.kind),
     descriptionBasis: DEFAULTED,
     item: null,
     reason: line.reason,
-    ...besideOf(line.lineId, readings),
+    level: line.level,
+    slot: line.slot ?? null,
+    levelOrdinal: line.levelOrdinal ?? null,
+    quantity: line.quantity,
+    unit: line.unit,
+    coverage: line.coverage,
+    quantityBasis: line.quantityBasis,
+    selectionBasis: line.selectionBasis,
+    decidedBy: line.decidedBy,
+    members: 1,
+    qualifier: "",
+    omitted: line.quantity === null ? [...new Set(line.omitted ?? [])] : [],
+    lineId: line.lineId,
   }));
 }
 
@@ -402,7 +489,6 @@ function reasonInWords(reason: string | null): string {
 /** What one row publishes of its own — §7's closed attribute contract, spelled once. */
 function rowDataOf(row: BoqRow): Record<string, string> {
   const data: Record<string, string> = {
-    "data-line": row.lineId,
     "data-bill": row.bill,
     "data-group": `${row.class}:${row.kind}`,
     "data-class": row.class,
@@ -413,16 +499,19 @@ function rowDataOf(row: BoqRow): Record<string, string> {
     "data-quantity-basis": row.quantityBasis,
     "data-selection-basis": row.selectionBasis,
     "data-decided-by": row.decidedBy,
-    // Where this line's group description came from (I-298): a reader sees the sentence on the group
-    // row above, and a suite reads the basis off the line itself.
+    // Where this item's description came from (I-298): a suite reads the basis off the row itself.
     "data-description-basis": row.descriptionBasis,
+    // How many member lines the item was summed from — its details of measurement (I-528).
+    "data-members": String(row.members),
   };
-  if (row.levelOrdinal !== null && row.levelOrdinal !== undefined) data["data-ordinal"] = String(row.levelOrdinal);
+  if (row.levelOrdinal !== null) data["data-ordinal"] = String(row.levelOrdinal);
   if (row.item !== null) data["data-item"] = row.item;
-  // A line that declared what it could not measure states NO figure — never a zero, and never an
-  // attribute holding one (L-QTY-02).
+  // A row that states no figure carries none — never a zero, and never an attribute holding one
+  // (L-QTY-02).
   if (row.quantity !== null) data["data-quantity"] = row.quantity;
   if (row.reason !== null) data["data-reason"] = row.reason;
+  // A kept line is one register line, so it says which; an item is many and says how many.
+  if (row.lineId !== null) data["data-line"] = row.lineId;
   return data;
 }
 
@@ -518,13 +607,32 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
 
   /* --- the sections: one grid each, in BILLS order, then the unclassified block (I-266) --- */
   const sections = useMemo(() => payload?.sections ?? [], [payload]);
-  const readings = useMemo<LineReadings>(() => ({ lineFacts: view?.lineFacts, omissions: view?.omissions }), [view?.lineFacts, view?.omissions]);
-  const unclassified = useMemo(() => (payload === null ? [] : unclassifiedRowsOf(payload, readings)), [payload, readings]);
+  const unclassified = useMemo(() => (payload === null ? [] : unclassifiedRowsOf(payload)), [payload]);
 
   /**
-   * Why a line states no figure, in the registry's own words — each code it omitted, once (L-QTY-02,
-   * R-UI-020). Read through the one lookup a refusal's words come from; a code the registry does not
-   * hold says nothing rather than itself (R-UI-082).
+   * The width the grid's band is READ at, so the Description column can take what the six fixed
+   * columns leave (§1 column 2: "remainder, min 320"). Before the box is measured — the server's
+   * paint, a suite without layout — the column stands at its minimum; measuring only ever widens it.
+   */
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [gridWidth, setGridWidth] = useState<number | null>(null);
+  const drawsGrid = state !== "loading" && state !== "error" && !nothingPublished(view);
+  useLayoutEffect(() => {
+    const box = gridRef.current;
+    if (box === null) return;
+    const measure = (): void => setGridWidth(box.clientWidth > 0 ? box.clientWidth : null);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(measure);
+    watch.observe(box);
+    return () => watch.disconnect();
+  }, [drawsGrid]);
+  const descriptionWidth = descriptionWidthOf(gridWidth);
+
+  /**
+   * Why an item states no figure, in the registry's own words — each code its members omitted, once
+   * (L-QTY-02, R-UI-020). Read through the one lookup a refusal's words come from; a code the
+   * registry does not hold says nothing rather than itself (R-UI-082).
    */
   const refusalOf = doors.refusalOf;
   const reasonsOf = useCallback(
@@ -537,24 +645,33 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
   );
 
   const columns = useMemo(
-    () => boqColumns({ BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip }, false, reasonsOf),
-    [BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip, reasonsOf],
+    () => boqColumns({ BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip }, false, reasonsOf, descriptionWidth),
+    [BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip, reasonsOf, descriptionWidth],
   );
   const unclassifiedColumns = useMemo(
-    () => boqColumns({ BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip }, true, reasonsOf),
-    [BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip, reasonsOf],
+    () => boqColumns({ BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip }, true, reasonsOf, descriptionWidth),
+    [BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip, reasonsOf, descriptionWidth],
   );
 
-  const group = useMemo(
-    () => ({
-      of: (row: BoqRow) => ({ key: `${row.class}:${row.kind}`, label: row.description }),
-      valueOf: (row: BoqRow) => row.quantity,
-      unitOf: (row: BoqRow) => row.unit,
-      // s-boq §1: a group row carries "no parenthesised count"; its sum stands in the Quantity and
-      // Unit cells the columns below mark (primitives-data I-356).
-      showCount: false,
-    }),
-    [],
+  // A group row names the TRADE its items stand under and states no figure: its items are several
+  // descriptions, and no quantity subtotal crosses descriptions (I-529). No count either —
+  // §1: "no parenthesised count".
+  // `valueOf` is stated, and states nothing, so the shipped table sums nothing under the heading.
+  const group = useMemo<BoqGroup>(() => ({ of: (row: BoqRow) => ({ key: `${row.class}:${row.kind}`, label: row.heading }), valueOf: () => null, showCount: false }), []);
+
+  /**
+   * What the draft does not measure, in the same words the document closes on (I-451, I-532):
+   * each row of the measurement statement, what it is ABOUT (`notMeasuredAbout`, the document's own
+   * rule), over which levels, and why — the registry's own sentence through the one lookup.
+   */
+  const leftOut = useMemo(
+    () =>
+      (payload?.notMeasured ?? []).map((row) => ({
+        about: notMeasuredAbout(row),
+        levels: row.levels,
+        why: refusalOf?.(row.cause)?.message ?? inWords(row.cause),
+      })),
+    [payload, refusalOf],
   );
 
   const denial = denied ? (doors.refusalOf?.(PERMISSION_NOT_HELD) ?? null) : null;
@@ -668,6 +785,11 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
     ],
   );
 
+  // The empty state teaches from WHERE the reader is (walk-0): with no campaign pinned, the chain
+  // starts at the drawing sets; with a campaign pinned that published nothing, Measure ran and could
+  // not measure, and the register's Deferred and refused list names why — so that is where it leads.
+  const pinned = view !== null && view.campaignId !== null;
+
   return (
     <div
       className="cx-boq"
@@ -728,7 +850,7 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
             tableId="s-boq-loading"
             columns={columns}
             data={[]}
-            getRowId={(row) => row.lineId}
+            getRowId={(row) => row.key}
             freezeKeyColumn
             loading
             loadingRows={8}
@@ -745,28 +867,39 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
           onRetry={doors.retry}
         />
       ) : nothingPublished(view) ? (
-        <EmptyState className="cx-boq-empty" data-testid={ids.empty} heading={BOQ_COPY.boq_empty_heading} body={BOQ_COPY.boq_empty_body}>
-          {/* The one thing to do about an empty draft, and it leads where its own word says: a draft
-              is read from a pinned campaign, so the chain starts at the drawing sets — the address
-              and the word S-Coverage and the register already pair (R-UI-050, B-17). */}
-          <a className="cx-btn cx-reticle cx-boq-empty-action" data-variant="primary" href={setsHref(tenantId, projectId)}>
-            {BOQ_COPY.boq_empty_action}
-          </a>
-        </EmptyState>
+        pinned ? (
+          <EmptyState className="cx-boq-empty" data-testid={ids.empty} heading={BOQ_COPY.boq_empty_unmeasured_heading} body={BOQ_COPY.boq_empty_unmeasured_body}>
+            {/* A pinned campaign that published nothing: Measure ran and could not measure. The
+                register's Deferred and refused list names each reason and its fix (MEASURE-REFUSE),
+                so the one action leads there, under the words this screen already says it in. */}
+            <a className="cx-btn cx-reticle cx-boq-empty-action" data-variant="primary" href={registerHref(tenantId, projectId)}>
+              {BOQ_COPY.boq_register_link}
+            </a>
+          </EmptyState>
+        ) : (
+          <EmptyState className="cx-boq-empty" data-testid={ids.empty} heading={BOQ_COPY.boq_empty_heading} body={BOQ_COPY.boq_empty_body}>
+            {/* No campaign pinned: a draft is read from a pinned campaign, so the chain starts at the
+                drawing sets — the address and the word S-Coverage and the register already pair
+                (R-UI-050, B-17). */}
+            <a className="cx-btn cx-reticle cx-boq-empty-action" data-variant="primary" href={setsHref(tenantId, projectId)}>
+              {BOQ_COPY.boq_empty_action}
+            </a>
+          </EmptyState>
+        )
       ) : (
         <>
-          {/* I-268: the one status line that says why no figure is stated for the project. Silence
-              about a missing figure would be the silence R-UI-020 forbids. */}
+          {/* I-268: the one status line — how an item's figure is made, and why no figure is stated
+              for the project. Silence about a missing figure would be the silence R-UI-020 forbids. */}
           <p className="cx-boq-status" role="status">
             {view?.coverage === COMPLETE ? BOQ_COPY.boq_coverage_complete : BOQ_COPY.boq_coverage_incomplete}
           </p>
 
-          <div className="cx-boq-grid" data-testid={ids.grid} aria-label={BOQ_COPY.boq_grid_label} data-rows-rendered={countOf(payload)}>
+          <div className="cx-boq-grid" data-testid={ids.grid} aria-label={BOQ_COPY.boq_grid_label} data-rows-rendered={countOf(payload)} ref={gridRef}>
             {sections.map((section) => {
-              const rows = rowsOf(section, items, view?.descriptions, readings);
+              const rows = rowsOf(section, items, view?.descriptions);
               // S is the section's ordinal among L-BD-08's SIX, never its position among the sections
               // this campaign happens to fill — the same S the item numbers carry, so a heading and the
-              // lines beneath it can never state two different sections (AM-14 §2, I-269).
+              // items beneath it can never state two different sections (AM-14 §2, I-269).
               const ordinal = (BILLS as readonly string[]).indexOf(section.bill) + 1;
               return (
                 <section
@@ -781,36 +914,19 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
                     <span className="cx-boq-bill-ordinal">{ordinal}</span>
                     {BOQ_SECTION_WORDS[section.bill] ?? section.label}
                   </h2>
+                  {/* The section states no quantity of its own: its items are unlike descriptions,
+                      and each item is its own figure (I-529). */}
                   <DataTable
                     tableId={`s-boq-${section.bill}`}
                     columns={columns}
                     data={rows}
-                    getRowId={(row) => row.lineId}
+                    getRowId={(row) => row.key}
                     freezeKeyColumn
                     group={group}
                     rowDataOf={rowDataOf}
                     rowTestId={ids.line}
                     aria-label={`${BOQ_SECTION_WORDS[section.bill] ?? section.label} — ${BOQ_COPY.boq_grid_label}`}
                   />
-                  {/* The section's foot: one row per unit, under the one label incomplete coverage
-                      allows. Cubic metres and square metres are never added together (L-QTY-04). */}
-                  <div className="cx-boq-foot">
-                    {section.subtotals.map((subtotal) => (
-                      <div
-                        key={subtotal.unit}
-                        className="cx-boq-subtotal"
-                        data-testid={ids.subtotal}
-                        data-bill={section.bill}
-                        data-unit={subtotal.unit}
-                        data-quantity={subtotal.value}
-                        data-scope={MEASURED}
-                      >
-                        <span className="cx-boq-subtotal-label">{BOQ_COPY.boq_subtotal_measured}</span>
-                        <span className="cx-boq-subtotal-figure">{formatUserFigure(subtotal.value)}</span>
-                        <UnitBadge unit={subtotal.unit} />
-                      </div>
-                    ))}
-                  </div>
                 </section>
               );
             })}
@@ -824,20 +940,38 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
               >
                 <h2 className="cx-boq-bill-heading">{BOQ_COPY.boq_section_unclassified}</h2>
                 {/* A KEPT LINE IS STILL A LINE (L-BD-08, I-266). It is published, it is measured and
-                    it is read here — so it carries this screen's line identity like any other, and a
-                    reader (or a suite) that asks a section for its lines is answered by every line
+                    it is read here — so it carries this screen's row identity like any other, and a
+                    reader (or a suite) that asks a section for its rows is answered by every line
                     standing in it. What it does NOT carry is an item number: numbering is the six
                     sections', and a number here would make the kept block a seventh (I-267). */}
                 <DataTable
                   tableId="s-boq-unclassified"
                   columns={unclassifiedColumns}
                   data={unclassified}
-                  getRowId={(row) => row.lineId}
+                  getRowId={(row) => row.key}
                   freezeKeyColumn
                   rowDataOf={rowDataOf}
                   rowTestId={ids.line}
                   aria-label={`${BOQ_COPY.boq_section_unclassified} — ${BOQ_COPY.boq_grid_label}`}
                 />
+              </section>
+            )}
+
+            {/* The draft closes on what it does not measure — the same statement the document's
+                closing page and the workbook's sheet state (I-451, I-532). Absent where the
+                draft left nothing out: a heading over nothing would be a claim with no content. */}
+            {leftOut.length === 0 ? null : (
+              <section className="cx-boq-left-out" data-testid={ids.notMeasured ?? DEFAULT_TEST_IDS.notMeasured}>
+                <h2 className="cx-boq-bill-heading">{BOQ_COPY.boq_not_measured_heading}</h2>
+                <ul className="cx-boq-left-out-list">
+                  {leftOut.map((row) => (
+                    <li key={`${row.about}\u0000${row.levels}\u0000${row.why}`} className="cx-boq-left-out-row">
+                      <span className="cx-boq-left-out-about">{row.about}</span>
+                      {row.levels === "" ? null : <span className="cx-boq-left-out-levels">{row.levels}</span>}
+                      <span className="cx-boq-left-out-why">{row.why}</span>
+                    </li>
+                  ))}
+                </ul>
               </section>
             )}
           </div>
@@ -847,10 +981,10 @@ export function BoqWorkspace(props: BoqWorkspaceProps) {
   );
 }
 
-/** How many lines the draft is drawing, over every section it renders. */
+/** How many rows the draft is drawing, over every section it renders: its items and its kept lines. */
 function countOf(payload: BoqDraftPayload | null): string {
   if (payload === null) return "0";
-  const inSections = payload.sections.reduce((sum, section) => sum + section.groups.reduce((held, group) => held + group.lines.length, 0), 0);
+  const inSections = payload.sections.reduce((sum, section) => sum + section.groups.reduce((held, group) => held + group.items.length, 0), 0);
   return String(inSections + payload.unclassified.lines.length);
 }
 
@@ -862,20 +996,21 @@ function codeOf(thrown: unknown): string | null {
 
 /**
  * The seven columns, left to right, at the widths the Decision §1 reads them at. The first column is
- * the frozen key: the item number on a numbered line, and the reason in words on a row outside
- * `BILLS`, which has no number to show and may not be given one (I-267).
+ * the frozen key: the item number on an item, and the reason in words on a row outside `BILLS`, which
+ * has no number to show and may not be given one (I-267).
  */
 function boqColumns(
   chrome: Pick<BoqChrome, "BasisChip" | "CoverageChip" | "EnumLabel" | "UnitBadge" | "Tooltip">,
   unplaced: boolean,
   reasonsOf: (row: BoqRow) => readonly string[],
+  descriptionWidth: number,
 ): BoqColumn[] {
   const { BasisChip, CoverageChip, EnumLabel, UnitBadge, Tooltip } = chrome;
   return [
     {
       id: "item",
       header: BOQ_COPY.boq_col_item,
-      size: 96,
+      size: WIDTH.item,
       meta: unplaced ? undefined : { align: "right" },
       accessorFn: (row) => row.item ?? "",
       cell: ({ row }) =>
@@ -888,37 +1023,30 @@ function boqColumns(
     {
       id: "description",
       header: BOQ_COPY.boq_col_description,
-      size: 320,
+      // The Description takes the slack (C9's BOQ half): an item's description is the longest thing
+      // on its row, and a band left empty after Coverage read as a grid that did not know its width.
+      size: descriptionWidth,
       accessorFn: (row) => row.description,
-      // The kind is said WITHOUT its chapter, which is the rule the document prints it by and the
-      // words the group row above already reads: `Column · Concrete`, never `Column · Rcc.concrete`.
-      // The rule is the DOCUMENT's own `inWords` — one home, never a second stripping beside it —
-      // and it is handed in through the primitive's `label` seam, so the value the primitive knows
-      // stays the catalogue's real key and `data-technical` keeps disclosing a key that exists
-      // (§1 column 2, §7's raw-enum rule, B-17).
-      // `data-description-basis` says WHERE the group's description came from, on every line under
-      // it, so a reader and a suite read one answer off one row (I-298). The words themselves stay
-      // the group row's: a line repeats its class and trade, never the sentence above it.
-      // The member's MARK follows, muted and in mono (I-boq-1): twenty lines of one group read the same
-      // words, and the mark is what tells a reader which pile cap an item number points at.
+      // The item's full description, in the words the document prints it in — the group's sentence,
+      // the member and what selects it (I-528). Where not every member line behind it states
+      // a figure, the qualification follows, muted: how much the figure covers and why (I-450).
+      // `data-description-basis` says WHERE the sentence came from (I-298). The shipped cell carries
+      // the whole text as its tooltip wherever the column clips it (§5 rule 2).
       cell: ({ row }) => (
         <span className="cx-boq-description" data-description-basis={row.original.descriptionBasis}>
-          <EnumLabel value={row.original.class} label={inWords(row.original.class)} className="cx-boq-enum" />
-          <span className="cx-boq-separator">{" · "}</span>
-          <EnumLabel value={row.original.kind} label={inWords(row.original.kind)} className="cx-boq-enum" />
-          {row.original.mark === null || row.original.mark === "" ? null : <span className="cx-boq-mark">{row.original.mark}</span>}
+          <span className="cx-boq-description-text">{row.original.description}</span>
+          {row.original.qualifier === "" ? null : <span className="cx-boq-qualifier">({row.original.qualifier})</span>}
         </span>
       ),
     },
     {
       id: "level",
       header: BOQ_COPY.boq_col_level,
-      size: 120,
+      size: WIDTH.level,
       accessorFn: (row) => (row.level !== "" ? row.level : (row.slot ?? "")),
-      // The level label verbatim; where the line stands on no level of the stack, the lawful-null
-      // slot the register placed its member in, as words — never an empty cell (I-boq-1, R-UI-020).
-      // The label is model data and reads in mono; the slot is an enum said in WORDS, so it keeps
-      // the interface's face — only its muted ink is the level column's (R-UI-085, I-355).
+      // The storey an item is priced at, verbatim; where it has no band, the levels its members stand
+      // on — and where they stand on no level at all, the lawful-null slot as WORDS through EnumLabel,
+      // never an empty cell (I-boq-1, I-355, R-UI-085).
       cell: ({ row }) =>
         row.original.level !== "" || row.original.slot === null ? (
           <span className="cx-boq-level">{row.original.level}</span>
@@ -929,13 +1057,13 @@ function boqColumns(
     {
       id: "quantity",
       header: BOQ_COPY.boq_col_quantity,
-      size: 140,
-      meta: { align: "right", groupSubtotal: "value" },
+      size: WIDTH.quantity,
+      meta: { align: "right" },
       accessorFn: (row) => row.quantity ?? "",
-      // I-271: the figure a reader reads is the figure the document prints — already rounded at the
-      // kind's own precision by the emission, grouped as the document groups one (L-FMT-01). A line
-      // that declared what it could not measure states NO figure, and says so in words, with the
-      // registry's own reasons a hover or a focus away (L-QTY-02, R-UI-020, I-boq-1).
+      // I-271: the figure a reader reads is the figure the document prints — the register's sum of
+      // the item's members, rounded once by the emission (I-528), grouped as the document
+      // groups one (L-FMT-01). An item none of whose members states a figure states NO figure, and
+      // says so in words, with the registry's own reasons a hover or a focus away (R-UI-020).
       cell: ({ row }) => {
         if (row.original.quantity !== null) return <span className="cx-boq-figure">{formatUserFigure(row.original.quantity)}</span>;
         const said = <span className="cx-boq-unmeasured">{BOQ_COPY.boq_quantity_unmeasured}</span>;
@@ -946,8 +1074,7 @@ function boqColumns(
     {
       id: "unit",
       header: BOQ_COPY.boq_col_unit,
-      size: 80,
-      meta: { groupSubtotal: "unit" },
+      size: WIDTH.unit,
       accessorFn: (row) => row.unit,
       cell: ({ row }) => <UnitBadge unit={row.original.unit} />,
     },
@@ -956,10 +1083,11 @@ function boqColumns(
       header: BOQ_COPY.boq_col_basis,
       // Wide enough for the PAIR at its longest — `Measured` beside `Transcribed` — because §6
       // promises a basis is a glyph AND a word, and a column that cuts the second chip mid-word
-      // keeps neither. The row has the room: the seven columns still leave the grid slack.
-      size: 240,
+      // keeps neither.
+      size: WIDTH.basis,
       // I-25's pair, in the order it is read: how the quantity was got, then how the object was
-      // selected. Each wears R-UI-002's glyph AND its word, so neither carries meaning by colour.
+      // selected — each the weakest over the item's members (L-QTY-01's roll-up). Each wears R-UI-002's
+      // glyph AND its word, so neither carries meaning by colour.
       cell: ({ row }) => (
         <span className="cx-boq-bases">
           <BasisChip basis={row.original.quantityBasis as QuantityBasis} />
@@ -970,12 +1098,12 @@ function boqColumns(
     {
       id: "coverage",
       header: BOQ_COPY.boq_col_coverage,
-      size: 112,
+      size: WIDTH.coverage,
       meta: { align: "right" },
       accessorFn: (row) => row.coverage,
-      // A COMPLETE line is wholly measured and its chip says 100 %. A partly declared line has no
-      // measured fraction anybody stated, so it wears its standing in WORDS rather than a 0 % the
-      // chip would invent (L-QTY-07, I-271, I-boq-1).
+      // An item every member of which measured whole is COMPLETE and its chip says 100 %. An item with
+      // a partly declared member has no measured fraction anybody stated, so it wears its standing in
+      // WORDS rather than a percentage the chip would invent (L-QTY-07, I-271, I-boq-1).
       cell: ({ row }) =>
         row.original.coverage === COMPLETE ? (
           <CoverageChip value={1} />

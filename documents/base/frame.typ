@@ -97,11 +97,15 @@
 /// are set as content, never spliced into markup, because nothing in this product builds a template
 /// out of a payload (L-FMT-03).
 ///
-/// The two optional parameters are the draft BOQ's and default to what every document already did:
+/// The optional parameters are the draft BOQ's and default to what every document already did:
 /// `facts` adds the "stated under" block below the title, and `draft-every-page` moves the unsigned
-/// banner from the first page's flow into the running header, where it stands on every leaf. A
-/// document that passes neither is set exactly as it was before they existed.
-#let document-frame(title: "", subtitle: "", facts: (), draft-every-page: false, body) = {
+/// banner from the first page's flow into the running header, where it stands on every leaf.
+/// `footer-note` puts what the paper IS in the running footer in place of the product's name — the
+/// project, the document and the day it was issued, so a page read on its own still says what it is a
+/// page of — and `watermarked: false` leaves the page's background bare where every figure on it must
+/// read against clean paper (s-boq I-530). A document that passes none of them is set exactly
+/// as it was before they existed.
+#let document-frame(title: "", subtitle: "", facts: (), draft-every-page: false, footer-note: "", watermarked: true, body) = {
   set document(title: title, author: "Vextrus Cubit")
   set page(
     paper: "a4",
@@ -109,14 +113,14 @@
     // The running banner stands in the top margin, so a page that carries one is given the room for
     // it: a header drawn into a 22 mm margin would print over the first row of the body.
     margin: (top: if draft-every-page { 30mm } else { 22mm }, bottom: 20mm, x: 18mm),
-    background: watermark(),
+    background: if watermarked { watermark() } else { none },
     header: if draft-every-page { running-draft-banner() } else { none },
     footer: context [
       #set text(size: 8pt, fill: quiet, font: body-face)
       #grid(
         columns: (1fr, auto),
         align: (left, right),
-        [Vextrus Cubit],
+        if footer-note == "" [Vextrus Cubit] else [#footer-note],
         [#counter(page).display("1") / #counter(page).final().first()],
       )
     ],

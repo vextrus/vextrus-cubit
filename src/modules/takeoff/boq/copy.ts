@@ -21,13 +21,14 @@ export const BOQ_COPY = {
   boq_export_quantities: "Quantities",
   boq_export_format_xlsx: "XLSX",
   boq_export_format_csv: "CSV",
-  boq_export_xlsx_hint: "Download every published line with its bases and formula as a workbook with live formulas.",
+  boq_export_xlsx_hint: "Download the items, and every line behind them with its bases and formula, as a workbook with live formulas.",
   boq_export_csv_hint: "Download the Quantities sheet as CSV.",
   boq_export_link: "Save the file",
+  // How an item's figure is made, and why no figure is stated for the project (I-268, I-528).
   boq_coverage_incomplete:
-    "Coverage is incomplete, so each section states a measured-scope subtotal over what was measured, and no figure is stated for the project.",
-  boq_coverage_complete: "Every section states a measured-scope subtotal over what was measured.",
-  boq_grid_label: "Draft lines by section",
+    "Each item is the register's sum for its description, rounded once. Coverage is incomplete: what this draft does not measure is listed where it closes, and no figure is stated for the project.",
+  boq_coverage_complete: "Each item is the register's sum for its description, rounded once.",
+  boq_grid_label: "Draft items by section",
   boq_col_item: "Item",
   boq_col_description: "Description",
   boq_col_level: "Level",
@@ -44,7 +45,7 @@ export const BOQ_COPY = {
   boq_section_plumbing: "Plumbing",
   boq_section_external: "External",
   boq_section_unclassified: "Unclassified",
-  boq_subtotal_measured: "Measured-scope subtotal",
+  boq_not_measured_heading: "Not measured in this draft",
   boq_provisional_sum: "Provisional sum",
   boq_reason_no_taxonomy_row: "No taxonomy row places this kind.",
   boq_reason_level_not_in_stack: "This line's level is not in the level stack.",
@@ -54,6 +55,12 @@ export const BOQ_COPY = {
   boq_empty_body:
     "A draft lists every published line of the pinned campaign, grouped into sections by the project's taxonomy. Pin a drawing set revision, measure from the takeoff register, and the sections appear here.",
   boq_empty_action: "Browse drawing sets",
+  // A campaign is pinned and Measure published nothing: the empty state leads where the reason is —
+  // the register's Deferred and refused list, which names each sheet with no scale of record and
+  // each storey with no height, with a door to each fix (MEASURE-REFUSE, walk-0).
+  boq_empty_unmeasured_heading: "Nothing measured yet",
+  boq_empty_unmeasured_body:
+    "Measure has published no line for the pinned campaign. The takeoff register lists what it deferred and why — a sheet with no scale of record, a storey with no height — and links to each fix.",
   boq_register_link: "Go to the takeoff register",
   boq_error_heading: "The draft could not be read",
   boq_error_body: "Nothing was changed. Try again, and quote the report id if it keeps happening.",

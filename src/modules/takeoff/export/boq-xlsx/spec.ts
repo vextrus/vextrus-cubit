@@ -1,36 +1,56 @@
 // A-BOQ-XLSX as a VALUE: the draft a campaign published, composed into the sheet spec the one export
 // seam writes (A-BOQ-XLSX, R-TO-070, AM-05, AM-14 §2, AM-16, L-BD-08, L-FMT-01).
 //
-// PURE, AND IT RE-DERIVES NOTHING. The figures are the draft payload's — already rounded once, at the
-// edge, by the emission (L-MEA-05) — and the item numbers are the document's own `numberItems`
-// (I-269): a workbook that re-rounded a quantity or re-numbered a line would be a second draft of the
-// same campaign. Nothing here names a spreadsheet library: the seam is the one caller (R-SPINE-041),
-// and what this file answers is a `WorkbookSpec`, which is data.
+// PURE, AND IT RE-DERIVES NOTHING. The figures are the draft payload's — each item the register's sum
+// of its member lines rounded once, each member line its own register figure rounded once, both by
+// the emission (L-MEA-05, s-boq I-528) — and the item numbers are the document's own
+// `numberItems` (I-269): a workbook that re-rounded a quantity or re-numbered an item would be a second
+// draft of the same campaign. Nothing here names a spreadsheet library: the seam is the one caller
+// (R-SPINE-041), and what this file answers is a `WorkbookSpec`, which is data.
 //
-// UNPRICED, AND IT SAYS SO (AM-05 §2, I-274). The Summary stamps `DRAFT — UNSIGNED` and the taxonomy
-// the sections were resolved under; every Rate is empty and every Amount is the LIVE formula that
-// stays empty until somebody prices the line, so no figure nobody stated ever appears in a cell.
+// THE SHAPE THE OWNER RULED. A section sheet reads like a bill: a group row naming each trade, then one
+// priced ITEM per description under it, and no quantity added across descriptions — no foot, no
+// group figure (I-529). The member lines behind each item stand on the Quantities sheet, each
+// carrying the number of the item it is summed into, with the mark, grid, nos, dimensions and sheet a
+// checker finds it by: the details of measurement, as rows a spreadsheet can filter.
+//
+// UNPRICED, AND IT SAYS SO (AM-05 §2, I-274). The Summary stamps `DRAFT — UNSIGNED` and states the
+// project in words; every Rate is empty and every Amount is the LIVE formula that stays empty until
+// somebody prices the item, so no figure nobody stated ever appears in a cell.
 //
 // THE RESERVED WORD APPEARS NOWHERE A READER LOOKS (AM-05, I-265, I-273). A-BOQ-XLSX's "bill sheets"
 // are SECTION sheets, named by the section's ordinal among L-BD-08's six and its own label.
 //
-// WHERE NO FIGURE STANDS, THE CELL SAYS SO (I-450). A line that declared what it could not measure
-// reads `Not measured — <its reasons in words>` in its Quantity cell — the words the PDF prints, from
-// the one spelling of them — and a foot over a unit nothing was measured in reads `Not measured`,
-// never the zero a SUMIF over no figure comes to. What the draft published no line for stands on its
-// own `Not measured` sheet, the PDF's closing block as rows (I-451).
-import { lineReasonsOf, notMeasuredScopeOf, type BoqDraftGroup, type BoqDraftLine, type BoqDraftPayload, type BoqDraftSection } from "@/core/documents/kinds/boq-draft";
+// WHERE NO FIGURE STANDS, THE CELL SAYS SO (I-450). An item or a line that states no figure reads
+// `Not measured — <its reasons in words>` in its Quantity cell — the words the PDF prints, from the
+// one spelling of them. What the draft published no line for stands on its own `Not measured` sheet,
+// the PDF's closing page as rows (I-451).
+import {
+  draftLinesOf,
+  itemQualifierOf,
+  lineReasonsOf,
+  notMeasuredScopeOf,
+  type BoqDraftItem,
+  type BoqDraftLine,
+  type BoqDraftPayload,
+  type BoqDraftSection,
+} from "@/core/documents/kinds/boq-draft";
 import {
   BOQ_DRAFT_TITLE,
   BOQ_SECTIONS,
+  COVERAGE_WORDS,
   DRAFT_BANNER,
+  FRONT_LABELS,
   LINE_REASONS_HEADING,
-  MEASURED_SCOPE_SUBTOTAL,
   NOT_MEASURED,
   NOT_MEASURED_SCOPE_HEADING,
+  NOT_STATED,
   descriptionOf,
+  inWords,
   notMeasuredWords,
   placesOf,
+  taxonomyInWords,
+  withLevel,
 } from "@/core/documents/kinds/boq-draft-law";
 import type { ExportCell, ExportColumn, SheetSpec, WorkbookSpec } from "@/core/exports";
 import type { BoqView } from "@/modules/takeoff/boq/view";
@@ -43,7 +63,7 @@ import { UNCLASSIFIED_LABEL } from "@/modules/takeoff/boq/taxonomy";
  * computed by, the drawing it was measured off and the sheet that drawing prints on.
  *
  * It is JOINED by `lineId` rather than carried on the draft payload, whose schema is strict and whose
- * subject is what a document prints: a payload that grew three evidence fields would be a second home
+ * subject is what a document prints: a payload that grew the formula string would be a second home
  * for a fact the register already holds (I-273).
  */
 export type LineEvidence = {
@@ -73,7 +93,7 @@ const NOTHING_HELD = "";
 /** The header row stays put on every sheet: a reader who scrolls a bill keeps its columns. */
 const FREEZE_HEADER = true;
 
-/** The row a sheet's first line stands on — the header takes the first (the seam's own layout). */
+/** The row a sheet's first body row stands on — the header takes the first (the seam's own layout). */
 const FIRST_LINE_ROW = 2;
 
 /** A section sheet's seven columns, in A-BOQ-XLSX's own order. */
@@ -96,7 +116,10 @@ const SUMMARY_COLUMNS: readonly ExportColumn[] = [
   { key: "amount", header: "Amount", kind: "money" },
 ];
 
-/** The Quantities sheet's columns: every line, with its bases, coverage, source sheet and formula. */
+/**
+ * The Quantities sheet's columns: every member line, the item it is summed into, what a checker
+ * finds it by, its bases, coverage, source sheet and formula (A-BOQ-XLSX, I-528).
+ */
 function quantitiesColumns(fractionDigits: number): readonly ExportColumn[] {
   return [
     { key: "item", header: "Item", kind: "text" },
@@ -107,6 +130,11 @@ function quantitiesColumns(fractionDigits: number): readonly ExportColumn[] {
     { key: "kind", header: "Kind", kind: "text" },
     { key: "description", header: "Description", kind: "text" },
     { key: "level", header: "Level", kind: "text" },
+    { key: "mark", header: "Mark", kind: "text" },
+    { key: "grid", header: "Grid", kind: "text" },
+    { key: "nos", header: "Nos", kind: "text" },
+    { key: "dimensions", header: "Dimensions", kind: "text" },
+    { key: "sheetNumber", header: "Sheet number", kind: "text" },
     { key: "quantity", header: "Quantity", kind: "number", fractionDigits },
     { key: "unit", header: "Unit", kind: "text" },
     { key: "quantityBasis", header: "Quantity basis", kind: "text" },
@@ -131,7 +159,7 @@ export function sectionSheetName(bill: string, label: string): string {
 }
 
 /**
- * The Amount of an unpriced line: empty until a rate stands beside it, and the product of the two the
+ * The Amount of an unpriced item: empty until a rate stands beside it, and the product of the two the
  * moment one does (A-BOQ-XLSX's live formulas, I-274).
  *
  * `E*F` alone would put `0.00` in every Amount of an unpriced draft — a figure nobody stated, on a
@@ -146,85 +174,86 @@ function placesForSection(section: BoqDraftSection): number {
   return Math.max(...section.groups.map((group) => placesOf(group.kind)));
 }
 
-/** The lines of one section in the order the draft prints them — groups, then lines (AM-14 §2). */
-function linesOf(section: BoqDraftSection): { readonly group: BoqDraftGroup; readonly line: BoqDraftLine }[] {
-  return section.groups.flatMap((group) => group.lines.map((line) => ({ group, line })));
+/**
+ * What an item's Quantity cell holds: the figure the payload settled — its members' register sum,
+ * rounded once — or, where no member states one, the words that say so and why (I-450).
+ */
+function itemQuantityCellOf(item: BoqDraftItem): string {
+  return item.quantity ?? notMeasuredWords(item.lines.flatMap((line) => line.omitted ?? []));
 }
 
-/**
- * What a line's Quantity cell holds: the figure the payload settled, or — where the line states none
- * — the words that say so and why, which the PDF prints in the same cell (I-450). A number column
- * holding words is written as the text it is; a SUMIF over the column reads past it.
- */
-function quantityCellOf(line: BoqDraftLine): string {
+/** What a member line's Quantity cell holds: its own figure, or the words and why. */
+function lineQuantityCellOf(line: BoqDraftLine): string {
   return line.quantity ?? notMeasuredWords(line.omitted ?? []);
 }
 
-/** How a line reads across: what it is, and — where the stack knows — which storey it stands on. */
-function descriptionOfLine(description: string, level: string): string {
-  return level === NOTHING_HELD ? description : `${description} — ${level}`;
+/**
+ * How an item reads across a sheet with no Level column: its description, the storey it is priced
+ * at, and — where not every member line states a figure — how much of it the figure covers (I-450).
+ */
+function itemDescriptionCellOf(item: BoqDraftItem): string {
+  const qualifier = itemQualifierOf(item);
+  const described = withLevel(item.description, item.level);
+  return qualifier === "" ? described : `${described} (${qualifier})`;
 }
 
-/** The (class, kind) pair a line is grouped under, as a reader quotes it back to this product. */
+/** The (class, kind) pair an item is grouped under, as a reader quotes it back to this product. */
 function codeOf(group: { readonly class: string; readonly kind: string }): string {
   return `${group.class}:${group.kind}`;
+}
+
+/** Every item of a payload, keyed by the id of each member line summed into it. */
+function itemOfLine(payload: BoqDraftPayload): ReadonlyMap<string, { readonly item: BoqDraftItem; readonly section: BoqDraftSection; readonly klass: string; readonly kind: string }> {
+  const held = new Map<string, { item: BoqDraftItem; section: BoqDraftSection; klass: string; kind: string }>();
+  for (const section of payload.sections) {
+    for (const group of section.groups) {
+      for (const item of group.items) for (const line of item.lines) held.set(line.lineId, { item, section, klass: group.class, kind: group.kind });
+    }
+  }
+  return held;
 }
 
 /* ---------------------------------------------------------------------------- the section sheet */
 
 /**
- * One section as a sheet: a row per published line, numbered S.G.I, unpriced, with a live Amount, and
- * the section's own measured-scope feet under them (L-QTY-07's one lawful label).
+ * One section as a sheet, in the shape the owner ruled (I-528, I-529): for each group a
+ * row naming the trade — no number, no figure — then one row per ITEM, numbered S.G.I, its quantity
+ * the register's sum of its members rounded once, unpriced, with a live Amount.
  *
- * A foot is not an item and carries no number: an item number under a subtotal would be a line nobody
- * measured (AM-14 §2). Its own figures are SUMIFs over the unit column, so a reader who prices the
- * sheet sees the foot move with it rather than a frozen picture of what it once came to.
+ * No quantity foot and no group figure: a group or a section holds unlike descriptions, and a
+ * quantity added across descriptions is the volume of nothing that exists (walk-0's `509.358 m3`).
+ * The section's Amounts are summed on the Summary, where money is commensurable.
  */
 function sectionSheetOf(section: BoqDraftSection, items: ReadonlyMap<string, string>): SheetSpec {
-  const held = linesOf(section);
-  const lastLine = FIRST_LINE_ROW + held.length - 1;
-
-  const lines: ExportCell[][] = held.map(({ group, line }, index) => [
-    items.get(line.lineId) ?? NOTHING_HELD,
-    codeOf(group),
-    descriptionOfLine(group.description, line.level),
-    line.unit,
-    quantityCellOf(line),
-    null,
-    { formula: amountFormula(FIRST_LINE_ROW + index) },
-  ]);
-
-  // One foot per unit the section's groups stand in. A unit no line states a figure in reads
-  // `Not measured` — never the SUMIF, which would come to a zero nobody measured (I-450).
-  const units = [...new Set(section.groups.map((group) => group.unit))];
-  const feet: ExportCell[][] = units.map((unit) => {
-    const subtotal = section.subtotals.find((held) => held.unit === unit);
-    const measured = section.groups.some((group) => group.unit === unit && group.lines.some((line) => line.quantity !== null));
-    return [
-      null,
-      null,
-      MEASURED_SCOPE_SUBTOTAL,
-      unit,
-      measured && subtotal !== undefined ? { formula: `SUMIF(D${FIRST_LINE_ROW}:D${lastLine},"${unit}",E${FIRST_LINE_ROW}:E${lastLine})`, result: subtotal.value } : NOT_MEASURED,
-      null,
-      { formula: `SUMIF(D${FIRST_LINE_ROW}:D${lastLine},"${unit}",G${FIRST_LINE_ROW}:G${lastLine})` },
-    ];
-  });
-
+  const rows: ExportCell[][] = [];
+  for (const group of section.groups) {
+    rows.push([null, null, descriptionOf(group.class, group.kind), null, null, null, null]);
+    for (const item of group.items) {
+      const row = FIRST_LINE_ROW + rows.length;
+      rows.push([items.get(item.key) ?? NOTHING_HELD, codeOf(group), itemDescriptionCellOf(item), item.unit, itemQuantityCellOf(item), null, { formula: amountFormula(row) }]);
+    }
+  }
   return {
     name: sectionSheetName(section.bill, section.label),
     columns: sectionColumns(placesForSection(section)),
-    rows: [...lines, ...feet],
+    rows,
     freezeHeader: FREEZE_HEADER,
   };
+}
+
+/** How many body rows a section's sheet writes: a group row per group and a row per item. */
+function bodyRowsOf(section: BoqDraftSection): number {
+  return section.groups.reduce((held, group) => held + 1 + group.items.length, 0);
 }
 
 /* --------------------------------------------------------------------------------- the summary */
 
 /**
  * What the workbook says about itself before any figure: the draft's own title, the banner every page
- * of an unsigned working document carries (AM-05 §2), what it is a draft of, and the taxonomy the
- * sections were resolved under (L-BD-08) — then one live total per section sheet.
+ * of an unsigned working document carries (AM-05 §2), the project in words — client, site, the
+ * pinned drawing set, the day it was issued, the taxonomy the sections were resolved under (L-BD-08)
+ * and whether the measurement is complete (I-530) — then one live total per section sheet.
+ * No surrogate id stands anywhere on it.
  *
  * There is no figure for the project. A draft that added its sections together would state a quantity
  * over a scope nobody covered (L-QTY-04, I-268), and the sums here are of PRICES, which nobody has
@@ -232,18 +261,23 @@ function sectionSheetOf(section: BoqDraftSection, items: ReadonlyMap<string, str
  */
 function summarySheetOf(reading: BoqExportReading): SheetSpec {
   const { payload } = reading.view;
-  const rows: ExportCell[][] = [
-    [null, BOQ_DRAFT_TITLE, null],
-    [null, DRAFT_BANNER, null],
-    [null, `Project: ${payload.project}`, null],
-    [null, `Pinned revision: ${reading.view.setRevisionId ?? NOTHING_HELD}`, null],
-    [null, `Taxonomy: ${payload.taxonomyVersion}`, null],
-    [null, `Coverage: ${payload.coverage}`, null],
+  const front = payload.front;
+  const drawings = front?.drawings ?? [];
+  const facts: readonly [string, string][] = [
+    [FRONT_LABELS.project, payload.project],
+    [FRONT_LABELS.client, front?.client ?? NOT_STATED],
+    [FRONT_LABELS.site, front?.site ?? NOT_STATED],
+    [FRONT_LABELS.drawingSet, front?.drawingSet ?? NOT_STATED],
+    [FRONT_LABELS.drawings, drawings.length === 0 ? NOT_STATED : drawings.join(", ")],
+    ...(front?.issued === null || front?.issued === undefined ? [] : [[FRONT_LABELS.issued, front.issued] as [string, string]]),
+    [FRONT_LABELS.taxonomy, taxonomyInWords(payload.taxonomyVersion)],
+    [FRONT_LABELS.measurement, payload.coverage === "COMPLETE" ? COVERAGE_WORDS.COMPLETE : COVERAGE_WORDS.INCOMPLETE],
   ];
+  const rows: ExportCell[][] = [[null, BOQ_DRAFT_TITLE, null], [null, DRAFT_BANNER, null], ...facts.map(([label, value]): ExportCell[] => [null, `${label}: ${value}`, null])];
 
   for (const section of payload.sections) {
     const name = sectionSheetName(section.bill, section.label);
-    const lastLine = FIRST_LINE_ROW + linesOf(section).length - 1;
+    const lastLine = FIRST_LINE_ROW + bodyRowsOf(section) - 1;
     rows.push([`${(BOQ_SECTIONS as readonly string[]).indexOf(section.bill) + 1}`, section.label, { formula: `SUM('${name}'!G${FIRST_LINE_ROW}:G${lastLine})` }]);
   }
 
@@ -253,12 +287,13 @@ function summarySheetOf(reading: BoqExportReading): SheetSpec {
 /* ------------------------------------------------------------------------------ the quantities */
 
 /**
- * Every published line of the campaign, placed or not, with what it was measured from beside it
- * (A-BOQ-XLSX, R-TO-070).
+ * Every published member line of the campaign, placed or not, with the item it is summed into and
+ * what it was measured from beside it (A-BOQ-XLSX, R-TO-070, I-528).
  *
- * It is the sheet the CSV is, which is why it is composed on its own: a line's bases, its coverage,
- * the drawing and sheet it came from and the formula it was computed by are what makes a figure
- * checkable by somebody who was not there (L-QTY-03).
+ * It is the sheet the CSV is, which is why it is composed on its own: a line's item, its mark, grid,
+ * nos and dimensions, its bases, its coverage, the drawing and sheet it came from and the formula it
+ * was computed by are what makes a figure checkable by somebody who was not there (L-QTY-03) — the
+ * details of measurement, one row per member.
  *
  * The unclassified stand at the end, labelled and carrying the reason the taxonomy could not place
  * them, with no item number: they are kept and visible, and they are not a seventh section
@@ -267,21 +302,12 @@ function summarySheetOf(reading: BoqExportReading): SheetSpec {
 export function boqQuantitiesSheetOf(reading: BoqExportReading): SheetSpec {
   const { payload, items } = reading.view;
   const evidenceOf = new Map(reading.evidence.map((held) => [held.lineId, held]));
+  const carried = itemOfLine(payload);
 
   const kinds = [...payload.sections.flatMap((section) => section.groups.map((group) => group.kind)), ...payload.unclassified.lines.map((line) => line.kind)];
   const places = kinds.length === 0 ? 0 : Math.max(...kinds.map((kind) => placesOf(kind)));
 
-  const row = (
-    cells: {
-      readonly item: string | null;
-      readonly section: string;
-      readonly klass: string;
-      readonly kind: string;
-      readonly description: string;
-      readonly reason: string | null;
-    },
-    line: BoqDraftLine,
-  ): ExportCell[] => {
+  const rowOf = (line: BoqDraftLine, cells: { readonly item: string | null; readonly section: string; readonly klass: string; readonly kind: string; readonly description: string; readonly reason: string | null }): ExportCell[] => {
     const evidence = evidenceOf.get(line.lineId);
     return [
       cells.item,
@@ -292,7 +318,12 @@ export function boqQuantitiesSheetOf(reading: BoqExportReading): SheetSpec {
       cells.kind,
       cells.description,
       line.level,
-      quantityCellOf(line),
+      line.mark ?? NOTHING_HELD,
+      line.grid ?? NOTHING_HELD,
+      line.nos ?? NOTHING_HELD,
+      line.dimensions ?? NOTHING_HELD,
+      line.sheet ?? NOTHING_HELD,
+      lineQuantityCellOf(line),
       line.unit,
       line.quantityBasis,
       line.selectionBasis,
@@ -305,34 +336,20 @@ export function boqQuantitiesSheetOf(reading: BoqExportReading): SheetSpec {
     ];
   };
 
-  const placed = payload.sections.flatMap((section) =>
-    linesOf(section).map(({ group, line }) =>
-      row(
-        {
-          item: items.get(line.lineId) ?? NOTHING_HELD,
-          section: section.label,
-          klass: group.class,
-          kind: group.kind,
-          description: group.description,
-          reason: null,
-        },
-        line,
-      ),
-    ),
-  );
+  const placed = draftLinesOf({ sections: payload.sections, unclassified: { label: payload.unclassified.label, lines: [] } }).map((line) => {
+    const held = carried.get(line.lineId);
+    return rowOf(line, {
+      item: held === undefined ? NOTHING_HELD : (items.get(held.item.key) ?? NOTHING_HELD),
+      section: held?.section.label ?? NOTHING_HELD,
+      klass: held?.klass ?? NOTHING_HELD,
+      kind: held?.kind ?? NOTHING_HELD,
+      description: held === undefined ? NOTHING_HELD : withLevel(held.item.description, held.item.level),
+      reason: null,
+    });
+  });
 
   const unplaced = payload.unclassified.lines.map((line) =>
-    row(
-      {
-        item: null,
-        section: UNCLASSIFIED_LABEL,
-        klass: line.class,
-        kind: line.kind,
-        description: descriptionOf(line.class, line.kind),
-        reason: line.reason,
-      },
-      line,
-    ),
+    rowOf(line, { item: null, section: UNCLASSIFIED_LABEL, klass: line.class, kind: line.kind, description: descriptionOf(line.class, line.kind), reason: inWords(line.reason) }),
   );
 
   return { name: BOQ_XLSX_SHEETS.quantities, columns: quantitiesColumns(places), rows: [...placed, ...unplaced], freezeHeader: FREEZE_HEADER };
@@ -349,8 +366,8 @@ const NOT_MEASURED_COLUMNS: readonly ExportColumn[] = [
 ];
 
 /**
- * What the draft leaves out, as a sheet (I-451): the PDF's closing block, row for row — the scope
- * no line was published for, then each reason a line states no figure beside the registry's own
+ * What the draft leaves out, as a sheet (I-451): the PDF's closing page, row for row — the scope no
+ * line was published for, then each reason a line states no figure beside the registry's own
  * sentence for it — under one header, so a reader can filter it like any other sheet. `null` where the
  * draft left nothing out: a sheet of that name with nothing on it would be a claim with no content.
  */

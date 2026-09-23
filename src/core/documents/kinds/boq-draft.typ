@@ -1,32 +1,37 @@
-// The `boq-draft` kind's document: a campaign's published lines, grouped into L-BD-08's sections and
-// priced by nobody (R-TO-053, A-BOQ-PDF, AM-05, AM-14, L-QTY-04).
+// The `boq-draft` kind's document: a campaign's published lines as the owner ruled a bill is shaped
+// — one item per description, rounded once from the register's sum; the member lines behind each
+// item in a Details of measurement appendix; and a page that says what the draft leaves out
+// (R-TO-053, A-BOQ-PDF, AM-05, AM-14, L-QTY-04; s-boq I-528, I-451).
 //
 // WHAT IT DOES NOT SAY. It is never called by the name the law reserves for the signed thing; it
 // carries no surveyor, no credential and no certificate, because nothing here has been signed; and
-// it states no figure for the project — under incomplete coverage the only lawful foot is the
-// measured-scope subtotal each section states over what was measured (L-QTY-04, L-QTY-07). A figure
-// that hid what it did not cover is the failure this product is built against.
+// it states no figure for the project, for a section or for a group — a quantity subtotal that
+// crossed descriptions would add unlike things, and a figure that hid what it did not cover is the
+// failure this product is built against (L-QTY-04, L-QTY-07, I-529).
 //
-// WHAT IT SAYS WHERE NOTHING WAS MEASURED. Never a zero: a line, a group or a foot with no figure
-// reads `Not measured`, a line says why beside its description, a partly measured group says how
-// much of it the figure covers, and the document closes on what it did not measure at all
-// (I-450, I-451).
+// WHAT IT SAYS WHERE NOTHING WAS MEASURED. Never a zero: an item or a member line with no figure
+// reads `Not measured`, a partly measured item says how much of it the figure covers and why, and
+// the draft closes on what it did not measure at all (I-450, I-451).
 //
 // Everything it does say arrives as DATA. The payload is read with `json()`, every figure was
 // written by `src/core/documents/figures.ts` at its kind's stated precision, and every item number
 // was derived by the one numbering both this page and the screen read (AM-14 §2, I-269). Nothing is
 // computed here and nothing is spliced into markup (L-FMT-03).
-#import "/base/frame.typ": document-frame, figure-cell, head-cell, id-cell, ink, quiet, rule, unit-cell
+#import "/base/frame.typ": document-frame, figure-cell, head-cell, id-cell, ink, mono-face, quiet, rule, unit-cell
 
 #let payload = json("payload.json")
 
-// The seven-tenths rule of a read table: what a thing is takes the room, the numbers take what they
-// need. The columns are the screen's own, less the two chips a page cannot wear.
-#let columns = (22mm, 1fr, 18mm, 28mm, 14mm)
+// The bill's own columns: what an item is takes the room, the numbers take what they need.
+#let columns = (18mm, 1fr, 18mm, 26mm, 12mm)
+
+// The measurement sheet's columns: where a member is found, how many, what was multiplied, what it
+// came to, on what basis and off which sheet.
+#let detail-columns = (14mm, 12mm, 16mm, 9mm, 1fr, 22mm, 10mm, 19mm, 13mm)
 
 /// A heading over a block of rows. The rule under it is the frame's, like every other colour on this
-/// page: a kind spells none of its own.
-#let block-heading(words) = block(width: 100%, inset: (x: 2mm, y: 1.8mm))[
+/// page: a kind spells none of its own. It sticks to what follows it, so no section is headed at one
+/// page's foot and begun on the next.
+#let block-heading(words) = block(width: 100%, inset: (x: 2mm, y: 1.8mm), sticky: true)[
   #text(size: 10.5pt, weight: "semibold", fill: ink)[#words]
   #v(1.2mm)
   #line(length: 100%, stroke: 0.6pt + rule)
@@ -35,72 +40,85 @@
 /// Where no figure stands the cell says so in words, in the body face and the quiet ink: a zero there
 /// would be a quantity nobody measured (L-QTY-04, I-450). The words arrive written; nothing here
 /// decides them.
-#let not-measured-cell(words) = align(right, text(size: 9pt, fill: quiet)[#words])
+#let not-measured-cell(words, size: 9pt) = align(right, text(size: size, fill: quiet)[#words])
 
 /// A part's own heading inside a block, set on the table cells' own inset so it lines up above them.
 #let part-heading(words) = block(inset: (x: 2mm), above: 2mm, below: 3mm)[
   #text(size: 9.5pt, weight: "semibold", fill: ink)[#words]
 ]
 
-/// A group's row: the item it describes, and the figure it carries — or the words that say none of its
-/// lines states one. Where not every line does, the qualification stands under the description, on
-/// the same row as the figure it qualifies (I-450).
+/// A group's row: the trade heading its items stand under, across the row. It states no figure — a
+/// group may hold several descriptions, and no quantity is added across them (I-529).
+///
+/// It is the table's SECOND-level header, so the heading is never left alone at a page's foot with
+/// its first item on the next page (the pinned Typst moves a header no row follows), and a group
+/// whose items run onto the next page opens that page under its heading again, below the column
+/// heads, until the next group's heading replaces it.
 #let group-row(group) = (
-  [],
+  table.header(
+    level: 2,
+    table.cell(colspan: 5, inset: (x: 2mm, top: 2.6mm, bottom: 1.2mm))[
+      #text(size: 9pt, weight: "semibold", fill: quiet)[#upper(group.heading)]
+    ],
+  ),
+)
+
+/// One item: its number, its full description — qualified, where not every member line behind it
+/// states a figure, by how many did and why — the storey it is priced at, its figure and its unit.
+#let item-row(item) = (
+  id-cell(item.item),
   [
-    #text(size: 9.5pt, weight: "semibold", fill: ink)[#group.description]
-    #if group.qualifier != "" [
+    #text(size: 9.5pt)[#item.description]
+    #if item.qualifier != "" [
       #linebreak()
-      #text(size: 8.5pt, fill: quiet)[(#group.qualifier)]
+      #text(size: 8.5pt, fill: quiet)[(#item.qualifier)]
     ]
   ],
-  [],
-  if group.notMeasured != "" { not-measured-cell(group.notMeasured) } else { figure-cell(group.figure) },
-  unit-cell(group.unit),
+  if item.levelIsWord { text(size: 9pt, fill: quiet)[#item.level] } else { id-cell(item.level) },
+  if item.notMeasured != "" { not-measured-cell(item.notMeasured) } else { figure-cell(item.quantity) },
+  unit-cell(item.unit),
 )
 
-/// What a line is, and — where it states no figure — why, on the same row: the reasons stand in the
-/// quiet ink beside the description, where the wide column holds them (I-450).
-#let described(words, reasons) = [
-  #text(size: 9.5pt)[#words]
-  #if reasons != "" [ #text(size: 8.5pt, fill: quiet)[(#reasons)]]
-]
-
-/// One line of the draft: its item number, what it is, where it stands, how much, in what. A line
-/// that states no figure says `Not measured` in its Quantity cell and why beside its description.
-#let line-row(line) = (
-  id-cell(line.item),
-  described(line.description, line.reasons),
-  id-cell(line.level),
-  if line.notMeasured != "" { not-measured-cell(line.notMeasured) } else { figure-cell(line.quantity) },
-  unit-cell(line.unit),
+/// The front page's project block: every fact in words, the label quiet and the value in the body face
+/// (I-530). Nothing here is an identifier.
+#let project-block(rows) = grid(
+  columns: (30mm, 1fr),
+  column-gutter: 4mm,
+  row-gutter: 2.2mm,
+  ..rows
+    .map(row => (text(size: 9pt, fill: quiet)[#row.label], text(size: 9.5pt, fill: ink)[#row.value]))
+    .flatten(),
 )
 
-/// A section's foot: one row per unit, under the one label incomplete coverage allows (L-QTY-07) —
-/// the figure over what was measured, or the words where nothing in that unit was.
-#let subtotal-rows(label, subtotals) = {
-  subtotals
-    .map(subtotal => (
-      [],
-      text(size: 9.5pt, weight: "semibold", fill: ink)[#label],
-      [],
-      if subtotal.notMeasured != "" { not-measured-cell(subtotal.notMeasured) } else { figure-cell(subtotal.value) },
-      unit-cell(subtotal.unit),
-    ))
-    .flatten()
-}
+/// The checking record a draft circulates with: one blank box per check, each with the two things a
+/// checker writes by hand. It names nobody and signs nothing (AM-05 (2), I-531).
+#let checking-block(labels, fields) = grid(
+  columns: labels.map(_ => 1fr),
+  column-gutter: 6mm,
+  ..labels.map(label => block(width: 100%, inset: (x: 3mm, y: 2.4mm), stroke: 0.6pt + rule, radius: 1mm)[
+    #text(size: 8.5pt, weight: "semibold", fill: quiet)[#upper(label)]
+    #v(2mm)
+    #for field in fields [
+      #text(size: 8.5pt, fill: quiet)[#field]
+      #v(5mm)
+      #line(length: 100%, stroke: 0.4pt + rule)
+      #v(1.6mm)
+    ]
+  ]),
+)
 
 #document-frame(
   title: payload.title,
   subtitle: payload.project,
-  facts: (
-    (label: "Campaign", value: payload.campaignId),
-    (label: "Pinned revision", value: payload.setRevisionId),
-    (label: "Taxonomy", value: payload.taxonomyVersion),
-    (label: "Coverage", value: payload.coverage),
-  ),
   draft-every-page: true,
+  footer-note: payload.footer,
+  watermarked: false,
 )[
+  #project-block(payload.front.rows)
+  #v(5mm)
+  #checking-block(payload.front.checking, payload.front.fields)
+  #v(6mm)
+
   #for section in payload.sections [
     #block-heading[#section.ordinal #section.label]
     #table(
@@ -117,9 +135,7 @@
         head-cell("Unit"),
       ),
       table.hline(stroke: 0.6pt + rule),
-      ..section.groups.map(group => (group-row(group), ..group.lines.map(line => line-row(line)))).flatten(),
-      table.hline(stroke: 0.6pt + rule),
-      ..subtotal-rows(payload.subtotalLabel, section.subtotals),
+      ..section.groups.map(group => (group-row(group), ..group.items.map(item => item-row(item)))).flatten(),
     )
     #v(4mm)
   ]
@@ -145,7 +161,10 @@
       ..payload.unclassified.lines
         .map(line => (
           text(size: 9pt, fill: quiet)[#line.reason],
-          described(line.description, line.reasons),
+          [
+            #text(size: 9.5pt)[#line.description]
+            #if line.reasons != "" [ #text(size: 8.5pt, fill: quiet)[(#line.reasons)]]
+          ],
           id-cell(line.level),
           if line.notMeasured != "" { not-measured-cell(line.notMeasured) } else { figure-cell(line.quantity) },
           unit-cell(line.unit),
@@ -154,12 +173,12 @@
     )
   ]
 
-  // What the draft leaves out, stated where it closes (L-QTY-07, I-451): the scope no line was
-  // published for, over which levels and why, and each reason a line above states no figure, in the
+  // What the draft leaves out, on a page of its own (L-QTY-07, I-451): the scope no line was
+  // published for, over which levels and why, and each reason an item above states no figure, in the
   // registry's own sentence. Nothing here is a count and nothing here is signed (AM-05).
   #let left-out = payload.notMeasured
   #if left-out.scope.len() > 0 or left-out.reasons.len() > 0 [
-    #v(2mm)
+    #pagebreak()
     #block-heading[#left-out.heading]
     #if left-out.scope.len() > 0 [
       #part-heading(left-out.scopeHeading)
@@ -195,6 +214,58 @@
           .map(row => (
             text(size: 9.5pt)[#row.reason],
             text(size: 9pt, fill: quiet)[#row.meaning],
+          ))
+          .flatten(),
+      )
+    ]
+  ]
+
+  // The measurement sheet behind the items: each item by its number, and the member lines it was
+  // summed from — where each is found, how many, what was multiplied, what it came to on its own and
+  // on what basis (I-528). No figure here is a sum of any other on the page.
+  #if payload.details.items.len() > 0 [
+    #pagebreak()
+    #block-heading[#payload.details.heading]
+    #block(inset: (x: 2mm), below: 4mm)[#text(size: 8.5pt, fill: quiet)[#payload.details.note]]
+    #for item in payload.details.items [
+      // The item's heading is part of its member table's header: it is never left at a page's foot
+      // with its members on the next, and a member list that runs onto the next page opens that page
+      // under the item's number and description again, not under bare column heads.
+      #table(
+        columns: detail-columns,
+        align: (left, left, left, right, left, right, left, left, left),
+        stroke: none,
+        inset: (x: 1.6mm, y: 1.1mm),
+        row-gutter: 0pt,
+        table.header(
+          table.cell(colspan: 9, align: left, inset: (x: 2mm, top: 0.6mm, bottom: 1.6mm))[
+            #text(size: 9pt, weight: "semibold", font: mono-face, fill: ink)[#item.item]
+            #h(2mm)
+            #text(size: 9pt, fill: ink)[#item.description]
+            #if item.level != "" [ #text(size: 8.5pt, fill: quiet)[· #item.level]]
+          ],
+          head-cell("Mark"),
+          head-cell("Grid"),
+          head-cell("Level"),
+          head-cell("Nos"),
+          head-cell("Dimensions"),
+          head-cell("Quantity"),
+          head-cell("Unit"),
+          head-cell("Basis"),
+          head-cell("Sheet"),
+        ),
+        table.hline(stroke: 0.4pt + rule),
+        ..item.rows
+          .map(row => (
+            text(size: 8.5pt, font: mono-face)[#row.mark],
+            text(size: 8.5pt, font: mono-face)[#row.grid],
+            if row.levelIsWord { text(size: 8pt, fill: quiet)[#row.level] } else { text(size: 8.5pt, font: mono-face)[#row.level] },
+            align(right, text(size: 8.5pt, font: mono-face)[#row.nos]),
+            text(size: 8pt, fill: quiet)[#row.dimensions],
+            if row.notMeasured != "" { not-measured-cell(row.notMeasured, size: 8pt) } else { align(right, text(size: 8.5pt, font: mono-face)[#row.quantity]) },
+            text(size: 8pt, fill: quiet)[#row.unit],
+            text(size: 8pt, fill: quiet)[#row.basis],
+            text(size: 8.5pt, font: mono-face)[#row.sheet],
           ))
           .flatten(),
       )

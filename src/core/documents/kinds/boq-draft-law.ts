@@ -11,7 +11,7 @@
 import { WORK_ITEM_CATALOGUE } from "../../catalogue/catalogue";
 import { ELEMENT_TYPES } from "../../catalogue/classes";
 import { KINDS } from "../../catalogue/kinds";
-import { formatUserFigure } from "../../format";
+import { formatDate, formatUserFigure } from "../../format";
 import { compareCanonical } from "../../identity";
 
 /** What this kind is asked for by, and the key the barrel files it under. */
@@ -31,9 +31,6 @@ export type BoqSection = (typeof BOQ_SECTIONS)[number];
 
 /** The banner this document carries on every page while no signature exists (A-BOQ-PDF, AM-05). */
 export const DRAFT_BANNER = "DRAFT — UNSIGNED";
-
-/** The one label a section's foot may carry while coverage is incomplete (L-QTY-04, L-QTY-07). */
-export const MEASURED_SCOPE_SUBTOTAL = "Measured-scope subtotal";
 
 /* ------------------------------------------------- where no figure stands, the words say so */
 
@@ -76,10 +73,11 @@ function counted(value: number): string {
 }
 
 /**
- * What a group's figure is qualified by where not every line of it states one (I-450): how many
- * of its lines were measured, how many were not and why — `12 of 26 measured; 14 not measured —
- * blinding plan deferred`, or `None of 208 measured — …` where no line was. Empty where every line
- * states a figure: an unqualified figure is then the whole of the group.
+ * What an item's figure is qualified by where not every member line behind it states one (I-450,
+ * carried from the group to the item by I-528): how many of its lines were measured, how many
+ * were not and why — `12 of 26 measured; 14 not measured — blinding plan deferred`, or `None of 208
+ * measured — …` where no line was. Empty where every line states a figure: an unqualified figure is
+ * then the whole of the item.
  */
 export function groupQualifier(measured: number, held: number, codes: readonly string[]): string {
   if (measured >= held) return "";
@@ -91,11 +89,15 @@ export function groupQualifier(measured: number, held: number, codes: readonly s
 
 /* ------------------------------------------------------------ AM-14 §2's item number, derived */
 
-/** What numbering needs of a line: its identity, its key, and the storey it stands on. */
-export type NumberableLine = { readonly lineId: string; readonly objectKey: string; readonly levelOrdinal?: number | null };
+/**
+ * What numbering needs of an item: the identity it is numbered under, and the storey it stands on.
+ * An item is ONE description at one level band (the owner's bill-shape ruling, s-boq I-528):
+ * the member lines behind it are its details of measurement and carry no number of their own.
+ */
+export type NumberableItem = { readonly key: string; readonly levelOrdinal?: number | null };
 
 /** What numbering needs of a group: the (class, kind) pair the catalogue orders it by. */
-export type NumberableGroup = { readonly class: string; readonly kind: string; readonly lines: readonly NumberableLine[] };
+export type NumberableGroup = { readonly class: string; readonly kind: string; readonly items: readonly NumberableItem[] };
 
 /** What numbering needs of a section: which section it is, and the groups it holds. */
 export type NumberableSection = { readonly bill: string; readonly groups: readonly NumberableGroup[] };
@@ -111,22 +113,42 @@ function rosterIndex(roster: readonly string[], value: string): number {
 }
 
 /**
- * Every line's item number, keyed by `lineId`: `S.G.I`.
+ * Where an item stands in reading order: the foundation's lawful-null slot (no ordinal) below every
+ * storey, then the stack from its lowest level up — the order a bill is read in, and the order the
+ * emission prints its items in (one derivation, I-269).
+ */
+function levelRankOf(ordinal: number | null | undefined): number {
+  return ordinal === null || ordinal === undefined ? Number.NEGATIVE_INFINITY : ordinal;
+}
+
+/**
+ * The order the items of one group are read in: lower storey first, and — where two items share a
+ * storey — the canonical order of their keys (L-REG-05's code-unit sort, never a locale's). Exported
+ * because the emission prints items in this order and numbering numbers them in it: one comparator,
+ * or a page whose items ran one way and whose numbers ran another (B-17).
+ */
+export function compareItems(one: NumberableItem, other: NumberableItem): number {
+  const [a, b] = [levelRankOf(one.levelOrdinal), levelRankOf(other.levelOrdinal)];
+  if (a !== b) return a < b ? -1 : 1;
+  return compareCanonical(one.key, other.key);
+}
+
+/**
+ * Every item's number, keyed by the item's `key`: `S.G.I`.
  *
  * `S` is the section's ordinal among the SIX — the number a reader can quote across two projects —
  * and not its position among the sections this draft happens to hold, so a campaign that published
  * nothing into Substructure still opens its Superstructure at 2. `G` is the (class, kind) group's
  * ordinal in `ELEMENT_TYPES`-then-`KINDS` order, counting only the groups the section holds. `I` is
- * the line's ordinal inside its group, read DOWN THE BUILDING first and, where two lines share a
- * storey, in the canonical order of the object key (L-REG-05's code-unit sort, never a locale's).
+ * the item's ordinal inside its group, read up the building from the foundation (`compareItems`).
  *
  * A section outside the roster — the kept `UNCLASSIFIED` block — has no `S` and is not numbered at
- * all: an item number belongs to a numbered line, and numbering the unplaced would be a seventh
+ * all: an item number belongs to a numbered item, and numbering the unplaced would be a seventh
  * section by the back door (I-267).
  *
  * Pure: the same sections answer the same map, whatever order the arrays happen to hold. A line
- * measured tomorrow renumbers the lines around it and takes nobody's identity away — which is why
- * nothing in this product keys on an item number.
+ * measured tomorrow may add an item and renumber the items around it, and takes nobody's identity
+ * away — which is why nothing in this product keys on an item number (AM-14 §2).
  */
 export function numberItems(sections: readonly NumberableSection[]): ReadonlyMap<string, string> {
   const numbers = new Map<string, string>();
@@ -137,9 +159,8 @@ export function numberItems(sections: readonly NumberableSection[]): ReadonlyMap
       (one, other) => rosterIndex(ELEMENT_TYPES, one.class) - rosterIndex(ELEMENT_TYPES, other.class) || rosterIndex(KINDS, one.kind) - rosterIndex(KINDS, other.kind),
     );
     groups.forEach((group, groupIndex) => {
-      const lines = [...group.lines].sort((one, other) => (one.levelOrdinal ?? 0) - (other.levelOrdinal ?? 0) || compareCanonical(one.objectKey, other.objectKey));
-      lines.forEach((line, lineIndex) => {
-        numbers.set(line.lineId, `${sectionOrdinal}.${groupIndex + 1}.${lineIndex + 1}`);
+      [...group.items].sort(compareItems).forEach((item, itemIndex) => {
+        numbers.set(item.key, `${sectionOrdinal}.${groupIndex + 1}.${itemIndex + 1}`);
       });
     });
   }
@@ -180,4 +201,88 @@ export function placesOf(kind: string): number {
 export function placesForUnit(groups: readonly { readonly kind: string; readonly unit: string }[], unit: string): number {
   const held = groups.filter((group) => group.unit === unit).map((group) => placesOf(group.kind));
   return held.length === 0 ? 0 : Math.max(...held);
+}
+
+/**
+ * What a row of the measurement statement is ABOUT, as the page says it: the class and the kind, or
+ * the kind alone where no class bears it (I-451). One rule for the PDF's closing block, the
+ * workbook's sheet and the screen's own closing section, so the three faces say one boundary.
+ */
+export function notMeasuredAbout(row: { readonly class: string | null; readonly kind: string }): string {
+  return row.class === null ? inWords(row.kind) : descriptionOf(row.class, row.kind);
+}
+
+/* ------------------------------------------------------------- the draft's front page, in words */
+
+/** The appendix a draft carries behind its items: each member line an item was summed from. */
+export const DETAILS_HEADING = "Details of measurement";
+
+/**
+ * The one sentence that says how the two figures on this paper relate (I-528): an item is the
+ * register's own sum of its members, rounded ONCE, and each member line is its own register value
+ * rounded once — so a figure on either page is the register's, and neither is a sum of the other's
+ * printed figures.
+ */
+export const ROUNDING_NOTE =
+  "Each item states the register's sum of its members, rounded once to the places its kind is written to. Each member line below states its own register figure, rounded once the same way.";
+
+/** What the front page says where the project holds no answer to one of its questions. */
+export const NOT_STATED = "Not stated";
+
+/** What the front page says about the draft's measurement, complete or not (L-QTY-04, I-451). */
+export const COVERAGE_WORDS: Readonly<Record<"COMPLETE" | "INCOMPLETE", string>> = Object.freeze({
+  COMPLETE: "Complete: every class the drawings show was measured",
+  INCOMPLETE: `Incomplete: what this draft leaves out is listed under ${NOT_MEASURED_HEADING}`,
+});
+
+/** The front page's labels, in the order it states them. */
+export const FRONT_LABELS = Object.freeze({
+  project: "Project",
+  client: "Client",
+  site: "Site",
+  drawingSet: "Drawing set",
+  drawings: "Drawings",
+  issued: "Issued",
+  taxonomy: "Sections",
+  measurement: "Measurement",
+});
+
+/**
+ * The checking record a draft circulates with: who prepared it and who checked it, each a blank a
+ * person fills by hand. It names nobody and signs nothing — the draft stays DRAFT — UNSIGNED on
+ * every page and names no responsible surveyor (AM-05 (2), I-531).
+ */
+export const CHECKING_LABELS: readonly string[] = Object.freeze(["Prepared by", "Checked by"]);
+
+/** What stands under each checking blank: the two things a checker writes. */
+export const CHECKING_FIELDS: readonly string[] = Object.freeze(["Name", "Date"]);
+
+/**
+ * The taxonomy a draft was sectioned under, as a reader says it: its EDITION as a date (L-FMT-01) —
+ * `bill-taxonomy/2026-09-16` is the taxonomy of 16 Sep 2026, and the edition is what tells one
+ * taxonomy from the next (I-355, I-530). A version written without an ISO edition is stated as
+ * it stands.
+ */
+export function taxonomyInWords(version: string): string {
+  const edition = /(\d{4})-(\d{2})-(\d{2})$/u.exec(version);
+  if (edition === null) return version;
+  const [, year, month, day] = edition;
+  return `By the taxonomy of ${formatDate({ year: Number(year), month: Number(month), day: Number(day) })}`;
+}
+
+/**
+ * A drawing set's pinned revision as a reader says it: the set's own name, which revision of it this
+ * is, and the day it was pinned — never the revision's surrogate id (R-UI-082, I-530).
+ */
+export function setRevisionInWords(set: { readonly name: string; readonly ordinal: number; readonly pinnedOn: string }): string {
+  return `${set.name}, revision ${counted(set.ordinal)}, pinned ${set.pinnedOn}`;
+}
+
+/**
+ * An item's description with the storey it is priced at, for a face that has no Level column of its
+ * own (the workbook's section sheets): `… — columns, at GF`. Where the item stands at no band the
+ * description is the whole of it.
+ */
+export function withLevel(description: string, level: string): string {
+  return level === "" ? description : `${description}, at ${level}`;
 }

@@ -35,12 +35,17 @@ const SHEET = readFileSync(join(process.cwd(), "src/app/(app)/t/[tenant]/p/[proj
 /** The lawful-null slot a member stands in where it stands on no level (L-REG-04). */
 const FOUNDATION = "FOUNDATION";
 
-/** Two pile caps: one on no level of the stack (the foundation's slot), one on the ground floor. */
+/**
+ * A pile cap standing on no level of the stack (the foundation's slot) and a column on the ground
+ * floor — two items. TEST_AMENDED (session 8, BOQ-SHAPE, I-528): an item's members and their
+ * marks are the payload's own now (the details of measurement), so the view carries no `lineFacts`
+ * beside it; the slot an item's members stand in is the item's.
+ */
 function aView(): BoqView {
-  const line = (lineId: string, objectKey: string, levelId: string | null) => ({
+  const line = (lineId: string, objectKey: string, klass: string, levelId: string | null, slot: string | null) => ({
     lineId,
     objectKey,
-    class: "pile_cap" as never,
+    class: klass as never,
     kind: "rcc.concrete" as never,
     levelId,
     value: "4.225",
@@ -48,8 +53,10 @@ function aView(): BoqView {
     quantityBasis: "MEASURED",
     selectionBasis: "TRANSCRIBED",
     coverage: "COMPLETE",
+    mark: objectKey.split("/").pop() ?? "",
+    slot,
   });
-  const lines = [line("l-1", "cap/PC1", null), line("l-2", "cap/PC2", "lvl-gf")];
+  const lines = [line("l-1", "cap/PC1", "pile_cap", null, FOUNDATION), line("l-2", "column/C1", "column", "lvl-gf", null)];
   const payload = boqDraftPayloadOf({ project: "p", campaignId: "campaign-1", setRevisionId: "revision-1", levels: [{ levelId: "lvl-gf", ordinal: 0, label: "GF" }], lines, coverageComplete: true });
   return {
     campaignId: "campaign-1",
@@ -58,11 +65,6 @@ function aView(): BoqView {
     coverage: "COMPLETE",
     payload,
     items: numberItems(payload.sections),
-    lineFacts: new Map([
-      ["l-1", { mark: "PC1", slot: FOUNDATION }],
-      ["l-2", { mark: "PC2", slot: null }],
-    ]),
-    omissions: new Map(),
   };
 }
 
@@ -130,8 +132,8 @@ describe("I-355: the taxonomy chip says the edition a person can tell taxonomies
   });
 });
 
-describe("I-355: a lawful-null level is a word, and a member's mark is muted", () => {
-  it("a line on no level says its slot through EnumLabel under its own class — never the level column's mono class", () => {
+describe("I-355: a lawful-null level is a word, and an item's qualification is muted", () => {
+  it("an item on no level says its slot through EnumLabel under its own class — never the level column's mono class", () => {
     const { container } = render(<BoqWorkspace view={aView()} permitted tenantId="t" projectId="p" chrome={chrome()} doors={{ refusalOf }} />);
     const levels = [...container.querySelectorAll('td[data-column="level"]')];
     const slot = levels.map((cell) => cell.querySelector(`[data-value="${FOUNDATION}"]`)).find((found) => found !== null) as Element;
@@ -142,10 +144,12 @@ describe("I-355: a lawful-null level is a word, and a member's mark is muted", (
     expect(label?.textContent, "a line on a level still says the label verbatim, in the level column's face").toBe("GF");
   });
 
-  it("the sheet states the slot in the interface's face and the mark and the slot in the muted ink", () => {
+  // TEST_AMENDED (session 8, BOQ-SHAPE, I-528): a member's mark moved off the screen's rows —
+  // a row is an item now, and the marks stand in its details of measurement — so the muted ink this
+  // case guarded is asked of what now follows a description on its row: the item's qualification.
+  it("the sheet states the slot in the interface's face and the slot and an item's qualification in the muted ink", () => {
     expect(declaredValue(SHEET, ".cx-boq-slot.cx-boq-enum", "font-family"), "the slot keeps the EnumLabel's own face").toBeNull();
     expect(declaredValue(SHEET, ".cx-boq-slot.cx-boq-enum", "color")).toBe("var(--ink-muted)");
-    expect(declaredValue(SHEET, ".cx-boq-mark", "color"), "the mark is muted so the description leads (I-boq-1(c))").toBe("var(--ink-muted)");
-    expect(declaredValue(SHEET, ".cx-boq-mark", "font-family"), "and still model data, in mono").toBe("var(--font-mono)");
+    expect(declaredValue(SHEET, ".cx-boq-qualifier", "color"), "the qualification is muted so the description leads (I-450)").toBe("var(--ink-muted)");
   });
 });

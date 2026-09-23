@@ -38,15 +38,15 @@ export function nothingPublished(view: BoqView | null): boolean {
  * a line that declared what it could not measure (L-BD-08, L-QTY-02).
  *
  * INCOMPLETE COVERAGE ALONE IS NOT ONE. A campaign that sighted a class no rail measured states its
- * gap in the coverage statement and in each section's measured-scope subtotal — the draft itself is
- * whole and every line of it reads (L-QTY-04, Decision §2). So `data-coverage` and `data-state` say
+ * gap in the coverage statement and on the draft's closing page — the draft itself is whole and
+ * every item of it reads (L-QTY-04, I-451, Decision §2). So `data-coverage` and `data-state` say
  * two different true things, and neither is derived from the other.
  */
 export function draftIsPartial(view: BoqView | null): boolean {
   const payload = view?.payload ?? null;
   if (payload === null) return false;
   if (payload.unclassified.lines.length > 0) return true;
-  return payload.sections.some((section) => section.groups.some((group) => group.lines.some((line) => line.coverage === PARTIAL_DECLARED)));
+  return payload.sections.some((section) => section.groups.some((group) => group.items.some((item) => item.lines.some((line) => line.coverage === PARTIAL_DECLARED))));
 }
 
 /**

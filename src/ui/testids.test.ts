@@ -86,6 +86,7 @@ const GOLDEN: readonly string[] = [
   "boq-grid",
   "boq-jobs",
   "boq-line",
+  "boq-not-measured",
   "boq-render-draft",
   "boq-revision",
   "boq-screen",

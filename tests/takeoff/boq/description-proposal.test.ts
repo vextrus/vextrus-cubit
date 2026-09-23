@@ -15,6 +15,7 @@
  * Nothing here opens a database and nothing reaches a provider: the port is handed in (B-23).
  */
 import { describe, expect, test } from "vitest";
+import { WORK_ITEM_CATALOGUE } from "@/core/catalogue/catalogue";
 import { candidateItemsFor } from "@/core/catalogue/item-descriptions";
 import { REFUSALS } from "@/core/errors";
 import { refusal } from "@/core/faults/refusal-marker";
@@ -196,9 +197,17 @@ describe("the caller's own policy", () => {
     expect(billed.sections.flatMap((section) => section.groups.map((group) => group.description)), "the chosen method of measurement is what the draft bills under").toEqual([
       chosen?.text,
     ]);
+    // TEST_AMENDED (session 8, BOQ-SHAPE, I-528): with nothing chosen, a group is described by
+    // the work-item catalogue's own sentence — the method of measurement L-MEA-04 already states —
+    // where it was the bare `Class · Kind` heading, which a rate book cannot price from. The heading
+    // stays the group row's; the chosen sentence still replaces the catalogue's, as asserted above.
     const plain = boqDraftPayloadOf(reading);
-    expect(plain.sections.flatMap((section) => section.groups.map((group) => group.description)), "with nothing chosen, the draft keeps its own plain description").toEqual([
-      "Brick wall · Brickwork",
+    expect(plain.sections.flatMap((section) => section.groups.map((group) => group.description)), "with nothing chosen, the draft keeps the catalogue's own sentence").toEqual([
+      WORK_ITEM_CATALOGUE["masonry.brickwork"].description,
     ]);
+    expect(
+      billed.sections.flatMap((section) => section.groups.flatMap((group) => group.items.map((item) => item.description))),
+      "and each item opens with its group's sentence, then names its member",
+    ).toEqual([`${chosen?.text ?? ""} — brick walls`]);
   });
 });

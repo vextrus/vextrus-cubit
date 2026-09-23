@@ -48,6 +48,7 @@ const CHROME: BoqChrome = {
     draft: TESTIDS.boq.draft,
     jobs: TESTIDS.boq.jobs,
     documentLink: TESTIDS.boq.documentLink,
+    notMeasured: TESTIDS.boq.notMeasured,
   },
   DataTable,
   EmptyState,

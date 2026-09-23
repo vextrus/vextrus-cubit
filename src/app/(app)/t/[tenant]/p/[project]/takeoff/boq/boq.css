@@ -198,35 +198,50 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* --- the section's foot: one row per unit, under the one label L-QTY-04 allows --- */
+/* --- the closing section: what the draft does not measure (I-451, I-532) ---
+   A statement, not a grid: each row says what, over which levels, and why — one line each, the
+   words wrapping only in the reason, which is prose. The section states no figure. */
 
-.cx-boq-foot {
+.cx-boq-left-out {
   display: flex;
   flex-direction: column;
-  background: var(--surface-band);
+  gap: var(--space-1);
+}
+
+.cx-boq-left-out-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   border-top: var(--hairline);
 }
 
-.cx-boq-subtotal {
+.cx-boq-left-out-row {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  align-items: baseline;
+  gap: var(--space-3);
   min-height: var(--row-h);
   padding: var(--cell-py) var(--cell-px);
+  border-bottom: var(--hairline);
 }
 
-.cx-boq-subtotal-label {
-  flex: 1 1 auto;
+.cx-boq-left-out-about {
+  flex: none;
   color: var(--ink);
   font-size: var(--text-body);
-  font-weight: var(--weight-body-medium);
 }
 
-.cx-boq-subtotal-figure {
-  color: var(--ink);
+.cx-boq-left-out-levels {
+  flex: none;
+  color: var(--ink-muted);
   font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums slashed-zero;
-  text-align: right;
+  font-size: var(--text-body);
+}
+
+.cx-boq-left-out-why {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
 }
 
 /* --- the cells (§1's column table) --- */
@@ -250,6 +265,23 @@
   min-width: 0;
 }
 
+/* An item's description reads in full where the column allows and ellipsises where it does not —
+   the shipped cell carries the whole text as its tooltip (§5 rule 2). */
+.cx-boq-description-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* How much of an item its figure covers, and why the rest states none (I-450): after the
+   description, in the quiet ink, so the description still leads. */
+.cx-boq-qualifier {
+  flex: none;
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+}
+
 .cx-boq-separator {
   color: var(--ink-muted);
 }
@@ -264,14 +296,6 @@
    (R-UI-085, I-355). */
 .cx-boq-slot.cx-boq-enum {
   color: var(--ink-muted);
-}
-
-/* The member's mark after its description: model data, so mono, and MUTED so the description still
-   leads the cell — `--ink-code` stood it at the description's own weight (I-boq-1(c), I-355). */
-.cx-boq-mark {
-  margin-left: var(--space-2);
-  color: var(--ink-muted);
-  font-family: var(--font-mono);
 }
 
 .cx-boq-figure {

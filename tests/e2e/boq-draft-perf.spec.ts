@@ -42,7 +42,7 @@ test.describe("PERF-311 — the unpriced draft renders 5,000 lines inside PB-6",
     expect(typeof documents.renderDocument, "the document seam publishes renderDocument — PERF-311 measures the shipped path and no stand-in").toBe("function");
 
     const payload = syntheticDraftPayload(LINES);
-    const lines = payload.sections.flatMap((section) => section.groups.flatMap((group) => group.lines)).length;
+    const lines = payload.sections.flatMap((section) => section.groups.flatMap((group) => group.items.flatMap((item) => item.lines))).length;
     expect(lines, `the draft under the budget holds ${LINES} lines`).toBe(LINES);
     expect(payload.sections.length, "spread over all six sections of L-BD-08").toBe(6);
 

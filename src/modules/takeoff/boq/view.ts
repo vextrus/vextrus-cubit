@@ -14,8 +14,11 @@ export type BoqCoverage = "COMPLETE" | "INCOMPLETE";
  *
  * The payload is the DOCUMENT's payload — the very value `renderDocument("boq-draft", …)` is given —
  * so a figure a reader sees and a figure the PDF prints are one figure (I-271), and `items` is the
- * numbering derived over it by the one function both faces call (I-269). Nothing here is stored:
- * a register that changes renumbers freely (AM-14 §2).
+ * numbering derived over it by the one function both faces call (I-269). Everything the screen says
+ * about an item — its member lines, their marks and the codes a line gave for what it could not
+ * measure — is read off that payload too, so the screen never holds a second reading beside the
+ * document's (I-528). Nothing here is stored: a register that changes renumbers freely
+ * (AM-14 §2).
  */
 export type BoqView = {
   /** The pinned campaign, `null` where none is open on this project (R-UI-050's empty cell). */
@@ -27,7 +30,7 @@ export type BoqView = {
   readonly coverage: BoqCoverage;
   /** The draft, or `null` where the campaign published no line at all. */
   readonly payload: BoqDraftPayload | null;
-  /** lineId → `S.G.I`, derived at emission and stored nowhere (AM-14 §2). */
+  /** item key → `S.G.I`, derived at emission and stored nowhere (AM-14 §2). */
   readonly items: ReadonlyMap<string, string>;
   /**
    * `<class> <kind>` → the description a model proposed for that group, the basis it wears and the
@@ -36,26 +39,7 @@ export type BoqView = {
    * came from — and the issue reads it to record what it took.
    *
    * Absent where nobody asked: a reading composed without a call context carries no proposal at
-   * all, and a screen handed one reads the plain descriptions it always read.
+   * all, and a screen handed one reads the catalogue's sentences it always read.
    */
   readonly descriptions?: GroupDescriptions;
-  /**
-   * lineId → what the screen says beside a line so a reader can FIND the member it measures: the
-   * mark the register filed the object under, and — where the line stands on no level of the stack —
-   * the lawful-null slot the register placed it in (`FOUNDATION`). Read off the register, never off
-   * an object key; the document's payload is untouched by it (I-271). Absent where nobody read it.
-   */
-  readonly lineFacts?: ReadonlyMap<string, BoqLineFacts>;
-  /**
-   * lineId → the registered codes a PARTIAL_DECLARED line states for what it could not measure, in
-   * the order it states them (L-QTY-02). A line with no figure says WHY in the registry's own words;
-   * absent where nobody read them.
-   */
-  readonly omissions?: ReadonlyMap<string, readonly string[]>;
-};
-
-/** What the register says about the member one draft line measures (see `BoqView.lineFacts`). */
-export type BoqLineFacts = {
-  readonly mark: string;
-  readonly slot: string | null;
 };

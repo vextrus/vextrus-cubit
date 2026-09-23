@@ -1,5 +1,7 @@
 // AM-14 §2's item number, as the takeoff module reaches it: `S.G.I` — the section's ordinal among
-// L-BD-08's six, the group's ordinal in the catalogue's order, the line's ordinal inside its group.
+// L-BD-08's six, the group's ordinal in the catalogue's order, the ITEM's ordinal inside its group.
+// An item is one description at one level band (s-boq I-528); the member lines behind it are
+// its details of measurement and are numbered by nothing.
 //
 // ONE DERIVATION, TWO READERS (I-269, B-17). The screen and the rendered PDF both number a draft,
 // and a number a reader saw that the document then printed differently would be two answers to one
@@ -13,4 +15,4 @@
 // would be a second home for that fact, and a draft renumbered by one inserted line would then
 // contradict the number somebody had already quoted.
 export { numberItems } from "@/core/documents/kinds/boq-draft-law";
-export type { NumberableGroup, NumberableLine, NumberableSection } from "@/core/documents/kinds/boq-draft-law";
+export type { NumberableGroup, NumberableItem, NumberableSection } from "@/core/documents/kinds/boq-draft-law";

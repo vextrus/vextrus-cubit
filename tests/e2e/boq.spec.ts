@@ -1,9 +1,16 @@
 /**
- * J-033 — the unpriced draft BOQ: a reader opens the takeoff lane's fifth tab and meets every
- * published line of the pinned campaign, grouped into L-BD-08's sections, each line numbered S.G.I,
- * each section closed by a measured-scope subtotal and the project closed by nothing at all — then
- * exports the draft and finds the issue in Documents (R-TO-053, L-BD-08, L-QTY-04, R-UI-050,
- * R-UI-080, docs/design/s-boq.md).
+ * J-033 — the unpriced draft BOQ: a reader opens the takeoff lane's fifth tab and meets the pinned
+ * campaign's draft in L-BD-08's sections, one ITEM per description at one level band, each numbered
+ * S.G.I and each the register's sum of its member lines rounded once; no quantity is added across
+ * descriptions — no group figure, no section foot and nothing for the project — and the draft
+ * closes on what it does not measure. Then the reader exports the draft and finds the issue in
+ * Documents (R-TO-053, L-BD-08, L-QTY-04, R-UI-050, R-UI-080, docs/design/s-boq.md).
+ *
+ * TEST_AMENDED (session 8, BOQ-SHAPE, s-boq I-528/b/e): the owner ruled the bill's shape. A
+ * row is an ITEM (it carries `data-item` and `data-members`, never one register line's `data-line`),
+ * a group row states no figure and a section closes on no `Measured-scope subtotal` — each asserted
+ * ABSENT here — and the closing `boq-not-measured` section is asserted present over the stage's
+ * sighted-but-unmeasured class. Every other clause of this walk is unchanged.
  *
  * The walk is a customer's: a tab is clicked, a screen is read, one primary is pressed, a link is
  * followed. Nothing is staged mid-walk. The three design checkpoints are taken here and nowhere
@@ -31,7 +38,7 @@ test.use({ viewport: { width: 1440, height: 900 } });
 /** What the fifth tab and the crumb say (docs/design/s-boq.md §3). */
 const DRAFT_BOQ = "Draft BOQ";
 
-/** The one label a section's foot carries while coverage is incomplete (L-QTY-04). */
+/** The label a section's foot carried before the owner's ruling: no foot adds unlike items now. */
 const MEASURED_SCOPE_SUBTOTAL = "Measured-scope subtotal";
 
 /** The shape of an item number (AM-14 §2): three 1-based ordinals, no padding and no zero. */
@@ -52,7 +59,7 @@ function quantityColumnLabel(): string {
 }
 
 test.describe("J-033 — the unpriced draft BOQ, by section", () => {
-  test("J-033: the fifth tab lands on the draft, every line is numbered and every section is closed by its measured scope", async ({ page }, testInfo) => {
+  test("J-033: the fifth tab lands on the draft, every item is numbered, and the draft closes on what it does not measure", async ({ page }, testInfo) => {
     await signInAsSeededTenant(page, testInfo.parallelIndex);
     const staged = await stageBoq(page);
 
@@ -137,29 +144,22 @@ test.describe("J-033 — the unpriced draft BOQ, by section", () => {
       expect(frozen, `${bill}'s key column is frozen, so the item number stands while the row scrolls sideways`).toBe("sticky");
 
       const groupRows = await everyRow(boq.groupRows(section), `${bill}'s group rows`);
-      expect(groupRows.length, `${bill} groups its lines by class and kind`).toBeGreaterThan(0);
+      expect(groupRows.length, `${bill} heads its items by class and kind`).toBeGreaterThan(0);
       for (const groupRow of groupRows) {
-        const subtotals = await steadyCount(boq.groupSubtotals(groupRow), "the group's own subtotal");
-        expect(subtotals, `every group row of ${bill} carries its own subtotal`).toBeGreaterThan(0);
+        // A group row names the trade and states NO figure: a group may hold several descriptions,
+        // and no quantity subtotal crosses descriptions (I-529).
+        const figures = await steadyCount(boq.groupSubtotals(groupRow).locator("[data-unit]"), "a figure on the group row");
+        expect(figures, `no group row of ${bill} states a figure of its own`).toBe(0);
       }
 
-      /* --- the section's foot: measured scope, per unit, and nothing grander --- */
-      const feet = await everyRow(boq.subtotals(section), `${bill}'s subtotal rows`);
-      expect(feet.length, `${bill} is closed by a subtotal`).toBeGreaterThan(0);
-      const units = new Set<string>();
-      for (const foot of feet) {
-        expect(await heldAttribute(foot, "data-scope"), `${bill}'s foot states the scope it is a total OF — what was measured, and nothing more (L-QTY-04)`).toBe("MEASURED");
-        await expect(foot, `${bill}'s foot says so in words`).toContainText(MEASURED_SCOPE_SUBTOTAL);
-        const unit = await heldAttribute(foot, "data-unit");
-        expect(unit, `${bill}'s foot is stated per unit — cubic metres and square metres are never added together`).toBeTruthy();
-        expect(units.has(unit as string), `${bill} states one measured-scope subtotal per unit, and ${unit} was stated twice`).toBe(false);
-        units.add(unit as string);
-      }
+      /* --- no foot: the section's items are unlike descriptions, and each item is its own figure --- */
+      await expect(boq.subtotals(section), `${bill} closes on no quantity foot — a foot across descriptions is the volume of nothing (I-529)`).toHaveCount(0);
+      await expect(section, `and nowhere says ${MEASURED_SCOPE_SUBTOTAL}`).not.toContainText(MEASURED_SCOPE_SUBTOTAL);
     }
 
-    /* --- every line: its number, its unit, its figure, its two bases, its coverage --- */
-    const lines = await everyRow(boq.lines, "the lines of the draft");
-    expect(lines.length, "the staged campaign's published lines are listed").toBeGreaterThan(0);
+    /* --- every item: its number, its unit, its figure, its two bases, its coverage --- */
+    const lines = await everyRow(boq.lines, "the items of the draft");
+    expect(lines.length, "the staged campaign's published lines stand as items").toBeGreaterThan(0);
 
     // Which column the figures stand in is read off the grid's own header, by the label the strings
     // give it — never a column index typed here (B-19).
@@ -170,11 +170,13 @@ test.describe("J-033 — the unpriced draft BOQ, by section", () => {
 
     const numbers = new Set<string>();
     for (const line of lines) {
-      const lineId = (await heldAttribute(line, "data-line")) as string;
       const item = (await heldAttribute(line, "data-item")) as string;
-      expect(item, `line ${lineId} carries an item number derived at emission (AM-14 §2)`).toMatch(SGI);
-      expect(numbers.has(item), `${item} is one line's number and one line's only`).toBe(false);
+      const lineId = `item ${item}`;
+      expect(item, `every row carries an item number derived at emission (AM-14 §2)`).toMatch(SGI);
+      expect(numbers.has(item), `${item} is one item's number and one item's only`).toBe(false);
       numbers.add(item);
+      expect(await heldAttribute(line, "data-line"), `${lineId} is an item — many member lines — and names no single register line (I-528)`).toBeNull();
+      expect(Number(await heldAttribute(line, "data-members")), `${lineId} says how many member lines it was summed from`).toBeGreaterThan(0);
 
       expect(await steadyCount(boq.unitBadges(line), `line ${lineId}'s unit`), `line ${lineId} states its unit through the shipped badge`).toBe(1);
 
@@ -208,6 +210,13 @@ test.describe("J-033 — the unpriced draft BOQ, by section", () => {
       ]);
       expect(await steadyCount(boq.coverageChips(line), `line ${lineId}'s coverage`), `line ${lineId} states its coverage once`).toBe(1);
     }
+
+    /* --- the closing section: what the draft does not measure (I-451, I-532) --- */
+    // The stage sighted a class on a second level that no rail measured, so the measurement statement
+    // holds a row, and the draft closes on it — what, over which levels, and why — in words.
+    await expect(boq.notMeasured, "the draft closes on what it does not measure").toBeVisible();
+    const leftOut = await steadyCount(boq.notMeasured.locator("li"), "the rows of what the draft does not measure");
+    expect(leftOut, "and names at least the class the stage sighted and never measured").toBeGreaterThan(0);
 
     /* --- the asserted absences (I-268, R-UI-080, R-UI-083) --- */
     await expect(

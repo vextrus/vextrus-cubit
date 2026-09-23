@@ -44,6 +44,16 @@
  * level less its storeys'), because the sheet states that slot as an empty level and the register as
  * the slot's name.
  *
+ * THE ITEMS TIE TO THE REGISTER (the owner's bill-shape ruling, session 8; s-boq I-528). A
+ * section sheet states one ITEM per description at one level band, and the Quantities sheet says
+ * which item each member line is summed into. An item's figure is the register's exact sum of its
+ * members rounded ONCE — so wherever an item is the only item over its register cells, its figure
+ * must equal the register's own total for those cells, rounded once, to the last printed place: no
+ * slack at all, where a sum of already-rounded lines needed n half-units (93.893 m³ of column
+ * concrete, not the 93.904 the old page printed). An item's members are read off the Quantities
+ * sheet by the item number they carry; the register's totals are the footer reads the fidelity walk
+ * already makes, cell by cell.
+ *
  * Nothing here measures time (AM-10 §3, AM-17: "the M3 leg opens the XLSX; it does not time it").
  */
 import Decimal from "decimal.js";
@@ -55,7 +65,7 @@ import { SBoqPage } from "../../pages/s-boq.page";
 import { SDocumentsPage } from "../../pages/s-documents.page";
 import { STakeoffPage } from "../../pages/s-takeoff.page";
 import { checkpoint } from "../../support/checkpoint";
-import { heldAttribute } from "../../support/retrying-read";
+import { everyAttribute, heldAttribute } from "../../support/retrying-read";
 import { settled } from "../../support/settled";
 import { bnbcMeasured, releaseGoldenWorker } from "./golden-run";
 
@@ -91,6 +101,9 @@ const NECK_COLUMN_LEVELS: readonly string[] = Object.freeze([FOUNDATION_DEFAULT]
 
 /** How long a render of the M3 campaign's documents may take to be filed. */
 const RENDER_BUDGET_MS = 600_000;
+
+/** The shape of an item number: three 1-based ordinals (AM-14 §2). */
+const SGI = /^[1-9]\d*\.[1-9]\d*\.[1-9]\d*$/u;
 
 /** The XLSX's fixed sheets (A-BOQ-XLSX, s-boq I-273), and the column a figure is stated in. */
 const SUMMARY = "Summary";
@@ -233,6 +246,11 @@ test.describe.serial("J-000 — Golden Path: M3's documents on F-RCC6-BNBC", () 
     await expect(boq.lines, "and every published line is listed").not.toHaveCount(0);
     await expect(boq.main.locator("select, input[type=date]"), "no native select and no native date input (R-UI-083)").toHaveCount(0);
     await expect(secondRightColumn(boq.main), "nothing on this screen is selectable, so no second right column (R-UI-080)").toHaveCount(0);
+    // Each item's figure as the SCREEN states it — a decimal string at its kind's own places, the very
+    // figure the PDF and the workbook print (I-271) — read once, for the tie below.
+    const itemNumbers = await everyAttribute(boq.lines, "data-item", "the draft's item numbers");
+    const itemFigures = await everyAttribute(boq.lines, "data-quantity", "the draft's item figures");
+    const screenFigure = new Map(itemNumbers.map((item, at) => [item, itemFigures[at] ?? ""] as const).filter(([item, figure]) => item !== "" && figure !== ""));
 
     /* --- the draft: one press, one keyed job, the issue filed where documents live (I-270) --- */
     await expect(boq.exportButton, "the one primary offers the draft").toBeVisible();
@@ -261,10 +279,23 @@ test.describe.serial("J-000 — Golden Path: M3's documents on F-RCC6-BNBC", () 
     const first = workbook.getWorksheet(sections[0] as string) as ExcelJS.Worksheet;
     const headers = (first.getRow(1).values as (string | undefined)[]).filter((value): value is string => typeof value === "string");
     expect(headers, "a section sheet's columns are A-BOQ-XLSX's seven, in its order").toEqual(["Item", "Code", "Description", "Unit", QUANTITY, "Rate", "Amount"]);
-    const amount = first.getRow(2).getCell(7);
-    const formula = typeof amount.value === "object" && amount.value !== null && "formula" in amount.value ? String(amount.value.formula) : "";
-    expect(formula, "every Amount is a LIVE formula over its own Rate — empty until somebody prices the line (I-274)").toMatch(/^IF\(F2="","",E2\*F2\)$/u);
-    expect(first.getRow(2).getCell(6).value ?? null, "and the Rate is empty: the draft is unpriced (AM-05)").toBeNull();
+    // The sheet opens on a trade row (I-529): no number, no figure, no Amount. The first priced row
+    // is the first ITEM — the first body row whose Item cell is an S.G.I number.
+    const formulaOf = (cell: ExcelJS.Cell): string => (typeof cell.value === "object" && cell.value !== null && "formula" in cell.value ? String(cell.value.formula) : "");
+    let firstItemRow = 0;
+    for (let at = 2; at <= first.rowCount && firstItemRow === 0; at += 1) {
+      if (SGI.test(String(first.getRow(at).getCell(1).value ?? ""))) firstItemRow = at;
+    }
+    expect(firstItemRow, "the first section sheet prices at least one item, numbered S.G.I (I-528)").toBeGreaterThan(2);
+    const heading = first.getRow(firstItemRow - 1);
+    expect(heading.getCell(1).value ?? null, "the row above the first item names its trade and carries no number (I-529)").toBeNull();
+    expect(heading.getCell(5).value ?? null, "and states no quantity across the descriptions under it (I-529)").toBeNull();
+    expect(formulaOf(heading.getCell(7)), "and no Amount of its own (I-529)").toBe("");
+    const itemRow = first.getRow(firstItemRow);
+    expect(formulaOf(itemRow.getCell(7)), "every item's Amount is a LIVE formula over its own Rate — empty until somebody prices the item (I-274)").toBe(
+      `IF(F${firstItemRow}="","",E${firstItemRow}*F${firstItemRow})`,
+    );
+    expect(itemRow.getCell(6).value ?? null, "and the Rate is empty: the draft is unpriced (AM-05)").toBeNull();
     expect(first.views[0]?.state, "the header row stays put (A-BOQ-XLSX: frozen headers)").toBe("frozen");
 
     const sheet = workbook.getWorksheet(QUANTITIES) as ExcelJS.Worksheet;
@@ -336,7 +367,10 @@ test.describe.serial("J-000 — Golden Path: M3's documents on F-RCC6-BNBC", () 
     }
     const fidelity: string[] = [];
     const unfaithful: string[] = [];
+    /** Each compared cell's register total, as the register's own footer states it. */
+    const registerTotals = new Map<string, Decimal>();
     const judge = (cell: StatedCell, register: { shown: number; total: Decimal }): void => {
+      registerTotals.set(cell.key, register.total);
       const slack = new Exact(cell.lines).times("0.5").times(new Exact(10).pow(-cell.places));
       const drift = cell.sum.minus(register.total).abs();
       const said = `${cell.key}: sheet ${cell.lines} line(s) Σ ${cell.sum.toString()} · register ${register.shown} line(s) Σ ${register.total.toString()} · |Δ| ${drift.toString()} ≤ ${slack.toString()}`;
@@ -371,5 +405,51 @@ test.describe.serial("J-000 — Golden Path: M3's documents on F-RCC6-BNBC", () 
     await attach(testInfo, "m3-document-fidelity", [`the Quantity column states ${documentPlaces} place(s)`, ...fidelity].join("\n"));
     expect(fidelity.length, "every compared cell was read back on the register").toBe(roster.compared.length);
     expect(unfaithful, `the XLSX states each COMPLETE line as the register's figure rounded once, half to even, to its kind's places (L-MEA-05, L-QTY-07); these cells do not:\n  ${unfaithful.join("\n  ")}`).toEqual([]);
+
+    /* --- the items: each the register's sum of its members, rounded ONCE (I-528) --- */
+    // Which register cells each item's COMPLETE members stand in, read off the Quantities sheet by the
+    // item number each member carries; and which items stand over each cell.
+    const cellsOfItem = new Map<string, Set<string>>();
+    const itemsOfCell = new Map<string, Set<string>>();
+    for (const line of quantities) {
+      const item = line["Item"] ?? "";
+      const spelling = PRODUCT_TO_GOLDEN_KIND[line["Kind"] ?? ""];
+      if (!SGI.test(item) || spelling === undefined || line["Coverage"] !== COMPLETE) continue;
+      const key = cellKey({ class: (line["Class"] ?? "").toUpperCase(), kind: spelling, level: goldenLevelOf(line["Class"] ?? "", line["Level"] ?? "") });
+      cellsOfItem.set(item, new Set([...(cellsOfItem.get(item) ?? []), key]));
+      itemsOfCell.set(key, new Set([...(itemsOfCell.get(key) ?? []), item]));
+    }
+    const tied: string[] = [];
+    const untied: string[] = [];
+    for (const name of sections) {
+      const sheet = workbook.getWorksheet(name) as ExcelJS.Worksheet;
+      sheet.eachRow((row, number) => {
+        if (number === 1) return;
+        const item = String(row.getCell(1).value ?? "");
+        const stated = row.getCell(5).value;
+        if (!SGI.test(item) || typeof stated !== "number") return;
+        const cells = [...(cellsOfItem.get(item) ?? [])];
+        // An item is judged where it is the ONLY item over its cells and every one of them was read
+        // back on the register; an item sharing a cell with another description is judged by its
+        // members' fidelity above, never by a total it shares.
+        if (cells.length === 0 || cells.some((key) => !registerTotals.has(key) || (itemsOfCell.get(key)?.size ?? 0) !== 1)) return;
+        // The places are the kind's own, read off the figure the SCREEN states for the same item —
+        // a leg reads what a customer sees, never the product's catalogue (AM-09 §2).
+        const shown = screenFigure.get(item);
+        if (shown === undefined) {
+          untied.push(`${name} ${item}: the workbook states an item the screen does not`);
+          return;
+        }
+        const places = placesOf(shown);
+        const register = cells.reduce((sum, key) => sum.plus(registerTotals.get(key) as Decimal), new Exact(0));
+        const once = register.toDecimalPlaces(places, Decimal.ROUND_HALF_EVEN).toFixed(places);
+        const said = `${name} ${item}: states ${new Exact(stated).toFixed(places)} (screen ${shown}) · register Σ ${register.toString()} over ${cells.join(", ")} → rounded once ${once}`;
+        if (shown === once && new Exact(stated).eq(new Exact(shown))) tied.push(said);
+        else untied.push(said);
+      });
+    }
+    await attach(testInfo, "m3-item-ties", [`items tied to the register (${tied.length}):`, ...tied, `items that do not tie (${untied.length}):`, ...untied].join("\n"));
+    expect(tied.length, "at least one item stands alone over register cells the walk read back — a tie over nothing proves nothing").toBeGreaterThan(0);
+    expect(untied, "each item states the register's own sum of its members rounded ONCE — never a sum of rounded lines (I-528)").toEqual([]);
   });
 });

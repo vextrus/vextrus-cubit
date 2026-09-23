@@ -15,6 +15,7 @@ import { BOQ_DRAFT } from "@/core/documents/kinds/boq-draft";
 import { storeDocument, type DocumentStoreDeps } from "@/core/documents/store";
 import { forTenant, recordModelOutcome, type TenantTx } from "@/core/db";
 import { REFUSALS } from "@/core/errors";
+import { dhakaDateParts, formatDate } from "@/core/format";
 import { refusal } from "@/core/faults/refusal-marker";
 import type { JobPayloads, JobProgress } from "@/core/jobs";
 import type { BoqDescriptionPort } from "./description-question";
@@ -43,7 +44,16 @@ const [STEP_READ, STEP_RENDER, STEP_FILE] = BOQ_DRAFT_STEPS;
  * What a render is run with: where the bytes go, — for a lane — what compiles them, and the port
  * the draft's item-description question goes through (B-23; the seam's own `propose` by default).
  */
-export type BoqDraftDeps = RenderDeps & { readonly storage: DocumentStoreDeps["storage"]; readonly descriptions?: BoqDescriptionPort };
+export type BoqDraftDeps = RenderDeps & {
+  readonly storage: DocumentStoreDeps["storage"];
+  readonly descriptions?: BoqDescriptionPort;
+  /**
+   * The clock the issue reads its day off — the one fact about WHEN a document states, stamped by
+   * the caller who issued it and never read by the template (R-SPINE-040, I-530). A lane
+   * hands its own; the worker reads the machine's.
+   */
+  readonly now?: () => Date;
+};
 
 /** What the run answers: the issue it filed, and which issue of this project's draft it is. */
 export type BoqDraftIssued = { readonly documentId: string; readonly version: number };
@@ -69,13 +79,16 @@ export async function runBoqDraftJob(
     ctx: { tenantId: payload.tenantId, projectId: payload.projectId, actor: payload.requestedBy, requestId: progress.jobId },
     port: deps.descriptions,
   });
-  const issued = view.payload;
-  if (issued === null) {
+  const read = view.payload;
+  if (read === null) {
     throw refusal(REFUSALS.BOQ_NO_PUBLISHED_LINE.code, "a draft was asked for a campaign that has published no line", {
       projectId: payload.projectId,
       campaignId: payload.campaignId,
     });
   }
+  // What makes a reading an ISSUE: the day it went out, printed on its front page and in every
+  // page's foot (I-530).
+  const issued = stampIssue(read, (deps.now ?? (() => new Date()))());
 
   // SEAM-DOC: the one path to the renderer, given the very payload the screen read (I-269, I-271).
   await progress.step(STEP_RENDER, { lines: view.items.size });
@@ -97,6 +110,17 @@ export async function runBoqDraftJob(
   });
 
   return { documentId: row.id, version: row.version };
+}
+
+/**
+ * A reading made an issue: the same payload, stamped with the day it went out — the day in the
+ * DOCUMENT's zone (Asia/Dhaka, `dhakaDateParts`) written through the format seam, `DD MMM YYYY`
+ * (L-FMT-01, I-530). An instant late on the 23rd in UTC is already the 24th in Dhaka, and the
+ * paper says the 24th. Pure, so the stamp is judged without rendering a document.
+ */
+export function stampIssue(read: BoqDraftPayload, at: Date): BoqDraftPayload {
+  const front = read.front ?? { client: null, site: null, drawingSet: null, drawings: [], issued: null };
+  return { ...read, front: { ...front, issued: formatDate(dhakaDateParts(at)) } };
 }
 
 /**

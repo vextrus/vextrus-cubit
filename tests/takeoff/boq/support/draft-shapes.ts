@@ -52,16 +52,34 @@ export type PayloadLineShape = {
   decidedBy: string;
 };
 
+/**
+ * One ITEM as the payload holds it: one description at one level band, its figure the register's
+ * sum of its member lines rounded once, the lines behind it as its details of measurement (the
+ * owner's bill-shape ruling, s-boq I-528).
+ */
+export type PayloadItemShape = {
+  key: string;
+  description: string;
+  level: string;
+  levelOrdinal?: number | null;
+  quantity: string | null;
+  unit: string;
+  coverage: string;
+  quantityBasis: string;
+  selectionBasis: string;
+  lines: PayloadLineShape[];
+};
+
+/** A group states no quantity of its own: no quantity subtotal crosses descriptions (I-529). */
 export type PayloadGroupShape = {
   class: string;
   kind: string;
   description: string;
   unit: string;
-  lines: PayloadLineShape[];
-  subtotals: { unit: string; value: string }[];
+  items: PayloadItemShape[];
 };
 
-export type PayloadSectionShape = { bill: string; label: string; groups: PayloadGroupShape[]; subtotals: { unit: string; value: string }[] };
+export type PayloadSectionShape = { bill: string; label: string; groups: PayloadGroupShape[] };
 
 export type PayloadShape = {
   title: string;

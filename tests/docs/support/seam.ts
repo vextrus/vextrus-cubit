@@ -68,9 +68,12 @@ export type FiguresModule = { figure(value: string, precision: number): string }
 /** The unpriced draft BOQ's kind, as inc-311a's interfaces publish it (`boq-draft`, R-TO-053). */
 export type BoqDraftModule = { BOQ_DRAFT_KIND: DocumentKind; BOQ_DRAFT_TITLE: string };
 
-/** The numbering the draft's `present()` derives an item from — the same function the screen calls. */
+/**
+ * The numbering the draft's `present()` derives an item from — the same function the screen calls.
+ * An item is one description at one level band, keyed by its `key` (s-boq I-528).
+ */
 export type NumberingModule = {
-  numberItems(sections: readonly { bill: string; groups: readonly { class: string; kind: string; lines: readonly { lineId: string }[] }[] }[]): ReadonlyMap<string, string>;
+  numberItems(sections: readonly { bill: string; groups: readonly { class: string; kind: string; items: readonly { key: string; levelOrdinal?: number | null }[] }[] }[]): ReadonlyMap<string, string>;
 };
 
 /** The taxonomy the draft is stamped with (inc-311a). */

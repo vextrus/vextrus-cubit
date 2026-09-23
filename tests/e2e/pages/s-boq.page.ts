@@ -86,6 +86,10 @@ export class SBoqPage {
   get jobs(): Locator {
     return this.page.getByTestId(idOf("jobs"));
   }
+  /** The closing section: what the draft does not measure (s-boq I-451, I-532). */
+  get notMeasured(): Locator {
+    return this.page.getByTestId(idOf("notMeasured"));
+  }
   get documentLink(): Locator {
     return this.page.getByTestId(idOf("documentLink"));
   }
@@ -125,6 +129,10 @@ export class SBoqPage {
   }
   line(lineId: string): Locator {
     return this.page.locator(`${testIdSelector(idOf("line"))}[data-line="${lineId}"]`);
+  }
+  /** One ITEM row by its S.G.I number — a row of the draft is an item (s-boq I-528). */
+  item(number: string): Locator {
+    return this.page.locator(`${testIdSelector(idOf("line"))}[data-item="${number}"]`);
   }
   linesIn(bill: Locator): Locator {
     return bill.getByTestId(idOf("line"));

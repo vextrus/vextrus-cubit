@@ -8,6 +8,13 @@
  * the number it derives is a function of the payload alone — the same payload twice, the same map;
  * a line added, the same identities.
  *
+ * TEST_AMENDED (session 8, BOQ-SHAPE, s-boq I-528): the owner ruled the bill's shape — an
+ * ITEM is one description at one level band, and the member lines behind it are its details of
+ * measurement. So `I` is the item's ordinal inside its group and a member line is numbered by
+ * nothing; the map is keyed by the item's key. Every rule this suite guarded — S among the six, G in
+ * catalogue order, I up the building then in canonical order, purity, half-even rounding once — is
+ * guarded here over items, and the rounding is now also asserted at the item's grain.
+ *
  * Nothing here opens a database and nothing here measures time (AM-10 §3).
  */
 import { describe, expect, test } from "vitest";
@@ -29,6 +36,7 @@ import {
   productModule,
   type EmissionModule,
   type NumberingModule,
+  type PayloadItemShape,
   type PayloadSectionShape,
   type PayloadShape,
   type ReadingShape,
@@ -81,6 +89,11 @@ function readingOf(levels: ReadingShape["levels"], lines: ReadingShape["lines"])
   };
 }
 
+/** Every item of a payload, with the section and group it stands in. */
+function itemsOf(payload: { sections: readonly PayloadSectionShape[] }): { section: PayloadSectionShape; group: PayloadSectionShape["groups"][number]; item: PayloadItemShape }[] {
+  return payload.sections.flatMap((section) => section.groups.flatMap((group) => group.items.map((item) => ({ section, group, item }))));
+}
+
 /** The group ordinal a section owes each of its groups: `ELEMENT_TYPES` then `KINDS`, present only. */
 function expectedGroupOrdinals(section: PayloadSectionShape): Map<string, number> {
   const order = [...section.groups]
@@ -90,7 +103,7 @@ function expectedGroupOrdinals(section: PayloadSectionShape): Map<string, number
 }
 
 describe("AC-3: the item number is derived on emission and stored nowhere", () => {
-  test("AC-3: the payload schema refuses a line that carries a number, and the store has no column for one", async () => {
+  test("AC-3: the payload schema refuses an item or a line that carries a number, and the store has no column for one", async () => {
     await ready();
     const kind = await productModule<{ boqDraftPayloadSchema: { safeParse: (value: unknown) => { success: boolean } } }>(BOQ_KIND_MODULE);
     const schema = kind.boqDraftPayloadSchema;
@@ -102,10 +115,12 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
     expect(schema.safeParse(clean).success, `the seam's own payload is a payload the kind accepts: ${JSON.stringify(schema.safeParse(clean))}`).toBe(true);
 
     for (const key of ["item", "itemNumber"]) {
-      const carried = JSON.parse(JSON.stringify(clean)) as PayloadShape;
-      const line = (carried.sections[0] as PayloadSectionShape).groups[0]?.lines[0] as Record<string, unknown>;
-      line[key] = "1.1.1";
-      expect(schema.safeParse(carried).success, `a line carrying \`${key}\` is refused: an item number is derived at emission and is never handed in (AM-14 §2)`).toBe(false);
+      const onItem = JSON.parse(JSON.stringify(clean)) as PayloadShape;
+      ((onItem.sections[0] as PayloadSectionShape).groups[0]?.items[0] as unknown as Record<string, unknown>)[key] = "2.1.1";
+      expect(schema.safeParse(onItem).success, `an item carrying \`${key}\` is refused: an item number is derived at emission and is never handed in (AM-14 §2)`).toBe(false);
+      const onLine = JSON.parse(JSON.stringify(clean)) as PayloadShape;
+      ((onLine.sections[0] as PayloadSectionShape).groups[0]?.items[0]?.lines[0] as unknown as Record<string, unknown>)[key] = "2.1.1";
+      expect(schema.safeParse(onLine).success, `a member line carrying \`${key}\` is refused as well — a member line is numbered by nothing`).toBe(false);
     }
 
     const schemaModule = await productModule<Record<string, unknown>>(QUANTITY_LINES_SCHEMA_MODULE);
@@ -120,13 +135,14 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
     }
   });
 
-  test("AC-3: S.G.I is the section's ordinal in BILLS, the group's in the catalogue order, the line's in its group", async () => {
+  test("AC-3: S.G.I is the section's ordinal in BILLS, the group's in the catalogue order, the item's in its group", async () => {
     await ready();
     const payload = syntheticDraftPayload(96);
     const map = numbering.numberItems(payload.sections);
 
-    const lineCount = payload.sections.flatMap((section) => section.groups.flatMap((group) => group.lines)).length;
-    expect(map.size, "one item number per line the payload holds, and not one more").toBe(lineCount);
+    const every = itemsOf(payload);
+    expect(map.size, "one item number per item the payload holds, and not one more").toBe(every.length);
+    for (const { item } of every) for (const member of item.lines) expect(map.has(member.lineId), `${member.lineId} is a member line, numbered by nothing (I-528)`).toBe(false);
 
     for (const section of payload.sections) {
       const sectionOrdinal = SIX_BILLS.indexOf(section.bill) + 1;
@@ -135,9 +151,9 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
 
       for (const group of section.groups) {
         const groupOrdinal = groupOrdinals.get(`${group.class}:${group.kind}`) as number;
-        const numbers = group.lines.map((line) => map.get(line.lineId));
+        const numbers = group.items.map((item) => map.get(item.key));
         for (const number of numbers) {
-          expect(number, `every line of ${section.bill} / ${group.class} · ${group.kind} is numbered`).toBeTruthy();
+          expect(number, `every item of ${section.bill} / ${group.class} · ${group.kind} is numbered`).toBeTruthy();
           expect(number as string, `${number} is an S.G.I string: three 1-based ordinals, no padding and no zero`).toMatch(SGI);
         }
         const parts = numbers.map((number) => (number as string).split("."));
@@ -146,7 +162,7 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
           expect(Number(part[1]), `G is the (class, kind) group's 1-based ordinal in ELEMENT_TYPES-then-KINDS order, counting only the groups this section holds`).toBe(groupOrdinal);
         }
         const withinGroup = parts.map((part) => Number(part[2])).sort((a, b) => a - b);
-        expect(withinGroup, `I runs 1..n inside ${group.class} · ${group.kind} with no gap and no zero`).toEqual(group.lines.map((_line, index) => index + 1));
+        expect(withinGroup, `I runs 1..n inside ${group.class} · ${group.kind} with no gap and no zero`).toEqual(group.items.map((_item, index) => index + 1));
       }
     }
   });
@@ -163,14 +179,10 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
     expect(sections.map((section) => section.bill), "the payload under test holds exactly those two sections, in this order").toEqual(wanted);
 
     const map = numbering.numberItems(sections);
-    for (const section of sections) {
+    for (const { section, item } of itemsOf({ sections })) {
       const expected = SIX_BILLS.indexOf(section.bill) + 1;
-      for (const group of section.groups) {
-        for (const held of group.lines) {
-          const S = Number((map.get(held.lineId) as string).split(".")[0]);
-          expect(S, `${section.bill} opens ${expected} — its ordinal in BILLS — however few sections stand beside it`).toBe(expected);
-        }
-      }
+      const S = Number((map.get(item.key) as string).split(".")[0]);
+      expect(S, `${section.bill} opens ${expected} — its ordinal in BILLS — however few sections stand beside it`).toBe(expected);
     }
   });
 
@@ -192,64 +204,61 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
 
     const map = numbering.numberItems([reversed]);
     catalogueOrder.forEach((group, index) => {
-      const held = group.lines[0] as { lineId: string };
-      const G = Number((map.get(held.lineId) as string).split(".")[1]);
+      const held = group.items[0] as PayloadItemShape;
+      const G = Number((map.get(held.key) as string).split(".")[1]);
       expect(G, `${group.class} · ${group.kind} is group ${index + 1} of this section by ELEMENT_TYPES then KINDS — the array handed it over at position ${reversed.groups.indexOf(group) + 1}`).toBe(
         index + 1,
       );
     });
   });
 
-  test("AC-3: I takes the lower level first, and only then the canonical order of the object key", async () => {
+  test("AC-3: I takes the lower level first, and only then the canonical order of the item's key", async () => {
     await ready();
-    // Two lines of ONE group on two levels, with the object keys sorting the other way: the lower
-    // level's key is last canonically, so a numbering that read the key alone would put the upper
-    // storey first. The draft is read down the building.
-    //
-    // Beams, not columns: a beam is placed by its own override wherever it stands (SUPERSTRUCTURE),
-    // so the two storeys land in ONE section and the ordering rule is the only thing left to judge.
-    // A column would be cut by the plinth and the pair would be answering a different question.
-    const reading = readingOf(TWO_LEVELS, [
-      line("l-upper", "beam/GF/A1", "beam", "rcc.concrete", "lvl-gf", "1.000", "m3"),
-      line("l-lower", "beam/Z-FDN/Z9", "beam", "rcc.concrete", "lvl-fdn", "2.000", "m3"),
-    ]);
-    // Read in code units (L-REG-05): `Z` is above `G`, so the lower storey's key really does sort
-    // after the upper one's. The premise is checked against the shipped comparator rather than
-    // assumed, because the whole force of the case is that level and key disagree.
-    expect(canonical("beam/Z-FDN/Z9", "beam/GF/A1"), "the lower storey's key sorts AFTER the upper one's, so level and key disagree").toBe(1);
+    // Two beam lines on two levels: above the plinth an item is per storey, so they are two items of
+    // ONE group. The labels are chosen so the lower storey's band sorts AFTER the upper one's in code
+    // units — a numbering that read the key alone would put the upper storey first. A draft is read
+    // up the building from the foundation.
+    const levels = [
+      { levelId: "lvl-low", ordinal: 1, label: "Z1" },
+      { levelId: "lvl-high", ordinal: 2, label: "A2" },
+    ];
+    const reading = readingOf(levels, [line("l-upper", "beam/A2/B1", "beam", "rcc.concrete", "lvl-high", "1.000", "m3"), line("l-lower", "beam/Z1/B1", "beam", "rcc.concrete", "lvl-low", "2.000", "m3")]);
 
     // Through the seam that holds the stack: the emission knows each line's level, and the numbering
     // the document and the screen share is run over what it emitted (B-17).
     const payload = emission.boqDraftPayloadOf(reading);
-    const map = numbering.numberItems(payload.sections);
+    const every = itemsOf(payload);
+    expect(every.length, "two storeys above the plinth are two items").toBe(2);
+    const lower = every.find(({ item }) => item.lines.some((member) => member.lineId === "l-lower"))?.item as PayloadItemShape;
+    const upper = every.find(({ item }) => item.lines.some((member) => member.lineId === "l-upper"))?.item as PayloadItemShape;
+    expect(canonical(lower.key, upper.key), "the lower storey's key sorts AFTER the upper one's, so level and key disagree").toBe(1);
 
-    const lower = map.get("l-lower");
-    const upper = map.get("l-upper");
-    expect(lower, "the line on the foundation level is numbered").toBeTruthy();
-    expect(upper, "and so is the one on the ground floor").toBeTruthy();
-    expect((lower as string).split(".").slice(0, 2), "both lines stand in one section and one group, so only I may differ between them").toEqual((upper as string).split(".").slice(0, 2));
-    expect(Number((lower as string).split(".")[2]), "the lower level takes I = 1: level ordinal ascending FIRST, and the object key only where two lines share a level (AM-14 §2)").toBe(1);
-    expect(Number((upper as string).split(".")[2]), "and the storey above it follows").toBe(2);
+    const map = numbering.numberItems(payload.sections);
+    const [lowerNumber, upperNumber] = [map.get(lower.key) as string, map.get(upper.key) as string];
+    expect(lowerNumber.split(".").slice(0, 2), "both items stand in one section and one group, so only I may differ between them").toEqual(upperNumber.split(".").slice(0, 2));
+    expect(Number(lowerNumber.split(".")[2]), "the lower level takes I = 1: level ordinal ascending FIRST, and the key only where two items share a level (AM-14 §2)").toBe(1);
+    expect(Number(upperNumber.split(".")[2]), "and the storey above it follows").toBe(2);
   });
 
-  test("AC-3: I orders a group by level then by the canonical order of the object key, never by the array's order", async () => {
+  test("AC-3: I orders a group's items by level then by the canonical order of the key, never by the array's order", async () => {
     await ready();
     const payload = syntheticDraftPayload(12);
     const section = payload.sections[0] as PayloadSectionShape;
     const group = section.groups[0] as PayloadSectionShape["groups"][number];
-    // One level for every line of the group, so the level ordinal cannot break the tie and the
-    // canonical order of the object key is the rule under test (interfaces: `compareCanonical`).
-    const onOneLevel = group.lines.map((line, index) => ({ ...line, level: "GF", objectKey: `column/GF/${["m", "a", "z", "b"][index % 4] as string}-${index}` }));
-    const ordered: PayloadSectionShape = { ...section, groups: [{ ...group, lines: onOneLevel }] };
-    const shuffled: PayloadSectionShape = { ...section, groups: [{ ...group, lines: [...onOneLevel].reverse() }] };
+    const exemplar = group.items[0] as PayloadItemShape;
+    // Four items on one level (four descriptions), so the level cannot break the tie and the
+    // canonical order of the key is the rule under test (interfaces: `compareCanonical`).
+    const onOneLevel = ["m", "a", "z", "b"].map((letter, index) => ({ ...exemplar, key: `${exemplar.key}${letter}-${index}`, levelOrdinal: 0 }));
+    const ordered: PayloadSectionShape = { ...section, groups: [{ ...group, items: onOneLevel }] };
+    const shuffled: PayloadSectionShape = { ...section, groups: [{ ...group, items: [...onOneLevel].reverse() }] };
 
     const a = numbering.numberItems([ordered]);
     const b = numbering.numberItems([shuffled]);
-    expect([...b.entries()].sort(), "the same lines handed over in another order are numbered the same: the order is DERIVED, never the array's").toEqual([...a.entries()].sort());
+    expect([...b.entries()].sort(), "the same items handed over in another order are numbered the same: the order is DERIVED, never the array's").toEqual([...a.entries()].sort());
 
-    const byNumber = [...onOneLevel].sort((one, other) => Number((a.get(one.lineId) as string).split(".")[2]) - Number((a.get(other.lineId) as string).split(".")[2]));
-    const byKey = [...onOneLevel].sort((one, other) => canonical(one.objectKey, other.objectKey));
-    expect(byNumber.map((line) => line.objectKey), "inside a group on one level, I follows the canonical order of the object key").toEqual(byKey.map((line) => line.objectKey));
+    const byNumber = [...onOneLevel].sort((one, other) => Number((a.get(one.key) as string).split(".")[2]) - Number((a.get(other.key) as string).split(".")[2]));
+    const byKey = [...onOneLevel].sort((one, other) => canonical(one.key, other.key));
+    expect(byNumber.map((item) => item.key), "inside a group on one level, I follows the canonical order of the key").toEqual(byKey.map((item) => item.key));
   });
 
   test("AC-3: the same sections answer the same map, and one added line renumbers freely while every identity stands", async () => {
@@ -261,10 +270,10 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
 
     const grown = syntheticDraftPayload(49);
     const after = numbering.numberItems(grown.sections);
-    for (const lineId of first.keys()) {
-      expect(after.has(lineId), `${lineId} is still a line of the draft after one more was measured — a renumbering never drops an identity`).toBe(true);
+    for (const key of first.keys()) {
+      expect(after.has(key), `${key} is still an item of the draft after one more line was measured — a renumbering never drops an identity`).toBe(true);
     }
-    expect(after.size, "the added line is numbered too — the map grows by exactly the line, however many numbers moved around it").toBe(first.size + 1);
+    expect(after.size, "and the grown draft numbers every item it holds").toBe(itemsOf(grown).length);
     for (const number of after.values()) {
       expect(number, "and every number of the grown draft is still an S.G.I string").toMatch(SGI);
     }
@@ -287,14 +296,15 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
     expect(one.payloadDigest.length, "and the digest is a digest").toBeGreaterThan(0);
   });
 
-  test("AC-3: a payload quantity is the reading rounded half-even at the kind's document precision, and the reading is untouched", async () => {
+  test("AC-3: a payload quantity is the reading rounded half-even ONCE at the kind's document precision, and the reading is untouched", async () => {
     await ready();
     const levels = [
       { levelId: "lvl-fdn", ordinal: -1, label: "FDN" },
       { levelId: "lvl-gf", ordinal: 0, label: "GF" },
     ];
-    // Two figures whose fourth place is exactly a half, so the rule is HALF-EVEN and not half-up:
-    // 1.0005 → 1.000 and 1.0015 → 1.002 at three places; 2.005 → 2.00 and 2.015 → 2.02 at two.
+    // Figures whose fourth place is exactly a half, so the rule is HALF-EVEN and not half-up:
+    // 1.0005 → 1.000 and 1.0015 → 1.002 at three places; 2.005 → 2.00 and 2.015 → 2.02 at two. Their
+    // ITEMS are the exact sums rounded once: 2.002 m3 (not 1.000 + 1.002) and 4.02 m2.
     const reading: ReadingShape = {
       project: "Sattva Court",
       campaignId: "33333333-3333-4333-8333-333333333333",
@@ -313,12 +323,12 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
     const payload = emission.boqDraftPayloadOf(reading);
     expect(JSON.stringify(reading), "the emission reads the register and never writes back to it — the reading's own `value` fields stand").toBe(before);
 
-    const emitted = new Map(payload.sections.flatMap((section) => section.groups.flatMap((group) => group.lines.map((line) => [line.lineId, { line, kind: group.kind }] as const))));
+    const emitted = new Map(itemsOf(payload).flatMap(({ group, item }) => item.lines.map((member) => [member.lineId, { line: member, kind: group.kind }] as const)));
     const expectedHalfEven: Readonly<Record<string, string>> = { "l-1": "1.000", "l-2": "1.002", "l-3": "2.00", "l-4": "2.02" };
 
     for (const [lineId, expected] of Object.entries(expectedHalfEven)) {
       const held = emitted.get(lineId);
-      expect(held, `${lineId} stands in a section of the draft`).toBeTruthy();
+      expect(held, `${lineId} stands behind an item of the draft`).toBeTruthy();
       const precision = (items[(held as { kind: string }).kind] as WorkItemShape).documentPrecision;
       expect((held as { line: { quantity: string | null } }).line.quantity, `${lineId} is rounded half-even to ${precision} places — L-MEA-05's decimal habit, never half-up`).toBe(expected);
       expect(((held as { line: { quantity: string | null } }).line.quantity as string).split(".")[1]?.length ?? 0, `${lineId} prints exactly ${precision} places, no more and no fewer`).toBe(precision);
@@ -328,10 +338,11 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
     expect(declared, "a line that declares what it could not measure is still a line of the draft").toBeTruthy();
     expect((declared as { line: { quantity: string | null } }).line.quantity, "and it states no figure at all — never a zero, which would be a quantity nobody measured (L-QTY-04)").toBeNull();
 
+    const byKind = new Map(itemsOf(payload).map(({ group, item }) => [group.kind, item.quantity]));
+    expect(byKind.get("rcc.concrete"), "the concrete item is its members' register sum, 2.0020, rounded ONCE — not 1.000 + 1.002 (I-528)").toBe("2.002");
+    expect(byKind.get("rcc.formwork"), "the formwork item is 4.0200 rounded once to two places — not 2.00 + 2.02").toBe("4.02");
+
     expect(payload.taxonomyVersion, "the payload is stamped with the taxonomy it was drafted under").toBe(TAXONOMY_VERSION);
-    // What this reading's COVERAGE is worth is not asked here: its statement is incomplete and it
-    // carries a declared line, so an answer of INCOMPLETE would be forced twice over and would show
-    // nothing. The case below asks it where exactly one thing decides it.
   });
 
   test("AC-3: a draft every line of which was measured is COMPLETE, and one line no bill can place takes it out of completeness", async () => {
@@ -362,9 +373,7 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
 
     /* --- the discriminator: the same reading, plus one line no bill can take --- */
     // A column is billed by WHERE it stands, and this one stands on a level the stack does not hold,
-    // so no row of the taxonomy can place it. (The other spelling of "no row maps this pair" — a
-    // kind outside the catalogue — cannot be asked of the emission at all: the document's precision
-    // is read from the catalogue by kind, so such a line faults before any resolution is reached.)
+    // so no row of the taxonomy can place it.
     const unplaceable = {
       lineId: "l-unplaced",
       objectKey: "column/none/C9",
@@ -385,13 +394,13 @@ describe("AC-3: the item number is derived on emission and stored nowhere", () =
     expect([...taxonomy.UNCLASSIFIED_REASONS], "labelled with a reason the law admits, stated by name").toContain(kept.reason);
     expect(kept.coverage, "and it is not a line that declared what it could not measure: it was measured, and could not be placed").toBe(COMPLETE);
 
-    const inSections = withGap.sections.flatMap((section) => section.groups.flatMap((group) => group.lines));
+    const inSections = itemsOf(withGap).flatMap(({ item }) => item.lines);
     expect(
-      inSections.map((line) => line.lineId),
+      inSections.map((held) => held.lineId).sort(),
       "it stands in NO section: a line the taxonomy could not place is outside the six, never quietly filed inside one (AC-2)",
-    ).toEqual(mapped.map((line) => line.lineId));
+    ).toEqual(mapped.map((held) => held.lineId).sort());
     expect(
-      inSections.filter((line) => line.coverage === PARTIAL_DECLARED),
+      inSections.filter((held) => held.coverage === PARTIAL_DECLARED),
       "and no line of any section declared what it could not measure — that road to INCOMPLETE is shut, so only the unplaced line is left to answer for it",
     ).toEqual([]);
 

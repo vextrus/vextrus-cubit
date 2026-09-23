@@ -387,9 +387,9 @@ export function rowText(sheet: ExcelJS.Worksheet, row: number, width: number): s
   return Array.from({ length: width }, (_unused, index) => cellText(sheet, row, index + 1));
 }
 
-/** The lines of a payload in the order the sections print them — groups then lines (AM-14 §2). */
-export function sectionLines(payload: PayloadShape): { section: PayloadShape["sections"][number]; line: PayloadShape["sections"][number]["groups"][number]["lines"][number]; group: PayloadShape["sections"][number]["groups"][number] }[] {
-  return payload.sections.flatMap((section) => section.groups.flatMap((group) => group.lines.map((line) => ({ section, group, line }))));
+/** The items of a payload in the order the sections print them — groups then items (AM-14 §2). */
+export function sectionItems(payload: PayloadShape): { section: PayloadShape["sections"][number]; item: PayloadShape["sections"][number]["groups"][number]["items"][number]; group: PayloadShape["sections"][number]["groups"][number] }[] {
+  return payload.sections.flatMap((section) => section.groups.flatMap((group) => group.items.map((item) => ({ section, group, item }))));
 }
 
 /** The text of a CSV artefact, as the reader on the far side of the link decodes it (RFC 4180). */
