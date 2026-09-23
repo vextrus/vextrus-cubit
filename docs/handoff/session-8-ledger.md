@@ -145,3 +145,30 @@ the 75 cells lack is drawn in F-RCC6-BNBC itself, appended so that no existing h
   MEASURE-REFUSE, VIEW-TXT, REG-FILT, BOQ-1, COV-ALL, N1, C5, C6b, DLG-1, BBS-DOC, BOQ-SHAPE,
   BOQ-DESC, FND-OWN); N1, C6b and the new BBS-DOC move up into wave 2.
 - Demo stopped after walk-0 so the worktree agents' db lane can run.
+- **R0 design returned** (`wf_41dfbc28-79c`: design, refuter critic, final — 1.19 M subagent tokens;
+  `.private/work/session-8/r0/design.md`). The critic REFUTED three claims of the first draft ("only
+  corrected entities change", a core redraw that broke its own proof rule, ~40 content-keyed model
+  recordings missed) and the final design applies them.
+  - **Handles:** the generator mints in creation order; a "Rev C append pass" (tagged scenes/views,
+    composed after every Rev B sheet) keeps them. Proved in scratch: the empty pass regenerates both DXFs
+    byte-identical; corrections + stubs lose 0 handles; all 52 trap handles survive. Proof test:
+    `cad/tests/rcc6_bnbc/test_rcc6_bnbc_revision.py` (Rev B maps pinned by blob id).
+  - **Corrections** (value-only where possible): EGL −457.2 (excavations 445.875 → 377.279 m³); CS1 150
+    constant; S-20 draws the ducts (golden unchanged); CB1–4 250×450; LB1 filed where drawn; the SOG
+    reveals; edge ownership per L-MEA-09's owned shape; TG1's side; cap cover 2" (S-26 regenerated at
+    50.8, the drawing agreeing with itself); GC-1/2/4 and C7 hoops (−1,394.383 kg of column ties); pile
+    heads (−1.332 m³) and the PC5 recess (−4.989 m³) off cap concrete.
+  - **Drawn (Rev C):** S-01 cover lines; S-05 pile bars; S-06 F1 marked + cap side bars; S-07 PC5 with
+    the lift-pit recess; S-08 42 grade-beam marks + the ramp section; S-12 "sections typical for every
+    band" + the C7 section; the lift-core legs grid-centred + leg D; S-15 the seventh LB1, the SRR grid;
+    S-19/20/21 slab panel schedules, the ducts, MRR 150; S-22 landings; S-23 SW bars; S-24 three tank
+    plans; S-25 lintels stated whole.
+  - **Masonry:** F-ARCH (ARCH-1, committed in its worktree) already authors BW250/BW125 walls with
+    openings and bills brickwork (538.041 m³ over GF..6F) with S-25's lintels deducted; so BNBC stops
+    minting BRICK_WALL rows (the 259.425 m³ lump retires) and keeps LINTEL; one home (B-17).
+  - **COMPLETE cells:** column concrete (8) and piles (3) do not move; cap concrete golden 128.821 →
+    122.500, cap formwork 254.211 → 262.773 — so FND-OWN lands in the same window as the baseline.
+  - **Chain:** R0-G0 (append pass, no content) → R0-G1 (corrections) → R0-G2 (Rev C drawings, XL) →
+    R0-G3 (masonry one home, after ARCH-1) → R0-REC (model recordings, live Jev) → R0-BASE (baseline:,
+    with FND-OWN) ∥ R0-DOCS; then the readers (WLS-1, F1-1, TANK-1, STAIR-RB, SLAB-RB, PILE-RB, CAP-RB,
+    TIE-1, LNT-1, SLB-1).
