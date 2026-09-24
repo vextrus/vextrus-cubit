@@ -152,7 +152,7 @@ export class SBbsPage {
    * the grid, every row each window paints kept by its place in the list (`aria-rowindex`). A
    * virtualised grid paints a window of its rows (§5 rule 9, past 200), so a locator over the page
    * sees only that window; this reads them all. The read is whole only when its NET rows are the
-   * document's lines (`bbs-screen`'s `data-rows`) and no place between its first and last row went
+   * document's lines (the screen root's `data-rows`) and no place between its first and last row went
    * unpainted — otherwise it is read again, and a read that never comes whole fails by name.
    */
   async wholeGrid(): Promise<BbsWholeGrid> {
