@@ -11,7 +11,7 @@ import { THREAD_CAP, articleStateOf, keep, keptReading, previousReading, readThr
 import { memoryStorage } from "./support/storage";
 
 
-const READING: AskReading = { intent: "COUNT", class: "column", kind: null, mark: "C1", level: "GF", by: null, noteKind: null, discipline: null, unitAsked: null };
+const READING: AskReading = { intent: "COUNT", class: "column", kind: null, mark: "C1", level: "GF", by: null, noteKind: null, discipline: null, unitAsked: null, text: null };
 
 function kept(id: string, answer: AskAnswer | null = null, extra: Partial<KeptAnswer> = {}): KeptAnswer {
   return { id, question: `question ${id}`, askedAt: "2026-09-24T06:00:00.000Z", stamp: "s1", answer, refusal: null, fault: null, previous: null, declined: false, ...extra };
@@ -22,7 +22,7 @@ const ANSWERED: AskAnswer = {
   routedBy: "GRAMMAR",
   reading: READING,
   followUp: false,
-  facts: { statement: { intent: "COUNT", count: { value: "1", unit: null, kind: null, places: 0, at: [] }, struck: 0, typical: null }, partial: null, places: [], records: { lines: [], objects: [], readings: [], cells: [], sheets: [] }, basis: "REGISTER" },
+  facts: { statement: { intent: "COUNT", count: { value: "1", unit: null, kind: null, places: 0, at: [] }, struck: 0, typical: null }, partial: null, places: [], records: { lines: [], objects: [], readings: [], cells: [], sheets: [], texts: [] }, basis: "REGISTER" },
 };
 
 describe("the thread is kept in the tab, per reader and project (I-403)", () => {

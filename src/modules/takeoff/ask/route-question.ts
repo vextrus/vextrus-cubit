@@ -16,7 +16,7 @@ import { ASK_ROUTE_NONE, ASK_ROUTE_NOT_STATED, MODEL_QUESTIONS, canonicalJson, p
 import type { DecodeResult, ModelCallContext, ModelJudgment, ModelRequest, Proposal, SourceKeyResolver } from "@/core/model";
 import { JEV_MODEL, type ModelId } from "@/core/model-ledger.types";
 import { ASK_SLOTS, readWithIntent, wordsOf, type AskSlot, type AskSlotChoice, type AskSubject } from "./grammar";
-import { ASK_INTENTS, ASK_REFUSAL_CODES, isAskIntent, type AskAnswer, type AskIntent, type AskOffered, type AskReading, type AskRefused } from "./law";
+import { ASK_REFUSAL_CODES, ASK_ROUTED_INTENTS, isAskRoutedIntent, type AskAnswer, type AskOffered, type AskReading, type AskRefused, type AskRoutedIntent } from "./law";
 import type { AskVocabulary } from "./vocabulary";
 
 /** Any JSON value — what a transport carried, before it is read as anything. */
@@ -42,10 +42,10 @@ export const ASK_ROUTE_CONFIDENCE_FLOOR = 0.7;
 
 /**
  * What each intent means, in the words a quantity surveyor asks it in — the criteria Jev chooses
- * among. Keyed by the roster, so an intent added to `ASK_INTENTS` with no meaning does not compile,
+ * among. Keyed by the routed roster (`ASK_ROUTED_INTENTS`, I-677), so an intent added to it with no meaning does not compile,
  * and carried in the request, so a meaning reworded is a new request and forces a re-record.
  */
-const INTENT_MEANINGS: Readonly<Record<AskIntent, string>> = Object.freeze({
+const INTENT_MEANINGS: Readonly<Record<AskRoutedIntent, string>> = Object.freeze({
   COUNT: "How many members of a class or of one mark there are, optionally on one level: a count of columns, piles or pile caps.",
   MARKS: "Which marks (member types) a class carries and how many members bear each: a breakdown by mark.",
   QUANTITY: "A measured quantity of one trade — concrete, formwork, rebar, excavation, blinding, brickwork — for one class, mark or level: a volume, an area, a length or a weight.",
@@ -58,8 +58,8 @@ const INTENT_MEANINGS: Readonly<Record<AskIntent, string>> = Object.freeze({
 });
 
 /** The roster as the request carries it: each intent with its meaning, in roster order. */
-function rosterIntents(): { intent: AskIntent; means: string }[] {
-  return ASK_INTENTS.map((intent) => ({ intent, means: INTENT_MEANINGS[intent] }));
+function rosterIntents(): { intent: AskRoutedIntent; means: string }[] {
+  return ASK_ROUTED_INTENTS.map((intent) => ({ intent, means: INTENT_MEANINGS[intent] }));
 }
 
 /** The roster's digest: sixteen hex characters over its canonical spelling, stated beside it on the request. */
@@ -126,7 +126,7 @@ export function askRouteRequest(state: AskRouteState): ModelRequest {
 }
 
 /** What the model proposed: the intent (null for none of these) and, per doubled slot, the subject asked about. */
-export type AskRouteProposal = { readonly intent: AskIntent | null; readonly slots: AskSlotChoice };
+export type AskRouteProposal = { readonly intent: AskRoutedIntent | null; readonly slots: AskSlotChoice };
 
 /** The slots the state names two or more subjects of. */
 function doubled(state: AskRouteState): AskSlot[] {
@@ -144,7 +144,7 @@ export function readRouteProposal(state: AskRouteState): (payload: JsonValue) =>
     const named = Object.keys(payload).sort();
     if (named.join(",") !== "intent,slots") return { ok: false, detail: `a routing names exactly intent and slots, and this one names ${named.join(", ") || "nothing"}` };
     const intent = payload["intent"];
-    if (!(intent === ASK_ROUTE_NONE || isAskIntent(intent))) return { ok: false, detail: `${JSON.stringify(intent)} is no intent of the roster — the roster is ${ASK_INTENTS.join(", ")} and ${ASK_ROUTE_NONE}` };
+    if (!(intent === ASK_ROUTE_NONE || isAskRoutedIntent(intent))) return { ok: false, detail: `${JSON.stringify(intent)} is no intent of the roster — the roster is ${ASK_ROUTED_INTENTS.join(", ")} and ${ASK_ROUTE_NONE}` };
     const slots = payload["slots"];
     if (slots === null || typeof slots !== "object" || Array.isArray(slots)) return { ok: false, detail: "a routing's slots are an object" };
     const asked = doubled(state);
@@ -156,7 +156,7 @@ export function readRouteProposal(state: AskRouteState): (payload: JsonValue) =>
       if (!offered || typeof label !== "string") return { ok: false, detail: `${JSON.stringify(label)} is no ${slot} the question named` };
       chosen[slot as AskSlot] = label;
     }
-    return { ok: true, value: Object.freeze({ intent: intent === ASK_ROUTE_NONE ? null : (intent as AskIntent), slots: Object.freeze(chosen) }) };
+    return { ok: true, value: Object.freeze({ intent: intent === ASK_ROUTE_NONE ? null : (intent as AskRoutedIntent), slots: Object.freeze(chosen) }) };
   };
 }
 
@@ -167,11 +167,11 @@ export type AskRouteSettled =
   | AskRefused;
 
 /** The intents of the roster in the order the model ranked them: its own probabilities, ties to the roster's order. */
-function ranked(judgment: ModelJudgment | null, chosen: AskIntent | null): AskIntent[] {
+function ranked(judgment: ModelJudgment | null, chosen: AskRoutedIntent | null): AskRoutedIntent[] {
   const probabilities = judgment?.answers["intent"]?.probabilities ?? null;
   if (probabilities === null) return chosen === null ? [] : [chosen];
-  return ASK_INTENTS.filter((intent) => (probabilities[intent] ?? 0) > 0 || intent === chosen).sort(
-    (left, right) => (probabilities[right] ?? 0) - (probabilities[left] ?? 0) || ASK_INTENTS.indexOf(left) - ASK_INTENTS.indexOf(right),
+  return ASK_ROUTED_INTENTS.filter((intent) => (probabilities[intent] ?? 0) > 0 || intent === chosen).sort(
+    (left, right) => (probabilities[right] ?? 0) - (probabilities[left] ?? 0) || ASK_ROUTED_INTENTS.indexOf(left) - ASK_ROUTED_INTENTS.indexOf(right),
   );
 }
 

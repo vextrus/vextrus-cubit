@@ -97,7 +97,7 @@ describe("the machine is asked only where the grammar cannot tell the intent (I-
     expect(openIntentOf("How many C3 columns are on level 1?", vocabulary), "a level counted two ways is the person's").toBeNull();
     expect(openIntentOf("What will the C3 concrete cost?", vocabulary), "a cost is refused by name").toBeNull();
     expect(openIntentOf("tally the C9 columns", vocabulary), "a mark the register does not hold").toBeNull();
-    expect(openIntentOf("and on GF?", vocabulary, { intent: "COUNT", class: "column", kind: null, mark: "C3", level: null, by: null, noteKind: null, discipline: null, unitAsked: null }), "a follow-up").toBeNull();
+    expect(openIntentOf("and on GF?", vocabulary, { intent: "COUNT", class: "column", kind: null, mark: "C3", level: null, by: null, noteKind: null, discipline: null, unitAsked: null, text: null }), "a follow-up").toBeNull();
   });
 
   it("where it is, with every subject the words name, in slot order", () => {

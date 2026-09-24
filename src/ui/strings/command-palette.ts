@@ -10,6 +10,7 @@ export const commandPalette = {
   command_palette_list_label: "Results",
   command_palette_group_recent: "Recent",
   command_palette_group_navigate: "Go to",
+  command_palette_group_ask: "Ask",
   command_palette_group_areas: "Project areas",
   command_palette_group_actions: "Actions",
   command_palette_group_shortcuts: "Shortcuts",
@@ -41,6 +42,9 @@ export const commandPalette = {
   command_palette_meta_mark_unplaced: "{class} · {count} in the register",
   command_palette_model_space: "Model space",
   command_palette_elision: "…",
+  // S-Ask's row (docs/design/command-palette.md I-679): the words typed, asked of the project's drawings.
+  command_palette_ask: "Ask the drawings: {question}",
+  command_palette_ask_meta: "Answered from this project's register and sheets, every figure cited",
 } as const;
 
 // R-SPINE-060's per-module convention is that a table file's DESIGNATED export is the one named for

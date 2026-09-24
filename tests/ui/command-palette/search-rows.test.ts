@@ -33,6 +33,7 @@ import {
   rowsOf,
   stageHost,
   text,
+  foundRows,
   visibleRows,
   type SearchHit,
 } from "./support/palette-stage";
@@ -76,7 +77,7 @@ describe("AC-3 — the query travels to the seam, and the wait is shown in the l
 
     search.settle({ hits: HITS });
     await waitFor(() => expect(all(body, "command-palette-loading").length, "the wait ends when the answer arrives").toBe(0));
-    await waitFor(() => expect(visibleRows(body).length, "…and the answered rows take its place").toBe(HITS.length));
+    await waitFor(() => expect(foundRows(body).length, "…and the answered rows take its place").toBe(HITS.length));
   });
 });
 
@@ -105,9 +106,9 @@ describe("AC-3 — the arrows walk the rows and Enter takes the active one's add
     search.answers({ hits: HITS });
 
     const input = await ask(body, search.queries, TOKEN);
-    await waitFor(() => expect(visibleRows(body).length).toBe(HITS.length));
+    await waitFor(() => expect(foundRows(body).length).toBe(HITS.length));
 
-    const rows = visibleRows(body);
+    const rows = foundRows(body);
     const first = rows[0] as HTMLElement;
     expect(first.getAttribute("aria-selected"), "a query re-activates the first option (Decision §1)").toBe("true");
     expect(input.getAttribute("aria-activedescendant"), "…and the input names it").toBe(first.id);
@@ -115,7 +116,7 @@ describe("AC-3 — the arrows walk the rows and Enter takes the active one's add
     const user = userEvent.setup();
     await user.keyboard("{ArrowDown}");
 
-    const second = visibleRows(body)[1] as HTMLElement;
+    const second = foundRows(body)[1] as HTMLElement;
     await waitFor(() => expect(second.getAttribute("aria-selected"), "ArrowDown moves the active option down").toBe("true"));
     expect(first.getAttribute("aria-selected"), "…and only one option is active").not.toBe("true");
     expect(paletteInput(body).getAttribute("aria-activedescendant"), "…and the input names the new one").toBe(second.id);
@@ -128,7 +129,7 @@ describe("AC-3 — the arrows walk the rows and Enter takes the active one's add
       search.answers({ hits: [hit] });
 
       await ask(body, search.queries, TOKEN);
-      await waitFor(() => expect(visibleRows(body).length, "the one answered hit is the one row").toBe(1));
+      await waitFor(() => expect(foundRows(body).length, "the one answered hit is the one row").toBe(1));
 
       const user = userEvent.setup();
       await user.keyboard("{Enter}");
@@ -143,7 +144,9 @@ describe("AC-3 — the arrows walk the rows and Enter takes the active one's add
 
 describe("AC-3 — a query nothing matches says so, and offers the way back", () => {
   test("AC-3: `command-palette-empty` reads the filled sentence and clears the query when asked", async () => {
-    const { body, search } = await stageHost();
+    // At a workspace address: inside a project, words no find answers are offered as a question to
+    // its drawings instead (I-679, `ask-row.test.ts`).
+    const { body, search } = await stageHost({ projectId: null });
     search.answers({ hits: [] });
 
     const unmatched = `${TOKEN}qqx`;

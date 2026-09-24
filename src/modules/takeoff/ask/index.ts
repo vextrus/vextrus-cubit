@@ -17,10 +17,12 @@ import { sheetLayoutsOf } from "@/modules/takeoff/notes";
 import { manifestOfRevision, registerViewOf } from "@/modules/takeoff/register-ui/server";
 import { schedulesViewOf } from "@/modules/takeoff/schedules-ui/server";
 import { sheetIndexOf } from "@/modules/takeoff/sheets";
+import { findInIndex, textIndexAt, type TextIndex } from "@/modules/takeoff/sheets/text-index";
+import { appStorage } from "@/core/storage/app";
 import { pinnedRecordsOf, type PinnedRecord } from "@/modules/takeoff/trace";
 import { answerReading, routeStatement, type Routed } from "./answer";
 import { openIntentOf, resolveReading, type AskSubject } from "./grammar";
-import { ASK_REFUSAL_CODES, type AskAnswer, type AskEntity, type AskObject, type AskPlace, type AskSchedule, type AskSheet, type AskSourceNeed, type AskSources, type AskStatement } from "./law";
+import { ASK_REFUSAL_CODES, type AskAnswer, type AskEntity, type AskObject, type AskPlace, type AskSchedule, type AskSheet, type AskSourceNeed, type AskSources, type AskStatement, type AskTextHit } from "./law";
 import { viewOfPlacement } from "./queries/common";
 import { queryFor } from "./queries/registry";
 import { askRouteKeys, askRouteStateOf, isRoutable, proposeRoute, settleRoute, type AskRoutePort } from "./route-question";
@@ -51,6 +53,7 @@ async function baseOf(scope: AskScope): Promise<AskSources> {
     sheets: [],
     memberAt: () => null,
     entityAt: () => null,
+    findText: () => [],
   };
 }
 
@@ -119,6 +122,39 @@ async function sheetsOf(scope: AskScope, records: ReadonlyMap<string, PinnedReco
   return sheets;
 }
 
+/** One drawing of the pinned revision and the index of the words its sheets show. */
+export type AskTextIndex = { readonly drawingId: string; readonly index: TextIndex };
+
+/**
+ * Every text of the pinned revision's sheets saying the words asked (SRCH-1's index, I-676): the
+ * index's own reading (`findInIndex`, one hit per key), drawing by drawing in the set's order, each
+ * drawing's sheets in its inventory's order with model space last, a sheet's texts as drawn.
+ */
+export function textFinderOf(indexes: readonly AskTextIndex[]): (text: string) => AskTextHit[] {
+  return (text) =>
+    indexes.flatMap(({ drawingId, index }) =>
+      findInIndex(index, text)
+        .sort((left, right) => left.entry.sheetRank - right.entry.sheetRank || left.ordinal - right.ordinal)
+        .map((match): AskTextHit => ({
+          drawingId,
+          layoutName: match.entry.layoutName,
+          sheetLabel: match.entry.sheetLabel,
+          sourceKey: match.entry.key,
+          excerpt: match.excerpt.text,
+          clippedStart: match.excerpt.clippedStart,
+          clippedEnd: match.excerpt.clippedEnd,
+        })),
+    );
+}
+
+/** The text index of each record the pinned revision was measured on — kept per content hash, read once. */
+async function textIndexesOf(scope: AskScope, records: ReadonlyMap<string, PinnedRecord>): Promise<AskTextIndex[]> {
+  const storage = appStorage();
+  const indexes: AskTextIndex[] = [];
+  for (const [drawingId, record] of records) indexes.push({ drawingId, index: await textIndexAt(scope.tenantId, record.artifactSha256, storage, `ingest ${record.ingestId}`) });
+  return indexes;
+}
+
 /** The sources one query needs, read beside the register and the stack it was routed against. */
 async function sourcesFor(scope: AskScope, base: AskSources, needs: readonly AskSourceNeed[]): Promise<AskSources> {
   if (base.campaign === null || needs.length === 0) return base;
@@ -140,6 +176,7 @@ async function sourcesFor(scope: AskScope, base: AskSources, needs: readonly Ask
     sheets: needs.includes("sheets") ? await sheetsOf(scope, records) : [],
     memberAt: needs.includes("members") ? memberLocator(base.objects, records) : base.memberAt,
     entityAt: needs.includes("entities") ? await entityLocator(scope, drawingIds, records) : base.entityAt,
+    findText: needs.includes("texts") ? textFinderOf(await textIndexesOf(scope, records)) : base.findText,
   };
 }
 

@@ -5,8 +5,12 @@
 import type { RefusalEntry } from "@/core/errors";
 import type { RefusalEvidence } from "../refusal-state";
 
-/** The groups, in the order the list renders them (Decision §1). */
-export const PALETTE_GROUPS = ["recent", "navigate", "areas", "actions", "shortcuts"] as const;
+/**
+ * The groups, in the order the list renders them (Decision §1). `ask` holds the one row that offers
+ * the words typed as a question to the project's drawings (I-679): an offer, never a match, so
+ * the footer's count leaves it out.
+ */
+export const PALETTE_GROUPS = ["recent", "navigate", "areas", "actions", "shortcuts", "ask"] as const;
 
 export type PaletteGroupId = (typeof PALETTE_GROUPS)[number];
 

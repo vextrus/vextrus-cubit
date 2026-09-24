@@ -31,6 +31,11 @@ export class CommandPalettePage {
     return this.page.getByTestId(TESTIDS.command.paletteItem);
   }
 
+  /** The offer to ask the project's drawings what was typed: its own group's one row (I-679). */
+  get askRow(): Locator {
+    return this.page.locator(`${testIdSelector(TESTIDS.command.paletteGroup)}[data-group="ask"] ${testIdSelector(TESTIDS.command.paletteItem)}`);
+  }
+
   get loading(): Locator {
     return this.page.getByTestId(TESTIDS.command.paletteLoading);
   }

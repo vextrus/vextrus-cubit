@@ -6,6 +6,7 @@
 // action's off its `run`, so the day a screen or an act lands the row becomes reachable by gaining
 // one and nothing else here changes.
 import { formatUserFigure } from "@/core/format";
+import { ASK_QUESTION_MAX } from "@/modules/takeoff/ask/law";
 import { selectionAddress } from "@/modules/takeoff/trace/address";
 import type { PaletteRow } from "@/ui/patterns/command-palette";
 import { humaniseEnum } from "@/ui/primitives/core/enum-label";
@@ -15,6 +16,7 @@ import { PROJECT_AREAS, projectHomeRoute } from "../p/[project]/home/areas";
 import { projectHomeStrings } from "../p/[project]/home/strings";
 import { drawingsRoute } from "../p/[project]/drawings/route-address";
 import { setRoute } from "../p/[project]/drawings/sets/route-address";
+import { askRoute } from "../p/[project]/takeoff/ask/route-address";
 import { registerRoute } from "../p/[project]/takeoff/register/route-address";
 import { viewerSheetRoute } from "../p/[project]/viewer/[drawing]/[layout]/route-address";
 import type { SearchHit } from "./search-action";
@@ -169,4 +171,26 @@ export function rowsOfHits(tenantId: string, hits: readonly SearchHit[]): Palett
     if (!rows.has(row.key)) rows.set(row.key, row);
   }
   return [...rows.values()];
+}
+
+/**
+ * The row that asks the drawings what was typed (s-ask I-402, command-palette I-679): inside a
+ * project, whatever words stand in the field, as S-Ask's own address with the question on `?q=` —
+ * asked once on arrival there, by the grammar first. It stands in its own group last, under every
+ * find, area, action and shortcut, so a mark, a sheet or an area typed is still the first Enter; words no find answers
+ * leave it the one row, and Enter asks them. Null outside a project (a question is asked of one
+ * project's drawings), for words longer than the question field takes, and where the seam refused
+ * the project (a person the project did not answer is not offered its drawings).
+ */
+export function askRowOf(tenantId: string, projectId: string | null, query: string, refused = false): PaletteRow | null {
+  const asked = query.trim();
+  if (projectId === null || refused || asked === "" || asked.length > ASK_QUESTION_MAX) return null;
+  return {
+    key: `ask:${projectId}`,
+    group: "ask",
+    kind: "ask",
+    label: fill(strings.command_palette_ask, { question: asked }),
+    meta: strings.command_palette_ask_meta,
+    href: askRoute(tenantId, projectId, asked),
+  };
 }

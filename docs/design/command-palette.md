@@ -188,6 +188,26 @@ L-CAD-02/03/05, L-CAD-07, L-ACT-03, I-179, I-421, I-142. The index is
   than composing `traceCitations` itself, so the sheet and the kept keys are the Trace's one reading
   (a key that does not stand on the member's sheet is left out, as every other opener leaves it).
 
+- **I-679 — inside a project, the words typed are offered as a question to its drawings, in a
+  group of their own, last.** S-Ask's I-402 promised the row: one option, kind `ask`,
+  labelled `command_palette_ask` with the words as typed and `command_palette_ask_meta` beneath,
+  leading to S-Ask's own address with the question on `?q=` (`askRoute`), where it is asked once on
+  arrival, by the grammar first. It stands in its own group, `ask` (heading `command_palette_group_ask`),
+  last, under `navigate`, `areas`, `actions` and `shortcuts`: a mark, a sheet, an area or an action
+  typed is still the first row and the first Enter, and asking is not "going to" or doing anything. The offer is not a match, so the footer's count leaves it out — words no
+  find answers read `command_palette_status_none` with the offer as the one row, and Enter asks them;
+  the empty cell is said only where nothing is offered either. It is built by the app host
+  (`askRowOf`), never the pattern, and is not offered at a workspace address (a question is asked of
+  one project's drawings), beside a refusal of the project (the person the project did not answer is
+  not sent to its screen to be refused again), or for words longer than a question takes
+  (`ASK_QUESTION_MAX`). Rejected: the row inside `navigate` (it counted as a match, made "1 match" of
+  nothing found, and sat under a heading that says "Go to"); rejected: offering it only when nothing
+  is found (a QS typing a question that happens to hit a sheet's text would lose the way to ask it). Rejected: the group straight under
+  `navigate` (typing "takeoff" or "register" inside a project made the offer the first Enter, ahead of
+  the area the QS meant to open).
+  Proof: `tests/ui/command-palette/ask-row.test.ts`, and J-000's `m4-ask-the-drawings`, which asks its
+  first question this way.
+
 **Recorded Objection (ownership).** The roster's `label: StringKey` and AC-3's `strings[entry.label]`
 require the copy in §3 to reach the one table, so this increment must also own
 `src/ui/strings/command-palette.ts`, `src/ui/strings/shortcuts.ts` and the two import-and-spread
@@ -233,8 +253,9 @@ beside the class (shell §1). No `aria-label`: the visible word *Search* is the 
 - **List** — `<div id data-testid="command-palette-list" role="listbox"
   aria-label={command_palette_list_label} class="cx-palette-list">`: `margin-block-start:
   var(--space-3)`, `border-top: var(--hairline)`, `padding-block-start: var(--space-2)`,
-  `max-block-size: 320 px`, `overflow: auto`. Groups in the fixed order `recent · navigate · areas ·
-  actions · shortcuts`; a group with no rows does not render.
+  `max-block-size: 320 px`, `overflow: auto`. Groups in the fixed order `recent · navigate ·
+  areas · actions · shortcuts · ask`; a group with no rows does not render (`ask` holds the one offer to ask
+  the project's drawings, I-679).
 - **Footer** — `border-top: var(--hairline)`, `margin-block-start: var(--space-3)`,
   `padding-block-start: var(--space-2)`, flex, space-between, `var(--text-12)`
   `var(--graphite-600)`. Left: `<p role="status" aria-live="polite" class="cx-palette-status">`,
@@ -298,7 +319,9 @@ total over `STATE_NAMES`, walked by `tests/ui/command-palette/state-matrix.test.
   `command_palette_empty` filled with the query, `var(--text-13)` `var(--graphite-900)`,
   `text-wrap: pretty`, and one action — a core secondary Button `command_palette_empty_action` that
   clears the query and returns focus to the input, restoring recents, areas, actions and shortcuts.
-  Reachable only with a query typed: a blank query always lists those four groups.
+  Reachable only with a query typed: a blank query always lists those four groups. Inside a project
+  the seam answered for, words no find answers leave the `ask` offer standing instead, with the footer
+  reading `command_palette_status_none` (I-679).
 - **Error** — the `fault` prop (I-143), in the list's place: `<div role="alert"
   class="cx-palette-fault">` with the house alert chrome (`var(--danger-surface)` fill,
   `var(--hairline)` re-keyed `border-color: var(--danger)`), holding `command_palette_error`, then
@@ -347,6 +370,10 @@ sheets, sets, marks and sheet text** · `command_palette_meta_text` **{sheet} ·
 **{class} · {count} in the register · {sheet}** · `command_palette_meta_mark_unplaced` **{class} ·
 {count} in the register** · `command_palette_model_space` **Model space** · `command_palette_elision`
 **…**
+
+ASK-3 (I-679): `command_palette_group_ask` **Ask** · `command_palette_ask` **Ask the drawings:
+{question}** · `command_palette_ask_meta` **Answered from this project's register and sheets, every
+figure cited**
 
 Shortcut labels and scope words are `src/ui/strings/shortcuts.ts`, fixed in
 `docs/design/shortcut-sheet.md` §3 — one table, one home, so a key reads identically in the palette
@@ -407,7 +434,8 @@ Behavioural hooks without new ids: `aria-haspopup="dialog"` and `aria-keyshortcu
 on the trigger, and its absence entirely when `ShellTopBar` mounts outside a provider (I-135);
 `role="dialog"` on `command-palette`; `role="combobox"` with `aria-controls`, `aria-expanded` and
 `aria-activedescendant` on the input; `role="listbox"`/`role="group"`/`role="option"` with
-`aria-selected` and `aria-disabled`; `data-group` on each group; `data-kind`, `data-available` and
+`aria-selected` and `aria-disabled`; `data-group` on each group (`data-group="ask"` holds the offer
+to ask the drawings, `data-kind="ask"` on its option, I-679); `data-kind`, `data-available` and
 `data-shortcut` on options; `aria-busy` while loading; `role="status"` on the footer line and the
 offline notice; `role="alert"` on the fault card; `cx-reticle` on trigger and input; `data-code` from
 RefusalState. Suites: `tests/ui/command-palette/**` under jsdom drive `PaletteHost` inside the

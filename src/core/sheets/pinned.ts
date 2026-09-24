@@ -22,6 +22,8 @@ export type PinnedGrid = { readonly letter: string | null; readonly numeral: str
 export type PinnedRecord = {
   /** The ingest that read the bytes the pin recorded. */
   readonly ingestId: string;
+  /** The content hash of the record's artifact — the address its text index is kept under (SRCH-1). */
+  readonly artifactSha256: string;
   /** Where the record's keys stand: its sheets, its spaces, its windows and the members it placed. */
   readonly standing: RecordStanding;
   /** How a reader names one of this record's sheets: its number, or null for model space. */
@@ -87,6 +89,7 @@ export async function pinnedRecordsIn(
     }
     held.set(drawingId, {
       ingestId: record.ingestId,
+      artifactSha256: record.artifactSha256,
       standing: standingOfGraph(graph, members),
       labelOf: (layoutName) => sheetLabelOf(graph, layoutName),
       gridOf: (placementKey) => grids.get(placementKey) ?? null,

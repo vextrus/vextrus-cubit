@@ -4,7 +4,7 @@
 // imports no app code, and this is the seam between them).
 import { useCallback, useMemo, type ReactNode } from "react";
 import { CommandPalette, CommandPaletteProvider, ShortcutSheet, type PaletteAnswer, type PaletteRow } from "@/ui/patterns/command-palette";
-import { goRowOf, paletteRows, rowsOfHits } from "./rows";
+import { askRowOf, goRowOf, paletteRows, rowsOfHits } from "./rows";
 import type { SearchFn } from "./search-action";
 
 export interface PaletteHostProps {
@@ -26,13 +26,16 @@ export function PaletteHost({ tenantId, projectId, search, navigate, children }:
    * The seam's answer, turned into rows: each hit's kind is mapped through the address home that
    * owns it, one row per key (`rowsOfHits`), and the envelope's own refusal and fault id travel on unchanged — the pattern reads
    * that envelope and no other carrier (risk note 3). The project the palette stands inside is asked
-   * about too, so its register marks and sheet text answer beside the workspace's names (I-629).
+   * about too, so its register marks and sheet text answer beside the workspace's names (I-629) —
+   * and, inside a project the seam answered for, the words typed are offered as a question to its
+   * drawings in their own group (`askRowOf`, I-679).
    */
   const ask = useCallback(
     async (query: string): Promise<PaletteAnswer> => {
       const answer = await search({ tenantId, projectId, query });
+      const asking = askRowOf(tenantId, projectId, query, typeof answer.refusal === "string" && answer.refusal !== "");
       return {
-        rows: rowsOfHits(tenantId, answer.hits ?? []),
+        rows: [...rowsOfHits(tenantId, answer.hits ?? []), ...(asking === null ? [] : [asking])],
         refusal: answer.refusal ?? null,
         faultId: answer.faultId ?? null,
       };

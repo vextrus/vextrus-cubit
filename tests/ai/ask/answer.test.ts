@@ -242,7 +242,7 @@ describe("routing: the grammar, the person, the follow-up", () => {
   });
 
   test("a previous reading the project does not hold is not read against", () => {
-    const tampered: AskReading = { intent: "COUNT", class: "column", kind: null, mark: "C99", level: "5F", by: null, noteKind: null, discipline: null, unitAsked: null };
+    const tampered: AskReading = { intent: "COUNT", class: "column", kind: null, mark: "C99", level: "5F", by: null, noteKind: null, discipline: null, unitAsked: null, text: null };
     const answer = answerStatement({ question: "and on 6F?", previous: tampered }, SOURCES);
     expect(answer).toMatchObject({ outcome: "REFUSED", code: REFUSALS.ASK_NOT_UNDERSTOOD.code });
   });

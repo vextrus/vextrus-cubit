@@ -453,6 +453,62 @@ and 60 fixtures in `fixtures/model`. It reads these:
   the transcription to the stage. The BNBC set's own paraphrases, where levels do carry readings, are
   §7's.
 
+### 0.4 The sheet-text questions, the golden leg and the ⌘K row (ASK-3)
+
+The two sheet-text queries are `queries/schedule-sheet.ts` and `queries/find-text.ts`; the grammar's
+shape reading is `sheetTextOf` over `vocabulary.ts`'s `SHEET_TEXT_SHAPES`; the finder is
+`textFinderOf` in the module's door, over SRCH-1's `textIndexAt` for each record the pinned revision
+was measured on. The proofs are `tests/ai/ask/queries-text.test.ts`; the walk is J-000's
+`m4-ask-the-drawings`. They read these:
+
+- **I-676 — a sheet-text question is read by its SHAPE, before any subject, and its words are
+  free text.** A schedule asked after with a sheet word or a where ("Which sheet has the column
+  schedule?") is `SCHEDULE_SHEET`, named by the words before `schedule` back to the first that names
+  nothing; a find ("Find TENSION 50d"), a where-question ("Where is the lift core shown?") or "which
+  sheets mention X" is `FIND_TEXT`, searching the words after the opening less those that ask nothing
+  of the text (double-quoted words exactly, where the question quotes any). The words ride on the
+  reading's `text` slot and are never resolved as a subject, so a word shaped like a mark the register
+  does not hold (`C99`) is searched, never refused as unknown; a mark the register holds asked after
+  with only its class beside it ("where are the C3 columns?") is searched as the mark alone, which is
+  what the plan writes. A where-question that speaks of measurement, unquoted ("Where are the columns
+  not measured?", "…without a figure?") asks after the measurement and is left to the intents
+  (`WHY_NOT_MEASURED`); quoted, the words are searched. A schedule's entry for a mark with no sheet word ("What size is C4 in the
+  column schedule?") stays `MEMBER_TYPE`. `SCHEDULE_SHEET` answers each reconstructed schedule whose
+  title holds the words asked whole, in order and adjacent (a pile schedule is never the pile cap
+  schedule), placed by its CAPTION on the sheet core's one resolver stands it on — the sheet an
+  EvidenceLink selecting the caption, or model space with no link; a name no schedule answers to is
+  `ASK_SUBJECT_UNKNOWN` with the schedules the sheets hold. `FIND_TEXT` answers the index's own
+  matches (whole words, case-insensitive, in order inside one paragraph, one hit per key), the count a
+  figure and each (drawing, layout) a place with its own count; nothing found is an ANSWER
+  (`ask_find_none`), never a refusal — the sheets were read and do not say it. Walk-2 read "where is
+  C7 drawn?" after a rebar answer as that rebar carried over; the shape is read before any follow-up
+  now, so it is a find of `C7`. Rejected: resolving the words as subjects first (a find is for what
+  the register does not hold as much as for what it does).
+- **I-677 — the machine routes to nine intents, not eleven.** `ASK_ROUTED_INTENTS` is the roster
+  less the two sheet-text intents: their argument is free text with no key a routing could cite
+  (I-397), and the grammar reads them by shape alone, so the machine is never asked to choose them.
+  The roster Jev is sent — and its digest — is therefore the one the 60 recordings of I-624 were made
+  over, and they stand unchanged. Rejected: adding the two to the routed roster (a re-record, and a
+  choice the machine could only make with no subject to hand back).
+- **I-678 — a second question the roster cannot read is never dropped in silence.** Walk-2's
+  "how much steel goes into the ground floor columns, and what diameters?" answered the steel and
+  said nothing of the diameters. Where a question read as ONE intent carries a joining word, then a
+  question word opening words that cue no intent, the whole is `ASK_NOT_UNDERSTOOD` by name, and no
+  machine is asked; a second question the roster does read stays I-494's compound clarify, and "and
+  what about …" stays a follow-up. Rejected: answering the first part with a disclosure (a partial
+  answer that looks whole is the harm the Law names).
+- **I-680 — the golden leg asks grammar-read questions from one home, and reads its figures off
+  the register as a reader does.** `tests/ai/ask/golden-questions.ts` holds the four questions J-000's
+  `m4-ask-the-drawings` asks — a count ("How many pile caps are there?", asked from ⌘K), a quantity
+  by storey (the column concrete on GF), a sheet question (the column schedule) and a cost refused
+  `ASK_ESTIMATE_NOT_BUILT` — and the unit lane proves over the J-000 read-back that the grammar reads
+  each with no model asked. The walk reads what the answers must say off the register screen,
+  narrowed as a QS narrows it: the storey's figure against the footer's exact total on GF, the cap
+  count against the count line of cap concrete lines — one per registered cap, which the unit lane
+  proves on the read-back rather than the walk assuming it. The count's figure is then clicked to the
+  foundation plan, where every cap it counts is selected. Rejected: a paraphrase routed by Jev on the
+  golden path (its recording would be tied to a register M3 keeps moving; J-043 walks the machine).
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -1054,9 +1110,11 @@ R-TO-016 move with SRCH-1, not with this screen.
   which also separates live from replayed spend on the project home (R-AI-005).
 - **The BNBC set's own paraphrases.** The ask-route corpus is recorded over J-043's staged register
   (I-625), so on the BNBC project a paraphrase naming, say, PC3 or 5F is a request nobody
-  recorded and refuses `FIXTURE_MISSING` in replay. Owner: ASK-3 with the J-000 leg — a paraphrase set
-  over the BNBC register, its mark keys read back off `placements` (the recorder transcribes them as
-  I-625 does), recorded through the same script.
+  recorded and refuses `FIXTURE_MISSING` in replay. The J-000 leg asks grammar-read questions only
+  (I-680), so it did not need them, and the route corpus still holds no `LEVEL_HEIGHT` paraphrase
+  (J-043's GF carries no storey-height reading). Owner: the next Ask increment — a paraphrase set over
+  the BNBC register, its mark and level keys read back off `placements` and the stack (the recorder
+  transcribes them as I-625 does), recorded through the same script, `LEVEL_HEIGHT` among them.
 - **A model's refusal followed by the grammar's two best readings** (§1.1 refused). A seam refusal
   reaches the door and renders as registered; the clarify after it is not built, because the grammar
   holds no ranking of intents for words that cue none. Owner: the node that gives the grammar one.

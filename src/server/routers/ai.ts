@@ -16,7 +16,7 @@ import { ELEMENT_TYPES } from "../../core/catalogue/classes";
 import { KINDS } from "../../core/catalogue/kinds";
 import { NOTE_KINDS } from "../../core/notes/law";
 import { DISCIPLINES } from "../../core/sheets/law";
-import { ASK_BREAKDOWNS, ASK_INTENTS, ASK_QUESTION_MAX, askTheDrawings, type AskAnswer, type AskReading } from "../../modules/takeoff/ask";
+import { ASK_BREAKDOWNS, ASK_INTENTS, ASK_QUESTION_MAX, ASK_TEXT_MAX, askTheDrawings, type AskAnswer, type AskReading } from "../../modules/takeoff/ask";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { signedOut } from "../auth/refusals";
 import { parsed } from "../call";
@@ -46,6 +46,9 @@ const reading: z.ZodType<AskReading> = z.object({
   noteKind: z.enum(NOTE_KINDS, { error: "ai.ask: that is not a note kind (R-TO-034)" }).nullable(),
   discipline: z.enum(DISCIPLINES, { error: "ai.ask: that is not a discipline" }).nullable(),
   unitAsked: label("unitAsked"),
+  // The words a sheet-text question asks for (I-676): searched as written, never resolved as a
+  // label; a reading kept before the slot existed carries none, which is null.
+  text: z.string({ error: 'ai.ask: "text" must be the words asked for or null' }).trim().min(1).max(ASK_TEXT_MAX).nullable().default(null),
 });
 
 /** What a caller may state at this door, read once by the one reading this tier has (`@/server/call`). */

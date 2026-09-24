@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { placementKeyOf } from "@/core/identity/keys";
 import { storeyHeightStanding } from "@/core/levels/standing";
 import type { NoteKind } from "@/core/notes/law";
-import type { AskEntity, AskLevel, AskLine, AskNoteReading, AskObject, AskPlace, AskSchedule, AskScheduleRow, AskSheet, AskSources } from "@/modules/takeoff/ask/law";
+import type { AskEntity, AskLevel, AskLine, AskNoteReading, AskObject, AskPlace, AskSchedule, AskScheduleRow, AskSheet, AskSources, AskTextHit } from "@/modules/takeoff/ask/law";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -126,6 +126,7 @@ export function readBackSources(overrides: Partial<AskSources> = {}): AskSources
     sheets: [] as AskSheet[],
     memberAt: (): AskPlace | null => null,
     entityAt: entityAtOf(),
+    findText: (): readonly AskTextHit[] => [],
     ...overrides,
   };
 }

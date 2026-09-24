@@ -239,16 +239,20 @@ export function CommandPaletteProvider({ tenantId, projectId, rows = [], search,
 
   const groups = useMemo<readonly PaletteGroup[]>(() => {
     const listed: PaletteGroup[] = [];
+    // The seam's answer is the navigate group; the host's offer to ask the drawings what was typed
+    // stands in its own group last, under every row that goes to or does something (I-679).
+    const answered = asked !== "" && !offline ? (answer?.rows ?? []) : [];
     if (asked === "") {
       listed.push({ id: "recent", rows: recents });
     } else if (!offline) {
-      listed.push({ id: "navigate", rows: answer?.rows ?? [] });
+      listed.push({ id: "navigate", rows: answered.filter((row) => row.group !== "ask") });
     }
     const matching = (group: PaletteRow["group"], from: readonly PaletteRow[]): PaletteGroup => ({
       id: group,
       rows: from.filter((row) => row.group === group && matchesQuery(row, asked)),
     });
     listed.push(matching("areas", rows), matching("actions", rows), matching("shortcuts", shortcutRows));
+    listed.push({ id: "ask", rows: answered.filter((row) => row.group === "ask") });
     return listed.filter((group) => group.rows.length > 0);
   }, [asked, offline, recents, answer, rows, shortcutRows]);
 

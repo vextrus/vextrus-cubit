@@ -243,8 +243,40 @@ export const INTENT_CUES: Readonly<Record<AskIntent, readonly string[]>> = Objec
   MEMBER_TYPE: ["size", "sizes", "section", "sections", "dimension", "dimensions", "main bars", "main bar", "ties", "reinforcement of", "bars of", "how big"],
   NOTE: ["notes", "note", "general notes", "specify", "specified", "specifies", "strength", "grade", "f'c", "fy", "lap", "laps", "hook", "hooks", "psi", "mpa"],
   LEVEL_HEIGHT: ["height", "heights", "floor to floor", "storey height", "story height", "floor height", "how tall", "headroom"],
+  // The two sheet-text intents are read by their SHAPE before any subject (`SHEET_TEXT_SHAPES`); these
+  // are the words that shape opens on, listed so the roster's cues stay one table.
+  SCHEDULE_SHEET: ["which sheet", "what sheet", "which sheets", "what sheets", "which drawing", "what drawing", "where is", "where are", "where's", "find", "locate"],
+  FIND_TEXT: ["find", "search", "search for", "look for", "locate", "where is", "where are", "where's", "where does", "where do", "which sheets mention", "what sheets mention"],
   SHEET_LIST: ["which sheets", "what sheets", "list the sheets", "list sheets", "sheets in", "drawings in the set", "list the drawings", "sheet list", "how many sheets", "the sheets"],
 });
+
+/**
+ * The shapes a sheet-text question is read by (I-676), before any subject is read — the words it
+ * asks for are free text, so a word shaped like a mark the register does not hold is still searched,
+ * never refused as an unknown mark.
+ */
+export const SHEET_TEXT_SHAPES = Object.freeze({
+  /** A schedule's name ends on one of these; the words before it name which schedule. */
+  scheduleWords: ["schedule", "schedules"],
+  /** Words a request opens with that ask nothing: taken off the front before a shape is read. */
+  politeLeads: ["please", "can you", "could you", "would you", "tell me", "show me"],
+  /** A find opening the question: the words after it are what is asked for. */
+  findLeads: ["where can i find", "where do i find", "search the sheets for", "search for", "look for", "search", "find", "locate"],
+  /** A where-question opening: the words after it, less a closing verb, are what is asked for. */
+  whereLeads: ["where is", "where are", "where's", "where does", "where do", "where"],
+  /** "Which sheets mention X": the words after one of these verbs are what is asked for. */
+  sheetsVerbs: ["mention", "mentions", "say", "says", "contain", "contains", "refer to", "refers to", "reference", "references"],
+  sheetsLeads: ["which sheets", "what sheets", "which sheet", "what sheet", "which drawings", "what drawings"],
+  /** Words closing a where-question or a find that ask nothing of the text. */
+  closingWords: ["shown", "drawn", "mentioned", "written", "noted", "marked", "stated", "located", "placed", "appear", "appears", "show", "shows", "stand", "stands", "on the sheets", "on the sheet", "on the drawings", "on the drawing", "in the drawings", "in the drawing", "in the set", "on which sheet", "on which sheets"],
+  /** Words opening the asked-for text that ask nothing of it. */
+  openingWords: ["the", "a", "an", "all", "every", "text", "word", "words", "for"],
+  /** Words that end a schedule's name looking backwards from `schedule`. */
+  scheduleStops: ["the", "a", "an", "is", "are", "has", "have", "holds", "hold", "carry", "carries", "show", "shows", "shown", "sheet", "sheets", "which", "what", "where", "where's", "on", "in", "of", "for", "find", "locate", "does", "do", "contain", "contains", "drawing", "drawings", "set", "i", "me", "can", "see", "there", "please", "you"],
+});
+
+/** The words that open a second question inside one — "…, and what diameters?" (I-678). */
+export const SECOND_QUESTION_WORDS: readonly string[] = Object.freeze(["what", "which", "how", "where", "why", "when", "who"]);
 
 /** "what is the {kind}": the QUANTITY cue a kind word completes. */
 export const WHAT_IS_PHRASES: readonly string[] = Object.freeze(["what is", "what's", "whats", "what are", "what was"]);

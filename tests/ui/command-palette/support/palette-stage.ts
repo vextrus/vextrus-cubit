@@ -465,6 +465,12 @@ export function rowsOf(root: ParentNode, id: string): HTMLElement[] {
 /** Every option on the screen, in document order — the "visible rows" the arrows walk. */
 export const visibleRows = (root: ParentNode): HTMLElement[] => all(root, "command-palette-item");
 
+/**
+ * The options the search found, in document order — every visible row but the ask group's, which
+ * offers the words typed as a question to the project's drawings and matched nothing (I-679).
+ */
+export const foundRows = (root: ParentNode): HTMLElement[] => visibleRows(root).filter((row) => row.closest('[data-group="ask"]') === null);
+
 /** The one option marked active, asserted to be exactly one. */
 export function activeRow(root: ParentNode): HTMLElement {
   const active = visibleRows(root).filter((row) => row.getAttribute("aria-selected") === "true");

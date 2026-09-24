@@ -37,7 +37,7 @@ describe("the query registry: one query per intent (the duplicate-key test)", ()
 
   test("each query reads through the register's readers or their siblings, and says which", () => {
     for (const query of ASK_QUERY_LIST) {
-      expect(["REGISTER", "SCHEDULES", "NOTES", "LEVELS", "SHEETS"], query.intent).toContain(query.basis);
+      expect(["REGISTER", "SCHEDULES", "NOTES", "LEVELS", "TEXT", "SHEETS"], query.intent).toContain(query.basis);
     }
   });
 });

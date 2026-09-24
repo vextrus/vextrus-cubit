@@ -13,7 +13,7 @@
 import { cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { DRAWING, PROJECT, TENANT, all, aHit, copy, fill, openPalette, paletteInput, productModule, rowsOf, stageHost, text, visibleRows, type SearchHit } from "./support/palette-stage";
+import { DRAWING, PROJECT, TENANT, all, aHit, copy, fill, openPalette, paletteInput, productModule, rowsOf, stageHost, text, foundRows, type SearchHit } from "./support/palette-stage";
 
 /** A token no label of the palette's own chrome carries, so only answered hits can match it. */
 const TOKEN = "Zzq";
@@ -60,7 +60,7 @@ async function ask(body: HTMLElement, queries: string[], query: string): Promise
 
 /** Enter on the one answered row, and the address the host was asked to go to. */
 async function enterOn(body: HTMLElement, hrefs: string[]): Promise<string> {
-  await waitFor(() => expect(visibleRows(body).length).toBe(1));
+  await waitFor(() => expect(foundRows(body).length).toBe(1));
   await userEvent.setup().keyboard("{Enter}");
   await waitFor(() => expect(hrefs.length, "Enter navigates once").toBe(1));
   return hrefs[0] as string;
@@ -132,19 +132,19 @@ describe("a sheet's text, as a row (I-628)", () => {
       hits: [textHit("DXF_HANDLE:1E48", { label: `${TOKEN} SHEET TITLE` }), textHit("DXF_HANDLE:1E48", { label: `${TOKEN} SHEET NO.` }), textHit("DXF_HANDLE:1F2E", { label: `${TOKEN} SHEET TITLE` })],
     });
     await ask(body, search.queries, TOKEN);
-    await waitFor(() => expect(visibleRows(body).length, "the answer is on the screen").toBeGreaterThan(0));
+    await waitFor(() => expect(foundRows(body).length, "the answer is on the screen").toBeGreaterThan(0));
 
-    const ids = visibleRows(body).map((row) => row.id);
+    const ids = foundRows(body).map((row) => row.id);
     expect(ids.length, `every row is its own option, so aria-activedescendant names one thing: ${JSON.stringify(ids)}`).toBe(new Set(ids).size);
     expect(ids.length, "the key's first hit stands for it, and the other block's is its own row").toBe(2);
-    expect(text(visibleRows(body)[0] ?? null), "the first hit under the key is the row shown").toContain(`${TOKEN} SHEET TITLE`);
+    expect(text(foundRows(body)[0] ?? null), "the first hit under the key is the row shown").toContain(`${TOKEN} SHEET TITLE`);
     expect(warned.mock.calls.filter((call) => String(call[0]).includes("same key")), "React is never handed two children keyed alike").toEqual([]);
 
     const user = userEvent.setup();
     for (let step = 1; step < ids.length; step += 1) await user.keyboard("{ArrowDown}");
     const last = ids[ids.length - 1] as string;
     await waitFor(() => expect(paletteInput(body).getAttribute("aria-activedescendant"), "ArrowDown walks to the last row").toBe(last));
-    expect(visibleRows(body).filter((row) => row.getAttribute("aria-selected") === "true").map((row) => row.id), "and only it is active").toEqual([last]);
+    expect(foundRows(body).filter((row) => row.getAttribute("aria-selected") === "true").map((row) => row.id), "and only it is active").toEqual([last]);
     warned.mockRestore();
   });
 });

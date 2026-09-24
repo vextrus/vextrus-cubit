@@ -331,7 +331,7 @@ describe("the intents, in the QS's words (§1.2)", () => {
 });
 
 describe("a reading that crossed the wire is resolved again, never trusted (§6)", () => {
-  const base: AskReading = { intent: "COUNT", class: "column", kind: null, mark: "C3", level: "4F", by: null, noteKind: null, discipline: null, unitAsked: null };
+  const base: AskReading = { intent: "COUNT", class: "column", kind: null, mark: "C3", level: "4F", by: null, noteKind: null, discipline: null, unitAsked: null, text: null };
 
   test("a chosen reading the project holds resolves as it was chosen", () => {
     expect(resolveReading(base, VOCABULARY)).toMatchObject({ outcome: "READ", reading: { mark: "C3", level: "4F" } });

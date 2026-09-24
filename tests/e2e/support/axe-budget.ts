@@ -47,6 +47,8 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   "j-000/bnbc-traced": 0,
   // VD-4: S-10 with the quantity overlay on — the column fills, the unmeasured hatched, the legend.
   "j-000/bnbc-quantities": 0,
+  // ASK-3: S-Ask on BNBC after the golden leg's questions, the sheet answer and a named refusal standing.
+  "j-000/bnbc-ask": 0,
   "j-000/boq-draft": 0,
   "j-000/column-lines": 0,
   "j-000/coverage-grid": 0,

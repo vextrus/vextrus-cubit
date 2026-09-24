@@ -24,8 +24,10 @@ import type {
   AskReading,
   AskReadingRecord,
   AskRoutedBy,
+  AskScheduleSheet,
   AskSheet,
   AskStatementFacts,
+  AskTextHit,
 } from "@/modules/takeoff/ask/law";
 import { statedAt } from "@/modules/takeoff/bbs-ui/present";
 import { markOrder } from "@/modules/takeoff/register-ui/order";
@@ -235,6 +237,8 @@ const INTENT_WORD: Readonly<Record<string, string>> = Object.freeze({
   MEMBER_TYPE: strings.ask_intent_member_type,
   NOTE: strings.ask_intent_note,
   LEVEL_HEIGHT: strings.ask_intent_level_height,
+  SCHEDULE_SHEET: strings.ask_intent_schedule_sheet,
+  FIND_TEXT: strings.ask_intent_find_text,
   SHEET_LIST: strings.ask_intent_sheet_list,
 });
 
@@ -261,6 +265,8 @@ export function readingWords(reading: AskReading): Seg[][] {
   if (reading.by !== null) words.push([text(reading.by === "LEVEL" ? strings.ask_by_level : strings.ask_by_mark)]);
   if (reading.noteKind !== null) words.push([text(capital(noteWord(reading.noteKind)))]);
   if (reading.discipline !== null) words.push([{ t: "enum", value: reading.discipline }]);
+  // The words a sheet-text question searched for, quoted as asked (I-676).
+  if (reading.text !== null) words.push([{ t: "quote", text: reading.text, href: null }]);
   return words;
 }
 
@@ -305,6 +311,29 @@ function levelsSpan(levels: readonly string[]): Seg[] {
   if (first === undefined || last === undefined) return [];
   if (first === last) return [code(first)];
   return composeLine(strings.ask_levels_range, { first: [code(first)], last: [code(last)] }, false);
+}
+
+/** A place a sheet-text answer names, as a link to it selecting what stands there, or model space in words. */
+function placeLink(place: AskPlace | null, links: Links): Seg[] {
+  if (place === null) return [text(strings.ask_show_model)];
+  return [{ t: "link", label: sheetName(place), href: placeHref(links, place), basis: "TRANSCRIBED", code: place.sheetLabel !== null }];
+}
+
+/**
+ * A sheet question's statements (§3 `ask_schedule_sheet`): one per title the schedules asked after
+ * are captioned by, naming every sheet a caption of that title stands on, each a link selecting it.
+ */
+function scheduleSheetRows(schedules: readonly AskScheduleSheet[], links: Links): Seg[][] {
+  const byTitle = new Map<string, AskScheduleSheet[]>();
+  for (const schedule of schedules) byTitle.set(schedule.title, [...(byTitle.get(schedule.title) ?? []), schedule]);
+  return [...byTitle.entries()].map(([title, held]) => {
+    const places: (AskPlace | null)[] = [];
+    for (const one of held) {
+      const same = places.some((place) => (place === null ? one.place === null : one.place !== null && place.drawingId === one.place.drawingId && place.layoutName === one.place.layoutName));
+      if (!same) places.push(one.place);
+    }
+    return composeLine(strings.ask_schedule_sheet, { title: [text(title)], sheets: listOf(places.map((place) => placeLink(place, links))) });
+  });
 }
 
 /** An answer's statement rows (§1.1 3), one statement each, in the order §3 writes them. */
@@ -390,6 +419,15 @@ export function statementRows(answer: Extract<AskAnswer, { outcome: "ANSWERED" }
         if (height.readings.length > 1) return composeLine(strings.ask_level_height_suspended, { level, count: [text(countFace(height.readings.length))] });
         return composeLine(strings.ask_level_height_none, { level });
       });
+    case "SCHEDULE_SHEET":
+      return scheduleSheetRows(statement.schedules, links);
+    case "FIND_TEXT": {
+      const found = Number(statement.count.value);
+      const asked = [text(statement.text)];
+      if (found === 0) return [composeLine(strings.ask_find_none, { text: asked })];
+      if (found === 1) return [composeLine(strings.ask_find_one, { text: asked })];
+      return [composeLine(strings.ask_find_other, { text: asked, count: [figureSeg(statement.count, links, "DERIVED")] })];
+    }
     case "SHEET_LIST":
       return [
         Number(statement.count.value) === 1
@@ -427,6 +465,7 @@ const COL = Object.freeze({
   row: { id: "row", header: strings.ask_col_row, numeric: true },
   column: { id: "column", header: strings.ask_col_column, numeric: false },
   title: { id: "title", header: strings.ask_col_title, numeric: false },
+  text: { id: "text", header: strings.ask_col_text, numeric: false },
   discipline: { id: "discipline", header: strings.ask_col_discipline, numeric: false },
 } satisfies Record<string, Column>);
 
@@ -483,6 +522,27 @@ function sheetRows(sheets: readonly AskSheet[], links: Links): Row[] {
 }
 
 /**
+ * The texts a find rests on (§1.1 6): the sheet each stands on, what it says — quoted, marked where
+ * the row shows only part of the paragraph, a link selecting that text on its sheet — and, for a text
+ * core's resolver stands on no sheet, its key whole and no link (I-404).
+ */
+function textRows(hits: readonly AskTextHit[], links: Links): Row[] {
+  const elided = strings.command_palette_elision;
+  return hits.map((hit) => {
+    const place = hit.layoutName === null ? null : { drawingId: hit.drawingId, layoutName: hit.layoutName, sheetLabel: hit.sheetLabel, keys: [hit.sourceKey] };
+    const said = `${hit.clippedStart ? elided : ""}${hit.excerpt}${hit.clippedEnd ? elided : ""}`;
+    return {
+      id: `${hit.drawingId}|${hit.sourceKey}`,
+      cells: {
+        sheet: [text(sheetName(hit))],
+        text: [{ t: "quote", text: said, href: place === null ? null : placeHref(links, place) }],
+        source: place === null ? [code(hit.sourceKey)] : [],
+      },
+    };
+  });
+}
+
+/**
  * The breakdown under the statement (§1.1 3): by level or by mark where the question asked so, the
  * marks a class holds, every trade measured so far, a schedule's cells, the readings a note or a
  * storey height rests on, the sheets of the set. Null where the statement needs none.
@@ -530,6 +590,14 @@ export function breakdownOf(answer: Extract<AskAnswer, { outcome: "ANSWERED" }>,
     }
     case "SHEET_LIST":
       return { tableId: "ask-breakdown-sheets", columns: [COL.sheet, COL.title, COL.discipline], rows: sheetRows(statement.sheets, links) };
+    case "FIND_TEXT":
+      return statement.places.length === 0
+        ? null
+        : {
+            tableId: "ask-breakdown-finds",
+            columns: [COL.sheet, COL.count],
+            rows: statement.places.map((one) => ({ id: `${one.place.drawingId}|${one.place.layoutName}`, cells: { sheet: placeLink(one.place, links), count: figureCell(one.count, links, "DERIVED") } })),
+          };
     default:
       return null;
   }
@@ -599,13 +667,14 @@ export function rowsTablesOf(facts: AskFacts, links: Links): Table[] {
     });
   }
   if (records.sheets.length > 0) tables.push({ tableId: "ask-rows-sheets", columns: [COL.sheet, COL.title, COL.discipline], rows: sheetRows(records.sheets, links) });
+  if (records.texts.length > 0) tables.push({ tableId: "ask-rows-texts", columns: [COL.sheet, COL.text, COL.source], rows: textRows(records.texts, links) });
   return tables;
 }
 
 /** How many records an answer rests on — the Rows summary's count. */
 export function recordCount(facts: AskFacts): number {
   const { records } = facts;
-  return records.lines.length + records.objects.length + records.readings.length + records.cells.length + records.sheets.length;
+  return records.lines.length + records.objects.length + records.readings.length + records.cells.length + records.sheets.length + records.texts.length;
 }
 
 /* ------------------------------------------------------------------------ what is left out */
@@ -692,6 +761,8 @@ export function basisWords(basis: AskBasis): string {
       return strings.ask_basis_notes;
     case "LEVELS":
       return strings.ask_basis_levels;
+    case "TEXT":
+      return strings.ask_basis_text;
     case "SHEETS":
       return strings.ask_basis_sheets;
   }

@@ -4,6 +4,7 @@
 // duplicate-key test beside it (tests/ai/ask/registry.test.ts).
 import { ASK_INTENTS, type AskIntent } from "../law";
 import { COUNT_QUERY } from "./count";
+import { FIND_TEXT_QUERY } from "./find-text";
 import { LEVEL_HEIGHT_QUERY } from "./level-height";
 import { MARKS_QUERY } from "./marks";
 import { MEASURED_SO_FAR_QUERY } from "./measured-so-far";
@@ -11,6 +12,7 @@ import { MEMBER_TYPE_QUERY } from "./member-type";
 import { NOTE_QUERY } from "./note";
 import { QUANTITY_QUERY } from "./quantity";
 import type { AskQuery } from "./registry-law";
+import { SCHEDULE_SHEET_QUERY } from "./schedule-sheet";
 import { SHEET_LIST_QUERY } from "./sheet-list";
 import { WHY_NOT_MEASURED_QUERY } from "./why-not-measured";
 
@@ -26,6 +28,8 @@ export const ASK_QUERY_LIST: readonly AskQuery[] = Object.freeze([
   MEMBER_TYPE_QUERY,
   NOTE_QUERY,
   LEVEL_HEIGHT_QUERY,
+  SCHEDULE_SHEET_QUERY,
+  FIND_TEXT_QUERY,
   SHEET_LIST_QUERY,
 ]);
 

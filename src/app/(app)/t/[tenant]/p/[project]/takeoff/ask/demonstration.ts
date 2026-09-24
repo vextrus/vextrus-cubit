@@ -37,10 +37,10 @@ const ASKED_AT = "2026-09-24T06:00:00.000Z";
 /** Where the demonstrated members stand: one sheet, its members' outlines and marks. */
 const PLACE: AskPlace = { drawingId: DRAWING_ID, layoutName: "S-10", sheetLabel: "S-10", keys: ["DXF_HANDLE:2A1", "DXF_HANDLE:2A2"] };
 
-const READING: AskReading = { intent: "COUNT", class: "column", kind: null, mark: "C1", level: "GF", by: null, noteKind: null, discipline: null, unitAsked: null };
+const READING: AskReading = { intent: "COUNT", class: "column", kind: null, mark: "C1", level: "GF", by: null, noteKind: null, discipline: null, unitAsked: null, text: null };
 const QUANTITY: AskReading = { ...READING, intent: "QUANTITY", kind: "rcc.concrete", mark: null, level: null };
 
-const NO_RECORDS: AskFacts["records"] = { lines: [], objects: [], readings: [], cells: [], sheets: [] };
+const NO_RECORDS: AskFacts["records"] = { lines: [], objects: [], readings: [], cells: [], sheets: [], texts: [] };
 
 /** "How many C1 columns are on GF?" — one column, on one sheet. */
 const COUNTED: AskAnswer = {

@@ -35,7 +35,7 @@ export const COMPLETE = COVERAGES[0];
 const REPUDIATED = "REPUDIATED";
 
 /** An answer that rests on no record of a kind. */
-export const NO_RECORDS: AskRecords = Object.freeze({ lines: [], objects: [], readings: [], cells: [], sheets: [] });
+export const NO_RECORDS: AskRecords = Object.freeze({ lines: [], objects: [], readings: [], cells: [], sheets: [], texts: [] });
 
 /** A class of the catalogue, or null for a register row naming none. */
 export function classOf(name: string): ElementType | null {

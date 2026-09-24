@@ -16,9 +16,9 @@ import type { NoteKind } from "@/core/notes/law";
 import type { Discipline } from "@/core/sheets/law";
 
 /**
- * The closed intent roster (§1.2): one query per intent in `./queries/registry.ts`. The two
- * sheet-text intents, "which sheet holds the schedule" and "find on the sheets", join it with the
- * text index they read (ASK-3); until then a question asking either is not understood, by name.
+ * The closed intent roster (§1.2): one query per intent in `./queries/registry.ts`, in the order the
+ * Decision's table writes them. The two sheet-text intents, "which sheet holds the schedule" and
+ * "find on the sheets", carry the words asked in the reading's `text` slot (I-676).
  */
 export const ASK_INTENTS = [
   "COUNT",
@@ -29,11 +29,42 @@ export const ASK_INTENTS = [
   "MEMBER_TYPE",
   "NOTE",
   "LEVEL_HEIGHT",
+  "SCHEDULE_SHEET",
+  "FIND_TEXT",
   "SHEET_LIST",
 ] as const;
 
 /** One intent of the roster. */
 export type AskIntent = (typeof ASK_INTENTS)[number];
+
+/**
+ * The intents the machine may route a question to (I-677): every intent but the two sheet-text
+ * ones, whose argument is the words asked for — free text, never a subject the project holds with a
+ * key to cite (I-397). The grammar reads them by their shape alone, so the machine is never asked to
+ * choose them, and the routing roster it is sent is this one.
+ */
+export const ASK_ROUTED_INTENTS = [
+  "COUNT",
+  "MARKS",
+  "QUANTITY",
+  "MEASURED_SO_FAR",
+  "WHY_NOT_MEASURED",
+  "MEMBER_TYPE",
+  "NOTE",
+  "LEVEL_HEIGHT",
+  "SHEET_LIST",
+] as const satisfies readonly AskIntent[];
+
+/** One intent the machine may route to. */
+export type AskRoutedIntent = (typeof ASK_ROUTED_INTENTS)[number];
+
+/** Is this string an intent the machine may route to? */
+export function isAskRoutedIntent(value: unknown): value is AskRoutedIntent {
+  return typeof value === "string" && (ASK_ROUTED_INTENTS as readonly string[]).includes(value);
+}
+
+/** The longest run of words a sheet-text question may ask for, in characters (the index's words, spaced). */
+export const ASK_TEXT_MAX = 120;
 
 /** Is this string an intent of the roster? Asked where a reading crosses the wire. */
 export function isAskIntent(value: unknown): value is AskIntent {
@@ -53,9 +84,9 @@ export const ASK_BREAKDOWNS = ["LEVEL", "MARK"] as const;
 export type AskBreakdown = (typeof ASK_BREAKDOWNS)[number];
 
 /** Where an answer was read from (§3's `ask_basis_*`). */
-export const ASK_BASES = ["REGISTER", "SCHEDULES", "NOTES", "LEVELS", "SHEETS"] as const;
+export const ASK_BASES = ["REGISTER", "SCHEDULES", "NOTES", "LEVELS", "TEXT", "SHEETS"] as const;
 
-/** One of the five. */
+/** One of the six. */
 export type AskBasis = (typeof ASK_BASES)[number];
 
 /** The longest question the door reads, in characters, once trimmed (§6). */
@@ -99,6 +130,11 @@ export type AskReading = {
   readonly discipline: Discipline | null;
   /** A unit the question named that the register does not measure in (`cft`), said, never converted (§7). */
   readonly unitAsked: string | null;
+  /**
+   * The words a sheet-text question asks for, as the text index spells them — upper case, one space
+   * between words (`LIFT CORE`, `COLUMN SCHEDULE`); null for every other intent (I-676).
+   */
+  readonly text: string | null;
 };
 
 /** What the door is asked: the question, and where it comes from a clarify or a follow-up, a reading. */
@@ -199,6 +235,23 @@ export type AskSchedule = {
   readonly rows: readonly AskScheduleRow[];
 };
 
+/**
+ * One text of the pinned revision's sheets that says the words asked for (SRCH-1's index): the key
+ * the viewer selects it by, the sheet core's one resolver stands it on, and the paragraph it was found
+ * in, cut to what a row can show around the words.
+ */
+export type AskTextHit = {
+  readonly drawingId: string;
+  /** The layout it stands on, or null where the record names no sheet at all. */
+  readonly layoutName: string | null;
+  /** The sheet's number, else its layout's name; null for model space. */
+  readonly sheetLabel: string | null;
+  readonly sourceKey: string;
+  readonly excerpt: string;
+  readonly clippedStart: boolean;
+  readonly clippedEnd: boolean;
+};
+
 /** One sheet of the pinned revision, named as its title block states it. */
 export type AskSheet = {
   readonly drawingId: string;
@@ -251,10 +304,12 @@ export type AskSources = {
   readonly memberAt: (objectKey: string) => AskPlace | null;
   /** One cited entity: on this drawing where one is named, else on the first drawing that holds the key. */
   readonly entityAt: (drawingId: string | null, key: string) => AskEntity | null;
+  /** Every text of the pinned revision's sheets saying the words asked, one per (drawing, key), in the set's order. */
+  readonly findText: (text: string) => readonly AskTextHit[];
 };
 
 /** The parts of the sources a query reads beyond the register and the stack, loaded only when asked. */
-export const ASK_SOURCE_NEEDS = ["members", "notes", "schedules", "sheets", "entities"] as const;
+export const ASK_SOURCE_NEEDS = ["members", "notes", "schedules", "sheets", "entities", "texts"] as const;
 
 /** One of them. */
 export type AskSourceNeed = (typeof ASK_SOURCE_NEEDS)[number];
@@ -359,6 +414,8 @@ export type AskRecords = {
   readonly readings: readonly AskReadingRecord[];
   readonly cells: readonly AskCellRecord[];
   readonly sheets: readonly AskSheet[];
+  /** The texts a find rests on, each quoted as the sheet says it (I-401). */
+  readonly texts: readonly AskTextHit[];
 };
 
 /**
@@ -411,6 +468,21 @@ export type AskHeight = {
 /** What a schedule states for one mark: its rows, cells verbatim (I-401). */
 export type AskScheduleRowFacts = { readonly scheduleKey: string; readonly schedule: string; readonly rowIndex: number; readonly cells: readonly AskCellRecord[] };
 
+/**
+ * One schedule a sheet question names (I-676): its title as drawn, and where its caption stands —
+ * the caption's key and the sheet core's one resolver stands it on, or null where no sheet holds it.
+ */
+export type AskScheduleSheet = {
+  readonly scheduleKey: string;
+  readonly title: string;
+  readonly drawingId: string;
+  readonly captionKey: string;
+  readonly place: AskPlace | null;
+};
+
+/** One place a find stands on, and how many of the texts found stand there — its count a figure linking to them. */
+export type AskFindPlace = { readonly place: AskPlace; readonly count: AskFigure };
+
 /** The facts one intent answers with — the screen's statement rows (§3). */
 export type AskStatementFacts =
   | {
@@ -439,6 +511,15 @@ export type AskStatementFacts =
   | { readonly intent: "MEMBER_TYPE"; readonly rows: readonly AskScheduleRowFacts[] }
   | { readonly intent: "NOTE"; readonly groups: readonly AskNoteGroup[] }
   | { readonly intent: "LEVEL_HEIGHT"; readonly heights: readonly AskHeight[] }
+  | { readonly intent: "SCHEDULE_SHEET"; readonly schedules: readonly AskScheduleSheet[] }
+  | {
+      readonly intent: "FIND_TEXT";
+      readonly text: string;
+      /** Every text found; its figure links to the one place they stand, else the evidence row. */
+      readonly count: AskFigure;
+      /** One row per (drawing, layout) the texts stand on, the set's order; a text on no sheet stands in the Rows only. */
+      readonly places: readonly AskFindPlace[];
+    }
   | { readonly intent: "SHEET_LIST"; readonly count: AskFigure; readonly sheets: readonly AskSheet[] };
 
 /** An answer's facts: the statement, what it leaves out, where its evidence stands, what it rests on. */

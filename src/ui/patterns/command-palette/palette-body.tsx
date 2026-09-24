@@ -42,6 +42,7 @@ export interface PaletteBodyProps {
 const GROUP_LABEL: Readonly<Record<PaletteGroupId, StringKey>> = {
   recent: "command_palette_group_recent",
   navigate: "command_palette_group_navigate",
+  ask: "command_palette_group_ask",
   areas: "command_palette_group_areas",
   actions: "command_palette_group_actions",
   shortcuts: "command_palette_group_shortcuts",
@@ -129,7 +130,8 @@ export function PaletteBody({
   onHover,
   onShortcuts,
 }: PaletteBodyProps) {
-  const rows = groups.reduce((total, group) => total + group.rows.length, 0);
+  // The ask group's row offers to ask, it matched nothing: the count says what the search found (I-679).
+  const rows = groups.reduce((total, group) => total + (group.id === "ask" ? 0 : group.rows.length), 0);
   const cell = paletteCell({ status, groups, refusal, fault });
 
   return (

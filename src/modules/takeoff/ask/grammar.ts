@@ -20,6 +20,7 @@ import {
   ASK_BREAKDOWNS,
   ASK_INTENTS,
   ASK_REFUSAL_CODES,
+  ASK_TEXT_MAX,
   FOUNDATION_SLOT,
   isAskIntent,
   type AskAnswer,
@@ -55,6 +56,8 @@ import {
   RANGE_WORDS,
   ROOF_LABELS,
   ROOF_PHRASES,
+  SECOND_QUESTION_WORDS,
+  SHEET_TEXT_SHAPES,
   STEEL_WORDS,
   STRENGTH_WORDS,
   UNITS_ASKED,
@@ -72,7 +75,7 @@ export type GrammarOutcome =
 
 /** A reading with nothing named yet: every subject slot empty. */
 export function blankReading(intent: AskIntent): AskReading {
-  return { intent, class: null, kind: null, mark: null, level: null, by: null, noteKind: null, discipline: null, unitAsked: null };
+  return { intent, class: null, kind: null, mark: null, level: null, by: null, noteKind: null, discipline: null, unitAsked: null, text: null };
 }
 
 /* ----------------------------------------------------------------------------- the words */
@@ -567,6 +570,10 @@ function intentsOf(words: Words, slots: Slots): AskIntent[] {
   // "List the structural sheets": the sheets asked after, whatever words stand between.
   if (words.says("sheets") && ["list", "which", "what", "show"].some((word) => words.says(word))) cued.add("SHEET_LIST");
 
+  // The two sheet-text intents are read by their shape before any slot (`sheetTextOf`): words that reach
+  // here hold neither shape, so their cue words ask nothing of these two (I-676).
+  cued.delete("SCHEDULE_SHEET");
+  cued.delete("FIND_TEXT");
   if (cued.has("SHEET_LIST")) return ["SHEET_LIST"];
   // A note kind named outright is the note's, whatever else cued: `lap length` is no quantity.
   if (slots.noteKinds.length > 0 || slots.strengthChoice) {
@@ -667,6 +674,11 @@ export function completeReading(draft: AskReading, vocabulary: AskVocabulary, di
       return { outcome: "READ", reading: { ...blankReading("LEVEL_HEIGHT"), level: reading.level } };
     case "SHEET_LIST":
       return { outcome: "READ", reading: { ...blankReading("SHEET_LIST"), discipline: reading.discipline } };
+    case "SCHEDULE_SHEET":
+    case "FIND_TEXT":
+      // Words to search for are the reading's whole subject (I-676): none is a question not understood.
+      if (reading.text === null || reading.text.trim() === "") return refused(ASK_REFUSAL_CODES.notUnderstood, reading);
+      return { outcome: "READ", reading: { ...blankReading(reading.intent), text: reading.text } };
   }
 }
 
@@ -682,6 +694,7 @@ function draftOf(intent: AskIntent, slots: Slots): AskReading {
     noteKind: slots.noteKinds[0] ?? null,
     discipline: slots.disciplines[0] ?? null,
     unitAsked: slots.unitAsked,
+    text: null,
   };
 }
 
@@ -700,6 +713,8 @@ const SLOTS_READ: Readonly<Record<AskIntent, readonly ("class" | "mark" | "level
   MEMBER_TYPE: ["mark"],
   NOTE: ["noteKind"],
   LEVEL_HEIGHT: ["level"],
+  SCHEDULE_SHEET: [],
+  FIND_TEXT: [],
   SHEET_LIST: ["discipline"],
 });
 
@@ -793,6 +808,140 @@ function leavesAChoice(intents: readonly AskIntent[], slots: Slots): boolean {
   return doubled || counted || wall || (slots.strengthChoice && intents.includes("NOTE"));
 }
 
+/* ------------------------------------------------------------- the sheet-text questions */
+
+/** How many words a phrase of the list opens `words` with — the longest that fits — or 0. */
+function opensWith(words: readonly string[], phrases: readonly string[]): number {
+  let best = 0;
+  for (const phrase of phrases) {
+    const parts = phrase.split(" ");
+    if (parts.length > best && parts.every((part, at) => words[at] === part)) best = parts.length;
+  }
+  return best;
+}
+
+/** How many words a phrase of the list closes `words` with — the longest that fits — or 0. */
+function closesWith(words: readonly string[], phrases: readonly string[]): number {
+  let best = 0;
+  for (const phrase of phrases) {
+    const parts = phrase.split(" ");
+    const from = words.length - parts.length;
+    if (from >= 0 && parts.length > best && parts.every((part, at) => words[from + at] === part)) best = parts.length;
+  }
+  return best;
+}
+
+/** The asked-for words with the words around them that ask nothing taken off both ends. */
+function textWords(words: readonly string[]): string[] {
+  let out = [...words];
+  for (let taken = opensWith(out, SHEET_TEXT_SHAPES.openingWords); taken > 0; taken = opensWith(out, SHEET_TEXT_SHAPES.openingWords)) out = out.slice(taken);
+  for (let taken = closesWith(out, SHEET_TEXT_SHAPES.closingWords); taken > 0; taken = closesWith(out, SHEET_TEXT_SHAPES.closingWords)) out = out.slice(0, out.length - taken);
+  return out;
+}
+
+/** Every one-word phrase naming a class — what a mark asked after is said beside ("C7 column"). */
+const CLASS_WORD_SET: ReadonlySet<string> = new Set(
+  Object.values(CLASS_WORDS as Readonly<Record<string, readonly string[]>>)
+    .flat()
+    .filter((phrase) => !phrase.includes(" ")),
+);
+
+/**
+ * The words a find is spelled as for the index (I-676). A mark the register holds, asked after
+ * with nothing beside it but its class ("where are the C3 columns?"), is searched as the mark alone —
+ * the plan writes `C3`, never `C3 COLUMNS`. Null where nothing is left to search, or too much.
+ */
+function findSpelling(words: readonly string[], vocabulary: AskVocabulary): string | null {
+  const held = new Map([...vocabulary.marks.keys()].map((mark) => [compact(mark), mark]));
+  const marks = words.filter((word) => held.has(compact(word)) && /\d/u.test(word));
+  const markOnly = marks.length === 1 && words.every((word) => marks.includes(word) || CLASS_WORD_SET.has(word));
+  const asked = markOnly ? [held.get(compact(marks[0] as string)) as string] : words;
+  const text = asked.join(" ").toUpperCase().trim();
+  return text === "" || text.length > ASK_TEXT_MAX ? null : text;
+}
+
+/** The WHY_NOT_MEASURED cues that speak of measurement — a where-question carrying one asks after it, not the sheets' text. */
+const MEASUREMENT_CUES: readonly string[] = INTENT_CUES.WHY_NOT_MEASURED.filter((cue) => /measur|quantity|figure/u.test(cue));
+
+/** Double quotes around the words a person wants found exactly: `find "TENSION 50d"`. */
+const QUOTED = /["“”]([^"“”]+)["“”]/u;
+
+/**
+ * A sheet-text question, read by its SHAPE before any subject is (I-676) — or null where the
+ * question has neither shape:
+ * - a schedule asked after with a sheet word or a where ("Which sheet has the column schedule?"): the
+ *   words before `schedule`, back to the first that names nothing, are the schedule's name;
+ * - a find ("Find TENSION 50d", "search for lift core"), a where-question ("Where is C7 drawn?") or
+ *   "which sheets mention X": the words after the opening, less the words that ask nothing of the
+ *   text, are what is searched for — double-quoted words, where the question quotes any, exactly.
+ * The text is never read as a subject, so a word shaped like a mark the register does not hold is
+ * searched for, never refused as unknown.
+ */
+function sheetTextOf(question: string, vocabulary: AskVocabulary): GrammarOutcome | null {
+  const all = wordsOf(question);
+  let from = 0;
+  for (let taken = opensWith(all, SHEET_TEXT_SHAPES.politeLeads); taken > 0; taken = opensWith(all.slice(from), SHEET_TEXT_SHAPES.politeLeads)) from += taken;
+  const words = all.slice(from);
+  const says = (phrase: string): boolean => ` ${words.join(" ")} `.includes(` ${phrase} `);
+
+  const scheduleAt = words.findIndex((word) => SHEET_TEXT_SHAPES.scheduleWords.includes(word));
+  if (scheduleAt >= 0 && INTENT_CUES.SCHEDULE_SHEET.some(says)) {
+    const named: string[] = [];
+    for (let at = scheduleAt - 1; at >= 0 && named.length < 5; at -= 1) {
+      const word = words[at] as string;
+      if (SHEET_TEXT_SHAPES.scheduleStops.includes(word)) break;
+      named.unshift(word);
+    }
+    const text = [...named, "schedule"].join(" ").toUpperCase();
+    return { outcome: "READ", reading: { ...blankReading("SCHEDULE_SHEET"), text }, followUp: false };
+  }
+
+  let asked: readonly string[] | null = null;
+  const find = opensWith(words, SHEET_TEXT_SHAPES.findLeads);
+  const where = opensWith(words, SHEET_TEXT_SHAPES.whereLeads);
+  const sheets = opensWith(words, SHEET_TEXT_SHAPES.sheetsLeads);
+  if (find > 0) asked = words.slice(find);
+  else if (where > 0) {
+    // "Where are the columns not measured?" asks after the measurement, not the sheets' text: a
+    // where-question that speaks of measurement, unquoted, is left to the intents (I-676).
+    if (!QUOTED.test(question) && MEASUREMENT_CUES.some(says)) return null;
+    asked = words.slice(where);
+  }
+  else if (sheets > 0) {
+    const rest = words.slice(sheets);
+    const verb = opensWith(rest, SHEET_TEXT_SHAPES.sheetsVerbs);
+    if (verb > 0) asked = rest.slice(verb);
+  }
+  if (asked === null) return null;
+  const quoted = QUOTED.exec(question)?.[1];
+  const text = findSpelling(quoted === undefined ? textWords(asked) : wordsOf(quoted), vocabulary);
+  if (text === null) return refused(ASK_REFUSAL_CODES.notUnderstood);
+  return { outcome: "READ", reading: { ...blankReading("FIND_TEXT"), text }, followUp: false };
+}
+
+/** Every phrase naming a kind — what "what is the {kind}" completes. */
+const KIND_PHRASES: readonly string[] = Object.values(KIND_WORDS as Readonly<Record<string, readonly string[]>>).flat();
+
+/**
+ * Whether a question read as ONE intent carries a second question the roster reads no cue in —
+ * "how much steel goes into the ground floor columns, and what diameters?" (I-678): a joining
+ * word after the first clause, then a question word opening words that cue no intent. Answering the
+ * first part alone would drop the second in silence; "what about …" is a follow-up's phrasing, not a
+ * second question.
+ */
+function secondQuestionUnread(words: readonly string[]): boolean {
+  for (let at = 1; at + 1 < words.length; at += 1) {
+    if (!JOINING_WORDS.includes(words[at] as string) && words[at] !== "also") continue;
+    const opener = words[at + 1] as string;
+    if (!SECOND_QUESTION_WORDS.includes(opener) || words[at + 2] === "about") continue;
+    const clause = new Words(words.slice(at + 1));
+    const cued = ASK_INTENTS.some((intent) => INTENT_CUES[intent].some((cue) => clause.says(cue)));
+    const kinded = WHAT_IS_PHRASES.some((phrase) => clause.says(phrase)) && KIND_PHRASES.some((phrase) => clause.says(phrase));
+    if (!cued && !kinded) return true;
+  }
+  return false;
+}
+
 /**
  * Read one question against one project's vocabulary (I-396). `previous` is the reading of the
  * answer before it — a question that names a subject and no intent ("and on 6F?") is read against it,
@@ -803,10 +952,13 @@ export function readQuestion(question: string, vocabulary: AskVocabulary, previo
   // A refusal cue outranks every answer: a cost is never answered as a quantity (§1.2).
   if (ESTIMATE_CUES.some((cue) => words.says(cue))) return refused(ASK_REFUSAL_CODES.estimateNotBuilt);
   if (JUDGEMENT_CUES.some((cue) => words.says(cue))) return refused(ASK_REFUSAL_CODES.judgementNotOffered);
+  const sheetText = sheetTextOf(question, vocabulary);
+  if (sheetText !== null) return sheetText;
 
   const slots = readSlots(words, vocabulary);
   if ("outcome" in slots) return slots;
   const intents = intentsOf(words, slots);
+  if (intents.length === 1 && secondQuestionUnread(words.words)) return refused(ASK_REFUSAL_CODES.notUnderstood);
 
   if (intents.length === 0) {
     if (previous === null || !namesASubject(slots)) return refused(ASK_REFUSAL_CODES.notUnderstood);
