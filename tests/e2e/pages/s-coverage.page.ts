@@ -188,9 +188,15 @@ export class SCoveragePage {
     return [
       ...shellMasks(this.page),
       // Each is rendered through the shipped IdChip and keeps the screen's own class for the mask.
-      this.page.locator(".cx-coverage-revision"),
-      this.page.locator(".cx-coverage-act-id"),
-      this.page.locator(".cx-coverage-source-key"),
+      // Visible ones only: the inspector folds its "Sighted in" rows into a disclosure (HONEST-SCOPE, session 8),
+      // and a folded row's key still has a box — a mask over it would paint across the inspector's
+      // text and its two buttons, and the picture would stop asking for them (as J-003's dialog did).
+      this.page.locator(".cx-coverage-revision").filter({ visible: true }),
+      this.page.locator(".cx-coverage-act-id").filter({ visible: true }),
+      this.page.locator(".cx-coverage-source-key").filter({ visible: true }),
+      // The fold's summary names the drawing its sightings stand on, and a stage names each drawing it
+      // uploads uniquely per run.
+      this.page.locator(".cx-coverage-sightings-summary"),
     ];
   }
 
