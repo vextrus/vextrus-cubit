@@ -15,6 +15,9 @@
 import { describe, expect, test } from "vitest";
 import { AGREEING_READS, everyAttribute, steadyAttribute, steadyCount, steadyText } from "../e2e/support/retrying-read";
 
+
+/** The doubles answer at once, so the reading is re-taken at once — a pace, not a claim (the helpers' default is Playwright's back-off). */
+const FAST = { intervals: [1] } as const;
 /** A locator whose count is 0 until the table starts painting, then climbs to 7. */
 function slowLocator(values: number[]): never {
   let at = 0;
@@ -33,32 +36,33 @@ function stalingAttribute(values: (string | null)[]): never {
 
 describe("P4b §3: the reads that answer a question wait for the answer", () => {
   test("D1: steadyCount on a table that has not started painting answers 7, not 0", async () => {
-    const seen = await steadyCount(slowLocator([0, 0, 0, 3, 7, 7]), "rows");
+    const seen = await steadyCount(slowLocator([0, 0, 0, 3, 7, 7]), "rows", FAST);
     expect(seen, "two agreeing readings of a table that is not there yet is not a settled table").toBe(7);
   });
 
   test("a zero IS the answer where the caller says zero is lawful, and is read as one", async () => {
-    expect(await steadyCount(slowLocator([0, 0, 0, 0]), "the none line", { min: 0 })).toBe(0);
+    expect(await steadyCount(slowLocator([0, 0, 0, 0]), "the none line", { ...FAST, min: 0 })).toBe(0);
   });
 
   test("the floor is the caller's, not the reader's — a count below it is never settled", async () => {
-    await expect(steadyCount(slowLocator([1, 1, 1, 1]), "the register's lines", { min: 2, timeout: 1_000 })).rejects.toThrow(/still painting/);
+    await expect(steadyCount(slowLocator([1, 1, 1, 1]), "the register's lines", { ...FAST, min: 2, timeout: 1_000 })).rejects.toThrow(/still painting/);
   });
 
   test("D2: steadyText takes the settled text, not the first non-empty one", async () => {
-    const text = await steadyText(stalingText(["0 lines", "0 lines", "5,412 lines"]), "the count line");
+    const text = await steadyText(stalingText(["0 lines", "0 lines", "5,412 lines"]), "the count line", FAST);
     expect(text, "non-empty is not the same as settled").toBe("5,412 lines");
   });
 
   test("a caller that holds the previous label is never handed it back", async () => {
     const text = await steadyText(stalingText(["Riverside Tower", "Riverside Tower", "Riverside Tower", "Harbour Point"]), "the breadcrumb", {
+      ...FAST,
       not: "Riverside Tower",
     });
     expect(text, "the act renamed it, so the old name is a reading of the frame before the act").toBe("Harbour Point");
   });
 
   test("steadyAttribute waits for the attribute to exist and hold still — a branch is not taken on a hydrating frame", async () => {
-    expect(await steadyAttribute(stalingAttribute([null, null, "STRUCT", "STRUCT"]), "data-discipline", "the group's discipline")).toBe("STRUCT");
+    expect(await steadyAttribute(stalingAttribute([null, null, "STRUCT", "STRUCT"]), "data-discipline", "the group's discipline", FAST)).toBe("STRUCT");
   });
 
   test("everyAttribute reads the WHOLE list in one call, and a list still growing is not a settled list", async () => {
@@ -69,14 +73,14 @@ describe("P4b §3: the reads that answer a question wait for the answer", () => 
     // `evaluateAll` serves both the contract read and the list read; this double publishes no
     // contract (the reader then falls back to agreeing readings, which is what is under test here).
     const rows = { evaluateAll: async (_fn: unknown, arg: unknown) => (typeof arg === "string" ? readings[Math.min(at++, readings.length - 1)] ?? [] : { published: false, by: null, value: null }) } as never;
-    expect(await everyAttribute(rows, "data-key", "the selected rows"), "the answer is the list that held still").toEqual(["a", "b", "c"]);
+    expect(await everyAttribute(rows, "data-key", "the selected rows", FAST), "the answer is the list that held still").toEqual(["a", "b", "c"]);
     expect(at, `one call per reading, never one per row — it took ${at}`).toBeLessThanOrEqual(readings.length);
   });
 
   test("everyAttribute refuses a list that never holds still, naming the attribute it was reading", async () => {
     let at = 0;
     const churning = { evaluateAll: async (_fn: unknown, arg: unknown) => (typeof arg === "string" ? [String(at++)] : { published: false, by: null, value: null }) } as never;
-    await expect(everyAttribute(churning, "data-key", "the selected rows", { timeout: 1_000 })).rejects.toThrow(/data-key/);
+    await expect(everyAttribute(churning, "data-key", "the selected rows", { ...FAST, timeout: 1_000 })).rejects.toThrow(/data-key/);
   });
 
   test("three readings, stated once, are what the two helpers agree on", () => {

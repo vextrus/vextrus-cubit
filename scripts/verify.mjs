@@ -80,7 +80,9 @@ export const LANE_COMMANDS = Object.freeze({
   // TypeScript 7, the native compiler (D-004). `typescript` itself is the TypeScript 6 API alias that
   // typescript-eslint and Next's type check read; it ships only `tsc6`.
   types: [["node", "node_modules/@typescript/native/bin/tsc", "--noEmit"]],
-  lint: [["node", "node_modules/eslint/bin/eslint.js", "."]],
+  // Three workers: `eslint .` alone reads 25 s serially and 13 s at three (47 CPU-s against 36), and six
+  // buys nothing more — the cycle rule builds its module graph once per worker (session 9, measured).
+  lint: [["node", "node_modules/eslint/bin/eslint.js", "--concurrency=3", "."]],
   // Capped deliberately: the unit lane would take the whole box by default, and it no longer has
   // the box to itself — six other lanes gate beside it (runChainInWaves), and the engine may be
   // running a second gate on the same machine. The number is derived from the box and from

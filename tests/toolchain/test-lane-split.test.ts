@@ -61,7 +61,8 @@ function collectedBy(config: string | null): string[] {
   expect(listed.status, `vitest could not list ${config ?? "the unit lane"}:\n${`${listed.stdout ?? ""}${listed.stderr ?? ""}`.slice(-1600)}`).toBe(0);
   return (listed.stdout ?? "")
     .split("\n")
-    .map((line) => line.trim())
+    // A lane that partitions itself into projects (the unit lane's two pools) names each file's project first.
+    .map((line) => line.trim().replace(/^\[[^\]]+\] /, ""))
     .filter((line) => SUITE.test(line))
     .map((line) => relative(ROOT, resolve(ROOT, line)).replace(/\\/g, "/"))
     .sort();

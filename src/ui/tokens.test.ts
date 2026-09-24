@@ -320,17 +320,18 @@ describe("AC-1: one TS source, one generated stylesheet", () => {
   });
 
   test("AC-1: pnpm verify's unit lane collects src/ui/tokens.test.ts", () => {
-    const lane = unitLaneConfig as { test?: { include?: string[]; exclude?: string[] } };
-    const include = lane.test?.include ?? [];
-    const exclude = lane.test?.exclude ?? [];
+    // The lane may partition itself into projects (its two pools): the drift test is collected where
+    // some project includes it and does not exclude it.
+    type LaneTest = { include?: string[]; exclude?: string[]; projects?: { test?: LaneTest }[] };
+    const lane = (unitLaneConfig as { test?: LaneTest }).test ?? {};
+    const collections = lane.projects === undefined ? [lane] : lane.projects.map((project) => project.test ?? {});
+    const collecting = collections.filter(
+      (test) => (test.include ?? []).some((pattern) => globMatches(pattern, THIS_TEST)) && !(test.exclude ?? []).some((pattern) => globMatches(pattern, THIS_TEST)),
+    );
     expect(
-      include.some((pattern) => globMatches(pattern, THIS_TEST)),
-      `vitest.config.ts's include ${JSON.stringify(include)} does not collect ${THIS_TEST} — pnpm verify's unit lane would never run the drift test (AC-1)`,
-    ).toBe(true);
-    expect(
-      exclude.filter((pattern) => globMatches(pattern, THIS_TEST)),
-      `vitest.config.ts excludes ${THIS_TEST} from the unit lane (AC-1)`,
-    ).toEqual([]);
+      collecting.length,
+      `no project of vitest.config.ts collects ${THIS_TEST} (${JSON.stringify(collections)}) — pnpm verify's unit lane would never run the drift test (AC-1)`,
+    ).toBe(1);
   });
 });
 

@@ -68,12 +68,12 @@ function localImports(root, file) {
 }
 
 /**
- * The suites that reach the live-database harness, as paths relative to `root` with `/` separators
- * — sorted, so two readings of one tree are the same list.
+ * Every source file under the suite roots, absolute — and, where asked, the checkout's top-level modules.
  * @param {string} root the checkout root
+ * @param {boolean} [topLevel]
  * @returns {string[]}
  */
-export function pgBoundSuites(root) {
+function sourceFiles(root, topLevel = false) {
   /** @type {string[]} */
   const files = [];
   /** @param {string} dir */
@@ -86,10 +86,28 @@ export function pgBoundSuites(root) {
     }
   };
   for (const suiteRoot of SUITE_ROOTS) if (existsSync(join(root, suiteRoot))) walk(join(root, suiteRoot));
+  // The checkout's own top-level modules (playwright.config.ts, the configs) are nodes of the forks
+  // pool's graph: a suite reaches a package through one of them as surely as through a support module.
+  // The database lane's walk has never read them (a suite reading playwright.config.ts's values opens
+  // no database), so its partition does not move.
+  if (topLevel) for (const entry of readdirSync(root, { withFileTypes: true })) if (entry.isFile() && /\.(?:ts|mts)$/.test(entry.name)) files.push(join(root, entry.name));
+  return files;
+}
 
-  // Reachability is answered backwards, from the harness outwards along reversed edges: whoever
-  // imports something that reaches the harness reaches it too. Backwards is linear and needs no
-  // cycle rule — a walk forwards from every suite re-answers the same questions once per suite.
+/**
+ * The suites that reach any seed, as paths relative to `root` with `/` separators — sorted, so two
+ * readings of one tree are the same list.
+ *
+ * Reachability is answered backwards, from the seeds outwards along reversed edges: whoever imports
+ * something that reaches a seed reaches it too. Backwards is linear and needs no cycle rule — a walk
+ * forwards from every suite re-answers the same questions once per suite.
+ * @param {string} root the checkout root
+ * @param {(file: string) => boolean} isSeed an absolute path → is it a seed
+ * @param {boolean} [topLevel] whether the checkout's top-level modules are nodes of the graph
+ * @returns {string[]}
+ */
+function suitesReaching(root, isSeed, topLevel = false) {
+  const files = sourceFiles(root, topLevel);
   /** @type {Map<string, string[]>} */
   const importers = new Map();
   for (const file of files) {
@@ -100,7 +118,7 @@ export function pgBoundSuites(root) {
     }
   }
 
-  const bound = new Set(SEEDS.map((seed) => join(root, seed)));
+  const bound = new Set(files.filter(isSeed));
   for (let frontier = [...bound]; frontier.length > 0; ) {
     /** @type {string[]} */
     const next = [];
@@ -118,6 +136,48 @@ export function pgBoundSuites(root) {
     .filter((file) => SUITE.test(file))
     .map((file) => relative(root, file).replace(/\\/g, "/"))
     .sort();
+}
+
+/**
+ * The suites that reach the live-database harness.
+ * @param {string} root the checkout root
+ * @returns {string[]}
+ */
+export function pgBoundSuites(root) {
+  const seeds = new Set(SEEDS.map((seed) => join(root, seed)));
+  return suitesReaching(root, (file) => seeds.has(file));
+}
+
+/**
+ * The packages whose load does not survive a VM context shared across a worker's files — the unit
+ * lane's `vmForks` pool (vitest.config.ts). `@playwright/test` refuses a second load in one process
+ * and patches the process's `cwd`/`chdir` with wrappers bound to the context that loaded it; ESLint's
+ * flat-config loader imports by URL, which a VM context's linker refuses (`TypeError: Invalid URL`).
+ */
+const FORKS_PACKAGES = ["@playwright/test", "eslint"];
+
+/** A module mock of a Node built-in: a VM worker shares the built-ins, so the mock reaches the next file. */
+const BUILTIN_MOCK = /\bvi\.mock\(\s*["']node:/;
+
+/**
+ * The unit suites that run in a process of their own (the `forks` pool) rather than in a VM context:
+ * every suite that reaches one of FORKS_PACKAGES through any support module, and every suite that
+ * mocks a Node built-in. Derived and never listed (ARCH-02, B-19), as the database lane's split is.
+ * @param {string} root the checkout root
+ * @returns {string[]}
+ */
+export function forksPoolSuites(root) {
+  /** @param {string} text */
+  const importsPackage = (text) =>
+    // A package loaded through a helper (`requireFromRoot("eslint")`, tests/lint/import-depth) is loaded all the same.
+    [...text.matchAll(/(?:from\s+|import\s+|import\s*\(\s*|\b\w*[rR]equire\w*\s*\(\s*)["']([^"']+)["']/g)].some(([, specifier]) =>
+      FORKS_PACKAGES.some((pkg) => specifier !== undefined && (specifier === pkg || specifier.startsWith(`${pkg}/`))),
+    );
+  const reaching = suitesReaching(root, (file) => importsPackage(readFileSync(file, "utf8")), true);
+  const mocking = sourceFiles(root)
+    .filter((file) => SUITE.test(file) && BUILTIN_MOCK.test(readFileSync(file, "utf8")))
+    .map((file) => relative(root, file).replace(/\\/g, "/"));
+  return [...new Set([...reaching, ...mocking])].sort();
 }
 
 /**

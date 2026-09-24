@@ -145,10 +145,13 @@ const globs = (patterns: string | readonly string[] | undefined): RegExp[] =>
  * A suite that moved from one to the other is still executed, so asking only the first would make
  * this scan report codes as unexercised that a green gate had just exercised.
  */
-const SUITE_LANES = [unitLaneConfig, dbLaneConfig].map((lane) => ({
-  include: globs(lane.test?.include),
-  exclude: globs(lane.test?.exclude),
-}));
+type LaneTest = { include?: string[]; exclude?: string[]; projects?: unknown[] };
+/** A lane's own collection, or — where it partitions itself into projects (the unit lane's two pools) — each project's. */
+const collectionsOf = (test: LaneTest | undefined): LaneTest[] =>
+  test?.projects === undefined ? [test ?? {}] : test.projects.map((project) => ((project as { test?: LaneTest }).test ?? {}));
+const SUITE_LANES = [unitLaneConfig, dbLaneConfig].flatMap((lane) =>
+  collectionsOf(lane.test as LaneTest | undefined).map((test) => ({ include: globs(test.include), exclude: globs(test.exclude) })),
+);
 
 /** Does an armed lane collect this file — and is it a corpus the exercise question is asked of? */
 export function isExecutedTest(file: string): boolean {

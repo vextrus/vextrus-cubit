@@ -126,12 +126,17 @@ export interface SteadyCountOptions {
    */
   readonly min?: number;
   readonly timeout?: number;
+  /** How often the reading is re-taken; Playwright's own back-off where unsaid. A suite over instant doubles says a short one. */
+  readonly intervals?: readonly number[];
 }
 
 /**
  * How many of these there are, once the region has said it rendered and the number has stopped
  * changing — `AGREEING_READS` readings that agree, and none of them below the caller's floor.
  */
+/** The poll's pace where a caller states one, and nothing (Playwright's default back-off) where it does not. */
+const pacedBy = (intervals: readonly number[] | undefined): { intervals?: number[] } => (intervals === undefined ? {} : { intervals: [...intervals] });
+
 export async function steadyCount(locator: Locator, what: string, options: SteadyCountOptions = {}): Promise<number> {
   const timeout = options.timeout ?? READ_TIMEOUT_MS;
   const min = options.min ?? 1;
@@ -153,6 +158,7 @@ export async function steadyCount(locator: Locator, what: string, options: Stead
       },
       {
         timeout,
+        ...pacedBy(options.intervals),
         message: `${what}: no ${AGREEING_READS} readings agreed on a count of at least ${min} — the region is still painting, or it holds fewer than the caller expects (a caller for which zero is an answer passes { min: 0 })`,
       },
     )
@@ -187,6 +193,8 @@ export interface SteadyTextOptions {
    */
   readonly not?: string;
   readonly timeout?: number;
+  /** How often the reading is re-taken; Playwright's own back-off where unsaid. */
+  readonly intervals?: readonly number[];
 }
 
 /**
@@ -212,6 +220,7 @@ export async function steadyText(locator: Locator, what: string, options: Steady
       },
       {
         timeout,
+        ...pacedBy(options.intervals),
         message: `${what}: no ${AGREEING_READS} readings agreed on one non-empty text${stale === undefined ? "" : ` other than "${stale}"`} — it is still arriving`,
       },
     )
@@ -245,6 +254,7 @@ export async function steadyAttribute(locator: Locator, attribute: string, what:
       },
       {
         timeout,
+        ...pacedBy(options.intervals),
         message: `${what}: \`${attribute}\` never held one non-empty value across ${AGREEING_READS} readings`,
       },
     )
@@ -330,6 +340,7 @@ export async function everyAttribute(locator: Locator, attribute: string, what: 
       },
       {
         timeout,
+        ...pacedBy(options.intervals),
         message: `${what}: no ${AGREEING_READS} readings agreed on one list of \`${attribute}\` holding at least ${min} row(s) — the region is still painting`,
       },
     )

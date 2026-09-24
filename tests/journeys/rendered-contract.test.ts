@@ -19,6 +19,7 @@
  *
  * @vitest-environment jsdom
  */
+import "../support/jsdom-without-sync-xhr"; // before anything loads Playwright (see the module)
 import { describe, expect, test, vi } from "vitest";
 import { SETTLE_CONTRACT, contractFault, contractIn, type ContractReading } from "../e2e/support/settled";
 import { heldAttribute, steadyCount, steadyText } from "../e2e/support/retrying-read";

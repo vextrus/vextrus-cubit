@@ -13,6 +13,7 @@
  * journey config is imported for its exported value, and Playwright itself is asked what it
  * collects.
  */
+import "../support/jsdom-without-sync-xhr"; // before anything loads Playwright (see the module)
 import { spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { describe, expect, test } from "vitest";

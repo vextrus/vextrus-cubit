@@ -10,7 +10,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { deliver, outboxDir, resetOutboxSweep } from "../../src/server/auth/mail";
 import { readOutbox, skippedNote } from "../support/outbox";
@@ -56,10 +56,18 @@ describe("the outbox reader", () => {
   });
 
   test("two mails sent in the same millisecond are still answered newest first", () => {
-    const at = Date.now();
-    deliver(mailTo("older@example.test"));
-    deliver(mailTo("newer@example.test"));
-    expect(Date.now() - at, "the two deliveries landed inside one millisecond, which is how close a resend is").toBeLessThan(2);
+    // The clock is PINNED rather than raced: two deliveries under a loaded box can land milliseconds
+    // apart, and a test that asserted they did not was a flake with a cause. Pinned, both names carry
+    // the same millisecond, and only the sequence after it can order them — which is the claim.
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-09-24T00:00:00.000Z") });
+    try {
+      const at = Date.now();
+      deliver(mailTo("older@example.test"));
+      deliver(mailTo("newer@example.test"));
+      expect(Date.now(), "the two deliveries landed inside one millisecond, which is how close a resend is").toBe(at);
+    } finally {
+      vi.useRealTimers();
+    }
 
     expect(readOutbox().mails.map((mail) => mail.to), "the newest is the one a person is told to spend — the name, not the clock, orders them").toEqual([
       "newer@example.test",
