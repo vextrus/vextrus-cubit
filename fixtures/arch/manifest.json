@@ -25,7 +25,7 @@
  },
  "structure": {
   "path": "fixtures/gen/rcc6_bnbc/model.py",
-  "sha256": "8547128547171e9055ab31ff56edb7a79ad04d2cce5bd849c69be942e73eed8e",
+  "sha256": "bff79c2bf9ee4d91bd01e5731000cae05fcb9ed57e70f4dfa2683aaa19f0db8b",
   "read": "module constants (grid, levels, chamfer, balcony, sunken panels, ducts, column stacks) and, read-only, build()'s shear walls, beams, slab panels and S-25 lintels"
  },
  "identity": {
@@ -172,7 +172,7 @@
  "outputs": {
   "arch.dxf": "7b41c2059d2c2574d8d13b008b680c62c87495680fcec088229a6a1f822c8455",
   "cells.json": "8578e0671e6e9f2a21914c0116dbbd3823fa4fa4b85655b1b5adce15a30b2b99",
-  "model.json": "27a4d16a22951bb9819b8261e90a812d80bc31545d4a92c70df03b98350186bc",
+  "model.json": "46c41b1f0c0c7790f247e4ba205d8ef3ff25928a6773c60786365bcea2edf036",
   "notation.corpus.json": "e73782161cbbfa12222cb08272ddf05496b18953e7fec9ec66fad106016c9a72",
   "sanity.json": "8796f3504a89acbe78042f7704e11345c312ed4cc9c68949d00dc56f9c668a66",
   "takeoff.golden.json": "a1bfe3ff38d7bdec6803649b5448e8ad03609fd3adfc0ec8012fae4b33135965",
