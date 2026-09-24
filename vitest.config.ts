@@ -16,7 +16,11 @@ const INCLUDE = ["tests/**/*.test.ts", "tests/**/*.test.tsx", "src/**/*.test.ts"
 // The unit lane is PURE: it opens no database, so it passes with DATABASE_URL unset and a cluster that
 // is not running (v22 Wave A). Every suite that reaches the live-database seeds is collected by the
 // database lane instead (derived; the partition is proved in tests/toolchain/test-lane-split.test.ts).
-const EXCLUDE = ["node_modules/**", "tests/e2e/**", "tests/lint-fixtures/**", ...database];
+// The golden lane's own suites (tests/golden/vitest.config.ts) run there — in verify's golden lane and the
+// gate's `pnpm test:golden` — and not here as well: R0-REC's corpus proof ingests the DXF three times
+// (~10 s), and the unit lane had been running every one of them a second time in the same verify.
+const GOLDEN_LANE = ["tests/golden/**", "tests/rcc6/**"];
+const EXCLUDE = ["node_modules/**", "tests/e2e/**", "tests/lint-fixtures/**", ...GOLDEN_LANE, ...database];
 
 /**
  * The files that run in a process of their own (the `forks` pool) rather than in a VM context.

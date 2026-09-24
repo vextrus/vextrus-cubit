@@ -25,6 +25,7 @@ import { REFUSALS } from "../../src/core/errors";
 import { TRANSPORT_VOCABULARY } from "../../src/core/errors/transport-vocabulary";
 import unitLaneConfig from "../../vitest.config";
 import dbLaneConfig from "../../db/__tests__/vitest.config";
+import goldenLaneConfig from "../golden/vitest.config";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -149,7 +150,7 @@ type LaneTest = { include?: string[]; exclude?: string[]; projects?: unknown[] }
 /** A lane's own collection, or — where it partitions itself into projects (the unit lane's two pools) — each project's. */
 const collectionsOf = (test: LaneTest | undefined): LaneTest[] =>
   test?.projects === undefined ? [test ?? {}] : test.projects.map((project) => ((project as { test?: LaneTest }).test ?? {}));
-const SUITE_LANES = [unitLaneConfig, dbLaneConfig].flatMap((lane) =>
+const SUITE_LANES = [unitLaneConfig, dbLaneConfig, goldenLaneConfig].flatMap((lane) =>
   collectionsOf(lane.test as LaneTest | undefined).map((test) => ({ include: globs(test.include), exclude: globs(test.exclude) })),
 );
 

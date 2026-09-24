@@ -26,7 +26,9 @@ const SUITE = /\.test\.tsx?$/;
  * `*.e2e.ts` and `*.spec.ts`, so a `*.test.ts` under there would be collected by nothing at all),
  * and the lint fixture corpus is payload a scan law reads, not a suite.
  */
-const NOT_A_LANE = ["tests/e2e/", "tests/lint-fixtures/"];
+// Not the unit or database lane's: the journeys, the lint corpus, and the golden lane's own suites
+// (tests/golden/vitest.config.ts collects tests/golden and tests/rcc6; verify and the gate run it).
+const NOT_A_LANE = ["tests/e2e/", "tests/lint-fixtures/", "tests/golden/", "tests/rcc6/"];
 
 /** Every suite the tree carries, wherever it lives. */
 function everySuite(): string[] {
