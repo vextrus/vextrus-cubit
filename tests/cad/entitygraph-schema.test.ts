@@ -3,7 +3,8 @@
 // The TypeScript mirror is loaded the way the held-out frame loads product code: assert the file
 // exists first, then import it, so a module the Builder has not written yet fails as an assertion
 // naming the path rather than as an opaque collection death.
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { artifactAt, forgetArtifacts } from "../../src/core/entitygraph/artifact";
@@ -309,6 +310,127 @@ describe("EntityGraph v3: two versions, two doors (L-CAD-05, I-415)", () => {
   });
 });
 
+/** A well-formed record of one traced picture on `space` (I-584), for a test to break one field of. */
+function rasterRecord(space: string): Record<string, JsonValue> {
+  return {
+    space,
+    sha256: "0".repeat(64),
+    width: 720,
+    height: 480,
+    dpi: 152.4,
+    dpi_source: "placement",
+    deskew_degrees: 0,
+    placement: [
+      [85, 323],
+      [425, 323],
+      [425, 96],
+      [85, 96],
+    ],
+    traced: 1,
+    dropped_short: 0,
+  };
+}
+
+describe("M4P-3: a traced picture is recorded beside its lines, and both mirrors read the record alike (R-TO-003, I-584)", () => {
+  const TRACE = { tool: "opencv-lsd", tool_version: "4.13.0.90", parameter_set_hash: "0".repeat(64) };
+  const RASTER_KEY = `RASTER_TRACE:${"B".repeat(64)}`;
+
+  /** The forms fixture as a mixed page: its page 1 image traced into one line, identity and record in place. */
+  function mixed(): Record<string, JsonValue> {
+    const graph = structuredClone(readCommittedArtifact("forms").graph);
+    const entities = asArray(graph["entities"], "entities").map((record, i) => asObject(record, `entities[${String(i)}]`));
+    const image = entities.find((record) => record["type"] === "IMAGE");
+    expect(image, "the forms fixture lists one image").toBeDefined();
+    const line = {
+      key: RASTER_KEY,
+      space: image!["space"] ?? null,
+      type: "LINE",
+      layer: "TRACE",
+      colour: { rgb: [0, 0, 0], source: "truecolor" },
+      points: [
+        [450, 330],
+        [490, 360],
+      ],
+    };
+    return {
+      ...graph,
+      ingest: { ...asObject(graph["ingest"], "ingest"), trace: TRACE },
+      entities: [...entities, line],
+      rasters: [{ ...rasterRecord(String(image!["space"])), image: image!["key"] ?? null }],
+    };
+  }
+
+  it("admits a mixed page: pdfium's keys and the vectoriser's on one page, the picture's record naming its IMAGE", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    expect(refusal(entityGraphSchema, mixed())).toBeNull();
+    const unstated = { ...rasterRecord("Page 1"), dpi: null, dpi_source: "unstated" };
+    expect(refusal(entityGraphSchema, { ...mixed(), rasters: [unstated] }), "a DPI nobody stated is null, and says so").toBeNull();
+  });
+
+  it("refuses traced lines with no record of their picture, and a record where no vectoriser is pinned", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    const graph = mixed();
+    expect(refusal(entityGraphSchema, { ...graph, rasters: [] }), "a traced line whose picture nobody recorded").toMatch(/no traced picture's record/);
+    const unpinnedIngest = Object.fromEntries(Object.entries(asObject(graph["ingest"], "ingest")).filter(([key]) => key !== "trace"));
+    const unpinned = { ...graph, ingest: unpinnedIngest, entities: asArray(graph["entities"], "entities").slice(0, -1) };
+    expect(refusal(entityGraphSchema, unpinned), "a picture's record with no vectoriser pinned").toMatch(/no vectoriser's identity is pinned/);
+  });
+
+  it.each([
+    [{ dpi: null }, /null exactly when/],
+    [{ dpi_source: "unstated" }, /null exactly when/],
+    [{ dpi_source: "sheet" }, /dpi_source/],
+    [{ sha256: "A".repeat(64) }, /sha256/],
+    [{ space: "Page 9" }, /names no layout/],
+    [{ placement: [[0, 0]] }, /placement/],
+    [{ traced: -1 }, /traced/],
+    [{ image: `PDF_OBJECT:${"A".repeat(64)}` }, /names no IMAGE/],
+    [{ note: 1 }, /note/],
+  ] as const)("refuses a record with %j", async (change, why) => {
+    const { entityGraphSchema } = await schemaModule();
+    const graph = mixed();
+    const [record] = asArray(graph["rasters"], "rasters");
+    expect(refusal(entityGraphSchema, { ...graph, rasters: [{ ...asObject(record, "rasters[0]"), ...change }] })).toMatch(why);
+  });
+
+  it("a v2 artifact never carries rasters", async () => {
+    const { entityGraphSchema } = await schemaModule();
+    const stored = asStoredV2(readCommittedArtifact("basic").graph);
+    expect(refusal(entityGraphSchema, stored), "the stored v2 artifact reads").toBeNull();
+    expect(refusal(entityGraphSchema, { ...stored, rasters: [] })).toMatch(/never carries rasters/);
+  });
+
+  it("the Python mirror admits and refuses the same records", () => {
+    requireCadPackage();
+    const [record] = asArray(mixed()["rasters"], "rasters");
+    const graphs = [mixed(), { ...mixed(), rasters: [] }, { ...mixed(), rasters: [{ ...asObject(record, "rasters[0]"), dpi: null }] }];
+    const dir = mkdtempSync(join(tmpdir(), "cubit-rasters-mirror-"));
+    try {
+      const paths = graphs.map((graph, index) => {
+        const path = join(dir, `${String(index)}.json`);
+        writeFileSync(path, JSON.stringify(graph));
+        return path;
+      });
+      const script = [
+        "import json, sys",
+        "from vextrus_cad import parse_entity_graph",
+        "for path in sys.argv[1:]:",
+        "    try:",
+        "        parse_entity_graph(json.load(open(path))); print('ok')",
+        "    except Exception as error:",
+        "        print('refused', error)",
+      ].join("\n");
+      const run = runInCadProject(["python", "-c", script, ...paths]);
+      const [admitted, unrecorded, undeclared] = run.stdout.trim().split("\n");
+      expect(admitted, run.stderr).toBe("ok");
+      expect(unrecorded).toMatch(/no traced picture's record/);
+      expect(undeclared).toMatch(/null exactly when/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("M4P-1: the scheme rides per key, and the ingest record pins one identity per scheme (L-CAD-02)", () => {
   /** A committed PDF artifact with its geometry taken away, so only the rule under test decides. */
   function keyless(): Record<string, JsonValue> {
@@ -342,7 +464,8 @@ describe("M4P-1: the scheme rides per key, and the ingest record pins one identi
     expect(refusal(entityGraphSchema, { ...graph, entities: [keyed(RASTER_KEY)] }), "a traced key with no vectoriser identity").toMatch(/pins no identity/);
     expect(refusal(entityGraphSchema, { ...graph, entities: [keyed("DXF_HANDLE:1F")] }), "a handle in a PDF's record").toMatch(/pins no identity/);
     const traced = { ...graph, ingest: { ...asObject(graph["ingest"], "ingest"), trace: TRACE }, entities: [keyed(RASTER_KEY)] };
-    expect(refusal(entityGraphSchema, traced), "a traced key beside a PDF's, the vectoriser's identity pinned (a mixed page)").toBeNull();
+    const record = rasterRecord(String(keyed(RASTER_KEY)["space"]));
+    expect(refusal(entityGraphSchema, { ...traced, rasters: [record] }), "a traced key beside a PDF's, the vectoriser's identity pinned (a mixed page)").toBeNull();
   });
 
   it("admits a vectoriser's identity only beside a PDF's, and only whole", async () => {

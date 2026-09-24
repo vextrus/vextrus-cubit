@@ -11,6 +11,12 @@
  * the eleventh page proposes S-10 · COLUMN LAYOUT PLAN; its door opens the viewer on that page, which
  * paints, and an object of the page is selected by its PDF_OBJECT key and read out under the pointer.
  *
+ * Step 2 (M4P-3; R-TO-003, L-CAD-02, docs/design/s-drawings.md I-584): a QS drops a scanned sheet
+ * — F-RCC6-BNBC's S-10 as R1 renders it, an A1 at 300 DPI in a PNG that states no resolution — on
+ * S-Drawings. The worker traces it: one card, read as a traced raster, stating that the file gave
+ * no DPI and that the page stood square (deskewed 0°); its door opens the viewer on the page, a
+ * traced line of it is selected by its RASTER_TRACE key and read out under the pointer.
+ *
  * Nothing is transcribed: the pages and their numbers are the generator's roster
  * (fixtures/rcc6-bnbc/manifest.json), the words are the product's string tables (B-19).
  *
@@ -37,6 +43,13 @@ import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
 
 /** F-RCC6-BNBC's vector set and the roster its generator wrote beside it. */
 const BNBC_PDF = join(process.cwd(), "fixtures", "rcc6-bnbc", "rcc6-bnbc.pdf");
+
+/** F-RCC6-BNBC's S-10 as R1 scans it: an A1 at 300 DPI, a PNG stating no resolution (manifest `raster.r1`). */
+const R1_S10 = join(process.cwd(), "fixtures", "rcc6-bnbc", "raster", "r1", "s-10.png");
+
+/** The scheme a traced line is keyed under: a whole content digest (L-CAD-02). */
+const RASTER_TRACE = "RASTER_TRACE";
+const RASTER_KEY = /^RASTER_TRACE:[0-9A-F]{64}$/;
 const MANIFEST = join(process.cwd(), "fixtures", "rcc6-bnbc", "manifest.json");
 
 /** The scheme a vector PDF's objects are keyed under: a whole content digest (L-CAD-02). */
@@ -170,6 +183,70 @@ test.describe("J-040 — a PDF set and a scan, read and corroborated (M4)", () =
       expect(readOut, `${record.key} reads out under the pointer where it is drawn`).not.toBeNull();
       expect(await heldAttribute(viewer.hover, "data-key"), "the pointer stands on the object the address named").toBe(record.key);
       await checkpoint(page, testInfo, "j-040/pdf-sheet-open");
+    } finally {
+      await worker.stop();
+    }
+  });
+
+  test("J-040 step 2: a scanned sheet dropped on S-Drawings is traced — one card stating its DPI and deskew, and a traced line selects by its RASTER_TRACE key", async ({ page, baseURL }, testInfo) => {
+    expect(baseURL, "the journeys are driven against the served product").toBeTruthy();
+    const origin = baseURL ?? "";
+    const worker = await startJourneyWorker();
+    try {
+      const { tenantId, projectId } = await enrolWithProject(page);
+      const drawings = new SDrawingsPage(page);
+      const viewer = new SViewerPage(page);
+
+      /* --- the scan, dropped through the screen's own Dropzone and traced by the shipped worker --- */
+      await drawings.open(tenantId, projectId);
+      await drawings.dropFile(R1_S10);
+      await expect(drawings.dropzoneItems.first(), "the scan is stored by the upload seam").toHaveAttribute("data-state", "stored", { timeout: FRESH_READING_MS });
+      await expect(drawings.timeline, "the ingest and the thumbnails it chained finish — a scan is traced, never refused (R-TO-003)").toHaveAttribute("data-state", "done", {
+        timeout: FRESH_READING_MS,
+      });
+
+      /* --- j-040/scan-card: one card, read from traced lines, saying what it was traced from --- */
+      await expect(drawings.cards, "one scanned page is one card").toHaveCount(1, { timeout: FRESH_READING_MS });
+      const card = drawings.cardForLayout(pageLayout(0));
+      const scheme = drawings.cell(card, S_DRAWINGS.scheme);
+      await expect(scheme, "its keys are the vectoriser's alone").toHaveCount(1);
+      await expect(scheme, "read from traced lines (I-519)").toHaveAttribute("data-scheme", RASTER_TRACE);
+      await expect(scheme, "and says so in words (R-UI-082)").toContainText(drawingsCopy.drawings_scheme_raster_trace);
+      const scan = drawings.cell(card, S_DRAWINGS.scan);
+      await expect(scan, "the card states the scan it was traced from").toHaveCount(1);
+      await expect(scan, "the PNG states no resolution, and the card prints none it was not given (I-584)").toHaveAttribute("data-dpi", "");
+      await expect(scan, "R1 is a square render: the deskew found no turn").toHaveAttribute("data-deskew", "0");
+      await expect(scan).toContainText(drawingsCopy.drawings_scan_dpi_unstated);
+      await expect(drawings.cell(card, S_DRAWINGS.scale), "a scan states no world unit: its scale waits on a QS").toHaveAttribute("data-scale", "unaffirmed");
+      await settled(page);
+      await checkpoint(page, testInfo, "j-040/scan-card");
+
+      /* --- j-040/scan-open: the card's door, onto the traced page in the viewer --- */
+      const door = drawings.cell(card, S_DRAWINGS.open);
+      const href = (await heldAttribute(door, "href")) ?? "";
+      await door.click();
+      await expect(page, "the door lands on the page it named").toHaveURL(`${origin}${href}`);
+      await expect(viewer.status, "the traced page paints").toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
+      await expect
+        .poll(async () => {
+          const total = await viewer.statusNumber("data-total-layers");
+          return total > 0 && (await viewer.statusNumber("data-loaded-layers")) === total;
+        }, { timeout: FRESH_READING_MS, message: "every layer of the page arrives" })
+        .toBe(true);
+
+      // One traced line, named by its content digest, selected from the address and read out under
+      // the pointer — the inspector reads a traced key as it reads a PDF's or a DXF's.
+      const drawingId = new URL(page.url()).pathname.split("/viewer/")[1]?.split("/")[0] ?? "";
+      expect(drawingId, "the address names the drawing this page is a reading of").not.toBe("");
+      const record = await viewer.findRecordOfType(drawingId, pageLayout(0), tenantId, "LINE");
+      expect(record.key, "a traced line is keyed by its whole content digest (L-CAD-02)").toMatch(RASTER_KEY);
+      await page.goto(S_VIEWER.selecting(tenantId, projectId, drawingId, pageLayout(0), [record.key]), { waitUntil: "commit" });
+      await expect(viewer.screen, "the address that names a traced key flies to it").toHaveAttribute("data-flyto", "settled", { timeout: FRESH_READING_MS });
+      expect(await viewer.selectedKeys(), "the traced key the address named is what is held").toEqual([record.key]);
+      const readOut = await viewer.hoverForRowKey(viewer.entities.first(), record.key);
+      expect(readOut, `${record.key} reads out under the pointer where it is traced`).not.toBeNull();
+      expect(await heldAttribute(viewer.hover, "data-key"), "the pointer stands on the traced line the address named").toBe(record.key);
+      await checkpoint(page, testInfo, "j-040/scan-open");
     } finally {
       await worker.stop();
     }

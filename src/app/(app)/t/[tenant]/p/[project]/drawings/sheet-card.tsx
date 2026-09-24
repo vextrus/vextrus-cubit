@@ -75,6 +75,11 @@ export interface SheetCardData {
    * page that carries a pasted scan mints two (L-CAD-02, I-519).
    */
   readonly schemes: readonly string[];
+  /**
+   * The scans the sheet's traced lines were taken from (R-TO-003, I-584): each one's DPI — null
+   * where the file stated none — and the deskew it was turned by, in degrees. Empty on a drawn sheet.
+   */
+  readonly scans: readonly { readonly dpi: number | null; readonly deskewDegrees: number }[];
   readonly thumbnail: { readonly url: string; readonly width: number; readonly height: number } | null;
   readonly proposal: { readonly number: string | null; readonly title: string; readonly discipline: Discipline; readonly basis: string; readonly cited: readonly string[] };
   readonly confirmed: { readonly discipline: Discipline; readonly actId: string } | null;
@@ -99,6 +104,12 @@ export interface SheetCardProps {
   onConfirm: (sheetId: string, discipline: Discipline) => void;
   /** The answer this card's own door was given, rendered in its own slot (R-UI-020). */
   answer: ReactNode;
+}
+
+/** A scan's line: its DPI or that none was stated, and the turn that squared it (I-584). */
+function scanLine(scan: SheetCardData["scans"][number]): string {
+  const dpi = scan.dpi === null ? drawings.drawings_scan_dpi_unstated : fill(drawings.drawings_scan_dpi, { value: formatUserFigure(String(scan.dpi)) });
+  return fill(drawings.drawings_scan_line, { dpi, deskew: formatUserFigure(String(Math.abs(scan.deskewDegrees))) });
 }
 
 /** The scale sentence each state reads as (Decision § 3). */
@@ -255,6 +266,20 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
         >
           {viewsLine(card.viewCount)}
         </p>
+        {/* I-584: a traced sheet says what it was traced from — the scan's DPI, or that it stated
+            none, and how far it was turned back square. A line per scan, only where there is one, so
+            a drawn sheet's card is the card it always was. */}
+        {card.scans.map((scan, index) => (
+          <p
+            key={index}
+            className="cx-drawings-line"
+            data-testid={TESTIDS.sheet.cardScan}
+            data-dpi={scan.dpi === null ? "" : String(scan.dpi)}
+            data-deskew={String(scan.deskewDegrees)}
+          >
+            {scanLine(scan)}
+          </p>
+        ))}
       </div>
 
       {/* I-85 as amended by I-323: every fact still renders, zeros included, as a list of named

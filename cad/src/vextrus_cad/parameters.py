@@ -103,6 +103,117 @@ def pdf_parameter_set_hash() -> str:
     return _hash(PDF_PARAMETER_SET)
 
 
-def _hash(parameters: dict[str, float | int | str]) -> str:
+# ---- the raster lane's own parameter set (R-TO-003) -----------------------------------------------
+#
+# A RASTER_TRACE key is scoped to the vectoriser's identity — OpenCV's version and the hash of THESE
+# values (L-CAD-02, per scheme) — and never to the DXF or PDF sets above, which it leaves unmoved. The
+# set names every knob the trace turns: how the skew is found and undone, how the page is cleaned,
+# the line detector's own parameters, the shortest line kept, how a page's DPI is decided, and the
+# run's determinism pins. The numpy the rotations are computed with is part of the identity too; it
+# is read at hash time (`raster_parameter_set`), never imported here, so the DXF lane pays nothing
+# for the raster lane's existence.
+
+#: The canonical string's own version for a traced line: `page index|line|x,y x,y`, the two ends in
+#: ascending order so a line keys the same whichever end the detector started from.
+RASTER_CANONICAL: Final = "raster-trace/1"
+
+#: The line detector: OpenCV's LSD with standard refinement, at its documented defaults, stated so a
+#: library default that moved could not move the keys unseen.
+RASTER_LSD_REFINE: Final = "LSD_REFINE_STD"
+RASTER_LSD_SCALE: Final = 0.8
+RASTER_LSD_SIGMA_SCALE: Final = 0.6
+RASTER_LSD_QUANT: Final = 2.0
+RASTER_LSD_ANG_TH: Final = 22.5
+RASTER_LSD_LOG_EPS: Final = 0.0
+RASTER_LSD_DENSITY_TH: Final = 0.7
+RASTER_LSD_N_BINS: Final = 1024
+
+#: The shortest traced line kept, as a length on paper: a millimetre. What is shorter is speckle,
+#: hatching grain and the crumbs of letter strokes; it is counted per raster (`dropped_short`).
+RASTER_MIN_LINE_MM: Final = 1.0
+
+#: The shortest line a page with no stated DPI keeps, in pixels: a millimetre at 300 DPI, the common
+#: resolution of a drawing scan.
+RASTER_MIN_LINE_PX_UNSTATED: Final = 12.0
+
+#: Denoise: a 3-by-3 median (salt, pepper, JPEG speckle), then a 2-by-2 grey opening — minimum then
+#: maximum — which closes the pinholes and one-pixel breaks inside an inked line and never thins it.
+RASTER_MEDIAN_KSIZE: Final = 3
+RASTER_OPEN_KSIZE: Final = 2
+
+#: Deskew: the page's dominant near-axis direction, read by the same detector on a copy whose long
+#: side is at most this many pixels, from lines at least this long there, within this many degrees of
+#: an axis, histogrammed at this bin width, smoothed over this many bins and refined by the
+#: length-weighted mean within this window of the peak. The angle is rounded to this step before any
+#: pixel moves, and a page skewed less than the threshold is left unturned (a resample would soften
+#: it for nothing).
+RASTER_SKEW_SAMPLE_PX: Final = 2000
+RASTER_SKEW_MIN_LINE_PX: Final = 40.0
+RASTER_SKEW_RANGE_DEG: Final = 5.0
+RASTER_SKEW_BIN_DEG: Final = 0.02
+RASTER_SKEW_SMOOTH_BINS: Final = 5
+RASTER_SKEW_REFINE_DEG: Final = 0.25
+RASTER_SKEW_STEP_DEG: Final = 0.01
+RASTER_SKEW_THRESHOLD_DEG: Final = 0.05
+
+#: Which embedded PDF images are scans to trace (I-585): at least this many pixels on each side,
+#: and either covering at least this fraction of the page or grey (a pasted scan of a drawing). A
+#: smaller colour image — a logo, a photograph — is listed and left unread.
+RASTER_EMBEDDED_MIN_PX: Final = 64
+RASTER_EMBEDDED_PAGE_FRACTION: Final = 0.5
+
+#: The page raster written beside the artifact: a grey PNG at this zlib level.
+RASTER_PNG_COMPRESSION: Final = 6
+
+#: Determinism pins, part of the identity: one thread, and OpenCV's runtime CPU dispatch off, so the
+#: same bytes trace to the same lines whatever the machine's SIMD (the critic's condition, M4P-3).
+RASTER_THREADS: Final = 1
+RASTER_USE_OPTIMIZED: Final = False
+
+
+def raster_parameter_set() -> dict[str, float | int | str | bool]:
+    """The raster lane's pinned parameter set, with the numpy its geometry is computed by."""
+    from importlib.metadata import version
+
+    return {
+        "canonical": RASTER_CANONICAL,
+        "coordinate_precision": COORDINATE_PRECISION,
+        "embedded_min_px": RASTER_EMBEDDED_MIN_PX,
+        "embedded_page_fraction": RASTER_EMBEDDED_PAGE_FRACTION,
+        "key_quantum_pt": PDF_KEY_QUANTUM_PT,
+        "lsd_ang_th": RASTER_LSD_ANG_TH,
+        "lsd_density_th": RASTER_LSD_DENSITY_TH,
+        "lsd_log_eps": RASTER_LSD_LOG_EPS,
+        "lsd_n_bins": RASTER_LSD_N_BINS,
+        "lsd_quant": RASTER_LSD_QUANT,
+        "lsd_refine": RASTER_LSD_REFINE,
+        "lsd_scale": RASTER_LSD_SCALE,
+        "lsd_sigma_scale": RASTER_LSD_SIGMA_SCALE,
+        "median_ksize": RASTER_MEDIAN_KSIZE,
+        "min_line_mm": RASTER_MIN_LINE_MM,
+        "min_line_px_unstated": RASTER_MIN_LINE_PX_UNSTATED,
+        "numpy": version("numpy"),
+        "open_ksize": RASTER_OPEN_KSIZE,
+        "png_compression": RASTER_PNG_COMPRESSION,
+        "skew_bin_deg": RASTER_SKEW_BIN_DEG,
+        "skew_min_line_px": RASTER_SKEW_MIN_LINE_PX,
+        "skew_range_deg": RASTER_SKEW_RANGE_DEG,
+        "skew_refine_deg": RASTER_SKEW_REFINE_DEG,
+        "skew_sample_px": RASTER_SKEW_SAMPLE_PX,
+        "skew_smooth_bins": RASTER_SKEW_SMOOTH_BINS,
+        "skew_step_deg": RASTER_SKEW_STEP_DEG,
+        "skew_threshold_deg": RASTER_SKEW_THRESHOLD_DEG,
+        "threads": RASTER_THREADS,
+        "use_optimized": RASTER_USE_OPTIMIZED,
+    }
+
+
+def raster_parameter_set_hash() -> str:
+    """The 64-hex identity of the raster lane's pinned parameter set — half of what scopes every
+    RASTER_TRACE key; OpenCV's version is the other half."""
+    return _hash(raster_parameter_set())
+
+
+def _hash(parameters: dict[str, float | int | str | bool]) -> str:
     canonical = json.dumps(parameters, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

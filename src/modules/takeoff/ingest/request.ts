@@ -22,15 +22,18 @@ import type { IngestRefusalCode } from "./refusals";
 /** The kind this seam's work runs under, bound to SEAM-JOBS' roster rather than re-spelled (B-17). */
 export const INGEST_KIND = "ingest" satisfies JobKind;
 
-/** The formats this lane hands to the CLI: R-TO-001's DXF and DWG, and R-TO-002's vector PDF. */
-export type IngestFormat = "dxf" | "dwg" | "pdf";
+/**
+ * The formats this lane hands to the CLI: R-TO-001's DXF and DWG, R-TO-002's PDF, and R-TO-003's
+ * scans — every format the upload door accepts.
+ */
+export type IngestFormat = "dxf" | "dwg" | "pdf" | "png" | "jpg" | "tiff";
 
 /**
- * The formats this lane hands to `cad/`. A PDF is read by pdfium, each page a sheet (R-TO-002); the
- * raster formats wait on the vectoriser (R-TO-003) and are refused by name until it lands, never
- * enqueued to fail later.
+ * The formats this lane hands to `cad/`. A PDF is read by pdfium, each page a sheet (R-TO-002), its
+ * scans traced beside its objects; a PNG, JPEG or TIFF is one scanned page, traced whole by the
+ * pinned vectoriser under RASTER_TRACE keys (R-TO-003, I-584).
  */
-const INGESTABLE_FORMATS = ["dxf", "dwg", "pdf"] as const satisfies readonly IngestFormat[];
+const INGESTABLE_FORMATS = ["dxf", "dwg", "pdf", "png", "jpg", "tiff"] as const satisfies readonly IngestFormat[];
 
 /** Somebody asking for a drawing's geometry to be taken; `declared` is what makes a re-ingest lawful. */
 export type IngestRequest = { tenantId: string; drawingId: string; requestedBy: string; projectId?: string; declared?: { reason: string } };

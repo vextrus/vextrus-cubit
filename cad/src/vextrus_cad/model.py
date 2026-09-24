@@ -66,6 +66,36 @@ TOP_LEVEL_KEYS: Final = frozenset(
 #: The top-level keys v3 adds, and requires: v2 carries none of them.
 V3_TOP_LEVEL_KEYS: Final = frozenset({"layers"})
 
+#: The top-level keys a v3 artifact carries only where they apply: `rasters`, one record per picture
+#: the vectoriser traced (R-TO-003, I-584) — absent where nothing was traced, so every artifact
+#: written before the raster lane spells the bytes it always did.
+V3_OPTIONAL_TOP_LEVEL_KEYS: Final = frozenset({"rasters"})
+
+#: The keys of one traced picture's record (`rasters[]`); `image` only where the picture stood on a
+#: PDF page, naming the IMAGE original it was traced from.
+_RASTER_KEYS: Final = frozenset(
+    {
+        "space",
+        "sha256",
+        "width",
+        "height",
+        "dpi",
+        "dpi_source",
+        "deskew_degrees",
+        "placement",
+        "traced",
+        "dropped_short",
+    }
+)
+_RASTER_OPTIONAL_KEYS: Final = frozenset({"image"})
+
+#: Where a traced picture's DPI came from (`raster.DPI_SOURCES`), restated as the closed set both
+#: mirrors hold; `unstated` exactly when the DPI is null.
+DPI_SOURCES: Final = frozenset({"file", "placement", "unstated"})
+
+#: A page raster's address: its bytes' sha256, as `hashlib` spells it.
+RASTER_SHA256: Final = re.compile(r"^[0-9a-f]{64}\Z")
+
 #: The fields a v3 drawn record may carry, and v2 never does.
 V3_RECORD_FIELDS: Final = frozenset(
     {"rotation", "halign", "valign", "attachment", "align_point", "block", "override"}
@@ -477,6 +507,42 @@ def _counter(value: Any, where: str) -> None:
         _counts(record["unread"], f"{where}.unread")
 
 
+def _raster(value: Any, where: str, spaces: set[str], images: set[str]) -> str:
+    """One traced picture's record: its page, its page raster's address and size, its DPI and where
+    that came from, the deskew it was turned by, its page-space corners and its line counts
+    (I-584). Answers the page it stands on."""
+    record = _object(value, where)
+    _closed_keys(record, _RASTER_KEYS | _RASTER_OPTIONAL_KEYS, where)
+    for key in sorted(_RASTER_KEYS):
+        _required(record, key, where)
+    space = _string(record["space"], f"{where}.space", non_empty=True)
+    if space not in spaces:
+        _fail(f"{where}.space", f"{space!r} names no layout of this artifact")
+    if RASTER_SHA256.match(_string(record["sha256"], f"{where}.sha256")) is None:
+        _fail(f"{where}.sha256", "must be a sha256 in lowercase hex")
+    _integer(record["width"], f"{where}.width", minimum=1)
+    _integer(record["height"], f"{where}.height", minimum=1)
+    source = _string(record["dpi_source"], f"{where}.dpi_source")
+    if source not in DPI_SOURCES:
+        _fail(f"{where}.dpi_source", f"{source!r} is outside the closed set")
+    dpi = record["dpi"]
+    if (dpi is None) != (source == "unstated"):
+        _fail(f"{where}.dpi", "is null exactly when its source is unstated")
+    if dpi is not None and _number(dpi, f"{where}.dpi") <= 0:
+        _fail(f"{where}.dpi", "must be positive")
+    _number(record["deskew_degrees"], f"{where}.deskew_degrees")
+    corners = _array(record["placement"], f"{where}.placement")
+    if len(corners) != 4:
+        _fail(f"{where}.placement", "a picture stands at four corners")
+    for index, corner in enumerate(corners):
+        _pair(corner, f"{where}.placement[{index}]")
+    _integer(record["traced"], f"{where}.traced", minimum=0)
+    _integer(record["dropped_short"], f"{where}.dropped_short", minimum=0)
+    if "image" in record and _source_key(record["image"], f"{where}.image") not in images:
+        _fail(f"{where}.image", "names no IMAGE original of this artifact")
+    return space
+
+
 def _block_attribute(value: Any, where: str, keys: set[str], version: int) -> None:
     record = _object(value, where)
     _closed_keys(record, frozenset({"src", "tag", "text", "height"}) | V3_ATTRIBUTE_FIELDS, where)
@@ -517,7 +583,7 @@ def parse_entity_graph(value: Any) -> EntityGraph:
     missing = sorted(TOP_LEVEL_KEYS - set(document))
     if missing:
         _fail("artifact", f"is missing {', '.join(missing)}")
-    _closed_keys(document, TOP_LEVEL_KEYS | V3_TOP_LEVEL_KEYS, "artifact")
+    _closed_keys(document, TOP_LEVEL_KEYS | V3_TOP_LEVEL_KEYS | V3_OPTIONAL_TOP_LEVEL_KEYS, "artifact")
 
     version = _integer(document["entitygraph_version"], "entitygraph_version")
     if version not in VERSIONS:
@@ -527,7 +593,12 @@ def parse_entity_graph(value: Any) -> EntityGraph:
             f"v{ENTITYGRAPH_VERSION} the current (L-CAD-05)",
         )
     if version < 3:
-        _forbidden(document, V3_TOP_LEVEL_KEYS, "artifact", f"which a v{version} artifact never carries")
+        _forbidden(
+            document,
+            V3_TOP_LEVEL_KEYS | V3_OPTIONAL_TOP_LEVEL_KEYS,
+            "artifact",
+            f"which a v{version} artifact never carries",
+        )
     else:
         _required_all(document, tuple(sorted(V3_TOP_LEVEL_KEYS)), "artifact", "which v3 always carries")
         for index, layer in enumerate(_array(document["layers"], "layers")):
@@ -542,6 +613,8 @@ def parse_entity_graph(value: Any) -> EntityGraph:
         _string(name, f"dropped_layouts[{index}]", non_empty=True)
 
     minted: set[str] = set()
+    images: set[str] = set()
+    traced_on: set[str] = set()
     for index, entity in enumerate(_array(document["entities"], "entities")):
         key = _entity(entity, f"entities[{index}]", version)
         if key in minted:
@@ -551,6 +624,23 @@ def parse_entity_graph(value: Any) -> EntityGraph:
         if keys.scheme_of(key) not in pinned:
             _fail(f"entities[{index}].key", f"{key} is of a scheme the ingest record pins no identity for")
         minted.add(key)
+        if entity.get("type") == "IMAGE":
+            images.add(key)
+        if keys.scheme_of(key) == keys.RASTER_TRACE:
+            traced_on.add(entity["space"])
+
+    # A traced line names the picture it was traced from by its page: every page holding one carries
+    # that picture's record, and a record stands only where the vectoriser's identity is pinned.
+    spaces = {layout["name"] for layout in document["layouts"]}
+    recorded = {
+        _raster(record, f"rasters[{index}]", spaces, images)
+        for index, record in enumerate(_array(document.get("rasters", []), "rasters"))
+    }
+    if recorded and keys.RASTER_TRACE not in pinned:
+        _fail("rasters", "a traced picture's record stands where no vectoriser's identity is pinned")
+    unrecorded = sorted(traced_on - recorded)
+    if unrecorded:
+        _fail("rasters", f"{', '.join(unrecorded)} hold(s) traced lines and no traced picture's record")
 
     for index, record in enumerate(_array(document["derived"], "derived")):
         _derived(record, f"derived[{index}]", minted, version)

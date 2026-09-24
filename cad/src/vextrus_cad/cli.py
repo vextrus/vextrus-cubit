@@ -3,7 +3,12 @@
 One drawing revision in, one EntityGraph artifact out, then the process ends: stateless, a temp
 directory per invocation, loud failures (L-CAD-04). `ingest` is the only subcommand, and the file's
 own bytes decide its lane: a DWG converts through LibreDWG and reads as DXF, a PDF reads through
-pdfium (R-TO-002), and anything else is read as DXF — or refused by name as one.
+pdfium (R-TO-002), a PNG, JPEG or TIFF is traced by the pinned vectoriser (R-TO-003), and anything
+else is read as DXF — or refused by name as one.
+
+Where the run traced a picture, the page raster its lines were taken from is written beside the
+artifact as `<sha256>.png`, the name the artifact's `rasters[]` record gives it (I-584): one
+drawing revision in, and out the EntityGraph and the very pixels its traced keys were read from.
 """
 
 from __future__ import annotations
@@ -20,6 +25,7 @@ from .dwg import DwgError, convert_dwg, losses_by_space
 from .ingest import IngestError, ingest_dxf
 from .model import EntityGraphError, parse_entity_graph
 from .pdf import ingest_pdf
+from .raster import RASTER_SUFFIXES, ingest_raster, is_raster
 from .serialise import write_artifact
 
 #: Nothing was written, and the drawing was named on stderr.
@@ -33,7 +39,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
     ingest = subcommands.add_parser(
-        "ingest", help="ingest a DXF, DWG or PDF file into an EntityGraph artifact"
+        "ingest", help="ingest a DXF, DWG, PDF, PNG, JPEG or TIFF file into an EntityGraph artifact"
     )
     ingest.add_argument("input", help="the drawing to read")
     ingest.add_argument("--out", required=True, help="where to write the EntityGraph artifact")
@@ -68,6 +74,22 @@ def _is_pdf(path: Path) -> bool:
         return False
 
 
+def _is_raster(path: Path) -> bool:
+    """A scan is known by its magic number, or by its name where the bytes cannot be read: a `.png`
+    that is not one is refused by OpenCV under its own name (RASTER_UNREADABLE)."""
+    try:
+        with path.open("rb") as stream:
+            if is_raster(stream.read(8)):
+                return True
+    except OSError:
+        pass
+    return path.suffix.lower() in RASTER_SUFFIXES
+
+
+#: What a page raster is written under beside the artifact: its sha256, then this.
+PAGE_RASTER_SUFFIX = ".png"
+
+
 def _said(notes: report.Report) -> None:
     """Every note of this run on stderr, one named line each (L-CAD-04: never a silent loss).
 
@@ -84,6 +106,7 @@ def _said(notes: report.Report) -> None:
 def _ingest(source: str, destination: str) -> int:
     source_path = Path(source)
     notes = report.Report()
+    rasters: dict[str, bytes] = {}
     try:
         if _is_dwg(source_path):
             with tempfile.TemporaryDirectory(prefix=".vextrus-dwg-") as scratch:
@@ -113,7 +136,9 @@ def _ingest(source: str, destination: str) -> int:
                     conversion.dxf_path, notes, losses_by_space(conversion.refused)
                 )
         elif _is_pdf(source_path):
-            artifact = ingest_pdf(source_path, notes)
+            artifact = ingest_pdf(source_path, notes, rasters)
+        elif _is_raster(source_path):
+            artifact = ingest_raster(source_path, notes, rasters)
         else:
             artifact = ingest_dxf(source_path, notes)
         # The artifact is the whole hand-off across the seam (L-CAD-05), so the extractor reads its
@@ -135,6 +160,11 @@ def _ingest(source: str, destination: str) -> int:
         # Staged in a temp directory beside the destination, so a failed write leaves --out
         # untouched and the move onto it is atomic.
         with tempfile.TemporaryDirectory(dir=parent, prefix=".vextrus-cad-") as scratch:
+            # The page rasters land first, so an artifact that stands always has its pixels beside it.
+            for digest, data in sorted(rasters.items()):
+                page_raster = Path(scratch) / f"{digest}{PAGE_RASTER_SUFFIX}"
+                page_raster.write_bytes(data)
+                os.replace(page_raster, parent / page_raster.name)
             staged = Path(scratch) / "artifact.json"
             write_artifact(staged, artifact)
             os.replace(staged, out)

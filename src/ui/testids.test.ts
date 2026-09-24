@@ -467,6 +467,7 @@ const GOLDEN: readonly string[] = [
   "sheet-card-number",
   "sheet-card-open",
   "sheet-card-scale",
+  "sheet-card-scan",
   "sheet-card-scheme",
   "sheet-card-thumbnail",
   "sheet-card-title",

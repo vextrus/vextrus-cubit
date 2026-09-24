@@ -58,6 +58,7 @@ function card(o: Readings = {}): SheetCardData {
     kind: "paper",
     format: "dxf",
     schemes: ["DXF_HANDLE"],
+    scans: [],
     thumbnail: null,
     proposal: { number: "S-10", title: "COLUMN LAYOUT PLAN", discipline: DISCIPLINES[0], basis: "GRAMMAR", cited: CITED },
     confirmed: o.confirmed ?? null,

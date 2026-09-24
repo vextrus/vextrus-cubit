@@ -68,6 +68,7 @@ const card: SheetCardData = {
   kind: "paper",
   format: "DWG",
   schemes: ["DXF_HANDLE"],
+  scans: [],
   thumbnail: null,
   proposal: { number: "A-101", title: "Ground floor plan", discipline: STANDS_AS, basis: "title block", cited: [] },
   confirmed: null,

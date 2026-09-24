@@ -1,6 +1,7 @@
 // SEAM-CAD across the process boundary (L-CAD-01, L-CAD-04): `ingestDrawing(bytes, format)` lays the
 // drawing down in the job's own temp dir, invokes the `cad/` CLI once over it, and answers what came
-// back — never anything about how the CLI got there.
+// back — never anything about how the CLI got there. What comes back is the artifact and, where the
+// run traced a scan, the page rasters its `rasters[]` records name, read from beside it (I-584).
 //
 // The judgement is the artifact, not the exit status: L-CAD-04 says the exit code is not a success
 // signal in as many words, so a run that exits 0 having written nothing is refused and a run that
@@ -31,6 +32,9 @@ const OUT_FLAG = "--out";
 
 /** The extension the artifact is written under, beside the drawing it was taken from. */
 const ARTIFACT_SUFFIX = "entitygraph.json";
+
+/** What a page raster is written under beside the artifact: its sha256, then this (`cad/`'s cli.py). */
+const PAGE_RASTER_SUFFIX = ".png";
 
 /**
  * How long one invocation may take. Generous, as L-CAD-04 asks: a DWG crosses two LibreDWG passes
@@ -86,8 +90,17 @@ function repoRoot(): string {
   return (resolvedRoot ??= checkoutRootAmong([dirname(fileURLToPath(/* turbopackIgnore: true */ import.meta.url)), process.cwd()]));
 }
 
-/** What one invocation amounted to: the geometry and the bytes that carry it, or a refused sheet. */
-export type IngestOutcome = { ok: true; graph: EntityGraph; artifact: Uint8Array } | { ok: false; refusal: SheetNotIngestable; detail: string };
+/**
+ * A page raster the vectoriser traced from (I-584): the deskewed, cleaned pixels a scan's lines
+ * were taken from, as the grey PNG the CLI wrote beside the artifact, under the sha256 its record
+ * names — the very pixels the viewer paints under the trace.
+ */
+export type PageRaster = { readonly sha256: string; readonly bytes: Uint8Array };
+
+/** What one invocation amounted to: the geometry, the bytes that carry it and its page rasters, or a refused sheet. */
+export type IngestOutcome =
+  | { ok: true; graph: EntityGraph; artifact: Uint8Array; pageRasters: readonly PageRaster[] }
+  | { ok: false; refusal: SheetNotIngestable; detail: string };
 
 /** The sha256 of some bytes, lowercase hex — the address SEAM-STORAGE holds them under. */
 function digestOf(bytes: Uint8Array): string {
@@ -156,7 +169,21 @@ export async function ingestDrawing(bytes: Uint8Array, format: IngestFormat, opt
   if (parsed.data.entitygraph_version !== ENTITYGRAPH_VERSION) {
     throw new Error(staleExtractor(parsed.data.entitygraph_version));
   }
-  return { ok: true, graph: parsed.data, artifact };
+  // Every page raster the artifact names is read from beside it, and must be the bytes its name
+  // says: an artifact whose traced lines stand on pixels nobody can show is half an ingest, and it
+  // is refused whole rather than stored with a picture missing (L-CAD-04).
+  const pageRasters: PageRaster[] = [];
+  for (const sha256 of new Set((parsed.data.rasters ?? []).map((record) => record.sha256))) {
+    let bytes: Uint8Array;
+    try {
+      bytes = new Uint8Array(await readFile(join(/* turbopackIgnore: true */ dirname(out), `${sha256}${PAGE_RASTER_SUFFIX}`)));
+    } catch {
+      return refused(`the extractor's artifact names a page raster ${sha256} it did not write`, run);
+    }
+    if (digestOf(bytes) !== sha256) return refused(`the page raster written as ${sha256} is not the bytes that name says`, run);
+    pageRasters.push({ sha256, bytes });
+  }
+  return { ok: true, graph: parsed.data, artifact, pageRasters };
 }
 
 /**

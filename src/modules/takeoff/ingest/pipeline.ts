@@ -64,6 +64,9 @@ export async function runIngestJob(payload: JobPayloads["ingest"], progress: Job
   });
 
   const { sha256: artifactSha256 } = await deps.storage.put(tenantId, outcome.artifact);
+  // A scan's page rasters are stored at their own content addresses — the sha256 each `rasters[]`
+  // record names — before the record that points at the artifact naming them is written (I-584).
+  for (const pageRaster of outcome.pageRasters) await deps.storage.put(tenantId, pageRaster.bytes);
   await progress.step(STEP_STORED);
 
   await writeIngestRecord({

@@ -52,6 +52,18 @@ export type ProjectDrawing = {
   readonly record: SheetSourceRecord | null;
 };
 
+/**
+ * One scan a sheet was traced from (R-TO-003, I-584): its DPI — null where nothing stated one —
+ * and where that came from, the deskew it was turned by (degrees, counter-clockwise as the sheet was
+ * scanned turned) and how many lines it gave. Read off the artifact's `rasters[]`, never stored twice.
+ */
+export type SheetScan = {
+  readonly dpi: number | null;
+  readonly dpiSource: string;
+  readonly deskewDegrees: number;
+  readonly traced: number;
+};
+
 /** One sheet, as core reads it out of a record: what it is, what it proposes and what it lost. */
 export type SheetFacts = {
   readonly sheetId: string;
@@ -65,6 +77,8 @@ export type SheetFacts = {
    * may carry two (L-CAD-02, I-519). A sheet holding no original reads as its record's extractor's.
    */
   readonly schemes: readonly string[];
+  /** The scans the sheet's traced lines were taken from, in the artifact's order; empty on a drawn sheet. */
+  readonly scans: readonly SheetScan[];
   readonly proposal: SheetProposal;
   readonly scaleState: ScaleState;
   readonly facts: Readonly<Record<FidelityFact, number | boolean>>;
@@ -173,6 +187,9 @@ export async function sheetsOfRecord(tenantId: string, record: SheetSourceRecord
       layoutName,
       kind: sheetKind(layout.kind, layoutName),
       schemes: keyedUnder.get(layoutName) ?? [record.extractor.scheme],
+      scans: (graph.rasters ?? [])
+        .filter((raster) => raster.space === layoutName)
+        .map((raster) => ({ dpi: raster.dpi, dpiSource: raster.dpi_source, deskewDegrees: raster.deskew_degrees, traced: raster.traced })),
       proposal: readTitleBlock(graph, layoutName),
       // R-TO-004's scale state, derived and no further: a sheet whose extents or whose drawing unit
       // the extractor could not state cannot be placed at any scale, and one that can is simply not

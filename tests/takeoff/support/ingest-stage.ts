@@ -73,7 +73,7 @@ export async function ingestSeam(): Promise<IngestSeam> {
 
 /** What one invocation of the CLI amounted to (increment interfaces: `IngestOutcome`). */
 export type IngestOutcome =
-  | { ok: true; graph: Record<string, JsonValue>; artifact: Uint8Array }
+  | { ok: true; graph: Record<string, JsonValue>; artifact: Uint8Array; pageRasters: readonly { sha256: string; bytes: Uint8Array }[] }
   | { ok: false; refusal: string; detail: string };
 
 /** The answer of `requestIngest` (increment interfaces: `IngestRequested | IngestRefused`). */

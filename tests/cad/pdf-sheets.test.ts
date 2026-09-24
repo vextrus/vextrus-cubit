@@ -67,7 +67,11 @@ describe("M4P-1: a vector PDF set is ingested page by page", () => {
   it("the artifact is a PDF lane's: pypdfium2 under PDF_OBJECT, every key a whole sha256, no world unit claimed", () => {
     expect(graph.ingest.scheme).toBe("PDF_OBJECT");
     expect(graph.ingest.tool).toBe("pypdfium2");
-    expect(graph.entities.every((entity) => /^PDF_OBJECT:[0-9A-F]{64}$/.test(entity.key))).toBe(true);
+    // S-03's pasted scan is traced (M4P-3): its lines are the vectoriser's keys, pinned beside pdfium's.
+    expect(graph.ingest.trace?.tool, "the vectoriser that traced S-03's scan is pinned beside pdfium (I-518)").toBe("opencv-lsd");
+    const traced = graph.entities.filter((entity) => entity.key.startsWith("RASTER_TRACE:"));
+    expect(new Set(traced.map((entity) => entity.space)), "only the page carrying a scan mints traced keys").toEqual(new Set(["Page 4"]));
+    expect(graph.entities.every((entity) => /^(PDF_OBJECT|RASTER_TRACE):[0-9A-F]{64}$/.test(entity.key))).toBe(true);
     expect(graph.insunits, "page space states no drawing unit, so a scale is a QS's to affirm (I-513)").toEqual({ code: 0, unit: "unitless", unmapped: false });
   });
 
@@ -86,7 +90,9 @@ describe("M4P-1: a vector PDF set is ingested page by page", () => {
 
   it("each sheet reads its schemes from its own keys, stands unaffirmed rather than unplaceable, and names its collapses", () => {
     for (const sheet of sheets) {
-      expect(sheet.schemes, `${sheet.layoutName}'s keys are PDF objects (I-519)`).toEqual(["PDF_OBJECT"]);
+      // S-03 (Page 4) is the mixed page: a drafted sheet with a scan pasted on it reads both (I-519).
+      const owed = sheet.layoutName === "Page 4" ? ["PDF_OBJECT", "RASTER_TRACE"] : ["PDF_OBJECT"];
+      expect(sheet.schemes, `${sheet.layoutName}'s keys are of the schemes it minted (I-519)`).toEqual(owed);
       expect(sheet.scaleState, `${sheet.layoutName} has extents and states no world unit: its scale waits on a QS, it is not unplaceable`).toBe("unaffirmed");
       const counted = graph.counters.find((counter) => counter.space === sheet.layoutName)?.collapsed ?? {};
       expect(sheet.facts.collapsed, `${sheet.layoutName} carries its collapses as a fidelity fact (I-520)`).toBe(Object.values(counted).reduce((sum, count) => sum + count, 0));
@@ -94,13 +100,15 @@ describe("M4P-1: a vector PDF set is ingested page by page", () => {
     expect(sheets.some((sheet) => (sheet.facts.collapsed as number) > 0), "the set collapses duplicated strokes somewhere, so the fact is not vacuous").toBe(true);
   });
 
-  it("a page carrying a picture says so on its card: the logo on page 1, the pasted hook-detail scan on page 4 (I-521)", () => {
+  it("a page carrying a picture nobody read says so on its card: the logo on page 1; page 4's pasted scan is traced, and its card states the scan (I-521, I-584)", () => {
     const unread = Object.fromEntries(sheets.map((sheet) => [sheet.layoutName, sheet.facts.unread]));
     const carrying = Object.entries(unread).filter(([, count]) => count !== 0);
-    expect(carrying, "exactly the two pages the generator pastes an image onto name one image nobody read").toEqual([
-      ["Page 1", 1],
-      ["Page 4", 1],
-    ]);
+    expect(carrying, "the logo is a picture, never read; the hook-detail scan is traced, so it is read").toEqual([["Page 1", 1]]);
+    const scanned = sheets.filter((sheet) => sheet.scans.length > 0);
+    expect(
+      scanned.map((sheet) => [sheet.layoutName, sheet.scans.map((scan) => [scan.dpi, scan.dpiSource, scan.deskewDegrees])]),
+      "S-03's card states its scan's DPI — read off where it is placed — and the turn it was squared by",
+    ).toEqual([["Page 4", [[152.4, "placement", 0]]]]);
     const images = graph.entities.filter((entity) => entity.type === "IMAGE");
     expect(images.map((image) => image.space).sort(), "each is still listed at its placement").toEqual(["Page 1", "Page 4"]);
     expect(images.every((image) => image.closed === false), "and its frame is open, so no outline reader takes it for a member (I-521)").toBe(true);

@@ -551,6 +551,7 @@ export const TESTIDS = {
     cardNumber: "sheet-card-number",
     cardOpen: "sheet-card-open",
     cardScale: "sheet-card-scale",
+    cardScan: "sheet-card-scan",
     cardScheme: "sheet-card-scheme",
     cardThumbnail: "sheet-card-thumbnail",
     cardTitle: "sheet-card-title",

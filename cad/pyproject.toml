@@ -8,7 +8,12 @@ requires-python = ">=3.13,<3.14"
 # committed artifacts regenerate byte-for-byte only against the version that minted them. ezdxf reads
 # DXF (DXF_HANDLE keys); pypdfium2 reads vector PDF (PDF_OBJECT keys, L-CAD-04's permissive reader) —
 # moving either re-keys the corpora it minted and is a declared re-ingest, never a routine bump.
-dependencies = ["ezdxf==1.4.4", "pypdfium2==5.13.0"]
+# opencv-python-headless is the raster lane's vectoriser (R-TO-003, AS-04: "OpenCV, numpy pinned"),
+# its version half of every RASTER_TRACE key's scope, and numpy — which its rotations are computed by
+# — is pinned beside it and hashed into the raster parameter set; moving either re-keys every traced
+# corpus. Licence: the wheel is Apache-2.0, and it bundles LGPL-licensed FFmpeg and OpenSSL 1.1.1k as
+# shared libraries (the wheel's own LICENSE-3RD-PARTY); neither is the AGPL PDF stack L-CAD-04 bans.
+dependencies = ["ezdxf==1.4.4", "numpy==2.5.2", "opencv-python-headless==4.13.0.90", "pypdfium2==5.13.0"]
 
 [project.scripts]
 vextrus-cad = "vextrus_cad.cli:main"

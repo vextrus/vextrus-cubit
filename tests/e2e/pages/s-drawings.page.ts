@@ -15,6 +15,8 @@ export const S_DRAWINGS = {
   format: TESTIDS.sheet.cardFormat,
   scheme: TESTIDS.sheet.cardScheme,
   scale: TESTIDS.sheet.cardScale,
+  /** A traced sheet's scan line: its DPI and deskew (I-584). */
+  scan: TESTIDS.sheet.cardScan,
   views: TESTIDS.sheet.cardViews,
   discipline: TESTIDS.sheet.cardDiscipline,
   /** The door onto the sheet itself, in the viewer (inc-111, R-UI-031: visible navigation). */

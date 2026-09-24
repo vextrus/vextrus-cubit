@@ -36,6 +36,8 @@ export type SheetCard = {
   readonly format: string;
   /** The schemes the sheet's own keys are of, in the law's order (L-CAD-02, I-519). */
   readonly schemes: readonly string[];
+  /** The scans the sheet's traced lines were taken from — each one's DPI and deskew (I-584). */
+  readonly scans: SheetFacts["scans"];
   readonly thumbnail: { readonly url: string; readonly width: number; readonly height: number } | null;
   readonly proposal: SheetProposal;
   readonly confirmed: { readonly discipline: Discipline; readonly actId: string } | null;
@@ -214,7 +216,7 @@ function confirmationsBySheet(confirmations: readonly SheetConfirmation[]): Map<
 }
 
 /** What a card carries straight off the core reading, unchanged. */
-function cardFacts(sheet: SheetFacts): Pick<SheetCard, "sheetId" | "drawingId" | "ingestId" | "layoutName" | "kind" | "schemes" | "proposal" | "scaleState" | "facts"> {
+function cardFacts(sheet: SheetFacts): Pick<SheetCard, "sheetId" | "drawingId" | "ingestId" | "layoutName" | "kind" | "schemes" | "scans" | "proposal" | "scaleState" | "facts"> {
   return {
     sheetId: sheet.sheetId,
     drawingId: sheet.drawingId,
@@ -222,6 +224,7 @@ function cardFacts(sheet: SheetFacts): Pick<SheetCard, "sheetId" | "drawingId" |
     layoutName: sheet.layoutName,
     kind: sheet.kind,
     schemes: sheet.schemes,
+    scans: sheet.scans,
     proposal: sheet.proposal,
     scaleState: sheet.scaleState,
     facts: sheet.facts,

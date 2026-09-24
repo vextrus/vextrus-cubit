@@ -400,9 +400,9 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
 
 - **I-511 — a vector PDF is read page by page, and a page is a paper sheet (session 8, M4P-1;
   R-TO-002, L-CAD-01..05, R-TO-004).** The ingest door takes `pdf` beside `dxf` and `dwg`
-  (`ingest/request.ts`); `png`, `jpg` and `tiff` are still stored and refused by name at the door
-  until the vectoriser lands (R-TO-003), and so, in the job, is a PDF that draws no path or text on
-  any page (I-521). `cad/` reads the file through pypdfium2 — now a shipped
+  (`ingest/request.ts`); `png`, `jpg` and `tiff` were stored and refused by name at the door until
+  the vectoriser landed (amended by I-584: every accepted format is ingested now, a raster file
+  traced whole). `cad/` reads the file through pypdfium2 — now a shipped
   dependency pinned exactly, its version half of every PDF key's scope — and writes one EntityGraph v3
   (`cad/src/vextrus_cad/pdf.py`). Each page is one **paper** layout named `Page 1`, `Page 2` … — its
   place in the file, the address the viewer opens it at. Its number and title are the grammar's to
@@ -452,7 +452,8 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   placement: its four corners as a frame with no `area`, drawn in the canvas ink, and named on
   the extractor's stream (`EMBEDDED_IMAGE`). The frame is written open, its first corner restated at
   its end so it draws whole (amended by I-521); its key is the four corners. None of its pixels is geometry until the raster lane
-  traces them (R-TO-003). A smooth shading paints colour and no line: counted, named
+  traces them (R-TO-003) — which it does for a picture it takes for a scan (amended by I-585); the
+  IMAGE original stays listed beside the lines traced from it. A smooth shading paints colour and no line: counted, named
   (`SHADING_NOT_TAKEN`), not taken. Clipping paths are not applied — the artifact carries what the
   page holds, as a DXF's wipeout is (the `WIPEOUT` precedent).
 - **I-516 — a Form XObject is a block reference.** It is an INSERT original keyed by its placement
@@ -486,7 +487,8 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   read from the sheet's own originals' keys, one `sheet-card-scheme` badge per scheme in the law's
   order, each carrying `data-scheme`; a sheet holding no original reads as its record's extractor's
   scheme. A DXF card keeps its one **CAD vector** badge; a PDF page reads **PDF vector**; a page
-  carrying a pasted scan will read both **PDF vector** and **Traced raster** once M4P-3 lands. A cited
+  carrying a pasted scan reads both **PDF vector** and **Traced raster** (M4P-3: F-RCC6-BNBC's S-03,
+  Page 4), and a scanned file reads **Traced raster** alone. A cited
   key's chip (I-96) shows a content digest by IdChip's own short form — its leading seven characters —
   where it shows a handle whole: a 64-character digest is wider than the card, and the whole key stays
   in the chip's tooltip, its copy and its `data-value` (amends I-96's "the key's own tail as the
@@ -516,7 +518,9 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
      that line; a PDF with nothing drawn at all is refused `PDF_NO_DRAWING`. No record is written, so
      no card claims the file was read. The judgement is the whole file's: one drawn page makes it a
      vector set, and its picture pages are sheets whose `unread` fact is notable. The raster lane
-     (R-TO-003, M4P-3) replaces the refusal with a trace.
+     (R-TO-003, M4P-3) replaces the refusal with a trace (amended by I-585): a scanned set is
+     traced page by page, and `PDF_RASTER_ONLY` now names only a file whose every picture the lane
+     takes for no scan, or traces to nothing.
   3. **An image's frame is open.** Its record is written `closed: false`, the first corner restated at
      its end so the frame still draws whole. Every outline reader of the partition takes a member's
      section from a closed record, whatever its type; a picture's edge is no member's, and once PDF
@@ -531,6 +535,90 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   card reads **No views drawn on this sheet** once the record's partition answers, and no scale can be
   affirmed on it until M4P-2. Its thumbnail draws its vector paint, an image as its frame. The artifact
   of F-RCC6-BNBC's 27 pages is 5.5 MB and reads in under a second.
+
+- **I-584 — a scan is traced on ingest by a pinned, deterministic vectoriser, into page space,
+  and says what it was traced from (session 9, M4P-3; R-TO-003, L-CAD-01, L-CAD-02, L-CAD-04,
+  L-QTY-03, AS-04).**
+  1. **The vectoriser.** `cad/src/vextrus_cad/raster.py`: OpenCV's line segment detector
+     (`opencv-python-headless` 4.13.0.90, numpy 2.5.2, both pinned exactly — a `toolchain:` move),
+     with standard refinement at its stated defaults, over a page first turned square and cleaned.
+     The skew is the length-weighted peak of the long near-axis lines' angles, read on a copy no
+     longer than 2,000 px and rounded to 0.01° before any pixel moves; the page is turned back onto a
+     canvas that holds all of it (under 0.05° it is left unturned). Cleaning is a 3-by-3 median and
+     a 2-by-2 grey opening, which closes pinholes in an inked line and never thins it. A traced line
+     shorter than a millimetre of paper is dropped and counted (`dropped_short`). HoughLinesP is left
+     out: it is probabilistic by construction.
+  2. **Determinism.** The run pins one thread and turns OpenCV's runtime CPU dispatch off
+     (`setUseOptimized(False)`), and both pins are in the raster parameter set, whose hash is the
+     vectoriser's identity with the wheel's version (`opencv-lsd`, `4.13.0.90`,
+     `raster_parameter_set_hash()` — every knob above, the numpy version and the canonical string's
+     own version `raster-trace/1`). Moving any of them is a declared re-ingest. L-CAD-02's torture
+     corpus is derived at test time from the committed R1–R4 scans — a crop of S-10 from each, also
+     turned ±1.5° by numpy alone — and two runs, the second after the pins were deliberately moved,
+     mint one key multiset (`cad/tests/test_raster_determinism.py`). No RASTER_TRACE digest is ever
+     committed as an expected value: a key is proved by how it is made, never by what it spells.
+  3. **Keys and records.** A traced line is a `LINE` on its own layer `TRACE`, keyed
+     `RASTER_TRACE:` and the whole sha256 of `page index|line|x,y x,y`, its two ends at 0.001 pt
+     half-even in ascending order (so the detector's direction takes no part). Page space is
+     PostScript points, as a PDF page's is: a scan's pixels × 72 / its DPI, upright from the turned
+     canvas's lower-left corner. Two lines of one page with one digest collapse and are counted.
+     Every traced picture carries a record in the artifact's new optional `rasters[]` (both mirrors,
+     `model.py` and `schema.ts`): its page, the sha256 and size of the page raster its lines were
+     taken from, its DPI and `dpi_source`, `deskew_degrees` (counter-clockwise as the sheet was
+     scanned turned), the four page-space corners the raster stands at, `traced` and `dropped_short`,
+     and on a PDF page the IMAGE original it came from. Both mirrors refuse traced lines on a page
+     with no record, a record where no vectoriser is pinned, and a v2 artifact carrying one. A
+     standalone scan is one page named `Page 1`, its record's scheme `RASTER_TRACE`; no `rasters`
+     key is written where nothing was traced, so every artifact before this one spells its old bytes.
+  4. **The DPI is a fact or it is not printed.** It is read from the file's own resolution tag (PNG
+     `pHYs`, JPEG JFIF density, TIFF `XResolution`) — `dpi_source: "file"` — or, for a picture on a
+     PDF page, from the size it is placed at (`"placement"`: S-03's hook detail is 720 px across
+     340.157 pt, 152.4 DPI). Otherwise it is `null` and `"unstated"`, the stream says
+     `RASTER_DPI_UNSTATED`, the page space is the pixels, and the shortest line kept is 12 px. It is
+     never inferred from the pixels' proportions: every ISO A sheet shares one, so R1's S-10 is as
+     much an A3 at 600 DPI as an A1 at 300, and R4's S-10 an A3 at 300 as an A1 at 150 — any rule
+     picking one is right for one fixture and wrong for the next. The fixtures' PNGs and JPEGs state
+     no resolution, so their cards say so.
+  5. **The page raster is written beside the artifact** (L-CAD-01: one revision in, "one EntityGraph
+     artifact out" — read as the EntityGraph and the pixels its traced keys were read from, since
+     those keys cite a raster nobody could otherwise show). The CLI writes each as `<sha256>.png`
+     beside `--out`, before the artifact; the seam (`ingest/cli.ts`) reads every one the artifact
+     names, refuses the ingest whole if one is missing or is not the bytes its name says, and the
+     job stores each at its own content address before the record lands. The pixels are the turned,
+     cleaned page — exactly what the detector read — so the viewer (M4P-4) can paint what the trace
+     was taken from.
+  6. **The card states the scan.** A sheet whose lines were traced carries one line per scan under
+     its views line: `drawings_scan_line` — **Traced from a scan at {dpi}, deskewed {deskew}°** — the
+     DPI as `drawings_scan_dpi` **{value} DPI** or `drawings_scan_dpi_unstated` **a DPI the file does
+     not state**, both figures through `formatUserFigure`, the deskew as its size (the signed value in
+     `data-deskew`). `sheet-card-scan` carries `data-dpi` (empty where unstated) and `data-deskew`. A
+     drawn sheet renders no such line, so its card is the card it always was (no picture moves).
+  7. **The door and refusals.** `ingest/request.ts` hands `png`, `jpg` and `tiff` to the CLI, which
+     knows a scan by its magic number (or its name where the bytes cannot be read). Bytes OpenCV
+     cannot decode are refused `RASTER_UNREADABLE`; a scan that traces no line a millimetre long is
+     refused `RASTER_NO_LINE`, never stored as an empty sheet. A multi-page TIFF is read at its first
+     page only — owed, and listed.
+  What it costs: the trace takes about 3 s for R1's S-10 (an A1 at 300 DPI; PB-5's 30 s is M4P-11's
+  PERF spec). LSD finds both edges of a drawn line, so a 0.5 mm line at 300 DPI traces as two parallel
+  lines about 6 px apart; a centreline pass is owed to the snapping it would serve. Nothing traced is
+  measured yet: a scan's page carries no view until M4P-2, and whatever is measured on it is
+  INTERPRETED under the RASTER engine and waits on the gate's AGREED exit (M4P-6, L-QTY-04).
+- **I-585 — which pictures on a PDF page are scans to trace (session 9, M4P-3; R-TO-003's "mixed
+  pages mint both schemes", I-515, I-521).** A top-level image object is traced when it is at least
+  64 px on each side and either covers at least half its page or is grey — a scan of a drawing,
+  whole or pasted onto a drafted sheet. A smaller colour picture (a logo, a photograph) is listed and
+  left unread, its `unread` count standing as I-521 set it; so is an image inside a Form XObject, which
+  reaches the page as derived paint only. The picture is decoded at its own size from its own
+  stream (pdfium, no page render, no soft mask applied); its lines map back through the deskew, the
+  picture's unit square and its placement into page space, and its record names the IMAGE original.
+  The vectoriser's identity then rides beside pdfium's (`ingest.trace`, I-518). A PDF whose every
+  page is one scan — a scanned set — is traced page by page and stored (it was refused
+  `PDF_RASTER_ONLY`); that refusal now names only a file of pictures the lane takes for no scan, or
+  traces to nothing. On F-RCC6-BNBC's vector set, S-03 (Page 4) mints PDF_OBJECT and RASTER_TRACE
+  keys on one page and its card reads both badges and **Traced from a scan at 152.4 DPI, deskewed
+  0°**; Page 1's colour logo stays **Images and shadings not read**: 1
+  (`cad/tests/test_raster.py`, `tests/cad/pdf-sheets.test.ts`). Colour alone is a proxy: a colour
+  scan pasted small onto a drawn page is left unread and named, the safer error.
 
 ## 1. Layout and hierarchy
 
@@ -706,7 +794,9 @@ card names itself as a region because its last child is a door every card labels
   `formatUserFigure` (`drawings_views_count_one` at one). Where the scale line reads
   `drawings_scale_unplaceable_count` the views line carries `data-said="true"` and is
   `visibility: hidden`, its box kept (I-359 point 3). Both `var(--text-12)` `var(--graphite-700)`,
-  one above the other (`cx-drawings-lines`, I-323 point 5 as amended).
+  one above the other (`cx-drawings-lines`, I-323 point 5 as amended). A traced sheet adds one
+  `<p class="cx-drawings-line" data-testid="sheet-card-scan">` per scan beneath them, in the same
+  style (I-584).
 - **Fidelity facts** — inside `<details class="cx-drawings-facts">` whose `<summary>` (a 24 px
   target, chevron drawn from two hairlines) reads `drawings_facts_summary` and the notable count, warn
   border when any is notable (I-323); the list: flex, wrap, gap `var(--space-2)`: one `<span data-testid="sheet-fact"
@@ -830,7 +920,9 @@ or no drawing units** · `drawings_views_unclassified` **Views not classified ye
 **Structural** · `drawings_discipline_architectural` **Architectural** · `drawings_discipline_mep`
 **MEP** · `drawings_discipline_civil` **Civil** · `drawings_discipline_other` **Other** ·
 `drawings_scheme_dxf_handle` **CAD vector** · `drawings_scheme_pdf_object` **PDF vector** ·
-`drawings_scheme_raster_trace` **Traced raster** · `drawings_facts_summary` **Fidelity facts** ·
+`drawings_scheme_raster_trace` **Traced raster** · `drawings_scan_line` **Traced from a scan at
+{dpi}, deskewed {deskew}°** · `drawings_scan_dpi` **{value} DPI** · `drawings_scan_dpi_unstated`
+**a DPI the file does not state** (all I-584) · `drawings_facts_summary` **Fidelity facts** ·
 `drawings_facts_notable` **{count} notable** · `drawings_facts_notable_none` **none notable** (all
 I-323) · `drawings_fact_strays_rejected` **Strays
 rejected** · `drawings_fact_explode_truncated` **Explode truncated** ·
@@ -919,7 +1011,8 @@ Test ids, exactly the contract's, on the elements ruled in §1: `sheet-index` ·
 (`data-sheet`, `data-discipline`, `data-confirmed`) · `sheet-card-thumbnail`
 (`data-pending`) · `sheet-card-title` · `sheet-card-number` · `sheet-card-format` ·
 `sheet-card-scheme` (`data-scheme`; one per scheme the sheet's keys are of, I-519) ·
-`sheet-card-scale` (`data-scale`) · `sheet-card-views` ·
+`sheet-card-scale` (`data-scale`) · `sheet-card-views` · `sheet-card-scan` (`data-dpi`,
+`data-deskew`; one per scan a traced sheet was taken from, I-584) ·
 `sheet-card-discipline` (`data-basis`) · `sheet-card-open` (inc-111-viewer-inspector) ·
 `sheet-fact` (`data-fact`, `data-value`,
 `data-notable`) · `sheet-discipline-option` (`data-value`) · `sheet-confirm` ·

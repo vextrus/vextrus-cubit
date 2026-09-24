@@ -36,7 +36,7 @@ const PROJECT = "9a7b6c5d-4e3f-4a2b-8c1d-0e9f8a7b6c5d";
 const JOBS_FORMAT: JobsFormat = { seconds: (elapsedMs: number) => String(elapsedMs), refusal: () => null };
 const DIGEST = "A7407F04456BED03C1ED9F0495299CD57B2117B38564B8038DF0EDB22FB36E90";
 
-function card(o: Partial<Pick<SheetCardData, "schemes" | "facts">> & { cited?: readonly string[] } = {}): SheetCardData {
+function card(o: Partial<Pick<SheetCardData, "schemes" | "scans" | "facts">> & { cited?: readonly string[] } = {}): SheetCardData {
   return {
     sheetId: "ingest-1:Page 11",
     drawingId: "11111111-1111-4111-8111-111111111111",
@@ -44,6 +44,7 @@ function card(o: Partial<Pick<SheetCardData, "schemes" | "facts">> & { cited?: r
     kind: "paper",
     format: "pdf",
     schemes: o.schemes ?? ["PDF_OBJECT"],
+    scans: o.scans ?? [],
     thumbnail: null,
     proposal: { number: "S-10", title: "COLUMN LAYOUT PLAN", discipline: DISCIPLINES[0], basis: "GRAMMAR", cited: o.cited ?? [`PDF_OBJECT:${DIGEST}`] },
     confirmed: null,
@@ -118,5 +119,27 @@ describe("M4P-1: a PDF page's card", () => {
     const summary = shown.querySelector(".cx-drawings-facts-summary");
     expect(summary?.getAttribute("data-notable")).toBe("true");
     expect(summary?.querySelector(".cx-drawings-facts-notable")?.textContent, "one notable fact — the image, never the collapses beside it").toBe(drawings.drawings_facts_notable.replace("{count}", "1"));
+  });
+});
+
+describe("M4P-3: a traced sheet's card states its scan (I-584)", () => {
+  test("says the DPI and the deskew it was traced at, one line a scan; a drawn sheet carries no such line", () => {
+    const drawn = renderCard(card());
+    expect(within(drawn).queryAllByTestId(TESTIDS.sheet.cardScan), "a drawn page's card is the card it always was").toEqual([]);
+    cleanup();
+
+    const traced = renderCard(card({ schemes: ["PDF_OBJECT", "RASTER_TRACE"], scans: [{ dpi: 152.4, deskewDegrees: -1.25 }] }));
+    const [line, ...more] = within(traced).getAllByTestId(TESTIDS.sheet.cardScan);
+    expect(more).toEqual([]);
+    expect([line?.getAttribute("data-dpi"), line?.getAttribute("data-deskew")]).toEqual(["152.4", "-1.25"]);
+    expect(line?.textContent, "the DPI and the turn, as figures through the format seam").toBe(
+      drawings.drawings_scan_line.replace("{dpi}", drawings.drawings_scan_dpi.replace("{value}", "152.4")).replace("{deskew}", "1.25"),
+    );
+  });
+
+  test("says so where the file stated no DPI, rather than print one nobody gave", () => {
+    const line = within(renderCard(card({ scans: [{ dpi: null, deskewDegrees: 0 }] }))).getByTestId(TESTIDS.sheet.cardScan);
+    expect(line.getAttribute("data-dpi")).toBe("");
+    expect(line.textContent).toBe(drawings.drawings_scan_line.replace("{dpi}", drawings.drawings_scan_dpi_unstated).replace("{deskew}", "0"));
   });
 });

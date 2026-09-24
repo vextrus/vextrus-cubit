@@ -93,6 +93,7 @@ function card(o: { scaleState: string; unplaceableViews: number | null; viewCoun
     layoutName: `SHEET ${o.scaleState}`,
     format: "dxf",
     schemes: ["DXF_HANDLE"],
+    scans: [],
     thumbnail: null,
     proposal: { number: "S-101", title: "Staged sheet", discipline: DISCIPLINES[0], basis: "GRAMMAR", cited: [] },
     confirmed: null,

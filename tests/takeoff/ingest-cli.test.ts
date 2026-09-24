@@ -167,18 +167,45 @@ describe("AC-2 — one invocation, judged by its artifact", () => {
   );
 
   test(
-    "M4P-1: a scanned PDF — every page a picture — is refused SHEET_NOT_INGESTABLE, naming PDF_RASTER_ONLY (I-521)",
+    "M4P-3: a scan crosses the seam traced — its lines under RASTER_TRACE, its record's page raster read from beside the artifact (R-TO-003, I-584)",
     async () => {
       const { ingestDrawing } = await seam();
-      const outcome = await withCadCommand(undefined, async () => await ingestDrawing(corpusBytes(join("fixtures", "rcc6", "rcc6.raster.pdf")), "pdf", { tempDir: tempDir("cli-scan") }));
+      const { entityGraphSchema } = await productModule<GraphSchema>(ENTITYGRAPH_MODULE);
+      // S-03's pasted hook detail, as its own scan: 720 x 480 grey, no resolution stated in the file.
+      const scan = corpusBytes(join("fixtures", "rcc6-bnbc", "images", "hook-detail-scan.png"));
+      const outcome = await withCadCommand(undefined, async () => await ingestDrawing(scan, "png", { tempDir: tempDir("cli-scan") }));
 
-      expect(outcome.ok, "eight pages of pixels and no path or text: nothing the vector lane reads, so nothing is stored").toBe(false);
-      if (outcome.ok) return;
-      expect(outcome.refusal).toBe(SHEET_NOT_INGESTABLE);
-      expect(outcome.detail, "the operator reads the extractor's own name for it, and what it counted").toContain("PDF_RASTER_ONLY: 8 page(s) holding 8 image(s) and no path or text");
+      expect(outcome.ok, `the scan answered: ${JSON.stringify(outcome)}`.slice(0, 600)).toBe(true);
+      if (!outcome.ok) return;
+      expect(outcome.graph).toStrictEqual(entityGraphSchema.parse(JSON.parse(new TextDecoder().decode(outcome.artifact))));
+      const ingest = outcome.graph["ingest"] as Record<string, unknown>;
+      expect([ingest["scheme"], ingest["tool"], ingest["tool_version"]], "the pinned vectoriser read it").toEqual(["RASTER_TRACE", "opencv-lsd", "4.13.0.90"]);
+      const entities = outcome.graph["entities"] as { key: string; type: string }[];
+      expect(entities.length, "the detail's bars and hooks trace to lines").toBeGreaterThan(20);
+      expect(entities.every((entity) => entity.type === "LINE" && /^RASTER_TRACE:[0-9A-F]{64}$/.test(entity.key)), "every traced line is a whole digest").toBe(true);
+
+      const [record, ...more] = outcome.graph["rasters"] as { sha256: string; dpi: number | null; dpi_source: string; traced: number }[];
+      expect(more, "one scan, one picture").toEqual([]);
+      expect([record?.dpi, record?.dpi_source], "the file states no DPI, and the record says so rather than guess one").toEqual([null, "unstated"]);
+      expect(record?.traced).toBe(entities.length);
+      expect(
+        outcome.pageRasters.map((raster) => raster.sha256),
+        "the page raster the lines were taken from crosses beside the artifact",
+      ).toEqual([record?.sha256]);
+      expect(sha256Of(outcome.pageRasters[0]!.bytes), "under the name its bytes hash to").toBe(record?.sha256);
     },
     CLI_BUDGET_MS,
   );
+
+  test("M4P-3: an artifact naming a page raster the run did not write is refused whole (I-584)", async () => {
+    const { ingestDrawing } = await seam();
+    const good = committedArtifact("basic");
+    const record = { space: "model", sha256: "0".repeat(64), width: 4, height: 4, dpi: null, dpi_source: "unstated", deskew_degrees: 0, placement: [[0, 4], [4, 4], [4, 0], [0, 0]], traced: 0, dropped_short: 0 };
+    const naming = stubCli({ artifact: JSON.stringify({ ...good, entities: [], derived: [], block_attributes: [], rasters: [record], ingest: { ...(good["ingest"] as object), scheme: "RASTER_TRACE" } }), stderr: "", exitCode: 0 });
+    const outcome = await withCadCommand(naming.command, async () => await ingestDrawing(cadFixture("basic"), "dxf", { tempDir: tempDir("no-raster") }));
+    expect(outcome.ok, "a traced picture nobody can show is half an ingest").toBe(false);
+    if (!outcome.ok) expect(outcome.detail).toContain(`names a page raster ${"0".repeat(64)} it did not write`);
+  });
 
   test("AC-2: the judgement is the artifact, never the exit status", async () => {
     const { ingestDrawing } = await seam();

@@ -65,6 +65,14 @@ export const TRACED_BESIDE = "PDF_OBJECT" satisfies SourceScheme;
 const RASTER_TRACE = "RASTER_TRACE" satisfies SourceScheme;
 
 /**
+ * Where a traced picture's DPI came from (I-584): the file's own resolution tag, the size its
+ * picture is placed at on a PDF page, or nowhere — `unstated`, exactly when the DPI is null. Never a
+ * guess from the pixels' proportions. The Python half is `raster.DPI_SOURCES`.
+ */
+export const DPI_SOURCES = ["file", "placement", "unstated"] as const;
+export type DpiSource = (typeof DPI_SOURCES)[number];
+
+/**
  * A source key: a scheme of the closed set, then the extractor's key in uppercase hex — the file's
  * own handle for DXF_HANDLE, a content digest for the other two (L-CAD-02). The scheme rides the key
  * rather than the drawing, so it is spelled per key here as it is in the artifact.
@@ -406,6 +414,39 @@ const counterSchema = z.strictObject({
   unread: counts.optional(),
 });
 
+/** A page raster's address: its bytes' sha256, lowercase hex, as `hashlib` spells it. */
+const RASTER_SHA256 = /^[0-9a-f]{64}$/;
+
+/**
+ * One picture the vectoriser traced (R-TO-003, I-584): the page it stands on, the address and
+ * size of the page raster its lines were taken from (written beside the artifact as
+ * `<sha256>.png`), its DPI and where that came from, the deskew it was turned by (degrees,
+ * counter-clockwise as a reader saw the sheet turned), the page-space corners the raster stands at
+ * (top-left, top-right, bottom-right, bottom-left of the picture as written), how many lines it
+ * gave and how many shorter than the pinned minimum it dropped, and — on a PDF page — the IMAGE
+ * original it was traced from.
+ */
+const rasterSchema = z
+  .strictObject({
+    space: z.string().min(1),
+    sha256: z.string().regex(RASTER_SHA256),
+    width: z.number().int().min(1),
+    height: z.number().int().min(1),
+    dpi: z.number().positive().nullable(),
+    dpi_source: z.enum(DPI_SOURCES),
+    deskew_degrees: z.number(),
+    placement: z.array(point).length(4),
+    traced: z.number().int().min(0),
+    dropped_short: z.number().int().min(0),
+    image: sourceKey.optional(),
+  })
+  .refine((record) => (record.dpi === null) === (record.dpi_source === "unstated"), {
+    error: "a traced picture's dpi is null exactly when its source is unstated",
+  });
+
+/** One traced picture's record, as both runtimes agree it is shaped. */
+export type RasterRecord = z.infer<typeof rasterSchema>;
+
 /**
  * The whole artifact. The top-level key set is closed, and the cross-record rules L-CAD-02 and
  * L-CAD-03 state — one key minted once, and every synthesised piece naming an original — are
@@ -424,9 +465,18 @@ export const entityGraphSchema = z
     derived: z.array(derivedSchema),
     block_attributes: z.array(blockAttributeSchema),
     counters: z.array(counterSchema),
+    /**
+     * One record per picture the vectoriser traced (I-584) — absent where nothing was, so every
+     * artifact written before the raster lane reads as it always did. A v3 key: a v2 artifact never
+     * carries it.
+     */
+    rasters: z.array(rasterSchema).optional(),
   })
   .superRefine((graph, ctx) => {
     for (const issue of versionIssues(graph)) ctx.addIssue({ code: "custom", path: [...issue.path], message: issue.message });
+    if (graph.entitygraph_version < 3 && graph.rasters !== undefined) {
+      ctx.addIssue({ code: "custom", path: ["rasters"], message: `a v${String(graph.entitygraph_version)} artifact never carries rasters` });
+    }
 
     // A vectoriser's identity rides only beside a PDF's: a page that carries a pasted scan mints both
     // schemes (R-TO-003), and no other lane mints two.
@@ -454,6 +504,27 @@ export const entityGraphSchema = z
       }
       minted.add(entity.key);
     });
+
+    // A traced line names the picture it was traced from by its page: every page holding one carries
+    // that picture's record, and a record stands only where the vectoriser's identity is pinned, on a
+    // page of this artifact, naming — where it names one — an IMAGE original of it (I-584).
+    const rasters = graph.rasters ?? [];
+    const spaces = new Set(graph.layouts.map((layout) => layout.name));
+    const images = new Set(graph.entities.filter((entity) => entity.type === "IMAGE").map((entity) => entity.key));
+    if (rasters.length > 0 && !pinned.has(RASTER_TRACE)) {
+      ctx.addIssue({ code: "custom", path: ["rasters"], message: "a traced picture's record stands where no vectoriser's identity is pinned" });
+    }
+    rasters.forEach((record, index) => {
+      if (!spaces.has(record.space)) ctx.addIssue({ code: "custom", path: ["rasters", index, "space"], message: `${record.space} names no layout of this artifact` });
+      if (record.image !== undefined && !images.has(record.image)) {
+        ctx.addIssue({ code: "custom", path: ["rasters", index, "image"], message: `${record.image} names no IMAGE original of this artifact` });
+      }
+    });
+    const recorded = new Set(rasters.map((record) => record.space));
+    const unrecorded = [...new Set(graph.entities.filter((entity) => schemeOf(entity.key) === RASTER_TRACE).map((entity) => entity.space))].filter((space) => !recorded.has(space));
+    if (unrecorded.length > 0) {
+      ctx.addIssue({ code: "custom", path: ["rasters"], message: `${unrecorded.sort().join(", ")} hold(s) traced lines and no traced picture's record` });
+    }
 
     for (const [key, records] of [
       ["derived", graph.derived],

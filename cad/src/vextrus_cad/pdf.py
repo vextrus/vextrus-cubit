@@ -8,8 +8,11 @@ EntityGraph records under the vocabulary a DXF already speaks:
 * a path → one LWPOLYLINE per subpath, Béziers flattened at the pinned page tolerance (I-511);
 * a text → a TEXT at its baseline origin, its height the font size times the object matrix's own
   vertical scale — never the font size alone, which is text space (I-514);
-* an image → an IMAGE at its placement, listed and never measured (I-515), and counted on its
-  page's `unread` tally so the page's card says it holds a picture nobody read (I-521);
+* an image → an IMAGE at its placement, listed and never measured (I-515); a picture the raster lane
+  takes for a scan — a whole-page image, or a grey one pasted onto a drawn page — is also TRACED, its
+  lines RASTER_TRACE keys beside the page's PDF_OBJECT ones (R-TO-003's mixed page, I-585), and any
+  other is counted on its page's `unread` tally so the card says it holds a picture nobody read
+  (I-521);
 * a Form XObject → an INSERT original naming its form's content digest, whose paint explodes into
   `derived`, each piece carrying `src` (L-CAD-03, I-516);
 * an optional-content group → the layer (I-517).
@@ -23,9 +26,10 @@ Page space is the page as it is shown (I-511): measured from the crop box's lowe
 the page's `/Rotate` applied, in PostScript points. Points are paper, not building, so the artifact
 states no world unit (`units.page_space`, I-513) and a sheet's scale is a QS's to affirm.
 
-A PDF none of whose pages draws a path or a text is not this lane's: a scanned set is refused by name
-(`PDF_RASTER_ONLY`) until the raster lane reads it (R-TO-003), and a file with nothing drawn at all
-likewise (`PDF_NO_DRAWING`) — never stored as sheets that look read and say nothing (I-521).
+A scanned set — every page one picture — is therefore traced page by page (I-585). A PDF none of
+whose pages draws a path, a text or a traced line is refused by name: pictures and nothing read from
+them (`PDF_RASTER_ONLY`), or nothing drawn at all (`PDF_NO_DRAWING`) — never stored as sheets that
+look read and say nothing (I-521).
 """
 
 from __future__ import annotations
@@ -38,16 +42,20 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
+import numpy as np
 import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_c
 
-from . import geometry, keys, report, units
+from . import geometry, keys, raster, report, units
+from .geometry import IDENTITY, Matrix, Point, apply, compose
 from .ingest import ENTITYGRAPH_VERSION, IngestError, _Counters, _turn
 from .parameters import (
     DERIVED_ENTITY_BUDGET,
     EXPLODE_DEPTH_CAP,
     FLATTEN_POINT_CAP,
     PDF_FLATTEN_TOLERANCE_PT,
+    RASTER_EMBEDDED_MIN_PX,
+    RASTER_EMBEDDED_PAGE_FRACTION,
     pdf_parameter_set_hash,
 )
 
@@ -69,6 +77,14 @@ _PATH: Final = pdfium_c.FPDF_PAGEOBJ_PATH
 _IMAGE: Final = pdfium_c.FPDF_PAGEOBJ_IMAGE
 _SHADING: Final = pdfium_c.FPDF_PAGEOBJ_SHADING
 _FORM: Final = pdfium_c.FPDF_PAGEOBJ_FORM
+
+#: pdfium's bitmap formats, and how many bytes a pixel of each takes.
+_CHANNELS: Final[dict[int, int]] = {
+    pdfium_c.FPDFBitmap_Gray: 1,
+    pdfium_c.FPDFBitmap_BGR: 3,
+    pdfium_c.FPDFBitmap_BGRx: 4,
+    pdfium_c.FPDFBitmap_BGRA: 4,
+}
 
 #: pdfium's path segment types.
 _MOVETO: Final = pdfium_c.FPDF_SEGMENT_MOVETO
@@ -109,25 +125,6 @@ _FORM_COLOUR: Final = {"rgb": [0, 0, 0], "source": "byblock"}
 
 #: An image states no colour at all; its frame is drawn in the canvas ink (I-515).
 _IMAGE_COLOUR: Final = {"rgb": [0, 0, 0], "source": "truecolor"}
-
-#: An affine transform as PDF spells one: x' = a·x + c·y + e, y' = b·x + d·y + f.
-Matrix = tuple[float, float, float, float, float, float]
-IDENTITY: Final[Matrix] = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
-
-Point = tuple[float, float]
-
-
-def compose(outer: Matrix, inner: Matrix) -> Matrix:
-    """`outer ∘ inner`: apply `inner` first, then `outer`."""
-    a, b, c, d, e, f = outer
-    p, q, r, s, t, u = inner
-    return (a * p + c * q, b * p + d * q, a * r + c * s, b * r + d * s, a * t + c * u + e, b * t + d * u + f)
-
-
-def apply(matrix: Matrix, x: float, y: float) -> Point:
-    a, b, c, d, e, f = matrix
-    return (a * x + c * y + e, b * x + d * y + f)
-
 
 def page_frame(rotation: int, box: tuple[float, float, float, float]) -> Matrix:
     """The transform from a page's own space into the page as shown (I-511): the crop box's
@@ -479,7 +476,16 @@ def _children(raw: Any) -> Iterator[Any]:
 class _Page:
     """One page's extraction: its originals, its derived paint, its counters and extents."""
 
-    def __init__(self, index: int, name: str, frame: Matrix, reader: _Reader, budget: list[int]) -> None:
+    def __init__(
+        self,
+        index: int,
+        name: str,
+        frame: Matrix,
+        reader: _Reader,
+        budget: list[int],
+        area: float = 0.0,
+        rasters: dict[str, bytes] | None = None,
+    ) -> None:
         self.index = index
         self.name = name
         self.frame = frame
@@ -494,6 +500,12 @@ class _Page:
         self._keys: set[str] = set()
         #: How much of the invocation's derived-entity budget is left, shared across pages.
         self._budget = budget
+        #: The page's area in square points, which a picture's share of decides whether it is a scan.
+        self._area = area
+        #: The traced pictures' records, and the sink their page rasters go to under their sha256.
+        self.traced: list[dict[str, Any]] = []
+        self._rasters = rasters
+        self._trace_keys: set[str] = set()
 
     def _box(self, points: list[Point]) -> None:
         box = geometry.bounds(points)
@@ -523,12 +535,46 @@ class _Page:
             self.drawn += 1
             self._original(text_atom(raw, self.frame, layer, self.reader.text(raw, container)))
         elif kind == _IMAGE:
-            self.counters.leave_unread(IMAGE)
-            self._original(image_atom(raw, self.frame, layer))
+            key = self._original(image_atom(raw, self.frame, layer))
+            if key is None or not self._trace(raw, key):
+                self.counters.leave_unread(IMAGE)
         elif kind == _SHADING:
             self.counters.leave_unread(SHADING)
         elif kind == _FORM:
             self._form(raw, layer)
+
+    def _trace(self, raw: Any, key: str) -> bool:
+        """Trace a top-level picture the raster lane takes for a scan (I-585), minting its lines
+        beside the page's own objects; False where it is no scan, and it stays a picture unread."""
+        pixels = _image_pixels(raw)
+        if pixels is None:
+            return False
+        grey, is_grey = pixels
+        height, width = grey.shape
+        if min(width, height) < RASTER_EMBEDDED_MIN_PX:
+            return False
+        placed = compose(self.frame, _matrix(raw))
+        a, b, c, d, _, _ = placed
+        share = abs(a * d - b * c) / self._area if self._area > 0 else 0.0
+        if not is_grey and share < RASTER_EMBEDDED_PAGE_FRACTION:
+            return False
+        dpi = raster.placement_dpi(placed, width)
+        traced = raster.trace(grey, dpi)
+        to_page = raster.embedded_to_page(placed, width, height, traced)
+        minted = raster.lines_on_page(traced, to_page, self.index, self.name, self._trace_keys, self.counters)
+        self.entities.extend(minted.entities)
+        self.boxes.extend(minted.boxes)
+        self.drawn += len(minted.entities)
+        page_raster = raster.png_bytes(traced.image)
+        digest = hashlib.sha256(page_raster).hexdigest()
+        if self._rasters is not None:
+            self._rasters[digest] = page_raster
+        source = raster.DPI_UNSTATED if dpi is None else raster.DPI_PLACEMENT
+        corners = raster.canvas_corners(traced, to_page)
+        self.traced.append(
+            raster.raster_record(self.name, traced, digest, dpi, source, corners, len(minted.entities), key)
+        )
+        return True
 
     def _form(self, raw: Any, layer: str) -> None:
         """A Form XObject: an INSERT original naming its content, and its paint exploded (L-CAD-03)."""
@@ -613,6 +659,31 @@ def _ignore(_type: str) -> None:
     """A cap trip met while digesting a definition: the paint walk counts it where it paints."""
 
 
+def _image_pixels(raw: Any) -> tuple[np.ndarray, bool] | None:
+    """An image object's own pixels, decoded at their own size (no page render, no mask applied), as
+    8-bit grey with whether they were grey to begin with — or None where pdfium decodes none."""
+    bitmap = pdfium_c.FPDFImageObj_GetBitmap(raw)
+    if not bitmap:
+        return None
+    try:
+        width = int(pdfium_c.FPDFBitmap_GetWidth(bitmap))
+        height = int(pdfium_c.FPDFBitmap_GetHeight(bitmap))
+        stride = int(pdfium_c.FPDFBitmap_GetStride(bitmap))
+        channels = _CHANNELS.get(int(pdfium_c.FPDFBitmap_GetFormat(bitmap)))
+        buffer = pdfium_c.FPDFBitmap_GetBuffer(bitmap)
+        if channels is None or width <= 0 or height <= 0 or not buffer:
+            return None
+        flat = np.ctypeslib.as_array(
+            ctypes.cast(buffer, ctypes.POINTER(ctypes.c_ubyte)), shape=(height * stride,)
+        )
+        rows = flat.reshape(height, stride)[:, : width * channels].reshape(height, width, channels).copy()
+    finally:
+        pdfium_c.FPDFBitmap_Destroy(bitmap)
+    if channels == 1:
+        return np.ascontiguousarray(rows[:, :, 0]), True
+    return raster.grey_of_bgr(rows[:, :, :3]), False
+
+
 def _open(source: Path) -> Any:
     try:
         data = source.read_bytes()
@@ -629,9 +700,12 @@ def _page_box(page: Any) -> tuple[float, float, float, float]:
     return (float(left), float(bottom), float(right), float(top))
 
 
-def ingest_document(document: Any, notes: report.Report) -> dict[str, Any]:
+def ingest_document(
+    document: Any, notes: report.Report, rasters: dict[str, bytes] | None = None
+) -> dict[str, Any]:
     """The whole artifact for an opened PDF, with what it carries but does not draw written into
-    `notes` (L-CAD-04: never a silent loss)."""
+    `notes` (L-CAD-04: never a silent loss), and each traced picture's page raster put in `rasters`
+    under its sha256."""
     pages: list[_Page] = []
     dropped: list[str] = []
     budget = [DERIVED_ENTITY_BUDGET]
@@ -641,9 +715,16 @@ def ingest_document(document: Any, notes: report.Report) -> dict[str, Any]:
         page = document[index]
         textpage = page.get_textpage()
         try:
-            frame = page_frame(int(page.get_rotation()), _page_box(page))
+            box = _page_box(page)
+            frame = page_frame(int(page.get_rotation()), box)
             reading = _Page(
-                index, PAGE_LAYOUT.format(number=index + 1), frame, _Reader(text_layer(textpage.raw)), budget
+                index,
+                PAGE_LAYOUT.format(number=index + 1),
+                frame,
+                _Reader(text_layer(textpage.raw)),
+                budget,
+                area=abs((box[2] - box[0]) * (box[3] - box[1])),
+                rasters=rasters,
             )
             container = _Container()
             for position in range(pdfium_c.FPDFPage_CountObjects(page.raw)):
@@ -660,6 +741,8 @@ def ingest_document(document: Any, notes: report.Report) -> dict[str, Any]:
         pages.append(reading)
 
     _say(pages, undecoded, notes)
+    traced = [record for page in pages for record in page.traced]
+    raster.said(traced, notes)
     if drawn == 0:
         _refuse_undrawn(len(document), pages)
     layers = sorted({record["layer"] for page in pages for record in (*page.entities, *page.derived)})
@@ -675,6 +758,18 @@ def ingest_document(document: Any, notes: report.Report) -> dict[str, Any]:
                 "viewports": [],
             }
         )
+    ingest: dict[str, Any] = {
+        "parameter_set_hash": pdf_parameter_set_hash(),
+        "scheme": SCHEME,
+        "tool": TOOL,
+        "tool_version": pdfium.version.PYPDFIUM_INFO.version,
+    }
+    # The vectoriser's identity rides beside pdfium's only where it traced something, and the raster
+    # records with it: a PDF with no scan on it spells the bytes it always did (I-518).
+    extra: dict[str, Any] = {}
+    if traced:
+        ingest["trace"] = raster.identity()
+        extra["rasters"] = traced
     return {
         "block_attributes": [],
         "counters": [page.counters.record(page.name) for page in pages],
@@ -682,30 +777,26 @@ def ingest_document(document: Any, notes: report.Report) -> dict[str, Any]:
         "dropped_layouts": dropped,
         "entities": [record for page in pages for record in page.entities],
         "entitygraph_version": ENTITYGRAPH_VERSION,
-        "ingest": {
-            "parameter_set_hash": pdf_parameter_set_hash(),
-            "scheme": SCHEME,
-            "tool": TOOL,
-            "tool_version": pdfium.version.PYPDFIUM_INFO.version,
-        },
+        "ingest": ingest,
         "insunits": units.page_space(),
         # Restated as on and plotted: pdfium exposes no reading of a file's optional-content
         # configuration, and a plotted set shows every group it carries (I-517).
         "layers": [{"name": name, "on": True, "frozen": False, "plot": True} for name in layers],
         "layouts": layouts,
+        **extra,
     }
 
 
 def _refuse_undrawn(page_count: int, pages: list[_Page]) -> None:
-    """A PDF that draws no path and no text on any page is not the vector lane's, and is refused by
-    name (I-521): a scanned set waits on the raster lane (R-TO-003) — stored as sheets it would
-    read as 27 blank cards that look read — and a file with nothing drawn has no sheet to show."""
+    """A PDF that draws no path, no text and no traced line on any page is refused by name (I-521):
+    pictures the raster lane took for no scan, or traced to nothing, stored as sheets would be blank
+    cards that look read — and a file with nothing drawn has no sheet to show."""
     images = sum((page.counters.unread or {}).get(IMAGE, 0) for page in pages)
     if images:
         raise IngestError(
             report.PDF_RASTER_ONLY,
-            f"{page_count} page(s) holding {images} image(s) and no path or text: a scanned set —"
-            " the vector lane reads no pixel, and a scan waits on the raster lane (R-TO-003)",
+            f"{page_count} page(s) holding {images} image(s) and no path, text or traced line: pictures"
+            " the raster lane takes for no scan, or traced to nothing (R-TO-003, I-585)",
         )
     raise IngestError(
         report.PDF_NO_DRAWING, f"{page_count} page(s) and no path, text or image drawn on any of them"
@@ -743,12 +834,15 @@ def _say(pages: list[_Page], undecoded: int, notes: report.Report) -> None:
         )
 
 
-def ingest_pdf(source: Path, notes: report.Report | None = None) -> dict[str, Any]:
-    """Read a vector PDF and return its EntityGraph v3 artifact, or refuse it by name (L-CAD-04)."""
+def ingest_pdf(
+    source: Path, notes: report.Report | None = None, rasters: dict[str, bytes] | None = None
+) -> dict[str, Any]:
+    """Read a PDF and return its EntityGraph v3 artifact, its traced pictures' page rasters put in
+    `rasters`, or refuse it by name (L-CAD-04)."""
     notes = report.Report() if notes is None else notes
     document = _open(source)
     try:
-        return ingest_document(document, notes)
+        return ingest_document(document, notes, rasters)
     except (ValueError, ArithmeticError, pdfium.PdfiumError) as error:
         # A page object this lane cannot read through — a coordinate that leaves the finite world, a
         # page pdfium cannot load — refuses the file by name rather than writing half an artifact.

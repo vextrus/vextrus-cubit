@@ -431,16 +431,29 @@ describe("AC-6 — a sheet nothing can be taken from is refused, loudly and empt
   );
 
   test(
-    "AC-6: a format this pipeline does not read, and a drawing this workspace cannot see, are refused at the door",
+    "M4P-3: a scan is taken at the door and traced by the worker, and the page raster its lines were read from is stored at the address its record names (R-TO-003, I-584)",
     async () => {
       const stage = await staged();
-
-      // A format the CLI has no lane for: a scan waits on the vectoriser (R-TO-003), so a raster is
-      // refused by name at the door — a vector PDF is read since M4P-1 (R-TO-002).
+      // Every format the upload door accepts has a lane now: a PNG is one scanned page.
       const scan = await stageDrawing(stage.person, stage.projectId, corpusBytes(join("fixtures", "rcc6-bnbc", "images", "hook-detail-scan.png")), { name: unique("sheet.png"), format: "png" });
-      const refusedFormat = await stage.ingest.requestIngest({ tenantId: stage.person.tenantId, drawingId: scan.drawingId, requestedBy: stage.person.userId });
-      expect(refusedFormat, "a drawing whose format is none of dxf, dwg and pdf is refused by name").toStrictEqual({ refusal: SHEET_NOT_INGESTABLE });
-      await expectNothingQueued(stage, scan.drawingId, "the refused format");
+      const { events } = await ingestAndWait(stage, scan);
+      expect(endingOf(events)?.status, `the scan's ingest ended: ${JSON.stringify(endingOf(events))}`.slice(0, 600)).toBe("succeeded");
+      const record = (await stage.ingest.ingestRecordOf({ tenantId: stage.person.tenantId, drawingId: scan.drawingId })) as IngestRecord;
+      expect(record, "a traced scan leaves a record").not.toBeNull();
+      const { document } = await storedArtifact(stage, record);
+      expect((document["ingest"] as { scheme?: string }).scheme, "read by the vectoriser").toBe("RASTER_TRACE");
+      const [raster] = document["rasters"] as { sha256: string }[];
+      const pixels = await stage.uploads.uploadStorage().get(stage.person.tenantId, raster?.sha256 ?? "");
+      expect(pixels, "the page raster is held by SEAM-STORAGE under the sha256 its record names").not.toBeNull();
+      expect(sha256Of(pixels as Uint8Array)).toBe(raster?.sha256);
+    },
+    CASE_BUDGET_MS,
+  );
+
+  test(
+    "AC-6: a drawing this workspace cannot see is refused at the door",
+    async () => {
+      const stage = await staged();
 
       // A drawing of somebody else's workspace: not visible in this scope, so not this scope's to run.
       const stranger = await enrol("stranger");
@@ -493,21 +506,26 @@ describe("M4P-1 — a PDF through the one door (R-TO-002, R-TO-003, I-518, I-521
   );
 
   test(
-    "M4P-1: a scanned PDF is stored, taken to the extractor, and refused by name — no record, no artifact, nothing that looks read",
+    "M4P-3: a scanned PDF — every page one picture — is traced page by page, its record naming the vectoriser beside pdfium, every page raster stored (was refused PDF_RASTER_ONLY until the raster lane stood, I-521)",
     async () => {
       const stage = await staged();
       const bytes = corpusBytes(join("fixtures", "rcc6", "rcc6.raster.pdf"));
       const drawing = await stageDrawing(stage.person, stage.projectId, bytes, { name: unique("scan.pdf"), format: "pdf" });
       const scope = { tenantId: stage.person.tenantId, drawingId: drawing.drawingId };
-      const before = filesUnder(stage.root);
 
       const { events } = await ingestAndWait(stage, drawing);
-      const ending = endingOf(events);
-      expect(ending?.status, `a scan is an answer, not a fault: ${JSON.stringify(ending)}`.slice(0, 600)).toBe("refused");
-      expect(ending?.refusalCode, "answered with the registered code").toBe(SHEET_NOT_INGESTABLE);
-      expect(ending?.faultId, "and it is no fault (B-21)").toBeNull();
-      expect(await stage.ingest.ingestRecordOf(scope), "a refused scan leaves no record, so no card claims it was read").toBeNull();
-      expect(filesUnder(stage.root), "and nothing new in the store").toEqual(before);
+      expect(endingOf(events)?.status, `the scanned set's ingest ended: ${JSON.stringify(endingOf(events))}`.slice(0, 600)).toBe("succeeded");
+      const record = (await stage.ingest.ingestRecordOf(scope)) as IngestRecord;
+      expect(record, "a traced set leaves a record").not.toBeNull();
+      const { document } = await storedArtifact(stage, record);
+      const ingest = document["ingest"] as { scheme?: string; trace?: { tool?: string } };
+      expect([ingest.scheme, ingest.trace?.tool], "pdfium read the file, and the vectoriser traced its pages (I-518)").toEqual(["PDF_OBJECT", "opencv-lsd"]);
+      const rasters = document["rasters"] as { space: string; sha256: string }[];
+      expect(rasters.map((raster) => raster.space), "each of the eight pages was traced").toEqual(Array.from({ length: 8 }, (_, index) => `Page ${String(index + 1)}`));
+      for (const raster of rasters) {
+        const pixels = await stage.uploads.uploadStorage().get(stage.person.tenantId, raster.sha256);
+        expect(pixels === null ? null : sha256Of(pixels), `${raster.space}'s page raster is held under its own address`).toBe(raster.sha256);
+      }
     },
     CASE_BUDGET_MS,
   );

@@ -40,12 +40,14 @@ BNBC_DIR = REPO_ROOT / "fixtures" / "rcc6-bnbc"
 BNBC_PDF = BNBC_DIR / "rcc6-bnbc.pdf"
 BNBC_MANIFEST = BNBC_DIR / "manifest.json"
 
-#: F-RCC6-BNBC's F-SCAN seed: the whole set printed and scanned, every page one DCT image.
-BNBC_SCAN = BNBC_DIR / "rcc6-bnbc.r2.pdf"
-
 #: The pages of F-RCC6-BNBC's vector set that carry an image: the logo in page 1's title block, and
 #: the hook-detail scan pasted onto S-03 (fixtures/rcc6-bnbc/traps.json, "F-SCAN seeds").
 BNBC_PAGES_WITH_AN_IMAGE = ("Page 1", "Page 4")
+
+#: The one of them nobody reads: the logo is a colour picture a fifth of the page's width, which the
+#: raster lane takes for no scan (I-585); S-03's grey pasted scan is traced
+#: (`cad/tests/test_raster.py`).
+BNBC_PAGES_WITH_A_PICTURE_UNREAD = ("Page 1",)
 
 PDF_KEY = r"^PDF_OBJECT:[0-9A-F]{64}$"
 
@@ -352,7 +354,22 @@ def test_the_mirror_refuses_a_key_of_a_scheme_the_record_pins_no_identity_for(fo
         },
         "entities": [raster],
     }
-    parse_entity_graph(traced)
+    # A traced line's page carries the record of the picture it was traced from (I-584).
+    with pytest.raises(EntityGraphError, match="no traced picture's record"):
+        parse_entity_graph(traced)
+    record = {
+        "space": raster["space"],
+        "sha256": "0" * 64,
+        "width": 4,
+        "height": 4,
+        "dpi": None,
+        "dpi_source": "unstated",
+        "deskew_degrees": 0.0,
+        "placement": [[0, 4], [4, 4], [4, 0], [0, 0]],
+        "traced": 1,
+        "dropped_short": 0,
+    }
+    parse_entity_graph({**traced, "rasters": [record]})
 
 
 def test_the_mirror_admits_a_vectoriser_identity_only_beside_a_pdf(forms: dict[str, Any]) -> None:
@@ -429,10 +446,13 @@ def test_bnbc_every_page_object_is_an_entity_or_a_named_collapse(
     assert entities["LWPOLYLINE"] + collapsed["LWPOLYLINE"] == subpaths == objects["path"]
     assert entities["TEXT"] + collapsed["TEXT"] == objects["text"]
     assert entities["IMAGE"] + collapsed["IMAGE"] == objects["image"]
-    assert set(entities) <= {"LWPOLYLINE", "TEXT", "IMAGE"}
+    # Beside them, the lines traced off S-03's pasted scan: keys of the vectoriser's, not pdfium's.
+    assert set(entities) <= {"LWPOLYLINE", "TEXT", "IMAGE", "LINE"}
+    assert all(e["key"].startswith("RASTER_TRACE:") for e in graph["entities"] if e["type"] == "LINE")
     said = {note.code: note.count for note in notes.notes}
     assert said.get(report.OBJECTS_COLLAPSED, 0) == sum(collapsed.values())
-    assert said[report.EMBEDDED_IMAGE] == objects["image"]
+    assert said[report.EMBEDDED_IMAGE] == len(BNBC_PAGES_WITH_A_PICTURE_UNREAD)
+    assert said[report.RASTER_TRACED] == objects["image"] - len(BNBC_PAGES_WITH_A_PICTURE_UNREAD)
 
 
 def test_bnbc_each_page_is_a_sheet_carrying_its_numbered_title_line(
@@ -459,10 +479,13 @@ def test_bnbc_names_the_pages_that_carry_a_picture_nobody_read(
     unread = {counter["space"]: counter["unread"] for counter in graph["counters"]}
     assert set(unread) == {layout["name"] for layout in graph["layouts"]}, "every page carries the tally"
     assert {page: tally for page, tally in unread.items() if tally} == {
-        page: {"IMAGE": 1} for page in BNBC_PAGES_WITH_AN_IMAGE
+        page: {"IMAGE": 1} for page in BNBC_PAGES_WITH_A_PICTURE_UNREAD
     }
-    assert sum(tally.get("IMAGE", 0) for tally in unread.values()) == objects["image"]
-    assert {note.code: note.count for note in notes.notes}[report.EMBEDDED_IMAGE] == objects["image"]
+    # Every picture is listed where it stands; the one traced is read, and only the other is unread.
+    assert {e["space"] for e in graph["entities"] if e["type"] == "IMAGE"} == set(BNBC_PAGES_WITH_AN_IMAGE)
+    assert [record["space"] for record in graph["rasters"]] == ["Page 4"]
+    assert sum(tally.get("IMAGE", 0) for tally in unread.values()) == objects["image"] - 1
+    assert {note.code: note.count for note in notes.notes}[report.EMBEDDED_IMAGE] == 1
 
 
 def test_bnbc_the_text_layer_reads_every_object_s_own_words(
@@ -505,21 +528,13 @@ def _refused(source: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
     return capsys.readouterr().err
 
 
-def test_a_scanned_set_is_refused_by_name_never_stored_as_blank_sheets(
+def test_a_page_of_pictures_among_drawn_pages_is_read_and_a_file_of_them_is_refused(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """F-RCC6-BNBC's scanned seed: 27 pages, each one image and nothing drawn. Stored, it would be 27
-    cards that look read and say nothing; it is refused, naming what it is and which lane reads it."""
-    said = _refused(BNBC_SCAN, tmp_path, capsys)
-    assert f"{report.PDF_RASTER_ONLY}: 27 page(s) holding 27 image(s) and no path or text" in said
-    assert "R-TO-003" in said
-    # The images are still named on the way out: a refusal never hides what the run met.
-    assert f"{report.NOTE_PREFIX}{report.EMBEDDED_IMAGE}: 27 embedded image(s)" in said
-
-
-def test_a_page_of_pictures_among_drawn_pages_is_read_and_a_file_of_them_is_refused(tmp_path: Path) -> None:
     """The judgement is the whole file's: one drawn page makes it a vector set, whose picture pages
-    are sheets that name their unread images; a file whose every page is a picture is a scan."""
+    are sheets that name their unread images; a file whose every page is a picture the raster lane
+    takes for no scan (a 4-pixel ramp, I-585) is refused. A scanned set the lane DOES take is
+    traced, not refused (`cad/tests/test_raster.py`)."""
     generator = _generator()
     picture = "q 595 0 0 420 0 0 cm /Im1 Do Q\n"
 
@@ -538,6 +553,10 @@ def test_a_page_of_pictures_among_drawn_pages_is_read_and_a_file_of_them_is_refu
         ingest_pdf(scan)
     assert refused.value.code == report.PDF_RASTER_ONLY
     assert str(refused.value).startswith("PDF_RASTER_ONLY: 2 page(s) holding 1 image(s)")
+    # At the CLI the same file ends refused, naming the pictures it met on the way out.
+    said = _refused(scan, tmp_path, capsys)
+    assert f"{report.PDF_RASTER_ONLY}: 2 page(s) holding 1 image(s) and no path, text or traced line" in said
+    assert f"{report.NOTE_PREFIX}{report.EMBEDDED_IMAGE}: 1 embedded image(s)" in said
 
 
 def test_a_pdf_with_nothing_drawn_is_refused_by_name(tmp_path: Path) -> None:

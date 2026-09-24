@@ -139,6 +139,15 @@ SHADING_NOT_TAKEN: Final = "SHADING_NOT_TAKEN"
 #: taken at its anchor and height with an empty string, and named, since its words were not read.
 TEXT_NOT_DECODED: Final = "TEXT_NOT_DECODED"
 
+#: A scan was traced by the pinned vectoriser (R-TO-003): a raster file, or an image on a PDF page
+#: judged a scan (I-585). Every line it minted is a RASTER_TRACE key and INTERPRETED wherever it is
+#: measured; the detail names each raster's page, its lines, the deskew it was turned by and its DPI.
+RASTER_TRACED: Final = "RASTER_TRACED"
+
+#: A traced raster whose file states no resolution: its DPI is unknown, its page space is its pixels,
+#: and its card says so rather than print a DPI guessed from its proportions (I-584).
+RASTER_DPI_UNSTATED: Final = "RASTER_DPI_UNSTATED"
+
 #: Every note code, closed and sorted — the table a test reads rather than a list it re-spells.
 NOTE_CODES: Final[tuple[str, ...]] = tuple(
     sorted(
@@ -156,6 +165,8 @@ NOTE_CODES: Final[tuple[str, ...]] = tuple(
             OBJECTS_COLLAPSED,
             OLE2FRAME,
             PROXY_ENTITY,
+            RASTER_DPI_UNSTATED,
+            RASTER_TRACED,
             READER_WARNED,
             REJOINED_WRAPPED_TEXT,
             RESYNCED_TAG_STREAM,
@@ -194,15 +205,23 @@ PDF_UNREADABLE: Final = "PDF_UNREADABLE"
 #: world, or a page pdfium could not load.
 PDF_UNEXTRACTABLE: Final = "PDF_UNEXTRACTABLE"
 
-#: A PDF none of whose pages draws a path or a text, and at least one of which holds an image — a
-#: scanned set. The vector lane reads no pixel, so nothing on it is this lane's to take: it waits on
-#: the raster lane (R-TO-003), and is refused by name rather than stored as sheets that look read and
-#: say nothing (I-521). The detail counts the pages and the images.
+#: A PDF none of whose pages draws a path, a text or a traced line, and at least one of which holds
+#: an image — pictures the raster lane does not take as scans (I-585) or traced to nothing. It is
+#: refused by name rather than stored as sheets that look read and say nothing (I-521). The detail
+#: counts the pages and the images.
 PDF_RASTER_ONLY: Final = "PDF_RASTER_ONLY"
 
 #: A PDF whose pages carry no path, no text and no image at all — nothing drawn to take, and no sheet
 #: to show for it (I-521).
 PDF_NO_DRAWING: Final = "PDF_NO_DRAWING"
+
+#: The bytes are not an image OpenCV can decode — a damaged PNG, a truncated JPEG, a TIFF in a
+#: compression the pinned build does not carry. The detail names the file (L-CAD-04).
+RASTER_UNREADABLE: Final = "RASTER_UNREADABLE"
+
+#: A raster file that decoded and yielded no traced line at least the pinned minimum long — a blank
+#: page, or a photograph of nothing drawn: no geometry, so no sheet to show for it.
+RASTER_NO_LINE: Final = "RASTER_NO_LINE"
 
 #: Every refusal code, closed and sorted.
 REFUSAL_CODES: Final[tuple[str, ...]] = tuple(
@@ -215,6 +234,8 @@ REFUSAL_CODES: Final[tuple[str, ...]] = tuple(
             PDF_RASTER_ONLY,
             PDF_UNEXTRACTABLE,
             PDF_UNREADABLE,
+            RASTER_NO_LINE,
+            RASTER_UNREADABLE,
             SOURCE_NOT_READABLE,
         )
     )

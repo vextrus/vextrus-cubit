@@ -19,6 +19,34 @@ from .parameters import (
 
 Point = tuple[float, float]
 
+#: An affine transform as PDF spells one: x' = a·x + c·y + e, y' = b·x + d·y + f — the page frame
+#: of the PDF lane and the pixel-to-page map of the raster lane alike.
+Matrix = tuple[float, float, float, float, float, float]
+IDENTITY: Matrix = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+
+
+def compose(outer: Matrix, inner: Matrix) -> Matrix:
+    """`outer ∘ inner`: apply `inner` first, then `outer`."""
+    a, b, c, d, e, f = outer
+    p, q, r, s, t, u = inner
+    return (a * p + c * q, b * p + d * q, a * r + c * s, b * r + d * s, a * t + c * u + e, b * t + d * u + f)
+
+
+def apply(matrix: Matrix, x: float, y: float) -> Point:
+    """Where `matrix` takes one point."""
+    a, b, c, d, e, f = matrix
+    return (a * x + c * y + e, b * x + d * y + f)
+
+
+def invert(matrix: Matrix) -> Matrix:
+    """The affine inverse of a non-degenerate `matrix`."""
+    a, b, c, d, e, f = matrix
+    det = a * d - b * c
+    if det == 0.0 or not math.isfinite(det):
+        raise ValueError(f"a degenerate transform {matrix!r} has no inverse")
+    ia, ib, ic, id_ = d / det, -b / det, -c / det, a / det
+    return (ia, ib, ic, id_, -(ia * e + ic * f), -(ib * e + id_ * f))
+
 #: Types whose flattening closes back on its start, so the repeated vertex is dropped.
 _CLOSING_EPSILON = 10.0**-COORDINATE_PRECISION
 

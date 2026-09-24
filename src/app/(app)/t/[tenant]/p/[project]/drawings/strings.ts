@@ -38,6 +38,11 @@ export const drawings = {
   drawings_scheme_dxf_handle: "CAD vector",
   drawings_scheme_pdf_object: "PDF vector",
   drawings_scheme_raster_trace: "Traced raster",
+  // I-584: a traced sheet's scan, on its card — its DPI (or that the file stated none) and the
+  // turn that squared it.
+  drawings_scan_line: "Traced from a scan at {dpi}, deskewed {deskew}°",
+  drawings_scan_dpi: "{value} DPI",
+  drawings_scan_dpi_unstated: "a DPI the file does not state",
   drawings_basis_grammar: "Read from the title block",
   drawings_basis_none: "No title-block text to read",
   drawings_basis_confirmed: "Confirmed",
