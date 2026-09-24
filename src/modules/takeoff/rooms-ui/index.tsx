@@ -136,8 +136,11 @@ export function RoomsPanel(props: RoomsPanelProps) {
     if (view.state === "EMPTY") return <p className="cx-rooms-note">{ROOMS_COPY.rooms_empty}</p>;
     return view.plans.map((plan) => <PlanSection key={plan.viewKey} plan={plan} props={props} />);
   };
+  // The panel is capped and scrolls on its own (rooms.css), and a scrolled region must be
+  // keyboard-reachable (axe `scrollable-region-focusable`, R-UI-012): it takes focus itself, and the
+  // reticle draws where focus lands.
   return (
-    <section className="cx-rooms" data-testid={testIds.panel} data-state={phase} aria-labelledby="cx-rooms-heading">
+    <section className="cx-rooms cx-reticle cx-reticle-scroll" data-testid={testIds.panel} data-state={phase} aria-labelledby="cx-rooms-heading" tabIndex={0}>
       <h2 className="cx-rooms-heading" id="cx-rooms-heading">
         {ROOMS_COPY.rooms_heading}
       </h2>
