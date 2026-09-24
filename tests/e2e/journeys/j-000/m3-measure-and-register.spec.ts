@@ -80,7 +80,7 @@ import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../../viewer/s-viewer.pag
 import { checkpoint } from "../../support/checkpoint";
 import { heldAttribute, steadyCount, steadyText } from "../../support/retrying-read";
 import { settled } from "../../support/settled";
-import { TESTIDS } from "../../../../src/ui/testids";
+import { TESTIDS, testIdSelector } from "../../../../src/ui/testids";
 import { BNBC_NECK, BNBC_STOREYS, bnbcMeasured, releaseGoldenWorker } from "./golden-run";
 
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -387,6 +387,27 @@ selected=${column.join(",")}`);
     const unestablished = await steadyCount(coverage.measuring(NOT_ESTABLISHED), "the cells the campaign did not establish", { min: 0 });
     await attach(testInfo, "m3-coverage", `not-established cells=${unestablished}`);
     await expect(coverage.statement("MEASUREMENT"), "the measurement boundary prints in full").toBeVisible();
+    /* --- the whole building (COV-ALL, s-coverage I-479/b), moved here from the M2 leg, which walks F-RCC6:
+       F-RCC6-BNBC places columns,
+       beams, piles and pile caps, but its sheets also draw slabs and a stair. Each has its column,
+       its cells read Not measured, and the cell says why — the drawings show the class and nothing
+       placed a member of it — never that nothing explains it. --- */
+    for (const klass of ["slab", "stair"]) {
+      const declared = coverage.grid.locator(`${testIdSelector(TESTIDS.coverage.cell)}[data-class="${klass}"][data-measurement="${NOT_ESTABLISHED}"]`);
+      await expect(declared, `the ${klass} the drawings carry stands on the grid, not measured`).not.toHaveCount(0);
+      await coverage.select(declared.first());
+      await expect(coverage.inspectorCause, `the ${klass} cell's cause stays the law's fall-through`).toHaveAttribute("data-code", NOT_ESTABLISHED);
+      await expect(coverage.inspectorCause, `and it names its reason: the drawings show the ${klass}, and no member of it was placed`).toHaveAttribute(
+        "data-reason",
+        "COVERAGE_CLASS_NOT_PLACED",
+      );
+      await expect(coverage.inspectorRemedy, "with a remedy and a door to the sheet that shows it").not.toBeEmpty();
+    }
+    await expect(coverage.root, "no face of the screen says that nothing explains an absence").not.toContainText(/nothing explains/iu);
+    await expect(
+      coverage.statementRows("MEASUREMENT").and(coverage.preview.locator('[data-class="slab"][data-reason="COVERAGE_CLASS_NOT_PLACED"]')),
+      "and the slab stands in the measurement boundary under its reason",
+    ).not.toHaveCount(0);
     await settled(page);
     await checkpoint(page, testInfo, "j-000/bnbc-coverage");
   });

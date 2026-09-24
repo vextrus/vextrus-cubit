@@ -22,6 +22,7 @@ afterEach(() => {
 /** The words the composed header draws, and the words its column states for it. */
 const COMPOSED = { id: "qty", said: "Quantity" } as const;
 const PLAIN = { id: "item", said: "Item" } as const;
+const TAIL = { id: "tail", said: "Tail" } as const;
 
 function columns(label: string | undefined): DataTableColumnDef<Line>[] {
   return [
@@ -34,6 +35,9 @@ function columns(label: string | undefined): DataTableColumnDef<Line>[] {
       size: 96,
       meta: { filterable: true, ...(label === undefined ? {} : { label }) },
     },
+    // A trailing column, so the composed one is not the row's last: the last column carries no resize
+    // handle (a grid ends at its last column, and the Columns tool stands over that edge).
+    { id: TAIL.id, header: TAIL.said, accessorFn: () => "", size: 64 },
   ];
 }
 
@@ -65,5 +69,13 @@ describe("I-472: a composed header is named by the words its column states", () 
     expect(await drawerLabel(PLAIN.id), "a string header needs no label").toBe(PLAIN.said);
     const composed = byTestId(document.body, `datatable-column-toggle-${COMPOSED.id}`);
     expect(textOf(composed?.closest("label")), "without a label the id is what is left — the fallback, not the rule").toBe(COMPOSED.id);
+  });
+});
+
+describe("the last column carries no resize handle", () => {
+  test("its right edge is the grid's own, where the Columns tool stands (SC 2.5.8)", () => {
+    mount(table(undefined));
+    expect(byTestId(document.body, `datatable-resize-${COMPOSED.id}`), "an inner column is resized from its edge").not.toBeNull();
+    expect(byTestId(document.body, `datatable-resize-${TAIL.id}`), "the last column offers no handle beneath the Columns tool").toBeNull();
   });
 });

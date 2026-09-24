@@ -838,7 +838,7 @@ export function DataTable<TRow extends RowData>({
             {headerGroups.map((group_, groupIndex) => (
               <div key={group_.id} className="cx-table-row" role="row" aria-rowindex={groupIndex + 1}>
                 {group_.headers.map((header, index) => (
-                  <HeaderCell key={header.id} header={header} colIndex={index + 1} />
+                  <HeaderCell key={header.id} header={header} colIndex={index + 1} last={index === group_.headers.length - 1} />
                 ))}
               </div>
             ))}
@@ -1066,9 +1066,11 @@ const ariaSortOf = (direction: false | "asc" | "desc"): "ascending" | "descendin
 interface HeaderCellProps<TRow extends RowData> {
   header: Header<DataTableFeatures, TRow, unknown>;
   colIndex: number;
+  /** Whether this is the row's last column: the grid ends at its right edge, where the Columns tool stands. */
+  last: boolean;
 }
 
-function HeaderCell<TRow extends RowData>({ header, colIndex }: HeaderCellProps<TRow>) {
+function HeaderCell<TRow extends RowData>({ header, colIndex, last }: HeaderCellProps<TRow>) {
   const { column } = header;
   const meta = metaOf(column);
   const sortable = column.getCanSort();
@@ -1114,7 +1116,10 @@ function HeaderCell<TRow extends RowData>({ header, colIndex }: HeaderCellProps<
       {/* A CONTROL WELL is not resized: its width is the one control's, it carries no text to widen
           for, and a 24 px handle laid over a cell that IS a control is a second target on top of the
           first — which is the `target-size` violation the well exists to close (SC 2.5.8). */}
-      {column.getCanResize() && !metaOf(column).control ? (
+      {/* Nor is the LAST column: a grid ends at its last column (I-523, I-525), so its right edge is the grid's
+          own, the Columns tool stands over it, and a handle there is a second 24 px target crowded by
+          the first (SC 2.5.8, the target-size violation J-003 and J-021 met in session 8). */}
+      {column.getCanResize() && !metaOf(column).control && !last ? (
         <button
           type="button"
           className="cx-table-resize cx-reticle"

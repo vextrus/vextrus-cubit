@@ -86,6 +86,9 @@ I-1 (geometry constants in px) and I-2 (no `transparent` keyword) remain in forc
   and a right-aligned header's at least two of them wide, so what stands clear of the resize handle
   is a 24 px target on its own. A column whose right edge stands under the `⋯` loses its resize
   target to it; a screen that fills the band to its edge keeps the `⋯`'s width clear (s-bbs).
+  *Amended session 8:* the primitive draws no resize handle on a row's LAST column — a grid that ends
+  at its last column (I-523, I-525) has that edge under the `⋯`, and a handle there is a second 24 px
+  target crowded by the first (axe target-size, met on J-003's participants and J-021's palette).
   (d) `group.format.figure` is handed the sum's unit as its second argument, so a screen that
   states each unit at its own places writes its group sums as it writes its footer — J-000 read
   the register's `20.7950000 m3` through the frame's provider alone.

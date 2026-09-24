@@ -148,7 +148,7 @@ test.describe("J-033 — the unpriced draft BOQ, by section", () => {
       for (const groupRow of groupRows) {
         // A group row names the trade and states NO figure: a group may hold several descriptions,
         // and no quantity subtotal crosses descriptions (I-529).
-        const figures = await steadyCount(boq.groupSubtotals(groupRow).locator("[data-unit]"), "a figure on the group row");
+        const figures = await steadyCount(boq.groupSubtotals(groupRow).locator("[data-unit]"), "a figure on the group row", { min: 0 });
         expect(figures, `no group row of ${bill} states a figure of its own`).toBe(0);
       }
 

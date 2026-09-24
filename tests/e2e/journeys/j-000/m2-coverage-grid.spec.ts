@@ -13,7 +13,6 @@ import { STakeoffPage } from "../../pages/s-takeoff.page";
 import { checkpoint } from "../../support/checkpoint";
 import { settled } from "../../support/settled";
 import { measuredRun, releaseGoldenWorker } from "./golden-run";
-import { TESTIDS, testIdSelector } from "../../../../src/ui/testids";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -42,30 +41,14 @@ test.describe.serial("J-000 — Golden Path: what the campaign did and did not e
     await expect(coverage.measuring(NOT_ESTABLISHED), "and what the rails did not establish is stated as such — never blank (L-QTY-05)").not.toHaveCount(0);
     await expect(coverage.legend, "the legend beneath names every mark the grid draws (R-UI-060)").toBeVisible();
 
-    /* --- the whole building (COV-ALL, s-coverage I-479/b): F-RCC6-BNBC places columns,
-       beams, piles and pile caps, but its sheets also draw slabs and a stair. Each has its column,
-       its cells read Not measured, and the cell says why — the drawings show the class and nothing
-       placed a member of it — never that nothing explains it. --- */
-    for (const klass of ["slab", "stair"]) {
-      const declared = coverage.grid.locator(`${testIdSelector(TESTIDS.coverage.cell)}[data-class="${klass}"][data-measurement="${NOT_ESTABLISHED}"]`);
-      await expect(declared, `the ${klass} the drawings carry stands on the grid, not measured`).not.toHaveCount(0);
-      await coverage.select(declared.first());
-      await expect(coverage.inspectorCause, `the ${klass} cell's cause stays the law's fall-through`).toHaveAttribute("data-code", NOT_ESTABLISHED);
-      await expect(coverage.inspectorCause, `and it names its reason: the drawings show the ${klass}, and no member of it was placed`).toHaveAttribute(
-        "data-reason",
-        "COVERAGE_CLASS_NOT_PLACED",
-      );
-      await expect(coverage.inspectorRemedy, "with a remedy and a door to the sheet that shows it").not.toBeEmpty();
-    }
+    /* --- the whole building (COV-ALL, s-coverage I-479): F-RCC6 places every class its captions
+       declare (beam, column, footing, pile cap, tie beam), so the declared-but-unplaced cells are walked on
+       F-RCC6-BNBC's slabs and stair, in m3-measure-and-register. What holds on every project: --- */
     await expect(coverage.root, "no face of the screen says that nothing explains an absence").not.toContainText(/nothing explains/iu);
 
     /* --- the certificate preview: the boundaries in sentences, enumerations never counts (L-QTY-07, AM-05) --- */
     await expect(coverage.statement("MEASUREMENT"), "the measurement boundary prints in full").toBeVisible();
     await expect(coverage.statement("BILL"), "and the bill boundary beside it").toBeVisible();
-    await expect(
-      coverage.statementRows("MEASUREMENT").and(coverage.preview.locator('[data-class="slab"][data-reason="COVERAGE_CLASS_NOT_PLACED"]')),
-      "and the slab stands in the measurement boundary under its reason",
-    ).not.toHaveCount(0);
 
     await settled(page);
     await checkpoint(page, testInfo, "j-000/coverage-grid");
