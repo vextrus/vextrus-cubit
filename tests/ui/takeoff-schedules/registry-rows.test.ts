@@ -472,3 +472,40 @@ describe("I-sch-1(b) as amended: the sheet's name gives way last, and what it ho
     expect(declaredValue(SHEET, ".cx-schedules-sheet-holds", "text-align"), "and stand at the row's end").toBe("end");
   });
 });
+
+describe("I-551: the page opens on the first sheet holding a schedule, its cells as the drawing shows them", () => {
+  /** A notes sheet first in the rail, then S-11 holding a column schedule whose cell writes `%%C`. */
+  function aRailOfSheets(): SchedulesView {
+    const notes: SheetView = {
+      drawingId: DRAWING,
+      layoutName: "S-01 GENERAL NOTES (1 OF 2)",
+      kind: "paper",
+      schedules: [],
+      deferrals: [],
+      families: [],
+      notes: { proposals: [], readings: [], standings: [] },
+    };
+    const band = (rowIndex: number, text: string) => ({ rowIndex, cells: [{ columnIndex: 0, text, sourceKeys: [`DXF_HANDLE:${String(rowIndex)}`] }] });
+    const s11: SheetView = {
+      ...notes,
+      layoutName: "S-11 COLUMN SCHEDULE",
+      schedules: [{ scheduleKey: "DXF_HANDLE:9C6", viewKey: "SCHEDULE:DXF_HANDLE:9C6", title: "COLUMN SCHEDULE", header: band(0, "MARK"), rows: [band(1, "8-16%%C")] }],
+    };
+    return { projectId: PROJECT, setRevisionId: REVISION, sheets: [notes, s11] };
+  }
+
+  test("the rail's first sheet holds only notes, so the page stands on S-11 and shows its column schedule", () => {
+    const root = mount(aRailOfSheets());
+    const current = all(root, TESTIDS.schedules.sheetRow).filter((row) => row.getAttribute("aria-current") === "true");
+    expect(
+      current.map((row) => row.getAttribute("data-layout")),
+      "the sheet a reader came for is the one chosen",
+    ).toEqual(["S-11 COLUMN SCHEDULE"]);
+    expect(all(root, TESTIDS.schedules.table).map((table) => table.getAttribute("data-schedule"))).toEqual(["DXF_HANDLE:9C6"]);
+    const cells = all(root, TESTIDS.schedules.cell).filter((one) => one.getAttribute("data-row") === "1");
+    expect(
+      cells.map((one) => said(one)),
+      "the diameter sign drawn as Ø, never the DXF's %%C (I-sch-1(a))",
+    ).toEqual(["8-16Ø"]);
+  });
+});

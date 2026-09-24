@@ -839,6 +839,42 @@ byte-identical too).
   the ground up (`GF`, `1ST TO 6TH`) as a column family's are (I-353(a); `familiesViewOf`): two `D2`
   rows would read as two door types and stood two families under one key. Grouping only — every
   variant is the store's; neither structural fixture names a mark twice, so their panes do not move.
+- **I-550 — a schedule stands on the sheet that shows it (session 9, C6b; L-CAD-05, L-CAD-06,
+  I-248, R-UI-022).** Walk-0 and walk-1 found the screen opening on **Model space** with all seven of
+  F-RCC6-BNBC's schedules stacked there, ROOF BEAM SCHEDULE first, while the row a QS clicks for the
+  column schedule — S-11 COLUMN SCHEDULE — said only that its notes read no figure. A schedule is cut
+  out of model space (L-CAD-06), but a reader reads it on the sheet that prints it. Each stored table
+  now stands on the sheet its TITLE stands on where that is a paper sheet, else on the sheet the
+  caption its view was anchored on stands on, else on model space where it was drawn — and "which
+  sheet a key stands on" is core's one reading (`sheetOfKey`, `src/core/sheets/frames.ts`): a key drawn
+  on paper stands on its paper, a key drawn in model space on the ONE sheet whose windows frame it
+  (VD-1). A deferral stands where its view does; a mark family with the table that named it; a
+  long-section strip family (I-343) on the sheet its strip's title stands on. The reading is taken over
+  the record the schedules were read on (`sheetsOfReading`, `src/modules/takeoff/schedules-ui/attach.ts`).
+  On BNBC that is seven schedules on six sheets — S-05 PILE, S-06 PILE CAP, S-11 COLUMN, S-18 the two
+  ROOF BEAM, S-25 LINTEL & SUNSHADE (deferred), S-26 the sample BAR BENDING (deferred) — and none on
+  model space; the families stand on S-05, S-06, S-11, S-16, S-17 and S-18. A cell's trace now opens
+  the sheet the table stands on, where the viewer selects the model entities that sheet's window
+  frames (viewer I-290). **I-248's rail rule is read by what the screen can show**: a sheet is a row
+  where it holds a schedule, a deferral, a mark family, a figure its words propose or a committed
+  reading. A title block is words, but none of them is anything this screen reads, so the 28 rows
+  that listed every layout of BNBC are twelve: S-01, S-02, S-03 (notes), S-05, S-06, S-11, S-16, S-17,
+  S-18, S-25, S-26 and model space (its own words propose four figures). Rejected: moving the store's
+  rows onto paper layouts (L-CAD-06 cuts views out of model space, and the store is the partition's);
+  a text-on-paper reading of captions (it misses every schedule captioned in model space, which is
+  five of BNBC's seven).
+- **I-551 — the order a QS reads in: paper by number, model space last, a sheet's schedules
+  foundation-first, and the page opens on the first schedule (session 9, C6b; I-248).** The rail keeps
+  the record's own order for its paper sheets — the order the set numbers them — and puts model space
+  after them: it is the draughtsman's workspace, no sheet a reader opens, and the row a reader should
+  come to last. On one sheet the schedules stack in the order a quantity surveyor takes a structure
+  off: the foundations from the bottom up (pile, pile cap, footing, grade beam), then columns and
+  walls, then beams, slabs, stairs, lintels, masonry, openings and surfaces, by the first class the
+  title names (`classesDeclaredBy`, `src/core/residue/declared.ts` — the one closed word table); two of
+  one class keep the store's order, and a title naming no class stands last. Until a reader chooses a
+  row, the page stands on the first sheet holding a schedule — what a reader came to this screen for —
+  and on the rail's first row where no sheet holds one. Presentation only: no stored row, key or
+  figure moves.
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -901,7 +937,7 @@ sideways (§7 C10).
 |---|---|---|---|---|
 | tabs row (frame's track) | `takeoff-nav-register` · `-coverage` · `-levels` · `takeoff-nav-schedules` (`aria-current="page"` here). No aside: this screen's one primary lives in the notes panel | 100 % × `--toolbar-h` 32 | `--ink-secondary`, `--ink`, `--line-accent`, `--surface-panel` | — |
 | answer slot | one RefusalState from a refused door; the offline banner above it | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--radius-4`, `--hairline` | absent (no box) |
-| sheet rail (`schedules-sheets`) | one `schedules-sheet-row[data-drawing][data-layout]` per sheet of the pinned revision holding a schedule, a deferral or a note text: sheet name in 13 px (min `6ch`, ellipsis) — the model space said **Model space** through `EnumLabel`, its layout name on `data-layout` and the tooltip (I-353) — and what it holds as muted words that yield first (the name `flex: 0 1 auto`, the holdings `flex: 1 1 0`, end-aligned, I-sch-1(b) as amended); the drawing `IdChip` once beside the heading where every sheet is one drawing's, else on each row (I-sch-1) | `flex: 0 0 var(--drawer-w)` 200 (min 160, max 320); rows `--row-h` 28 | `--surface-panel`, `--hairline`, `--ink-muted`, `--text-caption`, `--surface-selected` | the rail is absent only in `empty`; otherwise it always has a row |
+| sheet rail (`schedules-sheets`) | one `schedules-sheet-row[data-drawing][data-layout]` per sheet of the pinned revision holding a schedule, a deferral, a mark family, a proposed figure or a reading — each schedule on the sheet that shows it, paper sheets in the record's order and model space last, the first sheet holding a schedule chosen until a reader chooses (I-550, I-551): sheet name in 13 px (min `6ch`, ellipsis) — the model space said **Model space** through `EnumLabel`, its layout name on `data-layout` and the tooltip (I-353) — and what it holds as muted words that yield first (the name `flex: 0 1 auto`, the holdings `flex: 1 1 0`, end-aligned, I-sch-1(b) as amended); the drawing `IdChip` once beside the heading where every sheet is one drawing's, else on each row (I-sch-1) | `flex: 0 0 var(--drawer-w)` 200 (min 160, max 320); rows `--row-h` 28 | `--surface-panel`, `--hairline`, `--ink-muted`, `--text-caption`, `--surface-selected` | the rail is absent only in `empty`; otherwise it always has a row |
 | schedules region (primary) | the one scrolling frame `schedules-grid[data-rows-rendered]` (I-288), holding `schedules-table[data-schedule][data-rows-rendered]`, one per stored schedule, stacked with `--gap-section`; each a DataTable v2 titled by its stored title. Or `schedules-deferral`. Beneath the tables and deferrals, one `schedules-quantity-check[data-family][data-variant][data-code]` per opening row whose printed quantity is declared: its mark and printed cell in mono, then the one RefusalState (I-510). Or `schedules-notes` on a notes-only sheet | `flex: 1 1 auto`, min 320; ≥ 55 % of main; rows `--row-h` 28, header 28 sticky, first column frozen | `--surface-app`, `--surface-sunken` (header), `--ink-code`, `--font-mono`, `--cell-px/py`, `--basis-transcribed` through EvidenceLink | never silent: a deferral or `NOTES_NONE_PROPOSED` stands in its place |
 | registry pane (`schedules-registry`) | ONE grid of named tracks — Mark, Band, Section, one per rebar zone, then the rest — headed once by `schedules_registry_mark` · `_band` · `_section` · `_zone` in a row pinned to the pane's top (I-353); `schedules-family[data-family]` a subgrid whose mark stands in the Mark track of its first row, `schedules-variant[data-variant]` one `--row-h` row each beside it, `schedules-zone[data-zone]` in its zone's own track; nothing wraps, a long cell ellipsises and the Section carries its Tooltip; all text as the drawing shows it (I-sch-1); a Band says its band face — the band as written, or its ends (`1ST`, `2ND TO 6TH`) with the sheet title it was read off in its Tooltip (I-436); an unbanded variant's Band `—`; zones through `EnumLabel` on the mono text's baseline; marks in natural order, bands from the ground up (I-353); no count (I-251) | `flex: 0 0 240` (200 below `lg`); collapses to 28 with the inspector (I-249); scrolls alone | `--surface-panel`, `--surface-sunken`, `--hairline`, `--ink`, `--ink-secondary`, `--ink-muted`, `--font-mono` | the pane stands and states `schedules_registry_none` |
 | notes panel (`schedules-notes`) | the three sections of I-253 and the one `schedules-transcribe`. A proposal row carries `data-proposed-by`; a model's (I-296) leads with `schedules_proposal_proposed_by_model` and a row a model judged the lap's standing on trails with `schedules_proposal_lap_governs` and its probability in mono | inside the schedules region; sections separated by `--gap-section`; rows `--row-h` 28, a model's caption and the governs line `--text-caption` inside the same row | `--surface-app`, `--hairline`, `--ink-code`, `--ink-muted` (`cx-schedules-proposed-by`, `cx-schedules-governs`), `--warn-surface` through RefusalState | one RefusalState, `NOTES_NONE_PROPOSED`, and no act door |
@@ -1138,7 +1174,9 @@ build if the module's `copy.ts` and `src/ui/strings/schedules.ts` ever differ),
 band readings), `tests/ui/takeoff-schedules/band-face.test.ts` (I-436, over the band texts the
 registry stores and the readers that banded them) and `tests/ui/takeoff-schedules/registry-rows.test.ts`
 (I-353(b)(c), I-436/b and I-sch-1(b) as amended: the shipped workspace mounted, the sheet's registry
-and rail rules read, the rail row's flex rule resolved over widths). Journey: `tests/e2e/schedules.spec.ts` (describe title carrying `J-032`) over
+and rail rules read, the rail row's flex rule resolved over widths; I-551: the page opens on the first
+schedule sheet), `tests/ui/takeoff-schedules/sheet-attach.test.ts` (I-550/b over F-RCC6-BNBC read by the
+shipped CLI and the partition's pure stages: seven schedules on six sheets, the twelve-row rail, the QS stack). Journey: `tests/e2e/schedules.spec.ts` (describe title carrying `J-032`) over
 `tests/e2e/takeoff/schedules-stage.ts`, page object `tests/e2e/pages/s-schedules.page.ts`;
 checkpoints `s-schedules/tables` and `s-schedules/transcribed`, axe serious/critical = 0 at each,
 baselines `tests/e2e/baselines/design-dark/s-schedules/{tables,tables-light,transcribed}.png`,

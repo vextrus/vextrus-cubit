@@ -438,8 +438,12 @@ export function SchedulesWorkspace({ view, projectId, permitted, offline, state,
     const drawings = new Set(sheets.map((held) => held.drawingId));
     return drawings.size === 1 ? ([...drawings][0] ?? null) : null;
   }, [sheets]);
-  /** The sheet the rail has selected — the first one until a reader chooses another (I-248). */
-  const sheet = useMemo(() => sheets.find((held) => sameSheet(sheetKey, held)) ?? sheets[0] ?? null, [sheetKey, sheets]);
+  /**
+   * The sheet the rail has selected — until a reader chooses another, the first sheet holding a
+   * schedule, which is what a reader came to this screen for; the rail's first sheet where none holds
+   * one (I-248, I-551).
+   */
+  const sheet = useMemo(() => sheets.find((held) => sameSheet(sheetKey, held)) ?? sheets.find((held) => held.schedules.length > 0) ?? sheets[0] ?? null, [sheetKey, sheets]);
 
   /**
    * What the schedules region publishes as its rendered contract (I-288, §7 C10): the bands the

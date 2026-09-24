@@ -173,6 +173,10 @@ test.describe("J-032 — schedules, the member-type registry and sheet notes", (
       await everyAttribute(schedules.sheetRows, "data-layout", "the sheets the rail lists"),
       `every row the rail drew is a sheet the store gives this screen something to show: ${JSON.stringify(staged.sheetsHolding)}`,
     ).toEqual(expect.arrayContaining(staged.sheetsHolding));
+    // Paper first and model space last, so the rail's first row is the notes sheet: the page still
+    // opens on the sheet holding the schedule, which is what a reader came to this screen for (I-551).
+    expect(await everyAttribute(schedules.sheetRows, "data-layout", "the rail's order"), "the paper sheet stands above model space").toEqual([staged.notesLayout, staged.scheduleLayout]);
+    await expect(scheduleSheet, "the page opens on the first sheet holding a schedule, not on the rail's first row").toHaveAttribute("aria-current", "true");
 
     /* --- the table, exactly as it was stored, with every cell an EvidenceLink (AC-7) --- */
     await scheduleSheet.click();

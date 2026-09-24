@@ -14,10 +14,13 @@ import { NOTE_KINDS, type NoteKind } from "@/core/notes/law";
 import { noteStanding } from "@/core/notes/standing";
 import type { NoteReadingRow } from "@/core/notes/store";
 import { clauseOffersOnDrawing, readingsOnDrawings, sheetLayoutsOf, type NoteClauseOfferWrite } from "@/modules/takeoff/notes";
-import { memberTypesOf, schedulesOf, type ScheduleCell, type StoredSchedule, type ViewsScope } from "@/modules/takeoff/partition";
-import { familiesViewOf } from "./family-view";
-import { MARK_ORDER } from "./order";
-import { MODEL_SPACE, type NotesView, type ProposalView, type ReadingView, type ScheduleTableView, type SchedulesView, type SheetView, type StandingView } from "./view";
+import { artifactAt } from "@/core/entitygraph/artifact";
+import { framesOfGraph, sheetsOfGraph, spacesOfGraph } from "@/core/sheets/frames";
+import { appStorage } from "@/core/storage/app";
+import { ingestRecords } from "@/modules/takeoff/ingest";
+import { memberTypesOf, schedulesOf, viewsOf, type ViewsScope } from "@/modules/takeoff/partition";
+import { sheetsOfReading, type RecordSheets } from "./attach";
+import type { NotesView, ProposalView, ReadingView, SchedulesView, SheetView, StandingView } from "./view";
 
 /** Which project's sheets are being read, in which workspace. */
 export type SchedulesViewScope = { readonly tenantId: string; readonly projectId: string };
@@ -66,81 +69,49 @@ async function pinnedRevisionOf(scope: SchedulesViewScope): Promise<PinnedRevisi
 }
 
 /**
- * The sheets of one drawing this screen has something to say about: a sheet holding a reconstructed
- * schedule, a schedule view that deferred, or a word that could be read as a figure (I-248). A sheet
- * holding none of those is not a row in the rail — there is nothing on it for this screen to render.
- *
- * Schedules, their deferrals and the member types they named all stand on the drawing's MODEL space,
- * because that is the only space L-CAD-06 cuts views out of. A paper sheet carries its own words and
- * nothing else.
+ * The sheets of one drawing this screen has something to say about, each holding what stands on it
+ * (I-248, I-550). The schedules, their deferrals and the member types they named are cut out of the
+ * drawing's MODEL space (L-CAD-06), but each is shown on the sheet whose window or title shows it —
+ * which sheet that is, is core's one reading of the record the schedules were read on
+ * (`sheetsOfReading`, `./attach`). A paper sheet's notes are its own words.
  */
 async function sheetsOfDrawing(scope: SchedulesViewScope, drawingId: string, readings: readonly NoteReadingRow[]): Promise<SheetView[]> {
   const viewsScope: ViewsScope = { tenantId: scope.tenantId, projectId: scope.projectId, drawingId };
-  const [layouts, stored, types, offers] = await Promise.all([
+  const [layouts, stored, types, offers, views] = await Promise.all([
     sheetLayoutsOf(viewsScope),
     schedulesOf(viewsScope),
     memberTypesOf(viewsScope),
     clauseOffersOnDrawing({ tenantId: scope.tenantId, projectId: scope.projectId }, drawingId),
+    viewsOf(viewsScope),
   ]);
-  const modelSpace = layouts.find((layout) => layout.kind === MODEL_SPACE)?.layoutName ?? null;
-
-  const sheets: SheetView[] = [];
-  for (const layout of layouts) {
-    const onModel = layout.layoutName === modelSpace;
-    const schedules = onModel ? (stored?.schedules ?? []).map(tableOf) : [];
-    const deferrals = onModel ? (stored?.deferrals ?? []).map((deferral) => ({ viewKey: deferral.viewKey, reason: deferral.reason })) : [];
-    // Marks in the order a reader counts them — RB1, RB2 … RB10, never the string order that puts
-    // RB10 second (R-UI-084). The order is presentation; what each family says is the store's.
-    // One family per mark, however many schedules named it — an architect's door schedules name D2
-    // once per floor group (I-506) — its bands from the ground up (`familiesViewOf`).
-    const families = onModel ? familiesViewOf(types?.families ?? []).sort((left, right) => MARK_ORDER.compare(left.family, right.family)) : [];
-    if (schedules.length === 0 && deferrals.length === 0 && layout.texts.length === 0) continue;
-    sheets.push({
-      drawingId,
-      layoutName: layout.layoutName,
-      kind: layout.kind,
-      schedules,
-      deferrals,
-      families,
-      notes: notesOf(
+  return sheetsOfReading({
+    drawingId,
+    layouts,
+    stored,
+    families: types?.families ?? [],
+    anchors: new Map(views.map((view) => [view.viewKey, view.anchorKey])),
+    record: await recordSheetsOf(scope, drawingId, stored?.ingestId ?? types?.ingestId ?? null),
+    notesOf: (layout) =>
+      notesOf(
         layout.texts,
         readings.filter((reading) => reading.layoutName === layout.layoutName),
         offers.filter((offer) => offer.layoutName === layout.layoutName),
       ),
-    });
-  }
-  return sheets;
+  });
 }
 
 /**
- * One stored schedule as a table of bands (I-250). The rows are the store's own row indices in
- * ascending order and the cells the store's own column indices — the screen re-reconstructs nothing,
- * and a band the store holds no cell for is a band that was never read.
- *
- * The FIRST band the store holds is the schedule's header — L-CAD-08 anchors a reconstruction on the
- * title and reads the column names off the band beneath it — so it is handed over as the header and
- * the rest as the data. Which band that is, is still the store's answer and not a reading taken here.
+ * Where the keys of the record a drawing's schedules were read on stand: its sheets, where each entity
+ * was drawn and the windows its paper sheets open onto model space (L-CAD-05). The artifact is read
+ * through the one door, which answers once per content hash. Null where no schedule was read, or the
+ * record is no longer the drawing's — everything then stands where it was drawn.
  */
-function tableOf(stored: StoredSchedule): ScheduleTableView {
-  const bands = new Map<number, ScheduleCell[]>();
-  for (const cell of stored.cells) {
-    const held = bands.get(cell.rowIndex);
-    if (held === undefined) bands.set(cell.rowIndex, [cell]);
-    else held.push(cell);
-  }
-  const ordered = [...bands.entries()]
-    .sort(([left], [right]) => left - right)
-    .map(([rowIndex, cells]) => ({
-      rowIndex,
-      cells: [...cells].sort((left, right) => left.columnIndex - right.columnIndex).map((cell) => ({ columnIndex: cell.columnIndex, text: cell.text, sourceKeys: cell.sourceKeys })),
-    }));
-  return {
-    scheduleKey: stored.scheduleKey,
-    viewKey: stored.viewKey,
-    title: stored.title,
-    header: ordered[0],
-    rows: ordered.slice(1),
-  };
+async function recordSheetsOf(scope: SchedulesViewScope, drawingId: string, ingestId: string | null): Promise<RecordSheets | null> {
+  if (ingestId === null) return null;
+  const record = (await ingestRecords({ tenantId: scope.tenantId, drawingId })).find((held) => held.ingestId === ingestId);
+  if (record === undefined) return null;
+  const graph = await artifactAt(scope.tenantId, record.artifactSha256, appStorage(), `ingest ${record.ingestId}`);
+  return { sheets: sheetsOfGraph(graph), spaces: spacesOfGraph(graph), frames: framesOfGraph(graph) };
 }
 
 /**
