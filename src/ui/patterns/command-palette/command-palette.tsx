@@ -80,7 +80,7 @@ export function CommandPalette() {
             aria-autocomplete="list"
             aria-label={strings.command_palette_input_label}
             autoComplete="off"
-            placeholder={palette.withinProject ? strings.command_palette_placeholder_project : strings.command_palette_placeholder}
+            placeholder={strings.command_palette_placeholder}
             value={palette.query}
             onChange={(event) => palette.ask(event.target.value)}
             onKeyDown={onKeyDown}
