@@ -41,3 +41,14 @@ column lap — the N1-notes slice), B14 (schedules open on model space — C6b).
 affirmed on a fresh DWG is not the scale Measure reads (scale_affirmations.outgoing_keys {""};
 SCALE-2), and a no-change notes preview links to the participants screen (DLG-2). Also seen: no theme
 control in the shell (the walker set the `cx-theme` cookie). Console clean, 33/33 requests 200.
+
+## The owed law pass (s-measure §11) — refuter, session 9
+
+19 checked: CONFIRMED I-371, I-372, I-378, I-380, I-386, I-495, I-496, I-497, I-498, I-501, I-538;
+AMENDED I-370 (a reload lands in Pan), I-376 (the preview, not the tools, says it); REJECTED I-388 →
+**D-005 entered** (blinding traced by hand has no projection p; an under-measurement, never over).
+Refuted in code, the reading kept and OWED to MANUAL-LAW: I-499/I-500 (the server re-quantises an
+uncited coordinate — can grow a ring up to 0.05 drawing units per coordinate), I-387 (a RASTER_TRACE
+point judged MEASURED; latent), I-539 (the door takes any rule id). 16 rows stay OWED to slices not
+yet landed. Noted: 0066 minted pcc.blinding.area@1 before I-388's verdict; D-005 keeps the method
+(an under-measurement), so the edition stands.

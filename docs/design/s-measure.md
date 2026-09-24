@@ -24,7 +24,7 @@ S4 the armed tools and the gesture grammar · S5 the condition chest · S6 the c
 S7 the measurement book · S8 the legend's manual conditions (in VD-4's legend) · S9 the rest of the
 toolset · S10 assemblies · S11 J-041.
 
-This Decision defines I-370 … I-394, I-497 … I-501 and D-005 (session 8), and I-538 and I-539 (S2).
+This Decision defines I-370 … I-394, I-497 … I-501 (session 8), I-538 and I-539 (S2), and cites D-005 (entered session 9, `docs/decisions/deviations.md`).
 
 ---
 
@@ -159,7 +159,7 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
   keeps the viewer's route (`/t/{tenant}/p/{project}/viewer/{drawing}/{layout}`), its one
   `VIEWER_STATES` matrix (S-Measure's cells are written into it, §3) and its frame.
   - The armed tool is local state and never enters the address, like Snap's pressed state (I-148). A
-    reload or a shared link lands in Select, with nothing drawing.
+    reload or a shared link lands in Pan (the viewer's resting tool), with nothing drawing (amended on the refuter's pass, session 9).
   - The measurement book is the one new route (Takeoff › Measurements).
   - Rejected: a `/measure/…` route, which would be a second viewer with a second states matrix
     (B-17). Rejected: `?tool=` in the address, which would make a pasted link start drawing on the
@@ -354,7 +354,7 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
   walked", and "each quantity kind has exactly one authoritative discipline" (`KIND_DISCIPLINE`).
   - The product confirms discipline per sheet (`sheet_disciplines`, `confirm-discipline.ts`). A
     measurement on a sheet whose discipline is unconfirmed is refused
-    (`MANUAL_DISCIPLINE_UNCONFIRMED`). The tools say so before the first click (§3).
+    (`MANUAL_DISCIPLINE_UNCONFIRMED`). The card's preview says so before anything is recorded (I-497 moved the check there; amended on the refuter's pass, session 9).
   - A sheet the machine proposed no discipline for is confirmed by CONFIRM_DISCIPLINE's `SHEET`
     group, which needs no proposal (s-drawings I-84: "the single-sheet chooser offers every
     discipline"; `confirm-discipline.ts` reads it as "the person's judgement inside the closed
@@ -1930,49 +1930,42 @@ per-Interpretation verdict, so those rows stay OWED, and their objections below 
 
 | Token | Strongest objection | Answer this Decision rests on | Verdict | Blocks |
 |---|---|---|---|---|
-| I-370 | R-UI-080 names S-Measure beside S-Viewer as a screen of its own | "mode in the viewer" (bible:625); the Direction draws both on one template (§3.1) | OWED | S4 |
-| I-371 | I-145 kept plain click as selection "byte for byte" | only while a measure tool is armed; Select is unchanged | OWED | S4 |
-| I-372 | Shift in Bluebeam is 45°; ours differs | one angle grammar per product (I-148) | OWED | S4 |
+| I-370 | R-UI-080 names S-Measure beside S-Viewer as a screen of its own | "mode in the viewer" (bible:625); the Direction draws both on one template (§3.1) | AMENDED | S4 |
+| I-371 | I-145 kept plain click as selection "byte for byte" | only while a measure tool is armed; Select is unchanged | CONFIRMED | S4 |
+| I-372 | Shift in Bluebeam is 45°; ours differs | one angle grammar per product (I-148) | CONFIRMED | S4 |
 | I-373 | R-UI-021 says "opens a ConsequenceDialog", not a card | the card IS the dialog, anchored; the digest binds the figure | OWED | S1, S6 |
 | I-374 | authoring a condition changes future quantities, so it should be an act | it changes nothing the machine derives until a measurement (an act) cites it; the act snapshots it | OWED | S5 |
 | I-375 | L-CAD-06 forbids instances off non-plan views | it governs what the machine may instance; a human measurement is not machine instancing | OWED | S1, S11 |
-| I-376 | a solo QS may hold architectural scope on a structural sheet | KIND_DISCIPLINE is law (L-REG-03); measure on the authoritative sheet | OWED | S1 |
+| I-376 | a solo QS may hold architectural scope on a structural sheet | KIND_DISCIPLINE is law (L-REG-03); measure on the authoritative sheet | AMENDED | S1 |
 | I-377 | a level default is a machine choice presented as the QS's | it is the view's caption through the one resolver, shown and changeable; a change is ENTERED | OWED | S1, S6 |
-| I-378 | L-REG-02 says "no coordinates", and the mark hashes the ring's; also, a hash is a minted id in disguise | the ring stands in for a mark only inside one view of one revision, where L-REG-04 already keys placements by coordinates, and it is never paired across drawings (the re-pin carry is owed, I-394); the hash is a pure function of content and the act log and re-derives identically | OWED | S1 |
+| I-378 | L-REG-02 says "no coordinates", and the mark hashes the ring's; also, a hash is a minted id in disguise | the ring stands in for a mark only inside one view of one revision, where L-REG-04 already keys placements by coordinates, and it is never paired across drawings (the re-pin carry is owed, I-394); the hash is a pure function of content and the act log and re-derives identically | CONFIRMED | S1 |
 | I-379 | a new key per edit breaks L-REG-02's "attributes never in identity"; and (review) the residue still counts a repudiated object's lines, so a deleted hand measurement leaves its cell quantity-bearing while the bill holds nothing | attributes still never enter; the successor differs by its predecessor, and the predecessor is struck; the residue withholds what the bill withholds (S3, with a db test), and S7 offers no Delete or Edit until it does | OWED | S1, S3, S7 |
-| I-380 | (review) a guard on the quantised lattice passes two rings that overlap by less than one lattice step, while the figures bill the sliver from the exact points | the guard now reads the stored exact points, scaled to integers, with BigInt predicates; any positive shared area or collinear overlap is refused; the lattice keys only | OWED | S1 |
+| I-380 | (review) a guard on the quantised lattice passes two rings that overlap by less than one lattice step, while the figures bill the sliver from the exact points | the guard now reads the stored exact points, scaled to integers, with BigInt predicates; any positive shared area or collinear overlap is refused; the lattice keys only | CONFIRMED | S1 |
 | I-381 | refusing every other view blocks legitimate split measurement across sheets | it errs toward measuring less; the proof of disjointness is owed and named | OWED | S1, S3 |
 | I-382 | cell grain refuses a hand measurement where the machine published only PARTIAL | conservative by design; geometry grain is an IOU | OWED | S1, S3 |
 | I-383 | new NOT_ESTABLISHED cells will read as noise on the certificate | they are true, and L-QTY-05 is written that way; narrowing would need a Deviation | OWED | S3 |
 | I-384 | "a rail per kind" is broken by a manual arm | the arm is inside the kind's one rail, composed at one home | OWED | S3 |
 | I-385 | exact figures from float-sourced coordinates are false precision | the coordinate's own decimal spelling is the drawing's fact; the key alone quantises | OWED | S1, S3 |
-| I-386 | refusing where the factor ≠ the unit blocks every PDF sheet | yes, until the gate multiplies (L-MEA-05); publishing a wrong-size figure is worse | OWED | S1 |
-| I-387 | L-QTY-01 and R-TO-040 disagree on a free point on a scan; and a MEASURED claim rests on the client; and (review) one lattice step of reach let a metre drawing's corners, each pushed 70 mm outward, come back MEASURED at 102.8196 m² against 100 | weakest-wins makes it INTERPRETED under both; the door re-derives every snapped point from the cited entity and demotes what it cannot reproduce, within one micrometre of real length (never a lattice step), and stores the drawing's own point where the drawing determines one (I-385) | OWED | S1 |
-| I-388 | L-FRM-04 defers polygon blinding outright; and (review) S-08's drawn blinding rectangle bills blinding outside the slab at the chamfer | it defers projecting a polygon plan, and a traced outline projects nothing; a drawn blinding outline counts only where it follows its member, and where it does not, the member's own outline is traced (under by at most p) | OWED | OPEN-3 (the mint of S2's method) |
+| I-386 | refusing where the factor ≠ the unit blocks every PDF sheet | yes, until the gate multiplies (L-MEA-05); publishing a wrong-size figure is worse | CONFIRMED | S1 |
+| I-387 | L-QTY-01 and R-TO-040 disagree on a free point on a scan; and a MEASURED claim rests on the client; and (review) one lattice step of reach let a metre drawing's corners, each pushed 70 mm outward, come back MEASURED at 102.8196 m² against 100 | weakest-wins makes it INTERPRETED under both; the door re-derives every snapped point from the cited entity and demotes what it cannot reproduce, within one micrometre of real length (never a lattice step), and stores the drawing's own point where the drawing determines one (I-385) | OWED | MANUAL-LAW (session 9's refuter: the server's judgePoint answers MEASURED for a point citing a RASTER_TRACE key — latent while I-386 refuses every page not drawn full size) |
+| I-388 | L-FRM-04 defers polygon blinding outright; and (review) S-08's drawn blinding rectangle bills blinding outside the slab at the chamfer | it defers projecting a polygon plan, and a traced outline projects nothing; a drawn blinding outline counts only where it follows its member, and where it does not, the member's own outline is traced (under by at most p) | REJECTED | OPEN-3 (the mint of S2's method) |
 | I-389 | a derived deduction from another sheet is "undrawn" on this one; a traced cut-out treated as an opening under-deducts a small column; and (review) "26 columns" counts the porch column outside the ring, and "members at that level" names the wrong storey | it is drawn on S-10 and in the register, and the fail-closed arm covers what cannot be placed; a cut-out carries a role; members are the storey whose top is the slab's level, each clipped to the ring's net region (25 on BNBC, 17 of them straddling its edge) | OWED | S3, S4, S6 |
 | I-390 | a one-line disclosure is still a disclosure of possible under-coverage | under-coverage is the lawful direction; over is blocked by k, l, m, t | OWED | S6 |
 | I-391 | printing 4-decimal metres is unusual in a PWD book | it is what makes the printed arithmetic reproduce | OWED | S7 |
 | I-392 | F-SCAN may intend a pure scan | R-TO-003 names mixed pages; the text-less case is J-041's | OWED | M4P-5 |
 | I-393 | the item fails "no undrawn deduction"; and (review) the rectangle 824–827 over-measures by 0.79 m³, the yardstick's 5.957 m² was misread, Q(3) rested on a false premise, and the fallback's gate cell went unsaid | S-08 alone does fail it; only I-389 reaches the columns, and the leg waits for it; the ring is now 81D, the figures are re-read and tested against the fixture, Q(3) is answered by the drawing, the golden's two double deductions are R0 items, and the fallback is named a gate cell | OWED | S6 |
 | I-394 | leaving the carry out breaks L-REG-06 | the carry is owed and the re-pin must say so; nothing silently drops | OWED | re-pin |
-| I-496 | an append-only store makes a wrong measurement permanent; and (review) a recipe naming an unknown condition reached the store's key and answered with a fault, and a key on the id alone crossed workspaces | nothing is lost: an edit supersedes and strikes, a delete repudiates, and the bill withholds a struck object's lines (I-379, BOQ-1); what stays is the record of what a person did; the act refuses a condition the chest does not hold standing by name, and the key is `(tenant, project, condition)` | OWED | S1 |
-| I-495 | a move of the door every rebuild uses risks a behaviour change | the move is the same SQL in a new home, proved by the register breaker suites unchanged; the two re-homed writers keep their own semantics (no evidence for a re-stated range) | OWED | S1 |
-| I-497 | a tool that measures without recording invites a QS to believe a figure was taken; and it departs from I-374's pick-first | the cell says "Measured, not recorded" after every finish, and no card, act or line exists to mistake for one; pick-first governs wherever the chest can be picked from | OWED | S4, S5 |
-| I-498 | §2.3 says hatched "with a tool armed", whatever the views switch says | one hatch home (I-160); with the hatch switched off the refusal still stands in the cursor and in words | OWED | S4 |
-| I-499 | ruling the table's open cells in code is the grammar growing silently | each cell is written here, and each errs toward keeping the QS's work | OWED | S4 |
-| I-500 | a derived corner nothing was snapped to is a free point and belongs on the lattice | its coordinates are the clicked corners' own, exactly; its basis is asked of the drawing and demoted at the door if it does not reproduce | OWED | S4, S1 |
-| I-501 | a window's ratio applied to a factor read on paper states a figure 10⁴ over; picking "the" window by the frame misreads a shape across two | only machine ranks (read off model-space members) are carried through a window, a two-point is `unrecorded`; a shape must stand inside exactly one frame, and two, none or overlapping frames refuse by name | OWED | S4, S6 |
-| I-538 | L-MEA-08 has the gate partition candidates against thresholds, so a channel with none is no channel | L-MEA-08 also keeps sums out of offers, and L-MEA-09 states no threshold for members; a channel with no threshold is the only home that keeps both | OWED | OPEN-3 (the mint) |
-| I-539 | reusing a machine pair for a hand trace hides that a person measured it | the line's bases, sources and act say who measured it; the pair says only how it is computed, and one algebra has one pair (B-17) | OWED | OPEN-3 (the mint) |
+| I-496 | an append-only store makes a wrong measurement permanent; and (review) a recipe naming an unknown condition reached the store's key and answered with a fault, and a key on the id alone crossed workspaces | nothing is lost: an edit supersedes and strikes, a delete repudiates, and the bill withholds a struck object's lines (I-379, BOQ-1); what stays is the record of what a person did; the act refuses a condition the chest does not hold standing by name, and the key is `(tenant, project, condition)` | CONFIRMED | S1 |
+| I-495 | a move of the door every rebuild uses risks a behaviour change | the move is the same SQL in a new home, proved by the register breaker suites unchanged; the two re-homed writers keep their own semantics (no evidence for a re-stated range) | CONFIRMED | S1 |
+| I-497 | a tool that measures without recording invites a QS to believe a figure was taken; and it departs from I-374's pick-first | the cell says "Measured, not recorded" after every finish, and no card, act or line exists to mistake for one; pick-first governs wherever the chest can be picked from | CONFIRMED | S4, S5 |
+| I-498 | §2.3 says hatched "with a tool armed", whatever the views switch says | one hatch home (I-160); with the hatch switched off the refusal still stands in the cursor and in words | CONFIRMED | S4 |
+| I-499 | ruling the table's open cells in code is the grammar growing silently | each cell is written here, and each errs toward keeping the QS's work | OWED | MANUAL-LAW (session 9's refuter: the server re-snaps an uncited coordinate to the 0.1 grid, so a Shift/Ortho run is not stored square and can grow a ring) |
+| I-500 | a derived corner nothing was snapped to is a free point and belongs on the lattice | its coordinates are the clicked corners' own, exactly; its basis is asked of the drawing and demoted at the door if it does not reproduce | OWED | MANUAL-LAW (session 9's refuter: a derived ENTERED corner is quantised by the server's free(); up to 0.05 drawing units per coordinate) |
+| I-501 | a window's ratio applied to a factor read on paper states a figure 10⁴ over; picking "the" window by the frame misreads a shape across two | only machine ranks (read off model-space members) are carried through a window, a two-point is `unrecorded`; a shape must stand inside exactly one frame, and two, none or overlapping frames refuse by name | CONFIRMED | S4, S6 |
+| I-538 | L-MEA-08 has the gate partition candidates against thresholds, so a channel with none is no channel | L-MEA-08 also keeps sums out of offers, and L-MEA-09 states no threshold for members; a channel with no threshold is the only home that keeps both | CONFIRMED | OPEN-3 (the mint) |
+| I-539 | reusing a machine pair for a hand trace hides that a person measured it | the line's bases, sources and act say who measured it; the pair says only how it is computed, and one algebra has one pair (B-17) | OWED | MANUAL-LAW (session 9's refuter: the act never reads MANUAL_RULES — the door takes any rule id, so a 'not offered' pairing is recorded; and the footing row's 'whole' ignores p) |
 
-**D-005 (entered only if the refuter rejects I-388).** Clause: L-FRM-04, "Blinding (CC) count ×
-(L + 2p) × (B + 2p) × t; deferred for polygon plans". Evidence: the SOG on S-08 (POLYLINE 81D) is a
-pentagon with a 45° chamfer, which the formula's projected rectangle cannot express; and the drawn
-blinding rectangle beside it (824–827, note 828) does not follow that chamfer either, so it is not
-the ring (I-393). What the product does instead: a hand measurement of blinding is
-`count × (A_traced − Σ openings − Σ junctions) × t` over a traced outline (the member's own, or a
-drawn blinding outline that follows it), with no p. Cost: the blinding formula has two spellings
-(machine rectangle, hand outline), each named by its rule id.
+**D-005 — entered** (session 9: the refuter rejected I-388 — L-FRM-04 defers polygon plans outright and states `(L + 2p)(B + 2p)t` with no hand/machine split, so dropping p is a departure, not a reading). Its row and section are in `docs/decisions/deviations.md`.
 
 ## 12. Critic record
 

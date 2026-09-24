@@ -41,6 +41,7 @@ Each Deviation is one row in the table below, and a section beneath it when the 
 | D-001 | L-MEA-07: storey-height readings — "agreeing readings corroborate, disagreeing readings suspend … equality is on canonical metres" | T-NOT-LEVEL (traps.json, S-25 1D90): "levels in both notations resolve to one level stack"; S-25 states 1F as `1F EL +3.353` (1D4C) and `EL +11'-0"` (1D92), 3352.8 mm apart; model.json GF 3352.8; under equality GF would SUSPEND, and on the metric print alone GF column concrete is 16.828852 m³ against the golden's 16.828 — a hard block | A storey is read once PER NOTATION; two PRINTS (TRANSCRIBED, cited, value and unit as written) in DIFFERENT notations agree when the exact one, rounded half-even to the decimal print's written places, equals it; every pair must agree; the finest reading is carried and the rails bind it | A cross-notation disagreement smaller than the decimal print's half-unit is invisible; where the metric figure was the design, the imperial conversion is carried | the commit that adds this row (see §D-001) |
 | D-002 | AS-05: "Model ids used in production are `claude-opus-5` for reading/proposals and `claude-sonnet-5` for cheap classification" | All eight closed questions are answered only by TypeSafe Jev (the Claude path answers none: `propose` refuses a Messages content array MALFORMED, `src/core/model/proposal.ts:80-89`); all 240 prior fixtures were answered by `jev-1.13.0` yet billed under a Claude id at the tree's wrong Claude rates — 3.572892 USD against 0.01498665 at Jev's documented rate (docs.typesafe.ai/models, read 2026-09-23) | `MODEL_IDS` = claude-opus-5, claude-sonnet-5, **jev-latest**; one `JEV_MODEL` pinned UNCONDITIONALLY by the eight questions (the id is hashed into every request); rates 5/25, 2/10, 0.042/0 USD per MTok; 0057 re-closes the ledger's CHECK; the corpus re-recorded live with provider bodies | The Bible names two ids, the ledger holds three; every request hash moved (240 fixtures retired, 241 recorded); `jev-latest` moves when TypeSafe ships, so answers can change with no change here (the answering version is recorded per call) | the commit that adds this row (see §D-002) |
 | D-004 | The stack element's version pins (`cubit.bible.xml:285-308`; AM-08 PART 1): TypeScript "5.9.3 exact", pnpm "10.x", TanStack Table "8.x", Vitest "4.x" | TypeScript 7 (native) type-checks the tree in 2.3 s against 14.8 s; Next 16.3.1 carried three critical advisories fixed in 16.3.3 and 16.3.6; typescript-eslint refuses TypeScript ≥ 7 | The toolchain moves to its current stable majors, TypeScript 7 beside a TypeScript 6 API alias; pg-boss holds at 10.4.2 and Playwright at 1.62.1 | Two TypeScript compilers read the tree; a Bible reader finds older versions | 18b689ab, 70d67aa7 |
+| D-005 | L-FRM-04: "Blinding (CC) count × (L + 2p) × (B + 2p) × t; deferred for polygon plans" | S-08's slab on grade (POLYLINE 81D) is a pentagon with a 45° chamfer the projected rectangle cannot express, and the drawn blinding rectangle beside it (824–827) does not follow the chamfer; session 9's refuter rejected I-388's reading (s-measure §11): the clause defers polygon plans outright and names no hand/machine split | A hand measurement of blinding is `pcc.blinding.area@1` = `count × (A_traced − Σ openings − Σ junctions) × t` over a traced outline (the member's own, or a drawn outline that follows it), with no projection p | Blinding has two spellings, each its own rule id; a traced blinding is under the clause's figure by the projection strip (never over); the edition's `blindingProjection` is not applied to it | the commit that adds this row (see §D-005) |
 | D-006 | R-UI-040: "level-of-detail hides text below legibility" | Walk 0 (BLOCKS_DEMO): S-10 opened with no caption, no marks and an empty title block, where `drawing_render` letters them at the same size; measured on the true-size mipmapped glyphs, a capital is read from about 3 px (viewer.md I-463), and S-10's marks stand 2.6 px at fit | A drawing's own text is lettered down to a 2 px cap height (`LETTERED_TEXT_PX`), at its true size, and hidden only below that; nothing is drawn larger than the drawing states, and nothing is drawn as a bar | Text between 2 and 3 px is drawn and not readable; the lettering's fill at rest grows with it; every sheet's at-rest picture moves | the commit that adds this row (see §D-006) |
 
 ## D-001 — a storey stated in two notations is one storey (session 7, 2026-09-23)
@@ -179,6 +180,34 @@ versions than the tree runs; this row is the current law until the owner folds i
 
 **Proof.** The gate on the toolchain commit (every lane, quoted in the extension's handoff notes and in
 `node_modules/.cache/cubit/gate/summary.txt`); `tests/toolchain/cad-lane.test.ts` (six workers).
+
+## D-005 — blinding traced by hand is measured over the traced outline, with no projection (session 9, entered on the refuter's verdict)
+
+**Clause.** L-FRM-04 (`docs/specs/cubit.bible.xml:255`): "Blinding (CC) count × (L + 2p) × (B + 2p) × t;
+deferred for polygon plans".
+
+**Evidence.** S-Measure's I-388 read the clause's deferral as covering only the projection of a polygon,
+so that a traced outline "projects nothing". Session 9's refuter (s-measure §11) rejected that reading:
+the clause defers polygon plans outright, states the projection for every blinding, and makes no
+distinction between a machine rectangle and a hand trace. The method (`src/core/rulesets/methods/manual/
+traced-plate.ts`) drops p for every class; the one pairing S2 offers (a slab on grade) agrees with
+F-RCC6-BNBC's golden only because the golden's model sets p = 0 under a slab on grade and a ramp
+(`fixtures/gen/rcc6_bnbc/golden.py`), while the edition in force states `blindingProjection` = 3 in.
+The case that needs a hand measurement at all is a polygon: S-08's slab on grade (POLYLINE 81D) is a
+pentagon with a 45° chamfer, which the clause's projected rectangle cannot express, and the blinding
+rectangle drawn beside it (824–827, note 828) does not follow the chamfer, so it is not the ring (I-393).
+
+**What the product does instead.** A hand measurement of blinding is `pcc.blinding.area@1` =
+`count × (A_traced − Σ openings − Σ junctions) × t` over a traced outline — the member's own ring, or a
+drawn blinding outline that follows it — with no projection. It is cited by the platform edition
+`IS1200_IN @ 2027.05` (migration 0066). The machine's rectangle keeps L-FRM-04 exactly
+(`pcc.blinding_rect@1`, and `pcc.blinding_rect_piled@1` under a piled cap).
+
+**Cost.** Blinding has two spellings, each named by its rule id. A traced blinding stands under the
+clause's figure by the projection strip wherever the drawing projects one — an under-measurement, never
+an over-measurement — and the line's basis and act say a person traced it. Owed, and named so: the
+guard that refuses a drawn blinding outline running past its member (824–827 against 81D) is not built;
+until it is, the Decision tells the QS to trace the member's own ring (I-388, I-393). Owner: MANUAL-LAW.
 
 ## D-006 — a drawing's text is lettered from a 2 px cap height (session 8, VIEW-TXT)
 
