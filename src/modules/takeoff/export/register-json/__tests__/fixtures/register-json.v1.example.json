@@ -5,6 +5,7 @@
   },
   "lines": [
     {
+      "agreedBy": null,
       "calibrationKeys": [
         "DXF_HANDLE:CAL-01",
         "DXF_HANDLE:CAL-02"
@@ -20,6 +21,7 @@
       "lineId": "ln_0001",
       "objectKey": "COL-A1",
       "quantityBasis": "MEASURED",
+      "raster": null,
       "repudiated": false,
       "selectionBasis": "MEASURED",
       "sourceKey": "DXF_HANDLE:1A2F",
@@ -64,6 +66,7 @@
       }
     },
     {
+      "agreedBy": null,
       "calibrationKeys": [
         "DXF_HANDLE:CAL-01"
       ],
@@ -78,6 +81,7 @@
       "lineId": "ln_0002",
       "objectKey": "COL-A1",
       "quantityBasis": "MEASURED",
+      "raster": null,
       "repudiated": false,
       "selectionBasis": "TRANSCRIBED",
       "sourceKey": "DXF_HANDLE:1A2F",
@@ -100,6 +104,10 @@
       }
     },
     {
+      "agreedBy": {
+        "actId": "act_0011",
+        "actorId": "usr_qs_01"
+      },
       "calibrationKeys": [
         "RASTER_TRACE:CAL-07"
       ],
@@ -114,6 +122,14 @@
       "lineId": "ln_0003",
       "objectKey": "COL-A2",
       "quantityBasis": "INTERPRETED",
+      "raster": {
+        "dpi": "300",
+        "dpiSource": "file",
+        "pageSha256": "a71f3c9e5b2d4086f1e3c5a7b9d0f2e4c6a8b0d2f4e6c8a0b2d4f6e8c0a2b4d6",
+        "parameterSetHash": "5c1e0d9a7b3f42c8a6e1d0b9f8c7a6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9",
+        "tool": "opencv-lsd",
+        "toolVersion": "4.10.0"
+      },
       "repudiated": true,
       "selectionBasis": "INTERPRETED",
       "sourceKey": "RASTER_TRACE:9d41ab",
@@ -157,6 +173,7 @@
       }
     },
     {
+      "agreedBy": null,
       "calibrationKeys": [
         "DXF_HANDLE:CAL-02"
       ],
@@ -171,6 +188,7 @@
       "lineId": "ln_0004",
       "objectKey": "SLB-L02",
       "quantityBasis": "DERIVED",
+      "raster": null,
       "repudiated": false,
       "selectionBasis": "DERIVED",
       "sourceKey": "DXF_HANDLE:2B71",
@@ -322,6 +340,6 @@
       "objectKey": "SLB-L02"
     }
   ],
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "tenantId": "tnt_rcc6"
 }

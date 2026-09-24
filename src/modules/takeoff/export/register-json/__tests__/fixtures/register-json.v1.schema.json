@@ -4,7 +4,7 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "1.0"
+      "const": "1.1"
     },
     "tenantId": {
       "type": "string"
@@ -303,6 +303,71 @@
           "engine": {
             "type": "string"
           },
+          "raster": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "tool": {
+                    "type": "string"
+                  },
+                  "toolVersion": {
+                    "type": "string"
+                  },
+                  "parameterSetHash": {
+                    "type": "string"
+                  },
+                  "pageSha256": {
+                    "type": "string"
+                  },
+                  "dpi": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dpiSource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "tool",
+                  "toolVersion",
+                  "parameterSetHash",
+                  "pageSha256",
+                  "dpi",
+                  "dpiSource"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "agreedBy": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "actId": {
+                    "type": "string"
+                  },
+                  "actorId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "actId",
+                  "actorId"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sourceKey": {
             "type": "string"
           },
@@ -343,6 +408,8 @@
           "coverage",
           "calibrationKeys",
           "engine",
+          "raster",
+          "agreedBy",
           "sourceKey",
           "repudiated",
           "drawingId",
