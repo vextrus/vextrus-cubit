@@ -128,12 +128,14 @@ describe("VD-1: a line's Trace opens its member's sheet and selects the member",
     }
     // TEST_AMENDED (R0 Rev C): S-06 places F1 in ring 638 beside the 26 caps (W-44), and S-15's
     // stair-roof layout its two C4 stubs and four SB-R beams beside the roof layout's (W-49).
-    expect(Object.fromEntries(bySheet), "27 columns on S-10, 89 piles on S-04, 26 caps and F1 on S-06, the beams on the three beam layouts, and the stair roof's stubs and beams on S-15").toEqual({
+    // TEST_AMENDED (GB-READ, s-schedules I-673): S-08 places the grade beams it letters.
+    expect(Object.fromEntries(bySheet), "27 columns on S-10, 89 piles on S-04, 26 caps and F1 on S-06, 43 grade beams on S-08, the beams on the three beam layouts, and the stair roof's stubs and beams on S-15").toEqual({
       "column@S-10": placedIn("20B6").length,
       "column@S-15": placedIn("2157", "column").length,
       "pile@S-04": placedIn("1FEB").length,
       "pile_cap@S-06": placedIn("202C", "pile_cap").length,
       "footing@S-06": placedIn("202C", "footing").length,
+      "tie_beam@S-08": placedIn("2073", "tie_beam").length,
       "beam@S-13": placedIn("2116").length,
       "beam@S-14": placedIn("F31").length,
       "beam@S-15": placedIn("10C1").length + placedIn("2157", "beam").length,

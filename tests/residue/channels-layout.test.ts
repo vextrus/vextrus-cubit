@@ -59,6 +59,8 @@ const VIEWS: readonly (readonly [string, string, string])[] = [
   ["10C1", "beam", "S-15"],
   ["2157", "column", "S-15"],
   ["2157", "beam", "S-15"],
+  // TEST_AMENDED (GB-READ, s-schedules I-673): S-08 letters its grade beams, and they are placed there.
+  ["2073", "tie_beam", "S-08"],
 ];
 
 /** The distinct views of that roster. */
@@ -101,9 +103,9 @@ describe("RES-1: the layout channel meets every placement in its view (I-549)", 
   test("RES-1: all of F-RCC6-BNBC's placements join the view they were read in, through the key grammar", () => {
     const met = membershipOf(views, members);
     const byClass = (klass: string): number => members.filter((member) => member.class === klass).length;
-    expect([byClass("column"), byClass("pile"), byClass("pile_cap"), byClass("footing")], "the plans place 29 columns (S-10's 27 and Rev C's two C4 stubs), 89 piles, 26 caps and Rev C's F1").toEqual([29, 89, 26, 1]);
+    expect([byClass("column"), byClass("pile"), byClass("pile_cap"), byClass("footing"), byClass("tie_beam")], "the plans place 29 columns (S-10's 27 and Rev C's two C4 stubs), 89 piles, 26 caps, Rev C's F1 and S-08's 43 square grade-beam spans").toEqual([29, 89, 26, 1, 43]);
     expect(byClass("beam"), "and the beams of the four beam layouts").toBeGreaterThan(0);
-    expect(members.length, "nothing else is placed: every member is one of the five classes").toBe(29 + 89 + 26 + 1 + byClass("beam"));
+    expect(members.length, "nothing else is placed: every member is one of the six classes").toBe(29 + 89 + 26 + 1 + 43 + byClass("beam"));
     expect(met.length, "and every one of them stands in a view the partition stored — none is lost at the join").toBe(members.length);
     for (const held of met) {
       expect(held.viewKey, `${held.member.placementKey} is met in the view its own key names, spelled as L-REG-04 spells it`).toBe(held.member.viewKey);
@@ -111,9 +113,9 @@ describe("RES-1: the layout channel meets every placement in its view (I-549)", 
     }
   });
 
-  test("RES-1: the views the members stand in are the seven the plans place them in, each once per class", () => {
+  test("RES-1: the views the members stand in are the eight the plans place them in, each once per class", () => {
     const pairs = new Set(membershipOf(views, members).map((held) => `${held.member.class}@${viewRefOf(held.viewKey)?.captionAnchorSourceKey ?? ""}`));
-    expect([...pairs].sort(), "columns on 20B6 and 2157, piles on 1FEB, caps and F1 on 202C, beams on 2116, F31, 10C1 and 2157").toEqual(VIEWS.map(([caption, klass]) => `${klass}@${handle(caption)}`).sort());
+    expect([...pairs].sort(), "columns on 20B6 and 2157, piles on 1FEB, caps and F1 on 202C, grade beams on 2073, beams on 2116, F31, 10C1 and 2157").toEqual(VIEWS.map(([caption, klass]) => `${klass}@${handle(caption)}`).sort());
   });
 
   test("RES-1: a member meets its view only on its own record, and a view no caption anchors holds nobody", () => {
@@ -129,7 +131,7 @@ describe("RES-1: the layout channel meets every placement in its view (I-549)", 
     const addressed = new Map(views.map((view) => [viewAddressOf(view), view]));
     const met = membershipOf(views, members);
     const held = new Set(met.map((one) => one.viewKey));
-    expect(held.size, "the seven views the plans place members in").toBe(VIEW_COUNT);
+    expect(held.size, "the eight views the plans place members in").toBe(VIEW_COUNT);
     for (const address of held) {
       const view = addressed.get(address);
       expect(view, `${address} is the address viewAddressOf gives a stored view — the one measure/setup and the levels screen name it by`).toBeDefined();
@@ -166,7 +168,7 @@ describe("RES-1: a sighting names the sheet its key stands on (I-548)", () => {
       const placed = members.filter((member) => viewRefOf(member.viewKey)?.captionAnchorSourceKey === handle(caption) && member.class === klass).length;
       expected.set(`${klass}@${sheet}`, (expected.get(`${klass}@${sheet}`) ?? 0) + placed);
     }
-    expect(Object.fromEntries(bySheet), "27 columns on S-10 and 2 on S-15, 89 piles on S-04, 26 caps and F1 on S-06, and the beams on S-13, S-14 and S-15").toEqual(Object.fromEntries(expected));
+    expect(Object.fromEntries(bySheet), "27 columns on S-10 and 2 on S-15, 89 piles on S-04, 26 caps and F1 on S-06, 43 grade beams on S-08, and the beams on S-13, S-14 and S-15").toEqual(Object.fromEntries(expected));
   });
 
   test("RES-1: a register row keyed at an instance of a placement stands where the placement does", () => {

@@ -99,6 +99,19 @@ const PILE_CAP_SCHEDULE = "DXF_HANDLE:202D";
  * placement that is neither a pile cap nor a beam: the 89 piles and the 27 columns, unchanged.
  */
 const STRIP_SHEETS: readonly string[] = Object.freeze(["DXF_HANDLE:218E", "DXF_HANDLE:2173"]);
+/**
+ * TEST_AMENDED (GB-READ, s-schedules I-673): S-09's five long sections `GB1 LONG SECTION` …
+ * `GB5 LONG SECTION` label their strips with a grade-beam mark and its section, and a grade beam now
+ * names a class — so each registers its family (GB1 300x600 … GB5 300x750). Set aside by name, like
+ * the other strip sheets; every family registered before still reads its own bytes.
+ */
+const GRADE_BEAM_STRIPS: Readonly<Record<string, string>> = Object.freeze({
+  "DXF_HANDLE:208E": "GB1",
+  "DXF_HANDLE:208F": "GB2",
+  "DXF_HANDLE:2090": "GB3",
+  "DXF_HANDLE:2091": "GB4",
+  "DXF_HANDLE:2092": "GB5",
+});
 const FRAMED: readonly string[] = Object.freeze(["beam", "tie_beam"]);
 
 /**
@@ -213,9 +226,16 @@ describe("FND-1 moves nothing it was not asked to", () => {
     const added: Record<string, number> = {};
     for (const family of registered.families) if (family.scheduleKey in REV_C_SCHEDULES) added[family.scheduleKey] = (added[family.scheduleKey] ?? 0) + 1;
     expect(added, "Rev C's three slab panel schedules register their 43 families (W-47)").toEqual(REV_C_SCHEDULES);
+    const graded = registered.families.filter((family) => family.scheduleKey in GRADE_BEAM_STRIPS);
+    expect(Object.fromEntries(graded.map((family) => [family.scheduleKey, family.family])), "S-09's five grade-beam long sections, one family each").toEqual(GRADE_BEAM_STRIPS);
     const pinned = declaredSpacingUndone(
       registered.families.filter(
-        (family) => family.family !== "P" && family.scheduleKey !== PILE_CAP_SCHEDULE && !STRIP_SHEETS.includes(family.scheduleKey) && !(family.scheduleKey in REV_C_SCHEDULES),
+        (family) =>
+          family.family !== "P" &&
+          family.scheduleKey !== PILE_CAP_SCHEDULE &&
+          !STRIP_SHEETS.includes(family.scheduleKey) &&
+          !(family.scheduleKey in GRADE_BEAM_STRIPS) &&
+          !(family.scheduleKey in REV_C_SCHEDULES),
       ),
       BNBC_DECLARED,
     );

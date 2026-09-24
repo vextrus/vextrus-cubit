@@ -41,6 +41,7 @@ const CLASS_OF_PREFIX: Readonly<Record<string, ElementType>> = Object.freeze({
   P: PILE,
   B: BEAM,
   TB: TIE_BEAM,
+  GB: TIE_BEAM,
   // The beams a floor-by-floor set letters by what they DO rather than as `B` (Interpretation I-341):
   // roof and roof-edge beams, cantilevers, edge beams, a landing beam, porch beams, a transfer girder,
   // and the stair roof's beams — whose own spelling carries a hyphen (`SB-R4`) that the comparison

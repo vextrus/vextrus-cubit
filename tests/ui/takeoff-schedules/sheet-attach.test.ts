@@ -92,7 +92,10 @@ describe("I-550: each schedule stands on the sheet whose window or title shows i
     expect(deferredOn, "the two schedules that named no member say so where they are printed").toEqual(["S-25", "S-26"]);
     const familiesOn = rail.filter((sheet) => sheet.families.length > 0).map((sheet) => numberOf(sheet.layoutName));
     // The slab panel schedules' 43 families (W-47) stand on the three sheets that print them.
-    expect(familiesOn).toEqual(["S-05", "S-06", "S-11", "S-16", "S-17", "S-18", "S-19", "S-20", "S-21"]);
+    // TEST_AMENDED (GB-READ, s-schedules I-673): and S-09's grade-beam long sections' five.
+    expect(familiesOn).toEqual(["S-05", "S-06", "S-09", "S-11", "S-16", "S-17", "S-18", "S-19", "S-20", "S-21"]);
+    const s09 = rail.find((sheet) => numberOf(sheet.layoutName) === "S-09");
+    expect(s09?.families.map((family) => family.family), "one family per grade-beam long section").toEqual(["GB1", "GB2", "GB3", "GB4", "GB5"]);
   });
 });
 
@@ -104,6 +107,8 @@ describe("I-248, I-551: the rail is the sheets that hold something, paper first,
       "S-03",
       "S-05",
       "S-06",
+      // TEST_AMENDED (GB-READ, s-schedules I-673): S-09 holds the grade beams' strip families.
+      "S-09",
       "S-11",
       "S-16",
       "S-17",

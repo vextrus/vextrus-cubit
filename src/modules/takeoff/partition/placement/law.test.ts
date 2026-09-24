@@ -318,11 +318,23 @@ describe("I-341: the framed prefixes a beam layout writes", () => {
     expect(["8T16", "1C1", "1P1", "1PC1", "1FTO2F", "1TB1", "12B1"].map((mark) => classOfMark(mark))).toEqual([null, null, null, null, null, null, null]);
   });
 
-  test("exact prefix: the lintel, the slab, the pile and the pile cap keep their own classes, and a grade beam is held back", () => {
+  test("exact prefix: the lintel, the slab, the pile and the pile cap keep their own classes, and a grade beam is a tie beam", () => {
     // `L1` (S-25's lintel) and `S3` (a slab panel) are no member this stage places; `P1` a pile and
-    // `PC1` a pile cap, as before. `GB1` is a tie beam the day its caps stand on S-08 — until then a
-    // grade beam would be cut at a storey's column faces and measure two-thirds over (GB1-1: +67 %).
-    expect(["L1", "S3", "P1", "PC1", "GB1", "TB1", "SW1", "C5"].map((mark) => classOfMark(mark))).toEqual([null, null, "pile", "pile_cap", null, "tie_beam", "shear_wall", "column"]);
+    // `PC1` a pile cap, as before. TEST_AMENDED (GB-READ, s-schedules I-673): `GB1` is a tie beam
+    // now that a tie beam stops at the face of the cap another plan places (I-674) — it was held
+    // back while it would have run on to a storey's column faces (GB1-1: +67 %). `G1` stays nothing.
+    expect(["L1", "S3", "P1", "PC1", "GB1", "TB1", "SW1", "C5", "G1", "1GB1"].map((mark) => classOfMark(mark))).toEqual([
+      null,
+      null,
+      "pile",
+      "pile_cap",
+      "tie_beam",
+      "tie_beam",
+      "shear_wall",
+      "column",
+      null,
+      null,
+    ]);
   });
 
   test("a note about a newly-read beam family is refused as every framed note is — no outline stands for a beam", () => {

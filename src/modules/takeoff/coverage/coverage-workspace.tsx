@@ -214,6 +214,17 @@ export function sightingAddress(
   return selectionAddress(tenantId, projectId, { drawingId: seen.drawingId, layoutName: seen.layoutName, sourceKeys: keys });
 }
 
+/**
+ * The viewer at an unnamed pair (s-coverage I-675): the sheet its plan stands on, with the two
+ * edge lines it is drawn by selected — the place a QS checks what the plan draws there. The pair's
+ * keys are the drawing's own entities, so no resolution stands between them and the selection. A pair
+ * whose plan names no sheet answers null, and its row says where it stands with no link (I-181).
+ */
+export function unnamedPairAddress(tenantId: string, projectId: string, pair: Pick<UnnamedStatementRow, "drawingId" | "layoutName" | "edgeKeys">): string | null {
+  if (pair.layoutName === "" || tenantId === "" || projectId === "") return null;
+  return selectionAddress(tenantId, projectId, { drawingId: pair.drawingId, layoutName: pair.layoutName, sourceKeys: [...pair.edgeKeys] });
+}
+
 /** The two reasons whose fix is made on a sheet rather than in the register (I-484). */
 const CLASS_NOT_PLACED = REFUSALS.COVERAGE_CLASS_NOT_PLACED.code;
 const VIEW_SCALE_UNAFFIRMED = REFUSALS.VIEW_SCALE_UNAFFIRMED.code;
@@ -587,6 +598,8 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
             unclassed={view.unclassed ?? []}
             unnamed={view.unnamed ?? []}
             bill={view.bill}
+            tenantId={view.tenantId}
+            projectId={view.projectId}
             pinned={view.campaignId !== null}
             open={previewing}
           />
@@ -1088,6 +1101,8 @@ export function CertificatePreviewSection({
   bill,
   pinned,
   open,
+  tenantId = "",
+  projectId = "",
 }: {
   measurement: readonly StatementRow[];
   partial?: readonly PartialStatementRow[];
@@ -1096,6 +1111,9 @@ export function CertificatePreviewSection({
   bill: readonly StatementRow[];
   pinned: boolean;
   open: boolean;
+  /** Where an unnamed pair's row leads (I-675); a preview mounted with neither links nothing. */
+  tenantId?: string;
+  projectId?: string;
 }) {
   // An empty statement is still a statement, but WHICH emptiness it states depends on whether there
   // is a campaign at all: over a project with nothing pinned, "this campaign measured everything"
@@ -1112,7 +1130,7 @@ export function CertificatePreviewSection({
     // many boundaries the campaign has, which is not something the markup can know.
     <section className="cx-coverage-certificate" data-testid="coverage-certificate-preview" data-open={open ? "true" : "false"} tabIndex={0}>
       <h2 className="cx-coverage-certificate-heading">{COVERAGE_COPY.takeoff_coverage_certificate_heading}</h2>
-      <Statement axis={MEASUREMENT} title={COVERAGE_COPY.takeoff_coverage_statement_measurement_title} none={measurementNone} rows={measurement} partial={partial} unclassed={unclassed} unnamed={unnamed} />
+      <Statement axis={MEASUREMENT} title={COVERAGE_COPY.takeoff_coverage_statement_measurement_title} none={measurementNone} rows={measurement} partial={partial} unclassed={unclassed} unnamed={unnamed} tenantId={tenantId} projectId={projectId} />
       <Statement axis={BILL} title={COVERAGE_COPY.takeoff_coverage_statement_bill_title} none={billNone} rows={bill} />
     </section>
   );
@@ -1141,6 +1159,8 @@ function Statement({
   partial = [],
   unclassed = [],
   unnamed = [],
+  tenantId = "",
+  projectId = "",
 }: {
   axis: string;
   title: string;
@@ -1149,6 +1169,8 @@ function Statement({
   partial?: readonly PartialStatementRow[];
   unclassed?: readonly UnclassedStatementRow[];
   unnamed?: readonly UnnamedStatementRow[];
+  tenantId?: string;
+  projectId?: string;
 }): ReactElement {
   const empty = rows.length === 0 && partial.length === 0 && unclassed.length === 0 && unnamed.length === 0;
   return (
@@ -1231,22 +1253,31 @@ function Statement({
           ))}
           {/* I-613: a beam a plan draws that no mark names — by the plan that draws it and
               its grid reference, and the registry's reason. Enumerated, one row a pair, never counted;
-              the pair's first edge line rides on the row for a reader to be flown to. */}
-          {unnamed.map((pair) => (
-            <li
-              className="cx-coverage-statement-row cx-coverage-statement-unnamed"
-              data-code={pair.code}
-              data-source={pair.edgeKeys[0]}
-              key={`unnamed:${pair.drawingId}:${pair.viewKey}:${pair.edgeKeys[0]}`}
-            >
-              <span className="cx-coverage-statement-where">
-                <span className="cx-coverage-value cx-coverage-word">{COVERAGE_COPY.takeoff_coverage_statement_unnamed_label}</span>
-                <span className="cx-coverage-value">{pair.caption}</span>
-                <span className="cx-coverage-value">{gridReferenceOf(pair)}</span>
-              </span>
-              <span className="cx-coverage-statement-cause">{causeWords(pair.code)?.message ?? ""}</span>
-            </li>
-          ))}
+              the pair's first edge line rides on the row, and I-675's link flies the reader to
+              both its lines on the sheet — two pairs at one grid reference are two places, not one. */}
+          {unnamed.map((pair) => {
+            const href = unnamedPairAddress(tenantId, projectId, pair);
+            return (
+              <li
+                className="cx-coverage-statement-row cx-coverage-statement-unnamed"
+                data-code={pair.code}
+                data-source={pair.edgeKeys[0]}
+                key={`unnamed:${pair.drawingId}:${pair.viewKey}:${pair.edgeKeys[0]}`}
+              >
+                <span className="cx-coverage-statement-where">
+                  <span className="cx-coverage-value cx-coverage-word">{COVERAGE_COPY.takeoff_coverage_statement_unnamed_label}</span>
+                  <span className="cx-coverage-value">{pair.caption}</span>
+                  <span className="cx-coverage-value">{gridReferenceOf(pair)}</span>
+                  {href === null ? null : (
+                    <a className="cx-coverage-value cx-coverage-unnamed-link" href={href}>
+                      {fillCoverageCopy("takeoff_coverage_statement_unnamed_show", { sheet: pair.layoutName })}
+                    </a>
+                  )}
+                </span>
+                <span className="cx-coverage-statement-cause">{causeWords(pair.code)?.message ?? ""}</span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

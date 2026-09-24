@@ -414,7 +414,12 @@ describe("the reading of an opening schedule where F-ARCH is silent (I-506, I-50
  * still reads to the old digests (tables a2b170da…, families a31f2d13…). Rev C's tables differ in S-26's
  * PC3 rows and printed total (1E3D, K11 + D-S26, W-27) and add the three SLAB PANEL SCHEDULEs (26CF,
  * 26D1, 26D3; W-47); its families add their 43 and change none; the deferrals do not move.
+ *
+ * TEST_AMENDED (GB-READ, s-schedules I-673): a grade beam names a class now, so S-09's five long
+ * sections (`GB1 LONG SECTION` … `GB5 LONG SECTION`) register one strip family each. They are set
+ * aside by the views that label them, and every family registered before reads its own bytes.
  */
+const GRADE_BEAM_STRIPS: readonly string[] = Object.freeze(["DXF_HANDLE:208E", "DXF_HANDLE:208F", "DXF_HANDLE:2090", "DXF_HANDLE:2091", "DXF_HANDLE:2092"]);
 const BEFORE: Readonly<Record<string, Readonly<Record<string, string>>>> = Object.freeze({
   [BNBC_DXF]: Object.freeze({
     tables: "0207e7f4cf98f388f14d19703702bb3d928faa74fc55d23ce36a444cdb6ec771",
@@ -438,7 +443,7 @@ describe("what may not move: the structural fixtures' schedules, byte for byte",
       const now = {
         tables: sha(read.reconstructed.tables),
         deferrals: sha(read.reconstructed.deferrals),
-        families: sha(read.registered.families),
+        families: sha(read.registered.families.filter((family) => !GRADE_BEAM_STRIPS.includes(family.scheduleKey))),
         registryDeferrals: sha(read.registered.deferrals),
       };
       expect(now).toEqual(BEFORE[drawing]);

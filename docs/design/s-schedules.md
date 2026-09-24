@@ -292,7 +292,8 @@ this file rules. No gallery entry is added (nothing new is invented here).
   way: a digit before any other class is a count or a code (`8T16` is eight bars). `GB` is held back: a
   grade beam is a tie beam, and a tie beam is cut at the foundation members its own plan places. S-08
   draws its 27 caps as unmarked rings, so a grade beam read now would be cut at the columns a storey up
-  and measure about two-thirds over (GB1-1: +67 %). It waits for the caps to stand on S-08. The roof
+  and measure about two-thirds over (GB1-1: +67 %). It waits for the caps to stand on S-08. (It stands
+  now: I-673 names `GB` a tie beam, and I-674 carries its ends at the caps S-06 places.) The roof
   schedule's families (`RB*`, `REB2`, `SBR*`) now name a class, but no dimension is read for a beam
   (`DIMENSIONS_READ`), so the registry's output is byte-identical.
 - **I-342 — a bound xref's layers are another drawing's background, and no member is read off them
@@ -1102,6 +1103,51 @@ byte-identical too).
   Rejected: reading the pile note as a disagreement (walk-1's defect); keying a reading on its scope
   (a re-scope would leave the old reading standing and contesting); storing the scope on the model's
   offer (it is code's reading of the clause, re-derived wherever the offer is read).
+- **I-673 — a grade-beam mark names a tie beam (session 9, GB-READ; L-CAD-07, L-MEA-09,
+  L-QTY-04/06, TIE-1, W-44).** Walk-2 found the certificate listing S-08's grade beams as *Beam drawn,
+  not named* — 47 of its rows, some at one grid reference twice — while S-08 (Rev C) prints `GB1`,
+  `GB2`, `GB3`, `GB4` and `GB5` on those very beams. The class map (`CLASS_OF_PREFIX`,
+  `placement/law.ts`) now reads `GB` as `tie_beam`, by exact prefix as I-341 reads the rest: `G1` and
+  `1GB1` name nothing. So:
+  (a) the marks S-08 letters name the pairs they stand on, through the run reader I-341 and I-612
+  already use. Each square span is placed as a tie beam in the FOUNDATION slot (L-CAD-07's lawful
+  null), typed by its S-09 family — S-09's five long sections (`GB1 LONG SECTION` … `GB5`) now
+  register one strip family each at the model's sections (300 × 600 … 300 × 750; I-343's reading,
+  unchanged). On F-RCC6-BNBC: 43 tie beams (GB1 16, GB2 12, GB3 13, GB4 2), each run the golden
+  model's own clear between cap faces, span by span.
+  (b) what S-08 still draws and no mark names is its four slanted spans — GB4 across the chamfer, GB5
+  to the ramp — each disclosed once (I-613), because no run is yet read along a slanted direction
+  (FRM4-E). The golden's TIE_BEAM cells hold 47 members; the product measures 43 of them COMPLETE and
+  names the other four, so its tie-beam concrete (13.749 m³ against 14.619) and formwork (129.138 m²
+  against the golden's sides and soffit, 136.566) stand under the golden, never over.
+  (c) every other plan reads byte for byte as before: BNBC's 302 other placements, 157 runs and the
+  beam layouts' 11 unnamed pairs (`bnbc-grade-beams.test.ts` pins their digest), and F-RCC6's whole
+  stage output bar I-612's chained spans.
+  Rejected: reading a grade beam as a `beam` (it would take a slab off its depth and a storey's level);
+  placing the slanted spans at their grid-to-grid length (L-MEA-09: a run is never guessed from a
+  grid).
+- **I-674 — a tie beam's end is carried by the foundation member another plan places there
+  (session 9, GB-READ; L-MEA-09, L-QTY-06).** A grade-beam layout redraws the caps its beams frame
+  into as bare rings, unlettered — S-08 draws its 27 caps so — and I-341 had read a tie beam's end
+  only off its own plan's foundation members. Named but unsupported, GB1-1 ran on to the columns a
+  storey up: 4222 where the model's clear is 2522 (+67 %). The run reader (`faceAt`, `placement/runs.ts`)
+  now:
+  (a) lets a FOUNDATION-class member's end be carried by any plan's foundation member at that place,
+  as it already let any plan's column carry a beam's; a floor beam is still carried only by what its
+  own plan places and by the columns, so no beam stops at a cap;
+  (b) finds the member an end stands in off the member's OWN grid reference — its centre is its
+  offsets off the two axes it is addressed at, found on this plan by their labels — rather than off
+  the axes nearest the end. For a member no wider than a bay the two agree; for PC5, one cap under
+  the lift core centred at D/3 and reaching past grid 4, the nearest-axes reading met nothing at D/4
+  and ran GB2-7, GB2-11, GB3-8 and GB3-9 on to the next face;
+  (c) of every member reaching the end, stops the run at the face that stands deepest into it —
+  L-MEA-09's pile › cap › column read as geometry: the cap encloses the pile head and stands wider
+  than the column it carries, so the tie beam stops at the cap's face and never at the column's.
+  Each run cites the caps' outlines; GB4-1 and GB4-4 cite one, their other end meeting the slanted GB4
+  at the chamfer, where the model ends them too.
+  Rejected: letting a tie beam cite S-08's bare rings (they name no cap and carry no schedule; the
+  cap S-06 places at that place is the member, I-303); a precedence table by class in place of the
+  deepest face (a second spelling of L-MEA-09's order beside the catalogue's, B-17).
 
 ## 1. Layout and hierarchy (1440 × 900)
 

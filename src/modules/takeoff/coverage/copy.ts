@@ -92,6 +92,8 @@ export const COVERAGE_COPY = Object.freeze({
   // I-613: a beam the plan draws and no mark names, as the measurement boundary names it.
   takeoff_coverage_statement_unnamed_label: "Beam drawn, not named",
   takeoff_coverage_statement_unnamed_grid: "Grid {grid}",
+  // s-coverage I-675: the door to where the pair is drawn — its two edge lines selected on the sheet.
+  takeoff_coverage_statement_unnamed_show: "Show on {sheet}",
   // I-297: a boundary a model proposed, stated as a proposal and never as a reading. The block is
   // absent where nothing was proposed — there is no idle panel and no idle sentence on this screen
   // (§1) — so no key here says "nothing was proposed". The CAUSE's own words stay the registry's:

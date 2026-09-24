@@ -117,4 +117,20 @@ describe("I-613: the unnamed pairs are stored with the partition and enumerated 
     await rewrite(read.placed);
     expect(storedRows().length).toBe((read.placed.unnamed ?? []).length);
   });
+
+  test("GB-READ (s-schedules I-673): S-08's lettered grade beams are stored as tie beams with their runs, and only its slanted spans stay unnamed", () => {
+    const GRADE_BEAMS = "v:LAYOUT_PLAN:DXF_HANDLE:2073";
+    const scope = `${ident(TENANT_COLUMN)} = ${lit(staged.tenantId)}::uuid and ingest_id = ${lit(ingestId)}::uuid`;
+    const placed = sql(`select element_type, mark, count(*)::text from placements where ${scope} and view_key = ${lit(GRADE_BEAMS)} group by 1, 2 order by 2;`).map((row) => row.join(" "));
+    // Red before: none — S-08's 47 were all stored as unnamed pairs.
+    expect(placed, "S-08's 43 square spans, each a tie beam of its mark").toEqual(["tie_beam GB1 16", "tie_beam GB2 12", "tie_beam GB3 13", "tie_beam GB4 2"]);
+    const runs = sql(
+      `select count(*)::text from placement_runs r where r.${ident(TENANT_COLUMN)} = ${lit(staged.tenantId)}::uuid and r.ingest_id = ${lit(ingestId)}::uuid and r.clear_value is not null
+         and r.placement_key in (select placement_key from placements where ${scope} and view_key = ${lit(GRADE_BEAMS)});`,
+    );
+    expect(runs[0]?.[0], "each stored with the clear run it is measured along").toBe("43");
+    const unnamed = storedRows();
+    expect(unnamed.filter((row) => row.startsWith(`${GRADE_BEAMS} `)).length, "S-08 leaves its four slanted spans").toBe(4);
+    expect(unnamed.length, "and the beam layouts their eleven: fifteen where walk-2 read fifty-eight").toBe(15);
+  });
 });

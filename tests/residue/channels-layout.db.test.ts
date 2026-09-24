@@ -44,9 +44,11 @@ const LAYOUT = "LAYOUT";
 const handle = (hex: string): string => `DXF_HANDLE:${hex}`;
 
 /**
- * The seven views the plans place members in: the caption's handle, each class it places, the sheet's
+ * The eight views the plans place members in: the caption's handle, each class it places, the sheet's
  * NUMBER. TEST_AMENDED (R0 Rev C): F1's footing in ring 638 on S-06 (W-44), and the stair-roof layout
  * 2157 on S-15 with its two C4 stubs and SB-R1..SB-R4 (W-49) — one row per view and class.
+ * TEST_AMENDED (GB-READ, s-schedules I-673): S-08's grade-beam layout 2073 places the grade beams
+ * it letters.
  */
 const VIEWS: readonly (readonly [string, string, string])[] = [
   ["20B6", "column", "S-10"],
@@ -58,6 +60,7 @@ const VIEWS: readonly (readonly [string, string, string])[] = [
   ["10C1", "beam", "S-15"],
   ["2157", "column", "S-15"],
   ["2157", "beam", "S-15"],
+  ["2073", "tie_beam", "S-08"],
 ];
 
 type SightingRow = { class: string; levelId: string | null; channel: string; drawingId: string; layoutName: string; sourceKey: string; declared?: boolean };
@@ -210,7 +213,7 @@ describe("RES-1: the layout channel sees every stored placement in its view (I-5
 describe("RES-1: a coverage read-back names the sheet per sighting (I-548)", () => {
   test("RES-1: a layout sighting names the sheet its view stands on", () => {
     const layout = sightings.filter(placedThrough(LAYOUT));
-    expect(layout.length, "each class in each of the seven views the plans place members in is sighted").toBe(VIEWS.length);
+    expect(layout.length, "each class in each of the eight views the plans place members in is sighted").toBe(VIEWS.length);
     for (const sighting of layout) {
       const anchor = viewRefOf(sighting.sourceKey)?.captionAnchorSourceKey ?? "";
       expect(numberOf(sighting.layoutName), `the ${sighting.class} view anchored at ${anchor} stands on ${sheetOfCaption(anchor) ?? "?"}`).toBe(sheetOfCaption(anchor));
@@ -235,7 +238,7 @@ describe("RES-1: a coverage read-back names the sheet per sighting (I-548)", () 
       const placed = read.placed.placements.filter((placement) => viewRefOf(placement.viewKey)?.captionAnchorSourceKey === handle(caption) && placement.elementType === klass).length;
       expected.set(`${klass}@${sheet}`, (expected.get(`${klass}@${sheet}`) ?? 0) + placed);
     }
-    expect(Object.fromEntries(bySheet), "columns on S-10 and S-15, piles on S-04, caps and F1 on S-06, beams on S-13, S-14 and S-15").toEqual(Object.fromEntries(expected));
+    expect(Object.fromEntries(bySheet), "columns on S-10 and S-15, piles on S-04, caps and F1 on S-06, grade beams on S-08, beams on S-13, S-14 and S-15").toEqual(Object.fromEntries(expected));
   });
 
   test("RES-1: the register's sighting names the sheet its placement stands on", () => {
@@ -246,7 +249,7 @@ describe("RES-1: a coverage read-back names the sheet per sighting (I-548)", () 
 
   test("RES-1: a caption's declaration names the sheet the caption stands on", () => {
     const declared = sightings.filter((sighting) => sighting.declared === true && sheetOfCaption(sighting.sourceKey) !== undefined);
-    expect(declared.length, "the seven plans' captions declare what they place").toBeGreaterThan(0);
+    expect(declared.length, "the eight plans' captions declare what they place").toBeGreaterThan(0);
     for (const sighting of declared) {
       expect(numberOf(sighting.layoutName), `the caption at ${sighting.sourceKey} stands on ${sheetOfCaption(sighting.sourceKey) ?? "?"}`).toBe(sheetOfCaption(sighting.sourceKey));
     }

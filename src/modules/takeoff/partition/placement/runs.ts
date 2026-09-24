@@ -863,7 +863,7 @@ function runOf(key: string, member: Axis, plan: Plan, supports: readonly Support
   // all: the run is unread rather than stated in a unit nobody named (L-CAD-02, B-07, I-340).
   if (unit === null) return { placementKey: key, clear: null, sides: [null, null] };
 
-  const cut = supportedSpan(member, plan, supports);
+  const cut = supportedSpan(member, plan, supports, isFoundationClass(type));
   const segments = lessOpenings(member, cut.span, openingsOf(plan));
   const clear = segments.reduce((sum, [from, to]) => sum + (to - from), 0);
   if (!(clear > 0)) return { placementKey: key, clear: null, sides: [null, null] };
@@ -881,14 +881,14 @@ function runOf(key: string, member: Axis, plan: Plan, supports: readonly Support
 }
 
 /** The span of a member's axis left once the member carrying each of its ends has taken its own. */
-function supportedSpan(member: Axis, plan: Plan, supports: readonly Support[]): { span: readonly [number, number]; sourceKeys: readonly string[] } {
+function supportedSpan(member: Axis, plan: Plan, supports: readonly Support[], foundation: boolean): { span: readonly [number, number]; sourceKeys: readonly string[] } {
   let start = member.start;
   let end = member.end;
   const cited: string[] = [];
   for (const which of ["start", "end"] as const) {
     const at = which === "start" ? member.start : member.end;
     const point: Point = member.along === "x" ? [at, member.at] : [member.at, at];
-    const face = faceAt(point, member, plan, supports);
+    const face = faceAt(point, member, plan, supports, foundation ? which : null);
     if (face === null) continue;
     cited.push(face.key);
     if (which === "start") start = Math.max(start, face.reach[1]);
@@ -901,30 +901,39 @@ function supportedSpan(member: Axis, plan: Plan, supports: readonly Support[]): 
  * The face of the member carrying one end, and how far along the run it reaches. In L-MEA-09's own
  * precedence: the vertical or foundation member whose outline the end lies in, then the same building's
  * vertical at that grid reference, then the beam crossing the end, then nothing.
+ *
+ * A FOUNDATION-class member's end (a tie beam: `foundation` names which end it is) is carried by the
+ * same building's foundation member at that grid reference too, whichever plan placed it
+ * (s-schedules I-674): a grade-beam layout redraws the caps its beams frame into without
+ * lettering them, and the cap the pile-cap layout places there is the one they frame into. Of every
+ * member reaching the end, the one whose face stands deepest into the run carries it — L-MEA-09's
+ * pile › cap › column: the cap encloses the pile head and stands wider than the column it carries, so
+ * the tie beam stops at the cap's face and never runs on to the column's (L-QTY-06).
  */
-function faceAt(point: Point, member: Axis, plan: Plan, supports: readonly Support[]): { reach: readonly [number, number]; key: string } | null {
-  const address = addressOf(plan.axes, point);
+function faceAt(point: Point, member: Axis, plan: Plan, supports: readonly Support[], foundation: "start" | "end" | null): { reach: readonly [number, number]; key: string } | null {
   const reaching = supports
-    .filter(
-      (support) =>
-        (!support.ownViewOnly || support.viewKey === plan.key) &&
-        support.letter === address.letter &&
-        support.numeral === address.numeral &&
-        Math.abs(address.offX - support.offX) <= support.halfX &&
-        Math.abs(address.offY - support.offY) <= support.halfY,
-    )
+    .filter((support) => (!support.ownViewOnly || support.viewKey === plan.key || foundation !== null) && standsIn(point, support, plan.axes))
     // The plan that drew this member speaks first about what carries it; another plan of the same
     // building answers only where this one drew nothing there.
     .sort((left, right) => Number(right.viewKey === plan.key) - Number(left.viewKey === plan.key));
 
-  const held = reaching[0];
-  if (held !== undefined) {
-    // The support's offset along the run is taken back off the axis standing ACROSS the run at this
-    // grid reference — the one the offset was measured off (I-340).
-    const origin = originAcross(plan.axes, address, member.along);
+  // The support's offset along the run is taken back off the axis standing ACROSS the run at the
+  // support's own grid reference — the one the offset was measured off (I-340).
+  const reachOf = (held: Support): readonly [number, number] | null => {
+    const origin = originAcross(plan.axes, held, member.along);
+    if (origin === null) return null;
     const [off, half] = member.along === AXIS_X ? [held.offX, held.halfX] : [held.offY, held.halfY];
-    if (origin !== null) return { reach: [origin + off - half, origin + off + half], key: held.key };
-  }
+    return [origin + off - half, origin + off + half];
+  };
+  const faces = reaching.flatMap((held) => {
+    const reach = reachOf(held);
+    return reach === null ? [] : [{ reach, key: held.key }];
+  });
+  // Deepest into the run first; the sort is stable, so a tie keeps the plan's own member first.
+  if (foundation === "start") faces.sort((left, right) => right.reach[1] - left.reach[1]);
+  if (foundation === "end") faces.sort((left, right) => left.reach[0] - right.reach[0]);
+  const face = faces[0];
+  if (face !== undefined) return face;
 
   // A trimmer ends on the beam it frames into, and that beam's own edge lines are its face.
   const crossing = plan.members.find(
@@ -936,6 +945,22 @@ function faceAt(point: Point, member: Axis, plan: Plan, supports: readonly Suppo
       member.at <= other.end,
   );
   return crossing === undefined ? null : { reach: [crossing.at - crossing.width / 2, crossing.at + crossing.width / 2], key: crossing.keys[0] };
+}
+
+/**
+ * Does a point of this plan stand inside a support's extents, read off the SUPPORT's own grid
+ * reference (s-schedules I-674)? The support's centre is its offsets off the two axes it stands
+ * at, and those two axes are found on this plan by their labels, so a member that spans more than one
+ * bay — F-RCC6-BNBC's PC5 under the lift core, centred at D/3 and reaching past grid 4 — carries an
+ * end at D/4 as surely as one at D/3. Asking which axes stand NEAREST the point instead would find
+ * D/4 there, meet no member addressed D/4, and run the tie beam on through the cap to the next face
+ * it met (L-QTY-06). For a member no wider than a bay the two readings agree.
+ */
+function standsIn(point: Point, support: Support, axes: readonly GridAxisRow[]): boolean {
+  const originX = originAcross(axes, support, AXIS_X);
+  const originY = originAcross(axes, support, AXIS_Y);
+  if (originX === null || originY === null) return false;
+  return Math.abs(point[0] - (originX + support.offX)) <= support.halfX && Math.abs(point[1] - (originY + support.offY)) <= support.halfY;
 }
 
 /**

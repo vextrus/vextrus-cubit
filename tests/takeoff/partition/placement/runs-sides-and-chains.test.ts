@@ -289,12 +289,15 @@ describe("I-611 on the two drawings", () => {
     expect(spans(FIRST_FLOOR, "1EB1").length, "and S-13's 1EB1 the same three").toBe(3);
   }, BUDGET_MS);
 
-  test("F-RCC6-BNBC: the pairs each plan draws as a beam and nobody names, enumerated per plan — the grade beams, the slanted spans, TG1", async () => {
+  test("F-RCC6-BNBC: the pairs each plan draws as a beam and nobody names, enumerated per plan — the slanted spans, TG1", async () => {
     const read = await bnbc();
     const byPlan: Record<string, string[]> = {};
     for (const pair of read.placed.unnamed ?? []) (byPlan[pair.viewKey] ??= []).push(pair.edgeKeys[0]);
-    expect(Object.fromEntries(Object.entries(byPlan).map(([view, keys]) => [view, keys.length])), "S-12's grade beams (no mark on the layout), and each beam layout's slanted spans").toEqual({
-      [GRADE_BEAMS]: 47,
+    // TEST_AMENDED (GB-READ, s-schedules I-673): S-08 letters every grade-beam span and the marks
+    // name them now; what it leaves is its four slanted spans — GB4 across the chamfer and GB5 to the
+    // ramp — which wait, like the beam layouts', for a run read along its own direction (FRM4-E).
+    expect(Object.fromEntries(Object.entries(byPlan).map(([view, keys]) => [view, keys.length])), "S-08's slanted grade beams, and each beam layout's slanted spans").toEqual({
+      [GRADE_BEAMS]: 4,
       [FIRST_FLOOR]: 6,
       [TYPICAL]: 3,
       [ROOF]: 2,

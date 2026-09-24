@@ -13,6 +13,7 @@ import { unnamedStatementOf, type UnnamedPair } from "@/core/residue";
 import { CoverageWorkspace } from "@/modules/takeoff/coverage/coverage-workspace";
 import { COVERAGE_COPY } from "@/modules/takeoff/coverage/copy";
 import type { CoverageView } from "@/modules/takeoff/coverage/view";
+import { selectionAddress } from "@/modules/takeoff/trace/address";
 import { TESTIDS, testIdSelector } from "@/ui/testids";
 
 afterEach(cleanup);
@@ -79,6 +80,23 @@ describe("the certificate preview names each unnamed beam", () => {
     expect(measurement?.querySelector(testIdSelector(TESTIDS.coverage.statementNone)), "a boundary with a beam outside it is no complete boundary").toBeNull();
     // L-QTY-07: enumerations, never cardinalities.
     expect(measurement?.textContent ?? "").not.toMatch(/\b3\b/);
+  });
+
+  test("I-675: each row is a door to where its pair is drawn — the sheet, with both edge lines selected", async () => {
+    const unsheeted = pair({ layoutName: "", edgeKeys: ["DXF_HANDLE:ABC", "DXF_HANDLE:ABD"], gridLetter: "C", gridNumeral: "2" });
+    const root = await mount(view({ unnamed: unnamedStatementOf([...PAIRS, unsheeted]) }));
+    const rows = [...root.querySelectorAll<HTMLElement>(".cx-coverage-statement-unnamed")];
+    const doors = Object.fromEntries(rows.map((row) => [row.getAttribute("data-source"), row.querySelector("a")?.getAttribute("href") ?? null]));
+    // Red before: no row carried a link, so two pairs at one grid reference read as one sentence twice.
+    expect(doors).toEqual({
+      "DXF_HANDLE:ABC": null,
+      "DXF_HANDLE:7C8": selectionAddress("tenant-1", "project-1", { drawingId: "drawing-1", layoutName: "S-12", sourceKeys: ["DXF_HANDLE:7C8", "DXF_HANDLE:7C9"] }),
+      "DXF_HANDLE:7BA": selectionAddress("tenant-1", "project-1", { drawingId: "drawing-1", layoutName: "S-12", sourceKeys: ["DXF_HANDLE:7BA", "DXF_HANDLE:7BB"] }),
+      "DXF_HANDLE:EEE": selectionAddress("tenant-1", "project-1", { drawingId: "drawing-1", layoutName: "S-14", sourceKeys: ["DXF_HANDLE:EEE", "DXF_HANDLE:EEF"] }),
+    });
+    const s12 = rows.find((row) => row.getAttribute("data-source") === "DXF_HANDLE:7C8");
+    expect(s12?.querySelector("a")?.textContent, "the door says the sheet it opens").toBe("Show on S-12");
+    expect(rows.find((row) => row.getAttribute("data-source") === "DXF_HANDLE:ABC")?.textContent, "a pair whose plan names no sheet still says where it stands").toContain("Grid C/2");
   });
 
   test("with nothing unnamed, nothing is said of it", async () => {

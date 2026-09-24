@@ -899,3 +899,11 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
 }
+
+/* I-675: the door to where an unnamed pair is drawn, in the link ink the alias layer keeps
+   readable on the ground in both themes. */
+.cx-coverage-statement-unnamed .cx-coverage-unnamed-link {
+  color: var(--ink-link);
+  text-decoration: underline;
+  transition: color var(--motion-state) var(--ease);
+}

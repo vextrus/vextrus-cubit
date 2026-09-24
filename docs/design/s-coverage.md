@@ -610,10 +610,21 @@ the repair; they amend what §1's "the view verbatim" holds.
   read, because a cell the class's other members made quantity-bearing says nothing of these. Each
   row reads `Beam drawn, not named` · the plan's caption · `Grid A/3`, then the registry's sentence,
   and carries its first edge line (`data-source`). A statement with one stands no "none".
-  - **On F-RCC6-BNBC** (the stages, `runs-sides-and-chains.test.ts`): S-12's grade-beam layout letters
-    none of its 47; S-14 leaves EB1d and EB2a/b, which are slanted (FRM4-E); S-13 leaves 1EB1d,
-    1EB2a/b, PB4/PB5 (slanted) and TG1 (contested, I-460); S-15's roof leaves REB2a/b. **On F-RCC6**:
-    none, because the chain names the 28 interior tie beams.
+  - **On F-RCC6-BNBC** (the stages, `runs-sides-and-chains.test.ts`): S-08's grade-beam layout leaves
+    its four slanted spans, GB4 across the chamfer and GB5 to the ramp (it left all 47 before
+    s-schedules I-673 named its marks); S-14 leaves EB1d and EB2a/b, which are slanted (FRM4-E);
+    S-13 leaves 1EB1d, 1EB2a/b, PB4/PB5 (slanted) and TG1 (contested, I-460); S-15's roof leaves
+    REB2a/b — 15 rows where walk-2 read 58. **On F-RCC6**: none, because the chain names the 28 interior
+    tie beams.
+- **I-675 — each unnamed pair's row is a door to where it is drawn (session 9, GB-READ; I-613,
+  I-556, I-181).** Walk-2 read the rows as one sentence repeated, with no way to see the beam a row
+  meant: two pairs at one grid reference (`A/3`, `A/3`) read as a duplicate. Each row now ends, after
+  its grid reference, with **Show on {sheet}**: the viewer at the sheet its plan stands on with the
+  pair's two edge lines selected (`unnamedPairAddress`, over the Trace's `selectionAddress`). The
+  pair's keys are the drawing's own entities, so no server resolution stands between them and the
+  selection, as a sighting's key needs. A pair whose plan names no sheet keeps its row with no link,
+  because a link to a sheet that cannot hold it would land on *not on this sheet* (I-181). The link
+  wears the link ink (`--ink-link`, underlined), in the row's mono value face.
   - **Not done here, owed.** L-QTY-04 also asks for a queue item. `queue_items` is keyed per campaign
     and per register object, and only the gate writes it; an unnamed pair has neither a register
     object nor a campaign, so no row is written. The enumeration is the exclusion a QS reads. A queue
@@ -970,7 +981,8 @@ class in words, lower case, an `s` past one; {reasons} each omitted code by the 
 `_sightings_summary_other` **{count} sightings on {sheets}** · `_sightings_nowhere` **no sheet named**
 · `_observation_count` **{count} ×** · `_statement_partial_label` **Declared partial** ·
 `_statement_unnamed_label` **Beam drawn, not named** · `_statement_unnamed_grid` **Grid {grid}**
-({grid} is the pair's letter and numeral, `A/3`; I-613). Every count
+({grid} is the pair's letter and numeral, `A/3`; I-613) · `_statement_unnamed_show` **Show on {sheet}**
+({sheet} is the sheet the pair's plan stands on, `S-08`; I-675). Every count
 through the format seam (`countWords`, `formatUserFigure`).
 
 The proposed boundary (I-297; the block is absent where nothing was proposed, so no key here says so):
