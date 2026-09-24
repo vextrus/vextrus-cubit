@@ -33,6 +33,19 @@ export const viewerPartition = {
   viewer_partition_denied_holder: "This project's principals and measurers hold it; a principal grants it on the participants screen.",
   viewer_partition_evidence_reload: "Reload this sheet",
   viewer_partition_evidence_participants: "Open the project's participants",
+  // The rooms the architect's plans enclose (s-takeoff I-647): the switch, the list and the
+  // words a room's row and its chip on the sheet say. A room's name, its printed size and its area
+  // are model data and render beside these words or in their slots.
+  viewer_partition_rooms_toggle: "Rooms",
+  viewer_partition_rooms_list_label: "Rooms read off this sheet's plans",
+  viewer_partition_room_area: "{area} m²",
+  viewer_partition_room_void: "Void, no finish",
+  viewer_partition_room_not_closed: "Not closed",
+  viewer_partition_room_unnamed: "Unnamed region",
+  viewer_partition_room_faces_all: "Floor, ceiling and walls registered",
+  viewer_partition_room_faces_floor: "Floor registered",
+  viewer_partition_room_size_disagrees: "Label prints {size}; the outline is not that size",
+  viewer_partition_room_astray: "{name} stands here, but no room of its printed size does",
 } as const;
 
 // The directory's convention is that a table is exported under its file's basename, and this file's

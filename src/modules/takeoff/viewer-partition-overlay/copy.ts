@@ -37,7 +37,17 @@ export type PartitionCopyKey =
   | "viewer_partition_denied_permission"
   | "viewer_partition_denied_holder"
   | "viewer_partition_evidence_reload"
-  | "viewer_partition_evidence_participants";
+  | "viewer_partition_evidence_participants"
+  | "viewer_partition_rooms_toggle"
+  | "viewer_partition_rooms_list_label"
+  | "viewer_partition_room_area"
+  | "viewer_partition_room_void"
+  | "viewer_partition_room_not_closed"
+  | "viewer_partition_room_unnamed"
+  | "viewer_partition_room_faces_all"
+  | "viewer_partition_room_faces_floor"
+  | "viewer_partition_room_size_disagrees"
+  | "viewer_partition_room_astray";
 
 export const PARTITION_COPY: Readonly<Record<PartitionCopyKey, string>> = Object.freeze({
   viewer_partition_heading: "Views and grid",
@@ -66,6 +76,16 @@ export const PARTITION_COPY: Readonly<Record<PartitionCopyKey, string>> = Object
   viewer_partition_denied_holder: "This project's principals and measurers hold it; a principal grants it on the participants screen.",
   viewer_partition_evidence_reload: "Reload this sheet",
   viewer_partition_evidence_participants: "Open the project's participants",
+  viewer_partition_rooms_toggle: "Rooms",
+  viewer_partition_rooms_list_label: "Rooms read off this sheet's plans",
+  viewer_partition_room_area: "{area} m²",
+  viewer_partition_room_void: "Void, no finish",
+  viewer_partition_room_not_closed: "Not closed",
+  viewer_partition_room_unnamed: "Unnamed region",
+  viewer_partition_room_faces_all: "Floor, ceiling and walls registered",
+  viewer_partition_room_faces_floor: "Floor registered",
+  viewer_partition_room_size_disagrees: "Label prints {size}; the outline is not that size",
+  viewer_partition_room_astray: "{name} stands here, but no room of its printed size does",
 });
 
 /**

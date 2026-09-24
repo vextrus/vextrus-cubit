@@ -184,7 +184,7 @@ export function useOverlayPaint({ canvasRef, stageRef, cameraRef, overlay, toggl
 
       const held = shown.current.overlay;
       const scene =
-        held === null ? { outlines: [], axes: [] } : overlayScene(held, shown.current.toggles, { ...at, viewport: { width, height } }, shown.current.scaleAbsence, shown.current.labels);
+        held === null ? { outlines: [], axes: [], rooms: [] } : overlayScene(held, shown.current.toggles, { ...at, viewport: { width, height } }, shown.current.scaleAbsence, shown.current.labels);
       drawOverlayScene(context, scene, paletteOf(stage), { width, height });
     },
     [canvasRef, stageRef],

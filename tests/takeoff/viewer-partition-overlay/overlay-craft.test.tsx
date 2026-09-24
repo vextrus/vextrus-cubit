@@ -211,6 +211,7 @@ describe("I-363: a grid row states its position on L-REG-04's lattice, on one li
         faultId={null}
         groups={null}
         answer={null}
+        testIds={{ room: TESTIDS.viewer.partitionRoom, roomsToggle: TESTIDS.viewer.partitionRoomsToggle }}
         IdChip={IdChip}
         EnumLabel={EnumLabel}
         humaniseEnum={humaniseEnum}

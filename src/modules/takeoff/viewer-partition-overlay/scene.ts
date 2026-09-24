@@ -4,9 +4,12 @@
 // Nothing here touches a canvas, a context or the DOM. A scene is a function of the overlay, the two
 // switches and the camera — so what the sheet shows can be judged without drawing anything, and a
 // frame is a redraw of this answer rather than a second reading of the store (PB-3).
+import { formatUserFigure } from "@/core/format";
+import { exact } from "@/core/units/canon";
 import { VIEW_TYPE } from "@/modules/takeoff/partition/views/law";
 import type { Camera } from "@/modules/takeoff/viewer/types";
-import type { OverlayBox, OverlayDrawnAxis, OverlayOutline, OverlayScene, OverlayToggles, PartitionOverlay } from "./types";
+import { PARTITION_COPY, fillCopy } from "./copy";
+import type { OverlayBox, OverlayDrawnAxis, OverlayDrawnRoom, OverlayOutline, OverlayScene, OverlayToggles, PartitionOverlay, PartitionOverlayAxis, PartitionOverlayRoom } from "./types";
 
 /**
  * How far past its view's box an axis runs at each end (Decision § 5's first stated ratio: no token
@@ -129,7 +132,85 @@ export function overlayScene(
       })
     : [];
 
-  return { outlines, axes };
+  // The rooms, where the overlay carries the rooms stage's reading at all: an overlay that predates it
+  // answers the scene it always did.
+  if (overlay.rooms === undefined) return { outlines, axes };
+  const rooms = toggles.rooms === false ? [] : roomsOnSheet(overlay, camera);
+  return { outlines, axes, rooms };
+}
+
+/** How many decimal places a room's area is said to on the sheet — the figure a QS reads a room by. */
+const AREA_PLACES = 2;
+
+/** A map from the model's coordinates onto this sheet's, one scale and offset per direction. */
+type SheetFrame = (world: readonly [number, number]) => readonly [number, number];
+
+/**
+ * Where a view's MODEL coordinates stand on this sheet, read off its own grid (I-647): each axis
+ * stores the model position it georeferences, and its bubble is drawn on this sheet at the position
+ * the sheet shows it at, so two axes of a family fix that direction's scale and offset. On model
+ * space the two readings are one number and the frame is the identity; on a paper sheet showing the
+ * plan through a window it is the window's scale and its shift. A view with no bubble on this sheet
+ * has no frame here, and its rooms are listed in the panel rather than painted somewhere they are not.
+ */
+export function sheetFrameOf(axes: readonly PartitionOverlayAxis[]): SheetFrame | null {
+  const pairs = (family: "x" | "y"): (readonly [number, number])[] =>
+    axes.flatMap((axis) => (axis.axis === family && axis.bubble !== null ? [[axis.position, family === "x" ? axis.bubble.centre[0] : axis.bubble.centre[1]] as const] : []));
+  const fit = (held: readonly (readonly [number, number])[]): { scale: number; offset: number } | null => {
+    if (held.length === 0) return null;
+    const sorted = [...held].sort((left, right) => left[0] - right[0]);
+    const low = sorted[0] as readonly [number, number];
+    const high = sorted[sorted.length - 1] as readonly [number, number];
+    if (high[0] - low[0] <= 0) return null;
+    const scale = (high[1] - low[1]) / (high[0] - low[0]);
+    return { scale, offset: low[1] - scale * low[0] };
+  };
+  const x = fit(pairs("x"));
+  const y = fit(pairs("y"));
+  // A direction with too few bubbles to fit borrows the other's scale — a window does not stretch —
+  // and takes its own offset from the one bubble it has.
+  const borrow = (own: (readonly [number, number])[], other: { scale: number } | null): { scale: number; offset: number } | null => {
+    const one = own[0];
+    return other === null || one === undefined ? null : { scale: other.scale, offset: one[1] - other.scale * one[0] };
+  };
+  const fx = x ?? borrow(pairs("x"), y);
+  const fy = y ?? borrow(pairs("y"), x);
+  if (fx === null || fy === null) return null;
+  return (world) => [world[0] * fx.scale + fx.offset, world[1] * fy.scale + fy.offset];
+}
+
+/** The words a room's chip says: its name, then its area, or what it is where it is no room. */
+function linesOf(room: PartitionOverlayRoom): string[] {
+  const name = room.name ?? PARTITION_COPY.viewer_partition_room_unnamed;
+  if (room.status === "VOID") return [name, PARTITION_COPY.viewer_partition_room_void];
+  if (room.status === "NOT_CLOSED") return [name, PARTITION_COPY.viewer_partition_room_not_closed];
+  if (room.areaM2 === null) return [name];
+  return [name, fillCopy("viewer_partition_room_area", { area: formatUserFigure(exact(room.areaM2).toFixed(AREA_PLACES)) })];
+}
+
+/**
+ * The rooms this sheet shows, in screen pixels. A region listed and not registered (DROPPED) is the
+ * panel's to list and is not painted: a sliver or the world around a plan outlined on the sheet would
+ * read as a room. The chip of a room stands inside its outline's top-left corner, clear of the label
+ * the architect drew; a room whose walls do not close has no outline and its chip stands at its label.
+ */
+function roomsOnSheet(overlay: PartitionOverlay, camera: Camera): OverlayDrawnRoom[] {
+  const frames = new Map<string, SheetFrame | null>();
+  const frameOf = (viewKey: string): SheetFrame | null => {
+    if (!frames.has(viewKey)) frames.set(viewKey, sheetFrameOf(overlay.axes.filter((axis) => axis.viewKey === viewKey)));
+    return frames.get(viewKey) ?? null;
+  };
+  return (overlay.rooms ?? []).flatMap((room) => {
+    if (room.status === "DROPPED") return [];
+    const frame = frameOf(room.viewKey);
+    if (frame === null) return [];
+    const onScreen = (world: readonly [number, number]): readonly [number, number] => screenAt(camera, frame(world));
+    const outer = room.outline === null ? [] : room.outline.outer.map(onScreen);
+    const holes = room.outline === null ? [] : room.outline.holes.map((hole) => hole.map(onScreen));
+    const corner: readonly [number, number] =
+      outer.length === 0 ? onScreen(room.anchor) : [Math.min(...outer.map((point) => point[0])), Math.min(...outer.map((point) => point[1]))];
+    return [{ roomKey: room.roomKey, status: room.status, outer, holes, anchor: corner, lines: linesOf(room) }];
+  });
 }
 
 /** What one scene amounts to, as the overlay canvas publishes it after a frame (Decision § 1). */
@@ -140,6 +221,9 @@ export type SceneCounts = {
   readonly scaleHatched: number;
   readonly axes: number;
   readonly bubbles: number;
+  /** How many rooms are painted, and how many of them are rooms whose walls do not close. */
+  readonly rooms: number;
+  readonly unclosed: number;
 };
 
 /**
@@ -153,5 +237,7 @@ export function sceneCounts(scene: OverlayScene): SceneCounts {
     scaleHatched: scene.outlines.filter((outline) => outline.scaleRefusal !== null).length,
     axes: scene.axes.length,
     bubbles: scene.axes.filter((axis) => axis.bubble !== null).length,
+    rooms: (scene.rooms ?? []).length,
+    unclosed: (scene.rooms ?? []).filter((room) => room.status === "NOT_CLOSED").length,
   };
 }

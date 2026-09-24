@@ -484,6 +484,13 @@
       "when": 1790232806424,
       "tag": "0068_unnamed-pairs",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1790233471321,
+      "tag": "0069_room-outlines",
+      "breakpoints": true
     }
   ]
 }

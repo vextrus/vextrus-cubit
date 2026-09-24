@@ -664,6 +664,107 @@ and say so.
   every structural row is STRUCTURAL — and so is a structural mark an architect's sheet places, which
   this cut cannot yet see (D-007).
 
+### 0.8 Rooms from the walls (session 9, wave 4b, ARCH-5)
+
+Until this increment an architect's plan gave the register its walls and openings (§0.7) and not one
+room: R-TO-036's "room/space outlines from wall geometry" had no reader, so no floor, ceiling or wall
+face could stand in the register and the finishes rails had nothing to be asked about. What a QS now
+sees on F-ARCH's typical floor is every room outlined between its walls' inner faces and named by its
+label — BED-01, KITCHEN, LIVING / DINING, the verandahs — with its area; the guard room on the ground
+floor, whose rear wall stops 60 mm short (T-UNCLOSED-WALL), outlined nowhere and saying why; the lift,
+the stair, the ducts and the shafts read as voids. Each room registers its FLOOR, its CEILING and its
+WALLS as surfaces on every storey its plan is typical of. No finish carries a figure yet: the surfaces
+reader that states each face's opening schedule and gross area is the next increment's (§8), and until
+it lands the finishes rails answer each surface OPENING_SCHEDULE_ABSENT, by name.
+
+- **I-643 — a room is a closed region between the inner faces of what a plan cuts through, read
+  as a planar arrangement, and nothing is bridged that the drawing does not close (R-TO-036, L-MEA-03:
+  "a surface that is not a closed outline defers with a reason — never bounding-boxed").** The rooms
+  stage (`partition/rooms`, the partition's sixth stage, after placement and before the expansion)
+  runs on a plan only where the wall lane placed walls (I-593), so a structural set reads no room and
+  no store, and its partition's rows and time are what they were. Its solids are: every wall run as
+  the band between its faces (a run already spans an opening's gap and a junction's, and stops at an
+  archway's, so LIVING and DINING either side of one are one room, F-ARCH A-13); a run carried ALONG
+  ITS OWN LINE through a closed ring it ends in whole — a column — to the ring's far face, or to the far
+  face of another wall running into the same column across it; the outer square an L of two runs
+  meeting at their axes' corner leaves open (without it the room wrapped round a duct's corner gained
+  62.5 × 62.5 of floor under a wall — measured, F-ARCH's east BED-01 and both F.LIVINGs); every other
+  closed ring touching a solid (a lift core's concrete, a low wall) — a ring a wall merely abuts is a
+  wall itself, and so is the core's cross piece that touches one; and a curved wall drawn as two
+  concentric arcs, both drawn (one arc is a door's swing). A ring drawn round a word is its tag and a
+  ring touching nothing (a rug, T-FURNITURE) bounds nothing. The arrangement is cut as the fixture's
+  own path 2 cuts it — every solid edge split where another meets it, the half-edges walked, the
+  bounded faces no solid covers kept with their holes — with two vertices within the drawing's
+  congruence tolerance (the thinnest wall over a thousand, I-593's share) snapped to one. A column is
+  thus an obstruction INSIDE the rooms it stands in, never a notch in their outline (A-14); its
+  deduction is the finishes reader's. Proof (`tests/takeoff/partition/arch-rooms.test.ts`): on F-ARCH
+  every authored room's polygon equals the region under its label to the square millimetre (GF 4
+  rooms, the typical plan 16 and the west verandah), the east verandah's curved end within 0.0005 m²
+  of the golden's analytic figure, and nothing else is read; synthetic plans measure exactly, with and
+  without columns, with a duct's corner, and with a wall stopped 60 mm short.
+- **I-644 — a region is named by the labels standing in it, read by grammar, and the printed
+  size is a cross-check that is shown, never believed (T-FTIN-LABEL, T-ROOM-SIZE-NOMINAL,
+  T-DUP-LABEL).** A room label is two lines — a name, then a size pair stating its unit
+  (`BED-01` over `17'-11" x 14'-5"`); a void is one line of a closed roster (LIFT, STAIR, DUCT, SHAFT,
+  VOID, CUT OUT, OPEN TO SKY…); anything else (`UP`, `CAR PARKING`, a tag, a level) names nothing, and
+  no layer is read. Several room labels in one region name one space ("LIVING / DINING"). The size
+  AGREES where the region's box is the printed pair either way round to half the place it was written
+  to (half an inch for feet-and-inches); it is kept on the room's row, true or false. A label standing
+  in a room another label of that room names at the size it is drawn, whose own printed size that room
+  does not bear, was drawn outside its room on a leader (T-LABEL-OUTSIDE): it names the nearest region
+  within the plan's near-anchor reach that no label names and whose size is its printed size — F-ARCH's
+  TOILET-02 — or, finding none, names nothing and is listed on the room it stands in. (The extractor
+  carries a LEADER with no vertices, so the leader itself cannot be followed; the size is what points.)
+  A name is no identity: the two flats' BED-01s are two rooms keyed by where they stand. A room whose
+  name opens with an open-air word (VERANDAH, BALCONY, TERRACE…) carries its FLOOR alone — its soffit
+  and walls are the building's external faces, which no internal finish item is (A-15, A-19).
+- **I-645 — a machine-read room outline is L-FRM-01's POLYGON, which the law lists for manual
+  tools; its stored area is checked against its own shoelace, and an arc is carried as an arc.** A
+  room is drawn by nobody: it is the region the walls enclose, a polygon with holes, and the union's
+  POLYGON is the one member that is (PRISM_POLY is a prism with a height; AREA_THICK a wall's face
+  times its thickness). The outline's area is its shoelace over the points as read, plus, for each
+  whole chord of a flattened arc, the circular segment between chord and arc, r²/2 (θ − sin θ), signed
+  for the side the arc bulges; L-FRM-01's 0.5 % is then the check that this stored area and the
+  outline's own shoelace are one figure, never a grading band. A curve flattened too coarsely to carry
+  itself fails it, and the region is listed ROOM_AREA_DISAGREES and registers nothing. Areas are kept
+  as exact decimals in square metres (`room_outlines.area_m2`), carried by the canon's factors.
+- **I-646 — a room's faces are PLACEMENTS: its FLOOR, CEILING and WALLS each a surface under the
+  markless identity, standing on every storey its plan is typical of and walked under the discipline
+  confirmed for its sheet; the region itself, and every region that is no room, stands in
+  `room_outlines` (L-REG-04, L-REG-03, I-378, I-592).** The choice was rooms as placements or
+  `sightingOf` learning a second table; placements keep ONE register path — the expansion (a surface
+  is a level class, as a wall is), the re-expansion from the store, the sheet's confirmed discipline
+  (a surface is a wall-lane class) — and `sightingOf` finds a surface as it finds a wall. Each face's
+  mark is core's `manualMark` over the outline as a POLYGON, the class `surface` and the face's kinds
+  (floor: finish.flooring; ceiling: plaster, paint; walls: plaster, paint, skirting, tiling), which is
+  what tells three faces of one outline apart; a hand trace of the same outline and kinds is the same
+  identity (DUPLICATE_IDENTITY). `room_outlines` (migration 0068, RLS forced) holds per ingest each
+  region's content-derived key, its status (CLOSED, NOT_CLOSED, VOID, DROPPED) and reason, its name,
+  its labels with their size check, its outline and area, and the placement key of each face it
+  registered. What is not a room is listed, never dropped silently (L-MEA-01): a region outside the
+  edition's finishMinOutlineArea…finishMaxOutlineArea is ROOM_OUTLINE_OUT_OF_BAND; a region no label
+  names is ROOM_UNNAMED; a room label standing in no closed region is SURFACE_NOT_CLOSED, with no
+  outline. Proof: `arch-rooms.test.ts` (GF 12 surfaces, the typical plan 50, each on its plan's sheet)
+  and `arch-rooms-register.test.ts` (db lane: the stage's detail, `room_outlines`, and the typical
+  sheet's surfaces registered ARCHITECTURAL on each of 1F–6F once a person confirms it, none before).
+- **I-647 — the views/grid overlay paints the rooms, carried onto the opened sheet through the
+  plan's own grid.** A room is stored in model coordinates; a paper sheet shows the plan through a
+  window, so each view's model-to-sheet frame is read off its axes — each stores the model position
+  it georeferences and its bubble stands on this sheet where the sheet shows it (I-318's reading) —
+  two bubbles of a family fixing that direction's scale and offset, a direction with one borrowing the
+  other's scale. A view with no bubble on the sheet paints no room there; its rooms stay in the panel.
+  By LINE, never hue (R-UI-060): a room is washed in the sheet's ink at 7 % and outlined solid (the
+  outline runs on the architect's own face lines, so a line alone would vanish into them); a void is
+  outlined dotted; an unclosed room has no outline at all and its chip, in the warn ink, says "Not
+  closed"; a dropped region is not painted. A room's chip stands inside its outline's top-left
+  corner, clear of the architect's label, saying its name and its area to two places through the
+  format seam, and is dropped where the room is drawn smaller than the chip. The panel gains a Rooms
+  switch (`viewer-partition-rooms-toggle`, shown only where the partition read rooms) and one row per
+  room of this sheet's plans (`viewer-partition-room`, `data-status`, `data-reason`, `data-area`,
+  `data-faces`) — its name, its area or what it is, the faces it registered, a label whose size the
+  outline does not bear, and the register's own sentence for a reason; the canvas publishes
+  `data-rooms` and `data-unclosed`. Strings: `viewer_partition_room*` (src/ui/strings/viewer-partition.ts).
+
 ## 1. Layout and hierarchy
 
 `takeoff/layout.tsx` renders `<TakeoffTabs>` around `{children}`: the lane's 40 px-of-content tabs
@@ -1150,6 +1251,29 @@ Opened by ARCH-4 (§0.7), each with the node that owns the fix:
   opening's grid reference names the nearest bubble row, and the tag reach (the edition's near-anchor
   share of that spacing) is generous. Nothing measured turns on it — a tag names the gap it stands
   beside and in — but the Source chip's grid reference does. Owner: the grid stage.
+
+Opened by ARCH-5 (§0.8):
+
+- **A surface's figure.** The rooms register their faces, and no finish is measured: `RailSetup.surfaces`
+  is still spelled `{}`, so every surface answers OPENING_SCHEDULE_ABSENT. Owner: the surfaces reader —
+  each face's opening schedule (the openings the wall lane placed in the room's walls, allocated to the
+  rooms they open onto, A-17/A-18), its gross area (the floor and ceiling off `room_outlines`, net of
+  column pieces over 0.1 m², A-14; the walls' faces by their heights to the soffit, A-18), its face and
+  floor selectors off the ROOM FINISH SCHEDULE — and `closed` read from `room_outlines`, so the guard
+  room's surfaces, once a person closes it, say SURFACE_NOT_CLOSED no more. Two guards go in with
+  it, before any figure is read. First, a face's kinds gate the rails that measure it: `bears` gives
+  the surface CLASS all five finishes (plaster, paint, flooring, tiling, skirting), while the kinds
+  a FACE bears (a floor: flooring alone, I-646) live only in its markless identity. So the reader
+  must hand a face only to the rails of its own kinds, or a FLOOR placement is plastered, painted,
+  tiled and skirted, which is over-measurement and a hard block. Second, `room_outlines.area_m2` is
+  the gross outline, which includes the column footprints it wraps (A-14). No floor or ceiling
+  figure reads it until those column pieces over 0.1 m² are netted.
+- **The leader a label is drawn on.** The extractor carries a LEADER with no vertices, so I-644
+  follows a label drawn outside its room by its printed size, not by its leader. Owner: the cad lane
+  (the LEADER's vertices in EntityGraph, a declared re-key), then the label reader.
+- **An unclosed room closed by a person.** Owner: S-Measure's area tool (R-TO-017) — a traced outline
+  of the guard room is a hand POLYGON of class surface, and the identity I-646 derives is the one
+  it would carry.
 
 The Trace from a line to its entities and back (R-UI-022) is **paid**: inc-215 makes the `source`
 cell an `EvidenceLink` under `docs/design/s-takeoff-register.md`, and the cited key is no longer

@@ -2,13 +2,17 @@
 // endpoint the project's stack lacks. The closed list the store's CHECK is written from stands here
 // too, beside the codes it is made of.
 
+import type { MasonryRefusalCode } from "./masonry";
 import type { RefusalGroup } from "./law";
 
 /** Every code this area registers. The barrel folds this union into `RefusalCode` (B-19). */
 export type TakeoffPlacementsRefusalCode =
   | "TYPICAL_RANGE_UNSTATED"
   | "LEVEL_RANGE_ENDPOINT_UNMAPPED"
-  | "FRAMED_PAIR_UNNAMED";
+  | "FRAMED_PAIR_UNNAMED"
+  | "ROOM_OUTLINE_OUT_OF_BAND"
+  | "ROOM_UNNAMED"
+  | "ROOM_AREA_DISAGREES";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const TAKEOFF_PLACEMENTS_REFUSALS: RefusalGroup<TakeoffPlacementsRefusalCode> = Object.freeze({
@@ -42,6 +46,31 @@ export const TAKEOFF_PLACEMENTS_REFUSALS: RefusalGroup<TakeoffPlacementsRefusalC
     severity: "info",
     surface: "inline",
   }),
+  // The rooms an architect's plan encloses (s-takeoff I-643…d): a closed region the partition
+  // read and did not register as a room, each by name, because L-MEA-01 drops out-of-band outlines
+  // "listed, never silently" and every refusal carries a named reason.
+  ROOM_OUTLINE_OUT_OF_BAND: Object.freeze({
+    code: "ROOM_OUTLINE_OUT_OF_BAND",
+    message: "This closed region is smaller or larger than any room outline the rule set admits, so it is listed and not registered as a room.",
+    remedy: "Check the region on the plan; where it is a room, trace its outline with the area tool.",
+    severity: "info",
+    surface: "inline",
+  }),
+  ROOM_UNNAMED: Object.freeze({
+    code: "ROOM_UNNAMED",
+    message: "No room label stands in this closed region, so nothing says which room it is and it is not registered.",
+    remedy: "Label the room on the plan with its name and size, or trace and name it with the area tool.",
+    severity: "info",
+    surface: "inline",
+  }),
+  // L-FRM-01: "a stored plan area disagreeing with its own polygon's shoelace by more than 0.5 % refuses".
+  ROOM_AREA_DISAGREES: Object.freeze({
+    code: "ROOM_AREA_DISAGREES",
+    message: "This room's area and the shoelace of its own outline disagree by more than half a percent, so its outline is not registered.",
+    remedy: "Redraw the room's curved edges with finer segments, or trace the room with the area tool.",
+    severity: "warning",
+    surface: "inline",
+  }),
 });
 
 /**
@@ -56,3 +85,13 @@ export const EXPANSION_DEFERRAL_REASONS = ["TYPICAL_RANGE_UNSTATED", "LEVEL_RANG
 
 /** One of the two. */
 export type ExpansionDeferralReason = (typeof EXPANSION_DEFERRAL_REASONS)[number];
+
+/**
+ * Why a closed region of an architect's plan is not registered as a room — the codes the rooms stage
+ * stands a region under (s-takeoff I-643…d), and L-MEA-03's own `SURFACE_NOT_CLOSED` for a room
+ * label standing in no closed region at all. One list, read by the store's CHECK and the overlay alike.
+ */
+export const ROOM_OUTLINE_REASONS = ["SURFACE_NOT_CLOSED", "ROOM_OUTLINE_OUT_OF_BAND", "ROOM_UNNAMED", "ROOM_AREA_DISAGREES"] as const satisfies readonly (TakeoffPlacementsRefusalCode | MasonryRefusalCode)[];
+
+/** One of the four. */
+export type RoomOutlineReason = (typeof ROOM_OUTLINE_REASONS)[number];

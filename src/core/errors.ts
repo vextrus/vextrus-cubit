@@ -60,6 +60,7 @@ export type { RefusalSeverity, RefusalSurface } from "./errors/law";
 export { SCHEDULE_DEFERRAL_REASONS, type ScheduleDeferralReason } from "./errors/takeoff-schedules";
 export { PRINTED_QUANTITY_REFUSAL_CODES, type PrintedQuantityRefusal } from "./errors/takeoff-schedules";
 export { EXPANSION_DEFERRAL_REASONS, type ExpansionDeferralReason } from "./errors/takeoff-placements";
+export { ROOM_OUTLINE_REASONS, type RoomOutlineReason } from "./errors/takeoff-placements";
 export { SCOPE_DECLARATION_CAUSES, type ScopeDeclarationCause } from "./errors/residue";
 
 /**

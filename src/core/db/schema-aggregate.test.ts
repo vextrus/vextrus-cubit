@@ -135,6 +135,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "registerObjects",
   "registerObservations",
   "repudiatedObjects",
+  "roomOutlines",
   "rulesetEditions",
   "scaleAffirmations",
   "scheduleCells",
@@ -225,6 +226,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
   "registerObjects",
   "registerObservations",
   "repudiatedObjects",
+  "roomOutlines",
   "rulesetEditions",
   "rulesetScope",
   "scaleAffirmations",
@@ -346,6 +348,13 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * member that no mark names, stored per ingest with the placements so the residue can enumerate
  * them. No standing column moved or was dropped (0068 holds one CREATE TABLE and no ALTER TABLE).
  * Previous: d7fa4c5ad9adac03a5f03cf8860a178dbf6516f7597a4e953979682b569740a1.
+ */
+/*
+ * Re-baselined for ARCH-5's migration (0069 at integration) (s-takeoff I-643): ONE ADDED table of the new
+ * takeoff-rooms area (./schema-takeoff-rooms.ts) — `room_outlines`, the rooms an architect's plan
+ * encloses, with their status, reason, outline, area and the surfaces each registered. No standing
+ * table or column moved or was dropped (0068 is one CREATE TABLE and its index).
+ * Landed after FRM4-AD's 0068; the digest below is re-frozen over both at integration.
  */
 const COLUMNS_DIGEST_BEFORE = "552432fe94b491d765b8727354eda7a0df8e8c000ce8135d34db7cebad9963c1";
 

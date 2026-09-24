@@ -100,9 +100,10 @@ export {
   manualMeasurements,
   wallRuns,
   wallOpenings,
+  roomOutlines,
   SEAM_SCHEMA,
 } from "./db/schema";
-export { isAcceptedFormat } from "./db/schema";
+export { isAcceptedFormat, ROOM_FACES, ROOM_OUTLINE_STATUSES } from "./db/schema";
 export type {
   WorkspaceRole,
   Disposition,
@@ -126,6 +127,11 @@ export type {
   PrintedQuantityBasis,
   PrintedQuantityRefusal,
   ExpansionDeferralReason,
+  RoomFace,
+  RoomOutlineStatus,
+  StoredRoomLabel,
+  StoredRoomOutline,
+  StoredRoomFace,
 } from "./db/schema";
 export { closePools } from "./db/pools";
 export {

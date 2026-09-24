@@ -10,7 +10,7 @@
 // the three still read apart. No colour is spelled here: every one arrives resolved from a token by
 // the screen (I-115).
 import { LEGIBLE_TEXT_PX } from "@/modules/takeoff/viewer/client";
-import type { OverlayDrawnAxis, OverlayOutline, OverlayPalette, OverlayScene } from "./types";
+import type { OverlayDrawnAxis, OverlayDrawnRoom, OverlayOutline, OverlayPalette, OverlayScene } from "./types";
 
 /** Every stroke of the overlay is one hairline: the sheet's ink, not a second weight (Decision § 5). */
 const HAIRLINE_PX = 1;
@@ -24,6 +24,16 @@ const HATCH_PITCH_PX = 8;
 
 /** Padding inside the type chip (Decision § 1). */
 const CHIP_PAD_PX = 3;
+
+/** A void's outline: dotted, so a lift or a shaft never reads as a room outlined solid (I-647). */
+const VOID_DASH: readonly number[] = [2, 3];
+
+/**
+ * How much of the sheet's ink a room's floor is washed with. The outline runs ON the wall faces the
+ * architect drew in the same ink, so a line alone would vanish into them: the wash is what shows the
+ * room was read, and it is the sheet's own ink at a fraction — no second hue (R-UI-060, I-115).
+ */
+const ROOM_WASH_ALPHA = 0.07;
 
 /**
  * How much of a ring's diameter a bubble's lettering may run across (I-363's second ratio): the rest
@@ -167,6 +177,70 @@ function axis(context: CanvasRenderingContext2D, drawn: OverlayDrawnAxis, palett
   context.restore();
 }
 
+/** One ring traced as a sub-path. */
+function tracePath(context: CanvasRenderingContext2D, ring: readonly (readonly [number, number])[]): void {
+  const [first, ...rest] = ring;
+  if (first === undefined) return;
+  context.moveTo(first[0], first[1]);
+  for (const point of rest) context.lineTo(point[0], point[1]);
+  context.closePath();
+}
+
+/**
+ * One room: a room is washed and outlined solid, a void outlined dotted, and a room whose walls do not
+ * close is drawn no outline at all — there is none, and a box round it would be the bounding box L-MEA-03
+ * forbids. Its chip says so instead.
+ */
+function room(context: CanvasRenderingContext2D, drawn: OverlayDrawnRoom, palette: OverlayPalette): void {
+  if (drawn.outer.length === 0 || drawn.status === "NOT_CLOSED") return;
+  context.save();
+  context.beginPath();
+  tracePath(context, drawn.outer);
+  for (const hole of drawn.holes) tracePath(context, hole);
+  if (drawn.status === "CLOSED") {
+    context.globalAlpha = ROOM_WASH_ALPHA;
+    context.fillStyle = palette.ink;
+    context.fill("evenodd");
+    context.globalAlpha = 1;
+  }
+  strokeStyle(context, palette.ink, drawn.status === "VOID" ? VOID_DASH : []);
+  context.stroke();
+  context.restore();
+}
+
+/**
+ * A room's chip: its name over its area — or over what it is where it is no room — standing inside the
+ * outline's top-left corner, clear of the label the architect drew. A room shrunk past the chip loses
+ * the chip rather than showing one bigger than itself, except a room whose walls do not close: its
+ * chip is the only mark it has, and it is lettered in the warn ink.
+ */
+function roomChip(context: CanvasRenderingContext2D, drawn: OverlayDrawnRoom, palette: OverlayPalette): void {
+  context.save();
+  context.font = `${palette.typeSizePx}px ${palette.mono}`;
+  context.textAlign = "left";
+  context.textBaseline = "top";
+  const width = Math.max(...drawn.lines.map((line) => context.measureText(line).width)) + CHIP_PAD_PX * 2;
+  const height = palette.typeSizePx * drawn.lines.length + CHIP_PAD_PX * 2;
+  const unclosed = drawn.status === "NOT_CLOSED";
+  if (!unclosed && drawn.outer.length > 0) {
+    const xs = drawn.outer.map((point) => point[0]);
+    const ys = drawn.outer.map((point) => point[1]);
+    if (Math.max(...xs) - Math.min(...xs) < width + CHIP_PAD_PX * 2 || Math.max(...ys) - Math.min(...ys) < height + CHIP_PAD_PX * 2) {
+      context.restore();
+      return;
+    }
+  }
+  const x = drawn.anchor[0] + (unclosed ? 0 : CHIP_PAD_PX);
+  const y = drawn.anchor[1] + (unclosed ? 0 : CHIP_PAD_PX);
+  context.fillStyle = palette.paper;
+  context.fillRect(x, y, width, height);
+  strokeStyle(context, unclosed ? palette.warn : palette.ink, []);
+  context.strokeRect(x, y, width, height);
+  context.fillStyle = unclosed ? palette.warn : palette.label;
+  drawn.lines.forEach((line, index) => context.fillText(line, x + CHIP_PAD_PX, y + CHIP_PAD_PX + index * palette.typeSizePx));
+  context.restore();
+}
+
 /**
  * One frame of the overlay: the canvas cleared, then every outline, then every axis, then every
  * outline's type chip. The order is the Decision's — the grid reads over the views it georeferences,
@@ -185,7 +259,10 @@ export function drawOverlayScene(
 ): void {
   const box = viewport ?? { width: context.canvas.width, height: context.canvas.height };
   context.clearRect(0, 0, box.width, box.height);
+  // The rooms first: they are what the plan's walls enclose, under the view that frames the plan.
+  for (const drawn of scene.rooms ?? []) room(context, drawn, palette);
   for (const drawn of scene.outlines) outline(context, drawn, palette);
   for (const drawn of scene.axes) axis(context, drawn, palette);
   for (const drawn of scene.outlines) outlineChip(context, drawn, palette);
+  for (const drawn of scene.rooms ?? []) roomChip(context, drawn, palette);
 }

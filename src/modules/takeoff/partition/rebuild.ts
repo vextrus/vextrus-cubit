@@ -32,6 +32,8 @@ import { proposeLevelStack, type ProposedLevelStack } from "./levels-proposal/pr
 import { detectPlacements } from "./placement/detect";
 import type { DetectedPlacements } from "./placement/rows";
 import { placementSharesOf } from "./placement/shares";
+import { detectRooms, NO_ROOMS, type DetectedRooms } from "./rooms/detect";
+import { roomBandOf } from "./rooms/store";
 import { reconstructSchedules } from "./schedules/reconstruct";
 import { registerMemberTypes } from "./schedules/registry";
 import { readSectionStrips } from "./schedules/strips";
@@ -47,7 +49,7 @@ import { VIEW_TYPE, VIEW_TYPES, type ViewType } from "./views/law";
  * A stage is a member of this list or it does not run at all — the list is the roster, and the map
  * below is keyed by it, so neither can hold a stage the other does not.
  */
-export const PARTITION_STAGES = ["views", "conventions", "grid", "schedules", "placement", "expansion", "levels-proposal"] as const;
+export const PARTITION_STAGES = ["views", "conventions", "grid", "schedules", "placement", "rooms", "expansion", "levels-proposal"] as const;
 
 /** One stage of the partition, drawn from the closed list above. */
 export type PartitionStage = (typeof PARTITION_STAGES)[number];
@@ -93,6 +95,7 @@ type StagedPartition = {
   readonly grid: DetectedGrid | null;
   readonly schedules: DetectedSchedules | null;
   readonly placements: DetectedPlacements | null;
+  readonly rooms: DetectedRooms | null;
   readonly expansion: ResolvedExpansion | null;
   readonly proposal: ProposedLevelStack | null;
   /** The register pass the expansion stage owes the store, or null where it resolved nothing. */
@@ -225,7 +228,37 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
       },
     };
   },
-  // The sixth: which levels each placed member stands on, and the register rows that follows. The
+  // The sixth: the rooms the architect's plans enclose between the walls the placement stage read
+  // (s-takeoff I-643…d). It runs only where walls were placed — a structural set places none, so
+  // its partition reads no store and no room here, and its rows and its time are what they were. The
+  // surfaces a named room registers join the placements, so the expansion stands each on the storeys
+  // its plan is typical of and the store writes them with every other placement (L-REG-04).
+  rooms: async (context, held) => {
+    const walls = held.placements?.walls ?? [];
+    const quiet = { views: 0, rooms: 0, not_closed: 0, voids: 0, dropped: 0, surfaces: 0 };
+    if (walls.length === 0 || held.placements === null) return { derived: { ...held, rooms: NO_ROOMS }, detail: quiet };
+    const scope = { tenantId: context.tenantId, projectId: context.projectId };
+    const [shares, band] = await Promise.all([placementSharesOf(scope), roomBandOf(scope)]);
+    // An edition that states no outline band reads no room: out-of-band outlines are dropped by the
+    // edition's numbers and by no others (L-MEA-01), and a stage with nothing to judge by says so.
+    if (shares === null || band === null) return { derived: { ...held, rooms: NO_ROOMS }, detail: { ...quiet, band: null } };
+    const rooms = detectRooms({ graph: context.graph, views: held.views, assignments: held.assignments, grid: held.grid, shares, families: held.schedules?.registry ?? [], walls, band });
+    const placements: DetectedPlacements = { ...held.placements, placements: [...held.placements.placements, ...rooms.placements] };
+    const counted = (status: string): number => rooms.rooms.filter((room) => room.status === status).length;
+    return {
+      derived: { ...held, placements, rooms },
+      detail: {
+        views: rooms.views,
+        rooms: counted("CLOSED"),
+        not_closed: counted("NOT_CLOSED"),
+        voids: counted("VOID"),
+        dropped: counted("DROPPED"),
+        surfaces: rooms.placements.length,
+        band: { ...band },
+      },
+    };
+  },
+  // The seventh: which levels each placed member stands on, and the register rows that follows. The
   // resolution is pure (`./expansion/resolve`); what this stage adds is the state it is resolved over
   // — the live stack, the ranges a person authored — and the revisions the rows are registered under.
   expansion: async (context, held) => {
@@ -271,7 +304,7 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
       },
     };
   },
-  // The seventh: the level stack the sections STATE, read into a proposal a person confirms whole.
+  // The eighth: the level stack the sections STATE, read into a proposal a person confirms whole.
   // Nothing here authors a level — "the machine proposes a stack, never a level" (L-ACT-03).
   "levels-proposal": (context, held) => {
     const proposal = proposeLevelStack({ graph: context.graph, views: held.views, assignments: held.assignments });
@@ -321,7 +354,7 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
   const graph = await artifactOf(tenantId, record, deps.storage);
   await progress.step(STEP_RESOLVE, { ingest_id: ingestId, artifact_sha256: record.artifactSha256 });
 
-  let derived: StagedPartition = { views: [], assignments: new Map(), conventions: null, grid: null, schedules: null, placements: null, expansion: null, proposal: null, register: null };
+  let derived: StagedPartition = { views: [], assignments: new Map(), conventions: null, grid: null, schedules: null, placements: null, rooms: null, expansion: null, proposal: null, register: null };
   for (const stage of PARTITION_STAGES) {
     const outcome = await STAGES[stage]({ record, graph, tenantId, projectId, drawingId }, derived);
     derived = outcome.derived;
@@ -349,6 +382,7 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
     grid: derived.grid,
     schedules: derived.schedules,
     placements: derived.placements,
+    rooms: derived.rooms,
     expansion: derived.expansion,
     proposal: derived.proposal,
     register: derived.register,

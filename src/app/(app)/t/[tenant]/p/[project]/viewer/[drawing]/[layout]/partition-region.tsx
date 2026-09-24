@@ -21,7 +21,7 @@ import type { ViewGroupKey } from "@/core/acts";
 import type { Camera } from "@/modules/takeoff/viewer";
 import type { GridAxisRow } from "@/modules/takeoff/partition";
 import { offeredViewGroups } from "@/modules/takeoff/viewer-partition-overlay/groups";
-import { PartitionPanel } from "@/modules/takeoff/viewer-partition-overlay/partition-panel";
+import { PartitionPanel, type PartitionPanelTestIds } from "@/modules/takeoff/viewer-partition-overlay/partition-panel";
 import { overlayScene, sceneCounts } from "@/modules/takeoff/viewer-partition-overlay/scene";
 import { usePartitionOverlay, useOverlayPaint } from "@/modules/takeoff/viewer-partition-overlay/use-partition-overlay";
 import type { OverlayToggles, PartitionOverlayView } from "@/modules/takeoff/viewer-partition-overlay/types";
@@ -39,8 +39,11 @@ import { TESTIDS } from "@/ui/testids";
 /** The act the views/grid panel renders — a machine identifier the dialog shows and never translates. */
 const CONFIRM_VIEW_TYPE = "CONFIRM_VIEW_TYPE";
 
-/** Both switches are on at every mount — nothing about them is persisted (Decision § 8's IOU). */
-const BOTH_ON: OverlayToggles = { views: true, grid: true };
+/** Every switch is on at every mount — nothing about them is persisted (Decision § 8's IOU). */
+const BOTH_ON: OverlayToggles = { views: true, grid: true, rooms: true };
+
+/** The ids the panel's rooms reading publishes, read from the registry here because the panel may not (ARCH-01). */
+const PANEL_TEST_IDS: PartitionPanelTestIds = Object.freeze({ room: TESTIDS.viewer.partitionRoom, roomsToggle: TESTIDS.viewer.partitionRoomsToggle });
 
 /** A sheet nobody has partitioned holds no axis — one frozen answer, so a reader of it never
     recomputes what it pairs on a render that changed nothing (PB-3). */
@@ -212,6 +215,7 @@ export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, 
    */
   const panel = (
     <PartitionPanel
+      testIds={PANEL_TEST_IDS}
       IdChip={IdChip}
       EnumLabel={EnumLabel}
       humaniseEnum={humaniseEnum}
@@ -264,6 +268,9 @@ export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, 
         data-scale-hatched={String(overlayCounts.scaleHatched)}
         data-axes={String(overlayCounts.axes)}
         data-bubbles={String(overlayCounts.bubbles)}
+        // The rooms painted, and how many of them are rooms whose walls do not close (s-takeoff I-647).
+        data-rooms={String(overlayCounts.rooms)}
+        data-unclosed={String(overlayCounts.unclosed)}
       />
     );
 

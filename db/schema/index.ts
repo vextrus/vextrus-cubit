@@ -34,3 +34,4 @@ export * from "./docs";
 export * from "./boq";
 export * from "./manual";
 export * from "./takeoff-walls";
+export * from "./takeoff-rooms";

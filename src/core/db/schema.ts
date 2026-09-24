@@ -55,6 +55,7 @@ import { DOCS_TABLES } from "./schema-docs";
 import { BOQ_TABLES } from "./schema-boq";
 import { MANUAL_TABLES } from "./schema-manual";
 import { TAKEOFF_WALLS_TABLES } from "./schema-takeoff-walls";
+import { TAKEOFF_ROOMS_TABLES } from "./schema-takeoff-rooms";
 
 export * from "./schema-tenants";
 export * from "./schema-projects";
@@ -89,6 +90,7 @@ export * from "./schema-docs";
 export * from "./schema-boq";
 export * from "./schema-manual";
 export * from "./schema-takeoff-walls";
+export * from "./schema-takeoff-rooms";
 
 /**
  * Everything the typed surface covers. A table joins the surface by joining ITS AREA’S group, and
@@ -135,4 +137,5 @@ export const SEAM_SCHEMA = {
   ...BOQ_TABLES,
   ...MANUAL_TABLES,
   ...TAKEOFF_WALLS_TABLES,
+  ...TAKEOFF_ROOMS_TABLES,
 };

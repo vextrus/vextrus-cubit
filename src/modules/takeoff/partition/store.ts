@@ -20,6 +20,8 @@ import type { ProposedLevelStack } from "./levels-proposal/propose";
 import type { DetectedPlacements } from "./placement/rows";
 import { rewritePlacementRows } from "./placement/store";
 import { rewriteWallRows } from "./walls/store";
+import type { DetectedRooms } from "./rooms/detect";
+import { rewriteRoomRows } from "./rooms/store";
 import { rewriteScheduleRows, type DetectedSchedules } from "./schedules/store";
 import type { PartitionedView } from "./views/assign";
 
@@ -62,6 +64,11 @@ export type PartitionWrite = {
   readonly schedules: DetectedSchedules | null;
   /** What the placement stage read off the layout plans, or null for the same reason (L-CAD-07). */
   readonly placements: DetectedPlacements | null;
+  /**
+   * What the rooms stage read off the architect's plans (s-takeoff I-643), or null for the same
+   * reason. Optional: a writer that ran no rooms stage writes none, and clears what stood.
+   */
+  readonly rooms?: DetectedRooms | null;
   /** What the expansion stage resolved, or null for the same reason (L-CAD-07). */
   readonly expansion: ResolvedExpansion | null;
   /** What the levels-proposal stage read off the sections, or null for the same reason (L-MEA-07). */
@@ -177,6 +184,8 @@ export async function rewritePartition(write: PartitionWrite): Promise<Registere
     // The walls and openings the wall lane placed land with their placements, for the same reason
     // (s-takeoff I-593, L-REG-04).
     await rewriteWallRows(tx, { ...record, placements: write.placements });
+    // And the rooms their walls enclose, whose surfaces stand among those placements (I-643).
+    await rewriteRoomRows(tx, { ...record, rooms: write.rooms ?? null });
     await rewriteExpansionRows(tx, { ...record, expansion: write.expansion });
     await rewriteProposedLevelRows(tx, { ...record, proposal: write.proposal });
 

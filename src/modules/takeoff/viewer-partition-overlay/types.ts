@@ -7,6 +7,7 @@
 // it was read off. A column that changes shape is a compile error here rather than a drift.
 import type { GridAxisRow, GridDeferralRow } from "@/modules/takeoff/partition";
 import type { ViewRecord } from "@/core/views";
+import type { RoomOutlineStatus, StoredRoomLabel } from "@/core/db";
 
 /** A world box, as every seam of the sheet states one. */
 export type OverlayBox = { readonly min: readonly [number, number]; readonly max: readonly [number, number] };
@@ -27,16 +28,42 @@ export type PartitionOverlayView = Pick<ViewRecord, "viewKey" | "type" | "reason
 /** One georeferenced axis, with the ring its bubble is drawn at, or none where no ring stands. */
 export type PartitionOverlayAxis = GridAxisRow & { readonly bubble: OverlayRing | null };
 
+/**
+ * One room the rooms stage read off an architect's plan (s-takeoff I-643…d) — or one closed
+ * region that is not a room, with the register's code for why. The outline and the anchor are in the
+ * MODEL's coordinates, as the partition read them; the scene carries them onto whatever sheet shows
+ * the plan through the plan's own grid (I-647).
+ */
+export type PartitionOverlayRoom = {
+  readonly roomKey: string;
+  readonly viewKey: string;
+  readonly status: RoomOutlineStatus;
+  readonly reason: string | null;
+  readonly name: string | null;
+  readonly labels: readonly StoredRoomLabel[];
+  readonly outline: { readonly outer: readonly (readonly [number, number])[]; readonly holes: readonly (readonly (readonly [number, number])[])[] } | null;
+  /** The area in square metres, as the exact decimal the store holds. */
+  readonly areaM2: string | null;
+  readonly anchor: readonly [number, number];
+  /** How many surfaces the room registered: three for a room, one (its floor) for an open space. */
+  readonly faces: number;
+};
+
 /** What the door and the feed answer: one reading of one ingest record, onto one sheet. */
 export type PartitionOverlay = {
   readonly ingestId: string;
   readonly views: readonly PartitionOverlayView[];
   readonly axes: readonly PartitionOverlayAxis[];
   readonly deferrals: readonly GridDeferralRow[];
+  /** The rooms the architect's plans enclose — absent from a reading that predates the rooms stage. */
+  readonly rooms?: readonly PartitionOverlayRoom[];
 };
 
-/** The two switches. They gate paint and nothing else — no camera, address, selection or hit-test. */
-export type OverlayToggles = { readonly views: boolean; readonly grid: boolean };
+/**
+ * The switches. They gate paint and nothing else — no camera, address, selection or hit-test. The
+ * rooms switch is on unless it is turned off: a sheet that shows a plan shows what was read off it.
+ */
+export type OverlayToggles = { readonly views: boolean; readonly grid: boolean; readonly rooms?: boolean };
 
 /** One view's outline, in screen pixels, with what the paint tells apart by line rather than hue. */
 export type OverlayOutline = {
@@ -69,10 +96,28 @@ export type OverlayDrawnAxis = {
   readonly bubble: { readonly centre: readonly [number, number]; readonly radius: number } | null;
 };
 
+/**
+ * One room as the sheet paints it, in screen pixels: its outline and holes, the point its chip stands
+ * at, and the words the chip says. What tells a room from a void from one whose walls do not close is
+ * LINE, never hue (R-UI-060): a room is outlined solid, a void dotted, and an unclosed room has no
+ * outline at all — only its chip, in the warn ink, saying why.
+ */
+export type OverlayDrawnRoom = {
+  readonly roomKey: string;
+  readonly status: RoomOutlineStatus;
+  readonly outer: readonly (readonly [number, number])[];
+  readonly holes: readonly (readonly (readonly [number, number])[])[];
+  readonly anchor: readonly [number, number];
+  /** The chip's lines: the room's name, then its area or the reason it carries. */
+  readonly lines: readonly string[];
+};
+
 /** What `overlayScene` answers: everything the overlay paints, and no canvas needed to grade it. */
 export type OverlayScene = {
   readonly outlines: readonly OverlayOutline[];
   readonly axes: readonly OverlayDrawnAxis[];
+  /** The rooms, where the overlay carries any — absent where it carries no rooms stage's reading. */
+  readonly rooms?: readonly OverlayDrawnRoom[];
 };
 
 /**

@@ -722,6 +722,8 @@ export const TESTIDS = {
     partitionGridToggle: "viewer-partition-grid-toggle",
     partitionGroups: "viewer-partition-groups",
     partitionRetry: "viewer-partition-retry",
+    partitionRoom: "viewer-partition-room",
+    partitionRoomsToggle: "viewer-partition-rooms-toggle",
     partitionView: "viewer-partition-view",
     partitionViewBadge: "viewer-partition-view-badge",
     partitionViewReason: "viewer-partition-view-reason",

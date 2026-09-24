@@ -88,6 +88,7 @@ function mount(overlay: PartitionOverlay, chrome: Partial<PartitionPanelProps> =
       faultId={null}
       groups={null}
       answer={null}
+      testIds={{ room: TESTIDS.viewer.partitionRoom, roomsToggle: TESTIDS.viewer.partitionRoomsToggle }}
       {...chrome}
     />,
   );

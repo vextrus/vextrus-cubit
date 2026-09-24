@@ -25,6 +25,7 @@ const BEAM = "beam" satisfies ElementType;
 const TIE_BEAM = "tie_beam" satisfies ElementType;
 const BRICK_WALL = "brick_wall" satisfies ElementType;
 const OPENING = "opening" satisfies ElementType;
+const SURFACE = "surface" satisfies ElementType;
 
 /**
  * The closed map from the letters a mark opens with to the class it names (increment interfaces).
@@ -225,9 +226,12 @@ export function isFramedClass(type: ElementType | null): type is ElementType {
  * as a gap in a wall with its tag standing beside it (`../walls/pairs`, `../walls/openings`). Neither
  * is placed off a closed ring standing near a mark: the ring nearest a door tag is the circle the tag
  * is drawn in, and placing it would be a member nobody drew (L-QTY-04). So the ring reader refuses
- * both, as it refuses a framed class.
+ * both, as it refuses a framed class. And a surface — the floor, the ceiling or the walls of a room
+ * those walls enclose (`../rooms/detect`, s-takeoff I-646): read off the same plan, it stands on the
+ * storeys the plan is typical of and is sighted under the discipline confirmed for its sheet, as a
+ * wall is (I-592).
  */
-export const WALL_LANE_CLASSES: readonly ElementType[] = Object.freeze([BRICK_WALL, OPENING]);
+export const WALL_LANE_CLASSES: readonly ElementType[] = Object.freeze([BRICK_WALL, OPENING, SURFACE]);
 
 /** Is a member of this class placed by the wall lane rather than off a ring or a pair of edge lines? */
 export function isWallLaneClass(type: ElementType | null): type is ElementType {

@@ -27,9 +27,10 @@
 import { REFUSALS, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import { quantise } from "@/core/identity/keys";
+import { exact } from "@/core/units/canon";
 import { VIEW_TYPE } from "@/modules/takeoff/partition/views/law";
 import { PARTITION_COPY, fillCopy } from "./copy";
-import type { OverlayToggles, PartitionOverlay, PartitionOverlayAxis, PartitionOverlayView } from "./types";
+import type { OverlayToggles, PartitionOverlay, PartitionOverlayAxis, PartitionOverlayRoom, PartitionOverlayView } from "./types";
 import type { GridDeferralRow } from "@/modules/takeoff/partition";
 import type { ComponentType, ReactNode } from "react";
 
@@ -76,6 +77,21 @@ export type PartitionPanelProps = {
    * focus (I-111 as amended). Without one the reason stays with the row for assistive technology alone.
    */
   Tooltip?: ComponentType<{ content: ReactNode; children: ReactNode }>;
+  /** The ids the rooms reading publishes, read from `src/ui/testids.ts` by the screen (AM-09 §1, ARCH-01). */
+  testIds: PartitionPanelTestIds;
+};
+
+/**
+ * THE IDS THIS PANEL PUBLISHES THAT IT MAY NOT SPELL: the registry is `src/ui/testids.ts`, which a
+ * module may not import (ARCH-01), so the ids the rooms reading added arrive from the screen — the
+ * inspector's `InspectorTestIds` idiom — and the older literal ids stay frozen by the ratchet
+ * (tests/lint/testid-registry-ratchet.test.ts), which may only fall.
+ */
+export type PartitionPanelTestIds = {
+  /** One room of the plan's rooms reading (I-647). */
+  readonly room: string;
+  /** The switch that shows and hides the rooms. */
+  readonly roomsToggle: string;
 };
 
 /** The chrome a row renders through — the screen's, handed down whole. */
@@ -245,6 +261,61 @@ function AxisRow({ axis, EnumLabel }: { axis: PartitionOverlayAxis } & RowChrome
   );
 }
 
+/** How many decimal places a room's area is said to in its row — the figure its chip on the sheet says. */
+const ROOM_AREA_PLACES = 2;
+
+/** The surfaces a room with three faces registered: its floor, its ceiling and its walls. */
+const ALL_FACES = 3;
+
+/**
+ * One room the architect's plan encloses (s-takeoff I-647): its name, its area and the surfaces
+ * it registered — or, where it is no room, what it is and the register's own sentence for why. A label
+ * whose printed size the outline does not bear, and a label standing in a room it does not name, are
+ * said on the row: the size is a cross-check, and the check is shown, never settled silently.
+ */
+function RoomRow({ room, testId }: { room: PartitionOverlayRoom; testId: string }) {
+  const reason = messageOf(room.reason);
+  const figure =
+    room.status === "VOID"
+      ? PARTITION_COPY.viewer_partition_room_void
+      : room.status === "NOT_CLOSED"
+        ? PARTITION_COPY.viewer_partition_room_not_closed
+        : room.areaM2 === null
+          ? null
+          : fillCopy("viewer_partition_room_area", { area: formatUserFigure(exact(room.areaM2).toFixed(ROOM_AREA_PLACES)) });
+  const faces = room.faces === 0 ? null : room.faces >= ALL_FACES ? PARTITION_COPY.viewer_partition_room_faces_all : PARTITION_COPY.viewer_partition_room_faces_floor;
+  return (
+    <li
+      className="cx-viewer-partition-row"
+      data-testid={testId}
+      data-room-key={room.roomKey}
+      data-view-key={room.viewKey}
+      data-status={room.status}
+      data-reason={room.reason ?? undefined}
+      data-area={room.areaM2 ?? undefined}
+      data-faces={room.faces}
+    >
+      <span className="cx-viewer-partition-line">
+        <span className="cx-viewer-partition-room-name">{room.name ?? PARTITION_COPY.viewer_partition_room_unnamed}</span>
+        {figure === null ? null : <span className="cx-viewer-partition-figure">{figure}</span>}
+      </span>
+      {faces === null ? null : <span className="cx-viewer-partition-note">{faces}</span>}
+      {room.labels.map((label) =>
+        label.astray ? (
+          <span key={label.key} className="cx-viewer-partition-note">
+            {fillCopy("viewer_partition_room_astray", { name: label.name })}
+          </span>
+        ) : label.agrees === false && label.size !== null ? (
+          <span key={label.key} className="cx-viewer-partition-note">
+            {fillCopy("viewer_partition_room_size_disagrees", { size: label.size })}
+          </span>
+        ) : null,
+      )}
+      {reason === null ? null : <span className="cx-viewer-partition-reason">{reason}</span>}
+    </li>
+  );
+}
+
 /** One layout plan a grid could not lawfully be read off, naming the closed reason it deferred for. */
 function DeferralRow({ deferral, IdChip }: { deferral: GridDeferralRow; IdChip?: PartitionPanelProps["IdChip"] }) {
   return (
@@ -274,6 +345,7 @@ type SheetRows = {
   readonly views: readonly PartitionOverlayView[];
   readonly axes: readonly PartitionOverlayAxis[];
   readonly deferrals: readonly GridDeferralRow[];
+  readonly rooms: readonly PartitionOverlayRoom[];
 };
 
 /**
@@ -288,16 +360,34 @@ function bySheet(overlay: PartitionOverlay | null): { here: SheetRows; elsewhere
   const here = (viewKey: string): boolean => onSheet.has(viewKey);
   const axes = overlay?.axes ?? [];
   const deferrals = overlay?.deferrals ?? [];
+  const rooms = overlay?.rooms ?? [];
   return {
-    here: { views: views.filter((view) => here(view.viewKey)), axes: axes.filter((axis) => here(axis.viewKey)), deferrals: deferrals.filter((row) => here(row.viewKey)) },
-    elsewhere: { views: views.filter((view) => !here(view.viewKey)), axes: axes.filter((axis) => !here(axis.viewKey)), deferrals: deferrals.filter((row) => !here(row.viewKey)) },
+    here: {
+      views: views.filter((view) => here(view.viewKey)),
+      axes: axes.filter((axis) => here(axis.viewKey)),
+      deferrals: deferrals.filter((row) => here(row.viewKey)),
+      rooms: rooms.filter((room) => here(room.viewKey)),
+    },
+    elsewhere: {
+      views: views.filter((view) => !here(view.viewKey)),
+      axes: axes.filter((axis) => !here(axis.viewKey)),
+      deferrals: deferrals.filter((row) => !here(row.viewKey)),
+      rooms: rooms.filter((room) => !here(room.viewKey)),
+    },
   };
 }
 
-/** The three lists of one half of the partition, each omitted where it holds nothing. */
-function SheetLists({ rows, chrome }: { rows: SheetRows; chrome: RowChrome }) {
+/** The four lists of one half of the partition, each omitted where it holds nothing. */
+function SheetLists({ rows, chrome, testIds }: { rows: SheetRows; chrome: RowChrome; testIds: PartitionPanelTestIds }) {
   return (
     <>
+      {rows.rooms.length === 0 ? null : (
+        <ol className="cx-viewer-partition-list" aria-label={PARTITION_COPY.viewer_partition_rooms_list_label}>
+          {rows.rooms.map((room) => (
+            <RoomRow key={room.roomKey} room={room} testId={testIds.room} />
+          ))}
+        </ol>
+      )}
       {rows.views.length === 0 ? null : (
         <ol className="cx-viewer-partition-list" aria-label={PARTITION_COPY.viewer_partition_views_list_label}>
           {rows.views.map((view) => (
@@ -323,7 +413,7 @@ function SheetLists({ rows, chrome }: { rows: SheetRows; chrome: RowChrome }) {
   );
 }
 
-export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, faultId, groups, answer, IdChip, EnumLabel, humaniseEnum, Tooltip }: PartitionPanelProps) {
+export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, faultId, groups, answer, IdChip, EnumLabel, humaniseEnum, Tooltip, testIds }: PartitionPanelProps) {
   const { here, elsewhere } = bySheet(overlay);
   const chrome: RowChrome = { IdChip, EnumLabel, humaniseEnum, Tooltip };
   const others = elsewhere.views.length;
@@ -336,6 +426,7 @@ export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, fau
       data-state={state}
       data-views={toggles.views ? "on" : "off"}
       data-grid={toggles.grid ? "on" : "off"}
+      data-rooms={toggles.rooms === false ? "off" : "on"}
       aria-busy={state === "loading" || undefined}
     >
       {/* The header renders whole in every state: both switches are local state rather than data,
@@ -356,6 +447,15 @@ export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, fau
           on={toggles.grid}
           onFlip={(on) => onToggle("grid", on)}
         />
+        {/* The rooms switch stands only where the partition carries a rooms reading at all. */}
+        {overlay?.rooms === undefined || overlay.rooms.length === 0 ? null : (
+          <OverlaySwitch
+            testId={testIds.roomsToggle}
+            label={PARTITION_COPY.viewer_partition_rooms_toggle}
+            on={toggles.rooms !== false}
+            onFlip={(on) => onToggle("rooms", on)}
+          />
+        )}
       </div>
 
       {state === "loading" ? (
@@ -393,16 +493,16 @@ export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, fau
 
       {state === "ready" ? (
         <Body>
-          <SheetLists rows={here} chrome={chrome} />
+          <SheetLists rows={here} chrome={chrome} testIds={testIds} />
           {/* I-319: what stands on other sheets is one disclosure, closed, that says how many views it
               holds — their axes and deferrals travel with them. Where every view stands here (a
               model-space sheet) there is nothing to fold and no disclosure stands. */}
-          {others === 0 && elsewhere.axes.length === 0 && elsewhere.deferrals.length === 0 ? null : (
+          {others === 0 && elsewhere.axes.length === 0 && elsewhere.deferrals.length === 0 && elsewhere.rooms.length === 0 ? null : (
             <details className="cx-viewer-partition-elsewhere" data-count={others}>
               <summary className="cx-viewer-partition-elsewhere-summary cx-reticle">
                 {others === 1 ? PARTITION_COPY.viewer_partition_elsewhere_one : fillCopy("viewer_partition_elsewhere_many", { count: formatUserFigure(String(others)) })}
               </summary>
-              <SheetLists rows={elsewhere} chrome={chrome} />
+              <SheetLists rows={elsewhere} chrome={chrome} testIds={testIds} />
             </details>
           )}
           <div className="cx-viewer-partition-groups" data-testid="viewer-partition-groups">

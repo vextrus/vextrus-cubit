@@ -13,11 +13,12 @@
 import { and, eq, forTenant, viewAssignments } from "@/core/db";
 import { appStorage } from "@/core/storage/app";
 import { gridOf, viewsOf } from "@/modules/takeoff/partition";
+import { storedRoomsOf, type StoredRoom } from "@/modules/takeoff/partition/rooms/store";
 import { drawingProjectOf } from "@/modules/takeoff/partition/store";
 import { renderManifestOf } from "@/modules/takeoff/viewer";
 import { recordBox, recordKey } from "@/modules/takeoff/viewer/client";
 import type { RenderRecord } from "@/modules/takeoff/viewer";
-import type { OverlayBox, OverlayRing, PartitionOverlay, PartitionOverlayAxis, PartitionOverlayView } from "./types";
+import type { OverlayBox, OverlayRing, PartitionOverlay, PartitionOverlayAxis, PartitionOverlayRoom, PartitionOverlayView } from "./types";
 
 /** Which drawing's overlay is being asked for, in whose workspace, under which project and sheet. */
 export type PartitionOverlayScope = {
@@ -117,7 +118,7 @@ export async function partitionOverlayOf(scope: PartitionOverlayScope): Promise<
   // that HAS been rebuilt holds at least one of the three, whatever it read.
   if (stored.length === 0 && grid.axes.length === 0 && grid.deferrals.length === 0) return null;
 
-  const [assignments, records] = await Promise.all([assignmentsOf(scope.tenantId, grid.ingestId), recordsOf(scope)]);
+  const [assignments, records, rooms] = await Promise.all([assignmentsOf(scope.tenantId, grid.ingestId), recordsOf(scope), storedRoomsOf(scope.tenantId, grid.ingestId)]);
 
   const overlayViews: PartitionOverlayView[] = stored.map((view) => {
     const members = assignments.get(view.viewKey) ?? [];
@@ -136,7 +137,35 @@ export async function partitionOverlayOf(scope: PartitionOverlayScope): Promise<
 
   const overlayAxes: PartitionOverlayAxis[] = grid.axes.map((axis) => ({ ...axis, bubble: ringGeometry(records.get(axis.bubbleKey) ?? []) }));
 
-  return { ingestId: grid.ingestId, views: overlayViews, axes: overlayAxes, deferrals: grid.deferrals };
+  return { ingestId: grid.ingestId, views: overlayViews, axes: overlayAxes, deferrals: grid.deferrals, rooms: overlayRooms(rooms, stored.map((view) => view.viewKey)) };
+}
+
+/**
+ * The rooms the partition read (s-takeoff I-643), each under the key of the VIEW it was read in
+ * as the partition's own door spells it — the store keys a room by L-REG-04's derived address of that
+ * view (`v:` and the view key), and the panel and the scene find a room's view, and its grid, by the
+ * partition's spelling. A room whose view the partition no longer carries is left out.
+ */
+function overlayRooms(rooms: readonly StoredRoom[], viewKeys: readonly string[]): PartitionOverlayRoom[] {
+  const byDerived = new Map(viewKeys.map((viewKey) => [`v:${viewKey}`, viewKey]));
+  return rooms.flatMap((room) => {
+    const viewKey = byDerived.get(room.viewKey);
+    if (viewKey === undefined) return [];
+    return [
+      {
+        roomKey: room.roomKey,
+        viewKey,
+        status: room.status,
+        reason: room.reason,
+        name: room.name,
+        labels: room.labels,
+        outline: room.outline,
+        areaM2: room.areaM2,
+        anchor: [room.anchorX, room.anchorY] as const,
+        faces: room.faces.length,
+      },
+    ];
+  });
 }
 
 /**

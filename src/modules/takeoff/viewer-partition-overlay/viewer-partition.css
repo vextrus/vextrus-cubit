@@ -183,6 +183,15 @@
   text-overflow: ellipsis;
 }
 
+/* A room's name: model data, the architect's own spelling, read first on its row (I-647). */
+.cx-viewer-partition-room-name {
+  overflow: hidden;
+  font-weight: var(--weight-body-medium);
+  color: var(--ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .cx-viewer-partition-figure {
   white-space: nowrap;
   font-family: var(--font-mono);

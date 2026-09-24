@@ -611,6 +611,8 @@ const GOLDEN: readonly string[] = [
   "viewer-partition-grid-toggle",
   "viewer-partition-groups",
   "viewer-partition-retry",
+  "viewer-partition-room",
+  "viewer-partition-rooms-toggle",
   "viewer-partition-view",
   "viewer-partition-view-badge",
   "viewer-partition-view-reason",
