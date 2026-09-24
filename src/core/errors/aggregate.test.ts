@@ -78,6 +78,10 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "CELL_NOT_IN_RESIDUE",
   "CHARACTER_NOT_COVERED",
   "COMPLEX_STAIR_GEOMETRY",
+  "CONDITION_KIND_NOT_BORNE",
+  "CONDITION_KIND_NOT_OFFERED",
+  "CONDITION_NAME_TAKEN",
+  "CONDITION_NOT_IN_CHEST",
   "CONSEQUENCES_NOT_CARRIED",
   "CONVENTION_ROLE_UNRESOLVED",
   "COVERAGE_CLASS_NOT_PLACED",
@@ -160,6 +164,8 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "OPENING_QUANTITY_BASIS_UNSTATED",
   "OPENING_QUANTITY_DISAGREES",
   "OPENING_SCHEDULE_ABSENT",
+  "OPENING_UNPLACED",
+  "OPENING_UNSCHEDULED",
   "ORIGIN_NOT_VERIFIED",
   "OUTLINE_NOT_CLOSED",
   "PARTITION_NOT_AVAILABLE",
@@ -200,6 +206,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "SET_NAME_NOT_USABLE",
   "SET_NOT_PINNABLE",
   "SHEET_NOT_INGESTABLE",
+  "SIGHTING_NOT_AUTHORITATIVE",
   "SIGNED_OUT",
   "SITE_FACT_SOURCE_UNSTATED",
   "SITE_FACT_UNKNOWN",
@@ -217,6 +224,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "VIEW_SCALE_UNAFFIRMED",
   "WALL_HEIGHT_UNSTATED",
   "WALL_LENGTH_UNSTATED",
+  "WALL_LINTEL_UNDEDUCTED",
   "WALL_THICKNESS_UNSTATED",
   "WATER_TABLE_UNSTATED",
   "WORKSPACE_PERMISSION_NOT_HELD",
@@ -443,7 +451,15 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * with. 163 entries to 165; not one existing entry's code, message, remedy, severity or surface moved.
  * Previous: ac9946332644eca917bde4bc45ceaf6bf2f396f0978d8f3aecc9f35fea8cc795.
  */
-const ENTRIES_DIGEST_BEFORE = "a9e8ee7bf4280d8faf092fd23b78c3d2ee05ae602e9299472a8305e7f6ed5e1d";
+/*
+ * Re-baselined at integration (session 9, wave 3b) for S5's four condition-chest entries
+ * (CONDITION_NAME_TAKEN, CONDITION_KIND_NOT_BORNE, CONDITION_KIND_NOT_OFFERED, CONDITION_NOT_IN_CHEST)
+ * and ARCH-4's four (OPENING_UNPLACED, OPENING_UNSCHEDULED, SIGHTING_NOT_AUTHORITATIVE,
+ * WALL_LINTEL_UNDEDUCTED) landing on top of S3's two; the whole register diffed against 9b0f3676
+ * (integrate-slice --errors-check): 160 → 173, added 13, removed 0, changed 0.
+ * Previous: a9e8ee7bf4280d8faf092fd23b78c3d2ee05ae602e9299472a8305e7f6ed5e1d.
+ */
+const ENTRIES_DIGEST_BEFORE = "4a7d503cd2052eabd2a5b01dfd8d257b631ae5809b67de02e217eb79a32f02e3";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

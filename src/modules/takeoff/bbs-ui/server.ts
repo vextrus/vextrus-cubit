@@ -113,6 +113,7 @@ function selectionOfAll(keys: readonly string[], records: ReadonlyMap<string, Pi
     for (const entity of selection.sourceKeys) if (!selected.includes(entity)) selected.push(entity);
   }
   return first === null ? null : { drawingId: first.drawingId, layoutName: first.layoutName, sourceKeys: selected };
+}
 
 /**
  * The reinforcement no line was published for, as the draft BOQ closes on it (I-569): the
