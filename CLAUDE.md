@@ -32,7 +32,12 @@ Each session's brief is `docs/handoff/session-<N>-prompt.md`; read it first.
   `medium` matches Opus 5 at `high`, and lowering effort is the surest cost lever):
   - Effort: the main session runs at `high`; every workflow agent gets an explicit `effort` —
     `medium` by default, `low` for mechanical work (captures, re-takes, extraction, renames), `high`
-    only for law, geometry and design judgment; `xhigh`/`max` never without a measured gain.
+    only for law, geometry and design judgment; `xhigh`/`max` never without a measured gain. The
+    named agents carry theirs in frontmatter (`refuter` high; `qs-critic`, `ux-critic`,
+    `drawing-analyst` medium).
+  - Prompt agents the Opus 5.5 way: the goal and why it matters, the finish line, the constraints, the
+    exact return shape; say what to do rather than what not to; calm words — no capitals or "CRITICAL"
+    (the model over-applies them); let it choose the steps.
   - Workflows only where the brief or the owner asks for fan-out, sized to the job: a wave is ≤ 10–12
     slices; a `refuter` review only where a slice touches law, figures, migrations or security; no
     critic per map by default. Anything one context holds, do yourself or with one agent.
