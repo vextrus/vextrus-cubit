@@ -82,6 +82,8 @@ export const COVERAGE_COPY = Object.freeze({
   takeoff_coverage_partial_some: "Declared partial: {count} of {total} lines carry no quantity — {members} {things}, {reasons}.",
   takeoff_coverage_remedy_sheet: "Open the sheet",
   takeoff_coverage_remedy_drawings: "Open the drawings",
+  // I-667: the range of floors a typical plan is typical of is authored in the level stack.
+  takeoff_coverage_remedy_levels: "Open the levels",
   takeoff_coverage_sightings_summary_one: "{count} sighting on {sheets}",
   takeoff_coverage_sightings_summary_other: "{count} sightings on {sheets}",
   takeoff_coverage_sightings_nowhere: "no sheet named",

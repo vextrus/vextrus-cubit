@@ -2995,6 +2995,48 @@ one RefusalState, the one ConsequenceDialog — plus the `cx-viewer-scale-*` cla
   deriving a factor from `1:N` and the header unit at a new rank — it would contradict the clause
   outright, and a detail drawn enlarged in model space is exactly where the printed ratio and the
   geometry disagree.
+- **I-667 — a member on no storey is reported against its view, for the range nobody stated**
+  (session 9, SCALE-3; walk-2 BD-3; L-CAD-07, L-MEA-05, I-368). Walk-2 repeated walk-1's path on a
+  fresh DWG: S-10's COLUMN LAYOUT PLAN affirmed at Dimension ratio, the proposed level stack
+  inserted, three runs — and 0 lines, the register naming six view scales and ROOF's storey height
+  and nothing about the view just affirmed, the coverage grid blaming "No band of this member's
+  schedule covers the level it stands on". Read back (project 4e6e12a1 in cubit_e2e): the
+  affirmation was sound — a 64-hex incoming calibration and the outgoing `""` I-564 names the stored
+  spelling of "none" for a first affirmation, so the store is left as it is. The columns stood in
+  the UNRESOLVED slot: the caption states no range of floors, the expansion deferred
+  `TYPICAL_RANGE_UNSTATED`, and nobody had authored a range. The column rail then asked the band of
+  a banded schedule about a member on no storey, got nothing, and reported `SECTION_BAND_UNCOVERED`
+  — sending the QS to the schedule; a frame rail offered through the foundation slot's unbanded arm
+  and the gate refused the offer by name in a verdict nothing stores. Ruling: the question "does
+  this row stand in the UNRESOLVED slot" has one home (`unsettledLevelCode`, the offers contract),
+  asked by the gate as before (I-368) and now by every rail that reads a view's members — columns,
+  beams, tie beams, lintels, slabs, shear walls, stairs, brickwork and finishes, and the bars of
+  columns and shear walls (the rebar rail, which had reported `REBAR_SCHEDULE_UNREAD` against the
+  schedule for a banded family and offered through the foundation arm for an unbanded one) — right
+  after the view's scale. Such a row is offered nothing and reported `TYPICAL_RANGE_UNSTATED` against THE
+  VIEW, as a view with no scale is. The run's deferrals and the register's region name the view once
+  — after the views with no scale, before the storeys — by its caption, and its door opens the level
+  stack, where the range is authored. Authoring S-10's GF to 6F and measuring again publishes its
+  columns. Rejected: mapping the refusal onto the level band (the band is the schedule's, and
+  nothing is wrong with it); refusing an empty outgoing key (it is the stored spelling of a first
+  affirmation).
+- **I-668 — a registered object that published no line is named by the register** (session 9,
+  SCALE-3; R-UI-020, L-MEA-05's "declared, never silent"). The region named the run's view and
+  storey deferrals, the queue items and the refused sightings; an object the rails reported under
+  any other code — an uncovered band, a section with no unit, an unknown member type — published
+  nothing and was named nowhere a QS looks. Once a run has been carried, every such object is a row
+  of the region under each distinct code its latest reports give (I-615), with the kind where one
+  kind carried the reason (`register-ui/unlined.ts`). An object a view deferral names is left to
+  the view's one row: the QS acts on the view, and a row per member of it is noise. The reading
+  judges nothing — the codes are the rails' own.
+- **I-669 — where no original declares a unit, the title panel does** (session 9, SCALE-3;
+  I-302, L-CAD-03, L-CAD-08). With S-10's range authored, every column still reported
+  `SECTION_UNIT_UNSTATED`: the DWG minted from F-RCC6-BNBC carries S-01's general notes cut to their
+  last clause (LibreDWG's `dxf2dwg` keeps an MTEXT's tail), so no original declares the unit, and
+  the `ALL DIMENSIONS IN mm U.N.O.` every sheet's title panel prints is paint of the title-block
+  INSERT, which the census never read. The census now reads the derived paint for a declaration
+  only where no original declares one, cited at the INSERT that draws it; two units declared across
+  the paint are still no convention. A drawing whose notes declare a unit reads exactly as before.
 
 ## 1. Layout and hierarchy
 

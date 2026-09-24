@@ -211,6 +211,32 @@ describe("I-302: the unit the drawing DECLARES its dimensions in", () => {
     ).toBeNull();
   });
 
+  /** The title panel every sheet of F-RCC6-BNBC prints, as the paint of the sheet's title-block INSERT. */
+  const TITLE_PANEL = "ALL DIMENSIONS IN mm U.N.O.";
+
+  test("where no original declares a unit, the title panel's paint does, cited at the INSERT that draws it (I-669)", () => {
+    // The DWG minted from the DXF carries S-01's general notes truncated to their last clause, so no
+    // original declares anything, and a fresh upload read every column section unitless (walk-2 BD-3).
+    expect(
+      declaredIn(graphOf([instance("tb:2", LAYER, PAPER_SPACE), instance("tb:1", LAYER, PAPER_SPACE), said("n:1", "5. DO NOT SCALE THIS DRAWING - FIGURED DIMENSIONS GOVERN.")], [painted("tb:2", { type: "TEXT", text: TITLE_PANEL }), painted("tb:1", { type: "TEXT", text: TITLE_PANEL })])),
+      "the title panel is the drawing speaking about itself on every sheet, as a general note is — and it is cited by the entity a reader can select (L-QTY-03)",
+    ).toEqual({ unit: "mm", sourceKey: "tb:1" });
+  });
+
+  test("an original that declares a unit is the last word: the paint is never asked beside it", () => {
+    expect(
+      declaredIn(graphOf([said("n:1", "ALL DIMENSIONS ARE IN MILLIMETRES"), instance("tb:1", LAYER, PAPER_SPACE)], [painted("tb:1", { type: "TEXT", text: "ALL DIMENSIONS ARE IN INCHES" })])),
+      "a drawing whose notes declare its unit reads exactly as it did — the panel's word is asked only where the originals are silent (L-CAD-08)",
+    ).toEqual({ unit: "mm", sourceKey: "n:1" });
+  });
+
+  test("paint declaring two different units is no convention either", () => {
+    expect(
+      declaredIn(graphOf([instance("tb:1", LAYER, PAPER_SPACE), instance("tb:2", LAYER, PAPER_SPACE)], [painted("tb:1", { type: "TEXT", text: TITLE_PANEL }), painted("tb:2", { type: "TEXT", text: "ALL DIMENSIONS ARE IN INCHES" })])),
+      "a disagreement is not a reading, whether the originals or the paint state it (L-QTY-04)",
+    ).toBeNull();
+  });
+
   test("a unit outside the roster a section may be measured in declares nothing", () => {
     expect(
       declaredIn(graphOf([said("n:1", "ALL DIMENSIONS ARE IN METRES")])),

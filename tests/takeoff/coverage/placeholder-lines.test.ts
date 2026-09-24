@@ -63,7 +63,7 @@ const RCC_FORMWORK = "rcc.formwork";
 const BEAM = "beam";
 const FOOTING = "footing";
 
-/** The code the gate answers a member in the UNRESOLVED slot with (I-368) — the Bible's own, L-CAD-07. */
+/** The code a member in the UNRESOLVED slot is answered with (I-368, I-667) — the Bible's own, L-CAD-07. */
 const TYPICAL_RANGE_UNSTATED = "TYPICAL_RANGE_UNSTATED";
 
 /** One verdict of the gate, as far as this suite reads one. */
@@ -82,6 +82,9 @@ let campaignId: string;
 let levels: StackedLevel[];
 /** What each press of the campaign was answered, in the order they were pressed. */
 const verdicts: Verdict[] = [];
+/** What each press handed the gate beside its offers: the rails' reports (L-MEA-08). */
+type Observation = { class: string; kind: string; code: string; objectKey?: string; sourceEntity?: string };
+const reports: Observation[][] = [];
 
 /** One press of the campaign: the measure job, with the roster and the gate the product ships. */
 async function press(): Promise<Verdict> {
@@ -97,6 +100,7 @@ async function press(): Promise<Verdict> {
     {
       rails: RAILS,
       gate: async (scope: unknown, batch: unknown) => {
+        reports.push([...((batch as { observations?: readonly Observation[] }).observations ?? [])]);
         const answer = await gate.evaluateOffers(scope, batch);
         answered.push(answer);
         return answer;
@@ -206,19 +210,28 @@ afterAll(async () => {
 });
 
 describe("I-368: a line is never keyed on the UNRESOLVED slot, and every line of a fresh campaign joins the register", () => {
-  test("the first press: every beam waits in the UNRESOLVED slot, the frame rail offers it, and the gate refuses it by TYPICAL_RANGE_UNSTATED", () => {
+  // TEST_AMENDED (I-667): the frame rail no longer offers a member in the UNRESOLVED slot for the
+  // gate to refuse — a gate refusal is stored nowhere a reader looks, so the beams said nothing. It
+  // reports each against its view under the same code, and the proof is the same: nothing publishes
+  // on a placeholder, and every one of them is answered by name.
+  test("the first press: every beam waits in the UNRESOLVED slot, the frame rail reports it against its view by TYPICAL_RANGE_UNSTATED and offers nothing", () => {
     const beams = registeredOf(BEAM);
     expect(beams.length, "one register row per drawn beam").toBe(built.beams);
     expect(beams.every((row) => said(row, "levelSlot", "level_slot") === UNRESOLVED), "each of them standing in the unresolved slot (L-CAD-07)").toBe(true);
 
-    // What makes the rest of this suite a proof rather than a quiet store: the rail DID offer each
-    // placeholder, once per kind it measures a beam for, and the gate answered each by name.
+    // What makes the rest of this suite a proof rather than a quiet store: the rail DID read each
+    // placeholder, once per kind it measures a beam for, and answered each by name.
     const first = verdicts[0] as Verdict;
-    const refused = first.refusals.filter((one) => one.code === TYPICAL_RANGE_UNSTATED).map((one) => one.objectKey);
+    const reported = (reports[0] ?? []).filter((one) => one.class === BEAM && one.code === TYPICAL_RANGE_UNSTATED);
     expect(
-      [...refused].sort(),
-      `every beam placeholder was offered for concrete and for formwork, and refused by the Bible's own code (the verdict was ${JSON.stringify(first)})`,
-    ).toEqual(beams.flatMap((row) => [keyOf(row), keyOf(row)]).sort());
+      reported.map((one) => `${String(one.objectKey)}|${one.kind}`).sort(),
+      "every beam placeholder was reported for concrete and for formwork, by the Bible's own code",
+    ).toEqual(beams.flatMap((row) => [`${keyOf(row)}|${RCC_CONCRETE}`, `${keyOf(row)}|${RCC_FORMWORK}`]).sort());
+    expect(
+      new Set(reported.map((one) => one.sourceEntity)),
+      "each against its view — what a reader states a range for (L-CAD-07)",
+    ).toEqual(new Set(beams.map((row) => said(row, "viewKey", "view_key"))));
+    expect(first.refusals.filter((one) => one.code === TYPICAL_RANGE_UNSTATED), `and none was offered for the gate to refuse (the verdict was ${JSON.stringify(first)})`).toEqual([]);
     expect(linesOf(BEAM), "so no beam line stands at all").toEqual([]);
   });
 

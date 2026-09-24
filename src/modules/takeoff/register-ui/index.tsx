@@ -22,7 +22,7 @@ import { isKind } from "@/core/catalogue/kinds";
 // places each kind's figure is written to (L-MEA-04's catalogue): the draft BOQ reads both from here,
 // so the register and the bill say a line the same way (B-17, s-takeoff I-reg-2).
 import { inWords, placesForUnit, placesOf } from "@/core/documents/kinds/boq-draft-law";
-import type { RefusalEntry } from "@/core/errors";
+import type { RefusalCode, RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { formatDate, formatMoney, formatUserFigure, dhakaDateParts } from "@/core/format";
 import { isLevelSlot, readCitedKey, viewRefOf } from "@/core/identity";
@@ -694,13 +694,17 @@ function deferralName(deferral: ViewDeferral, about: string, humanise: (value: s
   return [sourceWord(about, humanise), deferral.sheet?.layoutName ?? ""].filter((part) => part !== "").join(CHIP_SEPARATOR);
 }
 
+/** The code a view whose floors nobody has stated is deferred under (L-CAD-07, I-667). */
+const TYPICAL_RANGE_UNSTATED = "TYPICAL_RANGE_UNSTATED" satisfies RefusalCode;
+
 /**
  * Where a deferral is fixed (R-UI-020, I-484): a view's scale is affirmed in the scale panel
  * of the sheet it stands on, so the door opens that sheet flown to the view's caption — the drawings
- * where the manifest names no sheet for it — and a storey's height is stated in the level stack.
+ * where the manifest names no sheet for it — and a storey's height is stated in the level stack, as
+ * is the range of floors a view is typical of (I-667: the stack is where it is authored).
  */
-function deferralDoor(deferral: ViewDeferral, tenantId: string, projectId: string, drawings: Evidence): Evidence {
-  if (deferral.subject === "STOREY") return { href: levelsHref(tenantId, projectId), label: REGISTER_COPY.takeoff_register_deferral_open_levels };
+function deferralDoor(code: string, deferral: ViewDeferral, tenantId: string, projectId: string, drawings: Evidence): Evidence {
+  if (deferral.subject === "STOREY" || code === TYPICAL_RANGE_UNSTATED) return { href: levelsHref(tenantId, projectId), label: REGISTER_COPY.takeoff_register_deferral_open_levels };
   if (deferral.sheet === null) return drawings;
   return {
     href: selectionAddress(tenantId, projectId, { drawingId: deferral.sheet.drawingId, layoutName: deferral.sheet.layoutName, sourceKeys: [deferral.sheet.sourceKey] }),
@@ -1729,7 +1733,7 @@ export function RegisterWorkspace({ view, corroborations, permitted, offline, ch
                   <EnumLabel value={refusal.kind} label={inWords(refusal.kind)} className="cx-register-enum" />
                 </div>
               )}
-              <RefusalState refusal={entry} evidence={refusal.deferral === undefined ? evidence : deferralDoor(refusal.deferral, view.tenantId, view.projectId, evidence)} />
+              <RefusalState refusal={entry} evidence={refusal.deferral === undefined ? evidence : deferralDoor(refusal.code, refusal.deferral, view.tenantId, view.projectId, evidence)} />
             </div>
           );
         })}

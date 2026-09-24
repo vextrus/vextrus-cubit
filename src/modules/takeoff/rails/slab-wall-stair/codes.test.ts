@@ -33,11 +33,14 @@ import type {
 import { SLAB_WALL_STAIR_RAIL_CODES, SLAB_WALL_STAIR_RULE_IDS, type SlabWallStairRailCode, slabWallStairConcreteRail, slabWallStairFormworkRail } from "./index";
 
 describe("AM-11: the slab, shear-wall and stair rails' code roster", () => {
-  test("the roster is this shard's five and the two it borrows, in the order it reports them", () => {
+  // TEST_AMENDED (I-667): the roster borrows a third, `TYPICAL_RANGE_UNSTATED` — a row a bare
+  // typical caption left on no storey is reported against its view rather than asked of a band or
+  // offered for the gate to refuse where nothing stores the refusal.
+  test("the roster is this shard's five and the three it borrows, in the order it reports them", () => {
     expect(
       [...SLAB_WALL_STAIR_RAIL_CODES],
       "the roster names every code one of these rails reports and no other — a code a rail reports and the roster omits is a refusal nobody can enumerate, and one the roster names and no rail reports is a refusal the tree cannot make (AM-11, Q-07)",
-    ).toEqual(["JUNCTION_DEFERRED", "JUNCTION_UNBOUNDED", "COMPLEX_STAIR_GEOMETRY", "PLAN_READING_ABSENT", "OUTLINE_NOT_CLOSED", "SECTION_BAND_UNCOVERED", "VIEW_SCALE_UNAFFIRMED"]);
+    ).toEqual(["JUNCTION_DEFERRED", "JUNCTION_UNBOUNDED", "COMPLEX_STAIR_GEOMETRY", "PLAN_READING_ABSENT", "OUTLINE_NOT_CLOSED", "SECTION_BAND_UNCOVERED", "VIEW_SCALE_UNAFFIRMED", "TYPICAL_RANGE_UNSTATED"]);
   });
 
   test("every code of the roster is registered whole, and this area's own five are registered here", () => {
@@ -48,7 +51,7 @@ describe("AM-11: the slab, shear-wall and stair rails' code roster", () => {
       expect((entry?.remedy ?? "").length, `\`${code}\` says what to do about it — a refusal teaches the next action (R-UI-050)`).toBeGreaterThan(0);
     }
 
-    // `VIEW_SCALE_UNAFFIRMED` and `SECTION_BAND_UNCOVERED` are the register's from before this area:
+    // `VIEW_SCALE_UNAFFIRMED`, `SECTION_BAND_UNCOVERED` and `TYPICAL_RANGE_UNSTATED` are the register's from before this area:
     // a code has one home, and this shard's own five are the ones written in its own area file (AM-11).
     expect(
       Object.keys(SLABS_REFUSALS).sort(),
@@ -240,6 +243,14 @@ const DRIVES: Readonly<Record<SlabWallStairRailCode, () => RailBatch>> = {
   JUNCTION_DEFERRED: () => concreteOver([objectRow("slab")], setupOf({ plans: { [PLACEMENT]: panel({ members: held("3.5", "BOUNDED") }) } })),
   // AM-06 §3 measures a straight flight and a rectangular landing; anything else is left to a person.
   COMPLEX_STAIR_GEOMETRY: () => concreteOver([objectRow("stair")], setupOf({ plans: { [PLACEMENT]: flight("COMPLEX") } })),
+  // L-CAD-07: a bare typical caption's member stands on no storey, and the range of floors is
+  // reported against the view before any band is asked (which would answer SECTION_BAND_UNCOVERED
+  // and send the reader to the schedule).
+  TYPICAL_RANGE_UNSTATED: () =>
+    concreteOver(
+      [objectRow("shear_wall", { levelId: null, levelSlot: "UNRESOLVED", objectKey: "shear_wall/M1@UNRESOLVED" })],
+      setupOf({ plans: { [PLACEMENT]: WALL }, memberTypes: { [INGEST]: { [FAMILY]: [variant("SW1-upper", "1F", "2F", 200)] } } }),
+    ),
   // L-FRM-02: a banded vertical prices each band's own section, and a level no band covers defers.
   SECTION_BAND_UNCOVERED: () =>
     concreteOver(
@@ -277,6 +288,7 @@ describe("Q-07: every code the roster names is one these rails actually reach", 
       "a row whose placement the setup does not hold is reported against the placement key — there is no entity to name, because nothing was sighted (L-MEA-08)",
     ).toBe(PLACEMENT);
     expect(DRIVES.VIEW_SCALE_UNAFFIRMED().observations[0]?.sourceEntity, "a view nobody affirmed a scale for is reported against THE VIEW — what a reader has to go and affirm (L-QTY-03)").toBe(VIEW);
+    expect(DRIVES.TYPICAL_RANGE_UNSTATED().observations[0]?.sourceEntity, "a member on no storey is reported against THE VIEW — whose range of floors a reader has to go and state (L-CAD-07)").toBe(VIEW);
     expect(DRIVES.OUTLINE_NOT_CLOSED().observations[0]?.sourceEntity, "a plan the rail could not measure from sends the reader to the entity it was read from (L-MEA-03)").toBe(ENTITY);
     expect(DRIVES.OUTLINE_NOT_CLOSED().observations[0]?.objectKey, "and to the register row it was made about (L-MEA-08)").toBe("slab/M1@1F");
   });

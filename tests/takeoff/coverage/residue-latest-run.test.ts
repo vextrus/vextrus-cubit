@@ -16,7 +16,8 @@
  * then S-10's COLUMN LAYOUT PLAN affirmed at Dimension ratio and measured again; then the two pile
  * layouts affirmed and measured a third time, which is where lines publish — piles stand in the
  * FOUNDATION slot and want no storey, while the columns of a project with no stack stand on no level
- * and no band of their schedule covers them (SECTION_BAND_UNCOVERED), which the second run now says.
+ * and are reported for the range of floors nobody stated (TYPICAL_RANGE_UNSTATED, against the view;
+ * I-667), which the second run now says.
  */
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { INGEST_JOB_MODULE, corpusBytes, tempDir, withCadCommand } from "../support/ingest-stage";
@@ -207,7 +208,7 @@ describe("an affirmed view is never reported unaffirmed: the residue reads each 
       expect(standing.filter((row) => row.code === SCALE), "no column of the affirmed view is read as standing unaffirmed").toEqual([]);
       // Measure less, and say so: the columns are still explained, by what the second run said of them.
       expect(new Set(standing.map((row) => row.objectKey)), "every column of S-10 still carries the reason it was not measured").toEqual(columns);
-      expect(lines().filter((row) => columns.has(said(row, "objectKey", "object_key"))), "a project with no level stack measures no column: no band covers a member on no level").toEqual([]);
+      expect(lines().filter((row) => columns.has(said(row, "objectKey", "object_key"))), "a project with no level stack measures no column: a member on no storey waits for its range (I-667)").toEqual([]);
 
       // The table is still append-only: the first run's words are kept, and the reader chose.
       expect(reports().filter((row) => said(row, "code", "code") === SCALE && columns.has(said(row, "objectKey", "object_key"))).length, "the first run's reports are still stored (L-ACT-01)").toBe(firstRunScale);

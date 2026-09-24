@@ -20,6 +20,7 @@ import { refusedSightingsOf, registerObjectsOf, repudiatedObjectsOf } from "@/mo
 import { citedKeysOf, entitySelectionOf, handObjectsOf, handObjectWords, levelLabelOf, omissionsOf, pinnedRecordsOf, tracedLineOf, variablesOf, type PinnedRecord } from "@/modules/takeoff/trace";
 import { declaredOf } from "./declared";
 import { levelRank, readingOrder, type LineRank } from "./order";
+import { unlinedRefusalsOf } from "./unlined";
 import type { RegisterView, ViewAttribute, ViewLevelStack, ViewLine, ViewObject, ViewReading, ViewRefusal } from "./view";
 
 /** Which project's register is being read, in which workspace. */
@@ -237,6 +238,17 @@ export async function registerViewOf(scope: RegisterViewScope, options: Register
       : []),
     ...deferred.map((item): ViewRefusal => ({ code: item.cause, objectKey: item.objectKey, kind: item.kind, ...queueSheetOf(item.objectKey, records) })),
     ...refusedRows.map((row): ViewRefusal => ({ code: row.refusal, objectKey: row.objectKey, kind: null, ...queueSheetOf(row.objectKey, records) })),
+    // And every object the run published no line for that nothing above names, by the reason the
+    // rails' latest report gave it — never silence (I-668, walk-2 BD-3). Only once a run has
+    // been carried: before one, no object has been asked anything.
+    ...(reported.measured
+      ? unlinedRefusalsOf({
+          objects: objectRows.filter((row) => !struck.has(row.objectKey)),
+          lined: new Set(published.map((row) => row.objectKey)),
+          named: new Set([...deferred.map((item) => item.objectKey), ...refusedRows.map((row) => row.objectKey)]),
+          observations: reported.observations.map((row) => ({ code: row.code ?? null, kind: row.kind, objectKey: row.objectKey ?? null })),
+        }).map((row): ViewRefusal => ({ ...row, ...queueSheetOf(row.objectKey, records) }))
+      : []),
   ];
 
   /* --- the level stacks the pinned revision's drawings propose, one offered group each --- */

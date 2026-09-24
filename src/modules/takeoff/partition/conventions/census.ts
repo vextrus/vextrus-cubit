@@ -105,12 +105,30 @@ function declaredUnitIn(text: string): SectionUnit | null {
  * reading refused where the drawing plainly speaks is not a conservative reading but a lost one
  * (L-CAD-08, L-MEA-05).
  *
- * ORIGINALS only, like every other tally: derived paint is carried by the entity it came out of, and
- * counting it would tally one note twice (L-CAD-03).
+ * ORIGINALS first, like every other tally: derived paint is carried by the entity it came out of, and
+ * counting it beside the original would tally one note twice (L-CAD-03).
+ *
+ * And the PAINT where no original declares anything (I-669). A title block is a block, so the
+ * `ALL DIMENSIONS IN mm U.N.O.` every sheet of F-RCC6-BNBC prints in its title panel is paint of the
+ * sheet's INSERT, never an original of its own, and it was never read. The DXF declared its unit in
+ * S-01's general notes too, so nothing was lost there; the DWG minted from it carries that note
+ * truncated to its last clause (LibreDWG's `dxf2dwg` keeps an MTEXT's tail and drops its leading
+ * chunks), and a fresh upload read no unit at all — every column section stood unitless and S-10
+ * published nothing (walk-2 BD-3). The title panel is the drawing speaking about itself on every
+ * sheet, exactly as a general note is, and it is cited by the INSERT that draws it (L-QTY-03). It is
+ * asked only where the originals are silent, so a drawing whose notes declare a unit reads exactly
+ * as it did, and two units declared across the paint are still no convention at all.
  */
 function unitDeclarationsOf(graph: EntityGraph): UnitDeclarationCensus[] {
+  const originals = declarationsIn(graph.entities.map((entity) => ({ key: entity.key, text: entity.text })));
+  if (originals.length > 0) return originals;
+  return declarationsIn(graph.derived.map((record) => ({ key: record.src, text: record.text })));
+}
+
+/** Every unit the texts declare, counted per unit, each with the first key in code-point order that declares it. */
+function declarationsIn(texts: readonly { readonly key: string; readonly text?: unknown }[]): UnitDeclarationCensus[] {
   const declared = new Map<SectionUnit, { sourceKey: string; declarations: number }>();
-  for (const entity of graph.entities) {
+  for (const entity of texts) {
     if (typeof entity.text !== "string") continue;
     const unit = declaredUnitIn(entity.text);
     if (unit === null) continue;

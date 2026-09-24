@@ -28,10 +28,11 @@ import { editionOf, type PinnedEdition } from "../campaigns";
 import { and, campaigns, eq, forTenant, holdStateLock, inArray, isUuid, quantityLines, queueItems, railObservations, registerObjects, type TenantTx } from "../db";
 import { writeInBatches } from "../db/batch";
 import { REFUSALS, type RefusalCode } from "../errors";
-import { isLevelSlot, levelSegment, type LevelSlot } from "../identity";
+import { isLevelSlot, levelSegment } from "../identity";
 import { cellKeyOf, cellsOf } from "../manual/overlap";
 import { linesOfCampaignIn, measurementsIn } from "../manual/store";
 import type { DeductionCandidate, GateRefusal, GateScope, GateVerdict, Measure, Offer, RailBatch, RailObservation } from "../offers/contract";
+import { unsettledLevelCode } from "../offers/contract";
 import { COVERAGES, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES, weakestBasis, type QuantityBasis } from "../offers/law";
 import type { MethodPair } from "../rulesets/editions/content";
 import { implementationOf, type FormulaMethod, type NormalisedBindings } from "../rulesets/methods/registry";
@@ -89,12 +90,8 @@ function refuse(offer: Offer, code: RefusalCode): Judgement {
  */
 export type RegisteredLevel = { readonly levelSlot: string | null; readonly levelId?: string | null };
 
-/** The lawful-null slot a bare typical caption leaves its members in (L-REG-04, L-CAD-07). */
-const UNRESOLVED: LevelSlot = "UNRESOLVED";
-
-/**
- * The registered code an object answers with where it stands in the UNRESOLVED slot, or null
- * (Interpretation I-368).
+/*
+ * Where an object stands in the UNRESOLVED slot it answers `unsettledLevelCode` (I-368, I-667).
  *
  * L-CAD-07: "a bare typical caption states no membership and registers UNRESOLVED rows with no line
  * (`TYPICAL_RANGE_UNSTATED`)". The rows are MEASURED placements the rails can read, and a frame rail
@@ -102,16 +99,14 @@ const UNRESOLVED: LevelSlot = "UNRESOLVED";
  * clause is kept: it is the one writer of lines, and every rail inherits the rule there.
  * `AUTHOR_TYPICAL_RANGE` then re-keys each row in place onto the level its range puts it on
  * (L-REG-04), so a line written first would name an object that no longer stands. A reader summing
- * the campaign counts it beside the line the carried key publishes.
+ * the campaign counts it beside the line the carried key publishes. The rails that ask a band about
+ * a row ask the same question first, of the same home, and report it by the same code.
  *
  * The FOUNDATION slot is a place a member stands, which nothing carries, so it publishes.
  * An `@unregistered:<label>` placeholder is carried the same way, but its members can stand
  * measured where no level the stack holds will ever take them (I-367). Refusing them needs a
  * durable disclosure first, and I-368 records that as owed rather than refusing them silently.
  */
-function unsettledLevelCode(level: RegisteredLevel): RefusalCode | null {
-  return level.levelSlot === UNRESOLVED ? REFUSALS.TYPICAL_RANGE_UNSTATED.code : null;
-}
 
 /** Is this spelling a member of the closed roster the contract publishes? */
 function inRoster(roster: readonly string[], value: string): boolean {

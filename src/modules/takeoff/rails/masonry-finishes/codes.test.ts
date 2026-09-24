@@ -17,7 +17,9 @@ import { MASONRY_REFUSALS } from "@/core/errors/masonry";
 import { MASONRY_RAIL_CODES } from "./index";
 
 describe("AM-11: the masonry rails' code roster", () => {
-  test("the roster is the two sighting codes, this shard's nine, and the wall lane's five stops, in the order it reports them", () => {
+  // TEST_AMENDED (I-667): and a third sighting code, TYPICAL_RANGE_UNSTATED — a row on no
+  // storey is reported against its view rather than offered for the gate to refuse unstored.
+  test("the roster is the two sighting codes, this shard's nine, the wall lane's five stops, and the range sighting, in the order it reports them", () => {
     expect(
       [...MASONRY_RAIL_CODES],
       "the roster names every code a masonry rail reports and no other — a code a rail reports and the roster omits is a refusal nobody can enumerate, and one the roster names and no rail reports is a refusal the tree cannot make (AM-11, Q-07)",
@@ -39,6 +41,7 @@ describe("AM-11: the masonry rails' code roster", () => {
       "OPENING_UNPLACED",
       "OPENING_UNSCHEDULED",
       "WALL_LINTEL_UNDEDUCTED",
+      "TYPICAL_RANGE_UNSTATED",
     ]);
   });
 

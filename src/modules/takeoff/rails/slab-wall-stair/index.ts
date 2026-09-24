@@ -37,7 +37,7 @@ import type {
   RailSetup,
   RegisterObjectRow,
 } from "@/core/offers/contract";
-import { heightOf, sightedBy, variantCovering } from "@/core/offers/contract";
+import { heightOf, sightedBy, unsettledLevelCode, variantCovering } from "@/core/offers/contract";
 import { CANONICAL_UNIT } from "@/core/units/canon";
 
 /** The twelve rules these rails offer under. An offer names a rule and never a version (L-MEA-08). */
@@ -70,6 +70,7 @@ export const SLAB_WALL_STAIR_RAIL_CODES = [
   "OUTLINE_NOT_CLOSED",
   "SECTION_BAND_UNCOVERED",
   "VIEW_SCALE_UNAFFIRMED",
+  "TYPICAL_RANGE_UNSTATED",
 ] as const satisfies readonly RefusalCode[];
 
 /** One code of the roster above. */
@@ -405,6 +406,16 @@ function railFor(kind: Kind): Rail {
       const calibration = setup.calibrations[placement.ingestId]?.[placement.viewKey];
       if (calibration === undefined || calibration.length === 0) {
         observations.push(observe("VIEW_SCALE_UNAFFIRMED", klass, kind, row, placement.viewKey));
+        continue;
+      }
+
+      // A row a bare typical caption left in the UNRESOLVED slot stands on no storey: no band of a
+      // wall's schedule can be asked about it and the gate would refuse whatever was offered, so it
+      // is reported against THE VIEW, whose range of floors is what a reader has to go and state
+      // (I-667, L-CAD-07).
+      const unsettled = unsettledLevelCode(row);
+      if (unsettled !== null) {
+        observations.push(observe(unsettled, klass, kind, row, placement.viewKey));
         continue;
       }
 

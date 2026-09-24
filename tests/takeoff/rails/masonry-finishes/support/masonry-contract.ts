@@ -185,8 +185,11 @@ export const MASONRY_SHARD_CODES: readonly string[] = Object.freeze([
 export const VIEW_SCALE_UNAFFIRMED = "VIEW_SCALE_UNAFFIRMED";
 export const MEMBER_TYPE_UNKNOWN = "MEMBER_TYPE_UNKNOWN";
 
-/** The whole roster the rail door publishes: this shard's nine plus the two sighting codes (AC-4). */
-export const MASONRY_RAIL_CODES_OWED: readonly string[] = Object.freeze([...MASONRY_SHARD_CODES, VIEW_SCALE_UNAFFIRMED, MEMBER_TYPE_UNKNOWN]);
+/** The code a row a bare typical caption left on no storey is reported under (L-CAD-07, I-667). */
+export const TYPICAL_RANGE_UNSTATED = "TYPICAL_RANGE_UNSTATED";
+
+/** The whole roster the rail door publishes: this shard's nine plus the three sighting codes (AC-4). */
+export const MASONRY_RAIL_CODES_OWED: readonly string[] = Object.freeze([...MASONRY_SHARD_CODES, VIEW_SCALE_UNAFFIRMED, MEMBER_TYPE_UNKNOWN, TYPICAL_RANGE_UNSTATED]);
 
 /** Which code each unstated wall reading is omitted under (AC-4, interfaces). */
 export const WALL_OMISSION: Readonly<Record<string, string>> = Object.freeze({

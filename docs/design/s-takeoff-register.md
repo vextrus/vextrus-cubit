@@ -236,6 +236,12 @@ it is only PLACED in its cell, no wider than the cell with its label ellipsised 
   fresh project: every column under "Unresolved") owes no storey a height, so `runDeferralsOf` names
   none and neither does this surface; naming THAT absence is a deferral of the residue's
   (`src/core/residue/deferrals.ts`), recorded in §8 rather than invented here.
+- **Applied from viewer.md: I-667 and I-668** (session 9, SCALE-3). A view whose
+  members stand in the UNRESOLVED slot is a row of the region under `TYPICAL_RANGE_UNSTATED`, named
+  by the view's caption like a scale deferral, ordered after the views with no scale and before the
+  storeys, and its door is "Open the levels" (`takeoff_register_deferral_open_levels`), where the
+  range of floors is authored. After those rows, every object the run published no line for that no
+  row above names stands under the code its rails reported, one row per code.
 
 ## 1. Layout and hierarchy — what moves
 
@@ -513,6 +519,6 @@ per-user furniture (`cubit.datatable.v1:takeoff-register-lines`); the index rail
 is not — owner: the prefs seam's node, unchanged. The inspector's width IS remembered, by the frame.
 A vertical that stands on no storey of the stack (the level stack not yet confirmed) owes no storey a
 height, so no deferral names it and a run over it states only its scale deferrals (I-651) —
-naming that absence ("these columns stand on no storey; confirm the level stack") is a deferral of
-the residue's own, owner: `src/core/residue/deferrals.ts` (`runDeferralsOf`), never a second rule in
-this screen.
+naming that absence is **paid** for the UNRESOLVED slot by I-667, in `runDeferralsOf`. Carried:
+a member under an `@unregistered:<label>` placeholder (I-367) is still named by no deferral — owner:
+`src/core/residue/deferrals.ts`, with I-368's durable disclosure.

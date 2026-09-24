@@ -25,7 +25,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { RefusalCode } from "@/core/errors";
-import { heightOf, sightedBy, variantCovering } from "@/core/offers/contract";
+import { heightOf, sightedBy, unsettledLevelCode, variantCovering } from "@/core/offers/contract";
 import type {
   Measure,
   MemberShape,
@@ -67,6 +67,7 @@ export const COLUMN_RAIL_CODES = [
   "SECTION_BAND_UNCOVERED",
   "SECTION_UNIT_UNSTATED",
   "SECTION_NOT_CIRCULAR",
+  "TYPICAL_RANGE_UNSTATED",
 ] as const satisfies readonly RefusalCode[];
 
 /** One code of the roster above. */
@@ -256,6 +257,16 @@ export const columnConcreteRail: Rail = (input: RailInput) => {
     const calibration = setup.calibrations[placement.ingestId]?.[placement.viewKey];
     if (calibration === undefined || calibration.length === 0) {
       observations.push(observe("VIEW_SCALE_UNAFFIRMED", row, placement.viewKey));
+      continue;
+    }
+
+    // A column a bare typical caption left in the UNRESOLVED slot stands on no storey, so no band of
+    // its schedule can be asked about it: what is missing is the range of floors the plan is typical
+    // of, and it is reported against THE VIEW, which is what a person states a range for — never as
+    // an uncovered band, which sent the QS to the schedule (I-667, L-CAD-07, walk-2 BD-3).
+    const unsettled = unsettledLevelCode(row);
+    if (unsettled !== null) {
+      observations.push(observe(unsettled, row, placement.viewKey));
       continue;
     }
 

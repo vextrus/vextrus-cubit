@@ -396,6 +396,11 @@ Decision in place (§1, §3, §5, §7 carry the text).
   caption, where the scale panel affirms a scale (`Open the sheet`), or the drawings where the
   manifest names no sheet; a storey's to the level stack (`Open the levels`). The run's own verdict
   step carries the same `deferred` list, which no screen shows; the region is where a QS reads it.
+  Applied from viewer.md's I-667 (session 9, SCALE-3): a member in the UNRESOLVED slot is
+  reported `TYPICAL_RANGE_UNSTATED` against its view, so its cell reads that reason — never
+  `SECTION_BAND_UNCOVERED` — and its door goes to the level stack (`Open the levels`,
+  `takeoff_coverage_remedy_levels`), where the range of floors is authored; the run and the region
+  name the view once, after the views with no scale.
 - **I-485 — the grid leads with what the drawings carry (amends I-196, I-195).** Borne kinds
   first, in canonical order; the kind-grain rows — a kind no sighted class bears — at the FOOT, shown
   and never hidden. A position a column's class does not bear is KEYED: a faint dash

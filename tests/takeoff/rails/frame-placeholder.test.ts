@@ -11,9 +11,10 @@
  * I-368's invariant holds it at 0. A level no band covers defers (L-FRM-02).
  *
  * WHAT MAY NOT MOVE. The FOUNDATION slot keeps its arm: a member beneath every storey takes its
- * family's one row. The UNRESOLVED slot keeps its offer, which the gate refuses by name
- * (`TYPICAL_RANGE_UNSTATED`, I-368, `refusal-arms.test.ts`). A member on a level of the stack is sized
- * by the band covering that level, as it always was.
+ * family's one row. A member on a level of the stack is sized by the band covering that level, as it
+ * always was. The UNRESOLVED slot is reported, by every rail, under `TYPICAL_RANGE_UNSTATED` against
+ * its view (I-667); the gate still refuses an offer on it by the same code (I-368,
+ * `refusal-arms.test.ts`), but no frame rail makes one.
  *
  * Pure: the rails are handed exactly what a loader would hand them, and no database is opened.
  */
@@ -37,10 +38,14 @@ import {
   type FrameRailShape,
   type RailBatchShape,
   type VariantSetup,
+  VIEW_KEY,
 } from "./support/frame-rail-stage";
 
 /** The code a member no band covers the level of is reported under (L-FRM-02). */
 const SECTION_BAND_UNCOVERED = "SECTION_BAND_UNCOVERED";
+
+/** The code a member a bare typical caption left on no storey is reported under (L-CAD-07). */
+const TYPICAL_RANGE_UNSTATED = "TYPICAL_RANGE_UNSTATED";
 
 /** The member this suite sizes: S-13's LB1, as the drawing letters it, and the family S-17 states. */
 const PLACEMENT = "PLACEMENT:S-13:LB1:4200:9100";
@@ -124,7 +129,11 @@ describe("I-461: a member under a placeholder is reported, never sized", () => {
     expect(below.observations.map((seen) => seen.code), "and the rail says so under the same code the placeholder is reported under").toEqual([SECTION_BAND_UNCOVERED]);
   });
 
-  test("what may not move: the FOUNDATION slot keeps its level-less arm, and the UNRESOLVED slot its offer for the gate to refuse (I-368)", async () => {
+  // TEST_AMENDED (I-667): the UNRESOLVED slot no longer keeps its offer. The gate refused it by
+  // name, but a gate refusal is counted in the job's step and stored nowhere a reader looks, so a
+  // bare typical caption's beams published nothing and said nothing (walk-2 BD-3). Every rail now
+  // reports such a row against its view, under the Bible's own code, and offers nothing.
+  test("what may not move: the FOUNDATION slot keeps its level-less arm; the UNRESOLVED slot is reported against its view under TYPICAL_RANGE_UNSTATED (I-368, I-667)", async () => {
     const door = await frameRailDoor();
     const foundation = answered(door.tieBeamConcreteRail, RCC_CONCRETE, rowAt(TIE_BEAM_CLASS, { slot: "FOUNDATION" }), [TYPICAL_ONLY]);
     expect(
@@ -132,11 +141,15 @@ describe("I-461: a member under a placeholder is reported, never sized", () => {
       "a member beneath every storey takes its family's one row: no band ranges over the foundation (L-REG-02)",
     ).toEqual([["250", "375"]]);
 
-    const unresolved = rowAt(BEAM_CLASS, { slot: "UNRESOLVED" });
-    const bare = answered(door.beamConcreteRail, RCC_CONCRETE, unresolved, [UNBANDED]);
-    expect(
-      bare.offers.map((offer) => offer.register.objectKey),
-      "a bare typical caption's member is still offered, and the gate refuses it under TYPICAL_RANGE_UNSTATED — the Bible's own code, not this rail's",
-    ).toEqual([String(unresolved["objectKey"])]);
+    for (const one of RUN_RAILS) {
+      const row = rowAt(one.class, { slot: "UNRESOLVED" });
+      for (const variants of [[UNBANDED], [TYPICAL_ONLY]]) {
+        const bare = answered(door[one.name] as FrameRailShape, one.kind, row, variants);
+        expect(bare.offers, `${one.name}: a bare typical caption's member stands on no storey, so nothing is sized — whether its family is banded or not`).toEqual([]);
+        expect(bare.observations, `${one.name}: it is reported against THE VIEW, whose range of floors a reader has to go and state — never as an uncovered band (L-CAD-07)`).toEqual([
+          { class: one.class, kind: one.kind, code: TYPICAL_RANGE_UNSTATED, objectKey: String(row["objectKey"]), sourceEntity: VIEW_KEY },
+        ]);
+      }
+    }
   });
 });

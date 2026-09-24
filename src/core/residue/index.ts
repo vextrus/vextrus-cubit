@@ -12,7 +12,7 @@ export { unnamedPairsOf } from "./channels/unnamed-pairs";
 export { declaredSightings } from "./channels/declared";
 export { classesDeclaredBy, classDeclarationsOf, unclassedDeclaredBy, unclassedDeclarationsOf, type ManifestView, type UnclassedDeclaration } from "./declared";
 export { cellReasonOf, partialOf, type CellReason, type ReasonInput } from "./reasons";
-export { runDeferralsOf, type RunDeferral, type RunDeferralInput } from "./deferrals";
+export { VIEW_DEFERRAL_CODES, runDeferralsOf, type RunDeferral, type RunDeferralInput, type ViewDeferralCode } from "./deferrals";
 export {
   BILL_CAUSES,
   CELL_GRAINS,

@@ -12,7 +12,7 @@ import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { RefusalCode } from "@/core/errors";
 import { editionSourceOf } from "@/core/identity";
-import { bandCovers, bandJudgeable, placedBy } from "@/core/offers/contract";
+import { bandCovers, bandJudgeable, placedBy, unsettledLevelCode } from "@/core/offers/contract";
 import type {
   DeductionCandidate,
   DeductionChannel,
@@ -60,6 +60,8 @@ export const MASONRY_RAIL_CODES = [
   "OPENING_UNPLACED",
   "OPENING_UNSCHEDULED",
   "WALL_LINTEL_UNDEDUCTED",
+  // A row a bare typical caption left on no storey (L-CAD-07, I-667): a third sighting code.
+  "TYPICAL_RANGE_UNSTATED",
 ] as const satisfies readonly RefusalCode[];
 
 /** One code of the roster above. */
@@ -86,6 +88,7 @@ export const [
   OPENING_UNPLACED,
   OPENING_UNSCHEDULED,
   WALL_LINTEL_UNDEDUCTED,
+  TYPICAL_RANGE_UNSTATED,
 ] = MASONRY_RAIL_CODES;
 
 /** Is this code one a masonry rail reports under (the roster above)? */
@@ -140,12 +143,18 @@ export type Sighting =
  * set of affirmed calibration references" (L-QTY-03): a view nobody has affirmed a scale for is
  * reported against THE VIEW — what a reader has to go and affirm. A row whose placement the setup
  * does not hold names a sighting nothing can be traced to, and reaches the residue as evidence.
+ *
+ * A row a bare typical caption left in the UNRESOLVED slot stands on no storey, so no floor band of
+ * an opening can be judged for it and the gate would refuse whatever was offered: it is reported
+ * against the view too, under `TYPICAL_RANGE_UNSTATED`, whose range of floors a reader has to go
+ * and state (I-667, L-CAD-07).
  */
 export function sightingOf(row: RegisterObjectRow, setup: RailSetup): Sighting {
   const placement = setup.placements[row.placementKey];
   if (placement === undefined) return { ok: false, code: MEMBER_TYPE_UNKNOWN, sourceEntity: row.placementKey };
   const calibration = setup.calibrations[placement.ingestId]?.[placement.viewKey];
   if (calibration === undefined || calibration.length === 0) return { ok: false, code: VIEW_SCALE_UNAFFIRMED, sourceEntity: placement.viewKey };
+  if (unsettledLevelCode(row) !== null) return { ok: false, code: TYPICAL_RANGE_UNSTATED, sourceEntity: placement.viewKey };
   return { ok: true, placement, calibration };
 }
 

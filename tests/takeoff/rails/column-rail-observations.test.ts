@@ -40,6 +40,8 @@ const SECTION_UNIT_UNSTATED = "SECTION_UNIT_UNSTATED";
 const PLACEMENT_UNHELD = "PLACEMENT_UNHELD";
 /** The sixth: a plan note calling a section round over a schedule cell whose two sides DIFFER. */
 const SECTION_NOT_CIRCULAR = "SECTION_NOT_CIRCULAR";
+/** The seventh: a column a bare typical caption left on no storey (L-CAD-07). */
+const TYPICAL_RANGE_UNSTATED = "TYPICAL_RANGE_UNSTATED";
 
 /** The level the row of every case below stands on, and one below it a band can name. */
 const GROUND: LevelSetup = levelStanding({ levelId: "44444444-4444-4444-8444-444444444401", label: "GF", ordinal: 0, value: "3", unit: "M", sourceKey: "S-105:e:2" });
@@ -98,10 +100,15 @@ describe("the column rail's closed code roster", () => {
     // round is reported under where the schedule states two sides that differ. The rail now reads a
     // SHAPE as well as a size, so it has a new way of being unable to read one — and L-REG-03 has
     // that disagreement declared by name rather than settled by picking a side.
+    //
+    // TEST_AMENDED (I-667): and TYPICAL_RANGE_UNSTATED, the Bible's own code for a member a bare
+    // typical caption left on no storey. The rail asked a banded schedule about it with no level and
+    // reported SECTION_BAND_UNCOVERED, which sent the QS to the schedule when what was missing was
+    // the range of floors (walk-2 BD-3).
     expect(
       new Set([...rail.COLUMN_RAIL_CODES]),
-      "a rail-local roster is closed: a seventh reason would be a code no reader was told to expect (interfaces)",
-    ).toStrictEqual(new Set([VIEW_SCALE_UNAFFIRMED, MEMBER_TYPE_UNKNOWN, SECTION_BAND_UNCOVERED, SECTION_UNIT_UNSTATED, PLACEMENT_UNHELD, SECTION_NOT_CIRCULAR]));
+      "a rail-local roster is closed: an eighth reason would be a code no reader was told to expect (interfaces)",
+    ).toStrictEqual(new Set([VIEW_SCALE_UNAFFIRMED, MEMBER_TYPE_UNKNOWN, SECTION_BAND_UNCOVERED, SECTION_UNIT_UNSTATED, PLACEMENT_UNHELD, SECTION_NOT_CIRCULAR, TYPICAL_RANGE_UNSTATED]));
   });
 
   test("a view no affirmed calibration stands for is reported, never offered", async () => {
@@ -135,6 +142,20 @@ describe("the column rail's closed code roster", () => {
     // endpoints name, and the level above them is priced by nothing.
     const banded: VariantSetup = variant({ variantKey: MEMBER_FAMILY, width: 300, depth: 450, sourceKeys: [SECTION_SOURCE], bandFrom: "GF", bandTo: "GF" });
     expect(await reportedBy({ memberTypes: { [INGEST_ID]: { [MEMBER_FAMILY]: [banded] } } }, PLACEMENT_KEY)).toBe(SECTION_BAND_UNCOVERED);
+  });
+
+  test("a column a bare typical caption left on no storey is reported against its view for the range, never as an uncovered band", async () => {
+    // S-10's COLUMN LAYOUT PLAN states no range of floors, so its columns stand in the UNRESOLVED
+    // slot until one is authored (L-CAD-07, L-REG-04). A banded schedule has nothing to say about a
+    // member on no storey; what the QS has to go and do is state the range, for the VIEW.
+    const banded: VariantSetup = variant({ variantKey: MEMBER_FAMILY, width: 300, depth: 450, sourceKeys: [SECTION_SOURCE], bandFrom: "GF", bandTo: "GF" });
+    const unresolved = { ...ROW, objectKey: `${PLACEMENT_KEY}@UNRESOLVED`, levelId: null, levelSlot: "UNRESOLVED" };
+    const rail = await columnRailDoor();
+    const batch = rail.columnConcreteRail(input({ objects: [unresolved], memberTypes: { [INGEST_ID]: { [MEMBER_FAMILY]: [banded] } } }));
+    expect(batch.offers, "nothing is offered for a member on no storey").toEqual([]);
+    expect(batch.observations, "it is reported once, against the view, under the Bible's own code (L-CAD-07)").toStrictEqual([
+      { class: COLUMN_CLASS, kind: RCC_CONCRETE, code: TYPICAL_RANGE_UNSTATED, objectKey: `${PLACEMENT_KEY}@UNRESOLVED`, sourceEntity: VIEW_KEY },
+    ]);
   });
 
   test("a section read without the unit it was written in is reported, never guessed", async () => {

@@ -217,12 +217,15 @@ export function sightingAddress(
 /** The two reasons whose fix is made on a sheet rather than in the register (I-484). */
 const CLASS_NOT_PLACED = REFUSALS.COVERAGE_CLASS_NOT_PLACED.code;
 const VIEW_SCALE_UNAFFIRMED = REFUSALS.VIEW_SCALE_UNAFFIRMED.code;
+/** And the one whose fix is made in the level stack: the floors a typical plan is typical of (I-667). */
+const TYPICAL_RANGE_UNSTATED = REFUSALS.TYPICAL_RANGE_UNSTATED.code;
 
 /**
  * Where a cell's one remedy button goes — the place its fix is made (R-UI-020, I-484): the
  * rule set for a kind no class bears; the sheet that shows a class nothing placed, flown to its
- * caption; the drawings, where a view's scale is affirmed; and for everything else the register,
- * narrowed to the cell.
+ * caption; the drawings, where a view's scale is affirmed; the level stack, where the range of
+ * floors a typical plan is typical of is authored (I-667); and for everything else the
+ * register, narrowed to the cell.
  */
 export function remedyDoorOf(cell: ResidueCell, tenantId: string, projectId: string): { href: string; label: string } {
   const read = causeRead(cell);
@@ -239,10 +242,14 @@ export function remedyDoorOf(cell: ResidueCell, tenantId: string, projectId: str
   if (read === NOT_ESTABLISHED && cell.reason === VIEW_SCALE_UNAFFIRMED) {
     return { href: drawingsHref(tenantId, projectId), label: COVERAGE_COPY.takeoff_coverage_remedy_drawings };
   }
+  if (read === NOT_ESTABLISHED && cell.reason === TYPICAL_RANGE_UNSTATED) {
+    return { href: levelsHref(tenantId, projectId), label: COVERAGE_COPY.takeoff_coverage_remedy_levels };
+  }
   return { href: registerCellHref(tenantId, projectId, cell), label: COVERAGE_COPY.takeoff_coverage_empty_campaign_action };
 }
 const participantsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/participants`;
 const rulesetHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/ruleset`;
+const levelsHref = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff/levels`;
 
 /** The code the screen's own denial renders, off the registry the caller looks it up in. */
 const PERMISSION_NOT_HELD = "PERMISSION_NOT_HELD";

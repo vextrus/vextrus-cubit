@@ -19,7 +19,7 @@ import type { Kind } from "@/core/catalogue/kinds";
 import type { RebarRefusalCode } from "@/core/errors/rebar";
 import type { NoteContestedCode } from "@/core/notes/law";
 import { semanticDigest } from "@/core/identity/semantic";
-import { detailingOfClass, foundationNeckOf, heightOf, variantCovering } from "@/core/offers/contract";
+import { detailingOfClass, foundationNeckOf, heightOf, unsettledLevelCode, variantCovering } from "@/core/offers/contract";
 import type {
   EditionSetup,
   JointReading,
@@ -223,9 +223,10 @@ type UnstatedCode = RebarRefusalCode | NoteContestedCode;
 /**
  * What this leaf answers a member it could not read under — its own closed roster (L-MEA-08) — and
  * the gate's own code for a synthesis version the campaign's edition cites and the tree does not
- * implement, which is the same absence the gate names for a formula (B-17).
+ * implement, which is the same absence the gate names for a formula (B-17), and the register's own
+ * code for a member a bare typical caption left on no storey (L-CAD-07, I-667).
  */
-type ObservedCode = RebarRefusalCode | "METHOD_IMPLEMENTATION_MISSING";
+type ObservedCode = RebarRefusalCode | "METHOD_IMPLEMENTATION_MISSING" | "TYPICAL_RANGE_UNSTATED";
 
 /** One observation of this leaf, with what it stands on where it says more than its code. */
 function observe(code: ObservedCode, row: RegisterObjectRow, sourceEntity: string, detail?: Record<string, unknown>): RailObservation {
@@ -383,6 +384,16 @@ export function readMembers(input: RailInput): { readonly reads: readonly Member
     const calibration = setup.calibrations[placement.ingestId]?.[placement.viewKey];
     if (calibration === undefined || calibration.length === 0) {
       observations.push(observe("REBAR_SCHEDULE_UNREAD", row, placement.viewKey));
+      continue;
+    }
+    // A member a bare typical caption left in the UNRESOLVED slot stands on no storey, so no band of
+    // its schedule can be asked about it (the level-less arm of `variantCovering` is the foundation
+    // slot's) and no storey run bounds its bars: what is missing is the range of floors the plan is
+    // typical of, reported against THE VIEW — never as an unread schedule, which sent the QS to the
+    // column schedule (I-667, L-CAD-07).
+    const unsettled = unsettledLevelCode(row);
+    if (unsettled !== null) {
+      observations.push(observe(unsettled, row, placement.viewKey));
       continue;
     }
     const family = placement.memberFamily;

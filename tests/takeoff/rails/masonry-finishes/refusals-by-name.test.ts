@@ -24,6 +24,7 @@ import {
   MASONRY_RAIL_CODES_OWED,
   MASONRY_SHARD_CODES,
   MEMBER_TYPE_UNKNOWN,
+  TYPICAL_RANGE_UNSTATED,
   OPENING_FLOOR_UNJUDGEABLE,
   OPENING_NOT_AREABLE,
   OPENING_SCHEDULE_ABSENT,
@@ -258,7 +259,7 @@ describe("AC-4: every code of the masonry shard is registered and exercised by n
     }
   });
 
-  test("AC-4: an unaffirmed view and a placement the setup does not hold are sighting observations, from all three rails", async () => {
+  test("AC-4: an unaffirmed view, a placement the setup does not hold and a row on no storey are sighting observations, from all three rails", async () => {
     const edition = await seedEdition();
     const door = await masonryRailDoor();
     for (const { kind, rail } of RAILS) {
@@ -276,6 +277,14 @@ describe("AC-4: every code of the masonry shard is registered and exercised by n
       const second = drive(door[rail] as RailShape, unplaced);
       expect(second.offers, `${kind}: a register row the setup places nowhere is read off nothing`).toEqual([]);
       observed(second, MEMBER_TYPE_UNKNOWN, `${kind} reports the unplaced row by name`);
+
+      // I-667: a row a bare typical caption left on no storey is reported against its view.
+      const unsettled: RailInputShape = { ...scenario.input, objects: scenario.input.objects.map((row) => ({ ...row, levelId: null, levelSlot: "UNRESOLVED" })) };
+      const third = drive(door[rail] as RailShape, unsettled);
+      expect(third.offers, `${kind}: a row on no storey is measured on no storey`).toEqual([]);
+      const ranged = observed(third, TYPICAL_RANGE_UNSTATED, `${kind} reports the range nobody stated by name`);
+      const placement = Object.values(scenario.input.setup.placements)[0] as { viewKey: string } | undefined;
+      expect(ranged.sourceEntity, `${kind}: against THE VIEW, whose floors a reader states (L-CAD-07)`).toBe(placement?.viewKey);
     }
   });
 
@@ -300,7 +309,7 @@ describe("AC-4: every code of the masonry shard is registered and exercised by n
    * Last on purpose: it is held against what the cases above ACTUALLY drove, which is the only way
    * "exercised by name" can be asked rather than asserted (Q-07).
    */
-  test("AC-4: MASONRY_RAIL_CODES names this shard's nine and the two sighting codes, and every code it names is registered and driven", async () => {
+  test("AC-4: MASONRY_RAIL_CODES names this shard's nine and the three sighting codes, and every code it names is registered and driven", async () => {
     const door = await masonryRailDoor();
     const register = await refusalRegister();
     const roster = [...door.MASONRY_RAIL_CODES];

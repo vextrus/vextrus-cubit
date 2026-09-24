@@ -16,6 +16,7 @@ import type { DpiSource } from "../entitygraph/schema";
 import type { Kind } from "../catalogue/kinds";
 import { registerObjects, type MemberShape } from "../db";
 import type { RefusalCode } from "../errors";
+import type { LevelSlot } from "../identity";
 import { STOREY_HEIGHT_ABSENCE, type StoreyHeightStandingName } from "../levels/law";
 import type { MethodPair } from "../rulesets/editions/content";
 import type { SiteFact } from "../site-facts/law";
@@ -373,6 +374,29 @@ export function bandCovers(band: BandStatement, ordinal: number, place: BandPlac
   const from = band.from === null ? undefined : place(band.from);
   const to = band.to === null ? undefined : place(band.to);
   return ordinal >= (from ?? ordinal) && ordinal <= (to ?? ordinal);
+}
+
+/** The lawful-null slot a bare typical caption leaves its members in (L-REG-04, L-CAD-07). */
+const UNRESOLVED_SLOT: LevelSlot = "UNRESOLVED";
+
+/** The code a member of a view whose typical range nobody has stated answers with (L-CAD-07). */
+const TYPICAL_RANGE_UNSTATED = "TYPICAL_RANGE_UNSTATED" satisfies RefusalCode;
+
+/**
+ * The registered code a register row answers with where it stands in the UNRESOLVED slot, or null
+ * (I-368, I-667).
+ *
+ * L-CAD-07: "a bare typical caption states no membership and registers UNRESOLVED rows with no line
+ * (`TYPICAL_RANGE_UNSTATED`)". It is asked in ONE place and by two readers: the gate, the one writer
+ * of lines, which refuses an offer about such a row; and every rail that would otherwise ask a
+ * schedule's BAND about it. A row in the slot stands on no level, and `variantCovering`'s level-less
+ * arm is the foundation slot's — so a banded schedule answered nothing and the rail reported
+ * `SECTION_BAND_UNCOVERED`, which sent the QS to the column schedule when what was missing was the
+ * range of floors the plan is typical of (walk-2 BD-3). The rail now reports this code against the
+ * VIEW, which is what a person states a range for.
+ */
+export function unsettledLevelCode(row: { readonly levelSlot: string | null }): typeof TYPICAL_RANGE_UNSTATED | null {
+  return row.levelSlot === UNRESOLVED_SLOT ? TYPICAL_RANGE_UNSTATED : null;
 }
 
 /**

@@ -8,7 +8,7 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { RefusalCode } from "@/core/errors";
-import { variantCovering } from "@/core/offers/contract";
+import { unsettledLevelCode, variantCovering } from "@/core/offers/contract";
 import type { LintelSetup, Measure, PlacementSetup, RailObservation, RailSetup, RegisterObjectRow, RunSetup } from "@/core/offers/contract";
 
 /**
@@ -24,6 +24,7 @@ export const FRAME_RAIL_CODES = [
   "RUN_UNREAD",
   "SLAB_THICKNESS_UNSTATED",
   "LINTEL_SOURCE_ABSENT",
+  "TYPICAL_RANGE_UNSTATED",
 ] as const satisfies readonly RefusalCode[];
 
 /** One code of the roster above. */
@@ -33,7 +34,7 @@ export type FrameRailCode = (typeof FRAME_RAIL_CODES)[number];
  * The roster's members by name, read off the roster itself rather than spelled a second time: one
  * code has one spelling in this area, and a rail that reports one names it from here (Q-07).
  */
-export const [VIEW_SCALE_UNAFFIRMED, MEMBER_TYPE_UNKNOWN, SECTION_BAND_UNCOVERED, SECTION_UNIT_UNSTATED, RUN_UNREAD, SLAB_THICKNESS_UNSTATED, LINTEL_SOURCE_ABSENT] =
+export const [VIEW_SCALE_UNAFFIRMED, MEMBER_TYPE_UNKNOWN, SECTION_BAND_UNCOVERED, SECTION_UNIT_UNSTATED, RUN_UNREAD, SLAB_THICKNESS_UNSTATED, LINTEL_SOURCE_ABSENT, TYPICAL_RANGE_UNSTATED] =
   FRAME_RAIL_CODES;
 
 /** The geometry a beam, tie beam or lintel instance is read off as (L-FRM-02). */
@@ -97,12 +98,20 @@ export type Sighting =
  * set of affirmed calibration references" (L-QTY-03): a view nobody has affirmed a scale for is
  * reported against THE VIEW — what a reader has to go and affirm. A row whose placement the setup
  * does not hold names a sighting nothing can be traced to, and reaches the residue as evidence.
+ *
+ * A row a bare typical caption left in the UNRESOLVED slot is reported against the view too, under
+ * `TYPICAL_RANGE_UNSTATED`: it stands on no storey, so the band its schedule states cannot be asked
+ * about it, and what a reader has to go and do is state the range of floors the plan is typical of
+ * (I-667, L-CAD-07). Before, a family of one row took its section through the foundation slot's
+ * arm and the gate refused the offer by a code nothing stored, and a banded family was reported as an
+ * uncovered band — both sending the reader somewhere other than the missing range.
  */
 export function sightingOf(row: RegisterObjectRow, setup: RailSetup): Sighting {
   const placement = setup.placements[row.placementKey];
   if (placement === undefined) return { ok: false, code: MEMBER_TYPE_UNKNOWN, sourceEntity: row.placementKey };
   const calibration = setup.calibrations[placement.ingestId]?.[placement.viewKey];
   if (calibration === undefined || calibration.length === 0) return { ok: false, code: VIEW_SCALE_UNAFFIRMED, sourceEntity: placement.viewKey };
+  if (unsettledLevelCode(row) !== null) return { ok: false, code: TYPICAL_RANGE_UNSTATED, sourceEntity: placement.viewKey };
   return { ok: true, placement, calibration };
 }
 

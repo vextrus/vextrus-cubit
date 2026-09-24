@@ -86,6 +86,31 @@ describe("MEASURE-REFUSE: the run names what it could not measure, per view and 
     expect(deferred.flatMap((deferral) => ("label" in deferral ? [deferral.label] : []))).toEqual(["1F", "2F"]);
   });
 
+  test("a view whose floors nobody has stated is named once, after the views with no scale, and never as a storey (I-667)", () => {
+    // Walk-2 BD-3: S-10 affirmed, its caption states no range, so its columns stand on no storey and
+    // each is reported against the view. The run names the view — what a person states a range for.
+    const RANGE = REFUSALS.TYPICAL_RANGE_UNSTATED.code;
+    const deferrals = runDeferralsOf({
+      observations: [
+        { class: "column", code: RANGE, objectKey: "c1@UNRESOLVED", sourceEntity: "v:LAYOUT_PLAN:S10", view: "COLUMN LAYOUT PLAN" },
+        { class: "column", code: RANGE, objectKey: "c2@UNRESOLVED", sourceEntity: "v:LAYOUT_PLAN:S10", view: "COLUMN LAYOUT PLAN" },
+        { class: "shear_wall", code: RANGE, objectKey: "w1@UNRESOLVED", sourceEntity: "v:LAYOUT_PLAN:S10", view: null },
+        { class: "beam", code: SCALE, objectKey: "b1@1F", sourceEntity: "v:LAYOUT_PLAN:S13", view: "1ST FLOOR BEAM LAYOUT" },
+      ],
+      levels: [{ levelId: "gf", label: "GF", ordinal: 0, standing: "AGREED" }],
+      objects: [
+        { objectKey: "c1@UNRESOLVED", levelId: null, elementType: "column" },
+        { objectKey: "c2@UNRESOLVED", levelId: null, elementType: "column" },
+        { objectKey: "w1@UNRESOLVED", levelId: null, elementType: "shear_wall" },
+        { objectKey: "b1@1F", levelId: "gf", elementType: "beam" },
+      ],
+    });
+    expect(deferrals).toEqual([
+      { code: SCALE, view: "v:LAYOUT_PLAN:S13", caption: "1ST FLOOR BEAM LAYOUT", classes: ["beam"], members: 1 },
+      { code: RANGE, view: "v:LAYOUT_PLAN:S10", caption: "COLUMN LAYOUT PLAN", classes: ["column", "shear_wall"], members: 3 },
+    ]);
+  });
+
   test("a run whose every view is affirmed and every vertical's storey stated defers nothing", () => {
     expect(runDeferralsOf({ observations: [], levels: [{ levelId: "gf", label: "GF", ordinal: 0, standing: "AGREED" }], objects: [{ objectKey: "c", levelId: "gf", elementType: "column" }] })).toEqual([]);
   });

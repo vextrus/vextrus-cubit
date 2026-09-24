@@ -1,9 +1,11 @@
 // What a measure run could not measure for want of what the QS sets up before measuring, said by name
 // (L-MEA-05's "declared, never silent", L-MEA-07, s-coverage I-484): the views the members
-// were placed in that no affirmation names — "no scale of record on COLUMN LAYOUT PLAN" — and the
-// storeys members stand on whose height nobody has stated or whose readings disagree.
+// were placed in that no affirmation names — "no scale of record on COLUMN LAYOUT PLAN" — the views
+// whose members stand on no storey because nobody has stated the floors the plan is typical of
+// (I-667), and the storeys members stand on whose height nobody has stated or whose readings
+// disagree.
 //
-// It judges nothing. The scale deferrals are the rails' own reports, grouped by the view each one
+// It judges nothing. The view deferrals are the rails' own reports, grouped by the view each one
 // names — a rail cannot mint a calibration it does not hold and reports the view instead (L-MEA-08) —
 // and the height deferrals are the stack's own standing, read at the one pairing of a standing with
 // its code (`STOREY_HEIGHT_ABSENCE`). Pure, so the measure run's own report, the register's
@@ -14,6 +16,21 @@ import { STOREY_HEIGHT_ABSENCE, type StoreyHeightStandingName } from "../levels/
 
 /** The code a rail reports a member under when the view it was placed in has no scale of record. */
 const VIEW_SCALE_UNAFFIRMED = REFUSALS.VIEW_SCALE_UNAFFIRMED.code;
+
+/**
+ * And the code it reports a member under when the view's caption states no range of floors and
+ * nobody has authored one, so the member stands on no storey (L-CAD-07, I-667).
+ */
+const TYPICAL_RANGE_UNSTATED = REFUSALS.TYPICAL_RANGE_UNSTATED.code;
+
+/** One of the codes a rail reports against THE VIEW rather than the member. */
+export type ViewDeferralCode = typeof VIEW_SCALE_UNAFFIRMED | typeof TYPICAL_RANGE_UNSTATED;
+
+/**
+ * The codes a rail reports against the view: what is missing is set up once for the whole view —
+ * its scale, the floors it is typical of — so the run names the view, once, in this order.
+ */
+export const VIEW_DEFERRAL_CODES: readonly ViewDeferralCode[] = [VIEW_SCALE_UNAFFIRMED, TYPICAL_RANGE_UNSTATED];
 
 /**
  * The classes a storey height is read FOR: the verticals, which measure floor-to-floor through the
@@ -56,9 +73,12 @@ export type RunDeferralInput = {
   readonly captions?: ReadonlyMap<string, string>;
 };
 
-/** A view no affirmation names, with the classes and how many members were placed in it. */
+/**
+ * A view no affirmation names, or one whose members stand on no storey because nobody has stated
+ * the floors it is typical of — with the classes and how many members were placed in it.
+ */
 export type ScaleDeferral = {
-  readonly code: typeof VIEW_SCALE_UNAFFIRMED;
+  readonly code: ViewDeferralCode;
   /** The view's L-REG-04 address, as the rails reported it. */
   readonly view: string;
   /** The view's caption, where the reader holds it — what a QS knows the view by. */
@@ -84,25 +104,38 @@ function distinct(values: readonly string[]): string[] {
   return [...new Set(values)].sort(compareCanonical);
 }
 
+/** Is this a code a rail reports against the view? */
+function isViewCode(code: string): code is ViewDeferralCode {
+  return (VIEW_DEFERRAL_CODES as readonly string[]).includes(code);
+}
+
 /**
- * The run's deferrals by name: first every view with no scale of record, in the order a reader knows
- * them by (the caption, else the address), then every storey whose height stands at none, bottom-up.
- * A view no member was reported against, and a storey no vertical stands on, defers nothing.
+ * The run's deferrals by name: first every view with no scale of record, then every view whose
+ * floors nobody has stated, each in the order a reader knows them by (the caption, else the
+ * address), then every storey whose height stands at none, bottom-up. A view no member was reported
+ * against, and a storey no vertical stands on, defers nothing.
  */
 export function runDeferralsOf(input: RunDeferralInput): RunDeferral[] {
-  const byView = new Map<string, { classes: string[]; members: Set<string>; caption: string | null }>();
+  const byView = new Map<string, { code: ViewDeferralCode; view: string; classes: string[]; members: Set<string>; caption: string | null }>();
   for (const observation of input.observations) {
-    if (observation.code !== VIEW_SCALE_UNAFFIRMED) continue;
+    const code = observation.code;
+    if (!isViewCode(code)) continue;
     const view = observation.sourceEntity ?? "";
     if (view === "") continue;
-    const held = byView.get(view) ?? { classes: [], members: new Set<string>(), caption: null };
+    const at = `${code}\u0000${view}`;
+    const held = byView.get(at) ?? { code, view, classes: [], members: new Set<string>(), caption: null };
     held.classes.push(observation.class);
     held.members.add(observation.objectKey ?? `${observation.class}\u0000${view}`);
-    byView.set(view, { ...held, caption: held.caption ?? observation.view ?? input.captions?.get(view) ?? null });
+    byView.set(at, { ...held, caption: held.caption ?? observation.view ?? input.captions?.get(view) ?? null });
   }
-  const scale: ScaleDeferral[] = [...byView.entries()]
-    .map(([view, held]) => ({ code: VIEW_SCALE_UNAFFIRMED, view, caption: held.caption, classes: distinct(held.classes), members: held.members.size }))
-    .sort((left, right) => compareCanonical(left.caption ?? left.view, right.caption ?? right.view) || compareCanonical(left.view, right.view));
+  const scale: ScaleDeferral[] = [...byView.values()]
+    .map((held) => ({ code: held.code, view: held.view, caption: held.caption, classes: distinct(held.classes), members: held.members.size }))
+    .sort(
+      (left, right) =>
+        VIEW_DEFERRAL_CODES.indexOf(left.code) - VIEW_DEFERRAL_CODES.indexOf(right.code) ||
+        compareCanonical(left.caption ?? left.view, right.caption ?? right.view) ||
+        compareCanonical(left.view, right.view),
+    );
 
   // What the run's lines say about heights: the members it offered or published anything for, and
   // those one of whose lines left a storey-height component out.

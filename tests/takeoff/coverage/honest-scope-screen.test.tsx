@@ -261,6 +261,14 @@ describe("the inspector: the reason, the views, one remedy and a door to where i
     expect(remedyDoorOf(PAINT, "t", "p").href, "a kind no class bears is narrowed by its kind alone").toBe("/t/t/p/p/takeoff/register?kind=finish.paint");
   });
 
+  test("a cell whose members stand on no storey for want of a range opens the level stack, where the range is authored (I-667)", () => {
+    const unranged = cell({ levelId: null, levelLabel: "", levelOrdinal: null, levelSlot: "UNRESOLVED", reason: REFUSALS.TYPICAL_RANGE_UNSTATED.code });
+    expect(remedyDoorOf(unranged, "t", "p"), "never the schedule's band, never the register: the floors are stated in the stack").toEqual({
+      href: "/t/t/p/p/takeoff/levels",
+      label: COVERAGE_COPY.takeoff_coverage_remedy_levels,
+    });
+  });
+
   test("the sightings fold behind one line that counts them and names their sheets; every row stays", async () => {
     const root = await mount(view(), cellRef(BEAM));
     const fold = root.querySelector<HTMLDetailsElement>(".cx-coverage-sightings-fold");
