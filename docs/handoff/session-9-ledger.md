@@ -254,3 +254,11 @@ journey fixed. **Gate 5 GREEN**:
 Read-back (project `b39569d7-8600-4d73-8c3c-8f68c52d38f0`): as gate 2's plus **tie beams 43 COMPLETE
 13.749410 m³ concrete / 129.137880 m² formwork** (GB-READ; golden FDN 14.619 / 136.566 — 5.9 % and
 5.4 % under: never over, but OUTSIDE the −3 % band); tie_beam objects 43; orphan 0.
+
+## Walk-3 (ux-critic; `.private/work/session-9/walk3/result.md` — the demo route, 17 steps)
+
+BD-1 FIXED, BD-2 PARTLY, BD-3 FIXED (one more step: state the typical range), BD-4 FIXED. The demo
+is ready told on the pre-measured project. BLOCKS_DEMO: a scanned sheet cannot be scaled
+(→ SCAN-SCALE); F-ARCH yields no finish quantity and names objects by hash (→ ARCH-78, ARCH-NAMES);
+the typical-range preview is internal keys (→ RANGE-DLG); a hand measurement's Trace lands on the
+snapped line (→ MANUAL-TRACE). Friction → FLOW-NEXT. Wave 3e: those six + M4P-7.
