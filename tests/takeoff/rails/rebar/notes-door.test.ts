@@ -413,13 +413,22 @@ describe("AC-7: the notes door governs what the campaign applies, and re-present
       }
 
       // The bill, read back through the one door inc-310 will consume (goal).
+      // The door states each mark once per floor with its member count (I-534, I-670): two identical
+      // columns of one mark are ONE line counted over both, so the door is read member by member — every
+      // campaign row's member is counted by exactly one door line, and each line is a rewritten row.
       const readBack = bbs.rows.filter((row) => row.role === "MAIN");
-      expect(readBack.length, "`bbsOf` answers the campaign's bar rows — the door the BBS screen reads (goal)").toBe(after.length);
-      for (const row of readBack) expect(Number(row.lapMm), `${row.barMark} carries the transcribed lap through the door too`).toBeCloseTo(LAP_MULTIPLIER * row.diameterMm, 3);
       expect(
-        readBack.map((row) => row.semantic).sort(),
-        "and the door answers the rewritten rows themselves — `bar_rows` was rewritten for the campaign (AC-7)",
-      ).toEqual(after.map((row) => row.semantic).sort());
+        readBack.flatMap((row) => row.members.map((member) => `${member}|${row.barMark}`)).sort(),
+        "`bbsOf` answers the campaign's bar rows, each member's main bar counted once — the door the BBS screen reads (goal)",
+      ).toEqual(after.map((row) => `${row.objectKey}|${row.barMark}`).sort());
+      for (const row of readBack) expect(Number(row.lapMm), `${row.barMark} carries the transcribed lap through the door too`).toBeCloseTo(LAP_MULTIPLIER * row.diameterMm, 3);
+      const rewritten = new Set(after.map((row) => row.semantic));
+      for (const row of readBack) {
+        expect(rewritten.has(row.semantic), `and the door answers the rewritten rows themselves — \`bar_rows\` was rewritten for the campaign (AC-7): ${row.barMark}`).toBe(true);
+      }
+      const doorKgLap = readBack.reduce((running, row) => running + Number(row.kgLap), 0);
+      const rowsKgLap = after.reduce((running, row) => running + Number(row.kgLap), 0);
+      expect(doorKgLap, "and the lap mass the door states is the rows' own, summed over the members it counts (I-534)").toBeCloseTo(rowsKgLap, 6);
 
       expect(editionsAfter, "a general note re-versions what the campaign APPLIES and mints no rule-set edition (AM-03(h))").toEqual(editionsBefore);
     },
