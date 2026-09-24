@@ -17,6 +17,7 @@ import { isElementType, type ElementType } from "../../core/catalogue/classes";
 import { isKind, type Kind } from "../../core/catalogue/kinds";
 import { CUTOUT_ROLES, MANUAL_BOUNDS, MANUAL_GEOMETRIES, READING_BASES, pointCountOf, type Recipe, type StatedGeometry } from "../../core/manual/law";
 import { isUnit } from "../../core/units/canon";
+import { requestMeasure, type MeasureRefused, type MeasureRequested } from "../../modules/takeoff/measure";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { signedOut } from "../auth/refusals";
 import { parsed } from "../call";
@@ -141,13 +142,22 @@ export const takeoffManualRouter = router({
       return { consequence, consequenceDigest: consequenceDigest(consequence) };
     }),
 
-  /** Record it: the act row, the register row, the measurement and — for an edit — the strike, in one transaction or none (L-ACT-01). */
+  /**
+   * Record it: the act row, the register row, the measurement and — for an edit — the strike, in one
+   * transaction or none (L-ACT-01). Then the campaign's measure run is asked for (s-measure I-384): a
+   * hand measurement publishes through the run's rails and the gate, never through a line this door
+   * writes (R-TO-040), and the act — core — cannot ask a module for it (ARCH-01). Asking is not an
+   * act; a run already queued for the campaign is the same ask (SEAM-JOBS).
+   */
   commit: signedInProcedure
     .input(parsed(committing))
-    .mutation(async ({ ctx, input }): Promise<{ actId: string; objectKey: string | null }> => {
+    .mutation(async ({ ctx, input }): Promise<{ actId: string; objectKey: string | null; measure: MeasureRequested | MeasureRefused | null }> => {
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
       const actor = await projectActorFor(ctx.session.userId, input.input.projectId, RECORD_MANUAL_MEASUREMENT, MEASURE, input.input.drawingId);
       const written = await commit(actor, input.input, input.consequenceDigest);
-      return { actId: written.actId, objectKey: written.consequence.measurement?.objectKey ?? null };
+      const measurement = written.consequence.measurement;
+      const campaignId = measurement?.campaignId;
+      const measure = campaignId === undefined ? null : await requestMeasure({ tenantId: actor.tenantId, projectId: input.input.projectId }, campaignId, ctx.session.userId);
+      return { actId: written.actId, objectKey: measurement?.objectKey ?? null, measure };
     }),
 });

@@ -19,6 +19,7 @@ import {
   quantityLines,
   railObservations,
   registerObjects,
+  repudiatedObjects,
   scopeDeclarations,
   type TenantTx,
 } from "../db";
@@ -476,6 +477,14 @@ async function manifestOf(tx: TenantTx, tenantId: string, setRevisionId: string)
  * Every line this campaign published, in the cell it stands in. A line is keyed on the object it was
  * measured off, and the level that object stands on is the register's reading of it (L-REG-04), so
  * the level comes from the register row rather than from a column of its own.
+ *
+ * The residue withholds what the bill withholds (s-measure I-379): a line whose object a person struck
+ * in this revision (`repudiated_objects`, L-ACT-01's no-join table) counts for nothing here, as it
+ * counts for nothing in the register and the draft BOQ. One rule for hand and machine objects alike —
+ * a hand measurement deleted with no successor, or a machine object repudiated, leaves its cell with
+ * no standing line, and a cell with none reads NOT_ESTABLISHED, which is the truth. Lines are
+ * append-only within a campaign, so without this a struck object's figure would keep its cell
+ * quantity-bearing on the coverage screen and the certificate while the bill held nothing for it.
  */
 async function publishedLinesOf(tx: TenantTx, tenantId: string, campaignId: string, setRevisionId: string) {
   const rows = await tx
@@ -498,7 +507,17 @@ async function publishedLinesOf(tx: TenantTx, tenantId: string, campaignId: stri
       ),
     )
     .where(and(eq(quantityLines.tenantId, tenantId), eq(quantityLines.campaignId, campaignId)));
-  return rows.map((row) => ({
+  // The struck objects are read as what they are — a list the register holds — and the lines kept by
+  // it: the tree's one spelling of an absence stays the observations' query below (`observationsOf`).
+  const struck = new Set(
+    (
+      await tx
+        .select({ objectKey: repudiatedObjects.objectKey })
+        .from(repudiatedObjects)
+        .where(and(eq(repudiatedObjects.tenantId, tenantId), eq(repudiatedObjects.setRevisionId, setRevisionId)))
+    ).map((row) => row.objectKey),
+  );
+  return rows.filter((row) => !struck.has(row.objectKey)).map((row) => ({
     kind: row.kind,
     class: row.class,
     levelId: row.levelId ?? "",

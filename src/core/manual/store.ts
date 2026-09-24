@@ -78,6 +78,15 @@ export type StoredMeasurement = {
   readonly space: string;
   readonly traced: MeasuredGeometry;
   readonly supersedes: string | null;
+  /** What the offer builder reads beside the recipe and the trace (S3, I-384): who, where, and at which scale. */
+  readonly actId: string;
+  readonly drawingId: string;
+  readonly ingestId: string;
+  readonly partitionViewKey: string;
+  readonly levelRef: HandLevel;
+  readonly calibrationKey: string;
+  readonly drawnUnit: ManualMeasurementRow["drawnUnit"];
+  readonly figureUnit: ManualMeasurementRow["figureUnit"];
 };
 
 /** The level a stored row's columns state — a surrogate or a lawful-null slot — or null where they state neither. */
@@ -116,6 +125,14 @@ export async function measurementsIn(tx: TenantTx, scope: RegisterScope): Promis
       space: row.layoutName,
       traced: row.traced as MeasuredGeometry,
       supersedes: row.supersedes,
+      actId: row.actId,
+      drawingId: row.drawingId,
+      ingestId: row.ingestId,
+      partitionViewKey: row.partitionViewKey,
+      levelRef: level as HandLevel,
+      calibrationKey: row.calibrationKey,
+      drawnUnit: row.drawnUnit,
+      figureUnit: row.figureUnit,
     };
   });
 }

@@ -74,6 +74,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "CAPTION_UNCLASSIFIABLE",
   "CAP_HOLDS_NO_PILE",
   "CAP_PILES_UNREAD",
+  "CELL_MEASURED_BY_HAND",
   "CELL_NOT_IN_RESIDUE",
   "CHARACTER_NOT_COVERED",
   "COMPLEX_STAIR_GEOMETRY",
@@ -131,6 +132,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "MANUAL_CONDITION_NOT_STANDING",
   "MANUAL_DISCIPLINE_UNCONFIRMED",
   "MANUAL_GEOMETRY_DEGENERATE",
+  "MANUAL_JUNCTION_UNPROVEN",
   "MANUAL_KIND_NOT_THIS_DISCIPLINE",
   "MANUAL_LEVEL_UNSTATED",
   "MANUAL_NO_CAMPAIGN",
@@ -433,7 +435,15 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * against 9b0f3676, 160 entries to 163 — added 3 (PILE_HEAD_UNSTATED, CAP_HOLDS_NO_PILE,
  * CAP_PILES_UNREAD), removed 0, changed 0. Previous: 47c0cb85646d12b8cad0cf8aff6913c48a1f5686088b7b4473303b84b0c727dc.
  */
-const ENTRIES_DIGEST_BEFORE = "ac9946332644eca917bde4bc45ceaf6bf2f396f0978d8f3aecc9f35fea8cc795";
+/*
+ * Re-baselined by S3 (session 9, wave 3b) for TWO ADDED entries and nothing else: the gate's
+ * `CELL_MEASURED_BY_HAND` (./gate.ts, s-measure I-382), what a machine offer into a cell a standing
+ * hand measurement claims is answered with, and the manual area's `MANUAL_JUNCTION_UNPROVEN`
+ * (./manual.ts, I-389), what a slab ring whose standing members cannot all be laid on it is refused
+ * with. 163 entries to 165; not one existing entry's code, message, remedy, severity or surface moved.
+ * Previous: ac9946332644eca917bde4bc45ceaf6bf2f396f0978d8f3aecc9f35fea8cc795.
+ */
+const ENTRIES_DIGEST_BEFORE = "a9e8ee7bf4280d8faf092fd23b78c3d2ee05ae602e9299472a8305e7f6ed5e1d";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

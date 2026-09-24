@@ -28,11 +28,14 @@ import { editionOf, type PinnedEdition } from "../campaigns";
 import { and, campaigns, eq, forTenant, holdStateLock, inArray, isUuid, quantityLines, queueItems, railObservations, registerObjects, type TenantTx } from "../db";
 import { writeInBatches } from "../db/batch";
 import { REFUSALS, type RefusalCode } from "../errors";
-import type { LevelSlot } from "../identity";
+import { isLevelSlot, levelSegment, type LevelSlot } from "../identity";
+import { cellKeyOf, cellsOf } from "../manual/overlap";
+import { linesOfCampaignIn, measurementsIn } from "../manual/store";
 import type { DeductionCandidate, GateRefusal, GateScope, GateVerdict, Measure, Offer, RailBatch, RailObservation } from "../offers/contract";
 import { COVERAGES, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES, weakestBasis, type QuantityBasis } from "../offers/law";
 import type { MethodPair } from "../rulesets/editions/content";
 import { implementationOf, type FormulaMethod, type NormalisedBindings } from "../rulesets/methods/registry";
+import { repudiatedObjectsIn, type RegisterScope } from "../register/store";
 import { CANONICAL_UNIT, exact } from "../units/canon";
 import { CHANNEL_VARIABLE, deductedSum, partitionDeductions } from "./deductions";
 import { renderFormula } from "./template";
@@ -84,7 +87,7 @@ function refuse(offer: Offer, code: RefusalCode): Judgement {
  * spelled from exactly one level form (`register_objects_level_stated_once`), so the column says what
  * the key's level segment is and the key's letters are never read a second time (B-17).
  */
-export type RegisteredLevel = { readonly levelSlot: string | null };
+export type RegisteredLevel = { readonly levelSlot: string | null; readonly levelId?: string | null };
 
 /** The lawful-null slot a bare typical caption leaves its members in (L-REG-04, L-CAD-07). */
 const UNRESOLVED: LevelSlot = "UNRESOLVED";
@@ -443,7 +446,68 @@ function withoutOverMeasurement(judged: readonly Judged[]): Judged[] {
 }
 
 /** One offer beside the arm it landed on, so a write can answer about the offer it was for. */
-type Judged = { readonly offer: Offer; readonly judgement: Judgement };
+export type Judged = { readonly offer: Offer; readonly judgement: Judgement };
+
+/**
+ * Who holds each class × kind × level cell of the campaign (s-measure I-382), as stored facts: the
+ * register objects a hand measurement recorded (the manual-origin fact, I-496), the cells a STANDING
+ * hand measurement claims — its recipe's kinds at its class and level (I-383) — and the cells a
+ * standing machine object already published a line in.
+ */
+export type CellClaims = {
+  readonly hand: ReadonlySet<string>;
+  readonly handCells: ReadonlySet<string>;
+  readonly machineCells: ReadonlySet<string>;
+};
+
+/** The level segment a registered object stands at, or null where it stands at none a cell is keyed by. */
+function levelOfObject(standing: RegisteredLevel | undefined): string | null {
+  if (standing === undefined) return null;
+  if (standing.levelId !== undefined && standing.levelId !== null) return levelSegment({ levelId: standing.levelId });
+  return standing.levelSlot !== null && isLevelSlot(standing.levelSlot) ? levelSegment({ slot: standing.levelSlot }) : null;
+}
+
+/**
+ * s-measure I-382: at class × kind × level grain a cell holds machine lines or hand lines, never both,
+ * and the refusal is named on both arms.
+ *
+ * - A MACHINE offer into a cell a standing hand measurement claims is refused `CELL_MEASURED_BY_HAND`,
+ *   whatever the batch order: the cell is claimed by the stored measurement, never by which offer came
+ *   first. It is refused on the queued arm as on the published one — an object is a line or a
+ *   declared exclusion of its own cell, and this cell is the person's.
+ * - A HAND offer into a cell where a standing machine object already published is refused
+ *   `MANUAL_CELL_MACHINE_MEASURED`, the act's own preview refusal (I-382's hand arm), answered again
+ *   here because a campaign's lines move between a preview and a run.
+ *
+ * Cell grain is conservative: it can under-measure, never over-measure (L-QTY-04).
+ */
+export function withoutSharedCells(judged: readonly Judged[], registered: ReadonlyMap<string, RegisteredLevel>, claims: CellClaims): Judged[] {
+  return judged.map(({ offer, judgement }) => {
+    if (judgement.arm === "refused") return { offer, judgement };
+    const level = levelOfObject(registered.get(offer.register.objectKey));
+    if (level === null) return { offer, judgement };
+    const cell = cellKeyOf(offer.class, offer.kind, level);
+    if (claims.hand.has(offer.register.objectKey)) {
+      return claims.machineCells.has(cell) ? { offer, judgement: refuse(offer, REFUSALS.MANUAL_CELL_MACHINE_MEASURED.code) } : { offer, judgement };
+    }
+    return claims.handCells.has(cell) ? { offer, judgement: refuse(offer, REFUSALS.CELL_MEASURED_BY_HAND.code) } : { offer, judgement };
+  });
+}
+
+/** The campaign's cell claims, read on the gate's own transaction (I-382). */
+async function cellClaimsIn(tx: TenantTx, scope: RegisterScope, campaignId: string): Promise<CellClaims> {
+  const hand = await measurementsIn(tx, scope);
+  if (hand.length === 0) return { hand: new Set(), handCells: new Set(), machineCells: new Set() };
+  const struck = new Set((await repudiatedObjectsIn(tx, scope)).map((row) => row.objectKey));
+  const origin = new Set(hand.map((row) => row.objectKey));
+  const handCells = new Set(hand.filter((row) => !struck.has(row.objectKey)).flatMap((row) => cellsOf(row)));
+  const machineCells = new Set(
+    (await linesOfCampaignIn(tx, scope, campaignId))
+      .filter((line) => line.level !== null && !origin.has(line.objectKey) && !struck.has(line.objectKey))
+      .map((line) => cellKeyOf(line.elementClass, line.kind, line.level as string)),
+  );
+  return { hand: origin, handCells, machineCells };
+}
 
 /** What a standing line states, as the columns a re-measurement would have to state identically. */
 type StandingClaim = {
@@ -508,10 +572,10 @@ async function registeredObjects(tx: TenantTx, tenantId: string, setRevisionId: 
   const offered = offeredKeys(offers);
   if (offered.length === 0) return new Map<string, RegisteredLevel>();
   const held = await tx
-    .select({ objectKey: registerObjects.objectKey, levelSlot: registerObjects.levelSlot })
+    .select({ objectKey: registerObjects.objectKey, levelSlot: registerObjects.levelSlot, levelId: registerObjects.levelId })
     .from(registerObjects)
     .where(and(eq(registerObjects.tenantId, tenantId), eq(registerObjects.setRevisionId, setRevisionId), inArray(registerObjects.objectKey, offered)));
-  return new Map(held.map((row) => [row.objectKey, { levelSlot: row.levelSlot }]));
+  return new Map(held.map((row) => [row.objectKey, { levelSlot: row.levelSlot, levelId: row.levelId }]));
 }
 
 /** The object keys this batch is about, each once — what every read of the stores is bounded by. */
@@ -651,7 +715,14 @@ export async function evaluateOffers(scope: GateScope, batch: RailBatch): Promis
     // The register is read once for the whole batch: an offer's provenance is a fact about the
     // campaign's own revision, and asking it per offer would ask the store the same question twice.
     const registered = await registeredObjects(tx, scope.tenantId, under.setRevisionId, batch.offers);
-    const judged = withoutOverMeasurement(batch.offers.map((offer) => ({ offer, judgement: judgeOffer(offer, under, edition, registered) })));
+    // A cell is the machine's or the person's, never both (I-382): judged against the stored claims
+    // after the batch's own over-measurement block, so an offer refused there is answered once.
+    const claims = await cellClaimsIn(tx, { tenantId: scope.tenantId, projectId: under.projectId, setRevisionId: under.setRevisionId }, under.campaignId);
+    const judged = withoutSharedCells(
+      withoutOverMeasurement(batch.offers.map((offer) => ({ offer, judgement: judgeOffer(offer, under, edition, registered) }))),
+      registered,
+      claims,
+    );
 
     const standing = await standingFor(tx, scope.tenantId, under.campaignId, batch.offers);
     const answers: Judgement[] = [];

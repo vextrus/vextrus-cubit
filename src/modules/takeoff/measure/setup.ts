@@ -17,6 +17,7 @@
 import { editionOf } from "@/core/campaigns";
 import { drawingSetRevisions, eq, and, forTenant, type TenantTx } from "@/core/db";
 import { artifactAt } from "@/core/entitygraph/artifact";
+import { manualSetupIn } from "@/core/manual/offer";
 import { appStorage } from "@/core/storage/app";
 import { levelStackOf } from "@/modules/takeoff/levels";
 import { siteFactsOf, type SiteFact } from "@/modules/takeoff/site-facts";
@@ -413,6 +414,12 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
   // its row naming `CAP_PILES_UNREAD` — never its whole prism over heads nobody placed (L-QTY-04).
   const capJunctions = await capJunctionsOver(scope.tenantId, relation);
 
+  // The revision's hand measurements (s-measure I-384): the manual-origin fact the run filters the
+  // machine's rows by, and the standing measurements each kind's manual arm offers — read by the one
+  // reader the act's preview reads them through, so the card and the run lay one ring on one set of
+  // members (I-389).
+  const manual = await forTenant({ tenantId: scope.tenantId }).transaction((tx) => manualSetupIn(tx, scope));
+
   return {
     placements,
     memberTypes,
@@ -448,5 +455,6 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     siteFacts,
     edition: { digest: edition.digest, parameters: edition.parameters },
     detailing: detailingSetupOf(applied),
+    manual,
   };
 }

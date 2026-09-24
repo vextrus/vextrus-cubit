@@ -13,7 +13,8 @@ export type GateRefusalCode =
   | "INTERPRETED_UNCORROBORATED"
   | "FORMULA_DIVISOR_ZERO"
   | "PIN_STALE"
-  | "CAMPAIGN_NOT_FOUND";
+  | "CAMPAIGN_NOT_FOUND"
+  | "CELL_MEASURED_BY_HAND";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const GATE_REFUSALS: RefusalGroup<GateRefusalCode> = Object.freeze({
@@ -81,6 +82,16 @@ export const GATE_REFUSALS: RefusalGroup<GateRefusalCode> = Object.freeze({
     message: "This project holds no measurement campaign at that address.",
     remedy: "Open the project's campaigns and choose one, or pin a drawing set to open a campaign.",
     severity: "error",
+    surface: "inline",
+  }),
+  // s-measure I-382: at class × kind × level grain a cell holds machine lines or hand lines, never
+  // both. A cell a standing hand measurement claims is the person's, by a stored fact and whatever the
+  // batch order, so the machine's offer into it is answered by name rather than counted twice.
+  CELL_MEASURED_BY_HAND: Object.freeze({
+    code: "CELL_MEASURED_BY_HAND",
+    message: "A quantity surveyor measured this class and kind on this level by hand, so the product's own reading was not published.",
+    remedy: "Keep the hand measurements, or delete them to let the product's reading publish on the next run.",
+    severity: "info",
     surface: "inline",
   }),
 });

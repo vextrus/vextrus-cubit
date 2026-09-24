@@ -22,12 +22,15 @@ import { DOCS_RAILS } from "./docs";
 import { FOUNDATIONS_RAILS } from "./foundations";
 import { FRAME_RAILS } from "./frame";
 import { enumerateRails, type RailRoster } from "./law";
+import { MANUAL_RAILS } from "./manual";
 import { MASONRY_RAILS } from "./masonry";
 import { REBAR_RAILS } from "./rebar";
 import { SLABS_RAILS } from "./slabs";
 
 /** The areas this barrel enumerates, in the order their offers are read (AM-11). */
-const AREAS: readonly RailRoster[] = [FOUNDATIONS_RAILS, FRAME_RAILS, SLABS_RAILS, MASONRY_RAILS, REBAR_RAILS, DOCS_RAILS, BOQ_RAILS];
+// The manual arms stand last (s-measure I-384): a kind a hand measurement may be offered under is the
+// machine's rail and its manual arm, composed, and the arm's offers follow the machine's.
+const AREAS: readonly RailRoster[] = [FOUNDATIONS_RAILS, FRAME_RAILS, SLABS_RAILS, MASONRY_RAILS, REBAR_RAILS, DOCS_RAILS, BOQ_RAILS, MANUAL_RAILS];
 
 /**
  * Every kind this product measures, and the pure function that measures it (L-MEA-08).
@@ -46,5 +49,6 @@ export const RAILS: RailRoster = Object.freeze({
   ...REBAR_RAILS,
   ...DOCS_RAILS,
   ...BOQ_RAILS,
+  ...MANUAL_RAILS,
   ...enumerateRails(AREAS),
 });

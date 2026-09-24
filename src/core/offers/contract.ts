@@ -490,7 +490,36 @@ export type RailSetup = {
    * this seam is where a transcribed lap or grade reaches the rail that details with it.
    */
   readonly detailing: DetailingSetup;
+  /**
+   * The hand measurements of the campaign's revision (s-measure I-384): the manual-origin fact the job
+   * filters the machine's rows by (`machineRowsOf`), and the standing measurements each kind's manual
+   * arm offers through the one builder (`src/core/manual/offer.ts`). Optional, so a setup a proof
+   * builds by hand for another area stays valid as it stands.
+   */
+  readonly manual?: ManualSetup;
 };
+
+/** The revision's hand measurements, as the run hands them to its rails (s-measure I-384). */
+export type ManualSetup = {
+  /**
+   * The manual-origin fact (I-496): every register object a hand measurement recorded, standing or
+   * not — the one home the machine arms' filter reads, never a mark prefix.
+   */
+  readonly origin: readonly string[];
+  /** The standing measurements — neither repudiated nor superseded — each with what its ring runs past. */
+  readonly measurements: readonly ManualMeasurementSetup[];
+};
+
+/**
+ * One standing hand measurement, as a manual arm is handed it. Its register key is stated here; the
+ * rest of its shape — the recipe, the traced geometry, the members its ring runs past — is declared
+ * into this interface by its owner, the offer builder (`src/core/manual/offer.ts`, module
+ * augmentation), because those shapes are the manual law's and an import of them back into this file
+ * would close a cycle through the law's own imports (ARCH-01).
+ */
+export interface ManualMeasurementSetup {
+  readonly objectKey: string;
+}
 
 /**
  * The detailing values a campaign applies, as the notes door answered them (AM-03(h), inc-303).

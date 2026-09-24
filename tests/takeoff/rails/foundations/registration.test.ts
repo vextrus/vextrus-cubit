@@ -168,7 +168,15 @@ describe("AC-1: the foundations shard is registered — kinds, rails, bears and 
       expect([...kinds.KINDS], `the catalogue closes over \`${kind}\``).toContain(kind);
       expect(rails[kind], `\`${kind}\` has no rail yet — the slice that measures room faces lands it (I-541)`).toBeUndefined();
     }
+    // A kind a hand measurement may also be offered under is this shard's reader and the kind's
+    // manual arm, composed (s-measure I-384); the barrel's split proof judges that composition
+    // (`src/modules/takeoff/rails/aggregate.test.ts`). Every other kind is this shard's very function.
+    const manual = await productModule<{ MANUAL_RAILS: Record<string, unknown> }>("src/modules/takeoff/rails/manual.ts");
     for (const [kind, rail] of Object.entries(roster)) {
+      if (manual.MANUAL_RAILS[kind] !== undefined) {
+        expect(rails[kind], `the barrel answers ${kind} with the shard's reader and the manual arm, composed — never the shard's alone`).not.toBe(rail);
+        continue;
+      }
       expect(rails[kind], `the barrel answers ${kind} with the area's own rail (AM-11: the barrel enumerates and never re-declares)`).toBe(rail);
     }
   });

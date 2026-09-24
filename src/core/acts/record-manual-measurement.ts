@@ -23,11 +23,13 @@
 import { KIND_DISCIPLINE } from "../catalogue/maps";
 import { BEARS } from "../catalogue/bears";
 import { isFoundationClass } from "../catalogue/level-basis";
+import { editionOf } from "../campaigns";
 import { and, campaigns, drawingSetRevisions, eq, grids, viewAssignments, type TenantTx } from "../db";
 import { REFUSALS, type RefusalCode } from "../errors";
 import { artifactAt } from "../entitygraph/artifact";
 import type { EntityGraph } from "../entitygraph/schema";
 import { refusal } from "../faults/refusal-marker";
+import { judgeOffer, type MeasuredUnder } from "../gate/evaluate";
 import { levelSegment, viewKey as viewKeyOf } from "../identity";
 import { liveLevelsOf } from "../levels/store";
 import { manualIdentityOf, manualViewRef } from "../manual/identity";
@@ -51,6 +53,7 @@ import {
 } from "../manual/law";
 import { cellKeyOf, cellsOf, collisionOf, type Footprint } from "../manual/overlap";
 import { extentOf, judgePoint, type DrawingFacts, type DrawnPath, type DrawnShape, type GridAxisLine } from "../manual/snaps";
+import { junctionFactsIn, manualOffersOf } from "../manual/offer";
 import { conditionIn, linesOfCampaignIn, measurementsIn, recordMeasurementIn, type ConditionStanding, type LineOfCell, type StoredMeasurement } from "../manual/store";
 import { drawnUnitOf, snapReachOf } from "../manual/units";
 import { readsAsANumber, registerScopeIn, registerSightingIn, repudiateObjectIn, repudiatedObjectsIn, type RegisterScope } from "../register/store";
@@ -63,7 +66,7 @@ import { parseSourceKey } from "../sources";
 import { appStorage } from "../storage/app";
 import type { Unit } from "../units/canon";
 import { viewRecordsOf, type ViewRecord } from "../views";
-import { canonical, type Consequence, type ConsequenceMeasurement, type ConsequenceSubject } from "./consequence";
+import { canonical, type Consequence, type ConsequenceMeasurement, type ConsequenceSubject, type OfferedFigure } from "./consequence";
 import { actChangesNothing } from "./refusals";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
@@ -227,6 +230,8 @@ function shapesOf(graph: EntityGraph): Map<string, DrawnShape> {
 /** What the act would do, derived from the state the reader answered (L-ACT-02). */
 export type Derived = {
   readonly scope: RegisterScope;
+  /** The campaign the measurement stands in (L-REG-07). */
+  readonly campaignId: string;
   readonly discipline: Discipline;
   readonly ingestId: string;
   readonly mark: string;
@@ -436,6 +441,7 @@ export async function deriveMeasurement(input: RecordManualMeasurementInput, rea
 
   return {
     scope,
+    campaignId,
     discipline,
     ingestId: record.ingestId,
     mark: identity.mark,
@@ -494,6 +500,86 @@ function derivedOn(ctx: ActorCtx, input: RecordManualMeasurementInput, tx: Tenan
   return derived;
 }
 
+/**
+ * What the gate would answer for each kind of the measurement (s-measure I-373, I-384): the one offer
+ * builder the campaign's run offers through, asked of the gate's own `judgeOffer` under the campaign's
+ * edition, over the members the ring runs past as the run will read them. A kind the gate would refuse
+ * — or a ring whose members cannot all be laid on it (I-389) — refuses the act by that name: a
+ * measurement that could never publish is not recorded to sight its cell as though it might.
+ */
+async function offeredFiguresOf(ctx: ActorCtx, derived: Derived, tx: TenantTx): Promise<OfferedFigure[]> {
+  const held = await tx
+    .select({ campaignId: campaigns.campaignId, projectId: campaigns.projectId, setRevisionId: campaigns.setRevisionId, editionId: campaigns.editionId, editionDigest: campaigns.editionDigest })
+    .from(campaigns)
+    .where(and(eq(campaigns.tenantId, ctx.tenantId), eq(campaigns.campaignId, derived.campaignId)))
+    .limit(1);
+  const under: MeasuredUnder | undefined = held[0];
+  if (under === undefined) throw refused(REFUSALS.MANUAL_NO_CAMPAIGN.code, `campaign ${derived.campaignId} is not held`, { campaignId: derived.campaignId });
+  const edition = await editionOf(tx, ctx.tenantId, under.editionId);
+  if (edition === null) throw new Error(`the campaign ${under.campaignId} cites the rule-set edition ${under.editionId}, which this workspace does not hold (L-REG-07)`);
+
+  const m = derived.measurement;
+  const hand = await measurementsIn(tx, derived.scope);
+  // What this act strikes stands for nothing once it commits (I-379), as the run will read it.
+  const struck = new Set([...(await repudiatedObjectsIn(tx, derived.scope)).map((row) => row.objectKey), ...(derived.predecessor === null ? [] : [derived.predecessor.objectKey])]);
+  const junctions = await junctionFactsIn(
+    tx,
+    derived.scope,
+    { elementClass: derived.recipe.elementClass, level: derived.level, ingestId: derived.ingestId, partitionViewKey: m.partitionViewKey, calibrationKey: m.calibrationKey },
+    hand,
+    struck,
+  );
+  const offerings = manualOffersOf(
+    { objectKey: m.objectKey, setRevisionId: derived.scope.setRevisionId, actId: null, drawingId: m.drawingId, viewKey: m.viewKey, recipe: derived.recipe, traced: m.traced, figureUnit: derived.figureUnit, calibrationKey: m.calibrationKey, multiplier: "1", junctions },
+    edition,
+  );
+  // The row this act would register, as the gate reads the register: where it stands.
+  const registered = new Map([[m.objectKey, "levelId" in derived.level ? { levelSlot: null, levelId: derived.level.levelId } : { levelSlot: derived.level.slot, levelId: null }]]);
+  return offerings.map((offering): OfferedFigure => {
+    if (offering.state === "not-offered") return { kind: offering.kind, arm: "not-offered" };
+    if (offering.state === "refused") throw refused(offering.code, `${offering.kind} cannot be offered: ${JSON.stringify(offering.detail)}`, { kind: offering.kind, ...offering.detail });
+    const judgement = judgeOffer(offering.offer, under, edition, registered);
+    switch (judgement.arm) {
+      case "refused":
+        throw refused(judgement.refusal.code, `the gate would refuse ${offering.kind} of ${m.objectKey}`, { kind: offering.kind });
+      case "queued":
+        return { kind: offering.kind, arm: "queued", cause: judgement.item.cause };
+      case "published":
+        return {
+          kind: offering.kind,
+          arm: "published",
+          ruleId: judgement.line.ruleId,
+          ruleVersion: judgement.line.ruleVersion,
+          value: judgement.line.value ?? null,
+          unit: judgement.line.unit,
+          formula: judgement.line.formula,
+          coverage: judgement.line.coverage ?? "COMPLETE",
+          quantityBasis: judgement.line.quantityBasis,
+        };
+    }
+  });
+}
+
+/** The preview's whole answer on one transaction, made once per transaction and statement (as `derivedOn`). */
+const previewedOn = new WeakMap<TenantTx, WeakMap<RecordManualMeasurementInput, Promise<ConsequenceMeasurement>>>();
+
+function measurementOn(ctx: ActorCtx, input: RecordManualMeasurementInput, tx: TenantTx): Promise<ConsequenceMeasurement> {
+  let byStatement = previewedOn.get(tx);
+  if (byStatement === undefined) {
+    byStatement = new WeakMap();
+    previewedOn.set(tx, byStatement);
+  }
+  let previewed = byStatement.get(input);
+  if (previewed === undefined) {
+    previewed = (async () => {
+      const derived = await derivedOn(ctx, input, tx);
+      return { ...derived.measurement, campaignId: derived.campaignId, offered: await offeredFiguresOf(ctx, derived, tx) };
+    })();
+    byStatement.set(input, previewed);
+  }
+  return previewed;
+}
+
 /** The subjects the act judges: the new register object, and the one an edit strikes. */
 function subjectsOf(derived: Derived): ConsequenceSubject[] {
   const subjects: ConsequenceSubject[] = [{ subjectId: derived.measurement.objectKey, subjectLabel: derived.recipe.conditionName, before: [], after: [REGISTERED] }];
@@ -512,7 +598,7 @@ export const recordManualMeasurement: ActRendering<RecordManualMeasurementInput>
       projectId: input.projectId,
       rendering: "MEASUREMENT",
       subjects: subjectsOf(derived),
-      measurement: derived.measurement,
+      measurement: await measurementOn(ctx, input, tx),
     };
   },
 

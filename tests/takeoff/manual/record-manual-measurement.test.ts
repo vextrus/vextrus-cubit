@@ -162,6 +162,14 @@ function stored(derived: Derived): StoredMeasurement {
     space: m.layoutName,
     traced: m.traced,
     supersedes: m.supersedes,
+    actId: "00000000-0000-4000-8000-0000000000ac",
+    drawingId: m.drawingId,
+    ingestId: derived.ingestId,
+    partitionViewKey: m.partitionViewKey,
+    levelRef: m.level,
+    calibrationKey: m.calibrationKey,
+    drawnUnit: derived.drawnUnit,
+    figureUnit: derived.figureUnit,
   };
 }
 

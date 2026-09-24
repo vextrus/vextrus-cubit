@@ -32,6 +32,9 @@ export const ERRORS_MODULE = "src/core/errors.ts";
 export const RECORD_MANUAL_MEASUREMENT = "RECORD_MANUAL_MEASUREMENT";
 export const REPUDIATE = "REPUDIATE";
 
+/** The manual pair the world's edition cites: the blinding under a traced outline (S2, minted by OPEN-3). */
+export const MANUAL_BLINDING_PAIR = { ruleId: "pcc.blinding.area", version: "1" };
+
 /** The captions of the two views, as the grammar reads them. */
 const PLAN_CAPTION = "GROUND FLOOR PLAN";
 const DETAIL_CAPTION = "TYPICAL DETAIL OF FOOTING";
@@ -129,7 +132,9 @@ function viewHolding(tenantId: string, ingestId: string, entityKey: string): str
 export async function stageManualWorld(label: string, salt: number): Promise<ManualWorld> {
   await openSheetsStage();
   const person = await enrol(`manual-${label}`);
-  await stageTenantTemplate(person.tenantId, []);
+  // The edition cites the blinding's manual pair (S3): the act's preview asks the gate for the figure
+  // it would publish, and a pair the edition does not cite is refused by name there (I-384).
+  await stageTenantTemplate(person.tenantId, [MANUAL_BLINDING_PAIR]);
   const projectId = await createProjectThroughDoor(person, unique(`Manual ${label}`));
   const actor = actorOf(person);
 

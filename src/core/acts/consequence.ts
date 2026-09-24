@@ -165,7 +165,35 @@ export type ConsequenceMeasurement = {
   readonly basis: QuantityBasis;
   /** How many snapped points the act could not reproduce on the drawing, and so counted as placed by hand. */
   readonly demoted: number;
+  /** The campaign the measurement stands in, whose measure run publishes it (I-384). */
+  readonly campaignId?: string;
+  /**
+   * What the gate answers for each kind of the recipe, asked of the gate's own `judgeOffer` over the
+   * one offer builder the run offers through (s-measure I-373, I-384): the figure the card shows is
+   * the figure the bill publishes, and the digest binds it.
+   */
+  readonly offered?: readonly OfferedFigure[];
 };
+
+/**
+ * One kind of a hand measurement, as the gate would answer it (I-384): published with its figure, unit,
+ * formula and basis; queued as a declared exclusion (INTERPRETED geometry nothing corroborates,
+ * L-QTY-04); or not offered, where no pairing holds the kind for this geometry and class (I-539).
+ */
+export type OfferedFigure =
+  | {
+      readonly kind: string;
+      readonly arm: "published";
+      readonly ruleId: string;
+      readonly ruleVersion: string;
+      readonly value: string | null;
+      readonly unit: string;
+      readonly formula: string;
+      readonly coverage: string;
+      readonly quantityBasis: string;
+    }
+  | { readonly kind: string; readonly arm: "queued"; readonly cause: string }
+  | { readonly kind: string; readonly arm: "not-offered" };
 
 /**
  * What an act would do BEYOND its subjects: the derived state that follows from moving them

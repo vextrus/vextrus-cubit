@@ -24,7 +24,7 @@ S4 the armed tools and the gesture grammar · S5 the condition chest · S6 the c
 S7 the measurement book · S8 the legend's manual conditions (in VD-4's legend) · S9 the rest of the
 toolset · S10 assemblies · S11 J-041.
 
-This Decision defines I-370 … I-394, I-497 … I-501 (session 8), I-538 and I-539 (S2), and I-573, I-574, I-575 and I-576 (S5), and cites D-005 (entered session 9, `docs/decisions/deviations.md`).
+This Decision defines I-370 … I-394, I-497 … I-501 (session 8), I-538 and I-539 (S2), I-573, I-574, I-575 and I-576 (S5), and I-586 … I-589 (S3), and cites D-005 (entered session 9, `docs/decisions/deviations.md`).
 
 ---
 
@@ -1295,6 +1295,87 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
   - A read-only chest picks nothing, so it does not take the digits 1–9 either: the keystroke goes on
     to the sheet's own keys (§3).
 
+- **I-586 — A register member's plan is the ring it was placed by, laid on the hand ring through the
+  grid (I-389, as built).** I-389 reads the members of the storey whose top is the ring's level and
+  deducts each one's plan clipped to the ring's net region. S3 builds that in
+  `src/core/manual/junctions.ts` (pure) and its reader in `src/core/manual/offer.ts`:
+  - **Which members.** A slab-class ring (`JUNCTION_MEMBER_CLASSES`: a slab runs past columns and
+    shear walls, L-MEA-09) at level L reads the standing register objects of those classes on the
+    level just below L in the live stack. A ring in the FOUNDATION slot, or on the lowest level, runs
+    past nothing. Repudiated objects are nothing, and so is the measurement an edit strikes.
+  - **Which plan.** A machine member's plan is the closed ring the placement stage placed it by
+    (`placements.outline_key`, I-333), read out of its drawing's own artifact at its points' exact
+    decimal spellings. A member measured by hand is laid by its own traced outline. The schedule's
+    section is not redrawn: the register object at FDN was placed by a plan of that storey, and its
+    drawn ring is the section that plan states (on BNBC the FDN and GF sections are one, I-389).
+  - **Which frame.** The same view is its own frame. Two views are one frame by the cap relation's
+    rule (I-547): every axis label the two share, at least two per world axis, at one offset on the
+    placement lattice. The offset laid is that lattice reading (`quantise`), never a float: S-08's and
+    S-10's numeral axes read 2.99e-15 and 1200000.000000001, one building's grid drawn twice, and the
+    lattice says −1200000.0. Two views affirmed at different scales of record are no frame: a
+    translation between drawing units of two sizes lays nothing where it stands. A ring whose own view
+    stands under another scale than the one it was measured at lays nothing either.
+  - **Clipped exactly.** The member's plan is clipped to the ring's outline less every cut-out by the
+    overlap guard's exact kernel (`sharedArea`, I-380). A fraction that does not terminate is rounded
+    UP at a trillionth of a drawing unit², toward the larger deduction. A member the ring does not
+    meet, and one inside a cut-out, deducts nothing; one straddling the edge deducts what the ring
+    holds. Each candidate cites its placement key and stands DERIVED in the junction channel.
+  - **Fail closed.** A member with no plan, no frame the ring's grid can lay it in, or another scale
+    refuses the whole measurement `MANUAL_JUNCTION_UNPROVEN`, naming the members, for every kind whose
+    rule deducts junctions (I-389's arm, §14 closed). The preview answers it in the card; the run
+    reports it as the kind's observation on the object.
+  - Rejected: re-deriving a section rectangle from the schedule and the placement point. It needs the
+    member's rotation and its centre, neither of which the store keeps for every member, and the
+    drawn ring is the drawing's own statement of both. Rejected: laying plans by their float offset.
+    Two grids drawn to one building differ by noise the lattice exists to absorb, and the exact
+    kernel would carry that noise into every clipped area.
+  - The translation rule has one statement in core (`frameTranslation`) and one in the module
+    (`cap-junctions.ts` `translationBetween`, I-547), which core may not import. Re-homing the module's
+    onto core's is the integrator's (§14).
+
+- **I-587 — The preview asks the gate, and the card's figure is the gate's (I-373, I-384).** The
+  act's preview offers the measurement through the one builder the run offers through
+  (`manualOffersOf`), over the members the run would read, and asks the gate's own `judgeOffer` under
+  the campaign's edition. The MEASUREMENT arm carries each kind's answer (`offered`: the figure, unit,
+  formula, coverage and basis the line would publish, or the queue cause) and the campaign it stands
+  in, and the digest binds both.
+  - A kind the gate would refuse refuses the act by the gate's own code (`METHOD_NOT_IN_EDITION`
+    where the edition cites no manual pair, `OFFER_NOT_TO_CONTRACT` where the recipe states no
+    reading the rule declares), and a ring that cannot lay its members refuses
+    `MANUAL_JUNCTION_UNPROVEN`. A measurement that could never publish is not recorded to sight its
+    cell as though it might.
+  - A kind `MANUAL_RULES` holds no pairing for, for this geometry and class, is recorded and answered
+    `not-offered`: no rule is guessed (I-539), and the cell it sights reads NOT_ESTABLISHED, which is
+    true. The chest (S5) authors only paired conditions, so a QS meets this only through a condition
+    stated off the chest.
+  - INTERPRETED geometry is answered `queued` (L-QTY-04), never refused.
+  - The commit door then asks for the campaign's measure run (`requestMeasure`) and answers the ask
+    beside `{ actId, objectKey }` (§2.11). Asking is not an act; a run already queued is the same ask.
+
+- **I-588 — What a hand offer cites (L-QTY-03).** The ring's area cites the first entity its outline
+  was snapped on (81D for J-000's ring), or the recording act where every point was placed free; each
+  cut-out cites its own ring's first entity. An ENTERED reading cites the act that recorded it
+  (`act:<id>`), a TRANSCRIBED one its note. The count of one trace is `1 pcs` at the geometry's own
+  basis: it is the trace's, not a person's statement (S9's typical ×n will be ENTERED). The threshold
+  is DERIVED from the pinned edition. Before the act exists the preview cites the measurement's own
+  register key for an ENTERED reading; a source enters no figure, formula or digest, so the preview's
+  figure and the run's are one (proved in `tests/takeoff/gate/manual-offers.test.ts`).
+
+- **I-589 — The gate reads the cell rule off stored claims, on both arms (I-382, as built).** After
+  the batch's own over-measurement block, `withoutSharedCells` (`src/core/gate/evaluate.ts`) reads
+  three stored facts: which register objects a hand measurement recorded (the manual-origin fact),
+  which cells a standing hand measurement claims (its recipe's kinds at its class and level), and
+  which cells a standing machine object already published in. A machine offer into a claimed cell is
+  refused `CELL_MEASURED_BY_HAND` on the queued arm as on the published one: an object is a line or a
+  declared exclusion of its own cell, and this cell is the person's. A hand offer into a cell a
+  standing machine object published in is refused `MANUAL_CELL_MACHINE_MEASURED`, the act's own
+  preview refusal answered again, because a campaign's lines move between a preview and a run.
+  - The machine's rails never see a hand row (I-384): the run hands them the machine's rows
+    (`machineRowsOf`, keyed on the manual-origin fact), so no rail reports a placement nobody placed
+    for a person's sighting. The setup's manual seam (`RailSetup.manual`) is typed in the contract,
+    and the measurement's shape is declared into it by the builder that owns it (module augmentation),
+    because the contract importing the manual law would close a cycle through the law's own imports.
+
 ---
 
 ## 1. What a QS brings from Bluebeam, PlanSwift, On-Screen Takeoff and CostX
@@ -1608,7 +1689,8 @@ refusal test (CLAUDE.md, Architecture):
   `{ input, consequenceDigest }`, where `input` is `{ projectId, drawingId, layoutName, viewKey,
   recipe, level, geometry, replaces }` and each point is `{ x, y, cites }`, the world point and the
   source keys it was snapped on. Both authorise with MEASURE and bind the drawing to the project
-  (R-SPINE-004). The commit answers `{ actId, objectKey }`;
+  (R-SPINE-004). The commit answers `{ actId, objectKey, measure }`, where `measure` is the answer of
+  the campaign's measure request it makes after the act commits (I-587);
 - `takeoffConditions.list`, `.author` and `.retire` (`takeoff-conditions.ts`, S5). `list` takes
   `{ projectId }` and answers `{ conditions, catalogue, canAuthor }`; `author` takes
   `{ projectId, condition: { name, geometry, elementClass, kinds, readings, colour, hatch } }`, each
@@ -1856,7 +1938,8 @@ Reused, unchanged:
   `CONDITION_KIND_NOT_BORNE`), and so is a trace whose geometry is not the recipe's.
 
 S1 registers every `MANUAL_*` code above except `MANUAL_JUNCTION_UNPROVEN`, thirteen in all. S3
-registers that one with the junction channel that raises it (I-389).
+registers that one with the junction channel that raises it (I-389, I-586), and the gate's
+`CELL_MEASURED_BY_HAND` (I-589).
 
 `VIEW_SCALE_UNAFFIRMED`'s registered message speaks of "members". The unscaled view is said before
 the first click (§3), so a hand measurer meets that message only from a stale view. Re-wording it for
@@ -2078,6 +2161,10 @@ per-Interpretation verdict, so those rows stay OWED, and their objections below 
 | I-574 | a separate CONDITION_KIND_NOT_OFFERED is one more code for what the form already prevents | the door is also the tRPC lane, which any caller reaches; a refusal whose sentence is false for its case is worse than one more code | OWED | S5 |
 | I-575 | a chest that reads "—" for every condition until S3 lands looks broken in a demo | it is the true state (measured, not billed), said in the tooltip; a traced m² would be a second, unsigned figure for the scope | OWED | S3, S5 |
 | I-576 | forgetting the pick on a tool change is simpler and cannot mislead | the QS who steps to Select or Line for a moment would pick again, and §2.6 asks A to find the condition last used; a remembered pick shown only under its own tool misleads no one | OWED | S5 |
+| I-586 | a drawn ring is the plan the drawing states at one storey, and a schedule may state another section at the storey below; and a lattice-quantised offset moves a plan by up to 0.05 units | the register object stands on the level its plan was placed from, so its ring is that storey's; the offset is the reading of two grids of one building, whose float noise is below the lattice; a member nobody can lay fails the measurement closed | OWED | S6 |
+| I-587 | refusing an act for the gate's reason puts a gate code in the card, and recording an unpaired kind lets a measurement sight a cell it never bills | the card's figure is the gate's, so its refusal is too; an unpaired kind's cell reads NOT_ESTABLISHED, which is the truth, and the chest authors paired conditions only | OWED | S6, S7 |
+| I-588 | citing the act for an ENTERED thickness hides the condition it came from | the measurement snapshots the recipe with its condition id (I-374), and the act row names the person; the act is where a reader takes recourse | OWED | S7 |
+| I-589 | refusing the machine's queued arm hides an exclusion the machine would have declared | the cell is the person's by a stored fact; the machine's reading of it would be a second statement about one scope, and the refusal names why (CELL_MEASURED_BY_HAND) | OWED | S6 |
 
 **D-005 — entered** (session 9: the refuter rejected I-388 — L-FRM-04 defers polygon plans outright and states `(L + 2p)(B + 2p)t` with no hand/machine split, so dropping p is a departure, not a reading). Its row and section are in `docs/decisions/deviations.md`.
 
@@ -2170,7 +2257,10 @@ Risks this Decision leaves the orchestrator:
   name and "by hand"; the `~m.` mark is shown only in the Technical disclosure through IdChip.
 - **`s-takeoff.md`**: the lane's tabs gain Measurements after Register (S7).
 - **`s-coverage.md`**: I-383's reading of what a hand row sights, and I-379's rule that the
-  residue counts no line of a repudiated object.
+  residue counts no line of a repudiated object (landed by S3 in `publishedLinesOf`; the sentence for
+  s-coverage: "A line whose object stands repudiated in the campaign's revision counts for nothing in
+  the residue, as in the register and the draft BOQ; its cell reads NOT_ESTABLISHED where no other
+  line stands (s-measure I-379).").
 - **`viewer.md`**, the canvas law: the selection dip's figures (66.5 % at 1440×900, 62.7 % at
   1280×800), which fall below R-UI-080's 70 % and the Direction's own "≥ 66 %". The dip is the
   viewer frame's, inherited by S-Measure.
@@ -2182,14 +2272,16 @@ Risks this Decision leaves the orchestrator:
 
 ## 14. Recorded IOUs (owner named, never a comment in `src/`)
 
-- The proof of disjointness across views (I-381): grid-frame mapping by shared axis labels. Owner:
-  S3, or the slice the orchestrator names.
-- The cross-view placement of registered members as junction candidates (I-389). Owner: S3. The
-  channel itself landed with S2 (I-538).
-- I-389's fail-closed arm: a hand ring whose standing members cannot all be placed as junction
-  candidates refuses or declares and never publishes COMPLETE. Neither the method nor `MANUAL_RULES`
-  can tell a ring with no members from one whose members were never offered, so the builder owes it.
-  Owner: S3.
+- The proof of disjointness across views (I-381): grid-frame mapping by shared axis labels. S3 built
+  the frame rule (`frameTranslation`, I-586) but not the guard that uses it, so the refusal still
+  stands for every other view. Owner: S3's successor, named by the orchestrator.
+- ~~The cross-view placement of registered members as junction candidates (I-389).~~ Built by S3
+  (I-586).
+- ~~I-389's fail-closed arm.~~ Built by S3 (I-586): `MANUAL_JUNCTION_UNPROVEN`.
+- One statement of the plan-over-plan translation: core's `frameTranslation` (I-586) and the
+  module's `translationBetween` (`measure/cap-junctions.ts`, I-547) state one rule twice, because
+  core may not import the module. The module's should call core's. Owner: the integrator, with
+  FND-OWN's successor.
 - Geometry-grain sharing of a cell between machine and hand lines (I-382). Owner: after M4, named at
   that time.
 - A per-cell "hand coverage is partial" declaration (I-390). Owner: the residue's owner (S3's
@@ -2403,3 +2495,26 @@ Risks this Decision leaves the orchestrator:
     gains `viewer-condition` (1–9). §2.6, §2.11, §3, §4, §5, §9, §11 and §14 are amended to what
     landed; Edit and re-ordering are owed (§14). The chest's error sentence is its own key,
     `measure_chest_read_failed`, so S7's list keeps `measure_read_failed` for the measurements.
+- 2026-09-24 — S3 (session 9, wave 3b): manual offers reach the gate.
+  - The one builder (`src/core/manual/offer.ts`, `manualOffersOf`) offers a hand measurement under
+    the pairing `MANUAL_RULES` holds: the trace's area, the count of one, the recipe's readings, the
+    edition's threshold, the opening cut-outs in the opening channel and the member cut-outs and the
+    register's members in the junction channel (I-586, I-588).
+  - Each kind's one rail gains its manual arm (`src/modules/takeoff/rails/manual.ts`, composed in the
+    barrel after the machine's), reading `setup.manual`, which the run's setup reads through the same
+    reader the preview does (`manualSetupIn`). The machine's rails are handed the machine's rows only
+    (`machineRowsOf`, the manual-origin fact) (I-384, I-589).
+  - The gate refuses a machine offer into a hand-claimed cell `CELL_MEASURED_BY_HAND` and a hand offer
+    into a machine-published cell `MANUAL_CELL_MACHINE_MEASURED` (I-589). The residue counts no line
+    of a repudiated object (I-379, landed); its sightings are unchanged: a hand row sights every kind
+    its class bears (I-383, as S0 ruled against the slice text's "only the recipe's kinds").
+  - The preview's figure is `judgeOffer`'s, bound by the digest, and the commit door asks for the
+    campaign's run (I-587). The members a slab ring runs past are laid and clipped exactly, or the
+    measurement fails closed `MANUAL_JUNCTION_UNPROVEN` (I-586); §14's two IOUs on I-389 are closed.
+  - I-379's residue rule now stands, so S7's gate on Delete and Edit is lifted as far as the residue
+    is concerned.
+  - Proofs: `tests/takeoff/gate/manual-offers.test.ts` (unit) and
+    `tests/takeoff/gate/manual-publish.test.ts` (live database: one line at the preview's figure with
+    its formula, calibration key and basis; the residue's cells; the machine arm refused; the no-join
+    rule for hand and machine objects; the commit door's ask). The refuter's verdicts on I-586 …
+    I-589 and on the `evaluate.ts` change are owed (§11).

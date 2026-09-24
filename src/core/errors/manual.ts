@@ -29,7 +29,8 @@ export type ManualRefusalCode =
   | "CONDITION_NAME_TAKEN"
   | "CONDITION_KIND_NOT_BORNE"
   | "CONDITION_KIND_NOT_OFFERED"
-  | "CONDITION_NOT_IN_CHEST";
+  | "CONDITION_NOT_IN_CHEST"
+  | "MANUAL_JUNCTION_UNPROVEN";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const MANUAL_REFUSALS: RefusalGroup<ManualRefusalCode> = Object.freeze({
@@ -182,5 +183,15 @@ export const MANUAL_REFUSALS: RefusalGroup<ManualRefusalCode> = Object.freeze({
     remedy: "Reload the chest and pick a condition that stands in it.",
     severity: "warning",
     surface: "inline",
+  }),
+  // L-MEA-09, I-389: a slab's ring deducts the columns and walls standing through it. Where the
+  // register holds such members on the storey below and this sheet cannot place them, the figure
+  // could hold them undeducted — over-measurement, a hard block (L-QTY-04) — so it fails closed.
+  MANUAL_JUNCTION_UNPROVEN: Object.freeze({
+    code: "MANUAL_JUNCTION_UNPROVEN",
+    message: "The register holds columns or walls on this level that this sheet cannot place, so the outline may hold them without deducting them.",
+    remedy: "Measure on a sheet whose grid ties to the columns' sheet.",
+    severity: "warning",
+    surface: "dialog",
   }),
 });

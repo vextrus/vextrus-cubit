@@ -14,6 +14,7 @@ import { REFUSALS } from "@/core/errors";
 import { refusal } from "@/core/faults/refusal-marker";
 import type { JobPayloads, JobProgress } from "@/core/jobs";
 import type { Kind } from "@/core/catalogue/kinds";
+import { machineRowsOf } from "@/core/manual/offer";
 import type { GateEvaluate, LevelSetup, Offer, Rail, RailObservation, RegisterObjectRow } from "@/core/offers/contract";
 import { runDeferralsOf, type RunDeferral } from "@/core/residue/deferrals";
 import { barRowsOf, REBAR_KIND, writeBarRows } from "@/modules/takeoff/rebar";
@@ -68,6 +69,8 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
   // What the run was handed, kept for its own report: the members it read, and the stack they
   // stand on — what its deferrals are named against (I-484).
   let registered: readonly RegisterObjectRow[] = [];
+  // Of those, the machine's: what its deferrals are named against (a hand row owes no storey height).
+  let machineRows: readonly RegisterObjectRow[] = [];
   let stack: readonly LevelSetup[] = [];
   // The bill of bars behind the reinforcement lines: the line carries the member's MASS, and the
   // per-diameter detail is stored content-keyed beside it (L-REG-04, riskNotes (1)). It is written
@@ -83,7 +86,13 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
     // campaign was opened under, so a DERIVED reading cites what the campaign measures by (L-REG-07).
     const setup = await railSetupOf({ ...registerScope, editionId: campaign.editionId });
     stack = setup.levels;
-    const common = { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, objects, setup };
+    // The machine's rails read the machine's rows (s-measure I-384): a hand measurement's register row
+    // is the person's sighting, offered by each kind's manual arm from `setup.manual`, and a machine
+    // rail handed it would report a placement nobody placed for it. The filter is the manual-origin
+    // fact the setup carries, at this one home — never a mark prefix.
+    const machine = machineRowsOf(objects, setup.manual);
+    machineRows = machine;
+    const common = { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, objects: machine, setup };
     for (const [kind, rail] of roster) {
       const batch = rail({ ...common, kind });
       offers.push(...batch.offers);
@@ -111,7 +120,7 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
   // members were placed in that no affirmation names, and each storey they stand on whose height
   // stands at none — read off the rails' own reports and the stack's own standing, judged by nobody
   // here. The same reading names them in the register's deferred-and-refused region.
-  const deferred: RunDeferral[] = deferralsOf(observations, offers, stack, registered);
+  const deferred: RunDeferral[] = deferralsOf(observations, offers, stack, machineRows);
   await progress.step(STEP_VERDICT, {
     campaignId: campaign.campaignId,
     published: verdict.published,
