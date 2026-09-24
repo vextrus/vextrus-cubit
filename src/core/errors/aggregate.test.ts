@@ -64,6 +64,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "ASK_NOT_MEASURED",
   "ASK_NOT_UNDERSTOOD",
   "ASK_SUBJECT_UNKNOWN",
+  "BAR_SHAPE_NOT_HELD",
   "BBS_NO_BAR_ROW",
   "BBS_NO_CAMPAIGN",
   "BLINDING_PLAN_DEFERRED",
@@ -74,6 +75,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "CAPTION_UNCLASSIFIABLE",
   "CAP_HOLDS_NO_PILE",
   "CAP_PILES_UNREAD",
+  "CAP_RECESS_UNSTATED",
   "CELL_MEASURED_BY_HAND",
   "CELL_NOT_IN_RESIDUE",
   "CHARACTER_NOT_COVERED",
@@ -459,7 +461,13 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * (integrate-slice --errors-check): 160 → 173, added 13, removed 0, changed 0.
  * Previous: a9e8ee7bf4280d8faf092fd23b78c3d2ee05ae602e9299472a8305e7f6ed5e1d.
  */
-const ENTRIES_DIGEST_BEFORE = "4a7d503cd2052eabd2a5b01dfd8d257b631ae5809b67de02e217eb79a32f02e3";
+/*
+ * Re-baselined at integration (session 9, the R0 chain) for TWO ADDED entries and nothing else: BBS-CH's
+ * BAR_SHAPE_NOT_HELD (./rebar.ts, s-bbs I-596) and FND-RECESS's CAP_RECESS_UNSTATED (s-schedules
+ * I-598); the whole register diffed against 9b0f3676: 160 → 175, added 15, removed 0, changed 0.
+ * Previous: 4a7d503cd2052eabd2a5b01dfd8d257b631ae5809b67de02e217eb79a32f02e3.
+ */
+const ENTRIES_DIGEST_BEFORE = "86dbf4bb751c51151c5e60e38de85e0f2a19d72b77ae5da983b315cac0a24400";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {
