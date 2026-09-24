@@ -13,12 +13,16 @@ import { expect, test } from "@playwright/test";
 import { CommandPalettePage } from "./pages/command-palette.page";
 import { SAuthPage, S_AUTH } from "./pages/s-auth.page";
 import { SHomePage } from "./pages/s-home.page";
+import { STakeoffPage } from "./pages/s-takeoff.page";
+import { SViewerTracePage } from "./pages/s-viewer-trace.page";
 import { ShellPage, SHELL } from "./pages/shell.page";
 import { checkpoint } from "./support/checkpoint";
 import { emulateTheme, restoreLaneTheme } from "./support/lane-theme";
 import { newestMail } from "./support/outbox";
 import { heldAttribute, steadyCount } from "./support/retrying-read";
 import { afterSettled } from "./support/settled";
+import { stageRegister, type StagedMember } from "./takeoff/register-stage";
+import { SViewerPage, VIEWER_BUDGETS } from "./viewer/s-viewer.page";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j021-${RUN}@cubit.test`;
@@ -132,5 +136,54 @@ test.describe("J-021 — the command palette, from the chord to the sheet", () =
       animations: "disabled",
       maxDiffPixelRatio: 0.002,
     });
+  });
+
+  // SRCH-1 (R-SPINE-052's first cut, command-palette I-628/d): inside a project, ⌘K finds what
+  // the register holds under a mark and what the sheets say, and one click opens the viewer with it
+  // selected. The stage is the register leg's own (production's key shapes, VD-1): columns C1–C4
+  // sighted in the plan, each placed with the outline and the mark it was read off.
+  test("J-021 (SRCH-1): inside a project ⌘K finds a mark in the register and its text on the sheet, and one click opens the viewer with it selected", async ({ page }, testInfo) => {
+    test.slow();
+    const takeoff = new STakeoffPage(page);
+    const palette = new CommandPalettePage(page);
+    const viewer = new SViewerPage(page);
+    const trace = new SViewerTracePage(page);
+    const MARK = "C2";
+
+    const staged = await stageRegister(page, { label: "j021-palette" });
+    const member = staged.members[MARK] as StagedMember;
+    expect(member, `the stage placed ${MARK} with its outline and its mark`).toBeTruthy();
+
+    /* --- a screen inside the project, hydrated: the register's virtualised rows are the client's own --- */
+    await takeoff.open(staged.tenantId, staged.projectId);
+    expect((await takeoff.tracedLineIds()).length, "the register stands, painted by the client").toBeGreaterThan(0);
+
+    /* --- ⌘K C2: the mark the register holds, and the text the plan says --- */
+    await palette.openWithChord();
+    await palette.search(MARK);
+    await expect(palette.finds("mark"), "one mark find: C2, on the one sheet its members stand on").toHaveCount(1);
+    await expect(palette.finds("mark"), "…named as the register holds it").toContainText(MARK);
+    await expect(palette.finds("text"), "and C2's own text on the plan — the word, never a longer mark that contains it").toHaveCount(1);
+    await checkpoint(page, testInfo, "j-021-palette-finds");
+
+    /* --- one click on the mark: the viewer, at the member, selected and flown to --- */
+    await palette.finds("mark").click();
+    await page.waitForURL(/\/viewer\//);
+    await expect(palette.dialog, "the palette closes behind the click").toHaveCount(0);
+    await expect(viewer.status, "the sheet paints").toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
+    await trace.settled();
+    expect([...trace.addressKeys()].sort(), "the address names the member: its outline and its mark").toEqual([member.outlineKey, member.markKey].sort());
+    expect([...(await trace.selectedKeys())].sort(), "and the sheet holds both, selected (I-88: what was found stays selected)").toEqual([member.outlineKey, member.markKey].sort());
+    await expect(viewer.missingKeys, "nothing the find named is missing from this sheet").toHaveCount(0);
+
+    /* --- ⌘K again, from the viewer: the text find selects the text itself --- */
+    await palette.openWithChord();
+    await palette.search(MARK);
+    await expect(palette.finds("text")).toHaveCount(1);
+    await palette.finds("text").click();
+    await page.waitForURL((url) => url.searchParams.get("s") === member.markKey);
+    await expect(trace.entities, "the sheet re-reads the new address: one entity held").toHaveCount(1);
+    expect(await trace.selectedKeys(), "and it is the text the find named").toEqual([member.markKey]);
+    await expect(viewer.missingKeys).toHaveCount(0);
   });
 });

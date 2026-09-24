@@ -8,10 +8,14 @@ import type { SearchHit } from "@/server/spine/search";
 
 export type { SearchHit };
 
-/** What the palette asks for: the workspace it stands in, and what was typed into it. */
+/**
+ * What the palette asks for: the workspace it stands in, what was typed into it, and the project it
+ * stands inside — whose register marks and sheet text are searched too (I-629) — or null.
+ */
 export interface SearchRequest {
   readonly tenantId: string;
   readonly query: string;
+  readonly projectId?: string | null;
 }
 
 /**
@@ -31,7 +35,7 @@ const DOOR = "/api/trpc/spine.search";
 
 /** The envelope tRPC answers with: a result, or the error the formatter shaped (src/server/trpc.ts). */
 interface Envelope {
-  result?: { data?: { hits?: readonly SearchHit[] } };
+  result?: { data?: { hits?: readonly SearchHit[]; refusal?: string | null } };
   error?: { data?: { kind?: string; refusalCode?: string; faultId?: string } };
 }
 
@@ -61,5 +65,10 @@ export const searchWorkspaceAction: SearchFn = async (request: SearchRequest): P
     if (stated.kind === "refusal" && typeof stated.refusalCode === "string") return { hits: [], refusal: stated.refusalCode };
     return { hits: [], faultId: typeof stated.faultId === "string" ? stated.faultId : "" };
   }
-  return { hits: envelope.result?.data?.hits ?? [] };
+  // An answer may carry a registered refusal BESIDE its hits: the project the palette stands in is
+  // one this person may not search, while the workspace's names were answered (I-629). It
+  // travels on as the envelope's `refusal`, which the pattern renders under the rows (I-142).
+  const data = envelope.result?.data;
+  const refusal = typeof data?.refusal === "string" && data.refusal !== "" ? data.refusal : null;
+  return refusal === null ? { hits: data?.hits ?? [] } : { hits: data?.hits ?? [], refusal };
 };

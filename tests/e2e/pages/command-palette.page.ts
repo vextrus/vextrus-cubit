@@ -53,6 +53,14 @@ export class CommandPalettePage {
     return this.page.locator(`${testIdSelector(TESTIDS.command.paletteGroup)}[data-group="${id}"] ${testIdSelector(TESTIDS.command.paletteItem)}`);
   }
 
+  /**
+   * The answered rows of one kind (`mark`, `text`, …) — the seam's own kind word, which each option
+   * states as `data-kind` (Decision §1; SRCH-1's finds, I-628).
+   */
+  finds(kind: string): Locator {
+    return this.page.locator(`${testIdSelector(TESTIDS.command.paletteGroup)}[data-group="navigate"] ${testIdSelector(TESTIDS.command.paletteItem)}[data-kind="${kind}"]`);
+  }
+
   /** The one row the palette states as active — what Enter would take. */
   get activeRow(): Locator {
     return this.page.locator(`${testIdSelector(TESTIDS.command.paletteItem)}[aria-selected="true"]`);

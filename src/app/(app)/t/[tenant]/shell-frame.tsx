@@ -61,7 +61,9 @@ export function ShellFrame({ workspace, workspaces, projects, email, userId, den
   const project = useMemo(() => projects.find((held) => held.projectId === projectId) ?? null, [projects, projectId]);
 
   return (
-    <PaletteHost tenantId={workspace.tenantId} projectId={projectOf(pathname)} search={searchWorkspaceAction} navigate={navigate}>
+    // The one reading of the address hands the palette the project it stands inside: its areas are
+    // addressed inside it, and its register marks and sheet text are searched (I-629).
+    <PaletteHost tenantId={workspace.tenantId} projectId={projectId} search={searchWorkspaceAction} navigate={navigate}>
       <JobsProvider format={format}>
         {/* The document's figure conventions, installed once for the frame (figures.tsx: "the tenant
             frame installs one"), so a primitive that writes a figure of its own — a grid's group

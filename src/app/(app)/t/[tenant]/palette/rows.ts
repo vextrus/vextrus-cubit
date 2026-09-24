@@ -5,13 +5,17 @@
 // Availability is read, never written (I-138): an area's is read off `PROJECT_AREAS.route` and an
 // action's off its `run`, so the day a screen or an act lands the row becomes reachable by gaining
 // one and nothing else here changes.
+import { formatUserFigure } from "@/core/format";
+import { selectionAddress } from "@/modules/takeoff/trace/address";
 import type { PaletteRow } from "@/ui/patterns/command-palette";
+import { humaniseEnum } from "@/ui/primitives/core/enum-label";
 import { areaLabel, shellHref, type ShellArea } from "@/ui/shell";
-import { strings } from "@/ui/strings";
+import { fill, strings } from "@/ui/strings";
 import { PROJECT_AREAS, projectHomeRoute } from "../p/[project]/home/areas";
 import { projectHomeStrings } from "../p/[project]/home/strings";
 import { drawingsRoute } from "../p/[project]/drawings/route-address";
 import { setRoute } from "../p/[project]/drawings/sets/route-address";
+import { registerRoute } from "../p/[project]/takeoff/register/route-address";
 import { viewerSheetRoute } from "../p/[project]/viewer/[drawing]/[layout]/route-address";
 import type { SearchHit } from "./search-action";
 
@@ -81,7 +85,12 @@ export function goRowOf(tenantId: string, rows: readonly PaletteRow[], shortcutI
   return rows.find((row) => row.group === "areas" && row.key === target.area) ?? null;
 }
 
-/** The address a hit leads to, by its kind — each spelled by the home that owns it (B-17). */
+/**
+ * The address a hit leads to, by its kind — each spelled by the home that owns it (B-17). A find
+ * opens the viewer at the sheet the server placed it on, with what it names selected and flown to
+ * (`selectionAddress`, which states no camera); a find no sheet shows leads where it can be read —
+ * a mark to the register it is filed in, a text to the project's drawings (I-628).
+ */
 export function hrefOfHit(tenantId: string, hit: SearchHit): string {
   switch (hit.kind) {
     case "project":
@@ -92,17 +101,72 @@ export function hrefOfHit(tenantId: string, hit: SearchHit): string {
       return viewerSheetRoute(tenantId, hit.projectId, hit.drawingId ?? "", hit.layoutName ?? "");
     case "set":
       return setRoute(tenantId, hit.projectId, hit.setId ?? "");
+    case "mark":
+    case "text": {
+      const selection = hit.selection ?? [];
+      if (hit.drawingId === null || hit.drawingId === undefined || hit.layoutName === null || hit.layoutName === undefined || selection.length === 0) {
+        return hit.kind === "mark" ? registerRoute(tenantId, hit.projectId) : drawingsRoute(tenantId, hit.projectId);
+      }
+      return selectionAddress(tenantId, hit.projectId, { drawingId: hit.drawingId, layoutName: hit.layoutName, sourceKeys: selection });
+    }
   }
 }
 
-/** One answered hit, as a row of the navigate group. */
+/** How a find names the sheet it stands on: its number, else model space in words (I-179). */
+function sheetSaid(hit: SearchHit): string {
+  return hit.sheetLabel ?? strings.command_palette_model_space;
+}
+
+/** A find's second line, composed from what the server placed it by — never a sentence of the server's. */
+function metaOfHit(hit: SearchHit): string | null {
+  if (hit.kind === "text") {
+    return fill(strings.command_palette_meta_text, { sheet: sheetSaid(hit), drawing: hit.drawingName ?? "" });
+  }
+  if (hit.kind === "mark") {
+    const said = { class: humaniseEnum(hit.elementType ?? ""), count: formatUserFigure(String(hit.count ?? 0)) };
+    const placed = hit.drawingId !== null && hit.drawingId !== undefined && hit.layoutName !== null && hit.layoutName !== undefined;
+    return placed ? fill(strings.command_palette_meta_mark, { ...said, sheet: sheetSaid(hit) }) : fill(strings.command_palette_meta_mark_unplaced, said);
+  }
+  return hit.meta ?? null;
+}
+
+/** A text find's label: what the sheet says, marked where the row shows only part of it. */
+function labelOfHit(hit: SearchHit): string {
+  if (hit.kind !== "text") return hit.label;
+  const elided = strings.command_palette_elision;
+  return `${hit.clippedStart === true ? elided : ""}${hit.label}${hit.clippedEnd === true ? elided : ""}`;
+}
+
+/**
+ * One answered hit, as a row of the navigate group. Its key names where the row leads: a sheet's
+ * texts share a drawing and a layout, so a find's own source key keeps it apart (a mark's class too,
+ * where two classes share a mark). Two hits keyed alike therefore lead to one place — `rowsOfHits`
+ * keeps the first of them.
+ */
 export function rowOfHit(tenantId: string, hit: SearchHit): PaletteRow {
+  const find = hit.kind === "mark" || hit.kind === "text" ? `:${hit.sourceKey ?? ""}:${hit.kind === "mark" ? `${hit.label}:${hit.elementType ?? ""}` : ""}` : "";
   return {
-    key: `${hit.kind}:${hit.projectId}:${hit.drawingId ?? ""}:${hit.setId ?? ""}:${hit.layoutName ?? ""}`,
+    key: `${hit.kind}:${hit.projectId}:${hit.drawingId ?? ""}:${hit.setId ?? ""}:${hit.layoutName ?? ""}${find}`,
     group: "navigate",
     kind: hit.kind,
-    label: hit.label,
-    meta: hit.meta ?? null,
+    label: labelOfHit(hit),
+    meta: metaOfHit(hit),
     href: hrefOfHit(tenantId, hit),
   };
+}
+
+/**
+ * An answer's hits, as the navigate group's rows — one row per key, the first hit standing for it.
+ * The pattern names an option by its key (`optionId`, `aria-activedescendant`), so two rows keyed
+ * alike would be one option twice: React would drop one, and the arrows, walking by that id, could
+ * never pass the pair. Such rows lead to the same place, so the second adds nothing a person can use
+ * (I-628). The door already answers a sheet's text once per key; this holds for any answer.
+ */
+export function rowsOfHits(tenantId: string, hits: readonly SearchHit[]): PaletteRow[] {
+  const rows = new Map<string, PaletteRow>();
+  for (const hit of hits) {
+    const row = rowOfHit(tenantId, hit);
+    if (!rows.has(row.key)) rows.set(row.key, row);
+  }
+  return [...rows.values()];
 }

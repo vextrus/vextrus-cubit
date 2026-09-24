@@ -178,7 +178,7 @@ export async function sheetsOfRecord(tenantId: string, record: SheetSourceRecord
   const keyedUnder = schemesBySpace(graph);
 
   return layouts.map((layout) => {
-    const layoutName = String(layout.name ?? "");
+    const layoutName = layoutNameOf(layout);
     const extent = graph.layouts.find((entry) => entry.name === layoutName)?.bbox ?? null;
     return {
       sheetId: sheetIdOf(record.ingestId, layoutName),
@@ -198,6 +198,22 @@ export async function sheetsOfRecord(tenantId: string, record: SheetSourceRecord
       facts: fidelityFactsOf(facts, layoutName),
     };
   });
+}
+
+/** One layout of a record's inventory, by the name it goes by — the one reading of that name. */
+function layoutNameOf(layout: { name?: unknown }): string {
+  return String(layout.name ?? "");
+}
+
+/**
+ * The layout names a record's own inventory lists, in its order — the sheets `sheetsOfRecord`
+ * answers, read off the stored record alone. A reader that needs a sheet by its NAME and nothing the
+ * artifact says of it (the ⌘K palette's sheet leg, as a person types) asks this, and reads no
+ * artifact: a set of more drawings than `artifactAt` keeps would otherwise be re-read and
+ * re-validated on every keystroke (command-palette I-631).
+ */
+export function layoutNamesOf(record: SheetSourceRecord): string[] {
+  return ((record.facts as RecordedFacts).layouts ?? []).map(layoutNameOf);
 }
 
 /**
