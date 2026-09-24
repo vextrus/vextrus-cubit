@@ -147,6 +147,10 @@ test.describe("J-021 — the column slice: a line traced to its entities, back t
     // asked what stands where it PAINTS, and pressed there by the mouse, as a hand presses it. The rows
     // stand (the origin read above is a client-only fact), so the chips are live.
     const classChip = takeoff.filter("class");
+    // After the history step the register can stand twice for a moment — the copy the server painted
+    // and the one the client hydrates — and a click then meets two chips (seen once at session 8's
+    // closing gate). The bar a reader presses is the one that stays.
+    await expect(classChip, "one register stands after the history step, so one class chip").toHaveCount(1);
     await classChip.click();
     await expect(classChip, "the class chip opens").toHaveAttribute("aria-expanded", "true");
     const column = takeoff.root.locator(`[role="option"][data-value="${CLASS_COLUMN}"]`);
