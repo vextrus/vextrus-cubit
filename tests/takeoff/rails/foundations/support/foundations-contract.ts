@@ -735,6 +735,9 @@ export type ModelMember = {
   length?: string;
   /** The piles a pile cap stands on, by their member ids (L-MEA-09). */
   piles?: string[];
+  /** The void a recess cuts into a pile cap, mm³, and its four sides, mm² — "0" on a cap with none (R0 K18, W-30). */
+  recess?: string;
+  recess_faces?: string;
 };
 
 /** Every member of a fixture's model, as the fixture wrote them. */

@@ -33,6 +33,14 @@
  * graded over the plan those kept lines bind (Σ A × D, or L × B × D, off the lines' own canonical
  * bindings), which is what this proof is for: the ring's plan, through the store, inside the golden's
  * band. The formwork, which no pile touches, still publishes whole.
+ *
+ * TEST_AMENDED (R0 Rev C, K17, K18): R0's golden cells moved — the cap concrete is the prisms less the
+ * pile heads (W-29) and PC5's lift-pit recess (W-30), 122.500 m³ (was 128.821); the cap formwork forms
+ * the recess's four sides too, 262.773 m² (was 254.211). This proof stages neither the piles' heads nor
+ * the recess, so, as ../../partition/placement/bnbc-pile-caps.test.ts does, the band takes the DRAWN
+ * heads (89 × Ø500 × 76.2) and recess (S-07's 2493 × 2188 × 914) off the plan × depth it grades, and the
+ * recess's sides onto the formwork; the plan (99.445 m², 196.2414 m of side) and the depth do not move.
+ * ./cap-junctions-rails.test.ts grades the same cells with the junctions staged.
  */
 import { afterAll, describe, expect, test } from "vitest";
 import { ident, lit } from "../../../../db/__tests__/support/live-sql";
@@ -80,6 +88,15 @@ const DECLARATION = "DXF_HANDLE:1F3E";
 /** The rules a cap's concrete is offered under: its own sentences, the prism less its piles' heads (L-MEA-09, I-544). */
 const PRISM_POLY_RULE = "rcc.pile_cap.prism_poly";
 const PRISM_RECT_RULE = "rcc.pile_cap.prism_rect";
+
+/**
+ * What R0's golden nets out of the caps that this proof stages none of, in the drawing's own figures
+ * (K17, K18): 89 heads of S-05's Ø500 standing 76.2 above the cap soffit, and PC5's recess drawn in its
+ * S-07 section, 2493 × 2188 × 914, formed on its four sides. In m³ and m², as the canon carries them.
+ */
+const PILE_HEADS = { count: "89", diameter: "0.5", height: "0.0762" } as const;
+const RECESS = { length: "2.493", breadth: "2.188", depth: "0.914" } as const;
+const PI = "3.14159265358979323846";
 
 /** The one reading a kept cap line may name here: the pile relation this proof stages none of. */
 const JUNCTION_UNREAD = "CAP_PILES_UNREAD";
@@ -259,9 +276,13 @@ describe("I-334: the caps are measured over their own plans, their plans inside 
       return sum.add(plan.mul(metric(bindings, "D")));
     }, exact("0"));
     const golden = goldenFigure(goldenCell(BNBC_FIXTURE, { class: PILE_CAP, kind: RCC_CONCRETE }), exact as (value: string) => ReturnType<typeof exact>);
-    expect(golden.printed.mul(exact(UNDER_TOLERANCE)).sub(golden.halfUlp).lte(plans), `${plans.toString()} m³ is no more than three per cent under ${golden.said}`).toBe(true);
-    expect(plans.lte(golden.printed.add(golden.halfUlp)), `${plans.toString()} m³ is not over ${golden.said} — an over-measured plan is never a disclosure (L-QTY-04)`).toBe(true);
-    expect(plans.eq(exact("99.445").mul(exact("1.295"))), `and it is 99.445 m² × 1.295 m exactly (${plans.toString()})`).toBe(true);
+    expect(plans.eq(exact("99.445").mul(exact("1.295"))), `it is 99.445 m² × 1.295 m exactly (${plans.toString()})`).toBe(true);
+    // TEST_AMENDED (R0 K17, K18): graded net of exactly the drawn heads and recess the golden nets.
+    const heads = exact(PILE_HEADS.count).mul(exact(PI)).mul(exact("0.25")).mul(exact(PILE_HEADS.diameter)).mul(exact(PILE_HEADS.diameter)).mul(exact(PILE_HEADS.height));
+    const recess = exact(RECESS.length).mul(exact(RECESS.breadth)).mul(exact(RECESS.depth));
+    const net = plans.sub(heads).sub(recess);
+    expect(golden.printed.mul(exact(UNDER_TOLERANCE)).sub(golden.halfUlp).lte(net), `${net.toString()} m³ (the plans less ${heads.toString()} of heads and ${recess.toString()} of recess) is no more than three per cent under ${golden.said}`).toBe(true);
+    expect(net.lte(golden.printed.add(golden.halfUlp)), `${net.toString()} m³ is not over ${golden.said} — an over-measured plan is never a disclosure (L-QTY-04)`).toBe(true);
   }, BUDGET_MS);
 });
 
@@ -288,8 +309,10 @@ describe("I-337: the caps are formed along their own sides, COMPLETE, inside L-Q
     const { exact } = await canon();
     const held = cells.get(`${PILE_CAP}|${RCC_FORMWORK}`) as CellReading;
     const golden = goldenFigure(goldenCell(BNBC_FIXTURE, { class: PILE_CAP, kind: RCC_FORMWORK }), exact as (value: string) => ReturnType<typeof exact>);
-    expect(golden.printed.mul(exact(UNDER_TOLERANCE)).sub(golden.halfUlp).lte(held.sum), `${held.sum.toString()} m² is no more than three per cent under ${golden.said}`).toBe(true);
-    expect(held.sum.lte(golden.printed.add(golden.halfUlp)), `${held.sum.toString()} m² is not over ${golden.said} — an over-measured figure is never a disclosure (L-QTY-04)`).toBe(true);
-    expect(held.sum.eq(exact("196.2414").mul(exact("1.295"))), `and it is 196.2414 m of side × 1.295 m exactly (${held.sum.toString()})`).toBe(true);
+    expect(held.sum.eq(exact("196.2414").mul(exact("1.295"))), `it is 196.2414 m of side × 1.295 m exactly (${held.sum.toString()})`).toBe(true);
+    // TEST_AMENDED (R0 K18): the golden forms PC5's recess on its four sides too; graded with exactly those added.
+    const formed = held.sum.add(exact("2").mul(exact(RECESS.length).add(exact(RECESS.breadth))).mul(exact(RECESS.depth)));
+    expect(golden.printed.mul(exact(UNDER_TOLERANCE)).sub(golden.halfUlp).lte(formed), `${formed.toString()} m² (with the recess's sides) is no more than three per cent under ${golden.said}`).toBe(true);
+    expect(formed.lte(golden.printed.add(golden.halfUlp)), `${formed.toString()} m² is not over ${golden.said} — an over-measured figure is never a disclosure (L-QTY-04)`).toBe(true);
   }, BUDGET_MS);
 });

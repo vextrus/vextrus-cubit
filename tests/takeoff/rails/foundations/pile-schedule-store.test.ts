@@ -63,6 +63,8 @@ const MEASURE_SETUP_MODULE = "src/modules/takeoff/measure/setup.ts";
 const PILE_SCHEDULE = "DXF_HANDLE:200A";
 const DIA_CELL = "DXF_HANDLE:4EE";
 const LENGTH_CELL = "DXF_HANDLE:4EF";
+/** Rev C's three slab panel schedules, on S-19, S-20 and S-21 (W-47). */
+const SLAB_PANEL_SCHEDULES: readonly string[] = ["DXF_HANDLE:26CF", "DXF_HANDLE:26D1", "DXF_HANDLE:26D3"];
 
 /** The rule a pile's shaft is measured by (R-TO-032). */
 const PILE_CONCRETE_RULE = "rcc.pile.concrete";
@@ -172,7 +174,17 @@ describe("I-322: the pile schedule's dimensions, through the store", () => {
     // declaration. What this case still holds is that the pile's two are exactly as FND-1 stored them
     // and that no OTHER schedule states a dimension its class is read for.
     const capDepth = (family: string, cell: string): string[] => [family, "SIZE", "depth", "1295", "1295", "mm", `${cell},DXF_HANDLE:1F3E`];
-    expect(dimensionRows(stage.tenantId), "the pile's two rows, the five caps' depths, and nothing else").toEqual([
+    // TEST_AMENDED (R0 Rev C, W-47): S-19, S-20 and S-21 now print a slab panel schedule each, and each
+    // panel's THICKNESS is read off it, cited to its cell and to S-01's declaration. Those rows are
+    // named apart — every one a thickness, from one of the three slab schedules and from no other — and
+    // the pile's and the caps' rows are held exactly as before, with nothing else beside them.
+    const rows = dimensionRows(stage.tenantId);
+    const foundation = rows.filter((row) => row[0] === "P" || /^PC[1-5]$/.test(row[0] as string));
+    const slabs = rows.filter((row) => !foundation.includes(row));
+    const slabFamilies = new Set(stored.families.filter((one) => SLAB_PANEL_SCHEDULES.includes(one.scheduleKey)).map((one) => one.family));
+    expect(slabs.length, "the three slab panel schedules' 43 panel rows").toBe(43);
+    expect(slabs.filter((row) => row[2] !== "thickness" || row[5] !== "mm" || !(row[6] as string).endsWith(",DXF_HANDLE:1F3E") || !slabFamilies.has(row[0] as string)), "each a thickness in mm, cited to S-01's declaration, of a family one of W-47's schedules registered").toEqual([]);
+    expect(foundation, "the pile's two rows, the five caps' depths, and nothing else of the foundations").toEqual([
       ["P", "SECTION", "dia", "500", "500", "mm", DIA_CELL],
       ["P", "SECTION", "length", "21336", "21336", "mm", LENGTH_CELL],
       capDepth("PC1", "DXF_HANDLE:63C"),

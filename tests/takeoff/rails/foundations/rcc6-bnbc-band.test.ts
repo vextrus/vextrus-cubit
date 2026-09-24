@@ -25,6 +25,13 @@
  * soffit (its `top` less its `depth`, −609.6 − 1295.4), 76.2 mm — STAGED through `stageCapJunctions`,
  * since no reader of the drawing states it yet. The cap concrete cell is then the model's prisms less
  * 89 heads, graded against that algebra and inside the band as every COMPLETE cell is.
+ *
+ * TEST_AMENDED (R0 Rev C, K18, W-30): the lift pit is PC5's recess, and R0's golden nets its void out
+ * of the cap cell (122.500 m³, was 128.821 over the prisms less nothing). The model states the void
+ * (`recess`, mm³) and its sides (`recess_faces`, mm²) but not the three sides W-30 builds them from —
+ * the pit's interior 2493.2 × 2188.4 and the cap top to the pit floor, 914.4 — so those are staged
+ * beside the heads, TRANSCRIBED from W-30, and held to the model's two statements exactly before
+ * FND-RECESS's sentence (I-546) is let net them. The cell is the prisms less the heads and the void.
  */
 import { afterAll, describe, expect, test } from "vitest";
 import {
@@ -120,6 +127,14 @@ function factsFrom(): StagedFact[] {
 const PILE_CUT = "PILE_CUT";
 
 /**
+ * PC5's recess by its sides, as R0's W-30 (fixtures/gen/rcc6_bnbc/DECISIONS.md) builds the model's
+ * void from them: the pit's interior and the cap's top to the pit's floor, in millimetres. The model
+ * states only their products, so each cap with a void is held to them (`recess`, `recess_faces`).
+ */
+const RECESS_SIDES_W30 = { length: "2493.2", breadth: "2188.4", depth: "914.4" } as const;
+const RECESS_SOURCE = "fixtures/gen/rcc6_bnbc/DECISIONS.md#W-30";
+
+/**
  * The piles each cap stands on and how far their heads stand into it, as the model states them: the
  * cap's own `piles`, and the cut-off against its soffit — `PILE_CUT − (top − depth)` (I-544).
  */
@@ -131,7 +146,16 @@ async function junctionsFrom(model: readonly ModelMember[]): Promise<Record<stri
   for (const cap of model.filter((member) => CLASS_OF[member.class] === PILE_CAP)) {
     expect(cap.piles !== undefined && cap.top !== undefined && cap.depth !== undefined, `${cap.id} states its piles, its top and its depth`).toBe(true);
     const head = exact(String(cut)).sub(exact(String(cap.top)).sub(exact(String(cap.depth))));
-    junctions[cap.id] = { piles: cap.piles ?? [], head: { value: head.toString(), unit: MILLIMETRE, source: `${BNBC_MODEL}#levels.${PILE_CUT}` } };
+    const staged = { piles: cap.piles ?? [], head: { value: head.toString(), unit: MILLIMETRE, source: `${BNBC_MODEL}#levels.${PILE_CUT}` } };
+    if (exact(cap.recess ?? "0").eq(exact("0"))) {
+      junctions[cap.id] = staged;
+      continue;
+    }
+    const [l, b, d] = [exact(RECESS_SIDES_W30.length), exact(RECESS_SIDES_W30.breadth), exact(RECESS_SIDES_W30.depth)];
+    expect(l.mul(b).mul(d).eq(exact(String(cap.recess))), `${cap.id}'s void ${String(cap.recess)} mm³ is W-30's ${RECESS_SIDES_W30.length} × ${RECESS_SIDES_W30.breadth} × ${RECESS_SIDES_W30.depth}`).toBe(true);
+    expect(exact("2").mul(l.add(b)).mul(d).eq(exact(String(cap.recess_faces))), `and its sides ${String(cap.recess_faces)} mm² are 2 × (l + b) × d`).toBe(true);
+    const side = (value: string, name: string) => ({ value, unit: MILLIMETRE, source: `${RECESS_SOURCE}.${name}` });
+    junctions[cap.id] = { ...staged, recess: { length: side(RECESS_SIDES_W30.length, "length"), breadth: side(RECESS_SIDES_W30.breadth, "breadth"), depth: side(RECESS_SIDES_W30.depth, "depth") } };
   }
   return junctions;
 }
@@ -208,7 +232,7 @@ describe("AC-6: F-RCC6-BNBC's foundations stand inside L-QTY-06's band, per (cla
     }
   }, 600_000);
 
-  test("AC-6: the pile caps' concrete is the model's prisms less the 89 heads its piles own — never the prisms whole (L-MEA-09)", async () => {
+  test("AC-6: the pile caps' concrete is the model's prisms less the 89 heads its piles own and PC5's recess — never the prisms whole (L-MEA-09)", async () => {
     await staged();
     const { exact } = await canon();
     const held = cells.get(`${PILE_CAP}|${RCC_CONCRETE}`) as CellReading;
@@ -219,8 +243,11 @@ describe("AC-6: F-RCC6-BNBC's foundations stand inside L-QTY-06's band, per (cla
     // mm² × mm → m³; π/4 · d² · e with d = 0.5 m and e = 0.0762 m, the heads the piles own.
     const prisms = caps.reduce((sum, cap) => sum.add(exact(String(cap.area)).mul(exact(String(cap.depth)))), exact("0")).mul(exact("1e-9"));
     const heads = exact(String(piles)).mul(exact("3.14159265358979323846")).mul(exact("0.25")).mul(exact("0.0762")).mul(exact("0.25"));
-    const drift = held.sum.sub(prisms.sub(heads));
-    expect(drift.lte(exact("1e-12")) && exact("-1e-12").lte(drift), `${held.sum.toString()} m³ is the prisms ${prisms.toString()} less 89 × π/4 × 0.5² × 0.0762 (${heads.toString()})`).toBe(true);
+    // TEST_AMENDED (R0 K18, W-30): and less the void the model states in PC5 (mm³ → m³), the only cap with one.
+    const voids = caps.reduce((sum, cap) => sum.add(exact(cap.recess ?? "0")), exact("0")).mul(exact("1e-9"));
+    expect(caps.filter((cap) => !exact(cap.recess ?? "0").eq(exact("0"))).map((cap) => cap.mark), "one cap holds a recess").toEqual(["PC5"]);
+    const drift = held.sum.sub(prisms.sub(heads).sub(voids));
+    expect(drift.lte(exact("1e-12")) && exact("-1e-12").lte(drift), `${held.sum.toString()} m³ is the prisms ${prisms.toString()} less 89 × π/4 × 0.5² × 0.0762 (${heads.toString()}) and PC5's recess (${voids.toString()})`).toBe(true);
   }, 600_000);
 
   test("AC-6: exactly the polygon-plan cells are partial, and each names the code it defers under", async () => {

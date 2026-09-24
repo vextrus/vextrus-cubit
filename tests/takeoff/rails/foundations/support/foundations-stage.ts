@@ -298,7 +298,13 @@ export async function stageFoundationsCampaign(label: string, members: readonly 
  * What a stage states about the piles each pile cap stands on (L-MEA-09, I-544): the member ids
  * of the piles, as the stage's members name them, and how far their heads stand into the cap.
  */
-export type StagedCapJunction = { readonly piles: readonly string[]; readonly head: { readonly value: string; readonly unit: string; readonly source: string } };
+export type StagedCapJunction = {
+  readonly piles: readonly string[];
+  readonly head: { readonly value: string; readonly unit: string; readonly source: string };
+  /** A recess cast into the cap, each side as it is written (I-546); absent where the cap has none. */
+  readonly recess?: { readonly length: StagedReading; readonly breadth: StagedReading; readonly depth: StagedReading };
+};
+type StagedReading = { readonly value: string; readonly unit: string; readonly source: string };
 
 /**
  * Hand a stage's setup the piles each of its pile caps stands on, and the head height — STAGED, and
@@ -325,7 +331,14 @@ export function stageCapJunctions(stage: FoundationsStage, members: readonly Sta
       piles,
       count: { value: String(piles.length), unit: "pcs", basis: "MEASURED", source: cap },
       headHeight: { reading: { ...junction.head, basis: TRANSCRIBED }, standing: "RESOLVED" },
-      recess: null,
+      recess:
+        junction.recess === undefined
+          ? null
+          : {
+              length: { ...junction.recess.length, basis: TRANSCRIBED },
+              breadth: { ...junction.recess.breadth, basis: TRANSCRIBED },
+              depth: { ...junction.recess.depth, basis: TRANSCRIBED },
+            },
     };
   }
   (stage.setup as unknown as Record<string, unknown>)["capJunctions"] = capJunctions;
