@@ -153,6 +153,8 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "OFFER_NOT_TO_CONTRACT",
   "OPENING_FLOOR_UNJUDGEABLE",
   "OPENING_NOT_AREABLE",
+  "OPENING_QUANTITY_BASIS_UNSTATED",
+  "OPENING_QUANTITY_DISAGREES",
   "OPENING_SCHEDULE_ABSENT",
   "ORIGIN_NOT_VERIFIED",
   "OUTLINE_NOT_CLOSED",
@@ -412,7 +414,8 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  */
 /* Re-baselined at integration (session 8) for S1's ADDED entries; no existing entry moved. Previous: 39c2cfe82cf6a363fca3e621bdf1c8cc9d8eae26eb54785d98a7351546bfef26. */
 /* Re-baselined at integration (session 8) for S1's ADDED entries; no existing entry moved. Previous: a3adece169f19c74c1dba733a1785ee1661cd918bf0df5aef7e430934e3fecae. */
-const ENTRIES_DIGEST_BEFORE = "2c9643fb4676e0430f3a5371adc31560f43f6883b24f2e7d28bced756b344146";
+/* Re-baselined at integration (session 8, wave 2) for ARCH-3's two ADDED entries (OPENING_QUANTITY_BASIS_UNSTATED, OPENING_QUANTITY_DISAGREES) and the entries C8, BOQ-SHAPE and L4 added without conflict; the whole register was diffed against 9ebdf29a: 26 added, 0 removed, 0 changed. Previous: 2c9643fb4676e0430f3a5371adc31560f43f6883b24f2e7d28bced756b344146. */
+const ENTRIES_DIGEST_BEFORE = "47c0cb85646d12b8cad0cf8aff6913c48a1f5686088b7b4473303b84b0c727dc";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

@@ -138,6 +138,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "scaleAffirmations",
   "scheduleCells",
   "scheduleDeferrals",
+  "schedulePrintedQuantities",
   "schedules",
   "scopeDeclarations",
   "sessions",
@@ -326,7 +327,8 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * table's SQL name or column moved with it; the previous digest was
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
-const COLUMNS_DIGEST_BEFORE = "924641ab4c940a753c3dff37a6708f4934d9d37280ee1b54686ccc62c96a2167";
+/* Re-baselined at integration (session 8, wave 2) for migration 0063's ADDED table schedule_printed_quantities (ARCH-3) and 0064's three ADDED trace-identity columns on ingests (trace_tool, trace_tool_version, trace_parameter_set_hash; M4P-1), after S1's conditions and manual_measurements (0062); no standing column moved or was dropped (checked against the three migrations' ALTER TABLE statements). Previous: 924641ab4c940a753c3dff37a6708f4934d9d37280ee1b54686ccc62c96a2167. */
+const COLUMNS_DIGEST_BEFORE = "5f170ef3ac542934fc21073fd47e21ea14f86152500b61e06f1d382f2c2bfcc8";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {
