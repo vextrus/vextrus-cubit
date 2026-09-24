@@ -409,12 +409,17 @@ describe("the reading of an opening schedule where F-ARCH is silent (I-506, I-50
  * 9ebdf29a): the tables reconstructed, the views that deferred, the families registered (the strips'
  * among them) and the registry's deferrals. ARCH-3 teaches the grammar an architect's words; not one
  * byte a structural drawing was read into may move with them.
+ *
+ * TEST_AMENDED (R0 Rev C): F-RCC6-BNBC's drawing moved, not its reading — Rev B's DXF (7cd0ead3~1)
+ * still reads to the old digests (tables a2b170da…, families a31f2d13…). Rev C's tables differ in S-26's
+ * PC3 rows and printed total (1E3D, K11 + D-S26, W-27) and add the three SLAB PANEL SCHEDULEs (26CF,
+ * 26D1, 26D3; W-47); its families add their 43 and change none; the deferrals do not move.
  */
 const BEFORE: Readonly<Record<string, Readonly<Record<string, string>>>> = Object.freeze({
   [BNBC_DXF]: Object.freeze({
-    tables: "a2b170da6d5397dd35773e26f945516df042a8240f8266375cd7c5c139d2e4fb",
+    tables: "0207e7f4cf98f388f14d19703702bb3d928faa74fc55d23ce36a444cdb6ec771",
     deferrals: "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
-    families: "a31f2d13485688ba31c50d16e4e0146a3273158a7df4103d0fb609254ef681f2",
+    families: "8c97871cab5d7c508932913f1591c3ffb54e81b52bc9fa29861c798abef0d5dd",
     registryDeferrals: "6fe9780ac8c224bb5b6e1957bcaf9a9cbeb5f4adee1daf591b08036fc68fbf7e",
   }),
   [RCC6_DXF]: Object.freeze({
