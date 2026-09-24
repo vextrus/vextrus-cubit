@@ -52,3 +52,75 @@ uncited coordinate — can grow a ring up to 0.05 drawing units per coordinate),
 point judged MEASURED; latent), I-539 (the door takes any rule id). 16 rows stay OWED to slices not
 yet landed. Noted: 0066 minted pcc.blinding.area@1 before I-388's verdict; D-005 keeps the method
 (an under-measurement), so the edition stands.
+
+## R0 chain (`wf_d2dc3a28-e3b`, worktree wf_d2dc3a28-e3b-1)
+
+- R0-G12 DONE, refuter PASS (11 commits carried clean + W-28: GC-3 is formula (iii) by AM-03(d),
+  1,322.389 mm; W-48: S-03's CH row and S-12's C7 section held for their reader — R6b/R6c).
+- R0-G3 DONE, refuter PASS (BNBC's golden 370 → 358 rows, the 12 BRICKWORK rows, 259.425 m³, go to
+  F-ARCH; a Deviation D-R0G3-a entered on the branch).
+- R0-REC BLOCKED: the TypeSafe key was refused (403; my own probe 403 too). The owner set a new key;
+  a fresh shell authenticates (a 422 on a malformed probe body); the MCP `jev_ask` still holds the old
+  key until the cubit server reconnects. 67 requests pending (`.private/work/session-9/chain/rec/pending.txt`).
+- Resumed (`wf_84942e04-86a`): R0-BASE (recordings pending: FIXTURE_MISSING is a named refusal in
+  replay), FND-HEAD, FND-RECESS; R0-REC re-runs after, in the same worktree.
+- R0-BASE (`wf_84942e04-86a`): the corpus baselines committed on the branch (a88ca866 BNBC, c8d1b8b4
+  F-ARCH); refuter: reproducible byte-for-byte, golden figures equal the design's (cap 122.500 m³ /
+  262.773 m²; RCC 1180.513, formwork 5724.531, rebar 165482.875 kg; columns and piles unchanged) —
+  FIX_REQUIRED only for the declared test data: the auto-mode permission classifier refused the chain
+  agent's re-pin of corpus-allow.json / corpus.test.ts / clauses.test.ts (read as removing a security
+  test). The orchestrator made it on the branch (`bf32f70d`: tally 3550/8/26 of 3584, E.G.L allowance
+  retired, freeze 18 → 17, S-01 30 → 34, the per-sheet map, 148 → 163), 22/22 green. The bbs payload
+  cannot re-take: the golden carries C7's hoops at shape CH the product does not hold → BBS-CH.
+- Resumed again (`wf_3017af22-e4b`): BBS-CH → FND-HEAD → FND-RECESS → R0-REC (new key).
+
+## Wave 3b (`wf_16ee1fcd-04d`, 21 agents, ~4.6 M subagent tokens) — integrated
+
+RES-1 (I-548, I-549) · C6b (I-550, I-551) · VD-2 (I-552, I-553) · VD-3 (I-554…I-559) · DLG-2
+(I-560…I-563) · SCALE-2 (I-564…I-566; N1 diagnosed, not fixed: rail_observations are append-only per
+campaign and the residue reads the first run's "unaffirmed" sentence — a residue slice owed) ·
+BBS-HONEST (I-567…I-572; the script died on a transient commit error before logging its ids —
+recorded by hand) · S5 (I-573…I-576) · ASK-1b (I-577…I-583) · M4P-3 (I-584, I-585; opencv pinned) ·
+S3 (I-586…I-589) · ARCH-4 (I-590…I-595, D-007; PARTIAL: walls and openings registered, no brickwork
+figure — WALL_HEIGHT_UNSTATED / WALL_LINTEL_UNDEDUCTED). Integration repairs: `82c85456`, `cd55dbb2`
+(test ids, a vocabulary, tab-store out of the pattern barrels, C4 tokens, the viewer screen's cap).
+
+## Verify's budget, second pass — `b60f27ea`
+
+After wave 3b: verify 69.39 s cold / 64.26 s warm (unit 61, lint 54). The unit lane alone was 56 s and
+~1,000 CPU-s for ~480 s of test time. Now: vmForks for the lane (a VM context per file in long-lived
+workers), a DERIVED forks project for what a VM worker cannot share (Playwright, ESLint, built-in
+mocks); jsdom's sync XHR removed before Playwright loads (source-map-support fetched maps by sync XHR:
+11 s idle per suite); the retrying-read doubles paced at 1 ms; outbox-reader's clock pinned; eslint
+--concurrency=3. Lane alone 46–48 s over five clean runs; verify 51.21 s (56.82 s noisy). Found and
+fixed on the way: two flakes with causes (a raced millisecond; a VM-shared process patch).
+
+## The R0 chain, merged — `d5d7a323` … `72573059`
+
+Chain (`wf_d2dc3a28-e3b` → `wf_84942e04-86a` → `wf_3017af22-e4b`, one worktree): R0-G12 · R0-G3 ·
+R0-BASE · BBS-CH (I-596) · FND-HEAD (I-597; a refuter caught a bracketed minimum read as exact —
+fixed) · FND-RECESS (I-598) · R0-REC (67 live recordings, 116,896 in / 7,779 out tokens,
+**0.004909632 USD**, owner's new key). Fixture law ids I-599…I-610, D-009 (**D-008 unassigned** — the
+allocator skipped it; D-009 is written into hashed generator modules and recorded states, so it
+stands). Baselines: `7cd0ead3` corpus, `a2012042` F-ARCH, `c2305dc5` declared test data (made by the
+orchestrator after the permission classifier refused the chain agent), `72573059` the bar schedule
+payload/PDF re-taken with BBS-HONEST and BBS-CH together (page 6 looked at). Refusal digest `…`
+160 → 175. Expected on J-000: cap concrete 26 COMPLETE 122.464091 m³ (golden 122.500), formwork
+262.689481 m² (262.773). verify after the merge: 9 unit files pinned to Rev B red — re-pinning agent
+running.
+
+## Rev C re-pins (agent) and the post-R0 J-000 read-back
+
+Re-pins `d39663f2`…`ec830c3a` (8 of 9 files; each moved figure named to its W-/K- id; the Rev B
+drawing through today's stages reproduces every old digest). Left red on purpose:
+`bnbc-placeholder-carry.test.ts` — Rev C exposed two defects on the stair roof: SB-R1..4 levelled ROOF
+by the caption's word (golden bills SRR) → SRR-LEV; SB-R4 read "nothing adjoins" on both sides and
+publishes COMPLETE ~0.103 m³ over → FRM4-AD (**a hard block standing in the tree until it lands**).
+
+`pnpm e2e --journeys J-000`: `13 passed (6.7m)` · `JOURNEY J-000 green workers=4`. Read-back, project
+`dc6d9351-a51d-4135-80e5-beedde1e82b8`: cap concrete **26 COMPLETE 122.464091 m³** (golden 122.500),
+formwork **262.689481 m²** (262.773); blinding 12 COMPLETE 3.988982 m³ + 14 PARTIAL; columns 208
+COMPLETE 93.892896 m³ (210 objects: +2 C4 stubs at ROOF, no lines); piles 89 / 1,898.904 m /
+372.848929 m³; beams 360 objects (1 unlevelled), 359 + 359 PARTIAL and **1 + 1 COMPLETE (SB-R4:
+0.257175 m³, 2.7432 m² — the over-measurement above)**; footing 1 object (F1, no line); orphan 0,
+placeholder 0.
