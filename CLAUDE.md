@@ -55,7 +55,7 @@ Each session's brief is `docs/handoff/session-<N>-prompt.md`; read it first.
   testing, measurement or research shows a clause wrong, stale or harmful, depart from it and record a
   Deviation in `docs/decisions/deviations.md` in the same commit — clause, evidence, what the product
   does instead, cost. Never silent, never an edit to `docs/specs/**`, never a loosened proof. Next free
-  ids: I-538, D-007 (D-003 reserved for the ties), migration 0065.
+  ids: I-696, D-011 (D-008 unassigned), migration 0075.
 - **"A partial faulty estimate is more harmful than no estimate. Measure less, completely, and say so.
   Over-measurement is a hard block, never a disclosure. Every refusal carries a named reason. AI
   proposes; code resolves; a human disposes."**
@@ -154,19 +154,17 @@ pypdfium2 and Typst moves re-key corpora or document bytes and are the owner's c
   free of raw control bytes and use `command grep` when a search says "no match" where it should not.
   `git apply --3way` STAGES what it applies. A failed Edit means your copy is stale: re-read and edit.
 
-## Where the product stands (session 8's close; the handoffs hold the proofs)
-- M0–M2 done. M3: every leg walks except `m3-bar-schedule` (the ties: A′ under D-003, owner-ruled);
-  beams publish PARTIAL until FRM-4; R0 = regenerate and draw all (owner-ruled) — R0-G0 merged, G1/G2
-  held with FND-OWN until wave 3a's edition. M4: four named MISSING DOORs, their foundations merged
-  (S-Measure and S-Ask Decisions, the manual act and tools, Ask's engine, vector PDF, F-ARCH and its
-  schedules). Held branches and why: `docs/handoff/session-8.md` §6.
+## Where the product stands (session 9's close; the handoffs hold the proofs)
+- M0–M2 done. M3: every leg walks, `m3-bar-schedule` released (ties A′ under D-003); tie beams read
+  5.9 %/5.4 % under the golden (outside the band); beams publish PARTIAL until FRM-4. M4: two MISSING
+  DOORs (`m4-pdf-sheet`, `m4-rooms-and-finishes`); wave 3e's seven slices (their doors and walk-3's
+  BLOCKS_DEMO) are held unmerged on `worktree-wf_2f62ed4b-e02-1…7` — `docs/handoff/session-9.md` §4.
 - J-000's read-back of the BNBC project is the ground a session starts from (`readback` skill): column
-  concrete 208 COMPLETE lines, 93.892896 m³; piles 89 / 372.848929 m³; caps 26 / 128.781275 m³, formwork
-  254.132613 m² (over-measured by the pile heads and the PC5 recess — FND-OWN, held, fixes it); beams
-  356 objects (1 on no level: S-13's LB1 placeholder), 710 lines, all PARTIAL; no orphan lines (I-368).
-- verify reads ~59.5 s warm against 60 — at the edge (unit ~56 s and lint ~49 s are the walls; cad ~42 s;
-  `CUBIT_VERIFY_REPORT_JSON=<file> pnpm verify` ranks the unit files); the first verify after a reboot,
-  after a cad input moved or after a failed build runs cold.
+  concrete 208 COMPLETE, 93.892896 m³; piles 89 / 372.848929 m³; caps 26 / 122.464091 m³ net,
+  formwork 262.689481 m²; tie beams 43 / 13.749410 m³; beams 367 lines, all PARTIAL; no orphan lines.
+- verify reads ~52 s warm against 60 (unit ~46 s and lint ~34 s are the walls;
+  `CUBIT_VERIFY_REPORT_JSON=<file> pnpm verify` ranks the unit files). `pnpm demo` answers Ask live
+  when the shell holds `TYPESAFE_API_KEY` and says which model it serves.
 
 ## Compact instructions
 When the context is compacted, the summary carries, verbatim where it can: the session's goal and

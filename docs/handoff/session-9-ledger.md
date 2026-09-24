@@ -262,3 +262,12 @@ is ready told on the pre-measured project. BLOCKS_DEMO: a scanned sheet cannot b
 (→ SCAN-SCALE); F-ARCH yields no finish quantity and names objects by hash (→ ARCH-78, ARCH-NAMES);
 the typical-range preview is internal keys (→ RANGE-DLG); a hand measurement's Trace lands on the
 snapped line (→ MANUAL-TRACE). Friction → FLOW-NEXT. Wave 3e: those six + M4P-7.
+
+## The close
+
+- The owner asked to stop at a stable state.
+- Wave 3e (`wf_2f62ed4b-e02`) ended with the context reset and was not resumed. Its seven branches are held unmerged. The uncommitted work on slices 1 and 5 is saved as WIP commits on their own branches (session-9.md §4).
+- `8922aa62`: the founder's script. `936febc6`: live Ask in the demo.
+- Gate 6 **GREEN** on `936febc6`:
+  `GATE summary — verify: green 52.75s · checkup: green 0.76s · golden: green 45.85s · db: green 117.23s · e2e: green 137.49s · e2e-j000: green 291.22s · perf: green 26.09s`
+  `GATE wall-time 671.41s exit 0`.
