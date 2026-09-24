@@ -32,14 +32,6 @@ from vextrus_cad.resync import resync_tag_stream
 #: Where LibreDWG breaks a line: the column this suite spells its wraps at.
 LIBREDWG_COLUMN = 255
 
-#: A real structural working drawing kept beside the product rather than in it — a consultant's
-#: sheet set, not a fixture, held in the checkout's ignored .private/reference/ (L-CAD-09: it never
-#: enters the repository). When it is on this machine the lane is proven against it; when it is
-#: not, the minted breaker below stands for it.
-REFERENCE_DRAWING = (
-    Path(__file__).resolve().parents[3]
-    / ".private/reference/edison/Structural Working Drawing_Edison Lavinia_Final.dwg"
-)
 
 
 def _stream(*tags: tuple[int, str], ending: bytes = b"\r\n") -> bytes:
@@ -221,18 +213,3 @@ def test_the_healed_conversion_ingests_with_every_entity(tmp_path: Path) -> None
 
 
 # --- the reference drawing, when this machine has it ------------------------------------------
-
-
-@pytest.mark.skipif(not REFERENCE_DRAWING.is_file(), reason="the reference sheet set is not on this machine")
-def test_the_reference_structural_drawing_converts_and_ingests(tmp_path: Path) -> None:
-    """22,000 entities and 100-odd layers, once refused over 13 wrapped lines of general notes."""
-    result = convert_dwg(REFERENCE_DRAWING, tmp_path / "out")
-    assert result.rejoined_lines >= 1, "the reference drawing no longer wraps; move this proof"
-    assert result.drawn_dimensions == 0, (
-        "a drawing AutoCAD wrote carries every dimension's picture: the lane draws none, rewrites nothing"
-    )
-    document = ezdxf.readfile(str(result.dxf_path))
-    assert len(document.modelspace()) >= 22_000
-    assert len(document.layers) >= 100
-    artifact = ingest_dxf(result.dxf_path)
-    assert len(artifact["entities"]) >= 21_000

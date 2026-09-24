@@ -147,8 +147,16 @@ export function changedPaths(root, git) {
 export function cadPytestArgv(regenerate) {
   const running = !("regenerate" in regenerate) ? regenerate : regenerate.regenerate ? FIXTURE_CORPORA.map((corpus) => corpus.id) : [];
   const ignored = FIXTURE_CORPORA.filter((corpus) => !running.includes(corpus.id)).map((corpus) => `--ignore=${corpus.test}`);
-  return ["pytest", "cad", ...ignored, ...CAD_WORKERS];
+  return ["pytest", "cad", ...ignored, ...REFERENCE_TESTS.map((test) => `--ignore=${test}`), ...CAD_WORKERS];
 }
+
+/**
+ * The cad suite's proofs against a real drawing the owner keeps beside the product (L-CAD-09): the
+ * one long proof in the suite (~21 s of one core, a 22,000-entity set through LibreDWG), which the
+ * gate's golden lane runs every time (scripts/verify.mjs GOLDEN_PYTEST, `pnpm test:golden`) and
+ * verify's cad lane sets aside, so verify's budget does not carry it twice a gate.
+ */
+export const REFERENCE_TESTS = Object.freeze(["cad/tests/dwg/test_dwg_reference.py"]);
 
 /**
  * The suite runs across six pytest-xdist workers (V-VERIFY). Serially it was the verify chain's wall

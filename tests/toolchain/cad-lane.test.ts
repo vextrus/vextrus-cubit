@@ -27,8 +27,12 @@ import {
   regenerationSkippedLine,
   touchesCorpus,
   touchesFixtureInputs,
+  REFERENCE_TESTS,
 } from "../../scripts/lib/cad-lane.mjs";
 import { GOLDEN_PYTEST, LANE_COMMANDS } from "../../scripts/verify.mjs";
+
+/** The real-drawing proofs the cad lane always sets aside (the gate's golden lane runs them). */
+const SET_ASIDE = REFERENCE_TESTS.map((test) => `--ignore=${test}`);
 
 const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -135,7 +139,7 @@ describe("a git that cannot answer never buys a skip", () => {
     expect(changedPaths("/nowhere", fakeGit({ fails: failing }))).toBeNull();
     const lane = cadLane("/nowhere", fakeGit({ fails: failing }));
     expect(lane.regenerate, "an unknown diff was read as an empty one").toEqual(ALL);
-    expect(lane.argv).toEqual(["pytest", "cad", ...CAD_WORKERS]);
+    expect(lane.argv).toEqual(["pytest", "cad", ...SET_ASIDE, ...CAD_WORKERS]);
     expect(lane.note).toBeNull();
   });
 });
@@ -148,7 +152,7 @@ describe("an F-ARCH edit recomputes F-ARCH and never F-RCC6-BNBC", () => {
   test("the argv deselects BNBC's and F-RCC6's regeneration and keeps F-ARCH's", () => {
     const lane = cadLane("/nowhere", fakeGit({ committed: ["fixtures/gen/arch/model.py", "fixtures/arch/takeoff.golden.json"] }), { readProofs: () => ({}) });
     expect(lane.regenerate).toEqual(["arch"]);
-    expect(lane.argv).toEqual(["pytest", "cad", ...ignoring(["rcc6", "rcc6-bnbc"]), ...CAD_WORKERS]);
+    expect(lane.argv).toEqual(["pytest", "cad", ...ignoring(["rcc6", "rcc6-bnbc"]), ...SET_ASIDE, ...CAD_WORKERS]);
     expect(lane.argv).not.toContain(`--ignore=${corpus("arch").test}`);
     expect(lane.note).toBe(regenerationSkippedLine([{ id: "rcc6", why: "unmoved" }, { id: "rcc6-bnbc", why: "unmoved" }]));
     expect(lane.note).toContain("rcc6-bnbc (nothing it reads moved)");
@@ -157,13 +161,13 @@ describe("an F-ARCH edit recomputes F-ARCH and never F-RCC6-BNBC", () => {
   test("a BNBC model edit recomputes both — F-ARCH stands on BNBC's structure", () => {
     const lane = cadLane("/nowhere", fakeGit({ committed: ["fixtures/gen/rcc6_bnbc/model.py"] }), { readProofs: () => ({}) });
     expect(lane.regenerate).toEqual(["rcc6-bnbc", "arch"]);
-    expect(lane.argv).toEqual(["pytest", "cad", ...ignoring(["rcc6"]), ...CAD_WORKERS]);
+    expect(lane.argv).toEqual(["pytest", "cad", ...ignoring(["rcc6"]), ...SET_ASIDE, ...CAD_WORKERS]);
   });
 
   test("an extractor edit recomputes the structural corpora and not F-ARCH, which imports none of it", () => {
     const lane = cadLane("/nowhere", fakeGit({ committed: ["cad/src/vextrus_cad/report.py"] }), { readProofs: () => ({}) });
     expect(lane.regenerate).toEqual(["rcc6", "rcc6-bnbc"]);
-    expect(lane.argv).toEqual(["pytest", "cad", ...ignoring(["arch"]), ...CAD_WORKERS]);
+    expect(lane.argv).toEqual(["pytest", "cad", ...ignoring(["arch"]), ...SET_ASIDE, ...CAD_WORKERS]);
   });
 });
 
@@ -175,7 +179,7 @@ describe("what the lane runs, and what it says about it", () => {
       },
     });
     expect(lane.regenerate).toEqual([]);
-    expect(lane.argv).toEqual(["pytest", "cad", ...FIXTURE_REGENERATION_TESTS.map((path) => `--ignore=${path}`), ...CAD_WORKERS]);
+    expect(lane.argv).toEqual(["pytest", "cad", ...FIXTURE_REGENERATION_TESTS.map((path) => `--ignore=${path}`), ...SET_ASIDE, ...CAD_WORKERS]);
     expect(lane.note).toBe(regenerationSkippedLine(ALL.map((id) => ({ id, why: "unmoved" as const }))));
     expect(lane.digests).toEqual({});
   });
@@ -195,7 +199,7 @@ describe("what the lane runs, and what it says about it", () => {
 
   test("the suite itself is never narrowed — everything that reads committed bytes still runs", () => {
     expect(cadPytestArgv([])[1]).toBe("cad");
-    expect(cadPytestArgv(ALL)).toEqual(["pytest", "cad", ...CAD_WORKERS]);
+    expect(cadPytestArgv(ALL)).toEqual(["pytest", "cad", ...SET_ASIDE, ...CAD_WORKERS]);
   });
 
   test("the suites that run the collection themselves still ask for all or none of the recomputations", () => {
@@ -214,11 +218,13 @@ describe("what the lane runs, and what it says about it", () => {
     for (const argv of [cadPytestArgv([]), cadPytestArgv(ALL)]) {
       expect(argv.slice(0, 2)).toEqual(["pytest", "cad"]);
       const ignored = argv.filter((arg) => arg.startsWith("--ignore=")).map((arg) => arg.slice("--ignore=".length));
-      for (const path of GOLDEN_PYTEST) {
+      for (const path of GOLDEN_PYTEST.filter((suite) => !REFERENCE_TESTS.includes(suite))) {
         expect(path.startsWith("cad/"), path).toBe(true);
         expect(ignored.some((gone) => path === gone || path.startsWith(`${gone}/`) || gone.startsWith(`${path}/`)), `${path} is set aside by the cad lane`).toBe(false);
       }
     }
+    // The real-drawing proof is the one golden suite the cad lane sets aside; the gate's golden lane runs it.
+    expect(REFERENCE_TESTS.every((test) => GOLDEN_PYTEST.includes(test)), "every proof verify's cad lane sets aside is a golden suite the gate runs").toBe(true);
     expect(LANE_COMMANDS["golden"], "verify's golden lane is its vitest half alone").toEqual([["node", "node_modules/vitest/vitest.mjs", "run", "--config", "tests/golden/vitest.config.ts"]]);
     expect(LANE_COMMANDS["cad"]?.[1]?.slice(0, 2)).toEqual(["pytest", "cad"]);
   });
@@ -297,7 +303,7 @@ describe("a corpus's proof buys its skip a second time — and only for the same
     const proof = { digest: arch, provedAt: "2026-09-23T10:00:00.000Z" };
     const lane = cadLane("/nowhere", git, { readProofs: () => ({ arch: proof }) });
     expect(lane.regenerate, "BNBC's own edit is not bought off by F-ARCH's proof").toEqual(["rcc6-bnbc"]);
-    expect(lane.argv).toEqual(["pytest", "cad", ...ignoring(["rcc6", "arch"]), ...CAD_WORKERS]);
+    expect(lane.argv).toEqual(["pytest", "cad", ...ignoring(["rcc6", "arch"]), ...SET_ASIDE, ...CAD_WORKERS]);
     expect(lane.note).toContain(`arch (its inputs digest ${arch.slice(0, 12)}`);
     expect(lane.note).toContain(REGENERATION_PROOF_PATH);
     expect(Object.keys(lane.digests)).toEqual(["rcc6-bnbc"]);

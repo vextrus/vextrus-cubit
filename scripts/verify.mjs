@@ -30,6 +30,9 @@ export const GOLDEN_PYTEST = Object.freeze([
   "cad/tests/sanity/test_golden_corpora.py",
   "cad/tests/rcc6_bnbc",
   "cad/tests/arch",
+  // The DWG lane proven against the owner's real structural set (REFERENCE_TESTS in ./lib/cad-lane.mjs):
+  // verify's cad lane sets it aside, and the gate's golden lane runs it.
+  "cad/tests/dwg/test_dwg_reference.py",
 ]);
 
 /**
