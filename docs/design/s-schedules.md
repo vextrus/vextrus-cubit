@@ -424,6 +424,90 @@ this file rules. No gallery entry is added (nothing new is invented here).
   the schedule), inside [246.584, 254.2115]. BNBC places no footing (its F1 is the unmarked ring 638), so
   no footing formwork is published there.
 
+- **I-544 — a pile cap is its prism less the heads of the piles it stands on; a cap whose heads
+  nothing places keeps its row and bills nothing (session 8, FND-OWN; L-MEA-09, L-QTY-02/04, AM-02;
+  R0-0's refuter).** L-MEA-09 puts the pile first — "pile › pile cap" — and the pile rail bills every
+  pile from cut-off to toe (`rcc.pile.concrete`, 21.336 m on BNBC). A pile is cut off ABOVE the cap's
+  soffit, so its head stands inside the cap and is the pile's. BNBC cuts its 89 piles off at EL −1.829
+  (S-05 `4DA`) under a soffit at −1.9046 (the neck's 0.6096 below GF plus the schedule's 1.295): 75.6 mm
+  of every head, 1.321 m³ that `rcc.foundation.prism_*` billed a second time. The cap's own sentence now
+  says it: `rcc.pile_cap.prism_rect@1` = `count × (L × B × D − n × π × d × d × e ÷ 4)` and
+  `rcc.pile_cap.prism_poly@1` over `A × D` — `n` the piles held (I-547), `d` their schedule's DIA,
+  `e` the height their heads stand above the soffit. They are RULES of their own and not second versions
+  of the prisms, because a footing shares those and has no pile, diameter or head to name; a version in
+  force for every offer under one rule id would ask it for them. They are in a new method file
+  (`owned.ts`), so no standing pair's closure moves, and the next platform edition cites them (OPEN-3);
+  under an edition that cites none of them the gate refuses a cap `METHOD_NOT_IN_EDITION`, by name. The
+  rail offers EVERY pile cap under the owned rule, and binds what the setup READ: a cap whose piles
+  nobody read — no pile plan in the revision, none its plan can be laid over, or no ring read for it —
+  KEEPS its one line, PARTIAL, `n`, `d` and `e` omitted under `CAP_PILES_UNREAD`, and never falls back
+  to the prism (the FND-OWN review, CONFIRMED: the fallback published the whole prism over heads the
+  pile rail bills — shifting S-04's grid one metre left 0 relations and 26 COMPLETE prisms, 128.781275
+  m³, the +1.321 m³ back); one whose piles were read and where nothing states `e` KEEPS its line,
+  PARTIAL, `e` omitted under `PILE_HEAD_UNSTATED` — its whole prism would read over, and
+  over-measurement is a hard block. A head the drawing only bounds is deducted at the bound and the row
+  says `JUNCTION_DEFERRED`; a cap the plans hold no pile under omits `d` and `e` under
+  `CAP_HOLDS_NO_PILE`. A FOOTING stands on the ground and keeps L-FRM-02's prism. Pile concrete does not
+  move: the pile owns its head. **Cost, said plainly:** no reader of the set carries a head height into
+  a store today, and none can off BNBC as drawn without a further reading nobody has ruled on. Measured
+  over the stages' own read: S-06's PILE CAP SCHEDULE heads `MARK SIZE DEPTH PILES BOTTOM MESH TOP
+  MESH` — no TOP column — so PC1..PC5 register `depth` 1295 and no `top`; no text or attribute of the
+  set states a cap's top or soffit level; S-07's cap sections draw the pile stubs ending AT the soffit;
+  and the one cut-off statement, `EL -1.829` (S-05 `4DA`, the LEVEL_MARK on the untyped PILE
+  CURTAILMENT & SPIRAL ZONES view), stands on that view's own datum, while the level store keeps
+  storey HEIGHTS, not elevations, and the cap's top exists only as the FDN neck a person ENTERS
+  (I-339). Relating the two would take an Interpretation that every EL mark of a set shares GF's datum
+  — which the levels stage refuses for sections ("the views are drawn from their own datums") — and
+  that the neck's foot is every cap's top. So on BNBC the 26 cap concrete lines publish PARTIAL with no
+  figure until the set states the head (the embedment note R0's Rev C S-05 prints, read as `e`), or the
+  owner rules the datum reading. With the head
+  stated at 75.6 mm and PC5's recess (I-546), the 26 publish COMPLETE at **122.475 m³** (proved
+  over the stages' own read and through the gate, `tests/takeoff/rails/foundations/cap-junctions-*`),
+  inside the band of the regenerated golden's 122.500 (R0, K17/K18); at 76.2 mm, 122.464.
+- **I-545 — L-MEA-09 governs L-FRM-04's blinding: under a cap, the blinding is net of the piles
+  that pass through it (session 8, FND-OWN; L-FRM-04, L-MEA-09).** L-FRM-04 states the blinding as
+  `(L + 2p)(B + 2p)t` and names no deduction. A pile a cap stands on reaches the cap — it is cut off at or
+  above the soffit, or it bears nothing — so every one runs through the blinding the cap is cast on, and
+  the blinding is the cap's: the pile's precedence over the cap governs it too. This needs no head
+  height: the section is taken whole whatever `e` is. A cap whose piles nobody read keeps its blinding
+  row with `n` and `d` omitted under `CAP_PILES_UNREAD` (I-547), never the whole slab.
+  `pcc.blinding_rect_piled@1` = `count × ((L + 2 × p) × (B + 2 × p) − n × π × d × d ÷ 4) × t`. A pile
+  section is a JUNCTION its owner takes, not an opening, so no opening threshold partitions it — the
+  same way a column is taken out of a slab whatever its size (BNBC's 0.196 m² sections stand above IS
+  1200's 0.1 m² either way). It needs no head height, so on BNBC the 12 rectangular caps' blinding
+  publishes COMPLETE at **3.989 m³** where it stood at 4.692 (47 sections × 0.0762 m = 0.703 m³, R0-0's
+  refuter); the 14 PC2 still defer by their plan (L-FRM-04, R0-D1).
+- **I-546 — a recess cast into a pile cap is its void: deducted from its concrete, its four sides
+  formed, its floor not (session 8, FND-OWN; L-MEA-09, L-FRM-03; R0 GC-5/K18).** BNBC's lift pit is a
+  recess inside PC5 (S-08's pit ring inside PC5's; R0-0's refuter, CONFIRMED). `rcc.pile_cap.prism_*
+  _recess@1` take `Lr × Br × Dr` off the owned prism, and `rcc.pile_cap.formwork_*_recess@1` add
+  `2 × (Lr + Br) × Dr` to the cap's sides; the recess's floor is the cap's own top surface, cast
+  against nothing. A cap no reader states a recess for is offered as before. **Cost:** no reader states
+  a recess yet — R0's Rev C draws it on S-07 ("PC5 WITH LIFT PIT RECESS", 2493 × 2188 × 914) and the
+  reader of that view lands with it; a head-height reader must not land before it on BNBC, or PC5
+  would publish over by the recess. Staged at those figures, PC5's formwork adds 8.557 m² and the caps
+  form **262.689 m²**, inside the band of R0's 262.773.
+- **I-547 — which piles a cap stands on is read over the whole pinned revision, by laying the pile
+  plan over the cap plan through the grid both draw, and asking the cap's own ring (session 8, FND-OWN
+  and its review; L-CAD-07, I-292, I-333, L-REG-04, L-MEA-09, L-QTY-04).** No stored reading states it:
+  S-04 places the piles and S-06 the caps, each in its own region of model space — and a set routinely
+  draws the two on two FILES. The measure setup (`src/modules/takeoff/measure/cap-junctions.ts`,
+  `pilesHeldOverRevision`) gathers every drawing's placements, grid and cap rings first, keeping each
+  drawing's view keys and handles apart (two files may spell one), and only then reads the relation:
+  it takes each pile's centre off the pile plan's axes and puts it back on the cap plan's same-named
+  axes, then asks the cap's ring — read back out of its own drawing's artifact by the key the placement
+  stage named it by, never its bounding box — which centres it holds. A view is always its own frame, so
+  a cap and piles drawn on one view need no grid. Two plans are one frame only where every axis label
+  they share stands at one offset on the placement lattice, with at least two labels per world axis;
+  plans at two scales, turned, or sharing too few labels are no frame. A cap any pile view cannot be
+  laid under has no entry — never a count that skipped that view's piles, which would net fewer heads
+  than it holds and publish over — and the rails keep its rows naming `CAP_PILES_UNREAD`; a cap on a
+  view every pile plan CAN be laid under is read as ever. The
+  count is MEASURED, cited to the cap's placement. On BNBC every cap holds exactly the PILES figure S-06's
+  own schedule prints for its type (2, 3, 4, 5, 9) and every one of the 89 piles is held once, the PC1
+  turned 45° by its own ring. The schedule's PILES column stays unread (I-322): the plans are the
+  reading, and the column is what this proof holds them to.
+
 - **I-sch-1 — the craft look of session 7 (2026-09-23): the drawing's words as the drawing shows
   them, a rail that names its sheets, and a registry that reads as rows.** The vision review found
   the screen at the bar by score and not fit to show (identifierExposure 3, tokensAndGrid 3); its

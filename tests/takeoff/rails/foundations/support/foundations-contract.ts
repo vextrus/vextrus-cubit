@@ -118,10 +118,25 @@ export const BLINDING_RULE_ID = "pcc.blinding_rect";
 export const FOUNDATION_FORMWORK_RECT_RULE_ID = "rcc.foundation.formwork_rect";
 export const FOUNDATION_FORMWORK_POLY_RULE_ID = "rcc.foundation.formwork_poly";
 
+/**
+ * TEST_AMENDED (FND-OWN, I-544..c): L-MEA-09's pile › pile cap joins the shard as SEVEN rules of
+ * their own — a cap's prism less the heads its piles own, over a rectangle and over any other plan,
+ * each with and without a recess cast into it; the recess's sides on the cap's formwork, both plans;
+ * and L-FRM-04's blinding less the piles' sections through it. Rules of their own and never second
+ * versions of the prisms above, because a footing shares those and has no pile to name.
+ */
+export const PILE_CAP_PRISM_RECT_RULE_ID = "rcc.pile_cap.prism_rect";
+export const PILE_CAP_PRISM_POLY_RULE_ID = "rcc.pile_cap.prism_poly";
+export const PILE_CAP_PRISM_RECT_RECESS_RULE_ID = "rcc.pile_cap.prism_rect_recess";
+export const PILE_CAP_PRISM_POLY_RECESS_RULE_ID = "rcc.pile_cap.prism_poly_recess";
+export const PILE_CAP_FORMWORK_RECT_RECESS_RULE_ID = "rcc.pile_cap.formwork_rect_recess";
+export const PILE_CAP_FORMWORK_POLY_RECESS_RULE_ID = "rcc.pile_cap.formwork_poly_recess";
+export const BLINDING_OVER_PILES_RULE_ID = "pcc.blinding_rect_piled";
+
 /** One (rule id, version) pair, as an edition cites one and the registry enumerates one. */
 export type MethodPairShape = { ruleId: string; version: string };
 
-/** The version every method of this shard lands at, and the nine pairs it records (AC-2, I-337). */
+/** The version every method of this shard lands at, and the sixteen pairs it records (AC-2, I-337, I-544..c). */
 export const FOUNDATIONS_VERSION = "1";
 export const FOUNDATIONS_RULE_IDS: readonly string[] = Object.freeze([
   FOUNDATION_PRISM_RECT_RULE_ID,
@@ -133,6 +148,13 @@ export const FOUNDATIONS_RULE_IDS: readonly string[] = Object.freeze([
   BLINDING_RULE_ID,
   FOUNDATION_FORMWORK_RECT_RULE_ID,
   FOUNDATION_FORMWORK_POLY_RULE_ID,
+  PILE_CAP_PRISM_RECT_RULE_ID,
+  PILE_CAP_PRISM_POLY_RULE_ID,
+  PILE_CAP_PRISM_RECT_RECESS_RULE_ID,
+  PILE_CAP_PRISM_POLY_RECESS_RULE_ID,
+  PILE_CAP_FORMWORK_RECT_RECESS_RULE_ID,
+  PILE_CAP_FORMWORK_POLY_RECESS_RULE_ID,
+  BLINDING_OVER_PILES_RULE_ID,
 ]);
 export const FOUNDATIONS_PAIRS: readonly MethodPairShape[] = Object.freeze(
   FOUNDATIONS_RULE_IDS.map((ruleId) => Object.freeze({ ruleId, version: FOUNDATIONS_VERSION })),
@@ -163,6 +185,14 @@ export const EARTHWORK_PLAN_DEFERRED = "EARTHWORK_PLAN_DEFERRED";
 export const BLINDING_PLAN_DEFERRED = "BLINDING_PLAN_DEFERRED";
 export const SITE_FACT_UNKNOWN = "SITE_FACT_UNKNOWN";
 export const SITE_FACT_SOURCE_UNSTATED = "SITE_FACT_SOURCE_UNSTATED";
+
+/** The two FND-OWN registers (I-544, I-547): heads nothing places, a cap the plans hold no pile under. */
+export const PILE_HEAD_UNSTATED = "PILE_HEAD_UNSTATED";
+export const CAP_HOLDS_NO_PILE = "CAP_HOLDS_NO_PILE";
+export const CAP_PILES_UNREAD = "CAP_PILES_UNREAD";
+
+/** The code a head height the drawing only bounds is reported under — the slabs area's (L-QTY-04). */
+export const JUNCTION_DEFERRED = "JUNCTION_DEFERRED";
 
 /** The two codes the rails report as OBSERVATIONS, exactly as the column rail reports them (AC-8). */
 export const VIEW_SCALE_UNAFFIRMED = "VIEW_SCALE_UNAFFIRMED";
@@ -700,6 +730,8 @@ export type ModelMember = {
   top?: string;
   dia?: string;
   length?: string;
+  /** The piles a pile cap stands on, by their member ids (L-MEA-09). */
+  piles?: string[];
 };
 
 /** Every member of a fixture's model, as the fixture wrote them. */
@@ -707,6 +739,13 @@ export function modelMembers(relative: string): ModelMember[] {
   const parsed = JSON.parse(readFileSync(join(REPO_ROOT, relative), "utf8")) as { members?: ModelMember[] };
   expect(Array.isArray(parsed.members), `${relative} states the members the fixture was authored from`).toBe(true);
   return parsed.members ?? [];
+}
+
+/** The elevations a fixture's model states, by name, in millimetres (fixtures/<id>/model.json `levels`). */
+export function modelLevels(relative: string): Record<string, string> {
+  const parsed = JSON.parse(readFileSync(join(REPO_ROOT, relative), "utf8")) as { levels?: Record<string, string> };
+  expect(parsed.levels !== undefined, `${relative} states the elevations the fixture was authored at`).toBe(true);
+  return parsed.levels ?? {};
 }
 
 /** The SITE facts a fixture's site file states (fixtures/<id>/site.json). */

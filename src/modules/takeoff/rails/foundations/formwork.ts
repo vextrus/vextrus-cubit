@@ -18,11 +18,20 @@
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { Measure, Offer, OmittedComponent, Rail, RailInput, RailObservation } from "@/core/offers/contract";
-import { DEPTH, FOUNDATION_DEPTH_UNSTATED, FOUNDATION_PLAN_UNSTATED, PRISM_POLY, PRISM_RECT, SPREAD, countOf, dimensionOf, planOf, resolve, type Read } from "./read";
+import type { RailSetup } from "@/core/offers/contract";
+import { DEPTH, FOUNDATION_DEPTH_UNSTATED, FOUNDATION_PLAN_UNSTATED, PRISM_POLY, PRISM_RECT, SPREAD, capJunctionOf, countOf, dimensionOf, planOf, recessOf, resolve, type Read } from "./read";
 
 /** The rules this reader offers under. An offer names a rule and never a version (L-MEA-08). */
 export const FOUNDATION_FORMWORK_RECT_RULE_ID = "rcc.foundation.formwork_rect";
 export const FOUNDATION_FORMWORK_POLY_RULE_ID = "rcc.foundation.formwork_poly";
+
+/**
+ * The rules a pile cap with a recess cast into it is offered under: its own sides, and the recess's
+ * four sides below its top (L-FRM-03, I-546). The recess's floor is the cap's own top surface,
+ * cast against nothing, so no rule names it.
+ */
+export const PILE_CAP_FORMWORK_RECT_RECESS_RULE_ID = "rcc.pile_cap.formwork_rect_recess";
+export const PILE_CAP_FORMWORK_POLY_RECESS_RULE_ID = "rcc.pile_cap.formwork_poly_recess";
 
 /** The one kind this reader measures — the contact area concrete is cast against (L-FRM-03). */
 const RCC_FORMWORK: Kind = "rcc.formwork";
@@ -38,11 +47,15 @@ const D = "D";
  * One spread foundation's side formwork: its plan's boundary, its depth, and whichever of the two the
  * drawing and the schedules did not state.
  */
-function formworkOffer(read: Read): Offer {
+function formworkOffer(read: Read, setup: RailSetup): Offer {
   const { row, placement, calibration } = read;
   const bindings: Record<string, Measure> = {};
   const omitted: OmittedComponent[] = [];
   const plan = planOf(read);
+  // A recess cast into a pile cap is formed on its four sides as the cap is (I-546); a cap with
+  // none read is formed along its own sides alone, as it always was. The piles a cap stands on meet
+  // its soffit, which is never formed, so they change nothing here — read or unread.
+  const recess = recessOf(capJunctionOf(read, setup));
 
   // The rule is the plan's, exactly as the concrete's is: a polygon is formed along its own ring and
   // a rectangle along its sides. A polygon whose boundary nobody read, and a plan nobody stated at
@@ -62,15 +75,24 @@ function formworkOffer(read: Read): Offer {
   if (depth === undefined) omitted.push({ variable: D, code: FOUNDATION_DEPTH_UNSTATED });
   else bindings[D] = depth;
 
+  const ruleId =
+    recess === null
+      ? poly
+        ? FOUNDATION_FORMWORK_POLY_RULE_ID
+        : FOUNDATION_FORMWORK_RECT_RULE_ID
+      : poly
+        ? PILE_CAP_FORMWORK_POLY_RECESS_RULE_ID
+        : PILE_CAP_FORMWORK_RECT_RECESS_RULE_ID;
+
   return {
-    ruleId: poly ? FOUNDATION_FORMWORK_POLY_RULE_ID : FOUNDATION_FORMWORK_RECT_RULE_ID,
+    ruleId,
     kind: RCC_FORMWORK,
     class: row.elementType as ElementType,
     register: { setRevisionId: row.setRevisionId, objectKey: row.objectKey },
     drawing: { drawingId: placement.drawingId, viewKey: placement.viewKey },
     engine: placement.engine,
     geometry: { type: poly ? PRISM_POLY : PRISM_RECT, basis: row.standing, calibration },
-    bindings: { [COUNT]: countOf(read), ...bindings },
+    bindings: { [COUNT]: countOf(read), ...bindings, ...(recess ?? {}) },
     // Nothing selects a formwork item here: the member is the line's own class, which code already
     // knows (L-BD-04's sub-items, item-descriptions' deliberate absence), and a grade is concrete's.
     selectors: {},
@@ -101,7 +123,7 @@ export const foundationFormworkRail: Rail = (input: RailInput) => {
       observations.push(resolution.observation);
       continue;
     }
-    offers.push(formworkOffer(resolution.read));
+    offers.push(formworkOffer(resolution.read, input.setup));
   }
   return { offers, observations };
 };

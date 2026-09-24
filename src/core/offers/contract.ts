@@ -458,6 +458,20 @@ export type RailSetup = {
   /** The outline, the selecting facts and the opening schedule behind each surface placement, by key. */
   readonly surfaces: Readonly<Record<string, SurfaceSetup>>;
   /**
+   * What the drawing states about the junctions each PILE CAP shares with what it stands on and what
+   * is cast into it, by the cap's placement key (L-MEA-09: pile › pile cap; I-544..d).
+   *
+   * A cap WITH an entry is one whose piles were read, over the whole pinned revision: the rail measures
+   * it net of what they own, or keeps its row with the reading it lacks named (L-QTY-02, L-QTY-04). A
+   * pile cap with NO entry — the field absent, or the key — is one nobody could read the piles of: no
+   * pile plan in the revision, none the cap's plan can be laid over through one grid, or no ring read
+   * for the cap. It is never measured as its whole prism, which would read over the heads its piles
+   * own; it keeps its row and names `CAP_PILES_UNREAD` (I-547). Optional because a setup a proof
+   * builds by hand for another area holds no pile cap, and an absent field then says exactly what an
+   * absent key does.
+   */
+  readonly capJunctions?: Readonly<Record<string, CapJunctionSetup>>;
+  /**
    * What each SITE fact of the project stands at, where somebody entered one (L-MEA-06). A fact
    * nobody entered is an ABSENT KEY — "an absent fact is a named deferral, never a default"
    * (AM-06 §1) — so a rail reads an absence here and reports it rather than falling back to a zero.
@@ -523,6 +537,38 @@ export type SiteFactSetup = {
   readonly canonicalMetres: string;
   readonly sourceNote: string;
   readonly actId: string;
+};
+
+/**
+ * What the drawing states about one pile cap's junctions (L-MEA-09, I-544..d): the piles it
+ * stands on, how far their heads stand into it, and the recess cast into it.
+ *
+ * `piles` are the PILE placements the cap's own plan holds — the register objects the pile rail bills,
+ * each of which owns its whole length from cut-off to toe and so owns the head standing in the cap.
+ * They are read by laying the pile layout plan over the cap layout through the grid both draw
+ * (L-CAD-07) and asking the cap's own ring (I-333) which pile centres stand inside it; `count` is how
+ * many, as the reading the rail binds (MEASURED off the two plans, cited to the cap's placement).
+ *
+ * `headHeight` is how far each held pile's head stands above the cap's soffit, as a junction reading:
+ * RESOLVED is the drawing's statement of it, BOUNDED a bound the drawing states (deducted at, and the
+ * figure then UNDER), UNBOUNDED nothing at all — and a cap holding piles whose heads nothing places is
+ * a cap whose concrete would read OVER, so it keeps its row and names the reading it lacks (L-QTY-04).
+ *
+ * `recess` is the void cast into the cap (a lift pit's, GC-5): its plan sides and its depth below the
+ * cap's top, or null where no reader stated one.
+ */
+export type CapJunctionSetup = {
+  readonly piles: readonly string[];
+  readonly count: ReadingSetup;
+  readonly headHeight: JunctionReading;
+  readonly recess: RecessSetup | null;
+};
+
+/** A recess cast into a pile cap: its two plan sides and its depth below the cap's top (I-546). */
+export type RecessSetup = {
+  readonly length: ReadingSetup;
+  readonly breadth: ReadingSetup;
+  readonly depth: ReadingSetup;
 };
 
 /** The pinned edition a DERIVED reading is bound from: what it is, and what it states (L-MEA-01). */

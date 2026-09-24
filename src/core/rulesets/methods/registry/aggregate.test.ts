@@ -35,6 +35,16 @@ const byCodePoint = (left: string, right: string): number => (left < right ? -1 
 /**
  * Every pair the shards recorded before AM-11 moved a line, keyed `<ruleId>@<version>` (L-MEA-01).
  *
+ * Re-baselined by FND-OWN (I-544..c) for SEVEN ADDED pairs and nothing else — L-MEA-09's pile ›
+ * pile cap: `rcc.pile_cap.prism_rect@1` and `rcc.pile_cap.prism_poly@1`, a cap's prism less the heads
+ * its piles own; their `_recess` twins, less the recess cast into it as well;
+ * `rcc.pile_cap.formwork_rect_recess@1` and `rcc.pile_cap.formwork_poly_recess@1`, a cap's sides and
+ * its recess's; and `pcc.blinding_rect_piled@1`, L-FRM-04's blinding less the piles' sections through
+ * it — recorded in `../foundations/foundations.methods.json` from a new module, `owned.ts`, so no
+ * standing pair's closure moved. No edition cites them yet: the next platform edition does. The roster
+ * grew by those seven keys — forty-four pairs to fifty-one — and no pair standing before them moved
+ * (B-19, B-20).
+ *
  * Re-baselined by F-ARCH's FINISHES (ARCH-2, I-542, I-543) for FOUR ADDED pairs and nothing
  * else — the floor finish of a room's floor, `finish.surface.flooring@1` over the face algebra's own
  * `A = gross − openings`, and the plaster, the paint and the tiling of one run of a room's walls,
@@ -109,6 +119,7 @@ const PAIRS_BEFORE: readonly string[] = Object.freeze([
   "member.volume@1",
   "pcc.blinding.area@1",
   "pcc.blinding_rect@1",
+  "pcc.blinding_rect_piled@1",
   "piling.bored.count@1",
   "piling.bored.length@1",
   "rcc.beam.concrete@1",
@@ -122,6 +133,12 @@ const PAIRS_BEFORE: readonly string[] = Object.freeze([
   "rcc.lintel.concrete@1",
   "rcc.lintel.formwork@1",
   "rcc.pile.concrete@1",
+  "rcc.pile_cap.formwork_poly_recess@1",
+  "rcc.pile_cap.formwork_rect_recess@1",
+  "rcc.pile_cap.prism_poly@1",
+  "rcc.pile_cap.prism_poly_recess@1",
+  "rcc.pile_cap.prism_rect@1",
+  "rcc.pile_cap.prism_rect_recess@1",
   "rcc.rebar.cutting_length@1",
   "rcc.rebar.mass@1",
   "rcc.rebar.stock@1",

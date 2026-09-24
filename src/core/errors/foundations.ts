@@ -26,7 +26,10 @@ export type FoundationsRefusalCode =
   | "EARTHWORK_PLAN_DEFERRED"
   | "BLINDING_PLAN_DEFERRED"
   | "SITE_FACT_UNKNOWN"
-  | "SITE_FACT_SOURCE_UNSTATED";
+  | "SITE_FACT_SOURCE_UNSTATED"
+  | "PILE_HEAD_UNSTATED"
+  | "CAP_HOLDS_NO_PILE"
+  | "CAP_PILES_UNREAD";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const FOUNDATIONS_REFUSALS: RefusalGroup<FoundationsRefusalCode> = Object.freeze({
@@ -131,6 +134,42 @@ export const FOUNDATIONS_REFUSALS: RefusalGroup<FoundationsRefusalCode> = Object
     code: "SITE_FACT_SOURCE_UNSTATED",
     message: "This entry says nothing about where the fact came from, and a site fact is only as good as its source.",
     remedy: "Write the note that says where the fact was read — the borelog, the survey or the drawing's general notes.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-MEA-09: pile › pile cap. A pile owns its whole length from cut-off to toe, so the head standing
+  // above the cap's soffit is the pile's, and a cap measured whole over it bills that head twice —
+  // "over-measurement → hard block, never a disclosure" (L-QTY-04). Where the drawing places the piles
+  // under a cap and nothing states how far their heads stand into it, the cap keeps its row and names
+  // the reading, rather than publishing a figure that reads over (I-544).
+  PILE_HEAD_UNSTATED: Object.freeze({
+    code: "PILE_HEAD_UNSTATED",
+    message: "The drawing does not say how far the pile heads stand into this cap, so its concrete would include concrete the piles already own.",
+    remedy: "Read the pile cut-off level against the cap's soffit, or the embedment the pile detail states, then measure the campaign again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // The plans hold no pile under a pile cap: the pile layout, laid over the cap layout through the
+  // grid both draw, places none inside this cap's ring. A cap stands on piles by what it is, so the
+  // two plans disagree about it, and a figure taken over either would be a guess (L-REG-03,
+  // L-QTY-01, I-547).
+  CAP_HOLDS_NO_PILE: Object.freeze({
+    code: "CAP_HOLDS_NO_PILE",
+    message: "The pile layout places no pile under this cap, so what the piles own of it cannot be read.",
+    remedy: "Check the pile layout against the cap layout — a pile drawn off its grid, or a cap drawn off its piles — then measure the campaign again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // Nobody read which piles stand under this pile cap: the revision draws no pile layout, or none that
+  // can be laid over the cap's plan through one grid (another scale, too few shared axes, a view with
+  // no grid), or the cap's own ring was not read. A cap stands on piles by what it is, and each of
+  // them owns the head it cast into the cap (L-MEA-09), so the cap's prism taken whole would read over
+  // them — over-measurement is a hard block, never a disclosure (L-QTY-04, I-547). The cap keeps
+  // its row with the reading named, and never falls back to the prism.
+  CAP_PILES_UNREAD: Object.freeze({
+    code: "CAP_PILES_UNREAD",
+    message: "Which piles stand under this cap could not be read, so its concrete would include concrete the piles already own.",
+    remedy: "Add the pile layout to the drawing set, or check that it draws the same grid as the cap layout at the same scale, then measure the campaign again.",
     severity: "error",
     surface: "inline",
   }),

@@ -23,6 +23,16 @@
  * figure it is (`goldenFigure`: the rows summed, plus the printing's own half-unit). The plan is the
  * ring's — a PC2 is its 3.2625 m² shoelace and never the schedule's 2100 × 1750 (3.675 m², which would
  * put the cell 5.8 % over), and the PC1 turned 45° its own 2000 × 1000 and never its 2121 × 2121 box.
+ *
+ * TEST_AMENDED (session 8, FND-OWN review, I-544, I-547): a pile cap's concrete is offered
+ * under its own sentence — the prism less the heads its piles own (L-MEA-09) — and a cap whose piles
+ * nobody read keeps its line naming `CAP_PILES_UNREAD`, never the whole prism over heads the pile rail
+ * already bills (L-QTY-04). This proof hands the rails no pile relation — it grades the PLAN, and the
+ * relation is graded in ./cap-junctions-store.test.ts — so its 26 cap concrete lines are KEPT, each
+ * binding its plan and its depth and naming only the junction it was not handed. The band is then
+ * graded over the plan those kept lines bind (Σ A × D, or L × B × D, off the lines' own canonical
+ * bindings), which is what this proof is for: the ring's plan, through the store, inside the golden's
+ * band. The formwork, which no pile touches, still publishes whole.
  */
 import { afterAll, describe, expect, test } from "vitest";
 import { ident, lit } from "../../../../db/__tests__/support/live-sql";
@@ -48,6 +58,7 @@ import {
   railsRoster,
   stageFoundationsCampaign,
   type CellReading,
+  type DecimalLike,
   type FoundationsStage,
   type RailBatchShape,
   type StagedMember,
@@ -66,9 +77,14 @@ const BAR_SCHEDULE = "DXF_HANDLE:1E3D";
 const TURNED_PC1 = "DXF_HANDLE:5FB";
 const DECLARATION = "DXF_HANDLE:1F3E";
 
-/** The rules a cap's concrete is measured by (R-TO-032). */
-const PRISM_POLY_RULE = "rcc.foundation.prism_poly";
-const PRISM_RECT_RULE = "rcc.foundation.prism_rect";
+/** The rules a cap's concrete is offered under: its own sentences, the prism less its piles' heads (L-MEA-09, I-544). */
+const PRISM_POLY_RULE = "rcc.pile_cap.prism_poly";
+const PRISM_RECT_RULE = "rcc.pile_cap.prism_rect";
+
+/** The one reading a kept cap line may name here: the pile relation this proof stages none of. */
+const JUNCTION_UNREAD = "CAP_PILES_UNREAD";
+
+type LineBindings = Record<string, { value?: string; unit?: string; basis?: string; canonical?: { value?: string; unit?: string } }>;
 
 /** And the rules its side formwork is measured by (L-FRM-03, I-337). */
 const FORMWORK_POLY_RULE = "rcc.foundation.formwork_poly";
@@ -202,7 +218,7 @@ describe("I-333: the caps' plans, through the store", () => {
   }, BUDGET_MS);
 });
 
-describe("I-334: the caps are measured over their own plans, COMPLETE, inside L-QTY-06's band", () => {
+describe("I-334: the caps are measured over their own plans, their plans inside L-QTY-06's band", () => {
   test("every cap resolves its type, and the gate refused nothing", async () => {
     await staged();
     const unknown = batch.observations.filter((one) => one.class === PILE_CAP && one.code === "MEMBER_TYPE_UNKNOWN");
@@ -210,16 +226,16 @@ describe("I-334: the caps are measured over their own plans, COMPLETE, inside L-
     expect(verdict.refused, `every offer published (the gate refused ${JSON.stringify(verdict.refusals)})`).toBe(0);
   }, BUDGET_MS);
 
-  test("pile_cap × rcc.concrete: 26 COMPLETE lines; the PC2 lines are PRISM_POLY over A = 3.2625 m²", async () => {
+  test("pile_cap × rcc.concrete: 26 lines, each binding its plan and depth and naming only the unread pile relation; the PC2 lines are PRISM_POLY over A = 3.2625 m²", async () => {
     await staged();
     const held = cells.get(`${PILE_CAP}|${RCC_CONCRETE}`);
     expect(held?.lines, "one line per cap").toBe(26);
-    expect(held?.partial, `every one COMPLETE (${JSON.stringify(held?.partialCodes)})`).toBe(0);
+    expect(held?.partialCodes, "every plan and depth read: the only reading any line lacks is the pile relation this proof hands none of").toEqual([JUNCTION_UNREAD]);
     const { exact } = await canon();
     const polygons = linesUnderRule(stage.tenantId, stage.campaignId, PRISM_POLY_RULE);
     expect(polygons.length, "the 14 PC2").toBe(14);
     for (const line of polygons) {
-      const bindings = (line as Record<string, unknown>)["bindings"] as Record<string, { value?: string; unit?: string; basis?: string; canonical?: { value?: string; unit?: string } }>;
+      const bindings = (line as Record<string, unknown>)["bindings"] as LineBindings;
       expect([bindings["A"]?.value, bindings["A"]?.unit, bindings["A"]?.basis], "A is the ring's shoelace, measured").toEqual(["3262500.0", "mm2", "MEASURED"]);
       expect(bindings["A"]?.canonical?.unit, "carried by the canon in m²").toBe("m2");
       expect(exact(String(bindings["A"]?.canonical?.value)).eq(exact("3.2625")), `as 3.2625 m² (${String(bindings["A"]?.canonical?.value)})`).toBe(true);
@@ -227,14 +243,25 @@ describe("I-334: the caps are measured over their own plans, COMPLETE, inside L-
     expect(linesUnderRule(stage.tenantId, stage.campaignId, PRISM_RECT_RULE).length, "and the twelve rectangles by their sides").toBe(12);
   }, BUDGET_MS);
 
-  test("PILE_CAP × RCC_CONCRETE × FDN stands inside the golden's band — three per cent under at most, never over", async () => {
+  test("PILE_CAP × RCC_CONCRETE × FDN: the plan the 26 lines bind stands inside the golden's band — three per cent under at most, never over", async () => {
     await staged();
     const { exact } = await canon();
     const held = cells.get(`${PILE_CAP}|${RCC_CONCRETE}`) as CellReading;
+    expect(held.sum.toString(), "the kept lines publish no figure: a cap whose piles nobody read is never its whole prism (L-QTY-04)").toBe("0");
+    // Σ plan × depth over the lines' own canonical bindings — A × D over a polygon, L × B × D over a
+    // rectangle — the figure the plan reading owes the golden, off what the store holds.
+    const lines = [...linesUnderRule(stage.tenantId, stage.campaignId, PRISM_POLY_RULE), ...linesUnderRule(stage.tenantId, stage.campaignId, PRISM_RECT_RULE)];
+    expect(lines.length, "one line per cap").toBe(26);
+    const metric = (bindings: LineBindings, name: string) => exact(String(bindings[name]?.canonical?.value));
+    const plans = lines.reduce<DecimalLike>((sum, line) => {
+      const bindings = (line as Record<string, unknown>)["bindings"] as LineBindings;
+      const plan = bindings["A"] !== undefined ? metric(bindings, "A") : metric(bindings, "L").mul(metric(bindings, "B"));
+      return sum.add(plan.mul(metric(bindings, "D")));
+    }, exact("0"));
     const golden = goldenFigure(goldenCell(BNBC_FIXTURE, { class: PILE_CAP, kind: RCC_CONCRETE }), exact as (value: string) => ReturnType<typeof exact>);
-    expect(golden.printed.mul(exact(UNDER_TOLERANCE)).sub(golden.halfUlp).lte(held.sum), `${held.sum.toString()} m³ is no more than three per cent under ${golden.said}`).toBe(true);
-    expect(held.sum.lte(golden.printed.add(golden.halfUlp)), `${held.sum.toString()} m³ is not over ${golden.said} — an over-measured figure is never a disclosure (L-QTY-04)`).toBe(true);
-    expect(held.sum.eq(exact("99.445").mul(exact("1.295"))), `and it is 99.445 m² × 1.295 m exactly (${held.sum.toString()})`).toBe(true);
+    expect(golden.printed.mul(exact(UNDER_TOLERANCE)).sub(golden.halfUlp).lte(plans), `${plans.toString()} m³ is no more than three per cent under ${golden.said}`).toBe(true);
+    expect(plans.lte(golden.printed.add(golden.halfUlp)), `${plans.toString()} m³ is not over ${golden.said} — an over-measured plan is never a disclosure (L-QTY-04)`).toBe(true);
+    expect(plans.eq(exact("99.445").mul(exact("1.295"))), `and it is 99.445 m² × 1.295 m exactly (${plans.toString()})`).toBe(true);
   }, BUDGET_MS);
 });
 

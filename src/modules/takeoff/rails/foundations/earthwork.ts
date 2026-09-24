@@ -20,10 +20,12 @@ import {
   PRISM_RECT,
   SPREAD,
   TOP,
+  capJunctionOf,
   countOf,
   dimensionOf,
   enteredOnly,
   enteredOrDerived,
+  heldPilesOf,
   planOf,
   resolve,
   type Plan,
@@ -33,6 +35,12 @@ import {
 /** The rules these rails offer under. An offer names a rule and never a version (L-MEA-08). */
 export const EXCAVATION_RULE_ID = "earthwork.pit_rect";
 export const BLINDING_RULE_ID = "pcc.blinding_rect";
+
+/**
+ * The rule the blinding under a pile cap whose piles were read is offered under: L-FRM-04's sentence
+ * with the sections of the piles that pass through it taken out (L-MEA-09, I-545).
+ */
+export const BLINDING_OVER_PILES_RULE_ID = "pcc.blinding_rect_piled";
 
 /** The two kinds, one rail each (L-MEA-08). */
 const EARTHWORK_EXCAVATION: Kind = "earthwork.excavation";
@@ -163,6 +171,13 @@ export const excavationRail: Rail = (input: RailInput) =>
  * It projects past the plan by `p` on every side and is laid `t` thick, both from the site where it
  * entered them and from the pinned edition otherwise — and it is deferred over a plan that is not a
  * rectangle, exactly as the pit above it is.
+ *
+ * Under a pile cap the piles run through it: a pile the cap stands on reaches the cap, so it is cut
+ * off at or above the cap's soffit and passes through the blinding the cap is cast on, and the pile
+ * owns that section (L-MEA-09, I-545). The row is offered under the sentence that takes the
+ * sections out — `n` of them, of the diameter the pile schedule states — and piles nobody read, or a
+ * section nothing states, keep the row with no figure rather than the whole slab over the piles
+ * (L-QTY-04, I-547).
  */
 export const blindingRail: Rail = (input: RailInput) =>
   spreadOf(input, PCC_BLINDING, (read, setup) => {
@@ -174,5 +189,10 @@ export const blindingRail: Rail = (input: RailInput) =>
     bind(PROJECTION, enteredOrDerived(setup, "BLINDING_PROJECTION"), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
     bind(THICKNESS, enteredOrDerived(setup, "BLINDING_THICKNESS"), bindings, omitted, EARTHWORK_PARAMETER_UNSTATED);
 
-    return offerOf(read, PCC_BLINDING, BLINDING_RULE_ID, geometryOf(plan), bindings, omitted);
+    const cap = capJunctionOf(read, setup);
+    if (cap === null) return offerOf(read, PCC_BLINDING, BLINDING_RULE_ID, geometryOf(plan), bindings, omitted);
+    // What the piles own of the blinding is their SECTION, and a section has no height: the head
+    // above the soffit is the cap's question, never the blinding's.
+    const held = heldPilesOf(read, setup, cap, { head: false });
+    return offerOf(read, PCC_BLINDING, BLINDING_OVER_PILES_RULE_ID, geometryOf(plan), { ...bindings, ...held.bindings }, [...omitted, ...held.omitted]);
   });

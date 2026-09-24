@@ -10,17 +10,47 @@
 // Nothing is judged here and nothing is derived: a view no act has affirmed is simply absent from
 // the calibrations, and what a rail makes of that absence is the rail's (riskNotes (3)). Nothing is
 // converted either — every reading is carried as the drawing wrote it, and the canon is reached at
-// the gate (B-17, L-FRM-06).
+// the gate (B-17, L-FRM-06). The one relation read here rather than carried is which piles each pile
+// cap stands on (`./cap-junctions`, I-547): the revision's stored plans laid over one grid, and
+// the cap's own ring asked which pile centres it holds — a relation between stored readings, often of
+// two drawings, which no single store states and no rail may reach a store to ask.
 import { editionOf } from "@/core/campaigns";
 import { drawingSetRevisions, eq, and, forTenant, type TenantTx } from "@/core/db";
+import { artifactAt } from "@/core/entitygraph/artifact";
+import { appStorage } from "@/core/storage/app";
 import { levelStackOf } from "@/modules/takeoff/levels";
 import { siteFactsOf, type SiteFact } from "@/modules/takeoff/site-facts";
 import { appliedDetailingValuesOf, type AppliedDetailingValues } from "@/modules/takeoff/notes";
-import type { DetailingSetup, LevelSetup, Measure, MemberVariantSetup, OutlineSetup, PlacementSetup, RailSetup, ReadingSetup, RunSetup, SiteFactSetup } from "@/core/offers/contract";
+import type {
+  CapJunctionSetup,
+  DetailingSetup,
+  LevelSetup,
+  Measure,
+  MemberVariantSetup,
+  OutlineSetup,
+  PlacementSetup,
+  RailSetup,
+  ReadingSetup,
+  RunSetup,
+  SiteFactSetup,
+} from "@/core/offers/contract";
 import { affirmationsOfRecord } from "@/core/scale/store";
 import { viewAddressOf, viewRecordsOf } from "@/core/views";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
-import { memberTypesOf, outlinesOf, placementsOf, runsOf, type MemberDimension, type MemberVariant, type SideReading, type StoredOutline } from "@/modules/takeoff/partition";
+import {
+  gridOf,
+  memberTypesOf,
+  outlinesOf,
+  placementsOf,
+  runsOf,
+  type MemberDimension,
+  type MemberVariant,
+  type SideReading,
+  type StoredOutline,
+  type StoredPlacement,
+  type ViewsScope,
+} from "@/modules/takeoff/partition";
+import { capJunctionSetupOf, pilesHeldOverRevision, ringsOf, type DrawingReading, type Point } from "./cap-junctions";
 // The notation grammar registers its storey reading with core's band placement at load (`sameStorey`,
 // `useStoreyEquivalence`): the rails place a schedule's band ("3RD & 4TH") on the stack ("3F") through
 // it, and a measure run that never loaded the grammar would place by letters alone. Loaded here, where
@@ -173,6 +203,61 @@ export function memberFamiliesSetupOf(families: readonly { readonly family: stri
   return held;
 }
 
+/** One drawing of the revision, as the cap-pile relation is read off it: its record, its scope, what it places, its view addresses. */
+type RelationDrawing = {
+  readonly record: { readonly ingestId: string; readonly artifactSha256: string };
+  readonly scope: ViewsScope;
+  readonly placed: readonly StoredPlacement[];
+  readonly addressOf: ReadonlyMap<string, string>;
+};
+
+/** The two classes the relation is between. */
+const PILE_CAP_CLASS = "pile_cap";
+const PILE_CLASS = "pile";
+
+/**
+ * The piles each pile cap of the pinned revision stands on (L-MEA-09, I-547), by the cap's
+ * placement key — read over EVERY drawing of the revision at once, so a cap layout on one file is laid
+ * over a pile layout on another. Nothing where the revision places no cap or no pile: then there is no
+ * relation to read, and every cap it does place keeps its row and names `CAP_PILES_UNREAD`.
+ *
+ * The relation is read off what the partition stored — the placements, the grid each plan was
+ * georeferenced by — and off the one fact the store does not keep: the ring each cap was placed by,
+ * which the placement stage read out of the drawing's own artifact and names by its source key
+ * (`outlineKey`, I-333). The ring is read back out of that artifact here, entity by key, and nothing
+ * about it is re-derived: which entity is the cap's ring is the placement stage's answer. Only a
+ * drawing that places a cap is opened.
+ *
+ * The grid is keyed by the partition's view key and the placements by L-REG-04's address, so the
+ * axes are carried across by the one translation this setup already makes for calibrations
+ * (`viewAddressOf`, B-17).
+ */
+async function capJunctionsOver(tenantId: string, drawings: readonly RelationDrawing[]): Promise<Record<string, CapJunctionSetup>> {
+  const places = (elementType: string) => drawings.some((drawing) => drawing.placed.some((one) => one.elementType === elementType));
+  if (!places(PILE_CAP_CLASS) || !places(PILE_CLASS)) return {};
+
+  const readings: DrawingReading[] = [];
+  for (const drawing of drawings) {
+    const members = drawing.placed.filter((one) => one.elementType === PILE_CAP_CLASS || one.elementType === PILE_CLASS);
+    if (members.length === 0) continue;
+    // A drawing whose partition georeferenced no plan lays nothing over anything, except what it
+    // places on one view with its own piles — a view is always its own frame.
+    const grid = await gridOf(drawing.scope);
+    const rings = members.some((one) => one.elementType === PILE_CAP_CLASS)
+      ? ringsOf(await artifactAt(tenantId, drawing.record.artifactSha256, appStorage(), `ingest ${drawing.record.ingestId}`))
+      : new Map<string, readonly Point[]>();
+    readings.push({
+      drawing: drawing.record.ingestId,
+      placements: members.map((one) => ({ placementKey: one.placementKey, elementType: one.elementType, viewKey: one.viewKey, x: one.x, y: one.y, outlineKey: one.outlineKey })),
+      axes: (grid?.axes ?? []).map((axis) => ({ viewKey: drawing.addressOf.get(axis.viewKey) ?? axis.viewKey, family: axis.family, axis: axis.axis, label: axis.label, position: axis.position })),
+      ringOf: (outlineKey) => rings.get(outlineKey) ?? null,
+    });
+  }
+  const capJunctions: Record<string, CapJunctionSetup> = {};
+  for (const [cap, piles] of pilesHeldOverRevision(readings)) capJunctions[cap] = capJunctionSetupOf(cap, piles);
+  return capJunctions;
+}
+
 /** The drawings the pinned revision names, in the order its manifest addresses them (L-REG-06). */
 async function drawingsOfRevision(tx: TenantTx, scope: RailSetupScope): Promise<string[]> {
   const rows = await tx
@@ -247,6 +332,7 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
   const memberTypes: Record<string, Record<string, readonly MemberVariantSetup[]>> = {};
   const calibrations: Record<string, Record<string, string>> = {};
   const runs: Record<string, RunSetup> = {};
+  const relation: RelationDrawing[] = [];
 
   for (const drawingId of drawingIds) {
     const record = await ingestRecordOf({ tenantId: scope.tenantId, drawingId });
@@ -258,7 +344,8 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // read in a unit nobody stated, and carries no outline — a rail then measures by what its schedule
     // states, or declares the plan it did not get (L-QTY-02).
     const outlines = new Map(((await outlinesOf(viewsScope)) ?? []).map((outline) => [outline.placementKey, outline]));
-    for (const placement of (await placementsOf(viewsScope)) ?? []) {
+    const placed = (await placementsOf(viewsScope)) ?? [];
+    for (const placement of placed) {
       const outline = outlines.get(placement.placementKey);
       placements[placement.placementKey] = {
         drawingId: placement.drawingId,
@@ -315,7 +402,16 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // it would lose a standing calibration, and a rail that cannot match it reports the absence.
     for (const [viewKey, standing] of addresses.affirmed) views[addresses.held.get(viewKey) ?? viewKey] = standing.calibrationKey;
     calibrations[record.ingestId] = views;
+
+    // What this drawing places and how its views are addressed, for the relation read over the whole
+    // revision once every drawing is in (I-547).
+    relation.push({ record, scope: viewsScope, placed, addressOf: addresses.held });
   }
+
+  // The piles each pile cap of the revision stands on (L-MEA-09, I-547): what the cap rails net
+  // the piles' heads and sections out of. A cap whose piles could not be read has no entry, and keeps
+  // its row naming `CAP_PILES_UNREAD` — never its whole prism over heads nobody placed (L-QTY-04).
+  const capJunctions = await capJunctionsOver(scope.tenantId, relation);
 
   return {
     placements,
@@ -344,6 +440,8 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // would over-measure the work (L-MEA-02, L-MEA-03).
     walls: {},
     surfaces: {},
+    // The junctions each pile cap shares with the piles it stands on (L-MEA-09, I-544..d).
+    capJunctions,
     // What somebody entered about the site, latest entry per fact (L-MEA-06), and the edition every
     // DERIVED reading cites by digest (L-MEA-01). Neither is judged here: a fact nobody entered is
     // simply absent, and what a rail makes of that absence is the rail's.

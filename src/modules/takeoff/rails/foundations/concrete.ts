@@ -28,11 +28,16 @@ import {
   PILE_CAP,
   PILE_DIAMETER_UNSTATED,
   PILE_LENGTH_UNSTATED,
+  JUNCTION_DEFERRED,
   PRISM_POLY,
   PRISM_RECT,
+  capJunctionOf,
   countOf,
   dimensionOf,
+  heldPilesOf,
+  observe,
   planOf,
+  recessOf,
   resolve,
   type Read,
 } from "./read";
@@ -41,6 +46,22 @@ import {
 export const FOUNDATION_PRISM_RECT_RULE_ID = "rcc.foundation.prism_rect";
 export const FOUNDATION_PRISM_POLY_RULE_ID = "rcc.foundation.prism_poly";
 export const PILE_CONCRETE_RULE_ID = "rcc.pile.concrete";
+
+/**
+ * The rules a PILE CAP whose piles were read is offered under (L-MEA-09, I-544, I-546): its
+ * prism less the heads its piles own, over a rectangle or any other plan, and less the recess cast
+ * into it where the drawing states one. Chosen by what was read, as the plan's rule is (I-334).
+ */
+export const PILE_CAP_PRISM_RECT_RULE_ID = "rcc.pile_cap.prism_rect";
+export const PILE_CAP_PRISM_POLY_RULE_ID = "rcc.pile_cap.prism_poly";
+export const PILE_CAP_PRISM_RECT_RECESS_RULE_ID = "rcc.pile_cap.prism_rect_recess";
+export const PILE_CAP_PRISM_POLY_RECESS_RULE_ID = "rcc.pile_cap.prism_poly_recess";
+
+/** The rule a cap's concrete is offered under, by its plan and by whether a recess was read. */
+function capRuleOf(poly: boolean, recessed: boolean): string {
+  if (poly) return recessed ? PILE_CAP_PRISM_POLY_RECESS_RULE_ID : PILE_CAP_PRISM_POLY_RULE_ID;
+  return recessed ? PILE_CAP_PRISM_RECT_RECESS_RULE_ID : PILE_CAP_PRISM_RECT_RULE_ID;
+}
 
 /** The one kind this reader measures — concrete, cast in place, wherever it is cast (L-MEA-04). */
 const RCC_CONCRETE: Kind = "rcc.concrete";
@@ -81,9 +102,11 @@ function offerOf(
     geometry: { type: stated.geometry, basis: row.standing, calibration },
     bindings: { [COUNT]: countOf(read), ...stated.bindings },
     selectors: stated.selectors,
-    // A foundation deducts through nothing at this leaf: the junction it shares with the member above
-    // it is that member's to net (L-MEA-09's owner), and a candidate in a channel the method does not
-    // declare is a contract violation rather than a threshold question (L-MEA-08).
+    // A foundation deducts through no CHANNEL at this leaf: the junction it shares with the member
+    // above it is that member's to net (L-MEA-09's owner), and what the piles below a cap own of it is
+    // a variable of the cap's own sentence, bound from what the drawing states (I-544) — a
+    // candidate in a channel the method does not declare is a contract violation rather than a
+    // threshold question (L-MEA-08).
     deductions: [],
     omitted: stated.omitted,
     // "A row kept with no quantity is PARTIAL_DECLARED, never COMPLETE" (L-QTY-02).
@@ -97,8 +120,13 @@ function gradeOf(read: Read, setup: RailSetup): Record<string, Measure> {
   return grade === undefined ? {} : { [GRADE]: grade };
 }
 
-/** One spread foundation: its plan, its depth, and whichever of the two the schedules did not state. */
-function spreadOffer(read: Read, setup: RailSetup): Offer {
+/**
+ * One spread foundation: its plan, its depth, and whichever of the two the schedules did not state —
+ * and, for a pile cap whose piles were read, what those piles own of it and the recess cast into it
+ * (L-MEA-09, I-544, I-546). A head height the drawing only bounds is deducted at its bound,
+ * and the row says its figure stands under (`JUNCTION_DEFERRED`, L-QTY-04).
+ */
+function spreadOffer(read: Read, setup: RailSetup, observations: RailObservation[]): Offer {
   const bindings: Record<string, Measure> = {};
   const omitted: OmittedComponent[] = [];
   const plan = planOf(read);
@@ -119,11 +147,29 @@ function spreadOffer(read: Read, setup: RailSetup): Offer {
   if (depth === undefined) omitted.push({ variable: D, code: FOUNDATION_DEPTH_UNSTATED });
   else bindings[D] = depth;
 
+  // A footing stands on the ground, and L-FRM-02's prism is its whole sentence. A PILE CAP stands on
+  // piles, each of which owns the head it cast into the cap: it is measured net of what they own, or
+  // kept with no figure and the reading it lacks named — its piles unread included — and never
+  // published whole over them (L-MEA-09, L-QTY-04, I-547).
+  const cap = capJunctionOf(read, setup);
+  if (cap === null) {
+    return offerOf(read, {
+      ruleId: poly ? FOUNDATION_PRISM_POLY_RULE_ID : FOUNDATION_PRISM_RECT_RULE_ID,
+      geometry: poly ? PRISM_POLY : PRISM_RECT,
+      bindings,
+      omitted,
+      selectors: gradeOf(read, setup),
+    });
+  }
+
+  const held = heldPilesOf(read, setup, cap, { head: true });
+  const recess = recessOf(cap);
+  if (held.deferred) observations.push(observe(read.row.elementType as ElementType, RCC_CONCRETE, JUNCTION_DEFERRED, read.row, read.placement.sourceEntity));
   return offerOf(read, {
-    ruleId: poly ? FOUNDATION_PRISM_POLY_RULE_ID : FOUNDATION_PRISM_RECT_RULE_ID,
+    ruleId: capRuleOf(poly, recess !== null),
     geometry: poly ? PRISM_POLY : PRISM_RECT,
-    bindings,
-    omitted,
+    bindings: { ...bindings, ...held.bindings, ...(recess ?? {}) },
+    omitted: [...omitted, ...held.omitted],
     selectors: gradeOf(read, setup),
   });
 }
@@ -170,7 +216,7 @@ export const foundationConcreteRail: Rail = (input: RailInput) => {
       observations.push(resolution.observation);
       continue;
     }
-    offers.push(row.elementType === PILE ? pileOffer(resolution.read, setup) : spreadOffer(resolution.read, setup));
+    offers.push(row.elementType === PILE ? pileOffer(resolution.read, setup) : spreadOffer(resolution.read, setup, observations));
   }
 
   return { offers, observations };

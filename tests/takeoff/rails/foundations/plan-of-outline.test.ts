@@ -9,6 +9,13 @@
  *
  * PURE, in the unit lane: hand-built rail inputs through the shipped rail door, one reading varied at
  * a time. What the drawing does is graded in tests/takeoff/partition/placement/bnbc-pile-caps.test.ts.
+ *
+ * TEST_AMENDED (session 8, FND-OWN, I-544, I-547): the cap these cases vary is a PILE CAP, and
+ * a pile cap's concrete is offered under its own sentence — `rcc.pile_cap.prism_rect` or `_poly`, the
+ * prism less the heads its piles own (L-MEA-09) — never under the footing's prism. The PLAN it binds is
+ * what these cases grade, and it is the same plan under the same shape's rule: A over a polygon, L and
+ * B over a rectangle. The piles are not staged here, so each offer also omits the junction by name
+ * (`CAP_PILES_UNREAD`), which ./cap-junctions-rails.test.ts grades.
  */
 import { describe, expect, test } from "vitest";
 import {
@@ -66,7 +73,7 @@ async function offerOf(input: RailInputShape) {
 describe("I-334: a read ring governs the plan; the schedule's section corroborates it", () => {
   test("a polygon ring is measured over its own shoelace, never over the schedule's 2100 × 1750", async () => {
     const offer = await offerOf(capOver(polygon(), { width: 2100, depth: 1750 }));
-    expect([offer.ruleId, offer.geometry.type], "the polygon prism").toEqual(["rcc.foundation.prism_poly", PRISM_POLY]);
+    expect([offer.ruleId, offer.geometry.type], "the polygon prism").toEqual(["rcc.pile_cap.prism_poly", PRISM_POLY]);
     expect(offer.bindings["A"], "A is the ring's, measured, on the view's affirmed calibration").toEqual({ value: "3262500.0", unit: MILLIMETRE_SQUARED, basis: MEASURED, source: RING, calibration: CALIBRATION_KEY });
     expect(offer.bindings["L"], "no rectangle stands beside it").toBeUndefined();
   });
@@ -94,6 +101,6 @@ describe("I-334: a read ring governs the plan; the schedule's section corroborat
     const ringOnly = await offerOf(capOver(rectangle("2000.0", "1000.0"), null));
     expect([ringOnly.bindings["L"]?.value, ringOnly.bindings["L"]?.basis], "the ring's own side").toEqual(["2000.0", MEASURED]);
     const sectionOnly = await offerOf(capOver(null, { width: 2000, depth: 1000 }));
-    expect([sectionOnly.ruleId, sectionOnly.bindings["L"]?.value, sectionOnly.bindings["L"]?.basis], "the schedule's rectangle").toEqual(["rcc.foundation.prism_rect", "2000", TRANSCRIBED]);
+    expect([sectionOnly.ruleId, sectionOnly.bindings["L"]?.value, sectionOnly.bindings["L"]?.basis], "the schedule's rectangle").toEqual(["rcc.pile_cap.prism_rect", "2000", TRANSCRIBED]);
   });
 });

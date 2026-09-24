@@ -131,12 +131,15 @@ describe("I-337: a foundation's formwork is its side faces, over the plan its co
     expect(offer.coverage, "COMPLETE").toBe("COMPLETE");
   });
 
+  // TEST_AMENDED (session 8, FND-OWN, I-544): a pile cap's concrete is offered under its own
+  // sentence, the prism less the heads its piles own (L-MEA-09) — `rcc.pile_cap.prism_*`, never the
+  // footing's. The agreement graded here is unchanged: the two kinds read one plan, by one shape's rule.
   test("a cap and its concrete agree about the plan: the rule each is offered under is the same shape's", async () => {
     const door = await formworkDoor();
     const concrete = await productModule<{ foundationConcreteRail: RailShape }>(FOUNDATIONS_RAIL_MODULE);
     for (const [plan, formwork, prism] of [
-      [CHAMFERED, FOUNDATION_FORMWORK_POLY_RULE_ID, "rcc.foundation.prism_poly"],
-      [null, FOUNDATION_FORMWORK_RECT_RULE_ID, "rcc.foundation.prism_rect"],
+      [CHAMFERED, FOUNDATION_FORMWORK_POLY_RULE_ID, "rcc.pile_cap.prism_poly"],
+      [null, FOUNDATION_FORMWORK_RECT_RULE_ID, "rcc.pile_cap.prism_rect"],
     ] as const) {
       const input = inputFor({ elementType: PILE_CAP, mark: "PC2", section: { width: 2100, depth: 1750 }, plan, depth: "1295" });
       expect(onlyOffer(door.foundationFormworkRail(input), "the formwork").ruleId, `formwork over ${plan === null ? "the schedule's section" : "the ring"}`).toBe(formwork);

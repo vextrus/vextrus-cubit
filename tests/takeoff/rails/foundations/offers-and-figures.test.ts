@@ -13,9 +13,18 @@
  * are then graded where they belong: on the published lines, against the algebra computed here in
  * the canon from the same readings, and against the method's own evaluation over the gate's
  * normalised bindings.
+ *
+ * TEST_AMENDED (session 8, FND-OWN review, I-544, I-547): a pile cap stands on piles, and
+ * each owns the head it cast into the cap (L-MEA-09: pile › pile cap), so the cap's concrete is its
+ * own sentence — the prism less those heads — and its blinding L-FRM-04's less their sections; a cap
+ * whose piles nobody read keeps its row naming `CAP_PILES_UNREAD`, never the whole prism (L-QTY-04).
+ * The cap here stands on the staged pile, and the head height is the model's own elevations — the
+ * piles' cut-off at −1828.8 against the cap's soffit at −609.6 − 1295.4, 76.2 mm — STAGED through
+ * `stageCapJunctions`, since the relation's reading is graded in ./cap-junctions-*.test.ts.
  */
 import { afterAll, describe, expect, test } from "vitest";
 import {
+  BLINDING_OVER_PILES_RULE_ID,
   BLINDING_PLAN_DEFERRED,
   BLINDING_PROJECTION_PARAMETER,
   BLINDING_RULE_ID,
@@ -39,6 +48,7 @@ import {
   PCC_BLINDING,
   PILE,
   PILE_CAP,
+  PILE_CAP_PRISM_POLY_RULE_ID,
   PILE_CONCRETE_RULE_ID,
   PILE_COUNT_RULE_ID,
   PILE_LENGTH_RULE_ID,
@@ -58,6 +68,7 @@ import {
   gateSeam,
   publishedByCell,
   railBatchOf,
+  stageCapJunctions,
   stageFoundationsCampaign,
   type CellReading,
   type DecimalLike,
@@ -85,6 +96,9 @@ const CAP_PC1: StagedMember = {
 };
 const PILE_P1: StagedMember = { id: "P1", class: PILE, mark: "P", dimensions: { dia: "500", length: "21336" } };
 
+/** How far the pile's head stands into the cap: cut-off −1828.8 against the soffit −609.6 − 1295.4 (the model's own elevations). */
+const HEAD_MM = "76.2";
+
 /** The ground level the site states, as it is written: an elevation below datum is a reading. */
 const EGL_AS_WRITTEN = "-152.4";
 
@@ -102,7 +116,7 @@ const BANNED = ["value", "quantity", "volume", "figure"];
  */
 const DEFERRED: readonly { class: string; ruleId: string; kind: string; code: string }[] = [
   { class: PILE_CAP, ruleId: EXCAVATION_RULE_ID, kind: EARTHWORK_EXCAVATION, code: EARTHWORK_PLAN_DEFERRED },
-  { class: PILE_CAP, ruleId: BLINDING_RULE_ID, kind: PCC_BLINDING, code: BLINDING_PLAN_DEFERRED },
+  { class: PILE_CAP, ruleId: BLINDING_OVER_PILES_RULE_ID, kind: PCC_BLINDING, code: BLINDING_PLAN_DEFERRED },
 ];
 
 /** The two readings a rect plan states and a polygon plan does not, in the order the clause names them. */
@@ -130,9 +144,11 @@ let staging: Promise<void> | undefined;
  */
 const staged = (): Promise<void> =>
   (staging ??= (async () => {
-    stage = await stageFoundationsCampaign("fdn-offers", [FOOTING_F1, CAP_PC1, PILE_P1], [
+    const members = [FOOTING_F1, CAP_PC1, PILE_P1];
+    stage = await stageFoundationsCampaign("fdn-offers", members, [
       { fact: GROUND_LEVEL, valueAsWritten: EGL_AS_WRITTEN, unitAsWritten: MILLIMETRE, sourceNote: "S-01 general notes: existing ground level" },
     ]);
+    stageCapJunctions(stage, members, { [CAP_PC1.id]: { piles: [PILE_P1.id], head: { value: HEAD_MM, unit: MILLIMETRE, source: "fixtures/rcc6-bnbc/model.json#levels.PILE_CUT" } } });
     batch = await railBatchOf(stage);
     verdict = await evaluate(stage, batch);
     cells = await publishedByCell(stage.tenantId, stage.campaignId);
@@ -231,12 +247,16 @@ describe("AC-2: the rails offer readings, and the gate publishes their algebra",
     expect(footing.bindings["D"]?.value, "D is the depth the family's dimensions state").toBe(variant?.dimensions["depth"]?.value);
     expect(footing.bindings["D"]?.source, "citing where that dimension was read").toBe(variant?.dimensions["depth"]?.source);
 
-    const cap = offerOf(PILE_CAP, FOUNDATION_PRISM_POLY_RULE_ID);
+    const cap = offerOf(PILE_CAP, PILE_CAP_PRISM_POLY_RULE_ID);
     const capPlacement = setup.placements[cap.register.objectKey.split("@")[0] as string];
     expect(cap.bindings["A"]?.value, "A is the plan area the outline reader measured").toBe(capPlacement?.outline?.area.value);
     expect(cap.bindings["A"]?.unit, "in the unit that reading was taken in").toBe(MILLIMETRE_SQUARED);
     expect(cap.bindings["A"]?.source, "citing the outline it came off").toBe(capPlacement?.outline?.area.source);
     expect(cap.geometry.type, "and the cap is offered as the polygon prism it is (L-FRM-02)").toBe(PRISM_POLY);
+    const pileKey = String(stage.objects[2]?.["placementKey"]);
+    expect(cap.bindings["n"], "n is the piles it stands on, counted, cited to the cap (L-MEA-09)").toMatchObject({ value: "1", unit: "pcs", basis: "MEASURED" });
+    expect(cap.bindings["d"]?.value, "d is the diameter the pile's own schedule states (I-304)").toBe(setup.memberTypes["33333333-3333-4333-8333-333333333333"]?.[String(setup.placements[pileKey]?.memberFamily)]?.[0]?.dimensions["dia"]?.value);
+    expect([cap.bindings["e"]?.value, cap.bindings["e"]?.unit], "and e the head height stated for it").toEqual([HEAD_MM, MILLIMETRE]);
     expect(offerOf(FOOTING, FOUNDATION_PRISM_RECT_RULE_ID).geometry.type, "while a rect-plan footing is offered as a rectangular prism").toBe(PRISM_RECT);
 
     const excavation = offerOf(FOOTING, EXCAVATION_RULE_ID);
@@ -285,7 +305,6 @@ describe("AC-2: the rails offer readings, and the gate publishes their algebra",
 
     const owed: readonly { cell: [string, string]; owed: DecimalLike; why: string }[] = [
       { cell: [FOOTING, RCC_CONCRETE], owed: footingSide.mul(footingSide).mul(footingDepth), why: "count × L × B × D (L-FRM-02)" },
-      { cell: [PILE_CAP, RCC_CONCRETE], owed: value("2").mul(value("1.2954")), why: "count × A × D over the shoelace plan (L-FRM-02)" },
       { cell: [PILE, PILING_BORED], owed: value("1"), why: "N = count (R-TO-032)" },
       { cell: [PILE, PILING_BORING], owed: value("21.336"), why: "L = count × length (AM-06 §2)" },
       { cell: [FOOTING, EARTHWORK_EXCAVATION], owed: pitSide.mul(pitSide).mul(pitDepth), why: "count × (L + 2a) × (B + 2a) × ((egl − top) + D + t + dx) (L-FRM-04)" },
@@ -295,6 +314,17 @@ describe("AC-2: the rails offer readings, and the gate publishes their algebra",
       const published = sumOf(one.cell[0], one.cell[1]);
       expect(published.eq(one.owed), `${one.cell[0]} × ${one.cell[1]} publishes ${one.owed.toString()} — ${one.why}; it published ${published.toString()}`).toBe(true);
     }
+
+    // The cap's concrete is its prism less the head its pile owns: count × (A × D − n × π × d × d × e ÷ 4)
+    // over the shoelace plan (L-FRM-02, L-MEA-09) — 2 × 1.2954 less π/4 × 0.5² × 0.0762 — and carries
+    // π, so it is held against π itself, as the pile's is below.
+    const cap = sumOf(PILE_CAP, RCC_CONCRETE);
+    const capOwed = value("2").mul(value("1.2954")).sub(value("3.14159265358979323846").mul(value("0.25")).mul(value("0.0762")).mul(value("0.25")));
+    const capDrift = cap.sub(capOwed);
+    expect(
+      capDrift.lte(value(PILE_TOLERANCE)) && value(`-${PILE_TOLERANCE}`).lte(capDrift),
+      `pile_cap × rcc.concrete publishes the prism less its pile's head, ${capOwed.toString()} m3 (it published ${cap.toString()})`,
+    ).toBe(true);
 
     // The pile's concrete carries π, so it is held against π itself rather than a rounded figure.
     const pile = sumOf(PILE, RCC_CONCRETE);
@@ -322,6 +352,8 @@ describe("AC-2: the rails offer readings, and the gate publishes their algebra",
     const ruleOf: Readonly<Record<string, string>> = {
       [FOUNDATION_PRISM_RECT_RULE_ID]: FOUNDATION_PRISM_RECT_RULE_ID,
       [FOUNDATION_PRISM_POLY_RULE_ID]: FOUNDATION_PRISM_POLY_RULE_ID,
+      [PILE_CAP_PRISM_POLY_RULE_ID]: PILE_CAP_PRISM_POLY_RULE_ID,
+      [BLINDING_OVER_PILES_RULE_ID]: BLINDING_OVER_PILES_RULE_ID,
       [PILE_CONCRETE_RULE_ID]: PILE_CONCRETE_RULE_ID,
       [PILE_COUNT_RULE_ID]: PILE_COUNT_RULE_ID,
       [PILE_LENGTH_RULE_ID]: PILE_LENGTH_RULE_ID,
@@ -329,7 +361,7 @@ describe("AC-2: the rails offer readings, and the gate publishes their algebra",
       [BLINDING_RULE_ID]: BLINDING_RULE_ID,
     };
     for (const offer of batch.offers) {
-      expect(ruleOf[offer.ruleId], `${offer.ruleId} is one of this shard's seven rules`).toBeTruthy();
+      expect(ruleOf[offer.ruleId], `${offer.ruleId} is one of this shard's rules`).toBeTruthy();
       // An offer that omits components has no figure to hold a method's evaluation against: its row is
       // kept with no quantity, which the cell case above grades instead (L-QTY-02, L-QTY-04).
       if (isDeferred(offer)) continue;

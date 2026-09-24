@@ -188,21 +188,36 @@ describe("I-333: each cap's plan is its own ring's — never a box, never the sc
   }, BUDGET_MS);
 });
 
+/**
+ * TEST_AMENDED (session 8, FND-OWN, I-544, I-547): a pile cap's concrete and blinding are
+ * offered under their own sentences — the prism less the heads its piles own, L-FRM-04's blinding less
+ * the piles' sections (L-MEA-09) — and a cap whose piles nobody read keeps its row naming
+ * `CAP_PILES_UNREAD` rather than the whole prism over them (L-QTY-04). This ratchet stages no piles:
+ * what it grades is the PLAN each cap is read over, so every reading of the plan and the depth must be
+ * bound, and the only thing any row may omit is the junction it was never handed. The figures are
+ * graded over those bindings by the clause's own algebra below, independently of the product's
+ * methods, exactly as before; ./rails/foundations/cap-junctions-rails.test.ts grades the junction.
+ */
+const JUNCTION_UNREAD = "CAP_PILES_UNREAD";
+
 describe("I-334: the rail binds the ring's plan, and the cap concrete stands inside the golden's band", () => {
-  test("26 cap concrete offers, all COMPLETE: PC2 over its shoelace A, every rectangle over the schedule's sides it corroborates", async () => {
+  test("26 cap concrete offers, every plan and depth bound: PC2 over its shoelace A, every rectangle over the schedule's sides it corroborates", async () => {
     const offers = capOffersOver(await bnbc(), CAP_KINDS.concrete);
     expect(offers.length, "one per cap").toBe(26);
-    expect(offers.filter(({ offer }) => offer.coverage !== "COMPLETE").map(({ offer }) => offer.omitted), "every one COMPLETE — the plan and the depth are both read").toEqual([]);
+    expect(
+      offers.flatMap(({ offer }) => offer.omitted).filter((one) => one.code !== JUNCTION_UNREAD),
+      "the plan and the depth are both read on every cap: nothing is omitted but the junction this proof stages no piles for",
+    ).toEqual([]);
     const polygons = offers.filter(({ offer }) => offer.geometry.type === "PRISM_POLY");
     expect(polygons.map(({ row }) => row.memberFamily), "the 14 PC2, and only they").toEqual(Array.from({ length: 14 }, () => "PC2"));
     for (const { offer, row } of polygons) {
-      expect(offer.ruleId, "measured by the polygon prism").toBe("rcc.foundation.prism_poly");
+      expect(offer.ruleId, "measured by the pile cap's polygon sentence").toBe("rcc.pile_cap.prism_poly");
       expect([offer.bindings["A"]?.value, offer.bindings["A"]?.unit, offer.bindings["A"]?.basis, offer.bindings["A"]?.source], "A is the ring's shoelace, measured and cited to the ring").toEqual(["3262500.0", "mm2", "MEASURED", row.outlineKey]);
       expect(offer.bindings["L"], "and no schedule rectangle stands beside it").toBeUndefined();
     }
     const turned = offers.find(({ row }) => row.outlineKey === TURNED_PC1)?.offer;
     expect([turned?.ruleId, turned?.bindings["L"]?.value, turned?.bindings["B"]?.value, turned?.bindings["L"]?.basis], "the turned PC1: the schedule's own 2000 × 1000, which its own sides corroborate").toEqual([
-      "rcc.foundation.prism_rect",
+      "rcc.pile_cap.prism_rect",
       "2000",
       "1000",
       "TRANSCRIBED",
@@ -213,11 +228,17 @@ describe("I-334: the rail binds the ring's plan, and the cap concrete stands ins
   test("the blinding under the twelve rectangles is laid by their plans; under the fourteen polygons it defers by name (L-FRM-04)", async () => {
     const offers = capOffersOver(await bnbc(), CAP_KINDS.blinding);
     expect(offers.length, "one per cap").toBe(26);
-    expect(offers.filter(({ offer }) => offer.coverage === "COMPLETE").map(({ row }) => row.memberFamily).sort(), "a rectangle's blinding is its sides widened by the edition's projection").toEqual(
+    const planned = offers.filter(({ offer }) => offer.bindings["L"] !== undefined && offer.bindings["B"] !== undefined);
+    expect(planned.map(({ row }) => row.memberFamily).sort(), "a rectangle's blinding is its sides widened by the edition's projection").toEqual(
       ["PC1", "PC1", "PC1", "PC1", "PC3", "PC3", "PC3", "PC3", "PC3", "PC4", "PC4", "PC5"],
     );
     expect(
-      offers.filter(({ offer }) => offer.coverage !== "COMPLETE").every(({ offer, row }) => row.memberFamily === "PC2" && offer.omitted.every((one) => one.code === "BLINDING_PLAN_DEFERRED")),
+      planned.every(({ offer }) => offer.omitted.every((one) => one.code === JUNCTION_UNREAD)),
+      "and omits nothing of its plan — only the junction this proof stages no piles for",
+    ).toBe(true);
+    const deferred = offers.filter(({ offer }) => !planned.some((one) => one.offer === offer));
+    expect(
+      deferred.every(({ offer, row }) => row.memberFamily === "PC2" && offer.omitted.some((one) => one.code === "BLINDING_PLAN_DEFERRED") && offer.omitted.every((one) => one.code === "BLINDING_PLAN_DEFERRED" || one.code === JUNCTION_UNREAD)),
       "a polygon has no L and no B to widen: the PC2 blinding is kept and named, never boxed",
     ).toBe(true);
   }, BUDGET_MS);

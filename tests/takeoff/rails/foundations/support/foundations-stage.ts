@@ -294,6 +294,43 @@ export async function stageFoundationsCampaign(label: string, members: readonly 
  * gate. The concrete kind is run through the BARREL, so the composition the frame's roster line holds
  * is what measures it (AC-1).
  */
+/**
+ * What a stage states about the piles each pile cap stands on (L-MEA-09, I-544): the member ids
+ * of the piles, as the stage's members name them, and how far their heads stand into the cap.
+ */
+export type StagedCapJunction = { readonly piles: readonly string[]; readonly head: { readonly value: string; readonly unit: string; readonly source: string } };
+
+/**
+ * Hand a stage's setup the piles each of its pile caps stands on, and the head height — STAGED, and
+ * named so: the measure setup reads the relation off the plans (`railSetupOf`, graded in
+ * ./cap-junctions-*.test.ts), and no reader of the set states the head height yet. A pile cap a stage
+ * hands nothing keeps its row naming `CAP_PILES_UNREAD` (I-547); a criterion that grades a cap's
+ * FIGURE states its junction here, from the fixture's own model.
+ *
+ * The members are the ones the stage was built from, in its order: the n-th register row stands for
+ * the n-th member, so a member id names one placement key.
+ */
+export function stageCapJunctions(stage: FoundationsStage, members: readonly StagedMember[], junctions: Readonly<Record<string, StagedCapJunction>>): void {
+  const keyOf = new Map(members.map((member, index) => [member.id, String(stage.objects[index]?.["placementKey"])]));
+  const capJunctions: Record<string, unknown> = {};
+  for (const [capId, junction] of Object.entries(junctions)) {
+    const cap = keyOf.get(capId);
+    expect(cap, `the stage holds the cap ${capId}`).toBeTruthy();
+    const piles = junction.piles.map((pileId) => {
+      const pile = keyOf.get(pileId);
+      expect(pile, `the stage holds the pile ${pileId} the cap ${capId} stands on`).toBeTruthy();
+      return pile as string;
+    });
+    capJunctions[cap as string] = {
+      piles,
+      count: { value: String(piles.length), unit: "pcs", basis: "MEASURED", source: cap },
+      headHeight: { reading: { ...junction.head, basis: TRANSCRIBED }, standing: "RESOLVED" },
+      recess: null,
+    };
+  }
+  (stage.setup as unknown as Record<string, unknown>)["capJunctions"] = capJunctions;
+}
+
 export async function railBatchOf(stage: FoundationsStage): Promise<RailBatchShape> {
   const rails = await railsRoster();
   const roster = await foundationsRoster();

@@ -72,6 +72,8 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "BOQ_TAXONOMY_VERSION_MOVED",
   "CAMPAIGN_NOT_FOUND",
   "CAPTION_UNCLASSIFIABLE",
+  "CAP_HOLDS_NO_PILE",
+  "CAP_PILES_UNREAD",
   "CELL_NOT_IN_RESIDUE",
   "CHARACTER_NOT_COVERED",
   "COMPLEX_STAIR_GEOMETRY",
@@ -161,6 +163,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "PARTITION_NOT_AVAILABLE",
   "PERMISSION_NOT_HELD",
   "PILE_DIAMETER_UNSTATED",
+  "PILE_HEAD_UNSTATED",
   "PILE_LENGTH_UNSTATED",
   "PIN_STALE",
   "PLACEMENT_UNHELD",
@@ -415,6 +418,20 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
 /* Re-baselined at integration (session 8) for S1's ADDED entries; no existing entry moved. Previous: 39c2cfe82cf6a363fca3e621bdf1c8cc9d8eae26eb54785d98a7351546bfef26. */
 /* Re-baselined at integration (session 8) for S1's ADDED entries; no existing entry moved. Previous: a3adece169f19c74c1dba733a1785ee1661cd918bf0df5aef7e430934e3fecae. */
 /* Re-baselined at integration (session 8, wave 2) for ARCH-3's two ADDED entries (OPENING_QUANTITY_BASIS_UNSTATED, OPENING_QUANTITY_DISAGREES) and the entries C8, BOQ-SHAPE and L4 added without conflict; the whole register was diffed against 9ebdf29a: 26 added, 0 removed, 0 changed. Previous: 2c9643fb4676e0430f3a5371adc31560f43f6883b24f2e7d28bced756b344146. */
+/*
+ * Re-baselined at integration (session 9, wave 3a) for FND-OWN's TWO ADDED entries and nothing else, the FOUNDATIONS leaf's (./foundations.ts,
+ * FND-OWN, I-544, I-547): `PILE_HEAD_UNSTATED`, what a pile cap whose piles were read keeps
+ * its row under where nothing states how far their heads stand into it — its whole prism would read
+ * over the heads the piles own (L-MEA-09, L-QTY-04); and `CAP_HOLDS_NO_PILE`, what a cap the pile
+ * layout places no pile under keeps its row under. The roster grew by those two keys and not one
+ * existing entry's code, message, remedy, severity or surface moved with them.
+ *
+ * And ONE more ADDED entry, the same leaf's (FND-OWN review, I-547): `CAP_PILES_UNREAD`, what a
+ * pile cap keeps its row under where nobody could read which piles it stands on — in place of the
+ * whole prism it once fell back to, which would read over the heads its piles own (L-QTY-04). The
+ * digest is re-frozen once the wave's integration has been diffed against its base
+ * (integrate-slice --errors-check).
+ */
 const ENTRIES_DIGEST_BEFORE = "47c0cb85646d12b8cad0cf8aff6913c48a1f5686088b7b4473303b84b0c727dc";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */

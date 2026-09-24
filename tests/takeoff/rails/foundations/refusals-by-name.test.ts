@@ -14,6 +14,8 @@ import { describe, expect, test } from "vitest";
 import {
   BLINDING_PLAN_DEFERRED,
   BLINDING_THICKNESS,
+  CAP_HOLDS_NO_PILE,
+  CAP_PILES_UNREAD,
   DEPTH_EXTRA,
   EARTHWORK_PLAN_DEFERRED,
   FOOTING,
@@ -23,6 +25,7 @@ import {
   FOUNDING_LEVEL_UNSTATED,
   GROUND_LEVEL,
   GROUND_LEVEL_UNSTATED,
+  JUNCTION_DEFERRED,
   MEMBER_TYPE_UNKNOWN,
   MILLIMETRE,
   MILLIMETRE_SQUARED,
@@ -30,6 +33,7 @@ import {
   PILE,
   PILE_CAP,
   PILE_DIAMETER_UNSTATED,
+  PILE_HEAD_UNSTATED,
   PILE_LENGTH_UNSTATED,
   PILING_BORING,
   PRISM_POLY,
@@ -71,6 +75,17 @@ const EARTHWORK_PARAMETER_UNSTATED = "EARTHWORK_PARAMETER_UNSTATED";
  */
 const WATER_TABLE_UNSTATED = "WATER_TABLE_UNSTATED";
 
+/**
+ * TEST_AMENDED (FND-OWN, I-544, I-547): the shard gains PILE_HEAD_UNSTATED — what a pile cap
+ * whose piles were read keeps its row under where nothing states how far their heads stand into it —
+ * and CAP_HOLDS_NO_PILE — what one the plans hold no pile under keeps its row under. The rails' roster
+ * gains both, and the slabs area's JUNCTION_DEFERRED, which a head height the drawing only bounds is
+ * reported under. All three are driven by name in ./cap-junctions-rails.test.ts.
+ *
+ * TEST_AMENDED (FND-OWN review, I-547): and CAP_PILES_UNREAD — what a pile cap keeps its row under
+ * where nobody could read which piles it stands on, in place of the whole prism it once fell back to
+ * (L-QTY-04). Driven by name in ./cap-junctions-rails.test.ts too.
+ */
 /** The codes this shard registers (AC-8, interfaces). */
 const REGISTERED: readonly string[] = [
   PILE_LENGTH_UNSTATED,
@@ -85,6 +100,9 @@ const REGISTERED: readonly string[] = [
   SITE_FACT_SOURCE_UNSTATED,
   EARTHWORK_PARAMETER_UNSTATED,
   WATER_TABLE_UNSTATED,
+  PILE_HEAD_UNSTATED,
+  CAP_HOLDS_NO_PILE,
+  CAP_PILES_UNREAD,
 ];
 
 /** The ones a rail answers, plus the two it reports as observations (AC-8). */
@@ -100,6 +118,10 @@ const RAIL_CODES: readonly string[] = [
   EARTHWORK_PLAN_DEFERRED,
   BLINDING_PLAN_DEFERRED,
   EARTHWORK_PARAMETER_UNSTATED,
+  PILE_HEAD_UNSTATED,
+  CAP_HOLDS_NO_PILE,
+  CAP_PILES_UNREAD,
+  JUNCTION_DEFERRED,
 ];
 
 /** The severities and surfaces a registered entry carries (interfaces). */
@@ -179,7 +201,7 @@ const WHOLE_FOOTING = { width: 1500, depth: 1500 };
 const WHOLE_DIMENSIONS = { depth: "450", top: "-609.6" };
 
 describe("AC-8: every code of the foundations shard is answered by name", () => {
-  test("AC-8: the area registers exactly its ten codes, each with a message, a remedy, a severity and a surface", async () => {
+  test("AC-8: the area registers exactly its codes, each with a message, a remedy, a severity and a surface", async () => {
     const area = await productModule<{ FOUNDATIONS_REFUSALS: Record<string, { message: string; remedy: string; severity: string; surface: string }> }>(
       FOUNDATIONS_ERRORS_MODULE,
     );
@@ -193,7 +215,7 @@ describe("AC-8: every code of the foundations shard is answered by name", () => 
       expect(register[code], `${code} stands in the closed taxonomy the barrel assembles — the register is the one home (Q-07, ARCH-02)`).toBeTruthy();
     }
     const door = await foundationsRailDoor();
-    expect([...door.FOUNDATIONS_RAIL_CODES].sort(), "and the rails' own roster names the eight they answer, plus the two they report as observations (AC-8)").toEqual(
+    expect([...door.FOUNDATIONS_RAIL_CODES].sort(), "and the rails' own roster names the codes they answer, plus those they report as observations (AC-8)").toEqual(
       [...RAIL_CODES].sort(),
     );
   });

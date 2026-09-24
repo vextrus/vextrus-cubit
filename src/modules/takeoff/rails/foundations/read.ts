@@ -14,7 +14,7 @@ import type { ScheduleDimension } from "@/core/db";
 import type { RefusalCode } from "@/core/errors";
 import { actSourceOf, editionSourceOf } from "@/core/identity";
 import { variantCovering } from "@/core/offers/contract";
-import type { Measure, MemberVariantSetup, PlacementSetup, RailObservation, RailSetup, RegisterObjectRow } from "@/core/offers/contract";
+import type { CapJunctionSetup, Measure, MemberVariantSetup, OmittedComponent, PlacementSetup, RailObservation, RailSetup, ReadingSetup, RegisterObjectRow } from "@/core/offers/contract";
 import type { SiteFact } from "@/core/site-facts/law";
 import { CANONICAL_UNIT } from "@/core/units/canon";
 
@@ -40,6 +40,13 @@ export const FOUNDATIONS_RAIL_CODES = [
   "EARTHWORK_PARAMETER_UNSTATED",
   "EARTHWORK_PLAN_DEFERRED",
   "BLINDING_PLAN_DEFERRED",
+  // L-MEA-09's pile › pile cap (I-544..d): a cap whose piles' heads nothing places, a cap the
+  // plans hold no pile under, a cap whose piles nobody could read at all, and a head height the drawing
+  // could only bound — deducted at the bound, so the figure stands under and says so (L-QTY-04).
+  "PILE_HEAD_UNSTATED",
+  "CAP_HOLDS_NO_PILE",
+  "CAP_PILES_UNREAD",
+  "JUNCTION_DEFERRED",
 ] as const satisfies readonly RefusalCode[];
 
 /** One code of the roster above. */
@@ -48,6 +55,10 @@ export type FoundationsRailCode = (typeof FOUNDATIONS_RAIL_CODES)[number];
 /**
  * The roster's members by name, read off the roster itself rather than spelled a second time: one
  * code has one spelling in this area, and a rail that reports one names it from here (Q-07).
+ *
+ * Every position is named, in the roster's own order: a name skipped here shifts every name after it
+ * onto its neighbour's code, and `EARTHWORK_PLAN_DEFERRED` once spelled `EARTHWORK_PARAMETER_UNSTATED`
+ * that way — unread, so no figure moved, but a constant that says one code and holds another.
  */
 export const [
   VIEW_SCALE_UNAFFIRMED,
@@ -58,8 +69,13 @@ export const [
   FOUNDATION_PLAN_UNSTATED,
   FOUNDING_LEVEL_UNSTATED,
   GROUND_LEVEL_UNSTATED,
+  EARTHWORK_PARAMETER_UNSTATED,
   EARTHWORK_PLAN_DEFERRED,
   BLINDING_PLAN_DEFERRED,
+  PILE_HEAD_UNSTATED,
+  CAP_HOLDS_NO_PILE,
+  CAP_PILES_UNREAD,
+  JUNCTION_DEFERRED,
 ] = FOUNDATIONS_RAIL_CODES;
 
 /** The three classes this area measures (R-TO-032). */
@@ -162,21 +178,29 @@ export function resolve(row: RegisterObjectRow, setup: RailSetup, kind: Kind): R
     return { ok: false, observation: observe(elementClass, kind, "VIEW_SCALE_UNAFFIRMED", row, placement.viewKey) };
   }
 
-  const family = placement.memberFamily;
-  const variants = family === null ? undefined : setup.memberTypes[placement.ingestId]?.[family];
-  if (variants === undefined || variants.length === 0) {
-    return { ok: false, observation: observe(elementClass, kind, "MEMBER_TYPE_UNKNOWN", row, placement.sourceEntity) };
-  }
-
-  // A foundation stands in the FOUNDATION slot and on no level of the stack (L-REG-02), so the stack
-  // bands nothing here: the family's own row is its section where it states exactly one, and a family
-  // stating several is genuinely ambiguous off the stack (`variantCovering`, L-QTY-01: never a guess).
-  const variant = variantCovering(variants, undefined, setup.levels);
+  const variant = variantOfPlacement(placement, setup);
   if (variant === undefined) {
     return { ok: false, observation: observe(elementClass, kind, "MEMBER_TYPE_UNKNOWN", row, placement.sourceEntity) };
   }
 
   return { ok: true, read: { row, placement, calibration, variant } };
+}
+
+/**
+ * The member type one foundation placement's family states — the row a rail reads its section and its
+ * dimensions off — or nothing where the schedules type it by no row, or by several the stack cannot
+ * tell apart. The ONE reading of it: a row's own rail and a pile cap asking the diameter of the piles
+ * under it read one variant for one pile (B-17).
+ *
+ * A foundation stands in the FOUNDATION slot and on no level of the stack (L-REG-02), so the stack
+ * bands nothing here: the family's own row is its section where it states exactly one, and a family
+ * stating several is genuinely ambiguous off the stack (`variantCovering`, L-QTY-01: never a guess).
+ */
+export function variantOfPlacement(placement: PlacementSetup, setup: RailSetup): MemberVariantSetup | undefined {
+  const family = placement.memberFamily;
+  const variants = family === null ? undefined : setup.memberTypes[placement.ingestId]?.[family];
+  if (variants === undefined || variants.length === 0) return undefined;
+  return variantCovering(variants, undefined, setup.levels);
 }
 
 /** The count of one member, provenanced to the entity it was counted off (L-QTY-03). */
@@ -297,4 +321,120 @@ export function enteredOrDerived(setup: RailSetup, fact: DerivableSiteFact): Mea
 export function enteredOnly(setup: RailSetup, fact: SiteFact): Measure | undefined {
   const entered = setup.siteFacts[fact];
   return entered === undefined ? undefined : { value: entered.value, unit: entered.unit, basis: "ENTERED", source: actSourceOf(entered.actId) };
+}
+
+/**
+ * What the setup states about one PILE CAP's junctions (L-MEA-09, I-544..d): its piles READ, with
+ * what the drawing states about them, or UNREAD — nobody could say which piles it stands on.
+ */
+export type CapJunction = { readonly read: true; readonly junction: CapJunctionSetup } | { readonly read: false };
+
+/** A pile cap whose piles nobody read — one answer, shared (B-17). */
+const UNREAD: CapJunction = Object.freeze({ read: false as const });
+
+/**
+ * What the setup states about one row's junctions with the piles below it — null where the row is no
+ * pile cap (a footing stands on the ground, and L-FRM-02's prism is its whole sentence).
+ *
+ * A pile cap with no entry is UNREAD, never a prism: a cap stands on piles by what it is, each of them
+ * owns the head it cast into the cap, and a cap measured whole over heads nobody placed reads over
+ * them (L-QTY-04) — whether the setup read no pile plan at all, could not lay the plans over one
+ * another, or states no junctions whatever (I-547). It is asked in one place so the three kinds a
+ * cap's junctions touch — its concrete, its blinding, its formwork — read one statement of them (B-17).
+ */
+export function capJunctionOf(read: Read, setup: RailSetup): CapJunction | null {
+  if (read.row.elementType !== PILE_CAP) return null;
+  const junction = setup.capJunctions?.[read.row.placementKey];
+  return junction === undefined ? UNREAD : { read: true, junction };
+}
+
+/** A reading the partition read, as a binding: the value, the unit, the basis and the entity (L-QTY-03). */
+function measureOf(reading: ReadingSetup): Measure {
+  return { value: reading.value, unit: reading.unit, basis: reading.basis, source: reading.source };
+}
+
+/**
+ * The diameter the piles a cap holds are scheduled at: each held pile's own member type, read by the
+ * one reading the pile rail reads it by (`variantOfPlacement`, through `resolve`), and the one DIA they
+ * all state. Nothing where any of them states none, or where two of them state different ones — two
+ * diameters under one cap are two sentences the one `d` cannot say, and a figure over either would be
+ * a guess (L-QTY-01).
+ */
+function heldDiameterOf(junction: CapJunctionSetup, setup: RailSetup): Measure | undefined {
+  let held: Measure | undefined;
+  for (const pile of junction.piles) {
+    const placement = setup.placements[pile];
+    const variant = placement === undefined ? undefined : variantOfPlacement(placement, setup);
+    const dia = variant?.dimensions[DIA];
+    if (dia === undefined) return undefined;
+    if (held !== undefined && (held.value !== dia.value || held.unit !== dia.unit)) return undefined;
+    held ??= dia;
+  }
+  return held;
+}
+
+/** What a cap's piles own of it, as the bindings and the omissions a rail offers them under. */
+export type HeldPiles = {
+  readonly bindings: Readonly<Record<string, Measure>>;
+  readonly omitted: readonly OmittedComponent[];
+  /** Whether the head height was only BOUNDED — deducted at its bound, the figure then under (L-QTY-04). */
+  readonly deferred: boolean;
+};
+
+/** The variables the owned sentences name the piles by (`@/core/rulesets/methods/foundations/owned`). */
+const PILES_HELD = "n";
+const PILE_DIAMETER = "d";
+const HEAD_HEIGHT = "e";
+
+/**
+ * The piles one cap stands on, as the owned sentences bind them (I-544, I-545): how many
+ * (`n`, measured off the two plans on the cap view's calibration), the diameter they are scheduled at
+ * (`d`) and — where the kind asks for it — how far their heads stand above the soffit (`e`).
+ *
+ * Every reading the drawing did not state is omitted by name and never bound as a zero:
+ * - a cap whose piles nobody read omits every one of them, `CAP_PILES_UNREAD` — the prism is never
+ *   the answer to a relation nobody read (I-547);
+ * - no pile under the cap at all is the two plans disagreeing about it, `CAP_HOLDS_NO_PILE`;
+ * - a diameter the held piles' schedule does not state as one is `PILE_DIAMETER_UNSTATED`;
+ * - a head height nothing places is `PILE_HEAD_UNSTATED` — the figure would read over, so the row is
+ *   kept with no figure rather than published over (L-QTY-04).
+ * A head height the drawing only BOUNDS is bound at its bound, and the rail says the figure is under.
+ */
+export function heldPilesOf(read: Read, setup: RailSetup, cap: CapJunction, options: { readonly head: boolean }): HeldPiles {
+  const wanted = options.head ? [PILE_DIAMETER, HEAD_HEIGHT] : [PILE_DIAMETER];
+  if (!cap.read) return { bindings: {}, omitted: [PILES_HELD, ...wanted].map((variable) => ({ variable, code: CAP_PILES_UNREAD })), deferred: false };
+
+  const junction = cap.junction;
+  const bindings: Record<string, Measure> = { [PILES_HELD]: { ...measureOf(junction.count), calibration: read.calibration } };
+  const omitted: OmittedComponent[] = [];
+
+  if (junction.piles.length === 0) {
+    for (const variable of wanted) omitted.push({ variable, code: CAP_HOLDS_NO_PILE });
+    return { bindings, omitted, deferred: false };
+  }
+
+  const diameter = heldDiameterOf(junction, setup);
+  if (diameter === undefined) omitted.push({ variable: PILE_DIAMETER, code: PILE_DIAMETER_UNSTATED });
+  else bindings[PILE_DIAMETER] = diameter;
+
+  if (!options.head) return { bindings, omitted, deferred: false };
+  const head = junction.headHeight;
+  if (head.standing === "UNBOUNDED") {
+    omitted.push({ variable: HEAD_HEIGHT, code: PILE_HEAD_UNSTATED });
+    return { bindings, omitted, deferred: false };
+  }
+  bindings[HEAD_HEIGHT] = measureOf(head.reading);
+  return { bindings, omitted, deferred: head.standing === "BOUNDED" };
+}
+
+/** The variables the owned sentences name a recess by (I-546). */
+const RECESS_LENGTH = "Lr";
+const RECESS_BREADTH = "Br";
+const RECESS_DEPTH = "Dr";
+
+/** The recess cast into a cap, as the bindings the recess sentences name it by — or nothing where none was read. */
+export function recessOf(cap: CapJunction | null): Readonly<Record<string, Measure>> | null {
+  const recess = cap !== null && cap.read ? cap.junction.recess : null;
+  if (recess === null) return null;
+  return { [RECESS_LENGTH]: measureOf(recess.length), [RECESS_BREADTH]: measureOf(recess.breadth), [RECESS_DEPTH]: measureOf(recess.depth) };
 }

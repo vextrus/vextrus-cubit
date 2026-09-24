@@ -1,7 +1,12 @@
 /**
- * AC-2 (first half) — the nine foundation methods, in force (R-TO-032, L-MEA-01, L-FRM-02,
- * L-FRM-03, L-FRM-04, L-QTY-03): the seven this leaf landed, and the two side formworks FND-3
- * appended after them (I-337).
+ * AC-2 (first half) — the sixteen foundation methods, in force (R-TO-032, L-MEA-01, L-FRM-02,
+ * L-FRM-03, L-FRM-04, L-MEA-09, L-QTY-03): the seven this leaf landed, the two side formworks FND-3
+ * appended after them (I-337), and the seven FND-OWN appended after those — a pile cap's prism less
+ * the heads its piles own, with and without a recess, the recess's sides, and the blinding less the
+ * piles' sections (I-544..c).
+ *
+ * TEST_AMENDED (FND-OWN): the roster grew from nine pairs to sixteen; nothing standing before them
+ * moved, and each new pair is graded here exactly as the nine are.
  *
  * A method is the sentence a figure is audited by: the variables it declares, the one tree its
  * template is printed from and its figure computed by, and the shard that records the pair an
@@ -28,6 +33,13 @@ import {
   FOUNDATIONS_VERSION,
   FOUNDATION_PRISM_POLY_RULE_ID,
   FOUNDATION_PRISM_RECT_RULE_ID,
+  BLINDING_OVER_PILES_RULE_ID,
+  PILE_CAP_FORMWORK_POLY_RECESS_RULE_ID,
+  PILE_CAP_FORMWORK_RECT_RECESS_RULE_ID,
+  PILE_CAP_PRISM_POLY_RECESS_RULE_ID,
+  PILE_CAP_PRISM_POLY_RULE_ID,
+  PILE_CAP_PRISM_RECT_RECESS_RULE_ID,
+  PILE_CAP_PRISM_RECT_RULE_ID,
   PCC_BLINDING,
   PILE_CONCRETE_RULE_ID,
   PILE_COUNT_RULE_ID,
@@ -66,6 +78,13 @@ const PI = "3.1415926535897932384626433832795";
 
 /** How far the pile's own constant may stand from π: a constant of twenty significant digits. */
 const PI_TOLERANCE = "0.0000000000000000001";
+
+/** The three readings a recess cast into a cap is stated by (I-546). */
+const RECESS_VARIABLES: readonly { name: string; dimension: string }[] = [
+  { name: "Lr", dimension: LENGTH },
+  { name: "Br", dimension: LENGTH },
+  { name: "Dr", dimension: LENGTH },
+];
 
 /** What each method declares: the kind it measures, the dimension it stands in, and its variables. */
 const DECLARED: readonly { ruleId: string; kind: string; dimension: string; variables: readonly { name: string; dimension: string }[] }[] = [
@@ -159,6 +178,50 @@ const DECLARED: readonly { ruleId: string; kind: string; dimension: string; vari
       { name: "t", dimension: LENGTH },
     ],
   },
+  // FND-OWN (I-544..c): the piles a cap stands on (`n`, `d`), how far their heads stand into it
+  // (`e`), and the recess cast into it (`Lr`, `Br`, `Dr`).
+  ...[
+    { ruleId: PILE_CAP_PRISM_RECT_RULE_ID, plan: ["L", "B"], recess: false },
+    { ruleId: PILE_CAP_PRISM_POLY_RULE_ID, plan: ["A"], recess: false },
+    { ruleId: PILE_CAP_PRISM_RECT_RECESS_RULE_ID, plan: ["L", "B"], recess: true },
+    { ruleId: PILE_CAP_PRISM_POLY_RECESS_RULE_ID, plan: ["A"], recess: true },
+  ].map((one) => ({
+    ruleId: one.ruleId,
+    kind: RCC_CONCRETE,
+    dimension: VOLUME,
+    variables: [
+      { name: "count", dimension: COUNT },
+      ...one.plan.map((name) => ({ name, dimension: name === "A" ? AREA : LENGTH })),
+      { name: "D", dimension: LENGTH },
+      { name: "n", dimension: COUNT },
+      { name: "d", dimension: LENGTH },
+      { name: "e", dimension: LENGTH },
+      ...(one.recess ? RECESS_VARIABLES : []),
+    ],
+  })),
+  ...[
+    { ruleId: PILE_CAP_FORMWORK_RECT_RECESS_RULE_ID, plan: ["L", "B"] },
+    { ruleId: PILE_CAP_FORMWORK_POLY_RECESS_RULE_ID, plan: ["P"] },
+  ].map((one) => ({
+    ruleId: one.ruleId,
+    kind: RCC_FORMWORK,
+    dimension: AREA,
+    variables: [{ name: "count", dimension: COUNT }, ...one.plan.map((name) => ({ name, dimension: LENGTH })), { name: "D", dimension: LENGTH }, ...RECESS_VARIABLES],
+  })),
+  {
+    ruleId: BLINDING_OVER_PILES_RULE_ID,
+    kind: PCC_BLINDING,
+    dimension: VOLUME,
+    variables: [
+      { name: "count", dimension: COUNT },
+      { name: "L", dimension: LENGTH },
+      { name: "B", dimension: LENGTH },
+      { name: "p", dimension: LENGTH },
+      { name: "t", dimension: LENGTH },
+      { name: "n", dimension: COUNT },
+      { name: "d", dimension: LENGTH },
+    ],
+  },
 ];
 
 /**
@@ -181,6 +244,11 @@ const BOUND: Readonly<Record<string, string>> = Object.freeze({
   top: "-0.6096",
   t: "0.0762",
   p: "0.0762",
+  n: "4",
+  e: "0.0756",
+  Lr: "0.9",
+  Br: "0.7",
+  Dr: "0.3",
 });
 
 /** The bindings one method declares, as the gate hands them: `{ value }` per declared variable. */
@@ -228,6 +296,13 @@ function owed(ruleId: string, exact: (value: string) => DecimalLike): DecimalLik
         .mul(v("L").add(two.mul(v("p"))))
         .mul(v("B").add(two.mul(v("p"))))
         .mul(v("t"));
+    // count × (2 × (L + B) × D + 2 × (Lr + Br) × Dr) — a cap's four sides and its recess's four
+    // (L-FRM-03, I-546).
+    case PILE_CAP_FORMWORK_RECT_RECESS_RULE_ID:
+      return v("count").mul(two.mul(v("L").add(v("B"))).mul(v("D")).add(two.mul(v("Lr").add(v("Br"))).mul(v("Dr"))));
+    // count × (P × D + 2 × (Lr + Br) × Dr) — a polygon cap's own boundary and its recess's sides.
+    case PILE_CAP_FORMWORK_POLY_RECESS_RULE_ID:
+      return v("count").mul(v("P").mul(v("D")).add(two.mul(v("Lr").add(v("Br"))).mul(v("Dr"))));
     default:
       return null;
   }
@@ -248,11 +323,11 @@ function shard(): Shard {
   return JSON.parse(readFileSync(abs, "utf8")) as Shard;
 }
 
-describe("AC-2: the nine foundation methods are in force", () => {
-  test("AC-2: the shard records exactly the nine pairs, and the registry enumerates every one", async () => {
+describe("AC-2: the sixteen foundation methods are in force", () => {
+  test("AC-2: the shard records exactly the sixteen pairs, and the registry enumerates every one", async () => {
     const recorded = shard();
     const owedKeys = FOUNDATIONS_PAIRS.map((pair) => `${pair.ruleId}@${pair.version}`).sort();
-    expect(Object.keys(recorded.methods ?? {}).sort(), `${FOUNDATIONS_SHARD} records exactly this shard's nine pairs, keyed \`<ruleId>@<version>\` (L-MEA-01)`).toEqual(owedKeys);
+    expect(Object.keys(recorded.methods ?? {}).sort(), `${FOUNDATIONS_SHARD} records exactly this shard's sixteen pairs, keyed \`<ruleId>@<version>\` (L-MEA-01)`).toEqual(owedKeys);
     for (const [key, row] of Object.entries(recorded.methods ?? {})) {
       expect(`${String(row.ruleId)}@${String(row.version)}`, `${key} restates the pair its key names`).toBe(key);
       expect(typeof row.module, `${key} names the module that computes it`).toBe("string");
@@ -290,7 +365,10 @@ describe("AC-2: the nine foundation methods are in force", () => {
         [...method.variables].map((one) => ({ name: one.name, dimension: one.dimension })).sort((left, right) => (left.name < right.name ? -1 : 1)),
         `${declared.ruleId} declares exactly the variables its clause names, each in the dimension it is read in (L-FRM-02, L-FRM-04)`,
       ).toEqual([...declared.variables].sort((left, right) => (left.name < right.name ? -1 : 1)));
-      expect([...method.deductionChannels], `${declared.ruleId} deducts through no channel — none of these methods takes anything off (scope)`).toEqual([]);
+      expect(
+        [...method.deductionChannels],
+        `${declared.ruleId} deducts through no channel — what a pile owns of a cap is a variable of the cap's own sentence, never an opening partitioned against a threshold (scope, I-545)`,
+      ).toEqual([]);
       expect(method.tree, `${declared.ruleId} carries the tree its template and its figure both come from (L-QTY-03)`).toBeTruthy();
       expect(method.template, `${declared.ruleId}'s template is that tree, printed — a string kept beside it is the copy that parts (B-17)`).toBe(expr.print(method.tree));
     }
@@ -304,6 +382,43 @@ describe("AC-2: the nine foundation methods are in force", () => {
       const expected = owed(declared.ruleId, exact as (value: string) => DecimalLike);
       if (expected === null) continue;
       expect(figure.eq(expected), `${declared.ruleId} over ${JSON.stringify(BOUND)} is ${expected.toString()} — its clause's own algebra, exactly (B-07)`).toBe(true);
+    }
+  });
+
+  test("FND-OWN: a cap's heads and the blinding's sections are the pile's own π/4 · d², over the readings the gate hands them", async () => {
+    const { exact } = await canon();
+    // π/4 exactly as the pile's shaft carries it — one pile, one metre across, one metre long — so a
+    // cap's heads are measured in the one sentence of the one constant the pile that owns them is
+    // (B-17), and the constant itself is judged beside, on its own.
+    const pile = await foundationsMethod({ ruleId: PILE_CONCRETE_RULE_ID, version: FOUNDATIONS_VERSION });
+    const quarterPi = exact(String(pile.evaluate({ count: { value: "1" }, d: { value: "1" }, length: { value: "1" } })));
+    const v = (name: string): DecimalLike => exact(BOUND[name] as string);
+    const two = exact("2");
+    const heads = v("n").mul(quarterPi).mul(v("d")).mul(v("d")).mul(v("e"));
+    const sections = v("n").mul(quarterPi).mul(v("d")).mul(v("d"));
+    const recess = v("Lr").mul(v("Br")).mul(v("Dr"));
+    const owedBy: Readonly<Record<string, DecimalLike>> = {
+      // count × (L × B × D − n × π/4 × d² × e) — the cap less the heads its piles own (L-MEA-09).
+      [PILE_CAP_PRISM_RECT_RULE_ID]: v("count").mul(v("L").mul(v("B")).mul(v("D")).sub(heads)),
+      [PILE_CAP_PRISM_POLY_RULE_ID]: v("count").mul(v("A").mul(v("D")).sub(heads)),
+      // … and less the recess cast into it (I-546).
+      [PILE_CAP_PRISM_RECT_RECESS_RULE_ID]: v("count").mul(v("L").mul(v("B")).mul(v("D")).sub(heads).sub(recess)),
+      [PILE_CAP_PRISM_POLY_RECESS_RULE_ID]: v("count").mul(v("A").mul(v("D")).sub(heads).sub(recess)),
+      // count × ((L + 2p) × (B + 2p) − n × π/4 × d²) × t — the blinding less the piles through it (I-545).
+      [BLINDING_OVER_PILES_RULE_ID]: v("count")
+        .mul(v("L").add(two.mul(v("p"))).mul(v("B").add(two.mul(v("p")))).sub(sections))
+        .mul(v("t")),
+    };
+    for (const [ruleId, owedFigure] of Object.entries(owedBy)) {
+      const declared = DECLARED.find((one) => one.ruleId === ruleId);
+      expect(declared, `${ruleId} is declared above`).toBeTruthy();
+      const method = await foundationsMethod({ ruleId, version: FOUNDATIONS_VERSION });
+      const figure = exact(String(method.evaluate(bindingsFor(declared?.variables ?? []))));
+      const drift = figure.sub(owedFigure);
+      expect(
+        drift.lte(exact(PI_TOLERANCE)) && exact(`-${PI_TOLERANCE}`).lte(drift),
+        `${ruleId} over ${JSON.stringify(BOUND)} is ${owedFigure.toString()} — its clause's own algebra, with the pile's own π/4 (it answered ${figure.toString()})`,
+      ).toBe(true);
     }
   });
 

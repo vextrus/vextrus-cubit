@@ -16,6 +16,15 @@
  * COMPLETE coverage. Those cells are named instead — every BNBC pile cap is drawn as a polygon, so
  * its pit and its blinding defer by name (L-FRM-04) — and the set of them is asserted to be exactly
  * that, so a cell that quietly stopped measuring cannot hide among the deferrals.
+ *
+ * TEST_AMENDED (session 8, FND-OWN review, I-544, I-547): a pile cap's concrete is the prism
+ * less the heads the piles it stands on own (L-MEA-09: pile › pile cap), and a cap whose piles nobody
+ * read keeps its row naming `CAP_PILES_UNREAD` rather than the whole prism over them (L-QTY-04). The
+ * members here are the model's, so the junction is the model's too: each cap's own `piles`, and the
+ * head height its elevations state — the piles' cut-off (`levels.PILE_CUT`, −1828.8) against the cap's
+ * soffit (its `top` less its `depth`, −609.6 − 1295.4), 76.2 mm — STAGED through `stageCapJunctions`,
+ * since no reader of the drawing states it yet. The cap concrete cell is then the model's prisms less
+ * 89 heads, graded against that algebra and inside the band as every COMPLETE cell is.
  */
 import { afterAll, describe, expect, test } from "vitest";
 import {
@@ -44,14 +53,17 @@ import {
   evaluate,
   goldenCell,
   goldenFigure,
+  modelLevels,
   modelMembers,
   modelSiteFacts,
   publishedByCell,
   railBatchOf,
+  stageCapJunctions,
   stageFoundationsCampaign,
   type CellReading,
   type FoundationsStage,
   type ModelMember,
+  type StagedCapJunction,
   type StagedFact,
   type StagedMember,
   type VerdictShape,
@@ -104,6 +116,26 @@ function factsFrom(): StagedFact[] {
   return entered;
 }
 
+/** Where the model states the piles' cut-off, and the head height each cap's own elevations put it at. */
+const PILE_CUT = "PILE_CUT";
+
+/**
+ * The piles each cap stands on and how far their heads stand into it, as the model states them: the
+ * cap's own `piles`, and the cut-off against its soffit — `PILE_CUT − (top − depth)` (I-544).
+ */
+async function junctionsFrom(model: readonly ModelMember[]): Promise<Record<string, StagedCapJunction>> {
+  const { exact } = await canon();
+  const cut = modelLevels(BNBC_MODEL)[PILE_CUT];
+  expect(cut, `${BNBC_MODEL} states the piles' cut-off`).toBeTruthy();
+  const junctions: Record<string, StagedCapJunction> = {};
+  for (const cap of model.filter((member) => CLASS_OF[member.class] === PILE_CAP)) {
+    expect(cap.piles !== undefined && cap.top !== undefined && cap.depth !== undefined, `${cap.id} states its piles, its top and its depth`).toBe(true);
+    const head = exact(String(cut)).sub(exact(String(cap.top)).sub(exact(String(cap.depth))));
+    junctions[cap.id] = { piles: cap.piles ?? [], head: { value: head.toString(), unit: MILLIMETRE, source: `${BNBC_MODEL}#levels.${PILE_CUT}` } };
+  }
+  return junctions;
+}
+
 let stage: FoundationsStage;
 let verdict: VerdictShape;
 let cells: Map<string, CellReading>;
@@ -119,11 +151,11 @@ let staging: Promise<void> | undefined;
  */
 const staged = (): Promise<void> =>
   (staging ??= (async () => {
-    members = modelMembers(BNBC_MODEL)
-      .filter((member) => CLASS_OF[member.class] !== undefined)
-      .map(stagedFrom);
+    const model = modelMembers(BNBC_MODEL).filter((member) => CLASS_OF[member.class] !== undefined);
+    members = model.map(stagedFrom);
     expect(members.length, `${BNBC_MODEL} carries the foundation members this leaf measures`).toBeGreaterThan(0);
     stage = await stageFoundationsCampaign("bnbc-fdn", members, factsFrom());
+    stageCapJunctions(stage, members, await junctionsFrom(model));
     verdict = await evaluate(stage, await railBatchOf(stage));
     cells = await publishedByCell(stage.tenantId, stage.campaignId);
 })());
@@ -174,6 +206,21 @@ describe("AC-6: F-RCC6-BNBC's foundations stand inside L-QTY-06's band, per (cla
         `${cell.class} × ${cell.kind}: ${sum.toString()} is not over the golden ${golden.said} — L-QTY-06 allows +0% over, and an over-measured figure is never a disclosure`,
       ).toBe(true);
     }
+  }, 600_000);
+
+  test("AC-6: the pile caps' concrete is the model's prisms less the 89 heads its piles own — never the prisms whole (L-MEA-09)", async () => {
+    await staged();
+    const { exact } = await canon();
+    const held = cells.get(`${PILE_CAP}|${RCC_CONCRETE}`) as CellReading;
+    expect(held.partial, "every cap's piles and heads are stated, so every line publishes").toBe(0);
+    const caps = modelMembers(BNBC_MODEL).filter((member) => CLASS_OF[member.class] === PILE_CAP);
+    const piles = caps.reduce((sum, cap) => sum + (cap.piles?.length ?? 0), 0);
+    expect(piles, "the model's 26 caps stand on its 89 piles").toBe(89);
+    // mm² × mm → m³; π/4 · d² · e with d = 0.5 m and e = 0.0762 m, the heads the piles own.
+    const prisms = caps.reduce((sum, cap) => sum.add(exact(String(cap.area)).mul(exact(String(cap.depth)))), exact("0")).mul(exact("1e-9"));
+    const heads = exact(String(piles)).mul(exact("3.14159265358979323846")).mul(exact("0.25")).mul(exact("0.0762")).mul(exact("0.25"));
+    const drift = held.sum.sub(prisms.sub(heads));
+    expect(drift.lte(exact("1e-12")) && exact("-1e-12").lte(drift), `${held.sum.toString()} m³ is the prisms ${prisms.toString()} less 89 × π/4 × 0.5² × 0.0762 (${heads.toString()})`).toBe(true);
   }, 600_000);
 
   test("AC-6: exactly the polygon-plan cells are partial, and each names the code it defers under", async () => {
