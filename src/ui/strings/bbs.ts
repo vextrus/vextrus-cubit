@@ -48,12 +48,27 @@ export const bbs = {
   bbs_summary_col_pieces: "Pieces",
   bbs_summary_col_offcut: "Offcut (m)",
   bbs_summary_total: "Total mass",
-  // What the total covers, said where the schedule is not the whole of the steel (I-567/c).
-  bbs_total_covers: "{scope} only — {missing} not counted",
+  // What the total covers, said where the schedule is not the whole of the steel (I-567/c), from what
+  // the schedule holds: a component some entries left out is said with its members and why (I-671).
+  bbs_total_covers: "{scope} only — {missing}",
   bbs_total_covers_whole: "{scope} only",
+  bbs_total_not_counted: "{components} not counted",
+  bbs_total_some_not_counted: "{component} of {members} not counted: {reasons}",
+  bbs_total_reason: "{why} ({where})",
+  bbs_total_marks_at: "{marks} at {levels}",
+  bbs_total_levels_many: "{count} levels",
+  bbs_total_reason_separator: " · ",
+  bbs_total_clause_separator: "; ",
+  bbs_why_joint_unread: "joint depth unread",
+  bbs_why_shape_not_held: "shape not held",
+  bbs_why_tie_zone_unstated: "tie zones unstated",
+  bbs_why_note_contested: "note contested",
   bbs_scope_main_bars: "main bars",
-  bbs_scope_bars: "bars",
+  bbs_scope_bars_and_ties: "bars and ties",
   bbs_scope_and: "and",
+  // Everything the schedule leaves out folds behind one line that opens the list (I-672).
+  bbs_disclosure_one: "1 item not in this schedule",
+  bbs_disclosure_many: "{count} items not in this schedule",
   // An entry whose members' lines left part of its steel out says so on its own row (s-bbs I-655).
   bbs_member_left_out: "{components} left out",
   bbs_member_partly: "Partly declared",

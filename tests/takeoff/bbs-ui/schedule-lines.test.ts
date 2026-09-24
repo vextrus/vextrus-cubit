@@ -7,9 +7,10 @@
  * once, a line counts only members of its own floor, class and mark, a line's count and masses are its
  * members' stored figures summed exactly, the schedule's totals are the bill's totals, no two entries
  * of one mark on one floor hold the same bars, and a member alone is its stored rows verbatim. Then
- * the three cases the golden cannot reach: two members whose bars match but were read off different
- * cells stand as two entries (a line cites what it was read from, L-QTY-03), two floors never merge,
- * and a member whose bars differ is its own entry.
+ * the cases the golden cannot reach: two members whose bars match but were read off different cells
+ * (the ties' joint depth, read off the member bounding each one's own joint) are ONE entry citing
+ * every cell (I-670; a line cites what it was read from, L-QTY-03), two floors never merge, a
+ * member whose bars differ is its own entry, and two editions never merge.
  *
  * EVERY EXPECTATION IS DERIVED FROM THE FIXTURE (B-19). Nothing here opens a database and nothing
  * here measures time (AM-10 §3).
@@ -92,7 +93,6 @@ function barFacts(row: BarRow): string {
     row.kgNet,
     row.kgLap,
     row.kg,
-    row.sourceKeys,
     row.detailingSourceKeys,
     row.editionDigest,
   ]);
@@ -253,11 +253,32 @@ describe("I-534: what never merges", () => {
     expect((lines[1] as BbsLine).kg, "the tie's mass too, never rounded on the way").toBe("21.3703695");
   });
 
-  test("the same bars read off DIFFERENT cells stand as two entries of the mark — a line cites what it was read from", () => {
+  test("the same bars read off DIFFERENT cells are ONE entry of the mark, citing every cell its members were read off (I-670)", () => {
     const rows = [...member("k:a", { level: "1F", mark: "C2", cells: "S-03:C2" }), ...member("k:b", { level: "1F", mark: "C2", cells: "S-04:C2" })];
     const lines = scheduleOf(rows);
-    expect(lines.map((line) => line.members), "two members, two readings, two entries").toEqual([["k:a"], ["k:a"], ["k:b"], ["k:b"]]);
-    expect(lines.map((line) => line.sourceKeys[0]), "each citing its own cell").toEqual(["S-03:C2#main", "S-03:C2#main", "S-04:C2#main", "S-04:C2#main"]);
+    expect(lines.map((line) => line.members), "two members, one bar set, one entry").toEqual([["k:a", "k:b"], ["k:a", "k:b"]]);
+    expect(lines.map((line) => line.sourceKeys), "each line citing both members' cells, the first member's first, each once").toEqual([
+      ["S-03:C2#main", "S-03:C2#run", "S-04:C2#main", "S-04:C2#run"],
+      ["S-03:C2#main", "S-03:C2#run", "S-04:C2#main", "S-04:C2#run"],
+    ]);
+  });
+
+  test("three C1s whose ties each cite the beam bounding their own joint are one entry of three (walk-2 BD-4)", () => {
+    const joint = (objectKey: string, beam: string): BarRow[] =>
+      member(objectKey, { level: "GF", mark: "C1", cells: "S-03:C1" }).map((row) => (row.role === "TIE" ? { ...row, sourceKeys: [...row.sourceKeys, beam] } : row));
+    const lines = scheduleOf([...joint("k:a", "B:10F4"), ...joint("k:b", "B:122F"), ...joint("k:c", "B:134C")]);
+    expect(lines.map((line) => [line.barMark, line.members.length, line.parentCount]), "one entry of three, not three of one").toEqual([
+      ["C1-v", 3, "3"],
+      ["C1-t", 3, "3"],
+    ]);
+    expect((lines[1] as BbsLine).sourceKeys, "the ties cite the schedule's cells once and every bounding beam").toEqual(["S-03:C1#main", "S-03:C1#run", "B:10F4", "B:122F", "B:134C"]);
+    expect((lines[0] as BbsLine).sourceKeys, "and the mains, read off one set of cells, cite exactly that set").toEqual(["S-03:C1#main", "S-03:C1#run"]);
+  });
+
+  test("two editions never merge: bars cut under different rules are two entries", () => {
+    const other = member("k:b", { level: "1F", mark: "C2", cells: "S-03:C2" }).map((row) => ({ ...row, editionDigest: "another" }));
+    const lines = scheduleOf([...member("k:a", { level: "1F", mark: "C2", cells: "S-03:C2" }), ...other]);
+    expect(lines.map((line) => line.members)).toEqual([["k:a"], ["k:a"], ["k:b"], ["k:b"]]);
   });
 
   test("two floors never merge, and a member whose bars differ is its own entry — in the order the bill read them", () => {

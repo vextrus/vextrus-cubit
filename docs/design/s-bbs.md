@@ -263,7 +263,9 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   bar was READ from: the schedule cells, the storey height, the detailing notes and the edition. It is
   never which member the bar belongs to. The evidence is in it because a merged line would cite one
   reading for bars another stated, and a line cites what it was read from (L-QTY-03). Two readings are
-  therefore two entries of one mark: longer, never wrong. A line's `parentCount` is the members'
+  therefore two entries of one mark: longer, never wrong. *(Amended by I-670: the entities a bar's figures were
+  read off are no longer part of its bar set; a line counted over several members cites what every
+  one of them was read off.)* A line's `parentCount` is the members'
   counts summed (the rail writes one per member, so it is the number of members). Its `bars`, `kgNet`,
   `kgLap` and `kg` are the members' own stored figures summed exactly, never rounded (L-QTY-05, B-07).
   Its identity (`barKey`, `objectKey`, `semantic`, the source keys) is its first member's in reading
@@ -394,7 +396,8 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   (d) *The total says what it covers.* `totalCoversOf` composes it from the classes scheduled, whether
   any link stands in the schedule (`main bars` when none does), and the components the lines left
   out: **Column main bars only — laps and ties not counted**. It replaces `Measured scope only`, and
-  it is empty only where nothing is partly declared and no steel stands outside the schedule.
+  it is empty only where nothing is partly declared and no steel stands outside the schedule. *(Amended by I-671: the words are read from what the
+  schedule holds and which entries left a component out.)*
   Rejected: printing the packing with a caveat (a fabricator reads the figure, not the caveat);
   withholding the whole cutting-stock table (a diameter of whole, lapped bars is still a plan);
   inventing a lap to make the runs cuttable (the edition refused to state one, AM-03(f)(h)).
@@ -547,6 +550,62 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   carrying the coverage on `BbsDocument` (the issued schedule's payload is frozen by V-DOCS and prints
   its own declared block).
 
+- **I-670 — identical members of a mark are one entry however their ties' joints were cited
+  (session 9, BBS-TIES; walk-2 BD-4; the owner's ruling Q3, BS 8666; amends I-534(a)).** Under
+  synthesis@2 every tie row cites, beside the schedule's cells, the cell the depth of the member
+  bounding ITS OWN joint was read at (I-659). I-534 kept the cited entities in the bar set, so three
+  GF C1s with the same 29 ties each cited a different beam and stood as `GF · Column · C1 · 1 member`
+  three times: exactly the repetition "once per floor with its member count" exists to end. The bar
+  set (`barSetOf`, `src/modules/takeoff/rebar/store.ts`) is now everything a bar IS, is cut to and
+  weighs, and the rules it was cut under (the detailing notes and the edition); never the entities its
+  figures were read off. A line counted over several members cites the union of their `sourceKeys`
+  (`citedByAll`): every entity any member's bar was read off, each once, the first member's first. So
+  no reading is cited for bars another stated and none is lost (L-QTY-03), and a line whose members
+  read one set of cells cites exactly that set. Two editions still never merge. The Trace of a bar
+  mark selects those entities on the sheet the first of them stands on, as before. Rejected: keeping
+  an entry per citation (the walk's defect); citing the first member's entities only (the beam that
+  bounded another member's joint would be lost from the record).
+- **I-671 — the total says what the schedule holds, and which members' ties are left out and
+  why (session 9, BBS-TIES; walk-2 BD-4; L-QTY-02, L-QTY-07; amends I-567(d)).** With the ties in
+  force the total read `Column bars only — ties not counted` while C1-t ties were listed and the
+  cutting stock billed 10 mm: I-567's words were composed before any entry held a tie, so one `ties`
+  omission anywhere read as "no ties". `totalCoversOf` (`present.ts`) now reads the schedule's own
+  rows and each entry's standing (`entries`, I-655):
+  (a) the scope says `bars and ties` (`bbs_scope_bars_and_ties`) where any link stands in the
+  schedule, and `main bars` where none does;
+  (b) a component EVERY entry left out is said once: `laps not counted`;
+  (c) a component SOME entries left out while others hold it is said with the members it is missing
+  from and why: each registered code the entries' lines state for it, in their order, in a few words
+  (`BBS_WHY_SAID`, `copy.ts`: joint depth unread, shape not held, tie zones unstated, note contested),
+  with its marks; marks standing at the same levels are said together, and the levels are named up
+  to three and counted past it. On walk-2's campaign (cubit_e2e, the BNBC project measured under
+  2027.06) that is 32 members whose joint was unread (C1–C4 at the foundation necks, C6 on every
+  floor) and 2 round C7s, read as `Column bars and ties only — ties of 34 members not counted: joint
+  depth unread (C1, C2, C3, C4 at FDN; C6 at 8 levels) · shape not held (C7 at …)`. A code with no
+  short words is said by its marks alone, and an entry whose members published no line is counted
+  and said by its marks. The register's full sentence for each code stays in the list the status line
+  opens (I-672). The issued schedule says the same words: `BbsPayloadMeta.entries` carries the
+  reading's own standing across, so the two faces say one sentence (B-17). Counts are written by the
+  format seam. Rejected: `Column bars only` with a footnote (the contradiction walk-2 found); listing
+  every member (208 keys on a total row); inferring which members hold ties from the rows drawn (a tie
+  row present says nothing of a component a line declared missing, I-655).
+- **I-672 — what the schedule leaves out folds behind one line, and the cutting stock folds
+  beneath the total, so the grid has the page (session 9, BBS-TIES; walk-2 BD-4; R-UI-080; the
+  frontend law's one line at most above a grid; I-484's precedent).** At 1280 × 800 twelve lines of
+  disclosure above the grid and the cutting-stock table beneath it left the schedule three rows. The
+  status line is now the `<summary>` of one `<details>`, closed at rest, reading the helper sentence
+  and then `{count} items not in this schedule`: the codes the partly declared lines left out, each
+  once, and the rows of steel no line was published for. Opened, it lists them exactly as before,
+  scrolling inside itself past a third of the screen. Where nothing is left out the helper line stands
+  alone. Beneath the grid the total row stands open on every reading, with what it covers
+  (I-671), and the per-diameter cutting stock, its withheld note and its `(i)` fold beneath it
+  under `bbs_summary_heading`. The stock is informational and never billed (I-bbs-5), so a reader
+  opens it when a yard asks. Every line of both lists stays in the DOM, so the journeys' reads of
+  `bbs-answer` and `bbs-summary` are unchanged. Rejected: a tab for the cutting stock (a second
+  surface for four lines, and the total would leave the schedule's foot); an overlay (it would cover
+  the rows a reader reads the list against); dropping the per-code lines (every refusal carries a
+  named reason).
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -584,7 +643,10 @@ Above the fold: the grid's sticky header stands 24 (the frame's padding on `shel
 status line) + 4 = **56 px** below the top of main, its first row at **84 px**, at 1440 × 900 and at
 1280 × 800 alike — inside §7 C2's 120. Work-surface share: the summary region is capped at 224, so the
 grid is 1344 × 524 of main's 1392 × 804 = **63 %**; at 1280 × 800, 1184 × 424 of 1232 × 704 = **58 %**
-(R-UI-080's 55 %). Both the grid and the summary scroll inside their own boxes with their first column
+(R-UI-080's 55 %). *(Amended by I-672: the disclosures and the cutting stock fold, so at rest
+the status line is one line of 28 and the summary two — the total and the fold's line, 56 plus what
+the total's words wrap to — and the grid takes the rest: at 1280 × 800 about 1184 × 560 of 1232 ×
+704, some **76 %**, where walk-2 found three rows.)* Both the grid and the summary scroll inside their own boxes with their first column
 frozen; the page never scrolls sideways (§7 C10).
 
 | Region | What it holds | Width / height rule | Tokens | State when empty |
@@ -592,9 +654,9 @@ frozen; the page never scrolls sideways (§7 C10).
 | tabs row (frame's track) | the five shipped entries then `takeoff-nav-bbs` (`aria-current="page"` here); in `useTakeoffTabsAside`: `bbs-revision` (IdChip, `data-value` the whole `setRevisionId`), `bbs-stock` (`data-stock-mm`, `data-rounding-mm`; its words in the interface's face and only its two figures in mono, I-354) and the ONE primary `bbs-export` (I-bbs-8), present only for a permitted reader with bars to render | 100 % × `--toolbar-h` 32; the primary at `--control-h` | `--surface-panel`, `--ink`, `--ink-secondary`, `--ink-muted`, `--line-accent`, `--font-mono`, `--accent` through the Button | the aside carries the tabs alone while no campaign is pinned; the primary is absent, never disabled, while nothing is scheduled |
 | answer slot (`bbs-answer`) | one RefusalState from a refused or denied door (`REQUEST_MALFORMED`, `PERMISSION_NOT_HELD`, `BBS_NO_CAMPAIGN`); the offline banner above it; and, beneath them, the status line — everything this screen ANSWERS about its own reading stands in the one polite live region | 100 % × auto; `display:none` while empty | `--state-info(-surface)`, `--state-warn(-surface)` through RefusalState, `--radius-4`, `--hairline` | absent (no box) |
 | job strip (`bbs-jobs`) | the shipped `JobTimeline` for the render job, present only while a run is watched; `bbs-document-link` follows a success (I-bbs-8) | 100 % × the pattern's own, between the answer slot and the grid | the pattern's own; `--accent` as the link's text | absent — never an empty box |
-| status line | the ONE helper line, `<p role="status">` inside the answer slot: `bbs_partial` or `bbs_complete`; in `partial`, beneath it, `bbs_partial_omitted` and one list line per code the partly declared lines left out: the line's components in words through `EnumLabel`, the registry's own message, and a link to where it is settled with the registry's remedy as its Tooltip (I-bbs-9, I-354) | 100 % × 28, plus one caption line per code | `--ink`, `--ink-muted`, `--ink-secondary`, `--ink-link`, `--weight-body-medium`, `--text-body`, `--text-caption` | absent with the grid |
+| status line | the ONE helper line inside the answer slot: `bbs_partial` or `bbs_complete`. Where the schedule leaves anything out it is the `<summary>` of one closed `<details>` (I-672), followed by `bbs_disclosure_one` / `bbs_disclosure_many` in the link ink; opened, it lists `bbs_partial_omitted` (in `partial`) with one line per code the partly declared lines left out — the line's components in words through `EnumLabel`, the registry's own message, and a link to where it is settled with the registry's remedy as its Tooltip (I-bbs-9, I-354) — then `bbs_not_in_schedule` (I-569). Where nothing is left out it is a bare `<p role="status">` | 100 % × 28 closed; opened, the list up to 33 vh, scrolling inside itself | `--ink`, `--ink-muted`, `--ink-secondary`, `--ink-link`, `--weight-body-medium`, `--text-body`, `--text-caption` | absent with the grid |
 | grid (primary) | `bbs-grid` (DataTable v2, `tableId` `s-bbs-bars`, `aria-label` `bbs_grid_label`, `data-rows-rendered`): one `bbs-member` group row per ENTRY — one mark on one floor, named by its first member's `objectKey` and stating its number of members (I-534) — in `document.rows` order, the door's reading order from the ground up (I-354), then its `bbs-row` (NET) rows each optionally followed by one `bbs-lap` | `flex: 1 1 auto`; ≥ 55 % of main; header and rows at `--row-h` (28 compact / 36 comfortable, revalued at the ROOT by `[data-density]`, never here); first column frozen; no wrapping cell | `--surface-app`, `--surface-sunken` (sticky header, group rows), `--ink`, `--ink-code`, `--font-mono`, `--cell-px`, `--cell-py`, `--hairline` | not rendered at all: `bbs-empty` stands in its place |
-| summary (`bbs-summary`) | the heading, its `(i)` popover, and a 5-column table: one `bbs-summary-row` per key of `perDiameterKg` in ascending numeric diameter, closed by the sticky total row carrying `grandTotalKg`; `data-kg` on the region is that grand total | 100 % × 28 heading + 28 header + rows + 28 total, **max 224**, body scrolls inside | `--surface-sunken` (header and total row), `--ink`, `--ink-code`, `--font-mono`, `--hairline` | absent with the grid |
+| summary (`bbs-summary`) | the total row — `bbs_summary_total`, `grandTotalKg` and what it covers (I-567, I-671) — always open; beneath it one closed `<details>` whose line is the heading `bbs_summary_heading` and whose body is the 5-column table, one `bbs-summary-row` per key of `perDiameterKg` in ascending numeric diameter, the withheld note and the `(i)` popover (I-672); `data-kg` on the region is the grand total | 100 % × 28 total (more where its words wrap) + 28 fold line; opened, the table's body **max 196**, scrolling inside | `--surface-sunken` (header and total row), `--ink`, `--ink-code`, `--font-mono`, `--hairline` | absent with the grid |
 | empty (in the grid's place) | the shipped `EmptyState` `bbs-empty`: heading, one sentence, one action to `…/takeoff/register` | max-width 520, centred in the grid's box | `--ink`, `--ink-muted`, `--accent` through Button | this IS the empty state |
 | error (in the grid's place) | `error-state`: heading, one sentence, `error-state-report` (the fault id through IdChip under the primitive's own report label), `error-state-retry` | 100 % × auto, max-width 520 | `--ink`, `--ink-muted`, `--hairline`, `--radius-4` | — |
 | inspector (frame's one slot) | nothing ever mounts it here | **absent — width 0** | — | absent |
@@ -687,9 +749,17 @@ never as a percentage of it.** · `bbs_summary_heading` **Cutting stock by diame
 are never billed.** · `bbs_summary_col_diameter` **Diameter (mm)** · `bbs_summary_col_kg` **Mass (kg)**
 · `bbs_summary_col_stock_bars` **Stock bars** · `bbs_summary_col_pieces` **Pieces** ·
 `bbs_summary_col_offcut` **Offcut (m)** (I-568) · `bbs_summary_total` **Total mass** ·
-`bbs_total_covers` **{scope} only — {missing} not counted** · `bbs_total_covers_whole` **{scope}
-only** · `bbs_scope_main_bars` **main bars** · `bbs_scope_bars` **bars** · `bbs_scope_and` **and**
-(what the total covers, I-567) · `bbs_run_label` **Storey-height runs, not for cutting** ·
+`bbs_total_covers` **{scope} only — {missing}** · `bbs_total_covers_whole` **{scope}
+only** · `bbs_total_not_counted` **{components} not counted** · `bbs_total_some_not_counted`
+**{component} of {members} not counted: {reasons}** · `bbs_total_reason` **{why} ({where})** ·
+`bbs_total_marks_at` **{marks} at {levels}** · `bbs_total_levels_many` **{count} levels** ·
+`bbs_total_reason_separator` ** · ** · `bbs_total_clause_separator` **; ** · `bbs_why_joint_unread`
+**joint depth unread** · `bbs_why_shape_not_held` **shape not held** · `bbs_why_tie_zone_unstated`
+**tie zones unstated** · `bbs_why_note_contested` **note contested** · `bbs_scope_main_bars` **main
+bars** · `bbs_scope_bars_and_ties` **bars and ties** · `bbs_scope_and` **and** (what the total
+covers, I-567, I-671) · `bbs_disclosure_one` **1 item not in this schedule** ·
+`bbs_disclosure_many` **{count} items not in this schedule** (the one line that opens the list,
+I-672) · `bbs_run_label` **Storey-height runs, not for cutting** ·
 `bbs_run_tooltip` **The laps of these bars are not stated, so each stands at its storey height: a
 quantity to weigh, not a length to cut.** · `bbs_member_left_out` **{components} left out** ·
 `bbs_member_partly` **Partly declared** · `bbs_member_partial_tooltip` **The lines of this entry's
@@ -849,7 +919,10 @@ grouping), `tests/takeoff/bbs-ui/copy-mirror.test.ts` (the module's copy is the 
 through `goldenBbsDocument()` — never a frozen list, and no duration asserted (AM-10 §3);
 `tests/takeoff/bbs-ui/reading-order.test.ts` (I-354(a), the door's comparator over keys the product's
 own grammar mints) and `tests/takeoff/bbs-ui/partial-omitted.test.tsx` (I-354(b)(c), the workspace
-mounted over the real refusal registry, and the sheet's stock rules read). Live:
+mounted over the real refusal registry, and the sheet's stock rules read);
+`tests/takeoff/bbs-ui/ties-in-force.test.tsx` (I-671: the total's words over a schedule with
+and without ties, on both faces; I-672: the two folds, closed at rest, every line in the DOM).
+Live:
 `tests/takeoff/bbs-ui/view.db.test.ts`'s issue case reads the presented page on its way to the renderer
 (I-535: particulars in words, no uuid or register key; I-536: the partly declared campaign's
 `Ties` left out). Docs: `tests/docs/bbs/{payload.json,golden.pdf}` and `tests/docs/bbs-render.test.ts`

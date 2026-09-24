@@ -448,8 +448,11 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
   const summary = useMemo(() => (document_ === null || standing === null ? null : bbsSummaryOf(document_, standing.withheld)), [document_, standing]);
   const notInSchedule = useMemo(() => view?.notInSchedule ?? [], [view?.notInSchedule]);
   const totalCovers = useMemo(
-    () => (document_ === null ? "" : totalCoversOf(document_, { partial: view?.partial ?? false, omitted: view?.omitted ?? [], notInSchedule: notInSchedule.length })),
-    [document_, view?.partial, view?.omitted, notInSchedule],
+    () =>
+      document_ === null
+        ? ""
+        : totalCoversOf(document_, { partial: view?.partial ?? false, omitted: view?.omitted ?? [], notInSchedule: notInSchedule.length, ...(entries === undefined ? {} : { entries }) }),
+    [document_, view?.partial, view?.omitted, notInSchedule, entries],
   );
   const rowData = useMemo(() => rowDataOf(ids), [ids]);
 
@@ -477,6 +480,11 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
       }),
     [refusalOf, view?.omitted],
   );
+  // The helper line, and how many things the list it opens holds (I-672): what the partly
+  // declared lines left out, each code once, and the steel no line was published for.
+  const status = state === "partial" ? BBS_COPY.bbs_partial : BBS_COPY.bbs_complete;
+  const disclosed = (state === "partial" ? omissions.length : 0) + notInSchedule.length;
+  const disclosedSaid = disclosed === 1 ? BBS_COPY.bbs_disclosure_one : fillCopy("bbs_disclosure_many", { count: formatUserFigure(String(disclosed)) });
   // I-bbs-1: a reader without MEASURE is denied the whole screen, so the door stands for a permitted
   // reader with a schedule to render and for nobody else — never disabled, absent (R-UI-080).
   const permitted = (props.permitted ?? true) && !denied;
@@ -612,62 +620,79 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
         {refusal === null ? null : (
           <RefusalState refusal={refusal} evidence={{ href: registerHref(tenantId, projectId), label: BBS_COPY.bbs_empty_action }} />
         )}
-        {drawsGrid ? (
+        {/* The helper line, and — where the schedule leaves anything out — the ONE line that opens
+            the list of it (I-672). Twelve lines of disclosure above the grid left it three rows
+            at 1280 × 800 (walk-2 BD-4); folded, the grid has the page, and every line of the list
+            stays in the DOM, one press away (I-484's precedent). The total beneath the grid still
+            says in words what it covers. */}
+        {drawsGrid && disclosed === 0 ? (
           <p className="cx-bbs-status" role="status">
-            {state === "partial" ? BBS_COPY.bbs_partial : BBS_COPY.bbs_complete}
+            {status}
           </p>
         ) : null}
-        {/* What the partly declared lines left out, each in the registry's own words and each once:
-            a total beneath a schedule that holds no tie and no lap would otherwise read as the whole
-            of the steel (L-QTY-02, L-QTY-07, R-UI-020). */}
-        {/* Each line says WHAT is missing first — the line's components in words — then the
-            registry's own message for why, then where it is settled, with the registry's remedy a
-            hover or a focus away (I-354, R-UI-020). */}
-        {drawsGrid && state === "partial" && omissions.length > 0 ? (
-          <div className="cx-bbs-omitted">
-            <span className="cx-bbs-omitted-label">{BBS_COPY.bbs_partial_omitted}</span>
-            <ul className="cx-bbs-omitted-list">
-              {omissions.map(({ entry, components, settledOn }) => (
-                <li key={entry.code} className="cx-bbs-omitted-line">
-                  {components.length === 0 ? null : (
-                    <span className="cx-bbs-omitted-what">
-                      {components.map((component, at) => (
-                        <span key={component}>
-                          {at === 0 ? null : <span className="cx-bbs-omitted-separator">{" · "}</span>}
-                          <EnumLabel value={component} label={COMPONENT_SAID[component] ?? component} className="cx-bbs-omitted-component" />
-                        </span>
-                      ))}
-                    </span>
-                  )}{" "}
-                  <span className="cx-bbs-omitted-why">{entry.message}</span>{" "}
-                  {settledOn === null ? null : (
-                    <Tooltip content={entry.remedy}>
-                      <a className="cx-bbs-omitted-where" href={settledOn === "levels" ? levelsHref(tenantId, projectId) : schedulesHref(tenantId, projectId)}>
-                        {settledOn === "levels" ? OPEN_THE_LEVELS : OPEN_THE_SCHEDULES}
-                      </a>
-                    </Tooltip>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        {/* The steel no line was published for — beam, pile, cap and slab — in the draft BOQ's own
-            closing words, so a schedule of column steel is never read as the building's
-            (I-569, L-QTY-07). */}
-        {drawsGrid && notInSchedule.length > 0 ? (
-          <div className="cx-bbs-omitted cx-bbs-not-in-schedule">
-            <span className="cx-bbs-omitted-label">{BBS_COPY.bbs_not_in_schedule}</span>
-            <ul className="cx-bbs-omitted-list">
-              {notInSchedule.map((one) => (
-                <li key={`${one.about}|${one.levels}`} className="cx-bbs-omitted-line">
-                  <span className="cx-bbs-omitted-what">{one.about}</span>
-                  {one.levels === "" ? null : <span className="cx-bbs-omitted-separator">{` · ${one.levels}`}</span>}{" "}
-                  <span className="cx-bbs-omitted-why">{one.why}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+        {drawsGrid && disclosed > 0 ? (
+          <details className="cx-bbs-disclosure">
+            <summary className="cx-bbs-disclosure-line">
+              <span className="cx-bbs-status" role="status">
+                {status}
+              </span>
+              <span className="cx-bbs-disclosure-count">{disclosedSaid}</span>
+            </summary>
+            <div className="cx-bbs-disclosure-body">
+              {/* What the partly declared lines left out, each in the registry's own words and each once:
+                  a total beneath a schedule that holds no tie and no lap would otherwise read as the whole
+                  of the steel (L-QTY-02, L-QTY-07, R-UI-020). */}
+              {/* Each line says WHAT is missing first — the line's components in words — then the
+                  registry's own message for why, then where it is settled, with the registry's remedy a
+                  hover or a focus away (I-354, R-UI-020). */}
+              {state === "partial" && omissions.length > 0 ? (
+                <div className="cx-bbs-omitted">
+                  <span className="cx-bbs-omitted-label">{BBS_COPY.bbs_partial_omitted}</span>
+                  <ul className="cx-bbs-omitted-list">
+                    {omissions.map(({ entry, components, settledOn }) => (
+                      <li key={entry.code} className="cx-bbs-omitted-line">
+                        {components.length === 0 ? null : (
+                          <span className="cx-bbs-omitted-what">
+                            {components.map((component, at) => (
+                              <span key={component}>
+                                {at === 0 ? null : <span className="cx-bbs-omitted-separator">{" · "}</span>}
+                                <EnumLabel value={component} label={COMPONENT_SAID[component] ?? component} className="cx-bbs-omitted-component" />
+                              </span>
+                            ))}
+                          </span>
+                        )}{" "}
+                        <span className="cx-bbs-omitted-why">{entry.message}</span>{" "}
+                        {settledOn === null ? null : (
+                          <Tooltip content={entry.remedy}>
+                            <a className="cx-bbs-omitted-where" href={settledOn === "levels" ? levelsHref(tenantId, projectId) : schedulesHref(tenantId, projectId)}>
+                              {settledOn === "levels" ? OPEN_THE_LEVELS : OPEN_THE_SCHEDULES}
+                            </a>
+                          </Tooltip>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {/* The steel no line was published for — beam, pile, cap and slab — in the draft BOQ's own
+                  closing words, so a schedule of column steel is never read as the building's
+                  (I-569, L-QTY-07). */}
+              {notInSchedule.length > 0 ? (
+                <div className="cx-bbs-omitted cx-bbs-not-in-schedule">
+                  <span className="cx-bbs-omitted-label">{BBS_COPY.bbs_not_in_schedule}</span>
+                  <ul className="cx-bbs-omitted-list">
+                    {notInSchedule.map((one) => (
+                      <li key={`${one.about}|${one.levels}`} className="cx-bbs-omitted-line">
+                        <span className="cx-bbs-omitted-what">{one.about}</span>
+                        {one.levels === "" ? null : <span className="cx-bbs-omitted-separator">{` · ${one.levels}`}</span>}{" "}
+                        <span className="cx-bbs-omitted-why">{one.why}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          </details>
         ) : null}
       </div>
 
@@ -765,39 +790,39 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
 
           {summary === null ? null : (
             <section className="cx-bbs-summary" data-testid={ids.summary} data-kg={summary.grandTotalKg}>
-              <h2 className="cx-bbs-summary-heading">
-                {BBS_COPY.bbs_summary_heading}
-                {/* The trigger is named for what it does, not for the section it stands in: a button
-                    whose name repeats the heading reads that heading twice (R-UI-012). */}
-                <Note label={BBS_COPY.bbs_stock_note_label} body={BBS_COPY.bbs_stock_note} />
-              </h2>
-              <div className="cx-bbs-summary-table" role="table" aria-label={BBS_COPY.bbs_summary_heading}>
-                <SummaryHead />
-                <div className="cx-bbs-summary-body">
-                  {summary.rows.map((line) => (
-                    <SummaryRow key={line.diameterMm} line={line} testId={ids.summaryRow} />
-                  ))}
-                </div>
-                <div className="cx-bbs-summary-total" role="row">
-                  <span role="cell">{BBS_COPY.bbs_summary_total}</span>
-                  <span className="cx-bbs-figure" role="cell">
-                    {massOf(summary.grandTotalKg)}
-                  </span>
-                  {/* A total over less than the whole of the steel says what it covers beside the figure
-                      — `Column main bars only — laps and ties not counted` — the L-QTY-07 rule the
-                      draft's sections already keep (I-bbs-9, I-567). */}
-                  <span role="cell" className="cx-bbs-summary-scope">
-                    {totalCovers === "" ? null : totalCovers}
-                  </span>
-                  <span role="cell" />
-                  <span role="cell" />
-                </div>
+              {/* The total stands at the foot of the grid on every reading, with what it covers
+                  beside the figure — the L-QTY-07 rule the draft's sections already keep (I-bbs-9,
+                  I-567, I-671). */}
+              <div className="cx-bbs-summary-total">
+                <span className="cx-bbs-summary-total-label">{BBS_COPY.bbs_summary_total}</span>
+                <span className="cx-bbs-figure">{massOf(summary.grandTotalKg)}</span>
+                {totalCovers === "" ? null : <span className="cx-bbs-summary-scope">{totalCovers}</span>}
               </div>
-              {standing === null || standing.withheld.length === 0 ? null : (
-                <p className="cx-bbs-stock-withheld-note" role="note">
-                  {fillCopy("bbs_stock_withheld_note", { diameters: listed(standing.withheld.map((diameter) => formatUserFigure(String(diameter)))) })}
-                </p>
-              )}
+              {/* The cutting stock folds beneath the total, so the schedule has the page (I-672):
+                  it is informational and never billed, and a reader opens it when a yard asks. Every
+                  line stays in the DOM, one press away. */}
+              <details className="cx-bbs-stock-fold">
+                <summary className="cx-bbs-summary-heading">{BBS_COPY.bbs_summary_heading}</summary>
+                <div className="cx-bbs-stock-fold-body">
+                  <div className="cx-bbs-summary-table" role="table" aria-label={BBS_COPY.bbs_summary_heading}>
+                    <SummaryHead />
+                    <div className="cx-bbs-summary-body">
+                      {summary.rows.map((line) => (
+                        <SummaryRow key={line.diameterMm} line={line} testId={ids.summaryRow} />
+                      ))}
+                    </div>
+                  </div>
+                  {standing === null || standing.withheld.length === 0 ? null : (
+                    <p className="cx-bbs-stock-withheld-note" role="note">
+                      {fillCopy("bbs_stock_withheld_note", { diameters: listed(standing.withheld.map((diameter) => formatUserFigure(String(diameter)))) })}
+                    </p>
+                  )}
+                  {/* The trigger is named for what it does, not for the section it stands in: a
+                      button whose name repeats the heading reads that heading twice (R-UI-012). It
+                      stands beside the table rather than in the fold's line, which is a button itself. */}
+                  <Note label={BBS_COPY.bbs_stock_note_label} body={BBS_COPY.bbs_stock_note} />
+                </div>
+              </details>
             </section>
           )}
         </>

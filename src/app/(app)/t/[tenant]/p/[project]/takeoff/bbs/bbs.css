@@ -117,6 +117,46 @@
 
 /* What the partly declared lines left out, beneath the status line and inside the same answer
    slot: the registry's own sentences, one line each, at the caption size (§1, L-QTY-02). */
+/* --- the one line that opens what the schedule leaves out (I-672) --- */
+
+.cx-bbs-disclosure {
+  min-width: 0;
+}
+
+/* The line keeps its list-item display, so the disclosure's own marker says it opens (I-484's
+   precedent, coverage.css). The helper sentence leads; the count reads as the link it acts as. */
+.cx-bbs-disclosure-line {
+  min-height: 28px;
+  line-height: 28px;
+  color: var(--ink-muted);
+  font-size: var(--text-body);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cx-bbs-disclosure-line .cx-bbs-status {
+  display: inline;
+  height: auto;
+}
+
+.cx-bbs-disclosure-count {
+  margin-left: var(--space-2);
+  color: var(--ink-link);
+}
+
+/* Open, the list takes what it needs up to a third of the screen and scrolls inside itself, so
+   the grid keeps a working height beneath it. */
+.cx-bbs-disclosure-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 33vh;
+  padding: var(--space-1) 0 var(--space-2);
+  overflow-y: auto;
+}
+
 .cx-bbs-omitted {
   display: flex;
   align-items: baseline;
@@ -302,26 +342,34 @@
   min-width: 0;
 }
 
-/* --- the cutting stock: informational, capped, and scrolling inside itself (I-bbs-5) --- */
+/* --- the total, and the cutting stock folded beneath it: informational, capped, and scrolling
+   inside itself (I-bbs-5, I-672) --- */
 
 .cx-bbs-summary {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
-  max-height: 224px;
   min-height: 0;
   border-top: var(--hairline);
 }
 
+/* The fold's line: the section's heading, keeping its list-item display so the marker says it opens. */
 .cx-bbs-summary-heading {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
   height: 28px;
   margin: 0;
   color: var(--ink);
   font-size: var(--text-body);
   font-weight: var(--weight-heading);
+  line-height: 28px;
+  cursor: pointer;
+}
+
+.cx-bbs-stock-fold-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-height: 196px;
+  min-height: 0;
 }
 
 /* The `(i)` the heading carries: the shipped Popover's own ghost trigger around the one info glyph,
@@ -362,20 +410,26 @@
   background: var(--surface-band);
 }
 
+/* The total stands outside the folded table, so its words take the row's whole remainder. */
+.cx-bbs-summary-total {
+  grid-template-columns: 112px 160px minmax(0, 1fr);
+}
+
 .cx-bbs-summary-total > span:first-child {
   color: var(--ink);
   font-weight: var(--weight-body-medium);
   text-align: left;
 }
 
-/* The total's scope, beside the figure (I-bbs-9): it stands in the first of the three cells the
-   total row leaves empty and reads on across them, muted and left-aligned like a caption. */
+/* The total's scope, beside the figure (I-bbs-9): it takes the three columns the total row leaves
+   free, muted and left-aligned like a caption. Since the ties are in force it can name the members
+   a component is missing from (I-671), so it wraps rather than run off the row. */
 .cx-bbs-summary-total > .cx-bbs-summary-scope {
-  overflow: visible;
-  padding-left: var(--space-4);
+  grid-column: 3;
+  padding: var(--space-1) 0 var(--space-1) var(--space-4);
   color: var(--ink-muted);
   text-align: left;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 /* A withheld diameter's packing cells, said in words across the three of them (I-567). */

@@ -25,7 +25,7 @@ import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import type { BbsDocument } from "@/modules/takeoff/rebar";
 import { BBS_COMPONENT_SAID } from "./copy";
 import { BBS_PLACES, cuttingStandingOf, metresOf, statedAt, totalCoversOf } from "./present";
-import type { BbsNotInSchedule, BbsOmission } from "./view";
+import type { BbsEntryCoverage, BbsNotInSchedule, BbsOmission } from "./view";
 
 /** A day as the document states one: wall-clock parts in the document's zone (L-FMT-01). */
 export type BbsDay = { readonly year: number; readonly month: number; readonly day: number };
@@ -57,6 +57,11 @@ export type BbsPayloadMeta = {
   readonly deferred?: readonly string[];
   /** The steel no line was published for, as `bbsViewOf` said it in the draft's words (I-569). */
   readonly notInSchedule?: readonly BbsNotInSchedule[];
+  /**
+   * Each entry's own standing, as `bbsViewOf` read it (I-655), so the total says which members a
+   * component is missing from and why, exactly as the screen says it (I-671).
+   */
+  readonly entries?: Readonly<Record<string, BbsEntryCoverage>>;
 };
 
 /** The registry's entry for a code, or nothing where the registry holds none. */
@@ -197,7 +202,7 @@ export function bbsPayloadOf(document_: BbsDocument, meta: BbsPayloadMeta): BbsP
     ),
     stockWithheld: [...standing.withheld],
     grandTotalKg: mass(document_.grandTotalKg),
-    totalCovers: totalCoversOf(document_, { partial: meta.partial, omitted: meta.omitted, notInSchedule: notInSchedule.length }),
+    totalCovers: totalCoversOf(document_, { partial: meta.partial, omitted: meta.omitted, notInSchedule: notInSchedule.length, ...(meta.entries === undefined ? {} : { entries: meta.entries }) }),
     declared: declaredOf(document_, { length, count, mass }),
     partial: meta.partial,
     leftOut: meta.partial ? leftOutOf(meta.omitted) : [],

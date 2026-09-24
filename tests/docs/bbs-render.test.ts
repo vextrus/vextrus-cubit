@@ -418,7 +418,9 @@ describe("AC-1: the bar bending schedule renders as its own kind, byte for byte"
     // words, composed by the product's own emission rather than typed here.
     const reason = REFUSALS.NOTE_READING_CONTESTED.message;
     const partial = (await bbsGoldenPayload(BBS_FIXTURE, { partial: true, omitted: [{ code: "NOTE_READING_CONTESTED", components: ["lap"] }] })) as Payload;
-    expect(partial.totalCovers, "the emission says what the total covers").toBe("Column and shear wall bars only — laps not counted");
+    // TEST_AMENDED (session 9, BBS-TIES, I-671): the golden holds ties, and the total now says
+    // so — `bars and ties` wherever a link stands in the schedule.
+    expect(partial.totalCovers, "the emission says what the total covers").toBe("Column and shear wall bars and ties only — laps not counted");
     const said_ = squashed(pages((await renderDocument("bbs", partial, ctx)).pdf).join(" "));
     expect(said_, "a partly declared schedule closes with what it leaves out").toContain("Left out of this schedule");
     expect(compact(said_), "naming the component in words and why, in the register's own sentence (R-SPINE-062)").toContain(compact(`Laps ${reason}`));

@@ -148,16 +148,18 @@ export function readingOrder(stack: readonly StackedLabel[]): (one: BarRow, othe
 }
 
 /**
- * What makes two members' bars ONE line of a schedule (I-534): everything each bar IS — its mark,
- * role, diameter and shape, its legs, its three lengths, how it is split and lapped, how many one
- * member takes, the rate it is billed at and what it weighs — and what it was READ from: the
- * schedule cells and the storey height it was synthesised off, the detailing notes and the edition.
+ * What makes two members' bars ONE line of a schedule (I-534, amended by I-670): everything
+ * each bar IS — its mark, role, diameter and shape, its legs, its three lengths, how it is split and
+ * lapped, how many one member takes, the rate it is billed at and what it weighs — and the rules it
+ * was cut under: the detailing notes and the edition.
  *
  * Never which member it belongs to, and never where that member stands: that is what the grouping
- * counts. The evidence is in it on purpose. Two members that read the same bars off DIFFERENT cells
- * are stated as two entries of one mark rather than one — a schedule that states a mark twice is
- * longer than it needs to be; one that merged two readings would cite one of them for bars the other
- * stated, and a line cites what it was read from or it is no line (L-QTY-03).
+ * counts. And never the entities its figures were READ off (`sourceKeys`): since the ties are in
+ * force (synthesis@2) every tie row cites the depth of the member bounding ITS OWN joint, so three
+ * C1s on one floor with the same 29 ties each cited three different beams and stood as three
+ * entries of one member each — the repetition BS 8666's "once per floor with its member count"
+ * exists to end. A line that counts several members cites what EVERY one of them was read off
+ * (`citedByAll`), so no reading is cited for bars another stated and none is lost (L-QTY-03).
  *
  * The bars are compared in the member's own reading order (`readingOrder` step 5), which is total,
  * so two members holding one bar set present it in one order.
@@ -183,7 +185,6 @@ function barSetOf(bars: readonly BarRow[]): string {
       bar.kgNet,
       bar.kgLap,
       bar.kg,
-      bar.sourceKeys,
       bar.detailingSourceKeys,
       bar.editionDigest,
     ]),
@@ -245,6 +246,7 @@ export function scheduleOf(rows: readonly BarRow[]): BbsLine[] {
       lines.push({
         ...bar,
         members: [...members],
+        sourceKeys: citedByAll(each),
         parentCount: summed((row) => row.parentCount),
         bars: summed((row) => row.bars),
         kgNet: summed((row) => row.kgNet),
@@ -254,6 +256,17 @@ export function scheduleOf(rows: readonly BarRow[]): BbsLine[] {
     });
   }
   return lines;
+}
+
+/**
+ * What a line counted over several members cites (I-670): every entity any of its members' bar
+ * was read off, each once, in the members' reading order — the first member's own citations first, so
+ * a line whose members read one set of cells cites exactly that set.
+ */
+function citedByAll(bars: readonly BarRow[]): string[] {
+  const cited: string[] = [];
+  for (const bar of bars) for (const key of bar.sourceKeys) if (!cited.includes(key)) cited.push(key);
+  return cited;
 }
 
 /**

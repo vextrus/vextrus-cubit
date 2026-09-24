@@ -18,10 +18,11 @@
 // The figures leave here UNGROUPED. Grouping is SEAM-FORMAT's one home (`formatUserFigure`) and it
 // happens in the CELL, so the attribute a machine reads stays the stored decimal (R-UI-083).
 import { inWords } from "@/core/documents/kinds/boq-draft-law";
+import { formatUserFigure } from "@/core/format";
 import { isLinkRole } from "@/core/rulesets/rebar-roles";
 import { convert } from "@/core/units/canon";
 import type { BbsDocument } from "@/modules/takeoff/rebar";
-import { BBS_COMPONENT_SAID, BBS_COPY, fillCopy } from "./copy";
+import { BBS_COMPONENT_SAID, BBS_COPY, BBS_WHY_SAID, fillCopy, membersSaid } from "./copy";
 import type { BbsEntryCoverage, BbsOmission } from "./view";
 
 /**
@@ -297,21 +298,130 @@ export function listed(words: readonly string[]): string {
   return `${words.slice(0, -1).join(", ")} ${BBS_COPY.bbs_scope_and} ${words.at(-1) ?? ""}`;
 }
 
+/** What the total's words are read from: the lines' own standing and, where known, each entry's. */
+export type BbsTotalReading = {
+  readonly partial: boolean;
+  readonly omitted: readonly BbsOmission[];
+  readonly notInSchedule: number;
+  /** Each entry's standing by its key (I-655). Absent reads as every entry leaving every component out. */
+  readonly entries?: Readonly<Record<string, BbsEntryCoverage>>;
+};
+
+/** How many levels a group of marks is named at before the levels are said as a count. */
+const LEVELS_NAMED = 3;
+
 /**
- * What the schedule's total covers, in words, wherever it is not the whole of the steel — the
- * classes it schedules, whether its bars are the main bars alone, and the components its lines left
- * out: `Column main bars only — laps and ties not counted` (I-567, I-569). Empty where
- * the schedule is the campaign's whole reinforcement: nothing is partly declared and no steel is
- * outside it.
+ * What the schedule's total covers, in words, wherever it is not the whole of the steel (I-567,
+ * I-569, amended by I-671). It is composed from what the schedule HOLDS:
+ *   - the classes it schedules and what their bars are: `bars and ties` where any link stands in
+ *     it, `main bars` where none does;
+ *   - a component every entry left out, said once: `laps not counted`;
+ *   - a component SOME entries left out while others hold it (the ties under synthesis@2: bounded
+ *     at most joints, unread at a few), said with how many members it is missing from and why, each
+ *     reason with the marks and levels it holds at:
+ *     `ties of 34 members not counted: joint depth unread (C1, C2, C3, C4 at FDN; C6 at 8 levels) ·
+ *     shape not held (C7 at GF, 1F)`.
+ * Empty where the schedule is the campaign's whole reinforcement: nothing is partly declared and no
+ * steel is outside it. A count is written by the one formatter (SEAM-FORMAT).
  */
-export function totalCoversOf(document: BbsDocument, reading: { readonly partial: boolean; readonly omitted: readonly BbsOmission[]; readonly notInSchedule: number }): string {
+export function totalCoversOf(document: BbsDocument, reading: BbsTotalReading): string {
   if (!reading.partial && reading.notInSchedule === 0) return "";
   const classes = [...new Set(document.rows.map((line) => line.class as string))].map((klass) => inWords(klass).toLowerCase());
-  const bars = document.rows.some((line) => isLinkRole(line.role)) ? BBS_COPY.bbs_scope_bars : BBS_COPY.bbs_scope_main_bars;
+  const bars = document.rows.some((line) => isLinkRole(line.role)) ? BBS_COPY.bbs_scope_bars_and_ties : BBS_COPY.bbs_scope_main_bars;
   const said = `${listed(classes)} ${bars}`.trim();
   const scope = `${said.slice(0, 1).toUpperCase()}${said.slice(1)}`;
-  const missing = [...new Set(reading.omitted.flatMap((omission) => omission.components))].map((component) => (BBS_COMPONENT_SAID[component] ?? component).toLowerCase());
-  return missing.length === 0 ? fillCopy("bbs_total_covers_whole", { scope }) : fillCopy("bbs_total_covers", { scope, missing: listed(missing) });
+  const components = [...new Set(reading.omitted.flatMap((omission) => omission.components))];
+
+  const standing = reading.entries;
+  const entries = entriesOf(document);
+  const whole: string[] = [];
+  const some: string[] = [];
+  for (const component of components) {
+    const word = (BBS_COMPONENT_SAID[component] ?? component).toLowerCase();
+    const leaving = standing === undefined ? entries : entries.filter((entry) => leftOut(standing[entry.key], component));
+    if (standing === undefined || leaving.length === entries.length) {
+      whole.push(word);
+      continue;
+    }
+    if (leaving.length === 0) continue;
+    const members = leaving.reduce((total, entry) => total + entry.members, 0);
+    some.push(
+      fillCopy("bbs_total_some_not_counted", {
+        component: word,
+        members: membersSaid(members, formatUserFigure(String(members))),
+        reasons: reasonsOf(leaving, component, standing).join(BBS_COPY.bbs_total_reason_separator),
+      }),
+    );
+  }
+  const clauses = [...(whole.length === 0 ? [] : [fillCopy("bbs_total_not_counted", { components: listed(whole) })]), ...some];
+  return clauses.length === 0 ? fillCopy("bbs_total_covers_whole", { scope }) : fillCopy("bbs_total_covers", { scope, missing: clauses.join(BBS_COPY.bbs_total_clause_separator) });
+}
+
+/** One entry as the total's words read it: its key, its floor, its mark and how many members it counts. */
+type EntrySaid = { readonly key: string; readonly level: string; readonly mark: string; readonly members: number };
+
+/** The schedule's entries, each once, in the door's order (I-534: an entry's first line names it). */
+function entriesOf(document: Pick<BbsDocument, "rows">): EntrySaid[] {
+  const seen = new Map<string, EntrySaid>();
+  for (const line of document.rows) {
+    if (!seen.has(line.objectKey)) seen.set(line.objectKey, { key: line.objectKey, level: line.level ?? "", mark: line.mark, members: Math.max(line.members.length, 1) });
+  }
+  return [...seen.values()];
+}
+
+/** Whether an entry's lines left this component out (I-655). An entry with no standing stated leaves it out. */
+function leftOut(standing: BbsEntryCoverage | undefined, component: string): boolean {
+  if (standing === undefined) return true;
+  return standing.omitted.some((omission) => omission.components.includes(component));
+}
+
+/**
+ * Why a component is missing from the entries that miss it: each registered code their lines state
+ * for it, in the order the entries first state it, said as its short reason and the marks it holds
+ * at. Marks that stand at the same levels are said together; the levels are named up to
+ * `LEVELS_NAMED` and counted past it. A code with no short reason is said by its marks alone: the
+ * reason in full stands in the list the screen folds above the schedule, in the register's sentence.
+ */
+function reasonsOf(entries: readonly EntrySaid[], component: string, standing: Readonly<Record<string, BbsEntryCoverage>>): string[] {
+  const byCode = new Map<string, EntrySaid[]>();
+  for (const entry of entries) {
+    // An entry whose members published no line states no code: it is said by its marks alone.
+    const stated = standing[entry.key]?.omitted ?? [{ code: "", components: [component] }];
+    for (const omission of stated) {
+      if (!omission.components.includes(component)) continue;
+      const held = byCode.get(omission.code) ?? [];
+      if (!byCode.has(omission.code)) byCode.set(omission.code, held);
+      held.push(entry);
+    }
+  }
+  return [...byCode.entries()].map(([code, held]) => {
+    const levelsOf = new Map<string, string[]>();
+    for (const entry of held) {
+      const levels = levelsOf.get(entry.mark) ?? [];
+      if (!levelsOf.has(entry.mark)) levelsOf.set(entry.mark, levels);
+      // A member on no level is counted and said by its mark alone (I-368's placeholder).
+      if (entry.level !== "" && !levels.includes(entry.level)) levels.push(entry.level);
+    }
+    const groups = new Map<string, { marks: string[]; levels: readonly string[] }>();
+    for (const [mark, levels] of levelsOf) {
+      const at = levels.join("|");
+      const group = groups.get(at) ?? { marks: [], levels };
+      if (!groups.has(at)) groups.set(at, group);
+      group.marks.push(mark);
+    }
+    const where = [...groups.values()]
+      .map(({ marks, levels }) =>
+        levels.length === 0
+          ? marks.join(", ")
+          : fillCopy("bbs_total_marks_at", {
+              marks: marks.join(", "),
+              levels: levels.length <= LEVELS_NAMED ? levels.join(", ") : fillCopy("bbs_total_levels_many", { count: formatUserFigure(String(levels.length)) }),
+            }),
+      )
+      .join("; ");
+    const why = BBS_WHY_SAID[code];
+    return why === undefined ? where : fillCopy("bbs_total_reason", { why, where });
+  });
 }
 
 /**
