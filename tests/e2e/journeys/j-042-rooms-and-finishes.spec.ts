@@ -55,7 +55,10 @@ test.describe("J-042 — rooms and finishes on F-ARCH", () => {
       /* --- the architect's set, dropped on S-Drawings and read by the upload's own jobs --- */
       await drawings.open(tenantId, projectId);
       await drawings.dropFile(FIXTURE);
-      await expect(drawings.dropzoneItems.first(), "the dropped set is stored by the upload seam").toHaveAttribute("data-state", "stored", { timeout: READING_BUDGET_MS });
+      // The seeded workspace outlives a run, so the set a previous run dropped is already held: the seam
+      // then records this project's drawing over the content it keeps and answers `duplicate`, and the
+      // drawing is read all the same (sheet-index's requestSheets asks for every recorded drawing).
+      await expect(drawings.dropzoneItems.first(), "the dropped set is recorded by the upload seam").toHaveAttribute("data-state", /^(stored|duplicate)$/, { timeout: READING_BUDGET_MS });
       await expect(drawings.timeline, "the reading and the partition the upload asked for finish").toHaveAttribute("data-state", "done", { timeout: READING_BUDGET_MS });
 
       /* --- the typical plan, reached by its own card's door --- */
