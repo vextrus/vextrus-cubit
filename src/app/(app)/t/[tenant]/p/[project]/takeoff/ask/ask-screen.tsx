@@ -13,7 +13,7 @@ import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import type { AskAnswer, AskReading } from "@/modules/takeoff/ask/law";
 import { EvidenceLink } from "@/ui/patterns/evidence-link";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { tabStore } from "@/ui/patterns/tab-store";
+import { tabStore } from "@/ui/tab-store";
 import { Button, EmptyState, EnumLabel, ErrorState, IdChip, Input, RelativeTime, Skeleton, Tooltip, UnitBadge } from "@/ui/primitives/core";
 import { DataTable, type DataTableColumnDef } from "@/ui/primitives/data";
 import { useShellPage } from "@/ui/shell";

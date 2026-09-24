@@ -355,4 +355,13 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     vocabulary: "S-Ask intents (R-AI-003)",
     codes: Object.freeze(["COUNT", "MARKS", "QUANTITY", "MEASURED_SO_FAR", "WHY_NOT_MEASURED", "MEMBER_TYPE", "NOTE", "LEVEL_HEIGHT", "SHEET_LIST"]),
   }),
+  Object.freeze({
+    // The consequence dialog's value vocabularies (docs/design/consequence-dialog.md I-560): what a
+    // subject's before and after are said in where they are not words a person reads. One bears an
+    // underscore, so Q-07's register would read it as a refusal code nobody registered — but nothing
+    // is refused by it: it names how a pin's cited revision is said ("Revision 2"). Its home is
+    // `../acts/consequence.ts` (`ConsequenceHeld`), written down here for the reason the ranks above are.
+    vocabulary: "consequence value vocabularies (I-560)",
+    codes: Object.freeze(["DRAWING_REVISION"]),
+  }),
 ]);

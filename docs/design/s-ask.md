@@ -342,7 +342,7 @@ The screen is `takeoff/ask/**`: `page.tsx` (the guard, participation, the arriva
 pure, graded by `tests/ui/ask/present.test.ts` over the read-back), `thread.ts` (the tab's store),
 `states.ts`, `demonstration.ts`, `actions.ts`, `route-address.ts`, `ask.css`, `loading.tsx`; the
 arrival read is `src/modules/takeoff/ask/arrival.ts`; the tab's store has one home in
-`src/ui/patterns/tab-store`. It reads these, each the most defensible reading of what this Decision
+`src/ui/tab-store.ts`. It reads these, each the most defensible reading of what this Decision
 leaves open:
 
 - **I-577 — the stamp is an opaque digest of the pinned revision, the project's newest act and

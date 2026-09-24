@@ -126,12 +126,12 @@
 
 .cx-measure-chest-bone-swatch {
   width: 12px;
-  height: 12px;
+  height: var(--space-3);
 }
 
 .cx-measure-chest-bone-name {
   flex: 1 1 auto;
-  height: 10px;
+  height: var(--text-caption);
 }
 
 .cx-measure-chest-failed,
@@ -168,7 +168,7 @@
 .cx-measure-swatch {
   flex: none;
   width: 12px;
-  height: 12px;
+  height: var(--space-3);
   border: 1px solid var(--cx-swatch);
   border-radius: var(--radius-2);
   background-color: transparent;

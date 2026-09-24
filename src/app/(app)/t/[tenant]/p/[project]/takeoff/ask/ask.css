@@ -294,15 +294,15 @@
 }
 
 .cx-ask-bone {
-  height: 13px;
+  height: var(--text-body);
 }
 
 .cx-ask-bone-question {
   width: 40%;
-  height: 14px;
+  height: var(--text-body);
 }
 
 .cx-ask-bone-understood {
   width: 25%;
-  height: 12px;
+  height: var(--text-caption);
 }

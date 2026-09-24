@@ -6,7 +6,7 @@
 // model), and the STAMP the page was read at; a kept answer whose stamp is not the page's says so.
 // Pure over a `Storage`, so the suite hands in its own.
 import type { AskAnswer, AskReading } from "@/modules/takeoff/ask/law";
-import { readKept, writeKept } from "@/ui/patterns/tab-store";
+import { readKept, writeKept } from "@/ui/tab-store";
 import { isPartial } from "./present";
 import type { AskArticleState } from "./states";
 
