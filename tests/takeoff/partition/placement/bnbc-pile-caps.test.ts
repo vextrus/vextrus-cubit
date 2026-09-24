@@ -12,14 +12,21 @@
  *     NOS column. I-330 reads the header where its line is drawn and the columns where the rows stand.
  *   · S-26's BAR BENDING SCHEDULE (`1E3D`) is a schedule of BARS and registers no member type (I-331).
  *   · The caps' DEPTH is read, in the millimetres S-01 declares (I-332, I-302).
- *   · S-06 draws 26 cap outlines, the 89 pile circles inside them and one unmarked ring (`638`, the
- *     porch footing). Each cap mark stands inside its outline — three of them on their centre pile —
+ *   · S-06 draws 26 cap outlines, the 89 pile circles inside them and one more ring (`638`, the
+ *     porch footing, unmarked in Rev B; Rev C letters it F1, W-44). Each cap mark stands inside its outline — three of them on their centre pile —
  *     and I-333 places 26 caps by their outlines, carrying each outline's plan: 12 rectangles by their
  *     own sides (the one turned 45°, `5FB`, 2000 × 1000) and 14 chamfered PC2 polygons by shoelace.
  *   · The rail binds the ring's plan (I-334): the schedule's rectangle never stands for a PC2.
  *
- * AND WHAT MAY NOT MOVE: the 89 piles and the 27 columns (pinned in bnbc-pile-schedule.test.ts beside
- * F-RCC6's whole stage output), and the drawn scale, 1, on both fixtures.
+ * AND WHAT MAY NOT MOVE: the 89 piles and S-10's 27 columns (pinned in bnbc-pile-schedule.test.ts
+ * beside F-RCC6's whole stage output), and the drawn scale, 1, on both fixtures.
+ *
+ * TEST_AMENDED (R0 Rev C): three things this ratchet pinned moved with the drawing, each for its own
+ * reason. Ring 638 is F1's footing now (W-44: its mark `22AA` in its own ring), still in no cap. The
+ * stair-roof layout places its two C4 stubs (W-49), so 29 columns stand, S-10's 27 among them. And
+ * R0's golden nets the pile heads (K17, W-29) and PC5's lift-pit recess (K18, W-30/W-45) out of the
+ * cap cells, which this ratchet stages neither of — so its bands take the drawn heads and recess off
+ * the plan × depth it grades, by the clause's own algebra; the plan and the depth do not move.
  */
 import { describe, expect, test } from "vitest";
 import type { EntityGraph } from "@/core/entitygraph/schema";
@@ -37,10 +44,24 @@ const HEADER_MTEXT = "DXF_HANDLE:639";
 const FOOTER_MTEXT = "DXF_HANDLE:658";
 /** S-01's general note declaring the drawing's millimetres (I-302). */
 const DECLARATION = "DXF_HANDLE:1F3E";
-/** The PC1 turned 45° under C6 at E1, one chamfered PC2, and the unmarked porch footing ring. */
+/** The PC1 turned 45° under C6 at E1, one chamfered PC2, and the porch footing ring (F1 since Rev C). */
 const TURNED_PC1 = "DXF_HANDLE:5FB";
 const CHAMFERED_PC2 = "DXF_HANDLE:5AF";
 const FOOTING_RING = "DXF_HANDLE:638";
+/** S-10's COLUMN LAYOUT PLAN, and S-15's stair-roof layout (gridded in Rev C, W-49). */
+const COLUMN_LAYOUT = "v:LAYOUT_PLAN:DXF_HANDLE:20B6";
+const STAIR_ROOF_LAYOUT = "v:LAYOUT_PLAN:DXF_HANDLE:2157";
+
+/**
+ * What R0's golden nets out of the caps that this ratchet stages none of (it reads no pile and no
+ * recess), in the drawing's own figures: 89 heads of S-05's Ø500 standing 3" (76.2) above the cap
+ * soffit (K17, W-29), and PC5's recess 2493 × 2188 × 914 drawn in its S-07 section, formed on its four
+ * sides (K18, W-30, W-45). The rails grade the same cells with the junctions staged
+ * (../../rails/foundations/cap-junctions-rails.test.ts).
+ */
+const PILE_HEADS_M3 = 89 * Math.PI * 0.25 ** 2 * 0.0762;
+const RECESS_M3 = 2.493 * 2.188 * 0.914;
+const RECESS_SIDES_M2 = 2 * (2.493 + 2.188) * 0.914;
 
 /** What S-06's schedule states per cap type (T-SCHED-NORULES: no NOS column; the counts are the plan's). */
 const SCHEDULED: Readonly<Record<string, { readonly size: readonly [number, number]; readonly cell: string }>> = Object.freeze({
@@ -141,14 +162,21 @@ describe("I-333: S-06 places 26 caps by their outlines — never a pile circle, 
     const caps = placed.placements.filter((row) => row.elementType === "pile_cap");
     expect(new Set(caps.map((row) => typeOf(graph, row.outlineKey))), "every outline a polyline").toEqual(new Set(["LWPOLYLINE"]));
     expect(caps.map((row) => row.outlineKey), "the turned PC1 under C6 at E1").toContain(TURNED_PC1);
-    expect(placed.placements.some((row) => row.outlineKey === FOOTING_RING), "638 holds no mark and stands in no cap: it is nobody's member here").toBe(false);
+    // TEST_AMENDED (R0 Rev C, W-44): Rev B left 638 unmarked; Rev C letters it F1 in its own ring.
+    expect(
+      placed.placements.filter((row) => row.outlineKey === FOOTING_RING).map((row) => `${row.elementType} ${row.mark}`),
+      "638 stands in no cap: it is F1's footing, placed once, by the mark Rev C draws in it",
+    ).toEqual(["footing F1"]);
     expect(new Set(caps.map((row) => row.outlineKey)).size, "26 distinct rings").toBe(26);
   }, BUDGET_MS);
 
-  test("the 89 piles and the 27 columns still stand, and the drawn scale is one on both fixtures", async () => {
+  test("the 89 piles and S-10's 27 columns still stand, and the drawn scale is one on both fixtures", async () => {
     const [bnbcPlaced, rcc6Placed] = [(await bnbc()).placed, (await rcc6()).placed];
+    const columns = bnbcPlaced.placements.filter((row) => row.elementType === "column");
     expect(bnbcPlaced.placements.filter((row) => row.elementType === "pile").length, "S-04's 89 piles").toBe(89);
-    expect(bnbcPlaced.placements.filter((row) => row.elementType === "column").length, "the 27 columns").toBe(27);
+    expect(columns.filter((row) => row.viewKey === COLUMN_LAYOUT).length, "S-10's 27 columns").toBe(27);
+    // TEST_AMENDED (R0 Rev C, W-49): the stair-roof layout is gridded and places its two C4 stubs.
+    expect(columns.filter((row) => row.viewKey !== COLUMN_LAYOUT).map((row) => `${row.viewKey} ${row.mark}`), "and Rev C's two C4 stubs on the stair-roof layout, 29 in all").toEqual([`${STAIR_ROOF_LAYOUT} C4`, `${STAIR_ROOF_LAYOUT} C4`]);
     expect(bnbcPlaced.scale, "F-RCC6-BNBC reads at one drawing unit per scheduled unit").toBe(1);
     expect(rcc6Placed.scale, "and so does F-RCC6").toBe(1);
   }, BUDGET_MS);
@@ -250,9 +278,13 @@ describe("I-334: the rail binds the ring's plan, and the cap concrete stands ins
     const golden = rows.reduce((sum, row) => sum + Number(row.quantity), 0);
     const allowance = Number(goldenCellAllowance(FIXTURE, CAP_CONCRETE_CELL));
     expect(rows.length, "the golden states the cell").toBeGreaterThan(0);
-    expect(cubicMetres, `${cubicMetres.toFixed(6)} m³ is not over ${golden} + ${allowance}`).toBeLessThanOrEqual(golden + allowance);
-    expect(cubicMetres, `${cubicMetres.toFixed(6)} m³ is no more than three per cent under ${golden}`).toBeGreaterThanOrEqual(golden * 0.97 - allowance);
     expect(cubicMetres, "99.445 m² × 1.295 m").toBeCloseTo(128.781275, 6);
+    // TEST_AMENDED (R0 K17, K18): the golden is the prisms less the heads and the recess (122.500, was
+    // 128.821 over the prisms alone); the prisms' plan and depth are graded net of exactly those.
+    const net = cubicMetres - PILE_HEADS_M3 - RECESS_M3;
+    expect(net, "less 89 heads (1.331603) and PC5's recess (4.985581)").toBeCloseTo(122.464091, 6);
+    expect(net, `${net.toFixed(6)} m³ is not over ${golden} + ${allowance}`).toBeLessThanOrEqual(golden + allowance);
+    expect(net, `${net.toFixed(6)} m³ is no more than three per cent under ${golden}`).toBeGreaterThanOrEqual(golden * 0.97 - allowance);
   }, BUDGET_MS);
 });
 
@@ -293,9 +325,13 @@ describe("I-337: each cap is formed along its own ring's sides, and the cap form
     const golden = rows.reduce((sum, row) => sum + Number(row.quantity), 0);
     const allowance = Number(goldenCellAllowance(FIXTURE, CAP_FORMWORK_CELL));
     expect(rows.length, "the golden states the cell").toBeGreaterThan(0);
-    expect(squareMetres, `${squareMetres.toFixed(6)} m² is not over ${golden} + ${allowance}`).toBeLessThanOrEqual(golden + allowance);
-    expect(squareMetres, `${squareMetres.toFixed(6)} m² is no more than three per cent under ${golden}`).toBeGreaterThanOrEqual(golden * 0.97 - allowance);
-    expect(squareMetres, "196.2414 m of side × 1.295 m — the golden's 1.2954 m depth, printed 1295 by the schedule, is the whole of the −0.031 %").toBeCloseTo(254.1326, 3);
+    expect(squareMetres, "196.2414 m of side × 1.295 m").toBeCloseTo(254.1326, 3);
+    // TEST_AMENDED (R0 K18): the golden forms PC5's recess on its four sides too (262.773, was 254.211
+    // over the caps' sides alone); the rings' sides are graded with exactly those added.
+    const formed = squareMetres + RECESS_SIDES_M2;
+    expect(formed, "and the recess's 2 × (2.493 + 2.188) × 0.914 — the golden's 1.2954 m depth, printed 1295 by the schedule, is the rest of the −0.032 %").toBeCloseTo(262.689481, 6);
+    expect(formed, `${formed.toFixed(6)} m² is not over ${golden} + ${allowance}`).toBeLessThanOrEqual(golden + allowance);
+    expect(formed, `${formed.toFixed(6)} m² is no more than three per cent under ${golden}`).toBeGreaterThanOrEqual(golden * 0.97 - allowance);
   }, BUDGET_MS);
 });
 
