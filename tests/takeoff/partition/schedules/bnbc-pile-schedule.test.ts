@@ -44,7 +44,10 @@ const TABLES_BEFORE: Readonly<Record<string, string>> = Object.freeze({
   "DXF_HANDLE:17DF": "b72b54922bb38d9e08816569d505efcb296688f49f99059b14a9bc4094a93c96",
   "DXF_HANDLE:18A0": "43510de74fdf9cc90b5f59c1cde54028d4177d9315dca38fc370235ad188d429",
   "DXF_HANDLE:1D2B": "2aaa1cdb09750c46a7ea99aa980ebaf334b4abd740b5ace5670d87201e96b2e1",
-  "DXF_HANDLE:1E3D": "0503833681d0720e2edc88da71776d6ab3b2e827d9170a6fc73ad55015179815",
+  // TEST_AMENDED (R0 Rev C, K11 + D-S26, W-27): S-26's PC3 rows (1DC1..1DE4) regenerate at the
+  // drawn 2" cap cover and T-BBS-TOTAL's printed sum is re-seeded (1E40: 490.081 → 500.938); every
+  // other cell reads as it did. Rev B's bytes: 0503833681d0720e2edc88da71776d6ab3b2e827d9170a6fc73ad55015179815.
+  "DXF_HANDLE:1E3D": "665de6198111a9bc452ab085b9d53eabbd889caae26b357c026faea4b3af279a",
   "DXF_HANDLE:9C6": "5888f25349609245f1b98bfdaa320f2c15165556c315deaf27515bfee10d8436",
 });
 
@@ -65,6 +68,24 @@ const TABLES_BEFORE: Readonly<Record<string, string>> = Object.freeze({
  */
 const BNBC_FAMILIES_BAR_P_AND_CAPS_BEFORE = "7927658743d186ded9042d64728a08b3e0a24288f48958eae8eaeb9eb93e85e5";
 const BNBC_PLACEMENTS_BAR_CAPS_BEFORE = "8742a15d0e8e0734cfa65e28d539397e883542d7e5b59d5dd453877a12eb5871";
+
+/**
+ * TEST_AMENDED (R0 Rev C): what Rev C adds is set aside and graded by name, so every byte Rev B's
+ * families and placements stood on is still held to the digests above, unmoved.
+ *   · W-47: the three SLAB PANEL SCHEDULEs (S-19 `26CF`, S-20 `26D1`, S-21 `26D3`) register 43 slab
+ *     families — 13, 12 and 18 — appended after the families before them.
+ *   · W-44: F1's mark (`22AA`) in its own ring `638` on S-06 places one footing.
+ *   · W-49: the stair-roof layout (`2157`) is gridded, and places its two C4 stubs (`2382`, `2385`).
+ */
+const REV_C_SCHEDULES: Readonly<Record<string, number>> = Object.freeze({ "DXF_HANDLE:26CF": 13, "DXF_HANDLE:26D1": 12, "DXF_HANDLE:26D3": 18 });
+const REV_C_PLACEMENTS: readonly string[] = Object.freeze([
+  "footing F1 DXF_HANDLE:638 DXF_HANDLE:22AA",
+  "column C4 DXF_HANDLE:2382 DXF_HANDLE:2384",
+  "column C4 DXF_HANDLE:2385 DXF_HANDLE:2387",
+]);
+const REV_C_PLACEMENT_VIEWS: readonly string[] = Object.freeze(["v:LAYOUT_PLAN:DXF_HANDLE:202C", "v:LAYOUT_PLAN:DXF_HANDLE:2157"]);
+const revCPlacement = (row: { readonly viewKey: string; readonly elementType: string; readonly mark: string; readonly outlineKey: string; readonly markKey: string }): boolean =>
+  REV_C_PLACEMENT_VIEWS.includes(row.viewKey) && REV_C_PLACEMENTS.includes(`${row.elementType} ${row.mark} ${row.outlineKey} ${row.markKey}`);
 
 /** The schedule the pile-cap families are registered from, since FND-2 (S-06's paper caption). */
 const PILE_CAP_SCHEDULE = "DXF_HANDLE:202D";
@@ -176,8 +197,13 @@ describe("FND-1 moves nothing it was not asked to", () => {
   test("every family and every placement BNBC stood on before stands byte for byte, bar what FND-2 re-read and R6-U's spacing unit (TEST_AMENDED)", async () => {
     const { registered, placed, evidence } = await bnbc();
     expect(evidence.declaredUnit, "S-01 clause 4 declares millimetres (I-302)").toEqual(BNBC_DECLARED);
+    const added: Record<string, number> = {};
+    for (const family of registered.families) if (family.scheduleKey in REV_C_SCHEDULES) added[family.scheduleKey] = (added[family.scheduleKey] ?? 0) + 1;
+    expect(added, "Rev C's three slab panel schedules register their 43 families (W-47)").toEqual(REV_C_SCHEDULES);
     const pinned = declaredSpacingUndone(
-      registered.families.filter((family) => family.family !== "P" && family.scheduleKey !== PILE_CAP_SCHEDULE && !STRIP_SHEETS.includes(family.scheduleKey)),
+      registered.families.filter(
+        (family) => family.family !== "P" && family.scheduleKey !== PILE_CAP_SCHEDULE && !STRIP_SHEETS.includes(family.scheduleKey) && !(family.scheduleKey in REV_C_SCHEDULES),
+      ),
       BNBC_DECLARED,
     );
     expect(
@@ -188,8 +214,13 @@ describe("FND-1 moves nothing it was not asked to", () => {
       sha(pinned.families),
       "the families registered before, P, the cap schedule's and the long-section sheets' aside — which is FND-1's roster less the two a bar schedule minted",
     ).toBe(BNBC_FAMILIES_BAR_P_AND_CAPS_BEFORE);
+    const unframed = placed.placements.filter((row) => row.elementType !== "pile_cap" && !FRAMED.includes(row.elementType));
     expect(
-      sha(placed.placements.filter((row) => row.elementType !== "pile_cap" && !FRAMED.includes(row.elementType))),
+      unframed.filter(revCPlacement).map((row) => `${row.elementType} ${row.mark} ${row.outlineKey} ${row.markKey}`),
+      "Rev C's F1 footing (W-44) and the stair roof's two C4 stubs (W-49), and nothing else new",
+    ).toEqual(REV_C_PLACEMENTS);
+    expect(
+      sha(unframed.filter((row) => !revCPlacement(row))),
       "every placement that is neither a pile cap nor a beam — the 89 piles and the 27 columns — key for key and point for point",
     ).toBe(BNBC_PLACEMENTS_BAR_CAPS_BEFORE);
   }, BUDGET_MS);
