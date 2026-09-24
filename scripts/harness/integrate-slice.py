@@ -99,7 +99,7 @@ def renumber_migrations():
         if number not in held:
             continue
         original = (ROOT / path).read_text()
-        git("rm", "-q", "--", path)
+        git("rm", "-q", "-f", "--", path)
         subprocess.run(["npx", "drizzle-kit", "generate", "--name", name], cwd=ROOT, check=True, capture_output=True)
         fresh = max(ROOT.glob(f"db/migrations/*_{name}.sql"))
         cut = original.find(HAND)
@@ -147,8 +147,11 @@ def main():
             print(r.stdout + r.stderr)
             print(f"CONFLICT at {sha[:10]} ({i + 1}/{len(code)}): {unmerged()} — resolve, git add, re-run with --continue")
             raise SystemExit(2)
-    STATE.unlink(missing_ok=True)
+    # Every pick is in: a failure from here on (the migration's regeneration) resumes past the picks
+    # rather than applying the slice a second time on top of itself.
+    STATE.write_text(str(len(code)))
     renumber_migrations()
+    STATE.unlink(missing_ok=True)
     table, known = load(), tags()
     paths = [p for p in git("diff", "--cached", "--name-only").splitlines() if p]
     texts = {}
