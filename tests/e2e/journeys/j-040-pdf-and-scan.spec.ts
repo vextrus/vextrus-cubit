@@ -10,6 +10,8 @@
  * read as a PDF vector sheet, carrying the number and title its own title block prints; the card of
  * the eleventh page proposes S-10 · COLUMN LAYOUT PLAN; its door opens the viewer on that page, which
  * paints, and an object of the page is selected by its PDF_OBJECT key and read out under the pointer.
+ * One page is mixed (M4P-3, I-585): S-03 carries a pasted scan, so its card reads both schemes and
+ * states the scan it traced.
  *
  * Step 2 (M4P-3; R-TO-003, L-CAD-02, docs/design/s-drawings.md I-584): a QS drops a scanned sheet
  * — F-RCC6-BNBC's S-10 as R1 renders it, an A1 at 300 DPI in a PNG that states no resolution — on
@@ -55,6 +57,13 @@ const MANIFEST = join(process.cwd(), "fixtures", "rcc6-bnbc", "manifest.json");
 /** The scheme a vector PDF's objects are keyed under: a whole content digest (L-CAD-02). */
 const PDF_OBJECT = "PDF_OBJECT";
 const PDF_KEY = /^PDF_OBJECT:[0-9A-F]{64}$/;
+
+/**
+ * The one page of the vector set a scan is pasted on: S-03, a drafted sheet carrying a grey scanned
+ * detail (trap T-IMAGE-LOGO, F-SCAN's seed). A mixed page mints both schemes, and its card states the
+ * scan at the DPI its placement gives it and the deskew it found (R-TO-003, I-585).
+ */
+const MIXED = { number: "S-03", dpi: "152.4", deskew: "0" } as const;
 
 /** The sheet step 1 opens: S-10, the column layout plan, printed on the set's eleventh page. */
 const S10 = { number: "S-10", title: "COLUMN LAYOUT PLAN", discipline: "STRUCTURAL" } as const;
@@ -139,9 +148,26 @@ test.describe("J-040 — a PDF set and a scan, read and corroborated (M4)", () =
         await expect(card, `${pageLayout(index)} is a card of its own`).toHaveCount(1);
         await expect(drawings.cell(card, S_DRAWINGS.number), `${pageLayout(index)} proposes the number its title block prints`).toHaveText(sheet.number);
         const scheme = drawings.cell(card, S_DRAWINGS.scheme);
-        await expect(scheme, `${pageLayout(index)}'s keys are of one scheme`).toHaveCount(1);
-        await expect(scheme, `${pageLayout(index)} is read from PDF objects (I-519)`).toHaveAttribute("data-scheme", PDF_OBJECT);
-        await expect(scheme, "and says so in words (R-UI-082)").toContainText(drawingsCopy.drawings_scheme_pdf_object);
+        const scan = drawings.cell(card, S_DRAWINGS.scan);
+        if (sheet.number === MIXED.number) {
+          // I-585: the drafted objects and the pasted scan are read each by its own lane, on one page.
+          await expect(scheme, `${pageLayout(index)} is the mixed page: its keys are of two schemes`).toHaveCount(2);
+          await expect
+            .poll(async () => (await scheme.evaluateAll((badges) => badges.map((badge) => badge.getAttribute("data-scheme") ?? ""))).sort(), {
+              message: `${pageLayout(index)} is read from PDF objects and from the lines traced off its scan (I-519, I-585)`,
+            })
+            .toEqual([PDF_OBJECT, RASTER_TRACE]);
+          await expect(scheme.filter({ hasText: drawingsCopy.drawings_scheme_pdf_object }), "and says both in words (R-UI-082)").toHaveCount(1);
+          await expect(scheme.filter({ hasText: drawingsCopy.drawings_scheme_raster_trace })).toHaveCount(1);
+          await expect(scan, "the card states the one scan it traced").toHaveCount(1);
+          await expect(scan, "at the DPI its placement on the page gives it").toHaveAttribute("data-dpi", MIXED.dpi);
+          await expect(scan, "and the page stood square").toHaveAttribute("data-deskew", MIXED.deskew);
+        } else {
+          await expect(scheme, `${pageLayout(index)}'s keys are of one scheme`).toHaveCount(1);
+          await expect(scheme, `${pageLayout(index)} is read from PDF objects (I-519)`).toHaveAttribute("data-scheme", PDF_OBJECT);
+          await expect(scheme, "and says so in words (R-UI-082)").toContainText(drawingsCopy.drawings_scheme_pdf_object);
+          await expect(scan, `${pageLayout(index)} traced no scan, and its card states none`).toHaveCount(0);
+        }
         await expect(drawings.cell(card, S_DRAWINGS.discipline), `${pageLayout(index)} is read from its title block`).toHaveAttribute("data-basis", "GRAMMAR");
       }
 

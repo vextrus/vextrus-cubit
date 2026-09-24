@@ -115,6 +115,9 @@ export const AXE_MODERATE_BUDGET: Readonly<Record<string, number>> = Object.free
   // primitives that J-010 and J-011 already hold at zero, over a PDF's sheets instead of a DXF's.
   "j-040/pdf-sheet-card": 0,
   "j-040/pdf-sheet-open": 0,
+  // M4P-3: the traced scan's card and its page in the viewer (J-040 step 2).
+  "j-040/scan-card": 0,
+  "j-040/scan-open": 0,
   "j004-shell-dark": 0,
   "j004-shell-deeplink": 0,
   "j004-shell-light": 0,
