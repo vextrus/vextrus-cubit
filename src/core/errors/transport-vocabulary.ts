@@ -364,4 +364,14 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     vocabulary: "consequence value vocabularies (I-560)",
     codes: Object.freeze(["DRAWING_REVISION"]),
   }),
+  Object.freeze({
+    // The pile-head grammar's decline reasons (s-schedules I-597): why a clause that speaks of a length
+    // into the cap was not read as the head's height. They bear underscores, so Q-07's register would
+    // read them as refusal codes nobody registered — but nothing is refused by them: a cap whose head
+    // nothing states is refused with the registered PILE_HEAD_UNSTATED, and these say which clause was
+    // passed over and why. Their home is `src/modules/takeoff/partition/notation/pile-head.ts`
+    // (`PileHeadDeclineReason`), written down here for the reason the S-Ask intents above are.
+    vocabulary: "pile-head clause decline reasons (I-597)",
+    codes: Object.freeze(["BARS_ONLY", "MINIMUM_ONLY", "UNIT_UNSTATED", "NOT_THE_PILE"]),
+  }),
 ]);

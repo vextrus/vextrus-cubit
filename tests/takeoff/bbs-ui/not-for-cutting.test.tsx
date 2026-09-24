@@ -125,6 +125,9 @@ function door(): BbsDocument {
       "20": { stockBars: 3, pieces: 8, offcutMm: "9177.6", method: "first-fit-decreasing" },
     },
     grandTotalKg: "108.4557472",
+    // BBS-CH: nothing here is bent to a shape the roster does not hold (I-596).
+    declared: [],
+    declaredKg: "0",
   };
 }
 
