@@ -283,6 +283,24 @@ and a level are said in — every other act-specific word arrives in the Consequ
   `margin-top: var(--space-2)` + `padding-top: var(--space-3)` — so a consequence that fits paints
   exactly as it did. No hairline is drawn above it: a rule that shows whether or not anything
   scrolls under it would move every dialog's picture for no reader's gain.
+- **I-566 — an affirmation says each view's scale in words; its calibration keys stand
+  behind Details** (session 9, SCALE-2; walk-1 B02). The walk found AFFIRM_SCALE's After column a
+  64-character calibration key: an identifier a machine compares, on the face of the dialog, which
+  is what I-447 moved the digest away from. A subject may now carry `scale` — the scale the view
+  stands at `before` (null where no affirmation names it) and the one it takes `after`, each as the
+  rank of L-MEA-05's precedence it stands on, its factor pair as the 12-place strings the
+  calibration is keyed over, and the same pair as the millimetres one drawing unit is along each
+  axis (exact, no trailing zeros). The act fills it from the state its preview read (the standing
+  affirmation, the rank it is asked at, the pair it derived), so the words are the seam's and the
+  dialog decides nothing. The row renders `scale_rank_<RANK>`'s words, then **1 drawing unit is**
+  with the millimetres through the frame's figure conventions and the `mm` unit badge — once where
+  X and Y agree, as **X** and **Y** apart where they do not (L-MEA-05 averages them as nothing); a
+  view with no standing scale reads **No scale affirmed**. The keys the act moves stay on the
+  subject's `before`/`after`, which the act still writes, and appear under Details as **Calibration
+  keys**, whole, beside the digest. The scale is BOUND by the digest: the rank a view stands at is
+  not part of its calibration key, so a re-affirmation at another rank over the same factors would
+  change what the person was shown without moving a key (L-ACT-02). A subject without it renders
+  and digests exactly as before.
 
 ## 1. Layout and hierarchy
 
@@ -483,7 +501,12 @@ reading** · `…_repudiate` **Strike an object** · `…_hold_out_of_bill` **Ho
 signatures** · `…_signatures_one` **1 signature** · `consequence_dialog_level_foundation`
 **Foundation** · `…_level_unresolved` **Level not resolved** · `…_level_none` **No level**.
 Details (I-447): `consequence_dialog_details` **Details** · `…_details_act` **Act** ·
-`…_details_lines` **Line ids** · `…_details_signatures` **Signature ids**. Every count renders
+`…_details_lines` **Line ids** · `…_details_signatures` **Signature ids** ·
+`…_details_calibrations` **Calibration keys**. A view's scale (I-566):
+`consequence_dialog_scale_none` **No scale affirmed** · `…_scale_rank_QS_TWO_POINT` **Two-point
+calibration** · `…_scale_rank_GRID_SPACING` **Grid spacing** · `…_scale_rank_DIMENSION_RATIO`
+**Dimension ratio** · `…_scale_rank_FILE_UNITS` **File units header** · `…_scale_per_unit` **1
+drawing unit is** · `…_scale_axis_x` **X** · `…_scale_axis_y` **Y**. Every count renders
 through the frame's figure conventions (SEAM-FORMAT, injected); with none mounted, the exact
 decimal is shown, the DataTable subtotal's own rule.
 
@@ -536,7 +559,8 @@ once, on the confirm — the one place the law reserves it.
 Routes: none. Test ids, exactly these nine (eleven since DLG-2, below), on the elements ruled in §1:
 `consequence-dialog` (the wrapper, `data-act-type`) · `consequence-subject-row` (each
 `<li>`, `data-subject`, and since DLG-1 `data-standing-before`/`-after` where the subject carries
-a standing) · `consequence-effect-lines` and `consequence-effect-signatures`
+a standing; since SCALE-2 `data-scale-before` (empty for none) and `data-scale-after`, the ranks,
+where it carries a scale, with each column's `data-rank`, `data-factor-x` and `data-factor-y`) · `consequence-effect-lines` and `consequence-effect-signatures`
 (the two `<dd>`s — added by inc-205-scale-ui; since I-446 each says its count or `none` on its
 face and keeps its ids in its own closed disclosure) · `consequence-effect-group` (each counted
 row, `data-class`, `data-kind`, `data-level`, `data-count` — DLG-1) · `consequence-details` (the
@@ -552,10 +576,12 @@ every figure through the injected conventions (I-445); grouped lines render one
 `consequence-effect-group` per group with description, level words and count, a total under more
 than one, and no id on the slot's face while every id stands whole in its disclosure (I-446);
 the digest line sits in a closed disclosure that one press on `consequence-details` opens, and
-the confirm's `data-digest` still equals it (I-447); closing returns focus to the opening door
+the confirm's `data-digest` still equals it (I-447); an affirmation's Before and After say the
+rank and the millimetres per drawing unit, never a key, and its keys stand in Details
+(`consequence-scale.test.tsx`, I-566); closing returns focus to the opening door
 (I-448). The seam's half is `src/core/acts/__tests__/consequence-words.test.ts` (pure: the
 standing moves, the grouping and its order, what the digest binds and that a consequence without
-a standing digests as before) and `tests/takeoff/levels-ui/consequence-words.test.ts` (live: the
+a standing digests as before; `consequence-scale.test.ts` for the scale, I-566) and `tests/takeoff/levels-ui/consequence-words.test.ts` (live: the
 groups add up to the bound ids, the previewed standing is the stack's before and after the commit,
 and the counted preview's digest commits). Gallery (R-UI-011): `ConsequenceSummary` stands open in
 four states — `suspends` (GF agreed at 3.3528 m over two readings, a third entered at 3.2 m;

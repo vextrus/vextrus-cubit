@@ -2886,6 +2886,36 @@ one RefusalState, the one ConsequenceDialog — plus the `cx-viewer-scale-*` cla
   line now says what verifies (`viewer_scale_check_verification`). Rejected: a tooltip on the
   disabled door — a disabled button takes neither focus nor hover, so its words would be unreadable
   exactly where they are needed.
+- **I-564 — a calibration key is present or absent, never empty** (session 9, SCALE-2; walk-1
+  N1). The walk affirmed S-10's column layout plan at Dimension ratio on a fresh DWG, measured
+  again, and the register still said nobody had affirmed its scale. Read back from the store
+  (project 258c92c8): the affirmation's incoming key is a real 64-hex calibration, its outgoing
+  `""` is the stored spelling of "none" for a first affirmation, and the second run DID stand on the
+  calibration — every column of the view moved past `VIEW_SCALE_UNAFFIRMED` to
+  `SECTION_BAND_UNCOVERED` and `REBAR_SCHEDULE_UNREAD` (the walk authored no level stack). So the
+  suspected empty key was not the cause; the stale sentence is the residue reading every
+  observation a campaign ever recorded, the first run's included. What this Decision fixes is the
+  seam the suspicion named, in its one home: the store refuses to write an empty incoming key and
+  refuses to read one back, so no rail's setup can carry one (the rails' `length === 0` branches
+  stay as they were and are unreachable; a second spelling of the invariant in one rail was
+  rejected as a copy, ARCH-02). Recorded, not fixed here: a rail observation a later run no longer makes still stands
+  in the campaign's residue (`rail_observations` is append-only per campaign and the residue reads
+  all of it), so an affirmed view keeps its "nobody has affirmed" sentence until a new campaign.
+- **I-565 — a caption's printed scale is shown beside the view, never proposed** (session 9,
+  SCALE-2; walk-1 B02). Walk-1 asked that `STIRRUP HOOK DETAIL SCALE 1:20` be offered its caption
+  scale as a candidate. L-MEA-05 says "Printed scale notes are not evidence at any rank", and I-418
+  already rejected reading the printed ratio as a proposal, so it is not one. What the walk
+  rightly found is that the panel said "Nothing in this drawing offers a scale" over a caption that
+  prints one, as if the caption had not been read. The door now answers each view's
+  `printedScale` — the one `1:N` ratio its caption prints after `SCALE` or `SCL`, or null where it
+  prints none or two that disagree — and the row shows it as data, **Printed on the caption** then
+  the ratio in mono (`viewer-scale-printed`, `data-printed-scale`), whether or not the machine
+  proposes anything, so a QS can hold a two-point result against it by eye. A view with no proposal
+  whose caption prints a scale reads `viewer_scale_no_proposals_printed`, which says why the
+  printed ratio does not scale it. No rank, factor or affirmation is derived from it. Rejected:
+  deriving a factor from `1:N` and the header unit at a new rank — it would contradict the clause
+  outright, and a detail drawn enlarged in model space is exactly where the printed ratio and the
+  geometry disagree.
 
 ## 1. Layout and hierarchy
 
@@ -2944,7 +2974,11 @@ attributes are present only at `affirmed`.
   `viewer_scale_evidence_label` then **every** evidence source key whole in mono, wrapping,
   `user-select: all`; then the factor pair, anisotropy readout and placeable flag exactly as the
   affirmed block renders them — the engine's own values, unrounded (I-159). A view with no proposal
-  renders `viewer_scale_no_proposals` instead: silence never happens (R-UI-020).
+  renders `viewer_scale_no_proposals` instead — `viewer_scale_no_proposals_printed` where its caption
+  prints a scale (I-565): silence never happens (R-UI-020).
+- **Printed scale** (I-565) — under the caption, where the caption prints one ratio:
+  `<p data-testid="viewer-scale-printed" data-printed-scale>` with `viewer_scale_printed_label` then
+  the ratio in mono, the affirmed block's label-and-figure pair. Data, never a proposal.
 
 **Two-point tool** — `<fieldset class="cx-viewer-scale-tool">`, legend `viewer_scale_tool_legend`,
 hint `viewer_scale_tool_hint`. Then the standing picks: at none, `viewer_scale_picks_none`
@@ -3043,7 +3077,10 @@ unit** · `viewer_scale_factor_x` **X {factor}** · `viewer_scale_factor_y` **Y 
 `viewer_scale_unplaceable` **X and Y disagree beyond the tolerance, so this view cannot be placed** ·
 `viewer_scale_proposals_label` **Scales read from the drawing** · `viewer_scale_evidence_label` **Read
 from** · `viewer_scale_no_proposals` **Nothing in this drawing offers a scale for this view, so only
-a two-point calibration can scale it.** · `scale_rank_GRID_SPACING` **Grid spacing** ·
+a two-point calibration can scale it.** · `viewer_scale_printed_label` **Printed on the caption** ·
+`viewer_scale_no_proposals_printed` **The caption prints a scale, but a printed scale is not
+evidence of how the view was drawn. Nothing else in this drawing offers one, so only a two-point
+calibration can scale it.** · `scale_rank_GRID_SPACING` **Grid spacing** ·
 `scale_rank_DIMENSION_RATIO` **Dimension ratio** · `scale_rank_FILE_UNITS` **File units header** ·
 `scale_rank_QS_TWO_POINT` **Two-point calibration** · `viewer_scale_tool_legend` **Two-point
 calibration** · `viewer_scale_tool_hint` **Take two picks on one view, standing on one axis, then
@@ -3136,7 +3173,8 @@ contract's: `viewer-inspector-tabs` · `viewer-inspector-tab-selection` · `view
 `viewer-partition-canvas` and `data-unplaceable` on `sheet-card-scale`. I-420 adds two:
 `viewer-scale-affirm-why` (`data-reason="members"` on the one line said for every door, or
 `data-rank` on the list under a door whose items carry `data-reason="<axis>-<state>"`) and
-`viewer-scale-observation-remove`. No other id is added: the head, the tool fieldset, the picks, the
+`viewer-scale-observation-remove`. I-565 adds `viewer-scale-printed` (`data-printed-scale`). No
+other id is added: the head, the tool fieldset, the picks, the
 affirm footer and the notice are found by role, class and text.
 
 Behavioural hooks without new ids: `role="tablist"` on `viewer-inspector-tabs` with

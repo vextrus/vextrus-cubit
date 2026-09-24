@@ -30,12 +30,14 @@ import type {
   ConsequenceRendering,
   ConsequenceStanding,
   ConsequenceSubject,
+  ScaleOfSubject,
   StandingOfSubject,
 } from "@/core/acts";
 import type { RefusalCode, RefusalEntry } from "@/core/errors";
 import type { LevelSlot } from "@/core/identity";
 import type { StoreyHeightStandingName } from "@/core/levels";
 import type { Discipline } from "@/core/sheets";
+import type { ScaleRank } from "@/core/scale";
 import { Button, Skeleton, UnitBadge } from "../../primitives/core";
 import { humaniseEnum } from "../../primitives/core/enum-label";
 import { useFigureContext } from "../../primitives/core/figures";
@@ -359,6 +361,17 @@ const STANDING_WORDS: { readonly [S in StoreyHeightStandingName]: string } = {
   NONE: strings.consequence_dialog_standing_none,
 };
 
+/**
+ * The ranks of L-MEA-05's precedence, in the words a scale is read by (I-566). Keyed by the
+ * roster's own type, so a rank added there without words here is a compile error.
+ */
+const SCALE_RANK_WORDS: { readonly [R in ScaleRank]: string } = {
+  QS_TWO_POINT: strings.consequence_dialog_scale_rank_QS_TWO_POINT,
+  GRID_SPACING: strings.consequence_dialog_scale_rank_GRID_SPACING,
+  DIMENSION_RATIO: strings.consequence_dialog_scale_rank_DIMENSION_RATIO,
+  FILE_UNITS: strings.consequence_dialog_scale_rank_FILE_UNITS,
+};
+
 /** The one standing whose readings disagree — the only one whose count is said as a disagreement. */
 const SUSPENDED: StoreyHeightStandingName = "SUSPENDED";
 
@@ -394,7 +407,7 @@ export function ConsequenceSummary({ consequence, digest }: ConsequenceSummaryPr
       {consequence.pinning === undefined ? null : <Pinning pinning={consequence.pinning} />}
       <ConsequenceSubjects consequence={consequence} />
       <ConsequenceEffects effects={consequence.effects} />
-      <ConsequenceDetails actType={consequence.actType} digest={digest} subjects={consequence.subjects} />
+      <ConsequenceDetails actType={consequence.actType} digest={digest} subjects={consequence.subjects} calibrations={calibrationKeysOf(consequence)} />
     </>
   );
 }
@@ -590,6 +603,7 @@ function unrendered(arm: never): never {
  * none was — the id is what the act moves and is always true.
  */
 function SubjectRow({ subject }: { subject: ConsequenceSubject }): ReactNode {
+  if (subject.scale !== undefined) return <ScaleSubjectRow subject={subject} scale={subject.scale} />;
   const standing = subject.standing;
   const held = subject.held;
   return (
@@ -634,6 +648,66 @@ function HeldWords({ held, side }: { held: ConsequenceHeld; side: "before" | "af
   return (
     <span className="cx-consequence-held" data-column={side} data-value={held[side] ?? ""}>
       {heldSaid(held, side, figure)}
+    </span>
+  );
+}
+
+/**
+ * A view whose scale an affirmation moves, said as a QS reads a scale (I-566): the rank it
+ * stands on and what one drawing unit is — "Dimension ratio · 1 drawing unit is 1 mm" — before and
+ * after. The calibration keys the act moves are identifiers, and live behind Details with the digest.
+ */
+function ScaleSubjectRow({ subject, scale }: { subject: ConsequenceSubject; scale: NonNullable<ConsequenceSubject["scale"]> }): ReactNode {
+  return (
+    <li
+      className="cx-consequence-subject"
+      data-testid={TESTIDS.consequence.subjectRow}
+      data-subject={subject.subjectId}
+      data-scale-before={scale.before?.rank ?? ""}
+      data-scale-after={scale.after.rank}
+    >
+      <p className="cx-consequence-subject-label">{subject.subjectLabel ?? subject.subjectId}</p>
+      <div className="cx-consequence-roles">
+        <div className="cx-consequence-column">
+          <span className="cx-consequence-column-label">{strings.consequence_dialog_before_label}</span>
+          {scale.before === null ? <span className="cx-consequence-none">{strings.consequence_dialog_scale_none}</span> : <ScaleWords held={scale.before} variant="before" />}
+        </div>
+        <div className="cx-consequence-column">
+          <span className="cx-consequence-column-label">{strings.consequence_dialog_after_label}</span>
+          <ScaleWords held={scale.after} variant="after" />
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/** One scale in words: its rank, then the millimetres one drawing unit is — once, or per axis where X and Y differ. */
+function ScaleWords({ held, variant }: { held: ScaleOfSubject; variant: "before" | "after" }): ReactNode {
+  const figure = useFigure();
+  const one = held.millimetresX === held.millimetresY;
+  return (
+    <span className="cx-consequence-standing" data-column={variant} data-rank={held.rank} data-factor-x={held.factorX} data-factor-y={held.factorY}>
+      <span className="cx-consequence-standing-word">{wordsFor(SCALE_RANK_WORDS, held.rank)}</span>
+      <span className="cx-consequence-standing-readings">
+        {strings.consequence_dialog_scale_per_unit}{" "}
+        {one ? (
+          <span className="cx-consequence-figure">
+            {figure(held.millimetresX)}
+            <UnitBadge unit="mm" />
+          </span>
+        ) : (
+          <>
+            <span className="cx-consequence-figure">
+              {strings.consequence_dialog_scale_axis_x} {figure(held.millimetresX)}
+              <UnitBadge unit="mm" />
+            </span>{" "}
+            <span className="cx-consequence-figure">
+              {strings.consequence_dialog_scale_axis_y} {figure(held.millimetresY)}
+              <UnitBadge unit="mm" />
+            </span>
+          </>
+        )}
+      </span>
     </span>
   );
 }
@@ -808,7 +882,12 @@ function IdList({ summary, ids }: { summary: string; ids: readonly string[] }): 
  * whole and selectable. The digest line keeps its id and holds exactly the digest (I-43), so the
  * confirm's `data-digest` and this line can still be compared character for character.
  */
-function ConsequenceDetails({ actType, digest, subjects }: { actType: string; digest: string; subjects: readonly ConsequenceSubject[] }): ReactNode {
+/** The calibration keys a scale affirmation moves its views to, for Details (I-566); empty for every other act. */
+function calibrationKeysOf(consequence: Consequence): readonly string[] {
+  return consequence.subjects.flatMap((subject) => (subject.scale === undefined ? [] : subject.after));
+}
+
+function ConsequenceDetails({ actType, digest, subjects, calibrations }: { actType: string; digest: string; subjects: readonly ConsequenceSubject[]; calibrations: readonly string[] }): ReactNode {
   // I-560: a value said in words on the face — a drawing's content sha-256, a discipline enum —
   // is still what the act records, so it stands here whole, subject by subject.
   const recorded = subjects.filter((subject) => subject.held !== undefined);
@@ -839,6 +918,14 @@ function ConsequenceDetails({ actType, digest, subjects }: { actType: string; di
                   </li>
                 ))}
               </ul>
+            </dd>
+          </>
+        )}
+        {calibrations.length === 0 ? null : (
+          <>
+            <dt className="cx-consequence-effects-label">{strings.consequence_dialog_details_calibrations}</dt>
+            <dd className="cx-consequence-technical-value" data-technical="">
+              {calibrations.join(" ")}
             </dd>
           </>
         )}

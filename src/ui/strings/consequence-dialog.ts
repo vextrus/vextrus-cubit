@@ -88,6 +88,18 @@ export const consequenceDialog = {
   consequence_dialog_pin_records_one: "Pins {set} as its revision {revision}, citing 1 drawing at the revision it stands at now.",
   consequence_dialog_pin_first: "The set has never been pinned before.",
   consequence_dialog_pin_standing: "Revision {revision} stays exactly as it was pinned.",
+  consequence_dialog_details_calibrations: "Calibration keys",
+
+  // I-566: a view's scale said as a QS reads one — the rank it stands on and what one drawing
+  // unit is — with the calibration key behind Details.
+  consequence_dialog_scale_none: "No scale affirmed",
+  consequence_dialog_scale_rank_QS_TWO_POINT: "Two-point calibration",
+  consequence_dialog_scale_rank_GRID_SPACING: "Grid spacing",
+  consequence_dialog_scale_rank_DIMENSION_RATIO: "Dimension ratio",
+  consequence_dialog_scale_rank_FILE_UNITS: "File units header",
+  consequence_dialog_scale_per_unit: "1 drawing unit is",
+  consequence_dialog_scale_axis_x: "X",
+  consequence_dialog_scale_axis_y: "Y",
 } as const;
 
 // R-SPINE-060's per-module convention is that a table file's DESIGNATED export is the one named for

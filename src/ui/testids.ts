@@ -685,6 +685,7 @@ export const TESTIDS = {
     scaleObservation: "viewer-scale-observation",
     scaleObservationRemove: "viewer-scale-observation-remove",
     scaleObserve: "viewer-scale-observe",
+    scalePrinted: "viewer-scale-printed",
     scaleProposal: "viewer-scale-proposal",
     scaleRetry: "viewer-scale-retry",
     scaleUnit: "viewer-scale-unit",

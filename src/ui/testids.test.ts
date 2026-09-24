@@ -574,6 +574,7 @@ const GOLDEN: readonly string[] = [
   "viewer-scale-observation",
   "viewer-scale-observation-remove",
   "viewer-scale-observe",
+  "viewer-scale-printed",
   "viewer-scale-proposal",
   "viewer-scale-retry",
   "viewer-scale-unit",

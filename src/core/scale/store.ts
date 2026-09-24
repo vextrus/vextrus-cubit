@@ -81,6 +81,7 @@ export async function affirmationsOfRecord(tx: TenantTx, scope: ScaleStoreScope)
     row.viewKeys.forEach((viewKey, index) => {
       if (standing.has(viewKey)) return;
       const key = row.incomingKeys[index];
+      if (key === "") throw new Error(`affirmation ${row.affirmationId} takes ${viewKey} to an empty calibration key — an incoming key is a calibration's content address and is never empty (L-MEA-05, I-564)`);
       if (key === undefined) throw new Error(`affirmation ${row.affirmationId} names ${viewKey} and no calibration for it — the parallel arrays disagree (L-MEA-05)`);
       const pair = pairs.get(key);
       if (pair === undefined) throw new Error(`affirmation ${row.affirmationId} takes ${viewKey} to calibration ${key}, which the store does not hold (L-ACT-01)`);
@@ -96,6 +97,13 @@ export async function affirmationsOfRecord(tx: TenantTx, scope: ScaleStoreScope)
  * that first filed it wrote it; the affirmation row is new every time, because an act is.
  */
 export async function writeAffirmation(tx: TenantTx, write: AffirmationWrite): Promise<void> {
+  // An incoming key is the content address of the calibration the view moves to, and a view that
+  // moves to nothing is not moved: an empty key written here would read back as a view nobody
+  // affirmed, so it is refused before anything is written (L-MEA-05, I-564). The outgoing
+  // side's empty string is the stored spelling of "none" and is the only empty key the row holds.
+  for (const move of write.moves) {
+    if (move.incomingKey.length === 0) throw new Error(`affirmation by act ${write.actId} would take ${move.viewKey} to an empty calibration key — refused before the write (L-MEA-05)`);
+  }
   const stamp = { tenantId: write.tenantId, projectId: write.projectId, drawingId: write.drawingId, ingestId: write.ingestId, actId: write.actId };
 
   if (write.moves.length > 0) {

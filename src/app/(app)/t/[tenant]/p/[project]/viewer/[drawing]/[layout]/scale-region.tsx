@@ -711,6 +711,14 @@ function ScaleViewRow({ view, scale, denied }: { view: ViewScale; scale: ScaleRe
         <Badge>{view.type}</Badge>
       </div>
       {view.caption === "" ? null : <p className="cx-viewer-scale-caption">{view.caption}</p>}
+      {view.printedScale === null ? null : (
+        // I-565: the ratio the caption prints, as data beside the view — never a proposal,
+        // because L-MEA-05 admits printed scale notes at no rank (I-418).
+        <p className="cx-viewer-scale-pair" data-testid={TESTIDS.viewer.scalePrinted} data-printed-scale={view.printedScale}>
+          <span className="cx-viewer-scale-label">{SCALE_COPY.viewer_scale_printed_label}</span>
+          <span className="cx-viewer-scale-figure">{view.printedScale}</span>
+        </p>
+      )}
 
       {affirmed === null ? null : (
         <div className="cx-viewer-scale-affirmed">
@@ -733,7 +741,7 @@ function ScaleViewRow({ view, scale, denied }: { view: ViewScale; scale: ScaleRe
       )}
 
       {affirmed !== null ? null : view.proposals.length === 0 ? (
-        <p className="cx-viewer-scale-empty">{SCALE_COPY.viewer_scale_no_proposals}</p>
+        <p className="cx-viewer-scale-empty">{view.printedScale === null ? SCALE_COPY.viewer_scale_no_proposals : SCALE_COPY.viewer_scale_no_proposals_printed}</p>
       ) : (
         <ol className="cx-viewer-scale-proposals" aria-label={SCALE_COPY.viewer_scale_proposals_label}>
           {view.proposals.map((proposal) => (

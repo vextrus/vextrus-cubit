@@ -285,7 +285,13 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     await expect(scale.dialog, "named for what it would do").toHaveAttribute("data-act-type", AFFIRM_SCALE);
     await expect(scale.subjectRows, "with one subject row per member the reader checked — a scale group is the subject set of one act (L-MEA-05)").toHaveCount(1);
     await expect(scale.subjectRows.first(), "and that subject is the view that was checked").toHaveAttribute("data-subject", calibrated);
-    await expect(scale.subjectRows.first(), "which stands under no calibration before the act").toContainText(copy("consequence_dialog_none"));
+    // The row says the scale in words, as a QS reads one (I-566): no scale before, the rank and
+    // what one drawing unit is after — the calibration keys are identifiers and live behind Details.
+    await expect(scale.subjectRows.first(), "which stands under no calibration before the act").toHaveAttribute("data-scale-before", "");
+    await expect(scale.subjectRows.first(), "and says so in words").toContainText(copy("consequence_dialog_scale_none"));
+    await expect(scale.subjectRows.first(), "and after it, the rank the act affirms at").toHaveAttribute("data-scale-after", FILE_UNITS);
+    await expect(scale.subjectRows.first(), "named by its registered word").toContainText(copy("consequence_dialog_scale_rank_FILE_UNITS"));
+    await expect(scale.subjectRows.first(), "never by the calibration key, a 64-hex identifier").not.toContainText(/[0-9a-f]{64}/);
 
     // No quantity line and no signature exists on this project yet, so the two effect slots stand at
     // nothing — shown, never omitted (R-UI-020).

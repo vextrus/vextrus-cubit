@@ -19,6 +19,7 @@ import {
   QS_TWO_POINT,
   calibrationKey,
   citeObservation,
+  exact,
   factorPair,
   proposalsFor,
   scaleAbsenceCodeOf,
@@ -40,7 +41,7 @@ import { scaleTolerancesOf } from "../scale/tolerances";
 import { projectDrawingsOf } from "../sheets";
 import { appStorage } from "../storage/app";
 import { viewRecordsOf, type ViewRecord } from "../views";
-import type { Consequence, ConsequenceEffects } from "./consequence";
+import type { Consequence, ConsequenceEffects, ScaleOfSubject } from "./consequence";
 import { actChangesNothing } from "./refusals";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
@@ -73,6 +74,8 @@ type Derived = {
   readonly drawingId: string;
   readonly ingestId: string;
   readonly moves: readonly ViewCalibrationMove[];
+  /** What each named view stands at now, by view key — absent where no affirmation names it. */
+  readonly standing: ReadonlyMap<string, { readonly rank: ScaleRank; readonly factorX: string; readonly factorY: string }>;
   readonly labels: ReadonlyMap<string, string>;
   readonly sourceKeys: readonly string[];
   readonly observations: readonly CitedObservation[];
@@ -81,6 +84,25 @@ type Derived = {
 /** The effects an affirmation previews (R-TO-020) — empty until quantity lines and signatures exist to name. */
 function effectsOf(): ConsequenceEffects {
   return { linesRederiving: [], signaturesVoiding: [] };
+}
+
+/** The scale a view stood at before the act, or null where no affirmation named it. */
+function scaleBefore(held: { readonly rank: ScaleRank; readonly factorX: string; readonly factorY: string } | undefined): ScaleOfSubject | null {
+  return held === undefined ? null : scaleOfSubject(held.rank, held);
+}
+
+/** Millimetres per drawing unit, exact and without trailing zeros: the factor a QS reads a scale by. */
+function millimetresOf(factor: string): string {
+  return exact(factor).mul(1000).toFixed();
+}
+
+/**
+ * A view's scale in the words the dialog says it in (I-566): the rank, and what one drawing
+ * unit is along each axis. The factor strings ride beside the millimetres so the digest binds the
+ * pair the calibration is keyed over, not only its spoken form.
+ */
+function scaleOfSubject(rank: string, pair: FactorPair): ScaleOfSubject {
+  return { rank, factorX: pair.factorX, factorY: pair.factorY, millimetresX: millimetresOf(pair.factorX), millimetresY: millimetresOf(pair.factorY) };
 }
 
 /** R-TO-030's refusal for a drawing whose partition holds nothing this act could name. */
@@ -143,6 +165,7 @@ async function derive(ctx: ActorCtx, input: AffirmScaleInput, tx: TenantTx): Pro
     drawingId: drawing.drawingId,
     ingestId: record.ingestId,
     moves,
+    standing,
     labels: new Map(members.map((view) => [view.viewKey, view.caption])),
     sourceKeys: judged.sourceKeys,
     observations: judged.observations,
@@ -252,6 +275,12 @@ export const affirmScale: ActRendering<AffirmScaleInput> = {
         subjectLabel: derived.labels.get(move.viewKey),
         before: move.outgoingKey === null ? [] : [move.outgoingKey],
         after: [move.incomingKey],
+        // The same move in words: the rank and millimetres per drawing unit it stood at, and the
+        // ones it takes — the keys above stay what the act moves, shown behind Details (I-566).
+        scale: {
+          before: scaleBefore(derived.standing.get(move.viewKey)),
+          after: scaleOfSubject(input.rank, move),
+        },
       })),
       effects: effectsOf(),
     };

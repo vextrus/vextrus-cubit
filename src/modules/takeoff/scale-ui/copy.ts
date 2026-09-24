@@ -27,6 +27,8 @@ export const SCALE_COPY = {
   viewer_scale_proposals_label: "Scales read from the drawing",
   viewer_scale_evidence_label: "Read from",
   viewer_scale_no_proposals: "Nothing in this drawing offers a scale for this view, so only a two-point calibration can scale it.",
+  viewer_scale_printed_label: "Printed on the caption",
+  viewer_scale_no_proposals_printed: "The caption prints a scale, but a printed scale is not evidence of how the view was drawn. Nothing else in this drawing offers one, so only a two-point calibration can scale it.",
   scale_rank_GRID_SPACING: "Grid spacing",
   scale_rank_DIMENSION_RATIO: "Dimension ratio",
   scale_rank_FILE_UNITS: "File units header",

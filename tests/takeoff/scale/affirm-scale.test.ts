@@ -131,6 +131,17 @@ describe("AC-5: AFFIRM_SCALE previews one subject per named view, and commits th
     }
   }, BUDGET_MS);
 
+  test("the preview says each view's scale in words — the rank and what one drawing unit is — beside the key it moves to (I-566)", async () => {
+    const stage = await staged();
+    const consequence = await previewed();
+    for (const subject of consequence.subjects) {
+      expect(
+        (subject as { scale?: unknown }).scale,
+        `${subject.subjectId} stood at no scale and would stand at the header's millimetre: one drawing unit is 1 mm, never a 64-character key`,
+      ).toStrictEqual({ before: null, after: { rank: FILE_UNITS, factorX: stage.factor, factorY: stage.factor, millimetresX: "1", millimetresY: "1" } });
+    }
+  }, BUDGET_MS);
+
   test("AC-5: the Consequence carries the typed consequence slots the panel previews, empty until they are filled", async () => {
     const consequence = await previewed();
     const effects = consequence.effects;

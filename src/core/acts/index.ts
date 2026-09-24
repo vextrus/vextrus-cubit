@@ -42,6 +42,8 @@ export {
   type ConsequenceStanding,
   type ConsequenceSubject,
   type StandingOfSubject,
+  type ScaleOfSubject,
+  type ConsequenceScale,
 } from "./consequence";
 export { groupLines, type GroupableLine } from "./line-groups";
 export {

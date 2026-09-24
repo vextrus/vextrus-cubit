@@ -47,6 +47,36 @@ export type ConsequenceSubject = {
    * state the values were, and the values are what the act writes and the digest binds.
    */
   readonly held?: ConsequenceHeld;
+  /**
+   * The scale the subject — a view — stands at before and after an affirmation, in the words a QS
+   * reads a scale by: the rank it stood on and the millimetres one drawing unit is, per axis
+   * (I-566). `before` and `after` above still carry the calibration keys the act moves, and
+   * the dialog keeps them behind Details, as it keeps the digest.
+   *
+   * BOUND by the digest, as a standing is: the rank a view stands at is not part of its calibration
+   * key, so a later affirmation at another rank with the same factors would change what the person
+   * was shown without changing a key — and what they confirmed is what they were shown (L-ACT-02).
+   */
+  readonly scale?: ConsequenceScale;
+};
+
+/**
+ * One view's scale as a reader weighs it: the rank of L-MEA-05's precedence it stands on, the
+ * factor pair as the 12-place strings the calibration is keyed over, and the same pair as the
+ * millimetres one drawing unit is along each axis — exact, with no trailing zeros (B-07).
+ */
+export type ScaleOfSubject = {
+  readonly rank: string;
+  readonly factorX: string;
+  readonly factorY: string;
+  readonly millimetresX: string;
+  readonly millimetresY: string;
+};
+
+/** A view's scale before an affirmation (null where none stood) and the one the act takes it to. */
+export type ConsequenceScale = {
+  readonly before: ScaleOfSubject | null;
+  readonly after: ScaleOfSubject;
 };
 
 /**
@@ -215,8 +245,9 @@ export function consequenceDigest(consequence: Consequence): string {
  * different set would move is a different consequence. An act whose kind carries no effects
  * digests as it always has — `canonical` writes nothing for an absent field.
  *
- * A subject's standing is bound for the reason its own field states (I-445); a subject whose act
- * reads no standing carries no field and digests exactly as before. A hand measurement's payload is
+ * A subject's standing is bound for the reason its own field states (I-445), and a view's scale for
+ * the reason its own states (I-566); a subject whose act reads neither carries no field and
+ * digests exactly as before. A hand measurement's payload is
  * bound whole (I-373): the recipe and the figure the person read are what they confirmed, and an act
  * with no such arm carries no field and digests exactly as before. The effects are bound as their
  * two id lists and nothing more: the lines' grouping is the seam's presentation of those same ids
@@ -231,7 +262,7 @@ function judged(consequence: Consequence): unknown {
     tenantId: consequence.tenantId,
     projectId: consequence.projectId,
     rendering: consequence.rendering,
-    subjects: consequence.subjects.map((subject) => ({ subjectId: subject.subjectId, before: subject.before, after: subject.after, standing: subject.standing })),
+    subjects: consequence.subjects.map((subject) => ({ subjectId: subject.subjectId, before: subject.before, after: subject.after, standing: subject.standing, scale: subject.scale })),
     effects: effects === undefined ? undefined : { linesRederiving: effects.linesRederiving, signaturesVoiding: effects.signaturesVoiding },
     measurement: consequence.measurement,
   };

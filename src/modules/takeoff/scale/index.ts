@@ -21,6 +21,7 @@ import type { Storage } from "@/core/storage";
 import { viewRecordsOf, type ViewRecord } from "@/core/views";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
 import { drawingProjectOf } from "@/modules/takeoff/partition/store";
+import { printedScaleOf } from "./printed";
 
 export { scaleTolerancesOf } from "@/core/scale/tolerances";
 export type { AffirmedCalibration } from "@/core/scale/store";
@@ -87,6 +88,11 @@ export type ViewScale = {
   readonly proposals: readonly ScaleProposal[];
   readonly affirmed: AffirmedScale | null;
   readonly refusal: ScaleAbsenceCode | null;
+  /**
+   * The ratio the view's caption prints (`1:20`), or null — shown to the reader, never a proposal:
+   * L-MEA-05 admits printed scale notes at no rank (I-418, I-565).
+   */
+  readonly printedScale: string | null;
 };
 
 /**
@@ -127,6 +133,7 @@ export async function scaleProposalsOf(scope: ScaleScope, deps: ScaleDeps): Prom
         proposals: proposals.get(view.viewKey) ?? [],
         affirmed: standing === null ? null : { ...standing, ...judgeAnisotropy(standing, tolerances.anisotropy) },
         refusal: standing === null ? absence : null,
+        printedScale: printedScaleOf(view.caption),
       };
     });
   });
