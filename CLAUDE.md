@@ -28,6 +28,19 @@ Each session's brief is `docs/handoff/session-<N>-prompt.md`; read it first.
   keep one writer per file; parallel writers use worktrees (which cannot run e2e) or disjoint files.
   Adversarially verify a finding (`refuter`) before spending a fix on it. Give each agent the exact
   scope, the law it needs and what to return.
+- **Spend like the owner pays** (session 8 spent most of a weekly limit; the docs for Opus 5.5 say
+  `medium` matches Opus 5 at `high`, and lowering effort is the surest cost lever):
+  - Effort: the main session runs at `high`; every workflow agent gets an explicit `effort` —
+    `medium` by default, `low` for mechanical work (captures, re-takes, extraction, renames), `high`
+    only for law, geometry and design judgment; `xhigh`/`max` never without a measured gain.
+  - Workflows only where the brief or the owner asks for fan-out, sized to the job: a wave is ≤ 10–12
+    slices; a `refuter` review only where a slice touches law, figures, migrations or security; no
+    critic per map by default. Anything one context holds, do yourself or with one agent.
+  - Hand agents short specs and file paths, never whole maps or JSON blobs; read their results
+    through a compact extraction (jq/python), never the raw output.
+  - Prompt caching is automatic: CLAUDE.md and the agents' system prompts are every agent's cached
+    prefix, so keep them stable and lean; don't change effort mid-session (it invalidates the cache);
+    the subagent cache TTL is 1 h (user settings).
 - **Plain words.** Say what you did, what you found and what you need, briefly; code ids in prose only
   where the reader needs them.
 
@@ -37,7 +50,7 @@ Each session's brief is `docs/handoff/session-<N>-prompt.md`; read it first.
   testing, measurement or research shows a clause wrong, stale or harmful, depart from it and record a
   Deviation in `docs/decisions/deviations.md` in the same commit — clause, evidence, what the product
   does instead, cost. Never silent, never an edit to `docs/specs/**`, never a loosened proof. Next free
-  ids: I-370, D-005, migration 0062.
+  ids: I-538, D-007 (D-003 reserved for the ties), migration 0065.
 - **"A partial faulty estimate is more harmful than no estimate. Measure less, completely, and say so.
   Over-measurement is a hard block, never a disclosure. Every refusal carries a named reason. AI
   proposes; code resolves; a human disposes."**
@@ -98,6 +111,17 @@ Each session's brief is `docs/handoff/session-<N>-prompt.md`; read it first.
   verification), `drawing-analyst` (dissects real and fixture drawings).
 - **Skills** (`.claude/skills/`): `product-review`, `lanes`, `readback`, `edison-drawings`, `jev`,
   `session-close`. Plugins worth reaching for: `frontend-design`, `typesafe:typesafe-ai`.
+- **Workflows and merging** (session 8): saved templates `.claude/workflows/wave.js` (slices in their own
+  worktrees, explicit effort, gated review, a fix round) and `chain.js` (serial steps in ONE worktree),
+  specs in `<work>/slices/<ID>.json`. Implementers write law ids as placeholders (`I-<TAG>-a`) and commit
+  in stages (power cuts have cost waves their uncommitted work). Merge each branch with
+  `scripts/harness/integrate-slice.py` (one commit per slice plus its `baseline:` commits; ids renumbered
+  in letter order; drizzle-meta conflicts keep this branch's; a colliding migration regenerated at the
+  next number before the slice commit; `--errors-check <base>` before re-freezing the refusal digest).
+  Worktrees share `node_modules` only — each builds its own `cad/.venv` (a shared one let worktree agents
+  swap the main checkout's extractor). A worktree's `test:db` refuses while any product is served:
+  keep the demo down during a wave. After merging: verify (the build lane catches client imports of
+  server code no worktree can), the gate, pictures looked at and re-taken, the read-back.
 - The harness is ours to improve: when a session hits the same friction twice, fix the harness (a guard
   rule with its test, a tool, a skill line) in a `harness:` commit and say so in the handoff.
 
@@ -106,9 +130,9 @@ Node 24.19 LTS · pnpm 11.27.1 (settings in `pnpm-workspace.yaml`) · TypeScript
 types lane) with `typescript` aliased to the TypeScript 6 API for typescript-eslint and Next's type check
 · Next 16.3.6 · React 19.3 · Vitest 5 · Playwright 1.62.1 (held: 1.63 breaks J-011's hover sweep) · ESLint
 10.11 · TanStack Table 9 · react-resizable-panels 4 · pg-boss 10.4.2 (held) · Python 3.13 via uv 0.12.5, ezdxf 1.4.4 (extractor identity),
-pytest 9 + xdist · LibreDWG 0.13.3 · Typst 0.15.1 (version + sha256, AM-08). Moving a pin is a
-`toolchain:` commit; ezdxf, LibreDWG and Typst moves re-key corpora or document bytes and are the
-owner's call.
+pytest 9 + xdist · LibreDWG 0.13.3 · pypdfium2 5.13.0 (the PDF_OBJECT extractor, shipped since M4P-1) ·
+Typst 0.15.1 (version + sha256, AM-08). Moving a pin is a `toolchain:` commit; ezdxf, LibreDWG,
+pypdfium2 and Typst moves re-key corpora or document bytes and are the owner's call.
 
 ## Security, the repository, the machine
 - Both repositories are **public**: only this repo's own work goes in. `TYPESAFE_API_KEY` (in

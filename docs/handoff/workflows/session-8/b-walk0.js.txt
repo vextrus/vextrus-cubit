@@ -1,0 +1,68 @@
+export const meta = {
+  name: 's8-walk0',
+  description: 'Session 8 first product walk: serial ux-critic browser walks of the whole QS flow (fresh project and measured project), a qs-critic on figures and documents in parallel',
+  phases: [
+    { title: 'Walk', detail: 'serial browser walks, one area each (one shared browser)' },
+    { title: 'QS', detail: 'a senior Dhaka QS judges figures and documents without the browser' },
+    { title: 'Rank', detail: 'merge, dedupe and rank the defects' },
+  ],
+}
+
+const ORIGIN = 'http://127.0.0.1:3213'
+const SIGNIN = 'j000-legs-mue2z09t4puy@cubit.test / golden-path-legs-mue2z09t4puy'
+const PROJECT = 'tenant 74f10d51-4f20-4eb3-b25c-cdc30f246fd8, project 3085638e-6f75-4412-b39c-ad762b4b824e ("Bashundhara G+6", F-RCC6-BNBC, measured and billed by J-000; register at ' + ORIGIN + '/t/74f10d51-4f20-4eb3-b25c-cdc30f246fd8/p/3085638e-6f75-4412-b39c-ad762b4b824e/takeoff/register)'
+
+const COMMON = `The product is served by the demo at ${ORIGIN} (sign in: ${SIGNIN}). The measured project: ${PROJECT}. Use the chrome-devtools MCP tools (load them with ToolSearch, e.g. "select:mcp__chrome-devtools__new_page,mcp__chrome-devtools__navigate_page,mcp__chrome-devtools__take_snapshot,mcp__chrome-devtools__take_screenshot,mcp__chrome-devtools__click,mcp__chrome-devtools__fill_form,mcp__chrome-devtools__resize_page,mcp__chrome-devtools__list_console_messages,mcp__chrome-devtools__list_network_requests,mcp__chrome-devtools__upload_file,mcp__chrome-devtools__wait_for,mcp__chrome-devtools__press_key,mcp__chrome-devtools__hover,mcp__chrome-devtools__type_text"). The browser is SHARED with the agents before and after you, one at a time: open your own page with new_page at the start and close it (close_page) at the end; if a page is already signed in, reuse the session. Save every screenshot under .private/work/review/s8-walk0/<your-key>/ with filePath and READ each PNG back before you claim anything about it. Walk BOTH themes (the theme control is in the shell) and BOTH viewports (resize_page 1440x900 and 1280x800). Do not run pnpm lanes, do not stop the demo, do not edit the tree. Judge as the product-review skill says (.claude/skills/product-review/SKILL.md): the QS's real workflow first (P-QS, a quantity surveyor in Dhaka who uses CostX/PlanSwift/Bluebeam today), then trust (the Trace, basis, coverage, honest refusals), then the screen's Design Decision (docs/design/<screen>.md) and the craft rubric (.claude/rules/frontend.md). Severity: BLOCKS_DEMO (the owner cannot show this flow to a buyer as it is), FRICTION (a QS would stumble, wait, guess or re-type), POLISH. Every defect cites a screenshot you looked at.`
+
+const DEFECTS = {
+  type: 'object',
+  properties: {
+    area: { type: 'string' },
+    walked: { type: 'string', description: 'the steps you actually took, in order, with what the QS was trying to achieve at each' },
+    defects: { type: 'array', items: { type: 'object', properties: {
+      severity: { type: 'string', enum: ['BLOCKS_DEMO', 'FRICTION', 'POLISH'] },
+      screen: { type: 'string' }, element: { type: 'string' }, what: { type: 'string' }, why: { type: 'string' },
+      repro: { type: 'string' }, screenshot: { type: 'string' }, law: { type: 'string' }, fix: { type: 'string' },
+    }, required: ['severity', 'screen', 'what', 'why', 'repro', 'screenshot', 'fix'] } },
+    topThree: { type: 'array', items: { type: 'string' } },
+    consoleErrors: { type: 'array', items: { type: 'string' } },
+    slowCalls: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['area', 'walked', 'defects', 'topThree'],
+}
+
+const WALKS = [
+  { key: 'fresh-flow', task: `THE DEMO FLOW FROM NOTHING. As a QS given a new job: from the product's home, create a NEW project (call it "Walk0 Bashundhara"), upload the structural set fixtures/rcc6-bnbc/rcc6-bnbc.dwg (absolute path /home/riz/vextrus-cubit/fixtures/rcc6-bnbc/rcc6-bnbc.dwg; use upload_file on the file input), and carry it as far as the product lets a QS without help: ingest, organise the set (sets, disciplines, the sheet index), affirm the scale, run the partition (views, grid, levels), read schedules and notes, measure, open the register, check a figure against the drawing (the Trace), draft the bill. The demo's worker processes the jobs (ingest may take a minute or two; wait with wait_for, never guess). Say at each step what the QS was trying to do, whether the next action was obvious, how long it took, and what the screen said. Where the product stops you, say exactly where and why. This walk is the owner's demo script's backbone — be precise about every click.` },
+  { key: 'drawings-viewer', task: `THE DRAWINGS AND THE VIEWER on the measured project: project home, drawings (set browser, disciplines, the sheet index and cards, titles), scale, then the viewer on S-10 COLUMN LAYOUT PLAN and S-14 (the beam plan) and a schedule sheet: reading a sheet (pan/zoom, legibility, layers, the inspector on hover/select, the readout), finding a member, and going from a sheet to the register row that measured it.` },
+  { key: 'levels-schedules', task: `LEVELS AND SCHEDULES & NOTES on the measured project: the levels screen (the stack, storeys, heights and their evidence, the roll-up), schedules (column, pile, cap, beam schedules as read; the Band column; the sheet rail), notes (the general notes as read: fy, f'c, cover, lap), and whether a QS can see what the machine read and correct it.` },
+  { key: 'register-trace', task: `THE TAKEOFF REGISTER, THE TRACE AND COVERAGE on the measured project: the register (classes, the index tree, lines per member, totals, basis, coverage chips, the Source chip, the Bases cell), then CHECK FIVE NUMBERS AGAINST THE DRAWING: for a column concrete line, a pile, a cap, a cap formwork line and a PARTIAL beam line, click through the Trace to the drawing and judge whether a QS can verify the figure in one click (the formula, the inputs, the drawing region highlighted). Then the coverage grid: can a QS see what is measured, what is declared partial and why, and what is not measured at all?` },
+  { key: 'bill-docs-settings', task: `THE BILL, THE BBS, DOCUMENTS, AUDIT AND SETTINGS on the measured project: the BOQ screen (items, descriptions, units, quantities, the draft state), draft/issue the bill if offered, the BBS screen, the documents list (open the BOQ PDF and XLSX links — judge what the QS would sign), the audit log, and settings (rule set, site facts, participants). Say what a QS would put their name to and what they would not.` },
+]
+
+const walked = []
+phase('Walk')
+const qsP = agent(`You are the qs-critic. ${COMMON.replace(/Use the chrome-devtools[\s\S]*?Do not run pnpm lanes/, 'Do NOT use the chrome-devtools browser (other agents are using it). Do not run pnpm lanes')}\n\nTASK: judge the measured project's FIGURES and DOCUMENTS as a senior Dhaka QS who must sign them. Read the register through the cubit MCP db_read tool (project_id 3085638e-6f75-4412-b39c-ad762b4b824e; the canonical queries are in docs/handoff/session-7-readback.sql; look at quantity_lines' descriptions, formulas/renderings, units, coverage and its declared omissions), the golden (fixtures/rcc6-bnbc/takeoff.golden.json) for what a whole structural bill of this building holds, and the issued documents: find the BOQ and BBS files in the store (storage/<tenant>/..., the documents table via db_read tells you their object keys) and read the PDF text (a small python with pypdfium2 through cad/.venv) and the XLSX (openpyxl if present in cad/.venv, else unzip the sheet XML). Judge: item descriptions in PWD SoR/BNBC terms, units, rounding and precision, the bill's shape (one item per description with its total vs one line per member — the owner will be asked), whether partial/declared coverage is honest and legible on the document, what a QS would expect that is missing (preliminaries, measurement notes, a summary, grade and mix, the method statement), and whether the BBS follows BS 8666 as a Dhaka site would read it. Return defects in the schema with severity and a concrete fix; "screenshot" may be a file path of what you read.`, { label: 'qs:figures-docs', phase: 'QS', schema: DEFECTS, agentType: 'qs-critic' })
+
+for (const w of WALKS) {
+  const r = await agent(`${COMMON}\n\nYOUR KEY: ${w.key}\nTASK: ${w.task}\n\nThen look again at each screen you passed and judge it. Return the defects (schema), most damaging first.`, { label: `walk:${w.key}`, phase: 'Walk', schema: DEFECTS, agentType: 'ux-critic' })
+  if (r) walked.push({ key: w.key, ...r })
+  log(`walk ${w.key}: ${r ? r.defects.length + ' defects' : 'no result'}`)
+}
+const qs = await qsP
+
+phase('Rank')
+const all = [...walked, ...(qs ? [{ key: 'qs', ...qs }] : [])]
+const ranked = await agent(`Merge and rank these product-walk defect lists for Vextrus Cubit (a Takeoff product for Dhaka QSs; the owner will demo the flow: load a set, organise, scale, auto-takeoff the structure, measure manually, rooms and finishes, ask the drawings, check every number against the drawing in one click, emit a draft BOQ and BBS). Dedupe (same element, same cause), keep the strongest evidence, rank BLOCKS_DEMO > FRICTION > POLISH and within each by demo damage. For each merged defect add "foundation": true if it lives in a shared primitive, the shell, tokens or a cross-screen seam (fix first). Group the fixable ones into candidate fix slices with likely-disjoint files (name the files you expect from the repro/testids; you may grep src/ to confirm). READ-ONLY on the tree.\n\n${JSON.stringify(all).slice(0, 220000)}`, { label: 'rank:defects', phase: 'Rank', schema: {
+  type: 'object',
+  properties: {
+    defects: { type: 'array', items: { type: 'object', properties: {
+      id: { type: 'string' }, severity: { type: 'string' }, foundation: { type: 'boolean' }, screen: { type: 'string' }, element: { type: 'string' },
+      what: { type: 'string' }, repro: { type: 'string' }, screenshot: { type: 'string' }, law: { type: 'string' }, fix: { type: 'string' }, files: { type: 'array', items: { type: 'string' } }, sources: { type: 'array', items: { type: 'string' } },
+    }, required: ['id', 'severity', 'screen', 'what', 'fix'] } },
+    slices: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, defects: { type: 'array', items: { type: 'string' } }, files: { type: 'array', items: { type: 'string' } }, note: { type: 'string' } }, required: ['id', 'defects', 'files'] } },
+    flowVerdict: { type: 'string', description: 'can a QS do the demo flow today without help? where does it stop?' },
+    report: { type: 'string' },
+  },
+  required: ['defects', 'slices', 'flowVerdict', 'report'],
+} })
+return { walked, qs, ranked }

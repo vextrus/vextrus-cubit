@@ -1,0 +1,58 @@
+export const meta = {
+  name: 's8-chain',
+  description: 'Session 8 serial slice chain in ONE worktree: each step implemented, reviewed by a refuter, fixed if required, before the next step starts',
+  phases: [{ title: 'Step' }, { title: 'Review' }, { title: 'Fix' }],
+}
+const MAIN = '/home/riz/vextrus-cubit'
+const W = args.wave
+const BASE = args.base
+const RESULT = {
+  type: 'object',
+  properties: {
+    slice: { type: 'string' }, worktree: { type: 'string' }, branch: { type: 'string' },
+    commits: { type: 'array', items: { type: 'string' } },
+    status: { type: 'string', enum: ['DONE', 'PARTIAL', 'BLOCKED'] },
+    summary: { type: 'string' },
+    lanes: { type: 'array', items: { type: 'object', properties: { command: { type: 'string' }, verdict: { type: 'string' } }, required: ['command', 'verdict'] } },
+    unrun: { type: 'array', items: { type: 'string' } },
+    lawPlaceholders: { type: 'array', items: { type: 'object', properties: { token: { type: 'string' }, where: { type: 'string' }, gist: { type: 'string' } }, required: ['token', 'where', 'gist'] } },
+    readbackChange: { type: 'string' },
+    risks: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['slice', 'worktree', 'commits', 'status', 'summary', 'lanes', 'unrun', 'lawPlaceholders', 'readbackChange'],
+}
+const VERDICT = {
+  type: 'object',
+  properties: {
+    verdict: { type: 'string', enum: ['PASS', 'FIX_REQUIRED'] },
+    blocking: { type: 'array', items: { type: 'object', properties: { what: { type: 'string' }, where: { type: 'string' }, why: { type: 'string' }, fix: { type: 'string' } }, required: ['what', 'where', 'why', 'fix'] } },
+    advisory: { type: 'array', items: { type: 'string' } },
+    checked: { type: 'string' },
+  },
+  required: ['verdict', 'blocking', 'checked'],
+}
+const RULES = (tag) => `RULES: work only in your worktree; never write to ${MAIN}. Law ids as placeholder tokens I-${tag}-a, D-${tag}-a (the integrator renumbers). Tests with teeth; run and quote the narrow lanes (pnpm vitest run <files>; npx tsc --noEmit -p .; npx eslint <files>; uv run --project cad pytest <tests> -q; uv run --project cad ruff check cad; uv run --project cad --group fixtures python -m fixtures.gen.rcc6_bnbc --out <scratch dir under ${MAIN}/.private/work/session-8/chain/> for trial regenerations). The db lane may run (no product is served) — pnpm test:db <files>; NEVER pnpm e2e / verify / gate / demo. COMMIT IN STAGES (a WIP commit per coherent step) with explicit paths (the guard refuses git add -A); a regenerated committed corpus goes in its own baseline: commit ONLY if your spec says the step lands it — otherwise leave fixtures/rcc6-bnbc/** untouched and prove by scratch regeneration. Never loosen a proof. Leave nothing uncommitted.`
+
+const steps = args.steps
+let worktree = args.worktree || null
+const out = []
+for (const s of steps) {
+  const tag = s.id.replace(/[^A-Za-z0-9]/g, '')
+  const where = (worktree ? `Work in the git worktree ${worktree} (cd there FIRST; the previous steps of this chain are committed there — read git log ${BASE}..HEAD).` : `You are in YOUR OWN fresh git worktree (pwd) at ${BASE}.`) + (s.resume ? ` RECOVERY: a previous run of THIS step was stopped mid-work (the owner paused the session); its commits are in the worktree — read them, judge them against the spec, and FINISH the step from there rather than starting over.` : '')
+  const prompt = `You are implementing step ${s.id} of a serial chain for Vextrus Cubit session 8 (wave ${W}). ${where}
+READ FIRST: the step's spec ${MAIN}/.private/work/session-8/slices/${s.id}.json; the design ${MAIN}/.private/work/session-8/r0/design.md (the FINAL design, critic applied) and its full JSON ${MAIN}/.private/work/session-8/r0/design-result.json (keys design, critic, final — the critic's corrections are binding where the final adopted them); the scratch artifacts the design names under ${MAIN}/.private/work/session-8/r0/ (reference diffs, pinned maps); the path-scoped law ${MAIN}/.claude/rules/cad-and-fixtures.md and takeoff-law.md.
+${s.note ? `ORCHESTRATOR'S NOTE: ${s.note}\n` : ''}${RULES(tag)}
+Return the result (schema) with ALL commits of this step (full shas, oldest first).`
+  const r = await agent(prompt, { label: `step:${s.id}`, phase: 'Step', schema: RESULT, ...(worktree ? {} : { isolation: 'worktree' }) })
+  if (!r) { out.push({ id: s.id, result: null }); break }
+  worktree = worktree || r.worktree
+  const v = await agent(`Adversarially review step ${s.id} of a serial fixture-generator chain (Vextrus Cubit session 8). Spec: ${MAIN}/.private/work/session-8/slices/${s.id}.json; design: ${MAIN}/.private/work/session-8/r0/design.md. The implementer reports: ${JSON.stringify(r).slice(0, 12000)}. Its worktree ${worktree} is READ-ONLY for you (you may run the generator into a scratch dir under ${MAIN}/.private/work/session-8/chain/review-${tag}/, cad pytest, vitest there). Try to prove it WRONG: a Rev B handle lost or changed outside the corrections register; a golden figure computed by the product's methods instead of the generator's own model (AM-01); a two-path disagreement hidden; a trap whose handle died; a correction that goes against the drawing or the law (L-MEA-09, L-QTY-06, AM-03); a committed corpus touched when the step should only prove by scratch; tests without teeth. Verdict PASS only if nothing blocking remains.`, { label: `review:${s.id}`, phase: 'Review', agentType: 'refuter', schema: VERDICT })
+  let f = null
+  if (v && v.verdict === 'FIX_REQUIRED') {
+    f = await agent(`Return to step ${s.id} (Vextrus Cubit session 8 chain) in the worktree ${worktree} (cd there first) and fix the review's BLOCKING items (or refute each with evidence in risks): ${JSON.stringify(v.blocking)}. Advisory: ${JSON.stringify(v.advisory || [])}. The step's report: ${JSON.stringify(r).slice(0, 6000)}. ${RULES(tag)} Return the UPDATED result with all commits of this step.`, { label: `fix:${s.id}`, phase: 'Fix', schema: RESULT })
+  }
+  out.push({ id: s.id, result: r, review: v, fixed: f })
+  log(`${s.id}: ${r.status}, review ${v ? v.verdict : 'none'}${f ? ', fixed ' + f.status : ''}`)
+  if ((f || r).status === 'BLOCKED') break
+}
+return { wave: W, worktree, steps: out }
