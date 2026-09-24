@@ -4,7 +4,7 @@
 // A view type and nothing else — no reading, no rendering — so the screen's suite can mount the
 // workspace over a value and the door can answer one (B-19, ARCH-01).
 import type { ScopeDeclarationCause } from "@/core/errors";
-import type { PartialStatementRow, ResidueCell, ResidueInput, Sighting, StatementRow, UnclassedStatementRow } from "@/core/residue";
+import type { PartialStatementRow, ResidueCell, ResidueInput, Sighting, StatementRow, UnclassedStatementRow, UnnamedStatementRow } from "@/core/residue";
 
 /**
  * The whole reading one coverage screen paints. The cells are the residue's own rows — kind-grain
@@ -34,6 +34,8 @@ export type CoverageView = {
    */
   readonly partial?: readonly PartialStatementRow[];
   readonly unclassed?: readonly UnclassedStatementRow[];
+  /** And the beams the plans draw that no mark names (s-coverage I-613). Absent reads as none. */
+  readonly unnamed?: readonly UnnamedStatementRow[];
   /**
    * The campaign's published lines kept with NO quantity (PARTIAL_DECLARED), by id (s-coverage
    * I-cov-1). The residue reads a cell QUANTITY_BEARING when it has published lines at all; this is
@@ -82,4 +84,5 @@ export type CertificatePreview = {
   readonly bill: readonly StatementRow[];
   readonly partial: readonly PartialStatementRow[];
   readonly unclassed: readonly UnclassedStatementRow[];
+  readonly unnamed?: readonly UnnamedStatementRow[];
 };

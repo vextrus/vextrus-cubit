@@ -12,7 +12,8 @@
  *
  * A mode of the viewer, not a route (I-370): the armed tool is the screen's local state and never
  * enters the address. While a tool is armed a plain click places a point (I-371); nothing a QS has
- * drawn is recorded until a condition is picked and its card confirmed (I-497).
+ * drawn is recorded until a condition is picked and its card confirmed (I-497): the card is
+ * `./measure-card.tsx`'s (S6), mounted in this layer while a finished shape stands under a condition.
  */
 import "@/modules/takeoff/viewer-measure/viewer-measure.css";
 
@@ -35,6 +36,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { isTextField, matchesStep, shortcutById } from "@/ui/shell/shortcuts/roster";
 import { fill, strings, type StringKey } from "@/ui/strings";
 import { TESTIDS } from "@/ui/testids";
+import type { ChestCondition } from "@/core/manual/conditions";
+import { useMeasureCard, type CardDoors, type CardSheet } from "./measure-card";
+
+export type { CardDoors } from "./measure-card";
 
 /** The roster lines this region binds, each read from the one roster and spelled nowhere else (B-17). */
 const TOOL_KEYS: readonly (readonly [string, MeasureTool])[] = [
@@ -106,8 +111,14 @@ export type MeasureRegionOptions = {
   permitted: boolean;
   /** Where the screen's draw reaches this region's paint: a ref, so a frame never waits on a render (PB-3). */
   paintRef: RefObject<((at: Camera) => void) | null>;
-  /** The name of the condition the chest picked, which the armed tool measures under, or null (S5, I-374). */
-  condition?: string | null;
+  /** The condition the chest picked, which the armed tool measures under, or null (S5, I-374). */
+  picked?: ChestCondition | null;
+  /** The sheet a finished shape is recorded on, through the card (S6), and whether anything can be recorded on it yet (its head is a manifest). */
+  sheet?: (CardSheet & { readonly recordable: boolean }) | null;
+  /** The card's doors — the route's actions unless a mount hands its own. */
+  cardDoors?: CardDoors;
+  /** Where the card is portalled: the screen's own root, as the scale region's dialog is (I-167). */
+  container?: HTMLElement | null;
 };
 
 export type MeasureRegion = {
@@ -115,7 +126,7 @@ export type MeasureRegion = {
   tools: MeasureTools;
   /** The measure cell, where a tool is armed or the tools stand disabled — null otherwise (§2.4). */
   status: MeasureStatus | null;
-  /** The stage's measure layer: the canvas, the label, the reticle, the point hooks and the live line. */
+  /** The stage's measure layer: the canvas, the label, the reticle, the point hooks and the live line — and the card (S6). */
   layer: ReactNode;
   /** A tool asked for by a key or a button: never while a shape is in progress (I-372). */
   requestTool: (tool: PointerTool) => void;
@@ -181,7 +192,11 @@ function noteWords(note: MeasureNote, tool: MeasureTool | null, figure: MeasureF
   }
 }
 
-export function useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, moveCamera, views, unscaled, permitted, paintRef, condition = null }: MeasureRegionOptions): MeasureRegion {
+export function useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, moveCamera, views, unscaled, permitted, paintRef, picked = null, sheet: stated = null, cardDoors, container }: MeasureRegionOptions): MeasureRegion {
+  const condition = picked?.name ?? null;
+  // One sheet per address, however often the screen re-states it: the card reads what it offers once per sheet.
+  const { tenantId = "", projectId = "", drawingId = "", sheetName = "", recordable = false } = stated ?? {};
+  const sheet = useMemo<CardSheet | null>(() => (recordable ? { tenantId, projectId, drawingId, sheetName } : null), [drawingId, projectId, recordable, sheetName, tenantId]);
   const [menuOpen, setMenuOpen] = useState(false);
   const labelRef = useRef<HTMLDivElement | null>(null);
   const valueRef = useRef<HTMLSpanElement | null>(null);
@@ -231,8 +246,10 @@ export function useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, mov
     [snap],
   );
 
-  const measure = useMeasure({ tool, snap, cameraRef, stageRef, views, unscaled, glyphs: BASIS_GLYPHS, onLive, letter, moveCamera, onLeave: () => setTool("select") });
+  // A finished shape opens the card only under a picked condition on a sheet it can be recorded on (I-497, S6).
+  const measure = useMeasure({ tool, snap, cameraRef, stageRef, views, unscaled, glyphs: BASIS_GLYPHS, onLive, letter, moveCamera, onLeave: () => setTool("select"), card: picked !== null && sheet !== null });
   paintRef.current = measure.paint;
+  const card = useMeasureCard({ measure, picked, sheet, views, cameraRef, stageRef, container, ...(cardDoors === undefined ? {} : { doors: cardDoors }) });
 
   const requestTool = useCallback(
     (asked: PointerTool): void => {
@@ -385,28 +402,29 @@ export function useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, mov
             ? fill(strings.measure_status_tool_one, { tool: toolWord })
             : fill(strings.measure_status_tool, { tool: toolWord, points: String(count) });
     const words = reason === "permission" ? strings.measure_tools_permission : measure.figure === null ? shape : `${shape} · ${figureWords(measure.figure)}`;
-    // The cell repeats what a reader who is not looking at the pointer needs: a refusal, a reason, or
-    // — a shape finished — that nothing was recorded: with no condition picked (I-497), or under one
-    // whose card has not landed yet (S5; S6 brings the card that records it).
+    // The cell repeats what a reader who is not looking at the pointer needs: a refusal, a reason, that
+    // a measurement was recorded (S6's card), or — a shape finished with no condition picked — that
+    // nothing was (I-497). Under a condition a finished shape is the card's to say.
     const kind = measure.note?.note.kind;
     const note =
       reason === "offline"
         ? strings.measure_tools_offline
         : reason === "unscaled"
           ? strings.measure_view_unscaled
-          : kind === "finished" || (kind === "cutout-finished" && measure.draft.phase === "draft")
-            ? condition === null
+          : card.recorded !== null && measure.draft.phase === "idle"
+            ? strings.measure_status_recorded
+            : (kind === "finished" || (kind === "cutout-finished" && measure.draft.phase === "draft")) && condition === null
               ? strings.measure_status_unrecorded
-              : fill(strings.measure_status_condition_pending, { condition })
-            : kind === "placed" || kind === undefined
-              ? null
-              : said;
+              : kind === "placed" || kind === "finished" || kind === "cutout-finished" || kind === undefined
+                ? null
+                : said;
     return { tool, points: count, figure: measure.figure, reason, words, note };
-  }, [condition, measure.armed, measure.draft, measure.figure, measure.note, reason, said]);
+  }, [card.recorded, condition, measure.armed, measure.draft, measure.figure, measure.note, reason, said]);
 
   const { armed, rectangle, draft, basis, canvasRef } = measure;
   const layer =
     armed === null ? null : (
+      <>
       <MeasureLayer
         tool={armed}
         shape={armed === "area" && rectangle ? "rectangle" : "polygon"}
@@ -421,6 +439,13 @@ export function useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, mov
         valueRef={valueRef}
         noteRef={noteRef}
       />
+      {card.leader === null ? null : (
+        <svg className="cx-viewer-measure-leader" aria-hidden="true">
+          <line x1={card.leader.from.x} y1={card.leader.from.y} x2={card.leader.to.x} y2={card.leader.to.y} />
+        </svg>
+      )}
+      {card.dialog}
+      </>
     );
 
   return { measure, tools, status, layer, requestTool, onKey, onKeyUp };

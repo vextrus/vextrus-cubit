@@ -11,7 +11,7 @@ import { modelJudgmentOf } from "@/core/db/model-outcomes";
 import { SCOPE_DECLARATION_CAUSES } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { sourceKeyResolver } from "@/core/model";
-import { billStatementOf, cellRef, measurementStatementOf, parseCellRef, partialStatementOf, residueOf, unclassedStatementOf } from "@/core/residue";
+import { billStatementOf, cellRef, measurementStatementOf, parseCellRef, partialStatementOf, residueOf, unclassedStatementOf, unnamedStatementOf } from "@/core/residue";
 import { entitySelectionOf, pinnedRecordsOf } from "@/modules/takeoff/trace";
 import { coverageCauseStateOf, proposeCoverageCause, standsAboveFloor, type CoverageCausePort } from "./cause-proposal";
 import type { CertificatePreview, CoverageCauseProposalView, CoverageCellView, CoverageView } from "./view";
@@ -34,6 +34,8 @@ export async function coverageViewOf(scope: CoverageScope): Promise<CoverageView
     // The measurement boundary's other two enumerations (I-481/e), off the same residue.
     partial: partialStatementOf(residue.cells),
     unclassed: unclassedStatementOf(residue.input.unclassed ?? []),
+    // And the fourth: the beams the plans draw that no mark names (I-613).
+    unnamed: unnamedStatementOf(residue.input.unnamed ?? []),
     declaredLineIds: residue.campaign === null ? [] : await declaredLinesOf(scope.tenantId, residue.campaign.campaignId),
     sightingSelections: residue.campaign === null ? {} : await sightingSelectionsOf(scope, residue.campaign.setRevisionId, residue.cells.flatMap((cell) => cell.sightings)),
   };
@@ -103,6 +105,7 @@ export async function certificatePreviewOf(scope: CoverageScope): Promise<Certif
     bill: billStatementOf(residue.cells),
     partial: partialStatementOf(residue.cells),
     unclassed: unclassedStatementOf(residue.input.unclassed ?? []),
+    unnamed: unnamedStatementOf(residue.input.unnamed ?? []),
   };
 }
 

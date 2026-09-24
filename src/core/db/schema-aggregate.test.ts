@@ -122,6 +122,7 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "partitionViews",
   "placementOutlines",
   "placementRuns",
+  "placementUnnamedPairs",
   "placements",
   "projects",
   "proposedLevels",
@@ -211,6 +212,7 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
   "partitionViews",
   "placementOutlines",
   "placementRuns",
+  "placementUnnamedPairs",
   "placements",
   "projects",
   "proposedLevels",
@@ -338,7 +340,14 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * No standing column moved or was dropped (checked against 0067's one ALTER TABLE, an ADD COLUMN).
  * Previous: 5f170ef3ac542934fc21073fd47e21ea14f86152500b61e06f1d382f2c2bfcc8.
  */
-const COLUMNS_DIGEST_BEFORE = "d7fa4c5ad9adac03a5f03cf8860a178dbf6516f7597a4e953979682b569740a1";
+/*
+ * Re-baselined for FRM4-AD's migration 0068 (I-613): ONE ADDED table of the frame area
+ * (./schema-frame.ts) — `placement_unnamed_pairs`, the pairs of edge lines a plan draws as a framed
+ * member that no mark names, stored per ingest with the placements so the residue can enumerate
+ * them. No standing column moved or was dropped (0068 holds one CREATE TABLE and no ALTER TABLE).
+ * Previous: d7fa4c5ad9adac03a5f03cf8860a178dbf6516f7597a4e953979682b569740a1.
+ */
+const COLUMNS_DIGEST_BEFORE = "552432fe94b491d765b8727354eda7a0df8e8c000ce8135d34db7cebad9963c1";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {

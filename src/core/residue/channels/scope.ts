@@ -32,6 +32,12 @@ export type SightingScope = {
    * drawing whose pinned bytes nobody read holds no entry, and what was sighted on it names no sheet.
    */
   readonly records: ReadonlyMap<string, RecordStanding>;
+  /**
+   * The record each manifest drawing was measured on, by drawing: the ingest the pin's bytes were
+   * read into. A reader of what ONE record stored (I-613) reads that record and no other of the
+   * drawing. Absent, or without a drawing's entry, that drawing's record was not read.
+   */
+  readonly ingests?: ReadonlyMap<string, string>;
 };
 
 /** The drawings of the manifest, as a query names them. */
@@ -51,7 +57,8 @@ export async function sightingScopeIn(
 ): Promise<SightingScope> {
   const pinned = await pinnedRecordsIn(tx, campaign.tenantId, campaign.setRevisionId, campaign.sheets.map((sheet) => sheet.drawingId), storage);
   const records = new Map([...pinned].map(([drawingId, record]) => [drawingId, record.standing] as const));
-  return { ...campaign, records };
+  const ingests = new Map([...pinned].map(([drawingId, record]) => [drawingId, record.ingestId] as const));
+  return { ...campaign, records, ingests };
 }
 
 /**

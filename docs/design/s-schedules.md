@@ -420,6 +420,80 @@ this file rules. No gallery entry is added (nothing new is invented here).
     OVER are no longer over (its FRM-4 list, re-graded above). Every beam line is still PARTIAL, so no
     billed figure moves. The joint seam (`measure/joints.ts`, I-413) reads placed framing, so its lower
     bound now sees the vertical beams, the cantilevers and LB1. TG1 stays unread, as do its two GF joints.
+- **I-611 — a beam's side reads the plan's own slab reading, and "nothing adjoins" only where
+  that reading says so (session 9, FRM4-AD; L-MEA-09, L-QTY-01, L-QTY-02, L-QTY-04, L-QTY-06).**
+  L-MEA-09 measures a beam "below the slab soffit, the thicker adjoining slab governing", so each side
+  of a run states the slab it adjoins (`sidesOf`, `placement/runs.ts`). Until the slab panels are read
+  (SLB-1), a plan's SLAB READING is two statements of its own and nothing else: the thickness it states
+  (`SLAB 150 THK`) and the plate that thickness is cast over — its widest closed ring that is none of
+  its own placements. Both are tested by the ring as drawn (even-odd over its edges), never its box. A
+  probe one member width off the axis reads:
+  (a) nothing, on EVERY side of EVERY run, where the plan states no slab thickness. A plan that never
+  said where its slab is has not said where it is not;
+  (b) the stated thickness inside the plate and clear of the openings it names;
+  (c) "nothing adjoins" (`0`, DERIVED, citing the plate) inside a named opening;
+  (d) off the plate, "nothing adjoins" only where it stands inside no other closed outline the plan
+  draws that is none of its members; inside one, nothing — the plan drew something there (a second
+  slab, a landing, a machine-room roof) whose thickness it did not state.
+  A side is read at the midpoint of each kept segment and states the thickest slab any found; one
+  unread segment leaves the side unread, because the thicker of a stated slab and a silence is not
+  the stated one. An unread side is never a zero: the rail declares the line PARTIAL_DECLARED,
+  omitting the side's `t` under `SLAB_THICKNESS_UNSTATED` (`rails/frame/run-member.ts`).
+  - **What was wrong.** `sidesOf` read `0` wherever the probe stood off the widest unplaced ring's BOX,
+    whether or not the plan stated any slab. A beam plan whose widest ring was a grid bubble or a title
+    box billed every beam at its full depth, COMPLETE. On F-RCC6-BNBC Rev C, S-15's stair-roof layout
+    draws the stair roof (`10D5`) and the machine-room roof (`10D3`, captioned `MRR 150 THK`) side by
+    side, and states no `SLAB … THK`. SB-R4 runs along grid C between 3 and 4, under the machine-room
+    roof on its north side, and stood off the one plate on both sides. J-000 published it COMPLETE at
+    0.257175 m³ concrete and 2.7432 m² formwork, about 0.103 m³ over (L-QTY-06: over is a hard block).
+  - **What moves.** On F-RCC6-BNBC no beam layout states a slab, so every beam side is unread (all
+    153 placed runs, the four stair-roof runs included) and every beam line is PARTIAL, as the rest already were.
+    SB-R4's COMPLETE line is gone. On F-RCC6 each beam plan states `SLAB 150 THK` over one rectangular
+    plate and draws nothing else beside it, so all 129 beam runs read exactly as before — the 44
+    perimeter runs `0/150` included — and its stage digest `a3c0c6e0…` is byte-identical. Its beam
+    lines stay COMPLETE.
+  - **Proof.** `tests/takeoff/partition/placement/runs-sides-and-chains.test.ts`: the synthetic plans
+    (a grid bubble and no slab; a plate and no thickness; SB-R4's two outlines; an L-shaped plate) are
+    each red before the change, and the two drawings read as above.
+- **I-612 — one mark names the end-to-end spans of its stated width that no other mark letters
+  (session 9, FRM4-AD; L-CAD-03, L-CAD-07, L-MEA-09, L-QTY-04, L-REG-04).** A plan letters a beam
+  once however many spans it runs over, and draws each span as its own pair of edge lines, end to end.
+  I-344's nearest-pair rule names only the span a label stands beside, so the other spans stayed
+  drawn and unread. This departs from the nearest-pair rule and is its own reading
+  (`chainedFrom`, `placement/runs.ts`). A pair is named by CHAIN from a named member only where all of
+  these hold:
+  (a) it runs square to the plane along the member's own axis, and starts exactly where the member (or
+  the chain's last pair) ends, to within the pairing's tolerance. End to end, as drawn; in line across a
+  gap is not a chain;
+  (b) it is drawn on the member's layer, and both are drawn at a width the mark's own schedule states
+  (I-344's filter, `atAStatedWidth` — the one home the disclosure below reads too);
+  (c) no framed mark letters it — none stands on it, and no label stands nearer it than any other pair
+  the plan draws. A span the plan letters is its own, and the chain stops there;
+  (d) it is the only pair continuing the chain at that end, and no chain from another mark reaches it.
+  Two readings of one pair name it neither way (L-QTY-04).
+  The chained member carries the mark that named the chain as its atom (L-CAD-03). It is a member like
+  any other: its run is measured, and its edge lines are a face a run ending on it is cut at. The chain
+  reads the band's unnamed members and the stated-width pool alike. It names from a plan's own marks
+  only; a plan that letters nothing still borrows by grid reference (the settled reading above).
+  - **On F-RCC6-BNBC.** S-14 letters `EB1` once, beside EB1a, and S-13 `1EB1` once. EB1b and EB1c
+    (1EB1b, 1EB1c) run on end to end at 250 and are now named: S-14 places 54 and S-13 52. Each clear
+    equals the golden model's. CB3/CB4 and 1CB3/1CB4 now end at EB1b/EB1c's face, −125 each. That is
+    the corner I-344's list already owed FRM-4 at CB1/CB2 (under, never over). EB1d, EB2a/b, 1EB2a/b,
+    PB4/PB5 and REB2a/b are slanted (FRM4-E), and TG1 is contested (I-460). Walked through J-000's acts,
+    the stack holds 1F 51 and 2F–6F 54 each.
+  - **On F-RCC6.** The foundation plan letters its tie beams on the perimeter spans only. It draws the
+    28 interior spans end to end with them, unlettered. The chain names each by the mark of the span it
+    continues: 60 tie beams, the golden's own 30 + 30. TB1 and TB2 share one section (250 × 400), so
+    the figures are right whichever mark a span carries, and a clear is never over the golden's
+    centre-to-centre span. Every byte F-RCC6 read before is unmoved: the stage digest `a3c0c6e0…`
+    holds with the 28 set aside by name (`bnbc-pile-schedule.test.ts`). On the next read-back F-RCC6
+    registers 60 tie beams where it registered 32, each with a concrete and a formwork line. Its
+    tie-beam figures rise toward the golden's 25.500 m³ and 267.750 m² and stay under them, because
+    a clear is never the centre-to-centre span the golden bills.
+  - **Proof.** `runs-sides-and-chains.test.ts`: a beam lettered once names its three spans (red
+    before); a span lettered itself stops the chain, and a span two chains reach is named by neither; a
+    gap breaks a chain; a width the schedule does not state is not chained. The two drawings read as
+    above.
 - **I-337 — a foundation is formed along its SIDES only, over the one plan its concrete is measured
   over (session 7, FND-3; L-FRM-03, I-334, L-QTY-02/03/04; edition IS1200_IN @ 2027.04, migration
   0061).** L-FRM-03 states the figure twice — "Foundation `count × 2(L+B) × depth`" and "Polygonal

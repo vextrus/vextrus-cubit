@@ -11,6 +11,13 @@
 //     vertices, a point on one grid axis) the stated point is kept only where it stands within the
 //     snap reach of every entity and axis it cites.
 //   - Anything farther is demoted to a free point, ENTERED, on the lattice — never refused.
+//   - A point that stands on a traced scan (a RASTER_TRACE key) is INTERPRETED, never MEASURED: the
+//     weakest basis of what it stands on is its own (L-QTY-01, I-387).
+//
+// A free coordinate is quantised only where it is truly free (I-499, I-500): a coordinate a point
+// shares exactly with a point of its own ring that the drawing determined — the one Shift or Ortho
+// copied from the anchor, or a rectangle's derived corner copied from a clicked one — keeps that
+// point's own spelling, so an ortho run is stored square and a rectangle is stored as the rectangle.
 //
 // The snap reach is one micrometre of real length, through the unit the view is drawn in
 // (`snapReachOf`, ./units): float noise for a viewer that computes on the drawing's own doubles, and a
@@ -24,6 +31,7 @@
 //
 // Pure: the act reads the artifact, the partition's assignments and the grid, and hands them here.
 import { LATTICE_STEP } from "../identity";
+import type { SourceScheme } from "../sources";
 import { exact } from "../units/canon";
 import { exactSpellingOf, freeSpellingOf, type JudgedPoint, type StatedPoint } from "./law";
 
@@ -38,6 +46,9 @@ export type DrawnShape = { readonly space: string; readonly paths: readonly Draw
 
 /** One grid axis a bubble georeferences (L-CAD-07): the line x = position, or y = position, of one view. */
 export type GridAxisLine = { readonly viewKey: string; readonly axis: string; readonly position: number };
+
+/** The scheme of a traced scan's primitives (L-CAD-02): a point that stands on one is INTERPRETED (L-QTY-01). */
+const RASTER_TRACE = "RASTER_TRACE" satisfies SourceScheme;
 
 /** A world box, as the extent of a view's own drawing. */
 export type Extent = { readonly minX: number; readonly minY: number; readonly maxX: number; readonly maxY: number };
@@ -63,6 +74,20 @@ export type NamedView = { readonly viewKey: string; readonly space: string; read
 export type PointVerdict =
   | { readonly judged: JudgedPoint; readonly demoted: boolean; readonly offView?: undefined }
   | { readonly offView: string; readonly judged?: undefined; readonly demoted?: undefined };
+
+/** What judging one ring answered: its points as they stand and how many were demoted, or why it stands off the named view. */
+export type RingVerdict =
+  | { readonly judged: readonly JudgedPoint[]; readonly demoted: number; readonly offView?: undefined }
+  | { readonly offView: string; readonly judged?: undefined; readonly demoted?: undefined };
+
+/**
+ * The coordinates the drawing determined for a ring, by the double each was stated at, one table per
+ * axis (I-499, I-500): what a free coordinate stated at exactly that double keeps instead of the lattice.
+ */
+export type HeldCoordinates = { readonly x: ReadonlyMap<number, string>; readonly y: ReadonlyMap<number, string> };
+
+/** No coordinate held: every free coordinate is on the lattice. */
+const NOTHING_HELD: HeldCoordinates = { x: new Map(), y: new Map() };
 
 /** One exact decimal of the canon. */
 type Exact = ReturnType<typeof exact>;
@@ -203,10 +228,13 @@ function reproduced(stated: StatedPoint, cited: readonly Cited[], reach: Reach):
   return standsOnAll(at, near, cited, reach) ? at : null;
 }
 
-/** A free point: on the lattice, ENTERED, citing nothing — and inside the named view's own extent. */
-function free(stated: StatedPoint, view: NamedView, demoted: boolean): PointVerdict {
-  const x = freeSpellingOf(stated.x);
-  const y = freeSpellingOf(stated.y);
+/**
+ * A free point: ENTERED, citing nothing — and inside the named view's own extent. Each coordinate is
+ * on the lattice, except one the ring holds at exactly that double, which keeps the held spelling.
+ */
+function free(stated: StatedPoint, view: NamedView, demoted: boolean, held: HeldCoordinates): PointVerdict {
+  const x = held.x.get(stated.x) ?? freeSpellingOf(stated.x);
+  const y = held.y.get(stated.y) ?? freeSpellingOf(stated.y);
   const extent = view.extent;
   if (extent === null) return { offView: "a point placed free on a view that draws nothing" };
   const step = exact(LATTICE_STEP);
@@ -222,13 +250,14 @@ function free(stated: StatedPoint, view: NamedView, demoted: boolean): PointVerd
 /**
  * One stated point, judged against the drawing (I-387, I-385, I-375). A point citing nothing is free.
  * A point whose every cited key names a drawn thing (or a grid axis of the named view) and which
- * reproduces on all of them is MEASURED, cites those keys, and is spelled as the drawing's own point
- * where one stands there — provided each cited thing stands in the named view and space, or the point
- * is off the view. Anything else is demoted to free.
+ * reproduces on all of them stands on the drawing, cites those keys, and is spelled as the drawing's
+ * own point where one stands there — provided each cited thing stands in the named view and space, or
+ * the point is off the view. It is MEASURED, or INTERPRETED where any key it cites is a traced scan's
+ * (L-QTY-01: weakest wins). Anything else is demoted to free, keeping what the ring holds (`held`).
  */
-export function judgePoint(stated: StatedPoint, facts: DrawingFacts, view: NamedView): PointVerdict {
+export function judgePoint(stated: StatedPoint, facts: DrawingFacts, view: NamedView, held: HeldCoordinates = NOTHING_HELD): PointVerdict {
   const cites = [...new Set(stated.cites)].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
-  if (cites.length === 0) return free(stated, view, false);
+  if (cites.length === 0) return free(stated, view, false, held);
 
   const cited: Cited[] = [];
   const elsewhere: string[] = [];
@@ -239,14 +268,46 @@ export function judgePoint(stated: StatedPoint, facts: DrawingFacts, view: Named
       continue;
     }
     const shape = facts.shapes.get(key);
-    if (shape === undefined) return free(stated, view, true);
+    if (shape === undefined) return free(stated, view, true, held);
     cited.push({ shape });
     if (shape.space !== view.space || facts.assigned.get(key) !== view.viewKey) elsewhere.push(key);
   }
   const at = reproduced(stated, cited, reachAround(stated, view));
-  if (at === null) return free(stated, view, true);
+  if (at === null) return free(stated, view, true, held);
   if (elsewhere.length > 0) return { offView: `the point stands on ${elsewhere.join(", ")}, which the partition put in another view or space` };
-  return { judged: { x: spelled(at.x), y: spelled(at.y), basis: "MEASURED", sources: cites }, demoted: false };
+  const basis = cites.some((key) => key.startsWith(`${RASTER_TRACE}:`)) ? "INTERPRETED" : "MEASURED";
+  return { judged: { x: spelled(at.x), y: spelled(at.y), basis, sources: cites }, demoted: false };
+}
+
+/**
+ * One ring, judged point by point (I-387, I-499, I-500). The points that stand on the drawing are
+ * judged first; then every free or demoted point, whose coordinate keeps the spelling of a point of
+ * this ring that stands on the drawing wherever it was stated at exactly that point's double — the
+ * coordinate a constraint or a derived corner copied — and goes on the lattice everywhere else. The
+ * first point off the named view, in ring order, answers for the ring.
+ */
+export function judgeRing(ring: readonly StatedPoint[], facts: DrawingFacts, view: NamedView): RingVerdict {
+  const first = ring.map((point) => judgePoint(point, facts, view));
+  const x = new Map<number, string>();
+  const y = new Map<number, string>();
+  first.forEach((verdict, index) => {
+    const stated = ring[index];
+    if (stated === undefined || verdict.judged === undefined || verdict.judged.sources.length === 0) return;
+    // In ring order: of two drawn points stated at one double, the first holds it.
+    if (!x.has(stated.x)) x.set(stated.x, verdict.judged.x);
+    if (!y.has(stated.y)) y.set(stated.y, verdict.judged.y);
+  });
+  const held: HeldCoordinates = { x, y };
+  const judged: JudgedPoint[] = [];
+  let demoted = 0;
+  for (const [index, point] of ring.entries()) {
+    const once = first[index] as PointVerdict;
+    const verdict = once.judged !== undefined && once.judged.sources.length > 0 ? once : judgePoint(point, facts, view, held);
+    if (verdict.judged === undefined) return { offView: verdict.offView };
+    if (verdict.demoted) demoted += 1;
+    judged.push(verdict.judged);
+  }
+  return { judged, demoted };
 }
 
 /** The extent a view's own entities draw on one space, or null where it draws nothing there. */

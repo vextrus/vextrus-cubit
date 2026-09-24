@@ -20,8 +20,8 @@
 // here, so this barrel stays the one home the test contract names while a browser component may
 // reach the spelling without carrying the store into its bundle (ARCH-01's spirit, B-17).
 import { campaignsOf } from "@/core/campaigns";
-import { readCitedKey } from "@/core/identity";
-import { and, asc, eq, forTenant, inArray, isUuid, quantityLines, registerObjects } from "@/core/db";
+import { actSourceOf, readCitedKey } from "@/core/identity";
+import { and, asc, eq, forTenant, inArray, isUuid, manualMeasurements, quantityLines, registerObjects } from "@/core/db";
 import { sheetOfKey, standsOn, traceCitations, type TracedCitations } from "@/core/sheets/frames";
 import { pinnedRecordsIn, type PinnedRecord } from "@/core/sheets/pinned";
 import { appStorage } from "@/core/storage/app";
@@ -71,10 +71,76 @@ export async function pinnedRecordsOf(scope: TraceScope, setRevisionId: string, 
  * it selects there, every entity it cites, and the sheet each cited key stands on (I-421). The one
  * composition the register, the Trace block and the other direction all read (B-17).
  */
-export function tracedLineOf(row: { readonly viewKey: string; readonly bindings: Record<string, unknown> }, record: PinnedRecord | null | undefined): TracedCitations {
-  // The same keys `citedKeysOf` reads, in its order: the view the line was read in, then each binding.
-  const sources = Object.values(variablesOf(row.bindings)).map((binding) => binding.source);
+export function tracedLineOf(row: { readonly viewKey: string; readonly bindings: Record<string, unknown> }, record: PinnedRecord | null | undefined, acts: ActSources = NO_ACTS): TracedCitations {
+  // The same keys `citedKeysOf` reads, in its order: the view the line was read in, then each binding —
+  // an `act:` key read through to the entities the hand measurement it names was traced on (I-619).
+  const sources = Object.values(variablesOf(row.bindings)).flatMap((binding) => acts.get(binding.source) ?? [binding.source]);
   return traceCitations({ viewKey: row.viewKey, sources }, record?.standing ?? null);
+}
+
+/* ------------------------------------------------------------- the sixth scheme: `act:` */
+
+/**
+ * What an `act:` key a line cites stands on, by the key: the source keys the hand measurement that act
+ * recorded was traced on, every ring, each key once, in the order drawn (I-619). A figure a person
+ * ENTERED at a card is cited at the act that recorded it (`actSourceOf`, s-measure I-384) — an act is on
+ * no sheet, but the measurement it recorded is: the Trace reads the act through to its ring, so "one
+ * click back to the drawing" holds for the entered thickness as for the traced area. An act that
+ * recorded no hand measurement, or one of another project, is absent: it stays a key on no sheet.
+ */
+export type ActSources = ReadonlyMap<string, readonly string[]>;
+
+const NO_ACTS: ActSources = new Map();
+
+/** The act ids the `act:` keys among these name — the cited-key grammar's own reading (`readCitedKey`). */
+function actIdsOf(keys: readonly string[]): string[] {
+  const ids = keys.filter((key) => readCitedKey(key).scheme === "act").map((key) => key.slice(key.indexOf(":") + 1));
+  return [...new Set(ids)].filter((id) => isUuid(id));
+}
+
+/** Every point's source keys of a stored trace (`manual_measurements.traced`, the act's judged geometry), each once. */
+export function tracedSourcesOf(traced: unknown): string[] {
+  const held = new Set<string>();
+  const shape = traced as { outer?: unknown; cutouts?: unknown; run?: unknown; points?: unknown } | null;
+  const rings: unknown[] = [];
+  if (Array.isArray(shape?.outer)) rings.push(shape.outer);
+  if (Array.isArray(shape?.cutouts)) for (const cutout of shape.cutouts) rings.push((cutout as { ring?: unknown } | null)?.ring);
+  if (Array.isArray(shape?.run)) rings.push(shape.run);
+  if (Array.isArray(shape?.points)) rings.push(shape.points);
+  for (const ring of rings) {
+    if (!Array.isArray(ring)) continue;
+    for (const point of ring) {
+      const sources = (point as { sources?: unknown } | null)?.sources;
+      if (Array.isArray(sources)) for (const source of sources) if (typeof source === "string" && source !== "") held.add(source);
+    }
+  }
+  return [...held];
+}
+
+/**
+ * What each `act:` key among these stands on (I-619): one read of the project's hand measurements the
+ * acts recorded, whatever the count of keys.
+ */
+export async function actSourcesOf(scope: TraceScope, keys: readonly string[]): Promise<Map<string, string[]>> {
+  const found = new Map<string, string[]>();
+  const actIds = actIdsOf(keys);
+  if (actIds.length === 0 || !isUuid(scope.projectId) || !isUuid(scope.tenantId)) return found;
+  const rows = await forTenant({ tenantId: scope.tenantId }).transaction((tx) =>
+    tx
+      .select({ actId: manualMeasurements.actId, traced: manualMeasurements.traced })
+      .from(manualMeasurements)
+      .where(and(eq(manualMeasurements.tenantId, scope.tenantId), eq(manualMeasurements.projectId, scope.projectId), inArray(manualMeasurements.actId, actIds))),
+  );
+  for (const row of rows) {
+    const sources = tracedSourcesOf(row.traced);
+    if (sources.length > 0) found.set(actSourceOf(row.actId), sources);
+  }
+  return found;
+}
+
+/** Every binding source these stored lines cite — what `actSourcesOf` is asked about. */
+function bindingSourcesOf(rows: readonly { readonly bindings: Record<string, unknown> }[]): string[] {
+  return rows.flatMap((row) => Object.values(variablesOf(row.bindings)).map((binding) => binding.source));
 }
 
 /**
@@ -135,7 +201,8 @@ export async function lineEvidence(scope: TraceScope, lineId: string): Promise<L
   const records = await pinnedRecordsOf(scope, row.setRevisionId, [row.drawingId]);
   const record = records.get(row.drawingId);
   const members = await membersOf(scope, row.setRevisionId, [row.objectKey]);
-  return evidenceOf(row, tracedLineOf(row, record), record, members);
+  const acts = await actSourcesOf(scope, bindingSourcesOf([row]));
+  return evidenceOf(row, tracedLineOf(row, record, acts), record, members);
 }
 
 /**
@@ -181,9 +248,10 @@ export async function linesCiting(scope: TraceScope, ask: CitingAsk): Promise<Li
   const asked = new Set(ask.sourceKeys);
   const records = await pinnedRecordsOf(scope, rendered.setRevisionId, [ask.drawingId]);
   const record = records.get(ask.drawingId);
+  const acts = await actSourcesOf(scope, bindingSourcesOf(rows));
   const held: LineEvidence[] = [];
   for (const row of rows) {
-    const traced = tracedLineOf(row, record);
+    const traced = tracedLineOf(row, record, acts);
     const cited = citedKeysOf({ sourceKey: row.viewKey, variables: variablesOf(row.bindings) });
     if (traced.entities.some((key) => asked.has(key)) || cited.some((key) => asked.has(key))) held.push(evidenceOf(row, traced, record, EMPTY_MEMBERS));
   }

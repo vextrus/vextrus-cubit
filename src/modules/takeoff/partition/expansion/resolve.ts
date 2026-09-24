@@ -26,7 +26,7 @@ import { EXPANSION_DEFERRAL_REASONS, type ExpansionDeferralReason } from "@/core
 import { carryLevel, instanceKey, levelSegment, SIGHTING_STANDINGS, viewKey as viewKeyOf, type LevelRef, type SightingStanding, type ViewRef } from "@/core/identity";
 import { bandCovers, bandJudgeable, bandOpen, foundationNeckOf, type BandStatement } from "@/core/offers/contract";
 import { sameStorey } from "../notation";
-import { isFoundationClass, isLevelClass, isVerticalClass, levelRunsOf, TOP_FLOOR, TOP_FLOOR_BENEATH, type LevelRun } from "../placement/law";
+import { isFoundationClass, isLevelClass, isVerticalClass, levelRunsOf, TOP_FLOOR, TOP_FLOOR_BENEATH, verticalStoreyOf, type LevelRun } from "../placement/law";
 import type { PlacementRow } from "../placement/rows";
 
 /**
@@ -251,8 +251,19 @@ function spanAcross(levels: readonly StackedLevel[], first: PlacedRun, rest: rea
   return { kind: "levels", drawn: first.from, levels: within };
 }
 
+/**
+ * The storeys a caption states as a VERTICAL drawn on its plan stands on them: each end read through
+ * `verticalStoreyOf`, so a stair room's columns drawn on its roof's plan stand on the roof beneath it
+ * (I-622). Every other storey reads as itself, and so does every other caption.
+ */
+function asVerticals(stated: CaptionLevels): CaptionLevels {
+  if (stated.kind === "single") return { kind: "single", label: verticalStoreyOf(stated.label) };
+  if (stated.kind === "set") return { kind: "set", runs: stated.runs.map((run) => ({ from: verticalStoreyOf(run.from), to: verticalStoreyOf(run.to) })) };
+  return stated;
+}
+
 /** What one view's vertical members expand over: the authored range first, then the caption's own. */
-function spanOf(view: ExpandedView, viewKey: string, evidence: ExpansionEvidence): Span {
+function spanOf(view: ExpandedView, viewKey: string, evidence: ExpansionEvidence, verticals = false): Span {
   // A person's statement about a view outranks the caption's silence AND its words: the act is what
   // `TYPICAL_RANGE_UNSTATED` exists to be settled by, and a rebuild reads it (L-ACT-01, L-CAD-07).
   const authored = evidence.ranges.find((range) => range.viewKey === viewKey);
@@ -265,7 +276,8 @@ function spanOf(view: ExpandedView, viewKey: string, evidence: ExpansionEvidence
     return spanBetween(evidence.levels, from, to);
   }
 
-  const stated = captionLevelsOf(view.caption);
+  const caption = captionLevelsOf(view.caption);
+  const stated = verticals ? asVerticals(caption) : caption;
   if (stated.kind === "unstated") return { kind: "deferred", reason: TYPICAL_RANGE_UNSTATED, fromLabel: null, toLabel: null };
   if (stated.kind === "single") {
     const only = levelLabelled(evidence.levels, stated.label);
@@ -473,11 +485,24 @@ export function resolveExpansion(evidence: ExpansionEvidence): ResolvedExpansion
     const standing = placed.filter((placement) => isLevelClass(placement.elementType));
     if (standing.length === 0) continue;
 
-    const span = spanOf(view, key, evidence);
-    for (const placement of standing) rows.push(...levelRows(placement, span, evidence));
-    // A deferral is a statement about members that stand nowhere: it is recorded because this view
-    // HAS members that stand on a level, and a view whose only members are foundations defers nothing.
-    if (span.kind === "deferred") deferrals.push({ viewKey: key, reason: span.reason, fromLabel: span.fromLabel, toLabel: span.toLabel });
+    // A vertical reads the caption as the storey it stands on, which differs from the plan's own only
+    // on the plan of a roof above the roof (I-622): so the view's members are expanded in two
+    // groups, each over its own span.
+    const groups = [standing.filter((placement) => !isVerticalClass(placement.elementType)), standing.filter((placement) => isVerticalClass(placement.elementType))];
+    const deferred = new Set<string>();
+    groups.forEach((members, index) => {
+      if (members.length === 0) return;
+      const span = spanOf(view, key, evidence, index === 1);
+      for (const placement of members) rows.push(...levelRows(placement, span, evidence));
+      // A deferral is a statement about members that stand nowhere: it is recorded because this view
+      // HAS members that stand on a level, and a view whose only members are foundations defers nothing.
+      // Two groups that defer alike are one statement about the view.
+      if (span.kind !== "deferred") return;
+      const said = [span.reason, span.fromLabel ?? "", span.toLabel ?? ""].join("|");
+      if (deferred.has(said)) return;
+      deferred.add(said);
+      deferrals.push({ viewKey: key, reason: span.reason, fromLabel: span.fromLabel, toLabel: span.toLabel });
+    });
   }
 
   const owned = ownership(rows);

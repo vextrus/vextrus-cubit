@@ -147,6 +147,14 @@ export const TESTIDS = {
     effectGroup: "consequence-effect-group",
     effectLines: "consequence-effect-lines",
     effectSignatures: "consequence-effect-signatures",
+    // S6 (s-measure § 9): the card's MEASUREMENT arm — the condition, each reading and each kind's figure.
+    measurementCondition: "consequence-measurement-condition",
+    measurementCutout: "consequence-measurement-cutout",
+    measurementCutoutRole: "consequence-measurement-cutout-role",
+    measurementLevel: "consequence-measurement-level",
+    measurementQuantity: "consequence-measurement-quantity",
+    measurementReading: "consequence-measurement-reading",
+    measurementReadingChoice: "consequence-measurement-reading-choice",
     pinning: "consequence-pinning",
     staleNotice: "consequence-stale-notice",
     subjectRow: "consequence-subject-row",
@@ -298,6 +306,8 @@ export const TESTIDS = {
   // S-Measure (docs/design/s-measure.md § 9): the armed tools' stage and menu (S4). The chest, the
   // sheet's list and the book join this group with their slices.
   measure: {
+    // The card's own ErrorState, where a preview or commit faulted (S6, s-measure § 3).
+    cardRetry: "measure-card-retry",
     // The condition chest in the drawer and its New condition popover (S5, s-measure § 2.6, § 9).
     chest: "measure-chest",
     chestCondition: "measure-chest-condition",

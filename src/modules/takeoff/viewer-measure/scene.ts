@@ -108,6 +108,82 @@ export function measureScene({ tool, rectangle, draft, live, camera }: MeasureSc
   return { rings, fill, points, live: liveSegment, segments };
 }
 
+/** A window a paper sheet shows model space through, as the card's read answers it (`paper = centre + (model − viewCentre) × scale`). */
+export type SheetWindow = {
+  readonly paper: readonly [number, number, number, number];
+  readonly centre: readonly [number, number];
+  readonly viewCentre: readonly [number, number];
+  readonly scale: number;
+};
+
+/**
+ * A point placed on a paper sheet, carried back into model space through the window whose frame holds
+ * it — the inverse of the projection the viewer drew it by (I-620, I-501). A point in no window is
+ * returned as placed: it stands on no view, and the act says so by name (I-375).
+ */
+export function modelPointOf(windows: readonly SheetWindow[], point: readonly [number, number]): readonly [number, number] {
+  const [x, y] = point;
+  const window = windows.find(({ paper }) => x >= paper[0] && x <= paper[2] && y >= paper[1] && y <= paper[3]);
+  if (window === undefined || window.scale === 0) return point;
+  return [window.viewCentre[0] + (x - window.centre[0]) / window.scale, window.viewCentre[1] + (y - window.centre[1]) / window.scale];
+}
+
+/** Which side of the closing point the card stands on (§2.5). */
+export type CardSide = "right" | "left" | "below" | "above";
+
+/** Where the card stands on the stage, which side of the point it took, and the leader that joins them. */
+export type CardPlace = {
+  readonly at: MeasureAt;
+  readonly side: CardSide;
+  /** The 1 px hairline from the card's nearest corner to the point, where the two are more than 24 px apart. */
+  readonly leader: { readonly from: MeasureAt; readonly to: MeasureAt } | null;
+};
+
+/** How far the card stands off the point it was raised at, and how far a corner may be before a leader joins them (§2.5). */
+const CARD_GAP = 12;
+const LEADER_AFTER = 24;
+
+/** The point a finished shape closed at, in the drawing: the last point of its outline, run or count (§2.5). */
+export function closingPointOf(draft: MeasureDraft): readonly [number, number] | null {
+  const last = draft.outer[draft.outer.length - 1];
+  return last === undefined ? null : last.at;
+}
+
+/**
+ * Where the card goes (§2.5): on the side of the closing point with room for it, tried right, then
+ * left, below and above; where no side has room, the side with the most. It is clamped inside the
+ * stage by `inset`, and a side is only taken where the clamped card still leaves the point uncovered —
+ * so the point it measures is never under it. A hairline joins the card's nearest corner to the point
+ * when the two stand more than 24 px apart.
+ */
+export function cardAt(point: MeasureAt, card: { width: number; height: number }, stage: { width: number; height: number }, inset: number): CardPlace {
+  const clampX = (x: number): number => Math.min(Math.max(x, inset), Math.max(inset, stage.width - card.width - inset));
+  const clampY = (y: number): number => Math.min(Math.max(y, inset), Math.max(inset, stage.height - card.height - inset));
+  const room: Record<CardSide, number> = {
+    right: stage.width - inset - (point.x + CARD_GAP) - card.width,
+    left: point.x - CARD_GAP - inset - card.width,
+    below: stage.height - inset - (point.y + CARD_GAP) - card.height,
+    above: point.y - CARD_GAP - inset - card.height,
+  };
+  // A corner of the card stands a gap off the point on each axis, so unclamped the card sits against
+  // it and needs no leader; the stage's edge is what pushes it away, and then the hairline says whose it is.
+  const placed: Record<CardSide, MeasureAt> = {
+    right: { x: clampX(point.x + CARD_GAP), y: clampY(point.y - CARD_GAP) },
+    left: { x: clampX(point.x - CARD_GAP - card.width), y: clampY(point.y - CARD_GAP) },
+    below: { x: clampX(point.x - CARD_GAP), y: clampY(point.y + CARD_GAP) },
+    above: { x: clampX(point.x - CARD_GAP), y: clampY(point.y - CARD_GAP - card.height) },
+  };
+  const covers = (at: MeasureAt): boolean => point.x >= at.x && point.x <= at.x + card.width && point.y >= at.y && point.y <= at.y + card.height;
+  const order: readonly CardSide[] = ["right", "left", "below", "above"];
+  const fits = order.find((side) => room[side] >= 0 && !covers(placed[side]));
+  const side = fits ?? order.reduce((best, next) => (room[next] > room[best] ? next : best), "right" as CardSide);
+  const at = placed[side];
+  const corners: MeasureAt[] = [at, { x: at.x + card.width, y: at.y }, { x: at.x, y: at.y + card.height }, { x: at.x + card.width, y: at.y + card.height }];
+  const nearest = corners.reduce((best, corner) => (Math.hypot(corner.x - point.x, corner.y - point.y) < Math.hypot(best.x - point.x, best.y - point.y) ? corner : best));
+  const leader = Math.hypot(nearest.x - point.x, nearest.y - point.y) > LEADER_AFTER ? { from: nearest, to: point } : null;
+  return { at, side, leader };
+}
+
 /** Where the running figure's label stands: 12 px right of and below the live point, clamped inside the stage (§2.4). */
 export function labelAt(live: MeasureAt, label: { width: number; height: number }, stage: { width: number; height: number }, inset: number): MeasureAt {
   const OFFSET = 12;

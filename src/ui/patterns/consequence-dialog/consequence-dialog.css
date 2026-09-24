@@ -376,3 +376,94 @@
   margin: 0;
   padding: 0;
 }
+
+/* S6 (s-measure § 2.5, I-618): a dialog anchored to what raised it — the card at a hand
+   measurement's closing point. The consumer places it; it stands there, 320 wide, and its body
+   scrolls while the footer stays in reach. */
+.cx-dialog.cx-consequence-anchored {
+  transform: none;
+  width: 320px;
+  max-height: min(80dvh, 560px);
+  padding: var(--space-4);
+}
+
+.cx-consequence-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* The MEASUREMENT arm: the condition, its readings, each kind's figure with the gate's formula. */
+.cx-consequence-measurement {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.cx-consequence-measurement-condition {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.cx-consequence-measurement-name {
+  color: var(--ink);
+  font-weight: var(--weight-heading);
+}
+
+.cx-consequence-measurement-meta,
+.cx-consequence-measurement-coverage {
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-consequence-measurement-readings,
+.cx-consequence-measurement-quantities {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-consequence-measurement-reading,
+.cx-consequence-measurement-quantity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cx-consequence-measurement-attribute,
+.cx-consequence-measurement-kind {
+  min-width: var(--space-6);
+  color: var(--ink-muted);
+}
+
+.cx-consequence-measurement-formula {
+  flex-basis: 100%;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  overflow-wrap: anywhere;
+}
+
+.cx-consequence-measurement-scale {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.cx-consequence-measurement-note {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}

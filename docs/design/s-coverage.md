@@ -581,6 +581,73 @@ the repair; they amend what §1's "the view verbatim" holds.
   by matching the manifest's file name against a space's name, so `INGESTION_TRUNCATED` cannot yet
   fire on an uploaded drawing. Owner: the residue's next leaf, which keeps the heat's by-drawing
   reckoning (above) or changes it in the same commit.
+- **I-613 — a beam a plan draws and no mark names is named on the measurement boundary, never
+  counted (session 9, FRM4-AD; L-QTY-04, L-QTY-05, L-QTY-07, L-CAD-03, I-481).** The placement
+  stage reads a beam off a pair of edge lines and names it by a mark. A pair it cannot name was
+  dropped in silence, so a QS read a quantity-bearing beam cell and never learned that the plans drew
+  more beams than it holds. L-QTY-04 answers "known scope, not measured" with a declared exclusion,
+  and L-QTY-07 prints enumerations, never cardinalities. So:
+  (a) the stage enumerates every pair drawn at a width a framed family's schedule states (I-344's one
+  filter, `atAStatedWidth`) that no mark names — its own, a chain's (s-schedules I-612) or another
+  plan's at the same grid reference. It skips pairs drawn on a layer the drawing's layer table freezes
+  or turns off: those are on no sheet a reader reads (I-417), and F-RCC6-BNBC keeps its superseded
+  scheme on a frozen layer;
+  (b) they are stored with the partition, rebuilt with it in its one transaction
+  (`placement_unnamed_pairs`, migration 0068, row-level security and the partition's grants), keyed by
+  plan and edge line;
+  (c) the residue reads them for the record the pin measured (`channels/unnamed-pairs.ts`), each
+  with its plan's caption and the sheet that plan stands on. They are not a fourth sighting channel:
+  a pair names no class, because the stage cannot say whose width it is drawn at, so it has no cell,
+  like I-481's unclassed members;
+  (d) the measurement statement enumerates them fourth, after the unclassed members
+  (`unnamedStatementOf`), under the registered `FRAMED_PAIR_UNNAMED`, in the certificate's order
+  (sheet, caption, grid reference, edge line). The statement prints each row whatever the beam cells
+  read, because a cell the class's other members made quantity-bearing says nothing of these. Each
+  row reads `Beam drawn, not named` · the plan's caption · `Grid A/3`, then the registry's sentence,
+  and carries its first edge line (`data-source`). A statement with one stands no "none".
+  - **On F-RCC6-BNBC** (the stages, `runs-sides-and-chains.test.ts`): S-12's grade-beam layout letters
+    none of its 47; S-14 leaves EB1d and EB2a/b, which are slanted (FRM4-E); S-13 leaves 1EB1d,
+    1EB2a/b, PB4/PB5 (slanted) and TG1 (contested, I-460); S-15's roof leaves REB2a/b. **On F-RCC6**:
+    none, because the chain names the 28 interior tie beams.
+  - **Not done here, owed.** L-QTY-04 also asks for a queue item. `queue_items` is keyed per campaign
+    and per register object, and only the gate writes it; an unnamed pair has neither a register
+    object nor a campaign, so no row is written. The enumeration is the exclusion a QS reads. A queue
+    row per pair needs the register to hold a drawn-but-unnamed object, and is owned by the register
+    slice that gives an unnamed pair a key (M4P-6's area). The certificate document (M7) prints what
+    `certificatePreviewOf` hands it and will print these rows when it renders the preview's
+    enumerations.
+
+**A run's report stands until a later run answers it (session 9, RES-OBS; L-QTY-05, L-ACT-01,
+L-MEA-05).** Walk-1 N1: on a fresh upload of F-RCC6-BNBC's DWG, Measure deferred five views for want
+of a scale; the QS affirmed S-10's COLUMN LAYOUT PLAN at Dimension ratio and measured again, and the
+register's deferred-and-refused region still named the view, after a reload too. The affirmation and
+the run were sound: the second run read the view at its affirmed scale and answered its columns with
+another reason (a project with no level stack has no band of the column schedule to size a column on
+no level by, `SECTION_BAND_UNCOVERED`). The fault was the reading. `rail_observations` is append-only
+per campaign — a report is written once, under the natural key of what it says — and
+`observationsOf` read every report the campaign ever held, so the first run's "nobody has affirmed
+the scale" outlived the act that ended it (`tests/takeoff/coverage/residue-latest-run.test.ts`).
+
+- **I-615 — a report is read as its question's latest answer.** The question a rail's report
+  answers is the (class, kind, object) it speaks to — the (class, kind, view) where it names no
+  object — and the answer is its code. The gate writes a run's reports in one transaction, so they
+  carry one instant; a later run that answered the same question with another code wrote a row of its
+  own at a later instant, and the earlier row is then history, not evidence. `observationsOf` keeps,
+  per question, only the rows at the question's latest instant (a window over the campaign's reports,
+  `src/core/residue/residue.ts`), so the residue's cells, the certificate, the register's
+  deferred-and-refused region (`reportedAbsencesOf` + `runDeferralsOf`) and the BOQ's closing page all
+  read the latest run. A question the later run answered with a line was already retired (I-480's
+  own-kind clause); a question it did not speak to at all — a member no longer handed to that rail —
+  keeps its last answer, because nothing answered it otherwise. The table stays append-only: nothing
+  is updated or deleted, the first run's words are kept, and the reader chooses. Rejected: updating
+  or deleting the retired rows (L-ACT-01, and the append-only trigger refuses it). Rejected: reading
+  only the campaign's latest run as a whole, which would forget every report a narrowed roster did not
+  repeat. Cost and limit: a report re-stated word for word by a later run collides with its own
+  natural key and keeps its first instant, so the reading cannot tell a run that said A, then B, then A
+  again from one that said A then B — it reads B — and a question answered with two codes at once,
+  then with one of them alone, keeps both. Neither arises from a scale affirmation, which only ever
+  moves a view to a calibration; a run identity on the report (a gate change and a migration) is what
+  closes both, and is owed to the residue's next leaf.
 
 ## 1. Layout and hierarchy
 
@@ -896,7 +963,9 @@ class in words, lower case, an `s` past one; {reasons} each omitted code by the 
 `reasonsInWords`, its variables in brackets) · `_remedy_sheet` **Open the sheet** ·
 `_remedy_drawings` **Open the drawings** · `_sightings_summary_one` **{count} sighting on {sheets}** ·
 `_sightings_summary_other` **{count} sightings on {sheets}** · `_sightings_nowhere` **no sheet named**
-· `_observation_count` **{count} ×** · `_statement_partial_label` **Declared partial**. Every count
+· `_observation_count` **{count} ×** · `_statement_partial_label` **Declared partial** ·
+`_statement_unnamed_label` **Beam drawn, not named** · `_statement_unnamed_grid` **Grid {grid}**
+({grid} is the pair's letter and numeral, `A/3`; I-613). Every count
 through the format seam (`countWords`, `formatUserFigure`).
 
 The proposed boundary (I-297; the block is absent where nothing was proposed, so no key here says so):

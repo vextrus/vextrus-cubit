@@ -865,3 +865,37 @@ entry's sample preview carries no `effects` field, so the pictured DOM is unchan
 re-baseline is taken (B-20 is not engaged for this asset). The gallery entry
 (`src/ui/gallery-derivation/entries.tsx`) is likewise unchanged and `missingEntries()` stays empty:
 the slots' evidence is the jsdom acceptance above and the J-020 checkpoint, not a new gallery card.
+
+---
+
+## Amendment (session 9, S6): the MEASUREMENT arm, the controls slot and the anchored presentation
+
+S-Measure's card (docs/design/s-measure.md § 2.5, I-373) is this dialog; three things were added to
+the pattern for it, each unset for every act before it, so no earlier act's DOM moves.
+
+- **The MEASUREMENT arm renders its payload** (`ConsequenceSummary`, I-45: an arm's words are the
+  pattern's). Above the subjects: the condition as applied (`consequence-measurement-condition`: its
+  name, then class · kinds in the chest's words); each reading as the act will record it
+  (`consequence-measurement-reading`, `data-attribute`, `data-value`, `data-unit`, `data-basis`,
+  `data-source`) with its `BasisChip`; each kind as the gate would answer it
+  (`consequence-measurement-quantity`, `data-kind`, `data-arm` = published | queued | not-offered;
+  published also `data-value`, `data-unit`, `data-basis`, `data-coverage`): the figure through the
+  figure conventions with its `UnitBadge`, the basis chip, the coverage, and the gate's own formula with
+  its bound variables, verbatim (L-QTY-03); then the scale — the view's two factors in metres per
+  drawing unit and the calibration key as an `IdChip`; then a demoted-points note, a scan note or a
+  replaces note where the payload says so. The switch over `OfferedFigure.arm` is exhaustive, as the
+  rendering switch is. Copy: `consequence_dialog_measurement_*` (§ 3's registry append, verbatim in
+  s-measure § 4).
+- **`controls`**: what the person may change before confirming, rendered between the hint and the
+  consequence in `.cx-consequence-controls`. The consumer carries each change into `preview`, whose new
+  identity re-previews (I-41), so what is confirmed is never older than what it was changed to.
+- **`anchor`** `{ left, top }` in viewport pixels: the dialog stands there (`.cx-consequence-anchored`:
+  no centring transform, 320 wide, its body scrolling inside `min(80dvh, 560px)`) and the wrapper
+  publishes `data-presentation="anchored"`. The consumer computes the place (s-measure I-618); the
+  dialog only stands there. The scrim, the focus trap, the refusal slot, the stale re-render and the
+  footer are unchanged.
+
+Acceptance: `tests/takeoff/viewer-measure/measure-card.test.tsx` (the card walked in the mounted
+viewer) and J-000's `m4-sheet-and-manual-measure` leg. The pattern's existing suite stays green
+unchanged; the gallery entry and `consequence-dialog-open.png` do not move (the sample preview carries
+no measurement, no controls and no anchor).

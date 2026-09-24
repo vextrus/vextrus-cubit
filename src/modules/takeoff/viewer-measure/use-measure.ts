@@ -68,6 +68,8 @@ export type UseMeasureOptions = {
   moveCamera?: (move: (held: Camera) => Camera, live: boolean) => void;
   /** Escape with nothing in progress: the host returns to Select (I-372). */
   onLeave?: () => void;
+  /** Whether finishing opens the card: a condition is picked, so what is finished may be recorded (S6, I-497). */
+  card?: boolean;
 };
 
 export type UseMeasure = {
@@ -100,6 +102,8 @@ export type UseMeasure = {
   nudge: (dx: number, dy: number) => void;
   /** One frame of the measure canvas at the camera the sheet was drawn at (the screen's draw calls it). */
   paint: (at: Camera) => void;
+  /** The shape was recorded (the card's Confirm, S6): nothing is in progress any more, and the tool stays armed. */
+  settle: () => void;
 };
 
 /** The browser's own answer to "am I online", asked where it is used and re-asked when it changes. */
@@ -118,7 +122,7 @@ const ONLINE = {
 } as const;
 
 /** The view a world point stands in: the innermost box that holds it, or null where none does. */
-function viewAt(views: readonly MeasureView[], point: SnapPoint): MeasureView | null {
+export function viewAt(views: readonly MeasureView[], point: SnapPoint): MeasureView | null {
   let found: MeasureView | null = null;
   let area = Number.POSITIVE_INFINITY;
   for (const view of views) {
@@ -178,7 +182,7 @@ function paletteOf(element: Element, glyphs: Readonly<Record<PointBasis, string>
   };
 }
 
-export function useMeasure({ tool, snap, cameraRef, stageRef, views, unscaled, glyphs, onLive, letter, moveCamera, onLeave }: UseMeasureOptions): UseMeasure {
+export function useMeasure({ tool, snap, cameraRef, stageRef, views, unscaled, glyphs, onLive, letter, moveCamera, onLeave, card = false }: UseMeasureOptions): UseMeasure {
   const armed = isMeasureTool(tool) ? tool : null;
   const [rectangle, setRectangle] = useState(false);
   const [held, setHeld] = useState<Held>({ tool: null, draft: NO_DRAFT });
@@ -197,8 +201,9 @@ export function useMeasure({ tool, snap, cameraRef, stageRef, views, unscaled, g
    * the rest is the render's, carried over at every render (PB-3's idiom in `use-snap`).
    */
   const heldRef = useRef<Held>(held);
-  const ownRef = useRef({ armed, rectangle, views, unscaled, glyphs, onLive, letter, moveCamera, onLeave, calibration: snap.calibration });
-  ownRef.current = { armed, rectangle, views, unscaled, glyphs, onLive, letter, moveCamera, onLeave, calibration: snap.calibration };
+  const ownRef = useRef({ armed, rectangle, views, unscaled, glyphs, onLive, letter, moveCamera, onLeave, card, calibration: snap.calibration });
+  // Offline, a finished shape opens no card: it stays a draft, and Enter opens it once the connection returns (§ 3).
+  ownRef.current = { armed, rectangle, views, unscaled, glyphs, onLive, letter, moveCamera, onLeave, card: card && online, calibration: snap.calibration };
   const liveRef = useRef<{ point: SnapPoint; met: SnapResult | null } | null>(null);
   const refusalRef = useRef<MeasureRefusal | null>(null);
   const serial = useRef(0);
@@ -311,7 +316,7 @@ export function useMeasure({ tool, snap, cameraRef, stageRef, views, unscaled, g
         const met = snap.snapAt(at);
         return met !== null && met.point[0] === at[0] && met.point[1] === at[1] ? metPoint(met) : { at, basis: "ENTERED", sourceKeys: [] };
       };
-      const next = step(current(), given, { tool: own.armed, rectangle: own.rectangle, card: false, corner });
+      const next = step(current(), given, { tool: own.armed, rectangle: own.rectangle, card: own.card, corner });
       heldRef.current = { tool: own.armed, draft: next.draft };
       setHeld(heldRef.current);
       if (next.note !== null) say(next.note);
@@ -336,6 +341,11 @@ export function useMeasure({ tool, snap, cameraRef, stageRef, views, unscaled, g
   const click = useCallback((count: number): void => (count >= 2 ? input({ kind: "finish" }) : place()), [input, place]);
 
   const alt = useCallback((): void => say({ kind: "pick-in-select" }), [say]);
+
+  const settle = useCallback((): void => {
+    heldRef.current = { tool: ownRef.current.armed, draft: NO_DRAFT };
+    setHeld(heldRef.current);
+  }, []);
 
   const nudge = useCallback(
     (dx: number, dy: number): void => {
@@ -379,7 +389,7 @@ export function useMeasure({ tool, snap, cameraRef, stageRef, views, unscaled, g
   // One answer per change, so the slots that show it are re-set only when what they show moved (PB-3).
   const shownRefusal = armed === null ? null : refusal;
   return useMemo(
-    () => ({ armed, rectangle, setRectangle, draft, busy: busy(draft), basis, figure, note, refusal: shownRefusal, online, canvasRef, input, click, alt, nudge, paint }),
-    [alt, armed, basis, click, draft, figure, input, note, nudge, online, paint, rectangle, shownRefusal],
+    () => ({ armed, rectangle, setRectangle, draft, busy: busy(draft), basis, figure, note, refusal: shownRefusal, online, canvasRef, input, click, alt, nudge, paint, settle }),
+    [alt, armed, basis, click, draft, figure, input, note, nudge, online, paint, rectangle, settle, shownRefusal],
   );
 }

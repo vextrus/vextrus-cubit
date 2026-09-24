@@ -7,7 +7,8 @@ export { registerSightings } from "./channels/register";
 export { partitionSightings } from "./channels/partition";
 export { layoutSightings } from "./channels/layout";
 export { drawingIdsOf, sheetOf, sightingScopeIn, type ManifestSheet, type SightingScope } from "./channels/scope";
-export { billStatementOf, measurementStatementOf, partialStatementOf, unclassedStatementOf, type UnclassedStatementRow } from "./statement";
+export { billStatementOf, measurementStatementOf, partialStatementOf, unclassedStatementOf, unnamedStatementOf, type UnclassedStatementRow, type UnnamedStatementRow } from "./statement";
+export { unnamedPairsOf } from "./channels/unnamed-pairs";
 export { declaredSightings } from "./channels/declared";
 export { classesDeclaredBy, classDeclarationsOf, unclassedDeclaredBy, unclassedDeclarationsOf, type ManifestView, type UnclassedDeclaration } from "./declared";
 export { cellReasonOf, partialOf, type CellReason, type ReasonInput } from "./reasons";
@@ -44,4 +45,5 @@ export {
   type SightingChannel,
   type StatementRow,
   type TruncatedSheet,
+  type UnnamedPair,
 } from "./law";

@@ -69,6 +69,17 @@ async function refusalOf(work: () => Promise<unknown>): Promise<string | null> {
   return null;
 }
 
+/** The one hand measurement standing in the world's project: recorded, and struck by no act. */
+function standingOn(world: ManualWorld): string {
+  const rows = sql(
+    `select m.object_key from manual_measurements m
+      where m.project_id = '${world.projectId}'::uuid
+        and not exists (select 1 from repudiated_objects r where r.project_id = m.project_id and r.object_key = m.object_key);`,
+  );
+  expect(rows.length, "exactly one hand measurement stands").toBe(1);
+  return rows[0]?.[0] ?? "";
+}
+
 async function codes(): Promise<Record<string, { code: string }>> {
   return (await productModule<{ REFUSALS: Record<string, { code: string }> }>(ERRORS_MODULE)).REFUSALS;
 }
@@ -162,8 +173,10 @@ describe("S1: a hand measurement, recorded live", () => {
     const acts = await productModule<Acts>(ACTS_MODULE);
     const code = (await codes())["MANUAL_CONDITION_NOT_STANDING"]?.code;
     expect(code, "the register publishes MANUAL_CONDITION_NOT_STANDING (Q-07)").toBeDefined();
-    const concrete = (conditionId: string): Record<string, unknown> =>
-      tracing(world, { recipe: { ...blindingRecipe(), conditionId, conditionName: "SOG concrete", kinds: [{ kind: "rcc.concrete", ruleId: "rcc.concrete.slab" }], readings: [] } });
+    // The pairing MANUAL_RULES holds (I-539), applied from a condition; the recorded case is an edit of
+    // the measurement standing on the slab, so the ground is the same and nothing overlaps.
+    const applied = (conditionId: string, replaces: string | null = null): Record<string, unknown> =>
+      tracing(world, { recipe: { ...blindingRecipe(), conditionId, conditionName: "SOG blinding" }, replaces });
 
     const other = await createProjectThroughDoor(world.person, unique("Manual other project"));
     const unheld = [
@@ -174,14 +187,14 @@ describe("S1: a hand measurement, recorded live", () => {
     const actsBefore = countOf("acts", `project_id = '${world.projectId}'::uuid and act_type = '${RECORD_MANUAL_MEASUREMENT}'`);
     const measuredBefore = countOf("manual_measurements", `project_id = '${world.projectId}'::uuid`);
     for (const [what, conditionId] of unheld) {
-      expect(await refusalOf(() => acts.preview(actor, concrete(conditionId))), `the preview names ${what}`).toBe(code);
-      expect(await refusalOf(() => acts.commit(actor, concrete(conditionId), "0".repeat(64))), `and so does the commit, before the store's key is ever asked (${what})`).toBe(code);
+      expect(await refusalOf(() => acts.preview(actor, applied(conditionId))), `the preview names ${what}`).toBe(code);
+      expect(await refusalOf(() => acts.commit(actor, applied(conditionId), "0".repeat(64))), `and so does the commit, before the store's key is ever asked (${what})`).toBe(code);
     }
     expect(countOf("acts", `project_id = '${world.projectId}'::uuid and act_type = '${RECORD_MANUAL_MEASUREMENT}'`), "no act row").toBe(actsBefore);
     expect(countOf("manual_measurements", `project_id = '${world.projectId}'::uuid`), "no measurement row").toBe(measuredBefore);
 
     const held = stageCondition(world, { name: "SOG concrete" });
-    const { consequence } = await performAct(actor, concrete(held));
+    const { consequence } = await performAct(actor, applied(held, standingOn(world)));
     const objectKey = (consequence as { measurement?: { objectKey: string } }).measurement?.objectKey ?? "";
     expect(sql(`select condition_id::text from manual_measurements where object_key = '${objectKey}';`), "the measurement cites the condition it was applied from").toEqual([[held]]);
     // The store's own key is the belt under the act: the row, copied onto a register object that has
@@ -204,17 +217,20 @@ describe("S1: a hand measurement, recorded live", () => {
   test("a machine line published in the cell is MANUAL_CELL_MACHINE_MEASURED — read live off the campaign's lines and their objects' levels — until its object is struck", async () => {
     const world = await staged();
     const actor = actorOf(world.person);
-    const formwork = tracing(world, {
-      recipe: { ...blindingRecipe(), conditionName: "SOG soffit formwork", kinds: [{ kind: "rcc.formwork", ruleId: "rcc.formwork.slab" }], readings: [] },
+    // An edit of the blinding standing on the slab (the only pairing a hand measurement is offered
+    // under, I-539), so the cell is the one question the preview is asked.
+    const thicker = tracing(world, {
+      recipe: blindingRecipe("100"),
       geometry: { geometry: "POLYGON", outer: snapped(SLAB, world.slabKey), cutouts: [{ role: "OPENING", ring: snapped(PIT, world.pitKey) }] },
+      replaces: standingOn(world),
     });
     const acts = await productModule<Acts>(ACTS_MODULE);
-    await expect(acts.preview(actor, formwork), "the cell is the hand's while the machine publishes nothing in it").resolves.toBeDefined();
+    await expect(acts.preview(actor, thicker), "the cell is the hand's while the machine publishes nothing in it").resolves.toBeDefined();
 
-    const machine = await stageMachineLine(world, "rcc.formwork");
-    await expectRefused(world, formwork, (await codes())["MANUAL_CELL_MACHINE_MEASURED"]?.code);
+    const machine = await stageMachineLine(world, "pcc.blinding");
+    await expectRefused(world, thicker, (await codes())["MANUAL_CELL_MACHINE_MEASURED"]?.code);
 
     await performAct(actor, { type: REPUDIATE, projectId: world.projectId, objectKey: machine });
-    await expect(acts.preview(actor, formwork), "a struck object's line claims nothing (I-382)").resolves.toBeDefined();
+    await expect(acts.preview(actor, thicker), "a struck object's line claims nothing (I-382)").resolves.toBeDefined();
   }, BUDGET_MS);
 });

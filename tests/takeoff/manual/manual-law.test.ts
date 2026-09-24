@@ -21,8 +21,10 @@ import {
   pointCountOf,
   type JudgedPoint,
   type MeasuredGeometry,
+  type StatedPoint,
 } from "../../../src/core/manual/law";
-import { extentOf, judgePoint, type DrawingFacts } from "../../../src/core/manual/snaps";
+import { blindingPastMember } from "../../../src/core/manual/member";
+import { extentOf, judgePoint, judgeRing, type DrawingFacts, type DrawnShape } from "../../../src/core/manual/snaps";
 import { drawnUnitOf, snapReachOf } from "../../../src/core/manual/units";
 
 const ROOT = resolve(import.meta.dirname, "..", "..", "..");
@@ -295,5 +297,146 @@ describe("S1: the bound on a statement (MANUAL_BOUNDS)", () => {
     expect(pointCountOf({ geometry: "POLYGON", outer: square(0, 0, 10), cutouts: [{ role: "OPENING", ring: square(2, 2, 3) }] })).toBe(8);
     expect(pointCountOf({ geometry: "POINT_SET", points: square(0, 0, 1) })).toBe(4);
     expect(MANUAL_BOUNDS, "a thousand points, fifty cut-outs, eight cited keys a point").toEqual({ points: 1000, cutouts: 50, cites: 8 });
+  });
+});
+
+describe("MANUAL-LAW: a free coordinate is quantised only where it is truly free (I-499, I-500)", () => {
+  const PLAN = "LAYOUT_PLAN:DXF_HANDLE:2073";
+  const SOG = "DXF_HANDLE:81D";
+  /** S-08's 81D as the DXF spells it, closed, alone on the plan: its chamfer's vertices are no lattice points. */
+  const facts: DrawingFacts = {
+    shapes: new Map([[SOG, { space: "model", paths: [{ points: SLAB_81D.map((point) => [Number(point.x), Number(point.y)] as const), closed: true }] }]]),
+    assigned: new Map([[SOG, PLAN]]),
+    axes: new Map(),
+  };
+  const view = { viewKey: PLAN, space: "model", extent: extentOf(facts, { viewKey: PLAN, space: "model" }), reach: snapReachOf("mm") };
+  const CHAMFER_FOOT = { x: -125, y: -386841.82330470334 };
+  const CHAMFER_HEAD = { x: 2691.423304703363, y: -384025.4 };
+
+  /** Each point of a ring as judged, spelled `x,y`. */
+  function spellings(ring: readonly StatedPoint[]): string[] {
+    const verdict = judgeRing(ring, facts, view);
+    if (verdict.judged === undefined) throw new Error(`off the view: ${verdict.offView}`);
+    return verdict.judged.map((point) => `${point.x},${point.y}`);
+  }
+
+  test("an Ortho run from a drawn vertex keeps the vertex's own y, and the run's truly free coordinates go on the lattice", () => {
+    // From the chamfer's foot: Shift across (the anchor's y copied), Shift down, and snapped back onto 81D's west edge.
+    const run: StatedPoint[] = [
+      { ...CHAMFER_FOOT, cites: [SOG] },
+      { x: 3000.04, y: CHAMFER_FOOT.y, cites: [] },
+      { x: 3000.04, y: -395000.06, cites: [] },
+      { x: -125, y: -395000.06, cites: [SOG] },
+    ];
+    expect(spellings(run), "square in the drawing's own coordinates: the copied y is the vertex's, the edge point's y is kept, the free x is on the lattice").toEqual([
+      "-125,-386841.82330470334",
+      "3000.0,-386841.82330470334",
+      "3000.0,-395000.06",
+      "-125,-395000.06",
+    ]);
+    const verdict = judgeRing(run, facts, view);
+    expect(verdict.demoted, "a free point is not a demoted one").toBe(0);
+    expect(verdict.judged?.map((point) => point.basis)).toEqual(["MEASURED", "ENTERED", "ENTERED", "MEASURED"]);
+    expect(figureOf({ geometry: "POLYGON", outer: verdict.judged ?? [], cutouts: [] }).gross, "3125 × 8158.23669529666, exactly").toBe("25494489.6728020625");
+  });
+
+  test("a rectangle with one snapped and one hand corner is stored as the rectangle: each derived corner takes the clicked corners' own spellings", () => {
+    // The client's rectangle: first, [second.x, first.y], second, [first.x, second.y] (gesture.ts, I-500).
+    const second = { x: 5000.03, y: -390000.07 };
+    const rectangle: StatedPoint[] = [
+      { ...CHAMFER_HEAD, cites: [SOG] },
+      { x: second.x, y: CHAMFER_HEAD.y, cites: [] },
+      { ...second, cites: [] },
+      { x: CHAMFER_HEAD.x, y: second.y, cites: [] },
+    ];
+    expect(spellings(rectangle)).toEqual(["2691.423304703363,-384025.4", "5000.0,-384025.4", "5000.0,-390000.1", "2691.423304703363,-390000.1"]);
+    const outer = judgeRing(rectangle, facts, view).judged ?? [];
+    expect(figureOf({ geometry: "POLYGON", outer, cutouts: [] }).gross, "(5000.0 − 2691.423304703363) × 5974.7, exactly: the rectangle, not a quadrilateral a lattice step off it").toBe("13793053.1813888170839");
+  });
+
+  test("a coordinate nothing drawn determined is quantised as before, and a copy of a free coordinate lands where its original does", () => {
+    const loose: StatedPoint[] = [
+      { x: 12.34, y: -390000.07, cites: [] },
+      { x: 812.34, y: -390000.07, cites: [] },
+      { x: 812.34, y: -389000.01, cites: [] },
+    ];
+    expect(spellings(loose)).toEqual(["12.3,-390000.1", "812.3,-390000.1", "812.3,-389000.0"]);
+  });
+
+  test("a demoted point keeps a coordinate its ring's drawn point determined too — a derived corner nothing stands on", () => {
+    const ring: StatedPoint[] = [
+      { ...CHAMFER_HEAD, cites: [SOG] },
+      { x: 4000.02, y: CHAMFER_HEAD.y - 3, cites: [SOG] },
+      { x: CHAMFER_HEAD.x, y: -389000.03, cites: [SOG] },
+    ];
+    const verdict = judgeRing(ring, facts, view);
+    expect(verdict.demoted, "two claims the drawing does not reproduce").toBe(2);
+    expect(verdict.judged?.map((point) => `${point.x},${point.y}`)).toEqual(["2691.423304703363,-384025.4", "4000.0,-384028.4", "2691.423304703363,-389000.0"]);
+  });
+});
+
+describe("MANUAL-LAW: a point on a traced scan is INTERPRETED, never MEASURED (I-387, L-QTY-01)", () => {
+  const PLAN = "LAYOUT_PLAN:DXF_HANDLE:A0";
+  const SCAN = `RASTER_TRACE:${"A".repeat(64)}`;
+  const facts: DrawingFacts = {
+    shapes: new Map([
+      [SCAN, { space: "model", paths: [{ points: [[0, 0], [100, 0]], closed: false }] }],
+      ["DXF_HANDLE:1", { space: "model", paths: [{ points: [[0, 0], [0, 100]], closed: false }] }],
+    ]),
+    assigned: new Map([
+      [SCAN, PLAN],
+      ["DXF_HANDLE:1", PLAN],
+    ]),
+    axes: new Map(),
+  };
+  const view = { viewKey: PLAN, space: "model", extent: extentOf(facts, { viewKey: PLAN, space: "model" }), reach: snapReachOf("mm") };
+
+  test("a point that reproduces on a traced primitive cites it and is INTERPRETED; one that also cites a vector line is still INTERPRETED (weakest wins)", () => {
+    expect(judgePoint({ x: 100, y: 0, cites: [SCAN] }, facts, view).judged).toEqual({ x: "100", y: "0", basis: "INTERPRETED", sources: [SCAN] });
+    expect(judgePoint({ x: 0, y: 0, cites: ["DXF_HANDLE:1", SCAN] }, facts, view).judged?.basis).toBe("INTERPRETED");
+    expect(judgePoint({ x: 0, y: 50, cites: ["DXF_HANDLE:1"] }, facts, view).judged?.basis, "a vector line alone is MEASURED").toBe("MEASURED");
+  });
+});
+
+describe(`MANUAL-LAW: a hand-traced blinding is held to its member (D-005) — ${REFUSALS.MANUAL_BLINDING_PAST_MEMBER.code}`, () => {
+  const PLAN = "LAYOUT_PLAN:DXF_HANDLE:2073";
+  const SOG = "DXF_HANDLE:81D";
+  const CAP = "DXF_HANDLE:7B0";
+  const drawn = (ring: readonly JudgedPoint[]): (readonly [number, number])[] => ring.map((point) => [Number(point.x), Number(point.y)] as const);
+  /** Rev B's LINEs 824–827: 81D's bounding box plus 75 mm on every side, round the chamfer (s-measure I-393). */
+  const REV_B = [at("-200", "-400200"), at("20621.6", "-400200"), at("20621.6", "-383950.4"), at("-200", "-383950.4")];
+  const LINES = REV_B.map((from, index) => [`DXF_HANDLE:${(0x824 + index).toString(16).toUpperCase()}`, [from, REV_B[(index + 1) % REV_B.length] as JudgedPoint]] as const);
+  /** S-08's big cap 7B0: a closed outline the slab carries, never the one it is laid under. */
+  const CAP_7B0 = [at("8460.8", "-391691.6"), at("11960.8", "-391691.6"), at("11960.8", "-388191.6"), at("8460.8", "-388191.6")];
+  const facts: DrawingFacts = {
+    shapes: new Map<string, DrawnShape>([
+      [SOG, { space: "model", paths: [{ points: drawn(SLAB_81D), closed: true }] }],
+      [CAP, { space: "model", paths: [{ points: drawn(CAP_7B0), closed: true }] }],
+      ...LINES.map(([key, ends]): [string, DrawnShape] => [key, { space: "model", paths: [{ points: drawn(ends), closed: false }] }]),
+    ]),
+    assigned: new Map<string, string>([[SOG, PLAN], [CAP, PLAN], ...LINES.map(([key]): [string, string] => [key, PLAN])]),
+    axes: new Map(),
+  };
+  const view = { viewKey: PLAN, space: "model" };
+  const outline = (outer: readonly JudgedPoint[], cutouts: readonly (readonly JudgedPoint[])[] = []): MeasuredGeometry => ({ geometry: "POLYGON", outer, cutouts: cutouts.map((ring) => ({ role: "OPENING" as const, ring })) });
+
+  test("Rev B's drawn blinding rectangle runs past 81D, the member it lies under", () => {
+    expect(blindingPastMember(outline(REV_B), ["pcc.blinding"], facts, view)).toEqual({ member: SOG });
+  });
+
+  test("81D's own ring, with the pit cut out or without it, is its member's outline: nothing runs past", () => {
+    expect(blindingPastMember(outline(SLAB_81D, [PIT_830]), ["pcc.blinding"], facts, view)).toBeNull();
+    expect(blindingPastMember(outline(SLAB_81D), ["pcc.blinding"], facts, view), "the cap inside it covers far less than half: carried, not blinded").toBeNull();
+  });
+
+  test("a ring inside its member (part of a slab) runs past nothing; one spilling past the slab's edge does", () => {
+    expect(blindingPastMember(outline(square(4000, -399000, 3000)), ["pcc.blinding"], facts, view)).toBeNull();
+    expect(blindingPastMember(outline(square(-1125, -399000, 3000)), ["pcc.blinding"], facts, view), "a third of it west of 81D's edge").toEqual({ member: SOG });
+  });
+
+  test("only a kind held to its member is asked, and only what the named view draws in its space is read", () => {
+    expect(blindingPastMember(outline(REV_B), ["rcc.concrete"], facts, view)).toBeNull();
+    expect(blindingPastMember(outline(REV_B), ["pcc.blinding"], facts, { viewKey: "DETAIL:DXF_HANDLE:B0", space: "model" })).toBeNull();
+    expect(blindingPastMember(outline(REV_B), ["pcc.blinding"], facts, { viewKey: PLAN, space: "SHEET S-08" })).toBeNull();
   });
 });

@@ -207,9 +207,12 @@ drawn blinding outline that follows it — with no projection. It is cited by th
 
 **Cost.** Blinding has two spellings, each named by its rule id. A traced blinding stands under the
 clause's figure by the projection strip wherever the drawing projects one — an under-measurement, never
-an over-measurement — and the line's basis and act say a person traced it. Owed, and named so: the
-guard that refuses a drawn blinding outline running past its member (824–827 against 81D) is not built;
-until it is, the Decision tells the QS to trace the member's own ring (I-388, I-393). Owner: MANUAL-LAW.
+an over-measurement — and the line's basis and act say a person traced it. The guard that refuses a
+drawn blinding outline running past its member (Rev B's 824–827 against 81D) is built (MANUAL-LAW,
+session 9): a blinding ring with any net area outside the drawn closed outline that covers most of it
+is refused `MANUAL_BLINDING_PAST_MEMBER`, naming that outline (s-measure I-614). A member drawn
+with no closed outline gives the guard nothing to hold a ring to; there the ring stays the QS's reading,
+checkable by the entity it cites (I-388).
 
 ## D-007 — a structural reader's sightings are walked before a confirmation (session 9, ARCH-4)
 

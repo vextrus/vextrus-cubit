@@ -893,8 +893,9 @@
   color: var(--ink-muted);
 }
 
-/* The measurement statement's other two enumerations read as its rows do (I-481/e). */
-.cx-coverage-statement-unclassed .cx-coverage-statement-where .cx-coverage-value:not(.cx-coverage-word) {
+/* The measurement statement's other enumerations read as its rows do (I-481/e, I-613). */
+.cx-coverage-statement-unclassed .cx-coverage-statement-where .cx-coverage-value:not(.cx-coverage-word),
+.cx-coverage-statement-unnamed .cx-coverage-statement-where .cx-coverage-value:not(.cx-coverage-word) {
   font-family: var(--font-mono);
   font-size: var(--text-12);
 }

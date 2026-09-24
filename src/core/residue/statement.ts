@@ -11,10 +11,11 @@
 // explains an absence; every cell whose lines were published with no quantity, under the codes they
 // left their components out by — so a cell of PARTIAL_DECLARED lines never passes as measured; and
 // every member the drawings show that no class of the roster is — so a tank nothing can measure is
-// still named as not measured.
+// still named as not measured; and every pair the plans draw as a beam that no mark names — so a
+// beam the product saw and could not name is named as not measured (I-613).
 import { REFUSALS } from "../errors";
 import { compareCanonical } from "../identity";
-import { IN_BILL, QUANTITY_BEARING, type PartialStatementRow, type ResidueCause, type ResidueCell, type StatementRow, type UnclassedDeclaration } from "./law";
+import { IN_BILL, QUANTITY_BEARING, type PartialStatementRow, type ResidueCause, type ResidueCell, type StatementRow, type UnclassedDeclaration, type UnnamedPair } from "./law";
 
 /** A row still carrying the level's place in the stack, which the printed row no longer needs. */
 type Placed = StatementRow & { readonly ordinal: number | null };
@@ -222,6 +223,32 @@ export function partialStatementOf(cells: readonly ResidueCell[]): PartialStatem
   }
   close();
   return printed;
+}
+
+/** One row of the measurement boundary's fourth enumeration: the drawn pair, and the reason it is named under. */
+export type UnnamedStatementRow = UnnamedPair & { readonly code: typeof PAIR_UNNAMED };
+
+/** The registered reason a pair drawn as a beam that no mark names is named under (I-613). */
+const PAIR_UNNAMED = REFUSALS.FRAMED_PAIR_UNNAMED.code;
+
+/**
+ * The measurement boundary's fourth enumeration (s-coverage I-613): every pair the plans draw
+ * as a framed member that no mark names — by the sheet and the plan that draw it, its grid reference
+ * and its edge lines, each under the one registered reason — enumerated, never counted (L-QTY-07).
+ * It is L-QTY-04's "known scope, not measured": a declared exclusion the certificate prints whatever
+ * the cells of the class read, because a cell the class's other members made quantity-bearing says
+ * nothing of these.
+ */
+export function unnamedStatementOf(unnamed: readonly UnnamedPair[]): UnnamedStatementRow[] {
+  return [...unnamed]
+    .sort(
+      (left, right) =>
+        compareCanonical(left.layoutName, right.layoutName) ||
+        compareCanonical(left.caption, right.caption) ||
+        compareCanonical(`${left.gridLetter ?? ""}${left.gridNumeral ?? ""}`, `${right.gridLetter ?? ""}${right.gridNumeral ?? ""}`) ||
+        compareCanonical(left.edgeKeys[0], right.edgeKeys[0]),
+    )
+    .map((pair) => ({ ...pair, code: PAIR_UNNAMED }));
 }
 
 /** One row of the measurement boundary's third enumeration: the member, and the reason it is named under. */

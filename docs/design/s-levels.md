@@ -401,6 +401,48 @@ the `cx-levels-*` classes this file rules.
     - a range to TOP allowed to run down: 1 red.
     All 17 distinct TOP-bearing texts in both fixtures' DXFs read the same runs before and after, and
     none of them runs to TOP.
+- **I-621 — a caption naming a roof above the roof names a storey of its own, never ROOF by the
+  word alone (session 9, wave 3c; L-CAD-07, L-REG-02, L-QTY-01).** Rev C (R0, W-49) draws a `STAIR ROOF
+  BEAM LAYOUT` with SB-R1..SB-R4 and two C4 stubs. The level reading took the caption word by word,
+  so `STAIR ROOF` said ROOF and the four beams registered on the main roof beside its 46, where the
+  golden bills them at SRR (BEAM SRR 0.774 m³). The set states the storey three ways: S-25's section
+  marks `EL +80'-0"` above the roof's 71'-0", S-11 bands C4's stub `ROOF-SRR`, and the generator's own
+  level list stands SRR above ROOF.
+  - **The reading.** `placement/law.ts` (`ABOVE_ROOF`, read inside the one traversal every level
+    reading projects, so captions, schedule titles and strips agree, B-17) reads the phrase whole,
+    longest first, before any of its words is read alone: `STAIR ROOF`, `STAIR ROOM ROOF`,
+    `STAIRCASE ROOF` and `SRR` are the level SRR; `MACHINE ROOM ROOF`, `LIFT MACHINE ROOM ROOF` and `MRR`
+    are the level MRR. `ROOF & STAIR ROOF PLAN` states ROOF and SRR, and `ROOF-SRR` is the band it
+    writes.
+  - **Where it lands.** On the stack's own level of that label, compared as every label is
+    (`sameStorey`). A stack that does not state the storey leaves a single-storey plan's members under
+    its placeholder (`@unregistered:SRR`), which INSERT_LEVEL carries the moment a person adds the
+    level. That is a deferral by name: no line, and each beam reported by the rail (today under
+    `SECTION_BAND_UNCOVERED`, SB-R's schedule band being silent). A set naming the storey defers under
+    `LEVEL_RANGE_ENDPOINT_UNMAPPED` with `SRR`, as any set with an unmapped end does (I-409).
+  - **On J-000's stack.** The section's proposal confirms GF..ROOF and not the 80'-0" mark, so
+    SB-R1..SB-R4 wait under SRR: 4 beam objects left the roof, 4 × 2 PARTIAL beam lines leave the
+    read-back, and ROOF keeps its 46. Measured less, completely, and said: a person inserting SRR
+    stands them on it.
+  - **Rejected.** SRR as a synonym of ROOF (the defect). The storey above the roof as the stack's
+    highest level: a stack may carry OHWT or a parapet level there, and the beams would stand on a
+    storey the caption never named. MRR as SRR: a machine room commonly rises higher than the stair
+    room, and reading them as one would place a member on a roof it was not drawn at; where they are
+    one storey, the MRR member waits under its own label (an UNDER).
+  - **Proof.** `caption-sets.test.ts`, the I-SRRLEV block; `bnbc-placeholder-carry.test.ts` over the
+    stored BNBC partition (SB-R1..SB-R4 under SRR, ROOF 46, nothing else moved).
+- **I-622 — a vertical on the plan of a roof above the roof stands on the roof (session 9, wave
+  3c; L-MEA-01, L-REG-04).** A stair room's columns rise from the roof to the stair room's roof, and
+  nothing vertical starts at the stair room's roof. So the resolver reads the caption for a vertical
+  through `verticalStoreyOf` (`placement/law.ts`): SRR and MRR read as ROOF, every other storey as
+  itself. `STAIR ROOF BEAM LAYOUT`'s C4 stubs stand at ROOF, where S-11's `ROOF-SRR` band and the golden
+  put them, and their keys do not move (`@unregistered:ROOF` at the pin, carried onto ROOF by
+  INSERT_LEVEL). A view's verticals and its other members are expanded as two groups, each over its own
+  span; a deferral is recorded once per view and statement, and only for a group that has members.
+  - **Known limit, not this Decision's.** Over J-000's stack the resolver does not derive the stubs
+    again after the stack stands: C4's `ROOF-SRR` band names a storey the stack does not carry, so its
+    other bands (GF..6TH) cut ROOF away and the two ROOF keys stand by the carry alone. Pinned by name
+    in `bnbc-placeholder-carry.test.ts`.
 
 **The craft look (session 7, 2026-09-23; R-UI-080..086, AM-08 — the later law).** Numbered `I-lev-n`
 rather than from the global chain, because several craft implementers amended Decisions that day.

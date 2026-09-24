@@ -19,7 +19,7 @@ import type { Consequence } from "@/core/acts";
 // which reach the database, and this file runs in the browser (ARCH-01, the `@/core/levels/law`
 // precedent). Everything a rendering needs — the closed cause set and the cell's address — is law.
 import { RESIDUE_CAUSES, UNPLACED, cellRef, type PartialStatementRow, type ResidueCell, type StatementRow } from "@/core/residue/law";
-import type { UnclassedStatementRow } from "@/core/residue/statement";
+import type { UnclassedStatementRow, UnnamedStatementRow } from "@/core/residue/statement";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { reasonsInWords } from "@/core/documents/kinds/boq-draft-law";
 // The marker's one reader (ARCH-02): whether a rejection carries a registered code is not a
@@ -578,6 +578,7 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
             measurement={view.measurement}
             partial={view.partial ?? []}
             unclassed={view.unclassed ?? []}
+            unnamed={view.unnamed ?? []}
             bill={view.bill}
             pinned={view.campaignId !== null}
             open={previewing}
@@ -1076,6 +1077,7 @@ export function CertificatePreviewSection({
   measurement,
   partial = [],
   unclassed = [],
+  unnamed = [],
   bill,
   pinned,
   open,
@@ -1083,6 +1085,7 @@ export function CertificatePreviewSection({
   measurement: readonly StatementRow[];
   partial?: readonly PartialStatementRow[];
   unclassed?: readonly UnclassedStatementRow[];
+  unnamed?: readonly UnnamedStatementRow[];
   bill: readonly StatementRow[];
   pinned: boolean;
   open: boolean;
@@ -1102,7 +1105,7 @@ export function CertificatePreviewSection({
     // many boundaries the campaign has, which is not something the markup can know.
     <section className="cx-coverage-certificate" data-testid="coverage-certificate-preview" data-open={open ? "true" : "false"} tabIndex={0}>
       <h2 className="cx-coverage-certificate-heading">{COVERAGE_COPY.takeoff_coverage_certificate_heading}</h2>
-      <Statement axis={MEASUREMENT} title={COVERAGE_COPY.takeoff_coverage_statement_measurement_title} none={measurementNone} rows={measurement} partial={partial} unclassed={unclassed} />
+      <Statement axis={MEASUREMENT} title={COVERAGE_COPY.takeoff_coverage_statement_measurement_title} none={measurementNone} rows={measurement} partial={partial} unclassed={unclassed} unnamed={unnamed} />
       <Statement axis={BILL} title={COVERAGE_COPY.takeoff_coverage_statement_bill_title} none={billNone} rows={bill} />
     </section>
   );
@@ -1130,6 +1133,7 @@ function Statement({
   rows,
   partial = [],
   unclassed = [],
+  unnamed = [],
 }: {
   axis: string;
   title: string;
@@ -1137,8 +1141,9 @@ function Statement({
   rows: readonly StatementRow[];
   partial?: readonly PartialStatementRow[];
   unclassed?: readonly UnclassedStatementRow[];
+  unnamed?: readonly UnnamedStatementRow[];
 }): ReactElement {
-  const empty = rows.length === 0 && partial.length === 0 && unclassed.length === 0;
+  const empty = rows.length === 0 && partial.length === 0 && unclassed.length === 0 && unnamed.length === 0;
   return (
     <section className="cx-coverage-statement" data-testid="coverage-statement" data-axis={axis}>
       <h3 className="cx-coverage-statement-title">{title}</h3>
@@ -1217,10 +1222,34 @@ function Statement({
               <span className="cx-coverage-statement-cause">{causeWords(member.code)?.message ?? ""}</span>
             </li>
           ))}
+          {/* I-613: a beam a plan draws that no mark names — by the plan that draws it and
+              its grid reference, and the registry's reason. Enumerated, one row a pair, never counted;
+              the pair's first edge line rides on the row for a reader to be flown to. */}
+          {unnamed.map((pair) => (
+            <li
+              className="cx-coverage-statement-row cx-coverage-statement-unnamed"
+              data-code={pair.code}
+              data-source={pair.edgeKeys[0]}
+              key={`unnamed:${pair.drawingId}:${pair.viewKey}:${pair.edgeKeys[0]}`}
+            >
+              <span className="cx-coverage-statement-where">
+                <span className="cx-coverage-value cx-coverage-word">{COVERAGE_COPY.takeoff_coverage_statement_unnamed_label}</span>
+                <span className="cx-coverage-value">{pair.caption}</span>
+                <span className="cx-coverage-value">{gridReferenceOf(pair)}</span>
+              </span>
+              <span className="cx-coverage-statement-cause">{causeWords(pair.code)?.message ?? ""}</span>
+            </li>
+          ))}
         </ul>
       )}
     </section>
   );
+}
+
+/** Where an unnamed pair stands on its plan's grid, as a QS reads a grid reference (`A/3`), or nothing where it names none. */
+function gridReferenceOf(pair: UnnamedStatementRow): string {
+  const labels = [pair.gridLetter, pair.gridNumeral].filter((label): label is string => label !== null);
+  return labels.length === 0 ? "" : fillCoverageCopy("takeoff_coverage_statement_unnamed_grid", { grid: labels.join("/") });
 }
 
 /** A word of the unclassed table as a row says it — capitalised, as the class words are. */

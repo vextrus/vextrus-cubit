@@ -39,7 +39,7 @@ import { publishViewport } from "./address";
 import { readLineEvidence, readLinesCiting } from "./trace-actions";
 import { useScaleRegion, type ScaleDoors } from "./scale-region";
 import { useSnapRegion } from "./snap-region";
-import { useMeasureRegion } from "./measure-region";
+import { useMeasureRegion, type CardDoors } from "./measure-region";
 import type { ChestDoors } from "./measure-chest";
 import { useChest, useChestKeys } from "./use-chest-arming";
 import { useFramePaint } from "./use-frame-paint";
@@ -66,12 +66,12 @@ export type ViewerScreenProps = {
   head?: ViewerHead;
   /** The scale of record over this sheet. Supplied only where a mount is judged without a server. */
   calibration?: SnapCalibration | null;
-  /** The scale region's and the condition chest's three doors each. Supplied only where a mount is judged without a server. */
+  /** The scale region's, the condition chest's and the card's three doors each. Supplied only where a mount is judged without a server. */
   scale?: ScaleDoors;
-  chest?: ChestDoors;
+  chest?: ChestDoors; card?: CardDoors;
 };
 
-export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, initialLine = null, head: supplied, calibration: suppliedCalibration, scale: suppliedScale, chest: suppliedChest }: ViewerScreenProps) {
+export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, initialLine = null, head: supplied, calibration: suppliedCalibration, scale: suppliedScale, chest: suppliedChest, card: suppliedCard }: ViewerScreenProps) {
   /** The status a door refused this reader with, if one did — the code it maps to is decided below. */
   const [denied, setDenied] = useState<number | null>(null);
   /** This screen's own root element, once it stands: the scale region's act dialog is portalled into
@@ -169,7 +169,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const snap = snapping.snap;
   const chested = useChest({ projectId, enabled: sheet.head?.kind === "manifest", tool, doors: suppliedChest }); // ahead of the region (I-374)
   /** The measure region (s-measure § 2): the armed tools on the snapping region's live point, over the views the scale door says are scaled. */
-  const measuring = useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, moveCamera: camera.moveCamera, views: partition.views, unscaled: scale.absence, permitted: scale.state !== "denied", paintRef: measurePaint, condition: chested.chest.picked?.name ?? null });
+  const measuring = useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, moveCamera: camera.moveCamera, views: partition.views, unscaled: scale.absence, permitted: scale.state !== "denied", paintRef: measurePaint, picked: chested.chest.picked, sheet: { tenantId, projectId, drawingId, sheetName, recordable: sheet.head?.kind === "manifest" }, container: screenRoot, ...(suppliedCard === undefined ? {} : { cardDoors: suppliedCard }) });
   const measureKey = useChestKeys(chested, measuring);
 
   const pointer = usePointer({ head: sheet.head, canvasRef, cameraRef, facts, tool, keysUnder: index.keysUnder, ask: index.ask, openLayers: layers.openLayers, hold: held.hold, toggleKey: held.toggleKey, moveCamera: camera.moveCamera, onHoverWorld: snap.onHover, onLeaveWorld: snap.onLeave, onPick: snap.takePick, onMeasureClick: measuring.measure.click, onMeasureAlt: measuring.measure.alt });

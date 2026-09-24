@@ -72,7 +72,9 @@ export const measure = {
   measure_read_report: "Report {id}",
   measure_retry: "Try again",
   measure_status_drawing: "{tool} · {condition} · {points} points",
-  measure_status_condition_pending: "Measured under {condition}. Confirming a measurement arrives with its card; nothing is recorded yet.",
+  // S6 (§ 4): the card recorded the measurement, or could not be checked.
+  measure_status_recorded: "Recorded. Adding to the register.",
+  measure_card_failed: "This measurement could not be checked, and nothing was recorded. Your outline is still on the sheet.",
   measure_condition_name: "Name",
   measure_condition_geometry: "Measured as",
   measure_condition_geometry_area: "Area",

@@ -307,16 +307,64 @@ export function levelSightingsOf(said: string): LevelSighting[] {
 /** One sighting, with where its word stands in the plain text it was read from. */
 type Sighted = LevelSighting & { readonly start: number; readonly end: number };
 
+/**
+ * The storeys a building raises ABOVE its roof, each by the words a sheet names it with and the label
+ * it is read as (Interpretation I-621). The stair room and the lift machine room stand on the
+ * roof, and each is roofed a storey higher: F-RCC6-BNBC's `STAIR ROOF BEAM LAYOUT` draws SB-R1..SB-R4
+ * at that roof, S-11 bands C4's stub `ROOF-SRR`, and the building's own level list stands SRR above
+ * ROOF. Read word by word, `STAIR ROOF` said ROOF, and the stair room's roof beams stood on the main
+ * roof: a storey the drawing never put them on.
+ *
+ * Longest first, so `LIFT MACHINE ROOM ROOF` is read whole rather than as its last three words. The
+ * two labels are the set's own abbreviations, and a stack names a storey by them or does not name it:
+ * where it does not, the members stand under the label's placeholder, which is a deferral by name and
+ * never the roof by the word alone.
+ */
+const ABOVE_ROOF: readonly { readonly words: readonly string[]; readonly level: string }[] = Object.freeze(
+  [
+    { words: ["LIFT", "MACHINE", "ROOM", "ROOF"], level: "MRR" },
+    { words: ["MACHINE", "ROOM", "ROOF"], level: "MRR" },
+    { words: ["STAIR", "ROOM", "ROOF"], level: "SRR" },
+    { words: ["STAIRCASE", "ROOF"], level: "SRR" },
+    { words: ["STAIR", "ROOF"], level: "SRR" },
+    { words: ["SRR"], level: "SRR" },
+    { words: ["MRR"], level: "MRR" },
+  ].sort((left, right) => right.words.length - left.words.length),
+);
+
+/**
+ * The storey a VERTICAL drawn on a plan of an above-roof storey stands on: the roof (Interpretation
+ * I-622). A stair room's columns rise from the roof to the stair room's roof; nothing vertical
+ * starts at the stair room's roof. So `STAIR ROOF BEAM LAYOUT`'s beams stand at SRR and its two C4
+ * stubs at ROOF, which is where S-11's band (`ROOF-SRR`) and the golden bill them. Any other storey is
+ * its own answer: a vertical stands on the storey its plan names.
+ */
+export function verticalStoreyOf(label: string): string {
+  return ABOVE_ROOF.some((named) => named.level === label) ? TOP_FLOOR_BENEATH : label;
+}
+
 /** The ONE traversal of a text's words that every level reading here is a projection of (B-17). */
 function sightedIn(plain: string): Sighted[] {
-  return [...plain.matchAll(LEVEL_WORD)].map((match) => {
+  const matches = [...plain.matchAll(LEVEL_WORD)];
+  const sighted: Sighted[] = [];
+  for (let at = 0; at < matches.length; at += 1) {
+    const match = matches[at] as RegExpExecArray;
     const word = match[0];
+    // A roof above the roof is read whole, before any of its words is read alone (I-621).
+    const above = ABOVE_ROOF.find((named) => named.words.every((one, offset) => matches[at + offset]?.[0].toUpperCase() === one));
+    if (above !== undefined) {
+      const last = matches[at + above.words.length - 1] as RegExpExecArray;
+      sighted.push({ word: above.words.join(" "), level: above.level, start: match.index, end: last.index + last[0].length });
+      at += above.words.length - 1;
+      continue;
+    }
     const band = parseFloorZone(word);
     // A single word reads as a band of one level, or as no level at all. A word that read as a band of
     // two would hold a separator, and no run of letters and digits holds one.
     const level = band === null || band.from !== band.to ? null : band.from;
-    return { word: word.toUpperCase(), level, start: match.index, end: match.index + word.length };
-  });
+    sighted.push({ word: word.toUpperCase(), level, start: match.index, end: match.index + word.length });
+  }
+  return sighted;
 }
 
 /**

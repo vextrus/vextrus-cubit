@@ -5,7 +5,7 @@
 // reason the grid's rows are: a placement is a stage of a partition that is REBUILT, so its rows are
 // deleted and re-derived with the views they were read off — a run that fails leaves the placements
 // that stood before it rather than half of a new one (L-REG-04, R-TO-030).
-import { and, asc, eq, forTenant, placementOutlines, placementRuns, placements, type TenantTx } from "@/core/db";
+import { and, asc, eq, forTenant, placementOutlines, placementRuns, placementUnnamedPairs, placements, type TenantTx } from "@/core/db";
 import type { ViewRef } from "@/core/identity";
 import type { QuantityBasis } from "@/core/offers/law";
 import type { DetectedPlacements, OutlineRow, PlacementNote, PlacementRow, RunReading } from "./rows";
@@ -47,10 +47,35 @@ export async function rewritePlacementRows(tx: TenantTx, write: PlacementWrite):
   await tx.delete(placementRuns).where(and(eq(placementRuns.tenantId, write.tenantId), eq(placementRuns.ingestId, write.ingestId)));
   await tx.delete(placementOutlines).where(and(eq(placementOutlines.tenantId, write.tenantId), eq(placementOutlines.ingestId, write.ingestId)));
   await tx.delete(placements).where(and(eq(placements.tenantId, write.tenantId), eq(placements.ingestId, write.ingestId)));
+  await tx.delete(placementUnnamedPairs).where(and(eq(placementUnnamedPairs.tenantId, write.tenantId), eq(placementUnnamedPairs.ingestId, write.ingestId)));
   const detected = write.placements;
-  if (detected === null || detected.placements.length === 0) return;
-
+  if (detected === null) return;
   const stamp = { tenantId: write.tenantId, projectId: write.projectId, drawingId: write.drawingId, ingestId: write.ingestId };
+
+  // The pairs the plans draw as a beam and nobody names land with the partition they were read in,
+  // whether or not it placed anything: a plan whose beams are all unnamed is the case they exist for
+  // (I-613, L-QTY-04).
+  const unnamed = detected.unnamed ?? [];
+  if (unnamed.length > 0) {
+    await tx.insert(placementUnnamedPairs).values(
+      unnamed.map((pair) => ({
+        ...stamp,
+        viewKey: pair.viewKey,
+        edgeKeyA: pair.edgeKeys[0],
+        edgeKeyB: pair.edgeKeys[1],
+        layer: pair.layer,
+        fromX: pair.from[0],
+        fromY: pair.from[1],
+        toX: pair.to[0],
+        toY: pair.to[1],
+        width: pair.width,
+        gridLetter: pair.gridLetter,
+        gridNumeral: pair.gridNumeral,
+      })),
+    );
+  }
+  if (detected.placements.length === 0) return;
+
   await tx.insert(placements).values(
     detected.placements.map((row) => ({
       ...stamp,

@@ -26,10 +26,12 @@ import type {
   Consequence,
   ConsequenceHeld,
   ConsequenceLineGroup,
+  ConsequenceMeasurement,
   ConsequencePinning,
   ConsequenceRendering,
   ConsequenceStanding,
   ConsequenceSubject,
+  OfferedFigure,
   ScaleOfSubject,
   StandingOfSubject,
 } from "@/core/acts";
@@ -38,7 +40,8 @@ import type { LevelSlot } from "@/core/identity";
 import type { StoreyHeightStandingName } from "@/core/levels";
 import type { Discipline } from "@/core/sheets";
 import type { ScaleRank } from "@/core/scale";
-import { Button, Skeleton, UnitBadge } from "../../primitives/core";
+import { BasisChip, Button, IdChip, Skeleton, UnitBadge } from "../../primitives/core";
+import { BASIS_GLYPHS, type Basis } from "../../primitives/core/basis";
 import { humaniseEnum } from "../../primitives/core/enum-label";
 import { useFigureContext } from "../../primitives/core/figures";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "../../primitives/overlay";
@@ -84,6 +87,19 @@ export interface ConsequenceDialogProps {
    * and their DOM is untouched.
    */
   container?: HTMLElement | null;
+  /**
+   * What the person may change about the act before confirming it, rendered above the consequence
+   * (s-measure § 2.5: the card's level, readings and cut-out roles). A change is the consumer's to
+   * carry into `preview`, whose new identity re-previews the dialog (I-41): what is confirmed is never
+   * older than what it was changed to. Unset — every act before S-Measure's card — nothing renders.
+   */
+  controls?: ReactNode;
+  /**
+   * Where the dialog stands, in viewport pixels, when a consumer anchors it to what raised it (the
+   * card at a measurement's closing point, s-measure § 2.5, I-618); unset, it stands where every
+   * dialog does. The consumer computes the place; the dialog only stands there.
+   */
+  anchor?: { readonly left: number; readonly top: number } | null;
 }
 
 /**
@@ -161,7 +177,7 @@ type Body =
   | { readonly phase: "consequence"; readonly consequence: Consequence; readonly digest: string }
   | { readonly phase: "refused"; readonly answer: RefusedAnswer };
 
-export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange, onCommitted, container }: ConsequenceDialogProps) {
+export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange, onCommitted, container, controls, anchor = null }: ConsequenceDialogProps) {
   const [body, setBody] = useState<Body>({ phase: "pending" });
   const [stale, setStale] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -248,6 +264,8 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
       <DialogContent
         aria-describedby={hintId}
         container={container}
+        className={anchor === null ? undefined : "cx-consequence-anchored"}
+        style={anchor === null ? undefined : { left: `${anchor.left}px`, top: `${anchor.top}px` }}
         // Focus the first control, not the container (Direction 00 §1; the Decision's drift note).
         // `currentTarget` is the content box the primitive would otherwise have focused, so nothing
         // outside the dialog is ever reached — and where the card somehow holds no control at all,
@@ -276,7 +294,7 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
           door.focus();
         }}
       >
-        <div className="cx-consequence" data-testid={TESTIDS.consequence.dialog} data-act-type={actType} aria-busy={pending || undefined}>
+        <div className="cx-consequence" data-testid={TESTIDS.consequence.dialog} data-act-type={actType} data-presentation={anchor === null ? undefined : "anchored"} aria-busy={pending || undefined}>
           {/* The act in the words its door uses (I-444); the enum stays on data-act-type and in Details. */}
           <p className="cx-consequence-acttype">{actWords(actType)}</p>
           <DialogTitle>{strings.consequence_dialog_title}</DialogTitle>
@@ -289,6 +307,8 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
               {strings.consequence_dialog_stale}
             </div>
           ) : null}
+
+          {controls === undefined ? null : <div className="cx-consequence-controls">{controls}</div>}
 
           {shown === null ? (
             <div className="cx-consequence-bones">
@@ -405,11 +425,155 @@ export function ConsequenceSummary({ consequence, digest }: ConsequenceSummaryPr
   return (
     <>
       {consequence.pinning === undefined ? null : <Pinning pinning={consequence.pinning} />}
+      {consequence.measurement === undefined ? null : <MeasurementArm measurement={consequence.measurement} />}
       <ConsequenceSubjects consequence={consequence} />
       <ConsequenceEffects effects={consequence.effects} />
       <ConsequenceDetails actType={consequence.actType} digest={digest} subjects={consequence.subjects} calibrations={calibrationKeysOf(consequence)} />
     </>
   );
+}
+
+/** A catalogue value in a QS's words: `pile_cap` → "Pile cap", `pcc.blinding` → "Blinding" (the chest's reading). */
+function catalogueWords(value: string): string {
+  return humaniseEnum(value.slice(value.lastIndexOf(".") + 1));
+}
+
+/** A basis the glyph table names, or null for a value it does not — which is said in words instead. */
+function basisOf(value: string): Basis | null {
+  return value in BASIS_GLYPHS ? (value as Basis) : null;
+}
+
+/**
+ * The MEASUREMENT arm's payload, as a QS reads a hand measurement before recording it (s-measure
+ * I-373, § 2.5): the condition as applied — its class and kinds, each reading with its basis and
+ * source — then, per kind, the figure the gate's own evaluation would publish with its unit, basis,
+ * coverage and the gate's formula with its bound variables (I-384); the scale it stands on; and the
+ * notes a demoted point, a scan or an edit owe. The payload is what the digest binds, so what is
+ * shown here is what is confirmed.
+ */
+function MeasurementArm({ measurement }: { measurement: ConsequenceMeasurement }): ReactNode {
+  const figure = useFigure();
+  const { recipe } = measurement;
+  const kinds = recipe.kinds.map((entry) => catalogueWords(entry.kind)).join(", ");
+  return (
+    <section className="cx-consequence-measurement" data-object-key={measurement.objectKey} data-basis={measurement.basis}>
+      <p className="cx-consequence-measurement-condition" data-testid={TESTIDS.consequence.measurementCondition} data-condition={recipe.conditionId ?? ""}>
+        <span className="cx-consequence-measurement-name">{recipe.conditionName}</span>
+        <span className="cx-consequence-measurement-meta">{`${catalogueWords(recipe.elementClass)} · ${kinds}`}</span>
+      </p>
+      {recipe.readings.length === 0 ? null : (
+        <ul className="cx-consequence-measurement-readings" aria-label={strings.consequence_dialog_measurement_readings}>
+          {recipe.readings.map((reading) => {
+            const basis = basisOf(reading.basis);
+            return (
+              <li
+                key={reading.attribute}
+                className="cx-consequence-measurement-reading"
+                data-testid={TESTIDS.consequence.measurementReading}
+                data-attribute={reading.attribute}
+                data-value={reading.valueAsWritten}
+                data-unit={reading.unitAsWritten}
+                data-basis={reading.basis}
+                data-source={reading.sourceKey ?? ""}
+              >
+                <span className="cx-consequence-measurement-attribute">{reading.attribute}</span>
+                <span className="cx-consequence-figure">
+                  {figure(reading.valueAsWritten)}
+                  <UnitBadge unit={reading.unitAsWritten} />
+                </span>
+                {basis === null ? <span>{humaniseEnum(reading.basis)}</span> : <BasisChip basis={basis} />}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <ul className="cx-consequence-measurement-quantities">
+        {(measurement.offered ?? []).map((offered) => (
+          <OfferedRow key={offered.kind} offered={offered} />
+        ))}
+      </ul>
+      <p className="cx-consequence-measurement-scale" data-factor-x={measurement.factorX} data-factor-y={measurement.factorY}>
+        <span className="cx-consequence-effects-label">{strings.consequence_dialog_measurement_scale}</span>
+        <span className="cx-consequence-figure">
+          {fill(strings.consequence_dialog_measurement_scale_factors, { x: figure(measurement.factorX), y: figure(measurement.factorY) })}
+        </span>
+        <IdChip value={measurement.calibrationKey} />
+      </p>
+      {measurement.demoted === 0 ? null : (
+        <p className="cx-consequence-measurement-note" data-note="demoted">
+          {fill(strings.consequence_dialog_measurement_demoted, { count: figure(String(measurement.demoted)) })}
+        </p>
+      )}
+      {measurement.basis === "INTERPRETED" ? (
+        <p className="cx-consequence-measurement-note" data-note="interpreted">
+          {strings.consequence_dialog_measurement_interpreted}
+        </p>
+      ) : null}
+      {measurement.replaces === null ? null : (
+        <p className="cx-consequence-measurement-note" data-note="replaces">
+          {fill(strings.consequence_dialog_measurement_replaces, { previous: measurement.replaces })}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * One kind of the measurement as the gate answers it (I-384): the figure it would publish, with the
+ * gate's own formula; a queued kind with its cause; or a kind no pairing offers, said as such.
+ */
+function OfferedRow({ offered }: { offered: OfferedFigure }): ReactNode {
+  const figure = useFigure();
+  const kind = catalogueWords(offered.kind);
+  switch (offered.arm) {
+    case "published": {
+      const basis = basisOf(offered.quantityBasis);
+      return (
+        <li
+          className="cx-consequence-measurement-quantity"
+          data-testid={TESTIDS.consequence.measurementQuantity}
+          data-kind={offered.kind}
+          data-arm={offered.arm}
+          data-value={offered.value ?? ""}
+          data-unit={offered.unit}
+          data-basis={offered.quantityBasis}
+          data-coverage={offered.coverage}
+        >
+          <span className="cx-consequence-measurement-kind">{kind}</span>
+          <span className="cx-consequence-figure">
+            {offered.value === null ? strings.consequence_dialog_none : figure(offered.value)}
+            <UnitBadge unit={offered.unit} />
+          </span>
+          {basis === null ? <span>{humaniseEnum(offered.quantityBasis)}</span> : <BasisChip basis={basis} />}
+          <span className="cx-consequence-measurement-coverage">{humaniseEnum(offered.coverage)}</span>
+          <span className="cx-consequence-measurement-formula" data-technical="">
+            <span className="cx-consequence-effects-label">{strings.consequence_dialog_measurement_formula}</span> {offered.formula}
+          </span>
+        </li>
+      );
+    }
+    case "queued":
+      return (
+        <li className="cx-consequence-measurement-quantity" data-testid={TESTIDS.consequence.measurementQuantity} data-kind={offered.kind} data-arm={offered.arm}>
+          <span className="cx-consequence-measurement-kind">{kind}</span>
+          <span>{fill(strings.consequence_dialog_measurement_queued, { cause: humaniseEnum(offered.cause) })}</span>
+        </li>
+      );
+    case "not-offered":
+      return (
+        <li className="cx-consequence-measurement-quantity" data-testid={TESTIDS.consequence.measurementQuantity} data-kind={offered.kind} data-arm={offered.arm}>
+          <span className="cx-consequence-measurement-kind">{kind}</span>
+          <span>{strings.consequence_dialog_measurement_not_offered}</span>
+        </li>
+      );
+    default:
+      return unoffered(offered);
+  }
+}
+
+/** An arm of `OfferedFigure` with no case above fails to compile here. */
+function unoffered(offered: never): never {
+  throw new Error(`a kind was offered as ${JSON.stringify(offered)}, which the card has no rendering for (I-384)`);
 }
 
 /**

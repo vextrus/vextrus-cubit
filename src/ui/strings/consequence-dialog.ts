@@ -100,6 +100,28 @@ export const consequenceDialog = {
   consequence_dialog_scale_per_unit: "1 drawing unit is",
   consequence_dialog_scale_axis_x: "X",
   consequence_dialog_scale_axis_y: "Y",
+
+  // S6 (s-measure § 2.5, § 4): the card's MEASUREMENT arm — the condition as applied, each kind's
+  // figure with the gate's formula, the scale, and the notes a measurement owes.
+  consequence_dialog_measurement_readings: "Readings",
+  consequence_dialog_measurement_reading_condition: "From the condition",
+  consequence_dialog_measurement_reading_note: "From the note \"{note}\"",
+  consequence_dialog_measurement_level: "Level",
+  consequence_dialog_measurement_cutout_role: "Cut-out {n}",
+  consequence_dialog_measurement_role_opening: "Opening",
+  consequence_dialog_measurement_role_member: "Column or wall",
+  consequence_dialog_measurement_formula: "Formula",
+  consequence_dialog_measurement_scale: "Scale",
+  consequence_dialog_measurement_scale_factors: "X {x} · Y {y} m per unit",
+  consequence_dialog_measurement_scope: "Counts what you traced and nothing else on {level}.",
+  consequence_dialog_measurement_foundation: "Foundation",
+  consequence_dialog_measurement_level_pick: "Pick a level",
+  consequence_dialog_measurement_cutout: "Cut out",
+  consequence_dialog_measurement_demoted: "{count} points did not sit on the drawing where they were snapped, so they count as placed by hand.",
+  consequence_dialog_measurement_interpreted: "Traced on a scan: this waits for a second reading and is billed only once agreed.",
+  consequence_dialog_measurement_replaces: "Replaces {previous}, which leaves the bill.",
+  consequence_dialog_measurement_queued: "Waiting for agreement: {cause}",
+  consequence_dialog_measurement_not_offered: "Nothing is measured by hand this way yet.",
 } as const;
 
 // R-SPINE-060's per-module convention is that a table file's DESIGNATED export is the one named for

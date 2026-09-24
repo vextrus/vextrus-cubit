@@ -686,11 +686,14 @@ R0 design carries both views with the ties chain (R6b/R6c, design §6's S-03 and
 then S-11's "10Ø@100/100" is C7's only statement of its ties.
 
 **W-49 The stair-roof stubs place.** With its grid, the stair-roof layout is georeferenced: the
-partition's stages over the regenerated set place its two C4 stubs as columns and SB-R1, SB-R2 and
-SB-R4 as beams (none were placed before). The design's section 9 foresaw it: at R0-BASE, J-000 either
-bears the stubs out at ROOF (`m3-bill-and-schedules.spec.ts` amended with the band's result) or the
-stubs wait for LEV-2's baseline — `revc_frame.stair_roof` draws them in one block that can be held.
-F1's mark places the one footing on S-06 (F1-1's cells). The seventh LB1 places nothing yet.
+partition's stages over the regenerated set place its two C4 stubs as columns and all four stair-roof
+beams SB-R1..SB-R4 as beams (none were placed before). The design's section 9 foresaw it: at R0-BASE,
+J-000 either bears the stubs out at ROOF (`m3-bill-and-schedules.spec.ts` amended with the band's
+result) or the stubs wait for LEV-2's baseline — `revc_frame.stair_roof` draws them in one block that
+can be held. F1's mark places the one footing on S-06 (F1-1's cells). The seventh LB1 places on the
+roof layout. The product reads the layout's caption `STAIR ROOF` as the storey SRR, not as ROOF
+(s-levels I-621): the four beams stand at SRR where the stack carries it, and otherwise wait under
+SRR's placeholder, while the C4 stubs stand at ROOF, the roof they rise from (I-622).
 
 **W-50 The DWG source is no issue: it skips the mid-issue save (R0-G2's review).** As R0-G2 first
 drew it, both DWGs lost every model-space entity Rev C appends: the product's lane (`convert_dwg`)

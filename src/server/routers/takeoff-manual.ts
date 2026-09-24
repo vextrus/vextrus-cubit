@@ -18,6 +18,7 @@ import { isKind, type Kind } from "../../core/catalogue/kinds";
 import { CUTOUT_ROLES, MANUAL_BOUNDS, MANUAL_GEOMETRIES, READING_BASES, pointCountOf, type Recipe, type StatedGeometry } from "../../core/manual/law";
 import { isUnit } from "../../core/units/canon";
 import { requestMeasure, type MeasureRefused, type MeasureRequested } from "../../modules/takeoff/measure";
+import { measureCardOf, type MeasureCard } from "../../modules/takeoff/measure/card";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { signedOut } from "../auth/refusals";
 import { parsed } from "../call";
@@ -79,7 +80,8 @@ const kind = z.custom<Kind>(isKind, { error: "takeoff-manual: that is not a kind
 /**
  * The recipe as applied (I-374). A kind the class does not bear is a statement no lawful condition
  * makes — the chest refuses it at authoring — so it is malformed here rather than a question for the
- * act (L-MEA-04).
+ * act (L-MEA-04). A rule id is read as text: whether `MANUAL_RULES` pairs the kind with it is the
+ * act's one question, answered by name (`MANUAL_PAIRING_NOT_OFFERED`, I-539), never a door's.
  */
 const recipe: z.ZodType<Recipe> = z
   .object({
@@ -122,42 +124,83 @@ const measurementInput: z.ZodType<RecordManualMeasurementInput> = z
   .refine((stated) => stated.geometry.geometry === stated.recipe.geometry, { error: "takeoff-manual: the trace is the recipe's own geometry (I-374)" })
   .transform((stated) => ({ type: RECORD_MANUAL_MEASUREMENT, ...stated }));
 
-/** A preview names the act; a commit carries the digest of the preview it confirms (L-ACT-02). */
-const previewing = z.object({ input: measurementInput });
-const committing = z.object({ input: measurementInput, consequenceDigest: text("consequenceDigest") });
+
+/**
+ * A preview names the act; a commit carries the digest of the preview it confirms (L-ACT-02). Both
+ * statements are exported so the viewer route's server actions read a measurement through this one
+ * schema rather than a second (`measure-actions.ts`, S6; B-17).
+ */
+export const MEASUREMENT_PREVIEWING = z.object({ input: measurementInput });
+export const MEASUREMENT_COMMITTING = z.object({ input: measurementInput, consequenceDigest: text("consequenceDigest") });
+
+/** What previewing a hand measurement answers: the consequence, and the digest that binds it. */
+export type MeasurementPreviewed = { consequence: Consequence; consequenceDigest: string };
+
+/** What recording one answers: the act, the register row it added, and the campaign's measure request. */
+export type MeasurementRecorded = { actId: string; objectKey: string | null; measure: MeasureRequested | MeasureRefused | null };
+
+/**
+ * What recording this hand measurement would do (I-373): the register row it adds, the one an edit
+ * strikes, and the MEASUREMENT arm's payload — the recipe as applied, the exact figure, the scale, the
+ * gate's figure per kind — with the digest that binds them. A precondition the measurement cannot
+ * stand on is answered by name (s-measure §5). One resolution for both doors: this lane and the
+ * viewer's card (S6).
+ */
+export async function previewHandMeasurement(userId: string, input: RecordManualMeasurementInput): Promise<MeasurementPreviewed> {
+  const actor = await projectActorFor(userId, input.projectId, RECORD_MANUAL_MEASUREMENT, MEASURE, input.drawingId);
+  const consequence = await preview(actor, input);
+  return { consequence, consequenceDigest: consequenceDigest(consequence) };
+}
+
+/**
+ * Record it: the act row, the register row, the measurement and — for an edit — the strike, in one
+ * transaction or none (L-ACT-01). Then the campaign's measure run is asked for (s-measure I-384): a
+ * hand measurement publishes through the run's rails and the gate, never through a line a door writes
+ * (R-TO-040), and the act — core — cannot ask a module for it (ARCH-01). Asking is not an act; a run
+ * already queued for the campaign is the same ask (SEAM-JOBS).
+ */
+export async function commitHandMeasurement(userId: string, input: RecordManualMeasurementInput, digest: string): Promise<MeasurementRecorded> {
+  const actor = await projectActorFor(userId, input.projectId, RECORD_MANUAL_MEASUREMENT, MEASURE, input.drawingId);
+  const written = await commit(actor, input, digest);
+  const measurement = written.consequence.measurement;
+  const campaignId = measurement?.campaignId;
+  const measure = campaignId === undefined ? null : await requestMeasure({ tenantId: actor.tenantId, projectId: input.projectId }, campaignId, userId);
+  return { actId: written.actId, objectKey: measurement?.objectKey ?? null, measure };
+}
+
+/** What the card asks about beside the preview: the sheet and view its ring stands in, and what its recipe binds (s-measure I-617). */
+export const MEASUREMENT_CARD_READING = z.object({
+  projectId: text("projectId"),
+  drawingId: text("drawingId"),
+  sheetName: text("sheetName"),
+  viewKey: text("viewKey"),
+  kinds: z.array(text("kind")).max(16),
+  attributes: z.array(text("attribute")).max(16),
+});
+
+/**
+ * What the card offers for the view a ring stands in (I-617, I-620): the live stack, the caption's
+ * level, the notes stating a reading, and the space the points are stated in. Reading writes nothing,
+ * so no act is named; measuring on the sheet is what needs MEASURE, and the drawing is bound to the
+ * project (R-SPINE-004).
+ */
+export async function readHandMeasurementCard(userId: string, asked: z.output<typeof MEASUREMENT_CARD_READING>): Promise<MeasureCard> {
+  const actor = await projectActorFor(userId, asked.projectId, null, MEASURE, asked.drawingId);
+  return measureCardOf({ tenantId: actor.tenantId, projectId: asked.projectId }, asked);
+}
 
 export const takeoffManualRouter = router({
-  /**
-   * What recording this hand measurement would do (I-373): the register row it adds, the one an edit
-   * strikes, and the MEASUREMENT arm's payload — the recipe as applied, the exact figure, the scale —
-   * with the digest that binds them. A precondition the measurement cannot stand on is answered by
-   * name (s-measure §5).
-   */
   preview: signedInProcedure
-    .input(parsed(previewing))
-    .mutation(async ({ ctx, input }): Promise<{ consequence: Consequence; consequenceDigest: string }> => {
+    .input(parsed(MEASUREMENT_PREVIEWING))
+    .mutation(async ({ ctx, input }): Promise<MeasurementPreviewed> => {
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, RECORD_MANUAL_MEASUREMENT, MEASURE, input.input.drawingId);
-      const consequence = await preview(actor, input.input);
-      return { consequence, consequenceDigest: consequenceDigest(consequence) };
+      return previewHandMeasurement(ctx.session.userId, input.input);
     }),
 
-  /**
-   * Record it: the act row, the register row, the measurement and — for an edit — the strike, in one
-   * transaction or none (L-ACT-01). Then the campaign's measure run is asked for (s-measure I-384): a
-   * hand measurement publishes through the run's rails and the gate, never through a line this door
-   * writes (R-TO-040), and the act — core — cannot ask a module for it (ARCH-01). Asking is not an
-   * act; a run already queued for the campaign is the same ask (SEAM-JOBS).
-   */
   commit: signedInProcedure
-    .input(parsed(committing))
-    .mutation(async ({ ctx, input }): Promise<{ actId: string; objectKey: string | null; measure: MeasureRequested | MeasureRefused | null }> => {
+    .input(parsed(MEASUREMENT_COMMITTING))
+    .mutation(async ({ ctx, input }): Promise<MeasurementRecorded> => {
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, RECORD_MANUAL_MEASUREMENT, MEASURE, input.input.drawingId);
-      const written = await commit(actor, input.input, input.consequenceDigest);
-      const measurement = written.consequence.measurement;
-      const campaignId = measurement?.campaignId;
-      const measure = campaignId === undefined ? null : await requestMeasure({ tenantId: actor.tenantId, projectId: input.input.projectId }, campaignId, ctx.session.userId);
-      return { actId: written.actId, objectKey: measurement?.objectKey ?? null, measure };
+      return commitHandMeasurement(ctx.session.userId, input.input, input.consequenceDigest);
     }),
 });

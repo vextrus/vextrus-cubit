@@ -118,6 +118,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "FOUNDATION_DEPTH_UNSTATED",
   "FOUNDATION_PLAN_UNSTATED",
   "FOUNDING_LEVEL_UNSTATED",
+  "FRAMED_PAIR_UNNAMED",
   "GRID_NO_BUBBLE_EVIDENCE",
   "GROUND_LEVEL_UNSTATED",
   "GROUP_NOT_OFFERED",
@@ -133,6 +134,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "LINTEL_SOURCE_ABSENT",
   "MALFORMED",
   "MANIFEST_NOT_RENDERABLE",
+  "MANUAL_BLINDING_PAST_MEMBER",
   "MANUAL_CELL_MACHINE_MEASURED",
   "MANUAL_CELL_OTHER_VIEW",
   "MANUAL_CONDITION_NOT_STANDING",
@@ -143,6 +145,8 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "MANUAL_LEVEL_UNSTATED",
   "MANUAL_NO_CAMPAIGN",
   "MANUAL_OVERLAP",
+  "MANUAL_PAIRING_NOT_OFFERED",
+  "MANUAL_POINT_ON_RASTER",
   "MANUAL_PREDECESSOR_NOT_STANDING",
   "MANUAL_RING_OFF_VIEW",
   "MANUAL_SHEET_NOT_PINNED",
@@ -467,7 +471,13 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * I-598); the whole register diffed against 9b0f3676: 160 → 175, added 15, removed 0, changed 0.
  * Previous: 4a7d503cd2052eabd2a5b01dfd8d257b631ae5809b67de02e217eb79a32f02e3.
  */
-const ENTRIES_DIGEST_BEFORE = "86dbf4bb751c51151c5e60e38de85e0f2a19d72b77ae5da983b315cac0a24400";
+/*
+ * Re-baselined for FRM4-AD's ONE ADDED entry and nothing else: FRAMED_PAIR_UNNAMED (./takeoff-placements.ts,
+ * s-coverage I-613), the reason a pair a plan draws as a beam and no mark names is enumerated
+ * under on the measurement boundary. 175 → 176, added 1, removed 0, changed 0.
+ * Previous: 86dbf4bb751c51151c5e60e38de85e0f2a19d72b77ae5da983b315cac0a24400.
+ */
+const ENTRIES_DIGEST_BEFORE = "9f5bd1eabba3eb8dbca9c07cd82af19963ee019559980566c52271a38ddcb443";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

@@ -17,6 +17,7 @@ import type { SnapFactorSpace } from "@/modules/takeoff/viewer-snap/types";
 import { S08_MODEL_SHEET, S08_PAPER_SHEET, S08_PIT, S08_SOG, S08_VIEW, s08Calibration, s08Paper } from "./s08";
 import { memoryChest } from "../../manual/support/chest-doors";
 import type { ChestDoors } from "@/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/measure-chest";
+import type { CardDoors } from "@/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/measure-card";
 
 type Point = readonly [number, number];
 
@@ -128,9 +129,10 @@ export type MeasureMount = {
  * `paper` mounts S-08 as the product draws it, through viewport 2077, with its view's factor read in
  * `space` (model, the DIMENSION_RATIO J-000 holds, unless a case says otherwise). `chest` is the
  * condition chest's doors — an empty chest in memory unless a case hands its own, so no mount reaches
- * a server (S5).
+ * a server (S5). `card` is the card's three doors (S6); a case that finishes a shape under a condition
+ * hands its own, so no card reaches a server either.
  */
-export async function mountMeasure(o: { unscaled?: boolean; denied?: boolean; paper?: boolean; space?: SnapFactorSpace; chest?: ChestDoors } = {}): Promise<MeasureMount> {
+export async function mountMeasure(o: { unscaled?: boolean; denied?: boolean; paper?: boolean; space?: SnapFactorSpace; chest?: ChestDoors; card?: CardDoors } = {}): Promise<MeasureMount> {
   stubBrowser();
   const original = Element.prototype.getBoundingClientRect;
   const context = HTMLCanvasElement.prototype.getContext;
@@ -163,7 +165,7 @@ export async function mountMeasure(o: { unscaled?: boolean; denied?: boolean; pa
   };
 
   const { ViewerScreen } = await import("../../../../src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/viewer-screen");
-  const props = { tenantId: TENANT, projectId: PROJECT, drawingId: DRAWING, layoutName: sheet.layoutName, initialViewport: null, initialSelection: null, head: head(sheet), calibration: sheet.calibration, scale, chest: o.chest ?? memoryChest({ canAuthor: o.denied !== true }) };
+  const props = { tenantId: TENANT, projectId: PROJECT, drawingId: DRAWING, layoutName: sheet.layoutName, initialViewport: null, initialSelection: null, head: head(sheet), calibration: sheet.calibration, scale, chest: o.chest ?? memoryChest({ canAuthor: o.denied !== true }), ...(o.card === undefined ? {} : { card: o.card }) };
   const view = render(createElement(ViewerScreen as never, props as never));
   const screen = await waitFor(() => view.getByTestId(TESTIDS.viewer.screen));
   const canvas = screen.querySelector<HTMLElement>(`[data-testid="${TESTIDS.viewer.canvas}"]`) as HTMLElement;

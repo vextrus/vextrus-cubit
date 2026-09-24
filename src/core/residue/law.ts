@@ -8,6 +8,28 @@
 // agreement by coincidence (Q-07, R-SPINE-062).
 import type { RefusalCode } from "../errors";
 
+/**
+ * A pair of edge lines a plan of the pinned manifest draws as a framed member and no mark names
+ * (s-coverage I-613): known scope, not measured — L-QTY-04's declared exclusion, enumerated by
+ * where it is drawn and never counted (L-QTY-07).
+ */
+export type UnnamedPair = {
+  readonly drawingId: string;
+  /** L-REG-04's address of the plan it is drawn on, as a placement names the view. */
+  readonly viewKey: string;
+  /** The plan's caption, verbatim, where the manifest holds it — what a QS knows the plan by. */
+  readonly caption: string;
+  /** The sheet the plan stands on, or empty where the pinned record names none (I-548). */
+  readonly layoutName: string;
+  /** The two edge lines the pair is drawn by, lower key first — what a reader is flown to. */
+  readonly edgeKeys: readonly [string, string];
+  /** How far apart the two lines are drawn, in drawing units, on the placement lattice. */
+  readonly width: string;
+  /** The grid reference its centre stands at, each null where the plan's backbone carries none. */
+  readonly gridLetter: string | null;
+  readonly gridNumeral: string | null;
+};
+
 /** A member the drawings show that no class of the roster is (a tank, a parapet): drawn, named, and never measured (I-481). */
 export type UnclassedDeclaration = {
   readonly drawingId: string;
@@ -191,6 +213,8 @@ export type ResidueInput = {
   readonly measured?: boolean;
   /** The members the drawings show that no class of the roster is — drawn, named, never measured (I-481). */
   readonly unclassed?: readonly UnclassedDeclaration[];
+  /** The pairs the plans draw as a framed member and no mark names — drawn, never measured (I-613). */
+  readonly unnamed?: readonly UnnamedPair[];
 };
 
 /**

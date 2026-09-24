@@ -11,9 +11,11 @@
 // Nothing the viewer states is taken on its word. The act reads, on its own transaction, the campaign,
 // the pinned set, the sheet's discipline, the view and its scale, the drawing's own geometry and the
 // hand measurements already standing, and it refuses by name where a measurement cannot stand:
-// no campaign, a condition the project's chest does not hold standing, a sheet outside the pinned
-// set, an unconfirmed discipline, a kind another discipline states, a view that draws no scope, a view with no scale of record, a unit the bill does not
-// convert, no level, a point off the view, a degenerate geometry, an edit of a measurement that no
+// a recipe whose pairing `MANUAL_RULES` does not hold (I-539), no campaign, a condition the project's
+// chest does not hold standing, a sheet outside the pinned set, an unconfirmed discipline, a kind
+// another discipline states, a view that draws no scope, a view with no scale of record, a unit the
+// bill does not convert, no level, a point off the view, a point on a traced scan (I-387), a
+// degenerate geometry, a blinding that runs past its member (D-005), an edit of a measurement that no
 // longer stands, a second measurement of one scope, a cell the product already measures, a cell
 // measured on another view, and ground another measurement already covers.
 //
@@ -40,9 +42,10 @@ import {
   figureOf,
   figureUnitOf,
   geometryBasis,
-  mapPoints,
+  mapRings,
   normalisedGeometry,
   pointCountOf,
+  ringsOf,
   type HandLevel,
   type JudgedPoint,
   type MeasuredGeometry,
@@ -51,11 +54,13 @@ import {
   type StatedGeometry,
   type StatedPoint,
 } from "../manual/law";
+import { blindingPastMember } from "../manual/member";
 import { cellKeyOf, cellsOf, collisionOf, type Footprint } from "../manual/overlap";
-import { extentOf, judgePoint, type DrawingFacts, type DrawnPath, type DrawnShape, type GridAxisLine } from "../manual/snaps";
+import { extentOf, judgeRing, type DrawingFacts, type DrawnPath, type DrawnShape, type GridAxisLine } from "../manual/snaps";
 import { junctionFactsIn, manualOffersOf } from "../manual/offer";
 import { conditionIn, linesOfCampaignIn, measurementsIn, recordMeasurementIn, type ConditionStanding, type LineOfCell, type StoredMeasurement } from "../manual/store";
 import { drawnUnitOf, snapReachOf } from "../manual/units";
+import { manualRuleOf } from "../rulesets/methods/manual/rules";
 import { readsAsANumber, registerScopeIn, registerSightingIn, repudiateObjectIn, repudiatedObjectsIn, type RegisterScope } from "../register/store";
 import { affirmationsOfRecord } from "../scale/store";
 import { scaleTolerancesOf } from "../scale/tolerances";
@@ -262,6 +267,28 @@ function requireBorne(recipe: Recipe): void {
 }
 
 /**
+ * Every kind of the recipe under the pairing `MANUAL_RULES` holds for its geometry and class, and the
+ * rule that pairing names (I-539): the one roster the chest authors from and the offer builder binds
+ * by. A pairing the roster does not hold — a pile cap's or a footing's blinding, a slab's formwork,
+ * any rule id but the pairing's own — is refused by name: recorded, it would register a row and
+ * claim a cell that no method bills.
+ */
+function requirePaired(recipe: Recipe): void {
+  for (const { kind, ruleId } of recipe.kinds) {
+    const rule = manualRuleOf(recipe.geometry, recipe.elementClass, kind);
+    if (rule === undefined || rule.ruleId !== ruleId) {
+      throw refused(
+        REFUSALS.MANUAL_PAIRING_NOT_OFFERED.code,
+        rule === undefined
+          ? `no hand-measurement method measures a ${recipe.elementClass}'s ${kind} from a ${recipe.geometry} (I-539)`
+          : `a ${recipe.elementClass}'s ${kind} from a ${recipe.geometry} is offered under ${rule.ruleId}, and the recipe names ${ruleId} (I-539)`,
+        { kind, ruleId, elementClass: recipe.elementClass, geometry: recipe.geometry },
+      );
+    }
+  }
+}
+
+/**
  * The readings a recipe applies, as the act records them (I-374): a figure that is no number is
  * refused by name; a reading claiming to be TRANSCRIBED from a note the drawing does not hold is
  * demoted to ENTERED — a claim the act cannot reproduce makes a reading weaker, never stronger.
@@ -286,7 +313,7 @@ function judgedReadings(readings: readonly RecipeReading[], facts: DrawingFacts)
  * stated: none, the UNRESOLVED slot (I-368), a level the stack no longer holds, or the FOUNDATION slot
  * for a class that stands on a storey is no level it can be billed by.
  */
-function statedLevel(input: RecordManualMeasurementInput, live: ReadonlySet<string>): HandLevel {
+export function statedLevel(input: RecordManualMeasurementInput, live: ReadonlySet<string>): HandLevel {
   if (isFoundationClass(input.recipe.elementClass)) return { slot: HAND_LEVEL_SLOT };
   const level = input.level;
   if (level !== null && "levelId" in level && live.has(level.levelId)) return { levelId: level.levelId };
@@ -316,6 +343,7 @@ export async function deriveMeasurement(input: RecordManualMeasurementInput, rea
   if (input.geometry.geometry !== input.recipe.geometry) {
     throw new Error(`the recipe measures a ${input.recipe.geometry} and the trace is a ${input.geometry.geometry} — the tool arms the condition's own geometry (I-374)`);
   }
+  requirePaired(input.recipe);
 
   const opened = await reader.campaign();
   if (opened === null) throw refused(REFUSALS.MANUAL_NO_CAMPAIGN.code, `project ${input.projectId} has no campaign open`, { projectId: input.projectId });
@@ -369,21 +397,34 @@ export async function deriveMeasurement(input: RecordManualMeasurementInput, rea
 
   const level = statedLevel(input, await reader.liveLevels());
 
-  // Each point, judged against the drawing itself (I-387, I-375).
+  // Each ring, judged against the drawing itself (I-387, I-375), a free coordinate keeping what its
+  // ring's drawn points determined (I-499, I-500).
   const facts = await reader.drawingFacts(record);
   const named = { viewKey: view.viewKey, space: input.layoutName, extent: extentOf(facts, { viewKey: view.viewKey, space: input.layoutName }), reach: snapReachOf(drawnUnit) };
   let demoted = 0;
-  const judged = mapPoints<StatedPoint, JudgedPoint>(input.geometry, (point) => {
-    const verdict = judgePoint(point, facts, named);
+  const judged = mapRings<StatedPoint, JudgedPoint>(input.geometry, (ring) => {
+    const verdict = judgeRing(ring, facts, named);
     if (verdict.judged === undefined) {
       throw refused(REFUSALS.MANUAL_RING_OFF_VIEW.code, `${verdict.offView} — every point stands in ${view.viewKey}`, { viewKey: view.viewKey });
     }
-    if (verdict.demoted) demoted += 1;
+    demoted += verdict.demoted;
     return verdict.judged;
   });
   const traced = normalisedGeometry(judged);
+  // A point on a traced scan is INTERPRETED (L-QTY-01), and the register holds no INTERPRETED sighting
+  // until M4P-6 widens it: refused by name, never recorded as MEASURED (I-387).
+  const scanned = ringsOf(traced).flat().find((point) => point.basis === "INTERPRETED");
+  if (scanned !== undefined) {
+    throw refused(REFUSALS.MANUAL_POINT_ON_RASTER.code, `the point at ${scanned.x}, ${scanned.y} stands on ${scanned.sources.join(", ")}, a traced scan (I-387)`, { sources: scanned.sources });
+  }
   const degenerate = degenerateReason(traced);
   if (degenerate !== null) throw refused(REFUSALS.MANUAL_GEOMETRY_DEGENERATE.code, degenerate, { geometry: traced.geometry });
+  // A blinding is measured over its member, with no projection (D-005): an outline running past the
+  // member it mostly covers would bill blinding where no member stands (L-QTY-04).
+  const overrun = blindingPastMember(traced, input.recipe.kinds.map((entry) => entry.kind), facts, { viewKey: view.viewKey, space: input.layoutName });
+  if (overrun !== null) {
+    throw refused(REFUSALS.MANUAL_BLINDING_PAST_MEMBER.code, `the outline runs past ${overrun.member}, the member it lies under (D-005)`, { member: overrun.member });
+  }
   const recipe: Recipe = { ...input.recipe, readings: judgedReadings(input.recipe.readings, facts) };
 
   // What already stands in the revision: the hand measurements, and the objects a person struck.

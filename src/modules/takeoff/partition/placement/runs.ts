@@ -37,7 +37,7 @@ import type { GridAxisRow } from "../grid/detect";
 import { normaliseMark } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
-import { axisBetween, edgeOf, greedyPairs, pairCandidates, saidOf, squareToThePlane, type Axis, type Drawn, type Edge, type Point, type Said } from "./edge-pairs";
+import { axisBetween, edgeOf, greedyPairs, insideRing, pairCandidates, saidOf, squareToThePlane, type Axis, type Drawn, type Edge, type Point, type Said } from "./edge-pairs";
 import { classOfMark, isBoundXrefContext, isFoundationClass, isFramedClass, isVerticalClass, levelWordsOf } from "./law";
 import type { DetectedRuns, DrawnUnit, FamilyNamed, PlacementEvidence, PlacementRow, RunReading, RunRow } from "./rows";
 import { shareValue } from "./shares";
@@ -94,8 +94,8 @@ export function drawnUnitOf(graph: EntityGraph): Unit | null {
   return CANON_OF_HEADER[graph.insunits.unit ?? ""] ?? null;
 }
 
-/** One closed outline of a plan: the ring, its bounding box and its area. */
-type Ring = { readonly key: string; readonly min: Point; readonly max: Point; readonly area: number };
+/** One closed outline of a plan: the ring as drawn, its bounding box and the box's area. */
+type Ring = { readonly key: string; readonly points: readonly Point[]; readonly min: Point; readonly max: Point; readonly area: number };
 
 /** A member that may carry a beam's end: where it stands on the backbone, and how far it reaches. */
 type Support = {
@@ -263,7 +263,18 @@ function ringOf(entity: Drawn): [Ring] | null {
   const ys = points.map((point) => point[1]);
   const min: Point = [Math.min(...xs), Math.min(...ys)];
   const max: Point = [Math.max(...xs), Math.max(...ys)];
-  return [{ key: entity.key, min, max, area: (max[0] - min[0]) * (max[1] - min[1]) }];
+  return [{ key: entity.key, points, min, max, area: (max[0] - min[0]) * (max[1] - min[1]) }];
+}
+
+/**
+ * Does a point stand INSIDE a ring as the ring is drawn — its polygon, not its bounding box
+ * (I-611)? A chamfered or L-shaped slab plate is not the rectangle around it, and a probe in the
+ * corner the box adds and the plate does not is off the slab. The box is only the quick refusal; the
+ * even-odd test over the ring's own edges is the pairing geometry's one (`insideRing`, B-17).
+ */
+function inside(ring: Ring, point: Point): boolean {
+  if (!(ring.min[0] < point[0] && point[0] < ring.max[0] && ring.min[1] < point[1] && point[1] < ring.max[1])) return false;
+  return insideRing(point, ring.points);
 }
 
 /**
@@ -818,39 +829,58 @@ function plateOf(plan: Plan): Ring | undefined {
  * reads is what adjoins the beam rather than the beam itself. It is taken at the midpoint of every
  * kept segment, and the side states the thickest slab any of them found — a beam half of whose length
  * runs along a void still has a soffit over the half that does not.
+ *
+ * What a probe reads is a SLAB READING, and until the slab panels are read (SLB-1) the plan's slab
+ * reading is two statements of its own and nothing else (I-611): the thickness it states
+ * (`SLAB 150 THK`) and the plate that thickness is cast over — its widest closed ring that is no
+ * member of its own — each tested by the ring as drawn, never its box:
+ *   · a plan that states no slab thickness has made no slab reading at all, and every side of every
+ *     run on it is UNREAD. Nothing adjoining is a reading of the drawing like any other, and a plan
+ *     that never said where its slab is has not said where it is not: S-15's stair roof draws the
+ *     machine-room roof's outline beside the stair roof's and captions it `MRR 150 THK`, and read
+ *     against the one plate its SB-R4 stood off it on both sides and billed its full depth (L-QTY-06).
+ *   · a probe inside the plate and clear of every opening reads the stated thickness;
+ *   · a probe inside an opening the plan names reads nothing adjoining — the well is not cast;
+ *   · a probe off the plate reads nothing adjoining only where it stands inside no other closed
+ *     outline the plan draws that is none of its members. Inside one, the plan has drawn something
+ *     there it did not state a thickness for — a second slab, a landing, a roof over a machine room —
+ *     and the side is unread.
+ * An unread segment leaves its side unread, whatever the other segments read: the thicker of a
+ * stated slab and a silence is not the stated one (L-QTY-01), and an unread side is never a zero
+ * (L-QTY-02) — the rail then declares the line PARTIAL, naming the slab thickness it could not read.
  */
 function sidesOf(member: Axis, segments: readonly [number, number][], plan: Plan): readonly [RunReading | null, RunReading | null] {
+  const stated = thicknessOf(plan);
+  if (stated === null) return [null, null];
   const plate = plateOf(plan);
   if (plate === undefined) return [null, null];
   const openings = openingsOf(plan);
-  const stated = thicknessOf(plan);
+  const others = plan.rings.filter((ring) => ring !== plate && !plan.placed.has(ring.key) && !openings.includes(ring));
   const sides: (RunReading | null)[] = [null, null];
+  const unread = [false, false];
 
   for (const [from, to] of segments) {
     const mid = (from + to) / 2;
     for (const side of [0, 1]) {
       const off = side === 0 ? -member.width : member.width;
       const probe: Point = member.along === "x" ? [mid, member.at + off] : [member.at + off, mid];
-      const onPlate = plate.min[0] < probe[0] && probe[0] < plate.max[0] && plate.min[1] < probe[1] && probe[1] < plate.max[1];
-      const inOpening = openings.some((ring) => ring.min[0] < probe[0] && probe[0] < ring.max[0] && ring.min[1] < probe[1] && probe[1] < ring.max[1]);
-      // Off the plate or over a hole in it, nothing adjoins: the beam's whole depth is its own, and
-      // that is a reading of the drawing rather than an absence of one (L-QTY-02).
-      const reading: RunReading | null =
-        !onPlate || inOpening
-          ? { value: "0", unit: SLAB_THICKNESS_UNIT, basis: DERIVED, sourceKeys: [plate.key] }
-          : stated === null
+      const reading: RunReading | null = openings.some((ring) => inside(ring, probe))
+        ? { value: "0", unit: SLAB_THICKNESS_UNIT, basis: DERIVED, sourceKeys: [plate.key] }
+        : inside(plate, probe)
+          ? { value: stated.value, unit: SLAB_THICKNESS_UNIT, basis: TRANSCRIBED, sourceKeys: [stated.key] }
+          : others.some((ring) => inside(ring, probe))
             ? null
-            : { value: stated.value, unit: SLAB_THICKNESS_UNIT, basis: TRANSCRIBED, sourceKeys: [stated.key] };
-      sides[side] = thicker(sides[side] ?? null, reading);
+            : { value: "0", unit: SLAB_THICKNESS_UNIT, basis: DERIVED, sourceKeys: [plate.key] };
+      if (reading === null) unread[side] = true;
+      else sides[side] = thicker(sides[side] ?? null, reading);
     }
   }
-  return [sides[0] ?? null, sides[1] ?? null];
+  return [unread[0] === true ? null : (sides[0] ?? null), unread[1] === true ? null : (sides[1] ?? null)];
 }
 
 /** The thicker of two readings of one side — a side adjoins the thickest slab it was found beside. */
-function thicker(held: RunReading | null, found: RunReading | null): RunReading | null {
+function thicker(held: RunReading | null, found: RunReading): RunReading {
   if (held === null) return found;
-  if (found === null) return held;
   return Number(found.value) > Number(held.value) ? found : held;
 }
 

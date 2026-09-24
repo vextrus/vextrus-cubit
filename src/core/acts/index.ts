@@ -41,6 +41,7 @@ export {
   type ConsequenceRendering,
   type ConsequenceStanding,
   type ConsequenceSubject,
+  type OfferedFigure,
   type StandingOfSubject,
   type ScaleOfSubject,
   type ConsequenceScale,

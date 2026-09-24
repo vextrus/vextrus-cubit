@@ -14,7 +14,7 @@ import { QUANTITY_BASES, type QuantityBasis } from "../offers/law";
 import { UNITS, type Unit } from "../units/canon";
 import { closedList } from "./sql";
 import { sql as statement } from "drizzle-orm";
-import { check, index, json, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { check, index, json, numeric, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /**
  * L-MEA-09's run: what one beam or tie-beam placement measures along its own axis, and what adjoins
@@ -81,7 +81,46 @@ export const placementRuns = pgTable(
 );
 
 /**
+ * The pairs of edge lines a plan draws as a FRAMED member that no mark names (I-613): scope the
+ * drawing shows and no quantity line carries, stored so the residue can ENUMERATE it (L-QTY-04,
+ * L-QTY-07) — each by where it is drawn, never counted into anything.
+ *
+ * One row per pair of one record, keyed by the plan and the pair's lower edge line (an edge line
+ * belongs to one pair at most). The coordinates and the width are on the placement lattice, in drawing
+ * units, as the stage quantised them — `numeric`, never a float (B-07). Rewritten per ingest with the
+ * placements, in the same transaction, so the app role holds a DELETE here for the reason it holds
+ * one on the placements (L-REG-04, R-TO-030).
+ */
+export const placementUnnamedPairs = pgTable(
+  "placement_unnamed_pairs",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    /** L-REG-04's derived address of the plan it is drawn on — the name a placement calls the view by. */
+    viewKey: text("view_key").notNull(),
+    edgeKeyA: text("edge_key_a").notNull(),
+    edgeKeyB: text("edge_key_b").notNull(),
+    layer: text("layer").notNull(),
+    fromX: numeric("from_x").notNull(),
+    fromY: numeric("from_y").notNull(),
+    toX: numeric("to_x").notNull(),
+    toY: numeric("to_y").notNull(),
+    width: numeric("width").notNull(),
+    gridLetter: text("grid_letter"),
+    gridNumeral: text("grid_numeral"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "placement_unnamed_pairs_key", columns: [table.tenantId, table.ingestId, table.viewKey, table.edgeKeyA] }),
+    // The read the residue makes: the drawings of one manifest.
+    index("placement_unnamed_pairs_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
  * Every table this area publishes. `schema.ts` spreads it into `SEAM_SCHEMA`, so a table added to
  * this file joins the typed surface without a second roster being edited (B-19, AM-11).
  */
-export const FRAME_TABLES = { placementRuns };
+export const FRAME_TABLES = { placementRuns, placementUnnamedPairs };

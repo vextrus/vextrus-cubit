@@ -186,15 +186,18 @@ export function ringsOf<P>(geometry: TracedGeometry<P>): (readonly P[])[] {
   }
 }
 
-/** The same geometry with every point carried through one function. */
-export function mapPoints<P, Q>(geometry: TracedGeometry<P>, carry: (point: P) => Q): TracedGeometry<Q> {
+/**
+ * The same geometry with every ring carried whole through one function — for a judgement that reads a
+ * ring's points together (I-499: a free coordinate keeps what a point of its own ring determined).
+ */
+export function mapRings<P, Q>(geometry: TracedGeometry<P>, carry: (ring: readonly P[]) => readonly Q[]): TracedGeometry<Q> {
   switch (geometry.geometry) {
     case "POLYGON":
-      return { geometry: "POLYGON", outer: geometry.outer.map(carry), cutouts: geometry.cutouts.map((cutout) => ({ role: cutout.role, ring: cutout.ring.map(carry) })) };
+      return { geometry: "POLYGON", outer: carry(geometry.outer), cutouts: geometry.cutouts.map((cutout) => ({ role: cutout.role, ring: carry(cutout.ring) })) };
     case "POLYLINE":
-      return { geometry: "POLYLINE", run: geometry.run.map(carry) };
+      return { geometry: "POLYLINE", run: carry(geometry.run) };
     case "POINT_SET":
-      return { geometry: "POINT_SET", points: geometry.points.map(carry) };
+      return { geometry: "POINT_SET", points: carry(geometry.points) };
   }
 }
 
@@ -210,8 +213,10 @@ export function exactSpellingOf(n: number): string {
 }
 
 /**
- * Where a free point stands (I-385): the pointer's world point on the 0.1-drawing-unit lattice, since
- * a free click has no drawing fact to keep. The lattice is the key grammar's own (`quantise`).
+ * Where a free coordinate stands (I-385): the pointer's world point on the 0.1-drawing-unit lattice,
+ * since a free click has no drawing fact to keep. The lattice is the key grammar's own (`quantise`).
+ * A coordinate copied exactly from a point of its ring the drawing determined keeps that point's
+ * spelling instead (I-499, I-500; `judgeRing`, ./snaps).
  */
 export function freeSpellingOf(n: number): string {
   return quantise(n);

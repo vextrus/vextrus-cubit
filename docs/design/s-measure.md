@@ -24,7 +24,7 @@ S4 the armed tools and the gesture grammar · S5 the condition chest · S6 the c
 S7 the measurement book · S8 the legend's manual conditions (in VD-4's legend) · S9 the rest of the
 toolset · S10 assemblies · S11 J-041.
 
-This Decision defines I-370 … I-394, I-497 … I-501 (session 8), I-538 and I-539 (S2), I-573, I-574, I-575 and I-576 (S5), and I-586 … I-589 (S3), and cites D-005 (entered session 9, `docs/decisions/deviations.md`).
+This Decision defines I-370 … I-394, I-497 … I-501 (session 8), I-538 and I-539 (S2), I-573, I-574, I-575 and I-576 (S5), I-586 … I-589 (S3), I-614 (MANUAL-LAW) and I-616 … I-620 (S6), and cites D-005 (entered session 9, `docs/decisions/deviations.md`).
 
 ---
 
@@ -685,6 +685,17 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
       points.
     - A recipe reading that claims TRANSCRIBED from a note the drawing does not hold is demoted to
       ENTERED the same way.
+    - **A point that stands on a traced scan is INTERPRETED at the door too** (MANUAL-LAW, session
+      9, on the refuter's finding). `judgePoint` once answered MEASURED for a point that reproduced on
+      a `RASTER_TRACE` key; it now answers INTERPRETED wherever any key the point cites is one, a
+      vector key beside it included (weakest wins, L-QTY-01). The register holds no INTERPRETED
+      sighting until M4P-6 widens `SIGHTING_STANDINGS`, so the act refuses such a point by name,
+      `MANUAL_POINT_ON_RASTER`, rather than record it MEASURED. The case was latent: I-386 refuses
+      every page not drawn full size, which is every scan today. A free point placed over raster
+      content is still ENTERED at the door: the view names no raster region a free point could be
+      judged against, and that reading is M4P-6's with the INTERPRETED exit (§14). Proof:
+      `tests/takeoff/manual/manual-law.test.ts` ("a point on a traced scan") and
+      `tests/takeoff/manual/record-manual-measurement.test.ts` (`MANUAL_POINT_ON_RASTER`).
   - While drawing, each placed point wears its basis as R-UI-002 spells it everywhere a basis
     appears: the basis glyph in the basis colour, 10 px, centred on the point, on a 1 px
     `--canvas-paper` halo. MEASURED is ◆ in `--basis-measured`, ENTERED ✎ in `--basis-entered`,
@@ -1081,6 +1092,17 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
   - A free point is the pointer's world point on the 0.1 lattice (I-385), except a coordinate that a
     constraint (Shift, or Ortho) copied exactly from the last point. That coordinate keeps the last
     point's own spelling, so an ortho run stays exactly square in the drawing's coordinates.
+  - **The door stores it the same way** (MANUAL-LAW, session 9, on the refuter's finding). The act
+    once re-snapped every uncited coordinate to the lattice, so a coordinate copied from a snapped
+    anchor was quantised again: the run was stored out of square, and a ring could grow by up to
+    0.05 drawing units per coordinate, 50 mm on a metre drawing (over-measurement, L-QTY-04). The act
+    now judges a ring whole (`judgeRing`, `src/core/manual/snaps.ts`): the points that stand on the
+    drawing first, then each free or demoted point, whose coordinate keeps the spelling of a point of
+    its own ring that stands on the drawing wherever it was stated at exactly that point's double.
+    Only a coordinate that is truly free goes on the lattice, and a copy of a free coordinate lands
+    where its original does. Proof: `tests/takeoff/manual/manual-law.test.ts` and
+    `tests/takeoff/manual/record-manual-measurement.test.ts` ("an Ortho run … is stored square"),
+    and live, the stored row read back, `tests/takeoff/manual/manual-law.db.test.ts`.
   - A press may travel up to 4 px and still place a point (§7). The sheet does not move before the
     press passes 4 px; past it the press pans, from where it began. The click count is the browser's
     own click's, so a double-click's second click finishes and places nothing.
@@ -1099,6 +1121,12 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
   - So a rectangle traced over a drawn rectangle is MEASURED throughout, and one drawn over nothing is
     honestly weaker (I-387). The door re-derives every cited point (I-387), so a client that claimed
     more is demoted there.
+  - **The door keeps the clicked corners' spellings too** (MANUAL-LAW, session 9, on the refuter's
+    finding: the act once quantised an ENTERED derived corner again, up to 0.05 drawing units per
+    coordinate). A derived corner's coordinate that equals a snapped corner's stated double keeps that
+    corner's drawn spelling, whether the derived corner is free or was demoted (I-499's ring
+    judgement). A rectangle with one snapped and one hand corner is stored as the rectangle: its
+    free coordinates on the lattice, its snapped coordinates the drawing's. Proof: as I-499.
 
 - **I-501 — On a sheet that shows the plan through a viewport, a figure is carried into metres
   through the one window it stands in, or it stays in the sheet's own units and says why.** L-MEA-05
@@ -1206,7 +1234,7 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     |---|---|---|---|---|
     | pcc.blinding | Area, slab | twin `pcc.blinding.area@1` | the rect method reads L and B off a rectangle, projects p, and has no channel for a cut-out (I-388) | S2 |
     | pcc.blinding | Area, pile cap | the same twin, not offered yet | the piles stand through a cap's blinding (FND-OWN deducts their sections from the machine's), and nothing offers them from a hand trace yet, so the figure would be over | S3's successor, with those candidates |
-    | pcc.blinding | Area, footing | the same twin, not offered yet | nothing stands through a spread footing's blinding, so the figure is whole, but no proof walks one (BNBC is piled) | the first proof that measures a footing |
+    | pcc.blinding | Area, footing | the same twin, not offered yet | nothing stands through a spread footing's blinding, but L-FRM-04 projects it past the footing by p on every side, and D-005 measures a traced outline with no projection: a ring of the footing's own outline is under the clause's figure by the projection strip, never over, and a drawn blinding outline running past the footing is refused (I-614); no proof walks one yet (BNBC is piled) (amended by MANUAL-LAW, session 9: this row once called the figure whole) | the first proof that measures a footing |
     | rcc.concrete | Area, slab | twin owed, on the same traced-plate tree (`manual/traced-plate.ts`) | `rcc.slab.concrete@1` takes the members pre-summed (`A_members`); a hand ring takes them as junction candidates (I-538) | S9 |
     | rcc.concrete | Count, pile | reuse `rcc.pile.concrete@1` | count × π × d × d × length ÷ 4 takes the points counted, and d and length from the condition or the pile schedule | the Count tool's proof (S9, S11) |
     | rcc.concrete | Count, column; Length, beam or wall | not offered | a vertical's height is the stack's floor-to-floor, band-aware, and a beam's length its clear span between support faces (L-MEA-09); a click or a traced run states neither | S9 |
@@ -1224,6 +1252,17 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
   - Proof: `tests/rulesets/manual-methods.test.ts` holds every pairing to its method: enumerated, a
     formula of the pairing's kind, borne by its class, every declared variable supplied and nothing
     else, and each supplier's dimension, channel and parameter the method's own.
+  - **As the act applies it (MANUAL-LAW, session 9, on the refuter's finding).** The act once never
+    read `MANUAL_RULES`: the door takes any rule id, so a pairing this table marks "not offered" (a
+    pile cap's or a footing's blinding, a slab's formwork) was recorded, registered and claimed its
+    cell. Now the act reads the roster before anything else (`requirePaired`,
+    `src/core/acts/record-manual-measurement.ts`): every kind of the recipe must have its (geometry,
+    class, kind) row, under that row's own rule id, or the act refuses by name,
+    `MANUAL_PAIRING_NOT_OFFERED`, and writes nothing. The door still reads a rule id as text and
+    leaves the pairing to the act: one home for the question (B-17), and a named refusal rather than
+    `REQUEST_MALFORMED`, because a borne kind the product does not offer yet is a lawful statement
+    with an answer. Proof: `tests/takeoff/manual/record-manual-measurement.test.ts` (six unpaired
+    recipes) and, at the tRPC doors, `tests/server/manual-authorize.db.test.ts`.
 
 - **I-573 — A condition's hotkey is its place in the chest, not a stored choice.** §2.6 asked for
   "the next free digit, changeable". The `conditions` table (0062) holds no hotkey column, and this
@@ -1347,10 +1386,12 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     reading the rule declares), and a ring that cannot lay its members refuses
     `MANUAL_JUNCTION_UNPROVEN`. A measurement that could never publish is not recorded to sight its
     cell as though it might.
-  - A kind `MANUAL_RULES` holds no pairing for, for this geometry and class, is recorded and answered
-    `not-offered`: no rule is guessed (I-539), and the cell it sights reads NOT_ESTABLISHED, which is
-    true. The chest (S5) authors only paired conditions, so a QS meets this only through a condition
-    stated off the chest.
+  - A kind `MANUAL_RULES` holds no pairing for, for this geometry and class, is refused before the
+    preview asks anything, `MANUAL_PAIRING_NOT_OFFERED` (I-539 as the act applies it; amended by
+    MANUAL-LAW, session 9 — it was recorded and answered `not-offered`, which let an unbillable
+    measurement register a row and claim a cell). The chest (S5) authors only paired conditions, so a
+    QS meets this only through a condition stated off the chest. The builder keeps its `not-offered`
+    answer for the run, where a measurement recorded before this amendment may still stand.
   - INTERPRETED geometry is answered `queued` (L-QTY-04), never refused.
   - The commit door then asks for the campaign's measure run (`requestMeasure`) and answers the ask
     beside `{ actId, objectKey }` (§2.11). Asking is not an act; a run already queued is the same ask.
@@ -1378,6 +1419,119 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     for a person's sighting. The setup's manual seam (`RailSetup.manual`) is typed in the contract,
     and the measurement's shape is declared into it by the builder that owns it (module augmentation),
     because the contract importing the manual law would close a cycle through the law's own imports.
+
+- **I-614 — A hand-traced blinding is held to the member it lies under: the drawn closed
+  outline that covers most of it (D-005, L-QTY-04).** D-005 measures a traced blinding over its
+  outline with no projection, "the member's own ring, or a drawn blinding outline that follows it",
+  and owed the guard that refuses a drawn blinding outline running past its member (Rev B's 824–827
+  round 81D). I-388 said the product cannot tell a drawn blinding outline from any other ring. It
+  cannot, and it does not need to: it can tell which drawn outline a ring lies over.
+  - The member is read off the one view the ring was traced on, in its space: a closed outline the
+    partition put in that view that covers **more than half** of the ring's net area (the outline
+    less its cut-outs), by the overlap guard's exact kernel (`sharedArea`). A blinding lies under
+    its member and passes it by a projection strip, so its member covers nearly all of it (81D
+    covers 97 % of Rev B's rectangle). A closed outline covering less than half is something the
+    plate carries or stands beside (a cap, a pit, a pad on S-08), never what it blinds.
+  - The ring runs past that member wherever any of its net area stands outside it, and the act
+    refuses it by name, `MANUAL_BLINDING_PAST_MEMBER`, naming the member. A ring the member holds
+    whole (81D's own ring, or part of a slab) runs past nothing, and neither does a ring some closed
+    outline holds whole (a frame): the ring stands inside it.
+  - It asks this of the kinds a hand ring is held to its member for (`HELD_TO_MEMBER`,
+    `src/core/manual/member.ts`): blinding, today's one pairing. It asks it of every blinding ring,
+    snapped or free, because a hand ring spilling past the slab's edge bills the same over-measure
+    as a drawn one.
+  - On Rev C's S-08 the drawn blinding outline closes on 81D's own points (I-393), so J-000's ring
+    is 81D and nothing runs past. Rev B's rectangle is refused, naming 81D.
+  - Cost: a drawn blinding outline projecting past a member that covers less than half of it is not
+    caught; such an outline projects its member by more than a fifth of the member's width on every
+    side, which no blinding drawn under a slab does, and no smaller member is offered by hand (I-539).
+    A member drawn only as LINEs, with no closed outline, gives the guard nothing to hold a ring to:
+    the ring is then the QS's reading, checkable by the entity it cites (I-388).
+  - Rejected: holding the ring inside the member plus the edition's p (§14's first wording). D-005
+    measures a hand blinding with no projection, so a ring past its member by anything is over what
+    D-005 bills. Rejected: finding the member in the register. BNBC's slab on grade is no register
+    object (the machine measures no slab), so the J-000 leg would have nothing to hold its ring to.
+  - Proof: `tests/takeoff/manual/manual-law.test.ts` (Rev B's rectangle round 81D, the cap 7B0
+    inside it, a ring inside the slab and one spilling past it) and
+    `tests/takeoff/manual/record-manual-measurement.test.ts` (the act's refusal naming the member).
+### S6's readings (the card, session 9)
+
+- **I-616 — A note states a reading of a kind only where it names that kind's material.** § 2.5
+  offers "the notes of the ring's view that state" an attribute the recipe binds. A plan writes
+  thicknesses of many things in one view: S-08 states `75 THK BLINDING UNDER` (828) beside a slab's own
+  thickness, and a reader that took every `N THK` for a blinding's t would offer the slab's 125 mm as
+  the blinding's — an over-measurement one pick away. So a note is offered for a kind only where its
+  words name that kind's material (`pcc.blinding`: BLINDING, CC or PCC), read through the one notation
+  reading (`normaliseNotation`); its figure is read by the attribute's grammar (`t`: `75 THK`,
+  `75MM THK`), in millimetres whatever the header unit, as every thickness note is read
+  (`placement/runs.ts`, L-MEA-01). A kind with no words, or an attribute with no grammar, is offered no
+  note: its reading is the condition's. The act still judges what is picked: a TRANSCRIBED reading
+  whose note the drawing does not carry is demoted to ENTERED (I-374). Home:
+  `src/modules/takeoff/measure/card.ts` (`notesStating`).
+  - Rejected: offering every text entity of the view. The Select would read as a list of notes, and
+    the QS would be the grammar.
+
+- **I-617 — What the card reads beside the preview, and how the level default is made.** One read
+  door (`readMeasureCard` in the viewer route's actions, MEASURE, the drawing bound to the project)
+  answers, for the sheet and the view the ring's first point stands in: the live stack (id and label),
+  the level the view's caption states, and the notes of I-616, taken from the text entities the stored
+  partition assigned to that view. The caption's level is read by the placement law's one reading of a
+  level set (`captionLevelsOf`) and matched to the stack as storeys (`sameStorey`), ties to the lower
+  ordinal; a caption stating a set of levels, none, or one the stack does not carry offers no default
+  and the Select asks the QS to pick. S-08's caption states GF, so the card opens on GF. A foundation
+  class shows Foundation and states the FOUNDATION slot (I-377). The card opens once this read has
+  answered, so its first preview is never asked without the default; a read that fails offers nothing
+  and the act answers by name (MANUAL_LEVEL_UNSTATED).
+
+- **I-618 — The card is the ConsequenceDialog, anchored, with the changes above the consequence.**
+  The pattern gained three props, unset for every earlier act (consequence-dialog.md, session 9
+  amendment): the MEASUREMENT arm renders its payload; `controls` carries the level Select, each
+  reading's source Select (only where a note is offered), each cut-out's role Select (Opening · Column
+  or wall, I-389), the one-line scope note (I-390) and Cut out X; `anchor` stands the card where the
+  route computed. A change re-previews through the preview's new identity (I-41). Placement
+  (`cardAt`, `viewer-measure/scene.ts`): the card's corner stands 12 px off the closing point on each
+  axis, on the first side of right, left, below and above that holds the card clear of the point; with
+  none, the side with the most room; clamped inside the stage by `--space-3`. Unclamped, the card sits
+  against the point and needs no leader; when the stage's edge pushes it more than 24 px away, a 1 px
+  `--canvas-measure` hairline joins its nearest corner to the point. § 2.5's centred placement read as
+  a card whose nearest corner is always half its height away, so every card wore a leader; the corner
+  reading is what "more than 24 px apart" was for.
+  - What the card shows of the quantity: per kind, the gate's figure, unit, basis, coverage and the
+    gate's own formula with its bound variables (I-587) — the formula states A, t and the channels'
+    deductions as the gate evaluated them. The book's gross, Less and Net rows (I-391) are S7's; the
+    card does not re-derive them beside the gate.
+  - The dialog closing itself after a commit is not an Escape: the route tells the two apart, so
+    Confirm leaves the tool armed with nothing in progress, and the cell says
+    `measure_status_recorded`. Cancel or Escape keeps the outline as a draft (I-373), and Enter opens
+    the card again. A preview or commit fault renders the card's own ErrorState with a retry that
+    mounts the dialog afresh (§ 3). Offline, finishing opens no card; the shape stays a draft (§ 3).
+  - Not built with S6: the Mod+Enter confirm (I-372's roster line stands; Confirm is the button) and
+    the transparent scrim (the pattern's scrim stands). Both are §14's.
+
+- **I-619 — The Trace reads an `act:` key through to the hand measurement it recorded (the sixth
+  scheme).** A figure a person entered at the card is cited at the act that recorded it (I-588:
+  `actSourceOf`). The cited-key grammar reads `act:` as an act, "on no sheet", so the Trace fell silent
+  on an ENTERED thickness. The one resolver (`src/modules/takeoff/trace/index.ts`) now reads each
+  `act:` key a line cites through to the source keys of the hand measurement that act recorded —
+  every ring's, each once, in the order drawn — in one read of the project's measurements per ask
+  (`actSourcesOf`), for the Trace door and the other direction alike. An act that recorded no hand
+  measurement stays a key on no sheet. The register's and the draft BOQ's own Trace links read the
+  traced area's source, which already stands on the sheet; their servers adopt `actSourcesOf` with
+  their next change (§ 14).
+
+- **I-620 — A point placed on a paper sheet is stated in model space.** S-08 is a paper sheet: the
+  viewer holds its plan in paper coordinates, projected through viewport 2077 (I-501). The partition
+  partitions model space, so a point stated on the paper stands in no view (I-375) and the act refused
+  every S-08 ring `MANUAL_RING_OFF_VIEW` — the IOU "the point on paper, mapped back to model space"
+  (§ 14, S1/S6). The card's read answers the sheet's windows with their affine map, read by the
+  viewer's own `windowsOf` (the projection it drew by), and the space to state: the model space's name
+  where the sheet is paper and shows model space through a window, the sheet's own name otherwise
+  (`spaceOf`). Each point is carried back through the window whose frame holds it (`modelPointOf`:
+  model = viewCentre + (paper − centre) / scale), and the statement's `layoutName` is that space. A
+  snapped point comes back within float noise of the drawn vertex, and the act re-derives it exactly
+  (I-387); a point in no window is stated as placed and refused by name. The key's `space` is then
+  `model` for S-08's ring, as I-378 wrote it. The discipline the act reads is the model sheet's, which
+  the golden path confirms with the drawing's other sheets.
 
 ---
 
@@ -1871,9 +2025,17 @@ measured by hand this way yet.** · `measure_condition_reading_t` **Thickness** 
 `measure_condition_hatch_diagonal` **Diagonal** · `measure_condition_hatch_cross` **Cross** ·
 `measure_condition_hatch_dots` **Dots** · `measure_condition_hatch_horizontal` **Horizontal** ·
 `measure_condition_hatch_vertical` **Vertical** · `measure_condition_hotkey_none` **None: the digits
-pick the chest's first nine** · `measure_status_condition_pending` **Measured under {condition}.
-Confirming a measurement arrives with its card; nothing is recorded yet.** (S5, until S6's card
-records it; I-497's `measure_status_unrecorded` stays the sentence with no condition picked)
+pick the chest's first nine** (S5's `measure_status_condition_pending` left the table with S6's card,
+which says what a finished shape under a condition does; I-497's `measure_status_unrecorded` stays
+the sentence with no condition picked)
+
+**The card's controls (consequence-dialog.ts, S6, I-618).**
+`consequence_dialog_measurement_cutout_role` **Cut-out {n}** ·
+`consequence_dialog_measurement_scale_factors` **X {x} · Y {y} m per unit** ·
+`consequence_dialog_measurement_level_pick` **Pick a level** ·
+`consequence_dialog_measurement_queued` **Waiting for agreement: {cause}** ·
+`consequence_dialog_measurement_not_offered` **Nothing is measured by hand this way yet.** The
+readings' Select reads `From the condition · 75 mm` and `From the note "…" · 75 mm`.
 
 **Sheet list (measure.ts).**
 `measure_list_heading` **Measured on this sheet** · `measure_list_empty` **Nothing measured on this sheet
@@ -1930,6 +2092,9 @@ on `inline` (the chest's popover); `MEASUREMENTS_NO_CAMPAIGN` is `info` on `inli
 | `CONDITION_KIND_NOT_OFFERED` (S5, I-574) | No hand-measurement method measures this kind from this shape yet, so the condition would measure nothing billable. | Choose one of the kinds the condition form offers for this shape and class. | — |
 | `CONDITION_NOT_IN_CHEST` (S5, I-574) | This condition is not in this project's chest: it was already removed, or it belongs to another project. | Reload the chest and pick a condition that stands in it. | the condition chest |
 | `MEASUREMENTS_NO_CAMPAIGN` (S7) | No campaign is open on this project, so there is no measurement book. | Pin the drawing set in Takeoff, then measure a sheet. | the Takeoff register |
+| `MANUAL_PAIRING_NOT_OFFERED` (MANUAL-LAW, I-539) | No hand-measurement method measures this kind for this class from this shape yet, so the measurement could never be billed. | Measure with a condition from the chest: it offers only the kinds a hand measurement can bill. | the condition chest |
+| `MANUAL_POINT_ON_RASTER` (MANUAL-LAW, I-387) | A point of this outline stands on a traced scan, and a hand measurement over a scan cannot be recorded yet. | Snap every point to the drawing's own lines, or measure on a sheet drawn in vector lines. | — (the point is on the sheet) |
+| `MANUAL_BLINDING_PAST_MEMBER` (MANUAL-LAW, I-614) | This blinding outline runs past the outline of the member it lies under, so it would bill blinding where the drawing places no member. | Trace the member's own outline instead: a hand-traced blinding is measured over its member, with no projection. | the member's outline, selected (the refusal's `member`) |
 
 Reused, unchanged:
 - `VIEW_SCALE_UNAFFIRMED`, `DUPLICATE_IDENTITY`, `METHOD_NOT_IN_EDITION`, `CONSEQUENCES_NOT_CARRIED`,
@@ -1940,9 +2105,12 @@ Reused, unchanged:
   of its kinds is malformed there, because the chest refuses such a condition at authoring (S5,
   `CONDITION_KIND_NOT_BORNE`), and so is a trace whose geometry is not the recipe's.
 
-S1 registers every `MANUAL_*` code above except `MANUAL_JUNCTION_UNPROVEN`, thirteen in all. S3
-registers that one with the junction channel that raises it (I-389, I-586), and the gate's
-`CELL_MEASURED_BY_HAND` (I-589).
+S1 registers every `MANUAL_*` code above except `MANUAL_JUNCTION_UNPROVEN` and MANUAL-LAW's three,
+thirteen in all. S3 registers that one with the junction channel that raises it (I-389, I-586), and
+the gate's `CELL_MEASURED_BY_HAND` (I-589). MANUAL-LAW (session 9) registers
+`MANUAL_PAIRING_NOT_OFFERED`, `MANUAL_POINT_ON_RASTER` and `MANUAL_BLINDING_PAST_MEMBER`, each
+answered by the act's preview and so inside the card (S6 renders them: the message and remedy as
+every refusal, and for the last one the member it names, `member`, as the evidence link).
 
 `VIEW_SCALE_UNAFFIRMED`'s registered message speaks of "members". The unscaled view is said before
 the first click (§3), so a hand measurer meets that message only from a stale view. Re-wording it for
@@ -2035,13 +2203,15 @@ contiguous `measure` group plus the named existing groups; the integrator merges
   - `consequence-measurement-condition`;
   - `consequence-measurement-row` (`data-role` = gross | less | junction | ignored | net,
     `data-kind`, `data-value`, `data-basis`; a cut-out row also `data-cutout-role` = opening |
-    member);
+    member) — the book's rows, owed with S7 (I-618); not registered by S6;
   - `consequence-measurement-reading` (`data-attribute`, `data-value`, `data-unit`, `data-basis`,
     `data-source`);
-  - `consequence-measurement-quantity` (`data-kind`, `data-value`, `data-unit`, `data-basis`,
-    `data-coverage`);
-  - `consequence-measurement-level`;
-  - `consequence-measurement-cutout`;
+  - `consequence-measurement-quantity` (`data-kind`, `data-arm` = published | queued | not-offered;
+    published also `data-value`, `data-unit`, `data-basis`, `data-coverage`);
+  - `consequence-measurement-level` (the level Select, or the Foundation word with `data-level`);
+  - `consequence-measurement-reading-choice` (a reading's source Select, where the view offers a note);
+  - `consequence-measurement-cutout-role` (one per cut-out);
+  - `consequence-measurement-cutout` (Cut out X);
   - `measure-card-retry` (the card's own ErrorState, §3).
 - Chest:
   - `measure-chest` (`data-state` = loading | ready | empty | failed | readonly);
@@ -2097,6 +2267,22 @@ It asserts no COMPLETE figure before §12's ruling is recorded and I-389 stands.
 `tests/e2e/journeys/j-000/m4-sheet-and-manual-measure.spec.ts` and its roster line in
 `tests/journeys/fixme-roster.test.ts` now name only the doors S1–S6 still owe.
 
+**As S6 walks it (session 9).** The fixme and its roster line are gone, and M4 is SHIPPED in the
+roster (`tests/journeys/j-000-roster.test.ts`): its first segment walks, and the three files still
+owing a door stand whole on it. What the leg does differently from the steps above, and why:
+- the re-run test is the chest row's `data-measured` (I-575): a condition measured in the open
+  campaign skips to the read-back, because a second identical trace is `DUPLICATE_IDENTITY`;
+- the vertices are clicked where the served layer feed draws 81D and 830 on S-08's paper (never
+  transcribed), after the camera is set over the ring by the address;
+- step 5 reads the card's per-kind figure (`consequence-measurement-quantity[data-value]`), not the
+  gross and Less rows, which are S7's (I-618); the level Select reads GF;
+- step 6 presses Confirm (the button: Mod+Enter is §14's), then reads the outline cleared with Area
+  still armed — the cell's sentence is proved in jsdom (`measure-card.test.tsx`), because a leg imports
+  no string table (AM-09 §2's no-staging rule reads every `src/` import);
+- the read-back of step 7 is the register's: narrowed to slab · blinding, one line, its footer total
+  equal to the card's previewed figure, and the draft BOQ listing that line. The db read-back is the
+  integrator's (`readback` skill).
+
 **J-041 (S11).** A staged, scale-affirmed sheet with an open campaign walks:
 - count, linear, and area with a cut-out;
 - a condition and an assembly;
@@ -2143,7 +2329,7 @@ per-Interpretation verdict, so those rows stay OWED, and their objections below 
 | I-384 | "a rail per kind" is broken by a manual arm | the arm is inside the kind's one rail, composed at one home | OWED | S3 |
 | I-385 | exact figures from float-sourced coordinates are false precision | the coordinate's own decimal spelling is the drawing's fact; the key alone quantises | OWED | S1, S3 |
 | I-386 | refusing where the factor ≠ the unit blocks every PDF sheet | yes, until the gate multiplies (L-MEA-05); publishing a wrong-size figure is worse | CONFIRMED | S1 |
-| I-387 | L-QTY-01 and R-TO-040 disagree on a free point on a scan; and a MEASURED claim rests on the client; and (review) one lattice step of reach let a metre drawing's corners, each pushed 70 mm outward, come back MEASURED at 102.8196 m² against 100 | weakest-wins makes it INTERPRETED under both; the door re-derives every snapped point from the cited entity and demotes what it cannot reproduce, within one micrometre of real length (never a lattice step), and stores the drawing's own point where the drawing determines one (I-385) | OWED | MANUAL-LAW (session 9's refuter: the server's judgePoint answers MEASURED for a point citing a RASTER_TRACE key — latent while I-386 refuses every page not drawn full size) |
+| I-387 | L-QTY-01 and R-TO-040 disagree on a free point on a scan; and a MEASURED claim rests on the client; and (review) one lattice step of reach let a metre drawing's corners, each pushed 70 mm outward, come back MEASURED at 102.8196 m² against 100 | weakest-wins makes it INTERPRETED under both; the door re-derives every snapped point from the cited entity and demotes what it cannot reproduce, within one micrometre of real length (never a lattice step), and stores the drawing's own point where the drawing determines one (I-385); and (session 9's refuter) a point citing a RASTER_TRACE key is INTERPRETED at the door, never MEASURED, and the act refuses it `MANUAL_POINT_ON_RASTER` until M4P-6's INTERPRETED exit | CONFIRMED | — (the finding fixed by MANUAL-LAW; proved by `tests/takeoff/manual/manual-law.test.ts` "a point on a traced scan" and `tests/takeoff/manual/record-manual-measurement.test.ts` `MANUAL_POINT_ON_RASTER`) |
 | I-388 | L-FRM-04 defers polygon blinding outright; and (review) S-08's drawn blinding rectangle bills blinding outside the slab at the chamfer | it defers projecting a polygon plan, and a traced outline projects nothing; a drawn blinding outline counts only where it follows its member, and where it does not, the member's own outline is traced (under by at most p) | REJECTED | OPEN-3 (the mint of S2's method) |
 | I-389 | a derived deduction from another sheet is "undrawn" on this one; a traced cut-out treated as an opening under-deducts a small column; and (review) "26 columns" counts the porch column outside the ring, and "members at that level" names the wrong storey | it is drawn on S-10 and in the register, and the fail-closed arm covers what cannot be placed; a cut-out carries a role; members are the storey whose top is the slab's level, each clipped to the ring's net region (25 on BNBC, 17 of them straddling its edge) | OWED | S3, S4, S6 |
 | I-390 | a one-line disclosure is still a disclosure of possible under-coverage | under-coverage is the lawful direction; over is blocked by k, l, m, t | OWED | S6 |
@@ -2155,11 +2341,12 @@ per-Interpretation verdict, so those rows stay OWED, and their objections below 
 | I-495 | a move of the door every rebuild uses risks a behaviour change | the move is the same SQL in a new home, proved by the register breaker suites unchanged; the two re-homed writers keep their own semantics (no evidence for a re-stated range) | CONFIRMED | S1 |
 | I-497 | a tool that measures without recording invites a QS to believe a figure was taken; and it departs from I-374's pick-first | the cell says "Measured, not recorded" after every finish, and no card, act or line exists to mistake for one; pick-first governs wherever the chest can be picked from | CONFIRMED | S4, S5 |
 | I-498 | §2.3 says hatched "with a tool armed", whatever the views switch says | one hatch home (I-160); with the hatch switched off the refusal still stands in the cursor and in words | CONFIRMED | S4 |
-| I-499 | ruling the table's open cells in code is the grammar growing silently | each cell is written here, and each errs toward keeping the QS's work | OWED | MANUAL-LAW (session 9's refuter: the server re-snaps an uncited coordinate to the 0.1 grid, so a Shift/Ortho run is not stored square and can grow a ring) |
-| I-500 | a derived corner nothing was snapped to is a free point and belongs on the lattice | its coordinates are the clicked corners' own, exactly; its basis is asked of the drawing and demoted at the door if it does not reproduce | OWED | MANUAL-LAW (session 9's refuter: a derived ENTERED corner is quantised by the server's free(); up to 0.05 drawing units per coordinate) |
+| I-499 | ruling the table's open cells in code is the grammar growing silently; and (session 9's refuter) the server re-snaps an uncited coordinate to the 0.1 grid, so a Shift/Ortho run is not stored square and can grow a ring | each cell is written here, and each errs toward keeping the QS's work; the door judges a ring whole and keeps a coordinate copied from a drawn point of the ring at that point's spelling, quantising only what is truly free | CONFIRMED | — (fixed by MANUAL-LAW; proved by `tests/takeoff/manual/manual-law.test.ts` "an Ortho run from a drawn vertex", `tests/takeoff/manual/record-manual-measurement.test.ts` "an Ortho run … is stored square", and live `tests/takeoff/manual/manual-law.db.test.ts`) |
+| I-500 | a derived corner nothing was snapped to is a free point and belongs on the lattice; and (session 9's refuter) the server's free() quantised a derived ENTERED corner, up to 0.05 drawing units per coordinate | its coordinates are the clicked corners' own, exactly, at the door as in the viewer; its basis is asked of the drawing and demoted at the door if it does not reproduce | CONFIRMED | — (fixed by MANUAL-LAW; proved by the rectangle cases of `tests/takeoff/manual/manual-law.test.ts`, `tests/takeoff/manual/record-manual-measurement.test.ts` and live `tests/takeoff/manual/manual-law.db.test.ts`) |
 | I-501 | a window's ratio applied to a factor read on paper states a figure 10⁴ over; picking "the" window by the frame misreads a shape across two | only machine ranks (read off model-space members) are carried through a window, a two-point is `unrecorded`; a shape must stand inside exactly one frame, and two, none or overlapping frames refuse by name | CONFIRMED | S4, S6 |
 | I-538 | L-MEA-08 has the gate partition candidates against thresholds, so a channel with none is no channel | L-MEA-08 also keeps sums out of offers, and L-MEA-09 states no threshold for members; a channel with no threshold is the only home that keeps both | CONFIRMED | OPEN-3 (the mint) |
-| I-539 | reusing a machine pair for a hand trace hides that a person measured it | the line's bases, sources and act say who measured it; the pair says only how it is computed, and one algebra has one pair (B-17) | OWED | MANUAL-LAW (session 9's refuter: the act never reads MANUAL_RULES — the door takes any rule id, so a 'not offered' pairing is recorded; and the footing row's 'whole' ignores p) |
+| I-539 | reusing a machine pair for a hand trace hides that a person measured it; and (session 9's refuter) the act never read MANUAL_RULES, so a 'not offered' pairing was recorded, and the footing row's 'whole' ignored p | the line's bases, sources and act say who measured it; the pair says only how it is computed, and one algebra has one pair (B-17); the act refuses a recipe the roster does not pair, `MANUAL_PAIRING_NOT_OFFERED`, and the footing row names L-FRM-04's p and D-005 | CONFIRMED | — (fixed by MANUAL-LAW; proved by `tests/takeoff/manual/record-manual-measurement.test.ts` "a recipe is recorded only under a pairing MANUAL_RULES holds" and `tests/server/manual-authorize.db.test.ts` at both tRPC doors) |
+| I-614 | a threshold of "more than half" is a number the law does not state, and a member drawn only as LINEs escapes it | the threshold only chooses WHICH closed outline a blinding lies under; the refusal errs toward measuring less, and what it cannot hold is the QS's reading, citing the entity (I-388) | OWED | the orchestrator's refuter pass (built by MANUAL-LAW, D-005's owed guard) |
 | I-573 | a QS arranges the chest by habit, and a digit that moves when another condition is removed breaks muscle memory | the digit is project data or nothing; a per-browser digit disagrees across the team; re-ordering is owed with an order column | OWED | S5's successor |
 | I-574 | a separate CONDITION_KIND_NOT_OFFERED is one more code for what the form already prevents | the door is also the tRPC lane, which any caller reaches; a refusal whose sentence is false for its case is worse than one more code | OWED | S5 |
 | I-575 | a chest that reads "—" for every condition until S3 lands looks broken in a demo | it is the true state (measured, not billed), said in the tooltip; a traced m² would be a second, unsigned figure for the scope | OWED | S3, S5 |
@@ -2168,6 +2355,11 @@ per-Interpretation verdict, so those rows stay OWED, and their objections below 
 | I-587 | refusing an act for the gate's reason puts a gate code in the card, and recording an unpaired kind lets a measurement sight a cell it never bills | the card's figure is the gate's, so its refusal is too; an unpaired kind's cell reads NOT_ESTABLISHED, which is the truth, and the chest authors paired conditions only | OWED | S6, S7 |
 | I-588 | citing the act for an ENTERED thickness hides the condition it came from | the measurement snapshots the recipe with its condition id (I-374), and the act row names the person; the act is where a reader takes recourse | OWED | S7 |
 | I-589 | refusing the machine's queued arm hides an exclusion the machine would have declared | the cell is the person's by a stored fact; the machine's reading of it would be a second statement about one scope, and the refusal names why (CELL_MEASURED_BY_HAND) | OWED | S6 |
+| I-616 | a note that names no material may still be the only statement of a blinding's thickness | then the condition's reading stands and the QS may edit it; offering an unnamed figure invites the slab's thickness into the blinding, an over-measurement one pick away | OWED | S6 |
+| I-617 | a default level is a machine choice shown as the QS's | it is the caption's, read by the one resolver, shown in the Select and changeable; a caption stating a set or none offers no default | OWED | S6 |
+| I-618 | a card anchored at a corner covers the drawing beside the point, and the gross and Less rows belong on the card | the card is modal (I-373), so what it covers cannot be touched while it stands; the gate's formula states every bound variable, and the book's rows are S7's, one home | OWED | S6 |
+| I-619 | reading an act through to its ring makes an entered figure look drawn | the Trace flies to where the measurement stands, and the line's basis still says ENTERED; a reader loses nothing and gains the way back | OWED | S6 |
+| I-620 | mapping paper points on the client trusts a float inverse the act cannot check | the act re-derives every snapped point against the drawing (I-387) and refuses a point off its view by name; the map is the viewer's own projection, read on the server | OWED | S6 |
 
 **D-005 — entered** (session 9: the refuter rejected I-388 — L-FRM-04 defers polygon plans outright and states `(L + 2p)(B + 2p)t` with no hand/machine split, so dropping p is a departure, not a reading). Its row and section are in `docs/decisions/deviations.md`.
 
@@ -2271,6 +2463,14 @@ Risks this Decision leaves the orchestrator:
   and `data-presentation`, the Mod+Enter confirm, and the consumer error boundary).
 - **`src/ui/shell/shortcuts/roster.ts`** and `src/ui/strings/shortcuts.ts`: the six roster lines of
   I-372 with their labels (§4), landed by S4 and S5.
+- **S6 (the card over the act)**: MANUAL-LAW's three refusals answer inside the card like every
+  `MANUAL_*` code (§5): the registry's message and remedy through the one RefusalState, and the
+  evidence link §5 names. `MANUAL_BLINDING_PAST_MEMBER` carries `member`, the source key of the
+  outline the ring runs past: the card links it and the viewer selects that entity, so the QS sees
+  the outline they should have traced. `MANUAL_PAIRING_NOT_OFFERED` carries `kind`, `ruleId`,
+  `elementClass` and `geometry`, and links to the chest. `MANUAL_POINT_ON_RASTER` carries `sources`,
+  the scan's keys the point stood on. And the card's figure moves for a constrained trace: a Shift or
+  Ortho run and a rectangle are stored as drawn (I-499, I-500), so the preview's figure is the square's.
 
 ## 14. Recorded IOUs (owner named, never a comment in `src/`)
 
@@ -2297,33 +2497,43 @@ Risks this Decision leaves the orchestrator:
 - Re-ordering the chest, and with it a chosen digit (I-573): an order column on `conditions`.
   Owner: S5's successor, with a migration.
 - The status line's `data-condition` (§9): the measure cell names the picked condition in words
-  (`measure_status_drawing`), and `status-line.tsx` does not yet carry its id. Owner: S6, with the
-  card that records under it.
+  (`measure_status_drawing`), and `status-line.tsx` does not yet carry its id. S6 did not reach it
+  (the card records through the picked condition, and the leg reads the chest's row). Owner: VD-4, the
+  status line's owner, or S7.
+- The card's Mod+Enter confirm and its transparent scrim (I-618): the pattern's Confirm button and
+  scrim stand. Owner: DLG-1's successor.
+- The register's and the draft BOQ's servers reading `act:` keys through `actSourcesOf` (I-619), and
+  the register's OBJECT row of a hand measurement offering its Trace (its `~m.` placement key names no
+  drawn member, so `entitySelectionOf` answers none): read the measurement's ring instead. Owner: M4P-6
+  (the register's owner this wave), or S7 with the book.
 - Drafts persisted across a reload or offline. Owner: the prefs seam's node (viewer I-84, unpaid).
 - `VIEW_SCALE_UNAFFIRMED`'s wording for hand measurers (§5). Owner: the frame errors' owner.
 - The re-pin carry (I-394). Owner: the slice that builds REPIN_DRAWING_SET.
 - The partition keying the anchorless view as `v:UNASSIGNED:FILE:<sha256>`, per drawing, and naming a
   page's space (I-375). Today it spells the bare `UNASSIGNED`, which two drawings of one project
   share; the manual door derives its own spelling meanwhile. Owner: M4P-2.
-- A guard that holds a blinding ring inside its member's ring plus the edition's p (I-388). It needs
-  the member measured on the same view. Owner: S2's successor.
+- ~~A guard that holds a blinding ring inside its member's ring plus the edition's p (I-388).~~ Built
+  by MANUAL-LAW (I-614): the member is the drawn closed outline covering most of the ring,
+  with no p (D-005), and no register member is needed.
+- A free point placed over raster content, judged INTERPRETED at the door (I-387). The door judges
+  a snapped point on a scan today; a free one needs the view's raster region, which the partition
+  does not name. Latent while I-386 refuses every scan. Owner: M4P-6, with the INTERPRETED exit.
 - The SOG blinding outline on S-08 that does not follow the chamfer (`found.py:229-230`, I-393).
   Owner: F-RCC6-BNBC's generator.
 - Typed "Less:" rows (ENTERED deductions, PWD practice) beside traced and register-derived ones.
   Owner: S9.
 - §3's reasons 3–5 (no campaign, not pinned, discipline) in the tool row and the measure cell, from a
-  read of them in the route (I-497). Owner: S6.
+  read of them in the route (I-497). S6's card refuses them by name at its preview; the read before the
+  first click is still owed. Owner: S7, or the slice that next reads the campaign in the viewer.
 - One home for the ring arithmetic (I-385). S4's running figure and its cut-out predicates compute in
   `viewer-measure/figure.ts` and `viewer-measure/rings.ts`, exactly, in BigInt, while S1's
   `src/core/manual/law.ts` was being written beside them. The two meet at integration, and whichever
   is not `law.ts` then calls it. Owner: the integrator, with S1.
 - The door re-checks a cut-out's containment exactly (I-372's rule is S4's on the client, and a client
   is not trusted, I-387). Owner: S1/S3.
-- The point on paper, mapped back to model space (I-501, I-378). The viewer now carries a figure
-  through its window (the calibration door answers the sheet's windows; `sheetMeasuring` carries a
-  span through the one window it stands in). What an act keys and measures must still be the model
-  point: a point placed on a paper sheet is mapped back through its window before the door re-derives
-  it. Owner: S1/S6. The sheet a QS two-point was taken on is not recorded (§12). Owner: S-Scale.
+- ~~The point on paper, mapped back to model space (I-501, I-378).~~ Built by S6 (I-620): the card
+  states a paper sheet's points in model space, carried back through the window they were drawn
+  through. The sheet a QS two-point was taken on is still not recorded (§12). Owner: S-Scale.
 - The remaining J-041 tools, assemblies and the sheet PDF. Owners: S9, S10, VD-6 and S11.
 - A view's extent has two readings: the partition overlay's box, read off the viewer's render
   records (a module), and the act's extent, read off the artifact's entity points (I-375). They agree
@@ -2531,3 +2741,38 @@ Risks this Decision leaves the orchestrator:
     listed against the golden are closed; the hand figure, 23.755468 m³, is unchanged and stands
     0.009532 m³ under the golden (the ramp's slope and the golden's rounding).
   - Proof: `tests/takeoff/manual/s-measure-decision.test.ts`, re-read over the Rev C DXF.
+- 2026-09-24 — MANUAL-LAW (session 9, wave 3c): the manual act does what this Decision says, on the
+  refuter's four findings (§11).
+  - I-499 and I-500 at the door: the act judges a ring whole (`judgeRing`) and keeps a coordinate
+    copied from a drawn point of the ring at that point's spelling, so an Ortho run is stored square
+    and a rectangle as the rectangle; only a truly free coordinate goes on the lattice.
+  - I-387 at the door: a point on a `RASTER_TRACE` key is INTERPRETED, and the act refuses it
+    `MANUAL_POINT_ON_RASTER` until M4P-6's INTERPRETED exit (§14 names the free-point half).
+  - I-539 at the door: the act refuses any recipe whose (geometry, class, kind, rule id) the roster
+    does not pair, `MANUAL_PAIRING_NOT_OFFERED`; I-587's `not-offered` recording arm is gone. The
+    footing row names L-FRM-04's p and D-005.
+  - I-614, D-005's owed guard: a blinding ring running past the drawn closed outline that
+    covers most of it is refused `MANUAL_BLINDING_PAST_MEMBER`, naming that member (§14's IOU closed).
+  - §5 gains the three codes; §13 tells S6 what the card shows for them. The rows for I-387, I-499,
+    I-500 and I-539 read CONFIRMED with their proofs; I-614's verdict is owed.
+  - Proofs: `tests/takeoff/manual/manual-law.test.ts`, `tests/takeoff/manual/record-manual-measurement.test.ts`,
+    and live `tests/takeoff/manual/manual-law.db.test.ts`, `tests/takeoff/manual/manual-act.test.ts`
+    and `tests/server/manual-authorize.db.test.ts`.
+- 2026-09-24 — S6 (session 9, wave 3c): the card, and J-000's manual leg walks.
+  - The card is the ConsequenceDialog over RECORD_MANUAL_MEASUREMENT, anchored at the closing point
+    (`measure-card.tsx`, `cardAt`), opened by a finished shape under a picked condition, with the level,
+    each reading's source and each cut-out's role above the gate's figure and formula; Confirm records
+    and asks the campaign's run; Escape keeps the draft (I-616 … I-618). The pattern's own Decision
+    gained the arm, `controls` and `anchor` (consequence-dialog.md, session 9 amendment).
+  - The card's three doors in the viewer route's actions: preview and commit through the takeoff
+    lane's one resolution and schema (`takeoff-manual.ts` exports them), and `readMeasureCard`
+    (`src/modules/takeoff/measure/card.ts`).
+  - A paper sheet's points are stated in model space through their window (I-620); the §14 IOU is
+    closed.
+  - The Trace reads `act:` keys through to the measurement's ring (I-619).
+  - `measure_status_condition_pending` left the string table; `measure_status_recorded` and
+    `measure_card_failed` joined it.
+  - Proofs: `tests/takeoff/viewer-measure/measure-card.test.tsx`, `card-place.test.ts`,
+    `tests/takeoff/manual/measure-card-offer.test.ts`, `tests/takeoff/trace/act-sources.test.ts`, and
+    J-000's `m4-sheet-and-manual-measure` (run by the integrator). Refuter verdicts on I-616 … I-620
+    are owed (§11).

@@ -166,4 +166,48 @@ describe("the manual measurement doors, at the guard", () => {
     expect(await refusalFrom(() => door.preview({ input: measurement(projectId, drawingId) }), "a hand measurement on a project with no campaign"), "a measurement has no revision to stand in").toBe(noCampaign);
     expect(actsRecorded(measurer.tenantId)).toBe(0);
   }, BUDGET_MS);
+
+  it("takes a rule id at the door and leaves the pairing to the act, which refuses one MANUAL_RULES does not hold by name at both doors (I-539)", async () => {
+    await openStage();
+    const measurer = await enrol("manual-door-unpaired");
+    const { projectId, drawingId } = await projectFor(measurer, "Manual — unpaired", MEASURER);
+    const unpaired = (await codes())["MANUAL_PAIRING_NOT_OFFERED"]?.code;
+    expect(unpaired, "the register publishes MANUAL_PAIRING_NOT_OFFERED (Q-07)").toBeDefined();
+    const door = await doorFor(measurer);
+    const statement = measurement(projectId, drawingId);
+    const recipe = statement["recipe"] as Record<string, unknown>;
+    const cases: readonly [string, Record<string, unknown>][] = [
+      ["a pile cap's blinding", { ...recipe, elementClass: "pile_cap" }],
+      ["a footing's blinding", { ...recipe, elementClass: "footing" }],
+      ["a slab's formwork", { ...recipe, kinds: [{ kind: "rcc.formwork", ruleId: "rcc.formwork.slab" }], readings: [] }],
+      ["the slab's blinding under the machine's rectangle rule", { ...recipe, kinds: [{ kind: "pcc.blinding", ruleId: "pcc.blinding_rect" }] }],
+    ];
+    for (const [what, stated] of cases) {
+      const input = { ...statement, recipe: stated };
+      expect(await refusalFrom(() => door.preview({ input }), `${what} previewed`), `${what} is no pairing a hand measurement is offered under`).toBe(unpaired);
+      expect(await refusalFrom(() => door.commit({ input, consequenceDigest: "0".repeat(64) }), `${what} recorded`), "and the commit door answers the same").toBe(unpaired);
+    }
+    expect(actsRecorded(measurer.tenantId), "a refused pairing writes no act").toBe(0);
+  }, BUDGET_MS);
+
+  it("the card's read (S6, I-617): refused by name without MEASURE; a MEASURER is answered the stack, and the drawing is bound to the project", async () => {
+    await openStage();
+    type CardRead = (userId: string, asked: Record<string, unknown>) => Promise<{ space: string; windows: unknown[]; levels: unknown[]; levelId: string | null; notes: unknown[] }>;
+    const { readHandMeasurementCard } = await productModule<{ readHandMeasurementCard: CardRead }>(ROUTER_MODULE);
+    const asked = (projectId: string, drawingId: string): Record<string, unknown> => ({ projectId, drawingId, sheetName: "S-08", viewKey: "LAYOUT_PLAN:DXF_HANDLE:2073", kinds: ["pcc.blinding"], attributes: ["t"] });
+    const permission = (await codes())["PERMISSION_NOT_HELD"]?.code;
+
+    const reviewer = await enrol("manual-card-reviewer");
+    const refused = await projectFor(reviewer, "Manual card — reviewer", REVIEWER);
+    expect(await refusalFrom(() => readHandMeasurementCard(reviewer.userId, asked(refused.projectId, refused.drawingId)), `a ${REVIEWER} reading the card`), "the read asks MEASURE (L-ACT-03)").toBe(permission);
+
+    const measurer = await enrol("manual-card-measurer");
+    const own = await projectFor(measurer, "Manual card — measurer", MEASURER);
+    const answered = await readHandMeasurementCard(measurer.userId, asked(own.projectId, own.drawingId));
+    expect(answered, "a project with no stack and a drawing nobody has read offers nothing, and states the sheet itself").toEqual({ space: "S-08", windows: [], levels: [], levelId: null, notes: [] });
+
+    // Another project's drawing, named from this one: the guard binds the drawing to the project (R-SPINE-004).
+    const elsewhere = await projectFor(measurer, "Manual card — another project", MEASURER);
+    expect(await refusalFrom(() => readHandMeasurementCard(measurer.userId, asked(own.projectId, elsewhere.drawingId)), "a drawing of another project"), "never answered across projects").not.toBeNull();
+  }, BUDGET_MS);
 });

@@ -7,7 +7,8 @@ import type { RefusalGroup } from "./law";
 /** Every code this area registers. The barrel folds this union into `RefusalCode` (B-19). */
 export type TakeoffPlacementsRefusalCode =
   | "TYPICAL_RANGE_UNSTATED"
-  | "LEVEL_RANGE_ENDPOINT_UNMAPPED";
+  | "LEVEL_RANGE_ENDPOINT_UNMAPPED"
+  | "FRAMED_PAIR_UNNAMED";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const TAKEOFF_PLACEMENTS_REFUSALS: RefusalGroup<TakeoffPlacementsRefusalCode> = Object.freeze({
@@ -29,6 +30,16 @@ export const TAKEOFF_PLACEMENTS_REFUSALS: RefusalGroup<TakeoffPlacementsRefusalC
     message: "The level stack carries no level at one end of this range, so the range reaches past the building that was authored.",
     remedy: "Author the level this range runs to, then state the range again.",
     severity: "error",
+    surface: "inline",
+  }),
+  // I-613: a pair of edge lines a plan draws at a width a framed member's schedule states, that
+  // no mark names — its own, a chain's or another plan's at the same grid reference. Known scope, not
+  // measured: L-QTY-04's declared exclusion, enumerated on the measurement boundary, never counted.
+  FRAMED_PAIR_UNNAMED: Object.freeze({
+    code: "FRAMED_PAIR_UNNAMED",
+    message: "The plan draws this beam, but no mark on the drawings names it, so nothing of it is measured.",
+    remedy: "Take it off by hand from the plan that draws it, or have the drawing lettered and ingest the revision.",
+    severity: "info",
     surface: "inline",
   }),
 });

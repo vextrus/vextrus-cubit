@@ -69,6 +69,7 @@ export {
   noteClauseProposals,
   placements,
   placementRuns,
+  placementUnnamedPairs,
   placementOutlines,
   expansionDeferrals,
   proposedLevels,

@@ -10,7 +10,7 @@
  */
 import { describe, expect, test } from "vitest";
 import { ACT_MAP, ACT_PERMISSION, ACT_TYPES, consequenceDigest, type Consequence } from "../../../src/core/acts";
-import { deriveMeasurement, type Derived, type ManualReader, type RecordManualMeasurementInput } from "../../../src/core/acts/record-manual-measurement";
+import { deriveMeasurement, statedLevel, type Derived, type ManualReader, type RecordManualMeasurementInput } from "../../../src/core/acts/record-manual-measurement";
 import { REFUSALS } from "../../../src/core/errors";
 import { refusalCodeOf } from "../../../src/core/faults/refusal-marker";
 import { levelSegment } from "../../../src/core/identity";
@@ -265,10 +265,10 @@ describe("S1: the act's judgement over what stands", () => {
   });
 
   test("a foundation class stands in the FOUNDATION slot whatever was stated; a class on a storey never does (I-377, L-CAD-07)", async () => {
+    // No foundation pairing is offered by hand yet (I-539), so the level reading is asked directly.
     const footing: Recipe = { ...RECIPE, conditionName: "75 CC blinding under footings", elementClass: "footing" };
-    const derived = await deriveMeasurement(tracing({ recipe: footing, level: { levelId: GF } }), readerOf(world()));
-    expect(derived.measurement.level, "the slot the placement stands a drawn footing in, so the two meet in one cell (I-382)").toEqual({ slot: "FOUNDATION" });
-    expect(derived.measurement.objectKey.endsWith("@FOUNDATION")).toBe(true);
+    expect(statedLevel(tracing({ recipe: footing, level: { levelId: GF } }), new Set([GF])), "the slot the placement stands a drawn footing in, so the two meet in one cell (I-382)").toEqual({ slot: "FOUNDATION" });
+    expect(statedLevel(tracing({ recipe: footing, level: null }), new Set([GF]))).toEqual({ slot: "FOUNDATION" });
     await expectRefusal(deriveMeasurement(tracing({ level: { slot: "FOUNDATION" } }), readerOf(world())), REFUSALS.MANUAL_LEVEL_UNSTATED.code);
   });
 
@@ -369,5 +369,119 @@ describe("S1: a second measurement, an edit, a delete and a re-trace (I-379, I-3
     const third = await deriveMeasurement(tracing(), readerOf(twice));
     expect(third.measurement.supersedes).toBe(retrace.measurement.objectKey);
     expect(new Set([first, retrace, third].map((d) => d.measurement.objectKey)).size, "three keys, one per act").toBe(3);
+  });
+});
+
+describe("MANUAL-LAW: the act stores what the QS traced — an Ortho run square, a rectangle as the rectangle (I-499, I-500)", () => {
+  /** S-08's 81D as the DXF spells it, on the plan: its chamfer's vertices are no lattice points. */
+  const SOG = "DXF_HANDLE:81D";
+  const SOG_POINTS: readonly [number, number][] = [
+    [-125, -400125],
+    [20546.6, -400125],
+    [20546.6, -384025.4],
+    [2691.423304703363, -384025.4],
+    [-125, -386841.82330470334],
+  ];
+  const s08 = world({ facts: { shapes: new Map([[SOG, { space: "model", paths: [{ points: SOG_POINTS, closed: true }] }]]), assigned: new Map([[SOG, PLAN]]), axes: new Map() } });
+  const outline = (outer: StatedPoint[]): RecordManualMeasurementInput => tracing({ geometry: { geometry: "POLYGON", outer, cutouts: [] } });
+  const spelled = (derived: Derived): string[] => (derived.measurement.traced.geometry === "POLYGON" ? derived.measurement.traced.outer.map((point) => `${point.x},${point.y}`) : []);
+
+  test("an Ortho run from the chamfer's foot is stored square, and its figure is the square's", async () => {
+    const foot = { x: -125, y: -386841.82330470334 };
+    const derived = await deriveMeasurement(
+      outline([
+        { ...foot, cites: [SOG] },
+        { x: 3000.04, y: foot.y, cites: [] },
+        { x: 3000.04, y: -395000.06, cites: [] },
+        { x: -125, y: -395000.06, cites: [SOG] },
+      ]),
+      readerOf(s08),
+    );
+    expect(spelled(derived)).toEqual(["-125,-386841.82330470334", "3000.0,-386841.82330470334", "3000.0,-395000.06", "-125,-395000.06"]);
+    expect([derived.measurement.figure.gross, derived.measurement.basis, derived.measurement.demoted], "3125 mm × 8158.23669529666 mm, placed partly by hand").toEqual(["25494489.6728020625", "ENTERED", 0]);
+  });
+
+  test("a rectangle with one corner snapped to the chamfer's head and one placed by hand is stored as the rectangle", async () => {
+    const head = { x: 2691.423304703363, y: -384025.4 };
+    const hand = { x: 5000.03, y: -390000.07 };
+    const derived = await deriveMeasurement(
+      outline([
+        { ...head, cites: [SOG] },
+        { x: hand.x, y: head.y, cites: [] },
+        { ...hand, cites: [] },
+        { x: head.x, y: hand.y, cites: [] },
+      ]),
+      readerOf(s08),
+    );
+    expect(spelled(derived)).toEqual(["2691.423304703363,-384025.4", "5000.0,-384025.4", "5000.0,-390000.1", "2691.423304703363,-390000.1"]);
+    expect(derived.measurement.figure.gross).toBe("13793053.1813888170839");
+  });
+});
+
+describe(`MANUAL-LAW: a recipe is recorded only under a pairing MANUAL_RULES holds — ${REFUSALS.MANUAL_PAIRING_NOT_OFFERED.code} (I-539)`, () => {
+  const unpaired: readonly [string, Recipe][] = [
+    ["a pile cap's blinding (its piles are not offered from a hand trace)", { ...RECIPE, elementClass: "pile_cap" }],
+    ["a footing's blinding (no proof walks one)", { ...RECIPE, elementClass: "footing" }],
+    ["a slab's formwork (a contact face is not one trace's)", { ...RECIPE, kinds: [{ kind: "rcc.formwork", ruleId: "rcc.formwork.slab" }], readings: [] }],
+    ["a slab's concrete (its twin is owed)", { ...RECIPE, kinds: [{ kind: "rcc.concrete", ruleId: "rcc.slab.concrete" }], readings: [] }],
+    ["the slab's blinding under the machine's rectangle rule", { ...RECIPE, kinds: [{ kind: "pcc.blinding", ruleId: "pcc.blinding_rect" }] }],
+    ["a paired kind beside an unpaired one", { ...RECIPE, kinds: [...RECIPE.kinds, { kind: "rcc.formwork", ruleId: "rcc.formwork.slab" }] }],
+  ];
+  for (const [what, recipe] of unpaired) {
+    test(`${what} is refused by name, before anything is read`, async () => {
+      await expectRefusal(deriveMeasurement(tracing({ recipe }), readerOf(world({ campaign: false }))), REFUSALS.MANUAL_PAIRING_NOT_OFFERED.code);
+    });
+  }
+
+  test("the pairing the roster holds is recorded", async () => {
+    await expect(deriveMeasurement(tracing(), readerOf(world()))).resolves.toBeDefined();
+  });
+});
+
+describe(`MANUAL-LAW: a point on a traced scan is INTERPRETED, and the act refuses it until the register holds one — ${REFUSALS.MANUAL_POINT_ON_RASTER.code} (I-387)`, () => {
+  const SCAN = `RASTER_TRACE:${"B".repeat(64)}`;
+  const scanned = world({
+    facts: { ...world().facts, shapes: new Map([...world().facts.shapes, [SCAN, { space: "model", paths: [{ points: SLAB_POINTS, closed: true }] }]]), assigned: new Map([...world().facts.assigned, [SCAN, PLAN]]) },
+  });
+
+  test("an outline snapped to a scan's traced primitive is refused, never recorded MEASURED", async () => {
+    await expectRefusal(deriveMeasurement(tracing({ geometry: { geometry: "POLYGON", outer: snapped(SLAB_POINTS, SCAN), cutouts: [] } }), readerOf(scanned)), REFUSALS.MANUAL_POINT_ON_RASTER.code);
+    const one = snapped(SLAB_POINTS, SLAB);
+    one[1] = { x: 10000, y: 0, cites: [SLAB, SCAN] };
+    await expectRefusal(deriveMeasurement(tracing({ geometry: { geometry: "POLYGON", outer: one, cutouts: [] } }), readerOf(scanned)), REFUSALS.MANUAL_POINT_ON_RASTER.code);
+  });
+
+  test("the same outline snapped to the vector slab is recorded", async () => {
+    await expect(deriveMeasurement(tracing(), readerOf(scanned))).resolves.toBeDefined();
+  });
+});
+
+describe(`MANUAL-LAW: a blinding outline that runs past its member is refused — ${REFUSALS.MANUAL_BLINDING_PAST_MEMBER.code} (D-005)`, () => {
+  /** A slab outline on the plan and, round it, a drawn blinding rectangle 75 mm out on every side as four LINEs (S-08's Rev B). */
+  const BLINDING: readonly [number, number][] = [
+    [-75, -75],
+    [10075, -75],
+    [10075, 8075],
+    [-75, 8075],
+  ];
+  const LINES = BLINDING.map((from, index) => [`DXF_HANDLE:${(0x824 + index).toString(16).toUpperCase()}`, from, BLINDING[(index + 1) % BLINDING.length] as [number, number]] as const);
+  const drawn = world({
+    facts: {
+      ...world().facts,
+      shapes: new Map([...world().facts.shapes, ...LINES.map(([key, from, to]) => [key, { space: "model", paths: [{ points: [from, to], closed: false }] }] as const)]),
+      assigned: new Map([...world().facts.assigned, ...LINES.map(([key]) => [key, PLAN] as const)]),
+    },
+  });
+  /** Each corner of the drawn rectangle, snapped on the two LINEs that meet there. */
+  const corners: StatedPoint[] = BLINDING.map(([x, y], index) => ({ x, y, cites: [LINES[(index + 3) % 4]?.[0] ?? "", LINES[index]?.[0] ?? ""] }));
+
+  test("the drawn blinding rectangle traced over the slab is refused, naming the slab", async () => {
+    const work = deriveMeasurement(tracing({ geometry: { geometry: "POLYGON", outer: corners, cutouts: [{ role: "OPENING", ring: snapped(PIT_POINTS, PIT) }] } }), readerOf(drawn));
+    await expectRefusal(work, REFUSALS.MANUAL_BLINDING_PAST_MEMBER.code);
+    await expect(work.catch((failure: unknown) => (failure as { member?: unknown }).member), "the refusal names the member the card shows").resolves.toBe(SLAB);
+  });
+
+  test("the slab's own outline, on the same sheet, is recorded", async () => {
+    await expect(deriveMeasurement(tracing(), readerOf(drawn))).resolves.toBeDefined();
   });
 });

@@ -212,6 +212,52 @@ describe("I-411: a range to `TOP` runs to the storey beneath the roof, or defers
   });
 });
 
+describe("I-621, I-622: a roof above the roof is a storey of its own, and its plan's verticals stand on the roof", () => {
+  const WITH_SRR = stackOf("GF", "1F", "2F", "3F", "4F", "5F", "6F", "ROOF", "SRR", "MRR");
+
+  test.each([
+    ["STAIR ROOF BEAM LAYOUT  SCALE 1:100", [{ from: "SRR", to: "SRR" }]],
+    ["STAIR-ROOM ROOF BEAM LAYOUT", [{ from: "SRR", to: "SRR" }]],
+    ["STAIRCASE ROOF BEAM LAYOUT", [{ from: "SRR", to: "SRR" }]],
+    ["{\\LMACHINE ROOM ROOF} BEAM LAYOUT", [{ from: "MRR", to: "MRR" }]],
+    ["LIFT MACHINE ROOM ROOF BEAM LAYOUT", [{ from: "MRR", to: "MRR" }]],
+    ["SRR BEAM LAYOUT", [{ from: "SRR", to: "SRR" }]],
+    ["ROOF & STAIR ROOF PLAN  SCALE 1:100", [{ from: "ROOF", to: "ROOF" }, { from: "SRR", to: "SRR" }]],
+    ["COLUMN SCHEDULE ROOF-SRR", [{ from: "ROOF", to: "SRR" }]],
+    ["ROOF BEAM LAYOUT (AT ROOF LEVEL)", [{ from: "ROOF", to: "ROOF" }, { from: "ROOF", to: "ROOF" }]],
+    ["STAIR PLAN AT 1ST FLOOR (TYPICAL)", [{ from: "1ST", to: "1ST" }]],
+  ])("%s states %j, never ROOF by the word alone", (caption, runs) => {
+    expect(levelRunsOf(caption)).toEqual(runs);
+  });
+
+  test("the words a caption says are read whole: STAIR ROOF is one level word, not STAIR and ROOF", () => {
+    expect(levelWordsOf("ROOF & STAIR ROOF PLAN")).toEqual(["ROOF", "SRR"]);
+    expect(levelWordsOf("STAIR PLAN AT GROUND FLOOR")).toEqual(["GF"]);
+  });
+
+  test("over a stack that states the stair room's roof, its beams stand there and its columns on the roof they rise from", () => {
+    expect(resolved("STAIR ROOF BEAM LAYOUT", WITH_SRR).rows.sort()).toEqual(["B1@SRR:MEASURED", "C1@ROOF:MEASURED"]);
+    expect(resolved("MACHINE ROOM ROOF BEAM LAYOUT", WITH_SRR).rows.sort()).toEqual(["B1@MRR:MEASURED", "C1@ROOF:MEASURED"]);
+  });
+
+  test("over a stack that does not, its beams wait under SRR's placeholder — a deferral by name, never the roof — and its columns stand on the roof", () => {
+    const { rows, deferrals } = resolved("STAIR ROOF BEAM LAYOUT  SCALE 1:100");
+    expect(rows.sort()).toEqual(["B1@@SRR:MEASURED", "C1@ROOF:MEASURED"]);
+    expect(deferrals).toEqual([]);
+  });
+
+  test("a set naming the roof and the stair room's roof defers its beams naming SRR, and stands its columns on the roof alone", () => {
+    const { rows, deferrals } = resolved("ROOF & STAIR ROOF PLAN");
+    expect(rows).toEqual(["C1@ROOF:MEASURED"]);
+    expect(deferrals.map((deferral) => [deferral.reason, deferral.fromLabel, deferral.toLabel])).toEqual([["LEVEL_RANGE_ENDPOINT_UNMAPPED", "SRR", "SRR"]]);
+    expect(resolved("ROOF & STAIR ROOF PLAN", WITH_SRR).rows.sort()).toEqual(["B1@ROOF:MEASURED", "B1@SRR:DERIVED", "C1@ROOF:MEASURED"]);
+  });
+
+  test("a plan of verticals alone that the stack carries defers nothing for the beams it does not draw", () => {
+    expect(resolved("ROOF & STAIR ROOF PLAN", STACK, [member("C1", "column", 1)]).deferrals).toEqual([]);
+  });
+});
+
 describe("F-RCC6-BNBC's and F-RCC6's own captions read exactly as they did, so the J-000 read-back does not move", () => {
   test.each([
     ["TYPICAL FLOOR BEAM LAYOUT", ["@UNRESOLVED"]],

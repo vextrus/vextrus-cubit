@@ -30,7 +30,10 @@ export type ManualRefusalCode =
   | "CONDITION_KIND_NOT_BORNE"
   | "CONDITION_KIND_NOT_OFFERED"
   | "CONDITION_NOT_IN_CHEST"
-  | "MANUAL_JUNCTION_UNPROVEN";
+  | "MANUAL_JUNCTION_UNPROVEN"
+  | "MANUAL_PAIRING_NOT_OFFERED"
+  | "MANUAL_POINT_ON_RASTER"
+  | "MANUAL_BLINDING_PAST_MEMBER";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const MANUAL_REFUSALS: RefusalGroup<ManualRefusalCode> = Object.freeze({
@@ -191,6 +194,35 @@ export const MANUAL_REFUSALS: RefusalGroup<ManualRefusalCode> = Object.freeze({
     code: "MANUAL_JUNCTION_UNPROVEN",
     message: "The register holds columns or walls on this level that this sheet cannot place, so the outline may hold them without deducting them.",
     remedy: "Measure on a sheet whose grid ties to the columns' sheet.",
+    severity: "warning",
+    surface: "dialog",
+  }),
+  // I-539: a hand measurement is offered under a pairing `MANUAL_RULES` holds, or not at all. One
+  // it does not hold — a class, kind or rule the product has not proved by hand yet — would register
+  // a row and claim a cell that no method bills.
+  MANUAL_PAIRING_NOT_OFFERED: Object.freeze({
+    code: "MANUAL_PAIRING_NOT_OFFERED",
+    message: "No hand-measurement method measures this kind for this class from this shape yet, so the measurement could never be billed.",
+    remedy: "Measure with a condition from the chest: it offers only the kinds a hand measurement can bill.",
+    severity: "warning",
+    surface: "dialog",
+  }),
+  // I-387, L-QTY-01: a point on a traced scan is INTERPRETED, and a register row stands MEASURED or
+  // DERIVED until M4P-6 widens it, so a hand measurement over a scan is not recorded yet.
+  MANUAL_POINT_ON_RASTER: Object.freeze({
+    code: "MANUAL_POINT_ON_RASTER",
+    message: "A point of this outline stands on a traced scan, and a hand measurement over a scan cannot be recorded yet.",
+    remedy: "Snap every point to the drawing's own lines, or measure on a sheet drawn in vector lines.",
+    severity: "warning",
+    surface: "dialog",
+  }),
+  // D-005, L-QTY-04: a blinding traced by hand is measured over its member's outline with no
+  // projection. An outline that runs past the member it mostly covers bills blinding where no member
+  // stands: over-measurement, a hard block.
+  MANUAL_BLINDING_PAST_MEMBER: Object.freeze({
+    code: "MANUAL_BLINDING_PAST_MEMBER",
+    message: "This blinding outline runs past the outline of the member it lies under, so it would bill blinding where the drawing places no member.",
+    remedy: "Trace the member's own outline instead: a hand-traced blinding is measured over its member, with no projection.",
     severity: "warning",
     surface: "dialog",
   }),

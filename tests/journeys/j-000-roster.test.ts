@@ -43,16 +43,24 @@ const MILESTONE_MARKER = /^\[M(\d+)\]\s*/;
 /** The rider that carries J-000's M3 and M4 segments, because a clause is never edited (L34, AM-15). */
 const RIDER_ID = "AM-17";
 
-/** The milestones whose legs must RUN today, in the order the directory names them (m3 since session 4, AM-17). */
-const SHIPPED = ["m0", "m1", "m2", "m3"] as const;
 /**
- * The milestones AM-09 §3 writes into the path ahead of the product, as declared stubs. M4 stays here
- * in session 7: the owner ruled "M3 breadth first", nothing of M4 is built, and a milestone none of
- * whose legs runs has not shipped (Q-03). The increment that walks M4's first segment moves it to
- * SHIPPED — and the "AM-09 §3's explicit legs" case below reads this list, so emptying it early would
- * leave that case comparing nothing to nothing.
+ * The milestones whose legs must RUN today, in the order the directory names them (m3 since session 4,
+ * AM-17; m4 since session 9, when S6 walked its first segment — the manual condition — and the three
+ * files still owing a door stand whole on it under the SHIPPED grade's door rule).
  */
-const ANNOUNCED = ["m4"] as const;
+const SHIPPED = ["m0", "m1", "m2", "m3", "m4"] as const;
+/**
+ * The milestones AM-09 §3 writes into the path ahead of the product, as declared stubs. None stands
+ * announced since M4 walked its first segment (session 9); a later milestone the Bible announces joins
+ * here until its first leg walks. The announced grade's rule stays proved on payloads below.
+ */
+const ANNOUNCED: readonly string[] = [];
+/**
+ * The legs AM-09 §3 names explicitly ("an M3 leg and an M4 leg"): whichever grade they stand at, a
+ * file of theirs must stand in the directory. Read apart from ANNOUNCED, so a milestone shipping does
+ * not turn that case into a comparison of nothing with nothing.
+ */
+const EXPLICIT = ["m4"] as const;
 
 /** The words a stub's title opens with when the product owes its leg a door (AM-09 §2: "a missing screen"). */
 const MISSING_DOOR = "MISSING DOOR:";
@@ -331,8 +339,8 @@ describe("AM-09 §2: the golden path is a directory, and its legs are derived fr
     const explicit = /\(3\) EXPLICIT LEGS\.([\s\S]*?)\(4\)/.exec(amendment);
     expect(explicit, "AM-09 §3 names the two legs the golden path's text gained").not.toBeNull();
     const named = (explicit as RegExpExecArray)[1] ?? "";
-    const owed = (ANNOUNCED as readonly string[]).filter((milestone) => new RegExp(`an ${milestone.toUpperCase()} leg`).test(named));
-    expect(owed, "the amendment names an M3 leg and an M4 leg").toEqual([...ANNOUNCED]);
+    const owed = (EXPLICIT as readonly string[]).filter((milestone) => new RegExp(`an ${milestone.toUpperCase()} leg`).test(named));
+    expect(owed, "the amendment names an M3 leg and an M4 leg").toEqual([...EXPLICIT]);
 
     const declared = legs().map((leg) => leg.milestone);
     for (const milestone of owed) {

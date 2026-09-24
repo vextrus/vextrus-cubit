@@ -27,6 +27,12 @@
  * And J-000's Measure must not size it (I-461): the frame rail took the FOUNDATION slot's
  * level-less arm for it and bound S-17's one row, banded `2ND TO 6TH`, on a member whose word is 1ST —
  * two PARTIAL lines on a key no level carries, which I-368's read-back holds at none.
+ *
+ * TEST_AMENDED (SRR-LEV, I-621, I-622): Rev C draws a STAIR ROOF BEAM LAYOUT (W-49), whose
+ * caption names the stair room's roof, a storey of its own (SRR) the section's eight-storey stack does
+ * not carry. Its four beams SB-R1..SB-R4 wait under SRR's placeholder, reported and never measured,
+ * where the caption's word ROOF once stood them on the main roof beside its 46; its two C4 stubs rise
+ * from the roof and wait under ROOF's, as they did.
  */
 import { describe, expect, test } from "vitest";
 import type { Rail, RailSetup, RegisterObjectRow } from "@/core/offers/contract";
@@ -50,6 +56,12 @@ const RANGES: readonly { readonly caption: string; readonly from: string; readon
 
 /** The view whose caption names its storey in ordinal words. */
 const FIRST_FLOOR_PLAN = "v:LAYOUT_PLAN:DXF_HANDLE:2116";
+
+/** The view whose caption names the stair room's roof, a storey above the roof (W-49). */
+const STAIR_ROOF_PLAN = "v:LAYOUT_PLAN:DXF_HANDLE:2157";
+
+/** Its four beams, which stand at the stair room's roof and not on the main roof (I-621). */
+const STAIR_ROOF_BEAMS = ["SBR1", "SBR2", "SBR3", "SBR4"];
 
 /** The member of that plan its own schedule bands off its storey: S-17 details LB1 for 2ND TO 6TH, S-16 not at all. */
 const BANDED_OFF = "LB1";
@@ -228,17 +240,24 @@ describe("I-366 on F-RCC6-BNBC: J-000's register holds one object per beam place
     const read = await bnbc();
     const views = partitionArtifact(read.graph).views.flatMap((view) => (view.anchorKey === null ? [] : [{ caption: view.caption, view: { viewClass: view.type, captionAnchorSourceKey: view.anchorKey } }]));
     const pinned = resolveExpansion({ placements: read.placed.placements, views, levels: [], ranges: [] }).rows.filter((row) => "unregistered" in row.level);
-    expect(pinned.length, "50 beams, and nothing else, wait under a level nobody has authored (TEST_AMENDED, FRM-3: 23)").toBe(50);
-    expect(new Set(pinned.map((row) => `${row.placement.viewKey} ${row.placement.elementType} ${JSON.stringify(row.level)}`)), "all of S-13's, all beams, all under the caption's word").toEqual(
-      new Set([`${FIRST_FLOOR_PLAN} beam {"unregistered":"1ST"}`]),
-    );
+    expect(pinned.length, "S-13's 50 beams, and the stair roof plan's 4 beams and 2 stubs, wait under a level nobody has authored (TEST_AMENDED, FRM-3: 23; SRR-LEV: 50)").toBe(56);
+    const tally: Record<string, number> = {};
+    for (const row of pinned) {
+      const at = `${row.placement.viewKey} ${row.placement.elementType} ${JSON.stringify(row.level)}`;
+      tally[at] = (tally[at] ?? 0) + 1;
+    }
+    expect(tally, "S-13's beams under the caption's word; the stair roof's beams under its own storey, its columns under the roof they rise from (I-621, I-622)").toEqual({
+      [`${FIRST_FLOOR_PLAN} beam {"unregistered":"1ST"}`]: 50,
+      [`${STAIR_ROOF_PLAN} beam {"unregistered":"SRR"}`]: 4,
+      [`${STAIR_ROOF_PLAN} column {"unregistered":"ROOF"}`]: 2,
+    });
     expect(SECTION.some((level) => dotlessUpper(level.label) === "1ST"), "INSERT_LEVEL's letter-by-letter carry has nothing to carry them onto").toBe(false);
   }, BUDGET_MS);
 
-  test("walked through J-000's acts, the rebuild retires 49 onto 1F: 355 beam objects on the stack, the resolver's own rows, and LB1's placeholder the one I-367 keeps", async () => {
+  test("walked through J-000's acts, the rebuild retires 49 onto 1F: 355 beam objects on the stack, the resolver's own rows, LB1's placeholder the one I-367 keeps and the stair roof's four under SRR", async () => {
     const { register, resolved, carried } = await walked(true);
     expect(carried, "the 49 placeholders the resolver stands on 1F, carried once each by the rebuild after the stack is confirmed").toBe(49);
-    expect(perStorey(register, "beam"), "ROOF's 46, the 1F plan's 49, the typical plan's 52 on each of 2F..6F — and LB1 under the caption's word").toEqual({
+    expect(perStorey(register, "beam"), "ROOF's 46, the 1F plan's 49, the typical plan's 52 on each of 2F..6F — LB1 under the caption's word, and SB-R1..SB-R4 under the storey the stack does not carry").toEqual({
       ROOF: 46,
       "1F": 49,
       "2F": 52,
@@ -247,18 +266,25 @@ describe("I-366 on F-RCC6-BNBC: J-000's register holds one object per beam place
       "5F": 52,
       "6F": 52,
       "@unregistered:1ST": 1,
+      "@unregistered:SRR": 4,
     });
-    expect(keysOf(register, "beam").length, "one object per beam placement per storey the stack gives it, 355, and the one placeholder never carried").toBe(356);
+    expect(keysOf(register, "beam").length, "one object per beam placement per storey the stack gives it, 355, and the five placeholders never carried").toBe(360);
     const waiting = [...register.values()].filter((row) => "unregistered" in row.level);
     expect(
-      waiting.map((row) => `${row.placement.viewKey} ${row.placement.mark}`),
-      "no member waits under a word the stack carries but the one its own schedule bands off that storey (I-367)",
-    ).toEqual([`${FIRST_FLOOR_PLAN} ${BANDED_OFF}`]);
+      waiting.map((row) => `${row.placement.viewKey} ${row.placement.mark}`).sort(),
+      "no member waits under a word the stack carries but the one its own schedule bands off that storey (I-367) — and the stair roof's four wait under the storey it does not",
+    ).toEqual([`${FIRST_FLOOR_PLAN} ${BANDED_OFF}`, ...STAIR_ROOF_BEAMS.map((mark) => `${STAIR_ROOF_PLAN} ${mark}`)].sort());
     expect(resolved.filter((row) => row.placement.viewKey === FIRST_FLOOR_PLAN && row.placement.mark === BANDED_OFF), "the resolver stands S-13's LB1 on no level (L-FRM-02)").toEqual([]);
+    // The stair roof's two C4 stubs stand at ROOF by INSERT_LEVEL's carry of their pin placeholder
+    // (`@unregistered:ROOF`), and the resolver over the final state does not derive them again: C4's
+    // stub band `ROOF-SRR` names a storey this stack does not carry, so its other bands (GF..6TH) cut
+    // ROOF away. Pinned by name so a change to either side is seen; it predates SRR-LEV (Rev C, W-49).
+    const carriedStubs = [...register.values()].filter((row) => row.placement.viewKey === STAIR_ROOF_PLAN && row.placement.elementType === "column").map((row) => row.objectKey);
+    expect(carriedStubs.map((key) => key.replace(/^.*@/, "@")), "the two C4 stubs stand at ROOF, the roof they rise from (I-622)").toEqual(["@level-roof", "@level-roof"]);
     expect(
       [...register.keys()].filter((key) => !key.includes("@unregistered:")).sort(),
-      "the register IS the resolver's rows over the final state: nothing stands beside them but that placeholder",
-    ).toEqual(resolved.map((row) => row.objectKey).sort());
+      "the register IS the resolver's rows over the final state: nothing stands beside them but the placeholders and the two carried stubs",
+    ).toEqual([...resolved.filter((row) => !("unregistered" in row.level)).map((row) => row.objectKey), ...carriedStubs].sort());
   }, BUDGET_MS);
 
   test("and J-000's Measure reports LB1's placeholder rather than sizing it off S-17's band: no beam line on a key the stack does not carry (I-461, I-368)", async () => {
@@ -266,25 +292,27 @@ describe("I-366 on F-RCC6-BNBC: J-000's register holds one object per beam place
     const { register } = await walked(true);
     const markOf = new Map([...register.values()].map((row) => [row.objectKey, row.placement.mark]));
     const onPlaceholder = (key: string): boolean => key.includes("@unregistered:");
-    const [placeholder] = [...register.keys()].filter(onPlaceholder);
+    const [placeholder] = [...register.keys()].filter((key) => onPlaceholder(key) && markOf.get(key) === BANDED_OFF);
     expect(placeholder, "the walk leaves LB1's placeholder standing (the case above)").toBeDefined();
+    const stairRoof = [...register.keys()].filter((key) => key.endsWith("@unregistered:SRR")).sort();
+    expect(stairRoof.map((key) => markOf.get(key)).sort(), "and the stair roof's four under SRR's (the case above)").toEqual(STAIR_ROOF_BEAMS);
     for (const measured of measuredBeams(read, register)) {
       expect(measured.offered.length, `${measured.rail}: every one of the 355 beams on the stack is offered — J-000's beam lines, 2 × 355`).toBe(355);
       expect(measured.coverage, `${measured.rail}: each PARTIAL, no slab thickness read yet (FRM-4)`).toEqual(["PARTIAL_DECLARED"]);
       expect(measured.offered.filter(onPlaceholder), `${measured.rail}: nothing offered on a placeholder — the line would bind a band that does not reach 1F (L-FRM-02)`).toEqual([]);
       expect(
         measured.observed.filter((seen) => onPlaceholder(seen.key)),
-        `${measured.rail}: LB1 reported once, on its own key, under the code its band's silence is read as (L-QTY-04)`,
-      ).toEqual([{ key: placeholder, code: "SECTION_BAND_UNCOVERED" }]);
+        `${measured.rail}: LB1 and the stair roof's four reported once each, on their own keys, under the code a band's silence is read as (L-QTY-04)`,
+      ).toEqual([placeholder, ...stairRoof].map((key) => ({ key, code: "SECTION_BAND_UNCOVERED" })));
       // The family is not unreadable: where S-17's band reaches, the typical plan's LB1 is sized by it.
       const typicalLb1 = measured.offered.filter((key) => markOf.get(key) === BANDED_OFF).map((key) => (register.get(key)?.level as { levelId: string }).levelId.replace("level-", ""));
       expect(typicalLb1.sort(), `${measured.rail}: the typical plan's LB1 is sized on each floor its band covers, and on no other`).toEqual(["2F", "3F", "4F", "5F", "6F"]);
     }
   }, BUDGET_MS);
 
-  test("and without the rebuild's carry the same walk leaves 405 — the 49 standing twice — which is the defect J-000 measured", async () => {
+  test("and without the rebuild's carry the same walk leaves 409 — the 49 standing twice — which is the defect J-000 measured", async () => {
     const { register } = await walked(false);
-    expect(keysOf(register, "beam").length, "355 + the 50 placeholders beside their own 1F rows (TEST_AMENDED, FRM-3: 172 + 23 = 195)").toBe(405);
+    expect(keysOf(register, "beam").length, "355 + the 50 placeholders beside their own 1F rows + the stair roof's 4 (TEST_AMENDED, FRM-3: 172 + 23 = 195; SRR-LEV: 405)").toBe(409);
     expect(perStorey(register, "beam")["@unregistered:1ST"], "all 50 still under the caption's word").toBe(50);
   }, BUDGET_MS);
 

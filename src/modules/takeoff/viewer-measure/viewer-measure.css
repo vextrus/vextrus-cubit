@@ -115,3 +115,53 @@
   padding-inline: 0;
   justify-content: center;
 }
+
+/* S6 (§ 2.5): the card's controls — a label and its control on one line — and its one-line scope note. */
+.cx-viewer-measure-card-row {
+  display: grid;
+  grid-template-columns: var(--space-12) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cx-viewer-measure-card-label {
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+.cx-viewer-measure-card-scope {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-12);
+}
+
+/* The card's own fault (§ 3): in the stage's corner, the outline kept behind it. */
+.cx-viewer-measure-card-failed {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 320px;
+  padding: var(--space-4);
+  border: 1px solid var(--line-raised);
+  border-radius: var(--radius-8);
+  background-color: var(--surface-overlay);
+}
+
+/* The card's leader (§ 2.5): a 1 px hairline in the measure colour from the card to its closing point. */
+.cx-viewer-measure-leader {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.cx-viewer-measure-leader line {
+  stroke: var(--canvas-measure);
+  stroke-width: 1px;
+}

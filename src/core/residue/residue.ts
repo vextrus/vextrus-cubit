@@ -39,6 +39,7 @@ import { declaredSightings } from "./channels/declared";
 import { layoutSightings } from "./channels/layout";
 import { partitionSightings } from "./channels/partition";
 import { registerSightings } from "./channels/register";
+import { unnamedPairsOf } from "./channels/unnamed-pairs";
 import { sheetOf, sightingScopeIn, type ManifestSheet, type SightingScope } from "./channels/scope";
 import { unclassedDeclarationsOf, type ManifestView } from "./declared";
 import { cellReasonOf, partialOf, slotOf } from "./reasons";
@@ -392,7 +393,7 @@ async function readingIn(
   // The union of EXISTS L-QTY-05 states: three readers, each saying what it saw, laid side by side —
   // the partition's and the layout's read at the grain of what they placed, and at the grain of what
   // the drawing's own captions declare.
-  const [fromRegister, fromPartition, fromLayout, levelRows, lines, declarations, truncated, observations, reported] = await Promise.all([
+  const [fromRegister, fromPartition, fromLayout, levelRows, lines, declarations, truncated, observations, reported, unnamed] = await Promise.all([
     registerSightings(tx, sighting),
     partitionSightings(tx, sighting),
     layoutSightings(tx, sighting),
@@ -402,6 +403,8 @@ async function readingIn(
     truncatedSheetsOf(tx, scope.tenantId, sheets),
     observationsOf(tx, scope.tenantId, campaign.campaignId, campaign.setRevisionId, captions),
     anyReportOf(tx, scope.tenantId, campaign.campaignId),
+    // What the plans draw as a beam and no mark names: known scope, not measured (I-613).
+    unnamedPairsOf(tx, sighting, captions),
   ]);
 
   const levels: ResidueLevel[] = levelRows.map((level) => ({ levelId: level.levelId, ordinal: level.ordinal, label: level.label }));
@@ -416,6 +419,7 @@ async function readingIn(
     observations,
     measured: lines.length > 0 || reported,
     unclassed: unclassedDeclarationsOf(views),
+    unnamed,
   };
 }
 
@@ -617,6 +621,13 @@ function countersOf(facts: Readonly<Record<string, unknown>>): { space: string; 
  * observation names is what places it; a key with no object places it nowhere. Two nulls stay
  * lawful and distinct from that miss: an observation about the reading rather than an object (no
  * key at all), and an object standing in a lawful-null slot (a key that joins, to no level).
+ *
+ * And an observation a LATER RUN answered otherwise is not residue either (I-615). The store
+ * is append-only per campaign, so the first run's "nobody has affirmed this view's scale" is still
+ * there after the affirmation and the run that read the view at it; read whole, it named the view
+ * as deferred forever (walk-1 N1). Each report is kept only where it stands at its question's latest
+ * instant — the question being the (class, kind, object) it speaks to, or the (class, kind, view)
+ * where it names no object.
  */
 async function observationsOf(
   tx: TenantTx,
@@ -634,6 +645,13 @@ async function observationsOf(
       source: railObservations.sourceEntity,
       standing: registerObjects.objectKey,
       levelId: registerObjects.levelId,
+      // Whether this report is its question's latest answer (I-615): the question is the
+      // (class, kind, object) it speaks to — or the (class, kind, view) where it names no object —
+      // and the answer is the code. A run's reports are written in the gate's one transaction, so
+      // they carry one instant; a later run that answered the same question otherwise wrote a row of
+      // its own at a later instant, and the earlier answer is then history, not evidence. The table
+      // stays append-only (L-ACT-01): the reader chooses.
+      latest: statement<boolean>`${railObservations.observedAt} = max(${railObservations.observedAt}) over (partition by ${railObservations.class}, ${railObservations.kind}, ${railObservations.objectKey}, case when ${railObservations.objectKey} is null then ${railObservations.sourceEntity} end)`,
     })
     .from(railObservations)
     .leftJoin(
@@ -653,6 +671,7 @@ async function observationsOf(
     );
 
   return rows
+    .filter((row) => row.latest === true)
     .filter((row) => row.observed === null || row.standing !== null)
     .map((row) => ({
       class: row.class,
