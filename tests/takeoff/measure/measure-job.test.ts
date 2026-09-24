@@ -239,8 +239,11 @@ describe("MEASURE-REFUSE: an unscaled run defers by name, per view and per store
     (refusing ??= (async () => {
       const it = await stageCampaign("measure-refuse", { objects: 2 });
       // The view the members were placed in, as the pinned drawing's stored partition holds it: its
-      // caption and the caption's own entity, on the manifest's first sheet — what the register names
-      // the deferral by and opens it at.
+      // caption and the caption's own entity, on the manifest's first drawing — what the register names
+      // the deferral by. The stage records no reading of that drawing's bytes, so the caption stands on
+      // no sheet anyone read, and the deferral is opened nowhere rather than at the drawing's file name
+      // (s-coverage I-548; the sheet a caption stands on is proved over a real record in
+      // tests/residue/channels-layout.db.test.ts).
       const manifest = (path: string): string =>
         sqlValue(`select (manifest -> 0 ->> '${path}') from drawing_set_revisions where tenant_id = ${lit(it.tenantId)} and set_revision_id = ${lit(it.setRevisionId)};`);
       const sheet = { drawingId: manifest("drawingId"), layoutName: manifest("name") };
@@ -314,13 +317,13 @@ describe("MEASURE-REFUSE: an unscaled run defers by name, per view and per store
       registerViewOf: (scope: { tenantId: string; projectId: string }) => Promise<{ refusals: { code: string; objectKey: string; kind: string | null; deferral?: unknown }[] }>;
     }>("src/modules/takeoff/register-ui/server.ts");
     const view = await register.registerViewOf(campaign.scope);
-    expect(sheet.layoutName, "the manifest names the sheet the view stands on").not.toBe("");
+    expect(sheet.layoutName, "the manifest names the drawing — a file, which is no sheet a deferral may be opened at").not.toBe("");
     expect(view.refusals.slice(0, 2), "a run's deferrals lead the region, each one row keyed on what it is about, naming what the QS fixes").toEqual([
       {
         code: SCALE,
         objectKey: UNSCALED_VIEW,
         kind: null,
-        deferral: { subject: "VIEW", name: UNSCALED_CAPTION, sheet: { drawingId: sheet.drawingId, layoutName: sheet.layoutName, sourceKey: UNSCALED_ANCHOR } },
+        deferral: { subject: "VIEW", name: UNSCALED_CAPTION, sheet: null },
       },
       { code: HEIGHT_UNSTATED, objectKey: groundLevelId, kind: null, deferral: { subject: "STOREY", name: GROUND_FLOOR } },
     ]);

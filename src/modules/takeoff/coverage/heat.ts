@@ -98,13 +98,19 @@ export function linesDeclared(cell: ResidueCell, declared: ReadonlySet<string> =
  * nothing and is 0. The one reading between them is the partial one: a cell whose sheet was read in
  * part is published to the share of its own evidence that survived ingestion, which is a fact this
  * reading already carries (`truncated`, risk note 4). Nothing else is invented for it.
+ *
+ * What survived is reckoned by DRAWING, as the residue attributes a cell to truncation by drawing: a
+ * sighting names the sheet its key stands on (`S-10 COLUMN LAYOUT PLAN`, s-coverage I-548) while a
+ * truncated sheet is still named as the manifest names the drawing, so matching the two names would
+ * never meet, and a cell read in part would paint as whole — an over-claim this reading must never
+ * make. Reckoned by drawing, what cannot be told apart is counted lost, never published.
  */
 export function sharePublished(cell: ResidueCell, truncated: readonly TruncatedSheet[], declared: ReadonlySet<string> = NONE_DECLARED): number {
   if (cell.measurement === "QUANTITY_BEARING") return shareBorne(cell, declared);
   if (cell.measurement !== "INGESTION_TRUNCATED") return 0;
   if (cell.sightings.length === 0) return 0;
-  const lost = new Set(truncated.map((sheet) => `${sheet.drawingId}:${sheet.layoutName}`));
-  const whole = cell.sightings.filter((seen) => !lost.has(`${seen.drawingId}:${seen.layoutName}`)).length;
+  const lost = new Set(truncated.map((sheet) => sheet.drawingId));
+  const whole = cell.sightings.filter((seen) => !lost.has(seen.drawingId)).length;
   return whole / cell.sightings.length;
 }
 

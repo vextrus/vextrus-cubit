@@ -6,7 +6,7 @@
 // made once, where the tree's one `NOT EXISTS` lives (L-QTY-05).
 import { and, eq, placements, registerObjects, type TenantTx } from "../../db";
 import type { Sighting } from "../law";
-import { drawingIdsOf, layoutOf, type SightingScope } from "./scope";
+import { drawingIdsOf, sheetOf, type SightingScope } from "./scope";
 
 /** The channel this reader answers for, spelled once. */
 const REGISTER = "REGISTER" as const;
@@ -58,7 +58,7 @@ export async function registerSightings(tx: TenantTx, scope: SightingScope): Pro
       levelSlot: row.levelSlot,
       channel: REGISTER,
       drawingId: row.drawingId ?? "",
-      layoutName: row.drawingId === null ? "" : layoutOf(scope, row.drawingId),
+      layoutName: row.drawingId === null ? "" : sheetOf(scope, row.drawingId, row.sourceKey),
       sourceKey: row.sourceKey,
     }));
 }

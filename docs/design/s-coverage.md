@@ -519,6 +519,54 @@ product knows and that none is measured yet.
   candidates that carry both, or a refusal. The four pairs stand in the shard and the registry and are
   cited by no edition until the wave's edition is minted; until then no pinned project measures by them.
 
+**The sheet a sighting stands on (session 9, RES-1; L-QTY-05, L-REG-04, L-CAD-05).** A read-back of
+F-RCC6-BNBC's campaign found the inspector's View column saying `rcc6-bnbc.dxf` for every sighting —
+the name the pin records the DRAWING under, taken per drawing from the manifest — so a column on S-10
+and a pile on S-04 read as standing on one "sheet", which was a file; and the layout channel sighted
+nothing at all: none of the stored placements met the view it was read in. Two Interpretations rule
+the repair; they amend what §1's "the view verbatim" holds.
+
+- **I-548 — a sighting names the sheet its KEY stands on, as the Trace reads it.** The manifest
+  names drawings, and one drawing holds many sheets (F-RCC6-BNBC's one file carries S-00 to S-26), so
+  the sheet is read per key: by the key grammar (`viewRefOf`) and core's one resolver
+  (`traceCitations`, viewer.md I-421), over the record the campaign's pinned revision measured
+  (viewer.md I-422). That record's reading now lives in core (`src/core/sheets/pinned.ts`) and the
+  Trace, the bill's grid references and Ask ask it through the Trace's door as before, while the
+  residue asks it directly, so one key is never answered two sheets. A placement sighting —
+  PARTITION, and a REGISTER row the partition placed — stands where its member's Trace opens: a column
+  on S-10, a pile on S-04, a cap on S-06, the beams on S-13, S-14 and S-15. A LAYOUT sighting stands
+  where its view's caption does, and so does a caption's own declaration (I-479), read at its anchor.
+  The register's deferred-and-refused region opens a deferred view on the same reading (I-484). The
+  View column and the cause question's `layout` say the layout's own name, as the artifact spells it
+  (`S-10 COLUMN LAYOUT PLAN`); model space is named `model`, as the artifact spells it. A drawing
+  whose pinned bytes nobody read names no sheet, and its cell stays empty rather than showing the
+  file's name (I-181); a deferral about a view on such a drawing is named by its caption and opened
+  nowhere. Rejected: the manifest's name, which is a file and not a sheet. Rejected: a caption-text
+  reading of the sheet, which fails the beam views captioned in model space (I-421). Cost: a residue
+  reading opens each pinned drawing's artifact through the artifact door, as the Trace does; the door
+  keeps four graphs, so a manifest of more than four drawings re-validates artifacts on every reading
+  (BNBC's validates in well under a second). Owed by the residue's next leaf: read the records only of
+  drawings that carry a sighting, or keep the standing by artifact. The heat reckons a truncated cell
+  by DRAWING, as the residue attributes one (`heat.ts` `sharePublished`): matched by name, a sheet a
+  sighting names and the file a truncated sheet is still named by never meet, and a cell read in part
+  would paint as whole.
+- **I-549 — the layout channel meets a placement's view at the view's address.** A view is
+  stored under the partition's own key (`LAYOUT_PLAN:DXF_HANDLE:20B6`, L-CAD-06), and a placement names
+  its view by L-REG-04's address (`v:LAYOUT_PLAN:DXF_HANDLE:20B6`). The channel compared the two
+  strings, and they never matched. It now asks each stored view's address of `viewAddressOf`
+  (`src/core/views`), core's one home of what a placement, a register row and an offer name a stored
+  view by, which measure/setup and the levels screen already ask. A member stands in the view of its
+  own record whose address it names: every one of F-RCC6-BNBC's stored placements. A LAYOUT sighting
+  cites the view by that address, which the Trace and the cause question both read (`viewRefOf`). The
+  channel holds no rule of its own about which views can hold members: a view no caption anchors is
+  addressed by the partition's own name for it, which no placement names today (placements are read
+  only in anchored views, L-CAD-07), so it holds nobody. Cost: every cell of a class a plan places now
+  lists the view's LAYOUT sighting beside the partition's and the register's, one row more in the
+  inspector. Not changed here: which sheets were read only in part (`truncatedSheetsOf`) is still read
+  by matching the manifest's file name against a space's name, so `INGESTION_TRUNCATED` cannot yet
+  fire on an uploaded drawing. Owner: the residue's next leaf, which keeps the heat's by-drawing
+  reckoning (above) or changes it in the same commit.
+
 ## 1. Layout and hierarchy
 
 **Nav.** `takeoff/layout.tsx` gains a second `next/link`, `<a data-testid="takeoff-nav-coverage">`

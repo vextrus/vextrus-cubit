@@ -32,12 +32,13 @@ import { WORK_ITEM_CATALOGUE } from "../catalogue/catalogue";
 import { compareCanonical } from "../identity";
 import { levelsOf } from "../levels/store";
 import { REFUSALS } from "../errors";
+import { appStorage } from "../storage/app";
 import { viewAddressOf } from "../views";
 import { declaredSightings } from "./channels/declared";
 import { layoutSightings } from "./channels/layout";
 import { partitionSightings } from "./channels/partition";
 import { registerSightings } from "./channels/register";
-import { layoutOf, type ManifestSheet, type SightingScope } from "./channels/scope";
+import { sheetOf, sightingScopeIn, type ManifestSheet, type SightingScope } from "./channels/scope";
 import { unclassedDeclarationsOf, type ManifestView } from "./declared";
 import { cellReasonOf, partialOf, slotOf } from "./reasons";
 import {
@@ -344,7 +345,7 @@ export async function residueCellsIn(
   return resolveResidue(await readingIn(tx, scope, campaign));
 }
 
-/** A view of the pinned manifest, with the sheet a reader opens to see it (`layoutOf`, empty where none). */
+/** A view of the pinned manifest, with the sheet its caption stands on (`sheetOf`, empty where none, I-548). */
 export type PlacedManifestView = ManifestView & { readonly layoutName: string };
 
 /**
@@ -361,7 +362,7 @@ export async function reportedAbsencesOf(
 ): Promise<{ readonly measured: boolean; readonly observations: readonly ResidueObservation[]; readonly views: readonly PlacedManifestView[] }> {
   return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
     const sheets = await manifestOf(tx, scope.tenantId, campaign.setRevisionId);
-    const sighting: SightingScope = { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId, sheets };
+    const sighting = await sightingScopeIn(tx, { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId, sheets }, appStorage());
     const views = await manifestViewsOf(tx, sighting);
     const captions = new Map(views.map((view) => [view.address, view.caption]));
     const [observations, reported, published] = await Promise.all([
@@ -369,7 +370,7 @@ export async function reportedAbsencesOf(
       anyReportOf(tx, scope.tenantId, campaign.campaignId),
       anyLineOf(tx, scope.tenantId, campaign.campaignId),
     ]);
-    return { measured: reported || published, observations, views: views.map((view) => ({ ...view, layoutName: layoutOf(sighting, view.drawingId) })) };
+    return { measured: reported || published, observations, views: views.map((view) => ({ ...view, layoutName: sheetOf(sighting, view.drawingId, view.anchorKey ?? view.address) })) };
   });
 }
 
@@ -380,7 +381,8 @@ async function readingIn(
   campaign: { readonly campaignId: string; readonly setRevisionId: string },
 ): Promise<ResidueInput> {
   const sheets = await manifestOf(tx, scope.tenantId, campaign.setRevisionId);
-  const sighting: SightingScope = { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId, sheets };
+  // The sheet each sighting stands on is read per key, over the record the pin measured (I-548).
+  const sighting = await sightingScopeIn(tx, { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId, sheets }, appStorage());
   // The manifest's views, read once: what their captions declare (I-479), and the caption
   // a rail's report about a view is said by (I-480).
   const views = await manifestViewsOf(tx, sighting);

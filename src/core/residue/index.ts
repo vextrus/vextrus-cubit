@@ -6,7 +6,7 @@ export { reportedAbsencesOf, residueOf, resolveResidue, type PlacedManifestView,
 export { registerSightings } from "./channels/register";
 export { partitionSightings } from "./channels/partition";
 export { layoutSightings } from "./channels/layout";
-export { drawingIdsOf, layoutOf, type ManifestSheet, type SightingScope } from "./channels/scope";
+export { drawingIdsOf, sheetOf, sightingScopeIn, type ManifestSheet, type SightingScope } from "./channels/scope";
 export { billStatementOf, measurementStatementOf, partialStatementOf, unclassedStatementOf, type UnclassedStatementRow } from "./statement";
 export { declaredSightings } from "./channels/declared";
 export { classesDeclaredBy, classDeclarationsOf, unclassedDeclaredBy, unclassedDeclarationsOf, type ManifestView, type UnclassedDeclaration } from "./declared";

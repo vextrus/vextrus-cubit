@@ -8,10 +8,10 @@
 // of (B-17).
 //
 // WHICH SHEET a line stands on, and WHAT on it the Trace selects, is core's one pure reading
-// (`@/core/sheets/frames`, `traceCitations`, I-421). What this file adds is only the read of the
-// record that reading is asked over: the ingest the line's pinned revision measured, its artifact,
-// and the outline and mark each of its placements was read off — read once per drawing of a
-// campaign, never once per line (R-TO-050's 50 000 lines).
+// (`@/core/sheets/frames`, `traceCitations`, I-421), asked over the record the line's pinned revision
+// measured — core's one reading of that record too (`@/core/sheets/pinned`, I-422), read once per
+// drawing of a campaign, never once per line (R-TO-050's 50 000 lines). What this file adds is the
+// two doors and the lines they answer about.
 //
 // Nothing here judges. A lineId this project does not hold is a fact and answers `null`; a key
 // nobody cites answers the empty list. No refusal code is invented for either (I-88's idiom).
@@ -20,11 +20,10 @@
 // here, so this barrel stays the one home the test contract names while a browser component may
 // reach the spelling without carrying the store into its bundle (ARCH-01's spirit, B-17).
 import { campaignsOf } from "@/core/campaigns";
-import { and, asc, desc, drawingSetRevisions, eq, forTenant, ingests, isUuid, quantityLines } from "@/core/db";
-import { artifactAt } from "@/core/entitygraph/artifact";
-import { sheetLabelOf, standingOfGraph, traceCitations, type MemberKeys, type RecordStanding, type TracedCitations } from "@/core/sheets/frames";
+import { and, asc, eq, forTenant, isUuid, quantityLines } from "@/core/db";
+import { traceCitations, type TracedCitations } from "@/core/sheets/frames";
+import { pinnedRecordsIn, type PinnedRecord } from "@/core/sheets/pinned";
 import { appStorage } from "@/core/storage/app";
-import { storedPlacementsOf } from "@/modules/takeoff/partition/placement/store";
 import { repudiatedObjectsOf } from "@/modules/takeoff/register";
 import { citedKeysOf, type LineBinding, type LineEvidence } from "./address";
 
@@ -46,78 +45,23 @@ export type CitingAsk = {
 /* ------------------------------------------------------------- the record a line was read on */
 
 /**
- * One drawing of a pinned revision, as the Trace reads it: where its keys stand, and how a reader
- * names each of its sheets. Null where the revision's drawing has no record the Trace can read.
+ * One drawing of a pinned revision, as the Trace reads it: where its keys stand, how a reader names
+ * each of its sheets and where each member stands on the grid. Core's (`@/core/sheets/pinned`),
+ * because the coverage residue places its sightings over the very same record (B-17).
  */
-export type PinnedRecord = {
-  readonly standing: RecordStanding;
-  /** How a reader names one of this record's sheets: its number, or null for model space. */
-  readonly labelOf: (layoutName: string) => string | null;
-  /**
-   * Where one of this record's placements stands on the plan's own grid: the nearest axis of each
-   * family as the partition filed it on THIS record, a family the grid carries no axis of null in its
-   * place (L-CAD-07). Null where the record holds no such placement. A later upload's partition moves
-   * nothing here: the member stands where it stood when its line was read (I-422).
-   */
-  readonly gridOf: (placementKey: string) => PinnedGrid | null;
-};
-
-/** One placement's grid reading on a pinned record, as the partition stored it. */
-export type PinnedGrid = { readonly letter: string | null; readonly numeral: string | null };
+export type { PinnedGrid, PinnedRecord } from "@/core/sheets/pinned";
 
 /**
- * The record each named drawing of one pinned revision was measured on: the ingest of the very bytes
- * the pin recorded (L-REG-06: the manifest names each drawing's revision by its sha256), the newest
- * such where one file was read twice — never the drawing's CURRENT record, which a later upload moves
- * while the lines stand where they were read (I-422).
- *
- * A drawing the revision does not name, or whose pinned bytes nobody read, is absent from the answer:
- * its lines name no sheet and are offered no Trace, which is honest rather than a guess (I-181).
+ * The record each named drawing of one pinned revision was measured on (I-422) — core's one reading
+ * of it (`pinnedRecordsIn`), asked in a transaction of this workspace. A drawing the revision does not
+ * name, or whose pinned bytes nobody read, is absent from the answer: its lines name no sheet and are
+ * offered no Trace, which is honest rather than a guess (I-181).
  */
 export async function pinnedRecordsOf(scope: TraceScope, setRevisionId: string, drawingIds: readonly string[]): Promise<Map<string, PinnedRecord>> {
-  const held = new Map<string, PinnedRecord>();
   const wanted = [...new Set(drawingIds)].filter((drawingId) => isUuid(drawingId));
-  if (wanted.length === 0 || !isUuid(setRevisionId)) return held;
-
-  const read = await forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
-    const revision = await tx
-      .select({ manifest: drawingSetRevisions.manifest })
-      .from(drawingSetRevisions)
-      .where(and(eq(drawingSetRevisions.tenantId, scope.tenantId), eq(drawingSetRevisions.setRevisionId, setRevisionId)))
-      .limit(1);
-    const pinned = new Map((revision[0]?.manifest ?? []).map((member) => [member.drawingId, member.sha256]));
-    const records: { drawingId: string; ingestId: string; artifactSha256: string }[] = [];
-    for (const drawingId of wanted) {
-      const sha256 = pinned.get(drawingId);
-      if (sha256 === undefined) continue;
-      const rows = await tx
-        .select({ ingestId: ingests.ingestId, artifactSha256: ingests.artifactSha256 })
-        .from(ingests)
-        .where(and(eq(ingests.drawingId, drawingId), eq(ingests.sha256, sha256)))
-        .orderBy(desc(ingests.createdAt), desc(ingests.ingestId))
-        .limit(1);
-      const row = rows[0];
-      if (row !== undefined) records.push({ drawingId, ...row });
-    }
-    return records;
-  });
-
+  if (wanted.length === 0 || !isUuid(setRevisionId)) return new Map();
   const storage = appStorage();
-  for (const record of read) {
-    const graph = await artifactAt(scope.tenantId, record.artifactSha256, storage, `ingest ${record.ingestId}`);
-    const members = new Map<string, MemberKeys>();
-    const grids = new Map<string, PinnedGrid>();
-    for (const placement of await storedPlacementsOf(scope.tenantId, record.ingestId)) {
-      members.set(placement.placementKey, { outlineKey: placement.outlineKey, markKey: placement.markKey });
-      grids.set(placement.placementKey, { letter: placement.gridLetter, numeral: placement.gridNumeral });
-    }
-    held.set(record.drawingId, {
-      standing: standingOfGraph(graph, members),
-      labelOf: (layoutName) => sheetLabelOf(graph, layoutName),
-      gridOf: (placementKey) => grids.get(placementKey) ?? null,
-    });
-  }
-  return held;
+  return forTenant({ tenantId: scope.tenantId }).transaction((tx) => pinnedRecordsIn(tx, scope.tenantId, setRevisionId, wanted, storage));
 }
 
 /**

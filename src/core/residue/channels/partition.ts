@@ -6,7 +6,7 @@
 // (B-17), and a class the partition placed nowhere simply contributes no member to the list.
 import { and, eq, inArray, placements, type TenantTx } from "../../db";
 import type { Sighting } from "../law";
-import { drawingIdsOf, layoutOf, type SightingScope } from "./scope";
+import { drawingIdsOf, sheetOf, type SightingScope } from "./scope";
 
 /** The channel this reader answers for, spelled once. */
 const PARTITION = "PARTITION" as const;
@@ -37,7 +37,7 @@ export async function partitionSightings(tx: TenantTx, scope: SightingScope): Pr
     levelId: null,
     channel: PARTITION,
     drawingId: row.drawingId,
-    layoutName: layoutOf(scope, row.drawingId),
+    layoutName: sheetOf(scope, row.drawingId, row.sourceKey),
     sourceKey: row.memberFamily === null ? row.sourceKey : `${row.sourceKey}@${row.memberFamily}`,
   }));
 }

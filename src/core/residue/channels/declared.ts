@@ -10,7 +10,7 @@
 import { VIEW_TYPE_SPELLINGS } from "../../errors/transport-vocabulary";
 import { classDeclarationsOf, type ManifestView } from "../declared";
 import type { Sighting } from "../law";
-import { layoutOf, type SightingScope } from "./scope";
+import { sheetOf, type SightingScope } from "./scope";
 
 /** The channel a schedule's title is read through — the partition's schedules — and every other view's. */
 const PARTITION = "PARTITION" as const;
@@ -30,7 +30,7 @@ export function declaredSightings(scope: SightingScope, views: readonly Manifest
     levelId: null,
     channel: declaration.view.type === SCHEDULE ? PARTITION : LAYOUT,
     drawingId: declaration.view.drawingId,
-    layoutName: layoutOf(scope, declaration.view.drawingId),
+    layoutName: sheetOf(scope, declaration.view.drawingId, declaration.view.anchorKey ?? declaration.view.address),
     // Read at the caption's own entity: the words a reader is flown to when the sheet is opened on
     // it (L-CAD-03). A view no caption anchors is read at the only name it has.
     sourceKey: declaration.view.anchorKey ?? declaration.view.address,
