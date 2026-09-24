@@ -29,6 +29,8 @@ export const boq = {
   boq_col_coverage: "Coverage",
   boq_quantity_unmeasured: "Not measured",
   boq_coverage_partial: "Partly declared",
+  // An item none of whose members states a figure is not "partly" anything (I-571).
+  boq_coverage_unmeasured: "Not measured",
   boq_export_quantities: "Quantities",
   boq_export_format_xlsx: "XLSX",
   boq_export_format_csv: "CSV",

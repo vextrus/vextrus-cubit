@@ -112,7 +112,7 @@ export const SUMMARY_SHEET = "Summary";
 export const QUANTITIES_SHEET = "Quantities";
 
 /** A section sheet's header, in the order A-BOQ-XLSX names the columns. */
-export const SECTION_HEADER: readonly string[] = Object.freeze(["Item", "Code", "Description", "Unit", "Quantity", "Rate", "Amount"]);
+export const SECTION_HEADER: readonly string[] = Object.freeze(["Item", "Code", "Description", "Unit", "Quantity", "Rate", "Amount", "Remarks"]);
 
 /** The two words the Summary stamps every unsigned page with (AM-05, A-BOQ-PDF). */
 export const BOQ_DRAFT_TITLE = "Draft BOQ — unpriced";

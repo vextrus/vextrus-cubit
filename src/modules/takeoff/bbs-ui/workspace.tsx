@@ -18,7 +18,7 @@ import type { RefusalEntry } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import type { JobKind } from "@/core/jobs/kinds";
 import { BBS_COMPONENT_SAID, BBS_COPY, fillCopy, membersSaid } from "./copy";
-import { BBS_PLACES, bbsRowsOf, bbsSummaryOf, statedAt, type BbsGridRow, type BbsSummaryRow } from "./present";
+import { BBS_PLACES, bbsRowsOf, bbsSummaryOf, cuttingStandingOf, listed, statedAt, totalCoversOf, type BbsGridRow, type BbsSummaryRow } from "./present";
 import { bbsStateOf, nothingScheduled } from "./states";
 import type { BbsSheetSelection, BbsTraces, BbsView } from "./view";
 // The viewer's address at the entities something cites, spelled once by the Trace (B-17): the pure
@@ -49,6 +49,8 @@ export type BbsMemberRow = {
   readonly level: string | null;
   /** How many members the entry's lines count — the door's own count, carried (I-534). */
   readonly members: number;
+  /** Whether its running bars are storey-height runs whose laps are not stated (I-567). */
+  readonly notForCutting: boolean;
 };
 
 /** One row of the schedule's grid: a member's group row, a bar, or the lap beneath a bar. */
@@ -289,7 +291,7 @@ function InPlace({ children }: { children: ReactNode }): ReactNode {
  * order: the entries in the order the document first names them, the rows inside an entry in the
  * document's own (L-REG-04). Nothing is sorted here.
  */
-function tableRowsOf(rows: readonly BbsGridRow[]): BbsTableRow[] {
+function tableRowsOf(rows: readonly BbsGridRow[], runs: ReadonlySet<string>): BbsTableRow[] {
   const order: string[] = [];
   const byMember = new Map<string, BbsTableRow[]>();
   for (const row of rows) {
@@ -304,6 +306,7 @@ function tableRowsOf(rows: readonly BbsGridRow[]): BbsTableRow[] {
         class: row.class,
         level: row.level,
         members: row.members,
+        notForCutting: runs.has(row.objectKey),
       };
       byMember.set(row.objectKey, [member, row]);
     } else held.push(row);
@@ -329,6 +332,7 @@ function rowDataOf(ids: BbsTestIds): (row: BbsTableRow) => Record<string, string
         "data-mark": row.mark,
         "data-class": row.class,
         "data-level": row.level ?? "",
+        ...(row.notForCutting ? { "data-not-for-cutting": "true" } : {}),
       };
     }
     if (row.component === "LAP") {
@@ -409,8 +413,18 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
   const denied = state === "denied";
   const document_ = denied ? null : (view?.document ?? null);
 
-  const rows = useMemo(() => (document_ === null ? [] : tableRowsOf(bbsRowsOf(document_))), [document_]);
-  const summary = useMemo(() => (document_ === null ? null : bbsSummaryOf(document_)), [document_]);
+  // Which entries hold storey-height runs and which diameters' cutting stock is therefore withheld —
+  // the reading the issued schedule is emitted from too, so the two faces withhold the same lines
+  // (I-567, B-17).
+  const deferred = view?.deferred;
+  const standing = useMemo(() => (document_ === null ? null : cuttingStandingOf(document_, deferred ?? [])), [document_, deferred]);
+  const rows = useMemo(() => (document_ === null || standing === null ? [] : tableRowsOf(bbsRowsOf(document_), standing.runs)), [document_, standing]);
+  const summary = useMemo(() => (document_ === null || standing === null ? null : bbsSummaryOf(document_, standing.withheld)), [document_, standing]);
+  const notInSchedule = useMemo(() => view?.notInSchedule ?? [], [view?.notInSchedule]);
+  const totalCovers = useMemo(
+    () => (document_ === null ? "" : totalCoversOf(document_, { partial: view?.partial ?? false, omitted: view?.omitted ?? [], notInSchedule: notInSchedule.length })),
+    [document_, view?.partial, view?.omitted, notInSchedule],
+  );
   const rowData = useMemo(() => rowDataOf(ids), [ids]);
 
   /**
@@ -612,6 +626,23 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
             </ul>
           </div>
         ) : null}
+        {/* The steel no line was published for — beam, pile, cap and slab — in the draft BOQ's own
+            closing words, so a schedule of column steel is never read as the building's
+            (I-569, L-QTY-07). */}
+        {drawsGrid && notInSchedule.length > 0 ? (
+          <div className="cx-bbs-omitted cx-bbs-not-in-schedule">
+            <span className="cx-bbs-omitted-label">{BBS_COPY.bbs_not_in_schedule}</span>
+            <ul className="cx-bbs-omitted-list">
+              {notInSchedule.map((one) => (
+                <li key={`${one.about}|${one.levels}`} className="cx-bbs-omitted-line">
+                  <span className="cx-bbs-omitted-what">{one.about}</span>
+                  {one.levels === "" ? null : <span className="cx-bbs-omitted-separator">{` · ${one.levels}`}</span>}{" "}
+                  <span className="cx-bbs-omitted-why">{one.why}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </div>
 
       {/* The job strip, standing between the answer slot and the grid ONLY while a render this
@@ -726,16 +757,21 @@ export function BbsWorkspace(props: BbsWorkspaceProps) {
                   <span className="cx-bbs-figure" role="cell">
                     {massOf(summary.grandTotalKg)}
                   </span>
-                  {/* A campaign whose rebar is only partly declared totals only what was scheduled,
-                      and the row says so beside the figure — the L-QTY-07 rule the draft's sections
-                      already keep (I-bbs-9). */}
+                  {/* A total over less than the whole of the steel says what it covers beside the figure
+                      — `Column main bars only — laps and ties not counted` — the L-QTY-07 rule the
+                      draft's sections already keep (I-bbs-9, I-567). */}
                   <span role="cell" className="cx-bbs-summary-scope">
-                    {state === "partial" ? BBS_COPY.bbs_summary_total_measured : null}
+                    {totalCovers === "" ? null : totalCovers}
                   </span>
                   <span role="cell" />
                   <span role="cell" />
                 </div>
               </div>
+              {standing === null || standing.withheld.length === 0 ? null : (
+                <p className="cx-bbs-stock-withheld-note" role="note">
+                  {fillCopy("bbs_stock_withheld_note", { diameters: listed(standing.withheld.map((diameter) => formatUserFigure(String(diameter)))) })}
+                </p>
+              )}
             </section>
           )}
         </>
@@ -807,6 +843,7 @@ function SummaryRow({ line, testId }: { line: BbsSummaryRow; testId: string }) {
       data-stock-bars={String(line.stockBars)}
       data-pieces={String(line.pieces)}
       data-offcut-mm={line.offcutMm}
+      {...(line.withheld ? { "data-withheld": "true" } : {})}
     >
       <span className="cx-bbs-figure" role="cell">
         {String(line.diameterMm)}
@@ -814,15 +851,25 @@ function SummaryRow({ line, testId }: { line: BbsSummaryRow; testId: string }) {
       <span className="cx-bbs-figure" role="cell">
         {massOf(line.kg)}
       </span>
-      <span className="cx-bbs-figure" role="cell">
-        {formatUserFigure(String(line.stockBars))}
-      </span>
-      <span className="cx-bbs-figure" role="cell">
-        {formatUserFigure(String(line.pieces))}
-      </span>
-      <span className="cx-bbs-figure" role="cell">
-        {formatUserFigure(line.offcutMm)}
-      </span>
+      {/* A diameter whose bars include runs nobody can cut says so across its packing cells, in
+          words, rather than printing a cutting plan (I-567). */}
+      {line.withheld ? (
+        <span className="cx-bbs-stock-withheld" role="cell">
+          {BBS_COPY.bbs_stock_withheld}
+        </span>
+      ) : (
+        <>
+          <span className="cx-bbs-figure" role="cell">
+            {formatUserFigure(String(line.stockBars))}
+          </span>
+          <span className="cx-bbs-figure" role="cell">
+            {formatUserFigure(String(line.pieces))}
+          </span>
+          <span className="cx-bbs-figure" role="cell">
+            {formatUserFigure(line.offcutM)}
+          </span>
+        </>
+      )}
     </div>
   );
 }
@@ -896,6 +943,14 @@ function bbsColumns(chrome: Pick<BbsChrome, "EnumLabel" | "Tooltip" | "EvidenceL
               {/* BS 8666's "No. of members": the mark is stated once on this floor, and the count
                   says how many members its lines stand for (I-534). */}
               <span className="cx-bbs-member-count">{membersSaid(held.members, formatUserFigure(String(held.members)))}</span>
+              {held.notForCutting ? (
+                <>
+                  <span className="cx-bbs-member-separator">{" · "}</span>
+                  <Tooltip content={BBS_COPY.bbs_run_tooltip}>
+                    <span className="cx-bbs-member-run">{BBS_COPY.bbs_run_label}</span>
+                  </Tooltip>
+                </>
+              ) : null}
             </span>
           );
         }

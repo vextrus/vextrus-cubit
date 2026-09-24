@@ -19,7 +19,7 @@
 // register's own reader which objects stand struck in the campaign's revision and reads past their
 // lines — the screen, the PDF and the workbook alike, because all three read this one reading.
 import { and, asc, desc, drawingSetRevisions, drawingSets, eq, forTenant, inArray, ingests, projects, quantityLines } from "@/core/db";
-import { setRevisionInWords, type BoqDraftFront } from "@/core/documents/kinds/boq-draft";
+import { notMeasuredRowsOf, setRevisionInWords, type BoqDraftFront } from "@/core/documents/kinds/boq-draft";
 import { dhakaDateParts, formatDate } from "@/core/format";
 import type { ModelCallContext } from "@/core/model";
 import { measurementStatementOf, residueOf } from "@/core/residue";
@@ -126,7 +126,7 @@ export async function boqViewOf(scope: BoqScope, asking?: BoqAsking): Promise<Bo
     // What the draft leaves out says WHY in the certificate's own words (s-coverage I-480):
     // the registered reason read beside the writerless fall-through where the row carries one — so
     // the draft never prints that nothing explains an absence — and the row's cause everywhere else.
-    notMeasured: statement.map((row) => ({ class: row.class, kind: row.kind, levels: row.levels, cause: row.reason ?? row.cause })),
+    notMeasured: notMeasuredRowsOf(statement),
     front: front.facts,
   });
 

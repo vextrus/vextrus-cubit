@@ -27,6 +27,7 @@ import {
   columnMembersOf,
   detailingStating,
   linesOf,
+  omittedOf,
   measure,
   modelStoreys,
   said,
@@ -139,6 +140,17 @@ describe("AC-2: the view S-BBS is drawn from is the project's own campaign, decl
       expect(shapeOf(view.document as BbsDocumentShape), "the schedule in the view is `bbsOf`'s own answer for that campaign — never a second reckoning beside it (goal, I-bbs-2)").toBe(shapeOf(door));
 
       expect(bbsStateOf({ view, permitted: true }), "so the screen a reader meets is the partly-declared one, rendered in full with its notice").toBe(partly > 0 ? "partial" : "ready");
+
+      // I-567: the members whose storey-height runs are not for cutting are READ off the
+      // lines — exactly those that left their laps or their run out, and here the notes state a 50d lap.
+      const deferred = lines.filter((line) => omittedOf(line).some((one) => one.variable === "lap" || one.variable === "net")).map((line) => said(line, "objectKey", "object_key"));
+      expect([...(view.deferred ?? [])].sort(), "the view defers exactly the members whose lines left a length term out").toEqual([...new Set(deferred)].sort());
+      // I-569: the steel no line was published for is the statement's own rebar rows, in words.
+      expect(Array.isArray(view.notInSchedule), "the view carries the steel no line was published for").toBe(true);
+      for (const row of view.notInSchedule ?? []) {
+        expect(row.about, "each row is rebar, said in the draft's words — never a key").toMatch(/ · Rebar$/u);
+        expect(row.why.length, "and says why, in the register's sentence").toBeGreaterThan(0);
+      }
     },
     BUDGET_MS,
   );
@@ -198,6 +210,9 @@ describe("AC-2: the view S-BBS is drawn from is the project's own campaign, decl
       const told = JSON.parse(presented) as { partial: boolean; leftOut: { what: string; why: string }[] };
       expect(told.partial, "a campaign whose rebar lines are partly declared issues a schedule that says it is the measured scope only").toBe(true);
       expect(told.leftOut.map((one) => one.what).join(" · "), "and names what it leaves out, in words").toContain("Ties");
+      // I-567: its total says what it covers, naming the ties it does not count.
+      const covers = (JSON.parse(presented) as { totalCovers: string }).totalCovers;
+      expect(covers, "the total says what it covers, in words").toMatch(/^Column .*only — .*ties not counted$/u);
       expect(steps, "the run reports its three steps in order: the read, the render, the filing (SEAM-JOBS)").toEqual(["bbs:read", "bbs:render", "bbs:file"]);
       expect(issued.version, "the first schedule this project issues is version 1 (R-SPINE-040)").toBe(1);
 

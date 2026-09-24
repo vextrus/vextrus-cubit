@@ -371,6 +371,59 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   absent from `traces` and its cell states the figure unlinked (I-181). The group row carries no link:
   it states no figure (I-bbs-2). The issued PDF is unchanged — a document carries no link. Cost: one
   read of each pinned drawing's artifact per page load, the register's own price.
+  *(Amended by I-567: the total's caveat now says what the total covers, in words.)*
+- **I-567 — a bar nobody could cut is labelled a storey-height run, and no cutting stock is
+  printed for its diameter (session 9, 2026-09-24; walk-1's qs-critic, BLOCKS_SIGNING; L-QTY-02,
+  AM-03(e), B-17).** On J-000's campaign every column main bar was its storey height (shape 00, no
+  lap, no starter, no anchorage), and the page still printed `16: 164 stock bars, 516 pieces, offcut
+  4,44,600` as if a fabricator could cut them. The schedule is now honest about what it is:
+  (a) *Which bars.* A member whose published `rcc.rebar` line declares a LENGTH term missing — its
+  `lap` or its `net` run (`LENGTH_TERMS`, `bbs-ui/server.ts`) — is `deferred`. Its running bars (every
+  role but the links, `LINK_ROLES` in `src/core/rulesets/rebar-roles.ts`, the same line `massesOf` splits a member's mass
+  on) are storey-height runs. `cuttingStandingOf` (`present.ts`) reads which entries hold them and
+  which diameters they touch. It is one reading for both faces: the screen draws from it and
+  `bbsPayloadOf` emits from it.
+  (b) *The label.* Each such entry's group row, and its heading on the page, adds
+  `bbs_run_label` **Storey-height runs, not for cutting**. On the screen a Tooltip carries
+  `bbs_run_tooltip`, and the group row carries `data-not-for-cutting="true"`.
+  (c) *The cutting stock is withheld, by name.* A touched diameter keeps its mass line. Its stock
+  bars, pieces and offcut are replaced by `bbs_stock_withheld` **Not computed — laps not stated**
+  across the three cells, and the row carries `data-withheld="true"`. `bbs_stock_withheld_note`
+  names the diameters beneath the table. The payload carries no packing for them at all:
+  `cuttingStock` omits them and `stockWithheld` lists them. This is a refusal in words, never a blank.
+  (d) *The total says what it covers.* `totalCoversOf` composes it from the classes scheduled, whether
+  any link stands in the schedule (`main bars` when none does), and the components the lines left
+  out: **Column main bars only — laps and ties not counted**. It replaces `Measured scope only`, and
+  it is empty only where nothing is partly declared and no steel stands outside the schedule.
+  Rejected: printing the packing with a caveat (a fabricator reads the figure, not the caveat);
+  withholding the whole cutting-stock table (a diameter of whole, lapped bars is still a plan);
+  inventing a lap to make the runs cuttable (the edition refused to state one, AM-03(f)(h)).
+- **I-568 — the schedule's lengths are written as they are, and each column is named for what
+  it prints (session 9, 2026-09-24; walk-1 §2 items 3 and 4; AM-01, L-FMT-01, L-FMT-02).**
+  (a) The raw BS 8666 length and the legs are never rounded (AM-01). The page now writes the
+  fraction only as far as it carries a digit: `3,352.8`, `2,061.25`, `1,990`, not `3,352.800`. The
+  stated value is unchanged, and the page now reads as the screen does. The one rounded surface
+  stays the whole millimetre. A whole-millimetre raw length, which walk-1 asked for, would round
+  what AM-01 forbids rounding. The Rounded column is that figure already.
+  (b) The column headed `IS additive (mm)` always printed IS 2502's whole cutting length, never an
+  additive. It is renamed `bbs_col_cutting_is` **IS 2502 (mm)** on both faces, and the
+  figure is unchanged. The head is the standard's name and the unit, beside **Cutting length (mm)**
+  and **Rounded (mm)**, because the column stays 136 wide: a longer head would wrap (R-UI-084), and
+  a wider column would take the Dimensions remainder under its 200 floor at 1280 (I-bbs-9).
+  (c) An offcut is a length of steel a yard reads in metres. It is carried from the door's
+  millimetres by the canon's own `convert` (`metresOf`) and stated to the millimetre, under
+  `bbs_summary_col_offcut` **Offcut (m)**. Lakh grouping on a millimetre figure (`4,44,600`) is
+  gone. `data-offcut-mm` still publishes the stored millimetres.
+- **I-569 — the schedule carries the steel no line was published for, in the draft BOQ's
+  words (session 9, 2026-09-24; walk-1 §2 item 1; L-QTY-07, B-17).** `bbsViewOf` reads the
+  measurement statement (`measurementStatementOf`, the draft's own) and keeps its `rcc.rebar` rows.
+  It reads each row through the draft's reading of a statement row (`notMeasuredRowsOf`, now
+  `boq-draft.ts`'s and called by `boqViewOf` too). It says them through the draft's closing block
+  (`notMeasuredScopeOf`): **Beam · Rebar**, over its levels, and why, in the register's sentence.
+  The screen lists them under `bbs_not_in_schedule` **Not in this schedule:**. The page closes
+  with a **Not in this schedule** block, before the sign-off. Rejected: a second list of classes
+  kept here (it would drift from the draft's), and folding the list into the left-out block (that
+  block says what the published lines left out, and this says what was never published).
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -497,7 +550,7 @@ through `./demonstration`, exactly as `takeoff/boq/demonstration.ts` does.
 `bbs_grid_label` **Bars by member and mark** · `bbs_col_mark` **Bar mark** · `bbs_col_role` **Role** ·
 `bbs_col_shape` **Shape** · `bbs_col_diameter` **Diameter (mm)** · `bbs_col_dims` **Dimensions** ·
 `bbs_col_cutting_raw` **Cutting length (mm)** · `bbs_col_cutting_rounded` **Rounded (mm)** ·
-`bbs_col_cutting_is` **IS additive (mm)** · `bbs_col_bars` **Bars** · `bbs_col_kg` **Mass (kg)** ·
+`bbs_col_cutting_is` **IS 2502 (mm)** (I-568) · `bbs_col_bars` **Bars** · `bbs_col_kg` **Mass (kg)** ·
 `bbs_members_one` **1 member** · `bbs_members_many` **{count} members** · `bbs_bars_each` **{each} in
 each of {count} members** (I-534) · `bbs_component_net` **Bars** · `bbs_component_lap` **Laps** ·
 `bbs_component_ties` **Ties** (the components of a rebar line in words, I-354; read by the issued
@@ -508,8 +561,15 @@ never as a percentage of it.** · `bbs_summary_heading` **Cutting stock by diame
 **Stock bars, pieces and offcut describe what a site cuts from a stock bar. They are informational and
 are never billed.** · `bbs_summary_col_diameter` **Diameter (mm)** · `bbs_summary_col_kg` **Mass (kg)**
 · `bbs_summary_col_stock_bars` **Stock bars** · `bbs_summary_col_pieces` **Pieces** ·
-`bbs_summary_col_offcut` **Offcut (mm)** · `bbs_summary_total` **Total mass** ·
-`bbs_summary_total_measured` **Measured scope only** (I-bbs-9) ·
+`bbs_summary_col_offcut` **Offcut (m)** (I-568) · `bbs_summary_total` **Total mass** ·
+`bbs_total_covers` **{scope} only — {missing} not counted** · `bbs_total_covers_whole` **{scope}
+only** · `bbs_scope_main_bars` **main bars** · `bbs_scope_bars` **bars** · `bbs_scope_and` **and**
+(what the total covers, I-567) · `bbs_run_label` **Storey-height runs, not for cutting** ·
+`bbs_run_tooltip` **The laps of these bars are not stated, so each stands at its storey height: a
+quantity to weigh, not a length to cut.** · `bbs_stock_withheld` **Not computed — laps not stated** ·
+`bbs_stock_withheld_note` **Cutting stock is not computed for {diameters} mm: those bars are
+storey-height runs whose laps are not stated, and nobody can cut from them.** (I-567) ·
+`bbs_not_in_schedule` **Not in this schedule:** (I-569) ·
 `bbs_partial` **Some rebar lines are partly declared, so their bars stand here as they read.** ·
 `bbs_partial_omitted` **Left out of this schedule:** (I-bbs-9)
 · `bbs_complete` **Every bar of the pinned campaign is scheduled, with laps as their own
@@ -554,7 +614,10 @@ attributes; shape codes render inside `data-technical` (I-bbs-6). `MEASURE` insi
 the product's law, quoted as the seam quotes it. The rendered PDF's own words are the document kind's,
 held to AM-05: **DRAFT — UNSIGNED** on every page, `BBS_TITLE` **Bar bending schedule**, the
 particulars in words, each entry headed `C2 · Column · 1F` with its `8 members`, a **Lap** line
-beneath every bar that laps, one cutting-stock line per diameter, **Measured scope only** and **Left
+beneath every bar that laps, one cutting-stock line per diameter (or **Not computed — laps not stated** across it, with the
+sentence naming the withheld diameters, I-567), each entry of storey-height runs headed
+**Storey-height runs, not for cutting**, the total's cover in words, **Not in this schedule**
+where steel was published by no line (I-569), and **Left
 out of this schedule** where the lines are partly declared, a blank **Prepared by** / **Checked by**
 box the site completes by hand, and no surveyor, credential, certificate, id, key or enum word
 anywhere (I-535, I-536).
@@ -619,13 +682,14 @@ Test ids, exactly the registry's spellings, on the elements ruled in §1: `bbs-s
 the whole `setRevisionId`) · `bbs-stock` (`data-stock-mm`, `data-rounding-mm`) · `bbs-grid`
 (`data-rows-rendered`) · `bbs-member` (`data-member` = the entry's first member's `objectKey`,
 `data-members` = the number of members the entry counts, `data-mark`, `data-class`, `data-level`;
-I-534) · `bbs-row` (`data-bar-key`, `data-bar-mark`, `data-role`, `data-diameter`,
+I-534; `data-not-for-cutting="true"` on an entry of storey-height runs, I-567) · `bbs-row` (`data-bar-key`, `data-bar-mark`, `data-role`, `data-diameter`,
 `data-shape`, `data-dims` = JSON of `dimsMm`, `data-cutting-raw`, `data-cutting-rounded`,
 `data-cutting-is`, `data-pieces`, `data-bars`, `data-lap-mm`, `data-laps`, `data-kg`,
 `data-component="NET"`) · `bbs-lap` (`data-bar-key`, `data-component="LAP"`, `data-lap-mm`,
 `data-laps`, `data-kg` = `kgLap`; rendered only where `lapsPerBar > 0` — I-bbs-3) · `bbs-summary`
 (`data-kg` = `grandTotalKg`) · `bbs-summary-row` (`data-diameter`, `data-kg`, `data-stock-bars`,
-`data-pieces`, `data-offcut-mm`) · `bbs-empty` · `bbs-export` (`data-permission="MEASURE"`,
+`data-pieces`, `data-offcut-mm`, and `data-withheld="true"` where its stock is not computed,
+I-567) · `bbs-empty` · `bbs-export` (`data-permission="MEASURE"`,
 `data-job` while a render is watched, `aria-disabled="true"` while offline or watched) · `bbs-jobs`
 (`data-job`) · `bbs-document-link` (`data-document`) — the last three added by I-bbs-8. Used and
 never redefined, other files' ids:

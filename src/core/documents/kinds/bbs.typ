@@ -95,6 +95,8 @@
 /// — the group every line beneath it belongs to (R-TO-054, I-534). It is a SUBHEADER of the one table:
 /// the column band stands over every entry, an entry that runs onto the next page is headed there
 /// again, and a heading is never left alone at the foot of a page with its lines overleaf.
+/// An entry whose laps are not stated says, under its heading, that its bars are storey-height runs
+/// and not for cutting (I-567): the lengths below are a quantity to weigh, not a cut list.
 #let entry-heading(entry) = table.header(
   level: 2,
   table.cell(colspan: across, inset: (x: 1.4mm, top: 2.6mm, bottom: 1.2mm))[
@@ -104,6 +106,10 @@
       text(size: 9.5pt, weight: "semibold", fill: ink)[#entry.heading],
       text(size: 8.5pt, fill: quiet)[#entry.members],
     )
+    #if entry.run != "" [
+      #v(0.6mm)
+      #text(size: 8.5pt, style: "italic", fill: quiet)[#entry.run]
+    ]
   ],
   table.hline(stroke: 0.4pt + rule),
 )
@@ -151,7 +157,7 @@
       head[Dimensions (mm)],
       head[Cutting length (mm)],
       head[Rounded (mm)],
-      head[IS additive (mm)],
+      head[IS 2502 (mm)],
       head[In each],
       head[Total],
       head[Mass (kg)],
@@ -164,7 +170,9 @@
   #v(4mm)
 
   // The cutting stock: what a site cuts from a stock bar, per diameter. INFORMATIONAL — it is not a
-  // quantity anybody is billed for, and the sentence beneath it says so (AM-03(e)).
+  // quantity anybody is billed for, and the sentence beneath it says so (AM-03(e)). A diameter whose
+  // bars include storey-height runs keeps its mass and states, across the three packing columns, that
+  // its stock was not computed and why (I-567); the sentence beneath names those diameters.
   #block(breakable: false)[
     #block(width: 100%, inset: (x: 1.4mm, y: 1.8mm))[
       #text(size: 10.5pt, weight: "semibold", fill: ink)[Cutting stock by diameter]
@@ -177,18 +185,26 @@
       stroke: none,
       inset: (x: 2mm, y: 1.4mm),
       row-gutter: 0pt,
-      table.header(head[Dia (mm)], head[Mass (kg)], head[Stock bars], head[Pieces], head[Offcut (mm)], []),
+      table.header(head[Dia (mm)], head[Mass (kg)], head[Stock bars], head[Pieces], head[Offcut (m)], []),
       table.hline(stroke: 0.6pt + rule),
       ..payload.stock
-        .map(one => (fig(one.diameter), fig(one.kg), fig(one.stockBars), fig(one.pieces), fig(one.offcut), []))
+        .map(one => if one.withheld != "" {
+          (fig(one.diameter), fig(one.kg), table.cell(colspan: 3, align: left + horizon)[#text(size: 8.5pt, fill: quiet)[#one.withheld]], [])
+        } else {
+          (fig(one.diameter), fig(one.kg), fig(one.stockBars), fig(one.pieces), fig(one.offcut), [])
+        })
         .flatten(),
       table.hline(stroke: 0.6pt + rule),
       text(size: 9pt, weight: "semibold", fill: ink)[Total mass],
       fig(payload.grandTotalKg),
-      table.cell(colspan: 4, align: left + horizon)[#if payload.partial { text(size: 8.5pt, fill: quiet)[Measured scope only] }],
+      table.cell(colspan: 4, align: left + horizon)[#if payload.totalCovers != "" { text(size: 8.5pt, fill: quiet)[#payload.totalCovers] }],
     )
     #v(2mm)
     #text(size: 8.5pt, fill: quiet)[Stock bars, pieces and offcut describe what a site cuts from a stock bar. They are informational and are never billed.]
+    #if payload.stockWithheldNote != "" [
+      #v(1.2mm)
+      #text(size: 8.5pt, fill: ink)[#payload.stockWithheldNote]
+    ]
   ]
 
   // WHAT IS LEFT OUT, SAID (L-QTY-02, I-536): a schedule over partly declared lines names the
@@ -206,6 +222,29 @@
           columns: (32mm, 1fr),
           column-gutter: 3mm,
           text(size: 9pt, weight: "semibold", fill: ink)[#one.what],
+          text(size: 9pt, fill: ink)[#one.why],
+        )
+        #v(1.2mm)
+      ]
+    ]
+  ]
+
+  // WHAT THIS SCHEDULE DOES NOT HOLD (I-569): the reinforcement the campaign published no line
+  // for — beam, pile, cap and slab steel — in the draft BOQ's own closing words, so a schedule of
+  // column steel is never taken for the building's.
+  #if payload.notInSchedule.len() > 0 [
+    #v(4mm)
+    #block(breakable: false)[
+      #text(size: 10.5pt, weight: "semibold", fill: ink)[Not in this schedule]
+      #v(1.2mm)
+      #line(length: 100%, stroke: 0.6pt + rule)
+      #v(1.2mm)
+      #for one in payload.notInSchedule [
+        #grid(
+          columns: (32mm, 20mm, 1fr),
+          column-gutter: 3mm,
+          text(size: 9pt, weight: "semibold", fill: ink)[#one.what],
+          text(size: 9pt, fill: quiet)[#one.levels],
           text(size: 9pt, fill: ink)[#one.why],
         )
         #v(1.2mm)

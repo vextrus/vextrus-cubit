@@ -123,11 +123,13 @@ describe("AC-1: the roster's draft, composed as the A-BOQ-XLSX workbook", () => 
     }
   });
 
-  test("AC-1: every section sheet heads its seven columns in A-BOQ-XLSX's order", async () => {
+  // TEST_AMENDED (session 9, BBS-HONEST, s-boq I-570): a Remarks column follows the seven,
+  // where an item with no figure says why — the words left the numeric Quantity cell.
+  test("AC-1: every section sheet heads its seven columns in A-BOQ-XLSX's order, then Remarks", async () => {
     await ready();
     for (const section of payload.sections) {
       const sheet = sheetNamed(workbook, sectionSheetNameOf(section));
-      expect(rowText(sheet, HEADER_ROW, SECTION_HEADER.length), `${sheet.name} heads Item, Code, Description, Unit, Quantity, Rate, Amount`).toEqual([...SECTION_HEADER]);
+      expect(rowText(sheet, HEADER_ROW, SECTION_HEADER.length), `${sheet.name} heads Item, Code, Description, Unit, Quantity, Rate, Amount, Remarks`).toEqual([...SECTION_HEADER]);
     }
   });
 
@@ -163,8 +165,10 @@ describe("AC-1: the roster's draft, composed as the A-BOQ-XLSX workbook", () => 
         // prices the item, so no figure nobody stated ever appears in the draft (I-274, B-21).
         expect(cellText(sheet, row, RATE), `${where} states no rate — the priced BOQ is M6`).toBe("");
         expect(cellFormula(sheet, row, RATE), `${where}'s Rate is a cell a person types in, never a formula`).toBeNull();
+        // TEST_AMENDED (session 9, BBS-HONEST, I-570): both cells are asked ISNUMBER, so a
+        // rate against an item with no quantity leaves the Amount empty rather than #VALUE!.
         expect(cellFormula(sheet, row, AMOUNT), `${where}'s Amount is LIVE: Excel computes it from the quantity and the rate beside it (A-BOQ-XLSX)`).toBe(
-          `IF(F${row}="","",E${row}*F${row})`,
+          `IF(AND(ISNUMBER(E${row}),ISNUMBER(F${row})),E${row}*F${row},"")`,
         );
 
         if (item.quantity !== null) {

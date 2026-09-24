@@ -23,7 +23,8 @@ export const bbs = {
   bbs_col_dims: "Dimensions",
   bbs_col_cutting_raw: "Cutting length (mm)",
   bbs_col_cutting_rounded: "Rounded (mm)",
-  bbs_col_cutting_is: "IS additive (mm)",
+  // The column prints IS 2502's whole cutting length, so it is named for that (I-568).
+  bbs_col_cutting_is: "IS 2502 (mm)",
   bbs_col_bars: "Bars",
   bbs_col_kg: "Mass (kg)",
   // A mark is stated once per floor with its number of members (I-534): the group row says the count,
@@ -45,9 +46,22 @@ export const bbs = {
   bbs_summary_col_kg: "Mass (kg)",
   bbs_summary_col_stock_bars: "Stock bars",
   bbs_summary_col_pieces: "Pieces",
-  bbs_summary_col_offcut: "Offcut (mm)",
+  bbs_summary_col_offcut: "Offcut (m)",
   bbs_summary_total: "Total mass",
-  bbs_summary_total_measured: "Measured scope only",
+  // What the total covers, said where the schedule is not the whole of the steel (I-567/c).
+  bbs_total_covers: "{scope} only — {missing} not counted",
+  bbs_total_covers_whole: "{scope} only",
+  bbs_scope_main_bars: "main bars",
+  bbs_scope_bars: "bars",
+  bbs_scope_and: "and",
+  // A member whose laps are not stated holds storey-height runs, not lengths to cut (I-567).
+  bbs_run_label: "Storey-height runs, not for cutting",
+  bbs_run_tooltip: "The laps of these bars are not stated, so each stands at its storey height: a quantity to weigh, not a length to cut.",
+  bbs_stock_withheld: "Not computed — laps not stated",
+  bbs_stock_withheld_note:
+    "Cutting stock is not computed for {diameters} mm: those bars are storey-height runs whose laps are not stated, and nobody can cut from them.",
+  // The steel no line was published for, in the draft BOQ's own closing words (I-569).
+  bbs_not_in_schedule: "Not in this schedule:",
   bbs_partial: "Some rebar lines are partly declared, so their bars stand here as they read.",
   bbs_partial_omitted: "Left out of this schedule:",
   bbs_complete: "Every bar of the pinned campaign is scheduled, with laps as their own rows.",

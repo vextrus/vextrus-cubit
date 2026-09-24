@@ -10,6 +10,12 @@
 // the door counted it. What the partly declared lines left out crosses in the screen's own words —
 // the components as the copy table says them, the reason as the refusal register says it (I-536).
 //
+// What is NOT a cutting document says so (I-567, I-569): the entries whose laps the
+// lines declared missing are marked as storey-height runs and the diameters they touch cross with no
+// cutting stock — the SAME reading the screen draws (`cuttingStandingOf`); the total crosses with what
+// it covers in words (`totalCoversOf`); and the steel no line was published for crosses in the draft
+// BOQ's closing words, as the reading composed them.
+//
 // The payload is a STATEMENT: the kind's schema is strict, so a field this file invented would be
 // refused at the seam rather than printed (L-FMT-03). It carries no campaign id, revision uuid or
 // register key: the page is written in words (R-UI-082, I-535), and the issue's ids are the
@@ -18,8 +24,8 @@ import type { BbsPayload } from "@/core/documents/kinds/bbs";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import type { BbsDocument } from "@/modules/takeoff/rebar";
 import { BBS_COMPONENT_SAID } from "./copy";
-import { BBS_PLACES, statedAt } from "./present";
-import type { BbsOmission } from "./view";
+import { BBS_PLACES, cuttingStandingOf, metresOf, statedAt, totalCoversOf } from "./present";
+import type { BbsNotInSchedule, BbsOmission } from "./view";
 
 /** A day as the document states one: wall-clock parts in the document's zone (L-FMT-01). */
 export type BbsDay = { readonly year: number; readonly month: number; readonly day: number };
@@ -47,6 +53,10 @@ export type BbsPayloadMeta = {
   readonly partial: boolean;
   /** What those lines left out, each code once with its components, as `bbsViewOf` read them. */
   readonly omitted: readonly BbsOmission[];
+  /** The members whose lines left a length term out — their running bars are not for cutting (I-567). */
+  readonly deferred?: readonly string[];
+  /** The steel no line was published for, as `bbsViewOf` said it in the draft's words (I-569). */
+  readonly notInSchedule?: readonly BbsNotInSchedule[];
 };
 
 /** The registry's entry for a code, or nothing where the registry holds none. */
@@ -83,6 +93,8 @@ export function bbsPayloadOf(document_: BbsDocument, meta: BbsPayloadMeta): BbsP
 
   // The door's lines under the entry each belongs to — its first member names it — in the order the
   // door first names each entry, and the lines of an entry in the door's own order (L-REG-04).
+  const standing = cuttingStandingOf(document_, meta.deferred ?? []);
+  const notInSchedule = meta.notInSchedule ?? [];
   const order: string[] = [];
   const byEntry = new Map<string, BbsDocument["rows"][number][]>();
   for (const line of document_.rows) {
@@ -102,6 +114,7 @@ export function bbsPayloadOf(document_: BbsDocument, meta: BbsPayloadMeta): BbsP
         class: first.class,
         mark: first.mark,
         members: first.members.length,
+        notForCutting: standing.runs.has(key),
         bars: lines.map((line) => ({
           barMark: line.barMark,
           role: line.role,
@@ -145,14 +158,19 @@ export function bbsPayloadOf(document_: BbsDocument, meta: BbsPayloadMeta): BbsP
     perDiameterKg: Object.fromEntries(Object.entries(document_.perDiameterKg).map(([diameter, kg]) => [diameter, mass(kg)])),
     // The packing's own answer, less the method it recorded: the kind prints what a site cuts, and
     // how the packing was reached is the method's disclosure, not the document's (AM-03(e)).
+    // A diameter whose bars include a run nobody can cut crosses with NO packing at all — named in
+    // `stockWithheld` instead — so the document cannot print it (I-567). The offcut crosses
+    // in metres, the canon's own conversion of the door's millimetres (I-568).
     cuttingStock: Object.fromEntries(
-      Object.entries(document_.cuttingStock).map(([diameter, packed]) => [
-        diameter,
-        { stockBars: packed.stockBars, pieces: packed.pieces, offcutMm: rounded(packed.offcutMm) },
-      ]),
+      Object.entries(document_.cuttingStock)
+        .filter(([diameter]) => !standing.withheld.includes(Number(diameter)))
+        .map(([diameter, packed]) => [diameter, { stockBars: packed.stockBars, pieces: packed.pieces, offcutM: metresOf(packed.offcutMm) }]),
     ),
+    stockWithheld: [...standing.withheld],
     grandTotalKg: mass(document_.grandTotalKg),
+    totalCovers: totalCoversOf(document_, { partial: meta.partial, omitted: meta.omitted, notInSchedule: notInSchedule.length }),
     partial: meta.partial,
     leftOut: meta.partial ? leftOutOf(meta.omitted) : [],
+    notInSchedule: notInSchedule.map((one) => ({ about: one.about, levels: one.levels, why: one.why })),
   };
 }

@@ -46,6 +46,7 @@ import {
   type BarRole,
   type BarSpec,
 } from "@/core/rulesets/methods/rebar/synthesis";
+import { isLinkRole } from "@/core/rulesets/rebar-roles";
 import { convert, exact, unitNamed } from "@/core/units/canon";
 
 /** The one kind this rail measures — a rail is selected per quantity KIND (L-MEA-08). */
@@ -416,7 +417,7 @@ export function massesOf(read: { readonly bars: readonly BarRow[] }): { readonly
   let lap = exact(0);
   let ties = exact(0);
   for (const bar of read.bars) {
-    if (bar.role === "TIE" || bar.role === "STIRRUP" || bar.role === "SPIRAL") ties = ties.add(exact(bar.kg));
+    if (isLinkRole(bar.role)) ties = ties.add(exact(bar.kg));
     else {
       net = net.add(exact(bar.kgNet));
       lap = lap.add(exact(bar.kgLap));

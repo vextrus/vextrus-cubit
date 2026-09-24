@@ -294,6 +294,19 @@ export function notMeasuredScopeOf(payload: Pick<BoqDraftPayload, "notMeasured">
   return (payload.notMeasured ?? []).map((row) => ({ about: notMeasuredAbout(row), levels: row.levels, why: registeredSentence(row.cause) ?? inWords(row.cause) }));
 }
 
+/**
+ * The measurement statement's rows as a draft carries them: what, on which class, over which levels,
+ * and why — the registered reason read beside the writerless fall-through where the row carries one,
+ * so a draft never prints that nothing explains an absence, and the row's cause everywhere else
+ * (s-coverage I-480). One reading for every document that closes on the statement: the draft BOQ and
+ * the bar schedule say one boundary in one set of words (s-bbs I-569, B-17).
+ */
+export function notMeasuredRowsOf(
+  statement: readonly { readonly class: string | null; readonly kind: string; readonly levels: string; readonly cause: string; readonly reason?: string | null }[],
+): BoqNotMeasuredRow[] {
+  return statement.map((row) => ({ class: row.class, kind: row.kind, levels: row.levels, cause: row.reason ?? row.cause }));
+}
+
 /** Every member line a payload holds, placed or not, in the order the draft prints them. */
 export function draftLinesOf(payload: Pick<BoqDraftPayload, "sections" | "unclassified">): BoqDraftLine[] {
   return [...payload.sections.flatMap((section) => section.groups.flatMap((group) => group.items.flatMap((item) => item.lines))), ...payload.unclassified.lines];

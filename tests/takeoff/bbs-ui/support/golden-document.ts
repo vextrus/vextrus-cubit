@@ -126,6 +126,10 @@ export type BbsViewShape = {
   readonly setRevisionId: string | null;
   readonly document: BbsDocumentShape | null;
   readonly partial: boolean;
+  /** The members whose lines left a length term out (s-bbs I-567). */
+  readonly deferred?: readonly string[];
+  /** The rebar no line was published for, in the draft's words (I-569). */
+  readonly notInSchedule?: readonly { readonly about: string; readonly levels: string; readonly why: string }[];
 };
 
 /** The one address this screen answers at (src/app/.../takeoff/bbs/route-address.ts). */

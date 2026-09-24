@@ -17,7 +17,8 @@ import { inWords } from "@/core/documents/kinds/boq-draft-law";
 import { formatUserFigure } from "@/core/format";
 import { compareCanonical, readCitedKey } from "@/core/identity";
 import { isDecimalFigure } from "@/core/projects";
-import { CANONICAL_UNIT, convert, dimensionOf, unitNamed } from "@/core/units/canon";
+import Decimal from "decimal.js";
+import { CANONICAL_UNIT, convert, dimensionOf, exact, unitNamed } from "@/core/units/canon";
 
 /**
  * The sections an item is priced floor by floor in (I-528): above the plinth, where PWD's
@@ -177,18 +178,40 @@ function firstUse(expression: string, name: string): number {
   return found === null ? Number.POSITIVE_INFINITY : found.index;
 }
 
+/** What a line with no `count` of its own counts: the one member the line is published for (I-572). */
+const ONE_MEMBER = "1";
+
 /**
- * How many members a line counts — its formula's `count`, as the canon holds it — or nothing where
- * the formula counts none.
+ * How many members a line counts — its formula's `count`, as the canon holds it — or, where the
+ * formula counts none, the ONE member the line stands for: a line is published once per register
+ * object and kind, so a rebar line (whose mass counts no members) is one member's, and an empty Nos
+ * cell would read as a count nobody took (I-572). Nothing where the line is not read at all.
  */
 export function nosOf(variables: Readonly<Record<string, ReadingBinding>> | undefined): string | undefined {
-  const count = variables?.[COUNT];
-  return count === undefined ? undefined : count.canonical.value;
+  if (variables === undefined) return undefined;
+  const count = variables[COUNT];
+  return count === undefined ? ONE_MEMBER : count.canonical.value;
+}
+
+/**
+ * The places a dimension is written to (I-572): a count whole, and every canonical length,
+ * area, volume and mass to three — the millimetre and the gramme, the precision a bill's details of
+ * measurement are read at. The register keeps the full figure; `H 0.6096 m` and `net 7.7004672 kg`
+ * are what a reader cannot check against a tape or a weighbridge.
+ */
+function dimensionPlacesOf(unit: string): number {
+  return unit === CANONICAL_UNIT.COUNT ? 0 : 3;
+}
+
+/** A dimension as the details state it: rounded once, half to even, at its unit's places (L-MEA-05). */
+function dimensionFigure(value: string, unit: string): string {
+  if (!isDecimalFigure(value)) return value;
+  return writtenFigure(exact(value).toFixed(dimensionPlacesOf(unit), Decimal.ROUND_HALF_EVEN));
 }
 
 /**
  * What a line's formula multiplied, in the order the formula names the variables and in the units
- * the canon carried them to: `d 0.45 m · H 0.6096 m`, and — for a variable the drawings did not state
+ * the canon carried them to, each at its unit's places: `d 0.450 m · H 0.610 m`, and — for a variable the drawings did not state
  * — `t not stated` (L-QTY-02). The count is the Nos column's. Each figure goes through the format seam.
  */
 export function dimensionsOf(formula: string, variables: Readonly<Record<string, ReadingBinding>>, omitted: readonly string[]): string {
@@ -202,7 +225,7 @@ export function dimensionsOf(formula: string, variables: Readonly<Record<string,
   return names
     .map((name) => {
       const binding = variables[name];
-      return binding === undefined ? `${name} not stated` : `${name} ${writtenFigure(binding.canonical.value)} ${binding.canonical.unit}`;
+      return binding === undefined ? `${name} not stated` : `${name} ${dimensionFigure(binding.canonical.value, binding.canonical.unit)} ${binding.canonical.unit}`;
     })
     .join(" · ");
 }

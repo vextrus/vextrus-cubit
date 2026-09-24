@@ -1103,12 +1103,18 @@ function boqColumns(
       accessorFn: (row) => row.coverage,
       // An item every member of which measured whole is COMPLETE and its chip says 100 %. An item with
       // a partly declared member has no measured fraction anybody stated, so it wears its standing in
-      // WORDS rather than a percentage the chip would invent (L-QTY-07, I-271, I-boq-1).
+      // WORDS rather than a percentage the chip would invent (L-QTY-07, I-271, I-boq-1). And an item
+      // NONE of whose members states a figure is not partly anything: it says `Not measured`, the
+      // words its Quantity cell already says (I-571).
       cell: ({ row }) =>
         row.original.coverage === COMPLETE ? (
           <CoverageChip value={1} />
         ) : (
-          <EnumLabel value={row.original.coverage} label={BOQ_COPY.boq_coverage_partial} className="cx-boq-coverage-partial" />
+          <EnumLabel
+            value={row.original.coverage}
+            label={row.original.quantity === null ? BOQ_COPY.boq_coverage_unmeasured : BOQ_COPY.boq_coverage_partial}
+            className="cx-boq-coverage-partial"
+          />
         ),
     },
   ];

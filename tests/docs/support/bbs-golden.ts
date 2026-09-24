@@ -60,6 +60,18 @@ export const BBS_DOCUMENT_META = Object.freeze({
   omitted: Object.freeze([]),
 });
 
+/**
+ * What a case may state beside the committed particulars: a reading whose lines left components out
+ * (`partial`, `omitted`), the members whose laps they left out (`deferred`, s-bbs I-567) and the
+ * steel no line was published for (`notInSchedule`, I-569).
+ */
+export type BbsDocumentMeta = Omit<typeof BBS_DOCUMENT_META, "partial" | "omitted"> & {
+  readonly partial: boolean;
+  readonly omitted: readonly { readonly code: string; readonly components: readonly string[] }[];
+  readonly deferred?: readonly string[];
+  readonly notInSchedule?: readonly { readonly about: string; readonly levels: string; readonly why: string }[];
+};
+
 /** A stored bar row, as far as this lane needs the store's shape. */
 type StoredRow = Record<string, unknown> & { objectKey: string };
 
@@ -70,7 +82,7 @@ type RebarModules = {
   };
   bars: { barRowKeyOf(at: { objectKey: string; role: string; diameterMm: number; sequence: number }): string; REBAR_EDITION: unknown };
   detailing: { kgPerMetreOf(edition: unknown, diameterMm: number): string };
-  emission: { bbsPayloadOf(document: unknown, meta: typeof BBS_DOCUMENT_META): unknown };
+  emission: { bbsPayloadOf(document: unknown, meta: BbsDocumentMeta): unknown };
 };
 
 async function rebarModules(): Promise<RebarModules> {
@@ -92,7 +104,7 @@ const STACK = Object.freeze(BBS_DOCUMENT_LEVELS.map((label, ordinal) => ({ label
  * order over that stack (`readingOrder`), the door's document over them, and the export's payload of
  * that document under `BBS_DOCUMENT_META`.
  */
-export async function bbsGoldenPayload(fixtureId: string = BBS_FIXTURE): Promise<unknown> {
+export async function bbsGoldenPayload(fixtureId: string = BBS_FIXTURE, reading: Partial<BbsDocumentMeta> = {}): Promise<unknown> {
   const { store, bars, detailing, emission } = await rebarModules();
   const rows: StoredRow[] = bbsDocumentRows(fixtureId).map((row, sequence) => ({
     barKey: bars.barRowKeyOf({ objectKey: row.member, role: row.role, diameterMm: row.dia_mm, sequence }),
@@ -124,5 +136,5 @@ export async function bbsGoldenPayload(fixtureId: string = BBS_FIXTURE): Promise
     semantic: `${row.member}|${String(sequence)}`,
   }));
   rows.sort(store.readingOrder(STACK));
-  return emission.bbsPayloadOf(store.bbsDocumentOf(`${fixtureId}-campaign`, rows), BBS_DOCUMENT_META);
+  return emission.bbsPayloadOf(store.bbsDocumentOf(`${fixtureId}-campaign`, rows), { ...BBS_DOCUMENT_META, ...reading });
 }

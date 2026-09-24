@@ -21,10 +21,14 @@
 // THE RESERVED WORD APPEARS NOWHERE A READER LOOKS (AM-05, I-265, I-273). A-BOQ-XLSX's "bill sheets"
 // are SECTION sheets, named by the section's ordinal among L-BD-08's six and its own label.
 //
-// WHERE NO FIGURE STANDS, THE CELL SAYS SO (I-450). An item or a line that states no figure reads
-// `Not measured — <its reasons in words>` in its Quantity cell — the words the PDF prints, from the
-// one spelling of them. What the draft published no line for stands on its own `Not measured` sheet,
-// the PDF's closing page as rows (I-451).
+// WHERE NO FIGURE STANDS, THE ROW SAYS SO — AND THE QUANTITY CELL STAYS A NUMBER OR NOTHING (I-450,
+// I-570). An item or a line that states no figure leaves its Quantity cell EMPTY and says
+// `Not measured — <its reasons in words>` in a Remarks column beside it (the Quantities sheet's
+// Reason) — the words the PDF prints, from the one spelling of them. Words in a number column were a
+// trap: a rate typed against them made the Amount `#VALUE!`, and the Summary's section sum with it.
+// The Amount is guarded the same way, computed only where both the quantity and the rate are
+// numbers. What the draft published no line for stands on its own `Not measured` sheet, the PDF's
+// closing page as rows (I-451).
 import {
   draftLinesOf,
   itemQualifierOf,
@@ -96,7 +100,14 @@ const FREEZE_HEADER = true;
 /** The row a sheet's first body row stands on — the header takes the first (the seam's own layout). */
 const FIRST_LINE_ROW = 2;
 
-/** A section sheet's seven columns, in A-BOQ-XLSX's own order. */
+/** The column a section sheet says an unmeasured item's words in, beside its empty Quantity (I-570). */
+export const REMARKS_HEADER = "Remarks";
+
+/**
+ * A section sheet's columns: A-BOQ-XLSX's seven in its own order, then the Remarks a row with no
+ * figure says why in. Remarks stands LAST so the seven keep their letters — the Amount is G, which the
+ * Summary's section sums read.
+ */
 function sectionColumns(fractionDigits: number): readonly ExportColumn[] {
   return [
     { key: "item", header: "Item", kind: "text" },
@@ -106,6 +117,7 @@ function sectionColumns(fractionDigits: number): readonly ExportColumn[] {
     { key: "quantity", header: "Quantity", kind: "number", fractionDigits },
     { key: "rate", header: "Rate", kind: "money" },
     { key: "amount", header: "Amount", kind: "money" },
+    { key: "remarks", header: REMARKS_HEADER, kind: "text" },
   ];
 }
 
@@ -159,14 +171,16 @@ export function sectionSheetName(bill: string, label: string): string {
 }
 
 /**
- * The Amount of an unpriced item: empty until a rate stands beside it, and the product of the two the
- * moment one does (A-BOQ-XLSX's live formulas, I-274).
+ * The Amount of an unpriced item: empty until a rate stands beside a quantity, and the product of the
+ * two the moment both are numbers (A-BOQ-XLSX's live formulas, I-274, I-570).
  *
  * `E*F` alone would put `0.00` in every Amount of an unpriced draft — a figure nobody stated, on a
- * document that states it has no prices (B-21).
+ * document that states it has no prices (B-21). And a rate typed against an item with no quantity
+ * must leave the Amount empty rather than `#VALUE!`, which would carry into the Summary's section sum
+ * and blank the whole section's price: so both cells are asked `ISNUMBER` before they are multiplied.
  */
 export function amountFormula(row: number): string {
-  return `IF(F${row}="","",E${row}*F${row})`;
+  return `IF(AND(ISNUMBER(E${row}),ISNUMBER(F${row})),E${row}*F${row},"")`;
 }
 
 /** The places one section is written to: the widest any kind standing in it is written to (I-275). */
@@ -175,16 +189,17 @@ function placesForSection(section: BoqDraftSection): number {
 }
 
 /**
- * What an item's Quantity cell holds: the figure the payload settled — its members' register sum,
- * rounded once — or, where no member states one, the words that say so and why (I-450).
+ * What an item's Remarks cell says: nothing where the payload settled a figure, and — where no member
+ * states one — the words that say so and why (I-450). The Quantity cell beside it stays empty, so a
+ * spreadsheet never meets words where it adds numbers (I-570).
  */
-function itemQuantityCellOf(item: BoqDraftItem): string {
-  return item.quantity ?? notMeasuredWords(item.lines.flatMap((line) => line.omitted ?? []));
+function itemRemarksOf(item: BoqDraftItem): string | null {
+  return item.quantity === null ? notMeasuredWords(item.lines.flatMap((line) => line.omitted ?? [])) : null;
 }
 
-/** What a member line's Quantity cell holds: its own figure, or the words and why. */
-function lineQuantityCellOf(line: BoqDraftLine): string {
-  return line.quantity ?? notMeasuredWords(line.omitted ?? []);
+/** What a member line's Reason says about its figure: nothing where it states one, else the words and why. */
+function lineRemarksOf(line: BoqDraftLine): string | null {
+  return line.quantity === null ? notMeasuredWords(line.omitted ?? []) : null;
 }
 
 /**
@@ -227,10 +242,10 @@ function itemOfLine(payload: BoqDraftPayload): ReadonlyMap<string, { readonly it
 function sectionSheetOf(section: BoqDraftSection, items: ReadonlyMap<string, string>): SheetSpec {
   const rows: ExportCell[][] = [];
   for (const group of section.groups) {
-    rows.push([null, null, descriptionOf(group.class, group.kind), null, null, null, null]);
+    rows.push([null, null, descriptionOf(group.class, group.kind), null, null, null, null, null]);
     for (const item of group.items) {
       const row = FIRST_LINE_ROW + rows.length;
-      rows.push([items.get(item.key) ?? NOTHING_HELD, codeOf(group), itemDescriptionCellOf(item), item.unit, itemQuantityCellOf(item), null, { formula: amountFormula(row) }]);
+      rows.push([items.get(item.key) ?? NOTHING_HELD, codeOf(group), itemDescriptionCellOf(item), item.unit, item.quantity, null, { formula: amountFormula(row) }, itemRemarksOf(item)]);
     }
   }
   return {
@@ -323,7 +338,7 @@ export function boqQuantitiesSheetOf(reading: BoqExportReading): SheetSpec {
       line.nos ?? NOTHING_HELD,
       line.dimensions ?? NOTHING_HELD,
       line.sheet ?? NOTHING_HELD,
-      lineQuantityCellOf(line),
+      line.quantity,
       line.unit,
       line.quantityBasis,
       line.selectionBasis,
@@ -332,7 +347,9 @@ export function boqQuantitiesSheetOf(reading: BoqExportReading): SheetSpec {
       evidence?.layoutName ?? NOTHING_HELD,
       evidence?.formula ?? NOTHING_HELD,
       line.decidedBy,
-      cells.reason,
+      // Why the line sits where it does and why it states no figure, where either needs saying: the
+      // taxonomy's reason for an unplaced line, then the not-measured words (I-450, I-570).
+      [cells.reason, lineRemarksOf(line)].filter((said): said is string => said !== null && said !== "").join("; ") || null,
     ];
   };
 

@@ -145,6 +145,31 @@ describe("I-528: a row is an item — one description at one band — never a me
   });
 });
 
+describe("I-571: the coverage cell says `Not measured` where no member states a figure", () => {
+  it("an item measured in part reads Partly declared; an item measured not at all reads Not measured", () => {
+    const view = aView();
+    const payload = boqDraftPayloadOf({
+      project: "Bashundhara G+6",
+      campaignId: "campaign-1",
+      setRevisionId: "revision-1",
+      levels: LEVELS,
+      coverageComplete: false,
+      lines: [
+        line({ lineId: "d", objectKey: "C1@1F", levelId: "l-1f", value: "0.32004" }),
+        line({ lineId: "e", objectKey: "C2@1F", levelId: "l-1f", value: null, coverage: "PARTIAL_DECLARED", omitted: ["STOREY_HEIGHT_UNSTATED"] }),
+        line({ lineId: "r1", objectKey: "C1@GF", kind: "rcc.rebar", unit: "kg", value: null, coverage: "PARTIAL_DECLARED", omitted: ["REBAR_TIE_ZONE_UNSTATED"] }),
+        line({ lineId: "r2", objectKey: "C2@GF", kind: "rcc.rebar", unit: "kg", value: null, coverage: "PARTIAL_DECLARED", omitted: ["REBAR_TIE_ZONE_UNSTATED"] }),
+      ],
+    });
+    const mixed = { ...view, payload, items: numberItems(payload.sections) };
+    const { container } = render(<BoqWorkspace view={mixed} permitted tenantId="t" projectId="p" chrome={chrome()} doors={{ refusalOf }} />);
+    const coverageOf = (kind: string): (string | null)[] =>
+      [...container.querySelectorAll(`[data-testid="${TESTIDS.boq.line}"][data-kind="${kind}"] td[data-column="coverage"]`)].map((cell) => cell.textContent);
+    expect(coverageOf("rcc.concrete"), "one of two members measured: partly declared").toEqual(["Partly declared"]);
+    expect(coverageOf("rcc.rebar"), "none of two members measured: not measured, never partly declared").toEqual(["Not measured"]);
+  });
+});
+
 describe("I-529: the group row names the trade and states no figure", () => {
   it("the grid is handed a grouping that sums nothing, and the screen draws no section foot", () => {
     handed.rows = [];

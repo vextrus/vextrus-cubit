@@ -282,7 +282,9 @@ test.describe.serial("J-000 — Golden Path: M3's documents on F-RCC6-BNBC", () 
 
     const first = workbook.getWorksheet(sections[0] as string) as ExcelJS.Worksheet;
     const headers = (first.getRow(1).values as (string | undefined)[]).filter((value): value is string => typeof value === "string");
-    expect(headers, "a section sheet's columns are A-BOQ-XLSX's seven, in its order").toEqual(["Item", "Code", "Description", "Unit", QUANTITY, "Rate", "Amount"]);
+    // TEST_AMENDED (session 9, BBS-HONEST, s-boq I-570): Remarks follows the seven, holding
+    // the words an item with no figure used to put in its Quantity cell.
+    expect(headers, "a section sheet's columns are A-BOQ-XLSX's seven, in its order, then Remarks").toEqual(["Item", "Code", "Description", "Unit", QUANTITY, "Rate", "Amount", "Remarks"]);
     // The sheet opens on a trade row (I-529): no number, no figure, no Amount. The first priced row
     // is the first ITEM — the first body row whose Item cell is an S.G.I number.
     const formulaOf = (cell: ExcelJS.Cell): string => (typeof cell.value === "object" && cell.value !== null && "formula" in cell.value ? String(cell.value.formula) : "");
@@ -297,7 +299,7 @@ test.describe.serial("J-000 — Golden Path: M3's documents on F-RCC6-BNBC", () 
     expect(formulaOf(heading.getCell(7)), "and no Amount of its own (I-529)").toBe("");
     const itemRow = first.getRow(firstItemRow);
     expect(formulaOf(itemRow.getCell(7)), "every item's Amount is a LIVE formula over its own Rate — empty until somebody prices the item (I-274)").toBe(
-      `IF(F${firstItemRow}="","",E${firstItemRow}*F${firstItemRow})`,
+      `IF(AND(ISNUMBER(E${firstItemRow}),ISNUMBER(F${firstItemRow})),E${firstItemRow}*F${firstItemRow},"")`,
     );
     expect(itemRow.getCell(6).value ?? null, "and the Rate is empty: the draft is unpriced (AM-05)").toBeNull();
     expect(first.views[0]?.state, "the header row stays put (A-BOQ-XLSX: frozen headers)").toBe("frozen");

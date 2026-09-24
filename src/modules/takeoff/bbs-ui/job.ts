@@ -81,6 +81,8 @@ export async function runBbsRenderJob(payload: JobPayloads["bbs-render"], progre
       particulars: { ...about.particulars, issuedOn: dhakaDateParts(new Date()) },
       partial: view.partial,
       omitted: view.omitted ?? [],
+      deferred: view.deferred ?? [],
+      notInSchedule: view.notInSchedule ?? [],
     }),
     { requestId: progress.jobId, actor: payload.requestedBy },
     deps,

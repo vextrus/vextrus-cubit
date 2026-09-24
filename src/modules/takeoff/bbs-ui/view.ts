@@ -57,4 +57,20 @@ export type BbsView = {
   readonly omitted?: readonly BbsOmission[];
   /** Where each mass and each bar was read from, for the Trace (I-559). Absent reads as none. */
   readonly traces?: BbsTraces;
+  /**
+   * The members whose rebar line declared a LENGTH term missing — the laps (or the run itself) the
+   * synthesis could not state — in the order the lines state them (I-567). Their running bars
+   * are storey-height runs, not lengths anybody can cut: the schedule labels them so and withholds
+   * the cutting stock of every diameter they touch. Absent, or empty, where every length is stated.
+   */
+  readonly deferred?: readonly string[];
+  /**
+   * The reinforcement the campaign published no line for — the measurement statement's `rcc.rebar`
+   * rows (beam, pile, cap and slab steel), in the words the draft BOQ closes on (I-569,
+   * `notMeasuredScopeOf`): what, over which levels, and why. Absent, or empty, where there is none.
+   */
+  readonly notInSchedule?: readonly BbsNotInSchedule[];
 };
+
+/** One row of the steel no line was published for, as the draft's closing block says it (I-569). */
+export type BbsNotInSchedule = { readonly about: string; readonly levels: string; readonly why: string };

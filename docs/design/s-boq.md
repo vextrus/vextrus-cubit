@@ -80,7 +80,8 @@ entry is added.
 - **I-274 — unpriced means the Rate is empty and the Amount is `IF(F="","",E*F)`.** The formula is
   live, so a reader who prices a sheet sees the bill compute; until they do, the Amount states
   nothing. Rejected: `E*F` alone, which would put `0.00` in every Amount of an unpriced draft — a
-  figure nobody stated, on a document that says it has no prices (B-21).
+  figure nobody stated, on a document that says it has no prices (B-21). *(Amended by
+  I-570: the Amount is `IF(AND(ISNUMBER(E),ISNUMBER(F)),E*F,"")`.)*
 - **I-275 — a column carries one precision: the widest `placesOf` among the kinds standing in it.** The
   cell holds the payload's already-rounded string, written as a number Excel can total and never
   re-rounded here (L-FMT-02, I-271); the lakh/crore number format is the seam's, from `BD_DOCUMENT`
@@ -250,7 +251,9 @@ owner's pending question and is untouched.
   (e) *The workbook says the same.* The section sheets' and the Quantities sheet's Quantity cell of
   a line with no figure holds `Not measured — <reasons in words>` (a text cell in a number column,
   which a SUMIF reads past); a section foot over a unit with no figure holds `Not measured` rather
-  than a SUMIF that comes to zero. Every Amount keeps its live formula (I-274).
+  than a SUMIF that comes to zero. Every Amount keeps its live formula (I-274). *(Amended by
+  I-570: the words moved to a Remarks column, and the Quantity cell holds a number or
+  nothing.)*
 - **I-451 — the draft closes on what it did not measure.** A buyer's QS handed piles, caps and
   columns assumes that is the structure; the draft carried half the RCC concrete and none of the
   slabs, walls, stairs or rebar, and said only `Coverage INCOMPLETE`. L-QTY-04 makes known scope
@@ -370,6 +373,39 @@ answered by it.
   register's Deferred and refused list, which MEASURE-REFUSE fills with each sheet that has no scale
   of record and each storey that has no height, each with its door — under **Nothing measured yet**.
   Walk-0 met the old copy telling a reader to pin a set already pinned.
+- **I-570 — a workbook row with no figure leaves its Quantity empty and says why in Remarks,
+  and its Amount multiplies only numbers (session 9, 2026-09-24; walk-1's qs-critic §2 item 2;
+  A-BOQ-XLSX, I-274, I-450(e)).** Walk-1 priced the XLSX as a QS does, typing a rate down the Rate
+  column. Every not-measured row held `Not measured — <reasons>` as TEXT in its Quantity cell, so
+  `IF(F5="","",E5*F5)` gave `#VALUE!`, and the Summary's `SUM('1 Substructure'!G2:G19)` turned
+  `#VALUE!` for the whole section. A section sheet now carries an eighth column, **Remarks**, after
+  Amount, so the seven keep their letters and the Summary's G ranges stand. An item with no figure
+  leaves Quantity empty and says `Not measured — <reasons in words>` in Remarks. The Quantities
+  sheet leaves Quantity empty too and says the same words in its Reason column, after the unplaced
+  line's taxonomy reason where there is one. The Amount is
+  `IF(AND(ISNUMBER(E<row>),ISNUMBER(F<row>)),E<row>*F<row>,"")`. It stays empty until somebody
+  prices a measured item, and it stays empty rather than erring where a rate is typed against
+  nothing. Evidence: `tests/takeoff/boq/not-measured.test.ts` evaluates the written formulas with
+  every item row priced, and the section's sum stays a number. Rejected: a zero in the Quantity cell
+  (a quantity nobody measured, I-450), and `IFERROR` around the Amount (it would hide a real error
+  in a measured row).
+- **I-571 — the coverage cell says `Not measured` where no member states a figure (session 9,
+  2026-09-24; walk-1 §2 item 5; R-UI-020).** An item whose qualifier read `None of 26 measured`
+  still wore **Partly declared** in its Coverage cell. The badge now reads `boq_coverage_unmeasured`
+  **Not measured** where the item states no quantity, and **Partly declared** only where some
+  member states one. The raw coverage stays `PARTIAL_DECLARED` on `data-coverage` and under
+  `EnumLabel`'s value: the store's standing is unchanged, and only the words are truer.
+- **I-572 — the details of measurement state each dimension at its unit's places, and a line
+  that counts no members states Nos 1 (session 9, 2026-09-24; walk-1 §2 item 3; L-FMT-02, L-MEA-05).**
+  `dimensionsOf` printed the canon's raw fraction (`net 7.7004672 kg`, `clear 3.6624 m`,
+  `H 0.6096 m`). A dimension is now rounded once, half to even, to three places for every canonical
+  length, area, volume and mass (the millimetre and the gramme), and whole for a count:
+  `net 7.700 kg`, `clear 3.662 m`, `H 0.610 m`. The register keeps the full figure, and the item's
+  and the line's quantities are unchanged (they round from the register, I-528). A line whose formula
+  has no `count` (a rebar line's mass) is published once per register object, so it is ONE member:
+  `nosOf` answers `1` rather than a blank Nos. A line with no bindings at all still states nothing.
+  Rejected: the line kind's `documentPrecision` (formwork's two places would print a 0.61 m
+  height), and leaving Nos blank on rebar (a blank reads as a count nobody took).
 - **I-533 — a description states bare only what the drawings state.** A binding a description
   names (blinding's `t`, I-528 (c)) is written bare only where its basis is MEASURED or
   TRANSCRIBED, the two a sheet states; any other says where it came from, in words, after the figure:
@@ -440,7 +476,7 @@ its own viewport with the Item column frozen; the page never scrolls sideways (�
 | 4 | `boq_col_quantity` | 140, `meta.align: 'right'` | the item's figure — its members' register sum rounded once — `--font-mono` tabular slashed-zero, lakh/crore grouped (I-271, I-528); on an item none of whose members states one, `boq_quantity_unmeasured` muted with the registry's messages for its members' omitted codes as its Tooltip (I-boq-1) |
 | 5 | `boq_col_unit` | 80 | one `unit-badge` |
 | 6 | `boq_col_basis` | 240 — the PAIR at its longest (`Measured` beside `Transcribed`) reads in full, because §6 promises a glyph and a word | exactly two `basis-chip`s — the quantity basis then the selection basis, each the weakest over the item's members (L-QTY-01), in that order |
-| 7 | `boq_col_coverage` | 112, `meta.align: 'right'` | one `coverage-chip` on an item every member of which is COMPLETE; on an item with a partly declared member `boq_coverage_partial` through `EnumLabel` and no chip (I-boq-1) |
+| 7 | `boq_col_coverage` | 112, `meta.align: 'right'` | one `coverage-chip` on an item every member of which is COMPLETE; on an item with a partly declared member `boq_coverage_partial` through `EnumLabel` and no chip (I-boq-1), or `boq_coverage_unmeasured` where no member states a figure (I-571) |
 
 **One grid per section, not one grid with section rows.** Each section is its own DataTable v2 under
 its own heading, because a reader of a bill reads a section at a time and the lane's own contract
@@ -522,6 +558,8 @@ declares is answered `REQUEST_MALFORMED` through the one RefusalState.
 `boq_export` **Export the draft** · the two channels, each ONE name in two words (I-boq-1):
 `boq_export_quantities` **Quantities** then `boq_export_format_xlsx` **XLSX** / `boq_export_format_csv`
 **CSV** · `boq_quantity_unmeasured` **Not measured** · `boq_coverage_partial` **Partly declared** ·
+`boq_coverage_unmeasured` **Not measured** (the Coverage cell of an item none of whose members states a
+figure, I-571) ·
 `boq_export_xlsx_hint` **Download the items, and every line behind them with its bases and
 formula, as a workbook with live formulas.** · `boq_export_csv_hint` **Download the Quantities sheet
 as CSV.** · `boq_export_link` **Save the file** · `boq_coverage_incomplete` **Each item is the
@@ -586,7 +624,8 @@ register figure, rounded once the same way.** and its heads **Mark**, **Grid**, 
 `NOT_MEASURED_HEADING` **Not measured in this draft** · `NOT_MEASURED_SCOPE_HEADING` **Scope no line
 was published for** · `LINE_REASONS_HEADING` **Why a line states no figure** · the block's column
 heads **Description**, **Levels**, **Why**, **Reason**, **What it means** · the workbook's
-**Not measured** sheet and its Quantity cell **Not measured — <reasons in words>**.
+**Not measured** sheet, and, on a section sheet, the **Remarks** column's **Not measured — <reasons in
+words>** beside an empty Quantity (the Quantities sheet says it in **Reason**, I-570).
 
 ## 4. Motion (R-UI-004)
 

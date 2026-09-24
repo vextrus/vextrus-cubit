@@ -38,6 +38,8 @@ export const BOQ_COPY = {
   boq_col_coverage: "Coverage",
   boq_quantity_unmeasured: "Not measured",
   boq_coverage_partial: "Partly declared",
+  // An item none of whose members states a figure is not "partly" anything (I-571).
+  boq_coverage_unmeasured: "Not measured",
   boq_section_substructure: "Substructure",
   boq_section_superstructure: "Superstructure",
   boq_section_finishes: "Finishes",

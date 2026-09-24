@@ -265,6 +265,8 @@ describe("I-528: a description a rate book accepts, from what the register state
     expect(described.size, "four descriptions, four items: nothing drawn is merged with what is not").toBe(4);
   });
 
+  // TEST_AMENDED (session 9, BBS-HONEST, s-boq I-572): a dimension is written at its unit's
+  // places (three for a length or a mass) rather than at whatever fraction the canon carried.
   test("a member line's details say what the formula multiplied, in its order, and what the drawing did not state", () => {
     const variables = {
       count: { value: "1", unit: "pcs", canonical: { value: "1", unit: "pcs" } },
@@ -272,16 +274,32 @@ describe("I-528: a description a rate book accepts, from what the register state
       B: { value: "1000", unit: "mm", canonical: { value: "1", unit: "m" } },
       D: { value: "1295", unit: "mm", canonical: { value: "1.295", unit: "m" } },
     };
-    expect(dimensionsOf("V = count × L × B × D (count = 1 pcs, …)", variables, []), "L, B, D in the formula's order; the count is the Nos column's").toBe("L 2 m · B 1 m · D 1.295 m");
+    expect(dimensionsOf("V = count × L × B × D (count = 1 pcs, …)", variables, []), "L, B, D in the formula's order; the count is the Nos column's").toBe("L 2.000 m · B 1.000 m · D 1.295 m");
     expect(dimensionsOf("V = count × b × (D − t) × clear", { b: variables.B, D: variables.D, clear: { value: "4.2672", unit: "m", canonical: { value: "4.2672", unit: "m" } } }, ["t"]), "an unstated variable says so").toBe(
-      "b 1 m · D 1.295 m · t not stated · clear 4.2672 m",
+      "b 1.000 m · D 1.295 m · t not stated · clear 4.267 m",
     );
 
     const payload = boqDraftPayloadOf(
       reading([line({ lineId: "cap", objectKey: "PC1", class: "pile_cap", kind: "rcc.concrete", unit: "m3", levelId: "l-fdn", value: "2.590", mark: "PC1", grid: "A/1", sheet: "S-06", formula: "V = count × L × B × D", variables })]),
     );
     const member = itemsOf(payload)[0]?.item.lines[0];
-    expect(member, "the member line carries its details").toMatchObject({ mark: "PC1", grid: "A/1", nos: "1", dimensions: "L 2 m · B 1 m · D 1.295 m", sheet: "S-06", quantity: "2.590" });
+    expect(member, "the member line carries its details").toMatchObject({ mark: "PC1", grid: "A/1", nos: "1", dimensions: "L 2.000 m · B 1.000 m · D 1.295 m", sheet: "S-06", quantity: "2.590" });
+  });
+
+  test("I-572: a rebar line's details state its masses to the gramme and its Nos as the one member it is", () => {
+    const variables = {
+      net: { value: "7.7004672", unit: "kg", canonical: { value: "7.7004672", unit: "kg" } },
+      clear: { value: "3662.4", unit: "mm", canonical: { value: "3.6624", unit: "m" } },
+      H: { value: "0.6096", unit: "m", canonical: { value: "0.6096", unit: "m" } },
+    };
+    expect(dimensionsOf("M = net + lap", variables, ["lap"]), "a mass at three places, a length at three, never the canon's raw fraction").toBe(
+      "net 7.700 kg · lap not stated · H 0.610 m · clear 3.662 m",
+    );
+    const payload = boqDraftPayloadOf(
+      reading([line({ lineId: "bar", objectKey: "C1", class: "column", kind: "rcc.rebar", unit: "kg", levelId: "l-fdn", value: "7.7004672", mark: "C1", formula: "M = net + lap", variables })]),
+    );
+    const member = itemsOf(payload)[0]?.item.lines[0];
+    expect(member?.nos, "a line whose formula counts no members is the one member it was published for, never a blank Nos").toBe("1");
   });
 
   test("an item's bases are the weakest of its members', and it is COMPLETE only where every member is", () => {

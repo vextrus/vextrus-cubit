@@ -17,7 +17,12 @@
 //
 // The figures leave here UNGROUPED. Grouping is SEAM-FORMAT's one home (`formatUserFigure`) and it
 // happens in the CELL, so the attribute a machine reads stays the stored decimal (R-UI-083).
+import { inWords } from "@/core/documents/kinds/boq-draft-law";
+import { isLinkRole } from "@/core/rulesets/rebar-roles";
+import { convert } from "@/core/units/canon";
 import type { BbsDocument } from "@/modules/takeoff/rebar";
+import { BBS_COMPONENT_SAID, BBS_COPY, fillCopy } from "./copy";
+import type { BbsOmission } from "./view";
 
 /**
  * The fraction length this schedule states each kind of figure at: a length to the thousandth of a
@@ -110,13 +115,21 @@ export type BbsGridRow = {
   readonly kg: string;
 };
 
-/** One line of the cutting-stock summary: a diameter, its mass, and what a site cuts it from. */
+/**
+ * One line of the cutting-stock summary: a diameter, its mass, and what a site cuts it from — or,
+ * where the diameter's bars include storey-height runs whose laps are not stated, `withheld`: the
+ * packing is not a plan anybody can cut to, and the line says so instead of printing it
+ * (I-567). `offcutMm` is the door's stored figure; `offcutM` is how a reader reads it.
+ */
 export type BbsSummaryRow = {
   readonly diameterMm: number;
   readonly kg: string;
   readonly stockBars: number;
   readonly pieces: number;
   readonly offcutMm: string;
+  /** The offcut in metres, stated to the millimetre (`BBS_PLACES.length`): a length of steel is read in metres. */
+  readonly offcutM: string;
+  readonly withheld: boolean;
 };
 
 /** The summary beneath the grid, closed by the total the DOOR answered (I-bbs-2). */
@@ -204,6 +217,61 @@ export function bbsRowsOf(document: BbsDocument): readonly BbsGridRow[] {
 }
 
 /**
+ * Which of a schedule's bars are storey-height RUNS rather than lengths to cut, and which diameters'
+ * cutting stock is therefore withheld (I-567).
+ *
+ * A member whose line declared a length term missing (`deferred`: its laps, or its run) holds
+ * running bars cut to nothing but its storey height — no lap, no starter, no anchorage. A packing of
+ * those lengths into stock bars is a cutting plan no fabricator could follow, so every diameter such a
+ * bar is of has its cutting stock withheld, and every entry holding one is labelled. A link (a tie,
+ * a stirrup, a spiral) takes its length from the section, not the run, and is not a run. Read, never
+ * judged: the members are the published lines' own declaration, and this computes no length.
+ */
+export function cuttingStandingOf(document: BbsDocument, deferred: readonly string[]): { readonly runs: ReadonlySet<string>; readonly withheld: readonly number[] } {
+  const held = new Set(deferred);
+  const runs = new Set<string>();
+  const withheld = new Set<number>();
+  for (const line of document.rows) {
+    if (isLinkRole(line.role) || !line.members.some((member) => held.has(member))) continue;
+    runs.add(line.objectKey);
+    withheld.add(line.diameterMm);
+  }
+  return { runs, withheld: [...withheld].sort((left, right) => left - right) };
+}
+
+/**
+ * A stored millimetre figure as metres, stated to the millimetre — the canon's own conversion, so no
+ * factor is spelled here (L-FRM-06), and the text is then stated at three places (`statedAt`).
+ */
+export function metresOf(millimetres: string): string {
+  const carried = convert(millimetres, "mm", "m");
+  return carried.ok ? statedAt(carried.value, BBS_PLACES.length) : millimetres;
+}
+
+/** A list said as prose: `laps`, `laps and ties`, `bars, laps and ties`. */
+export function listed(words: readonly string[]): string {
+  if (words.length <= 1) return words.join("");
+  return `${words.slice(0, -1).join(", ")} ${BBS_COPY.bbs_scope_and} ${words.at(-1) ?? ""}`;
+}
+
+/**
+ * What the schedule's total covers, in words, wherever it is not the whole of the steel — the
+ * classes it schedules, whether its bars are the main bars alone, and the components its lines left
+ * out: `Column main bars only — laps and ties not counted` (I-567, I-569). Empty where
+ * the schedule is the campaign's whole reinforcement: nothing is partly declared and no steel is
+ * outside it.
+ */
+export function totalCoversOf(document: BbsDocument, reading: { readonly partial: boolean; readonly omitted: readonly BbsOmission[]; readonly notInSchedule: number }): string {
+  if (!reading.partial && reading.notInSchedule === 0) return "";
+  const classes = [...new Set(document.rows.map((line) => line.class as string))].map((klass) => inWords(klass).toLowerCase());
+  const bars = document.rows.some((line) => isLinkRole(line.role)) ? BBS_COPY.bbs_scope_bars : BBS_COPY.bbs_scope_main_bars;
+  const said = `${listed(classes)} ${bars}`.trim();
+  const scope = `${said.slice(0, 1).toUpperCase()}${said.slice(1)}`;
+  const missing = [...new Set(reading.omitted.flatMap((omission) => omission.components))].map((component) => (BBS_COMPONENT_SAID[component] ?? component).toLowerCase());
+  return missing.length === 0 ? fillCopy("bbs_total_covers_whole", { scope }) : fillCopy("bbs_total_covers", { scope, missing: listed(missing) });
+}
+
+/**
  * The cutting-stock summary: one line per diameter the document totals, in ASCENDING NUMERIC order,
  * carrying that diameter's own packing answer and closed by the grand total the door stated.
  *
@@ -211,7 +279,7 @@ export function bbsRowsOf(document: BbsDocument): readonly BbsGridRow[] {
  * (L-QTY-05), so a re-summed total and the door's own differ in the last decimal — and the one a
  * reader must be able to check against the bill is the door's (B-17, I-bbs-2).
  */
-export function bbsSummaryOf(document: BbsDocument): BbsSummary {
+export function bbsSummaryOf(document: BbsDocument, withheld: readonly number[] = []): BbsSummary {
   const rows = Object.keys(document.perDiameterKg)
     .map((diameter) => Number(diameter))
     .sort((left, right) => left - right)
@@ -223,6 +291,8 @@ export function bbsSummaryOf(document: BbsDocument): BbsSummary {
         stockBars: packed.stockBars,
         pieces: packed.pieces,
         offcutMm: packed.offcutMm,
+        offcutM: metresOf(packed.offcutMm),
+        withheld: withheld.includes(diameterMm),
       };
     });
   return { rows, grandTotalKg: document.grandTotalKg, stockMm: document.stockMm, roundingMm: document.roundingMm };

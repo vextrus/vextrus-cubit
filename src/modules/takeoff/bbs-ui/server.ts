@@ -5,13 +5,14 @@
 // IT COMPOSES RATHER THAN COMPUTES. `bbsOf` is inc-309's door and the bill is its answer, carried
 // across whole: no figure of this screen's own is added to it, and none is taken away (goal, B-17).
 import { and, asc, drawingSetRevisions, drawingSets, eq, forTenant, projects, quantityLines } from "@/core/db";
+import { notMeasuredRowsOf, notMeasuredScopeOf } from "@/core/documents/kinds/boq-draft";
 import { dhakaDateParts } from "@/core/format";
-import { residueOf } from "@/core/residue";
+import { measurementStatementOf, residueOf } from "@/core/residue";
 import { bbsOf, type BbsDocument } from "@/modules/takeoff/rebar";
 import { manifestOfRevision } from "@/modules/takeoff/register-ui/server";
 import { entitySelectionOf, pinnedRecordsOf, type PinnedRecord } from "@/modules/takeoff/trace";
 import type { BbsParticulars } from "./emission";
-import type { BbsOmission, BbsSheetSelection, BbsTraces, BbsView } from "./view";
+import type { BbsNotInSchedule, BbsOmission, BbsSheetSelection, BbsTraces, BbsView } from "./view";
 
 /** Which project's schedule is being read, in which workspace (SEAM-TENANT). */
 export type BbsScope = { readonly tenantId: string; readonly projectId: string };
@@ -22,8 +23,15 @@ const RCC_REBAR = "rcc.rebar";
 /** What a line says about what it could not measure (L-QTY-02). */
 const PARTIAL_DECLARED = "PARTIAL_DECLARED";
 
+/**
+ * The components of a rebar line that are LENGTH terms: the run itself (`net`) and its laps. A line
+ * that declares either missing holds bars nobody can cut to (I-567); the ties are the
+ * section's own perimeter and are not among them.
+ */
+const LENGTH_TERMS: readonly string[] = Object.freeze(["net", "lap"]);
+
 /** The reading a project with no campaign answers with (R-UI-050's empty cell). */
-const NOTHING_SCHEDULED: BbsView = { campaignId: null, setRevisionId: null, document: null, partial: false, omitted: [] };
+const NOTHING_SCHEDULED: BbsView = { campaignId: null, setRevisionId: null, document: null, partial: false, omitted: [], deferred: [], notInSchedule: [] };
 
 /**
  * The whole reading one bar-schedule screen paints (test contract: `bbsViewOf`).
@@ -44,7 +52,16 @@ export async function bbsViewOf(scope: BbsScope): Promise<BbsView> {
   ]);
   const traces = await tracesOf(scope, campaign.setRevisionId, document_);
 
-  return { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, document: document_, partial: declared.partial, omitted: declared.omitted, traces };
+  return {
+    campaignId: campaign.campaignId,
+    setRevisionId: campaign.setRevisionId,
+    document: document_,
+    partial: declared.partial,
+    omitted: declared.omitted,
+    deferred: declared.deferred,
+    notInSchedule: notInScheduleOf(measurementStatementOf(residue.cells)),
+    traces,
+  };
 }
 
 /**
@@ -96,6 +113,15 @@ function selectionOfAll(keys: readonly string[], records: ReadonlyMap<string, Pi
     for (const entity of selection.sourceKeys) if (!selected.includes(entity)) selected.push(entity);
   }
   return first === null ? null : { drawingId: first.drawingId, layoutName: first.layoutName, sourceKeys: selected };
+
+/**
+ * The reinforcement no line was published for, as the draft BOQ closes on it (I-569): the
+ * measurement statement's own `rcc.rebar` rows, read through the draft's own reading of a statement
+ * row and said in its closing block's words — so the schedule and the draft name one boundary, and a
+ * schedule of column steel never passes for the building's (B-17, L-QTY-07).
+ */
+export function notInScheduleOf(statement: Parameters<typeof notMeasuredRowsOf>[0]): BbsNotInSchedule[] {
+  return notMeasuredScopeOf({ notMeasured: notMeasuredRowsOf(statement.filter((row) => row.kind === RCC_REBAR)) });
 }
 
 /**
@@ -108,24 +134,27 @@ function selectionOfAll(keys: readonly string[], records: ReadonlyMap<string, Pi
  * whole schedule over a campaign whose bars are only part of the story, and the reader would never
  * learn what is missing from the figures in front of them (Decision §2).
  */
-async function partlyDeclared(tenantId: string, campaignId: string): Promise<{ partial: boolean; omitted: BbsOmission[] }> {
+async function partlyDeclared(tenantId: string, campaignId: string): Promise<{ partial: boolean; omitted: BbsOmission[]; deferred: string[] }> {
   const lines = await forTenant({ tenantId }).transaction((tx) =>
     tx
-      .select({ coverage: quantityLines.coverage, omitted: quantityLines.omitted })
+      .select({ objectKey: quantityLines.objectKey, coverage: quantityLines.coverage, omitted: quantityLines.omitted })
       .from(quantityLines)
       .where(and(eq(quantityLines.tenantId, tenantId), eq(quantityLines.campaignId, campaignId), eq(quantityLines.kind, RCC_REBAR)))
       .orderBy(asc(quantityLines.publishedAt), asc(quantityLines.lineId)),
   );
   const partly = lines.filter((line) => line.coverage === PARTIAL_DECLARED);
   const byCode = new Map<string, string[]>();
+  const deferred: string[] = [];
   for (const line of partly) {
     for (const { code, variable } of omittedComponentsOf(line.omitted)) {
       const held = byCode.get(code) ?? [];
       if (!byCode.has(code)) byCode.set(code, held);
       if (variable !== null && !held.includes(variable)) held.push(variable);
+      // A length term left out makes this member's running bars storey-height runs (I-567).
+      if (variable !== null && LENGTH_TERMS.includes(variable) && !deferred.includes(line.objectKey)) deferred.push(line.objectKey);
     }
   }
-  return { partial: partly.length > 0, omitted: [...byCode.entries()].map(([code, components]) => ({ code, components })) };
+  return { partial: partly.length > 0, omitted: [...byCode.entries()].map(([code, components]) => ({ code, components })), deferred };
 }
 
 /**

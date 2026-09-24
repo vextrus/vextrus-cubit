@@ -78,7 +78,7 @@ type PayloadBar = {
 };
 
 /** One entry: a mark on a floor, how many members of it, and the bars each takes (I-534). */
-type PayloadEntry = { level: string | null; class: string; mark: string; members: number; bars: PayloadBar[] };
+type PayloadEntry = { level: string | null; class: string; mark: string; members: number; notForCutting: boolean; bars: PayloadBar[] };
 
 /** The committed payload, as much of its shape as the criteria name. */
 type Payload = {
@@ -86,11 +86,14 @@ type Payload = {
   project: string;
   particulars: { client: string | null; site: string | null; drawingSet: string; revision: number };
   schedule: PayloadEntry[];
-  cuttingStock: Record<string, { stockBars: number; pieces: number; offcutMm: string }>;
+  cuttingStock: Record<string, { stockBars: number; pieces: number; offcutM: string }>;
+  stockWithheld: number[];
   perDiameterKg: Record<string, string>;
   grandTotalKg: string;
+  totalCovers: string;
   partial: boolean;
   leftOut: { components: string[]; reason: string }[];
+  notInSchedule: { about: string; levels: string; why: string }[];
 };
 
 /** A committed fixture of this lane, read as JSON. */
@@ -133,6 +136,16 @@ const said = (key: string): string => {
 
 /** The heading an entry is owed: its mark, its class and its floor, in words (I-535). */
 const headingOf = (entry: PayloadEntry): string => [entry.mark, said(entry.class), ...(entry.level === null ? [] : [entry.level])].join(" · ");
+
+/**
+ * A length as the page writes it (s-bbs I-568): never rounded, its fraction carried only as
+ * far as it holds a digit — `3352.800` as `3,352.8`, `1990.000` as `1,990` — through the one seam.
+ */
+function unroundedForm(figure: (value: string, precision: number) => string, value: string): string {
+  const [whole = "", fraction = ""] = value.split(".");
+  const carried = fraction.replace(/0+$/u, "");
+  return carried === "" ? figure(whole, 0) : figure(`${whole}.${carried}`, carried.length);
+}
 
 /** The committed payload, read once and shared by the cases that drive the renderer with it. */
 const payload = (): Payload => fixtureJson<Payload>(PAYLOAD);
@@ -280,9 +293,11 @@ describe("AC-1: the bar bending schedule renders as its own kind, byte for byte"
         const line = whole.slice(mark, mark + 400);
         for (const [what, value] of [
           ["shape", bar.shape],
-          ["raw cutting length", figure(bar.cuttingRawMm, 3)],
+          // TEST_AMENDED (session 9, BBS-HONEST, I-568): the raw and IS 2502 lengths are
+          // written unrounded without padded zeros (`3,352.8`), as the screen writes them.
+          ["raw cutting length", unroundedForm(figure, bar.cuttingRawMm)],
           ["rounded length", figure(bar.cuttingRoundedMm, 0)],
-          ["IS-additive length", figure(bar.cuttingIsAdditiveMm, 3)],
+          ["IS 2502 length", unroundedForm(figure, bar.cuttingIsAdditiveMm)],
           ["number in each", figure(String(bar.barsPerUnit), 0)],
           ["total", figure(bar.bars, 0)],
           ["net mass", figure(bar.kgNet, 3)],
@@ -367,7 +382,9 @@ describe("AC-1: the bar bending schedule renders as its own kind, byte for byte"
   it("I-535: every column is as wide as what it holds, and its heading says its unit as written", async () => {
     const { first } = await rendered();
     const text = squashed(pages(first.pdf).join(" "));
-    for (const heading of ["Bar mark", "Dia (mm)", "Dimensions (mm)", "Cutting length (mm)", "Rounded (mm)", "IS additive (mm)", "In each", "Total", "Mass (kg)"]) {
+    // TEST_AMENDED (session 9, BBS-HONEST, I-568): the IS column is named for the length it
+    // prints, and the offcut is read in metres.
+    for (const heading of ["Bar mark", "Dia (mm)", "Dimensions (mm)", "Cutting length (mm)", "Rounded (mm)", "IS 2502 (mm)", "In each", "Total", "Mass (kg)", "Offcut (m)"]) {
       expect(text, `the column heading "${heading}" stands in its own words, its unit in lower case`).toContain(heading);
     }
     expect(text, "no heading is shouted, which is how two of them ran together as one word").not.toMatch(/CUTTING|ROUNDED|\(MM\)/u);
@@ -393,14 +410,58 @@ describe("AC-1: the bar bending schedule renders as its own kind, byte for byte"
     const whole = squashed(pages(first.pdf).join(" "));
     expect(payload().partial, "the golden details every bar, so the committed schedule is whole").toBe(false);
     expect(whole, "and a whole schedule claims no omission").not.toContain("Left out of this schedule");
-    expect(whole, "and no measured-scope caveat").not.toContain("Measured scope only");
+    expect(payload().totalCovers, "and a whole schedule's total needs no cover").toBe("");
+    expect(whole, "and no caveat on its total").not.toContain(" only —");
 
+    // TEST_AMENDED (session 9, BBS-HONEST, I-567): the total's caveat says what it covers, in
+    // words, composed by the product's own emission rather than typed here.
     const reason = REFUSALS.NOTE_READING_CONTESTED.message;
-    const partial = { ...payload(), partial: true, leftOut: [{ components: ["Laps"], reason }] };
+    const partial = (await bbsGoldenPayload(BBS_FIXTURE, { partial: true, omitted: [{ code: "NOTE_READING_CONTESTED", components: ["lap"] }] })) as Payload;
+    expect(partial.totalCovers, "the emission says what the total covers").toBe("Column and shear wall bars only — laps not counted");
     const said_ = squashed(pages((await renderDocument("bbs", partial, ctx)).pdf).join(" "));
     expect(said_, "a partly declared schedule closes with what it leaves out").toContain("Left out of this schedule");
     expect(compact(said_), "naming the component in words and why, in the register's own sentence (R-SPINE-062)").toContain(compact(`Laps ${reason}`));
-    expect(said_, "and its total says it is the measured scope only (L-QTY-02)").toContain("Measured scope only");
+    expect(compact(said_), "and its total says what it covers (L-QTY-02)").toContain(compact(partial.totalCovers));
+  });
+
+  it("I-567 · I-569: runs whose laps are not stated are labelled, their diameters' cutting stock is withheld by name, and the steel no line holds is listed", async () => {
+    const { figure } = await figuresModule();
+    const { renderDocument } = await documentsIndex();
+    // The golden's ground-floor members, as if their lines had left their laps out: the reading J-000's
+    // campaign stands on, where every column main bar is its storey height.
+    const rows = bbsDocumentRows();
+    const deferred = [...new Set(rows.filter((row) => row.level === "GF").map((row) => row.member))];
+    const runsOf = new Set(rows.filter((row) => row.level === "GF" && !["TIE", "STIRRUP", "SPIRAL"].includes(row.role)).map((row) => row.dia_mm));
+    const beams = { about: "Beam · Rebar", levels: "GF–6F", why: REFUSALS.NOT_ESTABLISHED.message };
+    const honest = (await bbsGoldenPayload(BBS_FIXTURE, {
+      partial: true,
+      omitted: [{ code: "NOTE_READING_CONTESTED", components: ["lap"] }],
+      deferred,
+      notInSchedule: [beams],
+    })) as Payload;
+
+    expect(deferred.length, "the golden stands members on GF").toBeGreaterThan(0);
+    expect([...honest.stockWithheld].sort((a, b) => a - b), "every diameter a GF run is of is withheld, and no other").toEqual([...runsOf].sort((a, b) => a - b));
+    for (const diameter of honest.stockWithheld) {
+      expect(Object.keys(honest.cuttingStock), `the payload carries no packing for ${diameter} mm — the page cannot print what it was never given`).not.toContain(String(diameter));
+    }
+    expect(honest.schedule.filter((entry) => entry.notForCutting).map((entry) => entry.level), "the GF entries, and only they, are marked as runs").toEqual(
+      honest.schedule.filter((entry) => entry.level === "GF").map((entry) => entry.level),
+    );
+
+    const page = squashed(pages((await renderDocument("bbs", honest, ctx)).pdf).join(" "));
+    const runs = honest.schedule.filter((entry) => entry.notForCutting).length;
+    const labels = [...compact(page).matchAll(/Storey-heightruns,notforcutting/gu)].length;
+    expect(labels, `each of the ${runs} entries of runs is headed as not for cutting (it said so ${labels} time(s))`).toBeGreaterThanOrEqual(runs);
+    expect(page, "a withheld diameter's stock says why, in words").toContain("Not computed — laps not stated");
+    const named = honest.stockWithheld.map((diameter) => figure(String(diameter), 0));
+    const listedAs = named.length === 1 ? named.join("") : `${named.slice(0, -1).join(", ")} and ${named.at(-1) ?? ""}`;
+    expect(compact(page), "and the sentence beneath the table names the withheld diameters").toContain(
+      compact(`Cutting stock is not computed for ${listedAs} mm: those bars are storey-height runs whose laps are not stated, and nobody can cut from them.`),
+    );
+    expect(page, "the steel no line was published for is listed").toContain("Not in this schedule");
+    expect(compact(page), "in the draft BOQ's words: what, over which levels, and why").toContain(compact(`${beams.about} ${beams.levels} ${beams.why}`));
+    expect(compact(page), "and the total says what it covers").toContain(compact(honest.totalCovers));
   });
 
   it("I-535: the sign-off box is ruled paper the site completes by hand — the document fills in nobody", async () => {
@@ -421,12 +482,12 @@ describe("AC-1: the bar bending schedule renders as its own kind, byte for byte"
     const diameters = Object.keys(stock);
     expect(diameters.length, `${PAYLOAD} carries the cutting-stock result the schedule closes with (R-TO-054)`).toBeGreaterThan(0);
     for (const diameter of diameters) {
-      const answer = stock[diameter] as { stockBars: number; pieces: number; offcutMm: string };
+      const answer = stock[diameter] as { stockBars: number; pieces: number; offcutM: string };
       expect(whole, `the ${diameter} mm line names the diameter it packed`).toContain(squashed(diameter));
       expect(whole, `the ${diameter} mm line states the stock bars it took (${answer.stockBars})`).toContain(squashed(figure(String(answer.stockBars), 0)));
       expect(whole, `and the pieces it cut from them (${answer.pieces})`).toContain(squashed(figure(String(answer.pieces), 0)));
-      const offcut = printedForms(figure, answer.offcutMm);
-      expect(offcut.length, `the ${diameter} mm offcut (${answer.offcutMm}) is a figure a document can print (L-FMT-02)`).toBeGreaterThan(0);
+      const offcut = printedForms(figure, answer.offcutM);
+      expect(offcut.length, `the ${diameter} mm offcut (${answer.offcutM} m) is a figure a document can print (L-FMT-02)`).toBeGreaterThan(0);
       expect(offcut.some((form) => whole.includes(form)), `and the ${diameter} mm line states its offcut — one of ${offcut.join(" / ")}`).toBe(true);
     }
     expect(whole, "closed by the door's own grand total").toContain(figure(payload().grandTotalKg, 3));

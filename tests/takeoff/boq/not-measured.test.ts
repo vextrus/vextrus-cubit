@@ -182,22 +182,102 @@ describe("I-450: the page says `Not measured` and why, where it said nothing or 
   });
 });
 
+/** A cell of the written sheets as a spreadsheet would hold it: text, a formula, or nothing. */
+type Cell = string | null | { readonly formula: string };
+
+/** What a formula comes to: a number, text, or the error a spreadsheet shows. */
+type Value = number | string | { readonly error: "#VALUE!" };
+
+/**
+ * The spreadsheet's own reading of the few formulas the workbook writes — IF, AND, ISNUMBER, `=`,
+ * `*`, a cell, a range and SUM — so a case can ask what Excel would show once a person typed a rate.
+ * A cell holding a decimal is a number (the export seam writes a number column's figure as one);
+ * any other text is text, and text multiplied is `#VALUE!`, as it is in Excel.
+ */
+function evaluate(formula: string, cellAt: (ref: string) => Cell): Value {
+  const tokens = formula.match(/'[^']*'![A-Z]+\d+:[A-Z]+\d+|[A-Z]+\d+:[A-Z]+\d+|"[^"]*"|[A-Z]+\(|[A-Z]+\d+|\d+(?:\.\d+)?|[(),=*]/gu) ?? [];
+  let at = 0;
+  const valueOf = (ref: string): Value => {
+    const cell = cellAt(ref);
+    if (cell === null) return "";
+    if (typeof cell === "object") return evaluate(cell.formula, cellAt);
+    return /^-?\d+(\.\d+)?$/u.test(cell) ? Number(cell) : cell;
+  };
+  const cellsOf = (range: string): Value[] => {
+    const [sheet, span] = range.includes("!") ? [range.slice(0, range.indexOf("!") + 1), range.slice(range.indexOf("!") + 1)] : ["", range];
+    const [from, to] = span.split(":") as [string, string];
+    const column = from.replace(/\d+/u, "");
+    const out: Value[] = [];
+    for (let row = Number(from.replace(/[A-Z]+/u, "")); row <= Number(to.replace(/[A-Z]+/u, "")); row += 1) out.push(valueOf(`${sheet}${column}${String(row)}`));
+    return out;
+  };
+  const isError = (value: Value): boolean => typeof value === "object";
+  const args = (): string[][] => {
+    const groups: string[][] = [[]];
+    let depth = 0;
+    while (at < tokens.length) {
+      const token = tokens[at++] as string;
+      if (token.endsWith("(") || token === "(") depth += 1;
+      if (token === ")") {
+        if (depth === 0) break;
+        depth -= 1;
+      }
+      if (token === "," && depth === 0) groups.push([]);
+      else (groups.at(-1) as string[]).push(token);
+    }
+    return groups;
+  };
+  const sub = (part: string[]): Value => evaluate(part.join(""), cellAt);
+  const token = tokens[at++] as string;
+  let left: Value;
+  if (token === "IF(") {
+    const [cond, yes, no] = args() as [string[], string[], string[]];
+    const test = sub(cond);
+    left = isError(test) ? test : test === 1 || test === "TRUE" ? sub(yes) : sub(no);
+  } else if (token === "AND(") {
+    const all = args().map(sub);
+    left = all.find(isError) ?? (all.every((one) => one === 1) ? 1 : 0);
+  } else if (token === "ISNUMBER(") {
+    left = typeof sub((args() as [string[]])[0]) === "number" ? 1 : 0;
+  } else if (token === "SUM(") {
+    const values = cellsOf(((args() as [string[]])[0])[0] as string);
+    left = values.find(isError) ?? values.reduce<number>((held, one) => held + (typeof one === "number" ? one : 0), 0);
+  } else if (token.startsWith('"')) left = token.slice(1, -1);
+  else if (/^\d/u.test(token)) left = Number(token);
+  else left = valueOf(token);
+  while (at < tokens.length) {
+    const operator = tokens[at++] as string;
+    const right = sub(tokens.slice(at));
+    at = tokens.length;
+    if (operator === "=") left = left === right ? 1 : 0;
+    else if (operator === "*") left = typeof left === "number" && typeof right === "number" ? left * right : left === "" && typeof right === "number" ? 0 : { error: "#VALUE!" };
+  }
+  return left;
+}
+
 describe("I-450/c: the workbook writes the same words, and says what it left out", () => {
   const exportReading = (payload: ReturnType<typeof boqDraftPayloadOf>): BoqExportReading => ({
     view: { campaignId: payload.campaignId, setRevisionId: payload.setRevisionId, taxonomyVersion: payload.taxonomyVersion, coverage: "INCOMPLETE", payload, items: numberItems(payload.sections) },
     evidence: [],
   });
 
-  test("an item with no figure reads `Not measured — <reasons>` in its Quantity cell; the sheet states no foot", () => {
+  // TEST_AMENDED (session 9, BBS-HONEST, s-boq I-570): the words moved out of the Quantity
+  // cell into a Remarks column beside it. What the case guards is unchanged — an item with no figure
+  // says so and why — and the Quantity cell now holds a number or nothing, so a priced sheet sums.
+  test("an item with no figure leaves its Quantity empty and says `Not measured — <reasons>` in Remarks; the sheet states no foot", () => {
     const payload = boqDraftPayloadOf(reading());
     const workbook = boqWorkbookSpecOf(exportReading(payload));
     const sheet = workbook.sheets.find((held) => held.name === "1 Substructure");
     expect(sheet, "the section sheet is written").toBeDefined();
     const rows = sheet?.rows ?? [];
     const quantity = 4;
+    const remarks = sheet?.columns.findIndex((held) => held.header === "Remarks") ?? -1;
+    expect(remarks, "the section sheet carries a Remarks column, after the Amount so the seven keep their letters").toBe(7);
     const rebar = rows.filter((row) => row[1] === "column:rcc.rebar");
     expect(rebar.length, "the rebar is ONE item on the sheet — its two lines are its details").toBe(1);
-    expect(rebar[0]?.[quantity], "the Quantity cell says so, in words").toBe("Not measured — note reading contested; rebar tie zone unstated");
+    expect(rebar[0]?.[quantity], "the Quantity cell holds no words: a spreadsheet adds this column").toBeNull();
+    expect(rebar[0]?.[remarks], "the Remarks cell says so, in words").toBe("Not measured — note reading contested; rebar tie zone unstated");
+    expect(rows.find((row) => row[1] === "column:rcc.concrete")?.[remarks], "a measured item has no remark").toBeNull();
     expect(
       rows.some((row) => row[2] === "Measured-scope subtotal"),
       "no foot adds unlike descriptions — the sheet's figures are its items' (I-529)",
@@ -207,8 +287,33 @@ describe("I-450/c: the workbook writes the same words, and says what it left out
 
     const quantities = workbook.sheets.find((held) => held.name === "Quantities");
     const column = quantities?.columns.findIndex((held) => held.header === "Quantity") ?? -1;
+    const reason = quantities?.columns.findIndex((held) => held.header === "Reason") ?? -1;
     const partial = quantities?.rows.find((row) => row[2] === "ln-b2");
-    expect(partial?.[column], "the Quantities sheet writes the same words for the member line").toBe("Not measured — blinding plan deferred");
+    expect(partial?.[column], "the Quantities sheet's Quantity cell holds no words either").toBeNull();
+    expect(partial?.[reason], "the Quantities sheet writes the same words for the member line, as its Reason").toBe("Not measured — blinding plan deferred");
+  });
+
+  test("a rate typed against an item with no quantity leaves its Amount empty and the section's sum a number (I-570)", () => {
+    const payload = boqDraftPayloadOf(reading());
+    const workbook = boqWorkbookSpecOf(exportReading(payload));
+    const sheet = workbook.sheets.find((held) => held.name === "1 Substructure");
+    const summary = workbook.sheets.find((held) => held.name === "Summary");
+    expect(sheet !== undefined && summary !== undefined, "the section and the Summary are written").toBe(true);
+    // A QS prices EVERY item row — the unmeasured rebar too, as a rate pasted down a column is.
+    const priced = new Map<string, Cell>();
+    (sheet?.rows ?? []).forEach((row, index) => {
+      const at = index + 2;
+      priced.set(`E${at}`, row[4] ?? null);
+      if (row[0] !== null && row[0] !== "") priced.set(`F${at}`, "1000");
+      priced.set(`G${at}`, row[6] ?? null);
+    });
+    const sum = summary?.rows.find((row) => row[1] === "Substructure")?.[2];
+    expect(typeof sum === "object" && sum !== null, "the Summary sums the section's Amounts live").toBe(true);
+    const total = evaluate((sum as { formula: string }).formula, (ref) => priced.get(ref.replace(/^'[^']*'!/u, "")) ?? null);
+    expect(typeof total, `the section's price stays a number with the unmeasured row priced — it came to ${String(total)}`).toBe("number");
+    const rebarRow = (sheet?.rows ?? []).findIndex((row) => row[1] === "column:rcc.rebar") + 2;
+    const rebarAmount = evaluate(((sheet?.rows[rebarRow - 2]?.[6] ?? { formula: "" }) as { formula: string }).formula, (ref) => priced.get(ref) ?? null);
+    expect(rebarAmount, "and the unmeasured item's own Amount stays empty, never #VALUE!").toBe("");
   });
 
   test("the `Not measured` sheet stands after Quantities where the draft left anything out, and nowhere else", () => {

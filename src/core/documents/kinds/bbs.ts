@@ -15,9 +15,10 @@
 // record of the issue, never the page's text.
 //
 // THREE LENGTHS, ONE OF THEM ROUNDED (AM-01, L-FRM-05). The raw BS 8666 length prints as it was
-// stored, to its full stated precision; the rounded figure is the ONE rounded surface; the
-// IS-additive figure stands beside them both and is billed by nothing. This kind rounds none of
-// them: every figure of the payload is READ at the precision stated below — the schema offers it to
+// stored, never rounded — its fraction written as far as it carries a digit, so `3,352.8` and
+// `2,061.25` and `1,990`, never a padded `3,352.800` (I-568); the rounded figure is the ONE
+// rounded surface, in whole millimetres; the IS 2502 length stands beside them both, headed as the
+// length it is, and is billed by nothing. This kind rounds none of them: every figure of the payload is READ at the precision stated below — the schema offers it to
 // `figure()`, which refuses a value that is not already at that precision — so a schedule whose
 // figures drifted is a malformed payload, refused whole before a subprocess is reached rather than
 // rounded into agreement or failed halfway through a render (SEAM-DOC, L-FMT-02).
@@ -30,10 +31,14 @@
 // carrying the lap's own mass — never a percentage, and never a column of the bar's row: net-of-laps
 // and gross-of-laps are both readable because they are two lines.
 //
-// THE CUTTING STOCK IS INFORMATIONAL (AM-03(e)). What a site cuts from a stock bar is stated per
-// diameter beneath the schedule and is billed by nothing. And WHAT IS LEFT OUT IS SAID (L-QTY-02,
-// I-536): a schedule over partly declared lines closes with what it leaves out, in the screen's own
-// words, and its total says it is the measured scope only.
+// THE CUTTING STOCK IS INFORMATIONAL (AM-03(e)) — AND NEVER PRINTED FOR BARS NOBODY COULD CUT
+// (I-567). What a site cuts from a stock bar is stated per diameter beneath the schedule, in
+// metres of offcut, and is billed by nothing. An entry whose laps are not stated holds storey-height
+// runs: its heading says they are not for cutting, and every diameter such a run is of has its
+// cutting stock withheld, by name and with the reason, rather than a packing of lengths no fabricator
+// could follow. And WHAT IS LEFT OUT IS SAID (L-QTY-02, I-536, I-569): a schedule over partly
+// declared lines closes with what it leaves out, in the screen's own words; the steel no line was
+// published for is listed in the draft BOQ's own closing words; and the total says what it covers.
 import { z } from "zod";
 import { formatDate } from "../../format";
 import { refusalCodeOf } from "../../faults/refusal-marker";
@@ -57,6 +62,18 @@ const LENGTH_PLACES = 3;
 const ROUNDED_PLACES = 0;
 const MASS_PLACES = 3;
 const COUNT_PLACES = 0;
+/** An offcut is a length of steel a yard reads in metres, stated to the millimetre (I-568). */
+const OFFCUT_PLACES = 3;
+
+/**
+ * The page's own sentences where the schedule is not a cutting document (I-567). They are
+ * the screen's words (`bbs_run_label`, `bbs_stock_withheld`, `bbs_stock_withheld_note`, mirrored here
+ * because a kind in `src/core` may not read a module's table, and held equal by a mirror test).
+ */
+export const BBS_RUN_LABEL = "Storey-height runs, not for cutting";
+export const BBS_STOCK_WITHHELD = "Not computed — laps not stated";
+export const BBS_STOCK_WITHHELD_NOTE =
+  "Cutting stock is not computed for {diameters} mm: those bars are storey-height runs whose laps are not stated, and nobody can cut from them.";
 
 /** What a line of the schedule is: the bar itself, or the lap beside it (AM-03(a)). */
 const NET = "NET";
@@ -138,6 +155,8 @@ const entry = z
     mark: z.string().min(1),
     /** BS 8666's "No. of members": how many members of the mark on this floor the entry counts. */
     members: z.number().int().positive(),
+    /** Whether its running bars are storey-height runs whose laps are not stated (I-567). */
+    notForCutting: z.boolean(),
     bars: z.array(barLine).min(1),
   })
   .strict();
@@ -163,10 +182,13 @@ const particulars = z
 /** One thing the partly declared lines leave out: the components in words, and why (I-536). */
 const leftOut = z.object({ components: z.array(z.string().min(1)), reason: z.string().min(1) }).strict();
 
-/** What one diameter's stock came to: the bars ordered, the pieces cut, and the offcut left. */
+/** What one diameter's stock came to: the bars ordered, the pieces cut, and the offcut left, in metres. */
 const cuttingStock = z
-  .object({ stockBars: z.number().int().nonnegative(), pieces: z.number().int().nonnegative(), offcutMm: decimal(ROUNDED_PLACES) })
+  .object({ stockBars: z.number().int().nonnegative(), pieces: z.number().int().nonnegative(), offcutM: decimal(OFFCUT_PLACES) })
   .strict();
+
+/** One row of the steel no line was published for, in the draft BOQ's closing words (I-569). */
+const notInSchedule = z.object({ about: z.string().min(1), levels: z.string(), why: z.string().min(1) }).strict();
 
 /** What the schedule is rendered from. Unknown keys are refused: a payload is a statement, not a bag. */
 export const bbsPayloadSchema = z
@@ -182,10 +204,16 @@ export const bbsPayloadSchema = z
     /** The kg/m table's mass per diameter, and the campaign's own total — never a figure derived here. */
     perDiameterKg: z.record(z.string().min(1), decimal(MASS_PLACES)),
     cuttingStock: z.record(z.string().min(1), cuttingStock),
+    /** The diameters whose cutting stock is withheld: their bars include runs not for cutting (I-567). */
+    stockWithheld: z.array(z.number().int().positive()),
     grandTotalKg: decimal(MASS_PLACES),
+    /** What the total covers, in words — `Column main bars only — laps and ties not counted` — or empty where whole. */
+    totalCovers: z.string(),
     /** Whether any rebar line under the schedule stands partly declared (L-QTY-02). */
     partial: z.boolean(),
     leftOut: z.array(leftOut),
+    /** The reinforcement no line was published for, as the draft BOQ closes on it (I-569). */
+    notInSchedule: z.array(notInSchedule),
   })
   .strict();
 
@@ -211,9 +239,21 @@ function membersSaid(count: number): string {
   return count === 1 ? "1 member" : `${counted(count)} members`;
 }
 
-/** The legs a shape is dimensioned by, each as `A 1,850.000` — the letters in the payload's order. */
+/**
+ * A length as BS 8666 stated it, never rounded: the payload's figure at its stated precision, with
+ * the fraction written only as far as it carries a digit — `3352.800` is `3,352.8`, `2061.250` is
+ * `2,061.25`, `1990.000` is `1,990` (I-568). Dropping a trailing zero changes no value, so
+ * the raw length stays the raw length (AM-01); the seam still groups it (L-FMT-01).
+ */
+function unrounded(value: string): string {
+  const [whole = "", fraction = ""] = value.split(".");
+  const carried = fraction.replace(/0+$/u, "");
+  return carried === "" ? figure(whole, 0) : figure(`${whole}.${carried}`, carried.length);
+}
+
+/** The legs a shape is dimensioned by, each as `A 1,850` — the letters in the payload's order. */
 function dimensionsOf(bar: BbsPayloadBar): string[] {
-  return Object.entries(bar.dimsMm).map(([letter, value]) => `${letter} ${figure(value, LENGTH_PLACES)}`);
+  return Object.entries(bar.dimsMm).map(([letter, value]) => `${letter} ${unrounded(value)}`);
 }
 
 /**
@@ -233,9 +273,9 @@ function linesOf(bar: BbsPayloadBar): Record<string, unknown>[] {
       shape: bar.shape,
       diameter: counted(bar.diameterMm),
       dimensions: dimensionsOf(bar).join(",  "),
-      cuttingRaw: figure(bar.cuttingRawMm, LENGTH_PLACES),
+      cuttingRaw: unrounded(bar.cuttingRawMm),
       cuttingRounded: figure(bar.cuttingRoundedMm, ROUNDED_PLACES),
-      cuttingIs: figure(bar.cuttingIsAdditiveMm, LENGTH_PLACES),
+      cuttingIs: unrounded(bar.cuttingIsAdditiveMm),
       each: counted(bar.barsPerUnit),
       total: figure(bar.bars, COUNT_PLACES),
       // The bar's own mass, LAP EXCLUDED: a net mass that already held its lap would make the line
@@ -271,29 +311,44 @@ function entriesOf(payload: BbsPayload): Record<string, unknown>[] {
   return payload.schedule.map((one) => ({
     heading: [one.mark, inWords(one.class), ...(one.level === null || one.level === "" ? [] : [one.level])].join(" · "),
     members: membersSaid(one.members),
+    run: one.notForCutting ? BBS_RUN_LABEL : "",
     lines: one.bars.flatMap((bar) => linesOf(bar)),
   }));
 }
 
 /**
  * The cutting stock, one line per diameter in ascending numeric order — 8 before 10, which the keys'
- * own string order would not give. Informational, and billed by nothing (AM-03(e)).
+ * own string order would not give. Informational, and billed by nothing (AM-03(e)). A diameter whose
+ * stock is withheld keeps its mass and says, in words, that its stock was not computed and why: a
+ * refusal in words, never a blank and never a packing of runs nobody can cut (I-567).
  */
 function stockOf(payload: BbsPayload): Record<string, unknown>[] {
-  return Object.keys(payload.cuttingStock)
+  const diameters = new Set([...Object.keys(payload.cuttingStock), ...payload.stockWithheld.map((diameter) => String(diameter))]);
+  return [...diameters]
     .map((diameter) => Number(diameter))
     .sort((left, right) => left - right)
     .map((diameterMm) => {
-      const packed = payload.cuttingStock[String(diameterMm)];
       const kg = payload.perDiameterKg[String(diameterMm)];
+      const mass = kg === undefined ? "" : figure(kg, MASS_PLACES);
+      if (payload.stockWithheld.includes(diameterMm)) return { diameter: counted(diameterMm), kg: mass, withheld: BBS_STOCK_WITHHELD, stockBars: "", pieces: "", offcut: "" };
+      const packed = payload.cuttingStock[String(diameterMm)];
       return {
         diameter: counted(diameterMm),
-        kg: kg === undefined ? "" : figure(kg, MASS_PLACES),
+        kg: mass,
+        withheld: "",
         stockBars: counted(packed?.stockBars ?? 0),
         pieces: counted(packed?.pieces ?? 0),
-        offcut: figure(packed?.offcutMm ?? "0", ROUNDED_PLACES),
+        offcut: figure(packed?.offcutM ?? "0.000", OFFCUT_PLACES),
       };
     });
+}
+
+/** The sentence beneath a cutting stock some of whose diameters are withheld, naming them; else empty. */
+function withheldNoteOf(payload: BbsPayload): string {
+  const withheld = [...payload.stockWithheld].sort((left, right) => left - right).map((diameter) => counted(diameter));
+  if (withheld.length === 0) return "";
+  const named = withheld.length === 1 ? withheld.join("") : `${withheld.slice(0, -1).join(", ")} and ${withheld.at(-1) ?? ""}`;
+  return BBS_STOCK_WITHHELD_NOTE.replace("{diameters}", named);
 }
 
 /**
@@ -331,9 +386,12 @@ function present(payload: unknown): Record<string, unknown> {
     particulars: particularsOf(schedule),
     entries: entriesOf(schedule),
     stock: stockOf(schedule),
+    stockWithheldNote: withheldNoteOf(schedule),
     grandTotalKg: figure(schedule.grandTotalKg, MASS_PLACES),
+    totalCovers: schedule.totalCovers,
     partial: schedule.partial,
     leftOut: schedule.leftOut.map((one) => ({ what: one.components.join(" · "), why: one.reason })),
+    notInSchedule: schedule.notInSchedule.map((one) => ({ what: one.about, levels: one.levels, why: one.why })),
   };
 }
 
