@@ -131,6 +131,8 @@ OUTPUTS = {
     "rcc6-bnbc.pdf": "vector PDF, TrueType text (Vera from the pinned reportlab wheel), mixed A1/A2/A3 pages",
     "rcc6-bnbc.shx.pdf": "vector PDF, Hershey-simplex stroked text, no text layer",
     "raster/": "R1–R4 (see RASTER)",
+    "scan/s-08.pdf": "F-SCAN: S-08 re-issued as a mixed page — both views pasted as 200 dpi R2 scans, caption and title block TrueType (W-52)",
+    "scan.golden.json": "F-SCAN's golden: the slab-on-grade blinding the scan leg traces, from the model, with its +0 % ceiling (W-52)",
     "notation.corpus.json": "every drawn string with its parser family, sheet, handle and authored fact",
     "sanity.json": "per (space, type) tally for both DXFs, DWG expected census + named losses, PDF/raster expected losses",
     "manifest.json": "sheets, sizes, outputs with sha256, generator modules with sha256 (sorted), raster params",

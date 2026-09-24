@@ -38,9 +38,21 @@ def test_the_corpus_fits_its_budget() -> None:
     assert total <= CORPUS_MB * MB, f"{total / MB:.2f} MB of corpus against a {CORPUS_MB} MB cap"
 
 
+#: What spends the rasters' share: the four variants, the bound scan set and F-SCAN's page (W-02, W-52).
+RASTER_DIRS = ("raster", "scan")
+RASTER_FILES = ("rcc6-bnbc.r2.pdf",)
+
+
+def _is_raster(p: Path) -> bool:
+    rel = p.relative_to(OUT)
+    return rel.parts[0] in RASTER_DIRS or rel.as_posix() in RASTER_FILES
+
+
 def test_the_rasters_fit_their_share() -> None:
-    rasters = [p for p in _files() if p.relative_to(OUT).parts[0] == "raster"]
-    assert rasters, "no raster/ variants are committed"
+    rasters = [p for p in _files() if _is_raster(p)]
+    assert any(p.relative_to(OUT).parts[0] == "raster" for p in rasters), "no raster/ variants are committed"
+    assert (OUT / "scan" / "s-08.pdf").is_file(), "F-SCAN's page is not committed"
+    assert (OUT / "rcc6-bnbc.r2.pdf").is_file(), "the bound scan set is not committed"
     total = sum(p.stat().st_size for p in rasters)
     assert total <= RASTERS_MB * MB, f"{total / MB:.2f} MB of rasters against a {RASTERS_MB} MB cap"
 

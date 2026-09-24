@@ -759,3 +759,40 @@ LB1's ids (R0-G1's K6) and its manifest in BNBC's `model.py` pin — F-ARCH's re
 `baseline:` in the R0 window, beside BNBC's. `cad/tests/rcc6_bnbc/test_rcc6_bnbc_masonry.py` holds it:
 no brick-wall member or BRICKWORK row on either path, the LINTEL rows byte-equal to the committed
 golden's, S-25's two wall-type lines printed from the table, and no BNBC module importing F-ARCH.
+
+## F-SCAN — S-08 re-issued as a mixed page (session 9, M4P-5)
+
+**W-52 The scan is S-08 re-issued: its drawing pasted, its furniture drawn (R-TO-003, s-measure I-392).**
+`emit/scan.py` mints `scan/s-08.pdf`, one A1 page. S-08's two views — the plan (GRADE BEAM LAYOUT & GF
+SLAB ON GRADE, 1:100) and the ramp section (1:50, the pasted detail) — are painted alone, each clipped
+to its window, rendered at 200 dpi, cut out with 2 mm of paper round the window and put through R2's
+copier pass one paste at a time: skewed 1.2–1.8° about its own centre (the canvas grows to hold the
+corners, so nothing is cropped), lit unevenly, blurred σ 0.6, specked and creased — not stamped, signed
+or punched, which belong to a whole sheet on the platen. Each paste is a greyscale DCT image placed at
+exactly 200 dpi, centred on its window, so the drawing keeps its scale and its place. The paper scene
+(border, title strip, both captions, key plan, north arrow, scale bar) is painted over it in TrueType:
+the captions and the title block are PDF text, so the page's plan view is a layout plan anchored on
+its caption and the traced lines fall to it. Nothing here is a second drawing: the vector S-08 is the
+only source, and the DXFs, DWGs and both vector PDFs do not move. The seed stream is the raster set's
+(`[seed, 6, sheet index]`); the page is rebuilt and compared in the determinism check. Measured: 0.51
+MiB at q70 (share 3.5 MiB, under the raster cap with the variants and `r2.pdf`); the cad lane reads 70
+PDF_OBJECT texts, 62 paths and 2 images, and traces the pastes into 2,129 and 338 RASTER_TRACE lines,
+deskewed 1.48° and −1.42° — the angles authored — at 200 dpi from the placement.
+
+**W-53 `scan.golden.json` states what the leg traces, from the model — and the ceiling it may not
+pass.** The item is slab × blinding × GF (component CC) on the slab on grade's own outline (SOG@GF's
+`poly`, the POLYLINE S-08 draws, on which Rev C's five blinding LINEs close) with the lift pit, drawn on
+the page, cut out; the ramp's blinding is taken on plan. The FDN column stubs stand through the 75 mm
+course and are deducted whole (L-MEA-09, s-measure I-389), but they are drawn on S-10, not on this
+page. `golden()` clips each FDN column to the ring's net region itself (Sutherland–Hodgman in
+Decimal; C6X at 45° lies wholly inside the chamfer bay, C7 on the porch misses the ring) and asserts
+the sum equals the model's own deduction under the two GF panels (K21): 25 columns, 17 of them
+straddling the edge, 4,051,875 mm². The figure is (328,838,371.244 − 8,046,918.88 − 4,051,875) mm² ×
+0.075 m = **23.755468 m³** — I-393's hand figure read off the DXF, to the sixth place. It is not the
+golden row's 23.765 (RAMP@GF + SOG@GF, the ramp sloped, printed to three places). The band's ceiling is
+that figure at +0 % and its floor −3 %. The page alone, traced with the pit and no columns, reads
+24.059359 m³, 0.303891 over the ceiling: a trace on a lone scan with nothing to deduct the columns from
+over-measures, and the golden says so rather than blessing it. The golden carries quantities and counts,
+the expected sighting (one INTERPRETED offer, queued INTERPRETED_UNCORROBORATED, no line) and the
+corroboration flow (one CORROBORATE, AGREED, one line, basis INTERPRETED, engine RASTER) — never a key,
+a handle or a digest.

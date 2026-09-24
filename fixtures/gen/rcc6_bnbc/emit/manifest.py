@@ -63,12 +63,21 @@ def sheet_rows(sheets: list[Sheet]) -> list[dict[str, Any]]:
     return rows
 
 
+#: What spends the rasters' share (W-02, W-52): the four variants, the bound scan set and F-SCAN's page.
+RASTER_PREFIXES = ("raster/", "scan/")
+RASTER_FILES = ("rcc6-bnbc.r2.pdf",)
+
+
+def is_raster(name: str) -> bool:
+    return name.startswith(RASTER_PREFIXES) or name in RASTER_FILES
+
+
 def size_budget(written: dict[str, bytes]) -> dict[str, Any]:
     """The W-02 caps and what this corpus actually spends against them."""
     budget = dict(plan.RASTER["budget_mb"])
     mb = 1024 * 1024
     total = sum(len(payload) for payload in written.values())
-    rasters = sum(len(payload) for name, payload in written.items() if name.startswith("raster/"))
+    rasters = sum(len(payload) for name, payload in written.items() if is_raster(name))
     largest = max(((len(payload), name) for name, payload in written.items()), default=(0, ""))
     return {
         "caps_mb": budget,

@@ -165,6 +165,8 @@ def test_ac1_the_corpus_carries_every_output_its_own_plan_names(bnbc_corpus) -> 
         "notation.corpus.json",
         "sanity.json",
         "manifest.json",
+        "scan/s-08.pdf",
+        "scan.golden.json",
     }
     assert promised <= committed, (
         f"outputs plan.OUTPUTS names but the corpus lacks: {sorted(promised - committed)}"

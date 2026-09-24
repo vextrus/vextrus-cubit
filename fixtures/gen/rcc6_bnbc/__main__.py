@@ -41,10 +41,14 @@ GOLDEN_FILES = (
     "model.json",
 )
 
+#: F-SCAN's golden (W-52): the figure the scan leg's hand trace is judged against, beside its page.
+SCAN_GOLDEN = "scan.golden.json"
+
 WAVE = (
     "B (N2/N3): the 26 sheets composed once and painted three ways — ezdxf (paper layouts and "
     "model-space frames, plus the xref target and the malformed twin), LibreDWG (both DWGs, judged "
-    "by census), reportlab (the TrueType PDF and its stroked twin) — and rasterised four ways"
+    "by census), reportlab (the TrueType PDF and its stroked twin) — and rasterised four ways, "
+    "plus F-SCAN's S-08 re-issued as a mixed page (W-52)"
 )
 
 #: A second raster pass costs more than a minute, so determinism is proved on the sheets, the DXFs
@@ -236,6 +240,12 @@ def determinism(world: dict[str, Any], scratch: Path, first: dict[str, bytes]) -
     for name in ("rcc6-bnbc.pdf", "rcc6-bnbc.shx.pdf"):
         assert again["pdf"][name] == first[name], f"check 8 (determinism): {name} differs on rebuild"
         compared.append(name)
+    from .emit import scan as _scan
+
+    rescanned, _ = _scan.page(again["sheets"], again["blocks"], again["images"])
+    for name, payload in rescanned.items():
+        assert payload == first[name], f"check 8 (determinism): {name} differs on rebuild"
+        compared.append(name)
     assert again["traps_json"] == first["traps.json"], (
         "check 8 (determinism): the trap handles moved between two writings of the same sheets"
     )
@@ -245,7 +255,7 @@ def determinism(world: dict[str, Any], scratch: Path, first: dict[str, bytes]) -
         "exempt": {
             "dwg": "LibreDWG is not byte-stable; the DWG is judged by its census (W-04)",
             "raster": "a second raster pass costs over a minute; the rasters are a pure function "
-            "of the vector PDF, which is rebuilt and compared",
+            "of the vector PDF, which is rebuilt and compared (F-SCAN's one page is rebuilt too)",
         },
     }
 
@@ -255,6 +265,7 @@ def build(out: Path, world: dict[str, Any], rows: list[Any], bbs: dict[str, Any]
     from .emit import manifest as _manifest
     from .emit import plan as _plan
     from .emit import raster as _raster
+    from .emit import scan as _scan
     from .emit import scene as _scene
 
     del out
@@ -263,6 +274,9 @@ def build(out: Path, world: dict[str, Any], rows: list[Any], bbs: dict[str, Any]
         drawn = draw(world, scratch)
         minted = mint_dwg(drawn, scratch)
         rasters, raster_report = _raster.variants(drawn["pdf"]["rcc6-bnbc.pdf"], drawn["sheets"])
+        scanned, scan_report = _scan.page(drawn["sheets"], drawn["blocks"], drawn["images"])
+        raster_report["scan"] = scan_report
+        raster_report["total_bytes"] += scan_report["bytes"]
 
         written: dict[str, bytes] = dict(golden_documents(world, rows, bbs))
         for name in (drawn["paper_dxf"], drawn["model_dxf"], drawn["malformed"]):
@@ -275,6 +289,8 @@ def build(out: Path, world: dict[str, Any], rows: list[Any], bbs: dict[str, Any]
         written["rcc6-bnbc.pdf"] = drawn["pdf"]["rcc6-bnbc.pdf"]
         written["rcc6-bnbc.shx.pdf"] = drawn["pdf"]["rcc6-bnbc.shx.pdf"]
         written.update(rasters)
+        written.update(scanned)
+        written[SCAN_GOLDEN] = encode(_scan.golden(world))
 
         pdf_reports = drawn["pdf"]["reports"]
         sanity = {
@@ -287,7 +303,7 @@ def build(out: Path, world: dict[str, Any], rows: list[Any], bbs: dict[str, Any]
                 "rcc6-bnbc.pdf": pdf_reports["rcc6-bnbc.pdf"],
                 "rcc6-bnbc.shx.pdf": pdf_reports["rcc6-bnbc.shx.pdf"],
             },
-            "raster": {key: raster_report[key] for key in ("r1", "r2", "r2pdf", "r3", "r4")},
+            "raster": {key: raster_report[key] for key in ("r1", "r2", "r2pdf", "r3", "r4", "scan")},
         }
         written["sanity.json"] = encode(sanity)
 
