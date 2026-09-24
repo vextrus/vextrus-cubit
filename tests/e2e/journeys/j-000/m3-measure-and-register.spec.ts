@@ -81,7 +81,6 @@ import { checkpoint } from "../../support/checkpoint";
 import { heldAttribute, steadyCount, steadyText } from "../../support/retrying-read";
 import { settled } from "../../support/settled";
 import { TESTIDS, testIdSelector } from "../../../../src/ui/testids";
-import { strings } from "../../../../src/ui/strings";
 import { BNBC_NECK, BNBC_STOREYS, bnbcMeasured, releaseGoldenWorker } from "./golden-run";
 
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -179,7 +178,7 @@ test.describe.serial("J-000 — Golden Path: M3's measure on F-RCC6-BNBC", () =>
     // own heading, read off the coverage certificate's statement.
     await expect(takeoff.runSummary, "the run published lines, so the work surface is the grid").toHaveCount(0);
     if ((await heldAttribute(takeoff.refusals, "data-count")) === "0") {
-      await expect(takeoff.refusalsZero, "a region with no row states its zero").toHaveText(strings.takeoff_register_refusals_none);
+      await expect(takeoff.refusalsZero, "a region with no row states its zero").toHaveText(takeoff.refusalsZeroCopy);
     } else {
       await expect(takeoff.refusalsZero, "a region with rows states no zero").toHaveCount(0);
     }

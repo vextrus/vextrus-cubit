@@ -6,6 +6,7 @@
  */
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { strings } from "../../../src/ui/strings";
 import { idChipMasks, screenInFrame, shellMasks } from "./shell.page";
 import { everyRow, heldAttribute, steadyAttribute, steadyText } from "../support/retrying-read";
 
@@ -165,6 +166,12 @@ export class STakeoffPage {
   /** The region's stated zero, where it holds no row (s-takeoff-register I-649). */
   get refusalsZero(): Locator {
     return this.page.getByTestId(TESTIDS.register.refusalsZero);
+  }
+
+  /** The words that zero reads — the string table's, so a leg asserts the copy without spelling it
+   * or reaching into product source itself (AM-09 §2: a leg imports no product module). */
+  get refusalsZeroCopy(): string {
+    return strings.takeoff_register_refusals_none;
   }
 
   /** What the drawings name and the run measured none of, and its rows (I-650). */
