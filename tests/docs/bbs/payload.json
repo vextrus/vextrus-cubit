@@ -26,6 +26,7 @@
       "class": "column",
       "mark": "C1",
       "members": 3,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C1-d",
@@ -82,6 +83,7 @@
       "class": "column",
       "mark": "C2",
       "members": 8,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C2-d",
@@ -138,6 +140,7 @@
       "class": "column",
       "mark": "C3",
       "members": 6,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C3-d",
@@ -194,6 +197,7 @@
       "class": "column",
       "mark": "C4",
       "members": 7,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C4-d",
@@ -273,6 +277,7 @@
       "class": "column",
       "mark": "C6",
       "members": 1,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C6-d",
@@ -329,6 +334,7 @@
       "class": "column",
       "mark": "C7",
       "members": 1,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C7-d",
@@ -380,6 +386,7 @@
       "class": "shear_wall",
       "mark": "SW1",
       "members": 2,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "SW1-v",
@@ -431,6 +438,7 @@
       "class": "shear_wall",
       "mark": "SW1",
       "members": 1,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "SW1-v",
@@ -482,6 +490,7 @@
       "class": "column",
       "mark": "C1",
       "members": 3,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C1-v",
@@ -537,6 +546,7 @@
       "class": "column",
       "mark": "C2",
       "members": 8,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C2-v",
@@ -592,6 +602,7 @@
       "class": "column",
       "mark": "C3",
       "members": 6,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C3-v",
@@ -647,6 +658,7 @@
       "class": "column",
       "mark": "C4",
       "members": 7,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C4-v",
@@ -725,6 +737,7 @@
       "class": "column",
       "mark": "C6",
       "members": 1,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C6-v",
@@ -780,6 +793,7 @@
       "class": "column",
       "mark": "C7",
       "members": 1,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C7-v",
@@ -830,6 +844,7 @@
       "class": "shear_wall",
       "mark": "SW1",
       "members": 2,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "SW1-v",
@@ -881,6 +896,7 @@
       "class": "shear_wall",
       "mark": "SW1",
       "members": 1,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "SW1-v",
@@ -932,6 +948,7 @@
       "class": "column",
       "mark": "C1",
       "members": 3,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C1-v",
@@ -987,6 +1004,7 @@
       "class": "column",
       "mark": "C2",
       "members": 8,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C2-v",
@@ -1042,6 +1060,7 @@
       "class": "column",
       "mark": "C3",
       "members": 6,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C3-v",
@@ -1097,6 +1116,7 @@
       "class": "column",
       "mark": "C4",
       "members": 7,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C4-v",
@@ -1175,6 +1195,7 @@
       "class": "column",
       "mark": "C5",
       "members": 1,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C5-v",
@@ -1230,6 +1251,7 @@
       "class": "column",
       "mark": "C6",
       "members": 1,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "C6-v",
@@ -1285,6 +1307,7 @@
       "class": "shear_wall",
       "mark": "SW1",
       "members": 2,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "SW1-v",
@@ -1336,6 +1359,7 @@
       "class": "shear_wall",
       "mark": "SW1",
       "members": 1,
+      "notForCutting": false,
       "bars": [
         {
           "barMark": "SW1-v",
@@ -1394,30 +1418,33 @@
     "10": {
       "stockBars": 401,
       "pieces": 3373,
-      "offcutMm": "92625"
+      "offcutM": "92.625"
     },
     "12": {
       "stockBars": 68,
       "pieces": 306,
-      "offcutMm": "96900"
+      "offcutM": "96.900"
     },
     "16": {
       "stockBars": 19,
       "pieces": 72,
-      "offcutMm": "25800"
+      "offcutM": "25.800"
     },
     "20": {
       "stockBars": 116,
       "pieces": 432,
-      "offcutMm": "175200"
+      "offcutM": "175.200"
     },
     "25": {
       "stockBars": 68,
       "pieces": 252,
-      "offcutMm": "102000"
+      "offcutM": "102.000"
     }
   },
+  "stockWithheld": [],
   "grandTotalKg": "12081.812",
+  "totalCovers": "",
   "partial": false,
-  "leftOut": []
+  "leftOut": [],
+  "notInSchedule": []
 }
