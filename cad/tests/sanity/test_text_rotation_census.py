@@ -4,7 +4,7 @@ Beside the DXF sanity suites on purpose: each reads its drawing through the corp
 same name (`dxf-artifact:rcc6-bnbc.dxf`, `dxf-artifact`), so on whichever worker these land beside
 them the drawing is ingested once, not once more (V-VERIFY).
 
-F-RCC6-BNBC writes 88 of its TEXT marks up the sheet — the vertical beams of S-13, S-14 and S-15,
+F-RCC6-BNBC writes 110 of its TEXT marks up the sheet — the vertical beams of S-13, S-14 and S-15,
 the GB marks of S-08, TG1 and one paper text — and one level at 180° (`D77`, "EL +3.353"). Every
 MTEXT and ATTRIB is square. F-RCC6 is square throughout. A census that moves is a drawing that moved
 or an extractor that reads rotation differently, and either is a declared change.
@@ -55,7 +55,7 @@ def _census(artifact: dict[str, Any]) -> Counter[tuple[str, str, float]]:
     return census
 
 
-def test_bnbc_writes_88_marks_up_the_sheet_and_one_level_half_round(bnbc_corpus) -> None:
+def test_bnbc_writes_110_marks_up_the_sheet_and_one_level_half_round(bnbc_corpus) -> None:
     artifact = _bnbc(bnbc_corpus)
     assert artifact["entitygraph_version"] == ENTITYGRAPH_VERSION
 
@@ -65,7 +65,10 @@ def test_bnbc_writes_88_marks_up_the_sheet_and_one_level_half_round(bnbc_corpus)
         if "text" in record and record["rotation"] != 0.0
     }
     up = [key for key, (_, rotation, _) in turned.items() if rotation == 90.0]
-    assert len(up) == 88, f"F-RCC6-BNBC writes 88 TEXT marks at 90°, not {len(up)}"
+    # 110 since Rev C (fixtures/gen/rcc6_bnbc/DECISIONS.md W-44): Rev B's 88 kept, key for key, and 22
+    # added — S-08's marks on the grade-beam spans Rev B left unmarked, 21 of them on the spans that run
+    # up the sheet (GB1 x6, GB3 x12, GB4 x2, GB5), and the seventh LB1 on the roof layout (K6).
+    assert len(up) == 110, f"F-RCC6-BNBC writes 110 TEXT marks at 90°, not {len(up)}"
     assert all(turned[key][0] == "TEXT" for key in up)
     assert {key: value for key, value in turned.items() if value[1] != 90.0} == {
         LEVEL_AT_180: ("TEXT", 180.0, "EL +3.353"),
@@ -77,8 +80,11 @@ def test_bnbc_writes_88_marks_up_the_sheet_and_one_level_half_round(bnbc_corpus)
     assert square_or_not <= {("entities", "TEXT"), ("derived", "TEXT")}, (
         f"only TEXT turns on F-RCC6-BNBC; every MTEXT and ATTRIB is square: {sorted(census.items())}"
     )
-    assert census[("block_attributes", "ATTRIB", 0.0)] == 344
-    assert census[("entities", "MTEXT", 0.0)] + census[("derived", "MTEXT", 0.0)] == 150
+    # Rev C (DECISIONS.md W-44, W-49) adds and removes nothing square but these: five grid bubbles on the
+    # stair roof's grid (2, 3, 4, C, D: 344 -> 349), and the measurement MTEXT of the 27 dimensions Rev C
+    # draws (152 against Rev B's 125: 150 -> 177).
+    assert census[("block_attributes", "ATTRIB", 0.0)] == 349
+    assert census[("entities", "MTEXT", 0.0)] + census[("derived", "MTEXT", 0.0)] == 177
 
 
 def test_orientation_changes_neither_the_string_nor_its_anchor(bnbc_corpus) -> None:

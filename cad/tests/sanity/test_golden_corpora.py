@@ -45,7 +45,10 @@ BBS_REL = "bbs.golden.json"
 SELFCHECK_REL = "selfcheck.py"
 
 #: The matrix M3's exit is read against (AM-01) — F-RCC6-BNBC's, stated again by its manifest.
-M3_CELLS = 36
+#: 40 since Rev C (fixtures/gen/rcc6_bnbc/DECISIONS.md W-41): the earthwork the golden already billed
+#: beside the concrete it serves joined the pairs — FOOTING x EXCAVATION, FOOTING x BLINDING, WALL x
+#: EXCAVATION (the tank pits), SLAB x BLINDING (the slab on grade and the ramp); Rev B's was 36.
+M3_CELLS = 40
 
 #: The kinds a schema-2 golden owes, by the discipline its manifest declares (structural by default).
 SCHEMA_2_KINDS = {

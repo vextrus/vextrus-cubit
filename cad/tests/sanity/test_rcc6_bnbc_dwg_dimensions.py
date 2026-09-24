@@ -1,8 +1,9 @@
 """F-RCC6-BNBC's DWG reaches the artifact with every dimension it holds (L-CAD-04, L-MEA-05).
 
 Session 8's walk-0 uploaded `rcc6-bnbc.dwg` and no view of it proposed a scale, where the DXF of the
-same drawing proposes DIMENSION_RATIO on ten. The DWG holds 125 dimensions (its census, `sanity.json`)
-and LibreDWG's writer left every one naming no picture, so the recover-mode audit removed them all and
+same drawing proposes DIMENSION_RATIO on ten. The DWG held 125 dimensions then; Rev C holds 152 (its
+census, `sanity.json`: W-44's new sections each carry their outer dimension, and W-50's DWG source keeps
+every model-space entity Rev C appends), and LibreDWG's writer left every one naming no picture, so the recover-mode audit removed them all and
 nothing but a count of repairs said so. This reads the committed DWG through the product's own lane and
 holds the artifact to the census: every dimension an original, each with the one measurement text and
 the definition points rank 3 measures between — and every text the draughtsman typed in feet and
@@ -66,7 +67,9 @@ def test_every_dimension_of_the_dwg_reaches_the_artifact_with_its_text_and_point
 ) -> None:
     conversion = _conversion(bnbc_corpus, tmp_path)
     counted = sum(types.get("DIMENSION", 0) for types in conversion.census.values())
-    assert counted == 125, f"the census of {DWG} counts {counted} dimensions; this proof is written for 125"
+    # 152 since Rev C (fixtures/gen/rcc6_bnbc/DECISIONS.md W-44, W-50; sanity.json's census): Rev B's 125
+    # and the 27 dimensions Rev C draws — each new section's outer dimension among them.
+    assert counted == 152, f"the census of {DWG} counts {counted} dimensions; this proof is written for 152"
     assert conversion.drawn_dimensions == counted, (
         "LibreDWG's writer left every one naming no picture, and each was drawn"
     )
