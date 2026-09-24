@@ -29,7 +29,8 @@ export type FoundationsRefusalCode =
   | "SITE_FACT_SOURCE_UNSTATED"
   | "PILE_HEAD_UNSTATED"
   | "CAP_HOLDS_NO_PILE"
-  | "CAP_PILES_UNREAD";
+  | "CAP_PILES_UNREAD"
+  | "CAP_RECESS_UNSTATED";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const FOUNDATIONS_REFUSALS: RefusalGroup<FoundationsRefusalCode> = Object.freeze({
@@ -170,6 +171,19 @@ export const FOUNDATIONS_REFUSALS: RefusalGroup<FoundationsRefusalCode> = Object
     code: "CAP_PILES_UNREAD",
     message: "Which piles stand under this cap could not be read, so its concrete would include concrete the piles already own.",
     remedy: "Add the pile layout to the drawing set, or check that it draws the same grid as the cap layout at the same scale, then measure the campaign again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // A recess is cast into this pile cap — its section draws the void, or a note names the cap as
+  // recessed — but the set does not state it in every direction: its length and breadth in plan and
+  // its depth below the cap's top. The void is the cap's to net (I-546), and a void read one way only
+  // is no void anyone can net, so the cap taken whole over it would read over — a hard block, never a
+  // disclosure (L-QTY-04, I-598). The cap keeps its row, its concrete and its formwork both,
+  // naming the side it lacks.
+  CAP_RECESS_UNSTATED: Object.freeze({
+    code: "CAP_RECESS_UNSTATED",
+    message: "A recess is cast into this cap, but the drawing does not state its length, breadth and depth, so the cap's concrete and formwork would read over the void.",
+    remedy: "Dimension the recess on the cap's section or the pit's plan — its length, its breadth and its depth below the cap's top — then measure the campaign again.",
     severity: "error",
     surface: "inline",
   }),

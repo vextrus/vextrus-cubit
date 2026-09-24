@@ -8,8 +8,10 @@
  * carried from the partition's view keys to the placements' addresses, the caps' rings read back out
  * of the stored ARTIFACT by the keys the placement stage stored, and the relation composed from them —
  * 26 caps, each holding the PILES figure S-06's schedule prints for its type, 89 piles each held once,
- * and every held pile a placement the rails can read the schedule of. The heads' height and the recess
- * stand as no reader states them: UNBOUNDED, and none.
+ * and every held pile a placement the rails can read the schedule of. The heads' height is S-05's
+ * embedment note, read off the stored artifact through the stored view assignments (FND-HEAD,
+ * I-597); PC5's recess is S-07's section of it, read off the same artifact, views and
+ * assignments (FND-RECESS, I-598), and no other cap carries one.
  */
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { RailSetup } from "@/core/offers/contract";
@@ -80,10 +82,25 @@ describe("I-547: the measure setup hands the rails the piles each pile cap stand
     }
   });
 
-  test("the heads' height and the recess stand as no reader of the set states them: UNBOUNDED, and none", () => {
-    for (const junction of Object.values(setup.capJunctions ?? {})) {
-      expect(junction.headHeight, "nothing reads the cut-off against the soffit yet").toEqual({ reading: null, standing: "UNBOUNDED" });
-      expect(junction.recess, "nothing reads PC5's recess yet").toBeNull();
+  test("the heads' height as Rev C's S-05 states it — 3 in, RESOLVED, cited to its embedment line — on every cap", () => {
+    const junctions = Object.values(setup.capJunctions ?? {});
+    expect(junctions.length).toBe(26);
+    for (const junction of junctions) {
+      expect(junction.headHeight, "read off the stored artifact's words by the partition's stored view assignments (I-597)").toEqual({
+        reading: { value: "3", unit: "in", basis: "TRANSCRIBED", source: "DXF_HANDLE:22A8" },
+        standing: "RESOLVED",
+      });
     }
+  });
+
+  test("PC5's recess as Rev C's S-07 section states it — 2493 × 2188 × 914 mm, each side cited — and no other cap carries one (I-598)", () => {
+    const entries = Object.entries(setup.capJunctions ?? {});
+    const recessed = entries.filter(([, junction]) => junction.recess !== null);
+    expect(recessed.map(([key]) => markOf.get(key)), "PC5 alone, bound by its mark's section").toEqual(["PC5"]);
+    expect(recessed[0]?.[1].recess, "read off the stored artifact, views and assignments").toEqual({
+      length: { value: "2493", unit: "mm", basis: "TRANSCRIBED", source: "DXF_HANDLE:22BA" },
+      breadth: { value: "2188", unit: "mm", basis: "TRANSCRIBED", source: "DXF_HANDLE:22DD" },
+      depth: { value: "914", unit: "mm", basis: "TRANSCRIBED", source: "DXF_HANDLE:22C9" },
+    });
   });
 });

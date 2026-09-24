@@ -1,0 +1,59 @@
+{
+  "requestHash": "d0dcf5ab834784ef45944e00d1ff183e2941a8505c01067ee24607707890d9c6",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "item": "earthwork.excavation/footing/depth-to-1500"
+    },
+    "sources": [
+      "DXF_HANDLE:F1"
+    ]
+  },
+  "inputTokens": 1256,
+  "outputTokens": 110,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.36,
+    "answers": {
+      "item_description": {
+        "type": "choice",
+        "value": "earthwork.excavation/footing/depth-to-1500",
+        "confidence": 0.36,
+        "probabilities": {
+          "NONE_OF_THESE": 0.12,
+          "earthwork.excavation/footing/depth-to-1500": 0.58,
+          "earthwork.excavation/footing/depth-over-1500": 0.3
+        }
+      },
+      "attributes_separate": {
+        "type": "noul",
+        "value": 0.79,
+        "confidence": null,
+        "probabilities": null
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "item_description": {
+        "type": "choice",
+        "choice": "earthwork.excavation/footing/depth-to-1500",
+        "confidence": 0.36,
+        "probabilities": {
+          "NONE_OF_THESE": 0.12,
+          "earthwork.excavation/footing/depth-to-1500": 0.58,
+          "earthwork.excavation/footing/depth-over-1500": 0.3
+        }
+      },
+      "attributes_separate": {
+        "type": "noul",
+        "noul": 0.79
+      }
+    },
+    "usage": {
+      "input_tokens": 1256,
+      "output_tokens": 110
+    }
+  }
+}

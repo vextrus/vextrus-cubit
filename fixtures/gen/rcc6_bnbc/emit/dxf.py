@@ -385,16 +385,25 @@ def assign_model_offsets(sheets: list[Sheet]) -> None:
                 index += 1
 
 
-def _close_issue(doc: Any, placer: Placer, blocks: list[Block]) -> None:
+def _close_issue(doc: Any, placer: Placer, blocks: list[Block], *, issue: bool = True) -> None:
     """End Rev B exactly as its save ended it, then open the appended revision (W-19).
 
     A save commits pending changes, registers the sorted CLASSES (`_finish`) and lets `update_all`
     mint its own records (two APPIDs and the ezdxf DICTIONARYVAR) — after every entity it holds. So
     those run here, before anything the appended revision draws, and mint what they always minted;
-    the save that follows finds nothing left to mint. Then the layers and blocks Rev B did not have."""
-    doc.commit_pending_changes()
-    _finish(doc)
-    doc.update_all()
+    the save that follows finds nothing left to mint. Then the layers and blocks Rev B did not have.
+
+    The DWG source (`issue=False`, a write with `skip`) is no issue: its handles are nobody's
+    evidence, the DWG is judged by its census (W-04), and ending the issue there loses Rev C (W-50).
+    The mid-issue save leaves the OBJECTS section's last record (the DICTIONARYVAR) below every
+    record Rev C appends, and `dxf2dwg` mints its own APPID, VX_CONTROL and VX_TABLE_RECORD from
+    the handle after that record — over Rev C's first three, which cut the model space's entity
+    chain and left every model-space entity Rev C appends out of the conversion. So the source
+    skips it, and its one save mints those records last, above every handle it holds."""
+    if issue:
+        doc.commit_pending_changes()
+        _finish(doc)
+        doc.update_all()
     _add_layers(doc, [key for key in sorted(plan.LAYERS) if key not in REV_B_LAYERS])
     for block in blocks:
         if block.name not in REV_B_BLOCKS:
@@ -476,7 +485,7 @@ def _append_paper(
 ) -> None:
     """The appended revision in the paper set: what it adds to Rev B's views and sheets, its own
     views (each on its own model square, `assign_model_offsets`) and its own sheets, whole."""
-    _close_issue(doc, placer, blocks)
+    _close_issue(doc, placer, blocks, issue=skip is None)
     msp = doc.modelspace()
     for sheet in sheets:
         for view in sheet.views:
@@ -557,7 +566,7 @@ def write_model_frames(
                         view_center_point=(fx + w * k / 2, fy + h * k / 2), view_height=h * k)
     doc.layouts.delete("Layout1")
     # The appended revision (W-19): its new sheets take the frame squares after Rev B's.
-    _close_issue(doc, placer, blocks)
+    _close_issue(doc, placer, blocks, issue=skip is None)
     index = len(issued)
     for sheet in sheets:
         if sheet.new_in == APPENDED:

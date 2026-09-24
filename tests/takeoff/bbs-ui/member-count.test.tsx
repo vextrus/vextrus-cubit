@@ -133,6 +133,8 @@ function door(): BbsDocument {
     perMarkKg: { "C1-v": "99.82368", "C2-v": "299.47104" },
     cuttingStock: { "20": { stockBars: 12, pieces: 40, offcutMm: "22000", method: "first-fit-decreasing" } },
     grandTotalKg: "399.29472",
+    declared: [],
+    declaredKg: "0",
   };
 }
 

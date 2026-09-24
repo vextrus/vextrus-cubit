@@ -11,8 +11,14 @@
  *
  * No network and no key: `subjectsOf` composes requests and posts nothing. Recording is a person's
  * own command (`scripts/model-corpus.ts record`), which no lane runs and none could.
+ *
+ * TEST_AMENDED (wave 3a-R0, R0-REC, D-009). The states used to be pinned to `fixtures/rcc6-bnbc`
+ * alone. R0 gave masonry one home in F-ARCH, so the two brickwork states are now written from
+ * `fixtures/arch/model.json`. The proof keeps its teeth and gains one: a state's artifact must be a
+ * committed fixture file that exists under one of the two fixtures a state may be read from, and its
+ * note must name that same fixture — a state citing a file nobody committed is refused.
  */
-import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -25,6 +31,14 @@ import type { RecorderContext } from "../../scripts/model-corpus/recorder";
 const REPO_ROOT = resolve(import.meta.dirname, "../..");
 const CORPUS_ROOT = join(REPO_ROOT, "fixtures", "model");
 const STATES = join(REPO_ROOT, "scripts", "model-corpus", "boq-line-description-states");
+
+/** The committed fixtures a hand-written state may be read out of: the BNBC set, and F-ARCH for masonry (D-009). */
+const STATE_SOURCES = ["fixtures/rcc6-bnbc/", "fixtures/arch/"] as const;
+
+/** The committed fixture a state's artifact lies in, or undefined when it lies in none. */
+function sourceOf(artifact: string): string | undefined {
+  return STATE_SOURCES.find((root) => artifact.startsWith(root) && existsSync(join(REPO_ROOT, artifact)));
+}
 
 /** A recorder context whose flags a case states, whose lines are collected and whose fail throws. */
 function ctx(options: Readonly<Record<string, string>> = {}): RecorderContext & { said: string[] } {
@@ -59,8 +73,9 @@ describe("the committed item-description states", () => {
         attributes: { name: string; valueAsWritten: string; unitAsWritten: string }[];
         keys: string[];
       };
-      expect(state.note, `${name} states where its values were read from — a corpus nobody can trace is not evidence (Q-08)`).toContain("fixtures/rcc6-bnbc");
-      expect(state.artifact, `${name} names the committed file it was written from`).toContain("fixtures/rcc6-bnbc");
+      const source = sourceOf(state.artifact);
+      expect(source, `${name} names a committed fixture file it was written from (${STATE_SOURCES.join(" or ")})`).toBeDefined();
+      expect(state.note, `${name} states where its values were read from — a corpus nobody can trace is not evidence (Q-08)`).toContain(state.artifact);
       expect(
         candidateItemsFor(state.line.class as never, state.line.kind as never).length,
         `${name} names ${state.line.class} × ${state.line.kind}, which the catalogue must hold more than one description for`,
@@ -71,6 +86,34 @@ describe("the committed item-description states", () => {
   });
 });
 
+/** L-BD-04's band edge for excavation: the rate steps per 0.5 m over 1.5 m of pit. */
+const BAND_EDGE_MM = 1500;
+
+describe("the excavation states' depth arm (L-FRM-04, L-BD-04, I-610)", () => {
+  it("each excavation state's shallow or deep arm is the one its own attributes measure, pit to the blinding's underside plus dx", () => {
+    const excavations = stateFiles().filter((name) => name.startsWith("excavation-"));
+    expect(excavations.length, "the corpus carries both arms of the depth axis").toBe(2);
+    const arms = new Set<string>();
+    for (const name of excavations) {
+      const state = JSON.parse(readFileSync(join(STATES, name), "utf8")) as { subject: string; attributes: { name: string; valueAsWritten: string; unitAsWritten: string }[] };
+      const mm = (attribute: string): number => {
+        const held = state.attributes.find((one) => one.name === attribute);
+        expect(held?.unitAsWritten, `${name} states its ${attribute} in mm`).toBe("mm");
+        return Number(held?.valueAsWritten);
+      };
+      // Fixture arithmetic in whole tenths of a millimetre, so no float decides the arm.
+      const tenths = (value: number): number => Math.round(value * 10);
+      const pit = tenths(mm("existing_ground_level")) - (tenths(mm("top")) - tenths(mm("depth"))) + tenths(mm("blinding_thickness")) + tenths(mm("depth_extra"));
+      const deep = pit > BAND_EDGE_MM * 10;
+      const said = state.subject.includes("not deeper than 1.5 m") ? "shallow" : state.subject.includes("deeper than 1.5 m") ? "deep" : "unstated";
+      expect(said, `${name}'s subject names its arm`).not.toBe("unstated");
+      expect(said, `${name}: the pit measures ${pit / 10} mm, so its arm is ${deep ? "deep" : "shallow"}`).toBe(deep ? "deep" : "shallow");
+      arms.add(said);
+    }
+    expect([...arms].sort(), "one state on each side of the band edge").toEqual(["deep", "shallow"]);
+  });
+});
+
 describe("the recorder", () => {
   it("asks one subject per committed state, as the product's own builder composes it", () => {
     const asked = subjectsOf(ctx());
@@ -78,7 +121,7 @@ describe("the recorder", () => {
     for (const one of asked) {
       expect(one.request.question, "every subject is recorded under the question the ledger files it by").toBe(MODEL_QUESTIONS.boqLineDescription);
       expect(one.subject, "a reader can tell which group a recording was asked about, and how many options it had").toContain("candidates");
-      expect(one.artifact, "the file the state was read out of travels beside the subject").toContain("fixtures/rcc6-bnbc");
+      expect(sourceOf(one.artifact ?? ""), `the committed file the state was read out of travels beside the subject (${one.artifact})`).toBeDefined();
     }
   });
 

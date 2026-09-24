@@ -13,9 +13,12 @@
 // the gate (B-17, L-FRM-06). The one relation read here rather than carried is which piles each pile
 // cap stands on (`./cap-junctions`, I-547): the revision's stored plans laid over one grid, and
 // the cap's own ring asked which pile centres it holds — a relation between stored readings, often of
-// two drawings, which no single store states and no rail may reach a store to ask.
+// two drawings, which no single store states and no rail may reach a store to ask — and with it how
+// far the piles' heads stand into the caps, as the note on the pile's own detail states it, read off
+// the same artifact's words by the partition's stored view assignments (I-597), and the recess
+// a cap's own section draws cut into it (I-598).
 import { editionOf } from "@/core/campaigns";
-import { drawingSetRevisions, eq, and, forTenant, type TenantTx } from "@/core/db";
+import { drawingSetRevisions, eq, and, forTenant, viewAssignments, type TenantTx } from "@/core/db";
 import { artifactAt } from "@/core/entitygraph/artifact";
 import { manualSetupIn } from "@/core/manual/offer";
 import { appStorage } from "@/core/storage/app";
@@ -40,6 +43,7 @@ import { affirmationsOfRecord } from "@/core/scale/store";
 import { viewAddressOf, viewRecordsOf } from "@/core/views";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
 import {
+  conventionProfileOf,
   gridOf,
   memberTypesOf,
   outlinesOf,
@@ -54,7 +58,19 @@ import {
   type StoredPlacement,
   type ViewsScope,
 } from "@/modules/takeoff/partition";
-import { capJunctionSetupOf, pilesHeldOverRevision, ringsOf, type DrawingReading, type Point } from "./cap-junctions";
+import type { RecessView } from "@/modules/takeoff/partition/recess/read";
+import {
+  capJunctionSetupOf,
+  headHeightOverRevision,
+  pilesHeldOverRevision,
+  recessesOverRevision,
+  ringsOf,
+  viewTextsOf,
+  type DrawingReading,
+  type HeadReading,
+  type Point,
+  type RecessReading,
+} from "./cap-junctions";
 import { wallSetupsOf } from "./walls";
 // The notation grammar registers its storey reading with core's band placement at load (`sameStorey`,
 // `useStoreyEquivalence`): the rails place a schedule's band ("3RD & 4TH") on the stack ("3F") through
@@ -214,6 +230,8 @@ type RelationDrawing = {
   readonly scope: ViewsScope;
   readonly placed: readonly StoredPlacement[];
   readonly addressOf: ReadonlyMap<string, string>;
+  /** The drawing's views by the partition's own key, with the captions it read — where a section names its member. */
+  readonly views: readonly RecessView[];
 };
 
 /** The two classes the relation is between. */
@@ -242,24 +260,50 @@ async function capJunctionsOver(tenantId: string, drawings: readonly RelationDra
   if (!places(PILE_CAP_CLASS) || !places(PILE_CLASS)) return {};
 
   const readings: DrawingReading[] = [];
+  const heads: HeadReading[] = [];
+  const recesses: RecessReading[] = [];
   for (const drawing of drawings) {
     const members = drawing.placed.filter((one) => one.elementType === PILE_CAP_CLASS || one.elementType === PILE_CLASS);
     if (members.length === 0) continue;
     // A drawing whose partition georeferenced no plan lays nothing over anything, except what it
     // places on one view with its own piles — a view is always its own frame.
     const grid = await gridOf(drawing.scope);
-    const rings = members.some((one) => one.elementType === PILE_CAP_CLASS)
-      ? ringsOf(await artifactAt(tenantId, drawing.record.artifactSha256, appStorage(), `ingest ${drawing.record.ingestId}`))
-      : new Map<string, readonly Point[]>();
+    // The artifact is opened once for both readings it answers: the caps' rings, and the words of
+    // every view — where the pile's own detail states how far its head stands into the cap
+    // (I-544, I-597). A drawing of the pile class is where that note is drawn.
+    const graph = await artifactAt(tenantId, drawing.record.artifactSha256, appStorage(), `ingest ${drawing.record.ingestId}`);
+    const rings = members.some((one) => one.elementType === PILE_CAP_CLASS) ? ringsOf(graph) : new Map<string, readonly Point[]>();
     readings.push({
       drawing: drawing.record.ingestId,
       placements: members.map((one) => ({ placementKey: one.placementKey, elementType: one.elementType, viewKey: one.viewKey, x: one.x, y: one.y, outlineKey: one.outlineKey })),
       axes: (grid?.axes ?? []).map((axis) => ({ viewKey: drawing.addressOf.get(axis.viewKey) ?? axis.viewKey, family: axis.family, axis: axis.axis, label: axis.label, position: axis.position })),
       ringOf: (outlineKey) => rings.get(outlineKey) ?? null,
     });
+    // Which view each text stands in is the partition's stored answer (L-CAD-06), read back rather
+    // than re-derived; the unit a bare figure is in is the one the drawing declares (I-302).
+    const assigned = await forTenant({ tenantId }).transaction((tx) =>
+      tx
+        .select({ entityKey: viewAssignments.entityKey, viewKey: viewAssignments.viewKey })
+        .from(viewAssignments)
+        .where(and(eq(viewAssignments.tenantId, tenantId), eq(viewAssignments.ingestId, drawing.record.ingestId))),
+    );
+    const conventions = await conventionProfileOf(drawing.scope);
+    const assignments = new Map(assigned.map((row) => [row.entityKey, row.viewKey]));
+    const declaredUnit = conventions?.profile.dimensionUnit?.unit ?? null;
+    heads.push({ textsByView: viewTextsOf(graph, assignments), declaredUnit });
+    // The same artifact, views and assignments answer the recess a cap's own section draws — the void
+    // cut into its top, dimensioned, and its plan written beside it (I-546, I-598).
+    recesses.push({ graph, views: drawing.views, assignments, declaredUnit });
   }
+  const headHeight = headHeightOverRevision(heads);
+  // Each cap is handed the recess its MARK's section states: a section is typical for its mark.
+  const markOf = new Map(drawings.flatMap((drawing) => drawing.placed.filter((one) => one.elementType === PILE_CAP_CLASS).map((one) => [one.placementKey, one.mark] as const)));
+  const recessOf = recessesOverRevision(recesses, [...new Set(markOf.values())]);
   const capJunctions: Record<string, CapJunctionSetup> = {};
-  for (const [cap, piles] of pilesHeldOverRevision(readings)) capJunctions[cap] = capJunctionSetupOf(cap, piles);
+  for (const [cap, piles] of pilesHeldOverRevision(readings)) {
+    const mark = markOf.get(cap);
+    capJunctions[cap] = capJunctionSetupOf(cap, piles, headHeight, mark === undefined ? null : (recessOf.get(mark) ?? null));
+  }
   return capJunctions;
 }
 
@@ -402,7 +446,7 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
       const scoped = { tenantId: scope.tenantId, ingestId: record.ingestId };
       const records = await viewRecordsOf(tx, scoped);
       const held = new Map(records.map((view) => [view.viewKey, viewAddressOf(view)]));
-      return { held, records, affirmed: await affirmationsOfRecord(tx, scoped) };
+      return { held, records, captions: records.map((view) => ({ viewKey: view.viewKey, caption: view.caption })), affirmed: await affirmationsOfRecord(tx, scoped) };
     });
     const views: Record<string, string> = calibrations[record.ingestId] ?? {};
     // A view the partition no longer holds is filed under the only name the affirmation has: dropping
@@ -428,7 +472,7 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
 
     // What this drawing places and how its views are addressed, for the relation read over the whole
     // revision once every drawing is in (I-547).
-    relation.push({ record, scope: viewsScope, placed, addressOf: addresses.held });
+    relation.push({ record, scope: viewsScope, placed, addressOf: addresses.held, views: addresses.captions });
   }
 
   // The piles each pile cap of the revision stands on (L-MEA-09, I-547): what the cap rails net

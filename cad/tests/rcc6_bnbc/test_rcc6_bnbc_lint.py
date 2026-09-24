@@ -91,14 +91,20 @@ DERIVED_KEYS = (
     "curved_cut",
     "free_edge",
     "arc_len",
+    # R0 (W-29, W-30, W-31): the foundation junctions the model resolves on each pile cap
+    "pile_heads",
+    "recess",
+    "recess_faces",
+    "blinding_piles",
 )
+#: Fields the model derives on a slab's hole (R0 W-24: the reveal the SOG edge exposes at a hole).
+DERIVED_HOLE_KEYS = ("reveal_mm2",)
 DERIVED_BY_CLASS = {
     "COLUMN": ("b", "d"),
     "BEAM": ("length",),
     "TIE_BEAM": ("length",),
     "LINTEL": ("length",),
     "SHEAR_WALL": ("length",),
-    "BRICK_WALL": ("length",),
     "WALL": ("length",),
 }
 
@@ -110,6 +116,8 @@ def test_golden_check_never_names_a_derived_field() -> None:
     for key in DERIVED_KEYS:  # member-dict reads: m[...], w[...], bm[...], p[...], q[...], host[...], fl[...]
         pattern = r"\b(m|w|bm|p|q|host|fl)(\[\"KEY\"\]|\.get\(\"KEY\")".replace("KEY", key)
         assert not re.search(pattern, src), key
+    for key in DERIVED_HOLE_KEYS:  # hole-dict reads, and the key named at all
+        assert f'"{key}"' not in src, key
 
 
 def test_golden_check_derives_its_own_geometry_from_raw_inputs_only() -> None:
@@ -120,10 +128,19 @@ def test_golden_check_derives_its_own_geometry_from_raw_inputs_only() -> None:
     world = model.build()
     rows, _ = golden.compute(world)
     poison = object()
+    poisoned = set()
     for m in world["members"]:
         for key in DERIVED_KEYS + DERIVED_BY_CLASS.get(m["class"], ()):
             if key in m:
                 m[key] = poison
+                poisoned.add(key)
+        for h in m.get("holes", []):
+            for key in DERIVED_HOLE_KEYS:
+                if key in h:
+                    h[key] = poison
+                    poisoned.add(key)
+    # every R0 junction field is really on the world, so its poison is really laid
+    assert {"pile_heads", "recess", "recess_faces", "blinding_piles", "reveal_mm2"} <= poisoned, poisoned
     path2 = golden_check.compute(world)
     path1 = {
         (
@@ -137,3 +154,19 @@ def test_golden_check_derives_its_own_geometry_from_raw_inputs_only() -> None:
         for r in rows
     }
     assert path2 == path1
+
+
+def test_golden_check_refuses_a_column_tie_count_its_own_zones_do_not_give() -> None:
+    """R0 GC-1..GC-4 (W-28): path 2 re-derives every column's tie count from its own joint depth and
+    zones, so a count the model authored any other way is refused by name — never summed in."""
+    sys.path.insert(0, str(ROOT))
+    from fixtures.gen.rcc6_bnbc import golden_check, model
+
+    world = model.build()
+    golden_check.compute(world)  # as built, the two agree
+    tie = next(
+        b for b in world["bars"] if b["member"] == "COL:A1@GF" and b["role"] == "TIE"
+    )
+    tie["n"] += 1
+    with pytest.raises(AssertionError, match="COL:A1@GF"):
+        golden_check.compute(world)

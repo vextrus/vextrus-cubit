@@ -2,7 +2,7 @@
 
 Wave A covers the model and the golden: two-path agreement, schedule coverage, geometry (beams vs
 openings, supports, shoelace, tiling, risers), ACI 318 / BNBC plausibility, BBS reconciliation, the
-36 M3 cells, registered traps, determinism. Wave B adds the drawn-string and sanity-tally checks.
+40 M3 cells, registered traps, determinism. Wave B adds the drawn-string and sanity-tally checks.
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ def schedule_marks() -> dict[str, list[str]]:
             "ST-T",
             "ST-W",
         ],
-        "S-25": ["L1", "L2", "LS1", "BW250", "BW125"],
+        "S-25": ["L1", "L2", "LS1", *M.WALL_TYPES],  # the wall types: F-ARCH's members (R0-G3)
     }
 
 
@@ -265,9 +265,9 @@ def run(world: dict[str, Any] | None = None) -> dict[str, Any]:
             or r["pieces_per_bar"] > 1
         )
 
-    # 7. the 36 M3 cells all have at least one golden row
+    # 7. the 40 M3 cells all have at least one golden row (R0 W-41: 36 + the earthwork four)
     cells = json.loads((HERE / "cells.json").read_text())["cells"]
-    assert len(cells) == 36
+    assert len(cells) == 40
     uncovered = []
     for c in cells:
         sel = c["cell"]
@@ -275,7 +275,7 @@ def run(world: dict[str, Any] | None = None) -> dict[str, Any]:
         if not hits:
             uncovered.append(sel)
     assert not uncovered, uncovered
-    report["cells"] = "36/36"
+    report["cells"] = "40/40"
 
     # 8. determinism: a second build reproduces the bytes
     rows2, bbs2 = golden.compute(M.build())

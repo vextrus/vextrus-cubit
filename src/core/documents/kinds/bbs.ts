@@ -42,7 +42,7 @@
 import { z } from "zod";
 import { formatDate } from "../../format";
 import { refusalCodeOf } from "../../faults/refusal-marker";
-import { SHAPE_CODES } from "../../rulesets/methods/rebar/bs8666";
+import { SHAPE_CODES, isShapeCode } from "../../rulesets/methods/rebar/bs8666";
 import { figure } from "../figures";
 import { inWords } from "./boq-draft-law";
 import { kindTemplate, type DocumentKind } from "./law";
@@ -162,6 +162,39 @@ const entry = z
   .strict();
 
 /**
+ * One bar DECLARED beside the schedule rather than on it: bent to a shape the roster does not hold,
+ * so it carries no sketch, no rounded surface and no cutting stock, and its mass is in no total
+ * (I-596, BAR_SHAPE_NOT_HELD). A declared bar whose shape the roster DOES hold is a bar the door
+ * should have scheduled, and the schema refuses it rather than printing it twice or not at all.
+ */
+const declaredBar = z
+  .object({
+    level: z.string().nullable(),
+    class: z.string().min(1),
+    mark: z.string().min(1),
+    members: z.number().int().positive(),
+    barMark: z.string().min(1),
+    role: z.string().min(1),
+    diameterMm: z.number().int().positive(),
+    shape: z
+      .string()
+      .min(1)
+      .refine((value) => !isShapeCode(value), { message: "a declared bar is one whose shape the roster does not hold; a held shape is scheduled (I-596)" }),
+    /** The raw length the bar's own row states — printed as stated, rounded nowhere. */
+    cuttingRawMm: decimal(LENGTH_PLACES),
+    bars: decimal(COUNT_PLACES),
+    /** The mass the bar's row states, which no total of this document includes. */
+    kg: decimal(MASS_PLACES),
+  })
+  .strict();
+
+/** The bars declared beside the schedule, why (the registry's own sentence), and what they weigh. */
+const declared = z
+  .object({ reason: z.string().min(1), kg: decimal(MASS_PLACES), bars: z.array(declaredBar).min(1) })
+  .strict()
+  .nullable();
+
+/**
  * What the schedule is ABOUT, as the page states it in words (I-535): the client and the site as the
  * project records them (or nothing, which the page says), the drawing set and which of its pins the
  * measurement read, the day that pin was made, and the day this schedule was issued.
@@ -209,6 +242,8 @@ export const bbsPayloadSchema = z
     grandTotalKg: decimal(MASS_PLACES),
     /** What the total covers, in words — `Column main bars only — laps and ties not counted` — or empty where whole. */
     totalCovers: z.string(),
+    /** The bars in a shape the roster does not hold, declared and excluded from every total — or none. */
+    declared,
     /** Whether any rebar line under the schedule stands partly declared (L-QTY-02). */
     partial: z.boolean(),
     leftOut: z.array(leftOut),
@@ -352,6 +387,30 @@ function withheldNoteOf(payload: BbsPayload): string {
 }
 
 /**
+ * The declared bars as the page states them: each under its mark, class and floor in words, with its
+ * members, its shape's code, the raw length its row states, its total and its mass — and the whole
+ * excluded mass, said as excluded (I-596). Nothing is drawn for a shape nobody holds.
+ */
+function declaredSaid(payload: BbsPayload): Record<string, unknown> | null {
+  if (payload.declared === null) return null;
+  return {
+    reason: payload.declared.reason,
+    kg: figure(payload.declared.kg, MASS_PLACES),
+    rows: payload.declared.bars.map((bar) => ({
+      barMark: bar.barMark,
+      where: [bar.mark, inWords(bar.class), ...(bar.level === null || bar.level === "" ? [] : [bar.level])].join(" · "),
+      members: membersSaid(bar.members),
+      role: inWords(bar.role),
+      diameter: counted(bar.diameterMm),
+      shape: bar.shape,
+      cuttingRaw: figure(bar.cuttingRawMm, LENGTH_PLACES),
+      total: figure(bar.bars, COUNT_PLACES),
+      kg: figure(bar.kg, MASS_PLACES),
+    })),
+  };
+}
+
+/**
  * The particulars block, in words: whose and where down the first column, read from what, when and
  * cut from what down the second (the block sets two pairs to a row, so the list alternates the two
  * columns). A particular the project does not record is said to be not recorded, never left blank as
@@ -389,6 +448,7 @@ function present(payload: unknown): Record<string, unknown> {
     stockWithheldNote: withheldNoteOf(schedule),
     grandTotalKg: figure(schedule.grandTotalKg, MASS_PLACES),
     totalCovers: schedule.totalCovers,
+    declared: declaredSaid(schedule),
     partial: schedule.partial,
     leftOut: schedule.leftOut.map((one) => ({ what: one.components.join(" · "), why: one.reason })),
     notInSchedule: schedule.notInSchedule.map((one) => ({ what: one.about, levels: one.levels, why: one.why })),

@@ -169,6 +169,58 @@
   )
   #v(4mm)
 
+  // WHAT THE SCHEDULE DOES NOT HOLD, DECLARED (I-596): a bar bent to a shape the roster does not
+  // hold is named here with the registry's own sentence for why, its raw length and mass as its row
+  // states them, and nothing drawn; its mass stands in no total, and the total says so.
+  #if payload.declared != none [
+    #block(breakable: false)[
+      #block(width: 100%, inset: (x: 1.4mm, y: 1.8mm))[
+        #text(size: 10.5pt, weight: "semibold", fill: ink)[Declared, not scheduled]
+        #v(1.2mm)
+        #text(size: 8.5pt, fill: quiet)[#payload.declared.reason]
+        #v(1.2mm)
+        #line(length: 100%, stroke: 0.6pt + rule)
+      ]
+      #table(
+        columns: (auto, auto, auto, auto, auto, auto, auto, auto, 1fr),
+        align: (left + horizon, left + horizon, left + horizon, right + horizon, center + horizon, right + horizon, right + horizon, right + horizon, left + horizon),
+        stroke: none,
+        inset: (x: 1.4mm, y: 1.1mm),
+        row-gutter: 0pt,
+        table.header(
+          head[Bar mark],
+          head[Member],
+          head[Role],
+          head[Dia (mm)],
+          head[Shape],
+          head[Cutting length (mm)],
+          head[Total],
+          head[Mass (kg)],
+          [],
+          table.hline(stroke: 0.6pt + rule),
+        ),
+        ..payload.declared.rows
+          .map(one => (
+            id-cell(one.barMark),
+            text(size: 8.5pt, fill: ink)[#one.where, #one.members],
+            text(size: 8.5pt, fill: quiet)[#one.role],
+            fig(one.diameter),
+            text(size: 8.5pt, fill: ink)[#one.shape],
+            fig(one.cuttingRaw),
+            fig(one.total),
+            fig(one.kg),
+            [],
+          ))
+          .flatten(),
+        table.hline(stroke: 0.6pt + rule),
+        table.cell(colspan: 7, align: left + horizon)[#text(size: 9pt, weight: "semibold", fill: ink)[Excluded from the total mass]],
+        fig(payload.declared.kg),
+        [],
+      )
+    ]
+    #v(4mm)
+  ]
+
   // The cutting stock: what a site cuts from a stock bar, per diameter. INFORMATIONAL — it is not a
   // quantity anybody is billed for, and the sentence beneath it says so (AM-03(e)). A diameter whose
   // bars include storey-height runs keeps its mass and states, across the three packing columns, that
@@ -197,7 +249,11 @@
       table.hline(stroke: 0.6pt + rule),
       text(size: 9pt, weight: "semibold", fill: ink)[Total mass],
       fig(payload.grandTotalKg),
-      table.cell(colspan: 4, align: left + horizon)[#if payload.totalCovers != "" { text(size: 8.5pt, fill: quiet)[#payload.totalCovers] }],
+      table.cell(colspan: 4, align: left + horizon)[
+        #if payload.totalCovers != "" { text(size: 8.5pt, fill: quiet)[#payload.totalCovers] }
+        #if payload.totalCovers != "" and payload.declared != none { text(size: 8.5pt, fill: quiet)[ · ] }
+        #if payload.declared != none { text(size: 8.5pt, fill: quiet)[Excludes the #payload.declared.kg kg declared, not scheduled] }
+      ],
     )
     #v(2mm)
     #text(size: 8.5pt, fill: quiet)[Stock bars, pieces and offcut describe what a site cuts from a stock bar. They are informational and are never billed.]

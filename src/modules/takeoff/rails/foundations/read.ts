@@ -47,6 +47,8 @@ export const FOUNDATIONS_RAIL_CODES = [
   "CAP_HOLDS_NO_PILE",
   "CAP_PILES_UNREAD",
   "JUNCTION_DEFERRED",
+  // I-546, I-598: a cap the set draws or names a recess in without stating it every way.
+  "CAP_RECESS_UNSTATED",
 ] as const satisfies readonly RefusalCode[];
 
 /** One code of the roster above. */
@@ -76,6 +78,7 @@ export const [
   CAP_HOLDS_NO_PILE,
   CAP_PILES_UNREAD,
   JUNCTION_DEFERRED,
+  CAP_RECESS_UNSTATED,
 ] = FOUNDATIONS_RAIL_CODES;
 
 /** The three classes this area measures (R-TO-032). */
@@ -432,9 +435,34 @@ const RECESS_LENGTH = "Lr";
 const RECESS_BREADTH = "Br";
 const RECESS_DEPTH = "Dr";
 
-/** The recess cast into a cap, as the bindings the recess sentences name it by — or nothing where none was read. */
-export function recessOf(cap: CapJunction | null): Readonly<Record<string, Measure>> | null {
+/** A recess as the recess sentences are offered it: the sides the set states, bound, and the rest omitted by name. */
+export type HeldRecess = {
+  readonly bindings: Readonly<Record<string, Measure>>;
+  readonly omitted: readonly OmittedComponent[];
+};
+
+/**
+ * The recess cast into a cap, as the recess sentences name it (I-546) — or nothing where the set
+ * draws and names none, and the cap is its prism as it always was.
+ *
+ * A recess the set draws or names but states only some ways is offered under the recess sentence
+ * still, with each side it lacks omitted under `CAP_RECESS_UNSTATED`: the row is kept with no figure
+ * (L-QTY-02), and never published as the whole prism over a void nobody netted (L-QTY-04,
+ * I-598).
+ */
+export function recessOf(cap: CapJunction | null): HeldRecess | null {
   const recess = cap !== null && cap.read ? cap.junction.recess : null;
   if (recess === null) return null;
-  return { [RECESS_LENGTH]: measureOf(recess.length), [RECESS_BREADTH]: measureOf(recess.breadth), [RECESS_DEPTH]: measureOf(recess.depth) };
+  const bindings: Record<string, Measure> = {};
+  const omitted: OmittedComponent[] = [];
+  const sides: readonly (readonly [string, ReadingSetup | null])[] = [
+    [RECESS_LENGTH, recess.length],
+    [RECESS_BREADTH, recess.breadth],
+    [RECESS_DEPTH, recess.depth],
+  ];
+  for (const [variable, reading] of sides) {
+    if (reading === null) omitted.push({ variable, code: CAP_RECESS_UNSTATED });
+    else bindings[variable] = measureOf(reading);
+  }
+  return { bindings, omitted };
 }

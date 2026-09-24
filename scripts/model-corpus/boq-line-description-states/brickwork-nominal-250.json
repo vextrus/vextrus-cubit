@@ -1,17 +1,17 @@
 {
-  "subject": "rcc6-bnbc · brick_wall · masonry.brickwork · 250 mm nominal",
-  "note": "Hand-written from fixtures/rcc6-bnbc/model.json: the six BW250 brick walls (marks BW250@1F…BW250@6F), each stating t = 250 mm. The keys are the fixture's own member ids carried under the extractor's scheme — the committed DXF holds no entity for a brick wall — and a key is never put to the model: it is what the answer cites (L-AI-02). The bill and the deciding row are what `resolveBill` answers for a brick wall above the plinth (AM-16 §2, taxonomy override on the class).",
-  "artifact": "fixtures/rcc6-bnbc/model.json",
+  "subject": "arch · brick_wall · masonry.brickwork · 250 mm nominal",
+  "note": "Hand-written from fixtures/arch/model.json: masonry has one home in F-ARCH (R0-G3, D-009), whose wall type BW250 reads \"250 THK. (10\\\") FIRST CLASS BRICK WALL IN 1:4 C.M.\" for the external walls, the flat and lobby party walls and the stair enclosure, drawn on every level GF..6F (4 walls at GF, 15 on each floor above). F-RCC6-BNBC no longer bills brickwork, so the old BNBC member ids are gone. The key is F-ARCH's own member id of the first GF BW250 wall in its golden BRICKWORK row (`gCH`), carried under the extractor's scheme; a key is never put to the model, it is what the answer cites (L-AI-02). The quantity is measured off the drawn walls and the thickness transcribed from the wall-type legend; the bill and the deciding row are what `resolveBill` answers for a brick wall above the plinth (AM-16 §2, taxonomy override on the class).",
+  "artifact": "fixtures/arch/model.json",
   "line": {
     "class": "brick_wall",
     "kind": "masonry.brickwork",
     "unit": "m3",
-    "levels": ["1F", "2F", "3F", "4F", "5F", "6F"],
+    "levels": ["GF", "1F", "2F", "3F", "4F", "5F", "6F"],
     "bill": "SUPERSTRUCTURE",
     "decidedBy": "OVERRIDE:brick_wall",
-    "quantityBasis": "TRANSCRIBED",
+    "quantityBasis": "MEASURED",
     "selectionBasis": "TRANSCRIBED"
   },
   "attributes": [{ "name": "thickness", "valueAsWritten": "250", "unitAsWritten": "mm" }],
-  "keys": ["DXF_HANDLE:BW250@1F"]
+  "keys": ["DXF_HANDLE:gCH"]
 }

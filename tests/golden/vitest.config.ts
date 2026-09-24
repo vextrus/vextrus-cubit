@@ -9,9 +9,13 @@
 // this repo's law is that a suite sits in exactly one of those two collections. What it reads from
 // the golden — the seven column-concrete quantities — is held here instead by
 // rcc6-column-rows-frozen.test.ts, which diffs them against the v1.0 rows byte for byte.
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  // The product's `@/` alias, as the unit lane states it: the model-corpus proof replays the
+  // recorders, which compose through the product's own modules (R0-REC).
+  resolve: { alias: { "@": fileURLToPath(new URL("../../src", import.meta.url)) } },
   test: {
     environment: "node",
     include: ["tests/golden/**/*.test.ts", "tests/rcc6/**/*.test.ts"],

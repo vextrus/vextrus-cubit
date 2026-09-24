@@ -22,6 +22,10 @@
  *      them into a store yet): every cap COMPLETE, the heads and the recess netted, the recess's
  *      sides formed — and the figures inside the band of the regenerated golden R0 rules
  *      (cap concrete 122.500 m³, cap formwork 262.773 m², design §3.1 K17/K18).
+ *   4. The head height READ off Rev C's S-05 by the setup's own reader (FND-HEAD, I-597), the
+ *      recess not yet read: every cap COMPLETE at e = 3 in, PC5 over by its recess until FND-RECESS.
+ *   5. Both READ — the heads off S-05 and PC5's recess off S-07 (FND-RECESS, I-598): every cap
+ *      COMPLETE, 122.464091 m³ and 262.689481 m², nothing staged.
  */
 import Decimal from "decimal.js";
 import { describe, expect, test } from "vitest";
@@ -58,7 +62,8 @@ const STANDING_FORMWORK = "254.132613";
 /**
  * How far the heads stand above the soffit, as the drawing's levels put it: cut-off EL −1.829 (S-05
  * `4DA`) against the soffit at −1.9046 (the neck's 0.6096 below GF, plus the schedule's 1.295). A
- * reader of the set would state this; nothing does yet, so it is STAGED here, and says so.
+ * reader of the note states 3" (76.2 mm, I-597, below); 75.6 is the levels' metres rounded off
+ * feet — one fact at two precisions — and is STAGED here as the by-the-levels stand-in, and says so.
  */
 const HEAD_BY_LEVELS = { value: "75.6", unit: "mm", basis: "TRANSCRIBED" as const, source: "DXF_HANDLE:4DA" };
 
@@ -387,6 +392,40 @@ describe("I-544: what a cap's junction reading lacks is named, and a footing is 
     expect(agrees(figureOf(offer), owed), `${String(figureOf(offer))} is 2 × 2 × 1.295 − 2 × π/4 × 0.5² × 0.075 − 1 × 0.8 × 0.5`).toBe(true);
   });
 
+  test("a recess stated one way only is no recess stated: concrete and formwork keep their rows naming CAP_RECESS_UNSTATED, never the whole prism (I-598)", async () => {
+    const rails = await railsOf();
+    const recess: RecessSetup = {
+      length: { value: "1000", unit: "mm", basis: "TRANSCRIBED", source: "R:L" },
+      breadth: null,
+      depth: { value: "500", unit: "mm", basis: "TRANSCRIBED", source: "R:D" },
+    };
+    const { setup, row } = oneCap({ piles: ["PILE:1", "PILE:2"], recess });
+    const input = (kind: string) => ({ campaignId: "c", setRevisionId: "rev", kind, objects: [row], setup }) as never;
+    const concrete = rails.foundationConcreteRail(input("rcc.concrete")).offers[0] as Offer;
+    expect([concrete.ruleId, concrete.coverage], "the recess sentence, kept with no figure — never the prism over a void nobody netted").toEqual(["rcc.pile_cap.prism_rect_recess", "PARTIAL_DECLARED"]);
+    expect(concrete.omitted, "and the side it lacks, by name").toEqual([{ variable: "Br", code: "CAP_RECESS_UNSTATED" }]);
+    expect(Object.keys(concrete.bindings).sort(), "the sides it does state still bound, for the reader to see").toEqual(["B", "D", "L", "Lr", "count", "d", "Dr", "e", "n"].sort());
+    expect(figureOf(concrete), "no figure").toBeNull();
+    const formwork = rails.foundationFormworkRail(input("rcc.formwork")).offers[0] as Offer;
+    expect([formwork.ruleId, formwork.coverage, formwork.omitted], "its four sides cannot be formed off one: the formwork keeps its row too").toEqual([
+      "rcc.pile_cap.formwork_rect_recess",
+      "PARTIAL_DECLARED",
+      [{ variable: "Br", code: "CAP_RECESS_UNSTATED" }],
+    ]);
+
+    const seen: RecessSetup = { length: null, breadth: null, depth: null };
+    const named = oneCap({ piles: ["PILE:1"], recess: seen });
+    const nothing = rails.foundationConcreteRail({ campaignId: "c", setRevisionId: "rev", kind: "rcc.concrete", objects: [named.row], setup: named.setup } as never).offers[0] as Offer;
+    expect([nothing.coverage, nothing.omitted], "a recess named and stated no way at all names all three").toEqual([
+      "PARTIAL_DECLARED",
+      [
+        { variable: "Lr", code: "CAP_RECESS_UNSTATED" },
+        { variable: "Br", code: "CAP_RECESS_UNSTATED" },
+        { variable: "Dr", code: "CAP_RECESS_UNSTATED" },
+      ],
+    ]);
+  });
+
   test("a FOOTING is never read as a cap, whatever the junction map holds under its key", async () => {
     const rails = await railsOf();
     const { setup, row } = oneCap({ piles: ["PILE:1"] }, { elementType: "footing" });
@@ -399,4 +438,150 @@ describe("I-544: what a cap's junction reading lacks is named, and a footing is 
     const named: Record<string, string> = read as unknown as Record<string, string>;
     for (const code of FOUNDATIONS_RAIL_CODES) expect(named[code], `\`${code}\` is exported under its own name and holds itself`).toBe(code);
   });
+});
+
+/**
+ * FND-HEAD (I-597): the head's height READ off Rev C's own S-05 — `MAIN BARS EXTENDED 3" INTO
+ * THE CAP` beside `AND 40d (800) ABOVE THE CUT-OFF` on the PILE CURTAILMENT & SPIRAL ZONES view — by the
+ * reader the setup runs (`viewTextsOf`, `headHeightOverRevision`), over the partition's own view
+ * assignments and the drawing's declared unit. PC5's recess is still unread here (FND-RECESS reads
+ * it), so PC5 publishes its prism less its nine heads and NOT its recess: this step never lands on
+ * BNBC's golden path without the recess reader beside it.
+ */
+describe("FND-HEAD: the heads' height as the set states it", () => {
+  /** S-05's two lines, as the Rev C corpus keys them. */
+  const EMBEDMENT = "DXF_HANDLE:22A8";
+  const CUT_OFF = "DXF_HANDLE:22A9";
+
+  const headOf = async () => {
+    const stage = await bnbc();
+    const { headHeightOverRevision, viewTextsOf } = await import("@/modules/takeoff/measure/cap-junctions");
+    const textsByView = viewTextsOf(stage.graph, stage.evidence.assignments);
+    return { stage, textsByView, head: headHeightOverRevision([{ textsByView, declaredUnit: stage.evidence.declaredUnit?.unit ?? null }]) };
+  };
+
+  test(
+    "the revision states one head: 3 in, RESOLVED, TRANSCRIBED, cited to S-05's embedment line — the one clause of the set that speaks of a length into the cap",
+    async () => {
+      const { stage, textsByView, head } = await headOf();
+      expect(head).toEqual({ reading: { value: "3", unit: "in", basis: "TRANSCRIBED", source: EMBEDMENT }, standing: "RESOLVED" });
+      const view = stage.evidence.assignments.get(EMBEDMENT);
+      expect(view, "the embedment line stands in a view the partition assigned").toBeDefined();
+      expect(stage.evidence.assignments.get(CUT_OFF), "and its cut-off line in the same view — one note, two TEXT entities").toBe(view);
+      const caption = stage.evidence.views.find((one) => one.viewKey === view)?.caption ?? "";
+      expect(caption, "the pile's own detail").toContain("PILE CURTAILMENT");
+      const { pileHeadClausesOf } = await import("@/modules/takeoff/partition/notation/pile-head");
+      const clauses = [...textsByView.values()].flatMap((texts) => pileHeadClausesOf(texts, stage.evidence.declaredUnit?.unit ?? null));
+      expect(clauses.map((one) => [one.stated, one.stated ? one.sourceKeys : one.sourceKey]), "every clause of the drawing that states a length into the cap").toEqual([[true, [EMBEDMENT, CUT_OFF]]]);
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "the 26 caps offered with e = 3 in (76.2 mm): 25 COMPLETE at their prisms less their heads; PC5 COMPLETE less its nine heads, its recess not yet read",
+    async () => {
+      const { stage, head } = await headOf();
+      const junctions = junctionsOver(stage, { headHeight: head });
+      const concrete = capBatch(stage, CAP_KINDS.concrete, setupOver(stage, junctions)).offers;
+      expect(concrete.length, "one line per cap").toBe(26);
+      expect(concrete.every((offer) => offer.coverage === "COMPLETE"), "every cap publishes").toBe(true);
+      expect(concrete.every((offer) => offer.bindings["e"]?.value === "3" && offer.bindings["e"]?.unit === "in" && offer.bindings["e"]?.source === EMBEDMENT), "each binds e as S-05 writes it, cited to it").toBe(true);
+      expect(concrete.every((offer) => !offer.ruleId.endsWith("_recess")), "and no cap stands under a recess sentence: nothing read one").toBe(true);
+
+      const e = new Exact("0.0762");
+      const others = concrete.filter((offer) => !isPc5(offer, stage));
+      const pc5 = concrete.filter((offer) => isPc5(offer, stage));
+      expect([others.length, pc5.length]).toEqual([25, 1]);
+      const heldOthers = others.reduce((sum, offer) => sum + Number(offer.bindings["n"]?.value), 0);
+      expect(heldOthers, "the 25 hold 80 of the 89 piles; PC5 the other nine").toBe(80);
+      const owedOthers = new Exact(prismsOf(others).toString()).minus(SECTION.mul(80).mul(e));
+      const figureOthers = sumOf(others);
+      expect(agrees(figureOthers, owedOthers), `${figureOthers.toString()} m³ is the 25 prisms less 80 heads of π/4 × 0.5² × 0.0762`).toBe(true);
+      expect(figureOthers.toFixed(6), "the 25 caps other than PC5").toBe("111.720578");
+      const figurePc5 = sumOf(pc5);
+      expect(agrees(figurePc5, new Exact(prismsOf(pc5).toString()).minus(SECTION.mul(9).mul(e))), `PC5 ${figurePc5.toString()} m³ is its prism less nine heads`).toBe(true);
+      expect(figurePc5.toFixed(6), "PC5, over by its recess until FND-RECESS reads it").toBe("15.729093");
+      const all = figureOthers.plus(figurePc5);
+      expect(all.toFixed(6), "the 26 with the recess unread — over R0's 122.500 by the recess, which is why this step lands only beside FND-RECESS").toBe("127.449672");
+      expect(new Exact(all.toString()).minus(RECESS_VOID).toFixed(3), "less the recess S-07 prints, the 26 stand at the 122.464 FND-RECESS owes").toBe("122.464");
+    },
+    BUDGET_MS,
+  );
+});
+
+/**
+ * FND-RECESS (I-598): PC5's lift-pit recess READ off Rev C's own S-07 — the void cut into the
+ * top of PC5's section, `2493` across its mouth and `914` down to its floor as the two dimensions on
+ * it write them, and `2493x2188` beside LIFT PIT RECESS — by the reader the setup runs
+ * (`recessesOverRevision`), with the heads read beside it (FND-HEAD). Every figure is the set's; no
+ * reading is staged.
+ */
+describe("FND-RECESS: PC5's recess as the set states it, beside the heads", () => {
+  const read = async () => {
+    const stage = await bnbc();
+    const { headHeightOverRevision, recessesOverRevision, viewTextsOf } = await import("@/modules/takeoff/measure/cap-junctions");
+    const declaredUnit = stage.evidence.declaredUnit?.unit ?? null;
+    const head = headHeightOverRevision([{ textsByView: viewTextsOf(stage.graph, stage.evidence.assignments), declaredUnit }]);
+    const views = stage.evidence.views.map((view) => ({ viewKey: view.viewKey, caption: view.caption }));
+    const marks = [...new Set(stage.placed.placements.filter((row) => row.elementType === "pile_cap").map((row) => row.mark))];
+    const recesses = recessesOverRevision([{ graph: stage.graph, views, assignments: stage.evidence.assignments, declaredUnit }], marks);
+    const junctions = junctionsOver(stage, { headHeight: head, recessOf: (row) => recesses.get(row.mark) ?? null });
+    return { stage, recesses, setup: setupOver(stage, junctions) };
+  };
+
+  test(
+    "the revision states one recess, PC5's: 2493 × 2188 × 914 mm, TRANSCRIBED, each side cited to the entity that writes it — no other cap",
+    async () => {
+      const { recesses } = await read();
+      expect([...recesses.entries()]).toEqual([
+        [
+          "PC5",
+          {
+            length: { value: "2493", unit: "mm", basis: "TRANSCRIBED", source: "DXF_HANDLE:22BA" },
+            breadth: { value: "2188", unit: "mm", basis: "TRANSCRIBED", source: "DXF_HANDLE:22DD" },
+            depth: { value: "914", unit: "mm", basis: "TRANSCRIBED", source: "DXF_HANDLE:22C9" },
+          },
+        ],
+      ]);
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "the 26 caps' concrete: every one COMPLETE, PC5 alone under the recess sentence — 122.464091 m³, the prisms less 89 heads and S-07's recess, inside R0's band on 122.500",
+    async () => {
+      const { stage, setup } = await read();
+      const concrete = capBatch(stage, CAP_KINDS.concrete, setup).offers;
+      expect(concrete.length, "one line per cap").toBe(26);
+      expect(concrete.filter((offer) => offer.coverage !== "COMPLETE").map((offer) => offer.omitted), "every cap publishes").toEqual([]);
+      const pc5 = concrete.filter((offer) => isPc5(offer, stage));
+      expect(pc5.map((offer) => offer.ruleId), "PC5 under the recess sentence").toEqual(["rcc.pile_cap.prism_rect_recess"]);
+      expect(concrete.filter((offer) => offer.ruleId.endsWith("_recess")).length, "and no other cap").toBe(1);
+      expect([pc5[0]?.bindings["Lr"]?.value, pc5[0]?.bindings["Br"]?.value, pc5[0]?.bindings["Dr"]?.value], "bound as S-07 writes them").toEqual(["2493", "2188", "914"]);
+
+      const figurePc5 = sumOf(pc5);
+      const e = new Exact("0.0762");
+      expect(agrees(figurePc5, new Exact(prismsOf(pc5).toString()).minus(SECTION.mul(9).mul(e)).minus(RECESS_VOID)), `PC5 ${figurePc5.toString()} m³ is its prism less nine heads and 2.493 × 2.188 × 0.914`).toBe(true);
+      expect(figurePc5.toFixed(6), "PC5 net of its heads and its recess").toBe("10.743512");
+      const all = sumOf(concrete);
+      expect(all.toFixed(6), "the 26: FND-HEAD's 127.449672 less S-07's recess").toBe("122.464091");
+      expect(withinBand(all, R0_CAP_CONCRETE), `${all.toString()} m³ inside R0's band on 122.500`).toBe(true);
+    },
+    BUDGET_MS,
+  );
+
+  test(
+    "the 26 caps' formwork: every one COMPLETE, PC5 formed along its recess's four sides — 262.689481 m², inside R0's band on 262.773",
+    async () => {
+      const { stage, setup } = await read();
+      const formwork = capBatch(stage, CAP_KINDS.formwork, setup).offers;
+      expect([formwork.length, formwork.filter((offer) => offer.coverage !== "COMPLETE").length]).toEqual([26, 0]);
+      expect(formwork.filter((offer) => isPc5(offer, stage)).map((offer) => offer.ruleId)).toEqual(["rcc.pile_cap.formwork_rect_recess"]);
+      const formed = sumOf(formwork);
+      expect(agrees(formed, new Exact(STANDING_FORMWORK).plus(RECESS_SIDES)), `${formed.toString()} is 254.132613 m² and 2 × (2.493 + 2.188) × 0.914`).toBe(true);
+      expect(formed.toFixed(6)).toBe("262.689481");
+      expect(withinBand(formed, R0_CAP_FORMWORK), "inside R0's band").toBe(true);
+    },
+    BUDGET_MS,
+  );
 });

@@ -217,6 +217,33 @@ def test_an_added_record_must_sit_above_the_seed(issued_paper: bytes) -> None:
     assert _compare(issued_paper, with_copy(f"{seed + 5:X}"))["added"] == 1
 
 
+def test_the_twin_adds_exactly_what_the_paper_set_adds() -> None:
+    """The R2000 twin is the paper set re-saved (W-07), so it adds what the paper set adds, under the
+    same handles, above the paper set's seed — its own Rev B seed (246A) is a counter its save ran
+    past, and nothing Rev B issued stands between the two (W-19b)."""
+    paper, twin = R.issued("paper"), R.issued("twin")
+    assert not [h for h in twin.records if int(h, 16) >= int(R.REV_B["paper"].seed, 16)]
+    line = _first(paper, "LINE")
+
+    def plus(drawing: R.Drawing, *handles: str) -> R.Drawing:
+        return R.Drawing(drawing.header, drawing.classes,
+                         {**drawing.records, **{h: paper.records[line] for h in handles}})
+
+    seed = int(R.REV_B["paper"].seed, 16)
+    ours, stray = f"{seed + 3:X}", f"{seed + 4:X}"
+    low = next(f"{n:X}" for n in range(seed - 1, 0x100, -1)
+               if f"{n:X}" not in paper.records and f"{n:X}" not in twin.records)
+    report = R.compare("twin", twin, plus(twin, ours), {}, added_as=plus(paper, ours))
+    assert report["added"] == 1
+    not_the_papers = rf"records added that the re-saved file did not add: \['{stray}'\]"
+    with pytest.raises(R.RevisionError, match=not_the_papers):
+        R.compare("twin", twin, plus(twin, ours, stray), {}, added_as=plus(paper, ours))
+    with pytest.raises(R.RevisionError, match=rf"the re-saved file added and this one did not: \['{ours}'\]"):
+        R.compare("twin", twin, twin, {}, added_as=plus(paper, ours))
+    with pytest.raises(R.RevisionError, match=rf"below Rev B's seed 22A8: \['{low}'\]"):
+        R.compare("twin", twin, plus(twin, low), {}, added_as=plus(paper, low))
+
+
 def test_a_header_variable_other_than_the_seed_may_not_move(issued_paper: bytes) -> None:
     lines = _lines(issued_paper)
     at = next(i for i in range(0, len(lines) - 1, 2)
@@ -347,10 +374,16 @@ def probe(out: Path) -> dict[str, Any]:
     doc = ezdxf.readfile(str(paper))
     viewports = {layout.name: len(layout.query("VIEWPORT")) for layout in doc.layouts
                  if layout.name != "Model"}
+    # the views the generator's own Rev C draws on each Rev B sheet (R0-G2), the probe's aside
+    rev_c_views = {
+        sheet.layout_name: sum(1 for view in sheet.views if view.rev == APPENDED and view.title != PROBE_VIEW)
+        for sheet in sheets if sheet.new_in is None
+    }
     return {
         "paper": [paper_of[id(item)] for item in items],
         "frames": [frames_of[id(item)] for item in items],
         "viewports": viewports,
+        "own_views": rev_c_views,
         "layer": name in doc.layers,
         "block": PROBE_BLOCK in doc.blocks,
         "s20": s20.layout_name,
@@ -370,14 +403,17 @@ def test_the_append_pass_moves_no_rev_b_record(probed: dict[str, Any], role: str
     rev_b = R.REV_B[role]
     now = R.read((probed["out"] / rev_b.name).read_bytes())
     issued = R.issued(role)
-    report = R.compare(role, issued, now, {}, exact=True)
-    assert report["corrected"] == 0
+    # the generator's own in-place corrections are the register, exactly (R0-G1); the probe's Rev C
+    # content corrects nothing more
+    register = revc.CORRECTED[rev_b.register]
+    report = R.compare(role, issued, now, register, exact=True)
+    assert report["corrected"] == len(register)
     assert report["added"] >= len(probed["report"][role]), report
     # the new layer grows the layer table, the new block and the dimension's own block the block
     # records, and in the paper set the new layout the layout dictionary — those three, and nothing
-    # else Rev B issued, changed at all
+    # else Rev B issued and the register does not name, changed at all
     grown = {(issued.records[h].kind, issued.records[h].label) for h in issued.records
-             if h in now.records and issued.records[h].body != now.records[h].body}
+             if h in now.records and h not in register and issued.records[h].body != now.records[h].body}
     expected = {("TABLE", "LAYER"), ("TABLE", "BLOCK_RECORD")}
     if role == "paper":
         expected.add(("DICTIONARY", None))
@@ -393,12 +429,15 @@ def test_the_append_pass_draws_every_kind_of_rev_c_content(probed: dict[str, Any
     report = probed["report"]
     assert report["layer"] and report["block"]
     issued = _issued_viewports()
+    own = report["own_views"]
     s20, new = report["s20"], report["new"]
-    # the new view has its own window on its Rev B sheet; the new sheet its own layout
-    assert report["viewports"][s20] == issued[s20] + 1
+    # every view Rev C adds has its own window on its Rev B sheet — the generator's own (R0-G2) and
+    # the probe's — and the new sheet its own layout; no Rev B window is lost or added besides
+    assert set(own) == set(issued) and sum(own.values()) == 10, own
+    assert report["viewports"][s20] == issued[s20] + own[s20] + 1
     assert report["viewports"][new] == 2  # the layout's own viewport and the view's
     others = {name: n for name, n in report["viewports"].items() if name not in (s20, new)}
-    assert others == {name: n for name, n in issued.items() if name != s20}
+    assert others == {name: n + own[name] for name, n in issued.items() if name != s20}
 
 
 def _issued_viewports() -> dict[str, int]:

@@ -437,6 +437,30 @@ export function measurementTextsOf(graph: EntityGraph): ReadonlyMap<string, read
 }
 
 /**
+ * Where every DIMENSION original of an artifact measures between: its definition points, by source
+ * key, read by the one rule below (I-295b). A reader asking which drawn edge a dimension states —
+ * the recess a cap's section dimensions, I-598 — stands on the same answer the scale engine
+ * measures a span by, rather than walking the paint its own way (B-17). A dimension carrying no
+ * definition point has no entry.
+ */
+export function definitionPointsByDimension(graph: EntityGraph): ReadonlyMap<string, readonly (readonly [number, number])[]> {
+  const dimensions = new Set(graph.entities.filter((entity) => entity.type === DIMENSION_TYPE).map((entity) => entity.key));
+  const paintOf = new Map<string, Drawn[]>();
+  for (const derived of graph.derived) {
+    if (!dimensions.has(derived.src)) continue;
+    const held = paintOf.get(derived.src);
+    if (held === undefined) paintOf.set(derived.src, [derived]);
+    else held.push(derived);
+  }
+  const points = new Map<string, Point[]>();
+  for (const [key, paint] of paintOf) {
+    const at = definitionPointsOf(paint).flatMap((record) => (record.points ?? []).map((point): Point => [point[0] ?? 0, point[1] ?? 0]));
+    if (at.length > 0) points.set(key, at);
+  }
+  return points;
+}
+
+/**
  * The definition points of one dimension's paint: the POINT records it carries on the reserved layer
  * (L-CAD-03). These are what the draughtsman picked, so they are what the dimension measures between
  * — the rest of its paint is style drawn around them (I-295b).

@@ -504,7 +504,8 @@ this file rules. No gallery entry is added (nothing new is invented here).
   against nothing. A cap no reader states a recess for is offered as before. **Cost:** no reader states
   a recess yet — R0's Rev C draws it on S-07 ("PC5 WITH LIFT PIT RECESS", 2493 × 2188 × 914) and the
   reader of that view lands with it; a head-height reader must not land before it on BNBC, or PC5
-  would publish over by the recess. Staged at those figures, PC5's formwork adds 8.557 m² and the caps
+  would publish over by the recess. (The reader is I-598: PC5's own section, and a recess
+  stated only some ways keeps the cap's rows naming `CAP_RECESS_UNSTATED`.) Staged at those figures, PC5's formwork adds 8.557 m² and the caps
   form **262.689 m²**, inside the band of R0's 262.773.
 - **I-547 — which piles a cap stands on is read over the whole pinned revision, by laying the pile
   plan over the cap plan through the grid both draw, and asking the cap's own ring (session 8, FND-OWN
@@ -526,6 +527,97 @@ this file rules. No gallery entry is added (nothing new is invented here).
   own schedule prints for its type (2, 3, 4, 5, 9) and every one of the 89 piles is held once, the PC1
   turned 45° by its own ring. The schedule's PILES column stays unread (I-322): the plans are the
   reading, and the column is what this proof holds them to.
+- **I-597 — the pile head's height into the cap is read off the set's own note: the head's
+  clause, or the bars' clause read beside their run above the cut-off (session 9, FND-HEAD; L-MEA-09,
+  L-MEA-01, L-QTY-04, L-REG-03, I-302, I-544).** I-544 left `e` unstated until the set states the head.
+  Rev C's S-05 now prints, on its PILE CURTAILMENT & SPIRAL ZONES view, beside the cut-off's `EL -1.829`
+  and over a pile drawn ending at that mark: `MAIN BARS EXTENDED 3" INTO THE CAP` and, the next line
+  (a second TEXT), `AND 40d (800) ABOVE THE CUT-OFF`. The subject is the bars, so the question was
+  whether the note states the concrete head's embedment or only the bars'. Read whole, it states the
+  head: the bars run inside the pile up to its cut-off and then 40d beyond it, so "3 inches into the
+  cap" cannot be where they END (at 76.2 above the soffit and 800 above the cut-off at once, the pile
+  would stop 723.8 BELOW the cap it bears on) — it is where the cut-off stands, and the pile's top is
+  its cut-off. Only that reading keeps both lines true, and it is the golden's own K17 (W-29: cut-off
+  −1828.8 over a soffit at −1905.0). So the notation reads (`partition/notation/pile-head.ts`), per
+  view, a clause `<subject> EXTENDED | EMBEDDED | PROJECTED | ENTERING <length> INTO [THE] [PILE] CAP`:
+  (a) a subject naming the pile (`PILE`, `PILES`, `PILE HEAD`, `HEAD OF PILE`) states `e` by itself;
+  (b) a subject naming bars (`BARS`, `REINFORCEMENT`, `RODS`) states `e` only where a clause of the
+  SAME view states their run `… ABOVE THE CUT-OFF` — alone it says where the bars end and nothing of
+  the concrete (a column's starters are "extended into the cap" too), and is declined `BARS_ONLY`;
+  (c) a subject naming another member (`COLUMN`, `WALL`, `BEAM`, `STARTER`, `STUMP`, `NECK`, `DOWEL`,
+  or the cap's own bars, `PILE CAP BARS`) is never the pile's head; (d) a MINIMUM (`MIN`, `NOT LESS THAN`,
+  `AT LEAST`), written wherever the clause writes it — before the figure, after it (`75mm MINIMUM INTO`),
+  in its bracket (`75mm (MIN.) INTO`) or after the cap (`INTO THE CAP (MIN)`) — is no reading — deducting at it
+  leaves the rest of the head in the cap, over — while a MAXIMUM (`MAX`, `NOT MORE THAN`, `AT MOST`,
+  `UP TO`) is a bound, deducted at, the row then `JUNCTION_DEFERRED` (I-544); (e) the length is read by
+  the notation's one figure reader (`parseFigure`), in the unit it writes, else the unit the drawing
+  declares (I-302), else not at all; a multiple of the bar (`40d INTO THE CAP`) is no length.
+  The revision states ONE head where every clause stating one agrees (compared in millimetres), and
+  none where two disagree (L-REG-03). **Where it is read and kept:** no new store — the measure setup
+  already opens each pile and cap drawing's artifact for the caps' rings (I-547), and reads the same
+  artifact's texts grouped by the partition's STORED view assignments (L-CAD-06), with the stored
+  conventions' declared unit; the reading is re-derived from stored readings, as the ring is
+  (L-REG-04). It is handed to every cap whose piles were read as `headHeight`: `3` `in`, TRANSCRIBED,
+  RESOLVED, cited to the embedment line (`DXF_HANDLE:22A8`; its cut-off line `22A9` is the second
+  citation of the clause). A cap the plans hold no pile under still omits `e` (`CAP_HOLDS_NO_PILE`).
+  **What moves on BNBC:** every cap binds `e` = 3 in and publishes COMPLETE — the 25 caps other than
+  PC5 at **111.720578 m³** (their prisms less 80 heads of π/4 × 0.5² × 0.0762), PC5 at 15.729093 m³
+  (its prism less nine heads), 26 at 127.449672 m³ through the gate
+  (`tests/takeoff/rails/foundations/cap-junctions-*`). PC5's figure still holds its lift-pit recess
+  (2493 × 2188 × 914 = 4.986 m³), which no reader states yet: over, so this reading does not land on
+  BNBC's golden path without FND-RECESS (I-546) beside it — with the recess netted, 122.464 m³, inside
+  R0's band on 122.500. **Cost:** a set whose embedment is stated only by the levels (a cut-off EL
+  against a soffit nobody relates, I-544's datum question) still reads no head; a clause split across
+  two TEXT lines mid-sentence (`… 3"` / `INTO THE CAP`) is not read; and the note is read on the pile
+  and cap drawings only, not on a notes-only drawing of another file.
+- **I-598 — a recess cast into a pile cap is read off the cap's own section: the void its
+  outline cuts into the cap's top, its length and depth as the dimensions standing on it write them,
+  its breadth as the other side of the size pair written beside the note naming the recess; a recess
+  drawn or named but not stated every way keeps the cap's rows (session 9, FND-RECESS; I-546, L-MEA-09,
+  L-QTY-01, L-QTY-02, L-QTY-04, L-REG-03, I-302, I-295b).** I-546 gave the recess its sentences and
+  waited on a reader. Rev C draws BNBC's lift pit where a cap detail shows one: in PC5's own 1:25 section
+  on S-07 (`PC5 SECTION`; W-45 — the design's separate "PC5 WITH LIFT PIT RECESS" view did not fit the
+  sheet), as an OPEN polyline (`22B0`) whose ends stand on the top edge of the cap's section ring and
+  whose floor lies 914.4 below it inside the ring; a dimension across its mouth writing `2493` (`22BA`),
+  one down to its floor writing `914` (`22C9`), and under `LIFT PIT RECESS (SEE S-23)` the pair
+  `2493x2188` (`22DD`). The pit's plan is S-23's LIFT PIT PLAN AT FDN, where two dimensions write the
+  same 2493 and 2188. So the partition reads (`partition/recess/read.ts`), per view: (a) a view whose
+  caption names ONE of the revision's cap marks and the word SECTION is that mark's section; (b) its
+  void is an open outline of four vertices or more whose two ends lie on a closed ring's top edge,
+  apart, every other vertex below the top, between the ends and inside the ring — the cap's; (c) the
+  length is the measurement text of the dimension whose definition points (the scale engine's own
+  reading of them, I-295b) span the void's two sides, and the depth of the one spanning its top and
+  floor — the figure the dimension WRITES (a figured dimension governs its drawn span: `2493`, not the
+  drawn 2493.2), in its own unit, else the drawing's declared one (I-302), else none; (d) a section
+  shows one direction only, so the breadth is the other side of a size pair written in the same view
+  as a note naming the recess, one side of which is the stated length — a pair none of whose sides is
+  the length, or one in a view that never names the recess, says nothing of this void. Two voids in
+  one section are two recesses the one sentence cannot net: the cap is recessed and stated no way. A
+  caption or a note naming a cap mark beside the word RECESS (S-06's `PC5: LIFT PIT RECESS, SEE S-07`,
+  S-23's `LIFT PIT SECTION (RECESS IN PILE CAP PC5, SEE S-07)`) states that the cap IS recessed, even
+  where no section of it is read. The revision states ONE recess per mark: each side where every
+  section stating it agrees (in millimetres), none where two disagree (L-REG-03); a mark named or drawn
+  as recessed and stated in no direction still has its recess, every side unstated. **The seam:**
+  `RecessSetup`'s three sides are each a reading or null; a recess with a null side is offered under the
+  recess sentence with that side omitted `CAP_RECESS_UNSTATED` (a new foundations code, registered
+  error/inline) — concrete AND formwork, whose four sides cannot be formed off one — so a recess read in
+  one direction only is no recess stated, and the cap is kept with no figure, never published as its
+  whole prism over a void nobody netted (L-QTY-04). **Where it is read and kept:** no new store — the
+  measure setup reads the artifact, stored view assignments, stored captions and declared unit it
+  already opens for the rings and the head (I-547, I-597), and hands every cap its MARK's recess
+  (a section is typical for its mark) as TRANSCRIBED readings cited to the entity writing each figure.
+  **What moves on BNBC** (with FND-HEAD beside it): PC5 alone is recessed, 2493 × 2188 × 914 mm cited
+  to `22BA`, `22DD`, `22C9`; the 26 caps publish COMPLETE, PC5 under `rcc.pile_cap.prism_rect_recess`
+  at 10.743512 m³, the 26 at **122.464091 m³** against R0's golden 122.500 (0.03 % under; the product
+  nets the figured 2493 × 2188 × 914 where the golden's model nets the drawn 2493.2 × 2188.4 × 914.4), and
+  the formwork at **262.689481 m²** against 262.773, PC5 formed along its recess's four sides — both
+  through the gate and inside L-QTY-06's band (`tests/takeoff/rails/foundations/cap-junctions-*`,
+  `tests/takeoff/partition/recess/read.test.ts`). **Cost:** the S-23 pit plan is not read — its
+  dimensions only corroborate the section's pair, and a set that states the breadth ONLY on a pit plan
+  keeps PC5 PARTIAL naming `Br`; a section with no dimension across the mouth states no length and so
+  no breadth; a recess cut anywhere but the cap's top (a sump in a soffit) is not read; two different
+  recesses of one mark drawn in two sections read as one where their figures agree; and, as for the
+  head, only the drawings that place caps or piles are read.
 
 - **I-sch-1 — the craft look of session 7 (2026-09-23): the drawing's words as the drawing shows
   them, a rail that names its sheets, and a registry that reads as rows.** The vision review found

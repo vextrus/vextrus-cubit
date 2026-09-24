@@ -150,6 +150,8 @@ const DOCUMENT: BbsDocument = {
     "20": { stockBars: 2, pieces: 6, offcutMm: "3300", method: "first-fit-decreasing" },
   },
   grandTotalKg: "200.327",
+  declared: [],
+  declaredKg: "0",
 };
 
 /** The reading the demonstration stands on, whole or with nothing scheduled at all. */

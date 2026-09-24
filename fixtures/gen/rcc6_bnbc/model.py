@@ -119,7 +119,7 @@ COVER = {
     "WALL": D(20),
     "SLAB": D(20),
     "FOOTING": D(75),
-    "PILE_CAP": D(75),
+    "PILE_CAP": ft(0, 2),  # R0 K11: S-01 1F46 '2" clear cover (pile caps)' bills (T-NOT-COVER); was 75
     "PILE": D(75),
     "STAIR": D(20),
     "LINTEL": D(25),
@@ -143,7 +143,7 @@ KG_PER_M = {
     25: D("3.854"),
 }
 SITE = {  # site.json — SITE facts (L-MEA-06) entered by the fixture as its own drawing states them
-    "egl_mm": str(ft(-1, 6)),
+    "egl_mm": str(-ft(1, 6)),  # R0 K1: E.G.L (-1'-6") = −457.2 (was ft(-1, 6) = −152.4, a sign slip)
     "working_allowance_mm": str(ft(1, 6)),
     "depth_extra_mm": str(ft(0, 6)),
     "blinding_projection_mm": str(ft(0, 3)),
@@ -189,8 +189,7 @@ COLUMN_MARKS: dict[str, dict[str, Any]] = {
             (300, 375, 6, 16),
         ],
         "ties": (10, 100, 150),
-        "cross_ties": 2,
-    },
+    },  # R0 GC-2: S-12 draws one perimeter tie and no cross-tie (was cross_ties 2)
     "C5": {
         "bands": [(300, 450, 8, 20), (300, 450, 8, 20), (300, 450, 6, 20)],
         "ties": (10, 100, 150),
@@ -403,8 +402,7 @@ BEAM_TYPES: dict[str, dict[str, Any]] = {
     },
     "CB": {
         "b": 250,
-        "D": 450,
-        "D2": 300,
+        "D": 450,  # R0 K4: drawn "250x450" as plain rectangles on S-16/S-17; the 450 → 300 taper is undrawn
         "bot": (2, 16),
         "bot_x": (0, 16),
         "top": (3, 20),
@@ -570,7 +568,7 @@ SLAB_T = {
     "S": 125,
     "SL": 150,
     "S10": 125,
-    "CS1": (150, 100),
+    "CS1": 150,
     "SS1": 125,
     "SOG": 125,
     "RAMP": 125,
@@ -678,8 +676,8 @@ STAIR = {
     "x1": X["3"],
     "y0": Y["C"],
     "y1": Y["D"],
-    "width": ft(3, 6),
-    "well": ft(1),
+    "width": ft(3, "6.5"),  # R0 K20: S-22 figures FLIGHT WIDTH 3'-6½" (T-NOT-FTIN-STACK); was 3'-6"
+    "well": ft(0, 11),  # R0 K20: 2 × 1079.5 + 279.4 = 2438.4 closes the C–D bay; S-22's WELL text follows
     "landing": ft(4),
     "tread": D(250),
     "waist": D(150),
@@ -723,7 +721,11 @@ SEPTIC = {
     "baffle": 125,
     "bottom": ft(-8),
 }
-PARAPET = {"t": 100, "h": ft(3, 6), "bars": ((10, 200), (8, 250))}
+# The brick-wall types S-25 prints beside its lintels (mark: nominal thickness, mm). The walls are
+# F-ARCH's members, billed in F-ARCH's golden (R0-G3, D-009); BNBC builds none and prints the types
+# from this table alone, so S-25's lines keep their text, position and handles.
+WALL_TYPES = {"BW250": 250, "BW125": 125}
+PARAPET = {"t": 100, "h": D(1067), "bars": ((10, 200), (8, 250))}
 RAMP = {
     "x0": X["4"],
     "x1": X["5"],
@@ -1120,6 +1122,8 @@ class Build:
                         m, f"{s['mark']}-v", dbar, "00", [h], nbar, "MAIN", lap_count=1
                     )
                 td, s_end, s_mid = spec["ties"]
+                # provisional zones (a 450 joint): tie_zones_from_framing re-zones every rectangular
+                # column once the framing it is tied through is built (R0 GC-1, GC-4)
                 clear = h - D(450)
                 lo = max(r["sx"], r["sy"], clear / 6, D(450))
                 tie_zones = [
@@ -1137,26 +1141,17 @@ class Build:
                 n_ties = sum(z["count"] for z in tie_zones)
                 hook = max(D(HOOK_135 * td), D(75))
                 if spec.get("circular"):
-                    dc = r["b"] - 2 * c
-                    per_turn = sqrt((PI * dc) ** 2 + D(s_mid) ** 2)
-                    turns = count_at(h, D(s_mid))
+                    # R0 GC-3: S-11 states '10Ø@100/100 (TIES)': individual circular hoops, one run
+                    hoops = count_at(h, D(s_end))
                     self.bar(
                         m,
-                        f"{s['mark']}-sp",
+                        f"{s['mark']}-h",
                         td,
-                        "SP",
-                        [turns * per_turn],
-                        1,
-                        "SPIRAL",
-                        zones=[
-                            {
-                                "zone": "ALL",
-                                "length_mm": h,
-                                "spacing_mm": D(s_mid),
-                                "count": turns,
-                                "per_turn_mm": per_turn,
-                            }
-                        ],
+                        "CH",
+                        [r["b"] - 2 * c, D(100), D(100)],
+                        hoops,
+                        "TIE",
+                        zones=[{"zone": "ALL", "length_mm": h, "spacing_mm": D(s_end), "count": hoops}],
                     )
                 else:
                     self.bar(
@@ -1215,8 +1210,15 @@ class Build:
                     CORE["y1"] + t / 2,
                 ),
             ]
+            if storey == "FDN":
+                # R0 K22: below GF the pit is closed on grid C (the door face), cap top to GF: the
+                # front wall C, with legs 3 and 4 run to its outer face, as the PIT legs close it below
+                legs = [(n, a, CORE["y0"] - t / 2 if n in "34" else b, c, d) for n, a, b, c, d in legs]
+                legs.append(
+                    ("C", CORE["x0"] + t / 2, CORE["y0"] - t / 2, CORE["x1"] - t / 2, CORE["y0"] + t / 2)
+                )
             for leg, x0, y0, x1, y1 in legs:
-                length = (x1 - x0) if leg == "D" else (y1 - y0)
+                length = (x1 - x0) if leg in "CD" else (y1 - y0)
                 m = self.add(
                     id=f"SW1-{leg}@{storey}",
                     **{"class": "SHEAR_WALL"},
@@ -1547,7 +1549,13 @@ class Build:
                 (X["5"], Y["B"]),
                 ("COLUMN", "B3"),
                 ("COLUMN", "B5"),
-                (t_of(X["4"], Y["B"] - 1), t_of(X["4"], Y["B"] + 1)),
+                # R0 K9: TG1 spans two bays; its north side adjoins S (125) over 3–4 and the 150 panel
+                # over 4–5. The thicker adjoining slab governs (L-MEA-09), not the first panel whose
+                # bounding box holds a probe on the bay boundary.
+                tuple(
+                    max(t_of((X["3"] + X["4"]) / 2, Y["B"] + side), t_of((X["4"] + X["5"]) / 2, Y["B"] + side))
+                    for side in (-1, 1)
+                ),
                 {"ext_top": [(0, (X["5"] - X["3"]) / 3), (1, (X["5"] - X["3"]) / 3)]},
             )
             m["carries"] = "B4"
@@ -1593,7 +1601,7 @@ class Build:
             (cx, cy),
             ("JOINT", "CH1"),
             ("COLUMN", "C6X"),
-            (t_of(cx - 400, cy), D(0)),
+            (t_of(cx - 400, cy), t_of(cx - 400, cy)),  # R0 K8: the chamfer panel runs to EB2's outer face
         )
         self.beam(
             f"{prefix}EB2b@{level}",
@@ -1604,7 +1612,7 @@ class Build:
             CHAMFER[1],
             ("COLUMN", "C6X"),
             ("JOINT", "CH2"),
-            (t_of(cx - 400, cy), D(0)),
+            (t_of(cx - 400, cy), t_of(cx - 400, cy)),  # R0 K8: the chamfer panel runs to EB2's outer face
         )
 
     def emit_spans(
@@ -1763,8 +1771,7 @@ class Build:
                     "CS1",
                     level,
                     poly,
-                    D(150),
-                    D(100),
+                    D(150),  # R0 K2: CS1 is drawn "150 THK" with no taper (197D, 1ABE); was 150 → 100
                     free_edge=D(0),
                     curved_cut=balcony_corner_cut(),
                 )
@@ -1798,10 +1805,33 @@ class Build:
                         "1F",
                         poly,
                         D(125),
-                        free_edge=perimeter(poly) - (X["5"] - X["4"]),
+                        # R0 K8: PS1 stops on PB4/PB5's axes; the beams' outer sides are formed
+                        free_edge=D(0),
                     )
                 )
         return panels
+
+    @staticmethod
+    def outline_free(poly: list[tuple[Decimal, Decimal]], level: str) -> Decimal:
+        """R0 K8: the length of a panel's boundary lying on its level's slab outline (to the edge-beam
+        outer face), excluding the step on CB1's axis; the slab owns that edge's t (L-MEA-09)."""
+        ol = outline(level)
+        segs = [(ol[i], ol[(i + 1) % len(ol)]) for i in range(len(ol))]
+        segs = [(a, b) for a, b in segs if not (a[0] == b[0] == X["2"])]
+        tol = D("0.000001")
+        total = D(0)
+        for i in range(len(poly)):
+            a, b = poly[i], poly[(i + 1) % len(poly)]
+            for p, q in segs:
+                ux, uy = q[0] - p[0], q[1] - p[1]
+                on_line = (abs(ux * (r[1] - p[1]) - uy * (r[0] - p[0])) <= tol * (abs(ux) + abs(uy)) for r in (a, b))
+                if all(on_line):
+                    lo = min(p[0], q[0]) - tol, min(p[1], q[1]) - tol
+                    hi = max(p[0], q[0]) + tol, max(p[1], q[1]) + tol
+                    if all(lo[0] <= r[0] <= hi[0] and lo[1] <= r[1] <= hi[1] for r in (a, b)):
+                        total += sqrt((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2)
+                        break
+        return total
 
     def place_holes(self, level: str, panels: list[dict[str, Any]]) -> None:
         holes: list[tuple[str, tuple[Decimal, Decimal, Decimal, Decimal]]] = []
@@ -1867,10 +1897,21 @@ class Build:
         _ = t
         for p in panels:
             bb = self.bbox(p["poly"])
+            # R0 K21: a column or wall is deducted only where it stands on the panel's net plan
+            hb = [
+                self.bbox(h["poly"])
+                for h in p["holes"]
+                if h.get("deducted") and not h.get("outside") and "poly" in h
+            ]
             for sid, r, area, centre in rects:
                 if r is not None:
-                    p["col_deduct"] += self.rect_overlap(bb, r)
-                elif bb[0] <= centre[0] <= bb[2] and bb[1] <= centre[1] <= bb[3]:
+                    in_holes = sum((self.rect_overlap(r, q) for q in hb), D(0))
+                    p["col_deduct"] += self.rect_overlap(bb, r) - in_holes
+                elif (
+                    bb[0] <= centre[0] <= bb[2]
+                    and bb[1] <= centre[1] <= bb[3]
+                    and not any(q[0] <= centre[0] <= q[2] and q[1] <= centre[1] <= q[3] for q in hb)
+                ):
                     p["col_deduct"] += area
 
     def deduct_beam_soffits(self, level: str, panels: list[dict[str, Any]]) -> None:
@@ -2122,7 +2163,8 @@ class Build:
                 ("BEAM", bd),
                 (st["landing_t"], D(0)),
             )
-            lb["level"] = storey
+            # R0 K6: LB1 is filed at the layout that draws it (S-13 1F, S-14 2F-6F, S-15 ROOF), every
+            # kind alike: it keeps level_top (Rev B re-filed it at the storey below)
             lb["half_level"] = str(STOREY_BOTTOM_ELEV[storey] + h / 2)
 
     def floor_landing(self, level: str, run: Decimal) -> None:
@@ -2155,7 +2197,7 @@ class Build:
             }
         )
 
-    # -- roof furniture, tanks, parapet, lintels, brick walls ------------------------------
+    # -- roof furniture, tanks, parapet, lintels -------------------------------------------
     def tank(
         self,
         tid: str,
@@ -2418,46 +2460,19 @@ class Build:
             "HORIZONTAL",
         )
 
-    def lintels_and_walls(self) -> None:
-        """AM-07 subset: brick walls 250 (perimeter) and 125 (partitions) per typical floor with the
-        openings the lintel schedule names; lintels L1/L2 and lintel-cum-sunshade LS1 by arch mark."""
+    def lintels(self) -> None:
+        """Lintels L1/L2 and lintel-cum-sunshade LS1 by arch mark, per typical floor (S-25).
+
+        R0-G3 (D-009): the brick walls they sit in are not BNBC members. Masonry has one home, the
+        architect's set: F-ARCH authors the BW250/BW125 walls with their openings and bills
+        BRICK_WALL × BRICKWORK, deducting these lintels. S-25 still prints the two wall types
+        (`WALL_TYPES`), so its drawing does not change."""
         schedule = [
             ("L1", "LT1", D(1000), D(1200), 10),
             ("L2", "LT2", D(1200), D(2100), 8),
             ("LS1", "LS1", D(1500), D(1200), 6),
         ]
         for level in ["1F", *TYPICAL]:
-            storey = next(s for s, top in STOREY_TOP.items() if top == level)
-            h = storey_height(storey) - D(450)
-            perim = (
-                perimeter(outline(level)) - (X["6"] - X["2"]) - BALCONY["depth"] * 2
-            )  # the balcony front is open
-            openings = sum((w * hh * n for _, _, w, hh, n in schedule), D(0))
-            self.add(
-                id=f"BW250@{level}",
-                **{"class": "BRICK_WALL"},
-                mark="BW250",
-                level=level,
-                geom="AREA_THICK",
-                length=perim,
-                h=h,
-                t=D(250),
-                openings=openings,
-                grade="BRICK",
-            )
-            self.add(
-                id=f"BW125@{level}",
-                **{"class": "BRICK_WALL"},
-                mark="BW125",
-                level=level,
-                geom="AREA_THICK",
-                length=D(60000),
-                partition_length=D(60000),
-                h=h,
-                t=D(125),
-                openings=D(2100) * D(900) * 12,
-                grade="BRICK",
-            )
             for mark, btype, w, _hh, n in schedule:
                 bt = BEAM_TYPES[btype]
                 m = self.add(
@@ -2505,6 +2520,9 @@ class Build:
     # -- the whole ----------------------------------------------------------------------------
     def framed_floor(self, level: str) -> None:
         panels = self.floor_slabs(level)
+        for p in panels:
+            if p["mark"] not in ("CS1", "PS1", "SS1"):
+                p["free_edge"] = self.outline_free(p["poly"], level)  # R0 K8
         self.place_holes(level, panels)
         self.deduct_columns(level, panels)
         for p in panels:
@@ -2542,7 +2560,8 @@ class Build:
                     (X[xn], tip),
                     ("COLUMN", f"A{xn}"),
                     ("FREE", "TIP"),
-                    (D(150), D(150)),
+                    # R0 K8: CB1 has no slab west of its axis
+                    (D(0), D(150)) if xn == "2" else (D(150), D(150)),
                 )
             r_cl = BALCONY["r"] - EDGE_HALF
             pts = [X["2"], X["3"], X["4"], X["5"]]
@@ -2556,7 +2575,7 @@ class Build:
                     (pts[k + 1], tip),
                     ("BEAM", f"{prefix}CB{k + 1}@{level}"),
                     ("BEAM", f"{prefix}CB{k + 2}@{level}"),
-                    (D(150), D(0)),
+                    (D(150), D(150)),  # R0 K8: CS1 runs through to EB1's outer face
                 )
             arc = PI * r_cl / 2
             self.beam(
@@ -2568,7 +2587,7 @@ class Build:
                 (X["6"], D(0)),
                 ("BEAM", f"{prefix}CB4@{level}"),
                 ("COLUMN", "A6"),
-                (D(150), D(0)),
+                (D(150), D(150)),  # R0 K8
                 {
                     "arc_len": (X["6"] - BALCONY["r"] - X["5"]) + arc,
                     "curved": True,
@@ -2617,7 +2636,16 @@ class Build:
             },
             {"kind": "RAMP", "area": shoelace(ramp), "poly": ramp, "deducted": True},
         ]
+        # R0 K7: a hole reveal is formed where the slab edge is exposed. The pit hole is filled by the
+        # core walls (their face, no reveal); the ramp falls RAMP["rise"] from its top edge (flush) to
+        # its mouth on grid A, exposing min(t, drop) of the SOG edge along its two sides and its mouth.
+        t_sog, run, rise = D(125), RAMP["y1"] - RAMP["y0"], RAMP["rise"]
+        side = t_sog * run - t_sog * t_sog * run / (2 * rise) if rise > t_sog else rise * run / 2
+        mouth = min(t_sog, rise) * (RAMP["x1"] - RAMP["x0"])
+        sog["holes"][0]["reveal_mm2"] = D(0)
+        sog["holes"][1]["reveal_mm2"] = 2 * side + mouth
         sog["on_ground"] = True
+        sog["free_edge"] = self.outline_free(poly, "GF")  # R0 K8: the SOG's edge stands above E.G.L
         run, rise = RAMP["y1"] - RAMP["y0"], RAMP["rise"]
         rp = self.panel(
             "RAMP@GF", "RAMP", "GF", ramp, D(125), slope=sqrt(run**2 + rise**2) / run
@@ -2698,6 +2726,75 @@ class Build:
             self.slab_bars(p)
             self.regions.setdefault(p["level"], []).append(p)
 
+    def own_foundation_junctions(self) -> None:
+        """R0: L-MEA-09's order at the foundation, pile > pile cap > shear wall > slab.
+        K17 (W-29): the pile owns its head: every cap deducts π/4·d²·(cut-off − soffit) per pile.
+        K18 (W-30, GC-5): the lift pit lies wholly inside PC5's prism, so it is PC5's recess: the cap
+        deducts the void (pit interior × (cap top − pit floor)), forms the recess sides, and the pit's
+        walls and base are cap concrete — their members retire and their bars are PC5's recess bars.
+        K19 (W-31): the blinding under a cap is net of the pile sections passing through it (IS 1200:
+        a section over 500 cm² deducts; L-MEA-09 governs L-FRM-04's formula — I-600)."""
+        head = ELEV["PILE_CUT"] - (ELEV["PCTOP"] - CAP_DEPTH)  # the cut-off above the cap soffit
+        assert head > 0
+        a_pile = PI / 4 * D(PILE["dia"]) ** 2
+        t = CORE["t_low"]
+        ix = (CORE["x1"] - CORE["x0"]) - t
+        iy = (CORE["y1"] - CORE["y0"]) - t
+        hp = ELEV["PCTOP"] - CORE["pit_bottom"]
+        for m in self.members:
+            if m["class"] != "PILE_CAP":
+                continue
+            m["pile_heads"] = len(m["piles"]) * a_pile * head
+            m["blinding_piles"] = len(m["piles"]) * a_pile * D(SITE["blinding_thickness_mm"])
+            m["recess"] = ix * iy * hp if m["id"] == "PC-CORE" else D(0)
+            m["recess_faces"] = 2 * (ix + iy) * hp if m["id"] == "PC-CORE" else D(0)
+        pit = {m["id"] for m in self.members if m["level"] == "PIT"}
+        self.members = [m for m in self.members if m["id"] not in pit]
+        for k in pit:
+            del self.by_id[k]
+        for b in self.bars:
+            if b["member"] in pit:
+                b.update(member="PC-CORE", **{"class": "PILE_CAP"}, level="FDN", mark="PC5")
+        self.regions.pop("PIT", None)
+
+    def tie_zones_from_framing(self) -> None:
+        """R0 GC-1: a member whose clear height fits inside 2·lo is tied at s_end over its whole
+        height (one run). R0 GC-4: the joint is the deepest DRAWN framing member at the column head
+        (BNBC §6.4.9.2) where that is deeper than 450; clear = h − D."""
+        for m in self.members:
+            if m["class"] != "COLUMN" or m["geom"] == "CYL":
+                continue
+            spec = COLUMN_MARKS[m["mark"]]
+            _td, s_end, s_mid = spec["ties"]
+            h = m["h"]
+            top = STOREY_TOP[m["level"]]
+            depths = [
+                bm["depth"] if i == 0 else bm["depth2"]
+                for bm in self.members
+                if bm["class"] == "BEAM" and bm["level"] == top
+                for i, sup in enumerate(bm.get("supports", []))
+                if sup == ("COLUMN", m["stack"])
+            ]
+            deep = max(depths) if depths else D(0)
+            joint = deep if deep > 450 else D(450)
+            clear = h - joint
+            lo = max(m["sx"], m["sy"], clear / 6, D(450))
+            if m["level"] == "FDN" or clear <= 2 * lo or s_end == s_mid:
+                zones = [{"zone": "ALL", "length_mm": h, "spacing_mm": D(s_end)}]
+            else:
+                zones = [
+                    {"zone": "END", "length_mm": lo, "spacing_mm": D(s_end)},
+                    {"zone": "END", "length_mm": lo, "spacing_mm": D(s_end)},
+                    {"zone": "MID", "length_mm": clear - 2 * lo, "spacing_mm": D(s_mid)},
+                    {"zone": "JOINT", "length_mm": joint, "spacing_mm": D(s_end)},
+                ]
+            for z in zones:
+                z["count"] = count_at(z["length_mm"], z["spacing_mm"])
+            n = sum(z["count"] for z in zones)
+            for b in self.bars:
+                if b["member"] == m["id"] and b["role"] == "TIE":
+                    b["n"], b["zones"] = n * b.get("per_set", 1), zones
+
     def run(self) -> dict[str, Any]:
         self.foundations()
         self.columns()
@@ -2706,8 +2803,10 @@ class Build:
             self.framed_floor(level)
         self.stairs()
         self.roof_furniture()
-        self.lintels_and_walls()
+        self.lintels()
         self.finalize_late_panels()
+        self.tie_zones_from_framing()  # R0 GC-1 / GC-4
+        self.own_foundation_junctions()  # R0 FND: pile heads, the pit recess, blinding through piles
         # column formwork: the slab over each column's top (max thickness of panels around it)
         for m in self.members:
             if m["class"] == "COLUMN" and m["level"] != "FDN":

@@ -74,6 +74,9 @@ function formworkOffer(read: Read, setup: RailSetup): Offer {
   const depth = dimensionOf(read, DEPTH);
   if (depth === undefined) omitted.push({ variable: D, code: FOUNDATION_DEPTH_UNSTATED });
   else bindings[D] = depth;
+  // A recess the set does not state every way keeps the row with the sides it lacks named: its
+  // four sides cannot be formed off one of them (I-598).
+  if (recess !== null) omitted.push(...recess.omitted);
 
   const ruleId =
     recess === null
@@ -92,7 +95,7 @@ function formworkOffer(read: Read, setup: RailSetup): Offer {
     drawing: { drawingId: placement.drawingId, viewKey: placement.viewKey },
     engine: placement.engine,
     geometry: { type: poly ? PRISM_POLY : PRISM_RECT, basis: row.standing, calibration },
-    bindings: { [COUNT]: countOf(read), ...bindings, ...(recess ?? {}) },
+    bindings: { [COUNT]: countOf(read), ...bindings, ...(recess?.bindings ?? {}) },
     // Nothing selects a formwork item here: the member is the line's own class, which code already
     // knows (L-BD-04's sub-items, item-descriptions' deliberate absence), and a grade is concrete's.
     selectors: {},

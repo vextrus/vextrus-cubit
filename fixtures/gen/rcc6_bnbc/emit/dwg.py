@@ -278,7 +278,8 @@ def mint(
     scratch: Path,
 ) -> dict[str, Any]:
     """Mint both DWGs under the profile, then read each back through the product's own lane and
-    assert its census is exactly what was drawn minus the named losses."""
+    assert its census is exactly what was drawn minus the named losses, and that the lane carried
+    every class the census counts across (W-50)."""
     from vextrus_cad.dwg import convert_dwg
 
     scratch = Path(scratch)
@@ -319,6 +320,7 @@ def mint(
                     losses.setdefault(space, {})[dxftype] = lost
         named = _named_losses(canaries, excluded, sheets, blocks, dxf_name)
         _prove_census(name, drawn[dxf_name], census, losses)
+        _prove_carried(name, conversion.refused)
         out[name] = dwg.read_bytes()
         out["spec"][name] = {
             "source": dxf_name,
@@ -357,6 +359,17 @@ def _prove_census(name: str, drawn: dict[str, dict[str, int]], census: dict[str,
             if dxftype not in drawn.get(space, {}) and dxftype not in CENSUS_ONLY:
                 bad.append((space, dxftype, "the DWG holds a class nothing drew"))
     assert not bad, f"{name}: {bad[:12]}"
+
+
+def _prove_carried(name: str, refused: tuple[Any, ...]) -> None:
+    """The census is what the DWG holds; the product reads what `dwg2dxf` carries across. A class
+    the conversion carried short is refused by the lane (L-CAD-04), and an upload of the DWG would
+    ingest without it while the census still read whole — so the generator stops, by class, rather
+    than record the refusal in `sanity.json` (W-50)."""
+    assert not refused, (
+        f"{name}: the product's DWG lane refused {len(refused)} classes: "
+        f"{[entry.message() for entry in refused][:12]}"
+    )
 
 
 #: The DXF type ezdxf gives an authored primitive back under, where the two names differ.

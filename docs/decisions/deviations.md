@@ -44,6 +44,7 @@ Each Deviation is one row in the table below, and a section beneath it when the 
 | D-005 | L-FRM-04: "Blinding (CC) count × (L + 2p) × (B + 2p) × t; deferred for polygon plans" | S-08's slab on grade (POLYLINE 81D) is a pentagon with a 45° chamfer the projected rectangle cannot express, and the drawn blinding rectangle beside it (824–827) does not follow the chamfer; session 9's refuter rejected I-388's reading (s-measure §11): the clause defers polygon plans outright and names no hand/machine split | A hand measurement of blinding is `pcc.blinding.area@1` = `count × (A_traced − Σ openings − Σ junctions) × t` over a traced outline (the member's own, or a drawn outline that follows it), with no projection p | Blinding has two spellings, each its own rule id; a traced blinding is under the clause's figure by the projection strip (never over); the edition's `blindingProjection` is not applied to it | the commit that adds this row (see §D-005) |
 | D-006 | R-UI-040: "level-of-detail hides text below legibility" | Walk 0 (BLOCKS_DEMO): S-10 opened with no caption, no marks and an empty title block, where `drawing_render` letters them at the same size; measured on the true-size mipmapped glyphs, a capital is read from about 3 px (viewer.md I-463), and S-10's marks stand 2.6 px at fit | A drawing's own text is lettered down to a 2 px cap height (`LETTERED_TEXT_PX`), at its true size, and hidden only below that; nothing is drawn larger than the drawing states, and nothing is drawn as a bar | Text between 2 and 3 px is drawn and not readable; the lettering's fill at rest grows with it; every sheet's at-rest picture moves | the commit that adds this row (see §D-006) |
 | D-007 | L-REG-03: "discipline is drawing-scoped, machine-proposed, human-confirmed, fails closed: an unconfirmed drawing is not walked" | The structural readers have registered their placements under STRUCTURAL at every re-expansion since M2, confirmed or not: eleven db suites and the M2 and J-021 journeys pin a set before confirming any sheet, and J-000's F-RCC6 leg confirms only the first group offered; closing the rule over them moves every one | The wall lane's rows (a brick wall, an opening) are walked only under the discipline a person confirmed for their sheet, and not at all before (s-takeoff I-592); the structural readers' rows keep the placement law's STRUCTURAL | A structural member drawn on a sheet nobody has confirmed is measured under STRUCTURAL before a person confirms it; and a structural mark an architect's sheet places is sighted STRUCTURAL whatever the sheet was confirmed as — two keys where the engineer's set draws it too. That path stood before this increment and stays open until the structural rows take their sheet; neither fixture draws one (F-ARCH's plans place no structural member) | the commit that adds this row (see §D-007) |
+| D-009 | F-RCC6-BNBC (`cubit.bible.xml:723`): "brick walls 250 (perimeter) and 125 (partitions) at 1F–6F with the S-25 lintel schedule"; AM-07: F-RCC6-BNBC's "golden already has BRICKWORK rows by nominal thickness" | BNBC's lump billed 259.425 m³ at 1F..6F from one perimeter and a 60 m partition allowance per floor: it ran through about 18 columns, omitted the grid-A facade and gave 1F the GF height; F-ARCH (ARCH-1) draws the same building's walls wall by wall at GF..6F and bills 538.041 m³ over R0's structure, S-25's lintels deducted — two figures for one quantity in two goldens (B-17) | Brick walls are the architect's members: F-ARCH's golden is brickwork's one home (`goldenRows("arch")`); BNBC mints no BRICK_WALL member and bills no BRICKWORK, keeps its LINTEL rows unchanged, and S-25 still prints the BW250/BW125 wall types; the M3 masonry sample is the pair BNBC + F-ARCH | The M3 brickwork cells need F-ARCH uploaded beside BNBC (J-000 uploads two drawings); a Bible reader finds BRICKWORK absent from BNBC's golden; BNBC's golden loses 12 rows (370 → 358) at R0's baseline | the commit that adds this row (see §D-009) |
 
 ## D-001 — a storey stated in two notations is one storey (session 7, 2026-09-23)
 
@@ -282,3 +283,35 @@ once with this build. On PERF-011's synthetic sheet the 2.5-unit rung is lettere
 2-unit marks lettered at 1.2886 px per unit, a 1.3-unit label not; the mark samples the mipmaps);
 `tests/takeoff/viewer/settled-frame.test.ts` (the LOD cut at `LETTERED_TEXT_PX`); PERF-011 and the
 e2e sweep with every moved viewer picture looked at and re-taken by the gate.
+
+## D-009 — masonry has one home, F-ARCH (session 9, R0-G3)
+
+**Clause.** F-RCC6-BNBC (`docs/specs/cubit.bible.xml:723`) draws "brick walls 250 (perimeter) and 125
+(partitions) at 1F–6F with the S-25 lintel schedule", and AM-07 (`:954`) rests M3's masonry scope on
+its golden's "BRICKWORK rows by nominal thickness".
+
+**Evidence.** BNBC's generator minted one BW250 and one BW125 member per floor — a perimeter less the
+balcony front, and a 60 m partition allowance — and billed 259.425 m³ of BRICKWORK at 1F..6F. The lump
+ran through about 18 columns, left the grid-A facade out and gave 1F the GF storey height. ARCH-1
+(`fixtures/gen/arch/`) authors the same building's walls wall by wall at GF..6F, clear between their
+owners, to the soffit, openings over 0.1 m² deducted and S-25's lintels deducted (F-ARCH A-10, A-11):
+538.041 m³. Two goldens billing one quantity two ways is a copy (ARCH-02, B-17), and the better one is
+the architect's. Over R0's structure, F-ARCH's 766 golden rows regenerate identical, byte for byte.
+
+**What the product does instead.** Brick walls are the architect's members, drawn and billed in the
+architect's set. F-ARCH's golden is brickwork's one home: BRICK_WALL × BRICKWORK is read from
+`goldenRows("arch")`, GF..6F, components BW250/BW125. BNBC mints no BRICK_WALL member and bills no
+BRICKWORK row; it keeps its LINTEL members and rows unchanged (F-ARCH reads them and deducts them), and
+S-25 still prints the two wall types from `model.WALL_TYPES`, so its drawing is unchanged byte for
+byte. The M3 masonry sample is the pair BNBC + F-ARCH.
+
+**Cost.** The M3 brickwork cells need F-ARCH uploaded into the BNBC project (J-000 uploads two
+drawings, ARCH-8); until the brickwork rail reads F-ARCH's walls (ARCH-4) they are failing
+observations, never trimmed. BNBC's golden loses its 12 BRICKWORK rows (370 → 358) at R0's baseline,
+and `tests/takeoff/rails/masonry-finishes/rcc6-bnbc-band.test.ts`, which reads BNBC's brick-wall
+members and rows, moves to F-ARCH's with that baseline.
+
+**Proof.** A scratch regeneration (`python -m fixtures.gen.rcc6_bnbc`) before and after: the paper,
+frames, twin DXFs and the vector PDF byte-identical; the 30 LINTEL rows byte-equal; no BRICK_WALL or
+BRICKWORK row; the other 358 rows identical. `python -m fixtures.gen.arch` over the new BNBC:
+`takeoff.golden.json` byte-identical to the committed one (766 rows, brickwork 538.041 m³).

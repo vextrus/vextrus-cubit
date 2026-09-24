@@ -297,12 +297,29 @@ def draw_slab_outline(s: Scene, level: str, layer: str = "S-SLAB") -> dict:
     return s.poly(poly, layer)
 
 
-def draw_core_and_stair(s: Scene, *, text: bool = True) -> None:
+def storey_under(level: str) -> str:
+    """The storey whose walls and columns stand under a floor level (the storey that level tops)."""
+    return next(s for s, top in M.STOREY_TOP.items() if top == level)
+
+
+def core_leg(ctx: Ctx, leg: str, storey: str) -> tuple[float, float, float, float]:
+    """One lift-core wall leg as the model builds it at a storey: x0, y0, x1, y1."""
+    m = ctx.by_id[f"SW1-{leg}@{storey}"]
+    return f(m["x0"]), f(m["y0"]), f(m["x1"]), f(m["y1"])
+
+
+def draw_core_and_stair(s: Scene, ctx: Ctx, storey: str, *, text: bool = True) -> None:
+    """The lift core's walls as the storey's own legs, and the stair well.
+
+    R0 D-CORE (W-36): Rev B drew the core as two concentric rings inside the grids, four walls where
+    the model builds three legs centred on grids 3, 4 and D (the door face on C is B13, the coupling
+    beam the layouts already draw). The two rings are redrawn in place as legs 3 and 4 of the storey
+    the plan shows, at that storey's thickness (the caller names the storey); leg D is Rev C's."""
     c = M.CORE
     x0, y0, x1, y1 = f(c["x0"]), f(c["y0"]), f(c["x1"]), f(c["y1"])
-    t = f(c["t_low"])
-    s.rect(x0, y0, x1 - x0, y1 - y0, "S-WALL")
-    s.rect(x0 + t, y0 + t, x1 - x0 - 2 * t, y1 - y0 - 2 * t, "S-WALL")
+    for leg in ("3", "4"):
+        a, b, u, v = core_leg(ctx, leg, storey)
+        s.rect(a, b, u - a, v - b, "S-WALL")
     st = M.STAIR
     sx0, sy0, sx1, sy1 = f(st["x0"]), f(st["y0"]), f(st["x1"]), f(st["y1"])
     s.rect(sx0, sy0, sx1 - sx0, sy1 - sy0, "S-SLAB")

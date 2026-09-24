@@ -17,7 +17,8 @@ export type RebarRefusalCode =
   | "REBAR_TIE_ZONE_UNSTATED"
   | "REBAR_STOREY_RUN_UNSTATED"
   | "BBS_NO_CAMPAIGN"
-  | "BBS_NO_BAR_ROW";
+  | "BBS_NO_BAR_ROW"
+  | "BAR_SHAPE_NOT_HELD";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const REBAR_REFUSALS: RefusalGroup<RebarRefusalCode> = Object.freeze({
@@ -40,6 +41,17 @@ export const REBAR_REFUSALS: RefusalGroup<RebarRefusalCode> = Object.freeze({
     message: "This campaign has scheduled no bar to render.",
     remedy: "Measure the campaign from the takeoff register — a schedule states the bars the measurement wrote and assumes nothing.",
     severity: "info",
+    surface: "inline",
+  }),
+  // A bar bent to a shape the product's BS 8666 roster does not hold (s-bbs I-596): the bar
+  // schedule carries it as a DECLARED row, by name, with the mass its row states kept out of every
+  // total — never billed on a shape nothing here derives, never dropped, never a document that fails
+  // to render. The roster grows with a method version, never by this code (R6b/R6c).
+  BAR_SHAPE_NOT_HELD: Object.freeze({
+    code: "BAR_SHAPE_NOT_HELD",
+    message: "This bar is bent to a shape the schedule's BS 8666 roster does not hold, so it is declared here and its mass is left out of every total.",
+    remedy: "Cut and bill the bar from the detail it is drawn on until the shape joins the roster with its own cutting-length method.",
+    severity: "warning",
     surface: "inline",
   }),
   // AM-03(f): the ℓd table holds the rows it holds. A grade outside them is answered by name — a

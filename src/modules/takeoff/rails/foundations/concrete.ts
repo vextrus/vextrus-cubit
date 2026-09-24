@@ -168,8 +168,8 @@ function spreadOffer(read: Read, setup: RailSetup, observations: RailObservation
   return offerOf(read, {
     ruleId: capRuleOf(poly, recess !== null),
     geometry: poly ? PRISM_POLY : PRISM_RECT,
-    bindings: { ...bindings, ...held.bindings, ...(recess ?? {}) },
-    omitted: [...omitted, ...held.omitted],
+    bindings: { ...bindings, ...held.bindings, ...(recess?.bindings ?? {}) },
+    omitted: [...omitted, ...held.omitted, ...(recess?.omitted ?? [])],
     selectors: gradeOf(read, setup),
   });
 }

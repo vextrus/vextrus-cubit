@@ -1,17 +1,17 @@
 {
-  "subject": "rcc6-bnbc · brick_wall · masonry.brickwork · 125 mm nominal partition",
-  "note": "Hand-written from fixtures/rcc6-bnbc/model.json: the six BW125 partition walls (marks BW125@1F…BW125@6F), each stating t = 125 mm and a partition_length. The keys are the fixture's own member ids under the extractor's scheme — the committed DXF holds no entity for a brick wall — and a key is never put to the model. AM-16 §4 is what makes 125 a declared nominal thickness beside L-BD-04's 250/375.",
-  "artifact": "fixtures/rcc6-bnbc/model.json",
+  "subject": "arch · brick_wall · masonry.brickwork · 125 mm nominal partition",
+  "note": "Hand-written from fixtures/arch/model.json: masonry has one home in F-ARCH (R0-G3, D-009), whose wall type BW125 reads \"125 THK. (5\\\") FIRST CLASS BRICK WALL IN 1:4 C.M., 2 NOS 6 mm DIA BARS AT EVERY 4TH LAYER\" for the partitions, toilet walls and duct and shaft enclosures, drawn on every level GF..6F (21 walls at GF, 44 on each floor above). The key is F-ARCH's own member id of a GF BW125 wall in its golden BRICKWORK row (`gD5`), carried under the extractor's scheme; a key is never put to the model. AM-16 §4 is what makes 125 a declared nominal thickness beside L-BD-04's 250/375.",
+  "artifact": "fixtures/arch/model.json",
   "line": {
     "class": "brick_wall",
     "kind": "masonry.brickwork",
     "unit": "m3",
-    "levels": ["1F", "2F", "3F", "4F", "5F", "6F"],
+    "levels": ["GF", "1F", "2F", "3F", "4F", "5F", "6F"],
     "bill": "SUPERSTRUCTURE",
     "decidedBy": "OVERRIDE:brick_wall",
-    "quantityBasis": "TRANSCRIBED",
+    "quantityBasis": "MEASURED",
     "selectionBasis": "TRANSCRIBED"
   },
   "attributes": [{ "name": "thickness", "valueAsWritten": "125", "unitAsWritten": "mm" }],
-  "keys": ["DXF_HANDLE:BW125@1F"]
+  "keys": ["DXF_HANDLE:gD5"]
 }

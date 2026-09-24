@@ -91,6 +91,7 @@ type Payload = {
   perDiameterKg: Record<string, string>;
   grandTotalKg: string;
   totalCovers: string;
+  declared: { reason: string; kg: string; bars: (Pick<PayloadBar, "barMark" | "shape" | "bars"> & { cuttingRawMm: string; kg: string })[] } | null;
   partial: boolean;
   leftOut: { components: string[]; reason: string }[];
   notInSchedule: { about: string; levels: string; why: string }[];
@@ -462,6 +463,42 @@ describe("AC-1: the bar bending schedule renders as its own kind, byte for byte"
     expect(page, "the steel no line was published for is listed").toContain("Not in this schedule");
     expect(compact(page), "in the draft BOQ's words: what, over which levels, and why").toContain(compact(`${beams.about} ${beams.levels} ${beams.why}`));
     expect(compact(page), "and the total says what it covers").toContain(compact(honest.totalCovers));
+  });
+
+  it("I-596: a bar in a shape the roster does not hold is declared by name, and the total says it excludes it", async () => {
+    const { figure } = await figuresModule();
+    const { SHAPE_CODES } = await bs8666Module();
+    const { first } = await rendered();
+    const whole = compact(pages(first.pdf).join(" "));
+    const input = payload();
+
+    // The regenerated golden bends C7's hoops to CH (W-28), which the roster does not hold: the
+    // committed schedule reaches a declared bar, so the section is graded rather than skipped.
+    const declared = input.declared;
+    expect(declared, `${PAYLOAD} reaches a bar in a shape the roster does not hold`).not.toBeNull();
+    if (declared === null) return;
+    expect(declared.bars.filter((one) => SHAPE_CODES.includes(one.shape)), "every declared bar is in a shape the roster does not hold").toEqual([]);
+    expect(barsOf(input).filter((one) => !SHAPE_CODES.includes(one.shape)), "and no scheduled bar is").toEqual([]);
+    expect(declared.reason, "the reason is the register's own sentence (R-SPINE-062)").toBe(REFUSALS.BAR_SHAPE_NOT_HELD.message);
+
+    // Nothing dropped, nothing double-counted: the golden rows the schedule is drawn from weigh the
+    // grand total plus the declared mass, exactly (B-07: integers of grammes, no float).
+    const grammes = (kg: string): bigint => BigInt(kg.replace(".", ""));
+    const drawn = bbsDocumentRows().reduce((sum, row) => sum + grammes(row.kg), 0n);
+    expect(grammes(input.grandTotalKg) + grammes(declared.kg), "the grand total and the declared mass together are every bar the golden details").toBe(drawn);
+    expect(declared.bars.reduce((sum, one) => sum + grammes(one.kg), 0n), "and the declared mass is the declared bars' own").toBe(grammes(declared.kg));
+
+    const at = whole.indexOf(compact("Declared, not scheduled"));
+    expect(at, "the page names the declared bars under their own heading").toBeGreaterThan(-1);
+    expect(whole.slice(at), "with the register's sentence for why").toContain(compact(declared.reason));
+    for (const one of declared.bars) {
+      const line = whole.slice(whole.indexOf(compact(one.barMark), at));
+      for (const value of [one.shape, figure(one.cuttingRawMm, 3), figure(one.bars, 0), figure(one.kg, 3)]) {
+        expect(line.slice(0, 200), `${one.barMark} states ${value} on its declared line`).toContain(compact(value));
+      }
+    }
+    expect(whole, "the excluded mass is said as excluded").toContain(compact(`Excluded from the total mass ${figure(declared.kg, 3)}`));
+    expect(whole, "and the total mass says it excludes it").toContain(compact(`Excludes the ${figure(declared.kg, 3)} kg declared, not scheduled`));
   });
 
   it("I-535: the sign-off box is ruled paper the site completes by hand — the document fills in nobody", async () => {

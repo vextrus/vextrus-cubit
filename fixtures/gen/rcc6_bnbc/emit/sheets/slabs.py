@@ -21,6 +21,7 @@ from .common import (
     f,
     fact,
     new_paper,
+    storey_under,
 )
 
 
@@ -47,7 +48,7 @@ def s19(ctx: Ctx) -> _Sheet:
     draw_grid(view, dims=True, unit="ftin")
     draw_slab_outline(view, "1F")
     draw_columns(view, ctx, "1F")
-    draw_core_and_stair(view)
+    draw_core_and_stair(view, ctx, storey_under("1F"))
     _panels(ctx, "1F", view)
     # the bar call with a real Ø, the way the CAD operator typed it (T-NOT-UNICODE)
     t = f(M.SLAB_T["S"])
@@ -98,9 +99,10 @@ def s20(ctx: Ctx) -> _Sheet:
     draw_grid(view, dims=True, unit="ftin")
     draw_slab_outline(view, "2F")
     draw_columns(view, ctx, "2F")
-    draw_core_and_stair(view)
+    # the typical plan stands for 2F..6F and draws the lower band; S-23's band note governs (D-CORE)
+    draw_core_and_stair(view, ctx, storey_under("2F"))
     _panels(ctx, "2F", view)
-    # the caption that names no floor range at all — the index on S-00 says which (T-NOT-RANGE-UNSTATED)
+    # the caption that names no floor range at all, nor does the S-00 index (T-NOT-RANGE-UNSTATED, W-42)
     cap = view.text("TYPICAL SLAB REINFORCEMENT PLAN", (f(M.X["3"]), -4600.0), 340.0, "S-TEXT",
                     align="CENTER", family="range", trap="T-NOT-RANGE-UNSTATED")
     cap["role"] = "range-unstated"
@@ -133,7 +135,7 @@ def s21(ctx: Ctx) -> _Sheet:
     draw_grid(view, dims=True, unit="ftin")
     draw_slab_outline(view, "ROOF")
     draw_columns(view, ctx, "6F")
-    draw_core_and_stair(view)
+    draw_core_and_stair(view, ctx, storey_under("ROOF"))
     _panels(ctx, "ROOF", view)
     for m in sorted(ctx.at("SLAB", "SRR"), key=lambda m: m["id"]):
         cx, cy = _centroid(m["poly"])

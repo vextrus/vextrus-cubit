@@ -424,6 +424,28 @@ shell's one inspector slot stays at width 0 (R-UI-080). Files: `takeoff/layout.t
   with a **Not in this schedule** block, before the sign-off. Rejected: a second list of classes
   kept here (it would drift from the draft's), and folding the list into the left-out block (that
   block says what the published lines left out, and this says what was never published).
+- **I-596 — a bar in a shape the roster does not hold is declared, not scheduled (session 9,
+  wave 3a-R0; L-QTY-02, AM-03(d), R0's W-28).** The regenerated F-RCC6-BNBC golden bends C7's hoops to
+  shape `CH` (formula (iii), 1,322.389 mm), and `SHAPE_CODES` holds no `CH` until R6b/R6c bring its
+  method under a method version. Until a shape is held, the door (`bbsDocumentOf`) partitions its
+  rows: a row whose shape the roster holds is scheduled, totalled and packed as before; a row whose
+  shape it does not hold goes to `declared` (stated once per floor through the same `scheduleOf`) and
+  its mass to `declaredKg`, and no grand, diameter or mark total and no cutting stock reads it. The
+  payload carries `declared` — `null` where nothing is — with the register's own sentence
+  (`BAR_SHAPE_NOT_HELD`), the excluded mass and each bar's mark, floor, members, role, diameter, shape
+  code, raw length as its row states it, total and mass. The page prints a `Declared, not scheduled`
+  block after the schedule with `Excluded from the total mass`, and the cutting stock's total says
+  `Excludes the … kg declared, not scheduled`. The kind's schema keeps both doors shut: a scheduled
+  bar must be a held shape (the enum is unchanged), and a declared bar must not be one. Nothing is
+  drawn for a declared shape. The screen's grid is unchanged: a stored bar row is always a held
+  shape (`asShape` guards the write), so only a composed bill (the document lane's golden) reaches a
+  declared bar today. `bs8666-golden.test.ts` grades the cutting methods over every golden row but
+  those at a named held-back shape, and that list must equal the golden's unheld shapes both ways.
+  Rejected: adding `CH` to the roster here (a shape joins with its method and version, R6b/R6c);
+  dropping the rows (a silent omission); scheduling them with a sketch-less row inside the entries
+  (the schedule's lines are graded as drawn, cut and packed, which a declared bar is not); and
+  marking the whole schedule `partial` (`partial` is L-QTY-02's partly declared rebar lines, and the
+  declared block names exactly what is excluded).
 
 ## 1. Layout and hierarchy (1440 × 900)
 
@@ -605,6 +627,7 @@ the code is never rendered as text):
 |---|---|---|---|---|
 | `BBS_NO_CAMPAIGN` | info | inline | **No campaign is open on this project, so there is no bill of bars to schedule.** | **Pin a drawing set revision and measure the campaign, then export the schedule.** |
 | `BBS_NO_BAR_ROW` | info | inline | **This campaign has scheduled no bar to render.** | **Measure the campaign from the takeoff register — a schedule states the bars the measurement wrote and assumes nothing.** |
+| `BAR_SHAPE_NOT_HELD` | warning | inline | **This bar is bent to a shape the schedule's BS 8666 roster does not hold, so it is declared here and its mass is left out of every total.** | **Cut and bill the bar from the detail it is drawn on until the shape joins the roster with its own cutting-length method.** |
 
 Voice: calm, concrete, professional; no exclamation marks; no build vocabulary — "seam", "rail",
 "door", "job kind" and every clause id appear nowhere a reader can see. Marks, diameters, lengths and

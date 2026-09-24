@@ -24,6 +24,7 @@ from .common import (
     f,
     fact,
     new_paper,
+    storey_under,
     table,
 )
 
@@ -66,7 +67,9 @@ def _layout(ctx: Ctx, view: Scene, level: str, *, hidden: bool = False) -> None:
     draw_columns(view, ctx, level if level != "ROOF" else "6F", hatch=True)
     for m in _beams(ctx, level):
         beam_pair(view, m, "S-BEAM")
-    draw_core_and_stair(view)
+    # the core walls of the storey under the layout; the typical layout (2F, standing for 2F..6F)
+    # draws the lower band, and S-23's band note governs (D-CORE)
+    draw_core_and_stair(view, ctx, storey_under(level))
 
 
 def s13(ctx: Ctx) -> _Sheet:
@@ -159,7 +162,7 @@ def s15(ctx: Ctx) -> _Sheet:
     p.view("ROOF BEAM LAYOUT", roof, 100, (p.x0 + 20.0, p.y0 + 130.0), (330.0, 330.0), "ftin")
 
     srr = Scene()
-    draw_core_and_stair(srr)
+    draw_core_and_stair(srr, ctx, storey_under("SRR"))
     for m in sorted(ctx.at("BEAM", "SRR"), key=lambda m: m["id"]):
         beam_pair(srr, m, "S-BEAM")
         beam_mark(srr, m)

@@ -1,6 +1,17 @@
 {
   "fixtures": [
     {
+      "requestHash": "00229729469adfaab98814c175501191a12441a45637b6823646c568fe006f79",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 16",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1978,
+      "outputTokens": 129,
+      "attributedCost": "0.000083076",
+      "providerCost": "0.000083076"
+    },
+    {
       "requestHash": "0040ad0f1502642dd082918ed3c23d59557b39b823a4f0ce307ddac958cfa63d",
       "question": "sheet-revision-recency",
       "subject": "rcc6-bnbc.dxf · S-12 COLUMN DETAILS",
@@ -100,6 +111,17 @@
       "providerCost": "0.0000357"
     },
     {
+      "requestHash": "043b859a79e1ecdac8543ca9800a2b0da9e84318272047ddb05eb882c2e67846",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 3",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1137,
+      "outputTokens": 57,
+      "attributedCost": "0.000047754",
+      "providerCost": "0.000047754"
+    },
+    {
       "requestHash": "04cca8f96d2489364de43caf33b79e95053bbc06b7a8469d5de6ff55871a6fdf",
       "question": "coverage-cause",
       "subject": "02-beam-concrete-roof-view-scale-unaffirmed.state.json · rcc.concrete on beam, ROOF",
@@ -142,6 +164,17 @@
       "outputTokens": 24,
       "attributedCost": "0.00003486",
       "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "0abed65e9ff702d01de0565dfc7997d57c3cee00f6a5e5607079969c9e4a033c",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 13",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1978,
+      "outputTokens": 129,
+      "attributedCost": "0.000083076",
+      "providerCost": "0.000083076"
     },
     {
       "requestHash": "0acc847980d0b98eb5948c62582c99c86dc8b50c909c27bca19160211351b473",
@@ -199,6 +232,28 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "0e5759af52fd64096feb967adec3ced335db0d6a57a0d31def5367334fd4d613",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 5",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1973,
+      "outputTokens": 129,
+      "attributedCost": "0.000082866",
+      "providerCost": "0.000082866"
+    },
+    {
+      "requestHash": "0e8ea7245a4b5e53f4fd678abb584439003f8f99d0543e72ecd22832d4b5c874",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 21",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1977,
+      "outputTokens": 129,
+      "attributedCost": "0.000083034",
+      "providerCost": "0.000083034"
+    },
+    {
       "requestHash": "0eabda888a44b31323d273e7fd270458d753ac1c27f936c6cc8ddc0b2d324cfe",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · PC1 · DXF_HANDLE:18E",
@@ -208,6 +263,17 @@
       "outputTokens": 24,
       "attributedCost": "0.00003486",
       "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "0edb5b833555915237cca0490265af5b24b0ca15a3296788520eb4da7ac07dbb",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 11",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1978,
+      "outputTokens": 129,
+      "attributedCost": "0.000083076",
+      "providerCost": "0.000083076"
     },
     {
       "requestHash": "119afc844a613b033fcff66cb2a909e6bca02e2cca4beee23ea4286113396bf8",
@@ -230,6 +296,28 @@
       "outputTokens": 24,
       "attributedCost": "0.000034524",
       "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "12b40f6af49379681cddde81f9f767ea0367318198cbccebeb8a2cfc14109b64",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50 · row 3",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1974,
+      "outputTokens": 129,
+      "attributedCost": "0.000082908",
+      "providerCost": "0.000082908"
+    },
+    {
+      "requestHash": "13d0b53de66c9aad48d15ef42c65188cecee51edfbe7f90cb32ee1043c753903",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 12",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1983,
+      "outputTokens": 129,
+      "attributedCost": "0.000083286",
+      "providerCost": "0.000083286"
     },
     {
       "requestHash": "14904d94c38c4f3928d53aab5d004047104a6ac7c4ee347eefddbaae2c22897a",
@@ -309,6 +397,17 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "1862bcfe50f7182433b491ddc4b1e9390bba1b989113b42a7b28102fb12d65f8",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50 · row 11",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1546,
+      "outputTokens": 93,
+      "attributedCost": "0.000064932",
+      "providerCost": "0.000064932"
+    },
+    {
       "requestHash": "19813a4f699be18aa8a69479598520438840a558edf86101ec311f6f6be048e3",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · F3 · DXF_HANDLE:179",
@@ -386,6 +485,17 @@
       "providerCost": "0.000041538"
     },
     {
+      "requestHash": "21031d6a6af3654a33a924bf81063fcbc329d5960970611555e07ea31a13e157",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 19",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1976,
+      "outputTokens": 129,
+      "attributedCost": "0.000082992",
+      "providerCost": "0.000082992"
+    },
+    {
       "requestHash": "21f629b83fea58056b5501d447ff4f8dddfbb09a9ca0d1988d01a8a1c22129b3",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-02 GENERAL NOTES (2 OF 2) & LAP-DEVELOPMENT TABLE · DXF_HANDLE:1FAA#1 · BAR BENDING TO BS 8666; THE IS ADDITIVE FIGURE IS PRINTED BE",
@@ -417,6 +527,17 @@
       "outputTokens": 24,
       "attributedCost": "0.000034524",
       "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "228ef5f799a307b6526a66d6faa87fefe3e9197fa2de73201e004d2909ba22bb",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 5",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1976,
+      "outputTokens": 129,
+      "attributedCost": "0.000082992",
+      "providerCost": "0.000082992"
     },
     {
       "requestHash": "22d3cb4d02e5d2e32ea9f2092b8ad46d289accffc792e6e7c6eec957722a9788",
@@ -507,6 +628,17 @@
       "providerCost": "0.000166488"
     },
     {
+      "requestHash": "29700d7fade1e5ddd6e78250f7b5124026b4b908621c1d7ca87f3fbdada100c9",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50 · row 4",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1974,
+      "outputTokens": 129,
+      "attributedCost": "0.000082908",
+      "providerCost": "0.000082908"
+    },
+    {
       "requestHash": "2ac84203e9b78393c930ee5e96c5d8cf55cc51a44f6834e0f2a56b00f2094327",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-02 GENERAL NOTES (2 OF 2) & LAP-DEVELOPMENT TABLE · DXF_HANDLE:1F76#1 · LAP 50d TENSION / 40d COMPRESSION U.N.O.",
@@ -551,6 +683,17 @@
       "providerCost": "0.000037212"
     },
     {
+      "requestHash": "2e8a081fb64443a589d310ad6d4129910d55e1f912e84ce42af947ead4536614",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 4",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1137,
+      "outputTokens": 57,
+      "attributedCost": "0.000047754",
+      "providerCost": "0.000047754"
+    },
+    {
       "requestHash": "2e91563ec7f001efdd535597c527afd59b5928cf3364e4e37a2228e37339a58b",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-02 GENERAL NOTES (2 OF 2) & LAP-DEVELOPMENT TABLE · DXF_HANDLE:1F75#2 · 11. LAPS SHALL BE STAGGERED; NOT MORE THAN 50% OF BARS MAY B",
@@ -582,6 +725,17 @@
       "outputTokens": 81,
       "attributedCost": "0.000166488",
       "providerCost": "0.000166488"
+    },
+    {
+      "requestHash": "301b1dfe8f35454e65d5fcefd383d9fa26816ceb64f1e468a6e645572f9f73a5",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 15",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1978,
+      "outputTokens": 129,
+      "attributedCost": "0.000083076",
+      "providerCost": "0.000083076"
     },
     {
       "requestHash": "30274ee79cf775d55d5e1ce7b757d35081b32c8ed08bc7ebb4f3cf6a3347f283",
@@ -626,6 +780,17 @@
       "outputTokens": 93,
       "attributedCost": "0.000061824",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "3571a081992b4cabce8be0fc7e1c57ca8191ea9a010003e15c1d6e8bbebe656f",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50 · row 1",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1974,
+      "outputTokens": 129,
+      "attributedCost": "0.000082908",
+      "providerCost": "0.000082908"
     },
     {
       "requestHash": "35d0f8618fa9d9a82bfb384095b003f7a9617e8d01eb14e8aa6d1332e44b82f6",
@@ -705,6 +870,28 @@
       "providerCost": "0.00003486"
     },
     {
+      "requestHash": "3a6e185a0848a478045085d0115bbc8b880a159b63a8ab68c8c476a829c12402",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 4",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1976,
+      "outputTokens": 129,
+      "attributedCost": "0.000082992",
+      "providerCost": "0.000082992"
+    },
+    {
+      "requestHash": "3c00e4d1eb0235620af421c9d196179ed8d896815431c57c8267867bab50a94f",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 12",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1978,
+      "outputTokens": 129,
+      "attributedCost": "0.000083076",
+      "providerCost": "0.000083076"
+    },
+    {
       "requestHash": "3d18a0b0b5f3eb2691b535b818bd2b9c10b6cc3f0938b744094efeb7d5a1909e",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · C3 · DXF_HANDLE:335",
@@ -714,6 +901,17 @@
       "outputTokens": 24,
       "attributedCost": "0.000034524",
       "providerCost": "0.000034524"
+    },
+    {
+      "requestHash": "3d9398c70e2ae7739c7ce3779bb7985e656cc731444d5212359fdf0ba4b2a3a4",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · PILE CAP SCHEDULE  SCALE 1:50 · row 5",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1536,
+      "outputTokens": 93,
+      "attributedCost": "0.000064512",
+      "providerCost": "0.000064512"
     },
     {
       "requestHash": "3d9700e74c42f5745d7366dfef46703d2c085d4a0f8e2247a5addd680e48bb57",
@@ -738,6 +936,50 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "3eb65e97a3dab1679cfd669348985d312de07f28480aeb8756ac19212ac50771",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 3",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1976,
+      "outputTokens": 129,
+      "attributedCost": "0.000082992",
+      "providerCost": "0.000082992"
+    },
+    {
+      "requestHash": "3f5008fc6b110a91fa21f674e74cdb5337f66247fd96cab757a901b024ea6f51",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 1",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1976,
+      "outputTokens": 129,
+      "attributedCost": "0.000082992",
+      "providerCost": "0.000082992"
+    },
+    {
+      "requestHash": "3f70bedec10482c95aacefedc30578381b428cfe2779632abd47db5c4d79179d",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 9",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1973,
+      "outputTokens": 129,
+      "attributedCost": "0.000082866",
+      "providerCost": "0.000082866"
+    },
+    {
+      "requestHash": "40a21e7f3b28a7b8e52685c5e87f5dade683afddddf3e1f6b1a753ee391b46af",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50 · row 2",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1974,
+      "outputTokens": 129,
+      "attributedCost": "0.000082908",
+      "providerCost": "0.000082908"
+    },
+    {
       "requestHash": "40e6ee9f01429d3f4d77be2b9de166b84e9c85d2a9c77a94e9379387879ee694",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 5",
@@ -747,6 +989,17 @@
       "outputTokens": 93,
       "attributedCost": "0.00006174",
       "providerCost": "0.00006174"
+    },
+    {
+      "requestHash": "4207fd299efe1559e61f654172da2b462e2e9f12d492e21a3db07ad806ca27db",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50 · row 12",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1984,
+      "outputTokens": 129,
+      "attributedCost": "0.000083328",
+      "providerCost": "0.000083328"
     },
     {
       "requestHash": "42175d9549fcbde84e75feb289d82b971d46433f2d9555ce174fdf666d2656fb",
@@ -892,6 +1145,28 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "4c9053e696c225fc60035b3e4f5e6f7811cf5ec51cbb12892c385945110c2053",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 18",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1978,
+      "outputTokens": 129,
+      "attributedCost": "0.000083076",
+      "providerCost": "0.000083076"
+    },
+    {
+      "requestHash": "4c9a44e863ae211ba09cd6fcd5f67dac117a3dc31658a4158f52fdb0312a4011",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 8",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1973,
+      "outputTokens": 129,
+      "attributedCost": "0.000082866",
+      "providerCost": "0.000082866"
+    },
+    {
       "requestHash": "4ca24ae9fd437876372ac2842cadfbe73372f46b420aeb403a1549801cc37902",
       "question": "sheet-revision-recency",
       "subject": "rcc6-bnbc.dxf · S-16 BEAM DETAILS (1 OF 3) - 1ST FLOOR",
@@ -934,6 +1209,17 @@
       "outputTokens": 93,
       "attributedCost": "0.00006174",
       "providerCost": "0.00006174"
+    },
+    {
+      "requestHash": "509c473c804dfd99cd18825f21e889b216b032e38facc37546a8bb24f4468e57",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 10",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1973,
+      "outputTokens": 129,
+      "attributedCost": "0.000082866",
+      "providerCost": "0.000082866"
     },
     {
       "requestHash": "50c0959283b66cb462a9887a64fd33093294568d556e0aec206c7d4f2f66dae0",
@@ -1002,6 +1288,28 @@
       "providerCost": "0.000166488"
     },
     {
+      "requestHash": "5989751fec4dc8f0fe9e2a013d1b9ce40c562265156ca62d728c883c63697048",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 2",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1973,
+      "outputTokens": 129,
+      "attributedCost": "0.000082866",
+      "providerCost": "0.000082866"
+    },
+    {
+      "requestHash": "59d152eb3f8cb163681a805d4bfa28ebd47d44ca2c78dab3e4fda528949cb696",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 1",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1137,
+      "outputTokens": 57,
+      "attributedCost": "0.000047754",
+      "providerCost": "0.000047754"
+    },
+    {
       "requestHash": "5a81417d49afdf3a57cdebef57bb64d1b3a3269ccdfa2fde440a2de1288037ad",
       "question": "view-caption",
       "subject": "rcc6-bnbc.dxf · DXF_HANDLE:2266 · SEPTIC TANK  SCALE 1:50",
@@ -1044,6 +1352,17 @@
       "outputTokens": 89,
       "attributedCost": "0.000037002",
       "providerCost": "0.000037002"
+    },
+    {
+      "requestHash": "63f1f0df89f4d7b7becaad2a66e24202a2ee9eede71f1257d33d912dbbde1e21",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 7",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1973,
+      "outputTokens": 129,
+      "attributedCost": "0.000082866",
+      "providerCost": "0.000082866"
     },
     {
       "requestHash": "65ca973b256e3fd28d67324221574d9712a92de7229684bf078fc1024de8568c",
@@ -1112,6 +1431,17 @@
       "providerCost": "0.000046956"
     },
     {
+      "requestHash": "6a536b130b32ea7036c2f2cad6032ee5d12543dcbe64beaaa313571c995ce0f4",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 14",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1978,
+      "outputTokens": 129,
+      "attributedCost": "0.000083076",
+      "providerCost": "0.000083076"
+    },
+    {
       "requestHash": "6b1995d53f2fd70d182154a9da778910aac369e7b77e7e8679e69f2960e2c74c",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:1F3F#5 · 9. LEGACY IMPERIAL BAR CALLS: #3 = 10Ø, #4 = 12Ø, #5 = 16Ø, ",
@@ -1156,6 +1486,28 @@
       "providerCost": "0.00003486"
     },
     {
+      "requestHash": "6ceff8a5ccb78f787ba8c42d6ddbfec4ca774d77afb0fffe8610d22ee21e0ae3",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 7",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1976,
+      "outputTokens": 129,
+      "attributedCost": "0.000082992",
+      "providerCost": "0.000082992"
+    },
+    {
+      "requestHash": "6d26767879a57e705c61f18904ef164f33ab62e3290e2465d16dfe97fcef793e",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 3",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1973,
+      "outputTokens": 129,
+      "attributedCost": "0.000082866",
+      "providerCost": "0.000082866"
+    },
+    {
       "requestHash": "6ece8897cbfc8ac780334c2249bf9f48be1a090557d8db18685720ee17fe8c91",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:1F3E#3 · 2. DESIGN CODE: BNBC 2020, ACI 318-19 WHERE THE CODE IS SILE",
@@ -1189,6 +1541,17 @@
       "providerCost": "0.00003486"
     },
     {
+      "requestHash": "706a9bf89ee95782a18c55dc7e6ae0a12bfb0f6a6e7b02d893444bc6dcf15507",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 8",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1976,
+      "outputTokens": 129,
+      "attributedCost": "0.000082992",
+      "providerCost": "0.000082992"
+    },
+    {
       "requestHash": "70d4d29f8e56fc8460cc22e796dccd9c2fe66fd970e1aa505dfd2043181fd14f",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 11",
@@ -1211,6 +1574,17 @@
       "providerCost": "0.000021504"
     },
     {
+      "requestHash": "71e5da52325c83b49b4476180601cbb53911282f1128fef84fe168a4a97f78e6",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 20",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1977,
+      "outputTokens": 129,
+      "attributedCost": "0.000083034",
+      "providerCost": "0.000083034"
+    },
+    {
       "requestHash": "7207f9be34ce553eb3a416e80185436c1972e6a05723c52d9533a9a2819fb348",
       "question": "sheet-revision-recency",
       "subject": "rcc6-bnbc.dxf · S-23 LIFT CORE & SHEAR WALL DETAILS",
@@ -1231,6 +1605,17 @@
       "outputTokens": 89,
       "attributedCost": "0.000042336",
       "providerCost": "0.000042336"
+    },
+    {
+      "requestHash": "73f36b01d4baa7124aa25a451b95e4a8064c123adf4023a9657500be4456f73f",
+      "question": "boq-line-description",
+      "subject": "arch · brick_wall · masonry.brickwork · 250 mm nominal · 3 candidates",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1179,
+      "outputTokens": 129,
+      "attributedCost": "0.000049518",
+      "providerCost": "0.000049518"
     },
     {
       "requestHash": "75942a410b55f9353ff2fce8376ec1013c14274308844eafd9be4ab61d93350a",
@@ -1321,6 +1706,28 @@
       "providerCost": "0.000047418"
     },
     {
+      "requestHash": "7b3a040c1003c77d0475d674d4ba5a04a13641ebc970ed2c5ab214f42991cb9e",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 10",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1978,
+      "outputTokens": 129,
+      "attributedCost": "0.000083076",
+      "providerCost": "0.000083076"
+    },
+    {
+      "requestHash": "7d9662fa9a9d1aa88cf5a0cbc0cd7ee06652c6ee19bd6476637d0bb8171b2684",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 14",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1973,
+      "outputTokens": 129,
+      "attributedCost": "0.000082866",
+      "providerCost": "0.000082866"
+    },
+    {
       "requestHash": "7db57421af2aea4ffe66e23e9efac1b3a7cef39d7eb864e246c90ad98716bde5",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · PC1 · DXF_HANDLE:17B",
@@ -1330,6 +1737,17 @@
       "outputTokens": 24,
       "attributedCost": "0.00003486",
       "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "7f02f06486b7e627e21cfb603d657ef2beda1de31a207cd7f768432273601702",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50 · row 6",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1974,
+      "outputTokens": 129,
+      "attributedCost": "0.000082908",
+      "providerCost": "0.000082908"
     },
     {
       "requestHash": "80669681e286cece2db7b549d6a16af4dbb420ade745ed6d6b876c053fa47d22",
@@ -1352,6 +1770,28 @@
       "outputTokens": 89,
       "attributedCost": "0.000036162",
       "providerCost": "0.000036162"
+    },
+    {
+      "requestHash": "82dfefdef605cf67717cc209ee68ea7e9a1e7a7666bba9aab4103dad5830700e",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 11",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1545,
+      "outputTokens": 93,
+      "attributedCost": "0.00006489",
+      "providerCost": "0.00006489"
+    },
+    {
+      "requestHash": "832c5f423606998dc4a2a0d5d719f377c2b521728ded1896caf67240d9f07406",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 13",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1974,
+      "outputTokens": 129,
+      "attributedCost": "0.000082908",
+      "providerCost": "0.000082908"
     },
     {
       "requestHash": "850c158e9ef06f06839aab488d2d1cc69c7f0974d214b6fee14122152622b1eb",
@@ -1629,6 +2069,28 @@
       "providerCost": "0.00003801"
     },
     {
+      "requestHash": "9bddd8f43965c3f57e4c5c3b85733616ee55b1fa77b1a0fd4158e202d926b415",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 4",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1973,
+      "outputTokens": 129,
+      "attributedCost": "0.000082866",
+      "providerCost": "0.000082866"
+    },
+    {
+      "requestHash": "9c0b54f4b9fd74d60f85ae798620bd4fe5dddf353329855514e0eabe0b73f4dd",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 6",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1973,
+      "outputTokens": 129,
+      "attributedCost": "0.000082866",
+      "providerCost": "0.000082866"
+    },
+    {
       "requestHash": "9ec2b05d827ffc174cf75cf8337bdd0b935922d6f108fae6b143e66d24a51a6f",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:1F46#1 · 2\" clear cover (pile caps)",
@@ -1662,6 +2124,17 @@
       "providerCost": "0.000166488"
     },
     {
+      "requestHash": "a011522e041124118da614080fba55e78bc6cb0a2fe1c9c7061c8bc2c3e037fd",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50 · row 5",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1974,
+      "outputTokens": 129,
+      "attributedCost": "0.000082908",
+      "providerCost": "0.000082908"
+    },
+    {
       "requestHash": "a29bceca182dcc5ebba4e904dfc4b0305af5f90be2b10befa489606f27534793",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 11",
@@ -1684,6 +2157,28 @@
       "providerCost": "0.000166488"
     },
     {
+      "requestHash": "a308af2fb301f45787c5adba3cf7ccb96d43068d67148b325a338bd0159721d5",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50 · row 7",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1974,
+      "outputTokens": 129,
+      "attributedCost": "0.000082908",
+      "providerCost": "0.000082908"
+    },
+    {
+      "requestHash": "a4120ce183ca795776c900e81dcd4bd903d45d483aaf7be21f6457d39c039c20",
+      "question": "note-clause",
+      "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:26C8#1 · 30mm clear cover (tanks)",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 851,
+      "outputTokens": 89,
+      "attributedCost": "0.000035742",
+      "providerCost": "0.000035742"
+    },
+    {
       "requestHash": "a4f02b417732c9fe2362451c6d0abface235a71732dbb03d23c0769331c94d10",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 24",
@@ -1693,6 +2188,17 @@
       "outputTokens": 93,
       "attributedCost": "0.000061824",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "a82e64a01b9d9451756ffad062ec0a4aa855f75320496d32602fc7508f6435d3",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50 · row 13",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1974,
+      "outputTokens": 129,
+      "attributedCost": "0.000082908",
+      "providerCost": "0.000082908"
     },
     {
       "requestHash": "a91b11bad8be7ad1bc5d99e182482ebe8112f9169ffee26165ae341d0b0350c4",
@@ -1772,6 +2278,17 @@
       "providerCost": "0.00003486"
     },
     {
+      "requestHash": "adba078a4bf038978783158df9ad7709e1b91fc00f40adde2eb6afd74c0ff732",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 9",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1976,
+      "outputTokens": 129,
+      "attributedCost": "0.000082992",
+      "providerCost": "0.000082992"
+    },
+    {
       "requestHash": "ae68f7f43fb887dc7c9044a0a7970f30820113dff57b47cd2c418aef8576aa7e",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · LINTEL & SUNSHADE SCHEDULE · row 5",
@@ -1781,6 +2298,17 @@
       "outputTokens": 57,
       "attributedCost": "0.000041538",
       "providerCost": "0.000041538"
+    },
+    {
+      "requestHash": "aedc403aa83656a0ce0444799d334c63178b076aaf9c9ce2abd55d216ef3b67a",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 2",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1976,
+      "outputTokens": 129,
+      "attributedCost": "0.000082992",
+      "providerCost": "0.000082992"
     },
     {
       "requestHash": "b265d92804c548480a94b99531752eb2f26f2a3a65e394bbbf211394c3d5b3fb",
@@ -1838,6 +2366,17 @@
       "providerCost": "0.00003486"
     },
     {
+      "requestHash": "b5933a62c9282c5b94f3ccbccfbd01910e923906f21fcfdbb9b5d8cd33bd5fdc",
+      "question": "boq-line-description",
+      "subject": "arch · brick_wall · masonry.brickwork · 125 mm nominal partition · 3 candidates",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1179,
+      "outputTokens": 129,
+      "attributedCost": "0.000049518",
+      "providerCost": "0.000049518"
+    },
+    {
       "requestHash": "b6b2ed15a35915d0b9daa678eda166c338f19a58ebd2d2a0c80d4ade5e99786e",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · F1 · DXF_HANDLE:169",
@@ -1880,6 +2419,17 @@
       "outputTokens": 53,
       "attributedCost": "0.000034944",
       "providerCost": "0.000034944"
+    },
+    {
+      "requestHash": "bc6e40b1db2324d4a61cb890992fede86932ab6854c337ad9d96690c8423277f",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50 · row 9",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1974,
+      "outputTokens": 129,
+      "attributedCost": "0.000082908",
+      "providerCost": "0.000082908"
     },
     {
       "requestHash": "bcc070d0e4cdcd2045f9d8c52844e0d76672390ebcc0ff085c71bb9fa1e435f6",
@@ -1948,6 +2498,17 @@
       "providerCost": "0.00003486"
     },
     {
+      "requestHash": "c2f8df9cb3e380acf02f1f03d9afb6c5431f2e163777f240fdef28d06c6cdbef",
+      "question": "note-clause",
+      "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:26C7#1 · 75mm clear cover (piles & footings)",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 854,
+      "outputTokens": 89,
+      "attributedCost": "0.000035868",
+      "providerCost": "0.000035868"
+    },
+    {
       "requestHash": "c35843ac42736d2adc022e6355516ad3704c2aa6b20a15567d43ee6764269caf",
       "question": "note-clause",
       "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:1F3E#6 · 5. DO NOT SCALE THIS DRAWING - FIGURED DIMENSIONS GOVERN.",
@@ -1957,6 +2518,17 @@
       "outputTokens": 89,
       "attributedCost": "0.000036078",
       "providerCost": "0.000036078"
+    },
+    {
+      "requestHash": "c4d8024fc59408316ce0d871671bfc378ad4a5606245a78011ec6423ee89a8ef",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 6",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1976,
+      "outputTokens": 129,
+      "attributedCost": "0.000082992",
+      "providerCost": "0.000082992"
     },
     {
       "requestHash": "c4db95e3f6bf79a1971f06932ae08139a5e3692cab4cae911870bda63a6388fa",
@@ -2036,6 +2608,17 @@
       "providerCost": "0.000061824"
     },
     {
+      "requestHash": "cead2498bcc9de6e9bd1681edb3050ac54317558cf604c01539bd6b08a5231e7",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · PILE CAP SCHEDULE  SCALE 1:50 · row 4",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1536,
+      "outputTokens": 93,
+      "attributedCost": "0.000064512",
+      "providerCost": "0.000064512"
+    },
+    {
       "requestHash": "ceb7984b6141c930143d1793bdcd61a32e70a445f0b1e8db197fa497875e7dae",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · C4 · DXF_HANDLE:331",
@@ -2078,6 +2661,17 @@
       "outputTokens": 89,
       "attributedCost": "0.000035868",
       "providerCost": "0.000035868"
+    },
+    {
+      "requestHash": "d0dcf5ab834784ef45944e00d1ff183e2941a8505c01067ee24607707890d9c6",
+      "question": "boq-line-description",
+      "subject": "rcc6-bnbc · footing · earthwork.excavation · pit not deeper than 1.5 m · 2 candidates",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1256,
+      "outputTokens": 110,
+      "attributedCost": "0.000052752",
+      "providerCost": "0.000052752"
     },
     {
       "requestHash": "d19686328f109fd1c5ef562902006195070f56a152007881af050f13a54a8949",
@@ -2124,6 +2718,17 @@
       "providerCost": "0.000034524"
     },
     {
+      "requestHash": "d59662b6bfaa59fc6f3295d10f48b00b2530203bd24f57e62279489366b02231",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · PILE CAP SCHEDULE  SCALE 1:50 · row 2",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1536,
+      "outputTokens": 93,
+      "attributedCost": "0.000064512",
+      "providerCost": "0.000064512"
+    },
+    {
       "requestHash": "d5e52b2264b8017f313741cbfbb31553372c17be91f15fe38379967e6001e949",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 12",
@@ -2133,6 +2738,17 @@
       "outputTokens": 93,
       "attributedCost": "0.000061824",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "d5e9d7886bc43998c5019e0cc630f1cd4ae655d839955d468e51c6e2b8eca9b4",
+      "question": "boq-line-description",
+      "subject": "rcc6-bnbc · pile_cap · earthwork.excavation · pit deeper than 1.5 m · 2 candidates",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1259,
+      "outputTokens": 110,
+      "attributedCost": "0.000052878",
+      "providerCost": "0.000052878"
     },
     {
       "requestHash": "d6608e4c796d8e3f505ba0f563144c34b5f4522908a78e6c42a6c68d79deb13d",
@@ -2155,6 +2771,17 @@
       "outputTokens": 102,
       "attributedCost": "0.000066486",
       "providerCost": "0.000066486"
+    },
+    {
+      "requestHash": "d6dccf867359fac3c80359e1999e4af0d679f018f1c3f2f2190cb14156d91a5e",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · PILE CAP SCHEDULE  SCALE 1:50 · row 3",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1536,
+      "outputTokens": 93,
+      "attributedCost": "0.000064512",
+      "providerCost": "0.000064512"
     },
     {
       "requestHash": "d81aaa2659083c5ea01db9a75401b4d01414ae430c621d50a2523a2e4b9851a2",
@@ -2223,6 +2850,17 @@
       "providerCost": "0.000036204"
     },
     {
+      "requestHash": "d9e8f480f90a025d7ce0485b9bb893faa4073ac393dd69ca4acc0c634e7f2a73",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50 · row 8",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1974,
+      "outputTokens": 129,
+      "attributedCost": "0.000082908",
+      "providerCost": "0.000082908"
+    },
+    {
       "requestHash": "da1d7444953eb51b1856a3bce84fcf9b38933f5e44d77106fab0b69fb51f8383",
       "question": "outline-corroboration",
       "subject": "rcc6.dxf · C2 · DXF_HANDLE:34B",
@@ -2254,6 +2892,17 @@
       "outputTokens": 24,
       "attributedCost": "0.00003486",
       "providerCost": "0.00003486"
+    },
+    {
+      "requestHash": "dc3100d67b5c593735ae90ef5e37ba6f757bd3ae527d2c4df33eb3073ec512e0",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · PILE SCHEDULE  SCALE 1:50 · row 1",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1303,
+      "outputTokens": 75,
+      "attributedCost": "0.000054726",
+      "providerCost": "0.000054726"
     },
     {
       "requestHash": "dd60ac8ba32890425b869c395968ee6e1158ceba51f0352e19647a46f0151085",
@@ -2322,6 +2971,17 @@
       "providerCost": "0.00003486"
     },
     {
+      "requestHash": "e41f410cc6a0ba4b4b8b252f5cea58da0bc9b67357b3af83bf952a9cd799fbea",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (TYPICAL FLOOR)  SCALE 1:50 · row 10",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1974,
+      "outputTokens": 129,
+      "attributedCost": "0.000082908",
+      "providerCost": "0.000082908"
+    },
+    {
       "requestHash": "e4fa52e697a5a5a153530abbc4100bffa01756d3d7f96feb809c55f5c439bacc",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (1 OF 2) · row 24",
@@ -2331,6 +2991,28 @@
       "outputTokens": 93,
       "attributedCost": "0.000061824",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "e6bb64779df5735db2b55d86fe3adc0be10fbdc700c130045bcc65bec9159ba5",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 2",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1136,
+      "outputTokens": 57,
+      "attributedCost": "0.000047712",
+      "providerCost": "0.000047712"
+    },
+    {
+      "requestHash": "e6dace49295ef6925f7587e913a2e0aac01f4f74ed46a275fe97e44101ca8377",
+      "question": "note-clause",
+      "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:26CA#1 · 20mm clear cover (walls, stairs & parapet)",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 855,
+      "outputTokens": 89,
+      "attributedCost": "0.00003591",
+      "providerCost": "0.00003591"
     },
     {
       "requestHash": "e86845cbebf1fa86515b959394a8d08f5e26630d687e34028673fd8a2ba2caca",
@@ -2542,6 +3224,28 @@
       "providerCost": "0.000041412"
     },
     {
+      "requestHash": "f8605eddeb9b83245b78c11ad356d95986be2e9a56eca31811e9267185357c56",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (ROOF & STAIR ROOF)  SCALE 1:50 · row 17",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1978,
+      "outputTokens": 129,
+      "attributedCost": "0.000083076",
+      "providerCost": "0.000083076"
+    },
+    {
+      "requestHash": "f87aa0e26745eaa6defc6bc235aea401c607d35503edd2e0a8a8445eff932974",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · PILE CAP SCHEDULE  SCALE 1:50 · row 1",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1536,
+      "outputTokens": 93,
+      "attributedCost": "0.000064512",
+      "providerCost": "0.000064512"
+    },
+    {
       "requestHash": "f87bf778cb1a3f9f0fa477fd5957bdd5f44f4d416314e69f42fbe2679a00d5a2",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 3",
@@ -2619,6 +3323,17 @@
       "providerCost": "0.000061782"
     },
     {
+      "requestHash": "fbaacb19e65f3a1fdca818513294a88dd9cf625b5f38548cd415bb02cf4a6444",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · SLAB PANEL SCHEDULE (1ST FLOOR)  SCALE 1:50 · row 1",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1973,
+      "outputTokens": 129,
+      "attributedCost": "0.000082866",
+      "providerCost": "0.000082866"
+    },
+    {
       "requestHash": "fc3f5b9ffffc1c01cedc93570c114625841633e786ccefc0b21eb2b3b7ddc92f",
       "question": "schedule-cell",
       "subject": "rcc6-bnbc.dxf · ROOF BEAM SCHEDULE (2 OF 2) · row 20",
@@ -2628,6 +3343,17 @@
       "outputTokens": 93,
       "attributedCost": "0.000061824",
       "providerCost": "0.000061824"
+    },
+    {
+      "requestHash": "fc8cc39808cd3c1d3af1796172b509de402ea901186f5c109a890123bf85afdd",
+      "question": "note-clause",
+      "subject": "rcc6-bnbc.dxf · S-01 GENERAL NOTES (1 OF 2) · DXF_HANDLE:26C9#1 · 25mm clear cover (lintels)",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 851,
+      "outputTokens": 89,
+      "attributedCost": "0.000035742",
+      "providerCost": "0.000035742"
     },
     {
       "requestHash": "fc8d6a6dafdd0ff23f96d256f0b5e0037fcb6d258bffb7080a1f4fe803b79370",
@@ -2650,6 +3376,17 @@
       "outputTokens": 417,
       "attributedCost": "0.00023436",
       "providerCost": "0.00023436"
+    },
+    {
+      "requestHash": "ffece4ad28359ce1b7608e17ef6ddc885c0ff7feef9efa2ff371ba4d8ee5e523",
+      "question": "schedule-cell",
+      "subject": "rcc6-bnbc.dxf · BAR BENDING SCHEDULE (SAMPLE) · row 5",
+      "recordedOn": "2026-09-24",
+      "provider": "jev-1.13.0",
+      "inputTokens": 1117,
+      "outputTokens": 57,
+      "attributedCost": "0.000046914",
+      "providerCost": "0.000046914"
     }
   ]
 }

@@ -78,6 +78,35 @@ function leftOutOf(omitted: readonly BbsOmission[]): BbsPayload["leftOut"] {
   });
 }
 
+/**
+ * The bars the door DECLARED rather than scheduled — bent to a shape the roster does not hold — in
+ * the door's own order, with the registry's own sentence for why and the mass the door kept out of
+ * its totals (I-596). Nothing is summed here: the excluded mass is the door's `declaredKg`.
+ * None declared is `null`, and the page then says nothing of it.
+ */
+function declaredOf(document_: BbsDocument, stated: { length(value: string): string; count(value: string): string; mass(value: string): string }): BbsPayload["declared"] {
+  if (document_.declared.length === 0) return null;
+  const entry = registered("BAR_SHAPE_NOT_HELD");
+  if (entry === undefined) throw new Error("BAR_SHAPE_NOT_HELD is not registered, so a declared bar has no reason to be printed with");
+  return {
+    reason: entry.message,
+    kg: stated.mass(document_.declaredKg),
+    bars: document_.declared.map((line) => ({
+      level: line.level,
+      class: line.class,
+      mark: line.mark,
+      members: line.members.length,
+      barMark: line.barMark,
+      role: line.role,
+      diameterMm: line.diameterMm,
+      shape: line.shape,
+      cuttingRawMm: stated.length(line.cuttingRawMm),
+      bars: stated.count(line.bars),
+      kg: stated.mass(line.kg),
+    })),
+  };
+}
+
 /** The campaign's bill of bars, as the `bbs` kind is rendered from it (test contract). */
 export function bbsPayloadOf(document_: BbsDocument, meta: BbsPayloadMeta): BbsPayload {
   /* Each figure at the fraction length the document STATES that kind of figure at. The store keeps
@@ -169,6 +198,7 @@ export function bbsPayloadOf(document_: BbsDocument, meta: BbsPayloadMeta): BbsP
     stockWithheld: [...standing.withheld],
     grandTotalKg: mass(document_.grandTotalKg),
     totalCovers: totalCoversOf(document_, { partial: meta.partial, omitted: meta.omitted, notInSchedule: notInSchedule.length }),
+    declared: declaredOf(document_, { length, count, mass }),
     partial: meta.partial,
     leftOut: meta.partial ? leftOutOf(meta.omitted) : [],
     notInSchedule: notInSchedule.map((one) => ({ about: one.about, levels: one.levels, why: one.why })),

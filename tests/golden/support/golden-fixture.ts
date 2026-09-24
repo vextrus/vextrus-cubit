@@ -38,10 +38,15 @@ export const GOLDEN_FIXTURE = goldenFixturePath();
  *
  * Schema 1 (F-RCC6) is a ledger keyed (class, kind, level) with a quantity, its unit and the
  * formula it came from. Schema 2 (F-RCC6-BNBC) keys the same way — `kind` there reaches beyond
- * RCC_CONCRETE/FORMWORK to REBAR, PILE_LENGTH, PILE_COUNT, EXCAVATION, BLINDING and BRICKWORK —
- * and carries the grade, the bar diameter, the component the quantity is (NET, LAP, EDGE) and the
- * members it came from. The optional fields are exactly the ones schema 1 omits, so one type
- * admits both and a reader that only knows schema 1 still reads a schema-2 row.
+ * RCC_CONCRETE/FORMWORK to REBAR, PILE_LENGTH, PILE_COUNT, EXCAVATION and BLINDING — and carries
+ * the grade, the bar diameter, the component the quantity is (NET, LAP, EDGE) and the members it
+ * came from. The optional fields are exactly the ones schema 1 omits, so one type admits both and a
+ * reader that only knows schema 1 still reads a schema-2 row.
+ *
+ * Brickwork has one home, F-ARCH (R0-G3, D-009): the brick walls are the architect's members,
+ * and BRICK_WALL × BRICKWORK is read from `goldenRows("arch")`, which deducts BNBC's S-25 lintels.
+ * BNBC's generator bills no BRICKWORK and keeps its LINTEL rows; its committed golden drops the
+ * retired rows with R0's baseline.
  */
 export type GoldenRow = {
   class: string;
@@ -96,6 +101,7 @@ export const PRODUCT_TO_GOLDEN_KIND: Readonly<Record<string, string>> = Object.f
   "rcc.concrete": "RCC_CONCRETE",
   "rcc.formwork": "FORMWORK",
   "rcc.rebar": "REBAR",
+  // Brickwork's rows are F-ARCH's (`goldenRows("arch")`), not BNBC's (R0-G3, D-009).
   "masonry.brickwork": "BRICKWORK",
   "earthwork.excavation": "EXCAVATION",
   "pcc.blinding": "BLINDING",

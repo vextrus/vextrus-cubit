@@ -70,6 +70,14 @@ export type BbsDocument = {
   readonly perMarkKg: Readonly<Record<string, string>>;
   readonly cuttingStock: Readonly<Record<string, CuttingStockAnswer>>;
   readonly grandTotalKg: string;
+  /**
+   * The bars bent to a shape this tree's BS 8666 roster does not hold (`SHAPE_CODES`), stated once
+   * per floor exactly as the schedule's lines are — DECLARED, never scheduled: no total, no mark
+   * total and no cutting stock reads them, and nothing is dropped (I-596, BAR_SHAPE_NOT_HELD).
+   */
+  readonly declared: readonly BbsLine[];
+  /** What the declared bars weigh as their rows state it, excluded from `grandTotalKg` and said so. */
+  readonly declaredKg: string;
 };
 
 /**
@@ -374,7 +382,15 @@ export async function bbsOf(scope: BbsScope): Promise<BbsDocument> {
  * the lines are those same rows counted per floor (I-534): an exact sum grouped is the same exact
  * sum, so no total moves because the schedule states a mark once.
  */
-export function bbsDocumentOf(campaignId: string, rows: readonly BarRow[]): BbsDocument {
+export function bbsDocumentOf(campaignId: string, all: readonly BarRow[]): BbsDocument {
+  // A bar whose shape the roster does not hold has no cutting length this tree derives, no sketch
+  // the document draws and no piece the stock packs: it is DECLARED beside the schedule, by name,
+  // and its mass is kept out of every total and stated as kept out — never billed on a shape nobody
+  // holds, never silently dropped, and never a schema failure of the document (I-596).
+  const rows = all.filter((row) => isShapeCode(row.shape));
+  const unheld = all.filter((row) => !isShapeCode(row.shape));
+  let declaredKg = exact(0);
+  for (const row of unheld) declaredKg = declaredKg.add(exact(row.kg));
   const perDiameterKg: Record<string, string> = {};
   const perMarkKg: Record<string, string> = {};
   let grand = exact(0);
@@ -406,5 +422,7 @@ export function bbsDocumentOf(campaignId: string, rows: readonly BarRow[]): BbsD
     perMarkKg,
     cuttingStock: cuttingStockOf(pieces, stockMm),
     grandTotalKg: grand.toString(),
+    declared: scheduleOf(unheld),
+    declaredKg: declaredKg.toString(),
   };
 }

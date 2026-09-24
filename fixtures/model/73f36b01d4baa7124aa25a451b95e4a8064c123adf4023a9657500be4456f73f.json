@@ -1,0 +1,61 @@
+{
+  "requestHash": "73f36b01d4baa7124aa25a451b95e4a8064c123adf4023a9657500be4456f73f",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "item": "masonry.brickwork/brick_wall/nominal-250"
+    },
+    "sources": [
+      "DXF_HANDLE:gCH"
+    ]
+  },
+  "inputTokens": 1179,
+  "outputTokens": 129,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.98,
+    "answers": {
+      "item_description": {
+        "type": "choice",
+        "value": "masonry.brickwork/brick_wall/nominal-250",
+        "confidence": 0.98,
+        "probabilities": {
+          "masonry.brickwork/brick_wall/nominal-250": 0.99,
+          "masonry.brickwork/brick_wall/nominal-375": 0,
+          "masonry.brickwork/brick_wall/nominal-125": 0,
+          "NONE_OF_THESE": 0.01
+        }
+      },
+      "attributes_separate": {
+        "type": "noul",
+        "value": 0.96,
+        "confidence": null,
+        "probabilities": null
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "item_description": {
+        "type": "choice",
+        "choice": "masonry.brickwork/brick_wall/nominal-250",
+        "confidence": 0.98,
+        "probabilities": {
+          "masonry.brickwork/brick_wall/nominal-250": 0.99,
+          "masonry.brickwork/brick_wall/nominal-375": 0,
+          "masonry.brickwork/brick_wall/nominal-125": 0,
+          "NONE_OF_THESE": 0.01
+        }
+      },
+      "attributes_separate": {
+        "type": "noul",
+        "noul": 0.96
+      }
+    },
+    "usage": {
+      "input_tokens": 1179,
+      "output_tokens": 129
+    }
+  }
+}

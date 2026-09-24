@@ -584,7 +584,10 @@ export type SiteFactSetup = {
  * a cap whose concrete would read OVER, so it keeps its row and names the reading it lacks (L-QTY-04).
  *
  * `recess` is the void cast into the cap (a lift pit's, GC-5): its plan sides and its depth below the
- * cap's top, or null where no reader stated one.
+ * cap's top, or null where the set draws and names none. A recess the set draws or names but does
+ * not state in every direction carries the sides it does state and null for the rest, and the cap
+ * keeps its row naming `CAP_RECESS_UNSTATED` — a void read one way only is no void a rail can net,
+ * and the cap taken whole over it would read over (L-QTY-04, I-598).
  */
 export type CapJunctionSetup = {
   readonly piles: readonly string[];
@@ -593,11 +596,14 @@ export type CapJunctionSetup = {
   readonly recess: RecessSetup | null;
 };
 
-/** A recess cast into a pile cap: its two plan sides and its depth below the cap's top (I-546). */
+/**
+ * A recess cast into a pile cap: its two plan sides and its depth below the cap's top (I-546). A side
+ * is null where the set draws or names the recess but states nothing that direction (I-598).
+ */
 export type RecessSetup = {
-  readonly length: ReadingSetup;
-  readonly breadth: ReadingSetup;
-  readonly depth: ReadingSetup;
+  readonly length: ReadingSetup | null;
+  readonly breadth: ReadingSetup | null;
+  readonly depth: ReadingSetup | null;
 };
 
 /** The pinned edition a DERIVED reading is bound from: what it is, and what it states (L-MEA-01). */

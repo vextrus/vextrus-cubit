@@ -16,9 +16,9 @@ from fixtures.gen.rcc6_bnbc import __main__ as gen  # noqa: E402
 from fixtures.gen.rcc6_bnbc import selfcheck  # noqa: E402
 
 
-def test_selfcheck_passes_and_covers_the_36_cells() -> None:
+def test_selfcheck_passes_and_covers_the_40_cells() -> None:
     report = selfcheck.run()
-    assert report["cells"] == "36/36"
+    assert report["cells"] == "40/40"
     assert report["rows_per_kind"]["REBAR"] > 0
 
 
@@ -94,3 +94,17 @@ def test_golden_schema_2_rows_keep_the_schema_1_reader_shape() -> None:
         assert {"class", "kind", "level", "quantity", "unit", "formula"} <= set(row)
         if row["kind"] == "REBAR":
             assert row["component"] in ("NET", "LAP") and row["diameter_mm"] in (8, 10, 12, 16, 20, 25)
+
+
+def test_a_figure_below_zero_is_spelled_as_its_magnitude_after_a_minus() -> None:
+    """R0 W-20: check 5 reads a printed level through `ft_in`, so a level below zero must spell as
+    the drawing writes it — E.G.L (-1'-6") is -457.2 mm, never -152.4."""
+    from fixtures.gen.rcc6_bnbc.emit.scene import ft_in
+    from fixtures.gen.rcc6_bnbc.validate.facts import spellings
+
+    assert ft_in(-457.2) == "-1'-6\""
+    assert ft_in(-152.4) == "-0'-6\""
+    assert ft_in(-1524.0) == "-5'-0\""
+    assert ft_in(457.2) == "1'-6\""
+    assert "-1'-6\"" in spellings("-457.2")
+    assert "-1'-6\"" not in spellings("-152.4")

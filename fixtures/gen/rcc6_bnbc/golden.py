@@ -4,7 +4,8 @@ drawing). Imports the model only — never derive/emit code (cad/tests/rcc6_bnbc
 Rows: {class, kind, level, quantity, unit, formula} as F-RCC6's readers expect, plus optional
 `grade`, `diameter_mm`, `component`, `members`. Kinds: RCC_CONCRETE m3 · FORMWORK m2 (SIDES / SOFFIT /
 EDGE / RISERS) · REBAR kg (NET / LAP, by diameter) · PILE_LENGTH m · PILE_COUNT pcs · EXCAVATION m3 ·
-BLINDING m3 · BRICKWORK m3 (AM-07 subset, informational beyond the 36 cells).
+BLINDING m3. No BRICKWORK: the brick walls are F-ARCH's members and its golden bills them, deducting
+S-25's lintels, which this path keeps (R0-G3, D-009).
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ SHAPE_FORMULA: dict[str, str] = {
     "SP": "A",
     "CT": "A+2C−r−2d",
     "CRK": "A+2B−2r−4d",
+    "CH": "πA+2C−r−2d",
 }
 
 
@@ -48,6 +50,8 @@ def cutting_length(dia: int, shape: str, legs: list[Decimal]) -> Decimal:
         return a[0] + 2 * a[1] - r - 2 * d
     if shape == "CRK":
         return a[0] + 2 * a[1] - 2 * r - 4 * d
+    if shape == "CH":  # R0 GC-3: circular hoop, formula (iii), the only form AM-03(d) admits (W-28)
+        return M.PI * a[0] + 2 * a[1] - r - 2 * d
     raise KeyError(shape)
 
 
@@ -67,6 +71,8 @@ def is_additive_length(dia: int, shape: str, legs: list[Decimal]) -> Decimal:
         return a[0] + 2 * (10 * d) - 2 * (3 * d)
     if shape == "CRK":
         return a[0] + 2 * a[1] - 4 * d
+    if shape == "CH":
+        return M.PI * a[0] + 2 * (10 * d) - 2 * (3 * d)
     raise KeyError(shape)
 
 
@@ -177,8 +183,8 @@ class Golden:
                 c,
                 "RCC_CONCRETE",
                 lv,
-                m["area"] * m["depth"],
-                "sum(shoelace(plan) · depth)",
+                m["area"] * m["depth"] - m.get("pile_heads", D(0)) - m.get("recess", D(0)),
+                "sum(shoelace(plan) · depth − pile heads above the soffit − pit recess)",
                 g,
                 member=mid,
             )
@@ -186,8 +192,8 @@ class Golden:
                 c,
                 "FORMWORK",
                 lv,
-                m["perim"] * m["depth"],
-                "sum(perimeter · depth)  [sides only]",
+                m["perim"] * m["depth"] + m.get("recess_faces", D(0)),
+                "sum(perimeter · depth + recess sides)  [sides only]",
                 comp="SIDES",
                 member=mid,
             )
@@ -368,16 +374,6 @@ class Golden:
                 comp="SIDES",
                 member=mid,
             )
-        elif c == "BRICK_WALL":
-            self.add(
-                c,
-                "BRICKWORK",
-                lv,
-                (m["length"] * m["h"] - m["openings"]) * m["t"],
-                "sum((length · h − scheduled openings) · nominal t)",
-                comp=str(m["t"]),
-                member=mid,
-            )
 
     def slab(self, m: dict[str, Any]) -> None:
         c, lv, g, mid = "SLAB", m["level"], m["grade"], m["id"]
@@ -430,6 +426,9 @@ class Golden:
         edge = m["free_edge"] * m.get("t2", m["t"])
         for h in m["holes"]:
             if h["deducted"] and not h.get("outside") and h["kind"] != "SUNKEN":
+                if "reveal_mm2" in h:  # R0 K7: the manhole fallback is gone; an authored reveal bills
+                    edge += h["reveal_mm2"]
+                    continue
                 r = h.get("rect")
                 per = 2 * ((r[2] - r[0]) + (r[3] - r[1])) if r else D(2400)
                 edge += per * m["t"]
@@ -511,7 +510,7 @@ class Golden:
             m["class"],
             "BLINDING",
             m["level"],
-            (bb[2] - bb[0] + 2 * p) * (bb[3] - bb[1] + 2 * p) * tb,
+            (bb[2] - bb[0] + 2 * p) * (bb[3] - bb[1] + 2 * p) * tb - m.get("blinding_piles", D(0)),
             "sum((L + 2p) · (B + 2p) · t)",
             comp="CC",
             member=m["id"],
@@ -591,7 +590,6 @@ class Golden:
         "PILE_COUNT": ("pcs", D(1)),
         "EXCAVATION": ("m3", MM3),
         "BLINDING": ("m3", MM3),
-        "BRICKWORK": ("m3", MM3),
     }
     LEVELS: ClassVar[list[str]] = [
         "PILE",
@@ -620,7 +618,6 @@ class Golden:
         "STAIR",
         "LINTEL",
         "WALL",
-        "BRICK_WALL",
     ]
 
     def rows(self) -> list[dict[str, Any]]:

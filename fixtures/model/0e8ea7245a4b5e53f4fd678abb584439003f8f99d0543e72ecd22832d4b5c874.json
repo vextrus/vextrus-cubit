@@ -1,0 +1,124 @@
+{
+  "requestHash": "0e8ea7245a4b5e53f4fd678abb584439003f8f99d0543e72ecd22832d4b5c874",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "header": 0.02,
+      "cells": [
+        {
+          "column": 2,
+          "attribute": "ties",
+          "text": "12%%C @ 150",
+          "sourceKeys": [
+            "DXF_HANDLE:2524"
+          ]
+        },
+        {
+          "column": 3,
+          "attribute": "ties",
+          "text": "12%%C @ 150",
+          "sourceKeys": [
+            "DXF_HANDLE:2525"
+          ]
+        },
+        {
+          "column": 4,
+          "attribute": "ties",
+          "text": "12%%C @ 150",
+          "sourceKeys": [
+            "DXF_HANDLE:2526"
+          ]
+        }
+      ]
+    },
+    "sources": [
+      "DXF_HANDLE:2522",
+      "DXF_HANDLE:2523",
+      "DXF_HANDLE:2524",
+      "DXF_HANDLE:2525",
+      "DXF_HANDLE:2526",
+      "DXF_HANDLE:2527"
+    ]
+  },
+  "inputTokens": 1977,
+  "outputTokens": 129,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.58,
+    "answers": {
+      "row_is_header": {
+        "type": "noul",
+        "value": 0.02,
+        "confidence": null,
+        "probabilities": null
+      },
+      "cell_2": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 0.58,
+        "probabilities": {
+          "NOT_STATED": 0.21,
+          "cand_1": 0.79
+        }
+      },
+      "cell_3": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 0.71,
+        "probabilities": {
+          "NOT_STATED": 0.14,
+          "cand_1": 0.86
+        }
+      },
+      "cell_4": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 0.73,
+        "probabilities": {
+          "NOT_STATED": 0.14,
+          "cand_1": 0.86
+        }
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "row_is_header": {
+        "type": "noul",
+        "noul": 0.02
+      },
+      "cell_2": {
+        "type": "choice",
+        "choice": "cand_1",
+        "confidence": 0.58,
+        "probabilities": {
+          "NOT_STATED": 0.21,
+          "cand_1": 0.79
+        }
+      },
+      "cell_3": {
+        "type": "choice",
+        "choice": "cand_1",
+        "confidence": 0.71,
+        "probabilities": {
+          "NOT_STATED": 0.14,
+          "cand_1": 0.86
+        }
+      },
+      "cell_4": {
+        "type": "choice",
+        "choice": "cand_1",
+        "confidence": 0.73,
+        "probabilities": {
+          "NOT_STATED": 0.14,
+          "cand_1": 0.86
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 1977,
+      "output_tokens": 129
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "requestHash": "d6dccf867359fac3c80359e1999e4af0d679f018f1c3f2f2190cb14156d91a5e",
+  "modelId": "jev-latest",
+  "payload": {
+    "payload": {
+      "header": 0.02,
+      "cells": [
+        {
+          "column": 4,
+          "attribute": "ties",
+          "text": "16%%C @ 125 B/W",
+          "sourceKeys": [
+            "DXF_HANDLE:64A"
+          ]
+        },
+        {
+          "column": 5,
+          "attribute": "ties",
+          "text": "12%%C @ 200 B/W",
+          "sourceKeys": [
+            "DXF_HANDLE:64B"
+          ]
+        }
+      ]
+    },
+    "sources": [
+      "DXF_HANDLE:646",
+      "DXF_HANDLE:647",
+      "DXF_HANDLE:648",
+      "DXF_HANDLE:649",
+      "DXF_HANDLE:64A",
+      "DXF_HANDLE:64B"
+    ]
+  },
+  "inputTokens": 1536,
+  "outputTokens": 93,
+  "judgment": {
+    "provider": "jev-1.13.0",
+    "confidence": 0.21,
+    "answers": {
+      "row_is_header": {
+        "type": "noul",
+        "value": 0.02,
+        "confidence": null,
+        "probabilities": null
+      },
+      "cell_4": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 0.21,
+        "probabilities": {
+          "cand_1": 0.6,
+          "NOT_STATED": 0.4
+        }
+      },
+      "cell_5": {
+        "type": "choice",
+        "value": "cand_1",
+        "confidence": 0.57,
+        "probabilities": {
+          "cand_1": 0.78,
+          "NOT_STATED": 0.22
+        }
+      }
+    }
+  },
+  "body": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "row_is_header": {
+        "type": "noul",
+        "noul": 0.02
+      },
+      "cell_4": {
+        "type": "choice",
+        "choice": "cand_1",
+        "confidence": 0.21,
+        "probabilities": {
+          "cand_1": 0.6,
+          "NOT_STATED": 0.4
+        }
+      },
+      "cell_5": {
+        "type": "choice",
+        "choice": "cand_1",
+        "confidence": 0.57,
+        "probabilities": {
+          "cand_1": 0.78,
+          "NOT_STATED": 0.22
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 1536,
+      "output_tokens": 93
+    }
+  }
+}

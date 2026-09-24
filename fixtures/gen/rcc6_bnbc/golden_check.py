@@ -7,7 +7,8 @@ marks, bar legs). It never reads a derived field (`clear`, `area`, `col_deduct`,
 in cad/tests/rcc6_bnbc/test_rcc6_bnbc_lint.py and the key strings are forbidden in this file. Spans,
 areas, deductions and contact faces are recomputed here with this module's own geometry code, folded
 into signatures with placement counts, and evaluated once per signature. Bars are authored data, but
-every beam main bar's A is re-derived from this path's own clear span and must match the authored leg.
+every beam main bar's A is re-derived from this path's own clear span and must match the authored leg,
+and every column's tie count from this path's own joint depth and zones (R0 GC-1..GC-4).
 """
 
 from __future__ import annotations
@@ -19,8 +20,8 @@ from typing import Any
 from . import model as M
 
 D = Decimal
-BENDS = {"00": 0, "SP": 0, "11": 1, "21": 2, "51": 5, "CT": 2, "CRK": 4}
-LEG_MULT = {"51": (2, 2, 0, 0, 1, 1), "CT": (1, 1, 1), "CRK": (1, 1, 1)}
+BENDS = {"00": 0, "SP": 0, "11": 1, "21": 2, "51": 5, "CT": 2, "CRK": 4, "CH": 2}
+LEG_MULT = {"51": (2, 2, 0, 0, 1, 1), "CT": (1, 1, 1), "CRK": (1, 1, 1), "CH": (M.PI, 1, 1)}
 UNIT = {
     "RCC_CONCRETE": "m3",
     "FORMWORK": "m2",
@@ -29,7 +30,6 @@ UNIT = {
     "PILE_COUNT": "pcs",
     "EXCAVATION": "m3",
     "BLINDING": "m3",
-    "BRICKWORK": "m3",
 }
 DIV = {"m3": D(10) ** 9, "m2": D(10) ** 6, "kg": D(1), "m": D(1000), "pcs": D(1)}
 EDGE = D(125)
@@ -74,6 +74,36 @@ def box(poly: list[Pt]) -> tuple[Decimal, Decimal, Decimal, Decimal]:
 def overlap(a: tuple[Decimal, ...], b: tuple[Decimal, ...]) -> Decimal:
     w, h = min(a[2], b[2]) - max(a[0], b[0]), min(a[3], b[3]) - max(a[1], b[1])
     return w * h if w > 0 and h > 0 else D(0)
+
+
+def edge_on_outline(poly: list[Pt], level: str) -> Decimal:
+    """Own derivation (R0 K8): boundary length of a panel that runs along the outline's edges."""
+    ol = outline(level)
+    out = D(0)
+    for i, a in enumerate(poly):
+        b = poly[(i + 1) % len(poly)]
+        mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+        for j, p in enumerate(ol):
+            q = ol[(j + 1) % len(ol)]
+            if p[0] == q[0] == M.X["2"]:
+                continue
+            d = (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2
+            for r in (a, b, mid):
+                cr = (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+                if abs(cr) > D("0.000001") * d.sqrt():
+                    break
+                tt = ((r[0] - p[0]) * (q[0] - p[0]) + (r[1] - p[1]) * (q[1] - p[1])) / d
+                if tt < D("-0.000001") or tt > 1 + D("0.000001"):
+                    break
+            else:
+                out += ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2).sqrt()
+                break
+    return out
+
+
+def count(distance: Decimal, spacing: Decimal) -> int:
+    """Own counting (L-FRM-05): a bar at each end and every `spacing` between, 0.5 mm of tolerance."""
+    return int((distance + D("0.5")) // spacing) + 1
 
 
 def storey_of(level: str) -> str:
@@ -215,6 +245,12 @@ class Derive:
         level, storey = p["level"], storey_of(p["level"])
         bb = box(p["poly"])
         cols = D(0)
+        # R0 K21 (own): what stands in a deducted hole is not deducted again
+        voids = [
+            box(h["poly"])
+            for h in p["holes"]
+            if h.get("deducted") and not h.get("outside") and "poly" in h
+        ]
         for s in self.stacks.values():
             if storey in s["storeys"] and not s.get("porch"):
                 poly, sx, sy = col_poly(s, storey)
@@ -229,10 +265,11 @@ class Derive:
                         else D(0)
                     )
                 else:
-                    cols += overlap(bb, box(poly))
+                    cols += overlap(bb, box(poly)) - sum((overlap(box(poly), v) for v in voids), D(0))
         for w in self.w["members"]:
             if w["class"] == "SHEAR_WALL" and w["level"] == storey:
-                cols += overlap(bb, (w["x0"], w["y0"], w["x1"], w["y1"]))
+                r = (w["x0"], w["y0"], w["x1"], w["y1"])
+                cols += overlap(bb, r) - sum((overlap(r, v) for v in voids), D(0))
         soffit = D(0)
         for bm in self.w["members"]:
             if (
@@ -267,6 +304,34 @@ class Derive:
                 if host is p:
                     soffit += bm["b"] * self.length[bm["id"]]
         return cols, soffit
+
+    def column_tie_sets(self, m: dict[str, Any]) -> int:
+        """Own derivation (R0 GC-1, GC-3, GC-4; BNBC 2020 as the owner's A' reads it) of a column's tie
+        sets over its storey: circular hoops at the end spacing over the whole height; else a
+        column tied over its whole height at the end spacing where it is the foundation neck or its
+        clear height fits inside the two end zones, and otherwise two end zones lo, the middle at
+        the middle spacing and the joint — the deepest beam drawn into the column head, never less
+        than 450 — at the end spacing."""
+        spec = M.COLUMN_MARKS[m["mark"]]
+        _td, s_end, s_mid = spec["ties"]
+        h = storey_h(m["level"])
+        if spec.get("circular"):
+            return count(h, D(s_end))
+        b, d, *_ = band_of(m["mark"], m["level"])
+        top = M.STOREY_TOP[m["level"]]
+        heads = [
+            D(M.BEAM_TYPES[bm["type"]]["D2" if i and "D2" in M.BEAM_TYPES[bm["type"]] else "D"])
+            for bm in self.w["members"]
+            if bm["class"] == "BEAM" and bm["level"] == top
+            for i, sup in enumerate(bm["supports"])
+            if tuple(sup) == ("COLUMN", m["stack"])
+        ]
+        joint = max([D(450), *heads])
+        clear = h - joint
+        lo = max(D(b), D(d), clear / 6, D(450))
+        if m["level"] == "FDN" or clear <= 2 * lo or s_end == s_mid:
+            return count(h, D(s_end))
+        return 2 * count(lo, D(s_end)) + count(clear - 2 * lo, D(s_mid)) + count(joint, D(s_end))
 
     def slab_top_over(self, m: dict[str, Any]) -> Decimal:
         top = M.STOREY_TOP[m["level"]]
@@ -317,6 +382,8 @@ def signatures(
                     bb[2] - bb[0],
                     bb[3] - bb[1],
                     m["top"],
+                    len(m.get("piles", [])),
+                    m["id"] == "PC-CORE",
                 )
             ] += 1
         elif c == "COLUMN":
@@ -409,10 +476,19 @@ def signatures(
                 ),
                 D(0),
             )
+            def ramp_reveal(t: Decimal) -> Decimal:
+                # own derivation (R0 K7): the exposed SOG edge over a ramp falling linearly to its mouth
+                run, rise = M.RAMP["y1"] - M.RAMP["y0"], M.RAMP["rise"]
+                cut = run * (1 - t / rise)  # where the drop falls to t
+                sides = 2 * (t * cut + (run - cut) * t / 2)
+                return sides + t * (M.RAMP["x1"] - M.RAMP["x0"])
+
             reveals = sum(
                 (
                     2 * ((h["rect"][2] - h["rect"][0]) + (h["rect"][3] - h["rect"][1]))
                     if h.get("rect")
+                    else D(0) if h["kind"] == "LIFT_PIT"
+                    else ramp_reveal(m["t"]) / m["t"] if h["kind"] == "RAMP"
                     else D(2400)
                 )
                 for h in m["holes"]
@@ -431,8 +507,15 @@ def signatures(
                 "CS1": (M.X["6"] + EDGE - M.X["2"])
                 + M.BALCONY["depth"]
                 + (M.PI * M.BALCONY["r"] / 2 - 2 * M.BALCONY["r"]),
-                "PS1": perim_of(m["poly"]) - (M.X["5"] - M.X["4"]),
-            }.get(m["mark"], perim_of(m["poly"]) if m["mark"].endswith("-T") else D(0))
+                "PS1": D(0),
+            }.get(
+                m["mark"],
+                perim_of(m["poly"])
+                if m["mark"].endswith("-T")
+                else edge_on_outline(m["poly"], lv)
+                if lv in M.FLOORS or m["mark"] == "SOG"
+                else D(0),
+            )
             bb = box(m["poly"])
             members[
                 (
@@ -473,26 +556,6 @@ def signatures(
                 ] += 1
             else:
                 members[(c, lv, g, "LANDING", area_of(m["poly"]), m["t"])] += 1
-        elif c == "BRICK_WALL":
-            length = (
-                m["partition_length"]
-                if m["mark"] == "BW125"
-                else perim_of(outline(lv))
-                - (M.X["6"] - M.X["2"])
-                - 2 * M.BALCONY["depth"]
-            )
-            members[
-                (
-                    c,
-                    lv,
-                    g,
-                    "BRICK",
-                    length,
-                    storey_h(storey_of(lv)) - 450,
-                    m["openings"],
-                    m["t"],
-                )
-            ] += 1
     bars: Counter[tuple[Any, ...]] = Counter()
     for b in world["bars"]:
         host = dv.by_id[b["member"]]
@@ -513,6 +576,9 @@ def signatures(
                 b["legs"][0],
                 want,
             )
+        if host["class"] == "COLUMN" and b["role"] == "TIE":  # tie the authored count to this path's
+            want = dv.column_tie_sets(host) * b.get("per_set", 1)  # own joint and zones (R0 GC-1..4)
+            assert b["n"] == want, (host["id"], b["bar_mark"], b["n"], want)
         bars[
             (
                 b["class"],
@@ -555,9 +621,17 @@ def evaluate(
             add(c, "PILE_LENGTH", lv, n * length)
             add(c, "PILE_COUNT", lv, n)
         elif kind == "POLY":
-            area, perim, depth, lx, ly, top = v
-            add(c, "RCC_CONCRETE", lv, n * area * depth, g)
-            add(c, "FORMWORK", lv, n * perim * depth, comp="SIDES")
+            area, perim, depth, lx, ly, top, npiles, core = v
+            # own derivation (R0 K17/K18/K19): heads from the stated cut-off and soffit; the recess from
+            # the core's grid box less one wall thickness, down to the stated pit floor
+            sec = M.PI / 4 * D(M.PILE["dia"]) ** 2
+            heads = npiles * sec * (M.ELEV["PILE_CUT"] - top + depth)
+            wx = M.X["4"] - M.X["3"] - M.CORE["t_low"]
+            wy = M.Y["D"] - M.Y["C"] - M.CORE["t_low"]
+            deep = M.ELEV["PCTOP"] - M.CORE["pit_bottom"]
+            recess, faces = (wx * wy * deep, (wx + wy) * 2 * deep) if core else (D(0), D(0))
+            add(c, "RCC_CONCRETE", lv, n * (area * depth - heads - recess), g)
+            add(c, "FORMWORK", lv, n * (perim * depth + faces), comp="SIDES")
             a, dx, p, tb = (
                 site["working_allowance_mm"],
                 site["depth_extra_mm"],
@@ -574,7 +648,7 @@ def evaluate(
                 * (site["egl_mm"] - top + depth + tb + dx),
                 comp="PIT",
             )
-            add(c, "BLINDING", lv, n * (lx + 2 * p) * (ly + 2 * p) * tb, comp="CC")
+            add(c, "BLINDING", lv, n * ((lx + 2 * p) * (ly + 2 * p) * tb - npiles * sec * tb), comp="CC")
         elif kind == "COL":
             per, area, h, t_top, ends = v
             add(c, "RCC_CONCRETE", lv, n * area * h, g)
@@ -677,9 +751,6 @@ def evaluate(
             area, t = v
             add(c, "RCC_CONCRETE", lv, n * area * t, g)
             add(c, "FORMWORK", lv, n * area, comp="SOFFIT")
-        elif kind == "BRICK":
-            length, h, openings, t = v
-            add(c, "BRICKWORK", lv, n * (length * h - openings) * t, comp=str(t))
     for (c, lv, dia, shape, legs, lap, lap_count), n in sorted(bars.items(), key=repr):
         raw = generic_cutting_length(dia, shape, legs)
         pcs = (

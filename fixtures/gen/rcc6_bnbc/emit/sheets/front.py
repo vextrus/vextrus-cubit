@@ -226,9 +226,12 @@ def s03(ctx: Ctx) -> Sheet:
     p.view("TYPICAL STIRRUP HOOK DETAIL", hook, 20, (x0 + 10.0, y0 + h - 130.0), (110.0, 110.0), "mm")
 
     crank = Scene()
-    crank.poly([(0.0, 0.0), (900.0, 0.0), (1200.0, 250.0), (2400.0, 250.0)], "S-ROD", closed=False)
-    crank.poly([(0.0, 250.0), (2400.0, 250.0)], "S-ROD2", closed=False)
-    crank.text("CRANK 1:6 AT L/5 FROM THE SUPPORT FACE", (0.0, 400.0), 60.0, "S-TEXT2")
+    # R0 D-CRANK (W-39): the slab bars are cranked at 45 degrees (the model's CRK legs add
+    # 0.42 x the crank height); Rev B's note said 1:6 and its polyline rose at about 40 degrees
+    rise = 250.0
+    crank.poly([(0.0, 0.0), (900.0, 0.0), (900.0 + rise, rise), (2400.0, rise)], "S-ROD", closed=False)
+    crank.poly([(0.0, rise), (2400.0, rise)], "S-ROD2", closed=False)
+    crank.text("CRANK 45%%D AT L/5 FROM THE SUPPORT FACE", (0.0, 400.0), 60.0, "S-TEXT2")
     crank.text("L/5", (900.0, -160.0), 60.0, "S-TEXT2", family="length")
     crank.dim((0.0, 0.0), (900.0, 0.0), (0.0, -300.0), 0.0, 60.0, "S-DIMS")
     p.view("TYPICAL SLAB BAR CRANK", crank, 20, (x0 + 140.0, y0 + h - 130.0), (130.0, 110.0), "mm")

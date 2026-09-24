@@ -191,6 +191,9 @@ export const PILE_HEAD_UNSTATED = "PILE_HEAD_UNSTATED";
 export const CAP_HOLDS_NO_PILE = "CAP_HOLDS_NO_PILE";
 export const CAP_PILES_UNREAD = "CAP_PILES_UNREAD";
 
+/** FND-RECESS's (I-598): a recess the set draws or names in a cap without stating it every way. */
+export const CAP_RECESS_UNSTATED = "CAP_RECESS_UNSTATED";
+
 /** The code a head height the drawing only bounds is reported under — the slabs area's (L-QTY-04). */
 export const JUNCTION_DEFERRED = "JUNCTION_DEFERRED";
 

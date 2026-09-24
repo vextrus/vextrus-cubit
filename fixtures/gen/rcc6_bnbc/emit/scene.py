@@ -451,7 +451,11 @@ def dim_text(measure_mm: float, dimlfac: float, unit: str) -> str:
 
 
 def ft_in(mm: float) -> str:
-    """Exact-ish feet-inches: 4572 → 15'-0"; 1079.5 → 3'-6\\S1/2;" (a stacked half)."""
+    """Exact-ish feet-inches: 4572 → 15'-0"; 1079.5 → 3'-6\\S1/2;" (a stacked half); a figure below
+    zero is its magnitude's spelling after a minus, −457.2 → -1'-6" (R0 W-20: floor division spelled
+    it -2'-6", and −152.4 as -1'-6", which let the E.G.L's sign slip pass check 5)."""
+    if mm < 0:
+        return "-" + ft_in(-mm)
     inches_total = mm / 25.4
     feet = int(inches_total // 12)
     rem = inches_total - feet * 12

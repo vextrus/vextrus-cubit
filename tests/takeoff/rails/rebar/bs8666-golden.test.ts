@@ -45,6 +45,21 @@ const FRACTIONAL_RAW = "3083.200";
 /** The golden, read once — 4,127 rows are parsed once and every case reads the same document. */
 const golden = bbsGoldenDocument(BNBC_FIXTURE_ID);
 
+/**
+ * The shapes the golden details that the product's roster does not hold YET, each with the clause
+ * that holds it back (s-bbs I-596). A bar at one of them is DECLARED on the bar schedule, its
+ * mass kept out of every total, until the shape joins `SHAPE_CODES` with its own cutting-length
+ * method; its length is the golden's to state and is not graded against a method that does not
+ * exist. The list is closed both ways below: a shape the roster comes to hold must leave it, and a
+ * shape the golden no longer details must leave it too.
+ */
+const DECLARED_SHAPES: Readonly<Record<string, string>> = Object.freeze({
+  CH: "W-28 — C7's circular hoop, cut by AM-03(d)'s formula (iii); the roster takes it with R6b/R6c's method version",
+});
+
+/** The rows a cutting-length method of this tree is graded over: every row not at a declared shape. */
+const cut = golden.rows.filter((row) => !Object.hasOwn(DECLARED_SHAPES, row.shape));
+
 /** One row's legs, in the shape's own order — the dims the file states, and no others. */
 function legsOf(row: BbsGoldenRow): string[] {
   return LEG_LETTERS.filter((letter) => row.dims_mm[letter] !== undefined).map((letter) => String(row.dims_mm[letter]));
@@ -71,12 +86,22 @@ describe("AC-3: every bar of F-RCC6-BNBC cuts, rounds, records and bills as the 
     ).toBe(true);
   });
 
+  test("I-596: the shapes held back from the roster are exactly the golden's unheld ones, and no more", async () => {
+    const door = await bs8666Door();
+    const codes = door["SHAPE_CODES"] as readonly string[];
+    const detailed = new Set(golden.rows.map((row) => row.shape));
+    const unheld = [...detailed].filter((shape) => !codes.includes(shape)).sort();
+    expect(unheld, "every shape the golden details is held by the roster or declared by name here — none is excused silently").toEqual(Object.keys(DECLARED_SHAPES).sort());
+    expect(Object.keys(DECLARED_SHAPES).filter((shape) => codes.includes(shape)), "a shape the roster now holds is graded like every other, so it leaves the declared list").toEqual([]);
+    expect(cut.length, "and the declared shapes hold back a handful of rows, never the roster").toBeGreaterThan(golden.rows.length - 10);
+  });
+
   test("AC-3: cuttingLengthOf reproduces every raw cutting length, and rounds none of them", async () => {
     const door = await bs8666Door();
     const cuttingLengthOf = door["cuttingLengthOf"] as (probe: { shape: string; diameterMm: number; legsMm: readonly string[] }) => string;
     const wrong: string[] = [];
     let fractional = 0;
-    for (const row of golden.rows) {
+    for (const row of cut) {
       const answered = cuttingLengthOf({ shape: row.shape, diameterMm: row.dia_mm, legsMm: legsOf(row) });
       if (!stands(answered, row.cutting_raw_mm)) wrong.push(`${row.bar_mark} (${row.shape}, ⌀${row.dia_mm}) answered ${String(answered)} for ${row.cutting_raw_mm}`);
       // A raw length is never rounded (AM-03(c)): where the golden's own figure carries fractional
@@ -86,7 +111,7 @@ describe("AC-3: every bar of F-RCC6-BNBC cuts, rounds, records and bills as the 
         if (Number.isInteger(Number(answered))) wrong.push(`${row.bar_mark} answered the whole millimetre ${String(answered)} where the raw length is ${row.cutting_raw_mm}`);
       }
     }
-    expect(wrong, say(`${BS8666_MODULE} cuts every bar of the golden to its raw length`, wrong, golden.rows.length)).toEqual([]);
+    expect(wrong, say(`${BS8666_MODULE} cuts every bar of the golden to its raw length`, wrong, cut.length)).toEqual([]);
     expect(fractional, "and the golden holds raw lengths with fractional millimetres to keep (AM-03(c))").toBeGreaterThan(0);
 
     const kept = golden.rows.find((row) => row.cutting_raw_mm === FRACTIONAL_RAW);
@@ -105,7 +130,7 @@ describe("AC-3: every bar of F-RCC6-BNBC cuts, rounds, records and bills as the 
 
     const wrong: string[] = [];
     const seen = new Set<string>();
-    for (const row of golden.rows) {
+    for (const row of cut) {
       const shape = shapes[row.shape];
       if (shape === undefined) {
         wrong.push(`${row.bar_mark} is shape ${row.shape}, which ${BS8666_MODULE} does not hold`);
@@ -119,7 +144,7 @@ describe("AC-3: every bar of F-RCC6-BNBC cuts, rounds, records and bills as the 
       const answered = generic(legsOf(row), shape.bends, radiusOf(edition, row.dia_mm), row.dia_mm);
       if (!stands(answered, row.cutting_raw_mm)) wrong.push(`${row.bar_mark}: the generic form answered ${String(answered)} for ${row.cutting_raw_mm}`);
     }
-    expect(wrong, say("the generic form governs every shape (AM-03(d))", wrong, golden.rows.length)).toEqual([]);
+    expect(wrong, say("the generic form governs every shape (AM-03(d))", wrong, cut.length)).toEqual([]);
     const codes = door["SHAPE_CODES"] as readonly string[];
     expect([...seen].filter((code) => !codes.includes(code)), `every shape the golden details stands in \`SHAPE_CODES\` (it holds ${codes.join(", ")})`).toEqual([]);
 
@@ -178,7 +203,7 @@ describe("AC-3: every bar of F-RCC6-BNBC cuts, rounds, records and bills as the 
 
     const wrong: string[] = [];
     let diverged = 0;
-    for (const row of golden.rows) {
+    for (const row of cut) {
       const probe = { shape: row.shape, diameterMm: row.dia_mm, legsMm: legsOf(row) };
       const answered = isAdditiveLengthOf(probe);
       if (!stands(answered, row.cutting_is_additive_mm)) wrong.push(`${row.bar_mark} recorded ${String(answered)} where the golden holds ${row.cutting_is_additive_mm}`);
@@ -189,7 +214,7 @@ describe("AC-3: every bar of F-RCC6-BNBC cuts, rounds, records and bills as the 
         if (stands(cuttingLengthOf(probe), row.cutting_is_additive_mm)) wrong.push(`${row.bar_mark}: cuttingLengthOf answered the IS-additive figure ${row.cutting_is_additive_mm}`);
       }
     }
-    expect(wrong, say("the IS-additive convention is recorded beside the raw length", wrong, golden.rows.length)).toEqual([]);
+    expect(wrong, say("the IS-additive convention is recorded beside the raw length", wrong, cut.length)).toEqual([]);
     expect(diverged, "the golden holds bars where the IS and BS conventions part company — the divergence is recorded, never asserted equal").toBeGreaterThan(0);
 
     const tie = golden.rows.find((row) => row.bar_mark === DIVERGENT_MARK) as BbsGoldenRow;

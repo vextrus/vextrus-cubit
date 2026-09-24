@@ -231,10 +231,18 @@ def s08(ctx: Ctx) -> _Sheet:
     view.polyline([(f(x), f(y)) for x, y in sog["poly"]], "S-SLAB")
     x0s = [f(x) for x, _ in sog["poly"]]
     y0s = [f(y) for _, y in sog["poly"]]
-    view.rect_lines(min(x0s) - 75.0, min(y0s) - 75.0,
-                    max(x0s) - min(x0s) + 150.0, max(y0s) - min(y0s) + 150.0, "S-FDN")
-    view.text("75 THK BLINDING UNDER (EXPLODED OUTLINE)", (min(x0s), min(y0s) - 500.0), 200.0,
-              "S-TEXT2")
+    # R0 D-BLIND (W-40): the blinding lies under the slab on grade and the ramp, edge to edge. Rev B
+    # drew its four LINEs as the slab's bounding box 75 outside it (338.343 m², over the slab's
+    # plan by its E-1 chamfer and the projection); they move onto the slab's four square edges, in
+    # Rev B's order, and the chamfer's LINE is Rev C's
+    pts = [(f(x), f(y)) for x, y in sog["poly"]]
+    edges = [(pts[i], pts[(i + 1) % len(pts)]) for i in range(len(pts))]
+    square = [(a, b) for a, b in edges if a[0] == b[0] or a[1] == b[1]]
+    assert len(square) == 4, square
+    for a, b in square:
+        view.line(a, b, "S-FDN")
+    view.text("75 THK BLINDING UNDER SLAB ON GRADE & RAMP (EXPLODED OUTLINE)",
+              (min(x0s), min(y0s) - 500.0), 200.0, "S-TEXT2")
     # the setting-out origin, a POINT on Defpoints
     view.point((f(M.X["1"]), f(M.Y["A"])), "Defpoints")
     view.text("SETTING OUT POINT  GRID 1 / GRID A", (f(M.X["1"]) + 300.0, f(M.Y["A"]) - 900.0),
@@ -248,8 +256,12 @@ def s08(ctx: Ctx) -> _Sheet:
     view.text("RAMP", (rx, f(M.RAMP["y0"]) + 900.0), 300.0, "S-TEXT", family="mark")
     view.text(f"RISE {f(M.RAMP['rise']):.0f} AT 1:8", (rx, f(M.RAMP["y0"]) + 300.0), 200.0, "S-TEXT",
               fact=authored(M.RAMP["rise"]))
-    pit = next(m for m in ctx.by_class["SLAB"] if m["mark"] == "LPS")
-    view.poly([(f(x), f(y)) for x, y in pit["poly"]], "S-FDN")
+    # R0 K18 (W-30): the pit is PC5's recess, so no LPS member is built; its ring is the lift core's
+    # outer face, the same outline the pit slab was drawn from
+    c, t = M.CORE, M.CORE["t_low"]
+    ring = [(c["x0"] - t / 2, c["y0"] - t / 2), (c["x1"] + t / 2, c["y0"] - t / 2),
+            (c["x1"] + t / 2, c["y1"] + t / 2), (c["x0"] - t / 2, c["y1"] + t / 2)]
+    view.poly([(f(x), f(y)) for x, y in ring], "S-FDN")
     view.text("LIFT PIT", (f(M.CORE_CENTRE[0]), f(M.CORE_CENTRE[1])), 240.0, "S-TEXT",
               align="MIDDLE_CENTER")
     view.insert("LEVEL_MARK", (f(M.CORE_CENTRE[0]), f(M.CORE["y0"]) - 900.0), "S-TEXT",

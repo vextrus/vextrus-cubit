@@ -15,7 +15,7 @@ from ... import golden
 from ... import model as M
 from ..scene import Scene
 from ..scene import Sheet as _Sheet
-from .common import Ctx, authored, f, fact, new_paper, table
+from .common import Ctx, authored, core_leg, f, fact, new_paper, table
 
 
 def s22(ctx: Ctx) -> _Sheet:
@@ -76,22 +76,43 @@ def s22(ctx: Ctx) -> _Sheet:
     return p.sheet()
 
 
+#: How S-23 spells a storey in a band note.
+STOREY_WORDS = {"GF": "GF", "1F": "1ST", "2F": "2ND", "3F": "3RD", "4F": "4TH", "5F": "5TH", "6F": "6TH",
+                "ROOF": "ROOF"}
+
+
+def _wall_bands(ctx: Ctx) -> str:
+    """The core's thickness bands above the foundation, as the model builds them: "250 THK (GF TO
+    2ND), 200 THK (3RD TO ROOF)"."""
+    bands: list[tuple[float, list[str]]] = []
+    for storey in M.STOREYS[1:]:
+        t = f(ctx.by_id[f"SW1-3@{storey}"]["t"])
+        if bands and bands[-1][0] == t:
+            bands[-1][1].append(storey)
+        else:
+            bands.append((t, [storey]))
+    return ", ".join(f"{int(t)} THK ({STOREY_WORDS[run[0]]} TO {STOREY_WORDS[run[-1]]})" for t, run in bands)
+
+
 def s23(ctx: Ctx) -> _Sheet:
     p = new_paper(ctx, "S-23")
     c = M.CORE
     x0, y0, x1, y1 = f(c["x0"]), f(c["y0"]), f(c["x1"]), f(c["y1"])
     t = f(c["t_low"])
     sc = Scene()
-    sc.rect(x0, y0, x1 - x0, y1 - y0, "S-WALL")
-    sc.rect(x0 + t, y0 + t, x1 - x0 - 2 * t, y1 - y0 - 2 * t, "S-WALL")
-    sc.hatch([[(x0, y0), (x1, y0), (x1, y1), (x0, y1)],
-              [(x0 + t, y0 + t), (x1 - t, y0 + t), (x1 - t, y1 - t), (x0 + t, y1 - t)]],
+    # R0 D-CORE (W-36): the two rings become the GF legs 3 and 4, in place; the hatch fills the three
+    # legs the model builds (leg D's outline is Rev C's)
+    legs = [core_leg(ctx, leg, "GF") for leg in ("3", "4", "D")]
+    for a, b, u, v in legs[:2]:
+        sc.rect(a, b, u - a, v - b, "S-WALL")
+    sc.hatch([[(a, b), (u, b), (u, v), (a, v)] for a, b, u, v in legs],
              "S-HATCH", pattern="ANSI31", scale=30.0)
     dw = f(c["door"][0])
     sc.rect(x0 + (x1 - x0 - dw) / 2, y0 - 60.0, dw, t + 120.0, "S-SLAB")
     sc.text("SW1", (x0 + 300.0, y1 - 500.0), 240.0, "S-TEXT", family="mark")
-    sc.text(f"SHEAR WALL {int(t)} THK (LOWER), {int(f(c['t_high']))} THK ABOVE 4F",
-            (x0, y1 + 800.0), 220.0, "S-TEXT2", fact=authored(t))
+    # R0 D-SW (W-37): the band as the model builds it (Rev B said "200 THK ABOVE 4F"; the walls
+    # change at the 3F storey)
+    sc.text(f"SHEAR WALL {_wall_bands(ctx)}", (x0, y1 + 800.0), 220.0, "S-TEXT2", fact=authored(t))
     walls = [m for m in ctx.by_class["SHEAR_WALL"] if m["level"] == "GF"]
     for m in sorted(walls, key=lambda m: m["id"])[:4]:
         sc.text(f"{m['mark']} L={f(m['length']):.0f}", (x0 + 300.0, y0 - 600.0 - 400.0 * walls.index(m)),
@@ -101,15 +122,19 @@ def s23(ctx: Ctx) -> _Sheet:
 
     pit = Scene()
     depth = f(c["pit_bottom"])
+    base = f(c["pit_slab"])
     pit.rect(x0, depth, x1 - x0, -depth, "S-WALL")
-    pit.rect(x0, depth, x1 - x0, f(c["pit_slab"]), "S-FDN")
-    pit.text("PIT", (x0 + 400.0, depth + 600.0), 240.0, "S-TEXT", family="mark")
-    pit.text("LPS", (x0 + 400.0, depth + 200.0), 240.0, "S-TEXT", family="mark")
-    pit.text(f"LIFT PIT SLAB {int(f(c['pit_slab']))} THK", (x1 + 300.0, depth + 300.0), 200.0,
+    # R0 D-PIT (W-30): the pit is PC5's recess (K18). Its base is the cap's concrete under the pit
+    # floor, so it is drawn below the EL mark, not inside the pit; the marks name the cap
+    pit.rect(x0, depth - base, x1 - x0, base, "S-FDN")
+    pit.text("PC5", (x0 + 400.0, depth + 600.0), 240.0, "S-TEXT", family="mark")
+    pit.text("PC5", (x0 + 400.0, depth - base / 2 - 120.0), 240.0, "S-TEXT", family="mark")
+    pit.text(f"LIFT PIT SLAB {int(base)} THK", (x1 + 300.0, depth + 300.0), 200.0,
              "S-TEXT2", fact=authored(c["pit_slab"]))
     pit.insert("LEVEL_MARK", (x1, depth), "S-TEXT", attribs={"LEVEL": f"EL {depth / 1000:.3f}"})
     pit.dim((x0, depth), (x0, 0.0), (x0 - 900.0, depth), 90.0, 220.0, "S-DIMS")
-    p.view("LIFT PIT SECTION", pit, 50, (p.x0 + 330.0, p.y0 + p.win_h - 300.0), (260.0, 280.0), "mm")
+    p.view("LIFT PIT SECTION", pit, 50, (p.x0 + 330.0, p.y0 + p.win_h - 300.0), (260.0, 280.0), "mm",
+           caption="LIFT PIT SECTION (RECESS IN PILE CAP PC5, SEE S-07)  SCALE 1:50")
     p.scale_bar((p.x0 + 20.0, p.y0 + 30.0), "m")
     return p.sheet()
 
@@ -117,10 +142,12 @@ def s23(ctx: Ctx) -> _Sheet:
 def _tank(sc: Scene, spec: dict[str, Any], name: str, marks: tuple[str, str, str]) -> None:
     lx, hgt = f(spec["lx"]), f(spec["h"])
     base, wall, top = f(spec["base"]), f(spec["wall"]), f(spec["top"])
-    sc.rect(0.0, 0.0, lx, base, "S-FDN")
-    sc.rect(0.0, 0.0, wall, base + hgt, "S-WALL")
-    sc.rect(lx - wall, 0.0, wall, base + hgt, "S-WALL")
-    sc.rect(0.0, base + hgt, lx, top, "S-SLAB")
+    # R0 D-TANK (W-38): the catalogue's lx is the clear span, so the walls stand outside it and the
+    # base and top run over them (Rev B drew the walls inside the clear span)
+    sc.rect(-wall, 0.0, lx + 2 * wall, base, "S-FDN")
+    sc.rect(-wall, 0.0, wall, base + hgt, "S-WALL")
+    sc.rect(lx, 0.0, wall, base + hgt, "S-WALL")
+    sc.rect(-wall, base + hgt, lx + 2 * wall, top, "S-SLAB")
     sc.text(name, (0.0, base + hgt + top + 900.0), 260.0, "S-TEXT")
     sc.text(marks[0], (200.0, base / 2), 200.0, "S-TEXT", family="mark")
     sc.text(marks[1], (lx / 2, base + hgt + top / 2), 200.0, "S-TEXT", family="mark")
@@ -180,13 +207,12 @@ def s25(ctx: Ctx) -> _Sheet:
         sch.text(f"OVER {int(f(m['opening_w']))} OPENING, {m['count']} NOS PER FLOOR",
                  (13000.0, -i * 700.0 - 500.0), 200.0, "S-TEXT2", fact=fact(m, "opening_w"))
     y = -len(lintels) * 700.0 - 900.0
-    for mark in ("BW250", "BW125"):
-        if mark in marks:
-            m = ctx.by_mark[mark][0]
-            sch.text(f"{mark}  BRICK WALL {int(f(m['t']))} THK", (0.0, y), 240.0, "S-TEXT",
-                     family="plain", fact=fact(m, "t"))
-            sch.text(mark, (7000.0, y), 240.0, "S-TEXT", family="mark")
-            y -= 600.0
+    # the wall types the lintels sit in: F-ARCH's members (R0-G3, D-009), printed from the table
+    for mark, t in M.WALL_TYPES.items():
+        sch.text(f"{mark}  BRICK WALL {t} THK", (0.0, y), 240.0, "S-TEXT",
+                 family="plain", fact=authored(t))
+        sch.text(mark, (7000.0, y), 240.0, "S-TEXT", family="mark")
+        y -= 600.0
     p.view("LINTEL & SUNSHADE SCHEDULE", sch, 50, (p.x0 + 10.0, p.y0 + p.win_h - 240.0),
            (280.0, 220.0), "mm")
 
@@ -207,7 +233,9 @@ def s25(ctx: Ctx) -> _Sheet:
         for x0, x1 in pairwise(xs):
             sec.rect(x0, z - 600.0, x1 - x0, 600.0, "S-BEAM")
         sec.line((xs[0], z - 125.0), (xs[-1], z - 125.0), "S-SLAB")
-    egl = f(M.ELEV["PILE_CUT"]) / 2
+    # R0 D-EGL (W-20): the ground line stands at the E.G.L its label states, the SITE fact (Rev B drew
+    # it at half the pile cut-off, −914.4, under a label reading −1'-6")
+    egl = f(M.SITE["egl_mm"])
     sec.line((xs[0] - 2000.0, egl), (xs[-1] + 2000.0, egl), "S-FDN")
     lv = sec.text('P.L= +0\'-0"', (xs[0] - 2000.0, 300.0), 240.0, "S-TEXT", family="level",
                   fact=authored("0"), trap="T-NOT-LEVEL")

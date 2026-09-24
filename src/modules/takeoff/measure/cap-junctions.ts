@@ -21,12 +21,21 @@
 // The rails then keep its row and name `CAP_PILES_UNREAD` — never its whole prism over heads nobody
 // placed (L-QTY-01: never a guess; L-QTY-04: over-measurement is a hard block).
 //
-// Pure: placements, axes and rings in, the relation out. No store, no clock — the measure setup reads
+// The one other reading every cap is handed is how far the piles' heads stand into it (`e`, I-544): the
+// set's own note, read by the notation's head reader over each view's words (I-597). And a cap
+// a recess is cast into is handed the recess — its plan sides and its depth — as the set's section of
+// that cap states it, read by the partition's recess reader and bound by the cap's mark
+// (I-546, I-598).
+//
+// Pure: placements, axes, rings and view texts in, the relation and the head out. No store, no clock — the measure setup reads
 // what this is handed and hands on what it answers (L-MEA-08: rails share only setup).
+import type { SectionUnit } from "@/core/db";
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import { quantise } from "@/core/identity";
-import type { CapJunctionSetup, JunctionReading } from "@/core/offers/contract";
+import type { CapJunctionSetup, JunctionReading, ReadingSetup, RecessSetup } from "@/core/offers/contract";
 import { CANONICAL_UNIT } from "@/core/units/canon";
+import { pileHeadClausesOf, pileHeadOf, type PileHeadClause, type ViewText } from "@/modules/takeoff/partition/notation/pile-head";
+import { recessStatementsOf, recessesByMark, type RecessInput, type RecessSide, type RecessStatement } from "@/modules/takeoff/partition/recess/read";
 
 /** A point in the drawing's own plane. */
 export type Point = readonly [number, number];
@@ -217,26 +226,95 @@ export function pilesHeldOverRevision(drawings: readonly DrawingReading[]): Map<
 }
 
 /**
- * How far the held piles' heads stand above a cap's soffit, as the setup can state it today: nothing
- * reads it. The pile's cut-off level stands on its elevation detail (F-RCC6-BNBC's S-05, `EL -1.829`)
- * and the cap's soffit is its top less its depth; no reader of the set carries the first into a store,
- * so the reading is UNBOUNDED and a cap holding piles keeps its row with `PILE_HEAD_UNSTATED` rather
- * than publishing a figure over the heads (L-QTY-04). A reader that states it fills this field and
- * nothing else.
+ * How far the held piles' heads stand above a cap's soffit where nothing states it: UNBOUNDED, so a
+ * cap holding piles keeps its row with `PILE_HEAD_UNSTATED` rather than publishing a figure over the
+ * heads (L-QTY-04).
  */
 const HEAD_HEIGHT_UNREAD: JunctionReading = Object.freeze({ reading: null, standing: "UNBOUNDED" as const });
 
 /**
+ * Every text of a drawing's model space, by the view the partition assigned its entity to (L-CAD-06),
+ * in the artifact's own order — what a note reader reads one detail's words from. A text no view
+ * holds is left out: it belongs to no detail a clause could be read beside.
+ */
+export function viewTextsOf(graph: EntityGraph, assignments: ReadonlyMap<string, string>): Map<string, ViewText[]> {
+  const texts = new Map<string, ViewText[]>();
+  for (const entity of graph.entities) {
+    if (typeof entity.text !== "string") continue;
+    const view = assignments.get(entity.key);
+    if (view === undefined) continue;
+    const held = texts.get(view) ?? [];
+    held.push({ sourceKey: entity.key, text: entity.text });
+    texts.set(view, held);
+  }
+  return texts;
+}
+
+/** One drawing's words for the head reading: its texts by view, and the unit it declares its dimensions in. */
+export type HeadReading = {
+  readonly textsByView: ReadonlyMap<string, readonly ViewText[]>;
+  readonly declaredUnit: SectionUnit | null;
+};
+
+/**
+ * How far the piles' heads stand into their caps, as the pinned revision's own notes state it
+ * (I-544, I-597): every view of every drawing handed in is read by the notation's head reader
+ * (`pileHeadClausesOf`), and the revision states ONE height where every clause that states one agrees
+ * (`pileHeadOf`). The figure is carried as written — `3` `in` — TRANSCRIBED, cited to the clause, and
+ * RESOLVED, or BOUNDED where the note states only the most it can be. Where no clause states it, or
+ * two disagree, it stays UNBOUNDED and every cap holding piles keeps its row naming
+ * `PILE_HEAD_UNSTATED`.
+ */
+export function headHeightOverRevision(drawings: readonly HeadReading[]): JunctionReading {
+  const clauses: PileHeadClause[] = [];
+  for (const drawing of drawings) {
+    for (const texts of drawing.textsByView.values()) clauses.push(...pileHeadClausesOf(texts, drawing.declaredUnit));
+  }
+  const head = pileHeadOf(clauses);
+  if (head === null) return HEAD_HEIGHT_UNREAD;
+  const source = head.sourceKeys[0] as string;
+  return Object.freeze({ reading: { value: head.value, unit: head.unit, basis: "TRANSCRIBED" as const, source }, standing: head.standing });
+}
+
+/** One drawing's evidence for the recess reading: its artifact, its views and their assignments, its unit. */
+export type RecessReading = Omit<RecessInput, "marks">;
+
+/** A side as the setup hands it: TRANSCRIBED — the figure the set writes — and cited to the entity writing it. */
+function readingOf(side: RecessSide | null): ReadingSetup | null {
+  return side === null ? null : { value: side.value, unit: side.unit, basis: "TRANSCRIBED", source: side.source };
+}
+
+/**
+ * The recess cast into each pile cap of the pinned revision, by mark (I-546, I-598): every
+ * drawing handed in is read by the partition's recess reader (`recessStatementsOf`) for the marks the
+ * revision's caps carry, and the revision states ONE recess per mark (`recessesByMark`) — each side
+ * where every statement that states it agrees. A mark the set draws or names as recessed but does not
+ * state every way carries the sides it states and null for the rest; the rails keep its rows naming
+ * `CAP_RECESS_UNSTATED`. A mark nothing speaks of has no entry: its caps are their prisms.
+ */
+export function recessesOverRevision(drawings: readonly RecessReading[], marks: readonly string[]): Map<string, RecessSetup> {
+  const statements: RecessStatement[] = [];
+  for (const drawing of drawings) statements.push(...recessStatementsOf({ ...drawing, marks }));
+  const recesses = new Map<string, RecessSetup>();
+  for (const [mark, recess] of recessesByMark(statements)) {
+    recesses.set(mark, Object.freeze({ length: readingOf(recess.length), breadth: readingOf(recess.breadth), depth: readingOf(recess.depth) }));
+  }
+  return recesses;
+}
+
+/**
  * One cap's junctions, as the rails are handed them: the piles its ring holds and how many, cited to
  * the cap's own placement — the count was taken over its ring — and MEASURED, read off the two plans
- * by the vector engine (L-QTY-01, L-QTY-03). The recess is null: no reader states one yet (GC-5 waits
- * on the recess the cap detail draws), and a recess nobody read is no recess a rail can net.
+ * by the vector engine (L-QTY-01, L-QTY-03); how far their heads stand into it, as the revision's
+ * notes state it (`headHeightOverRevision`), UNBOUNDED where none does; and the recess cast into it,
+ * as the set's section of its mark states it (`recessesOverRevision`), null where the set draws and
+ * names none.
  */
-export function capJunctionSetupOf(capPlacementKey: string, piles: readonly string[]): CapJunctionSetup {
+export function capJunctionSetupOf(capPlacementKey: string, piles: readonly string[], headHeight: JunctionReading = HEAD_HEIGHT_UNREAD, recess: RecessSetup | null = null): CapJunctionSetup {
   return {
     piles: Object.freeze([...piles]),
     count: { value: String(piles.length), unit: CANONICAL_UNIT.COUNT, basis: "MEASURED", source: capPlacementKey },
-    headHeight: HEAD_HEIGHT_UNREAD,
-    recess: null,
+    headHeight,
+    recess,
   };
 }

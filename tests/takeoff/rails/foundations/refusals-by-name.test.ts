@@ -16,6 +16,7 @@ import {
   BLINDING_THICKNESS,
   CAP_HOLDS_NO_PILE,
   CAP_PILES_UNREAD,
+  CAP_RECESS_UNSTATED,
   DEPTH_EXTRA,
   EARTHWORK_PLAN_DEFERRED,
   FOOTING,
@@ -85,6 +86,10 @@ const WATER_TABLE_UNSTATED = "WATER_TABLE_UNSTATED";
  * TEST_AMENDED (FND-OWN review, I-547): and CAP_PILES_UNREAD — what a pile cap keeps its row under
  * where nobody could read which piles it stands on, in place of the whole prism it once fell back to
  * (L-QTY-04). Driven by name in ./cap-junctions-rails.test.ts too.
+ *
+ * TEST_AMENDED (FND-RECESS, I-598): and CAP_RECESS_UNSTATED — what a pile cap keeps its row
+ * under, concrete and formwork, where the set draws or names a recess in it without stating it every
+ * way. Driven by name in ./cap-junctions-rails.test.ts.
  */
 /** The codes this shard registers (AC-8, interfaces). */
 const REGISTERED: readonly string[] = [
@@ -103,6 +108,7 @@ const REGISTERED: readonly string[] = [
   PILE_HEAD_UNSTATED,
   CAP_HOLDS_NO_PILE,
   CAP_PILES_UNREAD,
+  CAP_RECESS_UNSTATED,
 ];
 
 /** The ones a rail answers, plus the two it reports as observations (AC-8). */
@@ -122,6 +128,7 @@ const RAIL_CODES: readonly string[] = [
   CAP_HOLDS_NO_PILE,
   CAP_PILES_UNREAD,
   JUNCTION_DEFERRED,
+  CAP_RECESS_UNSTATED,
 ];
 
 /** The severities and surfaces a registered entry carries (interfaces). */

@@ -254,10 +254,17 @@ def register_law(role: str, rev_b: Drawing, register: dict[str, str]) -> None:
 
 
 def compare(
-    role: str, rev_b: Drawing, now: Drawing, register: dict[str, str], *, exact: bool = True
+    role: str, rev_b: Drawing, now: Drawing, register: dict[str, str], *, exact: bool = True,
+    added_as: Drawing | None = None,
 ) -> dict[str, Any]:
     """One file against its issue (1-3 above). `exact`: the changed set IS the register; otherwise
-    it lies within it (a committed corpus a later step has not re-minted yet)."""
+    it lies within it (a committed corpus a later step has not re-minted yet).
+
+    `added_as` (the twin, R0-G2, W-19b): the file is another one re-saved — the R2000 twin is the
+    paper set read and saved again (W-07) — so what it adds is exactly what that file added, under
+    the same handles, judged against that file's seed. The twin's own Rev B seed (246A) is a counter
+    its R2000 save ran past without holding a record there, so the paper set's appended records sit
+    below it in the twin as they do in the paper set, and nothing else may be added."""
     register_law(role, rev_b, register)
     problems: list[str] = []
     moved = sorted(
@@ -285,7 +292,16 @@ def compare(
         else:
             changed.append(handle)
     added = sorted((h for h in now.records if h not in rev_b.records), key=_hex)
-    below = [h for h in added if _hex(h) < seed]
+    floor, not_theirs = seed, []
+    if added_as is not None:
+        floor = _hex(REV_B["paper"].seed)
+        paper_rev_b = issued("paper")
+        theirs = {h for h in added_as.records if h not in paper_rev_b.records}
+        not_theirs = [h for h in added if h not in theirs]
+        missing = sorted(theirs - set(added), key=_hex)
+        if missing:
+            problems.append(f"records the re-saved file added and this one did not: {missing[:12]}")
+    below = [h for h in added if _hex(h) < floor]
     unregistered = [f"{h} {rev_b.records[h].kind}/{rev_b.records[h].label}"
                     for h in changed if h not in register]
     unmoved = sorted((h for h in register if h not in changed), key=_hex) if exact else []
@@ -301,7 +317,10 @@ def compare(
     if unmoved:
         problems.append(f"registered records that did not change: {len(unmoved)} — {unmoved[:12]}")
     if below:
-        problems.append(f"records added under handles below Rev B's seed {rev_b.seed}: {below[:12]}")
+        where = REV_B["paper"].seed if added_as is not None else rev_b.seed
+        problems.append(f"records added under handles below Rev B's seed {where}: {below[:12]}")
+    if not_theirs:
+        problems.append(f"records added that the re-saved file did not add: {not_theirs[:12]}")
     if problems:
         raise RevisionError(f"check 9 (revision): {REV_B[role].name}: " + "; ".join(problems))
     return {
@@ -332,9 +351,10 @@ def check_files(folder: Path, traps_doc: dict[str, Any], *, exact: bool = True) 
     from ..emit.sheets import revc
 
     report: dict[str, Any] = {}
+    files = {role: _reader(role)((Path(folder) / rev_b.name).read_bytes()) for role, rev_b in REV_B.items()}
     for role, rev_b in REV_B.items():
-        now = _reader(role)((Path(folder) / rev_b.name).read_bytes())
-        report[role] = compare(role, issued(role), now, revc.CORRECTED[rev_b.register], exact=exact)
+        report[role] = compare(role, issued(role), files[role], revc.CORRECTED[rev_b.register], exact=exact,
+                               added_as=files["paper"] if role == "twin" else None)
     report["traps"] = compare_traps(issued_traps(), traps_doc)
     return report
 
@@ -408,9 +428,10 @@ def check(sheets: list[Any], written: dict[str, bytes], traps_doc: dict[str, Any
     from ..emit.sheets import revc
 
     report: dict[str, Any] = {}
+    files = {role: _reader(role)(written[rev_b.name]) for role, rev_b in REV_B.items()}
     for role, rev_b in REV_B.items():
-        now = _reader(role)(written[rev_b.name])
-        report[role] = compare(role, issued(role), now, revc.CORRECTED[rev_b.register], exact=True)
+        report[role] = compare(role, issued(role), files[role], revc.CORRECTED[rev_b.register], exact=True,
+                               added_as=files["paper"] if role == "twin" else None)
     report["traps"] = compare_traps(issued_traps(), traps_doc)
     report["items"] = _corresponding(sheets, _dxf.LAST_HANDLES, _dxf.MODEL_HANDLES, revc.CORRECTED)
     report["windows"] = _pins(sheets, _dxf.LAST_HANDLES, revc.CORRECTED["paper"])
