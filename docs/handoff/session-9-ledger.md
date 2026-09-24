@@ -124,3 +124,87 @@ COMPLETE 93.892896 m³ (210 objects: +2 C4 stubs at ROOF, no lines); piles 89 / 
 372.848929 m³; beams 360 objects (1 unlevelled), 359 + 359 PARTIAL and **1 + 1 COMPLETE (SB-R4:
 0.257175 m³, 2.7432 m² — the over-measurement above)**; footing 1 object (F1, no line); orphan 0,
 placeholder 0.
+
+## Wave 3c (`wf_c7074f3f-dd2`, 22 agents, ~4.2 M subagent tokens) — integrated
+
+`4a4ff6ec` FRM4-AD + SRR-LEV + RES-OBS + MANUAL-LAW + S6 as ONE commit (I-611…I-622) — **a slip of
+mine**: a note-shaped row I had written into law-ids.tsv made the allocator throw after four slices'
+picks were staged, so they stranded in one index and the fifth committed them together (message
+rewritten to list all 25 commits). Worse, part of FRM4-AD (detect.ts, rows.ts, runs.ts — the side
+reading that ends SB-R4's over-measurement — and four tests) never reached that commit; found by
+comparing every slice's branch against HEAD with ids renumbered, and restored three-way in
+`17202bf5`. Every other slice checked the same way: nothing else lost. Harness: `…` integrate-slice
+reads only well-formed ids. Then ASK-2 (I-623…I-625, **D-010**) · SRCH-1b (I-626…I-632) · VD-4
+(I-633…I-642) · M4P-5 (baseline re-mint, F-SCAN) · ARCH-5 (I-643…I-647; migration 0068 → 0069) ·
+VIEW-TXT2 (I-648) · REG-HONEST (I-649…I-651). Registers re-frozen (refusals 160 → 182, removed 0,
+changed 0; schema: two added tables). The partition suites: 28 files, 511 passed.
+
+verify after 3c: red (4 unit seams; 5 cad tests over the Rev C / F-SCAN corpus — the cad lane was
+already red after the R0 merge: verify12's cad verdict was cut from my view, a reading slip). A repair
+agent is on it; the ties chain (R6b → OPEN-4 → N1 → R6-LEG) runs in its worktree.
+
+verify made green by a repair agent (`76ecc9af`…`f1c99474`: J-000's m3 leg reads its string through
+the page object; the rooms stage's closed lists get a law home off the db barrel; NOT_CLOSED a
+vocabulary; ASK-2's two `baseline:` recording commits declared by literal path in the guard (they
+should have been `baseline(corpus):`); M3 gate cells 36 → 40 (W-41); the DWG's 152 dimensions (W-44);
+F-ARCH's manifest re-minted (its structure pin had moved when the integrator renumbered ids in BNBC's
+model.py — `4871000d`); the text census 88 → 110 marks (W-44)): `verify wall-time 54.37s` (63.21 s on
+the run before). Judged by me: ASK-2's paraphrases.json was new in its own slice, so no landed proof
+was weakened — but the route corpus now proves LEVEL_HEIGHT routing by no recording (8 → 0) and
+MARKS by 3 (was 7): owed to ASK-3 with a stage that carries a storey-height reading.
+Then the golden lane's suites left the unit lane (they ran twice): verify 58.41 / 54.23 s — measured
+while the ties chain's agents were testing in their worktree, so noisy; to re-measure idle.
+
+## The ties chain (`wf_bfa172e3-814`, 9 agents, ~1.5 M subagent tokens) — integrated `62fd93d0`
+
+R6b (synthesis@2: D-003 A′ — bounded joints at the never-over minimum, unread joints declared
+REBAR_TIE_JOINT_UNREAD, round columns declared, FDN anchorage observed; R2: a stated LAP binds 50d past
+the FY/FC contest; RailSetup.joints, EditionSetup.methods, the explicit in-force selector; D-003
+written under its reserved number) · OPEN-4 (IS1200_IN @ 2027.06 citing synthesis@2; the engine
+derived from the placement's source scheme) · N1 (`(BORED PILES)` scopes 3000 psi to piles; FC 3500
+agreed for the rest; notes_readings.scope_class) · R6-LEG (PARTIAL: m3-bar-schedule released in
+code, its walk owed to the gate). I-652…I-660. Integration by hand: drizzle-kit had written N1's
+column into a file named for the edition and dropped the edition's mint (0070 notes-scope-class,
+0071 the edition, rebuilt; a stale journal entry removed); synthesis-v2's sha re-taken; refusals
+160 → 185. harness: an edition staged in the same integration is not "landed".
+
+verify budget, third pass: the recorders ingest a drawing once per process (golden lane 21 → 3.7 s):
+`verify wall-time 51.85s`, `52.92s` (idle box). Gate 1 running.
+
+## Gate 1 (after the ties chain; `.private/work/session-9/gate-1.log`)
+
+`GATE summary — verify: green 56.20s · checkup: RED exit=1 0.80s · golden: green 26.75s · db: RED exit=1 144.95s · e2e: RED exit=1 452.68s · e2e-j000: RED exit=1 305.54s · perf: RED exit=1 19.06s`
+- checkup: cubit_dev behind (65/72 migrations) → `pnpm db:migrate:dev`, green.
+- db: the tenancy probe could not write ARCH-5's room_outlines (a two-column CHECK tying a nullable
+  reason to a closed status) → `…` live-sql's probe tries stated rows across the closed combinations;
+  seam-tenant 10/10; 4 files of Rev C pins left (repair agent).
+- e2e: 5 moved pictures (mine to look at) + J-040 ×2, J-043, ⌘K SRCH-1b; J-000: m3-bar-schedule
+  (R6-LEG's first walk) and m4 manual (S6's first walk); perf PERF-011 16.80 vs 16.75 ms → repair agent.
+
+Repair agent 2 (`90a0df58`…`ab6f0728`): J-040 (S-03 is a mixed page — the journey was stale; scan
+checkpoints budgeted at 0), J-043 (a real screen defect: the example filtered on level_label, which
+only unregistered labels carry), ⌘K (a real product defect: useInspector's setter shared the content's
+context — ~780 React commits a second at idle with a selection, starving the router; its own context
+now), J-000 m3-bar-schedule (an exact ABSENT roster: SW1's lift-core walls are placed on no plan,
+C4's roof stubs observed SECTION_BAND_UNCOVERED / REBAR_SCHEDULE_UNREAD; the BBS link's contrast),
+J-000 m4 manual (layout name, layer wait, outline snap, the BOQ item: the traced blinding reads
+23.7554683 m³), the db Rev C pins, PERF-011 (the harness's own trace and screen recording off for the
+perf spec — measured to perturb the median; the budget untouched: accepted by me). The Ask
+paraphrases' LEVEL_HEIGHT gap stays owed.
+`2fd213c5` baseline: 9 moved + 3 new pictures, each looked at. Gate 2 running.
+
+## Gate 2 — GREEN (`.private/work/session-9/gate-2.log`, on `2fd213c5`)
+
+`GATE summary — verify: green 58.89s · checkup: green 0.85s · golden: green 28.74s · db: green 120.73s · e2e: green 140.74s · e2e-j000: green 251.10s · perf: green 19.61s`
+`GATE wall-time 620.70s exit 0` — verify's own `verify wall-time 58.45s` (at the edge again).
+
+Read-back (project `41be7c47-3252-41fc-ab3f-c7c0ea4429e3`) — the new ground truth:
+column concrete 208 COMPLETE 93.892896 m³; **column rebar 174 COMPLETE 20,404.654240 kg + 34 PARTIAL**
+(the ties in force under IS1200_IN @ 2027.06; every level under its golden: GF 3,746.168 vs 3,986.080
+over 24 of 26 members, 1F/2F 3,579.798 vs 3,707.791, 3F/4F 2,894.029 vs 2,976.393, 5F 1,861.224 vs
+1,934.000, 6F 1,849.607 vs 1,922.382; FDN 26 PARTIAL — anchorage unstated); piles 89 / 1,898.904 m /
+372.848929 m³; caps 26 COMPLETE 122.464091 m³, formwork 262.689481 m²; blinding 12 COMPLETE 3.988982
+m³ + 14 PARTIAL; **slab × pcc.blinding 1 COMPLETE 23.7554683 m³ (the manual leg's traced ring)**;
+beams 372 objects (5 unlevelled: LB1 + SB-R1..4 under SRR), 367 + 367 lines, all PARTIAL (SB-R4's
+over-measurement gone); columns 210 objects; footing 1 (F1); orphan 0, placeholder 0.
+J-000 legs still MISSING DOOR: m4-ask-the-drawings, m4-pdf-sheet, m4-rooms-and-finishes.
