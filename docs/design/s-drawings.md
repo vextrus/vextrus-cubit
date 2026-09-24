@@ -599,8 +599,8 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
      cannot decode are refused `RASTER_UNREADABLE`; a scan that traces no line a millimetre long is
      refused `RASTER_NO_LINE`, never stored as an empty sheet. A multi-page TIFF is read at its first
      page only — owed, and listed.
-  What it costs: the trace takes about 3 s for R1's S-10 (an A1 at 300 DPI; PB-5's 30 s is M4P-11's
-  PERF spec). LSD finds both edges of a drawn line, so a 0.5 mm line at 300 DPI traces as two parallel
+  What it costs: the trace takes about 3 s for R1's S-10 (an A1 at 300 DPI; PB-5's 30 s is PERF-040's,
+  I-695). LSD finds both edges of a drawn line, so a 0.5 mm line at 300 DPI traces as two parallel
   lines about 6 px apart; a centreline pass is owed to the snapping it would serve. Nothing traced is
   measured yet: a scan's page carries no view until M4P-2, and whatever is measured on it is
   INTERPRETED under the RASTER engine and waits on the gate's AGREED exit (M4P-6, L-QTY-04).
@@ -701,6 +701,22 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   is RASTER by its INTERPRETED basis and carries no identity yet. Rejected: RASTER for any placement on
   a page that holds a scan (it would mark vector-measured geometry as a raster reading); inferring the
   picture by nearness.
+- **I-695 — PB-5's PDF and raster budgets are timed end to end, as a QS waits for them (session 9,
+  M4P-11; PB-5, M4's exit).** `tests/e2e/ingest-perf.spec.ts` (PERF-040, collected by `pnpm test:perf`
+  alone) drops each file on this screen's own Dropzone and stops the clock when the job timeline
+  stands `done` and every page stands as its card: the upload, the queue, the shipped worker's
+  `ingestDrawing` (the cad CLI through `uv run`), the stored record, the partition and the thumbnails
+  it chains. The vector set is `rcc6-bnbc.shx.pdf` (27 pages, 71,112 paths, no text object), the
+  heaviest vector set the corpus holds, against 5 min; every card must read PDF_OBJECT. The raster is
+  R1's S-10, whose pixels the spec checks against the manifest's A1 paper at R1's 300 DPI, against
+  30 s; its card must read RASTER_TRACE. PB-5 names the raster budget for the vectorise alone; the
+  whole path is the stricter reading, so a green meets the clause, and the drop-to-stored interval is
+  recorded beside each total (`pb-5-*.json`, a `PB-5` annotation) so a red says which part grew. The
+  worker boots before the clock, each test enrols its own account, and the two run in series. What
+  the extraction alone costs on the reference box, measured when the spec was written: the SHX set
+  4.3 s through `uv run`, R1's S-10 3.8 s. Rejected: timing `ingestDrawing` in process as PERF-311
+  times the renderer (it leaves out the queue and the record a QS actually waits on); the TrueType set
+  (lighter by 65,654 paths, so it would measure less than the budget is for).
 
 ## 1. Layout and hierarchy
 
