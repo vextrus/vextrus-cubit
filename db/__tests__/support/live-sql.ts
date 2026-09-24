@@ -474,13 +474,19 @@ function insertProbeRow(url: string, table: TableRef, chosen: Map<string, string
   // own key, so a row leaving the level columns empty is refused by what the table IS, not by a bad
   // guess at a closed value. The rows tried here are the ones such a constraint describes — one
   // stated form, and the key column composed the way the constraint says the key is composed.
+  // A row a spanning constraint describes may itself need a closed column other than its first value
+  // (a stated reason is admitted only beside the status that asks for one), so each is tried across
+  // the closed columns' combinations too.
   for (const overrides of spanning) {
-    if (last?.sqlstate !== "23514") break;
-    const values = new Map(chosen);
-    for (const [name, value] of overrides) values.set(name, value);
-    const result = attempt(values);
-    if (result.ok) return;
-    last = result;
+    for (const combo of combinations(closed)) {
+      if (last?.sqlstate !== "23514") break;
+      const values = new Map(chosen);
+      for (const [name, value] of combo) values.set(name, value);
+      for (const [name, value] of overrides) values.set(name, value);
+      const result = attempt(values);
+      if (result.ok) return;
+      last = result;
+    }
   }
   throw new Error(`no probe row could be written to ${qualified(table)} (SQLSTATE ${last?.sqlstate ?? "none"}):\n${last?.stderr.slice(-1200) ?? ""}`);
 }
@@ -505,7 +511,9 @@ function spanningRows(url: string, table: TableRef, chosen: Map<string, string>)
     const composed = check.columns.filter((name) => (chosen.get(name) ?? "").startsWith("'"));
     // A constraint that only asks the row to STATE one of its nullable columns (`num_nonnulls(…) = 1`
     // over two ways of saying one fact) composes nothing: each stated value alone is a row it describes.
-    if (composed.length === 0) {
+    // So is one that ties a nullable column to a closed one (a reason stated beside the status that asks
+    // for it, room_outlines): the stated value alone, tried across the closed columns' combinations.
+    {
       for (const [name, value] of stated) {
         const overrides = new Map([[name, value]]);
         const spelling = JSON.stringify([...overrides]);
