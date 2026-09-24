@@ -126,6 +126,30 @@ type StageOutcome = { readonly derived: StagedPartition; readonly detail: Record
 const NOTHING_PLACED: DetectedPlacements = Object.freeze({ views: 0, placements: Object.freeze([]), ungridded: Object.freeze([]), noted: 0, minted: 0 });
 
 /**
+ * The partition as the stages after the views read it: the views of MODEL space and what they hold,
+ * and nothing read on a page (I-682).
+ *
+ * A page of a PDF set or a scan is partitioned into views so that a person can see what each is,
+ * count them on the sheet and affirm a scale on them (I-681). It is not yet READ for what it
+ * measures: the census reads layers a PDF does not carry (every object of it stands on one), the
+ * schedules, the strips, the placements and the level stack are read off entities no stage has been
+ * proven over as a PDF draws them, and a stage that ran over them anyway would put members, types and
+ * levels in the register nobody had checked a page could yield. So each of those stages is handed
+ * the model-space half and says what it read there — for a PDF, nothing — and measures less,
+ * completely, rather than more on a reading nobody proved.
+ *
+ * A partition with no page in it is handed on exactly as it stands, so a DXF's stages read what they
+ * always read.
+ */
+export function modelSpaceOf<Held extends { readonly views: readonly PartitionedView[]; readonly assignments: ReadonlyMap<string, string> }>(held: Held): Held {
+  if (held.views.every((view) => view.page === undefined)) return held;
+  const views = held.views.filter((view) => view.page === undefined);
+  const kept = new Set(views.map((view) => view.viewKey));
+  const assignments = new Map([...held.assignments].filter(([, viewKey]) => kept.has(viewKey)));
+  return { ...held, views, assignments };
+}
+
+/**
  * The stage list as functions, keyed by the list itself — a stage named in `PARTITION_STAGES` with
  * no implementation here does not compile, which is what keeps the two from drifting apart. Each
  * reports what it read, because R-TO-030 asks for a partition whose every stage's result is visible.
@@ -136,8 +160,10 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
     const derived = { ...held, views: partitioned.views, assignments: partitioned.assignments };
     // `framed` is how many of those views a paper sheet's own window captioned, as against the views
     // read out of model space alone: which reading a drawing partitioned by is a fact about the
-    // drawing, and R-TO-030 asks for each stage's result to be visible.
-    return { derived, detail: { views: derived.views.length, assigned: derived.assignments.size, framed: partitioned.framed } };
+    // drawing, and R-TO-030 asks for each stage's result to be visible. A paged artifact says how many
+    // pages it was read as (I-681); a modelled one says nothing new, so its step reads as it did.
+    const pages = new Set(partitioned.views.flatMap((view) => (view.page === undefined ? [] : [view.page]))).size;
+    return { derived, detail: { views: derived.views.length, assigned: derived.assignments.size, framed: partitioned.framed, ...(pages === 0 ? {} : { pages }) } };
   },
   conventions: (context, held) => {
     const census = censusOf(context.graph, held.views);
@@ -356,8 +382,10 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
 
   let derived: StagedPartition = { views: [], assignments: new Map(), conventions: null, grid: null, schedules: null, placements: null, rooms: null, expansion: null, proposal: null, register: null };
   for (const stage of PARTITION_STAGES) {
-    const outcome = await STAGES[stage]({ record, graph, tenantId, projectId, drawingId }, derived);
-    derived = outcome.derived;
+    // Every stage after the first reads the views of MODEL space alone (I-682); the partition it
+    // hands on is still the whole one, pages and all, because that is what the store writes.
+    const outcome = await STAGES[stage]({ record, graph, tenantId, projectId, drawingId }, stage === "views" ? derived : modelSpaceOf(derived));
+    derived = stage === "views" ? outcome.derived : { ...outcome.derived, views: derived.views, assignments: derived.assignments };
     await progress.step(stage, outcome.detail);
   }
 

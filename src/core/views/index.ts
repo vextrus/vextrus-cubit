@@ -38,6 +38,8 @@ export type ViewRecord = {
   readonly reason: string | null;
   readonly caption: string;
   readonly anchorKey: string | null;
+  /** The page the view was read on where the ingest is paged (a PDF set, a scan); null in model space. */
+  readonly page: string | null;
   readonly proposed: ProposedViewType | null;
   readonly confirmed: ConfirmedViewType | null;
 };
@@ -78,6 +80,7 @@ export async function viewRecordsOf(tx: TenantTx, scope: ViewRecordScope): Promi
       reason: row.reason,
       caption: row.caption,
       anchorKey: row.anchorKey,
+      page: row.page,
       proposed: row.proposedType === null || row.proposedCallId === null ? null : { type: row.proposedType, callId: row.proposedCallId },
       confirmed: confirmed.get(row.viewKey) ?? null,
     }))

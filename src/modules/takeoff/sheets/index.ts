@@ -152,7 +152,7 @@ export async function sheetScaleStatesOf(scope: SheetIndexScope, ingestIds: read
         ingestId,
         views.map((view) => {
           const standing = affirmed.get(view.viewKey) ?? null;
-          return { viewKey: view.viewKey, anchorKey: view.anchorKey, affirmed: standing === null ? null : judgeAnisotropy(standing, tolerances.anisotropy) };
+          return { viewKey: view.viewKey, anchorKey: view.anchorKey, page: view.page, affirmed: standing === null ? null : judgeAnisotropy(standing, tolerances.anisotropy) };
         }),
       );
     }

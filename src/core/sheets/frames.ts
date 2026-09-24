@@ -113,6 +113,32 @@ export function sheetOfKey(key: string | null | undefined, spaces: ReadonlyMap<s
 }
 
 /**
+ * The sheet one VIEW stands on. A view read on a page stands on that page — the page is the sheet it
+ * was read as (I-681), and it is the only fact that places the view no caption anchors, which on a
+ * paged record is one view per page. Every other view stands where its caption anchor does
+ * (`sheetOfKey`), which is how a view of model space finds the sheet whose window shows it.
+ */
+export function sheetOfView(
+  view: { readonly anchorKey?: string | null; readonly page?: string | null },
+  spaces: ReadonlyMap<string, string>,
+  sheets: readonly SheetOfRecord[],
+  frames: RecordFrames,
+): string | null {
+  if (view.page !== undefined && view.page !== null) return view.page;
+  return sheetOfKey(view.anchorKey, spaces, sheets, frames);
+}
+
+/**
+ * Whether a view MAY stand on the opened sheet: every view of model space may — a window of that
+ * sheet may frame it, and the reader of its box says whether one does — and a view read on a page
+ * may stand on that page alone (I-681). What a sheet's panels list: the partition overlay and the
+ * scale panel ask this one question, so a page never lists another page's views.
+ */
+export function mayStandOn(view: { readonly page?: string | null }, layoutName: string): boolean {
+  return view.page === undefined || view.page === null || view.page === layoutName;
+}
+
+/**
  * Whether one key stands on one sheet: drawn on it, or drawn in model space where a window of it
  * shows it. What a sheet's viewer holds is exactly this — a paper sheet's picture carries the model
  * entities its windows frame, each named by its own key (viewer.md I-290) — so a key this answers

@@ -15,6 +15,8 @@ import { entityGraphSchema, type EntityGraph } from "../../src/core/entitygraph/
 import { sheetsOfRecord, type SheetFacts } from "../../src/core/sheets";
 import type { Storage } from "../../src/core/storage";
 import { factsOf } from "../../src/modules/takeoff/ingest/facts";
+import { partitionArtifact } from "../../src/modules/takeoff/partition/views/assign";
+import { VIEW_TYPE } from "../../src/modules/takeoff/partition/views/law";
 import { buildRenderManifest } from "../../src/modules/takeoff/viewer/manifest";
 import { REPO_ROOT, requireCadPackage, runIngest } from "./support/artifact";
 
@@ -121,5 +123,32 @@ describe("M4P-1: a vector PDF set is ingested page by page", () => {
     expect(records.every((record) => record.key?.startsWith("PDF_OBJECT:") === true)).toBe(true);
     expect(records.some((record) => record.text === "S-10 COLUMN LAYOUT PLAN"), "the title block's line is painted where the grammar read it").toBe(true);
     expect(manifest.extents, "the page frames a box the viewer can fit").not.toBeNull();
+  });
+});
+
+describe("M4P-2: the vector set is partitioned page by page (I-681)", () => {
+  it("every original of every page, PDF_OBJECT and RASTER_TRACE alike, is assigned once, to a view of its own page", () => {
+    const partition = partitionArtifact(graph);
+    const pageOf = new Map(partition.views.map((view) => [view.viewKey, view.page]));
+    expect(partition.assignments.size, "every original is assigned").toBe(graph.entities.length);
+    const strays = graph.entities.filter((entity) => pageOf.get(partition.assignments.get(entity.key) ?? "") !== entity.space);
+    expect(strays.map((entity) => entity.key), "and each to a view read on the page it is drawn on").toEqual([]);
+    expect(new Set(partition.views.map((view) => view.page)), "each of the set's pages is read as its own drawing space").toEqual(new Set(sheets.map((sheet) => sheet.layoutName)));
+    const traced = graph.entities.filter((entity) => entity.key.startsWith("RASTER_TRACE:"));
+    expect(traced.length, "S-03's pasted scan is traced, so its lines are owed a view").toBeGreaterThan(0);
+  });
+
+  it("S-10's page is one LAYOUT_PLAN view anchored on its caption, holding every original of the page", () => {
+    const partition = partitionArtifact(graph);
+    const onPage = partition.views.filter((view) => view.page === "Page 11");
+    expect(onPage.map((view) => ({ type: view.type, caption: view.caption }))).toEqual([{ type: VIEW_TYPE.LAYOUT_PLAN, caption: "COLUMN LAYOUT PLAN SCALE 1:100" }]);
+    const plan = onPage[0];
+    const anchor = graph.entities.find((entity) => entity.key === plan?.anchorKey);
+    expect(anchor?.space, "the anchor is a text of S-10's own page").toBe("Page 11");
+    const originals = graph.entities.filter((entity) => entity.space === "Page 11");
+    expect(
+      originals.every((entity) => partition.assignments.get(entity.key) === plan?.viewKey),
+      "a grid point a QS cites on S-10 is held by the plan (L-MEA-05)",
+    ).toBe(true);
   });
 });

@@ -358,7 +358,8 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  */
 /* Re-frozen at integration over FRM4-AD's 0068 and ARCH-5's 0069 together (two ADDED tables, placement_unnamed_pairs and room_outlines; no standing column moved). Previous: 552432fe94b491d765b8727354eda7a0df8e8c000ce8135d34db7cebad9963c1. */
 /* Re-frozen at integration for N1's migration 0070: one ADDED nullable column, notes_readings.scope_class (s-schedules I-652), and its CHECK; no table joined or left, no standing column moved. Previous: f98a517c100638ebb045c24accc5d537462e1eb21761fbcfa5c167599448854c. */
-const COLUMNS_DIGEST_BEFORE = "9f07016395df9ee6ca8e06956a5183bc82c23ac3380be51ddf1c222c9a5d2c6f";
+/* Re-frozen for M4P-2's migration 0072: one ADDED nullable column, partition_views.page (s-drawings I-681), and its CHECK; no table joined or left, no standing column moved. Previous: 9f07016395df9ee6ca8e06956a5183bc82c23ac3380be51ddf1c222c9a5d2c6f. */
+const COLUMNS_DIGEST_BEFORE = "1180fa16160b1434d875ace1be8893d4d86aaf2c655a59a07ac7593b060c45e3";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {

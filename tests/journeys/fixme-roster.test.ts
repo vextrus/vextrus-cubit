@@ -35,8 +35,8 @@ const ROSTER: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   // first", so M4 stands on named, measured doors and nothing of it is built; each file's header holds
   // the measured work behind its door, file by line.
   "tests/e2e/journeys/j-000/m4-pdf-sheet.spec.ts": {
-    "MISSING DOOR: J-000 m4-pdf-sheet: a PDF or scanned page carries no view so no scale can be affirmed on it, and the gate has no AGREED exit, so a corroborated INTERPRETED sighting can never reach a line":
-      "ingest reads dxf|dwg|pdf since M4P-1 (a PDF page is a sheet, its objects PDF_OBJECT keys) and png|jpg|tiff since M4P-3 (a scan, or a scan on a PDF page, traced by the pinned vectoriser into RASTER_TRACE lines, cad raster.py); the partition cuts model space only, so a PDF page carries no view and AFFIRM_SCALE refuses PARTITION_NOT_AVAILABLE (partition/views/assign.ts:8-11,91-93; M4P-2); the gate queues every INTERPRETED offer with no AGREED exit (gate/evaluate.ts:288-303) and register standing is CHECK-closed to MEASURED|DERIVED (M4P-6) — M4 (R-TO-003, J-040): M4P-2..M4P-7",
+    "MISSING DOOR: J-000 m4-pdf-sheet: the gate has no AGREED exit, so a corroborated INTERPRETED sighting off a PDF or scanned page can never reach a line":
+      "ingest reads dxf|dwg|pdf since M4P-1 (a PDF page is a sheet, its objects PDF_OBJECT keys) and png|jpg|tiff since M4P-3 (a scan, or a scan on a PDF page, traced by the pinned vectoriser into RASTER_TRACE lines, cad raster.py); since M4P-2 each page is partitioned into its own views and a two-point on a page can affirm its scale (partitionPages, partition/views/assign.ts; I-681, I-683); the gate queues every INTERPRETED offer with no AGREED exit (gate/evaluate.ts:288-303) and register standing is CHECK-closed to MEASURED|DERIVED (M4P-6) — M4 (R-TO-003, J-040): M4P-6..M4P-7",
   },
   "tests/e2e/journeys/j-000/m4-rooms-and-finishes.spec.ts": {
     "MISSING DOOR: J-000 m4-rooms-and-finishes: F-ARCH is not in the tree (arch-plan.dxf is a 25-entity xref stub and no golden holds a plaster, paint or room row), nothing in the product models a room, and the finishes rail's surfaces seam is hard-coded empty":

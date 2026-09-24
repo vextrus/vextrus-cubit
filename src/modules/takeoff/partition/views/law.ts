@@ -69,3 +69,17 @@ export function yieldsInstances(type: ViewType): boolean {
 export function partitionViewKey(type: string, anchorKey: string): string {
   return `${type}:${anchorKey}`;
 }
+
+/**
+ * The key of the view no caption anchors, in the drawing space it was read in. Model space has one
+ * such view and it keeps the bare class it has always been keyed by, so a DXF partition's keys do
+ * not move (L-REG-04). A PAGE is a drawing space of its own (I-681): each page's anchorless view
+ * is keyed by the page, so twenty-seven pages of a scanned set are twenty-seven views — each on its
+ * own sheet — and never one view no sheet can hold.
+ *
+ * The page stands where an anchor stands in a captioned key. No source key is ever a page name (every
+ * source key opens with its scheme), so the two spellings cannot meet.
+ */
+export function anchorlessViewKey(page: string | null): string {
+  return page === null ? VIEW_TYPE.UNASSIGNED : partitionViewKey(VIEW_TYPE.UNASSIGNED, page);
+}

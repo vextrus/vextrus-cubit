@@ -3037,6 +3037,22 @@ one RefusalState, the one ConsequenceDialog — plus the `cx-viewer-scale-*` cla
   INSERT, which the census never read. The census now reads the derived paint for a declaration
   only where no original declares one, cited at the INSERT that draws it; two units declared across
   the paint are still no convention. A drawing whose notes declare a unit reads exactly as before.
+- **I-683 — a page of a paged drawing shows and scales its own views (session 9, M4P-2;
+  s-drawings I-681, R-UI-050, L-MEA-05).** A PDF set or a scan is partitioned page by page, and a
+  view read on one page can stand on no part of another. So on such a sheet the partition overlay
+  lists the views of THIS page (`partitionOverlayOf`, which leaves out a view whose stored `page` is
+  another's), and the scale panel's rows, member count, doors and hatch read the views of this page
+  (`viewsOfSheet` in `scale-region.tsx`, over the door's new `page` per view). A view of model space
+  is kept on every sheet, as before: a window of the sheet may frame it, and where none does its
+  row says so. On S-10's page of the BNBC PDF the panel lists one row — the column layout plan —
+  and every original of the page is the plan's, so a two-point taken on its grid cites points the
+  plan holds; affirming that one row is the whole page, and its card reads **Scale affirmed**. A
+  page offers no machine rank to check a person against — no grid is read off a page and a PDF
+  carries no dimension entity (s-drawings I-682) — so a two-point on a page is verified the way
+  L-MEA-05 verifies any single observation with nothing to corroborate it: by a second span taken
+  along the same axis (I-419), X and Y each. One span alone stands unverified and is refused by name.
+  Rejected: listing every page's views on every page, marked "not on this sheet" as a model view
+  is — 49 rows on each of 27 pages, the page's own buried among them.
 
 ## 1. Layout and hierarchy
 

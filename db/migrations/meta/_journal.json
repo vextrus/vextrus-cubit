@@ -505,6 +505,13 @@
       "when": 1790237453677,
       "tag": "0071_ruleset-edition-ties",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1790248767453,
+      "tag": "0072_partition-view-pages",
+      "breakpoints": true
     }
   ]
 }

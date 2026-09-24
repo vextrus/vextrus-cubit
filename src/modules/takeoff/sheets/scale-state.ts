@@ -23,6 +23,11 @@ export type ScaleStateView = {
    * how a view is told which SHEET of a multi-layout record it stands on (L-CAD-05, R-TO-021).
    */
   readonly anchorKey?: string | null;
+  /**
+   * The page this view was read on, where the record is paged (I-681) — which is how the view no
+   * caption anchors finds its sheet, one per page. Null or absent for a view of model space.
+   */
+  readonly page?: string | null;
 };
 
 /** What a sheet's scale line stands at: the state, how many views have no scale of record, and of how many. */

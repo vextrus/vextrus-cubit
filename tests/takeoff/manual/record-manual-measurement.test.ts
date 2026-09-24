@@ -49,7 +49,7 @@ const PIT_POINTS: readonly [number, number][] = [
   [4000, 4000],
 ];
 
-const view = (viewKey: string, type: ViewRecord["type"], anchorKey: string | null): ViewRecord => ({ viewKey, type, reason: null, caption: viewKey, anchorKey, proposed: null, confirmed: null });
+const view = (viewKey: string, type: ViewRecord["type"], anchorKey: string | null): ViewRecord => ({ viewKey, type, reason: null, caption: viewKey, anchorKey, page: null, proposed: null, confirmed: null });
 
 const RECIPE: Recipe = {
   conditionId: null,

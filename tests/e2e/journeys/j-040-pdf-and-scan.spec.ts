@@ -176,7 +176,7 @@ test.describe("J-040 — a PDF set and a scan, read and corroborated (M4)", () =
       await expect(drawings.cell(s10, S_DRAWINGS.number), "the eleventh page proposes S-10").toHaveText(S10.number);
       await expect(drawings.cell(s10, S_DRAWINGS.title), "titled as its block prints it").toHaveText(S10.title);
       await expect(s10, "a structural sheet by its own number's designator (I-365)").toHaveAttribute("data-discipline", S10.discipline);
-      await expect(drawings.cell(s10, S_DRAWINGS.scale), "a page states no world unit: its scale waits on a QS, it is not unplaceable (I-513)").toHaveAttribute("data-scale", "unaffirmed");
+      await expect(drawings.cell(s10, S_DRAWINGS.scale), "a page states no world unit and is not yet partitioned: its scale waits on a QS, it is not unplaceable (I-513; once partitioned it counts its views, I-681)").toHaveAttribute("data-scale", "unaffirmed");
       await drawings.search.fill(S10.number);
       await expect(drawings.cards, `searching ${S10.number} leaves its one card`).toHaveCount(1);
       await settled(page);
@@ -243,7 +243,7 @@ test.describe("J-040 — a PDF set and a scan, read and corroborated (M4)", () =
       await expect(scan, "the PNG states no resolution, and the card prints none it was not given (I-584)").toHaveAttribute("data-dpi", "");
       await expect(scan, "R1 is a square render: the deskew found no turn").toHaveAttribute("data-deskew", "0");
       await expect(scan).toContainText(drawingsCopy.drawings_scan_dpi_unstated);
-      await expect(drawings.cell(card, S_DRAWINGS.scale), "a scan states no world unit: its scale waits on a QS").toHaveAttribute("data-scale", "unaffirmed");
+      await expect(drawings.cell(card, S_DRAWINGS.scale), "a scan states no world unit and is not yet partitioned: its scale waits on a QS (I-513, I-681)").toHaveAttribute("data-scale", "unaffirmed");
       await settled(page);
       await checkpoint(page, testInfo, "j-040/scan-card");
 

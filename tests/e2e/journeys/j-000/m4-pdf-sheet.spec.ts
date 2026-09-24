@@ -1,7 +1,7 @@
 /**
  * J-000 SEGMENTS: ingest and corroborate a PDF sheet
  *
- * MISSING DOOR: two doors, both M4's (L-CAD-06, J-040) — a PDF page (ingested since M4P-1, its objects PDF_OBJECT keys) or a scanned page (traced since M4P-3, its lines RASTER_TRACE keys) is partitioned into no view, so no scale can be affirmed on it; and the gate has no AGREED exit, so an INTERPRETED sighting, corroborated or not, never reaches a line.
+ * MISSING DOOR: one door left, M4's (J-040) — the gate has no AGREED exit, so an INTERPRETED sighting, corroborated or not, never reaches a line. The other door is open: a PDF page (ingested since M4P-1, its objects PDF_OBJECT keys) or a scanned page (traced since M4P-3, its lines RASTER_TRACE keys) is partitioned page by page into its own views since M4P-2, so a scale can be affirmed on it (docs/design/s-drawings.md I-681).
  *
  * M4P-1 (session 8) opened the first of the doors measured below: a vector PDF is ingested, each page a
  * sheet whose number and title the grammar proposes (items 1 and 2 as far as a PDF goes; J-040 step 1
@@ -70,7 +70,7 @@
 import { test } from "@playwright/test";
 
 test.describe("J-000 — Golden Path: M4's PDF sheet (AM-09 §3, AM-17), owed", () => {
-  test.fixme("MISSING DOOR: J-000 m4-pdf-sheet: a PDF or scanned page carries no view so no scale can be affirmed on it, and the gate has no AGREED exit, so a corroborated INTERPRETED sighting can never reach a line", () => {
+  test.fixme("MISSING DOOR: J-000 m4-pdf-sheet: the gate has no AGREED exit, so a corroborated INTERPRETED sighting off a PDF or scanned page can never reach a line", () => {
     // AM-09 §3, AM-17: the walk lands with its doors; until then the leg is declared, collected and impossible to forget.
   });
 });

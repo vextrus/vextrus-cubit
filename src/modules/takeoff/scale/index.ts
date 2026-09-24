@@ -93,6 +93,12 @@ export type ViewScale = {
    * L-MEA-05 admits printed scale notes at no rank (I-418, I-565).
    */
   readonly printedScale: string | null;
+  /**
+   * The page the view was read on where the drawing is paged — a PDF set, a scan — or null for a
+   * view of model space (I-681); absent reads as model space. A sheet's panel scales the views of
+   * its own page and never another page's, which it could not show.
+   */
+  readonly page?: string | null;
 };
 
 /**
@@ -134,6 +140,7 @@ export async function scaleProposalsOf(scope: ScaleScope, deps: ScaleDeps): Prom
         affirmed: standing === null ? null : { ...standing, ...judgeAnisotropy(standing, tolerances.anisotropy) },
         refusal: standing === null ? absence : null,
         printedScale: printedScaleOf(view.caption),
+        page: view.page,
       };
     });
   });

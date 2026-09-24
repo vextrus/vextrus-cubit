@@ -134,6 +134,8 @@ export async function rewritePartition(write: PartitionWrite): Promise<Registere
             reason: view.reason,
             caption: view.caption,
             anchorKey: view.anchorKey,
+            // Null for model space; the page's name where the ingest is paged (I-681).
+            page: view.page ?? null,
             proposedType: proposal === null ? null : proposal.type,
             proposedCallId: proposal === null ? null : proposal.callId,
           };

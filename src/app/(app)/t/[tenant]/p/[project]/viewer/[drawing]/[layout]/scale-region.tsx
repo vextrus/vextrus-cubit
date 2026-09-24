@@ -25,6 +25,7 @@ import type { ReactNode } from "react";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import { SCALE_RANKS, SCALE_UNITS, type AxisStanding, type ScaleAxis, type ScaleRank, type ScaleUnit, type TwoPointObservation } from "@/core/scale";
+import { mayStandOn } from "@/core/sheets/frames";
 import type { ScaleProposal, ViewScale } from "@/modules/takeoff/scale";
 import { SCALE_COPY, fillCopy } from "@/modules/takeoff/scale-ui/copy";
 import { corroboratedRows, judgeObservation, observationOf, standingOf, type RowScope } from "@/modules/takeoff/scale-ui/two-point";
@@ -219,7 +220,9 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
     };
   }, [asked, enabled, read]);
 
-  const views = answered?.views ?? EMPTY_VIEWS;
+  // The door answers the whole drawing; a page of a paged drawing scales the views read on it and
+  // no other page's (I-681) — the rows, the members, the doors and the hatch all read this list.
+  const views = useMemo(() => viewsOfSheet(answered?.views ?? EMPTY_VIEWS, sheetName), [answered, sheetName]);
   const tolerances = answered?.tolerances ?? null;
 
   /** The absence map the overlay hatches by: a view no act names, by the code it declares (I-160). */
@@ -488,6 +491,17 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
 /** A sheet nobody has answered for holds no view — one frozen answer, so a render that changed
     nothing recomputes nothing off it (PB-3). */
 const EMPTY_VIEWS: readonly ViewScale[] = Object.freeze([]);
+
+/**
+ * The views this sheet's panel scales: every view of model space — a window of this sheet may frame
+ * it, and its row says whether it stands here — and, of a paged drawing, the views read on THIS page
+ * alone (I-681). A view of another page is on another sheet and has nothing on this one to pick.
+ * The answer is the door's own list whenever nothing is paged, so a DXF sheet's rows are as they were.
+ */
+export function viewsOfSheet(views: readonly ViewScale[], sheetName: string): readonly ViewScale[] {
+  const here = (view: ViewScale): boolean => mayStandOn(view, sheetName);
+  return views.every(here) ? views : views.filter(here);
+}
 
 /** The factor a proposal offers along one axis. X and Y derive independently (L-MEA-05). */
 function factorOn(proposal: ScaleProposal, axis: ScaleAxis): string {

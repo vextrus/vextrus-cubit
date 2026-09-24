@@ -438,7 +438,8 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   "no world unit stated" — code 0, `unitless`, mapped (`units.page_space()`) — which leaves the
   drawing-unit rung of the scale ladder empty. The card therefore reads **No scale of record**
   (`unaffirmed`), never "unplaceable": the page has extents, and its scale is a QS's to affirm by two
-  cited points once the page is partitioned (M4P-2).
+  cited points once the page is partitioned (M4P-2). Superseded in part by I-681: that holds only
+  until the page is partitioned; after, the card counts the page's views as a DXF sheet's does.
 - **I-514 — a text's height is its matrix's, and its words are the text layer's own.** The height
   is the font size times the length of the object matrix's y axis in page space — never the font size
   alone, which is text space (S-10's title reads 3.2 and stands 9.07 pt, 3.2 mm of paper). The anchor
@@ -619,6 +620,66 @@ journey- and URL-reachable, and `drawingsRoute()` in `route-address.ts` is its o
   0°**; Page 1's colour logo stays **Images and shadings not read**: 1
   (`cad/tests/test_raster.py`, `tests/cad/pdf-sheets.test.ts`). Colour alone is a proxy: a colour
   scan pasted small onto a drawn page is left unread and named, the safer error.
+- **I-681 — a paged drawing is partitioned page by page, and a page is its own drawing space
+  (session 9, M4P-2; L-CAD-06, L-CAD-05, I-511, I-290).** L-CAD-06 partitions MODEL space, and a PDF
+  set or a scan has none: until now such a drawing was cut into no view at all, so no sheet of it
+  counted a view, no scale could be affirmed on it and J-040 stopped at the viewer. An artifact with no
+  model-space layout is now read page by page (`partitionPages`,
+  `src/modules/takeoff/partition/views/assign.ts`). A page is the drawing space and the sheet it is
+  printed on at once, so it is read the way a viewport's framed region is (I-290): the page's tall
+  texts are its captions, by the same share of its tallest text model space is read by; a caption
+  the grammar TYPES anchors a view keyed exactly as a model-space view is (class and caption source
+  key, L-REG-04); a caption the grammar cannot type — a sheet number, a revision letter, a bar mark —
+  anchors nothing and is content of the view that holds it; every original joins the nearest typed
+  caption ON ITS PAGE, with no reach limit, because the page edge already bounds the view; and a page
+  no typed caption stands on is one view no caption anchors, keyed `UNASSIGNED:<page>`
+  (`anchorlessViewKey`) so each page has its own and none is shared by the whole set. Every
+  original, `PDF_OBJECT` and `RASTER_TRACE` alike, is assigned to exactly one view of its own page, so
+  a point a person cites on a page is held by a view of that page (L-MEA-05's citation check,
+  `src/core/acts/affirm-scale.ts`). `partition_views.page` (migration 0072) stores the page, null for
+  model space; the sheet index places a view by it before its anchor (`sheetOfView`,
+  `src/core/sheets/frames.ts`), so a text-less scan's one view reaches its card and counts there.
+  On F-RCC6-BNBC's vector set the 10,768 originals of 27 pages partition into 49 views: S-10 (Page 11)
+  is one LAYOUT_PLAN view, anchored on `COLUMN LAYOUT PLAN SCALE 1:100`, holding all 268 of the
+  page's originals, title block included; ten pages whose captions the grammar cannot type (the cover,
+  the notes, the long-section sheets) are each one anchorless view; R1's scan of S-10 (2,175 traced
+  lines, no text) is one view on its one page (`src/modules/takeoff/partition/views/__tests__/pages.test.ts`).
+  A DXF's partition is untouched: it has model space, and its views, keys and assignments are what they
+  were. No model is asked about a page caption: an untyped page caption anchors no view, and the
+  model question is asked only of an untyped view that a caption anchors (L-AI-03, and a 27-page set
+  would otherwise spend a call on every bar mark tall enough to read as a caption). Rejected: the
+  caption competition of model space as it stands, run per page — it made each title block's sheet
+  number and revision letter a view of its own and, on the long-section sheets, a view per bar mark
+  (about 300 untyped views on this set, each a model call); one view per page whatever it says — it
+  would type no plan, and a page carrying five long sections would scale as one. What it costs: the
+  title block sits inside the nearest view of its page, so a plan's outline is the page's; a page
+  whose view titles are lettered much smaller than its sheet number types nothing and stands as one
+  anchorless view (the share is model space's, unchanged); a caption the grammar misreads types a view
+  on a page exactly as it would in model space (Page 7's note `COUNTS ARE TAKEN FROM THE LAYOUT
+  ABOVE` reads as a layout plan). It supersedes I-513's "never unplaceable" for a partitioned page:
+  before its partition a page holds no view and its card reads **No scale of record** (`unaffirmed`)
+  as I-513 says; once partitioned, its card reads its views the way a DXF sheet's card does
+  (`scaleStateOf`, `src/modules/takeoff/sheets/scale-state.ts`) — `unplaceable` with the count,
+  **No scale of record on 1 of 1 views**, until a two-point affirms each view, then `affirmed`. The
+  words still open with I-513's; the count is what the partition adds, and a page read by a rule of
+  its own would tell a QS a PDF page and a DXF sheet in one state apart where nothing about them
+  differs. I-513's reason stands — the page has extents, and the layout itself is never unplaceable
+  (its core state stays `unaffirmed`); the count is of views, not of the page
+  (`tests/takeoff/partition/paged-partition.test.ts`).
+- **I-682 — a page is classified, counted and scaled, and not yet measured (session 9, M4P-2;
+  L-CAD-08, L-CAD-07, R-TO-030, L-QTY-04).** The stages after the views — the convention census, the
+  grid, the schedules and the section strips, the placements, the rooms, the expansion and the level
+  proposal — read the views of MODEL space alone (`modelSpaceOf`, `src/modules/takeoff/partition/rebuild.ts`);
+  the partition they hand on to the store is still the whole one. So the census does not read a PDF
+  page (every PDF object stands on the one layer `0`, and the census is a reading of layers: it
+  answers null for a drawing with no model space, as it did), and neither do the schedules: a
+  `COLUMN SCHEDULE` page is a SCHEDULE view, counted and scalable, and no table is reconstructed off
+  it. None of those stages has been proven over the way a PDF draws its words (a run per text object)
+  and its lines (duplicated strokes collapsed, I-520), and a stage that ran over them anyway would put
+  member types, placements and a level stack in front of a person that nobody had checked a page can
+  yield. The views step says what it read — `pages` beside `views`, `assigned` and `framed` — and the
+  stages after it report the nothing they read. A DXF's stages read exactly what they read before.
+  Owed: reading schedules and plans off PDF pages, stage by stage, each against the BNBC set's golden.
 - **I-654 — a line says RASTER where what it was read off was traced, and carries the trace
   (session 9, OPEN-4; L-QTY-03, L-QTY-06, L-CAD-02, I-518, I-584).** The engine is no longer a constant
   of the measure setup: `railSetupOf` derives each placement's from the schemes of the atoms it stands

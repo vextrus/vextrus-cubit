@@ -2,6 +2,10 @@
 // original entity belongs to exactly one view" — so this is total over model space, and the entity no
 // caption reaches belongs to the one view that has no caption rather than to none.
 //
+// An artifact with NO model space — a PDF set, a scan — is read page by page (I-681): each page is
+// a drawing space of its own and the sheet it is printed on, so every original on it belongs to
+// exactly one view OF THAT PAGE (`partitionPages` below).
+//
 // Pure over the artifact: no store, no clock, no model. The same artifact partitions the same way
 // forever, which is what makes the stored partition rebuildable and its keys re-derivable (L-REG-04).
 //
@@ -13,7 +17,7 @@
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import type { Box } from "../../viewer/projection";
 import { classifyCaption } from "./grammar";
-import { VIEW_TYPE, partitionViewKey, type ViewType } from "./law";
+import { VIEW_TYPE, anchorlessViewKey, partitionViewKey, type ViewType } from "./law";
 import { regionAt, regionsOf, type RegionCaption } from "./regions";
 
 /** One view of the partition: its content-derived key, what it is, and the caption that anchors it. */
@@ -23,6 +27,12 @@ export type PartitionedView = {
   readonly reason: string | null;
   readonly caption: string;
   readonly anchorKey: string | null;
+  /**
+   * The page this view was read on, where the artifact is paged rather than modelled (I-681) —
+   * absent for a view of model space, which stands on whichever sheet frames it (L-CAD-05). It is
+   * what tells the anchorless view of one page from another's, and every view which sheet it is on.
+   */
+  readonly page?: string;
 };
 
 /** A partition of one artifact's model space: the views, and which view each entity landed in. */
@@ -90,7 +100,7 @@ type Drawn = EntityGraph["entities"][number];
  */
 export function partitionArtifact(graph: EntityGraph): ViewPartition {
   const modelSpace = graph.layouts.find((layout) => layout.kind === "model")?.name;
-  if (modelSpace === undefined) return { views: [], assignments: new Map(), framed: 0 };
+  if (modelSpace === undefined) return partitionPages(graph);
 
   const standing = graph.entities.filter((entity) => entity.space === modelSpace);
   // A caption stands where it is DRAWN, judged by the same reading every other entity is judged by
@@ -141,11 +151,78 @@ export function partitionArtifact(graph: EntityGraph): ViewPartition {
     views.set(VIEW_TYPE.UNASSIGNED, { viewKey: VIEW_TYPE.UNASSIGNED, type: VIEW_TYPE.UNASSIGNED, reason: null, caption: "", anchorKey: null });
   }
 
-  return {
-    views: [...views.values()].sort((left, right) => (left.viewKey < right.viewKey ? -1 : left.viewKey > right.viewKey ? 1 : 0)),
-    assignments,
-    framed,
-  };
+  return { views: inKeyOrder(views), assignments, framed };
+}
+
+/**
+ * Cut a PAGED artifact into views, page by page (I-681). A PDF set or a scan has no model space
+ * for a window to frame: each page is the drawing space AND the sheet it is printed on, so a page is
+ * read the way a framed region is (`./regions`) — its edges are the drawing's own statement of what
+ * belongs together, and nothing drawn on one page belongs to a view of another.
+ *
+ * On a page:
+ *  - the captions are the page's own tall texts, by the same share of its tallest text model space is
+ *    read by (`captionsAmong`), so one reading decides what a caption is;
+ *  - a caption the grammar TYPES anchors a view of that class, keyed exactly as a model-space view
+ *    is — its class and its caption's source key (L-REG-04);
+ *  - a caption the grammar cannot type anchors nothing and is content of the view that holds it, as
+ *    it is inside a region: a sheet number, a revision letter, a bar mark (L-CAD-06 at its word);
+ *  - every original joins the typed caption standing nearest it ON ITS PAGE, however far: the page
+ *    bounds the view, so no caption's reach is needed to keep a plan off its neighbour's sheet;
+ *  - a page no typed caption stands on — a scanned sheet with no text at all, a page of notes — is one
+ *    view no caption anchors, keyed by its page (`anchorlessViewKey`), and so is an original on a
+ *    captioned page that stands nowhere at all.
+ *
+ * Every original of every page is assigned exactly once, PDF_OBJECT and RASTER_TRACE alike: a point a
+ * person cites on a page is an entity a view of that page holds (L-MEA-05, L-CAD-06).
+ */
+function partitionPages(graph: EntityGraph): ViewPartition {
+  const views = new Map<string, PartitionedView>();
+  const assignments = new Map<string, string>();
+
+  for (const [page, standing] of pagesOf(graph)) {
+    const painted = paintBoxes(graph, page);
+    const anchors: Anchor[] = [];
+    for (const caption of captionsAmong(standing)) {
+      const text = (caption.text ?? "").trim();
+      const said = classifyCaption(text);
+      if (said.type === VIEW_TYPE.UNTYPED) continue;
+      const viewKey = partitionViewKey(said.type, caption.key);
+      views.set(viewKey, { viewKey, type: said.type, reason: said.reason, caption: text, anchorKey: caption.key, page });
+      anchors.push({ viewKey, at: centreOf(caption) ?? ORIGIN, reach: Number.POSITIVE_INFINITY });
+    }
+
+    const unanchored = anchorlessViewKey(page);
+    for (const entity of standing) {
+      const nearest = nearestAnchor(standsAt(entity, painted), anchors);
+      if (nearest === null && !views.has(unanchored)) {
+        views.set(unanchored, { viewKey: unanchored, type: VIEW_TYPE.UNASSIGNED, reason: null, caption: "", anchorKey: null, page });
+      }
+      assignments.set(entity.key, nearest ?? unanchored);
+    }
+  }
+
+  return { views: inKeyOrder(views), assignments, framed: 0 };
+}
+
+/**
+ * The originals of a paged artifact, grouped by the page each is drawn on, pages in the order the
+ * artifact first names them. Grouped off the entities rather than the layout list, so an original on
+ * a page the inventory did not list is still read on its own page rather than on none.
+ */
+function pagesOf(graph: EntityGraph): Map<string, Drawn[]> {
+  const pages = new Map<string, Drawn[]>();
+  for (const entity of graph.entities) {
+    const held = pages.get(entity.space);
+    if (held === undefined) pages.set(entity.space, [entity]);
+    else held.push(entity);
+  }
+  return pages;
+}
+
+/** The views in view-key order: the order every reader of a partition reads them in. */
+function inKeyOrder(views: ReadonlyMap<string, PartitionedView>): PartitionedView[] {
+  return [...views.values()].sort((left, right) => (left.viewKey < right.viewKey ? -1 : left.viewKey > right.viewKey ? 1 : 0));
 }
 
 /** Where a caption with no point at all would stand — unreachable: `captionsAmong` demands points. */

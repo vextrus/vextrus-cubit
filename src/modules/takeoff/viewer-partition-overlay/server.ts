@@ -11,6 +11,7 @@
 // paint of its parent and joins that parent's view, which is exactly what `recordKey` answers
 // (L-CAD-03, I-86).
 import { and, eq, forTenant, viewAssignments } from "@/core/db";
+import { mayStandOn } from "@/core/sheets/frames";
 import { appStorage } from "@/core/storage/app";
 import { gridOf, viewsOf } from "@/modules/takeoff/partition";
 import { storedRoomsOf, type StoredRoom } from "@/modules/takeoff/partition/rooms/store";
@@ -120,7 +121,12 @@ export async function partitionOverlayOf(scope: PartitionOverlayScope): Promise<
 
   const [assignments, records, rooms] = await Promise.all([assignmentsOf(scope.tenantId, grid.ingestId), recordsOf(scope), storedRoomsOf(scope.tenantId, grid.ingestId)]);
 
-  const overlayViews: PartitionOverlayView[] = stored.map((view) => {
+  // A view read on ANOTHER page of a paged record can stand on no part of this one: a page is its
+  // own sheet (I-681), and a PDF set's panel listing every other page's views as "not on this
+  // sheet" would bury the page's own under the whole set. A view of model space is kept either way —
+  // this sheet's window may frame it, and where none does its row says so (R-UI-050).
+  const onSheet = stored.filter((view) => mayStandOn(view, scope.layoutName));
+  const overlayViews: PartitionOverlayView[] = onSheet.map((view) => {
     const members = assignments.get(view.viewKey) ?? [];
     return {
       viewKey: view.viewKey,
@@ -137,7 +143,7 @@ export async function partitionOverlayOf(scope: PartitionOverlayScope): Promise<
 
   const overlayAxes: PartitionOverlayAxis[] = grid.axes.map((axis) => ({ ...axis, bubble: ringGeometry(records.get(axis.bubbleKey) ?? []) }));
 
-  return { ingestId: grid.ingestId, views: overlayViews, axes: overlayAxes, deferrals: grid.deferrals, rooms: overlayRooms(rooms, stored.map((view) => view.viewKey)) };
+  return { ingestId: grid.ingestId, views: overlayViews, axes: overlayAxes, deferrals: grid.deferrals, rooms: overlayRooms(rooms, onSheet.map((view) => view.viewKey)) };
 }
 
 /**

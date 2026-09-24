@@ -55,6 +55,12 @@ export const partitionViews = pgTable(
     caption: text("caption").notNull(),
     /** The source key of the caption's own entity, or null for the view no caption anchors. */
     anchorKey: text("anchor_key"),
+    /**
+     * The page the view was read on, where the ingest is paged rather than modelled — a PDF set, a
+     * scan (I-681); null for a view of model space, which stands on whichever sheet frames it. It
+     * is the one fact that puts a view no caption anchors on its sheet: each page has its own.
+     */
+    page: text("page"),
     proposedType: text("proposed_type").$type<ViewTypeSpelling>(),
     proposedCallId: uuid("proposed_call_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -68,6 +74,8 @@ export const partitionViews = pgTable(
     // A proposal is a payload and the call that made it, or neither: a proposed class naming no
     // ledger row would be a reading nobody could audit (L-AI-01).
     check("partition_views_proposal_whole", statement`(${table.proposedType} is null) = (${table.proposedCallId} is null)`),
+    // A page is named or it is not a page: an empty name would put a view on no sheet at all.
+    check("partition_views_page_named", statement`${table.page} is null or length(${table.page}) > 0`),
     // The read a screen and the act seam make: one drawing's current partition.
     index("partition_views_by_drawing").on(table.tenantId, table.drawingId),
   ],
