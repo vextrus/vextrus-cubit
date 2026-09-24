@@ -212,6 +212,7 @@ export const ask = {
   /* ---------------------------------------------------------------- clarify */
   ask_clarify_lead: "This could mean more than one thing. Choose the one you meant:",
   ask_clarify_two: "This asks two things. Choose one to answer first:",
+  ask_clarify_machine: "Did you mean one of these?",
   ask_reading_none: "None of these",
   ask_level_reading_floor: "{label} — level {n} counted above the ground floor",
   ask_level_reading_storey: "{label} — level {n} counted with the ground floor as level 1",

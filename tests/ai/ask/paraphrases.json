@@ -1,0 +1,302 @@
+{
+  "project": {
+    "about": "J-043's staged register (tests/e2e/takeoff/register-stage.ts, stageRegister): four columns C1–C4 on GF, C1–C3 measured into rcc.concrete lines and C4 registered with none; the plan artifact (tests/e2e/viewer/viewer-partition-stage.ts, buildPartitionPlan with STAGED_MARKS) draws each member's mark text at DXF_HANDLE:22, 24, 26, 28, and GF's storey height is transcribed at its second schedule rule, DXF_HANDLE:11.",
+    "objects": [
+      [
+        "column",
+        "C1",
+        "GF"
+      ],
+      [
+        "column",
+        "C2",
+        "GF"
+      ],
+      [
+        "column",
+        "C3",
+        "GF"
+      ],
+      [
+        "column",
+        "C4",
+        "GF"
+      ]
+    ],
+    "lines": [
+      [
+        "column",
+        "rcc.concrete",
+        "m3"
+      ]
+    ],
+    "levels": [
+      "GF"
+    ],
+    "keys": {
+      "mark|C1": "DXF_HANDLE:22",
+      "mark|C2": "DXF_HANDLE:24",
+      "mark|C3": "DXF_HANDLE:26",
+      "mark|C4": "DXF_HANDLE:28",
+      "level|GF": "DXF_HANDLE:11"
+    }
+  },
+  "paraphrases": [
+    {
+      "question": "tally up the C3 columns on GF",
+      "intent": "COUNT"
+    },
+    {
+      "question": "what's the tally of C1 on the ground floor",
+      "intent": "COUNT"
+    },
+    {
+      "question": "C2 columns on GF: headcount please",
+      "intent": "COUNT"
+    },
+    {
+      "question": "give me a headcount of C4 on GF",
+      "intent": "COUNT"
+    },
+    {
+      "question": "are there several C3 on GF or just the one",
+      "intent": "COUNT"
+    },
+    {
+      "question": "enumerate the C1 columns standing on GF",
+      "intent": "COUNT"
+    },
+    {
+      "question": "tell me how often C2 appears on GF",
+      "intent": "COUNT"
+    },
+    {
+      "question": "pieces of C3 on GF?",
+      "intent": "COUNT"
+    },
+    {
+      "question": "C2 tally for the ground floor",
+      "intent": "COUNT"
+    },
+    {
+      "question": "C1 column population on the ground floor",
+      "intent": "COUNT"
+    },
+    {
+      "question": "what's the column breakdown on GF by designation",
+      "intent": "MARKS"
+    },
+    {
+      "question": "which column designations are used on GF",
+      "intent": "MARKS"
+    },
+    {
+      "question": "list the column references on the ground floor and their tallies",
+      "intent": "MARKS"
+    },
+    {
+      "question": "GF columns grouped by their labels",
+      "intent": "MARKS"
+    },
+    {
+      "question": "what column kinds does GF carry",
+      "intent": "MARKS"
+    },
+    {
+      "question": "break the GF columns down per reference",
+      "intent": "MARKS"
+    },
+    {
+      "question": "the pour for C3 on GF",
+      "intent": "QUANTITY"
+    },
+    {
+      "question": "C1 on GF, what does it come to in cubic metres",
+      "intent": "QUANTITY"
+    },
+    {
+      "question": "give me the casting figure for C2 on GF",
+      "intent": "QUANTITY"
+    },
+    {
+      "question": "C4 has nothing against it in the bill, what gives",
+      "intent": "WHY_NOT_MEASURED"
+    },
+    {
+      "question": "what's holding C4 back from being billed",
+      "intent": "WHY_NOT_MEASURED"
+    },
+    {
+      "question": "C4 got skipped on GF?",
+      "intent": "WHY_NOT_MEASURED"
+    },
+    {
+      "question": "how come C4 on GF shows nothing",
+      "intent": "WHY_NOT_MEASURED"
+    },
+    {
+      "question": "what stopped C4 from getting a figure",
+      "intent": "WHY_NOT_MEASURED"
+    },
+    {
+      "question": "explain the gap for C4 on the ground floor",
+      "intent": "WHY_NOT_MEASURED"
+    },
+    {
+      "question": "C4 was left out of the takeoff, reason?",
+      "intent": "WHY_NOT_MEASURED"
+    },
+    {
+      "question": "C4 isn't in the takeoff, what happened",
+      "intent": "WHY_NOT_MEASURED"
+    },
+    {
+      "question": "what does the schedule say about C4",
+      "intent": "MEMBER_TYPE"
+    },
+    {
+      "question": "C2 spec from the column schedule",
+      "intent": "MEMBER_TYPE"
+    },
+    {
+      "question": "what is C3 made of per the schedule",
+      "intent": "MEMBER_TYPE"
+    },
+    {
+      "question": "C4 details in the schedule",
+      "intent": "MEMBER_TYPE"
+    },
+    {
+      "question": "describe the C2 column type",
+      "intent": "MEMBER_TYPE"
+    },
+    {
+      "question": "C1 column: width by depth?",
+      "intent": "MEMBER_TYPE"
+    },
+    {
+      "question": "how high is GF",
+      "intent": "LEVEL_HEIGHT"
+    },
+    {
+      "question": "GF storey rise",
+      "intent": "LEVEL_HEIGHT"
+    },
+    {
+      "question": "distance from GF slab to the one above",
+      "intent": "LEVEL_HEIGHT"
+    },
+    {
+      "question": "what's the clear rise of the ground floor",
+      "intent": "LEVEL_HEIGHT"
+    },
+    {
+      "question": "GF floor to ceiling?",
+      "intent": "LEVEL_HEIGHT"
+    },
+    {
+      "question": "vertical span of GF",
+      "intent": "LEVEL_HEIGHT"
+    },
+    {
+      "question": "who detailed C3",
+      "intent": null
+    },
+    {
+      "question": "when will C4 be cast",
+      "intent": null
+    },
+    {
+      "question": "which drawing shows C3",
+      "intent": null
+    },
+    {
+      "question": "can C2 be moved to make room for a door",
+      "intent": null
+    },
+    {
+      "question": "who approved the GF layout",
+      "intent": null
+    },
+    {
+      "question": "what colour is C1 painted",
+      "intent": null
+    },
+    {
+      "question": "is there a lift near C3 on GF",
+      "intent": null
+    },
+    {
+      "question": "which contractor pours GF",
+      "intent": null
+    },
+    {
+      "question": "tally C3, not C4, on GF",
+      "intent": "COUNT",
+      "slots": {
+        "mark": "C3"
+      }
+    },
+    {
+      "question": "forget C1, tell me the C2 tally on GF",
+      "intent": "COUNT",
+      "slots": {
+        "mark": "C2"
+      }
+    },
+    {
+      "question": "the pour for C1 rather than C2 on GF",
+      "intent": "QUANTITY",
+      "slots": {
+        "mark": "C1"
+      }
+    },
+    {
+      "question": "C4 not C3: what does the schedule say",
+      "intent": "MEMBER_TYPE",
+      "slots": {
+        "mark": "C4"
+      }
+    },
+    {
+      "question": "GF column tags and their counts",
+      "intent": "MARKS"
+    },
+    {
+      "question": "storey rise at the ground floor",
+      "intent": "LEVEL_HEIGHT"
+    },
+    {
+      "question": "tot up the C1 columns on GF",
+      "intent": "COUNT"
+    },
+    {
+      "question": "C2 cubic metres on GF",
+      "intent": "QUANTITY"
+    },
+    {
+      "question": "the casting for C1 on GF in m3",
+      "intent": "QUANTITY"
+    },
+    {
+      "question": "C4 never got a number, explain",
+      "intent": "WHY_NOT_MEASURED"
+    },
+    {
+      "question": "schedule entry for C3",
+      "intent": "MEMBER_TYPE"
+    },
+    {
+      "question": "GF slab to slab",
+      "intent": "LEVEL_HEIGHT"
+    },
+    {
+      "question": "who is the engineer for C2",
+      "intent": null
+    },
+    {
+      "question": "what date was GF approved",
+      "intent": null
+    }
+  ]
+}

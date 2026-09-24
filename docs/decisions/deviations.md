@@ -45,6 +45,7 @@ Each Deviation is one row in the table below, and a section beneath it when the 
 | D-006 | R-UI-040: "level-of-detail hides text below legibility" | Walk 0 (BLOCKS_DEMO): S-10 opened with no caption, no marks and an empty title block, where `drawing_render` letters them at the same size; measured on the true-size mipmapped glyphs, a capital is read from about 3 px (viewer.md I-463), and S-10's marks stand 2.6 px at fit | A drawing's own text is lettered down to a 2 px cap height (`LETTERED_TEXT_PX`), at its true size, and hidden only below that; nothing is drawn larger than the drawing states, and nothing is drawn as a bar | Text between 2 and 3 px is drawn and not readable; the lettering's fill at rest grows with it; every sheet's at-rest picture moves | the commit that adds this row (see §D-006) |
 | D-007 | L-REG-03: "discipline is drawing-scoped, machine-proposed, human-confirmed, fails closed: an unconfirmed drawing is not walked" | The structural readers have registered their placements under STRUCTURAL at every re-expansion since M2, confirmed or not: eleven db suites and the M2 and J-021 journeys pin a set before confirming any sheet, and J-000's F-RCC6 leg confirms only the first group offered; closing the rule over them moves every one | The wall lane's rows (a brick wall, an opening) are walked only under the discipline a person confirmed for their sheet, and not at all before (s-takeoff I-592); the structural readers' rows keep the placement law's STRUCTURAL | A structural member drawn on a sheet nobody has confirmed is measured under STRUCTURAL before a person confirms it; and a structural mark an architect's sheet places is sighted STRUCTURAL whatever the sheet was confirmed as — two keys where the engineer's set draws it too. That path stood before this increment and stays open until the structural rows take their sheet; neither fixture draws one (F-ARCH's plans place no structural member) | the commit that adds this row (see §D-007) |
 | D-009 | F-RCC6-BNBC (`cubit.bible.xml:723`): "brick walls 250 (perimeter) and 125 (partitions) at 1F–6F with the S-25 lintel schedule"; AM-07: F-RCC6-BNBC's "golden already has BRICKWORK rows by nominal thickness" | BNBC's lump billed 259.425 m³ at 1F..6F from one perimeter and a 60 m partition allowance per floor: it ran through about 18 columns, omitted the grid-A facade and gave 1F the GF height; F-ARCH (ARCH-1) draws the same building's walls wall by wall at GF..6F and bills 538.041 m³ over R0's structure, S-25's lintels deducted — two figures for one quantity in two goldens (B-17) | Brick walls are the architect's members: F-ARCH's golden is brickwork's one home (`goldenRows("arch")`); BNBC mints no BRICK_WALL member and bills no BRICKWORK, keeps its LINTEL rows unchanged, and S-25 still prints the BW250/BW125 wall types; the M3 masonry sample is the pair BNBC + F-ARCH | The M3 brickwork cells need F-ARCH uploaded beside BNBC (J-000 uploads two drawings); a Bible reader finds BRICKWORK absent from BNBC's golden; BNBC's golden loses 12 rows (370 → 358) at R0's baseline | the commit that adds this row (see §D-009) |
+| D-010 | C-12: "this tree never gains a script that invokes a model (scope-fence)" | L-AI-01 and Q-08 require a recorded corpus composed by the product's own request builders, and the owner's Q4 ruling (session 8) has Jev route Ask's paraphrases "recorded fixtures in the lanes"; `scripts/model-corpus.ts` has recorded every one of the 368 fixtures in `fixtures/model/` this way since session 7, the ask-route corpus's 60 among them (0.003762738 USD spent recording it); C-12's own subject is the Builder and Claude (its name: "Nothing here runs Claude") | The tree carries ONE script that invokes a model — `scripts/model-corpus.ts record`, run by a person on purpose and by no lane, through the seam's one recording door (`recordFixture`), pinned to `jev-latest`, never printing the key — and the harness's `jev_ask` prototype door; no script invokes Claude | A Bible reader finds a model-invoking script C-12 says the tree never gains; its spend is a person's, ledgered per fixture in `corpus.json` | the commit that adds this row (see §D-010) |
 
 ## D-001 — a storey stated in two notations is one storey (session 7, 2026-09-23)
 
@@ -318,3 +319,30 @@ members and rows, moves to F-ARCH's with that baseline.
 frames, twin DXFs and the vector PDF byte-identical; the 30 LINTEL rows byte-equal; no BRICK_WALL or
 BRICKWORK row; the other 358 rows identical. `python -m fixtures.gen.arch` over the new BNBC:
 `takeoff.golden.json` byte-identical to the committed one (766 rows, brickwork 538.041 m³).
+
+## D-010 — the corpus recorder invokes Jev, on purpose, by a person (session 9, ASK-2)
+
+**Clause.** C-12 (`docs/specs/cubit.bible.xml:799`), "Nothing here runs Claude": "… this tree never gains a script
+that invokes a model (scope-fence)."
+
+**Evidence.** L-AI-01 has every lane replay recorded answers and Q-08 has the corpus composed by the product's own
+request builders — a recording nobody's script composed would answer a question the product does not ask. The owner's
+Q4 ruling (session 8, `docs/handoff/session-8-ledger.md`, "The owner's rulings", item 4) has S-Ask's paraphrases routed
+by Jev with "recorded fixtures in the lanes". `scripts/model-corpus.ts` has recorded the whole corpus this way since
+session 7 (D-002's re-record, 241 fixtures), with no row here; ASK-2 recorded its 60 ask-route fixtures through it, spending
+0.003762738 USD in two passes (`fixtures/model/corpus.json`). C-12's subject, by its name and its first sentence, is the Builder and
+Claude; the model the script invokes is TypeSafe Jev, a closed-question provider that generates no text.
+
+**What the product does instead.** The tree carries exactly one script that invokes a model:
+`scripts/model-corpus.ts record`, run by a person on purpose and by no lane (every lane hands the seam a fixture root, so
+none could), through the seam's one recording door `recordFixture`, pinned to `jev-latest` (D-002), minting under a
+scratch directory a person reads before `file` moves it into `fixtures/model`, reading the key from the environment and
+printing it nowhere. The harness's `jev_ask` door is the other live door, for prototyping, and it too ledgers its cost.
+Nothing in the tree invokes Claude.
+
+**Cost.** A reader of the Bible finds a model-invoking script where C-12 says there is none. Its spend is a person's,
+stated per fixture in `corpus.json` (`providerCost`); a recording is minted once and never overwritten.
+
+**Proof.** `tests/ai/model-corpus-roster.test.ts` (every fixture rostered, every roster line filed, each answering a
+closed question the product asks); `tests/ai/ask/route-corpus.test.ts` (the recorder composes what the door composes,
+and every one of its requests replays with no network).

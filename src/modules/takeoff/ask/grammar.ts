@@ -840,6 +840,82 @@ export function readQuestion(question: string, vocabulary: AskVocabulary, previo
   return settle(draftOf(intents[0] as AskIntent, slots), slots, vocabulary, false);
 }
 
+/* ------------------------------------------------------------- what the machine is asked (ASK-2) */
+
+/** The slots a subject may stand in, in the order the routing question lists them (I-397). */
+export const ASK_SLOTS = ["class", "kind", "mark", "level", "noteKind", "discipline"] as const;
+
+/** One of them. */
+export type AskSlot = (typeof ASK_SLOTS)[number];
+
+/** One subject the words name, by its slot and the project's own label for it. */
+export type AskSubject = { readonly slot: AskSlot; readonly label: string };
+
+/** What a routing chose beside the intent: for a slot the words named two subjects of, the one asked about. */
+export type AskSlotChoice = Readonly<Partial<Record<AskSlot, string>>>;
+
+/** The subjects the words name, slot by slot in `ASK_SLOTS` order, each in the order it was named. */
+function subjectListOf(slots: Slots): AskSubject[] {
+  const classes = [...slots.classes, ...(slots.wallChoice ?? []).filter((klass) => !slots.classes.includes(klass))];
+  return [
+    ...classes.map((label) => ({ slot: "class" as const, label })),
+    ...slots.kinds.map((label) => ({ slot: "kind" as const, label })),
+    ...slots.marks.map((label) => ({ slot: "mark" as const, label })),
+    // A level counted two ways is the person's to settle (I-400), never the machine's: it is no subject here.
+    ...slots.levels.flatMap((level) => (level.read === "LEVEL" ? [{ slot: "level" as const, label: level.label }] : [])),
+    ...slots.noteKinds.map((label) => ({ slot: "noteKind" as const, label })),
+    ...slots.disciplines.map((label) => ({ slot: "discipline" as const, label })),
+  ];
+}
+
+/**
+ * Whether the machine may be asked this question, and about which subjects (I-396, I-397): exactly
+ * where the grammar refuses it `ASK_NOT_UNDERSTOOD` because its INTENT is open — the words carry no
+ * cue the roster reads and it is no follow-up, or they cue two intents and leave a choice beside them
+ * — while every subject it names is one the project holds. Null for every other outcome: an answer,
+ * a clarify, a refusal by another name, a subject unknown, a range, three subjects in one slot. Those
+ * are code's own rulings and never a model's.
+ */
+export function openIntentOf(question: string, vocabulary: AskVocabulary, previous: AskReading | null = null): readonly AskSubject[] | null {
+  const outcome = readQuestion(question, vocabulary, previous);
+  if (outcome.outcome !== "REFUSED" || outcome.code !== ASK_REFUSAL_CODES.notUnderstood || outcome.reading !== null) return null;
+  const words = new Words(wordsOf(question));
+  const slots = readSlots(words, vocabulary);
+  if ("outcome" in slots) return null;
+  const intents = intentsOf(words, slots);
+  if (intents.length === 1) return null;
+  if (intents.length === 0 && previous !== null && namesASubject(slots)) return null;
+  return subjectListOf(slots);
+}
+
+/**
+ * The question read under an intent the machine chose (I-396): the grammar's own slots, narrowed where
+ * the machine chose one of two subjects of a slot, settled exactly as the grammar settles its own —
+ * so a compound, a level counted two ways or a reading missing its subject is still a clarify or a
+ * refusal by name, and the machine never answers what code would not.
+ */
+export function readWithIntent(question: string, vocabulary: AskVocabulary, intent: AskIntent, chosen: AskSlotChoice = {}): GrammarOutcome {
+  const words = new Words(wordsOf(question));
+  const read = readSlots(words, vocabulary);
+  if ("outcome" in read) return read;
+  const only = <T extends string>(held: readonly T[], label: string | undefined): readonly T[] => (label !== undefined && (held as readonly string[]).includes(label) ? [label as T] : held);
+  const level = chosen.level;
+  const levels = level !== undefined && read.levels.some((one) => one.read === "LEVEL" && one.label === level) ? read.levels.filter((one) => one.read === "LEVEL" && one.label === level) : read.levels;
+  // A wall the words left to a choice between the two wall classes is settled by the class chosen.
+  const wall = chosen.class !== undefined && (read.wallChoice ?? []).includes(chosen.class as ElementType);
+  const slots: Slots = {
+    ...read,
+    classes: wall ? [chosen.class as ElementType] : only(read.classes, chosen.class),
+    wallChoice: wall ? null : read.wallChoice,
+    kinds: only(read.kinds, chosen.kind),
+    marks: only(read.marks, chosen.mark),
+    levels,
+    noteKinds: only(read.noteKinds, chosen.noteKind),
+    disciplines: only(read.disciplines, chosen.discipline),
+  };
+  return settle(draftOf(intent, slots), slots, vocabulary, false);
+}
+
 /* ------------------------------------------------------------- a reading that crossed the wire */
 
 /**

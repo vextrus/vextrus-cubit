@@ -3,6 +3,7 @@
 // the product is one new file beside them plus one line here — the import that names it and the
 // entry that admits it. `./registry.test.ts` carries the duplicate-key test the law asks for.
 import type { TypeSafeArm } from "./arm";
+import { askRouteArm } from "./ask-route";
 import { boqLineDescriptionArm } from "./boq-line-description";
 import { coverageCauseArm } from "./coverage-cause";
 import { noteClauseArm } from "./note-clause";
@@ -22,6 +23,7 @@ export const TYPESAFE_ARMS = [
   boqLineDescriptionArm,
   outlineCorroborationArm,
   sheetRevisionRecencyArm,
+  askRouteArm,
 ] as const;
 
 /** The task of one arm, read off its own recognition. */

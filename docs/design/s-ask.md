@@ -20,7 +20,7 @@ registry, the facts an answer is), `src/core/errors/ask.ts`, `src/server/routers
 are ASK-1a's; the screen — `takeoff/ask/{page.tsx,ask-screen.tsx,actions.ts,route-address.ts,
 states.ts,ask.css,loading.tsx,demonstration.ts}`, one entry in `takeoff/layout.tsx`, the lane
 caller in `takeoff/lane.ts`, copy at `src/ui/strings/ask.ts` — is ASK-1b's; the Jev arm and the
-clarify state's machine half are ASK-2's; the sheet-text questions, the J-000 leg and the ⌘K row are
+clarify state's machine half are ASK-2's (§0.3); the sheet-text questions, the J-000 leg and the ⌘K row are
 ASK-3's. No pattern is invented, so no gallery entry is added.
 
 ## 0. Interpretations
@@ -94,7 +94,8 @@ answer ships.
   on another drawing is offered by its label with no key. The resolver is
   `sourceKeyResolver(that drawing's artifactSha256, the keys offered)` (the BOQ server's
   `artifactDigestsOf`, lifted to one home rather than copied), so every cited key names one entity on
-  one drawing. Rejected: one request per drawing (the model would choose among part of the choice, at
+  one drawing. (The resolver is amended by I-623: named by the pinned revision, over the keys
+  offered.) Rejected: one request per drawing (the model would choose among part of the choice, at
   twice the cost, and two answers would need a reconciliation code does not have); rejected: keys
   qualified by drawing (a new key shape `parseSourceKey` refuses, so an amendment of L-CAD-02's scheme
   set). A question naming no such subject — an intent over a class and a kind alone
@@ -392,6 +393,66 @@ leaves open:
   {classes}**, **skirting along {classes}**; and the trades **floor finish**, **wall tiling**,
   **skirting** — a Dhaka bill's own words for the three items (I-541).
 
+### 0.3 The machine's routing (ASK-2)
+
+The routing is `src/modules/takeoff/ask/route-question.ts` (the request, the decoder, the floor, what
+a routing becomes), the grammar's `openIntentOf` and `readWithIntent`, the arm
+`src/core/model/typesafe-arms/ask-route.ts` (question `ask-route`), the door's caller in
+`askTheDrawings`, the recorder `scripts/model-corpus/ask-route.ts` over `tests/ai/ask/paraphrases.json`,
+and 60 fixtures in `fixtures/model`. It reads these:
+
+- **I-623 — the machine is asked only where the grammar refuses a question because its INTENT is
+  open, and it chooses only the intent and, of two subjects of one slot, the one asked about; the
+  grammar completes the reading.** "Anything else" in I-396 is read narrowly: the grammar's own
+  rulings — an answer, a clarify, a subject unknown, a range, three subjects in one slot, a cost or a
+  judgement refused by name, a level counted two ways (I-400) — are never put to a model. What is
+  routed is a question whose words carry no cue the roster reads and that is no follow-up, or that
+  cues two intents and leaves a choice beside them (`openIntentOf`). The request is one choice over
+  the roster, each intent with its meaning in a QS's words, plus `NONE_OF_THESE`, and — where the
+  words name two subjects of one slot — one choice per such slot over those subjects plus
+  `NOT_STATED` ("tally C3, not C4" names two marks and asks about one; the grammar cannot read the
+  negation). Jev's intent is handed back to the grammar (`readWithIntent`), which completes the
+  reading exactly as it completes its own, so a compound or a reading missing its subject is still a
+  clarify or a refusal by name. The candidates are the subjects the grammar read, in slot order
+  (class, kind, mark, level, note kind, discipline), each with its one defining key: a mark's is the
+  mark entity (`placements.mark_key`) of the first registered member bearing it in the register's own
+  order, on the first drawing of the pinned revision whose record placed it; a level's is its first
+  stated storey-height reading; a class, a kind, a note kind and a discipline carry none. The request
+  carries the words (`wordsOf`, joined), the candidates and the roster with its sixteen-hex digest —
+  no UUID, no project id, no figure. **I-397's resolver is amended here:** it is
+  `sourceKeyResolver(the pinned revision, the keys offered)` — the coverage-cause precedent — rather
+  than one per drawing's `artifactSha256`, because the routing's citations are the subjects' own
+  defining keys, each read on the drawing its subject stands on, and the answer's evidence is then
+  resolved by its query, never by the routing; the per-drawing resolver would lift the BOQ server's
+  `artifactDigestsOf` into a second home for a digest nothing reads but a refusal's message. Rejected:
+  asking Jev for every slot (the grammar reads subjects; a model re-reading them is a second reading
+  of what code already holds); rejected: routing the grammar's clarifies (the ambiguity is the QS's).
+- **I-624 — the confidence floor is 0.70, measured on the arm's own composed requests; below it
+  the machine asks "Did you mean …" and answers nothing on its word.** Over the 60 paraphrases of
+  `tests/ai/ask/paraphrases.json`, recorded live through `scripts/model-corpus.ts` on 2026-09-24
+  (jev-1.13.0, 0.002237844 USD for the 60 filed): Jev chose the reading written for **56 of 60
+  (93 %)**; the four it missed ("C2 but not C1: the casting figure", "C2 takeoff figure", "enumerate
+  the C1 columns standing on GF", "which drawing shows C3") stood at 0.21–0.46; **all 44 routings at
+  or above 0.70 were right**, and 16 stand below it. So at or above the floor the routing is answered (`data-routed-by
+  ="MODEL"`, the ledger's call id on `data-call`); `NONE_OF_THESE` there stands the grammar's
+  `ASK_NOT_UNDERSTOOD`. Below it — whatever Jev chose, none of these included — the article is a
+  clarify with the lead `MACHINE` (`ask_clarify_machine`) offering at most two readings: the intents
+  in the order of Jev's own probabilities whose reading the grammar completes, beside **None of
+  these**; where none completes, the refusal stands. A call stating no confidence is below the floor.
+  Rejected: 0.80 (39 answered, the same zero wrong — five more questions back to the QS for nothing
+  the corpus shows); rejected: 0.50 (51 answered, the margin over the worst miss 0.04). The floor
+  moves only by a re-record whose line `route-corpus.test.ts` re-reads.
+- **I-625 — the paraphrase corpus is recorded over J-043's staged register, transcribed.** The
+  recorder opens no database, and the request carries the subjects' keys, so the project it asks over
+  is committed beside the paraphrases: the staged register's four columns, its level and the handles
+  its plan draws the marks at (`DXF_HANDLE:22`–`28` for C1–C4, read back off `cubit_e2e`'s
+  `placements.mark_key` for the staged projects on 2026-09-24). GF there carries no storey-height
+  reading, so it has no defining key, and a paraphrase naming GF and no mark — a height, the marks
+  on a floor — is never put to the model on that register (I-397): every paraphrase names a mark.
+  J-043 asks one of them in the running product and replays its recording — the walk is what holds
+  the transcription to the stage. The BNBC set's own paraphrases, where levels do carry readings, are
+  §7's.
+
 ## 1. Layout and hierarchy (1440 × 900)
 
 ```
@@ -527,7 +588,9 @@ The other shapes an article takes:
   aria-label={ask_clarify_lead}>`: `ask_clarify_lead` (or `ask_clarify_two` where the question asks
   two things), then at most TWO secondary Buttons `ask-reading` (`data-reading` the encoded reading),
   each labelled with its reading in words — for the level case the glosses of §3 — and the ghost
-  Button `ask-reading-none` **None of these**. Choosing a reading answers it in the same article
+  Button `ask-reading-none` **None of these**. `ask-clarify` carries `data-lead` ∈ `AMBIGUOUS` ·
+  `COMPOUND` · `MACHINE`; the machine's clarify (I-624) leads with `ask_clarify_machine` and offers
+  the readings Jev ranked highest that the grammar completes. Choosing a reading answers it in the same article
   (`data-routed-by="PERSON"`) with no model call; **None of these** stands the article refused
   `ASK_NOT_UNDERSTOOD`.
 - **refused** — the question row, the Understood row where a reading was made, then exactly one
@@ -802,8 +865,8 @@ foundation** · `ask_marked` **marked {mark}** · `ask_lines_one` **1 complete l
 **Text** · `ask_col_title` **Title** · `ask_col_discipline` **Discipline**.
 
 **Clarify.** `ask_clarify_lead` **This could mean more than one thing. Choose the one you meant:** ·
-`ask_clarify_two` **This asks two things. Choose one to answer first:** · `ask_reading_none` **None of
-these** · the level glosses, `{label}` the stack's own: `ask_level_reading_floor` **{label} — level
+`ask_clarify_two` **This asks two things. Choose one to answer first:** · `ask_clarify_machine` **Did you
+mean one of these?** · `ask_reading_none` **None of these** · the level glosses, `{label}` the stack's own: `ask_level_reading_floor` **{label} — level
 {n} counted above the ground floor** · `ask_level_reading_storey` **{label} — level {n} counted with
 the ground floor as level 1**. A reading's button otherwise reads its Understood row's words.
 
@@ -908,7 +971,7 @@ Test ids, added to `src/ui/testids.ts` by ASK-1b (the integrator merges the regi
 `data-origin`) · `ask-question` · `ask-asked` · `ask-understood` (`data-routed-by`) · `ask-body` ·
 `ask-breakdown` · `ask-partial` · `ask-evidence` · `ask-show` (`data-drawing`, `data-layout`,
 `data-keys`) · `ask-rows` · `ask-rows-table` · `ask-basis` · `ask-stale` · `ask-again` · `ask-clarify`
-· `ask-reading` (`data-reading`) · `ask-reading-none` · `ask-held` · `ask-empty` · `ask-example`. Used
+(`data-lead`) · `ask-reading` (`data-reading`) · `ask-reading-none` · `ask-held` · `ask-empty` · `ask-example`. Used
 and never redefined: `evidence-link` (a figure is `ask-answer evidence-link[data-figure]`, carrying
 `data-value`, `data-unit`, `data-places`; a quote carries `data-quote`), `refusal-state`,
 `error-state`, `error-state-report`, `error-state-retry`, `empty-state`, `skeleton`, `id-chip`,
@@ -936,12 +999,16 @@ source key, neither carrying `data-quote`; every quoted value is a substring of 
 normalised text, and a note reading that is not one is stated as a figure); `registry.test.ts` (one query per intent, the
 duplicate-key test, every class, kind and note kind with its words); the db-lane
 `ask-door.test.ts` (a non-participant refused `PERMISSION_NOT_HELD` by name; a blank or a 301-character
-question `REQUEST_MALFORMED`; a grammar-routed ask writes no model-call row). ASK-2:
-`route-corpus.test.ts` replays the recorded paraphrases with no `FIXTURE_MISSING`, the request carries
-no uuid and cites only offered keys, every offered key stands on the one drawing whose artifact the
-resolver names (a project holding F-ARCH beside F-RCC6-BNBC offers the other drawing's candidates by
-label alone), NONE_OF_THESE resolves, and a reading below the measured floor is
-a clarify; ASK-2 records the measured agreement and floor in this Decision. UI (ASK-1b,
+question `REQUEST_MALFORMED`; a grammar-routed ask writes no model-call row). ASK-2 (§0.3):
+`route-corpus.test.ts` — the recorder composes what the door composes and every paraphrase is one the
+machine is in fact asked; all 60 replay through the seam's fixture transport as Proposals, with no
+`FIXTURE_MISSING`, `UNSOURCED` or `MALFORMED`; the request's key set is `candidates`, `question`,
+`roster` and carries no uuid; the measured line is re-read off the recordings (56 of 60 agree, all 44
+at or above 0.70 right); a confident routing is the grammar's reading routed MODEL with its call id; a
+routing below the floor is a `MACHINE` clarify of two; a sure `NONE_OF_THESE` is `ASK_NOT_UNDERSTOOD`;
+an answer off the offered options is refused, never read. `src/core/model/typesafe-arms/ask-route.test.ts`
+holds the arm (recognised by its own key set, nothing posted without a keyed candidate, a slot question
+only for a doubled slot, every keyed candidate cited once) beside the registry's duplicate-key test. UI (ASK-1b,
 `tests/ui/ask/`): the article anatomy over facts fixtures; the thread kept in the tab's store and
 restored with no request; `?q=` asked once and replaced; a kept answer with an older stamp states
 `ask_stale`; the matrix's seven cells (`tests/screen-states/**`).
@@ -961,8 +1028,9 @@ the article wears the origin mark, and no `ai.ask` request is sent;
 three lines, and the partial row names C4, registered with no line while it awaits corroboration;
 (4) **"How many C1 columns are on level 1?"** — a clarify whose held reading is `GF`, chosen, answered
 `PERSON`-routed; (5) **"What will the column concrete cost?"** — refused `ASK_ESTIMATE_NOT_BUILT`
-with its evidence link to the draft BOQ. ASK-2 adds a paraphrase routed by Jev from a recorded
-fixture (`data-routed-by="MODEL"`, one model-call row). Checkpoints **s-ask/thread** (dark),
+with its evidence link to the draft BOQ; (6) **"tally up the C3 columns on GF"** (ASK-2) — no cue the
+grammar reads, so Jev routes it from its recorded fixture: answered `1`, `data-routed-by="MODEL"`, a
+`data-call` naming the ledger row, the Understood row qualified **the machine's reading**. Checkpoints **s-ask/thread** (dark),
 **s-ask/thread-light** and **s-ask/empty**, serious/critical axe 0 and moderate held to the budget,
 never widened; baselines `tests/e2e/baselines/design-dark/s-ask/{thread,thread-light,empty}.png`,
 `masks()` over the shell breadcrumb, `shell-user`, `shell-tenant-switcher`, `ask-revision` and every
@@ -984,10 +1052,14 @@ R-TO-016 move with SRCH-1, not with this screen.
   `scripts/lib/stage.mjs`), so a paraphrase nobody recorded refuses `FIXTURE_MISSING` there; the
   grammar-routed questions answer on stage regardless, because they call no model. Owner: DEMO-1,
   which also separates live from replayed spend on the project home (R-AI-005).
-- **The recorder's standing under C-12.** `scripts/model-corpus.ts` and the harness's `jev_ask` invoke
-  a live model, and C-12 says this tree never gains a script that does; no Deviation records it yet.
-  Owner: ASK-2 records the Deviation (C-12 only — B-04 and the scope fence name Claude) before it
-  records the ask-route corpus, or the integrator does in the same wave.
+- **The BNBC set's own paraphrases.** The ask-route corpus is recorded over J-043's staged register
+  (I-625), so on the BNBC project a paraphrase naming, say, PC3 or 5F is a request nobody
+  recorded and refuses `FIXTURE_MISSING` in replay. Owner: ASK-3 with the J-000 leg — a paraphrase set
+  over the BNBC register, its mark keys read back off `placements` (the recorder transcribes them as
+  I-625 does), recorded through the same script.
+- **A model's refusal followed by the grammar's two best readings** (§1.1 refused). A seam refusal
+  reaches the door and renders as registered; the clarify after it is not built, because the grammar
+  holds no ranking of intents for words that cue none. Owner: the node that gives the grammar one.
 - **A figure that opens the register on exactly its rows.** The register's filters are screen state,
   so a summed figure links to the sheet or to its own evidence row, not to the register filtered to
   what it summed — where the footer would restate the same figure. Owner: the register's node — an

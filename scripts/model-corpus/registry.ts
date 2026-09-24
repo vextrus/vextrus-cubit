@@ -4,6 +4,7 @@
 // here — and because the roster is keyed by `ModelQuestion`, a name added to `MODEL_QUESTIONS` with
 // no recorder beside it does not compile.
 import { MODEL_QUESTIONS, type ModelQuestion } from "../../src/core/model";
+import { subjectsOf as askRoute } from "./ask-route";
 import { subjectsOf as boqLineDescription } from "./boq-line-description";
 import { subjectsOf as coverageCause } from "./coverage-cause";
 import { subjectsOf as noteClause } from "./note-clause";
@@ -24,4 +25,5 @@ export const CORPUS_RECORDERS: Readonly<Record<ModelQuestion, CorpusRecorder>> =
   [MODEL_QUESTIONS.boqLineDescription]: boqLineDescription,
   [MODEL_QUESTIONS.outlineCorroboration]: outlineCorroboration,
   [MODEL_QUESTIONS.sheetRevisionRecency]: sheetRevisionRecency,
+  [MODEL_QUESTIONS.askRoute]: askRoute,
 });

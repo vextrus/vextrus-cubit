@@ -8,6 +8,8 @@ export { MODEL_QUESTIONS, MODEL_QUESTION_NAMES, isModelQuestion } from "./questi
 // The id the corroboration arm asks its one Noul under, published because a caller reading that
 // answer back off a ledger row must name it by the arm's own spelling and never by a second one.
 export { OUTLINE_QUESTION_ID } from "./typesafe-arms/outline-corroboration";
+// The routing question's two escape spellings, read by the Ask module that decodes its answers.
+export { ASK_ROUTE_NONE, ASK_ROUTE_NOT_STATED } from "./typesafe-arms/ask-route";
 export { callModel, createModelSeam, propose } from "./seam";
 export { PROPOSAL_KIND, resolveProposal } from "./proposal";
 export { SOURCE_SCHEMES, parseSourceKey, sourceKeyResolver } from "./sources";

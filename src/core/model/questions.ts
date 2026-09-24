@@ -25,6 +25,8 @@ export const MODEL_QUESTIONS = Object.freeze({
   outlineCorroboration: "outline-corroboration",
   /** How current a sheet's issue state is, read off its revision marks against its set's (R-TO-004). */
   sheetRevisionRecency: "sheet-revision-recency",
+  /** Which intent of S-Ask's roster a question the grammar could not route asks, and which named subject (R-AI-003, I-396). */
+  askRoute: "ask-route",
 } as const);
 
 /** One of the closed names above. */

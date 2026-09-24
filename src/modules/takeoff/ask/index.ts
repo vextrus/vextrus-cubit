@@ -8,6 +8,9 @@
 // and the Trace's own resolution over the records the pinned revision was measured on for where each
 // member and each cited entity stands (I-404). What a query needs beyond the register and the stack is
 // read only when its intent is asked, so a count does not open the schedules.
+import { forTenant } from "@/core/db";
+import { modelJudgmentOf } from "@/core/db/model-outcomes";
+import { parseSourceKey, propose, sourceKeyResolver } from "@/core/model";
 import { sheetOfKey, traceCitations } from "@/core/sheets/frames";
 import { levelStackOf } from "@/modules/takeoff/levels";
 import { sheetLayoutsOf } from "@/modules/takeoff/notes";
@@ -15,16 +18,19 @@ import { manifestOfRevision, registerViewOf } from "@/modules/takeoff/register-u
 import { schedulesViewOf } from "@/modules/takeoff/schedules-ui/server";
 import { sheetIndexOf } from "@/modules/takeoff/sheets";
 import { pinnedRecordsOf, type PinnedRecord } from "@/modules/takeoff/trace";
-import { answerReading, routeStatement } from "./answer";
-import type { AskAnswer, AskEntity, AskObject, AskPlace, AskSchedule, AskSheet, AskSourceNeed, AskSources, AskStatement } from "./law";
+import { answerReading, routeStatement, type Routed } from "./answer";
+import { openIntentOf, resolveReading, type AskSubject } from "./grammar";
+import { ASK_REFUSAL_CODES, type AskAnswer, type AskEntity, type AskObject, type AskPlace, type AskSchedule, type AskSheet, type AskSourceNeed, type AskSources, type AskStatement } from "./law";
 import { viewOfPlacement } from "./queries/common";
 import { queryFor } from "./queries/registry";
-import { vocabularyOf } from "./vocabulary";
+import { askRouteKeys, askRouteStateOf, isRoutable, proposeRoute, settleRoute, type AskRoutePort } from "./route-question";
+import { vocabularyOf, type AskVocabulary } from "./vocabulary";
 
 export * from "./law";
 export { askArrivalOf, type AskArrival, type AskExample } from "./arrival";
 export { answerReading, answerStatement, routeStatement, type Routed } from "./answer";
-export { completeReading, readQuestion, resolveReading, wordsOf, type GrammarOutcome } from "./grammar";
+export { ASK_SLOTS, completeReading, openIntentOf, readQuestion, readWithIntent, resolveReading, wordsOf, type AskSlot, type AskSubject, type GrammarOutcome } from "./grammar";
+export { ASK_ROUTE_CONFIDENCE_FLOOR, askRouteRequest, askRouteStateOf, readRouteProposal, settleRoute, type AskRoutePort, type AskRouteState } from "./route-question";
 export { ASK_QUERIES, ASK_QUERY_LIST, queryFor, registryOf, type AskQuery } from "./queries/registry";
 export { vocabularyOf, type AskVocabulary } from "./vocabulary";
 
@@ -137,15 +143,86 @@ async function sourcesFor(scope: AskScope, base: AskSources, needs: readonly Ask
   };
 }
 
+/** Who is asking, for the ledger row a machine-routed question writes (L-AI-01). */
+export type AskCaller = { readonly actor: string; readonly requestId: string };
+
+/** The way to a model and to what it judged, over one project — the production seam unless a suite hands its own (B-23). */
+export type AskSeam = { readonly route?: AskRoutePort };
+
+/** The production routing port: the model seam's own `propose`, and the ledger's own judgment of the call. */
+function productionRoute(scope: AskScope): AskRoutePort {
+  return { propose, judgmentOf: (callId) => modelJudgmentOf(forTenant({ tenantId: scope.tenantId }), scope, callId) };
+}
+
+/**
+ * The one defining key of each subject (I-397), read by code: a mark's is the mark entity of the
+ * first registered member bearing it in the register's own order, on the first drawing of the pinned
+ * revision whose record placed that member; a level's is its first stated storey-height reading. A
+ * class, a kind, a note kind and a discipline carry none, and neither does a subject no record places.
+ */
+async function subjectKeysOf(scope: AskScope, base: AskSources, subjects: readonly AskSubject[]): Promise<(subject: AskSubject) => string | null> {
+  const keys = new Map<string, string>();
+  const marks = subjects.filter((subject) => subject.slot === "mark").map((subject) => subject.label);
+  if (marks.length > 0 && base.campaign !== null) {
+    const manifest = await manifestOfRevision(scope.tenantId, base.campaign.setRevisionId);
+    const drawingIds = manifest.map((member) => member.drawingId);
+    const records = await pinnedRecordsOf(scope, base.campaign.setRevisionId, drawingIds);
+    for (const mark of marks) {
+      for (const object of base.objects) {
+        if (object.mark !== mark || object.corroboration === "REPUDIATED") continue;
+        const markKey = drawingIds.map((drawingId) => records.get(drawingId)?.standing.members.get(object.sourceKey)?.markKey).find((key) => key !== undefined && parseSourceKey(key) !== null);
+        if (markKey !== undefined) {
+          keys.set(`mark|${mark}`, markKey);
+          break;
+        }
+      }
+    }
+  }
+  for (const subject of subjects) {
+    if (subject.slot !== "level") continue;
+    const stated = base.stack.find((level) => level.label === subject.label)?.height.current.find((reading) => reading.sourceKey !== null && parseSourceKey(reading.sourceKey) !== null);
+    if (stated !== undefined && stated.sourceKey !== null) keys.set(`level|${subject.label}`, stated.sourceKey);
+  }
+  return (subject) => keys.get(`${subject.slot}|${subject.label}`) ?? null;
+}
+
+/**
+ * The machine's routing of a question the grammar refused because its intent is open (I-396,
+ * I-397), or null where the machine is not asked: a person's reading, an outcome the grammar ruled
+ * itself, no campaign, or no subject with a key to cite. The seam's refusal (a missing recording, an
+ * uncited answer) is not caught: it reaches the door and renders as registered (§1.1).
+ */
+async function machineRouted(scope: AskScope, base: AskSources, vocabulary: AskVocabulary, statement: AskStatement, caller: AskCaller, port: AskRoutePort): Promise<Routed | null> {
+  if (statement.reading !== undefined || base.campaign === null) return null;
+  const previous = statement.previous === undefined ? null : resolveReading(statement.previous, vocabulary);
+  const subjects = openIntentOf(statement.question, vocabulary, previous !== null && previous.outcome === "READ" ? previous.reading : null);
+  if (subjects === null) return null;
+  const state = askRouteStateOf(statement.question, subjects, await subjectKeysOf(scope, base, subjects));
+  if (!isRoutable(state)) return null;
+  // The resolver is named by the revision the campaign is pinned at, over exactly the keys offered
+  // (the coverage-cause precedent, I-623): an answer citing anything else is SOURCE_UNRESOLVED.
+  const artifact = sourceKeyResolver(base.campaign.setRevisionId, askRouteKeys(state));
+  const ctx = { tenantId: scope.tenantId, projectId: scope.projectId, actor: caller.actor, requestId: caller.requestId };
+  const proposal = await proposeRoute(ctx, state, artifact, port);
+  const settled = settleRoute(statement.question, vocabulary, { payload: proposal.payload, callId: proposal.callId }, await port.judgmentOf(proposal.callId));
+  return settled.outcome === "READ" ? { outcome: "READ", reading: settled.reading, routedBy: "MODEL", followUp: false, callId: settled.callId } : settled;
+}
+
 /**
  * Ask the drawings one question (test contract: `askTheDrawings`). The grammar reads it against the
  * register and the stack; a clarify or a refusal is answered there and then, and a reading is answered
- * by its intent's one query over the sources it needs. No model is called on this path and no ledger
- * row is written (I-406).
+ * by its intent's one query over the sources it needs — no model call and no ledger row (I-406). Only
+ * where the grammar refuses a question because it cannot tell which intent the words ask, and the
+ * words name a subject with a key to cite, is the machine asked to route it (I-396, I-397): one
+ * ledgered call, attributed to the project.
  */
-export async function askTheDrawings(scope: AskScope, statement: AskStatement): Promise<AskAnswer> {
+export async function askTheDrawings(scope: AskScope, statement: AskStatement, caller?: AskCaller, seam: AskSeam = {}): Promise<AskAnswer> {
   const base = await baseOf(scope);
-  const routed = routeStatement(statement, vocabularyOf(base));
+  const vocabulary = vocabularyOf(base);
+  let routed: Routed = routeStatement(statement, vocabulary);
+  if (caller !== undefined && routed.outcome === "REFUSED" && routed.code === ASK_REFUSAL_CODES.notUnderstood && routed.reading === null) {
+    routed = (await machineRouted(scope, base, vocabulary, statement, caller, seam.route ?? productionRoute(scope))) ?? routed;
+  }
   if (routed.outcome !== "READ") return routed;
   const sources = await sourcesFor(scope, base, queryFor(routed.reading.intent).needs);
   return answerReading(routed, sources);

@@ -155,6 +155,7 @@ describe("the contract the docs state (docs.typesafe.ai/api, read 2026-09-21)", 
       boqLineDescription: "boq-line-description",
       outlineCorroboration: "outline-corroboration",
       sheetRevisionRecency: "sheet-revision-recency",
+      askRoute: "ask-route",
     });
   });
 });

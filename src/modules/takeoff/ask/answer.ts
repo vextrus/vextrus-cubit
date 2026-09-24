@@ -4,8 +4,8 @@
 // unit test hands the read-back's own.
 //
 // No model is called here and no ledger row is written: a grammar-routed or person-routed answer is
-// code's alone (I-406). The machine's closed choice over what the grammar cannot settle is ASK-2's,
-// and joins this path as one more way a reading is made.
+// code's alone (I-406). The machine's closed choice over what the grammar cannot settle is made by the
+// server (`./index.ts`, `./route-question.ts`) and joins this path as a reading routed MODEL.
 import { blankReading, readQuestion, resolveReading } from "./grammar";
 import type { AskAnswer, AskReading, AskRoutedBy, AskSources, AskStatement } from "./law";
 import { queryFor } from "./queries/registry";
@@ -13,7 +13,7 @@ import { vocabularyOf, type AskVocabulary } from "./vocabulary";
 
 /** A statement routed: the reading an answer will stand on and who made it, or the answer it already is. */
 export type Routed =
-  | { readonly outcome: "READ"; readonly reading: AskReading; readonly routedBy: Extract<AskRoutedBy, "GRAMMAR" | "PERSON">; readonly followUp: boolean }
+  | { readonly outcome: "READ"; readonly reading: AskReading; readonly routedBy: AskRoutedBy; readonly followUp: boolean; readonly callId?: string }
   | Exclude<AskAnswer, { outcome: "ANSWERED" }>;
 
 /**
@@ -36,7 +36,7 @@ export function routeStatement(statement: AskStatement, vocabulary: AskVocabular
 export function answerReading(routed: Extract<Routed, { outcome: "READ" }>, sources: AskSources): AskAnswer {
   const facts = queryFor(routed.reading.intent).answer(routed.reading, sources);
   if ("outcome" in facts) return facts;
-  return { outcome: "ANSWERED", routedBy: routed.routedBy, reading: routed.reading, followUp: routed.followUp, facts };
+  return { outcome: "ANSWERED", routedBy: routed.routedBy, reading: routed.reading, followUp: routed.followUp, facts, ...(routed.callId === undefined ? {} : { callId: routed.callId }) };
 }
 
 /** One statement, answered from sources already read — the whole engine, pure. */

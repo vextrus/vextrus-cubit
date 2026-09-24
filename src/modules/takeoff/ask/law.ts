@@ -464,6 +464,12 @@ export type AskGloss = { readonly count: "FLOOR" | "STOREY"; readonly n: number;
 /** One reading a clarify offers (at most two), with its gloss where it is a level's. */
 export type AskOffered = { readonly reading: AskReading; readonly gloss: AskGloss | null };
 
+/** Why a clarify asks: a subject read two ways, two things asked, or the machine unsure of the words. */
+export const ASK_CLARIFY_LEADS = ["AMBIGUOUS", "COMPOUND", "MACHINE"] as const;
+
+/** One of the three. */
+export type AskClarifyLead = (typeof ASK_CLARIFY_LEADS)[number];
+
 /** What the door answers a question with. */
 export type AskAnswer =
   | {
@@ -473,8 +479,14 @@ export type AskAnswer =
       /** The question named only a subject and was read against the previous answer's reading. */
       readonly followUp: boolean;
       readonly facts: AskFacts;
+      /** Where the machine routed it, the ledger row of that call (`data-call`, §1.1 2); absent otherwise. */
+      readonly callId?: string;
     }
-  | { readonly outcome: "CLARIFY"; readonly lead: "AMBIGUOUS" | "COMPOUND"; readonly offered: readonly AskOffered[] }
+  /**
+   * A question back to the person. `MACHINE`: the machine routed the words below its confidence floor
+   * and offers the readings it ranked highest ("Did you mean …", I-396).
+   */
+  | { readonly outcome: "CLARIFY"; readonly lead: AskClarifyLead; readonly offered: readonly AskOffered[] }
   | { readonly outcome: "REFUSED"; readonly code: AskRefusalCode; readonly reading: AskReading | null; readonly held: AskHeld | null };
 
 /** The refusal half of the union, as the engine builds it. */

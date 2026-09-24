@@ -10,7 +10,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
-import type { AskAnswer, AskReading } from "@/modules/takeoff/ask/law";
+import type { AskAnswer, AskClarifyLead, AskReading } from "@/modules/takeoff/ask/law";
 import { EvidenceLink } from "@/ui/patterns/evidence-link";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { tabStore } from "@/ui/tab-store";
@@ -326,6 +326,11 @@ function Basis({ basis }: { basis: string }): ReactNode {
 /** The revision every answer on this page reads, for each answer's basis row (§1.1 7). */
 const RevisionContext = createContext<string | null>(null);
 
+/** A clarify's lead line: a subject read two ways, two things asked, or the machine unsure of the words (§3). */
+function clarifyLead(lead: AskClarifyLead): string {
+  return lead === "COMPOUND" ? strings.ask_clarify_two : lead === "MACHINE" ? strings.ask_clarify_machine : strings.ask_clarify_lead;
+}
+
 function refusalEntryOf(code: string): RefusalEntry {
   return (REFUSALS as Readonly<Record<string, RefusalEntry | undefined>>)[code] ?? REFUSALS.ASK_NOT_UNDERSTOOD;
 }
@@ -362,6 +367,7 @@ function Article({
       data-answer={state}
       data-intent={reading?.intent}
       data-routed-by={answer?.outcome === "ANSWERED" ? answer.routedBy : undefined}
+      data-call={answer?.outcome === "ANSWERED" ? answer.callId : undefined}
       data-stamp={kept.stamp}
       data-code={state === "refused" ? (refusedCode ?? undefined) : undefined}
       data-origin={origin ? "true" : undefined}
@@ -391,8 +397,8 @@ function Article({
           data-testid={TESTIDS.error.state}
         />
       ) : state === "clarify" && answer?.outcome === "CLARIFY" ? (
-        <div className="cx-ask-clarify" data-testid={TESTIDS.ask.clarify} role="group" aria-label={answer.lead === "COMPOUND" ? strings.ask_clarify_two : strings.ask_clarify_lead}>
-          <p className="cx-ask-statement">{answer.lead === "COMPOUND" ? strings.ask_clarify_two : strings.ask_clarify_lead}</p>
+        <div className="cx-ask-clarify" data-testid={TESTIDS.ask.clarify} data-lead={answer.lead} role="group" aria-label={clarifyLead(answer.lead)}>
+          <p className="cx-ask-statement">{clarifyLead(answer.lead)}</p>
           <div className="cx-ask-readings">
             {answer.offered.map((offered) => (
               <Button key={JSON.stringify(offered.reading)} variant="secondary" data-testid={TESTIDS.ask.reading} data-reading={JSON.stringify(offered.reading)} disabled={blocked} onClick={() => doors.choose(kept, offered.reading)}>

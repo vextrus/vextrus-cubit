@@ -152,6 +152,10 @@ describe("ai.ask, at the guard and the schema", () => {
     expect(counted, "a project with no campaign open has nothing measured, and the answer says so by name").toMatchObject({ outcome: "REFUSED", code: notMeasured });
     const priced = await door.ask({ projectId, question: "What will the column concrete cost?" });
     expect(priced, "a cost is never answered as a quantity").toMatchObject({ outcome: "REFUSED", code: estimate });
+    // Words no cue reads leave the intent open, but with no campaign and no keyed subject the machine
+    // is never asked (s-ask I-397, I-623): the grammar's own refusal stands, and costs nothing.
+    const paraphrased = await door.ask({ projectId, question: "tally up the piles for me" });
+    expect(paraphrased, "an open intent with nothing to cite is not understood, by name").toMatchObject({ outcome: "REFUSED", code: await registered("ASK_NOT_UNDERSTOOD") });
 
     expect(modelCallsOf(reviewer.tenantId), "a grammar-routed ask calls no model and writes no ledger row (I-406)").toBe(before);
   }, 300_000);

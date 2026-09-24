@@ -5,12 +5,17 @@
  * (R-AI-003, X-7, docs/design/s-ask.md §6).
  *
  * The walk is a customer's: a tab is clicked, a question is typed, a link is followed, Back is
- * pressed. Nothing is staged mid-walk. Every question here is read by the grammar — no model is asked
- * — so no recorded answer is tied to the staged register. The three design checkpoints are taken here
- * and nowhere else; the pictures are the gate's to re-take.
+ * pressed. Nothing is staged mid-walk. Every question but the last is read by the grammar — no model
+ * is asked; the last is a paraphrase no cue of the grammar reads, routed by Jev from the recording
+ * made over this stage's transcription (s-ask I-625), so the walk is what holds that transcription
+ * to the stage. The three design checkpoints are taken here and nowhere else; the pictures are the
+ * gate's to re-take.
  *
  * Nothing here measures time (AM-10 §3).
  */
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test, type Request } from "@playwright/test";
 import { formatUserFigure } from "../../../src/core/format";
 import { statedAt } from "../../../src/modules/takeoff/bbs-ui/present";
@@ -27,6 +32,12 @@ import { everyAttribute, heldAttribute, steadyText } from "../support/retrying-r
 import { signInAsSeededTenant } from "../support/seeded-session";
 import { settled } from "../support/settled";
 
+/**
+ * The paraphrase the walk has Jev route (s-ask I-625): the first of the recorded corpus, read off
+ * the corpus itself so the walk asks exactly what was recorded over this stage's transcription.
+ */
+const ROUTED_PARAPHRASE: string = (JSON.parse(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "../../ai/ask/paraphrases.json"), "utf8")) as { paraphrases: { question: string }[] }).paraphrases[0]?.question ?? "";
+
 /** The width the frame paints the lane at (R-UI-030). */
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -36,7 +47,7 @@ function isAction(request: Request): boolean {
 }
 
 test.describe("J-043 — ask the drawings", () => {
-  test("J-043: three cited answers and one named refusal, each figure one click from the members it counts", async ({ page }, testInfo) => {
+  test("J-043: four cited answers — one of them in the QS's own words, routed by Jev — and one named refusal, each figure one click from the members it counts", async ({ page }, testInfo) => {
     await signInAsSeededTenant(page, testInfo.parallelIndex);
     const staged = await stageAsk(page, { label: "j043" });
 
@@ -148,5 +159,17 @@ test.describe("J-043 — ask the drawings", () => {
     await expect.soft(page, "thread-light.png pictures the same thread on the other paper").toHaveScreenshot(["s-ask", "thread-light.png"], { mask: ask.masks(), animations: "disabled" });
     await restoreLaneTheme(page, testInfo);
     await settled(page);
+
+    /* --- (6) the QS's own words, no cue the grammar reads: Jev routes it, from its recorded answer --- */
+    // Asked after the pictures, so the thread they hold is the grammar's alone.
+    const routed = await ask.ask(ROUTED_PARAPHRASE);
+    await settled(page);
+    await expect(routed, "the paraphrase is answered, not refused").toHaveAttribute("data-answer", "answered");
+    await expect(routed, "by the machine's reading").toHaveAttribute("data-routed-by", "MODEL");
+    await expect(routed, "read as the count the words ask").toHaveAttribute("data-intent", "COUNT");
+    await expect(routed, "naming the ledger row of the one call it cost").toHaveAttribute("data-call", /^[0-9a-f-]{36}$/u);
+    await expect(ask.figures(routed).first(), "the same cited count the grammar gives").toHaveAttribute("data-value", "1");
+    await expect(routed.getByTestId(TESTIDS.ask.understood), "and it says whose reading it is").toContainText(strings.ask_understood_machine);
+    await expect(ask.answers, "five answers kept").toHaveCount(5);
   });
 });

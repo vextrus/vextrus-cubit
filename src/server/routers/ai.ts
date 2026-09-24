@@ -68,6 +68,8 @@ export const aiRouter = router({
     return askTheDrawings(
       { tenantId: actor.tenantId, projectId: input.projectId },
       { question: input.question, ...(input.reading === undefined ? {} : { reading: input.reading }), ...(input.previous === undefined ? {} : { previous: input.previous }) },
+      // Who asks, for the ledger row a machine-routed question writes (L-AI-01, R-AI-005).
+      { actor: ctx.session.userId, requestId: ctx.requestId },
     );
   }),
 });
