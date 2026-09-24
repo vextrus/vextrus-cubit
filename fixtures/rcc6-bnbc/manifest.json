@@ -4,36 +4,37 @@
   "generator": {
     "path": "fixtures/gen/rcc6_bnbc/",
     "modules": {
-      "__main__.py": "cda8aa424e158ca03f3654d24b8c9e62b55a956435fc1ac48c720cc3eec62b86",
-      "cells.json": "53cce426f60e97678eb698492fd75f6cfda25b36e9d9e255a1cb6d9d1591be69",
+      "__main__.py": "d87af91d9152763806e8e5e7930f855d8726f77648d782144eda0fb3810e6881",
+      "cells.json": "d3c602b37b2d4e842b9957faea7136484bf969ee380d6594f45cc2560b9dc7a5",
       "emit/__init__.py": "4d3f67c73e685ca8c5ae3ea3ac48cb6726fcb32b4d28202057cf1a166f60214f",
       "emit/blocks.py": "833539d149df8b87d6dd63d215b8eae90c16c3e1ac6fd627c6f73006f2c6ad7c",
       "emit/dwg.py": "786a4e9d0cf2cf2385e3db9f3452b3ea9c3f5b8073995341e11fde61b59bd670",
       "emit/dxf.py": "40f13df73d06b2e985da9b29873f442216a10f9cec233ba20a09f6a11bb37d44",
       "emit/hershey.py": "526d7acffbd4e54f8ad476da93546cfa3a0f6d3de1a8f0a36ca3f3ce6e72b45b",
       "emit/images.py": "672eafc5da03f32f18055ffb05ac2aeef80443354ef06f7ce55eae7c62849e2b",
-      "emit/manifest.py": "f5fdd4779926cc14ae6a7a25540c04cc2e0ef2f2c81e2845bd5e58a69873e6ef",
+      "emit/manifest.py": "3c611f42cee2f7ec70a41a876a60f39e2d581e530dd092fde7f40cb4ac105893",
       "emit/pdf.py": "1cfd94190aec05879d9bdb2c5d5f66c8a7e62bf0c359a4f9ac0fd81ce01de936",
-      "emit/plan.py": "ece6ffd8bd7d831ef02745f7fdf1729477ea1c6145bfb82a54c9f01e006749c1",
+      "emit/plan.py": "f98590d7d59edfd3fdfae41728aaf933e74bd1a5d3c96e8f5f5de8cebb91fb04",
       "emit/raster.py": "62d5ed793131ffc194e8af59d929cb996792bac452fe6ff8209fba54d3b5503f",
+      "emit/scan.py": "fb39933de4a70b766f44457f732346f3cfb3bce32916d0efe5e8ea2342957bd2",
       "emit/scene.py": "aaba7b607d6932f4e473e636b159ad3fea815ee5027c272bf2681742e6e07343",
       "emit/sheets/__init__.py": "7782e7f4b53eff83551568fac66943c6163638453ecc93cbce242075e1eee42d",
       "emit/sheets/beams.py": "63888525e22d74d6a66a71cddfa0161fb891f7c1efb593b27aa4d922f7fd66e9",
       "emit/sheets/cols.py": "178be1a7bf6907668ebfaa11f8c2285cafdabfd6f37cc664e121d73726f08baf",
       "emit/sheets/common.py": "00cd43458c1e4e3c3f9a5a91a41e0f91fab7dd45cefce58f16adf7b082f4d67a",
-      "emit/sheets/details.py": "e9ab75d6e8ed7196b2ba20b87836ed293995917caa9e1864bcf750f998df6422",
+      "emit/sheets/details.py": "7e847be26ca17594c2b9098c3a9f47506f6e67ef0a347bf6004c99c690bcbf5d",
       "emit/sheets/found.py": "5e383acdee5f0346544dd2bf0eecca93adffc1d8c615fcde331205b7c09063ef",
       "emit/sheets/front.py": "a7993d91b03cf0bf31989a3a0d4aeeeaf8672135c9338e47520f539f6385c228",
       "emit/sheets/revb_windows.json": "2c6907ff9da7273f705c81682d70888149cddebc245d845b28f8000da2324caf",
       "emit/sheets/revc.py": "aed66f40c5cea4dfb235f2eba7e3a440fb0d71929c17d5b3ab8f5e3b592735b8",
       "emit/sheets/revc_details.py": "355f4006bac8f00f43cc620da0ef97f74bd1e822f6de91b9f76d6f9cc91cb03b",
       "emit/sheets/revc_found.py": "3862c2a09d9d25ffa6431b9a813f017f5ec0ffbb5db1958aa9b40d200eea83d4",
-      "emit/sheets/revc_frame.py": "dda46615d7761bbd372507aa364c293284f3861a96970087835dcf194ed18691",
+      "emit/sheets/revc_frame.py": "352f96e7d4a05f0ef34a1fc89eb5b67153489ae2f0274eaf1978ce33d72a612f",
       "emit/sheets/revc_slabs.py": "9d48a89f3843ffca50e123faf4ae768cbca29ec5038c62c7dabba4789dee926c",
       "emit/sheets/slabs.py": "d00e0a3da4c13e63f365dee9bb54151dfee9d27f53d367c4719acc2280859722",
-      "golden.py": "8445553c2212ecaa7cfe4d2a74630a7c85967bbb1b425a917364684a2e5b73f2",
+      "golden.py": "cd7a2fc85a8e72077abecfb9bce9be644c01877d18ed6450ea0dd51558f8d802",
       "golden_check.py": "ebf53d27329e83066a0aac099f2b0578353bde29f1980f9b99125bc8affc9201",
-      "model.py": "bff79c2bf9ee4d91bd01e5731000cae05fcb9ed57e70f4dfa2683aaa19f0db8b",
+      "model.py": "1911fe42a805ca44f808d694bfa8410d9b7d6d302ac36d8e1d1ca4245a584eb9",
       "selfcheck.py": "fb67b6eab2f6cf62b2ffd892772856e6ab4bcd1757a8d7a70c1101de9b1c9c15",
       "traps.json": "2c6e886ea76e37cb06623498a1771da8d5684f565256f2d3e6a19674925ed559",
       "validate/__init__.py": "a41b87f0fe1e0b04da94a88879c5184846a1990ae799a7f33283ef0c9e4a43b4",
@@ -1575,7 +1576,7 @@
         "WHOLE_SET_AT_ONE_DPI"
       ]
     },
-    "total_bytes": 21229367,
+    "total_bytes": 21765187,
     "budget_mb": {
       "corpus_total": 45,
       "rasters_total": 25,
@@ -1587,12 +1588,57 @@
       "r2pdf": 8.0,
       "r3": 3.0,
       "r4": 3.0
+    },
+    "scan": {
+      "file": "scan/s-08.pdf",
+      "sheet": "S-08",
+      "dpi": 200,
+      "planned_dpi": 200,
+      "format": "JPEG q70 pasted into a vector page",
+      "bytes": 535820,
+      "share_mb": 3.5,
+      "pastes": [
+        {
+          "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+          "scale": 100,
+          "skew_deg": 1.483358,
+          "px": [
+            2779,
+            2778
+          ],
+          "centre_mm": [
+            220.0,
+            300.0
+          ]
+        },
+        {
+          "view": "RAMP SECTION",
+          "scale": 50,
+          "skew_deg": -1.422021,
+          "px": [
+            2424,
+            1273
+          ],
+          "centre_mm": [
+            580.0,
+            375.0
+          ]
+        }
+      ],
+      "vector": "border, title strip, view captions, key plan, north arrow, scale bar (TrueType)",
+      "losses": [
+        "PLAN_BODY_RASTER_ONLY",
+        "SKEW_1_2_TO_1_8_DEG_PER_PASTE",
+        "DCT_ARTEFACTS_ON_HAIRLINES",
+        "FOLD_CREASE_BAND",
+        "NO_TEXT_LAYER_INSIDE_THE_PASTE"
+      ]
     }
   },
   "outputs": {
     "arch-plan.dxf": "9d445ee265a42f702e6b446cb5d9d20bd79d7480b8e36673e294463dc7ace4ae",
     "bbs.golden.json": "9851289c7febce810bc9838989f820f6b902e9625f903af089c21947a61c554c",
-    "cells.json": "53cce426f60e97678eb698492fd75f6cfda25b36e9d9e255a1cb6d9d1591be69",
+    "cells.json": "d3c602b37b2d4e842b9957faea7136484bf969ee380d6594f45cc2560b9dc7a5",
     "images/consultant-logo.png": "c9dd25119a99b2cfa762fe8949fea4120d7b4af21b7b27059b96005f60be3488",
     "images/hook-detail-scan.png": "47be89718a96d76579d056551d3a8965c905e2703d18c873fe44c2970f8818fd",
     "model.json": "b689793b37bde27fd5e26674576b455e7a1445a36f3406ee06091f49c8c7c23e",
@@ -1629,7 +1675,9 @@
     "rcc6-bnbc.pdf": "2673a3c8d6ff84069551f491af668ca85d31b2601e93e5cb757473f04a44493b",
     "rcc6-bnbc.r2.pdf": "ed7e8f861d94a1cc585b3a2daa8178178272ca553aceef461f8be82346a00e92",
     "rcc6-bnbc.shx.pdf": "bd0e2c09b5be4509608c18dd8320185f4ae9254b1bcfe60dc2a9f82997ee96de",
-    "sanity.json": "8a91195f0e9930babbdf1ff3ab6d7ac424f5fd838b3606cf5ce5ed2001bd13f2",
+    "sanity.json": "874897cd5acd637182de892f916216b956f0bb1a26ef7854bf3a693816b379db",
+    "scan.golden.json": "afcdecd689a092b3faaf0bcde150f5b5637af36db56001523fd0eba8cd3b435d",
+    "scan/s-08.pdf": "1421bfde2e1317799a82db15b3da9a444502bf3e11d41a1ce805feb224761847",
     "site.json": "32ab27eb990a9b5b8227d572610c43e87f1c5a8a4404e8e6f26efa912919092e",
     "takeoff.golden.json": "d700e9d2d3f026812adb88640ec2f648beda6f8b8ce93f0a708424a95142daa8",
     "traps.json": "2c6e886ea76e37cb06623498a1771da8d5684f565256f2d3e6a19674925ed559"
@@ -1745,11 +1793,12 @@
         "rcc6-bnbc.model.dxf",
         "rcc6-bnbc.pdf",
         "rcc6-bnbc.shx.pdf",
+        "scan/s-08.pdf",
         "traps.json"
       ],
       "exempt": {
         "dwg": "LibreDWG is not byte-stable; the DWG is judged by its census (W-04)",
-        "raster": "a second raster pass costs over a minute; the rasters are a pure function of the vector PDF, which is rebuilt and compared"
+        "raster": "a second raster pass costs over a minute; the rasters are a pure function of the vector PDF, which is rebuilt and compared (F-SCAN's one page is rebuilt too)"
       }
     }
   },
@@ -1764,14 +1813,14 @@
       "rasters_total": 25,
       "single_file": 8
     },
-    "corpus_mb": 35.334,
-    "rasters_mb": 12.65,
+    "corpus_mb": 35.848,
+    "rasters_mb": 20.757,
     "largest_file": {
       "name": "rcc6-bnbc.r2.pdf",
       "mb": 7.596
     },
-    "files": 43,
+    "files": 45,
     "test": "cad/tests/rcc6_bnbc/test_rcc6_bnbc_size.py"
   },
-  "wave": "B (N2/N3): the 26 sheets composed once and painted three ways — ezdxf (paper layouts and model-space frames, plus the xref target and the malformed twin), LibreDWG (both DWGs, judged by census), reportlab (the TrueType PDF and its stroked twin) — and rasterised four ways"
+  "wave": "B (N2/N3): the 26 sheets composed once and painted three ways — ezdxf (paper layouts and model-space frames, plus the xref target and the malformed twin), LibreDWG (both DWGs, judged by census), reportlab (the TrueType PDF and its stroked twin) — and rasterised four ways, plus F-SCAN's S-08 re-issued as a mixed page (W-52)"
 }

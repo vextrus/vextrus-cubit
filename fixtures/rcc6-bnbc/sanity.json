@@ -813,6 +813,51 @@
         "STAMP_AREA_BLURRED",
         "SHEET_EDGES_CLIPPED"
       ]
+    },
+    "scan": {
+      "file": "scan/s-08.pdf",
+      "sheet": "S-08",
+      "dpi": 200,
+      "planned_dpi": 200,
+      "format": "JPEG q70 pasted into a vector page",
+      "bytes": 535820,
+      "share_mb": 3.5,
+      "pastes": [
+        {
+          "view": "GRADE BEAM LAYOUT & GF SLAB ON GRADE",
+          "scale": 100,
+          "skew_deg": 1.483358,
+          "px": [
+            2779,
+            2778
+          ],
+          "centre_mm": [
+            220.0,
+            300.0
+          ]
+        },
+        {
+          "view": "RAMP SECTION",
+          "scale": 50,
+          "skew_deg": -1.422021,
+          "px": [
+            2424,
+            1273
+          ],
+          "centre_mm": [
+            580.0,
+            375.0
+          ]
+        }
+      ],
+      "vector": "border, title strip, view captions, key plan, north arrow, scale bar (TrueType)",
+      "losses": [
+        "PLAN_BODY_RASTER_ONLY",
+        "SKEW_1_2_TO_1_8_DEG_PER_PASTE",
+        "DCT_ARTEFACTS_ON_HAIRLINES",
+        "FOLD_CREASE_BAND",
+        "NO_TEXT_LAYER_INSIDE_THE_PASTE"
+      ]
     }
   }
 }

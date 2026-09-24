@@ -1,6 +1,6 @@
 {
   "fixture": "F-RCC6-BNBC",
-  "note": "The 40 M3 gate cells (class × kind) that R-TO-032's rails must fill and R-TO-035 judges at ±3 %/+0 % (H-bible-m3 §3, E-fixture §3.6). 11 structural classes × {RCC_CONCRETE, FORMWORK, REBAR} less PILE×FORMWORK (bored, none), plus PILE_LENGTH, PILE_COUNT, and the earthwork the golden bills beside the concrete it serves: EXCAVATION and BLINDING under PILE_CAP and FOOTING, EXCAVATION under WALL (the two tank pits) and BLINDING under SLAB (the slab on grade and the ramp) — R0, W-41. BRICK_WALL × BRICKWORK is not a BNBC cell: the walls are drawn and billed in the architect's set, and the pair is F-ARCH's — its rows are read from goldenRows('arch') (GF..6F, components BW250/BW125, S-25's lintels deducted), and BNBC's golden keeps only the LINTEL rows (R0-G3, D-R0G3-a). Each entry is {cell: {class, kind}, expected_residue?}: the `cell` dict is the row selector (cell ⊆ row), the residue note sits beside it (adversary 4).",
+  "note": "The 40 M3 gate cells (class × kind) that R-TO-032's rails must fill and R-TO-035 judges at ±3 %/+0 % (H-bible-m3 §3, E-fixture §3.6). 11 structural classes × {RCC_CONCRETE, FORMWORK, REBAR} less PILE×FORMWORK (bored, none), plus PILE_LENGTH, PILE_COUNT, and the earthwork the golden bills beside the concrete it serves: EXCAVATION and BLINDING under PILE_CAP and FOOTING, EXCAVATION under WALL (the two tank pits) and BLINDING under SLAB (the slab on grade and the ramp) — R0, W-41. BRICK_WALL × BRICKWORK is not a BNBC cell: the walls are drawn and billed in the architect's set, and the pair is F-ARCH's — its rows are read from goldenRows('arch') (GF..6F, components BW250/BW125, S-25's lintels deducted), and BNBC's golden keeps only the LINTEL rows (R0-G3, D-009). Each entry is {cell: {class, kind}, expected_residue?}: the `cell` dict is the row selector (cell ⊆ row), the residue note sits beside it (adversary 4).",
   "cells": [
     {
       "cell": {
@@ -49,14 +49,14 @@
         "class": "PILE_CAP",
         "kind": "EXCAVATION"
       },
-      "expected_residue": "PC2 (14 triangular caps): the golden measures a polygon cap's pit by its bounding box, a Deviation from L-FRM-04's deferral (D-R0G1-a); a rail that defers POLYGON_PIT is under, lawful, until it measures the box. From E.G.L −457.2 (W-20)"
+      "expected_residue": "PC2 (14 triangular caps): the golden measures a polygon cap's pit by its bounding box, a Deviation from L-FRM-04's deferral (D-008); a rail that defers POLYGON_PIT is under, lawful, until it measures the box. From E.G.L −457.2 (W-20)"
     },
     {
       "cell": {
         "class": "PILE_CAP",
         "kind": "BLINDING"
       },
-      "expected_residue": "PC2 by its bounding box as above (D-R0G1-a); net of the pile sections passing through the blinding (W-31, I-R0G1-b)"
+      "expected_residue": "PC2 by its bounding box as above (D-008); net of the pile sections passing through the blinding (W-31, I-600)"
     },
     {
       "cell": {
