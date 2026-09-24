@@ -195,6 +195,9 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "REBAR_STOREY_RUN_UNSTATED",
   "REBAR_TIE_ZONE_UNSTATED",
   "REQUEST_MALFORMED",
+  "ROOM_AREA_DISAGREES",
+  "ROOM_OUTLINE_OUT_OF_BAND",
+  "ROOM_UNNAMED",
   "RUN_UNREAD",
   "SCALE_NO_EVIDENCE",
   "SCALE_OBSERVATION_OBLIQUE",
@@ -477,7 +480,12 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * under on the measurement boundary. 175 → 176, added 1, removed 0, changed 0.
  * Previous: 86dbf4bb751c51151c5e60e38de85e0f2a19d72b77ae5da983b315cac0a24400.
  */
-const ENTRIES_DIGEST_BEFORE = "9f5bd1eabba3eb8dbca9c07cd82af19963ee019559980566c52271a38ddcb443";
+/*
+ * Re-baselined at integration (session 9, wave 3c) for its 3 ADDED entries (ROOM_AREA_DISAGREES, ROOM_OUTLINE_OUT_OF_BAND, ROOM_UNNAMED);
+ * the whole register diffed against 9b0f3676: 160 → 182, added 22, removed 0, changed 0.
+ * Previous: 9f5bd1eabba3eb8dbca9c07cd82af19963ee019559980566c52271a38ddcb443.
+ */
+const ENTRIES_DIGEST_BEFORE = "50325a9f30d9c965ae84488e92558d3bbfd9f78c628a210043ff59569d63de3d";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

@@ -356,7 +356,8 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * table or column moved or was dropped (0068 is one CREATE TABLE and its index).
  * Landed after FRM4-AD's 0068; the digest below is re-frozen over both at integration.
  */
-const COLUMNS_DIGEST_BEFORE = "552432fe94b491d765b8727354eda7a0df8e8c000ce8135d34db7cebad9963c1";
+/* Re-frozen at integration over FRM4-AD's 0068 and ARCH-5's 0069 together (two ADDED tables, placement_unnamed_pairs and room_outlines; no standing column moved). Previous: 552432fe94b491d765b8727354eda7a0df8e8c000ce8135d34db7cebad9963c1. */
+const COLUMNS_DIGEST_BEFORE = "f98a517c100638ebb045c24accc5d537462e1eb21761fbcfa5c167599448854c";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {
