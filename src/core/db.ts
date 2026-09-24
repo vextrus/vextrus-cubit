@@ -103,7 +103,7 @@ export {
   roomOutlines,
   SEAM_SCHEMA,
 } from "./db/schema";
-export { isAcceptedFormat, ROOM_FACES, ROOM_OUTLINE_STATUSES } from "./db/schema";
+export { isAcceptedFormat } from "./db/schema";
 export type {
   WorkspaceRole,
   Disposition,

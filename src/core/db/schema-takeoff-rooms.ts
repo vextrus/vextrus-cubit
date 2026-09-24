@@ -9,25 +9,14 @@
 // transaction, keyed by a content-derived room key, so a re-derivation of the same artifact writes the
 // same rows (L-REG-04, R-TO-030).
 import { ROOM_OUTLINE_REASONS } from "../errors";
+import { ROOM_OUTLINE_STATUSES, type RoomFace, type RoomOutlineStatus } from "../rooms/law";
 import { closedList } from "./sql";
 import { sql as statement } from "drizzle-orm";
 import { check, doublePrecision, index, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
-/**
- * What a closed region of a plan IS, as the rooms stage reads it: a room it registered, a room label
- * standing in no closed region (L-MEA-03's SURFACE_NOT_CLOSED), a void nobody finishes (a lift, a stair,
- * a duct, a shaft), or a region listed and not registered for a named reason (L-MEA-01).
- */
-export const ROOM_OUTLINE_STATUSES = ["CLOSED", "NOT_CLOSED", "VOID", "DROPPED"] as const;
-
-/** One of the four. */
-export type RoomOutlineStatus = (typeof ROOM_OUTLINE_STATUSES)[number];
-
-/** The faces a room registers as surfaces (R-TO-036: "finish faces (floor, ceiling, wall faces)"). */
-export const ROOM_FACES = ["FLOOR", "CEILING", "WALLS"] as const;
-
-/** One of the three. */
-export type RoomFace = (typeof ROOM_FACES)[number];
+// The statuses and the faces are law (`../rooms/law.ts`), read from there rather than copied (B-17);
+// their types stay published beside the table that stores them.
+export type { RoomFace, RoomOutlineStatus } from "../rooms/law";
 
 /** One label as a room carries it (I-644). */
 export type StoredRoomLabel = {

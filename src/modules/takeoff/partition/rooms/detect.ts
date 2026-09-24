@@ -18,7 +18,7 @@
 // Pure over what it is handed: no store, no clock, no model (L-REG-04).
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
-import { ROOM_FACES, type RoomFace, type RoomOutlineStatus } from "@/core/db";
+import { ROOM_FACES, type RoomFace, type RoomOutlineStatus } from "@/core/rooms/law";
 import type { RoomOutlineReason } from "@/core/errors";
 import { placementKey, viewKey as viewKeyOf, type ViewRef } from "@/core/identity";
 import { manualMark, placementPointOf } from "@/core/manual/identity";

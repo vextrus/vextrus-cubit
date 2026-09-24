@@ -13,6 +13,7 @@ import { BAR_ROLES } from "../rulesets/methods/rebar/synthesis";
 import { NOTE_KINDS } from "../notes/law";
 import { COVERAGES, GEOMETRY_TYPES, PLAN_MEMBERS } from "../offers/law";
 import { AXIS_IDLE_READINGS } from "../residue/law";
+import { ROOM_OUTLINE_STATUSES } from "../rooms/law";
 import { SITE_FACTS } from "../site-facts/law";
 
 /** One foreign vocabulary: who owns the names, and which of them this tree spells. */
@@ -373,5 +374,16 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // (`PileHeadDeclineReason`), written down here for the reason the S-Ask intents above are.
     vocabulary: "pile-head clause decline reasons (I-597)",
     codes: Object.freeze(["BARS_ONLY", "MINIMUM_ONLY", "UNIT_UNSTATED", "NOT_THE_PILE"]),
+  }),
+  Object.freeze({
+    // The rooms stage's outline statuses (s-takeoff I-643): what a closed region of a plan is.
+    // `NOT_CLOSED` bears an underscore, so Q-07's register would read it as a refusal code nobody
+    // registered — but a status is what a stored outline says about itself, written to
+    // `room_outlines.status` and drawn by the viewer's partition overlay; a person is answered with
+    // the registered reason beside it (SURFACE_NOT_CLOSED and its siblings, ROOM_OUTLINE_REASONS),
+    // never with this name. The roster's home is `../rooms/law.ts` and it is read from there rather
+    // than copied (B-19, ARCH-02).
+    vocabulary: "room outline statuses (s-takeoff I-643)",
+    codes: ROOM_OUTLINE_STATUSES,
   }),
 ]);
