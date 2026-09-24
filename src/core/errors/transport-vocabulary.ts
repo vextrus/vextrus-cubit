@@ -400,4 +400,12 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     vocabulary: "room types (viewer.md I-687)",
     codes: Object.freeze([...ROOM_TYPES, ROOM_TYPE_NONE]),
   }),
+  Object.freeze({
+    // A title block's revision-column headings (s-drawings I-689, DOC-FRONT's drawing register): the
+    // words a sheet heads its revision column with. One bears an underscore, so Q-07's register would
+    // read it as a refusal code nobody registered — it is a heading read off the drawing. Its home is
+    // `../sheets/grammar.ts` (REVISION_TAGS), written down here for the reason the ranks above are.
+    vocabulary: "title-block revision headings (I-689)",
+    codes: Object.freeze(["REV_NO"]),
+  }),
 ]);

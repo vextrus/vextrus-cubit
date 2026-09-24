@@ -1,3 +1,4 @@
+import { REFUSALS } from "@/core/errors";
 // S-BBS's sentences, as the module that renders them may read them (R-SPINE-060, ARCH-01).
 //
 // `src/ui/strings/bbs.ts` is the product's one string table for this screen and a module may not
@@ -120,10 +121,10 @@ export const BBS_COMPONENT_SAID: Readonly<Record<string, string>> = Object.freez
  * above the schedule; a code not held here is said by its marks alone.
  */
 export const BBS_WHY_SAID: Readonly<Record<string, string>> = Object.freeze({
-  REBAR_TIE_JOINT_UNREAD: BBS_COPY.bbs_why_joint_unread,
-  BAR_SHAPE_NOT_HELD: BBS_COPY.bbs_why_shape_not_held,
-  REBAR_TIE_ZONE_UNSTATED: BBS_COPY.bbs_why_tie_zone_unstated,
-  NOTE_READING_CONTESTED: BBS_COPY.bbs_why_note_contested,
+  [REFUSALS.REBAR_TIE_JOINT_UNREAD.code]: BBS_COPY.bbs_why_joint_unread,
+  [REFUSALS.BAR_SHAPE_NOT_HELD.code]: BBS_COPY.bbs_why_shape_not_held,
+  [REFUSALS.REBAR_TIE_ZONE_UNSTATED.code]: BBS_COPY.bbs_why_tie_zone_unstated,
+  [REFUSALS.NOTE_READING_CONTESTED.code]: BBS_COPY.bbs_why_note_contested,
 });
 
 /**

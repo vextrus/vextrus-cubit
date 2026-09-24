@@ -145,8 +145,8 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     // Walk 2 BD-1 (I-661): the selection opened the inspector while the sheet was in flight,
     // and the landing was drawn in the box the canvas had before it — every circle a tall oval, the
     // grid overlay off the drawn axes. The frame on screen is drawn in the box the canvas stands in.
-    const drawn = await viewer.drawnStretch();
-    expect(Math.abs(drawn.stretch - 1), `a circle of the drawing is drawn round: the frame was drawn in ${drawn.frame}, the canvas stands at ${drawn.canvas.width}x${drawn.canvas.height}`).toBeLessThanOrEqual(STRETCH_TOLERANCE);
+    const drawnFrame = await viewer.drawnStretch();
+    expect(Math.abs(drawnFrame.stretch - 1), `a circle of the drawing is drawn round: the frame was drawn in ${drawnFrame.frame}, the canvas stands at ${drawnFrame.canvas.width}x${drawnFrame.canvas.height}`).toBeLessThanOrEqual(STRETCH_TOLERANCE);
 
     const flown = await viewer.cameraFromAddress();
     const union = await viewer.selectionCentre();
