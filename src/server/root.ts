@@ -6,6 +6,7 @@ import { bidRouter } from "./routers/bid";
 import { spineRouter } from "./routers/spine";
 import { takeoffBbsRouter } from "./routers/takeoff-bbs";
 import { takeoffBoqRouter } from "./routers/takeoff-boq";
+import { takeoffConditionsRouter } from "./routers/takeoff-conditions";
 import { takeoffManualRouter } from "./routers/takeoff-manual";
 import { takeoffRouter } from "./routers/takeoff";
 import { takeoffSchedulesRouter } from "./routers/takeoff-schedules";
@@ -29,6 +30,7 @@ export const lanes = Object.freeze({
   takeoffBoq: takeoffBoqRouter,
   takeoffBbs: takeoffBbsRouter,
   takeoffManual: takeoffManualRouter,
+  takeoffConditions: takeoffConditionsRouter,
   bid: bidRouter,
   assure: assureRouter,
   ai: aiRouter,

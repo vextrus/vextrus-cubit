@@ -24,7 +24,7 @@ S4 the armed tools and the gesture grammar · S5 the condition chest · S6 the c
 S7 the measurement book · S8 the legend's manual conditions (in VD-4's legend) · S9 the rest of the
 toolset · S10 assemblies · S11 J-041.
 
-This Decision defines I-370 … I-394, I-497 … I-501 (session 8), I-538 and I-539 (S2), and cites D-005 (entered session 9, `docs/decisions/deviations.md`).
+This Decision defines I-370 … I-394, I-497 … I-501 (session 8), I-538 and I-539 (S2), and I-573, I-574, I-575 and I-576 (S5), and cites D-005 (entered session 9, `docs/decisions/deviations.md`).
 
 ---
 
@@ -1222,6 +1222,79 @@ Deviation in `docs/decisions/deviations.md` in the same commit (CLAUDE.md, Law).
     formula of the pairing's kind, borne by its class, every declared variable supplied and nothing
     else, and each supplier's dimension, channel and parameter the method's own.
 
+- **I-573 — A condition's hotkey is its place in the chest, not a stored choice.** §2.6 asked for
+  "the next free digit, changeable". The `conditions` table (0062) holds no hotkey column, and this
+  wave's migrations are another slice's, so a changeable digit would have to live outside the store,
+  where two browsers would disagree about what 3 means.
+  - So the digits 1–9 pick the chest's first nine standing conditions in the order they were
+    authored (`authored_at`, then the id), exactly as I-374 first said ("the digits 1–9 pick the
+    chest's first nine conditions in its order"). Retiring one moves the rest up a digit. A tenth
+    condition has no digit and is picked by a click.
+  - The form shows the digit the new condition will answer to, and does not offer to change it.
+  - The chest's answer carries each condition's `hotkey`, computed by the store's read
+    (`chestOf`, `src/core/manual/conditions.ts`), so the row's Kbd, the roster's `viewer-condition`
+    line and the key the viewer matches are one fact.
+  - Rejected: a client-side preference for the digit. It would make the chest's own keycaps a
+    per-browser fact while the chest is project data.
+  - Owed: re-ordering the chest (and with it a chosen digit) needs an order column. Owner: S5's
+    successor (§14).
+
+- **I-574 — What the chest may author is the manual roster, judged by the chest, and every refusal
+  is named.** R-TO-041 asks for named recipes; I-374 says the recipe names each kind with its manual
+  method's rule id; I-539 puts which pairings are offered in `MANUAL_RULES`. The chest
+  (`judgeCondition`) reads all of it from there:
+  - Each kind is judged against the class's bears (L-MEA-04): one it does not bear is
+    `CONDITION_KIND_NOT_BORNE`. One it bears that no manual method measures from the shape (a slab's
+    concrete traced as an area, today) is `CONDITION_KIND_NOT_OFFERED`: a condition under it would
+    draw outlines the gate could never offer, which is measuring nothing and calling it measured.
+    Rejected: answering that case with `CONDITION_KIND_NOT_BORNE`, whose sentence would then be false.
+  - The rule id is the roster's, never the caller's: the statement names kinds, and the chest writes
+    each with the rule `manualRuleOf` answers (B-17). The act snapshots it from there (I-374).
+  - The readings are exactly the variables the paired rules take from the recipe (`ManualSupply`
+    `recipe`), each once, in the order the rules owe them, each a positive decimal in a unit of the
+    variable's dimension (the method's own `MethodVariable`), and each ENTERED with no source key
+    (I-374: a person stated it). A reading missing, one no rule takes, one in a unit of another
+    dimension, or a size of nothing is a statement the form never makes, so it is `REQUEST_MALFORMED`.
+    A value that states no number is `READING_NOT_NUMERIC`, the act's own code for the same fact.
+  - The name is trimmed, 1 to 120 characters, and one standing condition holds it
+    (`CONDITION_NAME_TAKEN`, asked before the write and read off `conditions_standing_name_once` where
+    two people race to it, so the second is told, never faulted).
+  - A condition leaves the chest by being retired (`retired_at`, `retired_by`), never deleted. One
+    the chest does not hold standing — retired already, another project's, another workspace's — is
+    `CONDITION_NOT_IN_CHEST`.
+  - Authoring and retiring ask MEASURE and name no act type (I-374: not an act). Reading asks
+    participation: every role on the project sees the chest, and the answer's `canAuthor` is the
+    guard's answer to MEASURE, which is how §3's read-only cell is decided.
+
+- **I-575 — The running total is the campaign's own COMPLETE lines, never a figure the chest
+  computes.** §2.6 asks for "the running total per kind for this campaign, measured scope only".
+  - Per condition, the chest reads the standing hand measurements of the campaign open now (the
+    register scope of the latest campaign; a measurement whose register row is repudiated counts for
+    nothing), and the quantity lines the gate published of them. The total per kind is the sum of the
+    COMPLETE lines' values, in decimal, grouped by kind and unit. A PARTIAL line is never totalled
+    (L-QTY-07), and a kind with no COMPLETE line is absent, never 0.
+  - The row shows the totals, or "—", and its tooltip says how many standing measurements cite the
+    condition and how many of them every kind of the recipe has a COMPLETE line for ("2 measured in
+    this campaign, 1 billed"). So a measurement the gate has not billed is said, never hidden.
+  - Until manual offers reach the gate (S3), no hand measurement has a line, and every row reads "—"
+    with its measured count. That is the true state: measured, not billed.
+  - Rejected: totalling the traced geometry (the ring's m²) as the condition's total. A blinding is
+    billed in m³ through the edition's method and its deductions; an m² beside the row would be a
+    second, unsigned figure for the same scope.
+
+- **I-576 — A condition is picked only while its geometry's tool is armed.** I-374 ties a condition
+  to its tool ("arm the condition's tool (Area for an area condition, and so on)"), so a Line cannot
+  measure under an Area condition.
+  - The chest remembers the condition last picked, and names it as what the armed tool measures under
+    only while the armed tool is its geometry's (`TOOL_OF_GEOMETRY`). Pressing L or C after picking an
+    area condition leaves the measure cell and the chest's selection without it; pressing A again finds
+    it where it was, which is §2.6's "the area condition last used on this mount" for the one
+    remembered.
+  - Rejected: forgetting the pick when the tool changes. The QS who steps to Select or Line for a
+    moment would have to pick again, and §2.6 asks that A find the condition last used.
+  - A read-only chest picks nothing, so it does not take the digits 1–9 either: the keystroke goes on
+    to the sheet's own keys (§3).
+
 ---
 
 ## 1. What a QS brings from Bluebeam, PlanSwift, On-Screen Takeoff and CostX
@@ -1424,28 +1497,42 @@ The group heading "Conditions" has a count and a ghost IconButton **New conditio
 are 28 px:
 - a 12 px swatch (colour + hatch);
 - the name (ellipsis, tooltip whole);
-- the hotkey in a Kbd (1–9);
+- the hotkey in a Kbd (1–9): the condition's place in the chest (I-573);
 - the running total per kind for this campaign, mono and right-aligned, measured scope only (PARTIAL
-  never totalled, L-QTY-07).
+  never totalled, L-QTY-07): the sum of the campaign's COMPLETE lines of the standing measurements
+  that cite the condition, "—" where there is none, and "{n} measured in this campaign, {m} billed" in
+  its tooltip (I-575).
 
 The picked condition wears the selection idiom (a 3 px inset `--line-accent` bar on
 `--surface-selected`, the aliases the rule `cubit/no-primitive-token` admits). A click picks it and
-arms its tool.
+arms its tool. Under a shape in progress the pick changes nothing and the measure region says
+"finish or discard first" (I-372). Without MEASURE a click picks nothing, because nothing would arm.
+While a condition is picked, the measure cell reads `measure_status_drawing` (tool · condition ·
+points).
+
+The chest is the drawer's first group, above Layers (§1's fixed order), at most 40 % of the drawer's
+height, scrolling inside itself. It is read once the sheet is a manifest (R-UI-043). Reading it is a
+participant's read, whatever the role; whether the reader may change it is the one guard's answer to
+MEASURE, carried with the chest (`canAuthor`).
 
 **New condition** opens a Popover (320 wide) anchored to the button, holding:
 - **Name**;
-- **Measured as** (Select: Area · Length · Count);
-- **Class** (Combobox over the classes `MANUAL_RULES` pairs with that geometry, I-539);
+- **Measured as** (Select: Area · Length · Count); a shape `MANUAL_RULES` pairs with nothing yet says
+  `measure_condition_none_offered`, and Save stays disabled;
+- **Class** (Select over the classes `MANUAL_RULES` pairs with that geometry, I-539; a Select, not a
+  Combobox, while the roster holds one class per geometry);
 - **Kinds** (checkboxes over the kinds it pairs with that geometry and class);
 - one NumberInput plus unit Select per variable the paired rules take from the recipe (for blinding:
-  **Thickness**, mm);
-- **Colour** (eight swatches);
+  **Thickness**, mm), the units those of the variable's dimension;
+- **Colour** (eight swatches, opening at the class's own);
 - **Hatch** (six);
-- **Hotkey** (the next free digit, changeable).
+- **Hotkey**: the digit the new condition will answer to, shown, not chosen (I-573).
 
 Its footer is Cancel and **Save condition** (primary, not copper: saving a condition is not an act,
-I-374). A row's menu (⋯) offers Edit and Remove from chest. A condition cited by measurements stays
-readable in the book by its snapshot.
+I-374). A refusal (§5's `CONDITION_*`) renders as the one RefusalState inside the popover, which stays
+open so the QS can correct it. A condition saved is picked and its tool armed: the QS authored it to
+measure with it. A row's menu (⋯) offers Remove from chest; Edit is owed (§14). A condition cited by
+measurements stays readable in the book by its snapshot.
 
 ### 2.7 The sheet's list (drawer › Measured on this sheet)
 
@@ -1522,7 +1609,14 @@ refusal test (CLAUDE.md, Architecture):
   recipe, level, geometry, replaces }` and each point is `{ x, y, cites }`, the world point and the
   source keys it was snapped on. Both authorise with MEASURE and bind the drawing to the project
   (R-SPINE-004). The commit answers `{ actId, objectKey }`;
-- `takeoffConditions.list`, `.author` and `.retire` (`takeoff-conditions.ts`, S5);
+- `takeoffConditions.list`, `.author` and `.retire` (`takeoff-conditions.ts`, S5). `list` takes
+  `{ projectId }` and answers `{ conditions, catalogue, canAuthor }`; `author` takes
+  `{ projectId, condition: { name, geometry, elementClass, kinds, readings, colour, hatch } }`, each
+  reading `{ attribute, valueAsWritten, unitAsWritten }`, and answers `{ conditionId }`; `retire` takes
+  `{ projectId, conditionId }`. The viewer route answers the same three through its server actions
+  (`measure-actions.ts`: `readConditionChest`, `authorConditionInChest`, `retireConditionFromChest`),
+  over the same three resolutions the lane exports, so the chest has one door per question. The live
+  refusal tests are `tests/takeoff/manual/conditions.db.test.ts`;
 - `takeoffManual.book` and the XLSX export (S7).
 
 ---
@@ -1541,7 +1635,7 @@ seven are a new entry for the Takeoff › Measurements route in `src/ui/screen-s
 | empty | chest | `EmptyState`: title, one sentence that teaches, one action | `measure_chest_empty_title`, `_body`, `_action` | `measure-chest[data-state=empty]` |
 | empty | list | one line | `measure_list_empty` | `measure-list[data-state=empty]` |
 | empty | book | `EmptyState` + Open the drawings | `measurements_empty_title`, `_body`, `_action` | `measurements-empty` |
-| error | chest, list | the read's fault in place: `ErrorState` with retry and the report id; the sheet stays | `measure_read_failed` | `measure-chest-retry`, `measure-list-retry` |
+| error | chest, list | the read's fault in place: the sentence, a retry and the report id, compact in the drawer (the scale panel's failed cell, not the full-size `ErrorState`, which a 200 px group cannot hold); the sheet stays | `measure_chest_read_failed` (chest), `measure_read_failed` (list), `measure_retry`, `measure_read_report` | `measure-chest-retry`, `measure-list-retry` |
 | error | card | a preview or commit fault that is not a refusal (I-40): the card's own boundary renders `ErrorState` in the card's body with retry (re-previews) and the report id; no Confirm; the outline stays on the sheet (I-373) | `measure_card_failed`, `measure_retry` | `measure-card-retry` inside `consequence-dialog` |
 | error | book, head | the root error boundary (its own Decision) | — | — |
 | refusal | card | the one RefusalState in the card's slot. A preview refusal unmounts Confirm (I-41); a commit refusal keeps it (I-44); a stale digest re-renders | registry-owned (§5) | `refusal-state` inside `consequence-dialog` |
@@ -1682,7 +1776,19 @@ role does not carry the Measure permission.** · `measure_condition_name` **Name
 `measure_condition_class` **Class** · `measure_condition_kinds` **Kinds** · `measure_condition_colour`
 **Colour** · `measure_condition_hatch` **Hatch** · `measure_condition_hotkey` **Hotkey** ·
 `measure_condition_save` **Save condition** · `measure_condition_cancel` **Cancel** ·
-`measure_condition_edit` **Edit** · `measure_condition_retire` **Remove from chest**
+`measure_condition_edit` **Edit** (owed with Edit, §14) · `measure_condition_retire` **Remove from
+chest** · `measure_chest_row_label` **{condition}: pick it and arm {tool}** · `measure_chest_row_menu`
+**More for {condition}** · `measure_chest_total_none` **—** · `measure_chest_total_label` **{measured}
+measured in this campaign, {billed} billed** · `measure_chest_read_failed` **The conditions could not
+be read.** · `measure_read_report` **Report {id}** · `measure_condition_none_offered` **Nothing is
+measured by hand this way yet.** · `measure_condition_reading_t` **Thickness** ·
+`measure_condition_reading_unit` **{reading} unit** · `measure_condition_hatch_solid` **Solid tint** ·
+`measure_condition_hatch_diagonal` **Diagonal** · `measure_condition_hatch_cross` **Cross** ·
+`measure_condition_hatch_dots` **Dots** · `measure_condition_hatch_horizontal` **Horizontal** ·
+`measure_condition_hatch_vertical` **Vertical** · `measure_condition_hotkey_none` **None: the digits
+pick the chest's first nine** · `measure_status_condition_pending` **Measured under {condition}.
+Confirming a measurement arrives with its card; nothing is recorded yet.** (S5, until S6's card
+records it; I-497's `measure_status_unrecorded` stays the sentence with no condition picked)
 
 **Sheet list (measure.ts).**
 `measure_list_heading` **Measured on this sheet** · `measure_list_empty` **Nothing measured on this sheet
@@ -1713,7 +1819,7 @@ S3 the gate's, S5 the chest's and S7 the book's. The integrator merges the aggre
 
 Severity and surface (`RefusalSeverity`, `RefusalSurface`, `src/core/errors/law.ts`): every `MANUAL_*`
 code is `warning` on `dialog` (it answers inside the card); `CELL_MEASURED_BY_HAND` is `info` on
-`inline`, because it explains why a machine line is absent; the two `CONDITION_*` codes are `warning`
+`inline`, because it explains why a machine line is absent; the four `CONDITION_*` codes are `warning`
 on `inline` (the chest's popover); `MEASUREMENTS_NO_CAMPAIGN` is `info` on `inline`.
 
 | Code | Message | Remedy | Evidence link |
@@ -1736,6 +1842,8 @@ on `inline` (the chest's popover); `MEASUREMENTS_NO_CAMPAIGN` is `info` on `inli
 | `CELL_MEASURED_BY_HAND` (gate, `errors/gate.ts`) | A quantity surveyor measured this class and kind on this level by hand, so the product's own reading was not published. | Keep the hand measurements, or delete them to let the product's reading publish on the next run. | the measurement book, filtered to the cell |
 | `CONDITION_NAME_TAKEN` (S5) | Another condition in this project already has this name. | Choose a name that tells the two apart. | the other condition |
 | `CONDITION_KIND_NOT_BORNE` (S5) | The chosen class does not bear this kind, so the condition would measure nothing billable. | Choose a kind the class bears, or another class. | — |
+| `CONDITION_KIND_NOT_OFFERED` (S5, I-574) | No hand-measurement method measures this kind from this shape yet, so the condition would measure nothing billable. | Choose one of the kinds the condition form offers for this shape and class. | — |
+| `CONDITION_NOT_IN_CHEST` (S5, I-574) | This condition is not in this project's chest: it was already removed, or it belongs to another project. | Reload the chest and pick a condition that stands in it. | the condition chest |
 | `MEASUREMENTS_NO_CAMPAIGN` (S7) | No campaign is open on this project, so there is no measurement book. | Pin the drawing set in Takeoff, then measure a sheet. | the Takeoff register |
 
 Reused, unchanged:
@@ -1852,7 +1960,9 @@ contiguous `measure` group plus the named existing groups; the integrator merges
 - Chest:
   - `measure-chest` (`data-state` = loading | ready | empty | failed | readonly);
   - `measure-chest-condition` (`data-condition`, `data-selected`, `data-geometry`, `data-hotkey`);
-  - `measure-chest-new` · `measure-chest-retry` · `measure-condition-form` · `measure-condition-save`.
+  - `measure-chest-new` · `measure-chest-retry` · `measure-condition-form` · `measure-condition-save`;
+  - `measure-chest-row-menu` (a row's ⋯, absent when read-only) · `measure-chest-retire` (its Remove
+    from chest item). The row's total carries `data-measured` and `data-billed` (I-575).
 - List:
   - `measure-list` (`data-state`);
   - `measure-list-row` (`data-object-key`, `data-state` = pending | published | queued | refused);
@@ -1964,6 +2074,10 @@ per-Interpretation verdict, so those rows stay OWED, and their objections below 
 | I-501 | a window's ratio applied to a factor read on paper states a figure 10⁴ over; picking "the" window by the frame misreads a shape across two | only machine ranks (read off model-space members) are carried through a window, a two-point is `unrecorded`; a shape must stand inside exactly one frame, and two, none or overlapping frames refuse by name | CONFIRMED | S4, S6 |
 | I-538 | L-MEA-08 has the gate partition candidates against thresholds, so a channel with none is no channel | L-MEA-08 also keeps sums out of offers, and L-MEA-09 states no threshold for members; a channel with no threshold is the only home that keeps both | CONFIRMED | OPEN-3 (the mint) |
 | I-539 | reusing a machine pair for a hand trace hides that a person measured it | the line's bases, sources and act say who measured it; the pair says only how it is computed, and one algebra has one pair (B-17) | OWED | MANUAL-LAW (session 9's refuter: the act never reads MANUAL_RULES — the door takes any rule id, so a 'not offered' pairing is recorded; and the footing row's 'whole' ignores p) |
+| I-573 | a QS arranges the chest by habit, and a digit that moves when another condition is removed breaks muscle memory | the digit is project data or nothing; a per-browser digit disagrees across the team; re-ordering is owed with an order column | OWED | S5's successor |
+| I-574 | a separate CONDITION_KIND_NOT_OFFERED is one more code for what the form already prevents | the door is also the tRPC lane, which any caller reaches; a refusal whose sentence is false for its case is worse than one more code | OWED | S5 |
+| I-575 | a chest that reads "—" for every condition until S3 lands looks broken in a demo | it is the true state (measured, not billed), said in the tooltip; a traced m² would be a second, unsigned figure for the scope | OWED | S3, S5 |
+| I-576 | forgetting the pick on a tool change is simpler and cannot mislead | the QS who steps to Select or Line for a moment would pick again, and §2.6 asks A to find the condition last used; a remembered pick shown only under its own tool misleads no one | OWED | S5 |
 
 **D-005 — entered** (session 9: the refuter rejected I-388 — L-FRM-04 defers polygon plans outright and states `(L + 2p)(B + 2p)t` with no hand/machine split, so dropping p is a departure, not a reading). Its row and section are in `docs/decisions/deviations.md`.
 
@@ -2084,6 +2198,13 @@ Risks this Decision leaves the orchestrator:
   (points) or raster (pixels) page. Owner: the m4-pdf-sheet area (M4P-*).
 - Feet-and-inches beside SI on a feet sheet: `formatFeetInches` in the format seam (I-391). Owner: S7.
 - A tenant-level chest (R-TO-041). Owner: S5's successor.
+- Edit a condition (§2.6's row menu): the chest's UPDATE of name, paint and recipe, which never
+  re-derives a standing measurement (I-374). S5 ships Remove from chest only. Owner: S5's successor.
+- Re-ordering the chest, and with it a chosen digit (I-573): an order column on `conditions`.
+  Owner: S5's successor, with a migration.
+- The status line's `data-condition` (§9): the measure cell names the picked condition in words
+  (`measure_status_drawing`), and `status-line.tsx` does not yet carry its id. Owner: S6, with the
+  card that records under it.
 - Drafts persisted across a reload or offline. Owner: the prefs seam's node (viewer I-84, unpaid).
 - `VIEW_SCALE_UNAFFIRMED`'s wording for hand measurers (§5). Owner: the frame errors' owner.
 - The re-pin carry (I-394). Owner: the slice that builds REPIN_DRAWING_SET.
@@ -2265,3 +2386,20 @@ Risks this Decision leaves the orchestrator:
     fail-closed arm is S3's (§14). I-539 now places the geometry roster in S1's `core/manual/law.ts`,
     and its table is proved to cover every kind of `KINDS`. `MANUAL_RULES` reads each channel's
     variable and threshold off the gate's maps.
+- 2026-09-24 — S5 (session 9, wave 3b): the condition chest.
+  - The chest stands in the drawer, above Layers: a row per standing condition with its swatch
+    (colour and hatch), name, digit and the campaign's COMPLETE total per kind; the New condition
+    popover over `MANUAL_RULES`; Remove from chest in the row's menu; and §3's loading, empty, error
+    and read-only cells. A pick, a digit or a save arms the condition's tool, and the measure cell
+    names the condition (`measure_status_drawing`) while the armed tool is its geometry's (I-576); a
+    finished shape under it says nothing is
+    recorded until S6's card (`measure_status_condition_pending`).
+  - The doors: `takeoffConditions.list`, `.author` and `.retire`, and the viewer route's three
+    actions over the same resolutions (§2.11). `src/core/manual/conditions.ts` is the chest's one
+    home: the catalogue, the judgement, the read with its totals, the author and the retire.
+  - I-573 (the digit is the chest's order), I-574 (the roster, judged by the chest, every refusal
+    named; `CONDITION_KIND_NOT_OFFERED` and `CONDITION_NOT_IN_CHEST` registered beside §5's two) and
+    I-575 (the totals are the campaign's lines) are recorded, their refuter rows owed. The roster
+    gains `viewer-condition` (1–9). §2.6, §2.11, §3, §4, §5, §9, §11 and §14 are amended to what
+    landed; Edit and re-ordering are owed (§14). The chest's error sentence is its own key,
+    `measure_chest_read_failed`, so S7's list keeps `measure_read_failed` for the measurements.

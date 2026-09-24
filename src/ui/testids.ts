@@ -268,6 +268,15 @@ export const TESTIDS = {
   // S-Measure (docs/design/s-measure.md § 9): the armed tools' stage and menu (S4). The chest, the
   // sheet's list and the book join this group with their slices.
   measure: {
+    // The condition chest in the drawer and its New condition popover (S5, s-measure § 2.6, § 9).
+    chest: "measure-chest",
+    chestCondition: "measure-chest-condition",
+    chestNew: "measure-chest-new",
+    chestRetire: "measure-chest-retire",
+    chestRetry: "measure-chest-retry",
+    chestRowMenu: "measure-chest-row-menu",
+    conditionForm: "measure-condition-form",
+    conditionSave: "measure-condition-save",
     draft: "measure-draft",
     liveFigure: "measure-live-figure",
     menuItem: "measure-menu-item",

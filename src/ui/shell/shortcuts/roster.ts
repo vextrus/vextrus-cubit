@@ -51,6 +51,9 @@ export const SHORTCUTS: readonly Shortcut[] = Object.freeze([
   { id: "viewer-measure-undo", scope: "viewer", keys: ["Backspace"], label: "shortcut_viewer_measure_undo" },
   { id: "viewer-measure-cutout", scope: "viewer", keys: ["X"], label: "shortcut_viewer_measure_cutout" },
   { id: "viewer-measure-point", scope: "viewer", keys: ["Space"], label: "shortcut_viewer_measure_point" },
+  // The chest's digits (s-measure I-374): each picks the condition at that place in the chest and arms
+  // its tool — alternatives, as every viewer line's keys are read, never a sequence (S5).
+  { id: "viewer-condition", scope: "viewer", keys: ["1", "2", "3", "4", "5", "6", "7", "8", "9"], label: "shortcut_viewer_condition" },
   { id: "viewer-snap", scope: "viewer", keys: ["S"], label: "shortcut_viewer_snap" },
   { id: "viewer-fit", scope: "viewer", keys: ["F"], label: "shortcut_viewer_fit" },
   { id: "viewer-escape", scope: "viewer", keys: ["Escape"], label: "shortcut_viewer_escape" },

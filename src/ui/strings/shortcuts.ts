@@ -29,6 +29,7 @@ export const shortcuts = {
   shortcut_viewer_measure_undo: "Remove the last point",
   shortcut_viewer_measure_cutout: "Cut out",
   shortcut_viewer_measure_point: "Place a point at the keyboard cursor",
+  shortcut_viewer_condition: "Pick a condition (1 to 9)",
   shortcut_viewer_snap: "Snapping on or off",
   shortcut_viewer_fit: "Fit the sheet to the view",
   shortcut_viewer_escape: "Leave the current tool",

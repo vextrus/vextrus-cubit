@@ -40,6 +40,8 @@ import { readLineEvidence, readLinesCiting } from "./trace-actions";
 import { useScaleRegion, type ScaleDoors } from "./scale-region";
 import { useSnapRegion } from "./snap-region";
 import { useMeasureRegion } from "./measure-region";
+import { useMeasureChest, type ChestDoors } from "./measure-chest";
+import { isMeasureTool, type MeasureTool } from "@/modules/takeoff/viewer-measure/gesture";
 import { usePartitionRegion } from "./partition-region";
 import { SheetAbsence } from "./viewer-bones";
 import { useViewerSlots, type ViewerTool } from "./viewer-slots";
@@ -65,9 +67,11 @@ export type ViewerScreenProps = {
   calibration?: SnapCalibration | null;
   /** The scale region's three doors. Supplied only where a mount is judged without a server. */
   scale?: ScaleDoors;
+  /** The condition chest's three doors. Supplied only where a mount is judged without a server. */
+  chest?: ChestDoors;
 };
 
-export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, initialLine = null, head: supplied, calibration: suppliedCalibration, scale: suppliedScale }: ViewerScreenProps) {
+export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, initialLine = null, head: supplied, calibration: suppliedCalibration, scale: suppliedScale, chest: suppliedChest }: ViewerScreenProps) {
   /** The status a door refused this reader with, if one did — the code it maps to is decided below. */
   const [denied, setDenied] = useState<number | null>(null);
   /** This screen's own root element, once it stands: the scale region's act dialog is portalled into
@@ -168,12 +172,23 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       (R-TO-012, R-UI-041), on the grid the views/grid region already holds (I-149); its door's refusal is the sheet's (I-150). */
   const snapping = useSnapRegion({ feed, enabled: sheet.head?.kind === "manifest", supplied: suppliedCalibration, onDenied: setDenied, layers: arrived, stateRef: layers.stateRef, cameraRef, camera: camera.camera, axes: partition.axes });
   const snap = snapping.snap;
+  /** The condition chest (s-measure § 2.6): composed AHEAD of the measure region, whose status names the
+      condition picked; a pick arms the region's tool through what this render last wired (I-374). */
+  const armedBy = useRef<{ arm: (asked: MeasureTool) => void; busy: () => boolean }>({ arm: () => undefined, busy: () => false });
+  const armFromChest = useCallback((asked: MeasureTool): void => armedBy.current.arm(asked), []);
+  const chestBusy = useCallback((): boolean => armedBy.current.busy(), []);
+  const chest = useMeasureChest({ projectId, enabled: sheet.head?.kind === "manifest", onArm: armFromChest, isBusy: chestBusy, armed: isMeasureTool(tool) ? tool : null, ...(suppliedChest === undefined ? {} : { doors: suppliedChest }) });
   /** The measure region (s-measure § 2): the armed tools on the snapping region's live point, over the views the scale door says are scaled. */
-  const measuring = useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, moveCamera: camera.moveCamera, views: partition.views, unscaled: scale.absence, permitted: scale.state !== "denied", paintRef: measurePaint });
+  const measuring = useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, moveCamera: camera.moveCamera, views: partition.views, unscaled: scale.absence, permitted: scale.state !== "denied", paintRef: measurePaint, condition: chest.picked?.name ?? null });
+  armedBy.current = { arm: measuring.tools.onArm, busy: () => measuring.measure.busy };
+  // The chest's digits are asked ahead of the grammar's keys (I-374): 1–9 pick a condition and arm its tool.
+  const chestKey = chest.onKey;
+  const regionKey = measuring.onKey;
+  const measureKey = useCallback((event: Parameters<typeof regionKey>[0]): boolean => chestKey(event) || regionKey(event), [chestKey, regionKey]);
 
   const pointer = usePointer({ head: sheet.head, canvasRef, cameraRef, facts, tool, keysUnder: index.keysUnder, ask: index.ask, openLayers: layers.openLayers, hold: held.hold, toggleKey: held.toggleKey, moveCamera: camera.moveCamera, onHoverWorld: snap.onHover, onLeaveWorld: snap.onLeave, onPick: snap.takePick, onMeasureClick: measuring.measure.click, onMeasureAlt: measuring.measure.alt });
   const keyboard = useKeyboard({
-    moveCamera: camera.moveCamera, zoomBy: camera.zoomBy, fitSheet: camera.fitSheet, hold: held.hold, setTool, measureKey: measuring.onKey,
+    moveCamera: camera.moveCamera, zoomBy: camera.zoomBy, fitSheet: camera.fitSheet, hold: held.hold, setTool, measureKey,
     isSnapKey: snapping.isSnapKey, toggleSnapping: snap.toggleSnapping, takePick: snap.takePick, clearPicks: snap.clearPicks,
   });
   const paint = usePainter({ head: sheet.head, refused: denied !== null, canvasRef, stageRef, statusRef, painterRef, stateRef: layers.stateRef, cameraRef, layers: arrived, facts, loadedLayers: sheet.loadedLayers, drawnLayers: layers.drawnLayers, selection: held.selection, hovered: pointer.hovered });
@@ -217,6 +232,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         tool={tool}
         snap={snap}
         measure={{ layer: measuring.layer, refusal: measuring.measure.refusal, onKeyUp: measuring.onKeyUp }}
+        chest={chest.panel}
         onKeyDown={keyboard.onKeyDown}
         stageRef={stageRef}
         canvasRef={canvasRef}

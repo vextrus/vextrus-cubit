@@ -106,6 +106,8 @@ export type MeasureRegionOptions = {
   permitted: boolean;
   /** Where the screen's draw reaches this region's paint: a ref, so a frame never waits on a render (PB-3). */
   paintRef: RefObject<((at: Camera) => void) | null>;
+  /** The name of the condition the chest picked, which the armed tool measures under, or null (S5, I-374). */
+  condition?: string | null;
 };
 
 export type MeasureRegion = {
@@ -179,7 +181,7 @@ function noteWords(note: MeasureNote, tool: MeasureTool | null, figure: MeasureF
   }
 }
 
-export function useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, moveCamera, views, unscaled, permitted, paintRef }: MeasureRegionOptions): MeasureRegion {
+export function useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, moveCamera, views, unscaled, permitted, paintRef, condition = null }: MeasureRegionOptions): MeasureRegion {
   const [menuOpen, setMenuOpen] = useState(false);
   const labelRef = useRef<HTMLDivElement | null>(null);
   const valueRef = useRef<HTMLSpanElement | null>(null);
@@ -373,10 +375,19 @@ export function useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, mov
     const tool = measure.armed;
     const count = measure.draft.outer.length + measure.draft.cutouts.reduce((sum, ring) => sum + ring.length, 0) + measure.draft.cutting.length;
     const toolWord = tool === null ? "" : strings[TOOL_COPY[tool]];
-    const shape = tool === null ? "" : count === 1 ? fill(strings.measure_status_tool_one, { tool: toolWord }) : fill(strings.measure_status_tool, { tool: toolWord, points: String(count) });
+    // Under a picked condition the cell names it (§ 4's `measure_status_drawing`); with none, the tool and its points.
+    const shape =
+      tool === null
+        ? ""
+        : condition !== null
+          ? fill(strings.measure_status_drawing, { tool: toolWord, condition, points: String(count) })
+          : count === 1
+            ? fill(strings.measure_status_tool_one, { tool: toolWord })
+            : fill(strings.measure_status_tool, { tool: toolWord, points: String(count) });
     const words = reason === "permission" ? strings.measure_tools_permission : measure.figure === null ? shape : `${shape} · ${figureWords(measure.figure)}`;
     // The cell repeats what a reader who is not looking at the pointer needs: a refusal, a reason, or
-    // — a shape finished with no condition picked — that nothing was recorded (I-497).
+    // — a shape finished — that nothing was recorded: with no condition picked (I-497), or under one
+    // whose card has not landed yet (S5; S6 brings the card that records it).
     const kind = measure.note?.note.kind;
     const note =
       reason === "offline"
@@ -384,12 +395,14 @@ export function useMeasureRegion({ tool, setTool, snap, cameraRef, stageRef, mov
         : reason === "unscaled"
           ? strings.measure_view_unscaled
           : kind === "finished" || (kind === "cutout-finished" && measure.draft.phase === "draft")
-            ? strings.measure_status_unrecorded
+            ? condition === null
+              ? strings.measure_status_unrecorded
+              : fill(strings.measure_status_condition_pending, { condition })
             : kind === "placed" || kind === undefined
               ? null
               : said;
     return { tool, points: count, figure: measure.figure, reason, words, note };
-  }, [measure.armed, measure.draft, measure.figure, measure.note, reason, said]);
+  }, [condition, measure.armed, measure.draft, measure.figure, measure.note, reason, said]);
 
   const { armed, rectangle, draft, basis, canvasRef } = measure;
   const layer =

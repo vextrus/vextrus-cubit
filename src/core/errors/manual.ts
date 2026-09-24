@@ -4,7 +4,9 @@
 // resolves it. The specifics (which measurement, which view, which point) travel in the refusal's
 // own facts, which the act fills; the sentences here are static (R-SPINE-062).
 //
-// Every code is `warning` on `dialog`: it answers inside the card the QS is confirming (I-373).
+// Every MANUAL_ code is `warning` on `dialog`: it answers inside the card the QS is confirming
+// (I-373). The CONDITION_ codes are the chest's (S5): `warning` on `inline`, answered in the popover
+// a condition is authored in, or on the chest's row a condition is removed from.
 
 import type { RefusalGroup } from "./law";
 
@@ -23,7 +25,11 @@ export type ManualRefusalCode =
   | "MANUAL_CELL_OTHER_VIEW"
   | "MANUAL_CELL_MACHINE_MEASURED"
   | "MANUAL_PREDECESSOR_NOT_STANDING"
-  | "MANUAL_CONDITION_NOT_STANDING";
+  | "MANUAL_CONDITION_NOT_STANDING"
+  | "CONDITION_NAME_TAKEN"
+  | "CONDITION_KIND_NOT_BORNE"
+  | "CONDITION_KIND_NOT_OFFERED"
+  | "CONDITION_NOT_IN_CHEST";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const MANUAL_REFUSALS: RefusalGroup<ManualRefusalCode> = Object.freeze({
@@ -141,5 +147,40 @@ export const MANUAL_REFUSALS: RefusalGroup<ManualRefusalCode> = Object.freeze({
     remedy: "Pick a condition that stands in this project's chest, then measure.",
     severity: "warning",
     surface: "dialog",
+  }),
+  // R-TO-041, I-374: one standing condition per name in a project's chest — two alike could not be
+  // told apart by their hotkey, their legend chip or the book (conditions_standing_name_once).
+  CONDITION_NAME_TAKEN: Object.freeze({
+    code: "CONDITION_NAME_TAKEN",
+    message: "Another condition in this project already has this name.",
+    remedy: "Choose a name that tells the two apart.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // L-MEA-04: a kind the class does not bear is a condition that could measure nothing billable.
+  CONDITION_KIND_NOT_BORNE: Object.freeze({
+    code: "CONDITION_KIND_NOT_BORNE",
+    message: "The chosen class does not bear this kind, so the condition would measure nothing billable.",
+    remedy: "Choose a kind the class bears, or another class.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // I-539, I-574: a kind the class bears but no manual method measures from this shape yet — a
+  // condition under it would draw outlines the gate could never offer.
+  CONDITION_KIND_NOT_OFFERED: Object.freeze({
+    code: "CONDITION_KIND_NOT_OFFERED",
+    message: "No hand-measurement method measures this kind from this shape yet, so the condition would measure nothing billable.",
+    remedy: "Choose one of the kinds the condition form offers for this shape and class.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // I-374, I-496: a condition leaves the chest by being retired, once; one already retired, or one
+  // this project's chest never held, cannot be removed from it.
+  CONDITION_NOT_IN_CHEST: Object.freeze({
+    code: "CONDITION_NOT_IN_CHEST",
+    message: "This condition is not in this project's chest: it was already removed, or it belongs to another project.",
+    remedy: "Reload the chest and pick a condition that stands in it.",
+    severity: "warning",
+    surface: "inline",
   }),
 });

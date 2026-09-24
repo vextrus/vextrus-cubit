@@ -85,6 +85,8 @@ export type ViewerStageProps = {
    */
   measure?: { layer: ReactNode; refusal: string | null; onKeyUp: (event: ReactKeyboardEvent<HTMLCanvasElement>) => void };
   onKeyDown: (event: ReactKeyboardEvent<HTMLCanvasElement>) => void;
+  /** The condition chest (s-measure § 2.6): the drawer's first group, above the layers (§ 1's fixed order). */
+  chest?: ReactNode;
   /** Whether the layers drawer stands — the `L≡` toggle in the frame's tool row (§3.1). */
   layersOpen: boolean;
   stageRef: RefObject<HTMLDivElement | null>;
@@ -96,7 +98,7 @@ export type ViewerStageProps = {
   renderer: "webgl" | "unavailable";
 };
 
-export function ViewerStage({ panel, partition, pointer, tool = "select", snap, measure, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, layersOpen }: ViewerStageProps) {
+export function ViewerStage({ panel, partition, pointer, tool = "select", snap, measure, chest, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, layersOpen }: ViewerStageProps) {
   return (
     /* Every panel carries a stable id, and the split is remembered once per set of panels standing,
        so a layout stored by another build's group no longer matches this group and is dropped
@@ -108,6 +110,7 @@ export function ViewerStage({ panel, partition, pointer, tool = "select", snap, 
         <>
           <ResizablePanel id={LAYERS_PANEL} defaultSize={DRAWER_SIZE.default} minSize={DRAWER_SIZE.min} maxSize={DRAWER_SIZE.max} groupResizeBehavior="preserve-pixel-size">
             <div className="cx-viewer-left-stack">
+              {chest}
               <LayersPanel {...panel} />
               {partition.panel}
             </div>
