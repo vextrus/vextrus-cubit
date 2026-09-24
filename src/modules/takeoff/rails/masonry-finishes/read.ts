@@ -52,6 +52,14 @@ export const MASONRY_RAIL_CODES = [
   "WALL_THICKNESS_UNSTATED",
   "FINISH_GROSS_UNSTATED",
   "FINISH_SELECTOR_UNSTATED",
+  // The wall lane's stops (s-takeoff I-591, I-594): each is reported against a WALL before
+  // any reading is bound, because measuring past it would over-measure — two the schedules stage
+  // declared (s-schedules I-507) and three this area registers.
+  "OPENING_QUANTITY_DISAGREES",
+  "OPENING_QUANTITY_BASIS_UNSTATED",
+  "OPENING_UNPLACED",
+  "OPENING_UNSCHEDULED",
+  "WALL_LINTEL_UNDEDUCTED",
 ] as const satisfies readonly RefusalCode[];
 
 /** One code of the roster above. */
@@ -73,7 +81,17 @@ export const [
   WALL_THICKNESS_UNSTATED,
   FINISH_GROSS_UNSTATED,
   FINISH_SELECTOR_UNSTATED,
+  OPENING_QUANTITY_DISAGREES,
+  OPENING_QUANTITY_BASIS_UNSTATED,
+  OPENING_UNPLACED,
+  OPENING_UNSCHEDULED,
+  WALL_LINTEL_UNDEDUCTED,
 ] = MASONRY_RAIL_CODES;
+
+/** Is this code one a masonry rail reports under (the roster above)? */
+export function isMasonryRailCode(code: string): code is MasonryRailCode {
+  return (MASONRY_RAIL_CODES as readonly string[]).includes(code);
+}
 
 /** The two classes this area measures (R-TO-032, L-MEA-03). */
 export const BRICK_WALL: ElementType = "brick_wall";

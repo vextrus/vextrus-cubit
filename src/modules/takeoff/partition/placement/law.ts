@@ -13,9 +13,9 @@ import { FOUNDATION_CLASSES } from "@/core/catalogue/level-basis";
 import type { MemberShape } from "@/core/db";
 import type { BandStatement } from "@/core/offers/contract";
 import { DISCIPLINES, type Discipline } from "@/core/sheets/law";
-import { isMarkFamily, normaliseMark, notationLines, parseDiameter, parseFloorZone, sameStorey } from "../notation";
+import { isMarkFamily, isOpeningMark, normaliseMark, notationLines, parseDiameter, parseFloorZone, sameStorey } from "../notation";
 
-/** The seven classes a mark names, each written as the member of the catalogue's roster it is. */
+/** The nine classes a mark names, each written as the member of the catalogue's roster it is. */
 const COLUMN = "column" satisfies ElementType;
 const SHEAR_WALL = "shear_wall" satisfies ElementType;
 const FOOTING = "footing" satisfies ElementType;
@@ -23,6 +23,8 @@ const PILE_CAP = "pile_cap" satisfies ElementType;
 const PILE = "pile" satisfies ElementType;
 const BEAM = "beam" satisfies ElementType;
 const TIE_BEAM = "tie_beam" satisfies ElementType;
+const BRICK_WALL = "brick_wall" satisfies ElementType;
+const OPENING = "opening" satisfies ElementType;
 
 /**
  * The closed map from the letters a mark opens with to the class it names (increment interfaces).
@@ -58,6 +60,23 @@ const CLASS_OF_PREFIX: Readonly<Record<string, ElementType>> = Object.freeze({
   PB: BEAM,
   TG: BEAM,
   SBR: BEAM,
+  // The architect's marks (Interpretation I-590). A door, a window and a ventilator — and the
+  // sliding, fire and glass doors a door schedule types apart — are OPENINGS: the notation roster
+  // already reads each as an opening family (`../notation/grammar`'s OPENING_FAMILIES, s-schedules
+  // I-505), and what is added here is the class, by exact prefix, so `D` is a door and never a
+  // detail bubble, and `SD` a sliding door and never a stair. `BW` is a brick wall TYPE — the key a
+  // WALL TYPES table writes against a thickness (`BW250`); no plan letters a wall by it, and the
+  // reader that places a wall places it off its pair of face lines (`../walls/pairs`), never off a
+  // mark. `LD`, the lift's landing door, is a word mark with no number, so no prefix names it: the
+  // opening roster does (`classOfUnkeyed`), because it stands in the lift lobby's brick wall and that
+  // wall deducts it like any other door.
+  D: OPENING,
+  W: OPENING,
+  V: OPENING,
+  SD: OPENING,
+  FD: OPENING,
+  GD: OPENING,
+  BW: BRICK_WALL,
 });
 
 /** The letters a mark opens with, before the number that tells one member of a family from another. */
@@ -87,13 +106,6 @@ export const VERTICAL_CLASSES: readonly ElementType[] = Object.freeze([COLUMN, S
  */
 export { FOUNDATION_CLASSES };
 
-/**
- * The classes that stand ON a level, and therefore expand over the levels their view states: L-CAD-07's
- * two verticals, and the beam. A beam is not a vertical — it does not run floor-to-floor through the
- * joint — but it is drawn once on a typical plan and stands on every storey that plan is typical of,
- * which is the same expansion (L-MEA-09, L-FRM-02).
- */
-export const LEVEL_CLASSES: readonly ElementType[] = Object.freeze([...VERTICAL_CLASSES, BEAM]);
 
 /**
  * The classes a layout plan draws as a PAIR OF EDGE LINES rather than as a closed outline: the members
@@ -121,6 +133,9 @@ export function classOfMark(mark: string): ElementType | null {
 
 /** The class a mark written in the comparison form names, read by the letters it opens with. */
 function classOfUnkeyed(normalised: string): ElementType | null {
+  // A word mark of the opening roster (`LD`) is an opening though no number follows its letters: the
+  // roster is the evidence (s-schedules I-505), and it names nothing structural (I-590).
+  if (isOpeningMark(normalised)) return OPENING;
   if (!isMarkFamily(normalised)) return null;
   const prefix = MARK_PREFIX.exec(normalised)?.[1];
   return prefix === undefined ? null : (CLASS_OF_PREFIX[prefix] ?? null);
@@ -203,6 +218,40 @@ export function isLevelClass(type: ElementType): boolean {
 export function isFramedClass(type: ElementType | null): type is ElementType {
   return type !== null && FRAMED_CLASSES.includes(type);
 }
+
+/**
+ * The classes the ARCHITECT's plan draws and the wall lane places (Interpretation I-590): a brick
+ * wall, drawn as its two face lines at a thickness its WALL TYPES table states, and an opening, drawn
+ * as a gap in a wall with its tag standing beside it (`../walls/pairs`, `../walls/openings`). Neither
+ * is placed off a closed ring standing near a mark: the ring nearest a door tag is the circle the tag
+ * is drawn in, and placing it would be a member nobody drew (L-QTY-04). So the ring reader refuses
+ * both, as it refuses a framed class.
+ */
+export const WALL_LANE_CLASSES: readonly ElementType[] = Object.freeze([BRICK_WALL, OPENING]);
+
+/** Is a member of this class placed by the wall lane rather than off a ring or a pair of edge lines? */
+export function isWallLaneClass(type: ElementType | null): type is ElementType {
+  return type !== null && WALL_LANE_CLASSES.includes(type);
+}
+
+/**
+ * Is a member of this class placed off the closed ring its mark stands nearest (`./detect`)? Every
+ * class a mark names except the ones drawn as a pair of edge lines (`./runs`) and the ones the wall
+ * lane places — the three readers divide a plan by how it draws a member, and none reads another's.
+ */
+export function isRingPlacedClass(type: ElementType | null): type is ElementType {
+  return type !== null && !isFramedClass(type) && !isWallLaneClass(type);
+}
+
+/**
+ * The classes that stand ON a level, and therefore expand over the levels their view states: L-CAD-07's
+ * two verticals, and the beam. A beam is not a vertical — it does not run floor-to-floor through the
+ * joint — but it is drawn once on a typical plan and stands on every storey that plan is typical of,
+ * which is the same expansion (L-MEA-09, L-FRM-02). So does a brick wall and the opening in it: the
+ * architect draws one TYPICAL FLOOR PLAN (1ST TO 6TH) and every storey it names is built to it
+ * (I-590). Declared below the wall lane's roster, which it reads.
+ */
+export const LEVEL_CLASSES: readonly ElementType[] = Object.freeze([...VERTICAL_CLASSES, BEAM, ...WALL_LANE_CLASSES]);
 
 /** A word of a caption or a schedule cell: a run of letters and digits. Everything else separates. */
 const LEVEL_WORD = /[A-Za-z0-9]+/g;
@@ -523,7 +572,7 @@ export function memberNoteOf(said: string): MemberNote | null {
   // The whole text read as a mark is a mark, whatever its words look like taken apart.
   if (classOfMark(said) !== null) return null;
   const type = classOfMark(named);
-  if (type === null || isFramedClass(type)) return null;
+  if (!isRingPlacedClass(type)) return null;
   const rest = words.slice(1);
   const band = bandStatedIn(rest.join(" "));
   const shape = shapeStatedIn(rest);

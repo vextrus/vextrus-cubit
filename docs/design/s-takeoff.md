@@ -563,6 +563,107 @@ heading wrapped and its copy said "rail"; and the Source column cut the chip VD-
   primitive's change is additive — a column that states no label, or whose header is a string, reads
   as it did.
 
+### 0.7 Walls and openings off the architect's plan (session 9, wave 3b, ARCH-4)
+
+Until this increment the register held no brick wall and no opening, and `RailSetup.walls` was
+spelled `{}`: nothing read an architect's plan, so the brickwork rail answered every wall with
+OPENING_SCHEDULE_ABSENT and no quantity. F-ARCH (the architect's set of the Bashundhara G+6, session 8)
+draws its walls as unhatched face lines on a dozen dirty layers, its openings as jambed gaps tagged
+`D2`, `W1`, `SD1`, and states its wall types in a WALL TYPES table (`BW250 | 250 (0'-10")`). What a
+QS now sees after Measure is every brick wall of the plans in the register, by type and level, each
+with its length, its type's thickness and the scheduled openings standing in it, cited — and, today,
+no brickwork FIGURE: a wall's height waits on the structure over it and an opening's lintel on the
+lintel lane, and the register says so of each wall by name (I-594). Measure less, completely,
+and say so.
+
+- **I-590 — the architect's marks name the wall lane's classes, and only the wall lane places
+  them (L-CAD-07, R-TO-036).** `CLASS_OF_PREFIX` gains `D`, `W`, `V` and the typed doors `SD`, `FD`,
+  `GD` → `opening`, by exact prefix (the notation roster already read each as an opening family,
+  s-schedules I-505); `LD`, the lift lobby's landing door, is a word mark with no number and the
+  opening roster names it (`classOfUnkeyed`); `BW` → `brick_wall`, the key a WALL TYPES table writes
+  against a thickness. The ring reader (`placement/detect`) and the note reader (`memberNoteOf`) refuse
+  both classes as they refuse a framed one (`isRingPlacedClass`): the ring nearest a door tag is the
+  circle the tag is drawn in, and placing it would be a door nobody drew. A wall and an opening stand
+  on every storey their typical plan names, as a beam does (`LEVEL_CLASSES`). Proof: the stage digests
+  of F-RCC6 and F-RCC6-BNBC (placements, registry, schedules) are byte-identical before and after;
+  `placement/law.test.ts` I-590.
+- **I-591 — an opening is placed off its tag, in a jambed gap as wide as its plan's schedule says
+  (L-MEA-02: "the opening schedule is the authority; adjacency is a declared cross-check").** A gap
+  in a wall — the stretch between two pieces of one band, closed by a jamb at each end, no closed ring
+  standing in it — holds the opening whose tag stands beside it (its projection inside the gap, within
+  the plan's near-anchor reach), nearest first, one tag to a gap; and only where the gap's width is
+  the width the schedule row for THIS plan's floors states, carried into drawing units by the canon's
+  exact factors, to half the printed inch. The row is the one the schedules stage checked against this
+  plan (`printed.planKey`, s-schedules I-507), or else the one whose band is a run of storeys the
+  plan's caption states (`scheduledRowOf`). A row stating no unit (`LD 900 X 2100`) cannot be set
+  against the gap: its tag is placed by the gap it stands beside, the check recorded unmade
+  (`wall_openings.checked`), and its wall refuses the area nobody can read. An opening family two
+  schedules state — F-ARCH schedules D2, D3, W1, V1, FD1 and LD on the ground floor AND the typical
+  floors — stands on the floors of both (`bandedLevels` reads every table's band, where it read the
+  first and cut the typical plan's D2 to the ground floor). On F-ARCH every authored opening is placed:
+  GF 10, the typical plan 43 on each of 1F–6F.
+- **I-592 — a wall and an opening are sighted under the discipline a person CONFIRMED for their
+  sheet, and an unconfirmed sheet's are not walked (L-REG-03: "discipline is drawing-scoped,
+  machine-proposed, human-confirmed, fails closed: an unconfirmed drawing is not walked").** The wall
+  lane records the sheet its plan was captioned on (`placements.layout_name`, the caption anchor's
+  paper layout); the register pass walks such a row only where a confirmation stands for that sheet of
+  that ingest, the newest first, and registers it under that discipline. The door that commits
+  `CONFIRM_DISCIPLINE` re-expands the project, so a confirmation made after a pin walks the sheet at
+  once. The structural readers' rows keep the placement law's STRUCTURAL whether or not a sheet is
+  confirmed — D-007.
+- **I-593 — a brick wall is read off its two faces at a thickness the drawing states, by
+  geometry alone (R-TO-032's "brickwork by nominal thickness").** In each direction of the plan, two
+  faces standing a WALL TYPES thickness apart (to half its printed place) are a band over the stretches
+  BOTH are drawn — a face drawn on one side only is no wall there. No layer name is read, and no closed
+  ring is ever a face (a lift core's 250 mm walls are its rings: F-RCC6-BNBC's 28, and F-ARCH's
+  T-CORE-RING-250). Three fences keep out what a plan draws in pairs that is no wall: a face serving as
+  a face of two bands on opposite sides is a rung (a flight's treads, a grid line down a wall's axis);
+  a piece closed by caps at both ends that each close another piece of the band is drawn beyond the cut
+  (T-ARCHWAY's dashed pair); a run shorter than its own thickness is the end or corner of something
+  else. A wall RUNS across an opening's gap (I-591) and across a junction a stem no thicker than it
+  ends at on one side, or thinner walls on both (250 owns over 125, F-ARCH A-10; L-MEA-09's one owner) —
+  never across a ringed gap, and a crossing of equal walls is owned by neither (under, never twice).
+  Walls of one thickness meeting at an L with no column there run to where their axes meet, no
+  further than the corner's own faces reach (`t/2 · cot(φ/2)`). A wall's identity is markless — core's
+  `manualMark` over its axis (I-378), class and kinds (so a hand trace of the same axis is the same
+  identity, DUPLICATE_IDENTITY) — its type is its `member_family`, and its length and thickness are
+  stored beside it (`wall_runs`, migration 0067). The face geometry's home is `placement/edge-pairs`
+  with the beams' pairing (`frameOf`, `facesOf`, `bothDrawn`), because the wall and the beam are one
+  question — two lines drawn one member's width apart — asked with different admissions. Proof, wall by
+  wall against the generator's own authored clear lengths (`tests/takeoff/partition/arch-walls.test.ts`):
+  no wall is placed off an authored wall or past its clear brickwork; GF BW250 at 100 %, BW125 at
+  −0.5 %; the typical plan's BW250 at −0.16 %, BW125 at −0.6 % (the toilets' stub corners, the typical
+  chamfer's ends, T-UNCLOSED-WALL's 60 mm).
+- **I-594 — the walls seam is filled with what the drawing states, and stops a wall by name where
+  measuring it would bill as brick what is not (L-MEA-02, L-QTY-02, L-QTY-04).** Per wall
+  (`measure/walls.ts`): L MEASURED off the plan, cited to a face; t TRANSCRIBED from its WALL TYPES row,
+  cited to the cell; each opening in it its plan's schedule row, one per placement, w × h carried into
+  exact square metres (`40 in × 48 in` = 1.2387072 m²), over the floors the row claims. The HEIGHT is
+  read nowhere: a wall rises to the soffit over its centreline — a beam's, a sunken panel's drop wall,
+  a slab's (F-ARCH A-10) — and nothing an architect's set draws says which; the storey height alone
+  would bill a beam's depth of brick under every beam. So the rail keeps the row PARTIAL_DECLARED and
+  names WALL_HEIGHT_UNSTATED. A wall is STOPPED, before any reading is bound, under: OPENING_UNPLACED
+  (a row of its plan's schedule prints more than the plan places — every wall of that plan, since the
+  rest may stand in any of them; "fewer placements than NOS is a hard block, not a disclosure");
+  OPENING_UNSCHEDULED (an opening in it no row of its plan's schedule states); the schedules stage's
+  declared OPENING_QUANTITY_DISAGREES / OPENING_QUANTITY_BASIS_UNSTATED for an opening in it (F-ARCH's
+  D2: eight printed, nine placed — every wall a D2 stands in, until a person states which is right);
+  and WALL_LINTEL_UNDEDUCTED — an opening in a brick wall carries a lintel, `masonry.brick_wall.volume@1`
+  deducts openings and no lintel, and the lintel schedule is read into no wall, so the wall "must refuse
+  rather than bill them as brick" (F-ARCH cells.json). What lands a figure: the structure over each wall
+  read into the seam — the level above's placed beams laid over the plan by one grid, FRM-4's slab
+  readings and the sunken panels — and a lintel deduction (the lintel lane, and a method version that
+  deducts it).
+- **I-595 — a kind is measured off the sightings of its ONE authoritative discipline (L-REG-03,
+  L-MEA-04's `KIND_DISCIPLINE`), and the rest are said.** The measure job hands each rail only the rows
+  sighted under the kind's discipline (`authoritativeFor`), and observes every other row whose class
+  BEARS the kind under SIGHTING_NOT_AUTHORITATIVE: a brick wall on a sheet a person confirmed
+  STRUCTURAL stands in the register and bills no brickwork beside the architect's sighting of it. The view-keyed register
+  key cannot catch that cross-drawing count — the two sightings are two keys — and this does. Brickwork
+  is published once, off the architect's set. A structural set's register is the register it was:
+  every structural row is STRUCTURAL — and so is a structural mark an architect's sheet places, which
+  this cut cannot yet see (D-007).
+
 ## 1. Layout and hierarchy
 
 `takeoff/layout.tsx` renders `<TakeoffTabs>` around `{children}`: the lane's 40 px-of-content tabs
@@ -1032,6 +1133,23 @@ and the inspector itself is absent until something is selected. Re-baselined und
 `j-003/project-edited.png` only if its bytes move.
 
 ## 8. Recorded IOUs (owner named, never a comment in `src/`)
+
+Opened by ARCH-4 (§0.7), each with the node that owns the fix:
+
+- **A wall's height.** The walls seam carries no height (I-594), so no brickwork line of F-ARCH
+  carries a figure yet. Owner: the increment that reads the structure over a wall into the seam — the
+  beams of the level above laid over the architect's plan through one grid (the cap-pile relation's
+  `pilesHeldOverRevision` is the precedent), FRM-4's slab thickness per panel and the sunken panels'
+  drop walls — so the read-back's "brickwork per wall type per level COMPLETE within −3 %/+0 %" can be
+  walked (ARCH-78's J-000 leg).
+- **A lintel over an opening.** Every wall with an opening stops under WALL_LINTEL_UNDEDUCTED. Owner:
+  the lintel lane (`RailSetup.lintels`, S-25) and a version of `masonry.brick_wall.volume` that deducts
+  the lintel embedded over each opening (F-ARCH A-11).
+- **F-ARCH's grid is read across its bubbles.** The grid stage pairs each axis's two end bubbles as
+  two axes of the other direction (minimum spacing 22649.6 on both plans), so a wall's and an
+  opening's grid reference names the nearest bubble row, and the tag reach (the edition's near-anchor
+  share of that spacing) is generous. Nothing measured turns on it — a tag names the gap it stands
+  beside and in — but the Source chip's grid reference does. Owner: the grid stage.
 
 The Trace from a line to its entities and back (R-UI-022) is **paid**: inc-215 makes the `source`
 cell an `EvidenceLink` under `docs/design/s-takeoff-register.md`, and the cited key is no longer

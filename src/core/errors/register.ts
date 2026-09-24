@@ -6,7 +6,8 @@ import type { RefusalGroup } from "./law";
 /** Every code this area registers. The barrel folds this union into `RefusalCode` (B-19). */
 export type RegisterRefusalCode =
   | "DUPLICATE_IDENTITY"
-  | "READING_NOT_NUMERIC";
+  | "READING_NOT_NUMERIC"
+  | "SIGHTING_NOT_AUTHORITATIVE";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const REGISTER_REFUSALS: RefusalGroup<RegisterRefusalCode> = Object.freeze({
@@ -28,6 +29,17 @@ export const REGISTER_REFUSALS: RefusalGroup<RegisterRefusalCode> = Object.freez
     message: "This cell does not state a number, so there is no reading to record against the attribute.",
     remedy: "Type the value the drawing states for this attribute, or leave the attribute unread.",
     severity: "error",
+    surface: "inline",
+  }),
+  // L-REG-03: "each quantity kind has exactly one authoritative discipline" (s-takeoff I-595).
+  // A member sighted on a sheet of another discipline is still a sighting — kept, and said — but no
+  // kind is measured off it that its discipline does not state: brickwork is the architect's, and a
+  // brick wall on a structural sheet measured beside the architect's would be the same wall twice.
+  SIGHTING_NOT_AUTHORITATIVE: Object.freeze({
+    code: "SIGHTING_NOT_AUTHORITATIVE",
+    message: "This member was sighted on a sheet of a discipline that does not state this quantity, so it is not measured from that sheet.",
+    remedy: "Measure it from a sheet of the discipline that states it, or confirm this sheet's discipline again if it was confirmed wrongly.",
+    severity: "warning",
     surface: "inline",
   }),
 });

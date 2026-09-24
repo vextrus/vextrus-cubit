@@ -97,6 +97,8 @@ export {
   documents,
   conditions,
   manualMeasurements,
+  wallRuns,
+  wallOpenings,
   SEAM_SCHEMA,
 } from "./db/schema";
 export { isAcceptedFormat } from "./db/schema";

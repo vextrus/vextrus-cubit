@@ -15,8 +15,9 @@
 import { and, asc, drawingSetRevisions, eq, expansionDeferrals, forTenant, typicalRanges, type TenantTx } from "@/core/db";
 import { carryObjectOntoLevel, keysHoldingReadings, liveLevelsOf } from "@/core/levels/store";
 import { recordOf } from "@/core/sets";
+import { confirmationsOf, type Discipline } from "@/core/sheets";
 import { registerObjectsIn, registerSightingsIn, type RegisterObjectRow, type RegisterScope } from "@/modules/takeoff/register";
-import { PLACEMENT_DISCIPLINE } from "../placement/law";
+import { isWallLaneClass, PLACEMENT_DISCIPLINE } from "../placement/law";
 import { placeholderCarries, type AuthoredRange, type ExpansionRow, type PlaceholderCarry, type ResolvedExpansion, type StackedLevel } from "./resolve";
 
 /** One stored deferral, whole — every column the store holds, as it holds it. */
@@ -149,8 +150,10 @@ export async function revisionsNaming(scope: { tenantId: string; projectId: stri
  * read them, inside one transaction over one revision — and where a rebuild fails before the write,
  * this census is what it said it would do rather than what it did (L-REG-03, L-REG-04).
  */
-export async function expansionCensusOf(scope: RegisterScope, rows: readonly ExpansionRow[]): Promise<RegisteredExpansion> {
+export async function expansionCensusOf(scope: RegisterScope, ingestId: string, derived: readonly ExpansionRow[]): Promise<RegisteredExpansion> {
   return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
+    // Counted over the rows the pass WILL walk, read by the same reading (I-592).
+    const rows = (await walkedRows(tx, scope, ingestId, derived)).map((walked) => walked.row);
     const before = await registerObjectsIn(tx, scope);
     // The carries the pass WILL make, planned by the same reading over the same state — so the census
     // counts a retired placeholder as the sighting that stood, exactly as the pass then records it.
@@ -212,7 +215,12 @@ function afterCarries(objects: readonly RegisterObjectRow[], carries: readonly P
  * the move `INSERT_LEVEL` makes — so the row is then found standing and nothing is offered beside it
  * (I-366, L-REG-04). A carry the grammar declines moves nothing, and its row is offered as before.
  */
-export async function registerExpansion(tx: TenantTx, scope: RegisterScope, rows: readonly ExpansionRow[]): Promise<RegisteredExpansion> {
+export async function registerExpansion(tx: TenantTx, scope: RegisterScope, ingestId: string, derived: readonly ExpansionRow[]): Promise<RegisteredExpansion> {
+  // The rows this pass walks, each with the discipline it is sighted under (L-REG-03, I-592): a
+  // wall-lane row on a sheet nobody has confirmed is not walked at all.
+  const walked = await walkedRows(tx, scope, ingestId, derived);
+  const disciplineOf = new Map(walked.map((one) => [one.row, one.discipline]));
+  const rows = walked.map((one) => one.row);
   const before = await registerObjectsIn(tx, scope);
   const planned = await carriesIn(tx, scope, before, rows);
   const standingByKey = new Map(before.map((object) => [object.objectKey, object]));
@@ -236,7 +244,7 @@ export async function registerExpansion(tx: TenantTx, scope: RegisterScope, rows
     tx,
     scope,
     offering.map((row) => ({
-      discipline: PLACEMENT_DISCIPLINE,
+      discipline: disciplineOf.get(row) ?? PLACEMENT_DISCIPLINE,
       elementType: row.placement.elementType,
       mark: row.placement.mark,
       view: row.placement.view,
@@ -258,6 +266,39 @@ export async function registerExpansion(tx: TenantTx, scope: RegisterScope, rows
 
   const registered = answers.filter((answer) => answer.registered).length;
   return { registered, standing: rows.length - registered, carried: carries.length, stale: staleOf(objects, rows) };
+}
+
+/** One row the register pass walks, and the discipline it is sighted under. */
+type WalkedRow = { readonly row: ExpansionRow; readonly discipline: Discipline };
+
+/**
+ * The rows a register pass WALKS, each with the discipline its sighting is registered under (L-REG-03:
+ * "discipline is drawing-scoped, machine-proposed, human-confirmed, fails closed: an unconfirmed
+ * drawing is not walked"; s-takeoff I-592).
+ *
+ * A row of the wall lane — a brick wall, an opening — takes the discipline a person CONFIRMED for the
+ * sheet its plan was captioned on, the newest confirmation first; a row whose sheet nobody confirmed,
+ * or whose plan named no sheet, is not walked: it stands in the partition and nowhere in the register
+ * until a confirmation is made, and the confirmation's own door re-expands the project (I-592).
+ * So an architect's wall is sighted ARCHITECTURAL, and the same wall drawn on a sheet a person
+ * confirmed STRUCTURAL is sighted STRUCTURAL — where no rail measures brickwork off it (KIND_DISCIPLINE,
+ * `../../measure/job`).
+ *
+ * The structural readers' rows keep the placement law's discipline, confirmed or not, as they always
+ * have: registering them only under a confirmation is the same rule, and it moves every structural
+ * project and proof that pins a set before it confirms a sheet (D-007).
+ */
+async function walkedRows(tx: TenantTx, scope: { readonly tenantId: string; readonly projectId: string }, ingestId: string, rows: readonly ExpansionRow[]): Promise<WalkedRow[]> {
+  const asksSheets = rows.some((row) => isWallLaneClass(row.placement.elementType));
+  const confirmed = asksSheets ? await confirmationsOf(tx, { tenantId: scope.tenantId, projectId: scope.projectId }) : [];
+  const confirmedFor = (layoutName: string): Discipline | null =>
+    confirmed.find((confirmation) => confirmation.ingestId === ingestId && confirmation.layoutName === layoutName)?.discipline ?? null;
+  return rows.flatMap((row): WalkedRow[] => {
+    if (!isWallLaneClass(row.placement.elementType)) return [{ row, discipline: PLACEMENT_DISCIPLINE }];
+    const sheet = row.placement.sheet ?? null;
+    const discipline = sheet === null ? null : confirmedFor(sheet);
+    return discipline === null ? [] : [{ row, discipline }];
+  });
 }
 
 /**

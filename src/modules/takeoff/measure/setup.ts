@@ -34,6 +34,7 @@ import type {
   ReadingSetup,
   RunSetup,
   SiteFactSetup,
+  WallSetup,
 } from "@/core/offers/contract";
 import { affirmationsOfRecord } from "@/core/scale/store";
 import { viewAddressOf, viewRecordsOf } from "@/core/views";
@@ -44,6 +45,8 @@ import {
   outlinesOf,
   placementsOf,
   runsOf,
+  wallOpeningsOf,
+  wallsOf,
   type MemberDimension,
   type MemberVariant,
   type SideReading,
@@ -52,6 +55,7 @@ import {
   type ViewsScope,
 } from "@/modules/takeoff/partition";
 import { capJunctionSetupOf, pilesHeldOverRevision, ringsOf, type DrawingReading, type Point } from "./cap-junctions";
+import { wallSetupsOf } from "./walls";
 // The notation grammar registers its storey reading with core's band placement at load (`sameStorey`,
 // `useStoreyEquivalence`): the rails place a schedule's band ("3RD & 4TH") on the stack ("3F") through
 // it, and a measure run that never loaded the grammar would place by letters alone. Loaded here, where
@@ -333,6 +337,7 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
   const memberTypes: Record<string, Record<string, readonly MemberVariantSetup[]>> = {};
   const calibrations: Record<string, Record<string, string>> = {};
   const runs: Record<string, RunSetup> = {};
+  const walls: Record<string, WallSetup> = {};
   const relation: RelationDrawing[] = [];
 
   for (const drawingId of drawingIds) {
@@ -395,14 +400,31 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // setup answers under — the translation belongs to whoever spans the two stores, and that is here.
     const addresses = await forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
       const scoped = { tenantId: scope.tenantId, ingestId: record.ingestId };
-      const held = new Map((await viewRecordsOf(tx, scoped)).map((view) => [view.viewKey, viewAddressOf(view)]));
-      return { held, affirmed: await affirmationsOfRecord(tx, scoped) };
+      const records = await viewRecordsOf(tx, scoped);
+      const held = new Map(records.map((view) => [view.viewKey, viewAddressOf(view)]));
+      return { held, records, affirmed: await affirmationsOfRecord(tx, scoped) };
     });
     const views: Record<string, string> = calibrations[record.ingestId] ?? {};
     // A view the partition no longer holds is filed under the only name the affirmation has: dropping
     // it would lose a standing calibration, and a rail that cannot match it reports the absence.
     for (const [viewKey, standing] of addresses.affirmed) views[addresses.held.get(viewKey) ?? viewKey] = standing.calibrationKey;
     calibrations[record.ingestId] = views;
+
+    // The brick walls this drawing's architect's plans place, each with its length, its thickness and
+    // the openings its plan's schedule states in it (`./walls`, s-takeoff I-594) — read only for a
+    // drawing whose partition placed a wall at all.
+    const walled = (await wallsOf(viewsScope)) ?? [];
+    if (walled.length > 0) {
+      Object.assign(
+        walls,
+        wallSetupsOf({
+          walls: walled,
+          openings: (await wallOpeningsOf(viewsScope)) ?? [],
+          families: registered?.families ?? [],
+          views: addresses.records.map((view) => ({ viewKey: view.viewKey, address: addresses.held.get(view.viewKey) ?? view.viewKey, caption: view.caption })),
+        }),
+      );
+    }
 
     // What this drawing places and how its views are addressed, for the relation read over the whole
     // revision once every drawing is in (I-547).
@@ -441,11 +463,13 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // lintel rails offer none and report LINTEL_SOURCE_ABSENT — a lintel is never inferred from the
     // wall it spans (L-QTY-04).
     lintels: {},
-    // Two more seams of the same reader (S-25): until it lands, no wall and no surface carries an
-    // opening schedule, so the masonry and finish rails offer nothing and report
-    // OPENING_SCHEDULE_ABSENT — "a face with no schedule is not measured", because its gross area
-    // would over-measure the work (L-MEA-02, L-MEA-03).
-    walls: {},
+    // The brick walls the partition read off the revision's architect's plans, each with the openings
+    // its plan's schedule states in it (s-takeoff I-594). A wall with no entry here is one nobody
+    // placed off a plan, and the rail reports OPENING_SCHEDULE_ABSENT for it — "a face with no schedule
+    // is not measured", because its gross area would over-measure the work (L-MEA-02).
+    walls,
+    // A seam of the surfaces reader, empty until it lands: no surface carries an opening schedule, so
+    // the finish rails offer nothing and report OPENING_SCHEDULE_ABSENT (L-MEA-02, L-MEA-03).
     surfaces: {},
     // The junctions each pile cap shares with the piles it stands on (L-MEA-09, I-544..d).
     capJunctions,

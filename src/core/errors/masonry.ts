@@ -28,7 +28,10 @@ export type MasonryRefusalCode =
   | "WALL_HEIGHT_UNSTATED"
   | "WALL_THICKNESS_UNSTATED"
   | "FINISH_GROSS_UNSTATED"
-  | "FINISH_SELECTOR_UNSTATED";
+  | "FINISH_SELECTOR_UNSTATED"
+  | "OPENING_UNPLACED"
+  | "OPENING_UNSCHEDULED"
+  | "WALL_LINTEL_UNDEDUCTED";
 
 /** This area's registered refusals, frozen entry by entry exactly as the one register holds them. */
 export const MASONRY_REFUSALS: RefusalGroup<MasonryRefusalCode> = Object.freeze({
@@ -103,6 +106,33 @@ export const MASONRY_REFUSALS: RefusalGroup<MasonryRefusalCode> = Object.freeze(
     code: "FINISH_SELECTOR_UNSTATED",
     message: "Nothing states one of the facts that select this finish's item, so the quantity stands but the line cannot be priced.",
     remedy: "Read the finish schedule's thickness and mix for this surface, then measure the campaign again.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // The wall lane's three (s-takeoff I-591, I-594). Each stops a wall before any reading is
+  // bound, because measuring past it would OVER-measure: an opening the schedule states and the plan
+  // does not place may stand in any wall of those floors (L-MEA-02 with L-QTY-04: fewer placements
+  // than the schedule prints is a hard block, never a disclosure); an opening no row of its plan's
+  // schedule states has no size to deduct; and a lintel over an opening, deducted nowhere, would be
+  // billed as brick.
+  OPENING_UNPLACED: Object.freeze({
+    code: "OPENING_UNPLACED",
+    message: "The opening schedule states more of this opening on these floors than the plan places, so nothing says which wall the rest stand in — no wall of these floors is measured.",
+    remedy: "Find the openings the plan does not tag, or state the schedule's quantity again, then measure the campaign again.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  OPENING_UNSCHEDULED: Object.freeze({
+    code: "OPENING_UNSCHEDULED",
+    message: "An opening stands in this wall that no row of its plan's opening schedule states, so its size is unknown and the wall is not measured.",
+    remedy: "Read the opening schedule that states this mark for these floors, then measure the campaign again.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  WALL_LINTEL_UNDEDUCTED: Object.freeze({
+    code: "WALL_LINTEL_UNDEDUCTED",
+    message: "An opening stands in this wall and the lintel over it is deducted nowhere, so the wall is not measured — its brickwork would bill the lintel's concrete as brick.",
+    remedy: "Read the lintel schedule for the openings in this wall, then measure the campaign again.",
     severity: "warning",
     surface: "inline",
   }),

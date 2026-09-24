@@ -37,6 +37,7 @@ import type { GridAxisRow } from "../grid/detect";
 import { normaliseMark } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
+import { axisBetween, edgeOf, greedyPairs, pairCandidates, saidOf, squareToThePlane, type Axis, type Drawn, type Edge, type Point, type Said } from "./edge-pairs";
 import { classOfMark, isBoundXrefContext, isFoundationClass, isFramedClass, isVerticalClass, levelWordsOf } from "./law";
 import type { DetectedRuns, DrawnUnit, FamilyNamed, PlacementEvidence, PlacementRow, RunReading, RunRow } from "./rows";
 import { shareValue } from "./shares";
@@ -56,9 +57,6 @@ const AXIS_Y = "y" satisfies GridAxis;
 
 /** How few vertices a closed ring may be drawn from and still enclose an area. */
 const FEWEST_OUTLINE_VERTICES = 3;
-
-/** How many points an edge line is drawn from: two, and a polyline of three is not one. */
-const EDGE_LINE_POINTS = 2;
 
 /**
  * What the view states the slab adjoining it is: `SLAB 150 THK`, `ROOF SLAB 150 THK`. The word SLAB is
@@ -96,38 +94,8 @@ export function drawnUnitOf(graph: EntityGraph): Unit | null {
   return CANON_OF_HEADER[graph.insunits.unit ?? ""] ?? null;
 }
 
-/** A point in the drawing's own plane. */
-type Point = readonly [number, number];
-
-/** An entity as this stage reads one — the artifact's own shape, narrowed to what it needs. */
-type Drawn = EntityGraph["entities"][number];
-
-/** One straight edge line of a plan: where it runs from and to, and what it was drawn on. */
-type Edge = { readonly key: string; readonly layer: string; readonly from: Point; readonly to: Point };
-
 /** One closed outline of a plan: the ring, its bounding box and its area. */
 type Ring = { readonly key: string; readonly min: Point; readonly max: Point; readonly area: number };
-
-/**
- * One text of a plan, where it stands, and which way it is written: the world angle of its baseline,
- * counter-clockwise in degrees, as the artifact states it (I-415) — null where the artifact is an
- * older one that states no angle, which this stage never reads as 0 (L-QTY-04).
- */
-type Said = { readonly key: string; readonly text: string; readonly at: Point; readonly turn: number | null };
-
-/** A member drawn as two edge lines: the axis between them, and how far apart they were drawn. */
-type Axis = {
-  readonly keys: readonly [string, string];
-  readonly from: Point;
-  readonly to: Point;
-  /** Which of the plane's two directions the axis runs along — the dominant one of its direction. */
-  readonly along: "x" | "y";
-  /** The coordinate the axis holds constant, and the two the run is measured between. */
-  readonly at: number;
-  readonly start: number;
-  readonly end: number;
-  readonly width: number;
-};
 
 /** A member that may carry a beam's end: where it stands on the backbone, and how far it reaches. */
 type Support = {
@@ -286,16 +254,6 @@ function axesOf(grid: PlacementEvidence["grid"]): Map<string, GridAxisRow[]> {
   return byView;
 }
 
-/** This entity read as one straight edge line, or nothing where it is not one. */
-function edgeOf(entity: Drawn): [Edge] | null {
-  if (entity.closed === true) return null;
-  const points = (entity.points ?? []).map((point): Point => [point[0] ?? 0, point[1] ?? 0]);
-  if (points.length !== EDGE_LINE_POINTS) return null;
-  const [from, to] = points as [Point, Point];
-  if (from[0] === to[0] && from[1] === to[1]) return null;
-  return [{ key: entity.key, layer: entity.layer, from, to }];
-}
-
 /** This entity read as a closed ring, or nothing where it encloses no area. */
 function ringOf(entity: Drawn): [Ring] | null {
   if (entity.closed !== true) return null;
@@ -306,14 +264,6 @@ function ringOf(entity: Drawn): [Ring] | null {
   const min: Point = [Math.min(...xs), Math.min(...ys)];
   const max: Point = [Math.max(...xs), Math.max(...ys)];
   return [{ key: entity.key, min, max, area: (max[0] - min[0]) * (max[1] - min[1]) }];
-}
-
-/** This entity read as a piece of the drawing's text, or nothing where it says none. */
-function saidOf(entity: Drawn): [Said] | null {
-  const text = entity.text ?? "";
-  const at = (entity.points ?? [])[0];
-  if (text === "" || at === undefined) return null;
-  return [{ key: entity.key, text, at: [at[0] ?? 0, at[1] ?? 0], turn: entity.rotation ?? null }];
 }
 
 /**
@@ -329,67 +279,8 @@ function saidOf(entity: Drawn): [Said] | null {
  * edge rather than bay with bay (L-REG-04: one artifact pairs one way every time).
  */
 function pairsIn(edges: readonly Edge[], apart: number): Axis[] {
-  const candidates: { readonly left: Edge; readonly right: Edge; readonly gap: number }[] = [];
   const tolerance = apart / 1000;
-  for (let index = 0; index < edges.length; index += 1) {
-    for (let other = index + 1; other < edges.length; other += 1) {
-      const left = edges[index] as Edge;
-      const right = edges[other] as Edge;
-      if (left.layer !== right.layer) continue;
-      const gap = translationBetween(left, right, tolerance);
-      if (gap === null || !(gap > tolerance) || gap > apart) continue;
-      candidates.push({ left, right, gap });
-    }
-  }
-  candidates.sort((left, right) => left.gap - right.gap || (left.left.key < right.left.key ? -1 : left.left.key > right.left.key ? 1 : 0));
-
-  const taken = new Set<string>();
-  const members: Axis[] = [];
-  for (const candidate of candidates) {
-    if (taken.has(candidate.left.key) || taken.has(candidate.right.key)) continue;
-    taken.add(candidate.left.key);
-    taken.add(candidate.right.key);
-    members.push(axisBetween(candidate.left, candidate.right, candidate.gap));
-  }
-  return members;
-}
-
-/**
- * How far one edge line stands off another, where the two are one member's two edges — null where they
- * are not. They are when the second is the first, translated: same direction, same length, and the
- * translation square to the direction they both run.
- */
-function translationBetween(left: Edge, right: Edge, tolerance: number): number | null {
-  const direction: Point = [left.to[0] - left.from[0], left.to[1] - left.from[1]];
-  const length = Math.hypot(direction[0], direction[1]);
-  if (!(length > 0)) return null;
-  // Either end of the second line may be the one that answers the first's start: a plan draws its two
-  // edges in whichever direction it drew them, and the member is the same member either way.
-  for (const [from, to] of [
-    [right.from, right.to],
-    [right.to, right.from],
-  ] as [Point, Point][]) {
-    const offset: Point = [from[0] - left.from[0], from[1] - left.from[1]];
-    const closing: Point = [to[0] - left.to[0], to[1] - left.to[1]];
-    if (Math.hypot(offset[0] - closing[0], offset[1] - closing[1]) > tolerance) continue;
-    const along = (offset[0] * direction[0] + offset[1] * direction[1]) / length;
-    if (Math.abs(along) > tolerance) continue;
-    return Math.hypot(offset[0], offset[1]);
-  }
-  return null;
-}
-
-/** The member two edge lines enclose: the axis midway between them, and the width they were drawn apart. */
-function axisBetween(left: Edge, right: Edge, gap: number): Axis {
-  const near = Math.hypot(right.from[0] - left.from[0], right.from[1] - left.from[1]);
-  const far = Math.hypot(right.to[0] - left.from[0], right.to[1] - left.from[1]);
-  const [otherFrom, otherTo] = near <= far ? [right.from, right.to] : [right.to, right.from];
-  const from: Point = [(left.from[0] + otherFrom[0]) / 2, (left.from[1] + otherFrom[1]) / 2];
-  const to: Point = [(left.to[0] + otherTo[0]) / 2, (left.to[1] + otherTo[1]) / 2];
-  const along = Math.abs(to[0] - from[0]) >= Math.abs(to[1] - from[1]) ? "x" : "y";
-  const at = along === "x" ? (from[1] + to[1]) / 2 : (from[0] + to[0]) / 2;
-  const [start, end] = along === "x" ? [from[0], to[0]] : [from[1], to[1]];
-  return { keys: [left.key, right.key], from, to, along, at, start: Math.min(start, end), end: Math.max(start, end), width: gap };
+  return greedyPairs(pairCandidates(edges, { tolerance, sameLayer: true, admits: (gap) => gap > tolerance && !(gap > apart) }));
 }
 
 /**
@@ -454,7 +345,7 @@ function statedWidthsOf(families: readonly FamilyNamed[], scale: number | null):
 }
 
 /** Half a unit of the last place a figure is written to — `250` → 0.5, `12.5` → 0.05. */
-function halfUnitOf(value: number): number {
+export function halfUnitOf(value: number): number {
   const places = String(value).split(".")[1]?.length ?? 0;
   return 0.5 * 10 ** -places;
 }
@@ -508,20 +399,13 @@ function statedPairsIn(
   const widest = Math.max(0, ...stated.map((width) => width.value + width.halfUnit));
   if (!(widest > near.apart)) return [];
   const tolerance = near.apart / 1000;
-  const candidates: { readonly left: Edge; readonly right: Edge; readonly gap: number; readonly member: Axis }[] = [];
-  for (let index = 0; index < edges.length; index += 1) {
-    for (let other = index + 1; other < edges.length; other += 1) {
-      const left = edges[index] as Edge;
-      const right = edges[other] as Edge;
-      if (left.layer !== right.layer) continue;
-      const gap = translationBetween(left, right, tolerance);
-      // A pair drawn as wide as SOME framed member of the drawing is stated to be — the pairs the
-      // fences below and the naming then judge.
-      if (gap === null || !(gap > near.apart) || !stated.some((width) => Math.abs(gap - width.value) <= width.halfUnit)) continue;
-      candidates.push({ left, right, gap, member: axisBetween(left, right, gap) });
-    }
-  }
-  candidates.sort((left, right) => left.gap - right.gap || (left.left.key < right.left.key ? -1 : left.left.key > right.left.key ? 1 : 0));
+  // A pair drawn as wide as SOME framed member of the drawing is stated to be — the pairs the fences
+  // below and the naming then judge.
+  const candidates = pairCandidates(edges, {
+    tolerance,
+    sameLayer: true,
+    admits: (gap) => gap > near.apart && stated.some((width) => Math.abs(gap - width.value) <= width.halfUnit),
+  }).map((candidate) => ({ ...candidate, member: axisBetween(candidate.left, candidate.right, candidate.gap) }));
 
   // A mark standing on a pair is never a label standing BESIDE another (the first fence), whichever
   // way it is written and whichever pairing drew the pair it stands on — the band's own members are
@@ -634,11 +518,6 @@ function standsOn(mark: Said, member: Axis): boolean {
   const along = member.along === "x" ? mark.at[0] : mark.at[1];
   const off = Math.abs((member.along === "x" ? mark.at[1] : mark.at[0]) - member.at);
   return off <= member.width / 2 && member.start <= along && along <= member.end;
-}
-
-/** Does this edge line run along one of the plane's two axes, to within the pairing's own tolerance? */
-function squareToThePlane(edge: Edge, tolerance: number): boolean {
-  return Math.min(Math.abs(edge.to[0] - edge.from[0]), Math.abs(edge.to[1] - edge.from[1])) <= tolerance;
 }
 
 /**
@@ -770,7 +649,7 @@ function nearestAxis(axes: readonly GridAxisRow[], family: string, at: Point): G
 }
 
 /** The label of the nearest axis of one family, or null where this view's backbone carries none. */
-function nearestLabel(axes: readonly GridAxisRow[], family: string, at: Point): string | null {
+export function nearestLabel(axes: readonly GridAxisRow[], family: string, at: Point): string | null {
   return nearestAxis(axes, family, at)?.label ?? null;
 }
 

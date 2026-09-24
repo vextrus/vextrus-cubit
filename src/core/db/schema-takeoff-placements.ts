@@ -105,6 +105,10 @@ export const placements = pgTable(
     // The shape the note stated, or null where it stated none — closed at the roster above.
     noteShape: text("note_shape").$type<MemberShape>(),
     memberFamily: text("member_family"),
+    // The sheet the view was captioned on, where the reader that placed the member names one: the wall
+    // lane does, because its walls and openings are sighted under the discipline a person confirmed for
+    // that sheet (L-REG-03, s-takeoff I-592). Null for the structural readers, which name none yet.
+    layoutName: text("layout_name"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

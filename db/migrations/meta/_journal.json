@@ -470,6 +470,13 @@
       "when": 1790217503407,
       "tag": "0066_ruleset-edition-owned-manual-finishes",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1790221262439,
+      "tag": "0067_walls-and-openings",
+      "breakpoints": true
     }
   ]
 }

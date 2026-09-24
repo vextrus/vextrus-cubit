@@ -279,6 +279,23 @@ describe("AC-4: every code of the masonry shard is registered and exercised by n
     }
   });
 
+  // The wall lane's stops (s-takeoff I-594): what the walls seam says stops a wall before any
+  // reading is bound — each reported against the WALL, citing what stopped it, and the wall offered
+  // nothing, because measuring past any of them would bill as brick what is not (L-QTY-04).
+  test.each([
+    ["OPENING_QUANTITY_DISAGREES", "sched#D2.printed"],
+    ["OPENING_QUANTITY_BASIS_UNSTATED", "sched#D2.printed"],
+    ["OPENING_UNPLACED", "sched#W1.printed"],
+    ["OPENING_UNSCHEDULED", "tag#V9"],
+    ["WALL_LINTEL_UNDEDUCTED", "opening#D2@1"],
+  ])("AC-4: a wall the walls seam stops under %s is not measured, and says so citing %s", async (code, sourceEntity) => {
+    const edition = await seedEdition();
+    const door = await masonryRailDoor();
+    const batch = drive(door.brickworkRail as RailShape, walledInput(edition, (held) => ({ ...held, blocked: [{ code, sourceEntity }] })));
+    expect(batch.offers, `a wall stopped under ${code} is offered nothing`).toEqual([]);
+    expect(observed(batch, code, `the wall reports ${code} by name`).sourceEntity, "citing what stopped it").toBe(sourceEntity);
+  });
+
   /**
    * Last on purpose: it is held against what the cases above ACTUALLY drove, which is the only way
    * "exercised by name" can be asked rather than asserted (Q-07).

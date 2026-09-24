@@ -10,7 +10,10 @@
 // (SEAM-JOBS: "workers report progress events"). Nothing here judges an offer: what publishes, what
 // is deferred and what is refused is the gate's alone, and this file reports the verdict it answered.
 import { campaignOf } from "@/core/campaigns";
-import { REFUSALS } from "@/core/errors";
+import { BEARS } from "@/core/catalogue/bears";
+import { isElementType } from "@/core/catalogue/classes";
+import { KIND_DISCIPLINE } from "@/core/catalogue/maps";
+import { REFUSALS, type RefusalCode } from "@/core/errors";
 import { refusal } from "@/core/faults/refusal-marker";
 import type { JobPayloads, JobProgress } from "@/core/jobs";
 import type { Kind } from "@/core/catalogue/kinds";
@@ -94,7 +97,13 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
     machineRows = machine;
     const common = { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, objects: machine, setup };
     for (const [kind, rail] of roster) {
-      const batch = rail({ ...common, kind });
+      // Each kind is measured off the sightings of its ONE authoritative discipline (L-REG-03,
+      // s-takeoff I-595), and the rest are said, not measured: a brick wall sighted on a sheet a
+      // person confirmed STRUCTURAL stands in the register and bills no brickwork beside the
+      // architect's own sighting of it.
+      const authoritative = authoritativeFor(kind, objects);
+      observations.push(...authoritative.observed);
+      const batch = rail({ ...common, objects: authoritative.objects, kind });
       offers.push(...batch.offers);
       observations.push(...batch.observations);
     }
@@ -103,7 +112,7 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
     // a rail not yet landed, a roster narrowed for one kind — would delete the bill the last run
     // wrote and put a bill nobody measured in its place.
     if (deps.rails[REBAR_KIND] !== undefined) {
-      bars = await writeBarRows({ ...registerScope, campaignId: campaign.campaignId }, barRowsOf({ ...common, kind: REBAR_KIND }));
+      bars = await writeBarRows({ ...registerScope, campaignId: campaign.campaignId }, barRowsOf({ ...common, objects: authoritativeFor(REBAR_KIND, objects).objects, kind: REBAR_KIND }));
     }
   }
   await progress.step(STEP_RAILS, { rails: roster.length, offers: offers.length, observations: observations.length, bars });
@@ -131,6 +140,39 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
     observed: observations.length,
     deferred,
   });
+}
+
+/** The code a sighting of another discipline is said under (L-REG-03, Q-07). */
+const SIGHTING_NOT_AUTHORITATIVE = "SIGHTING_NOT_AUTHORITATIVE" satisfies RefusalCode;
+
+/**
+ * The register rows a kind is measured off — those sighted under the kind's authoritative discipline
+ * (`KIND_DISCIPLINE`, L-MEA-04) — and an observation for every other row whose class BEARS the kind:
+ * a member the drawings show, sighted on a sheet whose discipline does not state this quantity, kept
+ * and said rather than measured twice (L-REG-03, I-595). A row whose class bears no such kind is
+ * no business of this kind, and nothing is said about it.
+ */
+export function authoritativeFor(kind: Kind, objects: readonly RegisterObjectRow[]): { readonly objects: RegisterObjectRow[]; readonly observed: RailObservation[] } {
+  const authority = KIND_DISCIPLINE[kind];
+  const kept: RegisterObjectRow[] = [];
+  const observed: RailObservation[] = [];
+  for (const object of objects) {
+    if (object.discipline === authority) {
+      kept.push(object);
+      continue;
+    }
+    const type = object.elementType;
+    if (!isElementType(type) || !BEARS.some((row) => row.class === type && row.kind === kind)) continue;
+    observed.push({
+      class: type,
+      kind,
+      code: SIGHTING_NOT_AUTHORITATIVE,
+      objectKey: object.objectKey,
+      sourceEntity: object.viewKey,
+      detail: { discipline: object.discipline, authority },
+    });
+  }
+  return { objects: kept, observed };
 }
 
 /** The run's deferrals by name, over what it was handed and what its rails reported (I-484). */

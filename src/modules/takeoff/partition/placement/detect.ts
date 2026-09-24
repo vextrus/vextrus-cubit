@@ -61,10 +61,11 @@ import type { DetectedGrid, GridAxisRow } from "../grid/detect";
 import { DIMENSION, normaliseMark } from "../notation";
 import type { PartitionedView } from "../views/assign";
 import { yieldsInstances } from "../views/law";
-import { classOfFamily, classOfMark, classOfPrefix, isBoundXrefContext, isFramedClass, memberNoteOf, soleNotesAmong, type MemberNote } from "./law";
+import { classOfFamily, classOfMark, classOfPrefix, isBoundXrefContext, isRingPlacedClass, memberNoteOf, soleNotesAmong, type MemberNote } from "./law";
 import { enclosedAreaOf, outlineReadingOf, ringHolds } from "./outline";
 import type { DetectedPlacements, DrawnUnit, FamilyNamed, OutlineRow, PlacementEvidence, PlacementNote, PlacementRow, UngriddedView } from "./rows";
 import { detectRuns, drawnUnitOf } from "./runs";
+import { detectWalls } from "../walls/pairs";
 import { shareValue } from "./shares";
 
 /** A point in the drawing's own plane. */
@@ -200,7 +201,14 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
   // runs here, after the outline pass, because the outlines that pass placed are the members that
   // CARRY a beam's ends and the rings a slab must not be read from.
   const framed = detectRuns(evidence, typed, unit, scale);
-  return { views: examined, placements: [...typed, ...framed.placements], ungridded, runs: framed.runs, outlines, scale, noted, minted };
+
+  // And the members an ARCHITECT'S plan draws: the brick walls, read off their two faces at the
+  // thicknesses the drawing's WALL TYPES tables state, and the openings standing in their gaps
+  // (`../walls/pairs`, I-593). A drawing that states no wall type places none, and a drawing that
+  // places none carries neither field, so a structural drawing's reading is the reading it was.
+  const walled = detectWalls(evidence, unit);
+  const walls = walled.walls.length === 0 && walled.openings.length === 0 ? {} : { walls: walled.walls, wallOpenings: walled.openings };
+  return { views: examined, placements: [...typed, ...framed.placements, ...walled.placements], ungridded, runs: framed.runs, outlines, scale, noted, minted, ...walls };
 }
 
 /** The plan each ring-placed row's ring encloses, in the rows' own order — none where no unit reads. */
@@ -371,7 +379,7 @@ function typedByPrefix(rows: readonly PlacementRow[], families: readonly FamilyN
   let typed = [...rows];
   for (const named of families) {
     const type = classOfPrefix(named.family);
-    if (type === null || isFramedClass(type)) continue;
+    if (!isRingPlacedClass(type)) continue;
     if (families.filter((other) => classOfFamily(other.family) === type).length !== 1) continue;
     const members = rows.filter((row) => row.elementType === type);
     if (members.length === 0 || named.corroboration?.placed !== members.length) continue;
@@ -691,14 +699,15 @@ function axesOf(grid: DetectedGrid | null): Map<string, GridAxisRow[]> {
  * places it off that pair. Read here, it would anchor whatever closed ring happened to stand nearest —
  * a stair well, a hatch boundary — and place a beam nobody drew, with no run to measure it by
  * (L-MEA-09, L-QTY-04). The two readers divide the plan by how the plan draws a member, and neither
- * reads the other's.
+ * reads the other's. Nor does a mark of the wall lane's classes: a door tag is drawn in a circle, and
+ * that ring is the tag's, never a door (`./law`'s `isRingPlacedClass`, I-590).
  */
 function markOf(entity: Drawn): [Mark] | null {
   const text = entity.text ?? "";
   const at = (entity.points ?? [])[0];
   if (text === "" || at === undefined) return null;
   const type = classOfMark(text);
-  if (type === null || isFramedClass(type)) return null;
+  if (!isRingPlacedClass(type)) return null;
   return [{ key: entity.key, text, mark: normaliseMark(text), type, at: [at[0] ?? 0, at[1] ?? 0] }];
 }
 

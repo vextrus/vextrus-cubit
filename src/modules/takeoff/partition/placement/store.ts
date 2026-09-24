@@ -75,6 +75,9 @@ export async function rewritePlacementRows(tx: TenantTx, write: PlacementWrite):
       noteToLabel: row.note?.band?.to ?? null,
       noteShape: row.note?.shape ?? null,
       memberFamily: row.memberFamily,
+      // The sheet the wall lane read the member on, where it names one (s-takeoff I-592): what
+      // the register pass asks a person's confirmation of, on the rebuild and the re-expansion alike.
+      layoutName: row.sheet ?? null,
     })),
   );
 
@@ -243,6 +246,9 @@ export function placementRowOf(stored: StoredPlacement, view: ViewRef): Placemen
     markKey: stored.markKey,
     memberFamily: stored.memberFamily,
     note: storedNoteOf(stored),
+    // Carried only where the store holds one, so a structural row reads back exactly the row the
+    // stage answered — which names no sheet (I-592).
+    ...(stored.layoutName === null ? {} : { sheet: stored.layoutName }),
   };
 }
 

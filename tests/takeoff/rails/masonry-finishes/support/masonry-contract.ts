@@ -338,6 +338,8 @@ export type WallSetupShape = {
   height: ReadingShape | null;
   thickness: ReadingShape | null;
   openings: readonly OpeningSetupShape[] | null;
+  /** What stops the wall before a reading is bound (s-takeoff I-594); absent where nothing does. */
+  blocked?: readonly { code: string; sourceEntity: string }[];
 };
 
 /** One surface's readings and its opening schedule (interfaces: `SurfaceSetup`). */

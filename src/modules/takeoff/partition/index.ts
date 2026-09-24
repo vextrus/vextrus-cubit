@@ -14,6 +14,7 @@ import { storedProposedLevelsOf } from "./levels-proposal/store";
 import { storedOutlinesOf, storedPlacementsOf, storedRunsOf, type StoredOutline, type StoredPlacement, type StoredRun } from "./placement/store";
 import { storedMemberTypesOf, storedSchedulesOf, type StoredMemberTypes, type StoredSchedules } from "./schedules/store";
 import { drawingProjectOf, partitionStandsFor, storedConventionsOf, storedViewsOf, type StoredConventions } from "./store";
+import { storedWallOpeningsOf, storedWallsOf, type StoredWall, type StoredWallOpening } from "./walls/store";
 import type { GroupKind, LevelStackGroupKey, ProposedLevel } from "@/core/acts";
 import type { ViewRecord } from "@/core/views";
 
@@ -25,6 +26,8 @@ export type { GridAxisRow, GridDeferralRow } from "./grid/detect";
 export type { StoredMemberTypes, StoredSchedule, StoredSchedules } from "./schedules/store";
 export type { SideReading, StoredOutline, StoredPlacement, StoredRun } from "./placement/store";
 export type { StoredExpansionDeferral, StoredTypicalRange } from "./expansion/store";
+export type { StoredWall, StoredWallOpening } from "./walls/store";
+export { scheduledRowOf } from "./walls/openings";
 export type { PlacementShares } from "./placement/shares";
 // The closed list an expansion defers under, published where its readers already look — the store's
 // CHECK and this door's answer read ONE roster, for the reason the schedule list above does (Q-07).
@@ -154,6 +157,27 @@ export async function runsOf(scope: ViewsScope): Promise<readonly StoredRun[] | 
 export async function outlinesOf(scope: ViewsScope): Promise<readonly StoredOutline[] | null> {
   const ingestId = await partitionedIngestOf(scope);
   return ingestId === null ? null : storedOutlinesOf(scope.tenantId, ingestId);
+}
+
+/**
+ * The brick walls a drawing's architect's plans place (s-takeoff I-593) — each wall's axis, the
+ * thickness its WALL TYPES row states and the length its faces run — one row per wall placement, in
+ * the placement key's own order. The door the measure setup fills `RailSetup.walls` from.
+ *
+ * Absent for the same three reasons `schedulesOf` is, and in the same way (R-UI-050).
+ */
+export async function wallsOf(scope: ViewsScope): Promise<readonly StoredWall[] | null> {
+  const ingestId = await partitionedIngestOf(scope);
+  return ingestId === null ? null : storedWallsOf(scope.tenantId, ingestId);
+}
+
+/**
+ * The openings a drawing's architect's plans place in their walls' gaps (I-591), each with the
+ * wall it stands in. Absent for the same three reasons `schedulesOf` is.
+ */
+export async function wallOpeningsOf(scope: ViewsScope): Promise<readonly StoredWallOpening[] | null> {
+  const ingestId = await partitionedIngestOf(scope);
+  return ingestId === null ? null : storedWallOpeningsOf(scope.tenantId, ingestId);
 }
 
 /**

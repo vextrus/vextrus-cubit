@@ -17,7 +17,7 @@ import { MASONRY_REFUSALS } from "@/core/errors/masonry";
 import { MASONRY_RAIL_CODES } from "./index";
 
 describe("AM-11: the masonry rails' code roster", () => {
-  test("the roster is the two sighting codes and this shard's nine, in the order it reports them", () => {
+  test("the roster is the two sighting codes, this shard's nine, and the wall lane's five stops, in the order it reports them", () => {
     expect(
       [...MASONRY_RAIL_CODES],
       "the roster names every code a masonry rail reports and no other — a code a rail reports and the roster omits is a refusal nobody can enumerate, and one the roster names and no rail reports is a refusal the tree cannot make (AM-11, Q-07)",
@@ -33,10 +33,16 @@ describe("AM-11: the masonry rails' code roster", () => {
       "WALL_THICKNESS_UNSTATED",
       "FINISH_GROSS_UNSTATED",
       "FINISH_SELECTOR_UNSTATED",
+      // The wall lane's stops (s-takeoff I-594): two the schedules stage declared, three this area registers.
+      "OPENING_QUANTITY_DISAGREES",
+      "OPENING_QUANTITY_BASIS_UNSTATED",
+      "OPENING_UNPLACED",
+      "OPENING_UNSCHEDULED",
+      "WALL_LINTEL_UNDEDUCTED",
     ]);
   });
 
-  test("every code of the roster is registered whole, and this area's own nine are registered here", () => {
+  test("every code of the roster is registered whole, and this area's own twelve are registered here", () => {
     for (const code of MASONRY_RAIL_CODES) {
       const entry = REFUSALS[code];
       expect(entry, `\`${code}\` stands in the one closed register the whole tree reads — a rail's roster never mints a code of its own (Q-07)`).toBeTruthy();
@@ -60,6 +66,9 @@ describe("AM-11: the masonry rails' code roster", () => {
         "WALL_THICKNESS_UNSTATED",
         "FINISH_GROSS_UNSTATED",
         "FINISH_SELECTOR_UNSTATED",
+        "OPENING_UNPLACED",
+        "OPENING_UNSCHEDULED",
+        "WALL_LINTEL_UNDEDUCTED",
       ].sort(),
     );
     for (const entry of Object.values(MASONRY_REFUSALS)) {

@@ -324,7 +324,11 @@ function standsUnresolved(reason: ExpansionDeferralReason): boolean {
  * plans that need it (L-REG-02: a level is named by the stack that carries it).
  */
 function bandedLevels(placement: PlacementRow, levels: readonly StackedLevel[], stack: readonly StackedLevel[], families: readonly FamilyBands[]): readonly StackedLevel[] {
-  const stated = families.find((one) => one.family === placement.memberFamily)?.bands ?? [];
+  // EVERY schedule's statement of the family, not the first one met: an architect's set schedules
+  // one door in two tables — the ground floor's and the typical floors' — each over its own floors,
+  // and the door stands on the storeys either states (s-takeoff I-591). Read off the first table
+  // alone, the typical plan's D2 was cut to the ground floor and stood on no storey its plan draws.
+  const stated = families.filter((one) => one.family === placement.memberFamily).flatMap((one) => one.bands);
   if (stated.length === 0 || stated.some((band) => bandOpen(band))) return levels;
   // This stage places a band's ends the way it places every label it reads off a drawing — normalised,
   // ties to the lower ordinal. What a placed band MEANS is `bandCovers`, asked here and nowhere else.

@@ -155,6 +155,8 @@ const TABLES_BEFORE: readonly string[] = Object.freeze([
   "users",
   "viewAssignments",
   "viewTypeConfirmations",
+  "wallOpenings",
+  "wallRuns",
   "workItems",
 ]);
 
@@ -328,7 +330,15 @@ const EXPORTS_BEFORE: readonly string[] = Object.freeze([
  * 036e6374ac00feb16f865a180d71179ee1dc23d0893d076f75182d9531a42233.
  */
 /* Re-baselined at integration (session 8, wave 2) for migration 0063's ADDED table schedule_printed_quantities (ARCH-3) and 0064's three ADDED trace-identity columns on ingests (trace_tool, trace_tool_version, trace_parameter_set_hash; M4P-1), after S1's conditions and manual_measurements (0062); no standing column moved or was dropped (checked against the three migrations' ALTER TABLE statements). Previous: 924641ab4c940a753c3dff37a6708f4934d9d37280ee1b54686ccc62c96a2167. */
-const COLUMNS_DIGEST_BEFORE = "5f170ef3ac542934fc21073fd47e21ea14f86152500b61e06f1d382f2c2bfcc8";
+/*
+ * Re-baselined for ARCH-4's migration 0067 (s-takeoff I-592, I-593): TWO ADDED tables of the new
+ * takeoff-walls area (./schema-takeoff-walls.ts) — `wall_runs`, a brick wall's axis, its WALL TYPES
+ * thickness and its length, and `wall_openings`, an opening in a wall's gap — and ONE ADDED nullable
+ * column on a standing table, `placements.layout_name`, the sheet a wall-lane placement was read on.
+ * No standing column moved or was dropped (checked against 0067's one ALTER TABLE, an ADD COLUMN).
+ * Previous: 5f170ef3ac542934fc21073fd47e21ea14f86152500b61e06f1d382f2c2bfcc8.
+ */
+const COLUMNS_DIGEST_BEFORE = "d7fa4c5ad9adac03a5f03cf8860a178dbf6516f7597a4e953979682b569740a1";
 
 /** One drizzle table as this file reads one: its SQL name, and the SQL names of its columns. */
 function shapeOf(table: unknown): { table: string; columns: string[] } {

@@ -175,6 +175,7 @@ describe("the WHOLE clear citation list, never its first atom", () => {
       noteToLabel: null,
       noteShape: null,
       memberFamily: "C1",
+      layoutName: null,
       createdAt: new Date(0),
     };
     expect(jointPlacementsOf([stored])).toEqual({ "v:LAYOUT_PLAN:DXF_HANDLE:20B6|C1|0.0,0.0": { ingestId: INGEST, memberFamily: "C1", outlineKey: "DXF_HANDLE:984" } });

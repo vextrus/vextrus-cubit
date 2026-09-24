@@ -257,7 +257,7 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
     // derives (L-QTY-04). The write is the store's, inside the partition's transaction; the census
     // is this stage's, because this is the stage that resolved the rows.
     const census = [];
-    for (const setRevisionId of revisions) census.push(await expansionCensusOf({ ...scope, setRevisionId }, expansion.rows));
+    for (const setRevisionId of revisions) census.push(await expansionCensusOf({ ...scope, setRevisionId }, context.record.ingestId, expansion.rows));
 
     return {
       derived: { ...held, expansion, register: { setRevisionIds: revisions, rows: expansion.rows } },

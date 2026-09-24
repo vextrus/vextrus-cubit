@@ -723,6 +723,15 @@ export type WallSetup = {
   readonly thickness: ReadingSetup | null;
   /** The scheduled openings of this wall; null where NO opening schedule stands behind it (the face is then not measured). */
   readonly openings: readonly OpeningSetup[] | null;
+  /**
+   * What stops this wall before any reading is bound, each by name and cited (s-takeoff I-594):
+   * a schedule row of its plan's floors that the plan places fewer of than it prints, an opening in
+   * it no row of its plan's schedule states, a row whose printed quantity the schedule declared in
+   * disagreement with the plan (s-schedules I-507). Measuring past any of them would over-measure,
+   * which L-QTY-04 forecloses. Absent, or empty, where nothing stops it — a setup built by hand for
+   * another area states none.
+   */
+  readonly blocked?: readonly { readonly code: RefusalCode; readonly sourceEntity: string }[];
 };
 
 /**

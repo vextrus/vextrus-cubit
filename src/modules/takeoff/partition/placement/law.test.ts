@@ -27,7 +27,7 @@
 import { describe, expect, test } from "vitest";
 import { type BandStatement, bandCovers, bandOpen, placedBy } from "@/core/offers/contract";
 import { isMarkFamily, normaliseMark } from "../notation";
-import { bandStatedIn, classOfMark, isBoundXrefContext, levelSightingsOf, levelWordsOf, memberNoteOf, soleNotesAmong } from "./law";
+import { bandStatedIn, classOfFamily, classOfMark, isBoundXrefContext, isLevelClass, isRingPlacedClass, levelSightingsOf, levelWordsOf, memberNoteOf, soleNotesAmong } from "./law";
 
 /** S-10's two notes, verbatim, control codes and brackets and all. */
 const C7_NOTE = "C7 %%C450 PORCH COLUMN";
@@ -348,5 +348,37 @@ describe("I-342: a bound xref's layers are another drawing's background", () => 
       false,
       false,
     ]);
+  });
+});
+
+// I-590: the architect's marks name the wall lane's classes, and the ring reader reads neither.
+describe("I-590: a door, a window and a ventilator are openings; BW names a brick wall type", () => {
+  test("each opening family the roster reads names the opening class, by exact prefix, in either spelling", () => {
+    // F-ARCH's tags are circled and unhyphenated, its schedules hyphenated (T-MARK-SPELLING): one door.
+    expect(["D2", "D-2", "W1", "W-1", "V2", "SD1", "SD-1", "FD1", "GD1"].map((mark) => classOfMark(mark))).toEqual(Array(9).fill("opening"));
+    // The lift's landing door is a word mark with no number; the opening roster names it an opening.
+    expect(classOfMark("LD")).toBe("opening");
+    expect(classOfFamily("LD")).toBe("opening");
+    // And a word mark of no opening family stays what it was: `SOG` and `P` name no opening.
+    expect(classOfMark("SOG")).not.toBe("opening");
+  });
+
+  test("a WALL TYPES key names the brick-wall class; a letter beside it names nothing", () => {
+    expect(["BW250", "BW125"].map((mark) => classOfFamily(mark))).toEqual(["brick_wall", "brick_wall"]);
+    // `S` a slab, `SW` a shear wall and `B` a beam are what they were: the map is exact, not a prefix.
+    expect(["S1", "SW1", "B5"].map((mark) => classOfMark(mark))).toEqual([null, "shear_wall", "beam"]);
+  });
+
+  test("the ring reader refuses the wall lane's classes, so a tag's circle is never a door", () => {
+    expect(isRingPlacedClass(classOfMark("D2"))).toBe(false);
+    expect(isRingPlacedClass(classOfMark("BW250"))).toBe(false);
+    expect(isRingPlacedClass(classOfMark("B5"))).toBe(false);
+    expect(isRingPlacedClass(classOfMark("C1"))).toBe(true);
+    // Nor does a sentence about a door read as a note about a member (I-303 reads ring-placed classes).
+    expect(memberNoteOf("D2 FLUSH DOOR (STARTS AT 2F)")).toBeNull();
+  });
+
+  test("a wall and an opening stand on every storey their typical plan names, as a beam does", () => {
+    expect(["brick_wall", "opening", "beam", "column"].map((type) => isLevelClass(type as never))).toEqual([true, true, true, true]);
   });
 });

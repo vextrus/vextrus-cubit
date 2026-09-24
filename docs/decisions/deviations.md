@@ -43,6 +43,7 @@ Each Deviation is one row in the table below, and a section beneath it when the 
 | D-004 | The stack element's version pins (`cubit.bible.xml:285-308`; AM-08 PART 1): TypeScript "5.9.3 exact", pnpm "10.x", TanStack Table "8.x", Vitest "4.x" | TypeScript 7 (native) type-checks the tree in 2.3 s against 14.8 s; Next 16.3.1 carried three critical advisories fixed in 16.3.3 and 16.3.6; typescript-eslint refuses TypeScript ≥ 7 | The toolchain moves to its current stable majors, TypeScript 7 beside a TypeScript 6 API alias; pg-boss holds at 10.4.2 and Playwright at 1.62.1 | Two TypeScript compilers read the tree; a Bible reader finds older versions | 18b689ab, 70d67aa7 |
 | D-005 | L-FRM-04: "Blinding (CC) count × (L + 2p) × (B + 2p) × t; deferred for polygon plans" | S-08's slab on grade (POLYLINE 81D) is a pentagon with a 45° chamfer the projected rectangle cannot express, and the drawn blinding rectangle beside it (824–827) does not follow the chamfer; session 9's refuter rejected I-388's reading (s-measure §11): the clause defers polygon plans outright and names no hand/machine split | A hand measurement of blinding is `pcc.blinding.area@1` = `count × (A_traced − Σ openings − Σ junctions) × t` over a traced outline (the member's own, or a drawn outline that follows it), with no projection p | Blinding has two spellings, each its own rule id; a traced blinding is under the clause's figure by the projection strip (never over); the edition's `blindingProjection` is not applied to it | the commit that adds this row (see §D-005) |
 | D-006 | R-UI-040: "level-of-detail hides text below legibility" | Walk 0 (BLOCKS_DEMO): S-10 opened with no caption, no marks and an empty title block, where `drawing_render` letters them at the same size; measured on the true-size mipmapped glyphs, a capital is read from about 3 px (viewer.md I-463), and S-10's marks stand 2.6 px at fit | A drawing's own text is lettered down to a 2 px cap height (`LETTERED_TEXT_PX`), at its true size, and hidden only below that; nothing is drawn larger than the drawing states, and nothing is drawn as a bar | Text between 2 and 3 px is drawn and not readable; the lettering's fill at rest grows with it; every sheet's at-rest picture moves | the commit that adds this row (see §D-006) |
+| D-007 | L-REG-03: "discipline is drawing-scoped, machine-proposed, human-confirmed, fails closed: an unconfirmed drawing is not walked" | The structural readers have registered their placements under STRUCTURAL at every re-expansion since M2, confirmed or not: eleven db suites and the M2 and J-021 journeys pin a set before confirming any sheet, and J-000's F-RCC6 leg confirms only the first group offered; closing the rule over them moves every one | The wall lane's rows (a brick wall, an opening) are walked only under the discipline a person confirmed for their sheet, and not at all before (s-takeoff I-592); the structural readers' rows keep the placement law's STRUCTURAL | A structural member drawn on a sheet nobody has confirmed is measured under STRUCTURAL before a person confirms it; and a structural mark an architect's sheet places is sighted STRUCTURAL whatever the sheet was confirmed as — two keys where the engineer's set draws it too. That path stood before this increment and stays open until the structural rows take their sheet; neither fixture draws one (F-ARCH's plans place no structural member) | the commit that adds this row (see §D-007) |
 
 ## D-001 — a storey stated in two notations is one storey (session 7, 2026-09-23)
 
@@ -208,6 +209,42 @@ clause's figure by the projection strip wherever the drawing projects one — an
 an over-measurement — and the line's basis and act say a person traced it. Owed, and named so: the
 guard that refuses a drawn blinding outline running past its member (824–827 against 81D) is not built;
 until it is, the Decision tells the QS to trace the member's own ring (I-388, I-393). Owner: MANUAL-LAW.
+
+## D-007 — a structural reader's sightings are walked before a confirmation (session 9, ARCH-4)
+
+**Clause.** L-REG-03 (`docs/specs/cubit.bible.xml:186`): "Discipline is drawing-scoped,
+machine-proposed, human-confirmed, fails closed: an unconfirmed drawing is not walked."
+
+**Evidence.** Every register pass since M2 has written the structural readers' rows under the
+placement law's constant `STRUCTURAL` (`partition/expansion/store.ts`), with no confirmation read.
+The suites and journeys that stand on it pin a set before a person confirms any sheet — among them
+`tests/takeoff/partition/expansion/reexpand-live.test.ts`, `…/placement/expansion-carry-storey.test.ts`,
+`…/placement/typical-range-noted.test.ts`, `…/schedules/schedules.test.ts`,
+`…/grid/grid-backbone.test.ts`, `tests/takeoff/coverage/placeholder-lines.test.ts`,
+`tests/takeoff/register-ui/offered-stack.test.ts` and the M2 legs — and J-000's
+`m1-confirm-disciplines` confirms only the first group the reading offers. Closing the rule over the
+structural rows changes what all of them register, in a slice about the architect's walls.
+
+**What the product does instead.** The rule is applied where this increment introduces the rows it
+governs: a brick wall and an opening are sighted under the discipline a person confirmed for the
+sheet their plan was captioned on, the newest confirmation first, and are not walked before one
+stands (s-takeoff I-592); confirming a discipline re-expands the project. The structural readers'
+rows keep `STRUCTURAL`, confirmed or not, as they have since M2.
+
+**Cost.** A structural member drawn on a sheet nobody has confirmed stands in the register before a
+person has said what the sheet is. And the path this leaves open is the one that stood before the
+increment: a structural mark placed off an ARCHITECTURAL sheet is still sighted STRUCTURAL, so where
+the engineer's set draws the same member the two sightings are two keys, and KIND_DISCIPLINE — which
+closes the cross-discipline count for the wall lane (I-595) — cannot see it. Neither fixture draws
+such a member: F-ARCH's plans place no structural member (the placement stage's F-ARCH digest held
+none before the wall lane), and F-RCC6-BNBC's bound architectural xref is read by nobody (I-342).
+Closing it is its own increment: the structural readers name their sheet as the wall lane does
+(which re-pins the byte-frozen placement digests of `bnbc-pile-schedule.test.ts`), and every suite
+above confirms its sheets before it pins.
+
+**Proof.** `tests/takeoff/partition/arch-walls-register.test.ts` (the wall lane walks nothing before a
+confirmation, registers ARCHITECTURAL after one, and a STRUCTURAL-confirmed sheet's walls bill no
+brickwork); the db lane's structural suites unchanged.
 
 ## D-006 — a drawing's text is lettered from a 2 px cap height (session 8, VIEW-TXT)
 

@@ -78,6 +78,15 @@ export type PlacementRow = {
    * one quietly forget, which is the whole of the defect.
    */
   readonly note: PlacementNote | null;
+  /**
+   * The sheet — the paper layout, by its name — the view this member was read in was captioned on,
+   * where the reader that placed it names one (I-592). The wall lane names it: a brick wall and an
+   * opening are sighted under the discipline a person CONFIRMED for that sheet, and a sheet nobody
+   * confirmed is not walked (L-REG-03). The structural readers name none yet, and their sightings keep
+   * the placement law's discipline (D-007). Optional for that reason, and stored beside the row so
+   * the rebuild and the re-expansion register the same sighting (B-17).
+   */
+  readonly sheet?: string | null;
 };
 
 /** A layout plan that placed nothing because it georeferenced as deferred (L-CAD-07). */
@@ -123,6 +132,36 @@ export type OutlineRow = {
   readonly unitSourceKey: string | null;
 } & OutlineReading;
 
+/** One wall the lane placed: where its axis runs, how thick it is stated to be, and what it was read off. */
+export type WallRow = {
+  readonly placementKey: string;
+  /** L-REG-04's derived address of the view it was read in. */
+  readonly viewKey: string;
+  readonly family: string;
+  readonly sheet: string | null;
+  readonly from: readonly [number, number];
+  readonly to: readonly [number, number];
+  /** The thickness the WALL TYPES row states, as written, and the cells it was read at. */
+  readonly thickness: { readonly value: string; readonly unit: string; readonly sourceKeys: readonly string[] };
+  /** The run's length along its axis, in the unit the drawing's geometry is read in (L-QTY-01). */
+  readonly length: RunReading;
+};
+
+/** One opening the lane placed in a wall's gap: the wall it stands in and the gap it fills. */
+export type WallOpeningRow = {
+  readonly placementKey: string;
+  readonly hostPlacementKey: string;
+  readonly viewKey: string;
+  readonly mark: string;
+  readonly tagKey: string;
+  readonly sheet: string | null;
+  readonly from: readonly [number, number];
+  readonly to: readonly [number, number];
+  /** The gap's width in drawing units, and whether the schedule's width was set against it (`./openings`). */
+  readonly width: string;
+  readonly checked: boolean;
+};
+
 /** What one artifact's run stage read: the members it placed off edge-line pairs, and their runs. */
 export type DetectedRuns = {
   readonly placements: readonly PlacementRow[];
@@ -162,6 +201,14 @@ export type DetectedPlacements = {
    */
   readonly noted: number;
   readonly minted: number;
+  /**
+   * The brick walls and the openings in them the wall lane placed (`../walls/pairs`, I-593) —
+   * each wall's axis, the thickness its WALL TYPES row states and the length it runs, each opening's
+   * gap and the wall it stands in. Absent from a drawing that places none, so a structural drawing's
+   * reading is unchanged.
+   */
+  readonly walls?: readonly WallRow[];
+  readonly wallOpenings?: readonly WallOpeningRow[];
 };
 
 /**
@@ -171,12 +218,31 @@ export type DetectedPlacements = {
  */
 export type FamilyNamed = {
   readonly family: string;
+  /** The cells the family's mark was read at (R-TO-031). */
+  readonly sourceKeys?: readonly string[];
   readonly variants?: readonly {
     readonly sectionWidth: number | null;
     readonly sectionDepth: number | null;
+    /** The unit the section was written in, where one was stated (I-302). */
+    readonly sectionUnit?: string | null;
     readonly bandText?: string;
-    /** The dimensions the row states beside its section, where it states any (I-322). */
-    readonly dimensions?: readonly { readonly dimension: string; readonly text: string; readonly value: number }[];
+    readonly bandFrom?: string | null;
+    readonly bandTo?: string | null;
+    /** The cells the section was read at. */
+    readonly sourceKeys?: readonly string[];
+    /** The dimensions the row states beside its section, where it states any (I-322) — a wall type's thickness (I-508). */
+    readonly dimensions?: readonly { readonly dimension: string; readonly text: string; readonly value: number; readonly unit?: string; readonly sourceKeys?: readonly string[] }[];
+    /**
+     * What an opening schedule prints for the row, and the one layout plan of its floors it was checked
+     * against (s-schedules I-507): the wall lane places an opening against the row its plan's schedule
+     * states (I-591).
+     */
+    readonly printed?: {
+      readonly printed: number;
+      readonly planKey: string | null;
+      readonly refusal: string | null;
+      readonly sourceKeys: readonly string[];
+    };
   }[];
   /**
    * What a bare-prefix row's `NOS` cell states (I-321): corroboration a placement checks the plans

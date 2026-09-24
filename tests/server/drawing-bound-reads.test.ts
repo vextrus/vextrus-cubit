@@ -29,11 +29,15 @@ const seams = vi.hoisted(() => ({
   preview: vi.fn(async () => ({ subjects: [] })),
   commit: vi.fn(async () => ({ actId: "act-1" })),
   session: vi.fn(async () => ({ sessionId: "s", userId: "user-1" }) as { sessionId: string; userId: string } | null),
+  reexpandProject: vi.fn(async () => []),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
 vi.mock("../../src/modules/takeoff/trace", () => ({ linesCiting: seams.linesCiting, lineEvidence: seams.lineEvidence }));
 vi.mock("../../src/modules/takeoff/ingest", () => ({ requestIngest: vi.fn() }));
 vi.mock("../../src/modules/takeoff/thumbnails", () => ({ requestThumbnails: vi.fn() }));
+// A committed confirmation re-expands the project (s-takeoff I-592); the store it reaches is no
+// business of this suite, which asks what the guard is told.
+vi.mock("../../src/modules/takeoff/partition/expansion/reexpand", () => ({ reexpandProject: seams.reexpandProject }));
 vi.mock("../../src/server/shell/session", () => ({ presentedSessionToken: vi.fn(async () => "a-live-token") }));
 vi.mock("../../src/server/shell/resolve", () => ({ sessionOf: seams.session }));
 vi.mock("../../src/core/acts", async (original) => ({
@@ -72,6 +76,8 @@ describe("a door that names a drawing states it at the guard", () => {
       consequenceDigest: "digest-1",
     });
     expect(spine.projectActorFor).toHaveBeenCalledWith("user-1", PROJECT, "CONFIRM_DISCIPLINE", "MEASURE", DRAWING);
+    // And the sheet just confirmed is walked: the project is re-expanded in the actor's own workspace (L-REG-03).
+    expect(seams.reexpandProject).toHaveBeenCalledWith({ tenantId: "tenant-1", projectId: PROJECT });
   });
 
   test("a SHEET key names an ingest record rather than a drawing, and states no binding", async () => {

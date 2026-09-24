@@ -13,6 +13,7 @@ import { REFUSALS, type RefusalCode } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { isDiscipline } from "@/core/sheets";
 import { requestIngest } from "@/modules/takeoff/ingest";
+import { reexpandProject } from "@/modules/takeoff/partition/expansion/reexpand";
 import { requestThumbnails } from "@/modules/takeoff/thumbnails";
 import { authorize } from "@/server/authorize";
 import { projectActorFor } from "@/server/routers/spine";
@@ -116,6 +117,10 @@ export async function commitConfirmDiscipline(request: ConfirmRequest & { conseq
   try {
     const actor = await projectActorFor(session.userId, request.projectId, CONFIRM_DISCIPLINE, MEASURE, drawingNamedBy(request.group));
     const written = await commit(actor, actInput(request), request.consequenceDigest);
+    // A confirmed sheet is a sheet the register may now walk (L-REG-03): an architect's walls and
+    // openings read on it are sighted under the discipline just confirmed, in every pinned revision
+    // naming its drawing (s-takeoff I-592).
+    await reexpandProject({ tenantId: actor.tenantId, projectId: request.projectId });
     // The committed act IS the answer, and the screen shows it by re-reading: the confirmed cards and
     // the emptied group are both server-rendered from the ledger the act just appended to.
     revalidatePath(drawingsRoute(actor.tenantId, request.projectId));

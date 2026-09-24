@@ -67,7 +67,7 @@ export async function reexpandDrawing(scope: ReexpandScope & { readonly drawingI
   const passes = await forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
     await rewriteExpansionRows(tx, { ...stamp, expansion });
     const registered: RegisteredExpansion[] = [];
-    for (const setRevisionId of revisions) registered.push(await registerExpansion(tx, { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId }, expansion.rows));
+    for (const setRevisionId of revisions) registered.push(await registerExpansion(tx, { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId }, ingestId, expansion.rows));
     return registered;
   });
 

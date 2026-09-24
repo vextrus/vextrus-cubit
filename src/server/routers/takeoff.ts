@@ -688,6 +688,10 @@ export const takeoffRouter = router({
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
       const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_DISCIPLINE, MEASURE);
       const written = await commit(actor, input.input, input.consequenceDigest);
+      // A confirmed sheet is a sheet the register may now walk (L-REG-03): an architect's walls and
+      // openings read on it are sighted under the discipline just confirmed, in every pinned revision
+      // naming its drawing (s-takeoff I-592).
+      await reexpandProject({ tenantId: actor.tenantId, projectId: input.input.projectId });
       return { actId: written.actId };
     }),
 });

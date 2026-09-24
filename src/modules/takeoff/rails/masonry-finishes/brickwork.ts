@@ -20,6 +20,7 @@ import {
   WALL_LENGTH_UNSTATED,
   WALL_THICKNESS_UNSTATED,
   carried,
+  isMasonryRailCode,
   observe,
   scheduleOf,
   sightingOf,
@@ -80,11 +81,22 @@ export const brickworkRail: Rail = (input: RailInput) => {
       continue;
     }
 
+    // What stops the wall before a reading is bound (s-takeoff I-594): an opening of its floors
+    // the plan places too few of, one standing in it that no schedule row states, one whose printed
+    // quantity the schedule declared in disagreement, one whose lintel is deducted nowhere — each
+    // would bill something that is not brick as brick.
+    const blocked = (wall.blocked ?? []).filter((stop) => isMasonryRailCode(stop.code));
+    if (blocked.length > 0) {
+      for (const stop of blocked) if (isMasonryRailCode(stop.code)) observations.push(observe(BRICK_WALL, MASONRY_BRICKWORK, stop.code, row, stop.sourceEntity));
+      continue;
+    }
+
     const schedule = scheduleOf(row, wall.openings, setup, OPENING_CHANNEL);
     if (!schedule.ok) {
       for (const said of schedule.reported) observations.push(observe(BRICK_WALL, MASONRY_BRICKWORK, said.code, row, said.sourceEntity));
       continue;
     }
+
 
     const length = read(wall.length, LENGTH, WALL_LENGTH_UNSTATED);
     const height = read(wall.height, HEIGHT, WALL_HEIGHT_UNSTATED);

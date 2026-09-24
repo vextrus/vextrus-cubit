@@ -19,6 +19,7 @@ import { rewriteProposedLevelRows } from "./levels-proposal/store";
 import type { ProposedLevelStack } from "./levels-proposal/propose";
 import type { DetectedPlacements } from "./placement/rows";
 import { rewritePlacementRows } from "./placement/store";
+import { rewriteWallRows } from "./walls/store";
 import { rewriteScheduleRows, type DetectedSchedules } from "./schedules/store";
 import type { PartitionedView } from "./views/assign";
 
@@ -173,6 +174,9 @@ export async function rewritePartition(write: PartitionWrite): Promise<Registere
     // with the section it was read off — or none of them stands (L-CAD-07, L-MEA-07, L-REG-04).
     const record = { tenantId: write.tenantId, projectId: write.projectId, drawingId: write.drawingId, ingestId: write.ingestId };
     await rewritePlacementRows(tx, { ...record, placements: write.placements });
+    // The walls and openings the wall lane placed land with their placements, for the same reason
+    // (s-takeoff I-593, L-REG-04).
+    await rewriteWallRows(tx, { ...record, placements: write.placements });
     await rewriteExpansionRows(tx, { ...record, expansion: write.expansion });
     await rewriteProposedLevelRows(tx, { ...record, proposal: write.proposal });
 
@@ -183,7 +187,7 @@ export async function rewritePartition(write: PartitionWrite): Promise<Registere
     if (pass === null) return [];
     const scope = { tenantId: write.tenantId, projectId: write.projectId };
     const registered: RegisteredExpansion[] = [];
-    for (const setRevisionId of pass.setRevisionIds) registered.push(await registerExpansion(tx, { ...scope, setRevisionId }, pass.rows));
+    for (const setRevisionId of pass.setRevisionIds) registered.push(await registerExpansion(tx, { ...scope, setRevisionId }, write.ingestId, pass.rows));
     return registered;
   });
 }
